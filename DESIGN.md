@@ -60,8 +60,7 @@ canvas.outline(width=5, color="#000000", offset=10)
 canvas.render(path="output.png", format="png", quality=95)
 
 # JSON loading
-canvas = Canvas.from_json("config.json")  # Load from file
-canvas = Canvas.from_json(json_dict)      # Load from dict
+canvas = Canvas.from_json(json)      # Load from json string
 ```
 
 ### JSON Structure
