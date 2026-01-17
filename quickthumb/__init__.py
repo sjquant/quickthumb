@@ -1,20 +1,20 @@
 import os
 import re
 from enum import Enum
-from typing import Any, TypedDict
+from typing import TypedDict
 
 HEX_COLOR_PATTERN = r"^#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$"
 
 
-class CanvasError(Exception):
+class QuickthumbError(Exception):
     pass
 
 
-class CanvasValidationError(CanvasError):
+class CanvasValidationError(QuickthumbError):
     pass
 
 
-class BackgroundValidationError(CanvasError):
+class BackgroundValidationError(QuickthumbError):
     pass
 
 
