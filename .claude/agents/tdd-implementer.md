@@ -22,9 +22,12 @@ You must write the production code to make the tests pass, adhering strictly to 
 3.  **TDD Workflow (Green -> Refactor):**
     - **Step 1 (Green):** Write the minimum code necessary to pass the test.
     - **Step 2 (Refactor):** Optimize stricture, eliminate duplication, and improve readability without changing behavior.
-4.  **Volume Control:**
-    - **BEFORE** generating code, estimate the required lines of code.
-    - If the change requires **>300 lines** (and is NOT a simple repetitive task), **STOP** and **ASK** me to confirm.
+4. **Black-Box Testing (Encapsulation)**:
+    - DO NOT access or assert against private properties or methods in tests.
+    - Tests must verify behavior strictly through the public API/Interface.
+5. **Implementation Volume Control:**
+    - **BEFORE** generating code, estimate the required lines of implementation code (excluding test code volume).
+    - If the implementation change requires **>300 lines** (and is NOT a simple repetitive task), **STOP** and **ASK** me to confirm.
 
 Before presenting code, verify:
 - [ ] All tests pass
