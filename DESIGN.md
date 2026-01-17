@@ -22,7 +22,7 @@ Positions can be specified as:
 
 ### Core Principles
 - **Required params upfront**: `Canvas(width, height)` or `Canvas.from_aspect_ratio(ratio)` or `Canvas.from_json()`
-- **Typed methods without prefixes**: `.text()`, `.background()`, `.border()` - call multiple times for layers
+- **Typed methods without prefixes**: `.text()`, `.background()`, `.outline()` - call multiple times for layers
 - **Blend modes for backgrounds only**: Images, gradients, solid colors support opacity and blend modes
 - **Helper classes for complex types**: `LinearGradient`, `RadialGradient`, etc.
 - **Unified layer structure**: JSON uses single "layers" array with "type" field for each layer
@@ -132,7 +132,7 @@ BlendMode.LIGHTEN
    - ✅ Background color/gradient/image are mutually exclusive (one required)
 
 2. **Method Naming**
-   - ✅ Consistent: `.background()`, `.text()`, `.border()`, `.outline()`
+   - ✅ Consistent: `.background()`, `.text()`, `.outline()`
    - ✅ No `add_` prefix (as requested)
    - ✅ Plural for multi-instance methods is handled by calling multiple times
 

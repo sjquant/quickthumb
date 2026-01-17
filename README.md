@@ -50,8 +50,8 @@ canvas.text(
     bold=True
 )
 
-# Add a border
-canvas.border(width=10, color="#FFFFFF", radius=20)
+# Add an outline
+canvas.outline(width=10, color="#FFFFFF")
 
 # Render to file
 canvas.render("thumbnail.png")
@@ -97,10 +97,9 @@ config = """
             "align": ["center", "middle"]
         },
         {
-            "type": "border",
+            "type": "outline",
             "width": 5,
             "color": "#ecf0f1",
-            "radius": 10
         }
     ]
 }
@@ -226,7 +225,6 @@ For detailed API design, see [DESIGN.md](DESIGN.md).
 - `Canvas.from_json(source)` - Load from JSON file or dict
 - `.background(color=..., gradient=..., image=..., opacity=..., blend_mode=...)` - Add background layer
 - `.text(content, font=..., size=..., color=..., align=..., stroke=..., bold=..., italic=...)` - Add text layer
-- `.border(width, color, radius=...)` - Add border decoration
 - `.outline(width, color, offset=...)` - Add outline decoration
 - `.render(output_path, format=..., quality=...)` - Render to file
 
