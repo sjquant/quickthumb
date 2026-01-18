@@ -111,32 +111,32 @@ class TestBackgroundLayers:
         )
 
     def test_should_raise_error_for_invalid_color(self):
-        """Test that invalid color format raises BackgroundValidationError"""
+        """Test that invalid color format raises ValidationError"""
         # Given: Canvas and invalid colors
-        from quickthumb import BackgroundValidationError, Canvas
+        from quickthumb import ValidationError, Canvas
 
         canvas = Canvas(1920, 1080)
 
         # When: User provides invalid hex color
-        # Then: Should raise BackgroundValidationError
-        with pytest.raises(BackgroundValidationError, match="invalid hex"):
+        # Then: Should raise ValidationError
+        with pytest.raises(ValidationError, match="invalid hex"):
             canvas.background(color="invalid")
 
         # When: User provides hex with invalid characters
-        # Then: Should raise BackgroundValidationError
-        with pytest.raises(BackgroundValidationError, match="invalid hex"):
+        # Then: Should raise ValidationError
+        with pytest.raises(ValidationError, match="invalid hex"):
             canvas.background(color="#GGGGGG")
 
     def test_should_raise_error_for_unsupported_blend_mode(self):
-        """Test that unsupported blend mode raises BackgroundValidationError"""
+        """Test that unsupported blend mode raises ValidationError"""
         # Given: Canvas and invalid blend mode string
-        from quickthumb import BackgroundValidationError, Canvas
+        from quickthumb import ValidationError, Canvas
 
         canvas = Canvas(1920, 1080)
 
         # When: User provides unsupported blend mode
-        # Then: Should raise BackgroundValidationError
-        with pytest.raises(BackgroundValidationError, match="unsupported blend mode"):
+        # Then: Should raise ValidationError
+        with pytest.raises(ValidationError, match="unsupported blend mode"):
             canvas.background(color="#FF0000", blend_mode="invalid")
 
     def test_should_defer_file_not_found_error_until_render(self):

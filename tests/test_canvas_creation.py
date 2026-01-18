@@ -40,14 +40,14 @@ class TestCanvasCreation:
     def test_should_raise_error_for_invalid_dimensions(self):
         """Test that creating canvas with zero or negative dimensions raises ValueError"""
         # Given: User attempts to create canvas with invalid dimensions
-        from quickthumb import Canvas, CanvasValidationError
+        from quickthumb import Canvas, ValidationError
 
         # When: User calls Canvas with zero width
-        # Then: Should raise CanvasValidationError
-        with pytest.raises(CanvasValidationError, match="width must be > 0"):
+        # Then: Should raise ValidationError
+        with pytest.raises(ValidationError, match="width must be > 0"):
             Canvas(0, 1080)
 
         # When: User calls Canvas with negative height
-        # Then: Should raise CanvasValidationError
-        with pytest.raises(CanvasValidationError, match="height must be > 0"):
+        # Then: Should raise ValidationError
+        with pytest.raises(ValidationError, match="height must be > 0"):
             Canvas(1920, -100)
