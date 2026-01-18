@@ -1,5 +1,6 @@
 import re
 from enum import Enum
+from typing import Literal
 
 from pydantic import BaseModel, field_validator
 
@@ -24,7 +25,7 @@ class LinearGradient(BaseModel):
 
 
 class BackgroundLayer(BaseModel):
-    type: str
+    type: Literal["background"]
     color: str | tuple | None = None
     gradient: LinearGradient | None = None
     image: str | None = None
@@ -66,7 +67,7 @@ class BackgroundLayer(BaseModel):
 
 
 class TextLayer(BaseModel):
-    type: str
+    type: Literal["text"]
     content: str
     font: str | None = None
     size: int | None = None

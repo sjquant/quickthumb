@@ -1,11 +1,25 @@
 import os
+from contextlib import contextmanager
 
+import pydantic_core
 from typing_extensions import Self
 
 from quickthumb.errors import ValidationError
 from quickthumb.models import BackgroundLayer, BlendMode, LinearGradient, TextLayer
 
 LayerType = BackgroundLayer | TextLayer
+
+
+@contextmanager
+def convert_pydantic_errors():
+    try:
+        yield
+    except pydantic_core.ValidationError as e:
+        errors = e.errors()
+        if errors:
+            error_msg = errors[0].get("msg", "validation error")
+            raise ValidationError(error_msg) from e
+        raise ValidationError("validation error") from e
 
 
 class Canvas:
@@ -37,14 +51,15 @@ class Canvas:
         opacity: float = 1.0,
         blend_mode: BlendMode | str | None = None,
     ) -> Self:
-        layer = BackgroundLayer(
-            type="background",
-            color=color,
-            gradient=gradient,
-            image=image,
-            opacity=opacity,
-            blend_mode=blend_mode,
-        )
+        with convert_pydantic_errors():
+            layer = BackgroundLayer(
+                type="background",
+                color=color,
+                gradient=gradient,
+                image=image,
+                opacity=opacity,
+                blend_mode=blend_mode,
+            )
         self._layers.append(layer)
         return self
 
@@ -60,18 +75,19 @@ class Canvas:
         bold: bool = False,
         italic: bool = False,
     ) -> Self:
-        layer = TextLayer(
-            type="text",
-            content=content,
-            font=font,
-            size=size,
-            color=color,
-            position=position,
-            align=align,
-            stroke=stroke,
-            bold=bold,
-            italic=italic,
-        )
+        with convert_pydantic_errors():
+            layer = TextLayer(
+                type="text",
+                content=content,
+                font=font,
+                size=size,
+                color=color,
+                position=position,
+                align=align,
+                stroke=stroke,
+                bold=bold,
+                italic=italic,
+            )
         self._layers.append(layer)
         return self
 
