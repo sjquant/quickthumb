@@ -25,10 +25,16 @@ class LinearGradient(BaseModel):
     stops: list[tuple[str, float]]
 
 
+class RadialGradient(BaseModel):
+    type: Literal["radial"] = "radial"
+    stops: list[tuple[str, float]]
+    center: tuple[float, float] = (0.5, 0.5)
+
+
 class BackgroundLayer(BaseModel):
     type: Literal["background"]
     color: str | tuple | None = None
-    gradient: LinearGradient | None = None
+    gradient: LinearGradient | RadialGradient | None = None
     image: str | None = None
     opacity: float = 1.0
     blend_mode: BlendMode | str | None = None

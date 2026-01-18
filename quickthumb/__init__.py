@@ -1,6 +1,12 @@
 from quickthumb.canvas import Canvas
 from quickthumb.errors import QuickthumbError, ValidationError
-from quickthumb.models import BackgroundLayer, BlendMode, LinearGradient, TextLayer
+from quickthumb.models import (
+    BackgroundLayer,
+    BlendMode,
+    LinearGradient,
+    RadialGradient,
+    TextLayer,
+)
 
 __all__ = [
     "Canvas",
@@ -9,5 +15,6 @@ __all__ = [
     "BackgroundLayer",
     "BlendMode",
     "LinearGradient",
+    "RadialGradient",
     "TextLayer",
 ]

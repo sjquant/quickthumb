@@ -164,3 +164,49 @@ class TestBackgroundLayers:
         # Then: Should raise FileNotFoundError
         with pytest.raises(FileNotFoundError, match="nonexistent.jpg"):
             canvas.render("output.png")
+
+    def test_should_add_radial_gradient_background_with_default_center(self):
+        """Test that radial gradient can be added with default center position (0.5, 0.5)"""
+        # Given: Canvas and RadialGradient with default center
+        from quickthumb import BackgroundLayer, Canvas, RadialGradient
+
+        canvas = Canvas(1920, 1080)
+        gradient = RadialGradient(stops=[("#FF5733", 0.0), ("#3498db", 1.0)])
+
+        # When: User adds radial gradient background
+        canvas.background(gradient=gradient)
+
+        # Then: Canvas should have background layer with radial gradient and default center
+        assert len(canvas.layers) == 1
+        assert canvas.layers[0] == BackgroundLayer(
+            type="background",
+            color=None,
+            gradient=gradient,
+            image=None,
+            opacity=1.0,
+            blend_mode=None,
+        )
+        assert gradient.center == (0.5, 0.5)
+
+    def test_should_add_radial_gradient_background_with_custom_center(self):
+        """Test that radial gradient can be added with custom center position"""
+        # Given: Canvas and RadialGradient with custom center
+        from quickthumb import BackgroundLayer, Canvas, RadialGradient
+
+        canvas = Canvas(1920, 1080)
+        gradient = RadialGradient(stops=[("#FF5733", 0.0), ("#3498db", 1.0)], center=(0.3, 0.7))
+
+        # When: User adds radial gradient background
+        canvas.background(gradient=gradient)
+
+        # Then: Canvas should have background layer with radial gradient and custom center
+        assert len(canvas.layers) == 1
+        assert canvas.layers[0] == BackgroundLayer(
+            type="background",
+            color=None,
+            gradient=gradient,
+            image=None,
+            opacity=1.0,
+            blend_mode=None,
+        )
+        assert gradient.center == (0.3, 0.7)
