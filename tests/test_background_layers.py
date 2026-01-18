@@ -16,9 +16,16 @@ class TestBackgroundLayers:
         # When: User adds solid color backgrounds with different formats
         canvas.background(color="#3498db")  # Hex string
 
-        # Then: Canvas should have background layer
+        # Then: Canvas should have background layer with correct color value
         assert len(canvas.layers) >= 1
-        assert canvas.layers[0]["type"] == "background"
+        assert canvas.layers[0] == {
+            "type": "background",
+            "color": "#3498db",
+            "gradient": None,
+            "image": None,
+            "opacity": 1.0,
+            "blend_mode": None,
+        }
 
     def test_should_accept_multiple_color_formats(self):
         """Test that RGB/RGBA tuples and hex strings are all accepted"""
@@ -30,14 +37,30 @@ class TestBackgroundLayers:
         # When: User provides RGB tuple
         canvas.background(color=(255, 87, 51))
 
-        # Then: Should accept RGB tuple
+        # Then: Should accept RGB tuple with exact color value
         assert len(canvas.layers) == 1
+        assert canvas.layers[0] == {
+            "type": "background",
+            "color": (255, 87, 51),
+            "gradient": None,
+            "image": None,
+            "opacity": 1.0,
+            "blend_mode": None,
+        }
 
         # When: User provides RGBA tuple
         canvas.background(color=(255, 87, 51, 200))
 
-        # Then: Should accept RGBA tuple
+        # Then: Should accept RGBA tuple with exact color value
         assert len(canvas.layers) == 2
+        assert canvas.layers[1] == {
+            "type": "background",
+            "color": (255, 87, 51, 200),
+            "gradient": None,
+            "image": None,
+            "opacity": 1.0,
+            "blend_mode": None,
+        }
 
     def test_should_composite_multiple_background_layers_with_blend_modes(self):
         """Test that multiple background layers can be composited with blend modes"""
@@ -48,18 +71,44 @@ class TestBackgroundLayers:
 
         # When: User adds multiple background layers with blend modes
         canvas.background(color="#FF5733")
+        gradient = LinearGradient(45, [("#FFD700", 0.0), ("#FFD70000", 1.0)])
         canvas.background(
-            gradient=LinearGradient(45, [("#FFD700", 0.0), ("#FFD70000", 1.0)]),
+            gradient=gradient,
             opacity=0.5,
             blend_mode=BlendMode.MULTIPLY,
         )
         canvas.background(image="texture.jpg", opacity=0.3, blend_mode=BlendMode.OVERLAY)
 
-        # Then: All background layers should be stored in order with blend modes
+        # Then: First layer should have color data
         assert len(canvas.layers) == 3
-        assert canvas.layers[1]["blend_mode"] == BlendMode.MULTIPLY
-        assert canvas.layers[1]["opacity"] == 0.5
-        assert canvas.layers[2]["blend_mode"] == BlendMode.OVERLAY
+        assert canvas.layers[0] == {
+            "type": "background",
+            "color": "#FF5733",
+            "gradient": None,
+            "image": None,
+            "opacity": 1.0,
+            "blend_mode": None,
+        }
+
+        # Then: Second layer should have gradient data with correct configuration
+        assert canvas.layers[1] == {
+            "type": "background",
+            "color": None,
+            "gradient": gradient,
+            "image": None,
+            "opacity": 0.5,
+            "blend_mode": BlendMode.MULTIPLY,
+        }
+
+        # Then: Third layer should have image data with correct path
+        assert canvas.layers[2] == {
+            "type": "background",
+            "color": None,
+            "gradient": None,
+            "image": "texture.jpg",
+            "opacity": 0.3,
+            "blend_mode": BlendMode.OVERLAY,
+        }
 
     def test_should_raise_error_for_invalid_color(self):
         """Test that invalid color format raises BackgroundValidationError"""
@@ -100,8 +149,16 @@ class TestBackgroundLayers:
         # When: User adds background with missing image (lazy evaluation)
         canvas.background(image="nonexistent.jpg")
 
-        # Then: background() should not raise error
+        # Then: background() should not raise error and image path should be stored
         assert len(canvas.layers) == 1
+        assert canvas.layers[0] == {
+            "type": "background",
+            "color": None,
+            "gradient": None,
+            "image": "nonexistent.jpg",
+            "opacity": 1.0,
+            "blend_mode": None,
+        }
 
         # When: User calls render
         # Then: Should raise FileNotFoundError
