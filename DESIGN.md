@@ -23,9 +23,11 @@ Positions can be specified as:
 ### Core Principles
 - **Required params upfront**: `Canvas(width, height)` or `Canvas.from_aspect_ratio(ratio)` or `Canvas.from_json()`
 - **Typed methods without prefixes**: `.text()`, `.background()`, `.outline()` - call multiple times for layers
+- **Method chaining**: All layer methods return `self` for fluent API (e.g., `canvas.background().text()`)
 - **Blend modes for backgrounds only**: Images, gradients, solid colors support opacity and blend modes
 - **Helper classes for complex types**: `LinearGradient`, `RadialGradient`, etc.
 - **Unified layer structure**: JSON uses single "layers" array with "type" field for each layer
+- **Bidirectional JSON**: Load from JSON with `from_json()`, export to JSON with `to_json()`
 
 ### API Structure
 
@@ -59,8 +61,10 @@ canvas.outline(width=5, color="#000000", offset=10)
 # Render
 canvas.render(path="output.png", format="png", quality=95)
 
-# JSON loading
-canvas = Canvas.from_json(json)      # Load from json string
+# JSON operations
+canvas = Canvas.from_json(json)      # Load from JSON string/dict
+json_str = canvas.to_json()          # Export canvas to JSON string
+json_dict = canvas.to_dict()         # Export canvas to dictionary
 ```
 
 ### JSON Structure
@@ -102,6 +106,52 @@ canvas = Canvas.from_json(json)      # Load from json string
     }
   ]
 }
+```
+
+### Method Chaining
+
+All layer methods (`.background()`, `.text()`, `.outline()`) return `self`, enabling fluent method chaining:
+
+```python
+# Single-line chaining
+canvas = Canvas(1920, 1080).background(color="#2c3e50").text("Title", size=84)
+
+# Multi-line chaining for readability
+canvas = (
+    Canvas(1920, 1080)
+    .background(color="#2c3e50")
+    .text("Python Tutorial", font="Roboto", size=84, color="#FFFFFF", bold=True)
+    .text("Learn the Basics", font="Roboto", size=48, color="#EEEEEE")
+)
+
+# Mixed with traditional syntax
+canvas = Canvas(1920, 1080)
+canvas.background(color="#FF5733").text("Hello")
+canvas.text("Another layer")  # Can still call methods separately
+```
+
+### JSON Serialization
+
+Canvas instances can be serialized to JSON and deserialized from JSON:
+
+```python
+# Create canvas programmatically
+canvas = Canvas(1920, 1080) \
+    .background(color="#2c3e50") \
+    .text("Hello", size=72, color="#FFFFFF")
+
+# Export to JSON string
+json_str = canvas.to_json()
+# Returns: '{"size": {"width": 1920, "height": 1080}, "layers": [...]}'
+
+# Load from JSON string or dictionary
+canvas = Canvas.from_json(json_str)  # From string
+
+# Round-trip example
+original = Canvas(1920, 1080).background(color="#FF5733")
+exported = original.to_json()
+recreated = Canvas.from_json(exported)
+assert recreated.to_json() == exported  # Perfect round-trip
 ```
 
 ### Helper Classes
@@ -154,6 +204,17 @@ BlendMode.LIGHTEN
    - ✅ Position in pixels or percentage: 100 or "50%"
    - ✅ Alignment uses enum/string: "center", "top", "left", etc.
 
+7. **Method Chaining**
+   - ✅ All layer methods return `self` for fluent API
+   - ✅ Enables both chained and traditional syntax
+   - ✅ Consistent return type across all mutating methods
+
+8. **JSON Serialization**
+   - ✅ Bidirectional: `from_json()` for loading, `to_json()` for exporting
+   - ✅ Perfect round-trip: `Canvas.from_json(canvas.to_json())` recreates identical canvas
+   - ✅ Supports both JSON strings and dictionaries
+   - ✅ Pydantic models ensure schema validation
+
 ## Implementation Priority
 
 ### Phase 1: Core (Minimum Viable)
@@ -162,6 +223,7 @@ BlendMode.LIGHTEN
 - Basic text (no stroke, center alignment)
 - PNG output
 - Pydantic models for validation
+- Method chaining (all layer methods return `self`)
 
 ### Phase 2: Enhanced Backgrounds
 - Linear gradients
@@ -178,5 +240,5 @@ BlendMode.LIGHTEN
 ### Phase 4: Decorations & Polish
 - Outline decoration
 - JPEG/WebP output
-- JSON loading
+- JSON operations (`from_json()`, `to_json()`)
 - Comprehensive error messages
