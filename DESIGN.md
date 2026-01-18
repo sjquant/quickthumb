@@ -70,7 +70,8 @@ json_str = canvas.to_json()          # Export canvas to JSON string
 
 ```json
 {
-  "size": {"width": 1920, "height": 1080},
+  "width": 1920,
+  "height": 1280,
   "layers": [
     {
       "type": "background",
