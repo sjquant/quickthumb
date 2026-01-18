@@ -1,6 +1,6 @@
 ---
 name: tdd-implementer
-description: "Implements production code to make failing tests pass following TDD principles (Green and Refactor phases). Use when you have failing tests and need the corresponding implementation written."
+description: "Use this agent when you have existing failing tests and need to generate clean, self-explanatory production code that rigorously follows the TDD 'Green' and 'Refactor' phases."
 model: sonnet
 color: blue
 ---
