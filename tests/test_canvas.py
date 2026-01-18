@@ -74,7 +74,10 @@ class TestCanvas:
 
         # Then: All layers should be serialized in correct order
         assert canvas_dict == snapshot(
-            {'width': 1920, 'height': 1080, "layers": [
+            {
+                "width": 1920,
+                "height": 1080,
+                "layers": [
                     {
                         "type": "background",
                         "color": "#2c3e50",
@@ -139,3 +142,13 @@ class TestCanvas:
         json_str = canvas.to_json()
         recreated = Canvas.from_json(json_str)
         assert recreated.to_json() == json_str
+
+    def test_should_raise_error_for_invalid_json(self):
+        """Test that Canvas raises error for invalid JSON"""
+        # Given: Invalid JSON
+        from quickthumb import Canvas, ValidationError
+
+        # When: User calls from_json with invalid JSON
+        # Then: Should raise ValidationError
+        with pytest.raises(ValidationError, match="layers.*"):
+            Canvas.from_json('{"width": 1920, "height": 1080, "layers": "INVALID"}')

@@ -22,8 +22,10 @@ def convert_pydantic_errors():
     except pydantic_core.ValidationError as e:
         errors = e.errors()
         if errors:
+            error_locs = ",".join(errors[0].get("loc", []))
             error_msg = errors[0].get("msg", "validation error")
-            raise ValidationError(error_msg) from e
+            final_msg = f"{error_locs}: {error_msg}" if error_locs else error_msg
+            raise ValidationError(final_msg) from e
         raise ValidationError("validation error") from e
 
 
@@ -112,5 +114,6 @@ class Canvas:
 
     @classmethod
     def from_json(cls, data: str) -> Self:
-        canvas_model = CanvasModel.model_validate_json(data)
+        with convert_pydantic_errors():
+            canvas_model = CanvasModel.model_validate_json(data)
         return cls(width=canvas_model.width, height=canvas_model.height, layers=canvas_model.layers)
