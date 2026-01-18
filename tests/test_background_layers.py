@@ -71,7 +71,7 @@ class TestBackgroundLayers:
 
         # When: User adds multiple background layers with blend modes
         canvas.background(color="#FF5733")
-        gradient = LinearGradient(45, [("#FFD700", 0.0), ("#FFD70000", 1.0)])
+        gradient = LinearGradient(angle=45, color_stops=[("#FFD700", 0.0), ("#FFD70000", 1.0)])
         canvas.background(
             gradient=gradient,
             opacity=0.5,
