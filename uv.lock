@@ -403,6 +403,7 @@ source = { editable = "." }
 dependencies = [
     { name = "pillow" },
     { name = "pydantic" },
+    { name = "typing-extensions" },
 ]
 
 [package.dev-dependencies]
@@ -417,6 +418,7 @@ dev = [
 requires-dist = [
     { name = "pillow", specifier = ">=10.4.0,<11.0.0" },
     { name = "pydantic", specifier = ">=2.12.5,<3.0.0" },
+    { name = "typing-extensions", specifier = ">=4.15.0,<5.0.0" },
 ]
 
 [package.metadata.requires-dev]

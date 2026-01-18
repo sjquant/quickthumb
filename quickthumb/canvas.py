@@ -1,8 +1,11 @@
 import os
-from typing import Self
+
+from typing_extensions import Self
 
 from quickthumb.errors import ValidationError
-from quickthumb.models import BackgroundLayer, BlendMode, LinearGradient
+from quickthumb.models import BackgroundLayer, BlendMode, LinearGradient, TextLayer
+
+LayerType = BackgroundLayer | TextLayer
 
 
 class Canvas:
@@ -14,10 +17,10 @@ class Canvas:
 
         self.width = width
         self.height = height
-        self._layers: list[BackgroundLayer] = []
+        self._layers: list[LayerType] = []
 
     @property
-    def layers(self) -> list[BackgroundLayer]:
+    def layers(self) -> list[LayerType]:
         return self._layers
 
     @classmethod
@@ -45,7 +48,38 @@ class Canvas:
         self._layers.append(layer)
         return self
 
+    def text(
+        self,
+        content: str,
+        font: str | None = None,
+        size: int | None = None,
+        color: str | None = None,
+        position: tuple[int, int] | tuple[str, str] | None = None,
+        align: tuple[str, str] | None = None,
+        stroke: tuple[int, str] | None = None,
+        bold: bool = False,
+        italic: bool = False,
+    ) -> Self:
+        layer = TextLayer(
+            type="text",
+            content=content,
+            font=font,
+            size=size,
+            color=color,
+            position=position,
+            align=align,
+            stroke=stroke,
+            bold=bold,
+            italic=italic,
+        )
+        self._layers.append(layer)
+        return self
+
     def render(self, output_path: str):
         for layer in self._layers:
-            if layer.image and not os.path.exists(layer.image):
+            if (
+                isinstance(layer, BackgroundLayer)
+                and layer.image
+                and not os.path.exists(layer.image)
+            ):
                 raise FileNotFoundError(f"{layer.image}")
