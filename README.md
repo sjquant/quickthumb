@@ -222,11 +222,12 @@ For detailed API design, see [DESIGN.md](DESIGN.md).
 
 - `Canvas(width, height)` - Create canvas with explicit dimensions
 - `Canvas.from_aspect_ratio(ratio, base_width)` - Create from aspect ratio
-- `Canvas.from_json(source)` - Load from JSON file or dict
+- `Canvas.from_json(source)` - Load from JSON string
 - `.background(color=..., gradient=..., image=..., opacity=..., blend_mode=...)` - Add background layer
 - `.text(content, font=..., size=..., color=..., align=..., stroke=..., bold=..., italic=...)` - Add text layer
 - `.outline(width, color, offset=...)` - Add outline decoration
 - `.render(output_path, format=..., quality=...)` - Render to file
+- `.to_json()` - Serialize to json string
 
 ### Blend Modes
 

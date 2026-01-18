@@ -5,9 +5,14 @@ import pydantic_core
 from typing_extensions import Self
 
 from quickthumb.errors import ValidationError
-from quickthumb.models import BackgroundLayer, BlendMode, LinearGradient, TextLayer
-
-LayerType = BackgroundLayer | TextLayer
+from quickthumb.models import (
+    BackgroundLayer,
+    BlendMode,
+    CanvasModel,
+    LayerType,
+    LinearGradient,
+    TextLayer,
+)
 
 
 @contextmanager
@@ -23,7 +28,7 @@ def convert_pydantic_errors():
 
 
 class Canvas:
-    def __init__(self, width: int, height: int):
+    def __init__(self, width: int, height: int, layers: list[LayerType] | None = None):
         if width <= 0:
             raise ValidationError("width must be > 0")
         if height <= 0:
@@ -31,7 +36,7 @@ class Canvas:
 
         self.width = width
         self.height = height
-        self._layers: list[LayerType] = []
+        self._layers: list[LayerType] = layers or []
 
     @property
     def layers(self) -> list[LayerType]:
@@ -99,3 +104,13 @@ class Canvas:
                 and not os.path.exists(layer.image)
             ):
                 raise FileNotFoundError(f"{layer.image}")
+
+    def to_json(self) -> str:
+        return CanvasModel(
+            width=self.width, height=self.height, layers=self._layers
+        ).model_dump_json()
+
+    @classmethod
+    def from_json(cls, data: str) -> Self:
+        canvas_model = CanvasModel.model_validate_json(data)
+        return cls(width=canvas_model.width, height=canvas_model.height, layers=canvas_model.layers)

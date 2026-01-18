@@ -71,7 +71,7 @@ class TestBackgroundLayers:
 
         # When: User adds multiple background layers with blend modes
         canvas.background(color="#FF5733")
-        gradient = LinearGradient(angle=45, color_stops=[("#FFD700", 0.0), ("#FFD70000", 1.0)])
+        gradient = LinearGradient(angle=45, stops=[("#FFD700", 0.0), ("#FFD70000", 1.0)])
         canvas.background(
             gradient=gradient,
             opacity=0.5,
@@ -113,7 +113,7 @@ class TestBackgroundLayers:
     def test_should_raise_error_for_invalid_color(self):
         """Test that invalid color format raises ValidationError"""
         # Given: Canvas and invalid colors
-        from quickthumb import ValidationError, Canvas
+        from quickthumb import Canvas, ValidationError
 
         canvas = Canvas(1920, 1080)
 
@@ -130,7 +130,7 @@ class TestBackgroundLayers:
     def test_should_raise_error_for_unsupported_blend_mode(self):
         """Test that unsupported blend mode raises ValidationError"""
         # Given: Canvas and invalid blend mode string
-        from quickthumb import ValidationError, Canvas
+        from quickthumb import Canvas, ValidationError
 
         canvas = Canvas(1920, 1080)
 

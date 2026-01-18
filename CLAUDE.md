@@ -12,7 +12,8 @@ QuickThumb is a Python library for programmatic thumbnail generation. See [READM
 .
 ├── .claude
 │   └── agents
-│       └── tdd-implementer.md
+│       ├── tdd-implementer.md
+│       └── tdd-test-writer.md
 ├── CLAUDE.md
 ├── DESIGN.md
 ├── LICENSE
@@ -26,7 +27,7 @@ QuickThumb is a Python library for programmatic thumbnail generation. See [READM
 ├── tests
 │   ├── __init__.py
 │   ├── test_background_layers.py
-│   ├── test_canvas_creation.py
+│   ├── test_canvas.py
 │   └── test_text_layers.py
 └── uv.lock
 ```
@@ -71,9 +72,15 @@ uv run ruff format quickthumb/
 
 ## Architecture
 
-### Single-Module Design
+### Module Organization
 
-Currently implemented in `quickthumb/__init__.py` (~120 lines). May be split into modules as it grows.
+- **`models.py`**: Pydantic models for validation and serialization
+  - `LinearGradient`: Gradient configuration with type, angle, stops
+  - `BackgroundLayer`: Background layer with color/gradient/image
+  - `TextLayer`: Text layer with content, styling, positioning
+  - `CanvasModel`: Canvas serialization model (width, height, layers)
+- **`canvas.py`**: Canvas class with method chaining API
+- **`errors.py`**: Custom exceptions (`ValidationError`, `QuickthumbError`)
 
 ### Layer Stack Model
 

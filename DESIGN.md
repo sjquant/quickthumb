@@ -62,9 +62,8 @@ canvas.outline(width=5, color="#000000", offset=10)
 canvas.render(path="output.png", format="png", quality=95)
 
 # JSON operations
-canvas = Canvas.from_json(json)      # Load from JSON string/dict
+canvas = Canvas.from_json(json_str)  # Load from JSON string
 json_str = canvas.to_json()          # Export canvas to JSON string
-json_dict = canvas.to_dict()         # Export canvas to dictionary
 ```
 
 ### JSON Structure
@@ -144,8 +143,8 @@ canvas = Canvas(1920, 1080) \
 json_str = canvas.to_json()
 # Returns: '{"size": {"width": 1920, "height": 1080}, "layers": [...]}'
 
-# Load from JSON string or dictionary
-canvas = Canvas.from_json(json_str)  # From string
+# Load from JSON string
+canvas = Canvas.from_json(json_str)
 
 # Round-trip example
 original = Canvas(1920, 1080).background(color="#FF5733")
@@ -212,8 +211,8 @@ BlendMode.LIGHTEN
 8. **JSON Serialization**
    - ✅ Bidirectional: `from_json()` for loading, `to_json()` for exporting
    - ✅ Perfect round-trip: `Canvas.from_json(canvas.to_json())` recreates identical canvas
-   - ✅ Supports both JSON strings and dictionaries
-   - ✅ Pydantic models ensure schema validation
+   - ✅ Uses Pydantic's `model_dump()` and `model_validate()` for serialization
+   - ✅ Accepts only JSON strings (not dictionaries) for type safety
 
 ## Implementation Priority
 

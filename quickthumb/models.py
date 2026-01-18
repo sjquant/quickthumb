@@ -20,8 +20,9 @@ class BlendMode(Enum):
 
 
 class LinearGradient(BaseModel):
+    type: Literal["linear"] = "linear"
     angle: float
-    color_stops: list[tuple[str, float]]
+    stops: list[tuple[str, float]]
 
 
 class BackgroundLayer(BaseModel):
@@ -89,11 +90,11 @@ class TextLayer(BaseModel):
 
     @field_validator("position", mode="before")
     @classmethod
-    def validate_position(cls, v: tuple | None) -> tuple | None:
+    def validate_position(cls, v: tuple | list | None) -> tuple | None:
         if v is None:
             return v
 
-        if not isinstance(v, tuple) or len(v) != 2:
+        if not isinstance(v, (tuple, list)) or len(v) != 2:
             raise ValidationError("position must be a tuple of two elements")
 
         if isinstance(v[0], str) or isinstance(v[1], str):
@@ -101,15 +102,15 @@ class TextLayer(BaseModel):
                 if isinstance(item, str) and not item.endswith("%"):
                     raise ValidationError(f"invalid percentage format: {item}")
 
-        return v
+        return tuple(v)
 
     @field_validator("align", mode="before")
     @classmethod
-    def validate_align(cls, v: tuple | None) -> tuple | None:
+    def validate_align(cls, v: tuple | list | None) -> tuple | None:
         if v is None:
             return v
 
-        if not isinstance(v, tuple) or len(v) != 2:
+        if not isinstance(v, (tuple, list)) or len(v) != 2:
             raise ValidationError("align must be a tuple of two elements")
 
         valid_horizontal = ("left", "center", "right")
@@ -120,15 +121,15 @@ class TextLayer(BaseModel):
         if v[1] not in valid_vertical:
             raise ValidationError(f"invalid align value: {v[1]}")
 
-        return v
+        return tuple(v)
 
     @field_validator("stroke", mode="before")
     @classmethod
-    def validate_stroke(cls, v: tuple | None) -> tuple | None:
+    def validate_stroke(cls, v: tuple | list | None) -> tuple | None:
         if v is None:
             return v
 
-        if not isinstance(v, tuple) or len(v) != 2:
+        if not isinstance(v, (tuple, list)) or len(v) != 2:
             raise ValidationError("stroke must be a tuple of width and color")
 
         width, color = v
@@ -137,7 +138,7 @@ class TextLayer(BaseModel):
             raise ValidationError("stroke width must be positive")
 
         validate_hex_color(color)
-        return v
+        return tuple(v)
 
     @field_validator("size")
     @classmethod
@@ -149,3 +150,12 @@ class TextLayer(BaseModel):
             raise ValidationError("size must be positive")
 
         return v
+
+
+LayerType = BackgroundLayer | TextLayer
+
+
+class CanvasModel(BaseModel):
+    width: int
+    height: int
+    layers: list[LayerType]
