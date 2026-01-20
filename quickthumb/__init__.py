@@ -4,6 +4,7 @@ from quickthumb.models import (
     BackgroundLayer,
     BlendMode,
     LinearGradient,
+    OutlineLayer,
     RadialGradient,
     TextLayer,
 )
@@ -15,6 +16,7 @@ __all__ = [
     "BackgroundLayer",
     "BlendMode",
     "LinearGradient",
+    "OutlineLayer",
     "RadialGradient",
     "TextLayer",
 ]

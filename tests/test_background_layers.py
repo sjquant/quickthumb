@@ -210,3 +210,104 @@ class TestBackgroundLayers:
             blend_mode=None,
         )
         assert gradient.center == (0.3, 0.7)
+
+    def test_should_serialize_background_layer_to_json(self):
+        """Test that canvas with background layers can be serialized to JSON"""
+        # Given: Canvas with multiple background layers
+        from quickthumb import BlendMode, Canvas, LinearGradient
+
+        gradient = LinearGradient(angle=45, stops=[("#FFD700", 0.0), ("#FFD70000", 1.0)])
+        canvas = (
+            Canvas(1920, 1080)
+            .background(color="#2c3e50")
+            .background(gradient=gradient, opacity=0.5, blend_mode=BlendMode.MULTIPLY)
+        )
+
+        # When: User serializes canvas to JSON
+        json_str = canvas.to_json()
+
+        # Then: JSON should contain background layers with correct structure
+        import json
+
+        data = json.loads(json_str)
+        assert data["width"] == 1920
+        assert data["height"] == 1080
+        assert len(data["layers"]) == 2
+        assert data["layers"][0] == {
+            "type": "background",
+            "color": "#2c3e50",
+            "gradient": None,
+            "image": None,
+            "opacity": 1.0,
+            "blend_mode": None,
+        }
+        assert data["layers"][1] == {
+            "type": "background",
+            "color": None,
+            "gradient": {
+                "type": "linear",
+                "angle": 45,
+                "stops": [["#FFD700", 0.0], ["#FFD70000", 1.0]],
+            },
+            "image": None,
+            "opacity": 0.5,
+            "blend_mode": "multiply",
+        }
+
+    def test_should_deserialize_background_layer_from_json(self):
+        """Test that canvas with background layers can be deserialized from JSON"""
+        # Given: JSON string with background layers
+        import json
+
+        json_data = {
+            "width": 1920,
+            "height": 1080,
+            "layers": [
+                {
+                    "type": "background",
+                    "color": "#2c3e50",
+                    "gradient": None,
+                    "image": None,
+                    "opacity": 1.0,
+                    "blend_mode": None,
+                },
+                {
+                    "type": "background",
+                    "color": None,
+                    "gradient": {
+                        "type": "linear",
+                        "angle": 45,
+                        "stops": [["#FFD700", 0.0], ["#FFD70000", 1.0]],
+                    },
+                    "image": None,
+                    "opacity": 0.5,
+                    "blend_mode": "multiply",
+                },
+            ],
+        }
+        json_str = json.dumps(json_data)
+
+        # When: User deserializes canvas from JSON
+        from quickthumb import BackgroundLayer, BlendMode, Canvas, LinearGradient
+
+        canvas = Canvas.from_json(json_str)
+
+        # Then: Canvas should have background layers with correct properties
+        assert len(canvas.layers) == 2
+        assert canvas.layers[0] == BackgroundLayer(
+            type="background",
+            color="#2c3e50",
+            gradient=None,
+            image=None,
+            opacity=1.0,
+            blend_mode=None,
+        )
+        gradient = LinearGradient(angle=45, stops=[("#FFD700", 0.0), ("#FFD70000", 1.0)])
+        assert canvas.layers[1] == BackgroundLayer(
+            type="background",
+            color=None,
+            gradient=gradient,
+            image=None,
+            opacity=0.5,
+            blend_mode=BlendMode.MULTIPLY,
+        )

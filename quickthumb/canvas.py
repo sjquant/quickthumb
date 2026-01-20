@@ -11,6 +11,7 @@ from quickthumb.models import (
     CanvasModel,
     LayerType,
     LinearGradient,
+    OutlineLayer,
     TextLayer,
 )
 
@@ -94,6 +95,17 @@ class Canvas:
                 stroke=stroke,
                 bold=bold,
                 italic=italic,
+            )
+        self._layers.append(layer)
+        return self
+
+    def outline(self, width: int, color: str, offset: int = 0) -> Self:
+        with convert_pydantic_errors():
+            layer = OutlineLayer(
+                type="outline",
+                width=width,
+                color=color,
+                offset=offset,
             )
         self._layers.append(layer)
         return self

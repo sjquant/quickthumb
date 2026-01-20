@@ -194,3 +194,98 @@ class TestTextLayers:
         # Then: Should raise ValidationError
         with pytest.raises(ValidationError, match=error_pattern):
             canvas.text("Hello", size=size)
+
+    def test_should_serialize_text_layer_to_json(self):
+        """Test that canvas with text layers can be serialized to JSON"""
+        # Given: Canvas with background and text layers
+        from quickthumb import Canvas
+
+        canvas = (
+            Canvas(1920, 1080)
+            .background(color="#2c3e50")
+            .text(
+                "Python Tutorial",
+                font="Roboto",
+                size=84,
+                color="#FFFFFF",
+                align=("center", "top"),
+                stroke=(3, "#000000"),
+                bold=True,
+            )
+        )
+
+        # When: User serializes canvas to JSON
+        json_str = canvas.to_json()
+
+        # Then: JSON should contain text layer with correct structure
+        import json
+
+        data = json.loads(json_str)
+        assert data["width"] == 1920
+        assert data["height"] == 1080
+        assert len(data["layers"]) == 2
+        assert data["layers"][1] == {
+            "type": "text",
+            "content": "Python Tutorial",
+            "font": "Roboto",
+            "size": 84,
+            "color": "#FFFFFF",
+            "position": None,
+            "align": ["center", "top"],
+            "stroke": [3, "#000000"],
+            "bold": True,
+            "italic": False,
+        }
+
+    def test_should_deserialize_text_layer_from_json(self):
+        """Test that canvas with text layers can be deserialized from JSON"""
+        # Given: JSON string with text layer
+        import json
+
+        json_data = {
+            "width": 1920,
+            "height": 1080,
+            "layers": [
+                {
+                    "type": "background",
+                    "color": "#2c3e50",
+                    "gradient": None,
+                    "image": None,
+                    "opacity": 1.0,
+                    "blend_mode": None,
+                },
+                {
+                    "type": "text",
+                    "content": "Python Tutorial",
+                    "font": "Roboto",
+                    "size": 84,
+                    "color": "#FFFFFF",
+                    "position": None,
+                    "align": ["center", "top"],
+                    "stroke": [3, "#000000"],
+                    "bold": True,
+                    "italic": False,
+                },
+            ],
+        }
+        json_str = json.dumps(json_data)
+
+        # When: User deserializes canvas from JSON
+        from quickthumb import Canvas, TextLayer
+
+        canvas = Canvas.from_json(json_str)
+
+        # Then: Canvas should have text layer with correct properties
+        assert len(canvas.layers) == 2
+        assert canvas.layers[1] == TextLayer(
+            type="text",
+            content="Python Tutorial",
+            font="Roboto",
+            size=84,
+            color="#FFFFFF",
+            position=None,
+            align=("center", "top"),
+            stroke=(3, "#000000"),
+            bold=True,
+            italic=False,
+        )

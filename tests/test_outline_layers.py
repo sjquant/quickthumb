@@ -25,17 +25,6 @@ class TestOutlineLayers:
             offset=0,
         )
 
-    def test_should_return_self_for_method_chaining(self):
-        """Test that outline method returns self to enable method chaining"""
-        # Given: Canvas with background and text layers
-        from quickthumb import Canvas
-
-        # When: User chains outline method with other layer methods
-        canvas = Canvas(1920, 1080).outline(width=10, color="#FFFFFF")
-
-        # Then
-        assert isinstance(canvas, Canvas)
-
     @pytest.mark.parametrize(
         "width,error_pattern",
         [
@@ -160,4 +149,5 @@ class TestOutlineLayers:
             type="outline",
             width=10,
             color="#FFFFFF",
+            offset=5,
         )

@@ -158,7 +158,34 @@ class TextLayer(BaseModel):
         return v
 
 
-LayerType = BackgroundLayer | TextLayer
+class OutlineLayer(BaseModel):
+    type: Literal["outline"]
+    width: int
+    color: str
+    offset: int = 0
+
+    @field_validator("width")
+    @classmethod
+    def validate_width(cls, v: int) -> int:
+        if v <= 0:
+            raise ValidationError("width must be positive")
+        return v
+
+    @field_validator("color")
+    @classmethod
+    def validate_color(cls, v: str) -> str:
+        validate_hex_color(v)
+        return v
+
+    @field_validator("offset")
+    @classmethod
+    def validate_offset(cls, v: int) -> int:
+        if v < 0:
+            raise ValidationError("offset cannot be negative")
+        return v
+
+
+LayerType = BackgroundLayer | TextLayer | OutlineLayer
 
 
 class CanvasModel(BaseModel):
