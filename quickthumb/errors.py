@@ -4,3 +4,7 @@ class QuickthumbError(Exception):
 
 class ValidationError(QuickthumbError):
     pass
+
+
+class RenderingError(QuickthumbError):
+    pass
