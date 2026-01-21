@@ -388,3 +388,91 @@ class TestRendering:
             # Then: Should render outline inset from canvas edges
             with open(output_path, "rb") as f:
                 assert f.read() == external_file("snapshots/outline_with_offset.png")
+
+    def test_snapshot_linear_gradient_with_opacity(self):
+        """Snapshot test for linear gradient with opacity applied"""
+        from quickthumb import Canvas
+        from quickthumb.models import LinearGradient
+
+        # Given: A linear gradient with opacity applied
+        gradient = LinearGradient(
+            type="linear", angle=90, stops=[("#FF0000", 0.0), ("#0000FF", 1.0)]
+        )
+
+        # When: Rendering gradient with 50% opacity over solid color
+        canvas = Canvas(400, 300).background(color="#FFFFFF").background(gradient=gradient, opacity=0.5)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            # Then: Should show semi-transparent gradient
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/linear_gradient_with_opacity.png")
+
+    def test_snapshot_radial_gradient_with_opacity(self):
+        """Snapshot test for radial gradient with opacity applied"""
+        from quickthumb import Canvas
+        from quickthumb.models import RadialGradient
+
+        # Given: A radial gradient with opacity applied
+        gradient = RadialGradient(type="radial", stops=[("#FFFF00", 0.0), ("#FF00FF", 1.0)])
+
+        # When: Rendering gradient with 60% opacity over solid color
+        canvas = Canvas(400, 300).background(color="#FFFFFF").background(gradient=gradient, opacity=0.6)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            # Then: Should show semi-transparent radial gradient
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/radial_gradient_with_opacity.png")
+
+    def test_snapshot_image_background_with_opacity(self):
+        """Snapshot test for image background with opacity applied"""
+        from quickthumb import Canvas
+
+        # Given: An image with opacity applied
+        # When: Rendering image with 50% opacity over solid color
+        canvas = (
+            Canvas(400, 300)
+            .background(color="#FFFFFF")
+            .background(image="tests/fixtures/sample_image.jpg", opacity=0.5)
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            # Then: Should show semi-transparent image
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/image_background_with_opacity.png")
+
+    def test_snapshot_text_bold_and_italic(self):
+        """Snapshot test for text with both bold and italic applied"""
+        from quickthumb import Canvas
+
+        # Given: Text with both bold and italic styling
+        # When: Rendering text with bold=True and italic=True
+        canvas = (
+            Canvas(400, 200)
+            .background(color="#FFFFFF")
+            .text(
+                "Bold Italic Text",
+                size=36,
+                color="#000000",
+                position=(200, 100),
+                align=("center", "middle"),
+                bold=True,
+                italic=True,
+            )
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            # Then: Should render text with both bold and italic styles
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/text_bold_and_italic.png")

@@ -311,3 +311,58 @@ class TestBackgroundLayers:
             opacity=0.5,
             blend_mode=BlendMode.MULTIPLY,
         )
+
+    def test_should_accept_tuple_rgb_color(self):
+        """Test that RGB tuple colors (R, G, B) are accepted"""
+        # Given: Canvas
+        from quickthumb import Canvas
+
+        canvas = Canvas(200, 150)
+
+        # When: Adding background with RGB tuple color
+        canvas.background(color=(255, 87, 51))
+
+        # Then: Should create background layer with tuple color
+        assert len(canvas.layers) == 1
+        assert canvas.layers[0].color == (255, 87, 51)
+
+    def test_should_accept_tuple_rgba_color(self):
+        """Test that RGBA tuple colors (R, G, B, A) are accepted"""
+        # Given: Canvas
+        from quickthumb import Canvas
+
+        canvas = Canvas(200, 150)
+
+        # When: Adding background with RGBA tuple color
+        canvas.background(color=(255, 87, 51, 200))
+
+        # Then: Should create background layer with tuple color including alpha
+        assert len(canvas.layers) == 1
+        assert canvas.layers[0].color == (255, 87, 51, 200)
+
+    def test_should_accept_8_character_hex_color(self):
+        """Test that 8-character hex colors #RRGGBBAA with alpha channel are accepted"""
+        # Given: Canvas
+        from quickthumb import Canvas
+
+        canvas = Canvas(200, 150)
+
+        # When: Adding background with 8-character hex color including alpha
+        canvas.background(color="#FF5733C8")
+
+        # Then: Should create background layer with 8-char hex color
+        assert len(canvas.layers) == 1
+        assert canvas.layers[0].color == "#FF5733C8"
+
+    def test_should_raise_error_for_invalid_tuple_color_length(self):
+        """Should raise ValidationError for tuple colors with invalid length"""
+        # Given: Canvas
+        from quickthumb import Canvas
+        from quickthumb.errors import ValidationError
+
+        canvas = Canvas(200, 150)
+
+        # When: Adding background with invalid tuple color (wrong length)
+        # Then: Should raise ValidationError
+        with pytest.raises(ValidationError, match="invalid color tuple"):
+            canvas.background(color=(255, 87))
