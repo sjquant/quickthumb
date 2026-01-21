@@ -1,9 +1,10 @@
+import math
 import os
 from contextlib import contextmanager
 from typing import Literal
 
 import pydantic_core
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageChops, ImageDraw, ImageFont
 from typing_extensions import Self
 
 from quickthumb.errors import RenderingError, ValidationError
@@ -130,6 +131,8 @@ class Canvas:
                 self._render_background_layer(image, layer)
             elif isinstance(layer, TextLayer):
                 self._render_text_layer(image, layer)
+            elif isinstance(layer, OutlineLayer):
+                self._render_outline_layer(image, layer)
 
         self._save_to_file(image, output_path, quality)
 
@@ -207,10 +210,49 @@ class Canvas:
         return DEFAULT_TEXT_COLOR
 
     def _render_background_layer(self, image: Image.Image, layer: BackgroundLayer):
+        layer_image = None
+
         if layer.color:
-            color = self._apply_opacity_to_color(self._parse_color(layer.color), layer.opacity)
+            color = self._parse_color(layer.color)
+            if layer.opacity < 1.0:
+                color = self._apply_opacity_to_color(color, layer.opacity)
             layer_image = Image.new("RGBA", image.size, color)
-            image.paste(layer_image, (0, 0), layer_image)
+        elif layer.gradient:
+            if isinstance(layer.gradient, LinearGradient):
+                layer_image = self._create_linear_gradient(
+                    image.size, layer.gradient.angle, layer.gradient.stops
+                )
+            elif isinstance(layer.gradient, RadialGradient):
+                layer_image = self._create_radial_gradient(
+                    image.size, layer.gradient.stops, layer.gradient.center
+                )
+
+            if layer_image and layer.opacity < 1.0:
+                layer_image = self._apply_opacity(layer_image, layer.opacity)
+
+        elif layer.image:
+            layer_image = Image.open(layer.image).convert("RGBA")
+            if layer_image.size != image.size:
+                layer_image = layer_image.resize(image.size)
+
+            if layer.opacity < 1.0:
+                layer_image = self._apply_opacity(layer_image, layer.opacity)
+
+        if layer_image:
+            if layer.blend_mode:
+                blended = self._apply_blend_mode(image, layer_image, layer.blend_mode)
+                image.paste(blended, (0, 0))
+            else:
+                image.alpha_composite(layer_image)
+
+    def _apply_opacity(self, image: Image.Image, opacity: float) -> Image.Image:
+        if opacity == 1.0:
+            return image
+
+        alpha = image.split()[3]
+        alpha = alpha.point(lambda x: int(x * opacity))
+        image.putalpha(alpha)
+        return image
 
     def _apply_opacity_to_color(self, color: tuple[int, ...], opacity: float) -> tuple[int, ...]:
         r, g, b = color[:3]
@@ -228,7 +270,20 @@ class Canvas:
         font = self._load_font(layer)
         color = self._parse_color(layer.color) if layer.color else DEFAULT_TEXT_COLOR
         position = self._calculate_text_position(layer, font)
-        draw.text(position, layer.content, font=font, fill=color)
+
+        if layer.stroke:
+            stroke_width, stroke_color = layer.stroke
+            stroke_color_parsed = self._parse_color(stroke_color)
+            draw.text(
+                position,
+                layer.content,
+                font=font,
+                fill=color,
+                stroke_width=stroke_width,
+                stroke_fill=stroke_color_parsed,
+            )
+        else:
+            draw.text(position, layer.content, font=font, fill=color)
 
     def _load_font(self, layer: TextLayer) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
         size = layer.size or DEFAULT_TEXT_SIZE
@@ -329,6 +384,180 @@ class Canvas:
             aligned_y = base_y - text_height
 
         return aligned_x, aligned_y
+
+    def _create_gradient_lut(
+        self, stops: list[tuple[str, float]]
+    ) -> tuple[list[int], list[int], list[int]]:
+        r_lut, g_lut, b_lut = [], [], []
+
+        parsed_stops = []
+        for color, pos in stops:
+            parsed_color = self._parse_color(color)
+            parsed_stops.append((parsed_color, pos))
+
+        for i in range(256):
+            pos = i / 255.0
+
+            color1, pos1 = parsed_stops[0]
+            color2, pos2 = parsed_stops[-1]
+
+            if pos <= pos1:
+                r, g, b = color1[:3]
+            elif pos >= pos2:
+                r, g, b = color2[:3]
+            else:
+                for j in range(len(parsed_stops) - 1):
+                    c1, p1 = parsed_stops[j]
+                    c2, p2 = parsed_stops[j + 1]
+                    if p1 <= pos <= p2:
+                        ratio = (pos - p1) / (p2 - p1) if p2 != p1 else 0
+                        r = int(c1[0] + (c2[0] - c1[0]) * ratio)
+                        g = int(c1[1] + (c2[1] - c1[1]) * ratio)
+                        b = int(c1[2] + (c2[2] - c1[2]) * ratio)
+                        break
+
+            r_lut.append(r)
+            g_lut.append(g)
+            b_lut.append(b)
+
+        return r_lut, g_lut, b_lut
+
+    def _create_linear_gradient(
+        self, size: tuple[int, int], angle: float, stops: list[tuple[str, float]]
+    ) -> Image.Image:
+        width, height = size
+
+        diagonal = int(math.ceil(math.sqrt(width**2 + height**2)))
+
+        gradient_mask = Image.linear_gradient("L")
+        gradient_mask = gradient_mask.resize((diagonal, diagonal))
+        # Rotate. Image.linear_gradient is vertical (top-to-bottom).
+        # Angle 0 in our API is horizontal (left-to-right).
+        # So we need to rotate -90 degrees to get horizontal, then add user angle.
+        # Note: PIL rotate is counter-clockwise.
+        gradient_mask = gradient_mask.rotate(90 - angle, expand=False)
+
+        left = (diagonal - width) // 2
+        top = (diagonal - height) // 2
+        gradient_mask = gradient_mask.crop((left, top, left + width, top + height))
+
+        r_lut, g_lut, b_lut = self._create_gradient_lut(stops)
+        r = gradient_mask.point(r_lut)
+        g = gradient_mask.point(g_lut)
+        b = gradient_mask.point(b_lut)
+
+        return Image.merge("RGB", (r, g, b)).convert("RGBA")
+
+    def _create_radial_gradient(
+        self, size: tuple[int, int], stops: list[tuple[str, float]], center: tuple[float, float]
+    ) -> Image.Image:
+        width, height = size
+
+        cx, cy = center
+
+        center_x_px = width * cx
+        center_y_px = height * cy
+
+        dist_tl = math.sqrt(center_x_px**2 + center_y_px**2)
+        dist_tr = math.sqrt((width - center_x_px) ** 2 + center_y_px**2)
+        dist_bl = math.sqrt(center_x_px**2 + (height - center_y_px) ** 2)
+        dist_br = math.sqrt((width - center_x_px) ** 2 + (height - center_y_px) ** 2)
+        max_dist_px = max(dist_tl, dist_tr, dist_bl, dist_br)
+
+        grad_size = int(2 * max_dist_px)
+        gradient_mask = Image.radial_gradient("L")
+        gradient_mask = gradient_mask.resize((grad_size, grad_size))
+
+        grad_center = grad_size // 2
+        left = grad_center - int(center_x_px)
+        top = grad_center - int(center_y_px)
+
+        gradient_mask = gradient_mask.crop((left, top, left + width, top + height))
+
+        r_lut, g_lut, b_lut = self._create_gradient_lut(stops)
+        r = gradient_mask.point(r_lut)
+        g = gradient_mask.point(g_lut)
+        b = gradient_mask.point(b_lut)
+
+        return Image.merge("RGB", (r, g, b)).convert("RGBA")
+
+    def _apply_blend_mode(
+        self, base: Image.Image, overlay: Image.Image, blend_mode: BlendMode | str
+    ) -> Image.Image:
+        if base.size != overlay.size:
+            overlay = overlay.resize(base.size)
+        if base.mode != "RGBA":
+            base = base.convert("RGBA")
+        if overlay.mode != "RGBA":
+            overlay = overlay.convert("RGBA")
+
+        blend_mode_enum = blend_mode
+        if isinstance(blend_mode_enum, str):
+            try:
+                blend_mode_enum = BlendMode(blend_mode_enum)
+            except ValueError:
+                return base
+
+        if blend_mode_enum == BlendMode.MULTIPLY:
+            return ImageChops.multiply(base, overlay)
+        elif blend_mode_enum == BlendMode.OVERLAY:
+            if hasattr(ImageChops, "overlay"):
+                return ImageChops.overlay(base, overlay)
+            return self._manual_blend_overlay(base, overlay)
+
+        return base
+
+    def _manual_blend_overlay(self, base: Image.Image, overlay: Image.Image) -> Image.Image:
+        base_data = base.load()
+        if base_data is None:
+            raise RenderingError("Failed to load base image")
+        overlay_data = overlay.load()
+        if overlay_data is None:
+            raise RenderingError("Failed to load overlay image")
+        result = Image.new("RGBA", base.size)
+        result_data = result.load()
+        if result_data is None:
+            raise RenderingError("Failed to load result image")
+
+        for y in range(base.size[1]):
+            for x in range(base.size[0]):
+                base_pixel = base_data[x, y]
+                overlay_pixel = overlay_data[x, y]
+
+                if isinstance(base_pixel, float):
+                    raise RenderingError("Base pixel is a float")
+                if isinstance(overlay_pixel, float):
+                    raise RenderingError("Overlay pixel is a float")
+
+                r = self._overlay_channel(base_pixel[0], overlay_pixel[0])
+                g = self._overlay_channel(base_pixel[1], overlay_pixel[1])
+                b = self._overlay_channel(base_pixel[2], overlay_pixel[2])
+                a = overlay_pixel[3] if len(overlay_pixel) > 3 else 255
+
+                result_data[x, y] = (r, g, b, a)
+
+        return result
+
+    def _overlay_channel(self, base_val: int, overlay_val: int) -> int:
+        base_norm = base_val / 255
+        overlay_norm = overlay_val / 255
+        if base_norm < 0.5:
+            result = 2 * base_norm * overlay_norm
+        else:
+            result = 1 - 2 * (1 - base_norm) * (1 - overlay_norm)
+        return int(result * 255)
+
+    def _render_outline_layer(self, image: Image.Image, layer: OutlineLayer):
+        draw = ImageDraw.Draw(image)
+        color = self._parse_color(layer.color)
+
+        x1 = layer.offset
+        y1 = layer.offset
+        x2 = self.width - layer.offset - 1
+        y2 = self.height - layer.offset - 1
+
+        for i in range(layer.width):
+            draw.rectangle([x1 + i, y1 + i, x2 - i, y2 - i], outline=color)
 
     def to_json(self) -> str:
         return CanvasModel(

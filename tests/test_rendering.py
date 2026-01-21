@@ -204,3 +204,187 @@ class TestRendering:
 
             with open(output_path, "rb") as f:
                 assert f.read() == external_file("snapshots/percentage_with_alignment.png")
+
+    def test_snapshot_linear_gradient_horizontal(self):
+        """Snapshot test for linear gradient rendering with horizontal direction (0 degrees)"""
+        from quickthumb import Canvas
+        from quickthumb.models import LinearGradient
+
+        # Given: A linear gradient from red to blue at 0 degrees (horizontal)
+        gradient = LinearGradient(
+            type="linear", angle=0, stops=[("#FF0000", 0.0), ("#0000FF", 1.0)]
+        )
+
+        # When: Rendering the canvas with the gradient background
+        canvas = Canvas(400, 300).background(gradient=gradient)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            # Then: Should match the expected gradient rendering
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/linear_gradient_horizontal.png")
+
+    def test_snapshot_linear_gradient_diagonal(self):
+        """Snapshot test for linear gradient rendering with diagonal direction (45 degrees)"""
+        from quickthumb import Canvas
+        from quickthumb.models import LinearGradient
+
+        # Given: A linear gradient at 45 degrees with three color stops
+        gradient = LinearGradient(
+            type="linear",
+            angle=45,
+            stops=[("#FF6B6B", 0.0), ("#4ECDC4", 0.5), ("#45B7D1", 1.0)],
+        )
+
+        # When: Rendering the canvas with the gradient background
+        canvas = Canvas(400, 300).background(gradient=gradient)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            # Then: Should match the expected gradient rendering
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/linear_gradient_diagonal.png")
+
+    def test_snapshot_radial_gradient_centered(self):
+        """Snapshot test for radial gradient rendering with default center position"""
+        from quickthumb import Canvas
+        from quickthumb.models import RadialGradient
+
+        # Given: A radial gradient from center with default position (0.5, 0.5)
+        gradient = RadialGradient(
+            type="radial", stops=[("#FF0000", 0.0), ("#0000FF", 1.0)], center=(0.5, 0.5)
+        )
+
+        # When: Rendering the canvas with the radial gradient
+        canvas = Canvas(400, 300).background(gradient=gradient)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            # Then: Should match the expected radial gradient rendering
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/radial_gradient_centered.png")
+
+    def test_snapshot_text_with_stroke(self):
+        """Snapshot test for text rendering with stroke outline"""
+        from quickthumb import Canvas
+
+        # Given: Text with a 2px black stroke around white text
+        # When: Rendering text with stroke parameter
+        canvas = (
+            Canvas(400, 200)
+            .background(color="#FFFFFF")
+            .text(
+                "Stroke Text",
+                size=48,
+                color="#FFFFFF",
+                position=(200, 100),
+                align=("center", "middle"),
+                stroke=(2, "#000000"),
+            )
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            # Then: Should show text with visible stroke outline
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/text_with_stroke.png")
+
+    def test_snapshot_blend_mode_multiply(self):
+        """Snapshot test for multiply blend mode compositing"""
+        from quickthumb import Canvas
+
+        # Given: An image with a color layer using multiply blend mode
+        # When: Layering color over image with multiply blend mode
+        canvas = (
+            Canvas(400, 300)
+            .background(image="tests/fixtures/sample_image.jpg")
+            .background(color="#FF0000", blend_mode="multiply", opacity=0.5)
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            # Then: Should show darker blended result typical of multiply mode
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/blend_mode_multiply.png")
+
+    def test_snapshot_blend_mode_overlay(self):
+        """Snapshot test for overlay blend mode compositing"""
+        from quickthumb import Canvas
+
+        # Given: An image with a color layer using overlay blend mode
+        # When: Layering color over image with overlay blend mode
+        canvas = (
+            Canvas(400, 300)
+            .background(image="tests/fixtures/sample_image.jpg")
+            .background(color="#0000FF", blend_mode="overlay", opacity=0.5)
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            # Then: Should show contrast-enhanced result typical of overlay mode
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/blend_mode_overlay.png")
+
+    def test_snapshot_image_background_basic(self):
+        """Snapshot test for basic image background rendering"""
+        from quickthumb import Canvas
+
+        # Given: A canvas with an image as background
+        # When: Rendering with image background parameter
+        canvas = Canvas(400, 300).background(image="tests/fixtures/sample_image.jpg")
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            # Then: Should render the image as background
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/image_background_basic.png")
+
+    def test_snapshot_outline_basic(self):
+        """Snapshot test for basic outline decoration rendering"""
+        from quickthumb import Canvas
+
+        # Given: A canvas with outline decoration
+        # When: Rendering with outline layer
+        canvas = Canvas(400, 300).background(color="#FFFFFF").outline(width=5, color="#FF0000")
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            # Then: Should render red outline around canvas edges
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/outline_basic.png")
+
+    def test_snapshot_outline_with_offset(self):
+        """Snapshot test for outline decoration with inward offset"""
+        from quickthumb import Canvas
+
+        # Given: An outline with 10px offset from edges
+        # When: Rendering outline with offset parameter
+        canvas = (
+            Canvas(400, 300)
+            .background(color="#F0F0F0")
+            .outline(width=3, color="#3498DB", offset=10)
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            # Then: Should render outline inset from canvas edges
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/outline_with_offset.png")

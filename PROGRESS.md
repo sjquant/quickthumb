@@ -1,6 +1,6 @@
 # QuickThumb TODO
 
-**Status**: Core rendering complete (53/53 tests, 94% coverage)
+**Status**: High priority rendering complete (61/61 tests, 95% coverage)
 
 ---
 
@@ -20,9 +20,15 @@
 - ✅ JPEG output (with quality parameter)
 - ✅ WebP output (with quality parameter)
 - ✅ Solid color background rendering
+- ✅ Linear gradient rendering (angle-based with multi-stop color interpolation)
+- ✅ Radial gradient rendering (centered with configurable center point)
+- ✅ Image background rendering (auto-resize to canvas dimensions)
+- ✅ Blend mode compositing (multiply for darkening, overlay for contrast)
 - ✅ Text rendering (bold, italic, unicode, emojis)
+- ✅ Text stroke rendering (configurable width and color)
 - ✅ Text alignment (horizontal: left/center/right, vertical: top/middle/bottom)
 - ✅ Text positioning with percentages (e.g., position=("50%", "50%"))
+- ✅ Outline decoration rendering (border with width and offset support)
 - ✅ Alpha compositing with opacity
 - ✅ System font loading (Arial on macOS, DejaVu on Linux)
 - ✅ Error handling (RenderingError for unsupported formats)
@@ -30,13 +36,6 @@
 ---
 
 ## 🚧 TODO
-
-### High Priority
-- [ ] Gradient rendering (linear + radial)
-- [ ] Text stroke rendering
-- [ ] Blend mode compositing (multiply, overlay)
-- [ ] Image background rendering
-- [ ] Outline decoration rendering
 
 ### Medium Priority
 - [ ] Font loading and caching
