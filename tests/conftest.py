@@ -22,7 +22,7 @@ class ImageFormat(Format):
     def rich_show(self, path: Path) -> str:
         return f"ImageFormat: {path!r}"
 
-    def rich_diff(self, original: Path, _new: Path) -> str:
+    def rich_diff(self, original: Path, new: Path) -> str:
         return f"ImageChanged. See snapshot {original} for details."
 
 

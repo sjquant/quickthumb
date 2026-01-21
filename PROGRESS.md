@@ -1,6 +1,6 @@
 # QuickThumb TODO
 
-**Status**: Core API complete (44/44 tests, 98% coverage) | Rendering engine missing
+**Status**: Core rendering complete (53/53 tests, 94% coverage)
 
 ---
 
@@ -15,27 +15,30 @@
 - ✅ Pydantic validation with custom error handling
 - ✅ Method chaining API
 
+### Rendering Engine
+- ✅ PNG output with Pillow/PIL
+- ✅ JPEG output (with quality parameter)
+- ✅ WebP output (with quality parameter)
+- ✅ Solid color background rendering
+- ✅ Text rendering (bold, italic, unicode, emojis)
+- ✅ Text alignment (horizontal: left/center/right, vertical: top/middle/bottom)
+- ✅ Text positioning with percentages (e.g., position=("50%", "50%"))
+- ✅ Alpha compositing with opacity
+- ✅ System font loading (Arial on macOS, DejaVu on Linux)
+- ✅ Error handling (RenderingError for unsupported formats)
+
 ---
 
 ## 🚧 TODO
 
-### Critical (MVP)
-- [ ] Implement rendering engine
-  - [ ] PNG output with Pillow/PIL
-  - [ ] Solid color background rendering
-  - [ ] Basic text rendering (without stroke)
-  - [ ] Alpha compositing
-
 ### High Priority
 - [ ] Gradient rendering (linear + radial)
 - [ ] Text stroke rendering
-- [ ] Blend mode compositing (6 modes)
+- [ ] Blend mode compositing (multiply, overlay)
 - [ ] Image background rendering
 - [ ] Outline decoration rendering
 
 ### Medium Priority
-- [ ] JPEG/WebP output formats
-- [ ] Quality parameter for render
 - [ ] Font loading and caching
 - [ ] Image fit modes (cover, contain, fill)
 - [ ] Image brightness adjustment

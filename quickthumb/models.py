@@ -105,7 +105,8 @@ class TextLayer(BaseModel):
 
         if isinstance(v[0], str) or isinstance(v[1], str):
             for item in v:
-                if isinstance(item, str) and not item.endswith("%"):
+                match = re.search(r"(\d+(\.\d+)?)%", item)
+                if not match:
                     raise ValidationError(f"invalid percentage format: {item}")
 
         return tuple(v)

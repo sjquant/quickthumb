@@ -14,6 +14,7 @@ from quickthumb.models import (
     LayerType,
     LinearGradient,
     OutlineLayer,
+    RadialGradient,
     TextLayer,
 )
 
@@ -62,7 +63,7 @@ class Canvas:
     def background(
         self,
         color: str | tuple | None = None,
-        gradient: LinearGradient | None = None,
+        gradient: LinearGradient | RadialGradient | None = None,
         image: str | None = None,
         opacity: float = 1.0,
         blend_mode: BlendMode | str | None = None,
@@ -85,7 +86,9 @@ class Canvas:
         font: str | None = None,
         size: int | None = None,
         color: str | None = None,
-        position: tuple[int, int] | tuple[str, str] | None = None,
+        position: (
+            tuple[int, int] | tuple[str, str] | tuple[int, str] | tuple[str, int] | None
+        ) = None,
         align: tuple[str, str] | None = None,
         stroke: tuple[int, str] | None = None,
         bold: bool = False,
@@ -276,9 +279,19 @@ class Canvas:
 
         return None
 
+    def _parse_coordinate(self, value: int | str, dimension: int) -> int:
+        if isinstance(value, int):
+            return value
+
+        percentage = float(value.rstrip("%"))
+        return int(dimension * percentage / 100)
+
     def _calculate_text_position(self, layer: TextLayer, font) -> tuple[int, int]:
         text_dimensions = self._get_text_dimensions(layer.content, font)
-        base_x, base_y = layer.position if layer.position else (0, 0)
+        raw_x, raw_y = layer.position if layer.position else (0, 0)
+
+        base_x = self._parse_coordinate(raw_x, self.width)
+        base_y = self._parse_coordinate(raw_y, self.height)
 
         if not layer.align:
             return base_x, base_y

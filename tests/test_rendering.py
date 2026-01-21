@@ -167,3 +167,40 @@ class TestRendering:
                 RenderingError, match="Quality parameter is only supported for JPEG and WEBP"
             ):
                 canvas.render(output_path, quality=80)
+
+    def test_snapshot_percentage_with_alignment(self):
+        """Snapshot test for percentage positioning combined with text alignment"""
+        from quickthumb import Canvas
+
+        canvas = (
+            Canvas(400, 300)
+            .background(color="#FAFAFA")
+            .text(
+                "Top Left 25%",
+                size=14,
+                color="#FF5722",
+                position=("25%", "25%"),
+                align=("left", "top"),
+            )
+            .text(
+                "Center 50%",
+                size=14,
+                color="#4CAF50",
+                position=("50%", "50%"),
+                align=("center", "middle"),
+            )
+            .text(
+                "Bottom Right 75%",
+                size=14,
+                color="#2196F3",
+                position=("75%", "75%"),
+                align=("right", "bottom"),
+            )
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/percentage_with_alignment.png")
