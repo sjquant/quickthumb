@@ -242,7 +242,7 @@ class Canvas:
 
         if layer_image:
             if layer.blend_mode:
-                blended = self._apply_apply_blend_func_mode(image, layer_image, layer.blend_mode)
+                blended = self._apply_blend_mode(image, layer_image, layer.blend_mode)
                 image.paste(blended, (0, 0))
             else:
                 image.alpha_composite(layer_image)
@@ -537,7 +537,7 @@ class Canvas:
 
         return result
 
-    def _apply_apply_blend_func_mode(
+    def _apply_blend_mode(
         self, base: Image.Image, overlay: Image.Image, blend_mode: BlendMode | str
     ) -> Image.Image:
         if base.size != overlay.size:
