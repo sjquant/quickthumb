@@ -560,3 +560,51 @@ class TestRendering:
             # Then: Should render text with both bold and italic styles
             with open(output_path, "rb") as f:
                 assert f.read() == external_file("snapshots/text_bold_and_italic.png")
+
+    def test_snapshot_image_fit_cover(self):
+        """Snapshot test for image background with cover fit mode"""
+        from quickthumb import Canvas
+
+        # Given: An image background with cover fit mode
+        # When: Rendering image with fit="cover" (may crop)
+        canvas = Canvas(400, 400).background(image="tests/fixtures/sample_image.jpg", fit="cover")
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            # Then: Should scale image to cover entire canvas while preserving aspect ratio
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/image_fit_cover.png")
+
+    def test_snapshot_image_fit_contain(self):
+        """Snapshot test for image background with contain fit mode"""
+        from quickthumb import Canvas
+
+        # Given: An image background with contain fit mode
+        # When: Rendering image with fit="contain" (may have empty space)
+        canvas = Canvas(400, 400).background(image="tests/fixtures/sample_image.jpg", fit="contain")
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            # Then: Should scale image to fit within canvas while preserving aspect ratio
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/image_fit_contain.png")
+
+    def test_snapshot_image_fit_fill(self):
+        """Snapshot test for image background with fill fit mode"""
+        from quickthumb import Canvas
+
+        # Given: An image background with fill fit mode
+        # When: Rendering image with fit="fill" (may distort)
+        canvas = Canvas(400, 400).background(image="tests/fixtures/sample_image.jpg", fit="fill")
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            # Then: Should stretch image to fill entire canvas exactly
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/image_fit_fill.png")

@@ -13,6 +13,7 @@ from quickthumb.models import (
     BackgroundLayer,
     BlendMode,
     CanvasModel,
+    FitMode,
     LayerType,
     LinearGradient,
     OutlineLayer,
@@ -69,6 +70,7 @@ class Canvas:
         image: str | None = None,
         opacity: float = 1.0,
         blend_mode: BlendMode | str | None = None,
+        fit: FitMode | str | None = None,
     ) -> Self:
         with convert_pydantic_errors():
             layer = BackgroundLayer(
@@ -78,6 +80,7 @@ class Canvas:
                 image=image,
                 opacity=opacity,
                 blend_mode=blend_mode,
+                fit=fit,
             )
         self._layers.append(layer)
         return self
@@ -232,9 +235,7 @@ class Canvas:
                 layer_image = self._apply_opacity(layer_image, layer.opacity)
 
         elif layer.image:
-            layer_image = Image.open(layer.image).convert("RGBA")
-            if layer_image.size != image.size:
-                layer_image = layer_image.resize(image.size)
+            layer_image = self._load_and_fit_image(layer.image, image.size, layer.fit)
 
             if layer.opacity < 1.0:
                 layer_image = self._apply_opacity(layer_image, layer.opacity)
@@ -265,6 +266,37 @@ class Canvas:
         existing_alpha = color[3]
         alpha = int(existing_alpha * opacity)
         return (r, g, b, alpha)
+
+    def _load_and_fit_image(
+        self, image_path: str, canvas_size: tuple[int, int], fit: FitMode | None
+    ) -> Image.Image:
+        img = Image.open(image_path).convert("RGBA")
+        canvas_width, canvas_height = canvas_size
+        img_width, img_height = img.size
+
+        if fit is None or fit == FitMode.FILL:
+            return img.resize(canvas_size)
+
+        if fit == FitMode.COVER:
+            scale = max(canvas_width / img_width, canvas_height / img_height)
+            new_width = int(img_width * scale)
+            new_height = int(img_height * scale)
+            resized = img.resize((new_width, new_height))
+
+            left = (new_width - canvas_width) // 2
+            top = (new_height - canvas_height) // 2
+            return resized.crop((left, top, left + canvas_width, top + canvas_height))
+
+        scale = min(canvas_width / img_width, canvas_height / img_height)
+        new_width = int(img_width * scale)
+        new_height = int(img_height * scale)
+        resized = img.resize((new_width, new_height))
+
+        result = Image.new("RGBA", canvas_size, (0, 0, 0, 0))
+        paste_x = (canvas_width - new_width) // 2
+        paste_y = (canvas_height - new_height) // 2
+        result.paste(resized, (paste_x, paste_y))
+        return result
 
     def _render_text_layer(self, image: Image.Image, layer: TextLayer):
         draw = ImageDraw.Draw(image)

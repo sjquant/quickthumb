@@ -240,6 +240,7 @@ class TestBackgroundLayers:
             "image": None,
             "opacity": 1.0,
             "blend_mode": None,
+            "fit": None,
         }
         assert data["layers"][1] == {
             "type": "background",
@@ -252,6 +253,7 @@ class TestBackgroundLayers:
             "image": None,
             "opacity": 0.5,
             "blend_mode": "multiply",
+            "fit": None,
         }
 
     def test_should_deserialize_background_layer_from_json(self):
@@ -366,3 +368,15 @@ class TestBackgroundLayers:
         # Then: Should raise ValidationError
         with pytest.raises(ValidationError, match="invalid color tuple"):
             canvas.background(color=(255, 87))
+
+    def test_should_raise_error_for_invalid_fit_mode(self):
+        """Test that invalid fit mode raises ValidationError"""
+        # Given: Canvas and invalid fit mode string
+        from quickthumb import Canvas, ValidationError
+
+        canvas = Canvas(200, 150)
+
+        # When: User provides invalid fit mode
+        # Then: Should raise ValidationError
+        with pytest.raises(ValidationError, match="unsupported fit mode"):
+            canvas.background(image="image.jpg", fit="invalid")

@@ -33,6 +33,7 @@
 - ✅ System font loading (Arial on macOS, DejaVu on Linux)
 - ✅ Error handling (RenderingError for unsupported formats)
 - ✅ Add missing blend modes (SCREEN, DARKEN, LIGHTEN, NORMAL)
+- ✅ Image fit modes (cover, contain, fill)
 
 ---
 
@@ -40,7 +41,6 @@
 
 ### Medium Priority
 - [ ] Font loading and caching
-- [ ] Image fit modes (cover, contain, fill)
 - [ ] Image brightness adjustment
 
 ### Low Priority

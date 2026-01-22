@@ -85,6 +85,7 @@ class TestCanvas:
                         "image": None,
                         "opacity": 1.0,
                         "blend_mode": None,
+                        "fit": None,
                     },
                     {
                         "type": "background",
@@ -97,6 +98,7 @@ class TestCanvas:
                         "image": None,
                         "opacity": 0.5,
                         "blend_mode": None,
+                        "fit": None,
                     },
                     {
                         "type": "text",

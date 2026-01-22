@@ -23,6 +23,12 @@ class BlendMode(Enum):
     NORMAL = "normal"
 
 
+class FitMode(Enum):
+    COVER = "cover"
+    CONTAIN = "contain"
+    FILL = "fill"
+
+
 class LinearGradient(BaseModel):
     type: Literal["linear"] = "linear"
     angle: float
@@ -42,6 +48,7 @@ class BackgroundLayer(BaseModel):
     image: str | None = None
     opacity: float = 1.0
     blend_mode: BlendMode | str | None = None
+    fit: FitMode | str | None = None
 
     @field_validator("color")
     @classmethod
@@ -75,6 +82,23 @@ class BackgroundLayer(BaseModel):
                 raise ValidationError(f"unsupported blend mode: {v}") from e
 
         raise ValidationError(f"unsupported blend mode: {v}")
+
+    @field_validator("fit", mode="before")
+    @classmethod
+    def validate_fit(cls, v: FitMode | str | None) -> FitMode | None:
+        if v is None:
+            return v
+
+        if isinstance(v, FitMode):
+            return v
+
+        if isinstance(v, str):
+            try:
+                return FitMode(v)
+            except ValueError as e:
+                raise ValidationError(f"unsupported fit mode: {v}") from e
+
+        raise ValidationError(f"unsupported fit mode: {v}")
 
 
 class TextLayer(BaseModel):

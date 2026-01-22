@@ -3,6 +3,7 @@ from quickthumb.errors import QuickthumbError, ValidationError
 from quickthumb.models import (
     BackgroundLayer,
     BlendMode,
+    FitMode,
     LinearGradient,
     OutlineLayer,
     RadialGradient,
@@ -15,6 +16,7 @@ __all__ = [
     "ValidationError",
     "BackgroundLayer",
     "BlendMode",
+    "FitMode",
     "LinearGradient",
     "OutlineLayer",
     "RadialGradient",
