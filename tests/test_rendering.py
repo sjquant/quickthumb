@@ -337,6 +337,86 @@ class TestRendering:
             with open(output_path, "rb") as f:
                 assert f.read() == external_file("snapshots/blend_mode_overlay.png")
 
+    def test_snapshot_blend_mode_screen(self):
+        """Snapshot test for screen blend mode compositing"""
+        from quickthumb import Canvas
+
+        # Given: An image with a color layer using screen blend mode
+        # When: Layering color over image with screen blend mode
+        canvas = (
+            Canvas(400, 300)
+            .background(image="tests/fixtures/sample_image.jpg")
+            .background(color="#FFFF00", blend_mode="screen", opacity=0.5)
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            # Then: Should show lightening effect typical of screen mode
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/blend_mode_screen.png")
+
+    def test_snapshot_blend_mode_darken(self):
+        """Snapshot test for darken blend mode compositing"""
+        from quickthumb import Canvas
+
+        # Given: An image with a color layer using darken blend mode
+        # When: Layering color over image with darken blend mode
+        canvas = (
+            Canvas(400, 300)
+            .background(image="tests/fixtures/sample_image.jpg")
+            .background(color="#333333", blend_mode="darken", opacity=0.5)
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            # Then: Should keep darker pixels typical of darken mode
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/blend_mode_darken.png")
+
+    def test_snapshot_blend_mode_lighten(self):
+        """Snapshot test for lighten blend mode compositing"""
+        from quickthumb import Canvas
+
+        # Given: An image with a color layer using lighten blend mode
+        # When: Layering color over image with lighten blend mode
+        canvas = (
+            Canvas(400, 300)
+            .background(image="tests/fixtures/sample_image.jpg")
+            .background(color="#CCCCCC", blend_mode="lighten", opacity=0.5)
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            # Then: Should keep lighter pixels typical of lighten mode
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/blend_mode_lighten.png")
+
+    def test_snapshot_blend_mode_normal(self):
+        """Snapshot test for normal blend mode compositing"""
+        from quickthumb import Canvas
+
+        # Given: An image with a color layer using normal blend mode
+        # When: Layering color over image with normal blend mode
+        canvas = (
+            Canvas(400, 300)
+            .background(image="tests/fixtures/sample_image.jpg")
+            .background(color="#00FF00", blend_mode="normal", opacity=0.5)
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            # Then: Should show standard alpha compositing typical of normal mode
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/blend_mode_normal.png")
+
     def test_snapshot_image_background_basic(self):
         """Snapshot test for basic image background rendering"""
         from quickthumb import Canvas
@@ -400,7 +480,9 @@ class TestRendering:
         )
 
         # When: Rendering gradient with 50% opacity over solid color
-        canvas = Canvas(400, 300).background(color="#FFFFFF").background(gradient=gradient, opacity=0.5)
+        canvas = (
+            Canvas(400, 300).background(color="#FFFFFF").background(gradient=gradient, opacity=0.5)
+        )
 
         with tempfile.TemporaryDirectory() as tmpdir:
             output_path = os.path.join(tmpdir, "output.png")
@@ -419,7 +501,9 @@ class TestRendering:
         gradient = RadialGradient(type="radial", stops=[("#FFFF00", 0.0), ("#FF00FF", 1.0)])
 
         # When: Rendering gradient with 60% opacity over solid color
-        canvas = Canvas(400, 300).background(color="#FFFFFF").background(gradient=gradient, opacity=0.6)
+        canvas = (
+            Canvas(400, 300).background(color="#FFFFFF").background(gradient=gradient, opacity=0.6)
+        )
 
         with tempfile.TemporaryDirectory() as tmpdir:
             output_path = os.path.join(tmpdir, "output.png")

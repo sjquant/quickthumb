@@ -17,6 +17,10 @@ def validate_hex_color(color: str) -> None:
 class BlendMode(Enum):
     MULTIPLY = "multiply"
     OVERLAY = "overlay"
+    SCREEN = "screen"
+    DARKEN = "darken"
+    LIGHTEN = "lighten"
+    NORMAL = "normal"
 
 
 class LinearGradient(BaseModel):

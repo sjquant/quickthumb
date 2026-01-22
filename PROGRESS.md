@@ -32,6 +32,7 @@
 - ✅ Alpha compositing with opacity
 - ✅ System font loading (Arial on macOS, DejaVu on Linux)
 - ✅ Error handling (RenderingError for unsupported formats)
+- ✅ Add missing blend modes (SCREEN, DARKEN, LIGHTEN, NORMAL)
 
 ---
 

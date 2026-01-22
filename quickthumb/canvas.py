@@ -1,5 +1,6 @@
 import math
 import os
+from collections.abc import Callable
 from contextlib import contextmanager
 from typing import Literal
 
@@ -240,7 +241,7 @@ class Canvas:
 
         if layer_image:
             if layer.blend_mode:
-                blended = self._apply_blend_mode(image, layer_image, layer.blend_mode)
+                blended = self._apply_apply_blend_func_mode(image, layer_image, layer.blend_mode)
                 image.paste(blended, (0, 0))
             else:
                 image.alpha_composite(layer_image)
@@ -481,7 +482,30 @@ class Canvas:
 
         return Image.merge("RGB", (r, g, b)).convert("RGBA")
 
-    def _apply_blend_mode(
+    def _apply_blend_func(
+        self,
+        base: Image.Image,
+        overlay: Image.Image,
+        blend_func: Callable[[Image.Image, Image.Image], Image.Image],
+    ) -> Image.Image:
+        base_rgb = Image.new("RGB", base.size)
+        base_rgb.paste(base, mask=base.split()[3])
+
+        overlay_rgb = Image.new("RGB", overlay.size)
+        overlay_rgb.paste(overlay, mask=overlay.split()[3])
+
+        blended_rgb = blend_func(base_rgb, overlay_rgb)
+
+        base_alpha = base.split()[3]
+        overlay_alpha = overlay.split()[3]
+        combined_alpha = ImageChops.lighter(base_alpha, overlay_alpha)
+
+        result = blended_rgb.convert("RGBA")
+        result.putalpha(combined_alpha)
+
+        return result
+
+    def _apply_apply_blend_func_mode(
         self, base: Image.Image, overlay: Image.Image, blend_mode: BlendMode | str
     ) -> Image.Image:
         if base.size != overlay.size:
@@ -496,18 +520,28 @@ class Canvas:
             try:
                 blend_mode_enum = BlendMode(blend_mode_enum)
             except ValueError:
-                return base
+                raise RenderingError(f"Unsupported blend mode: {blend_mode}") from None
 
         if blend_mode_enum == BlendMode.MULTIPLY:
-            return ImageChops.multiply(base, overlay)
+            return self._apply_blend_func(base, overlay, ImageChops.multiply)
         elif blend_mode_enum == BlendMode.OVERLAY:
             if hasattr(ImageChops, "overlay"):
-                return ImageChops.overlay(base, overlay)
-            return self._manual_blend_overlay(base, overlay)
+                return self._apply_blend_func(base, overlay, ImageChops.overlay)
+            return self._blend_manually(base, overlay)
+        elif blend_mode_enum == BlendMode.SCREEN:
+            return self._apply_blend_func(base, overlay, ImageChops.screen)
+        elif blend_mode_enum == BlendMode.DARKEN:
+            return self._apply_blend_func(base, overlay, ImageChops.darker)
+        elif blend_mode_enum == BlendMode.LIGHTEN:
+            return self._apply_blend_func(base, overlay, ImageChops.lighter)
+        elif blend_mode_enum == BlendMode.NORMAL:
+            result = base.copy()
+            result.alpha_composite(overlay)
+            return result
 
-        return base
+        raise RenderingError(f"Unsupported blend mode: {blend_mode_enum}")
 
-    def _manual_blend_overlay(self, base: Image.Image, overlay: Image.Image) -> Image.Image:
+    def _blend_manually(self, base: Image.Image, overlay: Image.Image) -> Image.Image:
         base_data = base.load()
         if base_data is None:
             raise RenderingError("Failed to load base image")
