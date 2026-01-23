@@ -320,17 +320,29 @@ class Canvas:
 
     def _load_font(self, layer: TextLayer) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
         size = layer.size or DEFAULT_TEXT_SIZE
-
-        if layer.font:
-            return ImageFont.truetype(layer.font, size)
-
         font_style = self._determine_font_style(layer)
-        system_font_path = self._find_system_font(font_style)
 
-        if system_font_path:
-            return ImageFont.truetype(system_font_path, size)
+        try:
+            font_name = layer.font
+            if font_name and font_style:
+                try:
+                    styled_font_name = f"{font_name} {font_style}"
+                    return ImageFont.truetype(styled_font_name, size)
+                except OSError:
+                    # Fallback to the original font name if the styled one fails
+                    pass
 
-        return ImageFont.load_default()
+            if font_name:
+                return ImageFont.truetype(font_name, size)
+
+            system_font_path = self._find_system_font(font_style)
+            if system_font_path:
+                return ImageFont.truetype(system_font_path, size)
+
+            return ImageFont.load_default()
+        except OSError as e:
+            font_name = layer.font or "default"
+            raise RenderingError(f"Could not load font '{font_name}'.") from e
 
     def _determine_font_style(self, layer: TextLayer) -> str:
         if layer.bold and layer.italic:

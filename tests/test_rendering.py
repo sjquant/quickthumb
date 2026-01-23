@@ -608,26 +608,6 @@ class TestRendering:
             with open(output_path, "rb") as f:
                 assert f.read() == external_file("snapshots/image_fit_fill.png")
 
-    def test_should_load_font_by_name(self):
-        """Test that font can be specified by name instead of full file path"""
-        # Given: User wants to use Arial font by name
-        from quickthumb import Canvas
-
-        # When: Rendering with font name instead of path
-        canvas = (
-            Canvas(400, 200)
-            .background(color="#FFFFFF")
-            .text("Hello", font="Arial", size=48, color="#000000")
-        )
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            output_path = os.path.join(tmpdir, "output.png")
-            canvas.render(output_path)
-
-            # Then: Should render successfully without requiring full path
-            with open(output_path, "rb") as f:
-                assert f.read() == external_file("snapshots/font_name_works.png")
-
     def test_should_handle_unknown_font_name_gracefully(self):
         """Test that invalid font name raises ValidationError with helpful message"""
         from quickthumb import Canvas
@@ -647,65 +627,41 @@ class TestRendering:
             with pytest.raises(RenderingError):
                 canvas.render(output_path)
 
-    def test_should_support_bold_with_named_font(self):
-        """Test that bold variant works with font names (e.g., Arial + bold=True finds Arial Bold)"""
-        # Given: User wants to use Arial font in bold
+    @pytest.mark.parametrize(
+        "font_family, style_name, style_attrs",
+        [
+            ("Arial", "bold", {"bold": True}),
+            ("Arial", "italic", {"italic": True}),
+            ("Arial", "bold_italic", {"bold": True, "italic": True}),
+            ("Times New Roman", "bold", {"bold": True}),
+            ("Times New Roman", "italic", {"italic": True}),
+            ("Times New Roman", "bold_italic", {"bold": True, "italic": True}),
+        ],
+    )
+    def test_should_support_styled_named_fonts(self, font_family, style_name, style_attrs):
+        """Test that styled variants work with named fonts (e.g., Arial Bold, Times New Roman Italic)"""
         from quickthumb import Canvas
 
-        # When: Rendering with font name and bold flag
+        snapshot_name = f"{font_family.lower().replace(' ', '_')}_{style_name}.png"
+
+        # Given: User wants to use a named font with a specific style
         canvas = (
             Canvas(400, 200)
             .background(color="#FFFFFF")
-            .text("Bold Text", font="Arial", size=48, color="#000000", bold=True)
+            .text(
+                f"{font_family} {style_name}",
+                font=font_family,
+                size=36,
+                color="#000000",
+                **style_attrs,
+            )
         )
 
-        # Then: Should render with bold variant successfully
+        # When: Rendering with font name and style flags
         with tempfile.TemporaryDirectory() as tmpdir:
             output_path = os.path.join(tmpdir, "output.png")
             canvas.render(output_path)
 
-            # Then: Should render with bold variant successfully
+            # Then: Should render with the styled variant successfully
             with open(output_path, "rb") as f:
-                assert f.read() == external_file("snapshots/bold_with_named_font.png")
-
-    def test_should_support_italic_with_named_font(self):
-        """Test that italic variant works with font names"""
-        # Given: User wants to use Arial font in italic
-        from quickthumb import Canvas
-
-        # When: Rendering with font name and italic flag
-        canvas = (
-            Canvas(400, 200)
-            .background(color="#FFFFFF")
-            .text("Italic Text", font="Arial", size=48, color="#000000", italic=True)
-        )
-
-        # Then: Should render with italic variant successfully
-        with tempfile.TemporaryDirectory() as tmpdir:
-            output_path = os.path.join(tmpdir, "output.png")
-            canvas.render(output_path)
-
-            # Then: Should render with italic variant successfully
-            with open(output_path, "rb") as f:
-                assert f.read() == external_file("snapshots/italic_with_named_font.png")
-
-    def test_should_support_bold_italic_with_named_font(self):
-        """Test that both bold and italic work together with font names"""
-        # Given: User wants to use Arial font in bold italic
-        from quickthumb import Canvas
-
-        # When: Rendering with font name and both bold and italic flags
-        canvas = (
-            Canvas(400, 200)
-            .background(color="#FFFFFF")
-            .text("Bold Italic", font="Arial", size=48, color="#000000", bold=True, italic=True)
-        )
-
-        # Then: Should render with bold italic variant successfully
-        with tempfile.TemporaryDirectory() as tmpdir:
-            output_path = os.path.join(tmpdir, "output.png")
-            canvas.render(output_path)
-
-            # Then: Should render with bold italic variant successfully
-            with open(output_path, "rb") as f:
-                assert f.read() == external_file("snapshots/bold_italic_with_named_font.png")
+                assert f.read() == external_file(f"snapshots/{snapshot_name}")

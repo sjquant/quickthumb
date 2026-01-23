@@ -7,6 +7,7 @@
 ## ✅ Completed
 
 ### Core API & Models
+
 - ✅ Canvas creation (explicit dimensions, aspect ratios)
 - ✅ Background layers (solid colors, linear/radial gradients, images, blend modes, opacity)
 - ✅ Text layers (content, fonts, stroke, positioning, alignment, bold/italic)
@@ -16,6 +17,7 @@
 - ✅ Method chaining API
 
 ### Rendering Engine
+
 - ✅ PNG output with Pillow/PIL
 - ✅ JPEG output (with quality parameter)
 - ✅ WebP output (with quality parameter)
@@ -34,16 +36,18 @@
 - ✅ Error handling (RenderingError for unsupported formats)
 - ✅ Add missing blend modes (SCREEN, DARKEN, LIGHTEN, NORMAL)
 - ✅ Image fit modes (cover, contain, fill)
+- ✅ Font loading and caching
 
 ---
 
 ## 🚧 TODO
 
 ### Medium Priority
-- [ ] Font loading and caching
+
 - [ ] Image brightness adjustment
 
 ### Low Priority
+
 - [ ] Text word wrapping (`max_width` parameter)
 - [ ] Performance optimizations
 - [ ] Extended documentation/examples
