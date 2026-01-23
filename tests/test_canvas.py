@@ -86,6 +86,7 @@ class TestCanvas:
                         "opacity": 1.0,
                         "blend_mode": None,
                         "fit": None,
+                        "brightness": 1.0,
                     },
                     {
                         "type": "background",
@@ -99,6 +100,7 @@ class TestCanvas:
                         "opacity": 0.5,
                         "blend_mode": None,
                         "fit": None,
+                        "brightness": 1.0,
                     },
                     {
                         "type": "text",

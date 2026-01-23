@@ -639,7 +639,7 @@ class TestRendering:
         ],
     )
     def test_should_support_styled_named_fonts(self, font_family, style_name, style_attrs):
-        """Test that styled variants work with named fonts (e.g., Arial Bold, Times New Roman Italic)"""
+        """Test that styled variants work with named fonts (e.g., Arial Bold)"""
         from quickthumb import Canvas
 
         snapshot_name = f"{font_family.lower().replace(' ', '_')}_{style_name}.png"
@@ -665,3 +665,101 @@ class TestRendering:
             # Then: Should render with the styled variant successfully
             with open(output_path, "rb") as f:
                 assert f.read() == external_file(f"snapshots/{snapshot_name}")
+
+    @pytest.mark.parametrize(
+        "brightness, direction",
+        [
+            (1.5, "increase"),
+            (0.5, "decrease"),
+        ],
+    )
+    def test_snapshot_image_brightness(self, brightness, direction):
+        """Snapshot test for image background with brightness adjustment"""
+        from quickthumb import Canvas
+
+        canvas = Canvas(400, 300).background(
+            image="tests/fixtures/sample_image.jpg", brightness=brightness
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file(f"snapshots/image_brightness_{direction}.png")
+
+    @pytest.mark.parametrize(
+        "brightness, direction",
+        [
+            (1.5, "increase"),
+            (0.5, "decrease"),
+        ],
+    )
+    def test_snapshot_solid_color_brightness(self, brightness, direction):
+        """Snapshot test for solid color background with brightness adjustment"""
+        from quickthumb import Canvas
+
+        canvas = Canvas(400, 300).background(color="#3498db", brightness=brightness)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file(
+                    f"snapshots/solid_color_brightness_{direction}.png"
+                )
+
+    @pytest.mark.parametrize(
+        "brightness, direction",
+        [
+            (1.5, "increase"),
+            (0.7, "decrease"),
+        ],
+    )
+    def test_snapshot_linear_gradient_brightness(self, brightness, direction):
+        """Snapshot test for linear gradient with brightness adjustment"""
+        from quickthumb import Canvas
+        from quickthumb.models import LinearGradient
+
+        gradient = LinearGradient(
+            type="linear", angle=45, stops=[("#FF6B6B", 0.0), ("#4ECDC4", 1.0)]
+        )
+
+        canvas = Canvas(400, 300).background(gradient=gradient, brightness=brightness)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file(
+                    f"snapshots/linear_gradient_brightness_{direction}.png"
+                )
+
+    @pytest.mark.parametrize(
+        "brightness, direction",
+        [
+            (1.3, "increase"),
+            (0.6, "decrease"),
+        ],
+    )
+    def test_snapshot_radial_gradient_brightness(self, brightness, direction):
+        """Snapshot test for radial gradient with brightness adjustment"""
+        from quickthumb import Canvas
+        from quickthumb.models import RadialGradient
+
+        gradient = RadialGradient(
+            type="radial", stops=[("#FF0000", 0.0), ("#0000FF", 1.0)], center=(0.5, 0.5)
+        )
+
+        canvas = Canvas(400, 300).background(gradient=gradient, brightness=brightness)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file(
+                    f"snapshots/radial_gradient_brightness_{direction}.png"
+                )

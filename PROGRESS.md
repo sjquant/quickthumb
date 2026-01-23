@@ -1,9 +1,5 @@
 # QuickThumb TODO
 
-**Status**: High priority rendering complete (61/61 tests, 95% coverage)
-
----
-
 ## ✅ Completed
 
 ### Core API & Models
@@ -37,14 +33,11 @@
 - ✅ Add missing blend modes (SCREEN, DARKEN, LIGHTEN, NORMAL)
 - ✅ Image fit modes (cover, contain, fill)
 - ✅ Font loading and caching
+- ✅ Brightness adjustment (for solid colors, gradients, and images)
 
 ---
 
 ## 🚧 TODO
-
-### Medium Priority
-
-- [ ] Image brightness adjustment
 
 ### Low Priority
 

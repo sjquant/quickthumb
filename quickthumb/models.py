@@ -49,6 +49,7 @@ class BackgroundLayer(BaseModel):
     opacity: float = 1.0
     blend_mode: BlendMode | str | None = None
     fit: FitMode | str | None = None
+    brightness: float = 1.0
 
     @field_validator("color")
     @classmethod
@@ -99,6 +100,13 @@ class BackgroundLayer(BaseModel):
                 raise ValidationError(f"unsupported fit mode: {v}") from e
 
         raise ValidationError(f"unsupported fit mode: {v}")
+
+    @field_validator("brightness")
+    @classmethod
+    def validate_brightness(cls, v: float) -> float:
+        if v < 0.0:
+            raise ValidationError("brightness must be >= 0.0")
+        return v
 
 
 class TextLayer(BaseModel):

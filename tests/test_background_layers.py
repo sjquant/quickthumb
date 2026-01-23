@@ -241,6 +241,7 @@ class TestBackgroundLayers:
             "opacity": 1.0,
             "blend_mode": None,
             "fit": None,
+            "brightness": 1.0,
         }
         assert data["layers"][1] == {
             "type": "background",
@@ -254,6 +255,7 @@ class TestBackgroundLayers:
             "opacity": 0.5,
             "blend_mode": "multiply",
             "fit": None,
+            "brightness": 1.0,
         }
 
     def test_should_deserialize_background_layer_from_json(self):

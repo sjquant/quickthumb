@@ -5,7 +5,7 @@ from contextlib import contextmanager
 from typing import Literal
 
 import pydantic_core
-from PIL import Image, ImageChops, ImageDraw, ImageFont
+from PIL import Image, ImageChops, ImageDraw, ImageEnhance, ImageFont
 from typing_extensions import Self
 
 from quickthumb.errors import RenderingError, ValidationError
@@ -71,6 +71,7 @@ class Canvas:
         opacity: float = 1.0,
         blend_mode: BlendMode | str | None = None,
         fit: FitMode | str | None = None,
+        brightness: float = 1.0,
     ) -> Self:
         with convert_pydantic_errors():
             layer = BackgroundLayer(
@@ -81,6 +82,7 @@ class Canvas:
                 opacity=opacity,
                 blend_mode=blend_mode,
                 fit=fit,
+                brightness=brightness,
             )
         self._layers.append(layer)
         return self
@@ -221,6 +223,9 @@ class Canvas:
             if layer.opacity < 1.0:
                 color = self._apply_opacity_to_color(color, layer.opacity)
             layer_image = Image.new("RGBA", image.size, color)
+
+            if layer.brightness != 1.0:
+                layer_image = self._apply_brightness(layer_image, layer.brightness)
         elif layer.gradient:
             if isinstance(layer.gradient, LinearGradient):
                 layer_image = self._create_linear_gradient(
@@ -231,11 +236,17 @@ class Canvas:
                     image.size, layer.gradient.stops, layer.gradient.center
                 )
 
+            if layer_image and layer.brightness != 1.0:
+                layer_image = self._apply_brightness(layer_image, layer.brightness)
+
             if layer_image and layer.opacity < 1.0:
                 layer_image = self._apply_opacity(layer_image, layer.opacity)
 
         elif layer.image:
             layer_image = self._load_and_fit_image(layer.image, image.size, layer.fit)
+
+            if layer.brightness != 1.0:
+                layer_image = self._apply_brightness(layer_image, layer.brightness)
 
             if layer.opacity < 1.0:
                 layer_image = self._apply_opacity(layer_image, layer.opacity)
@@ -255,6 +266,13 @@ class Canvas:
         alpha = alpha.point(lambda x: int(x * opacity))
         image.putalpha(alpha)
         return image
+
+    def _apply_brightness(self, image: Image.Image, brightness: float) -> Image.Image:
+        if brightness == 1.0:
+            return image
+
+        enhancer = ImageEnhance.Brightness(image)
+        return enhancer.enhance(brightness)
 
     def _apply_opacity_to_color(self, color: tuple[int, ...], opacity: float) -> tuple[int, ...]:
         r, g, b = color[:3]
