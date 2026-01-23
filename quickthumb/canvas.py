@@ -216,47 +216,45 @@ class Canvas:
         return DEFAULT_TEXT_COLOR
 
     def _render_background_layer(self, image: Image.Image, layer: BackgroundLayer):
-        layer_image = None
+        layer_image = self._create_layer_image(image.size, layer)
+        if not layer_image:
+            return
 
+        if layer.brightness != 1.0:
+            layer_image = self._apply_brightness(layer_image, layer.brightness)
+
+        if layer.opacity < 1.0 and not layer.color:
+            layer_image = self._apply_opacity(layer_image, layer.opacity)
+
+        if layer.blend_mode:
+            blended = self._apply_blend_mode(image, layer_image, layer.blend_mode)
+            image.paste(blended, (0, 0))
+        else:
+            image.alpha_composite(layer_image)
+
+    def _create_layer_image(
+        self, size: tuple[int, int], layer: BackgroundLayer
+    ) -> Image.Image | None:
         if layer.color:
             color = self._parse_color(layer.color)
             if layer.opacity < 1.0:
                 color = self._apply_opacity_to_color(color, layer.opacity)
-            layer_image = Image.new("RGBA", image.size, color)
+            return Image.new("RGBA", size, color)
 
-            if layer.brightness != 1.0:
-                layer_image = self._apply_brightness(layer_image, layer.brightness)
-        elif layer.gradient:
+        if layer.gradient:
             if isinstance(layer.gradient, LinearGradient):
-                layer_image = self._create_linear_gradient(
-                    image.size, layer.gradient.angle, layer.gradient.stops
+                return self._create_linear_gradient(
+                    size, layer.gradient.angle, layer.gradient.stops
                 )
-            elif isinstance(layer.gradient, RadialGradient):
-                layer_image = self._create_radial_gradient(
-                    image.size, layer.gradient.stops, layer.gradient.center
+            if isinstance(layer.gradient, RadialGradient):
+                return self._create_radial_gradient(
+                    size, layer.gradient.stops, layer.gradient.center
                 )
 
-            if layer_image and layer.brightness != 1.0:
-                layer_image = self._apply_brightness(layer_image, layer.brightness)
+        if layer.image:
+            return self._load_and_fit_image(layer.image, size, layer.fit)
 
-            if layer_image and layer.opacity < 1.0:
-                layer_image = self._apply_opacity(layer_image, layer.opacity)
-
-        elif layer.image:
-            layer_image = self._load_and_fit_image(layer.image, image.size, layer.fit)
-
-            if layer.brightness != 1.0:
-                layer_image = self._apply_brightness(layer_image, layer.brightness)
-
-            if layer.opacity < 1.0:
-                layer_image = self._apply_opacity(layer_image, layer.opacity)
-
-        if layer_image:
-            if layer.blend_mode:
-                blended = self._apply_blend_mode(image, layer_image, layer.blend_mode)
-                image.paste(blended, (0, 0))
-            else:
-                image.alpha_composite(layer_image)
+        return None
 
     def _apply_opacity(self, image: Image.Image, opacity: float) -> Image.Image:
         if opacity == 1.0:
