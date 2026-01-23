@@ -268,7 +268,7 @@ class Canvas:
         return (r, g, b, alpha)
 
     def _load_and_fit_image(
-        self, image_path: str, canvas_size: tuple[int, int], fit: FitMode | None
+        self, image_path: str, canvas_size: tuple[int, int], fit: FitMode | str | None
     ) -> Image.Image:
         img = Image.open(image_path).convert("RGBA")
         canvas_width, canvas_height = canvas_size
@@ -590,9 +590,9 @@ class Canvas:
                 base_pixel = base_data[x, y]
                 overlay_pixel = overlay_data[x, y]
 
-                if isinstance(base_pixel, float):
+                if isinstance(base_pixel, int | float):
                     raise RenderingError("Base pixel is a float")
-                if isinstance(overlay_pixel, float):
+                if isinstance(overlay_pixel, int | float):
                     raise RenderingError("Overlay pixel is a float")
 
                 r = self._overlay_channel(base_pixel[0], overlay_pixel[0])
