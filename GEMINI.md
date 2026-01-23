@@ -35,12 +35,14 @@ QuickThumb is a Python library for programmatic thumbnail generation. See [READM
 ## Development Commands
 
 ### Setup
+
 ```bash
 # Install dependencies
 uv sync
 ```
 
 ### Testing
+
 ```bash
 # Run all tests
 uv run pytest tests/ -v
@@ -56,9 +58,10 @@ uv run pytest tests/ --cov=quickthumb --cov-report=html
 ```
 
 ### Code Quality
+
 ```bash
 # Type checking
-uv run ty quickthumb/
+uv run ty check quickthumb/
 
 # Linting
 uv run ruff check quickthumb/
@@ -85,6 +88,7 @@ uv run ruff format quickthumb/
 ### Layer Stack Model
 
 Layers are appended to `Canvas._layers` in call order and rendered sequentially:
+
 1. Background layers (stackable with blend modes)
 2. Text layers
 3. Decoration layers
@@ -96,6 +100,7 @@ Both Python method chaining and JSON configuration map to the same internal `Can
 ## Testing Philosophy
 
 Follows **strict TDD** as defined in `.claude/agents/tdd-implementer.md`:
+
 - Self-explanatory code (no "what"/"how" comments)
 - Black-box testing (public API only)
 - Green → Refactor cycle
