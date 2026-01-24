@@ -39,8 +39,16 @@
 
 ## 🚧 TODO
 
+### Text Effects (Phase 5)
+
+- [ ] Drop shadow (`shadow` parameter: x_offset, y_offset, color, blur)
+- [ ] Glow/outer glow (`glow` parameter: color, radius, opacity)
+- [ ] Letter spacing (`letter_spacing` parameter)
+- [ ] Line height (`line_height` parameter)
+- [ ] Rich text with `TextPart` (partial text styling: color, stroke per segment)
+- [ ] Text word wrapping (`max_width` parameter)
+
 ### Low Priority
 
-- [ ] Text word wrapping (`max_width` parameter)
 - [ ] Performance optimizations
 - [ ] Extended documentation/examples

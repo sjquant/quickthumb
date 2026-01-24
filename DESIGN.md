@@ -43,7 +43,7 @@ canvas.background(gradient=LinearGradient(45, [("#FF5733", 0.0), ("#3333FF", 1.0
 
 # Text layers (can call multiple times)
 canvas.text(
-    content="Title",
+    content="Title",  # str or list of TextPart for rich text
     font="Roboto",
     size=72,
     color="#FFFFFF",
@@ -52,7 +52,21 @@ canvas.text(
     stroke=None,  # (width, color) tuple
     bold=False,
     italic=False,
-    max_width=None  # For word wrapping
+    max_width=None,  # For word wrapping
+    shadow=None,  # (x_offset, y_offset, color, blur) tuple
+    glow=None,  # (color, radius, opacity) tuple
+    letter_spacing=None,  # pixels between characters
+    line_height=None,  # multiplier for line spacing (e.g., 1.5)
+)
+
+# Rich text with partial styling using TextPart
+canvas.text(
+    content=[
+        TextPart("Hello ", color="#FFFFFF"),
+        TextPart("World", color="#FF0000", stroke=(2, "#000000")),
+    ],
+    size=72,
+    shadow=(4, 4, "#00000080", 5),  # effects apply to all parts
 )
 
 # Decoration layers
@@ -97,7 +111,20 @@ json_str = canvas.to_json()          # Export canvas to JSON string
       "color": "#FFFFFF",
       "align": ["center", "middle"],
       "stroke": [3, "#000000"],
-      "bold": true
+      "bold": true,
+      "shadow": [4, 4, "#00000080", 5],
+      "glow": ["#FF0000", 10, 0.8],
+      "letter_spacing": 2,
+      "line_height": 1.5
+    },
+    {
+      "type": "text",
+      "content": [
+        {"text": "Hello ", "color": "#FFFFFF"},
+        {"text": "World", "color": "#FF0000", "stroke": [2, "#000000"]}
+      ],
+      "size": 72,
+      "shadow": [4, 4, "#00000080", 5]
     },
     {
       "type": "outline",
@@ -157,7 +184,7 @@ assert recreated.to_json() == exported  # Perfect round-trip
 ### Helper Classes
 
 ```python
-from quickthumb import LinearGradient, RadialGradient, BlendMode
+from quickthumb import LinearGradient, RadialGradient, BlendMode, TextPart
 
 # Gradients
 LinearGradient(angle=45, stops=[("#FF5733", 0.0), ("#3333FF", 1.0)])
@@ -170,6 +197,70 @@ BlendMode.OVERLAY
 BlendMode.SCREEN
 BlendMode.DARKEN
 BlendMode.LIGHTEN
+
+# Rich text parts (for partial text styling)
+TextPart(
+    text="Hello",
+    color="#FF0000",  # optional, inherits from parent text layer
+    stroke=None,  # optional (width, color) tuple
+)
+```
+
+### Text Effects
+
+Text layers support various effects for enhanced visual styling:
+
+```python
+# Drop shadow - (x_offset, y_offset, color, blur)
+canvas.text("Shadow", size=72, shadow=(4, 4, "#00000080", 5))
+
+# Glow/outer glow - (color, radius, opacity)
+canvas.text("Glow", size=72, glow=("#FF0000", 10, 0.8))
+
+# Letter spacing - pixels between characters
+canvas.text("SPACED", size=72, letter_spacing=10)
+
+# Line height - multiplier for multi-line text
+canvas.text("Line 1\nLine 2", size=72, line_height=1.5)
+
+# Combined effects
+canvas.text(
+    "Epic Title",
+    size=96,
+    color="#FFFFFF",
+    stroke=(3, "#000000"),
+    shadow=(4, 4, "#00000080", 8),
+    glow=("#FF5733", 15, 0.6),
+)
+```
+
+### Rich Text (Partial Styling)
+
+Use `TextPart` to apply different styles to portions of text:
+
+```python
+from quickthumb import TextPart
+
+# Different colors for different words
+canvas.text(
+    content=[
+        TextPart("Hello ", color="#FFFFFF"),
+        TextPart("World", color="#FF0000"),
+    ],
+    size=72,
+)
+
+# Mix styled and unstyled parts (unstyled inherits defaults)
+canvas.text(
+    content=[
+        TextPart("Normal "),  # inherits color="#FFFFFF"
+        TextPart("RED", color="#FF0000", stroke=(2, "#000000")),
+        TextPart(" Normal"),  # inherits color="#FFFFFF"
+    ],
+    color="#FFFFFF",  # default for parts without explicit color
+    size=72,
+    shadow=(4, 4, "#000000", 5),  # effects apply to all parts
+)
 ```
 
 ## Design Consistency Checks
@@ -242,3 +333,10 @@ BlendMode.LIGHTEN
 - JPEG/WebP output
 - JSON operations (`from_json()`, `to_json()`)
 - Comprehensive error messages
+
+### Phase 5: Text Effects
+- Drop shadow (`shadow` parameter)
+- Glow/outer glow (`glow` parameter)
+- Letter spacing (`letter_spacing` parameter)
+- Line height (`line_height` parameter)
+- Rich text with `TextPart` (partial text styling)
