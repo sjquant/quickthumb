@@ -23,7 +23,6 @@
 - ✅ Image background rendering (auto-resize to canvas dimensions)
 - ✅ Blend mode compositing (multiply for darkening, overlay for contrast)
 - ✅ Text rendering (bold, italic, unicode, emojis)
-- ✅ Text stroke rendering (configurable width and color)
 - ✅ Text alignment (horizontal: left/center/right, vertical: top/middle/bottom)
 - ✅ Text positioning with percentages (e.g., position=("50%", "50%"))
 - ✅ Outline decoration rendering (border with width and offset support)
@@ -36,17 +35,22 @@
 - ✅ Brightness adjustment (for solid colors, gradients, and images)
 - ✅ Text word wrapping (max_width parameter with alignment preservation)
 
+### Text Effects
+
+- ✅ Effect classes API (extensible effects list with Stroke, Shadow, Glow)
+- ✅ Text stroke rendering (configurable width and color)
+- ✅ Drop shadow (offset_x, offset_y, color, blur_radius)
+- ✅ Glow/outer glow (color, radius, opacity)
+
 ---
 
 ## 🚧 TODO
 
 ### Text Effects (Phase 5)
 
-- [ ] Drop shadow (`shadow` parameter: x_offset, y_offset, color, blur)
-- [ ] Glow/outer glow (`glow` parameter: color, radius, opacity)
 - [ ] Letter spacing (`letter_spacing` parameter)
 - [ ] Line height (`line_height` parameter)
-- [ ] Rich text with `TextPart` (partial text styling: color, stroke per segment)
+- [ ] Rich text with `TextPart` (partial text styling: color, effects per segment)
 
 ### Low Priority
 

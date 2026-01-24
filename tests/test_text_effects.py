@@ -280,3 +280,125 @@ class TestTextEffects:
 
         with pytest.raises(ValidationError, match=error_pattern):
             canvas.text("Hello", effects=[Shadow(**effect_args)])
+
+    def test_should_add_text_with_glow_effect(self):
+        """Test that text can be created with Glow effect"""
+        from quickthumb import Canvas, Glow
+
+        canvas = Canvas(1920, 1080)
+
+        canvas.text("Hello", size=72, effects=[Glow(color="#FF0000", radius=10)])
+
+        assert len(canvas.layers) == 1
+        assert canvas.layers == [
+            TextLayer(
+                type="text",
+                content="Hello",
+                size=72,
+                effects=[Glow(color="#FF0000", radius=10, opacity=1.0)],
+            )
+        ]
+
+    def test_should_add_text_with_multiple_glow_effects(self):
+        """Test that text can have multiple glow effects with different colors and radii"""
+        from quickthumb import Canvas, Glow
+
+        canvas = Canvas(1920, 1080)
+
+        canvas.text(
+            "Epic",
+            size=96,
+            effects=[
+                Glow(color="#FF0000", radius=5, opacity=0.8),
+                Glow(color="#0000FF", radius=15, opacity=0.5),
+            ],
+        )
+
+        assert len(canvas.layers) == 1
+        assert canvas.layers[0] == TextLayer(
+            type="text",
+            content="Epic",
+            size=96,
+            effects=[
+                Glow(color="#FF0000", radius=5, opacity=0.8),
+                Glow(color="#0000FF", radius=15, opacity=0.5),
+            ],
+        )
+
+    def test_should_serialize_text_with_glow_to_json(self):
+        """Test that glow effects are serialized to JSON"""
+        import json
+
+        from quickthumb import Canvas, Glow
+
+        canvas = Canvas(1920, 1080).text(
+            "Hello", size=72, effects=[Glow(color="#FF0000", radius=10, opacity=0.9)]
+        )
+
+        json_str = canvas.to_json()
+        data = json.loads(json_str)
+
+        assert len(data["layers"]) == 1
+        assert data["layers"][0] == snapshot(
+            {
+                "type": "text",
+                "content": "Hello",
+                "font": None,
+                "size": 72,
+                "color": None,
+                "position": None,
+                "align": None,
+                "bold": False,
+                "italic": False,
+                "max_width": None,
+                "effects": [{"type": "glow", "color": "#FF0000", "radius": 10, "opacity": 0.9}],
+            }
+        )
+
+    def test_should_deserialize_text_with_glow_from_json(self):
+        """Test that glow effects are deserialized from JSON"""
+        import json
+
+        from quickthumb import Canvas, Glow
+
+        json_data = {
+            "width": 1920,
+            "height": 1080,
+            "layers": [
+                {
+                    "type": "text",
+                    "content": "Hello",
+                    "size": 72,
+                    "effects": [{"type": "glow", "color": "#FF0000", "radius": 10, "opacity": 0.9}],
+                }
+            ],
+        }
+
+        canvas = Canvas.from_json(json.dumps(json_data))
+
+        assert len(canvas.layers) == 1
+        assert canvas.layers[0] == TextLayer(
+            type="text",
+            content="Hello",
+            size=72,
+            effects=[Glow(color="#FF0000", radius=10, opacity=0.9)],
+        )
+
+    @pytest.mark.parametrize(
+        "effect_args,error_pattern",
+        [
+            ({"color": "invalid", "radius": 10}, "invalid hex"),
+            ({"color": "#FF0000", "radius": 0}, "radius.*positive"),
+            ({"color": "#FF0000", "radius": -5}, "radius.*positive"),
+            ({"color": "#FF0000", "radius": 10, "opacity": -0.1}, "opacity.*0.0.*1.0"),
+            ({"color": "#FF0000", "radius": 10, "opacity": 1.5}, "opacity.*0.0.*1.0"),
+        ],
+    )
+    def test_should_raise_error_for_invalid_glow(self, effect_args, error_pattern):
+        """Test that invalid Glow parameters raise ValidationError"""
+        from quickthumb import Canvas, Glow, ValidationError
+
+        canvas = Canvas(1920, 1080)
+
+        with pytest.raises(ValidationError, match=error_pattern):
+            canvas.text("Hello", effects=[Glow(**effect_args)])

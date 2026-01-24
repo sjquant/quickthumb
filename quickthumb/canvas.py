@@ -14,6 +14,7 @@ from quickthumb.models import (
     BlendMode,
     CanvasModel,
     FitMode,
+    Glow,
     LayerType,
     LinearGradient,
     OutlineLayer,
@@ -332,6 +333,13 @@ class Canvas:
                 shadows.append(effect)
         return shadows
 
+    def _get_glow_effects(self, effects: list[TextEffect]) -> list[Glow]:
+        glows = []
+        for effect in effects:
+            if isinstance(effect, Glow):
+                glows.append(effect)
+        return glows
+
     def _render_shadow(
         self,
         image: Image.Image,
@@ -340,19 +348,82 @@ class Canvas:
         position: tuple[int, int],
         shadow: Shadow,
     ):
-        shadow_layer = Image.new("RGBA", image.size, (0, 0, 0, 0))
+        bbox = font.getbbox(text)
+        text_width = bbox[2] - bbox[0]
+        text_height = bbox[3] - bbox[1]
+
+        # Padding for blur (3 * sigma is standard safe margin)
+        padding = max(shadow.blur_radius * 3, 1)
+
+        draw_x = padding - bbox[0]
+        draw_y = padding - bbox[1]
+
+        temp_w = text_width + 2 * padding
+        temp_h = text_height + 2 * padding
+
+        shadow_layer = Image.new("RGBA", (temp_w, temp_h), (0, 0, 0, 0))
         shadow_draw = ImageDraw.Draw(shadow_layer)
 
         shadow_color = self._parse_color(shadow.color)
-        shadow_x = position[0] + shadow.offset_x
-        shadow_y = position[1] + shadow.offset_y
-
-        shadow_draw.text((shadow_x, shadow_y), text, font=font, fill=shadow_color)
+        shadow_draw.text((draw_x, draw_y), text, font=font, fill=shadow_color)
 
         if shadow.blur_radius > 0:
             shadow_layer = shadow_layer.filter(ImageFilter.GaussianBlur(radius=shadow.blur_radius))
 
-        image.alpha_composite(shadow_layer)
+        paste_x = position[0] + shadow.offset_x - draw_x
+        paste_y = position[1] + shadow.offset_y - draw_y
+
+        image.paste(shadow_layer, (paste_x, paste_y), shadow_layer)
+
+    def _render_glow(
+        self,
+        image: Image.Image,
+        text: str,
+        font,
+        position: tuple[int, int],
+        glow: Glow,
+    ):
+        bbox = font.getbbox(text)
+        text_width = bbox[2] - bbox[0]
+        text_height = bbox[3] - bbox[1]
+
+        # Use stroke for expansion instead of repeated MaxFilter (faster and smoother)
+        expansion = max(1, glow.radius // 2)
+        blur_padding = max(glow.radius * 3, 1)
+        total_padding = blur_padding + expansion
+
+        draw_x = total_padding - bbox[0]
+        draw_y = total_padding - bbox[1]
+
+        temp_w = text_width + 2 * total_padding
+        temp_h = text_height + 2 * total_padding
+
+        glow_mask = Image.new("L", (temp_w, temp_h), 0)
+        mask_draw = ImageDraw.Draw(glow_mask)
+
+        mask_draw.text(
+            (draw_x, draw_y),
+            text,
+            font=font,
+            fill=255,
+            stroke_width=expansion * 2,
+            stroke_fill=255,
+        )
+
+        glow_mask = glow_mask.filter(ImageFilter.GaussianBlur(radius=glow.radius))
+
+        glow_color = self._parse_color(glow.color)
+        glow_layer = Image.new("RGBA", (temp_w, temp_h), glow_color)
+
+        if glow.opacity < 1.0:
+            glow_mask = glow_mask.point(lambda x: int(x * glow.opacity))
+
+        glow_layer.putalpha(glow_mask)
+
+        paste_x = position[0] - draw_x
+        paste_y = position[1] - draw_y
+
+        image.paste(glow_layer, (paste_x, paste_y), glow_layer)
 
     def _render_text_layer(self, image: Image.Image, layer: TextLayer):
         draw = ImageDraw.Draw(image)
@@ -361,6 +432,7 @@ class Canvas:
 
         stroke_effect = self._get_stroke_effect(layer.effects)
         shadow_effects = self._get_shadow_effects(layer.effects)
+        glow_effects = self._get_glow_effects(layer.effects)
 
         if layer.max_width:
             max_width_px = self._parse_coordinate(layer.max_width, self.width)
@@ -368,6 +440,9 @@ class Canvas:
             self._render_multiline_text(draw, lines, font, color, layer, image)
         else:
             position = self._calculate_text_position(layer, font)
+
+            for glow in glow_effects:
+                self._render_glow(image, layer.content, font, position, glow)
 
             for shadow in shadow_effects:
                 self._render_shadow(image, layer.content, font, position, shadow)
@@ -466,9 +541,7 @@ class Canvas:
         return self._apply_alignment(base_x, base_y, text_dimensions, layer.align)
 
     def _get_text_dimensions(self, text: str, font) -> tuple[int, int]:
-        temp_image = Image.new("RGBA", (1, 1))
-        draw = ImageDraw.Draw(temp_image)
-        bbox = draw.textbbox((0, 0), text, font=font)
+        bbox = font.getbbox(text)
         width = bbox[2] - bbox[0]
         height = bbox[3] - bbox[1]
         return width, height
@@ -525,6 +598,7 @@ class Canvas:
         else:
             start_y = base_y
 
+        glow_effects = self._get_glow_effects(layer.effects)
         shadow_effects = self._get_shadow_effects(layer.effects)
 
         for i, line in enumerate(lines):
@@ -542,6 +616,9 @@ class Canvas:
                     x = base_x
             else:
                 x = base_x
+
+            for glow in glow_effects:
+                self._render_glow(image, line, font, (x, y), glow)
 
             for shadow in shadow_effects:
                 self._render_shadow(image, line, font, (x, y), shadow)

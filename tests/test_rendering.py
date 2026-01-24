@@ -867,3 +867,54 @@ class TestRendering:
 
             with open(output_path, "rb") as f:
                 assert f.read() == external_file("snapshots/text_with_blurred_shadow.png")
+
+    def test_snapshot_text_with_glow(self):
+        """Snapshot test for text rendering with glow effect"""
+        from quickthumb import Canvas, Glow
+
+        canvas = (
+            Canvas(400, 200)
+            .background(color="#000000")
+            .text(
+                "Glow Text",
+                size=48,
+                color="#FFFFFF",
+                position=(200, 100),
+                align=("center", "middle"),
+                effects=[Glow(color="#C81414", radius=15, opacity=0.8)],
+            )
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/text_with_glow.png")
+
+    def test_snapshot_text_with_multiple_glows(self):
+        """Snapshot test for text rendering with multiple layered glow effects"""
+        from quickthumb import Canvas, Glow
+
+        canvas = (
+            Canvas(400, 200)
+            .background(color="#1a1a1a")
+            .text(
+                "Multi Glow",
+                size=48,
+                color="#FFFFFF",
+                position=(200, 100),
+                align=("center", "middle"),
+                effects=[
+                    Glow(color="#FF0000", radius=5, opacity=1.0),
+                    Glow(color="#0000FF", radius=20, opacity=0.6),
+                ],
+            )
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/text_with_multiple_glows.png")

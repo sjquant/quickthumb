@@ -81,7 +81,34 @@ class Shadow(BaseModel):
         return v
 
 
-TextEffect = Stroke | Shadow
+class Glow(BaseModel):
+    type: Literal["glow"] = "glow"
+    color: str
+    radius: int
+    opacity: float = 1.0
+
+    @field_validator("color")
+    @classmethod
+    def validate_color(cls, v: str) -> str:
+        validate_hex_color(v)
+        return v
+
+    @field_validator("radius")
+    @classmethod
+    def validate_radius(cls, v: int) -> int:
+        if v <= 0:
+            raise ValidationError("radius must be positive")
+        return v
+
+    @field_validator("opacity")
+    @classmethod
+    def validate_opacity(cls, v: float) -> float:
+        if v < 0.0 or v > 1.0:
+            raise ValidationError("opacity must be between 0.0 and 1.0")
+        return v
+
+
+TextEffect = Stroke | Shadow | Glow
 
 
 class BackgroundLayer(BaseModel):
