@@ -60,7 +60,28 @@ class Stroke(BaseModel):
         return v
 
 
-TextEffect = Stroke
+class Shadow(BaseModel):
+    type: Literal["shadow"] = "shadow"
+    offset_x: int
+    offset_y: int
+    color: str
+    blur_radius: int = 0
+
+    @field_validator("color")
+    @classmethod
+    def validate_color(cls, v: str) -> str:
+        validate_hex_color(v)
+        return v
+
+    @field_validator("blur_radius")
+    @classmethod
+    def validate_blur_radius(cls, v: int) -> int:
+        if v < 0:
+            raise ValidationError("blur_radius cannot be negative")
+        return v
+
+
+TextEffect = Stroke | Shadow
 
 
 class BackgroundLayer(BaseModel):

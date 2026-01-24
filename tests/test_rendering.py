@@ -819,3 +819,51 @@ class TestRendering:
 
             with open(output_path, "rb") as f:
                 assert f.read() == external_file("snapshots/text_no_wrapping.png")
+
+    def test_snapshot_text_with_basic_shadow(self):
+        """Snapshot test for text rendering with basic shadow effect"""
+        from quickthumb import Canvas, Shadow
+
+        canvas = (
+            Canvas(400, 200)
+            .background(color="#FFFFFF")
+            .text(
+                "Shadow Text",
+                size=48,
+                color="#000000",
+                position=(200, 100),
+                align=("center", "middle"),
+                effects=[Shadow(offset_x=5, offset_y=5, color="#CCCCCC")],
+            )
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/text_with_basic_shadow.png")
+
+    def test_snapshot_text_with_blurred_shadow(self):
+        """Snapshot test for text rendering with blurred shadow effect"""
+        from quickthumb import Canvas, Shadow
+
+        canvas = (
+            Canvas(400, 200)
+            .background(color="#FFFFFF")
+            .text(
+                "Blurred Shadow",
+                size=48,
+                color="#000000",
+                position=(200, 100),
+                align=("center", "middle"),
+                effects=[Shadow(offset_x=8, offset_y=8, color="#FF0000", blur_radius=10)],
+            )
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/text_with_blurred_shadow.png")

@@ -139,3 +139,144 @@ class TestTextEffects:
 
         with pytest.raises(ValidationError, match=error_pattern):
             canvas.text("Hello", effects=[Stroke(**effect_args)])
+
+    def test_should_add_text_with_shadow_effect(self):
+        """Test that text can be created with Shadow effect"""
+        from quickthumb import Canvas, Shadow
+
+        canvas = Canvas(1920, 1080)
+
+        canvas.text("Hello", size=72, effects=[Shadow(offset_x=5, offset_y=5, color="#000000")])
+
+        assert len(canvas.layers) == 1
+        assert canvas.layers == [
+            TextLayer(
+                type="text",
+                content="Hello",
+                size=72,
+                effects=[Shadow(offset_x=5, offset_y=5, color="#000000", blur_radius=0)],
+            )
+        ]
+
+    def test_should_add_text_with_multiple_shadow_effects(self):
+        """Test that text can have multiple shadow effects"""
+        from quickthumb import Canvas, Shadow
+
+        canvas = Canvas(1920, 1080)
+
+        canvas.text(
+            "Epic",
+            size=96,
+            effects=[
+                Shadow(offset_x=3, offset_y=3, color="#000000", blur_radius=2),
+                Shadow(offset_x=6, offset_y=6, color="#FF0000", blur_radius=5),
+            ],
+        )
+
+        assert len(canvas.layers) == 1
+        assert canvas.layers[0] == TextLayer(
+            type="text",
+            content="Epic",
+            size=96,
+            effects=[
+                Shadow(offset_x=3, offset_y=3, color="#000000", blur_radius=2),
+                Shadow(offset_x=6, offset_y=6, color="#FF0000", blur_radius=5),
+            ],
+        )
+
+    def test_should_serialize_text_with_shadow_to_json(self):
+        """Test that shadow effects are serialized to JSON"""
+        import json
+
+        from quickthumb import Canvas, Shadow
+
+        canvas = Canvas(1920, 1080).text(
+            "Hello", size=72, effects=[Shadow(offset_x=5, offset_y=5, color="#000000")]
+        )
+
+        json_str = canvas.to_json()
+        data = json.loads(json_str)
+
+        assert len(data["layers"]) == 1
+        assert data["layers"][0] == snapshot(
+            {
+                "type": "text",
+                "content": "Hello",
+                "font": None,
+                "size": 72,
+                "color": None,
+                "position": None,
+                "align": None,
+                "bold": False,
+                "italic": False,
+                "max_width": None,
+                "effects": [
+                    {
+                        "type": "shadow",
+                        "offset_x": 5,
+                        "offset_y": 5,
+                        "color": "#000000",
+                        "blur_radius": 0,
+                    }
+                ],
+            }
+        )
+
+    def test_should_deserialize_text_with_shadow_from_json(self):
+        """Test that shadow effects are deserialized from JSON"""
+        import json
+
+        from quickthumb import Canvas, Shadow
+
+        json_data = {
+            "width": 1920,
+            "height": 1080,
+            "layers": [
+                {
+                    "type": "text",
+                    "content": "Hello",
+                    "size": 72,
+                    "effects": [
+                        {
+                            "type": "shadow",
+                            "offset_x": 5,
+                            "offset_y": 5,
+                            "color": "#000000",
+                            "blur_radius": 0,
+                        }
+                    ],
+                }
+            ],
+        }
+
+        canvas = Canvas.from_json(json.dumps(json_data))
+
+        assert len(canvas.layers) == 1
+        assert canvas.layers[0] == TextLayer(
+            type="text",
+            content="Hello",
+            size=72,
+            effects=[Shadow(offset_x=5, offset_y=5, color="#000000", blur_radius=0)],
+        )
+
+    @pytest.mark.parametrize(
+        "effect_args,error_pattern",
+        [
+            (
+                {"offset_x": 5, "offset_y": 5, "color": "invalid", "blur_radius": 0},
+                "invalid hex",
+            ),
+            (
+                {"offset_x": 5, "offset_y": 5, "color": "#000000", "blur_radius": -1},
+                "blur_radius.*negative",
+            ),
+        ],
+    )
+    def test_should_raise_error_for_invalid_shadow(self, effect_args, error_pattern):
+        """Test that invalid Shadow parameters raise ValidationError"""
+        from quickthumb import Canvas, Shadow, ValidationError
+
+        canvas = Canvas(1920, 1080)
+
+        with pytest.raises(ValidationError, match=error_pattern):
+            canvas.text("Hello", effects=[Shadow(**effect_args)])

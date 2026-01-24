@@ -5,7 +5,7 @@ from contextlib import contextmanager
 from typing import Literal
 
 import pydantic_core
-from PIL import Image, ImageChops, ImageDraw, ImageEnhance, ImageFont
+from PIL import Image, ImageChops, ImageDraw, ImageEnhance, ImageFilter, ImageFont
 from typing_extensions import Self
 
 from quickthumb.errors import RenderingError, ValidationError
@@ -18,6 +18,7 @@ from quickthumb.models import (
     LinearGradient,
     OutlineLayer,
     RadialGradient,
+    Shadow,
     Stroke,
     TextEffect,
     TextLayer,
@@ -324,19 +325,53 @@ class Canvas:
                 return effect
         return None
 
+    def _get_shadow_effects(self, effects: list[TextEffect]) -> list[Shadow]:
+        shadows = []
+        for effect in effects:
+            if isinstance(effect, Shadow):
+                shadows.append(effect)
+        return shadows
+
+    def _render_shadow(
+        self,
+        image: Image.Image,
+        text: str,
+        font,
+        position: tuple[int, int],
+        shadow: Shadow,
+    ):
+        shadow_layer = Image.new("RGBA", image.size, (0, 0, 0, 0))
+        shadow_draw = ImageDraw.Draw(shadow_layer)
+
+        shadow_color = self._parse_color(shadow.color)
+        shadow_x = position[0] + shadow.offset_x
+        shadow_y = position[1] + shadow.offset_y
+
+        shadow_draw.text((shadow_x, shadow_y), text, font=font, fill=shadow_color)
+
+        if shadow.blur_radius > 0:
+            shadow_layer = shadow_layer.filter(ImageFilter.GaussianBlur(radius=shadow.blur_radius))
+
+        image.alpha_composite(shadow_layer)
+
     def _render_text_layer(self, image: Image.Image, layer: TextLayer):
         draw = ImageDraw.Draw(image)
         font = self._load_font(layer)
         color = self._parse_color(layer.color) if layer.color else DEFAULT_TEXT_COLOR
 
         stroke_effect = self._get_stroke_effect(layer.effects)
+        shadow_effects = self._get_shadow_effects(layer.effects)
 
         if layer.max_width:
             max_width_px = self._parse_coordinate(layer.max_width, self.width)
             lines = self._wrap_text(layer.content, font, max_width_px)
-            self._render_multiline_text(draw, lines, font, color, layer)
+            self._render_multiline_text(draw, lines, font, color, layer, image)
         else:
             position = self._calculate_text_position(layer, font)
+
+            for shadow in shadow_effects:
+                self._render_shadow(image, layer.content, font, position, shadow)
+
             if stroke_effect:
                 stroke_color_parsed = self._parse_color(stroke_effect.color)
                 draw.text(
@@ -468,6 +503,7 @@ class Canvas:
         font,
         color: tuple[int, ...],
         layer: TextLayer,
+        image: Image.Image,
     ):
         bbox = font.getbbox("Aby")
         line_height = int((bbox[3] - bbox[1]) * 1.2)
@@ -489,6 +525,8 @@ class Canvas:
         else:
             start_y = base_y
 
+        shadow_effects = self._get_shadow_effects(layer.effects)
+
         for i, line in enumerate(lines):
             line_width, _ = self._get_text_dimensions(line, font)
             y = start_y + i * line_height
@@ -504,6 +542,9 @@ class Canvas:
                     x = base_x
             else:
                 x = base_x
+
+            for shadow in shadow_effects:
+                self._render_shadow(image, line, font, (x, y), shadow)
 
             stroke_effect = self._get_stroke_effect(layer.effects)
             if stroke_effect:
