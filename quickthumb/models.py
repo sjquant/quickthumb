@@ -120,6 +120,7 @@ class TextLayer(BaseModel):
     stroke: tuple | None = None
     bold: bool = False
     italic: bool = False
+    max_width: int | str | None = None
 
     @field_validator("color")
     @classmethod
@@ -141,9 +142,10 @@ class TextLayer(BaseModel):
 
         if isinstance(v[0], str) or isinstance(v[1], str):
             for item in v:
-                match = re.search(r"(\d+(\.\d+)?)%", item)
-                if not match:
-                    raise ValidationError(f"invalid percentage format: {item}")
+                if isinstance(item, str):
+                    match = re.fullmatch(r"-?(\d+(\.\d+)?)%", item)
+                    if not match:
+                        raise ValidationError(f"invalid percentage format: {item}")
 
         return tuple(v)
 
@@ -191,6 +193,26 @@ class TextLayer(BaseModel):
 
         if v <= 0:
             raise ValidationError("size must be positive")
+
+        return v
+
+    @field_validator("max_width")
+    @classmethod
+    def validate_max_width(cls, v: int | str | None) -> int | str | None:
+        if v is None:
+            return v
+
+        if isinstance(v, str):
+            match = re.fullmatch(r"(\d+(\.\d+)?)%", v)
+            if not match:
+                raise ValidationError(f"invalid percentage format: {v}")
+            percentage = float(match.group(1))
+            if percentage <= 0:
+                raise ValidationError("max_width percentage must be positive")
+            return v
+
+        if v <= 0:
+            raise ValidationError("max_width must be positive")
 
         return v
 

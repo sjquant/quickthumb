@@ -763,3 +763,59 @@ class TestRendering:
                 assert f.read() == external_file(
                     f"snapshots/radial_gradient_brightness_{direction}.png"
                 )
+
+    @pytest.mark.parametrize(
+        "alignment, position_x, max_width, snapshot_suffix",
+        [
+            ("center", 200, 300, "center_aligned"),
+            ("left", 50, 300, "left_aligned"),
+            ("right", 350, 300, "right_aligned"),
+            ("center", 200, "50%", "center_aligned_percentage"),
+        ],
+    )
+    def test_snapshot_text_wrapping(self, alignment, position_x, max_width, snapshot_suffix):
+        """Snapshot test for text word wrapping with different alignments"""
+        from quickthumb import Canvas
+
+        canvas = (
+            Canvas(400, 300)
+            .background(color="#FFFFFF")
+            .text(
+                "This is a very long text that should wrap to multiple lines when rendered",
+                size=24,
+                color="#000000",
+                position=(position_x, 150),
+                align=(alignment, "middle"),
+                max_width=max_width,
+            )
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file(f"snapshots/text_wrapping_{snapshot_suffix}.png")
+
+    def test_snapshot_text_no_wrapping(self):
+        """Snapshot test for long text without max_width (no wrapping)"""
+        from quickthumb import Canvas
+
+        canvas = (
+            Canvas(400, 300)
+            .background(color="#FFFFFF")
+            .text(
+                "This is a very long text that should not wrap",
+                size=24,
+                color="#000000",
+                position=(200, 150),
+                align=("center", "middle"),
+            )
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/text_no_wrapping.png")

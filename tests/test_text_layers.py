@@ -97,6 +97,24 @@ class TestTextLayers:
             italic=False,
         )
 
+        # When: User specifies position with negative percentage (outside canvas)
+        canvas.text("Offscreen", position=("-10%", "110%"))
+
+        # Then: Negative percentage position should be allowed and stored
+        assert len(canvas.layers) == 3
+        assert canvas.layers[2] == TextLayer(
+            type="text",
+            content="Offscreen",
+            font=None,
+            size=None,
+            color=None,
+            position=("-10%", "110%"),
+            align=None,
+            stroke=None,
+            bold=False,
+            italic=False,
+        )
+
     @pytest.mark.parametrize(
         "color,error_pattern",
         [
@@ -122,6 +140,7 @@ class TestTextLayers:
             ((100,), "position.*must.*tuple.*two"),
             ((100, 200, 300), "position.*must.*tuple.*two"),
             (("50", "50"), "invalid percentage"),
+            (("ab10%", "cd20%"), "invalid percentage"),
         ],
     )
     def test_should_raise_error_for_invalid_position(self, position, error_pattern):
@@ -195,6 +214,27 @@ class TestTextLayers:
         with pytest.raises(ValidationError, match=error_pattern):
             canvas.text("Hello", size=size)
 
+    @pytest.mark.parametrize(
+        "max_width,error_pattern",
+        [
+            (-10, "max_width.*positive"),
+            (0, "max_width.*positive"),
+            ("invalid", "invalid percentage"),
+            ("-50%", "invalid percentage"),
+        ],
+    )
+    def test_should_raise_error_for_invalid_max_width(self, max_width, error_pattern):
+        """Test that invalid max_width raises ValidationError"""
+        # Given: Canvas and invalid max_width
+        from quickthumb import Canvas, ValidationError
+
+        canvas = Canvas(1920, 1080)
+
+        # When: User provides invalid max_width
+        # Then: Should raise ValidationError
+        with pytest.raises(ValidationError, match=error_pattern):
+            canvas.text("Hello", max_width=max_width)
+
     def test_should_serialize_text_layer_to_json(self):
         """Test that canvas with text layers can be serialized to JSON"""
         # Given: Canvas with background and text layers
@@ -235,6 +275,7 @@ class TestTextLayers:
             "stroke": [3, "#000000"],
             "bold": True,
             "italic": False,
+            "max_width": None,
         }
 
     def test_should_deserialize_text_layer_from_json(self):

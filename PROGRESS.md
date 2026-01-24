@@ -34,6 +34,7 @@
 - ✅ Image fit modes (cover, contain, fill)
 - ✅ Font loading and caching
 - ✅ Brightness adjustment (for solid colors, gradients, and images)
+- ✅ Text word wrapping (max_width parameter with alignment preservation)
 
 ---
 
@@ -46,7 +47,6 @@
 - [ ] Letter spacing (`letter_spacing` parameter)
 - [ ] Line height (`line_height` parameter)
 - [ ] Rich text with `TextPart` (partial text styling: color, stroke per segment)
-- [ ] Text word wrapping (`max_width` parameter)
 
 ### Low Priority
 

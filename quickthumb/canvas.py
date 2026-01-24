@@ -100,6 +100,7 @@ class Canvas:
         stroke: tuple[int, str] | None = None,
         bold: bool = False,
         italic: bool = False,
+        max_width: int | str | None = None,
     ) -> Self:
         with convert_pydantic_errors():
             layer = TextLayer(
@@ -113,6 +114,7 @@ class Canvas:
                 stroke=stroke,
                 bold=bold,
                 italic=italic,
+                max_width=max_width,
             )
         self._layers.append(layer)
         return self
@@ -318,21 +320,26 @@ class Canvas:
         draw = ImageDraw.Draw(image)
         font = self._load_font(layer)
         color = self._parse_color(layer.color) if layer.color else DEFAULT_TEXT_COLOR
-        position = self._calculate_text_position(layer, font)
 
-        if layer.stroke:
-            stroke_width, stroke_color = layer.stroke
-            stroke_color_parsed = self._parse_color(stroke_color)
-            draw.text(
-                position,
-                layer.content,
-                font=font,
-                fill=color,
-                stroke_width=stroke_width,
-                stroke_fill=stroke_color_parsed,
-            )
+        if layer.max_width:
+            max_width_px = self._parse_coordinate(layer.max_width, self.width)
+            lines = self._wrap_text(layer.content, font, max_width_px)
+            self._render_multiline_text(draw, lines, font, color, layer)
         else:
-            draw.text(position, layer.content, font=font, fill=color)
+            position = self._calculate_text_position(layer, font)
+            if layer.stroke:
+                stroke_width, stroke_color = layer.stroke
+                stroke_color_parsed = self._parse_color(stroke_color)
+                draw.text(
+                    position,
+                    layer.content,
+                    font=font,
+                    fill=color,
+                    stroke_width=stroke_width,
+                    stroke_fill=stroke_color_parsed,
+                )
+            else:
+                draw.text(position, layer.content, font=font, fill=color)
 
     def _load_font(self, layer: TextLayer) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
         size = layer.size or DEFAULT_TEXT_SIZE
@@ -421,6 +428,87 @@ class Canvas:
         width = bbox[2] - bbox[0]
         height = bbox[3] - bbox[1]
         return width, height
+
+    def _wrap_text(self, text: str, font, max_width: int) -> list[str]:
+        words = text.split()
+        lines = []
+        current_line: list[str] = []
+
+        for word in words:
+            test_line = " ".join(current_line + [word])
+            width, _ = self._get_text_dimensions(test_line, font)
+
+            if width <= max_width:
+                current_line.append(word)
+            else:
+                if current_line:
+                    lines.append(" ".join(current_line))
+                    current_line = [word]
+                else:
+                    lines.append(word)
+
+        if current_line:
+            lines.append(" ".join(current_line))
+
+        return lines
+
+    def _render_multiline_text(
+        self,
+        draw: ImageDraw.ImageDraw,
+        lines: list[str],
+        font,
+        color: tuple[int, ...],
+        layer: TextLayer,
+    ):
+        bbox = font.getbbox("Aby")
+        line_height = int((bbox[3] - bbox[1]) * 1.2)
+        total_height = line_height * len(lines)
+
+        raw_x, raw_y = layer.position if layer.position else (0, 0)
+        base_x = self._parse_coordinate(raw_x, self.width)
+        base_y = self._parse_coordinate(raw_y, self.height)
+
+        if layer.align:
+            horizontal_align, vertical_align = layer.align
+
+            if vertical_align == "middle":
+                start_y = base_y - total_height // 2
+            elif vertical_align == "bottom":
+                start_y = base_y - total_height
+            else:
+                start_y = base_y
+        else:
+            start_y = base_y
+
+        for i, line in enumerate(lines):
+            line_width, _ = self._get_text_dimensions(line, font)
+            y = start_y + i * line_height
+
+            if layer.align:
+                horizontal_align, _ = layer.align
+
+                if horizontal_align == "center":
+                    x = base_x - line_width // 2
+                elif horizontal_align == "right":
+                    x = base_x - line_width
+                else:
+                    x = base_x
+            else:
+                x = base_x
+
+            if layer.stroke:
+                stroke_width, stroke_color = layer.stroke
+                stroke_color_parsed = self._parse_color(stroke_color)
+                draw.text(
+                    (x, y),
+                    line,
+                    font=font,
+                    fill=color,
+                    stroke_width=stroke_width,
+                    stroke_fill=stroke_color_parsed,
+                )
+            else:
+                draw.text((x, y), line, font=font, fill=color)
 
     def _apply_alignment(
         self,

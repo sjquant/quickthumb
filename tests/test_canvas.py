@@ -113,6 +113,7 @@ class TestCanvas:
                         "stroke": None,
                         "bold": False,
                         "italic": False,
+                        "max_width": None,
                     },
                     {
                         "type": "text",
@@ -125,6 +126,7 @@ class TestCanvas:
                         "stroke": None,
                         "bold": False,
                         "italic": False,
+                        "max_width": None,
                     },
                 ],
             }
