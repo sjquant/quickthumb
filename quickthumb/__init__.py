@@ -7,6 +7,7 @@ from quickthumb.models import (
     LinearGradient,
     OutlineLayer,
     RadialGradient,
+    Stroke,
     TextLayer,
 )
 
@@ -20,5 +21,6 @@ __all__ = [
     "LinearGradient",
     "OutlineLayer",
     "RadialGradient",
+    "Stroke",
     "TextLayer",
 ]

@@ -18,6 +18,8 @@ from quickthumb.models import (
     LinearGradient,
     OutlineLayer,
     RadialGradient,
+    Stroke,
+    TextEffect,
     TextLayer,
 )
 
@@ -97,10 +99,10 @@ class Canvas:
             tuple[int, int] | tuple[str, str] | tuple[int, str] | tuple[str, int] | None
         ) = None,
         align: tuple[str, str] | None = None,
-        stroke: tuple[int, str] | None = None,
         bold: bool = False,
         italic: bool = False,
         max_width: int | str | None = None,
+        effects: list | None = None,
     ) -> Self:
         with convert_pydantic_errors():
             layer = TextLayer(
@@ -111,10 +113,10 @@ class Canvas:
                 color=color,
                 position=position,
                 align=align,
-                stroke=stroke,
                 bold=bold,
                 italic=italic,
                 max_width=max_width,
+                effects=effects or [],
             )
         self._layers.append(layer)
         return self
@@ -316,10 +318,18 @@ class Canvas:
         result.paste(resized, (paste_x, paste_y))
         return result
 
+    def _get_stroke_effect(self, effects: list[TextEffect]) -> Stroke | None:
+        for effect in effects:
+            if isinstance(effect, Stroke):
+                return effect
+        return None
+
     def _render_text_layer(self, image: Image.Image, layer: TextLayer):
         draw = ImageDraw.Draw(image)
         font = self._load_font(layer)
         color = self._parse_color(layer.color) if layer.color else DEFAULT_TEXT_COLOR
+
+        stroke_effect = self._get_stroke_effect(layer.effects)
 
         if layer.max_width:
             max_width_px = self._parse_coordinate(layer.max_width, self.width)
@@ -327,15 +337,14 @@ class Canvas:
             self._render_multiline_text(draw, lines, font, color, layer)
         else:
             position = self._calculate_text_position(layer, font)
-            if layer.stroke:
-                stroke_width, stroke_color = layer.stroke
-                stroke_color_parsed = self._parse_color(stroke_color)
+            if stroke_effect:
+                stroke_color_parsed = self._parse_color(stroke_effect.color)
                 draw.text(
                     position,
                     layer.content,
                     font=font,
                     fill=color,
-                    stroke_width=stroke_width,
+                    stroke_width=stroke_effect.width,
                     stroke_fill=stroke_color_parsed,
                 )
             else:
@@ -496,15 +505,15 @@ class Canvas:
             else:
                 x = base_x
 
-            if layer.stroke:
-                stroke_width, stroke_color = layer.stroke
-                stroke_color_parsed = self._parse_color(stroke_color)
+            stroke_effect = self._get_stroke_effect(layer.effects)
+            if stroke_effect:
+                stroke_color_parsed = self._parse_color(stroke_effect.color)
                 draw.text(
                     (x, y),
                     line,
                     font=font,
                     fill=color,
-                    stroke_width=stroke_width,
+                    stroke_width=stroke_effect.width,
                     stroke_fill=stroke_color_parsed,
                 )
             else:

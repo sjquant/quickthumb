@@ -110,10 +110,10 @@ class TestCanvas:
                         "color": "#FFFFFF",
                         "position": None,
                         "align": None,
-                        "stroke": None,
                         "bold": False,
                         "italic": False,
                         "max_width": None,
+                        "effects": [],
                     },
                     {
                         "type": "text",
@@ -123,10 +123,10 @@ class TestCanvas:
                         "color": "#EEEEEE",
                         "position": None,
                         "align": None,
-                        "stroke": None,
                         "bold": False,
                         "italic": False,
                         "max_width": None,
+                        "effects": [],
                     },
                 ],
             }

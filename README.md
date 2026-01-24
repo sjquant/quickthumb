@@ -27,7 +27,7 @@ pip install quickthumb
 ### Python API
 
 ```python
-from quickthumb import Canvas, LinearGradient, BlendMode
+from quickthumb import Canvas, LinearGradient, BlendMode, Stroke
 
 # Create a 1920x1080 thumbnail
 canvas = Canvas(1920, 1080)
@@ -46,7 +46,7 @@ canvas.text(
     size=72,
     color="#FFFFFF",
     align=("center", "middle"),
-    stroke=(3, "#000000"),
+    effects=[Stroke(width=3, color="#000000")],
     bold=True
 )
 
@@ -185,6 +185,39 @@ canvas.background(color=(255, 87, 51))
 canvas.background(color=(255, 87, 51, 200))
 ```
 
+## Text Effects
+
+Add visual effects to text using effect classes:
+
+```python
+from quickthumb import Canvas, Stroke
+
+canvas = Canvas(1920, 1080)
+
+# Text with stroke outline
+canvas.text(
+    "Bold Title",
+    size=96,
+    color="#FFFFFF",
+    align=("center", "middle"),
+    effects=[Stroke(width=3, color="#000000")]
+)
+
+# Multiple effects
+canvas.text(
+    "Epic Title",
+    size=96,
+    color="#FFFFFF",
+    effects=[
+        Stroke(width=5, color="#000000"),
+        Stroke(width=2, color="#FF0000"),
+    ]
+)
+```
+
+**Available Effects:**
+- `Stroke(width, color)` - Adds an outline around text
+
 ## Development
 
 ### Setup
@@ -224,7 +257,7 @@ For detailed API design, see [DESIGN.md](DESIGN.md).
 - `Canvas.from_aspect_ratio(ratio, base_width)` - Create from aspect ratio
 - `Canvas.from_json(source)` - Load from JSON string
 - `.background(color=..., gradient=..., image=..., opacity=..., blend_mode=...)` - Add background layer
-- `.text(content, font=..., size=..., color=..., align=..., stroke=..., bold=..., italic=...)` - Add text layer
+- `.text(content, font=..., size=..., color=..., align=..., effects=..., bold=..., italic=...)` - Add text layer
 - `.outline(width, color, offset=...)` - Add outline decoration
 - `.render(output_path, format=..., quality=...)` - Render to file
 - `.to_json()` - Serialize to json string

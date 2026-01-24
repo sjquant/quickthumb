@@ -9,7 +9,7 @@ class TestTextLayers:
     def test_should_add_multiple_text_layers_with_styling(self):
         """Test that multiple text layers can be added with custom styling"""
         # Given: Canvas with title and subtitle text layers
-        from quickthumb import Canvas, TextLayer
+        from quickthumb import Canvas, Stroke, TextLayer
 
         canvas = Canvas(1920, 1080)
 
@@ -20,7 +20,7 @@ class TestTextLayers:
             size=84,
             color="#FFFFFF",
             align=("center", "top"),
-            stroke=(3, "#000000"),
+            effects=[Stroke(width=3, color="#000000")],
             bold=True,
         )
         canvas.text(
@@ -37,7 +37,7 @@ class TestTextLayers:
             color="#FFFFFF",
             position=None,
             align=("center", "top"),
-            stroke=(3, "#000000"),
+            effects=[Stroke(width=3, color="#000000")],
             bold=True,
             italic=False,
         )
@@ -49,7 +49,7 @@ class TestTextLayers:
             color="#EEEEEE",
             position=None,
             align=("center", "middle"),
-            stroke=None,
+            effects=[],
             bold=False,
             italic=False,
         )
@@ -74,9 +74,9 @@ class TestTextLayers:
             color=None,
             position=(100, 200),
             align=None,
-            stroke=None,
             bold=False,
             italic=False,
+            effects=[],
         )
 
         # When: User specifies position as percentage
@@ -92,9 +92,9 @@ class TestTextLayers:
             color=None,
             position=("50%", "50%"),
             align=None,
-            stroke=None,
             bold=False,
             italic=False,
+            effects=[],
         )
 
         # When: User specifies position with negative percentage (outside canvas)
@@ -110,9 +110,9 @@ class TestTextLayers:
             color=None,
             position=("-10%", "110%"),
             align=None,
-            stroke=None,
             bold=False,
             italic=False,
+            effects=[],
         )
 
     @pytest.mark.parametrize(
@@ -176,26 +176,6 @@ class TestTextLayers:
             canvas.text("Hello", align=align)
 
     @pytest.mark.parametrize(
-        "stroke,error_pattern",
-        [
-            ((3,), "stroke.*must.*tuple.*width.*color"),
-            ((-1, "#000000"), "stroke width.*positive"),
-            ((3, "invalid"), "invalid hex"),
-        ],
-    )
-    def test_should_raise_error_for_invalid_stroke(self, stroke, error_pattern):
-        """Test that invalid stroke format raises ValidationError"""
-        # Given: Canvas and invalid stroke
-        from quickthumb import Canvas, ValidationError
-
-        canvas = Canvas(1920, 1080)
-
-        # When: User provides invalid stroke
-        # Then: Should raise ValidationError
-        with pytest.raises(ValidationError, match=error_pattern):
-            canvas.text("Hello", stroke=stroke)
-
-    @pytest.mark.parametrize(
         "size,error_pattern",
         [
             (-10, "size.*positive"),
@@ -238,7 +218,7 @@ class TestTextLayers:
     def test_should_serialize_text_layer_to_json(self):
         """Test that canvas with text layers can be serialized to JSON"""
         # Given: Canvas with background and text layers
-        from quickthumb import Canvas
+        from quickthumb import Canvas, Stroke
 
         canvas = (
             Canvas(1920, 1080)
@@ -249,7 +229,7 @@ class TestTextLayers:
                 size=84,
                 color="#FFFFFF",
                 align=("center", "top"),
-                stroke=(3, "#000000"),
+                effects=[Stroke(width=3, color="#000000")],
                 bold=True,
             )
         )
@@ -272,7 +252,7 @@ class TestTextLayers:
             "color": "#FFFFFF",
             "position": None,
             "align": ["center", "top"],
-            "stroke": [3, "#000000"],
+            "effects": [{"type": "stroke", "width": 3, "color": "#000000"}],
             "bold": True,
             "italic": False,
             "max_width": None,
@@ -303,7 +283,7 @@ class TestTextLayers:
                     "color": "#FFFFFF",
                     "position": None,
                     "align": ["center", "top"],
-                    "stroke": [3, "#000000"],
+                    "effects": [{"type": "stroke", "width": 3, "color": "#000000"}],
                     "bold": True,
                     "italic": False,
                 },
@@ -312,7 +292,7 @@ class TestTextLayers:
         json_str = json.dumps(json_data)
 
         # When: User deserializes canvas from JSON
-        from quickthumb import Canvas, TextLayer
+        from quickthumb import Canvas, Stroke, TextLayer
 
         canvas = Canvas.from_json(json_str)
 
@@ -326,7 +306,7 @@ class TestTextLayers:
             color="#FFFFFF",
             position=None,
             align=("center", "top"),
-            stroke=(3, "#000000"),
+            effects=[Stroke(width=3, color="#000000")],
             bold=True,
             italic=False,
         )

@@ -41,6 +41,28 @@ class RadialGradient(BaseModel):
     center: tuple[float, float] = (0.5, 0.5)
 
 
+class Stroke(BaseModel):
+    type: Literal["stroke"] = "stroke"
+    width: int
+    color: str
+
+    @field_validator("width")
+    @classmethod
+    def validate_width(cls, v: int) -> int:
+        if v <= 0:
+            raise ValidationError("stroke width must be positive")
+        return v
+
+    @field_validator("color")
+    @classmethod
+    def validate_color(cls, v: str) -> str:
+        validate_hex_color(v)
+        return v
+
+
+TextEffect = Stroke
+
+
 class BackgroundLayer(BaseModel):
     type: Literal["background"]
     color: str | tuple | None = None
@@ -117,10 +139,10 @@ class TextLayer(BaseModel):
     color: str | None = None
     position: tuple | None = None
     align: tuple | None = None
-    stroke: tuple | None = None
     bold: bool = False
     italic: bool = False
     max_width: int | str | None = None
+    effects: list[TextEffect] = []
 
     @field_validator("color")
     @classmethod
@@ -166,23 +188,6 @@ class TextLayer(BaseModel):
         if v[1] not in valid_vertical:
             raise ValidationError(f"invalid align value: {v[1]}")
 
-        return tuple(v)
-
-    @field_validator("stroke", mode="before")
-    @classmethod
-    def validate_stroke(cls, v: tuple | list | None) -> tuple | None:
-        if v is None:
-            return v
-
-        if not isinstance(v, (tuple, list)) or len(v) != 2:
-            raise ValidationError("stroke must be a tuple of width and color")
-
-        width, color = v
-
-        if not isinstance(width, int) or width <= 0:
-            raise ValidationError("stroke width must be positive")
-
-        validate_hex_color(color)
         return tuple(v)
 
     @field_validator("size")

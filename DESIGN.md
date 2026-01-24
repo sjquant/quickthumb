@@ -49,24 +49,31 @@ canvas.text(
     color="#FFFFFF",
     position=None,  # None = use alignment
     align=("center", "middle"),  # (horizontal, vertical)
-    stroke=None,  # (width, color) tuple
     bold=False,
     italic=False,
     max_width=None,  # For word wrapping
-    shadow=None,  # (x_offset, y_offset, color, blur) tuple
-    glow=None,  # (color, radius, opacity) tuple
-    letter_spacing=None,  # pixels between characters
-    line_height=None,  # multiplier for line spacing (e.g., 1.5)
+    effects=None,  # list of effect objects (Stroke, Shadow, Glow, etc.)
+)
+
+# Text with effects using effect classes
+from quickthumb import Stroke
+
+canvas.text(
+    content="Epic Title",
+    size=72,
+    effects=[
+        Stroke(width=3, color="#000000"),
+    ],
 )
 
 # Rich text with partial styling using TextPart
 canvas.text(
     content=[
         TextPart("Hello ", color="#FFFFFF"),
-        TextPart("World", color="#FF0000", stroke=(2, "#000000")),
+        TextPart("World", color="#FF0000", effects=[Stroke(width=2, color="#000000")]),
     ],
     size=72,
-    shadow=(4, 4, "#00000080", 5),  # effects apply to all parts
+    effects=[Stroke(width=1, color="#000000")],  # effects apply to all parts
 )
 
 # Decoration layers
@@ -110,21 +117,19 @@ json_str = canvas.to_json()          # Export canvas to JSON string
       "size": 72,
       "color": "#FFFFFF",
       "align": ["center", "middle"],
-      "stroke": [3, "#000000"],
       "bold": true,
-      "shadow": [4, 4, "#00000080", 5],
-      "glow": ["#FF0000", 10, 0.8],
-      "letter_spacing": 2,
-      "line_height": 1.5
+      "effects": [
+        {"type": "stroke", "width": 3, "color": "#000000"}
+      ]
     },
     {
       "type": "text",
       "content": [
         {"text": "Hello ", "color": "#FFFFFF"},
-        {"text": "World", "color": "#FF0000", "stroke": [2, "#000000"]}
+        {"text": "World", "color": "#FF0000", "effects": [{"type": "stroke", "width": 2, "color": "#000000"}]}
       ],
       "size": 72,
-      "shadow": [4, 4, "#00000080", 5]
+      "effects": [{"type": "stroke", "width": 1, "color": "#000000"}]
     },
     {
       "type": "outline",
@@ -184,7 +189,7 @@ assert recreated.to_json() == exported  # Perfect round-trip
 ### Helper Classes
 
 ```python
-from quickthumb import LinearGradient, RadialGradient, BlendMode, TextPart
+from quickthumb import LinearGradient, RadialGradient, BlendMode, TextPart, Stroke
 
 # Gradients
 LinearGradient(angle=45, stops=[("#FF5733", 0.0), ("#3333FF", 1.0)])
@@ -198,48 +203,50 @@ BlendMode.SCREEN
 BlendMode.DARKEN
 BlendMode.LIGHTEN
 
+# Text effects
+Stroke(width=3, color="#000000")
+
 # Rich text parts (for partial text styling)
 TextPart(
     text="Hello",
     color="#FF0000",  # optional, inherits from parent text layer
-    stroke=None,  # optional (width, color) tuple
+    effects=None,  # optional list of effect objects
 )
 ```
 
 ### Text Effects
 
-Text layers support various effects for enhanced visual styling:
+Text layers support effects for enhanced visual styling using effect classes:
 
 ```python
-# Drop shadow - (x_offset, y_offset, color, blur)
-canvas.text("Shadow", size=72, shadow=(4, 4, "#00000080", 5))
+from quickthumb import Stroke
 
-# Glow/outer glow - (color, radius, opacity)
-canvas.text("Glow", size=72, glow=("#FF0000", 10, 0.8))
+# Single effect
+canvas.text("Title", size=72, effects=[
+    Stroke(width=3, color="#000000")
+])
 
-# Letter spacing - pixels between characters
-canvas.text("SPACED", size=72, letter_spacing=10)
+# Multiple stroke effects
+canvas.text("Epic Title", size=96, color="#FFFFFF", effects=[
+    Stroke(width=5, color="#000000"),
+    Stroke(width=2, color="#FF0000"),
+])
 
-# Line height - multiplier for multi-line text
-canvas.text("Line 1\nLine 2", size=72, line_height=1.5)
-
-# Combined effects
-canvas.text(
-    "Epic Title",
-    size=96,
-    color="#FFFFFF",
-    stroke=(3, "#000000"),
-    shadow=(4, 4, "#00000080", 8),
-    glow=("#FF5733", 15, 0.6),
-)
+# Effects are composable and reusable
+stroke_style = [Stroke(width=3, color="#000000")]
+canvas.text("Title 1", size=72, effects=stroke_style)
+canvas.text("Title 2", size=60, effects=stroke_style)
 ```
+
+**Available Effects:**
+- `Stroke(width, color)`: Adds an outline around text
 
 ### Rich Text (Partial Styling)
 
 Use `TextPart` to apply different styles to portions of text:
 
 ```python
-from quickthumb import TextPart
+from quickthumb import TextPart, Stroke
 
 # Different colors for different words
 canvas.text(
@@ -250,16 +257,16 @@ canvas.text(
     size=72,
 )
 
-# Mix styled and unstyled parts (unstyled inherits defaults)
+# Mix styled and unstyled parts with effects
 canvas.text(
     content=[
         TextPart("Normal "),  # inherits color="#FFFFFF"
-        TextPart("RED", color="#FF0000", stroke=(2, "#000000")),
+        TextPart("RED", color="#FF0000", effects=[Stroke(width=2, color="#000000")]),
         TextPart(" Normal"),  # inherits color="#FFFFFF"
     ],
     color="#FFFFFF",  # default for parts without explicit color
     size=72,
-    shadow=(4, 4, "#000000", 5),  # effects apply to all parts
+    effects=[Stroke(width=1, color="#000000")],  # effects apply to all parts
 )
 ```
 
@@ -335,8 +342,7 @@ canvas.text(
 - Comprehensive error messages
 
 ### Phase 5: Text Effects
-- Drop shadow (`shadow` parameter)
-- Glow/outer glow (`glow` parameter)
-- Letter spacing (`letter_spacing` parameter)
-- Line height (`line_height` parameter)
-- Rich text with `TextPart` (partial text styling)
+- Effect classes (currently: `Stroke`)
+- Effects list (`effects` parameter)
+- Rich text with `TextPart` (partial text styling with effects support)
+- Future: Additional effects like `Shadow`, `Glow`, etc.

@@ -9,6 +9,7 @@ Creates an eye-catching YouTube-style thumbnail with:
 """
 
 from quickthumb import Canvas
+from quickthumb.models import Stroke
 
 # Create 16:9 YouTube thumbnail (1280x720) with method chaining
 (
@@ -26,7 +27,7 @@ from quickthumb import Canvas
         color="#B8FF00",  # Bright neon green
         position=("8%", "35%"),
         align=("left", "middle"),
-        stroke=(8, "#000000"),  # Black stroke for contrast
+        effects=[Stroke(width=8, color="#000000")],  # Black stroke for contrast
         bold=True,
     )
     # Add subtitle text

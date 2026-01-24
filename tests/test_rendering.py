@@ -272,10 +272,10 @@ class TestRendering:
 
     def test_snapshot_text_with_stroke(self):
         """Snapshot test for text rendering with stroke outline"""
-        from quickthumb import Canvas
+        from quickthumb import Canvas, Stroke
 
         # Given: Text with a 2px black stroke around white text
-        # When: Rendering text with stroke parameter
+        # When: Rendering text with Stroke effect
         canvas = (
             Canvas(400, 200)
             .background(color="#FFFFFF")
@@ -285,7 +285,7 @@ class TestRendering:
                 color="#FFFFFF",
                 position=(200, 100),
                 align=("center", "middle"),
-                stroke=(2, "#000000"),
+                effects=[Stroke(width=2, color="#000000")],
             )
         )
 
