@@ -10,14 +10,13 @@ QuickThumb is a Python library for programmatic thumbnail generation. See [READM
 
 ```
 .
-├── .claude
-│   └── agents
-│       ├── tdd-implementer.md
-│       └── tdd-test-writer.md
 ├── CLAUDE.md
 ├── DESIGN.md
 ├── LICENSE
 ├── README.md
+├── examples
+│   ├── README.md
+│   └── youtube_thumbnail.py
 ├── pyproject.toml
 ├── quickthumb
 │   ├── __init__.py
