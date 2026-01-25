@@ -1069,3 +1069,32 @@ class TestRendering:
             # Then: Should show parent effects on all parts plus additional effects on middle part
             with open(output_path, "rb") as f:
                 assert f.read() == external_file("snapshots/rich_text_mixed_styles.png")
+
+    def test_snapshot_rich_text_alignment(self):
+        """Snapshot test verifying rich text positioning with center/middle alignment"""
+        from quickthumb import Canvas, TextPart
+
+        # Given: Rich text with TextPart objects using center/middle alignment
+        # When: Rendering rich text at the same position as regular text would be
+        canvas = (
+            Canvas(400, 300)
+            .background(color="#F0F0F0")
+            .text(
+                content=[
+                    TextPart(text="Rich\n", color="#FF0000"),
+                    TextPart(text="Text\n", color="#00FF00"),
+                    TextPart(text="Alignment", color="#0000FF"),
+                ],
+                size=32,
+                position=(200, 150),
+                align=("center", "middle"),
+            )
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            # Then: Should be properly centered at the specified position
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/rich_text_alignment.png")
