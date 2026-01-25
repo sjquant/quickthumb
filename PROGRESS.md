@@ -43,14 +43,11 @@
 - ✅ Glow/outer glow (color, radius, opacity)
 - ✅ Letter spacing (`letter_spacing` parameter)
 - ✅ Line height (`line_height` parameter)
+- ✅ Rich text with `TextPart` (partial text styling: color, effects per segment)
 
 ---
 
 ## 🚧 TODO
-
-### Text Effects (Phase 5)
-
-- [ ] Rich text with `TextPart` (partial text styling: color, effects per segment)
 
 ### Low Priority
 

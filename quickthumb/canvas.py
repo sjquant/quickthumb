@@ -23,6 +23,7 @@ from quickthumb.models import (
     Stroke,
     TextEffect,
     TextLayer,
+    TextPart,
 )
 
 FileFormat = Literal["JPEG", "WEBP", "PNG"]
@@ -94,7 +95,7 @@ class Canvas:
 
     def text(
         self,
-        content: str,
+        content: str | list[TextPart] | None = None,
         font: str | None = None,
         size: int | None = None,
         color: str | None = None,
@@ -109,6 +110,9 @@ class Canvas:
         line_height: float | None = None,
         letter_spacing: int | None = None,
     ) -> Self:
+        if content is None:
+            raise ValidationError("content is required")
+
         with convert_pydantic_errors():
             layer = TextLayer(
                 type="text",
@@ -325,25 +329,36 @@ class Canvas:
         result.paste(resized, (paste_x, paste_y))
         return result
 
-    def _get_stroke_effect(self, effects: list[TextEffect]) -> Stroke | None:
-        for effect in effects:
-            if isinstance(effect, Stroke):
-                return effect
-        return None
+    def _get_stroke_effects(self, effects: list[TextEffect]) -> list[Stroke]:
+        return [e for e in effects if isinstance(e, Stroke)]
 
     def _get_shadow_effects(self, effects: list[TextEffect]) -> list[Shadow]:
-        shadows = []
-        for effect in effects:
-            if isinstance(effect, Shadow):
-                shadows.append(effect)
-        return shadows
+        return [e for e in effects if isinstance(e, Shadow)]
 
     def _get_glow_effects(self, effects: list[TextEffect]) -> list[Glow]:
-        glows = []
-        for effect in effects:
-            if isinstance(effect, Glow):
-                glows.append(effect)
-        return glows
+        return [e for e in effects if isinstance(e, Glow)]
+
+    def _draw_text(
+        self,
+        draw: ImageDraw.ImageDraw,
+        text: str,
+        position: tuple[int, int],
+        font,
+        color: tuple[int, ...],
+        stroke_effects: list[Stroke],
+    ):
+        if stroke_effects:
+            for stroke in stroke_effects:
+                draw.text(
+                    position,
+                    text,
+                    font=font,
+                    fill=color,
+                    stroke_width=stroke.width,
+                    stroke_fill=self._parse_color(stroke.color),
+                )
+        else:
+            draw.text(position, text, font=font, fill=color)
 
     def _render_shadow(
         self,
@@ -431,43 +446,95 @@ class Canvas:
         image.paste(glow_layer, (paste_x, paste_y), glow_layer)
 
     def _render_text_layer(self, image: Image.Image, layer: TextLayer):
+        if isinstance(layer.content, list):
+            self._render_rich_text(image, layer)
+        else:
+            self._render_simple_text(image, layer)
+
+    def _render_simple_text(self, image: Image.Image, layer: TextLayer):
         draw = ImageDraw.Draw(image)
         font = self._load_font(layer)
         color = self._parse_color(layer.color) if layer.color else DEFAULT_TEXT_COLOR
+        content = layer.content if isinstance(layer.content, str) else ""
 
-        stroke_effect = self._get_stroke_effect(layer.effects)
+        stroke_effects = self._get_stroke_effects(layer.effects)
         shadow_effects = self._get_shadow_effects(layer.effects)
         glow_effects = self._get_glow_effects(layer.effects)
 
         if layer.max_width:
             max_width_px = self._parse_coordinate(layer.max_width, self.width)
-            lines = self._wrap_text(layer.content, font, max_width_px, layer.letter_spacing)
+            lines = self._wrap_text(content, font, max_width_px, layer.letter_spacing)
             self._render_multiline_text(draw, lines, font, color, layer, image)
         else:
             position = self._calculate_text_position(layer, font)
 
             for glow in glow_effects:
-                self._render_glow(image, layer.content, font, position, glow)
+                self._render_glow(image, content, font, position, glow)
 
             for shadow in shadow_effects:
-                self._render_shadow(image, layer.content, font, position, shadow)
+                self._render_shadow(image, content, font, position, shadow)
 
             if layer.letter_spacing:
                 self._draw_text_with_letter_spacing(
-                    draw, layer.content, position, font, color, layer.letter_spacing, stroke_effect
-                )
-            elif stroke_effect:
-                stroke_color_parsed = self._parse_color(stroke_effect.color)
-                draw.text(
-                    position,
-                    layer.content,
-                    font=font,
-                    fill=color,
-                    stroke_width=stroke_effect.width,
-                    stroke_fill=stroke_color_parsed,
+                    draw, content, position, font, color, layer.letter_spacing, stroke_effects
                 )
             else:
-                draw.text(position, layer.content, font=font, fill=color)
+                self._draw_text(draw, content, position, font, color, stroke_effects)
+
+    def _render_rich_text(self, image: Image.Image, layer: TextLayer):
+        if not isinstance(layer.content, list):
+            return
+
+        draw = ImageDraw.Draw(image)
+        font = self._load_font(layer)
+
+        full_text = "".join(part.text for part in layer.content)
+
+        if layer.letter_spacing:
+            text_dimensions = self._get_text_dimensions_with_spacing(
+                full_text, font, layer.letter_spacing
+            )
+        else:
+            text_dimensions = self._get_text_dimensions(full_text, font)
+
+        raw_x, raw_y = layer.position if layer.position else (0, 0)
+        base_x = self._parse_coordinate(raw_x, self.width)
+        base_y = self._parse_coordinate(raw_y, self.height)
+
+        if layer.align:
+            x, y = self._apply_alignment(base_x, base_y, text_dimensions, layer.align)
+        else:
+            x, y = base_x, base_y
+
+        for part in layer.content:
+            part_color = (
+                self._parse_color(part.color)
+                if part.color
+                else (self._parse_color(layer.color) if layer.color else DEFAULT_TEXT_COLOR)
+            )
+
+            combined_effects = list(layer.effects) + list(part.effects)
+
+            stroke_effects = self._get_stroke_effects(combined_effects)
+            shadow_effects = self._get_shadow_effects(combined_effects)
+            glow_effects = self._get_glow_effects(combined_effects)
+
+            for glow in glow_effects:
+                self._render_glow(image, part.text, font, (x, y), glow)
+
+            for shadow in shadow_effects:
+                self._render_shadow(image, part.text, font, (x, y), shadow)
+
+            if layer.letter_spacing:
+                self._draw_text_with_letter_spacing(
+                    draw, part.text, (x, y), font, part_color, layer.letter_spacing, stroke_effects
+                )
+                char_widths = self._calculate_char_widths(part.text, font)
+                x += sum(char_widths) + layer.letter_spacing * len(char_widths)
+            else:
+                self._draw_text(draw, part.text, (x, y), font, part_color, stroke_effects)
+                width, _ = self._get_text_dimensions(part.text, font)
+                x += width
 
     def _load_font(self, layer: TextLayer) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
         size = layer.size or DEFAULT_TEXT_SIZE
@@ -538,12 +605,14 @@ class Canvas:
         return int(dimension * percentage / 100)
 
     def _calculate_text_position(self, layer: TextLayer, font) -> tuple[int, int]:
+        content = layer.content if isinstance(layer.content, str) else ""
+
         if layer.letter_spacing:
             text_dimensions = self._get_text_dimensions_with_spacing(
-                layer.content, font, layer.letter_spacing
+                content, font, layer.letter_spacing
             )
         else:
-            text_dimensions = self._get_text_dimensions(layer.content, font)
+            text_dimensions = self._get_text_dimensions(content, font)
 
         raw_x, raw_y = layer.position if layer.position else (0, 0)
 
@@ -590,25 +659,14 @@ class Canvas:
         font,
         color: tuple[int, ...],
         letter_spacing: int,
-        stroke_effect: Stroke | None = None,
+        stroke_effects: list[Stroke] | None = None,
     ):
         x, y = position
         char_widths = self._calculate_char_widths(text, font)
+        strokes = stroke_effects or []
 
         for i, char in enumerate(text):
-            if stroke_effect:
-                stroke_color_parsed = self._parse_color(stroke_effect.color)
-                draw.text(
-                    (x, y),
-                    char,
-                    font=font,
-                    fill=color,
-                    stroke_width=stroke_effect.width,
-                    stroke_fill=stroke_color_parsed,
-                )
-            else:
-                draw.text((x, y), char, font=font, fill=color)
-
+            self._draw_text(draw, char, (x, y), font, color, strokes)
             x += char_widths[i] + letter_spacing
 
     def _wrap_text(
@@ -672,6 +730,7 @@ class Canvas:
 
         glow_effects = self._get_glow_effects(layer.effects)
         shadow_effects = self._get_shadow_effects(layer.effects)
+        stroke_effects = self._get_stroke_effects(layer.effects)
 
         for i, line in enumerate(lines):
             if layer.letter_spacing:
@@ -701,23 +760,12 @@ class Canvas:
             for shadow in shadow_effects:
                 self._render_shadow(image, line, font, (x, y), shadow)
 
-            stroke_effect = self._get_stroke_effect(layer.effects)
             if layer.letter_spacing:
                 self._draw_text_with_letter_spacing(
-                    draw, line, (x, y), font, color, layer.letter_spacing, stroke_effect
-                )
-            elif stroke_effect:
-                stroke_color_parsed = self._parse_color(stroke_effect.color)
-                draw.text(
-                    (x, y),
-                    line,
-                    font=font,
-                    fill=color,
-                    stroke_width=stroke_effect.width,
-                    stroke_fill=stroke_color_parsed,
+                    draw, line, (x, y), font, color, layer.letter_spacing, stroke_effects
                 )
             else:
-                draw.text((x, y), line, font=font, fill=color)
+                self._draw_text(draw, line, (x, y), font, color, stroke_effects)
 
     def _apply_alignment(
         self,

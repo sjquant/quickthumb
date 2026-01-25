@@ -11,6 +11,7 @@ from quickthumb.models import (
     Shadow,
     Stroke,
     TextLayer,
+    TextPart,
 )
 
 __all__ = [
@@ -27,4 +28,5 @@ __all__ = [
     "Shadow",
     "Stroke",
     "TextLayer",
+    "TextPart",
 ]

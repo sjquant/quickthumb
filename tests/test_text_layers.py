@@ -338,3 +338,123 @@ class TestTextLayers:
         # Then: Should raise ValidationError
         with pytest.raises(ValidationError, match=error_pattern):
             canvas.text("Hello", line_height=line_height)
+
+
+class TestRichText:
+    """Test suite for rich text (TextPart) functionality"""
+
+    def test_should_accept_list_of_text_parts_as_content(self):
+        """Test that text layer accepts list of TextPart objects as content"""
+        # Given: Canvas and list of TextPart objects
+        from quickthumb import Canvas, TextPart
+
+        canvas = Canvas(1920, 1080)
+
+        # When: User provides list of TextPart objects
+        canvas.text(
+            content=[
+                TextPart(text="Hello ", color="#FFFFFF"),
+                TextPart(text="World", color="#FF0000"),
+            ],
+            size=72,
+        )
+
+        # Then: Text layer should store the list of TextPart objects
+        from quickthumb import TextLayer
+
+        assert len(canvas.layers) == 1
+        assert canvas.layers[0] == TextLayer(
+            type="text",
+            content=[
+                TextPart(text="Hello ", color="#FFFFFF"),
+                TextPart(text="World", color="#FF0000"),
+            ],
+            size=72,
+        )
+
+    def test_should_serialize_rich_text_to_json_correctly(self):
+        """Test that canvas with rich text serializes to JSON correctly"""
+        # Given: Canvas with rich text content
+        import json
+
+        from quickthumb import Canvas, Stroke, TextPart
+
+        canvas = Canvas(1920, 1080).text(
+            content=[
+                TextPart(text="Hello ", color="#FFFFFF"),
+                TextPart(
+                    text="World",
+                    color="#FF0000",
+                    effects=[Stroke(width=2, color="#000000")],
+                ),
+            ],
+            size=72,
+            effects=[Stroke(width=1, color="#000000")],
+        )
+
+        # When: User serializes canvas to JSON
+        json_str = canvas.to_json()
+
+        # Then: JSON should contain TextPart array with correct structure
+        data = json.loads(json_str)
+        assert len(data["layers"]) == 1
+        assert data["layers"][0]["type"] == "text"
+        assert isinstance(data["layers"][0]["content"], list)
+        assert len(data["layers"][0]["content"]) == 2
+        assert data["layers"][0]["content"][0] == {
+            "text": "Hello ",
+            "color": "#FFFFFF",
+            "effects": [],
+        }
+        assert data["layers"][0]["content"][1] == {
+            "text": "World",
+            "color": "#FF0000",
+            "effects": [{"type": "stroke", "width": 2, "color": "#000000"}],
+        }
+
+    def test_should_deserialize_rich_text_from_json_correctly(self):
+        """Test that canvas with rich text can be deserialized from JSON"""
+        # Given: JSON string with rich text content
+        import json
+
+        from quickthumb import Canvas
+
+        json_data = {
+            "width": 1920,
+            "height": 1080,
+            "layers": [
+                {
+                    "type": "text",
+                    "content": [
+                        {"text": "Hello ", "color": "#FFFFFF", "effects": []},
+                        {
+                            "text": "World",
+                            "color": "#FF0000",
+                            "effects": [{"type": "stroke", "width": 2, "color": "#000000"}],
+                        },
+                    ],
+                    "size": 72,
+                    "color": None,
+                    "effects": [{"type": "stroke", "width": 1, "color": "#000000"}],
+                }
+            ],
+        }
+        json_str = json.dumps(json_data)
+
+        # When: User deserializes canvas from JSON
+        canvas = Canvas.from_json(json_str)
+
+        # Then: Canvas should recreate the rich text structure
+        assert len(canvas.layers) == 1
+
+    def test_should_handle_empty_text_part_list(self):
+        """Test that empty TextPart list raises ValidationError"""
+        # Given: Canvas and empty TextPart list
+        from quickthumb import Canvas, ValidationError
+
+        canvas = Canvas(1920, 1080)
+
+        # When: User provides empty TextPart list
+        # Then: Should raise ValidationError
+        with pytest.raises(ValidationError, match="content.*empty"):
+            canvas.text(content=[], size=72)

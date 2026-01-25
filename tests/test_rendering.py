@@ -973,3 +973,99 @@ class TestRendering:
             # Then: Should show increased spacing between characters
             with open(output_path, "rb") as f:
                 assert f.read() == external_file("snapshots/text_with_letter_spacing.png")
+
+    def test_snapshot_rich_text_different_colors(self):
+        """Snapshot test for rich text with different colors per part"""
+        from quickthumb import Canvas, TextPart
+
+        # Given: Rich text with different colored parts
+        # When: Rendering text with multiple TextPart objects with different colors
+        canvas = (
+            Canvas(400, 200)
+            .background(color="#FFFFFF")
+            .text(
+                content=[
+                    TextPart(text="Hello "),
+                    TextPart(text="Beautiful ", color="#00FF00"),
+                    TextPart(text="World", color="#0000FF"),
+                ],
+                size=36,
+                position=(200, 100),
+                align=("center", "middle"),
+                color="#FF0000",
+            )
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            # Then: Should show text with different colors for each part
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/rich_text_different_colors.png")
+
+    def test_snapshot_rich_text_with_effects(self):
+        """Snapshot test for rich text with part-specific effects"""
+        from quickthumb import Canvas, Stroke, TextPart
+
+        # Given: Rich text with part-specific stroke effects
+        # When: Rendering text where one part has a stroke effect
+        canvas = (
+            Canvas(400, 200)
+            .background(color="#FFFFFF")
+            .text(
+                content=[
+                    TextPart(text="Normal ", color="#000000"),
+                    TextPart(
+                        text="Outlined",
+                        color="#FF0000",
+                        effects=[Stroke(width=2, color="#000000")],
+                    ),
+                ],
+                size=36,
+                position=(200, 100),
+                align=("center", "middle"),
+            )
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            # Then: Should show part-specific stroke effect on second part only
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/rich_text_with_effects.png")
+
+    def test_snapshot_rich_text_mixed_styles(self):
+        """Snapshot test for rich text with both parent and part effects"""
+        from quickthumb import Canvas, Stroke, TextPart
+
+        # Given: Rich text with parent effects and additional part-specific effects
+        # When: Rendering text with both types of effects
+        canvas = (
+            Canvas(400, 200)
+            .background(color="#FFFFFF")
+            .text(
+                content=[
+                    TextPart(text="Parent ", color="#FFFFFF"),
+                    TextPart(
+                        text="Both",
+                        color="#FF0000",
+                        effects=[Stroke(width=1, color="#0000FF")],
+                    ),
+                    TextPart(text=" Parent", color="#FFFFFF"),
+                ],
+                size=36,
+                position=(200, 100),
+                align=("center", "middle"),
+                effects=[Stroke(width=3, color="#000000")],
+            )
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            # Then: Should show parent effects on all parts plus additional effects on middle part
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/rich_text_mixed_styles.png")

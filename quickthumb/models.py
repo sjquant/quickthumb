@@ -111,6 +111,28 @@ class Glow(BaseModel):
 TextEffect = Stroke | Shadow | Glow
 
 
+class TextPart(BaseModel):
+    text: str
+    color: str | None = None
+    effects: list[TextEffect] = []
+
+    @field_validator("color")
+    @classmethod
+    def validate_color(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+
+        validate_hex_color(v)
+        return v
+
+    @field_validator("text")
+    @classmethod
+    def validate_text(cls, v: str) -> str:
+        if not v:
+            raise ValidationError("text field cannot be empty")
+        return v
+
+
 class BackgroundLayer(BaseModel):
     type: Literal["background"]
     color: str | tuple | None = None
@@ -181,7 +203,7 @@ class BackgroundLayer(BaseModel):
 
 class TextLayer(BaseModel):
     type: Literal["text"]
-    content: str
+    content: str | list[TextPart]
     font: str | None = None
     size: int | None = None
     color: str | None = None
@@ -193,6 +215,13 @@ class TextLayer(BaseModel):
     effects: list[TextEffect] = []
     line_height: float | None = None
     letter_spacing: int | None = None
+
+    @field_validator("content")
+    @classmethod
+    def validate_content(cls, v: str | list[TextPart]) -> str | list[TextPart]:
+        if isinstance(v, list) and len(v) == 0:
+            raise ValidationError("content list cannot be empty")
+        return v
 
     @field_validator("color")
     @classmethod
