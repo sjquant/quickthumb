@@ -1,6 +1,8 @@
 """Tests for text layer functionality"""
 
 import pytest
+from inline_snapshot import snapshot
+from quickthumb.models import Stroke, TextLayer, TextPart
 
 
 class TestTextLayers:
@@ -343,34 +345,36 @@ class TestTextLayers:
 class TestRichText:
     """Test suite for rich text (TextPart) functionality"""
 
-    def test_should_accept_list_of_text_parts_as_content(self):
-        """Test that text layer accepts list of TextPart objects as content"""
-        # Given: Canvas and list of TextPart objects
+    def test_should_accept_list_of_text_parts_with_styles(self):
+        """Test that TextPart objects accept advanced styling options"""
         from quickthumb import Canvas, TextPart
 
+        parts = [
+            TextPart(text="Big Bold ", size=100, bold=True, font="Arial"),
+            TextPart(text="Small Italic", size=20, italic=True),
+            TextPart(text="\nSpaced", letter_spacing=10, line_height=2.0),
+        ]
+
         canvas = Canvas(1920, 1080)
+        canvas.text(content=parts, size=72)  # Default size
 
-        # When: User provides list of TextPart objects
-        canvas.text(
-            content=[
-                TextPart(text="Hello ", color="#FFFFFF"),
-                TextPart(text="World", color="#FF0000"),
-            ],
-            size=72,
-        )
-
-        # Then: Text layer should store the list of TextPart objects
         from quickthumb import TextLayer
 
         assert len(canvas.layers) == 1
-        assert canvas.layers[0] == TextLayer(
-            type="text",
-            content=[
-                TextPart(text="Hello ", color="#FFFFFF"),
-                TextPart(text="World", color="#FF0000"),
-            ],
-            size=72,
-        )
+        assert isinstance(canvas.layers[0], TextLayer)
+        assert canvas.layers[0].content == parts
+
+    def test_should_validate_text_part_fields(self):
+        """Test validation for TextPart styling fields"""
+        from quickthumb import TextPart, ValidationError
+
+        # When/Then: User provides invalid size
+        with pytest.raises(ValidationError, match="size.*positive"):
+            TextPart(text="test", size=0)
+
+        # When/Then: User provides invalid line_height
+        with pytest.raises(ValidationError, match="line_height.*positive"):
+            TextPart(text="test", line_height=-1.0)
 
     def test_should_serialize_rich_text_to_json_correctly(self):
         """Test that canvas with rich text serializes to JSON correctly"""
@@ -381,10 +385,13 @@ class TestRichText:
 
         canvas = Canvas(1920, 1080).text(
             content=[
-                TextPart(text="Hello ", color="#FFFFFF"),
+                TextPart(text="Hello ", color="#FFFFFF", bold=True, size=80, font="Arial"),
                 TextPart(
                     text="World",
                     color="#FF0000",
+                    italic=True,
+                    line_height=1.5,
+                    letter_spacing=2,
                     effects=[Stroke(width=2, color="#000000")],
                 ),
             ],
@@ -405,11 +412,23 @@ class TestRichText:
             "text": "Hello ",
             "color": "#FFFFFF",
             "effects": [],
+            "size": 80,
+            "bold": True,
+            "italic": None,
+            "line_height": None,
+            "letter_spacing": None,
+            "font": "Arial",
         }
         assert data["layers"][0]["content"][1] == {
             "text": "World",
             "color": "#FF0000",
             "effects": [{"type": "stroke", "width": 2, "color": "#000000"}],
+            "size": None,
+            "bold": None,
+            "italic": True,
+            "line_height": 1.5,
+            "letter_spacing": 2,
+            "font": None,
         }
 
     def test_should_deserialize_rich_text_from_json_correctly(self):
@@ -426,11 +445,22 @@ class TestRichText:
                 {
                     "type": "text",
                     "content": [
-                        {"text": "Hello ", "color": "#FFFFFF", "effects": []},
+                        {
+                            "text": "Hello ",
+                            "color": "#FFFFFF",
+                            "effects": [],
+                            "bold": True,
+                            "size": 80,
+                            "font": "Arial",
+                        },
                         {
                             "text": "World",
                             "color": "#FF0000",
                             "effects": [{"type": "stroke", "width": 2, "color": "#000000"}],
+                            "italic": True,
+                            "line_height": 1.5,
+                            "letter_spacing": 2,
+                            "font": None,
                         },
                     ],
                     "size": 72,
@@ -446,6 +476,24 @@ class TestRichText:
 
         # Then: Canvas should recreate the rich text structure
         assert len(canvas.layers) == 1
+        assert canvas.layers[0] == snapshot(
+            TextLayer(
+                type="text",
+                content=[
+                    TextPart(text="Hello ", color="#FFFFFF", size=80, bold=True, font="Arial"),
+                    TextPart(
+                        text="World",
+                        color="#FF0000",
+                        effects=[Stroke(width=2, color="#000000")],
+                        italic=True,
+                        line_height=1.5,
+                        letter_spacing=2,
+                    ),
+                ],
+                size=72,
+                effects=[Stroke(width=1, color="#000000")],
+            )
+        )
 
     def test_should_handle_empty_text_part_list(self):
         """Test that empty TextPart list raises ValidationError"""

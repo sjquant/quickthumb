@@ -1098,3 +1098,65 @@ class TestRendering:
             # Then: Should be properly centered at the specified position
             with open(output_path, "rb") as f:
                 assert f.read() == external_file("snapshots/rich_text_alignment.png")
+
+    def test_snapshot_rich_text_advanced_styles(self):
+        """Snapshot test for rich text with advanced styling options (size, bold, etc.)"""
+        from quickthumb import Canvas, TextPart
+
+        # Given: Rich text with mixed sizes, bold, italic, line height, letter spacing
+        # When: Rendering with TextParts using these options
+        canvas = (
+            Canvas(400, 300)
+            .background(color="#FFFFFF")
+            .text(
+                content=[
+                    TextPart(text="Big Bold\n", size=48, bold=True, color="#000000"),
+                    TextPart(text="Small Italic\n", size=24, italic=True, color="#555555"),
+                    TextPart(
+                        text="Spaced Out",
+                        size=32,
+                        letter_spacing=10,
+                        color="#FF0000",
+                        line_height=2.0,
+                    ),
+                ],
+                position=(200, 150),
+                align=("center", "middle"),
+            )
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            # Then: Should show varied text styles in one block
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/rich_text_advanced_styles.png")
+
+    def test_snapshot_rich_text_mixed_fonts(self):
+        """Snapshot test for rich text with different fonts per part"""
+        from quickthumb import Canvas, TextPart
+
+        # Given: Rich text with mixed fonts
+        # When: Rendering with TextParts using different fonts
+        canvas = (
+            Canvas(400, 200)
+            .background(color="#FFFFFF")
+            .text(
+                content=[
+                    TextPart(text="Arial ", font="Arial", size=32, color="#000000"),
+                    TextPart(text="Times ", font="Times New Roman", size=32, color="#000000"),
+                    TextPart(text="Mixed", font="Arial", size=32, color="#000000", bold=True),
+                ],
+                position=(200, 100),
+                align=("center", "middle"),
+            )
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            # Then: Should show text with different fonts
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/rich_text_mixed_fonts.png")

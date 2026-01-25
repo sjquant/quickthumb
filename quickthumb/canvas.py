@@ -2,7 +2,7 @@ import math
 import os
 from collections.abc import Callable
 from contextlib import contextmanager
-from typing import Literal
+from typing import Literal, TypedDict, cast
 
 import pydantic_core
 from PIL import Image, ImageChops, ImageDraw, ImageEnhance, ImageFilter, ImageFont
@@ -47,6 +47,25 @@ def convert_pydantic_errors():
             final_msg = f"{error_locs}: {error_msg}" if error_locs else error_msg
             raise ValidationError(final_msg) from e
         raise ValidationError("validation error") from e
+
+
+class TextPartData(TypedDict):
+    color: tuple[int, int, int]
+    font_name: str
+    size: int
+    bold: bool
+    italic: bool
+    line_height_multiplier: float
+    letter_spacing: int
+    stroke_effects: list[Stroke]
+    shadow_effects: list[Shadow]
+    glow_effects: list[Glow]
+    text: str
+
+
+class TextPartMetadata(TypedDict):
+    font: ImageFont.FreeTypeFont | ImageFont.ImageFont
+    width: int
 
 
 class Canvas:
@@ -394,68 +413,202 @@ class Canvas:
             return
 
         draw = ImageDraw.Draw(image)
-        font = self._load_font(layer)
-        line_height_multiplier = (
-            layer.line_height if layer.line_height else DEFAULT_LINE_HEIGHT_MULTIPLIER
-        )
+        lines = self._prepare_rich_text_lines(layer)
+        line_heights, total_height = self._calculate_rich_text_dimensions(layer, lines)
+        base_x, start_y = self._calculate_start_position(layer, total_height)
 
-        full_text = "".join(part.text for part in layer.content)
-        _, total_height = self._measure_text_bounds(
-            full_text, font, layer.letter_spacing or 0, line_height_multiplier
-        )
+        self._draw_rich_text_lines(draw, image, layer, lines, line_heights, base_x, start_y)
 
+    def _calculate_rich_text_dimensions(
+        self, layer: TextLayer, lines: list[list[TextPartData]]
+    ) -> tuple[list[int], int]:
+        total_height = 0
+        line_heights = []
+
+        for line_parts in lines:
+            max_line_height = 0
+            if not line_parts:
+                ref_font = self._load_font(layer)
+                lh_mult = layer.line_height or DEFAULT_LINE_HEIGHT_MULTIPLIER
+                max_line_height = self._calculate_line_height(ref_font, lh_mult)
+            else:
+                for part in line_parts:
+                    font = self._load_font_variant(
+                        part["font_name"], part["size"], part["bold"], part["italic"]
+                    )
+                    lh = self._calculate_line_height(font, part["line_height_multiplier"])
+                    max_line_height = max(max_line_height, lh)
+
+            line_heights.append(max_line_height)
+            total_height += max_line_height
+
+        return line_heights, total_height
+
+    def _calculate_start_position(self, layer: TextLayer, total_height: int) -> tuple[int, int]:
         raw_x, raw_y = layer.position if layer.position else (0, 0)
         base_x = self._parse_coordinate(raw_x, self.width)
         base_y = self._parse_coordinate(raw_y, self.height)
 
-        y = self._get_vertical_start_y(base_y, total_height, layer.align)
-        line_height = self._calculate_line_height(font, line_height_multiplier)
+        start_y = self._get_vertical_start_y(base_y, total_height, layer.align)
+        return base_x, start_y
 
-        all_lines = self._split_rich_text_into_lines(layer.content, layer.effects, layer.color)
+    def _draw_rich_text_lines(
+        self,
+        draw: ImageDraw.ImageDraw,
+        image: Image.Image,
+        layer: TextLayer,
+        lines: list[list[TextPartData]],
+        line_heights: list[int],
+        base_x: int,
+        start_y: int,
+    ):
+        current_y = start_y
+        for i, line_parts in enumerate(lines):
+            line_height = line_heights[i]
 
-        for line_parts in all_lines:
-            line_text = "".join(p["text"] for p in line_parts)
+            line_width = 0
+            part_metadata: list[TextPartMetadata] = []
 
-            line_width, _ = self._measure_text_bounds(
-                line_text, font, layer.letter_spacing or 0, line_height_multiplier
+            for part in line_parts:
+                font = self._load_font_variant(
+                    part["font_name"], part["size"], part["bold"], part["italic"]
+                )
+
+                w, _ = self._measure_text_bounds(part["text"], font, part["letter_spacing"])
+                part_metadata.append({"font": font, "width": w})
+                line_width += w
+
+            current_x = self._get_horizontal_start_x(base_x, line_width, layer.align)
+
+            for j, part in enumerate(line_parts):
+                meta = part_metadata[j]
+                font = meta["font"]
+                width = meta["width"]
+
+                self._render_text_part(draw, image, part, font, (current_x, current_y))
+                current_x += width
+
+            current_y += line_height
+
+    def _prepare_rich_text_lines(self, layer: TextLayer) -> list[list[TextPartData]]:
+        lines: list[list[TextPartData]] = [[]]
+
+        for part in cast(list[TextPart], layer.content):
+            color = self._resolve_color(part, layer)
+            size = self._resolve_size(part, layer)
+            bold = self._resolve_bold(part, layer)
+            italic = self._resolve_italic(part, layer)
+            font_name = self._resolve_font_name(part, layer)
+            lh_mult = self._resolve_line_height(part, layer)
+            letter_spacing = self._resolve_letter_spacing(part, layer)
+
+            combined_effects = list(layer.effects) + list(part.effects)
+
+            part_data: TextPartData = {
+                "color": color,
+                "font_name": font_name,
+                "size": size,
+                "bold": bold,
+                "italic": italic,
+                "line_height_multiplier": lh_mult,
+                "letter_spacing": letter_spacing,
+                "stroke_effects": self._get_stroke_effects(combined_effects),
+                "shadow_effects": self._get_shadow_effects(combined_effects),
+                "glow_effects": self._get_glow_effects(combined_effects),
+                "text": part.text,
+            }
+
+            if "\n" in part.text:
+                segments = part.text.split("\n")
+                for i, segment in enumerate(segments):
+                    if i > 0:
+                        lines.append([])
+                    if segment:
+                        line = part_data.copy()
+                        line["text"] = segment
+                        lines[-1].append(line)
+            else:
+                lines[-1].append(part_data)
+
+        return lines
+
+    def _resolve_color(self, part: TextPart, layer: TextLayer):
+        if part.color:
+            return self._parse_color(part.color)
+        if layer.color:
+            return self._parse_color(layer.color)
+        return DEFAULT_TEXT_COLOR
+
+    def _resolve_size(self, part: TextPart, layer: TextLayer):
+        if part.size is not None:
+            return part.size
+        if layer.size:
+            return layer.size
+        return DEFAULT_TEXT_SIZE
+
+    def _resolve_bold(self, part: TextPart, layer: TextLayer):
+        if part.bold is not None:
+            return part.bold
+        return layer.bold
+
+    def _resolve_italic(self, part: TextPart, layer: TextLayer):
+        if part.italic is not None:
+            return part.italic
+        return layer.italic
+
+    def _resolve_font_name(self, part: TextPart, layer: TextLayer):
+        if part.font is not None:
+            return part.font
+        return layer.font
+
+    def _resolve_line_height(self, part: TextPart, layer: TextLayer):
+        if part.line_height is not None:
+            return part.line_height
+        if layer.line_height:
+            return layer.line_height
+        return DEFAULT_LINE_HEIGHT_MULTIPLIER
+
+    def _resolve_letter_spacing(self, part: TextPart, layer: TextLayer):
+        if part.letter_spacing is not None:
+            return part.letter_spacing
+        if layer.letter_spacing:
+            return layer.letter_spacing
+        return 0
+
+    def _render_text_part(
+        self,
+        draw: ImageDraw.ImageDraw,
+        image: Image.Image,
+        part_data: TextPartData,
+        font: ImageFont.FreeTypeFont | ImageFont.ImageFont,
+        position: tuple[int, int],
+        width: int | None = None,
+    ):
+        text = part_data["text"]
+        x, y = position
+
+        # Render effects
+        for glow in part_data["glow_effects"]:
+            self._render_glow(image, text, font, (x, y), glow)
+
+        for shadow in part_data["shadow_effects"]:
+            self._render_shadow(image, text, font, (x, y), shadow)
+
+        # Render text
+        if part_data["letter_spacing"]:
+            self._draw_text_with_letter_spacing(
+                draw,
+                text,
+                (x, y),
+                font,
+                part_data["color"],
+                part_data["letter_spacing"],
+                part_data["stroke_effects"],
             )
-
-            x = self._get_horizontal_start_x(base_x, line_width, layer.align)
-
-            for part_info in line_parts:
-                part_text = part_info["text"]
-                part_color = part_info["color"]
-                stroke_effects = part_info["stroke_effects"]
-                shadow_effects = part_info["shadow_effects"]
-                glow_effects = part_info["glow_effects"]
-
-                if not part_text:
-                    continue
-
-                for glow in glow_effects:
-                    self._render_glow(image, part_text, font, (x, y), glow)
-
-                for shadow in shadow_effects:
-                    self._render_shadow(image, part_text, font, (x, y), shadow)
-
-                if layer.letter_spacing:
-                    self._draw_text_with_letter_spacing(
-                        draw,
-                        part_text,
-                        (x, y),
-                        font,
-                        part_color,
-                        layer.letter_spacing,
-                        stroke_effects,
-                    )
-                    char_widths = self._calculate_char_widths(part_text, font)
-                    x += sum(char_widths) + layer.letter_spacing * len(char_widths)
-                else:
-                    self._draw_text(draw, part_text, (x, y), font, part_color, stroke_effects)
-                    width, _ = self._measure_text_bounds(part_text, font)
-                    x += width
-
-            y += line_height
+        else:
+            self._draw_text(
+                draw, text, (x, y), font, part_data["color"], part_data["stroke_effects"]
+            )
 
     def _render_multiline_text(
         self,
@@ -517,11 +670,6 @@ class Canvas:
         if not layer.align:
             return base_x, base_y
 
-        # For simple text, alignment logic is slightly different than rich text line-by-line
-        # But we can reuse the helpers if we treat the whole block
-        # Actually _apply_alignment did exactly this.
-        # Let's inline the logic using new helpers but adapted for single block
-
         x = self._get_horizontal_start_x(base_x, text_width, layer.align)
         y = self._get_vertical_start_y(base_y, text_height, layer.align)
 
@@ -550,35 +698,6 @@ class Canvas:
 
         if current_line:
             lines.append(" ".join(current_line))
-
-        return lines
-
-    def _split_rich_text_into_lines(
-        self, content: list, layer_effects: list, layer_color: str | None
-    ) -> list[list[dict]]:
-        lines: list[list[dict]] = [[]]
-        default_color = self._parse_color(layer_color) if layer_color else DEFAULT_TEXT_COLOR
-
-        for part in content:
-            part_color = self._parse_color(part.color) if part.color else default_color
-            combined_effects = list(layer_effects) + list(part.effects)
-
-            part_data = {
-                "color": part_color,
-                "stroke_effects": self._get_stroke_effects(combined_effects),
-                "shadow_effects": self._get_shadow_effects(combined_effects),
-                "glow_effects": self._get_glow_effects(combined_effects),
-            }
-
-            if "\n" in part.text:
-                segments = part.text.split("\n")
-                for i, segment in enumerate(segments):
-                    if i > 0:
-                        lines.append([])
-                    if segment:
-                        lines[-1].append({"text": segment, **part_data})
-            else:
-                lines[-1].append({"text": part.text, **part_data})
 
         return lines
 
@@ -715,7 +834,6 @@ class Canvas:
         text_width = bbox[2] - bbox[0]
         text_height = bbox[3] - bbox[1]
 
-        # Use stroke for expansion instead of repeated MaxFilter (faster and smoother)
         expansion = max(1, glow.radius // 2)
         blur_padding = max(glow.radius * 3, 1)
         total_padding = blur_padding + expansion
@@ -765,7 +883,6 @@ class Canvas:
         text_width = bbox[2] - bbox[0]
         text_height = bbox[3] - bbox[1]
 
-        # Padding for blur (3 * sigma is standard safe margin)
         padding = max(shadow.blur_radius * 3, 1)
 
         draw_x = padding - bbox[0]
@@ -789,11 +906,16 @@ class Canvas:
         image.paste(shadow_layer, (paste_x, paste_y), shadow_layer)
 
     def _load_font(self, layer: TextLayer) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
-        size = layer.size or DEFAULT_TEXT_SIZE
-        font_style = self._determine_font_style(layer)
+        return self._load_font_variant(
+            layer.font, layer.size or DEFAULT_TEXT_SIZE, layer.bold, layer.italic
+        )
+
+    def _load_font_variant(
+        self, font_name: str | None, size: int, bold: bool | None, italic: bool | None
+    ) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
+        font_style = self._get_style_string(bold or False, italic or False)
 
         try:
-            font_name = layer.font
             if font_name and font_style:
                 try:
                     styled_font_name = f"{font_name} {font_style}"
@@ -811,15 +933,15 @@ class Canvas:
 
             return ImageFont.load_default()
         except OSError as e:
-            font_name = layer.font or "default"
+            font_name = font_name or "default"
             raise RenderingError(f"Could not load font '{font_name}'.") from e
 
-    def _determine_font_style(self, layer: TextLayer) -> str:
-        if layer.bold and layer.italic:
+    def _get_style_string(self, bold: bool, italic: bool) -> str:
+        if bold and italic:
             return "Bold Italic"
-        if layer.bold:
+        if bold:
             return "Bold"
-        if layer.italic:
+        if italic:
             return "Italic"
         return ""
 

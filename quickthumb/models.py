@@ -115,6 +115,12 @@ class TextPart(BaseModel):
     text: str
     color: str | None = None
     effects: list[TextEffect] = []
+    size: int | None = None
+    bold: bool | None = None
+    italic: bool | None = None
+    line_height: float | None = None
+    letter_spacing: int | None = None
+    font: str | None = None
 
     @field_validator("color")
     @classmethod
@@ -130,6 +136,26 @@ class TextPart(BaseModel):
     def validate_text(cls, v: str) -> str:
         if not v:
             raise ValidationError("text field cannot be empty")
+        return v
+
+    @field_validator("size")
+    @classmethod
+    def validate_size(cls, v: int | None) -> int | None:
+        if v is None:
+            return v
+
+        if v <= 0:
+            raise ValidationError("size must be positive")
+        return v
+
+    @field_validator("line_height")
+    @classmethod
+    def validate_line_height(cls, v: float | None) -> float | None:
+        if v is None:
+            return v
+
+        if v <= 0:
+            raise ValidationError("line_height must be positive")
         return v
 
 
