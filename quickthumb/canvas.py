@@ -30,6 +30,7 @@ FileFormat = Literal["JPEG", "WEBP", "PNG"]
 DEFAULT_TEXT_SIZE = 16
 DEFAULT_TEXT_COLOR = (0, 0, 0)
 FULL_OPACITY = 255
+LINE_HEIGHT_REFERENCE = "Aby"
 
 
 @contextmanager
@@ -105,6 +106,8 @@ class Canvas:
         italic: bool = False,
         max_width: int | str | None = None,
         effects: list | None = None,
+        line_height: float | None = None,
+        letter_spacing: int | None = None,
     ) -> Self:
         with convert_pydantic_errors():
             layer = TextLayer(
@@ -119,6 +122,8 @@ class Canvas:
                 italic=italic,
                 max_width=max_width,
                 effects=effects or [],
+                line_height=line_height,
+                letter_spacing=letter_spacing,
             )
         self._layers.append(layer)
         return self
@@ -436,7 +441,7 @@ class Canvas:
 
         if layer.max_width:
             max_width_px = self._parse_coordinate(layer.max_width, self.width)
-            lines = self._wrap_text(layer.content, font, max_width_px)
+            lines = self._wrap_text(layer.content, font, max_width_px, layer.letter_spacing)
             self._render_multiline_text(draw, lines, font, color, layer, image)
         else:
             position = self._calculate_text_position(layer, font)
@@ -447,7 +452,11 @@ class Canvas:
             for shadow in shadow_effects:
                 self._render_shadow(image, layer.content, font, position, shadow)
 
-            if stroke_effect:
+            if layer.letter_spacing:
+                self._draw_text_with_letter_spacing(
+                    draw, layer.content, position, font, color, layer.letter_spacing, stroke_effect
+                )
+            elif stroke_effect:
                 stroke_color_parsed = self._parse_color(stroke_effect.color)
                 draw.text(
                     position,
@@ -529,7 +538,13 @@ class Canvas:
         return int(dimension * percentage / 100)
 
     def _calculate_text_position(self, layer: TextLayer, font) -> tuple[int, int]:
-        text_dimensions = self._get_text_dimensions(layer.content, font)
+        if layer.letter_spacing:
+            text_dimensions = self._get_text_dimensions_with_spacing(
+                layer.content, font, layer.letter_spacing
+            )
+        else:
+            text_dimensions = self._get_text_dimensions(layer.content, font)
+
         raw_x, raw_y = layer.position if layer.position else (0, 0)
 
         base_x = self._parse_coordinate(raw_x, self.width)
@@ -546,14 +561,70 @@ class Canvas:
         height = bbox[3] - bbox[1]
         return width, height
 
-    def _wrap_text(self, text: str, font, max_width: int) -> list[str]:
+    def _calculate_char_widths(self, text: str, font) -> list[int]:
+        widths = []
+        for char in text:
+            bbox = font.getbbox(char)
+            widths.append(bbox[2] - bbox[0])
+        return widths
+
+    def _get_text_dimensions_with_spacing(
+        self, text: str, font, letter_spacing: int
+    ) -> tuple[int, int]:
+        if not text:
+            return 0, 0
+
+        char_widths = self._calculate_char_widths(text, font)
+        total_width = sum(char_widths) + letter_spacing * (len(char_widths) - 1)
+
+        bbox = font.getbbox(text)
+        height = bbox[3] - bbox[1]
+
+        return total_width, height
+
+    def _draw_text_with_letter_spacing(
+        self,
+        draw: ImageDraw.ImageDraw,
+        text: str,
+        position: tuple[int, int],
+        font,
+        color: tuple[int, ...],
+        letter_spacing: int,
+        stroke_effect: Stroke | None = None,
+    ):
+        x, y = position
+        char_widths = self._calculate_char_widths(text, font)
+
+        for i, char in enumerate(text):
+            if stroke_effect:
+                stroke_color_parsed = self._parse_color(stroke_effect.color)
+                draw.text(
+                    (x, y),
+                    char,
+                    font=font,
+                    fill=color,
+                    stroke_width=stroke_effect.width,
+                    stroke_fill=stroke_color_parsed,
+                )
+            else:
+                draw.text((x, y), char, font=font, fill=color)
+
+            x += char_widths[i] + letter_spacing
+
+    def _wrap_text(
+        self, text: str, font, max_width: int, letter_spacing: int | None = None
+    ) -> list[str]:
         words = text.split()
         lines = []
         current_line: list[str] = []
 
         for word in words:
             test_line = " ".join(current_line + [word])
-            width, _ = self._get_text_dimensions(test_line, font)
+
+            if letter_spacing:
+                width, _ = self._get_text_dimensions_with_spacing(test_line, font, letter_spacing)
+            else:
+                width, _ = self._get_text_dimensions(test_line, font)
 
             if width <= max_width:
                 current_line.append(word)
@@ -578,8 +649,9 @@ class Canvas:
         layer: TextLayer,
         image: Image.Image,
     ):
-        bbox = font.getbbox("Aby")
-        line_height = int((bbox[3] - bbox[1]) * 1.2)
+        bbox = font.getbbox(LINE_HEIGHT_REFERENCE)
+        line_height_multiplier = layer.line_height if layer.line_height else 1.2
+        line_height = int((bbox[3] - bbox[1]) * line_height_multiplier)
         total_height = line_height * len(lines)
 
         raw_x, raw_y = layer.position if layer.position else (0, 0)
@@ -602,7 +674,13 @@ class Canvas:
         shadow_effects = self._get_shadow_effects(layer.effects)
 
         for i, line in enumerate(lines):
-            line_width, _ = self._get_text_dimensions(line, font)
+            if layer.letter_spacing:
+                line_width, _ = self._get_text_dimensions_with_spacing(
+                    line, font, layer.letter_spacing
+                )
+            else:
+                line_width, _ = self._get_text_dimensions(line, font)
+
             y = start_y + i * line_height
 
             if layer.align:
@@ -624,7 +702,11 @@ class Canvas:
                 self._render_shadow(image, line, font, (x, y), shadow)
 
             stroke_effect = self._get_stroke_effect(layer.effects)
-            if stroke_effect:
+            if layer.letter_spacing:
+                self._draw_text_with_letter_spacing(
+                    draw, line, (x, y), font, color, layer.letter_spacing, stroke_effect
+                )
+            elif stroke_effect:
                 stroke_color_parsed = self._parse_color(stroke_effect.color)
                 draw.text(
                     (x, y),

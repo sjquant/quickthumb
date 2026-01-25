@@ -918,3 +918,58 @@ class TestRendering:
 
             with open(output_path, "rb") as f:
                 assert f.read() == external_file("snapshots/text_with_multiple_glows.png")
+
+    def test_snapshot_text_with_line_height(self):
+        """Snapshot test for text rendering with custom line_height spacing"""
+        from quickthumb import Canvas
+
+        # Given: Multi-line text with custom line_height
+        # When: Rendering text with line_height parameter
+        canvas = (
+            Canvas(400, 300)
+            .background(color="#FFFFFF")
+            .text(
+                "This is a long text that wraps to multiple lines for testing line height",
+                size=24,
+                color="#000000",
+                position=(200, 150),
+                align=("center", "middle"),
+                max_width=300,
+                line_height=1.8,
+            )
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            # Then: Should show increased spacing between lines
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/text_with_line_height.png")
+
+    def test_snapshot_text_with_letter_spacing(self):
+        """Snapshot test for text rendering with custom letter_spacing"""
+        from quickthumb import Canvas
+
+        # Given: Text with custom letter_spacing
+        # When: Rendering text with letter_spacing parameter
+        canvas = (
+            Canvas(400, 200)
+            .background(color="#FFFFFF")
+            .text(
+                "LETTER SPACING",
+                size=32,
+                color="#000000",
+                position=(200, 100),
+                align=("center", "middle"),
+                letter_spacing=5,
+            )
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            # Then: Should show increased spacing between characters
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/text_with_letter_spacing.png")

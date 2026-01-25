@@ -114,6 +114,8 @@ class TestCanvas:
                         "italic": False,
                         "max_width": None,
                         "effects": [],
+                        "line_height": None,
+                        "letter_spacing": None,
                     },
                     {
                         "type": "text",
@@ -127,6 +129,8 @@ class TestCanvas:
                         "italic": False,
                         "max_width": None,
                         "effects": [],
+                        "line_height": None,
+                        "letter_spacing": None,
                     },
                 ],
             }

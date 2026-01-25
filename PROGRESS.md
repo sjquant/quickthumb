@@ -41,6 +41,8 @@
 - ✅ Text stroke rendering (configurable width and color)
 - ✅ Drop shadow (offset_x, offset_y, color, blur_radius)
 - ✅ Glow/outer glow (color, radius, opacity)
+- ✅ Letter spacing (`letter_spacing` parameter)
+- ✅ Line height (`line_height` parameter)
 
 ---
 
@@ -48,11 +50,8 @@
 
 ### Text Effects (Phase 5)
 
-- [ ] Letter spacing (`letter_spacing` parameter)
-- [ ] Line height (`line_height` parameter)
 - [ ] Rich text with `TextPart` (partial text styling: color, effects per segment)
 
 ### Low Priority
 
-- [ ] Performance optimizations
 - [ ] Extended documentation/examples

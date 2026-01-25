@@ -191,6 +191,8 @@ class TextLayer(BaseModel):
     italic: bool = False
     max_width: int | str | None = None
     effects: list[TextEffect] = []
+    line_height: float | None = None
+    letter_spacing: int | None = None
 
     @field_validator("color")
     @classmethod
@@ -266,6 +268,17 @@ class TextLayer(BaseModel):
 
         if v <= 0:
             raise ValidationError("max_width must be positive")
+
+        return v
+
+    @field_validator("line_height")
+    @classmethod
+    def validate_line_height(cls, v: float | None) -> float | None:
+        if v is None:
+            return v
+
+        if v <= 0:
+            raise ValidationError("line_height must be positive")
 
         return v
 

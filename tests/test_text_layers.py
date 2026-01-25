@@ -231,6 +231,8 @@ class TestTextLayers:
                 align=("center", "top"),
                 effects=[Stroke(width=3, color="#000000")],
                 bold=True,
+                line_height=1.5,
+                letter_spacing=2,
             )
         )
 
@@ -256,6 +258,8 @@ class TestTextLayers:
             "bold": True,
             "italic": False,
             "max_width": None,
+            "line_height": 1.5,
+            "letter_spacing": 2,
         }
 
     def test_should_deserialize_text_layer_from_json(self):
@@ -286,6 +290,8 @@ class TestTextLayers:
                     "effects": [{"type": "stroke", "width": 3, "color": "#000000"}],
                     "bold": True,
                     "italic": False,
+                    "line_height": 1.5,
+                    "letter_spacing": 2,
                 },
             ],
         }
@@ -309,4 +315,26 @@ class TestTextLayers:
             effects=[Stroke(width=3, color="#000000")],
             bold=True,
             italic=False,
+            line_height=1.5,
+            letter_spacing=2,
         )
+
+    @pytest.mark.parametrize(
+        "line_height,error_pattern",
+        [
+            (0, "line_height.*positive"),
+            (-1, "line_height.*positive"),
+            (-1.5, "line_height.*positive"),
+        ],
+    )
+    def test_should_raise_error_for_invalid_line_height(self, line_height, error_pattern):
+        """Test that non-positive line_height raises ValidationError"""
+        # Given: Canvas and invalid line_height
+        from quickthumb import Canvas, ValidationError
+
+        canvas = Canvas(1920, 1080)
+
+        # When: User provides non-positive line_height
+        # Then: Should raise ValidationError
+        with pytest.raises(ValidationError, match=error_pattern):
+            canvas.text("Hello", line_height=line_height)

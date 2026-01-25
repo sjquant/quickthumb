@@ -92,6 +92,8 @@ class TestTextEffects:
                 "italic": False,
                 "max_width": None,
                 "effects": [{"type": "stroke", "width": 3, "color": "#000000"}],
+                "line_height": None,
+                "letter_spacing": None,
             }
         )
 
@@ -219,6 +221,8 @@ class TestTextEffects:
                         "blur_radius": 0,
                     }
                 ],
+                "line_height": None,
+                "letter_spacing": None,
             }
         )
 
@@ -352,6 +356,8 @@ class TestTextEffects:
                 "italic": False,
                 "max_width": None,
                 "effects": [{"type": "glow", "color": "#FF0000", "radius": 10, "opacity": 0.9}],
+                "line_height": None,
+                "letter_spacing": None,
             }
         )
 
