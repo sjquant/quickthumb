@@ -158,6 +158,17 @@ class Canvas:
 
         self._save_to_file(image, output_path, quality)
 
+    def to_json(self) -> str:
+        return CanvasModel(
+            width=self.width, height=self.height, layers=self._layers
+        ).model_dump_json()
+
+    @classmethod
+    def from_json(cls, data: str) -> Self:
+        with convert_pydantic_errors():
+            canvas_model = CanvasModel.model_validate_json(data)
+        return cls(width=canvas_model.width, height=canvas_model.height, layers=canvas_model.layers)
+
     def _create_canvas(self) -> Image.Image:
         return Image.new("RGBA", (self.width, self.height), (0, 0, 0, 0))
 
@@ -330,121 +341,17 @@ class Canvas:
         result.paste(resized, (paste_x, paste_y))
         return result
 
-    def _get_stroke_effects(self, effects: list[TextEffect]) -> list[Stroke]:
-        return [e for e in effects if isinstance(e, Stroke)]
+    def _render_outline_layer(self, image: Image.Image, layer: OutlineLayer):
+        draw = ImageDraw.Draw(image)
+        color = self._parse_color(layer.color)
 
-    def _get_shadow_effects(self, effects: list[TextEffect]) -> list[Shadow]:
-        return [e for e in effects if isinstance(e, Shadow)]
+        x1 = layer.offset
+        y1 = layer.offset
+        x2 = self.width - layer.offset - 1
+        y2 = self.height - layer.offset - 1
 
-    def _get_glow_effects(self, effects: list[TextEffect]) -> list[Glow]:
-        return [e for e in effects if isinstance(e, Glow)]
-
-    def _draw_text(
-        self,
-        draw: ImageDraw.ImageDraw,
-        text: str,
-        position: tuple[int, int],
-        font,
-        color: tuple[int, ...],
-        stroke_effects: list[Stroke],
-    ):
-        if stroke_effects:
-            for stroke in stroke_effects:
-                draw.text(
-                    position,
-                    text,
-                    font=font,
-                    fill=color,
-                    stroke_width=stroke.width,
-                    stroke_fill=self._parse_color(stroke.color),
-                )
-        else:
-            draw.text(position, text, font=font, fill=color)
-
-    def _render_shadow(
-        self,
-        image: Image.Image,
-        text: str,
-        font,
-        position: tuple[int, int],
-        shadow: Shadow,
-    ):
-        bbox = font.getbbox(text)
-        text_width = bbox[2] - bbox[0]
-        text_height = bbox[3] - bbox[1]
-
-        # Padding for blur (3 * sigma is standard safe margin)
-        padding = max(shadow.blur_radius * 3, 1)
-
-        draw_x = padding - bbox[0]
-        draw_y = padding - bbox[1]
-
-        temp_w = text_width + 2 * padding
-        temp_h = text_height + 2 * padding
-
-        shadow_layer = Image.new("RGBA", (temp_w, temp_h), (0, 0, 0, 0))
-        shadow_draw = ImageDraw.Draw(shadow_layer)
-
-        shadow_color = self._parse_color(shadow.color)
-        shadow_draw.text((draw_x, draw_y), text, font=font, fill=shadow_color)
-
-        if shadow.blur_radius > 0:
-            shadow_layer = shadow_layer.filter(ImageFilter.GaussianBlur(radius=shadow.blur_radius))
-
-        paste_x = position[0] + shadow.offset_x - draw_x
-        paste_y = position[1] + shadow.offset_y - draw_y
-
-        image.paste(shadow_layer, (paste_x, paste_y), shadow_layer)
-
-    def _render_glow(
-        self,
-        image: Image.Image,
-        text: str,
-        font,
-        position: tuple[int, int],
-        glow: Glow,
-    ):
-        bbox = font.getbbox(text)
-        text_width = bbox[2] - bbox[0]
-        text_height = bbox[3] - bbox[1]
-
-        # Use stroke for expansion instead of repeated MaxFilter (faster and smoother)
-        expansion = max(1, glow.radius // 2)
-        blur_padding = max(glow.radius * 3, 1)
-        total_padding = blur_padding + expansion
-
-        draw_x = total_padding - bbox[0]
-        draw_y = total_padding - bbox[1]
-
-        temp_w = text_width + 2 * total_padding
-        temp_h = text_height + 2 * total_padding
-
-        glow_mask = Image.new("L", (temp_w, temp_h), 0)
-        mask_draw = ImageDraw.Draw(glow_mask)
-
-        mask_draw.text(
-            (draw_x, draw_y),
-            text,
-            font=font,
-            fill=255,
-            stroke_width=expansion * 2,
-            stroke_fill=255,
-        )
-
-        glow_mask = glow_mask.filter(ImageFilter.GaussianBlur(radius=glow.radius))
-
-        glow_color = self._parse_color(glow.color)
-        glow_layer = Image.new("RGBA", (temp_w, temp_h), glow_color)
-
-        if glow.opacity < 1.0:
-            glow_mask = glow_mask.point(lambda x: int(x * glow.opacity))
-
-        glow_layer.putalpha(glow_mask)
-
-        paste_x = position[0] - draw_x
-        paste_y = position[1] - draw_y
-
-        image.paste(glow_layer, (paste_x, paste_y), glow_layer)
+        for i in range(layer.width):
+            draw.rectangle([x1 + i, y1 + i, x2 - i, y2 - i], outline=color)
 
     def _render_text_layer(self, image: Image.Image, layer: TextLayer):
         if isinstance(layer.content, list):
@@ -481,80 +388,6 @@ class Canvas:
                 )
             else:
                 self._draw_text(draw, content, position, font, color, stroke_effects)
-
-    def _calculate_line_height(self, font, multiplier: float) -> int:
-        bbox = font.getbbox(LINE_HEIGHT_REFERENCE)
-        base_height = bbox[3] - bbox[1]
-        return int(base_height * multiplier)
-
-    def _measure_text_bounds(
-        self,
-        text: str,
-        font,
-        letter_spacing: int = 0,
-        line_height_multiplier: float = DEFAULT_LINE_HEIGHT_MULTIPLIER,
-    ) -> tuple[int, int]:
-        if not text:
-            return 0, 0
-
-        if "\n" not in text:
-            if letter_spacing:
-                char_widths = self._calculate_char_widths(text, font)
-                width = sum(char_widths) + letter_spacing * (len(char_widths) - 1)
-            else:
-                bbox = font.getbbox(text)
-                width = bbox[2] - bbox[0]
-
-            bbox = font.getbbox(text)
-            height = bbox[3] - bbox[1]
-            return width, height
-
-        lines = text.split("\n")
-        max_width = 0
-
-        for line in lines:
-            if not line:
-                continue
-
-            if letter_spacing:
-                char_widths = self._calculate_char_widths(line, font)
-                line_width = sum(char_widths) + letter_spacing * (len(char_widths) - 1)
-            else:
-                bbox = font.getbbox(line)
-                line_width = bbox[2] - bbox[0]
-
-            max_width = max(max_width, line_width)
-
-        line_height = self._calculate_line_height(font, line_height_multiplier)
-        total_height = line_height * len(lines)
-
-        return max_width, total_height
-
-    def _get_vertical_start_y(
-        self, base_y: int, total_height: int, align: tuple[str, str] | None
-    ) -> int:
-        if not align:
-            return base_y
-
-        _, vertical_align = align
-        if vertical_align == "middle":
-            return base_y - total_height // 2
-        elif vertical_align == "bottom":
-            return base_y - total_height
-        return base_y
-
-    def _get_horizontal_start_x(
-        self, base_x: int, line_width: int, align: tuple[str, str] | None
-    ) -> int:
-        if not align:
-            return base_x
-
-        horizontal_align, _ = align
-        if horizontal_align == "center":
-            return base_x - line_width // 2
-        elif horizontal_align == "right":
-            return base_x - line_width
-        return base_x
 
     def _render_rich_text(self, image: Image.Image, layer: TextLayer):
         if not isinstance(layer.content, list):
@@ -624,6 +457,102 @@ class Canvas:
 
             y += line_height
 
+    def _render_multiline_text(
+        self,
+        draw: ImageDraw.ImageDraw,
+        lines: list[str],
+        font,
+        color: tuple[int, ...],
+        layer: TextLayer,
+        image: Image.Image,
+    ):
+        line_height_multiplier = layer.line_height or DEFAULT_LINE_HEIGHT_MULTIPLIER
+        line_height = self._calculate_line_height(font, line_height_multiplier)
+        total_height = line_height * len(lines)
+
+        raw_x, raw_y = layer.position if layer.position else (0, 0)
+        base_x = self._parse_coordinate(raw_x, self.width)
+        base_y = self._parse_coordinate(raw_y, self.height)
+
+        start_y = self._get_vertical_start_y(base_y, total_height, layer.align)
+
+        glow_effects = self._get_glow_effects(layer.effects)
+        shadow_effects = self._get_shadow_effects(layer.effects)
+        stroke_effects = self._get_stroke_effects(layer.effects)
+
+        for i, line in enumerate(lines):
+            line_width, _ = self._measure_text_bounds(
+                line, font, layer.letter_spacing or 0, line_height_multiplier
+            )
+
+            y = start_y + i * line_height
+            x = self._get_horizontal_start_x(base_x, line_width, layer.align)
+
+            for glow in glow_effects:
+                self._render_glow(image, line, font, (x, y), glow)
+
+            for shadow in shadow_effects:
+                self._render_shadow(image, line, font, (x, y), shadow)
+
+            if layer.letter_spacing:
+                self._draw_text_with_letter_spacing(
+                    draw, line, (x, y), font, color, layer.letter_spacing, stroke_effects
+                )
+            else:
+                self._draw_text(draw, line, (x, y), font, color, stroke_effects)
+
+    def _calculate_text_position(self, layer: TextLayer, font) -> tuple[int, int]:
+        content = layer.content if isinstance(layer.content, str) else ""
+        line_height_multiplier = layer.line_height or DEFAULT_LINE_HEIGHT_MULTIPLIER
+
+        text_width, text_height = self._measure_text_bounds(
+            content, font, layer.letter_spacing or 0, line_height_multiplier
+        )
+
+        raw_x, raw_y = layer.position if layer.position else (0, 0)
+
+        base_x = self._parse_coordinate(raw_x, self.width)
+        base_y = self._parse_coordinate(raw_y, self.height)
+
+        if not layer.align:
+            return base_x, base_y
+
+        # For simple text, alignment logic is slightly different than rich text line-by-line
+        # But we can reuse the helpers if we treat the whole block
+        # Actually _apply_alignment did exactly this.
+        # Let's inline the logic using new helpers but adapted for single block
+
+        x = self._get_horizontal_start_x(base_x, text_width, layer.align)
+        y = self._get_vertical_start_y(base_y, text_height, layer.align)
+
+        return x, y
+
+    def _wrap_text(
+        self, text: str, font, max_width: int, letter_spacing: int | None = None
+    ) -> list[str]:
+        words = text.split()
+        lines = []
+        current_line: list[str] = []
+
+        for word in words:
+            test_line = " ".join(current_line + [word])
+
+            width, _ = self._measure_text_bounds(test_line, font, letter_spacing or 0)
+
+            if width <= max_width:
+                current_line.append(word)
+            else:
+                if current_line:
+                    lines.append(" ".join(current_line))
+                    current_line = [word]
+                else:
+                    lines.append(word)
+
+        if current_line:
+            lines.append(" ".join(current_line))
+
+        return lines
+
     def _split_rich_text_into_lines(
         self, content: list, layer_effects: list, layer_color: str | None
     ) -> list[list[dict]]:
@@ -652,6 +581,212 @@ class Canvas:
                 lines[-1].append({"text": part.text, **part_data})
 
         return lines
+
+    def _measure_text_bounds(
+        self,
+        text: str,
+        font,
+        letter_spacing: int = 0,
+        line_height_multiplier: float = DEFAULT_LINE_HEIGHT_MULTIPLIER,
+    ) -> tuple[int, int]:
+        if not text:
+            return 0, 0
+
+        if "\n" not in text:
+            if letter_spacing:
+                char_widths = self._calculate_char_widths(text, font)
+                width = sum(char_widths) + letter_spacing * (len(char_widths) - 1)
+            else:
+                bbox = font.getbbox(text)
+                width = bbox[2] - bbox[0]
+
+            bbox = font.getbbox(text)
+            height = bbox[3] - bbox[1]
+            return width, height
+
+        lines = text.split("\n")
+        max_width = 0
+
+        for line in lines:
+            if not line:
+                continue
+
+            if letter_spacing:
+                char_widths = self._calculate_char_widths(line, font)
+                line_width = sum(char_widths) + letter_spacing * (len(char_widths) - 1)
+            else:
+                bbox = font.getbbox(line)
+                line_width = bbox[2] - bbox[0]
+
+            max_width = max(max_width, line_width)
+
+        line_height = self._calculate_line_height(font, line_height_multiplier)
+        total_height = line_height * len(lines)
+
+        return max_width, total_height
+
+    def _calculate_line_height(self, font, multiplier: float) -> int:
+        bbox = font.getbbox(LINE_HEIGHT_REFERENCE)
+        base_height = bbox[3] - bbox[1]
+        return int(base_height * multiplier)
+
+    def _calculate_char_widths(self, text: str, font) -> list[int]:
+        widths = []
+        for char in text:
+            bbox = font.getbbox(char)
+            widths.append(bbox[2] - bbox[0])
+        return widths
+
+    def _get_vertical_start_y(
+        self, base_y: int, total_height: int, align: tuple[str, str] | None
+    ) -> int:
+        if not align:
+            return base_y
+
+        _, vertical_align = align
+        if vertical_align == "middle":
+            return base_y - total_height // 2
+        elif vertical_align == "bottom":
+            return base_y - total_height
+        return base_y
+
+    def _get_horizontal_start_x(
+        self, base_x: int, line_width: int, align: tuple[str, str] | None
+    ) -> int:
+        if not align:
+            return base_x
+
+        horizontal_align, _ = align
+        if horizontal_align == "center":
+            return base_x - line_width // 2
+        elif horizontal_align == "right":
+            return base_x - line_width
+        return base_x
+
+    def _draw_text_with_letter_spacing(
+        self,
+        draw: ImageDraw.ImageDraw,
+        text: str,
+        position: tuple[int, int],
+        font,
+        color: tuple[int, ...],
+        letter_spacing: int,
+        stroke_effects: list[Stroke] | None = None,
+    ):
+        x, y = position
+        char_widths = self._calculate_char_widths(text, font)
+        strokes = stroke_effects or []
+
+        for i, char in enumerate(text):
+            self._draw_text(draw, char, (x, y), font, color, strokes)
+            x += char_widths[i] + letter_spacing
+
+    def _draw_text(
+        self,
+        draw: ImageDraw.ImageDraw,
+        text: str,
+        position: tuple[int, int],
+        font,
+        color: tuple[int, ...],
+        stroke_effects: list[Stroke],
+    ):
+        if stroke_effects:
+            for stroke in stroke_effects:
+                draw.text(
+                    position,
+                    text,
+                    font=font,
+                    fill=color,
+                    stroke_width=stroke.width,
+                    stroke_fill=self._parse_color(stroke.color),
+                )
+        else:
+            draw.text(position, text, font=font, fill=color)
+
+    def _render_glow(
+        self,
+        image: Image.Image,
+        text: str,
+        font,
+        position: tuple[int, int],
+        glow: Glow,
+    ):
+        bbox = font.getbbox(text)
+        text_width = bbox[2] - bbox[0]
+        text_height = bbox[3] - bbox[1]
+
+        # Use stroke for expansion instead of repeated MaxFilter (faster and smoother)
+        expansion = max(1, glow.radius // 2)
+        blur_padding = max(glow.radius * 3, 1)
+        total_padding = blur_padding + expansion
+
+        draw_x = total_padding - bbox[0]
+        draw_y = total_padding - bbox[1]
+
+        temp_w = text_width + 2 * total_padding
+        temp_h = text_height + 2 * total_padding
+
+        glow_mask = Image.new("L", (temp_w, temp_h), 0)
+        mask_draw = ImageDraw.Draw(glow_mask)
+
+        mask_draw.text(
+            (draw_x, draw_y),
+            text,
+            font=font,
+            fill=255,
+            stroke_width=expansion * 2,
+            stroke_fill=255,
+        )
+
+        glow_mask = glow_mask.filter(ImageFilter.GaussianBlur(radius=glow.radius))
+
+        glow_color = self._parse_color(glow.color)
+        glow_layer = Image.new("RGBA", (temp_w, temp_h), glow_color)
+
+        if glow.opacity < 1.0:
+            glow_mask = glow_mask.point(lambda x: int(x * glow.opacity))
+
+        glow_layer.putalpha(glow_mask)
+
+        paste_x = position[0] - draw_x
+        paste_y = position[1] - draw_y
+
+        image.paste(glow_layer, (paste_x, paste_y), glow_layer)
+
+    def _render_shadow(
+        self,
+        image: Image.Image,
+        text: str,
+        font,
+        position: tuple[int, int],
+        shadow: Shadow,
+    ):
+        bbox = font.getbbox(text)
+        text_width = bbox[2] - bbox[0]
+        text_height = bbox[3] - bbox[1]
+
+        # Padding for blur (3 * sigma is standard safe margin)
+        padding = max(shadow.blur_radius * 3, 1)
+
+        draw_x = padding - bbox[0]
+        draw_y = padding - bbox[1]
+
+        temp_w = text_width + 2 * padding
+        temp_h = text_height + 2 * padding
+
+        shadow_layer = Image.new("RGBA", (temp_w, temp_h), (0, 0, 0, 0))
+        shadow_draw = ImageDraw.Draw(shadow_layer)
+
+        shadow_color = self._parse_color(shadow.color)
+        shadow_draw.text((draw_x, draw_y), text, font=font, fill=shadow_color)
+
+        if shadow.blur_radius > 0:
+            shadow_layer = shadow_layer.filter(ImageFilter.GaussianBlur(radius=shadow.blur_radius))
+
+        paste_x = position[0] + shadow.offset_x - draw_x
+        paste_y = position[1] + shadow.offset_y - draw_y
+
+        image.paste(shadow_layer, (paste_x, paste_y), shadow_layer)
 
     def _load_font(self, layer: TextLayer) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
         size = layer.size or DEFAULT_TEXT_SIZE
@@ -721,126 +856,14 @@ class Canvas:
         percentage = float(value.rstrip("%"))
         return int(dimension * percentage / 100)
 
-    def _calculate_text_position(self, layer: TextLayer, font) -> tuple[int, int]:
-        content = layer.content if isinstance(layer.content, str) else ""
-        line_height_multiplier = layer.line_height or DEFAULT_LINE_HEIGHT_MULTIPLIER
+    def _get_stroke_effects(self, effects: list[TextEffect]) -> list[Stroke]:
+        return [e for e in effects if isinstance(e, Stroke)]
 
-        text_width, text_height = self._measure_text_bounds(
-            content, font, layer.letter_spacing or 0, line_height_multiplier
-        )
+    def _get_shadow_effects(self, effects: list[TextEffect]) -> list[Shadow]:
+        return [e for e in effects if isinstance(e, Shadow)]
 
-        raw_x, raw_y = layer.position if layer.position else (0, 0)
-
-        base_x = self._parse_coordinate(raw_x, self.width)
-        base_y = self._parse_coordinate(raw_y, self.height)
-
-        if not layer.align:
-            return base_x, base_y
-
-        # For simple text, alignment logic is slightly different than rich text line-by-line
-        # But we can reuse the helpers if we treat the whole block
-        # Actually _apply_alignment did exactly this.
-        # Let's inline the logic using new helpers but adapted for single block
-
-        x = self._get_horizontal_start_x(base_x, text_width, layer.align)
-        y = self._get_vertical_start_y(base_y, text_height, layer.align)
-
-        return x, y
-
-    def _calculate_char_widths(self, text: str, font) -> list[int]:
-        widths = []
-        for char in text:
-            bbox = font.getbbox(char)
-            widths.append(bbox[2] - bbox[0])
-        return widths
-
-    def _draw_text_with_letter_spacing(
-        self,
-        draw: ImageDraw.ImageDraw,
-        text: str,
-        position: tuple[int, int],
-        font,
-        color: tuple[int, ...],
-        letter_spacing: int,
-        stroke_effects: list[Stroke] | None = None,
-    ):
-        x, y = position
-        char_widths = self._calculate_char_widths(text, font)
-        strokes = stroke_effects or []
-
-        for i, char in enumerate(text):
-            self._draw_text(draw, char, (x, y), font, color, strokes)
-            x += char_widths[i] + letter_spacing
-
-    def _wrap_text(
-        self, text: str, font, max_width: int, letter_spacing: int | None = None
-    ) -> list[str]:
-        words = text.split()
-        lines = []
-        current_line: list[str] = []
-
-        for word in words:
-            test_line = " ".join(current_line + [word])
-
-            width, _ = self._measure_text_bounds(test_line, font, letter_spacing or 0)
-
-            if width <= max_width:
-                current_line.append(word)
-            else:
-                if current_line:
-                    lines.append(" ".join(current_line))
-                    current_line = [word]
-                else:
-                    lines.append(word)
-
-        if current_line:
-            lines.append(" ".join(current_line))
-
-        return lines
-
-    def _render_multiline_text(
-        self,
-        draw: ImageDraw.ImageDraw,
-        lines: list[str],
-        font,
-        color: tuple[int, ...],
-        layer: TextLayer,
-        image: Image.Image,
-    ):
-        line_height_multiplier = layer.line_height or DEFAULT_LINE_HEIGHT_MULTIPLIER
-        line_height = self._calculate_line_height(font, line_height_multiplier)
-        total_height = line_height * len(lines)
-
-        raw_x, raw_y = layer.position if layer.position else (0, 0)
-        base_x = self._parse_coordinate(raw_x, self.width)
-        base_y = self._parse_coordinate(raw_y, self.height)
-
-        start_y = self._get_vertical_start_y(base_y, total_height, layer.align)
-
-        glow_effects = self._get_glow_effects(layer.effects)
-        shadow_effects = self._get_shadow_effects(layer.effects)
-        stroke_effects = self._get_stroke_effects(layer.effects)
-
-        for i, line in enumerate(lines):
-            line_width, _ = self._measure_text_bounds(
-                line, font, layer.letter_spacing or 0, line_height_multiplier
-            )
-
-            y = start_y + i * line_height
-            x = self._get_horizontal_start_x(base_x, line_width, layer.align)
-
-            for glow in glow_effects:
-                self._render_glow(image, line, font, (x, y), glow)
-
-            for shadow in shadow_effects:
-                self._render_shadow(image, line, font, (x, y), shadow)
-
-            if layer.letter_spacing:
-                self._draw_text_with_letter_spacing(
-                    draw, line, (x, y), font, color, layer.letter_spacing, stroke_effects
-                )
-            else:
-                self._draw_text(draw, line, (x, y), font, color, stroke_effects)
+    def _get_glow_effects(self, effects: list[TextEffect]) -> list[Glow]:
+        return [e for e in effects if isinstance(e, Glow)]
 
     def _create_gradient_lut(
         self, stops: list[tuple[str, float]]
@@ -1036,26 +1059,3 @@ class Canvas:
         else:
             result = 1 - 2 * (1 - base_norm) * (1 - overlay_norm)
         return int(result * 255)
-
-    def _render_outline_layer(self, image: Image.Image, layer: OutlineLayer):
-        draw = ImageDraw.Draw(image)
-        color = self._parse_color(layer.color)
-
-        x1 = layer.offset
-        y1 = layer.offset
-        x2 = self.width - layer.offset - 1
-        y2 = self.height - layer.offset - 1
-
-        for i in range(layer.width):
-            draw.rectangle([x1 + i, y1 + i, x2 - i, y2 - i], outline=color)
-
-    def to_json(self) -> str:
-        return CanvasModel(
-            width=self.width, height=self.height, layers=self._layers
-        ).model_dump_json()
-
-    @classmethod
-    def from_json(cls, data: str) -> Self:
-        with convert_pydantic_errors():
-            canvas_model = CanvasModel.model_validate_json(data)
-        return cls(width=canvas_model.width, height=canvas_model.height, layers=canvas_model.layers)
