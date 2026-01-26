@@ -49,6 +49,18 @@
 
 ## 🚧 TODO
 
+### Planned Features (High Priority)
+
+- [ ] Image Layer (placing images at specific coordinates)
+- [ ] URL support for images (backgrounds and overlays)
+- [ ] WebFont support (/tmp)
+- [ ] Rotation support for images and texts
+- [ ] Text background effect support (labels/badges with padding/rounded corners)
+
+### Medium Priorty
+
+- [ ] Background Removal for image
+
 ### Low Priority
 
 - [ ] Extended documentation/examples

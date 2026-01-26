@@ -7,6 +7,7 @@ This section defines the core interfaces and type signatures that must be implem
 ### Color Format Support
 
 Colors can be specified in multiple formats:
+
 - Hex string: `"#FF5733"` or `"#FF5733AA"` (with alpha)
 - RGB tuple: `(255, 87, 51)`
 - RGBA tuple: `(255, 87, 51, 255)`
@@ -14,13 +15,14 @@ Colors can be specified in multiple formats:
 ### Position Format Support
 
 Positions can be specified as:
+
 - Pixels: `100`
 - Percentage: `"50%"`
-
 
 ## Design Overview
 
 ### Core Principles
+
 - **Required params upfront**: `Canvas(width, height)` or `Canvas.from_aspect_ratio(ratio)` or `Canvas.from_json()`
 - **Typed methods without prefixes**: `.text()`, `.background()`, `.outline()` - call multiple times for layers
 - **Method chaining**: All layer methods return `self` for fluent API (e.g., `canvas.background().text()`)
@@ -53,6 +55,29 @@ canvas.text(
     italic=False,
     max_width=None,  # For word wrapping
     effects=None,  # list of effect objects (Stroke, Shadow, Glow, etc.)
+    background_color=None,  # Hex string for text background
+    padding=None,  # int or (horizontal, vertical) tuple
+    border_radius=None,  # int for rounded background corners
+)
+
+# Text with background (Badge style)
+canvas.text(
+    content="20:19",
+    size=30,
+    color="#FFFFFF",
+    background_color="#000000",
+    padding=(15, 8),
+    border_radius=10,
+)
+
+# Image layers (Overlay images/logos)
+canvas.image(
+    path="assets/logo.png",  # Local path or URL
+    position=(50, 50),
+    width=200,  # width or height (preserves aspect ratio if one is None)
+    opacity=1.0,
+    rotation=0,  # Degrees
+    align=("top", "left")
 )
 
 # Text with effects using effect classes
@@ -77,6 +102,7 @@ canvas.text(
 )
 
 # Decoration layers
+canvas.image(path="logo.png", position=(20, 20), width=100)
 canvas.outline(width=5, color="#000000", offset=10)
 
 # Render
@@ -105,7 +131,10 @@ json_str = canvas.to_json()          # Export canvas to JSON string
       "gradient": {
         "type": "linear",
         "angle": 45,
-        "stops": [["#FF5733", 0.0], ["#3333FF", 1.0]]
+        "stops": [
+          ["#FF5733", 0.0],
+          ["#3333FF", 1.0]
+        ]
       },
       "opacity": 0.7,
       "blend_mode": "multiply"
@@ -118,23 +147,36 @@ json_str = canvas.to_json()          # Export canvas to JSON string
       "color": "#FFFFFF",
       "align": ["center", "middle"],
       "bold": true,
-      "effects": [
-        {"type": "stroke", "width": 3, "color": "#000000"}
-      ]
+      "effects": [{ "type": "stroke", "width": 3, "color": "#000000" }],
+      "background_color": "#000000",
+      "padding": [10, 5],
+      "border_radius": 5
+    },
+    {
+      "type": "image",
+      "path": "assets/logo.png",
+      "position": [50, 50],
+      "width": 200,
+      "opacity": 1.0,
+      "rotation": 0
     },
     {
       "type": "text",
       "content": [
-        {"text": "Hello ", "color": "#FFFFFF"},
-        {"text": "World", "color": "#FF0000", "effects": [{"type": "stroke", "width": 2, "color": "#000000"}]}
+        { "text": "Hello ", "color": "#FFFFFF" },
+        {
+          "text": "World",
+          "color": "#FF0000",
+          "effects": [{ "type": "stroke", "width": 2, "color": "#000000" }]
+        }
       ],
       "size": 72,
-      "effects": [{"type": "stroke", "width": 1, "color": "#000000"}]
+      "effects": [{ "type": "stroke", "width": 1, "color": "#000000" }]
     },
     {
       "type": "outline",
       "width": 10,
-      "color": "#FFFFFF",
+      "color": "#FFFFFF"
     }
   ]
 }
@@ -188,7 +230,7 @@ assert recreated.to_json() == exported  # Perfect round-trip
 
 ### Helper Classes
 
-```python
+````python
 from quickthumb import LinearGradient, RadialGradient, BlendMode, TextPart, Stroke
 
 # Gradients
@@ -207,14 +249,16 @@ BlendMode.LIGHTEN
 Stroke(width=3, color="#000000")
 
 # Rich text parts (for partial text styling)
-TextPart(
-    text="Hello",
-    color="#FF0000",  # optional, inherits from parent text layer
-    effects=None,  # optional list of effect objects
-)
-```
+    TextPart(
+        text="Hello",
+        color="#FF0000",  # optional, inherits from parent text layer
+        effects=None,  # optional list of effect objects
+        background_color="#FFFF00",  # Highlight specific words
+        padding=5,
+    )
+    ```
 
-### Text Effects
+    ### Text Effects
 
 Text layers support effects for enhanced visual styling using effect classes:
 
@@ -236,9 +280,10 @@ canvas.text("Epic Title", size=96, color="#FFFFFF", effects=[
 stroke_style = [Stroke(width=3, color="#000000")]
 canvas.text("Title 1", size=72, effects=stroke_style)
 canvas.text("Title 2", size=60, effects=stroke_style)
-```
+````
 
 **Available Effects:**
+
 - `Stroke(width, color)`: Adds an outline around text
 
 ### Rich Text (Partial Styling)
@@ -316,6 +361,7 @@ canvas.text(
 ## Implementation Priority
 
 ### Phase 1: Core (Minimum Viable)
+
 - Canvas creation (size + aspect ratio)
 - Solid background
 - Basic text (no stroke, center alignment)
@@ -324,24 +370,30 @@ canvas.text(
 - Method chaining (all layer methods return `self`)
 
 ### Phase 2: Enhanced Backgrounds
+
 - Linear gradients
 - Radial gradients
 - Image backgrounds with fit modes
 - Blend modes and opacity
 
 ### Phase 3: Text Features
+
 - Text stroke/outline
 - Custom positioning
 - Font loading and caching
 - Bold/italic variants
 
 ### Phase 4: Decorations & Polish
+
+- Image overlays (positioned images)
+- Text backgrounds (labels/badges)
 - Outline decoration
 - JPEG/WebP output
 - JSON operations (`from_json()`, `to_json()`)
 - Comprehensive error messages
 
 ### Phase 5: Text Effects
+
 - Effect classes (currently: `Stroke`)
 - Effects list (`effects` parameter)
 - Rich text with `TextPart` (partial text styling with effects support)
