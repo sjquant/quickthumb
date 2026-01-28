@@ -34,6 +34,7 @@
 - ✅ Font loading and caching
 - ✅ Brightness adjustment (for solid colors, gradients, and images)
 - ✅ Text word wrapping (max_width parameter with alignment preservation)
+- ✅ URL support for images (backgrounds with http/https URLs)
 
 ### Text Effects
 
@@ -52,7 +53,6 @@
 ### Planned Features (High Priority)
 
 - [ ] Image Layer (placing images at specific coordinates)
-- [ ] URL support for images (backgrounds and overlays)
 - [ ] WebFont support (/tmp)
 - [ ] Rotation support for images and texts
 - [ ] Text background effect support (labels/badges with padding/rounded corners)

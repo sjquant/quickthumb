@@ -1160,3 +1160,19 @@ class TestRendering:
             # Then: Should show text with different fonts
             with open(output_path, "rb") as f:
                 assert f.read() == external_file("snapshots/rich_text_mixed_fonts.png")
+
+    def test_snapshot_url_image_background_basic(self):
+        """Snapshot test for URL-based image background rendering"""
+        from quickthumb import Canvas
+
+        # Given: A canvas with a URL image as background
+        # When: Rendering with URL image parameter
+        canvas = Canvas(400, 300).background(image="https://httpbin.org/image/png")
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            # Then: Should render the URL image as background
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/url_image_background_basic.png")

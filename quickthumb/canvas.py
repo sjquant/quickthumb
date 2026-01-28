@@ -2,7 +2,9 @@ import math
 import os
 from collections.abc import Callable
 from contextlib import contextmanager
+from io import BytesIO
 from typing import Literal, TypedDict, cast
+from urllib.request import urlopen
 
 import pydantic_core
 from PIL import Image, ImageChops, ImageDraw, ImageEnhance, ImageFilter, ImageFont
@@ -42,7 +44,7 @@ def convert_pydantic_errors():
     except pydantic_core.ValidationError as e:
         errors = e.errors()
         if errors:
-            error_locs = ",".join(errors[0].get("loc", []))
+            error_locs = ",".join(str(loc) for loc in errors[0].get("loc", []))
             error_msg = errors[0].get("msg", "validation error")
             final_msg = f"{error_locs}: {error_msg}" if error_locs else error_msg
             raise ValidationError(final_msg) from e
@@ -214,6 +216,7 @@ class Canvas:
             if (
                 isinstance(layer, BackgroundLayer)
                 and layer.image
+                and not self._is_url(layer.image)
                 and not os.path.exists(layer.image)
             ):
                 raise FileNotFoundError(f"{layer.image}")
@@ -332,7 +335,12 @@ class Canvas:
     def _load_and_fit_image(
         self, image_path: str, canvas_size: tuple[int, int], fit: FitMode | str | None
     ) -> Image.Image:
-        img = Image.open(image_path).convert("RGBA")
+        if self._is_url(image_path):
+            img = self._load_image_from_url(image_path)
+        else:
+            img = Image.open(image_path)
+
+        img = img.convert("RGBA")
         canvas_width, canvas_height = canvas_size
         img_width, img_height = img.size
 
@@ -986,6 +994,14 @@ class Canvas:
 
     def _get_glow_effects(self, effects: list[TextEffect]) -> list[Glow]:
         return [e for e in effects if isinstance(e, Glow)]
+
+    def _is_url(self, path: str) -> bool:
+        return path.startswith("http://") or path.startswith("https://")
+
+    def _load_image_from_url(self, url: str) -> Image.Image:
+        with urlopen(url) as response:
+            image_data = response.read()
+        return Image.open(BytesIO(image_data))
 
     def _create_gradient_lut(
         self, stops: list[tuple[str, float]]
