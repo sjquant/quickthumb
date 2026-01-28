@@ -32,10 +32,4 @@ You must write the production code to make the tests pass, adhering strictly to 
 Before presenting code, verify:
 
 - [ ] All tests pass
-- [ ] No explanatory comments exist (except minimal docstrings if needed)
-- [ ] No try-catch blocks for logging only
-- [ ] All names are self-explanatory
 - [ ] Code follows TDD Green-Refactor cycle
-- [ ] User was consulted if >300 lines (non-repetitive)
-- [ ] No premature optimization
-- [ ] Code is as simple as possible, but no simpler
