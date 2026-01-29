@@ -507,7 +507,13 @@ class Canvas:
                 font = meta["font"]
                 width = meta["width"]
 
-                self._render_text_part(draw, image, part, font, (current_x, current_y))
+                # Calculate vertical offset to center text within line box
+                bbox = font.getbbox(part["text"])
+                text_height = int(bbox[3] - bbox[1])
+                vertical_offset = (line_height - text_height) // 2
+                adjusted_y = current_y + vertical_offset
+
+                self._render_text_part(draw, image, part, font, (current_x, adjusted_y))
                 current_x += width
 
             current_y += line_height
@@ -887,8 +893,15 @@ class Canvas:
         widths = char_widths if char_widths is not None else self._calculate_char_widths(text, font)
         strokes = stroke_effects or []
 
+        # Calculate baseline position from the top position
+        # Use "ls" (left-baseline) anchor to get bbox relative to baseline
+        # bbox[1] is negative (top is above baseline), bbox[3] is positive (bottom below)
+        # baseline_y = y - bbox[1] converts top position to baseline position
+        bbox = font.getbbox(text, anchor="ls")
+        baseline_y = int(y - bbox[1])
+
         for i, char in enumerate(text):
-            self._draw_text(draw, char, (x, y), font, color, strokes, "lt")
+            self._draw_text(draw, char, (x, baseline_y), font, color, strokes, "ls")
             x += widths[i] + letter_spacing
 
     def _draw_text(
