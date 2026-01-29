@@ -1176,3 +1176,85 @@ class TestRendering:
             # Then: Should render the URL image as background
             with open(output_path, "rb") as f:
                 assert f.read() == external_file("snapshots/url_image_background_basic.png")
+
+    def test_snapshot_webfont_basic_rendering(self):
+        """Snapshot test for loading and rendering text with a web font from URL"""
+        from quickthumb import Canvas
+
+        # Given: A canvas with text using a distinctive script font (Pacifico) from URL
+        # When: Rendering text with font parameter pointing to a URL
+        canvas = (
+            Canvas(400, 200)
+            .background(color="#FFFFFF")
+            .text(
+                "Web Font Test",
+                font="https://fonts.gstatic.com/s/pacifico/v22/FwZY7-Qmy14u9lezJ-6H6MmBp0u-.woff2",
+                size=48,
+                color="#FF1493",
+                position=("50%", "50%"),
+                align=("center", "middle"),
+            )
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            # Then: Should render text with the web font loaded from URL
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/webfont_basic_rendering.png")
+
+    def test_should_raise_error_for_invalid_webfont_url(self):
+        """Should raise RenderingError when web font URL is invalid or unreachable"""
+        from quickthumb import Canvas
+        from quickthumb.errors import RenderingError
+
+        # Given: A canvas with text using an invalid font URL
+        # When: Rendering text with unreachable or invalid font URL
+        canvas = (
+            Canvas(400, 200)
+            .background(color="#FFFFFF")
+            .text(
+                "Test",
+                font="https://invalid-domain-that-does-not-exist-12345.com/font.woff2",
+                size=36,
+                color="#000000",
+            )
+        )
+
+        # Then: Should raise RenderingError during render
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            with pytest.raises(RenderingError):
+                canvas.render(output_path)
+
+    def test_should_warn_when_using_bold_italic_with_webfont(self):
+        """Should warn when bold/italic flags are used with webfont URLs"""
+        import warnings
+
+        from quickthumb import Canvas
+
+        # Given: A canvas with text using webfont URL with bold flag
+        canvas = (
+            Canvas(400, 200)
+            .background(color="#FFFFFF")
+            .text(
+                "Test",
+                font="https://fonts.gstatic.com/s/pacifico/v22/FwZY7-Qmy14u9lezJ-6H6MmBp0u-.woff2",
+                size=36,
+                color="#000000",
+                bold=True,
+            )
+        )
+
+        # When: Rendering with bold flag
+        # Then: Should issue a UserWarning
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            with warnings.catch_warnings(record=True) as w:
+                warnings.simplefilter("always")
+                canvas.render(output_path)
+
+                assert len(w) == 1
+                assert issubclass(w[0].category, UserWarning)
+                assert "Bold/italic flags are ignored for webfont URLs" in str(w[0].message)

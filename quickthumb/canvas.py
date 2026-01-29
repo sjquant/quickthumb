@@ -1,5 +1,7 @@
+import hashlib
 import math
 import os
+import warnings
 from collections.abc import Callable
 from contextlib import contextmanager
 from io import BytesIO
@@ -51,6 +53,9 @@ def convert_pydantic_errors():
         raise ValidationError("validation error") from e
 
 
+FontType = ImageFont.FreeTypeFont | ImageFont.ImageFont
+
+
 class TextPartData(TypedDict):
     color: tuple[int, int, int]
     font_name: str
@@ -66,7 +71,7 @@ class TextPartData(TypedDict):
 
 
 class TextPartMetadata(TypedDict):
-    font: ImageFont.FreeTypeFont | ImageFont.ImageFont
+    font: FontType
     width: int
 
 
@@ -400,21 +405,30 @@ class Canvas:
             max_width_px = self._parse_coordinate(layer.max_width, self.width)
             lines = self._wrap_text(content, font, max_width_px, layer.letter_spacing)
             self._render_multiline_text(draw, lines, font, color, layer, image)
+        elif layer.letter_spacing:
+            self._render_letter_spaced_text(
+                draw,
+                image,
+                content,
+                font,
+                color,
+                layer,
+                glow_effects,
+                shadow_effects,
+                stroke_effects,
+            )
         else:
-            position = self._calculate_text_position(layer, font)
-
-            for glow in glow_effects:
-                self._render_glow(image, content, font, position, glow)
-
-            for shadow in shadow_effects:
-                self._render_shadow(image, content, font, position, shadow)
-
-            if layer.letter_spacing:
-                self._draw_text_with_letter_spacing(
-                    draw, content, position, font, color, layer.letter_spacing, stroke_effects
-                )
-            else:
-                self._draw_text(draw, content, position, font, color, stroke_effects)
+            self._render_normal_text(
+                draw,
+                image,
+                content,
+                font,
+                color,
+                layer,
+                glow_effects,
+                shadow_effects,
+                stroke_effects,
+            )
 
     def _render_rich_text(self, image: Image.Image, layer: TextLayer):
         if not isinstance(layer.content, list):
@@ -588,9 +602,8 @@ class Canvas:
         draw: ImageDraw.ImageDraw,
         image: Image.Image,
         part_data: TextPartData,
-        font: ImageFont.FreeTypeFont | ImageFont.ImageFont,
+        font: FontType,
         position: tuple[int, int],
-        width: int | None = None,
     ):
         text = part_data["text"]
         x, y = position
@@ -622,7 +635,7 @@ class Canvas:
         self,
         draw: ImageDraw.ImageDraw,
         lines: list[str],
-        font,
+        font: FontType,
         color: tuple[int, ...],
         layer: TextLayer,
         image: Image.Image,
@@ -662,26 +675,88 @@ class Canvas:
             else:
                 self._draw_text(draw, line, (x, y), font, color, stroke_effects)
 
-    def _calculate_text_position(self, layer: TextLayer, font) -> tuple[int, int]:
-        content = layer.content if isinstance(layer.content, str) else ""
-        line_height_multiplier = layer.line_height or DEFAULT_LINE_HEIGHT_MULTIPLIER
-
-        text_width, text_height = self._measure_text_bounds(
-            content, font, layer.letter_spacing or 0, line_height_multiplier
-        )
-
+    def _calculate_text_position(self, layer: TextLayer) -> tuple[int, int]:
         raw_x, raw_y = layer.position if layer.position else (0, 0)
-
         base_x = self._parse_coordinate(raw_x, self.width)
         base_y = self._parse_coordinate(raw_y, self.height)
+        return base_x, base_y
 
-        if not layer.align:
-            return base_x, base_y
+    def _render_text_effects(
+        self,
+        image: Image.Image,
+        content: str,
+        font: FontType,
+        position: tuple[int, int],
+        glow_effects: list[Glow],
+        shadow_effects: list[Shadow],
+        anchor: str,
+    ):
+        for glow in glow_effects:
+            self._render_glow(image, content, font, position, glow, anchor)
+        for shadow in shadow_effects:
+            self._render_shadow(image, content, font, position, shadow, anchor)
 
-        x = self._get_horizontal_start_x(base_x, text_width, layer.align)
+    def _render_letter_spaced_text(
+        self,
+        draw: ImageDraw.ImageDraw,
+        image: Image.Image,
+        content: str,
+        font: FontType,
+        color: tuple[int, ...],
+        layer: TextLayer,
+        glow_effects: list[Glow],
+        shadow_effects: list[Shadow],
+        stroke_effects: list[Stroke],
+    ):
+        letter_spacing = layer.letter_spacing or 0
+        total_width, char_widths = self._calculate_spaced_text_width(content, font, letter_spacing)
+        bbox = font.getbbox(content)
+        text_height = int(bbox[3] - bbox[1])
+
+        base_x, base_y = self._calculate_text_position(layer)
+        x = self._get_horizontal_start_x(base_x, total_width, layer.align)
         y = self._get_vertical_start_y(base_y, text_height, layer.align)
+        position = (x, y)
 
-        return x, y
+        self._render_text_effects(
+            image, content, font, position, glow_effects, shadow_effects, "lt"
+        )
+
+        self._draw_text_with_letter_spacing(
+            draw, content, position, font, color, letter_spacing, stroke_effects, char_widths
+        )
+
+    def _render_normal_text(
+        self,
+        draw: ImageDraw.ImageDraw,
+        image: Image.Image,
+        content: str,
+        font: FontType,
+        color: tuple[int, ...],
+        layer: TextLayer,
+        glow_effects: list[Glow],
+        shadow_effects: list[Shadow],
+        stroke_effects: list[Stroke],
+    ):
+        position = self._calculate_text_position(layer)
+        anchor = self._get_text_anchor(layer.align)
+
+        self._render_text_effects(
+            image, content, font, position, glow_effects, shadow_effects, anchor
+        )
+
+        self._draw_text(draw, content, position, font, color, stroke_effects, anchor)
+
+    def _get_text_anchor(self, align: tuple[str, str] | None) -> str:
+        if not align:
+            return "lt"
+
+        horizontal_align, vertical_align = align
+
+        h_anchor = {"left": "l", "center": "m", "right": "r"}[horizontal_align]
+        v_anchor = {"top": "t", "middle": "m", "bottom": "b"}[vertical_align]
+
+        return h_anchor + v_anchor
 
     def _wrap_text(
         self, text: str, font, max_width: int, letter_spacing: int | None = None
@@ -712,7 +787,7 @@ class Canvas:
     def _measure_text_bounds(
         self,
         text: str,
-        font,
+        font: FontType,
         letter_spacing: int = 0,
         line_height_multiplier: float = DEFAULT_LINE_HEIGHT_MULTIPLIER,
     ) -> tuple[int, int]:
@@ -725,10 +800,10 @@ class Canvas:
                 width = sum(char_widths) + letter_spacing * (len(char_widths) - 1)
             else:
                 bbox = font.getbbox(text)
-                width = bbox[2] - bbox[0]
+                width = int(bbox[2] - bbox[0])
 
             bbox = font.getbbox(text)
-            height = bbox[3] - bbox[1]
+            height = int(bbox[3] - bbox[1])
             return width, height
 
         lines = text.split("\n")
@@ -743,7 +818,7 @@ class Canvas:
                 line_width = sum(char_widths) + letter_spacing * (len(char_widths) - 1)
             else:
                 bbox = font.getbbox(line)
-                line_width = bbox[2] - bbox[0]
+                line_width = int(bbox[2] - bbox[0])
 
             max_width = max(max_width, line_width)
 
@@ -752,7 +827,7 @@ class Canvas:
 
         return max_width, total_height
 
-    def _calculate_line_height(self, font, multiplier: float) -> int:
+    def _calculate_line_height(self, font: FontType, multiplier: float) -> int:
         bbox = font.getbbox(LINE_HEIGHT_REFERENCE)
         base_height = bbox[3] - bbox[1]
         return int(base_height * multiplier)
@@ -761,8 +836,15 @@ class Canvas:
         widths = []
         for char in text:
             bbox = font.getbbox(char)
-            widths.append(bbox[2] - bbox[0])
+            widths.append(int(bbox[2] - bbox[0]))
         return widths
+
+    def _calculate_spaced_text_width(
+        self, text: str, font, letter_spacing: int
+    ) -> tuple[int, list[int]]:
+        char_widths = self._calculate_char_widths(text, font)
+        total_width = sum(char_widths) + letter_spacing * (len(text) - 1)
+        return total_width, char_widths
 
     def _get_vertical_start_y(
         self, base_y: int, total_height: int, align: tuple[str, str] | None
@@ -795,27 +877,29 @@ class Canvas:
         draw: ImageDraw.ImageDraw,
         text: str,
         position: tuple[int, int],
-        font,
+        font: FontType,
         color: tuple[int, ...],
         letter_spacing: int,
         stroke_effects: list[Stroke] | None = None,
+        char_widths: list[int] | None = None,
     ):
         x, y = position
-        char_widths = self._calculate_char_widths(text, font)
+        widths = char_widths if char_widths is not None else self._calculate_char_widths(text, font)
         strokes = stroke_effects or []
 
         for i, char in enumerate(text):
-            self._draw_text(draw, char, (x, y), font, color, strokes)
-            x += char_widths[i] + letter_spacing
+            self._draw_text(draw, char, (x, y), font, color, strokes, "lt")
+            x += widths[i] + letter_spacing
 
     def _draw_text(
         self,
         draw: ImageDraw.ImageDraw,
         text: str,
         position: tuple[int, int],
-        font,
+        font: FontType,
         color: tuple[int, ...],
         stroke_effects: list[Stroke],
+        anchor: str = "lt",
     ):
         if stroke_effects:
             for stroke in stroke_effects:
@@ -826,28 +910,30 @@ class Canvas:
                     fill=color,
                     stroke_width=stroke.width,
                     stroke_fill=self._parse_color(stroke.color),
+                    anchor=anchor,
                 )
         else:
-            draw.text(position, text, font=font, fill=color)
+            draw.text(position, text, font=font, fill=color, anchor=anchor)
 
     def _render_glow(
         self,
         image: Image.Image,
         text: str,
-        font,
+        font: FontType,
         position: tuple[int, int],
         glow: Glow,
+        anchor: str = "lt",
     ):
-        bbox = font.getbbox(text)
-        text_width = bbox[2] - bbox[0]
-        text_height = bbox[3] - bbox[1]
+        bbox = font.getbbox(text, anchor=anchor)
+        text_width = int(bbox[2] - bbox[0])
+        text_height = int(bbox[3] - bbox[1])
 
         expansion = max(1, glow.radius // 2)
         blur_padding = max(glow.radius * 3, 1)
         total_padding = blur_padding + expansion
 
-        draw_x = total_padding - bbox[0]
-        draw_y = total_padding - bbox[1]
+        draw_x = int(total_padding - bbox[0])
+        draw_y = int(total_padding - bbox[1])
 
         temp_w = text_width + 2 * total_padding
         temp_h = text_height + 2 * total_padding
@@ -862,6 +948,7 @@ class Canvas:
             fill=255,
             stroke_width=expansion * 2,
             stroke_fill=255,
+            anchor=anchor,
         )
 
         glow_mask = glow_mask.filter(ImageFilter.GaussianBlur(radius=glow.radius))
@@ -883,18 +970,19 @@ class Canvas:
         self,
         image: Image.Image,
         text: str,
-        font,
+        font: FontType,
         position: tuple[int, int],
         shadow: Shadow,
+        anchor: str = "lt",
     ):
-        bbox = font.getbbox(text)
-        text_width = bbox[2] - bbox[0]
-        text_height = bbox[3] - bbox[1]
+        bbox = font.getbbox(text, anchor=anchor)
+        text_width = int(bbox[2] - bbox[0])
+        text_height = int(bbox[3] - bbox[1])
 
         padding = max(shadow.blur_radius * 3, 1)
 
-        draw_x = padding - bbox[0]
-        draw_y = padding - bbox[1]
+        draw_x = int(padding - bbox[0])
+        draw_y = int(padding - bbox[1])
 
         temp_w = text_width + 2 * padding
         temp_h = text_height + 2 * padding
@@ -903,7 +991,7 @@ class Canvas:
         shadow_draw = ImageDraw.Draw(shadow_layer)
 
         shadow_color = self._parse_color(shadow.color)
-        shadow_draw.text((draw_x, draw_y), text, font=font, fill=shadow_color)
+        shadow_draw.text((draw_x, draw_y), text, font=font, fill=shadow_color, anchor=anchor)
 
         if shadow.blur_radius > 0:
             shadow_layer = shadow_layer.filter(ImageFilter.GaussianBlur(radius=shadow.blur_radius))
@@ -924,12 +1012,22 @@ class Canvas:
         font_style = self._get_style_string(bold or False, italic or False)
 
         try:
+            if font_name and self._is_url(font_name):
+                if bold or italic:
+                    warnings.warn(
+                        "Bold/italic flags are ignored for webfont URLs. "
+                        "Provide separate font URLs for styled variants.",
+                        UserWarning,
+                        stacklevel=3,
+                    )
+                font_path = self._download_and_cache_font(font_name)
+                return ImageFont.truetype(font_path, size)
+
             if font_name and font_style:
                 try:
                     styled_font_name = f"{font_name} {font_style}"
                     return ImageFont.truetype(styled_font_name, size)
                 except OSError:
-                    # Fallback to the original font name if the styled one fails
                     pass
 
             if font_name:
@@ -1002,6 +1100,24 @@ class Canvas:
         with urlopen(url) as response:
             image_data = response.read()
         return Image.open(BytesIO(image_data))
+
+    def _download_and_cache_font(self, url: str) -> str:
+        url_hash = hashlib.md5(url.encode()).hexdigest()
+        extension = os.path.splitext(url)[1] or ".ttf"
+        cache_filename = f"quickthumb_font_{url_hash}{extension}"
+        cache_path = os.path.join("/tmp", cache_filename)
+
+        if os.path.exists(cache_path):
+            return cache_path
+
+        try:
+            with urlopen(url) as response:
+                font_data = response.read()
+            with open(cache_path, "wb") as f:
+                f.write(font_data)
+            return cache_path
+        except Exception as e:
+            raise RenderingError(f"Failed to download font from '{url}'.") from e
 
     def _create_gradient_lut(
         self, stops: list[tuple[str, float]]
