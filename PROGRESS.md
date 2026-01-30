@@ -52,16 +52,26 @@
 
 ## 🚧 TODO
 
+## Bug Fixes
+
+- [ ] Fix handling of multiple consecutive newlines and newline-only text
+- [ ] Fix inability to load non-system fonts by family name
+
 ### Planned Features (High Priority)
 
+- [ ] Auto-scale Text and TextPart to fit within max-width
+- [ ] Smart Font Loading: Support CSS-style `font-weight` (e.g., `weight="bold"`, `weight=700`) by automatically mapping to standard font filenames (e.g., `Roboto-Bold.ttf`).
+- [ ] Introduce a LineBreak object to insert vertical spacing between TextParts
 - [ ] Image Layer (placing images at specific coordinates)
 - [ ] Rotation support for images and texts
 - [ ] Text background effect support (labels/badges with padding/rounded corners)
+- [ ] Implement `to_base64` and `to_data_url`
 
 ### Medium Priorty
 
-- [ ] Background Removal for image
+- [ ] Support enum and shortcut string for text align
 
 ### Low Priority
 
 - [ ] Extended documentation/examples
+- [ ] Background Removal for image
