@@ -102,7 +102,6 @@ class TestFontCacheNumericWeight:
     def test_should_match_thin_weight_100(self, monkeypatch):
         from quickthumb.font_cache import FontCache
 
-        monkeypatch.setenv("QUICKTHUMB_FONT_DIR", "/Users/sjquant/dev/quickthumb/assets/fonts")
         cache = FontCache()
         font_path = cache.find_font("NotoSerif", weight=100, italic=False)
 
@@ -112,7 +111,6 @@ class TestFontCacheNumericWeight:
     def test_should_match_extralight_weight_200(self, monkeypatch):
         from quickthumb.font_cache import FontCache
 
-        monkeypatch.setenv("QUICKTHUMB_FONT_DIR", "/Users/sjquant/dev/quickthumb/assets/fonts")
         cache = FontCache()
         font_path = cache.find_font("NotoSerif", weight=200, italic=False)
 
@@ -122,7 +120,6 @@ class TestFontCacheNumericWeight:
     def test_should_match_light_weight_300(self, monkeypatch):
         from quickthumb.font_cache import FontCache
 
-        monkeypatch.setenv("QUICKTHUMB_FONT_DIR", "/Users/sjquant/dev/quickthumb/assets/fonts")
         cache = FontCache()
         font_path = cache.find_font("NotoSerif", weight=300, italic=False)
 
@@ -132,7 +129,6 @@ class TestFontCacheNumericWeight:
     def test_should_match_regular_weight_400(self, monkeypatch):
         from quickthumb.font_cache import FontCache
 
-        monkeypatch.setenv("QUICKTHUMB_FONT_DIR", "/Users/sjquant/dev/quickthumb/assets/fonts")
         cache = FontCache()
         font_path = cache.find_font("NotoSerif", weight=400, italic=False)
 
@@ -142,7 +138,6 @@ class TestFontCacheNumericWeight:
     def test_should_match_medium_weight_500(self, monkeypatch):
         from quickthumb.font_cache import FontCache
 
-        monkeypatch.setenv("QUICKTHUMB_FONT_DIR", "/Users/sjquant/dev/quickthumb/assets/fonts")
         cache = FontCache()
         font_path = cache.find_font("NotoSerif", weight=500, italic=False)
 
@@ -152,7 +147,6 @@ class TestFontCacheNumericWeight:
     def test_should_match_semibold_weight_600(self, monkeypatch):
         from quickthumb.font_cache import FontCache
 
-        monkeypatch.setenv("QUICKTHUMB_FONT_DIR", "/Users/sjquant/dev/quickthumb/assets/fonts")
         cache = FontCache()
         font_path = cache.find_font("NotoSerif", weight=600, italic=False)
 
@@ -162,7 +156,6 @@ class TestFontCacheNumericWeight:
     def test_should_match_bold_weight_700(self, monkeypatch):
         from quickthumb.font_cache import FontCache
 
-        monkeypatch.setenv("QUICKTHUMB_FONT_DIR", "/Users/sjquant/dev/quickthumb/assets/fonts")
         cache = FontCache()
         font_path = cache.find_font("NotoSerif", weight=700, italic=False)
 
@@ -172,7 +165,6 @@ class TestFontCacheNumericWeight:
     def test_should_match_extrabold_weight_800(self, monkeypatch):
         from quickthumb.font_cache import FontCache
 
-        monkeypatch.setenv("QUICKTHUMB_FONT_DIR", "/Users/sjquant/dev/quickthumb/assets/fonts")
         cache = FontCache()
         font_path = cache.find_font("NotoSerif", weight=800, italic=False)
 
@@ -182,7 +174,6 @@ class TestFontCacheNumericWeight:
     def test_should_match_black_weight_900(self, monkeypatch):
         from quickthumb.font_cache import FontCache
 
-        monkeypatch.setenv("QUICKTHUMB_FONT_DIR", "/Users/sjquant/dev/quickthumb/assets/fonts")
         cache = FontCache()
         font_path = cache.find_font("NotoSerif", weight=900, italic=False)
 
@@ -192,7 +183,6 @@ class TestFontCacheNumericWeight:
     def test_should_match_weight_with_italic(self, monkeypatch):
         from quickthumb.font_cache import FontCache
 
-        monkeypatch.setenv("QUICKTHUMB_FONT_DIR", "/Users/sjquant/dev/quickthumb/assets/fonts")
         cache = FontCache()
         font_path = cache.find_font("NotoSerif", weight=700, italic=True)
 
@@ -204,7 +194,6 @@ class TestFontCacheNamedWeight:
     def test_should_match_named_weight_thin(self, monkeypatch):
         from quickthumb.font_cache import FontCache
 
-        monkeypatch.setenv("QUICKTHUMB_FONT_DIR", "/Users/sjquant/dev/quickthumb/assets/fonts")
         cache = FontCache()
         font_path = cache.find_font("NotoSerif", weight="thin", italic=False)
 
@@ -214,7 +203,6 @@ class TestFontCacheNamedWeight:
     def test_should_match_named_weight_extra_light(self, monkeypatch):
         from quickthumb.font_cache import FontCache
 
-        monkeypatch.setenv("QUICKTHUMB_FONT_DIR", "/Users/sjquant/dev/quickthumb/assets/fonts")
         cache = FontCache()
         font_path = cache.find_font("NotoSerif", weight="extra-light", italic=False)
 
@@ -224,7 +212,6 @@ class TestFontCacheNamedWeight:
     def test_should_match_named_weight_light(self, monkeypatch):
         from quickthumb.font_cache import FontCache
 
-        monkeypatch.setenv("QUICKTHUMB_FONT_DIR", "/Users/sjquant/dev/quickthumb/assets/fonts")
         cache = FontCache()
         font_path = cache.find_font("NotoSerif", weight="light", italic=False)
 
@@ -234,7 +221,6 @@ class TestFontCacheNamedWeight:
     def test_should_match_named_weight_normal(self, monkeypatch):
         from quickthumb.font_cache import FontCache
 
-        monkeypatch.setenv("QUICKTHUMB_FONT_DIR", "/Users/sjquant/dev/quickthumb/assets/fonts")
         cache = FontCache()
         font_path = cache.find_font("NotoSerif", weight="normal", italic=False)
 
@@ -244,7 +230,6 @@ class TestFontCacheNamedWeight:
     def test_should_match_named_weight_regular(self, monkeypatch):
         from quickthumb.font_cache import FontCache
 
-        monkeypatch.setenv("QUICKTHUMB_FONT_DIR", "/Users/sjquant/dev/quickthumb/assets/fonts")
         cache = FontCache()
         font_path = cache.find_font("NotoSerif", weight="regular", italic=False)
 
@@ -254,7 +239,6 @@ class TestFontCacheNamedWeight:
     def test_should_match_named_weight_medium(self, monkeypatch):
         from quickthumb.font_cache import FontCache
 
-        monkeypatch.setenv("QUICKTHUMB_FONT_DIR", "/Users/sjquant/dev/quickthumb/assets/fonts")
         cache = FontCache()
         font_path = cache.find_font("NotoSerif", weight="medium", italic=False)
 
@@ -264,7 +248,6 @@ class TestFontCacheNamedWeight:
     def test_should_match_named_weight_semi_bold(self, monkeypatch):
         from quickthumb.font_cache import FontCache
 
-        monkeypatch.setenv("QUICKTHUMB_FONT_DIR", "/Users/sjquant/dev/quickthumb/assets/fonts")
         cache = FontCache()
         font_path = cache.find_font("NotoSerif", weight="semi-bold", italic=False)
 
@@ -274,7 +257,6 @@ class TestFontCacheNamedWeight:
     def test_should_match_named_weight_bold(self, monkeypatch):
         from quickthumb.font_cache import FontCache
 
-        monkeypatch.setenv("QUICKTHUMB_FONT_DIR", "/Users/sjquant/dev/quickthumb/assets/fonts")
         cache = FontCache()
         font_path = cache.find_font("NotoSerif", weight="bold", italic=False)
 
@@ -284,7 +266,6 @@ class TestFontCacheNamedWeight:
     def test_should_match_named_weight_extra_bold(self, monkeypatch):
         from quickthumb.font_cache import FontCache
 
-        monkeypatch.setenv("QUICKTHUMB_FONT_DIR", "/Users/sjquant/dev/quickthumb/assets/fonts")
         cache = FontCache()
         font_path = cache.find_font("NotoSerif", weight="extra-bold", italic=False)
 
@@ -294,7 +275,6 @@ class TestFontCacheNamedWeight:
     def test_should_match_named_weight_black(self, monkeypatch):
         from quickthumb.font_cache import FontCache
 
-        monkeypatch.setenv("QUICKTHUMB_FONT_DIR", "/Users/sjquant/dev/quickthumb/assets/fonts")
         cache = FontCache()
         font_path = cache.find_font("NotoSerif", weight="black", italic=False)
 
@@ -304,7 +284,6 @@ class TestFontCacheNamedWeight:
     def test_should_handle_case_insensitive_named_weight(self, monkeypatch):
         from quickthumb.font_cache import FontCache
 
-        monkeypatch.setenv("QUICKTHUMB_FONT_DIR", "/Users/sjquant/dev/quickthumb/assets/fonts")
         cache = FontCache()
         font_bold = cache.find_font("NotoSerif", weight="BOLD", italic=False)
         font_medium = cache.find_font("NotoSerif", weight="Medium", italic=False)
@@ -319,7 +298,6 @@ class TestFontCacheFallbackMechanism:
     def test_should_find_closest_weight_when_exact_not_available(self, monkeypatch):
         from quickthumb.font_cache import FontCache
 
-        monkeypatch.setenv("QUICKTHUMB_FONT_DIR", "/Users/sjquant/dev/quickthumb/assets/fonts")
         cache = FontCache()
         font_path = cache.find_font("Roboto", weight=600, italic=False)
 
@@ -329,7 +307,6 @@ class TestFontCacheFallbackMechanism:
     def test_should_prefer_heavier_weight_when_equidistant(self, monkeypatch):
         from quickthumb.font_cache import FontCache
 
-        monkeypatch.setenv("QUICKTHUMB_FONT_DIR", "/Users/sjquant/dev/quickthumb/assets/fonts")
         cache = FontCache()
         font_path = cache.find_font("Roboto", weight=600, italic=False)
 
@@ -338,7 +315,6 @@ class TestFontCacheFallbackMechanism:
     def test_should_fallback_to_any_weight_when_italic_not_available(self, monkeypatch):
         from quickthumb.font_cache import FontCache
 
-        monkeypatch.setenv("QUICKTHUMB_FONT_DIR", "/Users/sjquant/dev/quickthumb/assets/fonts")
         cache = FontCache()
         font_path = cache.find_font("Roboto", weight=100, italic=True)
 

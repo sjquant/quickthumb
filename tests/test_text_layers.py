@@ -518,7 +518,6 @@ class TestTextLayerFontWeight:
         """Test that text layer accepts numeric weight parameter"""
         from quickthumb import Canvas, TextLayer
 
-        monkeypatch.setenv("QUICKTHUMB_FONT_DIR", "/Users/sjquant/dev/quickthumb/assets/fonts")
         canvas = Canvas(1920, 1080)
 
         canvas.text("Bold Text", font="NotoSerif", size=72, weight=700)
@@ -536,7 +535,6 @@ class TestTextLayerFontWeight:
         """Test that text layer accepts named weight parameter"""
         from quickthumb import Canvas, TextLayer
 
-        monkeypatch.setenv("QUICKTHUMB_FONT_DIR", "/Users/sjquant/dev/quickthumb/assets/fonts")
         canvas = Canvas(1920, 1080)
 
         canvas.text("Medium Text", font="NotoSerif", size=72, weight="medium")
@@ -554,7 +552,6 @@ class TestTextLayerFontWeight:
         """Test that canvas renders correctly with numeric weight"""
         from quickthumb import Canvas
 
-        monkeypatch.setenv("QUICKTHUMB_FONT_DIR", "/Users/sjquant/dev/quickthumb/assets/fonts")
         canvas = Canvas(400, 200)
         canvas.background(color="#FFFFFF")
         canvas.text(
@@ -576,7 +573,6 @@ class TestTextLayerFontWeight:
         """Test that canvas renders correctly with named weight"""
         from quickthumb import Canvas
 
-        monkeypatch.setenv("QUICKTHUMB_FONT_DIR", "/Users/sjquant/dev/quickthumb/assets/fonts")
         canvas = Canvas(400, 200)
         canvas.background(color="#FFFFFF")
         canvas.text(
