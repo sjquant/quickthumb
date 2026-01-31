@@ -56,10 +56,6 @@
 
 ## 🚧 TODO
 
-## Bug Fixes
-
-- [ ] Fix handling of multiple consecutive newlines and newline-only text
-
 ### Planned Features (High Priority)
 
 - [ ] Auto-scale Text and TextPart to fit within max-width
