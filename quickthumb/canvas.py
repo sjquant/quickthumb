@@ -177,16 +177,7 @@ class Canvas:
 
     def render(self, output_path: str, quality: int | None = None):
         self._validate_image_paths()
-        image = self._create_canvas()
-
-        for layer in self._layers:
-            if isinstance(layer, BackgroundLayer):
-                self._render_background_layer(image, layer)
-            elif isinstance(layer, TextLayer):
-                self._render_text_layer(image, layer)
-            elif isinstance(layer, OutlineLayer):
-                self._render_outline_layer(image, layer)
-
+        image = self._render_to_image()
         self._save_to_file(image, output_path, quality)
 
     def to_json(self) -> str:
@@ -200,8 +191,47 @@ class Canvas:
             canvas_model = CanvasModel.model_validate_json(data)
         return cls(width=canvas_model.width, height=canvas_model.height, layers=canvas_model.layers)
 
+    def to_base64(self, format: FileFormat = "PNG", quality: int | None = None) -> str:
+        import base64
+
+        self._validate_image_paths()
+        image = self._render_to_image()
+        converted_image = self._convert_for_format(image, format)
+        save_kwargs = self._build_save_kwargs(format, quality)
+
+        buffer = BytesIO()
+        converted_image.save(buffer, format=format, **save_kwargs)
+        buffer.seek(0)
+
+        return base64.b64encode(buffer.read()).decode("utf-8")
+
+    def to_data_url(self, format: FileFormat = "PNG", quality: int | None = None) -> str:
+        mime_types: dict[FileFormat, str] = {
+            "PNG": "image/png",
+            "JPEG": "image/jpeg",
+            "WEBP": "image/webp",
+        }
+
+        base64_data = self.to_base64(format=format, quality=quality)
+        mime_type = mime_types[format]
+
+        return f"data:{mime_type};base64,{base64_data}"
+
     def _create_canvas(self) -> Image.Image:
         return Image.new("RGBA", (self.width, self.height), (0, 0, 0, 0))
+
+    def _render_to_image(self) -> Image.Image:
+        image = self._create_canvas()
+
+        for layer in self._layers:
+            if isinstance(layer, BackgroundLayer):
+                self._render_background_layer(image, layer)
+            elif isinstance(layer, TextLayer):
+                self._render_text_layer(image, layer)
+            elif isinstance(layer, OutlineLayer):
+                self._render_outline_layer(image, layer)
+
+        return image
 
     def _save_to_file(self, image: Image.Image, output_path: str, quality: int | None = None):
         file_format = self._detect_format(output_path)

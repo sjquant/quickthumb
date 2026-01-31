@@ -37,6 +37,8 @@
 - ✅ URL support for images (backgrounds with http/https URLs)
 - ✅ WebFont support (load fonts from http/https URLs, cached to /tmp)
 - ✅ WebFont bold/italic warning (user warning when bold/italic used with webfonts)
+- ✅ Base64 encoding (`to_base64` method with format and quality support)
+- ✅ Data URL generation (`to_data_url` method with format and quality support)
 
 ### Text Effects
 
@@ -66,7 +68,6 @@
 - [ ] Image Layer (placing images at specific coordinates)
 - [ ] Rotation support for images and texts
 - [ ] Text background effect support (labels/badges with padding/rounded corners)
-- [ ] Implement `to_base64` and `to_data_url`
 
 ### Medium Priorty
 

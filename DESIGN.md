@@ -109,6 +109,10 @@ canvas.outline(width=5, color="#000000", offset=10)
 # Render
 canvas.render(path="output.png", format="png", quality=95)
 
+# Export methods
+base64_str = canvas.to_base64(format="PNG", quality=None)  # Returns base64-encoded image string
+data_url = canvas.to_data_url(format="PNG", quality=None)  # Returns data URL (e.g., "data:image/png;base64,...")
+
 # JSON operations
 canvas = Canvas.from_json(json_str)  # Load from JSON string
 json_str = canvas.to_json()          # Export canvas to JSON string
@@ -204,6 +208,32 @@ canvas = Canvas(1920, 1080)
 canvas.background(color="#FF5733").text("Hello")
 canvas.text("Another layer")  # Can still call methods separately
 ```
+
+### Export Methods
+
+Canvas can be exported in multiple formats:
+
+```python
+# Render to file
+canvas.render("output.png", format="PNG", quality=None)
+
+# Export as base64 string (without data URL prefix)
+base64_str = canvas.to_base64(format="PNG", quality=None)
+# Returns: "iVBORw0KGgoAAAANSUhEUgAA..."
+
+# Export as data URL (with MIME type prefix)
+data_url = canvas.to_data_url(format="PNG", quality=None)
+# Returns: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA..."
+
+# Supported formats: PNG, JPEG, WEBP
+canvas.to_base64(format="JPEG", quality=85)
+canvas.to_data_url(format="WEBP", quality=90)
+```
+
+**Quality Parameter**:
+- Only applicable for JPEG and WEBP formats (1-100)
+- Raises `RenderingError` if used with PNG
+- Defaults to None (uses PIL defaults: JPEG=75, WEBP=80)
 
 ### JSON Serialization
 

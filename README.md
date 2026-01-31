@@ -54,8 +54,10 @@ canvas.text(
 # Add an outline
 canvas.outline(width=10, color="#FFFFFF")
 
-# Render to file
+# Render to file or export as base64/data URL
 canvas.render("thumbnail.png")
+# base64_str = canvas.to_base64(format="PNG")
+# data_url = canvas.to_data_url(format="JPEG", quality=85)
 ```
 
 ### Using Aspect Ratios
@@ -221,39 +223,12 @@ canvas.text(
 
 ## Font Weights
 
-QuickThumb supports CSS-style font weights for precise typography control:
+QuickThumb supports CSS-style font weights (100-900) or named weights like "thin", "bold", "black". See [DESIGN.md](DESIGN.md#font-weights) for full details.
 
 ```python
-from quickthumb import Canvas
-
-canvas = Canvas(1920, 1080)
-
-# Numeric weights (100-900)
 canvas.text("Light Text", font="Roboto", size=48, weight=300)
-canvas.text("Regular Text", font="Roboto", size=48, weight=400)
 canvas.text("Bold Text", font="Roboto", size=48, weight=700)
-canvas.text("Black Text", font="Roboto", size=48, weight=900)
-
-# Named weights (case-insensitive)
-canvas.text("Thin", weight="thin")           # 100
-canvas.text("Extra Light", weight="extra-light")  # 200
-canvas.text("Semi Bold", weight="semi-bold") # 600
-canvas.text("Black", weight="black")         # 900
-```
-
-**Weight Fallback**: If the exact weight isn't available, QuickThumb automatically finds the closest available weight variant.
-
-**Note**: The `weight` and `bold` parameters are mutually exclusive:
-
-```python
-# ✅ Use weight for precise control
-canvas.text("Bold Text", weight=700)
-
-# ✅ Or use the traditional bold parameter
-canvas.text("Bold Text", bold=True)
-
-# ❌ Cannot use both (raises ValidationError)
-canvas.text("Error", weight=700, bold=True)
+canvas.text("Black Text", weight="black")  # Named weight
 ```
 
 ## Development
@@ -285,29 +260,9 @@ uv run ty quickthumb/
 uv run ruff check quickthumb/
 ```
 
-## API Design
+## API Reference
 
-For detailed API design, see [DESIGN.md](DESIGN.md).
-
-### Canvas Methods
-
-- `Canvas(width, height)` - Create canvas with explicit dimensions
-- `Canvas.from_aspect_ratio(ratio, base_width)` - Create from aspect ratio
-- `Canvas.from_json(source)` - Load from JSON string
-- `.background(color=..., gradient=..., image=..., opacity=..., blend_mode=...)` - Add background layer
-- `.text(content, font=..., size=..., color=..., align=..., effects=..., bold=..., italic=..., weight=...)` - Add text layer
-- `.outline(width, color, offset=...)` - Add outline decoration
-- `.render(output_path, format=..., quality=...)` - Render to file
-- `.to_json()` - Serialize to json string
-
-### Blend Modes
-
-- `BlendMode.NORMAL` - Default blending
-- `BlendMode.MULTIPLY` - Multiply colors
-- `BlendMode.OVERLAY` - Overlay effect
-- `BlendMode.SCREEN` - Screen effect
-- `BlendMode.DARKEN` - Darken
-- `BlendMode.LIGHTEN` - Lighten
+For complete API documentation including all methods, parameters, blend modes, and advanced features, see [DESIGN.md](DESIGN.md).
 
 ## License
 
