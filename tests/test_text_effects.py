@@ -130,7 +130,7 @@ class TestTextEffects:
     @pytest.mark.parametrize(
         "effect_args,error_pattern",
         [
-            ({"width": -1, "color": "#000000"}, "width.*positive"),
+            ({"width": -1, "color": "#000000"}, "width.*greater than 0"),
             ({"width": 3, "color": "invalid"}, "invalid hex"),
         ],
     )
@@ -397,8 +397,8 @@ class TestTextEffects:
         "effect_args,error_pattern",
         [
             ({"color": "invalid", "radius": 10}, "invalid hex"),
-            ({"color": "#FF0000", "radius": 0}, "radius.*positive"),
-            ({"color": "#FF0000", "radius": -5}, "radius.*positive"),
+            ({"color": "#FF0000", "radius": 0}, "radius.*greater than 0"),
+            ({"color": "#FF0000", "radius": -5}, "radius.*greater than 0"),
             ({"color": "#FF0000", "radius": 10, "opacity": -0.1}, "opacity.*0.0.*1.0"),
             ({"color": "#FF0000", "radius": 10, "opacity": 1.5}, "opacity.*0.0.*1.0"),
         ],

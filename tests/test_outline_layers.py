@@ -28,8 +28,8 @@ class TestOutlineLayers:
     @pytest.mark.parametrize(
         "width,error_pattern",
         [
-            (0, "width.*positive"),
-            (-5, "width.*positive"),
+            (0, "width.*greater than 0"),
+            (-5, "width.*greater than 0"),
         ],
     )
     def test_should_raise_error_for_invalid_width(self, width, error_pattern):
@@ -68,8 +68,8 @@ class TestOutlineLayers:
     @pytest.mark.parametrize(
         "offset,error_pattern",
         [
-            (-1, "offset.*negative"),
-            (-10, "offset.*negative"),
+            (-1, "offset.*greater than or equal to 0"),
+            (-10, "offset.*greater than or equal to 0"),
         ],
     )
     def test_should_raise_error_for_negative_offset(self, offset, error_pattern):

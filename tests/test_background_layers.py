@@ -136,7 +136,7 @@ class TestBackgroundLayers:
 
         # When: User provides unsupported blend mode
         # Then: Should raise ValidationError
-        with pytest.raises(ValidationError, match="unsupported blend mode"):
+        with pytest.raises(ValidationError, match="blend_mode.*multiply.*overlay.*screen"):
             canvas.background(color="#FF0000", blend_mode="invalid")
 
     def test_should_defer_file_not_found_error_until_render(self):
@@ -380,5 +380,5 @@ class TestBackgroundLayers:
 
         # When: User provides invalid fit mode
         # Then: Should raise ValidationError
-        with pytest.raises(ValidationError, match="unsupported fit mode"):
+        with pytest.raises(ValidationError, match="fit.*cover.*contain.*fill"):
             canvas.background(image="image.jpg", fit="invalid")

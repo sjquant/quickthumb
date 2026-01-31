@@ -180,8 +180,8 @@ class TestTextLayers:
     @pytest.mark.parametrize(
         "size,error_pattern",
         [
-            (-10, "size.*positive"),
-            (0, "size.*positive"),
+            (-10, "size.*greater than 0"),
+            (0, "size.*greater than 0"),
         ],
     )
     def test_should_raise_error_for_invalid_size(self, size, error_pattern):
@@ -325,9 +325,9 @@ class TestTextLayers:
     @pytest.mark.parametrize(
         "line_height,error_pattern",
         [
-            (0, "line_height.*positive"),
-            (-1, "line_height.*positive"),
-            (-1.5, "line_height.*positive"),
+            (0, "line_height.*greater than 0"),
+            (-1, "line_height.*greater than 0"),
+            (-1.5, "line_height.*greater than 0"),
         ],
     )
     def test_should_raise_error_for_invalid_line_height(self, line_height, error_pattern):
@@ -370,11 +370,11 @@ class TestRichText:
         from quickthumb import TextPart, ValidationError
 
         # When/Then: User provides invalid size
-        with pytest.raises(ValidationError, match="size.*positive"):
+        with pytest.raises(ValidationError, match="size.*greater than 0"):
             TextPart(text="test", size=0)
 
         # When/Then: User provides invalid line_height
-        with pytest.raises(ValidationError, match="line_height.*positive"):
+        with pytest.raises(ValidationError, match="line_height.*greater than 0"):
             TextPart(text="test", line_height=-1.0)
 
     def test_should_serialize_rich_text_to_json_correctly(self):

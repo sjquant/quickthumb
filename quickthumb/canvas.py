@@ -4,12 +4,10 @@ import math
 import os
 import warnings
 from collections.abc import Callable
-from contextlib import contextmanager
 from io import BytesIO
 from typing import Literal, TypedDict, cast
 from urllib.request import urlopen
 
-import pydantic_core
 from PIL import Image, ImageChops, ImageDraw, ImageEnhance, ImageFilter, ImageFont
 from typing_extensions import Self
 
@@ -39,21 +37,6 @@ DEFAULT_TEXT_COLOR = (0, 0, 0)
 DEFAULT_LINE_HEIGHT_MULTIPLIER = 1.2
 FULL_OPACITY = 255
 LINE_HEIGHT_REFERENCE = "Aby"
-
-
-@contextmanager
-def convert_pydantic_errors():
-    try:
-        yield
-    except pydantic_core.ValidationError as e:
-        errors = e.errors()
-        if errors:
-            error_locs = ",".join(str(loc) for loc in errors[0].get("loc", []))
-            error_msg = errors[0].get("msg", "validation error")
-            final_msg = f"{error_locs}: {error_msg}" if error_locs else error_msg
-            raise ValidationError(final_msg) from e
-        raise ValidationError("validation error") from e
-
 
 FontType = ImageFont.FreeTypeFont | ImageFont.ImageFont
 
@@ -109,17 +92,16 @@ class Canvas:
         fit: FitMode | str | None = None,
         brightness: float = 1.0,
     ) -> Self:
-        with convert_pydantic_errors():
-            layer = BackgroundLayer(
-                type="background",
-                color=color,
-                gradient=gradient,
-                image=image,
-                opacity=opacity,
-                blend_mode=blend_mode,
-                fit=fit,
-                brightness=brightness,
-            )
+        layer = BackgroundLayer(
+            type="background",
+            color=color,
+            gradient=gradient,
+            image=image,
+            opacity=opacity,
+            blend_mode=blend_mode,  # type: ignore
+            fit=fit,  # type: ignore
+            brightness=brightness,
+        )
         self._layers.append(layer)
         return self
 
@@ -144,34 +126,32 @@ class Canvas:
         if content is None:
             raise ValidationError("content is required")
 
-        with convert_pydantic_errors():
-            layer = TextLayer(
-                type="text",
-                content=content,
-                font=font,
-                size=size,
-                color=color,
-                position=position,
-                align=align,
-                bold=bold,
-                italic=italic,
-                weight=weight,
-                max_width=max_width,
-                effects=effects or [],
-                line_height=line_height,
-                letter_spacing=letter_spacing,
-            )
+        layer = TextLayer(
+            type="text",
+            content=content,
+            font=font,
+            size=size,
+            color=color,
+            position=position,
+            align=align,
+            bold=bold,
+            italic=italic,
+            weight=weight,
+            max_width=max_width,
+            effects=effects or [],
+            line_height=line_height,
+            letter_spacing=letter_spacing,
+        )
         self._layers.append(layer)
         return self
 
     def outline(self, width: int, color: str, offset: int = 0) -> Self:
-        with convert_pydantic_errors():
-            layer = OutlineLayer(
-                type="outline",
-                width=width,
-                color=color,
-                offset=offset,
-            )
+        layer = OutlineLayer(
+            type="outline",
+            width=width,
+            color=color,
+            offset=offset,
+        )
         self._layers.append(layer)
         return self
 
@@ -187,8 +167,7 @@ class Canvas:
 
     @classmethod
     def from_json(cls, data: str) -> Self:
-        with convert_pydantic_errors():
-            canvas_model = CanvasModel.model_validate_json(data)
+        canvas_model = CanvasModel.model_validate_json(data)
         return cls(width=canvas_model.width, height=canvas_model.height, layers=canvas_model.layers)
 
     def to_base64(self, format: FileFormat = "PNG", quality: int | None = None) -> str:
