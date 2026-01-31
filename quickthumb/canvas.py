@@ -1,3 +1,4 @@
+import contextlib
 import hashlib
 import math
 import os
@@ -13,6 +14,7 @@ from PIL import Image, ImageChops, ImageDraw, ImageEnhance, ImageFilter, ImageFo
 from typing_extensions import Self
 
 from quickthumb.errors import RenderingError, ValidationError
+from quickthumb.font_cache import FontCache
 from quickthumb.models import (
     BackgroundLayer,
     BlendMode,
@@ -1022,8 +1024,6 @@ class Canvas:
     def _load_font_variant(
         self, font_name: str | None, size: int, bold: bool | None, italic: bool | None
     ) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
-        font_style = self._get_style_string(bold or False, italic or False)
-
         try:
             if font_name and self._is_url(font_name):
                 if bold or italic:
@@ -1036,23 +1036,26 @@ class Canvas:
                 font_path = self._download_and_cache_font(font_name)
                 return ImageFont.truetype(font_path, size)
 
-            if font_name and font_style:
-                try:
-                    styled_font_name = f"{font_name} {font_style}"
-                    return ImageFont.truetype(styled_font_name, size)
-                except OSError:
-                    pass
-
             if font_name:
-                return ImageFont.truetype(font_name, size)
+                with contextlib.suppress(OSError):
+                    return ImageFont.truetype(font_name, size)
 
-            system_font_path = self._find_system_font(font_style)
-            if system_font_path:
-                return ImageFont.truetype(system_font_path, size)
+                font_path = FontCache.get_instance().find_font(
+                    font_name, bold or False, italic or False
+                )
 
-            return ImageFont.load_default()
+                if font_path:
+                    return ImageFont.truetype(font_path, size)
+
+            default_font_path = FontCache.get_instance().default_font()
+
+            return (
+                ImageFont.truetype(default_font_path, size)
+                if default_font_path
+                else ImageFont.load_default(size)
+            )
+
         except OSError as e:
-            font_name = font_name or "default"
             raise RenderingError(f"Could not load font '{font_name}'.") from e
 
     def _get_style_string(self, bold: bool, italic: bool) -> str:
@@ -1063,32 +1066,6 @@ class Canvas:
         if italic:
             return "Italic"
         return ""
-
-    def _find_system_font(self, font_style: str) -> str | None:
-        font_map = {
-            "": [
-                "/System/Library/Fonts/Supplemental/Arial.ttf",
-                "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-            ],
-            "Bold": [
-                "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
-                "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-            ],
-            "Italic": [
-                "/System/Library/Fonts/Supplemental/Arial Italic.ttf",
-                "/usr/share/fonts/truetype/dejavu/DejaVuSans-Oblique.ttf",
-            ],
-            "Bold Italic": [
-                "/System/Library/Fonts/Supplemental/Arial Bold Italic.ttf",
-                "/usr/share/fonts/truetype/dejavu/DejaVuSans-BoldOblique.ttf",
-            ],
-        }
-
-        for candidate in font_map.get(font_style, []):
-            if os.path.exists(candidate):
-                return candidate
-
-        return None
 
     def _parse_coordinate(self, value: int | str, dimension: int) -> int:
         if isinstance(value, int):

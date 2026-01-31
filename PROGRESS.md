@@ -48,6 +48,10 @@
 - ✅ Line height (`line_height` parameter)
 - ✅ Rich text with `TextPart` (partial text styling: color, effects per segment)
 
+### Bug Fixes
+
+- ✅ Fix inability to load non-system fonts by family name
+
 ---
 
 ## 🚧 TODO
@@ -55,7 +59,6 @@
 ## Bug Fixes
 
 - [ ] Fix handling of multiple consecutive newlines and newline-only text
-- [ ] Fix inability to load non-system fonts by family name
 
 ### Planned Features (High Priority)
 

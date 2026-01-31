@@ -7,8 +7,13 @@ Creates an eye-catching YouTube-style thumbnail with:
 - Bright neon green border
 """
 
+import os
+
 from quickthumb import Canvas, TextPart
 from quickthumb.models import Stroke
+
+os.environ["QUICKTHUMB_FONT_DIR"] = os.path.join(os.path.dirname(__file__), "..", "assets", "fonts")
+os.environ["QUICKTHUMB_DEFAULT_FONT"] = "Roboto"
 
 # Create 16:9 YouTube thumbnail (1280x720) with method chaining
 (

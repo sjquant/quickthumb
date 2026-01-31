@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import pytest
 from inline_snapshot import Format, register_format
 
 
@@ -39,3 +40,20 @@ class JPGFormat(ImageFormat):
 @register_format
 class WebPFormat(ImageFormat):
     suffix = ".webp"
+
+
+@pytest.fixture(autouse=True)
+def setup_font_dir(monkeypatch):
+    from pathlib import Path
+
+    fixtures_dir = Path(__file__).parent / ".." / "assets" / "fonts"
+    monkeypatch.setenv("QUICKTHUMB_FONT_DIR", str(fixtures_dir))
+    yield
+    monkeypatch.delenv("QUICKTHUMB_FONT_DIR", raising=False)
+
+
+@pytest.fixture(autouse=True)
+def setup_default_font(monkeypatch):
+    monkeypatch.setenv("QUICKTHUMB_DEFAULT_FONT", "NotoSans")
+    yield
+    monkeypatch.delenv("QUICKTHUMB_DEFAULT_FONT", raising=False)

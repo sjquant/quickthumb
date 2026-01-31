@@ -609,9 +609,8 @@ class TestRendering:
                 assert f.read() == external_file("snapshots/image_fit_fill.png")
 
     def test_should_handle_unknown_font_name_gracefully(self):
-        """Test that invalid font name raises ValidationError with helpful message"""
+        """Test that invalid font name falls back to default font gracefully"""
         from quickthumb import Canvas
-        from quickthumb.errors import RenderingError
 
         # Given: User specifies a non-existent font name
         # When: Rendering with unknown font name
@@ -621,25 +620,23 @@ class TestRendering:
             .text("Hello", font="NonExistentFont123", size=48, color="#000000")
         )
 
-        # Then: Should raise ValidationError during render
+        # Then: Should fall back to default font without crashing
         with tempfile.TemporaryDirectory() as tmpdir:
             output_path = os.path.join(tmpdir, "output.png")
-            with pytest.raises(RenderingError):
-                canvas.render(output_path)
+            canvas.render(output_path)
+            assert os.path.exists(output_path)
+            assert os.path.getsize(output_path) > 0
 
     @pytest.mark.parametrize(
         "font_family, style_name, style_attrs",
         [
-            ("Arial", "bold", {"bold": True}),
-            ("Arial", "italic", {"italic": True}),
-            ("Arial", "bold_italic", {"bold": True, "italic": True}),
-            ("Times New Roman", "bold", {"bold": True}),
-            ("Times New Roman", "italic", {"italic": True}),
-            ("Times New Roman", "bold_italic", {"bold": True, "italic": True}),
+            ("Roboto", "bold", {"bold": True}),
+            ("Roboto", "italic", {"italic": True}),
+            ("Roboto", "bold_italic", {"bold": True, "italic": True}),
         ],
     )
     def test_should_support_styled_named_fonts(self, font_family, style_name, style_attrs):
-        """Test that styled variants work with named fonts (e.g., Arial Bold)"""
+        """Test that styled variants work with named fonts (e.g., Roboto Bold)"""
         from quickthumb import Canvas
 
         snapshot_name = f"{font_family.lower().replace(' ', '_')}_{style_name}.png"
@@ -1144,9 +1141,9 @@ class TestRendering:
             .background(color="#FFFFFF")
             .text(
                 content=[
-                    TextPart(text="Arial ", font="Arial", size=32, color="#000000"),
-                    TextPart(text="Times ", font="Times New Roman", size=32, color="#000000"),
-                    TextPart(text="Mixed", font="Arial", size=32, color="#000000", bold=True),
+                    TextPart(text="Roboto ", font="Roboto", size=32, color="#000000"),
+                    TextPart(text="NotoSerif ", font="NotoSerif", size=32, color="#000000"),
+                    TextPart(text="Mixed", font="Roboto", size=32, color="#000000", bold=True),
                 ],
                 position=(200, 100),
                 align=("center", "middle"),
