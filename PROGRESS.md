@@ -55,10 +55,6 @@
 - ✅ Font weight fallback mechanism (finds closest available weight when exact match unavailable)
 - ✅ Mutual exclusivity validation (`weight` and `bold` parameters cannot be used together)
 
-### Bug Fixes
-
-- ✅ Fix inability to load non-system fonts by family name
-
 ---
 
 ## 🚧 TODO
