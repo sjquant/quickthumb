@@ -64,6 +64,7 @@ class TextPartData(TypedDict):
     size: int
     bold: bool
     italic: bool
+    weight: int | str | None
     line_height_multiplier: float
     letter_spacing: int
     stroke_effects: list[Stroke]
@@ -134,6 +135,7 @@ class Canvas:
         align: tuple[str, str] | None = None,
         bold: bool = False,
         italic: bool = False,
+        weight: int | str | None = None,
         max_width: int | str | None = None,
         effects: list | None = None,
         line_height: float | None = None,
@@ -153,6 +155,7 @@ class Canvas:
                 align=align,
                 bold=bold,
                 italic=italic,
+                weight=weight,
                 max_width=max_width,
                 effects=effects or [],
                 line_height=line_height,
@@ -458,7 +461,11 @@ class Canvas:
             else:
                 for part in line_parts:
                     font = self._load_font_variant(
-                        part["font_name"], part["size"], part["bold"], part["italic"]
+                        part["font_name"],
+                        part["size"],
+                        part["bold"],
+                        part["italic"],
+                        part["weight"],
                     )
                     lh = self._calculate_line_height(font, part["line_height_multiplier"])
                     max_line_height = max(max_line_height, lh)
@@ -495,7 +502,11 @@ class Canvas:
 
             for part in line_parts:
                 font = self._load_font_variant(
-                    part["font_name"], part["size"], part["bold"], part["italic"]
+                    part["font_name"],
+                    part["size"],
+                    part["bold"],
+                    part["italic"],
+                    part["weight"],
                 )
 
                 w, _ = self._measure_text_bounds(part["text"], font, part["letter_spacing"])
@@ -528,6 +539,7 @@ class Canvas:
             size = self._resolve_size(part, layer)
             bold = self._resolve_bold(part, layer)
             italic = self._resolve_italic(part, layer)
+            weight = self._resolve_weight(part, layer)
             font_name = self._resolve_font_name(part, layer)
             lh_mult = self._resolve_line_height(part, layer)
             letter_spacing = self._resolve_letter_spacing(part, layer)
@@ -540,6 +552,7 @@ class Canvas:
                 "size": size,
                 "bold": bold,
                 "italic": italic,
+                "weight": weight,
                 "line_height_multiplier": lh_mult,
                 "letter_spacing": letter_spacing,
                 "stroke_effects": self._get_stroke_effects(combined_effects),
@@ -585,6 +598,11 @@ class Canvas:
         if part.italic is not None:
             return part.italic
         return layer.italic
+
+    def _resolve_weight(self, part: TextPart, layer: TextLayer):
+        if part.weight is not None:
+            return part.weight
+        return layer.weight
 
     def _resolve_font_name(self, part: TextPart, layer: TextLayer):
         if part.font is not None:
@@ -1018,17 +1036,26 @@ class Canvas:
 
     def _load_font(self, layer: TextLayer) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
         return self._load_font_variant(
-            layer.font, layer.size or DEFAULT_TEXT_SIZE, layer.bold, layer.italic
+            layer.font,
+            layer.size or DEFAULT_TEXT_SIZE,
+            layer.bold,
+            layer.italic,
+            layer.weight,
         )
 
     def _load_font_variant(
-        self, font_name: str | None, size: int, bold: bool | None, italic: bool | None
+        self,
+        font_name: str | None,
+        size: int,
+        bold: bool | None,
+        italic: bool | None,
+        weight: int | str | None = None,
     ) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
         try:
             if font_name and self._is_url(font_name):
-                if bold or italic:
+                if bold or italic or weight:
                     warnings.warn(
-                        "Bold/italic flags are ignored for webfont URLs. "
+                        "Bold/italic/weight flags are ignored for webfont URLs. "
                         "Provide separate font URLs for styled variants.",
                         UserWarning,
                         stacklevel=3,
@@ -1041,7 +1068,7 @@ class Canvas:
                     return ImageFont.truetype(font_name, size)
 
                 font_path = FontCache.get_instance().find_font(
-                    font_name, bold or False, italic or False
+                    font_name, bold or False, italic or False, weight=weight
                 )
 
                 if font_path:

@@ -2,7 +2,7 @@ import re
 from enum import Enum
 from typing import Literal
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, model_validator
 
 from quickthumb.errors import ValidationError
 
@@ -118,9 +118,16 @@ class TextPart(BaseModel):
     size: int | None = None
     bold: bool | None = None
     italic: bool | None = None
+    weight: int | str | None = None
     line_height: float | None = None
     letter_spacing: int | None = None
     font: str | None = None
+
+    @model_validator(mode="after")
+    def validate_weight_bold_mutual_exclusivity(self) -> "TextPart":
+        if self.weight is not None and self.bold is True:
+            raise ValidationError("cannot specify both weight and bold parameters")
+        return self
 
     @field_validator("color")
     @classmethod
@@ -177,11 +184,8 @@ class BackgroundLayer(BaseModel):
 
         if isinstance(v, str):
             validate_hex_color(v)
-        elif isinstance(v, tuple):
-            if len(v) not in (3, 4):
-                raise ValidationError(f"invalid color tuple: {v}")
-        else:
-            raise ValidationError(f"invalid color format: {v}")
+        elif isinstance(v, tuple) and len(v) not in (3, 4):
+            raise ValidationError(f"invalid color tuple: {v}")
 
         return v
 
@@ -194,13 +198,10 @@ class BackgroundLayer(BaseModel):
         if isinstance(v, BlendMode):
             return v
 
-        if isinstance(v, str):
-            try:
-                return BlendMode(v)
-            except ValueError as e:
-                raise ValidationError(f"unsupported blend mode: {v}") from e
-
-        raise ValidationError(f"unsupported blend mode: {v}")
+        try:
+            return BlendMode(v)
+        except ValueError as e:
+            raise ValidationError(f"unsupported blend mode: {v}") from e
 
     @field_validator("fit", mode="before")
     @classmethod
@@ -211,13 +212,10 @@ class BackgroundLayer(BaseModel):
         if isinstance(v, FitMode):
             return v
 
-        if isinstance(v, str):
-            try:
-                return FitMode(v)
-            except ValueError as e:
-                raise ValidationError(f"unsupported fit mode: {v}") from e
-
-        raise ValidationError(f"unsupported fit mode: {v}")
+        try:
+            return FitMode(v)
+        except ValueError as e:
+            raise ValidationError(f"unsupported fit mode: {v}") from e
 
     @field_validator("brightness")
     @classmethod
@@ -237,6 +235,7 @@ class TextLayer(BaseModel):
     align: tuple | None = None
     bold: bool = False
     italic: bool = False
+    weight: int | str | None = None
     max_width: int | str | None = None
     effects: list[TextEffect] = []
     line_height: float | None = None
@@ -257,6 +256,12 @@ class TextLayer(BaseModel):
 
         validate_hex_color(v)
         return v
+
+    @model_validator(mode="after")
+    def validate_weight_bold_mutual_exclusivity(self) -> "TextLayer":
+        if self.weight is not None and self.bold is True:
+            raise ValidationError("cannot specify both weight and bold parameters")
+        return self
 
     @field_validator("position", mode="before")
     @classmethod

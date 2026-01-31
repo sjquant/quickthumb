@@ -48,6 +48,13 @@
 - ✅ Line height (`line_height` parameter)
 - ✅ Rich text with `TextPart` (partial text styling: color, effects per segment)
 
+### Font System
+
+- ✅ Smart Font Loading with CSS-style `font-weight` support (numeric 100-900 and named weights like "thin", "bold", "black")
+- ✅ Automatic font weight mapping to font file variants (e.g., weight=700 → Roboto-Bold.ttf)
+- ✅ Font weight fallback mechanism (finds closest available weight when exact match unavailable)
+- ✅ Mutual exclusivity validation (`weight` and `bold` parameters cannot be used together)
+
 ### Bug Fixes
 
 - ✅ Fix inability to load non-system fonts by family name
@@ -59,7 +66,6 @@
 ### Planned Features (High Priority)
 
 - [ ] Auto-scale Text and TextPart to fit within max-width
-- [ ] Smart Font Loading: Support CSS-style `font-weight` (e.g., `weight="bold"`, `weight=700`) by automatically mapping to standard font filenames (e.g., `Roboto-Bold.ttf`).
 - [ ] Introduce a LineBreak object to insert vertical spacing between TextParts
 - [ ] Image Layer (placing images at specific coordinates)
 - [ ] Rotation support for images and texts

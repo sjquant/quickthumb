@@ -8,7 +8,8 @@ A Python library for programmatic thumbnail generation with support for layers, 
 - **Layer-based composition**: Stack backgrounds, text, and decorations
 - **Flexible sizing**: Aspect ratios (16:9, 9:16, 4:3, 1:1, 1.91:1, 4:5) or explicit dimensions
 - **Rich backgrounds**: Solid colors, linear/radial gradients, images with blend modes
-- **Advanced text styling**: Custom fonts, strokes, alignment, bold/italic
+- **Advanced text styling**: Custom fonts, CSS-style font weights, strokes, alignment, bold/italic
+- **Smart font loading**: Automatic weight mapping with fallback support
 - **Multiple output formats**: PNG, JPEG, WebP
 - **Type-safe**: Full type hints with Pydantic validation
 
@@ -218,6 +219,43 @@ canvas.text(
 **Available Effects:**
 - `Stroke(width, color)` - Adds an outline around text
 
+## Font Weights
+
+QuickThumb supports CSS-style font weights for precise typography control:
+
+```python
+from quickthumb import Canvas
+
+canvas = Canvas(1920, 1080)
+
+# Numeric weights (100-900)
+canvas.text("Light Text", font="Roboto", size=48, weight=300)
+canvas.text("Regular Text", font="Roboto", size=48, weight=400)
+canvas.text("Bold Text", font="Roboto", size=48, weight=700)
+canvas.text("Black Text", font="Roboto", size=48, weight=900)
+
+# Named weights (case-insensitive)
+canvas.text("Thin", weight="thin")           # 100
+canvas.text("Extra Light", weight="extra-light")  # 200
+canvas.text("Semi Bold", weight="semi-bold") # 600
+canvas.text("Black", weight="black")         # 900
+```
+
+**Weight Fallback**: If the exact weight isn't available, QuickThumb automatically finds the closest available weight variant.
+
+**Note**: The `weight` and `bold` parameters are mutually exclusive:
+
+```python
+# ✅ Use weight for precise control
+canvas.text("Bold Text", weight=700)
+
+# ✅ Or use the traditional bold parameter
+canvas.text("Bold Text", bold=True)
+
+# ❌ Cannot use both (raises ValidationError)
+canvas.text("Error", weight=700, bold=True)
+```
+
 ## Development
 
 ### Setup
@@ -257,7 +295,7 @@ For detailed API design, see [DESIGN.md](DESIGN.md).
 - `Canvas.from_aspect_ratio(ratio, base_width)` - Create from aspect ratio
 - `Canvas.from_json(source)` - Load from JSON string
 - `.background(color=..., gradient=..., image=..., opacity=..., blend_mode=...)` - Add background layer
-- `.text(content, font=..., size=..., color=..., align=..., effects=..., bold=..., italic=...)` - Add text layer
+- `.text(content, font=..., size=..., color=..., align=..., effects=..., bold=..., italic=..., weight=...)` - Add text layer
 - `.outline(width, color, offset=...)` - Add outline decoration
 - `.render(output_path, format=..., quality=...)` - Render to file
 - `.to_json()` - Serialize to json string

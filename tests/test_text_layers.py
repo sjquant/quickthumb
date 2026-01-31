@@ -259,6 +259,7 @@ class TestTextLayers:
             "effects": [{"type": "stroke", "width": 3, "color": "#000000"}],
             "bold": True,
             "italic": False,
+            "weight": None,
             "max_width": None,
             "line_height": 1.5,
             "letter_spacing": 2,
@@ -415,6 +416,7 @@ class TestRichText:
             "size": 80,
             "bold": True,
             "italic": None,
+            "weight": None,
             "line_height": None,
             "letter_spacing": None,
             "font": "Arial",
@@ -426,6 +428,7 @@ class TestRichText:
             "size": None,
             "bold": None,
             "italic": True,
+            "weight": None,
             "line_height": 1.5,
             "letter_spacing": 2,
             "font": None,
@@ -506,3 +509,109 @@ class TestRichText:
         # Then: Should raise ValidationError
         with pytest.raises(ValidationError, match="content.*empty"):
             canvas.text(content=[], size=72)
+
+
+class TestTextLayerFontWeight:
+    """Test suite for font weight parameter in text layers"""
+
+    def test_should_use_numeric_weight_parameter(self, monkeypatch):
+        """Test that text layer accepts numeric weight parameter"""
+        from quickthumb import Canvas, TextLayer
+
+        monkeypatch.setenv("QUICKTHUMB_FONT_DIR", "/Users/sjquant/dev/quickthumb/assets/fonts")
+        canvas = Canvas(1920, 1080)
+
+        canvas.text("Bold Text", font="NotoSerif", size=72, weight=700)
+
+        assert len(canvas.layers) == 1
+        assert canvas.layers[0] == TextLayer(
+            type="text",
+            content="Bold Text",
+            font="NotoSerif",
+            size=72,
+            weight=700,
+        )
+
+    def test_should_use_named_weight_parameter(self, monkeypatch):
+        """Test that text layer accepts named weight parameter"""
+        from quickthumb import Canvas, TextLayer
+
+        monkeypatch.setenv("QUICKTHUMB_FONT_DIR", "/Users/sjquant/dev/quickthumb/assets/fonts")
+        canvas = Canvas(1920, 1080)
+
+        canvas.text("Medium Text", font="NotoSerif", size=72, weight="medium")
+
+        assert len(canvas.layers) == 1
+        assert canvas.layers[0] == TextLayer(
+            type="text",
+            content="Medium Text",
+            font="NotoSerif",
+            size=72,
+            weight="medium",
+        )
+
+    def test_should_render_with_numeric_weight(self, monkeypatch, tmp_path):
+        """Test that canvas renders correctly with numeric weight"""
+        from quickthumb import Canvas
+
+        monkeypatch.setenv("QUICKTHUMB_FONT_DIR", "/Users/sjquant/dev/quickthumb/assets/fonts")
+        canvas = Canvas(400, 200)
+        canvas.background(color="#FFFFFF")
+        canvas.text(
+            "Heavy",
+            font="NotoSerif",
+            size=72,
+            color="#000000",
+            weight=900,
+            align=("center", "middle"),
+        )
+
+        output_path = tmp_path / "weight_numeric.png"
+        canvas.render(str(output_path))
+
+        assert output_path.exists()
+        assert output_path.stat().st_size > 0
+
+    def test_should_render_with_named_weight(self, monkeypatch, tmp_path):
+        """Test that canvas renders correctly with named weight"""
+        from quickthumb import Canvas
+
+        monkeypatch.setenv("QUICKTHUMB_FONT_DIR", "/Users/sjquant/dev/quickthumb/assets/fonts")
+        canvas = Canvas(400, 200)
+        canvas.background(color="#FFFFFF")
+        canvas.text(
+            "Thin",
+            font="NotoSerif",
+            size=72,
+            color="#000000",
+            weight="thin",
+            align=("center", "middle"),
+        )
+
+        output_path = tmp_path / "weight_named.png"
+        canvas.render(str(output_path))
+
+        assert output_path.exists()
+        assert output_path.stat().st_size > 0
+
+    def test_should_raise_error_when_both_weight_and_bold_in_text_layer(self):
+        """Test that ValidationError is raised when both weight and bold are specified"""
+        from quickthumb import Canvas, ValidationError
+
+        canvas = Canvas(400, 200)
+
+        with pytest.raises(ValidationError, match="cannot specify both.*weight.*bold"):
+            canvas.text("Test", font="NotoSerif", size=72, weight=700, bold=True)
+
+    def test_should_raise_error_when_both_weight_and_bold_in_text_part(self):
+        """Test that ValidationError is raised when both weight and bold in TextPart"""
+        from quickthumb import Canvas, TextPart, ValidationError
+
+        canvas = Canvas(400, 200)
+
+        with pytest.raises(ValidationError, match="cannot specify both.*weight.*bold"):
+            canvas.text(
+                content=[TextPart(text="Test", weight=700, bold=True)],
+                font="NotoSerif",
+                size=72,
+            )

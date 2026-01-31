@@ -54,7 +54,13 @@ class FontCache:
             return None
         return self.find_font(font_name, bold=False, italic=False)
 
-    def find_font(self, family: str, bold: bool = False, italic: bool = False) -> str | None:
+    def find_font(
+        self,
+        family: str,
+        bold: bool = False,
+        italic: bool = False,
+        weight: int | str | None = None,
+    ) -> str | None:
         if not self._initialized:
             self._discover_fonts()
             self._initialized = True
@@ -67,7 +73,11 @@ class FontCache:
         if not variants:
             return None
 
-        target_weight = 700 if bold else 400
+        if weight is not None:
+            target_weight = self._normalize_weight(weight)
+        else:
+            target_weight = 700 if bold else 400
+
         candidates = [v for v in variants if v.italic == italic]
 
         if not candidates:
@@ -79,6 +89,32 @@ class FontCache:
 
         best = min(candidates, key=lambda v: abs(v.weight - target_weight))
         return best.path
+
+    def _normalize_weight(self, weight: int | str) -> int:
+        if isinstance(weight, int):
+            return weight
+
+        weight_lower = weight.lower().replace("-", "").replace("_", "").replace(" ", "")
+
+        name_to_weight = {
+            "thin": 100,
+            "hairline": 100,
+            "extralight": 200,
+            "ultralight": 200,
+            "light": 300,
+            "normal": 400,
+            "regular": 400,
+            "medium": 500,
+            "semibold": 600,
+            "demibold": 600,
+            "bold": 700,
+            "extrabold": 800,
+            "ultrabold": 800,
+            "black": 900,
+            "heavy": 900,
+        }
+
+        return name_to_weight.get(weight_lower, 400)
 
     def _discover_fonts(self) -> None:
         font_dirs = self._get_font_directories()

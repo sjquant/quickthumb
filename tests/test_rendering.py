@@ -561,6 +561,41 @@ class TestRendering:
             with open(output_path, "rb") as f:
                 assert f.read() == external_file("snapshots/text_bold_and_italic.png")
 
+    @pytest.mark.parametrize(
+        "weight, weight_name",
+        [
+            (300, "light"),
+            (900, "black"),
+        ],
+    )
+    def test_snapshot_text_with_weight(self, weight, weight_name):
+        """Snapshot test for text rendering with different font weights"""
+        from quickthumb import Canvas
+
+        # Given: Text with specific font weight
+        # When: Rendering text with weight parameter
+        canvas = (
+            Canvas(400, 200)
+            .background(color="#FFFFFF")
+            .text(
+                f"Weight {weight}",
+                font="NotoSerif",
+                size=48,
+                color="#000000",
+                position=(200, 100),
+                align=("center", "middle"),
+                weight=weight,
+            )
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            # Then: Should render text with specified font weight
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file(f"snapshots/text_weight_{weight_name}.png")
+
     def test_snapshot_image_fit_cover(self):
         """Snapshot test for image background with cover fit mode"""
         from quickthumb import Canvas
@@ -1254,4 +1289,4 @@ class TestRendering:
 
                 assert len(w) == 1
                 assert issubclass(w[0].category, UserWarning)
-                assert "Bold/italic flags are ignored for webfont URLs" in str(w[0].message)
+                assert "Bold/italic/weight flags are ignored for webfont URLs" in str(w[0].message)

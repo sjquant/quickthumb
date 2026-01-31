@@ -53,6 +53,7 @@ canvas.text(
     align=("center", "middle"),  # (horizontal, vertical)
     bold=False,
     italic=False,
+    weight=None,  # CSS-style font weight: 100-900 or "thin"/"bold"/"black" etc. (mutually exclusive with bold)
     max_width=None,  # For word wrapping
     effects=None,  # list of effect objects (Stroke, Shadow, Glow, etc.)
     background_color=None,  # Hex string for text background
@@ -313,6 +314,55 @@ canvas.text(
     size=72,
     effects=[Stroke(width=1, color="#000000")],  # effects apply to all parts
 )
+```
+
+### Font Weights
+
+QuickThumb supports CSS-style font weights for precise typography control:
+
+```python
+# Numeric weights (100-900)
+canvas.text("Thin Text", font="Roboto", size=48, weight=100)
+canvas.text("Light Text", font="Roboto", size=48, weight=300)
+canvas.text("Regular Text", font="Roboto", size=48, weight=400)
+canvas.text("Bold Text", font="Roboto", size=48, weight=700)
+canvas.text("Black Text", font="Roboto", size=48, weight=900)
+
+# Named weights (case-insensitive, supports hyphens/underscores/spaces)
+canvas.text("Thin", weight="thin")           # 100
+canvas.text("Extra Light", weight="extra-light")  # 200
+canvas.text("Light", weight="light")         # 300
+canvas.text("Normal", weight="normal")       # 400
+canvas.text("Medium", weight="medium")       # 500
+canvas.text("Semi Bold", weight="semi-bold") # 600
+canvas.text("Bold", weight="bold")           # 700
+canvas.text("Extra Bold", weight="extra-bold")    # 800
+canvas.text("Black", weight="black")         # 900
+
+# Rich text with different weights per part
+canvas.text(
+    content=[
+        TextPart("Light ", weight=300),
+        TextPart("Heavy", weight=900),
+    ],
+    font="NotoSerif",
+    size=48,
+)
+```
+
+**Weight Fallback**: If the exact weight isn't available, QuickThumb automatically finds the closest available weight variant.
+
+**Important**: The `weight` and `bold` parameters are mutually exclusive. Using both will raise a `ValidationError`:
+
+```python
+# ❌ This raises ValidationError
+canvas.text("Error", weight=700, bold=True)
+
+# ✅ Use weight instead of bold
+canvas.text("Bold Text", weight=700)  # or weight="bold"
+
+# ✅ Or use the traditional bold parameter
+canvas.text("Bold Text", bold=True)
 ```
 
 ## Design Consistency Checks

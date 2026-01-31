@@ -90,6 +90,7 @@ class TestTextEffects:
                 "align": None,
                 "bold": False,
                 "italic": False,
+                "weight": None,
                 "max_width": None,
                 "effects": [{"type": "stroke", "width": 3, "color": "#000000"}],
                 "line_height": None,
@@ -211,6 +212,7 @@ class TestTextEffects:
                 "align": None,
                 "bold": False,
                 "italic": False,
+                "weight": None,
                 "max_width": None,
                 "effects": [
                     {
@@ -354,6 +356,7 @@ class TestTextEffects:
                 "align": None,
                 "bold": False,
                 "italic": False,
+                "weight": None,
                 "max_width": None,
                 "effects": [{"type": "glow", "color": "#FF0000", "radius": 10, "opacity": 0.9}],
                 "line_height": None,
