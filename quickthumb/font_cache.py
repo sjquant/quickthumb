@@ -41,6 +41,7 @@ class FontCache:
     def __init__(self) -> None:
         self._fonts = {}
         self._initialized = False
+        self._weight_dict = dict(self.WEIGHT_MAPPING)
 
     @classmethod
     def get_instance(cls) -> FontCache:
@@ -96,25 +97,7 @@ class FontCache:
 
         weight_lower = weight.lower().replace("-", "").replace("_", "").replace(" ", "")
 
-        name_to_weight = {
-            "thin": 100,
-            "hairline": 100,
-            "extralight": 200,
-            "ultralight": 200,
-            "light": 300,
-            "normal": 400,
-            "regular": 400,
-            "medium": 500,
-            "semibold": 600,
-            "demibold": 600,
-            "bold": 700,
-            "extrabold": 800,
-            "ultrabold": 800,
-            "black": 900,
-            "heavy": 900,
-        }
-
-        return name_to_weight.get(weight_lower, 400)
+        return self._weight_dict.get(weight_lower, 400)
 
     def _discover_fonts(self) -> None:
         font_dirs = self._get_font_directories()
