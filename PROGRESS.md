@@ -64,7 +64,6 @@
 ### Planned Features (High Priority)
 
 - [ ] Auto-scale Text and TextPart to fit within max-width
-- [ ] Introduce a LineBreak object to insert vertical spacing between TextParts
 - [ ] Image Layer (placing images at specific coordinates)
 - [ ] Rotation support for images and texts
 - [ ] Text background effect support (labels/badges with padding/rounded corners)
