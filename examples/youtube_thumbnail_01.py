@@ -12,7 +12,10 @@ import os
 from quickthumb import Canvas, TextPart
 from quickthumb.models import Stroke
 
-os.environ["QUICKTHUMB_FONT_DIR"] = os.path.join(os.path.dirname(__file__), "..", "assets", "fonts")
+FILE_DIR = os.path.dirname(__file__)
+ASSETS_DIR = os.path.join(FILE_DIR, "..", "assets")
+
+os.environ["QUICKTHUMB_FONT_DIR"] = os.path.join(ASSETS_DIR, "fonts")
 os.environ["QUICKTHUMB_DEFAULT_FONT"] = "Roboto"
 
 # Create 16:9 YouTube thumbnail (1280x720) with method chaining
@@ -20,7 +23,9 @@ os.environ["QUICKTHUMB_DEFAULT_FONT"] = "Roboto"
     Canvas.from_aspect_ratio("16:9", 1280)
     # Add background image (placeholder - you'll add your own image here)
     # For now, using a dark background as placeholder
-    .background(image="examples/assets/c-g-JgDUVGAXsso-unsplash.jpg", brightness=0.7)
+    .background(
+        image=os.path.join(ASSETS_DIR, "images", "c-g-JgDUVGAXsso-unsplash.jpg"), brightness=0.7
+    )
     # Add a semi-transparent overlay to darken the background
     # This helps text stand out better
     .background(color="#000000", opacity=0.6)
@@ -47,8 +52,8 @@ os.environ["QUICKTHUMB_DEFAULT_FONT"] = "Roboto"
     # Add bright neon green border
     .outline(width=15, color="#B8FF00")
     # Render the thumbnail
-    .render("examples/youtube_thumbnail_01.png")
+    .render(os.path.join(FILE_DIR, "youtube_thumbnail_01.png"))
 )
 
-print("✓ YouTube thumbnail created: examples/youtube_thumbnail_01.png")
+print(f"✓ YouTube thumbnail created: {os.path.join(FILE_DIR, 'youtube_thumbnail_01.png')}")
 print("  Replace the background and text content with your own.")
