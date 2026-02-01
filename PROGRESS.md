@@ -76,3 +76,5 @@
 
 - [ ] Extended documentation/examples
 - [ ] Background Removal for image
+- [ ] FIX: Shadow effect raises `ValueError: anchor not supported for multiline text` in some environments.
+- [ ] FIX: LinearGradient does not correctly support alpha transparency in color stops (renders as opaque).
