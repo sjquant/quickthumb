@@ -1,6 +1,7 @@
 from quickthumb.canvas import Canvas
 from quickthumb.errors import QuickthumbError, ValidationError
 from quickthumb.models import (
+    Background,
     BackgroundLayer,
     BlendMode,
     FitMode,
@@ -18,6 +19,7 @@ __all__ = [
     "Canvas",
     "QuickthumbError",
     "ValidationError",
+    "Background",
     "BackgroundLayer",
     "BlendMode",
     "FitMode",

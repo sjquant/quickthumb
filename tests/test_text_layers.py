@@ -511,10 +511,121 @@ class TestRichText:
             canvas.text(content=[], size=72)
 
 
+class TestTextBackgroundEffect:
+    """Test suite for text background effect using Background effect class"""
+
+    def test_should_add_text_with_background_effect(self):
+        """Test that background effect can be added to text"""
+        from quickthumb import Background, Canvas, TextLayer
+
+        canvas = Canvas(1920, 1080)
+        canvas.text(
+            "Label",
+            size=48,
+            effects=[
+                Background(color="#00FF00", padding=(15, 30, 15, 30), border_radius=8, opacity=0.8)
+            ],
+        )
+
+        assert len(canvas.layers) == 1
+        assert canvas.layers[0] == TextLayer(
+            type="text",
+            content="Label",
+            size=48,
+            effects=[
+                Background(color="#00FF00", padding=(15, 30, 15, 30), border_radius=8, opacity=0.8)
+            ],
+        )
+
+    def test_should_serialize_text_with_background_to_json(self):
+        """Test that background effects are serialized to JSON"""
+        import json
+
+        from quickthumb import Background, Canvas
+
+        canvas = Canvas(1920, 1080).text(
+            "Hello",
+            size=72,
+            effects=[Background(color="#FF0000", padding=(10, 20, 10, 20), border_radius=8)],
+        )
+
+        json_str = canvas.to_json()
+        data = json.loads(json_str)
+
+        assert len(data["layers"]) == 1
+        assert data["layers"][0]["effects"][0] == {
+            "type": "background",
+            "color": "#FF0000",
+            "padding": [10, 20, 10, 20],
+            "border_radius": 8,
+            "opacity": 1.0,
+        }
+
+    def test_should_deserialize_text_with_background_from_json(self):
+        """Test that background effects are deserialized from JSON"""
+        import json
+
+        from quickthumb import Background, Canvas, TextLayer
+
+        json_data = {
+            "width": 1920,
+            "height": 1080,
+            "layers": [
+                {
+                    "type": "text",
+                    "content": "Hello",
+                    "size": 72,
+                    "effects": [
+                        {
+                            "type": "background",
+                            "color": "#FF0000",
+                            "padding": [10, 20, 10, 20],
+                            "border_radius": 8,
+                            "opacity": 0.9,
+                        }
+                    ],
+                }
+            ],
+        }
+
+        canvas = Canvas.from_json(json.dumps(json_data))
+
+        assert len(canvas.layers) == 1
+        assert canvas.layers[0] == TextLayer(
+            type="text",
+            content="Hello",
+            size=72,
+            effects=[
+                Background(color="#FF0000", padding=(10, 20, 10, 20), border_radius=8, opacity=0.9)
+            ],
+        )
+
+    @pytest.mark.parametrize(
+        "effect_args,error_pattern",
+        [
+            ({"color": "invalid"}, "invalid hex"),
+            ({"color": "#FF0000", "padding": -5}, "padding.*negative"),
+            ({"color": "#FF0000", "padding": (10, -5, 10, 5)}, "padding.*negative"),
+            ({"color": "#FF0000", "padding": (10, 20, 30)}, "padding"),
+            ({"color": "#FF0000", "border_radius": -1}, "border_radius.*negative"),
+            ({"color": "#FF0000", "opacity": -0.1}, "opacity.*0.0.*1.0"),
+            ({"color": "#FF0000", "opacity": 1.5}, "opacity.*0.0.*1.0"),
+        ],
+    )
+    def test_should_raise_error_for_invalid_background(self, effect_args, error_pattern):
+        """Test that invalid Background parameters raise ValidationError"""
+        from quickthumb import Background, Canvas, ValidationError
+
+        canvas = Canvas(1920, 1080)
+
+        with pytest.raises(ValidationError, match=error_pattern):
+            canvas.text("Hello", effects=[Background(**effect_args)])
+
+
 class TestTextLayerFontWeight:
     """Test suite for font weight parameter in text layers"""
 
-    def test_should_use_numeric_weight_parameter(self, monkeypatch):
+    def test_should_use_numeric_weight_parameter(self):
         """Test that text layer accepts numeric weight parameter"""
         from quickthumb import Canvas, TextLayer
 
@@ -531,7 +642,7 @@ class TestTextLayerFontWeight:
             weight=700,
         )
 
-    def test_should_use_named_weight_parameter(self, monkeypatch):
+    def test_should_use_named_weight_parameter(self):
         """Test that text layer accepts named weight parameter"""
         from quickthumb import Canvas, TextLayer
 
@@ -548,7 +659,7 @@ class TestTextLayerFontWeight:
             weight="medium",
         )
 
-    def test_should_render_with_numeric_weight(self, monkeypatch, tmp_path):
+    def test_should_render_with_numeric_weight(self, tmp_path):
         """Test that canvas renders correctly with numeric weight"""
         from quickthumb import Canvas
 
@@ -569,7 +680,7 @@ class TestTextLayerFontWeight:
         assert output_path.exists()
         assert output_path.stat().st_size > 0
 
-    def test_should_render_with_named_weight(self, monkeypatch, tmp_path):
+    def test_should_render_with_named_weight(self, tmp_path):
         """Test that canvas renders correctly with named weight"""
         from quickthumb import Canvas
 

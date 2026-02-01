@@ -1290,3 +1290,85 @@ class TestRendering:
                 assert len(w) == 1
                 assert issubclass(w[0].category, UserWarning)
                 assert "Bold/italic/weight flags are ignored for webfont URLs" in str(w[0].message)
+
+    def test_snapshot_text_with_background_basic(self):
+        """Snapshot test for text rendering with basic background effect"""
+        from quickthumb import Background, Canvas
+
+        canvas = (
+            Canvas(400, 200)
+            .background(color="#FFFFFF")
+            .text(
+                "FEATURED",
+                size=64,
+                color="#FFFFFF",
+                position=(200, 100),
+                align=("center", "middle"),
+                effects=[Background(color="#FF5722", padding=20, border_radius=12)],
+            )
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/text_with_background_basic.png")
+
+    def test_snapshot_text_with_background_and_effects(self):
+        """Snapshot test for text with background combined with stroke and shadow"""
+        from quickthumb import Background, Canvas, Shadow, Stroke
+
+        canvas = (
+            Canvas(400, 200)
+            .background(color="#F0F0F0")
+            .text(
+                "LABEL",
+                size=48,
+                color="#FFFFFF",
+                position=(200, 100),
+                align=("center", "middle"),
+                effects=[
+                    Background(color="#E74C3C", padding=(10, 20), border_radius=8, opacity=0.9),
+                    Stroke(width=2, color="#000000"),
+                    Shadow(offset_x=2, offset_y=2, color="#00000080", blur_radius=2),
+                ],
+            )
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/text_with_background_and_effects.png")
+
+    def test_snapshot_rich_text_with_background(self):
+        """Snapshot test for rich text with part-specific background effects"""
+        from quickthumb import Background, Canvas, TextPart
+
+        canvas = (
+            Canvas(600, 200)
+            .background(color="#FFFFFF")
+            .text(
+                [
+                    TextPart(
+                        text="URGENT",
+                        bold=True,
+                        color="#FFFFFF",
+                        effects=[Background(color="#E74C3C", padding=10, border_radius=5)],
+                    ),
+                    TextPart(text=" NOTICE", color="#000000"),
+                ],
+                size=48,
+                position=(300, 100),
+                align=("center", "middle"),
+            )
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/rich_text_with_background.png")

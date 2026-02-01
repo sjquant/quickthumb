@@ -127,7 +127,49 @@ class Glow(QuickThumbModel):
         return v
 
 
-TextEffect = Annotated[Stroke | Shadow | Glow, Discriminator("type")]
+class Background(QuickThumbModel):
+    type: Literal["background"] = "background"
+    color: HexColor
+    padding: int | tuple[int, int] | tuple[int, int, int, int] = 0
+    border_radius: int = 0
+    opacity: float = 1.0
+
+    @field_validator("padding")
+    @classmethod
+    def validate_padding(
+        cls, v: int | tuple[int, int] | tuple[int, int, int, int]
+    ) -> int | tuple[int, int] | tuple[int, int, int, int]:
+        if isinstance(v, int):
+            if v < 0:
+                raise ValueError("padding cannot be negative")
+            return v
+
+        if isinstance(v, tuple):
+            if len(v) not in (2, 4):
+                raise ValueError("padding tuple must have 2 or 4 elements")
+            for val in v:
+                if val < 0:
+                    raise ValueError("padding values cannot be negative")
+            return v
+
+        return v
+
+    @field_validator("border_radius")
+    @classmethod
+    def validate_border_radius(cls, v: int) -> int:
+        if v < 0:
+            raise ValueError("border_radius cannot be negative")
+        return v
+
+    @field_validator("opacity")
+    @classmethod
+    def validate_opacity(cls, v: float) -> float:
+        if v < 0.0 or v > 1.0:
+            raise ValueError("opacity must be between 0.0 and 1.0")
+        return v
+
+
+TextEffect = Annotated[Stroke | Shadow | Glow | Background, Discriminator("type")]
 
 
 class TextPart(QuickThumbModel):

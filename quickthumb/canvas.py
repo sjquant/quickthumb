@@ -14,6 +14,7 @@ from typing_extensions import Self
 from quickthumb.errors import RenderingError, ValidationError
 from quickthumb.font_cache import FontCache
 from quickthumb.models import (
+    Background,
     BackgroundLayer,
     BlendMode,
     CanvasModel,
@@ -53,6 +54,7 @@ class TextPartData(TypedDict):
     stroke_effects: list[Stroke]
     shadow_effects: list[Shadow]
     glow_effects: list[Glow]
+    background_effects: list[Background]
     text: str
 
 
@@ -414,6 +416,7 @@ class Canvas:
         stroke_effects = self._get_stroke_effects(layer.effects)
         shadow_effects = self._get_shadow_effects(layer.effects)
         glow_effects = self._get_glow_effects(layer.effects)
+        background_effects = self._get_background_effects(layer.effects)
 
         if layer.max_width:
             max_width_px = self._parse_coordinate(layer.max_width, self.width)
@@ -430,6 +433,7 @@ class Canvas:
                 glow_effects,
                 shadow_effects,
                 stroke_effects,
+                background_effects,
             )
         else:
             self._render_normal_text(
@@ -442,6 +446,7 @@ class Canvas:
                 glow_effects,
                 shadow_effects,
                 stroke_effects,
+                background_effects,
             )
 
     def _render_rich_text(self, image: Image.Image, layer: TextLayer):
@@ -567,6 +572,7 @@ class Canvas:
                 "stroke_effects": self._get_stroke_effects(combined_effects),
                 "shadow_effects": self._get_shadow_effects(combined_effects),
                 "glow_effects": self._get_glow_effects(combined_effects),
+                "background_effects": self._get_background_effects(combined_effects),
                 "text": part.text,
             }
 
@@ -643,7 +649,11 @@ class Canvas:
         text = part_data["text"]
         x, y = position
 
-        # Render effects
+        # Render background effects first
+        for bg in part_data["background_effects"]:
+            self._render_background(image, text, font, (x, y), bg)
+
+        # Render glow and shadow effects
         for glow in part_data["glow_effects"]:
             self._render_glow(image, text, font, (x, y), glow)
 
@@ -742,6 +752,7 @@ class Canvas:
         glow_effects: list[Glow],
         shadow_effects: list[Shadow],
         stroke_effects: list[Stroke],
+        background_effects: list[Background],
     ):
         letter_spacing = layer.letter_spacing or 0
         total_width, char_widths = self._calculate_spaced_text_width(content, font, letter_spacing)
@@ -752,6 +763,9 @@ class Canvas:
         x = self._get_horizontal_start_x(base_x, total_width, layer.align)
         y = self._get_vertical_start_y(base_y, text_height, layer.align)
         position = (x, y)
+
+        for bg in background_effects:
+            self._render_background(image, content, font, position, bg, "lt")
 
         self._render_text_effects(
             image, content, font, position, glow_effects, shadow_effects, "lt"
@@ -772,9 +786,13 @@ class Canvas:
         glow_effects: list[Glow],
         shadow_effects: list[Shadow],
         stroke_effects: list[Stroke],
+        background_effects: list[Background],
     ):
         position = self._calculate_text_position(layer)
         anchor = self._get_text_anchor(layer.align)
+
+        for bg in background_effects:
+            self._render_background(image, content, font, position, bg, anchor)
 
         self._render_text_effects(
             image, content, font, position, glow_effects, shadow_effects, anchor
@@ -1043,6 +1061,99 @@ class Canvas:
 
         image.paste(shadow_layer, (paste_x, paste_y), shadow_layer)
 
+    def _render_background(
+        self,
+        image: Image.Image,
+        text: str,
+        font: FontType,
+        position: tuple[int, int],
+        background: Background,
+        anchor: str = "lt",
+    ):
+        """Render background box behind text with padding and optional rounded corners.
+
+        The background is positioned relative to the text anchor point, accounting for
+        the text bounding box offset. This ensures the background aligns correctly
+        regardless of text alignment (left, center, right).
+        """
+        # Get text dimensions from bounding box
+        bbox = font.getbbox(text, anchor=anchor)
+        text_width = int(bbox[2] - bbox[0])
+        text_height = int(bbox[3] - bbox[1])
+
+        # Parse padding (supports uniform, 2-value, or 4-value formats)
+        pad_top, pad_right, pad_bottom, pad_left = self._parse_padding(background.padding)
+
+        # Calculate background dimensions including padding
+        bg_width = text_width + pad_left + pad_right
+        bg_height = text_height + pad_top + pad_bottom
+
+        # Create background layer and apply color with opacity
+        bg_layer = Image.new("RGBA", (bg_width, bg_height), (0, 0, 0, 0))
+        bg_draw = ImageDraw.Draw(bg_layer)
+        bg_color = self._apply_opacity_to_color(
+            self._parse_color(background.color), background.opacity
+        )
+
+        # Draw background shape (rounded rectangle or normal rectangle)
+        if background.border_radius > 0:
+            self._draw_rounded_rectangle(
+                bg_draw,
+                [(0, 0), (bg_width, bg_height)],
+                background.border_radius,
+                fill=bg_color,
+            )
+        else:
+            bg_draw.rectangle([(0, 0), (bg_width, bg_height)], fill=bg_color)
+
+        # Calculate paste position
+        # bbox[0], bbox[1] are the text bounding box offsets from the anchor point
+        # For center-aligned text, these are typically negative (text extends left/up from anchor)
+        # The background must be positioned to maintain proper padding around the text
+        offset_x = int(pad_left - bbox[0])
+        offset_y = int(pad_top - bbox[1])
+        paste_x = position[0] - offset_x
+        paste_y = position[1] - offset_y
+
+        image.paste(bg_layer, (paste_x, paste_y), bg_layer)
+
+    def _parse_padding(
+        self, padding: int | tuple[int, int] | tuple[int, int, int, int]
+    ) -> tuple[int, int, int, int]:
+        """Parse padding value into (top, right, bottom, left) tuple.
+
+        Args:
+            padding: Can be:
+                - int: uniform padding on all sides
+                - tuple[int, int]: (vertical, horizontal) padding
+                - tuple[int, int, int, int]: (top, right, bottom, left) padding
+
+        Returns:
+            Tuple of (top, right, bottom, left) padding values
+        """
+        if isinstance(padding, int):
+            return (padding, padding, padding, padding)
+        elif isinstance(padding, tuple) and len(padding) == 2:
+            padding_2 = cast(tuple[int, int], padding)
+            vertical, horizontal = padding_2
+            return (vertical, horizontal, vertical, horizontal)
+        elif isinstance(padding, tuple) and len(padding) == 4:
+            return cast(tuple[int, int, int, int], padding)
+        else:
+            return (0, 0, 0, 0)
+
+    def _draw_rounded_rectangle(
+        self,
+        draw: ImageDraw.ImageDraw,
+        coords: list[tuple[int, int]],
+        radius: int,
+        fill: tuple[int, ...] | None = None,
+    ):
+        """Draw a rounded rectangle on the given draw context."""
+        x0, y0 = coords[0]
+        x1, y1 = coords[1]
+        draw.rounded_rectangle([x0, y0, x1, y1], radius=radius, fill=fill)
+
     def _load_font(self, layer: TextLayer) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
         return self._load_font_variant(
             layer.font,
@@ -1118,6 +1229,9 @@ class Canvas:
 
     def _get_glow_effects(self, effects: list[TextEffect]) -> list[Glow]:
         return [e for e in effects if isinstance(e, Glow)]
+
+    def _get_background_effects(self, effects: list[TextEffect]) -> list[Background]:
+        return [e for e in effects if isinstance(e, Background)]
 
     def _is_url(self, path: str) -> bool:
         return path.startswith("http://") or path.startswith("https://")

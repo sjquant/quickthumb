@@ -42,10 +42,11 @@
 
 ### Text Effects
 
-- ✅ Effect classes API (extensible effects list with Stroke, Shadow, Glow)
+- ✅ Effect classes API (extensible effects list with Stroke, Shadow, Glow, Background)
 - ✅ Text stroke rendering (configurable width and color)
 - ✅ Drop shadow (offset_x, offset_y, color, blur_radius)
 - ✅ Glow/outer glow (color, radius, opacity)
+- ✅ Text background (color, padding with CSS-like shorthand, border_radius, opacity)
 - ✅ Letter spacing (`letter_spacing` parameter)
 - ✅ Line height (`line_height` parameter)
 - ✅ Rich text with `TextPart` (partial text styling: color, effects per segment)
@@ -66,7 +67,6 @@
 - [ ] Auto-scale Text and TextPart to fit within max-width
 - [ ] Image Layer (placing images at specific coordinates)
 - [ ] Rotation support for images and texts
-- [ ] Text background effect support (labels/badges with padding/rounded corners)
 
 ### Medium Priorty
 
