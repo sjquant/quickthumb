@@ -4,13 +4,13 @@ YouTube Thumbnail Example - Burnout Theme (Redesigned)
 Professional thumbnail with:
 - High contrast typography (Roboto Black)
 - Manual drop shadows (workaround for library limitation)
-- Solid overlay for depth (workaround for gradient alpha limitation)
+- Gradient overlay for depth
 - Strong visual hierarchy
 """
 
 import os
 
-from quickthumb import Canvas, FitMode
+from quickthumb import Canvas, FitMode, LinearGradient
 from quickthumb.models import Background, Stroke
 
 FILE_DIR = os.path.dirname(__file__)
@@ -31,10 +31,14 @@ HEIGHT = 720
         fit=FitMode.COVER,
         brightness=0.7,  # Darken original image
     )
-    # 2. Dark Overlay for readability (Replaces gradient due to alpha limitation)
-    # Using a solid dark blue with high transparency to darken the whole image further
-    # to ensure white text pops.
-    .background(color="#0f0f23", opacity=0.6)
+    # 2. Gradient Overlay (Dark bottom-left to transparent top-right)
+    # This ensures text readability on the left side
+    .background(
+        gradient=LinearGradient(
+            angle=120, stops=[("#0f0f23", 0.0), ("#0f0f23cc", 0.4), ("#0f0f2300", 1.0)]
+        ),
+        opacity=1.0,
+    )
     # 3. Typography
     # Subtitle: "ARE YOU"
     # Manual Shadow

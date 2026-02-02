@@ -1261,12 +1261,15 @@ class Canvas:
 
     def _create_gradient_lut(
         self, stops: list[tuple[str, float]]
-    ) -> tuple[list[int], list[int], list[int]]:
-        r_lut, g_lut, b_lut = [], [], []
+    ) -> tuple[list[int], list[int], list[int], list[int]]:
+        r_lut, g_lut, b_lut, a_lut = [], [], [], []
 
         parsed_stops = []
         for color, pos in stops:
             parsed_color = self._parse_color(color)
+            # Ensure color has alpha channel (default to 255 if not provided)
+            if len(parsed_color) == 3:
+                parsed_color = (*parsed_color, 255)
             parsed_stops.append((parsed_color, pos))
 
         for i in range(256):
@@ -1276,9 +1279,9 @@ class Canvas:
             color2, pos2 = parsed_stops[-1]
 
             if pos <= pos1:
-                r, g, b = color1[:3]
+                r, g, b, a = color1[:4]
             elif pos >= pos2:
-                r, g, b = color2[:3]
+                r, g, b, a = color2[:4]
             else:
                 for j in range(len(parsed_stops) - 1):
                     c1, p1 = parsed_stops[j]
@@ -1288,13 +1291,15 @@ class Canvas:
                         r = int(c1[0] + (c2[0] - c1[0]) * ratio)
                         g = int(c1[1] + (c2[1] - c1[1]) * ratio)
                         b = int(c1[2] + (c2[2] - c1[2]) * ratio)
+                        a = int(c1[3] + (c2[3] - c1[3]) * ratio)
                         break
 
             r_lut.append(r)
             g_lut.append(g)
             b_lut.append(b)
+            a_lut.append(a)
 
-        return r_lut, g_lut, b_lut
+        return r_lut, g_lut, b_lut, a_lut
 
     def _create_linear_gradient(
         self, size: tuple[int, int], angle: float, stops: list[tuple[str, float]]
@@ -1315,12 +1320,13 @@ class Canvas:
         top = (diagonal - height) // 2
         gradient_mask = gradient_mask.crop((left, top, left + width, top + height))
 
-        r_lut, g_lut, b_lut = self._create_gradient_lut(stops)
+        r_lut, g_lut, b_lut, a_lut = self._create_gradient_lut(stops)
         r = gradient_mask.point(r_lut)
         g = gradient_mask.point(g_lut)
         b = gradient_mask.point(b_lut)
+        a = gradient_mask.point(a_lut)
 
-        return Image.merge("RGB", (r, g, b)).convert("RGBA")
+        return Image.merge("RGBA", (r, g, b, a))
 
     def _create_radial_gradient(
         self, size: tuple[int, int], stops: list[tuple[str, float]], center: tuple[float, float]
@@ -1348,12 +1354,13 @@ class Canvas:
 
         gradient_mask = gradient_mask.crop((left, top, left + width, top + height))
 
-        r_lut, g_lut, b_lut = self._create_gradient_lut(stops)
+        r_lut, g_lut, b_lut, a_lut = self._create_gradient_lut(stops)
         r = gradient_mask.point(r_lut)
         g = gradient_mask.point(g_lut)
         b = gradient_mask.point(b_lut)
+        a = gradient_mask.point(a_lut)
 
-        return Image.merge("RGB", (r, g, b)).convert("RGBA")
+        return Image.merge("RGBA", (r, g, b, a))
 
     def _apply_blend_func(
         self,

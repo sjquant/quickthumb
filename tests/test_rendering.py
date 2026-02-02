@@ -205,6 +205,32 @@ class TestRendering:
             with open(output_path, "rb") as f:
                 assert f.read() == external_file("snapshots/percentage_with_alignment.png")
 
+    def test_snapshot_linear_gradient_with_alpha(self):
+        """Snapshot test for linear gradient rendering with alpha transparency in color stops"""
+        from quickthumb import Canvas
+        from quickthumb.models import LinearGradient
+
+        # Given: A linear gradient from opaque red to transparent red (with alpha)
+        gradient = LinearGradient(
+            type="linear", angle=0, stops=[("#FF0000FF", 0.0), ("#FF000000", 1.0)]
+        )
+
+        # When: Rendering gradient over a checkerboard pattern (to see transparency)
+        canvas = (
+            Canvas(400, 300)
+            .background(color="#FFFFFF")
+            .background(color="#2196F3", opacity=1.0)  # Blue base
+            .background(gradient=gradient)
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            # Then: Should show gradient fading from red to transparent (revealing gray)
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/linear_gradient_with_alpha.png")
+
     def test_snapshot_linear_gradient_horizontal(self):
         """Snapshot test for linear gradient rendering with horizontal direction (0 degrees)"""
         from quickthumb import Canvas
