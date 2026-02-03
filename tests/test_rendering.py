@@ -902,6 +902,56 @@ class TestRendering:
             with open(output_path, "rb") as f:
                 assert f.read() == external_file("snapshots/text_with_basic_shadow.png")
 
+    def test_snapshot_text_with_letter_spacing_shadow(self):
+        """Snapshot test for letter-spaced text with shadow effect"""
+        from quickthumb import Canvas, Shadow
+
+        canvas = (
+            Canvas(400, 200)
+            .background(color="#FFFFFF")
+            .text(
+                "ARE YOU",
+                size=48,
+                color="#fbbf24",
+                position=(200, 100),
+                align=("center", "middle"),
+                letter_spacing=2,
+                effects=[Shadow(offset_x=5, offset_y=5, color="#000000", blur_radius=0)],
+            )
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/text_with_letter_spacing_shadow.png")
+
+    def test_snapshot_text_with_letter_spacing_glow(self):
+        """Snapshot test for letter-spaced text with glow effect"""
+        from quickthumb import Canvas, Glow
+
+        canvas = (
+            Canvas(400, 200)
+            .background(color="#1a1a1a")
+            .text(
+                "ARE YOU",
+                size=48,
+                color="#fbbf24",
+                position=(200, 100),
+                align=("center", "middle"),
+                letter_spacing=2,
+                effects=[Glow(color="#FF0000", radius=10, opacity=0.8)],
+            )
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/text_with_letter_spacing_glow.png")
+
     def test_snapshot_text_with_blurred_shadow(self):
         """Snapshot test for text rendering with blurred shadow effect"""
         from quickthumb import Canvas, Shadow
@@ -925,6 +975,54 @@ class TestRendering:
 
             with open(output_path, "rb") as f:
                 assert f.read() == external_file("snapshots/text_with_blurred_shadow.png")
+
+    def test_snapshot_multiline_text_with_shadow(self):
+        """Snapshot test for multiline text with shadow effect"""
+        from quickthumb import Canvas, Shadow
+
+        canvas = (
+            Canvas(400, 200)
+            .background(color="#FFFFFF")
+            .text(
+                "Line 1\nLine 2\nLine 3",
+                size=32,
+                color="#000000",
+                position=(200, 100),
+                align=("center", "middle"),
+                effects=[Shadow(offset_x=4, offset_y=4, color="#888888", blur_radius=3)],
+            )
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/multiline_text_with_shadow.png")
+
+    def test_snapshot_multiline_text_with_glow(self):
+        """Snapshot test for multiline text with glow effect"""
+        from quickthumb import Canvas, Glow
+
+        canvas = (
+            Canvas(400, 200)
+            .background(color="#1a1a1a")
+            .text(
+                "Line 1\nLine 2\nLine 3",
+                size=32,
+                color="#FFFFFF",
+                position=(200, 100),
+                align=("center", "middle"),
+                effects=[Glow(color="#FF0000", radius=10, opacity=0.8)],
+            )
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/multiline_text_with_glow.png")
 
     def test_snapshot_text_with_glow(self):
         """Snapshot test for text rendering with glow effect"""

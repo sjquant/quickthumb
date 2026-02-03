@@ -18,7 +18,7 @@ Creates a professional YouTube-style thumbnail with:
 Creates a high-contrast "Burnout" theme thumbnail demonstrating complex typography and layering techniques:
 
 - **Professional Typography**: Uses `Roboto-Black` (weight 900) for massive, impactful headlines.
-- **Manual Drop Shadows**: Demonstrates a technique to create depth by duplicating text layers with offsets.
+- **Drop Shadows**: Uses the built-in `Shadow` effect for depth.
 - **Visual Hierarchy**: Structured layout with clear size differences between hook, headline, and subtitle.
 - **Background Treatment**: Shows how to use image backgrounds with brightness adjustment and color overlays for better text readability.
 - **Rich Text styling**: Uses varying colors (Amber, Deep Orange, White) to emphasize keywords.

@@ -422,6 +422,9 @@ class Canvas:
             max_width_px = self._parse_coordinate(layer.max_width, self.width)
             lines = self._wrap_text(content, font, max_width_px, layer.letter_spacing)
             self._render_multiline_text(draw, lines, font, color, layer, image)
+        elif "\n" in content:
+            lines = content.split("\n")
+            self._render_multiline_text(draw, lines, font, color, layer, image)
         elif layer.letter_spacing:
             self._render_letter_spaced_text(
                 draw,
@@ -698,6 +701,7 @@ class Canvas:
         glow_effects = self._get_glow_effects(layer.effects)
         shadow_effects = self._get_shadow_effects(layer.effects)
         stroke_effects = self._get_stroke_effects(layer.effects)
+        background_effects = self._get_background_effects(layer.effects)
 
         for i, line in enumerate(lines):
             line_width, _ = self._measure_text_bounds(
@@ -706,6 +710,9 @@ class Canvas:
 
             y = start_y + i * line_height
             x = self._get_horizontal_start_x(base_x, line_width, layer.align)
+
+            for bg in background_effects:
+                self._render_background(image, line, font, (x, y), bg, "lt")
 
             for glow in glow_effects:
                 self._render_glow(image, line, font, (x, y), glow)
@@ -767,9 +774,15 @@ class Canvas:
         for bg in background_effects:
             self._render_background(image, content, font, position, bg, "lt")
 
-        self._render_text_effects(
-            image, content, font, position, glow_effects, shadow_effects, "lt"
-        )
+        for glow in glow_effects:
+            self._render_letter_spaced_glow(
+                image, content, font, position, glow, letter_spacing, char_widths
+            )
+
+        for shadow in shadow_effects:
+            self._render_letter_spaced_shadow(
+                image, content, font, position, shadow, letter_spacing, char_widths
+            )
 
         self._draw_text_with_letter_spacing(
             draw, content, position, font, color, letter_spacing, stroke_effects, char_widths
@@ -925,6 +938,23 @@ class Canvas:
             return base_x - line_width
         return base_x
 
+    def _iterate_letter_spaced_positions(
+        self, text: str, letter_spacing: int, char_widths: list[int], start_x: int
+    ):
+        current_x = start_x
+        for i, char in enumerate(text):
+            yield char, current_x
+            current_x += char_widths[i] + letter_spacing
+
+    def _calculate_letter_spaced_layout(
+        self, text: str, font: FontType, letter_spacing: int, char_widths: list[int]
+    ) -> tuple[int, int, int]:
+        total_width = sum(char_widths) + letter_spacing * (len(char_widths) - 1)
+        bbox = font.getbbox(text, anchor="ls")
+        text_height = int(bbox[3] - bbox[1])
+        baseline_offset = int(-bbox[1])
+        return total_width, text_height, baseline_offset
+
     def _draw_text_with_letter_spacing(
         self,
         draw: ImageDraw.ImageDraw,
@@ -947,9 +977,8 @@ class Canvas:
         bbox = font.getbbox(text, anchor="ls")
         baseline_y = int(y - bbox[1])
 
-        for i, char in enumerate(text):
-            self._draw_text(draw, char, (x, baseline_y), font, color, strokes, "ls")
-            x += widths[i] + letter_spacing
+        for char, char_x in self._iterate_letter_spaced_positions(text, letter_spacing, widths, x):
+            self._draw_text(draw, char, (char_x, baseline_y), font, color, strokes, "ls")
 
     def _draw_text(
         self,
@@ -984,7 +1013,8 @@ class Canvas:
         glow: Glow,
         anchor: str = "lt",
     ):
-        bbox = font.getbbox(text, anchor=anchor)
+        temp_draw = ImageDraw.Draw(image)
+        bbox = temp_draw.textbbox((0, 0), text, font=font, anchor=anchor)
         text_width = int(bbox[2] - bbox[0])
         text_height = int(bbox[3] - bbox[1])
 
@@ -1026,6 +1056,62 @@ class Canvas:
 
         image.paste(glow_layer, (paste_x, paste_y), glow_layer)
 
+    def _render_letter_spaced_glow(
+        self,
+        image: Image.Image,
+        text: str,
+        font: FontType,
+        position: tuple[int, int],
+        glow: Glow,
+        letter_spacing: int,
+        char_widths: list[int],
+    ):
+        if not text:
+            return
+
+        expansion = max(1, glow.radius // 2)
+        blur_padding = max(glow.radius * 3, 1)
+        total_padding = blur_padding + expansion
+
+        total_width, text_height, baseline_offset = self._calculate_letter_spaced_layout(
+            text, font, letter_spacing, char_widths
+        )
+
+        temp_w = total_width + 2 * total_padding
+        temp_h = text_height + 2 * total_padding
+
+        glow_mask = Image.new("L", (temp_w, temp_h), 0)
+        mask_draw = ImageDraw.Draw(glow_mask)
+
+        baseline_y = total_padding + baseline_offset
+        for char, char_x in self._iterate_letter_spaced_positions(
+            text, letter_spacing, char_widths, total_padding
+        ):
+            mask_draw.text(
+                (char_x, baseline_y),
+                char,
+                font=font,
+                fill=255,
+                stroke_width=expansion * 2,
+                stroke_fill=255,
+                anchor="ls",
+            )
+
+        glow_mask = glow_mask.filter(ImageFilter.GaussianBlur(radius=glow.radius))
+
+        glow_color = self._parse_color(glow.color)
+        glow_layer = Image.new("RGBA", (temp_w, temp_h), glow_color)
+
+        if glow.opacity < 1.0:
+            glow_mask = glow_mask.point(lambda x: int(x * glow.opacity))
+
+        glow_layer.putalpha(glow_mask)
+
+        paste_x = position[0] - total_padding
+        paste_y = position[1] - total_padding
+
+        image.paste(glow_layer, (int(paste_x), int(paste_y)), glow_layer)
+
     def _render_shadow(
         self,
         image: Image.Image,
@@ -1035,7 +1121,8 @@ class Canvas:
         shadow: Shadow,
         anchor: str = "lt",
     ):
-        bbox = font.getbbox(text, anchor=anchor)
+        temp_draw = ImageDraw.Draw(image)
+        bbox = temp_draw.textbbox((0, 0), text, font=font, anchor=anchor)
         text_width = int(bbox[2] - bbox[0])
         text_height = int(bbox[3] - bbox[1])
 
@@ -1060,6 +1147,51 @@ class Canvas:
         paste_y = position[1] + shadow.offset_y - draw_y
 
         image.paste(shadow_layer, (paste_x, paste_y), shadow_layer)
+
+    def _render_letter_spaced_shadow(
+        self,
+        image: Image.Image,
+        text: str,
+        font: FontType,
+        position: tuple[int, int],
+        shadow: Shadow,
+        letter_spacing: int,
+        char_widths: list[int],
+    ):
+        if not text:
+            return
+
+        padding = max(shadow.blur_radius * 3, 1)
+        total_width, text_height, baseline_offset = self._calculate_letter_spaced_layout(
+            text, font, letter_spacing, char_widths
+        )
+
+        temp_w = total_width + 2 * padding
+        temp_h = text_height + 2 * padding
+
+        shadow_layer = Image.new("RGBA", (temp_w, temp_h), (0, 0, 0, 0))
+        shadow_draw = ImageDraw.Draw(shadow_layer)
+        shadow_color = self._parse_color(shadow.color)
+
+        baseline_y = padding + baseline_offset
+        for char, char_x in self._iterate_letter_spaced_positions(
+            text, letter_spacing, char_widths, padding
+        ):
+            shadow_draw.text(
+                (char_x, baseline_y),
+                char,
+                font=font,
+                fill=shadow_color,
+                anchor="ls",
+            )
+
+        if shadow.blur_radius > 0:
+            shadow_layer = shadow_layer.filter(ImageFilter.GaussianBlur(radius=shadow.blur_radius))
+
+        paste_x = position[0] + shadow.offset_x - padding
+        paste_y = position[1] + shadow.offset_y - padding
+
+        image.paste(shadow_layer, (int(paste_x), int(paste_y)), shadow_layer)
 
     def _render_background(
         self,

@@ -44,8 +44,8 @@
 
 - ✅ Effect classes API (extensible effects list with Stroke, Shadow, Glow, Background)
 - ✅ Text stroke rendering (configurable width and color)
-- ✅ Drop shadow (offset_x, offset_y, color, blur_radius)
-- ✅ Glow/outer glow (color, radius, opacity)
+- ✅ Drop shadow (offset_x, offset_y, color, blur_radius, multiline text support)
+- ✅ Glow/outer glow (color, radius, opacity, multiline text support)
 - ✅ Text background (color, padding with CSS-like shorthand, border_radius, opacity)
 - ✅ Letter spacing (`letter_spacing` parameter)
 - ✅ Line height (`line_height` parameter)
@@ -76,4 +76,3 @@
 
 - [ ] Extended documentation/examples
 - [ ] Background Removal for image
-- [ ] FIX: Shadow effect raises `ValueError: anchor not supported for multiline text` in some environments.

@@ -3,7 +3,7 @@ YouTube Thumbnail Example - Burnout Theme (Redesigned)
 
 Professional thumbnail with:
 - High contrast typography (Roboto Black)
-- Manual drop shadows (workaround for library limitation)
+- Drop shadows using the Shadow effect
 - Gradient overlay for depth
 - Strong visual hierarchy
 """
@@ -11,7 +11,7 @@ Professional thumbnail with:
 import os
 
 from quickthumb import Canvas, FitMode, LinearGradient
-from quickthumb.models import Background, Stroke
+from quickthumb.models import Background, Shadow, Stroke
 
 FILE_DIR = os.path.dirname(__file__)
 ASSETS_DIR = os.path.join(FILE_DIR, "..", "assets")
@@ -41,16 +41,6 @@ HEIGHT = 720
     )
     # 3. Typography
     # Subtitle: "ARE YOU"
-    # Manual Shadow
-    .text(
-        content="ARE YOU",
-        size=40,
-        color="#000000",
-        position=(53, 83),
-        weight=900,
-        letter_spacing=2,
-    )
-    # Main Text
     .text(
         content="ARE YOU",
         size=40,
@@ -58,41 +48,28 @@ HEIGHT = 720
         position=(50, 80),
         weight=900,
         letter_spacing=2,
+        effects=[Shadow(offset_x=3, offset_y=3, color="#000000", blur_radius=0)],
     )
     # Headline Line 1: "BURNING"
-    # Manual Shadow
-    .text(
-        content="BURNING",
-        size=150,
-        color="#000000",
-        position=(58, 138),
-        weight=900,
-    )
-    # Main Text
     .text(
         content="BURNING",
         size=150,
         color="#FFFFFF",
         position=(50, 130),
         weight=900,
+        effects=[Shadow(offset_x=8, offset_y=8, color="#000000", blur_radius=0)],
     )
     # Headline Line 2: "OUT?"
-    # Manual Shadow
-    .text(
-        content="OUT?",
-        size=150,
-        color="#000000",
-        position=(58, 268),
-        weight=900,
-    )
-    # Main Text
     .text(
         content="OUT?",
         size=150,
         color="#ff5722",  # Deep Orange
         position=(50, 260),
         weight=900,
-        effects=[Stroke(width=3, color="#FFFFFF")],
+        effects=[
+            Stroke(width=3, color="#FFFFFF"),
+            Shadow(offset_x=8, offset_y=8, color="#000000", blur_radius=0),
+        ],
     )
     # 4. Footer / Hook
     # "5" in a box
@@ -102,39 +79,28 @@ HEIGHT = 720
         color="#0f0f23",
         position=(50, 580),
         weight=900,
-        effects=[Background(color="#fbbf24", padding=(15, 25), border_radius=8)],
+        effects=[
+            Background(color="#fbbf24", padding=(15, 25), border_radius=8),
+            Shadow(offset_x=4, offset_y=4, color="#000000", blur_radius=4),
+        ],
     )
     # "WARNING SIGNS"
-    # Manual Shadow
-    .text(
-        content="WARNING SIGNS",
-        size=45,
-        color="#000000",
-        position=(153, 583),
-        weight=700,
-    )
     .text(
         content="WARNING SIGNS",
         size=45,
         color="#FFFFFF",
         position=(150, 580),
         weight=700,
+        effects=[Shadow(offset_x=3, offset_y=3, color="#000000", blur_radius=0)],
     )
     # "YOU'RE IGNORING"
-    # Manual Shadow
-    .text(
-        content="YOU'RE IGNORING",
-        size=45,
-        color="#000000",
-        position=(153, 638),
-        weight=700,
-    )
     .text(
         content="YOU'RE IGNORING",
         size=45,
         color="#fbbf24",
         position=(150, 635),
         weight=700,
+        effects=[Shadow(offset_x=3, offset_y=3, color="#000000", blur_radius=0)],
     )
     # Render
     .render(os.path.join(FILE_DIR, "youtube_thumbnail_02.png"))
