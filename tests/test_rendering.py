@@ -5,6 +5,7 @@ import tempfile
 
 import pytest
 from inline_snapshot import external_file
+from quickthumb.models import TextAlign
 
 
 class TestRendering:
@@ -1213,7 +1214,7 @@ class TestRendering:
                 ],
                 size=36,
                 position=(200, 100),
-                align=("center", "middle"),
+                align=TextAlign.CENTER,
                 effects=[Stroke(width=3, color="#000000")],
             )
         )
@@ -1496,3 +1497,55 @@ class TestRendering:
 
             with open(output_path, "rb") as f:
                 assert f.read() == external_file("snapshots/rich_text_with_background.png")
+
+    def test_snapshot_auto_scale_simple_text(self):
+        """Snapshot test for auto-scaled simple text"""
+        from quickthumb import Canvas
+
+        canvas = (
+            Canvas(400, 200)
+            .background(color="#FFFFFF")
+            .text(
+                "This is a long text that should be auto-scaled to fit",
+                size=48,
+                color="#000000",
+                position=(200, 100),
+                align=TextAlign.CENTER,
+                max_width=100,
+                auto_scale=True,
+            )
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/auto_scale_simple_text.png")
+
+    def test_snapshot_auto_scale_rich_text(self):
+        """Snapshot test for auto-scaled rich text"""
+        from quickthumb import Canvas, TextPart
+
+        canvas = (
+            Canvas(400, 200)
+            .background(color="#FFFFFF")
+            .text(
+                content=[
+                    TextPart(text="Big ", size=60, color="#FF0000", bold=True),
+                    TextPart(text="Medium ", size=40, color="#00FF00"),
+                    TextPart(text="Small", size=30, color="#0000FF"),
+                ],
+                position=(200, 100),
+                align=TextAlign.CENTER,
+                max_width=150,
+                auto_scale=True,
+            )
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/auto_scale_rich_text.png")

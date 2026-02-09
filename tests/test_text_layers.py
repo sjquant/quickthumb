@@ -264,6 +264,7 @@ class TestTextLayers:
             "max_width": None,
             "line_height": 1.5,
             "letter_spacing": 2,
+            "auto_scale": False,
         }
 
     def test_should_deserialize_text_layer_from_json(self):
@@ -718,6 +719,237 @@ class TestTextLayerFontWeight:
                 font="NotoSerif",
                 size=72,
             )
+
+
+class TestAutoScale:
+    """Test suite for auto_scale parameter validation"""
+
+    def test_should_raise_error_when_auto_scale_without_max_width(self):
+        """Test that auto_scale=True without max_width raises ValidationError"""
+        from quickthumb import Canvas, ValidationError
+
+        canvas = Canvas(1920, 1080)
+
+        with pytest.raises(ValidationError, match="auto_scale.*max_width"):
+            canvas.text("Hello", auto_scale=True)
+
+    def test_should_accept_auto_scale_with_max_width(self):
+        """Test that auto_scale=True with max_width works and stores correctly"""
+        from quickthumb import Canvas, TextLayer
+
+        canvas = Canvas(1920, 1080)
+        canvas.text("Hello", auto_scale=True, max_width=500)
+
+        assert len(canvas.layers) == 1
+        assert isinstance(canvas.layers[0], TextLayer)
+        assert canvas.layers[0].auto_scale is True
+        assert canvas.layers[0].max_width == 500
+
+    def test_should_serialize_auto_scale_to_json(self):
+        """Test that auto_scale field is included in JSON serialization"""
+        from quickthumb import Canvas
+
+        canvas = Canvas(1920, 1080)
+        canvas.text("Hello", auto_scale=True, max_width=500, size=48)
+
+        json_str = canvas.to_json()
+        data = json.loads(json_str)
+
+        assert len(data["layers"]) == 1
+        assert data["layers"][0]["auto_scale"] is True
+
+    def test_should_deserialize_auto_scale_from_json(self):
+        """Test that auto_scale field is correctly deserialized from JSON"""
+        from quickthumb import Canvas, TextLayer
+
+        json_data = {
+            "width": 1920,
+            "height": 1080,
+            "layers": [
+                {
+                    "type": "text",
+                    "content": "Hello",
+                    "auto_scale": True,
+                    "max_width": 500,
+                    "size": 48,
+                }
+            ],
+        }
+
+        canvas = Canvas.from_json(json.dumps(json_data))
+
+        assert len(canvas.layers) == 1
+        assert isinstance(canvas.layers[0], TextLayer)
+        assert canvas.layers[0].auto_scale is True
+        assert canvas.layers[0].max_width == 500
+
+    def test_should_not_scale_when_text_fits(self, tmp_path):
+        """Test that short text at size 48 with wide max_width stays at size 48"""
+        from quickthumb import Canvas
+
+        # Given: Short text that fits within max_width
+        canvas_with_auto = Canvas(800, 400)
+        canvas_with_auto.background(color="#FFFFFF")
+        canvas_with_auto.text(
+            "Short",
+            size=48,
+            color="#000000",
+            position=("50%", "50%"),
+            align="center",
+            max_width=600,
+            auto_scale=True,
+        )
+
+        canvas_without_auto = Canvas(800, 400)
+        canvas_without_auto.background(color="#FFFFFF")
+        canvas_without_auto.text(
+            "Short",
+            size=48,
+            color="#000000",
+            position=("50%", "50%"),
+            align="center",
+            max_width=600,
+            auto_scale=False,
+        )
+
+        # When: Rendering both canvases
+        output_with = tmp_path / "with_auto.png"
+        output_without = tmp_path / "without_auto.png"
+        canvas_with_auto.render(str(output_with))
+        canvas_without_auto.render(str(output_without))
+
+        # Then: Both should produce identical output
+        assert output_with.read_bytes() == output_without.read_bytes()
+
+    def test_should_reduce_size_when_text_exceeds_max_width(self, tmp_path):
+        """Test that long text auto-scales to fit within max_width"""
+        from quickthumb import Canvas
+
+        # Given: Long text that exceeds max_width at original size
+        canvas_with_auto = Canvas(800, 400)
+        canvas_with_auto.background(color="#FFFFFF")
+        canvas_with_auto.text(
+            "This is a very long title that definitely exceeds the max width",
+            size=72,
+            color="#000000",
+            position=("50%", "50%"),
+            align="center",
+            max_width=300,
+            auto_scale=True,
+        )
+
+        canvas_without_auto = Canvas(800, 400)
+        canvas_without_auto.background(color="#FFFFFF")
+        canvas_without_auto.text(
+            "This is a very long title that definitely exceeds the max width",
+            size=72,
+            color="#000000",
+            position=("50%", "50%"),
+            align="center",
+            max_width=300,
+            auto_scale=False,
+        )
+
+        # When: Rendering both canvases
+        output_with = tmp_path / "with_auto_scaled.png"
+        output_without = tmp_path / "without_auto_scaled.png"
+        canvas_with_auto.render(str(output_with))
+        canvas_without_auto.render(str(output_without))
+
+        # Then: Auto-scaled version should be different (text scaled down)
+        assert output_with.read_bytes() != output_without.read_bytes()
+
+    def test_should_auto_scale_wrapped_text(self, tmp_path):
+        """Test that auto_scale works with wrapped text"""
+        from quickthumb import Canvas
+
+        # Given: Multi-word text with max_width that causes wrapping
+        canvas = Canvas(800, 400)
+        canvas.background(color="#FFFFFF")
+        canvas.text(
+            "This is a long sentence that should wrap",
+            size=60,
+            color="#000000",
+            position=("50%", "50%"),
+            align="center",
+            max_width=200,
+            auto_scale=True,
+        )
+
+        # When: Rendering the canvas
+        output = tmp_path / "auto_scale_wrapped.png"
+        canvas.render(str(output))
+
+        # Then: Should render without error
+        assert output.exists()
+        assert output.stat().st_size > 0
+
+    def test_should_auto_scale_rich_text_proportionally(self, tmp_path):
+        """Test that rich text auto-scales all parts proportionally"""
+        from quickthumb import Canvas, TextPart
+
+        # Given: Rich text with multiple parts of different sizes
+        canvas = Canvas(800, 400)
+        canvas.background(color="#FFFFFF")
+        canvas.text(
+            content=[
+                TextPart(text="Big ", size=80, color="#FF0000"),
+                TextPart(text="Medium ", size=50, color="#00FF00"),
+                TextPart(text="Small", size=30, color="#0000FF"),
+            ],
+            position=("50%", "50%"),
+            align="center",
+            max_width=200,
+            auto_scale=True,
+        )
+
+        # When: Rendering the canvas
+        output = tmp_path / "auto_scale_rich.png"
+        canvas.render(str(output))
+
+        # Then: Should render without error
+        assert output.exists()
+        assert output.stat().st_size > 0
+
+    def test_should_not_scale_rich_text_when_fits(self, tmp_path):
+        """Test that short rich text that fits renders identically with or without auto_scale"""
+        from quickthumb import Canvas, TextPart
+
+        # Given: Short rich text that fits within max_width
+        canvas_with_auto = Canvas(800, 400)
+        canvas_with_auto.background(color="#FFFFFF")
+        canvas_with_auto.text(
+            content=[
+                TextPart(text="A ", size=40, color="#FF0000"),
+                TextPart(text="B", size=40, color="#00FF00"),
+            ],
+            position=("50%", "50%"),
+            align="center",
+            max_width=600,
+            auto_scale=True,
+        )
+
+        canvas_without_auto = Canvas(800, 400)
+        canvas_without_auto.background(color="#FFFFFF")
+        canvas_without_auto.text(
+            content=[
+                TextPart(text="A ", size=40, color="#FF0000"),
+                TextPart(text="B", size=40, color="#00FF00"),
+            ],
+            position=("50%", "50%"),
+            align="center",
+            max_width=600,
+            auto_scale=False,
+        )
+
+        # When: Rendering both canvases
+        output_with = tmp_path / "rich_with_auto.png"
+        output_without = tmp_path / "rich_without_auto.png"
+        canvas_with_auto.render(str(output_with))
+        canvas_without_auto.render(str(output_without))
+
+        # Then: Both should produce identical output
+        assert output_with.read_bytes() == output_without.read_bytes()
 
 
 class TestTextAlign:

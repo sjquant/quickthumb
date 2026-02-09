@@ -274,6 +274,7 @@ class TextLayer(QuickThumbModel):
     effects: list[TextEffect] = []
     line_height: PositiveFloat | None = None
     letter_spacing: int | None = None
+    auto_scale: bool = False
 
     @field_validator("max_width")
     @classmethod
@@ -306,6 +307,12 @@ class TextLayer(QuickThumbModel):
     def validate_weight_bold_mutual_exclusivity(self) -> "TextLayer":
         if self.weight is not None and self.bold is True:
             raise ValidationError("cannot specify both weight and bold parameters")
+        return self
+
+    @model_validator(mode="after")
+    def validate_auto_scale_requires_max_width(self) -> "TextLayer":
+        if self.auto_scale and not self.max_width:
+            raise ValidationError("auto_scale requires max_width to be set")
         return self
 
     @field_validator("position", mode="before")

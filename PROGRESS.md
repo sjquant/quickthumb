@@ -36,13 +36,16 @@
 - ✅ `TextAlign` enum (9 values: CENTER, TOP_LEFT, etc.)
 - ✅ Accepts enum, string shortcuts (`"center"`, `"top-left"`), or tuples (`("center", "middle")`)
 
+### Auto-scaling
+
+- ✅ Auto-scale text to fit within `max_width` (simple text and rich text with proportional scaling)
+
 ---
 
 ## 🚧 TODO
 
 ### Planned Features (High Priority)
 
-- [ ] Auto-scale Text and TextPart to fit within max-width
 - [ ] Image Layer (placing images at specific coordinates)
 - [ ] Rotation support for images and texts
 

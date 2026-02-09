@@ -125,6 +125,7 @@ class Canvas:
         effects: list | None = None,
         line_height: float | None = None,
         letter_spacing: int | None = None,
+        auto_scale: bool = False,
     ) -> Self:
         if content is None:
             raise ValidationError("content is required")
@@ -144,6 +145,7 @@ class Canvas:
             effects=effects or [],
             line_height=line_height,
             letter_spacing=letter_spacing,
+            auto_scale=auto_scale,
         )
         self._layers.append(layer)
         return self
@@ -408,7 +410,76 @@ class Canvas:
         else:
             self._render_simple_text(image, layer)
 
+    def _find_max_fitting_size(self, max_size: int, fits: Callable[[int], bool]) -> int:
+        """Binary search for the largest font size in [1, max_size] where fits() returns True."""
+        best = 1
+        lo, hi = 1, max_size
+        while lo <= hi:
+            mid = (lo + hi) // 2
+            if fits(mid):
+                best = mid
+                lo = mid + 1
+            else:
+                hi = mid - 1
+        return best
+
+    def _auto_scale_simple_text(self, layer: TextLayer) -> TextLayer:
+        assert layer.max_width is not None
+        max_width_px = self._parse_coordinate(layer.max_width, self.width)
+        base_size = layer.size or DEFAULT_TEXT_SIZE
+        content = layer.content if isinstance(layer.content, str) else ""
+
+        def fits(size: int) -> bool:
+            font = self._load_font_variant(layer.font, size, layer.bold, layer.italic, layer.weight)
+            lines = self._wrap_text(content, font, max_width_px, layer.letter_spacing)
+            return all(
+                self._measure_text_bounds(line, font, layer.letter_spacing or 0)[0] <= max_width_px
+                for line in lines
+            )
+
+        best_size = self._find_max_fitting_size(base_size, fits)
+        return layer.model_copy(update={"size": best_size})
+
+    def _scale_rich_text_parts(self, layer: TextLayer, scale_factor: float) -> list[TextPart]:
+        return [
+            part.model_copy(
+                update={"size": max(1, int(self._resolve_size(part, layer) * scale_factor))}
+            )
+            for part in cast(list[TextPart], layer.content)
+        ]
+
+    def _measure_rich_line_width(self, line_parts: list[TextPartData]) -> int:
+        width = 0
+        for part in line_parts:
+            font = self._load_font_variant(
+                part["font_name"], part["size"], part["bold"], part["italic"], part["weight"]
+            )
+            w, _ = self._measure_text_bounds(part["text"], font, part["letter_spacing"])
+            width += w
+        return width
+
+    def _auto_scale_rich_text(self, layer: TextLayer) -> TextLayer:
+        assert layer.max_width is not None
+        max_width_px = self._parse_coordinate(layer.max_width, self.width)
+        base_size = layer.size or DEFAULT_TEXT_SIZE
+
+        def fits(size: int) -> bool:
+            scaled_parts = self._scale_rich_text_parts(layer, size / base_size)
+            temp_layer = layer.model_copy(update={"content": scaled_parts, "size": size})
+            lines = self._prepare_rich_text_lines(temp_layer)
+            return all(
+                self._measure_rich_line_width(line_parts) <= max_width_px for line_parts in lines
+            )
+
+        best_size = self._find_max_fitting_size(base_size, fits)
+        final_parts = self._scale_rich_text_parts(layer, best_size / base_size)
+        return layer.model_copy(update={"content": final_parts, "size": best_size})
+
     def _render_simple_text(self, image: Image.Image, layer: TextLayer):
+        # Apply auto-scaling if enabled
+        if layer.auto_scale and layer.max_width:
+            layer = self._auto_scale_simple_text(layer)
+
         draw = ImageDraw.Draw(image)
         font = self._load_font(layer)
         color = self._parse_color(layer.color) if layer.color else DEFAULT_TEXT_COLOR
@@ -456,6 +527,10 @@ class Canvas:
     def _render_rich_text(self, image: Image.Image, layer: TextLayer):
         if not isinstance(layer.content, list):
             return
+
+        # Apply auto-scaling if enabled
+        if layer.auto_scale and layer.max_width:
+            layer = self._auto_scale_rich_text(layer)
 
         draw = ImageDraw.Draw(image)
         lines = self._prepare_rich_text_lines(layer)

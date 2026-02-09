@@ -117,6 +117,7 @@ class TestCanvas:
                         "effects": [],
                         "line_height": None,
                         "letter_spacing": None,
+                        "auto_scale": False,
                     },
                     {
                         "type": "text",
@@ -133,6 +134,7 @@ class TestCanvas:
                         "effects": [],
                         "line_height": None,
                         "letter_spacing": None,
+                        "auto_scale": False,
                     },
                 ],
             }

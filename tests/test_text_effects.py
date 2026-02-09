@@ -95,6 +95,7 @@ class TestTextEffects:
                 "effects": [{"type": "stroke", "width": 3, "color": "#000000"}],
                 "line_height": None,
                 "letter_spacing": None,
+                "auto_scale": False,
             }
         )
 
@@ -225,6 +226,7 @@ class TestTextEffects:
                 ],
                 "line_height": None,
                 "letter_spacing": None,
+                "auto_scale": False,
             }
         )
 
@@ -361,6 +363,7 @@ class TestTextEffects:
                 "effects": [{"type": "glow", "color": "#FF0000", "radius": 10, "opacity": 0.9}],
                 "line_height": None,
                 "letter_spacing": None,
+                "auto_scale": False,
             }
         )
 
