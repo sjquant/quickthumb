@@ -11,6 +11,7 @@ from quickthumb.models import (
     RadialGradient,
     Shadow,
     Stroke,
+    TextAlign,
     TextLayer,
     TextPart,
 )
@@ -29,6 +30,7 @@ __all__ = [
     "RadialGradient",
     "Shadow",
     "Stroke",
+    "TextAlign",
     "TextLayer",
     "TextPart",
 ]

@@ -26,6 +26,7 @@ from quickthumb.models import (
     RadialGradient,
     Shadow,
     Stroke,
+    TextAlign,
     TextEffect,
     TextLayer,
     TextPart,
@@ -116,7 +117,7 @@ class Canvas:
         position: (
             tuple[int, int] | tuple[str, str] | tuple[int, str] | tuple[str, int] | None
         ) = None,
-        align: tuple[str, str] | None = None,
+        align: TextAlign | str | tuple[str, str] | None = None,
         bold: bool = False,
         italic: bool = False,
         weight: int | str | None = None,
@@ -135,7 +136,7 @@ class Canvas:
             size=size,
             color=color,
             position=position,
-            align=align,
+            align=align,  # type: ignore[arg-type]  # Pydantic validator handles conversion
             bold=bold,
             italic=italic,
             weight=weight,
@@ -813,11 +814,12 @@ class Canvas:
 
         self._draw_text(draw, content, position, font, color, stroke_effects, anchor)
 
-    def _get_text_anchor(self, align: tuple[str, str] | None) -> str:
+    def _get_text_anchor(self, align: TextAlign | None) -> str:
         if not align:
             return "lt"
 
-        horizontal_align, vertical_align = align
+        horizontal_align = align.horizontal
+        vertical_align = align.vertical
 
         h_anchor = {"left": "l", "center": "m", "right": "r"}[horizontal_align]
         v_anchor = {"top": "t", "middle": "m", "bottom": "b"}[vertical_align]
@@ -912,26 +914,22 @@ class Canvas:
         total_width = sum(char_widths) + letter_spacing * (len(text) - 1)
         return total_width, char_widths
 
-    def _get_vertical_start_y(
-        self, base_y: int, total_height: int, align: tuple[str, str] | None
-    ) -> int:
+    def _get_vertical_start_y(self, base_y: int, total_height: int, align: TextAlign | None) -> int:
         if not align:
             return base_y
 
-        _, vertical_align = align
+        vertical_align = align.vertical
         if vertical_align == "middle":
             return base_y - total_height // 2
         elif vertical_align == "bottom":
             return base_y - total_height
         return base_y
 
-    def _get_horizontal_start_x(
-        self, base_x: int, line_width: int, align: tuple[str, str] | None
-    ) -> int:
+    def _get_horizontal_start_x(self, base_x: int, line_width: int, align: TextAlign | None) -> int:
         if not align:
             return base_x
 
-        horizontal_align, _ = align
+        horizontal_align = align.horizontal
         if horizontal_align == "center":
             return base_x - line_width // 2
         elif horizontal_align == "right":

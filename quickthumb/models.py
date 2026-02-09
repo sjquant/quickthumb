@@ -9,6 +9,7 @@ from pydantic import (
     NonNegativeInt,
     PositiveFloat,
     PositiveInt,
+    field_serializer,
     field_validator,
     model_validator,
 )
@@ -61,6 +62,39 @@ class FitMode(Enum):
     COVER = "cover"
     CONTAIN = "contain"
     FILL = "fill"
+
+
+class TextAlign(Enum):
+    """Text alignment enum supporting all 9 combinations of horizontal and vertical alignment."""
+
+    CENTER = "center"
+    TOP_LEFT = "top-left"
+    TOP_CENTER = "top-center"
+    TOP_RIGHT = "top-right"
+    LEFT = "left"
+    RIGHT = "right"
+    BOTTOM_LEFT = "bottom-left"
+    BOTTOM_CENTER = "bottom-center"
+    BOTTOM_RIGHT = "bottom-right"
+
+    def __init__(self, value: str) -> None:
+        parts = value.split("-")
+        if len(parts) == 2:
+            self._vertical, self._horizontal = parts
+        elif value in ("left", "right"):
+            self._horizontal = value
+            self._vertical = "middle"
+        else:  # "center"
+            self._horizontal = "center"
+            self._vertical = "middle"
+
+    @property
+    def horizontal(self) -> str:
+        return self._horizontal
+
+    @property
+    def vertical(self) -> str:
+        return self._vertical
 
 
 class QuickThumbModel(BaseModel):
@@ -232,7 +266,7 @@ class TextLayer(QuickThumbModel):
     size: PositiveInt | None = None
     color: HexColor | None = None
     position: tuple | None = None
-    align: tuple | None = None
+    align: TextAlign | None = None
     bold: bool = False
     italic: bool = False
     weight: int | str | None = None
@@ -294,22 +328,39 @@ class TextLayer(QuickThumbModel):
 
     @field_validator("align", mode="before")
     @classmethod
-    def validate_align(cls, v: tuple | list | None) -> tuple | None:
-        if v is None:
+    def validate_align(cls, v: TextAlign | str | tuple | list | None) -> TextAlign | None:
+        if v is None or isinstance(v, TextAlign):
             return v
 
-        if not isinstance(v, (tuple, list)) or len(v) != 2:
-            raise ValueError("align must be a tuple of two elements")
+        if isinstance(v, str):
+            try:
+                return TextAlign(v)
+            except ValueError:
+                raise ValueError(f"unsupported textalign: {v}") from None
 
-        valid_horizontal = ("left", "center", "right")
-        valid_vertical = ("top", "middle", "bottom")
+        if isinstance(v, (tuple, list)):
+            if len(v) != 2:
+                raise ValueError("align must be a tuple of two elements")
 
-        if v[0] not in valid_horizontal:
-            raise ValueError(f"invalid align value: {v[0]}")
-        if v[1] not in valid_vertical:
-            raise ValueError(f"invalid align value: {v[1]}")
+            valid_horizontal = ("left", "center", "right")
+            valid_vertical = ("top", "middle", "bottom")
 
-        return tuple(v)
+            if v[0] not in valid_horizontal:
+                raise ValueError(f"invalid align value: {v[0]}")
+            if v[1] not in valid_vertical:
+                raise ValueError(f"invalid align value: {v[1]}")
+
+            # Find the enum member matching this (horizontal, vertical) pair
+            for member in TextAlign:
+                if member.horizontal == v[0] and member.vertical == v[1]:
+                    return member
+
+    @field_serializer("align")
+    def serialize_align(self, align: TextAlign | None) -> str | None:
+        """Serialize TextAlign to its string value for JSON."""
+        if align is None:
+            return None
+        return align.value
 
 
 class OutlineLayer(QuickThumbModel):
