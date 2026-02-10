@@ -13,7 +13,7 @@ class TestTextLayers:
     def test_should_add_multiple_text_layers_with_styling(self):
         """Test that multiple text layers can be added with custom styling"""
         # Given: Canvas with title and subtitle text layers
-        from quickthumb import Canvas, Stroke, TextAlign, TextLayer
+        from quickthumb import Align, Canvas, Stroke, TextLayer
 
         canvas = Canvas(1920, 1080)
 
@@ -40,7 +40,7 @@ class TestTextLayers:
             size=84,
             color="#FFFFFF",
             position=None,
-            align=TextAlign.TOP_CENTER,
+            align=Align.TOP_CENTER,
             effects=[Stroke(width=3, color="#000000")],
             bold=True,
             italic=False,
@@ -52,7 +52,7 @@ class TestTextLayers:
             size=48,
             color="#EEEEEE",
             position=None,
-            align=TextAlign.CENTER,
+            align=Align.CENTER,
             effects=[],
             bold=False,
             italic=False,
@@ -302,7 +302,7 @@ class TestTextLayers:
         json_str = json.dumps(json_data)
 
         # When: User deserializes canvas from JSON
-        from quickthumb import Canvas, Stroke, TextAlign, TextLayer
+        from quickthumb import Align, Canvas, Stroke, TextLayer
 
         canvas = Canvas.from_json(json_str)
 
@@ -315,7 +315,7 @@ class TestTextLayers:
             size=84,
             color="#FFFFFF",
             position=None,
-            align=TextAlign.TOP_CENTER,
+            align=Align.TOP_CENTER,
             effects=[Stroke(width=3, color="#000000")],
             bold=True,
             italic=False,
@@ -952,188 +952,3 @@ class TestAutoScale:
         assert output_with.read_bytes() == output_without.read_bytes()
 
 
-class TestTextAlign:
-    """Test suite for TextAlign enum and text alignment validation"""
-
-    @pytest.mark.parametrize(
-        "shortcut,expected_member",
-        [
-            ("center", "CENTER"),
-            ("top-left", "TOP_LEFT"),
-            ("top-center", "TOP_CENTER"),
-            ("top-right", "TOP_RIGHT"),
-            ("left", "LEFT"),
-            ("right", "RIGHT"),
-            ("bottom-left", "BOTTOM_LEFT"),
-            ("bottom-center", "BOTTOM_CENTER"),
-            ("bottom-right", "BOTTOM_RIGHT"),
-        ],
-    )
-    def test_should_accept_string_shortcut_in_text_layer(self, shortcut, expected_member):
-        """Test that string shortcuts are accepted and converted to TextAlign"""
-        # Given: Canvas and a string shortcut for alignment
-        from quickthumb import Canvas, TextAlign
-        from quickthumb.models import TextLayer
-
-        canvas = Canvas(1920, 1080)
-
-        # When: User provides a string shortcut as align
-        canvas.text("Hello", align=shortcut)
-
-        # Then: Should be converted to the corresponding TextAlign enum
-        layer = canvas.layers[0]
-        assert isinstance(layer, TextLayer)
-        assert layer.align == TextAlign[expected_member]
-
-    @pytest.mark.parametrize(
-        "align_tuple,expected_member",
-        [
-            (("center", "middle"), "CENTER"),
-            (("left", "top"), "TOP_LEFT"),
-            (("center", "top"), "TOP_CENTER"),
-            (("right", "top"), "TOP_RIGHT"),
-            (("left", "middle"), "LEFT"),
-            (("right", "middle"), "RIGHT"),
-            (("left", "bottom"), "BOTTOM_LEFT"),
-            (("center", "bottom"), "BOTTOM_CENTER"),
-            (("right", "bottom"), "BOTTOM_RIGHT"),
-        ],
-    )
-    def test_should_accept_tuple_for_backward_compatibility(self, align_tuple, expected_member):
-        """Test that tuple format is accepted and converted to TextAlign"""
-        # Given: Canvas and a tuple for alignment
-        from quickthumb import Canvas, TextAlign
-        from quickthumb.models import TextLayer
-
-        canvas = Canvas(1920, 1080)
-
-        # When: User provides a tuple as align
-        canvas.text("Hello", align=align_tuple)
-
-        # Then: Should be converted to the corresponding TextAlign enum
-        layer = canvas.layers[0]
-        assert isinstance(layer, TextLayer)
-        assert layer.align == TextAlign[expected_member]
-
-    def test_should_accept_enum_value_directly(self):
-        """Test that TextAlign enum values are accepted directly"""
-        # Given: Canvas and a TextAlign enum value
-        from quickthumb import Canvas, TextAlign
-        from quickthumb.models import TextLayer
-
-        canvas = Canvas(1920, 1080)
-
-        # When: User provides a TextAlign enum as align
-        canvas.text("Hello", align=TextAlign.CENTER)
-
-        # Then: Should store the enum value as-is
-        layer = canvas.layers[0]
-        assert isinstance(layer, TextLayer)
-        assert layer.align == TextAlign.CENTER
-
-    def test_should_reject_invalid_string_shortcut(self):
-        """Test that invalid string shortcuts are rejected"""
-        # Given: Canvas and an invalid string shortcut
-        from quickthumb import Canvas, ValidationError
-
-        canvas = Canvas(1920, 1080)
-
-        # When: User provides invalid string shortcut
-        # Then: Should raise ValidationError
-        with pytest.raises(ValidationError, match="unsupported.*textalign"):
-            canvas.text("Hello", align="middle-left")
-
-    def test_should_reject_invalid_tuple_horizontal(self):
-        """Test that invalid horizontal value in tuple is rejected"""
-        # Given: Canvas and a tuple with invalid horizontal value
-        from quickthumb import Canvas, ValidationError
-
-        canvas = Canvas(1920, 1080)
-
-        # When: User provides invalid horizontal value
-        # Then: Should raise ValidationError
-        with pytest.raises(ValidationError, match="invalid.*align"):
-            canvas.text("Hello", align=("diagonal", "top"))
-
-    def test_should_reject_invalid_tuple_vertical(self):
-        """Test that invalid vertical value in tuple is rejected"""
-        # Given: Canvas and a tuple with invalid vertical value
-        from quickthumb import Canvas, ValidationError
-
-        canvas = Canvas(1920, 1080)
-
-        # When: User provides invalid vertical value
-        # Then: Should raise ValidationError
-        with pytest.raises(ValidationError, match="invalid.*align"):
-            canvas.text("Hello", align=("center", "diagonal"))
-
-    def test_should_reject_tuple_with_wrong_length(self):
-        """Test that tuples with wrong number of elements are rejected"""
-        # Given: Canvas and tuples with wrong length
-        from quickthumb import Canvas, ValidationError
-
-        canvas = Canvas(1920, 1080)
-
-        # When: User provides a 1-element tuple
-        # Then: Should raise ValidationError
-        with pytest.raises(ValidationError, match="align.*must.*tuple.*two"):
-            canvas.text("Hello", align=("center",))  # type: ignore[arg-type]
-
-        # When: User provides a 3-element tuple
-        # Then: Should raise ValidationError
-        with pytest.raises(ValidationError, match="align.*must.*tuple.*two"):
-            canvas.text("Hello", align=("center", "middle", "extra"))  # type: ignore[arg-type]
-
-    def test_should_serialize_to_string_shortcut_in_json(self):
-        """Test that TextAlign serializes as string shortcut in JSON"""
-        # Given: Canvas with a TextAlign enum value
-        from quickthumb import Canvas, TextAlign
-
-        canvas = Canvas(1920, 1080)
-        canvas.text("Hello", align=TextAlign.TOP_LEFT)
-
-        # When: User serializes canvas to JSON
-        data = json.loads(canvas.to_json())
-
-        # Then: align should be serialized as a string shortcut
-        assert data["layers"][0]["align"] == "top-left"
-
-    def test_should_deserialize_string_shortcut_from_json(self):
-        """Test that string shortcut in JSON deserializes to TextAlign"""
-        # Given: JSON with a string shortcut for align
-        from quickthumb import Canvas, TextAlign
-        from quickthumb.models import TextLayer
-
-        json_data = {
-            "width": 1920,
-            "height": 1080,
-            "layers": [{"type": "text", "content": "Hello", "align": "center"}],
-        }
-
-        # When: User deserializes canvas from JSON
-        canvas = Canvas.from_json(json.dumps(json_data))
-
-        # Then: align should be deserialized to TextAlign enum
-        layer = canvas.layers[0]
-        assert isinstance(layer, TextLayer)
-        assert layer.align == TextAlign.CENTER
-
-    def test_should_deserialize_tuple_format_from_json(self):
-        """Test that old tuple format in JSON deserializes to TextAlign"""
-        # Given: JSON with old tuple format for align
-        from quickthumb import Canvas, TextAlign
-        from quickthumb.models import TextLayer
-
-        json_data = {
-            "width": 1920,
-            "height": 1080,
-            "layers": [{"type": "text", "content": "Hello", "align": ["center", "middle"]}],
-        }
-
-        # When: User deserializes canvas from JSON
-        canvas = Canvas.from_json(json.dumps(json_data))
-
-        # Then: align should be deserialized to TextAlign enum
-        layer = canvas.layers[0]
-        assert isinstance(layer, TextLayer)
-        assert layer.align == TextAlign.CENTER

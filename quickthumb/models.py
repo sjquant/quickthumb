@@ -5,6 +5,7 @@ from typing import Annotated, Any, Literal, TypeVar
 from pydantic import (
     AfterValidator,
     BaseModel,
+    BeforeValidator,
     Discriminator,
     NonNegativeInt,
     PositiveFloat,
@@ -64,7 +65,7 @@ class FitMode(Enum):
     FILL = "fill"
 
 
-class TextAlign(Enum):
+class Align(Enum):
     """Text alignment enum supporting all 9 combinations of horizontal and vertical alignment."""
 
     CENTER = "center"
@@ -95,6 +96,78 @@ class TextAlign(Enum):
     @property
     def vertical(self) -> str:
         return self._vertical
+
+
+def _validate_align_with_hv_tuple(v: Any) -> Align | None:
+    """Validate align value accepting (horizontal, vertical) tuple format.
+
+    Used by TextLayer for backward compatibility.
+    Accepts: Align enum, string shortcuts, or (horizontal, vertical) tuple.
+    """
+    if v is None or isinstance(v, Align):
+        return v
+
+    if isinstance(v, str):
+        try:
+            return Align(v)
+        except ValueError:
+            raise ValueError(f"unsupported align: {v}") from None
+
+    if isinstance(v, (tuple, list)):
+        if len(v) != 2:
+            raise ValueError("align must be a tuple of two elements")
+
+        horizontal, vertical = v
+
+        if horizontal not in ("left", "center", "right"):
+            raise ValueError(f"invalid align value: {horizontal}")
+        if vertical not in ("top", "middle", "bottom"):
+            raise ValueError(f"invalid align value: {vertical}")
+
+        # Find the enum member matching this (horizontal, vertical) pair
+        for member in Align:
+            if member.horizontal == horizontal and member.vertical == vertical:
+                return member
+
+    raise ValueError(f"invalid align value: {v}")
+
+
+def _validate_align_with_vh_tuple(v: Any) -> Align:
+    """Validate align value accepting (vertical, horizontal) tuple format.
+
+    Used by ImageLayer for backward compatibility.
+    Accepts: Align enum, string shortcuts, or (vertical, horizontal) tuple.
+    """
+    if isinstance(v, Align):
+        return v
+
+    if isinstance(v, str):
+        try:
+            return Align(v)
+        except ValueError:
+            raise ValueError(f"unsupported align: {v}") from None
+
+    if isinstance(v, (tuple, list)):
+        if len(v) != 2:
+            raise ValueError("align must be a tuple of two elements")
+
+        vertical, horizontal = v
+
+        if vertical not in ("top", "middle", "bottom"):
+            raise ValueError(f"invalid align value: {vertical}")
+        if horizontal not in ("left", "center", "right"):
+            raise ValueError(f"invalid align value: {horizontal}")
+
+        # Find the enum member matching this (vertical, horizontal) pair
+        for member in Align:
+            if member.vertical == vertical and member.horizontal == horizontal:
+                return member
+
+    raise ValueError(f"invalid align value: {v}")
+
+
+AlignWithHVTuple = Annotated[Align | None, BeforeValidator(_validate_align_with_hv_tuple)]
+AlignWithVHTuple = Annotated[Align, BeforeValidator(_validate_align_with_vh_tuple)]
 
 
 class QuickThumbModel(BaseModel):
@@ -266,7 +339,7 @@ class TextLayer(QuickThumbModel):
     size: PositiveInt | None = None
     color: HexColor | None = None
     position: tuple | None = None
-    align: TextAlign | None = None
+    align: AlignWithHVTuple = None
     bold: bool = False
     italic: bool = False
     weight: int | str | None = None
@@ -333,37 +406,8 @@ class TextLayer(QuickThumbModel):
 
         return tuple(v)
 
-    @field_validator("align", mode="before")
-    @classmethod
-    def validate_align(cls, v: TextAlign | str | tuple | list | None) -> TextAlign | None:
-        if v is None or isinstance(v, TextAlign):
-            return v
-
-        if isinstance(v, str):
-            try:
-                return TextAlign(v)
-            except ValueError:
-                raise ValueError(f"unsupported textalign: {v}") from None
-
-        if isinstance(v, (tuple, list)):
-            if len(v) != 2:
-                raise ValueError("align must be a tuple of two elements")
-
-            valid_horizontal = ("left", "center", "right")
-            valid_vertical = ("top", "middle", "bottom")
-
-            if v[0] not in valid_horizontal:
-                raise ValueError(f"invalid align value: {v[0]}")
-            if v[1] not in valid_vertical:
-                raise ValueError(f"invalid align value: {v[1]}")
-
-            # Find the enum member matching this (horizontal, vertical) pair
-            for member in TextAlign:
-                if member.horizontal == v[0] and member.vertical == v[1]:
-                    return member
-
     @field_serializer("align")
-    def serialize_align(self, align: TextAlign | None) -> str | None:
+    def serialize_align(self, align: Align | None) -> str | None:
         """Serialize TextAlign to its string value for JSON."""
         if align is None:
             return None
@@ -377,7 +421,50 @@ class OutlineLayer(QuickThumbModel):
     offset: NonNegativeInt = 0
 
 
-LayerType = Annotated[BackgroundLayer | TextLayer | OutlineLayer, Discriminator("type")]
+class ImageLayer(QuickThumbModel):
+    type: Literal["image"]
+    path: str
+    position: tuple
+    width: PositiveInt | None = None
+    height: PositiveInt | None = None
+    opacity: float = 1.0
+    rotation: float = 0
+    align: AlignWithVHTuple = Align.TOP_LEFT
+
+    @field_validator("position", mode="before")
+    @classmethod
+    def validate_position(cls, v: tuple | list | None) -> tuple | None:
+        if v is None:
+            raise ValueError("position is required")
+
+        if not isinstance(v, (tuple, list)) or len(v) != 2:
+            raise ValueError("position must be a tuple of two elements")
+
+        if isinstance(v[0], str) or isinstance(v[1], str):
+            for item in v:
+                if isinstance(item, str):
+                    match = re.fullmatch(r"-?(\d+(\.\d+)?)%", item)
+                    if not match:
+                        raise ValueError(f"invalid percentage format: {item}")
+
+        return tuple(v)
+
+    @field_validator("opacity")
+    @classmethod
+    def validate_opacity(cls, v: float) -> float:
+        if v < 0.0 or v > 1.0:
+            raise ValueError("opacity must be between 0.0 and 1.0")
+        return v
+
+    @field_serializer("align")
+    def serialize_align(self, align: Align) -> str:
+        """Serialize TextAlign to its string value for JSON."""
+        return align.value
+
+
+LayerType = Annotated[
+    BackgroundLayer | TextLayer | OutlineLayer | ImageLayer, Discriminator("type")
+]
 
 
 class CanvasModel(QuickThumbModel):

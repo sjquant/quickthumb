@@ -14,19 +14,20 @@ from typing_extensions import Self
 from quickthumb.errors import RenderingError, ValidationError
 from quickthumb.font_cache import FontCache
 from quickthumb.models import (
+    Align,
     Background,
     BackgroundLayer,
     BlendMode,
     CanvasModel,
     FitMode,
     Glow,
+    ImageLayer,
     LayerType,
     LinearGradient,
     OutlineLayer,
     RadialGradient,
     Shadow,
     Stroke,
-    TextAlign,
     TextEffect,
     TextLayer,
     TextPart,
@@ -117,7 +118,7 @@ class Canvas:
         position: (
             tuple[int, int] | tuple[str, str] | tuple[int, str] | tuple[str, int] | None
         ) = None,
-        align: TextAlign | str | tuple[str, str] | None = None,
+        align: Align | str | tuple[str, str] | None = None,
         bold: bool = False,
         italic: bool = False,
         weight: int | str | None = None,
@@ -156,6 +157,47 @@ class Canvas:
             width=width,
             color=color,
             offset=offset,
+        )
+        self._layers.append(layer)
+        return self
+
+    def image(
+        self,
+        path: str,
+        position: tuple[int, int] | tuple[str, str] | tuple[int, str] | tuple[str, int],
+        width: int | None = None,
+        height: int | None = None,
+        opacity: float = 1.0,
+        rotation: float = 0,
+        align: Align | str | tuple[str, str] = Align.TOP_LEFT,
+    ) -> Self:
+        """Add an image overlay layer to the canvas.
+
+        Args:
+            path: Local file path or URL to the image
+            position: (x, y) position in pixels or percentages (e.g., (50, 100) or ("50%", "50%"))
+            width: Image width in pixels (preserves aspect ratio if height is None)
+            height: Image height in pixels (preserves aspect ratio if width is None)
+            opacity: Image opacity from 0.0 (transparent) to 1.0 (opaque)
+            rotation: Rotation angle in degrees
+            align: Image alignment, accepts:
+                   - TextAlign enum (e.g., TextAlign.CENTER, TextAlign.TOP_LEFT)
+                   - String shortcut (e.g., "center", "top-left", "bottom-right")
+                   - Tuple (vertical, horizontal) for backward compatibility
+                     (e.g., ("middle", "center"))
+
+        Returns:
+            Self for method chaining
+        """
+        layer = ImageLayer(
+            type="image",
+            path=path,
+            position=position,  # Pydantic validator handles conversion
+            width=width,
+            height=height,
+            opacity=opacity,
+            rotation=rotation,
+            align=align,  # type: ignore[arg-type]  # Pydantic validator handles conversion
         )
         self._layers.append(layer)
         return self
@@ -214,6 +256,8 @@ class Canvas:
                 self._render_text_layer(image, layer)
             elif isinstance(layer, OutlineLayer):
                 self._render_outline_layer(image, layer)
+            elif isinstance(layer, ImageLayer):
+                self._render_image_layer(image, layer)
 
         return image
 
@@ -244,6 +288,12 @@ class Canvas:
                 and not os.path.exists(layer.image)
             ):
                 raise FileNotFoundError(f"{layer.image}")
+            elif (
+                isinstance(layer, ImageLayer)
+                and not self._is_url(layer.path)
+                and not os.path.exists(layer.path)
+            ):
+                raise FileNotFoundError(f"{layer.path}")
 
     def _detect_format(self, output_path: str) -> FileFormat:
         extension = os.path.splitext(output_path)[1].lower()
@@ -403,6 +453,79 @@ class Canvas:
 
         for i in range(layer.width):
             draw.rectangle([x1 + i, y1 + i, x2 - i, y2 - i], outline=color)
+
+    def _render_image_layer(self, image: Image.Image, layer: ImageLayer):
+        # Load the image
+        if self._is_url(layer.path):
+            img = self._load_image_from_url(layer.path)
+        else:
+            img = Image.open(layer.path)
+
+        img = img.convert("RGBA")
+
+        if layer.width or layer.height:
+            img = self._resize_image(img, layer.width, layer.height)
+
+        if layer.rotation != 0:
+            img = img.rotate(-layer.rotation, expand=True, resample=Image.Resampling.BICUBIC)
+
+        if layer.opacity < 1.0:
+            img = self._apply_opacity(img, layer.opacity)
+
+        x = self._parse_coordinate(layer.position[0], self.width)
+        y = self._parse_coordinate(layer.position[1], self.height)
+
+        if layer.align != Align.TOP_LEFT:
+            x, y = self._apply_image_alignment(x, y, img.size, layer.align)
+
+        image.alpha_composite(img, (x, y))
+
+    def _resize_image(self, img: Image.Image, width: int | None, height: int | None) -> Image.Image:
+        """Resize image preserving aspect ratio if only one dimension specified."""
+        original_width, original_height = img.size
+
+        if width and height:
+            return img.resize((width, height), Image.Resampling.LANCZOS)
+        elif width:
+            aspect_ratio = original_height / original_width
+            new_height = int(width * aspect_ratio)
+            return img.resize((width, new_height), Image.Resampling.LANCZOS)
+        elif height:
+            aspect_ratio = original_width / original_height
+            new_width = int(height * aspect_ratio)
+            return img.resize((new_width, height), Image.Resampling.LANCZOS)
+
+        return img
+
+    def _apply_image_alignment(
+        self, x: int, y: int, img_size: tuple[int, int], align: Align
+    ) -> tuple[int, int]:
+        """Apply alignment offset to image position.
+
+        Args:
+            x: Base x position
+            y: Base y position
+            img_size: (width, height) of the image
+            align: Align enum value
+
+        Returns:
+            Adjusted (x, y) position
+        """
+        img_width, img_height = img_size
+        vertical = align.vertical
+        horizontal = align.horizontal
+
+        if horizontal == "center":
+            x = x - img_width // 2
+        elif horizontal == "right":
+            x = x - img_width
+
+        if vertical == "middle":
+            y = y - img_height // 2
+        elif vertical == "bottom":
+            y = y - img_height
+
+        return x, y
 
     def _render_text_layer(self, image: Image.Image, layer: TextLayer):
         if isinstance(layer.content, list):
@@ -889,7 +1012,7 @@ class Canvas:
 
         self._draw_text(draw, content, position, font, color, stroke_effects, anchor)
 
-    def _get_text_anchor(self, align: TextAlign | None) -> str:
+    def _get_text_anchor(self, align: Align | None) -> str:
         if not align:
             return "lt"
 
@@ -989,7 +1112,7 @@ class Canvas:
         total_width = sum(char_widths) + letter_spacing * (len(text) - 1)
         return total_width, char_widths
 
-    def _get_vertical_start_y(self, base_y: int, total_height: int, align: TextAlign | None) -> int:
+    def _get_vertical_start_y(self, base_y: int, total_height: int, align: Align | None) -> int:
         if not align:
             return base_y
 
@@ -1000,7 +1123,7 @@ class Canvas:
             return base_y - total_height
         return base_y
 
-    def _get_horizontal_start_x(self, base_x: int, line_width: int, align: TextAlign | None) -> int:
+    def _get_horizontal_start_x(self, base_x: int, line_width: int, align: Align | None) -> int:
         if not align:
             return base_x
 

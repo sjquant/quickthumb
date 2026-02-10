@@ -5,7 +5,7 @@ import tempfile
 
 import pytest
 from inline_snapshot import external_file
-from quickthumb.models import TextAlign
+from quickthumb.models import Align
 
 
 class TestRendering:
@@ -1214,7 +1214,7 @@ class TestRendering:
                 ],
                 size=36,
                 position=(200, 100),
-                align=TextAlign.CENTER,
+                align=Align.CENTER,
                 effects=[Stroke(width=3, color="#000000")],
             )
         )
@@ -1510,7 +1510,7 @@ class TestRendering:
                 size=48,
                 color="#000000",
                 position=(200, 100),
-                align=TextAlign.CENTER,
+                align=Align.CENTER,
                 max_width=100,
                 auto_scale=True,
             )
@@ -1537,7 +1537,7 @@ class TestRendering:
                     TextPart(text="Small", size=30, color="#0000FF"),
                 ],
                 position=(200, 100),
-                align=TextAlign.CENTER,
+                align=Align.CENTER,
                 max_width=150,
                 auto_scale=True,
             )
@@ -1549,3 +1549,180 @@ class TestRendering:
 
             with open(output_path, "rb") as f:
                 assert f.read() == external_file("snapshots/auto_scale_rich_text.png")
+
+    def test_snapshot_image_basic(self):
+        """Snapshot test for basic image layer rendering"""
+        from quickthumb import Canvas
+
+        # Given: Canvas with image overlay at specific position
+        canvas = (
+            Canvas(400, 300)
+            .background(color="#F0F0F0")
+            .image(path="tests/fixtures/sample_image.jpg", position=(50, 50), width=200)
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            # Then: Should render image at specified position
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/image_basic.png")
+
+    def test_snapshot_image_with_opacity(self):
+        """Snapshot test for image layer with opacity"""
+        from quickthumb import Canvas
+
+        # Given: Canvas with semi-transparent image overlay
+        canvas = (
+            Canvas(400, 300)
+            .background(color="#FFFFFF")
+            .image(
+                path="tests/fixtures/ivana-cajina-_7LbC5J-jw4-unsplash.jpg",
+                position=(50, 50),
+                width=200,
+                opacity=0.5,
+            )
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            # Then: Should render semi-transparent image
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/image_with_opacity.png")
+
+    def test_snapshot_image_with_rotation(self):
+        """Snapshot test for image layer with rotation"""
+        from quickthumb import Canvas
+
+        # Given: Canvas with rotated image overlay
+        canvas = (
+            Canvas(400, 300)
+            .background(color="#F0F0F0")
+            .image(
+                path="tests/fixtures/tobias-rademacher-wnF27F85ZKw-unsplash.jpg",
+                position=(200, 150),
+                width=150,
+                rotation=45,
+            )
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            # Then: Should render rotated image
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/image_with_rotation.png")
+
+    def test_snapshot_image_percentage_position(self):
+        """Snapshot test for image layer with percentage positioning"""
+        from quickthumb import Canvas
+
+        # Given: Canvas with image at percentage position
+        canvas = (
+            Canvas(400, 300)
+            .background(color="#FFFFFF")
+            .image(
+                path="tests/fixtures/sample_image.jpg",
+                position=("50%", "50%"),
+                width=100,
+                align=("middle", "center"),
+            )
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            # Then: Should render image at center
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/image_percentage_position.png")
+
+    def test_snapshot_multiple_images(self):
+        """Snapshot test for multiple layered images"""
+        from quickthumb import Canvas
+
+        # Given: Canvas with multiple image layers
+        canvas = (
+            Canvas(400, 300)
+            .background(color="#2C3E50")
+            .image(
+                path="tests/fixtures/ivana-cajina-_7LbC5J-jw4-unsplash.jpg",
+                position=(50, 50),
+                width=150,
+                opacity=0.8,
+            )
+            .image(
+                path="tests/fixtures/tobias-rademacher-wnF27F85ZKw-unsplash.jpg",
+                position=(200, 100),
+                width=120,
+                opacity=0.6,
+                rotation=15,
+            )
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            # Then: Should render multiple images in correct layer order
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/multiple_images.png")
+
+    def test_snapshot_image_with_text_overlay(self):
+        """Snapshot test for image layer combined with text"""
+        from quickthumb import Canvas
+
+        # Given: Canvas with image and text layers combined
+        canvas = (
+            Canvas(400, 300)
+            .background(color="#FFFFFF")
+            .image(
+                path="tests/fixtures/ivana-cajina-_7LbC5J-jw4-unsplash.jpg",
+                position=(50, 50),
+                width=300,
+            )
+            .text(
+                "OVERLAY TEXT",
+                size=48,
+                color="#FFFFFF",
+                position=(200, 150),
+                align=("center", "middle"),
+                bold=True,
+            )
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            # Then: Should render image with text on top
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/image_with_text_overlay.png")
+
+    def test_snapshot_image_on_background_image(self):
+        """Snapshot test for image layer on top of background image"""
+        from quickthumb import Canvas
+
+        # Given: Canvas with background image and overlay image layer
+        canvas = (
+            Canvas(400, 300)
+            .background(image="tests/fixtures/sample_image.jpg")
+            .image(
+                path="tests/fixtures/tobias-rademacher-wnF27F85ZKw-unsplash.jpg",
+                position=(250, 150),
+                width=120,
+                opacity=0.9,
+            )
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            # Then: Should render overlay image on top of background image
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/image_on_background_image.png")
