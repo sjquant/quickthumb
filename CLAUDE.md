@@ -4,7 +4,7 @@ This file provides guidance to Claude Code when working with this repository.
 
 ## Project Overview
 
-QuickThumb is a Python library for programmatic thumbnail generation. See [README.md](README.md) for features, [DESIGN.md](DESIGN.md) for API specifications.
+QuickThumb is a Python library for programmatic thumbnail generation. See @README.md for features, @DESIGN.md for API specifications.
 
 ## Project Structure
 
@@ -14,7 +14,6 @@ quickthumb/
 ├── models.py      # Pydantic models (CanvasModel, BackgroundLayer, TextLayer, etc.)
 ├── font_cache.py  # Font loading and caching
 └── errors.py      # Custom exceptions
-
 tests/              # Tests follow pattern: test_{component}.py
 ```
 
@@ -41,17 +40,4 @@ uv run pytest tests/test_canvas_creation.py::TestCanvasCreation::test_should_cre
 
 # Run with coverage report
 uv run pytest tests/ --cov=quickthumb --cov-report=html
-```
-
-### Code Quality
-
-```bash
-# Type checking
-uv run ty check quickthumb/
-
-# Auto-fix linting issues
-uv run ruff check --fix quickthumb/
-
-# Format code
-uv run ruff format quickthumb/
 ```
