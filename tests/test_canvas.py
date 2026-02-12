@@ -118,6 +118,7 @@ class TestCanvas:
                         "line_height": None,
                         "letter_spacing": None,
                         "auto_scale": False,
+                        "rotation": 0.0,
                     },
                     {
                         "type": "text",
@@ -135,6 +136,7 @@ class TestCanvas:
                         "line_height": None,
                         "letter_spacing": None,
                         "auto_scale": False,
+                        "rotation": 0.0,
                     },
                 ],
             }

@@ -96,6 +96,7 @@ class TestTextEffects:
                 "line_height": None,
                 "letter_spacing": None,
                 "auto_scale": False,
+                "rotation": 0.0,
             }
         )
 
@@ -227,6 +228,7 @@ class TestTextEffects:
                 "line_height": None,
                 "letter_spacing": None,
                 "auto_scale": False,
+                "rotation": 0.0,
             }
         )
 
@@ -364,6 +366,7 @@ class TestTextEffects:
                 "line_height": None,
                 "letter_spacing": None,
                 "auto_scale": False,
+                "rotation": 0.0,
             }
         )
 

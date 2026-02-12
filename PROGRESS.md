@@ -24,6 +24,7 @@
 
 - ✅ Stroke, Shadow (with blur), Glow (outer glow), Background (with padding and border radius)
 - ✅ Rich text with `TextPart` (per-segment styling)
+- ✅ Rotation support for text layers (simple and rich text)
 
 ### Font System
 
@@ -41,8 +42,6 @@
 ## 🚧 TODO
 
 ### Planned Features (High Priority)
-
-- [ ] Rotation support for text layers
 
 ### Medium Priority
 

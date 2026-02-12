@@ -257,7 +257,6 @@ class Background(QuickThumbModel):
             for val in v:
                 if val < 0:
                     raise ValueError("padding values cannot be negative")
-            return v
 
         return v
 
@@ -348,6 +347,7 @@ class TextLayer(QuickThumbModel):
     line_height: PositiveFloat | None = None
     letter_spacing: int | None = None
     auto_scale: bool = False
+    rotation: float = 0
 
     @field_validator("max_width")
     @classmethod

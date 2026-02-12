@@ -1726,3 +1726,109 @@ class TestRendering:
             # Then: Should render overlay image on top of background image
             with open(output_path, "rb") as f:
                 assert f.read() == external_file("snapshots/image_on_background_image.png")
+
+    def test_snapshot_text_rotation_basic(self):
+        """Snapshot test for basic text rotation at 45 degrees"""
+        from quickthumb import Canvas
+
+        # Given: Text rotated 45 degrees
+        canvas = (
+            Canvas(400, 400)
+            .background(color="#FFFFFF")
+            .text(
+                "Rotated 45°",
+                size=48,
+                color="#000000",
+                position=(200, 200),
+                align="center",
+                rotation=45,
+            )
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            # Then: Should render text rotated 45 degrees
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/text_rotation_basic.png")
+
+    def test_snapshot_text_rotation_with_effects(self):
+        """Snapshot test for rotated text with stroke and shadow effects"""
+        from quickthumb import Canvas, Shadow, Stroke
+
+        # Given: Rotated text with multiple effects
+        canvas = (
+            Canvas(400, 400)
+            .background(color="#F0F0F0")
+            .text(
+                "ROTATED",
+                size=56,
+                color="#FF5722",
+                position=(200, 200),
+                align="center",
+                rotation=-30,
+                effects=[
+                    Stroke(width=3, color="#FFFFFF"),
+                    Shadow(offset_x=4, offset_y=4, color="#00000080", blur_radius=2),
+                ],
+            )
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            # Then: Should render rotated text with effects properly applied
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/text_rotation_with_effects.png")
+
+    def test_snapshot_text_rotation_centered(self):
+        """Snapshot test for multiple text rotations with center alignment"""
+        from quickthumb import Canvas
+
+        # Given: Multiple texts at different rotation angles, all center-aligned
+        canvas = (
+            Canvas(400, 400)
+            .background(color="#FFFFFF")
+            .text(
+                "0°",
+                size=32,
+                color="#000000",
+                position=(200, 200),
+                align="center",
+                rotation=0,
+            )
+            .text(
+                "45°",
+                size=32,
+                color="#FF0000",
+                position=(200, 200),
+                align="center",
+                rotation=45,
+            )
+            .text(
+                "90°",
+                size=32,
+                color="#00FF00",
+                position=(200, 200),
+                align="center",
+                rotation=90,
+            )
+            .text(
+                "135°",
+                size=32,
+                color="#0000FF",
+                position=(200, 200),
+                align="center",
+                rotation=135,
+            )
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            # Then: Should render multiple rotated texts creating a circular pattern
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/text_rotation_centered.png")

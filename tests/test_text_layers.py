@@ -265,6 +265,7 @@ class TestTextLayers:
             "line_height": 1.5,
             "letter_spacing": 2,
             "auto_scale": False,
+            "rotation": 0.0,
         }
 
     def test_should_deserialize_text_layer_from_json(self):
@@ -952,3 +953,77 @@ class TestAutoScale:
         assert output_with.read_bytes() == output_without.read_bytes()
 
 
+class TestTextRotation:
+    """Test suite for text rotation functionality"""
+
+    @pytest.mark.parametrize(
+        "rotation",
+        [0, 45, 90, -45, 180, 360, 720, -90, 12.5, -12.5],
+    )
+    def test_should_accept_various_rotation_values(self, rotation):
+        """Test that rotation parameter accepts various float values"""
+        from quickthumb import Canvas, TextLayer
+
+        canvas = Canvas(1920, 1080)
+        canvas.text("Test", size=48, rotation=rotation)
+
+        assert len(canvas.layers) == 1
+        assert isinstance(canvas.layers[0], TextLayer)
+        assert canvas.layers[0] == snapshot(TextLayer(type="text", content="Test", size=48))
+
+    def test_should_serialize_rotation_to_json(self):
+        """Test that rotation field is included in JSON serialization"""
+        from quickthumb import Canvas
+
+        canvas = Canvas(1920, 1080)
+        canvas.text("Rotated", size=48, rotation=45)
+
+        json_str = canvas.to_json()
+        data = json.loads(json_str)
+
+        assert len(data["layers"]) == 1
+        assert data["layers"][0] == snapshot(
+            {
+                "type": "text",
+                "content": "Rotated",
+                "font": None,
+                "size": 48,
+                "color": None,
+                "position": None,
+                "align": None,
+                "bold": False,
+                "italic": False,
+                "weight": None,
+                "max_width": None,
+                "effects": [],
+                "line_height": None,
+                "letter_spacing": None,
+                "auto_scale": False,
+                "rotation": 45.0,
+            }
+        )
+
+    def test_should_deserialize_rotation_from_json(self):
+        """Test that rotation field is correctly deserialized from JSON"""
+        from quickthumb import Canvas, TextLayer
+
+        json_data = {
+            "width": 1920,
+            "height": 1080,
+            "layers": [
+                {
+                    "type": "text",
+                    "content": "Rotated",
+                    "size": 48,
+                    "rotation": 45,
+                }
+            ],
+        }
+
+        canvas = Canvas.from_json(json.dumps(json_data))
+
+        assert len(canvas.layers) == 1
+        assert isinstance(canvas.layers[0], TextLayer)
+        assert canvas.layers[0] == snapshot(
+            TextLayer(type="text", content="Rotated", size=48, rotation=45.0)
+        )

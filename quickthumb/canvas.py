@@ -127,6 +127,7 @@ class Canvas:
         line_height: float | None = None,
         letter_spacing: int | None = None,
         auto_scale: bool = False,
+        rotation: float = 0,
     ) -> Self:
         if content is None:
             raise ValidationError("content is required")
@@ -147,6 +148,7 @@ class Canvas:
             line_height=line_height,
             letter_spacing=letter_spacing,
             auto_scale=auto_scale,
+            rotation=rotation,
         )
         self._layers.append(layer)
         return self
@@ -603,6 +605,11 @@ class Canvas:
         if layer.auto_scale and layer.max_width:
             layer = self._auto_scale_simple_text(layer)
 
+        # If rotation is needed, render to temporary image first
+        if layer.rotation != 0:
+            self._render_rotated_simple_text(image, layer)
+            return
+
         draw = ImageDraw.Draw(image)
         font = self._load_font(layer)
         color = self._parse_color(layer.color) if layer.color else DEFAULT_TEXT_COLOR
@@ -654,6 +661,11 @@ class Canvas:
         # Apply auto-scaling if enabled
         if layer.auto_scale and layer.max_width:
             layer = self._auto_scale_rich_text(layer)
+
+        # If rotation is needed, render to temporary image first
+        if layer.rotation != 0:
+            self._render_rotated_rich_text(image, layer)
+            return
 
         draw = ImageDraw.Draw(image)
         lines = self._prepare_rich_text_lines(layer)
@@ -1011,6 +1023,224 @@ class Canvas:
         )
 
         self._draw_text(draw, content, position, font, color, stroke_effects, anchor)
+
+    def _render_rotated_simple_text(self, image: Image.Image, layer: TextLayer):
+        """Render simple text with rotation applied.
+
+        Rotation is performed by rendering text to a temporary image, rotating it,
+        then compositing the result onto the main canvas. This approach preserves
+        all text effects during rotation.
+        """
+        font = self._load_font(layer)
+        color = self._parse_color(layer.color) if layer.color else DEFAULT_TEXT_COLOR
+        content = layer.content if isinstance(layer.content, str) else ""
+
+        stroke_effects = self._get_stroke_effects(layer.effects)
+        shadow_effects = self._get_shadow_effects(layer.effects)
+        glow_effects = self._get_glow_effects(layer.effects)
+        background_effects = self._get_background_effects(layer.effects)
+
+        text_width, text_height = self._measure_simple_text_size(layer, font, content)
+        padding = self._calculate_text_effects_padding(stroke_effects, shadow_effects, glow_effects)
+        temp_image, temp_draw = self._create_temp_image_for_text(text_width, text_height, padding)
+
+        temp_layer = layer.model_copy(update={"position": (padding, padding), "align": None})
+
+        self._render_simple_text_to_temp_image(
+            temp_draw,
+            temp_image,
+            temp_layer,
+            font,
+            color,
+            content,
+            stroke_effects,
+            shadow_effects,
+            glow_effects,
+            background_effects,
+        )
+
+        self._rotate_and_composite_text(image, temp_image, layer)
+
+    def _measure_simple_text_size(
+        self, layer: TextLayer, font: FontType, content: str
+    ) -> tuple[int, int]:
+        """Calculate text bounding box size accounting for wrapping."""
+        line_height_mult = layer.line_height or DEFAULT_LINE_HEIGHT_MULTIPLIER
+
+        if layer.max_width:
+            max_width_px = self._parse_coordinate(layer.max_width, self.width)
+            lines = self._wrap_text(content, font, max_width_px, layer.letter_spacing)
+            return self._measure_text_bounds(
+                "\n".join(lines),
+                font,
+                layer.letter_spacing or 0,
+                line_height_mult,
+            )
+
+        return self._measure_text_bounds(
+            content,
+            font,
+            layer.letter_spacing or 0,
+            line_height_mult,
+        )
+
+    def _render_simple_text_to_temp_image(
+        self,
+        temp_draw: ImageDraw.ImageDraw,
+        temp_image: Image.Image,
+        temp_layer: TextLayer,
+        font: FontType,
+        color: tuple[int, ...],
+        content: str,
+        stroke_effects: list[Stroke],
+        shadow_effects: list[Shadow],
+        glow_effects: list[Glow],
+        background_effects: list[Background],
+    ) -> None:
+        """Render text with effects to temporary image, choosing the appropriate method."""
+        if temp_layer.max_width:
+            max_width_px = self._parse_coordinate(temp_layer.max_width, self.width)
+            lines = self._wrap_text(content, font, max_width_px, temp_layer.letter_spacing)
+            self._render_multiline_text(temp_draw, lines, font, color, temp_layer, temp_image)
+        elif "\n" in content:
+            lines = content.split("\n")
+            self._render_multiline_text(temp_draw, lines, font, color, temp_layer, temp_image)
+        elif temp_layer.letter_spacing:
+            self._render_letter_spaced_text(
+                temp_draw,
+                temp_image,
+                content,
+                font,
+                color,
+                temp_layer,
+                glow_effects,
+                shadow_effects,
+                stroke_effects,
+                background_effects,
+            )
+        else:
+            self._render_normal_text(
+                temp_draw,
+                temp_image,
+                content,
+                font,
+                color,
+                temp_layer,
+                glow_effects,
+                shadow_effects,
+                stroke_effects,
+                background_effects,
+            )
+
+    def _render_rotated_rich_text(self, image: Image.Image, layer: TextLayer):
+        """Render rich text with rotation applied.
+
+        Rotation is performed by rendering to a temporary image, rotating it,
+        then compositing the result. This preserves all text effects and handles
+        per-part styling correctly.
+        """
+        if not isinstance(layer.content, list):
+            return
+
+        text_width, text_height = self._measure_rich_text_size(layer)
+        padding = self._calculate_rich_text_effects_padding(layer)
+        temp_image, temp_draw = self._create_temp_image_for_text(text_width, text_height, padding)
+        temp_layer = layer.model_copy(update={"position": (padding, padding), "align": None})
+
+        self._render_rich_text_to_temp_image(temp_draw, temp_image, temp_layer)
+        self._rotate_and_composite_text(image, temp_image, layer)
+
+    def _measure_rich_text_size(self, layer: TextLayer) -> tuple[int, int]:
+        """Calculate rich text bounding box size."""
+        lines = self._prepare_rich_text_lines(layer)
+        _, total_height = self._calculate_rich_text_dimensions(layer, lines)
+
+        max_width = 0
+        for line_parts in lines:
+            line_width = self._measure_rich_line_width(line_parts)
+            max_width = max(max_width, line_width)
+
+        return max_width, total_height
+
+    def _calculate_rich_text_effects_padding(self, layer: TextLayer) -> int:
+        """Calculate padding for rich text effects from both layer and part-level effects."""
+        all_stroke_effects: list[Stroke] = []
+        all_shadow_effects: list[Shadow] = []
+        all_glow_effects: list[Glow] = []
+
+        all_stroke_effects.extend(self._get_stroke_effects(layer.effects))
+        all_shadow_effects.extend(self._get_shadow_effects(layer.effects))
+        all_glow_effects.extend(self._get_glow_effects(layer.effects))
+
+        if isinstance(layer.content, list):
+            for part in layer.content:
+                all_stroke_effects.extend(self._get_stroke_effects(part.effects))
+                all_shadow_effects.extend(self._get_shadow_effects(part.effects))
+                all_glow_effects.extend(self._get_glow_effects(part.effects))
+
+        return self._calculate_text_effects_padding(
+            all_stroke_effects, all_shadow_effects, all_glow_effects
+        )
+
+    def _render_rich_text_to_temp_image(
+        self,
+        temp_draw: ImageDraw.ImageDraw,
+        temp_image: Image.Image,
+        temp_layer: TextLayer,
+    ) -> None:
+        """Render rich text with effects to temporary image."""
+        temp_lines = self._prepare_rich_text_lines(temp_layer)
+        temp_line_heights, temp_total_height = self._calculate_rich_text_dimensions(
+            temp_layer, temp_lines
+        )
+        base_x, start_y = self._calculate_start_position(temp_layer, temp_total_height)
+        self._draw_rich_text_lines(
+            temp_draw, temp_image, temp_layer, temp_lines, temp_line_heights, base_x, start_y
+        )
+
+    def _calculate_text_effects_padding(
+        self, stroke_effects: list[Stroke], shadow_effects: list[Shadow], glow_effects: list[Glow]
+    ) -> int:
+        """Calculate extra space needed around text to prevent effect clipping."""
+        padding = 0
+
+        for stroke in stroke_effects:
+            padding = max(padding, stroke.width)
+
+        for shadow in shadow_effects:
+            shadow_extent = max(abs(shadow.offset_x), abs(shadow.offset_y)) + shadow.blur_radius * 3
+            padding = max(padding, shadow_extent)
+
+        for glow in glow_effects:
+            glow_extent = glow.radius * 3
+            padding = max(padding, glow_extent)
+
+        return max(padding, 10)
+
+    def _create_temp_image_for_text(
+        self, width: int, height: int, padding: int
+    ) -> tuple[Image.Image, ImageDraw.ImageDraw]:
+        """Create transparent temporary image sized for content plus effect padding."""
+        temp_width = width + padding * 2
+        temp_height = height + padding * 2
+        temp_image = Image.new("RGBA", (temp_width, temp_height), (0, 0, 0, 0))
+        temp_draw = ImageDraw.Draw(temp_image)
+        return temp_image, temp_draw
+
+    def _rotate_and_composite_text(
+        self, image: Image.Image, temp_image: Image.Image, layer: TextLayer
+    ) -> None:
+        """Rotate temporary text image and composite onto main canvas with alignment."""
+        rotated = temp_image.rotate(-layer.rotation, expand=True, resample=Image.Resampling.BICUBIC)
+
+        raw_x, raw_y = layer.position if layer.position else (0, 0)
+        base_x = self._parse_coordinate(raw_x, self.width)
+        base_y = self._parse_coordinate(raw_y, self.height)
+
+        if layer.align:
+            base_x, base_y = self._apply_image_alignment(base_x, base_y, rotated.size, layer.align)
+
+        image.alpha_composite(rotated, (base_x, base_y))
 
     def _get_text_anchor(self, align: Align | None) -> str:
         if not align:
@@ -1465,10 +1695,8 @@ class Canvas:
             padding_2 = cast(tuple[int, int], padding)
             vertical, horizontal = padding_2
             return (vertical, horizontal, vertical, horizontal)
-        elif isinstance(padding, tuple) and len(padding) == 4:
+        else:  # len(padding) == 4
             return cast(tuple[int, int, int, int], padding)
-        else:
-            return (0, 0, 0, 0)
 
     def _draw_rounded_rectangle(
         self,
