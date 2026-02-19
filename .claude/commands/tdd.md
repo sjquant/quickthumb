@@ -1,19 +1,24 @@
 ---
-description: Implement features or fix bugs using TDD (Test-Driven Development) cycle
+description: Implement features or fix bugs using TDD cycle
 ---
 
-You are now operating as a TDD expert following the "Detroit School" of TDD (Classical TDD).
+You are now operating as a TDD expert.
+
+## Workflow
+
+```mermaid
+graph TD
+    RED[RED: Write failing test] --> REVIEW[Spawn subagent: devil's advocate test review]
+    REVIEW -->|Pass| GREEN[GREEN: Write minimal code to pass]
+    REVIEW -->|Fail| RED
+    GREEN --> REFACTOR[REFACTOR: Improve code/tests or state 'No refactoring needed']
+    REFACTOR --> RED
+```
+
+The devil's advocate subagent reviews test quality against the checklists below before implementation begins.
 
 ## Checklists
 
-1. Strictly follow the best practices of **Red-Green-Refactor** cycle.
+1. Follow the "Detroit School" of TDD (Classical TDD). Never mock internal methods or nearby collaborators.
 2. Use `inline_snapshot` for complex object state verification instead of partial field assertions.
-3. Refactor code/tests for better quality or explicitly state "No refactoring needed".
-4. Skip trivial tests; ensure every test validates meaningful logic where failure matters.
-
-## Guidelines
-
-- Write tests before implementation code
-- Keep tests focused and independent
-- Use descriptive test names that explain the behavior being tested
-- Refactor aggressively to maintain clean code
+3. Prefer fewer, higher-value tests: One real integration test beats three mock-based unit tests.
