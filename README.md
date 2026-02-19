@@ -221,6 +221,36 @@ canvas.text(
 **Available Effects:**
 - `Stroke(width, color)` - Adds an outline around text
 
+## Image Layers
+
+Overlay images or logos onto your canvas:
+
+```python
+from quickthumb import Canvas
+
+canvas = Canvas(1920, 1080)
+
+# Add a logo
+canvas.image(path="logo.png", position=(50, 50), width=200)
+```
+
+### Background Removal
+
+Remove the background from an image before overlaying it using the `rembg` extra:
+
+```bash
+pip install quickthumb[rembg]
+```
+
+```python
+canvas.image(
+    path="portrait.png",
+    width=400,
+    align=("center", "middle"),
+    remove_background=True,
+)
+```
+
 ## Font Weights
 
 QuickThumb supports CSS-style font weights (100-900) or named weights like "thin", "bold", "black". See [DESIGN.md](DESIGN.md#font-weights) for full details.
