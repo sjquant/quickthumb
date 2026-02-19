@@ -27,6 +27,7 @@ from quickthumb.models import (
     OutlineLayer,
     RadialGradient,
     Shadow,
+    ShapeLayer,
     Stroke,
     TextEffect,
     TextLayer,
@@ -163,6 +164,37 @@ class Canvas:
         self._layers.append(layer)
         return self
 
+    def shape(
+        self,
+        shape: Literal["rectangle", "ellipse"],
+        position: tuple,
+        width: int,
+        height: int,
+        color: str,
+        stroke_color: str | None = None,
+        stroke_width: int | None = None,
+        border_radius: int = 0,
+        opacity: float = 1.0,
+        rotation: float = 0.0,
+        align: Align | str | tuple[str, str] | None = None,
+    ) -> Self:
+        layer = ShapeLayer(
+            type="shape",
+            shape=shape,
+            position=position,
+            width=width,
+            height=height,
+            color=color,
+            stroke_color=stroke_color,
+            stroke_width=stroke_width,
+            border_radius=border_radius,
+            opacity=opacity,
+            rotation=rotation,
+            align=align,  # type: ignore[arg-type]  # Pydantic validator handles conversion
+        )
+        self._layers.append(layer)
+        return self
+
     def image(
         self,
         path: str,
@@ -262,6 +294,8 @@ class Canvas:
                 self._render_outline_layer(image, layer)
             elif isinstance(layer, ImageLayer):
                 self._render_image_layer(image, layer)
+            elif isinstance(layer, ShapeLayer):
+                self._render_shape_layer(image, layer)
 
         return image
 
@@ -457,6 +491,44 @@ class Canvas:
 
         for i in range(layer.width):
             draw.rectangle([x1 + i, y1 + i, x2 - i, y2 - i], outline=color)
+
+    def _render_shape_layer(self, image: Image.Image, layer: ShapeLayer):
+        x = self._parse_coordinate(layer.position[0], self.width)
+        y = self._parse_coordinate(layer.position[1], self.height)
+
+        fill_color = self._parse_color(layer.color)
+        stroke_color = self._parse_color(layer.stroke_color) if layer.stroke_color else None
+        stroke_width = layer.stroke_width if stroke_color else 0
+
+        # Draw shape on a temp image (shape-sized) so rotation/opacity work cleanly
+        shape_img = Image.new("RGBA", (layer.width, layer.height), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(shape_img)
+        bbox = [0, 0, layer.width - 1, layer.height - 1]
+
+        if layer.shape == "rectangle":
+            draw.rounded_rectangle(
+                bbox,
+                radius=layer.border_radius,
+                fill=fill_color,
+                outline=stroke_color,
+                width=stroke_width or 1,
+            )
+        else:  # ellipse
+            draw.ellipse(bbox, fill=fill_color, outline=stroke_color, width=stroke_width or 1)
+
+        if layer.rotation != 0:
+            shape_img = shape_img.rotate(
+                -layer.rotation, expand=True, resample=Image.Resampling.BICUBIC
+            )
+
+        if layer.opacity < 1.0:
+            shape_img = self._apply_opacity(shape_img, layer.opacity)
+
+        paste_x, paste_y = x, y
+        if layer.align:
+            paste_x, paste_y = self._apply_image_alignment(x, y, shape_img.size, layer.align)
+
+        image.alpha_composite(shape_img, (paste_x, paste_y))
 
     def _render_image_layer(self, image: Image.Image, layer: ImageLayer):
         # Load the image

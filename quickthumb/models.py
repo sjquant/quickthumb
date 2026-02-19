@@ -463,8 +463,55 @@ class ImageLayer(QuickThumbModel):
         return align.value
 
 
+class ShapeLayer(QuickThumbModel):
+    type: Literal["shape"]
+    shape: Literal["rectangle", "ellipse"]
+    position: tuple
+    width: PositiveInt
+    height: PositiveInt
+    color: HexColor
+    stroke_color: HexColor | None = None
+    stroke_width: PositiveInt | None = None
+    border_radius: NonNegativeInt = 0
+    opacity: float = 1.0
+    rotation: float = 0.0
+    align: AlignWithHVTuple = None
+
+    @field_validator("position", mode="before")
+    @classmethod
+    def validate_position(cls, v: tuple | list | None) -> tuple | None:
+        if v is None:
+            raise ValueError("position is required")
+
+        if not isinstance(v, (tuple, list)) or len(v) != 2:
+            raise ValueError("position must be a tuple of two elements")
+
+        if isinstance(v[0], str) or isinstance(v[1], str):
+            for item in v:
+                if isinstance(item, str):
+                    match = re.fullmatch(r"-?(\d+(\.\d+)?)%", item)
+                    if not match:
+                        raise ValueError(f"invalid percentage format: {item}")
+
+        return tuple(v)
+
+    @field_validator("opacity")
+    @classmethod
+    def validate_opacity(cls, v: float) -> float:
+        if v < 0.0 or v > 1.0:
+            raise ValueError("opacity must be between 0.0 and 1.0")
+        return v
+
+    @field_serializer("align")
+    def serialize_align(self, align: Align | None) -> str | None:
+        if align is None:
+            return None
+        return align.value
+
+
 LayerType = Annotated[
-    BackgroundLayer | TextLayer | OutlineLayer | ImageLayer, Discriminator("type")
+    BackgroundLayer | TextLayer | OutlineLayer | ImageLayer | ShapeLayer,
+    Discriminator("type"),
 ]
 
 

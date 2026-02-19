@@ -1857,3 +1857,154 @@ class TestRendering:
             # Then: Should render image with background removed, revealing blue canvas behind
             with open(output_path, "rb") as f:
                 assert f.read() == external_file("snapshots/image_with_remove_background.png")
+
+    def test_snapshot_shape_rectangle_basic(self):
+        """Snapshot test for basic rectangle shape layer"""
+        from quickthumb import Canvas
+
+        # Given: Canvas with a basic filled rectangle
+        canvas = (
+            Canvas(400, 300)
+            .background(color="#FFFFFF")
+            .shape(shape="rectangle", position=(100, 75), width=200, height=150, color="#FF5733")
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            # Then: Should render a solid orange rectangle at the specified position
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/shape_rectangle_basic.png")
+
+    def test_snapshot_shape_ellipse_basic(self):
+        """Snapshot test for basic ellipse shape layer"""
+        from quickthumb import Canvas
+
+        # Given: Canvas with a basic filled ellipse
+        canvas = (
+            Canvas(400, 300)
+            .background(color="#F0F0F0")
+            .shape(
+                shape="ellipse",
+                position=(200, 150),
+                width=200,
+                height=120,
+                color="#3498DB",
+                align=("center", "middle"),
+            )
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            # Then: Should render a blue ellipse centered at the specified position
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/shape_ellipse_basic.png")
+
+    def test_snapshot_shape_rectangle_with_stroke(self):
+        """Snapshot test for rectangle shape with stroke outline"""
+        from quickthumb import Canvas
+
+        # Given: Canvas with a rectangle that has a stroke
+        canvas = (
+            Canvas(400, 300)
+            .background(color="#FFFFFF")
+            .shape(
+                shape="rectangle",
+                position=(100, 75),
+                width=200,
+                height=150,
+                color="#2ECC71",
+                stroke_color="#1A8A4A",
+                stroke_width=4,
+            )
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            # Then: Should render a green rectangle with a darker green outline
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/shape_rectangle_with_stroke.png")
+
+    def test_snapshot_shape_rectangle_with_border_radius(self):
+        """Snapshot test for rectangle with rounded corners"""
+        from quickthumb import Canvas
+
+        # Given: Canvas with a rounded rectangle
+        canvas = (
+            Canvas(400, 300)
+            .background(color="#FFFFFF")
+            .shape(
+                shape="rectangle",
+                position=(100, 75),
+                width=200,
+                height=150,
+                color="#9B59B6",
+                border_radius=20,
+            )
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            # Then: Should render a purple rectangle with rounded corners
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/shape_rectangle_with_border_radius.png")
+
+    def test_snapshot_shape_with_opacity(self):
+        """Snapshot test for shape layer with opacity"""
+        from quickthumb import Canvas
+
+        # Given: Canvas with a semi-transparent shape over a colored background
+        canvas = (
+            Canvas(400, 300)
+            .background(image="tests/fixtures/sample_image.jpg")
+            .shape(
+                shape="rectangle",
+                position=(100, 75),
+                width=200,
+                height=150,
+                color="#E74C3C",
+                opacity=0.5,
+            )
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            # Then: Should render a semi-transparent red rectangle over blue background
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/shape_with_opacity.png")
+
+    def test_snapshot_shape_with_rotation(self):
+        """Snapshot test for shape layer with rotation"""
+        from quickthumb import Canvas
+
+        # Given: Canvas with a rotated rectangle
+        canvas = (
+            Canvas(400, 300)
+            .background(color="#FFFFFF")
+            .shape(
+                shape="rectangle",
+                position=(200, 150),
+                width=200,
+                height=80,
+                color="#E67E22",
+                align=("center", "middle"),
+                rotation=45,
+            )
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            # Then: Should render an orange rectangle rotated 45 degrees
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/shape_with_rotation.png")
