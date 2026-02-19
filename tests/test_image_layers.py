@@ -1,7 +1,13 @@
 """Tests for image layer functionality"""
 
+import builtins
+import json
+import sys
+from unittest.mock import patch
+
 import pytest
 from inline_snapshot import snapshot
+from PIL import Image
 from quickthumb.errors import ValidationError
 from quickthumb.models import Align, ImageLayer
 
@@ -118,8 +124,54 @@ class TestCanvasImageAPI:
         assert canvas.layers[0] == expected_layer
 
 
+class TestImageLayerBackgroundRemoval:
+    """Test suite for image layer background removal"""
+
+    def test_should_raise_import_error_when_rembg_not_installed(self):
+        """Test that ImportError with helpful message is raised when rembg is missing"""
+        from quickthumb import Canvas
+
+        # Given: A canvas instance and rembg not installed
+        canvas = Canvas(200, 200)
+        img = Image.new("RGBA", (100, 100), (255, 0, 0, 255))
+
+        # When/Then: Calling _remove_background should raise ImportError
+        # Mock is justified here: impossible to test "library not installed" with real code
+        original_import = builtins.__import__
+
+        def mock_import(name, *args, **kwargs):
+            if name == "rembg":
+                raise ImportError("No module named 'rembg'")
+            return original_import(name, *args, **kwargs)
+
+        saved = sys.modules.pop("rembg", None)
+        try:
+            with (
+                patch.object(builtins, "__import__", side_effect=mock_import),
+                pytest.raises(ImportError, match="rembg is required.*pip install quickthumb"),
+            ):
+                canvas._remove_background(img)
+        finally:
+            if saved is not None:
+                sys.modules["rembg"] = saved
+
+
 class TestImageLayerSerialization:
     """Test suite for JSON serialization/deserialization"""
+
+    def test_should_round_trip_remove_background_through_json(self):
+        """Test that remove_background survives JSON round-trip"""
+        from quickthumb import Canvas
+
+        # Given: Canvas with remove_background=True
+        original = Canvas(1920, 1080)
+        original.image(path="logo.png", position=(0, 0), remove_background=True)
+
+        # When: Round-tripping through JSON
+        restored = Canvas.from_json(original.to_json())
+
+        # Then: remove_background should be preserved
+        assert restored.layers[0] == original.layers[0]
 
     def test_should_serialize_image_layer_to_json(self):
         """Test that canvas with image layer can be serialized to JSON"""
@@ -138,7 +190,6 @@ class TestImageLayerSerialization:
         )
 
         # When: User serializes canvas to JSON
-        import json
 
         json_str = canvas.to_json()
         data = json.loads(json_str)
@@ -155,13 +206,13 @@ class TestImageLayerSerialization:
             "height": 150,
             "opacity": 0.8,
             "rotation": 45,
+            "remove_background": False,
             "align": "center",
         }
 
     def test_should_deserialize_image_layer_from_json(self):
         """Test that canvas with image layer can be deserialized from JSON"""
         # Given: JSON string with image layer
-        import json
 
         json_data = {
             "width": 1920,
@@ -235,7 +286,6 @@ class TestImageLayerSerialization:
         canvas.image(path="assets/logo.png", position=("50%", "25%"), width=100)
 
         # When: Serializing to JSON
-        import json
 
         json_str = canvas.to_json()
         data = json.loads(json_str)
@@ -254,6 +304,7 @@ class TestImageLayerSerialization:
                         "height": None,
                         "opacity": 1.0,
                         "rotation": 0.0,
+                        "remove_background": False,
                         "align": "top-left",
                     }
                 ],
@@ -263,7 +314,6 @@ class TestImageLayerSerialization:
     def test_should_deserialize_percentage_position_from_json(self):
         """Test that percentage positions are deserialized correctly"""
         # Given: JSON with percentage position
-        import json
 
         json_data = {
             "width": 1920,

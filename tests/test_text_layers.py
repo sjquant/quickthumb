@@ -968,8 +968,9 @@ class TestTextRotation:
         canvas.text("Test", size=48, rotation=rotation)
 
         assert len(canvas.layers) == 1
-        assert isinstance(canvas.layers[0], TextLayer)
-        assert canvas.layers[0] == snapshot(TextLayer(type="text", content="Test", size=48))
+        assert canvas.layers[0] == TextLayer(
+            type="text", content="Test", size=48, rotation=rotation
+        )
 
     def test_should_serialize_rotation_to_json(self):
         """Test that rotation field is included in JSON serialization"""

@@ -78,7 +78,8 @@ canvas.image(
     width=200,  # width or height (preserves aspect ratio if one is None)
     opacity=1.0,
     rotation=0,  # Degrees
-    align=("top", "left")
+    align=("top", "left"),
+    remove_background=True,  # Remove background using rembg (requires quickthumb[rembg])
 )
 
 # Text with effects using effect classes
@@ -163,7 +164,8 @@ json_str = canvas.to_json()          # Export canvas to JSON string
       "position": [50, 50],
       "width": 200,
       "opacity": 1.0,
-      "rotation": 0
+      "rotation": 0,
+      "remove_background": true
     },
     {
       "type": "text",
@@ -231,6 +233,7 @@ canvas.to_data_url(format="WEBP", quality=90)
 ```
 
 **Quality Parameter**:
+
 - Only applicable for JPEG and WEBP formats (1-100)
 - Raises `RenderingError` if used with PNG
 - Defaults to None (uses PIL defaults: JPEG=75, WEBP=80)

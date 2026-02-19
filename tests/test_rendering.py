@@ -1832,3 +1832,28 @@ class TestRendering:
             # Then: Should render multiple rotated texts creating a circular pattern
             with open(output_path, "rb") as f:
                 assert f.read() == external_file("snapshots/text_rotation_centered.png")
+
+    def test_snapshot_image_with_remove_background(self):
+        """Snapshot test for image layer with real rembg background removal"""
+        from quickthumb import Canvas
+
+        # Given: Canvas with image overlay using real background removal
+        canvas = (
+            Canvas(400, 300)
+            .background(image="tests/fixtures/sample_image.jpg")
+            .image(
+                path="tests/fixtures/tobias-rademacher-wnF27F85ZKw-unsplash.jpg",
+                position=("50%", "50%"),
+                width=200,
+                align=("middle", "center"),
+                remove_background=True,
+            )
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            # Then: Should render image with background removed, revealing blue canvas behind
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/image_with_remove_background.png")

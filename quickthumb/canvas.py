@@ -172,6 +172,7 @@ class Canvas:
         opacity: float = 1.0,
         rotation: float = 0,
         align: Align | str | tuple[str, str] = Align.TOP_LEFT,
+        remove_background: bool = False,
     ) -> Self:
         """Add an image overlay layer to the canvas.
 
@@ -199,6 +200,7 @@ class Canvas:
             height=height,
             opacity=opacity,
             rotation=rotation,
+            remove_background=remove_background,
             align=align,  # type: ignore[arg-type]  # Pydantic validator handles conversion
         )
         self._layers.append(layer)
@@ -465,6 +467,9 @@ class Canvas:
 
         img = img.convert("RGBA")
 
+        if layer.remove_background:
+            img = self._remove_background(img)
+
         if layer.width or layer.height:
             img = self._resize_image(img, layer.width, layer.height)
 
@@ -481,6 +486,16 @@ class Canvas:
             x, y = self._apply_image_alignment(x, y, img.size, layer.align)
 
         image.alpha_composite(img, (x, y))
+
+    def _remove_background(self, img: Image.Image) -> Image.Image:
+        try:
+            from rembg import remove  # type: ignore[unresolved-import]
+        except ImportError:
+            raise ImportError(
+                "rembg is required for background removal. "
+                "Install it with: pip install quickthumb[rembg]"
+            ) from None
+        return cast(Image.Image, remove(img))
 
     def _resize_image(self, img: Image.Image, width: int | None, height: int | None) -> Image.Image:
         """Resize image preserving aspect ratio if only one dimension specified."""

@@ -36,6 +36,7 @@
 
 - ✅ Image overlay with position (pixels/percentages), sizing (aspect ratio preserved), opacity, rotation, and alignment
 - ✅ URL and local path support, JSON serialization, method chaining
+- ✅ Background removal for image layers via `remove_background=True` (requires `quickthumb[rembg]`)
 
 ---
 
@@ -48,4 +49,3 @@
 ### Low Priority
 
 - [ ] Extended documentation/examples
-- [ ] Background Removal for image

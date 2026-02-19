@@ -347,7 +347,7 @@ class TextLayer(QuickThumbModel):
     line_height: PositiveFloat | None = None
     letter_spacing: int | None = None
     auto_scale: bool = False
-    rotation: float = 0
+    rotation: float = 0.0
 
     @field_validator("max_width")
     @classmethod
@@ -429,6 +429,7 @@ class ImageLayer(QuickThumbModel):
     height: PositiveInt | None = None
     opacity: float = 1.0
     rotation: float = 0
+    remove_background: bool = False
     align: AlignWithVHTuple = Align.TOP_LEFT
 
     @field_validator("position", mode="before")
