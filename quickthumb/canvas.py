@@ -1070,7 +1070,9 @@ class Canvas:
         position = (x, y)
 
         for bg in background_effects:
-            self._render_background(image, content, font, position, bg, "lt")
+            self._render_background(
+                image, content, font, position, bg, "lt", width_override=total_width
+            )
 
         for glow in glow_effects:
             self._render_letter_spaced_glow(
@@ -1714,6 +1716,7 @@ class Canvas:
         position: tuple[int, int],
         background: Background,
         anchor: str = "lt",
+        width_override: int | None = None,
     ):
         """Render background box behind text with padding and optional rounded corners.
 
@@ -1723,7 +1726,7 @@ class Canvas:
         """
         # Get text dimensions from bounding box
         bbox = font.getbbox(text, anchor=anchor)
-        text_width = int(bbox[2] - bbox[0])
+        text_width = width_override if width_override is not None else int(bbox[2] - bbox[0])
         text_height = int(bbox[3] - bbox[1])
 
         # Parse padding (supports uniform, 2-value, or 4-value formats)
@@ -1741,15 +1744,16 @@ class Canvas:
         )
 
         # Draw background shape (rounded rectangle or normal rectangle)
+        # Use (bg_width - 1, bg_height - 1) so arcs are not clipped at image boundary
         if background.border_radius > 0:
             self._draw_rounded_rectangle(
                 bg_draw,
-                [(0, 0), (bg_width, bg_height)],
+                [(0, 0), (bg_width - 1, bg_height - 1)],
                 background.border_radius,
                 fill=bg_color,
             )
         else:
-            bg_draw.rectangle([(0, 0), (bg_width, bg_height)], fill=bg_color)
+            bg_draw.rectangle([(0, 0), (bg_width - 1, bg_height - 1)], fill=bg_color)
 
         # Calculate paste position
         # bbox[0], bbox[1] are the text bounding box offsets from the anchor point
