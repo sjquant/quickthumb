@@ -2008,3 +2008,90 @@ class TestRendering:
             # Then: Should render an orange rectangle rotated 45 degrees
             with open(output_path, "rb") as f:
                 assert f.read() == external_file("snapshots/shape_with_rotation.png")
+
+    @pytest.mark.parametrize(
+        "blur, suffix",
+        [
+            (5, "soft"),
+            (15, "heavy"),
+        ],
+    )
+    def test_snapshot_background_blur(self, blur, suffix):
+        """Snapshot test for background blur filter effect"""
+        from quickthumb import Canvas
+
+        canvas = Canvas(400, 300).background(
+            image="tests/fixtures/sample_image.jpg",
+            blur=blur,
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file(f"snapshots/background_blur_{suffix}.png")
+
+    @pytest.mark.parametrize(
+        "saturation, suffix",
+        [
+            (0.0, "grayscale"),
+            (2.0, "vivid"),
+        ],
+    )
+    def test_snapshot_background_saturation(self, saturation, suffix):
+        """Snapshot test for background saturation filter effect"""
+        from quickthumb import Canvas
+
+        canvas = Canvas(400, 300).background(
+            image="tests/fixtures/sample_image.jpg",
+            saturation=saturation,
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file(f"snapshots/background_saturation_{suffix}.png")
+
+    @pytest.mark.parametrize(
+        "contrast, suffix",
+        [
+            (0.5, "low"),
+            (2.0, "high"),
+        ],
+    )
+    def test_snapshot_background_contrast(self, contrast, suffix):
+        """Snapshot test for background contrast filter effect"""
+        from quickthumb import Canvas
+
+        canvas = Canvas(400, 300).background(
+            image="tests/fixtures/sample_image.jpg",
+            contrast=contrast,
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file(f"snapshots/background_contrast_{suffix}.png")
+
+    def test_snapshot_background_combined_filters(self):
+        """Snapshot test for background with blur, contrast, and saturation combined"""
+        from quickthumb import Canvas
+
+        canvas = Canvas(400, 300).background(
+            image="tests/fixtures/sample_image.jpg",
+            blur=5,
+            contrast=1.5,
+            saturation=0.5,
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/background_combined_filters.png")

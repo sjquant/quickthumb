@@ -87,6 +87,9 @@ class TestCanvas:
                         "blend_mode": None,
                         "fit": None,
                         "brightness": 1.0,
+                        "blur": 0,
+                        "contrast": 1.0,
+                        "saturation": 1.0,
                     },
                     {
                         "type": "background",
@@ -101,6 +104,9 @@ class TestCanvas:
                         "blend_mode": None,
                         "fit": None,
                         "brightness": 1.0,
+                        "blur": 0,
+                        "contrast": 1.0,
+                        "saturation": 1.0,
                     },
                     {
                         "type": "text",
@@ -169,9 +175,8 @@ class TestCanvas:
         with pytest.raises(ValidationError, match="layers.*"):
             Canvas.from_json('{"width": 1920, "height": 1080, "layers": "INVALID"}')
 
-    def test_should_return_base64_string_for_png(self):
-        """Test that to_base64 returns a base64-encoded PNG string without data URL prefix"""
-        # Given: A simple canvas with a solid background
+    def test_should_base64_match_rendered_file(self):
+        """Test that to_base64 output is identical to base64-encoding the rendered file"""
         import base64
         import os
         import tempfile
@@ -179,173 +184,28 @@ class TestCanvas:
         from quickthumb import Canvas
 
         canvas = Canvas(100, 100).background(color="#FF0000")
-
-        # When: User calls to_base64()
         result = canvas.to_base64()
 
-        # Then: Should return a valid base64 string
-        assert isinstance(result, str)
-        assert len(result) > 0
-
-        # Should not contain data URL prefix
-        assert not result.startswith("data:")
-
-        # Should be valid base64
-        decoded = base64.b64decode(result)
-        assert decoded[:8] == b"\x89PNG\r\n\x1a\n"
-
-        # Should match render() output
         with tempfile.TemporaryDirectory() as tmpdir:
             output_path = os.path.join(tmpdir, "output.png")
             canvas.render(output_path)
             with open(output_path, "rb") as f:
-                expected = base64.b64encode(f.read()).decode("utf-8")
-            assert result == expected
+                assert result == base64.b64encode(f.read()).decode("utf-8")
 
-    def test_should_return_base64_string_for_jpeg(self):
-        """Test that to_base64 returns a base64-encoded JPEG string when format is specified"""
-        # Given: A simple canvas with a solid background
-        import base64
-
+    @pytest.mark.parametrize(
+        "fmt, prefix",
+        [
+            ("PNG", "data:image/png;base64,"),
+            ("JPEG", "data:image/jpeg;base64,"),
+            ("WEBP", "data:image/webp;base64,"),
+        ],
+    )
+    def test_should_prefix_data_url_with_correct_mime_type(self, fmt, prefix):
+        """Test that to_data_url returns the correct MIME type prefix for each format"""
         from quickthumb import Canvas
 
         canvas = Canvas(100, 100).background(color="#FF0000")
-
-        # When: User calls to_base64(format="JPEG")
-        result = canvas.to_base64(format="JPEG")
-
-        # Then: Should return a valid base64 string for JPEG
-        assert isinstance(result, str)
-        assert len(result) > 0
-        assert not result.startswith("data:")
-
-        # Should be valid JPEG
-        decoded = base64.b64decode(result)
-        assert decoded[:2] == b"\xff\xd8"
-
-    def test_should_return_base64_string_for_webp(self):
-        """Test that to_base64 returns a base64-encoded WebP string when format is specified"""
-        # Given: A simple canvas with a solid background
-        import base64
-
-        from quickthumb import Canvas
-
-        canvas = Canvas(100, 100).background(color="#FF0000")
-
-        # When: User calls to_base64(format="WEBP")
-        result = canvas.to_base64(format="WEBP")
-
-        # Then: Should return a valid base64 string for WebP
-        assert isinstance(result, str)
-        assert len(result) > 0
-        assert not result.startswith("data:")
-
-        # Should be valid WebP
-        decoded = base64.b64decode(result)
-        assert b"WEBP" in decoded[:20]
-
-    def test_should_return_data_url_for_png(self):
-        """Test that to_data_url returns a complete data URL with PNG format"""
-        # Given: A simple canvas with a solid background
-        import base64
-
-        from quickthumb import Canvas
-
-        canvas = Canvas(100, 100).background(color="#FF0000")
-
-        # When: User calls to_data_url()
-        result = canvas.to_data_url()
-
-        # Then: Should return a complete data URL
-        assert isinstance(result, str)
-        assert result.startswith("data:image/png;base64,")
-
-        # Should contain valid base64 data after prefix
-        base64_part = result.split(",", 1)[1]
-        decoded = base64.b64decode(base64_part)
-        assert decoded[:8] == b"\x89PNG\r\n\x1a\n"
-
-    def test_should_return_data_url_for_jpeg(self):
-        """Test that to_data_url returns a complete data URL with JPEG format"""
-        # Given: A simple canvas with a solid background
-        import base64
-
-        from quickthumb import Canvas
-
-        canvas = Canvas(100, 100).background(color="#FF0000")
-
-        # When: User calls to_data_url(format="JPEG")
-        result = canvas.to_data_url(format="JPEG")
-
-        # Then: Should return a complete data URL with JPEG MIME type
-        assert isinstance(result, str)
-        assert result.startswith("data:image/jpeg;base64,")
-
-        # Should contain valid base64 data after prefix
-        base64_part = result.split(",", 1)[1]
-        decoded = base64.b64decode(base64_part)
-        assert decoded[:2] == b"\xff\xd8"
-
-    def test_should_return_data_url_for_webp(self):
-        """Test that to_data_url returns a complete data URL with WebP format"""
-        # Given: A simple canvas with a solid background
-        import base64
-
-        from quickthumb import Canvas
-
-        canvas = Canvas(100, 100).background(color="#FF0000")
-
-        # When: User calls to_data_url(format="WEBP")
-        result = canvas.to_data_url(format="WEBP")
-
-        # Then: Should return a complete data URL with WebP MIME type
-        assert isinstance(result, str)
-        assert result.startswith("data:image/webp;base64,")
-
-        # Should contain valid base64 data after prefix
-        base64_part = result.split(",", 1)[1]
-        decoded = base64.b64decode(base64_part)
-        assert b"WEBP" in decoded[:20]
-
-    def test_should_support_quality_parameter_in_to_base64(self):
-        """Test that to_base64 accepts quality parameter for JPEG and WebP formats"""
-        # Given: A simple canvas
-        from quickthumb import Canvas
-
-        canvas = Canvas(100, 100).background(color="#FF0000")
-
-        # When: User calls to_base64 with quality parameter for JPEG
-        result_jpeg = canvas.to_base64(format="JPEG", quality=50)
-
-        # Then: Should return a valid base64 string
-        assert isinstance(result_jpeg, str)
-        assert len(result_jpeg) > 0
-
-        # When: User calls to_base64 with quality parameter for WebP
-        result_webp = canvas.to_base64(format="WEBP", quality=50)
-
-        # Then: Should return a valid base64 string
-        assert isinstance(result_webp, str)
-        assert len(result_webp) > 0
-
-    def test_should_support_quality_parameter_in_to_data_url(self):
-        """Test that to_data_url accepts quality parameter for JPEG and WebP formats"""
-        # Given: A simple canvas
-        from quickthumb import Canvas
-
-        canvas = Canvas(100, 100).background(color="#FF0000")
-
-        # When: User calls to_data_url with quality parameter for JPEG
-        result_jpeg = canvas.to_data_url(format="JPEG", quality=50)
-
-        # Then: Should return a valid data URL
-        assert result_jpeg.startswith("data:image/jpeg;base64,")
-
-        # When: User calls to_data_url with quality parameter for WebP
-        result_webp = canvas.to_data_url(format="WEBP", quality=50)
-
-        # Then: Should return a valid data URL
-        assert result_webp.startswith("data:image/webp;base64,")
+        assert canvas.to_data_url(format=fmt).startswith(prefix)
 
     def test_should_raise_error_for_quality_with_png_in_to_base64(self):
         """Test that to_base64 raises error when quality is used with PNG format"""

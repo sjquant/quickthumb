@@ -45,7 +45,7 @@
 ### High Priority
 
 - ✅ Shape layers — Rectangle and ellipse primitives with fill color, stroke, border radius, opacity, rotation, and alignment. API: `canvas.shape(shape="rectangle", position=(x, y), width=300, height=200, color="#FF5733", stroke_color="#000000", stroke_width=2, border_radius=10)`
-- [ ] Blur/filter effects on background layers — `blur` (Gaussian blur radius), `contrast`, and `saturation` adjustments. API: `canvas.background(image="...", blur=10, contrast=1.2, saturation=0.8)`
+- ✅ Blur/filter effects on background layers — `blur` (Gaussian blur radius), `contrast`, and `saturation` adjustments. API: `canvas.background(image="...", blur=10, contrast=1.2, saturation=0.8)`
 
 ### Medium Priority
 

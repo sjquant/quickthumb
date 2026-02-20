@@ -96,6 +96,9 @@ class Canvas:
         blend_mode: BlendMode | str | None = None,
         fit: FitMode | str | None = None,
         brightness: float = 1.0,
+        blur: int = 0,
+        contrast: float = 1.0,
+        saturation: float = 1.0,
     ) -> Self:
         layer = BackgroundLayer(
             type="background",
@@ -106,6 +109,9 @@ class Canvas:
             blend_mode=blend_mode,  # type: ignore
             fit=fit,  # type: ignore
             brightness=brightness,
+            blur=blur,
+            contrast=contrast,
+            saturation=saturation,
         )
         self._layers.append(layer)
         return self
@@ -384,6 +390,15 @@ class Canvas:
         if layer.brightness != 1.0:
             layer_image = self._apply_brightness(layer_image, layer.brightness)
 
+        if layer.blur > 0:
+            layer_image = self._apply_blur(layer_image, layer.blur)
+
+        if layer.contrast != 1.0:
+            layer_image = self._apply_contrast(layer_image, layer.contrast)
+
+        if layer.saturation != 1.0:
+            layer_image = self._apply_saturation(layer_image, layer.saturation)
+
         if layer.opacity < 1.0 and not layer.color:
             layer_image = self._apply_opacity(layer_image, layer.opacity)
 
@@ -432,6 +447,21 @@ class Canvas:
 
         enhancer = ImageEnhance.Brightness(image)
         return enhancer.enhance(brightness)
+
+    def _apply_blur(self, image: Image.Image, radius: int) -> Image.Image:
+        alpha = image.split()[3] if image.mode == "RGBA" else None
+        blurred = image.filter(ImageFilter.GaussianBlur(radius=radius))
+        if alpha is not None and blurred.mode == "RGBA":
+            blurred.putalpha(alpha)
+        return blurred
+
+    def _apply_contrast(self, image: Image.Image, contrast: float) -> Image.Image:
+        enhancer = ImageEnhance.Contrast(image)
+        return enhancer.enhance(contrast)
+
+    def _apply_saturation(self, image: Image.Image, saturation: float) -> Image.Image:
+        enhancer = ImageEnhance.Color(image)
+        return enhancer.enhance(saturation)
 
     def _apply_opacity_to_color(self, color: tuple[int, ...], opacity: float) -> tuple[int, ...]:
         r, g, b = color[:3]

@@ -317,6 +317,23 @@ class BackgroundLayer(QuickThumbModel):
         FitMode | None, AfterValidator(lambda v: enum_converter(FitMode)(v) if v else None)
     ] = None
     brightness: PositiveFloat = 1.0
+    blur: int = 0
+    contrast: PositiveFloat = 1.0
+    saturation: float = 1.0
+
+    @field_validator("blur")
+    @classmethod
+    def validate_blur(cls, v: int) -> int:
+        if v < 0:
+            raise ValueError("blur must be non-negative")
+        return v
+
+    @field_validator("saturation")
+    @classmethod
+    def validate_saturation(cls, v: float) -> float:
+        if v < 0.0:
+            raise ValueError("saturation must be non-negative")
+        return v
 
     @field_validator("color")
     @classmethod
