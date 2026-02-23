@@ -448,6 +448,7 @@ class ImageLayer(QuickThumbModel):
     rotation: float = 0
     remove_background: bool = False
     align: AlignWithVHTuple = Align.TOP_LEFT
+    border_radius: NonNegativeInt = 0
 
     @field_validator("position", mode="before")
     @classmethod

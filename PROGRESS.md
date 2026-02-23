@@ -49,7 +49,7 @@
 
 ### Medium Priority
 
-- [ ] Rounded corners on image layers — Clip image to rounded rectangle mask. API: `canvas.image(..., border_radius=20)`
+- ✅ Rounded corners on image layers — Clip image to rounded rectangle mask. API: `canvas.image(..., border_radius=20)`
 - [ ] Drop shadow on image layers — Cast shadow from image alpha shape. API: `canvas.image(..., shadow=Shadow(offset_x=5, offset_y=5, color="#000000", blur_radius=10))`
 
 ### Low Priority

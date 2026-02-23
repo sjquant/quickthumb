@@ -156,6 +156,37 @@ class TestImageLayerBackgroundRemoval:
                 sys.modules["rembg"] = saved
 
 
+class TestImageLayerBorderRadius:
+    """Test suite for image layer border_radius (rounded corners)"""
+
+    def test_should_accept_border_radius_on_image_layer(self):
+        """Test that Canvas.image() accepts border_radius and stores it in the layer"""
+        from quickthumb import Canvas
+
+        canvas = Canvas(400, 300)
+        result = canvas.image(path="assets/logo.png", position=(0, 0), width=200, border_radius=20)
+
+        assert result is canvas
+        assert canvas.layers[0] == snapshot(
+            ImageLayer(
+                type="image",
+                path="assets/logo.png",
+                position=(0, 0),
+                width=200,
+                border_radius=20,
+            )
+        )
+
+    def test_should_reject_negative_border_radius(self):
+        """Test that negative border_radius raises ValidationError"""
+        from quickthumb import Canvas
+
+        canvas = Canvas(400, 300)
+
+        with pytest.raises(ValidationError, match="border_radius.*greater than or equal to 0"):
+            canvas.image(path="assets/logo.png", position=(0, 0), border_radius=-1)
+
+
 class TestImageLayerSerialization:
     """Test suite for JSON serialization/deserialization"""
 
@@ -208,6 +239,7 @@ class TestImageLayerSerialization:
             "rotation": 45,
             "remove_background": False,
             "align": "center",
+            "border_radius": 0,
         }
 
     def test_should_deserialize_image_layer_from_json(self):
@@ -306,6 +338,7 @@ class TestImageLayerSerialization:
                         "rotation": 0.0,
                         "remove_background": False,
                         "align": "top-left",
+                        "border_radius": 0,
                     }
                 ],
             }

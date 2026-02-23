@@ -211,6 +211,7 @@ class Canvas:
         rotation: float = 0,
         align: Align | str | tuple[str, str] = Align.TOP_LEFT,
         remove_background: bool = False,
+        border_radius: int = 0,
     ) -> Self:
         """Add an image overlay layer to the canvas.
 
@@ -240,6 +241,7 @@ class Canvas:
             rotation=rotation,
             remove_background=remove_background,
             align=align,  # type: ignore[arg-type]  # Pydantic validator handles conversion
+            border_radius=border_radius,
         )
         self._layers.append(layer)
         return self
@@ -575,6 +577,9 @@ class Canvas:
         if layer.width or layer.height:
             img = self._resize_image(img, layer.width, layer.height)
 
+        if layer.border_radius > 0:
+            img = self._apply_border_radius(img, layer.border_radius)
+
         if layer.rotation != 0:
             img = img.rotate(-layer.rotation, expand=True, resample=Image.Resampling.BICUBIC)
 
@@ -588,6 +593,16 @@ class Canvas:
             x, y = self._apply_image_alignment(x, y, img.size, layer.align)
 
         image.alpha_composite(img, (x, y))
+
+    def _apply_border_radius(self, img: Image.Image, radius: int) -> Image.Image:
+        """Clip image to a rounded rectangle mask."""
+        w, h = img.size
+        mask = Image.new("L", (w, h), 0)
+        draw = ImageDraw.Draw(mask)
+        draw.rounded_rectangle([0, 0, w - 1, h - 1], radius=radius, fill=255)
+        result = img.copy()
+        result.putalpha(mask)
+        return result
 
     def _remove_background(self, img: Image.Image) -> Image.Image:
         try:
