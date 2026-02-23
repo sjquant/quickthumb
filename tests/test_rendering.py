@@ -2096,6 +2096,29 @@ class TestRendering:
             with open(output_path, "rb") as f:
                 assert f.read() == external_file("snapshots/background_combined_filters.png")
 
+    def test_snapshot_image_with_drop_shadow(self):
+        """Snapshot test for image layer with drop shadow cast from image alpha shape"""
+        from quickthumb import Canvas, Shadow
+
+        canvas = (
+            Canvas(400, 300)
+            .background(color="#F0F0F0")
+            .image(
+                path="tests/fixtures/sample_image.jpg",
+                position=("50%", "50%"),
+                width=200,
+                align=("middle", "center"),
+                effects=[Shadow(offset_x=8, offset_y=8, color="#000000", blur_radius=10)],
+            )
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/image_with_drop_shadow.png")
+
     def test_snapshot_image_with_border_radius(self):
         """Snapshot test for image layer with rounded corners via border_radius"""
         from quickthumb import Canvas

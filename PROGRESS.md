@@ -37,6 +37,7 @@
 - ✅ Image overlay with position (pixels/percentages), sizing (aspect ratio preserved), opacity, rotation, and alignment
 - ✅ URL and local path support, JSON serialization, method chaining
 - ✅ Background removal for image layers via `remove_background=True` (requires `quickthumb[rembg]`)
+- ✅ `effects` list on image layers (mirrors TextLayer), currently supports `Shadow`
 
 ---
 
@@ -50,7 +51,11 @@
 ### Medium Priority
 
 - ✅ Rounded corners on image layers — Clip image to rounded rectangle mask. API: `canvas.image(..., border_radius=20)`
-- [ ] Drop shadow on image layers — Cast shadow from image alpha shape. API: `canvas.image(..., shadow=Shadow(offset_x=5, offset_y=5, color="#000000", blur_radius=10))`
+- ✅ Drop shadow on image layers — Cast shadow from image alpha shape. API: `canvas.image(..., effects=[Shadow(offset_x=5, offset_y=5, color="#000000", blur_radius=10)])`
+
+### Medium Priority (Image Effects)
+
+- [ ] Image content filters — `blur`, `brightness`, `contrast`, `saturation` on image overlay layers, matching the same parameters already available on background layers. API: `canvas.image(..., blur=5, brightness=0.8, contrast=1.2, saturation=0.5)`
 
 ### Low Priority
 

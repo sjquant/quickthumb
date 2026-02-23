@@ -236,10 +236,11 @@ class TestImageLayerSerialization:
             "width": 200,
             "height": 150,
             "opacity": 0.8,
-            "rotation": 45,
+            "rotation": 45.0,
             "remove_background": False,
             "align": "center",
             "border_radius": 0,
+            "effects": [],
         }
 
     def test_should_deserialize_image_layer_from_json(self):
@@ -339,9 +340,97 @@ class TestImageLayerSerialization:
                         "remove_background": False,
                         "align": "top-left",
                         "border_radius": 0,
+                        "effects": [],
                     }
                 ],
             }
+        )
+
+    def test_should_serialize_image_with_effects_to_json(self):
+        """Test that image layer with effects serializes the effects field correctly"""
+        import json
+
+        from quickthumb import Canvas, Shadow
+
+        canvas = Canvas(400, 300)
+        canvas.image(
+            path="assets/logo.png",
+            position=(50, 50),
+            width=200,
+            effects=[Shadow(offset_x=5, offset_y=5, color="#000000", blur_radius=10)],
+        )
+
+        data = json.loads(canvas.to_json())
+
+        assert data == snapshot(
+            {
+                "width": 400,
+                "height": 300,
+                "layers": [
+                    {
+                        "type": "image",
+                        "path": "assets/logo.png",
+                        "position": [50, 50],
+                        "width": 200,
+                        "height": None,
+                        "opacity": 1.0,
+                        "rotation": 0.0,
+                        "remove_background": False,
+                        "align": "top-left",
+                        "border_radius": 0,
+                        "effects": [
+                            {
+                                "type": "shadow",
+                                "offset_x": 5,
+                                "offset_y": 5,
+                                "color": "#000000",
+                                "blur_radius": 10,
+                            }
+                        ],
+                    }
+                ],
+            }
+        )
+
+    def test_should_deserialize_image_with_effects_from_json(self):
+        """Test that image layer with effects deserializes correctly"""
+        import json
+
+        from quickthumb import Canvas, Shadow
+        from quickthumb.models import ImageLayer
+
+        json_data = {
+            "width": 400,
+            "height": 300,
+            "layers": [
+                {
+                    "type": "image",
+                    "path": "assets/logo.png",
+                    "position": [50, 50],
+                    "width": 200,
+                    "effects": [
+                        {
+                            "type": "shadow",
+                            "offset_x": 5,
+                            "offset_y": 5,
+                            "color": "#000000",
+                            "blur_radius": 10,
+                        }
+                    ],
+                }
+            ],
+        }
+
+        canvas = Canvas.from_json(json.dumps(json_data))
+
+        assert canvas.layers[0] == snapshot(
+            ImageLayer(
+                type="image",
+                path="assets/logo.png",
+                position=(50, 50),
+                width=200,
+                effects=[Shadow(offset_x=5, offset_y=5, color="#000000", blur_radius=10)],
+            )
         )
 
     def test_should_deserialize_percentage_position_from_json(self):

@@ -277,6 +277,8 @@ class Background(QuickThumbModel):
 
 TextEffect = Annotated[Stroke | Shadow | Glow | Background, Discriminator("type")]
 
+ImageEffect = Shadow
+
 
 class TextPart(QuickThumbModel):
     text: str
@@ -449,6 +451,7 @@ class ImageLayer(QuickThumbModel):
     remove_background: bool = False
     align: AlignWithVHTuple = Align.TOP_LEFT
     border_radius: NonNegativeInt = 0
+    effects: list[ImageEffect] = []
 
     @field_validator("position", mode="before")
     @classmethod

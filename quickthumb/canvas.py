@@ -21,6 +21,7 @@ from quickthumb.models import (
     CanvasModel,
     FitMode,
     Glow,
+    ImageEffect,
     ImageLayer,
     LayerType,
     LinearGradient,
@@ -212,6 +213,7 @@ class Canvas:
         align: Align | str | tuple[str, str] = Align.TOP_LEFT,
         remove_background: bool = False,
         border_radius: int = 0,
+        effects: list[ImageEffect] | None = None,
     ) -> Self:
         """Add an image overlay layer to the canvas.
 
@@ -242,6 +244,7 @@ class Canvas:
             remove_background=remove_background,
             align=align,  # type: ignore[arg-type]  # Pydantic validator handles conversion
             border_radius=border_radius,
+            effects=effects or [],
         )
         self._layers.append(layer)
         return self
@@ -592,7 +595,35 @@ class Canvas:
         if layer.align != Align.TOP_LEFT:
             x, y = self._apply_image_alignment(x, y, img.size, layer.align)
 
+        for effect in layer.effects:
+            if isinstance(effect, Shadow):
+                self._apply_image_shadow(image, img, x, y, effect)
+
         image.alpha_composite(img, (x, y))
+
+    def _apply_image_shadow(
+        self, canvas: Image.Image, img: Image.Image, x: int, y: int, shadow: Shadow
+    ):
+        """Composite a drop shadow for img onto canvas, placed behind the image."""
+        alpha = img.split()[3]
+        shadow_color = self._parse_color(shadow.color)
+        shadow_img = Image.new("RGBA", img.size, shadow_color)
+        shadow_img.putalpha(alpha)
+
+        if shadow.blur_radius > 0:
+            shadow_img = shadow_img.filter(ImageFilter.GaussianBlur(shadow.blur_radius))
+
+        sx = x + shadow.offset_x
+        sy = y + shadow.offset_y
+        src_x = max(0, -sx)
+        src_y = max(0, -sy)
+        dst_x = max(0, sx)
+        dst_y = max(0, sy)
+        w = min(shadow_img.width - src_x, canvas.width - dst_x)
+        h = min(shadow_img.height - src_y, canvas.height - dst_y)
+        if w > 0 and h > 0:
+            patch = shadow_img.crop((src_x, src_y, src_x + w, src_y + h))
+            canvas.alpha_composite(patch, (dst_x, dst_y))
 
     def _apply_border_radius(self, img: Image.Image, radius: int) -> Image.Image:
         """Clip image to a rounded rectangle mask."""
