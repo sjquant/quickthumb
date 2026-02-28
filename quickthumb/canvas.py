@@ -211,7 +211,7 @@ class Canvas:
         width: int | None = None,
         height: int | None = None,
         opacity: float = 1.0,
-        rotation: float = 0,
+        rotation: float = 0.0,
         align: Align | str | tuple[str, str] = Align.TOP_LEFT,
         remove_background: bool = False,
         border_radius: int = 0,

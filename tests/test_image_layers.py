@@ -119,7 +119,7 @@ class TestCanvasImageAPI:
             width=None,
             height=None,
             opacity=1.0,
-            rotation=0,
+            rotation=0.0,
             align=Align.TOP_LEFT,
         )
         assert len(canvas.layers) == 1

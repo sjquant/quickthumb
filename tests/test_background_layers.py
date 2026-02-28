@@ -402,6 +402,8 @@ class TestBackgroundLayers:
             ({"contrast": 0.0}, "contrast"),
             ({"contrast": -1.0}, "contrast"),
             ({"saturation": -0.1}, "saturation"),
+            ({"opacity": -0.1}, "opacity"),
+            ({"opacity": 1.1}, "opacity"),
         ],
     )
     def test_should_raise_error_for_invalid_filter_params(self, kwargs, match):

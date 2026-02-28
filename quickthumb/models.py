@@ -411,7 +411,7 @@ class ImageLayer(QuickThumbModel):
     width: PositiveInt | None = None
     height: PositiveInt | None = None
     opacity: OpacityField = 1.0
-    rotation: float = 0
+    rotation: float = 0.0
     remove_background: bool = False
     align: AlignWithHVTuple = Align.TOP_LEFT
     border_radius: NonNegativeInt = 0
