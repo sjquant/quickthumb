@@ -244,6 +244,8 @@ TextEffect = Annotated[Stroke | Shadow | Glow | Background, Discriminator("type"
 
 ImageEffect = Annotated[Stroke | Shadow | Glow, Discriminator("type")]
 
+ShapeEffect = Annotated[Stroke | Shadow | Glow, Discriminator("type")]
+
 
 class TextPart(QuickThumbModel):
     text: str
@@ -456,12 +458,11 @@ class ShapeLayer(QuickThumbModel):
     width: PositiveInt
     height: PositiveInt
     color: HexColor
-    stroke_color: HexColor | None = None
-    stroke_width: PositiveInt | None = None
     border_radius: NonNegativeInt = 0
     opacity: float = 1.0
     rotation: float = 0.0
     align: AlignWithHVTuple = None
+    effects: list[ShapeEffect] = []
 
     @field_validator("position", mode="before")
     @classmethod

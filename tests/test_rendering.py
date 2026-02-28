@@ -1903,22 +1903,25 @@ class TestRendering:
             with open(output_path, "rb") as f:
                 assert f.read() == external_file("snapshots/shape_ellipse_basic.png")
 
-    def test_snapshot_shape_rectangle_with_stroke(self):
-        """Snapshot test for rectangle shape with stroke outline"""
-        from quickthumb import Canvas
+    def test_snapshot_shape_with_effects(self):
+        """Snapshot test for shape layer with stroke, shadow, and glow effects"""
+        from quickthumb import Canvas, Glow, Shadow, Stroke
 
-        # Given: Canvas with a rectangle that has a stroke
         canvas = (
             Canvas(400, 300)
-            .background(color="#FFFFFF")
+            .background(color="#1a1a2e")
             .shape(
                 shape="rectangle",
-                position=(100, 75),
+                position=("50%", "50%"),
                 width=200,
-                height=150,
+                height=120,
                 color="#2ECC71",
-                stroke_color="#1A8A4A",
-                stroke_width=4,
+                align=("center", "middle"),
+                effects=[
+                    Shadow(offset_x=6, offset_y=6, color="#000000", blur_radius=8),
+                    Glow(color="#2ECC71", radius=12, opacity=0.8),
+                    Stroke(width=4, color="#1A8A4A"),
+                ],
             )
         )
 
@@ -1926,9 +1929,8 @@ class TestRendering:
             output_path = os.path.join(tmpdir, "output.png")
             canvas.render(output_path)
 
-            # Then: Should render a green rectangle with a darker green outline
             with open(output_path, "rb") as f:
-                assert f.read() == external_file("snapshots/shape_rectangle_with_stroke.png")
+                assert f.read() == external_file("snapshots/shape_with_effects.png")
 
     def test_snapshot_shape_rectangle_with_border_radius(self):
         """Snapshot test for rectangle with rounded corners"""

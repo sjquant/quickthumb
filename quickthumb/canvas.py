@@ -28,6 +28,7 @@ from quickthumb.models import (
     OutlineLayer,
     RadialGradient,
     Shadow,
+    ShapeEffect,
     ShapeLayer,
     Stroke,
     TextEffect,
@@ -178,12 +179,11 @@ class Canvas:
         width: int,
         height: int,
         color: str,
-        stroke_color: str | None = None,
-        stroke_width: int | None = None,
         border_radius: int = 0,
         opacity: float = 1.0,
         rotation: float = 0.0,
         align: Align | str | tuple[str, str] | None = None,
+        effects: list[ShapeEffect] | None = None,
     ) -> Self:
         layer = ShapeLayer(
             type="shape",
@@ -192,12 +192,11 @@ class Canvas:
             width=width,
             height=height,
             color=color,
-            stroke_color=stroke_color,
-            stroke_width=stroke_width,
             border_radius=border_radius,
             opacity=opacity,
             rotation=rotation,
             align=align,  # type: ignore[arg-type]  # Pydantic validator handles conversion
+            effects=effects or [],
         )
         self._layers.append(layer)
         return self
@@ -531,8 +530,6 @@ class Canvas:
         y = self._parse_coordinate(layer.position[1], self.height)
 
         fill_color = self._parse_color(layer.color)
-        stroke_color = self._parse_color(layer.stroke_color) if layer.stroke_color else None
-        stroke_width = layer.stroke_width if stroke_color else 0
 
         # Draw shape on a temp image (shape-sized) so rotation/opacity work cleanly
         shape_img = Image.new("RGBA", (layer.width, layer.height), (0, 0, 0, 0))
@@ -540,15 +537,9 @@ class Canvas:
         bbox = [0, 0, layer.width - 1, layer.height - 1]
 
         if layer.shape == "rectangle":
-            draw.rounded_rectangle(
-                bbox,
-                radius=layer.border_radius,
-                fill=fill_color,
-                outline=stroke_color,
-                width=stroke_width or 1,
-            )
+            draw.rounded_rectangle(bbox, radius=layer.border_radius, fill=fill_color)
         else:  # ellipse
-            draw.ellipse(bbox, fill=fill_color, outline=stroke_color, width=stroke_width or 1)
+            draw.ellipse(bbox, fill=fill_color)
 
         if layer.rotation != 0:
             shape_img = shape_img.rotate(
@@ -561,6 +552,16 @@ class Canvas:
         paste_x, paste_y = x, y
         if layer.align:
             paste_x, paste_y = self._apply_image_alignment(x, y, shape_img.size, layer.align)
+
+        for effect in layer.effects:
+            if isinstance(effect, Glow):
+                self._apply_image_glow(image, shape_img, paste_x, paste_y, effect)
+            elif isinstance(effect, Shadow):
+                self._apply_image_shadow(image, shape_img, paste_x, paste_y, effect)
+
+        for effect in layer.effects:
+            if isinstance(effect, Stroke):
+                self._apply_image_stroke(image, shape_img, paste_x, paste_y, effect)
 
         image.alpha_composite(shape_img, (paste_x, paste_y))
 

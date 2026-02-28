@@ -95,29 +95,6 @@ class TestShapeLayerValidation:
                 color="#FF0000",
             )
 
-    @pytest.mark.parametrize(
-        "stroke_width,error_pattern",
-        [
-            (-1, "stroke_width.*greater than 0"),
-            (0, "stroke_width.*greater than 0"),
-        ],
-    )
-    def test_should_reject_invalid_stroke_width(self, stroke_width, error_pattern):
-        """Test that non-positive stroke_width raises ValidationError"""
-        from quickthumb import Canvas
-
-        canvas = Canvas(400, 300)
-        with pytest.raises(ValidationError, match=error_pattern):
-            canvas.shape(
-                shape="rectangle",
-                position=(0, 0),
-                width=100,
-                height=100,
-                color="#FF0000",
-                stroke_color="#000000",
-                stroke_width=stroke_width,
-            )
-
     def test_should_reject_negative_border_radius(self):
         """Test that negative border_radius raises ValidationError"""
         from quickthumb import Canvas
@@ -181,6 +158,7 @@ class TestCanvasShapeAPI:
     def test_should_store_all_optional_params(self):
         """Test that all optional params are stored correctly on the layer"""
         from quickthumb import Canvas
+        from quickthumb.models import Stroke
 
         canvas = Canvas(400, 300)
         canvas.shape(
@@ -189,8 +167,7 @@ class TestCanvasShapeAPI:
             width=160,
             height=100,
             color="#3498DB",
-            stroke_color="#1A5276",
-            stroke_width=3,
+            effects=[Stroke(width=3, color="#1A5276")],
             border_radius=0,
             opacity=0.8,
             rotation=30,
@@ -206,8 +183,7 @@ class TestCanvasShapeAPI:
                 width=160,
                 height=100,
                 color="#3498DB",
-                stroke_color="#1A5276",
-                stroke_width=3,
+                effects=[Stroke(width=3, color="#1A5276")],
                 border_radius=0,
                 opacity=0.8,
                 rotation=30.0,
@@ -220,8 +196,9 @@ class TestShapeLayerSerialization:
     """Test suite for JSON serialization/deserialization of shape layers"""
 
     def test_should_serialize_shape_layer_to_json(self):
-        """Test that canvas with shape layer serializes to correct JSON structure"""
+        """Test that canvas with shape layer (including effects) serializes to correct JSON"""
         from quickthumb import Canvas
+        from quickthumb.models import Stroke
 
         canvas = Canvas(400, 300)
         canvas.shape(
@@ -230,8 +207,7 @@ class TestShapeLayerSerialization:
             width=200,
             height=150,
             color="#FF5733",
-            stroke_color="#000000",
-            stroke_width=2,
+            effects=[Stroke(width=2, color="#000000")],
             border_radius=10,
             opacity=0.9,
             rotation=0,
@@ -246,12 +222,11 @@ class TestShapeLayerSerialization:
                 "width": 200,
                 "height": 150,
                 "color": "#FF5733",
-                "stroke_color": "#000000",
-                "stroke_width": 2,
                 "border_radius": 10,
                 "opacity": 0.9,
                 "rotation": 0.0,
                 "align": None,
+                "effects": [{"type": "stroke", "width": 2, "color": "#000000"}],
             }
         )
 
