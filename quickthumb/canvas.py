@@ -137,6 +137,7 @@ class Canvas:
         letter_spacing: int | None = None,
         auto_scale: bool = False,
         rotation: float = 0,
+        opacity: float = 1.0,
     ) -> Self:
         if content is None:
             raise ValidationError("content is required")
@@ -158,16 +159,18 @@ class Canvas:
             letter_spacing=letter_spacing,
             auto_scale=auto_scale,
             rotation=rotation,
+            opacity=opacity,
         )
         self._layers.append(layer)
         return self
 
-    def outline(self, width: int, color: str, offset: int = 0) -> Self:
+    def outline(self, width: int, color: str, offset: int = 0, opacity: float = 1.0) -> Self:
         layer = OutlineLayer(
             type="outline",
             width=width,
             color=color,
             offset=offset,
+            opacity=opacity,
         )
         self._layers.append(layer)
         return self
@@ -516,6 +519,8 @@ class Canvas:
     def _render_outline_layer(self, image: Image.Image, layer: OutlineLayer):
         draw = ImageDraw.Draw(image)
         color = self._parse_color(layer.color)
+        if layer.opacity < 1.0:
+            color = self._apply_opacity_to_color(color, layer.opacity)
 
         x1 = layer.offset
         y1 = layer.offset
@@ -759,7 +764,15 @@ class Canvas:
         return x, y
 
     def _render_text_layer(self, image: Image.Image, layer: TextLayer):
-        if isinstance(layer.content, list):
+        if layer.opacity < 1.0:
+            temp = Image.new("RGBA", image.size, (0, 0, 0, 0))
+            if isinstance(layer.content, list):
+                self._render_rich_text(temp, layer)
+            else:
+                self._render_simple_text(temp, layer)
+            self._apply_opacity(temp, layer.opacity)
+            image.alpha_composite(temp)
+        elif isinstance(layer.content, list):
             self._render_rich_text(image, layer)
         else:
             self._render_simple_text(image, layer)
@@ -933,10 +946,7 @@ class Canvas:
         return line_heights, total_height
 
     def _calculate_start_position(self, layer: TextLayer, total_height: int) -> tuple[int, int]:
-        raw_x, raw_y = layer.position if layer.position else (0, 0)
-        base_x = self._parse_coordinate(raw_x, self.width)
-        base_y = self._parse_coordinate(raw_y, self.height)
-
+        base_x, base_y = self._get_text_base_position(layer)
         start_y = self._get_vertical_start_y(base_y, total_height, layer.align)
         return base_x, start_y
 
@@ -1132,9 +1142,7 @@ class Canvas:
         line_height = self._calculate_line_height(font, line_height_multiplier)
         total_height = line_height * len(lines)
 
-        raw_x, raw_y = layer.position if layer.position else (0, 0)
-        base_x = self._parse_coordinate(raw_x, self.width)
-        base_y = self._parse_coordinate(raw_y, self.height)
+        base_x, base_y = self._get_text_base_position(layer)
 
         start_y = self._get_vertical_start_y(base_y, total_height, layer.align)
 
@@ -1167,11 +1175,21 @@ class Canvas:
             else:
                 self._draw_text(draw, line, (x, y), font, color, stroke_effects)
 
+    def _get_text_base_position(self, layer: TextLayer) -> tuple[int, int]:
+        """Return base (x, y) for text, deriving from alignment when position is not set."""
+        if layer.position is not None:
+            return (
+                self._parse_coordinate(layer.position[0], self.width),
+                self._parse_coordinate(layer.position[1], self.height),
+            )
+        if layer.align:
+            h_map = {"left": 0, "center": self.width // 2, "right": self.width}
+            v_map = {"top": 0, "middle": self.height // 2, "bottom": self.height}
+            return h_map[layer.align.horizontal], v_map[layer.align.vertical]
+        return 0, 0
+
     def _calculate_text_position(self, layer: TextLayer) -> tuple[int, int]:
-        raw_x, raw_y = layer.position if layer.position else (0, 0)
-        base_x = self._parse_coordinate(raw_x, self.width)
-        base_y = self._parse_coordinate(raw_y, self.height)
-        return base_x, base_y
+        return self._get_text_base_position(layer)
 
     def _render_text_effects(
         self,

@@ -32,6 +32,15 @@ def validate_hex_color(color: str) -> str:
 HexColor = Annotated[str, AfterValidator(validate_hex_color)]
 
 
+def _validate_opacity(v: float) -> float:
+    if v < 0.0 or v > 1.0:
+        raise ValueError("opacity must be between 0.0 and 1.0")
+    return v
+
+
+OpacityField = Annotated[float, AfterValidator(_validate_opacity)]
+
+
 # Generic enum converter
 E = TypeVar("E", bound=Enum)
 
@@ -189,14 +198,7 @@ class Glow(QuickThumbModel):
     type: Literal["glow"] = "glow"
     color: HexColor
     radius: PositiveInt
-    opacity: float = 1.0
-
-    @field_validator("opacity")
-    @classmethod
-    def validate_opacity(cls, v: float) -> float:
-        if v < 0.0 or v > 1.0:
-            raise ValueError("opacity must be between 0.0 and 1.0")
-        return v
+    opacity: OpacityField = 1.0
 
 
 class Background(QuickThumbModel):
@@ -204,7 +206,7 @@ class Background(QuickThumbModel):
     color: HexColor
     padding: int | tuple[int, int] | tuple[int, int, int, int] = 0
     border_radius: int = 0
-    opacity: float = 1.0
+    opacity: OpacityField = 1.0
 
     @field_validator("padding")
     @classmethod
@@ -230,13 +232,6 @@ class Background(QuickThumbModel):
     def validate_border_radius(cls, v: int) -> int:
         if v < 0:
             raise ValueError("border_radius cannot be negative")
-        return v
-
-    @field_validator("opacity")
-    @classmethod
-    def validate_opacity(cls, v: float) -> float:
-        if v < 0.0 or v > 1.0:
-            raise ValueError("opacity must be between 0.0 and 1.0")
         return v
 
 
@@ -278,7 +273,7 @@ class BackgroundLayer(QuickThumbModel):
     color: HexColor | tuple | None = None
     gradient: Annotated[LinearGradient | RadialGradient, Discriminator("type")] | None = None
     image: str | None = None
-    opacity: float = 1.0
+    opacity: OpacityField = 1.0
     blend_mode: Annotated[
         BlendMode | None, AfterValidator(lambda v: enum_converter(BlendMode)(v) if v else None)
     ] = None
@@ -334,6 +329,7 @@ class TextLayer(QuickThumbModel):
     letter_spacing: int | None = None
     auto_scale: bool = False
     rotation: float = 0.0
+    opacity: OpacityField = 1.0
 
     @field_validator("max_width")
     @classmethod
@@ -405,6 +401,7 @@ class OutlineLayer(QuickThumbModel):
     width: PositiveInt
     color: HexColor
     offset: NonNegativeInt = 0
+    opacity: OpacityField = 1.0
 
 
 class ImageLayer(QuickThumbModel):
@@ -413,7 +410,7 @@ class ImageLayer(QuickThumbModel):
     position: tuple
     width: PositiveInt | None = None
     height: PositiveInt | None = None
-    opacity: float = 1.0
+    opacity: OpacityField = 1.0
     rotation: float = 0
     remove_background: bool = False
     align: AlignWithHVTuple = Align.TOP_LEFT
@@ -438,13 +435,6 @@ class ImageLayer(QuickThumbModel):
 
         return tuple(v)
 
-    @field_validator("opacity")
-    @classmethod
-    def validate_opacity(cls, v: float) -> float:
-        if v < 0.0 or v > 1.0:
-            raise ValueError("opacity must be between 0.0 and 1.0")
-        return v
-
     @field_serializer("align")
     def serialize_align(self, align: Align) -> str:
         """Serialize TextAlign to its string value for JSON."""
@@ -459,7 +449,7 @@ class ShapeLayer(QuickThumbModel):
     height: PositiveInt
     color: HexColor
     border_radius: NonNegativeInt = 0
-    opacity: float = 1.0
+    opacity: OpacityField = 1.0
     rotation: float = 0.0
     align: AlignWithHVTuple = None
     effects: list[ShapeEffect] = []
@@ -481,13 +471,6 @@ class ShapeLayer(QuickThumbModel):
                         raise ValueError(f"invalid percentage format: {item}")
 
         return tuple(v)
-
-    @field_validator("opacity")
-    @classmethod
-    def validate_opacity(cls, v: float) -> float:
-        if v < 0.0 or v > 1.0:
-            raise ValueError("opacity must be between 0.0 and 1.0")
-        return v
 
     @field_serializer("align")
     def serialize_align(self, align: Align | None) -> str | None:

@@ -496,6 +496,24 @@ class TestRendering:
             with open(output_path, "rb") as f:
                 assert f.read() == external_file("snapshots/outline_with_offset.png")
 
+    def test_snapshot_text_and_outline_with_opacity(self):
+        """Snapshot test for semi-transparent text and outline layers"""
+        from quickthumb import Canvas
+
+        canvas = (
+            Canvas(400, 300)
+            .background(color="#3498DB")
+            .text("Hello", size=48, color="#FFFFFF", align=("center", "middle"), opacity=0.5)
+            .outline(width=10, color="#FF0000", opacity=0.5)
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/text_and_outline_with_opacity.png")
+
     def test_snapshot_linear_gradient_with_opacity(self):
         """Snapshot test for linear gradient with opacity applied"""
         from quickthumb import Canvas

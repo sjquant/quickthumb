@@ -184,7 +184,6 @@ class TestCanvasShapeAPI:
                 height=100,
                 color="#3498DB",
                 effects=[Stroke(width=3, color="#1A5276")],
-                border_radius=0,
                 opacity=0.8,
                 rotation=30.0,
                 align=Align.CENTER,

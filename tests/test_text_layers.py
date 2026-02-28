@@ -266,6 +266,7 @@ class TestTextLayers:
             "letter_spacing": 2,
             "auto_scale": False,
             "rotation": 0.0,
+            "opacity": 1.0,
         }
 
     def test_should_deserialize_text_layer_from_json(self):
@@ -1001,6 +1002,7 @@ class TestTextRotation:
                 "letter_spacing": None,
                 "auto_scale": False,
                 "rotation": 45.0,
+                "opacity": 1.0,
             }
         )
 
@@ -1122,6 +1124,7 @@ class TestTextEffects:
                 "letter_spacing": None,
                 "auto_scale": False,
                 "rotation": 0.0,
+                "opacity": 1.0,
             }
         )
 
@@ -1254,6 +1257,7 @@ class TestTextEffects:
                 "letter_spacing": None,
                 "auto_scale": False,
                 "rotation": 0.0,
+                "opacity": 1.0,
             }
         )
 
@@ -1392,6 +1396,7 @@ class TestTextEffects:
                 "letter_spacing": None,
                 "auto_scale": False,
                 "rotation": 0.0,
+                "opacity": 1.0,
             }
         )
 

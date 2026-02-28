@@ -111,6 +111,7 @@ class TestOutlineLayers:
             "width": 10,
             "color": "#FFFFFF",
             "offset": 5,
+            "opacity": 1.0,
         }
 
     def test_should_deserialize_outline_layer_from_json(self):
