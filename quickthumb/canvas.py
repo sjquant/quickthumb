@@ -595,8 +595,14 @@ class Canvas:
             x, y = self._apply_image_alignment(x, y, img.size, layer.align)
 
         for effect in layer.effects:
-            if isinstance(effect, Shadow):
+            if isinstance(effect, Glow):
+                self._apply_image_glow(image, img, x, y, effect)
+            elif isinstance(effect, Shadow):
                 self._apply_image_shadow(image, img, x, y, effect)
+
+        for effect in layer.effects:
+            if isinstance(effect, Stroke):
+                self._apply_image_stroke(image, img, x, y, effect)
 
         image.alpha_composite(img, (x, y))
 
@@ -622,6 +628,66 @@ class Canvas:
         h = min(shadow_img.height - src_y, canvas.height - dst_y)
         if w > 0 and h > 0:
             patch = shadow_img.crop((src_x, src_y, src_x + w, src_y + h))
+            canvas.alpha_composite(patch, (dst_x, dst_y))
+
+    def _apply_image_stroke(
+        self, canvas: Image.Image, img: Image.Image, x: int, y: int, stroke: Stroke
+    ):
+        """Composite a stroke border around the alpha shape of img onto canvas."""
+        alpha = img.split()[3]
+        w = stroke.width
+
+        # Pad the alpha with zeros so MaxFilter can dilate beyond the image edges
+        padding = w + 1
+        padded_size = (img.width + padding * 2, img.height + padding * 2)
+        padded_alpha = Image.new("L", padded_size, 0)
+        padded_alpha.paste(alpha, (padding, padding))
+
+        expanded = padded_alpha.filter(ImageFilter.MaxFilter(w * 2 + 1))
+
+        stroke_color = self._parse_color(stroke.color)
+        stroke_layer = Image.new("RGBA", padded_size, stroke_color)
+        stroke_layer.putalpha(expanded)
+
+        sx = x - padding
+        sy = y - padding
+        src_x = max(0, -sx)
+        src_y = max(0, -sy)
+        dst_x = max(0, sx)
+        dst_y = max(0, sy)
+        ww = min(stroke_layer.width - src_x, canvas.width - dst_x)
+        hh = min(stroke_layer.height - src_y, canvas.height - dst_y)
+        if ww > 0 and hh > 0:
+            patch = stroke_layer.crop((src_x, src_y, src_x + ww, src_y + hh))
+            canvas.alpha_composite(patch, (dst_x, dst_y))
+
+    def _apply_image_glow(self, canvas: Image.Image, img: Image.Image, x: int, y: int, glow: Glow):
+        """Composite a blurred glow halo around the alpha shape of img onto canvas."""
+        alpha = img.split()[3]
+        padding = glow.radius * 3
+
+        padded_size = (img.width + padding * 2, img.height + padding * 2)
+        mask = Image.new("L", padded_size, 0)
+        mask.paste(alpha, (padding, padding))
+        mask = mask.filter(ImageFilter.GaussianBlur(glow.radius))
+
+        if glow.opacity < 1.0:
+            mask = mask.point(lambda v: int(v * glow.opacity))
+
+        glow_color = self._parse_color(glow.color)
+        glow_layer = Image.new("RGBA", padded_size, glow_color)
+        glow_layer.putalpha(mask)
+
+        sx = x - padding
+        sy = y - padding
+        src_x = max(0, -sx)
+        src_y = max(0, -sy)
+        dst_x = max(0, sx)
+        dst_y = max(0, sy)
+        ww = min(glow_layer.width - src_x, canvas.width - dst_x)
+        hh = min(glow_layer.height - src_y, canvas.height - dst_y)
+        if ww > 0 and hh > 0:
+            patch = glow_layer.crop((src_x, src_y, src_x + ww, src_y + hh))
             canvas.alpha_composite(patch, (dst_x, dst_y))
 
     def _apply_border_radius(self, img: Image.Image, radius: int) -> Image.Image:

@@ -242,7 +242,7 @@ class Background(QuickThumbModel):
 
 TextEffect = Annotated[Stroke | Shadow | Glow | Background, Discriminator("type")]
 
-ImageEffect = Shadow
+ImageEffect = Annotated[Stroke | Shadow | Glow, Discriminator("type")]
 
 
 class TextPart(QuickThumbModel):

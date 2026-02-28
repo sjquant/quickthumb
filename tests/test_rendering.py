@@ -2142,3 +2142,49 @@ class TestRendering:
             # Then: Should render image clipped to a rounded rectangle
             with open(output_path, "rb") as f:
                 assert f.read() == external_file("snapshots/image_with_border_radius.png")
+
+    def test_snapshot_image_with_stroke(self):
+        """Snapshot test for image layer with stroke effect (border around alpha shape)"""
+        from quickthumb import Canvas, Stroke
+
+        canvas = (
+            Canvas(400, 300)
+            .background(color="#F0F0F0")
+            .image(
+                path="tests/fixtures/sample_image.jpg",
+                position=("50%", "50%"),
+                width=200,
+                align=("center", "middle"),
+                effects=[Stroke(width=10, color="#C81414")],
+            )
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/image_with_stroke.png")
+
+    def test_snapshot_image_with_glow(self):
+        """Snapshot test for image layer with glow effect (blurred halo around alpha shape)"""
+        from quickthumb import Canvas, Glow
+
+        canvas = (
+            Canvas(400, 300)
+            .background(color="#1a1a2e")
+            .image(
+                path="tests/fixtures/sample_image.jpg",
+                position=("50%", "50%"),
+                width=200,
+                align=("center", "middle"),
+                effects=[Glow(color="#00BFFF", radius=15, opacity=0.9)],
+            )
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/image_with_glow.png")
