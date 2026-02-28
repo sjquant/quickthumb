@@ -40,7 +40,7 @@ canvas = Canvas.from_aspect_ratio("16:9", base_width=1920)
 
 # Background layers (can call multiple times, supports blend modes)
 canvas.background(color="#FF5733", opacity=1.0, blend_mode=None)
-canvas.background(image="path/to/img.jpg", brightness=0.8, fit="cover", opacity=0.5, blend_mode="multiply")
+canvas.background(image="path/to/img.jpg", effects=[Filter(brightness=0.8)], fit="cover", opacity=0.5, blend_mode="multiply")
 canvas.background(gradient=LinearGradient(45, [("#FF5733", 0.0), ("#3333FF", 1.0)]), opacity=0.7)
 
 # Text layers (can call multiple times)

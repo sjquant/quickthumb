@@ -752,10 +752,10 @@ class TestRendering:
     )
     def test_snapshot_image_brightness(self, brightness, direction):
         """Snapshot test for image background with brightness adjustment"""
-        from quickthumb import Canvas
+        from quickthumb import Canvas, Filter
 
         canvas = Canvas(400, 300).background(
-            image="tests/fixtures/sample_image.jpg", brightness=brightness
+            image="tests/fixtures/sample_image.jpg", effects=[Filter(brightness=brightness)]
         )
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -774,9 +774,11 @@ class TestRendering:
     )
     def test_snapshot_solid_color_brightness(self, brightness, direction):
         """Snapshot test for solid color background with brightness adjustment"""
-        from quickthumb import Canvas
+        from quickthumb import Canvas, Filter
 
-        canvas = Canvas(400, 300).background(color="#3498db", brightness=brightness)
+        canvas = Canvas(400, 300).background(
+            color="#3498db", effects=[Filter(brightness=brightness)]
+        )
 
         with tempfile.TemporaryDirectory() as tmpdir:
             output_path = os.path.join(tmpdir, "output.png")
@@ -796,14 +798,16 @@ class TestRendering:
     )
     def test_snapshot_linear_gradient_brightness(self, brightness, direction):
         """Snapshot test for linear gradient with brightness adjustment"""
-        from quickthumb import Canvas
+        from quickthumb import Canvas, Filter
         from quickthumb.models import LinearGradient
 
         gradient = LinearGradient(
             type="linear", angle=45, stops=[("#FF6B6B", 0.0), ("#4ECDC4", 1.0)]
         )
 
-        canvas = Canvas(400, 300).background(gradient=gradient, brightness=brightness)
+        canvas = Canvas(400, 300).background(
+            gradient=gradient, effects=[Filter(brightness=brightness)]
+        )
 
         with tempfile.TemporaryDirectory() as tmpdir:
             output_path = os.path.join(tmpdir, "output.png")
@@ -823,14 +827,16 @@ class TestRendering:
     )
     def test_snapshot_radial_gradient_brightness(self, brightness, direction):
         """Snapshot test for radial gradient with brightness adjustment"""
-        from quickthumb import Canvas
+        from quickthumb import Canvas, Filter
         from quickthumb.models import RadialGradient
 
         gradient = RadialGradient(
             type="radial", stops=[("#FF0000", 0.0), ("#0000FF", 1.0)], center=(0.5, 0.5)
         )
 
-        canvas = Canvas(400, 300).background(gradient=gradient, brightness=brightness)
+        canvas = Canvas(400, 300).background(
+            gradient=gradient, effects=[Filter(brightness=brightness)]
+        )
 
         with tempfile.TemporaryDirectory() as tmpdir:
             output_path = os.path.join(tmpdir, "output.png")
@@ -2038,11 +2044,11 @@ class TestRendering:
     )
     def test_snapshot_background_blur(self, blur, suffix):
         """Snapshot test for background blur filter effect"""
-        from quickthumb import Canvas
+        from quickthumb import Canvas, Filter
 
         canvas = Canvas(400, 300).background(
             image="tests/fixtures/sample_image.jpg",
-            blur=blur,
+            effects=[Filter(blur=blur)],
         )
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -2061,11 +2067,11 @@ class TestRendering:
     )
     def test_snapshot_background_saturation(self, saturation, suffix):
         """Snapshot test for background saturation filter effect"""
-        from quickthumb import Canvas
+        from quickthumb import Canvas, Filter
 
         canvas = Canvas(400, 300).background(
             image="tests/fixtures/sample_image.jpg",
-            saturation=saturation,
+            effects=[Filter(saturation=saturation)],
         )
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -2084,11 +2090,11 @@ class TestRendering:
     )
     def test_snapshot_background_contrast(self, contrast, suffix):
         """Snapshot test for background contrast filter effect"""
-        from quickthumb import Canvas
+        from quickthumb import Canvas, Filter
 
         canvas = Canvas(400, 300).background(
             image="tests/fixtures/sample_image.jpg",
-            contrast=contrast,
+            effects=[Filter(contrast=contrast)],
         )
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -2100,13 +2106,11 @@ class TestRendering:
 
     def test_snapshot_background_combined_filters(self):
         """Snapshot test for background with blur, contrast, and saturation combined"""
-        from quickthumb import Canvas
+        from quickthumb import Canvas, Filter
 
         canvas = Canvas(400, 300).background(
             image="tests/fixtures/sample_image.jpg",
-            blur=5,
-            contrast=1.5,
-            saturation=0.5,
+            effects=[Filter(blur=5, contrast=1.5, saturation=0.5)],
         )
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -2208,3 +2212,42 @@ class TestRendering:
 
             with open(output_path, "rb") as f:
                 assert f.read() == external_file("snapshots/image_with_glow.png")
+
+    def test_snapshot_background_filter_effect(self):
+        """Snapshot test for background with Filter effect (blur + brightness + contrast)"""
+        from quickthumb import Canvas, Filter
+
+        canvas = Canvas(200, 150).background(
+            image="tests/fixtures/sample_image.jpg",
+            effects=[Filter(blur=3, brightness=0.6, contrast=1.4, saturation=0.5)],
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/background_filter_effect.png")
+
+    def test_snapshot_image_filter_effect(self):
+        """Snapshot test for image layer with Filter effect"""
+        from quickthumb import Canvas, Filter
+
+        canvas = (
+            Canvas(400, 300)
+            .background(color="#222222")
+            .image(
+                path="tests/fixtures/sample_image.jpg",
+                position=("50%", "50%"),
+                width=200,
+                align=("center", "middle"),
+                effects=[Filter(blur=2, brightness=0.7, saturation=0.3)],
+            )
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/image_filter_effect.png")

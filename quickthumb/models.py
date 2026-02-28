@@ -235,11 +235,28 @@ class Background(QuickThumbModel):
         return v
 
 
+class Filter(QuickThumbModel):
+    type: Literal["filter"] = "filter"
+    blur: NonNegativeInt = 0
+    brightness: PositiveFloat = 1.0
+    contrast: PositiveFloat = 1.0
+    saturation: float = 1.0
+
+    @field_validator("saturation")
+    @classmethod
+    def validate_saturation(cls, v: float) -> float:
+        if v < 0.0:
+            raise ValueError("saturation must be non-negative")
+        return v
+
+
 TextEffect = Annotated[Stroke | Shadow | Glow | Background, Discriminator("type")]
 
-ImageEffect = Annotated[Stroke | Shadow | Glow, Discriminator("type")]
+ImageEffect = Annotated[Stroke | Shadow | Glow | Filter, Discriminator("type")]
 
 ShapeEffect = Annotated[Stroke | Shadow | Glow, Discriminator("type")]
+
+BackgroundEffect = Filter
 
 
 class TextPart(QuickThumbModel):
@@ -280,24 +297,7 @@ class BackgroundLayer(QuickThumbModel):
     fit: Annotated[
         FitMode | None, AfterValidator(lambda v: enum_converter(FitMode)(v) if v else None)
     ] = None
-    brightness: PositiveFloat = 1.0
-    blur: int = 0
-    contrast: PositiveFloat = 1.0
-    saturation: float = 1.0
-
-    @field_validator("blur")
-    @classmethod
-    def validate_blur(cls, v: int) -> int:
-        if v < 0:
-            raise ValueError("blur must be non-negative")
-        return v
-
-    @field_validator("saturation")
-    @classmethod
-    def validate_saturation(cls, v: float) -> float:
-        if v < 0.0:
-            raise ValueError("saturation must be non-negative")
-        return v
+    effects: list[BackgroundEffect] = []
 
     @field_validator("color")
     @classmethod

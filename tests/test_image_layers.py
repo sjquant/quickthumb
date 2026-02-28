@@ -461,3 +461,47 @@ class TestImageLayerSerialization:
         assert canvas.layers[0] == snapshot(
             ImageLayer(type="image", path="assets/logo.png", position=("50%", "25%"), width=100)
         )
+
+    def test_should_serialize_image_with_filter_effect_to_json(self):
+        """Test that image layer with Filter effect serializes correctly (T014)"""
+        from quickthumb import Canvas, Filter
+
+        canvas = Canvas(400, 300)
+        canvas.image(
+            path="assets/logo.png",
+            position=(0, 0),
+            width=200,
+            effects=[Filter(blur=4, brightness=0.7, contrast=1.2, saturation=0.5)],
+        )
+
+        data = json.loads(canvas.to_json())
+
+        assert data == snapshot(
+            {
+                "width": 400,
+                "height": 300,
+                "layers": [
+                    {
+                        "type": "image",
+                        "path": "assets/logo.png",
+                        "position": [0, 0],
+                        "width": 200,
+                        "height": None,
+                        "opacity": 1.0,
+                        "rotation": 0.0,
+                        "remove_background": False,
+                        "align": "top-left",
+                        "border_radius": 0,
+                        "effects": [
+                            {
+                                "type": "filter",
+                                "blur": 4,
+                                "brightness": 0.7,
+                                "contrast": 1.2,
+                                "saturation": 0.5,
+                            }
+                        ],
+                    }
+                ],
+            }
+        )

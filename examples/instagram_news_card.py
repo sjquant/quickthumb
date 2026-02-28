@@ -11,7 +11,7 @@ Creates a breaking news-style Instagram card (1080x1080) with:
 
 import os
 
-from quickthumb import Canvas, FitMode, LinearGradient, TextPart
+from quickthumb import Canvas, Filter, FitMode, LinearGradient, TextPart
 from quickthumb.models import Background, Shadow, Stroke
 
 FILE_DIR = os.path.dirname(__file__)
@@ -28,7 +28,7 @@ SIZE = 1080
     .background(
         image=os.path.join(ASSETS_DIR, "images", "tobias-rademacher-wnF27F85ZKw-unsplash.jpg"),
         fit=FitMode.COVER,
-        brightness=0.75,
+        effects=[Filter(brightness=0.75)],
     )
     # 2. Dark gradient overlay — bottom two-thirds darkened for text legibility
     .background(

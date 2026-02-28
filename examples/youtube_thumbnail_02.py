@@ -10,7 +10,7 @@ Professional thumbnail with:
 
 import os
 
-from quickthumb import Canvas, FitMode, LinearGradient
+from quickthumb import Canvas, Filter, FitMode, LinearGradient
 from quickthumb.models import Background, Shadow, Stroke
 
 FILE_DIR = os.path.dirname(__file__)
@@ -29,7 +29,7 @@ HEIGHT = 720
     .background(
         image=os.path.join(ASSETS_DIR, "images", "denise-jans-WIRvXd1PYlg-unsplash.jpg"),
         fit=FitMode.COVER,
-        brightness=0.7,  # Darken original image
+        effects=[Filter(brightness=0.7)],  # Darken original image
     )
     # 2. Gradient Overlay (Dark bottom-left to transparent top-right)
     # This ensures text readability on the left side

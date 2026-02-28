@@ -16,9 +16,11 @@ from quickthumb.font_cache import FontCache
 from quickthumb.models import (
     Align,
     Background,
+    BackgroundEffect,
     BackgroundLayer,
     BlendMode,
     CanvasModel,
+    Filter,
     FitMode,
     Glow,
     ImageEffect,
@@ -97,10 +99,7 @@ class Canvas:
         opacity: float = 1.0,
         blend_mode: BlendMode | str | None = None,
         fit: FitMode | str | None = None,
-        brightness: float = 1.0,
-        blur: int = 0,
-        contrast: float = 1.0,
-        saturation: float = 1.0,
+        effects: list[BackgroundEffect] | None = None,
     ) -> Self:
         layer = BackgroundLayer(
             type="background",
@@ -110,10 +109,7 @@ class Canvas:
             opacity=opacity,
             blend_mode=blend_mode,  # type: ignore
             fit=fit,  # type: ignore
-            brightness=brightness,
-            blur=blur,
-            contrast=contrast,
-            saturation=saturation,
+            effects=effects or [],
         )
         self._layers.append(layer)
         return self
@@ -404,17 +400,8 @@ class Canvas:
         if not layer_image:
             return
 
-        if layer.brightness != 1.0:
-            layer_image = self._apply_brightness(layer_image, layer.brightness)
-
-        if layer.blur > 0:
-            layer_image = self._apply_blur(layer_image, layer.blur)
-
-        if layer.contrast != 1.0:
-            layer_image = self._apply_contrast(layer_image, layer.contrast)
-
-        if layer.saturation != 1.0:
-            layer_image = self._apply_saturation(layer_image, layer.saturation)
+        for effect in layer.effects:
+            layer_image = self._apply_filter(layer_image, effect)
 
         if layer.opacity < 1.0 and not layer.color:
             layer_image = self._apply_opacity(layer_image, layer.opacity)
@@ -479,6 +466,17 @@ class Canvas:
     def _apply_saturation(self, image: Image.Image, saturation: float) -> Image.Image:
         enhancer = ImageEnhance.Color(image)
         return enhancer.enhance(saturation)
+
+    def _apply_filter(self, image: Image.Image, effect: Filter) -> Image.Image:
+        if effect.brightness != 1.0:
+            image = self._apply_brightness(image, effect.brightness)
+        if effect.blur > 0:
+            image = self._apply_blur(image, effect.blur)
+        if effect.contrast != 1.0:
+            image = self._apply_contrast(image, effect.contrast)
+        if effect.saturation != 1.0:
+            image = self._apply_saturation(image, effect.saturation)
+        return image
 
     def _apply_opacity_to_color(self, color: tuple[int, ...], opacity: float) -> tuple[int, ...]:
         r, g, b = color[:3]
@@ -610,6 +608,10 @@ class Canvas:
 
         if layer.align is not None and layer.align != Align.TOP_LEFT:
             x, y = self._apply_image_alignment(x, y, img.size, layer.align)
+
+        for effect in layer.effects:
+            if isinstance(effect, Filter):
+                img = self._apply_filter(img, effect)
 
         for effect in layer.effects:
             if isinstance(effect, Glow):

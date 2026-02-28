@@ -9,7 +9,7 @@ Creates an eye-catching YouTube-style thumbnail with:
 
 import os
 
-from quickthumb import Canvas, TextPart
+from quickthumb import Canvas, Filter, TextPart
 from quickthumb.models import Stroke
 
 FILE_DIR = os.path.dirname(__file__)
@@ -24,7 +24,8 @@ os.environ["QUICKTHUMB_DEFAULT_FONT"] = "Roboto"
     # Add background image (placeholder - you'll add your own image here)
     # For now, using a dark background as placeholder
     .background(
-        image=os.path.join(ASSETS_DIR, "images", "c-g-JgDUVGAXsso-unsplash.jpg"), brightness=0.7
+        image=os.path.join(ASSETS_DIR, "images", "c-g-JgDUVGAXsso-unsplash.jpg"),
+        effects=[Filter(brightness=0.7)],
     )
     # Add a semi-transparent overlay to darken the background
     # This helps text stand out better

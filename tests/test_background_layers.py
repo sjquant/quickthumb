@@ -1,6 +1,7 @@
 """Tests for background layer functionality"""
 
 import pytest
+from inline_snapshot import snapshot
 
 
 class TestBackgroundLayers:
@@ -214,55 +215,19 @@ class TestBackgroundLayers:
     def test_should_serialize_background_layer_to_json(self):
         """Test that canvas with background layers can be serialized to JSON"""
         # Given: Canvas with multiple background layers
-        from quickthumb import BlendMode, Canvas, LinearGradient
+        import json
+
+        from quickthumb import BlendMode, Canvas, Filter, LinearGradient
 
         gradient = LinearGradient(angle=45, stops=[("#FFD700", 0.0), ("#FFD70000", 1.0)])
         canvas = (
             Canvas(1920, 1080)
-            .background(color="#2c3e50")
+            .background(color="#2c3e50", effects=[Filter(blur=5, brightness=0.8)])
             .background(gradient=gradient, opacity=0.5, blend_mode=BlendMode.MULTIPLY)
         )
 
-        # When: User serializes canvas to JSON
-        json_str = canvas.to_json()
-
-        # Then: JSON should contain background layers with correct structure
-        import json
-
-        data = json.loads(json_str)
-        assert data["width"] == 1920
-        assert data["height"] == 1080
-        assert len(data["layers"]) == 2
-        assert data["layers"][0] == {
-            "type": "background",
-            "color": "#2c3e50",
-            "gradient": None,
-            "image": None,
-            "opacity": 1.0,
-            "blend_mode": None,
-            "fit": None,
-            "brightness": 1.0,
-            "blur": 0,
-            "contrast": 1.0,
-            "saturation": 1.0,
-        }
-        assert data["layers"][1] == {
-            "type": "background",
-            "color": None,
-            "gradient": {
-                "type": "linear",
-                "angle": 45,
-                "stops": [["#FFD700", 0.0], ["#FFD70000", 1.0]],
-            },
-            "image": None,
-            "opacity": 0.5,
-            "blend_mode": "multiply",
-            "fit": None,
-            "brightness": 1.0,
-            "blur": 0,
-            "contrast": 1.0,
-            "saturation": 1.0,
-        }
+        # When/Then: Serialized JSON matches full expected structure
+        assert json.loads(canvas.to_json()) == snapshot({'width':1920 ,'height':1080 ,'layers':[{'type':'background','color':'#2c3e50','gradient':None ,'image':None ,'opacity':1.0 ,'blend_mode':None ,'fit':None ,'effects':[{'type':'filter','blur':5 ,'brightness':0.8 ,'contrast':1.0 ,'saturation':1.0 }]},{'type':'background','color':None ,'gradient':{'type':'linear','angle':45.0 ,'stops':[['#FFD700',0.0 ],['#FFD70000',1.0 ]]},'image':None ,'opacity':0.5 ,'blend_mode':'multiply','fit':None ,'effects':[]}]})
 
     def test_should_deserialize_background_layer_from_json(self):
         """Test that canvas with background layers can be deserialized from JSON"""
@@ -396,21 +361,33 @@ class TestBackgroundLayers:
             canvas.background(image="image.jpg", fit="invalid")
 
     @pytest.mark.parametrize(
+        "opacity, match",
+        [
+            (-0.1, "opacity"),
+            (1.1, "opacity"),
+        ],
+    )
+    def test_should_raise_error_for_invalid_background_opacity(self, opacity, match):
+        """Test that opacity outside 0-1 range raises ValidationError on BackgroundLayer"""
+        from quickthumb import Canvas, ValidationError
+
+        canvas = Canvas(100, 100)
+
+        with pytest.raises(ValidationError, match=match):
+            canvas.background(color="#FF0000", opacity=opacity)
+
+    @pytest.mark.parametrize(
         "kwargs, match",
         [
             ({"blur": -1}, "blur"),
             ({"contrast": 0.0}, "contrast"),
             ({"contrast": -1.0}, "contrast"),
             ({"saturation": -0.1}, "saturation"),
-            ({"opacity": -0.1}, "opacity"),
-            ({"opacity": 1.1}, "opacity"),
         ],
     )
     def test_should_raise_error_for_invalid_filter_params(self, kwargs, match):
-        """Test that invalid blur/contrast/saturation values raise ValidationError"""
-        from quickthumb import Canvas, ValidationError
-
-        canvas = Canvas(100, 100)
+        """Test that invalid Filter params raise ValidationError"""
+        from quickthumb import Filter, ValidationError
 
         with pytest.raises(ValidationError, match=match):
-            canvas.background(color="#FF0000", **kwargs)
+            Filter(**kwargs)
