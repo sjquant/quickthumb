@@ -223,3 +223,21 @@ class TestCanvas:
             RenderingError, match="Quality parameter is only supported for JPEG and WEBP"
         ):
             canvas.to_base64(format="PNG", quality=80)
+
+    def test_render_with_explicit_format_overrides_extension(self):
+        """Test that render() format param overrides extension-based format detection"""
+        import os
+        import tempfile
+
+        from PIL import Image
+        from quickthumb import Canvas
+
+        canvas = Canvas(100, 100).background(color="#FF0000")
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # .png extension but explicit JPEG format — JPEG should win
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path, format="JPEG")
+
+            img = Image.open(output_path)
+            assert img.format == "JPEG"

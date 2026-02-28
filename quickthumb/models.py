@@ -486,6 +486,6 @@ LayerType = Annotated[
 
 
 class CanvasModel(QuickThumbModel):
-    width: int
-    height: int
+    width: PositiveInt
+    height: PositiveInt
     layers: list[LayerType]

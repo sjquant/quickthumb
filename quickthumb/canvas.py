@@ -84,7 +84,7 @@ class Canvas:
         return self._layers
 
     @classmethod
-    def from_aspect_ratio(cls, ratio: str, base_width: int):
+    def from_aspect_ratio(cls, ratio: str, base_width: int) -> Self:
         width_ratio, height_ratio = ratio.split(":")
         calculated_height = int(base_width * int(height_ratio) / int(width_ratio))
         return cls(base_width, calculated_height)
@@ -250,10 +250,15 @@ class Canvas:
         self._layers.append(layer)
         return self
 
-    def render(self, output_path: str, quality: int | None = None):
+    def render(
+        self,
+        output_path: str,
+        format: FileFormat | None = None,
+        quality: int | None = None,
+    ):
         self._validate_image_paths()
         image = self._render_to_image()
-        self._save_to_file(image, output_path, quality)
+        self._save_to_file(image, output_path, quality, format=format)
 
     def to_json(self) -> str:
         return CanvasModel(
@@ -311,8 +316,14 @@ class Canvas:
 
         return image
 
-    def _save_to_file(self, image: Image.Image, output_path: str, quality: int | None = None):
-        file_format = self._detect_format(output_path)
+    def _save_to_file(
+        self,
+        image: Image.Image,
+        output_path: str,
+        quality: int | None = None,
+        format: FileFormat | None = None,
+    ):
+        file_format = format or self._detect_format(output_path)
         converted_image = self._convert_for_format(image, file_format)
         save_kwargs = self._build_save_kwargs(file_format, quality)
 

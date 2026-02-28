@@ -55,20 +55,15 @@ canvas.text(
     italic=False,
     weight=None,  # CSS-style font weight: 100-900 or "thin"/"bold"/"black" etc. (mutually exclusive with bold)
     max_width=None,  # For word wrapping
-    effects=None,  # list of effect objects (Stroke, Shadow, Glow, etc.)
-    background_color=None,  # Hex string for text background
-    padding=None,  # int or (horizontal, vertical) tuple
-    border_radius=None,  # int for rounded background corners
+    effects=None,  # list of effect objects (Stroke, Shadow, Glow, Background, etc.)
 )
 
-# Text with background (Badge style)
+# Text with background (Badge style) — use Background effect
 canvas.text(
     content="20:19",
     size=30,
     color="#FFFFFF",
-    background_color="#000000",
-    padding=(15, 8),
-    border_radius=10,
+    effects=[Background(color="#000000", padding=(15, 8), border_radius=10)],
 )
 
 # Image layers (Overlay images/logos)
@@ -78,7 +73,7 @@ canvas.image(
     width=200,  # width or height (preserves aspect ratio if one is None)
     opacity=1.0,
     rotation=0,  # Degrees
-    align=("top", "left"),
+    align=("left", "top"),
     remove_background=True,  # Remove background using rembg (requires quickthumb[rembg])
 )
 
@@ -153,10 +148,10 @@ json_str = canvas.to_json()          # Export canvas to JSON string
       "color": "#FFFFFF",
       "align": ["center", "middle"],
       "bold": true,
-      "effects": [{ "type": "stroke", "width": 3, "color": "#000000" }],
-      "background_color": "#000000",
-      "padding": [10, 5],
-      "border_radius": 5
+      "effects": [
+        { "type": "stroke", "width": 3, "color": "#000000" },
+        { "type": "background", "color": "#000000", "padding": [10, 5], "border_radius": 5 }
+      ]
     },
     {
       "type": "image",
@@ -286,9 +281,7 @@ Stroke(width=3, color="#000000")
     TextPart(
         text="Hello",
         color="#FF0000",  # optional, inherits from parent text layer
-        effects=None,  # optional list of effect objects
-        background_color="#FFFF00",  # Highlight specific words
-        padding=5,
+        effects=None,  # optional list of effect objects (Stroke, Shadow, Glow, Background)
     )
     ```
 
