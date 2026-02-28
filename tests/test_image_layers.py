@@ -77,10 +77,12 @@ class TestImageLayers:
     @pytest.mark.parametrize(
         "align,error_pattern",
         [
-            (("invalid", "left"), "invalid.*align"),
-            (("top", "invalid"), "invalid.*align"),
-            (("top",), "align must be a tuple of two elements"),
-            (("top", "left", "extra"), "align must be a tuple of two elements"),
+            (("invalid", "top"), "invalid.*align"),
+            (("left", "invalid"), "invalid.*align"),
+            (("left",), "align must be a tuple of two elements"),
+            (("left", "top", "extra"), "align must be a tuple of two elements"),
+            # Old VH order ("top", "left") is now rejected: "top" is not a valid horizontal
+            (("top", "left"), "invalid.*align"),
         ],
     )
     def test_should_reject_invalid_align(self, align, error_pattern):
@@ -217,7 +219,7 @@ class TestImageLayerSerialization:
             height=150,
             opacity=0.8,
             rotation=45,
-            align=("middle", "center"),
+            align=("center", "middle"),
         )
 
         # When: User serializes canvas to JSON
@@ -259,7 +261,7 @@ class TestImageLayerSerialization:
                     "height": 150,
                     "opacity": 0.8,
                     "rotation": 45,
-                    "align": ["middle", "center"],
+                    "align": ["center", "middle"],
                 }
             ],
         }
@@ -297,7 +299,7 @@ class TestImageLayerSerialization:
             width=200,
             opacity=0.8,
             rotation=45,
-            align=("middle", "center"),
+            align=("center", "middle"),
         )
 
         # When: Round-tripping through JSON

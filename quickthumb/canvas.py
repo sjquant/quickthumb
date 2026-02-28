@@ -225,10 +225,9 @@ class Canvas:
             opacity: Image opacity from 0.0 (transparent) to 1.0 (opaque)
             rotation: Rotation angle in degrees
             align: Image alignment, accepts:
-                   - TextAlign enum (e.g., TextAlign.CENTER, TextAlign.TOP_LEFT)
+                   - Align enum (e.g., Align.CENTER, Align.TOP_LEFT)
                    - String shortcut (e.g., "center", "top-left", "bottom-right")
-                   - Tuple (vertical, horizontal) for backward compatibility
-                     (e.g., ("middle", "center"))
+                   - Tuple (horizontal, vertical) (e.g., ("center", "middle"))
 
         Returns:
             Self for method chaining
@@ -592,7 +591,7 @@ class Canvas:
         x = self._parse_coordinate(layer.position[0], self.width)
         y = self._parse_coordinate(layer.position[1], self.height)
 
-        if layer.align != Align.TOP_LEFT:
+        if layer.align is not None and layer.align != Align.TOP_LEFT:
             x, y = self._apply_image_alignment(x, y, img.size, layer.align)
 
         for effect in layer.effects:
@@ -637,7 +636,7 @@ class Canvas:
 
     def _remove_background(self, img: Image.Image) -> Image.Image:
         try:
-            from rembg import remove  # type: ignore[unresolved-import]
+            from rembg import remove
         except ImportError:
             raise ImportError(
                 "rembg is required for background removal. "

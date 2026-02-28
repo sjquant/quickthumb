@@ -132,42 +132,7 @@ def _validate_align_with_hv_tuple(v: Any) -> Align | None:
     raise ValueError(f"invalid align value: {v}")
 
 
-def _validate_align_with_vh_tuple(v: Any) -> Align:
-    """Validate align value accepting (vertical, horizontal) tuple format.
-
-    Used by ImageLayer for backward compatibility.
-    Accepts: Align enum, string shortcuts, or (vertical, horizontal) tuple.
-    """
-    if isinstance(v, Align):
-        return v
-
-    if isinstance(v, str):
-        try:
-            return Align(v)
-        except ValueError:
-            raise ValueError(f"unsupported align: {v}") from None
-
-    if isinstance(v, (tuple, list)):
-        if len(v) != 2:
-            raise ValueError("align must be a tuple of two elements")
-
-        vertical, horizontal = v
-
-        if vertical not in ("top", "middle", "bottom"):
-            raise ValueError(f"invalid align value: {vertical}")
-        if horizontal not in ("left", "center", "right"):
-            raise ValueError(f"invalid align value: {horizontal}")
-
-        # Find the enum member matching this (vertical, horizontal) pair
-        for member in Align:
-            if member.vertical == vertical and member.horizontal == horizontal:
-                return member
-
-    raise ValueError(f"invalid align value: {v}")
-
-
 AlignWithHVTuple = Annotated[Align | None, BeforeValidator(_validate_align_with_hv_tuple)]
-AlignWithVHTuple = Annotated[Align, BeforeValidator(_validate_align_with_vh_tuple)]
 
 
 class QuickThumbModel(BaseModel):
@@ -449,7 +414,7 @@ class ImageLayer(QuickThumbModel):
     opacity: float = 1.0
     rotation: float = 0
     remove_background: bool = False
-    align: AlignWithVHTuple = Align.TOP_LEFT
+    align: AlignWithHVTuple = Align.TOP_LEFT
     border_radius: NonNegativeInt = 0
     effects: list[ImageEffect] = []
 

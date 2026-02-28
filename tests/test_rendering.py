@@ -1629,7 +1629,7 @@ class TestRendering:
                 path="tests/fixtures/sample_image.jpg",
                 position=("50%", "50%"),
                 width=100,
-                align=("middle", "center"),
+                align=("center", "middle"),
             )
         )
 
@@ -1845,7 +1845,7 @@ class TestRendering:
                 path="tests/fixtures/tobias-rademacher-wnF27F85ZKw-unsplash.jpg",
                 position=("50%", "50%"),
                 width=200,
-                align=("middle", "center"),
+                align=("center", "middle"),
                 remove_background=True,
             )
         )
@@ -2107,7 +2107,7 @@ class TestRendering:
                 path="tests/fixtures/sample_image.jpg",
                 position=("50%", "50%"),
                 width=200,
-                align=("middle", "center"),
+                align=("center", "middle"),
                 effects=[Shadow(offset_x=8, offset_y=8, color="#000000", blur_radius=10)],
             )
         )
