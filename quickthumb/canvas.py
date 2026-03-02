@@ -226,7 +226,6 @@ class Canvas:
                    - Align enum (e.g., Align.CENTER, Align.TOP_LEFT)
                    - String shortcut (e.g., "center", "top-left", "bottom-right")
                    - Tuple (horizontal, vertical) (e.g., ("center", "middle"))
-
         Returns:
             Self for method chaining
         """

@@ -37,7 +37,7 @@
 - ✅ Image overlay with position (pixels/percentages), sizing (aspect ratio preserved), opacity, rotation, and alignment
 - ✅ URL and local path support, JSON serialization, method chaining
 - ✅ Background removal for image layers via `remove_background=True` (requires `quickthumb[rembg]`)
-- ✅ `effects` list on image layers (mirrors TextLayer), currently supports `Shadow`
+- ✅ `effects` list on image layers (mirrors TextLayer), currently supports `Shadow`, `Stroke`, `Glow`, and `Filter`
 
 ---
 
@@ -55,7 +55,12 @@
 
 ### Medium Priority (Image Effects)
 
-- [ ] Image content filters — `blur`, `brightness`, `contrast`, `saturation` on image overlay layers, matching the same parameters already available on background layers. API: `canvas.image(..., blur=5, brightness=0.8, contrast=1.2, saturation=0.5)`
+- ✅ Image content filters — `blur`, `brightness`, `contrast`, `saturation` on image overlay layers via `effects=[Filter(...)]`, matching background-layer filter capabilities. API: `canvas.image(..., effects=[Filter(blur=5, brightness=0.8, contrast=1.2, saturation=0.5)])`
+
+### Medium Priority (Image Layer Composition)
+
+- [ ] Image layer fit modes — Add `fit` for overlays (`fill`/`contain`/`cover`) when both `width` and `height` define a target box. API: `canvas.image(..., width=300, height=200, fit="cover")`
+- [ ] Image layer blend modes — Add `blend_mode` on image overlays (`multiply`, `overlay`, `screen`, `darken`, `lighten`, `normal`) for non-alpha compositing. API: `canvas.image(..., blend_mode="multiply", opacity=0.8)`
 
 ### Low Priority
 
