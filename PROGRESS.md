@@ -65,4 +65,59 @@
 ### Low Priority
 
 - ✅ Custom layer hook — Users can inject arbitrary Pillow drawing logic as a layer via `canvas.custom(fn)` where `fn` receives the `PIL.Image.Image` and draws onto it directly, e.g. `canvas.custom(lambda img: ImageDraw.Draw(img).polygon([...], fill="#FF0000"))`
-- [ ] Extended documentation/examples
+
+### Documentation, Examples, and Adoption
+
+#### README Overhaul
+
+- [ ] Rewrite `README.md` so all code snippets match the current API exactly
+- [ ] Fix outdated/invalid examples in `README.md` (JSON schema, gradients, `canvas.image(...)`, `render(...)`, etc.)
+- [ ] Add a gallery-first introduction with rendered example images near the top
+- [ ] Reposition QuickThumb for AI-assisted thumbnail generation, not just generic image composition
+- [ ] Add an "AI-friendly workflows" section with prompt patterns for generating QuickThumb Python/JSON
+- [ ] Document environment variables such as `QUICKTHUMB_FONT_DIR` and `QUICKTHUMB_DEFAULT_FONT`
+- [ ] Add a clearer feature matrix covering text effects, image effects, shapes, rich text, filters, webfonts, and export helpers
+
+#### API Reference Cleanup
+
+- [ ] Update `DESIGN.md` to reflect the actual implemented API surface
+- [ ] Remove stale examples from `DESIGN.md` that no longer run against the codebase
+- [ ] Expand `DESIGN.md` into a reliable reference for layer types, effects, enums, JSON schema, and validation rules
+- [ ] Add an explicit "gotchas" section (e.g. `weight` vs `bold`, `auto_scale` requires `max_width`, custom layers are not JSON-serializable, webfont styling flags are ignored)
+
+#### Example Expansion
+
+- [ ] Expand `examples/README.md` so it documents every example currently shipped
+- [ ] Add more end-to-end examples for real thumbnail use cases:
+- [ ] YouTube talking-head thumbnail
+- [ ] YouTube reaction / commentary thumbnail
+- [ ] YouTube tutorial / explainer thumbnail
+- [ ] Instagram / X / social news card
+- [ ] Podcast / interview promo card
+- [ ] Shorts / vertical cover design
+- [ ] Add example outputs/screenshots for every example script
+- [ ] Add examples showing JSON-first workflows for AI agents that emit specs instead of Python
+- [ ] Add examples showing remote image URLs, webfont URLs, and background removal workflows
+
+#### Package Discoverability
+
+- [ ] Improve PyPI metadata in `pyproject.toml`
+- [ ] Add project URLs (homepage, repository, issues, documentation)
+- [ ] Add keywords related to thumbnails, social media, AI content creation, Pillow, image generation
+- [ ] Add trove classifiers so the package is easier to discover and trust
+- [ ] Align package description/tagline with the actual product direction
+
+#### Documentation Website
+
+- [ ] Create a dedicated documentation website instead of relying only on repo markdown files
+- [ ] Set up a docs framework suitable for Python library docs (for example, MkDocs Material or similar)
+- [ ] Publish documentation sections for:
+- [ ] Getting started
+- [ ] Installation and optional extras
+- [ ] Core concepts (canvas, layers, effects, composition order)
+- [ ] API reference
+- [ ] JSON schema / AI agent usage
+- [ ] Cookbook / examples gallery
+- [ ] FAQ / troubleshooting
+- [ ] Add visual comparison pages inspired by high-quality Python documentation sites
+- [ ] Make the docs site fast to scan, example-heavy, and easy for both humans and AI agents to follow
