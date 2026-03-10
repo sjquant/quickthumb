@@ -9,7 +9,7 @@ import pytest
 from inline_snapshot import snapshot
 from PIL import Image
 from quickthumb.errors import ValidationError
-from quickthumb.models import Align, ImageLayer
+from quickthumb.models import Align, FitMode, ImageLayer
 
 
 class TestImageLayers:
@@ -96,6 +96,16 @@ class TestImageLayers:
         with pytest.raises(ValidationError, match=error_pattern):
             canvas.image(path="assets/logo.png", position=(0, 0), align=align)
 
+    @pytest.mark.parametrize("fit", ["invalid", "crop", "scale"])
+    def test_should_reject_invalid_fit_mode(self, fit):
+        """Test that unsupported image fit mode raises ValidationError"""
+        from quickthumb import Canvas
+
+        canvas = Canvas(1920, 1080)
+
+        with pytest.raises(ValidationError, match="fit.*cover.*contain.*fill"):
+            canvas.image(path="assets/logo.png", position=(0, 0), width=300, height=200, fit=fit)
+
 
 class TestCanvasImageAPI:
     """Test suite for Canvas.image() method"""
@@ -107,8 +117,10 @@ class TestCanvasImageAPI:
         # Given: A canvas
         canvas = Canvas(1920, 1080)
 
-        # When: Adding an image layer
-        result = canvas.image(path="assets/logo.png", position=(50, 50))
+        # When: Adding an image layer with fit mode in a target box
+        result = canvas.image(
+            path="assets/logo.png", position=(50, 50), width=400, height=300, fit="cover"
+        )
 
         # Then: Should return self for method chaining and add correct layer
         assert result is canvas
@@ -116,11 +128,12 @@ class TestCanvasImageAPI:
             type="image",
             path="assets/logo.png",
             position=(50, 50),
-            width=None,
-            height=None,
+            width=400,
+            height=300,
             opacity=1.0,
             rotation=0.0,
             align=Align.TOP_LEFT,
+            fit=FitMode.COVER,
         )
         assert len(canvas.layers) == 1
         assert canvas.layers[0] == expected_layer
@@ -220,6 +233,7 @@ class TestImageLayerSerialization:
             opacity=0.8,
             rotation=45,
             align=("center", "middle"),
+            fit="cover",
         )
 
         # When: User serializes canvas to JSON
@@ -242,6 +256,7 @@ class TestImageLayerSerialization:
             "remove_background": False,
             "align": "center",
             "border_radius": 0,
+            "fit": "cover",
             "effects": [],
         }
 
@@ -262,6 +277,7 @@ class TestImageLayerSerialization:
                     "opacity": 0.8,
                     "rotation": 45,
                     "align": ["center", "middle"],
+                    "fit": "contain",
                 }
             ],
         }
@@ -285,7 +301,9 @@ class TestImageLayerSerialization:
             opacity=0.8,
             rotation=45,
             align=Align.CENTER,
+            fit=FitMode.CONTAIN,
         )
+        assert json.loads(canvas.to_json())["layers"][0]["fit"] == "contain"
 
     def test_should_round_trip_image_layer_through_json(self):
         """Test that canvas with image layer can be serialized and deserialized"""
@@ -342,6 +360,7 @@ class TestImageLayerSerialization:
                         "remove_background": False,
                         "align": "top-left",
                         "border_radius": 0,
+                        "fit": None,
                         "effects": [],
                     }
                 ],
@@ -380,6 +399,7 @@ class TestImageLayerSerialization:
                         "remove_background": False,
                         "align": "top-left",
                         "border_radius": 0,
+                        "fit": None,
                         "effects": [
                             {
                                 "type": "shadow",
@@ -492,6 +512,7 @@ class TestImageLayerSerialization:
                         "remove_background": False,
                         "align": "top-left",
                         "border_radius": 0,
+                        "fit": None,
                         "effects": [
                             {
                                 "type": "filter",

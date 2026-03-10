@@ -206,6 +206,7 @@ class Canvas:
         position: tuple[int, int] | tuple[str, str] | tuple[int, str] | tuple[str, int],
         width: int | None = None,
         height: int | None = None,
+        fit: FitMode | str | None = None,
         opacity: float = 1.0,
         rotation: float = 0.0,
         align: Align | str | tuple[str, str] = Align.TOP_LEFT,
@@ -220,6 +221,7 @@ class Canvas:
             position: (x, y) position in pixels or percentages (e.g., (50, 100) or ("50%", "50%"))
             width: Image width in pixels (preserves aspect ratio if height is None)
             height: Image height in pixels (preserves aspect ratio if width is None)
+            fit: Fit mode when width and height define a target box: "fill", "contain", or "cover"
             opacity: Image opacity from 0.0 (transparent) to 1.0 (opaque)
             rotation: Rotation angle in degrees
             align: Image alignment, accepts:
@@ -240,6 +242,7 @@ class Canvas:
             remove_background=remove_background,
             align=align,  # type: ignore[arg-type]  # Pydantic validator handles conversion
             border_radius=border_radius,
+            fit=fit,  # type: ignore[arg-type]  # Pydantic validator handles conversion
             effects=effects or [],
         )
         self._layers.append(layer)
@@ -591,7 +594,7 @@ class Canvas:
             img = self._remove_background(img)
 
         if layer.width or layer.height:
-            img = self._resize_image(img, layer.width, layer.height)
+            img = self._resize_image(img, layer.width, layer.height, layer.fit)
 
         if layer.border_radius > 0:
             img = self._apply_border_radius(img, layer.border_radius)
@@ -728,12 +731,39 @@ class Canvas:
             ) from None
         return cast(Image.Image, remove(img))
 
-    def _resize_image(self, img: Image.Image, width: int | None, height: int | None) -> Image.Image:
+    def _resize_image(
+        self,
+        img: Image.Image,
+        width: int | None,
+        height: int | None,
+        fit: FitMode | None = None,
+    ) -> Image.Image:
         """Resize image preserving aspect ratio if only one dimension specified."""
         original_width, original_height = img.size
 
         if width and height:
-            return img.resize((width, height), Image.Resampling.LANCZOS)
+            if fit is None or fit == FitMode.FILL:
+                return img.resize((width, height), Image.Resampling.LANCZOS)
+
+            if fit == FitMode.COVER:
+                scale = max(width / original_width, height / original_height)
+                scaled_width = int(original_width * scale)
+                scaled_height = int(original_height * scale)
+                resized = img.resize((scaled_width, scaled_height), Image.Resampling.LANCZOS)
+                left = (scaled_width - width) // 2
+                top = (scaled_height - height) // 2
+                return resized.crop((left, top, left + width, top + height))
+
+            scale = min(width / original_width, height / original_height)
+            scaled_width = int(original_width * scale)
+            scaled_height = int(original_height * scale)
+            resized = img.resize((scaled_width, scaled_height), Image.Resampling.LANCZOS)
+
+            result = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+            paste_x = (width - scaled_width) // 2
+            paste_y = (height - scaled_height) // 2
+            result.paste(resized, (paste_x, paste_y))
+            return result
         elif width:
             aspect_ratio = original_height / original_width
             new_height = int(width * aspect_ratio)

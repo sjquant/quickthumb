@@ -688,6 +688,64 @@ class TestRendering:
             with open(output_path, "rb") as f:
                 assert f.read() == external_file("snapshots/image_fit_fill.png")
 
+    @pytest.mark.parametrize(
+        "fit,snapshot_name",
+        [
+            ("cover", "image_overlay_fit_cover.png"),
+            ("contain", "image_overlay_fit_contain.png"),
+            ("fill", "image_overlay_fit_fill.png"),
+        ],
+    )
+    def test_snapshot_image_overlay_fit_modes(self, fit, snapshot_name):
+        """Snapshot test for image overlay fit modes in a clearly visible framed target box"""
+        from quickthumb import Canvas
+
+        canvas = (
+            Canvas(460, 320)
+            .background(color="#E2E8F0")
+            # Dark outer frame to make the target box edges obvious in snapshots.
+            .shape(
+                shape="rectangle",
+                position=(230, 180),
+                width=300,
+                height=150,
+                color="#1F2937",
+                align=("center", "middle"),
+            )
+            # White inner target box where fit mode is applied.
+            .shape(
+                shape="rectangle",
+                position=(230, 180),
+                width=286,
+                height=136,
+                color="#FFFFFF",
+                align=("center", "middle"),
+            )
+            .image(
+                path="tests/fixtures/tobias-rademacher-wnF27F85ZKw-unsplash.jpg",
+                position=(230, 180),
+                width=286,
+                height=136,
+                fit=fit,
+                align=("center", "middle"),
+            )
+            .text(
+                f"fit={fit}",
+                size=28,
+                color="#111827",
+                position=(230, 44),
+                align=("center", "middle"),
+                bold=True,
+            )
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file(f"snapshots/{snapshot_name}")
+
     def test_should_handle_unknown_font_name_gracefully(self):
         """Test that invalid font name falls back to default font gracefully"""
         from quickthumb import Canvas

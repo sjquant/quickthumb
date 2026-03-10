@@ -415,6 +415,9 @@ class ImageLayer(QuickThumbModel):
     remove_background: bool = False
     align: AlignWithHVTuple = Align.TOP_LEFT
     border_radius: NonNegativeInt = 0
+    fit: Annotated[
+        FitMode | None, AfterValidator(lambda v: enum_converter(FitMode)(v) if v else None)
+    ] = None
     effects: list[ImageEffect] = []
 
     @field_validator("position", mode="before")
