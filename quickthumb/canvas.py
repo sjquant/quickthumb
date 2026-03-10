@@ -213,6 +213,7 @@ class Canvas:
         remove_background: bool = False,
         border_radius: int = 0,
         effects: list[ImageEffect] | None = None,
+        blend_mode: BlendMode | str | None = None,
     ) -> Self:
         """Add an image overlay layer to the canvas.
 
@@ -228,6 +229,7 @@ class Canvas:
                    - Align enum (e.g., Align.CENTER, Align.TOP_LEFT)
                    - String shortcut (e.g., "center", "top-left", "bottom-right")
                    - Tuple (horizontal, vertical) (e.g., ("center", "middle"))
+            blend_mode: Blend mode for compositing this image onto prior layers
         Returns:
             Self for method chaining
         """
@@ -243,6 +245,7 @@ class Canvas:
             align=align,  # type: ignore[arg-type]  # Pydantic validator handles conversion
             border_radius=border_radius,
             fit=fit,  # type: ignore[arg-type]  # Pydantic validator handles conversion
+            blend_mode=blend_mode,  # type: ignore[arg-type]  # Pydantic validator handles conversion
             effects=effects or [],
         )
         self._layers.append(layer)
@@ -625,7 +628,13 @@ class Canvas:
             if isinstance(effect, Stroke):
                 self._apply_image_stroke(image, img, x, y, effect)
 
-        image.alpha_composite(img, (x, y))
+        if layer.blend_mode:
+            overlay_layer = Image.new("RGBA", image.size, (0, 0, 0, 0))
+            overlay_layer.alpha_composite(img, (x, y))
+            blended = self._apply_blend_mode(image, overlay_layer, layer.blend_mode)
+            image.paste(blended, (0, 0), overlay_layer.split()[3])
+        else:
+            image.alpha_composite(img, (x, y))
 
     def _apply_image_shadow(
         self, canvas: Image.Image, img: Image.Image, x: int, y: int, shadow: Shadow

@@ -1785,8 +1785,20 @@ class TestRendering:
             with open(output_path, "rb") as f:
                 assert f.read() == external_file("snapshots/image_with_text_overlay.png")
 
-    def test_snapshot_image_on_background_image(self):
-        """Snapshot test for image layer on top of background image"""
+    @pytest.mark.parametrize(
+        "blend_mode,snapshot_name",
+        [
+            (None, "image_on_background_image.png"),
+            ("multiply", "image_blend_mode_multiply.png"),
+            ("overlay", "image_blend_mode_overlay.png"),
+            ("screen", "image_blend_mode_screen.png"),
+            ("darken", "image_blend_mode_darken.png"),
+            ("lighten", "image_blend_mode_lighten.png"),
+            ("normal", "image_blend_mode_normal.png"),
+        ],
+    )
+    def test_snapshot_image_on_background_image(self, blend_mode, snapshot_name):
+        """Snapshot test for image layer compositing on top of a background image"""
         from quickthumb import Canvas
 
         # Given: Canvas with background image and overlay image layer
@@ -1798,6 +1810,7 @@ class TestRendering:
                 position=(250, 150),
                 width=120,
                 opacity=0.9,
+                blend_mode=blend_mode,
             )
         )
 
@@ -1805,9 +1818,9 @@ class TestRendering:
             output_path = os.path.join(tmpdir, "output.png")
             canvas.render(output_path)
 
-            # Then: Should render overlay image on top of background image
+            # Then: Should render overlay image with requested blend mode
             with open(output_path, "rb") as f:
-                assert f.read() == external_file("snapshots/image_on_background_image.png")
+                assert f.read() == external_file(f"snapshots/{snapshot_name}")
 
     def test_snapshot_text_rotation_basic(self):
         """Snapshot test for basic text rotation at 45 degrees"""

@@ -9,7 +9,7 @@ import pytest
 from inline_snapshot import snapshot
 from PIL import Image
 from quickthumb.errors import ValidationError
-from quickthumb.models import Align, FitMode, ImageLayer
+from quickthumb.models import Align, BlendMode, FitMode, ImageLayer
 
 
 class TestImageLayers:
@@ -106,6 +106,19 @@ class TestImageLayers:
         with pytest.raises(ValidationError, match="fit.*cover.*contain.*fill"):
             canvas.image(path="assets/logo.png", position=(0, 0), width=300, height=200, fit=fit)
 
+    @pytest.mark.parametrize("blend_mode", ["invalid", "soft-light", "difference"])
+    def test_should_reject_invalid_blend_mode(self, blend_mode):
+        """Test that unsupported image blend mode raises ValidationError"""
+        from quickthumb import Canvas
+
+        canvas = Canvas(1920, 1080)
+
+        with pytest.raises(
+            ValidationError,
+            match="blend_mode.*multiply.*overlay.*screen.*darken.*lighten.*normal",
+        ):
+            canvas.image(path="assets/logo.png", position=(0, 0), blend_mode=blend_mode)
+
 
 class TestCanvasImageAPI:
     """Test suite for Canvas.image() method"""
@@ -119,7 +132,12 @@ class TestCanvasImageAPI:
 
         # When: Adding an image layer with fit mode in a target box
         result = canvas.image(
-            path="assets/logo.png", position=(50, 50), width=400, height=300, fit="cover"
+            path="assets/logo.png",
+            position=(50, 50),
+            width=400,
+            height=300,
+            fit="cover",
+            blend_mode="multiply",
         )
 
         # Then: Should return self for method chaining and add correct layer
@@ -134,6 +152,7 @@ class TestCanvasImageAPI:
             rotation=0.0,
             align=Align.TOP_LEFT,
             fit=FitMode.COVER,
+            blend_mode=BlendMode.MULTIPLY,
         )
         assert len(canvas.layers) == 1
         assert canvas.layers[0] == expected_layer
@@ -234,6 +253,7 @@ class TestImageLayerSerialization:
             rotation=45,
             align=("center", "middle"),
             fit="cover",
+            blend_mode="screen",
         )
 
         # When: User serializes canvas to JSON
@@ -257,6 +277,7 @@ class TestImageLayerSerialization:
             "align": "center",
             "border_radius": 0,
             "fit": "cover",
+            "blend_mode": "screen",
             "effects": [],
         }
 
@@ -278,6 +299,7 @@ class TestImageLayerSerialization:
                     "rotation": 45,
                     "align": ["center", "middle"],
                     "fit": "contain",
+                    "blend_mode": "lighten",
                 }
             ],
         }
@@ -302,8 +324,10 @@ class TestImageLayerSerialization:
             rotation=45,
             align=Align.CENTER,
             fit=FitMode.CONTAIN,
+            blend_mode=BlendMode.LIGHTEN,
         )
         assert json.loads(canvas.to_json())["layers"][0]["fit"] == "contain"
+        assert json.loads(canvas.to_json())["layers"][0]["blend_mode"] == "lighten"
 
     def test_should_round_trip_image_layer_through_json(self):
         """Test that canvas with image layer can be serialized and deserialized"""
@@ -361,6 +385,7 @@ class TestImageLayerSerialization:
                         "align": "top-left",
                         "border_radius": 0,
                         "fit": None,
+                        "blend_mode": None,
                         "effects": [],
                     }
                 ],
@@ -400,6 +425,7 @@ class TestImageLayerSerialization:
                         "align": "top-left",
                         "border_radius": 0,
                         "fit": None,
+                        "blend_mode": None,
                         "effects": [
                             {
                                 "type": "shadow",
@@ -513,6 +539,7 @@ class TestImageLayerSerialization:
                         "align": "top-left",
                         "border_radius": 0,
                         "fit": None,
+                        "blend_mode": None,
                         "effects": [
                             {
                                 "type": "filter",

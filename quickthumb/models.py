@@ -418,6 +418,9 @@ class ImageLayer(QuickThumbModel):
     fit: Annotated[
         FitMode | None, AfterValidator(lambda v: enum_converter(FitMode)(v) if v else None)
     ] = None
+    blend_mode: Annotated[
+        BlendMode | None, AfterValidator(lambda v: enum_converter(BlendMode)(v) if v else None)
+    ] = None
     effects: list[ImageEffect] = []
 
     @field_validator("position", mode="before")

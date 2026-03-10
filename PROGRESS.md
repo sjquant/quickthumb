@@ -60,7 +60,7 @@
 ### Medium Priority (Image Layer Composition)
 
 - ✅ Image layer fit modes — Add `fit` for overlays (`fill`/`contain`/`cover`) when both `width` and `height` define a target box. API: `canvas.image(..., width=300, height=200, fit="cover")`
-- [ ] Image layer blend modes — Add `blend_mode` on image overlays (`multiply`, `overlay`, `screen`, `darken`, `lighten`, `normal`) for non-alpha compositing. API: `canvas.image(..., blend_mode="multiply", opacity=0.8)`
+- ✅ Image layer blend modes — Add `blend_mode` on image overlays (`multiply`, `overlay`, `screen`, `darken`, `lighten`, `normal`) for non-alpha compositing. API: `canvas.image(..., blend_mode="multiply", opacity=0.8)`
 
 ### Low Priority
 
