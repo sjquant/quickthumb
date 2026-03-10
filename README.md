@@ -234,6 +234,24 @@ canvas = Canvas(1920, 1080)
 canvas.image(path="logo.png", position=(50, 50), width=200)
 ```
 
+## Custom Canvas Hooks
+
+Inject arbitrary Pillow drawing logic as an additional layer when built-in primitives are not enough:
+
+```python
+from PIL import ImageDraw
+from quickthumb import Canvas
+
+def draw_custom(image):
+    draw = ImageDraw.Draw(image)
+    draw.polygon([(200, 28), (345, 132), (290, 300), (110, 300), (55, 132)], fill="#FF6A00")
+
+canvas = Canvas(400, 300).background(color="#F6F8FA").custom(draw_custom)
+canvas.render("custom.png")
+```
+
+`canvas.custom(fn)` callbacks run in layer order during rendering and are intentionally not JSON-serializable.
+
 ### Background Removal
 
 Remove the background from an image before overlaying it using the `rembg` extra:

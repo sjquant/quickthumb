@@ -64,5 +64,5 @@
 
 ### Low Priority
 
-- [ ] Custom layer hook — Let users inject arbitrary Pillow drawing logic as a layer. API: `canvas.custom(fn)` where `fn` receives the `PIL.Image.Image` and draws onto it directly, e.g. `canvas.custom(lambda img: ImageDraw.Draw(img).polygon([...], fill="#FF0000"))`
+- ✅ Custom layer hook — Users can inject arbitrary Pillow drawing logic as a layer via `canvas.custom(fn)` where `fn` receives the `PIL.Image.Image` and draws onto it directly, e.g. `canvas.custom(lambda img: ImageDraw.Draw(img).polygon([...], fill="#FF0000"))`
 - [ ] Extended documentation/examples

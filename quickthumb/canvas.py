@@ -4,6 +4,7 @@ import math
 import os
 import warnings
 from collections.abc import Callable
+from dataclasses import dataclass
 from io import BytesIO
 from typing import Literal, TypedDict, cast
 from urllib.request import urlopen
@@ -70,8 +71,16 @@ class TextPartMetadata(TypedDict):
     width: int
 
 
+@dataclass
+class CustomLayer:
+    fn: Callable[[Image.Image], Image.Image | None]
+
+
+RenderableLayer = LayerType | CustomLayer
+
+
 class Canvas:
-    def __init__(self, width: int, height: int, layers: list[LayerType] | None = None):
+    def __init__(self, width: int, height: int, layers: list[RenderableLayer] | None = None):
         if width <= 0:
             raise ValidationError("width must be > 0")
         if height <= 0:
@@ -79,10 +88,10 @@ class Canvas:
 
         self.width = width
         self.height = height
-        self._layers: list[LayerType] = layers or []
+        self._layers: list[RenderableLayer] = layers or []
 
     @property
-    def layers(self) -> list[LayerType]:
+    def layers(self) -> list[RenderableLayer]:
         return self._layers
 
     @classmethod
@@ -251,6 +260,14 @@ class Canvas:
         self._layers.append(layer)
         return self
 
+    def custom(self, fn: Callable[[Image.Image], Image.Image | None]) -> Self:
+        """Add a custom callback layer that can draw directly onto the canvas image."""
+        if not callable(fn):
+            raise ValidationError("fn must be callable")
+
+        self._layers.append(CustomLayer(fn=fn))
+        return self
+
     def render(
         self,
         output_path: str,
@@ -262,6 +279,9 @@ class Canvas:
         self._save_to_file(image, output_path, quality, format=format)
 
     def to_json(self) -> str:
+        if any(isinstance(layer, CustomLayer) for layer in self._layers):
+            raise ValidationError("Custom layers cannot be serialized to JSON")
+
         return CanvasModel(
             width=self.width, height=self.height, layers=self._layers
         ).model_dump_json()
@@ -314,8 +334,27 @@ class Canvas:
                 self._render_image_layer(image, layer)
             elif isinstance(layer, ShapeLayer):
                 self._render_shape_layer(image, layer)
+            elif isinstance(layer, CustomLayer):
+                self._render_custom_layer(image, layer)
 
         return image
+
+    def _render_custom_layer(self, image: Image.Image, layer: CustomLayer):
+        try:
+            result = layer.fn(image)
+        except Exception as e:
+            raise RenderingError(f"Custom layer callback failed: {e}") from e
+
+        if result is None:
+            return
+
+        if not isinstance(result, Image.Image):
+            raise RenderingError("Custom layer callback must return PIL.Image.Image or None")
+
+        if result.size != image.size:
+            raise RenderingError("Custom layer callback returned an image with different size")
+
+        image.paste(result)
 
     def _save_to_file(
         self,

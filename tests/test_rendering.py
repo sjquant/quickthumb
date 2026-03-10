@@ -2322,3 +2322,40 @@ class TestRendering:
 
             with open(output_path, "rb") as f:
                 assert f.read() == external_file("snapshots/image_filter_effect.png")
+
+    def test_snapshot_custom_canvas_layer(self):
+        """Snapshot test for realistic user customization via canvas.custom(fn)"""
+        from PIL import Image, ImageDraw, ImageFont
+        from quickthumb import Canvas
+
+        def draw_custom_card(image):
+            draw = ImageDraw.Draw(image, "RGBA")
+            draw.rounded_rectangle((16, 16, 384, 112), radius=18, fill=(17, 24, 39, 196))
+
+            with Image.open("tests/fixtures/sample_image.jpg") as avatar_source:
+                avatar = avatar_source.convert("RGBA").resize((72, 72), Image.Resampling.LANCZOS)
+            avatar_mask = Image.new("L", avatar.size, 0)
+            ImageDraw.Draw(avatar_mask).ellipse((0, 0, 71, 71), fill=255)
+            avatar.putalpha(avatar_mask)
+            image.alpha_composite(avatar, (28, 28))
+
+            title_font = ImageFont.truetype("assets/fonts/Roboto-Bold.ttf", 30)
+            subtitle_font = ImageFont.truetype("assets/fonts/Roboto-Regular.ttf", 18)
+            draw.text((116, 34), "MY STYLE", font=title_font, fill="#F8FAFC")
+            draw.text((116, 72), "custom thumbnail", font=subtitle_font, fill="#FFD166")
+
+        canvas = (
+            Canvas(400, 300)
+            .background(
+                image="tests/fixtures/tobias-rademacher-wnF27F85ZKw-unsplash.jpg",
+                fit="cover",
+            )
+            .custom(draw_custom_card)
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/custom_canvas_layer.png")

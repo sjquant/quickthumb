@@ -235,3 +235,71 @@ class TestCanvas:
 
             img = Image.open(output_path)
             assert img.format == "JPEG"
+
+    def test_should_reject_serializing_custom_layer(self):
+        """Custom callback layers cannot be represented in JSON"""
+        from PIL import ImageDraw
+        from quickthumb import Canvas, ValidationError
+
+        canvas = Canvas(100, 100).background(color="#FFFFFF").custom(
+            lambda image: ImageDraw.Draw(image).line((0, 0, 99, 99), fill="#FF0000", width=4)
+        )
+
+        with pytest.raises(ValidationError, match="Custom layers cannot be serialized"):
+            canvas.to_json()
+
+    def test_should_raise_rendering_error_when_custom_callback_fails(self):
+        """Exceptions inside custom callback should be wrapped as RenderingError"""
+        import os
+        import tempfile
+
+        from quickthumb import Canvas
+        from quickthumb.errors import RenderingError
+
+        def bad_custom(_image):
+            raise RuntimeError("boom")
+
+        canvas = Canvas(100, 100).background(color="#FFFFFF").custom(bad_custom)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            with pytest.raises(RenderingError, match="Custom layer callback failed: boom"):
+                canvas.render(output_path)
+
+    def test_should_raise_error_when_custom_callback_returns_non_image(self):
+        """custom callback should return PIL.Image.Image or None"""
+        import os
+        import tempfile
+
+        from quickthumb import Canvas
+        from quickthumb.errors import RenderingError
+
+        canvas = Canvas(100, 100).background(color="#FFFFFF").custom(lambda _image: "not-image")
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            with pytest.raises(
+                RenderingError, match="Custom layer callback must return PIL.Image.Image or None"
+            ):
+                canvas.render(output_path)
+
+    def test_should_raise_error_when_custom_callback_returns_different_size(self):
+        """custom callback should preserve canvas dimensions when returning an image"""
+        import os
+        import tempfile
+
+        from PIL import Image
+        from quickthumb import Canvas
+        from quickthumb.errors import RenderingError
+
+        canvas = Canvas(100, 100).background(color="#FFFFFF").custom(
+            lambda _image: Image.new("RGBA", (10, 10), (0, 0, 0, 0))
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            with pytest.raises(
+                RenderingError,
+                match="Custom layer callback returned an image with different size",
+            ):
+                canvas.render(output_path)
