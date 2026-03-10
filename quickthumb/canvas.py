@@ -283,13 +283,17 @@ class Canvas:
             raise ValidationError("Custom layers cannot be serialized to JSON")
 
         return CanvasModel(
-            width=self.width, height=self.height, layers=self._layers
+            width=self.width, height=self.height, layers=cast(list[LayerType], self._layers)
         ).model_dump_json()
 
     @classmethod
     def from_json(cls, data: str) -> Self:
         canvas_model = CanvasModel.model_validate_json(data)
-        return cls(width=canvas_model.width, height=canvas_model.height, layers=canvas_model.layers)
+        return cls(
+            width=canvas_model.width,
+            height=canvas_model.height,
+            layers=cast(list[RenderableLayer], canvas_model.layers),
+        )
 
     def to_base64(self, format: FileFormat = "PNG", quality: int | None = None) -> str:
         import base64
