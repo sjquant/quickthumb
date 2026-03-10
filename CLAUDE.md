@@ -24,20 +24,7 @@ tests/              # Tests follow pattern: test_{component}.py
 ```bash
 # Install dependencies
 uv sync
-```
 
-### Testing
-
-```bash
-# Run all tests
-uv run pytest tests/ -v
-
-# Run single test file
-uv run pytest tests/test_canvas_creation.py -v
-
-# Run specific test
-uv run pytest tests/test_canvas_creation.py::TestCanvasCreation::test_should_create_canvas_with_explicit_dimensions -v
-
-# Run with coverage report
-uv run pytest tests/ --cov=quickthumb --cov-report=html
+# Tests
+uv run pytest [args]
 ```
