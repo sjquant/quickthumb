@@ -1,16 +1,43 @@
 [project]
 name = "quickthumb"
 version = "0.2.0"
-description = "A Python library for programmatic thumbnail generation"
+description = "Programmatic thumbnail and social image generation with layered Python and JSON APIs"
 authors = [{name = "Seonu Jang"}]
 license = {text = "MIT"}
 readme = "README.md"
 requires-python = ">=3.10"
+keywords = [
+    "thumbnail",
+    "thumbnails",
+    "social-media",
+    "image-generation",
+    "pillow",
+    "graphics",
+    "automation",
+    "ai",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Artistic Software",
+    "Topic :: Multimedia :: Graphics",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
 dependencies = [
     "pillow>=10.4.0,<11.0.0",
     "pydantic>=2.12.5,<3.0.0",
     "typing-extensions>=4.15.0,<5.0.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/sjquant/quickthumb"
+Repository = "https://github.com/sjquant/quickthumb"
+Issues = "https://github.com/sjquant/quickthumb/issues"
 
 [project.optional-dependencies]
 rembg = [

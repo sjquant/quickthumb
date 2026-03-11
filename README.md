@@ -1,321 +1,302 @@
 # QuickThumb
 
-A Python library for programmatic thumbnail generation with support for layers, gradients, and flexible styling.
+QuickThumb is a Python library for programmatic thumbnail, social card, and promo image generation.
+It is designed for code-first and JSON-first workflows, with a layer-based API that works well for human-authored scripts and AI-generated specs.
 
-## Features
+## Gallery
 
-- **Dual API**: Use Python method chaining or JSON configuration
-- **Layer-based composition**: Stack backgrounds, text, and decorations
-- **Flexible sizing**: Aspect ratios (16:9, 9:16, 4:3, 1:1, 1.91:1, 4:5) or explicit dimensions
-- **Rich backgrounds**: Solid colors, linear/radial gradients, images with blend modes
-- **Advanced text styling**: Custom fonts, CSS-style font weights, strokes, alignment, bold/italic
-- **Smart font loading**: Automatic weight mapping with fallback support
-- **Multiple output formats**: PNG, JPEG, WebP
-- **Type-safe**: Full type hints with Pydantic validation
+| YouTube Thumbnail | Burnout Thumbnail | Instagram News Card |
+| --- | --- | --- |
+| ![YouTube thumbnail example](examples/youtube_thumbnail_01.png) | ![Burnout thumbnail example](examples/youtube_thumbnail_02.png) | ![Instagram news card example](examples/instagram_news_card.png) |
+
+## Why QuickThumb
+
+- Built for thumbnails and social graphics, not just generic image composition
+- Works with Python method chaining and JSON serialization/deserialization
+- Handles gradients, remote images, rich text, shapes, blend modes, and export helpers
+- Good fit for AI-assisted workflows that need deterministic image specs
 
 ## Installation
 
 ```bash
-# Using uv (recommended)
 uv pip install quickthumb
+```
 
-# Using pip
-pip install quickthumb
+Optional background removal support:
+
+```bash
+uv pip install "quickthumb[rembg]"
 ```
 
 ## Quick Start
 
-### Python API
-
 ```python
-from quickthumb import Canvas, LinearGradient, BlendMode, Stroke
+from quickthumb import Background, Canvas, Filter, Shadow, Stroke, TextPart
 
-# Create a 1920x1080 thumbnail
-canvas = Canvas(1920, 1080)
-
-# Add a gradient background
-canvas.background(
-    gradient=LinearGradient(45, [("#FF5733", 0.0), ("#3333FF", 1.0)]),
-    opacity=0.8,
-    blend_mode=BlendMode.MULTIPLY
+canvas = (
+    Canvas.from_aspect_ratio("16:9", base_width=1280)
+    .background(
+        image="https://images.unsplash.com/photo-1516321318423-f06f85e504b3",
+        effects=[Filter(brightness=0.65)],
+    )
+    .background(color="#000000", opacity=0.45)
+    .text(
+        content=[
+            TextPart(
+                text="BUILD THUMBNAILS\nFAST\n",
+                color="#B8FF00",
+                effects=[Stroke(width=8, color="#000000")],
+            ),
+            TextPart(
+                text="With Python or JSON specs",
+                color="#F5F5F5",
+                size=44,
+                effects=[Shadow(offset_x=2, offset_y=2, color="#000000", blur_radius=4)],
+            ),
+        ],
+        size=112,
+        position=("8%", "50%"),
+        align=("left", "middle"),
+        weight=900,
+    )
+    .outline(width=14, color="#B8FF00")
 )
 
-# Add title text with stroke
-canvas.text(
-    "Python Tutorial",
-    font="Roboto",
-    size=72,
-    color="#FFFFFF",
-    align=("center", "middle"),
-    effects=[Stroke(width=3, color="#000000")],
-    bold=True
-)
-
-# Add an outline
-canvas.outline(width=10, color="#FFFFFF")
-
-# Render to file or export as base64/data URL
 canvas.render("thumbnail.png")
-# base64_str = canvas.to_base64(format="PNG")
-# data_url = canvas.to_data_url(format="JPEG", quality=85)
 ```
 
-### Using Aspect Ratios
+## Core API
+
+### Create a canvas
 
 ```python
 from quickthumb import Canvas
 
-# Create 16:9 canvas with base width 1920
-canvas = Canvas.from_aspect_ratio("16:9", base_width=1920)
-
-# For YouTube thumbnails (16:9)
-canvas = Canvas.from_aspect_ratio("16:9", base_width=1280)
-
-# For Instagram posts (1:1)
-canvas = Canvas.from_aspect_ratio("1:1", base_width=1080)
+canvas = Canvas(1280, 720)
+square = Canvas.from_aspect_ratio("1:1", base_width=1080)
+vertical = Canvas.from_aspect_ratio("9:16", base_width=1080)
 ```
 
-### JSON Configuration
+### Background layers
 
 ```python
-from quickthumb import Canvas
+from quickthumb import Canvas, Filter, FitMode, LinearGradient
 
-# Load from JSON string
-
-config = """
-{
-    "size": {"width": 1920, "height": 1080},
-    "layers": [
-        {
-            "type": "background",
-            "color": "#2c3e50",
-            "opacity": 1.0
-        },
-        {
-            "type": "text",
-            "content": "Hello World",
-            "font": "Arial",
-            "size": 72,
-            "color": "#FFFFFF",
-            "align": ["center", "middle"]
-        },
-        {
-            "type": "outline",
-            "width": 5,
-            "color": "#ecf0f1",
-        }
-    ]
-}
-"""
-canvas = Canvas.from_json(config)
-canvas.render("output.png")
-```
-
-## Advanced Examples
-
-### Multiple Background Layers with Blend Modes
-
-```python
-from quickthumb import Canvas, LinearGradient, RadialGradient, BlendMode
-
-canvas = Canvas(1920, 1080)
-
-# Base solid color
-canvas.background(color="#2c3e50")
-
-# Gradient overlay
-canvas.background(
-    gradient=LinearGradient(135, [("#e74c3c", 0.0), ("#3498db", 1.0)]),
-    opacity=0.6,
-    blend_mode=BlendMode.OVERLAY
-)
-
-# Image texture
-canvas.background(
-    image="texture.png",
-    opacity=0.3,
-    blend_mode=BlendMode.MULTIPLY,
-    fit="cover"
-)
-```
-
-### Text with Custom Positioning
-
-```python
-canvas = Canvas(1920, 1080)
-
-# Absolute positioning (pixels)
-canvas.text("Top Left", position=(50, 50), color="#FFFFFF")
-
-# Percentage positioning
-canvas.text("Centered", position=("50%", "50%"), color="#FFFFFF")
-
-# Alignment-based positioning
-canvas.text(
-    "Bottom Right",
-    align=("right", "bottom"),
-    color="#FFFFFF"
-)
-```
-
-### Radial Gradients
-
-```python
-from quickthumb import Canvas, RadialGradient
-
-canvas = Canvas(1920, 1080)
-canvas.background(
-    gradient=RadialGradient(
-        stops=[("#3498db", 0.0), ("#1a252f", 1.0)],
-        center=(0.5, 0.5)  # Center position (0-1 range)
+canvas = (
+    Canvas(1280, 720)
+    .background(color="#101828")
+    .background(
+        gradient=LinearGradient(
+            angle=120,
+            stops=[("#0F172A", 0.0), ("#0F172A00", 1.0)],
+        ),
+    )
+    .background(
+        image="hero.jpg",
+        fit=FitMode.COVER,
+        blend_mode="multiply",
+        effects=[Filter(blur=4, brightness=0.75, contrast=1.1, saturation=0.9)],
     )
 )
 ```
 
-## Color Formats
-
-QuickThumb supports multiple color formats:
+### Text layers and rich text
 
 ```python
-# Hex strings
-canvas.background(color="#FF5733")
-canvas.background(color="#FF5733AA")  # With alpha
+from quickthumb import Background, Canvas, Glow, Shadow, Stroke, TextPart
 
-# RGB tuples
-canvas.background(color=(255, 87, 51))
-
-# RGBA tuples
-canvas.background(color=(255, 87, 51, 200))
-```
-
-## Text Effects
-
-Add visual effects to text using effect classes:
-
-```python
-from quickthumb import Canvas, Stroke
-
-canvas = Canvas(1920, 1080)
-
-# Text with stroke outline
-canvas.text(
-    "Bold Title",
-    size=96,
-    color="#FFFFFF",
-    align=("center", "middle"),
-    effects=[Stroke(width=3, color="#000000")]
-)
-
-# Multiple effects
-canvas.text(
-    "Epic Title",
-    size=96,
-    color="#FFFFFF",
+canvas = Canvas(1280, 720).text(
+    content=[
+        TextPart(text="5 ", color="#FBBF24", weight=900),
+        TextPart(text="WARNING SIGNS", color="#FFFFFF", weight=900),
+    ],
+    size=72,
+    position=(80, 540),
     effects=[
-        Stroke(width=5, color="#000000"),
-        Stroke(width=2, color="#FF0000"),
-    ]
+        Background(color="#111827CC", padding=(16, 22), border_radius=12),
+        Stroke(width=2, color="#000000"),
+        Shadow(offset_x=4, offset_y=4, color="#000000", blur_radius=8),
+        Glow(color="#F59E0B", radius=14, opacity=0.35),
+    ],
 )
 ```
 
-**Available Effects:**
-- `Stroke(width, color)` - Adds an outline around text
-
-## Image Layers
-
-Overlay images or logos onto your canvas:
+### Image layers
 
 ```python
-from quickthumb import Canvas
+from quickthumb import Canvas, Filter
 
-canvas = Canvas(1920, 1080)
-
-# Add a logo
-canvas.image(path="logo.png", position=(50, 50), width=200)
-```
-
-## Custom Canvas Hooks
-
-Inject arbitrary Pillow drawing logic as an additional layer when built-in primitives are not enough:
-
-```python
-from PIL import ImageDraw
-from quickthumb import Canvas
-
-def draw_custom(image):
-    draw = ImageDraw.Draw(image)
-    draw.polygon([(200, 28), (345, 132), (290, 300), (110, 300), (55, 132)], fill="#FF6A00")
-
-canvas = Canvas(400, 300).background(color="#F6F8FA").custom(draw_custom)
-canvas.render("custom.png")
-```
-
-`canvas.custom(fn)` callbacks run in layer order during rendering and are intentionally not JSON-serializable.
-
-### Background Removal
-
-Remove the background from an image before overlaying it using the `rembg` extra:
-
-```bash
-pip install quickthumb[rembg]
-```
-
-```python
-canvas.image(
+canvas = Canvas(1280, 720).image(
     path="portrait.png",
-    width=400,
+    position=("73%", "52%"),
+    width=420,
+    height=520,
+    fit="cover",
     align=("center", "middle"),
+    border_radius=24,
     remove_background=True,
+    blend_mode="normal",
+    effects=[Filter(contrast=1.1, saturation=1.05)],
 )
 ```
 
-## Font Weights
-
-QuickThumb supports CSS-style font weights (100-900) or named weights like "thin", "bold", "black". See [DESIGN.md](DESIGN.md#font-weights) for full details.
+### Shape layers
 
 ```python
-canvas.text("Light Text", font="Roboto", size=48, weight=300)
-canvas.text("Bold Text", font="Roboto", size=48, weight=700)
-canvas.text("Black Text", weight="black")  # Named weight
+from quickthumb import Canvas, Shadow, Stroke
+
+canvas = Canvas(1280, 720).shape(
+    shape="rectangle",
+    position=(64, 60),
+    width=320,
+    height=88,
+    color="#CC0000",
+    border_radius=10,
+    effects=[
+        Stroke(width=2, color="#FFFFFF"),
+        Shadow(offset_x=0, offset_y=6, color="#000000", blur_radius=12),
+    ],
+)
 ```
+
+### Export helpers
+
+```python
+png_base64 = canvas.to_base64(format="PNG")
+jpeg_data_url = canvas.to_data_url(format="JPEG", quality=90)
+canvas.render("output.webp", format="WEBP", quality=90)
+```
+
+## JSON-First Workflow
+
+QuickThumb can round-trip most canvases through JSON:
+
+```python
+from quickthumb import Canvas
+
+config = """
+{
+  "width": 1280,
+  "height": 720,
+  "layers": [
+    {
+      "type": "background",
+      "color": "#111827"
+    },
+    {
+      "type": "text",
+      "content": "Hello QuickThumb",
+      "size": 72,
+      "color": "#FFFFFF",
+      "align": "center",
+      "position": ["50%", "50%"]
+    },
+    {
+      "type": "outline",
+      "width": 10,
+      "color": "#22C55E"
+    }
+  ]
+}
+"""
+
+canvas = Canvas.from_json(config)
+canvas.render("hello.png")
+
+serialized = canvas.to_json()
+```
+
+Notes:
+
+- JSON uses top-level `width`, `height`, and `layers`
+- Custom layers added with `canvas.custom(fn)` are not JSON-serializable
+- Enum-like values such as `blend_mode`, `fit`, and `align` can be passed as strings
+
+## AI-Friendly Workflows
+
+QuickThumb is a good target when you want an LLM to generate image specs that are deterministic and easy to validate.
+
+Prompt pattern for Python generation:
+
+```text
+Generate QuickThumb Python code for a 1280x720 YouTube thumbnail.
+Use layered composition only.
+Keep text on the left, subject image on the right, and use high-contrast typography.
+Return runnable code that ends with canvas.render("thumbnail.png").
+```
+
+Prompt pattern for JSON generation:
+
+```text
+Generate a QuickThumb JSON config with top-level width, height, and layers.
+Use one background image layer, one dark overlay background layer, two text layers, and one outline layer.
+Only use valid QuickThumb layer types and effect names.
+```
+
+Recommended workflow:
+
+1. Have the model produce QuickThumb Python or JSON.
+2. Validate or render it locally.
+3. Adjust only the content, colors, and assets instead of rewriting layout logic from scratch.
+
+## Environment Variables
+
+QuickThumb looks for fonts using these environment variables:
+
+- `QUICKTHUMB_FONT_DIR`: directory that contains font files
+- `QUICKTHUMB_DEFAULT_FONT`: default font family/name to use when `font` is omitted
+
+Example:
+
+```python
+import os
+
+os.environ["QUICKTHUMB_FONT_DIR"] = "assets/fonts"
+os.environ["QUICKTHUMB_DEFAULT_FONT"] = "Roboto"
+```
+
+## Feature Matrix
+
+| Area | Supported |
+| --- | --- |
+| Canvas sizing | Explicit width/height, `from_aspect_ratio()` |
+| Backgrounds | Solid colors, linear gradients, radial gradients, local/remote images |
+| Background controls | Opacity, blend modes, fit modes, blur, brightness, contrast, saturation |
+| Text | Positioning, alignment, wrapping, letter spacing, line height, rotation, auto-scale |
+| Rich text | Per-segment `TextPart` styling |
+| Text effects | Stroke, shadow, glow, background fill |
+| Fonts | Local fonts, CSS-style weights, italic/bold flags, webfont URLs, fallback mapping |
+| Images | Local/remote images, sizing, fit modes, alignment, opacity, rotation |
+| Image effects | Stroke, shadow, glow, filter effects, border radius, background removal |
+| Shapes | Rectangle and ellipse primitives with stroke/shadow/glow support |
+| Export | PNG, JPEG, WebP, file output, base64, data URLs |
+| Serialization | `to_json()` / `from_json()` for built-in layer types |
+
+## Real Example Scripts
+
+See the shipped examples in [`examples/README.md`](examples/README.md):
+
+- `examples/youtube_thumbnail_01.py`
+- `examples/youtube_thumbnail_02.py`
+- `examples/instagram_news_card.py`
+
+## Gotchas
+
+- `weight` and `bold=True` are mutually exclusive on text layers and `TextPart`
+- `auto_scale=True` requires `max_width`
+- `position` percentage values must be strings like `"50%"`
+- `canvas.custom(fn)` runs during render order and cannot be serialized to JSON
 
 ## Development
 
-### Setup
-
 ```bash
-# Clone the repository
-git clone https://github.com/sjquant/quickthumb.git
-cd quickthumb
-
-# Install dependencies with uv
 uv sync
-```
-
-### Running Tests
-
-```bash
-# Run all tests
-uv run pytest tests/ -v
-
-# Run with coverage
-uv run pytest tests/ --cov=quickthumb --cov-report=html
-
-# Type checking with ty
+uv run pytest
+uv run ruff check .
 uv run ty quickthumb/
-
-# Linting
-uv run ruff check quickthumb/
 ```
 
-## API Reference
+## Reference
 
-For complete API documentation including all methods, parameters, blend modes, and advanced features, see [DESIGN.md](DESIGN.md).
-
-## License
-
-MIT License - see [LICENSE](LICENSE) for details.
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
+- Design notes: [DESIGN.md](DESIGN.md)
+- License: [LICENSE](LICENSE)
