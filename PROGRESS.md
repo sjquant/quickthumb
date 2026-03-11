@@ -70,13 +70,13 @@
 
 #### README Overhaul
 
-- [ ] Rewrite `README.md` so all code snippets match the current API exactly
-- [ ] Fix outdated/invalid examples in `README.md` (JSON schema, gradients, `canvas.image(...)`, `render(...)`, etc.)
-- [ ] Add a gallery-first introduction with rendered example images near the top
-- [ ] Reposition QuickThumb for AI-assisted thumbnail generation, not just generic image composition
-- [ ] Add an "AI-friendly workflows" section with prompt patterns for generating QuickThumb Python/JSON
-- [ ] Document environment variables such as `QUICKTHUMB_FONT_DIR` and `QUICKTHUMB_DEFAULT_FONT`
-- [ ] Add a clearer feature matrix covering text effects, image effects, shapes, rich text, filters, webfonts, and export helpers
+- [x] Rewrite `README.md` so all code snippets match the current API exactly
+- [x] Fix outdated/invalid examples in `README.md` (JSON schema, gradients, `canvas.image(...)`, `render(...)`, etc.)
+- [x] Add a gallery-first introduction with rendered example images near the top
+- [x] Reposition QuickThumb for AI-assisted thumbnail generation, not just generic image composition
+- [x] Add an "AI-friendly workflows" section with prompt patterns for generating QuickThumb Python/JSON
+- [x] Document environment variables such as `QUICKTHUMB_FONT_DIR` and `QUICKTHUMB_DEFAULT_FONT`
+- [x] Add a clearer feature matrix covering text effects, image effects, shapes, rich text, filters, webfonts, and export helpers
 
 #### API Reference Cleanup
 
@@ -87,25 +87,25 @@
 
 #### Example Expansion
 
-- [ ] Expand `examples/README.md` so it documents every example currently shipped
+- [x] Expand `examples/README.md` so it documents every example currently shipped
 - [ ] Add more end-to-end examples for real thumbnail use cases:
 - [ ] YouTube talking-head thumbnail
 - [ ] YouTube reaction / commentary thumbnail
 - [ ] YouTube tutorial / explainer thumbnail
-- [ ] Instagram / X / social news card
+- [x] Instagram / X / social news card
 - [ ] Podcast / interview promo card
 - [ ] Shorts / vertical cover design
-- [ ] Add example outputs/screenshots for every example script
+- [x] Add example outputs/screenshots for every example script
 - [ ] Add examples showing JSON-first workflows for AI agents that emit specs instead of Python
 - [ ] Add examples showing remote image URLs, webfont URLs, and background removal workflows
 
 #### Package Discoverability
 
-- [ ] Improve PyPI metadata in `pyproject.toml`
-- [ ] Add project URLs (homepage, repository, issues, documentation)
-- [ ] Add keywords related to thumbnails, social media, AI content creation, Pillow, image generation
-- [ ] Add trove classifiers so the package is easier to discover and trust
-- [ ] Align package description/tagline with the actual product direction
+- [x] Improve PyPI metadata in `pyproject.toml`
+- [x] Add project URLs (homepage, repository, issues, documentation)
+- [x] Add keywords related to thumbnails, social media, AI content creation, Pillow, image generation
+- [x] Add trove classifiers so the package is easier to discover and trust
+- [x] Align package description/tagline with the actual product direction
 
 #### Documentation Website
 
