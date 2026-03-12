@@ -25,6 +25,8 @@
 - ✅ Stroke, Shadow (with blur), Glow (outer glow), Background (with padding and border radius)
 - ✅ Rich text with `TextPart` (per-segment styling)
 - ✅ Rotation support for text layers (simple and rich text)
+- ✅ Multiline text background effects render as a single grouped background block
+- ✅ Explicit newlines are preserved even when `max_width` / `auto_scale` wrapping is enabled
 
 ### Font System
 
