@@ -1244,17 +1244,33 @@ class Canvas:
         shadow_effects = self._get_shadow_effects(layer.effects)
         stroke_effects = self._get_stroke_effects(layer.effects)
         background_effects = self._get_background_effects(layer.effects)
-
+        line_layouts: list[tuple[str, int, int, tuple[int, int, int, int]]] = []
         for i, line in enumerate(lines):
             line_width, _ = self._measure_text_bounds(
                 line, font, layer.letter_spacing or 0, line_height_multiplier
             )
-
             y = start_y + i * line_height
             x = self._get_horizontal_start_x(base_x, line_width, layer.align)
+            bbox = font.getbbox(line, anchor="lt")
+            line_layouts.append((line, x, y, bbox))
+
+        if background_effects and line_layouts:
+            content_left = min(x + bbox[0] for _, x, _, bbox in line_layouts)
+            content_top = min(y + bbox[1] for _, _, y, bbox in line_layouts)
+            content_right = max(x + bbox[2] for _, x, _, bbox in line_layouts)
+            content_bottom = max(y + bbox[3] for _, _, y, bbox in line_layouts)
 
             for bg in background_effects:
-                self._render_background(image, line, font, (x, y), bg, "lt")
+                self._render_background_box(
+                    image,
+                    content_left,
+                    content_top,
+                    content_right - content_left,
+                    content_bottom - content_top,
+                    bg,
+                )
+
+        for line, x, y, _ in line_layouts:
 
             for glow in glow_effects:
                 self._render_glow(image, line, font, (x, y), glow)
@@ -1600,28 +1616,34 @@ class Canvas:
     def _wrap_text(
         self, text: str, font, max_width: int, letter_spacing: int | None = None
     ) -> list[str]:
-        words = text.split()
-        lines = []
-        current_line: list[str] = []
+        wrapped_lines: list[str] = []
 
-        for word in words:
-            test_line = " ".join(current_line + [word])
+        for paragraph in text.split("\n"):
+            words = paragraph.split()
 
-            width, _ = self._measure_text_bounds(test_line, font, letter_spacing or 0)
+            if not words:
+                wrapped_lines.append("")
+                continue
 
-            if width <= max_width:
-                current_line.append(word)
-            else:
-                if current_line:
-                    lines.append(" ".join(current_line))
-                    current_line = [word]
+            current_line: list[str] = []
+            for word in words:
+                test_line = " ".join(current_line + [word])
+
+                width, _ = self._measure_text_bounds(test_line, font, letter_spacing or 0)
+
+                if width <= max_width:
+                    current_line.append(word)
                 else:
-                    lines.append(word)
+                    if current_line:
+                        wrapped_lines.append(" ".join(current_line))
+                        current_line = [word]
+                    else:
+                        wrapped_lines.append(word)
 
-        if current_line:
-            lines.append(" ".join(current_line))
+            if current_line:
+                wrapped_lines.append(" ".join(current_line))
 
-        return lines
+        return wrapped_lines
 
     def _measure_text_bounds(
         self,
@@ -1983,12 +2005,29 @@ class Canvas:
         text_width = width_override if width_override is not None else int(bbox[2] - bbox[0])
         text_height = int(bbox[3] - bbox[1])
 
-        # Parse padding (supports uniform, 2-value, or 4-value formats)
+        self._render_background_box(
+            image,
+            position[0] + int(bbox[0]),
+            position[1] + int(bbox[1]),
+            text_width,
+            text_height,
+            background,
+        )
+
+    def _render_background_box(
+        self,
+        image: Image.Image,
+        content_left: int,
+        content_top: int,
+        content_width: int,
+        content_height: int,
+        background: Background,
+    ) -> None:
+        """Render a background box around a measured content rectangle."""
         pad_top, pad_right, pad_bottom, pad_left = self._parse_padding(background.padding)
 
-        # Calculate background dimensions including padding
-        bg_width = text_width + pad_left + pad_right
-        bg_height = text_height + pad_top + pad_bottom
+        bg_width = content_width + pad_left + pad_right
+        bg_height = content_height + pad_top + pad_bottom
 
         # Create background layer and apply color with opacity
         bg_layer = Image.new("RGBA", (bg_width, bg_height), (0, 0, 0, 0))
@@ -2009,14 +2048,8 @@ class Canvas:
         else:
             bg_draw.rectangle([(0, 0), (bg_width - 1, bg_height - 1)], fill=bg_color)
 
-        # Calculate paste position
-        # bbox[0], bbox[1] are the text bounding box offsets from the anchor point
-        # For center-aligned text, these are typically negative (text extends left/up from anchor)
-        # The background must be positioned to maintain proper padding around the text
-        offset_x = int(pad_left - bbox[0])
-        offset_y = int(pad_top - bbox[1])
-        paste_x = position[0] - offset_x
-        paste_y = position[1] - offset_y
+        paste_x = content_left - pad_left
+        paste_y = content_top - pad_top
 
         image.paste(bg_layer, (paste_x, paste_y), bg_layer)
 

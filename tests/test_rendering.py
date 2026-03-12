@@ -1550,6 +1550,61 @@ class TestRendering:
             with open(output_path, "rb") as f:
                 assert f.read() == external_file("snapshots/text_with_background_and_effects.png")
 
+    def test_snapshot_multiline_text_with_background(self):
+        """Snapshot test for multiline text with a background effect"""
+        from quickthumb import Background, Canvas
+
+        canvas = (
+            Canvas(420, 260)
+            .background(color="#0B1020")
+            .text(
+                "JSON in.\nCover out.",
+                font="Roboto",
+                size=58,
+                color="#F8FAFC",
+                position=(40, 100),
+                align=("left", "top"),
+                line_height=1.1,
+                effects=[Background(color="#0F2746D9", padding=(20, 24), border_radius=18)],
+            )
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/multiline_text_with_background.png")
+
+    def test_snapshot_explicit_newlines_preserved_with_max_width(self):
+        """Snapshot test that explicit newlines survive additional wrapping constraints"""
+        from quickthumb import Background, Canvas
+
+        canvas = (
+            Canvas(420, 260)
+            .background(color="#0B1020")
+            .text(
+                "JSON in.\nCover out.",
+                font="Roboto",
+                size=40,
+                color="#F8FAFC",
+                position=(40, 48),
+                align=("left", "top"),
+                max_width=220,
+                line_height=1.1,
+                effects=[Background(color="#0F2746D9", padding=(20, 24), border_radius=18)],
+            )
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file(
+                    "snapshots/explicit_newlines_preserved_with_max_width.png"
+                )
+
     def test_snapshot_rich_text_with_background(self):
         """Snapshot test for rich text with part-specific background effects"""
         from quickthumb import Background, Canvas, TextPart

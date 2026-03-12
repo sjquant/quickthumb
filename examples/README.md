@@ -10,6 +10,7 @@ From the repository root:
 uv run python examples/youtube_thumbnail_01.py
 uv run python examples/youtube_thumbnail_02.py
 uv run python examples/instagram_news_card.py
+uv run python examples/shorts_cover_agent.py
 ```
 
 All examples write their rendered image back into this directory.
@@ -58,6 +59,21 @@ Shows:
 
 Use it when you want a reusable template for Instagram posts, X cards, or social news promos.
 
+### `shorts_cover_agent.py`
+
+Output: `shorts_cover_agent.png`
+
+Spec: `shorts_cover_agent.json`
+
+Shows:
+
+- JSON-first rendering with `Canvas.from_json(...)` instead of hand-authored layer calls
+- Vertical `1080x1920` Shorts / Reels / cover layout
+- Repo-checked JSON spec that an AI agent could emit directly
+- Shape, rich text, `auto_scale`, gradient overlays, and outline layers in one spec
+
+Use it when you want to generate a vertical promo cover from an LLM-produced JSON layout and keep the rendering step deterministic.
+
 ## Assets and Fonts
 
 The example scripts set:
@@ -66,6 +82,8 @@ The example scripts set:
 - `QUICKTHUMB_DEFAULT_FONT` to `Roboto`
 
 They also use bundled example images from `assets/images`.
+
+The JSON-first example uses repo-relative asset paths inside the checked-in JSON spec. The companion Python script changes into the repo root before rendering so the example stays runnable from any working directory.
 
 ## Extending These Examples
 

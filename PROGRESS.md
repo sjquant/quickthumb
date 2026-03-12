@@ -94,9 +94,9 @@
 - [ ] YouTube tutorial / explainer thumbnail
 - [x] Instagram / X / social news card
 - [ ] Podcast / interview promo card
-- [ ] Shorts / vertical cover design
+- [x] Shorts / vertical cover design
 - [x] Add example outputs/screenshots for every example script
-- [ ] Add examples showing JSON-first workflows for AI agents that emit specs instead of Python
+- [x] Add examples showing JSON-first workflows for AI agents that emit specs instead of Python
 - [ ] Add examples showing remote image URLs, webfont URLs, and background removal workflows
 
 #### Package Discoverability
