@@ -1,476 +1,573 @@
-# QuickThumb API Design
+# QuickThumb API Reference
 
-## Required Interface Code
+This document reflects the current implemented API in this repository.
+It is intended to be the reliable reference for writing QuickThumb code, generating QuickThumb JSON, and validating what the library actually supports today.
 
-This section defines the core interfaces and type signatures that must be implemented.
+## Core Model
 
-### Color Format Support
+- A `Canvas` is an ordered list of layers.
+- Layers render in call order: first added is the backmost layer.
+- All layer builder methods mutate the canvas and return `self`.
+- Most canvases can round-trip through JSON with `to_json()` and `from_json()`.
+- Custom callback layers are intentionally excluded from JSON serialization.
 
-Colors can be specified in multiple formats:
-
-- Hex string: `"#FF5733"` or `"#FF5733AA"` (with alpha)
-- RGB tuple: `(255, 87, 51)`
-- RGBA tuple: `(255, 87, 51, 255)`
-
-### Position Format Support
-
-Positions can be specified as:
-
-- Pixels: `100`
-- Percentage: `"50%"`
-
-## Design Overview
-
-### Core Principles
-
-- **Required params upfront**: `Canvas(width, height)` or `Canvas.from_aspect_ratio(ratio)` or `Canvas.from_json()`
-- **Typed methods without prefixes**: `.text()`, `.background()`, `.outline()` - call multiple times for layers
-- **Method chaining**: All layer methods return `self` for fluent API (e.g., `canvas.background().text()`)
-- **Blend modes for backgrounds only**: Images, gradients, solid colors support opacity and blend modes
-- **Helper classes for complex types**: `LinearGradient`, `RadialGradient`, etc.
-- **Unified layer structure**: JSON uses single "layers" array with "type" field for each layer
-- **Bidirectional JSON**: Load from JSON with `from_json()`, export to JSON with `to_json()`
-
-### API Structure
+## Public Imports
 
 ```python
-# Canvas creation
-canvas = Canvas(width=1920, height=1080)
-canvas = Canvas.from_aspect_ratio("16:9", base_width=1920)
-
-# Background layers (can call multiple times, supports blend modes)
-canvas.background(color="#FF5733", opacity=1.0, blend_mode=None)
-canvas.background(image="path/to/img.jpg", effects=[Filter(brightness=0.8)], fit="cover", opacity=0.5, blend_mode="multiply")
-canvas.background(gradient=LinearGradient(45, [("#FF5733", 0.0), ("#3333FF", 1.0)]), opacity=0.7)
-
-# Text layers (can call multiple times)
-canvas.text(
-    content="Title",  # str or list of TextPart for rich text
-    font="Roboto",
-    size=72,
-    color="#FFFFFF",
-    position=None,  # None = use alignment
-    align=("center", "middle"),  # (horizontal, vertical)
-    bold=False,
-    italic=False,
-    weight=None,  # CSS-style font weight: 100-900 or "thin"/"bold"/"black" etc. (mutually exclusive with bold)
-    max_width=None,  # For word wrapping
-    effects=None,  # list of effect objects (Stroke, Shadow, Glow, Background, etc.)
+from quickthumb import (
+    Align,
+    Background,
+    BlendMode,
+    Canvas,
+    Filter,
+    FitMode,
+    Glow,
+    LinearGradient,
+    RadialGradient,
+    Shadow,
+    Stroke,
+    TextPart,
+    ValidationError,
 )
-
-# Text with background (Badge style) — use Background effect
-canvas.text(
-    content="20:19",
-    size=30,
-    color="#FFFFFF",
-    effects=[Background(color="#000000", padding=(15, 8), border_radius=10)],
-)
-
-# Image layers (Overlay images/logos)
-canvas.image(
-    path="assets/logo.png",  # Local path or URL
-    position=(50, 50),
-    width=200,  # width or height (preserves aspect ratio if one is None)
-    opacity=1.0,
-    rotation=0,  # Degrees
-    align=("left", "top"),
-    remove_background=True,  # Remove background using rembg (requires quickthumb[rembg])
-)
-
-# Text with effects using effect classes
-from quickthumb import Stroke
-
-canvas.text(
-    content="Epic Title",
-    size=72,
-    effects=[
-        Stroke(width=3, color="#000000"),
-    ],
-)
-
-# Rich text with partial styling using TextPart
-canvas.text(
-    content=[
-        TextPart("Hello ", color="#FFFFFF"),
-        TextPart("World", color="#FF0000", effects=[Stroke(width=2, color="#000000")]),
-    ],
-    size=72,
-    effects=[Stroke(width=1, color="#000000")],  # effects apply to all parts
-)
-
-# Decoration layers
-canvas.image(path="logo.png", position=(20, 20), width=100)
-canvas.outline(width=5, color="#000000", offset=10)
-
-# Render
-canvas.render(path="output.png", format="png", quality=95)
-
-# Export methods
-base64_str = canvas.to_base64(format="PNG", quality=None)  # Returns base64-encoded image string
-data_url = canvas.to_data_url(format="PNG", quality=None)  # Returns data URL (e.g., "data:image/png;base64,...")
-
-# JSON operations
-canvas = Canvas.from_json(json_str)  # Load from JSON string
-json_str = canvas.to_json()          # Export canvas to JSON string
 ```
 
-### JSON Structure
+## Canvas API
+
+### Creation
+
+```python
+from quickthumb import Canvas
+
+canvas = Canvas(1280, 720)
+wide = Canvas.from_aspect_ratio("16:9", base_width=1280)
+square = Canvas.from_aspect_ratio("1:1", base_width=1080)
+vertical = Canvas.from_aspect_ratio("9:16", base_width=1080)
+```
+
+Rules:
+
+- `width` and `height` must be positive integers.
+- `from_aspect_ratio()` expects a string like `"16:9"` plus `base_width`.
+
+### Layer Builders
+
+```python
+canvas.background(...)
+canvas.text(...)
+canvas.outline(...)
+canvas.shape(...)
+canvas.image(...)
+canvas.custom(fn)
+```
+
+### Export Methods
+
+```python
+canvas.render("output.png")
+canvas.render("output.webp", format="WEBP", quality=90)
+
+png_base64 = canvas.to_base64(format="PNG")
+jpeg_data_url = canvas.to_data_url(format="JPEG", quality=90)
+
+json_data = canvas.to_json()
+canvas = Canvas.from_json(json_data)
+```
+
+Rules:
+
+- Supported output formats are `PNG`, `JPEG`, and `WEBP`.
+- `quality` is only valid for `JPEG` and `WEBP`.
+- `Canvas.from_json()` accepts a JSON string, not a Python dict.
+
+## Layer Reference
+
+### Background Layer
+
+Adds a full-canvas background layer.
+
+```python
+from quickthumb import Canvas, Filter, LinearGradient
+
+canvas = (
+    Canvas(1280, 720)
+    .background(color="#0F172A")
+    .background(
+        gradient=LinearGradient(
+            angle=120,
+            stops=[("#111827", 0.0), ("#11182700", 1.0)],
+        ),
+        opacity=0.7,
+    )
+    .background(
+        image="https://images.unsplash.com/photo-1516321318423-f06f85e504b3",
+        fit="cover",
+        blend_mode="multiply",
+        effects=[Filter(blur=4, brightness=0.75, contrast=1.1, saturation=0.9)],
+    )
+)
+```
+
+Parameters:
+
+- `color`: hex string (`"#RRGGBB"` or `"#RRGGBBAA"`) or RGB/RGBA tuple
+- `gradient`: `LinearGradient` or `RadialGradient`
+- `image`: local file path or remote URL
+- `opacity`: float from `0.0` to `1.0`
+- `blend_mode`: `multiply`, `overlay`, `screen`, `darken`, `lighten`, or `normal`
+- `fit`: `cover`, `contain`, or `fill`
+- `effects`: background effects list, currently `Filter` only
+
+Notes:
+
+- Background layers cover the full canvas.
+- Background blend modes apply when compositing over previous layers.
+- Backgrounds support local images and remote URLs.
+
+### Text Layer
+
+Adds a text layer using either a plain string or rich text parts.
+
+```python
+from quickthumb import Background, Canvas, Glow, Shadow, Stroke, TextPart
+
+canvas = Canvas(1280, 720).text(
+    content=[
+        TextPart(text="BUILD ", color="#B8FF00", weight=900),
+        TextPart(text="FASTER", color="#FFFFFF", effects=[Stroke(width=4, color="#000000")]),
+    ],
+    font="Impact",
+    size=110,
+    color="#FFFFFF",
+    position=("8%", "50%"),
+    align=("left", "middle"),
+    max_width="60%",
+    line_height=1.0,
+    letter_spacing=1,
+    effects=[
+        Background(color="#111827CC", padding=(16, 24), border_radius=14),
+        Shadow(offset_x=4, offset_y=4, color="#000000", blur_radius=8),
+        Glow(color="#B8FF00", radius=16, opacity=0.25),
+    ],
+    rotation=0,
+    opacity=1.0,
+)
+```
+
+Parameters:
+
+- `content`: required; either a string or `list[TextPart]`
+- `font`: font family name, font file path, or webfont URL
+- `size`: positive integer font size
+- `color`: default text color for the layer
+- `position`: optional `(x, y)` tuple using pixels or percentage strings
+- `align`: optional `Align`, string alias, or `(horizontal, vertical)` tuple
+- `bold`: legacy bold flag
+- `italic`: italic flag
+- `weight`: CSS-style font weight as int or name
+- `max_width`: wrap width in pixels or percentage string
+- `effects`: any mix of `Stroke`, `Shadow`, `Glow`, and text `Background`
+- `line_height`: positive float
+- `letter_spacing`: integer tracking adjustment
+- `auto_scale`: shrink text until it fits `max_width`
+- `rotation`: degrees
+- `opacity`: float from `0.0` to `1.0`
+
+Notes:
+
+- `content` is required.
+- `align` accepts values like `"center"`, `"top-left"`, `"bottom-right"`, or tuples like `("left", "middle")`.
+- `font` may be a remote URL; QuickThumb downloads and caches it.
+- `weight` is supported on both full text layers and individual `TextPart` entries.
+
+### Outline Layer
+
+Adds a border around the full canvas.
+
+```python
+canvas.outline(width=12, color="#B8FF00", offset=0, opacity=1.0)
+```
+
+Parameters:
+
+- `width`: positive integer
+- `color`: hex string
+- `offset`: non-negative integer inset/outset offset
+- `opacity`: float from `0.0` to `1.0`
+
+### Shape Layer
+
+Adds a positioned rectangle or ellipse.
+
+```python
+from quickthumb import Canvas, Shadow, Stroke
+
+canvas = Canvas(1280, 720).shape(
+    shape="rectangle",
+    position=(64, 64),
+    width=360,
+    height=120,
+    color="#CC0000",
+    border_radius=16,
+    opacity=0.95,
+    rotation=-4,
+    align=("left", "top"),
+    effects=[
+        Stroke(width=3, color="#FFFFFF"),
+        Shadow(offset_x=0, offset_y=10, color="#000000", blur_radius=18),
+    ],
+)
+```
+
+Parameters:
+
+- `shape`: `"rectangle"` or `"ellipse"`
+- `position`: required `(x, y)` tuple using pixels or percentage strings
+- `width`: positive integer
+- `height`: positive integer
+- `color`: hex string
+- `border_radius`: non-negative integer
+- `opacity`: float from `0.0` to `1.0`
+- `rotation`: degrees
+- `align`: optional `Align`, string alias, or `(horizontal, vertical)` tuple
+- `effects`: any mix of `Stroke`, `Shadow`, and `Glow`
+
+### Image Layer
+
+Adds an overlay image or cutout.
+
+```python
+from quickthumb import Canvas, Filter, Shadow
+
+canvas = Canvas(1280, 720).image(
+    path="portrait.png",
+    position=("74%", "54%"),
+    width=420,
+    height=520,
+    fit="cover",
+    opacity=1.0,
+    rotation=0,
+    align=("center", "middle"),
+    remove_background=True,
+    border_radius=28,
+    blend_mode="normal",
+    effects=[
+        Filter(contrast=1.1, saturation=1.05),
+        Shadow(offset_x=0, offset_y=12, color="#000000", blur_radius=24),
+    ],
+)
+```
+
+Parameters:
+
+- `path`: required local file path or remote URL
+- `position`: required `(x, y)` tuple using pixels or percentage strings
+- `width`: optional positive integer
+- `height`: optional positive integer
+- `fit`: `cover`, `contain`, or `fill` when width and height define a target box
+- `opacity`: float from `0.0` to `1.0`
+- `rotation`: degrees
+- `align`: `Align`, string alias, or `(horizontal, vertical)` tuple
+- `remove_background`: requires `quickthumb[rembg]`
+- `border_radius`: non-negative integer
+- `effects`: any mix of `Stroke`, `Shadow`, `Glow`, and `Filter`
+- `blend_mode`: `multiply`, `overlay`, `screen`, `darken`, `lighten`, or `normal`
+
+Notes:
+
+- If only one of `width` or `height` is set, aspect ratio is preserved.
+- `fit` matters when both `width` and `height` define a box.
+- Image blend modes apply during compositing onto prior layers.
+
+### Custom Layer
+
+Adds a callback that can draw directly onto the rendered Pillow image.
+
+```python
+from PIL import ImageDraw
+from quickthumb import Canvas
+
+def add_badge(image):
+    draw = ImageDraw.Draw(image)
+    draw.polygon([(70, 70), (240, 70), (155, 180)], fill="#FF3B30")
+    return image
+
+canvas = Canvas(512, 512).custom(add_badge)
+```
+
+Rules:
+
+- `fn` must be callable.
+- The callback receives a `PIL.Image.Image`.
+- The callback may mutate and return the same image, return a new image of the same size, or return `None`.
+- Exceptions from the callback are wrapped as `RenderingError`.
+- Custom layers cannot be serialized to JSON.
+
+## Helpers, Enums, and Effects
+
+### Gradients
+
+```python
+from quickthumb import LinearGradient, RadialGradient
+
+LinearGradient(
+    angle=45,
+    stops=[("#FF5733", 0.0), ("#3333FF", 1.0)],
+)
+
+RadialGradient(
+    stops=[("#FF5733", 0.0), ("#3333FF", 1.0)],
+    center=(0.5, 0.5),
+)
+```
+
+### TextPart
+
+`TextPart` supports per-segment overrides inside rich text content.
+
+```python
+from quickthumb import Stroke, TextPart
+
+TextPart(
+    text="HOT",
+    color="#FF3B30",
+    size=56,
+    font="Impact",
+    bold=None,
+    italic=None,
+    weight=900,
+    line_height=None,
+    letter_spacing=0,
+    effects=[Stroke(width=3, color="#000000")],
+)
+```
+
+Rules:
+
+- `text` cannot be empty.
+- `weight` and `bold=True` are mutually exclusive here too.
+
+### Enums
+
+Blend modes:
+
+- `BlendMode.MULTIPLY`
+- `BlendMode.OVERLAY`
+- `BlendMode.SCREEN`
+- `BlendMode.DARKEN`
+- `BlendMode.LIGHTEN`
+- `BlendMode.NORMAL`
+
+Fit modes:
+
+- `FitMode.COVER`
+- `FitMode.CONTAIN`
+- `FitMode.FILL`
+
+Align values:
+
+- `Align.CENTER`
+- `Align.TOP_LEFT`
+- `Align.TOP_CENTER`
+- `Align.TOP_RIGHT`
+- `Align.LEFT`
+- `Align.RIGHT`
+- `Align.BOTTOM_LEFT`
+- `Align.BOTTOM_CENTER`
+- `Align.BOTTOM_RIGHT`
+
+### Effects by Layer Type
+
+- Text layers: `Stroke`, `Shadow`, `Glow`, `Background`
+- Image layers: `Stroke`, `Shadow`, `Glow`, `Filter`
+- Shape layers: `Stroke`, `Shadow`, `Glow`
+- Background layers: `Filter`
+
+## JSON Schema
+
+QuickThumb serializes canvases as a JSON object with top-level `width`, `height`, and `layers`.
 
 ```json
 {
-  "width": 1920,
-  "height": 1280,
+  "width": 1280,
+  "height": 720,
   "layers": [
     {
       "type": "background",
-      "color": "#FF5733",
+      "color": "#0F172A",
       "opacity": 1.0,
-      "blend_mode": null
+      "blend_mode": null,
+      "fit": null,
+      "effects": []
     },
     {
-      "type": "background",
-      "gradient": {
-        "type": "linear",
-        "angle": 45,
-        "stops": [
-          ["#FF5733", 0.0],
-          ["#3333FF", 1.0]
-        ]
-      },
-      "opacity": 0.7,
-      "blend_mode": "multiply"
-    },
-    {
-      "type": "text",
-      "content": "Hello World",
-      "font": "Roboto",
-      "size": 72,
-      "color": "#FFFFFF",
-      "align": ["center", "middle"],
-      "bold": true,
+      "type": "shape",
+      "shape": "rectangle",
+      "position": [48, 48],
+      "width": 320,
+      "height": 96,
+      "color": "#CC0000",
+      "border_radius": 14,
+      "opacity": 1.0,
+      "rotation": 0.0,
+      "align": "top-left",
       "effects": [
-        { "type": "stroke", "width": 3, "color": "#000000" },
-        { "type": "background", "color": "#000000", "padding": [10, 5], "border_radius": 5 }
+        { "type": "stroke", "width": 2, "color": "#FFFFFF" }
       ]
-    },
-    {
-      "type": "image",
-      "path": "assets/logo.png",
-      "position": [50, 50],
-      "width": 200,
-      "opacity": 1.0,
-      "rotation": 0,
-      "remove_background": true
     },
     {
       "type": "text",
       "content": [
-        { "text": "Hello ", "color": "#FFFFFF" },
+        { "text": "HELLO ", "color": "#FFFFFF", "effects": [] },
         {
-          "text": "World",
-          "color": "#FF0000",
-          "effects": [{ "type": "stroke", "width": 2, "color": "#000000" }]
+          "text": "WORLD",
+          "color": "#B8FF00",
+          "weight": 900,
+          "effects": [
+            { "type": "stroke", "width": 3, "color": "#000000" }
+          ]
         }
       ],
-      "size": 72,
-      "effects": [{ "type": "stroke", "width": 1, "color": "#000000" }]
+      "size": 88,
+      "position": ["8%", "50%"],
+      "align": "left",
+      "max_width": "60%",
+      "auto_scale": false,
+      "rotation": 0.0,
+      "opacity": 1.0,
+      "effects": [
+        {
+          "type": "shadow",
+          "offset_x": 4,
+          "offset_y": 4,
+          "color": "#000000",
+          "blur_radius": 8
+        }
+      ]
+    },
+    {
+      "type": "image",
+      "path": "portrait.png",
+      "position": ["74%", "54%"],
+      "width": 420,
+      "height": 520,
+      "opacity": 1.0,
+      "rotation": 0.0,
+      "remove_background": false,
+      "align": "center",
+      "border_radius": 24,
+      "fit": "cover",
+      "blend_mode": "normal",
+      "effects": [
+        { "type": "filter", "blur": 0, "brightness": 1.0, "contrast": 1.05, "saturation": 1.0 }
+      ]
     },
     {
       "type": "outline",
-      "width": 10,
-      "color": "#FFFFFF"
+      "width": 12,
+      "color": "#B8FF00",
+      "offset": 0,
+      "opacity": 1.0
     }
   ]
 }
 ```
 
-### Method Chaining
+Serialization notes:
 
-All layer methods (`.background()`, `.text()`, `.outline()`) return `self`, enabling fluent method chaining:
+- Every layer uses a `type` discriminator.
+- Enum-like fields serialize to strings.
+- Positions serialize as JSON arrays.
+- `align` serializes to a single string such as `"center"` or `"top-left"`.
+- `canvas.custom(...)` layers are not serializable.
+
+## Validation Rules and Gotchas
+
+### Text
+
+- `content` is required for `canvas.text(...)`.
+- Rich text lists cannot be empty.
+- `TextPart.text` cannot be empty.
+- `weight` and `bold=True` are mutually exclusive on both `TextLayer` and `TextPart`.
+- `auto_scale=True` requires `max_width`.
+- `max_width` must be a positive integer or positive percentage string.
+- Percentage strings are validated for `position` and `max_width`.
+
+### Fonts
+
+- `font` may be a font family name, font file path, or remote font URL.
+- When `font` is a webfont URL, `bold`, `italic`, and `weight` flags are ignored.
+- Provide separate font URLs for styled webfont variants.
+- `QUICKTHUMB_FONT_DIR` can point QuickThumb to a custom font directory.
+- `QUICKTHUMB_DEFAULT_FONT` can override the default fallback font.
+
+### Images and Shapes
+
+- `image.position` and `shape.position` are required.
+- Positions must be 2-item tuples or lists.
+- Percentage positions may be negative, for example `("-10%", "50%")`.
+- `border_radius` cannot be negative.
+- `opacity` must be between `0.0` and `1.0`.
+
+### Rendering and Export
+
+- `quality` is only supported for `JPEG` and `WEBP`; using it with `PNG` raises `RenderingError`.
+- Unsupported file formats raise `RenderingError`.
+- Invalid local paths or failed remote downloads raise rendering-time errors.
+
+### JSON
+
+- `Canvas.from_json()` expects a JSON string.
+- `Canvas.to_json()` raises `ValidationError` when the canvas contains custom layers.
+- Round-trip JSON works for supported layer types and effects only.
+
+## End-to-End Example
 
 ```python
-# Single-line chaining
-canvas = Canvas(1920, 1080).background(color="#2c3e50").text("Title", size=84)
+from quickthumb import Background, Canvas, Filter, Shadow, Stroke, TextPart
 
-# Multi-line chaining for readability
 canvas = (
-    Canvas(1920, 1080)
-    .background(color="#2c3e50")
-    .text("Python Tutorial", font="Roboto", size=84, color="#FFFFFF", bold=True)
-    .text("Learn the Basics", font="Roboto", size=48, color="#EEEEEE")
-)
-
-# Mixed with traditional syntax
-canvas = Canvas(1920, 1080)
-canvas.background(color="#FF5733").text("Hello")
-canvas.text("Another layer")  # Can still call methods separately
-```
-
-### Export Methods
-
-Canvas can be exported in multiple formats:
-
-```python
-# Render to file
-canvas.render("output.png", format="PNG", quality=None)
-
-# Export as base64 string (without data URL prefix)
-base64_str = canvas.to_base64(format="PNG", quality=None)
-# Returns: "iVBORw0KGgoAAAANSUhEUgAA..."
-
-# Export as data URL (with MIME type prefix)
-data_url = canvas.to_data_url(format="PNG", quality=None)
-# Returns: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA..."
-
-# Supported formats: PNG, JPEG, WEBP
-canvas.to_base64(format="JPEG", quality=85)
-canvas.to_data_url(format="WEBP", quality=90)
-```
-
-**Quality Parameter**:
-
-- Only applicable for JPEG and WEBP formats (1-100)
-- Raises `RenderingError` if used with PNG
-- Defaults to None (uses PIL defaults: JPEG=75, WEBP=80)
-
-### JSON Serialization
-
-Canvas instances can be serialized to JSON and deserialized from JSON:
-
-```python
-# Create canvas programmatically
-canvas = Canvas(1920, 1080) \
-    .background(color="#2c3e50") \
-    .text("Hello", size=72, color="#FFFFFF")
-
-# Export to JSON string
-json_str = canvas.to_json()
-# Returns: '{"size": {"width": 1920, "height": 1080}, "layers": [...]}'
-
-# Load from JSON string
-canvas = Canvas.from_json(json_str)
-
-# Round-trip example
-original = Canvas(1920, 1080).background(color="#FF5733")
-exported = original.to_json()
-recreated = Canvas.from_json(exported)
-assert recreated.to_json() == exported  # Perfect round-trip
-```
-
-### Helper Classes
-
-````python
-from quickthumb import LinearGradient, RadialGradient, BlendMode, TextPart, Stroke
-
-# Gradients
-LinearGradient(angle=45, stops=[("#FF5733", 0.0), ("#3333FF", 1.0)])
-RadialGradient(stops=[("#FF5733", 0.0), ("#3333FF", 1.0)], center=(0.5, 0.5))
-
-# Blend modes
-BlendMode.NORMAL      # Default
-BlendMode.MULTIPLY
-BlendMode.OVERLAY
-BlendMode.SCREEN
-BlendMode.DARKEN
-BlendMode.LIGHTEN
-
-# Text effects
-Stroke(width=3, color="#000000")
-
-# Rich text parts (for partial text styling)
-    TextPart(
-        text="Hello",
-        color="#FF0000",  # optional, inherits from parent text layer
-        effects=None,  # optional list of effect objects (Stroke, Shadow, Glow, Background)
+    Canvas.from_aspect_ratio("16:9", base_width=1280)
+    .background(
+        image="https://images.unsplash.com/photo-1516321318423-f06f85e504b3",
+        fit="cover",
+        effects=[Filter(brightness=0.6)],
     )
-    ```
-
-    ### Text Effects
-
-Text layers support effects for enhanced visual styling using effect classes:
-
-```python
-from quickthumb import Stroke
-
-# Single effect
-canvas.text("Title", size=72, effects=[
-    Stroke(width=3, color="#000000")
-])
-
-# Multiple stroke effects
-canvas.text("Epic Title", size=96, color="#FFFFFF", effects=[
-    Stroke(width=5, color="#000000"),
-    Stroke(width=2, color="#FF0000"),
-])
-
-# Effects are composable and reusable
-stroke_style = [Stroke(width=3, color="#000000")]
-canvas.text("Title 1", size=72, effects=stroke_style)
-canvas.text("Title 2", size=60, effects=stroke_style)
-````
-
-**Available Effects:**
-
-- `Stroke(width, color)`: Adds an outline around text
-
-### Rich Text (Partial Styling)
-
-Use `TextPart` to apply different styles to portions of text:
-
-```python
-from quickthumb import TextPart, Stroke
-
-# Different colors for different words
-canvas.text(
-    content=[
-        TextPart("Hello ", color="#FFFFFF"),
-        TextPart("World", color="#FF0000"),
-    ],
-    size=72,
+    .background(color="#000000", opacity=0.35)
+    .shape(
+        shape="rectangle",
+        position=(52, 52),
+        width=360,
+        height=96,
+        color="#CC0000",
+        border_radius=14,
+    )
+    .text(
+        content=[
+            TextPart(text="AI ", color="#B8FF00", weight=900),
+            TextPart(text="THUMBNAILS", color="#FFFFFF", weight=900),
+        ],
+        size=108,
+        position=("8%", "52%"),
+        align=("left", "middle"),
+        max_width="58%",
+        effects=[
+            Stroke(width=6, color="#000000"),
+            Shadow(offset_x=4, offset_y=4, color="#000000", blur_radius=8),
+            Background(color="#111827CC", padding=(16, 22), border_radius=12),
+        ],
+    )
+    .image(
+        path="portrait.png",
+        position=("75%", "55%"),
+        width=430,
+        height=540,
+        fit="cover",
+        align=("center", "middle"),
+        border_radius=24,
+        effects=[Shadow(offset_x=0, offset_y=14, color="#000000", blur_radius=24)],
+    )
+    .outline(width=12, color="#B8FF00")
 )
 
-# Mix styled and unstyled parts with effects
-canvas.text(
-    content=[
-        TextPart("Normal "),  # inherits color="#FFFFFF"
-        TextPart("RED", color="#FF0000", effects=[Stroke(width=2, color="#000000")]),
-        TextPart(" Normal"),  # inherits color="#FFFFFF"
-    ],
-    color="#FFFFFF",  # default for parts without explicit color
-    size=72,
-    effects=[Stroke(width=1, color="#000000")],  # effects apply to all parts
-)
+canvas.render("thumbnail.png")
 ```
-
-### Font Weights
-
-QuickThumb supports CSS-style font weights for precise typography control:
-
-```python
-# Numeric weights (100-900)
-canvas.text("Thin Text", font="Roboto", size=48, weight=100)
-canvas.text("Light Text", font="Roboto", size=48, weight=300)
-canvas.text("Regular Text", font="Roboto", size=48, weight=400)
-canvas.text("Bold Text", font="Roboto", size=48, weight=700)
-canvas.text("Black Text", font="Roboto", size=48, weight=900)
-
-# Named weights (case-insensitive, supports hyphens/underscores/spaces)
-canvas.text("Thin", weight="thin")           # 100
-canvas.text("Extra Light", weight="extra-light")  # 200
-canvas.text("Light", weight="light")         # 300
-canvas.text("Normal", weight="normal")       # 400
-canvas.text("Medium", weight="medium")       # 500
-canvas.text("Semi Bold", weight="semi-bold") # 600
-canvas.text("Bold", weight="bold")           # 700
-canvas.text("Extra Bold", weight="extra-bold")    # 800
-canvas.text("Black", weight="black")         # 900
-
-# Rich text with different weights per part
-canvas.text(
-    content=[
-        TextPart("Light ", weight=300),
-        TextPart("Heavy", weight=900),
-    ],
-    font="NotoSerif",
-    size=48,
-)
-```
-
-**Weight Fallback**: If the exact weight isn't available, QuickThumb automatically finds the closest available weight variant.
-
-**Important**: The `weight` and `bold` parameters are mutually exclusive. Using both will raise a `ValidationError`:
-
-```python
-# ❌ This raises ValidationError
-canvas.text("Error", weight=700, bold=True)
-
-# ✅ Use weight instead of bold
-canvas.text("Bold Text", weight=700)  # or weight="bold"
-
-# ✅ Or use the traditional bold parameter
-canvas.text("Bold Text", bold=True)
-```
-
-## Design Consistency Checks
-
-### ✅ Consistency Validations
-
-1. **Required vs Optional Parameters**
-   - ✅ Canvas dimensions always required (either explicit size or aspect ratio)
-   - ✅ Text content is required; font/size have sensible defaults
-   - ✅ Background color/gradient/image are mutually exclusive (one required)
-
-2. **Method Naming**
-   - ✅ Consistent: `.background()`, `.text()`, `.outline()`
-   - ✅ No `add_` prefix (as requested)
-   - ✅ Plural for multi-instance methods is handled by calling multiple times
-
-3. **Layer Ordering**
-   - ✅ Implicit z-index by call order: first called = bottom layer
-   - ✅ Backgrounds rendered first, then text, then decorations
-
-4. **Blend Mode Scope**
-   - ✅ Blend modes only for backgrounds (as clarified)
-   - ✅ Text and decorations use standard alpha compositing
-   - ✅ Opacity available for all layer types
-
-5. **Color Format**
-   - ✅ Consistent hex string format: "#RRGGBB" or "#RRGGBBAA"
-   - ✅ Auto-conversion from hex to RGBA internally
-
-6. **Position/Alignment**
-   - ✅ Either `position=(x, y)` or `align=(h, v)` for text
-   - ✅ Position in pixels or percentage: 100 or "50%"
-   - ✅ Alignment uses enum/string: "center", "top", "left", etc.
-
-7. **Method Chaining**
-   - ✅ All layer methods return `self` for fluent API
-   - ✅ Enables both chained and traditional syntax
-   - ✅ Consistent return type across all mutating methods
-
-8. **JSON Serialization**
-   - ✅ Bidirectional: `from_json()` for loading, `to_json()` for exporting
-   - ✅ Perfect round-trip: `Canvas.from_json(canvas.to_json())` recreates identical canvas
-   - ✅ Uses Pydantic's `model_dump()` and `model_validate()` for serialization
-   - ✅ Accepts only JSON strings (not dictionaries) for type safety
-
-## Implementation Priority
-
-### Phase 1: Core (Minimum Viable)
-
-- Canvas creation (size + aspect ratio)
-- Solid background
-- Basic text (no stroke, center alignment)
-- PNG output
-- Pydantic models for validation
-- Method chaining (all layer methods return `self`)
-
-### Phase 2: Enhanced Backgrounds
-
-- Linear gradients
-- Radial gradients
-- Image backgrounds with fit modes
-- Blend modes and opacity
-
-### Phase 3: Text Features
-
-- Text stroke/outline
-- Custom positioning
-- Font loading and caching
-- Bold/italic variants
-
-### Phase 4: Decorations & Polish
-
-- Image overlays (positioned images)
-- Text backgrounds (labels/badges)
-- Outline decoration
-- JPEG/WebP output
-- JSON operations (`from_json()`, `to_json()`)
-- Comprehensive error messages
-
-### Phase 5: Text Effects
-
-- Effect classes (currently: `Stroke`)
-- Effects list (`effects` parameter)
-- Rich text with `TextPart` (partial text styling with effects support)
-- Future: Additional effects like `Shadow`, `Glow`, etc.

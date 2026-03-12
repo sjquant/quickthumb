@@ -80,10 +80,10 @@
 
 #### API Reference Cleanup
 
-- [ ] Update `DESIGN.md` to reflect the actual implemented API surface
-- [ ] Remove stale examples from `DESIGN.md` that no longer run against the codebase
-- [ ] Expand `DESIGN.md` into a reliable reference for layer types, effects, enums, JSON schema, and validation rules
-- [ ] Add an explicit "gotchas" section (e.g. `weight` vs `bold`, `auto_scale` requires `max_width`, custom layers are not JSON-serializable, webfont styling flags are ignored)
+- [x] Update `DESIGN.md` to reflect the actual implemented API surface
+- [x] Remove stale examples from `DESIGN.md` that no longer run against the codebase
+- [x] Expand `DESIGN.md` into a reliable reference for layer types, effects, enums, JSON schema, and validation rules
+- [x] Add an explicit "gotchas" section (e.g. `weight` vs `bold`, `auto_scale` requires `max_width`, custom layers are not JSON-serializable, webfont styling flags are ignored)
 
 #### Example Expansion
 
