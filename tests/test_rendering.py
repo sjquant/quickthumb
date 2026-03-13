@@ -2054,15 +2054,19 @@ class TestRendering:
                 assert f.read() == external_file("snapshots/shape_ellipse_basic.png")
 
     def test_snapshot_shape_with_effects(self):
-        """Snapshot test for shape layer with stroke, shadow, and glow effects"""
+        """Snapshot test for shape layer with stroke, shadow, and glow effects.
+
+        Covers both a rectangle and an ellipse to verify that blurred shadows
+        follow the actual shape outline rather than the rectangular bounding box.
+        """
         from quickthumb import Canvas, Glow, Shadow, Stroke
 
         canvas = (
-            Canvas(400, 300)
+            Canvas(400, 400)
             .background(color="#1a1a2e")
             .shape(
                 shape="rectangle",
-                position=("50%", "50%"),
+                position=("50%", "27%"),
                 width=200,
                 height=120,
                 color="#2ECC71",
@@ -2071,6 +2075,17 @@ class TestRendering:
                     Shadow(offset_x=6, offset_y=6, color="#000000", blur_radius=8),
                     Glow(color="#2ECC71", radius=12, opacity=0.8),
                     Stroke(width=4, color="#1A8A4A"),
+                ],
+            )
+            .shape(
+                shape="ellipse",
+                position=("50%", "73%"),
+                width=160,
+                height=160,
+                color="#3B82F6",
+                align=("center", "middle"),
+                effects=[
+                    Shadow(offset_x=0, offset_y=0, color="#000000", blur_radius=14),
                 ],
             )
         )

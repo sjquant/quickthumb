@@ -685,14 +685,25 @@ class Canvas:
         """Composite a drop shadow for img onto canvas, placed behind the image."""
         alpha = img.split()[3]
         shadow_color = self._parse_color(shadow.color)
-        shadow_img = Image.new("RGBA", img.size, shadow_color)
-        shadow_img.putalpha(alpha)
 
-        if shadow.blur_radius > 0:
-            shadow_img = shadow_img.filter(ImageFilter.GaussianBlur(shadow.blur_radius))
-
-        sx = x + shadow.offset_x
-        sy = y + shadow.offset_y
+        blur = shadow.blur_radius
+        if blur > 0:
+            # Pad the shadow canvas by 2× the blur radius so GaussianBlur can spread
+            # freely in all directions without being clipped to the shape bounding box.
+            pad = blur * 2
+            padded_size = (img.width + pad * 2, img.height + pad * 2)
+            padded_alpha = Image.new("L", padded_size, 0)
+            padded_alpha.paste(alpha, (pad, pad))
+            shadow_img = Image.new("RGBA", padded_size, shadow_color)
+            shadow_img.putalpha(padded_alpha)
+            shadow_img = shadow_img.filter(ImageFilter.GaussianBlur(blur))
+            sx = x + shadow.offset_x - pad
+            sy = y + shadow.offset_y - pad
+        else:
+            shadow_img = Image.new("RGBA", img.size, shadow_color)
+            shadow_img.putalpha(alpha)
+            sx = x + shadow.offset_x
+            sy = y + shadow.offset_y
         src_x = max(0, -sx)
         src_y = max(0, -sy)
         dst_x = max(0, sx)
@@ -1251,7 +1262,7 @@ class Canvas:
             )
             y = start_y + i * line_height
             x = self._get_horizontal_start_x(base_x, line_width, layer.align)
-            bbox = font.getbbox(line, anchor="lt")
+            bbox = cast(tuple[int, int, int, int], font.getbbox(line, anchor="lt"))
             line_layouts.append((line, x, y, bbox))
 
         if background_effects and line_layouts:
@@ -1271,7 +1282,6 @@ class Canvas:
                 )
 
         for line, x, y, _ in line_layouts:
-
             for glow in glow_effects:
                 self._render_glow(image, line, font, (x, y), glow)
 
