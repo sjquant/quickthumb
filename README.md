@@ -9,6 +9,10 @@ It is designed for code-first and JSON-first workflows, with a layer-based API t
 | --- | --- | --- |
 | ![YouTube thumbnail example](examples/youtube_thumbnail_01.png) | ![Burnout thumbnail example](examples/youtube_thumbnail_02.png) | ![Instagram news card example](examples/instagram_news_card.png) |
 
+| Talking Head | Reaction / Commentary | Tutorial / Explainer |
+| --- | --- | --- |
+| ![Talking head thumbnail example](examples/youtube_talking_head.png) | ![Reaction thumbnail example](examples/youtube_reaction.png) | ![Tutorial thumbnail example](examples/youtube_tutorial_explainer.png) |
+
 ## Why QuickThumb
 
 - Built for thumbnails and social graphics, not just generic image composition

@@ -9,7 +9,11 @@ From the repository root:
 ```bash
 uv run python examples/youtube_thumbnail_01.py
 uv run python examples/youtube_thumbnail_02.py
+uv run python examples/youtube_talking_head.py
+uv run python examples/youtube_reaction.py
+uv run python examples/youtube_tutorial_explainer.py
 uv run python examples/instagram_news_card.py
+uv run python examples/podcast_interview_promo.py
 uv run python examples/shorts_cover_agent.py
 ```
 
@@ -45,6 +49,46 @@ Shows:
 
 Use it when you want a more editorial thumbnail with strong hierarchy and multiple text blocks.
 
+### `youtube_talking_head.py`
+
+Output: `youtube_talking_head.png`
+
+Shows:
+
+- Split left/right layout: headline text on the left, subject portrait on the right
+- Left-to-right `LinearGradient` overlay that fades to transparent, keeping the portrait visible
+- Remote image URL for the subject portrait (swap for a local path)
+- Topic badge built from a `shape` + `text` layer pair
+- Rich text with a two-tone headline using `TextPart`
+
+Use it when you want the classic YouTube talking-head format with a presenter or guest alongside the topic.
+
+### `youtube_reaction.py`
+
+Output: `youtube_reaction.png`
+
+Shows:
+
+- Programmatic layout with no background photo — uses solid color + blended texture overlay
+- Oversized decorative text element (`?!`) as a right-side graphic at low opacity
+- `Glow` effect on both a shape badge and the main headline word
+- `blend_mode` overlay on a background image layer at very low opacity for subtle texture
+
+Use it when you want a high-energy reaction or commentary thumbnail driven entirely by typography and shape layers.
+
+### `youtube_tutorial_explainer.py`
+
+Output: `youtube_tutorial_explainer.png`
+
+Shows:
+
+- Pure gradient background (no photo dependency) using a diagonal `LinearGradient`
+- Reusable `add_step()` helper that composes an ellipse badge + two text layers per step
+- Two-tone headline via `TextPart` segments
+- Thin rectangle used as a visual divider between the headline area and the steps column
+
+Use it when you want a clean numbered-steps or how-to layout for tutorial and explainer videos.
+
 ### `instagram_news_card.py`
 
 Output: `instagram_news_card.png`
@@ -58,6 +102,19 @@ Shows:
 - Multiline headline, supporting copy, and rich-text metadata row
 
 Use it when you want a reusable template for Instagram posts, X cards, or social news promos.
+
+### `podcast_interview_promo.py`
+
+Output: `podcast_interview_promo.png`
+
+Shows:
+
+- Remote image URLs for both the background photo and the speaker portrait
+- A webfont loaded from a URL for the show-title treatment
+- `remove_background=True` on the portrait layer for a cutout-style guest visual
+- Layered promo-card styling with shapes, shadows, and heavy headline typography
+
+Use it when you want an end-to-end podcast or interview promo example that exercises QuickThumb's network-backed asset loading and portrait cutout workflow.
 
 ### `shorts_cover_agent.py`
 
@@ -84,6 +141,8 @@ The example scripts set:
 They also use bundled example images from `assets/images`.
 
 The JSON-first example uses repo-relative asset paths inside the checked-in JSON spec. The companion Python script changes into the repo root before rendering so the example stays runnable from any working directory.
+
+The podcast promo example additionally requires network access because it fetches remote images and a remote webfont at render time. It also uses `remove_background=True`, so install `quickthumb[rembg]` if you want to run it locally.
 
 ## Extending These Examples
 

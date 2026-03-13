@@ -90,16 +90,16 @@
 #### Example Expansion
 
 - [x] Expand `examples/README.md` so it documents every example currently shipped
-- [ ] Add more end-to-end examples for real thumbnail use cases:
-- [ ] YouTube talking-head thumbnail
-- [ ] YouTube reaction / commentary thumbnail
-- [ ] YouTube tutorial / explainer thumbnail
+- [x] Add more end-to-end examples for real thumbnail use cases:
+- [x] YouTube talking-head thumbnail
+- [x] YouTube reaction / commentary thumbnail
+- [x] YouTube tutorial / explainer thumbnail
 - [x] Instagram / X / social news card
-- [ ] Podcast / interview promo card
+- [x] Podcast / interview promo card
 - [x] Shorts / vertical cover design
 - [x] Add example outputs/screenshots for every example script
 - [x] Add examples showing JSON-first workflows for AI agents that emit specs instead of Python
-- [ ] Add examples showing remote image URLs, webfont URLs, and background removal workflows
+- [x] Add examples showing remote image URLs, webfont URLs, and background removal workflows
 
 #### Package Discoverability
 
