@@ -1,0 +1,87 @@
+site_name: QuickThumb
+site_description: Programmatic thumbnail and social image generation with layered Python and JSON APIs
+site_url: https://sjquant.github.io/quickthumb
+repo_name: sjquant/quickthumb
+repo_url: https://github.com/sjquant/quickthumb
+
+docs_dir: docs
+site_dir: site
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  font:
+    text: Inter
+    code: JetBrains Mono
+  features:
+    - navigation.instant
+    - navigation.instant.progress
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+  icon:
+    repo: fontawesome/brands/github
+
+extra_css:
+  - stylesheets/extra.css
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - tables
+  - attr_list
+  - md_in_html
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Installation: installation.md
+      - Getting Started: getting-started.md
+      - Core Concepts: concepts.md
+  - API Reference:
+      - Overview: api/index.md
+      - Canvas: api/canvas.md
+      - Background: api/background.md
+      - Text: api/text.md
+      - Image: api/image.md
+      - Shape: api/shape.md
+      - Outline: api/outline.md
+      - Effects: api/effects.md
+      - Enums & Gradients: api/enums.md
+  - JSON & AI:
+      - JSON Schema & AI Workflow: json-schema.md
+  - Cookbook:
+      - Gallery: cookbook/index.md
+      - YouTube Thumbnails: cookbook/youtube-thumbnail.md
+      - Instagram Card: cookbook/instagram-card.md
+      - Podcast Promo: cookbook/podcast-promo.md
+      - Shorts / Vertical Cover: cookbook/shorts-cover.md
+      - AI Workflow: cookbook/ai-workflow.md
+      - Webfonts & Background Removal: cookbook/webfonts-rembg.md
+  - FAQ: faq.md
+  - Changelog: changelog.md
