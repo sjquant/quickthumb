@@ -593,15 +593,19 @@ class Canvas:
 
         fill_color = self._parse_color(layer.color)
 
-        # Draw shape on a temp image (shape-sized) so rotation/opacity work cleanly
-        shape_img = Image.new("RGBA", (layer.width, layer.height), (0, 0, 0, 0))
-        draw = ImageDraw.Draw(shape_img)
-        bbox = [0, 0, layer.width - 1, layer.height - 1]
+        # Draw shape at 4x resolution then downscale for anti-aliased edges.
+        scale = 4
+        shape_w, shape_h = layer.width * scale, layer.height * scale
+        shape_big = Image.new("RGBA", (shape_w, shape_h), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(shape_big)
+        bbox = [0, 0, shape_w - 1, shape_h - 1]
 
         if layer.shape == "rectangle":
-            draw.rounded_rectangle(bbox, radius=layer.border_radius, fill=fill_color)
+            draw.rounded_rectangle(bbox, radius=layer.border_radius * scale, fill=fill_color)
         else:  # ellipse
             draw.ellipse(bbox, fill=fill_color)
+
+        shape_img = shape_big.resize((layer.width, layer.height), Image.Resampling.LANCZOS)
 
         if layer.rotation != 0:
             shape_img = shape_img.rotate(
@@ -775,12 +779,18 @@ class Canvas:
             canvas.alpha_composite(patch, (dst_x, dst_y))
 
     def _apply_border_radius(self, img: Image.Image, radius: int) -> Image.Image:
-        """Clip image to a rounded rectangle mask."""
+        """Clip image to a rounded rectangle mask with anti-aliased corners via supersampling."""
         w, h = img.size
-        mask = Image.new("L", (w, h), 0)
-        draw = ImageDraw.Draw(mask)
-        draw.rounded_rectangle([0, 0, w - 1, h - 1], radius=radius, fill=255)
+        scale = 4
+        mask_big = Image.new("L", (w * scale, h * scale), 0)
+        draw = ImageDraw.Draw(mask_big)
+        draw.rounded_rectangle(
+            [0, 0, w * scale - 1, h * scale - 1], radius=radius * scale, fill=255
+        )
+        mask = mask_big.resize((w, h), Image.Resampling.LANCZOS)
         result = img.copy()
+        if result.mode != "RGBA":
+            result = result.convert("RGBA")
         result.putalpha(mask)
         return result
 
@@ -2039,23 +2049,24 @@ class Canvas:
         bg_width = content_width + pad_left + pad_right
         bg_height = content_height + pad_top + pad_bottom
 
-        # Create background layer and apply color with opacity
-        bg_layer = Image.new("RGBA", (bg_width, bg_height), (0, 0, 0, 0))
-        bg_draw = ImageDraw.Draw(bg_layer)
         bg_color = self._apply_opacity_to_color(
             self._parse_color(background.color), background.opacity
         )
 
-        # Draw background shape (rounded rectangle or normal rectangle)
-        # Use (bg_width - 1, bg_height - 1) so arcs are not clipped at image boundary
+        # Draw background shape; supersample rounded corners for anti-aliased edges.
         if background.border_radius > 0:
-            self._draw_rounded_rectangle(
-                bg_draw,
-                [(0, 0), (bg_width - 1, bg_height - 1)],
-                background.border_radius,
+            scale = 4
+            bg_big = Image.new("RGBA", (bg_width * scale, bg_height * scale), (0, 0, 0, 0))
+            bg_draw_big = ImageDraw.Draw(bg_big)
+            bg_draw_big.rounded_rectangle(
+                [0, 0, bg_width * scale - 1, bg_height * scale - 1],
+                radius=background.border_radius * scale,
                 fill=bg_color,
             )
+            bg_layer = bg_big.resize((bg_width, bg_height), Image.Resampling.LANCZOS)
         else:
+            bg_layer = Image.new("RGBA", (bg_width, bg_height), (0, 0, 0, 0))
+            bg_draw = ImageDraw.Draw(bg_layer)
             bg_draw.rectangle([(0, 0), (bg_width - 1, bg_height - 1)], fill=bg_color)
 
         paste_x = content_left - pad_left
@@ -2085,18 +2096,6 @@ class Canvas:
             return (vertical, horizontal, vertical, horizontal)
         else:  # len(padding) == 4
             return cast(tuple[int, int, int, int], padding)
-
-    def _draw_rounded_rectangle(
-        self,
-        draw: ImageDraw.ImageDraw,
-        coords: list[tuple[int, int]],
-        radius: int,
-        fill: tuple[int, ...] | None = None,
-    ):
-        """Draw a rounded rectangle on the given draw context."""
-        x0, y0 = coords[0]
-        x1, y1 = coords[1]
-        draw.rounded_rectangle([x0, y0, x1, y1], radius=radius, fill=fill)
 
     def _load_font(self, layer: TextLayer) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
         return self._load_font_variant(
