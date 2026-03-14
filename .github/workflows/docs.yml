@@ -4,6 +4,10 @@ on:
   push:
     tags:
       - "v*.*.*"
+    branches: [main]
+    paths:
+      - "docs/**"
+      - "mkdocs.yml"
   workflow_dispatch:
 
 permissions:
