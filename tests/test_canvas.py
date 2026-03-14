@@ -161,15 +161,31 @@ class TestCanvas:
         recreated = Canvas.from_json(json_str)
         assert recreated.to_json() == json_str
 
-    def test_should_raise_error_for_invalid_json(self):
-        """Test that Canvas raises error for invalid JSON"""
-        # Given: Invalid JSON
+    @pytest.mark.parametrize(
+        "json_str, match",
+        [
+            (
+                '{"width": 1920, "height": 1080, "layers": "INVALID"}',
+                "layers.*",
+            ),
+            (
+                json.dumps(
+                    {
+                        "width": 100,
+                        "height": 100,
+                        "layers": [{"type": "custom", "name": "no_such_fn_xyz"}],
+                    }
+                ),
+                "no_such_fn_xyz",
+            ),
+        ],
+    )
+    def test_should_raise_error_for_invalid_json(self, json_str, match):
+        """Canvas.from_json raises ValidationError for malformed or unresolvable JSON"""
         from quickthumb import Canvas, ValidationError
 
-        # When: User calls from_json with invalid JSON
-        # Then: Should raise ValidationError
-        with pytest.raises(ValidationError, match="layers.*"):
-            Canvas.from_json('{"width": 1920, "height": 1080, "layers": "INVALID"}')
+        with pytest.raises(ValidationError, match=match):
+            Canvas.from_json(json_str)
 
     def test_should_base64_match_rendered_file(self):
         """Test that to_base64 output is identical to base64-encoding the rendered file"""
@@ -236,17 +252,97 @@ class TestCanvas:
             img = Image.open(output_path)
             assert img.format == "JPEG"
 
-    def test_should_reject_serializing_custom_layer(self):
-        """Custom callback layers cannot be represented in JSON"""
-        from PIL import ImageDraw
+    def test_should_reject_serializing_unnamed_custom_layer(self):
+        """to_json() raises ValidationError for unnamed custom layers"""
         from quickthumb import Canvas, ValidationError
 
-        canvas = Canvas(100, 100).background(color="#FFFFFF").custom(
-            lambda image: ImageDraw.Draw(image).line((0, 0, 99, 99), fill="#FF0000", width=4)
-        )
+        canvas = Canvas(100, 100).background(color="#FFFFFF").custom(lambda image: image)
 
         with pytest.raises(ValidationError, match="Custom layers cannot be serialized"):
             canvas.to_json()
+
+    def test_should_reject_serializing_custom_layer_with_non_serializable_kwargs(self):
+        """to_json() raises ValidationError when custom layer kwargs are not JSON-serializable"""
+        from quickthumb import Canvas, ValidationError
+
+        canvas = (
+            Canvas(100, 100)
+            .background(color="#FFFFFF")
+            .custom(lambda image: image, name="fn", kwargs={"obj": object()})
+        )
+
+        with pytest.raises(ValidationError, match="kwargs.*not JSON-serializable"):
+            canvas.to_json()
+
+    def test_should_round_trip_named_custom_layer(self):
+        """Named custom layers serialize to JSON and deserialize back via the registry"""
+        import os
+        import tempfile
+
+        from inline_snapshot import snapshot
+        from PIL import Image
+        from quickthumb import Canvas
+
+        calls: list[dict] = []
+
+        def draw_dot(image: Image.Image, *, color: str = "red", size: int = 10) -> None:
+            calls.append({"color": color, "size": size})
+
+        Canvas.register_layer_fn("draw_dot", draw_dot)
+        try:
+            canvas = (
+                Canvas(100, 100)
+                .background(color="#FFFFFF")
+                .custom(draw_dot, name="draw_dot")
+                .custom(draw_dot, name="draw_dot", kwargs={"color": "blue", "size": 20})
+            )
+
+            json_str = canvas.to_json()
+            assert json.loads(json_str) == snapshot(
+                {
+                    "width": 100,
+                    "height": 100,
+                    "layers": [
+                        {
+                            "type": "background",
+                            "color": "#FFFFFF",
+                            "gradient": None,
+                            "image": None,
+                            "opacity": 1.0,
+                            "blend_mode": None,
+                            "fit": None,
+                            "effects": [],
+                        },
+                        {"type": "custom", "name": "draw_dot", "kwargs": {}},
+                        {
+                            "type": "custom",
+                            "name": "draw_dot",
+                            "kwargs": {"color": "blue", "size": 20},
+                        },
+                    ],
+                }
+            )
+
+            recreated = Canvas.from_json(json_str)
+            with tempfile.TemporaryDirectory() as tmpdir:
+                recreated.render(os.path.join(tmpdir, "out.png"))
+            assert calls == [{"color": "red", "size": 10}, {"color": "blue", "size": 20}]
+        finally:
+            Canvas.unregister_layer_fn("draw_dot")
+
+    def test_should_raise_error_deserializing_unregistered_custom_layer(self):
+        """Deserializing a custom layer whose name is not in the registry raises ValidationError"""
+        from quickthumb import Canvas, ValidationError
+
+        json_str = json.dumps(
+            {
+                "width": 100,
+                "height": 100,
+                "layers": [{"type": "custom", "name": "no_such_fn_xyz"}],
+            }
+        )
+        with pytest.raises(ValidationError, match="no_such_fn_xyz"):
+            Canvas.from_json(json_str)
 
     def test_should_raise_rendering_error_when_custom_callback_fails(self):
         """Exceptions inside custom callback should be wrapped as RenderingError"""
@@ -292,8 +388,10 @@ class TestCanvas:
         from quickthumb import Canvas
         from quickthumb.errors import RenderingError
 
-        canvas = Canvas(100, 100).background(color="#FFFFFF").custom(
-            lambda _image: Image.new("RGBA", (10, 10), (0, 0, 0, 0))
+        canvas = (
+            Canvas(100, 100)
+            .background(color="#FFFFFF")
+            .custom(lambda _image: Image.new("RGBA", (10, 10), (0, 0, 0, 0)))
         )
 
         with tempfile.TemporaryDirectory() as tmpdir:

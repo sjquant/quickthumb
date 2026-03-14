@@ -4,7 +4,7 @@ import math
 import os
 import warnings
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from io import BytesIO
 from typing import Literal, TypedDict, cast
 from urllib.request import urlopen
@@ -20,7 +20,6 @@ from quickthumb.models import (
     BackgroundEffect,
     BackgroundLayer,
     BlendMode,
-    CanvasModel,
     Filter,
     FitMode,
     Glow,
@@ -73,13 +72,25 @@ class TextPartMetadata(TypedDict):
 
 @dataclass
 class CustomLayer:
-    fn: Callable[[Image.Image], Image.Image | None]
+    fn: Callable[..., Image.Image | None]
+    name: str | None = None
+    kwargs: dict = field(default_factory=dict)
 
 
 RenderableLayer = LayerType | CustomLayer
 
 
 class Canvas:
+    _custom_layer_registry: dict[str, Callable[..., Image.Image | None]] = {}
+
+    @classmethod
+    def register_layer_fn(cls, name: str, fn: Callable[..., Image.Image | None]) -> None:
+        cls._custom_layer_registry[name] = fn
+
+    @classmethod
+    def unregister_layer_fn(cls, name: str) -> None:
+        cls._custom_layer_registry.pop(name, None)
+
     def __init__(self, width: int, height: int, layers: list[RenderableLayer] | None = None):
         if width <= 0:
             raise ValidationError("width must be > 0")
@@ -260,12 +271,17 @@ class Canvas:
         self._layers.append(layer)
         return self
 
-    def custom(self, fn: Callable[[Image.Image], Image.Image | None]) -> Self:
+    def custom(
+        self,
+        fn: Callable[..., Image.Image | None],
+        name: str | None = None,
+        kwargs: dict | None = None,
+    ) -> Self:
         """Add a custom callback layer that can draw directly onto the canvas image."""
         if not callable(fn):
             raise ValidationError("fn must be callable")
 
-        self._layers.append(CustomLayer(fn=fn))
+        self._layers.append(CustomLayer(fn=fn, name=name, kwargs=kwargs or {}))
         return self
 
     def render(
@@ -279,21 +295,57 @@ class Canvas:
         self._save_to_file(image, output_path, quality, format=format)
 
     def to_json(self) -> str:
-        if any(isinstance(layer, CustomLayer) for layer in self._layers):
-            raise ValidationError("Custom layers cannot be serialized to JSON")
+        import json as _json
 
-        return CanvasModel(
-            width=self.width, height=self.height, layers=cast(list[LayerType], self._layers)
-        ).model_dump_json()
+        layers_json = []
+        for layer in self._layers:
+            if isinstance(layer, CustomLayer):
+                if layer.name is None:
+                    raise ValidationError("Custom layers cannot be serialized to JSON")
+                try:
+                    _json.dumps(layer.kwargs)
+                except (TypeError, ValueError) as e:
+                    raise ValidationError(
+                        f"Custom layer '{layer.name}' has kwargs that are not JSON-serializable:"
+                        f" {e}"
+                    ) from e
+                layers_json.append({"type": "custom", "name": layer.name, "kwargs": layer.kwargs})
+            else:
+                layers_json.append(_json.loads(layer.model_dump_json()))
+
+        return _json.dumps({"width": self.width, "height": self.height, "layers": layers_json})
 
     @classmethod
     def from_json(cls, data: str) -> Self:
-        canvas_model = CanvasModel.model_validate_json(data)
-        return cls(
-            width=canvas_model.width,
-            height=canvas_model.height,
-            layers=cast(list[RenderableLayer], canvas_model.layers),
-        )
+        import json as _json
+
+        from pydantic import TypeAdapter
+
+        from quickthumb.models import CanvasModel, LayerType
+
+        raw = _json.loads(data)
+        layers_raw = raw.get("layers", [])
+
+        if not isinstance(layers_raw, list):
+            CanvasModel.model_validate_json(data)  # raises ValidationError with good message
+
+        layer_adapter: TypeAdapter[LayerType] = TypeAdapter(LayerType)
+        renderable_layers: list[RenderableLayer] = []
+        for layer_dict in layers_raw:
+            if isinstance(layer_dict, dict) and layer_dict.get("type") == "custom":
+                name = layer_dict.get("name")
+                fn = cls._custom_layer_registry.get(name)
+                if fn is None:
+                    raise ValidationError(
+                        f"Custom layer '{name}' is not registered. "
+                        f"Call Canvas.register_layer_fn('{name}', fn) before deserializing."
+                    )
+                kwargs = layer_dict.get("kwargs") or {}
+                renderable_layers.append(CustomLayer(fn=fn, name=name, kwargs=kwargs))
+            else:
+                renderable_layers.append(layer_adapter.validate_python(layer_dict))
+
+        return cls(width=raw["width"], height=raw["height"], layers=renderable_layers)
 
     def to_base64(self, format: FileFormat = "PNG", quality: int | None = None) -> str:
         import base64
@@ -345,7 +397,7 @@ class Canvas:
 
     def _render_custom_layer(self, image: Image.Image, layer: CustomLayer):
         try:
-            result = layer.fn(image)
+            result = layer.fn(image, **layer.kwargs)
         except Exception as e:
             raise RenderingError(f"Custom layer callback failed: {e}") from e
 

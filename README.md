@@ -213,7 +213,7 @@ serialized = canvas.to_json()
 Notes:
 
 - JSON uses top-level `width`, `height`, and `layers`
-- Custom layers added with `canvas.custom(fn)` are not JSON-serializable
+- Named custom layers added with `canvas.custom(fn, name="...", kwargs={...})` are JSON-serializable via the registry; unnamed custom layers are not
 - Enum-like values such as `blend_mode`, `fit`, and `align` can be passed as strings
 
 ## AI-Friendly Workflows
@@ -274,7 +274,7 @@ os.environ["QUICKTHUMB_DEFAULT_FONT"] = "Roboto"
 | Image effects | Stroke, shadow, glow, filter effects, border radius, background removal |
 | Shapes | Rectangle and ellipse primitives with stroke/shadow/glow support |
 | Export | PNG, JPEG, WebP, file output, base64, data URLs |
-| Serialization | `to_json()` / `from_json()` for built-in layer types |
+| Serialization | `to_json()` / `from_json()` for built-in layer types and named custom layers |
 
 ## Real Example Scripts
 
@@ -289,7 +289,7 @@ See the shipped examples in [`examples/README.md`](examples/README.md):
 - `weight` and `bold=True` are mutually exclusive on text layers and `TextPart`
 - `auto_scale=True` requires `max_width`
 - `position` percentage values must be strings like `"50%"`
-- `canvas.custom(fn)` runs during render order and cannot be serialized to JSON
+- `canvas.custom(fn)` without a `name` runs during render order but cannot be serialized to JSON; pass `name=` and register the function with `Canvas.register_layer_fn()` to enable serialization
 
 ## Development
 

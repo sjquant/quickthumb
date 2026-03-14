@@ -9,7 +9,7 @@ It is intended to be the reliable reference for writing QuickThumb code, generat
 - Layers render in call order: first added is the backmost layer.
 - All layer builder methods mutate the canvas and return `self`.
 - Most canvases can round-trip through JSON with `to_json()` and `from_json()`.
-- Custom callback layers are intentionally excluded from JSON serialization.
+- Named custom callback layers can round-trip through JSON via a registry. Unnamed custom layers cannot be serialized.
 
 ## Public Imports
 
@@ -58,6 +58,9 @@ canvas.outline(...)
 canvas.shape(...)
 canvas.image(...)
 canvas.custom(fn)
+canvas.custom(fn, name="...", kwargs={...})
+Canvas.register_layer_fn(name, fn)
+Canvas.unregister_layer_fn(name)
 ```
 
 ### Export Methods
@@ -294,13 +297,40 @@ def add_badge(image):
 canvas = Canvas(512, 512).custom(add_badge)
 ```
 
+Named custom layers can be serialized to JSON by registering the function in a global registry:
+
+```python
+from PIL import ImageDraw
+from quickthumb import Canvas
+
+def draw_bar(image, *, color: str = "#000000", height: int = 40) -> None:
+    ImageDraw.Draw(image).rectangle((0, 0, image.width, height), fill=color)
+
+Canvas.register_layer_fn("draw_bar", draw_bar)
+
+canvas = Canvas(512, 512).custom(draw_bar, name="draw_bar", kwargs={"color": "#E74C3C", "height": 60})
+
+json_str = canvas.to_json()
+# {"type": "custom", "name": "draw_bar", "kwargs": {"color": "#E74C3C", "height": 60}}
+
+recreated = Canvas.from_json(json_str)  # register_layer_fn must be called first
+```
+
+Parameters:
+
+- `fn`: required callable; receives a `PIL.Image.Image` as the first argument
+- `name`: optional string; required for JSON serialization
+- `kwargs`: optional dict of keyword arguments forwarded to `fn` at render time; must be JSON-serializable when `name` is set
+
 Rules:
 
 - `fn` must be callable.
-- The callback receives a `PIL.Image.Image`.
+- The callback receives a `PIL.Image.Image` as the first positional argument, followed by any `kwargs`.
 - The callback may mutate and return the same image, return a new image of the same size, or return `None`.
 - Exceptions from the callback are wrapped as `RenderingError`.
-- Custom layers cannot be serialized to JSON.
+- Unnamed custom layers (`name=None`) cannot be serialized to JSON.
+- `Canvas.register_layer_fn(name, fn)` must be called before `Canvas.from_json()` for any canvas containing a custom layer with that name.
+- `Canvas.unregister_layer_fn(name)` removes a name from the registry.
 
 ## Helpers, Enums, and Effects
 
@@ -478,7 +508,8 @@ Serialization notes:
 - Enum-like fields serialize to strings.
 - Positions serialize as JSON arrays.
 - `align` serializes to a single string such as `"center"` or `"top-left"`.
-- `canvas.custom(...)` layers are not serializable.
+- Named custom layers serialize as `{"type": "custom", "name": "...", "kwargs": {...}}`.
+- Unnamed custom layers are not serializable.
 
 ## Validation Rules and Gotchas
 
@@ -517,8 +548,10 @@ Serialization notes:
 ### JSON
 
 - `Canvas.from_json()` expects a JSON string.
-- `Canvas.to_json()` raises `ValidationError` when the canvas contains custom layers.
-- Round-trip JSON works for supported layer types and effects only.
+- `Canvas.to_json()` raises `ValidationError` when the canvas contains unnamed custom layers.
+- Named custom layers round-trip through JSON; `Canvas.register_layer_fn(name, fn)` must be called before `Canvas.from_json()`.
+- `Canvas.from_json()` raises `ValidationError` if a custom layer name is not in the registry.
+- Round-trip JSON works for all built-in layer types, effects, and named custom layers.
 
 ## End-to-End Example
 

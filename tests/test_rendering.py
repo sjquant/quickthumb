@@ -2393,6 +2393,36 @@ class TestRendering:
             with open(output_path, "rb") as f:
                 assert f.read() == external_file("snapshots/image_filter_effect.png")
 
+    def test_snapshot_custom_layer_with_kwargs(self):
+        """Snapshot test for custom layer where kwargs control visual output"""
+        from PIL import ImageDraw
+        from quickthumb import Canvas
+
+        def draw_colored_bar(image, *, color: str = "#000000", height: int = 40) -> None:
+            draw = ImageDraw.Draw(image)
+            draw.rectangle((0, 0, image.width, height), fill=color)
+
+        Canvas.register_layer_fn("draw_colored_bar", draw_colored_bar)
+        try:
+            canvas = (
+                Canvas(200, 150)
+                .background(color="#FFFFFF")
+                .custom(
+                    draw_colored_bar,
+                    name="draw_colored_bar",
+                    kwargs={"color": "#E74C3C", "height": 50},
+                )
+            )
+
+            with tempfile.TemporaryDirectory() as tmpdir:
+                output_path = os.path.join(tmpdir, "output.png")
+                canvas.render(output_path)
+
+                with open(output_path, "rb") as f:
+                    assert f.read() == external_file("snapshots/custom_layer_with_kwargs.png")
+        finally:
+            Canvas.unregister_layer_fn("draw_colored_bar")
+
     def test_snapshot_custom_canvas_layer(self):
         """Snapshot test for realistic user customization via canvas.custom(fn)"""
         from PIL import Image, ImageDraw, ImageFont
