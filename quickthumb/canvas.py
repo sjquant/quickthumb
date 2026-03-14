@@ -653,7 +653,13 @@ class Canvas:
             img = self._apply_border_radius(img, layer.border_radius)
 
         if layer.rotation != 0:
-            img = img.rotate(-layer.rotation, expand=True, resample=Image.Resampling.BICUBIC)
+            scale = 4
+            large = img.resize((img.width * scale, img.height * scale), Image.Resampling.LANCZOS)
+            large = large.rotate(-layer.rotation, expand=True, resample=Image.Resampling.BICUBIC)
+            img = large.resize(
+                (round(large.width / scale), round(large.height / scale)),
+                Image.Resampling.LANCZOS,
+            )
 
         if layer.opacity < 1.0:
             img = self._apply_opacity(img, layer.opacity)
