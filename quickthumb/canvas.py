@@ -593,7 +593,8 @@ class Canvas:
 
         fill_color = self._parse_color(layer.color)
 
-        # Draw shape at 4x resolution then downscale for anti-aliased edges.
+        # Draw at 4x and keep at 4x through rotation so both curved edges and
+        # rotation edges are anti-aliased when downscaled with LANCZOS.
         scale = 4
         shape_w, shape_h = layer.width * scale, layer.height * scale
         shape_big = Image.new("RGBA", (shape_w, shape_h), (0, 0, 0, 0))
@@ -605,12 +606,14 @@ class Canvas:
         else:  # ellipse
             draw.ellipse(bbox, fill=fill_color)
 
-        shape_img = shape_big.resize((layer.width, layer.height), Image.Resampling.LANCZOS)
-
         if layer.rotation != 0:
-            shape_img = shape_img.rotate(
+            shape_big = shape_big.rotate(
                 -layer.rotation, expand=True, resample=Image.Resampling.BICUBIC
             )
+
+        final_w = round(shape_big.width / scale)
+        final_h = round(shape_big.height / scale)
+        shape_img = shape_big.resize((final_w, final_h), Image.Resampling.LANCZOS)
 
         if layer.opacity < 1.0:
             shape_img = self._apply_opacity(shape_img, layer.opacity)
