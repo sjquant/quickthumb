@@ -6,7 +6,7 @@
 - [DONE] Remove dead `_get_style_string` method in `canvas.py` (defined but never called)
 
 ### P1 — High Impact Features
-- [REVIEW] Rich text word-wrapping: auto-wrap `list[TextPart]` content when `max_width` is set (currently only plain string content wraps)
+- [DONE] Rich text word-wrapping: auto-wrap `list[TextPart]` content when `max_width` is set (currently only plain string content wraps)
 - [TODO] Long-word overflow: truncate or warn when a single word exceeds `max_width` in `_wrap_text`
 - [TODO] Configurable font cache directory via `QUICKTHUMB_FONT_CACHE_DIR` env var (currently hardcoded to `/tmp`)
 
