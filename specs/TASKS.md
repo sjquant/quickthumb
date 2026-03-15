@@ -2,11 +2,11 @@
 
 ### P0 — Critical / Quick Wins
 - [DONE] Export `RenderingError` from `__init__.py` so users can `from quickthumb import RenderingError`
-- [TODO] Raise `ValidationError` when `canvas.background()` is called with no `color`, `gradient`, or `image`
-- [TODO] Remove dead `_get_style_string` method in `canvas.py` (defined but never called)
+- [DONE] Raise `ValidationError` when `canvas.background()` is called with no `color`, `gradient`, or `image`
+- [DONE] Remove dead `_get_style_string` method in `canvas.py` (defined but never called)
 
 ### P1 — High Impact Features
-- [TODO] Rich text word-wrapping: auto-wrap `list[TextPart]` content when `max_width` is set (currently only plain string content wraps)
+- [REVIEW] Rich text word-wrapping: auto-wrap `list[TextPart]` content when `max_width` is set (currently only plain string content wraps)
 - [TODO] Long-word overflow: truncate or warn when a single word exceeds `max_width` in `_wrap_text`
 - [TODO] Configurable font cache directory via `QUICKTHUMB_FONT_CACHE_DIR` env var (currently hardcoded to `/tmp`)
 

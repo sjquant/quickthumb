@@ -1687,6 +1687,34 @@ class TestRendering:
             with open(output_path, "rb") as f:
                 assert f.read() == external_file("snapshots/auto_scale_rich_text.png")
 
+    def test_snapshot_rich_text_wrapping(self):
+        """Snapshot test for rich text word-wrapping with list[TextPart] and max_width"""
+        from quickthumb import Canvas, TextPart
+
+        canvas = (
+            Canvas(400, 300)
+            .background(color="#FFFFFF")
+            .text(
+                content=[
+                    TextPart(text="Breaking news: ", color="#CC0000", bold=True),
+                    TextPart(
+                        text="a long story that should wrap across multiple lines", color="#111111"
+                    ),
+                ],
+                size=24,
+                position=(200, 150),
+                align=("center", "middle"),
+                max_width=300,
+            )
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/rich_text_wrapping.png")
+
     def test_snapshot_image_basic(self):
         """Snapshot test for basic image layer rendering"""
         from quickthumb import Canvas

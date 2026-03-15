@@ -121,6 +121,10 @@ class Canvas:
         fit: FitMode | str | None = None,
         effects: list[BackgroundEffect] | None = None,
     ) -> Self:
+        if color is None and gradient is None and image is None:
+            raise ValidationError(
+                "background() requires at least one of: color, gradient, or image"
+            )
         layer = BackgroundLayer(
             type="background",
             color=color,
@@ -1009,7 +1013,7 @@ class Canvas:
         def fits(size: int) -> bool:
             scaled_parts = self._scale_rich_text_parts(layer, size / base_size)
             temp_layer = layer.model_copy(update={"content": scaled_parts, "size": size})
-            lines = self._prepare_rich_text_lines(temp_layer)
+            lines = self._prepare_rich_text_lines(temp_layer, apply_wrapping=False)
             return all(
                 self._measure_rich_line_width(line_parts) <= max_width_px for line_parts in lines
             )
@@ -1086,7 +1090,7 @@ class Canvas:
             return
 
         draw = ImageDraw.Draw(image)
-        lines = self._prepare_rich_text_lines(layer)
+        lines = self._prepare_rich_text_lines(layer, apply_wrapping=not layer.auto_scale)
         line_heights, total_height = self._calculate_rich_text_dimensions(layer, lines)
         base_x, start_y = self._calculate_start_position(layer, total_height)
 
@@ -1174,7 +1178,12 @@ class Canvas:
 
             current_y += line_height
 
-    def _prepare_rich_text_lines(self, layer: TextLayer) -> list[list[TextPartData]]:
+    def _prepare_rich_text_lines(
+        self, layer: TextLayer, apply_wrapping: bool = True
+    ) -> list[list[TextPartData]]:
+        if apply_wrapping and layer.max_width:
+            return self._prepare_wrapped_rich_text_lines(layer)
+
         lines: list[list[TextPartData]] = [[]]
 
         for part in cast(list[TextPart], layer.content):
@@ -1216,6 +1225,80 @@ class Canvas:
                         lines[-1].append(line)
             else:
                 lines[-1].append(part_data)
+
+        return lines
+
+    def _prepare_wrapped_rich_text_lines(self, layer: TextLayer) -> list[list[TextPartData]]:
+        max_width_px = self._parse_coordinate(layer.max_width, self.width)  # type: ignore[arg-type]
+        lines: list[list[TextPartData]] = [[]]
+        current_width = 0
+
+        for part in cast(list[TextPart], layer.content):
+            color = self._resolve_color(part, layer)
+            size = self._resolve_size(part, layer)
+            bold = self._resolve_bold(part, layer)
+            italic = self._resolve_italic(part, layer)
+            weight = self._resolve_weight(part, layer)
+            font_name = self._resolve_font_name(part, layer)
+            lh_mult = self._resolve_line_height(part, layer)
+            letter_spacing = self._resolve_letter_spacing(part, layer)
+            combined_effects = list(layer.effects) + list(part.effects)
+            font = self._load_font_variant(font_name, size, bold, italic, weight)
+            part_template: TextPartData = {
+                "color": color,
+                "font_name": font_name,
+                "size": size,
+                "bold": bold,
+                "italic": italic,
+                "weight": weight,
+                "line_height_multiplier": lh_mult,
+                "letter_spacing": letter_spacing,
+                "stroke_effects": self._get_stroke_effects(combined_effects),
+                "shadow_effects": self._get_shadow_effects(combined_effects),
+                "glow_effects": self._get_glow_effects(combined_effects),
+                "background_effects": self._get_background_effects(combined_effects),
+                "text": "",
+            }
+
+            for seg_idx, segment in enumerate(part.text.split("\n")):
+                if seg_idx > 0:
+                    lines.append([])
+                    current_width = 0
+
+                words = segment.split()
+                if not words:
+                    continue
+
+                pending_words: list[str] = []
+                space_prefix = False  # leading space before first word of this batch
+                for word in words:
+                    has_content = bool(lines[-1] or pending_words)
+                    test_text = (" " if has_content else "") + word
+                    word_w, _ = self._measure_text_bounds(test_text, font, letter_spacing)
+
+                    if current_width + word_w <= max_width_px:
+                        if not pending_words:
+                            space_prefix = bool(lines[-1])
+                        pending_words.append(word)
+                        current_width += word_w
+                    else:
+                        if pending_words:
+                            flushed = (" " if space_prefix else "") + " ".join(pending_words)
+                            entry = part_template.copy()
+                            entry["text"] = flushed
+                            lines[-1].append(entry)
+                            pending_words = []
+                        lines.append([])
+                        bare_w, _ = self._measure_text_bounds(word, font, letter_spacing)
+                        pending_words = [word]
+                        space_prefix = False
+                        current_width = bare_w
+
+                if pending_words:
+                    flushed = (" " if space_prefix else "") + " ".join(pending_words)
+                    entry = part_template.copy()
+                    entry["text"] = flushed
+                    lines[-1].append(entry)
 
         return lines
 
@@ -2208,15 +2291,6 @@ class Canvas:
 
         except OSError as e:
             raise RenderingError(f"Could not load font '{font_name}'.") from e
-
-    def _get_style_string(self, bold: bool, italic: bool) -> str:
-        if bold and italic:
-            return "Bold Italic"
-        if bold:
-            return "Bold"
-        if italic:
-            return "Italic"
-        return ""
 
     def _parse_coordinate(self, value: int | str, dimension: int) -> int:
         if isinstance(value, int):
