@@ -1,7 +1,6 @@
 ---
 name: tdd
-description: Implement features or fix bugs using the TDD cycle. Use when you're about to add a new feature or fix a bug—start here before writing implementation code.
-disable-model-invocation: true
+description: Follow the TDD cycle. Use this before you add a new feature or fix a bug—start.
 ---
 
 ## Workflow
