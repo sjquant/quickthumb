@@ -1,6 +1,6 @@
 ---
 name: tdd
-description: Follow the TDD cycle. Use this before you add a new feature or fix a bug—start.
+description: Follow the TDD cycle. Use this before writing any implementation code, whether fixing a bug, adding a feature, or making any code change.
 ---
 
 ## Workflow

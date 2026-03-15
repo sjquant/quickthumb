@@ -1,5 +1,5 @@
 from quickthumb.canvas import Canvas
-from quickthumb.errors import QuickthumbError, ValidationError
+from quickthumb.errors import QuickthumbError, RenderingError, ValidationError
 from quickthumb.models import (
     Align,
     Background,
@@ -25,6 +25,7 @@ from quickthumb.models import (
 __all__ = [
     "Canvas",
     "QuickthumbError",
+    "RenderingError",
     "ValidationError",
     "Align",
     "Background",

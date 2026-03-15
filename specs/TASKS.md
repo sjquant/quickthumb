@@ -1,7 +1,7 @@
 ## Tasks
 
 ### P0 — Critical / Quick Wins
-- [TODO] Export `RenderingError` from `__init__.py` so users can `from quickthumb import RenderingError`
+- [DONE] Export `RenderingError` from `__init__.py` so users can `from quickthumb import RenderingError`
 - [TODO] Raise `ValidationError` when `canvas.background()` is called with no `color`, `gradient`, or `image`
 - [TODO] Remove dead `_get_style_string` method in `canvas.py` (defined but never called)
 
