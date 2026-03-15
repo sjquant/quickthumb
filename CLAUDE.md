@@ -4,7 +4,7 @@ This file provides guidance to Claude Code when working with this repository.
 
 ## Project Overview
 
-QuickThumb is a Python library for programmatic thumbnail generation. See @README.md for features, @DESIGN.md for API specifications.
+QuickThumb is a Python library for programmatic thumbnail generation. See @README.md for features and API specifications, @specs/SPEC.md for planned features.
 
 ## Project Structure
 

@@ -302,5 +302,4 @@ uv run ty quickthumb/
 
 ## Reference
 
-- Design notes: [DESIGN.md](DESIGN.md)
 - License: [LICENSE](LICENSE)
