@@ -905,24 +905,37 @@ class TestRendering:
                     f"snapshots/radial_gradient_brightness_{direction}.png"
                 )
 
+    _WRAP_TEXT = "This is a very long text that should wrap to multiple lines when rendered"
+
     @pytest.mark.parametrize(
-        "alignment, position_x, max_width, snapshot_suffix",
+        "content, alignment, position_x, max_width, snapshot_suffix",
         [
-            ("center", 200, 300, "center_aligned"),
-            ("left", 50, 300, "left_aligned"),
-            ("right", 350, 300, "right_aligned"),
-            ("center", 200, "50%", "center_aligned_percentage"),
+            (_WRAP_TEXT, "center", 200, 300, "center_aligned"),
+            (_WRAP_TEXT, "left", 50, 300, "left_aligned"),
+            (_WRAP_TEXT, "right", 350, 300, "right_aligned"),
+            (_WRAP_TEXT, "center", 200, "50%", "center_aligned_percentage"),
+            (
+                "Superlongwordthatwillneverfit and then some normal words",
+                "center",
+                200,
+                80,
+                "long_word_overflow",
+            ),
         ],
     )
-    def test_snapshot_text_wrapping(self, alignment, position_x, max_width, snapshot_suffix):
-        """Snapshot test for text word wrapping with different alignments"""
+    def test_snapshot_text_wrapping(
+        self, content, alignment, position_x, max_width, snapshot_suffix
+    ):
+        """Snapshot test for text word wrapping with different alignments and overflow"""
+        import warnings
+
         from quickthumb import Canvas
 
         canvas = (
             Canvas(400, 300)
             .background(color="#FFFFFF")
             .text(
-                "This is a very long text that should wrap to multiple lines when rendered",
+                content,
                 size=24,
                 color="#000000",
                 position=(position_x, 150),
@@ -933,7 +946,9 @@ class TestRendering:
 
         with tempfile.TemporaryDirectory() as tmpdir:
             output_path = os.path.join(tmpdir, "output.png")
-            canvas.render(output_path)
+            with warnings.catch_warnings(record=True):
+                warnings.simplefilter("always")
+                canvas.render(output_path)
 
             with open(output_path, "rb") as f:
                 assert f.read() == external_file(f"snapshots/text_wrapping_{snapshot_suffix}.png")

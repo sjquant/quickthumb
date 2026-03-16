@@ -1802,6 +1802,11 @@ class Canvas:
                         wrapped_lines.append(" ".join(current_line))
                         current_line = [word]
                     else:
+                        warnings.warn(
+                            f"Word '{word}' exceeds max_width and cannot be wrapped.",
+                            UserWarning,
+                            stacklevel=2,
+                        )
                         wrapped_lines.append(word)
 
             if current_line:

@@ -954,6 +954,27 @@ class TestAutoScale:
         assert output_with.read_bytes() == output_without.read_bytes()
 
 
+class TestTextWrapping:
+    """Test suite for text word-wrapping behaviour"""
+
+    def test_should_warn_when_word_exceeds_max_width(self, tmp_path):
+        """Rendering plain text with a word wider than max_width emits a UserWarning"""
+
+        from quickthumb import Canvas
+
+        canvas = Canvas(400, 200).background(color="#FFFFFF").text(
+            "Superlongwordthatwillneverfit",
+            size=48,
+            color="#000000",
+            position=(200, 100),
+            align="center",
+            max_width=50,
+        )
+
+        with pytest.warns(UserWarning, match="max_width"):
+            canvas.render(str(tmp_path / "out.png"))
+
+
 class TestTextRotation:
     """Test suite for text rotation functionality"""
 

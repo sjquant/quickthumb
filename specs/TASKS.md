@@ -7,7 +7,7 @@
 
 ### P1 — High Impact Features
 - [DONE] Rich text word-wrapping: auto-wrap `list[TextPart]` content when `max_width` is set (currently only plain string content wraps)
-- [TODO] Long-word overflow: truncate or warn when a single word exceeds `max_width` in `_wrap_text`
+- [DONE] Long-word overflow: truncate or warn when a single word exceeds `max_width` in `_wrap_text`
 - [TODO] Configurable font cache directory via `QUICKTHUMB_FONT_CACHE_DIR` env var (currently hardcoded to `/tmp`)
 
 ### P1 — Planned Features (see SPEC.md)
