@@ -2329,6 +2329,7 @@ class Canvas:
         extension = os.path.splitext(url)[1] or ".ttf"
         cache_filename = f"quickthumb_font_{url_hash}{extension}"
         cache_dir = os.environ.get("QUICKTHUMB_FONT_CACHE_DIR", "/tmp")
+        os.makedirs(cache_dir, exist_ok=True)
         cache_path = os.path.join(cache_dir, cache_filename)
 
         if os.path.exists(cache_path):

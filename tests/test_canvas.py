@@ -424,6 +424,37 @@ class TestCanvas:
 
         assert result.startswith("/tmp")
 
+    def test_should_create_font_cache_dir_if_not_exists(self, monkeypatch):
+        """_download_and_cache_font creates QUICKTHUMB_FONT_CACHE_DIR if it does not exist"""
+        import os
+        import tempfile
+        from unittest.mock import MagicMock, patch
+
+        from quickthumb import Canvas
+
+        canvas = Canvas(100, 100)
+
+        with tempfile.TemporaryDirectory() as base:
+            new_dir = os.path.join(base, "nested", "cache")
+            monkeypatch.setenv("QUICKTHUMB_FONT_CACHE_DIR", new_dir)
+
+            fake_font_data = b"fake font data"
+            mock_response = MagicMock()
+            mock_response.__enter__ = lambda s: s
+            mock_response.__exit__ = MagicMock(return_value=False)
+            mock_response.read.return_value = fake_font_data
+
+            # Given: cache dir does not exist yet
+            assert not os.path.exists(new_dir)
+
+            # When: downloading a font
+            with patch("quickthumb.canvas.urlopen", return_value=mock_response):
+                result = canvas._download_and_cache_font("https://example.com/font3.ttf")
+
+            # Then: the directory is created and the font is written there
+            assert os.path.exists(new_dir)
+            assert result.startswith(new_dir)
+
     def test_should_raise_error_when_custom_callback_returns_different_size(self):
         """custom callback should preserve canvas dimensions when returning an image"""
         import os

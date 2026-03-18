@@ -4,22 +4,22 @@ This document specifies planned and exploratory features for QuickThumb. It is a
 
 ### Status Legend
 
-| Status | Meaning |
-|--------|---------|
-| `planned` | Committed for implementation; not yet shipped |
-| `in progress` | Actively being developed |
-| `done` | Shipped; refer to README.md for the final API |
-| `exploratory` | Under consideration; design not committed |
+| Status        | Meaning                                       |
+| ------------- | --------------------------------------------- |
+| `planned`     | Committed for implementation; not yet shipped |
+| `in progress` | Actively being developed                      |
+| `done`        | Shipped; refer to README.md for the final API |
+| `exploratory` | Under consideration; design not committed     |
 
 ### Feature Status
 
-| # | Feature | Status |
-|---|---------|--------|
-| 1 | CLI (`quickthumb` command) | `planned` |
-| 2 | Template System | `planned` |
-| 3 | Gradient / Image-Filled Text | `planned` |
-| 4 | Noise / Grain Effect | `planned` |
-| 5 | Presentation & Video | `exploratory` |
+| #   | Feature                      | Status        |
+| --- | ---------------------------- | ------------- |
+| 1   | CLI (`quickthumb` command)   | `planned`     |
+| 2   | Template System              | `planned`     |
+| 3   | Gradient / Image-Filled Text | `planned`     |
+| 4   | Noise / Grain Effect         | `planned`     |
+| 5   | Presentation & Video         | `exploratory` |
 
 ---
 
@@ -29,7 +29,7 @@ A `quickthumb` command-line tool for rendering JSON specs without writing Python
 
 ### Installation
 
-The CLI is an optional extra to avoid pulling `click` into the core dependency set.
+The CLI is an optional extra to avoid pulling `typer` into the core dependency set.
 
 ```bash
 uv pip install "quickthumb[cli]"
@@ -94,15 +94,15 @@ uv pip install "quickthumb[cli,watch]"
 
 ### Exit Codes
 
-| Code | Meaning |
-|------|---------|
-| 0 | Success |
-| 1 | Validation error (bad spec, missing required field, unknown layer type) |
-| 2 | Rendering error (missing file, download failure, unsupported format) |
+| Code | Meaning                                                                 |
+| ---- | ----------------------------------------------------------------------- |
+| 0    | Success                                                                 |
+| 1    | Validation error (bad spec, missing required field, unknown layer type) |
+| 2    | Rendering error (missing file, download failure, unsupported format)    |
 
 ### Notes
 
-- `click` is only imported inside `quickthumb/cli.py`; the rest of the library does not depend on it.
+- `typer` is only imported inside `quickthumb/cli.py`; the rest of the library does not depend on it.
 - `quickthumb watch` exits with code 1 if `watchdog` is not installed.
 - Errors print to stderr; the rendered image path prints to stdout on success.
 
@@ -171,12 +171,12 @@ Parameters:
 
 QuickThumb ships a small set of starter templates in `quickthumb/templates/`:
 
-| Name | Aspect Ratio | Description |
-|------|-------------|-------------|
-| `youtube-16x9` | 16:9 (1280×720) | Title left, subject image right |
-| `instagram-square` | 1:1 (1080×1080) | Centered headline with background image |
-| `twitter-card` | 2:1 (1200×600) | Logo + title + subtitle |
-| `og-image` | 1.91:1 (1200×630) | Open Graph social card |
+| Name               | Aspect Ratio      | Description                             |
+| ------------------ | ----------------- | --------------------------------------- |
+| `youtube-16x9`     | 16:9 (1280×720)   | Title left, subject image right         |
+| `instagram-square` | 1:1 (1080×1080)   | Centered headline with background image |
+| `twitter-card`     | 2:1 (1200×600)    | Logo + title + subtitle                 |
+| `og-image`         | 1.91:1 (1200×630) | Open Graph social card                  |
 
 Access by name:
 
@@ -310,7 +310,10 @@ Fallback rule: if `fill` is `None`, `color` is used as before.
   "fill": {
     "type": "linear_gradient",
     "angle": 90,
-    "stops": [["#FF6B6B", 0.0], ["#4ECDC4", 1.0]]
+    "stops": [
+      ["#FF6B6B", 0.0],
+      ["#4ECDC4", 1.0]
+    ]
   },
   "position": ["50%", "50%"],
   "align": "center",
