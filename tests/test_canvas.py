@@ -379,6 +379,51 @@ class TestCanvas:
             ):
                 canvas.render(output_path)
 
+    def test_should_use_font_cache_dir_env_var_when_downloading_font(self, monkeypatch):
+        """_download_and_cache_font uses QUICKTHUMB_FONT_CACHE_DIR when set"""
+        import os
+        import tempfile
+        from unittest.mock import MagicMock, patch
+
+        from quickthumb import Canvas
+
+        canvas = Canvas(100, 100)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            monkeypatch.setenv("QUICKTHUMB_FONT_CACHE_DIR", tmpdir)
+
+            fake_font_data = b"fake font data"
+            mock_response = MagicMock()
+            mock_response.__enter__ = lambda s: s
+            mock_response.__exit__ = MagicMock(return_value=False)
+            mock_response.read.return_value = fake_font_data
+
+            with patch("quickthumb.canvas.urlopen", return_value=mock_response):
+                result = canvas._download_and_cache_font("https://example.com/font.ttf")
+
+            assert result.startswith(tmpdir)
+            assert os.path.exists(result)
+
+    def test_should_default_to_tmp_when_font_cache_dir_not_set(self, monkeypatch):
+        """_download_and_cache_font defaults to /tmp when QUICKTHUMB_FONT_CACHE_DIR is unset"""
+        from unittest.mock import MagicMock, patch
+
+        from quickthumb import Canvas
+
+        canvas = Canvas(100, 100)
+        monkeypatch.delenv("QUICKTHUMB_FONT_CACHE_DIR", raising=False)
+
+        fake_font_data = b"fake font data"
+        mock_response = MagicMock()
+        mock_response.__enter__ = lambda s: s
+        mock_response.__exit__ = MagicMock(return_value=False)
+        mock_response.read.return_value = fake_font_data
+
+        with patch("quickthumb.canvas.urlopen", return_value=mock_response):
+            result = canvas._download_and_cache_font("https://example.com/font2.ttf")
+
+        assert result.startswith("/tmp")
+
     def test_should_raise_error_when_custom_callback_returns_different_size(self):
         """custom callback should preserve canvas dimensions when returning an image"""
         import os

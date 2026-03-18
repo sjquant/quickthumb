@@ -2328,7 +2328,8 @@ class Canvas:
         url_hash = hashlib.md5(url.encode()).hexdigest()
         extension = os.path.splitext(url)[1] or ".ttf"
         cache_filename = f"quickthumb_font_{url_hash}{extension}"
-        cache_path = os.path.join("/tmp", cache_filename)
+        cache_dir = os.environ.get("QUICKTHUMB_FONT_CACHE_DIR", "/tmp")
+        cache_path = os.path.join(cache_dir, cache_filename)
 
         if os.path.exists(cache_path):
             return cache_path
