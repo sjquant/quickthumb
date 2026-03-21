@@ -109,5 +109,92 @@ def _substitute_vars(text: str, variables: dict[str, str]) -> str:
     return result
 
 
+@app.command()
+def watch(
+    spec: Annotated[Path, typer.Argument(help="Path to a JSON spec file")],
+    output: Annotated[
+        Path,
+        typer.Option("-o", "--output", help="Output file path"),
+    ] = Path("output.png"),
+    fmt: Annotated[
+        str | None,
+        typer.Option("--format", help="Output format: PNG, JPEG, or WEBP"),
+    ] = None,
+    quality: Annotated[
+        int | None,
+        typer.Option("--quality", help="Quality for JPEG/WEBP (1-95)"),
+    ] = None,
+    var: Annotated[
+        list[str] | None,
+        typer.Option("--var", help="Variable substitution as KEY=VALUE"),
+    ] = None,
+) -> None:
+    """Watch a JSON spec file and re-render on changes."""
+    try:
+        from watchfiles import watch as _watch  # type: ignore[import-untyped]
+    except ImportError:
+        typer.echo(
+            "watchfiles is not installed. Install it with: pip install 'quickthumb[cli]'",
+            err=True,
+        )
+        raise typer.Exit(1) from None
+
+    if fmt is not None and fmt.upper() not in _VALID_FORMATS:
+        typer.echo(f"Invalid format '{fmt}'. Must be one of: PNG, JPEG, WEBP", err=True)
+        raise typer.Exit(1)
+
+    if quality is not None and not (1 <= quality <= 95):
+        typer.echo(f"Invalid quality {quality}. Must be between 1 and 95.", err=True)
+        raise typer.Exit(1)
+
+    variables: dict[str, str] = {}
+    if var:
+        for item in var:
+            key, sep, value = item.partition("=")
+            if not sep:
+                typer.echo(f"Invalid --var '{item}': expected KEY=VALUE format.", err=True)
+                raise typer.Exit(1)
+            variables[key] = value
+
+    def _render_once() -> None:
+        try:
+            text = spec.read_text()
+        except (FileNotFoundError, PermissionError) as e:
+            typer.echo(str(e), err=True)
+            return
+
+        if variables:
+            try:
+                text = _substitute_vars(text, variables)
+            except ValidationError as e:
+                typer.echo(str(e), err=True)
+                return
+
+        try:
+            canvas = Canvas.from_json(text)
+        except (json.JSONDecodeError, ValidationError) as e:
+            typer.echo(str(e), err=True)
+            return
+
+        try:
+            canvas.render(
+                str(output),
+                format=fmt.upper() if fmt else None,  # type: ignore[arg-type]
+                quality=quality,
+            )
+            typer.echo(str(output))
+        except (RenderingError, OSError) as e:
+            typer.echo(str(e), err=True)
+
+    typer.echo(f"Watching {spec} … (Ctrl+C to stop)")
+    _render_once()
+
+    try:
+        for _ in _watch(spec):
+            _render_once()
+    except KeyboardInterrupt:
+        pass
+
+
 if __name__ == "__main__":
     main()

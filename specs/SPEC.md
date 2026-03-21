@@ -73,7 +73,7 @@ Parameters:
 
 #### `watch` (stretch goal)
 
-Re-render automatically when the spec file changes. Requires `watchdog`.
+Re-render automatically when the spec file changes. Requires `watchfiles`.
 
 ```bash
 quickthumb watch spec.json -o thumbnail.png
@@ -82,7 +82,7 @@ quickthumb watch spec.json -o thumbnail.png
 Install with:
 
 ```bash
-uv pip install "quickthumb[cli,watch]"
+uv pip install "quickthumb[cli]"
 ```
 
 ### Pipeline
@@ -103,7 +103,7 @@ uv pip install "quickthumb[cli,watch]"
 ### Notes
 
 - `typer` is only imported inside `quickthumb/cli.py`; the rest of the library does not depend on it.
-- `quickthumb watch` exits with code 1 if `watchdog` is not installed.
+- `quickthumb watch` exits with code 1 if `watchfiles` is not installed.
 - Errors print to stderr; the rendered image path prints to stdout on success.
 
 ---

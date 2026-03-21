@@ -47,6 +47,7 @@ rembg = [
 ]
 cli = [
     "typer>=0.24.1,<0.25.0",
+    "watchfiles>=1.0.0,<2.0.0",
 ]
 
 [project.scripts]
