@@ -2,6 +2,7 @@ import contextlib
 import hashlib
 import math
 import os
+import tempfile
 import warnings
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -2328,7 +2329,7 @@ class Canvas:
         url_hash = hashlib.md5(url.encode()).hexdigest()
         extension = os.path.splitext(url)[1] or ".ttf"
         cache_filename = f"quickthumb_font_{url_hash}{extension}"
-        cache_dir = os.environ.get("QUICKTHUMB_FONT_CACHE_DIR", "/tmp")
+        cache_dir = os.environ.get("QUICKTHUMB_FONT_CACHE_DIR", tempfile.gettempdir())
         os.makedirs(cache_dir, exist_ok=True)
         cache_path = os.path.join(cache_dir, cache_filename)
 

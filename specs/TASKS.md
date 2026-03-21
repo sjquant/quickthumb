@@ -59,7 +59,7 @@
 - [DONE] CLI `render`: catch `FileNotFoundError` / `PermissionError` from `spec.read_text()` and exit with code 1
 - [DONE] CLI `render`: catch `json.JSONDecodeError` from `Canvas.from_json()` and exit with code 1
 - [DONE] `_substitute_vars`: raise `ValidationError` on unresolved `$VAR` / `${VAR}` placeholders (currently passes them through silently)
-- [TODO] Guard CLI entrypoint import: print a helpful message and exit if `typer` is not installed instead of crashing with `ImportError`
+- [DONE] Guard CLI entrypoint import: print a helpful message and exit if `typer` is not installed instead of crashing with `ImportError`
 - [DONE] CLI `render`: validate `--var` entries contain `=`; raise a clear error when `--var keyonly` is passed (currently silently maps to empty string)
 - [DONE] CLI `render`: replace bare `except Exception` with `except (RenderingError, OSError)` to avoid masking real bugs
 - [DONE] CLI `render`: validate `--quality` is in `1–95` range (`typer.Option(..., min=1, max=95)`)
@@ -67,14 +67,14 @@
 
 ### P2 — Font Cache Hardening (from code review)
 
-- [TODO] Use `tempfile.gettempdir()` instead of hardcoded `"/tmp"` as the default font cache dir (fixes Windows compatibility)
+- [DONE] Use `tempfile.gettempdir()` instead of hardcoded `"/tmp"` as the default font cache dir (fixes Windows compatibility)
 - [TODO] Validate downloaded font content before writing to cache (currently writes arbitrary data from any URL)
 - [DONE] Call `os.makedirs(cache_dir, exist_ok=True)` before writing cached font; `QUICKTHUMB_FONT_CACHE_DIR` pointing to a non-existent dir currently crashes with `FileNotFoundError`
 
 ### P2 — CLI Polish (from code review)
 
-- [TODO] Rename `format` parameter to `fmt` or `output_format` internally — currently shadows Python's built-in `format()`
-- [TODO] Widen typer version pin from `>=0.24.1,<0.25.0` to `>=0.24.1,<1.0` to avoid unnecessary resolver conflicts
+- [DONE] Rename `format` parameter to `fmt` or `output_format` internally — currently shadows Python's built-in `format()`
+- [DONE] Widen typer version pin from `>=0.24.1,<0.25.0` to `>=0.24.1,<1.0` to avoid unnecessary resolver conflicts
 
 ### P3 — Lower Priority
 

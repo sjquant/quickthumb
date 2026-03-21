@@ -46,12 +46,12 @@ rembg = [
     "rembg>=2.0.50,<3.0.0",
 ]
 cli = [
-    "typer>=0.24.1,<0.25.0",
+    "typer>=0.24.1,<1.0",
     "watchfiles>=1.0.0,<2.0.0",
 ]
 
 [project.scripts]
-quickthumb = "quickthumb.cli:main"
+quickthumb = "quickthumb._entry:main"
 
 [dependency-groups]
 docs = [
