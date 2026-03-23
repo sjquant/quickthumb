@@ -640,7 +640,6 @@ class TestCanvasTemplate:
 
     def test_variable_value_with_dollar_sign_is_not_resubstituted(self):
         """Variable values containing $ are inserted literally, not re-scanned for placeholders"""
-        # Given: A variable whose value contains a $ character
         from quickthumb import Canvas
 
         template = json.dumps(
@@ -650,13 +649,22 @@ class TestCanvasTemplate:
                 "layers": [{"type": "text", "content": "$title", "size": 48, "color": "#FFFFFF"}],
             }
         )
-
-        # When: The variable value itself contains a $ sign
         canvas = Canvas.from_template(template, variables={"title": "$100 Deal"})
+        assert json.loads(canvas.to_json())["layers"][0]["content"] == "$100 Deal"
 
-        # Then: The literal value "$100 Deal" is used — no re-substitution occurs
-        canvas_dict = json.loads(canvas.to_json())
-        assert canvas_dict["layers"][0]["content"] == "$100 Deal"
+    def test_variable_value_with_special_json_chars_is_json_escaped(self):
+        """Variable values with quotes or backslashes are JSON-escaped, not passed raw"""
+        from quickthumb import Canvas
+
+        template = json.dumps(
+            {
+                "width": 100,
+                "height": 100,
+                "layers": [{"type": "text", "content": "$title", "size": 48, "color": "#FFFFFF"}],
+            }
+        )
+        canvas = Canvas.from_template(template, variables={"title": 'My "awesome" video'})
+        assert json.loads(canvas.to_json())["layers"][0]["content"] == 'My "awesome" video'
 
     @pytest.mark.parametrize(
         "spec_or_path, variables, match",

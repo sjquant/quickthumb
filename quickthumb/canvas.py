@@ -364,55 +364,47 @@ class Canvas:
         return cls(width=raw["width"], height=raw["height"], layers=renderable_layers)
 
     @classmethod
+    def _read_template_file(cls, path: str) -> str:
+        try:
+            with open(path) as f:
+                return f.read()
+        except OSError as e:
+            raise ValidationError(f"Cannot read template file '{path}': {e}") from e
+
+    @classmethod
+    def _resolve_template_string(cls, spec_or_path: str) -> str:
+        if spec_or_path.lstrip().startswith("{"):
+            return spec_or_path
+        if spec_or_path in cls._template_registry:
+            return cls._read_template_file(cls._template_registry[spec_or_path])
+        builtin_path = os.path.join(cls._BUILTIN_TEMPLATES_DIR, f"{spec_or_path}.json")
+        if os.path.exists(builtin_path):
+            return cls._read_template_file(builtin_path)
+        if os.path.exists(spec_or_path):
+            return cls._read_template_file(spec_or_path)
+        raise ValidationError(
+            f"Template '{spec_or_path}' is not a registered template name, "
+            f"built-in template name, or valid file path."
+        )
+
+    @classmethod
     def from_template(cls, spec_or_path: str, variables: dict[str, str] | None = None) -> Self:
+        import json as _json
         import re
 
         variables = variables or {}
+        raw_spec = cls._resolve_template_string(spec_or_path)
 
-        # Resolve the raw template string from: registered name, built-in name, file path, or inline JSON
-        raw_spec: str
-        if not spec_or_path.lstrip().startswith("{"):
-            # Not an inline JSON string — try registry, then built-in, then file path
-            if spec_or_path in cls._template_registry:
-                path = cls._template_registry[spec_or_path]
-                try:
-                    with open(path) as f:
-                        raw_spec = f.read()
-                except OSError as e:
-                    raise ValidationError(f"Cannot read template file '{path}': {e}") from e
-            else:
-                builtin_path = os.path.join(cls._BUILTIN_TEMPLATES_DIR, f"{spec_or_path}.json")
-                if os.path.exists(builtin_path):
-                    with open(builtin_path) as f:
-                        raw_spec = f.read()
-                elif os.path.exists(spec_or_path):
-                    try:
-                        with open(spec_or_path) as f:
-                            raw_spec = f.read()
-                    except OSError as e:
-                        raise ValidationError(
-                            f"Cannot read template file '{spec_or_path}': {e}"
-                        ) from e
-                else:
-                    raise ValidationError(
-                        f"Template '{spec_or_path}' is not a registered template name, "
-                        f"built-in template name, or valid file path."
-                    )
-        else:
-            raw_spec = spec_or_path
-
-        # Substitute placeholders: ${var} first, then $var (longest match first)
-        def _replace(match: re.Match) -> str:
+        def substitute(match: re.Match) -> str:
             key = match.group(1) or match.group(2)
             if key not in variables:
                 raise ValidationError(
                     f"Template placeholder '${key}' has no matching variable. "
                     f"Provide variables={{'{key}': ...}} to Canvas.from_template()."
                 )
-            return variables[key]
+            return _json.dumps(variables[key])[1:-1]
 
-        substituted = re.sub(r"\$\{(\w+)\}|\$(\w+)", _replace, raw_spec)
-        return cls.from_json(substituted)
+        return cls.from_json(re.sub(r"\$\{(\w+)\}|\$(\w+)", substitute, raw_spec))
 
     def to_base64(self, format: FileFormat = "PNG", quality: int | None = None) -> str:
         import base64
