@@ -24,10 +24,10 @@
 
 #### Template System
 
-- [TODO] Implement `Canvas.from_template(spec_or_path, variables={})` with `$var` / `${var}` string substitution
-- [TODO] Raise `ValidationError` on unresolved placeholders before JSON parsing
-- [TODO] Add `Canvas.register_template(name, path)` and `Canvas.unregister_template(name)` registry
-- [TODO] Create `quickthumb/templates/` directory with starter templates: `youtube-16x9`, `instagram-square`, `twitter-card`, `og-image`
+- [DONE] Implement `Canvas.from_template(spec_or_path, variables={})` with `$var` / `${var}` string substitution
+- [DONE] Raise `ValidationError` on unresolved placeholders before JSON parsing
+- [DONE] Add `Canvas.register_template(name, path)` and `Canvas.unregister_template(name)` registry
+- [DONE] Create `quickthumb/templates/` directory with starter templates: `youtube-16x9`, `instagram-square`, `twitter-card`, `og-image`
 
 #### Gradient / Image-Filled Text (Knockout Text)
 
