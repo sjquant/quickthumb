@@ -1,0 +1,18 @@
+{
+  "width": 1080,
+  "height": 1080,
+  "layers": [
+    {
+      "type": "background",
+      "color": "#111827"
+    },
+    {
+      "type": "text",
+      "content": "$title",
+      "size": 88,
+      "color": "#FFFFFF",
+      "position": ["50%", "50%"],
+      "align": ["center", "middle"]
+    }
+  ]
+}

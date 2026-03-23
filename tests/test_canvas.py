@@ -1,6 +1,8 @@
 """Tests for Canvas functionality"""
 
 import json
+import os
+import tempfile
 
 import pytest
 from inline_snapshot import snapshot
@@ -190,8 +192,6 @@ class TestCanvas:
     def test_should_base64_match_rendered_file(self):
         """Test that to_base64 output is identical to base64-encoding the rendered file"""
         import base64
-        import os
-        import tempfile
 
         from quickthumb import Canvas
 
@@ -236,8 +236,6 @@ class TestCanvas:
 
     def test_render_with_explicit_format_overrides_extension(self):
         """Test that render() format param overrides extension-based format detection"""
-        import os
-        import tempfile
 
         from PIL import Image
         from quickthumb import Canvas
@@ -276,8 +274,6 @@ class TestCanvas:
 
     def test_should_round_trip_named_custom_layer(self):
         """Named custom layers serialize to JSON and deserialize back via the registry"""
-        import os
-        import tempfile
 
         from inline_snapshot import snapshot
         from PIL import Image
@@ -346,8 +342,6 @@ class TestCanvas:
 
     def test_should_raise_rendering_error_when_custom_callback_fails(self):
         """Exceptions inside custom callback should be wrapped as RenderingError"""
-        import os
-        import tempfile
 
         from quickthumb import Canvas
         from quickthumb.errors import RenderingError
@@ -364,8 +358,6 @@ class TestCanvas:
 
     def test_should_raise_error_when_custom_callback_returns_non_image(self):
         """custom callback should return PIL.Image.Image or None"""
-        import os
-        import tempfile
 
         from quickthumb import Canvas
         from quickthumb.errors import RenderingError
@@ -381,8 +373,6 @@ class TestCanvas:
 
     def test_should_use_font_cache_dir_env_var_when_downloading_font(self, monkeypatch):
         """_download_and_cache_font uses QUICKTHUMB_FONT_CACHE_DIR when set"""
-        import os
-        import tempfile
         from unittest.mock import MagicMock, patch
 
         from quickthumb import Canvas
@@ -426,8 +416,6 @@ class TestCanvas:
 
     def test_should_create_font_cache_dir_if_not_exists(self, monkeypatch):
         """_download_and_cache_font creates QUICKTHUMB_FONT_CACHE_DIR if it does not exist"""
-        import os
-        import tempfile
         from unittest.mock import MagicMock, patch
 
         from quickthumb import Canvas
@@ -457,8 +445,6 @@ class TestCanvas:
 
     def test_should_raise_error_when_custom_callback_returns_different_size(self):
         """custom callback should preserve canvas dimensions when returning an image"""
-        import os
-        import tempfile
 
         from PIL import Image
         from quickthumb import Canvas
@@ -477,3 +463,229 @@ class TestCanvas:
                 match="Custom layer callback returned an image with different size",
             ):
                 canvas.render(output_path)
+
+
+class TestCanvasTemplate:
+    """Tests for Canvas.from_template(), register_template(), and unregister_template()"""
+
+    SIMPLE_TEMPLATE = json.dumps(
+        {
+            "width": 100,
+            "height": 100,
+            "layers": [{"type": "background", "color": "$bg_color"}],
+        }
+    )
+
+    @pytest.mark.parametrize(
+        "placeholder, key",
+        [("$bg_color", "bg_color"), ("${bg_color}", "bg_color")],
+    )
+    def test_should_substitute_var_placeholders(self, placeholder, key):
+        """from_template substitutes both $var and ${var} placeholders in inline JSON strings"""
+        # Given: A JSON string template with a placeholder and a matching variable
+        from quickthumb import Canvas
+
+        template = json.dumps(
+            {
+                "width": 100,
+                "height": 100,
+                "layers": [{"type": "background", "color": placeholder}],
+            }
+        )
+
+        # When: User calls Canvas.from_template with variables
+        canvas = Canvas.from_template(template, variables={key: "#FF0000"})
+
+        # Then: The layer has the substituted color value in its JSON representation
+        assert json.loads(canvas.to_json()) == snapshot(
+            {
+                "width": 100,
+                "height": 100,
+                "layers": [
+                    {
+                        "type": "background",
+                        "color": "#FF0000",
+                        "gradient": None,
+                        "image": None,
+                        "opacity": 1.0,
+                        "blend_mode": None,
+                        "fit": None,
+                        "effects": [],
+                    }
+                ],
+            }
+        )
+
+    def test_should_load_template_from_file_path(self):
+        """from_template accepts a file path to a .json template file"""
+        # Given: A template file on disk
+        from quickthumb import Canvas
+
+        with tempfile.NamedTemporaryFile(suffix=".json", mode="w", delete=False) as f:
+            f.write(self.SIMPLE_TEMPLATE)
+            template_path = f.name
+
+        try:
+            # When: User calls Canvas.from_template with the file path
+            canvas = Canvas.from_template(template_path, variables={"bg_color": "#123456"})
+
+            # Then: Canvas is created correctly
+            assert canvas.width == 100
+            assert canvas.height == 100
+        finally:
+            os.unlink(template_path)
+
+    def test_should_load_builtin_template_by_name(self):
+        """from_template loads a built-in template by its name (e.g. 'youtube-16x9')"""
+        # Given: The built-in 'youtube-16x9' template name
+        from quickthumb import Canvas
+
+        # When: User calls Canvas.from_template with a built-in name and its required variables
+        canvas = Canvas.from_template("youtube-16x9", variables={"title": "Hello World"})
+
+        # Then: Canvas has the correct dimensions for that template (1280x720)
+        assert canvas.width == 1280
+        assert canvas.height == 720
+
+    def test_should_allow_registering_and_using_custom_template(self):
+        """register_template allows using a custom template by name"""
+        # Given: A custom template registered under a unique name
+        from quickthumb import Canvas
+
+        with tempfile.NamedTemporaryFile(suffix=".json", mode="w", delete=False) as f:
+            f.write(self.SIMPLE_TEMPLATE)
+            template_path = f.name
+
+        try:
+            Canvas.register_template("my-custom-tpl", template_path)
+
+            # When: User calls Canvas.from_template with the registered name
+            canvas = Canvas.from_template("my-custom-tpl", variables={"bg_color": "#ABCDEF"})
+
+            # Then: Canvas is created from the registered template
+            assert canvas.width == 100
+            assert canvas.height == 100
+        finally:
+            Canvas.unregister_template("my-custom-tpl")
+            os.unlink(template_path)
+
+    def test_user_registered_template_overrides_builtin(self):
+        """A user-registered template with the same name as a built-in takes precedence"""
+        # Given: A custom template registered under the built-in name 'youtube-16x9'
+        from quickthumb import Canvas
+
+        custom_spec = json.dumps(
+            {"width": 999, "height": 111, "layers": [{"type": "background", "color": "#000000"}]}
+        )
+        with tempfile.NamedTemporaryFile(suffix=".json", mode="w", delete=False) as f:
+            f.write(custom_spec)
+            template_path = f.name
+
+        try:
+            Canvas.register_template("youtube-16x9", template_path)
+
+            # When: User calls from_template with 'youtube-16x9'
+            canvas = Canvas.from_template("youtube-16x9")
+
+            # Then: The user-registered template is used (999x111), not the built-in (1280x720)
+            assert canvas.width == 999
+            assert canvas.height == 111
+        finally:
+            Canvas.unregister_template("youtube-16x9")
+            os.unlink(template_path)
+
+    def test_should_remove_template_on_unregister(self):
+        """unregister_template removes a registered template so it can no longer be used"""
+        # Given: A custom template is registered then unregistered
+        from quickthumb import Canvas, ValidationError
+
+        with tempfile.NamedTemporaryFile(suffix=".json", mode="w", delete=False) as f:
+            f.write(self.SIMPLE_TEMPLATE)
+            template_path = f.name
+
+        try:
+            Canvas.register_template("ephemeral-tpl", template_path)
+            Canvas.unregister_template("ephemeral-tpl")
+
+            # When: User tries to use it
+            # Then: ValidationError is raised
+            with pytest.raises(ValidationError, match="ephemeral-tpl"):
+                Canvas.from_template("ephemeral-tpl")
+        finally:
+            os.unlink(template_path)
+
+    def test_should_substitute_multiple_placeholders(self):
+        """from_template substitutes all placeholders when a template has more than one"""
+        # Given: A template with multiple distinct placeholders
+        from quickthumb import Canvas
+
+        template = json.dumps(
+            {
+                "width": 100,
+                "height": 100,
+                "layers": [
+                    {"type": "background", "color": "$bg_color"},
+                    {"type": "text", "content": "$title", "size": 48, "color": "#FFFFFF"},
+                ],
+            }
+        )
+
+        # When: Both variables are provided
+        canvas = Canvas.from_template(template, variables={"bg_color": "#112233", "title": "Hello"})
+
+        # Then: Canvas round-trips with both substitutions applied
+        canvas_dict = json.loads(canvas.to_json())
+        assert canvas_dict["layers"][0]["color"] == "#112233"
+        assert canvas_dict["layers"][1]["content"] == "Hello"
+
+    def test_variable_value_with_dollar_sign_is_not_resubstituted(self):
+        """Variable values containing $ are inserted literally, not re-scanned for placeholders"""
+        # Given: A variable whose value contains a $ character
+        from quickthumb import Canvas
+
+        template = json.dumps(
+            {
+                "width": 100,
+                "height": 100,
+                "layers": [{"type": "text", "content": "$title", "size": 48, "color": "#FFFFFF"}],
+            }
+        )
+
+        # When: The variable value itself contains a $ sign
+        canvas = Canvas.from_template(template, variables={"title": "$100 Deal"})
+
+        # Then: The literal value "$100 Deal" is used — no re-substitution occurs
+        canvas_dict = json.loads(canvas.to_json())
+        assert canvas_dict["layers"][0]["content"] == "$100 Deal"
+
+    @pytest.mark.parametrize(
+        "spec_or_path, variables, match",
+        [
+            # Unresolved placeholder raises ValidationError
+            (
+                json.dumps(
+                    {
+                        "width": 100,
+                        "height": 100,
+                        "layers": [{"type": "background", "color": "$missing_var"}],
+                    }
+                ),
+                {},
+                "missing_var",
+            ),
+            # Unknown template name raises ValidationError
+            (
+                "no-such-template-xyz",
+                {},
+                "no-such-template-xyz",
+            ),
+        ],
+    )
+    def test_should_raise_validation_error_for_invalid_template(
+        self, spec_or_path, variables, match
+    ):
+        """from_template raises ValidationError for unresolved placeholders or unknown names"""
+        from quickthumb import Canvas, ValidationError
+
+        with pytest.raises(ValidationError, match=match):
+            Canvas.from_template(spec_or_path, variables=variables)

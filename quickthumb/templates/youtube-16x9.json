@@ -1,0 +1,18 @@
+{
+  "width": 1280,
+  "height": 720,
+  "layers": [
+    {
+      "type": "background",
+      "color": "#111827"
+    },
+    {
+      "type": "text",
+      "content": "$title",
+      "size": 88,
+      "color": "#FFFFFF",
+      "position": ["8%", "50%"],
+      "align": ["left", "middle"]
+    }
+  ]
+}
