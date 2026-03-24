@@ -52,7 +52,7 @@
 - [TODO] Homepage headline: make the AI/JSON workflow angle front and center (currently buried)
 - [TODO] Add "Common LLM Mistakes" section to the JSON schema page (invalid hex, wrong position format, unsupported effects, etc.)
 - [TODO] Add "Why not X" section: brief comparison vs raw Pillow and html2image to help developers justify the dependency
-- [TODO] Add community entry point: link to GitHub issues/discussions for bug reports and questions
+- [DONE] Add community entry point: link to GitHub issues/discussions for bug reports and questions
 
 ### P1 — CLI Hardening (from code review)
 
