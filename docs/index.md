@@ -57,3 +57,10 @@ canvas.render("thumbnail.png")
 
 [Get started](getting-started.md){ .md-button .md-button--primary }
 [API Reference](api/index.md){ .md-button }
+
+
+## Community & Support
+
+- Bug report or feature request: [GitHub Issues](https://github.com/sjquant/quickthumb/issues)
+- Questions and ideas: [GitHub Discussions](https://github.com/sjquant/quickthumb/discussions)
+
