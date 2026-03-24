@@ -83,6 +83,9 @@ RenderableLayer = LayerType | CustomLayer
 
 class Canvas:
     _custom_layer_registry: dict[str, Callable[..., Image.Image | None]] = {}
+    _template_registry: dict[str, str] = {}
+
+    _BUILTIN_TEMPLATES_DIR = os.path.join(os.path.dirname(__file__), "templates")
 
     @classmethod
     def register_layer_fn(cls, name: str, fn: Callable[..., Image.Image | None]) -> None:
@@ -91,6 +94,14 @@ class Canvas:
     @classmethod
     def unregister_layer_fn(cls, name: str) -> None:
         cls._custom_layer_registry.pop(name, None)
+
+    @classmethod
+    def register_template(cls, name: str, path: str) -> None:
+        cls._template_registry[name] = path
+
+    @classmethod
+    def unregister_template(cls, name: str) -> None:
+        cls._template_registry.pop(name, None)
 
     def __init__(self, width: int, height: int, layers: list[RenderableLayer] | None = None):
         if width <= 0:
@@ -351,6 +362,49 @@ class Canvas:
                 renderable_layers.append(layer_adapter.validate_python(layer_dict))
 
         return cls(width=raw["width"], height=raw["height"], layers=renderable_layers)
+
+    @classmethod
+    def _read_template_file(cls, path: str) -> str:
+        try:
+            with open(path) as f:
+                return f.read()
+        except OSError as e:
+            raise ValidationError(f"Cannot read template file '{path}': {e}") from e
+
+    @classmethod
+    def _resolve_template_string(cls, spec_or_path: str) -> str:
+        if spec_or_path.lstrip().startswith("{"):
+            return spec_or_path
+        if spec_or_path in cls._template_registry:
+            return cls._read_template_file(cls._template_registry[spec_or_path])
+        builtin_path = os.path.join(cls._BUILTIN_TEMPLATES_DIR, f"{spec_or_path}.json")
+        if os.path.exists(builtin_path):
+            return cls._read_template_file(builtin_path)
+        if os.path.exists(spec_or_path):
+            return cls._read_template_file(spec_or_path)
+        raise ValidationError(
+            f"Template '{spec_or_path}' is not a registered template name, "
+            f"built-in template name, or valid file path."
+        )
+
+    @classmethod
+    def from_template(cls, spec_or_path: str, variables: dict[str, str] | None = None) -> Self:
+        import json as _json
+        import re
+
+        variables = variables or {}
+        raw_spec = cls._resolve_template_string(spec_or_path)
+
+        def substitute(match: re.Match) -> str:
+            key = match.group(1) or match.group(2)
+            if key not in variables:
+                raise ValidationError(
+                    f"Template placeholder '${key}' has no matching variable. "
+                    f"Provide variables={{'{key}': ...}} to Canvas.from_template()."
+                )
+            return _json.dumps(variables[key])[1:-1]
+
+        return cls.from_json(re.sub(r"\$\{(\w+)\}|\$(\w+)", substitute, raw_spec))
 
     def to_base64(self, format: FileFormat = "PNG", quality: int | None = None) -> str:
         import base64
