@@ -63,6 +63,7 @@ dev = [
     "pytest-cov>=6.0.0,<7.0.0",
     "ruff>=0.8.0,<1.0.0",
     "inline-snapshot>=0.31.1,<0.32.0",
+    "typer>=0.24.1,<1.0",
 ]
 
 [build-system]
