@@ -23,7 +23,7 @@ jobs:
 
       - name: Test
         run: |
-          uv run pytest tests/ --ignore=tests/test_rendering.py
+          uv run --extra cli pytest tests/ --ignore=tests/test_rendering.py
 
       - name: Determine Version Change
         id: version_check
