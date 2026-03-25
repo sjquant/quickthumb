@@ -1382,6 +1382,7 @@ dev = [
     { name = "pytest-cov" },
     { name = "ruff" },
     { name = "ty" },
+    { name = "typer" },
 ]
 docs = [
     { name = "mkdocs-material" },
@@ -1406,6 +1407,7 @@ dev = [
     { name = "pytest-cov", specifier = ">=6.0.0,<7.0.0" },
     { name = "ruff", specifier = ">=0.8.0,<1.0.0" },
     { name = "ty", specifier = ">=0.0.12,<0.0.13" },
+    { name = "typer", specifier = ">=0.24.1,<1.0" },
 ]
 docs = [{ name = "mkdocs-material", specifier = ">=9.0" }]
 
