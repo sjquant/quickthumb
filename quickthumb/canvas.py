@@ -35,6 +35,7 @@ from quickthumb.models import (
     ShapeLayer,
     Stroke,
     TextEffect,
+    TextFillImage,
     TextLayer,
     TextPart,
 )
@@ -513,6 +514,17 @@ class Canvas:
                 and not os.path.exists(layer.path)
             ):
                 raise FileNotFoundError(f"{layer.path}")
+            elif isinstance(layer, TextLayer):
+                fills_to_check: list[TextFillImage] = []
+                if isinstance(layer.fill, TextFillImage):
+                    fills_to_check.append(layer.fill)
+                if isinstance(layer.content, list):
+                    for part in layer.content:
+                        if isinstance(part.fill, TextFillImage):
+                            fills_to_check.append(part.fill)
+                for fill in fills_to_check:
+                    if not self._is_url(fill.path) and not os.path.exists(fill.path):
+                        raise FileNotFoundError(f"{fill.path}")
 
     def _detect_format(self, output_path: str) -> FileFormat:
         extension = os.path.splitext(output_path)[1].lower()
@@ -1507,18 +1519,47 @@ class Canvas:
 
         # Render text
         part_fill = part_data["fill"]
-        if part_fill is not None:
+        letter_spacing = part_data["letter_spacing"]
+        if part_fill is not None and letter_spacing:
+            total_width, char_widths = self._calculate_spaced_text_width(text, font, letter_spacing)
+            bbox = font.getbbox(text)
+            text_height = int(bbox[3] - bbox[1])
+            if stroke_effects := part_data["stroke_effects"]:
+                for stroke in stroke_effects:
+                    stroke_color = self._parse_color(stroke.color)
+                    self._draw_text_with_letter_spacing(
+                        draw,
+                        text,
+                        (x, y),
+                        font,
+                        stroke_color,
+                        letter_spacing,
+                        [stroke],
+                        char_widths,
+                    )
+            fill_img = self._create_text_fill_image((total_width, text_height), part_fill)
+            bbox_ls = font.getbbox(text, anchor="ls")
+            baseline_y_in_mask = int(-bbox_ls[1])
+            mask = Image.new("L", (total_width, text_height), 0)
+            mask_draw = ImageDraw.Draw(mask)
+            for char, char_x in self._iterate_letter_spaced_positions(
+                text, letter_spacing, char_widths, 0
+            ):
+                mask_draw.text((char_x, baseline_y_in_mask), char, font=font, fill=255, anchor="ls")
+            fill_img.putalpha(mask)
+            image.alpha_composite(fill_img, (x, y))
+        elif part_fill is not None:
             self._draw_filled_text(
                 image, text, (x, y), font, part_fill, part_data["stroke_effects"]
             )
-        elif part_data["letter_spacing"]:
+        elif letter_spacing:
             self._draw_text_with_letter_spacing(
                 draw,
                 text,
                 (x, y),
                 font,
                 part_data["color"],
-                part_data["letter_spacing"],
+                letter_spacing,
                 part_data["stroke_effects"],
             )
         else:
@@ -1574,12 +1615,24 @@ class Canvas:
                 )
 
         text_fill = layer.fill
+        letter_spacing = layer.letter_spacing or 0
         if text_fill is not None and line_layouts:
+            # Pre-compute letter-spaced widths when needed so block bounds are accurate.
+            if letter_spacing:
+                spaced_data = {
+                    line: self._calculate_spaced_text_width(line, font, letter_spacing)
+                    for line, _, _, _ in line_layouts
+                }
+                block_left = min(x for _, x, _, _ in line_layouts)
+                block_right = max(x + spaced_data[line][0] for line, x, _, _ in line_layouts)
+            else:
+                spaced_data = {}
+                block_left = min(x + bbox[0] for _, x, _, bbox in line_layouts)
+                block_right = max(x + bbox[2] for _, x, _, bbox in line_layouts)
+
             # Build a block-level fill image spanning all lines so gradients and
             # images map to the full text block rather than repeating per line.
-            block_left = min(x + bbox[0] for _, x, _, bbox in line_layouts)
             block_top = min(y + bbox[1] for _, _, y, bbox in line_layouts)
-            block_right = max(x + bbox[2] for _, x, _, bbox in line_layouts)
             block_bottom = max(y + bbox[3] for _, _, y, bbox in line_layouts)
             block_w = max(1, block_right - block_left)
             block_h = max(1, block_bottom - block_top)
@@ -1591,9 +1644,17 @@ class Canvas:
                 for shadow in shadow_effects:
                     self._render_shadow(image, line, font, (x, y), shadow)
 
-                line_pixel_left = x + bbox[0]
-                line_pixel_top = y + bbox[1]
-                line_pixel_w = int(bbox[2] - bbox[0])
+                if letter_spacing:
+                    spaced_width, char_widths = spaced_data[line]
+                    line_pixel_left = x
+                    line_pixel_top = y + bbox[1]
+                    line_pixel_w = spaced_width
+                else:
+                    char_widths = None
+                    line_pixel_left = x + bbox[0]
+                    line_pixel_top = y + bbox[1]
+                    line_pixel_w = int(bbox[2] - bbox[0])
+
                 line_pixel_h = int(bbox[3] - bbox[1])
                 if line_pixel_w <= 0 or line_pixel_h <= 0:
                     continue
@@ -1602,15 +1663,27 @@ class Canvas:
                 if stroke_effects:
                     for stroke in stroke_effects:
                         stroke_color = self._parse_color(stroke.color)
-                        draw.text(
-                            (x, y),
-                            line,
-                            font=font,
-                            fill=stroke_color,
-                            stroke_width=stroke.width,
-                            stroke_fill=stroke_color,
-                            anchor="lt",
-                        )
+                        if letter_spacing:
+                            self._draw_text_with_letter_spacing(
+                                draw,
+                                line,
+                                (x, y),
+                                font,
+                                stroke_color,
+                                letter_spacing,
+                                [stroke],
+                                char_widths,
+                            )
+                        else:
+                            draw.text(
+                                (x, y),
+                                line,
+                                font=font,
+                                fill=stroke_color,
+                                stroke_width=stroke.width,
+                                stroke_fill=stroke_color,
+                                anchor="lt",
+                            )
 
                 # Clip fill to this line's portion of the block
                 offset_x = line_pixel_left - block_left
@@ -1622,7 +1695,17 @@ class Canvas:
                 # Text body mask
                 mask = Image.new("L", (line_pixel_w, line_pixel_h), 0)
                 mask_draw = ImageDraw.Draw(mask)
-                mask_draw.text((-bbox[0], -bbox[1]), line, font=font, fill=255, anchor="lt")
+                if letter_spacing and char_widths:
+                    bbox_ls = font.getbbox(line, anchor="ls")
+                    baseline_y_in_mask = int(-bbox_ls[1]) + bbox[1]
+                    for char, char_x in self._iterate_letter_spaced_positions(
+                        line, letter_spacing, char_widths, 0
+                    ):
+                        mask_draw.text(
+                            (char_x, baseline_y_in_mask), char, font=font, fill=255, anchor="ls"
+                        )
+                else:
+                    mask_draw.text((-bbox[0], -bbox[1]), line, font=font, fill=255, anchor="lt")
                 fill_clip.putalpha(mask)
 
                 image.alpha_composite(fill_clip, (line_pixel_left, line_pixel_top))

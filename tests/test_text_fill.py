@@ -372,6 +372,50 @@ class TestTextFillRendering:
             canvas.render(out)
             assert os.path.exists(out)
 
+    def test_render_text_with_image_fill(self):
+        import pathlib
+
+        fixture = str(pathlib.Path(__file__).parent / "fixtures" / "sample_image.jpg")
+        from quickthumb import Canvas
+
+        canvas = (
+            Canvas(400, 200)
+            .background(color="#000000")
+            .text(
+                "TEXTURE",
+                size=60,
+                fill=TextFillImage(path=fixture, fit="cover"),
+                position=(200, 100),
+                align="center",
+            )
+        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            out = os.path.join(tmpdir, "out.png")
+            canvas.render(out)
+            assert os.path.exists(out)
+            assert os.path.getsize(out) > 0
+
+    def test_render_text_with_per_part_letter_spacing_and_fill(self):
+        """letter_spacing on a TextPart with fill should not be silently dropped."""
+        from quickthumb import Canvas
+
+        parts = [
+            TextPart(
+                text="HOT",
+                fill=LinearGradient(angle=0, stops=[("#FF4500", 0.0), ("#FFD700", 1.0)]),
+                letter_spacing=6,
+            ),
+        ]
+        canvas = (
+            Canvas(500, 200)
+            .background(color="#111111")
+            .text(parts, size=60, position=(250, 100), align="center")
+        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            out = os.path.join(tmpdir, "out.png")
+            canvas.render(out)
+            assert os.path.exists(out)
+
     def test_part_fill_overrides_layer_fill(self):
         """part.fill takes precedence over layer.fill for that segment."""
         from quickthumb import Canvas
