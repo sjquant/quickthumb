@@ -255,6 +255,7 @@ class TestTextLayers:
             "font": "Roboto",
             "size": 84,
             "color": "#FFFFFF",
+            "fill": None,
             "position": None,
             "align": "top-center",  # Now serializes as string shortcut
             "effects": [{"type": "stroke", "width": 3, "color": "#000000"}],
@@ -414,6 +415,7 @@ class TestRichText:
         assert data["layers"][0]["content"][0] == {
             "text": "Hello ",
             "color": "#FFFFFF",
+            "fill": None,
             "effects": [],
             "size": 80,
             "bold": True,
@@ -426,6 +428,7 @@ class TestRichText:
         assert data["layers"][0]["content"][1] == {
             "text": "World",
             "color": "#FF0000",
+            "fill": None,
             "effects": [{"type": "stroke", "width": 2, "color": "#000000"}],
             "size": None,
             "bold": None,
@@ -962,13 +965,17 @@ class TestTextWrapping:
 
         from quickthumb import Canvas
 
-        canvas = Canvas(400, 200).background(color="#FFFFFF").text(
-            "Superlongwordthatwillneverfit",
-            size=48,
-            color="#000000",
-            position=(200, 100),
-            align="center",
-            max_width=50,
+        canvas = (
+            Canvas(400, 200)
+            .background(color="#FFFFFF")
+            .text(
+                "Superlongwordthatwillneverfit",
+                size=48,
+                color="#000000",
+                position=(200, 100),
+                align="center",
+                max_width=50,
+            )
         )
 
         with pytest.warns(UserWarning, match="max_width"):
@@ -1012,6 +1019,7 @@ class TestTextRotation:
                 "font": None,
                 "size": 48,
                 "color": None,
+                "fill": None,
                 "position": None,
                 "align": None,
                 "bold": False,
@@ -1134,6 +1142,7 @@ class TestTextEffects:
                 "font": None,
                 "size": 72,
                 "color": None,
+                "fill": None,
                 "position": None,
                 "align": None,
                 "bold": False,
@@ -1259,6 +1268,7 @@ class TestTextEffects:
                 "font": None,
                 "size": 72,
                 "color": None,
+                "fill": None,
                 "position": None,
                 "align": None,
                 "bold": False,
@@ -1406,6 +1416,7 @@ class TestTextEffects:
                 "font": None,
                 "size": 72,
                 "color": None,
+                "fill": None,
                 "position": None,
                 "align": None,
                 "bold": False,

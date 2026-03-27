@@ -173,6 +173,17 @@ class RadialGradient(QuickThumbModel):
     center: tuple[float, float] = (0.5, 0.5)
 
 
+class TextFillImage(QuickThumbModel):
+    type: Literal["image"] = "image"
+    path: str
+    fit: Annotated[
+        FitMode, AfterValidator(lambda v: enum_converter(FitMode)(v) if v else FitMode.COVER)
+    ] = FitMode.COVER
+
+
+TextFill = Annotated[LinearGradient | RadialGradient | TextFillImage, Discriminator("type")]
+
+
 class Stroke(QuickThumbModel):
     type: Literal["stroke"] = "stroke"
     width: PositiveInt
@@ -262,6 +273,7 @@ BackgroundEffect = Filter
 class TextPart(QuickThumbModel):
     text: str
     color: HexColor | None = None
+    fill: TextFill | None = None
     effects: list[TextEffect] = []
     size: PositiveInt | None = None
     bold: bool | None = None
@@ -318,6 +330,7 @@ class TextLayer(QuickThumbModel):
     font: str | None = None
     size: PositiveInt | None = None
     color: HexColor | None = None
+    fill: TextFill | None = None
     position: tuple | None = None
     align: AlignWithHVTuple = None
     bold: bool = False
