@@ -17,6 +17,7 @@ from quickthumb import (
     RadialGradient,
     Shadow,
     Stroke,
+    TextFillImage,
     TextPart,
     ValidationError,
 )
@@ -33,7 +34,7 @@ from quickthumb import (
 | [Shape](shape.md) | `.shape()` — rectangles and ellipses |
 | [Outline](outline.md) | `.outline()` — canvas border |
 | [Effects](effects.md) | `Stroke`, `Shadow`, `Glow`, `Filter`, `Background` |
-| [Enums & Gradients](enums.md) | `Align`, `BlendMode`, `FitMode`, `LinearGradient`, `RadialGradient` |
+| [Enums & Gradients](enums.md) | `Align`, `BlendMode`, `FitMode`, `LinearGradient`, `RadialGradient`, `TextFillImage` |
 
 ## Error types
 

@@ -132,6 +132,44 @@ Only include the fields you need — unspecified fields use their defaults.
 }
 ```
 
+**Gradient-filled text:**
+
+```json
+{
+  "type": "text",
+  "content": "GRADIENT",
+  "size": 120,
+  "fill": {
+    "type": "linear_gradient",
+    "angle": 90,
+    "stops": [["#FF6B6B", 0.0], ["#4ECDC4", 1.0]]
+  },
+  "position": ["50%", "50%"],
+  "align": "center",
+  "effects": []
+}
+```
+
+**Image-filled text:**
+
+```json
+{
+  "type": "text",
+  "content": "TEXTURE",
+  "size": 140,
+  "fill": {
+    "type": "image",
+    "path": "fire_texture.jpg",
+    "fit": "cover"
+  },
+  "position": ["50%", "50%"],
+  "align": "center",
+  "effects": []
+}
+```
+
+`fill` discriminator values: `"linear_gradient"`, `"radial_gradient"`, `"image"`. `fill` can also be set per `TextPart` entry using the same discriminated object.
+
 **Align values:** `"center"`, `"left"`, `"right"`, `"top-left"`, `"top-center"`, `"top-right"`, `"bottom-left"`, `"bottom-center"`, `"bottom-right"`
 
 ---

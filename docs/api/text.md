@@ -10,6 +10,7 @@ canvas.text(
     font=None,
     size=None,
     color=None,
+    fill=None,
     position=None,
     align=None,
     bold=False,
@@ -33,6 +34,7 @@ canvas.text(
 | `font` | `str \| None` | `None` | Font family name, local file path, or remote webfont URL. |
 | `size` | `int \| None` | `None` | Font size in pixels. Must be a positive integer. |
 | `color` | `str \| None` | `None` | Default text color. Hex string (`"#RRGGBB"` or `"#RRGGBBAA"`). |
+| `fill` | `LinearGradient \| RadialGradient \| TextFillImage \| None` | `None` | Gradient or image fill applied to the text glyphs. Takes visual precedence over `color` when set. See [Gradient and image fills](#gradient-and-image-fills). |
 | `position` | `tuple \| None` | `None` | `(x, y)` position. Values can be integers (px) or percentage strings (`"50%"`). |
 | `align` | `str \| Align \| tuple \| None` | `None` | Alignment of the text block. See [Align values](#align-values). |
 | `bold` | `bool` | `False` | Bold flag. Mutually exclusive with `weight`. |
@@ -151,6 +153,53 @@ canvas.text(
 !!! note "Webfont URLs"
     When `font` is a URL, `bold`, `italic`, and `weight` are ignored — the URL already points to a specific variant. Download separate URLs for bold/italic versions.
 
+### Gradient and image fills
+
+Fill text glyphs with a gradient or image instead of a flat color. Pass a `LinearGradient`, `RadialGradient`, or `TextFillImage` to `fill`.
+
+```python
+from quickthumb import Canvas, LinearGradient, RadialGradient, TextFillImage, TextPart
+
+# Linear gradient headline
+canvas.text(
+    content="GRADIENT",
+    size=120,
+    fill=LinearGradient(angle=90, stops=[("#FF6B6B", 0.0), ("#4ECDC4", 1.0)]),
+    position=("50%", "50%"),
+    align="center",
+)
+
+# Image-filled text
+canvas.text(
+    content="TEXTURE",
+    size=140,
+    fill=TextFillImage(path="fire_texture.jpg", fit="cover"),
+    position=("50%", "50%"),
+    align="center",
+)
+
+# Per-segment fills using TextPart
+canvas.text(
+    content=[
+        TextPart(
+            text="HOT ",
+            fill=LinearGradient(angle=45, stops=[("#FF4500", 0.0), ("#FFD700", 1.0)]),
+            weight=900,
+        ),
+        TextPart(
+            text="COLD",
+            fill=LinearGradient(angle=45, stops=[("#00BFFF", 0.0), ("#8A2BE2", 1.0)]),
+            weight=900,
+        ),
+    ],
+    size=110,
+    position=("50%", "50%"),
+    align="center",
+)
+```
+
+`fill` on a `TextPart` overrides the layer-level `fill` for that segment only. `fill` and `color` are independent; when `fill` is set it takes visual precedence. See [TextFillImage](enums.md#textfillimage) for image fill options.
+
 ## TextPart
 
 `TextPart` enables per-segment styling within a text layer.
@@ -161,6 +210,7 @@ from quickthumb import Stroke, TextPart
 TextPart(
     text="HOT",
     color="#FF3B30",
+    fill=None,
     size=56,
     font="Impact",
     weight=900,
@@ -175,6 +225,7 @@ TextPart(
 | --- | --- | --- | --- |
 | `text` | `str` | **required** | The text segment. Cannot be empty. |
 | `color` | `str \| None` | `None` | Hex color override for this segment. |
+| `fill` | `LinearGradient \| RadialGradient \| TextFillImage \| None` | `None` | Gradient or image fill for this segment. Overrides the layer-level `fill` for this segment only. |
 | `size` | `int \| None` | `None` | Font size override for this segment. |
 | `font` | `str \| None` | `None` | Font override for this segment. |
 | `bold` | `bool \| None` | `None` | Bold override. Mutually exclusive with `weight`. |
@@ -192,3 +243,5 @@ TextPart(
 - `auto_scale=True` requires `max_width` to also be set.
 - `max_width` must be a positive integer or a positive percentage string like `"60%"`.
 - Percentage strings in `position` must match the pattern `-?N%` (negative percentages are valid).
+- `fill` and `color` are independent fields; `fill` takes visual precedence when both are set.
+- `TextFillImage.path` supports local file paths and remote URLs; missing local files raise `FileNotFoundError` at render time.

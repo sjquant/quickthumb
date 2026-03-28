@@ -192,3 +192,52 @@ canvas.background(
     ),
 )
 ```
+
+---
+
+## TextFillImage
+
+An image used as a fill for text glyphs. The image is scaled to the text bounding box and masked to the glyph shapes.
+
+```python
+from quickthumb import TextFillImage
+
+TextFillImage(
+    path="fire_texture.jpg",
+    fit="cover",
+)
+```
+
+| Parameter | Type | Default | Description |
+| --- | --- | --- | --- |
+| `path` | `str` | **required** | Local file path or remote URL for the fill image. |
+| `fit` | `str \| FitMode` | `"cover"` | How the image is scaled to the text bounding box. `"cover"`, `"contain"`, or `"fill"`. |
+
+### Examples
+
+```python
+from quickthumb import Canvas, TextFillImage
+
+# Local file
+canvas.text(
+    content="FIRE",
+    size=140,
+    fill=TextFillImage(path="assets/fire_texture.jpg", fit="cover"),
+    position=("50%", "50%"),
+    align="center",
+)
+
+# Remote URL
+canvas.text(
+    content="MARBLE",
+    size=140,
+    fill=TextFillImage(
+        path="https://example.com/textures/marble.jpg",
+        fit="cover",
+    ),
+    position=("50%", "50%"),
+    align="center",
+)
+```
+
+Pass `TextFillImage` to the `fill` parameter of `.text()` or `TextPart`. See [Gradient and image fills](text.md#gradient-and-image-fills) for usage in context.
