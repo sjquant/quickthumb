@@ -12,6 +12,7 @@ from pydantic import (
     PositiveInt,
     field_serializer,
     field_validator,
+    model_serializer,
     model_validator,
 )
 from pydantic import ValidationError as PydanticValidationError
@@ -296,6 +297,13 @@ class TextPart(QuickThumbModel):
             raise ValueError("text field cannot be empty")
         return v
 
+    @model_serializer(mode="wrap")
+    def _serialize_omit_null_fill(self, handler: Any) -> dict:
+        data = handler(self)
+        if data.get("fill") is None:
+            data.pop("fill", None)
+        return data
+
 
 class BackgroundLayer(QuickThumbModel):
     type: Literal["background"]
@@ -407,6 +415,13 @@ class TextLayer(QuickThumbModel):
         if align is None:
             return None
         return align.value
+
+    @model_serializer(mode="wrap")
+    def _serialize_omit_null_fill(self, handler: Any) -> dict:
+        data = handler(self)
+        if data.get("fill") is None:
+            data.pop("fill", None)
+        return data
 
 
 class OutlineLayer(QuickThumbModel):
