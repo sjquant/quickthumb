@@ -125,6 +125,56 @@ canvas = Canvas(1280, 720).text(
 )
 ```
 
+### Gradient and image-filled text
+
+Fill text with a gradient or image instead of a flat color. Works on the whole text layer or per `TextPart`.
+
+```python
+from quickthumb import Canvas, LinearGradient, RadialGradient, TextFillImage, TextPart
+
+# Gradient headline
+canvas = Canvas(1280, 720).text(
+    content="GRADIENT TITLE",
+    size=120,
+    fill=LinearGradient(
+        angle=90,
+        stops=[("#FF6B6B", 0.0), ("#FFE66D", 0.5), ("#4ECDC4", 1.0)],
+    ),
+    position=("50%", "50%"),
+    align="center",
+)
+
+# Image-filled text
+canvas = Canvas(1280, 720).text(
+    content="TEXTURE",
+    size=140,
+    fill=TextFillImage(path="fire_texture.jpg", fit="cover"),
+    position=("50%", "50%"),
+    align="center",
+)
+
+# Per-segment fills using TextPart
+canvas = Canvas(1280, 720).text(
+    content=[
+        TextPart(
+            text="HOT ",
+            fill=LinearGradient(angle=45, stops=[("#FF4500", 0.0), ("#FFD700", 1.0)]),
+            weight=900,
+        ),
+        TextPart(
+            text="COLD",
+            fill=LinearGradient(angle=45, stops=[("#00BFFF", 0.0), ("#8A2BE2", 1.0)]),
+            weight=900,
+        ),
+    ],
+    size=110,
+    position=("50%", "50%"),
+    align="center",
+)
+```
+
+`fill` accepts `LinearGradient`, `RadialGradient`, or `TextFillImage`. It is mutually independent of `color` — when `fill` is set it takes visual precedence. A `fill` on a `TextPart` overrides the layer-level `fill` for that segment only.
+
 ### Image layers
 
 ```python
@@ -268,6 +318,7 @@ os.environ["QUICKTHUMB_DEFAULT_FONT"] = "Roboto"
 | Background controls | Opacity, blend modes, fit modes, blur, brightness, contrast, saturation |
 | Text | Positioning, alignment, wrapping, letter spacing, line height, rotation, auto-scale |
 | Rich text | Per-segment `TextPart` styling |
+| Text fills | Gradient (`LinearGradient`, `RadialGradient`) and image (`TextFillImage`) fills; per-`TextPart` override |
 | Text effects | Stroke, shadow, glow, background fill |
 | Fonts | Local fonts, CSS-style weights, italic/bold flags, webfont URLs, fallback mapping |
 | Images | Local/remote images, sizing, fit modes, alignment, opacity, rotation |
@@ -289,6 +340,7 @@ See the shipped examples in [`examples/README.md`](examples/README.md):
 - `weight` and `bold=True` are mutually exclusive on text layers and `TextPart`
 - `auto_scale=True` requires `max_width`
 - `position` percentage values must be strings like `"50%"`
+- `fill` and `color` are independent fields; when `fill` is set it takes visual precedence over `color`
 - `canvas.custom(fn)` without a `name` runs during render order but cannot be serialized to JSON; pass `name=` and register the function with `Canvas.register_layer_fn()` to enable serialization
 
 ## Development

@@ -17,7 +17,7 @@ This document specifies planned and exploratory features for QuickThumb. It is a
 | --- | ---------------------------- | ------------- |
 | 1   | CLI (`quickthumb` command)   | `planned`     |
 | 2   | Template System              | `planned`     |
-| 3   | Gradient / Image-Filled Text | `planned`     |
+| 3   | Gradient / Image-Filled Text | `done`        |
 | 4   | Noise / Grain Effect         | `planned`     |
 | 5   | Presentation & Video         | `exploratory` |
 
@@ -216,7 +216,7 @@ Canvas.unregister_template("my-brand")
 
 ---
 
-## 3. Gradient / Image-Filled Text (Knockout Text) — `planned`
+## 3. Gradient / Image-Filled Text (Knockout Text) — `done`
 
 Fill text with a gradient or image instead of a flat color. The text shape acts as a mask that reveals the fill behind it.
 
