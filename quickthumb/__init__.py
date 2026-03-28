@@ -18,6 +18,7 @@ from quickthumb.models import (
     ShapeLayer,
     Stroke,
     TextEffect,
+    TextFillImage,
     TextLayer,
     TextPart,
 )
@@ -44,6 +45,7 @@ __all__ = [
     "ShapeLayer",
     "Stroke",
     "TextEffect",
+    "TextFillImage",
     "TextLayer",
     "TextPart",
 ]

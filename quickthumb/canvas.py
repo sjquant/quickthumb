@@ -35,6 +35,7 @@ from quickthumb.models import (
     ShapeLayer,
     Stroke,
     TextEffect,
+    TextFillImage,
     TextLayer,
     TextPart,
 )
@@ -52,6 +53,7 @@ FontType = ImageFont.FreeTypeFont | ImageFont.ImageFont
 
 class TextPartData(TypedDict):
     color: tuple[int, int, int]
+    fill: "LinearGradient | RadialGradient | TextFillImage | None"
     font_name: str
     size: int
     bold: bool
@@ -156,6 +158,7 @@ class Canvas:
         font: str | None = None,
         size: int | None = None,
         color: str | None = None,
+        fill: "LinearGradient | RadialGradient | TextFillImage | None" = None,
         position: (
             tuple[int, int] | tuple[str, str] | tuple[int, str] | tuple[str, int] | None
         ) = None,
@@ -180,6 +183,7 @@ class Canvas:
             font=font,
             size=size,
             color=color,
+            fill=fill,
             position=position,
             align=align,  # type: ignore[arg-type]  # Pydantic validator handles conversion
             bold=bold,
@@ -510,6 +514,17 @@ class Canvas:
                 and not os.path.exists(layer.path)
             ):
                 raise FileNotFoundError(f"{layer.path}")
+            elif isinstance(layer, TextLayer):
+                fills_to_check: list[TextFillImage] = []
+                if isinstance(layer.fill, TextFillImage):
+                    fills_to_check.append(layer.fill)
+                if isinstance(layer.content, list):
+                    for part in layer.content:
+                        if isinstance(part.fill, TextFillImage):
+                            fills_to_check.append(part.fill)
+                for fill in fills_to_check:
+                    if not self._is_url(fill.path) and not os.path.exists(fill.path):
+                        raise FileNotFoundError(f"{fill.path}")
 
     def _detect_format(self, output_path: str) -> FileFormat:
         extension = os.path.splitext(output_path)[1].lower()
@@ -1255,6 +1270,7 @@ class Canvas:
 
             part_data: TextPartData = {
                 "color": color,
+                "fill": self._resolve_fill(part, layer),
                 "font_name": font_name,
                 "size": size,
                 "bold": bold,
@@ -1301,6 +1317,7 @@ class Canvas:
             font = self._load_font_variant(font_name, size, bold, italic, weight)
             part_template: TextPartData = {
                 "color": color,
+                "fill": self._resolve_fill(part, layer),
                 "font_name": font_name,
                 "size": size,
                 "bold": bold,
@@ -1405,6 +1422,79 @@ class Canvas:
             return layer.letter_spacing
         return 0
 
+    def _resolve_fill(self, part: TextPart, layer: TextLayer):
+        if part.fill is not None:
+            return part.fill
+        return layer.fill
+
+    def _create_text_fill_image(
+        self,
+        size: tuple[int, int],
+        fill: "LinearGradient | RadialGradient | TextFillImage",
+    ) -> Image.Image:
+        """Create a fill image (gradient or texture) at the given size."""
+        if isinstance(fill, LinearGradient):
+            return self._create_linear_gradient(size, fill.angle, fill.stops)
+        if isinstance(fill, RadialGradient):
+            return self._create_radial_gradient(size, fill.stops, fill.center)
+        if isinstance(fill, TextFillImage):
+            return self._load_and_fit_image(fill.path, size, fill.fit)
+        raise RenderingError(f"Unsupported fill type: {type(fill).__name__}")
+
+    def _draw_filled_text(
+        self,
+        image: Image.Image,
+        text: str,
+        position: tuple[int, int],
+        font: FontType,
+        fill: "LinearGradient | RadialGradient | TextFillImage",
+        stroke_effects: list[Stroke],
+        anchor: str = "lt",
+    ) -> None:
+        """Render text with a gradient or image fill.
+
+        Renders stroke first (in stroke color), then overlays the fill on the
+        text body, leaving the stroke ring visible around the glyph.
+        """
+        temp_draw = ImageDraw.Draw(image)
+        bbox = temp_draw.textbbox((0, 0), text, font=font, anchor=anchor)
+        text_w = int(bbox[2] - bbox[0])
+        text_h = int(bbox[3] - bbox[1])
+        if text_w <= 0 or text_h <= 0:
+            return
+
+        draw_x = -bbox[0]
+        draw_y = -bbox[1]
+
+        # Draw stroke under fill: use stroke color for both fill and stroke areas
+        # so the outer stroke ring stays visible after fill is composited on top.
+        if stroke_effects:
+            for stroke in stroke_effects:
+                stroke_color = self._parse_color(stroke.color)
+                temp_draw.text(
+                    position,
+                    text,
+                    font=font,
+                    fill=stroke_color,
+                    stroke_width=stroke.width,
+                    stroke_fill=stroke_color,
+                    anchor=anchor,
+                )
+
+        # Create fill image sized to the text bounding box
+        fill_img = self._create_text_fill_image((text_w, text_h), fill)
+
+        # Create a white-on-black mask from the text glyphs (no stroke expansion)
+        mask = Image.new("L", (text_w, text_h), 0)
+        mask_draw = ImageDraw.Draw(mask)
+        mask_draw.text((draw_x, draw_y), text, font=font, fill=255, anchor=anchor)
+
+        fill_img.putalpha(mask)
+
+        paste_x = position[0] + bbox[0]
+        paste_y = position[1] + bbox[1]
+        image.alpha_composite(fill_img, (paste_x, paste_y))
+
     def _render_text_part(
         self,
         draw: ImageDraw.ImageDraw,
@@ -1428,14 +1518,48 @@ class Canvas:
             self._render_shadow(image, text, font, (x, y), shadow)
 
         # Render text
-        if part_data["letter_spacing"]:
+        part_fill = part_data["fill"]
+        letter_spacing = part_data["letter_spacing"]
+        if part_fill is not None and letter_spacing:
+            total_width, char_widths = self._calculate_spaced_text_width(text, font, letter_spacing)
+            bbox = font.getbbox(text)
+            text_height = int(bbox[3] - bbox[1])
+            if stroke_effects := part_data["stroke_effects"]:
+                for stroke in stroke_effects:
+                    stroke_color = self._parse_color(stroke.color)
+                    self._draw_text_with_letter_spacing(
+                        draw,
+                        text,
+                        (x, y),
+                        font,
+                        stroke_color,
+                        letter_spacing,
+                        [stroke],
+                        char_widths,
+                    )
+            fill_img = self._create_text_fill_image((total_width, text_height), part_fill)
+            bbox_ls = font.getbbox(text, anchor="ls")
+            baseline_y_in_mask = int(-bbox_ls[1])
+            mask = Image.new("L", (total_width, text_height), 0)
+            mask_draw = ImageDraw.Draw(mask)
+            for char, char_x in self._iterate_letter_spaced_positions(
+                text, letter_spacing, char_widths, 0
+            ):
+                mask_draw.text((char_x, baseline_y_in_mask), char, font=font, fill=255, anchor="ls")
+            fill_img.putalpha(mask)
+            image.alpha_composite(fill_img, (x, y))
+        elif part_fill is not None:
+            self._draw_filled_text(
+                image, text, (x, y), font, part_fill, part_data["stroke_effects"]
+            )
+        elif letter_spacing:
             self._draw_text_with_letter_spacing(
                 draw,
                 text,
                 (x, y),
                 font,
                 part_data["color"],
-                part_data["letter_spacing"],
+                letter_spacing,
                 part_data["stroke_effects"],
             )
         else:
@@ -1490,19 +1614,115 @@ class Canvas:
                     bg,
                 )
 
-        for line, x, y, _ in line_layouts:
-            for glow in glow_effects:
-                self._render_glow(image, line, font, (x, y), glow)
-
-            for shadow in shadow_effects:
-                self._render_shadow(image, line, font, (x, y), shadow)
-
-            if layer.letter_spacing:
-                self._draw_text_with_letter_spacing(
-                    draw, line, (x, y), font, color, layer.letter_spacing, stroke_effects
-                )
+        text_fill = layer.fill
+        letter_spacing = layer.letter_spacing or 0
+        if text_fill is not None and line_layouts:
+            # Pre-compute letter-spaced widths when needed so block bounds are accurate.
+            if letter_spacing:
+                spaced_data = {
+                    line: self._calculate_spaced_text_width(line, font, letter_spacing)
+                    for line, _, _, _ in line_layouts
+                }
+                block_left = min(x for _, x, _, _ in line_layouts)
+                block_right = max(x + spaced_data[line][0] for line, x, _, _ in line_layouts)
             else:
-                self._draw_text(draw, line, (x, y), font, color, stroke_effects)
+                spaced_data = {}
+                block_left = min(x + bbox[0] for _, x, _, bbox in line_layouts)
+                block_right = max(x + bbox[2] for _, x, _, bbox in line_layouts)
+
+            # Build a block-level fill image spanning all lines so gradients and
+            # images map to the full text block rather than repeating per line.
+            block_top = min(y + bbox[1] for _, _, y, bbox in line_layouts)
+            block_bottom = max(y + bbox[3] for _, _, y, bbox in line_layouts)
+            block_w = max(1, block_right - block_left)
+            block_h = max(1, block_bottom - block_top)
+            fill_image = self._create_text_fill_image((block_w, block_h), text_fill)
+
+            for line, x, y, bbox in line_layouts:
+                for glow in glow_effects:
+                    self._render_glow(image, line, font, (x, y), glow)
+                for shadow in shadow_effects:
+                    self._render_shadow(image, line, font, (x, y), shadow)
+
+                if letter_spacing:
+                    spaced_width, char_widths = spaced_data[line]
+                    line_pixel_left = x
+                    line_pixel_top = y + bbox[1]
+                    line_pixel_w = spaced_width
+                else:
+                    char_widths = None
+                    line_pixel_left = x + bbox[0]
+                    line_pixel_top = y + bbox[1]
+                    line_pixel_w = int(bbox[2] - bbox[0])
+
+                line_pixel_h = int(bbox[3] - bbox[1])
+                if line_pixel_w <= 0 or line_pixel_h <= 0:
+                    continue
+
+                # Draw stroke first (stroke color covers both body and ring)
+                if stroke_effects:
+                    for stroke in stroke_effects:
+                        stroke_color = self._parse_color(stroke.color)
+                        if letter_spacing:
+                            self._draw_text_with_letter_spacing(
+                                draw,
+                                line,
+                                (x, y),
+                                font,
+                                stroke_color,
+                                letter_spacing,
+                                [stroke],
+                                char_widths,
+                            )
+                        else:
+                            draw.text(
+                                (x, y),
+                                line,
+                                font=font,
+                                fill=stroke_color,
+                                stroke_width=stroke.width,
+                                stroke_fill=stroke_color,
+                                anchor="lt",
+                            )
+
+                # Clip fill to this line's portion of the block
+                offset_x = line_pixel_left - block_left
+                offset_y = line_pixel_top - block_top
+                fill_clip = fill_image.crop(
+                    (offset_x, offset_y, offset_x + line_pixel_w, offset_y + line_pixel_h)
+                )
+
+                # Text body mask
+                mask = Image.new("L", (line_pixel_w, line_pixel_h), 0)
+                mask_draw = ImageDraw.Draw(mask)
+                if letter_spacing and char_widths:
+                    bbox_ls = font.getbbox(line, anchor="ls")
+                    baseline_y_in_mask = int(-bbox_ls[1]) + bbox[1]
+                    for char, char_x in self._iterate_letter_spaced_positions(
+                        line, letter_spacing, char_widths, 0
+                    ):
+                        mask_draw.text(
+                            (char_x, baseline_y_in_mask), char, font=font, fill=255, anchor="ls"
+                        )
+                else:
+                    mask_draw.text((-bbox[0], -bbox[1]), line, font=font, fill=255, anchor="lt")
+                fill_clip.putalpha(mask)
+
+                image.alpha_composite(fill_clip, (line_pixel_left, line_pixel_top))
+        else:
+            for line, x, y, _ in line_layouts:
+                for glow in glow_effects:
+                    self._render_glow(image, line, font, (x, y), glow)
+
+                for shadow in shadow_effects:
+                    self._render_shadow(image, line, font, (x, y), shadow)
+
+                if layer.letter_spacing:
+                    self._draw_text_with_letter_spacing(
+                        draw, line, (x, y), font, color, layer.letter_spacing, stroke_effects
+                    )
+                else:
+                    self._draw_text(draw, line, (x, y), font, color, stroke_effects)
 
     def _get_text_base_position(self, layer: TextLayer) -> tuple[int, int]:
         """Return base (x, y) for text, deriving from alignment when position is not set."""
@@ -1573,9 +1793,40 @@ class Canvas:
                 image, content, font, position, shadow, letter_spacing, char_widths
             )
 
-        self._draw_text_with_letter_spacing(
-            draw, content, position, font, color, letter_spacing, stroke_effects, char_widths
-        )
+        if layer.fill is not None:
+            # Build fill image over the letter-spaced text bounding box and mask with glyphs.
+            bbox_ls = font.getbbox(content, anchor="ls")
+            baseline_y_in_mask = int(-bbox_ls[1])
+            fill_img = self._create_text_fill_image((total_width, text_height), layer.fill)
+
+            # Draw stroke first so the stroke ring stays visible after fill compositing.
+            if stroke_effects:
+                for stroke in stroke_effects:
+                    stroke_color = self._parse_color(stroke.color)
+                    self._draw_text_with_letter_spacing(
+                        draw,
+                        content,
+                        position,
+                        font,
+                        stroke_color,
+                        letter_spacing,
+                        [stroke],
+                        char_widths,
+                    )
+
+            mask = Image.new("L", (total_width, text_height), 0)
+            mask_draw = ImageDraw.Draw(mask)
+            for char, char_x in self._iterate_letter_spaced_positions(
+                content, letter_spacing, char_widths, 0
+            ):
+                mask_draw.text((char_x, baseline_y_in_mask), char, font=font, fill=255, anchor="ls")
+
+            fill_img.putalpha(mask)
+            image.alpha_composite(fill_img, (x, y))
+        else:
+            self._draw_text_with_letter_spacing(
+                draw, content, position, font, color, letter_spacing, stroke_effects, char_widths
+            )
 
     def _render_normal_text(
         self,
@@ -1600,7 +1851,12 @@ class Canvas:
             image, content, font, position, glow_effects, shadow_effects, anchor
         )
 
-        self._draw_text(draw, content, position, font, color, stroke_effects, anchor)
+        if layer.fill is not None:
+            self._draw_filled_text(
+                image, content, position, font, layer.fill, stroke_effects, anchor
+            )
+        else:
+            self._draw_text(draw, content, position, font, color, stroke_effects, anchor)
 
     def _render_rotated_simple_text(self, image: Image.Image, layer: TextLayer):
         """Render simple text with rotation applied.
