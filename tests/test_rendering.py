@@ -2502,3 +2502,176 @@ class TestRendering:
 
             with open(output_path, "rb") as f:
                 assert f.read() == external_file("snapshots/custom_canvas_layer.png")
+
+    def test_snapshot_text_with_linear_gradient_fill(self):
+        """Snapshot test for text rendered with a linear gradient fill"""
+        from quickthumb import Canvas, LinearGradient
+
+        canvas = (
+            Canvas(400, 200)
+            .background(color="#111111")
+            .text(
+                "GRADIENT",
+                size=72,
+                fill=LinearGradient(angle=90, stops=[("#FF6B6B", 0.0), ("#4ECDC4", 1.0)]),
+                position=(200, 100),
+                align=("center", "middle"),
+            )
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/text_with_linear_gradient_fill.png")
+
+    def test_snapshot_text_with_radial_gradient_fill(self):
+        """Snapshot test for text rendered with a radial gradient fill"""
+        from quickthumb import Canvas, RadialGradient
+
+        canvas = (
+            Canvas(400, 200)
+            .background(color="#111111")
+            .text(
+                "RADIAL",
+                size=72,
+                fill=RadialGradient(stops=[("#FFD700", 0.0), ("#FF000000", 1.0)]),
+                position=(200, 100),
+                align=("center", "middle"),
+            )
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/text_with_radial_gradient_fill.png")
+
+    def test_snapshot_text_with_image_fill(self):
+        """Snapshot test for text rendered with an image fill (TextFillImage)"""
+        from quickthumb import Canvas, TextFillImage
+
+        canvas = (
+            Canvas(400, 200)
+            .background(color="#111111")
+            .text(
+                "TEXTURE",
+                size=72,
+                fill=TextFillImage(path="tests/fixtures/sample_image.jpg", fit="cover"),
+                position=(200, 100),
+                align=("center", "middle"),
+            )
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/text_with_image_fill.png")
+
+    def test_snapshot_text_fill_with_stroke(self):
+        """Snapshot test for gradient-filled text with a stroke effect"""
+        from quickthumb import Canvas, LinearGradient, Stroke
+
+        canvas = (
+            Canvas(400, 200)
+            .background(color="#111111")
+            .text(
+                "STROKE",
+                size=72,
+                fill=LinearGradient(angle=0, stops=[("#B8FF00", 0.0), ("#00CFFF", 1.0)]),
+                position=(200, 100),
+                align=("center", "middle"),
+                effects=[Stroke(width=3, color="#000000")],
+            )
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/text_fill_with_stroke.png")
+
+    def test_snapshot_text_fill_with_letter_spacing(self):
+        """Snapshot test for gradient-filled text with letter spacing"""
+        from quickthumb import Canvas, LinearGradient
+
+        canvas = (
+            Canvas(400, 200)
+            .background(color="#111111")
+            .text(
+                "SPACED",
+                size=60,
+                fill=LinearGradient(angle=0, stops=[("#FF4500", 0.0), ("#FFD700", 1.0)]),
+                letter_spacing=8,
+                position=(200, 100),
+                align=("center", "middle"),
+            )
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/text_fill_with_letter_spacing.png")
+
+    def test_snapshot_multiline_text_with_fill(self):
+        """Snapshot test for multiline text with a gradient fill spanning the full block"""
+        from quickthumb import Canvas, LinearGradient
+
+        canvas = (
+            Canvas(400, 250)
+            .background(color="#111111")
+            .text(
+                "TOP LINE\nBOTTOM LINE",
+                size=52,
+                fill=LinearGradient(angle=180, stops=[("#FF6B6B", 0.0), ("#4ECDC4", 1.0)]),
+                position=(200, 125),
+                align=("center", "middle"),
+            )
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/multiline_text_with_fill.png")
+
+    def test_snapshot_rich_text_with_per_part_fill(self):
+        """Snapshot test for rich text where individual TextParts have different fills"""
+        from quickthumb import Canvas, LinearGradient, TextPart
+
+        canvas = (
+            Canvas(400, 200)
+            .background(color="#111111")
+            .text(
+                content=[
+                    TextPart(
+                        text="HOT ",
+                        fill=LinearGradient(angle=0, stops=[("#FF4500", 0.0), ("#FFD700", 1.0)]),
+                        weight=900,
+                    ),
+                    TextPart(
+                        text="COLD",
+                        fill=LinearGradient(angle=0, stops=[("#00BFFF", 0.0), ("#8A2BE2", 1.0)]),
+                        weight=900,
+                    ),
+                ],
+                size=60,
+                position=(200, 100),
+                align=("center", "middle"),
+            )
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/rich_text_with_per_part_fill.png")

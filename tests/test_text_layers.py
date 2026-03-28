@@ -1479,3 +1479,132 @@ class TestTextEffects:
 
         with pytest.raises(ValidationError, match=error_pattern):
             canvas.text("Hello", effects=[Glow(**effect_args)])
+
+
+class TestTextFill:
+    """Validation and serialization tests for text fill (Feature 3)"""
+
+    def test_should_serialize_linear_gradient_fill(self):
+        """Linear gradient fill serializes with correct type discriminator and fields"""
+        from quickthumb import Canvas, LinearGradient
+
+        canvas = Canvas(400, 200).text(
+            "GRADIENT",
+            size=60,
+            fill=LinearGradient(angle=45, stops=[("#FF0000", 0.0), ("#0000FF", 1.0)]),
+            position=(0, 0),
+        )
+
+        data = json.loads(canvas.to_json())
+        fill = data["layers"][0]["fill"]
+        assert fill["type"] == "linear"
+        assert fill["angle"] == 45
+        assert fill["stops"] == [["#FF0000", 0.0], ["#0000FF", 1.0]]
+
+    def test_should_serialize_radial_gradient_fill(self):
+        """Radial gradient fill serializes with correct type discriminator"""
+        from quickthumb import Canvas, RadialGradient
+
+        canvas = Canvas(400, 200).text(
+            "RADIAL",
+            size=60,
+            fill=RadialGradient(stops=[("#FFD700", 0.0), ("#FF000000", 1.0)]),
+            position=(0, 0),
+        )
+
+        data = json.loads(canvas.to_json())
+        fill = data["layers"][0]["fill"]
+        assert fill["type"] == "radial"
+        assert len(fill["stops"]) == 2
+
+    def test_should_serialize_image_fill(self):
+        """TextFillImage fill serializes with type, path, and fit"""
+        from quickthumb import Canvas, TextFillImage
+
+        canvas = Canvas(400, 200).text(
+            "TEXTURE",
+            size=60,
+            fill=TextFillImage(path="fire.jpg", fit="contain"),
+            position=(0, 0),
+        )
+
+        data = json.loads(canvas.to_json())
+        fill = data["layers"][0]["fill"]
+        assert fill["type"] == "image"
+        assert fill["path"] == "fire.jpg"
+        assert fill["fit"] == "contain"
+
+    def test_should_serialize_null_fill_when_not_set(self):
+        """fill serializes as null when not explicitly set"""
+        from quickthumb import Canvas
+
+        canvas = Canvas(400, 200).text("Plain", size=60, position=(0, 0))
+
+        data = json.loads(canvas.to_json())
+        assert data["layers"][0]["fill"] is None
+
+    def test_should_roundtrip_fill_through_json(self):
+        """Canvas with gradient fill survives a to_json/from_json round-trip"""
+        from quickthumb import Canvas, LinearGradient
+        from quickthumb.models import TextLayer
+
+        fill = LinearGradient(angle=90, stops=[("#FF6B6B", 0.0), ("#4ECDC4", 1.0)])
+        canvas = Canvas(400, 200).text("ROUND", size=60, fill=fill, position=(0, 0))
+
+        canvas2 = Canvas.from_json(canvas.to_json())
+        layer = canvas2.layers[0]
+        assert isinstance(layer, TextLayer)
+        assert isinstance(layer.fill, LinearGradient)
+        assert layer.fill.angle == 90
+        assert layer.fill.stops == [("#FF6B6B", 0.0), ("#4ECDC4", 1.0)]
+
+    def test_should_serialize_text_part_fill(self):
+        """TextPart fill serializes as the fill object when set, and null when not set"""
+        from quickthumb import Canvas, LinearGradient, TextPart
+
+        parts = [
+            TextPart(
+                text="HOT ",
+                fill=LinearGradient(angle=0, stops=[("#FF4500", 0.0), ("#FFD700", 1.0)]),
+            ),
+            TextPart(text="COLD", color="#00BFFF"),
+        ]
+        canvas = Canvas(400, 200).text(parts, size=60, position=(0, 0))
+
+        data = json.loads(canvas.to_json())
+        content = data["layers"][0]["content"]
+        assert content[0]["fill"]["type"] == "linear"
+        assert content[1]["fill"] is None
+
+    def test_should_raise_file_not_found_for_missing_image_fill(self):
+        """Rendering with a TextFillImage that points to a non-existent file raises FileNotFoundError"""
+        import os
+        import tempfile
+
+        from quickthumb import Canvas, TextFillImage
+
+        canvas = Canvas(400, 200).text(
+            "MISSING",
+            size=60,
+            fill=TextFillImage(path="nonexistent_texture.jpg"),
+            position=(0, 0),
+        )
+
+        with pytest.raises(FileNotFoundError), tempfile.TemporaryDirectory() as tmpdir:
+            canvas.render(os.path.join(tmpdir, "out.png"))
+
+    def test_should_raise_file_not_found_for_missing_text_part_image_fill(self):
+        """Rendering with a TextPart TextFillImage pointing to a missing file raises FileNotFoundError"""
+        import os
+        import tempfile
+
+        from quickthumb import Canvas, TextFillImage, TextPart
+
+        canvas = Canvas(400, 200).text(
+            [TextPart(text="X", fill=TextFillImage(path="ghost.jpg"))],
+            size=60,
+            position=(0, 0),
+        )
+
+        with pytest.raises(FileNotFoundError), tempfile.TemporaryDirectory() as tmpdir:
+            canvas.render(os.path.join(tmpdir, "out.png"))
