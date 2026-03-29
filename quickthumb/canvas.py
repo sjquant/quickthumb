@@ -25,7 +25,6 @@ from quickthumb.models import (
     FitMode,
     Glow,
     Grain,
-    GrainLayer,
     ImageEffect,
     ImageLayer,
     LayerType,
@@ -293,26 +292,6 @@ class Canvas:
         self._layers.append(layer)
         return self
 
-    def grain(
-        self,
-        intensity: float = 0.1,
-        monochrome: bool = True,
-        blend_mode: str = "overlay",
-        opacity: float = 1.0,
-        seed: int | None = None,
-    ) -> Self:
-
-        layer = GrainLayer(
-            type="grain",
-            intensity=intensity,
-            monochrome=monochrome,
-            blend_mode=blend_mode,
-            opacity=opacity,
-            seed=seed,
-        )
-        self._layers.append(layer)
-        return self
-
     def custom(
         self,
         fn: Callable[..., Image.Image | None],
@@ -475,8 +454,6 @@ class Canvas:
                 self._render_image_layer(image, layer)
             elif isinstance(layer, ShapeLayer):
                 self._render_shape_layer(image, layer)
-            elif isinstance(layer, GrainLayer):
-                self._render_grain_layer(image, layer)
             elif isinstance(layer, CustomLayer):
                 self._render_custom_layer(image, layer)
 
@@ -759,12 +736,6 @@ class Canvas:
             effect.blend_mode,
             effect.opacity,
         )
-
-    def _render_grain_layer(self, image: Image.Image, layer: GrainLayer) -> None:
-        result = self._blend_grain(
-            image, layer.intensity, layer.monochrome, layer.seed, layer.blend_mode, layer.opacity
-        )
-        image.paste(result, (0, 0))
 
     def _apply_opacity_to_color(self, color: tuple[int, ...], opacity: float) -> tuple[int, ...]:
         r, g, b = color[:3]

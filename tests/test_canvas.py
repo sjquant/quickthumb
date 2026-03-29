@@ -699,38 +699,3 @@ class TestCanvasTemplate:
 
         with pytest.raises(ValidationError, match=match):
             Canvas.from_template(spec_or_path, variables=variables)
-
-
-class TestCanvasGrain:
-    def test_should_add_grain_layer_via_builder(self):
-        """Test canvas.grain() defaults contract and JSON round-trip"""
-        import json
-
-        from inline_snapshot import snapshot
-        from quickthumb import Canvas
-        from quickthumb.models import GrainLayer
-
-        canvas = Canvas(200, 150).background(color="#0F172A").grain(intensity=0.15)
-
-        assert canvas.layers[1] == snapshot(
-            GrainLayer(
-                type="grain",
-                intensity=0.15,
-                monochrome=True,
-                blend_mode="overlay",
-                opacity=1.0,
-            )
-        )
-
-        # JSON round-trip covers serialization contract
-        data = json.loads(canvas.to_json())
-        assert data["layers"][1] == snapshot(
-            {
-                "type": "grain",
-                "intensity": 0.15,
-                "monochrome": True,
-                "blend_mode": "overlay",
-                "opacity": 1.0, 'seed': None}
-        )
-        roundtrip = Canvas.from_json(json.dumps(data))
-        assert roundtrip.layers[1] == snapshot(GrainLayer(intensity=0.15))

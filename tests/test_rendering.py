@@ -2676,19 +2676,6 @@ class TestRendering:
             with open(output_path, "rb") as f:
                 assert f.read() == external_file("snapshots/rich_text_with_per_part_fill.png")
 
-    def test_snapshot_canvas_grain(self):
-        """Snapshot test for canvas-level grain overlay via canvas.grain()"""
-        from quickthumb import Canvas
-
-        canvas = Canvas(200, 150).background(color="#1A1A2E").grain(intensity=0.3, seed=42)
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            output_path = os.path.join(tmpdir, "output.png")
-            canvas.render(output_path)
-
-            with open(output_path, "rb") as f:
-                assert f.read() == external_file("snapshots/canvas_grain.png")
-
     def test_snapshot_grain_effect_on_background(self):
         """Snapshot test for Grain as a per-layer effect on a background layer"""
         from quickthumb import Canvas, Grain

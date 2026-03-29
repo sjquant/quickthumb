@@ -522,12 +522,8 @@ class ShapeLayer(QuickThumbModel):
         return align.value
 
 
-class GrainLayer(Grain):
-    pass
-
-
 LayerType = Annotated[
-    BackgroundLayer | TextLayer | OutlineLayer | ImageLayer | ShapeLayer | GrainLayer,
+    BackgroundLayer | TextLayer | OutlineLayer | ImageLayer | ShapeLayer,
     Discriminator("type"),
 ]
 
