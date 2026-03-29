@@ -261,13 +261,37 @@ class Filter(QuickThumbModel):
         return v
 
 
+class Grain(QuickThumbModel):
+    type: Literal["grain"] = "grain"
+    intensity: float
+    monochrome: bool = True
+    blend_mode: str = "overlay"
+    opacity: OpacityField = 1.0
+    seed: int | None = None
+
+    @field_validator("intensity")
+    @classmethod
+    def validate_intensity(cls, v: float) -> float:
+        if v < 0.0 or v > 1.0:
+            raise ValueError("intensity must be between 0.0 and 1.0")
+        return v
+
+    @field_validator("blend_mode")
+    @classmethod
+    def validate_blend_mode(cls, v: str) -> str:
+        allowed = {"overlay", "screen", "multiply", "normal"}
+        if v not in allowed:
+            raise ValueError(f"blend_mode must be one of: {', '.join(sorted(allowed))}")
+        return v
+
+
 TextEffect = Annotated[Stroke | Shadow | Glow | Background, Discriminator("type")]
 
-ImageEffect = Annotated[Stroke | Shadow | Glow | Filter, Discriminator("type")]
+ImageEffect = Annotated[Stroke | Shadow | Glow | Filter | Grain, Discriminator("type")]
 
 ShapeEffect = Annotated[Stroke | Shadow | Glow, Discriminator("type")]
 
-BackgroundEffect = Filter
+BackgroundEffect = Annotated[Filter | Grain, Discriminator("type")]
 
 
 class TextPart(QuickThumbModel):
@@ -498,8 +522,12 @@ class ShapeLayer(QuickThumbModel):
         return align.value
 
 
+class GrainLayer(Grain):
+    pass
+
+
 LayerType = Annotated[
-    BackgroundLayer | TextLayer | OutlineLayer | ImageLayer | ShapeLayer,
+    BackgroundLayer | TextLayer | OutlineLayer | ImageLayer | ShapeLayer | GrainLayer,
     Discriminator("type"),
 ]
 

@@ -24,6 +24,8 @@ from quickthumb.models import (
     Filter,
     FitMode,
     Glow,
+    Grain,
+    GrainLayer,
     ImageEffect,
     ImageLayer,
     LayerType,
@@ -291,6 +293,26 @@ class Canvas:
         self._layers.append(layer)
         return self
 
+    def grain(
+        self,
+        intensity: float = 0.1,
+        monochrome: bool = True,
+        blend_mode: str = "overlay",
+        opacity: float = 1.0,
+        seed: int | None = None,
+    ) -> Self:
+
+        layer = GrainLayer(
+            type="grain",
+            intensity=intensity,
+            monochrome=monochrome,
+            blend_mode=blend_mode,
+            opacity=opacity,
+            seed=seed,
+        )
+        self._layers.append(layer)
+        return self
+
     def custom(
         self,
         fn: Callable[..., Image.Image | None],
@@ -453,6 +475,8 @@ class Canvas:
                 self._render_image_layer(image, layer)
             elif isinstance(layer, ShapeLayer):
                 self._render_shape_layer(image, layer)
+            elif isinstance(layer, GrainLayer):
+                self._render_grain_layer(image, layer)
             elif isinstance(layer, CustomLayer):
                 self._render_custom_layer(image, layer)
 
@@ -575,7 +599,10 @@ class Canvas:
             return
 
         for effect in layer.effects:
-            layer_image = self._apply_filter(layer_image, effect)
+            if isinstance(effect, Grain):
+                layer_image = self._apply_grain(layer_image, effect)
+            else:
+                layer_image = self._apply_filter(layer_image, effect)
 
         if layer.opacity < 1.0 and not layer.color:
             layer_image = self._apply_opacity(layer_image, layer.opacity)
@@ -651,6 +678,93 @@ class Canvas:
         if effect.saturation != 1.0:
             image = self._apply_saturation(image, effect.saturation)
         return image
+
+    def _generate_noise_image(
+        self,
+        size: tuple[int, int],
+        intensity: float,
+        monochrome: bool,
+        seed: int | None,
+    ) -> Image.Image | None:
+        import os
+
+        width, height = size
+        pixel_count = width * height
+        max_val = int(intensity * 255)
+
+        if max_val == 0:
+            return None
+
+        def _scale(raw: bytes) -> bytes:
+            return bytes(b * max_val // 255 for b in raw)
+
+        if seed is not None:
+            import random as _random
+
+            rng = _random.Random(seed)
+            if monochrome:
+                raw = bytes(rng.randint(0, 255) for _ in range(pixel_count))
+            else:
+                raw_r = bytes(rng.randint(0, 255) for _ in range(pixel_count))
+                raw_g = bytes(rng.randint(0, 255) for _ in range(pixel_count))
+                raw_b = bytes(rng.randint(0, 255) for _ in range(pixel_count))
+        else:
+            if monochrome:
+                raw = os.urandom(pixel_count)
+            else:
+                raw_r = os.urandom(pixel_count)
+                raw_g = os.urandom(pixel_count)
+                raw_b = os.urandom(pixel_count)
+
+        if monochrome:
+            ch = Image.frombytes("L", size, _scale(raw))
+            noise_img = Image.merge("RGB", [ch, ch, ch])
+        else:
+            noise_img = Image.merge(
+                "RGB",
+                [
+                    Image.frombytes("L", size, _scale(raw_r)),
+                    Image.frombytes("L", size, _scale(raw_g)),
+                    Image.frombytes("L", size, _scale(raw_b)),
+                ],
+            )
+        return noise_img.convert("RGBA")
+
+    def _blend_grain(
+        self,
+        image: Image.Image,
+        intensity: float,
+        monochrome: bool,
+        seed: int | None,
+        blend_mode: str,
+        opacity: float,
+    ) -> Image.Image:
+        noise = self._generate_noise_image(image.size, intensity, monochrome, seed)
+        if noise is None:
+            return image
+        original_alpha = image.split()[3]
+        blended = self._apply_blend_mode(image, noise, blend_mode)
+        blended.putalpha(original_alpha)
+        if opacity < 1.0:
+            blended = Image.blend(image, blended, opacity)
+            blended.putalpha(original_alpha)
+        return blended
+
+    def _apply_grain(self, image: Image.Image, effect: Grain) -> Image.Image:
+        return self._blend_grain(
+            image,
+            effect.intensity,
+            effect.monochrome,
+            effect.seed,
+            effect.blend_mode,
+            effect.opacity,
+        )
+
+    def _render_grain_layer(self, image: Image.Image, layer: GrainLayer) -> None:
+        result = self._blend_grain(
+            image, layer.intensity, layer.monochrome, layer.seed, layer.blend_mode, layer.opacity
+        )
+        image.paste(result, (0, 0))
 
     def _apply_opacity_to_color(self, color: tuple[int, ...], opacity: float) -> tuple[int, ...]:
         r, g, b = color[:3]
@@ -799,6 +913,8 @@ class Canvas:
         for effect in layer.effects:
             if isinstance(effect, Filter):
                 img = self._apply_filter(img, effect)
+            elif isinstance(effect, Grain):
+                img = self._apply_grain(img, effect)
 
         for effect in layer.effects:
             if isinstance(effect, Glow):
