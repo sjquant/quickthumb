@@ -36,7 +36,7 @@ canvas.image(
 | `remove_background` | `bool` | `False` | Remove the image background using AI. Requires `quickthumb[rembg]`. |
 | `border_radius` | `int` | `0` | Corner rounding in pixels. Non-negative integer. |
 | `blend_mode` | `str \| BlendMode \| None` | `None` | Compositing blend mode. See [BlendMode](enums.md#blendmode). |
-| `effects` | `list \| None` | `[]` | List of effects: `Stroke`, `Shadow`, `Glow`, `Filter`. |
+| `effects` | `list \| None` | `[]` | List of effects: `Stroke`, `Shadow`, `Glow`, `Filter`, `Grain`. |
 
 ## Examples
 

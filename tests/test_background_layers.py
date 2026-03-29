@@ -227,7 +227,46 @@ class TestBackgroundLayers:
         )
 
         # When/Then: Serialized JSON matches full expected structure
-        assert json.loads(canvas.to_json()) == snapshot({'width':1920 ,'height':1080 ,'layers':[{'type':'background','color':'#2c3e50','gradient':None ,'image':None ,'opacity':1.0 ,'blend_mode':None ,'fit':None ,'effects':[{'type':'filter','blur':5 ,'brightness':0.8 ,'contrast':1.0 ,'saturation':1.0 }]},{'type':'background','color':None ,'gradient':{'type':'linear','angle':45.0 ,'stops':[['#FFD700',0.0 ],['#FFD70000',1.0 ]]},'image':None ,'opacity':0.5 ,'blend_mode':'multiply','fit':None ,'effects':[]}]})
+        assert json.loads(canvas.to_json()) == snapshot(
+            {
+                "width": 1920,
+                "height": 1080,
+                "layers": [
+                    {
+                        "type": "background",
+                        "color": "#2c3e50",
+                        "gradient": None,
+                        "image": None,
+                        "opacity": 1.0,
+                        "blend_mode": None,
+                        "fit": None,
+                        "effects": [
+                            {
+                                "type": "filter",
+                                "blur": 5,
+                                "brightness": 0.8,
+                                "contrast": 1.0,
+                                "saturation": 1.0,
+                            }
+                        ],
+                    },
+                    {
+                        "type": "background",
+                        "color": None,
+                        "gradient": {
+                            "type": "linear",
+                            "angle": 45.0,
+                            "stops": [["#FFD700", 0.0], ["#FFD70000", 1.0]],
+                        },
+                        "image": None,
+                        "opacity": 0.5,
+                        "blend_mode": "multiply",
+                        "fit": None,
+                        "effects": [],
+                    },
+                ],
+            }
+        )
 
     def test_should_deserialize_background_layer_from_json(self):
         """Test that canvas with background layers can be deserialized from JSON"""
@@ -391,3 +430,46 @@ class TestBackgroundLayers:
 
         with pytest.raises(ValidationError, match=match):
             Filter(**kwargs)
+
+    def test_should_add_grain_effect_to_background_layer(self):
+        """Test Grain defaults contract and JSON round-trip on background layers"""
+        import json
+
+        from inline_snapshot import snapshot
+        from quickthumb import Canvas, Grain
+
+        # Defaults: monochrome=True, blend_mode="overlay", opacity=1.0
+        canvas = Canvas(200, 150).background(color="#1A1A2E", effects=[Grain(intensity=0.12)])
+
+        assert canvas.layers[0].effects[0] == snapshot(
+            Grain(intensity=0.12, monochrome=True, blend_mode="overlay", opacity=1.0)
+        )
+
+        # JSON round-trip covers serialization contract
+        data = json.loads(canvas.to_json())
+        assert data["layers"][0]["effects"][0] == snapshot(
+            {
+                "type": "grain",
+                "intensity": 0.12,
+                "monochrome": True,
+                "blend_mode": "overlay",
+                "opacity": 1.0, 'seed': None}
+        )
+        roundtrip = Canvas.from_json(json.dumps(data))
+        assert roundtrip.layers[0].effects[0] == Grain(intensity=0.12)
+
+    @pytest.mark.parametrize(
+        "kwargs, match",
+        [
+            ({"intensity": -0.1}, "intensity"),
+            ({"intensity": 1.1}, "intensity"),
+            ({"intensity": 0.5, "opacity": -0.1}, "opacity"),
+            ({"intensity": 0.5, "opacity": 1.1}, "opacity"),
+        ],
+    )
+    def test_should_raise_error_for_invalid_grain_params(self, kwargs, match):
+        """Test that invalid Grain params raise ValidationError"""
+        from quickthumb import Grain, ValidationError
+
+        with pytest.raises(ValidationError, match=match):
+            Grain(**kwargs)

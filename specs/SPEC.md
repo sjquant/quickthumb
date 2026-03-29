@@ -15,15 +15,15 @@ This document specifies planned and exploratory features for QuickThumb. It is a
 
 | #   | Feature                      | Status        |
 | --- | ---------------------------- | ------------- |
-| 1   | CLI (`quickthumb` command)   | `planned`     |
-| 2   | Template System              | `planned`     |
+| 1   | CLI (`quickthumb` command)   | `done`        |
+| 2   | Template System              | `done`        |
 | 3   | Gradient / Image-Filled Text | `done`        |
-| 4   | Noise / Grain Effect         | `planned`     |
+| 4   | Noise / Grain Effect         | `done`        |
 | 5   | Presentation & Video         | `exploratory` |
 
 ---
 
-## 1. CLI — `planned`
+## 1. CLI — `done`
 
 A `quickthumb` command-line tool for rendering JSON specs without writing Python.
 
@@ -108,7 +108,7 @@ uv pip install "quickthumb[cli]"
 
 ---
 
-## 2. Template System — `planned`
+## 2. Template System — `done`
 
 Reusable JSON specs with variable placeholders. Useful for batch generation and AI-driven workflows.
 
@@ -350,7 +350,7 @@ Fallback rule: if `fill` is `None`, `color` is used as before.
 
 ---
 
-## 4. Noise / Grain Effect — `planned`
+## 4. Noise / Grain Effect — `done`
 
 Add film-grain noise to backgrounds, images, or the entire canvas.
 

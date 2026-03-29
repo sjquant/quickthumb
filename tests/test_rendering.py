@@ -2675,3 +2675,18 @@ class TestRendering:
 
             with open(output_path, "rb") as f:
                 assert f.read() == external_file("snapshots/rich_text_with_per_part_fill.png")
+
+    def test_snapshot_grain_effect_on_background(self):
+        """Snapshot test for Grain as a per-layer effect on a background layer"""
+        from quickthumb import Canvas, Grain
+
+        canvas = Canvas(200, 150).background(
+            color="#2C3E50", effects=[Grain(intensity=0.2, monochrome=True, seed=42)]
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/grain_effect_on_background.png")

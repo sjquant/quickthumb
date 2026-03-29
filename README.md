@@ -213,6 +213,42 @@ canvas = Canvas(1280, 720).shape(
 )
 ```
 
+### Grain / noise effect
+
+Add film-grain noise to background or image layers via `effects=[Grain(...)]`.
+
+```python
+from quickthumb import Canvas, Grain
+
+canvas = (
+    Canvas(1280, 720)
+    .background(
+        color="#1A1A2E",
+        effects=[Grain(intensity=0.12, monochrome=True)],
+    )
+    .image(
+        path="portrait.png",
+        position=("70%", "50%"),
+        width=400,
+        height=500,
+        align=("center", "middle"),
+        effects=[Grain(intensity=0.08, monochrome=False, blend_mode="overlay", opacity=0.6)],
+    )
+)
+```
+
+`Grain` parameters:
+
+| Parameter | Type | Default | Description |
+| --- | --- | --- | --- |
+| `intensity` | `float` | required | Noise amplitude, `0.0`–`1.0` |
+| `monochrome` | `bool` | `True` | `True` = luminance noise; `False` = per-channel color noise |
+| `blend_mode` | `str` | `"overlay"` | `"overlay"`, `"screen"`, `"multiply"`, or `"normal"` |
+| `opacity` | `float` | `1.0` | Overall grain strength, `0.0`–`1.0` |
+| `seed` | `int \| None` | `None` | Optional RNG seed for deterministic output |
+
+`Grain` is valid in `effects` on **background** and **image** layers. It is serialized with `"type": "grain"` in JSON.
+
 ### Export helpers
 
 ```python
@@ -323,6 +359,7 @@ os.environ["QUICKTHUMB_DEFAULT_FONT"] = "Roboto"
 | Fonts | Local fonts, CSS-style weights, italic/bold flags, webfont URLs, fallback mapping |
 | Images | Local/remote images, sizing, fit modes, alignment, opacity, rotation |
 | Image effects | Stroke, shadow, glow, filter effects, border radius, background removal |
+| Grain / noise | Per-layer `Grain` effect on background and image layers; monochrome or color noise |
 | Shapes | Rectangle and ellipse primitives with stroke/shadow/glow support |
 | Export | PNG, JPEG, WebP, file output, base64, data URLs |
 | Serialization | `to_json()` / `from_json()` for built-in layer types and named custom layers |
@@ -342,6 +379,8 @@ See the shipped examples in [`examples/README.md`](examples/README.md):
 - `position` percentage values must be strings like `"50%"`
 - `fill` and `color` are independent fields; when `fill` is set it takes visual precedence over `color`
 - `canvas.custom(fn)` without a `name` runs during render order but cannot be serialized to JSON; pass `name=` and register the function with `Canvas.register_layer_fn()` to enable serialization
+- `Grain` is valid only on background and image layer `effects`; it is not a valid text or shape effect
+- `Grain(intensity=0.0)` is a no-op (no noise is generated or composited)
 
 ## Development
 
