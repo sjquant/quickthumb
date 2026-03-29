@@ -261,6 +261,9 @@ class Filter(QuickThumbModel):
         return v
 
 
+_GRAIN_BLEND_MODES = frozenset({"overlay", "screen", "multiply", "normal"})
+
+
 class Grain(QuickThumbModel):
     type: Literal["grain"] = "grain"
     intensity: float
@@ -279,9 +282,8 @@ class Grain(QuickThumbModel):
     @field_validator("blend_mode")
     @classmethod
     def validate_blend_mode(cls, v: str) -> str:
-        allowed = {"overlay", "screen", "multiply", "normal"}
-        if v not in allowed:
-            raise ValueError(f"blend_mode must be one of: {', '.join(sorted(allowed))}")
+        if v not in _GRAIN_BLEND_MODES:
+            raise ValueError(f"blend_mode must be one of: {', '.join(sorted(_GRAIN_BLEND_MODES))}")
         return v
 
 

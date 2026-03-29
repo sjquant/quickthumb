@@ -656,53 +656,53 @@ class Canvas:
             image = self._apply_saturation(image, effect.saturation)
         return image
 
+    @staticmethod
     def _generate_noise_image(
-        self,
         size: tuple[int, int],
         intensity: float,
         monochrome: bool,
         seed: int | None,
     ) -> Image.Image | None:
-        import os
+        import random as _random
 
-        width, height = size
-        pixel_count = width * height
+        pixel_count = size[0] * size[1]
         max_val = int(intensity * 255)
 
         if max_val == 0:
             return None
 
-        def _scale(raw: bytes) -> bytes:
-            return bytes(b * max_val // 255 for b in raw)
+        lut = bytes(i * max_val // 255 for i in range(256))
 
         if seed is not None:
-            import random as _random
-
             rng = _random.Random(seed)
             if monochrome:
-                raw = bytes(rng.randint(0, 255) for _ in range(pixel_count))
+                raw = rng.randbytes(pixel_count)
             else:
-                raw_r = bytes(rng.randint(0, 255) for _ in range(pixel_count))
-                raw_g = bytes(rng.randint(0, 255) for _ in range(pixel_count))
-                raw_b = bytes(rng.randint(0, 255) for _ in range(pixel_count))
+                raw_r, raw_g, raw_b = (
+                    rng.randbytes(pixel_count),
+                    rng.randbytes(pixel_count),
+                    rng.randbytes(pixel_count),
+                )
         else:
             if monochrome:
                 raw = os.urandom(pixel_count)
             else:
-                raw_r = os.urandom(pixel_count)
-                raw_g = os.urandom(pixel_count)
-                raw_b = os.urandom(pixel_count)
+                raw_r, raw_g, raw_b = (
+                    os.urandom(pixel_count),
+                    os.urandom(pixel_count),
+                    os.urandom(pixel_count),
+                )
 
         if monochrome:
-            ch = Image.frombytes("L", size, _scale(raw))
+            ch = Image.frombytes("L", size, raw).point(lut)
             noise_img = Image.merge("RGB", [ch, ch, ch])
         else:
             noise_img = Image.merge(
                 "RGB",
                 [
-                    Image.frombytes("L", size, _scale(raw_r)),
-                    Image.frombytes("L", size, _scale(raw_g)),
-                    Image.frombytes("L", size, _scale(raw_b)),
+                    Image.frombytes("L", size, raw_r).point(lut),
+                    Image.frombytes("L", size, raw_g).point(lut),
+                    Image.frombytes("L", size, raw_b).point(lut),
                 ],
             )
         return noise_img.convert("RGBA")
@@ -716,16 +716,19 @@ class Canvas:
         blend_mode: str,
         opacity: float,
     ) -> Image.Image:
+        if opacity == 0.0:
+            return image
         noise = self._generate_noise_image(image.size, intensity, monochrome, seed)
         if noise is None:
             return image
-        original_alpha = image.split()[3]
+        r, g, b, original_alpha = image.split()
         blended = self._apply_blend_mode(image, noise, blend_mode)
-        blended.putalpha(original_alpha)
+        br, bg, bb, _ = blended.split()
         if opacity < 1.0:
-            blended = Image.blend(image, blended, opacity)
-            blended.putalpha(original_alpha)
-        return blended
+            br = Image.blend(r, br, opacity)
+            bg = Image.blend(g, bg, opacity)
+            bb = Image.blend(b, bb, opacity)
+        return Image.merge("RGBA", (br, bg, bb, original_alpha))
 
     def _apply_grain(self, image: Image.Image, effect: Grain) -> Image.Image:
         return self._blend_grain(
