@@ -266,6 +266,13 @@ Effects are embedded in each layer's `"effects"` array and use a `"type"` discri
     { "type": "background", "color": "#111827CC", "padding": [16, 24], "border_radius": 14, "opacity": 1.0 }
     ```
 
+=== "Grain"
+    ```json
+    { "type": "grain", "intensity": 0.12, "monochrome": true, "blend_mode": "overlay", "opacity": 1.0 }
+    ```
+
+    `blend_mode` values: `"overlay"`, `"screen"`, `"multiply"`, `"normal"`. Optional `"seed"` integer for deterministic output.
+
 ## Complete example
 
 A full YouTube-style thumbnail spec:
@@ -349,7 +356,7 @@ Generate a QuickThumb JSON config for a 1280×720 YouTube thumbnail.
 Rules:
 - Top-level fields: "width", "height", "layers"
 - Every layer must have a "type" field: "background", "text", "image", "shape", or "outline"
-- Every effect must have a "type" field: "stroke", "shadow", "glow", "filter", or "background"
+- Every effect must have a "type" field: "stroke", "shadow", "glow", "filter", "background", or "grain"
 - Positions are [x, y] arrays — values can be integers (px) or percentage strings like "50%"
 - Colors are hex strings: "#RRGGBB" or "#RRGGBBAA"
 - Layers render bottom-to-top in array order

@@ -9,6 +9,7 @@ Effects are modifiers applied to layers. Each layer type accepts a specific set.
 | `Glow` | ✓ | ✓ | ✓ | — |
 | `Filter` | — | ✓ | — | ✓ |
 | `Background` | ✓ | — | — | — |
+| `Grain` | — | ✓ | — | ✓ |
 
 Pass effects as a list to the `effects` parameter of any layer:
 
@@ -193,3 +194,50 @@ canvas.text(
 
 !!! note
     `Background` as an effect is separate from the `.background()` layer builder. The effect applies behind a text block; the layer covers the full canvas.
+
+---
+
+## Grain
+
+Adds film-grain noise to a background or image layer.
+
+```python
+from quickthumb import Grain
+
+Grain(intensity=0.12, monochrome=True, blend_mode="overlay", opacity=1.0)
+```
+
+| Parameter | Type | Default | Description |
+| --- | --- | --- | --- |
+| `intensity` | `float` | **required** | Noise amplitude from `0.0` (none) to `1.0` (maximum). |
+| `monochrome` | `bool` | `True` | `True` = luminance noise (grey grain); `False` = independent per-channel color noise. |
+| `blend_mode` | `str` | `"overlay"` | How noise composites onto the layer. One of `"overlay"`, `"screen"`, `"multiply"`, `"normal"`. |
+| `opacity` | `float` | `1.0` | Overall grain strength from `0.0` (invisible) to `1.0` (full). |
+| `seed` | `int \| None` | `None` | RNG seed for deterministic output. `None` = random each render. |
+
+`intensity=0.0` is a no-op — no noise is generated.
+
+### Example
+
+```python
+from quickthumb import Canvas, Grain
+
+canvas = (
+    Canvas(1280, 720)
+    .background(
+        color="#1A1A2E",
+        effects=[Grain(intensity=0.12, monochrome=True)],
+    )
+    .image(
+        path="portrait.png",
+        position=("70%", "50%"),
+        width=400,
+        height=500,
+        align=("center", "middle"),
+        effects=[Grain(intensity=0.08, monochrome=False, blend_mode="overlay", opacity=0.6)],
+    )
+)
+```
+
+!!! note
+    `Grain` is valid only on **background** and **image** layers. It is not available on text or shape layers.

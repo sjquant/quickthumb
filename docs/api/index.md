@@ -13,6 +13,7 @@ from quickthumb import (
     Filter,
     FitMode,
     Glow,
+    Grain,
     LinearGradient,
     RadialGradient,
     Shadow,
@@ -33,7 +34,7 @@ from quickthumb import (
 | [Image](image.md) | `.image()` — overlay images and cutouts |
 | [Shape](shape.md) | `.shape()` — rectangles and ellipses |
 | [Outline](outline.md) | `.outline()` — canvas border |
-| [Effects](effects.md) | `Stroke`, `Shadow`, `Glow`, `Filter`, `Background` |
+| [Effects](effects.md) | `Stroke`, `Shadow`, `Glow`, `Filter`, `Background`, `Grain` |
 | [Enums & Gradients](enums.md) | `Align`, `BlendMode`, `FitMode`, `LinearGradient`, `RadialGradient`, `TextFillImage` |
 
 ## Error types

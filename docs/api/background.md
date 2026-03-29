@@ -26,7 +26,7 @@ canvas.background(
 | `opacity` | `float` | `1.0` | Layer opacity from `0.0` (transparent) to `1.0` (opaque). |
 | `blend_mode` | `str \| BlendMode \| None` | `None` | How this layer composites over previous layers. See [BlendMode](enums.md#blendmode). |
 | `fit` | `str \| FitMode \| None` | `None` | How an image fills the canvas. See [FitMode](enums.md#fitmode). |
-| `effects` | `list[Filter] \| None` | `[]` | Background effects. Currently only `Filter` is supported. |
+| `effects` | `list \| None` | `[]` | Background effects. Accepts `Filter` and `Grain`. |
 
 ## Examples
 
@@ -75,4 +75,4 @@ canvas.background(color="#000000", opacity=0.4)
 - `color`, `gradient`, and `image` can each be used independently or together within one layer.
 - `blend_mode` applies when compositing this layer over previous layers.
 - Supports both local file paths and remote URLs for `image`.
-- For available effects, see [Filter](effects.md#filter).
+- For available effects, see [Filter](effects.md#filter) and [Grain](effects.md#grain).
