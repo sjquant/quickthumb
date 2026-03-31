@@ -66,7 +66,7 @@
 ### P2 — Font Cache Hardening (from code review)
 
 - [DONE] Use `tempfile.gettempdir()` instead of hardcoded `"/tmp"` as the default font cache dir (fixes Windows compatibility)
-- [TODO] Validate downloaded font content before writing to cache (currently writes arbitrary data from any URL)
+- [REVIEW] Validate downloaded font content before writing to cache (currently writes arbitrary data from any URL)
 - [DONE] Call `os.makedirs(cache_dir, exist_ok=True)` before writing cached font; `QUICKTHUMB_FONT_CACHE_DIR` pointing to a non-existent dir currently crashes with `FileNotFoundError`
 
 ### P2 — CLI Polish (from code review)

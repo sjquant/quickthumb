@@ -384,7 +384,7 @@ class TestCanvas:
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("QUICKTHUMB_FONT_CACHE_DIR", tmpdir)
 
-            fake_font_data = b"fake font data"
+            fake_font_data = b"\x00\x01\x00\x00fake font data"
             mock_response = MagicMock()
             mock_response.__enter__ = lambda s: s
             mock_response.__exit__ = MagicMock(return_value=False)
@@ -405,7 +405,7 @@ class TestCanvas:
         canvas = Canvas(100, 100)
         monkeypatch.delenv("QUICKTHUMB_FONT_CACHE_DIR", raising=False)
 
-        fake_font_data = b"fake font data"
+        fake_font_data = b"\x00\x01\x00\x00fake font data"
         mock_response = MagicMock()
         mock_response.__enter__ = lambda s: s
         mock_response.__exit__ = MagicMock(return_value=False)
@@ -428,7 +428,7 @@ class TestCanvas:
             new_dir = os.path.join(base, "nested", "cache")
             monkeypatch.setenv("QUICKTHUMB_FONT_CACHE_DIR", new_dir)
 
-            fake_font_data = b"fake font data"
+            fake_font_data = b"\x00\x01\x00\x00fake font data"
             mock_response = MagicMock()
             mock_response.__enter__ = lambda s: s
             mock_response.__exit__ = MagicMock(return_value=False)
@@ -444,6 +444,84 @@ class TestCanvas:
             # Then: the directory is created and the font is written there
             assert os.path.exists(new_dir)
             assert result.startswith(new_dir)
+
+    def test_should_raise_error_when_font_data_is_not_a_valid_font(self, monkeypatch):
+        """_download_and_cache_font raises RenderingError when response is not a font"""
+        from unittest.mock import MagicMock, patch
+
+        from quickthumb import Canvas
+        from quickthumb.errors import RenderingError
+
+        canvas = Canvas(100, 100)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            monkeypatch.setenv("QUICKTHUMB_FONT_CACHE_DIR", tmpdir)
+
+            invalid_data = b"this is not a font file at all"
+            mock_response = MagicMock()
+            mock_response.__enter__ = lambda s: s
+            mock_response.__exit__ = MagicMock(return_value=False)
+            mock_response.read.return_value = invalid_data
+
+            with patch("quickthumb.canvas.urlopen", return_value=mock_response):
+                with pytest.raises(RenderingError, match="not a valid font"):
+                    canvas._download_and_cache_font("https://example.com/bad.ttf")
+
+    def test_should_not_write_cache_file_when_font_data_is_invalid(self, monkeypatch):
+        """_download_and_cache_font does not write a cache file when validation fails"""
+        from unittest.mock import MagicMock, patch
+
+        from quickthumb import Canvas
+        from quickthumb.errors import RenderingError
+
+        canvas = Canvas(100, 100)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            monkeypatch.setenv("QUICKTHUMB_FONT_CACHE_DIR", tmpdir)
+
+            invalid_data = b"<html>not a font</html>"
+            mock_response = MagicMock()
+            mock_response.__enter__ = lambda s: s
+            mock_response.__exit__ = MagicMock(return_value=False)
+            mock_response.read.return_value = invalid_data
+
+            with patch("quickthumb.canvas.urlopen", return_value=mock_response):
+                with pytest.raises(RenderingError):
+                    canvas._download_and_cache_font("https://example.com/notfont.ttf")
+
+            assert os.listdir(tmpdir) == []
+
+    @pytest.mark.parametrize(
+        "magic",
+        [
+            b"\x00\x01\x00\x00extra",  # TrueType
+            b"true extra bytes",  # TrueType (macOS)
+            b"OTTOextra bytes",  # OpenType/CFF
+            b"ttcf extra bytes",  # TrueType Collection
+            b"wOFF extra bytes",  # WOFF
+            b"wOF2 extra bytes",  # WOFF2
+        ],
+    )
+    def test_should_accept_valid_font_magic_bytes(self, magic, monkeypatch):
+        """_download_and_cache_font accepts data with known font magic bytes"""
+        from unittest.mock import MagicMock, patch
+
+        from quickthumb import Canvas
+
+        canvas = Canvas(100, 100)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            monkeypatch.setenv("QUICKTHUMB_FONT_CACHE_DIR", tmpdir)
+
+            mock_response = MagicMock()
+            mock_response.__enter__ = lambda s: s
+            mock_response.__exit__ = MagicMock(return_value=False)
+            mock_response.read.return_value = magic
+
+            with patch("quickthumb.canvas.urlopen", return_value=mock_response):
+                result = canvas._download_and_cache_font("https://example.com/font.ttf")
+
+            assert os.path.exists(result)
 
     def test_should_raise_error_when_custom_callback_returns_different_size(self):
         """custom callback should preserve canvas dimensions when returning an image"""

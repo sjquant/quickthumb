@@ -2725,6 +2725,15 @@ class Canvas:
             image_data = response.read()
         return Image.open(BytesIO(image_data))
 
+    _VALID_FONT_MAGIC = (
+        b"\x00\x01\x00\x00",  # TrueType
+        b"true",  # TrueType (macOS)
+        b"OTTO",  # OpenType/CFF
+        b"ttcf",  # TrueType Collection
+        b"wOFF",  # WOFF
+        b"wOF2",  # WOFF2
+    )
+
     def _download_and_cache_font(self, url: str) -> str:
         url_hash = hashlib.md5(url.encode()).hexdigest()
         extension = os.path.splitext(url)[1] or ".ttf"
@@ -2739,11 +2748,15 @@ class Canvas:
         try:
             with urlopen(url) as response:
                 font_data = response.read()
-            with open(cache_path, "wb") as f:
-                f.write(font_data)
-            return cache_path
         except Exception as e:
             raise RenderingError(f"Failed to download font from '{url}'.") from e
+
+        if not any(font_data.startswith(magic) for magic in self._VALID_FONT_MAGIC):
+            raise RenderingError(f"Downloaded content from '{url}' is not a valid font file.")
+
+        with open(cache_path, "wb") as f:
+            f.write(font_data)
+        return cache_path
 
     def _create_gradient_lut(
         self, stops: list[tuple[str, float]]
