@@ -31,21 +31,19 @@
 
 #### Gradient / Image-Filled Text (Knockout Text)
 
-- [TODO] Add `TextFillImage` model with `path` and `fit` fields and `type: Literal["image"]` discriminator
-- [TODO] Add `fill` parameter to `TextLayer` accepting `LinearGradient`, `RadialGradient`, or `TextFillImage`
-- [TODO] Add `fill` parameter to `TextPart` for per-segment fill overrides
-- [TODO] Implement knockout rendering: render glyphs as alpha mask, composite fill through mask
-- [TODO] Ensure existing effects (Stroke, Shadow, Glow) apply to the filled text shape
-- [TODO] Add JSON round-trip support using `type` discriminators (`linear_gradient`, `radial_gradient`, `image`)
+- [DONE] Add `TextFillImage` model with `path` and `fit` fields and `type: Literal["image"]` discriminator
+- [DONE] Add `fill` parameter to `TextLayer` accepting `LinearGradient`, `RadialGradient`, or `TextFillImage`
+- [DONE] Add `fill` parameter to `TextPart` for per-segment fill overrides
+- [DONE] Implement knockout rendering: render glyphs as alpha mask, composite fill through mask
+- [DONE] Ensure existing effects (Stroke, Shadow, Glow) apply to the filled text shape
+- [DONE] Add JSON round-trip support using `type` discriminators (`linear_gradient`, `radial_gradient`, `image`)
 
 #### Noise / Grain Effect
 
-- [TODO] Add `Grain` effect model: `intensity`, `monochrome`, `blend_mode`, `opacity` fields with `type: "grain"` discriminator
-- [TODO] Add `Grain` to `BackgroundEffect` and `ImageEffect` unions
-- [TODO] Implement grain rendering using Pillow only (no NumPy)
-- [TODO] Add `canvas.grain(intensity, monochrome, blend_mode, opacity)` builder that appends a `GrainLayer`
-- [TODO] Add `GrainLayer` model and rendering for full-canvas grain compositing
-- [TODO] Add JSON round-trip for both per-layer `Grain` effect and top-level `GrainLayer`
+- [DONE] Add `Grain` effect model: `intensity`, `monochrome`, `blend_mode`, `opacity` fields with `type: "grain"` discriminator
+- [DONE] Add `Grain` to `BackgroundEffect` and `ImageEffect` unions
+- [DONE] Implement grain rendering using Pillow only (no NumPy)
+- [DONE] Add JSON round-trip for per-layer `Grain` effect
 
 ### P2 — Docs & Discoverability
 
