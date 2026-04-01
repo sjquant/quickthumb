@@ -1513,6 +1513,225 @@ class TestRendering:
                 assert issubclass(w[0].category, UserWarning)
                 assert "Bold/italic/weight flags are ignored for webfont URLs" in str(w[0].message)
 
+    def test_should_cache_webfont_in_font_cache_dir(self, monkeypatch):
+        """Font downloaded from URL is written into QUICKTHUMB_FONT_CACHE_DIR"""
+        import hashlib
+        from unittest.mock import MagicMock, patch
+
+        from quickthumb import Canvas
+
+        with open("assets/fonts/Roboto-Regular.ttf", "rb") as f:
+            real_font_data = f.read()
+
+        with tempfile.TemporaryDirectory() as cache_dir:
+            # Given: QUICKTHUMB_FONT_CACHE_DIR points to an empty directory
+            monkeypatch.setenv("QUICKTHUMB_FONT_CACHE_DIR", cache_dir)
+
+            mock_response = MagicMock()
+            mock_response.__enter__ = lambda s: s
+            mock_response.__exit__ = MagicMock(return_value=False)
+            mock_response.read.return_value = real_font_data
+
+            canvas = (
+                Canvas(200, 100)
+                .background(color="#FFFFFF")
+                .text("Hello", font="https://example.com/Roboto.ttf", size=24, color="#000000")
+            )
+
+            with tempfile.TemporaryDirectory() as out_dir:
+                output_path = os.path.join(out_dir, "output.png")
+
+                # When: rendering with a webfont URL
+                with patch("quickthumb.canvas.urlopen", return_value=mock_response):
+                    canvas.render(output_path)
+
+            # Then: a cached font file is written to the specified cache directory
+            url_hash = hashlib.md5(b"https://example.com/Roboto.ttf").hexdigest()
+            cached_file = os.path.join(cache_dir, f"quickthumb_font_{url_hash}.ttf")
+            assert os.path.exists(cached_file)
+
+    def test_should_use_tmp_as_default_font_cache_dir(self, monkeypatch):
+        """Font is cached in /tmp when QUICKTHUMB_FONT_CACHE_DIR is not set"""
+        import hashlib
+        from unittest.mock import MagicMock, patch
+
+        from quickthumb import Canvas
+
+        with open("assets/fonts/Roboto-Regular.ttf", "rb") as f:
+            real_font_data = f.read()
+
+        # Given: QUICKTHUMB_FONT_CACHE_DIR is not set
+        monkeypatch.delenv("QUICKTHUMB_FONT_CACHE_DIR", raising=False)
+
+        mock_response = MagicMock()
+        mock_response.__enter__ = lambda s: s
+        mock_response.__exit__ = MagicMock(return_value=False)
+        mock_response.read.return_value = real_font_data
+
+        canvas = (
+            Canvas(200, 100)
+            .background(color="#FFFFFF")
+            .text("Hello", font="https://example.com/RobotoDefault.ttf", size=24, color="#000000")
+        )
+
+        with tempfile.TemporaryDirectory() as out_dir:
+            output_path = os.path.join(out_dir, "output.png")
+
+            # When: rendering with a webfont URL
+            with patch("quickthumb.canvas.urlopen", return_value=mock_response):
+                canvas.render(output_path)
+
+        # Then: the cached file is written under /tmp
+        url_hash = hashlib.md5(b"https://example.com/RobotoDefault.ttf").hexdigest()
+        cached_file = os.path.join(tempfile.gettempdir(), f"quickthumb_font_{url_hash}.ttf")
+        assert os.path.exists(cached_file)
+
+    def test_should_create_nested_font_cache_dir_if_not_exists(self, monkeypatch):
+        """Font cache directory is created automatically if it does not exist"""
+        from unittest.mock import MagicMock, patch
+
+        from quickthumb import Canvas
+
+        with open("assets/fonts/Roboto-Regular.ttf", "rb") as f:
+            real_font_data = f.read()
+
+        with tempfile.TemporaryDirectory() as base:
+            new_cache_dir = os.path.join(base, "nested", "font_cache")
+
+            # Given: the cache directory does not yet exist
+            assert not os.path.exists(new_cache_dir)
+            monkeypatch.setenv("QUICKTHUMB_FONT_CACHE_DIR", new_cache_dir)
+
+            mock_response = MagicMock()
+            mock_response.__enter__ = lambda s: s
+            mock_response.__exit__ = MagicMock(return_value=False)
+            mock_response.read.return_value = real_font_data
+
+            canvas = (
+                Canvas(200, 100)
+                .background(color="#FFFFFF")
+                .text(
+                    "Hello", font="https://example.com/RobotoNested.ttf", size=24, color="#000000"
+                )
+            )
+
+            with tempfile.TemporaryDirectory() as out_dir:
+                output_path = os.path.join(out_dir, "output.png")
+
+                # When: rendering with a webfont URL
+                with patch("quickthumb.canvas.urlopen", return_value=mock_response):
+                    canvas.render(output_path)
+
+            # Then: the nested cache directory is created and the font is written there
+            assert os.path.exists(new_cache_dir)
+
+    def test_should_raise_error_when_webfont_response_is_not_a_valid_font(self, monkeypatch):
+        """Rendering raises RenderingError when a webfont URL returns non-font content"""
+        from unittest.mock import MagicMock, patch
+
+        from quickthumb import Canvas
+        from quickthumb.errors import RenderingError
+
+        with tempfile.TemporaryDirectory() as cache_dir:
+            # Given: a webfont URL that returns HTML instead of a font
+            monkeypatch.setenv("QUICKTHUMB_FONT_CACHE_DIR", cache_dir)
+
+            mock_response = MagicMock()
+            mock_response.__enter__ = lambda s: s
+            mock_response.__exit__ = MagicMock(return_value=False)
+            mock_response.read.return_value = b"<html><body>404 Not Found</body></html>"
+
+            canvas = (
+                Canvas(200, 100)
+                .background(color="#FFFFFF")
+                .text("Hello", font="https://example.com/notfont.ttf", size=24, color="#000000")
+            )
+
+            with tempfile.TemporaryDirectory() as out_dir:
+                output_path = os.path.join(out_dir, "output.png")
+
+                # When: rendering
+                with patch("quickthumb.canvas.urlopen", return_value=mock_response):
+                    # Then: a RenderingError is raised
+                    with pytest.raises(RenderingError, match="not a valid font"):
+                        canvas.render(output_path)
+
+    def test_should_not_write_cache_file_when_webfont_response_is_invalid(self, monkeypatch):
+        """No cache file is written when the downloaded content is not a valid font"""
+        from unittest.mock import MagicMock, patch
+
+        from quickthumb import Canvas
+        from quickthumb.errors import RenderingError
+
+        with tempfile.TemporaryDirectory() as cache_dir:
+            # Given: a webfont URL that returns garbage bytes
+            monkeypatch.setenv("QUICKTHUMB_FONT_CACHE_DIR", cache_dir)
+
+            mock_response = MagicMock()
+            mock_response.__enter__ = lambda s: s
+            mock_response.__exit__ = MagicMock(return_value=False)
+            mock_response.read.return_value = b"this is not a font"
+
+            canvas = (
+                Canvas(200, 100)
+                .background(color="#FFFFFF")
+                .text("Hello", font="https://example.com/garbage.ttf", size=24, color="#000000")
+            )
+
+            with tempfile.TemporaryDirectory() as out_dir:
+                output_path = os.path.join(out_dir, "output.png")
+
+                # When: rendering fails due to invalid font content
+                with patch("quickthumb.canvas.urlopen", return_value=mock_response):
+                    with pytest.raises(RenderingError):
+                        canvas.render(output_path)
+
+            # Then: no font file is left in the cache directory
+            assert os.listdir(cache_dir) == []
+
+    def test_should_redownload_webfont_when_cached_file_is_invalid(self, monkeypatch):
+        """A stale invalid cache file is purged and the font is re-downloaded on next render"""
+        import hashlib
+        from unittest.mock import MagicMock, patch
+
+        from quickthumb import Canvas
+
+        with open("assets/fonts/Roboto-Regular.ttf", "rb") as f:
+            real_font_data = f.read()
+
+        with tempfile.TemporaryDirectory() as cache_dir:
+            font_url = "https://example.com/RobotoStale.ttf"
+            url_hash = hashlib.md5(font_url.encode()).hexdigest()
+            stale_path = os.path.join(cache_dir, f"quickthumb_font_{url_hash}.ttf")
+
+            # Given: a stale cache file with invalid content from a previous (pre-fix) run
+            monkeypatch.setenv("QUICKTHUMB_FONT_CACHE_DIR", cache_dir)
+            with open(stale_path, "wb") as f:
+                f.write(b"<html>stale garbage</html>")
+
+            mock_response = MagicMock()
+            mock_response.__enter__ = lambda s: s
+            mock_response.__exit__ = MagicMock(return_value=False)
+            mock_response.read.return_value = real_font_data
+
+            canvas = (
+                Canvas(200, 100)
+                .background(color="#FFFFFF")
+                .text("Hello", font=font_url, size=24, color="#000000")
+            )
+
+            with tempfile.TemporaryDirectory() as out_dir:
+                output_path = os.path.join(out_dir, "output.png")
+
+                # When: rendering with the stale cache present
+                with patch("quickthumb.canvas.urlopen", return_value=mock_response) as mock_open:
+                    canvas.render(output_path)
+
+                # Then: the font was re-downloaded and the cache file now contains valid data
+                mock_open.assert_called_once()
+            with open(stale_path, "rb") as f:
+                assert f.read() == real_font_data
+
     def test_snapshot_text_with_background_basic(self):
         """Snapshot test for text rendering with basic background effect"""
         from quickthumb import Background, Canvas
