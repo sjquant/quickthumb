@@ -2743,7 +2743,11 @@ class Canvas:
         cache_path = os.path.join(cache_dir, cache_filename)
 
         if os.path.exists(cache_path):
-            return cache_path
+            with open(cache_path, "rb") as f:
+                cached_header = f.read(4)
+            if any(cached_header.startswith(magic) for magic in self._VALID_FONT_MAGIC):
+                return cache_path
+            os.remove(cache_path)  # stale invalid cache — re-download
 
         try:
             with urlopen(url) as response:

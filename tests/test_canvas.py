@@ -523,6 +523,41 @@ class TestCanvas:
 
             assert os.path.exists(result)
 
+    def test_should_delete_stale_invalid_cache_and_redownload(self, monkeypatch):
+        """_download_and_cache_font removes a stale invalid cache file and re-downloads"""
+        from unittest.mock import MagicMock, patch
+
+        from quickthumb import Canvas
+
+        canvas = Canvas(100, 100)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            monkeypatch.setenv("QUICKTHUMB_FONT_CACHE_DIR", tmpdir)
+
+            # Pre-populate cache with invalid content (simulates old cached garbage)
+            import hashlib
+
+            url = "https://example.com/stale.ttf"
+            url_hash = hashlib.md5(url.encode()).hexdigest()
+            stale_path = os.path.join(tmpdir, f"quickthumb_font_{url_hash}.ttf")
+            with open(stale_path, "wb") as f:
+                f.write(b"<html>not a font</html>")
+
+            valid_font_data = b"\x00\x01\x00\x00valid font bytes"
+            mock_response = MagicMock()
+            mock_response.__enter__ = lambda s: s
+            mock_response.__exit__ = MagicMock(return_value=False)
+            mock_response.read.return_value = valid_font_data
+
+            with patch("quickthumb.canvas.urlopen", return_value=mock_response) as mock_open:
+                result = canvas._download_and_cache_font(url)
+
+            # Should have re-downloaded
+            mock_open.assert_called_once()
+            assert os.path.exists(result)
+            with open(result, "rb") as f:
+                assert f.read() == valid_font_data
+
     def test_should_raise_error_when_custom_callback_returns_different_size(self):
         """custom callback should preserve canvas dimensions when returning an image"""
 
