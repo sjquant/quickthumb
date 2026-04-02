@@ -213,8 +213,12 @@ class TestBackgroundLayers:
         assert gradient.center == (0.3, 0.7)
 
     def test_should_serialize_background_layer_to_json(self):
-        """Test that canvas with background layers can be serialized to JSON"""
-        # Given: Canvas with multiple background layers
+        """Test that canvas with background layers can be serialized to JSON.
+
+        Includes a tuple-color layer to verify that RGB/RGBA tuples are serialized as
+        hex strings (not JSON arrays) so the output is spec-compliant and round-trippable.
+        """
+        # Given: Canvas with multiple background layers, including a tuple color
         import json
 
         from quickthumb import BlendMode, Canvas, Filter, LinearGradient
@@ -224,9 +228,12 @@ class TestBackgroundLayers:
             Canvas(1920, 1080)
             .background(color="#2c3e50", effects=[Filter(blur=5, brightness=0.8)])
             .background(gradient=gradient, opacity=0.5, blend_mode=BlendMode.MULTIPLY)
+            .background(color=(255, 87, 51))
+            .background(color=(255, 87, 51, 200))
         )
 
-        # When/Then: Serialized JSON matches full expected structure
+        # When/Then: Serialized JSON matches full expected structure;
+        # tuple colors appear as hex strings, not arrays.
         assert json.loads(canvas.to_json()) == snapshot(
             {
                 "width": 1920,
@@ -261,6 +268,26 @@ class TestBackgroundLayers:
                         "image": None,
                         "opacity": 0.5,
                         "blend_mode": "multiply",
+                        "fit": None,
+                        "effects": [],
+                    },
+                    {
+                        "type": "background",
+                        "color": "#FF5733",
+                        "gradient": None,
+                        "image": None,
+                        "opacity": 1.0,
+                        "blend_mode": None,
+                        "fit": None,
+                        "effects": [],
+                    },
+                    {
+                        "type": "background",
+                        "color": "#FF5733C8",
+                        "gradient": None,
+                        "image": None,
+                        "opacity": 1.0,
+                        "blend_mode": None,
                         "fit": None,
                         "effects": [],
                     },
@@ -453,7 +480,9 @@ class TestBackgroundLayers:
                 "intensity": 0.12,
                 "monochrome": True,
                 "blend_mode": "overlay",
-                "opacity": 1.0, 'seed': None}
+                "opacity": 1.0,
+                "seed": None,
+            }
         )
         roundtrip = Canvas.from_json(json.dumps(data))
         assert roundtrip.layers[0].effects[0] == Grain(intensity=0.12)

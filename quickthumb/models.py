@@ -349,6 +349,12 @@ class BackgroundLayer(QuickThumbModel):
 
         return v
 
+    @field_serializer("color")
+    def serialize_color(self, v: str | tuple | None) -> str | None:
+        if v is None or isinstance(v, str):
+            return v
+        return "#" + "".join(f"{c:02X}" for c in v)
+
 
 class TextLayer(QuickThumbModel):
     type: Literal["text"]

@@ -76,7 +76,7 @@
 
 ### P3 — Lower Priority
 
-- [TODO] Fix color tuple JSON round-trip: `BackgroundLayer.color` accepts RGB tuples but they break `to_json()` / `from_json()`
+- [DONE] Fix color tuple JSON round-trip: `BackgroundLayer.color` accepts RGB tuples but they break `to_json()` / `from_json()`
 - [TODO] Font metadata reading: use `fonttools` to read font weight/style from file metadata instead of relying on filename parsing
 - [TODO] Split `canvas.py` (currently 2466 lines) into smaller modules before it becomes a maintenance burden
 
