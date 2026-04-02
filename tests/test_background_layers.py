@@ -295,6 +295,12 @@ class TestBackgroundLayers:
             }
         )
 
+        # Round-trip: after from_json the tuple-color layers come back as hex strings,
+        # confirming the serializer normalises them correctly.
+        roundtrip = Canvas.from_json(canvas.to_json())
+        assert roundtrip.layers[2].color == "#FF5733"
+        assert roundtrip.layers[3].color == "#FF5733C8"
+
     def test_should_deserialize_background_layer_from_json(self):
         """Test that canvas with background layers can be deserialized from JSON"""
         # Given: JSON string with background layers
@@ -401,18 +407,23 @@ class TestBackgroundLayers:
         assert isinstance(layer, BackgroundLayer)
         assert layer.color == "#FF5733C8"
 
-    def test_should_raise_error_for_invalid_tuple_color_length(self):
-        """Should raise ValidationError for tuple colors with invalid length"""
-        # Given: Canvas
+    @pytest.mark.parametrize(
+        "color",
+        [
+            (255, 87),  # too short
+            (255, 87, 51, 0, 0),  # too long
+            (256, 87, 51),  # channel > 255
+            (-1, 87, 51),  # channel < 0
+            (255, 87, 51, 256),  # alpha > 255
+        ],
+    )
+    def test_should_raise_error_for_invalid_tuple_color(self, color):
+        """ValidationError for tuple colors with wrong length or out-of-range channel values"""
         from quickthumb import Canvas
         from quickthumb.errors import ValidationError
 
-        canvas = Canvas(200, 150)
-
-        # When: Adding background with invalid tuple color (wrong length)
-        # Then: Should raise ValidationError
         with pytest.raises(ValidationError, match="invalid color tuple"):
-            canvas.background(color=(255, 87))
+            Canvas(200, 150).background(color=color)
 
     def test_should_raise_error_for_invalid_fit_mode(self):
         """Test that invalid fit mode raises ValidationError"""
