@@ -344,10 +344,17 @@ class BackgroundLayer(QuickThumbModel):
             return v
 
         # HexColor validation already applied to str, just validate tuple
-        if isinstance(v, tuple) and len(v) not in (3, 4):
-            raise ValueError(f"invalid color tuple: {v}")
+        if isinstance(v, tuple):
+            if len(v) not in (3, 4) or not all(isinstance(c, int) and 0 <= c <= 255 for c in v):
+                raise ValueError(f"invalid color tuple: {v}")
 
         return v
+
+    @field_serializer("color")
+    def serialize_color(self, v: str | tuple | None) -> str | None:
+        if v is None or isinstance(v, str):
+            return v
+        return "#" + "".join(f"{c:02X}" for c in v)
 
 
 class TextLayer(QuickThumbModel):
