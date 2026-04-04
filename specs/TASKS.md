@@ -82,5 +82,66 @@
 
 ## Handoff Notes
 
--
--
+### canvas.py split — IN PROGRESS (branch: `claude/refactor-canvas-SvPD9`)
+
+**Goal:** Split `canvas.py` (2968 lines) into focused modules for readability and to
+prepare the rendering pipeline for future slide/video reuse.
+
+**Target structure:**
+
+| File | Purpose | Status |
+|------|---------|--------|
+| `quickthumb/_effects.py` | Pure functions: color, opacity, filters, grain, gradients, blending, image loading, image-layer effects (shadow/stroke/glow), coordinate/padding parsing | **DONE** |
+| `quickthumb/_text_renderer.py` | `TextRenderer(width, height)` class — all ~80 text rendering methods | **NOT STARTED** |
+| `quickthumb/_renderer.py` | `CanvasRenderer(width, height)` class — background/image/shape/outline rendering, delegates to `TextRenderer` | **NOT STARTED** |
+| `quickthumb/canvas.py` | Canvas class — builder API + serialization only; `render()` / `to_base64()` / `to_data_url()` delegate to `CanvasRenderer` | **NOT STARTED** |
+
+**Design decisions:**
+- `_effects.py` exports **module-level pure functions** (no class, no state).
+- `TextRenderer.__init__(width, height)` stores canvas dimensions needed for percentage coordinate parsing and text layout.
+- `CanvasRenderer.__init__(width, height)` stores dimensions; composes a `TextRenderer` internally.
+- `Canvas.render()` does: `CanvasRenderer(self.width, self.height).render(self._layers)`.
+- Public API of `Canvas` is **100% unchanged** — no breaking changes.
+- `_VALID_FONT_MAGIC`, `_download_and_cache_font`, `_load_font`, `_load_font_variant` live in `TextRenderer`.
+- `_remove_background` lives in `CanvasRenderer` (image layer concern).
+
+**What `_text_renderer.py` needs to contain** (extract from `canvas.py` as-is, just change `self._method()` → internal calls):
+- `TextRenderer.render(image, layer)` — was `Canvas._render_text_layer`
+- All `_render_simple_text`, `_render_rich_text`, `_render_multiline_text`, etc.
+- All `_resolve_*` helpers (color, size, bold, italic, weight, font_name, line_height, letter_spacing, fill)
+- All `_wrap_text`, `_measure_text_bounds`, `_calculate_*`, `_get_*` text helpers
+- All `_draw_*` text drawing methods
+- All `_render_glow`, `_render_shadow`, `_render_background`, `_render_background_box`
+- All `_auto_scale_*` methods
+- `_download_and_cache_font`, `_load_font`, `_load_font_variant`
+- Import `parse_color`, `apply_opacity_to_color`, `parse_coordinate`, `parse_padding`, `create_linear_gradient`, `create_radial_gradient`, `load_and_fit_image`, `is_url` from `._effects`
+
+**What `_renderer.py` needs to contain:**
+- `CanvasRenderer.__init__(width, height)` — creates `self._text = TextRenderer(width, height)`
+- `CanvasRenderer.render(layers) -> Image.Image` — main dispatch loop (was `_render_to_image`)
+- `_render_background_layer`, `_create_layer_image`
+- `_render_image_layer`, `_render_shape_layer`, `_render_outline_layer`, `_render_custom_layer`
+- `_remove_background`
+- Imports image-effect functions from `._effects` (apply_opacity, apply_filter, apply_grain, apply_blend_mode, apply_image_shadow, apply_image_stroke, apply_image_glow, apply_image_alignment, apply_border_radius, resize_image, load_and_fit_image, parse_color, apply_opacity_to_color, parse_coordinate, is_url, load_image_from_url, create_linear_gradient, create_radial_gradient)
+
+**What stays in `canvas.py`:**
+- `Canvas.__init__`, `Canvas.layers` property, `Canvas.from_aspect_ratio`
+- All builder methods: `background()`, `text()`, `image()`, `shape()`, `outline()`, `custom()`, `grain()`
+- Serialization: `to_json()`, `from_json()`, `from_template()`, `to_base64()`, `to_data_url()`, `render()`
+- `_validate_image_paths()`, `_detect_format()`, `_convert_for_format()`, `_build_save_kwargs()`, `_save_to_file()`
+- Registry class methods: `register_layer_fn`, `unregister_layer_fn`, `register_template`, `unregister_template`
+- `render()` body becomes: `CanvasRenderer(self.width, self.height).render(self._layers)`
+- `_is_url` can be replaced by importing `is_url` from `._effects`
+- **Remove** all `_render_*`, `_apply_*`, `_create_*`, `_draw_*`, `_measure_*`, `_calculate_*`, `_get_*`, `_wrap_*`, `_load_*`, `_blend_*`, `_generate_*`, `_resolve_*`, `_parse_*` rendering internals
+
+**Imports canvas.py will need after refactor:**
+```python
+from quickthumb._effects import is_url
+from quickthumb._renderer import CanvasRenderer
+```
+
+**After completing the split**, mark the P3 task `[DONE]` and run:
+```bash
+uv run pytest
+```
+All tests should pass without modification (public API unchanged).
