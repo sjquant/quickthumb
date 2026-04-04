@@ -352,7 +352,7 @@ Fallback rule: if `fill` is `None`, `color` is used as before.
 
 ## 4. Noise / Grain Effect — `done`
 
-Add film-grain noise to backgrounds, images, or the entire canvas.
+Add film-grain noise to backgrounds and images.
 
 ### Per-Layer Effect
 
@@ -378,19 +378,6 @@ canvas = (
 )
 ```
 
-### Canvas-Level Grain
-
-`canvas.grain()` appends a grain layer that composites noise over the entire rendered canvas.
-
-```python
-canvas = (
-    Canvas(1280, 720)
-    .background(color="#0F172A")
-    .text(content="GRITTY", size=100, color="#FFFFFF", position=("50%", "50%"), align="center")
-    .grain(intensity=0.15)
-)
-```
-
 ### `Grain` Model
 
 ```python
@@ -410,19 +397,6 @@ Parameters:
 - `monochrome`: bool; `True` generates identical noise across R/G/B channels (gray grain), `False` generates independent per-channel noise (color grain); default `True`
 - `blend_mode`: how the noise layer is composited; `"overlay"`, `"screen"`, `"multiply"`, or `"normal"`; default `"overlay"`
 - `opacity`: float from `0.0` to `1.0`; scales the grain strength; default `1.0`
-
-### Canvas-Level `grain()` Builder
-
-```python
-canvas.grain(
-    intensity=0.15,
-    monochrome=True,
-    blend_mode="overlay",
-    opacity=1.0,
-)
-```
-
-Internally appends a `GrainLayer` to the canvas layer list. `GrainLayer` renders a full-canvas noise image and composites it over everything rendered so far.
 
 ### JSON Serialization
 
@@ -444,18 +418,6 @@ Per-layer effect:
 }
 ```
 
-Canvas-level grain layer:
-
-```json
-{
-  "type": "grain",
-  "intensity": 0.15,
-  "monochrome": true,
-  "blend_mode": "overlay",
-  "opacity": 1.0
-}
-```
-
 ### Implementation Notes
 
 - Grain is generated using Pillow only; no NumPy dependency is introduced.
@@ -468,7 +430,6 @@ Canvas-level grain layer:
 - `intensity` must be between `0.0` and `1.0`.
 - `opacity` must be between `0.0` and `1.0`.
 - `Grain` is valid in `effects` on background layers and image layers; it is not a valid text or shape effect.
-- `canvas.grain()` is the only way to apply grain across the full composited canvas.
 
 ---
 
