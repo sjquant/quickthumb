@@ -1,3 +1,7 @@
+---
+description: Browse ready-to-run QuickThumb recipes for YouTube thumbnails, Instagram cards, podcast promos, shorts covers, and AI workflows.
+---
+
 # Cookbook
 
 Ready-to-run examples for common thumbnail and social card formats. Each recipe uses real QuickThumb code you can copy, adapt, and run locally.

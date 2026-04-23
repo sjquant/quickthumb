@@ -1,3 +1,7 @@
+---
+description: Build your first QuickThumb image by creating a canvas, layering backgrounds, text, shapes, and images, then exporting the rendered thumbnail.
+---
+
 # Getting Started
 
 This guide walks through the core workflow: create a canvas, add layers, and export an image.

@@ -1,3 +1,7 @@
+---
+description: Reference for QuickThumb Canvas creation, aspect ratios, layer composition, rendering, JSON loading, and image output.
+---
+
 # Canvas
 
 The `Canvas` is the root object. It holds dimensions and an ordered list of layers.

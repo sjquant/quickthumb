@@ -1,3 +1,7 @@
+---
+description: Use QuickThumb webfonts and background removal to load remote typefaces, isolate subjects, and compose polished thumbnail images.
+---
+
 # Webfonts & Background Removal
 
 Two features that require a bit of setup but unlock a lot of creative flexibility: loading fonts directly from URLs and removing image backgrounds with AI.

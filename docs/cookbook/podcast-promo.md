@@ -1,3 +1,7 @@
+---
+description: Build a podcast promo card with QuickThumb using remote images, webfonts, background removal, rich text, and layered composition.
+---
+
 # Podcast Promo
 
 A 1280×720 podcast episode promo card. This recipe demonstrates three advanced features together: **remote image URLs**, a **webfont loaded from a URL**, and **background removal** on a portrait.

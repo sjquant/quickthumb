@@ -1,3 +1,7 @@
+---
+description: Reference for QuickThumb background layers, including colors, gradients, images, opacity, effects, and render order.
+---
+
 # Background
 
 `.background()` adds a full-canvas background layer. Multiple background calls stack in render order — first call is backmost.

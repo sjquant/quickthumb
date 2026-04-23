@@ -1,3 +1,7 @@
+---
+description: Build YouTube thumbnails with QuickThumb using darkened photos, bold text, outlines, reaction layouts, and tutorial compositions.
+---
+
 # YouTube Thumbnails
 
 Three complete 1280×720 YouTube thumbnail layouts, each demonstrating a different composition strategy.

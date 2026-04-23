@@ -1,3 +1,7 @@
+---
+description: Answers to common QuickThumb questions about installation, fonts, images, rendering behavior, JSON specs, and supported Python versions.
+---
+
 # FAQ
 
 ## Installation

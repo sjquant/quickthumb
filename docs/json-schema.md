@@ -1,3 +1,7 @@
+---
+description: Use QuickThumb JSON specs with AI workflows to generate, validate, store, and render thumbnail designs from structured data.
+---
+
 # JSON Schema & AI Workflow
 
 QuickThumb canvases can be fully described as JSON. This makes them easy to generate with an LLM, store in a database, pass through an API, or version-control alongside your content.

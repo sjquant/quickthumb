@@ -1,3 +1,7 @@
+---
+description: Learn QuickThumb's core model for canvases, ordered layers, coordinates, alignment, effects, fonts, rendering, and JSON specs.
+---
+
 # Core Concepts
 
 ## The canvas

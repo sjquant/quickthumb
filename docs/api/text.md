@@ -1,3 +1,7 @@
+---
+description: Reference for QuickThumb text layers, including rich text parts, fonts, alignment, wrapping, strokes, shadows, and sizing.
+---
+
 # Text
 
 `.text()` adds a text layer. Content can be a plain string or a list of `TextPart` objects for per-segment styling.

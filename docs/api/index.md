@@ -1,3 +1,7 @@
+---
+description: Explore the QuickThumb API reference for Canvas, layers, backgrounds, text, images, shapes, outlines, effects, enums, and gradients.
+---
+
 # API Reference
 
 Complete reference for every class, method, and parameter in QuickThumb.
