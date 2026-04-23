@@ -1,3 +1,7 @@
+---
+description: Reference for QuickThumb shape layers, including rectangles, ellipses, fills, gradients, strokes, shadows, and positioning.
+---
+
 # Shape
 
 `.shape()` adds a positioned rectangle or ellipse.

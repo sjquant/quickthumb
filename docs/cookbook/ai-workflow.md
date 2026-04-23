@@ -1,3 +1,7 @@
+---
+description: Generate reliable QuickThumb JSON specs with LLMs, validate them, render images, and iterate on AI-assisted thumbnail workflows.
+---
+
 # AI Workflow
 
 QuickThumb is designed to be a reliable target for LLM-generated image specs. This recipe walks through a full end-to-end workflow: writing a prompt, getting output, rendering it, and iterating.

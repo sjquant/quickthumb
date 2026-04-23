@@ -1,3 +1,7 @@
+---
+description: Reference for QuickThumb outline layers that draw canvas borders with configurable width, color, opacity, and corner radius.
+---
+
 # Outline
 
 `.outline()` draws a border around the entire canvas edge. It is typically added as the last layer so it sits on top of all content.

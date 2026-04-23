@@ -1,3 +1,7 @@
+---
+description: Reference for QuickThumb effects, including filters, shadows, strokes, blend modes, opacity, and layer compatibility.
+---
+
 # Effects
 
 Effects are modifiers applied to layers. Each layer type accepts a specific set.

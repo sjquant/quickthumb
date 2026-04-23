@@ -1,3 +1,7 @@
+---
+description: Install QuickThumb with pip or uv, enable optional background removal support, and configure font-related environment variables.
+---
+
 # Installation
 
 ## Requirements

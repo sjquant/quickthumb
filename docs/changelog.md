@@ -1,3 +1,7 @@
+---
+description: Review QuickThumb release notes and follow version changes, fixes, and new features through GitHub Releases.
+---
+
 # Changelog
 
 Release notes are published on GitHub Releases:

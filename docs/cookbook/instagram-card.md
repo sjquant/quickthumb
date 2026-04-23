@@ -1,3 +1,7 @@
+---
+description: Build a square Instagram news card with QuickThumb using a full-bleed image, gradient overlay, badge, headline, and metadata.
+---
+
 # Instagram Card
 
 A 1080×1080 square breaking news card. The layout uses a full-bleed background photo, a vertical gradient overlay for text legibility, a pill badge, a large headline, a body copy line, and a source/timestamp row.

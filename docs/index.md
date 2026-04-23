@@ -1,3 +1,8 @@
+---
+title: QuickThumb
+description: Create thumbnails and social images with QuickThumb's layered Python API, JSON specs, remote images, webfonts, effects, and deterministic rendering.
+---
+
 # QuickThumb
 
 **Programmatic thumbnail and social image generation** — layered Python and JSON APIs built for speed, AI workflows, and creative control.
@@ -63,4 +68,3 @@ canvas.render("thumbnail.png")
 
 - Bug report or feature request: [GitHub Issues](https://github.com/sjquant/quickthumb/issues)
 - Questions and ideas: [GitHub Discussions](https://github.com/sjquant/quickthumb/discussions)
-

@@ -1,3 +1,7 @@
+---
+description: Reference for QuickThumb image layers, including local and remote images, fit modes, positioning, masking, effects, and background removal.
+---
+
 # Image
 
 `.image()` adds a positioned overlay image. Supports local files, remote URLs, background removal, fit modes, blend modes, and effects.
