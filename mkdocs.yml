@@ -11,6 +11,8 @@ site_dir: site
 theme:
   name: material
   custom_dir: docs/overrides
+  logo: assets/brand/quickthumb-icon.png
+  favicon: assets/brand/favicon.png
   palette:
     - media: "(prefers-color-scheme: light)"
       scheme: default
