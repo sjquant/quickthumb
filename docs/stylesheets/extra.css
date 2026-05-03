@@ -1,32 +1,79 @@
-/* ─── Brand colors ─────────────────────────────────────────────────────────── */
+/* ─── Brand palette ────────────────────────────────────────────────────────── */
 :root {
-  --qt-cyan: #22d3ee;
-  --qt-black: #0d0d0d;
-  --qt-surface: #111111;
+  --qt-blue-300: #a9c6ff;
+  --qt-blue-400: #7fadff;
+  --qt-blue-500: #4d89fb;
+  --qt-blue-600: #2f6fe8;
+  --qt-blue-700: #1f56c5;
+  --qt-blue-800: #173f93;
 
-  --md-primary-fg-color:        var(--qt-black);
-  --md-primary-fg-color--light: #1a1a1a;
-  --md-primary-fg-color--dark:  #000000;
-  --md-primary-bg-color:        #ffffff;
+  --qt-ice-50: #fbfdff;
+  --qt-ice-100: #f2f7ff;
+  --qt-ice-200: #e4eeff;
 
-  --md-accent-fg-color:         var(--qt-cyan);
-  --md-accent-fg-color--transparent: #22d3ee1a;
+  --qt-ink-900: #0a1730;
+  --qt-ink-800: #102142;
+  --qt-ink-700: #162b57;
+  --qt-ink-100: #dbe7ff;
 }
 
+/* ─── Light scheme tokens ─────────────────────────────────────────────────── */
+[data-md-color-scheme="default"] {
+  --md-default-fg-color: #17304d;
+  --md-default-fg-color--light: #48617f;
+  --md-default-fg-color--lighter: #627a99;
+  --md-default-fg-color--lightest: #6f86a4;
+
+  --md-default-bg-color: var(--qt-ice-50);
+  --md-default-bg-color--light: #ffffff;
+  --md-default-bg-color--lighter: var(--qt-ice-100);
+  --md-default-bg-color--lightest: var(--qt-ice-200);
+
+  --md-primary-fg-color: var(--qt-blue-700);
+  --md-primary-fg-color--light: var(--qt-blue-500);
+  --md-primary-fg-color--dark: var(--qt-blue-800);
+  --md-primary-bg-color: #ffffff;
+
+  --md-accent-fg-color: var(--qt-blue-600);
+  --md-accent-fg-color--transparent: #4d89fb1a;
+
+  --md-typeset-a-color: var(--qt-blue-600);
+  --md-code-fg-color: #1b3150;
+  --md-code-bg-color: #eef4ff;
+}
+
+/* ─── Dark scheme tokens ──────────────────────────────────────────────────── */
 [data-md-color-scheme="slate"] {
-  --md-default-bg-color:        #0f0f0f;
-  --md-default-bg-color--light: #161616;
-  --md-default-bg-color--lighter: #1c1c1c;
-  --md-default-bg-color--lightest: #242424;
+  --md-default-fg-color: #e8f0ff;
+  --md-default-fg-color--light: #bfd1f5;
+  --md-default-fg-color--lighter: #8aa6d8;
+  --md-default-fg-color--lightest: #6484bd;
 
-  --md-code-bg-color:           #161616;
-  --md-code-fg-color:           #e2e8f0;
+  --md-default-bg-color: #09111f;
+  --md-default-bg-color--light: #0e172b;
+  --md-default-bg-color--lighter: #13203a;
+  --md-default-bg-color--lightest: #1a2a49;
+
+  --md-primary-fg-color: #306fdd;
+  --md-primary-fg-color--light: #5d95ff;
+  --md-primary-fg-color--dark: #1f56c5;
+  --md-primary-bg-color: #f8fbff;
+
+  --md-accent-fg-color: #8eb6ff;
+  --md-accent-fg-color--transparent: #8eb6ff1f;
+
+  --md-typeset-a-color: #9cc0ff;
+  --md-code-fg-color: var(--qt-ink-100);
+  --md-code-bg-color: #101b33;
 }
 
-/* ─── Header ───────────────────────────────────────────────────────────────── */
-.md-header {
-  background-color: var(--qt-black);
-  box-shadow: 0 1px 0 0 #ffffff14;
+/* ─── Header and tabs ─────────────────────────────────────────────────────── */
+.md-header,
+.md-tabs {
+  background:
+    linear-gradient(135deg, rgba(169, 198, 255, 0.22), rgba(169, 198, 255, 0))
+    , var(--md-primary-fg-color);
+  box-shadow: 0 1px 0 0 rgba(255, 255, 255, 0.08);
 }
 
 .md-header__title {
@@ -34,34 +81,27 @@
   letter-spacing: -0.02em;
 }
 
-/* ─── Sidebar ──────────────────────────────────────────────────────────────── */
+/* ─── Sidebar and navigation ──────────────────────────────────────────────── */
 [data-md-color-scheme="slate"] .md-sidebar {
   background-color: var(--md-default-bg-color);
 }
 
-/* ─── Navigation active item ───────────────────────────────────────────────── */
 .md-nav__link--active,
-.md-nav__link:is(:focus, :hover) {
-  color: var(--qt-cyan) !important;
-}
-
-/* ─── Tabs ─────────────────────────────────────────────────────────────────── */
-.md-tabs {
-  background-color: var(--qt-black);
-}
-
+.md-nav__link:is(:focus, :hover),
 .md-tabs__link--active,
 .md-tabs__link:is(:focus, :hover) {
-  color: var(--qt-cyan) !important;
+  color: var(--md-accent-fg-color) !important;
 }
 
-/* ─── Code blocks ──────────────────────────────────────────────────────────── */
+/* ─── Code blocks ─────────────────────────────────────────────────────────── */
 [data-md-color-scheme="slate"] .highlight pre,
-[data-md-color-scheme="slate"] code {
+[data-md-color-scheme="slate"] code,
+[data-md-color-scheme="default"] .highlight pre,
+[data-md-color-scheme="default"] code {
   border-radius: 6px;
 }
 
-/* ─── Typography ───────────────────────────────────────────────────────────── */
+/* ─── Typography ──────────────────────────────────────────────────────────── */
 .md-typeset h1 {
   font-weight: 800;
   letter-spacing: -0.03em;
@@ -76,7 +116,7 @@
   font-weight: 600;
 }
 
-/* ─── Admonitions ──────────────────────────────────────────────────────────── */
+/* ─── Admonitions ─────────────────────────────────────────────────────────── */
 .md-typeset .admonition,
 .md-typeset details {
   border-radius: 6px;
