@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="256" height="256" role="img" aria-labelledby="title desc">
+  <title id="title">QuickThumb favicon</title>
+  <desc id="desc">A minimal QuickThumb app tile for browser tabs and small icon sizes.</desc>
+
+  <defs>
+    <clipPath id="tileClip">
+      <rect x="8" y="8" width="104" height="104" rx="28" />
+    </clipPath>
+
+    <linearGradient id="tileGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#08101E" />
+      <stop offset="60%" stop-color="#10213E" />
+      <stop offset="100%" stop-color="#15325C" />
+    </linearGradient>
+
+    <linearGradient id="frameGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#5B6CFF" />
+      <stop offset="56%" stop-color="#2563EB" />
+      <stop offset="100%" stop-color="#22D3EE" />
+    </linearGradient>
+
+    <linearGradient id="cardGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#13203A" />
+      <stop offset="100%" stop-color="#21406F" />
+    </linearGradient>
+
+    <linearGradient id="sceneGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1D4ED8" />
+      <stop offset="100%" stop-color="#312E81" />
+    </linearGradient>
+
+    <linearGradient id="mountainGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#C4B5FD" />
+      <stop offset="100%" stop-color="#67E8F9" />
+    </linearGradient>
+
+    <linearGradient id="accentGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FB7185" />
+      <stop offset="100%" stop-color="#F97316" />
+    </linearGradient>
+  </defs>
+
+  <g clip-path="url(#tileClip)">
+    <rect x="8" y="8" width="104" height="104" rx="28" fill="url(#tileGrad)" />
+  </g>
+  <rect x="8.75" y="8.75" width="102.5" height="102.5" rx="27.25" fill="none" stroke="#FFFFFF" stroke-opacity="0.08" stroke-width="1.5" />
+
+  <path
+    d="M44 27H76A16 16 0 0 1 92 43V76A16 16 0 0 1 76 92H44A16 16 0 0 1 28 76V43A16 16 0 0 1 44 27Z"
+    fill="none"
+    stroke="url(#frameGrad)"
+    stroke-width="7"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+
+  <rect x="40" y="40" width="33" height="20" rx="6" fill="url(#cardGrad)" />
+  <rect x="42" y="42" width="29" height="11.5" rx="4.5" fill="url(#sceneGrad)" />
+  <path d="M42 53.5L50.5 47L56.5 50L62.5 45.5L71 53.5Z" fill="url(#mountainGrad)" />
+  <circle cx="70.5" cy="69.5" r="7" fill="url(#accentGrad)" />
+</svg>
