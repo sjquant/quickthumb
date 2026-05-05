@@ -77,8 +77,34 @@
 }
 
 .md-header__title {
+  margin-left: 0;
   font-weight: 700;
   letter-spacing: -0.02em;
+}
+
+.md-header__brand {
+  align-items: center;
+  color: inherit;
+  display: flex;
+  flex-shrink: 0;
+  gap: 0.2rem;
+  text-decoration: none;
+}
+
+.md-header__brand .md-logo img,
+.md-header__brand .md-logo svg {
+  height: 2rem;
+  width: 2rem;
+}
+
+.md-header__brand .md-header__title {
+  align-items: center;
+  display: flex;
+  min-width: 0;
+}
+
+.md-header__brand .md-header__topic + .md-header__topic {
+  margin-top: 0;
 }
 
 /* ─── Sidebar and navigation ──────────────────────────────────────────────── */
