@@ -40,6 +40,23 @@
     --md-typeset-a-color: var(--qt-blue-600);
     --md-code-fg-color: #1b3150;
     --md-code-bg-color: #eef4ff;
+
+    --qt-drawer-title-fg: rgba(255, 255, 255, 0.96);
+    --qt-drawer-title-bg: linear-gradient(
+        145deg,
+        #1b4b97 0%,
+        #245fc6 54%,
+        #2f6fe8 100%
+    );
+    --qt-drawer-source-fg: rgba(255, 255, 255, 0.94);
+    --qt-drawer-source-bg: linear-gradient(
+        145deg,
+        #14346f 0%,
+        #184896 52%,
+        #1f56b8 100%
+    );
+    --qt-drawer-edge: rgba(255, 255, 255, 0.14);
+    --qt-drawer-list-shadow: rgba(31, 86, 184, 0.14);
 }
 
 /* ─── Dark scheme tokens ──────────────────────────────────────────────────── */
@@ -65,6 +82,23 @@
     --md-typeset-a-color: #9edfff;
     --md-code-fg-color: var(--qt-ink-100);
     --md-code-bg-color: #101b33;
+
+    --qt-drawer-title-fg: rgba(232, 240, 255, 0.94);
+    --qt-drawer-title-bg: linear-gradient(
+        145deg,
+        #14346f 0%,
+        #1b4b97 52%,
+        #225ab1 100%
+    );
+    --qt-drawer-source-fg: rgba(232, 240, 255, 0.94);
+    --qt-drawer-source-bg: linear-gradient(
+        145deg,
+        #102b5d 0%,
+        #163f82 52%,
+        #1b4c96 100%
+    );
+    --qt-drawer-edge: rgba(127, 195, 255, 0.16);
+    --qt-drawer-list-shadow: rgba(127, 195, 255, 0.16);
 }
 
 /* ─── Header and tabs ─────────────────────────────────────────────────────── */
@@ -203,7 +237,10 @@
     margin-top: 0;
     padding: 0.7rem 0.78rem 0.62rem;
     border-radius: 0;
-    transition: color 125ms, opacity 125ms, box-shadow 125ms;
+    transition:
+        color 125ms,
+        opacity 125ms,
+        box-shadow 125ms;
 }
 
 .md-tabs__list {
@@ -291,35 +328,64 @@
 
 .md-nav--primary .md-nav__item .md-nav {
     border-left: 0.08rem solid var(--md-default-fg-color--lightest);
-    margin-left: 0.35rem;
-    padding-left: 0.55rem;
 }
 
 @media screen and (max-width: 76.234375em) {
-    [data-md-color-scheme="slate"] .md-nav--primary .md-nav__title,
-    [data-md-color-scheme="slate"] .md-nav--primary .md-nav__source {
+    .md-nav--primary .md-nav__title,
+    .md-nav--primary .md-nav__source {
         background:
             radial-gradient(
                 circle at 84% 0%,
-                rgba(127, 195, 255, 0.14),
-                rgba(127, 195, 255, 0) 24%
+                rgba(255, 255, 255, 0.05),
+                rgba(255, 255, 255, 0) 24%
             ),
-            linear-gradient(135deg, #14346f 0%, #1b4b97 48%, #225ab1 100%);
-        color: rgba(232, 240, 255, 0.92);
-        box-shadow: inset 0 -0.05rem 0 rgba(127, 195, 255, 0.18);
+            var(--qt-drawer-title-bg);
+        color: var(--qt-drawer-title-fg);
+        box-shadow: inset 0 -0.05rem 0 var(--qt-drawer-edge);
     }
 
-    [data-md-color-scheme="slate"] .md-nav--primary .md-source,
-    [data-md-color-scheme="slate"] .md-nav--primary .md-source__repository,
-    [data-md-color-scheme="slate"] .md-nav--primary .md-source__facts {
-        color: rgba(232, 240, 255, 0.94);
+    .md-nav--primary .md-nav__source {
+        background:
+            radial-gradient(
+                circle at 84% 0%,
+                rgba(255, 255, 255, 0.05),
+                rgba(255, 255, 255, 0) 24%
+            ),
+            var(--qt-drawer-source-bg);
+        color: var(--qt-drawer-source-fg);
     }
 
-    [data-md-color-scheme="slate"]
-        .md-nav--primary
-        .md-nav__title
-        ~ .md-nav__list {
-        box-shadow: 0 0.05rem 0 rgba(127, 195, 255, 0.16) inset;
+    .md-nav--primary .md-nav__title .md-nav__icon,
+    .md-nav--primary .md-nav__source .md-source__icon {
+        color: inherit;
+    }
+
+    .md-nav--primary .md-nav__title .md-ellipsis,
+    .md-nav--primary .md-source,
+    .md-nav--primary .md-source__repository,
+    .md-nav--primary .md-source__facts {
+        color: inherit;
+    }
+
+    .md-nav--primary .md-source {
+        padding-block: 0.25rem;
+    }
+
+    .md-nav--primary .md-source__repository {
+        font-weight: 600;
+    }
+
+    .md-nav--primary .md-source__facts {
+        opacity: 0.96;
+    }
+
+    .md-nav--primary .md-nav__title ~ .md-nav__list {
+        box-shadow: 0 0.05rem 0 var(--qt-drawer-list-shadow) inset;
+    }
+
+    .md-nav--primary .md-nav__item .md-nav {
+        margin-left: 0.5rem;
+        padding-left: 0.75rem;
     }
 }
 
