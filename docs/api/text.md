@@ -1,5 +1,5 @@
 ---
-description: Reference for QuickThumb text layers, including rich text parts, fonts, alignment, wrapping, strokes, shadows, and sizing.
+description: Reference for quickthumb text layers, including rich text parts, fonts, alignment, wrapping, strokes, shadows, and sizing.
 ---
 
 # Text

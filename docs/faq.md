@@ -1,5 +1,5 @@
 ---
-description: Answers to common QuickThumb questions about installation, fonts, images, rendering behavior, JSON specs, and supported Python versions.
+description: Answers to common quickthumb questions about installation, fonts, images, rendering behavior, JSON specs, and supported Python versions.
 ---
 
 # FAQ
@@ -93,7 +93,7 @@ canvas.text(
 )
 ```
 
-QuickThumb downloads and caches the font file. Note: when using a webfont URL, `bold`, `italic`, and `weight` are ignored — download separate URLs for bold/italic variants.
+quickthumb downloads and caches the font file. Note: when using a webfont URL, `bold`, `italic`, and `weight` are ignored — download separate URLs for bold/italic variants.
 
 ---
 
@@ -101,7 +101,7 @@ QuickThumb downloads and caches the font file. Note: when using a webfont URL, `
 
 ### Can I use remote images?
 
-Yes, both `canvas.background(image=...)` and `canvas.image(path=...)` accept `http://` and `https://` URLs. QuickThumb downloads and caches them during rendering.
+Yes, both `canvas.background(image=...)` and `canvas.image(path=...)` accept `http://` and `https://` URLs. quickthumb downloads and caches them during rendering.
 
 ### My image has a white background I want to remove. How?
 

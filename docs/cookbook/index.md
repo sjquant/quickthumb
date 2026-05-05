@@ -1,10 +1,10 @@
 ---
-description: Browse ready-to-run QuickThumb recipes for YouTube thumbnails, Instagram cards, podcast promos, shorts covers, and AI workflows.
+description: Browse ready-to-run quickthumb recipes for YouTube thumbnails, Instagram cards, podcast promos, shorts covers, and AI workflows.
 ---
 
 # Cookbook
 
-Ready-to-run examples for common thumbnail and social card formats. Each recipe uses real QuickThumb code you can copy, adapt, and run locally.
+Ready-to-run examples for common thumbnail and social card formats. Each recipe uses real quickthumb code you can copy, adapt, and run locally.
 
 ## Gallery
 
@@ -33,7 +33,7 @@ Ready-to-run examples for common thumbnail and social card formats. Each recipe 
 
 ## Prerequisites
 
-All recipes assume QuickThumb is installed:
+All recipes assume quickthumb is installed:
 
 ```bash
 pip install quickthumb
@@ -47,4 +47,4 @@ pip install "quickthumb[rembg]"
 
 ## Asset paths
 
-The code snippets below use placeholder paths like `"background.jpg"` and `"portrait.png"`. Swap these for your own local files or remote URLs — QuickThumb accepts both.
+The code snippets below use placeholder paths like `"background.jpg"` and `"portrait.png"`. Swap these for your own local files or remote URLs — quickthumb accepts both.

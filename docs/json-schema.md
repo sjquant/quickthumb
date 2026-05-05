@@ -1,10 +1,10 @@
 ---
-description: Use QuickThumb JSON specs with AI workflows to generate, validate, store, and render thumbnail designs from structured data.
+description: Use quickthumb JSON specs with AI workflows to generate, validate, store, and render thumbnail designs from structured data.
 ---
 
 # JSON Schema & AI Workflow
 
-QuickThumb canvases can be fully described as JSON. This makes them easy to generate with an LLM, store in a database, pass through an API, or version-control alongside your content.
+quickthumb canvases can be fully described as JSON. This makes them easy to generate with an LLM, store in a database, pass through an API, or version-control alongside your content.
 
 ## Round-trip serialization
 
@@ -26,7 +26,7 @@ canvas = Canvas.from_json(json_str)
 
 ## JSON structure
 
-A QuickThumb JSON document has three top-level fields:
+A quickthumb JSON document has three top-level fields:
 
 ```json
 {
@@ -350,12 +350,12 @@ A full YouTube-style thumbnail spec:
 
 ## AI workflow
 
-QuickThumb JSON is well-suited for LLM generation because the schema is flat, every field is typed, and the output is directly renderable without transformation.
+quickthumb JSON is well-suited for LLM generation because the schema is flat, every field is typed, and the output is directly renderable without transformation.
 
 ### Recommended prompt (JSON output)
 
 ```text
-Generate a QuickThumb JSON config for a 1280×720 YouTube thumbnail.
+Generate a quickthumb JSON config for a 1280×720 YouTube thumbnail.
 
 Rules:
 - Top-level fields: "width", "height", "layers"
@@ -373,7 +373,7 @@ Return only the JSON object, no explanation.
 ### Recommended prompt (Python output)
 
 ```text
-Generate QuickThumb Python code for a 1280×720 YouTube thumbnail.
+Generate quickthumb Python code for a 1280×720 YouTube thumbnail.
 
 Available imports:
 from quickthumb import Canvas, Filter, LinearGradient, RadialGradient, Background,
@@ -390,7 +390,7 @@ Return only the Python code block.
 
 ### Validation and iteration workflow
 
-1. Have the model produce a QuickThumb JSON or Python spec.
+1. Have the model produce a quickthumb JSON or Python spec.
 2. Render it locally with `canvas.render("preview.png")`.
 3. Identify what to change — colors, text, layout — without rewriting the full spec.
 4. Feed the rendered result back to the model with targeted instructions if needed.

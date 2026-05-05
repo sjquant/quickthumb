@@ -1,5 +1,5 @@
 ---
-description: Learn QuickThumb's core model for canvases, ordered layers, coordinates, alignment, effects, fonts, rendering, and JSON specs.
+description: Learn quickthumb's core model for canvases, ordered layers, coordinates, alignment, effects, fonts, rendering, and JSON specs.
 ---
 
 # Core Concepts
@@ -245,7 +245,7 @@ canvas2  = Canvas.from_json(json_str)
 
 ## Validation
 
-QuickThumb validates all inputs at construction time using Pydantic. Invalid values raise `ValidationError` immediately, before any rendering occurs.
+quickthumb validates all inputs at construction time using Pydantic. Invalid values raise `ValidationError` immediately, before any rendering occurs.
 
 ```python
 from quickthumb import ValidationError

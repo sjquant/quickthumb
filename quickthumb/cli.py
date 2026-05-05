@@ -12,12 +12,12 @@ from quickthumb.errors import RenderingError, ValidationError
 
 _VALID_FORMATS = {"PNG", "JPEG", "WEBP"}
 
-app = typer.Typer(help="QuickThumb — programmatic thumbnail generation")
+app = typer.Typer(help="quickthumb — programmatic thumbnail generation")
 
 
 @app.callback()
 def _callback() -> None:
-    """QuickThumb CLI."""
+    """quickthumb CLI."""
 
 
 def main() -> None:

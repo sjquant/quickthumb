@@ -1,5 +1,5 @@
 ---
-description: Reference for QuickThumb shape layers, including rectangles, ellipses, fills, gradients, strokes, shadows, and positioning.
+description: Reference for quickthumb shape layers, including rectangles, ellipses, fills, gradients, strokes, shadows, and positioning.
 ---
 
 # Shape

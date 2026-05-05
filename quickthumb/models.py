@@ -144,7 +144,7 @@ def _validate_align_with_hv_tuple(v: Any) -> Align | None:
 AlignWithHVTuple = Annotated[Align | None, BeforeValidator(_validate_align_with_hv_tuple)]
 
 
-class QuickThumbModel(BaseModel):
+class quickthumbModel(BaseModel):
     @model_validator(mode="wrap")
     @classmethod
     def handle_pydantic_error(cls, data: Any, handler):
@@ -161,19 +161,22 @@ class QuickThumbModel(BaseModel):
             raise ValidationError(formatted_msg, original_error=e) from e
 
 
-class LinearGradient(QuickThumbModel):
+QuickThumbModel = quickthumbModel
+
+
+class LinearGradient(quickthumbModel):
     type: Literal["linear"] = "linear"
     angle: float
     stops: list[tuple[str, float]]
 
 
-class RadialGradient(QuickThumbModel):
+class RadialGradient(quickthumbModel):
     type: Literal["radial"] = "radial"
     stops: list[tuple[str, float]]
     center: tuple[float, float] = (0.5, 0.5)
 
 
-class TextFillImage(QuickThumbModel):
+class TextFillImage(quickthumbModel):
     type: Literal["image"] = "image"
     path: str
     fit: Annotated[
@@ -184,13 +187,13 @@ class TextFillImage(QuickThumbModel):
 TextFill = Annotated[LinearGradient | RadialGradient | TextFillImage, Discriminator("type")]
 
 
-class Stroke(QuickThumbModel):
+class Stroke(quickthumbModel):
     type: Literal["stroke"] = "stroke"
     width: PositiveInt
     color: HexColor
 
 
-class Shadow(QuickThumbModel):
+class Shadow(quickthumbModel):
     type: Literal["shadow"] = "shadow"
     offset_x: int
     offset_y: int
@@ -205,14 +208,14 @@ class Shadow(QuickThumbModel):
         return v
 
 
-class Glow(QuickThumbModel):
+class Glow(quickthumbModel):
     type: Literal["glow"] = "glow"
     color: HexColor
     radius: PositiveInt
     opacity: OpacityField = 1.0
 
 
-class Background(QuickThumbModel):
+class Background(quickthumbModel):
     type: Literal["background"] = "background"
     color: HexColor
     padding: int | tuple[int, int] | tuple[int, int, int, int] = 0
@@ -246,7 +249,7 @@ class Background(QuickThumbModel):
         return v
 
 
-class Filter(QuickThumbModel):
+class Filter(quickthumbModel):
     type: Literal["filter"] = "filter"
     blur: NonNegativeInt = 0
     brightness: PositiveFloat = 1.0
@@ -264,7 +267,7 @@ class Filter(QuickThumbModel):
 _GRAIN_BLEND_MODES = frozenset({"overlay", "screen", "multiply", "normal"})
 
 
-class Grain(QuickThumbModel):
+class Grain(quickthumbModel):
     type: Literal["grain"] = "grain"
     intensity: float
     monochrome: bool = True
@@ -296,7 +299,7 @@ ShapeEffect = Annotated[Stroke | Shadow | Glow, Discriminator("type")]
 BackgroundEffect = Annotated[Filter | Grain, Discriminator("type")]
 
 
-class TextPart(QuickThumbModel):
+class TextPart(quickthumbModel):
     text: str
     color: HexColor | None = None
     fill: TextFill | None = None
@@ -323,7 +326,7 @@ class TextPart(QuickThumbModel):
         return v
 
 
-class BackgroundLayer(QuickThumbModel):
+class BackgroundLayer(quickthumbModel):
     type: Literal["background"]
     color: HexColor | tuple | None = None
     gradient: Annotated[LinearGradient | RadialGradient, Discriminator("type")] | None = None
@@ -357,7 +360,7 @@ class BackgroundLayer(QuickThumbModel):
         return "#" + "".join(f"{c:02X}" for c in v)
 
 
-class TextLayer(QuickThumbModel):
+class TextLayer(quickthumbModel):
     type: Literal["text"]
     content: str | list[TextPart]
     font: str | None = None
@@ -442,7 +445,7 @@ class TextLayer(QuickThumbModel):
         return align.value
 
 
-class OutlineLayer(QuickThumbModel):
+class OutlineLayer(quickthumbModel):
     type: Literal["outline"]
     width: PositiveInt
     color: HexColor
@@ -450,7 +453,7 @@ class OutlineLayer(QuickThumbModel):
     opacity: OpacityField = 1.0
 
 
-class ImageLayer(QuickThumbModel):
+class ImageLayer(quickthumbModel):
     type: Literal["image"]
     path: str
     position: tuple
@@ -493,7 +496,7 @@ class ImageLayer(QuickThumbModel):
         return align.value
 
 
-class ShapeLayer(QuickThumbModel):
+class ShapeLayer(quickthumbModel):
     type: Literal["shape"]
     shape: Literal["rectangle", "ellipse"]
     position: tuple
@@ -537,7 +540,7 @@ LayerType = Annotated[
 ]
 
 
-class CanvasModel(QuickThumbModel):
+class CanvasModel(quickthumbModel):
     width: PositiveInt
     height: PositiveInt
     layers: list[LayerType]

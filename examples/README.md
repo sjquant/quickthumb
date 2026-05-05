@@ -1,6 +1,6 @@
-# QuickThumb Examples
+# quickthumb Examples
 
-This directory contains runnable end-to-end compositions that match the current QuickThumb API.
+This directory contains runnable end-to-end compositions that match the current quickthumb API.
 
 ## Run an Example
 
@@ -114,7 +114,7 @@ Shows:
 - `remove_background=True` on the portrait layer for a cutout-style guest visual
 - Layered promo-card styling with shapes, shadows, and heavy headline typography
 
-Use it when you want an end-to-end podcast or interview promo example that exercises QuickThumb's network-backed asset loading and portrait cutout workflow.
+Use it when you want an end-to-end podcast or interview promo example that exercises quickthumb's network-backed asset loading and portrait cutout workflow.
 
 ### `shorts_cover_agent.py`
 

@@ -1,6 +1,6 @@
 {
-  "name": "QuickThumb",
-  "short_name": "QuickThumb",
+  "name": "quickthumb",
+  "short_name": "quickthumb",
   "icons": [
     {
       "src": "assets/brand/quickthumb-icon-192.png",
