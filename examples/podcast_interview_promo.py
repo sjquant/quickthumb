@@ -10,7 +10,7 @@ Demonstrates:
 import os
 
 from quickthumb import Canvas, Filter, FitMode, LinearGradient
-from quickthumb.models import Background, Shadow, Stroke
+from quickthumb.models import Shadow, Stroke
 
 FILE_DIR = os.path.dirname(__file__)
 ASSETS_DIR = os.path.join(FILE_DIR, "..", "assets")
@@ -20,16 +20,12 @@ os.environ["QUICKTHUMB_FONT_DIR"] = os.path.join(ASSETS_DIR, "fonts")
 os.environ["QUICKTHUMB_DEFAULT_FONT"] = "Roboto"
 
 BACKGROUND_URL = (
-    "https://images.unsplash.com/photo-1478737270239-2f02b77fc618"
-    "?auto=format&fit=crop&w=1600&q=80"
+    "https://images.unsplash.com/photo-1478737270239-2f02b77fc618?auto=format&fit=crop&w=1600&q=80"
 )
 GUEST_URL = (
-    "https://images.unsplash.com/photo-1494790108377-be9c29b29330"
-    "?auto=format&fit=crop&w=900&q=80"
+    "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=900&q=80"
 )
-SHOW_FONT_URL = (
-    "https://fonts.gstatic.com/s/pacifico/v22/FwZY7-Qmy14u9lezJ-6H6MmBp0u-.woff2"
-)
+SHOW_FONT_URL = "https://fonts.gstatic.com/s/pacifico/v22/FwZY7-Qmy14u9lezJ-6H6MmBp0u-.woff2"
 
 (
     Canvas(1280, 720)
