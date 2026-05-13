@@ -1021,7 +1021,7 @@ class Canvas:
 
     def _remove_background(self, img: Image.Image) -> Image.Image:
         try:
-            from rembg import remove
+            from rembg import remove  # ty: ignore[unresolved-import]
         except ImportError:
             raise ImportError(
                 "rembg is required for background removal. "
@@ -2747,10 +2747,8 @@ class Canvas:
                 cached_header = f.read(4)
             if any(cached_header.startswith(magic) for magic in self._VALID_FONT_MAGIC):
                 return cache_path
-            try:
-                os.remove(cache_path)  # stale invalid cache — re-download
-            except OSError:
-                pass  # non-fatal: proceed to re-download; write will overwrite or fail cleanly
+            with contextlib.suppress(OSError):
+                os.remove(cache_path)
 
         try:
             with urlopen(url) as response:

@@ -1577,7 +1577,7 @@ class TestTextFill:
         assert content[1]["fill"] is None
 
     def test_should_raise_file_not_found_for_missing_image_fill(self):
-        """Rendering with a TextFillImage that points to a non-existent file raises FileNotFoundError"""
+        """TextFillImage with a missing file path raises FileNotFoundError"""
         import os
         import tempfile
 
@@ -1594,7 +1594,7 @@ class TestTextFill:
             canvas.render(os.path.join(tmpdir, "out.png"))
 
     def test_should_raise_file_not_found_for_missing_text_part_image_fill(self):
-        """Rendering with a TextPart TextFillImage pointing to a missing file raises FileNotFoundError"""
+        """TextPart TextFillImage with a missing file path raises FileNotFoundError"""
         import os
         import tempfile
 
