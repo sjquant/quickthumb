@@ -2,6 +2,8 @@ from pathlib import Path
 
 import pytest
 
+MAX_SOCIAL_PREVIEW_BYTES = 1_000_000
+
 pytest.importorskip("mkdocs")
 mkdocs_build = pytest.importorskip("mkdocs.commands.build")
 mkdocs_config = pytest.importorskip("mkdocs.config")
@@ -44,5 +46,10 @@ def test_docs_build_includes_search_engine_metadata(tmp_path):
         social_preview.read_bytes()
     )
     assert docs_social_preview.read_bytes() == social_preview.read_bytes()
+    assert social_preview.stat().st_size < MAX_SOCIAL_PREVIEW_BYTES
+    assert docs_social_preview.stat().st_size < MAX_SOCIAL_PREVIEW_BYTES
+    assert (
+        site_dir / "assets" / "brand" / "social-preview.png"
+    ).stat().st_size < MAX_SOCIAL_PREVIEW_BYTES
     assert (site_dir / "favicon.ico").read_bytes() == docs_favicon.read_bytes()
     assert '<meta property="og:title" content="Enums &amp; Gradients - quickthumb">' in enums_html
