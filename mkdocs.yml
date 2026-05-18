@@ -1,4 +1,4 @@
-site_name: QuickThumb
+site_name: quickthumb
 site_description: Programmatic thumbnail and social image generation with layered Python and JSON APIs
 site_url: https://sjquant.github.io/quickthumb
 site_author: Seonu Jang
@@ -11,6 +11,8 @@ site_dir: site
 theme:
   name: material
   custom_dir: docs/overrides
+  logo: assets/brand/quickthumb-icon.png
+  favicon: assets/brand/favicon.png
   palette:
     - media: "(prefers-color-scheme: light)"
       scheme: default
@@ -47,7 +49,7 @@ extra_css:
   - stylesheets/extra.css
 
 extra:
-  social_image_url: https://sjquant.github.io/quickthumb/assets/examples/youtube_thumbnail_01.png
+  social_image_url: https://sjquant.github.io/quickthumb/assets/brand/social-preview.png
 
 markdown_extensions:
   - admonition

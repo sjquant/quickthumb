@@ -1,5 +1,5 @@
 ---
-description: Build a podcast promo card with QuickThumb using remote images, webfonts, background removal, rich text, and layered composition.
+description: Build a podcast promo card with quickthumb using remote images, webfonts, background removal, rich text, and layered composition.
 ---
 
 # Podcast Promo
@@ -168,7 +168,7 @@ SHOW_FONT_URL = (
 
 ### Remote images
 
-Both the background and the guest portrait are fetched from remote URLs. QuickThumb downloads them at render time and caches them locally. Pass any `http://` or `https://` URL to `image=` or `path=`.
+Both the background and the guest portrait are fetched from remote URLs. quickthumb downloads them at render time and caches them locally. Pass any `http://` or `https://` URL to `image=` or `path=`.
 
 ### Webfont from URL
 

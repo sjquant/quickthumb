@@ -1,5 +1,5 @@
 ---
-description: Reference for QuickThumb background layers, including colors, gradients, images, opacity, effects, and render order.
+description: Reference for quickthumb background layers, including colors, gradients, images, opacity, effects, and render order.
 ---
 
 # Background

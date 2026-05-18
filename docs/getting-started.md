@@ -1,5 +1,5 @@
 ---
-description: Build your first QuickThumb image by creating a canvas, layering backgrounds, text, shapes, and images, then exporting the rendered thumbnail.
+description: Build your first quickthumb image by creating a canvas, layering backgrounds, text, shapes, and images, then exporting the rendered thumbnail.
 ---
 
 # Getting Started
@@ -173,7 +173,7 @@ data_url = canvas.to_data_url(format="JPEG", quality=90)
 
 ## JSON workflow
 
-You can also drive QuickThumb from a JSON config instead of Python code:
+You can also drive quickthumb from a JSON config instead of Python code:
 
 ```python
 from quickthumb import Canvas
@@ -186,7 +186,7 @@ config = """
     { "type": "background", "color": "#111827" },
     {
       "type": "text",
-      "content": "Hello QuickThumb",
+      "content": "Hello quickthumb",
       "size": 72,
       "color": "#FFFFFF",
       "align": "center",

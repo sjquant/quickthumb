@@ -1,7 +1,7 @@
 """
 JSON-first vertical cover example.
 
-This script simulates the workflow where an AI agent emits a QuickThumb JSON spec
+This script simulates the workflow where an AI agent emits a quickthumb JSON spec
 and the application renders it with `Canvas.from_json(...)`.
 """
 

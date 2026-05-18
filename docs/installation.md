@@ -1,5 +1,5 @@
 ---
-description: Install QuickThumb with pip or uv, enable optional background removal support, and configure font-related environment variables.
+description: Install quickthumb with pip or uv, enable optional background removal support, and configure font-related environment variables.
 ---
 
 # Installation
@@ -34,7 +34,7 @@ uv pip install "quickthumb[rembg]"
 ```
 
 !!! note
-    The `rembg` extra pulls in `onnxruntime` and will download a model (~170 MB) on first use. It is not required for any other QuickThumb feature.
+    The `rembg` extra pulls in `onnxruntime` and will download a model (~170 MB) on first use. It is not required for any other quickthumb feature.
 
 ## Verify the installation
 
@@ -45,7 +45,7 @@ print(quickthumb.__version__)
 
 ## Environment Variables
 
-QuickThumb reads two optional environment variables at startup:
+quickthumb reads two optional environment variables at startup:
 
 | Variable | Purpose |
 | --- | --- |

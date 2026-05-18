@@ -1,5 +1,5 @@
 ---
-description: Reference for QuickThumb Canvas creation, aspect ratios, layer composition, rendering, JSON loading, and image output.
+description: Reference for quickthumb Canvas creation, aspect ratios, layer composition, rendering, JSON loading, and image output.
 ---
 
 # Canvas

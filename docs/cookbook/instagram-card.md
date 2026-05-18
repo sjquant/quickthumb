@@ -1,5 +1,5 @@
 ---
-description: Build a square Instagram news card with QuickThumb using a full-bleed image, gradient overlay, badge, headline, and metadata.
+description: Build a square Instagram news card with quickthumb using a full-bleed image, gradient overlay, badge, headline, and metadata.
 ---
 
 # Instagram Card

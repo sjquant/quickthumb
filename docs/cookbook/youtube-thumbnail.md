@@ -1,5 +1,5 @@
 ---
-description: Build YouTube thumbnails with QuickThumb using darkened photos, bold text, outlines, reaction layouts, and tutorial compositions.
+description: Build YouTube thumbnails with quickthumb using darkened photos, bold text, outlines, reaction layouts, and tutorial compositions.
 ---
 
 # YouTube Thumbnails
@@ -33,7 +33,7 @@ from quickthumb import Canvas, Filter, Stroke, TextPart
                 effects=[Stroke(width=8, color="#000000")],
             ),
             TextPart(
-                text="Try QuickThumb Today",
+                text="Try quickthumb Today",
                 color="#E0E0E0",
                 size=48,
                 effects=[Stroke(width=4, color="#000000")],
@@ -347,6 +347,6 @@ canvas.render("youtube_tutorial.png")
 
 **Key techniques:**
 
-- `add_step()` helper function keeps repeated badge+label patterns DRY while still using the standard QuickThumb API
+- `add_step()` helper function keeps repeated badge+label patterns DRY while still using the standard quickthumb API
 - Two gradient backgrounds create a blue glow on the left edge without a visible boundary
 - The `"#3B82F630"` color (with `30` alpha) renders the divider as a subtle translucent line

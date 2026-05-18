@@ -1,6 +1,6 @@
-# QuickThumb
+# quickthumb
 
-QuickThumb is a Python library for programmatic thumbnail, social card, and promo image generation.
+quickthumb is a Python library for programmatic thumbnail, social card, and promo image generation.
 It is designed for code-first and JSON-first workflows, with a layer-based API that works well for human-authored scripts and AI-generated specs.
 
 ## Gallery
@@ -13,7 +13,7 @@ It is designed for code-first and JSON-first workflows, with a layer-based API t
 | --- | --- | --- |
 | ![Talking head thumbnail example](examples/youtube_talking_head.png) | ![Reaction thumbnail example](examples/youtube_reaction.png) | ![Tutorial thumbnail example](examples/youtube_tutorial_explainer.png) |
 
-## Why QuickThumb
+## Why quickthumb
 
 - Built for thumbnails and social graphics, not just generic image composition
 - Works with Python method chaining and JSON serialization/deserialization
@@ -259,7 +259,7 @@ canvas.render("output.webp", format="WEBP", quality=90)
 
 ## JSON-First Workflow
 
-QuickThumb can round-trip most canvases through JSON:
+quickthumb can round-trip most canvases through JSON:
 
 ```python
 from quickthumb import Canvas
@@ -275,7 +275,7 @@ config = """
     },
     {
       "type": "text",
-      "content": "Hello QuickThumb",
+      "content": "Hello quickthumb",
       "size": 72,
       "color": "#FFFFFF",
       "align": "center",
@@ -304,12 +304,12 @@ Notes:
 
 ## AI-Friendly Workflows
 
-QuickThumb is a good target when you want an LLM to generate image specs that are deterministic and easy to validate.
+quickthumb is a good target when you want an LLM to generate image specs that are deterministic and easy to validate.
 
 Prompt pattern for Python generation:
 
 ```text
-Generate QuickThumb Python code for a 1280x720 YouTube thumbnail.
+Generate quickthumb Python code for a 1280x720 YouTube thumbnail.
 Use layered composition only.
 Keep text on the left, subject image on the right, and use high-contrast typography.
 Return runnable code that ends with canvas.render("thumbnail.png").
@@ -318,20 +318,20 @@ Return runnable code that ends with canvas.render("thumbnail.png").
 Prompt pattern for JSON generation:
 
 ```text
-Generate a QuickThumb JSON config with top-level width, height, and layers.
+Generate a quickthumb JSON config with top-level width, height, and layers.
 Use one background image layer, one dark overlay background layer, two text layers, and one outline layer.
-Only use valid QuickThumb layer types and effect names.
+Only use valid quickthumb layer types and effect names.
 ```
 
 Recommended workflow:
 
-1. Have the model produce QuickThumb Python or JSON.
+1. Have the model produce quickthumb Python or JSON.
 2. Validate or render it locally.
 3. Adjust only the content, colors, and assets instead of rewriting layout logic from scratch.
 
 ## Environment Variables
 
-QuickThumb looks for fonts using these environment variables:
+quickthumb looks for fonts using these environment variables:
 
 - `QUICKTHUMB_FONT_DIR`: directory that contains font files
 - `QUICKTHUMB_DEFAULT_FONT`: default font family/name to use when `font` is omitted

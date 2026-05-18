@@ -29,6 +29,6 @@ def test_docs_build_includes_search_engine_metadata(tmp_path):
     assert "Sitemap: https://sjquant.github.io/quickthumb/sitemap.xml" in (
         site_dir / "robots.txt"
     ).read_text(encoding="utf-8")
-    assert '<meta property="og:title" content="QuickThumb">' in index_html
+    assert '<meta property="og:title" content="quickthumb">' in index_html
     assert '<meta name="twitter:card" content="summary_large_image">' in index_html
-    assert '<meta property="og:title" content="Enums &amp; Gradients - QuickThumb">' in enums_html
+    assert '<meta property="og:title" content="Enums &amp; Gradients - quickthumb">' in enums_html

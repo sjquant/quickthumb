@@ -1,5 +1,5 @@
 ---
-description: Reference for QuickThumb enums and gradient models used for alignment, fit modes, shapes, filters, and color transitions.
+description: Reference for quickthumb enums and gradient models used for alignment, fit modes, shapes, filters, and color transitions.
 ---
 
 # Enums & Gradients

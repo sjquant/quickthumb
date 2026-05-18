@@ -1,5 +1,5 @@
 ---
-description: Use QuickThumb webfonts and background removal to load remote typefaces, isolate subjects, and compose polished thumbnail images.
+description: Use quickthumb webfonts and background removal to load remote typefaces, isolate subjects, and compose polished thumbnail images.
 ---
 
 # Webfonts & Background Removal
@@ -10,7 +10,7 @@ Two features that require a bit of setup but unlock a lot of creative flexibilit
 
 ## Webfonts
 
-QuickThumb can load fonts from remote URLs at render time. The font file is downloaded once and cached locally.
+quickthumb can load fonts from remote URLs at render time. The font file is downloaded once and cached locally.
 
 ### Basic usage
 
@@ -83,7 +83,7 @@ os.environ["QUICKTHUMB_DEFAULT_FONT"] = "Roboto"
 canvas.text(content="Hello", font="Roboto", size=64, color="#FFFFFF", align="center")
 ```
 
-QuickThumb searches `QUICKTHUMB_FONT_DIR` for files matching the family name, and falls back to `QUICKTHUMB_DEFAULT_FONT` when `font` is omitted.
+quickthumb searches `QUICKTHUMB_FONT_DIR` for files matching the family name, and falls back to `QUICKTHUMB_DEFAULT_FONT` when `font` is omitted.
 
 ---
 

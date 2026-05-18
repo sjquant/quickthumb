@@ -1,5 +1,5 @@
 ---
-description: Review QuickThumb release notes and follow version changes, fixes, and new features through GitHub Releases.
+description: Review quickthumb release notes and follow version changes, fixes, and new features through GitHub Releases.
 ---
 
 # Changelog

@@ -1,5 +1,5 @@
 ---
-description: Reference for QuickThumb outline layers that draw canvas borders with configurable width, color, opacity, and corner radius.
+description: Reference for quickthumb outline layers that draw canvas borders with configurable width, color, opacity, and corner radius.
 ---
 
 # Outline

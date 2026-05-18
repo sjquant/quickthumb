@@ -1,5 +1,5 @@
 ---
-description: Reference for QuickThumb effects, including filters, shadows, strokes, blend modes, opacity, and layer compatibility.
+description: Reference for quickthumb effects, including filters, shadows, strokes, blend modes, opacity, and layer compatibility.
 ---
 
 # Effects

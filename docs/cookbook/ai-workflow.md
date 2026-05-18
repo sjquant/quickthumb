@@ -1,12 +1,12 @@
 ---
-description: Generate reliable QuickThumb JSON specs with LLMs, validate them, render images, and iterate on AI-assisted thumbnail workflows.
+description: Generate reliable quickthumb JSON specs with LLMs, validate them, render images, and iterate on AI-assisted thumbnail workflows.
 ---
 
 # AI Workflow
 
-QuickThumb is designed to be a reliable target for LLM-generated image specs. This recipe walks through a full end-to-end workflow: writing a prompt, getting output, rendering it, and iterating.
+quickthumb is designed to be a reliable target for LLM-generated image specs. This recipe walks through a full end-to-end workflow: writing a prompt, getting output, rendering it, and iterating.
 
-## Why QuickThumb works well with AI
+## Why quickthumb works well with AI
 
 - The schema is flat and typed — no nested ambiguity
 - Every layer has a required `type` discriminator
@@ -18,7 +18,7 @@ QuickThumb is designed to be a reliable target for LLM-generated image specs. Th
 
 ```
 1. Write a prompt describing the layout
-2. Model outputs QuickThumb JSON or Python
+2. Model outputs quickthumb JSON or Python
 3. Validate locally (ValidationError catches bad specs immediately)
 4. Render to a PNG file
 5. Review and iterate with targeted instructions
@@ -29,7 +29,7 @@ QuickThumb is designed to be a reliable target for LLM-generated image specs. Th
 ### For JSON output
 
 ```text
-Generate a QuickThumb JSON config for a 1280×720 YouTube thumbnail.
+Generate a quickthumb JSON config for a 1280×720 YouTube thumbnail.
 
 Schema rules:
 - Top-level fields: "width", "height", "layers"
@@ -51,7 +51,7 @@ Return only the JSON object. No explanation, no markdown fencing.
 ### For Python output
 
 ```text
-Generate QuickThumb Python code for a 1280×720 YouTube thumbnail.
+Generate quickthumb Python code for a 1280×720 YouTube thumbnail.
 
 Available imports:
   from quickthumb import (
@@ -117,7 +117,7 @@ Image(data=base64.b64decode(b64))
 Instead of regenerating the whole spec, give the model the current spec and a specific change:
 
 ```text
-Here is my current QuickThumb JSON spec:
+Here is my current quickthumb JSON spec:
 
 <paste spec>
 

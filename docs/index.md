@@ -1,9 +1,9 @@
 ---
-title: QuickThumb
-description: Create thumbnails and social images with QuickThumb's layered Python API, JSON specs, remote images, webfonts, effects, and deterministic rendering.
+title: quickthumb
+description: Create thumbnails and social images with quickthumb's layered Python API, JSON specs, remote images, webfonts, effects, and deterministic rendering.
 ---
 
-# QuickThumb
+# quickthumb
 
 **Programmatic thumbnail and social image generation** — layered Python and JSON APIs built for speed, AI workflows, and creative control.
 
@@ -53,7 +53,7 @@ canvas = (
 canvas.render("thumbnail.png")
 ```
 
-## Why QuickThumb
+## Why quickthumb
 
 - Layer-based composition — backgrounds, text, images, shapes stack in call order
 - Works with Python method chaining **and** JSON specs — same result either way

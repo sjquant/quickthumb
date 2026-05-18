@@ -1,5 +1,5 @@
 ---
-description: Render a vertical shorts cover from a QuickThumb JSON spec, demonstrating a JSON-first workflow for mobile video thumbnails.
+description: Render a vertical shorts cover from a quickthumb JSON spec, demonstrating a JSON-first workflow for mobile video thumbnails.
 ---
 
 # Shorts / Vertical Cover

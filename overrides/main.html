@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+
+{% block extrahead %}
+  {{ super() }}
+  <link rel="icon" href="{{ 'favicon.ico' | url }}" type="image/x-icon">
+  <link rel="apple-touch-icon" href="{{ 'assets/brand/apple-touch-icon.png' | url }}">
+  <link rel="manifest" href="{{ 'site.webmanifest' | url }}">
+  <meta name="theme-color" content="#4d89fb">
+{% endblock %}
