@@ -39,8 +39,9 @@ uv pip install "quickthumb[rembg]"
 ## Verify the installation
 
 ```python
-import quickthumb
-print(quickthumb.__version__)
+from importlib.metadata import version
+
+print(version("quickthumb"))
 ```
 
 ## Environment Variables
