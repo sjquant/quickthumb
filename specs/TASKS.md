@@ -74,11 +74,21 @@
 - [DONE] Rename `format` parameter to `fmt` or `output_format` internally — currently shadows Python's built-in `format()`
 - [DONE] Widen typer version pin from `>=0.24.1,<0.25.0` to `>=0.24.1,<1.0` to avoid unnecessary resolver conflicts
 
+### P0 — Capability Epic (layout, diagnostics, SVG, shapes, themes)
+
+- [DOING] Split `canvas.py` into focused modules (`_base`, `_effects`, `_images`, `_fonts`, `_text`, `_shapes`) with `Canvas` as facade; public API unchanged
+- [TODO] Theme tokens: top-level `"theme"` block in JSON specs with `$theme.path.to.token` references resolved in `Canvas.from_json`
+- [TODO] New shape primitives: `pill`, `triangle`, `star`, and `polygon` (normalized `points`) on shape layers
+- [TODO] SVG layer: `canvas.svg(path, ...)` + `"type": "svg"` JSON layer, rasterized via optional `quickthumb[svg]` (cairosvg) extra
+- [TODO] Layout engine: `group` layer with `direction` (row/column), `gap`, `padding`, `align`/`item_align`, nested groups; children auto-positioned
+- [TODO] Diagnostics: `canvas.diagnose()` returning structured findings (off-canvas, text overflow, low contrast, tiny text) + `quickthumb lint` CLI subcommand
+- [TODO] Docs: README + feature matrix updates for the capability epic
+
 ### P3 — Lower Priority
 
 - [DONE] Fix color tuple JSON round-trip: `BackgroundLayer.color` accepts RGB tuples but they break `to_json()` / `from_json()`
 - [TODO] Font metadata reading: use `fonttools` to read font weight/style from file metadata instead of relying on filename parsing
-- [TODO] Split `canvas.py` (currently 2466 lines) into smaller modules before it becomes a maintenance burden
+- [DOING] Split `canvas.py` (currently 2466 lines) into smaller modules before it becomes a maintenance burden — superseded by the Capability Epic refactor task
 
 ## Handoff Notes
 

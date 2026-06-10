@@ -2724,7 +2724,7 @@ class TestWebfontCache:
                 output_path = os.path.join(out_dir, "output.png")
 
                 # When: rendering with a webfont URL
-                with patch("quickthumb.canvas.urlopen", return_value=mock_response):
+                with patch("quickthumb._fonts.urlopen", return_value=mock_response):
                     canvas.render(output_path)
 
             # Then: a cached font file is written to the specified cache directory
@@ -2760,7 +2760,7 @@ class TestWebfontCache:
             output_path = os.path.join(out_dir, "output.png")
 
             # When: rendering with a webfont URL
-            with patch("quickthumb.canvas.urlopen", return_value=mock_response):
+            with patch("quickthumb._fonts.urlopen", return_value=mock_response):
                 canvas.render(output_path)
 
         # Then: the cached file is written under /tmp
@@ -2799,7 +2799,7 @@ class TestWebfontCache:
                 output_path = os.path.join(out_dir, "output.png")
 
                 # When: rendering with a webfont URL
-                with patch("quickthumb.canvas.urlopen", return_value=mock_response):
+                with patch("quickthumb._fonts.urlopen", return_value=mock_response):
                     canvas.render(output_path)
 
             # Then: the nested cache directory is created and the font is written there
@@ -2831,7 +2831,7 @@ class TestWebfontCache:
                 output_path = os.path.join(out_dir, "output.png")
 
                 # When: rendering
-                with patch("quickthumb.canvas.urlopen", return_value=mock_response):
+                with patch("quickthumb._fonts.urlopen", return_value=mock_response):
                     # Then: a RenderingError is raised
                     with pytest.raises(RenderingError, match="not a valid font"):
                         canvas.render(output_path)
@@ -2862,7 +2862,7 @@ class TestWebfontCache:
                 output_path = os.path.join(out_dir, "output.png")
 
                 # When: rendering fails due to invalid font content
-                with patch("quickthumb.canvas.urlopen", return_value=mock_response):
+                with patch("quickthumb._fonts.urlopen", return_value=mock_response):
                     with pytest.raises(RenderingError):
                         canvas.render(output_path)
 
@@ -2904,7 +2904,7 @@ class TestWebfontCache:
                 output_path = os.path.join(out_dir, "output.png")
 
                 # When: rendering with the stale cache present
-                with patch("quickthumb.canvas.urlopen", return_value=mock_response) as mock_open:
+                with patch("quickthumb._fonts.urlopen", return_value=mock_response) as mock_open:
                     canvas.render(output_path)
 
                 # Then: the font was re-downloaded and the cache file now contains valid data
