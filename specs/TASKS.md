@@ -76,10 +76,10 @@
 
 ### P0 — Capability Epic (layout, diagnostics, SVG, shapes, themes)
 
-- [DOING] Split `canvas.py` into focused modules (`_base`, `_effects`, `_images`, `_fonts`, `_text`, `_shapes`) with `Canvas` as facade; public API unchanged
-- [TODO] Theme tokens: top-level `"theme"` block in JSON specs with `$theme.path.to.token` references resolved in `Canvas.from_json`
-- [TODO] New shape primitives: `pill`, `triangle`, `star`, and `polygon` (normalized `points`) on shape layers
-- [TODO] SVG layer: `canvas.svg(path, ...)` + `"type": "svg"` JSON layer, rasterized via optional `quickthumb[svg]` (cairosvg) extra
+- [DONE] Split `canvas.py` into focused modules (`_base`, `_effects`, `_images`, `_fonts`, `_text`, `_shapes`) with `Canvas` as facade; public API unchanged
+- [DONE] Theme tokens: top-level `"theme"` block in JSON specs with `$theme.path.to.token` references resolved in `Canvas.from_json`
+- [DONE] New shape primitives: `pill`, `triangle`, `star`, and `polygon` (normalized `points`) on shape layers
+- [DONE] SVG layer: `canvas.svg(path, ...)` + `"type": "svg"` JSON layer, rasterized via optional `quickthumb[svg]` (cairosvg) extra
 - [TODO] Layout engine: `group` layer with `direction` (row/column), `gap`, `padding`, `align`/`item_align`, nested groups; children auto-positioned
 - [TODO] Diagnostics: `canvas.diagnose()` returning structured findings (off-canvas, text overflow, low contrast, tiny text) + `quickthumb lint` CLI subcommand
 - [TODO] Docs: README + feature matrix updates for the capability epic
@@ -88,7 +88,7 @@
 
 - [DONE] Fix color tuple JSON round-trip: `BackgroundLayer.color` accepts RGB tuples but they break `to_json()` / `from_json()`
 - [TODO] Font metadata reading: use `fonttools` to read font weight/style from file metadata instead of relying on filename parsing
-- [DOING] Split `canvas.py` (currently 2466 lines) into smaller modules before it becomes a maintenance burden — superseded by the Capability Epic refactor task
+- [DONE] Split `canvas.py` (currently 2466 lines) into smaller modules before it becomes a maintenance burden — superseded by the Capability Epic refactor task
 
 ## Handoff Notes
 

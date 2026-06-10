@@ -94,17 +94,27 @@ def render(
     typer.echo(str(output))
 
 
+def _is_theme_reference(match: re.Match) -> bool:
+    """$theme.* references are resolved later by Canvas.from_json, not by --var."""
+    return match.group(2) == "theme" and match.string[match.end() : match.end() + 1] == "."
+
+
 def _substitute_vars(text: str, variables: dict[str, str]) -> str:
     def replace(match: re.Match) -> str:
+        if _is_theme_reference(match):
+            return match.group(0)
         key = match.group(1) or match.group(2)
         return variables.get(key, match.group(0))
 
     result = re.sub(r"\$\{(\w+)\}|\$(\w+)", replace, text)
 
-    unresolved = re.findall(r"\$\{(\w+)\}|\$(\w+)", result)
+    unresolved = [
+        match.group(1) or match.group(2)
+        for match in re.finditer(r"\$\{(\w+)\}|\$(\w+)", result)
+        if not _is_theme_reference(match)
+    ]
     if unresolved:
-        names = [k1 or k2 for k1, k2 in unresolved]
-        raise ValidationError(f"Unresolved placeholder(s): {', '.join(names)}")
+        raise ValidationError(f"Unresolved placeholder(s): {', '.join(unresolved)}")
 
     return result
 

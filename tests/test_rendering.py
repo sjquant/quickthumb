@@ -2911,3 +2911,105 @@ class TestWebfontCache:
                 mock_open.assert_called_once()
             with open(stale_path, "rb") as f:
                 assert f.read() == real_font_data
+
+
+class TestShapePrimitiveRendering:
+    """Snapshot tests for pill, triangle, star, and polygon shape primitives"""
+
+    def test_snapshot_new_shape_primitives(self):
+        """Snapshot test rendering all new shape primitives on one canvas"""
+        from quickthumb import Canvas
+
+        canvas = (
+            Canvas(400, 300)
+            .background(color="#1A1A2E")
+            .shape(shape="pill", position=(20, 20), width=160, height=60, color="#E94560")
+            .shape(shape="triangle", position=(220, 20), width=120, height=100, color="#0F3460")
+            .shape(
+                shape="star",
+                position=(20, 120),
+                width=140,
+                height=140,
+                color="#FFD700",
+                star_points=5,
+                inner_radius=0.5,
+            )
+            .shape(
+                shape="polygon",
+                position=(200, 140),
+                width=160,
+                height=100,
+                color="#53BF9D",
+                points=[
+                    (0.0, 0.25),
+                    (0.6, 0.25),
+                    (0.6, 0.0),
+                    (1.0, 0.5),
+                    (0.6, 1.0),
+                    (0.6, 0.75),
+                    (0.0, 0.75),
+                ],
+            )
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/shape_primitives.png")
+
+    def test_snapshot_star_with_rotation_and_effects(self):
+        """Snapshot test for a rotated star with stroke and shadow effects"""
+        from quickthumb import Canvas
+        from quickthumb.models import Shadow, Stroke
+
+        canvas = (
+            Canvas(300, 300)
+            .background(color="#FFFFFF")
+            .shape(
+                shape="star",
+                position=(150, 150),
+                width=180,
+                height=180,
+                color="#FFD700",
+                star_points=6,
+                inner_radius=0.35,
+                rotation=20,
+                align=("center", "middle"),
+                effects=[
+                    Stroke(width=4, color="#B8860B"),
+                    Shadow(offset_x=6, offset_y=6, color="#00000088", blur_radius=8),
+                ],
+            )
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/star_rotated_effects.png")
+
+
+class TestSvgLayerRendering:
+    """Snapshot tests for svg layer rasterization"""
+
+    def test_snapshot_svg_layer(self):
+        """Snapshot test for an svg layer scaled and centered on the canvas"""
+        pytest.importorskip("cairosvg")
+        from quickthumb import Canvas
+
+        fixture = os.path.join(os.path.dirname(__file__), "fixtures", "sample.svg")
+        canvas = (
+            Canvas(300, 200)
+            .background(color="#F5F5F5")
+            .svg(path=fixture, position=("50%", "50%"), width=120, align=("center", "middle"))
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/svg_layer.png")

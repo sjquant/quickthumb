@@ -1,7 +1,11 @@
+import math
+
 from PIL import Image, ImageDraw
 
 from quickthumb._text import TextMixin
 from quickthumb.models import Glow, Shadow, ShapeLayer, Stroke
+
+TRIANGLE_POINTS = [(0.5, 0.0), (1.0, 1.0), (0.0, 1.0)]
 
 
 class ShapesMixin(TextMixin):
@@ -21,8 +25,14 @@ class ShapesMixin(TextMixin):
 
         if layer.shape == "rectangle":
             draw.rounded_rectangle(bbox, radius=layer.border_radius * scale, fill=fill_color)
-        else:  # ellipse
+        elif layer.shape == "ellipse":
             draw.ellipse(bbox, fill=fill_color)
+        elif layer.shape == "pill":
+            draw.rounded_rectangle(bbox, radius=min(shape_w, shape_h) // 2, fill=fill_color)
+        else:
+            normalized = self._normalized_shape_points(layer)
+            pixel_points = [(px * (shape_w - 1), py * (shape_h - 1)) for px, py in normalized]
+            draw.polygon(pixel_points, fill=fill_color)
 
         if layer.rotation != 0:
             shape_big = shape_big.rotate(
@@ -51,3 +61,21 @@ class ShapesMixin(TextMixin):
                 self._apply_image_stroke(image, shape_img, paste_x, paste_y, effect)
 
         image.alpha_composite(shape_img, (paste_x, paste_y))
+
+    def _normalized_shape_points(self, layer: ShapeLayer) -> list[tuple[float, float]]:
+        """Return shape outline points normalized to the 0..1 unit box."""
+        if layer.shape == "triangle":
+            return TRIANGLE_POINTS
+        if layer.shape == "star":
+            return self._star_points(layer.star_points, layer.inner_radius)
+        return [(px, py) for px, py in layer.points or []]
+
+    @staticmethod
+    def _star_points(spikes: int, inner_radius: float) -> list[tuple[float, float]]:
+        """Alternate outer/inner vertices around the unit-box center, first spike pointing up."""
+        points = []
+        for i in range(spikes * 2):
+            radius = 0.5 if i % 2 == 0 else 0.5 * inner_radius
+            angle = -math.pi / 2 + i * math.pi / spikes
+            points.append((0.5 + radius * math.cos(angle), 0.5 + radius * math.sin(angle)))
+        return points

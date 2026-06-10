@@ -1,4 +1,5 @@
 import os
+import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from io import BytesIO
@@ -25,6 +26,7 @@ from quickthumb.models import (
     RadialGradient,
     ShapeEffect,
     ShapeLayer,
+    SvgLayer,
     TextFillImage,
     TextLayer,
     TextPart,
@@ -39,6 +41,43 @@ class CustomLayer:
 
 
 RenderableLayer = LayerType | CustomLayer
+
+_THEME_REF_RE = re.compile(r"\$theme\.([A-Za-z0-9_]+(?:\.[A-Za-z0-9_]+)*)")
+
+
+def _lookup_theme_token(path: str, theme: dict):
+    node = theme
+    for key in path.split("."):
+        if not isinstance(node, dict) or key not in node:
+            raise ValidationError(
+                f"Theme token '$theme.{path}' is not defined in the spec's theme block."
+            )
+        node = node[key]
+    return node
+
+
+def _resolve_theme_tokens(value, theme: dict):
+    """Recursively replace $theme.path references in a parsed JSON structure."""
+    if isinstance(value, str):
+        full_match = _THEME_REF_RE.fullmatch(value)
+        if full_match:
+            return _lookup_theme_token(full_match.group(1), theme)
+
+        def replace(match: re.Match) -> str:
+            token = _lookup_theme_token(match.group(1), theme)
+            if isinstance(token, bool) or not isinstance(token, (str, int, float)):
+                raise ValidationError(
+                    f"Theme token '$theme.{match.group(1)}' must be a string or number "
+                    "to be embedded inside a longer string."
+                )
+            return str(token)
+
+        return _THEME_REF_RE.sub(replace, value)
+    if isinstance(value, list):
+        return [_resolve_theme_tokens(item, theme) for item in value]
+    if isinstance(value, dict):
+        return {key: _resolve_theme_tokens(item, theme) for key, item in value.items()}
+    return value
 
 
 class Canvas(ShapesMixin):
@@ -171,7 +210,7 @@ class Canvas(ShapesMixin):
 
     def shape(
         self,
-        shape: Literal["rectangle", "ellipse"],
+        shape: Literal["rectangle", "ellipse", "pill", "triangle", "star", "polygon"],
         position: tuple,
         width: int,
         height: int,
@@ -180,6 +219,9 @@ class Canvas(ShapesMixin):
         opacity: float = 1.0,
         rotation: float = 0.0,
         align: Align | str | tuple[str, str] | None = None,
+        points: list[tuple[float, float]] | None = None,
+        star_points: int = 5,
+        inner_radius: float = 0.5,
         effects: list[ShapeEffect] | None = None,
     ) -> Self:
         layer = ShapeLayer(
@@ -193,6 +235,9 @@ class Canvas(ShapesMixin):
             opacity=opacity,
             rotation=rotation,
             align=align,  # type: ignore[arg-type]  # Pydantic validator handles conversion
+            points=points,
+            star_points=star_points,
+            inner_radius=inner_radius,
             effects=effects or [],
         )
         self._layers.append(layer)
@@ -243,6 +288,47 @@ class Canvas(ShapesMixin):
             align=align,  # type: ignore[arg-type]  # Pydantic validator handles conversion
             border_radius=border_radius,
             fit=fit,  # type: ignore[arg-type]  # Pydantic validator handles conversion
+            blend_mode=blend_mode,  # type: ignore[arg-type]  # Pydantic validator handles conversion
+            effects=effects or [],
+        )
+        self._layers.append(layer)
+        return self
+
+    def svg(
+        self,
+        path: str,
+        position: tuple[int, int] | tuple[str, str] | tuple[int, str] | tuple[str, int],
+        width: int | None = None,
+        height: int | None = None,
+        opacity: float = 1.0,
+        rotation: float = 0.0,
+        align: Align | str | tuple[str, str] = Align.TOP_LEFT,
+        effects: list[ImageEffect] | None = None,
+        blend_mode: BlendMode | str | None = None,
+    ) -> Self:
+        """Add an SVG overlay layer, rasterized at render time (requires quickthumb[svg]).
+
+        Args:
+            path: Local file path or URL to the SVG document
+            position: (x, y) position in pixels or percentages
+            width: Output raster width in pixels (preserves aspect ratio if height is None)
+            height: Output raster height in pixels (preserves aspect ratio if width is None)
+            opacity: Layer opacity from 0.0 (transparent) to 1.0 (opaque)
+            rotation: Rotation angle in degrees
+            align: Layer alignment relative to position
+            blend_mode: Blend mode for compositing onto prior layers
+        Returns:
+            Self for method chaining
+        """
+        layer = SvgLayer(
+            type="svg",
+            path=path,
+            position=position,  # Pydantic validator handles conversion
+            width=width,
+            height=height,
+            opacity=opacity,
+            rotation=rotation,
+            align=align,  # type: ignore[arg-type]  # Pydantic validator handles conversion
             blend_mode=blend_mode,  # type: ignore[arg-type]  # Pydantic validator handles conversion
             effects=effects or [],
         )
@@ -302,6 +388,13 @@ class Canvas(ShapesMixin):
         from quickthumb.models import CanvasModel, LayerType
 
         raw = _json.loads(data)
+
+        if isinstance(raw, dict):
+            theme = raw.pop("theme", {})
+            if not isinstance(theme, dict):
+                raise ValidationError("'theme' must be a JSON object of token groups")
+            raw = _resolve_theme_tokens(raw, theme)
+
         layers_raw = raw.get("layers", [])
 
         if not isinstance(layers_raw, list):
@@ -359,6 +452,11 @@ class Canvas(ShapesMixin):
 
         def substitute(match: re.Match) -> str:
             key = match.group(1) or match.group(2)
+            is_theme_ref = (
+                match.group(2) == "theme" and raw_spec[match.end() : match.end() + 1] == "."
+            )
+            if is_theme_ref:
+                return match.group(0)
             if key not in variables:
                 raise ValidationError(
                     f"Template placeholder '${key}' has no matching variable. "
@@ -411,6 +509,8 @@ class Canvas(ShapesMixin):
                 self._render_image_layer(image, layer)
             elif isinstance(layer, ShapeLayer):
                 self._render_shape_layer(image, layer)
+            elif isinstance(layer, SvgLayer):
+                self._render_svg_layer(image, layer)
             elif isinstance(layer, CustomLayer):
                 self._render_custom_layer(image, layer)
 
@@ -467,7 +567,7 @@ class Canvas(ShapesMixin):
             ):
                 raise FileNotFoundError(f"{layer.image}")
             elif (
-                isinstance(layer, ImageLayer)
+                isinstance(layer, (ImageLayer, SvgLayer))
                 and not self._is_url(layer.path)
                 and not os.path.exists(layer.path)
             ):

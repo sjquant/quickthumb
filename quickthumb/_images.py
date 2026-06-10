@@ -5,7 +5,18 @@ from urllib.request import urlopen
 from PIL import Image, ImageDraw, ImageFilter
 
 from quickthumb._effects import EffectsMixin
-from quickthumb.models import Align, Filter, FitMode, Glow, Grain, ImageLayer, Shadow, Stroke
+from quickthumb.errors import RenderingError
+from quickthumb.models import (
+    Align,
+    Filter,
+    FitMode,
+    Glow,
+    Grain,
+    ImageLayer,
+    Shadow,
+    Stroke,
+    SvgLayer,
+)
 
 
 class ImagesMixin(EffectsMixin):
@@ -78,6 +89,38 @@ class ImagesMixin(EffectsMixin):
         if layer.border_radius > 0:
             img = self._apply_border_radius(img, layer.border_radius)
 
+        self._composite_overlay_layer(image, img, layer)
+
+    def _render_svg_layer(self, image: Image.Image, layer: SvgLayer):
+        img = self._rasterize_svg(layer)
+        self._composite_overlay_layer(image, img, layer)
+
+    def _rasterize_svg(self, layer: SvgLayer) -> Image.Image:
+        try:
+            import cairosvg
+        except ImportError:
+            raise RenderingError(
+                "cairosvg is required for SVG layers. "
+                "Install it with: pip install 'quickthumb[svg]'"
+            ) from None
+
+        size_kwargs: dict[str, int] = {}
+        if layer.width:
+            size_kwargs["output_width"] = layer.width
+        if layer.height:
+            size_kwargs["output_height"] = layer.height
+
+        try:
+            png_bytes = cairosvg.svg2png(url=layer.path, **size_kwargs)
+        except Exception as e:
+            raise RenderingError(f"Failed to rasterize SVG '{layer.path}': {e}") from e
+
+        return Image.open(BytesIO(png_bytes)).convert("RGBA")
+
+    def _composite_overlay_layer(
+        self, image: Image.Image, img: Image.Image, layer: ImageLayer | SvgLayer
+    ):
+        """Apply rotation, opacity, alignment, effects, and blending shared by overlay layers."""
         if layer.rotation != 0:
             scale = 4
             large = img.resize((img.width * scale, img.height * scale), Image.Resampling.LANCZOS)

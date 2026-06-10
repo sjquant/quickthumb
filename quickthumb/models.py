@@ -498,7 +498,7 @@ class ImageLayer(quickthumbModel):
 
 class ShapeLayer(quickthumbModel):
     type: Literal["shape"]
-    shape: Literal["rectangle", "ellipse"]
+    shape: Literal["rectangle", "ellipse", "pill", "triangle", "star", "polygon"]
     position: tuple
     width: PositiveInt
     height: PositiveInt
@@ -507,7 +507,46 @@ class ShapeLayer(quickthumbModel):
     opacity: OpacityField = 1.0
     rotation: float = 0.0
     align: AlignWithHVTuple = None
+    points: list[tuple[float, float]] | None = None
+    star_points: int = 5
+    inner_radius: float = 0.5
     effects: list[ShapeEffect] = []
+
+    @field_validator("points")
+    @classmethod
+    def validate_points(
+        cls, v: list[tuple[float, float]] | None
+    ) -> list[tuple[float, float]] | None:
+        if v is None:
+            return v
+        if len(v) < 3:
+            raise ValueError("points must contain at least 3 entries")
+        for x, y in v:
+            if not (0.0 <= x <= 1.0 and 0.0 <= y <= 1.0):
+                raise ValueError("points coordinates must be normalized between 0.0 and 1.0")
+        return v
+
+    @field_validator("star_points")
+    @classmethod
+    def validate_star_points(cls, v: int) -> int:
+        if v < 3:
+            raise ValueError("star_points must be at least 3")
+        return v
+
+    @field_validator("inner_radius")
+    @classmethod
+    def validate_inner_radius(cls, v: float) -> float:
+        if not (0.0 < v < 1.0):
+            raise ValueError("inner_radius must be strictly between 0.0 and 1.0")
+        return v
+
+    @model_validator(mode="after")
+    def validate_points_match_shape(self) -> "ShapeLayer":
+        if self.shape == "polygon" and self.points is None:
+            raise ValidationError("polygon shapes require points")
+        if self.shape != "polygon" and self.points is not None:
+            raise ValidationError("points is only valid for polygon shapes")
+        return self
 
     @field_validator("position", mode="before")
     @classmethod
@@ -534,8 +573,45 @@ class ShapeLayer(quickthumbModel):
         return align.value
 
 
+class SvgLayer(quickthumbModel):
+    type: Literal["svg"]
+    path: str
+    position: tuple
+    width: PositiveInt | None = None
+    height: PositiveInt | None = None
+    opacity: OpacityField = 1.0
+    rotation: float = 0.0
+    align: AlignWithHVTuple = Align.TOP_LEFT
+    blend_mode: Annotated[
+        BlendMode | None, AfterValidator(lambda v: enum_converter(BlendMode)(v) if v else None)
+    ] = None
+    effects: list[ImageEffect] = []
+
+    @field_validator("position", mode="before")
+    @classmethod
+    def validate_position(cls, v: tuple | list | None) -> tuple | None:
+        if v is None:
+            raise ValueError("position is required")
+
+        if not isinstance(v, (tuple, list)) or len(v) != 2:
+            raise ValueError("position must be a tuple of two elements")
+
+        if isinstance(v[0], str) or isinstance(v[1], str):
+            for item in v:
+                if isinstance(item, str):
+                    match = re.fullmatch(r"-?(\d+(\.\d+)?)%", item)
+                    if not match:
+                        raise ValueError(f"invalid percentage format: {item}")
+
+        return tuple(v)
+
+    @field_serializer("align")
+    def serialize_align(self, align: Align) -> str:
+        return align.value
+
+
 LayerType = Annotated[
-    BackgroundLayer | TextLayer | OutlineLayer | ImageLayer | ShapeLayer,
+    BackgroundLayer | TextLayer | OutlineLayer | ImageLayer | ShapeLayer | SvgLayer,
     Discriminator("type"),
 ]
 

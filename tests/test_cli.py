@@ -335,3 +335,31 @@ class TestCLIRender:
                 assert result.exit_code == 0
         finally:
             os.unlink(spec_path)
+
+    def test_should_render_spec_with_theme_tokens(self):
+        """Theme token references are left for from_json and do not trip the unresolved-var check"""
+        # Given: a themed spec with $theme references and no --var flags
+        from quickthumb.cli import app
+
+        themed_spec = json.dumps(
+            {
+                "width": 100,
+                "height": 100,
+                "theme": {"colors": {"bg": "#FF0000"}},
+                "layers": [{"type": "background", "color": "$theme.colors.bg"}],
+            }
+        )
+        runner = CliRunner()
+        with tempfile.NamedTemporaryFile(suffix=".json", mode="w", delete=False) as f:
+            f.write(themed_spec)
+            spec_path = f.name
+
+        # When: the user renders the themed spec with an unrelated --var present
+        try:
+            with runner.isolated_filesystem():
+                result = runner.invoke(app, ["render", spec_path, "--var", "unused=1"])
+
+                # Then: the theme resolves and the image renders successfully
+                assert result.exit_code == 0
+        finally:
+            os.unlink(spec_path)
