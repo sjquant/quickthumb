@@ -80,8 +80,8 @@
 - [DONE] Theme tokens: top-level `"theme"` block in JSON specs with `$theme.path.to.token` references resolved in `Canvas.from_json`
 - [DONE] New shape primitives: `pill`, `triangle`, `star`, and `polygon` (normalized `points`) on shape layers
 - [DONE] SVG layer: `canvas.svg(path, ...)` + `"type": "svg"` JSON layer, rasterized via optional `quickthumb[svg]` (cairosvg) extra
-- [TODO] Layout engine: `group` layer with `direction` (row/column), `gap`, `padding`, `align`/`item_align`, nested groups; children auto-positioned
-- [TODO] Diagnostics: `canvas.diagnose()` returning structured findings (off-canvas, text overflow, low contrast, tiny text) + `quickthumb lint` CLI subcommand
+- [DONE] Layout engine: `group` layer with `direction` (row/column), `gap`, `padding`, `align`/`item_align`, nested groups; children auto-positioned
+- [DONE] Diagnostics: `canvas.diagnose()` returning structured findings (off-canvas, text overflow, low contrast, tiny text) + `quickthumb lint` CLI subcommand
 - [TODO] Docs: README + feature matrix updates for the capability epic
 
 ### P3 — Lower Priority

@@ -94,6 +94,64 @@ def render(
     typer.echo(str(output))
 
 
+@app.command()
+def lint(
+    spec: Annotated[Path, typer.Argument(help="Path to a JSON spec file")],
+    var: Annotated[
+        list[str] | None,
+        typer.Option("--var", help="Variable substitution as KEY=VALUE"),
+    ] = None,
+) -> None:
+    """Check a JSON spec for layout and legibility issues without rendering a file.
+
+    Exit codes: 0 no issues, 1 invalid spec, 2 rendering failure, 3 issues found.
+    """
+    try:
+        text = spec.read_text()
+    except (FileNotFoundError, PermissionError) as e:
+        typer.echo(str(e), err=True)
+        raise typer.Exit(1) from e
+
+    if var:
+        variables: dict[str, str] = {}
+        for item in var:
+            key, sep, value = item.partition("=")
+            if not sep:
+                typer.echo(f"Invalid --var '{item}': expected KEY=VALUE format.", err=True)
+                raise typer.Exit(1)
+            variables[key] = value
+        try:
+            text = _substitute_vars(text, variables)
+        except ValidationError as e:
+            typer.echo(str(e), err=True)
+            raise typer.Exit(1) from e
+
+    try:
+        canvas = Canvas.from_json(text)
+    except (json.JSONDecodeError, ValidationError) as e:
+        typer.echo(str(e), err=True)
+        raise typer.Exit(1) from e
+
+    try:
+        diagnostics = canvas.diagnose()
+    except FileNotFoundError as e:
+        typer.echo(f"Referenced file not found: {e}", err=True)
+        raise typer.Exit(1) from e
+    except (RenderingError, OSError) as e:
+        typer.echo(str(e), err=True)
+        raise typer.Exit(2) from e
+
+    if not diagnostics:
+        typer.echo("No issues found.")
+        return
+
+    for finding in diagnostics:
+        typer.echo(
+            f"[{finding.severity}] layer {finding.layer_index}: {finding.code} — {finding.message}"
+        )
+    raise typer.Exit(3)
+
+
 def _is_theme_reference(match: re.Match) -> bool:
     """$theme.* references are resolved later by Canvas.from_json, not by --var."""
     return match.group(2) == "theme" and match.string[match.end() : match.end() + 1] == "."

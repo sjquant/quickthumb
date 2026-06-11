@@ -363,3 +363,76 @@ class TestCLIRender:
                 assert result.exit_code == 0
         finally:
             os.unlink(spec_path)
+
+
+class TestCLILint:
+    """Test suite for the quickthumb lint subcommand"""
+
+    def _write_spec(self, spec: dict) -> str:
+        with tempfile.NamedTemporaryFile(suffix=".json", mode="w", delete=False) as f:
+            f.write(json.dumps(spec))
+        return f.name
+
+    def test_should_exit_0_for_clean_spec(self, spec_file):
+        """lint exits 0 and reports no issues for a clean spec"""
+        from quickthumb.cli import app
+
+        # when: linting a plain background-only spec
+        result = CliRunner().invoke(app, ["lint", spec_file])
+
+        # then
+        assert result.exit_code == 0
+        assert "No issues found" in result.output
+
+    def test_should_exit_3_and_list_findings(self):
+        """lint exits 3 and prints each finding when diagnostics are reported"""
+        from quickthumb.cli import app
+
+        # given: a spec with a shape fully outside the canvas
+        spec_path = self._write_spec(
+            {
+                "width": 100,
+                "height": 100,
+                "layers": [
+                    {"type": "background", "color": "#FFFFFF"},
+                    {
+                        "type": "shape",
+                        "shape": "rectangle",
+                        "position": [300, 300],
+                        "width": 50,
+                        "height": 50,
+                        "color": "#FF0000",
+                    },
+                ],
+            }
+        )
+
+        # when
+        try:
+            result = CliRunner().invoke(app, ["lint", spec_path])
+        finally:
+            os.unlink(spec_path)
+
+        # then: findings are listed with code, severity, and layer index
+        assert result.exit_code == 3
+        assert "off-canvas" in result.output
+        assert "error" in result.output
+        assert "layer 1" in result.output
+
+    def test_should_exit_1_for_invalid_spec(self):
+        """lint exits 1 for specs that fail validation"""
+        from quickthumb.cli import app
+
+        # given: a spec with an invalid layer type
+        spec_path = self._write_spec(
+            {"width": 100, "height": 100, "layers": [{"type": "nope"}]}
+        )
+
+        # when
+        try:
+            result = CliRunner().invoke(app, ["lint", spec_path])
+        finally:
+            os.unlink(spec_path)
+
+        # then
+        assert result.exit_code == 1

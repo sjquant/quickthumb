@@ -18,3 +18,13 @@ class CanvasBase:
 
     width: int
     height: int
+    _layers: list
+
+    def _render_layer(self, image, layer):  # pragma: no cover - implemented by Canvas
+        raise NotImplementedError
+
+    def _validate_image_paths(self):  # pragma: no cover - implemented by Canvas
+        raise NotImplementedError
+
+    def _create_canvas(self):  # pragma: no cover - implemented by Canvas
+        raise NotImplementedError

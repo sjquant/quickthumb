@@ -610,8 +610,100 @@ class SvgLayer(quickthumbModel):
         return align.value
 
 
+class GroupLayer(quickthumbModel):
+    type: Literal["group"]
+    direction: Literal["row", "column"] = "column"
+    gap: NonNegativeInt = 0
+    padding: int | tuple[int, int] | tuple[int, int, int, int] = 0
+    position: tuple | None = None
+    align: AlignWithHVTuple = None
+    item_align: Literal["start", "center", "end"] = "start"
+    children: list["GroupChild"]
+
+    @field_validator("children", mode="before")
+    @classmethod
+    def validate_children(cls, v: Any) -> Any:
+        if not isinstance(v, list) or len(v) == 0:
+            raise ValueError("children must be a non-empty list of layers")
+
+        prepared = []
+        for child in v:
+            if isinstance(child, dict):
+                position = child.get("position")
+                if position is not None and tuple(position) != (0, 0):
+                    raise ValueError(
+                        "group children must not set position; the group assigns positions"
+                    )
+                if child.get("type") in ("image", "svg", "shape"):
+                    child = {**child, "position": (0, 0)}
+            elif getattr(child, "position", None) not in (None, (0, 0)):
+                raise ValueError(
+                    "group children must not set position; the group assigns positions"
+                )
+            prepared.append(child)
+        return prepared
+
+    @field_validator("padding")
+    @classmethod
+    def validate_padding(
+        cls, v: int | tuple[int, int] | tuple[int, int, int, int]
+    ) -> int | tuple[int, int] | tuple[int, int, int, int]:
+        if isinstance(v, int):
+            if v < 0:
+                raise ValueError("padding cannot be negative")
+            return v
+
+        if isinstance(v, tuple):
+            if len(v) not in (2, 4):
+                raise ValueError("padding tuple must have 2 or 4 elements")
+            for val in v:
+                if val < 0:
+                    raise ValueError("padding values cannot be negative")
+
+        return v
+
+    @field_validator("position", mode="before")
+    @classmethod
+    def validate_position(cls, v: tuple | list | None) -> tuple | None:
+        if v is None:
+            return v
+
+        if not isinstance(v, (tuple, list)) or len(v) != 2:
+            raise ValueError("position must be a tuple of two elements")
+
+        if isinstance(v[0], str) or isinstance(v[1], str):
+            for item in v:
+                if isinstance(item, str):
+                    match = re.fullmatch(r"-?(\d+(\.\d+)?)%", item)
+                    if not match:
+                        raise ValueError(f"invalid percentage format: {item}")
+
+        return tuple(v)
+
+    @field_serializer("align")
+    def serialize_align(self, align: Align | None) -> str | None:
+        if align is None:
+            return None
+        return align.value
+
+
+GroupChild = Annotated[
+    TextLayer | ImageLayer | ShapeLayer | SvgLayer | GroupLayer,
+    Discriminator("type"),
+]
+
+GroupLayer.model_rebuild()
+
+
+class Diagnostic(quickthumbModel):
+    code: Literal["off-canvas", "tiny-text", "text-overflow", "low-contrast"]
+    severity: Literal["warning", "error"]
+    layer_index: int
+    message: str
+
+
 LayerType = Annotated[
-    BackgroundLayer | TextLayer | OutlineLayer | ImageLayer | ShapeLayer | SvgLayer,
+    BackgroundLayer | TextLayer | OutlineLayer | ImageLayer | ShapeLayer | SvgLayer | GroupLayer,
     Discriminator("type"),
 ]
 

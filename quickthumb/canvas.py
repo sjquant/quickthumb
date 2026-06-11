@@ -9,7 +9,7 @@ from PIL import Image, ImageDraw
 from typing_extensions import Self
 
 from quickthumb._base import FileFormat
-from quickthumb._shapes import ShapesMixin
+from quickthumb._diagnostics import DiagnosticsMixin
 from quickthumb.errors import RenderingError, ValidationError
 from quickthumb.models import (
     Align,
@@ -18,6 +18,7 @@ from quickthumb.models import (
     BlendMode,
     FitMode,
     Grain,
+    GroupLayer,
     ImageEffect,
     ImageLayer,
     LayerType,
@@ -80,7 +81,7 @@ def _resolve_theme_tokens(value, theme: dict):
     return value
 
 
-class Canvas(ShapesMixin):
+class Canvas(DiagnosticsMixin):
     _custom_layer_registry: dict[str, Callable[..., Image.Image | None]] = {}
     _template_registry: dict[str, str] = {}
 
@@ -335,6 +336,48 @@ class Canvas(ShapesMixin):
         self._layers.append(layer)
         return self
 
+    def group(
+        self,
+        children: list,
+        direction: Literal["row", "column"] = "column",
+        gap: int = 0,
+        padding: int | tuple[int, int] | tuple[int, int, int, int] = 0,
+        position: (
+            tuple[int, int] | tuple[str, str] | tuple[int, str] | tuple[str, int] | None
+        ) = None,
+        align: Align | str | tuple[str, str] | None = None,
+        item_align: Literal["start", "center", "end"] = "start",
+    ) -> Self:
+        """Add an auto-layout group that stacks child layers along a row or column.
+
+        Children are measured at their natural size and positioned by the group:
+        they must not set their own position. Children may be dicts or layer models
+        of type text, image, shape, svg, or nested group.
+
+        Args:
+            children: Child layer dicts or models, in stacking order
+            direction: Main axis: "column" stacks top-to-bottom, "row" left-to-right
+            gap: Pixels between adjacent children along the main axis
+            padding: Inner padding (int, (vertical, horizontal), or (top, right, bottom, left))
+            position: Anchor point of the group box in pixels or percentages
+            align: How the group box anchors to position (like image layers)
+            item_align: Cross-axis placement of each child: "start", "center", or "end"
+        Returns:
+            Self for method chaining
+        """
+        layer = GroupLayer(
+            type="group",
+            direction=direction,
+            gap=gap,
+            padding=padding,
+            position=position,  # Pydantic validator handles conversion
+            align=align,  # type: ignore[arg-type]  # Pydantic validator handles conversion
+            item_align=item_align,
+            children=children,
+        )
+        self._layers.append(layer)
+        return self
+
     def custom(
         self,
         fn: Callable[..., Image.Image | None],
@@ -499,22 +542,27 @@ class Canvas(ShapesMixin):
         image = self._create_canvas()
 
         for layer in self._layers:
-            if isinstance(layer, BackgroundLayer):
-                self._render_background_layer(image, layer)
-            elif isinstance(layer, TextLayer):
-                self._render_text_layer(image, layer)
-            elif isinstance(layer, OutlineLayer):
-                self._render_outline_layer(image, layer)
-            elif isinstance(layer, ImageLayer):
-                self._render_image_layer(image, layer)
-            elif isinstance(layer, ShapeLayer):
-                self._render_shape_layer(image, layer)
-            elif isinstance(layer, SvgLayer):
-                self._render_svg_layer(image, layer)
-            elif isinstance(layer, CustomLayer):
-                self._render_custom_layer(image, layer)
+            self._render_layer(image, layer)
 
         return image
+
+    def _render_layer(self, image: Image.Image, layer: RenderableLayer):
+        if isinstance(layer, BackgroundLayer):
+            self._render_background_layer(image, layer)
+        elif isinstance(layer, TextLayer):
+            self._render_text_layer(image, layer)
+        elif isinstance(layer, OutlineLayer):
+            self._render_outline_layer(image, layer)
+        elif isinstance(layer, ImageLayer):
+            self._render_image_layer(image, layer)
+        elif isinstance(layer, ShapeLayer):
+            self._render_shape_layer(image, layer)
+        elif isinstance(layer, SvgLayer):
+            self._render_svg_layer(image, layer)
+        elif isinstance(layer, GroupLayer):
+            self._render_group_layer(image, layer)
+        elif isinstance(layer, CustomLayer):
+            self._render_custom_layer(image, layer)
 
     def _render_custom_layer(self, image: Image.Image, layer: CustomLayer):
         try:
@@ -557,8 +605,19 @@ class Canvas(ShapesMixin):
             f"Quality parameter is only supported for JPEG and WEBP formats, not {file_format}."
         )
 
+    def _iter_layers_deep(self):
+        """Yield all layers including group children, depth-first."""
+
+        def walk(layers):
+            for layer in layers:
+                yield layer
+                if isinstance(layer, GroupLayer):
+                    yield from walk(layer.children)
+
+        yield from walk(self._layers)
+
     def _validate_image_paths(self):
-        for layer in self._layers:
+        for layer in self._iter_layers_deep():
             if (
                 isinstance(layer, BackgroundLayer)
                 and layer.image

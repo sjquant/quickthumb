@@ -139,7 +139,7 @@ class TestSvgRendering:
             canvas.render(str(tmp_path / "out.png"))
 
     def test_should_raise_helpful_error_when_cairosvg_missing(self, monkeypatch):
-        """Rendering an svg layer without cairosvg installed raises RenderingError with install hint"""
+        """Rendering an svg layer without cairosvg raises RenderingError with install hint"""
         from quickthumb import Canvas
 
         # given: cairosvg cannot be imported
@@ -147,6 +147,8 @@ class TestSvgRendering:
         canvas = Canvas(100, 100).svg(path=FIXTURE_SVG, position=(0, 0), width=50)
 
         # when / then
-        with tempfile.TemporaryDirectory() as tmpdir:
-            with pytest.raises(RenderingError, match="quickthumb\\[svg\\]"):
-                canvas.render(os.path.join(tmpdir, "out.png"))
+        with (
+            tempfile.TemporaryDirectory() as tmpdir,
+            pytest.raises(RenderingError, match="quickthumb\\[svg\\]"),
+        ):
+            canvas.render(os.path.join(tmpdir, "out.png"))

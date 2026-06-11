@@ -3013,3 +3013,51 @@ class TestSvgLayerRendering:
 
             with open(output_path, "rb") as f:
                 assert f.read() == external_file("snapshots/svg_layer.png")
+
+
+class TestGroupLayerRendering:
+    """Snapshot tests for group-based auto layout"""
+
+    def test_snapshot_group_thumbnail_layout(self):
+        """Snapshot test for a thumbnail composed with a column group of text and shapes"""
+        from quickthumb import Canvas
+
+        canvas = (
+            Canvas(640, 360)
+            .background(color="#16213E")
+            .group(
+                children=[
+                    {
+                        "type": "shape",
+                        "shape": "pill",
+                        "width": 120,
+                        "height": 36,
+                        "color": "#E94560",
+                    },
+                    {
+                        "type": "text",
+                        "content": "AUTO LAYOUT",
+                        "size": 56,
+                        "color": "#FFFFFF",
+                        "weight": 700,
+                    },
+                    {
+                        "type": "text",
+                        "content": "No coordinates were harmed",
+                        "size": 24,
+                        "color": "#A2A8D3",
+                    },
+                ],
+                direction="column",
+                gap=16,
+                position=("8%", "50%"),
+                align=("left", "middle"),
+            )
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/group_thumbnail_layout.png")
