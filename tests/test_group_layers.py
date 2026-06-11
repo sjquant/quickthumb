@@ -167,7 +167,7 @@ class TestCanvasGroupAPI:
             ({"item_align": "middle"}, "item_align"),
             ({"children": [{"type": "background", "color": "#000000"}]}, "background"),
             ({"children": [{"type": "outline", "width": 2, "color": "#000000"}]}, "outline"),
-            ({"children": [dict(RED, position=5)]}, "position"),
+            ({"children": [dict(RED, position=5)]}, "must not set position"),
         ],
     )
     def test_should_reject_invalid_group_parameters(self, overrides, error_pattern):

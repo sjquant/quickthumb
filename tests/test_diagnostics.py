@@ -171,6 +171,27 @@ class TestDiagnoseText:
         assert [d.code for d in diagnostics] == ["tiny-text"]
         assert diagnostics[0].severity == "warning"
 
+    def test_should_not_warn_for_rich_text_parts_inheriting_a_readable_layer_size(self):
+        """Size-less parts inherit the layer size, so a 40px layer is not flagged"""
+        from quickthumb import Canvas
+
+        # given: rich text whose parts set no size of their own (effective size is 40px)
+        canvas = (
+            Canvas(1280, 720)
+            .background(color="#FFFFFF")
+            .text(
+                [
+                    {"text": "headline ", "color": "#000000"},
+                    {"text": "subhead", "color": "#333333"},
+                ],
+                size=40,
+                position=(10, 10),
+            )
+        )
+
+        # when / then
+        assert canvas.diagnose() == []
+
     def test_should_warn_when_a_rich_text_word_exceeds_max_width(self):
         """An unbreakable word inside a rich-text part is flagged like plain-text overflow"""
         from quickthumb import Canvas
@@ -193,12 +214,11 @@ class TestDiagnoseText:
         # when
         diagnostics = canvas.diagnose()
 
-        # then: the overflow finding names the offending word
-        overflow = [d for d in diagnostics if d.code == "text-overflow"]
-        assert len(overflow) == 1
-        assert overflow[0].severity == "warning"
-        assert overflow[0].layer_index == 1
-        assert "Supercalifragilisticexpialidocious" in overflow[0].message
+        # then: one overflow finding naming the word, plus the off-canvas warning it causes
+        assert [d.code for d in diagnostics] == ["text-overflow", "off-canvas"]
+        assert diagnostics[0].severity == "warning"
+        assert diagnostics[0].layer_index == 1
+        assert "Supercalifragilisticexpialidocious" in diagnostics[0].message
 
     def test_should_warn_when_a_word_exceeds_max_width(self):
         """A single word wider than max_width cannot wrap and is flagged"""

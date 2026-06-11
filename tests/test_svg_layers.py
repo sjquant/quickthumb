@@ -130,7 +130,7 @@ class TestSvgRendering:
         assert img.getpixel((75, 75)) == (255, 255, 255, 255)
 
     def test_should_rasterize_group_svg_child_once_per_render(self, monkeypatch, tmp_path):
-        """An auto-sized svg group child is rasterized once, not separately for measure and draw"""
+        """An auto-sized svg group child is rasterized once per render pass, and still drawn"""
         cairosvg = pytest.importorskip("cairosvg")
         from quickthumb import Canvas
 
@@ -155,10 +155,19 @@ class TestSvgRendering:
         )
 
         # when
-        canvas.render(str(tmp_path / "out.png"))
+        output_path = str(tmp_path / "out.png")
+        canvas.render(output_path)
+
+        # then: a single rasterization that actually reaches the canvas
+        assert len(calls) == 1
+        img = Image.open(output_path).convert("RGBA")
+        assert img.getpixel((25, 25)) != (255, 255, 255, 255)
+
+        # when: rendering again — the cache must not outlive a render pass (stale-file risk)
+        canvas.render(output_path)
 
         # then
-        assert len(calls) == 1
+        assert len(calls) == 2
 
     def test_should_raise_for_missing_svg_file(self, tmp_path):
         """Rendering a canvas referencing a missing local svg path raises FileNotFoundError"""
