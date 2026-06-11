@@ -96,6 +96,14 @@ class ImagesMixin(EffectsMixin):
         self._composite_overlay_layer(image, img, layer)
 
     def _rasterize_svg(self, layer: SvgLayer) -> Image.Image:
+        """Rasterize an SVG layer, reusing the result for identical path/size within a render."""
+        key = (layer.path, layer.width, layer.height)
+        cached = self._svg_raster_cache.get(key)
+        if cached is None:
+            cached = self._svg_raster_cache[key] = self._rasterize_svg_uncached(layer)
+        return cached.copy()
+
+    def _rasterize_svg_uncached(self, layer: SvgLayer) -> Image.Image:
         try:
             import cairosvg
         except ImportError:

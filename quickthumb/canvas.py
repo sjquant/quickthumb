@@ -112,6 +112,7 @@ class Canvas(DiagnosticsMixin):
         self.width = width
         self.height = height
         self._layers: list[RenderableLayer] = layers or []
+        self._svg_raster_cache: dict = {}
 
     @property
     def layers(self) -> list[RenderableLayer]:
@@ -398,6 +399,7 @@ class Canvas(DiagnosticsMixin):
         quality: int | None = None,
     ):
         self._validate_image_paths()
+        self._svg_raster_cache.clear()
         image = self._render_to_image()
         self._save_to_file(image, output_path, quality, format=format)
 

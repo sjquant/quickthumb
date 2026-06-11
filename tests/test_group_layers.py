@@ -81,10 +81,7 @@ class TestCanvasGroupAPI:
                 "direction": "column",
                 "gap": 16,
                 "padding": 0,
-                "position": [
-                    "8%",
-                    "50%"
-                ],
+                "position": ["8%", "50%"],
                 "align": "left",
                 "item_align": "start",
                 "children": [
@@ -106,7 +103,7 @@ class TestCanvasGroupAPI:
                         "letter_spacing": None,
                         "auto_scale": False,
                         "rotation": 0.0,
-                        "opacity": 1.0
+                        "opacity": 1.0,
                     },
                     {
                         "type": "group",
@@ -120,10 +117,7 @@ class TestCanvasGroupAPI:
                             {
                                 "type": "shape",
                                 "shape": "rectangle",
-                                "position": [
-                                    0,
-                                    0
-                                ],
+                                "position": [0, 0],
                                 "width": 50,
                                 "height": 20,
                                 "color": "#FF0000",
@@ -134,15 +128,12 @@ class TestCanvasGroupAPI:
                                 "points": None,
                                 "star_points": 5,
                                 "inner_radius": 0.5,
-                                "effects": []
+                                "effects": [],
                             },
                             {
                                 "type": "shape",
                                 "shape": "rectangle",
-                                "position": [
-                                    0,
-                                    0
-                                ],
+                                "position": [0, 0],
                                 "width": 30,
                                 "height": 40,
                                 "color": "#0000FF",
@@ -153,11 +144,11 @@ class TestCanvasGroupAPI:
                                 "points": None,
                                 "star_points": 5,
                                 "inner_radius": 0.5,
-                                "effects": []
-                            }
-                        ]
-                    }
-                ]
+                                "effects": [],
+                            },
+                        ],
+                    },
+                ],
             }
         )
         assert data["layers"][0]["children"][1]["type"] == "group"
@@ -176,6 +167,7 @@ class TestCanvasGroupAPI:
             ({"item_align": "middle"}, "item_align"),
             ({"children": [{"type": "background", "color": "#000000"}]}, "background"),
             ({"children": [{"type": "outline", "width": 2, "color": "#000000"}]}, "outline"),
+            ({"children": [dict(RED, position=5)]}, "position"),
         ],
     )
     def test_should_reject_invalid_group_parameters(self, overrides, error_pattern):

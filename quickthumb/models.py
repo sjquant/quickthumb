@@ -630,7 +630,9 @@ class GroupLayer(quickthumbModel):
         for child in v:
             if isinstance(child, dict):
                 position = child.get("position")
-                if position is not None and tuple(position) != (0, 0):
+                if position is not None and (
+                    not isinstance(position, (list, tuple)) or tuple(position) != (0, 0)
+                ):
                     raise ValueError(
                         "group children must not set position; the group assigns positions"
                     )

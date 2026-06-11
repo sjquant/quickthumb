@@ -129,6 +129,37 @@ class TestSvgRendering:
         assert img.getpixel((55, 25)) == (255, 255, 255, 255)
         assert img.getpixel((75, 75)) == (255, 255, 255, 255)
 
+    def test_should_rasterize_group_svg_child_once_per_render(self, monkeypatch, tmp_path):
+        """An auto-sized svg group child is rasterized once, not separately for measure and draw"""
+        cairosvg = pytest.importorskip("cairosvg")
+        from quickthumb import Canvas
+
+        # given: cairosvg call counting at the library boundary
+        calls = []
+        original_svg2png = cairosvg.svg2png
+
+        def counting_svg2png(*args, **kwargs):
+            calls.append(kwargs)
+            return original_svg2png(*args, **kwargs)
+
+        monkeypatch.setattr(cairosvg, "svg2png", counting_svg2png)
+
+        # given: a group whose svg child needs rasterization to be measured (height omitted)
+        canvas = (
+            Canvas(200, 200)
+            .background(color="#FFFFFF")
+            .group(
+                children=[{"type": "svg", "path": FIXTURE_SVG, "width": 50}],
+                position=(0, 0),
+            )
+        )
+
+        # when
+        canvas.render(str(tmp_path / "out.png"))
+
+        # then
+        assert len(calls) == 1
+
     def test_should_raise_for_missing_svg_file(self, tmp_path):
         """Rendering a canvas referencing a missing local svg path raises FileNotFoundError"""
         from quickthumb import Canvas

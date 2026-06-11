@@ -19,6 +19,7 @@ class CanvasBase:
     width: int
     height: int
     _layers: list
+    _svg_raster_cache: dict
 
     def _render_layer(self, image, layer):  # pragma: no cover - implemented by Canvas
         raise NotImplementedError

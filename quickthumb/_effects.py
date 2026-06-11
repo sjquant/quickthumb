@@ -35,6 +35,8 @@ class EffectsMixin(CanvasBase):
         if opacity == 1.0:
             return image
 
+        if image.mode != "RGBA":
+            image = image.convert("RGBA")
         alpha = image.split()[3]
         alpha = alpha.point(lambda x: int(x * opacity))
         image.putalpha(alpha)
@@ -180,6 +182,8 @@ class EffectsMixin(CanvasBase):
             if len(parsed_color) == 3:
                 parsed_color = (*parsed_color, 255)
             parsed_stops.append((parsed_color, pos))
+
+        parsed_stops.sort(key=lambda stop: stop[1])
 
         for i in range(256):
             pos = i / 255.0

@@ -39,6 +39,7 @@ class DiagnosticsMixin(GroupsMixin):
         that an agent or human can act on before rendering.
         """
         self._validate_image_paths()
+        self._svg_raster_cache.clear()
 
         diagnostics: list[Diagnostic] = []
         running = self._create_canvas()
@@ -114,7 +115,10 @@ class DiagnosticsMixin(GroupsMixin):
     ) -> list[Diagnostic]:
         findings: list[Diagnostic] = []
 
-        size = layer.size or DEFAULT_TEXT_SIZE
+        if isinstance(layer.content, list):
+            size = min(self._resolve_size(part, layer) for part in layer.content)
+        else:
+            size = layer.size or DEFAULT_TEXT_SIZE
         tiny_threshold = self.height * TINY_TEXT_RATIO
         if size < tiny_threshold:
             findings.append(
@@ -161,13 +165,37 @@ class DiagnosticsMixin(GroupsMixin):
         return findings
 
     def _find_overflowing_word(self, layer: TextLayer) -> str | None:
-        if not layer.max_width or not isinstance(layer.content, str):
+        if not layer.max_width:
             return None
 
         max_width_px = self._parse_coordinate(layer.max_width, self.width)
-        font = self._load_font(layer)
-        for word in layer.content.split():
-            width, _ = self._measure_text_bounds(word, font, layer.letter_spacing or 0)
+
+        if isinstance(layer.content, str):
+            font = self._load_font(layer)
+            return self._first_word_wider_than(
+                layer.content, font, layer.letter_spacing or 0, max_width_px
+            )
+
+        for part in layer.content:
+            font = self._load_font_variant(
+                part.font or layer.font,
+                self._resolve_size(part, layer),
+                self._resolve_bold(part, layer),
+                self._resolve_italic(part, layer),
+                self._resolve_weight(part, layer),
+            )
+            word = self._first_word_wider_than(
+                part.text, font, self._resolve_letter_spacing(part, layer), max_width_px
+            )
+            if word is not None:
+                return word
+        return None
+
+    def _first_word_wider_than(
+        self, text: str, font, letter_spacing: int, max_width_px: int
+    ) -> str | None:
+        for word in text.split():
+            width, _ = self._measure_text_bounds(word, font, letter_spacing)
             if width > max_width_px:
                 return word
         return None

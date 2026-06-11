@@ -166,6 +166,32 @@ class TestBackgroundLayers:
         with pytest.raises(FileNotFoundError, match="nonexistent.jpg"):
             canvas.render("output.png")
 
+    def test_should_normalize_out_of_order_gradient_stops(self):
+        """Gradient stops listed out of position order render the same as ascending stops"""
+        import os
+        import tempfile
+
+        from quickthumb import Canvas, LinearGradient
+
+        # given: the same two-stop gradient declared in ascending and descending stop order
+        ascending = Canvas(200, 100).background(
+            gradient=LinearGradient(angle=0, stops=[("#FF0000", 0.0), ("#0000FF", 1.0)])
+        )
+        descending = Canvas(200, 100).background(
+            gradient=LinearGradient(angle=0, stops=[("#0000FF", 1.0), ("#FF0000", 0.0)])
+        )
+
+        # when
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path_a = os.path.join(tmpdir, "ascending.png")
+            path_b = os.path.join(tmpdir, "descending.png")
+            ascending.render(path_a)
+            descending.render(path_b)
+
+            # then: byte-identical output, i.e. descending stops still produce a real gradient
+            with open(path_a, "rb") as fa, open(path_b, "rb") as fb:
+                assert fa.read() == fb.read()
+
     def test_should_add_radial_gradient_background_with_default_center(self):
         """Test that radial gradient can be added with default center position (0.5, 0.5)"""
         # Given: Canvas and RadialGradient with default center

@@ -1105,9 +1105,7 @@ class TextMixin(FontsMixin):
         """Rotate temporary text image and composite onto main canvas with alignment."""
         rotated = temp_image.rotate(-layer.rotation, expand=True, resample=Image.Resampling.BICUBIC)
 
-        raw_x, raw_y = layer.position if layer.position else (0, 0)
-        base_x = self._parse_coordinate(raw_x, self.width)
-        base_y = self._parse_coordinate(raw_y, self.height)
+        base_x, base_y = self._get_text_base_position(layer)
 
         if layer.align:
             base_x, base_y = self._apply_image_alignment(base_x, base_y, rotated.size, layer.align)

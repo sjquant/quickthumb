@@ -146,6 +146,60 @@ class TestDiagnoseText:
         # when / then
         assert canvas.diagnose() == []
 
+    def test_should_warn_for_tiny_rich_text_parts(self):
+        """Rich text is flagged when any part's effective size falls below the threshold"""
+        from quickthumb import Canvas
+
+        # given: a 40px rich-text layer where one part overrides down to 14px (threshold 18px)
+        canvas = (
+            Canvas(1280, 720)
+            .background(color="#FFFFFF")
+            .text(
+                [
+                    {"text": "headline ", "color": "#000000"},
+                    {"text": "fine print", "size": 14, "color": "#000000"},
+                ],
+                size=40,
+                position=(10, 10),
+            )
+        )
+
+        # when
+        diagnostics = canvas.diagnose()
+
+        # then
+        assert [d.code for d in diagnostics] == ["tiny-text"]
+        assert diagnostics[0].severity == "warning"
+
+    def test_should_warn_when_a_rich_text_word_exceeds_max_width(self):
+        """An unbreakable word inside a rich-text part is flagged like plain-text overflow"""
+        from quickthumb import Canvas
+
+        # given: a rich-text part containing an unbreakable long word in a 60px column
+        canvas = (
+            Canvas(400, 300)
+            .background(color="#FFFFFF")
+            .text(
+                [
+                    {"text": "try ", "color": "#000000"},
+                    {"text": "Supercalifragilisticexpialidocious", "color": "#000000"},
+                ],
+                size=40,
+                position=(10, 10),
+                max_width=60,
+            )
+        )
+
+        # when
+        diagnostics = canvas.diagnose()
+
+        # then: the overflow finding names the offending word
+        overflow = [d for d in diagnostics if d.code == "text-overflow"]
+        assert len(overflow) == 1
+        assert overflow[0].severity == "warning"
+        assert overflow[0].layer_index == 1
+        assert "Supercalifragilisticexpialidocious" in overflow[0].message
+
     def test_should_warn_when_a_word_exceeds_max_width(self):
         """A single word wider than max_width cannot wrap and is flagged"""
         from quickthumb import Canvas

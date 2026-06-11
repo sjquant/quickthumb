@@ -1001,6 +1001,35 @@ class TestTextRotation:
             type="text", content="Test", size=48, rotation=rotation
         )
 
+    def test_should_anchor_rotated_text_with_align_when_position_omitted(self, tmp_path):
+        """Rotated text with align but no position anchors at the alignment point"""
+        from quickthumb import Canvas
+
+        # given: identical rotated text, once anchored by align alone, once by the
+        # explicit position that align=("center", "middle") implies
+        def build(**position_kwargs):
+            return (
+                Canvas(400, 400)
+                .background(color="#FFFFFF")
+                .text(
+                    "ANCHOR",
+                    size=48,
+                    color="#000000",
+                    align=("center", "middle"),
+                    rotation=45,
+                    **position_kwargs,
+                )
+            )
+
+        # when
+        implicit_path = tmp_path / "implicit.png"
+        explicit_path = tmp_path / "explicit.png"
+        build().render(str(implicit_path))
+        build(position=("50%", "50%")).render(str(explicit_path))
+
+        # then: both renders are byte-identical
+        assert implicit_path.read_bytes() == explicit_path.read_bytes()
+
     def test_should_serialize_rotation_to_json(self):
         """Test that rotation field is included in JSON serialization"""
         from quickthumb import Canvas
