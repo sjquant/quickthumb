@@ -4,7 +4,8 @@ from urllib.request import urlopen
 
 from PIL import Image, ImageDraw, ImageFilter
 
-from quickthumb._effects import EffectsMixin
+from quickthumb._base import RenderContext, apply_alignment, is_url, parse_coordinate
+from quickthumb._effects import EffectsEngine
 from quickthumb.errors import RenderingError
 from quickthumb.models import (
     Align,
@@ -19,29 +20,22 @@ from quickthumb.models import (
 )
 
 
-class ImagesMixin(EffectsMixin):
-    def _parse_coordinate(self, value: int | str, dimension: int) -> int:
-        if isinstance(value, int):
-            return value
+class ImageEngine:
+    """Raster and SVG overlay loading, sizing, effects, and compositing."""
 
-        percentage = float(value.rstrip("%"))
-        return int(dimension * percentage / 100)
+    def __init__(self, ctx: RenderContext, effects: EffectsEngine):
+        self._ctx = ctx
+        self._effects = effects
 
-    def _is_url(self, path: str) -> bool:
-        return path.startswith("http://") or path.startswith("https://")
-
-    def _load_image_from_url(self, url: str) -> Image.Image:
+    def load_image_from_url(self, url: str) -> Image.Image:
         with urlopen(url) as response:
             image_data = response.read()
         return Image.open(BytesIO(image_data))
 
-    def _load_and_fit_image(
+    def load_and_fit_image(
         self, image_path: str, canvas_size: tuple[int, int], fit: FitMode | str | None
     ) -> Image.Image:
-        if self._is_url(image_path):
-            img = self._load_image_from_url(image_path)
-        else:
-            img = Image.open(image_path)
+        img = self.load_image_from_url(image_path) if is_url(image_path) else Image.open(image_path)
 
         img = img.convert("RGBA")
         canvas_width, canvas_height = canvas_size
@@ -71,12 +65,9 @@ class ImagesMixin(EffectsMixin):
         result.paste(resized, (paste_x, paste_y))
         return result
 
-    def _render_image_layer(self, image: Image.Image, layer: ImageLayer):
+    def render_image_layer(self, image: Image.Image, layer: ImageLayer):
         # Load the image
-        if self._is_url(layer.path):
-            img = self._load_image_from_url(layer.path)
-        else:
-            img = Image.open(layer.path)
+        img = self.load_image_from_url(layer.path) if is_url(layer.path) else Image.open(layer.path)
 
         img = img.convert("RGBA")
 
@@ -91,16 +82,16 @@ class ImagesMixin(EffectsMixin):
 
         self._composite_overlay_layer(image, img, layer)
 
-    def _render_svg_layer(self, image: Image.Image, layer: SvgLayer):
-        img = self._rasterize_svg(layer)
+    def render_svg_layer(self, image: Image.Image, layer: SvgLayer):
+        img = self.rasterize_svg(layer)
         self._composite_overlay_layer(image, img, layer)
 
-    def _rasterize_svg(self, layer: SvgLayer) -> Image.Image:
+    def rasterize_svg(self, layer: SvgLayer) -> Image.Image:
         """Rasterize an SVG layer, reusing the result for identical path/size within a render."""
         key = (layer.path, layer.width, layer.height)
-        cached = self._svg_raster_cache.get(key)
+        cached = self._ctx.svg_raster_cache.get(key)
         if cached is None:
-            cached = self._svg_raster_cache[key] = self._rasterize_svg_uncached(layer)
+            cached = self._ctx.svg_raster_cache[key] = self._rasterize_svg_uncached(layer)
         return cached.copy()
 
     def _rasterize_svg_uncached(self, layer: SvgLayer) -> Image.Image:
@@ -139,44 +130,44 @@ class ImagesMixin(EffectsMixin):
             )
 
         if layer.opacity < 1.0:
-            img = self._apply_opacity(img, layer.opacity)
+            img = self._effects.apply_opacity(img, layer.opacity)
 
-        x = self._parse_coordinate(layer.position[0], self.width)
-        y = self._parse_coordinate(layer.position[1], self.height)
+        x = parse_coordinate(layer.position[0], self._ctx.width)
+        y = parse_coordinate(layer.position[1], self._ctx.height)
 
         if layer.align is not None and layer.align != Align.TOP_LEFT:
-            x, y = self._apply_image_alignment(x, y, img.size, layer.align)
+            x, y = apply_alignment(x, y, img.size, layer.align)
 
         for effect in layer.effects:
             if isinstance(effect, Filter):
-                img = self._apply_filter(img, effect)
+                img = self._effects.apply_filter(img, effect)
             elif isinstance(effect, Grain):
-                img = self._apply_grain(img, effect)
+                img = self._effects.apply_grain(img, effect)
 
         for effect in layer.effects:
             if isinstance(effect, Glow):
-                self._apply_image_glow(image, img, x, y, effect)
+                self.apply_image_glow(image, img, x, y, effect)
             elif isinstance(effect, Shadow):
-                self._apply_image_shadow(image, img, x, y, effect)
+                self.apply_image_shadow(image, img, x, y, effect)
 
         for effect in layer.effects:
             if isinstance(effect, Stroke):
-                self._apply_image_stroke(image, img, x, y, effect)
+                self.apply_image_stroke(image, img, x, y, effect)
 
         if layer.blend_mode:
             overlay_layer = Image.new("RGBA", image.size, (0, 0, 0, 0))
             overlay_layer.alpha_composite(img, (x, y))
-            blended = self._apply_blend_mode(image, overlay_layer, layer.blend_mode)
+            blended = self._effects.apply_blend_mode(image, overlay_layer, layer.blend_mode)
             image.paste(blended, (0, 0), overlay_layer.split()[3])
         else:
             image.alpha_composite(img, (x, y))
 
-    def _apply_image_shadow(
+    def apply_image_shadow(
         self, canvas: Image.Image, img: Image.Image, x: int, y: int, shadow: Shadow
     ):
         """Composite a drop shadow for img onto canvas, placed behind the image."""
         alpha = img.split()[3]
-        shadow_color = self._parse_color(shadow.color)
+        shadow_color = self._effects.parse_color(shadow.color)
 
         blur = shadow.blur_radius
         if blur > 0:
@@ -206,7 +197,7 @@ class ImagesMixin(EffectsMixin):
             patch = shadow_img.crop((src_x, src_y, src_x + w, src_y + h))
             canvas.alpha_composite(patch, (dst_x, dst_y))
 
-    def _apply_image_stroke(
+    def apply_image_stroke(
         self, canvas: Image.Image, img: Image.Image, x: int, y: int, stroke: Stroke
     ):
         """Composite a stroke border around the alpha shape of img onto canvas."""
@@ -221,7 +212,7 @@ class ImagesMixin(EffectsMixin):
 
         expanded = padded_alpha.filter(ImageFilter.MaxFilter(w * 2 + 1))
 
-        stroke_color = self._parse_color(stroke.color)
+        stroke_color = self._effects.parse_color(stroke.color)
         stroke_layer = Image.new("RGBA", padded_size, stroke_color)
         stroke_layer.putalpha(expanded)
 
@@ -237,7 +228,7 @@ class ImagesMixin(EffectsMixin):
             patch = stroke_layer.crop((src_x, src_y, src_x + ww, src_y + hh))
             canvas.alpha_composite(patch, (dst_x, dst_y))
 
-    def _apply_image_glow(self, canvas: Image.Image, img: Image.Image, x: int, y: int, glow: Glow):
+    def apply_image_glow(self, canvas: Image.Image, img: Image.Image, x: int, y: int, glow: Glow):
         """Composite a blurred glow halo around the alpha shape of img onto canvas."""
         alpha = img.split()[3]
         padding = glow.radius * 3
@@ -250,7 +241,7 @@ class ImagesMixin(EffectsMixin):
         if glow.opacity < 1.0:
             mask = mask.point(lambda v: int(v * glow.opacity))
 
-        glow_color = self._parse_color(glow.color)
+        glow_color = self._effects.parse_color(glow.color)
         glow_layer = Image.new("RGBA", padded_size, glow_color)
         glow_layer.putalpha(mask)
 
@@ -335,33 +326,3 @@ class ImagesMixin(EffectsMixin):
             return img.resize((new_width, height), Image.Resampling.LANCZOS)
 
         return img
-
-    def _apply_image_alignment(
-        self, x: int, y: int, img_size: tuple[int, int], align: Align
-    ) -> tuple[int, int]:
-        """Apply alignment offset to image position.
-
-        Args:
-            x: Base x position
-            y: Base y position
-            img_size: (width, height) of the image
-            align: Align enum value
-
-        Returns:
-            Adjusted (x, y) position
-        """
-        img_width, img_height = img_size
-        vertical = align.vertical
-        horizontal = align.horizontal
-
-        if horizontal == "center":
-            x = x - img_width // 2
-        elif horizontal == "right":
-            x = x - img_width
-
-        if vertical == "middle":
-            y = y - img_height // 2
-        elif vertical == "bottom":
-            y = y - img_height
-
-        return x, y

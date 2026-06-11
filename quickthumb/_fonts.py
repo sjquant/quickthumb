@@ -7,14 +7,15 @@ from urllib.request import urlopen
 
 from PIL import ImageFont
 
-from quickthumb._base import DEFAULT_TEXT_SIZE
-from quickthumb._images import ImagesMixin
+from quickthumb._base import DEFAULT_TEXT_SIZE, is_url
 from quickthumb.errors import RenderingError
 from quickthumb.font_cache import FontCache
 from quickthumb.models import TextLayer
 
 
-class FontsMixin(ImagesMixin):
+class FontEngine:
+    """Font loading with webfont download caching and system font discovery."""
+
     _VALID_FONT_MAGIC = (
         b"\x00\x01\x00\x00",  # TrueType
         b"true",  # TrueType (macOS)
@@ -24,8 +25,8 @@ class FontsMixin(ImagesMixin):
         b"wOF2",  # WOFF2
     )
 
-    def _load_font(self, layer: TextLayer) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
-        return self._load_font_variant(
+    def load_font(self, layer: TextLayer) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
+        return self.load_font_variant(
             layer.font,
             layer.size or DEFAULT_TEXT_SIZE,
             layer.bold,
@@ -33,7 +34,7 @@ class FontsMixin(ImagesMixin):
             layer.weight,
         )
 
-    def _load_font_variant(
+    def load_font_variant(
         self,
         font_name: str | None,
         size: int,
@@ -42,7 +43,7 @@ class FontsMixin(ImagesMixin):
         weight: int | str | None = None,
     ) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
         try:
-            if font_name and self._is_url(font_name):
+            if font_name and is_url(font_name):
                 if bold or italic or weight:
                     warnings.warn(
                         "Bold/italic/weight flags are ignored for webfont URLs. "

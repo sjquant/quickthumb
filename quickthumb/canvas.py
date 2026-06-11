@@ -8,8 +8,14 @@ from typing import Literal
 from PIL import Image, ImageDraw
 from typing_extensions import Self
 
-from quickthumb._base import FileFormat
-from quickthumb._diagnostics import DiagnosticsMixin
+from quickthumb._base import FileFormat, RenderContext, is_url
+from quickthumb._diagnostics import DiagnosticsEngine
+from quickthumb._effects import EffectsEngine
+from quickthumb._fonts import FontEngine
+from quickthumb._groups import GroupEngine
+from quickthumb._images import ImageEngine
+from quickthumb._shapes import ShapeEngine
+from quickthumb._text import TextEngine
 from quickthumb.errors import RenderingError, ValidationError
 from quickthumb.models import (
     Align,
@@ -81,7 +87,7 @@ def _resolve_theme_tokens(value, theme: dict):
     return value
 
 
-class Canvas(DiagnosticsMixin):
+class Canvas:
     _custom_layer_registry: dict[str, Callable[..., Image.Image | None]] = {}
     _template_registry: dict[str, str] = {}
 
@@ -109,14 +115,46 @@ class Canvas(DiagnosticsMixin):
         if height <= 0:
             raise ValidationError("height must be > 0")
 
-        self.width = width
-        self.height = height
+        self._ctx = RenderContext(width, height)
         self._layers: list[RenderableLayer] = layers or []
-        self._svg_raster_cache: dict = {}
+
+        self._effects = EffectsEngine()
+        self._fonts = FontEngine()
+        self._images = ImageEngine(self._ctx, self._effects)
+        self._text = TextEngine(self._ctx, self._fonts, self._effects, self._images)
+        self._shapes = ShapeEngine(self._ctx, self._effects, self._images)
+        self._groups = GroupEngine(self._ctx, self._fonts, self._images, self._shapes, self._text)
+        self._diagnostics = DiagnosticsEngine(
+            self._ctx, self, self._effects, self._fonts, self._text, self._groups
+        )
+
+    @property
+    def width(self) -> int:
+        return self._ctx.width
+
+    @width.setter
+    def width(self, value: int):
+        self._ctx.width = value
+
+    @property
+    def height(self) -> int:
+        return self._ctx.height
+
+    @height.setter
+    def height(self, value: int):
+        self._ctx.height = value
 
     @property
     def layers(self) -> list[RenderableLayer]:
         return self._layers
+
+    def diagnose(self) -> list:
+        """Check layers for layout and legibility issues without producing an output file.
+
+        Returns structured findings (off-canvas, tiny-text, text-overflow, low-contrast)
+        that an agent or human can act on before rendering.
+        """
+        return self._diagnostics.diagnose()
 
     @classmethod
     def from_aspect_ratio(cls, ratio: str, base_width: int) -> Self:
@@ -399,7 +437,7 @@ class Canvas(DiagnosticsMixin):
         quality: int | None = None,
     ):
         self._validate_image_paths()
-        self._svg_raster_cache.clear()
+        self._ctx.svg_raster_cache.clear()
         image = self._render_to_image()
         self._save_to_file(image, output_path, quality, format=format)
 
@@ -552,17 +590,17 @@ class Canvas(DiagnosticsMixin):
         if isinstance(layer, BackgroundLayer):
             self._render_background_layer(image, layer)
         elif isinstance(layer, TextLayer):
-            self._render_text_layer(image, layer)
+            self._text.render_text_layer(image, layer)
         elif isinstance(layer, OutlineLayer):
             self._render_outline_layer(image, layer)
         elif isinstance(layer, ImageLayer):
-            self._render_image_layer(image, layer)
+            self._images.render_image_layer(image, layer)
         elif isinstance(layer, ShapeLayer):
-            self._render_shape_layer(image, layer)
+            self._shapes.render_shape_layer(image, layer)
         elif isinstance(layer, SvgLayer):
-            self._render_svg_layer(image, layer)
+            self._images.render_svg_layer(image, layer)
         elif isinstance(layer, GroupLayer):
-            self._render_group_layer(image, layer)
+            self._groups.render_group_layer(image, layer)
         elif isinstance(layer, CustomLayer):
             self._render_custom_layer(image, layer)
 
@@ -623,13 +661,13 @@ class Canvas(DiagnosticsMixin):
             if (
                 isinstance(layer, BackgroundLayer)
                 and layer.image
-                and not self._is_url(layer.image)
+                and not is_url(layer.image)
                 and not os.path.exists(layer.image)
             ):
                 raise FileNotFoundError(f"{layer.image}")
             elif (
                 isinstance(layer, (ImageLayer, SvgLayer))
-                and not self._is_url(layer.path)
+                and not is_url(layer.path)
                 and not os.path.exists(layer.path)
             ):
                 raise FileNotFoundError(f"{layer.path}")
@@ -642,7 +680,7 @@ class Canvas(DiagnosticsMixin):
                         if isinstance(part.fill, TextFillImage):
                             fills_to_check.append(part.fill)
                 for fill in fills_to_check:
-                    if not self._is_url(fill.path) and not os.path.exists(fill.path):
+                    if not is_url(fill.path) and not os.path.exists(fill.path):
                         raise FileNotFoundError(f"{fill.path}")
 
     def _detect_format(self, output_path: str) -> FileFormat:
@@ -674,15 +712,15 @@ class Canvas(DiagnosticsMixin):
 
         for effect in layer.effects:
             if isinstance(effect, Grain):
-                layer_image = self._apply_grain(layer_image, effect)
+                layer_image = self._effects.apply_grain(layer_image, effect)
             else:
-                layer_image = self._apply_filter(layer_image, effect)
+                layer_image = self._effects.apply_filter(layer_image, effect)
 
         if layer.opacity < 1.0 and not layer.color:
-            layer_image = self._apply_opacity(layer_image, layer.opacity)
+            layer_image = self._effects.apply_opacity(layer_image, layer.opacity)
 
         if layer.blend_mode:
-            blended = self._apply_blend_mode(image, layer_image, layer.blend_mode)
+            blended = self._effects.apply_blend_mode(image, layer_image, layer.blend_mode)
             image.paste(blended, (0, 0))
         else:
             image.alpha_composite(layer_image)
@@ -691,31 +729,31 @@ class Canvas(DiagnosticsMixin):
         self, size: tuple[int, int], layer: BackgroundLayer
     ) -> Image.Image | None:
         if layer.color:
-            color = self._parse_color(layer.color)
+            color = self._effects.parse_color(layer.color)
             if layer.opacity < 1.0:
-                color = self._apply_opacity_to_color(color, layer.opacity)
+                color = self._effects.apply_opacity_to_color(color, layer.opacity)
             return Image.new("RGBA", size, color)
 
         if layer.gradient:
             if isinstance(layer.gradient, LinearGradient):
-                return self._create_linear_gradient(
+                return self._effects.create_linear_gradient(
                     size, layer.gradient.angle, layer.gradient.stops
                 )
             if isinstance(layer.gradient, RadialGradient):
-                return self._create_radial_gradient(
+                return self._effects.create_radial_gradient(
                     size, layer.gradient.stops, layer.gradient.center
                 )
 
         if layer.image:
-            return self._load_and_fit_image(layer.image, size, layer.fit)
+            return self._images.load_and_fit_image(layer.image, size, layer.fit)
 
         return None
 
     def _render_outline_layer(self, image: Image.Image, layer: OutlineLayer):
         draw = ImageDraw.Draw(image)
-        color = self._parse_color(layer.color)
+        color = self._effects.parse_color(layer.color)
         if layer.opacity < 1.0:
-            color = self._apply_opacity_to_color(color, layer.opacity)
+            color = self._effects.apply_opacity_to_color(color, layer.opacity)
 
         x1 = layer.offset
         y1 = layer.offset

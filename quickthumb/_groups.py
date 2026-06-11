@@ -1,17 +1,43 @@
 from PIL import Image
 
-from quickthumb._shapes import ShapesMixin
+from quickthumb._base import (
+    RenderContext,
+    apply_alignment,
+    is_url,
+    parse_coordinate,
+    parse_padding,
+)
+from quickthumb._fonts import FontEngine
+from quickthumb._images import ImageEngine
+from quickthumb._shapes import ShapeEngine
+from quickthumb._text import TextEngine
 from quickthumb.models import Align, GroupLayer, ImageLayer, ShapeLayer, SvgLayer, TextLayer
 
 GroupChildLayer = TextLayer | ImageLayer | ShapeLayer | SvgLayer | GroupLayer
 GroupBox = tuple[int, int, int, int]
 
 
-class GroupsMixin(ShapesMixin):
-    def _render_group_layer(
+class GroupEngine:
+    """Auto-layout measurement and placement for group layers."""
+
+    def __init__(
+        self,
+        ctx: RenderContext,
+        fonts: FontEngine,
+        images: ImageEngine,
+        shapes: ShapeEngine,
+        text: TextEngine,
+    ):
+        self._ctx = ctx
+        self._fonts = fonts
+        self._images = images
+        self._shapes = shapes
+        self._text = text
+
+    def render_group_layer(
         self, image: Image.Image, layer: GroupLayer, origin: tuple[int, int] | None = None
     ):
-        placements, _ = self._layout_group(layer, origin)
+        placements, _ = self.layout_group(layer, origin)
         for child, position in placements:
             self._render_group_child(image, child, position)
 
@@ -19,26 +45,26 @@ class GroupsMixin(ShapesMixin):
         self, image: Image.Image, child: GroupChildLayer, position: tuple[int, int]
     ):
         if isinstance(child, GroupLayer):
-            self._render_group_layer(image, child, origin=position)
+            self.render_group_layer(image, child, origin=position)
         elif isinstance(child, TextLayer):
             placed = child.model_copy(update={"position": position, "align": None})
-            self._render_text_layer(image, placed)
+            self._text.render_text_layer(image, placed)
         elif isinstance(child, ImageLayer):
             placed = child.model_copy(update={"position": position, "align": Align.TOP_LEFT})
-            self._render_image_layer(image, placed)
+            self._images.render_image_layer(image, placed)
         elif isinstance(child, SvgLayer):
             placed = child.model_copy(update={"position": position, "align": Align.TOP_LEFT})
-            self._render_svg_layer(image, placed)
+            self._images.render_svg_layer(image, placed)
         elif isinstance(child, ShapeLayer):
             placed = child.model_copy(update={"position": position, "align": None})
-            self._render_shape_layer(image, placed)
+            self._shapes.render_shape_layer(image, placed)
 
-    def _layout_group(
+    def layout_group(
         self, layer: GroupLayer, origin: tuple[int, int] | None = None
     ) -> tuple[list[tuple[GroupChildLayer, tuple[int, int]]], GroupBox]:
         """Measure children and assign their absolute positions within the group box."""
-        sizes = [self._measure_group_child(child) for child in layer.children]
-        pad_top, pad_right, pad_bottom, pad_left = self._parse_padding(layer.padding)
+        sizes = [self.measure_group_child(child) for child in layer.children]
+        pad_top, pad_right, pad_bottom, pad_left = parse_padding(layer.padding)
         gap_total = layer.gap * max(0, len(sizes) - 1)
 
         if layer.direction == "column":
@@ -71,17 +97,17 @@ class GroupsMixin(ShapesMixin):
     def _group_anchor(self, layer: GroupLayer, group_w: int, group_h: int) -> tuple[int, int]:
         """Resolve the group box's top-left corner from its position and align."""
         if layer.position is not None:
-            x = self._parse_coordinate(layer.position[0], self.width)
-            y = self._parse_coordinate(layer.position[1], self.height)
+            x = parse_coordinate(layer.position[0], self._ctx.width)
+            y = parse_coordinate(layer.position[1], self._ctx.height)
         elif layer.align:
-            h_map = {"left": 0, "center": self.width // 2, "right": self.width}
-            v_map = {"top": 0, "middle": self.height // 2, "bottom": self.height}
+            h_map = {"left": 0, "center": self._ctx.width // 2, "right": self._ctx.width}
+            v_map = {"top": 0, "middle": self._ctx.height // 2, "bottom": self._ctx.height}
             x, y = h_map[layer.align.horizontal], v_map[layer.align.vertical]
         else:
             x, y = 0, 0
 
         if layer.align:
-            x, y = self._apply_image_alignment(x, y, (group_w, group_h), layer.align)
+            x, y = apply_alignment(x, y, (group_w, group_h), layer.align)
         return x, y
 
     @staticmethod
@@ -92,30 +118,30 @@ class GroupsMixin(ShapesMixin):
             return slack
         return 0
 
-    def _measure_group_child(self, child: GroupChildLayer) -> tuple[int, int]:
+    def measure_group_child(self, child: GroupChildLayer) -> tuple[int, int]:
         """Return the natural rendered size of a layer, without rendering it."""
         if isinstance(child, TextLayer):
             if isinstance(child.content, list):
-                return self._measure_rich_text_size(child)
-            font = self._load_font(child)
-            return self._measure_simple_text_size(child, font, child.content)
+                return self._text.measure_rich_text_size(child)
+            font = self._fonts.load_font(child)
+            return self._text.measure_simple_text_size(child, font, child.content)
         if isinstance(child, ImageLayer):
             return self._measure_image_size(child)
         if isinstance(child, SvgLayer):
             if child.width and child.height:
                 return child.width, child.height
-            return self._rasterize_svg(child).size
+            return self._images.rasterize_svg(child).size
         if isinstance(child, ShapeLayer):
             return child.width, child.height
-        _, (_, _, group_w, group_h) = self._layout_group(child, origin=(0, 0))
+        _, (_, _, group_w, group_h) = self.layout_group(child, origin=(0, 0))
         return group_w, group_h
 
     def _measure_image_size(self, layer: ImageLayer) -> tuple[int, int]:
         if layer.width and layer.height:
             return layer.width, layer.height
 
-        if self._is_url(layer.path):
-            img = self._load_image_from_url(layer.path)
+        if is_url(layer.path):
+            img = self._images.load_image_from_url(layer.path)
         else:
             img = Image.open(layer.path)
         original_w, original_h = img.size

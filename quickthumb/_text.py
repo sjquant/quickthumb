@@ -10,8 +10,14 @@ from quickthumb._base import (
     DEFAULT_TEXT_SIZE,
     LINE_HEIGHT_REFERENCE,
     FontType,
+    RenderContext,
+    apply_alignment,
+    parse_coordinate,
+    parse_padding,
 )
-from quickthumb._fonts import FontsMixin
+from quickthumb._effects import EffectsEngine
+from quickthumb._fonts import FontEngine
+from quickthumb._images import ImageEngine
 from quickthumb.errors import RenderingError
 from quickthumb.models import (
     Align,
@@ -50,15 +56,29 @@ class TextPartMetadata(TypedDict):
     width: int
 
 
-class TextMixin(FontsMixin):
-    def _render_text_layer(self, image: Image.Image, layer: TextLayer):
+class TextEngine:
+    """Text layout, measurement, wrapping, effects, and rendering."""
+
+    def __init__(
+        self,
+        ctx: RenderContext,
+        fonts: FontEngine,
+        effects: EffectsEngine,
+        images: ImageEngine,
+    ):
+        self._ctx = ctx
+        self._fonts = fonts
+        self._effects = effects
+        self._images = images
+
+    def render_text_layer(self, image: Image.Image, layer: TextLayer):
         if layer.opacity < 1.0:
             temp = Image.new("RGBA", image.size, (0, 0, 0, 0))
             if isinstance(layer.content, list):
                 self._render_rich_text(temp, layer)
             else:
                 self._render_simple_text(temp, layer)
-            self._apply_opacity(temp, layer.opacity)
+            self._effects.apply_opacity(temp, layer.opacity)
             image.alpha_composite(temp)
         elif isinstance(layer.content, list):
             self._render_rich_text(image, layer)
@@ -80,15 +100,17 @@ class TextMixin(FontsMixin):
 
     def _auto_scale_simple_text(self, layer: TextLayer) -> TextLayer:
         assert layer.max_width is not None
-        max_width_px = self._parse_coordinate(layer.max_width, self.width)
+        max_width_px = parse_coordinate(layer.max_width, self._ctx.width)
         base_size = layer.size or DEFAULT_TEXT_SIZE
         content = layer.content if isinstance(layer.content, str) else ""
 
         def fits(size: int) -> bool:
-            font = self._load_font_variant(layer.font, size, layer.bold, layer.italic, layer.weight)
+            font = self._fonts.load_font_variant(
+                layer.font, size, layer.bold, layer.italic, layer.weight
+            )
             lines = self._wrap_text(content, font, max_width_px, layer.letter_spacing)
             return all(
-                self._measure_text_bounds(line, font, layer.letter_spacing or 0)[0] <= max_width_px
+                self.measure_text_bounds(line, font, layer.letter_spacing or 0)[0] <= max_width_px
                 for line in lines
             )
 
@@ -98,7 +120,7 @@ class TextMixin(FontsMixin):
     def _scale_rich_text_parts(self, layer: TextLayer, scale_factor: float) -> list[TextPart]:
         return [
             part.model_copy(
-                update={"size": max(1, int(self._resolve_size(part, layer) * scale_factor))}
+                update={"size": max(1, int(self.resolve_size(part, layer) * scale_factor))}
             )
             for part in cast(list[TextPart], layer.content)
         ]
@@ -106,16 +128,16 @@ class TextMixin(FontsMixin):
     def _measure_rich_line_width(self, line_parts: list[TextPartData]) -> int:
         width = 0
         for part in line_parts:
-            font = self._load_font_variant(
+            font = self._fonts.load_font_variant(
                 part["font_name"], part["size"], part["bold"], part["italic"], part["weight"]
             )
-            w, _ = self._measure_text_bounds(part["text"], font, part["letter_spacing"])
+            w, _ = self.measure_text_bounds(part["text"], font, part["letter_spacing"])
             width += w
         return width
 
     def _auto_scale_rich_text(self, layer: TextLayer) -> TextLayer:
         assert layer.max_width is not None
-        max_width_px = self._parse_coordinate(layer.max_width, self.width)
+        max_width_px = parse_coordinate(layer.max_width, self._ctx.width)
         base_size = layer.size or DEFAULT_TEXT_SIZE
 
         def fits(size: int) -> bool:
@@ -141,8 +163,8 @@ class TextMixin(FontsMixin):
             return
 
         draw = ImageDraw.Draw(image)
-        font = self._load_font(layer)
-        color = self._parse_color(layer.color) if layer.color else DEFAULT_TEXT_COLOR
+        font = self._fonts.load_font(layer)
+        color = self._effects.parse_color(layer.color) if layer.color else DEFAULT_TEXT_COLOR
         content = layer.content if isinstance(layer.content, str) else ""
 
         stroke_effects = self._get_stroke_effects(layer.effects)
@@ -151,7 +173,7 @@ class TextMixin(FontsMixin):
         background_effects = self._get_background_effects(layer.effects)
 
         if layer.max_width:
-            max_width_px = self._parse_coordinate(layer.max_width, self.width)
+            max_width_px = parse_coordinate(layer.max_width, self._ctx.width)
             lines = self._wrap_text(content, font, max_width_px, layer.letter_spacing)
             self._render_multiline_text(draw, lines, font, color, layer, image)
         elif "\n" in content:
@@ -213,12 +235,12 @@ class TextMixin(FontsMixin):
         for line_parts in lines:
             max_line_height = 0
             if not line_parts:
-                ref_font = self._load_font(layer)
+                ref_font = self._fonts.load_font(layer)
                 lh_mult = layer.line_height or DEFAULT_LINE_HEIGHT_MULTIPLIER
                 max_line_height = self._calculate_line_height(ref_font, lh_mult)
             else:
                 for part in line_parts:
-                    font = self._load_font_variant(
+                    font = self._fonts.load_font_variant(
                         part["font_name"],
                         part["size"],
                         part["bold"],
@@ -234,8 +256,8 @@ class TextMixin(FontsMixin):
         return line_heights, total_height
 
     def _calculate_start_position(self, layer: TextLayer, total_height: int) -> tuple[int, int]:
-        base_x, base_y = self._get_text_base_position(layer)
-        start_y = self._get_vertical_start_y(base_y, total_height, layer.align)
+        base_x, base_y = self.get_text_base_position(layer)
+        start_y = self.get_vertical_start_y(base_y, total_height, layer.align)
         return base_x, start_y
 
     def _draw_rich_text_lines(
@@ -256,7 +278,7 @@ class TextMixin(FontsMixin):
             part_metadata: list[TextPartMetadata] = []
 
             for part in line_parts:
-                font = self._load_font_variant(
+                font = self._fonts.load_font_variant(
                     part["font_name"],
                     part["size"],
                     part["bold"],
@@ -264,11 +286,11 @@ class TextMixin(FontsMixin):
                     part["weight"],
                 )
 
-                w, _ = self._measure_text_bounds(part["text"], font, part["letter_spacing"])
+                w, _ = self.measure_text_bounds(part["text"], font, part["letter_spacing"])
                 part_metadata.append({"font": font, "width": w})
                 line_width += w
 
-            current_x = self._get_horizontal_start_x(base_x, line_width, layer.align)
+            current_x = self.get_horizontal_start_x(base_x, line_width, layer.align)
 
             for j, part in enumerate(line_parts):
                 meta = part_metadata[j]
@@ -296,13 +318,13 @@ class TextMixin(FontsMixin):
 
         for part in cast(list[TextPart], layer.content):
             color = self._resolve_color(part, layer)
-            size = self._resolve_size(part, layer)
-            bold = self._resolve_bold(part, layer)
-            italic = self._resolve_italic(part, layer)
-            weight = self._resolve_weight(part, layer)
+            size = self.resolve_size(part, layer)
+            bold = self.resolve_bold(part, layer)
+            italic = self.resolve_italic(part, layer)
+            weight = self.resolve_weight(part, layer)
             font_name = self._resolve_font_name(part, layer)
             lh_mult = self._resolve_line_height(part, layer)
-            letter_spacing = self._resolve_letter_spacing(part, layer)
+            letter_spacing = self.resolve_letter_spacing(part, layer)
 
             combined_effects = list(layer.effects) + list(part.effects)
 
@@ -338,21 +360,21 @@ class TextMixin(FontsMixin):
         return lines
 
     def _prepare_wrapped_rich_text_lines(self, layer: TextLayer) -> list[list[TextPartData]]:
-        max_width_px = self._parse_coordinate(layer.max_width, self.width)  # type: ignore[arg-type]
+        max_width_px = parse_coordinate(layer.max_width, self._ctx.width)  # type: ignore[arg-type]
         lines: list[list[TextPartData]] = [[]]
         current_width = 0
 
         for part in cast(list[TextPart], layer.content):
             color = self._resolve_color(part, layer)
-            size = self._resolve_size(part, layer)
-            bold = self._resolve_bold(part, layer)
-            italic = self._resolve_italic(part, layer)
-            weight = self._resolve_weight(part, layer)
+            size = self.resolve_size(part, layer)
+            bold = self.resolve_bold(part, layer)
+            italic = self.resolve_italic(part, layer)
+            weight = self.resolve_weight(part, layer)
             font_name = self._resolve_font_name(part, layer)
             lh_mult = self._resolve_line_height(part, layer)
-            letter_spacing = self._resolve_letter_spacing(part, layer)
+            letter_spacing = self.resolve_letter_spacing(part, layer)
             combined_effects = list(layer.effects) + list(part.effects)
-            font = self._load_font_variant(font_name, size, bold, italic, weight)
+            font = self._fonts.load_font_variant(font_name, size, bold, italic, weight)
             part_template: TextPartData = {
                 "color": color,
                 "fill": self._resolve_fill(part, layer),
@@ -384,7 +406,7 @@ class TextMixin(FontsMixin):
                 for word in words:
                     has_content = bool(lines[-1] or pending_words)
                     test_text = (" " if has_content else "") + word
-                    word_w, _ = self._measure_text_bounds(test_text, font, letter_spacing)
+                    word_w, _ = self.measure_text_bounds(test_text, font, letter_spacing)
 
                     if current_width + word_w <= max_width_px:
                         if not pending_words:
@@ -399,7 +421,7 @@ class TextMixin(FontsMixin):
                             lines[-1].append(entry)
                             pending_words = []
                         lines.append([])
-                        bare_w, _ = self._measure_text_bounds(word, font, letter_spacing)
+                        bare_w, _ = self.measure_text_bounds(word, font, letter_spacing)
                         pending_words = [word]
                         space_prefix = False
                         current_width = bare_w
@@ -414,29 +436,29 @@ class TextMixin(FontsMixin):
 
     def _resolve_color(self, part: TextPart, layer: TextLayer):
         if part.color:
-            return self._parse_color(part.color)
+            return self._effects.parse_color(part.color)
         if layer.color:
-            return self._parse_color(layer.color)
+            return self._effects.parse_color(layer.color)
         return DEFAULT_TEXT_COLOR
 
-    def _resolve_size(self, part: TextPart, layer: TextLayer):
+    def resolve_size(self, part: TextPart, layer: TextLayer):
         if part.size is not None:
             return part.size
         if layer.size:
             return layer.size
         return DEFAULT_TEXT_SIZE
 
-    def _resolve_bold(self, part: TextPart, layer: TextLayer):
+    def resolve_bold(self, part: TextPart, layer: TextLayer):
         if part.bold is not None:
             return part.bold
         return layer.bold
 
-    def _resolve_italic(self, part: TextPart, layer: TextLayer):
+    def resolve_italic(self, part: TextPart, layer: TextLayer):
         if part.italic is not None:
             return part.italic
         return layer.italic
 
-    def _resolve_weight(self, part: TextPart, layer: TextLayer):
+    def resolve_weight(self, part: TextPart, layer: TextLayer):
         if part.weight is not None:
             return part.weight
         return layer.weight
@@ -453,7 +475,7 @@ class TextMixin(FontsMixin):
             return layer.line_height
         return DEFAULT_LINE_HEIGHT_MULTIPLIER
 
-    def _resolve_letter_spacing(self, part: TextPart, layer: TextLayer):
+    def resolve_letter_spacing(self, part: TextPart, layer: TextLayer):
         if part.letter_spacing is not None:
             return part.letter_spacing
         if layer.letter_spacing:
@@ -472,11 +494,11 @@ class TextMixin(FontsMixin):
     ) -> Image.Image:
         """Create a fill image (gradient or texture) at the given size."""
         if isinstance(fill, LinearGradient):
-            return self._create_linear_gradient(size, fill.angle, fill.stops)
+            return self._effects.create_linear_gradient(size, fill.angle, fill.stops)
         if isinstance(fill, RadialGradient):
-            return self._create_radial_gradient(size, fill.stops, fill.center)
+            return self._effects.create_radial_gradient(size, fill.stops, fill.center)
         if isinstance(fill, TextFillImage):
-            return self._load_and_fit_image(fill.path, size, fill.fit)
+            return self._images.load_and_fit_image(fill.path, size, fill.fit)
         raise RenderingError(f"Unsupported fill type: {type(fill).__name__}")
 
     def _draw_filled_text(
@@ -508,7 +530,7 @@ class TextMixin(FontsMixin):
         # so the outer stroke ring stays visible after fill is composited on top.
         if stroke_effects:
             for stroke in stroke_effects:
-                stroke_color = self._parse_color(stroke.color)
+                stroke_color = self._effects.parse_color(stroke.color)
                 temp_draw.text(
                     position,
                     text,
@@ -564,7 +586,7 @@ class TextMixin(FontsMixin):
             text_height = int(bbox[3] - bbox[1])
             if stroke_effects := part_data["stroke_effects"]:
                 for stroke in stroke_effects:
-                    stroke_color = self._parse_color(stroke.color)
+                    stroke_color = self._effects.parse_color(stroke.color)
                     self._draw_text_with_letter_spacing(
                         draw,
                         text,
@@ -618,9 +640,9 @@ class TextMixin(FontsMixin):
         line_height = self._calculate_line_height(font, line_height_multiplier)
         total_height = line_height * len(lines)
 
-        base_x, base_y = self._get_text_base_position(layer)
+        base_x, base_y = self.get_text_base_position(layer)
 
-        start_y = self._get_vertical_start_y(base_y, total_height, layer.align)
+        start_y = self.get_vertical_start_y(base_y, total_height, layer.align)
 
         glow_effects = self._get_glow_effects(layer.effects)
         shadow_effects = self._get_shadow_effects(layer.effects)
@@ -628,11 +650,11 @@ class TextMixin(FontsMixin):
         background_effects = self._get_background_effects(layer.effects)
         line_layouts: list[tuple[str, int, int, tuple[int, int, int, int]]] = []
         for i, line in enumerate(lines):
-            line_width, _ = self._measure_text_bounds(
+            line_width, _ = self.measure_text_bounds(
                 line, font, layer.letter_spacing or 0, line_height_multiplier
             )
             y = start_y + i * line_height
-            x = self._get_horizontal_start_x(base_x, line_width, layer.align)
+            x = self.get_horizontal_start_x(base_x, line_width, layer.align)
             bbox = cast(tuple[int, int, int, int], font.getbbox(line, anchor="lt"))
             line_layouts.append((line, x, y, bbox))
 
@@ -700,7 +722,7 @@ class TextMixin(FontsMixin):
                 # Draw stroke first (stroke color covers both body and ring)
                 if stroke_effects:
                     for stroke in stroke_effects:
-                        stroke_color = self._parse_color(stroke.color)
+                        stroke_color = self._effects.parse_color(stroke.color)
                         if letter_spacing:
                             self._draw_text_with_letter_spacing(
                                 draw,
@@ -762,21 +784,21 @@ class TextMixin(FontsMixin):
                 else:
                     self._draw_text(draw, line, (x, y), font, color, stroke_effects)
 
-    def _get_text_base_position(self, layer: TextLayer) -> tuple[int, int]:
+    def get_text_base_position(self, layer: TextLayer) -> tuple[int, int]:
         """Return base (x, y) for text, deriving from alignment when position is not set."""
         if layer.position is not None:
             return (
-                self._parse_coordinate(layer.position[0], self.width),
-                self._parse_coordinate(layer.position[1], self.height),
+                parse_coordinate(layer.position[0], self._ctx.width),
+                parse_coordinate(layer.position[1], self._ctx.height),
             )
         if layer.align:
-            h_map = {"left": 0, "center": self.width // 2, "right": self.width}
-            v_map = {"top": 0, "middle": self.height // 2, "bottom": self.height}
+            h_map = {"left": 0, "center": self._ctx.width // 2, "right": self._ctx.width}
+            v_map = {"top": 0, "middle": self._ctx.height // 2, "bottom": self._ctx.height}
             return h_map[layer.align.horizontal], v_map[layer.align.vertical]
         return 0, 0
 
     def _calculate_text_position(self, layer: TextLayer) -> tuple[int, int]:
-        return self._get_text_base_position(layer)
+        return self.get_text_base_position(layer)
 
     def _render_text_effects(
         self,
@@ -812,8 +834,8 @@ class TextMixin(FontsMixin):
         text_height = int(bbox[3] - bbox[1])
 
         base_x, base_y = self._calculate_text_position(layer)
-        x = self._get_horizontal_start_x(base_x, total_width, layer.align)
-        y = self._get_vertical_start_y(base_y, text_height, layer.align)
+        x = self.get_horizontal_start_x(base_x, total_width, layer.align)
+        y = self.get_vertical_start_y(base_y, text_height, layer.align)
         position = (x, y)
 
         for bg in background_effects:
@@ -840,7 +862,7 @@ class TextMixin(FontsMixin):
             # Draw stroke first so the stroke ring stays visible after fill compositing.
             if stroke_effects:
                 for stroke in stroke_effects:
-                    stroke_color = self._parse_color(stroke.color)
+                    stroke_color = self._effects.parse_color(stroke.color)
                     self._draw_text_with_letter_spacing(
                         draw,
                         content,
@@ -903,8 +925,8 @@ class TextMixin(FontsMixin):
         then compositing the result onto the main canvas. This approach preserves
         all text effects during rotation.
         """
-        font = self._load_font(layer)
-        color = self._parse_color(layer.color) if layer.color else DEFAULT_TEXT_COLOR
+        font = self._fonts.load_font(layer)
+        color = self._effects.parse_color(layer.color) if layer.color else DEFAULT_TEXT_COLOR
         content = layer.content if isinstance(layer.content, str) else ""
 
         stroke_effects = self._get_stroke_effects(layer.effects)
@@ -912,7 +934,7 @@ class TextMixin(FontsMixin):
         glow_effects = self._get_glow_effects(layer.effects)
         background_effects = self._get_background_effects(layer.effects)
 
-        text_width, text_height = self._measure_simple_text_size(layer, font, content)
+        text_width, text_height = self.measure_simple_text_size(layer, font, content)
         padding = self._calculate_text_effects_padding(stroke_effects, shadow_effects, glow_effects)
         temp_image, temp_draw = self._create_temp_image_for_text(text_width, text_height, padding)
 
@@ -933,23 +955,23 @@ class TextMixin(FontsMixin):
 
         self._rotate_and_composite_text(image, temp_image, layer)
 
-    def _measure_simple_text_size(
+    def measure_simple_text_size(
         self, layer: TextLayer, font: FontType, content: str
     ) -> tuple[int, int]:
         """Calculate text bounding box size accounting for wrapping."""
         line_height_mult = layer.line_height or DEFAULT_LINE_HEIGHT_MULTIPLIER
 
         if layer.max_width:
-            max_width_px = self._parse_coordinate(layer.max_width, self.width)
+            max_width_px = parse_coordinate(layer.max_width, self._ctx.width)
             lines = self._wrap_text(content, font, max_width_px, layer.letter_spacing)
-            return self._measure_text_bounds(
+            return self.measure_text_bounds(
                 "\n".join(lines),
                 font,
                 layer.letter_spacing or 0,
                 line_height_mult,
             )
 
-        return self._measure_text_bounds(
+        return self.measure_text_bounds(
             content,
             font,
             layer.letter_spacing or 0,
@@ -971,7 +993,7 @@ class TextMixin(FontsMixin):
     ) -> None:
         """Render text with effects to temporary image, choosing the appropriate method."""
         if temp_layer.max_width:
-            max_width_px = self._parse_coordinate(temp_layer.max_width, self.width)
+            max_width_px = parse_coordinate(temp_layer.max_width, self._ctx.width)
             lines = self._wrap_text(content, font, max_width_px, temp_layer.letter_spacing)
             self._render_multiline_text(temp_draw, lines, font, color, temp_layer, temp_image)
         elif "\n" in content:
@@ -1014,7 +1036,7 @@ class TextMixin(FontsMixin):
         if not isinstance(layer.content, list):
             return
 
-        text_width, text_height = self._measure_rich_text_size(layer)
+        text_width, text_height = self.measure_rich_text_size(layer)
         padding = self._calculate_rich_text_effects_padding(layer)
         temp_image, temp_draw = self._create_temp_image_for_text(text_width, text_height, padding)
         temp_layer = layer.model_copy(update={"position": (padding, padding), "align": None})
@@ -1022,7 +1044,7 @@ class TextMixin(FontsMixin):
         self._render_rich_text_to_temp_image(temp_draw, temp_image, temp_layer)
         self._rotate_and_composite_text(image, temp_image, layer)
 
-    def _measure_rich_text_size(self, layer: TextLayer) -> tuple[int, int]:
+    def measure_rich_text_size(self, layer: TextLayer) -> tuple[int, int]:
         """Calculate rich text bounding box size."""
         lines = self._prepare_rich_text_lines(layer)
         _, total_height = self._calculate_rich_text_dimensions(layer, lines)
@@ -1105,10 +1127,10 @@ class TextMixin(FontsMixin):
         """Rotate temporary text image and composite onto main canvas with alignment."""
         rotated = temp_image.rotate(-layer.rotation, expand=True, resample=Image.Resampling.BICUBIC)
 
-        base_x, base_y = self._get_text_base_position(layer)
+        base_x, base_y = self.get_text_base_position(layer)
 
         if layer.align:
-            base_x, base_y = self._apply_image_alignment(base_x, base_y, rotated.size, layer.align)
+            base_x, base_y = apply_alignment(base_x, base_y, rotated.size, layer.align)
 
         image.alpha_composite(rotated, (base_x, base_y))
 
@@ -1140,7 +1162,7 @@ class TextMixin(FontsMixin):
             for word in words:
                 test_line = " ".join(current_line + [word])
 
-                width, _ = self._measure_text_bounds(test_line, font, letter_spacing or 0)
+                width, _ = self.measure_text_bounds(test_line, font, letter_spacing or 0)
 
                 if width <= max_width:
                     current_line.append(word)
@@ -1161,7 +1183,7 @@ class TextMixin(FontsMixin):
 
         return wrapped_lines
 
-    def _measure_text_bounds(
+    def measure_text_bounds(
         self,
         text: str,
         font: FontType,
@@ -1223,7 +1245,7 @@ class TextMixin(FontsMixin):
         total_width = sum(char_widths) + letter_spacing * (len(text) - 1)
         return total_width, char_widths
 
-    def _get_vertical_start_y(self, base_y: int, total_height: int, align: Align | None) -> int:
+    def get_vertical_start_y(self, base_y: int, total_height: int, align: Align | None) -> int:
         if not align:
             return base_y
 
@@ -1234,7 +1256,7 @@ class TextMixin(FontsMixin):
             return base_y - total_height
         return base_y
 
-    def _get_horizontal_start_x(self, base_x: int, line_width: int, align: Align | None) -> int:
+    def get_horizontal_start_x(self, base_x: int, line_width: int, align: Align | None) -> int:
         if not align:
             return base_x
 
@@ -1305,7 +1327,7 @@ class TextMixin(FontsMixin):
                     font=font,
                     fill=color,
                     stroke_width=stroke.width,
-                    stroke_fill=self._parse_color(stroke.color),
+                    stroke_fill=self._effects.parse_color(stroke.color),
                     anchor=anchor,
                 )
         else:
@@ -1350,7 +1372,7 @@ class TextMixin(FontsMixin):
 
         glow_mask = glow_mask.filter(ImageFilter.GaussianBlur(radius=glow.radius))
 
-        glow_color = self._parse_color(glow.color)
+        glow_color = self._effects.parse_color(glow.color)
         glow_layer = Image.new("RGBA", (temp_w, temp_h), glow_color)
 
         if glow.opacity < 1.0:
@@ -1406,7 +1428,7 @@ class TextMixin(FontsMixin):
 
         glow_mask = glow_mask.filter(ImageFilter.GaussianBlur(radius=glow.radius))
 
-        glow_color = self._parse_color(glow.color)
+        glow_color = self._effects.parse_color(glow.color)
         glow_layer = Image.new("RGBA", (temp_w, temp_h), glow_color)
 
         if glow.opacity < 1.0:
@@ -1444,7 +1466,7 @@ class TextMixin(FontsMixin):
         shadow_layer = Image.new("RGBA", (temp_w, temp_h), (0, 0, 0, 0))
         shadow_draw = ImageDraw.Draw(shadow_layer)
 
-        shadow_color = self._parse_color(shadow.color)
+        shadow_color = self._effects.parse_color(shadow.color)
         shadow_draw.text((draw_x, draw_y), text, font=font, fill=shadow_color, anchor=anchor)
 
         if shadow.blur_radius > 0:
@@ -1478,7 +1500,7 @@ class TextMixin(FontsMixin):
 
         shadow_layer = Image.new("RGBA", (temp_w, temp_h), (0, 0, 0, 0))
         shadow_draw = ImageDraw.Draw(shadow_layer)
-        shadow_color = self._parse_color(shadow.color)
+        shadow_color = self._effects.parse_color(shadow.color)
 
         baseline_y = padding + baseline_offset
         for char, char_x in self._iterate_letter_spaced_positions(
@@ -1540,13 +1562,13 @@ class TextMixin(FontsMixin):
         background: Background,
     ) -> None:
         """Render a background box around a measured content rectangle."""
-        pad_top, pad_right, pad_bottom, pad_left = self._parse_padding(background.padding)
+        pad_top, pad_right, pad_bottom, pad_left = parse_padding(background.padding)
 
         bg_width = content_width + pad_left + pad_right
         bg_height = content_height + pad_top + pad_bottom
 
-        bg_color = self._apply_opacity_to_color(
-            self._parse_color(background.color), background.opacity
+        bg_color = self._effects.apply_opacity_to_color(
+            self._effects.parse_color(background.color), background.opacity
         )
 
         # Draw background shape; supersample rounded corners for anti-aliased edges.
@@ -1569,29 +1591,6 @@ class TextMixin(FontsMixin):
         paste_y = content_top - pad_top
 
         image.paste(bg_layer, (paste_x, paste_y), bg_layer)
-
-    def _parse_padding(
-        self, padding: int | tuple[int, int] | tuple[int, int, int, int]
-    ) -> tuple[int, int, int, int]:
-        """Parse padding value into (top, right, bottom, left) tuple.
-
-        Args:
-            padding: Can be:
-                - int: uniform padding on all sides
-                - tuple[int, int]: (vertical, horizontal) padding
-                - tuple[int, int, int, int]: (top, right, bottom, left) padding
-
-        Returns:
-            Tuple of (top, right, bottom, left) padding values
-        """
-        if isinstance(padding, int):
-            return (padding, padding, padding, padding)
-        elif isinstance(padding, tuple) and len(padding) == 2:
-            padding_2 = cast(tuple[int, int], padding)
-            vertical, horizontal = padding_2
-            return (vertical, horizontal, vertical, horizontal)
-        else:  # len(padding) == 4
-            return cast(tuple[int, int, int, int], padding)
 
     def _get_stroke_effects(self, effects: list[TextEffect]) -> list[Stroke]:
         return [e for e in effects if isinstance(e, Stroke)]

@@ -4,13 +4,15 @@ from collections.abc import Callable
 
 from PIL import Image, ImageChops, ImageEnhance, ImageFilter
 
-from quickthumb._base import DEFAULT_TEXT_COLOR, FULL_OPACITY, CanvasBase
+from quickthumb._base import DEFAULT_TEXT_COLOR, FULL_OPACITY
 from quickthumb.errors import RenderingError
 from quickthumb.models import BlendMode, Filter, Grain
 
 
-class EffectsMixin(CanvasBase):
-    def _parse_color(self, color: str | tuple) -> tuple[int, ...]:
+class EffectsEngine:
+    """Stateless color, gradient, filter, and blend-mode operations."""
+
+    def parse_color(self, color: str | tuple) -> tuple[int, ...]:
         if isinstance(color, tuple):
             return color
 
@@ -31,7 +33,7 @@ class EffectsMixin(CanvasBase):
 
         return DEFAULT_TEXT_COLOR
 
-    def _apply_opacity(self, image: Image.Image, opacity: float) -> Image.Image:
+    def apply_opacity(self, image: Image.Image, opacity: float) -> Image.Image:
         if opacity == 1.0:
             return image
 
@@ -64,7 +66,7 @@ class EffectsMixin(CanvasBase):
         enhancer = ImageEnhance.Color(image)
         return enhancer.enhance(saturation)
 
-    def _apply_filter(self, image: Image.Image, effect: Filter) -> Image.Image:
+    def apply_filter(self, image: Image.Image, effect: Filter) -> Image.Image:
         if effect.brightness != 1.0:
             image = self._apply_brightness(image, effect.brightness)
         if effect.blur > 0:
@@ -141,7 +143,7 @@ class EffectsMixin(CanvasBase):
         if noise is None:
             return image
         r, g, b, original_alpha = image.split()
-        blended = self._apply_blend_mode(image, noise, blend_mode)
+        blended = self.apply_blend_mode(image, noise, blend_mode)
         br, bg, bb, _ = blended.split()
         if opacity < 1.0:
             br = Image.blend(r, br, opacity)
@@ -149,7 +151,7 @@ class EffectsMixin(CanvasBase):
             bb = Image.blend(b, bb, opacity)
         return Image.merge("RGBA", (br, bg, bb, original_alpha))
 
-    def _apply_grain(self, image: Image.Image, effect: Grain) -> Image.Image:
+    def apply_grain(self, image: Image.Image, effect: Grain) -> Image.Image:
         return self._blend_grain(
             image,
             effect.intensity,
@@ -159,7 +161,7 @@ class EffectsMixin(CanvasBase):
             effect.opacity,
         )
 
-    def _apply_opacity_to_color(self, color: tuple[int, ...], opacity: float) -> tuple[int, ...]:
+    def apply_opacity_to_color(self, color: tuple[int, ...], opacity: float) -> tuple[int, ...]:
         r, g, b = color[:3]
 
         if len(color) == 3:
@@ -177,7 +179,7 @@ class EffectsMixin(CanvasBase):
 
         parsed_stops = []
         for color, pos in stops:
-            parsed_color = self._parse_color(color)
+            parsed_color = self.parse_color(color)
             # Ensure color has alpha channel (default to 255 if not provided)
             if len(parsed_color) == 3:
                 parsed_color = (*parsed_color, 255)
@@ -214,7 +216,7 @@ class EffectsMixin(CanvasBase):
 
         return r_lut, g_lut, b_lut, a_lut
 
-    def _create_linear_gradient(
+    def create_linear_gradient(
         self, size: tuple[int, int], angle: float, stops: list[tuple[str, float]]
     ) -> Image.Image:
         width, height = size
@@ -241,7 +243,7 @@ class EffectsMixin(CanvasBase):
 
         return Image.merge("RGBA", (r, g, b, a))
 
-    def _create_radial_gradient(
+    def create_radial_gradient(
         self, size: tuple[int, int], stops: list[tuple[str, float]], center: tuple[float, float]
     ) -> Image.Image:
         width, height = size
@@ -298,7 +300,7 @@ class EffectsMixin(CanvasBase):
 
         return result
 
-    def _apply_blend_mode(
+    def apply_blend_mode(
         self, base: Image.Image, overlay: Image.Image, blend_mode: BlendMode | str
     ) -> Image.Image:
         if base.size != overlay.size:
