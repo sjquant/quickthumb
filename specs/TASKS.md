@@ -82,7 +82,7 @@
 - [DONE] SVG layer: `canvas.svg(path, ...)` + `"type": "svg"` JSON layer, rasterized via optional `quickthumb[svg]` (cairosvg) extra
 - [DONE] Layout engine: `group` layer with `direction` (row/column), `gap`, `padding`, `align`/`item_align`, nested groups; children auto-positioned
 - [DONE] Diagnostics: `canvas.diagnose()` returning structured findings (off-canvas, text overflow, low contrast, tiny text) + `quickthumb lint` CLI subcommand
-- [TODO] Docs: README + feature matrix updates for the capability epic
+- [DONE] Docs: README + feature matrix updates for the capability epic
 
 ### P3 — Lower Priority
 
