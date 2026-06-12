@@ -77,17 +77,21 @@ nav:
       - Text: api/text.md
       - Image: api/image.md
       - Shape: api/shape.md
+      - SVG: api/svg.md
+      - Group (Auto Layout): api/group.md
       - Outline: api/outline.md
       - Effects: api/effects.md
       - Enums & Gradients: api/enums.md
   - JSON & AI:
       - JSON Schema & AI Workflow: json-schema.md
+      - Diagnostics & CLI: diagnostics.md
   - Cookbook:
       - Gallery: cookbook/index.md
       - YouTube Thumbnails: cookbook/youtube-thumbnail.md
       - Instagram Card: cookbook/instagram-card.md
       - Podcast Promo: cookbook/podcast-promo.md
       - Shorts / Vertical Cover: cookbook/shorts-cover.md
+      - Launch Announcement (Auto Layout): cookbook/launch-announcement.md
       - AI Workflow: cookbook/ai-workflow.md
       - Webfonts & Background Removal: cookbook/webfonts-rembg.md
   - FAQ: faq.md

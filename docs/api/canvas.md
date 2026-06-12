@@ -46,10 +46,23 @@ All builder methods mutate the canvas and return `self`, enabling method chainin
 | `.text(...)` | Add a text layer |
 | `.image(...)` | Add an overlay image layer |
 | `.shape(...)` | Add a shape layer |
+| `.svg(...)` | Add an SVG layer, rasterized at render time |
+| `.group(...)` | Add an auto-layout group of child layers |
 | `.outline(...)` | Add a canvas border |
 | `.custom(fn)` | Add a Pillow callback layer |
 
 See the individual reference pages for full parameter details.
+
+## `.diagnose()`
+
+Checks the composition for layout and legibility issues without writing a file. Returns a list of `Diagnostic` findings (empty when clean):
+
+```python
+for finding in canvas.diagnose():
+    print(finding.severity, finding.code, finding.message)
+```
+
+Finding codes: `off-canvas`, `tiny-text`, `text-overflow`, `low-contrast`. See [Diagnostics & CLI](../diagnostics.md) for details and the `quickthumb lint` equivalent.
 
 ## Export methods
 

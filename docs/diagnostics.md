@@ -1,0 +1,112 @@
+---
+description: Catch layout and legibility problems with canvas.diagnose() and the quickthumb CLI — lint, render, and watch JSON specs from the terminal.
+---
+
+# Diagnostics & CLI
+
+quickthumb can check a composition for common layout and legibility problems **without writing a file** — from Python with `canvas.diagnose()`, or from the terminal with `quickthumb lint`. This closes the loop for agent workflows: generate a spec, lint it, fix the findings, render.
+
+## `canvas.diagnose()`
+
+Returns a list of `Diagnostic` findings. An empty list means no issues.
+
+```python
+from quickthumb import Canvas
+
+canvas = Canvas.from_json(spec)
+
+for finding in canvas.diagnose():
+    print(finding.severity, finding.code, finding.message)
+```
+
+Each `Diagnostic` has four fields:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `code` | `str` | One of `"off-canvas"`, `"tiny-text"`, `"text-overflow"`, `"low-contrast"` |
+| `severity` | `str` | `"warning"` or `"error"` |
+| `layer_index` | `int` | Index of the offending layer in `canvas.layers` |
+| `message` | `str` | Human-readable explanation with the measured values |
+
+### What gets checked
+
+| Code | Trigger |
+| --- | --- |
+| `off-canvas` | A layer's bounding box falls partly or fully outside the canvas |
+| `tiny-text` | Text smaller than 2.5% of the canvas height — likely illegible at thumbnail display sizes |
+| `text-overflow` | A single word is wider than the layer's `max_width` and cannot be wrapped |
+| `low-contrast` | Text color has a contrast ratio under 2.0 against the composited layers below it |
+
+!!! tip "Agent loop"
+    `diagnose()` is designed for render → diagnose → fix iteration: have an LLM emit a spec, run `diagnose()`, and feed the findings back as targeted edit instructions instead of re-prompting from scratch.
+
+!!! note
+    The contrast check compares text color against the layers *below* the text layer. Text that gets its contrast from its own `Background` effect (e.g. dark text on its own bright pill) can report a false positive.
+
+## The `quickthumb` CLI
+
+The CLI requires the `cli` extra:
+
+```bash
+pip install "quickthumb[cli]"
+```
+
+### `quickthumb lint`
+
+Checks a JSON spec for the same findings as `diagnose()`:
+
+```bash
+quickthumb lint spec.json
+```
+
+```text
+[warning] layer 3: tiny-text — text size 14px is below 18px (2.5% of canvas height) ...
+[warning] layer 4: low-contrast — text contrast ratio 1.47 against the layers below it ...
+```
+
+Exit codes make it easy to gate CI or agent pipelines:
+
+| Exit code | Meaning |
+| --- | --- |
+| `0` | No issues found |
+| `1` | Invalid spec (bad JSON, validation error, missing file) |
+| `2` | Rendering failure |
+| `3` | Findings reported |
+
+### `quickthumb render`
+
+Renders a JSON spec to an image file:
+
+```bash
+quickthumb render spec.json -o thumbnail.png
+quickthumb render spec.json -o thumbnail.webp --format WEBP --quality 90
+```
+
+| Option | Description |
+| --- | --- |
+| `-o, --output` | Output file path (default `output.png`) |
+| `--format` | `PNG`, `JPEG`, or `WEBP` |
+| `--quality` | Quality 1–95, JPEG/WEBP only |
+| `--var KEY=VALUE` | Substitute `$KEY` placeholders in the spec (repeatable) |
+
+### `quickthumb watch`
+
+Re-renders the spec every time the file changes — useful while hand-tuning a layout:
+
+```bash
+quickthumb watch spec.json -o preview.png
+```
+
+`watch` takes the same options as `render`.
+
+### Variable substitution
+
+All three commands accept `--var` to fill `$KEY` (or `${KEY}`) placeholders before parsing:
+
+```bash
+quickthumb render template.json -o ep42.png \
+  --var TITLE="EPISODE 42" \
+  --var ACCENT="#B8FF00"
+```
+
+Unresolved placeholders cause exit code `1`. `$theme.*` references are not variables — they are resolved by the [theme block](json-schema.md#theme-tokens) inside the spec itself.

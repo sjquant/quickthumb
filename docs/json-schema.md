@@ -26,17 +26,47 @@ canvas = Canvas.from_json(json_str)
 
 ## JSON structure
 
-A quickthumb JSON document has three top-level fields:
+A quickthumb JSON document has three required top-level fields, plus an optional `theme` block:
 
 ```json
 {
   "width": 1280,
   "height": 720,
+  "theme": { ... },
   "layers": [ ... ]
 }
 ```
 
 Every layer object requires a `"type"` discriminator field. Layers render in array order — first item is backmost.
+
+## Theme tokens
+
+Define brand tokens once in a top-level `theme` block and reference them anywhere in the spec with `$theme.path`:
+
+```json
+{
+  "width": 1280,
+  "height": 720,
+  "theme": {
+    "colors": { "primary": "#B8FF00", "ink": "#111111" },
+    "sizes": { "title": 96 }
+  },
+  "layers": [
+    { "type": "background", "color": "$theme.colors.ink" },
+    { "type": "text", "content": "Hello", "size": "$theme.sizes.title", "color": "$theme.colors.primary" }
+  ]
+}
+```
+
+Rules:
+
+- The `theme` block can nest groups arbitrarily; reference paths with dots: `$theme.colors.primary`.
+- A whole-string reference keeps its native JSON type — `"size": "$theme.sizes.title"` resolves to the number `96`, and tokens can hold lists too.
+- Scalar tokens (strings, numbers) can also be embedded inside longer strings.
+- Theme values may reference other theme tokens (aliases). Circular references raise `ValidationError`.
+- Referencing an undefined token raises `ValidationError`.
+- Tokens are resolved at parse time: `to_json()` emits resolved values without the `theme` block.
+- Theme tokens work alongside `$var` template substitution (`quickthumb render --var KEY=VALUE`); `$theme.*` references are never treated as variables.
 
 ## Layer schemas
 
@@ -144,7 +174,7 @@ Only include the fields you need — unspecified fields use their defaults.
   "content": "GRADIENT",
   "size": 120,
   "fill": {
-    "type": "linear_gradient",
+    "type": "linear",
     "angle": 90,
     "stops": [["#FF6B6B", 0.0], ["#4ECDC4", 1.0]]
   },
@@ -172,7 +202,7 @@ Only include the fields you need — unspecified fields use their defaults.
 }
 ```
 
-`fill` discriminator values: `"linear_gradient"`, `"radial_gradient"`, `"image"`. `fill` can also be set per `TextPart` entry using the same discriminated object.
+`fill` discriminator values: `"linear"`, `"radial"`, `"image"` — the same tags as background gradients. `fill` can also be set per `TextPart` entry using the same discriminated object.
 
 **Align values:** `"center"`, `"left"`, `"right"`, `"top-left"`, `"top-center"`, `"top-right"`, `"bottom-left"`, `"bottom-center"`, `"bottom-right"`
 
@@ -223,7 +253,88 @@ Only include the fields you need — unspecified fields use their defaults.
 }
 ```
 
-`"shape"` values: `"rectangle"` or `"ellipse"`
+`"shape"` values: `"rectangle"`, `"ellipse"`, `"pill"`, `"triangle"`, `"star"`, `"polygon"`
+
+**Star and polygon variants:**
+
+```json
+{
+  "type": "shape",
+  "shape": "star",
+  "position": ["80%", "50%"],
+  "width": 280,
+  "height": 280,
+  "color": "#7C5CFF",
+  "align": "center",
+  "rotation": 12,
+  "star_points": 5,
+  "inner_radius": 0.45
+}
+```
+
+```json
+{
+  "type": "shape",
+  "shape": "polygon",
+  "position": [600, 60],
+  "width": 160,
+  "height": 100,
+  "color": "#53BF9D",
+  "points": [[0.0, 0.25], [0.6, 0.25], [0.6, 0.0], [1.0, 0.5], [0.6, 1.0], [0.6, 0.75], [0.0, 0.75]]
+}
+```
+
+`points` is required for `"polygon"` (and only valid there): at least 3 vertices, normalized `0.0`–`1.0` inside the shape box. `star_points` (≥ 3) and `inner_radius` (between 0 and 1, exclusive) only apply to `"star"`.
+
+---
+
+### SVG layer
+
+Rasterized at render time — requires the `quickthumb[svg]` extra. See the [SVG reference](api/svg.md).
+
+```json
+{
+  "type": "svg",
+  "path": "logo.svg",
+  "position": ["92%", "10%"],
+  "width": 120,
+  "align": "center",
+  "opacity": 1.0,
+  "rotation": 0.0,
+  "blend_mode": null,
+  "effects": []
+}
+```
+
+`width`/`height` set the raster size; aspect ratio is preserved when only one is given. SVG layers accept the same `effects` as image layers.
+
+---
+
+### Group layer
+
+Auto-layout container — children are measured and stacked along a row or column, so they must not set `position`. See the [Group reference](api/group.md).
+
+```json
+{
+  "type": "group",
+  "direction": "column",
+  "gap": 24,
+  "padding": 0,
+  "position": ["8%", "50%"],
+  "align": ["left", "middle"],
+  "item_align": "start",
+  "children": [
+    { "type": "shape", "shape": "pill", "width": 120, "height": 36, "color": "#E94560" },
+    { "type": "text", "content": "AUTO LAYOUT", "size": 96, "color": "#FFFFFF", "weight": 900 },
+    { "type": "text", "content": "No coordinates were harmed", "size": 40, "color": "#A2A8D3" }
+  ]
+}
+```
+
+- `direction`: `"column"` (default) or `"row"`
+- `gap`: pixels between children; `padding`: int, `[vertical, horizontal]`, or `[top, right, bottom, left]`
+- `item_align`: cross-axis placement — `"start"`, `"center"`, or `"end"`
+- `children` types: `"text"`, `"image"`, `"shape"`, `"svg"`, or nested `"group"`
 
 ---
 
@@ -358,15 +469,17 @@ quickthumb JSON is well-suited for LLM generation because the schema is flat, ev
 Generate a quickthumb JSON config for a 1280×720 YouTube thumbnail.
 
 Rules:
-- Top-level fields: "width", "height", "layers"
-- Every layer must have a "type" field: "background", "text", "image", "shape", or "outline"
+- Top-level fields: "width", "height", "layers" (optional "theme" for shared tokens)
+- Every layer must have a "type" field: "background", "text", "image", "shape", "svg", "group", or "outline"
 - Every effect must have a "type" field: "stroke", "shadow", "glow", "filter", "background", or "grain"
 - Positions are [x, y] arrays — values can be integers (px) or percentage strings like "50%"
 - Colors are hex strings: "#RRGGBB" or "#RRGGBBAA"
 - Layers render bottom-to-top in array order
+- Prefer a "group" layer for stacked text blocks: children must not set "position";
+  the group is anchored once with "position" + "align"
 
-Layout: dark background image, semi-transparent black overlay, bold left-aligned title text,
-subject image on the right, cyan outline border.
+Layout: dark background image, semi-transparent black overlay, a left-anchored column group
+with badge text and a bold title, subject image on the right, cyan outline border.
 Return only the JSON object, no explanation.
 ```
 
@@ -391,9 +504,10 @@ Return only the Python code block.
 ### Validation and iteration workflow
 
 1. Have the model produce a quickthumb JSON or Python spec.
-2. Render it locally with `canvas.render("preview.png")`.
-3. Identify what to change — colors, text, layout — without rewriting the full spec.
-4. Feed the rendered result back to the model with targeted instructions if needed.
+2. Lint it: `quickthumb lint spec.json` or `canvas.diagnose()` flags off-canvas layers, tiny text, overflow, and low contrast before you ever look at pixels. See [Diagnostics & CLI](diagnostics.md).
+3. Render it locally with `canvas.render("preview.png")` or `quickthumb render spec.json`.
+4. Identify what to change — colors, text, layout — without rewriting the full spec.
+5. Feed the findings (or the rendered result) back to the model with targeted instructions if needed.
 
 ### Tips for reliable LLM output
 
@@ -401,6 +515,8 @@ Return only the Python code block.
 - Ask for one layer type at a time if the model struggles with complex compositions.
 - Validate JSON before rendering: `Canvas.from_json(spec)` raises `ValidationError` immediately on bad input with a descriptive message.
 - Use `"content": "plain string"` for simple text and `"content": [{"text": ...}]` for rich text — both are valid.
+- Prefer `group` layers over hand-placed coordinates — auto-layout specs survive content-length changes, which is where LLM-positioned layouts usually break.
+- Put brand values in a `theme` block so iteration prompts only touch content, not styling.
 
 ## Serialization notes
 
@@ -412,3 +528,4 @@ Return only the Python code block.
 | `position` | JSON array: `[640, 360]` or `["50%", "50%"]` |
 | Gradient stops | JSON array of `["#color", 0.0]` pairs |
 | `null` fields | Omitted fields default to `null` / their default value |
+| `theme` block | Resolved at parse time — `to_json()` emits resolved values without the `theme` block |

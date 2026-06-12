@@ -17,6 +17,10 @@ description: Create thumbnails and social images with quickthumb's layered Pytho
 | --- | --- | --- |
 | ![Talking head](assets/examples/youtube_talking_head.png) | ![Reaction thumbnail](assets/examples/youtube_reaction.png) | ![Tutorial thumbnail](assets/examples/youtube_tutorial_explainer.png) |
 
+![Launch announcement — built with auto-layout groups, theme tokens, star shapes, and SVG layers from a single JSON spec](assets/examples/launch_announcement.png)
+
+*The launch announcement card above is a single JSON spec using `theme` tokens, auto-layout `group` layers, `star` shapes, and `svg` sparkles — see the [cookbook recipe](cookbook/launch-announcement.md).*
+
 ## Install
 
 ```bash
@@ -55,9 +59,11 @@ canvas.render("thumbnail.png")
 
 ## Why quickthumb
 
-- Layer-based composition — backgrounds, text, images, shapes stack in call order
+- Layer-based composition — backgrounds, text, images, shapes, and SVGs stack in call order
 - Works with Python method chaining **and** JSON specs — same result either way
 - Remote images, webfonts, gradients, blend modes, and rich text out of the box
+- Auto-layout `group` layers and JSON `theme` tokens — specs survive copy changes and rebrands
+- Built-in diagnostics (`canvas.diagnose()` / `quickthumb lint`) catch off-canvas layers, tiny text, and low contrast before you ship
 - Good fit for AI-assisted workflows that need deterministic, validatable image specs
 
 [Get started](getting-started.md){ .md-button .md-button--primary }

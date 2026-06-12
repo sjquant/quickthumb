@@ -15,6 +15,7 @@ uv run python examples/youtube_tutorial_explainer.py
 uv run python examples/instagram_news_card.py
 uv run python examples/podcast_interview_promo.py
 uv run python examples/shorts_cover_agent.py
+uv run python examples/launch_announcement.py
 ```
 
 All examples write their rendered image back into this directory.
@@ -131,6 +132,24 @@ Shows:
 
 Use it when you want to generate a vertical promo cover from an LLM-produced JSON layout and keep the rendering step deterministic.
 
+### `launch_announcement.py`
+
+Output: `launch_announcement.png`
+
+Spec: `launch_announcement.json`
+
+Shows the quickthumb 0.5 feature set in a single themed JSON spec:
+
+- Top-level `theme` block with `$theme.*` token references for every color and font size
+- Auto-layout `group` layers — a column with a nested chip row, zero hand-placed text coordinates
+- `star` shape primitives with glow and stroke effects
+- Decorative `svg` layers (requires `quickthumb[svg]`)
+- Gradient-filled headline text via per-`TextPart` `fill`
+- `Grain` effect with a fixed seed for deterministic texture
+- `canvas.diagnose()` before rendering, mirroring `quickthumb lint`
+
+Use it when you want a brandable announcement-card template whose layout survives copy changes, or as a reference spec for LLM-generated layouts.
+
 ## Assets and Fonts
 
 The example scripts set:
@@ -140,7 +159,9 @@ The example scripts set:
 
 They also use bundled example images from `assets/images`.
 
-The JSON-first example uses repo-relative asset paths inside the checked-in JSON spec. The companion Python script changes into the repo root before rendering so the example stays runnable from any working directory.
+The JSON-first examples use repo-relative asset paths inside their checked-in JSON specs. The companion Python scripts change into the repo root before rendering so the examples stay runnable from any working directory.
+
+The launch announcement example renders SVG layers, so install `quickthumb[svg]` (cairosvg) to run it locally.
 
 The podcast promo example additionally requires network access because it fetches remote images and a remote webfont at render time. It also uses `remove_background=True`, so install `quickthumb[rembg]` if you want to run it locally.
 

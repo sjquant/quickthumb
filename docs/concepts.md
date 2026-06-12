@@ -46,7 +46,9 @@ This is intentional — you build up the composition the same way you would desc
 | `.background(...)` | Full-canvas background: solid color, gradient, or image |
 | `.text(...)` | Text with optional rich-text parts and effects |
 | `.image(...)` | Positioned overlay image or cutout |
-| `.shape(...)` | Positioned rectangle or ellipse |
+| `.shape(...)` | Positioned primitive: rectangle, ellipse, pill, triangle, star, or polygon |
+| `.svg(...)` | SVG icon or logo, rasterized at render time (requires `quickthumb[svg]`) |
+| `.group(...)` | Auto-layout container that stacks children along a row or column |
 | `.outline(...)` | Border drawn around the full canvas edge |
 | `.custom(fn)` | Callback that receives and returns a Pillow `Image` |
 
@@ -99,10 +101,11 @@ Effects are modifiers applied to a layer. Each layer type accepts a specific set
 
 | Layer | Available effects |
 | --- | --- |
-| Background | `Filter` |
+| Background | `Filter`, `Grain` |
 | Text | `Stroke`, `Shadow`, `Glow`, `Background` |
-| Image | `Stroke`, `Shadow`, `Glow`, `Filter` |
+| Image | `Stroke`, `Shadow`, `Glow`, `Filter`, `Grain` |
 | Shape | `Stroke`, `Shadow`, `Glow` |
+| SVG | `Stroke`, `Shadow`, `Glow`, `Filter` |
 
 Pass effects as a list:
 
@@ -153,6 +156,16 @@ Filter(blur=4, brightness=0.75, contrast=1.1, saturation=0.9)
 ```
 
 All `Filter` parameters default to neutral (no effect) — only set what you want to adjust.
+
+### Grain
+
+Adds film-grain noise to a background or image layer.
+
+```python
+Grain(intensity=0.08, monochrome=True, seed=7)
+```
+
+Pass a `seed` for deterministic output. See the [Effects reference](api/effects.md#grain) for all parameters.
 
 ### Background (text effect)
 
@@ -231,6 +244,47 @@ When an image or background image has explicit width and height dimensions set, 
 | `cover` | Fill the box, cropping if needed (default for backgrounds) |
 | `contain` | Fit entirely inside the box, leaving empty space |
 | `fill` | Stretch to fill exactly, ignoring aspect ratio |
+
+## Auto layout with groups
+
+Hand-placed coordinates break when copy changes. A `group` layer measures its children and stacks them along a row or column — you anchor the whole group once with `position` + `align`, and the group assigns every child's position:
+
+```python
+canvas.group(
+    children=[
+        {"type": "shape", "shape": "pill", "width": 120, "height": 36, "color": "#E94560"},
+        {"type": "text", "content": "AUTO LAYOUT", "size": 96, "color": "#FFFFFF", "weight": 900},
+        {"type": "text", "content": "No coordinates were harmed", "size": 40, "color": "#A2A8D3"},
+    ],
+    direction="column",
+    gap=24,
+    position=("8%", "50%"),
+    align=("left", "middle"),
+)
+```
+
+Children must not set their own `position`, and groups can nest (a column containing a row, etc.). See the [Group reference](api/group.md).
+
+## Theme tokens (JSON specs)
+
+JSON specs can define brand tokens once in a top-level `theme` block and reference them anywhere with `$theme.path`:
+
+```json
+{
+  "width": 1280,
+  "height": 720,
+  "theme": { "colors": { "primary": "#B8FF00" }, "sizes": { "title": 96 } },
+  "layers": [
+    { "type": "text", "content": "Hello", "size": "$theme.sizes.title", "color": "$theme.colors.primary" }
+  ]
+}
+```
+
+Tokens are resolved at parse time; unknown tokens raise `ValidationError`. See [Theme tokens](json-schema.md#theme-tokens).
+
+## Diagnostics
+
+`canvas.diagnose()` checks a composition for common problems — layers outside the canvas, illegibly small text, unwrappable words, and low text contrast — without writing a file. The CLI equivalent is `quickthumb lint spec.json`. See [Diagnostics & CLI](diagnostics.md).
 
 ## JSON round-trip
 
