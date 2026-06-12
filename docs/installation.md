@@ -50,6 +50,20 @@ uv pip install "quickthumb[svg]"
 
 Rendering a canvas that contains an SVG layer without this extra raises `RenderingError`.
 
+## Optional: PPTX Export
+
+To export canvases to PowerPoint with `canvas.to_pptx()` or `canvas.render("deck.pptx")`, install the `pptx` extra ([python-pptx](https://python-pptx.readthedocs.io/)):
+
+```bash
+# pip
+pip install "quickthumb[pptx]"
+
+# uv
+uv pip install "quickthumb[pptx]"
+```
+
+SVG and HTML export need no extra dependencies. See [Exporting to SVG, HTML & PPTX](exports.md) for details.
+
 ## Optional: CLI
 
 To use the `quickthumb` command (`render`, `lint`, `watch`), install the `cli` extra:

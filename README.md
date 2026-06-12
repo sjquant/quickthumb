@@ -42,6 +42,12 @@ Optional SVG layer support:
 uv pip install "quickthumb[svg]"
 ```
 
+Optional PowerPoint (PPTX) export support:
+
+```bash
+uv pip install "quickthumb[pptx]"
+```
+
 ## Quick Start
 
 ```python
@@ -357,6 +363,22 @@ jpeg_data_url = canvas.to_data_url(format="JPEG", quality=90)
 canvas.render("output.webp", format="WEBP", quality=90)
 ```
 
+### SVG, HTML, and PPTX renderers
+
+The same canvas renders to vector and document formats, detected from the file extension:
+
+```python
+canvas.render("card.svg")    # vector SVG with native shapes, gradients, and selectable text
+canvas.render("card.html")   # standalone HTML page (inline SVG, fonts embedded)
+canvas.render("card.pptx")   # PowerPoint slide with editable text boxes and autoshapes
+
+svg_markup = canvas.to_svg(embed_fonts=True)  # inline @font-face for portable text
+html_page = canvas.to_html(title="Launch card")
+pptx_bytes = canvas.to_pptx()                 # requires quickthumb[pptx]
+```
+
+Layers the target format can express (backgrounds, gradients, outlines, shapes, text — including wrapping, rich parts, letter spacing, and effects) are exported natively and stay editable; everything else (raster images, blend modes, custom layers) is embedded as pixel-exact PNG fragments rendered by the regular pipeline. See the [export docs](https://sjquant.github.io/quickthumb/exports/) for the full mapping.
+
 ## JSON-First Workflow
 
 quickthumb can round-trip most canvases through JSON:
@@ -466,6 +488,7 @@ os.environ["QUICKTHUMB_DEFAULT_FONT"] = "Roboto"
 | Theme tokens | Top-level `theme` block with `$theme.path` references in JSON specs |
 | Diagnostics | `canvas.diagnose()` and `quickthumb lint`: off-canvas, tiny text, overflow, low contrast |
 | Export | PNG, JPEG, WebP, file output, base64, data URLs |
+| Document renderers | SVG (`to_svg()`), standalone HTML (`to_html()`), editable PPTX via optional `quickthumb[pptx]` extra |
 | Serialization | `to_json()` / `from_json()` for built-in layer types and named custom layers |
 
 ## Real Example Scripts

@@ -76,12 +76,15 @@ def parse_padding(
     return cast(tuple[int, int, int, int], padding)
 
 
-def expanded_rotation_size(size: tuple[int, int], rotation: float) -> tuple[int, int]:
+def expanded_rotation_size(
+    size: tuple[int, int], rotation: float, scale: int = 4
+) -> tuple[int, int]:
     """Predict the rendered size of a layer rotated with expand=True.
 
-    Mirrors the overlay render path exactly: rotate at 4x supersampling about the
-    center (PIL corner/ceil-floor arithmetic, right angles transposed), then
-    downscale by 4 with rounding.
+    Mirrors the overlay render path exactly: rotate at `scale`x supersampling about
+    the center (PIL corner/ceil-floor arithmetic, right angles transposed), then
+    downscale by `scale` with rounding. Use scale=1 for render paths that rotate
+    without supersampling (e.g. text layers).
     """
     angle = rotation % 360
     if angle in (0, 180):
@@ -89,7 +92,7 @@ def expanded_rotation_size(size: tuple[int, int], rotation: float) -> tuple[int,
     if angle in (90, 270):
         return size[1], size[0]
 
-    w, h = size[0] * 4, size[1] * 4
+    w, h = size[0] * scale, size[1] * scale
     rad = -math.radians(-rotation % 360)
     cos, sin = math.cos(rad), math.sin(rad)
     matrix = [cos, sin, 0.0, -sin, cos, 0.0]
@@ -102,4 +105,4 @@ def expanded_rotation_size(size: tuple[int, int], rotation: float) -> tuple[int,
         ys.append(matrix[3] * x + matrix[4] * y + matrix[5])
     new_w = math.ceil(max(xs)) - math.floor(min(xs))
     new_h = math.ceil(max(ys)) - math.floor(min(ys))
-    return round(new_w / 4), round(new_h / 4)
+    return round(new_w / scale), round(new_h / scale)

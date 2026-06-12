@@ -39,7 +39,7 @@ class ShapeEngine:
         elif layer.shape == "pill":
             draw.rounded_rectangle(bbox, radius=min(shape_w, shape_h) // 2, fill=fill_color)
         else:
-            normalized = self._normalized_shape_points(layer)
+            normalized = self.normalized_shape_points(layer)
             pixel_points = [(px * (shape_w - 1), py * (shape_h - 1)) for px, py in normalized]
             draw.polygon(pixel_points, fill=fill_color)
 
@@ -71,7 +71,7 @@ class ShapeEngine:
 
         image.alpha_composite(shape_img, (paste_x, paste_y))
 
-    def _normalized_shape_points(self, layer: ShapeLayer) -> list[tuple[float, float]]:
+    def normalized_shape_points(self, layer: ShapeLayer) -> list[tuple[float, float]]:
         """Return shape outline points normalized to the 0..1 unit box."""
         if layer.shape == "triangle":
             return TRIANGLE_POINTS
