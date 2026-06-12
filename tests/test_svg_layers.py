@@ -169,6 +169,34 @@ class TestSvgRendering:
         # then
         assert len(calls) == 2
 
+    def test_should_pick_up_svg_file_changes_between_exports(self, tmp_path):
+        """to_base64 re-rasterizes per render pass instead of serving a stale cached raster"""
+        pytest.importorskip("cairosvg")
+        from quickthumb import Canvas
+
+        # given: a canvas rendering a mutable svg file
+        svg_path = tmp_path / "art.svg"
+        svg_path.write_text(
+            '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40">'
+            '<rect width="40" height="40" fill="red"/></svg>'
+        )
+        canvas = (
+            Canvas(100, 100)
+            .background(color="#FFFFFF")
+            .svg(path=str(svg_path), position=(0, 0), width=50)
+        )
+
+        # when: exporting, changing the file on disk, and exporting again
+        first = canvas.to_base64()
+        svg_path.write_text(
+            '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40">'
+            '<rect width="40" height="40" fill="blue"/></svg>'
+        )
+        second = canvas.to_base64()
+
+        # then: the second export reflects the new artwork
+        assert first != second
+
     def test_should_raise_for_missing_svg_file(self, tmp_path):
         """Rendering a canvas referencing a missing local svg path raises FileNotFoundError"""
         from quickthumb import Canvas

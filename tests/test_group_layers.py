@@ -367,6 +367,97 @@ class TestGroupLayout:
         assert img.getpixel((100, 85)) == WHITE
         assert img.getpixel((100, 115)) == WHITE
 
+    def test_should_reserve_expanded_slots_for_rotated_children(self):
+        """Rotated children occupy their expanded bounding box in the layout"""
+        from quickthumb import Canvas
+
+        # given: a 100x20 bar rotated 45° (expands to 85x85) above a blue box
+        canvas = (
+            Canvas(200, 200)
+            .background(color="#FFFFFF")
+            .group(
+                children=[
+                    {
+                        "type": "shape",
+                        "shape": "rectangle",
+                        "width": 100,
+                        "height": 20,
+                        "color": "#FF0000",
+                        "rotation": 45,
+                    },
+                    BLUE,
+                ],
+                direction="column",
+                position=(0, 0),
+            )
+        )
+
+        # when
+        img = render_pixels(canvas)
+
+        # then: blue starts at y=85 under the rotated extent, not at y=20 under the raw size
+        assert img.getpixel((42, 42)) == (255, 0, 0, 255)  # rotated bar center
+        assert img.getpixel((5, 30)) == WHITE  # inside expanded slot, off the bar
+        assert img.getpixel((5, 90)) == (0, 0, 255, 255)
+        assert img.getpixel((5, 80)) == WHITE  # blue must not start above the slot
+
+    def test_should_measure_auto_scaled_text_children_at_rendered_size(self):
+        """Group layout measures auto_scale text at its scaled size, not its declared size"""
+        from quickthumb import Canvas
+
+        # given: 80px text that auto-scales into a 150px column, grouped with a shape
+        canvas = (
+            Canvas(400, 300)
+            .background(color="#FFFFFF")
+            .group(
+                children=[
+                    {
+                        "type": "text",
+                        "content": "A LONG HEADLINE THAT MUST SHRINK",
+                        "size": 80,
+                        "color": "#000000",
+                        "max_width": 150,
+                        "auto_scale": True,
+                    },
+                    RED,
+                ],
+                position=(10, 10),
+            )
+        )
+
+        # when / then: the group box fits the canvas because the text was measured scaled
+        # (unscaled measurement produced an oversized box and an off-canvas finding)
+        assert canvas.diagnose() == []
+
+    def test_should_justify_multiline_text_children_with_align(self):
+        """A text child's align controls line justification within its layout slot"""
+        from quickthumb import Canvas
+
+        def build(align):
+            return (
+                Canvas(300, 200)
+                .background(color="#FFFFFF")
+                .group(
+                    children=[
+                        {
+                            "type": "text",
+                            "content": "WWWWWWWWWW\nW",
+                            "size": 30,
+                            "color": "#000000",
+                            "align": align,
+                        }
+                    ],
+                    position=(10, 10),
+                )
+            )
+
+        # when: rendering the same child left-justified and center-justified
+        left_img = render_pixels(build(None))
+        center_img = render_pixels(build(("center", "top")))
+
+        # then: justification changes the output (align used to be silently discarded)
+        assert left_img.tobytes() != center_img.tobytes()
+
     def test_should_layout_nested_groups(self):
         """A group child is measured as a unit and laid out recursively"""
         from quickthumb import Canvas

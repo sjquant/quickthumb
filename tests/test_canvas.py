@@ -57,6 +57,30 @@ class TestCanvas:
         with pytest.raises(ValidationError, match="height must be > 0"):
             Canvas(1920, -100)
 
+    def test_should_allow_replacing_the_layers_list(self):
+        """canvas.layers can be assigned to replace or filter layers, as on a plain attribute"""
+        from quickthumb import Canvas
+
+        # given: a canvas with two layers
+        canvas = Canvas(200, 200).background(color="#FFFFFF").text("hi", size=20)
+
+        # when: the layer list is replaced with a filtered copy
+        canvas.layers = [layer for layer in canvas.layers if layer.type == "background"]
+
+        # then
+        assert len(canvas.layers) == 1
+        assert canvas.layers[0].type == "background"
+
+    @pytest.mark.parametrize("attribute", ["width", "height"])
+    def test_should_reject_non_positive_dimension_assignment(self, attribute):
+        """Assigning a non-positive width/height raises like the constructor does"""
+        from quickthumb import Canvas, ValidationError
+
+        canvas = Canvas(200, 200)
+
+        with pytest.raises(ValidationError, match=attribute):
+            setattr(canvas, attribute, 0)
+
     def test_should_serialize_multiple_layers_in_order(self):
         """Test that multiple layers serialize in correct order"""
         # Given: Canvas with multiple background and text layers
@@ -568,6 +592,20 @@ class TestCanvasTemplate:
         assert canvas_dict["layers"][0]["color"] == "#112233"
         assert canvas_dict["layers"][1]["content"] == "Hello"
 
+    def test_should_substitute_non_string_variable_values_verbatim(self):
+        """Numeric variables fill unquoted placeholders without corruption"""
+        from quickthumb import Canvas
+
+        # given: a template using $w as a bare JSON number and $title inside a string
+        template = '{"width": $w, "height": 300, "layers": [{"type": "text", "content": "$title"}]}'
+
+        # when
+        canvas = Canvas.from_template(template, variables={"w": 400, "title": 42})
+
+        # then: the int survives as a number and stringifies inside the quoted field
+        assert canvas.width == 400
+        assert canvas.layers[0].content == "42"
+
     def test_variable_value_with_dollar_sign_is_not_resubstituted(self):
         """Variable values containing $ are inserted literally, not re-scanned for placeholders"""
         from quickthumb import Canvas
@@ -717,6 +755,42 @@ class TestCanvasTheme:
         # when / then: deserialization fails naming the unknown token
         with pytest.raises(ValidationError, match=match):
             Canvas.from_json(json.dumps(spec))
+
+    def test_should_resolve_theme_tokens_that_alias_other_tokens(self):
+        """A theme value may reference another theme token and resolves to the final value"""
+        from quickthumb import Canvas
+
+        # given: accent aliases primary
+        config = json.dumps(
+            {
+                "width": 320,
+                "height": 200,
+                "theme": {"colors": {"primary": "#FF0000", "accent": "$theme.colors.primary"}},
+                "layers": [{"type": "background", "color": "$theme.colors.accent"}],
+            }
+        )
+
+        # when
+        canvas = Canvas.from_json(config)
+
+        # then
+        assert canvas.layers[0].color == "#FF0000"
+
+    def test_should_raise_for_circular_theme_token_references(self):
+        """Mutually referencing theme tokens fail with a circular-reference error"""
+        from quickthumb import Canvas, ValidationError
+
+        config = json.dumps(
+            {
+                "width": 320,
+                "height": 200,
+                "theme": {"colors": {"a": "$theme.colors.b", "b": "$theme.colors.a"}},
+                "layers": [{"type": "background", "color": "$theme.colors.a"}],
+            }
+        )
+
+        with pytest.raises(ValidationError, match="circular"):
+            Canvas.from_json(config)
 
     def test_should_serialize_resolved_values_without_theme_references(self):
         """to_json emits resolved token values and no theme block"""

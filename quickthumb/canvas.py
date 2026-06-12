@@ -52,7 +52,9 @@ RenderableLayer = LayerType | CustomLayer
 _THEME_REF_RE = re.compile(r"\$theme\.([A-Za-z0-9_]+(?:\.[A-Za-z0-9_]+)*)")
 
 
-def _lookup_theme_token(path: str, theme: dict):
+def _lookup_theme_token(path: str, theme: dict, seen: frozenset = frozenset()):
+    if path in seen:
+        raise ValidationError(f"Theme token '$theme.{path}' is part of a circular reference.")
     node = theme
     for key in path.split("."):
         if not isinstance(node, dict) or key not in node:
@@ -60,18 +62,19 @@ def _lookup_theme_token(path: str, theme: dict):
                 f"Theme token '$theme.{path}' is not defined in the spec's theme block."
             )
         node = node[key]
-    return node
+    # Theme values may themselves reference other theme tokens (aliases).
+    return _resolve_theme_tokens(node, theme, seen | {path})
 
 
-def _resolve_theme_tokens(value, theme: dict):
+def _resolve_theme_tokens(value, theme: dict, seen: frozenset = frozenset()):
     """Recursively replace $theme.path references in a parsed JSON structure."""
     if isinstance(value, str):
         full_match = _THEME_REF_RE.fullmatch(value)
         if full_match:
-            return _lookup_theme_token(full_match.group(1), theme)
+            return _lookup_theme_token(full_match.group(1), theme, seen)
 
         def replace(match: re.Match) -> str:
-            token = _lookup_theme_token(match.group(1), theme)
+            token = _lookup_theme_token(match.group(1), theme, seen)
             if isinstance(token, bool) or not isinstance(token, (str, int, float)):
                 raise ValidationError(
                     f"Theme token '$theme.{match.group(1)}' must be a string or number "
@@ -81,9 +84,9 @@ def _resolve_theme_tokens(value, theme: dict):
 
         return _THEME_REF_RE.sub(replace, value)
     if isinstance(value, list):
-        return [_resolve_theme_tokens(item, theme) for item in value]
+        return [_resolve_theme_tokens(item, theme, seen) for item in value]
     if isinstance(value, dict):
-        return {key: _resolve_theme_tokens(item, theme) for key, item in value.items()}
+        return {key: _resolve_theme_tokens(item, theme, seen) for key, item in value.items()}
     return value
 
 
@@ -134,6 +137,8 @@ class Canvas:
 
     @width.setter
     def width(self, value: int):
+        if value <= 0:
+            raise ValidationError("width must be > 0")
         self._ctx.width = value
 
     @property
@@ -142,11 +147,17 @@ class Canvas:
 
     @height.setter
     def height(self, value: int):
+        if value <= 0:
+            raise ValidationError("height must be > 0")
         self._ctx.height = value
 
     @property
     def layers(self) -> list[RenderableLayer]:
         return self._layers
+
+    @layers.setter
+    def layers(self, value: list[RenderableLayer]):
+        self._layers = value
 
     def diagnose(self) -> list:
         """Check layers for layout and legibility issues without producing an output file.
@@ -437,7 +448,6 @@ class Canvas:
         quality: int | None = None,
     ):
         self._validate_image_paths()
-        self._ctx.svg_raster_cache.clear()
         image = self._render_to_image()
         self._save_to_file(image, output_path, quality, format=format)
 
@@ -545,7 +555,9 @@ class Canvas:
                     f"Template placeholder '${key}' has no matching variable. "
                     f"Provide variables={{'{key}': ...}} to Canvas.from_template()."
                 )
-            return _json.dumps(variables[key])[1:-1]
+            value = variables[key]
+            dumped = _json.dumps(value)
+            return dumped[1:-1] if isinstance(value, str) else dumped
 
         return cls.from_json(re.sub(r"\$\{(\w+)\}|\$(\w+)", substitute, raw_spec))
 
@@ -579,6 +591,7 @@ class Canvas:
         return Image.new("RGBA", (self.width, self.height), (0, 0, 0, 0))
 
     def _render_to_image(self) -> Image.Image:
+        self._ctx.svg_raster_cache.clear()
         image = self._create_canvas()
 
         for layer in self._layers:

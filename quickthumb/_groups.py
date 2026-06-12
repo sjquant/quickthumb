@@ -3,6 +3,7 @@ from PIL import Image
 from quickthumb._base import (
     RenderContext,
     apply_alignment,
+    expanded_rotation_size,
     is_url,
     parse_coordinate,
     parse_padding,
@@ -15,6 +16,7 @@ from quickthumb.models import Align, GroupLayer, ImageLayer, ShapeLayer, SvgLaye
 
 GroupChildLayer = TextLayer | ImageLayer | ShapeLayer | SvgLayer | GroupLayer
 GroupBox = tuple[int, int, int, int]
+GroupPlacement = tuple[GroupChildLayer, tuple[int, int], tuple[int, int]]
 
 
 class GroupEngine:
@@ -38,17 +40,20 @@ class GroupEngine:
         self, image: Image.Image, layer: GroupLayer, origin: tuple[int, int] | None = None
     ):
         placements, _ = self.layout_group(layer, origin)
-        for child, position in placements:
-            self._render_group_child(image, child, position)
+        for child, position, size in placements:
+            self._render_group_child(image, child, position, size)
 
     def _render_group_child(
-        self, image: Image.Image, child: GroupChildLayer, position: tuple[int, int]
+        self,
+        image: Image.Image,
+        child: GroupChildLayer,
+        position: tuple[int, int],
+        size: tuple[int, int],
     ):
         if isinstance(child, GroupLayer):
             self.render_group_layer(image, child, origin=position)
         elif isinstance(child, TextLayer):
-            placed = child.model_copy(update={"position": position, "align": None})
-            self._text.render_text_layer(image, placed)
+            self._text.render_text_layer(image, self.place_text_child(child, position, size))
         elif isinstance(child, ImageLayer):
             placed = child.model_copy(update={"position": position, "align": Align.TOP_LEFT})
             self._images.render_image_layer(image, placed)
@@ -59,9 +64,43 @@ class GroupEngine:
             placed = child.model_copy(update={"position": position, "align": None})
             self._shapes.render_shape_layer(image, placed)
 
+    @staticmethod
+    def place_text_child(
+        child: TextLayer, position: tuple[int, int], size: tuple[int, int]
+    ) -> TextLayer:
+        """Anchor a text child at its layout slot, keeping align for line justification.
+
+        Alignment normally shifts the block away from its position; compensating the
+        anchor by the same offset pins the block to the slot while align still
+        controls how individual lines justify within it.
+        """
+        if not child.align:
+            return child.model_copy(update={"position": position, "align": None})
+
+        x, y = position
+        w, h = size
+        if child.align.horizontal == "center":
+            x += w // 2
+        elif child.align.horizontal == "right":
+            x += w
+        if child.align.vertical == "middle":
+            y += h // 2
+        elif child.align.vertical == "bottom":
+            y += h
+        return child.model_copy(update={"position": (x, y)})
+
+    def iter_text_children(self, layer: GroupLayer, origin: tuple[int, int] | None = None):
+        """Yield text children (recursively) as placed copies at their layout positions."""
+        placements, _ = self.layout_group(layer, origin)
+        for child, position, size in placements:
+            if isinstance(child, GroupLayer):
+                yield from self.iter_text_children(child, origin=position)
+            elif isinstance(child, TextLayer):
+                yield self.place_text_child(child, position, size)
+
     def layout_group(
         self, layer: GroupLayer, origin: tuple[int, int] | None = None
-    ) -> tuple[list[tuple[GroupChildLayer, tuple[int, int]]], GroupBox]:
+    ) -> tuple[list[GroupPlacement], GroupBox]:
         """Measure children and assign their absolute positions within the group box."""
         sizes = [self.measure_group_child(child) for child in layer.children]
         pad_top, pad_right, pad_bottom, pad_left = parse_padding(layer.padding)
@@ -80,17 +119,19 @@ class GroupEngine:
             origin if origin is not None else self._group_anchor(layer, group_w, group_h)
         )
 
-        placements: list[tuple[GroupChildLayer, tuple[int, int]]] = []
+        placements: list[GroupPlacement] = []
         cursor = 0
         for child, (child_w, child_h) in zip(layer.children, sizes, strict=True):
+            size = (child_w, child_h)
             if layer.direction == "column":
                 cross = self._cross_axis_offset(layer.item_align, content_w - child_w)
-                placements.append((child, (group_x + pad_left + cross, group_y + pad_top + cursor)))
+                position = (group_x + pad_left + cross, group_y + pad_top + cursor)
                 cursor += child_h + layer.gap
             else:
                 cross = self._cross_axis_offset(layer.item_align, content_h - child_h)
-                placements.append((child, (group_x + pad_left + cursor, group_y + pad_top + cross)))
+                position = (group_x + pad_left + cursor, group_y + pad_top + cross)
                 cursor += child_w + layer.gap
+            placements.append((child, position, size))
 
         return placements, (group_x, group_y, group_w, group_h)
 
@@ -119,20 +160,23 @@ class GroupEngine:
         return 0
 
     def measure_group_child(self, child: GroupChildLayer) -> tuple[int, int]:
-        """Return the natural rendered size of a layer, without rendering it."""
+        """Return the rendered size of a layer (auto-scale and rotation applied)."""
         if isinstance(child, TextLayer):
+            child = self._text.effective_layer(child)
             if isinstance(child.content, list):
                 return self._text.measure_rich_text_size(child)
             font = self._fonts.load_font(child)
             return self._text.measure_simple_text_size(child, font, child.content)
         if isinstance(child, ImageLayer):
-            return self._measure_image_size(child)
+            return expanded_rotation_size(self._measure_image_size(child), child.rotation)
         if isinstance(child, SvgLayer):
             if child.width and child.height:
-                return child.width, child.height
-            return self._images.rasterize_svg(child).size
+                size = child.width, child.height
+            else:
+                size = self._images.rasterize_svg(child).size
+            return expanded_rotation_size(size, child.rotation)
         if isinstance(child, ShapeLayer):
-            return child.width, child.height
+            return expanded_rotation_size((child.width, child.height), child.rotation)
         _, (_, _, group_w, group_h) = self.layout_group(child, origin=(0, 0))
         return group_w, group_h
 

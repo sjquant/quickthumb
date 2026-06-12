@@ -285,6 +285,85 @@ class TestDiagnoseText:
         # when / then
         assert canvas.diagnose() == []
 
+    def test_should_use_rich_text_part_colors_for_contrast(self):
+        """Contrast checks read TextPart colors, not just the layer-level color"""
+        from quickthumb import Canvas
+
+        # given: near-invisible white parts on a white background, behind a black layer color
+        canvas = (
+            Canvas(400, 300)
+            .background(color="#FFFFFF")
+            .text(
+                [{"text": "ghost", "color": "#FFFFFF"}, {"text": " parts", "color": "#F8F8F8"}],
+                size=40,
+                color="#000000",
+                position=(10, 10),
+            )
+        )
+
+        # when / then: the part colors drive the finding despite the high-contrast layer color
+        assert [d.code for d in canvas.diagnose()] == ["low-contrast"]
+
+    def test_should_not_warn_for_readable_rich_text_part_colors(self):
+        """Rich text whose parts contrast well with the backdrop produces no finding"""
+        from quickthumb import Canvas
+
+        # given: white parts on a near-black background
+        canvas = (
+            Canvas(400, 300)
+            .background(color="#111111")
+            .text(
+                [{"text": "hero", "color": "#FFFFFF"}, {"text": " title", "color": "#EEEEEE"}],
+                size=40,
+                position=(10, 10),
+            )
+        )
+
+        # when / then
+        assert canvas.diagnose() == []
+
+    def test_should_not_flag_auto_scaled_text_that_fits_after_scaling(self):
+        """diagnose evaluates auto_scale text at its rendered size, not its declared size"""
+        from quickthumb import Canvas
+
+        # given: 80px text that auto-scales down to fit a 150px column
+        canvas = (
+            Canvas(400, 300)
+            .background(color="#FFFFFF")
+            .text(
+                "WORDS WRAP HERE",
+                size=80,
+                color="#000000",
+                position=(10, 10),
+                max_width=150,
+                auto_scale=True,
+            )
+        )
+
+        # when / then: no overflow or off-canvas findings for text that scales to fit
+        assert canvas.diagnose() == []
+
+    def test_should_diagnose_text_children_inside_groups(self):
+        """Legibility checks apply to text nested in group layers, not only top-level text"""
+        from quickthumb import Canvas
+
+        # given: a 10px text child (threshold is 18px on 720p) inside a group
+        canvas = (
+            Canvas(1280, 720)
+            .background(color="#FFFFFF")
+            .group(
+                children=[{"type": "text", "content": "credits", "size": 10, "color": "#000000"}],
+                position=(10, 10),
+            )
+        )
+
+        # when
+        diagnostics = canvas.diagnose()
+
+        # then: the finding points at the group's layer index
+        assert [d.code for d in diagnostics] == ["tiny-text"]
+        assert diagnostics[0].layer_index == 1
+
     def test_should_evaluate_contrast_against_layers_below(self):
         """Contrast uses the composited layers under the text, not just the bottom background"""
         from quickthumb import Canvas

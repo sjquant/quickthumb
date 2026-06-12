@@ -424,9 +424,7 @@ class TestCLILint:
         from quickthumb.cli import app
 
         # given: a spec with an invalid layer type
-        spec_path = self._write_spec(
-            {"width": 100, "height": 100, "layers": [{"type": "nope"}]}
-        )
+        spec_path = self._write_spec({"width": 100, "height": 100, "layers": [{"type": "nope"}]})
 
         # when
         try:

@@ -78,6 +78,9 @@ class DiagnosticsEngine:
         for index, layer in enumerate(self._canvas.layers):
             if isinstance(layer, TextLayer):
                 diagnostics.extend(self._diagnose_text_layer(running, layer, index))
+            elif isinstance(layer, GroupLayer):
+                for placed in self._groups.iter_text_children(layer):
+                    diagnostics.extend(self._diagnose_text_layer(running, placed, index))
 
             box = self._layer_bbox(layer)
             if box is not None:
@@ -104,6 +107,7 @@ class DiagnosticsEngine:
             return x, y, w, h
 
         if isinstance(layer, TextLayer):
+            layer = self._text.effective_layer(layer)
             w, h = self._groups.measure_group_child(layer)
             base_x, base_y = self._text.get_text_base_position(layer)
             x = self._text.get_horizontal_start_x(base_x, w, layer.align)
@@ -146,6 +150,7 @@ class DiagnosticsEngine:
         self, running: Image.Image, layer: TextLayer, index: int
     ) -> list[Diagnostic]:
         findings: list[Diagnostic] = []
+        layer = self._text.effective_layer(layer)
 
         if isinstance(layer.content, list):
             size = min(self._text.resolve_size(part, layer) for part in layer.content)
@@ -233,8 +238,13 @@ class DiagnosticsEngine:
         return None
 
     def _text_background_contrast(self, running: Image.Image, layer: TextLayer) -> float | None:
-        """Contrast ratio between the layer's text color and the composited area below it."""
-        text_color = self._effects.parse_color(layer.color) if layer.color else DEFAULT_TEXT_COLOR
+        """Worst contrast ratio between the layer's text colors and the area below it."""
+        if isinstance(layer.content, list):
+            text_colors = {self._text.resolve_color(part, layer) for part in layer.content}
+        elif layer.color:
+            text_colors = {self._effects.parse_color(layer.color)}
+        else:
+            text_colors = {DEFAULT_TEXT_COLOR}
 
         box = self._layer_bbox(layer)
         if box is None:
@@ -254,4 +264,6 @@ class DiagnosticsEngine:
             channel * alpha + 255 * (1 - alpha) for channel in (mean_r, mean_g, mean_b)
         )
 
-        return _contrast_ratio(tuple(float(c) for c in text_color[:3]), background)
+        return min(
+            _contrast_ratio(tuple(float(c) for c in color[:3]), background) for color in text_colors
+        )

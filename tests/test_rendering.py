@@ -2792,7 +2792,9 @@ class TestWebfontCache:
             canvas = (
                 Canvas(200, 100)
                 .background(color="#FFFFFF")
-                .text("Hello", font="https://example.com/RobotoNested.ttf", size=24, color="#000000")
+                .text(
+                    "Hello", font="https://example.com/RobotoNested.ttf", size=24, color="#000000"
+                )
             )
 
             with tempfile.TemporaryDirectory() as out_dir:

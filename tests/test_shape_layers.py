@@ -224,7 +224,11 @@ class TestShapeLayerSerialization:
                 "border_radius": 10,
                 "opacity": 0.9,
                 "rotation": 0.0,
-                "align": None, 'points': None, 'star_points': 5, 'inner_radius': 0.5, "effects": [{"type": "stroke", "width": 2, "color": "#000000"}],
+                "align": None,
+                "points": None,
+                "star_points": 5,
+                "inner_radius": 0.5,
+                "effects": [{"type": "stroke", "width": 2, "color": "#000000"}],
             }
         )
 
@@ -339,9 +343,22 @@ class TestShapePrimitives:
         from quickthumb import Canvas
 
         # given: a polygon with explicit normalized points (a right arrow)
-        points = [(0.0, 0.25), (0.6, 0.25), (0.6, 0.0), (1.0, 0.5), (0.6, 1.0), (0.6, 0.75), (0.0, 0.75)]
+        points = [
+            (0.0, 0.25),
+            (0.6, 0.25),
+            (0.6, 0.0),
+            (1.0, 0.5),
+            (0.6, 1.0),
+            (0.6, 0.75),
+            (0.0, 0.75),
+        ]
         canvas = Canvas(400, 300).shape(
-            shape="polygon", position=(10, 10), width=200, height=100, color="#FF8800", points=points
+            shape="polygon",
+            position=(10, 10),
+            width=200,
+            height=100,
+            color="#FF8800",
+            points=points,
         )
 
         # when

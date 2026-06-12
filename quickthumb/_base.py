@@ -1,3 +1,4 @@
+import math
 from typing import Literal, cast
 
 from PIL import ImageFont
@@ -64,3 +65,32 @@ def parse_padding(
         vertical, horizontal = cast(tuple[int, int], padding)
         return (vertical, horizontal, vertical, horizontal)
     return cast(tuple[int, int, int, int], padding)
+
+
+def expanded_rotation_size(size: tuple[int, int], rotation: float) -> tuple[int, int]:
+    """Predict the rendered size of a layer rotated with expand=True.
+
+    Mirrors the overlay render path exactly: rotate at 4x supersampling about the
+    center (PIL corner/ceil-floor arithmetic, right angles transposed), then
+    downscale by 4 with rounding.
+    """
+    angle = rotation % 360
+    if angle in (0, 180):
+        return size
+    if angle in (90, 270):
+        return size[1], size[0]
+
+    w, h = size[0] * 4, size[1] * 4
+    rad = -math.radians(-rotation % 360)
+    cos, sin = math.cos(rad), math.sin(rad)
+    matrix = [cos, sin, 0.0, -sin, cos, 0.0]
+    cx, cy = w / 2.0, h / 2.0
+    matrix[2] = cx - (matrix[0] * cx + matrix[1] * cy)
+    matrix[5] = cy - (matrix[3] * cx + matrix[4] * cy)
+    xs, ys = [], []
+    for x, y in ((0, 0), (w, 0), (w, h), (0, h)):
+        xs.append(matrix[0] * x + matrix[1] * y + matrix[2])
+        ys.append(matrix[3] * x + matrix[4] * y + matrix[5])
+    new_w = math.ceil(max(xs)) - math.floor(min(xs))
+    new_h = math.ceil(max(ys)) - math.floor(min(ys))
+    return round(new_w / 4), round(new_h / 4)

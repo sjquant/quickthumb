@@ -152,6 +152,14 @@ class TextEngine:
         final_parts = self._scale_rich_text_parts(layer, best_size / base_size)
         return layer.model_copy(update={"content": final_parts, "size": best_size})
 
+    def effective_layer(self, layer: TextLayer) -> TextLayer:
+        """Return the layer as it will actually render, with auto-scaling applied."""
+        if not (layer.auto_scale and layer.max_width):
+            return layer
+        if isinstance(layer.content, list):
+            return self._auto_scale_rich_text(layer)
+        return self._auto_scale_simple_text(layer)
+
     def _render_simple_text(self, image: Image.Image, layer: TextLayer):
         # Apply auto-scaling if enabled
         if layer.auto_scale and layer.max_width:
@@ -317,7 +325,7 @@ class TextEngine:
         lines: list[list[TextPartData]] = [[]]
 
         for part in cast(list[TextPart], layer.content):
-            color = self._resolve_color(part, layer)
+            color = self.resolve_color(part, layer)
             size = self.resolve_size(part, layer)
             bold = self.resolve_bold(part, layer)
             italic = self.resolve_italic(part, layer)
@@ -365,7 +373,7 @@ class TextEngine:
         current_width = 0
 
         for part in cast(list[TextPart], layer.content):
-            color = self._resolve_color(part, layer)
+            color = self.resolve_color(part, layer)
             size = self.resolve_size(part, layer)
             bold = self.resolve_bold(part, layer)
             italic = self.resolve_italic(part, layer)
@@ -420,7 +428,8 @@ class TextEngine:
                             entry["text"] = flushed
                             lines[-1].append(entry)
                             pending_words = []
-                        lines.append([])
+                        if lines[-1]:
+                            lines.append([])
                         bare_w, _ = self.measure_text_bounds(word, font, letter_spacing)
                         pending_words = [word]
                         space_prefix = False
@@ -434,7 +443,7 @@ class TextEngine:
 
         return lines
 
-    def _resolve_color(self, part: TextPart, layer: TextLayer):
+    def resolve_color(self, part: TextPart, layer: TextLayer):
         if part.color:
             return self._effects.parse_color(part.color)
         if layer.color:
@@ -797,9 +806,6 @@ class TextEngine:
             return h_map[layer.align.horizontal], v_map[layer.align.vertical]
         return 0, 0
 
-    def _calculate_text_position(self, layer: TextLayer) -> tuple[int, int]:
-        return self.get_text_base_position(layer)
-
     def _render_text_effects(
         self,
         image: Image.Image,
@@ -833,7 +839,7 @@ class TextEngine:
         bbox = font.getbbox(content)
         text_height = int(bbox[3] - bbox[1])
 
-        base_x, base_y = self._calculate_text_position(layer)
+        base_x, base_y = self.get_text_base_position(layer)
         x = self.get_horizontal_start_x(base_x, total_width, layer.align)
         y = self.get_vertical_start_y(base_y, text_height, layer.align)
         position = (x, y)
@@ -901,7 +907,7 @@ class TextEngine:
         stroke_effects: list[Stroke],
         background_effects: list[Background],
     ):
-        position = self._calculate_text_position(layer)
+        position = self.get_text_base_position(layer)
         anchor = self._get_text_anchor(layer.align)
 
         for bg in background_effects:
