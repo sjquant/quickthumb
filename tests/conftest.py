@@ -1,7 +1,26 @@
+import os
+import tempfile
 from pathlib import Path
 
 import pytest
 from inline_snapshot import Format, register_format
+
+# Pin fontconfig (used by cairosvg) to the repo fonts so SVG rasterization in
+# snapshot tests resolves the same font files as the PIL pipeline, independent
+# of fonts installed on the host machine. Must be set before cairo first loads
+# fontconfig, hence at conftest import time.
+_REPO_FONTS_DIR = (Path(__file__).parent / ".." / "assets" / "fonts").resolve()
+_FONTCONFIG_DIR = Path(tempfile.mkdtemp(prefix="quickthumb_fontconfig_"))
+(_FONTCONFIG_DIR / "fonts.conf").write_text(
+    f"""<?xml version="1.0"?>
+<!DOCTYPE fontconfig SYSTEM "fonts.dtd">
+<fontconfig>
+  <dir>{_REPO_FONTS_DIR}</dir>
+  <cachedir>{_FONTCONFIG_DIR / "cache"}</cachedir>
+</fontconfig>
+"""
+)
+os.environ["FONTCONFIG_FILE"] = str(_FONTCONFIG_DIR / "fonts.conf")
 
 
 class ImageFormat(Format):
