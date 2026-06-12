@@ -32,6 +32,12 @@ Optional background removal support:
 uv pip install "quickthumb[rembg]"
 ```
 
+Optional SVG layer support:
+
+```bash
+uv pip install "quickthumb[svg]"
+```
+
 ## Quick Start
 
 ```python
@@ -213,6 +219,96 @@ canvas = Canvas(1280, 720).shape(
 )
 ```
 
+Beyond `rectangle` and `ellipse`, shape layers support `pill`, `triangle`, `star`, and `polygon`:
+
+```python
+canvas = (
+    Canvas(1280, 720)
+    .shape(shape="pill", position=(64, 60), width=200, height=56, color="#B8FF00")
+    .shape(shape="star", position=(400, 60), width=120, height=120, color="#FFD700",
+           star_points=6, inner_radius=0.4)
+    .shape(
+        shape="polygon",  # normalized 0..1 points inside the shape box
+        position=(600, 60),
+        width=160,
+        height=100,
+        color="#53BF9D",
+        points=[(0.0, 0.25), (0.6, 0.25), (0.6, 0.0), (1.0, 0.5), (0.6, 1.0), (0.6, 0.75), (0.0, 0.75)],
+    )
+)
+```
+
+### SVG layers
+
+Rasterize SVG icons and logos at render time (requires `quickthumb[svg]`):
+
+```python
+canvas = Canvas(1280, 720).svg(
+    path="logo.svg",
+    position=("90%", "8%"),
+    width=120,
+    align=("right", "top"),
+)
+```
+
+`width`/`height` control the raster size (aspect ratio is preserved when only one is set). SVG layers support `opacity`, `rotation`, `align`, `blend_mode`, and the same `effects` as image layers.
+
+### Group layers (auto layout)
+
+Stop hand-placing coordinates: a `group` measures its children and stacks them along a row or column. Specs survive content-length changes, which makes them much more reliable for LLM-generated layouts.
+
+```python
+canvas = Canvas(1280, 720).background(color="#16213E").group(
+    children=[
+        {"type": "shape", "shape": "pill", "width": 120, "height": 36, "color": "#E94560"},
+        {"type": "text", "content": "AUTO LAYOUT", "size": 96, "color": "#FFFFFF", "weight": 900},
+        {"type": "text", "content": "No coordinates were harmed", "size": 40, "color": "#A2A8D3"},
+    ],
+    direction="column",
+    gap=24,
+    position=("8%", "50%"),
+    align=("left", "middle"),
+)
+```
+
+- `direction`: `"column"` (default) or `"row"`
+- `gap`: pixels between children; `padding`: int, `(vertical, horizontal)`, or `(top, right, bottom, left)`
+- `item_align`: cross-axis placement per child — `"start"`, `"center"`, or `"end"`
+- `position` + `align` anchor the whole group box, like image layers
+- Children may be `text`, `image`, `shape`, `svg`, or nested `group` layers; they must not set their own `position`
+
+### Theme tokens
+
+Define brand tokens once in a JSON spec and reference them anywhere with `$theme.path`:
+
+```json
+{
+  "width": 1280,
+  "height": 720,
+  "theme": {
+    "colors": {"primary": "#B8FF00", "ink": "#111111"},
+    "sizes": {"title": 96}
+  },
+  "layers": [
+    {"type": "background", "color": "$theme.colors.ink"},
+    {"type": "text", "content": "Hello", "size": "$theme.sizes.title", "color": "$theme.colors.primary"}
+  ]
+}
+```
+
+Whole-string references keep their native JSON type (numbers, lists); scalar tokens can also be embedded inside longer strings. Unknown tokens raise `ValidationError`. Theme tokens work alongside `$var` template substitution.
+
+### Diagnostics
+
+`canvas.diagnose()` checks a composition for common problems without writing a file — ideal for agent loops (render → diagnose → fix):
+
+```python
+for finding in canvas.diagnose():
+    print(finding.severity, finding.code, finding.message)
+```
+
+Findings: `off-canvas` (layer outside the canvas), `tiny-text` (under 2.5% of canvas height), `text-overflow` (a word wider than `max_width`), and `low-contrast` (text vs the composited layers below it). The CLI equivalent is `quickthumb lint spec.json` (exit codes: 0 clean, 1 invalid spec, 2 render failure, 3 findings).
+
 ### Grain / noise effect
 
 Add film-grain noise to background or image layers via `effects=[Grain(...)]`.
@@ -360,7 +456,11 @@ os.environ["QUICKTHUMB_DEFAULT_FONT"] = "Roboto"
 | Images | Local/remote images, sizing, fit modes, alignment, opacity, rotation |
 | Image effects | Stroke, shadow, glow, filter effects, border radius, background removal |
 | Grain / noise | Per-layer `Grain` effect on background and image layers; monochrome or color noise |
-| Shapes | Rectangle and ellipse primitives with stroke/shadow/glow support |
+| Shapes | Rectangle, ellipse, pill, triangle, star, and polygon primitives with stroke/shadow/glow support |
+| SVG | `svg` layers rasterized via optional `quickthumb[svg]` extra |
+| Auto layout | `group` layers: row/column stacking, gap, padding, item alignment, nesting |
+| Theme tokens | Top-level `theme` block with `$theme.path` references in JSON specs |
+| Diagnostics | `canvas.diagnose()` and `quickthumb lint`: off-canvas, tiny text, overflow, low contrast |
 | Export | PNG, JPEG, WebP, file output, base64, data URLs |
 | Serialization | `to_json()` / `from_json()` for built-in layer types and named custom layers |
 
@@ -381,6 +481,9 @@ See the shipped examples in [`examples/README.md`](examples/README.md):
 - `canvas.custom(fn)` without a `name` runs during render order but cannot be serialized to JSON; pass `name=` and register the function with `Canvas.register_layer_fn()` to enable serialization
 - `Grain` is valid only on background and image layer `effects`; it is not a valid text or shape effect
 - `Grain(intensity=0.0)` is a no-op (no noise is generated or composited)
+- Group children must not set `position`; the group assigns positions (their `align` is also ignored — use `item_align`)
+- `svg` layers raise `RenderingError` unless `quickthumb[svg]` (cairosvg) is installed
+- `theme` blocks are resolved at parse time; `to_json()` emits resolved values without the `theme` block
 
 ## Development
 

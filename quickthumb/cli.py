@@ -7,12 +7,54 @@ from typing import Annotated
 
 import typer
 
-from quickthumb.canvas import Canvas
+from quickthumb.canvas import _VAR_RE, Canvas, _is_theme_reference
 from quickthumb.errors import RenderingError, ValidationError
 
 _VALID_FORMATS = {"PNG", "JPEG", "WEBP"}
 
 app = typer.Typer(help="quickthumb — programmatic thumbnail generation")
+
+
+def _validate_render_options(fmt: str | None, quality: int | None) -> None:
+    if fmt is not None and fmt.upper() not in _VALID_FORMATS:
+        typer.echo(f"Invalid format '{fmt}'. Must be one of: PNG, JPEG, WEBP", err=True)
+        raise typer.Exit(1)
+    if quality is not None and not (1 <= quality <= 95):
+        typer.echo(f"Invalid quality {quality}. Must be between 1 and 95.", err=True)
+        raise typer.Exit(1)
+
+
+def _parse_var_options(var: list[str] | None) -> dict[str, str]:
+    variables: dict[str, str] = {}
+    for item in var or []:
+        key, sep, value = item.partition("=")
+        if not sep:
+            typer.echo(f"Invalid --var '{item}': expected KEY=VALUE format.", err=True)
+            raise typer.Exit(1)
+        variables[key] = value
+    return variables
+
+
+def _load_canvas(spec: Path, variables: dict[str, str]) -> Canvas:
+    """Read, substitute, and parse a spec file; any input error exits with code 1."""
+    try:
+        text = spec.read_text()
+    except (FileNotFoundError, PermissionError) as e:
+        typer.echo(str(e), err=True)
+        raise typer.Exit(1) from e
+
+    if variables:
+        try:
+            text = _substitute_vars(text, variables)
+        except ValidationError as e:
+            typer.echo(str(e), err=True)
+            raise typer.Exit(1) from e
+
+    try:
+        return Canvas.from_json(text)
+    except (json.JSONDecodeError, ValidationError) as e:
+        typer.echo(str(e), err=True)
+        raise typer.Exit(1) from e
 
 
 @app.callback()
@@ -45,41 +87,8 @@ def render(
     ] = None,
 ) -> None:
     """Render a JSON spec file to an image."""
-    # Validate --format early
-    if fmt is not None and fmt.upper() not in _VALID_FORMATS:
-        typer.echo(f"Invalid format '{fmt}'. Must be one of: PNG, JPEG, WEBP", err=True)
-        raise typer.Exit(1)
-
-    # Validate --quality range
-    if quality is not None and not (1 <= quality <= 95):
-        typer.echo(f"Invalid quality {quality}. Must be between 1 and 95.", err=True)
-        raise typer.Exit(1)
-
-    try:
-        try:
-            text = spec.read_text()
-        except (FileNotFoundError, PermissionError) as e:
-            typer.echo(str(e), err=True)
-            raise typer.Exit(1) from e
-
-        if var:
-            variables: dict[str, str] = {}
-            for item in var:
-                key, sep, value = item.partition("=")
-                if not sep:
-                    typer.echo(f"Invalid --var '{item}': expected KEY=VALUE format.", err=True)
-                    raise typer.Exit(1)
-                variables[key] = value
-            text = _substitute_vars(text, variables)
-
-        try:
-            canvas = Canvas.from_json(text)
-        except (json.JSONDecodeError, ValidationError) as e:
-            typer.echo(str(e), err=True)
-            raise typer.Exit(1) from e
-
-    except typer.Exit:
-        raise
+    _validate_render_options(fmt, quality)
+    canvas = _load_canvas(spec, _parse_var_options(var))
 
     try:
         canvas.render(
@@ -94,17 +103,56 @@ def render(
     typer.echo(str(output))
 
 
+@app.command()
+def lint(
+    spec: Annotated[Path, typer.Argument(help="Path to a JSON spec file")],
+    var: Annotated[
+        list[str] | None,
+        typer.Option("--var", help="Variable substitution as KEY=VALUE"),
+    ] = None,
+) -> None:
+    """Check a JSON spec for layout and legibility issues without rendering a file.
+
+    Exit codes: 0 no issues, 1 invalid spec, 2 rendering failure, 3 issues found.
+    """
+    canvas = _load_canvas(spec, _parse_var_options(var))
+
+    try:
+        diagnostics = canvas.diagnose()
+    except FileNotFoundError as e:
+        typer.echo(f"Referenced file not found: {e}", err=True)
+        raise typer.Exit(1) from e
+    except (RenderingError, OSError) as e:
+        typer.echo(str(e), err=True)
+        raise typer.Exit(2) from e
+
+    if not diagnostics:
+        typer.echo("No issues found.")
+        return
+
+    for finding in diagnostics:
+        typer.echo(
+            f"[{finding.severity}] layer {finding.layer_index}: {finding.code} — {finding.message}"
+        )
+    raise typer.Exit(3)
+
+
 def _substitute_vars(text: str, variables: dict[str, str]) -> str:
     def replace(match: re.Match) -> str:
+        if _is_theme_reference(match):
+            return match.group(0)
         key = match.group(1) or match.group(2)
         return variables.get(key, match.group(0))
 
-    result = re.sub(r"\$\{(\w+)\}|\$(\w+)", replace, text)
+    result = _VAR_RE.sub(replace, text)
 
-    unresolved = re.findall(r"\$\{(\w+)\}|\$(\w+)", result)
+    unresolved = [
+        match.group(1) or match.group(2)
+        for match in _VAR_RE.finditer(result)
+        if not _is_theme_reference(match)
+    ]
     if unresolved:
-        names = [k1 or k2 for k1, k2 in unresolved]
-        raise ValidationError(f"Unresolved placeholder(s): {', '.join(names)}")
+        raise ValidationError(f"Unresolved placeholder(s): {', '.join(unresolved)}")
 
     return result
 
@@ -139,42 +187,14 @@ def watch(
         )
         raise typer.Exit(1) from None
 
-    if fmt is not None and fmt.upper() not in _VALID_FORMATS:
-        typer.echo(f"Invalid format '{fmt}'. Must be one of: PNG, JPEG, WEBP", err=True)
-        raise typer.Exit(1)
-
-    if quality is not None and not (1 <= quality <= 95):
-        typer.echo(f"Invalid quality {quality}. Must be between 1 and 95.", err=True)
-        raise typer.Exit(1)
-
-    variables: dict[str, str] = {}
-    if var:
-        for item in var:
-            key, sep, value = item.partition("=")
-            if not sep:
-                typer.echo(f"Invalid --var '{item}': expected KEY=VALUE format.", err=True)
-                raise typer.Exit(1)
-            variables[key] = value
+    _validate_render_options(fmt, quality)
+    variables = _parse_var_options(var)
 
     def _render_once() -> None:
         try:
-            text = spec.read_text()
-        except (FileNotFoundError, PermissionError) as e:
-            typer.echo(str(e), err=True)
-            return
-
-        if variables:
-            try:
-                text = _substitute_vars(text, variables)
-            except ValidationError as e:
-                typer.echo(str(e), err=True)
-                return
-
-        try:
-            canvas = Canvas.from_json(text)
-        except (json.JSONDecodeError, ValidationError) as e:
-            typer.echo(str(e), err=True)
-            return
+            canvas = _load_canvas(spec, variables)
+        except typer.Exit:
+            return  # error already echoed; keep watching for the next change
 
         try:
             canvas.render(

@@ -161,15 +161,16 @@ class TestCanvasImageAPI:
 class TestImageLayerBackgroundRemoval:
     """Test suite for image layer background removal"""
 
-    def test_should_raise_import_error_when_rembg_not_installed(self):
+    def test_should_raise_import_error_when_rembg_not_installed(self, tmp_path):
         """Test that ImportError with helpful message is raised when rembg is missing"""
         from quickthumb import Canvas
 
-        # Given: A canvas instance and rembg not installed
-        canvas = Canvas(200, 200)
-        img = Image.new("RGBA", (100, 100), (255, 0, 0, 255))
+        # Given: an image layer requesting background removal while rembg is not installed
+        fixture = tmp_path / "subject.png"
+        Image.new("RGBA", (100, 100), (255, 0, 0, 255)).save(fixture)
+        canvas = Canvas(200, 200).image(path=str(fixture), position=(0, 0), remove_background=True)
 
-        # When/Then: Calling _remove_background should raise ImportError
+        # When/Then: rendering should raise ImportError
         # Mock is justified here: impossible to test "library not installed" with real code
         original_import = builtins.__import__
 
@@ -184,7 +185,7 @@ class TestImageLayerBackgroundRemoval:
                 patch.object(builtins, "__import__", side_effect=mock_import),
                 pytest.raises(ImportError, match="rembg is required.*pip install quickthumb"),
             ):
-                canvas._remove_background(img)
+                canvas.render(str(tmp_path / "out.png"))
         finally:
             if saved is not None:
                 sys.modules["rembg"] = saved

@@ -57,6 +57,30 @@ class TestCanvas:
         with pytest.raises(ValidationError, match="height must be > 0"):
             Canvas(1920, -100)
 
+    def test_should_allow_replacing_the_layers_list(self):
+        """canvas.layers can be assigned to replace or filter layers, as on a plain attribute"""
+        from quickthumb import Canvas
+
+        # given: a canvas with two layers
+        canvas = Canvas(200, 200).background(color="#FFFFFF").text("hi", size=20)
+
+        # when: the layer list is replaced with a filtered copy
+        canvas.layers = [layer for layer in canvas.layers if layer.type == "background"]
+
+        # then
+        assert len(canvas.layers) == 1
+        assert canvas.layers[0].type == "background"
+
+    @pytest.mark.parametrize("attribute", ["width", "height"])
+    def test_should_reject_non_positive_dimension_assignment(self, attribute):
+        """Assigning a non-positive width/height raises like the constructor does"""
+        from quickthumb import Canvas, ValidationError
+
+        canvas = Canvas(200, 200)
+
+        with pytest.raises(ValidationError, match=attribute):
+            setattr(canvas, attribute, 0)
+
     def test_should_serialize_multiple_layers_in_order(self):
         """Test that multiple layers serialize in correct order"""
         # Given: Canvas with multiple background and text layers
@@ -568,6 +592,20 @@ class TestCanvasTemplate:
         assert canvas_dict["layers"][0]["color"] == "#112233"
         assert canvas_dict["layers"][1]["content"] == "Hello"
 
+    def test_should_substitute_non_string_variable_values_verbatim(self):
+        """Numeric variables fill unquoted placeholders without corruption"""
+        from quickthumb import Canvas
+
+        # given: a template using $w as a bare JSON number and $title inside a string
+        template = '{"width": $w, "height": 300, "layers": [{"type": "text", "content": "$title"}]}'
+
+        # when
+        canvas = Canvas.from_template(template, variables={"w": 400, "title": 42})
+
+        # then: the int survives as a number and stringifies inside the quoted field
+        assert canvas.width == 400
+        assert canvas.layers[0].content == "42"
+
     def test_variable_value_with_dollar_sign_is_not_resubstituted(self):
         """Variable values containing $ are inserted literally, not re-scanned for placeholders"""
         from quickthumb import Canvas
@@ -627,3 +665,178 @@ class TestCanvasTemplate:
 
         with pytest.raises(ValidationError, match=match):
             Canvas.from_template(spec_or_path, variables=variables)
+
+
+class TestCanvasTheme:
+    """Test suite for theme token resolution in JSON specs"""
+
+    def test_should_resolve_theme_tokens_with_native_types(self):
+        """from_json replaces whole-string $theme.* references with token values, preserving type"""
+        from quickthumb import Canvas
+
+        # given: a theme referenced from top-level fields, a nested effect, and a list-typed field
+        config = json.dumps(
+            {
+                "width": 320,
+                "height": 200,
+                "theme": {
+                    "colors": {"primary": "#FF0000", "ink": "#111111"},
+                    "sizes": {"title": 48},
+                    "layout": {"title_pos": ["8%", "50%"]},
+                },
+                "layers": [
+                    {"type": "background", "color": "$theme.colors.primary"},
+                    {
+                        "type": "text",
+                        "content": "Hi",
+                        "size": "$theme.sizes.title",
+                        "color": "$theme.colors.primary",
+                        "position": "$theme.layout.title_pos",
+                        "effects": [{"type": "stroke", "width": 2, "color": "$theme.colors.ink"}],
+                    },
+                ],
+            }
+        )
+
+        # when: the spec is deserialized
+        canvas = Canvas.from_json(config)
+
+        # then: tokens are resolved with their native JSON types, including nested structures
+        assert canvas.layers[0].color == "#FF0000"
+        assert canvas.layers[1].size == 48
+        assert canvas.layers[1].color == "#FF0000"
+        assert canvas.layers[1].position == ("8%", "50%")
+        assert canvas.layers[1].effects[0].color == "#111111"
+
+    def test_should_substitute_theme_tokens_embedded_in_strings(self):
+        """Scalar theme tokens referenced inside a longer string are substituted in place"""
+        from quickthumb import Canvas
+
+        # given: a text layer embedding a string token mid-sentence
+        config = json.dumps(
+            {
+                "width": 320,
+                "height": 200,
+                "theme": {"brand": {"name": "quickthumb"}},
+                "layers": [
+                    {"type": "text", "content": "Made with $theme.brand.name today"},
+                ],
+            }
+        )
+
+        # when
+        canvas = Canvas.from_json(config)
+
+        # then: the token is replaced inside the surrounding text
+        assert canvas.layers[0].content == "Made with quickthumb today"
+
+    @pytest.mark.parametrize(
+        "theme,match",
+        [
+            # token missing from an existing theme block
+            ({"colors": {"primary": "#FF0000"}}, "colors.accent"),
+            # no theme block in the spec at all
+            (None, "colors.accent"),
+        ],
+    )
+    def test_should_raise_validation_error_for_unknown_theme_token(self, theme, match):
+        """Referencing an undefined token raises ValidationError, with or without a theme block"""
+        from quickthumb import Canvas, ValidationError
+
+        # given: a spec referencing a token that no theme defines
+        spec = {
+            "width": 320,
+            "height": 200,
+            "layers": [{"type": "background", "color": "$theme.colors.accent"}],
+        }
+        if theme is not None:
+            spec["theme"] = theme
+
+        # when / then: deserialization fails naming the unknown token
+        with pytest.raises(ValidationError, match=match):
+            Canvas.from_json(json.dumps(spec))
+
+    def test_should_resolve_theme_tokens_that_alias_other_tokens(self):
+        """A theme value may reference another theme token and resolves to the final value"""
+        from quickthumb import Canvas
+
+        # given: accent aliases primary
+        config = json.dumps(
+            {
+                "width": 320,
+                "height": 200,
+                "theme": {"colors": {"primary": "#FF0000", "accent": "$theme.colors.primary"}},
+                "layers": [{"type": "background", "color": "$theme.colors.accent"}],
+            }
+        )
+
+        # when
+        canvas = Canvas.from_json(config)
+
+        # then
+        assert canvas.layers[0].color == "#FF0000"
+
+    def test_should_raise_for_circular_theme_token_references(self):
+        """Mutually referencing theme tokens fail with a circular-reference error"""
+        from quickthumb import Canvas, ValidationError
+
+        config = json.dumps(
+            {
+                "width": 320,
+                "height": 200,
+                "theme": {"colors": {"a": "$theme.colors.b", "b": "$theme.colors.a"}},
+                "layers": [{"type": "background", "color": "$theme.colors.a"}],
+            }
+        )
+
+        with pytest.raises(ValidationError, match="circular"):
+            Canvas.from_json(config)
+
+    def test_should_serialize_resolved_values_without_theme_references(self):
+        """to_json emits resolved token values and no theme block"""
+        from quickthumb import Canvas
+
+        # given: a canvas built from a themed spec
+        config = json.dumps(
+            {
+                "width": 320,
+                "height": 200,
+                "theme": {"colors": {"bg": "#112233"}},
+                "layers": [{"type": "background", "color": "$theme.colors.bg"}],
+            }
+        )
+        canvas = Canvas.from_json(config)
+
+        # when: it is serialized back to JSON
+        serialized = json.loads(canvas.to_json())
+
+        # then: the layer carries the resolved value and the theme block is not re-emitted
+        assert serialized["layers"][0]["color"] == "#112233"
+        assert "theme" not in serialized
+
+    def test_should_resolve_template_variables_and_theme_tokens_together(self):
+        """from_template resolves $var placeholders while leaving $theme.* tokens to the theme"""
+        from quickthumb import Canvas
+
+        # given: a template mixing a $title variable and a $theme color token
+        template = json.dumps(
+            {
+                "width": 320,
+                "height": 200,
+                "theme": {"colors": {"primary": "#00FF00"}},
+                "layers": [
+                    {
+                        "type": "text",
+                        "content": "$title",
+                        "color": "$theme.colors.primary",
+                    }
+                ],
+            }
+        )
+
+        # when: rendered through the template path with variables
+        canvas = Canvas.from_template(template, variables={"title": "Hello"})
+
+        # then: both substitution systems applied
+        assert canvas.layers[0].content == "Hello"
+        assert canvas.layers[0].color == "#00FF00"

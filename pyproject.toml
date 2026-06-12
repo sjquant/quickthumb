@@ -49,6 +49,9 @@ cli = [
     "typer>=0.24.1,<1.0",
     "watchfiles>=1.0.0,<2.0.0",
 ]
+svg = [
+    "cairosvg>=2.7.0,<3.0.0",
+]
 
 [project.scripts]
 quickthumb = "quickthumb._entry:main"
@@ -63,6 +66,7 @@ dev = [
     "pytest-cov>=6.0.0,<7.0.0",
     "ruff>=0.8.0,<1.0.0",
     "inline-snapshot>=0.31.1,<0.32.0",
+    "cairosvg>=2.7.0,<3.0.0",
 ]
 
 [build-system]

@@ -2724,7 +2724,7 @@ class TestWebfontCache:
                 output_path = os.path.join(out_dir, "output.png")
 
                 # When: rendering with a webfont URL
-                with patch("quickthumb.canvas.urlopen", return_value=mock_response):
+                with patch("quickthumb._fonts.urlopen", return_value=mock_response):
                     canvas.render(output_path)
 
             # Then: a cached font file is written to the specified cache directory
@@ -2760,7 +2760,7 @@ class TestWebfontCache:
             output_path = os.path.join(out_dir, "output.png")
 
             # When: rendering with a webfont URL
-            with patch("quickthumb.canvas.urlopen", return_value=mock_response):
+            with patch("quickthumb._fonts.urlopen", return_value=mock_response):
                 canvas.render(output_path)
 
         # Then: the cached file is written under /tmp
@@ -2792,14 +2792,16 @@ class TestWebfontCache:
             canvas = (
                 Canvas(200, 100)
                 .background(color="#FFFFFF")
-                .text("Hello", font="https://example.com/RobotoNested.ttf", size=24, color="#000000")
+                .text(
+                    "Hello", font="https://example.com/RobotoNested.ttf", size=24, color="#000000"
+                )
             )
 
             with tempfile.TemporaryDirectory() as out_dir:
                 output_path = os.path.join(out_dir, "output.png")
 
                 # When: rendering with a webfont URL
-                with patch("quickthumb.canvas.urlopen", return_value=mock_response):
+                with patch("quickthumb._fonts.urlopen", return_value=mock_response):
                     canvas.render(output_path)
 
             # Then: the nested cache directory is created and the font is written there
@@ -2831,7 +2833,7 @@ class TestWebfontCache:
                 output_path = os.path.join(out_dir, "output.png")
 
                 # When: rendering
-                with patch("quickthumb.canvas.urlopen", return_value=mock_response):
+                with patch("quickthumb._fonts.urlopen", return_value=mock_response):
                     # Then: a RenderingError is raised
                     with pytest.raises(RenderingError, match="not a valid font"):
                         canvas.render(output_path)
@@ -2862,7 +2864,7 @@ class TestWebfontCache:
                 output_path = os.path.join(out_dir, "output.png")
 
                 # When: rendering fails due to invalid font content
-                with patch("quickthumb.canvas.urlopen", return_value=mock_response):
+                with patch("quickthumb._fonts.urlopen", return_value=mock_response):
                     with pytest.raises(RenderingError):
                         canvas.render(output_path)
 
@@ -2904,10 +2906,160 @@ class TestWebfontCache:
                 output_path = os.path.join(out_dir, "output.png")
 
                 # When: rendering with the stale cache present
-                with patch("quickthumb.canvas.urlopen", return_value=mock_response) as mock_open:
+                with patch("quickthumb._fonts.urlopen", return_value=mock_response) as mock_open:
                     canvas.render(output_path)
 
                 # Then: the font was re-downloaded and the cache file now contains valid data
                 mock_open.assert_called_once()
             with open(stale_path, "rb") as f:
                 assert f.read() == real_font_data
+
+
+class TestShapePrimitiveRendering:
+    """Snapshot tests for pill, triangle, star, and polygon shape primitives"""
+
+    def test_snapshot_new_shape_primitives(self):
+        """Snapshot test rendering all new shape primitives on one canvas"""
+        from quickthumb import Canvas
+
+        canvas = (
+            Canvas(400, 300)
+            .background(color="#1A1A2E")
+            .shape(shape="pill", position=(20, 20), width=160, height=60, color="#E94560")
+            .shape(shape="triangle", position=(220, 20), width=120, height=100, color="#0F3460")
+            .shape(
+                shape="star",
+                position=(20, 120),
+                width=140,
+                height=140,
+                color="#FFD700",
+                star_points=5,
+                inner_radius=0.5,
+            )
+            .shape(
+                shape="polygon",
+                position=(200, 140),
+                width=160,
+                height=100,
+                color="#53BF9D",
+                points=[
+                    (0.0, 0.25),
+                    (0.6, 0.25),
+                    (0.6, 0.0),
+                    (1.0, 0.5),
+                    (0.6, 1.0),
+                    (0.6, 0.75),
+                    (0.0, 0.75),
+                ],
+            )
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/shape_primitives.png")
+
+    def test_snapshot_star_with_rotation_and_effects(self):
+        """Snapshot test for a rotated star with stroke and shadow effects"""
+        from quickthumb import Canvas
+        from quickthumb.models import Shadow, Stroke
+
+        canvas = (
+            Canvas(300, 300)
+            .background(color="#FFFFFF")
+            .shape(
+                shape="star",
+                position=(150, 150),
+                width=180,
+                height=180,
+                color="#FFD700",
+                star_points=6,
+                inner_radius=0.35,
+                rotation=20,
+                align=("center", "middle"),
+                effects=[
+                    Stroke(width=4, color="#B8860B"),
+                    Shadow(offset_x=6, offset_y=6, color="#00000088", blur_radius=8),
+                ],
+            )
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/star_rotated_effects.png")
+
+
+class TestSvgLayerRendering:
+    """Snapshot tests for svg layer rasterization"""
+
+    def test_snapshot_svg_layer(self):
+        """Snapshot test for an svg layer scaled and centered on the canvas"""
+        pytest.importorskip("cairosvg")
+        from quickthumb import Canvas
+
+        fixture = os.path.join(os.path.dirname(__file__), "fixtures", "sample.svg")
+        canvas = (
+            Canvas(300, 200)
+            .background(color="#F5F5F5")
+            .svg(path=fixture, position=("50%", "50%"), width=120, align=("center", "middle"))
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/svg_layer.png")
+
+
+class TestGroupLayerRendering:
+    """Snapshot tests for group-based auto layout"""
+
+    def test_snapshot_group_thumbnail_layout(self):
+        """Snapshot test for a thumbnail composed with a column group of text and shapes"""
+        from quickthumb import Canvas
+
+        canvas = (
+            Canvas(640, 360)
+            .background(color="#16213E")
+            .group(
+                children=[
+                    {
+                        "type": "shape",
+                        "shape": "pill",
+                        "width": 120,
+                        "height": 36,
+                        "color": "#E94560",
+                    },
+                    {
+                        "type": "text",
+                        "content": "AUTO LAYOUT",
+                        "size": 56,
+                        "color": "#FFFFFF",
+                        "weight": 700,
+                    },
+                    {
+                        "type": "text",
+                        "content": "No coordinates were harmed",
+                        "size": 24,
+                        "color": "#A2A8D3",
+                    },
+                ],
+                direction="column",
+                gap=16,
+                position=("8%", "50%"),
+                align=("left", "middle"),
+            )
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/group_thumbnail_layout.png")

@@ -982,6 +982,49 @@ class TestTextWrapping:
             canvas.render(str(tmp_path / "out.png"))
 
 
+class TestRichTextWrapping:
+    """Test suite for rich-text wrapping parity with plain text"""
+
+    def test_should_not_insert_blank_line_before_an_overflowing_first_word(self, tmp_path):
+        """Rich text whose first word exceeds max_width starts at the same row as plain text"""
+        import warnings
+
+        from PIL import Image
+        from quickthumb import Canvas
+
+        def first_ink_row(canvas, path):
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")  # plain text warns about the unbreakable word
+                canvas.render(str(path))
+            img = Image.open(path).convert("RGB")
+            for y in range(img.height):
+                for x in range(img.width):
+                    if img.getpixel((x, y)) != (255, 255, 255):
+                        return y
+            return None
+
+        # given: the same unbreakable word as plain and as rich content
+        word = "Unbreakablelongword"
+        simple = (
+            Canvas(400, 300)
+            .background(color="#FFFFFF")
+            .text(word, size=40, color="#000000", position=(10, 10), max_width=60)
+        )
+        rich = (
+            Canvas(400, 300)
+            .background(color="#FFFFFF")
+            .text([{"text": word, "color": "#000000"}], size=40, position=(10, 10), max_width=60)
+        )
+
+        # when
+        simple_row = first_ink_row(simple, tmp_path / "simple.png")
+        rich_row = first_ink_row(rich, tmp_path / "rich.png")
+
+        # then: rich starts within path-difference tolerance, not a full blank line (~48px) lower
+        assert rich_row is not None and simple_row is not None
+        assert abs(rich_row - simple_row) < 24
+
+
 class TestTextRotation:
     """Test suite for text rotation functionality"""
 
@@ -1000,6 +1043,35 @@ class TestTextRotation:
         assert canvas.layers[0] == TextLayer(
             type="text", content="Test", size=48, rotation=rotation
         )
+
+    def test_should_anchor_rotated_text_with_align_when_position_omitted(self, tmp_path):
+        """Rotated text with align but no position anchors at the alignment point"""
+        from quickthumb import Canvas
+
+        # given: identical rotated text, once anchored by align alone, once by the
+        # explicit position that align=("center", "middle") implies
+        def build(**position_kwargs):
+            return (
+                Canvas(400, 400)
+                .background(color="#FFFFFF")
+                .text(
+                    "ANCHOR",
+                    size=48,
+                    color="#000000",
+                    align=("center", "middle"),
+                    rotation=45,
+                    **position_kwargs,
+                )
+            )
+
+        # when
+        implicit_path = tmp_path / "implicit.png"
+        explicit_path = tmp_path / "explicit.png"
+        build().render(str(implicit_path))
+        build(position=("50%", "50%")).render(str(explicit_path))
+
+        # then: both renders are byte-identical
+        assert implicit_path.read_bytes() == explicit_path.read_bytes()
 
     def test_should_serialize_rotation_to_json(self):
         """Test that rotation field is included in JSON serialization"""
