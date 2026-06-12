@@ -160,7 +160,19 @@ class GroupEngine:
         return 0
 
     def measure_group_child(self, child: GroupChildLayer) -> tuple[int, int]:
-        """Return the rendered size of a layer (auto-scale and rotation applied)."""
+        """Return the rendered size of a layer (auto-scale and rotation applied).
+
+        Memoized per render pass: nested groups re-measure their subtree once per
+        ancestor otherwise, and text/image measurement is expensive.
+        """
+        cached = self._ctx.measure_cache.get(id(child))
+        if cached is not None and cached[0] is child:
+            return cached[1]
+        size = self._measure_group_child_uncached(child)
+        self._ctx.measure_cache[id(child)] = (child, size)
+        return size
+
+    def _measure_group_child_uncached(self, child: GroupChildLayer) -> tuple[int, int]:
         if isinstance(child, TextLayer):
             child = self._text.effective_layer(child)
             if isinstance(child.content, list):
@@ -184,11 +196,15 @@ class GroupEngine:
         if layer.width and layer.height:
             return layer.width, layer.height
 
-        if is_url(layer.path):
-            img = self._images.load_image_from_url(layer.path)
-        else:
-            img = Image.open(layer.path)
-        original_w, original_h = img.size
+        original_size = self._ctx.image_size_cache.get(layer.path)
+        if original_size is None:
+            if is_url(layer.path):
+                img = self._images.load_image_from_url(layer.path)
+            else:
+                img = Image.open(layer.path)
+            original_size = img.size
+            self._ctx.image_size_cache[layer.path] = original_size
+        original_w, original_h = original_size
 
         if layer.width:
             return layer.width, int(layer.width * original_h / original_w)

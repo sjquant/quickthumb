@@ -23,6 +23,15 @@ class RenderContext:
         self.width = width
         self.height = height
         self.svg_raster_cache: dict = {}
+        # measure_cache holds (layer, size) so the keyed id() stays valid for the pass
+        self.measure_cache: dict[int, tuple[object, tuple[int, int]]] = {}
+        self.image_size_cache: dict[str, tuple[int, int]] = {}
+
+    def begin_render_pass(self):
+        """Drop per-pass caches so a new render or diagnose picks up asset changes."""
+        self.svg_raster_cache.clear()
+        self.measure_cache.clear()
+        self.image_size_cache.clear()
 
 
 def parse_coordinate(value: int | str, dimension: int) -> int:

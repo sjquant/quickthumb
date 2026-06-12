@@ -37,32 +37,35 @@ class ImageEngine:
     ) -> Image.Image:
         img = self.load_image_from_url(image_path) if is_url(image_path) else Image.open(image_path)
 
-        img = img.convert("RGBA")
-        canvas_width, canvas_height = canvas_size
-        img_width, img_height = img.size
+        return self._fit_image(img.convert("RGBA"), canvas_size, fit, Image.Resampling.BICUBIC)
+
+    @staticmethod
+    def _fit_image(
+        img: Image.Image,
+        target_size: tuple[int, int],
+        fit: FitMode | str | None,
+        resample: Image.Resampling,
+    ) -> Image.Image:
+        """Scale img into target_size using FILL (stretch), COVER (crop), or CONTAIN (pad)."""
+        target_w, target_h = target_size
+        src_w, src_h = img.size
 
         if fit is None or fit == FitMode.FILL:
-            return img.resize(canvas_size)
+            return img.resize(target_size, resample)
 
         if fit == FitMode.COVER:
-            scale = max(canvas_width / img_width, canvas_height / img_height)
-            new_width = int(img_width * scale)
-            new_height = int(img_height * scale)
-            resized = img.resize((new_width, new_height))
+            scale = max(target_w / src_w, target_h / src_h)
+            scaled_w, scaled_h = int(src_w * scale), int(src_h * scale)
+            resized = img.resize((scaled_w, scaled_h), resample)
+            left = (scaled_w - target_w) // 2
+            top = (scaled_h - target_h) // 2
+            return resized.crop((left, top, left + target_w, top + target_h))
 
-            left = (new_width - canvas_width) // 2
-            top = (new_height - canvas_height) // 2
-            return resized.crop((left, top, left + canvas_width, top + canvas_height))
-
-        scale = min(canvas_width / img_width, canvas_height / img_height)
-        new_width = int(img_width * scale)
-        new_height = int(img_height * scale)
-        resized = img.resize((new_width, new_height))
-
-        result = Image.new("RGBA", canvas_size, (0, 0, 0, 0))
-        paste_x = (canvas_width - new_width) // 2
-        paste_y = (canvas_height - new_height) // 2
-        result.paste(resized, (paste_x, paste_y))
+        scale = min(target_w / src_w, target_h / src_h)
+        scaled_w, scaled_h = int(src_w * scale), int(src_h * scale)
+        resized = img.resize((scaled_w, scaled_h), resample)
+        result = Image.new("RGBA", target_size, (0, 0, 0, 0))
+        result.paste(resized, ((target_w - scaled_w) // 2, (target_h - scaled_h) // 2))
         return result
 
     def render_image_layer(self, image: Image.Image, layer: ImageLayer):
@@ -162,6 +165,17 @@ class ImageEngine:
         else:
             image.alpha_composite(img, (x, y))
 
+    @staticmethod
+    def _composite_clamped(canvas: Image.Image, layer_img: Image.Image, sx: int, sy: int):
+        """Composite layer_img at (sx, sy), cropping the parts that fall off the canvas."""
+        src_x, src_y = max(0, -sx), max(0, -sy)
+        dst_x, dst_y = max(0, sx), max(0, sy)
+        w = min(layer_img.width - src_x, canvas.width - dst_x)
+        h = min(layer_img.height - src_y, canvas.height - dst_y)
+        if w > 0 and h > 0:
+            patch = layer_img.crop((src_x, src_y, src_x + w, src_y + h))
+            canvas.alpha_composite(patch, (dst_x, dst_y))
+
     def apply_image_shadow(
         self, canvas: Image.Image, img: Image.Image, x: int, y: int, shadow: Shadow
     ):
@@ -187,15 +201,7 @@ class ImageEngine:
             shadow_img.putalpha(alpha)
             sx = x + shadow.offset_x
             sy = y + shadow.offset_y
-        src_x = max(0, -sx)
-        src_y = max(0, -sy)
-        dst_x = max(0, sx)
-        dst_y = max(0, sy)
-        w = min(shadow_img.width - src_x, canvas.width - dst_x)
-        h = min(shadow_img.height - src_y, canvas.height - dst_y)
-        if w > 0 and h > 0:
-            patch = shadow_img.crop((src_x, src_y, src_x + w, src_y + h))
-            canvas.alpha_composite(patch, (dst_x, dst_y))
+        self._composite_clamped(canvas, shadow_img, sx, sy)
 
     def apply_image_stroke(
         self, canvas: Image.Image, img: Image.Image, x: int, y: int, stroke: Stroke
@@ -216,17 +222,7 @@ class ImageEngine:
         stroke_layer = Image.new("RGBA", padded_size, stroke_color)
         stroke_layer.putalpha(expanded)
 
-        sx = x - padding
-        sy = y - padding
-        src_x = max(0, -sx)
-        src_y = max(0, -sy)
-        dst_x = max(0, sx)
-        dst_y = max(0, sy)
-        ww = min(stroke_layer.width - src_x, canvas.width - dst_x)
-        hh = min(stroke_layer.height - src_y, canvas.height - dst_y)
-        if ww > 0 and hh > 0:
-            patch = stroke_layer.crop((src_x, src_y, src_x + ww, src_y + hh))
-            canvas.alpha_composite(patch, (dst_x, dst_y))
+        self._composite_clamped(canvas, stroke_layer, x - padding, y - padding)
 
     def apply_image_glow(self, canvas: Image.Image, img: Image.Image, x: int, y: int, glow: Glow):
         """Composite a blurred glow halo around the alpha shape of img onto canvas."""
@@ -245,17 +241,7 @@ class ImageEngine:
         glow_layer = Image.new("RGBA", padded_size, glow_color)
         glow_layer.putalpha(mask)
 
-        sx = x - padding
-        sy = y - padding
-        src_x = max(0, -sx)
-        src_y = max(0, -sy)
-        dst_x = max(0, sx)
-        dst_y = max(0, sy)
-        ww = min(glow_layer.width - src_x, canvas.width - dst_x)
-        hh = min(glow_layer.height - src_y, canvas.height - dst_y)
-        if ww > 0 and hh > 0:
-            patch = glow_layer.crop((src_x, src_y, src_x + ww, src_y + hh))
-            canvas.alpha_composite(patch, (dst_x, dst_y))
+        self._composite_clamped(canvas, glow_layer, x - padding, y - padding)
 
     def _apply_border_radius(self, img: Image.Image, radius: int) -> Image.Image:
         """Clip image to a rounded rectangle mask with anti-aliased corners via supersampling."""
@@ -294,28 +280,7 @@ class ImageEngine:
         original_width, original_height = img.size
 
         if width and height:
-            if fit is None or fit == FitMode.FILL:
-                return img.resize((width, height), Image.Resampling.LANCZOS)
-
-            if fit == FitMode.COVER:
-                scale = max(width / original_width, height / original_height)
-                scaled_width = int(original_width * scale)
-                scaled_height = int(original_height * scale)
-                resized = img.resize((scaled_width, scaled_height), Image.Resampling.LANCZOS)
-                left = (scaled_width - width) // 2
-                top = (scaled_height - height) // 2
-                return resized.crop((left, top, left + width, top + height))
-
-            scale = min(width / original_width, height / original_height)
-            scaled_width = int(original_width * scale)
-            scaled_height = int(original_height * scale)
-            resized = img.resize((scaled_width, scaled_height), Image.Resampling.LANCZOS)
-
-            result = Image.new("RGBA", (width, height), (0, 0, 0, 0))
-            paste_x = (width - scaled_width) // 2
-            paste_y = (height - scaled_height) // 2
-            result.paste(resized, (paste_x, paste_y))
-            return result
+            return self._fit_image(img, (width, height), fit, Image.Resampling.LANCZOS)
         elif width:
             aspect_ratio = original_height / original_width
             new_height = int(width * aspect_ratio)

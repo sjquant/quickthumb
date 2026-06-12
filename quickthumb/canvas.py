@@ -50,6 +50,12 @@ class CustomLayer:
 RenderableLayer = LayerType | CustomLayer
 
 _THEME_REF_RE = re.compile(r"\$theme\.([A-Za-z0-9_]+(?:\.[A-Za-z0-9_]+)*)")
+_VAR_RE = re.compile(r"\$\{(\w+)\}|\$(\w+)")
+
+
+def _is_theme_reference(match: re.Match) -> bool:
+    """True when a $var match is really a $theme.* token, resolved later by from_json."""
+    return match.group(2) == "theme" and match.string[match.end() : match.end() + 1] == "."
 
 
 def _lookup_theme_token(path: str, theme: dict, seen: frozenset = frozenset()):
@@ -538,18 +544,14 @@ class Canvas:
     @classmethod
     def from_template(cls, spec_or_path: str, variables: dict[str, str] | None = None) -> Self:
         import json as _json
-        import re
 
         variables = variables or {}
         raw_spec = cls._resolve_template_string(spec_or_path)
 
         def substitute(match: re.Match) -> str:
-            key = match.group(1) or match.group(2)
-            is_theme_ref = (
-                match.group(2) == "theme" and raw_spec[match.end() : match.end() + 1] == "."
-            )
-            if is_theme_ref:
+            if _is_theme_reference(match):
                 return match.group(0)
+            key = match.group(1) or match.group(2)
             if key not in variables:
                 raise ValidationError(
                     f"Template placeholder '${key}' has no matching variable. "
@@ -559,7 +561,7 @@ class Canvas:
             dumped = _json.dumps(value)
             return dumped[1:-1] if isinstance(value, str) else dumped
 
-        return cls.from_json(re.sub(r"\$\{(\w+)\}|\$(\w+)", substitute, raw_spec))
+        return cls.from_json(_VAR_RE.sub(substitute, raw_spec))
 
     def to_base64(self, format: FileFormat = "PNG", quality: int | None = None) -> str:
         import base64
@@ -591,7 +593,7 @@ class Canvas:
         return Image.new("RGBA", (self.width, self.height), (0, 0, 0, 0))
 
     def _render_to_image(self) -> Image.Image:
-        self._ctx.svg_raster_cache.clear()
+        self._ctx.begin_render_pass()
         image = self._create_canvas()
 
         for layer in self._layers:

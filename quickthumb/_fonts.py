@@ -16,6 +16,9 @@ from quickthumb.models import TextLayer
 class FontEngine:
     """Font loading with webfont download caching and system font discovery."""
 
+    def __init__(self):
+        self._variant_cache: dict[tuple, ImageFont.FreeTypeFont | ImageFont.ImageFont] = {}
+
     _VALID_FONT_MAGIC = (
         b"\x00\x01\x00\x00",  # TrueType
         b"true",  # TrueType (macOS)
@@ -41,6 +44,23 @@ class FontEngine:
         bold: bool | None,
         italic: bool | None,
         weight: int | str | None = None,
+    ) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
+        key = (font_name, size, bold, italic, weight)
+        cached = self._variant_cache.get(key)
+        if cached is not None:
+            return cached
+
+        font = self._load_font_variant_uncached(font_name, size, bold, italic, weight)
+        self._variant_cache[key] = font
+        return font
+
+    def _load_font_variant_uncached(
+        self,
+        font_name: str | None,
+        size: int,
+        bold: bool | None,
+        italic: bool | None,
+        weight: int | str | None,
     ) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
         try:
             if font_name and is_url(font_name):

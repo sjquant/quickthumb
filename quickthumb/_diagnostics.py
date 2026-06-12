@@ -71,7 +71,7 @@ class DiagnosticsEngine:
         that an agent or human can act on before rendering.
         """
         self._canvas._validate_image_paths()
-        self._ctx.svg_raster_cache.clear()
+        self._ctx.begin_render_pass()
 
         diagnostics: list[Diagnostic] = []
         running = self._canvas._create_canvas()
