@@ -16,9 +16,9 @@ Ready-to-run examples for common thumbnail and social card formats. Each recipe 
 | :---: | :---: | :---: |
 | [![Talking Head](../assets/examples/youtube_talking_head.png)](youtube-thumbnail.md) | [![Reaction](../assets/examples/youtube_reaction.png)](youtube-thumbnail.md) | [![Tutorial](../assets/examples/youtube_tutorial_explainer.png)](youtube-thumbnail.md) |
 
-| Podcast Promo | Shorts / Vertical Cover |  |
+| Podcast Promo | Shorts / Vertical Cover | Launch Announcement |
 | :---: | :---: | :---: |
-| [![Podcast Promo](../assets/examples/podcast_interview_promo.png)](podcast-promo.md) | [![Shorts Cover](../assets/examples/shorts_cover_agent.png)](shorts-cover.md) | |
+| [![Podcast Promo](../assets/examples/podcast_interview_promo.png)](podcast-promo.md) | [![Shorts Cover](../assets/examples/shorts_cover_agent.png)](shorts-cover.md) | [![Launch Announcement](../assets/examples/launch_announcement.png)](launch-announcement.md) |
 
 ## Recipes
 
@@ -28,6 +28,7 @@ Ready-to-run examples for common thumbnail and social card formats. Each recipe 
 | [Instagram Card](instagram-card.md) | 1080×1080 | Breaking news card with gradient overlay and rich text |
 | [Podcast Promo](podcast-promo.md) | 1280×720 | Remote images, webfont URL, portrait cutout with `rembg` |
 | [Shorts / Vertical Cover](shorts-cover.md) | 1080×1920 | JSON-first workflow driven by an AI-generated spec |
+| [Launch Announcement](launch-announcement.md) | 1280×720 | Auto-layout groups, theme tokens, star shapes, SVG layers, grain, diagnostics |
 | [AI Workflow](ai-workflow.md) | Any | End-to-end: prompt → JSON → render → iterate |
 | [Webfonts & Background Removal](webfonts-rembg.md) | Any | Webfont URLs and `remove_background` walkthrough |
 

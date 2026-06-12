@@ -36,6 +36,30 @@ uv pip install "quickthumb[rembg]"
 !!! note
     The `rembg` extra pulls in `onnxruntime` and will download a model (~170 MB) on first use. It is not required for any other quickthumb feature.
 
+## Optional: SVG Layers
+
+To use `canvas.svg(...)` layers, install the `svg` extra ([cairosvg](https://cairosvg.org/)):
+
+```bash
+# pip
+pip install "quickthumb[svg]"
+
+# uv
+uv pip install "quickthumb[svg]"
+```
+
+Rendering a canvas that contains an SVG layer without this extra raises `RenderingError`.
+
+## Optional: CLI
+
+To use the `quickthumb` command (`render`, `lint`, `watch`), install the `cli` extra:
+
+```bash
+pip install "quickthumb[cli]"
+```
+
+See [Diagnostics & CLI](diagnostics.md) for the command reference.
+
 ## Verify the installation
 
 ```python

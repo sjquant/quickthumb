@@ -13,6 +13,10 @@ It is designed for code-first and JSON-first workflows, with a layer-based API t
 | --- | --- | --- |
 | ![Talking head thumbnail example](examples/youtube_talking_head.png) | ![Reaction thumbnail example](examples/youtube_reaction.png) | ![Tutorial thumbnail example](examples/youtube_tutorial_explainer.png) |
 
+![Launch announcement example built with auto-layout groups, theme tokens, star shapes, and SVG layers](examples/launch_announcement.png)
+
+*One JSON spec, zero hand-placed text coordinates: [`examples/launch_announcement.json`](examples/launch_announcement.json) combines auto-layout groups, theme tokens, star shapes, SVG layers, grain, and `diagnose()`.*
+
 ## Why quickthumb
 
 - Built for thumbnails and social graphics, not just generic image composition
@@ -471,6 +475,7 @@ See the shipped examples in [`examples/README.md`](examples/README.md):
 - `examples/youtube_thumbnail_01.py`
 - `examples/youtube_thumbnail_02.py`
 - `examples/instagram_news_card.py`
+- `examples/launch_announcement.py` — the 0.5 feature set (groups, theme tokens, shapes, SVG, diagnostics) in one JSON spec
 
 ## Gotchas
 

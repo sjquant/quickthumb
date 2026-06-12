@@ -154,7 +154,18 @@ canvas.shape(
 )
 ```
 
-### 6. Export
+### 6. Check your work
+
+`diagnose()` flags common problems — off-canvas layers, illegibly small text, words that can't wrap, low text contrast — before you render:
+
+```python
+for finding in canvas.diagnose():
+    print(finding.severity, finding.code, finding.message)
+```
+
+An empty list means the composition is clean. See [Diagnostics & CLI](diagnostics.md).
+
+### 7. Export
 
 ```python
 # PNG file
@@ -206,5 +217,7 @@ This is particularly useful for AI-generated specs. See [JSON Schema & AI Workfl
 ## Next steps
 
 - [Core Concepts](concepts.md) — understand how layers, effects, and positioning work
+- [Group (Auto Layout)](api/group.md) — stack layers in rows and columns without hand-placed coordinates
 - [API Reference](api/index.md) — full parameter reference for every layer type
+- [Diagnostics & CLI](diagnostics.md) — lint specs and render from the terminal
 - [Cookbook](cookbook/index.md) — complete real-world examples

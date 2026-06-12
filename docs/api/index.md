@@ -14,6 +14,7 @@ from quickthumb import (
     Background,
     BlendMode,
     Canvas,
+    Diagnostic,
     Filter,
     FitMode,
     Glow,
@@ -32,11 +33,13 @@ from quickthumb import (
 
 | Page | What it covers |
 | --- | --- |
-| [Canvas](canvas.md) | `Canvas` creation, layer builders, and export methods |
+| [Canvas](canvas.md) | `Canvas` creation, layer builders, diagnostics, and export methods |
 | [Background](background.md) | `.background()` — solid colors, gradients, and images |
 | [Text](text.md) | `.text()` and `TextPart` — text layers and rich text |
 | [Image](image.md) | `.image()` — overlay images and cutouts |
-| [Shape](shape.md) | `.shape()` — rectangles and ellipses |
+| [Shape](shape.md) | `.shape()` — rectangles, ellipses, pills, triangles, stars, polygons |
+| [SVG](svg.md) | `.svg()` — vector icons and logos rasterized at render time |
+| [Group](group.md) | `.group()` — auto-layout rows and columns |
 | [Outline](outline.md) | `.outline()` — canvas border |
 | [Effects](effects.md) | `Stroke`, `Shadow`, `Glow`, `Filter`, `Background`, `Grain` |
 | [Enums & Gradients](enums.md) | `Align`, `BlendMode`, `FitMode`, `LinearGradient`, `RadialGradient`, `TextFillImage` |

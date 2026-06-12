@@ -20,6 +20,22 @@ pip install "quickthumb[rembg]"
 
 The first call to `remove_background=True` will download the ONNX model (~170 MB) and cache it locally.
 
+### Why does my `svg` layer raise `RenderingError`?
+
+SVG layers need the `svg` extra (cairosvg):
+
+```bash
+pip install "quickthumb[svg]"
+```
+
+### The `quickthumb` command isn't found. How do I install the CLI?
+
+The CLI is an optional extra:
+
+```bash
+pip install "quickthumb[cli]"
+```
+
 ---
 
 ## Canvas and layers
@@ -35,6 +51,24 @@ Each builder method returns `self`, so you can chain calls on one canvas object.
 ### What happens if I call `.render()` on a canvas with no layers?
 
 It produces a transparent PNG of the specified dimensions. No error is raised.
+
+### Why does my group child raise "group children must not set position"?
+
+Auto-layout groups assign positions themselves — that's the point. Remove `position` from the child and anchor the whole group instead:
+
+```python
+canvas.group(
+    children=[{"type": "text", "content": "TITLE", "size": 96, "color": "#fff"}],
+    position=("8%", "50%"),
+    align=("left", "middle"),
+)
+```
+
+A child's `align` is also ignored; use the group's `item_align` for cross-axis placement.
+
+### How do I check a composition for problems before rendering?
+
+Call `canvas.diagnose()` (or run `quickthumb lint spec.json`). It reports off-canvas layers, tiny text, unwrappable words, and low text contrast. See [Diagnostics & CLI](diagnostics.md).
 
 ---
 
@@ -163,6 +197,10 @@ canvas = Canvas.from_json(json.dumps(data))
 ### Why does `canvas.to_json()` raise a `ValidationError`?
 
 Your canvas contains a `.custom(fn)` layer. Custom layers cannot be serialized because they hold arbitrary Python callables. Remove or replace it before calling `to_json()`.
+
+### Where did my `theme` block go after `to_json()`?
+
+`$theme.*` tokens are resolved when the spec is parsed. `to_json()` emits the resolved values, so the round-tripped spec has no `theme` block. Keep the original spec file if you want to keep editing tokens.
 
 ---
 
