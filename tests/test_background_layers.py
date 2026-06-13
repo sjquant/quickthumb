@@ -1,5 +1,7 @@
 """Tests for background layer functionality"""
 
+from typing import cast
+
 import pytest
 from inline_snapshot import snapshot
 
@@ -195,8 +197,8 @@ class TestBackgroundLayers:
             from PIL import Image
 
             img = Image.open(path_b).convert("RGB")
-            left_r, left_g, left_b = img.getpixel((2, 50))
-            right_r, right_g, right_b = img.getpixel((197, 50))
+            left_r, left_g, left_b = cast(tuple[int, int, int], img.getpixel((2, 50)))
+            right_r, right_g, right_b = cast(tuple[int, int, int], img.getpixel((197, 50)))
             assert left_r > 200 and left_b < 60  # left edge ~red
             assert right_b > 200 and right_r < 60  # right edge ~blue
 

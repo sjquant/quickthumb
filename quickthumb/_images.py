@@ -106,16 +106,17 @@ class ImageEngine:
                 "Install it with: pip install 'quickthumb[svg]'"
             ) from None
 
-        size_kwargs: dict[str, int] = {}
-        if layer.width:
-            size_kwargs["output_width"] = layer.width
-        if layer.height:
-            size_kwargs["output_height"] = layer.height
-
         try:
-            png_bytes = cairosvg.svg2png(url=layer.path, **size_kwargs)
+            png_bytes = cairosvg.svg2png(
+                url=layer.path,
+                output_width=layer.width,
+                output_height=layer.height,
+            )
         except Exception as e:
             raise RenderingError(f"Failed to rasterize SVG '{layer.path}': {e}") from e
+
+        if png_bytes is None:
+            raise RenderingError(f"Failed to rasterize SVG '{layer.path}': no PNG data returned")
 
         return Image.open(BytesIO(png_bytes)).convert("RGBA")
 

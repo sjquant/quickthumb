@@ -35,9 +35,9 @@ from quickthumb.models import (
 
 
 class TextPartData(TypedDict):
-    color: tuple[int, int, int]
+    color: tuple[int, ...]
     fill: "LinearGradient | RadialGradient | TextFillImage | None"
-    font_name: str
+    font_name: str | None
     size: int
     bold: bool
     italic: bool

@@ -68,22 +68,41 @@ Finding codes: `off-canvas`, `tiny-text`, `text-overflow`, `low-contrast`. See [
 
 ### `.render(path, format="PNG", quality=None)`
 
-Renders the canvas and writes the result to a file.
+Renders the canvas and writes the result to a file. The format is detected from the file extension; `.svg` and `.pptx` produce vector/document output (see [Exporting to SVG & PPTX](../exports.md)).
 
 ```python
 canvas.render("output.png")
 canvas.render("output.jpg", format="JPEG", quality=85)
 canvas.render("output.webp", format="WEBP", quality=90)
+canvas.render("output.svg")
+canvas.render("output.pptx")  # requires quickthumb[pptx]
 ```
 
 | Parameter | Type | Default | Description |
 | --- | --- | --- | --- |
 | `path` | `str` | — | Output file path |
-| `format` | `str` | `"PNG"` | Output format: `"PNG"`, `"JPEG"`, or `"WEBP"` |
+| `format` | `str` | `"PNG"` | Raster output format: `"PNG"`, `"JPEG"`, or `"WEBP"` |
 | `quality` | `int \| None` | `None` | Compression quality (1–95). Only valid for `JPEG` and `WEBP`. |
 
 !!! warning
     Passing `quality` with `format="PNG"` raises `RenderingError`.
+
+### `.to_svg(embed_fonts=False)`
+
+Returns the canvas as an SVG document string. Set `embed_fonts=True` to inline the used font files as `@font-face` data URLs.
+
+```python
+svg = canvas.to_svg(embed_fonts=True)
+```
+
+### `.to_pptx()`
+
+Returns the canvas as PowerPoint file bytes — a single slide with editable text boxes and autoshapes. Requires the `pptx` extra.
+
+```python
+with open("deck.pptx", "wb") as f:
+    f.write(canvas.to_pptx())
+```
 
 ### `.to_base64(format="PNG", quality=None)`
 

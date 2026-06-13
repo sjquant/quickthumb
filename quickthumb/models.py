@@ -144,7 +144,7 @@ def _validate_align_with_hv_tuple(v: Any) -> Align | None:
 AlignWithHVTuple = Annotated[Align | None, BeforeValidator(_validate_align_with_hv_tuple)]
 
 
-class quickthumbModel(BaseModel):
+class quickthumbModel(BaseModel):  # noqa: N801
     @model_validator(mode="wrap")
     @classmethod
     def handle_pydantic_error(cls, data: Any, handler):
@@ -180,7 +180,7 @@ class TextFillImage(quickthumbModel):
     type: Literal["image"] = "image"
     path: str
     fit: Annotated[
-        FitMode, AfterValidator(lambda v: enum_converter(FitMode)(v) if v else FitMode.COVER)
+        FitMode | str, AfterValidator(lambda v: enum_converter(FitMode)(v) if v else FitMode.COVER)
     ] = FitMode.COVER
 
 
@@ -347,9 +347,10 @@ class BackgroundLayer(quickthumbModel):
             return v
 
         # HexColor validation already applied to str, just validate tuple
-        if isinstance(v, tuple):
-            if len(v) not in (3, 4) or not all(isinstance(c, int) and 0 <= c <= 255 for c in v):
-                raise ValueError(f"invalid color tuple: {v}")
+        if isinstance(v, tuple) and (
+            len(v) not in (3, 4) or not all(isinstance(c, int) and 0 <= c <= 255 for c in v)
+        ):
+            raise ValueError(f"invalid color tuple: {v}")
 
         return v
 

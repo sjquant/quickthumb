@@ -71,7 +71,7 @@ def render(
     spec: Annotated[Path, typer.Argument(help="Path to a JSON spec file")],
     output: Annotated[
         Path,
-        typer.Option("-o", "--output", help="Output file path"),
+        typer.Option("-o", "--output", help="Output file path (.png/.jpg/.webp/.svg/.pptx)"),
     ] = Path("output.png"),
     fmt: Annotated[
         str | None,
@@ -86,7 +86,7 @@ def render(
         typer.Option("--var", help="Variable substitution as KEY=VALUE"),
     ] = None,
 ) -> None:
-    """Render a JSON spec file to an image."""
+    """Render a JSON spec file to an image, or to SVG/PPTX by file extension."""
     _validate_render_options(fmt, quality)
     canvas = _load_canvas(spec, _parse_var_options(var))
 
@@ -142,7 +142,12 @@ def _substitute_vars(text: str, variables: dict[str, str]) -> str:
         if _is_theme_reference(match):
             return match.group(0)
         key = match.group(1) or match.group(2)
-        return variables.get(key, match.group(0))
+        assert key is not None
+        fallback = match.group(0)
+        assert fallback is not None
+        if key in variables:
+            return variables[key]
+        return fallback
 
     result = _VAR_RE.sub(replace, text)
 
