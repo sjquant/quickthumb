@@ -68,14 +68,13 @@ Finding codes: `off-canvas`, `tiny-text`, `text-overflow`, `low-contrast`. See [
 
 ### `.render(path, format="PNG", quality=None)`
 
-Renders the canvas and writes the result to a file. The format is detected from the file extension; `.svg`, `.html`, and `.pptx` produce vector/document output (see [Exporting to SVG, HTML & PPTX](../exports.md)).
+Renders the canvas and writes the result to a file. The format is detected from the file extension; `.svg` and `.pptx` produce vector/document output (see [Exporting to SVG & PPTX](../exports.md)).
 
 ```python
 canvas.render("output.png")
 canvas.render("output.jpg", format="JPEG", quality=85)
 canvas.render("output.webp", format="WEBP", quality=90)
 canvas.render("output.svg")
-canvas.render("output.html")
 canvas.render("output.pptx")  # requires quickthumb[pptx]
 ```
 
@@ -94,14 +93,6 @@ Returns the canvas as an SVG document string. Set `embed_fonts=True` to inline t
 
 ```python
 svg = canvas.to_svg(embed_fonts=True)
-```
-
-### `.to_html(embed_fonts=True, title="quickthumb")`
-
-Returns a standalone HTML page with the canvas embedded as inline SVG. Fonts are embedded by default so the document is self-contained.
-
-```python
-html = canvas.to_html(title="Launch card")
 ```
 
 ### `.to_pptx()`

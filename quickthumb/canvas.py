@@ -456,12 +456,12 @@ class Canvas:
         """Render the canvas to a file.
 
         The output format is detected from the file extension: PNG, JPEG, and
-        WEBP render through the raster pipeline, while .svg, .html, and .pptx
-        produce vector/document output (see to_svg, to_html, and to_pptx).
+        WEBP render through the raster pipeline, while .svg and .pptx produce
+        vector/document output (see to_svg and to_pptx).
         """
         if format is None:
             extension = os.path.splitext(output_path)[1].lower()
-            if extension in (".svg", ".html", ".htm", ".pptx"):
+            if extension in (".svg", ".pptx"):
                 if quality is not None:
                     raise RenderingError(
                         "Quality parameter is only supported for JPEG and WEBP formats, "
@@ -476,17 +476,13 @@ class Canvas:
 
     def _render_document(self, output_path: str, extension: str):
         if extension == ".svg":
-            content = self.to_svg()
-        elif extension in (".html", ".htm"):
-            content = self.to_html()
-        else:
-            from quickthumb._export_pptx import PptxExporter
-
-            PptxExporter(self).save(output_path)
+            with open(output_path, "w", encoding="utf-8") as f:
+                f.write(self.to_svg())
             return
 
-        with open(output_path, "w", encoding="utf-8") as f:
-            f.write(content)
+        from quickthumb._export_pptx import PptxExporter
+
+        PptxExporter(self).save(output_path)
 
     def to_svg(self, embed_fonts: bool = False) -> str:
         """Render the canvas to an SVG document string.
@@ -501,16 +497,6 @@ class Canvas:
         from quickthumb._export_svg import SvgExporter
 
         return SvgExporter(self, embed_fonts=embed_fonts).export()
-
-    def to_html(self, embed_fonts: bool = True, title: str = "quickthumb") -> str:
-        """Render the canvas to a standalone HTML document string.
-
-        The canvas is embedded as inline SVG (see to_svg). Fonts are embedded
-        by default so the document is self-contained.
-        """
-        from quickthumb._export_html import render_html
-
-        return render_html(self, embed_fonts=embed_fonts, title=title)
 
     def to_pptx(self) -> bytes:
         """Render the canvas to a PowerPoint file as bytes (requires quickthumb[pptx]).

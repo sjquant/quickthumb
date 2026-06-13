@@ -1,4 +1,4 @@
-"""Shared infrastructure for the document exporters (SVG, HTML, PPTX).
+"""Shared infrastructure for the document exporters (SVG, PPTX).
 
 The exporters keep layers as native vector/text primitives where the target
 format can express them, and fall back to embedding pixel-exact PNG fragments

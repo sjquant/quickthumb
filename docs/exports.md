@@ -1,15 +1,14 @@
 ---
-description: Export quickthumb canvases to SVG, standalone HTML, and editable PowerPoint (PPTX) documents alongside PNG/JPEG/WEBP.
+description: Export quickthumb canvases to SVG and editable PowerPoint (PPTX) documents alongside PNG/JPEG/WEBP.
 ---
 
-# Exporting to SVG, HTML & PPTX
+# Exporting to SVG & PPTX
 
 Beyond raster images, a canvas can render to vector and document formats. The output format is detected from the file extension:
 
 ```python
 canvas.render("thumbnail.png")   # raster (PNG/JPEG/WEBP)
 canvas.render("thumbnail.svg")   # vector SVG
-canvas.render("thumbnail.html")  # standalone HTML page
 canvas.render("thumbnail.pptx")  # editable PowerPoint slide
 ```
 
@@ -17,7 +16,6 @@ Each format also has a direct method when you want the content in memory:
 
 ```python
 svg_markup = canvas.to_svg()
-html_page = canvas.to_html(title="Launch card")
 pptx_bytes = canvas.to_pptx()
 ```
 
@@ -25,7 +23,7 @@ pptx_bytes = canvas.to_pptx()
 
 Exporters keep layers **native** wherever the target format can express them, and embed **pixel-exact PNG fragments** (rendered by the regular pipeline) everywhere else. Positions, wrapping, and alignment are computed with the same layout math as the raster renderer, so output matches the PNG render closely.
 
-| Layer | SVG / HTML | PPTX |
+| Layer | SVG | PPTX |
 | --- | --- | --- |
 | Background color / gradient | Native `rect` + gradient defs | Native shape fill (linear gradients native, radial embedded) |
 | Outline | Native `rect` stroke | Native bordered rectangle |
@@ -47,14 +45,6 @@ By default the SVG references fonts by family name (`font-family="Roboto"`), whi
 
 !!! note "Viewer support"
     Shadow and glow effects use SVG filters (`feGaussianBlur`). Browsers render them faithfully; some minimal SVG rasterizers apply filters only partially.
-
-## HTML
-
-```python
-html = canvas.to_html(title="My thumbnail")
-```
-
-The HTML export wraps the SVG render in a standalone, self-contained page. Fonts are embedded by default (`embed_fonts=True`) so the file can be shared as-is, like an image file that stays selectable and editable.
 
 ## PPTX
 
@@ -82,6 +72,5 @@ The CLI picks the format from the output extension too:
 
 ```bash
 quickthumb render spec.json -o card.svg
-quickthumb render spec.json -o card.html
 quickthumb render spec.json -o card.pptx
 ```

@@ -62,7 +62,7 @@ pip install "quickthumb[pptx]"
 uv pip install "quickthumb[pptx]"
 ```
 
-SVG and HTML export need no extra dependencies. See [Exporting to SVG, HTML & PPTX](exports.md) for details.
+SVG export needs no extra dependencies. See [Exporting to SVG & PPTX](exports.md) for details.
 
 ## Optional: CLI
 
