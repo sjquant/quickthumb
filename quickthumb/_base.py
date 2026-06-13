@@ -1,5 +1,5 @@
 import math
-from typing import Literal, cast
+from typing import Literal, TypeAlias, cast
 
 from PIL import ImageFont
 
@@ -13,7 +13,7 @@ DEFAULT_LINE_HEIGHT_MULTIPLIER = 1.2
 FULL_OPACITY = 255
 LINE_HEIGHT_REFERENCE = "Aby"
 
-FontType = ImageFont.FreeTypeFont | ImageFont.ImageFont
+FontType: TypeAlias = ImageFont.FreeTypeFont | ImageFont.ImageFont
 
 
 class RenderContext:

@@ -1,9 +1,9 @@
 import os
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from io import BytesIO
-from typing import Literal
+from typing import Any, Literal, cast
 
 from PIL import Image, ImageDraw
 from typing_extensions import Self
@@ -48,6 +48,7 @@ class CustomLayer:
 
 
 RenderableLayer = LayerType | CustomLayer
+TextContentInput = str | list[TextPart | dict[str, Any]]
 
 _THEME_REF_RE = re.compile(r"\$theme\.([A-Za-z0-9_]+(?:\.[A-Za-z0-9_]+)*)")
 _VAR_RE = re.compile(r"\$\{(\w+)\}|\$(\w+)")
@@ -208,7 +209,7 @@ class Canvas:
 
     def text(
         self,
-        content: str | list[TextPart] | None = None,
+        content: TextContentInput | None = None,
         font: str | None = None,
         size: int | None = None,
         color: str | None = None,
@@ -233,7 +234,7 @@ class Canvas:
 
         layer = TextLayer(
             type="text",
-            content=content,
+            content=cast(str | list[TextPart], content),
             font=font,
             size=size,
             color=color,
@@ -538,12 +539,15 @@ class Canvas:
         from quickthumb.models import CanvasModel, LayerType
 
         raw = _json.loads(data)
+        if not isinstance(raw, dict):
+            CanvasModel.model_validate_json(data)  # raises ValidationError with good message
+        raw = cast(dict[str, Any], raw)
 
-        if isinstance(raw, dict):
-            theme = raw.pop("theme", {})
-            if not isinstance(theme, dict):
-                raise ValidationError("'theme' must be a JSON object of token groups")
-            raw = _resolve_theme_tokens(raw, theme)
+        theme = raw.pop("theme", {})
+        if not isinstance(theme, dict):
+            raise ValidationError("'theme' must be a JSON object of token groups")
+        raw = _resolve_theme_tokens(raw, theme)
+        raw = cast(dict[str, Any], raw)
 
         layers_raw = raw.get("layers", [])
 
@@ -555,6 +559,8 @@ class Canvas:
         for layer_dict in layers_raw:
             if isinstance(layer_dict, dict) and layer_dict.get("type") == "custom":
                 name = layer_dict.get("name")
+                if not isinstance(name, str):
+                    raise ValidationError("Custom layer 'name' must be a string.")
                 fn = cls._custom_layer_registry.get(name)
                 if fn is None:
                     raise ValidationError(
@@ -562,11 +568,19 @@ class Canvas:
                         f"Call Canvas.register_layer_fn('{name}', fn) before deserializing."
                     )
                 kwargs = layer_dict.get("kwargs") or {}
+                if not isinstance(kwargs, dict):
+                    raise ValidationError(f"Custom layer '{name}' kwargs must be a JSON object.")
                 renderable_layers.append(CustomLayer(fn=fn, name=name, kwargs=kwargs))
             else:
                 renderable_layers.append(layer_adapter.validate_python(layer_dict))
 
-        return cls(width=raw["width"], height=raw["height"], layers=renderable_layers)
+        width = raw.get("width")
+        height = raw.get("height")
+        if not isinstance(width, int) or not isinstance(height, int):
+            CanvasModel.model_validate(raw)  # raises ValidationError with good message
+            raise ValidationError("'width' and 'height' must be integers.")
+
+        return cls(width=width, height=height, layers=renderable_layers)
 
     @classmethod
     def _read_template_file(cls, path: str) -> str:
@@ -593,7 +607,9 @@ class Canvas:
         )
 
     @classmethod
-    def from_template(cls, spec_or_path: str, variables: dict[str, str] | None = None) -> Self:
+    def from_template(
+        cls, spec_or_path: str, variables: Mapping[str, object] | None = None
+    ) -> Self:
         import json as _json
 
         variables = variables or {}
@@ -603,6 +619,7 @@ class Canvas:
             if _is_theme_reference(match):
                 return match.group(0)
             key = match.group(1) or match.group(2)
+            assert key is not None
             if key not in variables:
                 raise ValidationError(
                     f"Template placeholder '${key}' has no matching variable. "

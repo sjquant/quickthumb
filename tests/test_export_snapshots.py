@@ -54,12 +54,26 @@ def rasterize_pptx(canvas: Canvas) -> Image.Image:
     environment; run with --inline-snapshot=create on a machine with a working
     LibreOffice to (re)generate the PPTX comparison snapshots.
     """
+    soffice = SOFFICE
+    if soffice is None:
+        pytest.skip("LibreOffice is required to rasterize PPTX")
+    assert soffice is not None
+
     with tempfile.TemporaryDirectory() as tmpdir:
         deck_path = os.path.join(tmpdir, "deck.pptx")
         canvas.render(deck_path)
         try:
+            command: list[str] = [
+                soffice,
+                "--headless",
+                "--convert-to",
+                "png",
+                "--outdir",
+                tmpdir,
+                deck_path,
+            ]
             subprocess.run(
-                [SOFFICE, "--headless", "--convert-to", "png", "--outdir", tmpdir, deck_path],
+                command,
                 check=True,
                 timeout=180,
                 stdout=subprocess.DEVNULL,

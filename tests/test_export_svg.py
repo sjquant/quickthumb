@@ -26,6 +26,12 @@ def find_all(root: ET.Element, tag: str) -> list[ET.Element]:
     return list(root.iter(f"{SVG_NS}{tag}"))
 
 
+def require_attr(element: ET.Element, name: str) -> str:
+    value = element.get(name)
+    assert value is not None
+    return value
+
+
 class TestSvgDocument:
     """Test suite for overall SVG document structure"""
 
@@ -94,7 +100,9 @@ class TestSvgBackgrounds:
         root = parse_svg(canvas.to_svg())
 
         # then
-        fill_opacity = float(find_all(root, "rect")[0].get("fill-opacity"))
+        fill_opacity_attr = find_all(root, "rect")[0].get("fill-opacity")
+        assert fill_opacity_attr is not None
+        fill_opacity = float(fill_opacity_attr)
         assert fill_opacity == pytest.approx(0.25, abs=0.01)
 
     def test_should_emit_linear_gradient_with_stops(self):
@@ -113,8 +121,16 @@ class TestSvgBackgrounds:
         stops = find_all(gradients[0], "stop")
         assert [s.get("stop-color") for s in stops] == ["#000000", "#FFFFFF"]
         # angle 0 runs along +x through the canvas center
-        assert float(gradients[0].get("y1")) == float(gradients[0].get("y2"))
-        assert float(gradients[0].get("x1")) < float(gradients[0].get("x2"))
+        y1 = gradients[0].get("y1")
+        y2 = gradients[0].get("y2")
+        x1 = gradients[0].get("x1")
+        x2 = gradients[0].get("x2")
+        assert y1 is not None
+        assert y2 is not None
+        assert x1 is not None
+        assert x2 is not None
+        assert float(y1) == float(y2)
+        assert float(x1) < float(x2)
         rect = find_all(root, "rect")[0]
         assert rect.get("fill") == f"url(#{gradients[0].get('id')})"
 
@@ -131,9 +147,15 @@ class TestSvgBackgrounds:
         # then
         gradients = find_all(root, "radialGradient")
         assert len(gradients) == 1
-        assert float(gradients[0].get("cx")) == pytest.approx(100)
-        assert float(gradients[0].get("cy")) == pytest.approx(100)
-        assert float(gradients[0].get("r")) > 0
+        cx = gradients[0].get("cx")
+        cy = gradients[0].get("cy")
+        radius = gradients[0].get("r")
+        assert cx is not None
+        assert cy is not None
+        assert radius is not None
+        assert float(cx) == pytest.approx(100)
+        assert float(cy) == pytest.approx(100)
+        assert float(radius) > 0
 
     def test_should_fall_back_to_raster_for_background_effects(self):
         """Backgrounds with grain cannot be vectorized and embed a PNG instead"""
@@ -199,7 +221,7 @@ class TestSvgShapesAndOutline:
         # then
         polygons = find_all(root, "polygon")
         assert len(polygons) == 1
-        assert len(polygons[0].get("points").split()) == 12
+        assert len(require_attr(polygons[0], "points").split()) == 12
 
     def test_should_rotate_shapes_with_transform(self):
         """Rotation becomes a rotate() transform around the shape center"""
@@ -218,7 +240,7 @@ class TestSvgShapesAndOutline:
 
         # then
         ellipse = find_all(parse_svg(svg), "ellipse")[0]
-        assert "rotate(30" in ellipse.get("transform")
+        assert "rotate(30" in require_attr(ellipse, "transform")
 
     def test_should_emit_stroke_effect_as_backing_shape(self):
         """A stroke effect paints a doubled-width outline shape behind the fill"""
@@ -261,8 +283,8 @@ class TestSvgShapesAndOutline:
         # then
         stroke_rect = find_all(root, "rect")[0]
         assert stroke_rect.get("fill") == "#FF0000"
-        assert float(stroke_rect.get("fill-opacity")) == pytest.approx(0.5, abs=0.01)
-        assert float(stroke_rect.get("stroke-opacity")) == pytest.approx(0.5, abs=0.01)
+        assert float(require_attr(stroke_rect, "fill-opacity")) == pytest.approx(0.5, abs=0.01)
+        assert float(require_attr(stroke_rect, "stroke-opacity")) == pytest.approx(0.5, abs=0.01)
 
     def test_should_emit_shadow_with_blur_filter(self):
         """A blurred shadow becomes an offset duplicate with a Gaussian filter"""
@@ -284,7 +306,7 @@ class TestSvgShapesAndOutline:
         assert len(blurs) == 1
         assert blurs[0].get("stdDeviation") == "5"
         shadow = find_all(root, "ellipse")[0]
-        assert "translate(6 8)" in shadow.get("transform")
+        assert "translate(6 8)" in require_attr(shadow, "transform")
         assert shadow.get("fill") == "#000000"
 
     def test_should_emit_outline_as_stroked_rect(self):
@@ -300,8 +322,8 @@ class TestSvgShapesAndOutline:
         assert rect.get("fill") == "none"
         assert rect.get("stroke") == "#FFFFFF"
         assert rect.get("stroke-width") == "6"
-        assert float(rect.get("x")) == pytest.approx(13)
-        assert float(rect.get("width")) == pytest.approx(400 - 2 * 10 - 6)
+        assert float(require_attr(rect, "x")) == pytest.approx(13)
+        assert float(require_attr(rect, "width")) == pytest.approx(400 - 2 * 10 - 6)
 
 
 class TestSvgText:
@@ -328,10 +350,10 @@ class TestSvgText:
         text = texts[0]
         assert text.text == "Hello SVG"
         assert text.get("font-size") == "48px"
-        assert "Roboto" in text.get("font-family")
+        assert "Roboto" in require_attr(text, "font-family")
         assert text.get("font-weight") == "700"
         assert text.get("fill") == "#FFCC00"
-        assert float(text.get("x")) >= 50
+        assert float(require_attr(text, "x")) >= 50
 
     def test_should_wrap_text_into_one_element_per_line(self):
         """max_width wrapping emits one positioned text element per line"""
@@ -353,7 +375,7 @@ class TestSvgText:
         assert len(texts) > 1
         joined = " ".join(t.text for t in texts)
         assert joined == "several words that will certainly wrap around"
-        ys = [float(t.get("y")) for t in texts]
+        ys = [float(require_attr(t, "y")) for t in texts]
         assert ys == sorted(ys)
 
     def test_should_emit_letter_spaced_text_with_per_character_positions(self):
@@ -373,7 +395,7 @@ class TestSvgText:
 
         # then
         text = find_all(root, "text")[0]
-        positions = text.get("x").split()
+        positions = require_attr(text, "x").split()
         assert len(positions) == len("SPACED")
         assert [float(p) for p in positions] == sorted(float(p) for p in positions)
 
@@ -417,7 +439,7 @@ class TestSvgText:
 
         # then
         text = find_all(root, "text")[0]
-        assert text.get("fill").startswith("url(#")
+        assert require_attr(text, "fill").startswith("url(#")
         assert len(find_all(root, "linearGradient")) == 1
 
     def test_should_emit_text_effects_as_layered_duplicates(self):
@@ -486,8 +508,8 @@ class TestSvgText:
 
         # then
         groups = [g for g in find_all(root, "g") if g.get("transform")]
-        assert groups and "rotate(-20" in groups[0].get("transform")
-        assert float(groups[0].get("opacity")) == pytest.approx(0.8)
+        assert groups and "rotate(-20" in require_attr(groups[0], "transform")
+        assert float(require_attr(groups[0], "opacity")) == pytest.approx(0.8)
 
     def test_should_fall_back_to_raster_for_image_glyph_fill(self):
         """Image-textured glyphs cannot be vectorized and embed a PNG"""
@@ -610,7 +632,7 @@ class TestSvgEmbeddedLayers:
         # then
         assert find_all(root, "text")[0].text == "Grouped"
         rect = find_all(root, "rect")[0]
-        assert float(rect.get("x")) == pytest.approx(60)
+        assert float(require_attr(rect, "x")) == pytest.approx(60)
         assert not find_all(root, "image")
 
 

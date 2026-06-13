@@ -14,7 +14,7 @@ from __future__ import annotations
 import contextlib
 import math
 from io import BytesIO
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from PIL import ImageFont
 
@@ -284,7 +284,9 @@ class PptxExporter:
             stroke = strokes[0]
             self._set_line(shape, color_to_rgba(canvas, stroke.color, layer.opacity), stroke.width)
         else:
-            shape.line.fill.background()
+            from pptx.shapes.autoshape import Shape
+
+            cast(Shape, shape).line.fill.background()
 
         glows = [e for e in layer.effects if isinstance(e, Glow)]
         shadows = [e for e in layer.effects if isinstance(e, Shadow)]
@@ -324,6 +326,8 @@ class PptxExporter:
         return self._add_freeform(layer, left, top)
 
     def _add_freeform(self, layer: ShapeLayer, left: float, top: float):
+        from pptx.util import Emu
+
         normalized = self._canvas._shapes.normalized_shape_points(layer)
         if not normalized:
             return None
@@ -332,7 +336,7 @@ class PptxExporter:
             start_x=points[0][0], start_y=points[0][1], scale=EMU_PER_PX
         )
         builder.add_line_segments(points[1:], close=True)
-        return builder.convert_to_shape(origin_x=_emu(left), origin_y=_emu(top))
+        return builder.convert_to_shape(origin_x=Emu(_emu(left)), origin_y=Emu(_emu(top)))
 
     @staticmethod
     def _set_adjustment(shape, value: float):

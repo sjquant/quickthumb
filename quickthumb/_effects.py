@@ -1,6 +1,7 @@
 import math
 import os
 from collections.abc import Callable
+from typing import cast
 
 from PIL import Image, ImageChops, ImageEnhance, ImageFilter
 
@@ -94,37 +95,30 @@ class EffectsEngine:
 
         lut = bytes(i * max_val // 255 for i in range(256))
 
-        if seed is not None:
-            rng = _random.Random(seed)
-            if monochrome:
-                raw = rng.randbytes(pixel_count)
-            else:
-                raw_r, raw_g, raw_b = (
-                    rng.randbytes(pixel_count),
-                    rng.randbytes(pixel_count),
-                    rng.randbytes(pixel_count),
-                )
-        else:
-            if monochrome:
-                raw = os.urandom(pixel_count)
-            else:
-                raw_r, raw_g, raw_b = (
-                    os.urandom(pixel_count),
-                    os.urandom(pixel_count),
-                    os.urandom(pixel_count),
-                )
-
         if monochrome:
+            if seed is not None:
+                raw = _random.Random(seed).randbytes(pixel_count)
+            else:
+                raw = os.urandom(pixel_count)
             ch = Image.frombytes("L", size, raw).point(lut)
             noise_img = Image.merge("RGB", [ch, ch, ch])
         else:
+            if seed is not None:
+                rng = _random.Random(seed)
+                channels = (
+                    rng.randbytes(pixel_count),
+                    rng.randbytes(pixel_count),
+                    rng.randbytes(pixel_count),
+                )
+            else:
+                channels = (
+                    os.urandom(pixel_count),
+                    os.urandom(pixel_count),
+                    os.urandom(pixel_count),
+                )
             noise_img = Image.merge(
                 "RGB",
-                [
-                    Image.frombytes("L", size, raw_r).point(lut),
-                    Image.frombytes("L", size, raw_g).point(lut),
-                    Image.frombytes("L", size, raw_b).point(lut),
-                ],
+                [Image.frombytes("L", size, channel).point(lut) for channel in channels],
             )
         return noise_img.convert("RGBA")
 
@@ -177,13 +171,15 @@ class EffectsEngine:
     ) -> tuple[list[int], list[int], list[int], list[int]]:
         r_lut, g_lut, b_lut, a_lut = [], [], [], []
 
-        parsed_stops = []
+        parsed_stops: list[tuple[tuple[int, int, int, int], float]] = []
         for color, pos in stops:
             parsed_color = self.parse_color(color)
             # Ensure color has alpha channel (default to 255 if not provided)
             if len(parsed_color) == 3:
-                parsed_color = (*parsed_color, 255)
-            parsed_stops.append((parsed_color, pos))
+                rgba = (*cast(tuple[int, int, int], parsed_color), 255)
+            else:
+                rgba = cast(tuple[int, int, int, int], parsed_color[:4])
+            parsed_stops.append((rgba, pos))
 
         parsed_stops.sort(key=lambda stop: stop[1])
 
@@ -198,6 +194,7 @@ class EffectsEngine:
             elif pos >= pos2:
                 r, g, b, a = color2[:4]
             else:
+                r, g, b, a = color2
                 for j in range(len(parsed_stops) - 1):
                     c1, p1 = parsed_stops[j]
                     c2, p2 = parsed_stops[j + 1]

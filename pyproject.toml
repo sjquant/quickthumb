@@ -111,6 +111,12 @@ indent-style = "space"
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["E402", "F401"]
 
+[tool.ty.src]
+exclude = ["tests/"]
+
+[tool.pyright]
+include = ["quickthumb"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = "test_*.py"

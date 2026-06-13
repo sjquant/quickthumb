@@ -12,6 +12,7 @@ pptx = pytest.importorskip("pptx")
 
 from pptx import Presentation  # noqa: E402
 from pptx.enum.shapes import MSO_SHAPE, MSO_SHAPE_TYPE  # noqa: E402
+from pptx.presentation import Presentation as PresentationDocument  # noqa: E402
 from pptx.util import Emu  # noqa: E402
 
 EMU_PER_PX = 9525
@@ -19,7 +20,7 @@ FIXTURES_DIR = Path(__file__).parent / "fixtures"
 SAMPLE_IMAGE = str(FIXTURES_DIR / "sample_image.jpg")
 
 
-def open_pptx(canvas: Canvas) -> Presentation:
+def open_pptx(canvas: Canvas) -> PresentationDocument:
     return Presentation(BytesIO(canvas.to_pptx()))
 
 

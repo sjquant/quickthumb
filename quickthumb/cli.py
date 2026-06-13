@@ -142,7 +142,12 @@ def _substitute_vars(text: str, variables: dict[str, str]) -> str:
         if _is_theme_reference(match):
             return match.group(0)
         key = match.group(1) or match.group(2)
-        return variables.get(key, match.group(0))
+        assert key is not None
+        fallback = match.group(0)
+        assert fallback is not None
+        if key in variables:
+            return variables[key]
+        return fallback
 
     result = _VAR_RE.sub(replace, text)
 
