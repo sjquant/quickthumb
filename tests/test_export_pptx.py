@@ -255,6 +255,29 @@ class TestPptxText:
         assert runs[1].font.italic is True
         assert str(runs[1].font.color.rgb) == "00FF00"
 
+    def test_should_emit_valid_drawingml_for_gradient_plus_stroke_run(self):
+        """A run with both a gradient fill and a stroke keeps valid rPr child order"""
+        # given a gradient-filled headline that also has a stroke effect
+        from pptx.oxml.ns import qn
+
+        canvas = Canvas(600, 200).text(
+            content="GRAD",
+            font="Roboto",
+            size=48,
+            bold=True,
+            position=(40, 60),
+            fill=LinearGradient(angle=0, stops=[("#F59E0B", 0.0), ("#EF4444", 1.0)]),
+            effects=[Stroke(width=3, color="#7C3AED")],
+        )
+
+        # when the exported deck is reopened
+        run = slide_of(canvas).shapes[0].text_frame.paragraphs[0].runs[0]
+        rpr = run._r.find(qn("a:rPr"))
+        tags = [child.tag.split("}")[-1] for child in rpr]
+
+        # then DrawingML requires line, then fill, then latin within rPr
+        assert tags.index("ln") < tags.index("gradFill") < tags.index("latin")
+
     def test_should_rotate_textbox_for_rotated_text(self):
         """Rotation carries over to the text box"""
         # given

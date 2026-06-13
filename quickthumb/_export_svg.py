@@ -16,12 +16,19 @@ from xml.sax.saxutils import escape, quoteattr
 
 from PIL import ImageFont
 
-from quickthumb._base import apply_alignment, expanded_rotation_size, is_url, parse_coordinate
+from quickthumb._base import (
+    apply_alignment,
+    expanded_rotation_size,
+    is_url,
+    parse_coordinate,
+    parse_padding,
+)
 from quickthumb._export_base import (
     Box,
     RasterFragment,
     TextRunLayout,
     color_to_rgba,
+    compute_text_layout,
     flatten_layers,
     rasterize_layers,
     rgb_hex,
@@ -29,6 +36,7 @@ from quickthumb._export_base import (
     uses_image_fill,
 )
 from quickthumb.models import (
+    Align,
     BackgroundLayer,
     Glow,
     LinearGradient,
@@ -345,8 +353,6 @@ class SvgExporter:
             self._emit_raster_fallback(layer)
             return
 
-        from quickthumb._export_base import compute_text_layout
-
         layout = compute_text_layout(self._canvas, layer)
         if not any(layout.lines):
             return
@@ -361,7 +367,11 @@ class SvgExporter:
             )
         if layout.opacity < 1:
             group_attrs += f' opacity="{_fmt(round(layout.opacity, 4))}"'
-        self._body.append(f"<g{group_attrs}>")
+
+        # Only wrap in a group when there is a transform or opacity to scope.
+        wrap = bool(group_attrs)
+        if wrap:
+            self._body.append(f"<g{group_attrs}>")
 
         if layout.block_backgrounds and layout.block_bg_box:
             for background in layout.block_backgrounds:
@@ -371,10 +381,10 @@ class SvgExporter:
             for run in line:
                 self._emit_text_run(run)
 
-        self._body.append("</g>")
+        if wrap:
+            self._body.append("</g>")
 
     def _emit_text_background(self, background, content_box: Box):
-        from quickthumb._base import parse_padding
 
         pad_top, pad_right, pad_bottom, pad_left = parse_padding(background.padding)
         rgba = color_to_rgba(self._canvas, background.color, background.opacity)
@@ -519,7 +529,6 @@ class SvgExporter:
         x = parse_coordinate(layer.position[0], canvas.width)
         y = parse_coordinate(layer.position[1], canvas.height)
         expanded = expanded_rotation_size(size, layer.rotation)
-        from quickthumb.models import Align
 
         if layer.align is not None and layer.align != Align.TOP_LEFT:
             x, y = apply_alignment(x, y, expanded, layer.align)

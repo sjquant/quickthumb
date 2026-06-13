@@ -662,3 +662,53 @@ class TestSvgPixelFidelity:
         total = sum(histogram)
         mean = sum(i * count for i, count in enumerate(histogram)) / total
         assert mean < 5.0
+
+    def test_should_match_raster_render_for_aligned_and_percentage_text(self, tmp_path):
+        """Right/bottom alignment and percentage positions land where the PNG render does"""
+        # given text anchored by percentage positions and varied alignment
+        cairosvg = pytest.importorskip("cairosvg")
+        from PIL import Image, ImageChops
+
+        canvas = (
+            Canvas(480, 240)
+            .background(color="#101826")
+            .text(
+                content="right edge",
+                font="Roboto",
+                size=32,
+                color="#FFFFFF",
+                position=("100%", "25%"),
+                align="right",
+            )
+            .text(
+                content="bottom center",
+                font="Roboto",
+                size=32,
+                color="#FFD166",
+                position=("50%", "100%"),
+                align="bottom-center",
+            )
+            .text(
+                content="SPACED",
+                font="Roboto",
+                size=28,
+                color="#9AE6B4",
+                position=("50%", "55%"),
+                align="center",
+                letter_spacing=8,
+            )
+        )
+
+        # when both pipelines render the same spec
+        raster_path = tmp_path / "aligned.png"
+        canvas.render(str(raster_path))
+        raster = Image.open(raster_path).convert("RGB")
+        svg_png = cairosvg.svg2png(bytestring=canvas.to_svg().encode())
+        vector = Image.open(BytesIO(svg_png)).convert("RGB")
+
+        # then alignment and percentage anchoring agree to within anti-aliasing noise
+        diff = ImageChops.difference(raster, vector).convert("L")
+        histogram = diff.histogram()
+        total = sum(histogram)
+        mean = sum(i * count for i, count in enumerate(histogram)) / total
+        assert mean < 5.0
