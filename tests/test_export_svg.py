@@ -1,5 +1,6 @@
 """Tests for SVG export (Canvas.to_svg and rendering to .svg files)"""
 
+import builtins
 import xml.etree.ElementTree as ET
 from io import BytesIO
 from pathlib import Path
@@ -8,6 +9,8 @@ import pytest
 from quickthumb import Canvas, LinearGradient, RadialGradient, TextPart
 from quickthumb.errors import RenderingError
 from quickthumb.models import Background, Glow, Grain, Shadow, Stroke, TextFillImage
+
+from tests._optional import require_cairosvg
 
 SVG_NS = "{http://www.w3.org/2000/svg}"
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
@@ -239,6 +242,27 @@ class TestSvgShapesAndOutline:
         assert stroke_rect.get("stroke") == "#FF0000"
         assert stroke_rect.get("stroke-width") == "8"
         assert fill_rect.get("fill") == "#FFFFFF"
+
+    def test_should_preserve_alpha_in_shape_stroke_effect(self):
+        """8-digit hex colors keep alpha when exported as SVG shape effects"""
+        # given
+        canvas = Canvas(400, 300).shape(
+            shape="rectangle",
+            position=(40, 40),
+            width=100,
+            height=60,
+            color="#FFFFFF",
+            effects=[Stroke(width=4, color="#FF000080")],
+        )
+
+        # when
+        root = parse_svg(canvas.to_svg())
+
+        # then
+        stroke_rect = find_all(root, "rect")[0]
+        assert stroke_rect.get("fill") == "#FF0000"
+        assert float(stroke_rect.get("fill-opacity")) == pytest.approx(0.5, abs=0.01)
+        assert float(stroke_rect.get("stroke-opacity")) == pytest.approx(0.5, abs=0.01)
 
     def test_should_emit_shadow_with_blur_filter(self):
         """A blurred shadow becomes an offset duplicate with a Gaussian filter"""
@@ -515,6 +539,29 @@ class TestSvgEmbeddedLayers:
             "data:image/svg+xml;base64,"
         )
 
+    def test_should_embed_svg_layer_without_rasterizer_available(self, monkeypatch):
+        """Plain SVG overlays do not require CairoSVG when exported to SVG"""
+        # given
+        original_import = builtins.__import__
+
+        def block_cairosvg(name, *args, **kwargs):
+            if name.startswith(("cairosvg", "cairocffi")):
+                raise OSError("native cairo unavailable")
+            return original_import(name, *args, **kwargs)
+
+        monkeypatch.setattr(builtins, "__import__", block_cairosvg)
+        canvas = Canvas(400, 300).svg(path=SAMPLE_SVG, position=(30, 40), width=100)
+
+        # when
+        root = parse_svg(canvas.to_svg())
+
+        # then
+        image = find_all(root, "image")[0]
+        assert image.get("{http://www.w3.org/1999/xlink}href").startswith(
+            "data:image/svg+xml;base64,"
+        )
+        assert image.get("width") == "100"
+
     def test_should_flatten_blend_mode_stack_into_single_raster(self):
         """Blend modes depend on the backdrop, so the stack collapses to one PNG"""
         # given a background and a multiplied image above it
@@ -602,7 +649,7 @@ class TestSvgPixelFidelity:
     def test_should_match_raster_render_for_vector_only_canvas(self, tmp_path):
         """Rasterizing the exported SVG reproduces the PNG render for vector layers"""
         # given a canvas using only natively exportable, font-free layers
-        cairosvg = pytest.importorskip("cairosvg")
+        cairosvg = require_cairosvg()
         from PIL import Image, ImageChops
 
         canvas = (
@@ -666,7 +713,7 @@ class TestSvgPixelFidelity:
     def test_should_match_raster_render_for_aligned_and_percentage_text(self, tmp_path):
         """Right/bottom alignment and percentage positions land where the PNG render does"""
         # given text anchored by percentage positions and varied alignment
-        cairosvg = pytest.importorskip("cairosvg")
+        cairosvg = require_cairosvg()
         from PIL import Image, ImageChops
 
         canvas = (

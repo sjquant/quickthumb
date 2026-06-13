@@ -35,6 +35,7 @@ from quickthumb._export_base import (
     rasterize_layers,
     split_backdrop_prefix,
     uses_image_fill,
+    uses_radial_fill,
 )
 from quickthumb.errors import RenderingError
 from quickthumb.models import (
@@ -54,6 +55,8 @@ if TYPE_CHECKING:
 
 EMU_PER_PX = 9525  # 96 dpi
 PT_PER_PX = 0.75
+PPTX_MIN_SLIDE_EMU = 914400  # 1 inch
+PPTX_MAX_SLIDE_EMU = 51206400  # 56 inches
 
 _STAR_SHAPES = {4, 5, 6, 7, 8, 10, 12, 16, 24, 32}
 
@@ -95,6 +98,7 @@ class PptxExporter:
         canvas = self._canvas
         canvas._validate_image_paths()
         canvas._ctx.begin_render_pass()
+        self._validate_slide_dimensions()
 
         presentation = Presentation()
         presentation.slide_width = Emu(_emu(canvas.width))
@@ -110,6 +114,23 @@ class PptxExporter:
             self._emit_layer(layer)
 
         return presentation
+
+    def _validate_slide_dimensions(self) -> None:
+        canvas = self._canvas
+        width_emu = _emu(canvas.width)
+        height_emu = _emu(canvas.height)
+        if (
+            PPTX_MIN_SLIDE_EMU <= width_emu <= PPTX_MAX_SLIDE_EMU
+            and PPTX_MIN_SLIDE_EMU <= height_emu <= PPTX_MAX_SLIDE_EMU
+        ):
+            return
+
+        min_px = math.ceil(PPTX_MIN_SLIDE_EMU / EMU_PER_PX)
+        max_px = math.floor(PPTX_MAX_SLIDE_EMU / EMU_PER_PX)
+        raise RenderingError(
+            "PPTX export supports canvas dimensions between "
+            f"{min_px}px and {max_px}px in each direction."
+        )
 
     # ------------------------------------------------------------------ layers
 
@@ -261,14 +282,14 @@ class PptxExporter:
         strokes = [e for e in layer.effects if isinstance(e, Stroke)]
         if strokes:
             stroke = strokes[0]
-            self._set_line(shape, color_to_rgba(canvas, stroke.color), stroke.width)
+            self._set_line(shape, color_to_rgba(canvas, stroke.color, layer.opacity), stroke.width)
         else:
             shape.line.fill.background()
 
         glows = [e for e in layer.effects if isinstance(e, Glow)]
         shadows = [e for e in layer.effects if isinstance(e, Shadow)]
         if glows or shadows:
-            self._append_effects(shape._element.spPr, glows, shadows)
+            self._append_effects(shape._element.spPr, glows, shadows, opacity=layer.opacity)
 
     def _add_autoshape(self, layer: ShapeLayer, left: float, top: float):
         from pptx.enum.shapes import MSO_SHAPE
@@ -322,7 +343,7 @@ class PptxExporter:
     # -------------------------------------------------------------------- text
 
     def _emit_text(self, layer: TextLayer):
-        if uses_image_fill(layer):
+        if uses_image_fill(layer) or uses_radial_fill(layer):
             self._emit_raster_fallback(layer)
             return
 
@@ -365,7 +386,7 @@ class PptxExporter:
         shape.shadow.inherit = False
         if rotation:
             shape.rotation = rotation
-        rgba = color_to_rgba(self._canvas, background.color, background.opacity)
+        rgba = color_to_rgba(self._canvas, background.color, background.opacity * layout.opacity)
         self._set_solid_fill(shape, rgba)
 
     def _add_textbox(self, layer: TextLayer, layout: TextBlockLayout):
@@ -436,9 +457,15 @@ class PptxExporter:
 
         if run_layout.strokes:
             stroke = run_layout.strokes[0]
-            self._prepend_text_outline(rpr, color_to_rgba(self._canvas, stroke.color), stroke.width)
+            self._prepend_text_outline(
+                rpr,
+                color_to_rgba(self._canvas, stroke.color, layer_opacity),
+                stroke.width,
+            )
         if run_layout.glows or run_layout.shadows:
-            self._append_effects(rpr, run_layout.glows, run_layout.shadows)
+            self._append_effects(
+                rpr, run_layout.glows, run_layout.shadows, opacity=layer_opacity
+            )
 
     @staticmethod
     def _weight_is_bold(weight: int | str | None) -> bool:
@@ -547,7 +574,13 @@ class PptxExporter:
             "a:latin",
         )
 
-    def _append_effects(self, properties_element, glows: list[Glow], shadows: list[Shadow]):
+    def _append_effects(
+        self,
+        properties_element,
+        glows: list[Glow],
+        shadows: list[Shadow],
+        opacity: float = 1.0,
+    ):
         from pptx.oxml import parse_xml
         from pptx.oxml.ns import nsdecls, qn
 
@@ -557,10 +590,10 @@ class PptxExporter:
 
         parts = []
         for glow in glows:
-            rgba = color_to_rgba(self._canvas, glow.color, glow.opacity)
+            rgba = color_to_rgba(self._canvas, glow.color, glow.opacity * opacity)
             parts.append(f'<a:glow rad="{_emu(glow.radius * 3)}">{self._srgb_xml(rgba)}</a:glow>')
         for shadow in shadows:
-            rgba = color_to_rgba(self._canvas, shadow.color)
+            rgba = color_to_rgba(self._canvas, shadow.color, opacity)
             distance = math.hypot(shadow.offset_x, shadow.offset_y)
             direction = int(
                 round(math.degrees(math.atan2(shadow.offset_y, shadow.offset_x)) % 360 * 60000)

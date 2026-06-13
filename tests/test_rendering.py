@@ -7,6 +7,8 @@ import pytest
 from inline_snapshot import external_file
 from quickthumb.models import Align
 
+from tests._optional import require_cairosvg
+
 
 class TestRendering:
     """Tests for rendering engine functionality with snapshots"""
@@ -2999,7 +3001,7 @@ class TestSvgLayerRendering:
 
     def test_snapshot_svg_layer(self):
         """Snapshot test for an svg layer scaled and centered on the canvas"""
-        pytest.importorskip("cairosvg")
+        require_cairosvg()
         from quickthumb import Canvas
 
         fixture = os.path.join(os.path.dirname(__file__), "fixtures", "sample.svg")

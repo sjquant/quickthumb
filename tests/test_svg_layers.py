@@ -12,6 +12,8 @@ from PIL import Image
 from quickthumb.errors import RenderingError, ValidationError
 from quickthumb.models import Align, BlendMode
 
+from tests._optional import require_cairosvg
+
 FIXTURE_SVG = str(Path(__file__).parent / "fixtures" / "sample.svg")
 
 
@@ -107,7 +109,7 @@ class TestSvgRendering:
 
     def test_should_rasterize_svg_onto_canvas(self):
         """An svg layer renders visible, correctly sized content onto the canvas"""
-        pytest.importorskip("cairosvg")
+        require_cairosvg()
         from quickthumb import Canvas
 
         # given: a white canvas with the fixture svg placed at top-left, 50px wide
@@ -131,7 +133,7 @@ class TestSvgRendering:
 
     def test_should_rasterize_group_svg_child_once_per_render(self, monkeypatch, tmp_path):
         """An auto-sized svg group child is rasterized once per render pass, and still drawn"""
-        cairosvg = pytest.importorskip("cairosvg")
+        cairosvg = require_cairosvg()
         from quickthumb import Canvas
 
         # given: cairosvg call counting at the library boundary
@@ -171,7 +173,7 @@ class TestSvgRendering:
 
     def test_should_pick_up_svg_file_changes_between_exports(self, tmp_path):
         """to_base64 re-rasterizes per render pass instead of serving a stale cached raster"""
-        pytest.importorskip("cairosvg")
+        require_cairosvg()
         from quickthumb import Canvas
 
         # given: a canvas rendering a mutable svg file

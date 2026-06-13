@@ -155,6 +155,15 @@ def uses_image_fill(layer: TextLayer) -> bool:
     return False
 
 
+def uses_radial_fill(layer: TextLayer) -> bool:
+    """True when the layer or any rich part fills glyphs with a radial gradient."""
+    if isinstance(layer.fill, RadialGradient):
+        return True
+    if isinstance(layer.content, list):
+        return any(isinstance(part.fill, RadialGradient) for part in layer.content)
+    return False
+
+
 @dataclass
 class TextRunLayout:
     """One styled run of text placed at absolute (pre-rotation) canvas coordinates."""

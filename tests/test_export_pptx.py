@@ -5,7 +5,8 @@ from pathlib import Path
 
 import pytest
 from quickthumb import Canvas, LinearGradient, TextPart
-from quickthumb.models import Stroke
+from quickthumb.errors import RenderingError
+from quickthumb.models import Background, Glow, RadialGradient, Shadow, Stroke
 
 pptx = pytest.importorskip("pptx")
 
@@ -53,6 +54,15 @@ class TestPptxDocument:
 
         # then
         assert len(Presentation(str(output)).slides) == 1
+
+    def test_should_raise_rendering_error_for_pptx_canvas_below_slide_minimum(self):
+        """PPTX export reports a quickthumb error for canvases below PowerPoint limits"""
+        # given
+        canvas = Canvas(120, 80)
+
+        # when / then
+        with pytest.raises(RenderingError, match="PPTX export supports canvas dimensions"):
+            canvas.to_pptx()
 
 
 class TestPptxBackgroundsAndOutline:
@@ -182,6 +192,29 @@ class TestPptxShapes:
         assert shape.line.width == Emu(3 * EMU_PER_PX)
         assert str(shape.line.color.rgb) == "FF00FF"
 
+    def test_should_apply_shape_opacity_to_stroke_and_effects(self):
+        """Shape opacity fades native PPTX stroke, glow, and shadow output"""
+        # given
+        canvas = Canvas(400, 300).shape(
+            shape="rectangle",
+            position=(100, 100),
+            width=100,
+            height=60,
+            color="#FFFFFF",
+            opacity=0.25,
+            effects=[
+                Stroke(width=3, color="#FF00FF"),
+                Glow(color="#00FFFF", radius=4),
+                Shadow(offset_x=4, offset_y=4, color="#000000", blur_radius=2),
+            ],
+        )
+
+        # when
+        shape_xml = slide_of(canvas).shapes[0]._element.xml
+
+        # then
+        assert shape_xml.count("<a:alpha") >= 4
+
 
 class TestPptxText:
     """Test suite for text layer export"""
@@ -296,6 +329,48 @@ class TestPptxText:
 
         # then PowerPoint stores rotation as a positive clockwise angle
         assert box.rotation == pytest.approx(340)
+
+    def test_should_apply_text_opacity_to_background_and_effects(self):
+        """Text opacity fades native PPTX backgrounds, strokes, glows, and shadows"""
+        # given
+        canvas = Canvas(600, 200).text(
+            content="badge",
+            font="Roboto",
+            size=32,
+            color="#FFFFFF",
+            position=(40, 60),
+            opacity=0.25,
+            effects=[
+                Background(color="#FF0000", padding=8),
+                Stroke(width=2, color="#00FF00"),
+                Glow(color="#00FFFF", radius=4),
+                Shadow(offset_x=2, offset_y=2, color="#000000", blur_radius=2),
+            ],
+        )
+
+        # when
+        slide = slide_of(canvas)
+        combined_xml = "\n".join(shape._element.xml for shape in slide.shapes)
+
+        # then
+        assert combined_xml.count("<a:alpha") >= 5
+
+    def test_should_rasterize_radial_gradient_text_fill(self):
+        """Radial text fills fall back to a picture instead of a flat solid color"""
+        # given
+        canvas = Canvas(600, 200).text(
+            content="RADIAL",
+            font="Roboto",
+            size=48,
+            position=(40, 60),
+            fill=RadialGradient(stops=[("#FFFFFF", 0.0), ("#000000", 1.0)]),
+        )
+
+        # when
+        shape = slide_of(canvas).shapes[0]
+
+        # then
+        assert shape.shape_type == MSO_SHAPE_TYPE.PICTURE
 
 
 class TestPptxEmbeddedLayers:
