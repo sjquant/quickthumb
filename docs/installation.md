@@ -62,7 +62,19 @@ pip install "quickthumb[pptx]"
 uv pip install "quickthumb[pptx]"
 ```
 
-SVG export needs no extra dependencies. See [Exporting to SVG & PPTX](exports.md) for details.
+SVG export needs no extra dependencies. See [Exporting to SVG, PPTX & PDF](exports.md) for details.
+
+## Optional: PDF Export
+
+To export canvases to PDF with `canvas.to_pdf()` or `canvas.render("card.pdf")`, install the `pdf` extra ([reportlab](https://www.reportlab.com/)):
+
+```bash
+# pip
+pip install "quickthumb[pdf]"
+
+# uv
+uv pip install "quickthumb[pdf]"
+```
 
 ## Optional: CLI
 

@@ -12,3 +12,10 @@ def require_cairosvg():
     except (ImportError, OSError) as e:
         pytest.skip(f"CairoSVG is unavailable: {e}")
     return cairosvg
+
+
+def require_pypdfium2():
+    try:
+        return importlib.import_module("pypdfium2")
+    except (ImportError, OSError) as e:
+        pytest.skip(f"pypdfium2 is unavailable: {e}")

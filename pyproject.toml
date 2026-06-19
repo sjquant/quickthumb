@@ -55,6 +55,9 @@ svg = [
 pptx = [
     "python-pptx>=1.0.2,<2.0",
 ]
+pdf = [
+    "reportlab>=4.0.0,<5.0.0",
+]
 
 [project.scripts]
 quickthumb = "quickthumb._entry:main"
@@ -71,6 +74,8 @@ dev = [
     "inline-snapshot>=0.31.1,<0.32.0",
     "cairosvg>=2.7.0,<3.0.0",
     "python-pptx>=1.0.2,<2.0",
+    "reportlab>=4.0.0,<5.0.0",
+    "pypdfium2>=5.10.1,<6.0.0",
 ]
 
 [build-system]

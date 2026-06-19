@@ -457,12 +457,12 @@ class Canvas:
         """Render the canvas to a file.
 
         The output format is detected from the file extension: PNG, JPEG, and
-        WEBP render through the raster pipeline, while .svg and .pptx produce
-        vector/document output (see to_svg and to_pptx).
+        WEBP render through the raster pipeline, while .svg, .pptx, and .pdf
+        produce vector/document output (see to_svg, to_pptx, and to_pdf).
         """
         if format is None:
             extension = os.path.splitext(output_path)[1].lower()
-            if extension in (".svg", ".pptx"):
+            if extension in (".svg", ".pptx", ".pdf"):
                 if quality is not None:
                     raise RenderingError(
                         "Quality parameter is only supported for JPEG and WEBP formats, "
@@ -479,6 +479,12 @@ class Canvas:
         if extension == ".svg":
             with open(output_path, "w", encoding="utf-8") as f:
                 f.write(self.to_svg())
+            return
+
+        if extension == ".pdf":
+            from quickthumb._export_pdf import PdfExporter
+
+            PdfExporter(self).save(output_path)
             return
 
         from quickthumb._export_pptx import PptxExporter
@@ -508,6 +514,21 @@ class Canvas:
         from quickthumb._export_pptx import PptxExporter
 
         return PptxExporter(self).export_bytes()
+
+    def to_pdf(self) -> bytes:
+        """Render the canvas to a single-page PDF as bytes (requires quickthumb[pdf]).
+
+        The page is sized to the canvas pixels (one point per pixel).
+        Backgrounds, outlines, shapes, and text are drawn as native PDF vector
+        primitives, while raster images, blend modes, blur effects, gradient or
+        image glyph fills, translucent gradients, and custom layers are embedded
+        as pixel-exact PNG fragments. The fonts used for text are subset and
+        embedded into the PDF, so the document is self-contained and renders
+        correctly in any reader without the fonts installed.
+        """
+        from quickthumb._export_pdf import PdfExporter
+
+        return PdfExporter(self).export_bytes()
 
     def to_json(self) -> str:
         import json as _json

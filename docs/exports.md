@@ -1,8 +1,8 @@
 ---
-description: Export quickthumb canvases to SVG and editable PowerPoint (PPTX) documents alongside PNG/JPEG/WEBP.
+description: Export quickthumb canvases to SVG, editable PowerPoint (PPTX), and PDF documents alongside PNG/JPEG/WEBP.
 ---
 
-# Exporting to SVG & PPTX
+# Exporting to SVG, PPTX & PDF
 
 Beyond raster images, a canvas can render to vector and document formats. The output format is detected from the file extension:
 
@@ -10,6 +10,7 @@ Beyond raster images, a canvas can render to vector and document formats. The ou
 canvas.render("thumbnail.png")   # raster (PNG/JPEG/WEBP)
 canvas.render("thumbnail.svg")   # vector SVG
 canvas.render("thumbnail.pptx")  # editable PowerPoint slide
+canvas.render("thumbnail.pdf")   # single-page PDF
 ```
 
 Each format also has a direct method when you want the content in memory:
@@ -17,22 +18,23 @@ Each format also has a direct method when you want the content in memory:
 ```python
 svg_markup = canvas.to_svg()
 pptx_bytes = canvas.to_pptx()
+pdf_bytes = canvas.to_pdf()
 ```
 
 ## How export works
 
 Exporters keep layers **native** wherever the target format can express them, and embed **pixel-exact PNG fragments** (rendered by the regular pipeline) everywhere else. Positions, wrapping, and alignment are computed with the same layout math as the raster renderer, so output matches the PNG render closely.
 
-| Layer | SVG | PPTX |
-| --- | --- | --- |
-| Background color / gradient | Native `rect` + gradient defs | Native shape fill (linear gradients native, radial embedded) |
-| Outline | Native `rect` stroke | Native bordered rectangle |
-| Shapes (all primitives) | Native elements, incl. rotation and stroke/shadow/glow | Native autoshapes; polygons become freeforms |
-| Text (simple & rich) | Native `<text>` per line/run, incl. wrapping, letter spacing, gradient fills, effects | Editable text boxes with per-run styling |
-| Groups (auto-layout) | Children exported natively at their layout positions | Same |
-| Images & image-filled text | Embedded PNG fragment | Embedded picture |
-| SVG layers | Embedded as vector data URL (raster when effects are applied) | Embedded picture |
-| Blend modes & custom layers | Everything below the last blend/custom layer is flattened into one PNG | Same |
+| Layer | SVG | PPTX | PDF |
+| --- | --- | --- | --- |
+| Background color / gradient | Native `rect` + gradient defs | Native shape fill (linear gradients native, radial embedded) | Native fill; opaque gradients native, translucent gradients embedded |
+| Outline | Native `rect` stroke | Native bordered rectangle | Native rectangle stroke |
+| Shapes (all primitives) | Native elements, incl. rotation and stroke/shadow/glow | Native autoshapes; polygons become freeforms | Native paths incl. rotation; shapes with effects embedded |
+| Text (simple & rich) | Native `<text>` per line/run, incl. wrapping, letter spacing, gradient fills, effects | Editable text boxes with per-run styling | Native selectable text with embedded fonts; runs with gradient/image fills or blur effects embedded |
+| Groups (auto-layout) | Children exported natively at their layout positions | Same | Same |
+| Images & image-filled text | Embedded PNG fragment | Embedded picture | Embedded picture |
+| SVG layers | Embedded as vector data URL (raster when effects are applied) | Embedded picture | Embedded picture |
+| Blend modes & custom layers | Everything below the last blend/custom layer is flattened into one PNG | Same | Same |
 
 ## SVG
 
@@ -66,6 +68,26 @@ with open("promo.pptx", "wb") as f:
 !!! note "Fidelity"
     PowerPoint lays text out with its own font metrics, so text placement is a close approximation rather than pixel-identical. Radial background gradients and multi-stop text gradients beyond what DrawingML supports are embedded as pictures or approximated.
 
+## PDF
+
+PDF export requires the optional dependency:
+
+```bash
+uv pip install "quickthumb[pdf]"
+```
+
+The canvas becomes a single PDF page sized to the canvas pixels (one point per pixel). Backgrounds, outlines, shapes, and text are drawn as native PDF vector primitives using the same layout math as the raster renderer, and the fonts used for text are subset and embedded into the document, so it is self-contained and renders correctly in any reader.
+
+```python
+canvas.render("promo.pdf")
+# or
+with open("promo.pdf", "wb") as f:
+    f.write(canvas.to_pdf())
+```
+
+!!! note "Fidelity"
+    PDF shadings cannot express transparency, so translucent gradients (and gradients with translucent stops) are embedded as pictures. Blur effects (shadow, glow), strokes on shapes, and gradient/image glyph fills have no faithful PDF vector form and are likewise embedded as pixel-exact PNG fragments.
+
 ## CLI
 
 The CLI picks the format from the output extension too:
@@ -73,4 +95,5 @@ The CLI picks the format from the output extension too:
 ```bash
 quickthumb render spec.json -o card.svg
 quickthumb render spec.json -o card.pptx
+quickthumb render spec.json -o card.pdf
 ```
