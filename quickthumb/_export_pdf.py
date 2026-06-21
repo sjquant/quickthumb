@@ -87,7 +87,6 @@ class PdfExporter:
         canvas._validate_image_paths()
         canvas._ctx.begin_render_pass()
 
-        self._height = canvas.height
         pdf = rl_canvas.Canvas(stream, pagesize=(canvas.width, canvas.height))
         # Flip to a top-left origin so canvas coordinates map straight through.
         pdf.translate(0, canvas.height)
@@ -294,22 +293,17 @@ class PdfExporter:
         font_name = self._register_font(run)
 
         self._set_fill(color_alpha)
-        if run.char_xs is not None:
-            for char, char_x in zip(run.text, run.char_xs, strict=True):
-                self._draw_glyphs(font_name, run.size, char_x, run.baseline_y, char)
-        else:
-            self._draw_glyphs(font_name, run.size, run.pen_x, run.baseline_y, run.text)
-
-    def _draw_glyphs(
-        self, font_name: str, size: int, x: float, baseline_y: float, text: str
-    ) -> None:
-        # Counter-flip so glyphs render upright in the top-down page frame.
         pdf = self._pdf
         pdf.saveState()
-        pdf.translate(x, baseline_y)
+        pdf.setFont(font_name, run.size)
+        # Counter-flip once so glyphs render upright in the top-down page frame;
+        # in this flipped space a baseline at page-y sits at -y.
         pdf.scale(1, -1)
-        pdf.setFont(font_name, size)
-        pdf.drawString(0, 0, text)
+        if run.char_xs is not None:
+            for char, char_x in zip(run.text, run.char_xs, strict=True):
+                pdf.drawString(char_x, -run.baseline_y, char)
+        else:
+            pdf.drawString(run.pen_x, -run.baseline_y, run.text)
         pdf.restoreState()
 
     def _register_font(self, run: TextRunLayout) -> str:
@@ -350,16 +344,12 @@ class PdfExporter:
         pdf.restoreState()
 
     def _fill_gradient(self, gradient: LinearGradient | RadialGradient, box: Box) -> None:
-        from reportlab.lib.colors import Color
-
         left, top, right, bottom = box
         width, height = right - left, bottom - top
         stops = sorted(gradient.stops, key=lambda stop: stop[1])
         positions = [max(0.0, min(1.0, position)) for _, position in stops]
-        colors = []
-        for color, _ in stops:
-            r, g, b, _a = color_to_rgba(self._canvas, color)
-            colors.append(Color(r / 255, g / 255, b / 255))
+        # This path only runs for fully opaque gradients, so alpha is dropped.
+        colors = [self._rl_color(color_to_rgba(self._canvas, color)[:3]) for color, _ in stops]
 
         pdf = self._pdf
         pdf.saveState()
@@ -400,17 +390,16 @@ class PdfExporter:
             )
         pdf.restoreState()
 
-    def _set_fill(self, rgba: tuple) -> None:
+    def _rl_color(self, rgba: tuple):
         from reportlab.lib.colors import Color
 
         r, g, b = rgba[0], rgba[1], rgba[2]
         a = rgba[3] / 255 if len(rgba) > 3 else 1.0
-        self._pdf.setFillColor(Color(r / 255, g / 255, b / 255, alpha=a))
+        return Color(r / 255, g / 255, b / 255, alpha=a)
+
+    def _set_fill(self, rgba: tuple) -> None:
+        self._pdf.setFillColor(self._rl_color(rgba))
 
     def _set_stroke(self, rgba: tuple, width: float) -> None:
-        from reportlab.lib.colors import Color
-
-        r, g, b = rgba[0], rgba[1], rgba[2]
-        a = rgba[3] / 255 if len(rgba) > 3 else 1.0
-        self._pdf.setStrokeColor(Color(r / 255, g / 255, b / 255, alpha=a))
+        self._pdf.setStrokeColor(self._rl_color(rgba))
         self._pdf.setLineWidth(width)
