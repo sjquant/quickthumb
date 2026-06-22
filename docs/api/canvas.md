@@ -68,7 +68,7 @@ Finding codes: `off-canvas`, `tiny-text`, `text-overflow`, `low-contrast`. See [
 
 ### `.render(path, format="PNG", quality=None)`
 
-Renders the canvas and writes the result to a file. The format is detected from the file extension; `.svg` and `.pptx` produce vector/document output (see [Exporting to SVG & PPTX](../exports.md)).
+Renders the canvas and writes the result to a file. The format is detected from the file extension; `.svg`, `.pptx`, and `.pdf` produce vector/document output (see [Exporting to SVG, PPTX & PDF](../exports.md)).
 
 ```python
 canvas.render("output.png")
@@ -76,6 +76,7 @@ canvas.render("output.jpg", format="JPEG", quality=85)
 canvas.render("output.webp", format="WEBP", quality=90)
 canvas.render("output.svg")
 canvas.render("output.pptx")  # requires quickthumb[pptx]
+canvas.render("output.pdf")   # requires quickthumb[pdf]
 ```
 
 | Parameter | Type | Default | Description |
@@ -102,6 +103,15 @@ Returns the canvas as PowerPoint file bytes — a single slide with editable tex
 ```python
 with open("deck.pptx", "wb") as f:
     f.write(canvas.to_pptx())
+```
+
+### `.to_pdf()`
+
+Returns the canvas as PDF file bytes — a single page with native vector backgrounds, shapes, and selectable text, and embedded fonts. Requires the `pdf` extra.
+
+```python
+with open("card.pdf", "wb") as f:
+    f.write(canvas.to_pdf())
 ```
 
 ### `.to_base64(format="PNG", quality=None)`

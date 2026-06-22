@@ -70,7 +70,7 @@ nav:
       - Installation: installation.md
       - Getting Started: getting-started.md
       - Core Concepts: concepts.md
-      - Exporting to SVG & PPTX: exports.md
+      - Exporting to SVG, PPTX & PDF: exports.md
   - API Reference:
       - Overview: api/index.md
       - Canvas: api/canvas.md
