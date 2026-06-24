@@ -78,8 +78,10 @@ def _require_pptx():
 
 
 class PptxExporter:
-    def __init__(self, canvas: Canvas):
+    def __init__(self, canvas: Canvas | None = None):
         _require_pptx()
+        # canvas is the single-slide convenience target; the multi-slide paths
+        # take their canvases explicitly and leave this None.
         self._canvas = canvas
 
     def export_bytes(self) -> bytes:
@@ -88,6 +90,8 @@ class PptxExporter:
         return buffer.getvalue()
 
     def save(self, path_or_stream) -> None:
+        if self._canvas is None:
+            raise RenderingError("PptxExporter() needs a canvas for single-slide export.")
         presentation = self._build([self._canvas])
         presentation.save(path_or_stream)
 
@@ -488,9 +492,7 @@ class PptxExporter:
                 stroke.width,
             )
         if run_layout.glows or run_layout.shadows:
-            self._append_effects(
-                rpr, run_layout.glows, run_layout.shadows, opacity=layer_opacity
-            )
+            self._append_effects(rpr, run_layout.glows, run_layout.shadows, opacity=layer_opacity)
 
     @staticmethod
     def _weight_is_bold(weight: int | str | None) -> bool:

@@ -8,7 +8,7 @@ from typing import Any, Literal, cast
 from PIL import Image, ImageDraw
 from typing_extensions import Self
 
-from quickthumb._base import FileFormat, RenderContext, is_url
+from quickthumb._base import FileFormat, RenderContext, aspect_ratio_dimensions, is_url
 from quickthumb._diagnostics import DiagnosticsEngine
 from quickthumb._effects import EffectsEngine
 from quickthumb._fonts import FontEngine
@@ -215,9 +215,8 @@ class Canvas:
 
     @classmethod
     def from_aspect_ratio(cls, ratio: str, base_width: int) -> Self:
-        width_ratio, height_ratio = ratio.split(":")
-        calculated_height = int(base_width * int(height_ratio) / int(width_ratio))
-        return cls(base_width, calculated_height)
+        width, height = aspect_ratio_dimensions(ratio, base_width)
+        return cls(width, height)
 
     def background(
         self,

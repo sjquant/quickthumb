@@ -8,7 +8,7 @@ A `Deck` is an ordered collection of `Canvas` slides. Each slide renders exactly
 
 ## Creation
 
-### `Deck(width=None, height=None, slides=None)`
+### `Deck(width=None, height=None, slides=None, theme=None)`
 
 ```python
 from quickthumb import Canvas, Deck
@@ -23,6 +23,7 @@ deck = Deck(slides=[cover, body])      # from pre-built canvases
 | `width` | `int \| None` | Default slide width. Provide with `height` or omit both. |
 | `height` | `int \| None` | Default slide height. |
 | `slides` | `list[Canvas] \| None` | Initial slides, in order. Each must be a `Canvas`. |
+| `theme` | `dict \| None` | Token groups shared with every slide's `$theme.*` references (slide-level themes win). Preserved across `to_json()`/`from_json()`. |
 
 ### `Deck.from_aspect_ratio(ratio, base_width)`
 
@@ -51,7 +52,7 @@ deck = (
 
 Adding an unsized canvas to a deck with no default size raises `ValidationError`: give the deck a size or size the canvas.
 
-A deck is also a sequence: `len(deck)`, `deck[i]`, and iteration over slides all work, and `deck.slides` returns the underlying list.
+A deck is also a sequence: `len(deck)`, `deck[i]`, and iteration over slides all work, and `deck.slides` returns a copy of the slide list (mutating it does not change the deck).
 
 ## Export methods
 
@@ -105,7 +106,7 @@ deck.contact_sheet(columns=2).render("grid.png")
 | `thumb_width` | `int` | `480` | Cell width in pixels |
 | `gap` | `int` | `24` | Pixels between cells |
 | `padding` | `int` | `24` | Outer padding around the grid |
-| `background` | `str` | `"#FFFFFF"` | Sheet background color |
+| `background` | `str \| tuple` | `"#FFFFFF"` | Sheet background color (hex/named string or `(R, G, B[, A])` tuple) |
 
 ## `.diagnose()`
 
@@ -130,7 +131,7 @@ A `mixed-slide-size` warning is added when slides do not all share the same dime
 
 ### `.to_json()` / `Deck.from_json(json_str)`
 
-Round-trips the deck through JSON, reusing each canvas's serialization. The shape is `{"slides": [<canvas spec>, ...]}`.
+Round-trips the deck through JSON, reusing each canvas's serialization. The shape is `{"width": ..., "height": ..., "theme": {...}, "slides": [<canvas spec>, ...]}`, where `width`/`height` (the default slide size) and `theme` are emitted only when set. A top-level `theme` is shared with every slide so slides can use `$theme.*` tokens, exactly like `Canvas.from_json`.
 
 ```python
 spec = deck.to_json()

@@ -1,5 +1,6 @@
 """Tests for Deck: multi-slide / multi-image collections of Canvas objects."""
 
+import json
 from io import BytesIO
 from pathlib import Path
 
@@ -91,6 +92,12 @@ class TestDefaultSize:
         # then
         assert (deck[0].width, deck[0].height) == (1280, 720)
 
+    def test_should_reject_a_malformed_aspect_ratio(self):
+        """A malformed ratio raises the library's ValidationError, not a raw error."""
+        # when / then
+        with pytest.raises(ValidationError, match="Aspect ratio"):
+            Deck.from_aspect_ratio("16-9", 1280)
+
     def test_should_reject_unsized_slide_without_a_deck_size(self):
         """An unsized slide needs either a deck size or its own size."""
         # given a deck with no default size
@@ -176,6 +183,18 @@ class TestRasterSequence:
         assert len(written) == 2
         assert all(Path(path).exists() for path in written)
 
+    def test_should_not_write_partial_sequence_when_a_slide_fails(self, tmp_path: Path):
+        """A missing asset on a later slide fails before any file is written."""
+        # given a deck whose second slide references a missing image
+        broken = make_slide("b").image(str(tmp_path / "missing.png"), position=(0, 0))
+        deck = Deck().add(make_slide("a"), broken, make_slide("c"))
+        output = tmp_path / "slides.png"
+
+        # when / then: rendering raises and leaves no partial output behind
+        with pytest.raises(FileNotFoundError):
+            deck.render(str(output))
+        assert list(tmp_path.glob("slides_*.png")) == []
+
 
 class TestDocumentExport:
     """Rendering a deck to multi-page PDF and multi-slide PPTX documents."""
@@ -252,6 +271,23 @@ class TestDocumentExport:
         presentation = Presentation(str(output))
         assert presentation.slide_width == 1280 * 9525
         assert presentation.slide_height == 720 * 9525
+
+    def test_should_size_each_pdf_page_to_its_own_slide(self, tmp_path: Path):
+        """Unlike PPTX, a mixed-size PDF sizes every page to its slide."""
+        # given a deck with two differently shaped slides
+        pdfium = require_pypdfium2()
+        deck = Deck().add(make_slide("wide", 1280, 720), make_slide("square", 800, 800))
+        output = tmp_path / "deck.pdf"
+
+        # when
+        deck.render(str(output))
+
+        # then each page keeps its slide's pixel dimensions (1pt per pixel)
+        document = pdfium.PdfDocument(str(output))
+        assert [tuple(round(v) for v in document[i].get_size()) for i in range(len(document))] == [
+            (1280, 720),
+            (800, 800),
+        ]
 
 
 class TestDiagnose:
@@ -341,6 +377,28 @@ class TestContactSheet:
         with pytest.raises(ValidationError, match="columns"):
             deck.contact_sheet(columns=0)
 
+    def test_should_accept_an_rgb_tuple_background(self, tmp_path: Path):
+        """contact_sheet() accepts an (R, G, B) tuple like Canvas.background."""
+        # given
+        deck = Deck().add(make_slide("1"), make_slide("2"))
+
+        # when
+        sheet = deck.contact_sheet(background=(10, 20, 30))
+        output = tmp_path / "grid.png"
+        sheet.render(str(output))
+
+        # then the corner pixel carries the requested background color
+        assert Image.open(output).convert("RGB").getpixel((0, 0)) == (10, 20, 30)
+
+    def test_should_reject_an_invalid_background_eagerly(self):
+        """An invalid background raises from contact_sheet(), not at render time."""
+        # given
+        deck = Deck().slide(make_slide("1"))
+
+        # when / then
+        with pytest.raises(ValidationError, match="background"):
+            deck.contact_sheet(background="not-a-color")
+
 
 class TestJsonRoundTrip:
     """Decks serialize to and from JSON via the underlying canvas specs."""
@@ -362,3 +420,41 @@ class TestJsonRoundTrip:
         # when / then
         with pytest.raises(ValidationError, match="slides"):
             Deck.from_json('{"pages": []}')
+
+    def test_should_preserve_default_size_across_json(self):
+        """A restored deck keeps its default size so bare slides still inherit it."""
+        # given a sized deck round-tripped through JSON
+        deck = Deck(1280, 720).add(make_slide("1"))
+        restored = Deck.from_json(deck.to_json())
+
+        # when a bare, unsized canvas is added to the restored deck
+        restored.slide(Canvas().background(color="#101820"))
+
+        # then it inherits the deck default size instead of raising
+        assert (restored[-1].width, restored[-1].height) == (1280, 720)
+
+    def test_should_share_a_deck_level_theme_with_each_slide(self):
+        """A top-level theme resolves $theme.* tokens inside every slide."""
+        # given a deck spec with a shared theme and a slide that references it
+        spec = json.dumps(
+            {
+                "width": 1280,
+                "height": 720,
+                "theme": {"brand": "#B8FF00"},
+                "slides": [
+                    {
+                        "width": 1280,
+                        "height": 720,
+                        "layers": [{"type": "background", "color": "$theme.brand"}],
+                    }
+                ],
+            }
+        )
+
+        # when
+        deck = Deck.from_json(spec)
+
+        # then the slide's token resolved to the deck-level theme value
+        assert deck[0].layers[0].color == "#B8FF00"
+        # and the theme survives another round-trip
+        assert json.loads(deck.to_json())["theme"] == {"brand": "#B8FF00"}

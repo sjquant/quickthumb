@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from PIL import Image
 from typing_extensions import Self
 
-from quickthumb._base import FileFormat
+from quickthumb._base import FileFormat, aspect_ratio_dimensions
 from quickthumb.canvas import Canvas
 from quickthumb.errors import RenderingError, ValidationError
 
@@ -51,6 +51,7 @@ class Deck:
         width: int | None = None,
         height: int | None = None,
         slides: list[Canvas] | None = None,
+        theme: dict | None = None,
     ):
         if (width is None) != (height is None):
             raise ValidationError("Provide both width and height, or neither.")
@@ -58,9 +59,12 @@ class Deck:
             raise ValidationError("width must be > 0")
         if height is not None and height <= 0:
             raise ValidationError("height must be > 0")
+        if theme is not None and not isinstance(theme, dict):
+            raise ValidationError("theme must be a dict of token groups.")
 
         self._width = width
         self._height = height
+        self._theme = theme or {}
         self._slides: list[Canvas] = []
         for slide in slides or []:
             self._append_slide(slide)
@@ -68,9 +72,8 @@ class Deck:
     @classmethod
     def from_aspect_ratio(cls, ratio: str, base_width: int) -> Self:
         """Create a deck whose default slide size comes from an aspect ratio."""
-        width_ratio, height_ratio = ratio.split(":")
-        calculated_height = int(base_width * int(height_ratio) / int(width_ratio))
-        return cls(base_width, calculated_height)
+        width, height = aspect_ratio_dimensions(ratio, base_width)
+        return cls(width, height)
 
     @property
     def slides(self) -> list[Canvas]:
@@ -126,7 +129,8 @@ class Deck:
         Raster extensions (``.png``, ``.jpg``, ``.jpeg``, ``.webp``) write one
         file per slide as a zero-padded numbered sequence derived from
         ``output_path`` (e.g. ``slides.png`` -> ``slides_01.png``,
-        ``slides_02.png``). Returns the list of written file paths.
+        ``slides_02.png``). Returns the list of written file paths (unlike
+        ``Canvas.render``, which returns None).
         """
         self._require_slides()
         extension = os.path.splitext(output_path)[1].lower()
@@ -163,16 +167,22 @@ class Deck:
         if extension == ".pdf":
             from quickthumb._export_pdf import PdfExporter
 
-            PdfExporter(self._slides[0]).save_canvases(self._slides, output_path)
+            PdfExporter().save_canvases(self._slides, output_path)
             return
 
         from quickthumb._export_pptx import PptxExporter
 
-        PptxExporter(self._slides[0]).save_canvases(self._slides, output_path)
+        PptxExporter().save_canvases(self._slides, output_path)
 
     def _render_sequence(
         self, output_path: str, format: FileFormat | None, quality: int | None
     ) -> list[str]:
+        # Validate every slide's assets up front so a missing image fails before
+        # any file is written, leaving no partial sequence on disk (matching the
+        # all-or-nothing behaviour of the PDF/PPTX/contact-sheet paths).
+        for canvas in self._slides:
+            canvas._validate_image_paths()
+
         stem, extension = os.path.splitext(output_path)
         pad = max(2, len(str(len(self._slides))))
         written: list[str] = []
@@ -187,14 +197,14 @@ class Deck:
         self._require_slides()
         from quickthumb._export_pdf import PdfExporter
 
-        return PdfExporter(self._slides[0]).export_bytes_canvases(self._slides)
+        return PdfExporter().export_bytes_canvases(self._slides)
 
     def to_pptx(self) -> bytes:
         """Render the deck to a multi-slide PPTX as bytes (requires quickthumb[pptx])."""
         self._require_slides()
         from quickthumb._export_pptx import PptxExporter
 
-        return PptxExporter(self._slides[0]).export_bytes_canvases(self._slides)
+        return PptxExporter().export_bytes_canvases(self._slides)
 
     def diagnose(self) -> list[DeckDiagnostic]:
         """Collect per-slide diagnostics plus deck-wide layout warnings.
@@ -206,6 +216,9 @@ class Deck:
         """
         findings: list[DeckDiagnostic] = []
 
+        # Every slide is guaranteed sized: _append_slide is the only way into
+        # _slides and it either inherits the deck size or rejects an unsized
+        # canvas, so reading .width/.height here cannot raise.
         sizes = {(canvas.width, canvas.height) for canvas in self._slides}
         if len(sizes) > 1:
             findings.append(
@@ -239,19 +252,22 @@ class Deck:
         thumb_width: int = 480,
         gap: int = 24,
         padding: int = 24,
-        background: str = "#FFFFFF",
+        background: str | tuple = "#FFFFFF",
     ) -> Canvas:
         """Compose the slides into a single grid image, returned as a Canvas.
 
         Each slide is rendered and contained (letterboxed) into a uniform cell
-        sized from the first slide's aspect ratio. The returned Canvas can be
-        rendered to any raster format like a normal canvas.
+        sized from the first slide's aspect ratio. ``background`` accepts a hex/
+        named color string or an (R, G, B[, A]) tuple, like Canvas.background.
+        The returned Canvas can be rendered to any raster format like a normal
+        canvas.
         """
         self._require_slides()
         if columns < 1:
             raise ValidationError("columns must be >= 1")
         if thumb_width < 1:
             raise ValidationError("thumb_width must be >= 1")
+        background_rgba = self._resolve_background(background)
 
         first = self._slides[0]
         cell_w = thumb_width
@@ -265,9 +281,7 @@ class Deck:
         thumbnails = [self._slide_thumbnail(canvas, cell_w, cell_h) for canvas in self._slides]
 
         def draw_grid(base: Image.Image) -> Image.Image:
-            from PIL import ImageColor
-
-            sheet = Image.new("RGBA", base.size, ImageColor.getrgb(background) + (255,))
+            sheet = Image.new("RGBA", base.size, background_rgba)
             for index, thumb in enumerate(thumbnails):
                 row, col = divmod(index, cols)
                 cell_x = padding + col * (cell_w + gap)
@@ -279,6 +293,27 @@ class Deck:
 
         return Canvas(sheet_w, sheet_h).custom(draw_grid)
 
+    @staticmethod
+    def _resolve_background(background: str | tuple) -> tuple[int, int, int, int]:
+        # Resolve eagerly so an invalid color raises ValidationError from
+        # contact_sheet() instead of an opaque RenderingError at render time.
+        from PIL import ImageColor
+
+        if isinstance(background, str):
+            try:
+                rgb = ImageColor.getrgb(background)
+            except ValueError as e:
+                raise ValidationError(
+                    f"Invalid contact_sheet background {background!r}: {e}"
+                ) from e
+        else:
+            rgb = tuple(background)
+            if len(rgb) not in (3, 4) or not all(isinstance(c, int) for c in rgb):
+                raise ValidationError(
+                    "contact_sheet background tuple must be (R, G, B) or (R, G, B, A) integers."
+                )
+        return rgb if len(rgb) == 4 else rgb + (255,)
+
     def _slide_thumbnail(self, canvas: Canvas, cell_w: int, cell_h: int) -> Image.Image:
         # Validate up front so a missing image fails with a clean FileNotFoundError,
         # matching render()/to_pdf()/to_pptx() rather than crashing mid-render.
@@ -289,21 +324,43 @@ class Deck:
         return image.resize(size, Image.LANCZOS)
 
     def to_json(self) -> str:
-        import json as _json
+        import json
 
-        slides = [_json.loads(canvas.to_json()) for canvas in self._slides]
-        return _json.dumps({"slides": slides})
+        payload: dict = {}
+        if self._width is not None:
+            payload["width"] = self._width
+            payload["height"] = self._height
+        if self._theme:
+            payload["theme"] = self._theme
+        payload["slides"] = [json.loads(canvas.to_json()) for canvas in self._slides]
+        return json.dumps(payload)
 
     @classmethod
     def from_json(cls, data: str) -> Self:
-        import json as _json
+        import json
 
-        raw = _json.loads(data)
+        raw = json.loads(data)
         if not isinstance(raw, dict) or "slides" not in raw:
             raise ValidationError("Deck JSON must be an object with a 'slides' list.")
         slides_raw = raw["slides"]
         if not isinstance(slides_raw, list):
             raise ValidationError("Deck 'slides' must be a list of canvas specs.")
 
-        slides = [Canvas.from_json(_json.dumps(slide)) for slide in slides_raw]
-        return cls(slides=slides)
+        theme = raw.get("theme", {})
+        if not isinstance(theme, dict):
+            raise ValidationError("Deck 'theme' must be an object of token groups.")
+
+        slides = []
+        for slide in slides_raw:
+            # Share the deck-level theme with each slide so $theme.* tokens
+            # resolve; a slide's own theme block takes precedence.
+            if theme and isinstance(slide, dict):
+                slide = {**slide, "theme": {**theme, **slide.get("theme", {})}}
+            slides.append(Canvas.from_json(json.dumps(slide)))
+
+        return cls(
+            width=raw.get("width"),
+            height=raw.get("height"),
+            slides=slides,
+            theme=theme or None,
+        )

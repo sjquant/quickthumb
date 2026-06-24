@@ -63,8 +63,10 @@ def _require_reportlab():
 
 
 class PdfExporter:
-    def __init__(self, canvas: Canvas):
+    def __init__(self, canvas: Canvas | None = None):
         _require_reportlab()
+        # canvas is the single-canvas convenience target; the multi-page paths
+        # take their canvases explicitly and leave this None.
         self._canvas = canvas
         self._font_names: dict[str, str] = {}  # font path -> registered reportlab name
 
@@ -74,6 +76,8 @@ class PdfExporter:
         return buffer.getvalue()
 
     def save(self, path_or_stream) -> None:
+        if self._canvas is None:
+            raise RenderingError("PdfExporter() needs a canvas for single-canvas export.")
         self.save_canvases([self._canvas], path_or_stream)
 
     def save_canvases(self, canvases: list[Canvas], path_or_stream) -> None:
