@@ -385,6 +385,43 @@ pdf_bytes = canvas.to_pdf()                   # requires quickthumb[pdf]
 
 Layers the target format can express (backgrounds, gradients, outlines, shapes, text — including wrapping, rich parts, letter spacing, and effects) are exported natively and stay editable; everything else (raster images, blend modes, custom layers) is embedded as pixel-exact PNG fragments rendered by the regular pipeline. See the [export docs](https://sjquant.github.io/quickthumb/exports/) for the full mapping.
 
+### Decks: multiple images and slides
+
+A `Deck` is an ordered collection of canvases ("slides"). Each slide is a full
+`Canvas`, so it renders exactly as it would on its own. The deck adds
+multi-output export on top:
+
+```python
+from quickthumb import Canvas, Deck
+
+cover = Canvas.from_aspect_ratio("16:9", 1280).background(color="#101820").text(
+    content="Episode 12", size=120, color="#B8FF00", position=("50%", "50%"), align="center"
+)
+body = Canvas.from_aspect_ratio("16:9", 1280).background(color="#101820").text(
+    content="Show notes", size=96, color="#FFFFFF", position=("50%", "50%"), align="center"
+)
+
+deck = Deck().slide(cover).slide(body)   # or Deck([cover, body]) / deck.add(a, b, c)
+
+deck.render("deck.pdf")        # one multi-page PDF (a page per slide)
+deck.render("deck.pptx")       # one multi-slide PPTX (a slide per slide)
+deck.render("slides.png")      # numbered sequence: slides_01.png, slides_02.png, …
+
+deck.contact_sheet(columns=2).render("grid.png")   # all slides in one grid image
+
+pdf_bytes = deck.to_pdf()      # requires quickthumb[pdf]
+pptx_bytes = deck.to_pptx()    # requires quickthumb[pptx]
+```
+
+Raster formats have no native multi-page container, so `render()` writes one
+file per slide as a zero-padded numbered sequence and returns the written
+paths. `.pdf` and `.pptx` produce a single document. Slides may have different
+dimensions; `deck.diagnose()` aggregates each slide's
+[diagnostics](#diagnostics) (tagged with `slide_index`) and adds a
+`mixed-slide-size` warning when they differ, since PPTX uses the first slide's
+size for the whole deck. Decks round-trip through JSON with
+`deck.to_json()` / `Deck.from_json(...)`, reusing the per-canvas serialization.
+
 ## JSON-First Workflow
 
 quickthumb can round-trip most canvases through JSON:
@@ -495,6 +532,7 @@ os.environ["QUICKTHUMB_DEFAULT_FONT"] = "Roboto"
 | Diagnostics | `canvas.diagnose()` and `quickthumb lint`: off-canvas, tiny text, overflow, low contrast |
 | Export | PNG, JPEG, WebP, file output, base64, data URLs |
 | Document renderers | SVG (`to_svg()`), editable PPTX via `quickthumb[pptx]`, PDF via `quickthumb[pdf]` |
+| Decks | `Deck` of multiple slides: multi-page PDF, multi-slide PPTX, numbered image sequences, contact-sheet grids, per-slide diagnostics |
 | Serialization | `to_json()` / `from_json()` for built-in layer types and named custom layers |
 
 ## Real Example Scripts

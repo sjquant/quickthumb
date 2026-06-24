@@ -1,4 +1,5 @@
 from quickthumb.canvas import Canvas
+from quickthumb.deck import Deck, DeckDiagnostic
 from quickthumb.errors import QuickthumbError, RenderingError, ValidationError
 from quickthumb.models import (
     Align,
@@ -29,6 +30,8 @@ from quickthumb.models import (
 
 __all__ = [
     "Canvas",
+    "Deck",
+    "DeckDiagnostic",
     "QuickthumbError",
     "RenderingError",
     "ValidationError",

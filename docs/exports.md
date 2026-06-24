@@ -88,6 +88,32 @@ with open("promo.pdf", "wb") as f:
 !!! note "Fidelity"
     PDF shadings cannot express transparency, so translucent gradients (and gradients with translucent stops) are embedded as pictures. Blur effects (shadow, glow), strokes on shapes, and gradient/image glyph fills have no faithful PDF vector form and are likewise embedded as pixel-exact PNG fragments.
 
+## Decks (multiple images and slides)
+
+A `Deck` is an ordered collection of canvases. Each slide is a full `Canvas` and renders exactly as it would on its own, so a deck is just a multi-output container on top of the same pipeline. See the [Deck API reference](api/deck.md) for the full method list.
+
+```python
+from quickthumb import Canvas, Deck
+
+deck = Deck().slide(cover).slide(body)   # or Deck([cover, body]) / deck.add(a, b, c)
+
+deck.render("deck.pdf")     # one multi-page PDF (a page per slide)
+deck.render("deck.pptx")    # one multi-slide PPTX (a slide per slide)
+deck.render("slides.png")   # numbered sequence: slides_01.png, slides_02.png, …
+
+deck.contact_sheet(columns=2).render("grid.png")   # all slides in one grid image
+
+pdf_bytes = deck.to_pdf()
+pptx_bytes = deck.to_pptx()
+```
+
+`render()` dispatches on the output extension: `.pdf` and `.pptx` produce a single document, while raster extensions have no native multi-page container, so the deck writes one file per slide as a zero-padded numbered sequence and returns the written paths.
+
+Slides may have different dimensions. `deck.diagnose()` aggregates each slide's [diagnostics](diagnostics.md) (each tagged with its `slide_index`) and adds a `mixed-slide-size` warning when they differ, because PPTX uses the first slide's size for the whole presentation. Decks round-trip through JSON with `deck.to_json()` / `Deck.from_json(...)`, reusing the per-canvas serialization.
+
+!!! note "Contact sheet"
+    `contact_sheet()` renders every slide and letterboxes it into a uniform grid cell sized from the first slide's aspect ratio, returning a normal `Canvas` you can render to any raster format.
+
 ## CLI
 
 The CLI picks the format from the output extension too:

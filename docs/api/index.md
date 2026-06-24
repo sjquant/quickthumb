@@ -14,6 +14,7 @@ from quickthumb import (
     Background,
     BlendMode,
     Canvas,
+    Deck,
     Diagnostic,
     Filter,
     FitMode,
@@ -34,6 +35,7 @@ from quickthumb import (
 | Page | What it covers |
 | --- | --- |
 | [Canvas](canvas.md) | `Canvas` creation, layer builders, diagnostics, and export methods |
+| [Deck](deck.md) | `Deck` — multiple slides to PDF, PPTX, image sequences, and contact sheets |
 | [Background](background.md) | `.background()` — solid colors, gradients, and images |
 | [Text](text.md) | `.text()` and `TextPart` — text layers and rich text |
 | [Image](image.md) | `.image()` — overlay images and cutouts |

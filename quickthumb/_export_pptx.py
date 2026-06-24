@@ -88,30 +88,50 @@ class PptxExporter:
         return buffer.getvalue()
 
     def save(self, path_or_stream) -> None:
-        presentation = self._build()
+        presentation = self._build([self._canvas])
         presentation.save(path_or_stream)
 
-    def _build(self):
+    def save_canvases(self, canvases: list[Canvas], path_or_stream) -> None:
+        """Write one or more canvases to a multi-slide presentation (one slide per canvas)."""
+        presentation = self._build(canvases)
+        presentation.save(path_or_stream)
+
+    def export_bytes_canvases(self, canvases: list[Canvas]) -> bytes:
+        buffer = BytesIO()
+        self.save_canvases(canvases, buffer)
+        return buffer.getvalue()
+
+    def _build(self, canvases: list[Canvas]):
         from pptx import Presentation
         from pptx.util import Emu
 
-        canvas = self._canvas
-        canvas._validate_image_paths()
-        canvas._ctx.begin_render_pass()
-        self._validate_slide_dimensions()
+        if not canvases:
+            raise RenderingError("Cannot export a presentation with no slides.")
 
         presentation = Presentation()
-        presentation.slide_width = Emu(_emu(canvas.width))
-        presentation.slide_height = Emu(_emu(canvas.height))
-        self._slide = presentation.slides.add_slide(presentation.slide_layouts[6])
+        # The presentation has a single page size; the first slide defines it.
+        # Validate before sizing so out-of-range canvases raise our error, not
+        # python-pptx's.
+        first = canvases[0]
+        self._canvas = first
+        self._validate_slide_dimensions()
+        presentation.slide_width = Emu(_emu(first.width))
+        presentation.slide_height = Emu(_emu(first.height))
 
-        prefix, rest = split_backdrop_prefix(flatten_layers(canvas))
-        if prefix:
-            fragment = rasterize_layers(canvas, prefix)
-            if fragment:
-                self._add_fragment(fragment)
-        for layer in rest:
-            self._emit_layer(layer)
+        for canvas in canvases:
+            canvas._validate_image_paths()
+            canvas._ctx.begin_render_pass()
+            self._canvas = canvas
+            self._validate_slide_dimensions()
+            self._slide = presentation.slides.add_slide(presentation.slide_layouts[6])
+
+            prefix, rest = split_backdrop_prefix(flatten_layers(canvas))
+            if prefix:
+                fragment = rasterize_layers(canvas, prefix)
+                if fragment:
+                    self._add_fragment(fragment)
+            for layer in rest:
+                self._emit_layer(layer)
 
         return presentation
 
