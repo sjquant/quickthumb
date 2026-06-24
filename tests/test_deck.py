@@ -60,6 +60,37 @@ class TestDeckComposition:
             deck.render(str(tmp_path / "out.pdf"))
 
 
+class TestRenderDispatch:
+    """render() dispatches on the output extension and rejects bad combinations."""
+
+    def test_should_reject_single_svg_output(self, tmp_path: Path):
+        """A deck has no single-file SVG form and says so explicitly."""
+        # given
+        deck = Deck().slide(make_slide("1"))
+
+        # when / then
+        with pytest.raises(RenderingError, match="single .svg"):
+            deck.render(str(tmp_path / "deck.svg"))
+
+    def test_should_reject_unknown_extension(self, tmp_path: Path):
+        """An unrecognized extension is rejected rather than guessed."""
+        # given
+        deck = Deck().slide(make_slide("1"))
+
+        # when / then
+        with pytest.raises(RenderingError, match="Unsupported deck output format"):
+            deck.render(str(tmp_path / "deck.gif"))
+
+    def test_should_reject_format_override_for_document_output(self, tmp_path: Path):
+        """A raster format override is meaningless for document output."""
+        # given
+        deck = Deck().slide(make_slide("1"))
+
+        # when / then
+        with pytest.raises(RenderingError, match="format override"):
+            deck.render(str(tmp_path / "deck.pdf"), format="PNG")
+
+
 class TestRasterSequence:
     """Rendering a deck to per-slide raster images."""
 
@@ -137,6 +168,17 @@ class TestDocumentExport:
 
         # then
         assert len(pdfium.PdfDocument(BytesIO(data))) == 2
+
+    def test_should_expose_pptx_bytes_with_a_slide_per_slide(self):
+        """to_pptx() returns multi-slide presentation bytes."""
+        # given
+        deck = Deck().add(make_slide("1"), make_slide("2"), make_slide("3"))
+
+        # when
+        data = deck.to_pptx()
+
+        # then
+        assert len(Presentation(BytesIO(data)).slides) == 3
 
     def test_should_reject_quality_for_document_output(self, tmp_path: Path):
         """Document formats do not accept the raster-only quality argument."""
@@ -226,6 +268,19 @@ class TestContactSheet:
         expected_height = 20 * 2 + 2 * cell_h + 20
         assert (sheet.width, sheet.height) == (expected_width, expected_height)
         assert Image.open(output).size == (expected_width, expected_height)
+
+    def test_should_clamp_columns_to_slide_count(self):
+        """Requesting more columns than slides collapses to a single row."""
+        # given
+        deck = Deck().add(make_slide("1"), make_slide("2"))
+
+        # when: 4 columns requested for 2 slides
+        sheet = deck.contact_sheet(columns=4, thumb_width=400, gap=20, padding=20)
+
+        # then: only 2 cells wide, one row tall
+        cell_h = round(400 * 720 / 1280)
+        assert sheet.width == 20 * 2 + 2 * 400 + 20
+        assert sheet.height == 20 * 2 + cell_h
 
     def test_should_reject_non_positive_columns(self):
         """A contact sheet needs at least one column."""

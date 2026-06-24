@@ -418,8 +418,10 @@ file per slide as a zero-padded numbered sequence and returns the written
 paths. `.pdf` and `.pptx` produce a single document. Slides may have different
 dimensions; `deck.diagnose()` aggregates each slide's
 [diagnostics](#diagnostics) (tagged with `slide_index`) and adds a
-`mixed-slide-size` warning when they differ, since PPTX uses the first slide's
-size for the whole deck. Decks round-trip through JSON with
+`mixed-slide-size` warning when they differ. The PDF path sizes each page to its
+slide, but PPTX has a single presentation size taken from the first slide, so
+slides larger than the first are clipped by PowerPoint — keep deck slides a
+uniform size when targeting `.pptx`. Decks round-trip through JSON with
 `deck.to_json()` / `Deck.from_json(...)`, reusing the per-canvas serialization.
 
 ## JSON-First Workflow

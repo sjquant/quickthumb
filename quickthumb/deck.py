@@ -48,7 +48,9 @@ class Deck:
 
     @property
     def slides(self) -> list[Canvas]:
-        return self._slides
+        # Return a copy so callers cannot bypass the Canvas type guard in
+        # _append_slide by mutating the internal list directly.
+        return list(self._slides)
 
     def __len__(self) -> int:
         return len(self._slides)
@@ -102,11 +104,22 @@ class Deck:
                     "Quality parameter is only supported for JPEG and WEBP formats, "
                     f"not {extension} output."
                 )
+            if format is not None:
+                raise RenderingError(
+                    "format override is only supported for raster output, "
+                    f"not {extension} documents."
+                )
             self._render_document(output_path, extension)
             return [output_path]
 
-        if extension in _RASTER_EXTENSIONS or format is not None:
+        if extension in _RASTER_EXTENSIONS:
             return self._render_sequence(output_path, format, quality)
+
+        if extension == ".svg":
+            raise RenderingError(
+                "A deck cannot render to a single .svg file (SVG has no multi-page form). "
+                "Render slides individually with Canvas.to_svg(), or use .pdf or .pptx."
+            )
 
         raise RenderingError(
             f"Unsupported deck output format: {extension or output_path!r}.\n"
@@ -234,6 +247,9 @@ class Deck:
         return Canvas(sheet_w, sheet_h).custom(draw_grid)
 
     def _slide_thumbnail(self, canvas: Canvas, cell_w: int, cell_h: int) -> Image.Image:
+        # Validate up front so a missing image fails with a clean FileNotFoundError,
+        # matching render()/to_pdf()/to_pptx() rather than crashing mid-render.
+        canvas._validate_image_paths()
         image = canvas._render_to_image()
         scale = min(cell_w / image.width, cell_h / image.height)
         size = (max(1, round(image.width * scale)), max(1, round(image.height * scale)))

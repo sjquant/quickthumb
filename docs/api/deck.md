@@ -107,7 +107,7 @@ for finding in deck.diagnose():
 | `slide_index` | `int \| None` | Originating slide, or `None` for deck-wide findings |
 | `layer_index` | `int \| None` | Originating layer within the slide, when applicable |
 
-A `mixed-slide-size` warning is added when slides do not all share the same dimensions, because PPTX export uses the first slide's size for the whole deck.
+A `mixed-slide-size` warning is added when slides do not all share the same dimensions. The PDF path sizes each page to its slide, but PPTX export uses the first slide's size for the whole deck, so larger later slides are clipped by PowerPoint — keep slides a uniform size when targeting `.pptx`.
 
 ## JSON
 

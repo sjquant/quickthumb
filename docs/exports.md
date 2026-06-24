@@ -109,7 +109,7 @@ pptx_bytes = deck.to_pptx()
 
 `render()` dispatches on the output extension: `.pdf` and `.pptx` produce a single document, while raster extensions have no native multi-page container, so the deck writes one file per slide as a zero-padded numbered sequence and returns the written paths.
 
-Slides may have different dimensions. `deck.diagnose()` aggregates each slide's [diagnostics](diagnostics.md) (each tagged with its `slide_index`) and adds a `mixed-slide-size` warning when they differ, because PPTX uses the first slide's size for the whole presentation. Decks round-trip through JSON with `deck.to_json()` / `Deck.from_json(...)`, reusing the per-canvas serialization.
+Slides may have different dimensions. `deck.diagnose()` aggregates each slide's [diagnostics](diagnostics.md) (each tagged with its `slide_index`) and adds a `mixed-slide-size` warning when they differ. The PDF path sizes each page to its slide, but PPTX has a single presentation size taken from the first slide, so slides larger than the first are clipped by PowerPoint — keep slides a uniform size when targeting `.pptx`. Decks round-trip through JSON with `deck.to_json()` / `Deck.from_json(...)`, reusing the per-canvas serialization.
 
 !!! note "Contact sheet"
     `contact_sheet()` renders every slide and letterboxes it into a uniform grid cell sized from the first slide's aspect ratio, returning a normal `Canvas` you can render to any raster format.

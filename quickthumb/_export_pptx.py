@@ -122,7 +122,8 @@ class PptxExporter:
             canvas._validate_image_paths()
             canvas._ctx.begin_render_pass()
             self._canvas = canvas
-            self._validate_slide_dimensions()
+            if canvas is not first:  # the first slide was already validated above
+                self._validate_slide_dimensions()
             self._slide = presentation.slides.add_slide(presentation.slide_layouts[6])
 
             prefix, rest = split_backdrop_prefix(flatten_layers(canvas))
