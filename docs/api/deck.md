@@ -8,22 +8,33 @@ A `Deck` is an ordered collection of `Canvas` slides. Each slide renders exactly
 
 ## Creation
 
-### `Deck(slides=None)`
+### `Deck(width=None, height=None, slides=None)`
 
 ```python
 from quickthumb import Canvas, Deck
 
-deck = Deck()                     # empty
-deck = Deck([cover, body])        # from a list of canvases
+deck = Deck()                          # empty, no default size
+deck = Deck(1280, 720)                 # default slide size for unsized slides
+deck = Deck(slides=[cover, body])      # from pre-built canvases
 ```
 
 | Parameter | Type | Description |
 | --- | --- | --- |
+| `width` | `int \| None` | Default slide width. Provide with `height` or omit both. |
+| `height` | `int \| None` | Default slide height. |
 | `slides` | `list[Canvas] \| None` | Initial slides, in order. Each must be a `Canvas`. |
+
+### `Deck.from_aspect_ratio(ratio, base_width)`
+
+Creates a deck whose default slide size comes from an aspect ratio string, mirroring `Canvas.from_aspect_ratio`.
+
+```python
+deck = Deck.from_aspect_ratio("16:9", 1280)   # default 1280×720
+```
 
 ## Adding slides
 
-Both builders mutate the deck and return `self` for chaining.
+Both builders mutate the deck and return `self` for chaining. When the deck has a default size, an **unsized** `Canvas()` inherits it; a canvas built with an explicit size keeps its own (and triggers a `mixed-slide-size` warning when it differs).
 
 | Method | Description |
 | --- | --- |
@@ -31,8 +42,14 @@ Both builders mutate the deck and return `self` for chaining.
 | `.add(*canvases)` | Append several canvases at once |
 
 ```python
-deck = Deck().slide(cover).add(body, outro)
+deck = (
+    Deck(1280, 720)
+    .slide(Canvas().background(color="#101820").text(content="Cover", ...))
+    .slide(Canvas().background(color="#1A1A2E").text(content="Body", ...))
+)
 ```
+
+Adding an unsized canvas to a deck with no default size raises `ValidationError`: give the deck a size or size the canvas.
 
 A deck is also a sequence: `len(deck)`, `deck[i]`, and iteration over slides all work, and `deck.slides` returns the underlying list.
 

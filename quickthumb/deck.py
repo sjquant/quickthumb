@@ -39,12 +39,38 @@ class DeckDiagnostic:
 
 
 class Deck:
-    """An ordered collection of Canvas slides with multi-output export."""
+    """An ordered collection of Canvas slides with multi-output export.
 
-    def __init__(self, slides: list[Canvas] | None = None):
+    A deck can carry a default slide size. Unsized canvases added to it inherit
+    that size, so slides can be written as bare ``Canvas()`` without repeating the
+    dimensions; an explicitly sized canvas keeps its own size.
+    """
+
+    def __init__(
+        self,
+        width: int | None = None,
+        height: int | None = None,
+        slides: list[Canvas] | None = None,
+    ):
+        if (width is None) != (height is None):
+            raise ValidationError("Provide both width and height, or neither.")
+        if width is not None and width <= 0:
+            raise ValidationError("width must be > 0")
+        if height is not None and height <= 0:
+            raise ValidationError("height must be > 0")
+
+        self._width = width
+        self._height = height
         self._slides: list[Canvas] = []
         for slide in slides or []:
             self._append_slide(slide)
+
+    @classmethod
+    def from_aspect_ratio(cls, ratio: str, base_width: int) -> Self:
+        """Create a deck whose default slide size comes from an aspect ratio."""
+        width_ratio, height_ratio = ratio.split(":")
+        calculated_height = int(base_width * int(height_ratio) / int(width_ratio))
+        return cls(base_width, calculated_height)
 
     @property
     def slides(self) -> list[Canvas]:
@@ -75,6 +101,13 @@ class Deck:
     def _append_slide(self, canvas: Canvas) -> None:
         if not isinstance(canvas, Canvas):
             raise ValidationError("Deck slides must be Canvas instances.")
+        if not canvas.has_size:
+            if self._width is None or self._height is None:
+                raise ValidationError(
+                    "This slide has no size and the deck has no default size. "
+                    "Give the deck a size (Deck(width, height)) or size the Canvas."
+                )
+            canvas._inherit_size(self._width, self._height)
         self._slides.append(canvas)
 
     def _require_slides(self) -> None:

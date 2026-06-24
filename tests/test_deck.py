@@ -34,7 +34,7 @@ class TestDeckComposition:
         third = make_slide("3")
 
         # when
-        deck = Deck([first]).slide(second).add(third)
+        deck = Deck(slides=[first]).slide(second).add(third)
 
         # then
         assert list(deck) == [first, second, third]
@@ -58,6 +58,56 @@ class TestDeckComposition:
         # when / then
         with pytest.raises(RenderingError, match="no slides"):
             deck.render(str(tmp_path / "out.pdf"))
+
+
+class TestDefaultSize:
+    """A deck size lets slides be written as bare, unsized canvases."""
+
+    def test_should_inject_deck_size_into_unsized_slides(self):
+        """An unsized Canvas added to a sized deck inherits the deck dimensions."""
+        # given a deck with a default size and bare canvases
+        deck = (
+            Deck(1280, 720)
+            .slide(Canvas().background(color="#101820"))
+            .slide(Canvas().background(color="#1A1A2E"))
+        )
+
+        # then both slides take the deck size
+        assert [(c.width, c.height) for c in deck] == [(1280, 720), (1280, 720)]
+
+    def test_should_keep_explicit_slide_size_over_deck_default(self):
+        """An explicitly sized canvas keeps its own dimensions inside a sized deck."""
+        # given
+        deck = Deck(1280, 720).slide(Canvas(1080, 1080).background(color="#101820"))
+
+        # then the explicit size wins
+        assert (deck[0].width, deck[0].height) == (1080, 1080)
+
+    def test_should_derive_default_size_from_aspect_ratio(self):
+        """from_aspect_ratio sets the deck default that unsized slides inherit."""
+        # given
+        deck = Deck.from_aspect_ratio("16:9", 1280).slide(Canvas().background(color="#101820"))
+
+        # then
+        assert (deck[0].width, deck[0].height) == (1280, 720)
+
+    def test_should_reject_unsized_slide_without_a_deck_size(self):
+        """An unsized slide needs either a deck size or its own size."""
+        # given a deck with no default size
+        deck = Deck()
+
+        # when / then
+        with pytest.raises(ValidationError, match="no default size"):
+            deck.slide(Canvas().background(color="#101820"))
+
+    def test_should_reject_rendering_an_unsized_canvas_directly(self, tmp_path: Path):
+        """A bare Canvas cannot be rendered until it is given a size."""
+        # given
+        canvas = Canvas().background(color="#101820")
+
+        # when / then
+        with pytest.raises(ValidationError, match="no size yet"):
+            canvas.render(str(tmp_path / "out.png"))
 
 
 class TestRenderDispatch:

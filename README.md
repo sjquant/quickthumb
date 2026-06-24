@@ -387,21 +387,22 @@ Layers the target format can express (backgrounds, gradients, outlines, shapes, 
 
 ### Decks: multiple images and slides
 
-A `Deck` is an ordered collection of canvases ("slides"). Each slide is a full
-`Canvas`, so it renders exactly as it would on its own. The deck adds
-multi-output export on top:
+A `Deck` is an ordered collection of canvases ("slides"). Give the deck a size
+once and each slide can be written as a bare `Canvas()` that inherits it — no
+need to repeat the dimensions per slide:
 
 ```python
 from quickthumb import Canvas, Deck
 
-cover = Canvas.from_aspect_ratio("16:9", 1280).background(color="#101820").text(
-    content="Episode 12", size=120, color="#B8FF00", position=("50%", "50%"), align="center"
+deck = (
+    Deck(1280, 720)   # default slide size; Deck.from_aspect_ratio("16:9", 1280) also works
+    .slide(Canvas().background(color="#101820").text(
+        content="Episode 12", size=120, color="#B8FF00", position=("50%", "50%"), align="center"
+    ))
+    .slide(Canvas().background(color="#101820").text(
+        content="Show notes", size=96, color="#FFFFFF", position=("50%", "50%"), align="center"
+    ))
 )
-body = Canvas.from_aspect_ratio("16:9", 1280).background(color="#101820").text(
-    content="Show notes", size=96, color="#FFFFFF", position=("50%", "50%"), align="center"
-)
-
-deck = Deck().slide(cover).slide(body)   # or Deck([cover, body]) / deck.add(a, b, c)
 
 deck.render("deck.pdf")        # one multi-page PDF (a page per slide)
 deck.render("deck.pptx")       # one multi-slide PPTX (a slide per slide)
@@ -412,6 +413,11 @@ deck.contact_sheet(columns=2).render("grid.png")   # all slides in one grid imag
 pdf_bytes = deck.to_pdf()      # requires quickthumb[pdf]
 pptx_bytes = deck.to_pptx()    # requires quickthumb[pptx]
 ```
+
+An unsized `Canvas()` inherits the deck's size when added; a canvas built with an
+explicit size (`Canvas(1080, 1080)`) keeps its own. You can still pass fully
+built canvases too — `Deck(slides=[cover, body])`, `deck.add(a, b, c)`. A bare
+`Canvas()` cannot be rendered until it is given a size (directly or by a deck).
 
 Raster formats have no native multi-page container, so `render()` writes one
 file per slide as a zero-padded numbered sequence and returns the written

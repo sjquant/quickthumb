@@ -103,6 +103,11 @@ class Canvas:
 
     _BUILTIN_TEMPLATES_DIR = os.path.join(os.path.dirname(__file__), "templates")
 
+    _UNSIZED_MESSAGE = (
+        "This Canvas has no size yet. Construct it as Canvas(width, height), "
+        "or add it to a Deck created with a size (Deck(width, height))."
+    )
+
     @classmethod
     def register_layer_fn(cls, name: str, fn: Callable[..., Image.Image | None]) -> None:
         cls._custom_layer_registry[name] = fn
@@ -119,13 +124,24 @@ class Canvas:
     def unregister_template(cls, name: str) -> None:
         cls._template_registry.pop(name, None)
 
-    def __init__(self, width: int, height: int, layers: list[RenderableLayer] | None = None):
-        if width <= 0:
+    def __init__(
+        self,
+        width: int | None = None,
+        height: int | None = None,
+        layers: list[RenderableLayer] | None = None,
+    ):
+        if (width is None) != (height is None):
+            raise ValidationError("Provide both width and height, or neither.")
+        if width is not None and width <= 0:
             raise ValidationError("width must be > 0")
-        if height <= 0:
+        if height is not None and height <= 0:
             raise ValidationError("height must be > 0")
 
-        self._ctx = RenderContext(width, height)
+        # An unsized canvas defers its dimensions until a Deck injects them. Layer
+        # builders never need a size (coordinates resolve at render time), so the
+        # placeholder ctx stays valid; render/diagnose/serialize guard on _has_size.
+        self._has_size = width is not None
+        self._ctx = RenderContext(width or 0, height or 0)
         self._layers: list[RenderableLayer] = layers or []
 
         self._effects = EffectsEngine()
@@ -139,7 +155,26 @@ class Canvas:
         )
 
     @property
+    def has_size(self) -> bool:
+        """Whether the canvas has concrete dimensions (False until a Deck assigns them)."""
+        return self._has_size
+
+    def _inherit_size(self, width: int, height: int) -> None:
+        """Assign a size to an unsized canvas; no-op if it already has one.
+
+        Used by Deck so an unsized slide picks up the deck's default size while an
+        explicitly sized canvas keeps its own dimensions.
+        """
+        if self._has_size:
+            return
+        self._ctx.width = width
+        self._ctx.height = height
+        self._has_size = True
+
+    @property
     def width(self) -> int:
+        if not self._has_size:
+            raise ValidationError(self._UNSIZED_MESSAGE)
         return self._ctx.width
 
     @width.setter
@@ -147,9 +182,12 @@ class Canvas:
         if value <= 0:
             raise ValidationError("width must be > 0")
         self._ctx.width = value
+        self._has_size = self._ctx.height > 0
 
     @property
     def height(self) -> int:
+        if not self._has_size:
+            raise ValidationError(self._UNSIZED_MESSAGE)
         return self._ctx.height
 
     @height.setter
@@ -157,6 +195,7 @@ class Canvas:
         if value <= 0:
             raise ValidationError("height must be > 0")
         self._ctx.height = value
+        self._has_size = self._ctx.width > 0
 
     @property
     def layers(self) -> list[RenderableLayer]:
