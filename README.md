@@ -413,9 +413,9 @@ pptx_bytes = deck.to_pptx()    # requires quickthumb[pptx]
 ```
 
 An unsized `Canvas()` inherits the deck's size when added; a canvas built with an
-explicit size (`Canvas(1080, 1080)`) keeps its own. You can still pass fully
-built canvases too — `Deck(slides=[cover, body])`, `deck.add(a, b, c)`. A bare
-`Canvas()` cannot be rendered until it is given a size (directly or by a deck).
+explicit size (`Canvas(1080, 1080)`) keeps its own. You can also seed a deck with
+fully built canvases up front — `Deck(slides=[cover, body])`. A bare `Canvas()`
+cannot be rendered until it is given a size (directly or by a deck).
 
 Raster formats have no native multi-page container, so `render()` writes one
 file per slide as a zero-padded numbered sequence and returns the written

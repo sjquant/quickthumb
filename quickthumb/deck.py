@@ -94,12 +94,6 @@ class Deck:
         self._append_slide(canvas)
         return self
 
-    def add(self, *canvases: Canvas) -> Self:
-        """Append several Canvas slides at once (chainable)."""
-        for canvas in canvases:
-            self._append_slide(canvas)
-        return self
-
     def _append_slide(self, canvas: Canvas) -> None:
         if not isinstance(canvas, Canvas):
             raise ValidationError("Deck slides must be Canvas instances.")

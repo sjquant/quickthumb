@@ -102,7 +102,7 @@ deck = (
     .slide(Canvas().background(color="#101820").text(content="Cover", ...))
     .slide(Canvas().background(color="#1A1A2E").text(content="Body", ...))
 )
-# pre-built canvases work too: Deck(slides=[cover, body]) / deck.add(a, b, c)
+# pre-built canvases work too: Deck(slides=[cover, body])
 
 deck.render("deck.pdf")     # one multi-page PDF (a page per slide)
 deck.render("deck.pptx")    # one multi-slide PPTX (a slide per slide)

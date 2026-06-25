@@ -35,12 +35,11 @@ deck = Deck.from_aspect_ratio("16:9", 1280)   # default 1280×720
 
 ## Adding slides
 
-Both builders mutate the deck and return `self` for chaining. When the deck has a default size, an **unsized** `Canvas()` inherits it; a canvas built with an explicit size keeps its own (and triggers a `mixed-slide-size` warning when it differs).
+Pass initial slides to the constructor (`Deck(slides=[...])`) and/or append them one at a time with `.slide(canvas)`, which mutates the deck and returns `self` for chaining. When the deck has a default size, an **unsized** `Canvas()` inherits it; a canvas built with an explicit size keeps its own (and triggers a `mixed-slide-size` warning when it differs).
 
 | Method | Description |
 | --- | --- |
 | `.slide(canvas)` | Append one `Canvas` as the next slide |
-| `.add(*canvases)` | Append several canvases at once |
 
 ```python
 deck = (

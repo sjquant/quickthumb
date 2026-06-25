@@ -28,14 +28,14 @@ class TestDeckComposition:
     """Building a deck and inspecting its slides."""
 
     def test_should_collect_slides_via_constructor_and_chaining(self):
-        """slide() and add() append canvases while staying chainable."""
+        """The constructor seeds slides and slide() appends more, staying chainable."""
         # given
         first = make_slide("1")
         second = make_slide("2")
         third = make_slide("3")
 
         # when
-        deck = Deck(slides=[first]).slide(second).add(third)
+        deck = Deck(slides=[first]).slide(second).slide(third)
 
         # then
         assert list(deck) == [first, second, third]
@@ -154,7 +154,7 @@ class TestRasterSequence:
     def test_should_write_zero_padded_numbered_sequence(self, tmp_path: Path):
         """Raster output writes one file per slide with a zero-padded index."""
         # given
-        deck = Deck().add(make_slide("a"), make_slide("b"), make_slide("c"))
+        deck = Deck(slides=[make_slide("a"), make_slide("b"), make_slide("c")])
         output = tmp_path / "slides.png"
 
         # when
@@ -173,7 +173,7 @@ class TestRasterSequence:
     def test_should_pass_quality_through_for_jpeg_sequence(self, tmp_path: Path):
         """Raster sequences honor the quality argument for JPEG output."""
         # given
-        deck = Deck().add(make_slide("a"), make_slide("b"))
+        deck = Deck(slides=[make_slide("a"), make_slide("b")])
         output = tmp_path / "slides.jpg"
 
         # when
@@ -187,7 +187,7 @@ class TestRasterSequence:
         """A missing asset on a later slide fails before any file is written."""
         # given a deck whose second slide references a missing image
         broken = make_slide("b").image(str(tmp_path / "missing.png"), position=(0, 0))
-        deck = Deck().add(make_slide("a"), broken, make_slide("c"))
+        deck = Deck(slides=[make_slide("a"), broken, make_slide("c")])
         output = tmp_path / "slides.png"
 
         # when / then: rendering raises and leaves no partial output behind
@@ -203,7 +203,7 @@ class TestDocumentExport:
         """A PDF deck produces a document with a page for every slide."""
         # given
         pdfium = require_pypdfium2()
-        deck = Deck().add(make_slide("1"), make_slide("2"), make_slide("3"))
+        deck = Deck(slides=[make_slide("1"), make_slide("2"), make_slide("3")])
         output = tmp_path / "deck.pdf"
 
         # when
@@ -216,7 +216,7 @@ class TestDocumentExport:
     def test_should_render_one_pptx_slide_per_slide(self, tmp_path: Path):
         """A PPTX deck produces a presentation with a slide for every slide."""
         # given
-        deck = Deck().add(make_slide("1"), make_slide("2"))
+        deck = Deck(slides=[make_slide("1"), make_slide("2")])
         output = tmp_path / "deck.pptx"
 
         # when
@@ -230,7 +230,7 @@ class TestDocumentExport:
         """to_pdf() returns multi-page PDF bytes."""
         # given
         pdfium = require_pypdfium2()
-        deck = Deck().add(make_slide("1"), make_slide("2"))
+        deck = Deck(slides=[make_slide("1"), make_slide("2")])
 
         # when
         data = deck.to_pdf()
@@ -241,7 +241,7 @@ class TestDocumentExport:
     def test_should_expose_pptx_bytes_with_a_slide_per_slide(self):
         """to_pptx() returns multi-slide presentation bytes."""
         # given
-        deck = Deck().add(make_slide("1"), make_slide("2"), make_slide("3"))
+        deck = Deck(slides=[make_slide("1"), make_slide("2"), make_slide("3")])
 
         # when
         data = deck.to_pptx()
@@ -261,7 +261,7 @@ class TestDocumentExport:
     def test_should_keep_first_slide_size_for_mixed_pptx(self, tmp_path: Path):
         """With mixed sizes the PPTX page size comes from the first slide."""
         # given
-        deck = Deck().add(make_slide("wide", 1280, 720), make_slide("square", 800, 800))
+        deck = Deck(slides=[make_slide("wide", 1280, 720), make_slide("square", 800, 800)])
         output = tmp_path / "deck.pptx"
 
         # when
@@ -276,7 +276,7 @@ class TestDocumentExport:
         """Unlike PPTX, a mixed-size PDF sizes every page to its slide."""
         # given a deck with two differently shaped slides
         pdfium = require_pypdfium2()
-        deck = Deck().add(make_slide("wide", 1280, 720), make_slide("square", 800, 800))
+        deck = Deck(slides=[make_slide("wide", 1280, 720), make_slide("square", 800, 800)])
         output = tmp_path / "deck.pdf"
 
         # when
@@ -299,7 +299,7 @@ class TestDiagnose:
         offending = Canvas(1280, 720).text(
             content="hi", size=64, color="#FFFFFF", position=("200%", "50%")
         )
-        deck = Deck().add(make_slide("ok"), offending)
+        deck = Deck(slides=[make_slide("ok"), offending])
 
         # when
         findings = deck.diagnose()
@@ -312,7 +312,7 @@ class TestDiagnose:
     def test_should_warn_when_slides_have_mixed_sizes(self):
         """Differing slide dimensions raise a single deck-wide warning."""
         # given
-        deck = Deck().add(make_slide("a", 1280, 720), make_slide("b", 800, 800))
+        deck = Deck(slides=[make_slide("a", 1280, 720), make_slide("b", 800, 800)])
 
         # when
         findings = deck.diagnose()
@@ -326,7 +326,7 @@ class TestDiagnose:
     def test_should_not_warn_when_slides_share_a_size(self):
         """Uniformly sized slides produce no mixed-size warning."""
         # given
-        deck = Deck().add(make_slide("a"), make_slide("b"))
+        deck = Deck(slides=[make_slide("a"), make_slide("b")])
 
         # when
         findings = deck.diagnose()
@@ -341,7 +341,7 @@ class TestJsonRoundTrip:
     def test_should_round_trip_through_json(self):
         """from_json(to_json()) reproduces every slide's spec."""
         # given
-        deck = Deck().add(make_slide("1"), make_slide("2"))
+        deck = Deck(slides=[make_slide("1"), make_slide("2")])
 
         # when
         restored = Deck.from_json(deck.to_json())
@@ -359,7 +359,7 @@ class TestJsonRoundTrip:
     def test_should_preserve_default_size_across_json(self):
         """A restored deck keeps its default size so bare slides still inherit it."""
         # given a sized deck round-tripped through JSON
-        deck = Deck(1280, 720).add(make_slide("1"))
+        deck = Deck(1280, 720, slides=[make_slide("1")])
         restored = Deck.from_json(deck.to_json())
 
         # when a bare, unsized canvas is added to the restored deck
