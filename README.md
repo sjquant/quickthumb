@@ -408,8 +408,6 @@ deck.render("deck.pdf")        # one multi-page PDF (a page per slide)
 deck.render("deck.pptx")       # one multi-slide PPTX (a slide per slide)
 deck.render("slides.png")      # numbered sequence: slides_01.png, slides_02.png, …
 
-deck.contact_sheet(columns=2).render("grid.png")   # all slides in one grid image
-
 pdf_bytes = deck.to_pdf()      # requires quickthumb[pdf]
 pptx_bytes = deck.to_pptx()    # requires quickthumb[pptx]
 ```
@@ -540,7 +538,7 @@ os.environ["QUICKTHUMB_DEFAULT_FONT"] = "Roboto"
 | Diagnostics | `canvas.diagnose()` and `quickthumb lint`: off-canvas, tiny text, overflow, low contrast |
 | Export | PNG, JPEG, WebP, file output, base64, data URLs |
 | Document renderers | SVG (`to_svg()`), editable PPTX via `quickthumb[pptx]`, PDF via `quickthumb[pdf]` |
-| Decks | `Deck` of multiple slides: multi-page PDF, multi-slide PPTX, numbered image sequences, contact-sheet grids, per-slide diagnostics |
+| Decks | `Deck` of multiple slides: multi-page PDF, multi-slide PPTX, numbered image sequences, per-slide diagnostics |
 | Serialization | `to_json()` / `from_json()` for built-in layer types and named custom layers |
 
 ## Real Example Scripts

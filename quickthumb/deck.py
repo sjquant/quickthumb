@@ -1,9 +1,9 @@
 """Multi-slide / multi-image decks built on top of Canvas.
 
 A Deck is an ordered collection of Canvas objects ("slides"). It renders to a
-multi-page PDF, a multi-slide PPTX, a numbered sequence of raster images, or a
-single contact-sheet grid, reusing the exact same per-canvas render pipeline so
-every slide looks identical to rendering that Canvas on its own.
+multi-page PDF, a multi-slide PPTX, or a numbered sequence of raster images,
+reusing the exact same per-canvas render pipeline so every slide looks
+identical to rendering that Canvas on its own.
 """
 
 from __future__ import annotations
@@ -11,7 +11,6 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 
-from PIL import Image
 from typing_extensions import Self
 
 from quickthumb._base import FileFormat, aspect_ratio_dimensions
@@ -179,7 +178,7 @@ class Deck:
     ) -> list[str]:
         # Validate every slide's assets up front so a missing image fails before
         # any file is written, leaving no partial sequence on disk (matching the
-        # all-or-nothing behaviour of the PDF/PPTX/contact-sheet paths).
+        # all-or-nothing behaviour of the PDF/PPTX paths).
         for canvas in self._slides:
             canvas._validate_image_paths()
 
@@ -245,83 +244,6 @@ class Deck:
                     )
                 )
         return findings
-
-    def contact_sheet(
-        self,
-        columns: int = 3,
-        thumb_width: int = 480,
-        gap: int = 24,
-        padding: int = 24,
-        background: str | tuple = "#FFFFFF",
-    ) -> Canvas:
-        """Compose the slides into a single grid image, returned as a Canvas.
-
-        Each slide is rendered and contained (letterboxed) into a uniform cell
-        sized from the first slide's aspect ratio. ``background`` accepts a hex/
-        named color string or an (R, G, B[, A]) tuple, like Canvas.background.
-        The returned Canvas can be rendered to any raster format like a normal
-        canvas.
-        """
-        self._require_slides()
-        if columns < 1:
-            raise ValidationError("columns must be >= 1")
-        if thumb_width < 1:
-            raise ValidationError("thumb_width must be >= 1")
-        background_rgba = self._resolve_background(background)
-
-        first = self._slides[0]
-        cell_w = thumb_width
-        cell_h = max(1, round(thumb_width * first.height / first.width))
-
-        cols = min(columns, len(self._slides))
-        rows = -(-len(self._slides) // cols)  # ceil division
-        sheet_w = padding * 2 + cols * cell_w + (cols - 1) * gap
-        sheet_h = padding * 2 + rows * cell_h + (rows - 1) * gap
-
-        thumbnails = [self._slide_thumbnail(canvas, cell_w, cell_h) for canvas in self._slides]
-
-        def draw_grid(base: Image.Image) -> Image.Image:
-            sheet = Image.new("RGBA", base.size, background_rgba)
-            for index, thumb in enumerate(thumbnails):
-                row, col = divmod(index, cols)
-                cell_x = padding + col * (cell_w + gap)
-                cell_y = padding + row * (cell_h + gap)
-                offset_x = cell_x + (cell_w - thumb.width) // 2
-                offset_y = cell_y + (cell_h - thumb.height) // 2
-                sheet.alpha_composite(thumb, (offset_x, offset_y))
-            return sheet
-
-        return Canvas(sheet_w, sheet_h).custom(draw_grid)
-
-    @staticmethod
-    def _resolve_background(background: str | tuple) -> tuple[int, int, int, int]:
-        # Resolve eagerly so an invalid color raises ValidationError from
-        # contact_sheet() instead of an opaque RenderingError at render time.
-        from PIL import ImageColor
-
-        if isinstance(background, str):
-            try:
-                rgb = ImageColor.getrgb(background)
-            except ValueError as e:
-                raise ValidationError(
-                    f"Invalid contact_sheet background {background!r}: {e}"
-                ) from e
-        else:
-            rgb = tuple(background)
-            if len(rgb) not in (3, 4) or not all(isinstance(c, int) for c in rgb):
-                raise ValidationError(
-                    "contact_sheet background tuple must be (R, G, B) or (R, G, B, A) integers."
-                )
-        return rgb if len(rgb) == 4 else rgb + (255,)
-
-    def _slide_thumbnail(self, canvas: Canvas, cell_w: int, cell_h: int) -> Image.Image:
-        # Validate up front so a missing image fails with a clean FileNotFoundError,
-        # matching render()/to_pdf()/to_pptx() rather than crashing mid-render.
-        canvas._validate_image_paths()
-        image = canvas._render_to_image()
-        scale = min(cell_w / image.width, cell_h / image.height)
-        size = (max(1, round(image.width * scale)), max(1, round(image.height * scale)))
-        return image.resize(size, Image.LANCZOS)
 
     def to_json(self) -> str:
         import json

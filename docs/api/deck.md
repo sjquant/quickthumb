@@ -1,5 +1,5 @@
 ---
-description: Reference for quickthumb Deck — collecting canvases into multi-page PDFs, multi-slide PPTX, numbered image sequences, and contact-sheet grids.
+description: Reference for quickthumb Deck — collecting canvases into multi-page PDFs, multi-slide PPTX, and numbered image sequences.
 ---
 
 # Deck
@@ -91,22 +91,6 @@ with open("deck.pdf", "wb") as f:
     f.write(deck.to_pdf())   # requires quickthumb[pdf]
 pptx_bytes = deck.to_pptx()  # requires quickthumb[pptx]
 ```
-
-### `.contact_sheet(columns=3, thumb_width=480, gap=24, padding=24, background="#FFFFFF")`
-
-Renders every slide and letterboxes it into a uniform grid cell sized from the first slide's aspect ratio, returning a normal `Canvas` you can render to any raster format.
-
-```python
-deck.contact_sheet(columns=2).render("grid.png")
-```
-
-| Parameter | Type | Default | Description |
-| --- | --- | --- | --- |
-| `columns` | `int` | `3` | Grid columns (clamped to the slide count) |
-| `thumb_width` | `int` | `480` | Cell width in pixels |
-| `gap` | `int` | `24` | Pixels between cells |
-| `padding` | `int` | `24` | Outer padding around the grid |
-| `background` | `str \| tuple` | `"#FFFFFF"` | Sheet background color (hex/named string or `(R, G, B[, A])` tuple) |
 
 ## `.diagnose()`
 
