@@ -3,6 +3,7 @@ from typing import Literal, TypeAlias, cast
 
 from PIL import ImageFont
 
+from quickthumb.errors import ValidationError
 from quickthumb.models import Align
 
 FileFormat = Literal["JPEG", "WEBP", "PNG"]
@@ -41,6 +42,28 @@ def parse_coordinate(value: int | str, dimension: int) -> int:
 
     percentage = float(value.rstrip("%"))
     return int(dimension * percentage / 100)
+
+
+def aspect_ratio_dimensions(ratio: str, base_width: int) -> tuple[int, int]:
+    """Resolve an aspect ratio like "16:9" and a base width into (width, height).
+
+    Raises ValidationError for malformed ratios so callers get the library's
+    error type instead of a raw ValueError/ZeroDivisionError.
+    """
+    parts = ratio.split(":")
+    if len(parts) != 2:
+        raise ValidationError(
+            f"Aspect ratio must look like 'W:H' (for example '16:9'), got {ratio!r}."
+        )
+    try:
+        width_ratio, height_ratio = int(parts[0]), int(parts[1])
+    except ValueError:
+        raise ValidationError(f"Aspect ratio parts must be integers, got {ratio!r}.") from None
+    if width_ratio <= 0 or height_ratio <= 0:
+        raise ValidationError(f"Aspect ratio parts must be positive, got {ratio!r}.")
+    if base_width <= 0:
+        raise ValidationError("base_width must be > 0")
+    return base_width, int(base_width * height_ratio / width_ratio)
 
 
 def is_url(path: str) -> bool:

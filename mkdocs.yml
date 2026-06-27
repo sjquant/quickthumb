@@ -74,6 +74,7 @@ nav:
   - API Reference:
       - Overview: api/index.md
       - Canvas: api/canvas.md
+      - Deck (Multiple Slides): api/deck.md
       - Background: api/background.md
       - Text: api/text.md
       - Image: api/image.md

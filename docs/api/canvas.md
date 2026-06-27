@@ -8,7 +8,7 @@ The `Canvas` is the root object. It holds dimensions and an ordered list of laye
 
 ## Creation
 
-### `Canvas(width, height)`
+### `Canvas(width=None, height=None)`
 
 ```python
 from quickthumb import Canvas
@@ -18,8 +18,10 @@ canvas = Canvas(1280, 720)
 
 | Parameter | Type | Description |
 | --- | --- | --- |
-| `width` | `int` | Canvas width in pixels. Must be a positive integer. |
-| `height` | `int` | Canvas height in pixels. Must be a positive integer. |
+| `width` | `int \| None` | Canvas width in pixels. Must be a positive integer. |
+| `height` | `int \| None` | Canvas height in pixels. Must be a positive integer. |
+
+Width and height must be given together or both omitted. A canvas built **without** a size (`Canvas()`) is *unsized*: it accepts layer builders but cannot be rendered, diagnosed, or serialized until it gets a size — either directly or by being added to a sized [`Deck`](deck.md), which injects its default size. Check `canvas.has_size` to tell the difference.
 
 ### `Canvas.from_aspect_ratio(ratio, base_width)`
 

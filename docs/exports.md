@@ -88,6 +88,34 @@ with open("promo.pdf", "wb") as f:
 !!! note "Fidelity"
     PDF shadings cannot express transparency, so translucent gradients (and gradients with translucent stops) are embedded as pictures. Blur effects (shadow, glow), strokes on shapes, and gradient/image glyph fills have no faithful PDF vector form and are likewise embedded as pixel-exact PNG fragments.
 
+## Decks (multiple images and slides)
+
+A `Deck` is an ordered collection of canvases. Each slide is a full `Canvas` and renders exactly as it would on its own, so a deck is just a multi-output container on top of the same pipeline. See the [Deck API reference](api/deck.md) for the full method list.
+
+Give the deck a size once and each slide can be a bare `Canvas()` that inherits it:
+
+```python
+from quickthumb import Canvas, Deck
+
+deck = (
+    Deck(1280, 720)   # default slide size; Deck.from_aspect_ratio("16:9", 1280) also works
+    .slide(Canvas().background(color="#101820").text(content="Cover", ...))
+    .slide(Canvas().background(color="#1A1A2E").text(content="Body", ...))
+)
+# pre-built canvases work too: Deck(slides=[cover, body])
+
+deck.render("deck.pdf")     # one multi-page PDF (a page per slide)
+deck.render("deck.pptx")    # one multi-slide PPTX (a slide per slide)
+deck.render("slides.png")   # numbered sequence: slides_01.png, slides_02.png, …
+
+pdf_bytes = deck.to_pdf()
+pptx_bytes = deck.to_pptx()
+```
+
+`render()` dispatches on the output extension: `.pdf` and `.pptx` produce a single document, while raster extensions have no native multi-page container, so the deck writes one file per slide as a zero-padded numbered sequence and returns the written paths.
+
+Slides may have different dimensions. `deck.diagnose()` aggregates each slide's [diagnostics](diagnostics.md) (each tagged with its `slide_index`) and adds a `mixed-slide-size` warning when they differ. The PDF path sizes each page to its slide, but PPTX has a single presentation size taken from the first slide, so slides larger than the first are clipped by PowerPoint — keep slides a uniform size when targeting `.pptx`. Decks round-trip through JSON with `deck.to_json()` / `Deck.from_json(...)`, reusing the per-canvas serialization.
+
 ## CLI
 
 The CLI picks the format from the output extension too:

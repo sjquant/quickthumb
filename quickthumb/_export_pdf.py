@@ -63,8 +63,10 @@ def _require_reportlab():
 
 
 class PdfExporter:
-    def __init__(self, canvas: Canvas):
+    def __init__(self, canvas: Canvas | None = None):
         _require_reportlab()
+        # canvas is the single-canvas convenience target; the multi-page paths
+        # take their canvases explicitly and leave this None.
         self._canvas = canvas
         self._font_names: dict[str, str] = {}  # font path -> registered reportlab name
 
@@ -74,24 +76,46 @@ class PdfExporter:
         return buffer.getvalue()
 
     def save(self, path_or_stream) -> None:
+        if self._canvas is None:
+            raise RenderingError("PdfExporter() needs a canvas for single-canvas export.")
+        self.save_canvases([self._canvas], path_or_stream)
+
+    def save_canvases(self, canvases: list[Canvas], path_or_stream) -> None:
+        """Write one or more canvases to a multi-page PDF (one page per canvas)."""
+        if not canvases:
+            raise RenderingError("Cannot export a PDF with no pages.")
         if hasattr(path_or_stream, "write"):
-            self._build(path_or_stream)
+            self._build(canvases, path_or_stream)
         else:
             with open(path_or_stream, "wb") as f:
-                self._build(f)
+                self._build(canvases, f)
 
-    def _build(self, stream) -> None:
+    def export_bytes_canvases(self, canvases: list[Canvas]) -> bytes:
+        buffer = BytesIO()
+        self.save_canvases(canvases, buffer)
+        return buffer.getvalue()
+
+    def _build(self, canvases: list[Canvas], stream) -> None:
         from reportlab.pdfgen import canvas as rl_canvas
 
-        canvas = self._canvas
+        first = canvases[0]
+        pdf = rl_canvas.Canvas(stream, pagesize=(first.width, first.height))
+        self._pdf = pdf
+        for canvas in canvases:
+            self._draw_page(canvas)
+        pdf.save()
+
+    def _draw_page(self, canvas: Canvas) -> None:
         canvas._validate_image_paths()
         canvas._ctx.begin_render_pass()
+        self._canvas = canvas
 
-        pdf = rl_canvas.Canvas(stream, pagesize=(canvas.width, canvas.height))
+        pdf = self._pdf
+        pdf.setPageSize((canvas.width, canvas.height))
         # Flip to a top-left origin so canvas coordinates map straight through.
+        # showPage() resets the CTM, so each page re-establishes the flip.
         pdf.translate(0, canvas.height)
         pdf.scale(1, -1)
-        self._pdf = pdf
 
         prefix, rest = split_backdrop_prefix(flatten_layers(canvas))
         if prefix:
@@ -102,7 +126,6 @@ class PdfExporter:
             self._emit_layer(layer)
 
         pdf.showPage()
-        pdf.save()
 
     # ------------------------------------------------------------------ layers
 
