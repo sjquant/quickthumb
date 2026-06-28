@@ -189,15 +189,20 @@ class Deck:
         if extension in _RASTER_EXTENSIONS:
             return self._render_sequence(output_path, format, quality)
 
+        if extension in (".html", ".htm"):
+            with open(output_path, "w", encoding="utf-8") as f:
+                f.write(self.to_html())
+            return [output_path]
+
         if extension == ".svg":
             raise RenderingError(
                 "A deck cannot render to a single .svg file (SVG has no multi-page form). "
-                "Render slides individually with Canvas.to_svg(), or use .pdf or .pptx."
+                "Render slides individually with Canvas.to_svg(), or use .pdf, .pptx, or .html."
             )
 
         raise RenderingError(
             f"Unsupported deck output format: {extension or output_path!r}.\n"
-            "Use .pdf, .pptx, or a raster extension (.png, .jpg, .jpeg, .webp)."
+            "Use .pdf, .pptx, .html, or a raster extension (.png, .jpg, .jpeg, .webp)."
         )
 
     def _render_document(self, output_path: str, extension: str) -> None:
@@ -237,6 +242,21 @@ class Deck:
         from quickthumb._export_pdf import PdfExporter
 
         return PdfExporter().export_bytes_canvases(self._slides)
+
+    def to_html(self, responsive: bool = True, embed_fonts: bool = False) -> str:
+        """Render the deck to a standalone HTML slideshow document string.
+
+        Each slide becomes a fixed-size stage; the runtime shows one at a time
+        and advances on click (running that slide's per-layer animations first,
+        then moving to the next slide) or with the arrow keys. With
+        ``responsive=True`` (default) the active stage is scaled to fill the
+        viewport. This is the one format where both slide changes and per-layer
+        animations actually play.
+        """
+        self._require_slides()
+        from quickthumb._export_html import export_deck
+
+        return export_deck(self._slides, embed_fonts=embed_fonts, responsive=responsive)
 
     def to_pptx(self) -> bytes:
         """Render the deck to a multi-slide PPTX as bytes (requires quickthumb[pptx])."""

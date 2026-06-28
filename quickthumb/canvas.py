@@ -514,7 +514,7 @@ class Canvas:
         """
         if format is None:
             extension = os.path.splitext(output_path)[1].lower()
-            if extension in (".svg", ".pptx", ".pdf"):
+            if extension in (".svg", ".pptx", ".pdf", ".html", ".htm"):
                 if quality is not None:
                     raise RenderingError(
                         "Quality parameter is only supported for JPEG and WEBP formats, "
@@ -531,6 +531,11 @@ class Canvas:
         if extension == ".svg":
             with open(output_path, "w", encoding="utf-8") as f:
                 f.write(self.to_svg())
+            return
+
+        if extension in (".html", ".htm"):
+            with open(output_path, "w", encoding="utf-8") as f:
+                f.write(self.to_html())
             return
 
         if extension == ".pdf":
@@ -556,6 +561,27 @@ class Canvas:
         from quickthumb._export_svg import SvgExporter
 
         return SvgExporter(self, embed_fonts=embed_fonts).export()
+
+    def to_html(self, responsive: bool = True, embed_fonts: bool = False) -> str:
+        """Render the canvas to a standalone, self-contained HTML document string.
+
+        Backgrounds, gradients, outlines, shapes, and text become native
+        HTML/CSS positioned with the same layout math as the raster renderer;
+        raster images, blend modes, image glyph fills, and custom layers are
+        embedded as pixel-exact PNG fragments. Per-layer ``animation`` effects
+        play via a small inline JS runtime (click to advance), so unlike the
+        other formats HTML actually animates.
+
+        The composition is a fixed-size stage that never reflows, keeping it a
+        faithful twin of the PNG/SVG/PDF/PPTX output. With ``responsive=True``
+        (default) the whole stage is scaled as one unit to fill the viewport;
+        pass ``responsive=False`` to emit the bare fixed-size stage. Set
+        ``embed_fonts=True`` to inline the used fonts as ``@font-face`` data URLs
+        so text renders consistently on machines without the fonts installed.
+        """
+        from quickthumb._export_html import export_canvas
+
+        return export_canvas(self, embed_fonts=embed_fonts, responsive=responsive)
 
     def to_pptx(self) -> bytes:
         """Render the canvas to a PowerPoint file as bytes (requires quickthumb[pptx]).

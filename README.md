@@ -369,21 +369,57 @@ jpeg_data_url = canvas.to_data_url(format="JPEG", quality=90)
 canvas.render("output.webp", format="WEBP", quality=90)
 ```
 
-### SVG, PPTX, and PDF renderers
+### SVG, HTML, PPTX, and PDF renderers
 
 The same canvas renders to vector and document formats, detected from the file extension:
 
 ```python
 canvas.render("card.svg")    # vector SVG with native shapes, gradients, and selectable text
+canvas.render("card.html")   # self-contained, animated HTML/CSS page (no extra dependency)
 canvas.render("card.pptx")   # PowerPoint slide with editable text boxes and autoshapes
 canvas.render("card.pdf")    # single-page PDF with native vectors and embedded fonts
 
-svg_markup = canvas.to_svg(embed_fonts=True)  # inline @font-face for portable text
-pptx_bytes = canvas.to_pptx()                 # requires quickthumb[pptx]
-pdf_bytes = canvas.to_pdf()                   # requires quickthumb[pdf]
+svg_markup = canvas.to_svg(embed_fonts=True)   # inline @font-face for portable text
+html_doc = canvas.to_html(embed_fonts=True)    # standalone document string
+pptx_bytes = canvas.to_pptx()                  # requires quickthumb[pptx]
+pdf_bytes = canvas.to_pdf()                    # requires quickthumb[pdf]
 ```
 
 Layers the target format can express (backgrounds, gradients, outlines, shapes, text — including wrapping, rich parts, letter spacing, and effects) are exported natively and stay editable; everything else (raster images, blend modes, custom layers) is embedded as pixel-exact PNG fragments rendered by the regular pipeline. See the [export docs](https://sjquant.github.io/quickthumb/exports/) for the full mapping.
+
+### HTML renderer
+
+`canvas.to_html()` produces one **self-contained** HTML document (inline CSS, JS,
+fonts, and images — no external files), built on the same layout math as every
+other renderer. It needs no extra dependency.
+
+```python
+canvas.render("card.html")                            # responsive, scale-to-fit page
+html_doc = canvas.to_html(responsive=False)           # bare fixed-size stage to embed
+html_doc = canvas.to_html(embed_fonts=True)           # inline @font-face for exact text
+```
+
+The composition is a **fixed-size stage that never reflows**, so an HTML export
+stays a faithful twin of its PNG/SVG/PDF/PPTX counterpart. With
+`responsive=True` (the default) the whole stage is scaled as one unit to fill
+the viewport — it adapts to any screen size without rearranging the layout (set
+`responsive=False` to emit the bare stage for embedding). Because browsers
+rasterize fonts differently from PIL, text placement is a close approximation
+rather than pixel-identical (like the PPTX exporter); `embed_fonts=True` inlines
+the used fonts for the closest match.
+
+Unlike the other document formats, HTML actually **plays** per-layer
+`animation`s: each effect maps to a CSS keyframe driven by a tiny inline JS
+runtime that honours the same `on_click` / `with_previous` / `after_previous`
+sequencing as PowerPoint (click to advance). A `Deck` renders to a standalone
+**slideshow** — `deck.render("slides.html")` — that advances per-layer
+animations and then slides with a click or the arrow keys, applying slide
+transitions between stages.
+
+```python
+deck.render("slides.html")          # one self-contained, navigable slideshow
+html_doc = deck.to_html()           # the document as a string
+```
 
 ### Decks: multiple images and slides
 
@@ -406,6 +442,7 @@ deck = (
 
 deck.render("deck.pdf")        # one multi-page PDF (a page per slide)
 deck.render("deck.pptx")       # one multi-slide PPTX (a slide per slide)
+deck.render("deck.html")       # one self-contained, navigable HTML slideshow
 deck.render("slides.png")      # numbered sequence: slides_01.png, slides_02.png, …
 
 pdf_bytes = deck.to_pdf()      # requires quickthumb[pdf]
@@ -632,7 +669,7 @@ os.environ["QUICKTHUMB_DEFAULT_FONT"] = "Roboto"
 | Theme tokens | Top-level `theme` block with `$theme.path` references in JSON specs |
 | Diagnostics | `canvas.diagnose()` and `quickthumb lint`: off-canvas, tiny text, overflow, low contrast |
 | Export | PNG, JPEG, WebP, file output, base64, data URLs |
-| Document renderers | SVG (`to_svg()`), editable PPTX via `quickthumb[pptx]`, PDF via `quickthumb[pdf]` |
+| Document renderers | SVG (`to_svg()`), self-contained animated HTML (`to_html()`), editable PPTX via `quickthumb[pptx]`, PDF via `quickthumb[pdf]` |
 | Decks | `Deck` of multiple slides: multi-page PDF, multi-slide PPTX, numbered image sequences, per-slide diagnostics |
 | Slide effects | PPTX slide `Transition`s (per-slide or deck default) and per-layer entrance/exit `Animation`s |
 | Serialization | `to_json()` / `from_json()` for built-in layer types and named custom layers |
@@ -662,6 +699,9 @@ See the shipped examples in [`examples/README.md`](examples/README.md):
 - Slide `Transition`s and layer `Animation`s only affect PPTX output; raster, SVG, and PDF renderers ignore them
 - Transitions live on the `Deck` (default plus per-slide override), not on `Canvas`; a per-slide override wins over the deck default
 - Animations are valid on `text`, `shape`, `image`, `svg`, and `group` layers; pass one effect or a list of effects played in order
+- HTML export needs no extra dependency; the document is fixed-layout and scaled to fit (`responsive=True` by default), never reflowed, so it stays a faithful twin of the PNG/SVG/PDF/PPTX output
+- HTML text placement is a close approximation (browsers rasterize fonts differently than PIL); use `embed_fonts=True` for the closest match, available when text uses local font files
+- HTML is the only format that plays per-layer `animation`s (and `Deck` slide transitions); a few exotic effects (blinds, checkerboard, wheel, dissolve) fall back to a close CSS analogue
 
 ## Development
 
