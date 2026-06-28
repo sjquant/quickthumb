@@ -547,6 +547,31 @@ class TestDeckTransitions:
         with pytest.raises(ValidationError):
             Fade(duration=0)
 
+    def test_should_raise_a_clean_error_for_an_unknown_transition_effect(self):
+        """An unknown effect raises a quickthumb error naming the valid effects"""
+        # given / when / then
+        with pytest.raises(ValidationError, match="Invalid transition"):
+            Deck(1280, 720).slide(make_slide("1"), transition={"effect": "swirl"})
+
+    def test_should_round_trip_effect_specific_transition_fields_through_json(self):
+        """Effect-specific transition options survive to_json/from_json"""
+        # given
+        deck = Deck(1280, 720, transition=Wheel(spokes=4))
+        deck.slide(make_slide("1"))
+        deck.slide(make_slide("2"), transition=Split(orientation="vertical", direction="in"))
+
+        # when
+        restored = Deck.from_json(deck.to_json())
+
+        # then
+        assert restored.default_transition.spokes == 4
+        override = restored._slide_transitions[1]
+        assert (override.effect, override.orientation, override.direction) == (
+            "split",
+            "vertical",
+            "in",
+        )
+
     def test_should_round_trip_default_and_per_slide_transitions_through_json(self):
         """Both the deck default and per-slide overrides survive to_json/from_json"""
         # given

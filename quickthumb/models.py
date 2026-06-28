@@ -7,6 +7,7 @@ from pydantic import (
     BaseModel,
     BeforeValidator,
     Discriminator,
+    NonNegativeFloat,
     NonNegativeInt,
     PositiveFloat,
     PositiveInt,
@@ -320,23 +321,9 @@ class _AnimationBase(quickthumbModel):
     """
 
     animate: Literal["entrance", "exit"] = "entrance"
-    duration: float = 0.5
-    delay: float = 0.0
+    duration: PositiveFloat = 0.5
+    delay: NonNegativeFloat = 0.0
     trigger: AnimationTrigger = "on_click"
-
-    @field_validator("duration")
-    @classmethod
-    def validate_duration(cls, v: float) -> float:
-        if v <= 0:
-            raise ValueError("duration must be greater than 0")
-        return v
-
-    @field_validator("delay")
-    @classmethod
-    def validate_delay(cls, v: float) -> float:
-        if v < 0:
-            raise ValueError("delay cannot be negative")
-        return v
 
 
 class Appear(_AnimationBase):

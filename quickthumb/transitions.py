@@ -21,31 +21,25 @@ from __future__ import annotations
 
 from typing import Annotated, Literal
 
-from pydantic import Discriminator, PositiveInt, TypeAdapter, field_validator
+from pydantic import (
+    Discriminator,
+    NonNegativeFloat,
+    PositiveFloat,
+    PositiveInt,
+    TypeAdapter,
+)
+from pydantic import ValidationError as PydanticValidationError
 
+from quickthumb.errors import ValidationError
 from quickthumb.models import quickthumbModel
 
 
 class _TransitionBase(quickthumbModel):
     """Shared timing fields for every slide transition."""
 
-    duration: float = 1.0
+    duration: PositiveFloat = 1.0
     advance_on_click: bool = True
-    advance_after: float | None = None
-
-    @field_validator("duration")
-    @classmethod
-    def validate_duration(cls, v: float) -> float:
-        if v <= 0:
-            raise ValueError("duration must be greater than 0")
-        return v
-
-    @field_validator("advance_after")
-    @classmethod
-    def validate_advance_after(cls, v: float | None) -> float | None:
-        if v is not None and v < 0:
-            raise ValueError("advance_after cannot be negative")
-        return v
+    advance_after: NonNegativeFloat | None = None
 
 
 class Cut(_TransitionBase):
@@ -191,6 +185,11 @@ Transition = Annotated[
     Discriminator("effect"),
 ]
 
+_EFFECT_CLASSES = (
+    Cut, Fade, Dissolve, Newsflash, Wedge, Circle, Diamond, Random, Wheel,
+    Push, Wipe, Cover, Uncover, Zoom, Split, Blinds, Checker, Comb,
+)  # fmt: skip
+_EFFECT_NAMES = ", ".join(cls.model_fields["effect"].default for cls in _EFFECT_CLASSES)
 _ADAPTER = TypeAdapter(Transition)
 
 
@@ -200,4 +199,14 @@ def coerce_transition(value: Transition | dict | str | None) -> Transition | Non
         return None
     # An effect string is shorthand for that effect with default options.
     payload = {"effect": value} if isinstance(value, str) else value
-    return _ADAPTER.validate_python(payload)
+    try:
+        return _ADAPTER.validate_python(payload)
+    except PydanticValidationError as e:
+        # A bad/missing effect tag (or a non-mapping value) fails at the union
+        # level, which pydantic reports with an opaque tagged-union message;
+        # surface a clean quickthumb error instead. Per-effect field errors
+        # already raise quickthumbModel's formatted ValidationError.
+        raise ValidationError(
+            f"Invalid transition {value!r}: pass a transitions effect object, a dict "
+            f"with a valid 'effect', or one of these effect names: {_EFFECT_NAMES}."
+        ) from e
