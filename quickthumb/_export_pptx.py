@@ -41,6 +41,8 @@ from quickthumb.errors import RenderingError
 from quickthumb.models import (
     Animation,
     BackgroundLayer,
+    Blinds,
+    Checkerboard,
     Glow,
     LinearGradient,
     OutlineLayer,
@@ -50,7 +52,10 @@ from quickthumb.models import (
     Stroke,
     TextLayer,
     Transition,
+    Wheel,
+    Wipe,
 )
+from quickthumb.models import Box as BoxAnimation  # avoid clash with _export_base.Box
 
 if TYPE_CHECKING:
     from quickthumb.canvas import Canvas, RenderableLayer
@@ -159,8 +164,8 @@ class PptxExporter:
             if canvas is not first:  # the first slide was already validated above
                 self._validate_slide_dimensions()
             self._slide = presentation.slides.add_slide(presentation.slide_layouts[6])
-            # (Animation, [shape_id, ...]) pairs collected while emitting layers.
-            self._animations: list[tuple[Animation, list[int]]] = []
+            # (animation-or-list, [shape_id, ...]) records collected per layer.
+            self._anim_records: list[tuple[object, list[int]]] = []
 
             prefix, rest = split_backdrop_prefix(flatten_layers(canvas))
             if prefix:
@@ -173,8 +178,9 @@ class PptxExporter:
             transition = transitions[index] if transitions else None
             if transition is not None:
                 self._apply_transition(transition)
-            if self._animations:
-                self._apply_timing(self._animations)
+            entries = self._resolve_animation_entries()
+            if entries:
+                self._apply_timing(entries)
 
         return presentation
 
@@ -216,7 +222,29 @@ class PptxExporter:
             shape.shape_id for shape in self._slide.shapes if shape.shape_id not in before
         ]
         if new_ids:
-            self._animations.append((animation, new_ids))
+            self._anim_records.append((animation, new_ids))
+
+    def _resolve_animation_entries(self) -> list[tuple[Animation, list[int]]]:
+        """Turn the per-layer records into (animation, shape_ids) effect entries.
+
+        Consecutive records that share the *same* animation object are the
+        flattened children of one animated group; they merge into a single target
+        set so the group animates as one effect. Each record's animation (a single
+        effect or a list) then expands into one entry per effect.
+        """
+        merged: list[tuple[object, list[int]]] = []
+        for animation, ids in self._anim_records:
+            if merged and merged[-1][0] is animation:
+                merged[-1][1].extend(ids)
+            else:
+                merged.append((animation, list(ids)))
+
+        entries: list[tuple[Animation, list[int]]] = []
+        for animation, ids in merged:
+            anims = animation if isinstance(animation, list) else [animation]
+            for anim in anims:
+                entries.append((anim, ids))
+        return entries
 
     def _emit_layer(self, layer: RenderableLayer):
         if isinstance(layer, BackgroundLayer):
@@ -871,9 +899,7 @@ class PptxExporter:
             parts = []
             if anim.effect != "appear":
                 parts.append(
-                    self._anim_effect_xml(
-                        "out", self._anim_filter(anim.effect, anim.direction), duration_ms, sid
-                    )
+                    self._anim_effect_xml("out", self._anim_filter(anim), duration_ms, sid)
                 )
             # Pin the shape hidden once it has animated out.
             parts.append(self._set_visibility_xml(sid, "hidden", delay=duration_ms))
@@ -883,9 +909,7 @@ class PptxExporter:
         parts = [self._set_visibility_xml(sid, "visible", delay=0)]
         if anim.effect != "appear":
             parts.append(
-                self._anim_effect_xml(
-                    "in", self._anim_filter(anim.effect, anim.direction), duration_ms, sid
-                )
+                self._anim_effect_xml("in", self._anim_filter(anim), duration_ms, sid)
             )
         return "".join(parts)
 
@@ -910,23 +934,20 @@ class PptxExporter:
         )
 
     @staticmethod
-    def _anim_filter(effect: str, direction: str | None) -> str:
-        """Map an animation effect + direction to a PowerPoint animEffect filter."""
-        if effect == "wipe":
-            d = direction if direction in ("left", "right", "up", "down") else "up"
-            return f"wipe({d})"
-        if effect == "blinds":
-            orient = "vertical" if direction in ("vertical", "left", "right") else "horizontal"
-            return f"blinds({orient})"
-        if effect == "checkerboard":
-            d = "down" if direction in ("vertical", "up", "down") else "across"
-            return f"checkerboard({d})"
-        if effect == "wheel":
-            return "wheel(1)"
-        if effect == "box":
-            return f'box({"out" if direction == "out" else "in"})'
+    def _anim_filter(anim: Animation) -> str:
+        """Map an animation effect to its PowerPoint animEffect filter string."""
+        if isinstance(anim, Wipe):
+            return f"wipe({anim.direction})"
+        if isinstance(anim, Blinds):
+            return f"blinds({anim.orientation})"
+        if isinstance(anim, Checkerboard):
+            return f"checkerboard({anim.direction})"
+        if isinstance(anim, Wheel):
+            return f"wheel({anim.spokes})"
+        if isinstance(anim, BoxAnimation):
+            return f"box({anim.direction})"
         # fade, circle, diamond, dissolve map straight through.
-        return effect
+        return anim.effect
 
     def _next_id(self) -> int:
         self._tn_id += 1

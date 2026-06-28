@@ -359,38 +359,25 @@ class Transition(quickthumbModel):
         return v
 
 
-AnimationEffect = Literal[
-    "appear",
-    "fade",
-    "wipe",
-    "blinds",
-    "checkerboard",
-    "circle",
-    "diamond",
-    "dissolve",
-    "wheel",
-    "box",
-]
-
 AnimationTrigger = Literal["on_click", "with_previous", "after_previous"]
 
 
-class Animation(quickthumbModel):
-    """An entrance or exit animation applied to a single layer.
+class _AnimationBase(quickthumbModel):
+    """Shared timing fields for every animation effect.
 
-    Attach to a content layer (``text``/``shape``/``image``/``svg``/``group``)
-    via the ``animation=`` argument. Honoured by the PPTX exporter only; the
-    layer renders normally in every other format. ``trigger`` controls how the
-    effect starts relative to the previous animation on the slide.
+    Each concrete effect (``Fade``, ``Wipe``, ``Box``, …) is its own class so it
+    only exposes the options that effect actually supports — directional effects
+    add a ``direction``/``orientation``, ``Wheel`` adds ``spokes``, and the rest
+    add nothing. Attach one (or a list) to a ``text``/``shape``/``image``/
+    ``svg``/``group`` layer via ``animation=``. Honoured by the PPTX exporter
+    only; the layer renders normally in every other format. ``trigger`` controls
+    how the effect starts relative to the previous animation on the slide.
     """
 
-    type: Literal["animation"] = "animation"
-    effect: AnimationEffect = "fade"
     animate: Literal["entrance", "exit"] = "entrance"
     duration: float = 0.5
     delay: float = 0.0
     trigger: AnimationTrigger = "on_click"
-    direction: EffectDirection | None = None
 
     @field_validator("duration")
     @classmethod
@@ -405,6 +392,81 @@ class Animation(quickthumbModel):
         if v < 0:
             raise ValueError("delay cannot be negative")
         return v
+
+
+class Appear(_AnimationBase):
+    """Instantly show (entrance) or hide (exit) the layer with no motion."""
+
+    effect: Literal["appear"] = "appear"
+
+
+class Fade(_AnimationBase):
+    """Fade the layer in or out."""
+
+    effect: Literal["fade"] = "fade"
+
+
+class Wipe(_AnimationBase):
+    """Wipe the layer in or out from a given edge."""
+
+    effect: Literal["wipe"] = "wipe"
+    direction: Literal["up", "down", "left", "right"] = "up"
+
+
+class Box(_AnimationBase):
+    """Reveal or conceal the layer with a box growing in or shrinking out."""
+
+    effect: Literal["box"] = "box"
+    direction: Literal["in", "out"] = "in"
+
+
+class Blinds(_AnimationBase):
+    """Reveal the layer through horizontal or vertical blinds."""
+
+    effect: Literal["blinds"] = "blinds"
+    orientation: Literal["horizontal", "vertical"] = "horizontal"
+
+
+class Checkerboard(_AnimationBase):
+    """Reveal the layer through a checkerboard sweeping across or down."""
+
+    effect: Literal["checkerboard"] = "checkerboard"
+    direction: Literal["across", "down"] = "across"
+
+
+class Circle(_AnimationBase):
+    """Reveal or conceal the layer through an expanding/contracting circle."""
+
+    effect: Literal["circle"] = "circle"
+
+
+class Diamond(_AnimationBase):
+    """Reveal or conceal the layer through an expanding/contracting diamond."""
+
+    effect: Literal["diamond"] = "diamond"
+
+
+class Dissolve(_AnimationBase):
+    """Dissolve the layer in or out through a speckled mask."""
+
+    effect: Literal["dissolve"] = "dissolve"
+
+
+class Wheel(_AnimationBase):
+    """Sweep the layer in or out like a clock hand, using ``spokes`` arms."""
+
+    effect: Literal["wheel"] = "wheel"
+    spokes: PositiveInt = 1
+
+
+# Discriminated union of every effect: validates a dict (e.g. from JSON) into the
+# right class by its ``effect`` tag, so layers accept one animation or a list.
+Animation = Annotated[
+    Appear | Fade | Wipe | Box | Blinds | Checkerboard | Circle | Diamond | Dissolve | Wheel,
+    Discriminator("effect"),
+]
+# A layer accepts a single animation or a list of them (played in order).
+AnimationInput = Animation | list[Animation]
 
 
 class TextPart(quickthumbModel):
@@ -488,7 +550,7 @@ class TextLayer(quickthumbModel):
     auto_scale: bool = False
     rotation: float = 0.0
     opacity: OpacityField = 1.0
-    animation: Animation | None = None
+    animation: AnimationInput | None = None
 
     @field_validator("max_width")
     @classmethod
@@ -581,7 +643,7 @@ class ImageLayer(quickthumbModel):
         BlendMode | None, AfterValidator(lambda v: enum_converter(BlendMode)(v) if v else None)
     ] = None
     effects: list[ImageEffect] = []
-    animation: Animation | None = None
+    animation: AnimationInput | None = None
 
     @field_validator("position", mode="before")
     @classmethod
@@ -622,7 +684,7 @@ class ShapeLayer(quickthumbModel):
     star_points: int = 5
     inner_radius: float = 0.5
     effects: list[ShapeEffect] = []
-    animation: Animation | None = None
+    animation: AnimationInput | None = None
 
     @field_validator("points")
     @classmethod
@@ -698,7 +760,7 @@ class SvgLayer(quickthumbModel):
         BlendMode | None, AfterValidator(lambda v: enum_converter(BlendMode)(v) if v else None)
     ] = None
     effects: list[ImageEffect] = []
-    animation: Animation | None = None
+    animation: AnimationInput | None = None
 
     @field_validator("position", mode="before")
     @classmethod
@@ -731,7 +793,7 @@ class GroupLayer(quickthumbModel):
     position: tuple | None = None
     align: AlignWithHVTuple = None
     item_align: Literal["start", "center", "end"] = "start"
-    animation: Animation | None = None
+    animation: AnimationInput | None = None
     children: list["GroupChild"]
 
     @field_validator("children", mode="before")

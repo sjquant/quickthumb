@@ -436,7 +436,7 @@ animations**. These only affect `.pptx` output — every other format ignores
 them, so the same spec still renders identically to PNG, SVG, and PDF.
 
 ```python
-from quickthumb import Animation, Canvas, Deck, Transition
+from quickthumb import Box, Canvas, Deck, Fade, Transition, Wipe
 
 cover = (
     Canvas(1280, 720)
@@ -447,7 +447,7 @@ cover = (
         color="#B8FF00",
         position=("50%", "40%"),
         align="center",
-        animation=Animation(effect="fade"),  # fades in on first click
+        animation=Fade(),  # fades in on first click
     )
     .text(
         "FY25 · Q3",
@@ -455,7 +455,11 @@ cover = (
         color="#FFFFFF",
         position=("50%", "62%"),
         align="center",
-        animation=Animation(effect="wipe", direction="up", trigger="after_previous"),
+        # a list plays in order: zoom in, then wipe back out
+        animation=[
+            Box(direction="in", trigger="after_previous"),
+            Wipe(direction="up", animate="exit", trigger="after_previous"),
+        ],
     )
 )
 
@@ -483,24 +487,33 @@ deck.render("review.pptx")
 | `advance_after` | Auto-advance after N seconds (default `None`) |
 
 **Animations** attach to a `text`, `shape`, `image`, `svg`, or `group` layer via
-`animation=`. A layer that maps to several PowerPoint shapes (e.g. text with a
-background fill) animates them together. A `group` animation drives all of the
-group's children as one effect and takes precedence over any animation set on an
-individual child.
+`animation=`, which takes a single effect or a list of effects played in order.
+Each effect is its own class, so it only exposes the options it actually
+supports — `Wipe(direction="up")`, `Box(direction="in")`, `Blinds(orientation="vertical")`,
+`Checkerboard(direction="down")`, `Wheel(spokes=3)`, and `Appear`/`Fade`/`Circle`/
+`Diamond`/`Dissolve` (no extra options):
+
+```python
+from quickthumb import Appear, Blinds, Box, Checkerboard, Circle, Diamond, Dissolve, Fade, Wheel, Wipe
+```
+
+Every effect shares the same timing fields:
 
 | Field | Description |
 | --- | --- |
-| `effect` | `appear`, `fade`, `wipe`, `blinds`, `checkerboard`, `circle`, `diamond`, `dissolve`, `wheel`, or `box` |
 | `animate` | `entrance` (default) or `exit` |
 | `duration` | Seconds the animation runs (default `0.5`) |
 | `delay` | Seconds to wait before it starts (default `0.0`) |
 | `trigger` | `on_click` (default), `with_previous`, or `after_previous` |
-| `direction` | Direction for directional effects (e.g. `wipe`, `box`) |
 
 `trigger` controls sequencing: `on_click` waits for a click, `with_previous`
 runs alongside the previous animation, and `after_previous` starts automatically
-when the previous one finishes. Both `Transition` and `Animation` round-trip
-through JSON with the rest of the spec.
+when the previous one finishes. A layer that maps to several PowerPoint shapes
+(e.g. text with a background fill) animates them together, and a `group`
+animation drives all of the group's children as one effect — taking precedence
+over any animation set on an individual child. Animations and transitions
+round-trip through JSON with the rest of the spec (an effect serializes with its
+`effect` tag, e.g. `{"effect": "wipe", "direction": "up"}`).
 
 ## JSON-First Workflow
 
@@ -639,7 +652,7 @@ See the shipped examples in [`examples/README.md`](examples/README.md):
 - `theme` blocks are resolved at parse time; `to_json()` emits resolved values without the `theme` block
 - Slide `Transition`s and layer `Animation`s only affect PPTX output; raster, SVG, and PDF renderers ignore them
 - Transitions live on the `Deck` (default plus per-slide override), not on `Canvas`; a per-slide override wins over the deck default
-- `Animation` is valid on `text`, `shape`, `image`, `svg`, and `group` layers
+- Animations are valid on `text`, `shape`, `image`, `svg`, and `group` layers; pass one effect or a list of effects played in order
 
 ## Development
 

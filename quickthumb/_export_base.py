@@ -49,9 +49,7 @@ def flatten_layers(canvas: Canvas) -> list[RenderableLayer]:
     flat: list[RenderableLayer] = []
     for layer in canvas.layers:
         if isinstance(layer, GroupLayer):
-            # A fresh "seen" set per top-level group ties that group's animation
-            # into a single effect across all of its flattened children.
-            flat.extend(_flatten_group(canvas, layer, seen=set()))
+            flat.extend(_flatten_group(canvas, layer))
         else:
             flat.append(layer)
     return flat
@@ -62,29 +60,27 @@ def _flatten_group(
     group: GroupLayer,
     origin: tuple[int, int] | None = None,
     inherited_animation=None,
-    seen: set[int] | None = None,
 ) -> list[RenderableLayer]:
-    seen = seen if seen is not None else set()
     # An enclosing animated group wins over this group's own animation, so the
-    # outermost animation drives everything beneath it as one effect.
+    # outermost animation drives everything beneath it. Every flattened child
+    # carries the *same* animation object; the PPTX exporter recognises that
+    # shared identity to animate the whole group as one effect.
     animation = inherited_animation or group.animation
     placements, _ = canvas._groups.layout_group(group, origin)
     placed: list[RenderableLayer] = []
     for child, position, size in placements:
         if isinstance(child, GroupLayer):
-            placed.extend(
-                _flatten_group(canvas, child, position, inherited_animation=animation, seen=seen)
-            )
+            placed.extend(_flatten_group(canvas, child, position, inherited_animation=animation))
         elif isinstance(child, TextLayer):
             placed.append(
                 _with_group_animation(
-                    canvas._groups.place_text_child(child, position, size), animation, seen
+                    canvas._groups.place_text_child(child, position, size), animation
                 )
             )
         elif isinstance(child, ShapeLayer):
             placed.append(
                 _with_group_animation(
-                    child.model_copy(update={"position": position, "align": None}), animation, seen
+                    child.model_copy(update={"position": position, "align": None}), animation
                 )
             )
         else:  # ImageLayer | SvgLayer
@@ -92,27 +88,20 @@ def _flatten_group(
                 _with_group_animation(
                     child.model_copy(update={"position": position, "align": Align.TOP_LEFT}),
                     animation,
-                    seen,
                 )
             )
     return placed
 
 
-def _with_group_animation(layer, animation, seen: set[int]):
-    """Apply a group's animation to one of its flattened children.
+def _with_group_animation(layer, animation):
+    """Stamp a group's animation onto one of its flattened children.
 
-    A group animation drives all of the group's children as a single effect and
-    takes precedence over any animation set on a child: the first child keeps the
-    group's trigger, and the rest switch to ``with_previous`` so they animate
-    together on the same click instead of one click each. When the group has no
-    animation, the child keeps whatever animation it set itself.
+    A group animation drives all of the group's children as one effect and takes
+    precedence over any animation set on a child. When the group has none, the
+    child keeps whatever animation it set itself.
     """
     if animation is None:
         return layer
-    if id(animation) in seen:
-        animation = animation.model_copy(update={"trigger": "with_previous"})
-    else:
-        seen.add(id(animation))
     return layer.model_copy(update={"animation": animation})
 
 

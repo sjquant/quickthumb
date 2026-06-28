@@ -4,7 +4,7 @@ from io import BytesIO
 from pathlib import Path
 
 import pytest
-from quickthumb import Animation, Canvas, LinearGradient, TextPart
+from quickthumb import Canvas, Fade, LinearGradient, TextPart, Wipe
 from quickthumb.errors import RenderingError
 from quickthumb.models import Background, Glow, RadialGradient, Shadow, Stroke
 
@@ -440,7 +440,7 @@ class TestPptxElementAnimations:
             width=80,
             height=40,
             color="#FF0000",
-            animation=Animation(effect="fade"),
+            animation=Fade(),
         )
         document = open_pptx(canvas)
         shape = document.slides[0].shapes[0]
@@ -463,7 +463,7 @@ class TestPptxElementAnimations:
             "Slide in",
             size=40,
             position=(10, 10),
-            animation=Animation(effect="wipe", direction="right"),
+            animation=Wipe(direction="right"),
         )
 
         # when
@@ -471,6 +471,60 @@ class TestPptxElementAnimations:
 
         # then
         assert [e.get("filter") for e in timing.iter(qn("p:animEffect"))] == ["wipe(right)"]
+
+    def test_should_play_a_list_of_animations_on_one_layer_in_order(self):
+        """A layer can carry several animations that target the same shape in order"""
+        # given an entrance fade followed by an exit wipe on the same text layer
+        canvas = Canvas(400, 300).text(
+            "Hi",
+            size=40,
+            position=(10, 10),
+            animation=[Fade(), Wipe(animate="exit", direction="down", trigger="after_previous")],
+        )
+        document = open_pptx(canvas)
+        shape_id = str(document.slides[0].shapes[0].shape_id)
+
+        # when
+        timing = document.slides[0]._element.find(qn("p:timing"))
+        filters = [e.get("filter") for e in timing.iter(qn("p:animEffect"))]
+        node_types = [c.get("nodeType") for c in timing.iter(qn("p:cTn")) if c.get("nodeType")]
+        targets = {t.get("spid") for t in timing.iter(qn("p:spTgt"))}
+
+        # then both effects run, in order, against the one shape
+        assert filters == ["fade", "wipe(down)"]
+        assert "clickEffect" in node_types and "afterEffect" in node_types
+        assert targets == {shape_id}
+
+    def test_should_encode_effect_specific_options(self):
+        """Each effect class emits its own filter options (orientation, spokes)"""
+        # given a blinds and a wheel animation with effect-specific kwargs
+        from quickthumb import Blinds, Wheel
+
+        canvas = (
+            Canvas(400, 300)
+            .shape(
+                shape="rectangle",
+                position=(10, 10),
+                width=60,
+                height=60,
+                color="#FF0000",
+                animation=Blinds(orientation="vertical"),
+            )
+            .shape(
+                shape="ellipse",
+                position=(90, 10),
+                width=60,
+                height=60,
+                color="#00FF00",
+                animation=Wheel(spokes=4, trigger="after_previous"),
+            )
+        )
+
+        # when
+        filters = [e.get("filter") for e in timing_of(canvas).iter(qn("p:animEffect"))]
+
+        # then
+        assert filters == ["blinds(vertical)", "wheel(4)"]
 
     def test_should_group_with_previous_into_one_click(self):
         """with_previous shares a click group; on_click starts a new one"""
@@ -483,7 +537,7 @@ class TestPptxElementAnimations:
                 width=40,
                 height=40,
                 color="#FF0000",
-                animation=Animation(effect="fade", trigger="on_click"),
+                animation=Fade(trigger="on_click"),
             )
             .shape(
                 shape="ellipse",
@@ -491,7 +545,7 @@ class TestPptxElementAnimations:
                 width=40,
                 height=40,
                 color="#00FF00",
-                animation=Animation(effect="fade", trigger="with_previous"),
+                animation=Fade(trigger="with_previous"),
             )
             .shape(
                 shape="pill",
@@ -499,7 +553,7 @@ class TestPptxElementAnimations:
                 width=40,
                 height=40,
                 color="#0000FF",
-                animation=Animation(effect="fade", trigger="on_click"),
+                animation=Fade(trigger="on_click"),
             )
         )
 
@@ -523,13 +577,13 @@ class TestPptxElementAnimations:
                 "First",
                 size=40,
                 position=(10, 10),
-                animation=Animation(effect="fade", trigger="on_click"),
+                animation=Fade(trigger="on_click"),
             )
             .text(
                 "Second",
                 size=40,
                 position=(10, 80),
-                animation=Animation(effect="fade", trigger="after_previous"),
+                animation=Fade(trigger="after_previous"),
             )
         )
 
@@ -549,7 +603,7 @@ class TestPptxElementAnimations:
             width=80,
             height=40,
             color="#FF0000",
-            animation=Animation(effect="fade", animate="exit"),
+            animation=Fade(animate="exit"),
         )
 
         # when
@@ -569,7 +623,7 @@ class TestPptxElementAnimations:
             size=40,
             position=(10, 10),
             effects=[Background(color="#222222", padding=8)],
-            animation=Animation(effect="fade"),
+            animation=Fade(),
         )
         document = open_pptx(canvas)
 
@@ -592,7 +646,7 @@ class TestPptxElementAnimations:
             ],
             position=("50%", "50%"),
             align="center",
-            animation=Animation(effect="fade", trigger="on_click"),
+            animation=Fade(trigger="on_click"),
         )
 
         # when
@@ -602,10 +656,10 @@ class TestPptxElementAnimations:
         node_types = [c.get("nodeType") for c in timing.iter(qn("p:cTn")) if c.get("nodeType")]
         animated = {t.get("spid") for t in timing.iter(qn("p:spTgt"))}
 
-        # then: both children animate, together, under a single click
+        # then: one click drives a single effect that targets both children
         assert len(click_groups) == 1
         assert node_types.count("clickEffect") == 1
-        assert node_types.count("withEffect") == 1
+        assert node_types.count("withEffect") == 0
         assert len(animated) == 2
 
     def test_group_animation_should_take_precedence_over_child_animations(self):
@@ -625,7 +679,7 @@ class TestPptxElementAnimations:
             ],
             position=("50%", "50%"),
             align="center",
-            animation=Animation(effect="fade", trigger="on_click"),
+            animation=Fade(trigger="on_click"),
         )
 
         # when
@@ -642,7 +696,7 @@ class TestPptxElementAnimations:
         """Animations survive to_json/from_json and still emit timing"""
         # given
         canvas = Canvas(400, 300).text(
-            "Hi", size=40, position=(10, 10), animation=Animation(effect="wipe", direction="up")
+            "Hi", size=40, position=(10, 10), animation=Wipe(direction="up")
         )
 
         # when
