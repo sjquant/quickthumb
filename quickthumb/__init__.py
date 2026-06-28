@@ -1,3 +1,4 @@
+from quickthumb import transitions
 from quickthumb.canvas import Canvas
 from quickthumb.deck import Deck, DeckDiagnostic
 from quickthumb.errors import QuickthumbError, RenderingError, ValidationError
@@ -35,10 +36,10 @@ from quickthumb.models import (
     TextFillImage,
     TextLayer,
     TextPart,
-    Transition,
     Wheel,
     Wipe,
 )
+from quickthumb.transitions import Transition
 
 __all__ = [
     "Canvas",
@@ -83,4 +84,5 @@ __all__ = [
     "TextLayer",
     "TextPart",
     "Transition",
+    "transitions",
 ]

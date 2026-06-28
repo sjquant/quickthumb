@@ -16,7 +16,7 @@ from typing_extensions import Self
 from quickthumb._base import FileFormat, aspect_ratio_dimensions
 from quickthumb.canvas import Canvas
 from quickthumb.errors import RenderingError, ValidationError
-from quickthumb.models import Transition
+from quickthumb.transitions import Transition, coerce_transition
 
 _DOCUMENT_EXTENSIONS = {".pdf", ".pptx"}
 _RASTER_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp"}
@@ -77,13 +77,7 @@ class Deck:
 
     @staticmethod
     def _coerce_transition(value: Transition | dict | str | None) -> Transition | None:
-        if value is None or isinstance(value, Transition):
-            return value
-        if isinstance(value, str):
-            return Transition(effect=value)  # type: ignore[arg-type]  # validated by the model
-        if isinstance(value, dict):
-            return Transition.model_validate(value)
-        raise ValidationError("transition must be a Transition, a dict, a string, or None.")
+        return coerce_transition(value)
 
     @classmethod
     def from_aspect_ratio(cls, ratio: str, base_width: int) -> Self:
@@ -106,31 +100,15 @@ class Deck:
     def __getitem__(self, index: int) -> Canvas:
         return self._slides[index]
 
-    def transition(
-        self,
-        effect: Transition | str = "fade",
-        duration: float = 1.0,
-        direction: str | None = None,
-        advance_on_click: bool = True,
-        advance_after: float | None = None,
-    ) -> Self:
+    def transition(self, transition: Transition | dict | str) -> Self:
         """Set the default slide transition for slides that don't set their own.
 
-        Pass a ready-made ``Transition`` as the first argument, or build one from
-        keyword arguments. A slide that sets its own transition (via
-        ``Deck.slide(..., transition=...)``) overrides this default. Honoured by
-        PPTX export only.
+        Pass a transition effect object (e.g. ``Fade()`` or ``Push(direction="left")``
+        from ``quickthumb.transitions``), a dict, or an effect string. A slide that
+        sets its own transition (via ``Deck.slide(..., transition=...)``) overrides
+        this default. Honoured by PPTX export only.
         """
-        if isinstance(effect, Transition):
-            self._transition = effect
-        else:
-            self._transition = Transition(
-                effect=effect,  # type: ignore[arg-type]  # validated by the model
-                duration=duration,
-                direction=direction,  # type: ignore[arg-type]
-                advance_on_click=advance_on_click,
-                advance_after=advance_after,
-            )
+        self._transition = self._coerce_transition(transition)
         return self
 
     @property

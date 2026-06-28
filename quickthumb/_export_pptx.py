@@ -51,11 +51,11 @@ from quickthumb.models import (
     ShapeLayer,
     Stroke,
     TextLayer,
-    Transition,
     Wheel,
     Wipe,
 )
 from quickthumb.models import Box as BoxAnimation  # avoid clash with _export_base.Box
+from quickthumb.transitions import Transition
 
 if TYPE_CHECKING:
     from quickthumb.canvas import Canvas, RenderableLayer
@@ -752,7 +752,7 @@ class PptxExporter:
         from pptx.oxml import parse_xml
         from pptx.oxml.ns import nsdecls
 
-        child = self._transition_child(transition.effect, transition.direction)
+        child = self._transition_child(transition)
         duration = transition.duration
         speed = "fast" if duration <= 0.5 else "med" if duration <= 1.0 else "slow"
 
@@ -769,46 +769,37 @@ class PptxExporter:
         )
         self._slide._element.append(parse_xml(xml))
 
-    def _transition_child(self, effect: str, direction: str | None) -> str:
-        if effect == "none":
-            return ""
-        simple = {
-            "cut": "cut",
-            "fade": "fade",
-            "dissolve": "dissolve",
-            "newsflash": "newsflash",
-            "wedge": "wedge",
-            "wheel": "wheel",
-            "circle": "circle",
-            "diamond": "diamond",
-            "random": "random",
-        }
-        if effect in simple:
-            return f"<p:{simple[effect]}/>"
+    def _transition_child(self, t: Transition) -> str:
+        """Build the DrawingML child element for a transition effect object."""
+        effect = t.effect
+        childless = ("cut", "fade", "dissolve", "newsflash", "wedge", "circle", "diamond", "random")
+        if effect in childless:
+            return f"<p:{effect}/>"
+        if effect == "wheel":
+            return f'<p:wheel spokes="{getattr(t, "spokes", 1)}"/>'
         if effect == "push":
-            return f'<p:push dir="{self._dir_4(direction, "l")}"/>'
+            return f'<p:push dir="{self._dir_4(t)}"/>'
         if effect == "wipe":
-            return f'<p:wipe dir="{self._dir_4(direction, "u")}"/>'
+            return f'<p:wipe dir="{self._dir_4(t)}"/>'
         if effect == "cover":
-            return f'<p:cover dir="{self._dir_4(direction, "d")}"/>'
+            return f'<p:cover dir="{self._dir_4(t)}"/>'
         if effect == "uncover":
-            return f'<p:pull dir="{self._dir_4(direction, "d")}"/>'
+            return f'<p:pull dir="{self._dir_4(t)}"/>'
         if effect == "zoom":
-            return f'<p:zoom dir="{"out" if direction == "out" else "in"}"/>'
+            return f'<p:zoom dir="{getattr(t, "direction", "in")}"/>'  # in / out
         if effect == "split":
-            orient = "vert" if direction in ("vertical", "up", "down") else "horz"
-            return f'<p:split orient="{orient}" dir="{"in" if direction == "in" else "out"}"/>'
+            return f'<p:split orient="{self._orient(t)}" dir="{getattr(t, "direction", "out")}"/>'
         if effect in ("blinds", "checker", "comb"):
-            return f'<p:{effect} dir="{self._dir_orient(direction)}"/>'
+            return f'<p:{effect} dir="{self._orient(t)}"/>'
         return ""
 
     @staticmethod
-    def _dir_4(direction: str | None, default: str) -> str:
-        return {"left": "l", "right": "r", "up": "u", "down": "d"}.get(direction or "", default)
+    def _dir_4(t: Transition) -> str:
+        return {"left": "l", "right": "r", "up": "u", "down": "d"}[getattr(t, "direction", "up")]
 
     @staticmethod
-    def _dir_orient(direction: str | None) -> str:
-        return "vert" if direction in ("vertical", "up", "down") else "horz"
+    def _orient(t: Transition) -> str:
+        return "vert" if getattr(t, "orientation", "horizontal") == "vertical" else "horz"
 
     # ------------------------------------------------------- element animations
 

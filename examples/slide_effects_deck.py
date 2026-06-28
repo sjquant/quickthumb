@@ -19,8 +19,10 @@ the transitions and animations play.
 
 import os
 
-from quickthumb import Box, Canvas, Deck, Fade, LinearGradient, Transition, Wheel, Wipe
+from quickthumb import Box, Canvas, Deck, Fade, LinearGradient, Wheel, Wipe
 from quickthumb.models import Shadow
+from quickthumb.transitions import Fade as FadeTransition
+from quickthumb.transitions import Push, Zoom
 
 FILE_DIR = os.path.dirname(__file__)
 ASSETS_DIR = os.path.join(FILE_DIR, "..", "assets")
@@ -205,12 +207,12 @@ closing = (
 deck = (
     Deck(1280, 720)
     # Every slide fades in by default...
-    .transition("fade", duration=0.4)
+    .transition(FadeTransition(duration=0.4))
     .slide(cover)
     .slide(agenda)
     # ...but individual slides can override that default with their own effect.
-    .slide(metric, transition=Transition(effect="zoom", direction="in", duration=0.6))
-    .slide(closing, transition="push")
+    .slide(metric, transition=Zoom(direction="in", duration=0.6))
+    .slide(closing, transition=Push(direction="left"))
 )
 
 written = deck.render(OUTPUT_PATH)

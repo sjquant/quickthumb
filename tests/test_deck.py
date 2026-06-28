@@ -6,8 +6,9 @@ from pathlib import Path
 
 import pytest
 from PIL import Image
-from quickthumb import Canvas, Deck, Transition
+from quickthumb import Canvas, Deck
 from quickthumb.errors import RenderingError, ValidationError
+from quickthumb.transitions import Dissolve, Fade, Split, Wheel
 
 from tests._optional import require_pypdfium2
 
@@ -507,13 +508,11 @@ class TestDeckTransitions:
         assert element.get("advClick") == "0"
 
     def test_should_accept_a_prebuilt_transition_object(self):
-        """A Transition instance can be used as the deck default"""
+        """A transition effect object can be used as the deck default"""
         # given
         from pptx.oxml.ns import qn
 
-        deck = Deck(1280, 720, transition=Transition(effect="dissolve", duration=1.5)).slide(
-            make_slide("1")
-        )
+        deck = Deck(1280, 720, transition=Dissolve(duration=1.5)).slide(make_slide("1"))
 
         # when
         element = self._transition_elements(deck)[0]
@@ -522,11 +521,31 @@ class TestDeckTransitions:
         assert element.find(qn("p:dissolve")) is not None
         assert element.get("spd") == "slow"
 
+    def test_should_emit_effect_specific_transition_options(self):
+        """Each transition class emits its own options (spokes, orientation)"""
+        # given
+        from pptx.oxml.ns import qn
+
+        deck = (
+            Deck(1280, 720)
+            .slide(make_slide("1"), transition=Wheel(spokes=4))
+            .slide(make_slide("2"), transition=Split(orientation="vertical", direction="in"))
+        )
+
+        # when
+        wheel = self._transition_elements(deck)[0].find(qn("p:wheel"))
+        split = self._transition_elements(deck)[1].find(qn("p:split"))
+
+        # then
+        assert wheel.get("spokes") == "4"
+        assert split.get("orient") == "vert"
+        assert split.get("dir") == "in"
+
     def test_should_reject_non_positive_transition_duration(self):
         """A zero or negative transition duration is a validation error"""
         # given / when / then
         with pytest.raises(ValidationError):
-            Transition(effect="fade", duration=0)
+            Fade(duration=0)
 
     def test_should_round_trip_default_and_per_slide_transitions_through_json(self):
         """Both the deck default and per-slide overrides survive to_json/from_json"""

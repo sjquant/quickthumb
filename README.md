@@ -436,7 +436,9 @@ animations**. These only affect `.pptx` output — every other format ignores
 them, so the same spec still renders identically to PNG, SVG, and PDF.
 
 ```python
-from quickthumb import Box, Canvas, Deck, Fade, Transition, Wipe
+from quickthumb import Box, Canvas, Deck, Fade, Wipe
+from quickthumb.transitions import Fade as FadeTransition
+from quickthumb.transitions import Push
 
 cover = (
     Canvas(1280, 720)
@@ -465,9 +467,9 @@ cover = (
 
 deck = (
     Deck(1280, 720)
-    .transition("fade")          # default transition for every slide
-    .slide(cover, transition=Transition(effect="push", duration=0.6, direction="left"))
-    .slide(Canvas().background(color="#101820"), transition="wipe")  # inline override
+    .transition(FadeTransition())     # default transition for every slide
+    .slide(cover, transition=Push(direction="left", duration=0.6))
+    .slide(Canvas().background(color="#101820"), transition="wipe")  # string shorthand
 )
 
 deck.render("review.pptx")
@@ -475,16 +477,22 @@ deck.render("review.pptx")
 
 **Transitions** are a deck concern. Set a deck-wide default with
 `Deck.transition(...)` and override a single slide with
-`Deck.slide(canvas, transition=...)`; the per-slide override always wins. Pass a
-`Transition` object, a dict, an effect string, or keyword arguments:
+`Deck.slide(canvas, transition=...)`; the per-slide override always wins. Like
+animations, each transition is its own typed class in `quickthumb.transitions`,
+exposing only the options it supports — `Push(direction="left")`,
+`Wipe(direction="up")`, `Cover`/`Uncover`, `Zoom(direction="in")`,
+`Split(orientation="vertical", direction="out")`, `Blinds`/`Checker`/`Comb`
+(`orientation=...`), `Wheel(spokes=4)`, and `Fade`/`Cut`/`Dissolve`/`Wedge`/
+`Circle`/`Diamond`/`Newsflash`/`Random` (no extra options):
 
-| Field | Description |
-| --- | --- |
-| `effect` | `fade`, `cut`, `push`, `wipe`, `split`, `cover`, `uncover`, `zoom`, `wheel`, `wedge`, `circle`, `diamond`, `dissolve`, `blinds`, `checker`, `comb`, `newsflash`, `random`, or `none` |
-| `duration` | Seconds the transition runs (default `1.0`) |
-| `direction` | `left`/`right`/`up`/`down`/`in`/`out`/`horizontal`/`vertical` for directional effects |
-| `advance_on_click` | Advance on mouse click (default `True`) |
-| `advance_after` | Auto-advance after N seconds (default `None`) |
+```python
+from quickthumb.transitions import Cover, Fade, Push, Split, Wheel, Wipe, Zoom
+```
+
+You can also pass a dict (`{"effect": "push", "direction": "left"}`) or an effect
+string (`"push"`, which uses that effect's defaults). Every transition shares the
+timing fields `duration` (seconds, default `1.0`), `advance_on_click` (default
+`True`), and `advance_after` (auto-advance after N seconds, default `None`).
 
 **Animations** attach to a `text`, `shape`, `image`, `svg`, or `group` layer via
 `animation=`, which takes a single effect or a list of effects played in order.

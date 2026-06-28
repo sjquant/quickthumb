@@ -300,64 +300,9 @@ BackgroundEffect = Annotated[Filter | Grain, Discriminator("type")]
 
 
 # --------------------------------------------------------------- slide effects
-# Slide-level transitions and per-layer entrance/exit animations. These only
-# affect PowerPoint (PPTX) output; raster, SVG, and PDF renderers ignore them.
-
-TransitionEffect = Literal[
-    "none",
-    "cut",
-    "fade",
-    "push",
-    "wipe",
-    "split",
-    "wedge",
-    "wheel",
-    "circle",
-    "diamond",
-    "dissolve",
-    "cover",
-    "uncover",
-    "zoom",
-    "blinds",
-    "checker",
-    "comb",
-    "newsflash",
-    "random",
-]
-
-EffectDirection = Literal[
-    "left", "right", "up", "down", "in", "out", "horizontal", "vertical"
-]
-
-
-class Transition(quickthumbModel):
-    """A slide transition: the animation played when advancing to this slide.
-
-    Configured on a deck as a default (``Deck.transition``) or per slide
-    (``Deck.slide(..., transition=...)``). Honoured by the PPTX exporter only.
-    """
-
-    type: Literal["transition"] = "transition"
-    effect: TransitionEffect = "fade"
-    duration: float = 1.0
-    direction: EffectDirection | None = None
-    advance_on_click: bool = True
-    advance_after: float | None = None
-
-    @field_validator("duration")
-    @classmethod
-    def validate_duration(cls, v: float) -> float:
-        if v <= 0:
-            raise ValueError("duration must be greater than 0")
-        return v
-
-    @field_validator("advance_after")
-    @classmethod
-    def validate_advance_after(cls, v: float | None) -> float | None:
-        if v is not None and v < 0:
-            raise ValueError("advance_after cannot be negative")
-        return v
-
+# Per-layer entrance/exit animations (below) and slide-level transitions (in
+# quickthumb.transitions) only affect PowerPoint (PPTX) output; raster, SVG, and
+# PDF renderers ignore them.
 
 AnimationTrigger = Literal["on_click", "with_previous", "after_previous"]
 
