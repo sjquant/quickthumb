@@ -16,6 +16,7 @@ from typing_extensions import Self
 from quickthumb._base import FileFormat, aspect_ratio_dimensions
 from quickthumb.canvas import Canvas
 from quickthumb.errors import RenderingError, ValidationError
+from quickthumb.transitions import Transition, coerce_transition
 
 _DOCUMENT_EXTENSIONS = {".pdf", ".pptx"}
 _RASTER_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp"}
@@ -51,6 +52,7 @@ class Deck:
         height: int | None = None,
         slides: list[Canvas] | None = None,
         theme: dict | None = None,
+        transition: Transition | dict | str | None = None,
     ):
         if (width is None) != (height is None):
             raise ValidationError("Provide both width and height, or neither.")
@@ -64,9 +66,18 @@ class Deck:
         self._width = width
         self._height = height
         self._theme = theme or {}
+        # Slide transitions are a deck concern (PPTX-only): a deck-wide default
+        # plus an optional per-slide override kept parallel to ``_slides``. The
+        # Canvas itself stays unaware of transitions.
+        self._transition = self._coerce_transition(transition)
         self._slides: list[Canvas] = []
+        self._slide_transitions: list[Transition | None] = []
         for slide in slides or []:
             self._append_slide(slide)
+
+    @staticmethod
+    def _coerce_transition(value: Transition | dict | str | None) -> Transition | None:
+        return coerce_transition(value)
 
     @classmethod
     def from_aspect_ratio(cls, ratio: str, base_width: int) -> Self:
@@ -89,9 +100,36 @@ class Deck:
     def __getitem__(self, index: int) -> Canvas:
         return self._slides[index]
 
-    def slide(self, canvas: Canvas) -> Self:
-        """Append a single Canvas as the next slide (chainable)."""
+    def transition(self, transition: Transition | dict | str) -> Self:
+        """Set the default slide transition for slides that don't set their own.
+
+        Pass a transition effect object (e.g. ``Fade()`` or ``Push(direction="left")``
+        from ``quickthumb.transitions``), a dict, or an effect string. A slide that
+        sets its own transition (via ``Deck.slide(..., transition=...)``) overrides
+        this default. Honoured by PPTX export only.
+        """
+        self._transition = self._coerce_transition(transition)
+        return self
+
+    @property
+    def default_transition(self) -> Transition | None:
+        """The deck-wide default slide transition, if set."""
+        return self._transition
+
+    def slide(
+        self, canvas: Canvas, transition: Transition | dict | str | None = None
+    ) -> Self:
+        """Append a single Canvas as the next slide (chainable).
+
+        Pass ``transition`` to set this slide's transition inline; it overrides
+        the deck default for this slide only.
+        """
+        # Validate the transition before mutating state so a bad value can't
+        # leave a half-added slide behind.
+        override = self._coerce_transition(transition)
         self._append_slide(canvas)
+        if override is not None:
+            self._slide_transitions[-1] = override
         return self
 
     def _append_slide(self, canvas: Canvas) -> None:
@@ -105,6 +143,12 @@ class Deck:
                 )
             canvas._inherit_size(self._width, self._height)
         self._slides.append(canvas)
+        # Stay aligned with _slides; slide() may overwrite this with an override.
+        self._slide_transitions.append(None)
+
+    def _resolved_transitions(self) -> list[Transition | None]:
+        """The effective transition per slide: its own override, else the default."""
+        return [override or self._transition for override in self._slide_transitions]
 
     def _require_slides(self) -> None:
         if not self._slides:
@@ -165,7 +209,9 @@ class Deck:
 
         from quickthumb._export_pptx import PptxExporter
 
-        PptxExporter().save_canvases(self._slides, output_path)
+        PptxExporter().save_canvases(
+            self._slides, output_path, transitions=self._resolved_transitions()
+        )
 
     def _render_sequence(
         self, output_path: str, format: FileFormat | None, quality: int | None
@@ -197,7 +243,9 @@ class Deck:
         self._require_slides()
         from quickthumb._export_pptx import PptxExporter
 
-        return PptxExporter().export_bytes_canvases(self._slides)
+        return PptxExporter().export_bytes_canvases(
+            self._slides, transitions=self._resolved_transitions()
+        )
 
     def diagnose(self) -> list[DeckDiagnostic]:
         """Collect per-slide diagnostics plus deck-wide layout warnings.
@@ -248,7 +296,17 @@ class Deck:
             payload["height"] = self._height
         if self._theme:
             payload["theme"] = self._theme
-        payload["slides"] = [json.loads(canvas.to_json()) for canvas in self._slides]
+        if self._transition is not None:
+            payload["transition"] = json.loads(self._transition.model_dump_json())
+        slides = []
+        for canvas, override in zip(self._slides, self._slide_transitions, strict=True):
+            slide = json.loads(canvas.to_json())
+            # Per-slide overrides live on the deck, so attach them to the slide
+            # dict here rather than in Canvas.to_json (which knows nothing of them).
+            if override is not None:
+                slide["transition"] = json.loads(override.model_dump_json())
+            slides.append(slide)
+        payload["slides"] = slides
         return json.dumps(payload)
 
     @classmethod
@@ -266,17 +324,26 @@ class Deck:
         if not isinstance(theme, dict):
             raise ValidationError("Deck 'theme' must be an object of token groups.")
 
-        slides = []
-        for slide in slides_raw:
-            # Share the deck-level theme with each slide so $theme.* tokens
-            # resolve; a slide's own theme block takes precedence.
-            if theme and isinstance(slide, dict):
-                slide = {**slide, "theme": {**theme, **slide.get("theme", {})}}
-            slides.append(Canvas.from_json(json.dumps(slide)))
+        transition = raw.get("transition")
+        if transition is not None and not isinstance(transition, dict):
+            raise ValidationError("Deck 'transition' must be a JSON object.")
 
-        return cls(
+        deck = cls(
             width=raw.get("width"),
             height=raw.get("height"),
-            slides=slides,
             theme=theme or None,
+            transition=transition,
         )
+        for slide in slides_raw:
+            override = None
+            if isinstance(slide, dict):
+                # Lift the per-slide transition off the spec before it reaches
+                # Canvas.from_json, which does not understand transitions.
+                override = slide.get("transition")
+                slide = {key: value for key, value in slide.items() if key != "transition"}
+                # Share the deck-level theme so $theme.* tokens resolve; a slide's
+                # own theme block takes precedence.
+                if theme:
+                    slide = {**slide, "theme": {**theme, **slide.get("theme", {})}}
+            deck.slide(Canvas.from_json(json.dumps(slide)), transition=override)
+        return deck

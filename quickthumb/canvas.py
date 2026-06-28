@@ -19,6 +19,7 @@ from quickthumb._text import TextEngine
 from quickthumb.errors import RenderingError, ValidationError
 from quickthumb.models import (
     Align,
+    AnimationInput,
     BackgroundEffect,
     BackgroundLayer,
     BlendMode,
@@ -266,6 +267,7 @@ class Canvas:
         auto_scale: bool = False,
         rotation: float = 0,
         opacity: float = 1.0,
+        animation: AnimationInput | None = None,
     ) -> Self:
         if content is None:
             raise ValidationError("content is required")
@@ -289,6 +291,7 @@ class Canvas:
             auto_scale=auto_scale,
             rotation=rotation,
             opacity=opacity,
+            animation=animation,
         )
         self._layers.append(layer)
         return self
@@ -319,6 +322,7 @@ class Canvas:
         star_points: int = 5,
         inner_radius: float = 0.5,
         effects: list[ShapeEffect] | None = None,
+        animation: AnimationInput | None = None,
     ) -> Self:
         layer = ShapeLayer(
             type="shape",
@@ -335,6 +339,7 @@ class Canvas:
             star_points=star_points,
             inner_radius=inner_radius,
             effects=effects or [],
+            animation=animation,
         )
         self._layers.append(layer)
         return self
@@ -353,6 +358,7 @@ class Canvas:
         border_radius: int = 0,
         effects: list[ImageEffect] | None = None,
         blend_mode: BlendMode | str | None = None,
+        animation: AnimationInput | None = None,
     ) -> Self:
         """Add an image overlay layer to the canvas.
 
@@ -369,6 +375,7 @@ class Canvas:
                    - String shortcut (e.g., "center", "top-left", "bottom-right")
                    - Tuple (horizontal, vertical) (e.g., ("center", "middle"))
             blend_mode: Blend mode for compositing this image onto prior layers
+            animation: Optional entrance/exit Animation applied in PPTX export
         Returns:
             Self for method chaining
         """
@@ -386,6 +393,7 @@ class Canvas:
             fit=fit,  # type: ignore[arg-type]  # Pydantic validator handles conversion
             blend_mode=blend_mode,  # type: ignore[arg-type]  # Pydantic validator handles conversion
             effects=effects or [],
+            animation=animation,
         )
         self._layers.append(layer)
         return self
@@ -401,6 +409,7 @@ class Canvas:
         align: Align | str | tuple[str, str] = Align.TOP_LEFT,
         effects: list[ImageEffect] | None = None,
         blend_mode: BlendMode | str | None = None,
+        animation: AnimationInput | None = None,
     ) -> Self:
         """Add an SVG overlay layer, rasterized at render time (requires quickthumb[svg]).
 
@@ -413,6 +422,7 @@ class Canvas:
             rotation: Rotation angle in degrees
             align: Layer alignment relative to position
             blend_mode: Blend mode for compositing onto prior layers
+            animation: Optional entrance/exit Animation applied in PPTX export
         Returns:
             Self for method chaining
         """
@@ -427,6 +437,7 @@ class Canvas:
             align=align,  # type: ignore[arg-type]  # Pydantic validator handles conversion
             blend_mode=blend_mode,  # type: ignore[arg-type]  # Pydantic validator handles conversion
             effects=effects or [],
+            animation=animation,
         )
         self._layers.append(layer)
         return self
@@ -442,6 +453,7 @@ class Canvas:
         ) = None,
         align: Align | str | tuple[str, str] | None = None,
         item_align: Literal["start", "center", "end"] = "start",
+        animation: AnimationInput | None = None,
     ) -> Self:
         """Add an auto-layout group that stacks child layers along a row or column.
 
@@ -457,6 +469,7 @@ class Canvas:
             position: Anchor point of the group box in pixels or percentages
             align: How the group box anchors to position (like image layers)
             item_align: Cross-axis placement of each child: "start", "center", or "end"
+            animation: Optional Animation applied to the whole group in PPTX export
         Returns:
             Self for method chaining
         """
@@ -468,6 +481,7 @@ class Canvas:
             position=position,  # Pydantic validator handles conversion
             align=align,  # type: ignore[arg-type]  # Pydantic validator handles conversion
             item_align=item_align,
+            animation=animation,
             children=children,
         )
         self._layers.append(layer)

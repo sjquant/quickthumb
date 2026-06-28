@@ -228,8 +228,7 @@ class TestShapeLayerSerialization:
                 "points": None,
                 "star_points": 5,
                 "inner_radius": 0.5,
-                "effects": [{"type": "stroke", "width": 2, "color": "#000000"}],
-            }
+                "effects": [{"type": "stroke", "width": 2, "color": "#000000"}], 'animation': None}
         )
 
     def test_should_round_trip_shape_layer_through_json(self):

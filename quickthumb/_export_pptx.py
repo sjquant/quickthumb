@@ -39,7 +39,10 @@ from quickthumb._export_base import (
 )
 from quickthumb.errors import RenderingError
 from quickthumb.models import (
+    Animation,
     BackgroundLayer,
+    Blinds,
+    Checkerboard,
     Glow,
     LinearGradient,
     OutlineLayer,
@@ -48,7 +51,11 @@ from quickthumb.models import (
     ShapeLayer,
     Stroke,
     TextLayer,
+    Wheel,
+    Wipe,
 )
+from quickthumb.models import Box as BoxAnimation  # avoid clash with _export_base.Box
+from quickthumb.transitions import Transition
 
 if TYPE_CHECKING:
     from quickthumb.canvas import Canvas, RenderableLayer
@@ -61,6 +68,25 @@ PPTX_MAX_SLIDE_EMU = 51206400  # 56 inches
 _STAR_SHAPES = {4, 5, 6, 7, 8, 10, 12, 16, 24, 32}
 
 _ALIGN_MAP = {"left": "LEFT", "center": "CENTER", "right": "RIGHT"}
+
+# 2010 transition extension namespace, used for a precise transition duration in
+# milliseconds (the base spd attribute only offers slow/med/fast).
+_P14_NS = "http://schemas.microsoft.com/office/powerpoint/2010/main"
+
+# presetID values PowerPoint uses to label entrance/exit effects in its UI. The
+# actual motion comes from the behaviour XML, so an approximate id is harmless.
+_ANIM_PRESET_IDS = {
+    "appear": 1,
+    "fade": 10,
+    "wipe": 22,
+    "blinds": 3,
+    "checkerboard": 5,
+    "circle": 6,
+    "diamond": 7,
+    "dissolve": 9,
+    "wheel": 21,
+    "box": 8,
+}
 
 
 def _emu(px: float) -> int:
@@ -95,17 +121,26 @@ class PptxExporter:
         presentation = self._build([self._canvas])
         presentation.save(path_or_stream)
 
-    def save_canvases(self, canvases: list[Canvas], path_or_stream) -> None:
+    def save_canvases(
+        self,
+        canvases: list[Canvas],
+        path_or_stream,
+        transitions: list[Transition | None] | None = None,
+    ) -> None:
         """Write one or more canvases to a multi-slide presentation (one slide per canvas)."""
-        presentation = self._build(canvases)
+        presentation = self._build(canvases, transitions=transitions)
         presentation.save(path_or_stream)
 
-    def export_bytes_canvases(self, canvases: list[Canvas]) -> bytes:
+    def export_bytes_canvases(
+        self, canvases: list[Canvas], transitions: list[Transition | None] | None = None
+    ) -> bytes:
         buffer = BytesIO()
-        self.save_canvases(canvases, buffer)
+        self.save_canvases(canvases, buffer, transitions=transitions)
         return buffer.getvalue()
 
-    def _build(self, canvases: list[Canvas]):
+    def _build(
+        self, canvases: list[Canvas], transitions: list[Transition | None] | None = None
+    ):
         from pptx import Presentation
         from pptx.util import Emu
 
@@ -122,13 +157,15 @@ class PptxExporter:
         presentation.slide_width = Emu(_emu(first.width))
         presentation.slide_height = Emu(_emu(first.height))
 
-        for canvas in canvases:
+        for index, canvas in enumerate(canvases):
             canvas._validate_image_paths()
             canvas._ctx.begin_render_pass()
             self._canvas = canvas
             if canvas is not first:  # the first slide was already validated above
                 self._validate_slide_dimensions()
             self._slide = presentation.slides.add_slide(presentation.slide_layouts[6])
+            # (animation-or-list, [shape_id, ...]) records collected per layer.
+            self._anim_records: list[tuple[object, list[int]]] = []
 
             prefix, rest = split_backdrop_prefix(flatten_layers(canvas))
             if prefix:
@@ -136,7 +173,14 @@ class PptxExporter:
                 if fragment:
                     self._add_fragment(fragment)
             for layer in rest:
-                self._emit_layer(layer)
+                self._emit_tracked_layer(layer)
+
+            transition = transitions[index] if transitions else None
+            if transition is not None:
+                self._apply_transition(transition)
+            entries = self._resolve_animation_entries()
+            if entries:
+                self._apply_timing(entries)
 
         return presentation
 
@@ -158,6 +202,49 @@ class PptxExporter:
         )
 
     # ------------------------------------------------------------------ layers
+
+    def _emit_tracked_layer(self, layer: RenderableLayer):
+        """Emit a layer, recording the shape ids it produces if it is animated.
+
+        Animations target shapes by id, so we diff the slide's shapes before and
+        after emitting; whatever is new belongs to this layer. A single layer can
+        produce several shapes (e.g. a text box plus its background fills), and
+        the animation is applied to all of them together.
+        """
+        animation = getattr(layer, "animation", None)
+        if animation is None:
+            self._emit_layer(layer)
+            return
+
+        before = {shape.shape_id for shape in self._slide.shapes}
+        self._emit_layer(layer)
+        new_ids = [
+            shape.shape_id for shape in self._slide.shapes if shape.shape_id not in before
+        ]
+        if new_ids:
+            self._anim_records.append((animation, new_ids))
+
+    def _resolve_animation_entries(self) -> list[tuple[Animation, list[int]]]:
+        """Turn the per-layer records into (animation, shape_ids) effect entries.
+
+        Consecutive records that share the *same* animation object are the
+        flattened children of one animated group; they merge into a single target
+        set so the group animates as one effect. Each record's animation (a single
+        effect or a list) then expands into one entry per effect.
+        """
+        merged: list[tuple[object, list[int]]] = []
+        for animation, ids in self._anim_records:
+            if merged and merged[-1][0] is animation:
+                merged[-1][1].extend(ids)
+            else:
+                merged.append((animation, list(ids)))
+
+        entries: list[tuple[Animation, list[int]]] = []
+        for animation, ids in merged:
+            anims = animation if isinstance(animation, list) else [animation]
+            for anim in anims:
+                entries.append((anim, ids))
+        return entries
 
     def _emit_layer(self, layer: RenderableLayer):
         if isinstance(layer, BackgroundLayer):
@@ -657,3 +744,202 @@ class PptxExporter:
             f"{self._srgb_xml(rgba)}</a:solidFill></a:ln>"
         )
         rpr.insert(0, parse_xml(xml))
+
+    # ------------------------------------------------------ slide transitions
+
+    def _apply_transition(self, transition: Transition):
+        """Append a <p:transition> element describing this slide's transition."""
+        from pptx.oxml import parse_xml
+        from pptx.oxml.ns import nsdecls
+
+        child = self._transition_child(transition)
+        duration = transition.duration
+        speed = "fast" if duration <= 0.5 else "med" if duration <= 1.0 else "slow"
+
+        attrs = [f'spd="{speed}"', f'advClick="{1 if transition.advance_on_click else 0}"']
+        if transition.advance_after is not None:
+            attrs.append(f'advTm="{int(round(transition.advance_after * 1000))}"')
+
+        # spd alone is coarse (slow/med/fast); p14:dur carries the exact duration
+        # for PowerPoint 2010+ and is declared inline so the element stays valid.
+        xml = (
+            f'<p:transition {nsdecls("p")} xmlns:p14="{_P14_NS}" '
+            f'{" ".join(attrs)} p14:dur="{int(round(duration * 1000))}">'
+            f"{child}</p:transition>"
+        )
+        self._slide._element.append(parse_xml(xml))
+
+    def _transition_child(self, t: Transition) -> str:
+        """Build the DrawingML child element for a transition effect object."""
+        effect = t.effect
+        childless = ("cut", "fade", "dissolve", "newsflash", "wedge", "circle", "diamond", "random")
+        if effect in childless:
+            return f"<p:{effect}/>"
+        if effect == "wheel":
+            return f'<p:wheel spokes="{getattr(t, "spokes", 1)}"/>'
+        if effect == "push":
+            return f'<p:push dir="{self._dir_4(t)}"/>'
+        if effect == "wipe":
+            return f'<p:wipe dir="{self._dir_4(t)}"/>'
+        if effect == "cover":
+            return f'<p:cover dir="{self._dir_4(t)}"/>'
+        if effect == "uncover":
+            return f'<p:pull dir="{self._dir_4(t)}"/>'
+        if effect == "zoom":
+            return f'<p:zoom dir="{getattr(t, "direction", "in")}"/>'  # in / out
+        if effect == "split":
+            return f'<p:split orient="{self._orient(t)}" dir="{getattr(t, "direction", "out")}"/>'
+        if effect in ("blinds", "checker", "comb"):
+            return f'<p:{effect} dir="{self._orient(t)}"/>'
+        return ""
+
+    @staticmethod
+    def _dir_4(t: Transition) -> str:
+        return {"left": "l", "right": "r", "up": "u", "down": "d"}[getattr(t, "direction", "up")]
+
+    @staticmethod
+    def _orient(t: Transition) -> str:
+        return "vert" if getattr(t, "orientation", "horizontal") == "vertical" else "horz"
+
+    # ------------------------------------------------------- element animations
+
+    def _apply_timing(self, animations: list[tuple[Animation, list[int]]]):
+        """Append a <p:timing> tree animating the collected shapes in order."""
+        from pptx.oxml import parse_xml
+        from pptx.oxml.ns import nsdecls
+
+        # cTn ids 1 (tmRoot) and 2 (mainSeq) are fixed; the rest count up from 3.
+        self._tn_id = 2
+        groups = self._group_animations(animations)
+        group_xml = "".join(self._build_click_group(group) for group in groups)
+
+        seq = (
+            '<p:seq concurrent="1" nextAc="seek">'
+            '<p:cTn id="2" dur="indefinite" nodeType="mainSeq"><p:childTnLst>'
+            f"{group_xml}"
+            "</p:childTnLst></p:cTn>"
+            '<p:prevCondLst><p:cond evt="onPrev" delay="0">'
+            "<p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:prevCondLst>"
+            '<p:nextCondLst><p:cond evt="onNext" delay="0">'
+            "<p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:nextCondLst>"
+            "</p:seq>"
+        )
+        xml = (
+            f"<p:timing {nsdecls('p')}><p:tnLst>"
+            '<p:par><p:cTn id="1" dur="indefinite" restart="never" nodeType="tmRoot">'
+            f"<p:childTnLst>{seq}</p:childTnLst></p:cTn></p:par>"
+            "</p:tnLst></p:timing>"
+        )
+        self._slide._element.append(parse_xml(xml))
+
+    @staticmethod
+    def _group_animations(
+        animations: list[tuple[Animation, list[int]]],
+    ) -> list[list[tuple[Animation, list[int]]]]:
+        """Split animations into click groups; with_previous joins the open group."""
+        groups: list[list[tuple[Animation, list[int]]]] = []
+        for anim, ids in animations:
+            if not groups or anim.trigger != "with_previous":
+                groups.append([])
+            groups[-1].append((anim, ids))
+        return groups
+
+    def _build_click_group(self, group: list[tuple[Animation, list[int]]]) -> str:
+        # The first effect's trigger decides whether the group waits for a click
+        # (indefinite) or starts automatically after the previous one (0).
+        outer_delay = "0" if group[0][0].trigger == "after_previous" else "indefinite"
+        outer_id = self._next_id()
+        inner_id = self._next_id()
+        effects = "".join(
+            self._build_effect_par(anim, ids, index)
+            for index, (anim, ids) in enumerate(group)
+        )
+        return (
+            "<p:par>"
+            f'<p:cTn id="{outer_id}" fill="hold">'
+            f'<p:stCondLst><p:cond delay="{outer_delay}"/></p:stCondLst>'
+            "<p:childTnLst><p:par>"
+            f'<p:cTn id="{inner_id}" fill="hold">'
+            '<p:stCondLst><p:cond delay="0"/></p:stCondLst>'
+            f"<p:childTnLst>{effects}</p:childTnLst>"
+            "</p:cTn></p:par></p:childTnLst>"
+            "</p:cTn></p:par>"
+        )
+
+    def _build_effect_par(self, anim: Animation, ids: list[int], index: int) -> str:
+        if index == 0:
+            node_type = "afterEffect" if anim.trigger == "after_previous" else "clickEffect"
+        else:
+            node_type = "withEffect"
+        effect_id = self._next_id()
+        preset_id = _ANIM_PRESET_IDS.get(anim.effect, 10)
+        preset_class = "exit" if anim.animate == "exit" else "entr"
+        behaviors = "".join(self._build_behaviors(anim, sid) for sid in ids)
+        return (
+            "<p:par>"
+            f'<p:cTn id="{effect_id}" presetID="{preset_id}" presetClass="{preset_class}" '
+            f'presetSubtype="0" fill="hold" grpId="0" nodeType="{node_type}">'
+            f'<p:stCondLst><p:cond delay="{int(round(anim.delay * 1000))}"/></p:stCondLst>'
+            f"<p:childTnLst>{behaviors}</p:childTnLst>"
+            "</p:cTn></p:par>"
+        )
+
+    def _build_behaviors(self, anim: Animation, sid: int) -> str:
+        duration_ms = int(round(anim.duration * 1000))
+        if anim.animate == "exit":
+            parts = []
+            if anim.effect != "appear":
+                parts.append(
+                    self._anim_effect_xml("out", self._anim_filter(anim), duration_ms, sid)
+                )
+            # Pin the shape hidden once it has animated out.
+            parts.append(self._set_visibility_xml(sid, "hidden", delay=duration_ms))
+            return "".join(parts)
+
+        # Entrance: reveal the shape, then play the chosen filter.
+        parts = [self._set_visibility_xml(sid, "visible", delay=0)]
+        if anim.effect != "appear":
+            parts.append(
+                self._anim_effect_xml("in", self._anim_filter(anim), duration_ms, sid)
+            )
+        return "".join(parts)
+
+    def _set_visibility_xml(self, sid: int, value: str, delay: int) -> str:
+        cid = self._next_id()
+        return (
+            "<p:set><p:cBhvr>"
+            f'<p:cTn id="{cid}" dur="1" fill="hold">'
+            f'<p:stCondLst><p:cond delay="{delay}"/></p:stCondLst></p:cTn>'
+            f'<p:tgtEl><p:spTgt spid="{sid}"/></p:tgtEl>'
+            "<p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst>"
+            f'</p:cBhvr><p:to><p:strVal val="{value}"/></p:to></p:set>'
+        )
+
+    def _anim_effect_xml(self, transition: str, filt: str, duration_ms: int, sid: int) -> str:
+        cid = self._next_id()
+        return (
+            f'<p:animEffect transition="{transition}" filter="{filt}"><p:cBhvr>'
+            f'<p:cTn id="{cid}" dur="{duration_ms}"/>'
+            f'<p:tgtEl><p:spTgt spid="{sid}"/></p:tgtEl>'
+            "</p:cBhvr></p:animEffect>"
+        )
+
+    @staticmethod
+    def _anim_filter(anim: Animation) -> str:
+        """Map an animation effect to its PowerPoint animEffect filter string."""
+        if isinstance(anim, Wipe):
+            return f"wipe({anim.direction})"
+        if isinstance(anim, Blinds):
+            return f"blinds({anim.orientation})"
+        if isinstance(anim, Checkerboard):
+            return f"checkerboard({anim.direction})"
+        if isinstance(anim, Wheel):
+            return f"wheel({anim.spokes})"
+        if isinstance(anim, BoxAnimation):
+            return f"box({anim.direction})"
+        # fade, circle, diamond, dissolve map straight through.
+        return anim.effect
+
+    def _next_id(self) -> int:
+        self._tn_id += 1
+        return self._tn_id

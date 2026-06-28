@@ -4,7 +4,7 @@ from io import BytesIO
 from pathlib import Path
 
 import pytest
-from quickthumb import Canvas, LinearGradient, TextPart
+from quickthumb import Canvas, Fade, LinearGradient, TextPart, Wipe
 from quickthumb.errors import RenderingError
 from quickthumb.models import Background, Glow, RadialGradient, Shadow, Stroke
 
@@ -12,12 +12,17 @@ pptx = pytest.importorskip("pptx")
 
 from pptx import Presentation  # noqa: E402
 from pptx.enum.shapes import MSO_SHAPE, MSO_SHAPE_TYPE  # noqa: E402
+from pptx.oxml.ns import qn  # noqa: E402
 from pptx.presentation import Presentation as PresentationDocument  # noqa: E402
 from pptx.util import Emu  # noqa: E402
 
 EMU_PER_PX = 9525
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 SAMPLE_IMAGE = str(FIXTURES_DIR / "sample_image.jpg")
+
+
+def timing_of(canvas: Canvas):
+    return open_pptx(canvas).slides[0]._element.find(qn("p:timing"))
 
 
 def open_pptx(canvas: Canvas) -> PresentationDocument:
@@ -408,3 +413,296 @@ class TestPptxEmbeddedLayers:
             MSO_SHAPE_TYPE.PICTURE,
             MSO_SHAPE_TYPE.AUTO_SHAPE,
         ]
+
+
+class TestPptxElementAnimations:
+    """Test suite for per-layer animations emitted as a <p:timing> tree."""
+
+    def test_should_not_emit_timing_without_animations(self):
+        """A slide with no animated layers produces no <p:timing> element"""
+        # given
+        canvas = Canvas(400, 300).background(color="#000000").text(
+            "Hi", size=40, position=(10, 10)
+        )
+
+        # when
+        timing = timing_of(canvas)
+
+        # then
+        assert timing is None
+
+    def test_should_emit_entrance_animation_targeting_the_shape(self):
+        """An animated shape gets a clickEffect targeting its shape id"""
+        # given
+        canvas = Canvas(400, 300).shape(
+            shape="rectangle",
+            position=(10, 10),
+            width=80,
+            height=40,
+            color="#FF0000",
+            animation=Fade(),
+        )
+        document = open_pptx(canvas)
+        shape = document.slides[0].shapes[0]
+
+        # when
+        timing = document.slides[0]._element.find(qn("p:timing"))
+        targets = {t.get("spid") for t in timing.iter(qn("p:spTgt"))}
+        node_types = [c.get("nodeType") for c in timing.iter(qn("p:cTn")) if c.get("nodeType")]
+
+        # then
+        assert str(shape.shape_id) in targets
+        assert "mainSeq" in node_types
+        assert "clickEffect" in node_types
+        assert [e.get("filter") for e in timing.iter(qn("p:animEffect"))] == ["fade"]
+
+    def test_should_map_wipe_direction_to_animation_filter(self):
+        """A directional wipe animation encodes the direction in its filter"""
+        # given
+        canvas = Canvas(400, 300).text(
+            "Slide in",
+            size=40,
+            position=(10, 10),
+            animation=Wipe(direction="right"),
+        )
+
+        # when
+        timing = timing_of(canvas)
+
+        # then
+        assert [e.get("filter") for e in timing.iter(qn("p:animEffect"))] == ["wipe(right)"]
+
+    def test_should_play_a_list_of_animations_on_one_layer_in_order(self):
+        """A layer can carry several animations that target the same shape in order"""
+        # given an entrance fade followed by an exit wipe on the same text layer
+        canvas = Canvas(400, 300).text(
+            "Hi",
+            size=40,
+            position=(10, 10),
+            animation=[Fade(), Wipe(animate="exit", direction="down", trigger="after_previous")],
+        )
+        document = open_pptx(canvas)
+        shape_id = str(document.slides[0].shapes[0].shape_id)
+
+        # when
+        timing = document.slides[0]._element.find(qn("p:timing"))
+        filters = [e.get("filter") for e in timing.iter(qn("p:animEffect"))]
+        node_types = [c.get("nodeType") for c in timing.iter(qn("p:cTn")) if c.get("nodeType")]
+        targets = {t.get("spid") for t in timing.iter(qn("p:spTgt"))}
+
+        # then both effects run, in order, against the one shape
+        assert filters == ["fade", "wipe(down)"]
+        assert "clickEffect" in node_types and "afterEffect" in node_types
+        assert targets == {shape_id}
+
+    def test_should_encode_effect_specific_options(self):
+        """Each effect class emits its own filter options (orientation, spokes)"""
+        # given a blinds and a wheel animation with effect-specific kwargs
+        from quickthumb import Blinds, Wheel
+
+        canvas = (
+            Canvas(400, 300)
+            .shape(
+                shape="rectangle",
+                position=(10, 10),
+                width=60,
+                height=60,
+                color="#FF0000",
+                animation=Blinds(orientation="vertical"),
+            )
+            .shape(
+                shape="ellipse",
+                position=(90, 10),
+                width=60,
+                height=60,
+                color="#00FF00",
+                animation=Wheel(spokes=4, trigger="after_previous"),
+            )
+        )
+
+        # when
+        filters = [e.get("filter") for e in timing_of(canvas).iter(qn("p:animEffect"))]
+
+        # then
+        assert filters == ["blinds(vertical)", "wheel(4)"]
+
+    def test_should_group_with_previous_into_one_click(self):
+        """with_previous shares a click group; on_click starts a new one"""
+        # given
+        canvas = (
+            Canvas(400, 300)
+            .shape(
+                shape="rectangle",
+                position=(10, 10),
+                width=40,
+                height=40,
+                color="#FF0000",
+                animation=Fade(trigger="on_click"),
+            )
+            .shape(
+                shape="ellipse",
+                position=(60, 10),
+                width=40,
+                height=40,
+                color="#00FF00",
+                animation=Fade(trigger="with_previous"),
+            )
+            .shape(
+                shape="pill",
+                position=(110, 10),
+                width=40,
+                height=40,
+                color="#0000FF",
+                animation=Fade(trigger="on_click"),
+            )
+        )
+
+        # when
+        timing = timing_of(canvas)
+        main_seq = next(c for c in timing.iter(qn("p:cTn")) if c.get("nodeType") == "mainSeq")
+        click_groups = main_seq.find(qn("p:childTnLst")).findall(qn("p:par"))
+        node_types = [c.get("nodeType") for c in timing.iter(qn("p:cTn")) if c.get("nodeType")]
+
+        # then
+        assert len(click_groups) == 2  # two clicks: [fade+fade], [fade]
+        assert node_types.count("clickEffect") == 2
+        assert node_types.count("withEffect") == 1
+
+    def test_should_emit_after_previous_as_auto_advancing_group(self):
+        """after_previous starts its group automatically (delay 0, afterEffect)"""
+        # given
+        canvas = (
+            Canvas(400, 300)
+            .text(
+                "First",
+                size=40,
+                position=(10, 10),
+                animation=Fade(trigger="on_click"),
+            )
+            .text(
+                "Second",
+                size=40,
+                position=(10, 80),
+                animation=Fade(trigger="after_previous"),
+            )
+        )
+
+        # when
+        timing = timing_of(canvas)
+        node_types = [c.get("nodeType") for c in timing.iter(qn("p:cTn")) if c.get("nodeType")]
+
+        # then
+        assert "afterEffect" in node_types
+
+    def test_should_emit_exit_animation_hiding_the_shape(self):
+        """An exit animation plays out and pins visibility to hidden"""
+        # given
+        canvas = Canvas(400, 300).shape(
+            shape="rectangle",
+            position=(10, 10),
+            width=80,
+            height=40,
+            color="#FF0000",
+            animation=Fade(animate="exit"),
+        )
+
+        # when
+        timing = timing_of(canvas)
+        effect = next(c for c in timing.iter(qn("p:cTn")) if c.get("presetClass"))
+        visibility = [v.get("val") for v in timing.iter(qn("p:strVal"))]
+
+        # then
+        assert effect.get("presetClass") == "exit"
+        assert "hidden" in visibility
+
+    def test_should_animate_all_shapes_a_text_layer_produces(self):
+        """A text layer with a background fill animates the box and its background together"""
+        # given
+        canvas = Canvas(400, 300).text(
+            "Boxed",
+            size=40,
+            position=(10, 10),
+            effects=[Background(color="#222222", padding=8)],
+            animation=Fade(),
+        )
+        document = open_pptx(canvas)
+
+        # when
+        timing = document.slides[0]._element.find(qn("p:timing"))
+        animated = {t.get("spid") for t in timing.iter(qn("p:spTgt"))}
+        all_ids = {str(s.shape_id) for s in document.slides[0].shapes}
+
+        # then: every shape the layer produced is animated (background + text box)
+        assert len(animated) >= 2
+        assert animated <= all_ids
+
+    def test_should_animate_a_group_as_a_single_effect(self):
+        """A group animation plays across all its children on one click"""
+        # given
+        canvas = Canvas(1280, 720).group(
+            children=[
+                {"type": "text", "content": "Agenda", "size": 90, "color": "#FFFFFF"},
+                {"type": "shape", "shape": "pill", "width": 200, "height": 40, "color": "#B8FF00"},
+            ],
+            position=("50%", "50%"),
+            align="center",
+            animation=Fade(trigger="on_click"),
+        )
+
+        # when
+        timing = timing_of(canvas)
+        main_seq = next(c for c in timing.iter(qn("p:cTn")) if c.get("nodeType") == "mainSeq")
+        click_groups = main_seq.find(qn("p:childTnLst")).findall(qn("p:par"))
+        node_types = [c.get("nodeType") for c in timing.iter(qn("p:cTn")) if c.get("nodeType")]
+        animated = {t.get("spid") for t in timing.iter(qn("p:spTgt"))}
+
+        # then: one click drives a single effect that targets both children
+        assert len(click_groups) == 1
+        assert node_types.count("clickEffect") == 1
+        assert node_types.count("withEffect") == 0
+        assert len(animated) == 2
+
+    def test_group_animation_should_take_precedence_over_child_animations(self):
+        """A group animation drives all children as one effect, ignoring child ones"""
+        # given a group animation plus a conflicting child animation
+        canvas = Canvas(1280, 720).group(
+            children=[
+                {"type": "text", "content": "A", "size": 60, "color": "#FFFFFF"},
+                {
+                    "type": "shape",
+                    "shape": "pill",
+                    "width": 120,
+                    "height": 40,
+                    "color": "#B8FF00",
+                    "animation": {"effect": "wipe", "trigger": "on_click"},
+                },
+            ],
+            position=("50%", "50%"),
+            align="center",
+            animation=Fade(trigger="on_click"),
+        )
+
+        # when
+        timing = timing_of(canvas)
+        main_seq = next(c for c in timing.iter(qn("p:cTn")) if c.get("nodeType") == "mainSeq")
+        click_groups = main_seq.find(qn("p:childTnLst")).findall(qn("p:par"))
+        filters = [e.get("filter") for e in timing.iter(qn("p:animEffect"))]
+
+        # then: one click, both children fade (the child's own wipe is overridden)
+        assert len(click_groups) == 1
+        assert filters == ["fade", "fade"]
+
+    def test_should_reproduce_animation_through_json_round_trip(self):
+        """Animations survive to_json/from_json and still emit timing"""
+        # given
+        canvas = Canvas(400, 300).text(
+            "Hi", size=40, position=(10, 10), animation=Wipe(direction="up")
+        )
+
+        # when
+        restored = Canvas.from_json(canvas.to_json())
+        timing = timing_of(restored)
+
+        # then
+        assert timing is not None
+        assert [e.get("filter") for e in timing.iter(qn("p:animEffect"))] == ["wipe(up)"]

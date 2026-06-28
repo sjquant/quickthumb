@@ -56,20 +56,53 @@ def flatten_layers(canvas: Canvas) -> list[RenderableLayer]:
 
 
 def _flatten_group(
-    canvas: Canvas, group: GroupLayer, origin: tuple[int, int] | None = None
+    canvas: Canvas,
+    group: GroupLayer,
+    origin: tuple[int, int] | None = None,
+    inherited_animation=None,
 ) -> list[RenderableLayer]:
+    # An enclosing animated group wins over this group's own animation, so the
+    # outermost animation drives everything beneath it. Every flattened child
+    # carries the *same* animation object; the PPTX exporter recognises that
+    # shared identity to animate the whole group as one effect.
+    animation = inherited_animation or group.animation
     placements, _ = canvas._groups.layout_group(group, origin)
     placed: list[RenderableLayer] = []
     for child, position, size in placements:
         if isinstance(child, GroupLayer):
-            placed.extend(_flatten_group(canvas, child, origin=position))
+            placed.extend(_flatten_group(canvas, child, position, inherited_animation=animation))
         elif isinstance(child, TextLayer):
-            placed.append(canvas._groups.place_text_child(child, position, size))
+            placed.append(
+                _with_group_animation(
+                    canvas._groups.place_text_child(child, position, size), animation
+                )
+            )
         elif isinstance(child, ShapeLayer):
-            placed.append(child.model_copy(update={"position": position, "align": None}))
+            placed.append(
+                _with_group_animation(
+                    child.model_copy(update={"position": position, "align": None}), animation
+                )
+            )
         else:  # ImageLayer | SvgLayer
-            placed.append(child.model_copy(update={"position": position, "align": Align.TOP_LEFT}))
+            placed.append(
+                _with_group_animation(
+                    child.model_copy(update={"position": position, "align": Align.TOP_LEFT}),
+                    animation,
+                )
+            )
     return placed
+
+
+def _with_group_animation(layer, animation):
+    """Stamp a group's animation onto one of its flattened children.
+
+    A group animation drives all of the group's children as one effect and takes
+    precedence over any animation set on a child. When the group has none, the
+    child keeps whatever animation it set itself.
+    """
+    if animation is None:
+        return layer
+    return layer.model_copy(update={"animation": animation})
 
 
 def is_backdrop_dependent(layer: RenderableLayer) -> bool:

@@ -1,12 +1,22 @@
+from quickthumb import transitions
 from quickthumb.canvas import Canvas
 from quickthumb.deck import Deck, DeckDiagnostic
 from quickthumb.errors import QuickthumbError, RenderingError, ValidationError
 from quickthumb.models import (
     Align,
+    Animation,
+    Appear,
     Background,
     BackgroundLayer,
     BlendMode,
+    Blinds,
+    Box,
+    Checkerboard,
+    Circle,
     Diagnostic,
+    Diamond,
+    Dissolve,
+    Fade,
     Filter,
     FitMode,
     Glow,
@@ -26,7 +36,10 @@ from quickthumb.models import (
     TextFillImage,
     TextLayer,
     TextPart,
+    Wheel,
+    Wipe,
 )
+from quickthumb.transitions import Transition
 
 __all__ = [
     "Canvas",
@@ -36,6 +49,17 @@ __all__ = [
     "RenderingError",
     "ValidationError",
     "Align",
+    "Animation",
+    "Appear",
+    "Blinds",
+    "Box",
+    "Checkerboard",
+    "Circle",
+    "Diamond",
+    "Dissolve",
+    "Fade",
+    "Wheel",
+    "Wipe",
     "Diagnostic",
     "GroupLayer",
     "Background",
@@ -59,4 +83,6 @@ __all__ = [
     "TextFillImage",
     "TextLayer",
     "TextPart",
+    "Transition",
+    "transitions",
 ]

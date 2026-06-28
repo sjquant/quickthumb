@@ -428,6 +428,101 @@ slides larger than the first are clipped by PowerPoint — keep deck slides a
 uniform size when targeting `.pptx`. Decks round-trip through JSON with
 `deck.to_json()` / `Deck.from_json(...)`, reusing the per-canvas serialization.
 
+### Slide effects (PPTX transitions and animations)
+
+When you export to PowerPoint, slides can carry a **transition** (the animation
+played as the slide appears) and individual layers can carry **entrance/exit
+animations**. These only affect `.pptx` output — every other format ignores
+them, so the same spec still renders identically to PNG, SVG, and PDF.
+
+```python
+from quickthumb import Box, Canvas, Deck, Fade, Wipe
+from quickthumb.transitions import Fade as FadeTransition
+from quickthumb.transitions import Push
+
+cover = (
+    Canvas(1280, 720)
+    .background(color="#101820")
+    .text(
+        "Quarterly Review",
+        size=110,
+        color="#B8FF00",
+        position=("50%", "40%"),
+        align="center",
+        animation=Fade(),  # fades in on first click
+    )
+    .text(
+        "FY25 · Q3",
+        size=56,
+        color="#FFFFFF",
+        position=("50%", "62%"),
+        align="center",
+        # a list plays in order: zoom in, then wipe back out
+        animation=[
+            Box(direction="in", trigger="after_previous"),
+            Wipe(direction="up", animate="exit", trigger="after_previous"),
+        ],
+    )
+)
+
+deck = (
+    Deck(1280, 720)
+    .transition(FadeTransition())     # default transition for every slide
+    .slide(cover, transition=Push(direction="left", duration=0.6))
+    .slide(Canvas().background(color="#101820"), transition="wipe")  # string shorthand
+)
+
+deck.render("review.pptx")
+```
+
+**Transitions** are a deck concern. Set a deck-wide default with
+`Deck.transition(...)` and override a single slide with
+`Deck.slide(canvas, transition=...)`; the per-slide override always wins. Like
+animations, each transition is its own typed class in `quickthumb.transitions`,
+exposing only the options it supports — `Push(direction="left")`,
+`Wipe(direction="up")`, `Cover`/`Uncover`, `Zoom(direction="in")`,
+`Split(orientation="vertical", direction="out")`, `Blinds`/`Checker`/`Comb`
+(`orientation=...`), `Wheel(spokes=4)`, and `Fade`/`Cut`/`Dissolve`/`Wedge`/
+`Circle`/`Diamond`/`Newsflash`/`Random` (no extra options):
+
+```python
+from quickthumb.transitions import Cover, Fade, Push, Split, Wheel, Wipe, Zoom
+```
+
+You can also pass a dict (`{"effect": "push", "direction": "left"}`) or an effect
+string (`"push"`, which uses that effect's defaults). Every transition shares the
+timing fields `duration` (seconds, default `1.0`), `advance_on_click` (default
+`True`), and `advance_after` (auto-advance after N seconds, default `None`).
+
+**Animations** attach to a `text`, `shape`, `image`, `svg`, or `group` layer via
+`animation=`, which takes a single effect or a list of effects played in order.
+Each effect is its own class, so it only exposes the options it actually
+supports — `Wipe(direction="up")`, `Box(direction="in")`, `Blinds(orientation="vertical")`,
+`Checkerboard(direction="down")`, `Wheel(spokes=3)`, and `Appear`/`Fade`/`Circle`/
+`Diamond`/`Dissolve` (no extra options):
+
+```python
+from quickthumb import Appear, Blinds, Box, Checkerboard, Circle, Diamond, Dissolve, Fade, Wheel, Wipe
+```
+
+Every effect shares the same timing fields:
+
+| Field | Description |
+| --- | --- |
+| `animate` | `entrance` (default) or `exit` |
+| `duration` | Seconds the animation runs (default `0.5`) |
+| `delay` | Seconds to wait before it starts (default `0.0`) |
+| `trigger` | `on_click` (default), `with_previous`, or `after_previous` |
+
+`trigger` controls sequencing: `on_click` waits for a click, `with_previous`
+runs alongside the previous animation, and `after_previous` starts automatically
+when the previous one finishes. A layer that maps to several PowerPoint shapes
+(e.g. text with a background fill) animates them together, and a `group`
+animation drives all of the group's children as one effect — taking precedence
+over any animation set on an individual child. Animations and transitions
+round-trip through JSON with the rest of the spec (an effect serializes with its
+`effect` tag, e.g. `{"effect": "wipe", "direction": "up"}`).
+
 ## JSON-First Workflow
 
 quickthumb can round-trip most canvases through JSON:
@@ -539,6 +634,7 @@ os.environ["QUICKTHUMB_DEFAULT_FONT"] = "Roboto"
 | Export | PNG, JPEG, WebP, file output, base64, data URLs |
 | Document renderers | SVG (`to_svg()`), editable PPTX via `quickthumb[pptx]`, PDF via `quickthumb[pdf]` |
 | Decks | `Deck` of multiple slides: multi-page PDF, multi-slide PPTX, numbered image sequences, per-slide diagnostics |
+| Slide effects | PPTX slide `Transition`s (per-slide or deck default) and per-layer entrance/exit `Animation`s |
 | Serialization | `to_json()` / `from_json()` for built-in layer types and named custom layers |
 
 ## Real Example Scripts
@@ -549,6 +645,7 @@ See the shipped examples in [`examples/README.md`](examples/README.md):
 - `examples/youtube_thumbnail_02.py`
 - `examples/instagram_news_card.py`
 - `examples/launch_announcement.py` — the 0.5 feature set (groups, theme tokens, shapes, SVG, diagnostics) in one JSON spec
+- `examples/slide_effects_deck.py` — a multi-slide PPTX `Deck` with slide transitions and per-layer entrance/exit animations
 
 ## Gotchas
 
@@ -562,6 +659,9 @@ See the shipped examples in [`examples/README.md`](examples/README.md):
 - Group children must not set `position`; the group assigns positions (their `align` is also ignored — use `item_align`)
 - `svg` layers raise `RenderingError` unless `quickthumb[svg]` (cairosvg) is installed
 - `theme` blocks are resolved at parse time; `to_json()` emits resolved values without the `theme` block
+- Slide `Transition`s and layer `Animation`s only affect PPTX output; raster, SVG, and PDF renderers ignore them
+- Transitions live on the `Deck` (default plus per-slide override), not on `Canvas`; a per-slide override wins over the deck default
+- Animations are valid on `text`, `shape`, `image`, `svg`, and `group` layers; pass one effect or a list of effects played in order
 
 ## Development
 
