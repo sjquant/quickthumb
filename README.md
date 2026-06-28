@@ -637,6 +637,7 @@ See the shipped examples in [`examples/README.md`](examples/README.md):
 - `examples/youtube_thumbnail_02.py`
 - `examples/instagram_news_card.py`
 - `examples/launch_announcement.py` — the 0.5 feature set (groups, theme tokens, shapes, SVG, diagnostics) in one JSON spec
+- `examples/slide_effects_deck.py` — a multi-slide PPTX `Deck` with slide transitions and per-layer entrance/exit animations
 
 ## Gotchas
 

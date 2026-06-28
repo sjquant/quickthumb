@@ -16,6 +16,7 @@ uv run python examples/instagram_news_card.py
 uv run python examples/podcast_interview_promo.py
 uv run python examples/shorts_cover_agent.py
 uv run python examples/launch_announcement.py
+uv run python examples/slide_effects_deck.py
 ```
 
 All examples write their rendered image back into this directory.
@@ -149,6 +150,20 @@ Shows the quickthumb 0.5 feature set in a single themed JSON spec:
 - `canvas.diagnose()` before rendering, mirroring `quickthumb lint`
 
 Use it when you want a brandable announcement-card template whose layout survives copy changes, or as a reference spec for LLM-generated layouts.
+
+### `slide_effects_deck.py`
+
+Output: `slide_effects_deck.pptx` (plus `slide_effects_deck.png`, a still preview of the opening slide)
+
+Builds a 4-slide PowerPoint `Deck` that shows off slide effects (PPTX-only):
+
+- A deck-wide default slide `Transition` with per-slide overrides (`Deck.transition(...)` and `Deck.slide(..., transition=...)`)
+- Typed animation effect objects — `Fade`, `Wipe`, `Box`, `Wheel` — each exposing only the options it supports
+- A list of animations on one layer, played in order (a metric boxes in, then fades out)
+- A `group` animation that drives a chip + label as a single effect
+- `entrance` and `exit` animations sequenced by `on_click` / `with_previous` / `after_previous`
+
+Open the `.pptx` in PowerPoint (or Keynote / LibreOffice Impress) and start the slideshow to see the transitions and animations play; the `.png` is just a static render of the first slide, since stills can't show motion.
 
 ## Assets and Fonts
 
