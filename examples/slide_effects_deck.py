@@ -6,7 +6,8 @@ Demonstrates:
 - A `Deck` with a default slide `Transition` plus per-slide overrides
 - Typed effect objects (`Fade`, `Wipe`, `Box`, `Wheel`), each carrying only the
   options it supports
-- A list of animations on one layer, played in order (enter, hold, exit)
+- Sequencing that leads with the main element, then reveals the supporting
+  detail, using `on_click` / `after_previous` triggers
 - A `group` animation that drives several children as a single effect
 - Gradient backgrounds, gradient-filled headlines, and accent shapes that stay
   crisp and editable in PowerPoint
@@ -65,18 +66,11 @@ cover = (
     .shape(shape="ellipse", position=("88%", "12%"), width=520, height=520,
            color="#163358", opacity=0.35, align=("center", "middle"))
 )
-cover = accent_bar(cover, "8%", "30%", animation=Wipe(direction="left", duration=0.4))
+# The accent bar is static framing; the headline (the main element) leads the
+# animation, and the eyebrow and subtitle follow as supporting detail.
+cover = accent_bar(cover, "8%", "30%")
 cover = (
     cover
-    .text(
-        content="QUARTERLY BUSINESS REVIEW",
-        size=28,
-        color=SKY,
-        weight=700,
-        letter_spacing=6,
-        position=("8%", "35%"),
-        animation=Fade(trigger="after_previous"),
-    )
     .text(
         content="Building what\nactually matters",
         size=104,
@@ -85,14 +79,23 @@ cover = (
         line_height=1.02,
         position=("8%", "45%"),
         effects=[SOFT_SHADOW],
-        animation=Fade(duration=0.6, trigger="after_previous"),
+        animation=Fade(duration=0.6),  # main: leads on the first click
+    )
+    .text(
+        content="QUARTERLY BUSINESS REVIEW",
+        size=28,
+        color=SKY,
+        weight=700,
+        letter_spacing=6,
+        position=("8%", "35%"),
+        animation=Fade(trigger="after_previous"),  # supporting: follows
     )
     .text(
         content="FY25  ·  Q3  ·  Product & Growth",
         size=34,
         color=MUTED,
         position=("8%", "82%"),
-        animation=Fade(trigger="after_previous"),
+        animation=Fade(trigger="after_previous"),  # supporting: follows
     )
 )
 
@@ -129,21 +132,11 @@ for index, (number, label) in enumerate(agenda_items):
         animation=Wipe(direction="left", duration=0.4),
     )
 
-# Slide 3 — the hero metric. The big gradient number boxes in and holds; the
-# supporting stats wheel in together a beat later.
+# Slide 3 — the hero metric. The big gradient number is the star: it boxes in
+# first, then the caption above and the supporting stats below follow.
 metric = (
     Canvas()
     .background(gradient=GREEN_WASH)
-    .text(
-        content="Active teams, year over year",
-        size=30,
-        color=SKY,
-        weight=700,
-        letter_spacing=4,
-        position=("50%", "22%"),
-        align="center",
-        animation=Fade(),
-    )
     .text(
         content="+38%",
         size=300,
@@ -152,11 +145,17 @@ metric = (
         position=("50%", "50%"),
         align="center",
         effects=[SOFT_SHADOW],
-        # a list plays in order: box in, let it land, then fade out to move on
-        animation=[
-            Box(direction="in", duration=0.5, trigger="after_previous"),
-            Fade(animate="exit", trigger="after_previous", delay=1.5),
-        ],
+        animation=Box(direction="in", duration=0.5),  # main: the number lands first
+    )
+    .text(
+        content="Active teams, year over year",
+        size=30,
+        color=SKY,
+        weight=700,
+        letter_spacing=4,
+        position=("50%", "22%"),
+        align="center",
+        animation=Fade(trigger="after_previous"),  # supporting caption
     )
     .group(
         children=[
@@ -171,7 +170,7 @@ metric = (
         position=("50%", "82%"),
         align=("center", "middle"),
         item_align="center",
-        animation=Wheel(spokes=3, trigger="after_previous"),
+        animation=Wheel(spokes=3, trigger="after_previous"),  # supporting stats
     )
 )
 

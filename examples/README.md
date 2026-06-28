@@ -159,9 +159,8 @@ Builds a polished 4-slide PowerPoint `Deck` (title, agenda, hero metric, closing
 
 - A deck-wide default slide `Transition` with per-slide overrides (`Deck.transition(...)` and `Deck.slide(..., transition=...)`)
 - Typed animation effect objects — `Fade`, `Wipe`, `Box`, `Wheel` — each exposing only the options it supports
-- A list of animations on one layer, played in order (the hero metric boxes in, holds, then fades out)
+- Sequencing that leads with the main element (headline, hero number) and then reveals the supporting detail, via `on_click` / `after_previous` triggers
 - `group` animations that drive a numbered agenda row or a stat block as a single effect
-- `entrance` and `exit` animations sequenced by `on_click` / `with_previous` / `after_previous`
 - Gradient backgrounds and gradient-filled headlines that stay crisp and editable in PowerPoint
 
 Open the `.pptx` in PowerPoint (or Keynote / LibreOffice Impress) and start the slideshow to see the transitions and animations play; the `.png` is just a static render of the first slide, since stills can't show motion.
