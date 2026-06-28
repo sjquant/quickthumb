@@ -155,13 +155,14 @@ Use it when you want a brandable announcement-card template whose layout survive
 
 Output: `slide_effects_deck.pptx` (plus `slide_effects_deck.png`, a still preview of the opening slide)
 
-Builds a 4-slide PowerPoint `Deck` that shows off slide effects (PPTX-only):
+Builds a polished 4-slide PowerPoint `Deck` (title, agenda, hero metric, closing) that shows off slide effects (PPTX-only):
 
 - A deck-wide default slide `Transition` with per-slide overrides (`Deck.transition(...)` and `Deck.slide(..., transition=...)`)
 - Typed animation effect objects — `Fade`, `Wipe`, `Box`, `Wheel` — each exposing only the options it supports
-- A list of animations on one layer, played in order (a metric boxes in, then fades out)
-- A `group` animation that drives a chip + label as a single effect
+- A list of animations on one layer, played in order (the hero metric boxes in, holds, then fades out)
+- `group` animations that drive a numbered agenda row or a stat block as a single effect
 - `entrance` and `exit` animations sequenced by `on_click` / `with_previous` / `after_previous`
+- Gradient backgrounds and gradient-filled headlines that stay crisp and editable in PowerPoint
 
 Open the `.pptx` in PowerPoint (or Keynote / LibreOffice Impress) and start the slideshow to see the transitions and animations play; the `.png` is just a static render of the first slide, since stills can't show motion.
 

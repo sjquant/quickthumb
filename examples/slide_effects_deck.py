@@ -1,24 +1,25 @@
 """
-Slide effects example: a multi-slide PowerPoint deck with transitions and
-per-layer entrance/exit animations.
+Slide effects showcase: a polished, presentation-ready PowerPoint deck with
+transitions and per-layer entrance/exit animations.
 
 Demonstrates:
-- A `Deck` with a default slide transition plus per-slide overrides
-- Typed effect objects (`Fade`, `Wipe`, `Box`, `Wheel`, ...), each carrying only
-  the options it supports
-- A list of animations on one layer, played in order (enter, then exit)
-- A `group` animation that drives all of its children as a single effect
-- `entrance` and `exit` animations with click / after-previous sequencing
+- A `Deck` with a default slide `Transition` plus per-slide overrides
+- Typed effect objects (`Fade`, `Wipe`, `Box`, `Wheel`), each carrying only the
+  options it supports
+- A list of animations on one layer, played in order (enter, hold, exit)
+- A `group` animation that drives several children as a single effect
+- Gradient backgrounds, gradient-filled headlines, and accent shapes that stay
+  crisp and editable in PowerPoint
 
-Slide effects only affect PPTX output, so this example renders to `.pptx`. Open
-the file in PowerPoint (or Keynote / LibreOffice Impress) and run the slideshow
-to see the transitions and animations play.
+Slide effects only affect PPTX output, so this renders to `.pptx`. Open it in
+PowerPoint (or Keynote / LibreOffice Impress) and start the slideshow to watch
+the transitions and animations play.
 """
 
 import os
 
-from quickthumb import Box, Canvas, Deck, Fade, Transition, Wheel, Wipe
-from quickthumb.models import Background, Shadow
+from quickthumb import Box, Canvas, Deck, Fade, LinearGradient, Transition, Wheel, Wipe
+from quickthumb.models import Shadow
 
 FILE_DIR = os.path.dirname(__file__)
 ASSETS_DIR = os.path.join(FILE_DIR, "..", "assets")
@@ -27,104 +28,177 @@ OUTPUT_PATH = os.path.join(FILE_DIR, "slide_effects_deck.pptx")
 os.environ["QUICKTHUMB_FONT_DIR"] = os.path.join(ASSETS_DIR, "fonts")
 os.environ["QUICKTHUMB_DEFAULT_FONT"] = "Roboto"
 
-INK = "#0B1B2B"
-ACCENT = "#B8FF00"
-SKY = "#8CE1FF"
+# A small, cohesive palette keeps the whole deck on-brand.
+INK = "#0A1626"
+LIME = "#B8FF00"
+SKY = "#7DD3FC"
+WHITE = "#F8FAFC"
+MUTED = "#8FA3B8"
 
-# Slide 1 — title. The headline fades in on the first click; the kicker pill and
-# label form a group that wheels in together as one effect on the next click.
+NAVY_WASH = LinearGradient(angle=135, stops=[("#0A1626", 0.0), ("#13294A", 1.0)])
+GREEN_WASH = LinearGradient(angle=135, stops=[("#07140C", 0.0), ("#0F2A1B", 1.0)])
+HEADLINE_FILL = LinearGradient(angle=20, stops=[(LIME, 0.0), (SKY, 1.0)])
+
+SOFT_SHADOW = Shadow(offset_x=0, offset_y=10, color="#00000066", blur_radius=22)
+
+
+def accent_bar(canvas: Canvas, x: str, y: str, *, align=None, animation=None) -> Canvas:
+    """A short lime rule used as a kicker accent above headings."""
+    return canvas.shape(
+        shape="rectangle",
+        position=(x, y),
+        width=72,
+        height=8,
+        color=LIME,
+        border_radius=4,
+        align=align,
+        animation=animation,
+    )
+
+
+# Slide 1 — title. The accent bar wipes in, the gradient headline fades up, then
+# the kicker + subtitle arrive together.
 cover = (
     Canvas()
-    .background(color=INK)
+    .background(gradient=NAVY_WASH)
+    # a large, faint ring in the corner adds depth without stealing focus
+    .shape(shape="ellipse", position=("88%", "12%"), width=520, height=520,
+           color="#163358", opacity=0.35, align=("center", "middle"))
+)
+cover = accent_bar(cover, "8%", "30%", animation=Wipe(direction="left", duration=0.4))
+cover = (
+    cover
     .text(
-        content="QUARTERLY REVIEW",
-        size=110,
-        color=ACCENT,
-        weight=900,
-        position=("50%", "42%"),
-        align="center",
-        effects=[Shadow(offset_x=0, offset_y=8, color="#00000088", blur_radius=18)],
-        animation=Fade(duration=0.6),
+        content="QUARTERLY BUSINESS REVIEW",
+        size=28,
+        color=SKY,
+        weight=700,
+        letter_spacing=6,
+        position=("8%", "35%"),
+        animation=Fade(trigger="after_previous"),
     )
-    .group(
-        children=[
-            {"type": "shape", "shape": "pill", "width": 18, "height": 18, "color": SKY},
-            {"type": "text", "content": "FY25 · Q3 · Product", "size": 40, "color": SKY},
-        ],
-        direction="row",
-        gap=16,
-        position=("50%", "60%"),
-        align=("center", "middle"),
-        item_align="center",
-        animation=Wheel(spokes=4, trigger="after_previous"),
+    .text(
+        content="Building what\nactually matters",
+        size=104,
+        fill=HEADLINE_FILL,
+        weight=900,
+        line_height=1.02,
+        position=("8%", "45%"),
+        effects=[SOFT_SHADOW],
+        animation=Fade(duration=0.6, trigger="after_previous"),
+    )
+    .text(
+        content="FY25  ·  Q3  ·  Product & Growth",
+        size=34,
+        color=MUTED,
+        position=("8%", "82%"),
+        animation=Fade(trigger="after_previous"),
     )
 )
 
-# Slide 2 — agenda. Each row wipes in from the left, one click at a time, so the
-# list builds up point by point.
-agenda_rows = ["Revenue & growth", "What shipped", "What we learned", "Next quarter"]
-agenda = Canvas().background(color=INK).text(
+# Slide 2 — agenda. Each row is a group (big numeral + label) that wipes in on
+# its own click, building the list up one point at a time. No tight text
+# backgrounds, so it stays perfectly aligned in PowerPoint.
+agenda_items = [
+    ("01", "Revenue & growth"),
+    ("02", "What we shipped"),
+    ("03", "What we learned"),
+    ("04", "Where we go next"),
+]
+agenda = Canvas().background(gradient=NAVY_WASH)
+agenda = accent_bar(agenda, "8%", "15%")
+agenda = agenda.text(
     content="Agenda",
     size=72,
-    color="#FFFFFF",
+    color=WHITE,
     weight=900,
-    position=("8%", "16%"),
+    position=("8%", "19%"),
     animation=Fade(),
 )
-for index, label in enumerate(agenda_rows):
-    agenda = agenda.text(
-        content=f"{index + 1}.  {label}",
-        size=48,
-        color=SKY if index % 2 == 0 else "#FFFFFF",
-        position=("10%", f"{38 + index * 13}%"),
-        effects=[Background(color="#13314A", padding=(10, 20), border_radius=10)],
+for index, (number, label) in enumerate(agenda_items):
+    agenda = agenda.group(
+        children=[
+            {"type": "text", "content": number, "size": 56, "color": LIME, "weight": 900},
+            {"type": "text", "content": label, "size": 52, "color": WHITE, "weight": 500},
+        ],
+        direction="row",
+        gap=40,
+        position=("9%", f"{40 + index * 14}%"),
+        align=("left", "middle"),
+        item_align="center",
         animation=Wipe(direction="left", duration=0.4),
     )
 
-# Slide 3 — a single metric that boxes in, holds, then fades out to clear the
-# stage. Passing a list of animations plays them in order on the same layer.
+# Slide 3 — the hero metric. The big gradient number boxes in and holds; the
+# supporting stats wheel in together a beat later.
 metric = (
     Canvas()
-    .background(color="#101A0B")
+    .background(gradient=GREEN_WASH)
     .text(
-        content="+38%",
-        size=240,
-        color=ACCENT,
-        weight=900,
-        position=("50%", "44%"),
+        content="Active teams, year over year",
+        size=30,
+        color=SKY,
+        weight=700,
+        letter_spacing=4,
+        position=("50%", "22%"),
         align="center",
-        animation=[
-            Box(direction="in", duration=0.5),
-            Fade(animate="exit", trigger="after_previous", delay=1.0),
-        ],
+        animation=Fade(),
     )
     .text(
-        content="year-over-year active teams",
-        size=44,
-        color="#D7E8C4",
-        position=("50%", "70%"),
+        content="+38%",
+        size=300,
+        fill=LinearGradient(angle=20, stops=[(LIME, 0.0), ("#5EEAD4", 1.0)]),
+        weight=900,
+        position=("50%", "50%"),
         align="center",
-        animation=Fade(trigger="with_previous"),
+        effects=[SOFT_SHADOW],
+        # a list plays in order: box in, let it land, then fade out to move on
+        animation=[
+            Box(direction="in", duration=0.5, trigger="after_previous"),
+            Fade(animate="exit", trigger="after_previous", delay=1.5),
+        ],
+    )
+    .group(
+        children=[
+            {"type": "text", "content": "2.4M", "size": 60, "color": SKY, "weight": 900},
+            {"type": "text", "content": "monthly users", "size": 32, "color": MUTED},
+            {"type": "text", "content": "·", "size": 40, "color": "#33506E"},
+            {"type": "text", "content": "+120", "size": 60, "color": SKY, "weight": 900},
+            {"type": "text", "content": "new enterprises", "size": 32, "color": MUTED},
+        ],
+        direction="row",
+        gap=22,
+        position=("50%", "82%"),
+        align=("center", "middle"),
+        item_align="center",
+        animation=Wheel(spokes=3, trigger="after_previous"),
     )
 )
 
-# Slide 4 — closing card, no animations, just a clean outro.
+# Slide 4 — closing. Clean and confident, no animations — just a strong outro.
 closing = (
     Canvas()
-    .background(color=INK)
+    .background(gradient=NAVY_WASH)
+    .shape(shape="ellipse", position=("12%", "88%"), width=520, height=520,
+           color="#163358", opacity=0.35, align=("center", "middle"))
+)
+closing = accent_bar(closing, "50%", "38%", align="center")
+closing = (
+    closing
     .text(
-        content="Questions?",
+        content="Let's build it.",
         size=120,
-        color="#FFFFFF",
+        fill=HEADLINE_FILL,
         weight=900,
-        position=("50%", "45%"),
+        position=("50%", "50%"),
         align="center",
+        effects=[SOFT_SHADOW],
     )
     .text(
-        content="thanks for watching",
-        size=40,
-        color=SKY,
-        position=("50%", "62%"),
+        content="Questions, ideas, and bold bets welcome.",
+        size=36,
+        color=MUTED,
+        position=("50%", "66%"),
         align="center",
     )
 )
@@ -135,7 +209,7 @@ deck = (
     .transition("fade", duration=0.4)
     .slide(cover)
     .slide(agenda)
-    # ...but individual slides can override that default.
+    # ...but individual slides can override that default with their own effect.
     .slide(metric, transition=Transition(effect="zoom", direction="in", duration=0.6))
     .slide(closing, transition="push")
 )
