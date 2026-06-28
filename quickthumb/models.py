@@ -333,9 +333,8 @@ EffectDirection = Literal[
 class Transition(quickthumbModel):
     """A slide transition: the animation played when advancing to this slide.
 
-    Configured per slide (``Canvas.transition``) or as a deck default
-    (``Deck.transition`` / ``Deck.slide(..., transition=...)``). Honoured by the
-    PPTX exporter only.
+    Configured on a deck as a default (``Deck.transition``) or per slide
+    (``Deck.slide(..., transition=...)``). Honoured by the PPTX exporter only.
     """
 
     type: Literal["transition"] = "transition"

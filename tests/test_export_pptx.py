@@ -4,8 +4,8 @@ from io import BytesIO
 from pathlib import Path
 
 import pytest
-from quickthumb import Animation, Canvas, LinearGradient, TextPart, Transition
-from quickthumb.errors import RenderingError, ValidationError
+from quickthumb import Animation, Canvas, LinearGradient, TextPart
+from quickthumb.errors import RenderingError
 from quickthumb.models import Background, Glow, RadialGradient, Shadow, Stroke
 
 pptx = pytest.importorskip("pptx")
@@ -19,19 +19,10 @@ from pptx.util import Emu  # noqa: E402
 EMU_PER_PX = 9525
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 SAMPLE_IMAGE = str(FIXTURES_DIR / "sample_image.jpg")
-P14_NS = "{http://schemas.microsoft.com/office/powerpoint/2010/main}"
-
-
-def slide_element(canvas: Canvas):
-    return open_pptx(canvas).slides[0]._element
-
-
-def transition_of(canvas: Canvas):
-    return slide_element(canvas).find(qn("p:transition"))
 
 
 def timing_of(canvas: Canvas):
-    return slide_element(canvas).find(qn("p:timing"))
+    return open_pptx(canvas).slides[0]._element.find(qn("p:timing"))
 
 
 def open_pptx(canvas: Canvas) -> PresentationDocument:
@@ -424,85 +415,6 @@ class TestPptxEmbeddedLayers:
         ]
 
 
-class TestPptxSlideTransitions:
-    """Test suite for slide transitions emitted as <p:transition>."""
-
-    def test_should_not_emit_transition_when_none_is_set(self):
-        """A canvas without a transition produces no <p:transition> element"""
-        # given
-        canvas = Canvas(400, 300).background(color="#000000")
-
-        # when
-        element = transition_of(canvas)
-
-        # then
-        assert element is None
-
-    def test_should_emit_transition_element_with_duration_and_speed(self):
-        """transition() records the effect with a precise duration and a speed bucket"""
-        # given
-        canvas = Canvas(400, 300).background(color="#000000").transition(
-            "fade", duration=0.7
-        )
-
-        # when
-        element = transition_of(canvas)
-
-        # then
-        assert element is not None
-        assert element.find(qn("p:fade")) is not None
-        assert element.get("spd") == "med"
-        assert element.get(P14_NS + "dur") == "700"
-
-    def test_should_map_direction_for_directional_transitions(self):
-        """A directional transition writes the matching DrawingML dir attribute"""
-        # given
-        canvas = Canvas(400, 300).background(color="#000000").transition(
-            "push", direction="left"
-        )
-
-        # when
-        push = transition_of(canvas).find(qn("p:push"))
-
-        # then
-        assert push is not None
-        assert push.get("dir") == "l"
-
-    def test_should_emit_auto_advance_time(self):
-        """advance_after writes advTm (in milliseconds) and keeps advance_on_click"""
-        # given
-        canvas = Canvas(400, 300).background(color="#000000").transition(
-            "wipe", advance_on_click=False, advance_after=2.5
-        )
-
-        # when
-        element = transition_of(canvas)
-
-        # then
-        assert element.get("advTm") == "2500"
-        assert element.get("advClick") == "0"
-
-    def test_should_accept_a_prebuilt_transition_object(self):
-        """A Transition instance can be passed directly to transition()"""
-        # given
-        canvas = Canvas(400, 300).background(color="#000000").transition(
-            Transition(effect="dissolve", duration=1.5)
-        )
-
-        # when
-        element = transition_of(canvas)
-
-        # then
-        assert element.find(qn("p:dissolve")) is not None
-        assert element.get("spd") == "slow"
-
-    def test_should_reject_non_positive_duration(self):
-        """A zero or negative transition duration is a validation error"""
-        # given / when / then
-        with pytest.raises(ValidationError):
-            Transition(effect="fade", duration=0)
-
-
 class TestPptxElementAnimations:
     """Test suite for per-layer animations emitted as a <p:timing> tree."""
 
@@ -695,6 +607,36 @@ class TestPptxElementAnimations:
         assert node_types.count("clickEffect") == 1
         assert node_types.count("withEffect") == 1
         assert len(animated) == 2
+
+    def test_group_animation_should_take_precedence_over_child_animations(self):
+        """A group animation drives all children as one effect, ignoring child ones"""
+        # given a group animation plus a conflicting child animation
+        canvas = Canvas(1280, 720).group(
+            children=[
+                {"type": "text", "content": "A", "size": 60, "color": "#FFFFFF"},
+                {
+                    "type": "shape",
+                    "shape": "pill",
+                    "width": 120,
+                    "height": 40,
+                    "color": "#B8FF00",
+                    "animation": {"effect": "wipe", "trigger": "on_click"},
+                },
+            ],
+            position=("50%", "50%"),
+            align="center",
+            animation=Animation(effect="fade", trigger="on_click"),
+        )
+
+        # when
+        timing = timing_of(canvas)
+        main_seq = next(c for c in timing.iter(qn("p:cTn")) if c.get("nodeType") == "mainSeq")
+        click_groups = main_seq.find(qn("p:childTnLst")).findall(qn("p:par"))
+        filters = [e.get("filter") for e in timing.iter(qn("p:animEffect"))]
+
+        # then: one click, both children fade (the child's own wipe is overridden)
+        assert len(click_groups) == 1
+        assert filters == ["fade", "fade"]
 
     def test_should_reproduce_animation_through_json_round_trip(self):
         """Animations survive to_json/from_json and still emit timing"""

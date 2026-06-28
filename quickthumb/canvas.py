@@ -38,7 +38,6 @@ from quickthumb.models import (
     TextFillImage,
     TextLayer,
     TextPart,
-    Transition,
 )
 
 
@@ -145,9 +144,6 @@ class Canvas:
         self._has_size = width is not None
         self._ctx = RenderContext(width or 0, height or 0)
         self._layers: list[RenderableLayer] = layers or []
-        # Slide transition for PPTX output; None means no transition (or inherit
-        # a Deck default). Other renderers ignore it.
-        self._transition: Transition | None = None
 
         self._effects = EffectsEngine()
         self._fonts = FontEngine()
@@ -379,6 +375,7 @@ class Canvas:
                    - String shortcut (e.g., "center", "top-left", "bottom-right")
                    - Tuple (horizontal, vertical) (e.g., ("center", "middle"))
             blend_mode: Blend mode for compositing this image onto prior layers
+            animation: Optional entrance/exit Animation applied in PPTX export
         Returns:
             Self for method chaining
         """
@@ -425,6 +422,7 @@ class Canvas:
             rotation: Rotation angle in degrees
             align: Layer alignment relative to position
             blend_mode: Blend mode for compositing onto prior layers
+            animation: Optional entrance/exit Animation applied in PPTX export
         Returns:
             Self for method chaining
         """
@@ -471,6 +469,7 @@ class Canvas:
             position: Anchor point of the group box in pixels or percentages
             align: How the group box anchors to position (like image layers)
             item_align: Cross-axis placement of each child: "start", "center", or "end"
+            animation: Optional Animation applied to the whole group in PPTX export
         Returns:
             Self for method chaining
         """
@@ -500,38 +499,6 @@ class Canvas:
 
         self._layers.append(CustomLayer(fn=fn, name=name, kwargs=kwargs or {}))
         return self
-
-    def transition(
-        self,
-        effect: "Transition | str" = "fade",
-        duration: float = 1.0,
-        direction: str | None = None,
-        advance_on_click: bool = True,
-        advance_after: float | None = None,
-    ) -> Self:
-        """Set the slide transition used when this canvas is exported to PPTX.
-
-        Pass a ready-made ``Transition`` as the first argument, or build one from
-        keyword arguments. Only the PPTX exporter honours transitions; every
-        other output format ignores them. When this canvas is a slide in a Deck,
-        the transition set here overrides the deck's default.
-        """
-        if isinstance(effect, Transition):
-            self._transition = effect
-        else:
-            self._transition = Transition(
-                effect=effect,  # type: ignore[arg-type]  # validated by the model
-                duration=duration,
-                direction=direction,  # type: ignore[arg-type]
-                advance_on_click=advance_on_click,
-                advance_after=advance_after,
-            )
-        return self
-
-    @property
-    def slide_transition(self) -> "Transition | None":
-        """The slide transition set on this canvas, if any."""
-        return self._transition
 
     def render(
         self,
@@ -634,14 +601,7 @@ class Canvas:
             else:
                 layers_json.append(_json.loads(layer.model_dump_json()))
 
-        payload: dict[str, Any] = {
-            "width": self.width,
-            "height": self.height,
-            "layers": layers_json,
-        }
-        if self._transition is not None:
-            payload["transition"] = _json.loads(self._transition.model_dump_json())
-        return _json.dumps(payload)
+        return _json.dumps({"width": self.width, "height": self.height, "layers": layers_json})
 
     @classmethod
     def from_json(cls, data: str) -> Self:
@@ -693,15 +653,7 @@ class Canvas:
             CanvasModel.model_validate(raw)  # raises ValidationError with good message
             raise ValidationError("'width' and 'height' must be integers.")
 
-        canvas = cls(width=width, height=height, layers=renderable_layers)
-
-        transition_raw = raw.get("transition")
-        if transition_raw is not None:
-            if not isinstance(transition_raw, dict):
-                raise ValidationError("'transition' must be a JSON object.")
-            canvas._transition = Transition.model_validate(transition_raw)
-
-        return canvas
+        return cls(width=width, height=height, layers=renderable_layers)
 
     @classmethod
     def _read_template_file(cls, path: str) -> str:

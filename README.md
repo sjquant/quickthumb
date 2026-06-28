@@ -457,24 +457,22 @@ cover = (
         align="center",
         animation=Animation(effect="wipe", direction="up", trigger="after_previous"),
     )
-    .transition("push", duration=0.6, direction="left")  # this slide's transition
 )
 
 deck = (
     Deck(1280, 720)
     .transition("fade")          # default transition for every slide
-    .slide(cover)                # cover keeps its own "push" transition
+    .slide(cover, transition=Transition(effect="push", duration=0.6, direction="left"))
     .slide(Canvas().background(color="#101820"), transition="wipe")  # inline override
 )
 
 deck.render("review.pptx")
 ```
 
-**Transitions** are set with `Canvas.transition(...)` (per slide),
-`Deck.transition(...)` (a default for the whole deck), or
-`Deck.slide(canvas, transition=...)` (inline for one slide). A slide's own
-transition always overrides the deck default. Pass a `Transition` object or keyword
-arguments:
+**Transitions** are a deck concern. Set a deck-wide default with
+`Deck.transition(...)` and override a single slide with
+`Deck.slide(canvas, transition=...)`; the per-slide override always wins. Pass a
+`Transition` object, a dict, an effect string, or keyword arguments:
 
 | Field | Description |
 | --- | --- |
@@ -486,7 +484,9 @@ arguments:
 
 **Animations** attach to a `text`, `shape`, `image`, `svg`, or `group` layer via
 `animation=`. A layer that maps to several PowerPoint shapes (e.g. text with a
-background fill) animates them together.
+background fill) animates them together. A `group` animation drives all of the
+group's children as one effect and takes precedence over any animation set on an
+individual child.
 
 | Field | Description |
 | --- | --- |
@@ -638,7 +638,8 @@ See the shipped examples in [`examples/README.md`](examples/README.md):
 - `svg` layers raise `RenderingError` unless `quickthumb[svg]` (cairosvg) is installed
 - `theme` blocks are resolved at parse time; `to_json()` emits resolved values without the `theme` block
 - Slide `Transition`s and layer `Animation`s only affect PPTX output; raster, SVG, and PDF renderers ignore them
-- A slide's own transition overrides the deck default; `Animation` is valid on `text`, `shape`, `image`, `svg`, and `group` layers
+- Transitions live on the `Deck` (default plus per-slide override), not on `Canvas`; a per-slide override wins over the deck default
+- `Animation` is valid on `text`, `shape`, `image`, `svg`, and `group` layers
 
 ## Development
 

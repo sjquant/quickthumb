@@ -65,9 +65,9 @@ def _flatten_group(
     seen: set[int] | None = None,
 ) -> list[RenderableLayer]:
     seen = seen if seen is not None else set()
-    # A child's own animation wins; otherwise it inherits the group's (which may
-    # itself have been inherited from an enclosing group).
-    animation = group.animation or inherited_animation
+    # An enclosing animated group wins over this group's own animation, so the
+    # outermost animation drives everything beneath it as one effect.
+    animation = inherited_animation or group.animation
     placements, _ = canvas._groups.layout_group(group, origin)
     placed: list[RenderableLayer] = []
     for child, position, size in placements:
@@ -99,13 +99,15 @@ def _flatten_group(
 
 
 def _with_group_animation(layer, animation, seen: set[int]):
-    """Apply an inherited group animation to a child that has none of its own.
+    """Apply a group's animation to one of its flattened children.
 
-    All children sharing one group animation play as a single effect: the first
-    keeps the group's trigger, and the rest switch to ``with_previous`` so they
-    animate together on the same click instead of one click each.
+    A group animation drives all of the group's children as a single effect and
+    takes precedence over any animation set on a child: the first child keeps the
+    group's trigger, and the rest switch to ``with_previous`` so they animate
+    together on the same click instead of one click each. When the group has no
+    animation, the child keeps whatever animation it set itself.
     """
-    if animation is None or getattr(layer, "animation", None) is not None:
+    if animation is None:
         return layer
     if id(animation) in seen:
         animation = animation.model_copy(update={"trigger": "with_previous"})

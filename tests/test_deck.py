@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 from PIL import Image
-from quickthumb import Canvas, Deck
+from quickthumb import Canvas, Deck, Transition
 from quickthumb.errors import RenderingError, ValidationError
 
 from tests._optional import require_pypdfium2
@@ -395,18 +395,25 @@ class TestJsonRoundTrip:
         assert json.loads(deck.to_json())["theme"] == {"brand": "#B8FF00"}
 
 
+P14_NS = "{http://schemas.microsoft.com/office/powerpoint/2010/main}"
+
+
 class TestDeckTransitions:
     """Deck-level default transitions and per-slide overrides (PPTX only)."""
 
     @staticmethod
-    def _transition_effects(deck: Deck) -> list:
-        """The transition child tag name on each slide, or None when absent."""
+    def _transition_elements(deck: Deck) -> list:
+        """The <p:transition> element of each slide, or None when absent."""
         from pptx.oxml.ns import qn
 
         presentation = Presentation(BytesIO(deck.to_pptx()))
+        return [slide._element.find(qn("p:transition")) for slide in presentation.slides]
+
+    @classmethod
+    def _transition_effects(cls, deck: Deck) -> list:
+        """The transition child tag name on each slide, or None when absent."""
         effects = []
-        for slide in presentation.slides:
-            element = slide._element.find(qn("p:transition"))
+        for element in cls._transition_elements(deck):
             if element is None:
                 effects.append(None)
                 continue
@@ -417,8 +424,10 @@ class TestDeckTransitions:
     def test_should_apply_deck_default_transition_to_every_slide(self):
         """A deck default transition is emitted on each slide that lacks its own"""
         # given
-        deck = Deck(1280, 720, transition={"effect": "fade"}).slide(make_slide("1")).slide(
-            make_slide("2")
+        deck = (
+            Deck(1280, 720, transition={"effect": "fade"})
+            .slide(make_slide("1"))
+            .slide(make_slide("2"))
         )
 
         # when
@@ -427,11 +436,11 @@ class TestDeckTransitions:
         # then
         assert effects == ["fade", "fade"]
 
-    def test_should_let_a_canvas_transition_override_the_deck_default(self):
-        """A slide's own Canvas.transition wins over the deck default"""
+    def test_should_let_a_slide_override_win_over_the_deck_default(self):
+        """A per-slide transition override wins over the deck default"""
         # given
         deck = Deck(1280, 720, transition={"effect": "fade"})
-        deck.slide(make_slide("1").transition("push"))
+        deck.slide(make_slide("1"), transition="push")
         deck.slide(make_slide("2"))
 
         # when
@@ -440,8 +449,8 @@ class TestDeckTransitions:
         # then
         assert effects == ["push", "fade"]
 
-    def test_should_set_transition_inline_via_slide(self):
-        """slide(canvas, transition=...) sets the transition for that slide"""
+    def test_should_set_transition_inline_via_slide_without_a_default(self):
+        """slide(canvas, transition=...) sets the transition for that slide only"""
         # given
         deck = Deck(1280, 720)
         deck.slide(make_slide("1"), transition="wipe")
@@ -453,12 +462,78 @@ class TestDeckTransitions:
         # then
         assert effects == ["wipe", None]
 
-    def test_should_round_trip_deck_default_transition_through_json(self):
-        """A deck default transition survives to_json/from_json"""
+    def test_should_emit_duration_speed_and_precise_duration(self):
+        """A transition records a speed bucket plus an exact p14 duration"""
         # given
-        deck = Deck(1280, 720, transition={"effect": "cover", "direction": "up"}).slide(
+        deck = Deck(1280, 720).slide(
+            make_slide("1"), transition={"effect": "fade", "duration": 0.7}
+        )
+
+        # when
+        element = self._transition_elements(deck)[0]
+
+        # then
+        assert element.get("spd") == "med"
+        assert element.get(P14_NS + "dur") == "700"
+
+    def test_should_map_direction_to_drawingml_attribute(self):
+        """A directional transition writes the matching dir attribute"""
+        # given
+        from pptx.oxml.ns import qn
+
+        deck = Deck(1280, 720).slide(
+            make_slide("1"), transition={"effect": "push", "direction": "left"}
+        )
+
+        # when
+        push = self._transition_elements(deck)[0].find(qn("p:push"))
+
+        # then
+        assert push.get("dir") == "l"
+
+    def test_should_emit_auto_advance_time(self):
+        """advance_after writes advTm in milliseconds and keeps advance_on_click"""
+        # given
+        deck = Deck(1280, 720).slide(
+            make_slide("1"),
+            transition={"effect": "wipe", "advance_on_click": False, "advance_after": 2.5},
+        )
+
+        # when
+        element = self._transition_elements(deck)[0]
+
+        # then
+        assert element.get("advTm") == "2500"
+        assert element.get("advClick") == "0"
+
+    def test_should_accept_a_prebuilt_transition_object(self):
+        """A Transition instance can be used as the deck default"""
+        # given
+        from pptx.oxml.ns import qn
+
+        deck = Deck(1280, 720, transition=Transition(effect="dissolve", duration=1.5)).slide(
             make_slide("1")
         )
+
+        # when
+        element = self._transition_elements(deck)[0]
+
+        # then
+        assert element.find(qn("p:dissolve")) is not None
+        assert element.get("spd") == "slow"
+
+    def test_should_reject_non_positive_transition_duration(self):
+        """A zero or negative transition duration is a validation error"""
+        # given / when / then
+        with pytest.raises(ValidationError):
+            Transition(effect="fade", duration=0)
+
+    def test_should_round_trip_default_and_per_slide_transitions_through_json(self):
+        """Both the deck default and per-slide overrides survive to_json/from_json"""
+        # given
+        deck = Deck(1280, 720, transition={"effect": "cover", "direction": "up"})
+        deck.slide(make_slide("1"))  # uses the default
+        deck.slide(make_slide("2"), transition="wipe")  # overrides it
 
         # when
         restored = Deck.from_json(deck.to_json())
@@ -466,4 +541,4 @@ class TestDeckTransitions:
         # then
         assert restored.default_transition is not None
         assert restored.default_transition.effect == "cover"
-        assert self._transition_effects(restored) == ["cover"]
+        assert self._transition_effects(restored) == ["cover", "wipe"]

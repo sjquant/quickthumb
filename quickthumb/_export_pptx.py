@@ -120,20 +120,22 @@ class PptxExporter:
         self,
         canvases: list[Canvas],
         path_or_stream,
-        default_transition: Transition | None = None,
+        transitions: list[Transition | None] | None = None,
     ) -> None:
         """Write one or more canvases to a multi-slide presentation (one slide per canvas)."""
-        presentation = self._build(canvases, default_transition=default_transition)
+        presentation = self._build(canvases, transitions=transitions)
         presentation.save(path_or_stream)
 
     def export_bytes_canvases(
-        self, canvases: list[Canvas], default_transition: Transition | None = None
+        self, canvases: list[Canvas], transitions: list[Transition | None] | None = None
     ) -> bytes:
         buffer = BytesIO()
-        self.save_canvases(canvases, buffer, default_transition=default_transition)
+        self.save_canvases(canvases, buffer, transitions=transitions)
         return buffer.getvalue()
 
-    def _build(self, canvases: list[Canvas], default_transition: Transition | None = None):
+    def _build(
+        self, canvases: list[Canvas], transitions: list[Transition | None] | None = None
+    ):
         from pptx import Presentation
         from pptx.util import Emu
 
@@ -150,7 +152,7 @@ class PptxExporter:
         presentation.slide_width = Emu(_emu(first.width))
         presentation.slide_height = Emu(_emu(first.height))
 
-        for canvas in canvases:
+        for index, canvas in enumerate(canvases):
             canvas._validate_image_paths()
             canvas._ctx.begin_render_pass()
             self._canvas = canvas
@@ -168,7 +170,7 @@ class PptxExporter:
             for layer in rest:
                 self._emit_tracked_layer(layer)
 
-            transition = canvas._transition or default_transition
+            transition = transitions[index] if transitions else None
             if transition is not None:
                 self._apply_transition(transition)
             if self._animations:
