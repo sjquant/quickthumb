@@ -299,6 +299,115 @@ ShapeEffect = Annotated[Stroke | Shadow | Glow, Discriminator("type")]
 BackgroundEffect = Annotated[Filter | Grain, Discriminator("type")]
 
 
+# --------------------------------------------------------------- slide effects
+# Slide-level transitions and per-layer entrance/exit animations. These only
+# affect PowerPoint (PPTX) output; raster, SVG, and PDF renderers ignore them.
+
+TransitionEffect = Literal[
+    "none",
+    "cut",
+    "fade",
+    "push",
+    "wipe",
+    "split",
+    "wedge",
+    "wheel",
+    "circle",
+    "diamond",
+    "dissolve",
+    "cover",
+    "uncover",
+    "zoom",
+    "blinds",
+    "checker",
+    "comb",
+    "newsflash",
+    "random",
+]
+
+EffectDirection = Literal[
+    "left", "right", "up", "down", "in", "out", "horizontal", "vertical"
+]
+
+
+class Transition(quickthumbModel):
+    """A slide transition: the animation played when advancing to this slide.
+
+    Configured per slide (``Canvas.transition``) or as a deck default
+    (``Deck.transition`` / ``Deck.slide(..., transition=...)``). Honoured by the
+    PPTX exporter only.
+    """
+
+    type: Literal["transition"] = "transition"
+    effect: TransitionEffect = "fade"
+    duration: float = 1.0
+    direction: EffectDirection | None = None
+    advance_on_click: bool = True
+    advance_after: float | None = None
+
+    @field_validator("duration")
+    @classmethod
+    def validate_duration(cls, v: float) -> float:
+        if v <= 0:
+            raise ValueError("duration must be greater than 0")
+        return v
+
+    @field_validator("advance_after")
+    @classmethod
+    def validate_advance_after(cls, v: float | None) -> float | None:
+        if v is not None and v < 0:
+            raise ValueError("advance_after cannot be negative")
+        return v
+
+
+AnimationEffect = Literal[
+    "appear",
+    "fade",
+    "wipe",
+    "blinds",
+    "checkerboard",
+    "circle",
+    "diamond",
+    "dissolve",
+    "wheel",
+    "box",
+]
+
+AnimationTrigger = Literal["on_click", "with_previous", "after_previous"]
+
+
+class Animation(quickthumbModel):
+    """An entrance or exit animation applied to a single layer.
+
+    Attach to a content layer (``text``/``shape``/``image``/``svg``/``group``)
+    via the ``animation=`` argument. Honoured by the PPTX exporter only; the
+    layer renders normally in every other format. ``trigger`` controls how the
+    effect starts relative to the previous animation on the slide.
+    """
+
+    type: Literal["animation"] = "animation"
+    effect: AnimationEffect = "fade"
+    animate: Literal["entrance", "exit"] = "entrance"
+    duration: float = 0.5
+    delay: float = 0.0
+    trigger: AnimationTrigger = "on_click"
+    direction: EffectDirection | None = None
+
+    @field_validator("duration")
+    @classmethod
+    def validate_duration(cls, v: float) -> float:
+        if v <= 0:
+            raise ValueError("duration must be greater than 0")
+        return v
+
+    @field_validator("delay")
+    @classmethod
+    def validate_delay(cls, v: float) -> float:
+        if v < 0:
+            raise ValueError("delay cannot be negative")
+        return v
+
+
 class TextPart(quickthumbModel):
     text: str
     color: HexColor | None = None
@@ -380,6 +489,7 @@ class TextLayer(quickthumbModel):
     auto_scale: bool = False
     rotation: float = 0.0
     opacity: OpacityField = 1.0
+    animation: Animation | None = None
 
     @field_validator("max_width")
     @classmethod
@@ -472,6 +582,7 @@ class ImageLayer(quickthumbModel):
         BlendMode | None, AfterValidator(lambda v: enum_converter(BlendMode)(v) if v else None)
     ] = None
     effects: list[ImageEffect] = []
+    animation: Animation | None = None
 
     @field_validator("position", mode="before")
     @classmethod
@@ -512,6 +623,7 @@ class ShapeLayer(quickthumbModel):
     star_points: int = 5
     inner_radius: float = 0.5
     effects: list[ShapeEffect] = []
+    animation: Animation | None = None
 
     @field_validator("points")
     @classmethod
@@ -587,6 +699,7 @@ class SvgLayer(quickthumbModel):
         BlendMode | None, AfterValidator(lambda v: enum_converter(BlendMode)(v) if v else None)
     ] = None
     effects: list[ImageEffect] = []
+    animation: Animation | None = None
 
     @field_validator("position", mode="before")
     @classmethod
@@ -619,6 +732,7 @@ class GroupLayer(quickthumbModel):
     position: tuple | None = None
     align: AlignWithHVTuple = None
     item_align: Literal["start", "center", "end"] = "start"
+    animation: Animation | None = None
     children: list["GroupChild"]
 
     @field_validator("children", mode="before")

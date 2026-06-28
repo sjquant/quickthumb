@@ -19,6 +19,7 @@ from quickthumb._text import TextEngine
 from quickthumb.errors import RenderingError, ValidationError
 from quickthumb.models import (
     Align,
+    Animation,
     BackgroundEffect,
     BackgroundLayer,
     BlendMode,
@@ -37,6 +38,7 @@ from quickthumb.models import (
     TextFillImage,
     TextLayer,
     TextPart,
+    Transition,
 )
 
 
@@ -143,6 +145,9 @@ class Canvas:
         self._has_size = width is not None
         self._ctx = RenderContext(width or 0, height or 0)
         self._layers: list[RenderableLayer] = layers or []
+        # Slide transition for PPTX output; None means no transition (or inherit
+        # a Deck default). Other renderers ignore it.
+        self._transition: Transition | None = None
 
         self._effects = EffectsEngine()
         self._fonts = FontEngine()
@@ -266,6 +271,7 @@ class Canvas:
         auto_scale: bool = False,
         rotation: float = 0,
         opacity: float = 1.0,
+        animation: Animation | dict | None = None,
     ) -> Self:
         if content is None:
             raise ValidationError("content is required")
@@ -289,6 +295,7 @@ class Canvas:
             auto_scale=auto_scale,
             rotation=rotation,
             opacity=opacity,
+            animation=animation,  # type: ignore[arg-type]  # Pydantic validates dict/model
         )
         self._layers.append(layer)
         return self
@@ -319,6 +326,7 @@ class Canvas:
         star_points: int = 5,
         inner_radius: float = 0.5,
         effects: list[ShapeEffect] | None = None,
+        animation: Animation | dict | None = None,
     ) -> Self:
         layer = ShapeLayer(
             type="shape",
@@ -335,6 +343,7 @@ class Canvas:
             star_points=star_points,
             inner_radius=inner_radius,
             effects=effects or [],
+            animation=animation,  # type: ignore[arg-type]  # Pydantic validates dict/model
         )
         self._layers.append(layer)
         return self
@@ -353,6 +362,7 @@ class Canvas:
         border_radius: int = 0,
         effects: list[ImageEffect] | None = None,
         blend_mode: BlendMode | str | None = None,
+        animation: Animation | dict | None = None,
     ) -> Self:
         """Add an image overlay layer to the canvas.
 
@@ -386,6 +396,7 @@ class Canvas:
             fit=fit,  # type: ignore[arg-type]  # Pydantic validator handles conversion
             blend_mode=blend_mode,  # type: ignore[arg-type]  # Pydantic validator handles conversion
             effects=effects or [],
+            animation=animation,  # type: ignore[arg-type]  # Pydantic validates dict/model
         )
         self._layers.append(layer)
         return self
@@ -401,6 +412,7 @@ class Canvas:
         align: Align | str | tuple[str, str] = Align.TOP_LEFT,
         effects: list[ImageEffect] | None = None,
         blend_mode: BlendMode | str | None = None,
+        animation: Animation | dict | None = None,
     ) -> Self:
         """Add an SVG overlay layer, rasterized at render time (requires quickthumb[svg]).
 
@@ -427,6 +439,7 @@ class Canvas:
             align=align,  # type: ignore[arg-type]  # Pydantic validator handles conversion
             blend_mode=blend_mode,  # type: ignore[arg-type]  # Pydantic validator handles conversion
             effects=effects or [],
+            animation=animation,  # type: ignore[arg-type]  # Pydantic validates dict/model
         )
         self._layers.append(layer)
         return self
@@ -442,6 +455,7 @@ class Canvas:
         ) = None,
         align: Align | str | tuple[str, str] | None = None,
         item_align: Literal["start", "center", "end"] = "start",
+        animation: Animation | dict | None = None,
     ) -> Self:
         """Add an auto-layout group that stacks child layers along a row or column.
 
@@ -468,6 +482,7 @@ class Canvas:
             position=position,  # Pydantic validator handles conversion
             align=align,  # type: ignore[arg-type]  # Pydantic validator handles conversion
             item_align=item_align,
+            animation=animation,  # type: ignore[arg-type]  # Pydantic validates dict/model
             children=children,
         )
         self._layers.append(layer)
@@ -485,6 +500,38 @@ class Canvas:
 
         self._layers.append(CustomLayer(fn=fn, name=name, kwargs=kwargs or {}))
         return self
+
+    def transition(
+        self,
+        effect: "Transition | str" = "fade",
+        duration: float = 1.0,
+        direction: str | None = None,
+        advance_on_click: bool = True,
+        advance_after: float | None = None,
+    ) -> Self:
+        """Set the slide transition used when this canvas is exported to PPTX.
+
+        Pass a ready-made ``Transition`` as the first argument, or build one from
+        keyword arguments. Only the PPTX exporter honours transitions; every
+        other output format ignores them. When this canvas is a slide in a Deck,
+        the transition set here overrides the deck's default.
+        """
+        if isinstance(effect, Transition):
+            self._transition = effect
+        else:
+            self._transition = Transition(
+                effect=effect,  # type: ignore[arg-type]  # validated by the model
+                duration=duration,
+                direction=direction,  # type: ignore[arg-type]
+                advance_on_click=advance_on_click,
+                advance_after=advance_after,
+            )
+        return self
+
+    @property
+    def slide_transition(self) -> "Transition | None":
+        """The slide transition set on this canvas, if any."""
+        return self._transition
 
     def render(
         self,
@@ -587,7 +634,14 @@ class Canvas:
             else:
                 layers_json.append(_json.loads(layer.model_dump_json()))
 
-        return _json.dumps({"width": self.width, "height": self.height, "layers": layers_json})
+        payload: dict[str, Any] = {
+            "width": self.width,
+            "height": self.height,
+            "layers": layers_json,
+        }
+        if self._transition is not None:
+            payload["transition"] = _json.loads(self._transition.model_dump_json())
+        return _json.dumps(payload)
 
     @classmethod
     def from_json(cls, data: str) -> Self:
@@ -639,7 +693,15 @@ class Canvas:
             CanvasModel.model_validate(raw)  # raises ValidationError with good message
             raise ValidationError("'width' and 'height' must be integers.")
 
-        return cls(width=width, height=height, layers=renderable_layers)
+        canvas = cls(width=width, height=height, layers=renderable_layers)
+
+        transition_raw = raw.get("transition")
+        if transition_raw is not None:
+            if not isinstance(transition_raw, dict):
+                raise ValidationError("'transition' must be a JSON object.")
+            canvas._transition = Transition.model_validate(transition_raw)
+
+        return canvas
 
     @classmethod
     def _read_template_file(cls, path: str) -> str:

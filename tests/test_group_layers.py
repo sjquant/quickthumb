@@ -83,8 +83,7 @@ class TestCanvasGroupAPI:
                 "padding": 0,
                 "position": ["8%", "50%"],
                 "align": "left",
-                "item_align": "start",
-                "children": [
+                "item_align": "start", 'animation': None, "children": [
                     {
                         "type": "text",
                         "content": "Title",
@@ -103,8 +102,7 @@ class TestCanvasGroupAPI:
                         "letter_spacing": None,
                         "auto_scale": False,
                         "rotation": 0.0,
-                        "opacity": 1.0,
-                    },
+                        "opacity": 1.0, 'animation': None},
                     {
                         "type": "group",
                         "direction": "row",
@@ -112,8 +110,7 @@ class TestCanvasGroupAPI:
                         "padding": 0,
                         "position": None,
                         "align": None,
-                        "item_align": "start",
-                        "children": [
+                        "item_align": "start", 'animation': None, "children": [
                             {
                                 "type": "shape",
                                 "shape": "rectangle",
@@ -128,8 +125,7 @@ class TestCanvasGroupAPI:
                                 "points": None,
                                 "star_points": 5,
                                 "inner_radius": 0.5,
-                                "effects": [],
-                            },
+                                "effects": [], 'animation': None},
                             {
                                 "type": "shape",
                                 "shape": "rectangle",
@@ -144,8 +140,7 @@ class TestCanvasGroupAPI:
                                 "points": None,
                                 "star_points": 5,
                                 "inner_radius": 0.5,
-                                "effects": [],
-                            },
+                                "effects": [], 'animation': None},
                         ],
                     },
                 ],

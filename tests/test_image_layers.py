@@ -280,6 +280,7 @@ class TestImageLayerSerialization:
             "fit": "cover",
             "blend_mode": "screen",
             "effects": [],
+            "animation": None,
         }
 
     def test_should_deserialize_image_layer_from_json(self):
@@ -387,8 +388,7 @@ class TestImageLayerSerialization:
                         "border_radius": 0,
                         "fit": None,
                         "blend_mode": None,
-                        "effects": [],
-                    }
+                        "effects": [], 'animation': None}
                 ],
             }
         )
@@ -435,8 +435,7 @@ class TestImageLayerSerialization:
                                 "color": "#000000",
                                 "blur_radius": 10,
                             }
-                        ],
-                    }
+                        ], 'animation': None}
                 ],
             }
         )
@@ -549,8 +548,7 @@ class TestImageLayerSerialization:
                                 "contrast": 1.2,
                                 "saturation": 0.5,
                             }
-                        ],
-                    }
+                        ], 'animation': None}
                 ],
             }
         )

@@ -3,6 +3,7 @@ from quickthumb.deck import Deck, DeckDiagnostic
 from quickthumb.errors import QuickthumbError, RenderingError, ValidationError
 from quickthumb.models import (
     Align,
+    Animation,
     Background,
     BackgroundLayer,
     BlendMode,
@@ -26,6 +27,7 @@ from quickthumb.models import (
     TextFillImage,
     TextLayer,
     TextPart,
+    Transition,
 )
 
 __all__ = [
@@ -36,6 +38,7 @@ __all__ = [
     "RenderingError",
     "ValidationError",
     "Align",
+    "Animation",
     "Diagnostic",
     "GroupLayer",
     "Background",
@@ -59,4 +62,5 @@ __all__ = [
     "TextFillImage",
     "TextLayer",
     "TextPart",
+    "Transition",
 ]

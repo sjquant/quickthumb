@@ -16,6 +16,7 @@ from typing_extensions import Self
 from quickthumb._base import FileFormat, aspect_ratio_dimensions
 from quickthumb.canvas import Canvas
 from quickthumb.errors import RenderingError, ValidationError
+from quickthumb.models import Transition
 
 _DOCUMENT_EXTENSIONS = {".pdf", ".pptx"}
 _RASTER_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp"}
@@ -51,6 +52,7 @@ class Deck:
         height: int | None = None,
         slides: list[Canvas] | None = None,
         theme: dict | None = None,
+        transition: Transition | dict | str | None = None,
     ):
         if (width is None) != (height is None):
             raise ValidationError("Provide both width and height, or neither.")
@@ -64,9 +66,22 @@ class Deck:
         self._width = width
         self._height = height
         self._theme = theme or {}
+        # Default slide transition applied to slides that don't set their own.
+        # PPTX-only, like the per-canvas transition.
+        self._transition = self._coerce_transition(transition)
         self._slides: list[Canvas] = []
         for slide in slides or []:
             self._append_slide(slide)
+
+    @staticmethod
+    def _coerce_transition(value: Transition | dict | str | None) -> Transition | None:
+        if value is None or isinstance(value, Transition):
+            return value
+        if isinstance(value, str):
+            return Transition(effect=value)  # type: ignore[arg-type]  # validated by the model
+        if isinstance(value, dict):
+            return Transition.model_validate(value)
+        raise ValidationError("transition must be a Transition, a dict, a string, or None.")
 
     @classmethod
     def from_aspect_ratio(cls, ratio: str, base_width: int) -> Self:
@@ -89,8 +104,48 @@ class Deck:
     def __getitem__(self, index: int) -> Canvas:
         return self._slides[index]
 
-    def slide(self, canvas: Canvas) -> Self:
-        """Append a single Canvas as the next slide (chainable)."""
+    def transition(
+        self,
+        effect: Transition | str = "fade",
+        duration: float = 1.0,
+        direction: str | None = None,
+        advance_on_click: bool = True,
+        advance_after: float | None = None,
+    ) -> Self:
+        """Set the default slide transition for slides that don't set their own.
+
+        Pass a ready-made ``Transition`` as the first argument, or build one from
+        keyword arguments. A slide that sets its own transition (via
+        ``Canvas.transition`` or ``Deck.slide(..., transition=...)``) overrides
+        this default. Honoured by PPTX export only.
+        """
+        if isinstance(effect, Transition):
+            self._transition = effect
+        else:
+            self._transition = Transition(
+                effect=effect,  # type: ignore[arg-type]  # validated by the model
+                duration=duration,
+                direction=direction,  # type: ignore[arg-type]
+                advance_on_click=advance_on_click,
+                advance_after=advance_after,
+            )
+        return self
+
+    @property
+    def default_transition(self) -> Transition | None:
+        """The deck-wide default slide transition, if set."""
+        return self._transition
+
+    def slide(
+        self, canvas: Canvas, transition: Transition | dict | str | None = None
+    ) -> Self:
+        """Append a single Canvas as the next slide (chainable).
+
+        Pass ``transition`` to set this slide's transition inline; it overrides
+        the deck default and any transition already on the canvas.
+        """
+        if transition is not None:
+            canvas._transition = self._coerce_transition(transition)
         self._append_slide(canvas)
         return self
 
@@ -165,7 +220,9 @@ class Deck:
 
         from quickthumb._export_pptx import PptxExporter
 
-        PptxExporter().save_canvases(self._slides, output_path)
+        PptxExporter().save_canvases(
+            self._slides, output_path, default_transition=self._transition
+        )
 
     def _render_sequence(
         self, output_path: str, format: FileFormat | None, quality: int | None
@@ -197,7 +254,9 @@ class Deck:
         self._require_slides()
         from quickthumb._export_pptx import PptxExporter
 
-        return PptxExporter().export_bytes_canvases(self._slides)
+        return PptxExporter().export_bytes_canvases(
+            self._slides, default_transition=self._transition
+        )
 
     def diagnose(self) -> list[DeckDiagnostic]:
         """Collect per-slide diagnostics plus deck-wide layout warnings.
@@ -248,6 +307,8 @@ class Deck:
             payload["height"] = self._height
         if self._theme:
             payload["theme"] = self._theme
+        if self._transition is not None:
+            payload["transition"] = json.loads(self._transition.model_dump_json())
         payload["slides"] = [json.loads(canvas.to_json()) for canvas in self._slides]
         return json.dumps(payload)
 
@@ -266,6 +327,10 @@ class Deck:
         if not isinstance(theme, dict):
             raise ValidationError("Deck 'theme' must be an object of token groups.")
 
+        transition = raw.get("transition")
+        if transition is not None and not isinstance(transition, dict):
+            raise ValidationError("Deck 'transition' must be a JSON object.")
+
         slides = []
         for slide in slides_raw:
             # Share the deck-level theme with each slide so $theme.* tokens
@@ -279,4 +344,5 @@ class Deck:
             height=raw.get("height"),
             slides=slides,
             theme=theme or None,
+            transition=transition,
         )

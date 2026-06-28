@@ -393,3 +393,77 @@ class TestJsonRoundTrip:
         assert deck[0].layers[0].color == "#B8FF00"
         # and the theme survives another round-trip
         assert json.loads(deck.to_json())["theme"] == {"brand": "#B8FF00"}
+
+
+class TestDeckTransitions:
+    """Deck-level default transitions and per-slide overrides (PPTX only)."""
+
+    @staticmethod
+    def _transition_effects(deck: Deck) -> list:
+        """The transition child tag name on each slide, or None when absent."""
+        from pptx.oxml.ns import qn
+
+        presentation = Presentation(BytesIO(deck.to_pptx()))
+        effects = []
+        for slide in presentation.slides:
+            element = slide._element.find(qn("p:transition"))
+            if element is None:
+                effects.append(None)
+                continue
+            children = list(element)
+            effects.append(children[0].tag.split("}")[-1] if children else "none")
+        return effects
+
+    def test_should_apply_deck_default_transition_to_every_slide(self):
+        """A deck default transition is emitted on each slide that lacks its own"""
+        # given
+        deck = Deck(1280, 720, transition={"effect": "fade"}).slide(make_slide("1")).slide(
+            make_slide("2")
+        )
+
+        # when
+        effects = self._transition_effects(deck)
+
+        # then
+        assert effects == ["fade", "fade"]
+
+    def test_should_let_a_canvas_transition_override_the_deck_default(self):
+        """A slide's own Canvas.transition wins over the deck default"""
+        # given
+        deck = Deck(1280, 720, transition={"effect": "fade"})
+        deck.slide(make_slide("1").transition("push"))
+        deck.slide(make_slide("2"))
+
+        # when
+        effects = self._transition_effects(deck)
+
+        # then
+        assert effects == ["push", "fade"]
+
+    def test_should_set_transition_inline_via_slide(self):
+        """slide(canvas, transition=...) sets the transition for that slide"""
+        # given
+        deck = Deck(1280, 720)
+        deck.slide(make_slide("1"), transition="wipe")
+        deck.slide(make_slide("2"))
+
+        # when
+        effects = self._transition_effects(deck)
+
+        # then
+        assert effects == ["wipe", None]
+
+    def test_should_round_trip_deck_default_transition_through_json(self):
+        """A deck default transition survives to_json/from_json"""
+        # given
+        deck = Deck(1280, 720, transition={"effect": "cover", "direction": "up"}).slide(
+            make_slide("1")
+        )
+
+        # when
+        restored = Deck.from_json(deck.to_json())
+
+        # then
+        assert restored.default_transition is not None
+        assert restored.default_transition.effect == "cover"
+        assert self._transition_effects(restored) == ["cover"]

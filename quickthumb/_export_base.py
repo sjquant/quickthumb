@@ -49,27 +49,69 @@ def flatten_layers(canvas: Canvas) -> list[RenderableLayer]:
     flat: list[RenderableLayer] = []
     for layer in canvas.layers:
         if isinstance(layer, GroupLayer):
-            flat.extend(_flatten_group(canvas, layer))
+            # A fresh "seen" set per top-level group ties that group's animation
+            # into a single effect across all of its flattened children.
+            flat.extend(_flatten_group(canvas, layer, seen=set()))
         else:
             flat.append(layer)
     return flat
 
 
 def _flatten_group(
-    canvas: Canvas, group: GroupLayer, origin: tuple[int, int] | None = None
+    canvas: Canvas,
+    group: GroupLayer,
+    origin: tuple[int, int] | None = None,
+    inherited_animation=None,
+    seen: set[int] | None = None,
 ) -> list[RenderableLayer]:
+    seen = seen if seen is not None else set()
+    # A child's own animation wins; otherwise it inherits the group's (which may
+    # itself have been inherited from an enclosing group).
+    animation = group.animation or inherited_animation
     placements, _ = canvas._groups.layout_group(group, origin)
     placed: list[RenderableLayer] = []
     for child, position, size in placements:
         if isinstance(child, GroupLayer):
-            placed.extend(_flatten_group(canvas, child, origin=position))
+            placed.extend(
+                _flatten_group(canvas, child, position, inherited_animation=animation, seen=seen)
+            )
         elif isinstance(child, TextLayer):
-            placed.append(canvas._groups.place_text_child(child, position, size))
+            placed.append(
+                _with_group_animation(
+                    canvas._groups.place_text_child(child, position, size), animation, seen
+                )
+            )
         elif isinstance(child, ShapeLayer):
-            placed.append(child.model_copy(update={"position": position, "align": None}))
+            placed.append(
+                _with_group_animation(
+                    child.model_copy(update={"position": position, "align": None}), animation, seen
+                )
+            )
         else:  # ImageLayer | SvgLayer
-            placed.append(child.model_copy(update={"position": position, "align": Align.TOP_LEFT}))
+            placed.append(
+                _with_group_animation(
+                    child.model_copy(update={"position": position, "align": Align.TOP_LEFT}),
+                    animation,
+                    seen,
+                )
+            )
     return placed
+
+
+def _with_group_animation(layer, animation, seen: set[int]):
+    """Apply an inherited group animation to a child that has none of its own.
+
+    All children sharing one group animation play as a single effect: the first
+    keeps the group's trigger, and the rest switch to ``with_previous`` so they
+    animate together on the same click instead of one click each.
+    """
+    if animation is None or getattr(layer, "animation", None) is not None:
+        return layer
+    if id(animation) in seen:
+        animation = animation.model_copy(update={"trigger": "with_previous"})
+    else:
+        seen.add(id(animation))
+    return layer.model_copy(update={"animation": animation})
 
 
 def is_backdrop_dependent(layer: RenderableLayer) -> bool:
