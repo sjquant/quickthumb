@@ -678,17 +678,39 @@ _TIMELINE_JS = """
 function qtTimeline(stage){
   var nodes=JSON.parse(stage.getAttribute('data-qt-timeline')||'[]');
   var cursor=0;
+  // Snapshot each entrance element's original clip-path at construction so
+  // settle() and reset() can restore it rather than blindly clearing it.
+  var origClips={};
+  nodes.forEach(function(node){
+    if(node.a==='entrance'){
+      node.t.forEach(function(id){
+        var el=stage.querySelector('#'+CSS.escape(id));
+        if(el)origClips[id]=el.style.clipPath;
+      });
+    }
+  });
+  function resetElements(){
+    nodes.forEach(function(node){
+      if(node.a==='entrance'){
+        node.t.forEach(function(id){
+          var el=stage.querySelector('#'+CSS.escape(id));
+          if(el){el.style.visibility='hidden';el.style.animation='';el.style.clipPath=origClips[id]||'';}
+        });
+      }
+    });
+  }
   function play(node){
     return new Promise(function(res){
       var dur=0;
       node.t.forEach(function(id){
         var el=stage.querySelector('#'+CSS.escape(id));
         if(!el)return;
+        var origClip=origClips[id]||'';
         el.style.visibility='visible';
         el.style.animation=node.k+' '+node.d+'s ease both '+node.delay+'s';
         function settle(){
           el.style.animation='';
-          if(node.a==='entrance'){el.style.clipPath='none';el.style.opacity='';}
+          if(node.a==='entrance'){el.style.clipPath=origClip;el.style.opacity='';}
           else{el.style.visibility='hidden';}
         }
         el.addEventListener('animationend',settle,{once:true});
@@ -717,6 +739,7 @@ function qtTimeline(stage){
   }
   this.hasNext=function(){return cursor<nodes.length;};
   this.advance=function(){if(cursor<nodes.length)return runGroup(cursor);return Promise.resolve();};
+  this.reset=function(){cursor=0;resetElements();};
   this.start=autoLead;
 }
 """
@@ -753,17 +776,19 @@ _DECK_RUNTIME_TMPL = _env.from_string(
     var s=stages[i];
     s.style.animation='qt-slide-in 0.5s ease both';
     if(fit)qtFit(s);
+    timelines[i].reset();
     timelines[i].start();
   }
   function go(i){if(i<0||i>=stages.length)return;current=i;show(i);}
   if(fit){function r(){qtFit(stages[current]);}window.addEventListener('resize',r);
     if(window.ResizeObserver)new ResizeObserver(r).observe(stages[0].parentElement);}
-  document.addEventListener('click',function(){
+  function advance(){
     if(timelines[current].hasNext())timelines[current].advance();
     else if(current<stages.length-1)go(current+1);
-  });
+  }
+  document.addEventListener('click',advance);
   document.addEventListener('keydown',function(e){
-    if(e.key==='ArrowRight'||e.key===' '){if(current<stages.length-1)go(current+1);}
+    if(e.key==='ArrowRight'||e.key===' '){advance();}
     else if(e.key==='ArrowLeft'){if(current>0)go(current-1);}
   });
   show(0);
