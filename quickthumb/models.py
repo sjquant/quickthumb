@@ -302,8 +302,8 @@ BackgroundEffect = Annotated[Filter | Grain, Discriminator("type")]
 
 # --------------------------------------------------------------- slide effects
 # Per-layer entrance/exit animations (below) and slide-level transitions (in
-# quickthumb.transitions) only affect PowerPoint (PPTX) output; raster, SVG, and
-# PDF renderers ignore them.
+# quickthumb.transitions) play in PowerPoint (PPTX) and HTML output; raster,
+# SVG, and PDF renderers ignore them.
 
 AnimationTrigger = Literal["on_click", "with_previous", "after_previous"]
 

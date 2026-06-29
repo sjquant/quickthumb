@@ -10,7 +10,7 @@
 <body>
 <div{% if responsive %} class="qt-frame"{% endif %}>
 {% for stage in stages %}
-<div class="qt-stage" data-qt-timeline='{{ stage.timeline_json }}' style="width:{{ stage.width }}px;height:{{ stage.height }}px;{% if deck and not loop.first %}display:none;{% endif %}">
+<div class="qt-stage" data-qt-timeline='{{ stage.timeline_json }}'{% if deck %} data-qt-transition="{{ stage.transition_anim }}"{% endif %} style="width:{{ stage.width }}px;height:{{ stage.height }}px;{% if deck and not loop.first %}display:none;{% endif %}">
 {{ stage.body }}
 </div>
 {% endfor %}

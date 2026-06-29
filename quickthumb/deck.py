@@ -106,7 +106,7 @@ class Deck:
         Pass a transition effect object (e.g. ``Fade()`` or ``Push(direction="left")``
         from ``quickthumb.transitions``), a dict, or an effect string. A slide that
         sets its own transition (via ``Deck.slide(..., transition=...)``) overrides
-        this default. Honoured by PPTX export only.
+        this default. Honoured by PPTX and HTML export.
         """
         self._transition = self._coerce_transition(transition)
         return self
@@ -248,15 +248,22 @@ class Deck:
 
         Each slide becomes a fixed-size stage; the runtime shows one at a time
         and advances on click (running that slide's per-layer animations first,
-        then moving to the next slide) or with the arrow keys. With
+        then moving to the next slide) or with the arrow keys. Each slide's
+        ``transition`` animates the change into it (the incoming slide), with
+        slides that set none falling back to a cross-fade. With
         ``responsive=True`` (default) the active stage is scaled to fill the
-        viewport. This is the one format where both slide changes and per-layer
-        animations actually play.
+        viewport. This is the one format where both slide transitions and
+        per-layer animations actually play.
         """
         self._require_slides()
         from quickthumb._export_html import export_deck
 
-        return export_deck(self._slides, embed_fonts=embed_fonts, responsive=responsive)
+        return export_deck(
+            self._slides,
+            embed_fonts=embed_fonts,
+            responsive=responsive,
+            transitions=self._resolved_transitions(),
+        )
 
     def to_pptx(self) -> bytes:
         """Render the deck to a multi-slide PPTX as bytes (requires quickthumb[pptx])."""

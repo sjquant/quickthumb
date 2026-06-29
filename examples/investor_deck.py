@@ -15,6 +15,7 @@ Run:
 import os
 
 from quickthumb import Box, Canvas, Deck, Fade, LinearGradient, Wipe
+from quickthumb import transitions as tr
 from quickthumb.models import Glow, Shadow
 
 FILE_DIR = os.path.dirname(__file__)
@@ -251,7 +252,7 @@ s4 = label(s4, "TRACTION", "50%", "8.5%")
 s4 = s4.text(
     content="Growing fast.\nCustomers love it.",
     font="NotoSerif", size=72, fill=BRAND, weight=900,
-    line_height=1.08, position=("50%", "19%"), align="center",
+    line_height=1.08, position=("50%", "27%"), align="center",
     effects=[DROP],
     animation=Fade(duration=0.5),
 )
@@ -326,13 +327,15 @@ s5 = s5.text(
 # Assemble and export
 # ══════════════════════════════════════════════════════════════════════════════
 
+# A distinct slide transition per slide — these play in the HTML slideshow
+# (and in PPTX export). The cover slide cross-fades in by default.
 deck = (
     Deck(1280, 720)
     .slide(s1)
-    .slide(s2)
-    .slide(s3)
-    .slide(s4)
-    .slide(s5)
+    .slide(s2, transition=tr.Push(direction="left", duration=0.6))
+    .slide(s3, transition=tr.Wipe(direction="up", duration=0.5))
+    .slide(s4, transition=tr.Push(direction="left", duration=0.6))
+    .slide(s5, transition=tr.Cover(direction="up", duration=0.6))
 )
 
 deck.render(OUT)

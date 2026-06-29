@@ -435,7 +435,35 @@ class TestDeckHtml:
 
         # then
         assert html.count('class="qt-stage"') == 2
-        assert "qt-slide-in" in html
+        # Each slide carries its own enter-transition animation (a cross-fade by
+        # default), wired through a data attribute the runtime reads on show().
+        assert html.count("data-qt-transition=") == 2
+        assert "@keyframes qt-t0{from{opacity:0}to{opacity:1}}" in html
+
+    def test_should_animate_slides_with_their_transition(self):
+        """A slide's transition drives the CSS animation the deck plays into it"""
+        # given
+        from quickthumb.transitions import Cut, Push
+
+        deck = (
+            Deck(640, 360)
+            .slide(Canvas().background(color="#101820"))
+            .slide(
+                Canvas().background(color="#1E293B"),
+                transition=Push(direction="left", duration=0.8),
+            )
+            .slide(Canvas().background(color="#334155"), transition=Cut())
+        )
+
+        # when
+        html = deck.to_html()
+
+        # then
+        # Push slides the incoming stage in from the edge, composed with the fit scale.
+        assert "transform:translateX(100vw) scale(var(--qt-scale,1))" in html
+        assert 'data-qt-transition="qt-t1 0.80s ease both"' in html
+        # A hard cut emits no keyframe and no animation.
+        assert 'data-qt-transition=""' in html
 
     def test_should_render_deck_html_file(self, tmp_path):
         """Deck.render writes a single HTML slideshow and returns its path"""

@@ -642,6 +642,9 @@ class Stage:
         self.body = body
         self.keyframes = keyframes
         self.timeline = timeline
+        # The CSS `animation` shorthand for this slide's enter transition, filled
+        # in by _document for decks (empty string = no transition / hard cut).
+        self.transition_anim = ""
 
     @cached_property
     def timeline_json(self) -> str:
@@ -669,6 +672,9 @@ _SCALE_JS = """
 function qtFit(stage){
   var f=stage.parentElement;
   var s=Math.min(f.clientWidth/parseInt(stage.style.width), f.clientHeight/parseInt(stage.style.height));
+  // Expose the scale as a custom property so transform-based slide transitions
+  // can compose with it; transitions that don't touch transform keep this.
+  stage.style.setProperty('--qt-scale', s);
   stage.style.transform='scale('+s+')';
 }
 """
@@ -777,8 +783,8 @@ _DECK_RUNTIME_TMPL = _env.from_string(
   function show(i){
     stages.forEach(function(s,j){s.style.display=j===i?'block':'none';});
     var s=stages[i];
-    s.style.animation='qt-slide-in 0.5s ease both';
     if(fit)qtFit(s);
+    s.style.animation=s.getAttribute('data-qt-transition')||'';
     timelines[i].reset();
     timelines[i].start();
   }
@@ -799,6 +805,73 @@ _DECK_RUNTIME_TMPL = _env.from_string(
 })();
 """
 )
+
+
+# --- slide transition -> incoming-stage entrance keyframe -----------------------
+# Deck slide changes animate the *incoming* stage. Effects that move the stage
+# compose with the responsive fit via scale(var(--qt-scale,1)) so the
+# scale-to-viewport survives the transform animation; clip/opacity effects leave
+# the inline scale untouched. Push/cover/uncover all read as the new slide
+# sliding in (a true two-slide push isn't expressible in this one-at-a-time
+# model), and exotic PPTX transitions (wheel, wedge, checker, comb, dissolve)
+# fall back to the closest CSS analogue -- the same parity tradeoff the layer
+# animations make.
+_TR_SCALE = "scale(var(--qt-scale,1))"
+
+
+def _transition_states(transition) -> tuple[str | None, str]:
+    """Return (from-state, to-state) CSS for a transition's incoming stage.
+
+    A ``None`` from-state signals an instant cut (no animation emitted).
+    """
+    effect = transition.effect
+    if effect == "cut":
+        return None, ""
+    if effect in ("fade", "dissolve", "random", "checker"):
+        return "opacity:0", "opacity:1"
+    if effect in ("wipe", "comb", "blinds"):
+        direction = getattr(transition, "direction", "up")
+        if effect == "blinds":
+            direction = "right" if transition.orientation == "vertical" else "down"
+        elif effect == "comb":
+            direction = "left" if transition.orientation == "vertical" else "up"
+        insets = {
+            "up": "inset(100% 0 0 0)",
+            "down": "inset(0 0 100% 0)",
+            "left": "inset(0 0 0 100%)",
+            "right": "inset(0 100% 0 0)",
+        }
+        return f"clip-path:{insets[direction]}", "clip-path:inset(0 0 0 0)"
+    if effect in ("push", "cover", "uncover"):
+        offscreen = {
+            "left": "translateX(100vw)",
+            "right": "translateX(-100vw)",
+            "up": "translateY(100vh)",
+            "down": "translateY(-100vh)",
+        }[getattr(transition, "direction", "left")]
+        return f"transform:{offscreen} {_TR_SCALE}", f"transform:translate(0,0) {_TR_SCALE}"
+    if effect == "zoom":
+        factor = "0.6" if getattr(transition, "direction", "in") == "in" else "1.4"
+        return (
+            f"transform:scale(calc(var(--qt-scale,1)*{factor}));opacity:0",
+            f"transform:{_TR_SCALE};opacity:1",
+        )
+    if effect == "newsflash":
+        return (
+            f"transform:rotate(-180deg) scale(calc(var(--qt-scale,1)*0.1));opacity:0",
+            f"transform:rotate(0deg) {_TR_SCALE};opacity:1",
+        )
+    if effect == "split":
+        if transition.orientation == "vertical":
+            return "clip-path:inset(50% 0 50% 0)", "clip-path:inset(0 0 0 0)"
+        return "clip-path:inset(0 50% 0 50%)", "clip-path:inset(0 0 0 0)"
+    if effect == "diamond":
+        return (
+            "clip-path:polygon(50% 50%,50% 50%,50% 50%,50% 50%)",
+            "clip-path:polygon(50% 0%,100% 50%,50% 100%,0% 50%)",
+        )
+    # circle, wheel, wedge -> expanding circular reveal.
+    return "clip-path:circle(0% at 50% 50%)", "clip-path:circle(75% at 50% 50%)"
 
 
 def _font_face_css(font_faces: dict[str, tuple[str, str, str]]) -> str:
@@ -823,10 +896,23 @@ def _document(
     responsive: bool,
     font_faces: dict[str, tuple[str, str, str]],
     deck: bool = False,
+    transitions: list | None = None,
 ) -> str:
     keyframes = "".join(kf for stage in stages for kf in stage.keyframes)
     if deck:
-        keyframes += "@keyframes qt-slide-in{from{opacity:0}to{opacity:1}}"
+        transitions = transitions or [None] * len(stages)
+        for index, (stage, transition) in enumerate(zip(stages, transitions, strict=True)):
+            if transition is None:
+                # No transition set: keep the historical 0.5s cross-fade default.
+                start, end, duration = "opacity:0", "opacity:1", 0.5
+            else:
+                start, end = _transition_states(transition)
+                duration = transition.duration
+            if start is None:  # hard cut: show instantly, no keyframe
+                continue
+            name = f"qt-t{index}"
+            keyframes += "@keyframes " + name + "{from{" + start + "}to{" + end + "}}"
+            stage.transition_anim = f"{name} {_fmt(duration)}s ease both"
     base_css = _BASE_CSS if responsive else _FIXED_CSS
     css = base_css + _font_face_css(font_faces) + keyframes
 
@@ -847,7 +933,10 @@ def export_canvas(canvas: Canvas, embed_fonts: bool = False, responsive: bool = 
 
 
 def export_deck(
-    canvases: list[Canvas], embed_fonts: bool = False, responsive: bool = True
+    canvases: list[Canvas],
+    embed_fonts: bool = False,
+    responsive: bool = True,
+    transitions: list | None = None,
 ) -> str:
     stages: list[Stage] = []
     font_faces: dict[str, tuple[str, str, str]] = {}
@@ -855,4 +944,10 @@ def export_deck(
         exporter = HtmlExporter(canvas, embed_fonts=embed_fonts, responsive=responsive)
         stages.append(exporter.render_stage())
         font_faces.update(exporter._font_faces)
-    return _document(stages, responsive=responsive, font_faces=font_faces, deck=True)
+    return _document(
+        stages,
+        responsive=responsive,
+        font_faces=font_faces,
+        deck=True,
+        transitions=transitions,
+    )
