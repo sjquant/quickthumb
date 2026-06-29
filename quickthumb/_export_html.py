@@ -642,9 +642,13 @@ class Stage:
         self.body = body
         self.keyframes = keyframes
         self.timeline = timeline
-        # The CSS `animation` shorthand for this slide's enter transition, filled
-        # in by _document for decks (empty string = no transition / hard cut).
+        # Slide-transition wiring, filled in by _document for decks. transition_anim
+        # animates the incoming stage, transition_exit the outgoing one; transition_z
+        # ("over"/"under") sets their stacking; transition_dur drives the cleanup timer.
         self.transition_anim = ""
+        self.transition_exit = ""
+        self.transition_z = "over"
+        self.transition_dur = "0"
 
     @cached_property
     def timeline_json(self) -> str:
@@ -657,8 +661,10 @@ _BASE_CSS = (
     "*{margin:0;padding:0;box-sizing:content-box}"
     "html,body{width:100%;height:100%}"
     "body{background:#000;overflow:hidden;font-family:sans-serif}"
-    ".qt-frame{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}"
-    ".qt-stage{position:relative;overflow:hidden;transform-origin:center center;flex:none}"
+    ".qt-frame{position:absolute;inset:0;overflow:hidden}"
+    # Absolutely centred so deck slides can overlap during a transition (the
+    # outgoing slide stays on screen beneath/beside the incoming one).
+    ".qt-stage{position:absolute;inset:0;margin:auto;overflow:hidden;transform-origin:center center}"
 )
 
 _FIXED_CSS = (
@@ -778,20 +784,43 @@ _DECK_RUNTIME_TMPL = _env.from_string(
   var stages=Array.prototype.slice.call(document.querySelectorAll('.qt-stage'));
   if(!stages.length)return;
   var fit={{ responsive }};
-  var current=0;
+  var current=0,hideTimer;
   var timelines=stages.map(function(s){return new qtTimeline(s);});
-  function show(i){
-    stages.forEach(function(s,j){s.style.display=j===i?'block':'none';});
-    var s=stages[i];
-    if(fit)qtFit(s);
-    s.style.animation=s.getAttribute('data-qt-transition')||'';
-    timelines[i].reset();
-    timelines[i].start();
+  if(fit){var refit=function(){qtFit(stages[current]);};
+    if(window.ResizeObserver){new ResizeObserver(refit).observe(stages[0].parentElement);}
+    else{window.addEventListener('resize',refit);}}
+  function runTimeline(i){timelines[i].reset();timelines[i].start();}
+  // Once a transition has run, drop the off-screen slides and clear the
+  // transient transition styles (animation/z-index/will-change) so nothing
+  // stays GPU-promoted longer than needed.
+  function settle(){
+    clearTimeout(hideTimer);
+    stages.forEach(function(s,j){
+      s.style.animation='';s.style.zIndex='';s.style.willChange='';
+      if(j!==current)s.style.display='none';
+    });
+    if(fit)qtFit(stages[current]);
   }
-  function go(i){if(i<0||i>=stages.length)return;current=i;show(i);}
-  if(fit){function r(){qtFit(stages[current]);}
-    if(window.ResizeObserver){new ResizeObserver(r).observe(stages[0].parentElement);}
-    else{window.addEventListener('resize',r);}}
+  function go(i){
+    if(i<0||i>=stages.length||i===current)return;
+    var out=stages[current],inc=stages[i];
+    current=i;
+    if(!fit){settle();inc.style.display='block';
+      inc.style.animation=inc.getAttribute('data-qt-transition')||'';runTimeline(i);return;}
+    var under=inc.getAttribute('data-qt-z')==='under';
+    // Keep the outgoing slide on screen (static, or sliding out) under/over the
+    // incoming one; will-change lifts both onto their own compositor layer so
+    // the move is GPU-driven rather than a main-thread repaint.
+    out.style.display='block';out.style.zIndex=under?'2':'1';
+    out.style.willChange='transform,opacity';qtFit(out);
+    out.style.animation=inc.getAttribute('data-qt-exit')||'';
+    inc.style.display='block';inc.style.zIndex=under?'1':'2';
+    inc.style.willChange='transform,opacity,clip-path';qtFit(inc);
+    inc.style.animation=inc.getAttribute('data-qt-transition')||'';
+    runTimeline(i);
+    var dur=parseFloat(inc.getAttribute('data-qt-dur'))||0;
+    clearTimeout(hideTimer);hideTimer=setTimeout(settle,dur*1000+60);
+  }
   function advance(){
     if(timelines[current].hasNext())timelines[current].advance();
     else if(current<stages.length-1)go(current+1);
@@ -801,7 +830,13 @@ _DECK_RUNTIME_TMPL = _env.from_string(
     if(e.key==='ArrowRight'||e.key===' '){advance();}
     else if(e.key==='ArrowLeft'){if(current>0)go(current-1);}
   });
-  show(0);
+  // First slide plays its own enter transition, then settles like any other.
+  if(fit)qtFit(stages[0]);
+  stages[0].style.willChange='transform,opacity,clip-path';
+  stages[0].style.animation=stages[0].getAttribute('data-qt-transition')||'';
+  runTimeline(0);
+  var d0=parseFloat(stages[0].getAttribute('data-qt-dur'))||0;
+  hideTimer=setTimeout(settle,d0*1000+60);
 })();
 """
 )
@@ -874,6 +909,54 @@ def _transition_states(transition) -> tuple[str | None, str]:
     return "clip-path:circle(0% at 50% 50%)", "clip-path:circle(75% at 50% 50%)"
 
 
+# Direction -> off-screen transform for the incoming (..._IN) and outgoing
+# (..._OUT) stages of a directional slide change. PowerPoint names a push/cover
+# by where the content travels, so "left" sends the old slide off the left edge
+# and brings the new one in from the right.
+_DIR_IN = {
+    "left": "translateX(100vw)",
+    "right": "translateX(-100vw)",
+    "up": "translateY(100vh)",
+    "down": "translateY(-100vh)",
+}
+_DIR_OUT = {
+    "left": "translateX(-100vw)",
+    "right": "translateX(100vw)",
+    "up": "translateY(-100vh)",
+    "down": "translateY(100vh)",
+}
+_HOME = f"transform:translate(0,0) {_TR_SCALE}"
+
+
+def _transition_plan(transition) -> tuple[tuple | None, tuple | None, str]:
+    """Plan a slide change as ``(enter, exit, z)``.
+
+    ``enter``/``exit`` are ``(from, to)`` CSS state tuples for the incoming and
+    outgoing stages (``None`` = that stage doesn't animate), and ``z`` is
+    ``"over"`` or ``"under"`` -- whether the incoming slide sits above the
+    outgoing one during the change. Keeping the outgoing slide on screen
+    (static beneath, or sliding out for push/uncover) is what stops the
+    previous slide from blanking before the new one arrives.
+    """
+    effect = transition.effect if transition else "fade"
+    if effect == "cut":
+        return None, None, "over"
+    if effect == "push":
+        direction = getattr(transition, "direction", "left")
+        enter = (f"transform:{_DIR_IN[direction]} {_TR_SCALE}", _HOME)
+        leave = (_HOME, f"transform:{_DIR_OUT[direction]} {_TR_SCALE}")
+        return enter, leave, "over"
+    if effect == "uncover":
+        direction = getattr(transition, "direction", "down")
+        # The new slide waits, fully shown, underneath; the old one slides away.
+        return None, (_HOME, f"transform:{_DIR_OUT[direction]} {_TR_SCALE}"), "under"
+    # Everything else animates the incoming slide on top of a static outgoing one.
+    start, end = _transition_states(transition) if transition else ("opacity:0", "opacity:1")
+    if start is None:
+        return None, None, "over"
+    return (start, end), None, "over"
+
+
 def _font_face_css(font_faces: dict[str, tuple[str, str, str]]) -> str:
     faces = []
     for path, (family, weight, style) in font_faces.items():
@@ -902,17 +985,20 @@ def _document(
     if deck:
         transitions = transitions or [None] * len(stages)
         for index, (stage, transition) in enumerate(zip(stages, transitions, strict=True)):
-            if transition is None:
-                # No transition set: keep the historical 0.5s cross-fade default.
-                start, end, duration = "opacity:0", "opacity:1", 0.5
-            else:
-                start, end = _transition_states(transition)
-                duration = transition.duration
-            if start is None:  # hard cut: show instantly, no keyframe
-                continue
-            name = f"qt-t{index}"
-            keyframes += "@keyframes " + name + "{from{" + start + "}to{" + end + "}}"
-            stage.transition_anim = f"{name} {_fmt(duration)}s ease both"
+            # No transition set keeps the historical 0.5s cross-fade default.
+            duration = 0.5 if transition is None else transition.duration
+            enter, leave, z = _transition_plan(transition)
+            stage.transition_z = z
+            stage.transition_dur = _fmt(duration)
+            timing = f"{_fmt(duration)}s ease both"
+            if enter is not None:
+                name = f"qt-t{index}"
+                keyframes += "@keyframes " + name + "{from{" + enter[0] + "}to{" + enter[1] + "}}"
+                stage.transition_anim = f"{name} {timing}"
+            if leave is not None:
+                name = f"qt-x{index}"
+                keyframes += "@keyframes " + name + "{from{" + leave[0] + "}to{" + leave[1] + "}}"
+                stage.transition_exit = f"{name} {timing}"
     base_css = _BASE_CSS if responsive else _FIXED_CSS
     css = base_css + _font_face_css(font_faces) + keyframes
 
