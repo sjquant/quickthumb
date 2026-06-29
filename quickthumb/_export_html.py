@@ -668,7 +668,7 @@ _FIXED_CSS = (
 _SCALE_JS = """
 function qtFit(stage){
   var f=stage.parentElement;
-  var s=Math.min(f.clientWidth/stage.offsetWidth, f.clientHeight/stage.offsetHeight);
+  var s=Math.min(f.clientWidth/parseInt(stage.style.width), f.clientHeight/parseInt(stage.style.height));
   stage.style.transform='scale('+s+')';
 }
 """
@@ -678,22 +678,22 @@ _TIMELINE_JS = """
 function qtTimeline(stage){
   var nodes=JSON.parse(stage.getAttribute('data-qt-timeline')||'[]');
   var cursor=0;
-  // Snapshot each entrance element's original clip-path at construction so
-  // settle() and reset() can restore it rather than blindly clearing it.
+  // Cache element references and entrance clip-paths once at construction.
+  // Avoids repeated querySelector in the per-frame animation hot path.
+  var elMap={};
   var origClips={};
   nodes.forEach(function(node){
-    if(node.a==='entrance'){
-      node.t.forEach(function(id){
-        var el=stage.querySelector('#'+CSS.escape(id));
-        if(el)origClips[id]=el.style.clipPath;
-      });
-    }
+    var isEntrance=node.a==='entrance';
+    node.t.forEach(function(id){
+      if(!elMap[id]){var el=stage.querySelector('#'+CSS.escape(id));if(el)elMap[id]=el;}
+      if(isEntrance&&elMap[id]&&!(id in origClips)){origClips[id]=elMap[id].style.clipPath;}
+    });
   });
   function resetElements(){
     nodes.forEach(function(node){
       if(node.a==='entrance'){
         node.t.forEach(function(id){
-          var el=stage.querySelector('#'+CSS.escape(id));
+          var el=elMap[id];
           if(el){el.style.visibility='hidden';el.style.animation='';el.style.clipPath=origClips[id]||'';}
         });
       }
@@ -703,12 +703,14 @@ function qtTimeline(stage){
     return new Promise(function(res){
       var dur=0;
       node.t.forEach(function(id){
-        var el=stage.querySelector('#'+CSS.escape(id));
+        var el=elMap[id];
         if(!el)return;
         var origClip=origClips[id]||'';
+        el.style.willChange='clip-path,opacity';
         el.style.visibility='visible';
         el.style.animation=node.k+' '+node.d+'s ease both '+node.delay+'s';
         function settle(){
+          el.style.willChange='';
           el.style.animation='';
           if(node.a==='entrance'){el.style.clipPath=origClip;el.style.opacity='';}
           else{el.style.visibility='hidden';}
@@ -752,8 +754,9 @@ _CANVAS_RUNTIME_TMPL = _env.from_string(
   var stage=document.querySelector('.qt-stage');
   if(!stage)return;
   var fit={{ responsive }};
-  if(fit){function r(){qtFit(stage);}window.addEventListener('resize',r);
-    if(window.ResizeObserver)new ResizeObserver(r).observe(stage.parentElement);r();}
+  if(fit){function r(){qtFit(stage);}
+    if(window.ResizeObserver){new ResizeObserver(r).observe(stage.parentElement);}
+    else{window.addEventListener('resize',r);}r();}
   var tl=new qtTimeline(stage);
   tl.start();
   document.addEventListener('click',function(){if(tl.hasNext())tl.advance();});
@@ -780,8 +783,9 @@ _DECK_RUNTIME_TMPL = _env.from_string(
     timelines[i].start();
   }
   function go(i){if(i<0||i>=stages.length)return;current=i;show(i);}
-  if(fit){function r(){qtFit(stages[current]);}window.addEventListener('resize',r);
-    if(window.ResizeObserver)new ResizeObserver(r).observe(stages[0].parentElement);}
+  if(fit){function r(){qtFit(stages[current]);}
+    if(window.ResizeObserver){new ResizeObserver(r).observe(stages[0].parentElement);}
+    else{window.addEventListener('resize',r);}}
   function advance(){
     if(timelines[current].hasNext())timelines[current].advance();
     else if(current<stages.length-1)go(current+1);
