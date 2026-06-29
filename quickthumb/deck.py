@@ -243,7 +243,7 @@ class Deck:
 
         return PdfExporter().export_bytes_canvases(self._slides)
 
-    def to_html(self, responsive: bool = True, embed_fonts: bool = False) -> str:
+    def to_html(self, responsive: bool = True, embed_fonts: bool = True) -> str:
         """Render the deck to a standalone HTML slideshow document string.
 
         Each slide becomes a fixed-size stage; the runtime shows one at a time
@@ -252,8 +252,11 @@ class Deck:
         ``transition`` animates the change into it (the incoming slide), with
         slides that set none falling back to a cross-fade. With
         ``responsive=True`` (default) the active stage is scaled to fill the
-        viewport. This is the one format where both slide transitions and
-        per-layer animations actually play.
+        viewport. ``embed_fonts`` defaults to ``True`` so the slideshow carries
+        its fonts and renders identically on any machine; pass ``False`` for a
+        smaller file that relies on the viewer's system fonts. This is the one
+        format where both slide transitions and per-layer animations actually
+        play.
         """
         self._require_slides()
         from quickthumb._export_html import export_deck

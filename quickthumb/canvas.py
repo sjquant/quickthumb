@@ -562,7 +562,7 @@ class Canvas:
 
         return SvgExporter(self, embed_fonts=embed_fonts).export()
 
-    def to_html(self, responsive: bool = True, embed_fonts: bool = False) -> str:
+    def to_html(self, responsive: bool = True, embed_fonts: bool = True) -> str:
         """Render the canvas to a standalone, self-contained HTML document string.
 
         Backgrounds, gradients, outlines, shapes, and text become native
@@ -575,9 +575,10 @@ class Canvas:
         The composition is a fixed-size stage that never reflows, keeping it a
         faithful twin of the PNG/SVG/PDF/PPTX output. With ``responsive=True``
         (default) the whole stage is scaled as one unit to fill the viewport;
-        pass ``responsive=False`` to emit the bare fixed-size stage. Set
-        ``embed_fonts=True`` to inline the used fonts as ``@font-face`` data URLs
-        so text renders consistently on machines without the fonts installed.
+        pass ``responsive=False`` to emit the bare fixed-size stage. ``embed_fonts``
+        defaults to ``True`` so the used fonts are inlined as ``@font-face`` data
+        URLs and text renders identically everywhere; pass ``False`` to drop them
+        and rely on the viewer's system fonts for a smaller file.
         """
         from quickthumb._export_html import export_canvas
 

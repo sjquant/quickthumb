@@ -351,13 +351,21 @@ class TestHtmlFonts:
         assert "@font-face" in html
         assert "data:font/ttf;base64," in html
 
-    def test_should_omit_font_face_by_default(self):
-        """Without embed_fonts the document references families but embeds no font data"""
+    def test_should_embed_fonts_by_default(self):
+        """The document embeds its fonts by default so it renders identically everywhere"""
         # given
         canvas = Canvas(400, 200).text(content="Type", size=48, color="#FFFFFF", position=(20, 20))
 
         # when / then
-        assert "@font-face" not in canvas.to_html()
+        assert "@font-face" in canvas.to_html()
+
+    def test_should_omit_font_face_when_embed_disabled(self):
+        """embed_fonts=False references families but embeds no font data"""
+        # given
+        canvas = Canvas(400, 200).text(content="Type", size=48, color="#FFFFFF", position=(20, 20))
+
+        # when / then
+        assert "@font-face" not in canvas.to_html(embed_fonts=False)
 
 
 class TestHtmlAnimations:
