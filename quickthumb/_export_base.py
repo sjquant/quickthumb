@@ -44,6 +44,13 @@ if TYPE_CHECKING:
 Box = tuple[float, float, float, float]  # left, top, right, bottom
 
 
+def _fmt(value: float) -> str:
+    """Format a coordinate compactly: integers stay integers, floats keep 2 dp."""
+    if isinstance(value, int) or float(value).is_integer():
+        return str(int(value))
+    return f"{value:.2f}"
+
+
 def flatten_layers(canvas: Canvas) -> list[RenderableLayer]:
     """Resolve group layers into placed children so exporters see a flat list."""
     flat: list[RenderableLayer] = []

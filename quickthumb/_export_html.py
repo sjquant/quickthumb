@@ -26,6 +26,7 @@ import base64
 import json
 import math
 import os
+from functools import cached_property
 from html import escape
 from typing import TYPE_CHECKING
 
@@ -43,6 +44,7 @@ from quickthumb._export_base import (
     Box,
     RasterFragment,
     TextRunLayout,
+    _fmt,
     color_to_rgba,
     compute_text_layout,
     flatten_layers,
@@ -75,13 +77,7 @@ _env = jinja2.Environment(
     lstrip_blocks=True,
     keep_trailing_newline=True,
 )
-
-
-def _fmt(value: float) -> str:
-    """Format a coordinate compactly: integers stay integers, floats keep 2 dp."""
-    if isinstance(value, int) or float(value).is_integer():
-        return str(int(value))
-    return f"{value:.2f}"
+_doc_tmpl = _env.get_template("document.html")
 
 
 def _css_color(rgba: tuple, opacity: float = 1.0) -> str:
@@ -139,6 +135,43 @@ def _effect_states(effect) -> tuple[str, str]:
     return "opacity:0", "opacity:1"
 
 
+def _css_gradient(gradient: LinearGradient | RadialGradient, box: Box, canvas: Canvas) -> str:
+    """Build a CSS gradient over a box, approximating EffectsEngine geometry."""
+    left, top, right, bottom = box
+    width, height = right - left, bottom - top
+    stops = sorted(gradient.stops, key=lambda stop: stop[1])
+
+    if isinstance(gradient, LinearGradient):
+        # Our angle uses screen coords (x right, y down); CSS measures
+        # clockwise from "to top", so convert the direction vector.
+        theta = math.radians(gradient.angle)
+        dx, dy = math.cos(theta), math.sin(theta)
+        css_angle = (math.degrees(math.atan2(dx, -dy))) % 360
+        parts = [
+            f"{_css_color(color_to_rgba(canvas, color))} {_fmt(round(pos * 100, 2))}%"
+            for color, pos in stops
+        ]
+        return f"linear-gradient({_fmt(round(css_angle, 2))}deg,{','.join(parts)})"
+
+    focus_x = width * gradient.center[0]
+    focus_y = height * gradient.center[1]
+    max_dist = max(
+        math.hypot(focus_x, focus_y),
+        math.hypot(width - focus_x, focus_y),
+        math.hypot(focus_x, height - focus_y),
+        math.hypot(width - focus_x, height - focus_y),
+    )
+    radius = max_dist * math.sqrt(2)
+    parts = [
+        f"{_css_color(color_to_rgba(canvas, color))} {_fmt(round(pos * radius, 2))}px"
+        for color, pos in stops
+    ]
+    return (
+        f"radial-gradient(circle {_fmt(round(radius, 2))}px at "
+        f"{_fmt(round(focus_x, 2))}px {_fmt(round(focus_y, 2))}px,{','.join(parts)})"
+    )
+
+
 class HtmlExporter:
     def __init__(self, canvas: Canvas, embed_fonts: bool = False, responsive: bool = True):
         self._canvas = canvas
@@ -185,9 +218,9 @@ class HtmlExporter:
         )
 
     def _make_id(self) -> str:
-        made = f"qt-l{self._next_id}"
+        element_id = f"qt-l{self._next_id}"
         self._next_id += 1
-        return made
+        return element_id
 
     # ----------------------------------------------------------- animation glue
 
@@ -265,8 +298,7 @@ class HtmlExporter:
         """Append one positioned element, wiring up any per-layer animation."""
         element_id = self._make_id()
         anim_style, _ = self._register_animation(layer, element_id)
-        close = "" if tag == "img" else f"{inner}</{tag}>"
-        self._body.append(f'<{tag} id="{element_id}" style="{style}{anim_style}">{close}')
+        self._body.append(f'<{tag} id="{element_id}" style="{style}{anim_style}">{inner}</{tag}>')
 
     def _emit_raster_fallback(self, layer: RenderableLayer):
         fragment = rasterize_layers(self._canvas, [layer])
@@ -303,46 +335,11 @@ class HtmlExporter:
             style += f"background:{_css_color(rgba)};"
         else:
             assert layer.gradient is not None
-            style += f"background:{self._css_gradient(layer.gradient, (0, 0, width, height))};"
+            grad = _css_gradient(layer.gradient, (0, 0, width, height), self._canvas)
+            style += f"background:{grad};"
             if layer.opacity < 1:
                 style += f"opacity:{_fmt(round(layer.opacity, 4))};"
         self._append_element(layer, "div", style)
-
-    def _css_gradient(self, gradient: LinearGradient | RadialGradient, box: Box) -> str:
-        """Build a CSS gradient over a box, approximating EffectsEngine geometry."""
-        left, top, right, bottom = box
-        width, height = right - left, bottom - top
-        stops = sorted(gradient.stops, key=lambda stop: stop[1])
-
-        if isinstance(gradient, LinearGradient):
-            # Our angle uses screen coords (x right, y down); CSS measures
-            # clockwise from "to top", so convert the direction vector.
-            theta = math.radians(gradient.angle)
-            dx, dy = math.cos(theta), math.sin(theta)
-            css_angle = (math.degrees(math.atan2(dx, -dy))) % 360
-            parts = [
-                f"{_css_color(color_to_rgba(self._canvas, color))} {_fmt(round(pos * 100, 2))}%"
-                for color, pos in stops
-            ]
-            return f"linear-gradient({_fmt(round(css_angle, 2))}deg,{','.join(parts)})"
-
-        focus_x = width * gradient.center[0]
-        focus_y = height * gradient.center[1]
-        max_dist = max(
-            math.hypot(focus_x, focus_y),
-            math.hypot(width - focus_x, focus_y),
-            math.hypot(focus_x, height - focus_y),
-            math.hypot(width - focus_x, height - focus_y),
-        )
-        radius = max_dist * math.sqrt(2)
-        parts = [
-            f"{_css_color(color_to_rgba(self._canvas, color))} {_fmt(round(pos * radius, 2))}px"
-            for color, pos in stops
-        ]
-        return (
-            f"radial-gradient(circle {_fmt(round(radius, 2))}px at "
-            f"{_fmt(round(focus_x, 2))}px {_fmt(round(focus_y, 2))}px,{','.join(parts)})"
-        )
 
     # ----------------------------------------------------------------- outline
 
@@ -368,7 +365,7 @@ class HtmlExporter:
         width, height = layer.width, layer.height
 
         expanded = expanded_rotation_size((width, height), layer.rotation)
-        paste_x, paste_y = (x, y)
+        paste_x, paste_y = x, y
         if layer.align:
             paste_x, paste_y = apply_alignment(x, y, expanded, layer.align)
         shape_x = paste_x + (expanded[0] - width) / 2
@@ -552,7 +549,7 @@ class HtmlExporter:
             css += f"-webkit-text-stroke:{stroke.width}px {color};paint-order:stroke fill;"
 
         if isinstance(run.fill, (LinearGradient, RadialGradient)) and run.fill_box is not None:
-            gradient = self._css_gradient(run.fill, run.fill_box)
+            gradient = _css_gradient(run.fill, run.fill_box, self._canvas)
             css += (
                 f"background:{gradient};-webkit-background-clip:text;background-clip:text;"
                 "color:transparent;-webkit-text-fill-color:transparent;"
@@ -646,7 +643,7 @@ class Stage:
         self.keyframes = keyframes
         self.timeline = timeline
 
-    @property
+    @cached_property
     def timeline_json(self) -> str:
         return json.dumps(self.timeline)
 
@@ -724,14 +721,14 @@ function qtTimeline(stage){
 }
 """
 
-_CANVAS_RUNTIME_JS = (
+_CANVAS_RUNTIME_TMPL = _env.from_string(
     _SCALE_JS
     + _TIMELINE_JS
     + """
 (function(){
   var stage=document.querySelector('.qt-stage');
   if(!stage)return;
-  var fit=%RESPONSIVE%;
+  var fit={{ responsive }};
   if(fit){function r(){qtFit(stage);}window.addEventListener('resize',r);
     if(window.ResizeObserver)new ResizeObserver(r).observe(stage.parentElement);r();}
   var tl=new qtTimeline(stage);
@@ -741,14 +738,14 @@ _CANVAS_RUNTIME_JS = (
 """
 )
 
-_DECK_RUNTIME_JS = (
+_DECK_RUNTIME_TMPL = _env.from_string(
     _SCALE_JS
     + _TIMELINE_JS
     + """
 (function(){
   var stages=Array.prototype.slice.call(document.querySelectorAll('.qt-stage'));
   if(!stages.length)return;
-  var fit=%RESPONSIVE%;
+  var fit={{ responsive }};
   var current=0;
   var timelines=stages.map(function(s){return new qtTimeline(s);});
   function show(i){
@@ -804,11 +801,10 @@ def _document(
     base_css = _BASE_CSS if responsive else _FIXED_CSS
     css = base_css + _font_face_css(font_faces) + keyframes
 
-    runtime = (_DECK_RUNTIME_JS if deck else _CANVAS_RUNTIME_JS).replace(
-        "%RESPONSIVE%", "true" if responsive else "false"
-    )
+    runtime_tmpl = _DECK_RUNTIME_TMPL if deck else _CANVAS_RUNTIME_TMPL
+    runtime = runtime_tmpl.render(responsive=json.dumps(responsive))
 
-    return _env.get_template("document.html").render(
+    return _doc_tmpl.render(
         css=css,
         stages=stages,
         runtime=runtime,

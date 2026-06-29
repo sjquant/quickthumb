@@ -29,6 +29,7 @@ from quickthumb._export_base import (
     Box,
     RasterFragment,
     TextRunLayout,
+    _fmt,
     color_to_rgba,
     compute_text_layout,
     flatten_layers,
@@ -54,13 +55,6 @@ from quickthumb.models import (
 
 if TYPE_CHECKING:
     from quickthumb.canvas import Canvas, RenderableLayer
-
-
-def _fmt(value: float) -> str:
-    """Format a coordinate compactly: integers stay integers, floats keep 2 dp."""
-    if isinstance(value, int) or float(value).is_integer():
-        return str(int(value))
-    return f"{value:.2f}"
 
 
 def _parse_svg_length(value: str | None) -> float | None:
