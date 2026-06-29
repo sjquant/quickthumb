@@ -25,9 +25,11 @@ from __future__ import annotations
 import base64
 import json
 import math
+import os
 from html import escape
 from typing import TYPE_CHECKING
 
+import jinja2
 from PIL import ImageFont
 
 from quickthumb._base import (
@@ -65,6 +67,14 @@ from quickthumb.models import (
 
 if TYPE_CHECKING:
     from quickthumb.canvas import Canvas, RenderableLayer
+
+_env = jinja2.Environment(
+    loader=jinja2.FileSystemLoader(os.path.join(os.path.dirname(__file__), "templates")),
+    autoescape=False,
+    trim_blocks=True,
+    lstrip_blocks=True,
+    keep_trailing_newline=True,
+)
 
 
 def _fmt(value: float) -> str:
@@ -636,13 +646,9 @@ class Stage:
         self.keyframes = keyframes
         self.timeline = timeline
 
-    def markup(self, hidden: bool = False) -> str:
-        display = "display:none;" if hidden else ""
-        return (
-            f'<div class="qt-stage" data-qt-timeline=\'{json.dumps(self.timeline)}\' '
-            f'style="width:{self.width}px;height:{self.height}px;{display}">\n'
-            f"{self.body}\n</div>"
-        )
+    @property
+    def timeline_json(self) -> str:
+        return json.dumps(self.timeline)
 
 
 # --------------------------------------------------------------- document shell
@@ -798,26 +804,16 @@ def _document(
     base_css = _BASE_CSS if responsive else _FIXED_CSS
     css = base_css + _font_face_css(font_faces) + keyframes
 
-    if deck:
-        stage_markup = "\n".join(
-            stage.markup(hidden=index > 0) for index, stage in enumerate(stages)
-        )
-        runtime = _DECK_RUNTIME_JS
-    else:
-        stage_markup = stages[0].markup()
-        runtime = _CANVAS_RUNTIME_JS
-    runtime = runtime.replace("%RESPONSIVE%", "true" if responsive else "false")
+    runtime = (_DECK_RUNTIME_JS if deck else _CANVAS_RUNTIME_JS).replace(
+        "%RESPONSIVE%", "true" if responsive else "false"
+    )
 
-    frame_open = '<div class="qt-frame">' if responsive else "<div>"
-    return (
-        "<!doctype html>\n"
-        '<html lang="en">\n<head>\n<meta charset="utf-8">\n'
-        '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
-        "<title>quickthumb</title>\n"
-        f"<style>{css}</style>\n</head>\n<body>\n"
-        f"{frame_open}\n{stage_markup}\n</div>\n"
-        f"<script>{runtime}</script>\n"
-        "</body>\n</html>\n"
+    return _env.get_template("document.html").render(
+        css=css,
+        stages=stages,
+        runtime=runtime,
+        responsive=responsive,
+        deck=deck,
     )
 
 

@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>quickthumb</title>
+<style>{{ css }}</style>
+{% block head_extras %}{% endblock %}
+</head>
+<body>
+<div{% if responsive %} class="qt-frame"{% endif %}>
+{% for stage in stages %}
+<div class="qt-stage" data-qt-timeline='{{ stage.timeline_json }}' style="width:{{ stage.width }}px;height:{{ stage.height }}px;{% if deck and not loop.first %}display:none;{% endif %}">
+{{ stage.body }}
+</div>
+{% endfor %}
+</div>
+{% block body_extras %}{% endblock %}
+<script>{{ runtime }}</script>
+{% block scripts %}{% endblock %}
+</body>
+</html>
