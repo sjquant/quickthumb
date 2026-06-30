@@ -936,7 +936,7 @@ _DECK_RUNTIME = (
   var stages=Array.prototype.slice.call(document.querySelectorAll('.qt-stage'));
   if(!stages.length)return;
   var fit=%RESPONSIVE%;
-  var current=0,hideTimer,autoTimer;
+  var current=0,hideTimer,autoTimer,transitioning=false,timelineBusy=false;
   var timelines=stages.map(function(s){return new qtTimeline(s);});
   if(fit){var refit=function(){qtFit(stages[current]);};
     if(window.ResizeObserver){new ResizeObserver(refit).observe(stages[0].parentElement);}
@@ -952,7 +952,7 @@ _DECK_RUNTIME = (
     var after=parseFloat(raw);
     if(isNaN(after))return;
     autoTimer=setTimeout(function(){
-      if(!timelines[current].hasNext())go(current+1);
+      if(!transitioning&&!timelineBusy&&!timelines[current].hasNext())go(current+1,false);
     },after*1000);
   }
   // Once a transition has run, drop the off-screen slides and clear the
@@ -960,6 +960,7 @@ _DECK_RUNTIME = (
   // stays GPU-promoted longer than needed.
   function settle(){
     clearTimeout(hideTimer);
+    transitioning=false;
     stages.forEach(function(s,j){
       s.style.animation='';s.style.zIndex='';s.style.willChange='';
       if(j!==current)s.style.display='none';
@@ -969,8 +970,9 @@ _DECK_RUNTIME = (
   }
   function reverse(anim){return anim?anim+' reverse':'';}
   function go(i,backward){
-    if(i<0||i>=stages.length||i===current)return;
+    if(transitioning||timelineBusy||i<0||i>=stages.length||i===current)return;
     clearAuto();
+    transitioning=true;
     var out=stages[current],inc=stages[i];
     var source=backward?out:inc;
     current=i;
@@ -992,8 +994,12 @@ _DECK_RUNTIME = (
     clearTimeout(hideTimer);hideTimer=setTimeout(settle,dur*1000+60);
   }
   function advance(){
+    if(transitioning||timelineBusy)return;
     clearAuto();
-    if(timelines[current].hasNext())timelines[current].advance().then(scheduleAuto);
+    if(timelines[current].hasNext()){
+      timelineBusy=true;
+      timelines[current].advance().then(function(){timelineBusy=false;scheduleAuto();});
+    }
     else if(current<stages.length-1)go(current+1,false);
   }
   document.addEventListener('click',function(){if(canClick())advance();});
@@ -1003,6 +1009,7 @@ _DECK_RUNTIME = (
   });
   // First slide plays its own enter transition, then settles like any other.
   if(fit)qtFit(stages[0]);
+  transitioning=true;
   stages[0].style.willChange='transform,opacity,clip-path';
   stages[0].style.animation=stages[0].getAttribute('data-qt-transition')||'';
   runTimeline(0);

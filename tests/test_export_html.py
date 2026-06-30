@@ -633,6 +633,35 @@ class TestDeckHtml:
         assert "function reverse(anim)" in html
         assert "canClick()" in html
 
+    def test_should_ignore_navigation_while_slide_or_timeline_animation_is_running(self):
+        """Rapid navigation input is ignored until the active animation finishes"""
+        # given
+        from quickthumb.transitions import Push
+
+        deck = (
+            Deck(320, 180)
+            .slide(
+                Canvas().text(
+                    content="One",
+                    size=48,
+                    color="#FFFFFF",
+                    position=(20, 20),
+                    animation=Fade(),
+                )
+            )
+            .slide(Canvas().background(color="#1E293B"), transition=Push())
+        )
+
+        # when
+        html = deck.to_html()
+
+        # then
+        assert "transitioning=false,timelineBusy=false" in html
+        assert "if(transitioning||timelineBusy||i<0||i>=stages.length||i===current)return;" in html
+        assert "if(transitioning||timelineBusy)return;" in html
+        assert "timelineBusy=true;" in html
+        assert "timelineBusy=false;scheduleAuto();" in html
+
     def test_should_carry_per_slide_animation_timelines(self):
         """Each slide keeps its own animation timeline"""
         # given
