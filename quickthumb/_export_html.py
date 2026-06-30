@@ -23,6 +23,7 @@ than pixel-identical (like the PPTX exporter), and a handful of exotic effects
 from __future__ import annotations
 
 import base64
+import hashlib
 import json
 import math
 import os
@@ -86,13 +87,6 @@ def _css_color(rgba: tuple, opacity: float = 1.0) -> str:
     if a >= 1:
         return f"rgb({r},{g},{b})"
     return f"rgba({r},{g},{b},{a:.4g})"
-
-
-def _css_blur(radius: float) -> int:
-    """Convert a PIL Gaussian-blur radius (its standard deviation) to a CSS
-    shadow blur length. CSS defines the blur radius as twice the Gaussian
-    standard deviation, so a faithful shadow needs double the PIL radius."""
-    return round(radius * 2)
 
 
 # --- animation effect -> (entrance from-state, to-state) CSS property blocks ----
@@ -230,6 +224,9 @@ class HtmlExporter:
         self._keyframes: list[str] = []
         self._timeline: list[dict] = []
         self._font_faces: dict[str, tuple[str, str, str]] = {}
+        # SVG <filter> defs (id -> markup) for faithful glow/shadow/stroke,
+        # deduplicated by a content hash so identical effects share one filter.
+        self._svg_filters: dict[str, str] = {}
         self._next_id = 1
         self._next_kf = 1
         # Track group-animation identity so flattened group children sharing one
@@ -242,7 +239,92 @@ class HtmlExporter:
     def export(self) -> str:
         """Render a complete, standalone HTML document for the canvas."""
         stage = self.render_stage()
-        return _document([stage], responsive=self._responsive, font_faces=self._font_faces)
+        return _document(
+            [stage],
+            responsive=self._responsive,
+            font_faces=self._font_faces,
+            svg_filters=self._svg_filters,
+        )
+
+    def _effect_filter_css(self, effects, width: float, height: float, *, is_text: bool) -> str:
+        """Return a CSS ``filter:url(#id)`` reproducing the Glow/Shadow (and, for
+        non-text shapes, Stroke) effects exactly as the raster engine draws them,
+        registering the shared SVG ``<filter>``. Empty string if none apply.
+
+        The raster engine derives each effect from the layer's alpha silhouette
+        and composites it behind the layer: Shadow = Gaussian-blurred (sigma =
+        blur_radius) offset silhouette; Glow = blurred silhouette x opacity (text
+        also dilates first); Stroke = silhouette dilated outward by its width.
+        SVG filter primitives map onto these one-to-one -- and feGaussianBlur's
+        stdDeviation *is* the sigma, so no CSS blur-radius fudge is needed.
+        """
+        shaded = [e for e in effects if isinstance(e, (Shadow, Glow))]
+        strokes = [] if is_text else [e for e in effects if isinstance(e, Stroke)]
+        if not shaded and not strokes:
+            return ""
+
+        pad = 1.0
+        for effect in shaded:
+            if isinstance(effect, Shadow):
+                pad = max(pad, effect.blur_radius * 2 + abs(effect.offset_x) + abs(effect.offset_y))
+            else:
+                pad = max(pad, effect.radius * 3)
+        for stroke in strokes:
+            pad = max(pad, stroke.width + 1)
+        # Filter region as a fraction of the box, capped so a tiny element with a
+        # big glow doesn't allocate a runaway offscreen buffer.
+        margin = min(pad / max(1.0, min(width, height)), 4.0) * 100
+        region = (
+            f'x="{_fmt(round(-margin, 2))}%" y="{_fmt(round(-margin, 2))}%" '
+            f'width="{_fmt(round(100 + 2 * margin, 2))}%" '
+            f'height="{_fmt(round(100 + 2 * margin, 2))}%"'
+        )
+
+        body: list[str] = []
+        nodes: list[str] = []
+        index = 0
+        for effect in shaded:
+            index += 1
+            rgb = color_to_rgba(self._canvas, effect.color)
+            color = f"rgb({rgb[0]},{rgb[1]},{rgb[2]})"
+            if isinstance(effect, Shadow):
+                alpha = rgb[3] / 255 if len(rgb) > 3 else 1.0
+                body.append(
+                    f'<feGaussianBlur in="SourceAlpha" stdDeviation="{_fmt(effect.blur_radius)}" result="b{index}"/>'
+                    f'<feOffset in="b{index}" dx="{effect.offset_x}" dy="{effect.offset_y}" result="o{index}"/>'
+                    f'<feFlood flood-color="{color}" flood-opacity="{_fmt(round(alpha, 4))}" result="c{index}"/>'
+                    f'<feComposite in="c{index}" in2="o{index}" operator="in" result="e{index}"/>'
+                )
+            else:
+                source = "SourceAlpha"
+                if is_text:
+                    body.append(
+                        f'<feMorphology in="SourceAlpha" operator="dilate" '
+                        f'radius="{max(1, effect.radius // 2)}" result="d{index}"/>'
+                    )
+                    source = f"d{index}"
+                body.append(
+                    f'<feGaussianBlur in="{source}" stdDeviation="{_fmt(effect.radius)}" result="b{index}"/>'
+                    f'<feFlood flood-color="{color}" flood-opacity="{_fmt(round(effect.opacity, 4))}" result="c{index}"/>'
+                    f'<feComposite in="c{index}" in2="b{index}" operator="in" result="e{index}"/>'
+                )
+            nodes.append(f"e{index}")
+        for stroke in strokes:
+            index += 1
+            rgb = color_to_rgba(self._canvas, stroke.color)
+            color = f"rgb({rgb[0]},{rgb[1]},{rgb[2]})"
+            body.append(
+                f'<feMorphology in="SourceAlpha" operator="dilate" radius="{_fmt(stroke.width)}" result="m{index}"/>'
+                f'<feFlood flood-color="{color}" result="c{index}"/>'
+                f'<feComposite in="c{index}" in2="m{index}" operator="in" result="e{index}"/>'
+            )
+            nodes.append(f"e{index}")
+
+        merge = "".join(f'<feMergeNode in="{n}"/>' for n in nodes)
+        inner = "".join(body) + f'<feMerge>{merge}<feMergeNode in="SourceGraphic"/></feMerge>'
+        fid = "qt-fx" + hashlib.md5((region + inner).encode()).hexdigest()[:10]
+        self._svg_filters[fid] = f'<filter id="{fid}" {region}>{inner}</filter>'
+        return f"filter:url(#{fid});"
 
     def render_stage(self) -> Stage:
         """Render the canvas into a reusable stage (used directly and by decks)."""
@@ -426,8 +508,7 @@ class HtmlExporter:
             f"width:{width}px;height:{height}px;background:{_css_color(rgba)};"
         )
         style += self._shape_geometry_css(layer)
-        rounded = layer.shape in ("rectangle", "ellipse", "pill")
-        style += self._shape_effects_css(layer, rounded)
+        style += self._shape_effects_css(layer)
         if layer.rotation:
             style += f"transform:rotate({_fmt(layer.rotation)}deg);"
         if layer.opacity < 1:
@@ -446,47 +527,12 @@ class HtmlExporter:
         points = ",".join(f"{_fmt(px * 100)}% {_fmt(py * 100)}%" for px, py in normalized)
         return f"clip-path:polygon({points});"
 
-    def _shape_effects_css(self, layer: ShapeLayer, rounded: bool) -> str:
-        """Approximate stroke/shadow/glow. Rounded shapes use box-shadow (which
-        follows border-radius); clip-path shapes use filter drop-shadow."""
-        box_shadows: list[str] = []
-        filters: list[str] = []
-        for effect in layer.effects:
-            if isinstance(effect, Glow):
-                rgba = color_to_rgba(self._canvas, effect.color)
-                color = _css_color(rgba, effect.opacity)
-                if rounded:
-                    box_shadows.append(f"0 0 {_css_blur(effect.radius)}px {effect.radius}px {color}")
-                else:
-                    filters.append(f"drop-shadow(0 0 {_css_blur(effect.radius)}px {color})")
-            elif isinstance(effect, Shadow):
-                color = _css_color(color_to_rgba(self._canvas, effect.color))
-                if rounded:
-                    box_shadows.append(
-                        f"{effect.offset_x}px {effect.offset_y}px {_css_blur(effect.blur_radius)}px {color}"
-                    )
-                else:
-                    filters.append(
-                        f"drop-shadow({effect.offset_x}px {effect.offset_y}px "
-                        f"{_css_blur(effect.blur_radius)}px {color})"
-                    )
-            elif isinstance(effect, Stroke):
-                color = _css_color(color_to_rgba(self._canvas, effect.color))
-                if rounded:
-                    box_shadows.append(f"0 0 0 {effect.width}px {color}")
-                else:
-                    # No clean clip-path outline; stack offsets as a thin border.
-                    w = effect.width
-                    filters.extend(
-                        f"drop-shadow({dx}px {dy}px 0 {color})"
-                        for dx, dy in ((w, 0), (-w, 0), (0, w), (0, -w))
-                    )
-        css = ""
-        if box_shadows:
-            css += f"box-shadow:{','.join(box_shadows)};"
-        if filters:
-            css += f"filter:{' '.join(filters)};"
-        return css
+    def _shape_effects_css(self, layer: ShapeLayer) -> str:
+        """Render stroke/shadow/glow through one SVG filter that reproduces the
+        raster engine's blur/dilate math exactly (see _effect_filter_css). This
+        replaces the old box-shadow/drop-shadow approximations, which could not
+        match PIL's Gaussian sigma, dilated glow, or true polygon outline."""
+        return self._effect_filter_css(layer.effects, layer.width, layer.height, is_text=False)
 
     # -------------------------------------------------------------------- text
 
@@ -581,17 +627,15 @@ class HtmlExporter:
         if run.letter_spacing:
             css += f"letter-spacing:{run.letter_spacing}px;"
 
-        shadows: list[str] = []
-        for glow in run.glows:
-            color = _css_color(color_to_rgba(self._canvas, glow.color), glow.opacity)
-            shadows.append(f"0 0 {_css_blur(glow.radius)}px {color}")
-        for shadow in run.shadows:
-            color = _css_color(color_to_rgba(self._canvas, shadow.color))
-            shadows.append(
-                f"{shadow.offset_x}px {shadow.offset_y}px {_css_blur(shadow.blur_radius)}px {color}"
+        # Glow/shadow as an SVG filter (dilate+blur / offset+blur) instead of
+        # text-shadow, so the soft edge matches PIL's Gaussian sigma exactly and
+        # a glow can dilate the glyph the way the raster glow does.
+        if run.glows or run.shadows:
+            ink_w = run.ink_box[2] - run.ink_box[0]
+            ink_h = run.ink_box[3] - run.ink_box[1]
+            css += self._effect_filter_css(
+                [*run.shadows, *run.glows], ink_w, ink_h, is_text=True
             )
-        if shadows:
-            css += f"text-shadow:{','.join(shadows)};"
         if run.strokes:
             stroke = run.strokes[-1]
             color = _css_color(color_to_rgba(self._canvas, stroke.color))
@@ -1040,6 +1084,7 @@ def _document(
     font_faces: dict[str, tuple[str, str, str]],
     deck: bool = False,
     transitions: list | None = None,
+    svg_filters: dict[str, str] | None = None,
 ) -> str:
     keyframes = "".join(kf for stage in stages for kf in stage.keyframes)
     if deck:
@@ -1071,6 +1116,7 @@ def _document(
         runtime=runtime,
         responsive=responsive,
         deck=deck,
+        filters="".join((svg_filters or {}).values()),
     )
 
 
@@ -1086,14 +1132,17 @@ def export_deck(
 ) -> str:
     stages: list[Stage] = []
     font_faces: dict[str, tuple[str, str, str]] = {}
+    svg_filters: dict[str, str] = {}
     for canvas in canvases:
         exporter = HtmlExporter(canvas, embed_fonts=embed_fonts, responsive=responsive)
         stages.append(exporter.render_stage())
         font_faces.update(exporter._font_faces)
+        svg_filters.update(exporter._svg_filters)
     return _document(
         stages,
         responsive=responsive,
         font_faces=font_faces,
         deck=True,
         transitions=transitions,
+        svg_filters=svg_filters,
     )

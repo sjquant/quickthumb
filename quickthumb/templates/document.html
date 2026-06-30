@@ -8,6 +8,8 @@
 {% block head_extras %}{% endblock %}
 </head>
 <body>
+{% if filters %}<svg width="0" height="0" aria-hidden="true" focusable="false" style="position:absolute;width:0;height:0;overflow:hidden"><defs>{{ filters }}</defs></svg>
+{% endif %}
 <div{% if responsive %} class="qt-frame"{% endif %}>
 {% for stage in stages %}
 <div class="qt-stage" data-qt-timeline='{{ stage.timeline_json }}'{% if deck %} data-qt-transition="{{ stage.transition_anim }}" data-qt-exit="{{ stage.transition_exit }}" data-qt-z="{{ stage.transition_z }}" data-qt-dur="{{ stage.transition_dur }}"{% endif %} style="width:{{ stage.width }}px;height:{{ stage.height }}px;{% if deck and not loop.first %}display:none;{% endif %}">

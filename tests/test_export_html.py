@@ -247,7 +247,7 @@ class TestHtmlText:
         assert "color:rgb(0,191,255)" in html
 
     def test_should_apply_stroke_and_shadow_effects(self):
-        """Stroke maps to -webkit-text-stroke and shadow to text-shadow"""
+        """Stroke maps to -webkit-text-stroke; shadow to an SVG blur+offset filter"""
         # given
         canvas = Canvas(400, 200).text(
             content="FX",
@@ -256,7 +256,7 @@ class TestHtmlText:
             position=(20, 20),
             effects=[
                 Stroke(width=3, color="#000000"),
-                Shadow(offset_x=2, offset_y=2, color="#000000"),
+                Shadow(offset_x=2, offset_y=2, color="#000000", blur_radius=4),
             ],
         )
 
@@ -265,7 +265,10 @@ class TestHtmlText:
 
         # then
         assert "-webkit-text-stroke:3px rgb(0,0,0)" in html
-        assert "text-shadow:" in html
+        # The shadow is an SVG filter (Gaussian sigma == PIL blur radius, no CSS fudge).
+        assert "filter:url(#qt-fx" in html
+        assert '<feGaussianBlur in="SourceAlpha" stdDeviation="4"' in html
+        assert '<feOffset in="b1" dx="2" dy="2"' in html
 
     def test_should_apply_gradient_fill_via_background_clip(self):
         """A gradient text fill clips a CSS gradient to the glyphs"""
