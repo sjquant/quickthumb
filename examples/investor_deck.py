@@ -27,19 +27,19 @@ os.environ["QUICKTHUMB_DEFAULT_FONT"] = "Roboto"
 
 # ── Palette ────────────────────────────────────────────────────────────────────
 
-INK     = "#08070E"
+INK = "#08070E"
 SURFACE = "#12111C"
-PURPLE  = "#8B5CF6"
-CYAN    = "#22D3EE"
-GREEN   = "#10B981"
-WHITE   = "#F8F8FF"
+PURPLE = "#8B5CF6"
+CYAN = "#22D3EE"
+GREEN = "#10B981"
+WHITE = "#F8F8FF"
 OFFWHITE = "#C4C4D4"
-MUTED   = "#64748B"
-RULE    = "#1E1D2F"
+MUTED = "#64748B"
+RULE = "#1E1D2F"
 
-BRAND  = LinearGradient(angle=90,  stops=[(PURPLE, 0.0), (CYAN, 1.0)])
-HERO   = LinearGradient(angle=110, stops=[(CYAN,   0.0), (PURPLE, 1.0)])
-DEPTH  = LinearGradient(angle=160, stops=[(INK, 0.0), (SURFACE, 1.0)])
+BRAND = LinearGradient(angle=90, stops=[(PURPLE, 0.0), (CYAN, 1.0)])
+HERO = LinearGradient(angle=110, stops=[(CYAN, 0.0), (PURPLE, 1.0)])
+DEPTH = LinearGradient(angle=160, stops=[(INK, 0.0), (SURFACE, 1.0)])
 CTA_BG = LinearGradient(angle=140, stops=[(PURPLE, 0.0), ("#4338CA", 1.0)])
 
 DROP = Shadow(offset_x=0, offset_y=6, color="#00000077", blur_radius=18)
@@ -156,7 +156,13 @@ s2 = s2.text(
     animation=Fade(duration=0.4, trigger="after_previous"),
 )
 
-s2 = divider(s2, "81.5%", x="50%", w=800, animation=Wipe(direction="left", duration=0.35, trigger="after_previous"))
+s2 = divider(
+    s2,
+    "81.5%",
+    x="50%",
+    w=800,
+    animation=Wipe(direction="left", duration=0.35, trigger="after_previous"),
+)
 
 # Three root-causes as a single inline group; same animation = one reveal.
 s2 = s2.group(
@@ -182,11 +188,11 @@ s2 = s2.group(
 # ══════════════════════════════════════════════════════════════════════════════
 
 FEATURES = [
-    ("28%",  "Signal\nDetection",  PURPLE,  "10B981",
+    ("28%", "Signal\nDetection", PURPLE, "10B981",
      "Automatically surfaces\nanomalies and trends\nbefore they become incidents."),
-    ("50%",  "Smart\nAlerts",      CYAN,    "22D3EE",
+    ("50%", "Smart\nAlerts", CYAN, "22D3EE",
      "Context-aware notifications\nthat cut through noise and\nreach the right person."),
-    ("72%",  "Team\nSync",         GREEN,   "10B981",
+    ("72%", "Team\nSync", GREEN, "10B981",
      "One-click shared views\nthat turn findings into\naligned decisions fast."),
 ]
 
@@ -239,9 +245,9 @@ for x_pct, title, accent, _hex, body in FEATURES:
 # ══════════════════════════════════════════════════════════════════════════════
 
 METRICS = [
-    ("25%",  "2,400+",  "Active teams",   PURPLE),
-    ("50%",  "94%",     "Retention rate", CYAN),
-    ("75%",  "$1.8M",   "ARR",            GREEN),
+    ("25%", "2,400+", "Active teams", PURPLE),
+    ("50%", "94%", "Retention rate", CYAN),
+    ("75%", "$1.8M", "ARR", GREEN),
 ]
 
 s4 = dark_stage()

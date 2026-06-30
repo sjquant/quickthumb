@@ -797,6 +797,13 @@ _FIXED_CSS = (
     ".qt-stage{position:relative;overflow:hidden}"
 )
 
+_FIXED_DECK_CSS = (
+    "*{margin:0;padding:0;box-sizing:content-box}"
+    "body{font-family:sans-serif}"
+    ".qt-stage{position:absolute;left:0;top:0;overflow:hidden;"
+    "transform-origin:center center}"
+)
+
 # Scales the active stage to fit the frame, preserving aspect ratio.
 _SCALE_JS = """
 function qtFit(stage){
@@ -946,18 +953,15 @@ _DECK_RUNTIME = (
     clearAuto();
     var out=stages[current],inc=stages[i];
     current=i;
-    if(!fit){settle();inc.style.display='block';
-      inc.style.animation=inc.getAttribute('data-qt-transition')||'';runTimeline(i);
-      scheduleAuto();return;}
     var under=inc.getAttribute('data-qt-z')==='under';
     // Keep the outgoing slide on screen (static, or sliding out) under/over the
     // incoming one; will-change lifts both onto their own compositor layer so
     // the move is GPU-driven rather than a main-thread repaint.
     out.style.display='block';out.style.zIndex=under?'2':'1';
-    out.style.willChange='transform,opacity';qtFit(out);
+    out.style.willChange='transform,opacity';if(fit)qtFit(out);
     out.style.animation=inc.getAttribute('data-qt-exit')||'';
     inc.style.display='block';inc.style.zIndex=under?'1':'2';
-    inc.style.willChange='transform,opacity,clip-path';qtFit(inc);
+    inc.style.willChange='transform,opacity,clip-path';if(fit)qtFit(inc);
     inc.style.animation=inc.getAttribute('data-qt-transition')||'';
     runTimeline(i);
     var dur=parseFloat(inc.getAttribute('data-qt-dur'))||0;
@@ -1137,7 +1141,12 @@ def _document(
                     "@keyframes " + name + "{from{" + leave[0] + "}to{" + leave[1] + "}}"
                 )
                 stage.transition_exit = f"{name} {timing}"
-    base_css = _BASE_CSS if responsive else _FIXED_CSS
+    if responsive:
+        base_css = _BASE_CSS
+    elif deck:
+        base_css = _FIXED_DECK_CSS
+    else:
+        base_css = _FIXED_CSS
     css = base_css + _font_face_css(font_faces) + "".join(keyframes)
 
     runtime_template = _DECK_RUNTIME if deck else _CANVAS_RUNTIME

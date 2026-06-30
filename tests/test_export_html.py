@@ -109,6 +109,25 @@ class TestHtmlDocument:
         assert "qt-frame" not in html
         assert "var fit=false" in html
 
+    def test_should_overlap_deck_stages_when_not_responsive(self):
+        """A non-responsive deck still overlaps stages for slide transitions"""
+        # given
+        from quickthumb.transitions import Push
+
+        deck = (
+            Deck(320, 180)
+            .slide(Canvas().background(color="#101820"))
+            .slide(Canvas().background(color="#1E293B"), transition=Push())
+        )
+
+        # when
+        html = deck.to_html(responsive=False)
+
+        # then
+        assert "qt-frame" not in html
+        assert ".qt-stage{position:absolute" in html
+        assert "if(!fit){settle()" not in html
+
 
 class TestHtmlBackgrounds:
     """Test suite for background layer export"""
