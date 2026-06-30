@@ -432,6 +432,19 @@ class TestHtmlAnimations:
         # when / then
         assert timelines(canvas.to_html())[0] == []
 
+    def test_should_reject_animated_layers_that_would_be_flattened(self):
+        """Animated layers are rejected before blend-mode rasterization swallows them"""
+        # given
+        canvas = (
+            Canvas(400, 200)
+            .text(content="Hi", size=48, color="#FFFFFF", position=(20, 20), animation=Fade())
+            .image(SAMPLE_IMAGE, position=(0, 0), width=80, height=80, blend_mode="multiply")
+        )
+
+        # when / then
+        with pytest.raises(RenderingError, match="cannot animate layers"):
+            canvas.to_html()
+
 
 class TestDeckHtml:
     """Test suite for deck slideshow export"""
@@ -480,6 +493,68 @@ class TestDeckHtml:
         # A hard cut emits no keyframe and no animation.
         assert 'data-qt-transition=""' in html
 
+    @pytest.mark.parametrize(
+        ("transition", "expected"),
+        [
+            pytest.param(
+                ("wipe", {"direction": "right"}),
+                "clip-path:inset(0 100% 0 0)",
+                id="wipe",
+            ),
+            pytest.param(("cover", {"direction": "left"}), "translateX(100vw)", id="cover"),
+            pytest.param(("uncover", {"direction": "up"}), "translateY(-100vh)", id="uncover"),
+            pytest.param(("zoom", {"direction": "out"}), "var(--qt-scale,1)*1.4", id="zoom"),
+            pytest.param(("split", {"orientation": "vertical"}), "inset(50% 0 50% 0)", id="split"),
+            pytest.param(("circle", {}), "clip-path:circle(0% at 50% 50%)", id="circle"),
+            pytest.param(
+                ("diamond", {}),
+                "clip-path:polygon(50% 50%,50% 50%,50% 50%,50% 50%)",
+                id="diamond",
+            ),
+        ],
+    )
+    def test_should_emit_css_for_supported_slide_transitions(self, transition, expected):
+        """HTML deck output includes CSS keyframes for supported transition families"""
+        # given
+        from quickthumb.transitions import coerce_transition
+
+        effect, options = transition
+        deck = (
+            Deck(640, 360)
+            .slide(Canvas().background(color="#101820"))
+            .slide(Canvas().background(color="#1E293B"), transition={"effect": effect, **options})
+        )
+
+        # when
+        html = deck.to_html()
+
+        # then
+        assert coerce_transition({"effect": effect, **options}) is not None
+        assert expected in html
+
+    def test_should_honor_slide_advance_timing_in_html(self):
+        """HTML deck stages serialize click and auto-advance transition timing"""
+        # given
+        from quickthumb.transitions import Fade as FadeTransition
+
+        deck = (
+            Deck(640, 360)
+            .slide(Canvas().background(color="#101820"))
+            .slide(
+                Canvas().background(color="#1E293B"),
+                transition=FadeTransition(advance_on_click=False, advance_after=2.5),
+            )
+        )
+
+        # when
+        html = deck.to_html()
+
+        # then
+        assert 'data-qt-click="0"' in html
+        assert 'data-qt-after="2.50"' in html
+        assert "function scheduleAuto()" in html
+        assert "function canClick()" in html
+
     def test_should_render_deck_html_file(self, tmp_path):
         """Deck.render writes a single HTML slideshow and returns its path"""
         # given
@@ -493,13 +568,36 @@ class TestDeckHtml:
         assert written == [str(output)]
         assert output.read_text().startswith("<!doctype html>")
 
-    def test_should_drive_slides_with_keyboard_navigation(self):
-        """The deck runtime wires up arrow-key navigation"""
+    def test_should_reject_quality_for_deck_html_output(self, tmp_path):
+        """Deck HTML output is a document format, so raster quality is invalid"""
         # given
         deck = Deck(320, 180).slide(Canvas().background(color="#101820"))
 
         # when / then
-        assert "ArrowRight" in deck.to_html()
+        with pytest.raises(RenderingError, match="[Qq]uality"):
+            deck.render(str(tmp_path / "deck.html"), quality=80)
+
+    def test_should_reject_format_override_for_deck_html_output(self, tmp_path):
+        """Deck HTML output rejects raster format overrides just like PDF/PPTX"""
+        # given
+        deck = Deck(320, 180).slide(Canvas().background(color="#101820"))
+
+        # when / then
+        with pytest.raises(RenderingError, match="format override"):
+            deck.render(str(tmp_path / "deck.html"), format="PNG")
+
+    def test_should_drive_slides_with_keyboard_navigation(self):
+        """The deck runtime wires up gated arrow-key navigation"""
+        # given
+        deck = Deck(320, 180).slide(Canvas().background(color="#101820"))
+
+        # when
+        html = deck.to_html()
+
+        # then
+        assert "ArrowRight" in html
+        assert "go(current-1)" in html
+        assert "canClick()" in html
 
     def test_should_carry_per_slide_animation_timelines(self):
         """Each slide keeps its own animation timeline"""

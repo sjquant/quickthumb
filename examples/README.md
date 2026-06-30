@@ -155,7 +155,7 @@ Use it when you want a brandable announcement-card template whose layout survive
 
 Output: `slide_effects_deck.pptx` (plus `slide_effects_deck.png`, a still preview of the opening slide)
 
-Builds a polished 4-slide PowerPoint `Deck` (title, agenda, hero metric, closing) that shows off slide effects (PPTX-only):
+Builds a polished 4-slide PowerPoint `Deck` (title, agenda, hero metric, closing) that shows off slide effects:
 
 - A deck-wide default slide `Transition` with per-slide overrides (`Deck.transition(...)` and `Deck.slide(..., transition=...)`)
 - Typed animation effect objects — `Fade`, `Wipe`, `Box`, `Wheel` — each exposing only the options it supports

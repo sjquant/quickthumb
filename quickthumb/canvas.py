@@ -375,7 +375,7 @@ class Canvas:
                    - String shortcut (e.g., "center", "top-left", "bottom-right")
                    - Tuple (horizontal, vertical) (e.g., ("center", "middle"))
             blend_mode: Blend mode for compositing this image onto prior layers
-            animation: Optional entrance/exit Animation applied in PPTX export
+            animation: Optional entrance/exit Animation applied in PPTX and HTML export
         Returns:
             Self for method chaining
         """
@@ -422,7 +422,7 @@ class Canvas:
             rotation: Rotation angle in degrees
             align: Layer alignment relative to position
             blend_mode: Blend mode for compositing onto prior layers
-            animation: Optional entrance/exit Animation applied in PPTX export
+            animation: Optional entrance/exit Animation applied in PPTX and HTML export
         Returns:
             Self for method chaining
         """
@@ -469,7 +469,7 @@ class Canvas:
             position: Anchor point of the group box in pixels or percentages
             align: How the group box anchors to position (like image layers)
             item_align: Cross-axis placement of each child: "start", "center", or "end"
-            animation: Optional Animation applied to the whole group in PPTX export
+            animation: Optional Animation applied to the whole group in PPTX and HTML export
         Returns:
             Self for method chaining
         """
@@ -580,9 +580,9 @@ class Canvas:
         URLs and text renders identically everywhere; pass ``False`` to drop them
         and rely on the viewer's system fonts for a smaller file.
         """
-        from quickthumb._export_html import export_canvas
+        from quickthumb._export_html import HtmlExporter
 
-        return export_canvas(self, embed_fonts=embed_fonts, responsive=responsive)
+        return HtmlExporter(self, embed_fonts=embed_fonts, responsive=responsive).export()
 
     def to_pptx(self) -> bytes:
         """Render the canvas to a PowerPoint file as bytes (requires quickthumb[pptx]).

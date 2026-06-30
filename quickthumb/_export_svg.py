@@ -11,8 +11,6 @@ from __future__ import annotations
 
 import base64
 import math
-import re
-import xml.etree.ElementTree as ET
 from typing import TYPE_CHECKING
 from xml.sax.saxutils import escape, quoteattr
 
@@ -34,11 +32,11 @@ from quickthumb._export_base import (
     compute_text_layout,
     flatten_layers,
     rasterize_layers,
+    read_svg_layer_bytes_and_size,
     rgb_hex,
     split_backdrop_prefix,
     uses_image_fill,
 )
-from quickthumb.errors import RenderingError
 from quickthumb.models import (
     Align,
     BackgroundLayer,
@@ -55,15 +53,6 @@ from quickthumb.models import (
 
 if TYPE_CHECKING:
     from quickthumb.canvas import Canvas, RenderableLayer
-
-
-def _parse_svg_length(value: str | None) -> float | None:
-    if value is None:
-        return None
-    match = re.fullmatch(r"\s*([0-9]+(?:\.[0-9]+)?)(?:px)?\s*", value)
-    if not match:
-        return None
-    return float(match.group(1))
 
 
 def _alpha_attr(name: str, rgba: tuple, opacity: float = 1.0) -> str:
@@ -538,7 +527,7 @@ class SvgExporter:
             return
 
         canvas = self._canvas
-        svg_bytes, size = self._read_svg_layer_bytes_and_size(layer)
+        svg_bytes, size = read_svg_layer_bytes_and_size(layer)
 
         x = parse_coordinate(layer.position[0], canvas.width)
         y = parse_coordinate(layer.position[1], canvas.height)
@@ -564,46 +553,4 @@ class SvgExporter:
             f'<image x="{_fmt(local_x)}" y="{_fmt(local_y)}" '
             f'width="{size[0]}" height="{size[1]}"{attrs} '
             f'xlink:href="data:image/svg+xml;base64,{encoded}"/>'
-        )
-
-    def _read_svg_layer_bytes_and_size(self, layer: SvgLayer) -> tuple[bytes, tuple[int, int]]:
-        with open(layer.path, "rb") as svg_file:
-            svg_bytes = svg_file.read()
-
-        intrinsic = self._intrinsic_svg_size(svg_bytes, layer.path)
-        width, height = layer.width, layer.height
-        if width and height:
-            return svg_bytes, (width, height)
-        if width:
-            return svg_bytes, (width, round(width * intrinsic[1] / intrinsic[0]))
-        if height:
-            return svg_bytes, (round(height * intrinsic[0] / intrinsic[1]), height)
-        return svg_bytes, (round(intrinsic[0]), round(intrinsic[1]))
-
-    def _intrinsic_svg_size(self, svg_bytes: bytes, path: str) -> tuple[float, float]:
-        try:
-            root = ET.fromstring(svg_bytes)
-        except ET.ParseError as e:
-            raise RenderingError(f"Cannot read SVG dimensions for '{path}': {e}") from e
-
-        width = _parse_svg_length(root.get("width"))
-        height = _parse_svg_length(root.get("height"))
-        if width and height:
-            return width, height
-
-        view_box = root.get("viewBox")
-        if view_box:
-            parts = view_box.replace(",", " ").split()
-            if len(parts) == 4:
-                try:
-                    view_width = float(parts[2])
-                    view_height = float(parts[3])
-                except ValueError:
-                    view_width = view_height = 0
-                if view_width > 0 and view_height > 0:
-                    return view_width, view_height
-
-        raise RenderingError(
-            f"Cannot determine dimensions for SVG '{path}'. "
-            "Set width and height or include width/height/viewBox in the SVG."
         )

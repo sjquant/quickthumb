@@ -328,7 +328,7 @@ s5 = s5.text(
 # ══════════════════════════════════════════════════════════════════════════════
 
 # A distinct slide transition per slide — these play in the HTML slideshow
-# (and in PPTX export). The cover slide cross-fades in by default.
+# (and in PPTX/HTML export). The cover slide cross-fades in by default.
 deck = (
     Deck(1280, 720)
     .slide(s1)

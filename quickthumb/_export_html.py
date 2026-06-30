@@ -26,12 +26,10 @@ import base64
 import hashlib
 import json
 import math
-import os
 from functools import cached_property
 from html import escape
 from typing import TYPE_CHECKING
 
-import jinja2
 from PIL import ImageFont
 
 from quickthumb._base import (
@@ -50,10 +48,12 @@ from quickthumb._export_base import (
     compute_text_layout,
     flatten_layers,
     rasterize_layers,
+    read_svg_layer_bytes_and_size,
     split_backdrop_prefix,
     union_boxes,
     uses_image_fill,
 )
+from quickthumb.errors import RenderingError
 from quickthumb.models import (
     Align,
     BackgroundLayer,
@@ -70,15 +70,6 @@ from quickthumb.models import (
 
 if TYPE_CHECKING:
     from quickthumb.canvas import Canvas, RenderableLayer
-
-_env = jinja2.Environment(
-    loader=jinja2.FileSystemLoader(os.path.join(os.path.dirname(__file__), "templates")),
-    autoescape=False,
-    trim_blocks=True,
-    lstrip_blocks=True,
-    keep_trailing_newline=True,
-)
-_doc_tmpl = _env.get_template("document.html")
 
 
 def _css_color(rgba: tuple, opacity: float = 1.0) -> str:
@@ -131,7 +122,10 @@ def _effect_states(effect) -> tuple[str, str]:
         direction = getattr(effect, "direction", "up")
         if name == "blinds":
             direction = "right" if effect.orientation == "vertical" else "down"
-        return f"clip-path:{_WIPE_INSETS[direction]};opacity:1", "clip-path:inset(0 0 0 0);opacity:1"
+        return (
+            f"clip-path:{_WIPE_INSETS[direction]};opacity:1",
+            "clip-path:inset(0 0 0 0);opacity:1",
+        )
     if name == "wheel":
         return (
             "clip-path:polygon(50% 50%,50% 0%,50% 0%);opacity:1",
@@ -160,7 +154,10 @@ def _remap_linear_stops(
     element_extent = abs((ex1 - ex0) * dx) + abs((ey1 - ey0) * dy)
     if element_extent == 0 or diagonal == 0:
         return positions
-    center_offset = ((ex0 + ex1 - bx0 - bx1) / 2) * dx + ((ey0 + ey1 - by0 - by1) / 2) * dy
+    center_offset = (
+        ((ex0 + ex1 - bx0 - bx1) / 2) * dx
+        + ((ey0 + ey1 - by0 - by1) / 2) * dy
+    )
     return [((q - 0.5) * diagonal - center_offset) / element_extent + 0.5 for q in positions]
 
 
@@ -196,7 +193,7 @@ def _css_gradient(
         positions = _remap_linear_stops([pos for _, pos in stops], box, paint_box, dx, dy)
         parts = [
             f"{_css_color(color_to_rgba(canvas, color))} {_fmt(round(pos * 100, 2))}%"
-            for (color, _), pos in zip(stops, positions)
+            for (color, _), pos in zip(stops, positions, strict=True)
         ]
         return f"linear-gradient({_fmt(round(css_angle, 2))}deg,{','.join(parts)})"
 
@@ -294,10 +291,14 @@ class HtmlExporter:
             if isinstance(effect, Shadow):
                 alpha = rgb[3] / 255 if len(rgb) > 3 else 1.0
                 body.append(
-                    f'<feGaussianBlur in="SourceAlpha" stdDeviation="{_fmt(effect.blur_radius)}" result="b{index}"/>'
-                    f'<feOffset in="b{index}" dx="{effect.offset_x}" dy="{effect.offset_y}" result="o{index}"/>'
-                    f'<feFlood flood-color="{color}" flood-opacity="{_fmt(round(alpha, 4))}" result="c{index}"/>'
-                    f'<feComposite in="c{index}" in2="o{index}" operator="in" result="e{index}"/>'
+                    f'<feGaussianBlur in="SourceAlpha" '
+                    f'stdDeviation="{_fmt(effect.blur_radius)}" result="b{index}"/>'
+                    f'<feOffset in="b{index}" dx="{effect.offset_x}" '
+                    f'dy="{effect.offset_y}" result="o{index}"/>'
+                    f'<feFlood flood-color="{color}" '
+                    f'flood-opacity="{_fmt(round(alpha, 4))}" result="c{index}"/>'
+                    f'<feComposite in="c{index}" in2="o{index}" '
+                    f'operator="in" result="e{index}"/>'
                 )
             else:
                 source = "SourceAlpha"
@@ -308,9 +309,12 @@ class HtmlExporter:
                     )
                     source = f"d{index}"
                 body.append(
-                    f'<feGaussianBlur in="{source}" stdDeviation="{_fmt(effect.radius)}" result="b{index}"/>'
-                    f'<feFlood flood-color="{color}" flood-opacity="{_fmt(round(effect.opacity, 4))}" result="c{index}"/>'
-                    f'<feComposite in="c{index}" in2="b{index}" operator="in" result="e{index}"/>'
+                    f'<feGaussianBlur in="{source}" '
+                    f'stdDeviation="{_fmt(effect.radius)}" result="b{index}"/>'
+                    f'<feFlood flood-color="{color}" '
+                    f'flood-opacity="{_fmt(round(effect.opacity, 4))}" result="c{index}"/>'
+                    f'<feComposite in="c{index}" in2="b{index}" '
+                    f'operator="in" result="e{index}"/>'
                 )
             nodes.append(f"e{index}")
         for stroke in strokes:
@@ -318,9 +322,11 @@ class HtmlExporter:
             rgb = color_to_rgba(self._canvas, stroke.color)
             color = f"rgb({rgb[0]},{rgb[1]},{rgb[2]})"
             body.append(
-                f'<feMorphology in="SourceAlpha" operator="dilate" radius="{_fmt(stroke.width)}" result="m{index}"/>'
+                f'<feMorphology in="SourceAlpha" operator="dilate" '
+                f'radius="{_fmt(stroke.width)}" result="m{index}"/>'
                 f'<feFlood flood-color="{color}" result="c{index}"/>'
-                f'<feComposite in="c{index}" in2="m{index}" operator="in" result="e{index}"/>'
+                f'<feComposite in="c{index}" in2="m{index}" '
+                f'operator="in" result="e{index}"/>'
             )
             nodes.append(f"e{index}")
 
@@ -337,6 +343,7 @@ class HtmlExporter:
         canvas._ctx.begin_render_pass()
 
         prefix, rest = split_backdrop_prefix(flatten_layers(canvas))
+        self._reject_animated_backdrop_prefix(prefix)
         if prefix:
             fragment = rasterize_layers(canvas, prefix)
             if fragment:
@@ -350,6 +357,19 @@ class HtmlExporter:
             body="\n".join(self._body),
             keyframes=list(self._keyframes),
             timeline=list(self._timeline),
+        )
+
+    def _reject_animated_backdrop_prefix(self, layers: list[RenderableLayer]) -> None:
+        """Avoid silently flattening animated layers into static backdrop fragments."""
+        if not layers:
+            return
+        animated = [layer for layer in layers if getattr(layer, "animation", None) is not None]
+        if not animated:
+            return
+        raise RenderingError(
+            "HTML export cannot animate layers that must be rasterized together for "
+            "blend-mode or custom-layer backdrop compositing. Move animated layers "
+            "after those backdrop-dependent layers, or remove the blend/custom layer."
         )
 
     def _make_id(self) -> str:
@@ -367,7 +387,12 @@ class HtmlExporter:
         an empty string.
         """
         animation = getattr(layer, "animation", None)
-        effects = [] if animation is None else animation if isinstance(animation, list) else [animation]
+        if animation is None:
+            effects = []
+        elif isinstance(animation, list):
+            effects = animation
+        else:
+            effects = [animation]
         if not effects:
             self._prev_anim_key = None
             return ""
@@ -643,7 +668,12 @@ class HtmlExporter:
             # The span paints the gradient over its own border box (its width by
             # the line height), so hand that box in to slice the block gradient.
             ink_w = run.ink_box[2] - run.ink_box[0]
-            span_box = (run.pen_x, run.baseline_y - ascent, run.pen_x + ink_w, run.baseline_y + descent)
+            span_box = (
+                run.pen_x,
+                run.baseline_y - ascent,
+                run.pen_x + ink_w,
+                run.baseline_y + descent,
+            )
             gradient = _css_gradient(run.fill, run.fill_box, self._canvas, element_box=span_box)
             css += (
                 f"background:{gradient};-webkit-background-clip:text;background-clip:text;"
@@ -686,10 +716,7 @@ class HtmlExporter:
             return
 
         canvas = self._canvas
-        from quickthumb._export_svg import SvgExporter
-
-        helper = SvgExporter(canvas)
-        svg_bytes, size = helper._read_svg_layer_bytes_and_size(layer)
+        svg_bytes, size = read_svg_layer_bytes_and_size(layer)
 
         x = parse_coordinate(layer.position[0], canvas.width)
         y = parse_coordinate(layer.position[1], canvas.height)
@@ -751,6 +778,8 @@ class Stage:
         self.transition_exit = ""
         self.transition_z = "over"
         self.transition_dur = "0"
+        self.transition_click = "1"
+        self.transition_after = ""
 
     @cached_property
     def timeline_json(self) -> str:
@@ -766,7 +795,8 @@ _BASE_CSS = (
     ".qt-frame{position:absolute;inset:0;overflow:hidden}"
     # Absolutely centred so deck slides can overlap during a transition (the
     # outgoing slide stays on screen beneath/beside the incoming one).
-    ".qt-stage{position:absolute;inset:0;margin:auto;overflow:hidden;transform-origin:center center}"
+    ".qt-stage{position:absolute;inset:0;margin:auto;overflow:hidden;"
+    "transform-origin:center center}"
 )
 
 _FIXED_CSS = (
@@ -779,7 +809,10 @@ _FIXED_CSS = (
 _SCALE_JS = """
 function qtFit(stage){
   var f=stage.parentElement;
-  var s=Math.min(f.clientWidth/parseInt(stage.style.width), f.clientHeight/parseInt(stage.style.height));
+  var s=Math.min(
+    f.clientWidth/parseInt(stage.style.width),
+    f.clientHeight/parseInt(stage.style.height)
+  );
   // Expose the scale as a custom property so transform-based slide transitions
   // can compose with it; transitions that don't touch transform keep this.
   stage.style.setProperty('--qt-scale', s);
@@ -860,14 +893,14 @@ function qtTimeline(stage){
 }
 """
 
-_CANVAS_RUNTIME_TMPL = _env.from_string(
+_CANVAS_RUNTIME = (
     _SCALE_JS
     + _TIMELINE_JS
     + """
 (function(){
   var stage=document.querySelector('.qt-stage');
   if(!stage)return;
-  var fit={{ responsive }};
+  var fit=%RESPONSIVE%;
   if(fit){function r(){qtFit(stage);}
     if(window.ResizeObserver){new ResizeObserver(r).observe(stage.parentElement);}
     else{window.addEventListener('resize',r);}r();}
@@ -878,20 +911,32 @@ _CANVAS_RUNTIME_TMPL = _env.from_string(
 """
 )
 
-_DECK_RUNTIME_TMPL = _env.from_string(
+_DECK_RUNTIME = (
     _SCALE_JS
     + _TIMELINE_JS
     + """
 (function(){
   var stages=Array.prototype.slice.call(document.querySelectorAll('.qt-stage'));
   if(!stages.length)return;
-  var fit={{ responsive }};
-  var current=0,hideTimer;
+  var fit=%RESPONSIVE%;
+  var current=0,hideTimer,autoTimer;
   var timelines=stages.map(function(s){return new qtTimeline(s);});
   if(fit){var refit=function(){qtFit(stages[current]);};
     if(window.ResizeObserver){new ResizeObserver(refit).observe(stages[0].parentElement);}
     else{window.addEventListener('resize',refit);}}
   function runTimeline(i){timelines[i].reset();timelines[i].start();}
+  function clearAuto(){if(autoTimer){clearTimeout(autoTimer);autoTimer=null;}}
+  function canClick(){return stages[current].getAttribute('data-qt-click')!=='0';}
+  function scheduleAuto(){
+    clearAuto();
+    var raw=stages[current].getAttribute('data-qt-after');
+    if(!raw||current>=stages.length-1)return;
+    var after=parseFloat(raw);
+    if(isNaN(after))return;
+    autoTimer=setTimeout(function(){
+      if(!timelines[current].hasNext())go(current+1);
+    },after*1000);
+  }
   // Once a transition has run, drop the off-screen slides and clear the
   // transient transition styles (animation/z-index/will-change) so nothing
   // stays GPU-promoted longer than needed.
@@ -902,13 +947,16 @@ _DECK_RUNTIME_TMPL = _env.from_string(
       if(j!==current)s.style.display='none';
     });
     if(fit)qtFit(stages[current]);
+    scheduleAuto();
   }
   function go(i){
     if(i<0||i>=stages.length||i===current)return;
+    clearAuto();
     var out=stages[current],inc=stages[i];
     current=i;
     if(!fit){settle();inc.style.display='block';
-      inc.style.animation=inc.getAttribute('data-qt-transition')||'';runTimeline(i);return;}
+      inc.style.animation=inc.getAttribute('data-qt-transition')||'';runTimeline(i);
+      scheduleAuto();return;}
     var under=inc.getAttribute('data-qt-z')==='under';
     // Keep the outgoing slide on screen (static, or sliding out) under/over the
     // incoming one; will-change lifts both onto their own compositor layer so
@@ -924,12 +972,13 @@ _DECK_RUNTIME_TMPL = _env.from_string(
     clearTimeout(hideTimer);hideTimer=setTimeout(settle,dur*1000+60);
   }
   function advance(){
-    if(timelines[current].hasNext())timelines[current].advance();
+    clearAuto();
+    if(timelines[current].hasNext())timelines[current].advance().then(scheduleAuto);
     else if(current<stages.length-1)go(current+1);
   }
-  document.addEventListener('click',advance);
+  document.addEventListener('click',function(){if(canClick())advance();});
   document.addEventListener('keydown',function(e){
-    if(e.key==='ArrowRight'||e.key===' '){advance();}
+    if(e.key==='ArrowRight'||e.key===' '){if(canClick())advance();}
     else if(e.key==='ArrowLeft'){if(current>0)go(current-1);}
   });
   // First slide plays its own enter transition, then settles like any other.
@@ -999,7 +1048,7 @@ def _transition_states(transition) -> tuple[str, str]:
         )
     if effect == "newsflash":
         return (
-            f"transform:rotate(-180deg) scale(calc(var(--qt-scale,1)*0.1));opacity:0",
+            "transform:rotate(-180deg) scale(calc(var(--qt-scale,1)*0.1));opacity:0",
             f"transform:rotate(0deg) {_TR_SCALE};opacity:1",
         )
     if effect == "split":
@@ -1076,33 +1125,85 @@ def _document(
             enter, leave, z = _transition_plan(transition)
             stage.transition_z = z
             stage.transition_dur = _fmt(duration)
+            stage.transition_click = (
+                "1" if transition is None or transition.advance_on_click else "0"
+            )
+            stage.transition_after = (
+                "" if transition is None or transition.advance_after is None
+                else _fmt(transition.advance_after)
+            )
             timing = f"{_fmt(duration)}s ease both"
             if enter is not None:
                 name = f"qt-t{index}"
-                keyframes.append("@keyframes " + name + "{from{" + enter[0] + "}to{" + enter[1] + "}}")
+                keyframes.append(
+                    "@keyframes " + name + "{from{" + enter[0] + "}to{" + enter[1] + "}}"
+                )
                 stage.transition_anim = f"{name} {timing}"
             if leave is not None:
                 name = f"qt-x{index}"
-                keyframes.append("@keyframes " + name + "{from{" + leave[0] + "}to{" + leave[1] + "}}")
+                keyframes.append(
+                    "@keyframes " + name + "{from{" + leave[0] + "}to{" + leave[1] + "}}"
+                )
                 stage.transition_exit = f"{name} {timing}"
     base_css = _BASE_CSS if responsive else _FIXED_CSS
     css = base_css + _font_face_css(font_faces) + "".join(keyframes)
 
-    runtime_tmpl = _DECK_RUNTIME_TMPL if deck else _CANVAS_RUNTIME_TMPL
-    runtime = runtime_tmpl.render(responsive=json.dumps(responsive))
-
-    return _doc_tmpl.render(
-        css=css,
-        stages=stages,
-        runtime=runtime,
-        responsive=responsive,
-        deck=deck,
-        filters="".join((svg_filters or {}).values()),
+    runtime_template = _DECK_RUNTIME if deck else _CANVAS_RUNTIME
+    runtime = runtime_template.replace("%RESPONSIVE%", json.dumps(responsive))
+    filters = "".join((svg_filters or {}).values())
+    stage_markup = _stage_markup(stages, deck=deck)
+    body = (
+        f'<div class="qt-frame">{stage_markup}</div>'
+        if responsive
+        else stage_markup
+    )
+    return (
+        "<!doctype html>\n"
+        '<html lang="en">\n'
+        "<head>\n"
+        '<meta charset="utf-8">\n'
+        '<meta name="viewport" content="width=device-width,initial-scale=1">\n'
+        "<style>\n"
+        f"{css}\n"
+        "</style>\n"
+        "</head>\n"
+        "<body>\n"
+        '<svg width="0" height="0" style="position:absolute">'
+        f"<defs>{filters}</defs>"
+        "</svg>\n"
+        f"{body}\n"
+        "<script>\n"
+        f"{runtime}\n"
+        "</script>\n"
+        "</body>\n"
+        "</html>\n"
     )
 
 
-def export_canvas(canvas: Canvas, embed_fonts: bool = False, responsive: bool = True) -> str:
-    return HtmlExporter(canvas, embed_fonts=embed_fonts, responsive=responsive).export()
+def _stage_markup(stages: list[Stage], *, deck: bool) -> str:
+    html: list[str] = []
+    for index, stage in enumerate(stages):
+        attrs = [
+            'class="qt-stage"',
+            f"data-qt-timeline='{stage.timeline_json}'",
+        ]
+        if deck:
+            attrs.extend(
+                [
+                    f'data-qt-transition="{escape(stage.transition_anim)}"',
+                    f'data-qt-exit="{escape(stage.transition_exit)}"',
+                    f'data-qt-z="{stage.transition_z}"',
+                    f'data-qt-dur="{stage.transition_dur}"',
+                    f'data-qt-click="{stage.transition_click}"',
+                    f'data-qt-after="{stage.transition_after}"',
+                ]
+            )
+        style = f"width:{stage.width}px;height:{stage.height}px;"
+        if deck and index > 0:
+            style += "display:none;"
+        attrs.append(f'style="{style}"')
+        html.append(f"<div {' '.join(attrs)}>\n{stage.body}\n</div>")
+    return "\n".join(html)
 
 
 def export_deck(

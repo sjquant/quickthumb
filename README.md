@@ -375,7 +375,7 @@ The same canvas renders to vector and document formats, detected from the file e
 
 ```python
 canvas.render("card.svg")    # vector SVG with native shapes, gradients, and selectable text
-canvas.render("card.html")   # self-contained, animated HTML/CSS page (no extra dependency)
+canvas.render("card.html")   # self-contained, animated HTML/CSS page
 canvas.render("card.pptx")   # PowerPoint slide with editable text boxes and autoshapes
 canvas.render("card.pdf")    # single-page PDF with native vectors and embedded fonts
 
@@ -391,7 +391,7 @@ Layers the target format can express (backgrounds, gradients, outlines, shapes, 
 
 `canvas.to_html()` produces one **self-contained** HTML document (inline CSS, JS,
 fonts, and images — no external files), built on the same layout math as every
-other renderer. It needs no extra dependency.
+other renderer. No optional extra is required.
 
 ```python
 canvas.render("card.html")                            # responsive, scale-to-fit page
@@ -671,7 +671,7 @@ os.environ["QUICKTHUMB_DEFAULT_FONT"] = "Roboto"
 | Export | PNG, JPEG, WebP, file output, base64, data URLs |
 | Document renderers | SVG (`to_svg()`), self-contained animated HTML (`to_html()`), editable PPTX via `quickthumb[pptx]`, PDF via `quickthumb[pdf]` |
 | Decks | `Deck` of multiple slides: multi-page PDF, multi-slide PPTX, numbered image sequences, per-slide diagnostics |
-| Slide effects | PPTX slide `Transition`s (per-slide or deck default) and per-layer entrance/exit `Animation`s |
+| Slide effects | PPTX/HTML slide `Transition`s (per-slide or deck default) and per-layer entrance/exit `Animation`s |
 | Serialization | `to_json()` / `from_json()` for built-in layer types and named custom layers |
 
 ## Real Example Scripts
@@ -682,7 +682,7 @@ See the shipped examples in [`examples/README.md`](examples/README.md):
 - `examples/youtube_thumbnail_02.py`
 - `examples/instagram_news_card.py`
 - `examples/launch_announcement.py` — the 0.5 feature set (groups, theme tokens, shapes, SVG, diagnostics) in one JSON spec
-- `examples/slide_effects_deck.py` — a multi-slide PPTX `Deck` with slide transitions and per-layer entrance/exit animations
+- `examples/slide_effects_deck.py` — a multi-slide `Deck` with slide transitions and per-layer entrance/exit animations
 
 ## Gotchas
 
@@ -696,10 +696,10 @@ See the shipped examples in [`examples/README.md`](examples/README.md):
 - Group children must not set `position`; the group assigns positions (their `align` is also ignored — use `item_align`)
 - `svg` layers raise `RenderingError` unless `quickthumb[svg]` (cairosvg) is installed
 - `theme` blocks are resolved at parse time; `to_json()` emits resolved values without the `theme` block
-- Slide `Transition`s and layer `Animation`s only affect PPTX output; raster, SVG, and PDF renderers ignore them
+- Slide `Transition`s and layer `Animation`s affect PPTX and HTML output; raster, SVG, and PDF renderers ignore them
 - Transitions live on the `Deck` (default plus per-slide override), not on `Canvas`; a per-slide override wins over the deck default
 - Animations are valid on `text`, `shape`, `image`, `svg`, and `group` layers; pass one effect or a list of effects played in order
-- HTML export needs no extra dependency; the document is fixed-layout and scaled to fit (`responsive=True` by default), never reflowed, so it stays a faithful twin of the PNG/SVG/PDF/PPTX output
+- HTML export needs no optional extra; the document is fixed-layout and scaled to fit (`responsive=True` by default), never reflowed, so it stays a faithful twin of the PNG/SVG/PDF/PPTX output
 - HTML text placement is a close approximation (browsers rasterize fonts differently than PIL); use `embed_fonts=True` for the closest match, available when text uses local font files
 - HTML is the only format that plays per-layer `animation`s (and `Deck` slide transitions); a few exotic effects (blinds, checkerboard, wheel, dissolve) fall back to a close CSS analogue
 

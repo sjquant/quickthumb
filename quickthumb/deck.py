@@ -18,7 +18,7 @@ from quickthumb.canvas import Canvas
 from quickthumb.errors import RenderingError, ValidationError
 from quickthumb.transitions import Transition, coerce_transition
 
-_DOCUMENT_EXTENSIONS = {".pdf", ".pptx"}
+_DOCUMENT_EXTENSIONS = {".pdf", ".pptx", ".html", ".htm"}
 _RASTER_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp"}
 
 
@@ -66,7 +66,7 @@ class Deck:
         self._width = width
         self._height = height
         self._theme = theme or {}
-        # Slide transitions are a deck concern (PPTX-only): a deck-wide default
+        # Slide transitions are a deck concern: a deck-wide default
         # plus an optional per-slide override kept parallel to ``_slides``. The
         # Canvas itself stays unaware of transitions.
         self._transition = self._coerce_transition(transition)
@@ -189,11 +189,6 @@ class Deck:
         if extension in _RASTER_EXTENSIONS:
             return self._render_sequence(output_path, format, quality)
 
-        if extension in (".html", ".htm"):
-            with open(output_path, "w", encoding="utf-8") as f:
-                f.write(self.to_html())
-            return [output_path]
-
         if extension == ".svg":
             raise RenderingError(
                 "A deck cannot render to a single .svg file (SVG has no multi-page form). "
@@ -210,6 +205,11 @@ class Deck:
             from quickthumb._export_pdf import PdfExporter
 
             PdfExporter().save_canvases(self._slides, output_path)
+            return
+
+        if extension in (".html", ".htm"):
+            with open(output_path, "w", encoding="utf-8") as f:
+                f.write(self.to_html())
             return
 
         from quickthumb._export_pptx import PptxExporter

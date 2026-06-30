@@ -12,9 +12,9 @@ Demonstrates:
 - Gradient backgrounds, gradient-filled headlines, and accent shapes that stay
   crisp and editable in PowerPoint
 
-Slide effects only affect PPTX output, so this renders to `.pptx`. Open it in
-PowerPoint (or Keynote / LibreOffice Impress) and start the slideshow to watch
-the transitions and animations play.
+This example renders to `.pptx`; HTML export also plays supported effects via
+`Deck.to_html()`. Open the PPTX in PowerPoint (or Keynote / LibreOffice Impress)
+and start the slideshow to watch the transitions and animations play.
 """
 
 import os
