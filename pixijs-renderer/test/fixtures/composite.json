@@ -1,0 +1,6 @@
+{"width":512,"height":288,"layers":[
+ {"type":"background","gradient":{"type":"radial","stops":[["#312e81",0.0],["#0b1020",1.0]],"center":[0.5,0.4]}},
+ {"type":"shape","shape":"pill","position":["50%",60],"width":260,"height":52,"color":"#22d3ee","align":"top-center"},
+ {"type":"shape","shape":"star","position":["50%","58%"],"width":120,"height":120,"color":"#fbbf24","align":"center","star_points":6,"inner_radius":0.5},
+ {"type":"outline","width":4,"color":"#f8fafc","offset":10}
+]}

@@ -1,0 +1,27 @@
+{
+  "name": "@quickthumb/pixi-renderer",
+  "version": "0.1.0",
+  "description": "GPU (PixiJS v8) renderer that consumes the quickthumb JSON IR",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
+    "preview": "vite preview --port 4317 --strictPort",
+    "refs": "uv run --quiet --project .. python test/generate_refs.py",
+    "test:visual": "node test/run-visual.mjs",
+    "test": "npm run refs && npm run build && npm run test:visual"
+  },
+  "dependencies": {
+    "pixi.js": "^8.6.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.0.1",
+    "pixelmatch": "^6.0.0",
+    "playwright": "^1.49.0",
+    "pngjs": "^7.0.0",
+    "typescript": "^5.7.0",
+    "vite": "^6.0.0"
+  }
+}

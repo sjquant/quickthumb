@@ -1,0 +1,5 @@
+{"width":400,"height":300,"layers":[
+ {"type":"background","color":"#1e293b"},
+ {"type":"shape","shape":"rectangle","position":["50%","50%"],"width":200,"height":120,"color":"#f8fafc","align":"center"},
+ {"type":"shape","shape":"ellipse","position":["50%","50%"],"width":160,"height":160,"color":"#e11d48","opacity":0.5,"align":"center"}
+]}

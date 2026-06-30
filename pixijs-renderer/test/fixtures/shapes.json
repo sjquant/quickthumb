@@ -1,0 +1,9 @@
+{"width":480,"height":320,"layers":[
+ {"type":"background","color":"#0f172a"},
+ {"type":"shape","shape":"rectangle","position":[40,40],"width":120,"height":80,"color":"#22c55e"},
+ {"type":"shape","shape":"rectangle","position":[200,40],"width":120,"height":80,"color":"#eab308","border_radius":20},
+ {"type":"shape","shape":"ellipse","position":[360,30],"width":90,"height":90,"color":"#ef4444"},
+ {"type":"shape","shape":"pill","position":[40,170],"width":160,"height":56,"color":"#3b82f6"},
+ {"type":"shape","shape":"triangle","position":[240,150],"width":90,"height":90,"color":"#a855f7"},
+ {"type":"shape","shape":"star","position":[360,150],"width":100,"height":100,"color":"#f97316","star_points":5,"inner_radius":0.45}
+]}

@@ -1,9 +1,16 @@
 # PixiJS Deck Renderer — 요구사항 명세 (v1)
 
-> **상태**: 설계 명세 (구현 전). 이 디렉터리(`pixijs-renderer/`)는 향후 TypeScript/PixiJS 렌더러 코드의 홈이다.
+> **상태**: P1 정적 렌더 코어 **구현·검증 완료**. 나머지(텍스트/애니메이션/전환)는 단계별 진행.
+> 구현·실행 방법은 [`README.md`](./README.md) 참고.
 >
-> **충실도 기준 검증**: 이 문서의 §4 충실도 규칙과 §3 IR 계약은 quickthumb 소스
-> (`a359d9c`)와 대조 확인했다. 주요 확인 사항은 각 절의 *(소스 확인)* 주석 참고.
+> **검증된 것**: background(solid/linear/radial gradient), shape(rectangle/ellipse/
+> pill/triangle/star/polygon, opacity·9방향 align·rotation), outline 레이어가
+> quickthumb PIL 출력과 픽셀 일치(§13 기준 mean abs diff < 1.0/255, solid·outline은
+> byte-exact). 헤드리스 Chromium 렌더 → PNG 픽셀 diff 하니스가 9개 픽스처에서 그린.
+>
+> **충실도 기준 검증**: §4 충실도 규칙과 §3 IR 계약은 quickthumb 소스(`a359d9c`)와
+> 대조 확인했고, 그라데이션 수식은 PIL 출력에서 **경험적으로 역추출**해 고정했다
+> (`src/core/gradient.ts`). 주요 확인 사항은 각 절의 *(소스 확인)* 주석 참고.
 
 ## 0. 목적 / 철학
 - quickthumb(파이썬) 덱을 웹에서 GPU로 렌더링하는 새 렌더러를 PixiJS v8로 구축한다.
@@ -14,13 +21,16 @@
   새 렌더러는 "이 IR을 소비하는 GPU 백엔드"다. 스키마를 새로 만들지 말 것.
 
 ## 1. 결정해야 할 최상위 선택 (먼저 못박기)
-- **[DECISION-1] 충실도 기준**:
+- **[DECISION-1] 충실도 기준 — 채택: (b) + PIL 수식 재현**:
     (a) quickthumb PIL 래스터 출력과 픽셀 일치를 목표로 한다(PNG/PPTX와 비교 대상), 또는
     (b) 새 렌더러가 자체 source-of-truth가 된다(Figma처럼, 다른 포맷과 다를 수 있음).
-  추천: (b)로 가되 "도형/그라데이션/그림자 수식은 PIL을 재현", "텍스트는 SDF로 고품질·크리스프"
-  → 글자만 byte-identical을 포기하고 나머지는 일치. (a)가 꼭 필요하면 §6의 PIL-bake 경로 사용.
-- **[DECISION-2] 텍스트 전략**: SDF/MSDF(크리스프·GPU 이펙트) vs PIL-baked 텍스처(픽셀 일치). §6 참고.
-- **[DECISION-3] 타겟**: WebGPU 우선 + WebGL2 폴백 (PixiJS v8가 둘 다 지원).
+  → **(b)로 가되 "도형/그라데이션/그림자 수식은 PIL을 재현", "텍스트는 SDF로 고품질·크리스프"**.
+  현재 구현은 도형/그라데이션/배경/outline에서 PIL과 mean<1/255로 일치함을 검증(§13). 글자만
+  byte-identical을 포기하고 나머지는 일치. (a)가 꼭 필요하면 §6의 PIL-bake 경로 사용.
+- **[DECISION-2] 텍스트 전략 — 권장: A(MSDF) 주, B(PIL-bake) 옵션 (미구현)**:
+  SDF/MSDF(크리스프·GPU 이펙트) vs PIL-baked 텍스처(픽셀 일치). 텍스트 슬라이스에서 확정. §6 참고.
+- **[DECISION-3] 타겟 — 채택: WebGPU 우선 + WebGL2 폴백 (PixiJS v8)**.
+  런타임은 Pixi 기본 선호(WebGPU)를 따르고, 결정적 픽셀 diff 하니스는 WebGL로 고정 실행.
 
 ## 2. 기술 스택
 - 렌더러: PixiJS v8 (WebGPU 백엔드 우선, WebGL2 폴백)
@@ -271,9 +281,17 @@ blur는 RGB만 가우시안, alpha 원본 보존: `_apply_blur` @ `_effects.py:5
 - 기존 HTML 런타임(타임라인/전환 시퀀싱 참고): `quickthumb/_export_html.py`
 - IR 출력: `Canvas.to_json()` (`canvas.py`) / `Deck.to_json()` (`deck.py`)
 
-## 17. 미해결 결정사항
-- **DECISION-1** (충실도 vs 자체 source-of-truth)
-- **DECISION-2** (SDF vs PIL-baked 텍스트, 또는 혼용)
-- **DECISION-3** (WebGPU-우선 여부)
-- 편집 기능 필요 여부(뷰어 전용인지 / Figma식 에디터까지인지) — 스코프 크게 갈림
-- 비디오/프레임 export 필요 여부(있으면 결정적 타임라인 + 오프스크린 렌더 설계 반영)
+## 17. 결정사항
+- **DECISION-1** — ✅ 채택: (b) 자체 source-of-truth + 도형/그라데이션/그림자 PIL 수식 재현 (§1, P1에서 검증).
+- **DECISION-2** — ⏳ 권장 A(MSDF) 주 / B(PIL-bake) 옵션; 텍스트 슬라이스(P2)에서 확정.
+- **DECISION-3** — ✅ 채택: WebGPU 우선 + WebGL2 폴백 (§1).
+- ⏳ 편집 기능 필요 여부(뷰어 전용인지 / Figma식 에디터까지인지) — 스코프 크게 갈림. 미정.
+- ⏳ 비디오/프레임 export 필요 여부(있으면 결정적 타임라인 + 오프스크린 렌더 설계 반영). 미정.
+
+## 18. 구현 진행 현황 (로드맵 대비)
+- ✅ **P1 코어(정적 렌더)**: background(solid/linear/radial), shape(전 종류 지오메트리·opacity·align·
+  rotation), outline → PNG 픽셀 diff 통과(9/9, mean<1/255). 하니스: `test/run-visual.mjs`.
+- ⏳ **P1 잔여**: image/svg 레이어, background image·blend_mode·fit, 도형/이미지 effects
+  (Shadow/Glow/Stroke/Filter/Grain) — §4.3~4.8 수식은 소스 확인 완료, 셰이더 구현 대기.
+- ⏳ **P2**: 텍스트(DECISION-2), 레이어 entrance/exit 애니메이션, 타임라인 시퀀싱.
+- ⏳ **P3/P4**: 두-슬라이드 전환 모델·셰이더 전환, 웹 전용 연출, 패키징/뷰어 API.
