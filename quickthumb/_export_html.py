@@ -88,6 +88,13 @@ def _css_color(rgba: tuple, opacity: float = 1.0) -> str:
     return f"rgba({r},{g},{b},{a:.4g})"
 
 
+def _css_blur(radius: float) -> int:
+    """Convert a PIL Gaussian-blur radius (its standard deviation) to a CSS
+    shadow blur length. CSS defines the blur radius as twice the Gaussian
+    standard deviation, so a faithful shadow needs double the PIL radius."""
+    return round(radius * 2)
+
+
 # --- animation effect -> (entrance from-state, to-state) CSS property blocks ----
 # Each keyframe interpolates a single element between a hidden and a shown state.
 # Exit reuses the same pair with the keyframe direction reversed. Effects CSS
@@ -135,8 +142,45 @@ def _effect_states(effect) -> tuple[str, str]:
     return "opacity:0", "opacity:1"
 
 
-def _css_gradient(gradient: LinearGradient | RadialGradient, box: Box, canvas: Canvas) -> str:
-    """Build a CSS gradient over a box, approximating EffectsEngine geometry."""
+def _remap_linear_stops(
+    positions: list[float], block: Box, element: Box, dx: float, dy: float
+) -> list[float]:
+    """Re-express a block's gradient stops in an element's local 0..1 space.
+
+    The raster engine lays the 0..1 ramp across the block's *diagonal* (not its
+    projected extent), centred on the block, then crops -- so a box shows only
+    the middle slice of the ramp, never the full colour range. This reproduces
+    that exact mapping for one element (e.g. a line-span): a stop at fraction
+    ``q`` sits ``(q-0.5)*diagonal`` from the block centre along the gradient
+    direction, which is then converted to a fraction of the element's own
+    gradient line (its projected extent, centred on the element). Results can
+    fall outside [0, 1]; CSS handles that, which is how each line shows just its
+    portion of the shared gradient.
+    """
+    (bx0, by0, bx1, by1), (ex0, ey0, ex1, ey1) = block, element
+    diagonal = math.hypot(bx1 - bx0, by1 - by0)
+    element_extent = abs((ex1 - ex0) * dx) + abs((ey1 - ey0) * dy)
+    if element_extent == 0 or diagonal == 0:
+        return positions
+    center_offset = ((ex0 + ex1 - bx0 - bx1) / 2) * dx + ((ey0 + ey1 - by0 - by1) / 2) * dy
+    return [((q - 0.5) * diagonal - center_offset) / element_extent + 0.5 for q in positions]
+
+
+def _css_gradient(
+    gradient: LinearGradient | RadialGradient,
+    box: Box,
+    canvas: Canvas,
+    element_box: Box | None = None,
+) -> str:
+    """Build a CSS gradient over a box, approximating EffectsEngine geometry.
+
+    The raster renderer maps a gradient across the whole ``box`` (e.g. a
+    multi-line text block). A CSS gradient, though, is relative to the element
+    it paints on -- one line-span at a time -- so passing ``element_box`` (that
+    span's box) remaps a linear gradient's stops to the slice of ``box`` the
+    element actually covers, keeping the colours continuous across lines instead
+    of restarting on each one.
+    """
     left, top, right, bottom = box
     width, height = right - left, bottom - top
     stops = sorted(gradient.stops, key=lambda stop: stop[1])
@@ -147,9 +191,14 @@ def _css_gradient(gradient: LinearGradient | RadialGradient, box: Box, canvas: C
         theta = math.radians(gradient.angle)
         dx, dy = math.cos(theta), math.sin(theta)
         css_angle = (math.degrees(math.atan2(dx, -dy))) % 360
+        # PIL ramps across the box diagonal and crops, so the painted box only
+        # ever shows the middle slice of the colour range. Remap the stops onto
+        # whatever box CSS actually paints (the element, else this box) to match.
+        paint_box = element_box if element_box is not None else box
+        positions = _remap_linear_stops([pos for _, pos in stops], box, paint_box, dx, dy)
         parts = [
             f"{_css_color(color_to_rgba(canvas, color))} {_fmt(round(pos * 100, 2))}%"
-            for color, pos in stops
+            for (color, _), pos in zip(stops, positions)
         ]
         return f"linear-gradient({_fmt(round(css_angle, 2))}deg,{','.join(parts)})"
 
@@ -407,19 +456,19 @@ class HtmlExporter:
                 rgba = color_to_rgba(self._canvas, effect.color)
                 color = _css_color(rgba, effect.opacity)
                 if rounded:
-                    box_shadows.append(f"0 0 {effect.radius}px {effect.radius}px {color}")
+                    box_shadows.append(f"0 0 {_css_blur(effect.radius)}px {effect.radius}px {color}")
                 else:
-                    filters.append(f"drop-shadow(0 0 {effect.radius}px {color})")
+                    filters.append(f"drop-shadow(0 0 {_css_blur(effect.radius)}px {color})")
             elif isinstance(effect, Shadow):
                 color = _css_color(color_to_rgba(self._canvas, effect.color))
                 if rounded:
                     box_shadows.append(
-                        f"{effect.offset_x}px {effect.offset_y}px {effect.blur_radius}px {color}"
+                        f"{effect.offset_x}px {effect.offset_y}px {_css_blur(effect.blur_radius)}px {color}"
                     )
                 else:
                     filters.append(
                         f"drop-shadow({effect.offset_x}px {effect.offset_y}px "
-                        f"{effect.blur_radius}px {color})"
+                        f"{_css_blur(effect.blur_radius)}px {color})"
                     )
             elif isinstance(effect, Stroke):
                 color = _css_color(color_to_rgba(self._canvas, effect.color))
@@ -523,7 +572,7 @@ class HtmlExporter:
             f"position:absolute;left:{_fmt(run.pen_x - ox)}px;"
             f"top:{_fmt(run.baseline_y - ascent - oy)}px;white-space:pre;"
             f"font-family:{_css_font_family(family)};font-size:{run.size}px;"
-            f"line-height:{ascent + descent}px;"
+            f"line-height:{ascent + descent}px;" + _TEXT_PRECISION_CSS
         )
         if weight != "400":
             css += f"font-weight:{weight};"
@@ -535,11 +584,11 @@ class HtmlExporter:
         shadows: list[str] = []
         for glow in run.glows:
             color = _css_color(color_to_rgba(self._canvas, glow.color), glow.opacity)
-            shadows.append(f"0 0 {glow.radius}px {color}")
+            shadows.append(f"0 0 {_css_blur(glow.radius)}px {color}")
         for shadow in run.shadows:
             color = _css_color(color_to_rgba(self._canvas, shadow.color))
             shadows.append(
-                f"{shadow.offset_x}px {shadow.offset_y}px {shadow.blur_radius}px {color}"
+                f"{shadow.offset_x}px {shadow.offset_y}px {_css_blur(shadow.blur_radius)}px {color}"
             )
         if shadows:
             css += f"text-shadow:{','.join(shadows)};"
@@ -549,7 +598,11 @@ class HtmlExporter:
             css += f"-webkit-text-stroke:{stroke.width}px {color};paint-order:stroke fill;"
 
         if isinstance(run.fill, (LinearGradient, RadialGradient)) and run.fill_box is not None:
-            gradient = _css_gradient(run.fill, run.fill_box, self._canvas)
+            # The span paints the gradient over its own border box (its width by
+            # the line height), so hand that box in to slice the block gradient.
+            ink_w = run.ink_box[2] - run.ink_box[0]
+            span_box = (run.pen_x, run.baseline_y - ascent, run.pen_x + ink_w, run.baseline_y + descent)
+            gradient = _css_gradient(run.fill, run.fill_box, self._canvas, element_box=span_box)
             css += (
                 f"background:{gradient};-webkit-background-clip:text;background-clip:text;"
                 "color:transparent;-webkit-text-fill-color:transparent;"
@@ -619,6 +672,13 @@ class HtmlExporter:
             f'<img id="{element_id}" style="{style}{anim_style}" '
             f'src="data:image/svg+xml;base64,{encoded}" alt="">'
         )
+
+
+# The raster renderer kerns via HarfBuzz (Pillow's raqm layout) just like the
+# browser, so kerning is left on to match. It does antialias in grayscale,
+# though, so force grayscale AA to avoid subpixel colour fringing on platforms
+# (notably macOS) that would otherwise render text with subpixel AA.
+_TEXT_PRECISION_CSS = "-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;"
 
 
 def _css_font_family(family: str) -> str:

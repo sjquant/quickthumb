@@ -135,9 +135,13 @@ class TestHtmlBackgrounds:
         html = canvas.to_html()
 
         # then
-        assert "linear-gradient(" in html
-        assert "rgb(0,0,0) 0%" in html
-        assert "rgb(255,255,255) 100%" in html
+        assert "linear-gradient(180deg," in html
+        # The raster engine ramps the gradient across the box diagonal and crops,
+        # so a 400x300 vertical gradient shows only the middle 300/500 of the
+        # range. The CSS stops are pushed outside [0,100%] to reproduce exactly
+        # that slice instead of stretching the full range over the box.
+        assert "rgb(0,0,0) -33.33%" in html
+        assert "rgb(255,255,255) 133.33%" in html
 
     def test_should_rasterize_background_with_effects(self):
         """A background with filter effects falls back to an embedded PNG"""
