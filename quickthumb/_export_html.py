@@ -787,8 +787,8 @@ _BASE_CSS = (
     ".qt-frame{position:absolute;inset:0;overflow:hidden}"
     # Absolutely centred so deck slides can overlap during a transition (the
     # outgoing slide stays on screen beneath/beside the incoming one).
-    ".qt-stage{position:absolute;inset:0;margin:auto;overflow:hidden;"
-    "transform-origin:center center}"
+    ".qt-stage{position:absolute;left:50%;top:50%;overflow:hidden;"
+    "transform:translate(-50%,-50%);transform-origin:center center}"
 )
 
 _FIXED_CSS = (
@@ -814,8 +814,10 @@ function qtFit(stage){
   );
   // Expose the scale as a custom property so transform-based slide transitions
   // can compose with it; transitions that don't touch transform keep this.
+  stage.style.setProperty('--qt-stage-x','-50%');
+  stage.style.setProperty('--qt-stage-y','-50%');
   stage.style.setProperty('--qt-scale', s);
-  stage.style.transform='scale('+s+')';
+  stage.style.transform='translate(var(--qt-stage-x),var(--qt-stage-y)) scale('+s+')';
 }
 """
 
@@ -885,9 +887,25 @@ function qtTimeline(stage){
   async function autoLead(){
     while(cursor<nodes.length&&nodes[cursor].tr==='after_previous'){await runGroup(cursor);}
   }
+  function finishElements(){
+    nodes.forEach(function(node){
+      node.t.forEach(function(id){
+        var el=elMap[id];
+        if(!el)return;
+        el.style.animation='';
+        el.style.willChange='';
+        if(node.a==='entrance'){
+          el.style.visibility='visible';el.style.clipPath=origClips[id]||'';el.style.opacity='';
+        }else{
+          el.style.visibility='hidden';
+        }
+      });
+    });
+  }
   this.hasNext=function(){return cursor<nodes.length;};
   this.advance=function(){if(cursor<nodes.length)return runGroup(cursor);return Promise.resolve();};
   this.reset=function(){cursor=0;resetElements();};
+  this.finish=function(){finishElements();cursor=nodes.length;};
   this.start=autoLead;
 }
 """
@@ -924,6 +942,7 @@ _DECK_RUNTIME = (
     if(window.ResizeObserver){new ResizeObserver(refit).observe(stages[0].parentElement);}
     else{window.addEventListener('resize',refit);}}
   function runTimeline(i){timelines[i].reset();timelines[i].start();}
+  function finishTimeline(i){timelines[i].reset();timelines[i].finish();}
   function clearAuto(){if(autoTimer){clearTimeout(autoTimer);autoTimer=null;}}
   function canClick(){return stages[current].getAttribute('data-qt-click')!=='0';}
   function scheduleAuto(){
@@ -948,34 +967,39 @@ _DECK_RUNTIME = (
     if(fit)qtFit(stages[current]);
     scheduleAuto();
   }
-  function go(i){
+  function reverse(anim){return anim?anim+' reverse':'';}
+  function go(i,backward){
     if(i<0||i>=stages.length||i===current)return;
     clearAuto();
     var out=stages[current],inc=stages[i];
+    var source=backward?out:inc;
     current=i;
-    var under=inc.getAttribute('data-qt-z')==='under';
+    var under=source.getAttribute('data-qt-z')==='under';
+    var enter=source.getAttribute('data-qt-transition')||'';
+    var exit=source.getAttribute('data-qt-exit')||'';
+    var reverseIncomingOver=backward&&!enter&&exit;
     // Keep the outgoing slide on screen (static, or sliding out) under/over the
     // incoming one; will-change lifts both onto their own compositor layer so
     // the move is GPU-driven rather than a main-thread repaint.
-    out.style.display='block';out.style.zIndex=under?'2':'1';
+    out.style.display='block';out.style.zIndex=backward?(reverseIncomingOver?'1':'2'):(under?'2':'1');
     out.style.willChange='transform,opacity';if(fit)qtFit(out);
-    out.style.animation=inc.getAttribute('data-qt-exit')||'';
-    inc.style.display='block';inc.style.zIndex=under?'1':'2';
+    out.style.animation=backward?reverse(enter):exit;
+    inc.style.display='block';inc.style.zIndex=backward?(reverseIncomingOver?'2':'1'):(under?'1':'2');
     inc.style.willChange='transform,opacity,clip-path';if(fit)qtFit(inc);
-    inc.style.animation=inc.getAttribute('data-qt-transition')||'';
-    runTimeline(i);
-    var dur=parseFloat(inc.getAttribute('data-qt-dur'))||0;
+    inc.style.animation=backward?reverse(exit):enter;
+    if(backward)finishTimeline(i);else runTimeline(i);
+    var dur=parseFloat(source.getAttribute('data-qt-dur'))||0;
     clearTimeout(hideTimer);hideTimer=setTimeout(settle,dur*1000+60);
   }
   function advance(){
     clearAuto();
     if(timelines[current].hasNext())timelines[current].advance().then(scheduleAuto);
-    else if(current<stages.length-1)go(current+1);
+    else if(current<stages.length-1)go(current+1,false);
   }
   document.addEventListener('click',function(){if(canClick())advance();});
   document.addEventListener('keydown',function(e){
     if(e.key==='ArrowRight'||e.key===' '){if(canClick())advance();}
-    else if(e.key==='ArrowLeft'){if(current>0)go(current-1);}
+    else if(e.key==='ArrowLeft'){if(current>0)go(current-1,true);}
   });
   // First slide plays its own enter transition, then settles like any other.
   if(fit)qtFit(stages[0]);
@@ -997,7 +1021,8 @@ _DECK_RUNTIME = (
 # transitions (wheel, wedge, checker, comb, dissolve) fall back to the closest
 # CSS analogue -- the same parity tradeoff the layer animations make.
 _TR_SCALE = "scale(var(--qt-scale,1))"
-_HOME = f"transform:translate(0,0) {_TR_SCALE}"
+_TR_OFFSET = "translate(var(--qt-stage-x,0),var(--qt-stage-y,0))"
+_HOME = f"transform:{_TR_OFFSET} translate(0,0) {_TR_SCALE}"
 
 # Direction -> off-screen transform for the incoming (..._IN) and outgoing
 # (..._OUT) stages of a directional slide change. PowerPoint names a push/cover
@@ -1035,17 +1060,21 @@ def _transition_states(transition) -> tuple[str, str]:
             direction = "left" if transition.orientation == "vertical" else "up"
         return f"clip-path:{_WIPE_INSETS[direction]}", "clip-path:inset(0 0 0 0)"
     if effect == "cover":
-        return f"transform:{_DIR_IN[getattr(transition, 'direction', 'left')]} {_TR_SCALE}", _HOME
+        direction = getattr(transition, "direction", "left")
+        return (
+            f"transform:{_TR_OFFSET} {_DIR_IN[direction]} {_TR_SCALE}",
+            _HOME,
+        )
     if effect == "zoom":
         factor = "0.6" if getattr(transition, "direction", "in") == "in" else "1.4"
         return (
-            f"transform:scale(calc(var(--qt-scale,1)*{factor}));opacity:0",
-            f"transform:{_TR_SCALE};opacity:1",
+            f"transform:{_TR_OFFSET} scale(calc(var(--qt-scale,1)*{factor}));opacity:0",
+            f"transform:{_TR_OFFSET} {_TR_SCALE};opacity:1",
         )
     if effect == "newsflash":
         return (
-            "transform:rotate(-180deg) scale(calc(var(--qt-scale,1)*0.1));opacity:0",
-            f"transform:rotate(0deg) {_TR_SCALE};opacity:1",
+            f"transform:{_TR_OFFSET} rotate(-180deg) scale(calc(var(--qt-scale,1)*0.1));opacity:0",
+            f"transform:{_TR_OFFSET} rotate(0deg) {_TR_SCALE};opacity:1",
         )
     if effect == "split":
         if transition.orientation == "vertical":
@@ -1075,13 +1104,13 @@ def _transition_plan(transition) -> tuple[tuple | None, tuple | None, str]:
         return None, None, "over"
     if effect == "push":
         direction = getattr(transition, "direction", "left")
-        enter = (f"transform:{_DIR_IN[direction]} {_TR_SCALE}", _HOME)
-        leave = (_HOME, f"transform:{_DIR_OUT[direction]} {_TR_SCALE}")
+        enter = (f"transform:{_TR_OFFSET} {_DIR_IN[direction]} {_TR_SCALE}", _HOME)
+        leave = (_HOME, f"transform:{_TR_OFFSET} {_DIR_OUT[direction]} {_TR_SCALE}")
         return enter, leave, "over"
     if effect == "uncover":
         direction = getattr(transition, "direction", "down")
         # The new slide waits, fully shown, underneath; the old one slides away.
-        return None, (_HOME, f"transform:{_DIR_OUT[direction]} {_TR_SCALE}"), "under"
+        return None, (_HOME, f"transform:{_TR_OFFSET} {_DIR_OUT[direction]} {_TR_SCALE}"), "under"
     # Everything else animates the incoming slide on top of a static outgoing one.
     states = _transition_states(transition) if transition else ("opacity:0", "opacity:1")
     return states, None, "over"

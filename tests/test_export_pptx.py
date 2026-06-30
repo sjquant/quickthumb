@@ -456,6 +456,42 @@ class TestPptxElementAnimations:
         assert "clickEffect" in node_types
         assert [e.get("filter") for e in timing.iter(qn("p:animEffect"))] == ["fade"]
 
+    def test_should_hide_entrance_animation_targets_initially(self):
+        """Entrance animation targets are hidden until their timing node reveals them"""
+        # given
+        canvas = (
+            Canvas(400, 300)
+            .shape(
+                shape="rectangle",
+                position=(10, 10),
+                width=80,
+                height=40,
+                color="#FF0000",
+                animation=Fade(),
+            )
+            .shape(
+                shape="ellipse",
+                position=(120, 10),
+                width=80,
+                height=40,
+                color="#00FF00",
+                animation=Fade(trigger="after_previous"),
+            )
+        )
+        document = open_pptx(canvas)
+
+        # when
+        timing = document.slides[0]._element.find(qn("p:timing"))
+        animated = {t.get("spid") for t in timing.iter(qn("p:spTgt"))}
+        hidden = {
+            str(shape.shape_id)
+            for shape in document.slides[0].shapes
+            if shape._element.xpath('.//*[local-name()="cNvPr"]')[0].get("hidden") == "1"
+        }
+
+        # then
+        assert animated <= hidden
+
     def test_should_map_wipe_direction_to_animation_filter(self):
         """A directional wipe animation encodes the direction in its filter"""
         # given
@@ -650,17 +686,24 @@ class TestPptxElementAnimations:
         )
 
         # when
-        timing = timing_of(canvas)
+        document = open_pptx(canvas)
+        timing = document.slides[0]._element.find(qn("p:timing"))
         main_seq = next(c for c in timing.iter(qn("p:cTn")) if c.get("nodeType") == "mainSeq")
         click_groups = main_seq.find(qn("p:childTnLst")).findall(qn("p:par"))
         node_types = [c.get("nodeType") for c in timing.iter(qn("p:cTn")) if c.get("nodeType")]
         animated = {t.get("spid") for t in timing.iter(qn("p:spTgt"))}
+        hidden = {
+            str(shape.shape_id)
+            for shape in document.slides[0].shapes
+            if shape._element.xpath('.//*[local-name()="cNvPr"]')[0].get("hidden") == "1"
+        }
 
         # then: one click drives a single effect that targets both children
         assert len(click_groups) == 1
         assert node_types.count("clickEffect") == 1
         assert node_types.count("withEffect") == 0
         assert len(animated) == 2
+        assert animated <= hidden
 
     def test_group_animation_should_take_precedence_over_child_animations(self):
         """A group animation drives all children as one effect, ignoring child ones"""

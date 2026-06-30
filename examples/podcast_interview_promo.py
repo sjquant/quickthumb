@@ -10,7 +10,7 @@ Demonstrates:
 import os
 
 from quickthumb import Canvas, Filter, FitMode, LinearGradient
-from quickthumb.models import Background, Shadow, Stroke
+from quickthumb.models import Shadow, Stroke
 
 FILE_DIR = os.path.dirname(__file__)
 ASSETS_DIR = os.path.join(FILE_DIR, "..", "assets")

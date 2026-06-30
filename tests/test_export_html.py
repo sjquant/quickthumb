@@ -97,6 +97,19 @@ class TestHtmlDocument:
         assert "qt-frame" in html
         assert "ResizeObserver" in html
 
+    def test_should_center_responsive_stage_while_scaling(self):
+        """A responsive stage is centered before viewport scaling is applied"""
+        # given
+        canvas = Canvas(640, 360).background(color="#112233")
+
+        # when
+        html = canvas.to_html(responsive=True)
+
+        # then
+        assert ".qt-stage{position:absolute;left:50%;top:50%" in html
+        assert "stage.style.setProperty('--qt-stage-x','-50%')" in html
+        assert "translate(var(--qt-stage-x),var(--qt-stage-y)) scale(" in html
+
     def test_should_emit_bare_stage_when_not_responsive(self):
         """A non-responsive document drops the fitting frame and scaling"""
         # given
@@ -507,7 +520,10 @@ class TestDeckHtml:
 
         # then
         # Push slides the incoming stage in from the edge, composed with the fit scale.
-        assert "transform:translateX(100vw) scale(var(--qt-scale,1))" in html
+        assert (
+            "transform:translate(var(--qt-stage-x,0),var(--qt-stage-y,0)) "
+            "translateX(100vw) scale(var(--qt-scale,1))"
+        ) in html
         assert 'data-qt-transition="qt-t1 0.80s ease both"' in html
         # A hard cut emits no keyframe and no animation.
         assert 'data-qt-transition=""' in html
@@ -612,7 +628,9 @@ class TestDeckHtml:
 
         # then
         assert "ArrowRight" in html
-        assert "go(current-1)" in html
+        assert "go(current-1,true)" in html
+        assert "finishTimeline(i)" in html
+        assert "function reverse(anim)" in html
         assert "canClick()" in html
 
     def test_should_carry_per_slide_animation_timelines(self):
