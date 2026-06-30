@@ -89,6 +89,16 @@ def _css_color(rgba: tuple, opacity: float = 1.0) -> str:
     return f"rgba({r},{g},{b},{a:.4g})"
 
 
+# Direction -> clip-path inset that hides the element past that edge. Shared by
+# the layer wipe/blinds effects and the slide wipe/comb/blinds transitions.
+_WIPE_INSETS = {
+    "up": "inset(100% 0 0 0)",
+    "down": "inset(0 0 100% 0)",
+    "left": "inset(0 0 0 100%)",
+    "right": "inset(0 100% 0 0)",
+}
+
+
 # --- animation effect -> (entrance from-state, to-state) CSS property blocks ----
 # Each keyframe interpolates a single element between a hidden and a shown state.
 # Exit reuses the same pair with the keyframe direction reversed. Effects CSS
@@ -121,13 +131,7 @@ def _effect_states(effect) -> tuple[str, str]:
         direction = getattr(effect, "direction", "up")
         if name == "blinds":
             direction = "right" if effect.orientation == "vertical" else "down"
-        insets = {
-            "up": "inset(100% 0 0 0)",
-            "down": "inset(0 0 100% 0)",
-            "left": "inset(0 0 0 100%)",
-            "right": "inset(0 100% 0 0)",
-        }
-        return f"clip-path:{insets[direction]};opacity:1", "clip-path:inset(0 0 0 0);opacity:1"
+        return f"clip-path:{_WIPE_INSETS[direction]};opacity:1", "clip-path:inset(0 0 0 0);opacity:1"
     if name == "wheel":
         return (
             "clip-path:polygon(50% 50%,50% 0%,50% 0%);opacity:1",
@@ -355,31 +359,26 @@ class HtmlExporter:
 
     # ----------------------------------------------------------- animation glue
 
-    def _layer_animations(self, layer: RenderableLayer) -> list:
-        animation = getattr(layer, "animation", None)
-        if animation is None:
-            return []
-        return animation if isinstance(animation, list) else [animation]
-
-    def _register_animation(self, layer: RenderableLayer, element_id: str) -> tuple[str, bool]:
+    def _register_animation(self, layer: RenderableLayer, element_id: str) -> str:
         """Record a layer's animation as timeline node(s) keyed to its element.
 
-        Returns ``(extra_style, hidden)`` -- extra inline style for the element
-        and whether it must start hidden (an entrance effect plays first).
+        Returns the extra inline style for the element -- ``visibility:hidden;``
+        when an entrance effect must play before the layer is first shown, else
+        an empty string.
         """
         animation = getattr(layer, "animation", None)
-        effects = self._layer_animations(layer)
+        effects = [] if animation is None else animation if isinstance(animation, list) else [animation]
         if not effects:
             self._prev_anim_key = None
-            return "", False
+            return ""
 
+        hidden = "visibility:hidden;" if effects[0].animate == "entrance" else ""
         key = id(animation)
         if key == self._prev_anim_key:
             # Same group animation object: add this element to the shared node(s).
             for node in self._prev_nodes:
                 node["t"].append(element_id)
-            hidden = effects[0].animate == "entrance"
-            return ("visibility:hidden;" if hidden else ""), hidden
+            return hidden
 
         nodes: list[dict] = []
         for effect in effects:
@@ -404,8 +403,7 @@ class HtmlExporter:
         self._timeline.extend(nodes)
         self._prev_anim_key = key
         self._prev_nodes = nodes
-        hidden = effects[0].animate == "entrance"
-        return ("visibility:hidden;" if hidden else ""), hidden
+        return hidden
 
     # ------------------------------------------------------------------ layers
 
@@ -428,7 +426,7 @@ class HtmlExporter:
     ) -> None:
         """Append one positioned element, wiring up any per-layer animation."""
         element_id = self._make_id()
-        anim_style, _ = self._register_animation(layer, element_id)
+        anim_style = self._register_animation(layer, element_id)
         self._body.append(f'<{tag} id="{element_id}" style="{style}{anim_style}">{inner}</{tag}>')
 
     def _emit_raster_fallback(self, layer: RenderableLayer):
@@ -444,7 +442,7 @@ class HtmlExporter:
         )
         if layer is not None:
             element_id = self._make_id()
-            anim_style, _ = self._register_animation(layer, element_id)
+            anim_style = self._register_animation(layer, element_id)
             self._body.append(
                 f'<img id="{element_id}" style="{style}{anim_style}" '
                 f'src="data:image/png;base64,{encoded}" alt="">'
@@ -711,7 +709,7 @@ class HtmlExporter:
             style += f"opacity:{_fmt(round(layer.opacity, 4))};"
         encoded = base64.b64encode(svg_bytes).decode("ascii")
         element_id = self._make_id()
-        anim_style, _ = self._register_animation(layer, element_id)
+        anim_style = self._register_animation(layer, element_id)
         self._body.append(
             f'<img id="{element_id}" style="{style}{anim_style}" '
             f'src="data:image/svg+xml;base64,{encoded}" alt="">'
@@ -947,25 +945,41 @@ _DECK_RUNTIME_TMPL = _env.from_string(
 
 
 # --- slide transition -> incoming-stage entrance keyframe -----------------------
-# Deck slide changes animate the *incoming* stage. Effects that move the stage
-# compose with the responsive fit via scale(var(--qt-scale,1)) so the
-# scale-to-viewport survives the transform animation; clip/opacity effects leave
-# the inline scale untouched. Push/cover/uncover all read as the new slide
-# sliding in (a true two-slide push isn't expressible in this one-at-a-time
-# model), and exotic PPTX transitions (wheel, wedge, checker, comb, dissolve)
-# fall back to the closest CSS analogue -- the same parity tradeoff the layer
-# animations make.
+# Deck slide changes animate the *incoming* stage (and, for push/uncover, the
+# outgoing one). Effects that move a stage compose with the responsive fit via
+# scale(var(--qt-scale,1)) so the scale-to-viewport survives the transform
+# animation; clip/opacity effects leave the inline scale untouched. Exotic PPTX
+# transitions (wheel, wedge, checker, comb, dissolve) fall back to the closest
+# CSS analogue -- the same parity tradeoff the layer animations make.
 _TR_SCALE = "scale(var(--qt-scale,1))"
+_HOME = f"transform:translate(0,0) {_TR_SCALE}"
+
+# Direction -> off-screen transform for the incoming (..._IN) and outgoing
+# (..._OUT) stages of a directional slide change. PowerPoint names a push/cover
+# by where the content travels, so "left" sends the old slide off the left edge
+# and brings the new one in from the right.
+_DIR_IN = {
+    "left": "translateX(100vw)",
+    "right": "translateX(-100vw)",
+    "up": "translateY(100vh)",
+    "down": "translateY(-100vh)",
+}
+_DIR_OUT = {
+    "left": "translateX(-100vw)",
+    "right": "translateX(100vw)",
+    "up": "translateY(-100vh)",
+    "down": "translateY(100vh)",
+}
 
 
-def _transition_states(transition) -> tuple[str | None, str]:
+def _transition_states(transition) -> tuple[str, str]:
     """Return (from-state, to-state) CSS for a transition's incoming stage.
 
-    A ``None`` from-state signals an instant cut (no animation emitted).
+    Only reached from ``_transition_plan`` for non-directional reveals -- cut,
+    push and uncover are handled there -- so ``cover`` is the one directional
+    case that arrives here (the new slide sliding in over a static old one).
     """
     effect = transition.effect
-    if effect == "cut":
-        return None, ""
     if effect in ("fade", "dissolve", "random", "checker"):
         return "opacity:0", "opacity:1"
     if effect in ("wipe", "comb", "blinds"):
@@ -974,21 +988,9 @@ def _transition_states(transition) -> tuple[str | None, str]:
             direction = "right" if transition.orientation == "vertical" else "down"
         elif effect == "comb":
             direction = "left" if transition.orientation == "vertical" else "up"
-        insets = {
-            "up": "inset(100% 0 0 0)",
-            "down": "inset(0 0 100% 0)",
-            "left": "inset(0 0 0 100%)",
-            "right": "inset(0 100% 0 0)",
-        }
-        return f"clip-path:{insets[direction]}", "clip-path:inset(0 0 0 0)"
-    if effect in ("push", "cover", "uncover"):
-        offscreen = {
-            "left": "translateX(100vw)",
-            "right": "translateX(-100vw)",
-            "up": "translateY(100vh)",
-            "down": "translateY(-100vh)",
-        }[getattr(transition, "direction", "left")]
-        return f"transform:{offscreen} {_TR_SCALE}", f"transform:translate(0,0) {_TR_SCALE}"
+        return f"clip-path:{_WIPE_INSETS[direction]}", "clip-path:inset(0 0 0 0)"
+    if effect == "cover":
+        return f"transform:{_DIR_IN[getattr(transition, 'direction', 'left')]} {_TR_SCALE}", _HOME
     if effect == "zoom":
         factor = "0.6" if getattr(transition, "direction", "in") == "in" else "1.4"
         return (
@@ -1011,25 +1013,6 @@ def _transition_states(transition) -> tuple[str | None, str]:
         )
     # circle, wheel, wedge -> expanding circular reveal.
     return "clip-path:circle(0% at 50% 50%)", "clip-path:circle(75% at 50% 50%)"
-
-
-# Direction -> off-screen transform for the incoming (..._IN) and outgoing
-# (..._OUT) stages of a directional slide change. PowerPoint names a push/cover
-# by where the content travels, so "left" sends the old slide off the left edge
-# and brings the new one in from the right.
-_DIR_IN = {
-    "left": "translateX(100vw)",
-    "right": "translateX(-100vw)",
-    "up": "translateY(100vh)",
-    "down": "translateY(-100vh)",
-}
-_DIR_OUT = {
-    "left": "translateX(-100vw)",
-    "right": "translateX(100vw)",
-    "up": "translateY(-100vh)",
-    "down": "translateY(100vh)",
-}
-_HOME = f"transform:translate(0,0) {_TR_SCALE}"
 
 
 def _transition_plan(transition) -> tuple[tuple | None, tuple | None, str]:
@@ -1055,10 +1038,8 @@ def _transition_plan(transition) -> tuple[tuple | None, tuple | None, str]:
         # The new slide waits, fully shown, underneath; the old one slides away.
         return None, (_HOME, f"transform:{_DIR_OUT[direction]} {_TR_SCALE}"), "under"
     # Everything else animates the incoming slide on top of a static outgoing one.
-    start, end = _transition_states(transition) if transition else ("opacity:0", "opacity:1")
-    if start is None:
-        return None, None, "over"
-    return (start, end), None, "over"
+    states = _transition_states(transition) if transition else ("opacity:0", "opacity:1")
+    return states, None, "over"
 
 
 def _font_face_css(font_faces: dict[str, tuple[str, str, str]]) -> str:
@@ -1086,7 +1067,7 @@ def _document(
     transitions: list | None = None,
     svg_filters: dict[str, str] | None = None,
 ) -> str:
-    keyframes = "".join(kf for stage in stages for kf in stage.keyframes)
+    keyframes = [kf for stage in stages for kf in stage.keyframes]
     if deck:
         transitions = transitions or [None] * len(stages)
         for index, (stage, transition) in enumerate(zip(stages, transitions, strict=True)):
@@ -1098,14 +1079,14 @@ def _document(
             timing = f"{_fmt(duration)}s ease both"
             if enter is not None:
                 name = f"qt-t{index}"
-                keyframes += "@keyframes " + name + "{from{" + enter[0] + "}to{" + enter[1] + "}}"
+                keyframes.append("@keyframes " + name + "{from{" + enter[0] + "}to{" + enter[1] + "}}")
                 stage.transition_anim = f"{name} {timing}"
             if leave is not None:
                 name = f"qt-x{index}"
-                keyframes += "@keyframes " + name + "{from{" + leave[0] + "}to{" + leave[1] + "}}"
+                keyframes.append("@keyframes " + name + "{from{" + leave[0] + "}to{" + leave[1] + "}}")
                 stage.transition_exit = f"{name} {timing}"
     base_css = _BASE_CSS if responsive else _FIXED_CSS
-    css = base_css + _font_face_css(font_faces) + keyframes
+    css = base_css + _font_face_css(font_faces) + "".join(keyframes)
 
     runtime_tmpl = _DECK_RUNTIME_TMPL if deck else _CANVAS_RUNTIME_TMPL
     runtime = runtime_tmpl.render(responsive=json.dumps(responsive))
