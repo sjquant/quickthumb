@@ -343,7 +343,12 @@ class HtmlExporter:
         canvas._ctx.begin_render_pass()
 
         prefix, rest = split_backdrop_prefix(flatten_layers(canvas))
-        self._reject_animated_backdrop_prefix(prefix)
+        if any(getattr(layer, "animation", None) is not None for layer in prefix):
+            raise RenderingError(
+                "HTML export cannot animate layers that must be rasterized together for "
+                "blend-mode or custom-layer backdrop compositing. Move animated layers "
+                "after those backdrop-dependent layers, or remove the blend/custom layer."
+            )
         if prefix:
             fragment = rasterize_layers(canvas, prefix)
             if fragment:
@@ -357,19 +362,6 @@ class HtmlExporter:
             body="\n".join(self._body),
             keyframes=list(self._keyframes),
             timeline=list(self._timeline),
-        )
-
-    def _reject_animated_backdrop_prefix(self, layers: list[RenderableLayer]) -> None:
-        """Avoid silently flattening animated layers into static backdrop fragments."""
-        if not layers:
-            return
-        animated = [layer for layer in layers if getattr(layer, "animation", None) is not None]
-        if not animated:
-            return
-        raise RenderingError(
-            "HTML export cannot animate layers that must be rasterized together for "
-            "blend-mode or custom-layer backdrop compositing. Move animated layers "
-            "after those backdrop-dependent layers, or remove the blend/custom layer."
         )
 
     def _make_id(self) -> str:
@@ -1151,12 +1143,32 @@ def _document(
     runtime_template = _DECK_RUNTIME if deck else _CANVAS_RUNTIME
     runtime = runtime_template.replace("%RESPONSIVE%", json.dumps(responsive))
     filters = "".join((svg_filters or {}).values())
-    stage_markup = _stage_markup(stages, deck=deck)
-    body = (
-        f'<div class="qt-frame">{stage_markup}</div>'
-        if responsive
-        else stage_markup
-    )
+    stage_markup: list[str] = []
+    for index, stage in enumerate(stages):
+        attrs = [
+            'class="qt-stage"',
+            f"data-qt-timeline='{stage.timeline_json}'",
+        ]
+        if deck:
+            attrs.extend(
+                [
+                    f'data-qt-transition="{escape(stage.transition_anim)}"',
+                    f'data-qt-exit="{escape(stage.transition_exit)}"',
+                    f'data-qt-z="{stage.transition_z}"',
+                    f'data-qt-dur="{stage.transition_dur}"',
+                    f'data-qt-click="{stage.transition_click}"',
+                    f'data-qt-after="{stage.transition_after}"',
+                ]
+            )
+        style = f"width:{stage.width}px;height:{stage.height}px;"
+        if deck and index > 0:
+            style += "display:none;"
+        attrs.append(f'style="{style}"')
+        stage_markup.append(f"<div {' '.join(attrs)}>\n{stage.body}\n</div>")
+
+    body = "\n".join(stage_markup)
+    if responsive:
+        body = f'<div class="qt-frame">{body}</div>'
     return (
         "<!doctype html>\n"
         '<html lang="en">\n'
@@ -1178,32 +1190,6 @@ def _document(
         "</body>\n"
         "</html>\n"
     )
-
-
-def _stage_markup(stages: list[Stage], *, deck: bool) -> str:
-    html: list[str] = []
-    for index, stage in enumerate(stages):
-        attrs = [
-            'class="qt-stage"',
-            f"data-qt-timeline='{stage.timeline_json}'",
-        ]
-        if deck:
-            attrs.extend(
-                [
-                    f'data-qt-transition="{escape(stage.transition_anim)}"',
-                    f'data-qt-exit="{escape(stage.transition_exit)}"',
-                    f'data-qt-z="{stage.transition_z}"',
-                    f'data-qt-dur="{stage.transition_dur}"',
-                    f'data-qt-click="{stage.transition_click}"',
-                    f'data-qt-after="{stage.transition_after}"',
-                ]
-            )
-        style = f"width:{stage.width}px;height:{stage.height}px;"
-        if deck and index > 0:
-            style += "display:none;"
-        attrs.append(f'style="{style}"')
-        html.append(f"<div {' '.join(attrs)}>\n{stage.body}\n</div>")
-    return "\n".join(html)
 
 
 def export_deck(

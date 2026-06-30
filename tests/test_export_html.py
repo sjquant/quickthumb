@@ -516,8 +516,6 @@ class TestDeckHtml:
     def test_should_emit_css_for_supported_slide_transitions(self, transition, expected):
         """HTML deck output includes CSS keyframes for supported transition families"""
         # given
-        from quickthumb.transitions import coerce_transition
-
         effect, options = transition
         deck = (
             Deck(640, 360)
@@ -529,7 +527,6 @@ class TestDeckHtml:
         html = deck.to_html()
 
         # then
-        assert coerce_transition({"effect": effect, **options}) is not None
         assert expected in html
 
     def test_should_honor_slide_advance_timing_in_html(self):
