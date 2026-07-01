@@ -811,6 +811,7 @@ class PptxExporter:
         # cTn ids 1 (tmRoot) and 2 (mainSeq) are fixed; the rest count up from 3.
         self._tn_id = 2
         groups = self._group_animations(animations)
+        init_xml = self._build_initial_visibility_group(animations)
         group_xml = "".join(self._build_click_group(group) for group in groups)
 
         seq = (
@@ -827,10 +828,27 @@ class PptxExporter:
         xml = (
             f"<p:timing {nsdecls('p')}><p:tnLst>"
             '<p:par><p:cTn id="1" dur="indefinite" restart="never" nodeType="tmRoot">'
-            f"<p:childTnLst>{seq}</p:childTnLst></p:cTn></p:par>"
+            f"<p:childTnLst>{init_xml}{seq}</p:childTnLst></p:cTn></p:par>"
             "</p:tnLst></p:timing>"
         )
         self._slide._element.append(parse_xml(xml))
+
+    def _build_initial_visibility_group(self, animations: list[tuple[Animation, list[int]]]) -> str:
+        entrance_ids = sorted(
+            {sid for anim, ids in animations if anim.animate == "entrance" for sid in ids}
+        )
+        if not entrance_ids:
+            return ""
+
+        group_id = self._next_id()
+        hides = "".join(self._set_visibility_xml(sid, "hidden", delay=0) for sid in entrance_ids)
+        return (
+            "<p:par>"
+            f'<p:cTn id="{group_id}" fill="hold">'
+            '<p:stCondLst><p:cond delay="0"/></p:stCondLst>'
+            f"<p:childTnLst>{hides}</p:childTnLst>"
+            "</p:cTn></p:par>"
+        )
 
     @staticmethod
     def _group_animations(

@@ -488,10 +488,13 @@ class TestPptxElementAnimations:
             for shape in document.slides[0].shapes
             if shape._element.xpath('.//*[local-name()="cNvPr"]')[0].get("hidden") == "1"
         }
+        visibility = [value.get("val") for value in timing.iter(qn("p:strVal"))]
 
         # then
         assert len(animated) == 2
         assert hidden == set()
+        assert "hidden" in visibility
+        assert "visible" in visibility
 
     def test_should_map_wipe_direction_to_animation_filter(self):
         """A directional wipe animation encodes the direction in its filter"""
@@ -698,6 +701,7 @@ class TestPptxElementAnimations:
             for shape in document.slides[0].shapes
             if shape._element.xpath('.//*[local-name()="cNvPr"]')[0].get("hidden") == "1"
         }
+        visibility = [value.get("val") for value in timing.iter(qn("p:strVal"))]
 
         # then: one click drives a single effect that targets both children
         assert len(click_groups) == 1
@@ -705,6 +709,7 @@ class TestPptxElementAnimations:
         assert node_types.count("withEffect") == 0
         assert len(animated) == 2
         assert hidden == set()
+        assert "hidden" in visibility
 
     def test_group_animation_should_take_precedence_over_child_animations(self):
         """A group animation drives all children as one effect, ignoring child ones"""
