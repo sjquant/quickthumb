@@ -828,7 +828,7 @@ class PptxExporter:
         xml = (
             f"<p:timing {nsdecls('p')}><p:tnLst>"
             '<p:par><p:cTn id="1" dur="indefinite" restart="never" nodeType="tmRoot">'
-            f"<p:childTnLst>{init_xml}{seq}</p:childTnLst></p:cTn></p:par>"
+            f"<p:childTnLst>{seq}{init_xml}</p:childTnLst></p:cTn></p:par>"
             "</p:tnLst></p:timing>"
         )
         self._slide._element.append(parse_xml(xml))

@@ -496,6 +496,39 @@ class TestPptxElementAnimations:
         assert "hidden" in visibility
         assert "visible" in visibility
 
+    def test_should_apply_initial_visibility_after_animation_defaults(self):
+        """Initial entrance hiding wins over eager animation default values"""
+        # given
+        canvas = (
+            Canvas(400, 300)
+            .shape(
+                shape="rectangle",
+                position=(10, 10),
+                width=80,
+                height=40,
+                color="#FF0000",
+                animation=Fade(),
+            )
+            .shape(
+                shape="ellipse",
+                position=(120, 10),
+                width=80,
+                height=40,
+                color="#00FF00",
+                animation=Fade(trigger="after_previous"),
+            )
+        )
+
+        # when
+        timing = timing_of(canvas)
+        tm_root = next(c for c in timing.iter(qn("p:cTn")) if c.get("nodeType") == "tmRoot")
+        children = list(tm_root.find(qn("p:childTnLst")))
+        final_values = [value.get("val") for value in children[-1].iter(qn("p:strVal"))]
+
+        # then
+        assert children[0].tag == qn("p:seq")
+        assert final_values == ["hidden", "hidden"]
+
     def test_should_map_wipe_direction_to_animation_filter(self):
         """A directional wipe animation encodes the direction in its filter"""
         # given
