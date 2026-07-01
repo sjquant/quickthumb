@@ -14,8 +14,6 @@ import math
 from typing import TYPE_CHECKING
 from xml.sax.saxutils import escape, quoteattr
 
-from PIL import ImageFont
-
 from quickthumb._base import (
     apply_alignment,
     expanded_rotation_size,
@@ -31,8 +29,10 @@ from quickthumb._export_base import (
     color_to_rgba,
     compute_text_layout,
     flatten_layers,
+    font_face_declarations,
     rasterize_layers,
     read_svg_layer_bytes_and_size,
+    resolve_font_face,
     rgb_hex,
     split_backdrop_prefix,
     uses_image_fill,
@@ -480,44 +480,14 @@ class SvgExporter:
 
     def _register_font(self, run: TextRunLayout) -> tuple[str, str, str]:
         """Resolve (family, css weight, css style) for a run and record it for embedding."""
-        font = run.font
-        if isinstance(font, ImageFont.FreeTypeFont):
-            family = font.getname()[0] or "sans-serif"
-            path = getattr(font, "path", None)
-        else:
-            family = "sans-serif"
-            path = None
-
-        if isinstance(run.weight, int):
-            weight = str(run.weight)
-        elif isinstance(run.weight, str) and run.weight.isdigit():
-            weight = run.weight
-        elif run.bold or (isinstance(run.weight, str) and run.weight.lower() == "bold"):
-            weight = "700"
-        else:
-            weight = "400"
-        style = "italic" if run.italic else "normal"
-
-        if path and isinstance(path, str):
+        family, weight, style, path = resolve_font_face(run)
+        if path:
             self._font_faces.setdefault(path, (family, weight, style))
         return f"{family}, sans-serif" if family != "sans-serif" else family, weight, style
 
     def _font_face_style(self) -> str:
-        faces = []
-        for path, (family, weight, style) in self._font_faces.items():
-            try:
-                with open(path, "rb") as font_file:
-                    encoded = base64.b64encode(font_file.read()).decode("ascii")
-            except OSError:
-                continue
-            faces.append(
-                "@font-face{"
-                f"font-family:'{family}';"
-                f"src:url(data:font/ttf;base64,{encoded}) format('truetype');"
-                f"font-weight:{weight};font-style:{style};"
-                "}"
-            )
-        return "<style>" + "".join(faces) + "</style>" if faces else ""
+        css = font_face_declarations(self._font_faces)
+        return f"<style>{css}</style>" if css else ""
 
     # ------------------------------------------------------------- svg overlay
 

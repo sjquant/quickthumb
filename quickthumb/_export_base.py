@@ -1,22 +1,23 @@
-"""Shared infrastructure for the document exporters (SVG, PPTX).
+"""Shared infrastructure for the document exporters (SVG, HTML, PPTX).
 
 The exporters keep layers as native vector/text primitives where the target
 format can express them, and fall back to embedding pixel-exact PNG fragments
 rendered by the regular PIL pipeline everywhere else. This module hosts the
-pieces both exporters share: layer flattening, backdrop-dependency splitting,
-per-layer rasterization, and a text block layout that mirrors TextEngine's
-positioning math run for run.
+pieces they share: layer flattening, backdrop-dependency splitting, per-layer
+rasterization, font-face resolution/embedding, and a text block layout that
+mirrors TextEngine's positioning math run for run.
 """
 
 from __future__ import annotations
 
+import base64
 import re
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from io import BytesIO
 from typing import TYPE_CHECKING
 
-from PIL import Image
+from PIL import Image, ImageFont
 
 from quickthumb._base import (
     DEFAULT_LINE_HEIGHT_MULTIPLIER,
@@ -232,6 +233,57 @@ def _parse_svg_length(value: str | None) -> float | None:
     if not match:
         return None
     return float(match.group(1))
+
+
+def resolve_font_face(run: TextRunLayout) -> tuple[str, str, str, str | None]:
+    """Resolve (family, css weight, css style, embeddable font path) for a run.
+
+    Shared by the SVG and HTML exporters so a run maps to the same font face
+    rules in every vector export. ``path`` is the local font file to pass to
+    ``font_face_declarations`` for embedding, or ``None`` when Pillow has no
+    file to embed for this run's font (e.g. the built-in bitmap default).
+    """
+    font = run.font
+    if isinstance(font, ImageFont.FreeTypeFont):
+        family = font.getname()[0] or "sans-serif"
+        path = getattr(font, "path", None)
+    else:
+        family = "sans-serif"
+        path = None
+
+    if isinstance(run.weight, int):
+        weight = str(run.weight)
+    elif isinstance(run.weight, str) and run.weight.isdigit():
+        weight = run.weight
+    elif run.bold or (isinstance(run.weight, str) and run.weight.lower() == "bold"):
+        weight = "700"
+    else:
+        weight = "400"
+    style = "italic" if run.italic else "normal"
+
+    return family, weight, style, path if isinstance(path, str) else None
+
+
+def font_face_declarations(font_faces: dict[str, tuple[str, str, str]]) -> str:
+    """Build ``@font-face`` rules embedding each font file as a base64 data URL.
+
+    Shared by the SVG and HTML exporters; each wraps the result for its own
+    document (SVG in a ``<style>`` element, HTML inline in its own stylesheet).
+    """
+    faces = []
+    for path, (family, weight, style) in font_faces.items():
+        try:
+            with open(path, "rb") as font_file:
+                encoded = base64.b64encode(font_file.read()).decode("ascii")
+        except OSError:
+            continue
+        faces.append(
+            "@font-face{"
+            f"font-family:'{family}';"
+            f"src:url(data:font/ttf;base64,{encoded}) format('truetype');"
+            f"font-weight:{weight};font-style:{style};}}"
+        )
+    return "".join(faces)
 
 
 def union_boxes(boxes: list[Box]) -> Box | None:

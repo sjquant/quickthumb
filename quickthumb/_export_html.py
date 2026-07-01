@@ -47,8 +47,10 @@ from quickthumb._export_base import (
     color_to_rgba,
     compute_text_layout,
     flatten_layers,
+    font_face_declarations,
     rasterize_layers,
     read_svg_layer_bytes_and_size,
+    resolve_font_face,
     split_backdrop_prefix,
     union_boxes,
     uses_image_fill,
@@ -678,25 +680,8 @@ class HtmlExporter:
         return parts
 
     def _register_font(self, run: TextRunLayout) -> tuple[str, str, str]:
-        font = run.font
-        if isinstance(font, ImageFont.FreeTypeFont):
-            family = font.getname()[0] or "sans-serif"
-            path = getattr(font, "path", None)
-        else:
-            family = "sans-serif"
-            path = None
-
-        if isinstance(run.weight, int):
-            weight = str(run.weight)
-        elif isinstance(run.weight, str) and run.weight.isdigit():
-            weight = run.weight
-        elif run.bold or (isinstance(run.weight, str) and run.weight.lower() == "bold"):
-            weight = "700"
-        else:
-            weight = "400"
-        style = "italic" if run.italic else "normal"
-
-        if path and isinstance(path, str) and self._embed_fonts:
+        family, weight, style, path = resolve_font_face(run)
+        if path and self._embed_fonts:
             self._font_faces.setdefault(path, (family, weight, style))
         return family, weight, style
 
@@ -1123,23 +1108,6 @@ def _transition_plan(transition) -> tuple[tuple | None, tuple | None, str]:
     return states, None, "over"
 
 
-def _font_face_css(font_faces: dict[str, tuple[str, str, str]]) -> str:
-    faces = []
-    for path, (family, weight, style) in font_faces.items():
-        try:
-            with open(path, "rb") as font_file:
-                encoded = base64.b64encode(font_file.read()).decode("ascii")
-        except OSError:
-            continue
-        faces.append(
-            "@font-face{"
-            f"font-family:'{family}';"
-            f"src:url(data:font/ttf;base64,{encoded}) format('truetype');"
-            f"font-weight:{weight};font-style:{style};}}"
-        )
-    return "".join(faces)
-
-
 def _document(
     stages: list[Stage],
     responsive: bool,
@@ -1183,7 +1151,7 @@ def _document(
         base_css = _FIXED_DECK_CSS
     else:
         base_css = _FIXED_CSS
-    css = base_css + _font_face_css(font_faces) + "".join(keyframes)
+    css = base_css + font_face_declarations(font_faces) + "".join(keyframes)
 
     runtime_template = _DECK_RUNTIME if deck else _CANVAS_RUNTIME
     runtime = runtime_template.replace("%RESPONSIVE%", json.dumps(responsive))
