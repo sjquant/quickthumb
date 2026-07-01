@@ -854,10 +854,14 @@ class PptxExporter:
     def _group_animations(
         animations: list[tuple[Animation, list[int]]],
     ) -> list[list[tuple[Animation, list[int]]]]:
-        """Split animations into click groups; with_previous joins the open group."""
+        """Split animations into click groups.
+
+        ``after_previous`` and ``with_previous`` continue the open click chain;
+        only ``on_click`` starts a new one after the first group exists.
+        """
         groups: list[list[tuple[Animation, list[int]]]] = []
         for anim, ids in animations:
-            if not groups or anim.trigger != "with_previous":
+            if not groups or anim.trigger == "on_click":
                 groups.append([])
             groups[-1].append((anim, ids))
         return groups
@@ -887,6 +891,8 @@ class PptxExporter:
     def _build_effect_par(self, anim: Animation, ids: list[int], index: int) -> str:
         if index == 0:
             node_type = "afterEffect" if anim.trigger == "after_previous" else "clickEffect"
+        elif anim.trigger == "after_previous":
+            node_type = "afterEffect"
         else:
             node_type = "withEffect"
         effect_id = self._next_id()

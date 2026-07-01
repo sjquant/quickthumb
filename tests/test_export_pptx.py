@@ -608,8 +608,8 @@ class TestPptxElementAnimations:
         assert node_types.count("clickEffect") == 2
         assert node_types.count("withEffect") == 1
 
-    def test_should_emit_after_previous_as_auto_advancing_group(self):
-        """after_previous starts its group automatically (delay 0, afterEffect)"""
+    def test_should_chain_after_previous_in_the_current_click_group(self):
+        """after_previous waits for the prior effect in the current click group"""
         # given
         canvas = (
             Canvas(400, 300)
@@ -629,9 +629,13 @@ class TestPptxElementAnimations:
 
         # when
         timing = timing_of(canvas)
+        main_seq = next(c for c in timing.iter(qn("p:cTn")) if c.get("nodeType") == "mainSeq")
+        click_groups = main_seq.find(qn("p:childTnLst")).findall(qn("p:par"))
         node_types = [c.get("nodeType") for c in timing.iter(qn("p:cTn")) if c.get("nodeType")]
 
         # then
+        assert len(click_groups) == 1
+        assert node_types.count("clickEffect") == 1
         assert "afterEffect" in node_types
 
     def test_should_emit_exit_animation_hiding_the_shape(self):
