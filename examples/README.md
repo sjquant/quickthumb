@@ -17,6 +17,7 @@ uv run python examples/podcast_interview_promo.py
 uv run python examples/shorts_cover_agent.py
 uv run python examples/launch_announcement.py
 uv run python examples/slide_effects_deck.py
+uv run python examples/investor_deck.py
 ```
 
 All examples write their rendered image back into this directory.
@@ -164,6 +165,18 @@ Builds a polished 4-slide PowerPoint `Deck` (title, agenda, hero metric, closing
 - Gradient backgrounds and gradient-filled headlines that stay crisp and editable in PowerPoint
 
 Open the `.pptx` in PowerPoint (or Keynote / LibreOffice Impress) and start the slideshow to see the transitions and animations play; the `.png` is just a static render of the first slide, since stills can't show motion.
+
+### `investor_deck.py`
+
+Output: `investor_deck.html` and `investor_deck.pptx`
+
+Builds a dark investor-style deck with staged text, metric cards, and chart-like visuals:
+
+- HTML export for browser playback of slide transitions and layer animations
+- PPTX export for editable presentation handoff
+- Shared composition code that keeps the browser and PowerPoint outputs aligned
+
+Use it when you want a realistic animated deck example that exercises both HTML and PPTX output from the same source.
 
 ## Assets and Fonts
 

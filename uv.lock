@@ -1752,7 +1752,7 @@ requires-dist = [
     { name = "python-pptx", marker = "extra == 'pptx'", specifier = ">=1.0.2,<2.0" },
     { name = "rembg", marker = "extra == 'rembg'", specifier = ">=2.0.50,<3.0.0" },
     { name = "reportlab", marker = "extra == 'pdf'", specifier = ">=4.0.0,<5.0.0" },
-    { name = "typer", marker = "extra == 'cli'", specifier = ">=0.24.1,<0.25.0" },
+    { name = "typer", marker = "extra == 'cli'", specifier = ">=0.24.1,<1.0" },
     { name = "typing-extensions", specifier = ">=4.15.0,<5.0.0" },
     { name = "watchfiles", marker = "extra == 'cli'", specifier = ">=1.0.0,<2.0.0" },
 ]

@@ -279,11 +279,25 @@ def font_face_declarations(font_faces: dict[str, tuple[str, str, str]]) -> str:
             continue
         faces.append(
             "@font-face{"
-            f"font-family:'{family}';"
+            f"font-family:{_css_string(family)};"
             f"src:url(data:font/ttf;base64,{encoded}) format('truetype');"
             f"font-weight:{weight};font-style:{style};}}"
         )
     return "".join(faces)
+
+
+def _css_string(value: str) -> str:
+    escaped = (
+        value.replace("\\", "\\\\")
+        .replace("&", "\\26 ")
+        .replace('"', "\\22 ")
+        .replace("'", "\\'")
+        .replace("\r", "")
+        .replace("\n", "\\A ")
+        .replace("<", "\\3C ")
+        .replace(">", "\\3E ")
+    )
+    return f"'{escaped}'"
 
 
 def union_boxes(boxes: list[Box]) -> Box | None:

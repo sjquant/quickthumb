@@ -20,6 +20,7 @@ from quickthumb import (
     Wheel,
     Wipe,
 )
+from quickthumb._export_base import font_face_declarations
 from quickthumb.errors import RenderingError
 from quickthumb.models import Background, Shadow, Stroke, TextFillImage
 
@@ -412,6 +413,24 @@ class TestHtmlFonts:
         # when / then
         assert "@font-face" not in canvas.to_html(embed_fonts=False)
 
+    def test_should_escape_embedded_font_family_names(self, tmp_path):
+        """Embedded font-family CSS cannot escape the surrounding style element"""
+        # given
+        font_path = tmp_path / "bad.ttf"
+        font_path.write_bytes(b"font")
+        family = "Bad'\"&</style><script>alert(1)</script>"
+
+        # when
+        css = font_face_declarations({str(font_path): (family, "400", "normal")})
+
+        # then
+        assert "@font-face" in css
+        assert "</style" not in css.lower()
+        assert "<script" not in css.lower()
+        assert "\\22 " in css
+        assert "\\26 " in css
+        assert "\\3C /style\\3E " in css
+
 
 class TestHtmlAnimations:
     """Test suite for per-layer animation export"""
@@ -712,6 +731,41 @@ class TestDeckHtml:
         assert "finishTimeline(i)" in html
         assert "function reverse(anim)" in html
         assert "canClick()" in html
+
+    def test_should_namespace_layer_keyframes_per_slide(self):
+        """Layer animation keyframes remain unique across deck slides"""
+        # given
+        deck = (
+            Deck(320, 180)
+            .slide(
+                Canvas().text(
+                    content="One",
+                    size=48,
+                    color="#FFFFFF",
+                    position=(20, 20),
+                    animation=Fade(),
+                )
+            )
+            .slide(
+                Canvas().text(
+                    content="Two",
+                    size=48,
+                    color="#FFFFFF",
+                    position=(20, 20),
+                    animation=Wipe(),
+                )
+            )
+        )
+
+        # when
+        html = deck.to_html()
+        layer_keyframes = re.findall(r"@keyframes (qt-s\d+-k\d+)\{", html)
+        timeline_keyframes = [node["k"] for timeline in timelines(html) for node in timeline]
+
+        # then
+        assert layer_keyframes == ["qt-s0-k1", "qt-s1-k1"]
+        assert timeline_keyframes == layer_keyframes
+        assert len(layer_keyframes) == len(set(layer_keyframes))
 
     def test_should_ignore_navigation_while_slide_or_timeline_animation_is_running(self):
         """Rapid navigation input is ignored until the active animation finishes"""

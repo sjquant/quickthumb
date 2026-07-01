@@ -26,7 +26,6 @@ import base64
 import hashlib
 import json
 import math
-from functools import cached_property
 from html import escape
 from typing import TYPE_CHECKING
 
@@ -43,6 +42,7 @@ from quickthumb._export_base import (
     Box,
     RasterFragment,
     TextRunLayout,
+    _css_string,
     _fmt,
     color_to_rgba,
     compute_text_layout,
@@ -223,10 +223,17 @@ def _css_gradient(
 
 
 class HtmlExporter:
-    def __init__(self, canvas: Canvas, embed_fonts: bool = False, responsive: bool = True):
+    def __init__(
+        self,
+        canvas: Canvas,
+        embed_fonts: bool = False,
+        responsive: bool = True,
+        keyframe_prefix: str = "qt-k",
+    ):
         self._canvas = canvas
         self._embed_fonts = embed_fonts
         self._responsive = responsive
+        self._keyframe_prefix = keyframe_prefix
         self._body: list[str] = []
         self._keyframes: list[str] = []
         self._timeline: list[dict] = []
@@ -406,7 +413,7 @@ class HtmlExporter:
         nodes: list[dict] = []
         for effect in effects:
             hidden_state, shown_state = _effect_states(effect)
-            kf = f"qt-k{self._next_kf}"
+            kf = f"{self._keyframe_prefix}{self._next_kf}"
             self._next_kf += 1
             if effect.animate == "entrance":
                 start, end = hidden_state, shown_state
@@ -732,8 +739,7 @@ _TEXT_PRECISION_CSS = "-webkit-font-smoothing:antialiased;-moz-osx-font-smoothin
 
 
 def _css_font_family(family: str) -> str:
-    safe = family.replace("'", "")
-    return f"'{safe}', sans-serif" if family != "sans-serif" else "sans-serif"
+    return f"{_css_string(family)}, sans-serif" if family != "sans-serif" else "sans-serif"
 
 
 class Stage:
@@ -761,10 +767,6 @@ class Stage:
         self.transition_dur = "0"
         self.transition_click = "1"
         self.transition_after = ""
-
-    @cached_property
-    def timeline_json(self) -> str:
-        return json.dumps(self.timeline)
 
 
 # --------------------------------------------------------------- document shell
@@ -1176,7 +1178,7 @@ def _document(
     for index, stage in enumerate(stages):
         attrs = [
             'class="qt-stage"',
-            f"data-qt-timeline='{stage.timeline_json}'",
+            f"data-qt-timeline='{json.dumps(stage.timeline)}'",
         ]
         if deck:
             attrs.extend(
@@ -1230,8 +1232,13 @@ def export_deck(
     stages: list[Stage] = []
     font_faces: dict[str, tuple[str, str, str]] = {}
     svg_filters: dict[str, str] = {}
-    for canvas in canvases:
-        exporter = HtmlExporter(canvas, embed_fonts=embed_fonts, responsive=responsive)
+    for index, canvas in enumerate(canvases):
+        exporter = HtmlExporter(
+            canvas,
+            embed_fonts=embed_fonts,
+            responsive=responsive,
+            keyframe_prefix=f"qt-s{index}-k",
+        )
         stages.append(exporter.render_stage())
         font_faces.update(exporter._font_faces)
         svg_filters.update(exporter._svg_filters)

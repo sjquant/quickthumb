@@ -206,20 +206,20 @@ class PptxExporter:
     def _emit_tracked_layer(self, layer: RenderableLayer):
         """Emit a layer, recording the shape ids it produces if it is animated.
 
-        Animations target shapes by id, so we diff the slide's shapes before and
-        after emitting; whatever is new belongs to this layer. A single layer can
-        produce several shapes (e.g. a text box plus its background fills), and
-        the animation is applied to all of them together.
+        Animations target shapes by id, so shapes appended while emitting the
+        layer belong to that layer. A single layer can produce several shapes
+        (e.g. a text box plus its background fills), and the animation is
+        applied to all of them together.
         """
         animation = getattr(layer, "animation", None)
         if animation is None:
             self._emit_layer(layer)
             return
 
-        before = {shape.shape_id for shape in self._slide.shapes}
+        start = len(self._slide.shapes)
         self._emit_layer(layer)
         new_ids = [
-            shape.shape_id for shape in self._slide.shapes if shape.shape_id not in before
+            self._slide.shapes[index].shape_id for index in range(start, len(self._slide.shapes))
         ]
         if new_ids:
             self._anim_records.append((animation, new_ids))
