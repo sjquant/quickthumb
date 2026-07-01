@@ -222,23 +222,7 @@ class PptxExporter:
             shape.shape_id for shape in self._slide.shapes if shape.shape_id not in before
         ]
         if new_ids:
-            if self._starts_hidden(animation):
-                self._hide_shapes_initially(new_ids)
             self._anim_records.append((animation, new_ids))
-
-    @staticmethod
-    def _starts_hidden(animation: object) -> bool:
-        animations = animation if isinstance(animation, list) else [animation]
-        first = animations[0] if animations else None
-        return getattr(first, "animate", None) == "entrance"
-
-    def _hide_shapes_initially(self, shape_ids: list[int]) -> None:
-        hidden_ids = set(shape_ids)
-        for shape in self._slide.shapes:
-            if shape.shape_id not in hidden_ids:
-                continue
-            for prop in shape._element.xpath('.//*[local-name()="cNvPr"]'):
-                prop.set("hidden", "1")
 
     def _resolve_animation_entries(self) -> list[tuple[Animation, list[int]]]:
         """Turn the per-layer records into (animation, shape_ids) effect entries.

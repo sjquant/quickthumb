@@ -6,12 +6,18 @@ from pathlib import Path
 
 import pytest
 from quickthumb import (
+    Blinds,
     Box,
     Canvas,
+    Checkerboard,
+    Circle,
     Deck,
+    Diamond,
+    Dissolve,
     Fade,
     LinearGradient,
     TextPart,
+    Wheel,
     Wipe,
 )
 from quickthumb.errors import RenderingError
@@ -460,6 +466,42 @@ class TestHtmlAnimations:
         assert "elMap[id].style.setProperty('--qt-opacity',origOpacity[id]||'1');" in html
         assert "el.style.opacity=origOp;" in html
         assert "el.style.opacity=origOpacity[id]||'';" in html
+
+    @pytest.mark.parametrize(
+        "animation",
+        [
+            Fade(),
+            Box(),
+            Wipe(),
+            Blinds(),
+            Checkerboard(),
+            Circle(),
+            Diamond(),
+            Dissolve(),
+            Wheel(),
+        ],
+    )
+    def test_should_apply_original_layer_opacity_during_each_entrance_effect(self, animation):
+        """Every entrance effect animates toward the layer's original opacity"""
+        # given
+        canvas = Canvas(400, 200).shape(
+            shape="ellipse",
+            position=(20, 20),
+            width=80,
+            height=80,
+            color="#22D3EE",
+            opacity=0.25,
+            animation=animation,
+        )
+
+        # when
+        html = canvas.to_html()
+
+        # then
+        keyframes = re.findall(r"@keyframes qt-k\d+\{[^}]+\}(?:to\{[^}]+\})?", html)
+        assert keyframes
+        assert all("opacity:var(--qt-opacity,1)" in keyframe for keyframe in keyframes)
+        assert all("opacity:1" not in keyframe for keyframe in keyframes)
 
     def test_should_emit_soft_center_reveal_for_box_animation(self):
         """Box entrance uses an oval mask instead of a hard rectangular crop"""

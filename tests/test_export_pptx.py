@@ -456,8 +456,8 @@ class TestPptxElementAnimations:
         assert "clickEffect" in node_types
         assert [e.get("filter") for e in timing.iter(qn("p:animEffect"))] == ["fade"]
 
-    def test_should_hide_entrance_animation_targets_initially(self):
-        """Entrance animation targets are hidden until their timing node reveals them"""
+    def test_should_keep_entrance_animation_targets_visible_in_static_pptx(self):
+        """Entrance targets remain visible in the editable deck while timing targets them"""
         # given
         canvas = (
             Canvas(400, 300)
@@ -490,7 +490,8 @@ class TestPptxElementAnimations:
         }
 
         # then
-        assert animated <= hidden
+        assert len(animated) == 2
+        assert hidden == set()
 
     def test_should_map_wipe_direction_to_animation_filter(self):
         """A directional wipe animation encodes the direction in its filter"""
@@ -703,7 +704,7 @@ class TestPptxElementAnimations:
         assert node_types.count("clickEffect") == 1
         assert node_types.count("withEffect") == 0
         assert len(animated) == 2
-        assert animated <= hidden
+        assert hidden == set()
 
     def test_group_animation_should_take_precedence_over_child_animations(self):
         """A group animation drives all children as one effect, ignoring child ones"""
