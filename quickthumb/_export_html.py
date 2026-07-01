@@ -90,6 +90,7 @@ _WIPE_INSETS = {
     "left": "inset(0 0 0 100%)",
     "right": "inset(0 100% 0 0)",
 }
+_SHOWN_OPACITY = "var(--qt-opacity,1)"
 
 
 # --- animation effect -> (entrance from-state, to-state) CSS property blocks ----
@@ -100,40 +101,43 @@ def _effect_states(effect) -> tuple[str, str]:
     """Return (hidden-state, shown-state) CSS declaration strings for an effect."""
     name = effect.effect
     if name in ("fade", "appear", "dissolve", "checkerboard"):
-        return "opacity:0", "opacity:1"
+        return "opacity:0", f"opacity:{_SHOWN_OPACITY}"
     if name == "circle":
         return (
-            "clip-path:circle(0% at 50% 50%);opacity:1",
-            "clip-path:circle(75% at 50% 50%);opacity:1",
+            f"clip-path:circle(0% at 50% 50%);opacity:{_SHOWN_OPACITY}",
+            f"clip-path:circle(75% at 50% 50%);opacity:{_SHOWN_OPACITY}",
         )
     if name == "diamond":
         return (
-            "clip-path:polygon(50% 50%,50% 50%,50% 50%,50% 50%);opacity:1",
-            "clip-path:polygon(50% 0%,100% 50%,50% 100%,0% 50%);opacity:1",
+            f"clip-path:polygon(50% 50%,50% 50%,50% 50%,50% 50%);opacity:{_SHOWN_OPACITY}",
+            f"clip-path:polygon(50% 0%,100% 50%,50% 100%,0% 50%);opacity:{_SHOWN_OPACITY}",
         )
     if name == "box":
         # in: grow from the centre; out: shrink toward the centre (entrance still
         # ends fully shown -- the keyframe direction handles enter vs exit).
         if getattr(effect, "direction", "in") == "in":
             return (
-                "clip-path:inset(50% 50% 50% 50%);opacity:1",
-                "clip-path:inset(0 0 0 0);opacity:1",
+                f"clip-path:inset(50% 50% 50% 50%);opacity:{_SHOWN_OPACITY}",
+                f"clip-path:inset(0 0 0 0);opacity:{_SHOWN_OPACITY}",
             )
-        return "clip-path:inset(0 0 0 0);opacity:0", "clip-path:inset(0 0 0 0);opacity:1"
+        return (
+            "clip-path:inset(0 0 0 0);opacity:0",
+            f"clip-path:inset(0 0 0 0);opacity:{_SHOWN_OPACITY}",
+        )
     if name in ("wipe", "blinds"):
         direction = getattr(effect, "direction", "up")
         if name == "blinds":
             direction = "right" if effect.orientation == "vertical" else "down"
         return (
-            f"clip-path:{_WIPE_INSETS[direction]};opacity:1",
-            "clip-path:inset(0 0 0 0);opacity:1",
+            f"clip-path:{_WIPE_INSETS[direction]};opacity:{_SHOWN_OPACITY}",
+            f"clip-path:inset(0 0 0 0);opacity:{_SHOWN_OPACITY}",
         )
     if name == "wheel":
         return (
-            "clip-path:polygon(50% 50%,50% 0%,50% 0%);opacity:1",
-            "clip-path:circle(75% at 50% 50%);opacity:1",
+            f"clip-path:polygon(50% 50%,50% 0%,50% 0%);opacity:{_SHOWN_OPACITY}",
+            f"clip-path:circle(75% at 50% 50%);opacity:{_SHOWN_OPACITY}",
         )
-    return "opacity:0", "opacity:1"
+    return "opacity:0", f"opacity:{_SHOWN_OPACITY}"
 
 
 def _remap_linear_stops(
@@ -811,7 +815,7 @@ _TIMELINE_JS = """
 function qtTimeline(stage){
   var nodes=JSON.parse(stage.getAttribute('data-qt-timeline')||'[]');
   var cursor=0;
-  // Cache element references and entrance inline state once at construction.
+  // Cache element references and animation inline state once at construction.
   // Avoids repeated querySelector in the per-frame animation hot path.
   var elMap={};
   var origClips={};
@@ -820,9 +824,12 @@ function qtTimeline(stage){
     var isEntrance=node.a==='entrance';
     node.t.forEach(function(id){
       if(!elMap[id]){var el=stage.querySelector('#'+CSS.escape(id));if(el)elMap[id]=el;}
+      if(elMap[id]&&!(id in origOpacity)){
+        origOpacity[id]=elMap[id].style.opacity;
+        elMap[id].style.setProperty('--qt-opacity',origOpacity[id]||'1');
+      }
       if(isEntrance&&elMap[id]&&!(id in origClips)){
         origClips[id]=elMap[id].style.clipPath;
-        origOpacity[id]=elMap[id].style.opacity;
       }
     });
   });
