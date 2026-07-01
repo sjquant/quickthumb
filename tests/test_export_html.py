@@ -437,6 +437,28 @@ class TestHtmlAnimations:
         # when / then
         assert "visibility:hidden" in canvas.to_html()
 
+    def test_should_preserve_animated_layer_opacity_after_entrance(self):
+        """Entrance animation restores the element's original inline opacity"""
+        # given
+        canvas = Canvas(400, 200).shape(
+            shape="ellipse",
+            position=(20, 20),
+            width=80,
+            height=80,
+            color="#22D3EE",
+            opacity=0.15,
+            animation=Fade(),
+        )
+
+        # when
+        html = canvas.to_html()
+
+        # then
+        assert "var origOpacity={};" in html
+        assert "origOpacity[id]=elMap[id].style.opacity;" in html
+        assert "el.style.opacity=origOp;" in html
+        assert "el.style.opacity=origOpacity[id]||'';" in html
+
     def test_should_emit_one_node_per_effect_in_a_list(self):
         """A list of effects on one layer becomes one timeline node each"""
         # given

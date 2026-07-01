@@ -811,15 +811,19 @@ _TIMELINE_JS = """
 function qtTimeline(stage){
   var nodes=JSON.parse(stage.getAttribute('data-qt-timeline')||'[]');
   var cursor=0;
-  // Cache element references and entrance clip-paths once at construction.
+  // Cache element references and entrance inline state once at construction.
   // Avoids repeated querySelector in the per-frame animation hot path.
   var elMap={};
   var origClips={};
+  var origOpacity={};
   nodes.forEach(function(node){
     var isEntrance=node.a==='entrance';
     node.t.forEach(function(id){
       if(!elMap[id]){var el=stage.querySelector('#'+CSS.escape(id));if(el)elMap[id]=el;}
-      if(isEntrance&&elMap[id]&&!(id in origClips)){origClips[id]=elMap[id].style.clipPath;}
+      if(isEntrance&&elMap[id]&&!(id in origClips)){
+        origClips[id]=elMap[id].style.clipPath;
+        origOpacity[id]=elMap[id].style.opacity;
+      }
     });
   });
   function resetElements(){
@@ -827,7 +831,10 @@ function qtTimeline(stage){
       if(node.a==='entrance'){
         node.t.forEach(function(id){
           var el=elMap[id];
-          if(el){el.style.visibility='hidden';el.style.animation='';el.style.clipPath=origClips[id]||'';}
+          if(el){
+            el.style.visibility='hidden';el.style.animation='';
+            el.style.clipPath=origClips[id]||'';el.style.opacity=origOpacity[id]||'';
+          }
         });
       }
     });
@@ -839,13 +846,14 @@ function qtTimeline(stage){
         var el=elMap[id];
         if(!el)return;
         var origClip=origClips[id]||'';
+        var origOp=origOpacity[id]||'';
         el.style.willChange='clip-path,opacity';
         el.style.visibility='visible';
         el.style.animation=node.k+' '+node.d+'s ease both '+node.delay+'s';
         function settle(){
           el.style.willChange='';
           el.style.animation='';
-          if(node.a==='entrance'){el.style.clipPath=origClip;el.style.opacity='';}
+          if(node.a==='entrance'){el.style.clipPath=origClip;el.style.opacity=origOp;}
           else{el.style.visibility='hidden';}
         }
         el.addEventListener('animationend',settle,{once:true});
@@ -880,7 +888,8 @@ function qtTimeline(stage){
         el.style.animation='';
         el.style.willChange='';
         if(node.a==='entrance'){
-          el.style.visibility='visible';el.style.clipPath=origClips[id]||'';el.style.opacity='';
+          el.style.visibility='visible';
+          el.style.clipPath=origClips[id]||'';el.style.opacity=origOpacity[id]||'';
         }else{
           el.style.visibility='hidden';
         }
