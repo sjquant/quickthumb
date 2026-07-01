@@ -302,7 +302,7 @@ s3 = divider(
 for x_pct, title, accent, _hex, body in FEATURES:
     grad = LinearGradient(angle=100, stops=[(accent, 0.0), (WHITE, 0.85)])
 
-    # Glow ring + inner dot as a visual anchor for the column.
+    # Soft ring + crisp inner dot as a visual anchor for the column.
     s3 = s3.shape(
         shape="ellipse",
         position=(x_pct, "44%"),
@@ -320,7 +320,7 @@ for x_pct, title, accent, _hex, body in FEATURES:
         height=24,
         color=accent,
         align=("center", "middle"),
-        effects=[Glow(radius=16, color=accent, opacity=0.5)],
+        effects=[Glow(radius=6, color=accent, opacity=0.3)],
         animation=Fade(duration=0.4, trigger="with_previous"),
     )
 
