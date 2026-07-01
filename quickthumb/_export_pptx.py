@@ -889,38 +889,33 @@ class PptxExporter:
         )
 
     def _build_effect_par(self, anim: Animation, ids: list[int], index: int) -> str:
-        return "".join(
-            self._build_target_effect_par(
-                anim,
-                sid,
-                self._target_effect_node_type(anim, index, target_index),
-            )
-            for target_index, sid in enumerate(ids)
-        )
-
-    @staticmethod
-    def _target_effect_node_type(anim: Animation, index: int, target_index: int) -> str:
-        if target_index > 0:
-            return "withEffect"
-        if index == 0:
-            return "afterEffect" if anim.trigger == "after_previous" else "clickEffect"
-        if anim.trigger == "after_previous":
-            return "afterEffect"
-        return "withEffect"
-
-    def _build_target_effect_par(self, anim: Animation, sid: int, node_type: str) -> str:
-        effect_id = self._next_id()
         preset_id = _ANIM_PRESET_IDS.get(anim.effect, 10)
         preset_class = "exit" if anim.animate == "exit" else "entr"
-        behaviors = self._build_behaviors(anim, sid)
-        return (
-            "<p:par>"
-            f'<p:cTn id="{effect_id}" presetID="{preset_id}" presetClass="{preset_class}" '
-            f'presetSubtype="0" fill="hold" grpId="0" nodeType="{node_type}">'
-            f'<p:stCondLst><p:cond delay="{int(round(anim.delay * 1000))}"/></p:stCondLst>'
-            f"<p:childTnLst>{behaviors}</p:childTnLst>"
-            "</p:cTn></p:par>"
-        )
+        delay_ms = int(round(anim.delay * 1000))
+        parts = []
+        for target_index, sid in enumerate(ids):
+            if target_index > 0:
+                node_type = "withEffect"
+            elif index == 0:
+                node_type = "afterEffect" if anim.trigger == "after_previous" else "clickEffect"
+            elif anim.trigger == "after_previous":
+                node_type = "afterEffect"
+            else:
+                node_type = "withEffect"
+
+            effect_id = self._next_id()
+            behaviors = self._build_behaviors(anim, sid)
+            parts.append(
+                "<p:par>"
+                f'<p:cTn id="{effect_id}" presetID="{preset_id}" '
+                f'presetClass="{preset_class}" presetSubtype="0" fill="hold" '
+                f'grpId="0" nodeType="{node_type}">'
+                f'<p:stCondLst><p:cond delay="{delay_ms}"/>'
+                "</p:stCondLst>"
+                f"<p:childTnLst>{behaviors}</p:childTnLst>"
+                "</p:cTn></p:par>"
+            )
+        return "".join(parts)
 
     def _build_behaviors(self, anim: Animation, sid: int) -> str:
         duration_ms = int(round(anim.duration * 1000))
