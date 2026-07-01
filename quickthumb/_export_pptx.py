@@ -894,12 +894,10 @@ class PptxExporter:
         delay_ms = int(round(anim.delay * 1000))
         parts = []
         for target_index, sid in enumerate(ids):
-            if target_index > 0:
-                node_type = "withEffect"
-            elif index == 0:
-                node_type = "afterEffect" if anim.trigger == "after_previous" else "clickEffect"
-            elif anim.trigger == "after_previous":
+            if target_index == 0 and anim.trigger == "after_previous":
                 node_type = "afterEffect"
+            elif target_index == 0 and index == 0:
+                node_type = "clickEffect"
             else:
                 node_type = "withEffect"
 
