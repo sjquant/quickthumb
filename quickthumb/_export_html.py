@@ -27,6 +27,7 @@ import hashlib
 import json
 import math
 from html import escape
+from importlib.resources import files
 from typing import TYPE_CHECKING
 
 from PIL import ImageFont
@@ -771,256 +772,44 @@ class Stage:
 
 # --------------------------------------------------------------- document shell
 
-_BASE_CSS = (
-    "*{margin:0;padding:0;box-sizing:content-box}"
-    "html,body{width:100%;height:100%}"
-    "body{background:#000;overflow:hidden;font-family:sans-serif}"
-    ".qt-frame{position:absolute;inset:0;overflow:hidden}"
-    # Absolutely centred so deck slides can overlap during a transition (the
-    # outgoing slide stays on screen beneath/beside the incoming one).
-    ".qt-stage{position:absolute;left:50%;top:50%;overflow:hidden;"
-    "transform:translate(-50%,-50%);transform-origin:center center}"
-)
+_HTML_RESOURCE_PACKAGE = "quickthumb.html"
+_STAGE_TEMPLATE_START = "{{#stage}}\n"
+_STAGE_TEMPLATE_END = "{{/stage}}"
 
-_FIXED_CSS = (
-    "*{margin:0;padding:0;box-sizing:content-box}"
-    "body{font-family:sans-serif}"
-    ".qt-stage{position:relative;overflow:hidden}"
-)
 
-_FIXED_DECK_CSS = (
-    "*{margin:0;padding:0;box-sizing:content-box}"
-    "body{font-family:sans-serif}"
-    ".qt-stage{position:absolute;left:0;top:0;overflow:hidden;"
-    "transform-origin:center center}"
-)
+def _html_resource(name: str) -> str:
+    return files(_HTML_RESOURCE_PACKAGE).joinpath(name).read_text(encoding="utf-8")
 
-# Scales the active stage to fit the frame, preserving aspect ratio.
-_SCALE_JS = """
-function qtFit(stage){
-  var f=stage.parentElement;
-  var s=Math.min(
-    f.clientWidth/parseInt(stage.style.width),
-    f.clientHeight/parseInt(stage.style.height)
-  );
-  // Expose the scale as a custom property so transform-based slide transitions
-  // can compose with it; transitions that don't touch transform keep this.
-  stage.style.setProperty('--qt-stage-x','-50%');
-  stage.style.setProperty('--qt-stage-y','-50%');
-  stage.style.setProperty('--qt-scale', s);
-  stage.style.transform='translate(var(--qt-stage-x),var(--qt-stage-y)) scale('+s+')';
-}
-"""
 
-# Plays a stage's animation timeline, honouring on_click/with_previous/after_previous.
-_TIMELINE_JS = """
-function qtTimeline(stage){
-  var nodes=JSON.parse(stage.getAttribute('data-qt-timeline')||'[]');
-  var cursor=0;
-  // Cache element references and animation inline state once at construction.
-  // Avoids repeated querySelector in the per-frame animation hot path.
-  var elMap={};
-  var origClips={};
-  var origOpacity={};
-  nodes.forEach(function(node){
-    var isEntrance=node.a==='entrance';
-    node.t.forEach(function(id){
-      if(!elMap[id]){var el=stage.querySelector('#'+CSS.escape(id));if(el)elMap[id]=el;}
-      if(elMap[id]&&!(id in origOpacity)){
-        origOpacity[id]=elMap[id].style.opacity;
-        elMap[id].style.setProperty('--qt-opacity',origOpacity[id]||'1');
-      }
-      if(isEntrance&&elMap[id]&&!(id in origClips)){
-        origClips[id]=elMap[id].style.clipPath;
-      }
-    });
-  });
-  function resetElements(){
-    nodes.forEach(function(node){
-      if(node.a==='entrance'){
-        node.t.forEach(function(id){
-          var el=elMap[id];
-          if(el){
-            el.style.visibility='hidden';el.style.animation='';
-            el.style.clipPath=origClips[id]||'';el.style.opacity=origOpacity[id]||'';
-          }
-        });
-      }
-    });
-  }
-  function play(node){
-    return new Promise(function(res){
-      var dur=0;
-      node.t.forEach(function(id){
-        var el=elMap[id];
-        if(!el)return;
-        var origClip=origClips[id]||'';
-        var origOp=origOpacity[id]||'';
-        el.style.willChange='clip-path,opacity';
-        el.style.visibility='visible';
-        el.style.animation=node.k+' '+node.d+'s ease both '+node.delay+'s';
-        function settle(){
-          el.style.willChange='';
-          el.style.animation='';
-          if(node.a==='entrance'){el.style.clipPath=origClip;el.style.opacity=origOp;}
-          else{el.style.visibility='hidden';}
-        }
-        el.addEventListener('animationend',settle,{once:true});
-        dur=Math.max(dur,(node.d+node.delay)*1000);
-      });
-      setTimeout(res,dur);
-    });
-  }
-  function withCompanions(i){
-    var group=[nodes[i]];var j=i+1;
-    while(j<nodes.length&&nodes[j].tr==='with_previous'){group.push(nodes[j]);j++;}
-    return {group:group,next:j};
-  }
-  async function runGroup(i){
-    var gc=withCompanions(i);
-    await Promise.all(gc.group.map(play));
-    cursor=gc.next;
-    while(cursor<nodes.length&&nodes[cursor].tr==='after_previous'){
-      var ac=withCompanions(cursor);
-      await Promise.all(ac.group.map(play));
-      cursor=ac.next;
-    }
-  }
-  async function autoLead(){
-    while(cursor<nodes.length&&nodes[cursor].tr==='after_previous'){await runGroup(cursor);}
-  }
-  function finishElements(){
-    nodes.forEach(function(node){
-      node.t.forEach(function(id){
-        var el=elMap[id];
-        if(!el)return;
-        el.style.animation='';
-        el.style.willChange='';
-        if(node.a==='entrance'){
-          el.style.visibility='visible';
-          el.style.clipPath=origClips[id]||'';el.style.opacity=origOpacity[id]||'';
-        }else{
-          el.style.visibility='hidden';
-        }
-      });
-    });
-  }
-  this.hasNext=function(){return cursor<nodes.length;};
-  this.advance=function(){if(cursor<nodes.length)return runGroup(cursor);return Promise.resolve();};
-  this.reset=function(){cursor=0;resetElements();};
-  this.finish=function(){finishElements();cursor=nodes.length;};
-  this.start=autoLead;
-}
-"""
+def _document_template_parts() -> tuple[str, str]:
+    template = _html_resource("document.html")
+    before_stage, stage_block = template.split(_STAGE_TEMPLATE_START, 1)
+    stage_template, after_stage = stage_block.split(_STAGE_TEMPLATE_END, 1)
+    return before_stage + after_stage, stage_template.strip("\n")
 
-_CANVAS_RUNTIME = (
-    _SCALE_JS
-    + _TIMELINE_JS
-    + """
-(function(){
-  var stage=document.querySelector('.qt-stage');
-  if(!stage)return;
-  var fit=%RESPONSIVE%;
-  if(fit){function r(){qtFit(stage);}
-    if(window.ResizeObserver){new ResizeObserver(r).observe(stage.parentElement);}
-    else{window.addEventListener('resize',r);}r();}
-  var tl=new qtTimeline(stage);
-  tl.start();
-  document.addEventListener('click',function(){if(tl.hasNext())tl.advance();});
-})();
-"""
-)
 
-_DECK_RUNTIME = (
-    _SCALE_JS
-    + _TIMELINE_JS
-    + """
-(function(){
-  var stages=Array.prototype.slice.call(document.querySelectorAll('.qt-stage'));
-  if(!stages.length)return;
-  var fit=%RESPONSIVE%;
-  var current=0,hideTimer,autoTimer,transitioning=false,timelineBusy=false;
-  var timelines=stages.map(function(s){return new qtTimeline(s);});
-  if(fit){var refit=function(){qtFit(stages[current]);};
-    if(window.ResizeObserver){new ResizeObserver(refit).observe(stages[0].parentElement);}
-    else{window.addEventListener('resize',refit);}}
-  function runTimeline(i){timelines[i].reset();timelines[i].start();}
-  function finishTimeline(i){timelines[i].reset();timelines[i].finish();}
-  function clearAuto(){if(autoTimer){clearTimeout(autoTimer);autoTimer=null;}}
-  function canClick(){return stages[current].getAttribute('data-qt-click')!=='0';}
-  function scheduleAuto(){
-    clearAuto();
-    var raw=stages[current].getAttribute('data-qt-after');
-    if(!raw||current>=stages.length-1)return;
-    var after=parseFloat(raw);
-    if(isNaN(after))return;
-    autoTimer=setTimeout(function(){
-      if(!transitioning&&!timelineBusy&&!timelines[current].hasNext())go(current+1,false);
-    },after*1000);
-  }
-  // Once a transition has run, drop the off-screen slides and clear the
-  // transient transition styles (animation/z-index/will-change) so nothing
-  // stays GPU-promoted longer than needed.
-  function settle(){
-    clearTimeout(hideTimer);
-    transitioning=false;
-    stages.forEach(function(s,j){
-      s.style.animation='';s.style.zIndex='';s.style.willChange='';
-      if(j!==current)s.style.display='none';
-    });
-    if(fit)qtFit(stages[current]);
-    scheduleAuto();
-  }
-  function reverse(anim){return anim?anim+' reverse':'';}
-  function go(i,backward){
-    if(transitioning||timelineBusy||i<0||i>=stages.length||i===current)return;
-    clearAuto();
-    transitioning=true;
-    var out=stages[current],inc=stages[i];
-    var source=backward?out:inc;
-    current=i;
-    var under=source.getAttribute('data-qt-z')==='under';
-    var enter=source.getAttribute('data-qt-transition')||'';
-    var exit=source.getAttribute('data-qt-exit')||'';
-    var reverseIncomingOver=backward&&!enter&&exit;
-    // Keep the outgoing slide on screen (static, or sliding out) under/over the
-    // incoming one; will-change lifts both onto their own compositor layer so
-    // the move is GPU-driven rather than a main-thread repaint.
-    out.style.display='block';out.style.zIndex=backward?(reverseIncomingOver?'1':'2'):(under?'2':'1');
-    out.style.willChange='transform,opacity';if(fit)qtFit(out);
-    out.style.animation=backward?reverse(enter):exit;
-    inc.style.display='block';inc.style.zIndex=backward?(reverseIncomingOver?'2':'1'):(under?'1':'2');
-    inc.style.willChange='transform,opacity,clip-path';if(fit)qtFit(inc);
-    inc.style.animation=backward?reverse(exit):enter;
-    if(backward)finishTimeline(i);else runTimeline(i);
-    var dur=parseFloat(source.getAttribute('data-qt-dur'))||0;
-    clearTimeout(hideTimer);hideTimer=setTimeout(settle,dur*1000+60);
-  }
-  function advance(){
-    if(transitioning||timelineBusy)return;
-    clearAuto();
-    if(timelines[current].hasNext()){
-      timelineBusy=true;
-      timelines[current].advance().then(function(){timelineBusy=false;scheduleAuto();});
-    }
-    else if(current<stages.length-1)go(current+1,false);
-  }
-  document.addEventListener('click',function(){if(canClick())advance();});
-  document.addEventListener('keydown',function(e){
-    if(e.key==='ArrowRight'||e.key===' '){if(canClick())advance();}
-    else if(e.key==='ArrowLeft'){if(current>0)go(current-1,true);}
-  });
-  // First slide plays its own enter transition, then settles like any other.
-  if(fit)qtFit(stages[0]);
-  transitioning=true;
-  stages[0].style.willChange='transform,opacity,clip-path';
-  stages[0].style.animation=stages[0].getAttribute('data-qt-transition')||'';
-  runTimeline(0);
-  var d0=parseFloat(stages[0].getAttribute('data-qt-dur'))||0;
-  hideTimer=setTimeout(settle,d0*1000+60);
-})();
-"""
-)
+def _render_template(template: str, values: dict[str, str]) -> str:
+    rendered = template
+    for key, value in values.items():
+        rendered = rendered.replace("{{ " + key + " }}", value)
+    return rendered
+
+
+def _base_css_resource(responsive: bool, deck: bool) -> str:
+    if responsive:
+        return "base.css"
+    if deck:
+        return "fixed_deck.css"
+    return "fixed.css"
+
+
+def _runtime_js(responsive: bool, deck: bool) -> str:
+    runtime_resource = "deck_runtime.js" if deck else "canvas_runtime.js"
+    runtime = _render_template(
+        _html_resource(runtime_resource),
+        {"responsive": json.dumps(responsive)},
+    )
+    return _html_resource("timeline.js") + "\n" + runtime
 
 
 # --- slide transition -> incoming-stage entrance keyframe -----------------------
@@ -1163,64 +952,62 @@ def _document(
                     "@keyframes " + name + "{from{" + leave[0] + "}to{" + leave[1] + "}}"
                 )
                 stage.transition_exit = f"{name} {timing}"
-    if responsive:
-        base_css = _BASE_CSS
-    elif deck:
-        base_css = _FIXED_DECK_CSS
-    else:
-        base_css = _FIXED_CSS
-    css = base_css + font_face_declarations(font_faces) + "".join(keyframes)
-
-    runtime_template = _DECK_RUNTIME if deck else _CANVAS_RUNTIME
-    runtime = runtime_template.replace("%RESPONSIVE%", json.dumps(responsive))
-    filters = "".join((svg_filters or {}).values())
-    stage_markup: list[str] = []
-    for index, stage in enumerate(stages):
-        attrs = [
-            'class="qt-stage"',
-            f"data-qt-timeline='{json.dumps(stage.timeline)}'",
-        ]
-        if deck:
-            attrs.extend(
-                [
-                    f'data-qt-transition="{escape(stage.transition_anim)}"',
-                    f'data-qt-exit="{escape(stage.transition_exit)}"',
-                    f'data-qt-z="{stage.transition_z}"',
-                    f'data-qt-dur="{stage.transition_dur}"',
-                    f'data-qt-click="{stage.transition_click}"',
-                    f'data-qt-after="{stage.transition_after}"',
-                ]
-            )
-        style = f"width:{stage.width}px;height:{stage.height}px;"
-        if deck and index > 0:
-            style += "display:none;"
-        attrs.append(f'style="{style}"')
-        stage_markup.append(f"<div {' '.join(attrs)}>\n{stage.body}\n</div>")
-
-    body = "\n".join(stage_markup)
-    if responsive:
-        body = f'<div class="qt-frame">{body}</div>'
-    return (
-        "<!doctype html>\n"
-        '<html lang="en">\n'
-        "<head>\n"
-        '<meta charset="utf-8">\n'
-        '<meta name="viewport" content="width=device-width,initial-scale=1">\n'
-        "<style>\n"
-        f"{css}\n"
-        "</style>\n"
-        "</head>\n"
-        "<body>\n"
-        '<svg width="0" height="0" style="position:absolute">'
-        f"<defs>{filters}</defs>"
-        "</svg>\n"
-        f"{body}\n"
-        "<script>\n"
-        f"{runtime}\n"
-        "</script>\n"
-        "</body>\n"
-        "</html>\n"
+    css = (
+        _html_resource(_base_css_resource(responsive, deck))
+        + font_face_declarations(font_faces)
+        + "".join(keyframes)
     )
+    runtime = _runtime_js(responsive=responsive, deck=deck)
+    filters = "".join((svg_filters or {}).values())
+    document_template, stage_template = _document_template_parts()
+    stage_markup = "\n".join(
+        _render_stage_template(stage_template, stage, index=index, deck=deck)
+        for index, stage in enumerate(stages)
+    )
+    return _render_template(
+        document_template,
+        {
+            "css": css,
+            "filters": filters,
+            "frame_open": '<div class="qt-frame">' if responsive else "",
+            "frame_close": "</div>" if responsive else "",
+            "runtime": runtime,
+            "stages": stage_markup,
+        },
+    )
+
+
+def _render_stage_template(template: str, stage: Stage, index: int, deck: bool) -> str:
+    style = f"width:{stage.width}px;height:{stage.height}px;"
+    if deck and index > 0:
+        style += "display:none;"
+    return _render_template(
+        template,
+        {
+            "timeline": _attr(json.dumps(stage.timeline)),
+            "slide_index": str(index),
+            "deck_attrs": _deck_stage_attrs(stage) if deck else "",
+            "hidden": " hidden" if deck and index > 0 else "",
+            "style": _attr(style),
+            "body": stage.body,
+        },
+    )
+
+
+def _deck_stage_attrs(stage: Stage) -> str:
+    attrs = {
+        "data-qt-transition": stage.transition_anim,
+        "data-qt-exit": stage.transition_exit,
+        "data-qt-z": stage.transition_z,
+        "data-qt-dur": stage.transition_dur,
+        "data-qt-click": stage.transition_click,
+        "data-qt-after": stage.transition_after,
+    }
+    return "".join(f' {name}="{_attr(value)}"' for name, value in attrs.items())
+
+
+def _attr(value: str) -> str:
+    return escape(value, quote=True)
 
 
 def export_deck(

@@ -2,6 +2,8 @@
 
 import json
 import re
+from html import unescape
+from importlib.resources import files
 from pathlib import Path
 
 import pytest
@@ -38,7 +40,7 @@ def stage_style(html: str) -> str:
 
 def timelines(html: str) -> list[list[dict]]:
     """Parse every stage's animation timeline JSON."""
-    return [json.loads(raw) for raw in re.findall(r"data-qt-timeline='([^']*)'", html)]
+    return [json.loads(unescape(raw)) for raw in re.findall(r"data-qt-timeline='([^']*)'", html)]
 
 
 class TestHtmlDocument:
@@ -56,6 +58,44 @@ class TestHtmlDocument:
         assert html.startswith("<!doctype html>")
         assert "</html>" in html
         assert "width:640px;height:360px" in stage_style(html)
+
+    def test_should_inline_html_assets_without_external_dependencies(self):
+        """Exported HTML embeds packaged CSS and JS instead of linking assets"""
+        # given
+        canvas = Canvas(640, 360).background(color="#112233")
+
+        # when
+        html = canvas.to_html()
+
+        # then
+        assert "<style>\n" in html
+        assert "<script>\n" in html
+        assert "function qtTimeline(stage)" in html
+        assert "<link" not in html
+        assert "<script src" not in html
+
+    def test_should_load_static_html_assets_as_package_resources(self):
+        """Static exporter assets are available through importlib.resources"""
+        # given
+        resource_names = [
+            "base.css",
+            "fixed.css",
+            "fixed_deck.css",
+            "timeline.js",
+            "canvas_runtime.js",
+            "deck_runtime.js",
+            "document.html",
+        ]
+
+        # when
+        contents = [
+            files("quickthumb.html").joinpath(resource_name).read_text(encoding="utf-8")
+            for resource_name in resource_names
+        ]
+
+        # then
+        assert all(content for content in contents)
+        assert "{{#stage}}" in contents[-1]
 
     def test_should_render_html_file_from_extension(self, tmp_path):
         """render() writes an HTML document when the output path ends in .html"""
@@ -594,10 +634,18 @@ class TestDeckHtml:
 
         # then
         assert html.count('class="qt-stage"') == 2
+        assert 'data-qt-slide-index="0"' in html
+        assert 'data-qt-slide-index="1"' in html
+        assert re.search(
+            r'data-qt-slide-index="1"[^>]* hidden style="width:640px;height:360px;display:none;"',
+            html,
+        )
         # Each slide carries its own enter-transition animation (a cross-fade by
         # default), wired through a data attribute the runtime reads on show().
         assert html.count("data-qt-transition=") == 2
         assert "@keyframes qt-t0{from{opacity:0}to{opacity:1}}" in html
+        assert "function go(i,backward)" in html
+        assert "<script src" not in html
 
     def test_should_animate_slides_with_their_transition(self):
         """A slide's transition drives the CSS animation the deck plays into it"""
