@@ -113,12 +113,12 @@ def _effect_states(effect) -> tuple[str, str]:
             f"clip-path:polygon(50% 0%,100% 50%,50% 100%,0% 50%);opacity:{_SHOWN_OPACITY}",
         )
     if name == "box":
-        # in: grow from the centre; out: shrink toward the centre (entrance still
-        # ends fully shown -- the keyframe direction handles enter vs exit).
+        # PowerPoint's box(in) reads closer to a soft centre reveal than a hard
+        # rectangular crop on text, so use an oval mask for the HTML analogue.
         if getattr(effect, "direction", "in") == "in":
             return (
-                f"clip-path:inset(50% 50% 50% 50%);opacity:{_SHOWN_OPACITY}",
-                f"clip-path:inset(0 0 0 0);opacity:{_SHOWN_OPACITY}",
+                f"clip-path:ellipse(0% 0% at 50% 50%);opacity:{_SHOWN_OPACITY}",
+                f"clip-path:ellipse(75% 75% at 50% 50%);opacity:{_SHOWN_OPACITY}",
             )
         return (
             "clip-path:inset(0 0 0 0);opacity:0",

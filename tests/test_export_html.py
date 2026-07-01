@@ -461,6 +461,20 @@ class TestHtmlAnimations:
         assert "el.style.opacity=origOp;" in html
         assert "el.style.opacity=origOpacity[id]||'';" in html
 
+    def test_should_emit_soft_center_reveal_for_box_animation(self):
+        """Box entrance uses an oval mask instead of a hard rectangular crop"""
+        # given
+        canvas = Canvas(400, 200).text(
+            content="Hi", size=48, color="#FFFFFF", position=(20, 20), animation=Box()
+        )
+
+        # when
+        html = canvas.to_html()
+
+        # then
+        assert "clip-path:ellipse(0% 0% at 50% 50%)" in html
+        assert "clip-path:ellipse(75% 75% at 50% 50%)" in html
+
     def test_should_emit_one_node_per_effect_in_a_list(self):
         """A list of effects on one layer becomes one timeline node each"""
         # given
