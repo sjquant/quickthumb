@@ -1,20 +1,23 @@
-"""Shared infrastructure for the document exporters (SVG, PPTX).
+"""Shared infrastructure for the document exporters (SVG, HTML, PPTX).
 
 The exporters keep layers as native vector/text primitives where the target
 format can express them, and fall back to embedding pixel-exact PNG fragments
 rendered by the regular PIL pipeline everywhere else. This module hosts the
-pieces both exporters share: layer flattening, backdrop-dependency splitting,
-per-layer rasterization, and a text block layout that mirrors TextEngine's
-positioning math run for run.
+pieces they share: layer flattening, backdrop-dependency splitting, per-layer
+rasterization, font-face resolution/embedding, and a text block layout that
+mirrors TextEngine's positioning math run for run.
 """
 
 from __future__ import annotations
 
+import base64
+import re
+import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from io import BytesIO
 from typing import TYPE_CHECKING
 
-from PIL import Image
+from PIL import Image, ImageFont
 
 from quickthumb._base import (
     DEFAULT_LINE_HEIGHT_MULTIPLIER,
@@ -24,6 +27,7 @@ from quickthumb._base import (
     expanded_rotation_size,
     parse_coordinate,
 )
+from quickthumb.errors import RenderingError
 from quickthumb.models import (
     Align,
     Background,
@@ -34,6 +38,7 @@ from quickthumb.models import (
     Shadow,
     ShapeLayer,
     Stroke,
+    SvgLayer,
     TextFillImage,
     TextLayer,
 )
@@ -42,6 +47,13 @@ if TYPE_CHECKING:
     from quickthumb.canvas import Canvas, RenderableLayer
 
 Box = tuple[float, float, float, float]  # left, top, right, bottom
+
+
+def _fmt(value: float) -> str:
+    """Format a coordinate compactly: integers stay integers, floats keep 2 dp."""
+    if isinstance(value, int) or float(value).is_integer():
+        return str(int(value))
+    return f"{value:.2f}"
 
 
 def flatten_layers(canvas: Canvas) -> list[RenderableLayer]:
@@ -166,6 +178,126 @@ def color_to_rgba(canvas: Canvas, color: str | tuple, opacity: float = 1.0) -> t
 
 def rgb_hex(rgba: tuple) -> str:
     return "#{:02X}{:02X}{:02X}".format(*rgba[:3])
+
+
+def read_svg_layer_bytes_and_size(layer: SvgLayer) -> tuple[bytes, tuple[int, int]]:
+    """Read an SVG layer and resolve its rendered dimensions."""
+    with open(layer.path, "rb") as svg_file:
+        svg_bytes = svg_file.read()
+
+    intrinsic = intrinsic_svg_size(svg_bytes, layer.path)
+    width, height = layer.width, layer.height
+    if width and height:
+        return svg_bytes, (width, height)
+    if width:
+        return svg_bytes, (width, round(width * intrinsic[1] / intrinsic[0]))
+    if height:
+        return svg_bytes, (round(height * intrinsic[0] / intrinsic[1]), height)
+    return svg_bytes, (round(intrinsic[0]), round(intrinsic[1]))
+
+
+def intrinsic_svg_size(svg_bytes: bytes, path: str) -> tuple[float, float]:
+    """Resolve SVG intrinsic size from width/height or viewBox metadata."""
+    try:
+        root = ET.fromstring(svg_bytes)
+    except ET.ParseError as e:
+        raise RenderingError(f"Cannot read SVG dimensions for '{path}': {e}") from e
+
+    width = _parse_svg_length(root.get("width"))
+    height = _parse_svg_length(root.get("height"))
+    if width and height:
+        return width, height
+
+    view_box = root.get("viewBox")
+    if view_box:
+        parts = view_box.replace(",", " ").split()
+        if len(parts) == 4:
+            try:
+                view_width = float(parts[2])
+                view_height = float(parts[3])
+            except ValueError:
+                view_width = view_height = 0
+            if view_width > 0 and view_height > 0:
+                return view_width, view_height
+
+    raise RenderingError(
+        f"Cannot determine dimensions for SVG '{path}'. "
+        "Set width and height or include width/height/viewBox in the SVG."
+    )
+
+
+def _parse_svg_length(value: str | None) -> float | None:
+    if value is None:
+        return None
+    match = re.fullmatch(r"\s*([0-9]+(?:\.[0-9]+)?)(?:px)?\s*", value)
+    if not match:
+        return None
+    return float(match.group(1))
+
+
+def resolve_font_face(run: TextRunLayout) -> tuple[str, str, str, str | None]:
+    """Resolve (family, css weight, css style, embeddable font path) for a run.
+
+    Shared by the SVG and HTML exporters so a run maps to the same font face
+    rules in every vector export. ``path`` is the local font file to pass to
+    ``font_face_declarations`` for embedding, or ``None`` when Pillow has no
+    file to embed for this run's font (e.g. the built-in bitmap default).
+    """
+    font = run.font
+    if isinstance(font, ImageFont.FreeTypeFont):
+        family = font.getname()[0] or "sans-serif"
+        path = getattr(font, "path", None)
+    else:
+        family = "sans-serif"
+        path = None
+
+    if isinstance(run.weight, int):
+        weight = str(run.weight)
+    elif isinstance(run.weight, str) and run.weight.isdigit():
+        weight = run.weight
+    elif run.bold or (isinstance(run.weight, str) and run.weight.lower() == "bold"):
+        weight = "700"
+    else:
+        weight = "400"
+    style = "italic" if run.italic else "normal"
+
+    return family, weight, style, path if isinstance(path, str) else None
+
+
+def font_face_declarations(font_faces: dict[str, tuple[str, str, str]]) -> str:
+    """Build ``@font-face`` rules embedding each font file as a base64 data URL.
+
+    Shared by the SVG and HTML exporters; each wraps the result for its own
+    document (SVG in a ``<style>`` element, HTML inline in its own stylesheet).
+    """
+    faces = []
+    for path, (family, weight, style) in font_faces.items():
+        try:
+            with open(path, "rb") as font_file:
+                encoded = base64.b64encode(font_file.read()).decode("ascii")
+        except OSError:
+            continue
+        faces.append(
+            "@font-face{"
+            f"font-family:{_css_string(family)};"
+            f"src:url(data:font/ttf;base64,{encoded}) format('truetype');"
+            f"font-weight:{weight};font-style:{style};}}"
+        )
+    return "".join(faces)
+
+
+def _css_string(value: str) -> str:
+    escaped = (
+        value.replace("\\", "\\\\")
+        .replace("&", "\\26 ")
+        .replace('"', "\\22 ")
+        .replace("'", "\\'")
+        .replace("\r", "")
+        .replace("\n", "\\A ")
+        .replace("<", "\\3C ")
+        .replace(">", "\\3E ")
+    )
+    return f"'{escaped}'"
 
 
 def union_boxes(boxes: list[Box]) -> Box | None:

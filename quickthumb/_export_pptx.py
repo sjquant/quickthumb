@@ -206,20 +206,20 @@ class PptxExporter:
     def _emit_tracked_layer(self, layer: RenderableLayer):
         """Emit a layer, recording the shape ids it produces if it is animated.
 
-        Animations target shapes by id, so we diff the slide's shapes before and
-        after emitting; whatever is new belongs to this layer. A single layer can
-        produce several shapes (e.g. a text box plus its background fills), and
-        the animation is applied to all of them together.
+        Animations target shapes by id, so shapes appended while emitting the
+        layer belong to that layer. A single layer can produce several shapes
+        (e.g. a text box plus its background fills), and the animation is
+        applied to all of them together.
         """
         animation = getattr(layer, "animation", None)
         if animation is None:
             self._emit_layer(layer)
             return
 
-        before = {shape.shape_id for shape in self._slide.shapes}
+        start = len(self._slide.shapes)
         self._emit_layer(layer)
         new_ids = [
-            shape.shape_id for shape in self._slide.shapes if shape.shape_id not in before
+            self._slide.shapes[index].shape_id for index in range(start, len(self._slide.shapes))
         ]
         if new_ids:
             self._anim_records.append((animation, new_ids))
@@ -811,6 +811,7 @@ class PptxExporter:
         # cTn ids 1 (tmRoot) and 2 (mainSeq) are fixed; the rest count up from 3.
         self._tn_id = 2
         groups = self._group_animations(animations)
+        init_xml = self._build_initial_visibility_group(animations)
         group_xml = "".join(self._build_click_group(group) for group in groups)
 
         seq = (
@@ -827,19 +828,40 @@ class PptxExporter:
         xml = (
             f"<p:timing {nsdecls('p')}><p:tnLst>"
             '<p:par><p:cTn id="1" dur="indefinite" restart="never" nodeType="tmRoot">'
-            f"<p:childTnLst>{seq}</p:childTnLst></p:cTn></p:par>"
+            f"<p:childTnLst>{seq}{init_xml}</p:childTnLst></p:cTn></p:par>"
             "</p:tnLst></p:timing>"
         )
         self._slide._element.append(parse_xml(xml))
+
+    def _build_initial_visibility_group(self, animations: list[tuple[Animation, list[int]]]) -> str:
+        entrance_ids = sorted(
+            {sid for anim, ids in animations if anim.animate == "entrance" for sid in ids}
+        )
+        if not entrance_ids:
+            return ""
+
+        group_id = self._next_id()
+        hides = "".join(self._set_visibility_xml(sid, "hidden", delay=0) for sid in entrance_ids)
+        return (
+            "<p:par>"
+            f'<p:cTn id="{group_id}" fill="hold">'
+            '<p:stCondLst><p:cond delay="0"/></p:stCondLst>'
+            f"<p:childTnLst>{hides}</p:childTnLst>"
+            "</p:cTn></p:par>"
+        )
 
     @staticmethod
     def _group_animations(
         animations: list[tuple[Animation, list[int]]],
     ) -> list[list[tuple[Animation, list[int]]]]:
-        """Split animations into click groups; with_previous joins the open group."""
+        """Split animations into click groups.
+
+        ``after_previous`` and ``with_previous`` continue the open click chain;
+        only ``on_click`` starts a new one after the first group exists.
+        """
         groups: list[list[tuple[Animation, list[int]]]] = []
         for anim, ids in animations:
-            if not groups or anim.trigger != "with_previous":
+            if not groups or anim.trigger == "on_click":
                 groups.append([])
             groups[-1].append((anim, ids))
         return groups
@@ -867,22 +889,31 @@ class PptxExporter:
         )
 
     def _build_effect_par(self, anim: Animation, ids: list[int], index: int) -> str:
-        if index == 0:
-            node_type = "afterEffect" if anim.trigger == "after_previous" else "clickEffect"
-        else:
-            node_type = "withEffect"
-        effect_id = self._next_id()
         preset_id = _ANIM_PRESET_IDS.get(anim.effect, 10)
         preset_class = "exit" if anim.animate == "exit" else "entr"
-        behaviors = "".join(self._build_behaviors(anim, sid) for sid in ids)
-        return (
-            "<p:par>"
-            f'<p:cTn id="{effect_id}" presetID="{preset_id}" presetClass="{preset_class}" '
-            f'presetSubtype="0" fill="hold" grpId="0" nodeType="{node_type}">'
-            f'<p:stCondLst><p:cond delay="{int(round(anim.delay * 1000))}"/></p:stCondLst>'
-            f"<p:childTnLst>{behaviors}</p:childTnLst>"
-            "</p:cTn></p:par>"
-        )
+        delay_ms = int(round(anim.delay * 1000))
+        parts = []
+        for target_index, sid in enumerate(ids):
+            if target_index == 0 and anim.trigger == "after_previous":
+                node_type = "afterEffect"
+            elif target_index == 0 and index == 0:
+                node_type = "clickEffect"
+            else:
+                node_type = "withEffect"
+
+            effect_id = self._next_id()
+            behaviors = self._build_behaviors(anim, sid)
+            parts.append(
+                "<p:par>"
+                f'<p:cTn id="{effect_id}" presetID="{preset_id}" '
+                f'presetClass="{preset_class}" presetSubtype="0" fill="hold" '
+                f'grpId="0" nodeType="{node_type}">'
+                f'<p:stCondLst><p:cond delay="{delay_ms}"/>'
+                "</p:stCondLst>"
+                f"<p:childTnLst>{behaviors}</p:childTnLst>"
+                "</p:cTn></p:par>"
+            )
+        return "".join(parts)
 
     def _build_behaviors(self, anim: Animation, sid: int) -> str:
         duration_ms = int(round(anim.duration * 1000))

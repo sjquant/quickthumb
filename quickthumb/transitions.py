@@ -1,4 +1,10 @@
-"""Slide transitions for PowerPoint (PPTX) export.
+"""Slide transitions for PowerPoint (PPTX) and HTML export.
+
+In PPTX they map to native PowerPoint transitions; in the HTML slideshow they
+animate the change into each slide (the incoming stage), with effects that need
+to move the stage composed with the responsive fit-to-viewport scale. A few
+exotic effects (wheel, wedge, checker, comb, dissolve) fall back to the closest
+CSS analogue there. Other renderers (raster, SVG, PDF) ignore transitions.
 
 Each transition effect is its own class so it only exposes the options that
 effect actually supports — directional effects (``Push``, ``Wipe``, ``Cover``,

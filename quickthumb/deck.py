@@ -18,7 +18,7 @@ from quickthumb.canvas import Canvas
 from quickthumb.errors import RenderingError, ValidationError
 from quickthumb.transitions import Transition, coerce_transition
 
-_DOCUMENT_EXTENSIONS = {".pdf", ".pptx"}
+_DOCUMENT_EXTENSIONS = {".pdf", ".pptx", ".html", ".htm"}
 _RASTER_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp"}
 
 
@@ -66,7 +66,7 @@ class Deck:
         self._width = width
         self._height = height
         self._theme = theme or {}
-        # Slide transitions are a deck concern (PPTX-only): a deck-wide default
+        # Slide transitions are a deck concern: a deck-wide default
         # plus an optional per-slide override kept parallel to ``_slides``. The
         # Canvas itself stays unaware of transitions.
         self._transition = self._coerce_transition(transition)
@@ -106,7 +106,7 @@ class Deck:
         Pass a transition effect object (e.g. ``Fade()`` or ``Push(direction="left")``
         from ``quickthumb.transitions``), a dict, or an effect string. A slide that
         sets its own transition (via ``Deck.slide(..., transition=...)``) overrides
-        this default. Honoured by PPTX export only.
+        this default. Honoured by PPTX and HTML export.
         """
         self._transition = self._coerce_transition(transition)
         return self
@@ -192,12 +192,12 @@ class Deck:
         if extension == ".svg":
             raise RenderingError(
                 "A deck cannot render to a single .svg file (SVG has no multi-page form). "
-                "Render slides individually with Canvas.to_svg(), or use .pdf or .pptx."
+                "Render slides individually with Canvas.to_svg(), or use .pdf, .pptx, or .html."
             )
 
         raise RenderingError(
             f"Unsupported deck output format: {extension or output_path!r}.\n"
-            "Use .pdf, .pptx, or a raster extension (.png, .jpg, .jpeg, .webp)."
+            "Use .pdf, .pptx, .html, or a raster extension (.png, .jpg, .jpeg, .webp)."
         )
 
     def _render_document(self, output_path: str, extension: str) -> None:
@@ -205,6 +205,11 @@ class Deck:
             from quickthumb._export_pdf import PdfExporter
 
             PdfExporter().save_canvases(self._slides, output_path)
+            return
+
+        if extension in (".html", ".htm"):
+            with open(output_path, "w", encoding="utf-8") as f:
+                f.write(self.to_html())
             return
 
         from quickthumb._export_pptx import PptxExporter
@@ -237,6 +242,31 @@ class Deck:
         from quickthumb._export_pdf import PdfExporter
 
         return PdfExporter().export_bytes_canvases(self._slides)
+
+    def to_html(self, responsive: bool = True, embed_fonts: bool = True) -> str:
+        """Render the deck to a standalone HTML slideshow document string.
+
+        Each slide becomes a fixed-size stage; the runtime shows one at a time
+        and advances on click (running that slide's per-layer animations first,
+        then moving to the next slide) or with the arrow keys. Each slide's
+        ``transition`` animates the change into it (the incoming slide), with
+        slides that set none falling back to a cross-fade. With
+        ``responsive=True`` (default) the active stage is scaled to fill the
+        viewport. ``embed_fonts`` defaults to ``True`` so the slideshow carries
+        its fonts and renders identically on any machine; pass ``False`` for a
+        smaller file that relies on the viewer's system fonts. This is the one
+        format where both slide transitions and per-layer animations actually
+        play.
+        """
+        self._require_slides()
+        from quickthumb._export_html import export_deck
+
+        return export_deck(
+            self._slides,
+            embed_fonts=embed_fonts,
+            responsive=responsive,
+            transitions=self._resolved_transitions(),
+        )
 
     def to_pptx(self) -> bytes:
         """Render the deck to a multi-slide PPTX as bytes (requires quickthumb[pptx])."""

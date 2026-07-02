@@ -375,7 +375,7 @@ class Canvas:
                    - String shortcut (e.g., "center", "top-left", "bottom-right")
                    - Tuple (horizontal, vertical) (e.g., ("center", "middle"))
             blend_mode: Blend mode for compositing this image onto prior layers
-            animation: Optional entrance/exit Animation applied in PPTX export
+            animation: Optional entrance/exit Animation applied in PPTX and HTML export
         Returns:
             Self for method chaining
         """
@@ -422,7 +422,7 @@ class Canvas:
             rotation: Rotation angle in degrees
             align: Layer alignment relative to position
             blend_mode: Blend mode for compositing onto prior layers
-            animation: Optional entrance/exit Animation applied in PPTX export
+            animation: Optional entrance/exit Animation applied in PPTX and HTML export
         Returns:
             Self for method chaining
         """
@@ -469,7 +469,7 @@ class Canvas:
             position: Anchor point of the group box in pixels or percentages
             align: How the group box anchors to position (like image layers)
             item_align: Cross-axis placement of each child: "start", "center", or "end"
-            animation: Optional Animation applied to the whole group in PPTX export
+            animation: Optional Animation applied to the whole group in PPTX and HTML export
         Returns:
             Self for method chaining
         """
@@ -514,7 +514,7 @@ class Canvas:
         """
         if format is None:
             extension = os.path.splitext(output_path)[1].lower()
-            if extension in (".svg", ".pptx", ".pdf"):
+            if extension in (".svg", ".pptx", ".pdf", ".html", ".htm"):
                 if quality is not None:
                     raise RenderingError(
                         "Quality parameter is only supported for JPEG and WEBP formats, "
@@ -531,6 +531,11 @@ class Canvas:
         if extension == ".svg":
             with open(output_path, "w", encoding="utf-8") as f:
                 f.write(self.to_svg())
+            return
+
+        if extension in (".html", ".htm"):
+            with open(output_path, "w", encoding="utf-8") as f:
+                f.write(self.to_html())
             return
 
         if extension == ".pdf":
@@ -556,6 +561,28 @@ class Canvas:
         from quickthumb._export_svg import SvgExporter
 
         return SvgExporter(self, embed_fonts=embed_fonts).export()
+
+    def to_html(self, responsive: bool = True, embed_fonts: bool = True) -> str:
+        """Render the canvas to a standalone, self-contained HTML document string.
+
+        Backgrounds, gradients, outlines, shapes, and text become native
+        HTML/CSS positioned with the same layout math as the raster renderer;
+        raster images, blend modes, image glyph fills, and custom layers are
+        embedded as pixel-exact PNG fragments. Per-layer ``animation`` effects
+        play via a small inline JS runtime (click to advance), so unlike the
+        other formats HTML actually animates.
+
+        The composition is a fixed-size stage that never reflows, keeping it a
+        faithful twin of the PNG/SVG/PDF/PPTX output. With ``responsive=True``
+        (default) the whole stage is scaled as one unit to fill the viewport;
+        pass ``responsive=False`` to emit the bare fixed-size stage. ``embed_fonts``
+        defaults to ``True`` so the used fonts are inlined as ``@font-face`` data
+        URLs and text renders identically everywhere; pass ``False`` to drop them
+        and rely on the viewer's system fonts for a smaller file.
+        """
+        from quickthumb._export_html import HtmlExporter
+
+        return HtmlExporter(self, embed_fonts=embed_fonts, responsive=responsive).export()
 
     def to_pptx(self) -> bytes:
         """Render the canvas to a PowerPoint file as bytes (requires quickthumb[pptx]).

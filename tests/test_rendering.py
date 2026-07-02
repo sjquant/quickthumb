@@ -2835,10 +2835,12 @@ class TestWebfontCache:
                 output_path = os.path.join(out_dir, "output.png")
 
                 # When: rendering
-                with patch("quickthumb._fonts.urlopen", return_value=mock_response):
+                with (
+                    patch("quickthumb._fonts.urlopen", return_value=mock_response),
+                    pytest.raises(RenderingError, match="not a valid font"),
+                ):
                     # Then: a RenderingError is raised
-                    with pytest.raises(RenderingError, match="not a valid font"):
-                        canvas.render(output_path)
+                    canvas.render(output_path)
 
     def test_should_not_write_cache_file_when_webfont_response_is_invalid(self, monkeypatch):
         """No cache file is written when the downloaded content is not a valid font"""
@@ -2866,9 +2868,11 @@ class TestWebfontCache:
                 output_path = os.path.join(out_dir, "output.png")
 
                 # When: rendering fails due to invalid font content
-                with patch("quickthumb._fonts.urlopen", return_value=mock_response):
-                    with pytest.raises(RenderingError):
-                        canvas.render(output_path)
+                with (
+                    patch("quickthumb._fonts.urlopen", return_value=mock_response),
+                    pytest.raises(RenderingError),
+                ):
+                    canvas.render(output_path)
 
             # Then: no font file is left in the cache directory
             assert os.listdir(cache_dir) == []

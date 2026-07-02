@@ -16,7 +16,7 @@ uv run python examples/instagram_news_card.py
 uv run python examples/podcast_interview_promo.py
 uv run python examples/shorts_cover_agent.py
 uv run python examples/launch_announcement.py
-uv run python examples/slide_effects_deck.py
+uv run python examples/investor_deck.py
 ```
 
 All examples write their rendered image back into this directory.
@@ -151,19 +151,17 @@ Shows the quickthumb 0.5 feature set in a single themed JSON spec:
 
 Use it when you want a brandable announcement-card template whose layout survives copy changes, or as a reference spec for LLM-generated layouts.
 
-### `slide_effects_deck.py`
+### `investor_deck.py`
 
-Output: `slide_effects_deck.pptx` (plus `slide_effects_deck.png`, a still preview of the opening slide)
+Output: `investor_deck.html` and `investor_deck.pptx`
 
-Builds a polished 4-slide PowerPoint `Deck` (title, agenda, hero metric, closing) that shows off slide effects (PPTX-only):
+Builds a dark investor-style deck with staged text, metric cards, and chart-like visuals:
 
-- A deck-wide default slide `Transition` with per-slide overrides (`Deck.transition(...)` and `Deck.slide(..., transition=...)`)
-- Typed animation effect objects — `Fade`, `Wipe`, `Box`, `Wheel` — each exposing only the options it supports
-- Sequencing that leads with the main element (headline, hero number) and then reveals the supporting detail, via `on_click` / `after_previous` triggers
-- `group` animations that drive a numbered agenda row or a stat block as a single effect
-- Gradient backgrounds and gradient-filled headlines that stay crisp and editable in PowerPoint
+- HTML export for browser playback of slide transitions and layer animations
+- PPTX export for editable presentation handoff
+- Shared composition code that keeps the browser and PowerPoint outputs aligned
 
-Open the `.pptx` in PowerPoint (or Keynote / LibreOffice Impress) and start the slideshow to see the transitions and animations play; the `.png` is just a static render of the first slide, since stills can't show motion.
+Use it when you want a realistic animated deck example that exercises both HTML and PPTX output from the same source.
 
 ## Assets and Fonts
 

@@ -456,6 +456,79 @@ class TestPptxElementAnimations:
         assert "clickEffect" in node_types
         assert [e.get("filter") for e in timing.iter(qn("p:animEffect"))] == ["fade"]
 
+    def test_should_keep_entrance_animation_targets_visible_in_static_pptx(self):
+        """Entrance targets remain visible in the editable deck while timing targets them"""
+        # given
+        canvas = (
+            Canvas(400, 300)
+            .shape(
+                shape="rectangle",
+                position=(10, 10),
+                width=80,
+                height=40,
+                color="#FF0000",
+                animation=Fade(),
+            )
+            .shape(
+                shape="ellipse",
+                position=(120, 10),
+                width=80,
+                height=40,
+                color="#00FF00",
+                animation=Fade(trigger="after_previous"),
+            )
+        )
+        document = open_pptx(canvas)
+
+        # when
+        timing = document.slides[0]._element.find(qn("p:timing"))
+        animated = {t.get("spid") for t in timing.iter(qn("p:spTgt"))}
+        hidden = {
+            str(shape.shape_id)
+            for shape in document.slides[0].shapes
+            if shape._element.xpath('.//*[local-name()="cNvPr"]')[0].get("hidden") == "1"
+        }
+        visibility = [value.get("val") for value in timing.iter(qn("p:strVal"))]
+
+        # then
+        assert len(animated) == 2
+        assert hidden == set()
+        assert "hidden" in visibility
+        assert "visible" in visibility
+
+    def test_should_apply_initial_visibility_after_animation_defaults(self):
+        """Initial entrance hiding wins over eager animation default values"""
+        # given
+        canvas = (
+            Canvas(400, 300)
+            .shape(
+                shape="rectangle",
+                position=(10, 10),
+                width=80,
+                height=40,
+                color="#FF0000",
+                animation=Fade(),
+            )
+            .shape(
+                shape="ellipse",
+                position=(120, 10),
+                width=80,
+                height=40,
+                color="#00FF00",
+                animation=Fade(trigger="after_previous"),
+            )
+        )
+
+        # when
+        timing = timing_of(canvas)
+        tm_root = next(c for c in timing.iter(qn("p:cTn")) if c.get("nodeType") == "tmRoot")
+        children = list(tm_root.find(qn("p:childTnLst")))
+        final_values = [value.get("val") for value in children[-1].iter(qn("p:strVal"))]
+
+        # then
+        assert children[0].tag == qn("p:seq")
+        assert final_values == ["hidden", "hidden"]
+
     def test_should_map_wipe_direction_to_animation_filter(self):
         """A directional wipe animation encodes the direction in its filter"""
         # given
@@ -568,8 +641,8 @@ class TestPptxElementAnimations:
         assert node_types.count("clickEffect") == 2
         assert node_types.count("withEffect") == 1
 
-    def test_should_emit_after_previous_as_auto_advancing_group(self):
-        """after_previous starts its group automatically (delay 0, afterEffect)"""
+    def test_should_chain_after_previous_in_the_current_click_group(self):
+        """after_previous waits for the prior effect in the current click group"""
         # given
         canvas = (
             Canvas(400, 300)
@@ -589,9 +662,13 @@ class TestPptxElementAnimations:
 
         # when
         timing = timing_of(canvas)
+        main_seq = next(c for c in timing.iter(qn("p:cTn")) if c.get("nodeType") == "mainSeq")
+        click_groups = main_seq.find(qn("p:childTnLst")).findall(qn("p:par"))
         node_types = [c.get("nodeType") for c in timing.iter(qn("p:cTn")) if c.get("nodeType")]
 
         # then
+        assert len(click_groups) == 1
+        assert node_types.count("clickEffect") == 1
         assert "afterEffect" in node_types
 
     def test_should_emit_exit_animation_hiding_the_shape(self):
@@ -636,7 +713,7 @@ class TestPptxElementAnimations:
         assert len(animated) >= 2
         assert animated <= all_ids
 
-    def test_should_animate_a_group_as_a_single_effect(self):
+    def test_should_animate_a_group_on_one_click(self):
         """A group animation plays across all its children on one click"""
         # given
         canvas = Canvas(1280, 720).group(
@@ -650,17 +727,61 @@ class TestPptxElementAnimations:
         )
 
         # when
-        timing = timing_of(canvas)
+        document = open_pptx(canvas)
+        timing = document.slides[0]._element.find(qn("p:timing"))
         main_seq = next(c for c in timing.iter(qn("p:cTn")) if c.get("nodeType") == "mainSeq")
         click_groups = main_seq.find(qn("p:childTnLst")).findall(qn("p:par"))
         node_types = [c.get("nodeType") for c in timing.iter(qn("p:cTn")) if c.get("nodeType")]
         animated = {t.get("spid") for t in timing.iter(qn("p:spTgt"))}
+        hidden = {
+            str(shape.shape_id)
+            for shape in document.slides[0].shapes
+            if shape._element.xpath('.//*[local-name()="cNvPr"]')[0].get("hidden") == "1"
+        }
+        visibility = [value.get("val") for value in timing.iter(qn("p:strVal"))]
 
-        # then: one click drives a single effect that targets both children
+        # then: one click drives parallel effects that target both children
         assert len(click_groups) == 1
         assert node_types.count("clickEffect") == 1
-        assert node_types.count("withEffect") == 0
+        assert node_types.count("withEffect") == 1
         assert len(animated) == 2
+        assert hidden == set()
+        assert "hidden" in visibility
+
+    def test_should_expand_after_previous_group_targets_as_parallel_effects(self):
+        """A multi-shape after_previous group imports as hidden builds in Keynote"""
+        # given
+        canvas = (
+            Canvas(1280, 720)
+            .text(
+                "First",
+                size=60,
+                color="#FFFFFF",
+                animation=Fade(trigger="on_click"),
+            )
+            .group(
+                children=[
+                    {"type": "text", "content": "A", "size": 40, "color": "#FFFFFF"},
+                    {"type": "text", "content": "B", "size": 40, "color": "#FFFFFF"},
+                    {"type": "text", "content": "C", "size": 40, "color": "#FFFFFF"},
+                ],
+                position=("50%", "50%"),
+                align="center",
+                animation=Fade(trigger="after_previous"),
+            )
+        )
+
+        # when
+        timing = timing_of(canvas)
+        main_seq = next(c for c in timing.iter(qn("p:cTn")) if c.get("nodeType") == "mainSeq")
+        click_groups = main_seq.find(qn("p:childTnLst")).findall(qn("p:par"))
+        node_types = [c.get("nodeType") for c in timing.iter(qn("p:cTn")) if c.get("nodeType")]
+
+        # then
+        assert len(click_groups) == 1
+        assert node_types.count("clickEffect") == 1
+        assert node_types.count("afterEffect") == 1
+        assert node_types.count("withEffect") == 2
 
     def test_group_animation_should_take_precedence_over_child_animations(self):
         """A group animation drives all children as one effect, ignoring child ones"""

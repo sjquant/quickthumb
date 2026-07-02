@@ -11,12 +11,8 @@ from __future__ import annotations
 
 import base64
 import math
-import re
-import xml.etree.ElementTree as ET
 from typing import TYPE_CHECKING
 from xml.sax.saxutils import escape, quoteattr
-
-from PIL import ImageFont
 
 from quickthumb._base import (
     apply_alignment,
@@ -29,15 +25,18 @@ from quickthumb._export_base import (
     Box,
     RasterFragment,
     TextRunLayout,
+    _fmt,
     color_to_rgba,
     compute_text_layout,
     flatten_layers,
+    font_face_declarations,
     rasterize_layers,
+    read_svg_layer_bytes_and_size,
+    resolve_font_face,
     rgb_hex,
     split_backdrop_prefix,
     uses_image_fill,
 )
-from quickthumb.errors import RenderingError
 from quickthumb.models import (
     Align,
     BackgroundLayer,
@@ -54,22 +53,6 @@ from quickthumb.models import (
 
 if TYPE_CHECKING:
     from quickthumb.canvas import Canvas, RenderableLayer
-
-
-def _fmt(value: float) -> str:
-    """Format a coordinate compactly: integers stay integers, floats keep 2 dp."""
-    if isinstance(value, int) or float(value).is_integer():
-        return str(int(value))
-    return f"{value:.2f}"
-
-
-def _parse_svg_length(value: str | None) -> float | None:
-    if value is None:
-        return None
-    match = re.fullmatch(r"\s*([0-9]+(?:\.[0-9]+)?)(?:px)?\s*", value)
-    if not match:
-        return None
-    return float(match.group(1))
 
 
 def _alpha_attr(name: str, rgba: tuple, opacity: float = 1.0) -> str:
@@ -497,44 +480,14 @@ class SvgExporter:
 
     def _register_font(self, run: TextRunLayout) -> tuple[str, str, str]:
         """Resolve (family, css weight, css style) for a run and record it for embedding."""
-        font = run.font
-        if isinstance(font, ImageFont.FreeTypeFont):
-            family = font.getname()[0] or "sans-serif"
-            path = getattr(font, "path", None)
-        else:
-            family = "sans-serif"
-            path = None
-
-        if isinstance(run.weight, int):
-            weight = str(run.weight)
-        elif isinstance(run.weight, str) and run.weight.isdigit():
-            weight = run.weight
-        elif run.bold or (isinstance(run.weight, str) and run.weight.lower() == "bold"):
-            weight = "700"
-        else:
-            weight = "400"
-        style = "italic" if run.italic else "normal"
-
-        if path and isinstance(path, str):
+        family, weight, style, path = resolve_font_face(run)
+        if path:
             self._font_faces.setdefault(path, (family, weight, style))
         return f"{family}, sans-serif" if family != "sans-serif" else family, weight, style
 
     def _font_face_style(self) -> str:
-        faces = []
-        for path, (family, weight, style) in self._font_faces.items():
-            try:
-                with open(path, "rb") as font_file:
-                    encoded = base64.b64encode(font_file.read()).decode("ascii")
-            except OSError:
-                continue
-            faces.append(
-                "@font-face{"
-                f"font-family:'{family}';"
-                f"src:url(data:font/ttf;base64,{encoded}) format('truetype');"
-                f"font-weight:{weight};font-style:{style};"
-                "}"
-            )
-        return "<style>" + "".join(faces) + "</style>" if faces else ""
+        css = font_face_declarations(self._font_faces)
+        return f"<style>{css}</style>" if css else ""
 
     # ------------------------------------------------------------- svg overlay
 
@@ -544,7 +497,7 @@ class SvgExporter:
             return
 
         canvas = self._canvas
-        svg_bytes, size = self._read_svg_layer_bytes_and_size(layer)
+        svg_bytes, size = read_svg_layer_bytes_and_size(layer)
 
         x = parse_coordinate(layer.position[0], canvas.width)
         y = parse_coordinate(layer.position[1], canvas.height)
@@ -570,46 +523,4 @@ class SvgExporter:
             f'<image x="{_fmt(local_x)}" y="{_fmt(local_y)}" '
             f'width="{size[0]}" height="{size[1]}"{attrs} '
             f'xlink:href="data:image/svg+xml;base64,{encoded}"/>'
-        )
-
-    def _read_svg_layer_bytes_and_size(self, layer: SvgLayer) -> tuple[bytes, tuple[int, int]]:
-        with open(layer.path, "rb") as svg_file:
-            svg_bytes = svg_file.read()
-
-        intrinsic = self._intrinsic_svg_size(svg_bytes, layer.path)
-        width, height = layer.width, layer.height
-        if width and height:
-            return svg_bytes, (width, height)
-        if width:
-            return svg_bytes, (width, round(width * intrinsic[1] / intrinsic[0]))
-        if height:
-            return svg_bytes, (round(height * intrinsic[0] / intrinsic[1]), height)
-        return svg_bytes, (round(intrinsic[0]), round(intrinsic[1]))
-
-    def _intrinsic_svg_size(self, svg_bytes: bytes, path: str) -> tuple[float, float]:
-        try:
-            root = ET.fromstring(svg_bytes)
-        except ET.ParseError as e:
-            raise RenderingError(f"Cannot read SVG dimensions for '{path}': {e}") from e
-
-        width = _parse_svg_length(root.get("width"))
-        height = _parse_svg_length(root.get("height"))
-        if width and height:
-            return width, height
-
-        view_box = root.get("viewBox")
-        if view_box:
-            parts = view_box.replace(",", " ").split()
-            if len(parts) == 4:
-                try:
-                    view_width = float(parts[2])
-                    view_height = float(parts[3])
-                except ValueError:
-                    view_width = view_height = 0
-                if view_width > 0 and view_height > 0:
-                    return view_width, view_height
-
-        raise RenderingError(
-            f"Cannot determine dimensions for SVG '{path}'. "
-            "Set width and height or include width/height/viewBox in the SVG."
         )

@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+{{ css }}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute"><defs>{{ filters }}</defs></svg>
+{{ frame_open }}{{ stages }}{{ frame_close }}
+<script>
+{{ runtime }}
+</script>
+</body>
+</html>
+{{#stage}}
+<div class="qt-stage" data-qt-timeline='{{ timeline }}' data-qt-slide-index="{{ slide_index }}"{{ deck_attrs }}{{ hidden }} style="{{ style }}">
+{{ body }}
+</div>
+{{/stage}}

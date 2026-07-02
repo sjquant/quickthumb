@@ -109,10 +109,8 @@ class FontEngine:
                 cached_header = f.read(4)
             if any(cached_header.startswith(magic) for magic in self._VALID_FONT_MAGIC):
                 return cache_path
-            try:
-                os.remove(cache_path)  # stale invalid cache — re-download
-            except OSError:
-                pass  # non-fatal: proceed to re-download; write will overwrite or fail cleanly
+            with contextlib.suppress(OSError):
+                os.remove(cache_path)  # stale invalid cache; re-download below.
 
         try:
             with urlopen(url) as response:
