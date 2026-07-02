@@ -1,7 +1,12 @@
 """Tests for canvas diagnostics (canvas.diagnose())"""
 
+from pathlib import Path
+
 import pytest
 from inline_snapshot import snapshot
+from PIL import Image
+
+FIXTURE_SVG = str(Path(__file__).parent / "fixtures" / "sample.svg")
 
 
 class TestDiagnoseCleanCanvas:
@@ -378,6 +383,252 @@ class TestDiagnoseText:
 
         # when / then: the dark overlay makes white text readable
         assert canvas.diagnose() == []
+
+
+class TestDiagnoseMeasuredLayers:
+    """Test suite for layer measurement paths used by diagnostics"""
+
+    def test_should_expose_bbox_geometry_helpers(self):
+        """BBox exposes reusable geometry helpers without tuple unpacking"""
+        from quickthumb._measurements import BBox
+
+        # given: two overlapping boxes
+        first = BBox(x=10, y=20, width=30, height=40)
+        second = BBox.from_points(35, 45, 65, 80)
+
+        # when
+        union = BBox.union([first, second])
+
+        # then
+        assert first.right == 40
+        assert first.bottom == 60
+        assert first.area == 1200
+        assert not first.is_empty
+        assert union == BBox(x=10, y=20, width=55, height=60)
+
+    def test_should_measure_layers_with_stable_internal_contract(self):
+        """measure_layers() returns deterministic LayerMeasurement objects"""
+        from quickthumb import Canvas
+        from quickthumb._measurements import BBox, measure_layers
+
+        # given: a canvas with known shape geometry
+        canvas = (
+            Canvas(100, 100)
+            .background(color="#FFFFFF")
+            .shape(shape="rectangle", position=(10, 20), width=30, height=40, color="#FF0000")
+        )
+
+        # when
+        measurements = measure_layers(canvas)
+
+        # then
+        background, shape = measurements
+        assert background.index == 0
+        assert background.order == 0
+        assert background.layer_type == "unknown"
+        assert background.bbox is None
+        assert background.layer_id == "layer:0"
+        assert background.name is None
+        assert background.visible
+        assert background.raw_layer is canvas.layers[0]
+        assert background.metadata["measurable"] is False
+
+        assert shape.index == 1
+        assert shape.order == 1
+        assert shape.z_order == 1
+        assert shape.layer_type == "shape"
+        assert shape.bbox == BBox(x=10, y=20, width=30, height=40)
+        assert shape.layer_id == "layer:1"
+        assert shape.raw_layer is canvas.layers[1]
+        assert shape.metadata["shape"] == "rectangle"
+
+    def test_should_measure_aligned_shape_for_off_canvas_detection(self):
+        """Aligned shape bounds are diagnosed from their rendered top-left coordinate"""
+        from quickthumb import Canvas
+
+        # given: a centered shape whose aligned bounds cross the right edge
+        canvas = (
+            Canvas(100, 100)
+            .background(color="#FFFFFF")
+            .shape(
+                shape="rectangle",
+                position=(95, 50),
+                width=20,
+                height=20,
+                color="#FF0000",
+                align=("center", "middle"),
+            )
+        )
+
+        # when
+        diagnostics = canvas.diagnose()
+
+        # then
+        from quickthumb.models import Diagnostic
+
+        assert diagnostics == snapshot(
+            [
+                Diagnostic(
+                    code="off-canvas",
+                    severity="warning",
+                    layer_index=1,
+                    message=(
+                        "shape layer at (85, 40) size 20x20 extends past the edge "
+                        "of the 100x100 canvas"
+                    ),
+                )
+            ]
+        )
+
+    def test_should_measure_text_for_off_canvas_detection(self):
+        """Text bounds flow through the shared measurement path before diagnostics"""
+        from quickthumb import Canvas
+        from quickthumb._measurements import measure_layers
+
+        # given: readable text positioned so its measured block crosses the right edge
+        canvas = (
+            Canvas(120, 80)
+            .background(color="#FFFFFF")
+            .text("wide", size=36, color="#000000", position=(100, 10))
+        )
+
+        # when
+        diagnostics = canvas.diagnose()
+        measurements = measure_layers(canvas)
+
+        # then
+        text_measurement = measurements[1]
+        assert text_measurement.layer_type == "text"
+        assert text_measurement.layer_id == "layer:1"
+        assert text_measurement.raw_layer is canvas.layers[1]
+        assert text_measurement.effective_text_layer is not None
+        assert text_measurement.effective_text_layer.content == "wide"
+        assert [finding.code for finding in diagnostics] == ["off-canvas"]
+        assert diagnostics[0].severity == "warning"
+        assert diagnostics[0].layer_index == 1
+        assert diagnostics[0].message.startswith("text layer at (100, 10) size ")
+
+    def test_should_not_diagnose_invisible_layers(self):
+        """Invisible measured layers do not participate in diagnostics"""
+        from quickthumb import Canvas
+        from quickthumb._measurements import measure_layers
+
+        # given: a transparent shape entirely outside the canvas
+        canvas = Canvas(100, 100).shape(
+            shape="rectangle",
+            position=(150, 10),
+            width=10,
+            height=10,
+            color="#FF0000",
+            opacity=0,
+        )
+
+        # when
+        diagnostics = canvas.diagnose()
+        measurements = measure_layers(canvas)
+
+        # then
+        assert diagnostics == []
+        assert measurements[0].visible is False
+
+    def test_should_measure_image_with_intrinsic_aspect_ratio_for_off_canvas_detection(
+        self, tmp_path
+    ):
+        """Image bounds use inferred dimensions when only one dimension is declared"""
+        from quickthumb import Canvas
+
+        # given: an 80x40 source image rendered 60px wide near the right edge
+        fixture = tmp_path / "sample.png"
+        Image.new("RGBA", (80, 40), (0, 255, 0, 255)).save(fixture)
+        canvas = (
+            Canvas(100, 100)
+            .background(color="#FFFFFF")
+            .image(path=str(fixture), position=(70, 20), width=60)
+        )
+
+        # when
+        diagnostics = canvas.diagnose()
+
+        # then
+        from quickthumb.models import Diagnostic
+
+        assert diagnostics == snapshot(
+            [
+                Diagnostic(
+                    code="off-canvas",
+                    severity="warning",
+                    layer_index=1,
+                    message=(
+                        "image layer at (70, 20) size 60x30 extends past the edge "
+                        "of the 100x100 canvas"
+                    ),
+                )
+            ]
+        )
+
+    def test_should_measure_svg_layer_for_off_canvas_detection(self, monkeypatch):
+        """SVG bounds use explicit dimensions in the shared measurement path"""
+        from quickthumb import Canvas
+        from quickthumb._images import ImageEngine
+
+        # given: an explicitly sized svg layer crossing the right edge
+        monkeypatch.setattr(ImageEngine, "render_svg_layer", lambda _self, _image, _layer: None)
+        canvas = (
+            Canvas(100, 100)
+            .background(color="#FFFFFF")
+            .svg(path=FIXTURE_SVG, position=(75, 10), width=40, height=20)
+        )
+
+        # when
+        diagnostics = canvas.diagnose()
+
+        # then
+        from quickthumb.models import Diagnostic
+
+        assert diagnostics == snapshot(
+            [
+                Diagnostic(
+                    code="off-canvas",
+                    severity="warning",
+                    layer_index=1,
+                    message=(
+                        "svg layer at (75, 10) size 40x20 extends past the edge "
+                        "of the 100x100 canvas"
+                    ),
+                )
+            ]
+        )
+
+    def test_should_measure_group_text_children_for_legibility_diagnostics(self):
+        """Placed text inside groups keeps the parent layer index for diagnostics"""
+        from quickthumb import Canvas
+        from quickthumb._measurements import BBox, measure_layers
+
+        # given: white group text over a white background
+        canvas = (
+            Canvas(200, 120)
+            .background(color="#FFFFFF")
+            .group(
+                children=[{"type": "text", "content": "ghost", "size": 36, "color": "#FFFFFF"}],
+                position=(10, 10),
+            )
+        )
+
+        # when
+        diagnostics = canvas.diagnose()
+        measurements = measure_layers(canvas)
+
+        # then
+        assert [finding.code for finding in diagnostics] == ["low-contrast"]
+        assert diagnostics[0].layer_index == 1
+        group = measurements[1]
+        assert group.layer_type == "group"
+        assert group.layer_id == "layer:1"
+        assert len(group.children) == 1
+        assert group.bbox == group.children[0].bbox
+        assert group.children[0].layer_id == "layer:1:0"
+        assert group.children[0].layer_type == "text"
+        assert isinstance(group.metadata["layout_bbox"], BBox)
 
 
 class TestDiagnoseValidation:
