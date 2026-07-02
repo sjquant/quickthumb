@@ -6,24 +6,17 @@ from quickthumb._base import (
     DEFAULT_TEXT_COLOR,
     DEFAULT_TEXT_SIZE,
     RenderContext,
-    apply_alignment,
     parse_coordinate,
 )
 from quickthumb._effects import EffectsEngine
 from quickthumb._fonts import FontEngine
 from quickthumb._groups import GroupEngine
+from quickthumb._measurements import LayerMeasurementEngine, MeasuredLayer
 from quickthumb._text import TextEngine
 
 if TYPE_CHECKING:
     from quickthumb.canvas import Canvas
-from quickthumb.models import (
-    Diagnostic,
-    GroupLayer,
-    ImageLayer,
-    ShapeLayer,
-    SvgLayer,
-    TextLayer,
-)
+from quickthumb.models import Diagnostic, GroupLayer, TextLayer
 
 TINY_TEXT_RATIO = 0.025
 LOW_CONTRAST_THRESHOLD = 2.0
@@ -63,6 +56,7 @@ class DiagnosticsEngine:
         self._fonts = fonts
         self._text = text
         self._groups = groups
+        self._measurements = LayerMeasurementEngine(ctx, groups, text)
 
     def diagnose(self) -> list[Diagnostic]:
         """Check layers for layout and legibility issues without producing an output file.
@@ -75,82 +69,60 @@ class DiagnosticsEngine:
 
         diagnostics: list[Diagnostic] = []
         running = self._canvas._create_canvas()
-        for index, layer in enumerate(self._canvas.layers):
+        measured_layers = self._measurements.measure_layers(self._canvas.layers)
+        for measured, source_layer in zip(measured_layers, self._canvas.layers, strict=True):
+            layer = measured.layer
             if isinstance(layer, TextLayer):
-                diagnostics.extend(self._diagnose_text_layer(running, layer, index))
+                diagnostics.extend(self._diagnose_text_layer(running, measured))
             elif isinstance(layer, GroupLayer):
-                for placed in self._groups.iter_text_children(layer):
-                    diagnostics.extend(self._diagnose_text_layer(running, placed, index))
+                for child in measured.text_descendants():
+                    diagnostics.extend(self._diagnose_text_layer(running, child))
 
-            box = self._layer_bbox(layer)
-            if box is not None:
-                finding = self._diagnose_off_canvas(box, index, layer)
+            if measured.bbox is not None:
+                finding = self._diagnose_off_canvas(measured)
                 if finding is not None:
                     diagnostics.append(finding)
 
-            self._canvas._render_layer(running, layer)
+            self._canvas._render_layer(running, source_layer)
 
         return diagnostics
 
-    def _layer_bbox(self, layer) -> tuple[int, int, int, int] | None:
-        """Compute the unrotated bounding box a layer will occupy on the canvas."""
-        if isinstance(layer, GroupLayer):
-            _, box = self._groups.layout_group(layer)
-            return box
-
-        if isinstance(layer, (ImageLayer, SvgLayer, ShapeLayer)):
-            w, h = self._groups.measure_group_child(layer)
-            x = parse_coordinate(layer.position[0], self._ctx.width)
-            y = parse_coordinate(layer.position[1], self._ctx.height)
-            if layer.align:
-                x, y = apply_alignment(x, y, (w, h), layer.align)
-            return x, y, w, h
-
-        if isinstance(layer, TextLayer):
-            layer = self._text.effective_layer(layer)
-            w, h = self._groups.measure_group_child(layer)
-            base_x, base_y = self._text.get_text_base_position(layer)
-            x = self._text.get_horizontal_start_x(base_x, w, layer.align)
-            y = self._text.get_vertical_start_y(base_y, h, layer.align)
-            return x, y, w, h
-
-        return None
-
-    def _diagnose_off_canvas(self, box, index: int, layer) -> Diagnostic | None:
-        x, y, w, h = box
-        if w <= 0 or h <= 0:
+    def _diagnose_off_canvas(self, measured: MeasuredLayer) -> Diagnostic | None:
+        box = measured.bbox
+        if box is None or box.is_empty():
             return None
+        x, y, w, h = box.as_tuple()
+        layer_type = measured.layer_type
 
-        fully_outside = x + w <= 0 or y + h <= 0 or x >= self._ctx.width or y >= self._ctx.height
-        partially_outside = x < 0 or y < 0 or x + w > self._ctx.width or y + h > self._ctx.height
-
-        if fully_outside:
+        if box.is_fully_outside(self._ctx.width, self._ctx.height):
             return Diagnostic(
                 code="off-canvas",
                 severity="error",
-                layer_index=index,
+                layer_index=measured.layer_index,
                 message=(
-                    f"{layer.type} layer at ({x}, {y}) size {w}x{h} is entirely outside "
+                    f"{layer_type} layer at ({x}, {y}) size {w}x{h} is entirely outside "
                     f"the {self._ctx.width}x{self._ctx.height} canvas"
                 ),
             )
-        if partially_outside:
+        if box.is_partially_outside(self._ctx.width, self._ctx.height):
             return Diagnostic(
                 code="off-canvas",
                 severity="warning",
-                layer_index=index,
+                layer_index=measured.layer_index,
                 message=(
-                    f"{layer.type} layer at ({x}, {y}) size {w}x{h} extends past the edge "
+                    f"{layer_type} layer at ({x}, {y}) size {w}x{h} extends past the edge "
                     f"of the {self._ctx.width}x{self._ctx.height} canvas"
                 ),
             )
         return None
 
     def _diagnose_text_layer(
-        self, running: Image.Image, layer: TextLayer, index: int
+        self, running: Image.Image, measured: MeasuredLayer
     ) -> list[Diagnostic]:
         findings: list[Diagnostic] = []
-        layer = self._text.effective_layer(layer)
+        layer = measured.layer
+        if not isinstance(layer, TextLayer):
+            return findings
 
         if isinstance(layer.content, list):
             size = min(self._text.resolve_size(part, layer) for part in layer.content)
@@ -162,7 +134,7 @@ class DiagnosticsEngine:
                 Diagnostic(
                     code="tiny-text",
                     severity="warning",
-                    layer_index=index,
+                    layer_index=measured.layer_index,
                     message=(
                         f"text size {size}px is below {tiny_threshold:.0f}px "
                         f"({TINY_TEXT_RATIO:.1%} of canvas height) and may be illegible "
@@ -177,7 +149,7 @@ class DiagnosticsEngine:
                 Diagnostic(
                     code="text-overflow",
                     severity="warning",
-                    layer_index=index,
+                    layer_index=measured.layer_index,
                     message=(
                         f"word '{overflow}' is wider than max_width={layer.max_width} "
                         "and cannot be wrapped"
@@ -185,13 +157,13 @@ class DiagnosticsEngine:
                 )
             )
 
-        contrast = self._text_background_contrast(running, layer)
+        contrast = self._text_background_contrast(running, measured)
         if contrast is not None and contrast < LOW_CONTRAST_THRESHOLD:
             findings.append(
                 Diagnostic(
                     code="low-contrast",
                     severity="warning",
-                    layer_index=index,
+                    layer_index=measured.layer_index,
                     message=(
                         f"text contrast ratio {contrast:.2f} against the layers below it "
                         f"is under {LOW_CONTRAST_THRESHOLD}; the text may be hard to read"
@@ -237,8 +209,14 @@ class DiagnosticsEngine:
                 return word
         return None
 
-    def _text_background_contrast(self, running: Image.Image, layer: TextLayer) -> float | None:
+    def _text_background_contrast(
+        self, running: Image.Image, measured: MeasuredLayer
+    ) -> float | None:
         """Worst contrast ratio between the layer's text colors and the area below it."""
+        layer = measured.layer
+        if not isinstance(layer, TextLayer):
+            return None
+
         if isinstance(layer.content, list):
             text_colors = {self._text.resolve_color(part, layer) for part in layer.content}
         elif layer.color:
@@ -246,16 +224,14 @@ class DiagnosticsEngine:
         else:
             text_colors = {DEFAULT_TEXT_COLOR}
 
-        box = self._layer_bbox(layer)
+        box = measured.bbox
         if box is None:
             return None
-        x, y, w, h = box
-        left, top = max(0, x), max(0, y)
-        right, bottom = min(self._ctx.width, x + w), min(self._ctx.height, y + h)
-        if right <= left or bottom <= top:
+        clamped = box.clamped_to(self._ctx.width, self._ctx.height)
+        if clamped is None:
             return None
 
-        region = running.crop((left, top, right, bottom))
+        region = running.crop((clamped.x, clamped.y, clamped.right, clamped.bottom))
         mean_r, mean_g, mean_b, mean_a = ImageStat.Stat(region).mean
 
         # Transparent areas read as white, matching JPEG export and typical viewers.

@@ -1,7 +1,12 @@
 """Tests for canvas diagnostics (canvas.diagnose())"""
 
+from pathlib import Path
+
 import pytest
 from inline_snapshot import snapshot
+from PIL import Image
+
+FIXTURE_SVG = str(Path(__file__).parent / "fixtures" / "sample.svg")
 
 
 class TestDiagnoseCleanCanvas:
@@ -378,6 +383,157 @@ class TestDiagnoseText:
 
         # when / then: the dark overlay makes white text readable
         assert canvas.diagnose() == []
+
+
+class TestDiagnoseMeasuredLayers:
+    """Test suite for layer measurement paths used by diagnostics"""
+
+    def test_should_measure_aligned_shape_for_off_canvas_detection(self):
+        """Aligned shape bounds are diagnosed from their rendered top-left coordinate"""
+        from quickthumb import Canvas
+
+        # given: a centered shape whose aligned bounds cross the right edge
+        canvas = (
+            Canvas(100, 100)
+            .background(color="#FFFFFF")
+            .shape(
+                shape="rectangle",
+                position=(95, 50),
+                width=20,
+                height=20,
+                color="#FF0000",
+                align=("center", "middle"),
+            )
+        )
+
+        # when
+        diagnostics = canvas.diagnose()
+
+        # then
+        from quickthumb.models import Diagnostic
+
+        assert diagnostics == snapshot(
+            [
+                Diagnostic(
+                    code="off-canvas",
+                    severity="warning",
+                    layer_index=1,
+                    message=(
+                        "shape layer at (85, 40) size 20x20 extends past the edge "
+                        "of the 100x100 canvas"
+                    ),
+                )
+            ]
+        )
+
+    def test_should_measure_text_for_off_canvas_detection(self):
+        """Text bounds flow through the shared measurement path before diagnostics"""
+        from quickthumb import Canvas
+
+        # given: readable text positioned so its measured block crosses the right edge
+        canvas = (
+            Canvas(120, 80)
+            .background(color="#FFFFFF")
+            .text("wide", size=36, color="#000000", position=(100, 10))
+        )
+
+        # when
+        diagnostics = canvas.diagnose()
+
+        # then
+        assert [finding.code for finding in diagnostics] == ["off-canvas"]
+        assert diagnostics[0].severity == "warning"
+        assert diagnostics[0].layer_index == 1
+        assert diagnostics[0].message.startswith("text layer at (100, 10) size ")
+
+    def test_should_measure_image_with_intrinsic_aspect_ratio_for_off_canvas_detection(
+        self, tmp_path
+    ):
+        """Image bounds use inferred dimensions when only one dimension is declared"""
+        from quickthumb import Canvas
+
+        # given: an 80x40 source image rendered 60px wide near the right edge
+        fixture = tmp_path / "sample.png"
+        Image.new("RGBA", (80, 40), (0, 255, 0, 255)).save(fixture)
+        canvas = (
+            Canvas(100, 100)
+            .background(color="#FFFFFF")
+            .image(path=str(fixture), position=(70, 20), width=60)
+        )
+
+        # when
+        diagnostics = canvas.diagnose()
+
+        # then
+        from quickthumb.models import Diagnostic
+
+        assert diagnostics == snapshot(
+            [
+                Diagnostic(
+                    code="off-canvas",
+                    severity="warning",
+                    layer_index=1,
+                    message=(
+                        "image layer at (70, 20) size 60x30 extends past the edge "
+                        "of the 100x100 canvas"
+                    ),
+                )
+            ]
+        )
+
+    def test_should_measure_svg_layer_for_off_canvas_detection(self, monkeypatch):
+        """SVG bounds use explicit dimensions in the shared measurement path"""
+        from quickthumb import Canvas
+        from quickthumb._images import ImageEngine
+
+        # given: an explicitly sized svg layer crossing the right edge
+        monkeypatch.setattr(ImageEngine, "render_svg_layer", lambda _self, _image, _layer: None)
+        canvas = (
+            Canvas(100, 100)
+            .background(color="#FFFFFF")
+            .svg(path=FIXTURE_SVG, position=(75, 10), width=40, height=20)
+        )
+
+        # when
+        diagnostics = canvas.diagnose()
+
+        # then
+        from quickthumb.models import Diagnostic
+
+        assert diagnostics == snapshot(
+            [
+                Diagnostic(
+                    code="off-canvas",
+                    severity="warning",
+                    layer_index=1,
+                    message=(
+                        "svg layer at (75, 10) size 40x20 extends past the edge "
+                        "of the 100x100 canvas"
+                    ),
+                )
+            ]
+        )
+
+    def test_should_measure_group_text_children_for_legibility_diagnostics(self):
+        """Placed text inside groups keeps the parent layer index for diagnostics"""
+        from quickthumb import Canvas
+
+        # given: white group text over a white background
+        canvas = (
+            Canvas(200, 120)
+            .background(color="#FFFFFF")
+            .group(
+                children=[{"type": "text", "content": "ghost", "size": 36, "color": "#FFFFFF"}],
+                position=(10, 10),
+            )
+        )
+
+        # when
+        diagnostics = canvas.diagnose()
+
+        # then
+        assert [finding.code for finding in diagnostics] == ["low-contrast"]
+        assert diagnostics[0].layer_index == 1
 
 
 class TestDiagnoseValidation:
