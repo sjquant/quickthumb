@@ -494,6 +494,19 @@ class TestCLILint:
         }
         assert finding["suggestion"] == "move layer to x=50, y=50 to fit within the canvas"
 
+    def test_should_exit_1_for_invalid_lint_format(self, spec_file):
+        """lint exits 1 when --format is neither text nor json"""
+        from quickthumb.cli import app
+
+        # given: a valid spec and an unsupported lint output format
+
+        # when
+        result = CliRunner().invoke(app, ["lint", spec_file, "--format", "xml"])
+
+        # then
+        assert result.exit_code == 1
+        assert "Invalid lint format 'xml'. Must be one of: text, json" in result.output
+
     def test_should_exit_1_for_invalid_spec(self):
         """lint exits 1 for specs that fail validation"""
         from quickthumb.cli import app

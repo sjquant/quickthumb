@@ -19,7 +19,7 @@ for finding in canvas.diagnose():
     print(finding.severity, finding.code, finding.message)
 ```
 
-Each `Diagnostic` has four fields:
+Each `Diagnostic` has stable human-readable fields and optional structured fields for automation:
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -27,6 +27,12 @@ Each `Diagnostic` has four fields:
 | `severity` | `str` | `"warning"` or `"error"` |
 | `layer_index` | `int` | Index of the offending layer in `canvas.layers` |
 | `message` | `str` | Human-readable explanation with the measured values |
+| `layer_id` | `str \| None` | Stable measured layer id, such as `"layer:3"` or `"layer:3:0"` for group children |
+| `layer_name` | `str \| None` | Layer name when the layer model exposes one |
+| `bbox` | `dict \| None` | Measured canvas-space bounding box with `x`, `y`, `width`, and `height` |
+| `related_layers` | `list[str]` | Layer ids involved in the finding |
+| `measured` | `dict` | Raw rule-specific values, such as contrast ratio, font size, or canvas dimensions |
+| `suggestion` | `str \| None` | Repair hint when the rule can provide one |
 
 ### What gets checked
 
@@ -57,11 +63,37 @@ Checks a JSON spec for the same findings as `diagnose()`:
 
 ```bash
 quickthumb lint spec.json
+quickthumb lint spec.json --format json
 ```
 
 ```text
 [warning] layer 3: tiny-text — text size 14px is below 18px (2.5% of canvas height) ...
 [warning] layer 4: low-contrast — text contrast ratio 1.47 against the layers below it ...
+```
+
+With `--format json`, lint prints a machine-readable payload:
+
+```json
+{
+  "summary": {
+    "diagnostic_count": 1,
+    "error_count": 0,
+    "warning_count": 1
+  },
+  "diagnostics": [
+    {
+      "code": "tiny-text",
+      "severity": "warning",
+      "layer_index": 3,
+      "message": "text size 14px is below 18px ...",
+      "layer_id": "layer:3",
+      "bbox": {"x": 80, "y": 64, "width": 120, "height": 17},
+      "related_layers": ["layer:3"],
+      "measured": {"font_size": 14, "threshold": 18.0},
+      "suggestion": "increase text size to at least 18px"
+    }
+  ]
+}
 ```
 
 Exit codes make it easy to gate CI or agent pipelines:

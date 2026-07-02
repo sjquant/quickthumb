@@ -21,7 +21,15 @@ from quickthumb._text import TextEngine
 
 if TYPE_CHECKING:
     from quickthumb.canvas import Canvas
-from quickthumb.models import Diagnostic, GroupLayer, ImageLayer, ShapeLayer, SvgLayer, TextLayer
+from quickthumb.models import (
+    Align,
+    Diagnostic,
+    GroupLayer,
+    ImageLayer,
+    ShapeLayer,
+    SvgLayer,
+    TextLayer,
+)
 
 TINY_TEXT_RATIO = 0.025
 LOW_CONTRAST_THRESHOLD = 2.0
@@ -382,7 +390,7 @@ class DiagnosticsEngine:
                     "canvas_height": self._ctx.height,
                     "outside": "fully",
                 },
-                suggestion=self._move_inside_canvas_suggestion(box),
+                suggestion=self._move_inside_canvas_suggestion(measured),
                 **self._diagnostic_context(measured),
             )
         if box.is_partially_outside(self._ctx.width, self._ctx.height):
@@ -400,15 +408,48 @@ class DiagnosticsEngine:
                     "canvas_height": self._ctx.height,
                     "outside": "partially",
                 },
-                suggestion=self._move_inside_canvas_suggestion(box),
+                suggestion=self._move_inside_canvas_suggestion(measured),
                 **self._diagnostic_context(measured),
             )
         return None
 
-    def _move_inside_canvas_suggestion(self, box: BBox) -> str:
-        x = min(max(box.x, 0), max(self._ctx.width - box.width, 0))
-        y = min(max(box.y, 0), max(self._ctx.height - box.height, 0))
+    def _move_inside_canvas_suggestion(self, measured: LayerMeasurement) -> str:
+        box = measured.bbox
+        assert box is not None
+        if box.width > self._ctx.width or box.height > self._ctx.height:
+            return (
+                f"resize layer to fit within the {self._ctx.width}x{self._ctx.height} canvas "
+                "before moving it"
+            )
+
+        bbox_x = min(max(box.x, 0), self._ctx.width - box.width)
+        bbox_y = min(max(box.y, 0), self._ctx.height - box.height)
+        x, y = self._aligned_position_for_bbox(
+            measured, BBox(bbox_x, bbox_y, box.width, box.height)
+        )
         return f"move layer to x={x}, y={y} to fit within the canvas"
+
+    def _aligned_position_for_bbox(
+        self, measured: LayerMeasurement, target_bbox: BBox
+    ) -> tuple[int, int]:
+        align = measured.metadata.get("align")
+        if not isinstance(align, Align):
+            align = getattr(measured.raw_layer, "align", None)
+        if not isinstance(align, Align):
+            return target_bbox.x, target_bbox.y
+
+        x = target_bbox.x
+        if align.horizontal == "center":
+            x += target_bbox.width // 2
+        elif align.horizontal == "right":
+            x += target_bbox.width
+
+        y = target_bbox.y
+        if align.vertical == "middle":
+            y += target_bbox.height // 2
+        elif align.vertical == "bottom":
+            y += target_bbox.height
+        return x, y
 
     def _diagnose_text_layer(
         self, running: Image.Image, measured: LayerMeasurement
