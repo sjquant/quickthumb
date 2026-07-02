@@ -1,3 +1,4 @@
+from collections.abc import Iterable
 from typing import TYPE_CHECKING
 
 from PIL import Image, ImageStat
@@ -11,7 +12,7 @@ from quickthumb._base import (
 from quickthumb._effects import EffectsEngine
 from quickthumb._fonts import FontEngine
 from quickthumb._groups import GroupEngine
-from quickthumb._measurements import LayerMeasurement, measure_layers
+from quickthumb._measurements import BBox, LayerMeasurement, measure_layers
 from quickthumb._text import TextEngine
 
 if TYPE_CHECKING:
@@ -63,8 +64,9 @@ class DiagnosticsEngine:
     def diagnose(self) -> list[Diagnostic]:
         """Check layers for layout and legibility issues without producing an output file.
 
-        Returns structured findings (off-canvas, tiny-text, text-overflow, low-contrast)
-        that an agent or human can act on before rendering.
+        Returns structured findings (off-canvas, tiny-text, text-overflow,
+        low-contrast, layer-overlap) that an agent or human can act on before
+        rendering.
         """
         self._canvas._validate_image_paths()
         self._ctx.begin_render_pass()
@@ -94,40 +96,58 @@ class DiagnosticsEngine:
         return diagnostics
 
     def _diagnose_layer_overlaps(self, measurements: list[LayerMeasurement]) -> list[Diagnostic]:
-        candidates = self._overlap_candidates(measurements)
         findings: list[Diagnostic] = []
-        for lower_index, lower in enumerate(candidates):
-            for upper in candidates[lower_index + 1 :]:
-                finding = self._diagnose_candidate_overlap(lower, upper)
-                if finding is not None:
-                    findings.append(finding)
+        candidates = list(self._iter_overlap_candidates(measurements))
+        for lower, upper in self._candidate_overlap_pairs(candidates):
+            finding = self._diagnose_candidate_overlap(lower, upper)
+            if finding is not None:
+                findings.append(finding)
         return findings
 
-    def _overlap_candidates(self, measurements: list[LayerMeasurement]) -> list[LayerMeasurement]:
-        candidates: list[LayerMeasurement] = []
+    def _iter_overlap_candidates(
+        self, measurements: Iterable[LayerMeasurement]
+    ) -> Iterable[LayerMeasurement]:
         for measured in measurements:
-            self._append_overlap_candidates(candidates, measured)
-        return candidates
+            if measured.children:
+                yield from self._iter_overlap_candidates(measured.children)
+            elif measured.visible and measured.bbox is not None and not measured.bbox.is_empty:
+                yield measured
 
-    def _append_overlap_candidates(
-        self, candidates: list[LayerMeasurement], measured: LayerMeasurement
-    ) -> None:
-        if measured.children:
-            for child in measured.children:
-                self._append_overlap_candidates(candidates, child)
-            return
+    def _candidate_overlap_pairs(
+        self, candidates: list[LayerMeasurement]
+    ) -> Iterable[tuple[LayerMeasurement, LayerMeasurement]]:
+        active: list[tuple[int, LayerMeasurement]] = []
+        pairs: list[tuple[int, int, LayerMeasurement, LayerMeasurement]] = []
+        by_left_edge = sorted(
+            enumerate(candidates),
+            key=lambda item: self._bbox(item[1]).x,
+        )
 
-        if measured.visible and measured.bbox is not None and not measured.bbox.is_empty:
-            candidates.append(measured)
+        for candidate_order, candidate in by_left_edge:
+            candidate_box = self._bbox(candidate)
+            active = [
+                (other_order, other)
+                for other_order, other in active
+                if self._bbox(other).right > candidate_box.x
+            ]
+            for other_order, other in active:
+                if other_order < candidate_order:
+                    lower_order, upper_order = other_order, candidate_order
+                    lower, upper = other, candidate
+                else:
+                    lower_order, upper_order = candidate_order, other_order
+                    lower, upper = candidate, other
+                pairs.append((lower_order, upper_order, lower, upper))
+            active.append((candidate_order, candidate))
+
+        for _, _, lower, upper in sorted(pairs, key=lambda item: (item[0], item[1])):
+            yield lower, upper
 
     def _diagnose_candidate_overlap(
         self, lower: LayerMeasurement, upper: LayerMeasurement
     ) -> Diagnostic | None:
-        lower_box = lower.bbox
-        upper_box = upper.bbox
-        if lower_box is None or upper_box is None:
-            return None
-
+        lower_box = self._bbox(lower)
+        upper_box = self._bbox(upper)
         overlap = lower_box.intersection(upper_box)
         if overlap is None:
             return None
@@ -159,30 +179,20 @@ class DiagnosticsEngine:
         if self._is_text_on_backdrop(lower, upper, overlap_area):
             return False
 
-        lower_area = lower.bbox.area if lower.bbox is not None else 0
-        upper_area = upper.bbox.area if upper.bbox is not None else 0
-        smaller_area = min(lower_area, upper_area)
-        if smaller_area == 0:
-            return False
-
+        smaller_area = min(self._bbox(lower).area, self._bbox(upper).area)
         overlap_ratio = overlap_area / smaller_area
-        return (
-            0 < overlap_ratio < BACKDROP_COVERAGE_RATIO
-            and overlap_ratio >= MIN_PARTIAL_OVERLAP_RATIO
-        )
+        return overlap_ratio >= MIN_PARTIAL_OVERLAP_RATIO
 
     def _is_text_on_backdrop(
         self, lower: LayerMeasurement, upper: LayerMeasurement, overlap_area: int
     ) -> bool:
-        if lower.layer_type == "text" or upper.layer_type != "text" or upper.bbox is None:
+        if lower.layer_type == "text" or upper.layer_type != "text":
             return False
-        return overlap_area / upper.bbox.area >= BACKDROP_COVERAGE_RATIO
+        return overlap_area / self._bbox(upper).area >= BACKDROP_COVERAGE_RATIO
 
     def _overlap_suggestion(self, upper: LayerMeasurement, lower: LayerMeasurement) -> str:
-        upper_box = upper.bbox
-        lower_box = lower.bbox
-        if upper_box is None or lower_box is None:
-            return f"move layer {upper.index} to clear the overlap"
+        upper_box = self._bbox(upper)
+        lower_box = self._bbox(lower)
 
         below_y = lower_box.bottom + OVERLAP_CLEARANCE_PX
         if below_y + upper_box.height <= self._ctx.height:
@@ -205,6 +215,12 @@ class DiagnosticsEngine:
     @staticmethod
     def _layer_label(measured: LayerMeasurement) -> str:
         return f"{measured.layer_type} layer {measured.layer_id}"
+
+    @staticmethod
+    def _bbox(measured: LayerMeasurement) -> BBox:
+        box = measured.bbox
+        assert box is not None and not box.is_empty
+        return box
 
     def _diagnose_off_canvas(self, measured: LayerMeasurement) -> Diagnostic | None:
         box = measured.bbox

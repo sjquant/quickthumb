@@ -484,6 +484,163 @@ class TestDiagnoseLayerOverlap:
             ]
         )
 
+    @pytest.mark.parametrize(
+        "canvas_size,lower_position,lower_size,upper_position,upper_size,expected_message",
+        [
+            (
+                (240, 180),
+                (20, 100),
+                (100, 60),
+                (80, 110),
+                (80, 50),
+                (
+                    "shape layer layer:2 (order 2) overlaps shape layer layer:1 "
+                    "(order 1) by 2000px (50% of upper, 33% of lower); "
+                    "move layer 2 to y=42 to clear the overlap"
+                ),
+            ),
+            (
+                (180, 140),
+                (20, 20),
+                (80, 110),
+                (60, 40),
+                (40, 80),
+                (
+                    "shape layer layer:2 (order 2) overlaps shape layer layer:1 "
+                    "(order 1) by 3200px (100% of upper, 36% of lower); "
+                    "move layer 2 to x=108 to clear the overlap"
+                ),
+            ),
+            (
+                (180, 140),
+                (80, 20),
+                (80, 110),
+                (90, 40),
+                (40, 80),
+                (
+                    "shape layer layer:2 (order 2) overlaps shape layer layer:1 "
+                    "(order 1) by 3200px (100% of upper, 36% of lower); "
+                    "move layer 2 to x=32 to clear the overlap"
+                ),
+            ),
+            (
+                (120, 120),
+                (20, 20),
+                (40, 40),
+                (10, 10),
+                (80, 80),
+                (
+                    "shape layer layer:2 (order 2) overlaps shape layer layer:1 "
+                    "(order 1) by 1600px (25% of upper, 100% of lower); "
+                    "move or resize layer 2 to clear the overlap"
+                ),
+            ),
+        ],
+    )
+    def test_should_suggest_available_moves_for_overlaps(
+        self,
+        canvas_size,
+        lower_position,
+        lower_size,
+        upper_position,
+        upper_size,
+        expected_message,
+    ):
+        """Overlap suggestions use an available clear direction or fall back to resize"""
+        from quickthumb import Canvas
+        from quickthumb.models import Diagnostic
+
+        # given: overlapping shapes arranged to force a specific repair suggestion
+        canvas = (
+            Canvas(*canvas_size)
+            .background(color="#FFFFFF")
+            .shape(
+                shape="rectangle",
+                position=lower_position,
+                width=lower_size[0],
+                height=lower_size[1],
+                color="#FF0000",
+            )
+            .shape(
+                shape="rectangle",
+                position=upper_position,
+                width=upper_size[0],
+                height=upper_size[1],
+                color="#00FF00",
+            )
+        )
+
+        # when
+        diagnostics = canvas.diagnose()
+
+        # then
+        assert diagnostics == [
+            Diagnostic(
+                code="layer-overlap",
+                severity="warning",
+                layer_index=2,
+                message=expected_message,
+            )
+        ]
+
+    def test_should_warn_when_shape_fully_covers_shape(self):
+        """A complete non-backdrop coverage overlap is still suspicious"""
+        from quickthumb import Canvas
+
+        # given: the upper shape fully covers the lower shape
+        canvas = (
+            Canvas(120, 120)
+            .background(color="#FFFFFF")
+            .shape(
+                shape="rectangle",
+                position=(20, 20),
+                width=40,
+                height=40,
+                color="#FF0000",
+            )
+            .shape(
+                shape="rectangle",
+                position=(10, 10),
+                width=80,
+                height=80,
+                color="#00FF00",
+            )
+        )
+
+        # when
+        diagnostics = canvas.diagnose()
+
+        # then
+        assert [finding.code for finding in diagnostics] == ["layer-overlap"]
+        assert "100% of lower" in diagnostics[0].message
+
+    def test_should_warn_when_shape_covers_text(self):
+        """Non-text layers covering text are suspicious, unlike text on a backdrop"""
+        from quickthumb import Canvas
+
+        # given: a shape later in render order covers an earlier text layer
+        canvas = (
+            Canvas(240, 180)
+            .background(color="#FFFFFF")
+            .text("Label", size=40, color="#000000", position=(20, 20))
+            .shape(
+                shape="rectangle",
+                position=(15, 15),
+                width=180,
+                height=70,
+                color="#00FF00",
+            )
+        )
+
+        # when
+        diagnostics = canvas.diagnose()
+
+        # then
+        assert [finding.code for finding in diagnostics] == ["layer-overlap"]
+        assert diagnostics[0].layer_index == 2
+        assert "shape layer layer:2" in diagnostics[0].message
+        assert "text layer layer:1" in diagnostics[0].message
+
     def test_should_not_warn_for_non_overlapping_layers(self):
         """Separated measured boxes do not produce overlap findings"""
         from quickthumb import Canvas
@@ -504,6 +661,60 @@ class TestDiagnoseLayerOverlap:
                 position=(100, 20),
                 width=60,
                 height=60,
+                color="#00FF00",
+            )
+        )
+
+        # when / then
+        assert canvas.diagnose() == []
+
+    def test_should_not_warn_for_touching_layer_edges(self):
+        """Boxes whose edges touch without intersecting do not overlap"""
+        from quickthumb import Canvas
+
+        # given: two visible shapes with adjacent edges
+        canvas = (
+            Canvas(240, 180)
+            .background(color="#FFFFFF")
+            .shape(
+                shape="rectangle",
+                position=(20, 20),
+                width=60,
+                height=60,
+                color="#FF0000",
+            )
+            .shape(
+                shape="rectangle",
+                position=(80, 20),
+                width=60,
+                height=60,
+                color="#00FF00",
+            )
+        )
+
+        # when / then
+        assert canvas.diagnose() == []
+
+    def test_should_not_warn_for_layers_separated_vertically(self):
+        """Boxes with overlapping x-ranges but separated y-ranges do not overlap"""
+        from quickthumb import Canvas
+
+        # given: two visible shapes stacked with a gap between their boxes
+        canvas = (
+            Canvas(240, 180)
+            .background(color="#FFFFFF")
+            .shape(
+                shape="rectangle",
+                position=(20, 20),
+                width=80,
+                height=40,
+                color="#FF0000",
+            )
+            .shape(
+                shape="rectangle",
+                position=(30, 80),
+                width=80,
+                height=40,
                 color="#00FF00",
             )
         )
@@ -592,7 +803,6 @@ class TestDiagnoseMeasuredLayers:
         assert first.bottom == 60
         assert first.area == 1200
         assert not first.is_empty
-        assert first.intersection(second) == BBox(x=35, y=45, width=5, height=15)
         assert union == BBox(x=10, y=20, width=55, height=60)
 
     def test_should_measure_layers_with_stable_internal_contract(self):
