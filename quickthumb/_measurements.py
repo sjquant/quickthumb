@@ -14,9 +14,16 @@ if TYPE_CHECKING:
 MEASURABLE_LAYER_TYPES = frozenset({"text", "shape", "image", "svg", "group"})
 
 
-def measure_layers(canvas: "Canvas") -> list["LayerMeasurement"]:
+def measure_layers(
+    canvas: "Canvas", *, include_text_layout: bool = False
+) -> list["LayerMeasurement"]:
     """Measure a canvas's renderable layers into the stable internal contract."""
-    engine = LayerMeasurementEngine(canvas._ctx, canvas._groups, canvas._text)
+    engine = LayerMeasurementEngine(
+        canvas._ctx,
+        canvas._groups,
+        canvas._text,
+        include_text_layout=include_text_layout,
+    )
     return engine.measure_layers(canvas.layers)
 
 
@@ -120,10 +127,18 @@ class LayerMeasurement:
 class LayerMeasurementEngine:
     """Measure layers once into reusable internal layer measurements."""
 
-    def __init__(self, ctx: RenderContext, groups: GroupEngine, text: TextEngine):
+    def __init__(
+        self,
+        ctx: RenderContext,
+        groups: GroupEngine,
+        text: TextEngine,
+        *,
+        include_text_layout: bool = False,
+    ):
         self._ctx = ctx
         self._groups = groups
         self._text = text
+        self._include_text_layout = include_text_layout
 
     def measure_layers(self, layers: Iterable[object]) -> list[LayerMeasurement]:
         measured: list[LayerMeasurement] = []
@@ -295,7 +310,8 @@ class LayerMeasurementEngine:
             "position": effective.position,
             "max_width": effective.max_width,
         }
-        details.update(self._text.measure_text_layout(effective))
+        if self._include_text_layout:
+            details.update(self._text.measure_text_layout(effective))
         if metadata:
             details.update(metadata)
         return self._measurement(

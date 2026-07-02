@@ -88,6 +88,57 @@ class TestInspectCanvas:
         assert text.effective_font_size < 80
         assert text.wrapped_lines
 
+    def test_should_report_auto_scaled_rich_text_effective_font_sizes(self):
+        """Auto-scaled rich text reports per-part effective font sizes and lines."""
+        from quickthumb import Canvas
+
+        # given: rich text parts with different declared sizes constrained to a narrow width
+        canvas = Canvas(400, 300).text(
+            [
+                {"text": "ALPHA ", "size": 80, "color": "#000000"},
+                {"text": "BETA", "size": 40, "color": "#111111"},
+            ],
+            position=(10, 10),
+            max_width=180,
+            auto_scale=True,
+        )
+
+        # when
+        text = canvas.inspect().layers[0].text
+
+        # then
+        assert text is not None
+        assert text.auto_scaled is True
+        assert text.max_width == 180
+        assert text.wrapped_lines == ["ALPHA BETA"]
+        assert text.effective_font_size is not None
+        assert text.effective_font_size < 40
+        assert len(text.effective_font_sizes) == 2
+        assert text.effective_font_sizes[0] < 40
+        assert text.effective_font_sizes[1] < 80
+
+    def test_should_keep_text_layout_metadata_inspection_only(self):
+        """Plain measurement does not compute inspect-only text layout metadata."""
+        from quickthumb import Canvas
+        from quickthumb._measurements import measure_layers
+
+        # given: a text layer with wrapping metadata that inspect can expose
+        canvas = Canvas(300, 200).text(
+            "First line\nSecond line",
+            size=32,
+            color="#000000",
+            position=(10, 20),
+        )
+
+        # when
+        measurement = measure_layers(canvas)[0]
+        inspected = canvas.inspect().layers[0].text
+
+        # then
+        assert "wrapped_lines" not in measurement.metadata
+        assert inspected is not None
+        assert inspected.wrapped_lines == ["First line", "Second line"]
+
     def test_should_report_image_and_svg_bounds(self, tmp_path):
         """Image and SVG reports expose measured final bboxes."""
         from quickthumb import Canvas
@@ -142,6 +193,30 @@ class TestInspectCanvas:
         assert [child.type for child in group.children] == ["text", "shape"]
         assert group.children[0].text is not None
         assert group.children[0].text.wrapped_lines == ["Label"]
+
+    def test_should_report_custom_layers(self):
+        """Custom layer reports include public identity and no measured geometry."""
+        from quickthumb import Canvas
+
+        # given: a named custom layer
+        canvas = Canvas(100, 100).custom(lambda _image: None, name="noop")
+
+        # when
+        layer = canvas.inspect().layers[0]
+
+        # then
+        assert layer.model_dump() == {
+            "id": "layer:0",
+            "index": 0,
+            "order": 0,
+            "z_order": 0,
+            "type": "custom",
+            "name": "noop",
+            "visible": True,
+            "bbox": None,
+            "text": None,
+            "children": [],
+        }
 
     def test_should_report_invisible_layers_without_filtering_them(self):
         """Invisible layers stay in the report with visibility set to false."""
