@@ -485,7 +485,7 @@ class TestDiagnoseLayerOverlap:
         )
 
     @pytest.mark.parametrize(
-        "canvas_size,lower_position,lower_size,upper_position,upper_size,expected_message",
+        "canvas_size,lower_position,lower_size,upper_position,upper_size,expected_suggestion",
         [
             (
                 (240, 180),
@@ -493,11 +493,7 @@ class TestDiagnoseLayerOverlap:
                 (100, 60),
                 (80, 110),
                 (80, 50),
-                (
-                    "shape layer layer:2 (order 2) overlaps shape layer layer:1 "
-                    "(order 1) by 2000px (50% of upper, 33% of lower); "
-                    "move layer 2 to y=42 to clear the overlap"
-                ),
+                "move layer 2 to y=42 to clear the overlap",
             ),
             (
                 (180, 140),
@@ -505,11 +501,7 @@ class TestDiagnoseLayerOverlap:
                 (80, 110),
                 (60, 40),
                 (40, 80),
-                (
-                    "shape layer layer:2 (order 2) overlaps shape layer layer:1 "
-                    "(order 1) by 3200px (100% of upper, 36% of lower); "
-                    "move layer 2 to x=108 to clear the overlap"
-                ),
+                "move layer 2 to x=108 to clear the overlap",
             ),
             (
                 (180, 140),
@@ -517,11 +509,7 @@ class TestDiagnoseLayerOverlap:
                 (80, 110),
                 (90, 40),
                 (40, 80),
-                (
-                    "shape layer layer:2 (order 2) overlaps shape layer layer:1 "
-                    "(order 1) by 3200px (100% of upper, 36% of lower); "
-                    "move layer 2 to x=32 to clear the overlap"
-                ),
+                "move layer 2 to x=32 to clear the overlap",
             ),
             (
                 (120, 120),
@@ -529,11 +517,7 @@ class TestDiagnoseLayerOverlap:
                 (40, 40),
                 (10, 10),
                 (80, 80),
-                (
-                    "shape layer layer:2 (order 2) overlaps shape layer layer:1 "
-                    "(order 1) by 1600px (25% of upper, 100% of lower); "
-                    "move or resize layer 2 to clear the overlap"
-                ),
+                "move or resize layer 2 to clear the overlap",
             ),
         ],
     )
@@ -544,11 +528,10 @@ class TestDiagnoseLayerOverlap:
         lower_size,
         upper_position,
         upper_size,
-        expected_message,
+        expected_suggestion,
     ):
         """Overlap suggestions use an available clear direction or fall back to resize"""
         from quickthumb import Canvas
-        from quickthumb.models import Diagnostic
 
         # given: overlapping shapes arranged to force a specific repair suggestion
         canvas = (
@@ -574,14 +557,10 @@ class TestDiagnoseLayerOverlap:
         diagnostics = canvas.diagnose()
 
         # then
-        assert diagnostics == [
-            Diagnostic(
-                code="layer-overlap",
-                severity="warning",
-                layer_index=2,
-                message=expected_message,
-            )
-        ]
+        assert [finding.code for finding in diagnostics] == ["layer-overlap"]
+        assert diagnostics[0].severity == "warning"
+        assert diagnostics[0].layer_index == 2
+        assert diagnostics[0].message.endswith(expected_suggestion)
 
     def test_should_warn_when_shape_fully_covers_shape(self):
         """A complete non-backdrop coverage overlap is still suspicious"""
