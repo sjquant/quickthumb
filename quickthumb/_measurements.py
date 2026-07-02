@@ -101,6 +101,15 @@ class LayerMeasurement:
     def z_order(self) -> int:
         return self.order
 
+    @property
+    def effective_text_layer(self) -> TextLayer | None:
+        layer = self.metadata.get("effective_layer")
+        if isinstance(layer, TextLayer):
+            return layer
+        if isinstance(self.raw_layer, TextLayer):
+            return self.raw_layer
+        return None
+
     def text_descendants(self) -> Iterable["LayerMeasurement"]:
         for child in self.children:
             if child.layer_type == "text":

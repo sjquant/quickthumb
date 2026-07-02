@@ -501,11 +501,35 @@ class TestDiagnoseMeasuredLayers:
         assert text_measurement.layer_type == "text"
         assert text_measurement.layer_id == "layer:1"
         assert text_measurement.raw_layer is canvas.layers[1]
-        assert text_measurement.metadata["effective_layer"].content == "wide"
+        assert text_measurement.effective_text_layer is not None
+        assert text_measurement.effective_text_layer.content == "wide"
         assert [finding.code for finding in diagnostics] == ["off-canvas"]
         assert diagnostics[0].severity == "warning"
         assert diagnostics[0].layer_index == 1
         assert diagnostics[0].message.startswith("text layer at (100, 10) size ")
+
+    def test_should_not_diagnose_invisible_layers(self):
+        """Invisible measured layers do not participate in diagnostics"""
+        from quickthumb import Canvas
+        from quickthumb._measurements import measure_layers
+
+        # given: a transparent shape entirely outside the canvas
+        canvas = Canvas(100, 100).shape(
+            shape="rectangle",
+            position=(150, 10),
+            width=10,
+            height=10,
+            color="#FF0000",
+            opacity=0,
+        )
+
+        # when
+        diagnostics = canvas.diagnose()
+        measurements = measure_layers(canvas)
+
+        # then
+        assert diagnostics == []
+        assert measurements[0].visible is False
 
     def test_should_measure_image_with_intrinsic_aspect_ratio_for_off_canvas_detection(
         self, tmp_path

@@ -68,21 +68,22 @@ class DiagnosticsEngine:
 
         diagnostics: list[Diagnostic] = []
         running = self._canvas._create_canvas()
-        measured_layers = measure_layers(self._canvas)
-        for measured, source_layer in zip(measured_layers, self._canvas.layers, strict=True):
-            layer = measured.raw_layer
-            if isinstance(layer, TextLayer):
-                diagnostics.extend(self._diagnose_text_layer(running, measured))
-            elif isinstance(layer, GroupLayer):
-                for child in measured.text_descendants():
-                    diagnostics.extend(self._diagnose_text_layer(running, child))
+        for measured in measure_layers(self._canvas):
+            if measured.visible:
+                layer = measured.raw_layer
+                if isinstance(layer, TextLayer):
+                    diagnostics.extend(self._diagnose_text_layer(running, measured))
+                elif isinstance(layer, GroupLayer):
+                    for child in measured.text_descendants():
+                        if child.visible:
+                            diagnostics.extend(self._diagnose_text_layer(running, child))
 
-            if measured.bbox is not None:
-                finding = self._diagnose_off_canvas(measured)
-                if finding is not None:
-                    diagnostics.append(finding)
+                if measured.bbox is not None:
+                    finding = self._diagnose_off_canvas(measured)
+                    if finding is not None:
+                        diagnostics.append(finding)
 
-            self._canvas._render_layer(running, source_layer)
+            self._canvas._render_layer(running, measured.raw_layer)
 
         return diagnostics
 
@@ -119,8 +120,8 @@ class DiagnosticsEngine:
         self, running: Image.Image, measured: LayerMeasurement
     ) -> list[Diagnostic]:
         findings: list[Diagnostic] = []
-        layer = self._measured_text_layer(measured)
-        if not isinstance(layer, TextLayer):
+        layer = measured.effective_text_layer
+        if layer is None:
             return findings
 
         if isinstance(layer.content, list):
@@ -172,10 +173,6 @@ class DiagnosticsEngine:
 
         return findings
 
-    @staticmethod
-    def _measured_text_layer(measured: LayerMeasurement) -> object:
-        return measured.metadata.get("effective_layer", measured.raw_layer)
-
     def _find_overflowing_word(self, layer: TextLayer) -> str | None:
         if not layer.max_width:
             return None
@@ -216,8 +213,8 @@ class DiagnosticsEngine:
         self, running: Image.Image, measured: LayerMeasurement
     ) -> float | None:
         """Worst contrast ratio between the layer's text colors and the area below it."""
-        layer = self._measured_text_layer(measured)
-        if not isinstance(layer, TextLayer):
+        layer = measured.effective_text_layer
+        if layer is None:
             return None
 
         if isinstance(layer.content, list):
