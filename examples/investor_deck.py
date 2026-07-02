@@ -20,7 +20,7 @@ from quickthumb.models import Glow, Shadow
 
 FILE_DIR = os.path.dirname(__file__)
 ASSETS_DIR = os.path.join(FILE_DIR, "..", "assets")
-OUT = os.path.join(FILE_DIR, "investor_deck.html")
+OUT_HTML = os.path.join(FILE_DIR, "investor_deck.html")
 OUT_PPTX = os.path.join(FILE_DIR, "investor_deck.pptx")
 
 
@@ -503,9 +503,9 @@ deck = (
     .slide(s5, transition=tr.Cover(direction="up", duration=0.6))
 )
 
-deck.render(OUT)
+deck.render(OUT_HTML)
 deck.render(OUT_PPTX)
 
-print(f"✓ {OUT}")
+print(f"✓ {OUT_HTML}")
 print(f"  {len(deck)} slides — open in a browser.")
 print("  Click / Space → advance   ArrowLeft → back")
