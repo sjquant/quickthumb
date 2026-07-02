@@ -38,13 +38,6 @@ BACKDROP_COVERAGE_RATIO = 0.95
 OVERLAP_CLEARANCE_PX = 8
 
 
-@dataclass(frozen=True)
-class TextOverflow:
-    word: str
-    word_width: int
-    max_width: int
-
-
 def _relative_luminance(rgb: tuple[float, ...]) -> float:
     channels = []
     for value in rgb:
@@ -424,32 +417,21 @@ class DiagnosticsEngine:
 
         bbox_x = min(max(box.x, 0), self._ctx.width - box.width)
         bbox_y = min(max(box.y, 0), self._ctx.height - box.height)
-        x, y = self._aligned_position_for_bbox(
-            measured, BBox(bbox_x, bbox_y, box.width, box.height)
-        )
-        return f"move layer to x={x}, y={y} to fit within the canvas"
-
-    def _aligned_position_for_bbox(
-        self, measured: LayerMeasurement, target_bbox: BBox
-    ) -> tuple[int, int]:
+        x, y = bbox_x, bbox_y
         align = measured.metadata.get("align")
         if not isinstance(align, Align):
             align = getattr(measured.raw_layer, "align", None)
-        if not isinstance(align, Align):
-            return target_bbox.x, target_bbox.y
+        if isinstance(align, Align):
+            if align.horizontal == "center":
+                x += box.width // 2
+            elif align.horizontal == "right":
+                x += box.width
 
-        x = target_bbox.x
-        if align.horizontal == "center":
-            x += target_bbox.width // 2
-        elif align.horizontal == "right":
-            x += target_bbox.width
-
-        y = target_bbox.y
-        if align.vertical == "middle":
-            y += target_bbox.height // 2
-        elif align.vertical == "bottom":
-            y += target_bbox.height
-        return x, y
+            if align.vertical == "middle":
+                y += box.height // 2
+            elif align.vertical == "bottom":
+                y += box.height
+        return f"move layer to x={x}, y={y} to fit within the canvas"
 
     def _diagnose_text_layer(
         self, running: Image.Image, measured: LayerMeasurement
@@ -485,23 +467,23 @@ class DiagnosticsEngine:
 
         overflow = self._find_overflowing_word(layer)
         if overflow is not None:
+            word, word_width, max_width = overflow
             findings.append(
                 Diagnostic(
                     code="text-overflow",
                     severity="warning",
                     layer_index=measured.index,
                     message=(
-                        f"word '{overflow.word}' is wider than max_width={layer.max_width} "
+                        f"word '{word}' is wider than max_width={layer.max_width} "
                         "and cannot be wrapped"
                     ),
                     measured={
-                        "word": overflow.word,
-                        "word_width": overflow.word_width,
-                        "max_width": overflow.max_width,
+                        "word": word,
+                        "word_width": word_width,
+                        "max_width": max_width,
                     },
                     suggestion=(
-                        f"increase max_width to at least {overflow.word_width}px "
-                        "or enable auto_scale"
+                        f"increase max_width to at least {word_width}px or enable auto_scale"
                     ),
                     **self._diagnostic_context(measured),
                 )
@@ -537,7 +519,7 @@ class DiagnosticsEngine:
             return min(self._text.resolve_size(part, layer) for part in layer.content)
         return layer.size or DEFAULT_TEXT_SIZE
 
-    def _find_overflowing_word(self, layer: TextLayer) -> TextOverflow | None:
+    def _find_overflowing_word(self, layer: TextLayer) -> tuple[str, int, int] | None:
         if not layer.max_width:
             return None
 
@@ -566,11 +548,11 @@ class DiagnosticsEngine:
 
     def _first_word_wider_than(
         self, text: str, font, letter_spacing: int, max_width_px: int
-    ) -> TextOverflow | None:
+    ) -> tuple[str, int, int] | None:
         for word in text.split():
             width, _ = self._text.measure_text_bounds(word, font, letter_spacing)
             if width > max_width_px:
-                return TextOverflow(word=word, word_width=width, max_width=max_width_px)
+                return word, width, max_width_px
         return None
 
     def _text_background_contrast(
