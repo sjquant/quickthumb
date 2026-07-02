@@ -20,6 +20,9 @@ from quickthumb.models import Diagnostic, GroupLayer, TextLayer
 
 TINY_TEXT_RATIO = 0.025
 LOW_CONTRAST_THRESHOLD = 2.0
+MIN_PARTIAL_OVERLAP_RATIO = 0.2
+BACKDROP_COVERAGE_RATIO = 0.95
+OVERLAP_CLEARANCE_PX = 8
 
 
 def _relative_luminance(rgb: tuple[float, ...]) -> float:
@@ -67,8 +70,9 @@ class DiagnosticsEngine:
         self._ctx.begin_render_pass()
 
         diagnostics: list[Diagnostic] = []
+        measurements = measure_layers(self._canvas)
         running = self._canvas._create_canvas()
-        for measured in measure_layers(self._canvas):
+        for measured in measurements:
             if measured.visible:
                 layer = measured.raw_layer
                 if isinstance(layer, TextLayer):
@@ -85,7 +89,122 @@ class DiagnosticsEngine:
 
             self._canvas._render_layer(running, measured.raw_layer)
 
+        diagnostics.extend(self._diagnose_layer_overlaps(measurements))
+
         return diagnostics
+
+    def _diagnose_layer_overlaps(self, measurements: list[LayerMeasurement]) -> list[Diagnostic]:
+        candidates = self._overlap_candidates(measurements)
+        findings: list[Diagnostic] = []
+        for lower_index, lower in enumerate(candidates):
+            for upper in candidates[lower_index + 1 :]:
+                finding = self._diagnose_candidate_overlap(lower, upper)
+                if finding is not None:
+                    findings.append(finding)
+        return findings
+
+    def _overlap_candidates(self, measurements: list[LayerMeasurement]) -> list[LayerMeasurement]:
+        candidates: list[LayerMeasurement] = []
+        for measured in measurements:
+            self._append_overlap_candidates(candidates, measured)
+        return candidates
+
+    def _append_overlap_candidates(
+        self, candidates: list[LayerMeasurement], measured: LayerMeasurement
+    ) -> None:
+        if measured.children:
+            for child in measured.children:
+                self._append_overlap_candidates(candidates, child)
+            return
+
+        if measured.visible and measured.bbox is not None and not measured.bbox.is_empty:
+            candidates.append(measured)
+
+    def _diagnose_candidate_overlap(
+        self, lower: LayerMeasurement, upper: LayerMeasurement
+    ) -> Diagnostic | None:
+        lower_box = lower.bbox
+        upper_box = upper.bbox
+        if lower_box is None or upper_box is None:
+            return None
+
+        overlap = lower_box.intersection(upper_box)
+        if overlap is None:
+            return None
+
+        if not self._is_suspicious_overlap(lower, upper, overlap.area):
+            return None
+
+        lower_pct = overlap.area / lower_box.area
+        upper_pct = overlap.area / upper_box.area
+        suggestion = self._overlap_suggestion(upper, lower)
+        return Diagnostic(
+            code="layer-overlap",
+            severity="warning",
+            layer_index=upper.index,
+            message=(
+                f"{self._layer_label(upper)} (order {upper.order}) "
+                f"overlaps {self._layer_label(lower)} "
+                f"(order {lower.order}) by {overlap.area}px "
+                f"({upper_pct:.0%} of upper, {lower_pct:.0%} of lower); {suggestion}"
+            ),
+        )
+
+    def _is_suspicious_overlap(
+        self, lower: LayerMeasurement, upper: LayerMeasurement, overlap_area: int
+    ) -> bool:
+        if lower.layer_type == "text" and upper.layer_type == "text":
+            return True
+
+        if self._is_text_on_backdrop(lower, upper, overlap_area):
+            return False
+
+        lower_area = lower.bbox.area if lower.bbox is not None else 0
+        upper_area = upper.bbox.area if upper.bbox is not None else 0
+        smaller_area = min(lower_area, upper_area)
+        if smaller_area == 0:
+            return False
+
+        overlap_ratio = overlap_area / smaller_area
+        return (
+            0 < overlap_ratio < BACKDROP_COVERAGE_RATIO
+            and overlap_ratio >= MIN_PARTIAL_OVERLAP_RATIO
+        )
+
+    def _is_text_on_backdrop(
+        self, lower: LayerMeasurement, upper: LayerMeasurement, overlap_area: int
+    ) -> bool:
+        if lower.layer_type == "text" or upper.layer_type != "text" or upper.bbox is None:
+            return False
+        return overlap_area / upper.bbox.area >= BACKDROP_COVERAGE_RATIO
+
+    def _overlap_suggestion(self, upper: LayerMeasurement, lower: LayerMeasurement) -> str:
+        upper_box = upper.bbox
+        lower_box = lower.bbox
+        if upper_box is None or lower_box is None:
+            return f"move layer {upper.index} to clear the overlap"
+
+        below_y = lower_box.bottom + OVERLAP_CLEARANCE_PX
+        if below_y + upper_box.height <= self._ctx.height:
+            return f"move layer {upper.index} to y={below_y} to clear the overlap"
+
+        above_y = lower_box.y - upper_box.height - OVERLAP_CLEARANCE_PX
+        if above_y >= 0:
+            return f"move layer {upper.index} to y={above_y} to clear the overlap"
+
+        right_x = lower_box.right + OVERLAP_CLEARANCE_PX
+        if right_x + upper_box.width <= self._ctx.width:
+            return f"move layer {upper.index} to x={right_x} to clear the overlap"
+
+        left_x = lower_box.x - upper_box.width - OVERLAP_CLEARANCE_PX
+        if left_x >= 0:
+            return f"move layer {upper.index} to x={left_x} to clear the overlap"
+
+        return f"move or resize layer {upper.index} to clear the overlap"
+
+    @staticmethod
+    def _layer_label(measured: LayerMeasurement) -> str:
+        return f"{measured.layer_type} layer {measured.layer_id}"
 
     def _diagnose_off_canvas(self, measured: LayerMeasurement) -> Diagnostic | None:
         box = measured.bbox

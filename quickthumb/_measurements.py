@@ -81,6 +81,13 @@ class BBox:
             return None
         return BBox.from_points(left, top, right, bottom)
 
+    def intersection(self, other: "BBox") -> "BBox | None":
+        left, top = max(self.x, other.x), max(self.y, other.y)
+        right, bottom = min(self.right, other.right), min(self.bottom, other.bottom)
+        if right <= left or bottom <= top:
+            return None
+        return BBox.from_points(left, top, right, bottom)
+
 
 @dataclass(frozen=True)
 class LayerMeasurement:

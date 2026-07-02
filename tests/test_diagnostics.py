@@ -385,6 +385,194 @@ class TestDiagnoseText:
         assert canvas.diagnose() == []
 
 
+class TestDiagnoseLayerOverlap:
+    """Test suite for suspicious layer overlap findings"""
+
+    def test_should_warn_when_text_layers_overlap(self):
+        """Text over text is flagged because it is almost always unreadable"""
+        from quickthumb import Canvas
+
+        # given: two readable text layers whose measured boxes intersect
+        canvas = (
+            Canvas(360, 220)
+            .background(color="#FFFFFF")
+            .text("Alpha", size=48, color="#000000", position=(20, 20))
+            .text("Beta", size=48, color="#000000", position=(50, 32))
+        )
+
+        # when
+        diagnostics = canvas.diagnose()
+
+        # then: the overlap points at the upper text layer and includes measured values
+        overlap_findings = [finding for finding in diagnostics if finding.code == "layer-overlap"]
+        assert len(overlap_findings) == 1
+        finding = overlap_findings[0]
+        assert finding.severity == "warning"
+        assert finding.layer_index == 2
+        assert "text layer layer:2 (order 2) overlaps text layer layer:1 (order 1)" in (
+            finding.message
+        )
+        assert "by " in finding.message
+        assert "% of upper" in finding.message
+        assert "move layer 2" in finding.message
+
+    def test_should_allow_text_over_backdrop(self):
+        """Text fully contained by a lower non-text backdrop is intentional layout"""
+        from quickthumb import Canvas
+
+        # given: a large backdrop shape behind a text label
+        canvas = (
+            Canvas(300, 180)
+            .background(color="#FFFFFF")
+            .shape(
+                shape="rectangle",
+                position=(20, 20),
+                width=220,
+                height=90,
+                color="#EEEEEE",
+            )
+            .text("Label", size=40, color="#000000", position=(40, 38))
+        )
+
+        # when
+        diagnostics = canvas.diagnose()
+
+        # then
+        assert [finding.code for finding in diagnostics] == []
+
+    def test_should_warn_for_partial_overlap(self):
+        """Substantial partial overlap between measured boxes is suspicious"""
+        from quickthumb import Canvas
+        from quickthumb.models import Diagnostic
+
+        # given: two visible shapes with a 40x40 intersection
+        canvas = (
+            Canvas(240, 180)
+            .background(color="#FFFFFF")
+            .shape(
+                shape="rectangle",
+                position=(20, 20),
+                width=100,
+                height=60,
+                color="#FF0000",
+            )
+            .shape(
+                shape="rectangle",
+                position=(80, 40),
+                width=80,
+                height=50,
+                color="#00FF00",
+            )
+        )
+
+        # when
+        diagnostics = canvas.diagnose()
+
+        # then
+        assert diagnostics == snapshot(
+            [
+                Diagnostic(
+                    code="layer-overlap",
+                    severity="warning",
+                    layer_index=2,
+                    message=(
+                        "shape layer layer:2 (order 2) overlaps shape layer layer:1 "
+                        "(order 1) by 1600px (40% of upper, 27% of lower); "
+                        "move layer 2 to y=88 to clear the overlap"
+                    ),
+                )
+            ]
+        )
+
+    def test_should_not_warn_for_non_overlapping_layers(self):
+        """Separated measured boxes do not produce overlap findings"""
+        from quickthumb import Canvas
+
+        # given: two visible shapes with a gap between their boxes
+        canvas = (
+            Canvas(240, 180)
+            .background(color="#FFFFFF")
+            .shape(
+                shape="rectangle",
+                position=(20, 20),
+                width=60,
+                height=60,
+                color="#FF0000",
+            )
+            .shape(
+                shape="rectangle",
+                position=(100, 20),
+                width=60,
+                height=60,
+                color="#00FF00",
+            )
+        )
+
+        # when / then
+        assert canvas.diagnose() == []
+
+    def test_should_ignore_invisible_overlapping_layers(self):
+        """Transparent layers do not participate in overlap diagnostics"""
+        from quickthumb import Canvas
+
+        # given: an invisible top shape whose box intersects a visible lower shape
+        canvas = (
+            Canvas(200, 160)
+            .background(color="#FFFFFF")
+            .shape(
+                shape="rectangle",
+                position=(20, 20),
+                width=80,
+                height=60,
+                color="#FF0000",
+            )
+            .shape(
+                shape="rectangle",
+                position=(40, 30),
+                width=80,
+                height=60,
+                color="#00FF00",
+                opacity=0,
+            )
+        )
+
+        # when / then
+        assert canvas.diagnose() == []
+
+    def test_should_warn_when_grouped_text_overlaps_outer_text(self):
+        """Grouped child measurements participate in z-order-aware overlap checks"""
+        from quickthumb import Canvas
+
+        # given: text inside a group and a later top-level text layer overlap
+        canvas = (
+            Canvas(360, 220)
+            .background(color="#FFFFFF")
+            .group(
+                children=[
+                    {
+                        "type": "text",
+                        "content": "Alpha",
+                        "size": 48,
+                        "color": "#000000",
+                    }
+                ],
+                position=(20, 20),
+            )
+            .text("Beta", size=48, color="#000000", position=(50, 32))
+        )
+
+        # when
+        diagnostics = canvas.diagnose()
+
+        # then
+        overlap_findings = [finding for finding in diagnostics if finding.code == "layer-overlap"]
+        assert len(overlap_findings) == 1
+        assert overlap_findings[0].layer_index == 2
+        assert "text layer layer:2 (order 2) overlaps text layer layer:1:0 (order 1)" in (
+            overlap_findings[0].message
+        )
+
+
 class TestDiagnoseMeasuredLayers:
     """Test suite for layer measurement paths used by diagnostics"""
 
@@ -404,6 +592,7 @@ class TestDiagnoseMeasuredLayers:
         assert first.bottom == 60
         assert first.area == 1200
         assert not first.is_empty
+        assert first.intersection(second) == BBox(x=35, y=45, width=5, height=15)
         assert union == BBox(x=10, y=20, width=55, height=60)
 
     def test_should_measure_layers_with_stable_internal_contract(self):
