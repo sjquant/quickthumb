@@ -14,6 +14,7 @@ from quickthumb._effects import EffectsEngine
 from quickthumb._fonts import FontEngine
 from quickthumb._groups import GroupEngine
 from quickthumb._images import ImageEngine
+from quickthumb._inspection import inspect_canvas
 from quickthumb._shapes import ShapeEngine
 from quickthumb._text import TextEngine
 from quickthumb.errors import RenderingError, ValidationError
@@ -213,6 +214,10 @@ class Canvas:
         that an agent or human can act on before rendering.
         """
         return self._diagnostics.diagnose()
+
+    def inspect(self):
+        """Return a deterministic layout report for this canvas without rendering output."""
+        return inspect_canvas(self)
 
     @classmethod
     def from_aspect_ratio(cls, ratio: str, base_width: int) -> Self:

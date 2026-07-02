@@ -295,6 +295,7 @@ class LayerMeasurementEngine:
             "position": effective.position,
             "max_width": effective.max_width,
         }
+        details.update(self._text.measure_text_layout(effective))
         if metadata:
             details.update(metadata)
         return self._measurement(

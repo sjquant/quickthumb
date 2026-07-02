@@ -160,6 +160,40 @@ class TextEngine:
             return self._auto_scale_rich_text(layer)
         return self._auto_scale_simple_text(layer)
 
+    def measure_text_layout(self, layer: TextLayer) -> dict[str, object]:
+        """Return rendered text line and font-size metadata for inspection."""
+        if isinstance(layer.content, list):
+            return self._measure_rich_text_layout(layer)
+        return self._measure_simple_text_layout(layer)
+
+    def _measure_simple_text_layout(self, layer: TextLayer) -> dict[str, object]:
+        font = self._fonts.load_font(layer)
+        content = layer.content if isinstance(layer.content, str) else ""
+        if layer.max_width:
+            max_width_px = parse_coordinate(layer.max_width, self._ctx.width)
+            lines = self._wrap_text(content, font, max_width_px, layer.letter_spacing)
+        elif "\n" in content:
+            lines = content.split("\n")
+        else:
+            lines = [content]
+
+        return {
+            "wrapped_lines": tuple(lines),
+            "effective_font_size": layer.size or DEFAULT_TEXT_SIZE,
+            "effective_font_sizes": (layer.size or DEFAULT_TEXT_SIZE,),
+        }
+
+    def _measure_rich_text_layout(self, layer: TextLayer) -> dict[str, object]:
+        lines = self._prepare_rich_text_lines(layer, apply_wrapping=not layer.auto_scale)
+        line_text = tuple("".join(part["text"] for part in line) for line in lines)
+        sizes = tuple(sorted({part["size"] for line in lines for part in line}))
+        effective_size = min(sizes) if sizes else layer.size or DEFAULT_TEXT_SIZE
+        return {
+            "wrapped_lines": line_text,
+            "effective_font_size": effective_size,
+            "effective_font_sizes": sizes or (effective_size,),
+        }
+
     def _render_simple_text(self, image: Image.Image, layer: TextLayer):
         # Apply auto-scaling if enabled
         if layer.auto_scale and layer.max_width:
