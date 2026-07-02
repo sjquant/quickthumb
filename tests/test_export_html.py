@@ -838,22 +838,7 @@ class TestDeckHtml:
         with pytest.raises(RenderingError, match="format override"):
             deck.render(str(tmp_path / "deck.html"), format="PNG")
 
-    def test_should_drive_slides_with_keyboard_navigation(self):
-        """The deck runtime wires up gated arrow-key navigation"""
-        # given
-        deck = Deck(320, 180).slide(Canvas().background(color="#101820"))
-
-        # when
-        html = deck.to_html()
-
-        # then
-        assert "ArrowRight" in html
-        assert "go(current-1,true)" in html
-        assert "finishTimeline(i)" in html
-        assert "function reverse(anim)" in html
-        assert "canClick()" in html
-
-    def test_should_run_deck_navigation_runtime_against_generated_html(self, tmp_path):
+    def test_should_run_deck_navigation_runtime_against_generated_html(self):
         """Generated deck HTML drives timeline and keyboard navigation at runtime"""
         # given
         from quickthumb.transitions import Fade as FadeTransition
@@ -873,11 +858,10 @@ class TestDeckHtml:
             )
             .slide(Canvas().background(color="#1E293B"))
         )
-        html_path = tmp_path / "deck.html"
-        html_path.write_text(deck.to_html(responsive=False, embed_fonts=False), encoding="utf-8")
+        html = deck.to_html(responsive=False, embed_fonts=False)
 
         # when
-        result = _run_deck_runtime_in_node(html_path)
+        result = _run_deck_runtime_in_node(html)
 
         # then
         assert result.returncode == 0, result.stderr
@@ -917,35 +901,6 @@ class TestDeckHtml:
         assert timeline_keyframes == layer_keyframes
         assert len(layer_keyframes) == len(set(layer_keyframes))
 
-    def test_should_ignore_navigation_while_slide_or_timeline_animation_is_running(self):
-        """Rapid navigation input is ignored until the active animation finishes"""
-        # given
-        from quickthumb.transitions import Push
-
-        deck = (
-            Deck(320, 180)
-            .slide(
-                Canvas().text(
-                    content="One",
-                    size=48,
-                    color="#FFFFFF",
-                    position=(20, 20),
-                    animation=Fade(),
-                )
-            )
-            .slide(Canvas().background(color="#1E293B"), transition=Push())
-        )
-
-        # when
-        html = deck.to_html()
-
-        # then
-        assert "transitioning=false,timelineBusy=false" in html
-        assert "if(transitioning||timelineBusy||i<0||i>=stages.length||i===current)return;" in html
-        assert "if(transitioning||timelineBusy)return;" in html
-        assert "timelineBusy=true;" in html
-        assert "timelineBusy=false;scheduleAuto();" in html
-
     def test_should_carry_per_slide_animation_timelines(self):
         """Each slide keeps its own animation timeline"""
         # given
@@ -968,11 +923,11 @@ class TestDeckHtml:
         assert per_slide[1] == []
 
 
-def _run_deck_runtime_in_node(html_path: Path) -> subprocess.CompletedProcess[str]:
+def _run_deck_runtime_in_node(html: str) -> subprocess.CompletedProcess[str]:
     script = r"""
 const fs = require('fs');
 const vm = require('vm');
-const html = fs.readFileSync(process.argv[1], 'utf8');
+const html = fs.readFileSync(0, 'utf8');
 
 function decodeAttr(value) {
   return value
@@ -1097,8 +1052,9 @@ function wait(ms) {
 });
 """
     return subprocess.run(
-        ["node", "-e", script, str(html_path)],
+        ["node", "-e", script],
         capture_output=True,
         check=False,
+        input=html,
         text=True,
     )
