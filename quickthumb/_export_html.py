@@ -26,6 +26,7 @@ import base64
 import hashlib
 import json
 import math
+from dataclasses import dataclass
 from html import escape
 from importlib.resources import files
 from typing import TYPE_CHECKING
@@ -743,31 +744,24 @@ def _css_font_family(family: str) -> str:
     return f"{_css_string(family)}, sans-serif" if family != "sans-serif" else "sans-serif"
 
 
+@dataclass
 class Stage:
     """A rendered canvas as portable HTML plus its animation timeline."""
 
-    def __init__(
-        self,
-        width: int,
-        height: int,
-        body: str,
-        keyframes: list[str],
-        timeline: list[dict],
-    ):
-        self.width = width
-        self.height = height
-        self.body = body
-        self.keyframes = keyframes
-        self.timeline = timeline
-        # Slide-transition wiring, filled in by _document for decks. transition_anim
-        # animates the incoming stage, transition_exit the outgoing one; transition_z
-        # ("over"/"under") sets their stacking; transition_dur drives the cleanup timer.
-        self.transition_anim = ""
-        self.transition_exit = ""
-        self.transition_z = "over"
-        self.transition_dur = "0"
-        self.transition_click = "1"
-        self.transition_after = ""
+    width: int
+    height: int
+    body: str
+    keyframes: list[str]
+    timeline: list[dict]
+    # Slide-transition wiring, filled in by _document for decks. transition_anim
+    # animates the incoming stage, transition_exit the outgoing one; transition_z
+    # ("over"/"under") sets their stacking; transition_dur drives the cleanup timer.
+    transition_anim: str = ""
+    transition_exit: str = ""
+    transition_z: str = "over"
+    transition_dur: str = "0"
+    transition_click: str = "1"
+    transition_after: str = ""
 
 
 # --------------------------------------------------------------- document shell

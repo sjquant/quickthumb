@@ -465,12 +465,12 @@ slides larger than the first are clipped by PowerPoint — keep deck slides a
 uniform size when targeting `.pptx`. Decks round-trip through JSON with
 `deck.to_json()` / `Deck.from_json(...)`, reusing the per-canvas serialization.
 
-### Slide effects (PPTX transitions and animations)
+### Slide effects (PPTX and HTML transitions and animations)
 
-When you export to PowerPoint, slides can carry a **transition** (the animation
-played as the slide appears) and individual layers can carry **entrance/exit
-animations**. These only affect `.pptx` output — every other format ignores
-them, so the same spec still renders identically to PNG, SVG, and PDF.
+When you export to PowerPoint or HTML, slides can carry a **transition** (the
+animation played as the slide appears) and individual layers can carry
+**entrance/exit animations**. Raster, SVG, and PDF outputs ignore these effects,
+so the same spec still renders identically there.
 
 ```python
 from quickthumb import Box, Canvas, Deck, Fade, Wipe
@@ -682,7 +682,6 @@ See the shipped examples in [`examples/README.md`](examples/README.md):
 - `examples/youtube_thumbnail_02.py`
 - `examples/instagram_news_card.py`
 - `examples/launch_announcement.py` — the 0.5 feature set (groups, theme tokens, shapes, SVG, diagnostics) in one JSON spec
-- `examples/slide_effects_deck.py` — a multi-slide `Deck` with slide transitions and per-layer entrance/exit animations
 - `examples/investor_deck.py` — an animated investor-style deck exported to both HTML and PPTX
 
 ## Gotchas
@@ -703,6 +702,7 @@ See the shipped examples in [`examples/README.md`](examples/README.md):
 - HTML export needs no optional extra; the document is fixed-layout and scaled to fit (`responsive=True` by default), never reflowed, so it stays a faithful twin of the PNG/SVG/PDF/PPTX output
 - HTML text placement is a close approximation (browsers rasterize fonts differently than PIL); use `embed_fonts=True` for the closest match, available when text uses local font files
 - HTML is the only format that plays per-layer `animation`s (and `Deck` slide transitions); a few exotic effects (blinds, checkerboard, wheel, dissolve) fall back to a close CSS analogue
+- HTML cannot animate a layer that must be rasterized together with earlier backdrop-dependent content, such as blend-mode or custom layers; move animated layers after that content or remove the backdrop dependency
 
 ## Development
 

@@ -2,6 +2,7 @@
 
 import json
 import re
+import subprocess
 from html import unescape
 from importlib.resources import files
 from pathlib import Path
@@ -18,6 +19,7 @@ from quickthumb import (
     Dissolve,
     Fade,
     LinearGradient,
+    RadialGradient,
     TextPart,
     Wheel,
     Wipe,
@@ -222,6 +224,24 @@ class TestHtmlBackgrounds:
         assert "rgb(0,0,0) -33.33%" in html
         assert "rgb(255,255,255) 133.33%" in html
 
+    def test_should_emit_radial_gradient_background(self):
+        """A radial gradient background becomes a CSS radial-gradient"""
+        # given
+        canvas = Canvas(400, 300).background(
+            gradient=RadialGradient(
+                center=(0.25, 0.75),
+                stops=[("#000000", 0.0), ("#FFFFFF", 1.0)],
+            )
+        )
+
+        # when
+        html = canvas.to_html()
+
+        # then
+        assert "radial-gradient(circle 530.33px at 100px 225px," in html
+        assert "rgb(0,0,0) 0px" in html
+        assert "rgb(255,255,255) 530.33px" in html
+
     def test_should_rasterize_background_with_effects(self):
         """A background with filter effects falls back to an embedded PNG"""
         # given
@@ -365,6 +385,27 @@ class TestHtmlText:
         # then
         assert "background-clip:text" in html
         assert "color:transparent" in html
+
+    def test_should_apply_radial_gradient_fill_via_background_clip(self):
+        """A radial gradient text fill clips a CSS radial-gradient to the glyphs"""
+        # given
+        canvas = Canvas(600, 200).text(
+            content="RAD",
+            size=64,
+            fill=RadialGradient(
+                center=(0.5, 0.5),
+                stops=[("#FF6B6B", 0.0), ("#4ECDC4", 1.0)],
+            ),
+            position=(20, 20),
+        )
+
+        # when
+        html = canvas.to_html()
+
+        # then
+        assert "background-clip:text" in html
+        assert "color:transparent" in html
+        assert "radial-gradient(circle" in html
 
     def test_should_rasterize_image_filled_text(self):
         """Image-filled glyphs fall back to an embedded PNG fragment"""
@@ -687,7 +728,39 @@ class TestDeckHtml:
             pytest.param(("uncover", {"direction": "up"}), "translateY(-100vh)", id="uncover"),
             pytest.param(("zoom", {"direction": "out"}), "var(--qt-scale,1)*1.4", id="zoom"),
             pytest.param(("split", {"orientation": "vertical"}), "inset(50% 0 50% 0)", id="split"),
+            pytest.param(
+                ("split", {"orientation": "horizontal"}),
+                "inset(0 50% 0 50%)",
+                id="split-horizontal",
+            ),
+            pytest.param(
+                ("blinds", {"orientation": "vertical"}),
+                "clip-path:inset(0 100% 0 0)",
+                id="blinds-vertical",
+            ),
+            pytest.param(
+                ("blinds", {"orientation": "horizontal"}),
+                "clip-path:inset(0 0 100% 0)",
+                id="blinds-horizontal",
+            ),
+            pytest.param(
+                ("comb", {"orientation": "vertical"}),
+                "clip-path:inset(0 0 0 100%)",
+                id="comb-vertical",
+            ),
+            pytest.param(
+                ("comb", {"orientation": "horizontal"}),
+                "clip-path:inset(100% 0 0 0)",
+                id="comb-horizontal",
+            ),
+            pytest.param(
+                ("newsflash", {}),
+                "rotate(-180deg) scale(calc(var(--qt-scale,1)*0.1))",
+                id="newsflash",
+            ),
             pytest.param(("circle", {}), "clip-path:circle(0% at 50% 50%)", id="circle"),
+            pytest.param(("wheel", {}), "clip-path:circle(0% at 50% 50%)", id="wheel"),
+            pytest.param(("wedge", {}), "clip-path:circle(0% at 50% 50%)", id="wedge"),
             pytest.param(
                 ("diamond", {}),
                 "clip-path:polygon(50% 50%,50% 50%,50% 50%,50% 50%)",
@@ -780,6 +853,35 @@ class TestDeckHtml:
         assert "function reverse(anim)" in html
         assert "canClick()" in html
 
+    def test_should_run_deck_navigation_runtime_against_generated_html(self, tmp_path):
+        """Generated deck HTML drives timeline and keyboard navigation at runtime"""
+        # given
+        from quickthumb.transitions import Fade as FadeTransition
+
+        deck = (
+            Deck(320, 180)
+            .transition(FadeTransition(duration=0.01))
+            .slide(
+                Canvas().shape(
+                    shape="ellipse",
+                    position=(20, 20),
+                    width=40,
+                    height=40,
+                    color="#FFFFFF",
+                    animation=Fade(duration=0.01),
+                )
+            )
+            .slide(Canvas().background(color="#1E293B"))
+        )
+        html_path = tmp_path / "deck.html"
+        html_path.write_text(deck.to_html(responsive=False, embed_fonts=False), encoding="utf-8")
+
+        # when
+        result = _run_deck_runtime_in_node(html_path)
+
+        # then
+        assert result.returncode == 0, result.stderr
+
     def test_should_namespace_layer_keyframes_per_slide(self):
         """Layer animation keyframes remain unique across deck slides"""
         # given
@@ -864,3 +966,139 @@ class TestDeckHtml:
         assert len(per_slide) == 2
         assert len(per_slide[0]) == 1
         assert per_slide[1] == []
+
+
+def _run_deck_runtime_in_node(html_path: Path) -> subprocess.CompletedProcess[str]:
+    script = r"""
+const fs = require('fs');
+const vm = require('vm');
+const html = fs.readFileSync(process.argv[1], 'utf8');
+
+function decodeAttr(value) {
+  return value
+    .replace(/&quot;/g, '"')
+    .replace(/&#x27;/g, "'")
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>');
+}
+
+class Style {
+  constructor(styleText) {
+    for (const part of styleText.split(';')) {
+      const index = part.indexOf(':');
+      if (index < 0) continue;
+      const name = part.slice(0, index).trim();
+      const value = part.slice(index + 1).trim();
+      if (name) this[name.replace(/-([a-z])/g, (_, c) => c.toUpperCase())] = value;
+    }
+  }
+  setProperty(name, value) {
+    this[name] = String(value);
+  }
+}
+
+class Element {
+  constructor(attrs) {
+    this.attrs = attrs;
+    this.hidden = attrs.hidden;
+    this.style = new Style(attrs.style || '');
+    this.parentElement = { clientWidth: 320, clientHeight: 180 };
+    this.children = {};
+  }
+  getAttribute(name) {
+    return this.attrs[name] || '';
+  }
+  querySelector(selector) {
+    return this.children[selector.slice(1)] || null;
+  }
+  addEventListener() {}
+}
+
+function parseStage(tag) {
+  const attrs = {};
+  const timeline = tag.match(/data-qt-timeline='([^']*)'/);
+  if (timeline) attrs['data-qt-timeline'] = decodeAttr(timeline[1]);
+  for (const match of tag.matchAll(/(data-qt-[\w-]+|style)="([^"]*)"/g)) {
+    attrs[match[1]] = decodeAttr(match[2]);
+  }
+  attrs.hidden = /\shidden(?:\s|>)/.test(tag);
+  return new Element(attrs);
+}
+
+const stages = Array.from(html.matchAll(/<div class="qt-stage"[^>]*>/g), (match) => {
+  const stage = parseStage(match[0]);
+  for (const node of JSON.parse(stage.getAttribute('data-qt-timeline') || '[]')) {
+    for (const id of node.t) stage.children[id] = new Element({});
+  }
+  return stage;
+});
+const listeners = {};
+const document = {
+  querySelectorAll(selector) {
+    return selector === '.qt-stage' ? stages : [];
+  },
+  addEventListener(type, callback) {
+    listeners[type] = callback;
+  },
+  dispatch(type, event = {}) {
+    listeners[type](event);
+  },
+};
+const scripts = Array.from(
+  html.matchAll(/<script>\n([\s\S]*?)<\/script>/g),
+  (match) => match[1],
+).join('\n');
+const context = {
+  CSS: { escape: (value) => value },
+  clearTimeout,
+  console,
+  document,
+  isNaN,
+  parseFloat,
+  Promise,
+  setTimeout,
+  window: { addEventListener() {} },
+};
+vm.createContext(context);
+vm.runInContext(scripts, context);
+
+function assert(condition, message) {
+  if (!condition) throw new Error(message);
+}
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+(async () => {
+  assert(stages[0].hidden === false, 'first slide starts visible');
+  assert(stages[1].hidden === true, 'second slide starts hidden');
+  document.dispatch('click');
+  await wait(90);
+  assert(stages[0].hidden === false, 'rapid click during transition is ignored');
+  assert(stages[1].hidden === true, 'rapid click does not reveal slide two');
+  document.dispatch('click');
+  await wait(30);
+  assert(
+    stages[0].children['qt-l1'].style.visibility === 'visible',
+    'timeline click reveals layer',
+  );
+  document.dispatch('keydown', { key: 'ArrowRight' });
+  await wait(90);
+  assert(stages[0].hidden === true, 'arrow right hides slide one');
+  assert(stages[1].hidden === false, 'arrow right reveals slide two');
+  document.dispatch('keydown', { key: 'ArrowLeft' });
+  await wait(90);
+  assert(stages[0].hidden === false, 'arrow left restores slide one');
+  assert(stages[1].hidden === true, 'arrow left hides slide two');
+})().catch((error) => {
+  console.error(error.stack || error.message);
+  process.exit(1);
+});
+"""
+    return subprocess.run(
+        ["node", "-e", script, str(html_path)],
+        capture_output=True,
+        check=False,
+        text=True,
+    )
