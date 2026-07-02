@@ -3,7 +3,6 @@
 from pathlib import Path
 
 import pytest
-from inline_snapshot import snapshot
 from PIL import Image
 
 FIXTURE_SVG = str(Path(__file__).parent / "fixtures" / "sample.svg")
@@ -70,21 +69,63 @@ class TestDiagnoseOffCanvas:
         diagnostics = canvas.diagnose()
 
         # then: the full finding (including its message) is pinned
-        from quickthumb.models import Diagnostic
+        assert [finding.model_dump(mode="json", exclude_none=True) for finding in diagnostics] == [
+            {
+                "code": "off-canvas",
+                "severity": "warning",
+                "layer_index": 1,
+                "message": (
+                    "shape layer at (180, 180) size 50x50 extends past the edge "
+                    "of the 200x200 canvas"
+                ),
+                "layer_id": "layer:1",
+                "bbox": {"x": 180, "y": 180, "width": 50, "height": 50},
+                "related_layers": ["layer:1"],
+                "measured": {
+                    "layer_type": "shape",
+                    "canvas_width": 200,
+                    "canvas_height": 200,
+                    "outside": "partially",
+                },
+                "suggestion": "move layer to x=150, y=150 to fit within the canvas",
+            }
+        ]
 
-        assert diagnostics == snapshot(
-            [
-                Diagnostic(
-                    code="off-canvas",
-                    severity="warning",
-                    layer_index=1,
-                    message=(
-                        "shape layer at (180, 180) size 50x50 extends past the edge "
-                        "of the 200x200 canvas"
-                    ),
-                )
-            ]
+    def test_should_include_structured_fields_for_off_canvas_layer(self):
+        """Off-canvas diagnostics expose bbox, related layer ids, measurements, and suggestion"""
+        from quickthumb import Canvas
+
+        # given: a shape that crosses the canvas edge
+        canvas = (
+            Canvas(100, 100)
+            .background(color="#FFFFFF")
+            .shape(
+                shape="rectangle",
+                position=(80, 90),
+                width=40,
+                height=30,
+                color="#FF0000",
+            )
         )
+
+        # when
+        diagnostics = canvas.diagnose()
+
+        # then
+        finding = diagnostics[0]
+        assert finding.code == "off-canvas"
+        assert finding.layer_id == "layer:1"
+        assert finding.layer_name is None
+        assert finding.bbox is not None
+        assert finding.bbox.model_dump() == {"x": 80, "y": 90, "width": 40, "height": 30}
+        assert finding.related_layers == ["layer:1"]
+        assert finding.measured == {
+            "layer_type": "shape",
+            "canvas_width": 100,
+            "canvas_height": 100,
+            "outside": "partially",
+        }
+        assert finding.suggestion == "move layer to x=60, y=70 to fit within the canvas"
 
     def test_should_report_group_extending_past_canvas(self):
         """Group boxes are measured as a unit for off-canvas detection"""
@@ -271,6 +312,39 @@ class TestDiagnoseText:
         assert [d.code for d in diagnostics] == ["low-contrast"]
         assert diagnostics[0].severity == "warning"
         assert diagnostics[0].layer_index == 1
+
+    def test_should_include_structured_values_for_low_contrast_text(self):
+        """Low-contrast diagnostics expose measured contrast and a repair suggestion"""
+        from quickthumb import Canvas
+
+        # given: near-white text on a white background
+        canvas = (
+            Canvas(400, 300)
+            .background(color="#FFFFFF")
+            .text(
+                "ghost text",
+                size=40,
+                color="#F8F8F8",
+                position=(10, 10),
+            )
+        )
+
+        # when
+        diagnostics = canvas.diagnose()
+
+        # then
+        finding = diagnostics[0]
+        assert finding.code == "low-contrast"
+        assert finding.layer_id == "layer:1"
+        assert finding.layer_name is None
+        assert finding.bbox is not None
+        assert finding.bbox.x == 10
+        assert finding.bbox.y == 10
+        assert finding.bbox.width > 0
+        assert finding.bbox.height > 0
+        assert finding.related_layers == ["layer:1"]
+        assert finding.measured["contrast"] < finding.measured["threshold"]
+        assert finding.suggestion == "increase foreground/background contrast to at least 2.0:1"
 
     @pytest.mark.parametrize(
         "background,color",
@@ -1009,21 +1083,26 @@ class TestDiagnoseMeasuredLayers:
         diagnostics = canvas.diagnose()
 
         # then
-        from quickthumb.models import Diagnostic
-
-        assert diagnostics == snapshot(
-            [
-                Diagnostic(
-                    code="off-canvas",
-                    severity="warning",
-                    layer_index=1,
-                    message=(
-                        "shape layer at (85, 40) size 20x20 extends past the edge "
-                        "of the 100x100 canvas"
-                    ),
-                )
-            ]
-        )
+        assert [finding.model_dump(mode="json", exclude_none=True) for finding in diagnostics] == [
+            {
+                "code": "off-canvas",
+                "severity": "warning",
+                "layer_index": 1,
+                "message": (
+                    "shape layer at (85, 40) size 20x20 extends past the edge of the 100x100 canvas"
+                ),
+                "layer_id": "layer:1",
+                "bbox": {"x": 85, "y": 40, "width": 20, "height": 20},
+                "related_layers": ["layer:1"],
+                "measured": {
+                    "layer_type": "shape",
+                    "canvas_width": 100,
+                    "canvas_height": 100,
+                    "outside": "partially",
+                },
+                "suggestion": "move layer to x=80, y=40 to fit within the canvas",
+            }
+        ]
 
     def test_should_measure_text_for_off_canvas_detection(self):
         """Text bounds flow through the shared measurement path before diagnostics"""
@@ -1095,21 +1174,26 @@ class TestDiagnoseMeasuredLayers:
         diagnostics = canvas.diagnose()
 
         # then
-        from quickthumb.models import Diagnostic
-
-        assert diagnostics == snapshot(
-            [
-                Diagnostic(
-                    code="off-canvas",
-                    severity="warning",
-                    layer_index=1,
-                    message=(
-                        "image layer at (70, 20) size 60x30 extends past the edge "
-                        "of the 100x100 canvas"
-                    ),
-                )
-            ]
-        )
+        assert [finding.model_dump(mode="json", exclude_none=True) for finding in diagnostics] == [
+            {
+                "code": "off-canvas",
+                "severity": "warning",
+                "layer_index": 1,
+                "message": (
+                    "image layer at (70, 20) size 60x30 extends past the edge of the 100x100 canvas"
+                ),
+                "layer_id": "layer:1",
+                "bbox": {"x": 70, "y": 20, "width": 60, "height": 30},
+                "related_layers": ["layer:1"],
+                "measured": {
+                    "layer_type": "image",
+                    "canvas_width": 100,
+                    "canvas_height": 100,
+                    "outside": "partially",
+                },
+                "suggestion": "move layer to x=40, y=20 to fit within the canvas",
+            }
+        ]
 
     def test_should_measure_svg_layer_for_off_canvas_detection(self, monkeypatch):
         """SVG bounds use explicit dimensions in the shared measurement path"""
@@ -1128,21 +1212,26 @@ class TestDiagnoseMeasuredLayers:
         diagnostics = canvas.diagnose()
 
         # then
-        from quickthumb.models import Diagnostic
-
-        assert diagnostics == snapshot(
-            [
-                Diagnostic(
-                    code="off-canvas",
-                    severity="warning",
-                    layer_index=1,
-                    message=(
-                        "svg layer at (75, 10) size 40x20 extends past the edge "
-                        "of the 100x100 canvas"
-                    ),
-                )
-            ]
-        )
+        assert [finding.model_dump(mode="json", exclude_none=True) for finding in diagnostics] == [
+            {
+                "code": "off-canvas",
+                "severity": "warning",
+                "layer_index": 1,
+                "message": (
+                    "svg layer at (75, 10) size 40x20 extends past the edge of the 100x100 canvas"
+                ),
+                "layer_id": "layer:1",
+                "bbox": {"x": 75, "y": 10, "width": 40, "height": 20},
+                "related_layers": ["layer:1"],
+                "measured": {
+                    "layer_type": "svg",
+                    "canvas_width": 100,
+                    "canvas_height": 100,
+                    "outside": "partially",
+                },
+                "suggestion": "move layer to x=60, y=10 to fit within the canvas",
+            }
+        ]
 
     def test_should_measure_group_text_children_for_legibility_diagnostics(self):
         """Placed text inside groups keeps the parent layer index for diagnostics"""

@@ -7,6 +7,7 @@ from pydantic import (
     BaseModel,
     BeforeValidator,
     Discriminator,
+    Field,
     NonNegativeFloat,
     NonNegativeInt,
     PositiveFloat,
@@ -805,11 +806,24 @@ GroupChild = Annotated[
 GroupLayer.model_rebuild()
 
 
+class DiagnosticBBox(quickthumbModel):
+    x: int
+    y: int
+    width: int
+    height: int
+
+
 class Diagnostic(quickthumbModel):
     code: Literal["off-canvas", "tiny-text", "text-overflow", "low-contrast", "layer-overlap"]
     severity: Literal["warning", "error"]
     layer_index: int
     message: str
+    layer_id: str | None = Field(default=None, repr=False)
+    layer_name: str | None = Field(default=None, repr=False)
+    bbox: DiagnosticBBox | None = Field(default=None, repr=False)
+    related_layers: list[str] = Field(default_factory=list, repr=False)
+    measured: dict[str, Any] = Field(default_factory=dict, repr=False)
+    suggestion: str | None = Field(default=None, repr=False)
 
 
 class InspectionBBox(quickthumbModel):

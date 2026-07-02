@@ -377,12 +377,35 @@ class TestCLILint:
         """lint exits 0 and reports no issues for a clean spec"""
         from quickthumb.cli import app
 
+        # given: a valid spec with no diagnostics
+
         # when: linting a plain background-only spec
         result = CliRunner().invoke(app, ["lint", spec_file])
 
         # then
         assert result.exit_code == 0
         assert "No issues found" in result.output
+
+    def test_should_emit_json_for_clean_spec(self, spec_file):
+        """lint --format json exits 0 and emits an empty diagnostics payload"""
+        from quickthumb.cli import app
+
+        # given: a valid spec with no diagnostics
+
+        # when
+        result = CliRunner().invoke(app, ["lint", spec_file, "--format", "json"])
+
+        # then
+        assert result.exit_code == 0
+        payload = json.loads(result.output)
+        assert payload == {
+            "summary": {
+                "diagnostic_count": 0,
+                "error_count": 0,
+                "warning_count": 0,
+            },
+            "diagnostics": [],
+        }
 
     def test_should_exit_3_and_list_findings(self):
         """lint exits 3 and prints each finding when diagnostics are reported"""
@@ -418,6 +441,58 @@ class TestCLILint:
         assert "off-canvas" in result.output
         assert "error" in result.output
         assert "layer 1" in result.output
+
+    def test_should_exit_3_and_emit_structured_json_findings(self):
+        """lint --format json exits 3 and emits structured diagnostics for findings"""
+        from quickthumb.cli import app
+
+        # given: a spec with a shape fully outside the canvas
+        spec_path = self._write_spec(
+            {
+                "width": 100,
+                "height": 100,
+                "layers": [
+                    {"type": "background", "color": "#FFFFFF"},
+                    {
+                        "type": "shape",
+                        "shape": "rectangle",
+                        "position": [300, 300],
+                        "width": 50,
+                        "height": 50,
+                        "color": "#FF0000",
+                    },
+                ],
+            }
+        )
+
+        # when
+        try:
+            result = CliRunner().invoke(app, ["lint", spec_path, "--format", "json"])
+        finally:
+            os.unlink(spec_path)
+
+        # then
+        assert result.exit_code == 3
+        payload = json.loads(result.output)
+        assert payload["summary"] == {
+            "diagnostic_count": 1,
+            "error_count": 1,
+            "warning_count": 0,
+        }
+        finding = payload["diagnostics"][0]
+        assert finding["code"] == "off-canvas"
+        assert finding["severity"] == "error"
+        assert finding["layer_index"] == 1
+        assert finding["layer_id"] == "layer:1"
+        assert finding["bbox"] == {"x": 300, "y": 300, "width": 50, "height": 50}
+        assert finding["related_layers"] == ["layer:1"]
+        assert finding["measured"] == {
+            "layer_type": "shape",
+            "canvas_width": 100,
+            "canvas_height": 100,
+            "outside": "fully",
+        }
+        assert finding["suggestion"] == "move layer to x=50, y=50 to fit within the canvas"
 
     def test_should_exit_1_for_invalid_spec(self):
         """lint exits 1 for specs that fail validation"""
