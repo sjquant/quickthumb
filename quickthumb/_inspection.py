@@ -4,6 +4,7 @@ from quickthumb._measurements import BBox, LayerMeasurement, measure_layers
 from quickthumb.models import CanvasInspection, InspectionBBox, LayerInspection, TextInspection
 
 if TYPE_CHECKING:
+    from quickthumb._text import TextEngine
     from quickthumb.canvas import Canvas
 
 
@@ -14,14 +15,11 @@ def inspect_canvas(canvas: "Canvas") -> CanvasInspection:
     return CanvasInspection(
         width=canvas.width,
         height=canvas.height,
-        layers=[
-            _inspect_layer(measured)
-            for measured in measure_layers(canvas, include_text_layout=True)
-        ],
+        layers=[_inspect_layer(measured, canvas._text) for measured in measure_layers(canvas)],
     )
 
 
-def _inspect_layer(measured: LayerMeasurement) -> LayerInspection:
+def _inspect_layer(measured: LayerMeasurement, text: "TextEngine") -> LayerInspection:
     return LayerInspection(
         id=measured.layer_id,
         index=measured.index,
@@ -31,8 +29,8 @@ def _inspect_layer(measured: LayerMeasurement) -> LayerInspection:
         name=measured.name,
         visible=measured.visible,
         bbox=_inspect_bbox(measured.bbox),
-        text=_inspect_text(measured),
-        children=[_inspect_layer(child) for child in measured.children],
+        text=_inspect_text(measured, text),
+        children=[_inspect_layer(child, text) for child in measured.children],
     )
 
 
@@ -51,14 +49,17 @@ def _inspect_bbox(box: BBox | None) -> InspectionBBox | None:
     return InspectionBBox(x=box.x, y=box.y, width=box.width, height=box.height)
 
 
-def _inspect_text(measured: LayerMeasurement) -> TextInspection | None:
+def _inspect_text(measured: LayerMeasurement, text: "TextEngine") -> TextInspection | None:
     if measured.layer_type != "text":
         return None
-    metadata = measured.metadata
+    layer = measured.effective_text_layer
+    if layer is None:
+        return None
+    layout = text.measure_text_layout(layer)
     return TextInspection(
-        wrapped_lines=list(metadata["wrapped_lines"]),
-        effective_font_size=metadata["effective_font_size"],
-        effective_font_sizes=list(metadata["effective_font_sizes"]),
-        max_width=metadata.get("max_width"),
-        auto_scaled=bool(metadata.get("auto_scaled", False)),
+        wrapped_lines=list(layout["wrapped_lines"]),
+        effective_font_size=layout["effective_font_size"],
+        effective_font_sizes=list(layout["effective_font_sizes"]),
+        max_width=layer.max_width,
+        auto_scaled=bool(measured.metadata.get("auto_scaled", False)),
     )
