@@ -14,7 +14,7 @@ from quickthumb._effects import EffectsEngine
 from quickthumb._fonts import FontEngine
 from quickthumb._groups import GroupEngine
 from quickthumb._images import ImageEngine
-from quickthumb._measurements import BBox, LayerMeasurement, measure_layers
+from quickthumb._measurements import LayerMeasurement, measure_layers
 from quickthumb._shapes import ShapeEngine
 from quickthumb._text import TextEngine
 from quickthumb.errors import RenderingError, ValidationError
@@ -230,18 +230,26 @@ class Canvas:
             layers=[self._inspect_layer(measured) for measured in measure_layers(self)],
         )
 
-    def _inspect_layer(self, measured: LayerMeasurement) -> LayerInspection:
+    def _inspect_layer(
+        self, measured: LayerMeasurement, index: int | None = None, order: int | None = None
+    ) -> LayerInspection:
+        box = measured.bbox
         return LayerInspection(
             id=measured.layer_id,
-            index=measured.index,
-            order=measured.order,
-            z_order=measured.z_order,
+            index=measured.index if index is None else index,
+            order=measured.order if order is None else order,
+            z_order=measured.z_order if order is None else order,
             type=self._inspect_layer_type(measured),
             name=measured.name,
             visible=measured.visible,
-            bbox=self._inspect_bbox(measured.bbox),
+            bbox=None
+            if box is None
+            else InspectionBBox(x=box.x, y=box.y, width=box.width, height=box.height),
             text=self._inspect_text(measured),
-            children=[self._inspect_layer(child) for child in measured.children],
+            children=[
+                self._inspect_layer(child, index=child_index, order=child_index)
+                for child_index, child in enumerate(measured.children)
+            ],
         )
 
     @staticmethod
@@ -253,23 +261,16 @@ class Canvas:
             return "custom"
         return measured.layer_type
 
-    @staticmethod
-    def _inspect_bbox(box: BBox | None) -> InspectionBBox | None:
-        if box is None:
-            return None
-        return InspectionBBox(x=box.x, y=box.y, width=box.width, height=box.height)
-
     def _inspect_text(self, measured: LayerMeasurement) -> TextInspection | None:
         if measured.layer_type != "text":
             return None
         layer = measured.effective_text_layer
         if layer is None:
             return None
-        layout = self._text.measure_text_layout(layer)
         return TextInspection(
-            wrapped_lines=list(layout["wrapped_lines"]),
-            effective_font_size=layout["effective_font_size"],
-            effective_font_sizes=list(layout["effective_font_sizes"]),
+            wrapped_lines=list(measured.metadata["wrapped_lines"]),
+            effective_font_size=measured.metadata["effective_font_size"],
+            effective_font_sizes=list(measured.metadata["effective_font_sizes"]),
             max_width=layer.max_width,
             auto_scaled=bool(measured.metadata.get("auto_scaled", False)),
         )

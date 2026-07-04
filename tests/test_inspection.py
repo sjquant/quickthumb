@@ -12,7 +12,7 @@ class TestInspectCanvas:
 
     def test_should_report_shape_order_identity_and_bbox(self):
         """A shape report includes stable identity, order, type, visibility, and bbox."""
-        from quickthumb import Canvas
+        from quickthumb import Canvas, CanvasInspection, InspectionBBox, LayerInspection
 
         # given: a background and one positioned shape
         canvas = (
@@ -25,25 +25,33 @@ class TestInspectCanvas:
         report = canvas.inspect()
 
         # then
-        assert report.width == 200
-        assert report.height == 100
-        assert [layer.id for layer in report.layers] == ["layer:0", "layer:1"]
-        assert [layer.order for layer in report.layers] == [0, 1]
-        assert [layer.z_order for layer in report.layers] == [0, 1]
-        assert report.layers[0].type == "background"
-        assert report.layers[0].bbox is None
-        assert report.layers[1].type == "shape"
-        assert report.layers[1].visible is True
-        assert report.layers[1].bbox.model_dump() == {
-            "x": 10,
-            "y": 20,
-            "width": 30,
-            "height": 40,
-        }
+        assert report == CanvasInspection(
+            width=200,
+            height=100,
+            layers=[
+                LayerInspection(
+                    id="layer:0",
+                    index=0,
+                    order=0,
+                    z_order=0,
+                    type="background",
+                    visible=True,
+                ),
+                LayerInspection(
+                    id="layer:1",
+                    index=1,
+                    order=1,
+                    z_order=1,
+                    type="shape",
+                    visible=True,
+                    bbox=InspectionBBox(x=10, y=20, width=30, height=40),
+                ),
+            ],
+        )
 
     def test_should_report_text_layout_metadata(self):
         """Text reports include wrapped lines and effective font size from measurement."""
-        from quickthumb import Canvas
+        from quickthumb import Canvas, TextInspection
 
         # given: text with explicit line breaks and a declared font size
         canvas = Canvas(300, 200).text(
@@ -57,15 +65,15 @@ class TestInspectCanvas:
         text = canvas.inspect().layers[0].text
 
         # then
-        assert text is not None
-        assert text.wrapped_lines == ["First line", "Second line"]
-        assert text.effective_font_size == 32
-        assert text.effective_font_sizes == [32]
-        assert text.auto_scaled is False
+        assert text == TextInspection(
+            wrapped_lines=["First line", "Second line"],
+            effective_font_size=32,
+            effective_font_sizes=[32],
+        )
 
     def test_should_report_auto_scaled_text_effective_font_size(self):
         """Auto-scaled text reports the reduced effective size used for measurement."""
-        from quickthumb import Canvas
+        from quickthumb import Canvas, TextInspection
 
         # given: large text constrained to a narrow width
         canvas = Canvas(400, 300).text(
@@ -81,16 +89,17 @@ class TestInspectCanvas:
         text = canvas.inspect().layers[0].text
 
         # then
-        assert text is not None
-        assert text.auto_scaled is True
-        assert text.max_width == 150
-        assert text.effective_font_size is not None
-        assert text.effective_font_size < 80
-        assert text.wrapped_lines
+        assert text == TextInspection(
+            wrapped_lines=["WORDS", "WRAP", "HERE"],
+            effective_font_size=41,
+            effective_font_sizes=[41],
+            max_width=150,
+            auto_scaled=True,
+        )
 
     def test_should_report_auto_scaled_rich_text_effective_font_sizes(self):
         """Auto-scaled rich text reports per-part effective font sizes and lines."""
-        from quickthumb import Canvas
+        from quickthumb import Canvas, TextInspection
 
         # given: rich text parts with different declared sizes constrained to a narrow width
         canvas = Canvas(400, 300).text(
@@ -107,41 +116,17 @@ class TestInspectCanvas:
         text = canvas.inspect().layers[0].text
 
         # then
-        assert text is not None
-        assert text.auto_scaled is True
-        assert text.max_width == 180
-        assert text.wrapped_lines == ["ALPHA BETA"]
-        assert text.effective_font_size is not None
-        assert text.effective_font_size < 40
-        assert len(text.effective_font_sizes) == 2
-        assert text.effective_font_sizes[0] < 40
-        assert text.effective_font_sizes[1] < 80
-
-    def test_should_keep_text_layout_metadata_inspection_only(self):
-        """Plain measurement does not compute inspect-only text layout metadata."""
-        from quickthumb import Canvas
-        from quickthumb._measurements import measure_layers
-
-        # given: a text layer with wrapping metadata that inspect can expose
-        canvas = Canvas(300, 200).text(
-            "First line\nSecond line",
-            size=32,
-            color="#000000",
-            position=(10, 20),
+        assert text == TextInspection(
+            wrapped_lines=["ALPHA BETA"],
+            effective_font_size=17,
+            effective_font_sizes=[17, 35],
+            max_width=180,
+            auto_scaled=True,
         )
-
-        # when
-        measurement = measure_layers(canvas)[0]
-        inspected = canvas.inspect().layers[0].text
-
-        # then
-        assert "wrapped_lines" not in measurement.metadata
-        assert inspected is not None
-        assert inspected.wrapped_lines == ["First line", "Second line"]
 
     def test_should_report_image_and_svg_bounds(self, tmp_path):
         """Image and SVG reports expose measured final bboxes."""
-        from quickthumb import Canvas
+        from quickthumb import Canvas, InspectionBBox, LayerInspection
 
         # given: an image with inferred height and an SVG with explicit dimensions
         fixture = tmp_path / "sample.png"
@@ -157,14 +142,28 @@ class TestInspectCanvas:
 
         # then
         image, svg = report.layers
-        assert image.type == "image"
-        assert image.bbox.model_dump() == {"x": 20, "y": 30, "width": 60, "height": 30}
-        assert svg.type == "svg"
-        assert svg.bbox.model_dump() == {"x": 100, "y": 40, "width": 50, "height": 25}
+        assert image == LayerInspection(
+            id="layer:0",
+            index=0,
+            order=0,
+            z_order=0,
+            type="image",
+            visible=True,
+            bbox=InspectionBBox(x=20, y=30, width=60, height=30),
+        )
+        assert svg == LayerInspection(
+            id="layer:1",
+            index=1,
+            order=1,
+            z_order=1,
+            type="svg",
+            visible=True,
+            bbox=InspectionBBox(x=100, y=40, width=50, height=25),
+        )
 
     def test_should_report_group_children_with_stable_ids(self):
         """Group reports include child layout reports with stable path-based IDs."""
-        from quickthumb import Canvas
+        from quickthumb import Canvas, InspectionBBox, LayerInspection, TextInspection
 
         # given: a group containing a text child and a shape child
         canvas = Canvas(300, 200).group(
@@ -186,17 +185,44 @@ class TestInspectCanvas:
         group = canvas.inspect().layers[0]
 
         # then
-        assert group.type == "group"
-        assert group.id == "layer:0"
-        assert group.bbox is not None
-        assert [child.id for child in group.children] == ["layer:0:0", "layer:0:1"]
-        assert [child.type for child in group.children] == ["text", "shape"]
-        assert group.children[0].text is not None
-        assert group.children[0].text.wrapped_lines == ["Label"]
+        assert group == LayerInspection(
+            id="layer:0",
+            index=0,
+            order=0,
+            z_order=0,
+            type="group",
+            visible=True,
+            bbox=InspectionBBox(x=15, y=25, width=49, height=42),
+            children=[
+                LayerInspection(
+                    id="layer:0:0",
+                    index=0,
+                    order=0,
+                    z_order=0,
+                    type="text",
+                    visible=True,
+                    bbox=InspectionBBox(x=15, y=25, width=49, height=17),
+                    text=TextInspection(
+                        wrapped_lines=["Label"],
+                        effective_font_size=20,
+                        effective_font_sizes=[20],
+                    ),
+                ),
+                LayerInspection(
+                    id="layer:0:1",
+                    index=1,
+                    order=1,
+                    z_order=1,
+                    type="shape",
+                    visible=True,
+                    bbox=InspectionBBox(x=15, y=47, width=30, height=20),
+                ),
+            ],
+        )
 
     def test_should_report_custom_layers(self):
         """Custom layer reports include public identity and no measured geometry."""
-        from quickthumb import Canvas
+        from quickthumb import Canvas, LayerInspection
 
         # given: a named custom layer
         canvas = Canvas(100, 100).custom(lambda _image: None, name="noop")
@@ -205,22 +231,19 @@ class TestInspectCanvas:
         layer = canvas.inspect().layers[0]
 
         # then
-        assert layer.model_dump() == {
-            "id": "layer:0",
-            "index": 0,
-            "order": 0,
-            "z_order": 0,
-            "type": "custom",
-            "name": "noop",
-            "visible": True,
-            "bbox": None,
-            "text": None,
-            "children": [],
-        }
+        assert layer == LayerInspection(
+            id="layer:0",
+            index=0,
+            order=0,
+            z_order=0,
+            type="custom",
+            name="noop",
+            visible=True,
+        )
 
     def test_should_report_invisible_layers_without_filtering_them(self):
         """Invisible layers stay in the report with visibility set to false."""
-        from quickthumb import Canvas
+        from quickthumb import Canvas, InspectionBBox, LayerInspection
 
         # given: a transparent shape that still has measurable geometry
         canvas = Canvas(100, 100).shape(
@@ -236,5 +259,12 @@ class TestInspectCanvas:
         layer = canvas.inspect().layers[0]
 
         # then
-        assert layer.visible is False
-        assert layer.bbox.model_dump() == {"x": 70, "y": 80, "width": 20, "height": 10}
+        assert layer == LayerInspection(
+            id="layer:0",
+            index=0,
+            order=0,
+            z_order=0,
+            type="shape",
+            visible=False,
+            bbox=InspectionBBox(x=70, y=80, width=20, height=10),
+        )
