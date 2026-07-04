@@ -92,6 +92,7 @@ class DiagnosticsEngine:
         low-contrast, layer-overlap) that an agent or human can act on before
         rendering.
         """
+        self._alpha_cache.clear()
         self._canvas._validate_image_paths()
         self._ctx.begin_render_pass()
 
@@ -211,6 +212,9 @@ class DiagnosticsEngine:
 
         if self._is_text_on_backdrop(lower, upper, overlap):
             return False
+
+        if max(overlap.lower_visible_pct, overlap.upper_visible_pct) >= BACKDROP_COVERAGE_RATIO:
+            return True
 
         overlap_ratio = min(overlap.lower_visible_pct, overlap.upper_visible_pct)
         return overlap_ratio >= MIN_PARTIAL_OVERLAP_RATIO

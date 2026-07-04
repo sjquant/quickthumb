@@ -682,6 +682,84 @@ class TestDiagnoseLayerOverlap:
         assert [finding.code for finding in diagnostics] == ["layer-overlap"]
         assert "visible_overlap_pct=25% of upper, 100% of lower" in diagnostics[0].message
 
+    def test_should_warn_when_large_shape_fully_covers_small_shape(self):
+        """Complete coverage is suspicious even when the covering layer is much larger"""
+        from quickthumb import Canvas
+
+        # given: a large upper shape fully covers a tiny lower shape
+        canvas = (
+            Canvas(300, 300)
+            .background(color="#FFFFFF")
+            .shape(
+                shape="rectangle",
+                position=(100, 100),
+                width=10,
+                height=10,
+                color="#FF0000",
+            )
+            .shape(
+                shape="rectangle",
+                position=(0, 0),
+                width=250,
+                height=250,
+                color="#00FF00",
+            )
+        )
+
+        # when
+        diagnostics = canvas.diagnose()
+
+        # then
+        assert [finding.code for finding in diagnostics] == ["layer-overlap"]
+        assert "visible_overlap_pct=0% of upper, 100% of lower" in diagnostics[0].message
+
+    def test_should_remeasure_alpha_masks_after_canvas_layers_change(self):
+        """Repeated diagnoses do not reuse stale alpha masks for changed layers"""
+        from quickthumb import Canvas
+
+        # given: a canvas whose first pass caches a hollow ellipse corner mask
+        canvas = (
+            Canvas(200, 200)
+            .background(color="#FFFFFF")
+            .shape(
+                shape="ellipse",
+                position=(20, 20),
+                width=80,
+                height=80,
+                color="#FF0000",
+            )
+            .shape(
+                shape="rectangle",
+                position=(20, 20),
+                width=10,
+                height=10,
+                color="#00FF00",
+            )
+        )
+        first_diagnostics = canvas.diagnose()
+
+        # when: the same implicit layer IDs now point to overlapping opaque rectangles
+        canvas.layers = [canvas.layers[0]]
+        canvas.shape(
+            shape="rectangle",
+            position=(20, 20),
+            width=80,
+            height=80,
+            color="#FF0000",
+        )
+        canvas.shape(
+            shape="rectangle",
+            position=(20, 20),
+            width=10,
+            height=10,
+            color="#00FF00",
+        )
+        second_diagnostics = canvas.diagnose()
+
+        # then
+        assert first_diagnostics == []
+        assert [finding.code for finding in second_diagnostics] == ["layer-overlap"]
+
     def test_should_warn_when_shape_covers_text(self):
         """Non-text layers covering text are suspicious, unlike text on a backdrop"""
         from quickthumb import Canvas
