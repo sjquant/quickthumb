@@ -186,7 +186,7 @@ class TestInspectCanvas:
 
         # then: text glyph width differs by platform font rasterizer, but layout stays stable
         text_width = group.children[0].bbox.width
-        assert 45 <= text_width <= 55
+        assert text_width in {49, 50}
         assert group == LayerInspection(
             id="layer:0",
             index=0,
