@@ -184,7 +184,9 @@ class TestInspectCanvas:
         # when
         group = canvas.inspect().layers[0]
 
-        # then
+        # then: text glyph width differs by platform font rasterizer, but layout stays stable
+        text_width = group.children[0].bbox.width
+        assert 45 <= text_width <= 55
         assert group == LayerInspection(
             id="layer:0",
             index=0,
@@ -192,7 +194,7 @@ class TestInspectCanvas:
             z_order=0,
             type="group",
             visible=True,
-            bbox=InspectionBBox(x=15, y=25, width=49, height=42),
+            bbox=InspectionBBox(x=15, y=25, width=text_width, height=42),
             children=[
                 LayerInspection(
                     id="layer:0:0",
@@ -201,7 +203,7 @@ class TestInspectCanvas:
                     z_order=0,
                     type="text",
                     visible=True,
-                    bbox=InspectionBBox(x=15, y=25, width=49, height=17),
+                    bbox=InspectionBBox(x=15, y=25, width=text_width, height=17),
                     text=TextInspection(
                         wrapped_lines=["Label"],
                         effective_font_size=20,
