@@ -28,83 +28,60 @@ class OverlapMeasurement:
     upper_visible_pct: float
 
 
-class DiagnosticPayloads:
-    """Build structured diagnostic payload fragments from measurements."""
-
-    @staticmethod
-    def bbox(box: BBox) -> dict[str, int]:
-        return {
-            "x": box.x,
-            "y": box.y,
-            "width": box.width,
-            "height": box.height,
-        }
-
-    @classmethod
-    def context(cls, measured: LayerMeasurement) -> dict[str, Any]:
-        box = measured.bbox
-        return {
-            "layer_id": measured.layer_id,
-            "layer_name": measured.name,
-            "bbox": cls.bbox(box) if box is not None else None,
-            "related_layers": [measured.layer_id],
-        }
+def bbox_payload(box: BBox) -> dict[str, int]:
+    return {
+        "x": box.x,
+        "y": box.y,
+        "width": box.width,
+        "height": box.height,
+    }
 
 
-class MeasurementGeometry:
-    """Geometry helpers for measured diagnostic layers."""
+def diagnostic_context(measured: LayerMeasurement) -> dict[str, Any]:
+    box = measured.bbox
+    return {
+        "layer_id": measured.layer_id,
+        "layer_name": measured.name,
+        "bbox": bbox_payload(box) if box is not None else None,
+        "related_layers": [measured.layer_id],
+    }
 
-    @staticmethod
-    def require_bbox(measured: LayerMeasurement) -> BBox:
-        box = measured.bbox
-        assert box is not None and not box.is_empty
-        return box
 
-    @staticmethod
-    def layer_label(measured: LayerMeasurement) -> str:
-        return f"{measured.layer_type} layer {measured.layer_id}"
+def require_bbox(measured: LayerMeasurement) -> BBox:
+    box = measured.bbox
+    assert box is not None and not box.is_empty
+    return box
 
-    @classmethod
-    def visible_leaf_layers(
-        cls, measurements: Iterable[LayerMeasurement]
-    ) -> Iterable[LayerMeasurement]:
-        for measured in measurements:
-            if measured.children:
-                yield from cls.visible_leaf_layers(measured.children)
-            elif measured.visible and measured.bbox is not None and not measured.bbox.is_empty:
-                yield measured
 
-    @classmethod
-    def overlap_pairs(
-        cls, candidates: Iterable[LayerMeasurement]
-    ) -> Iterable[tuple[LayerMeasurement, LayerMeasurement]]:
-        active: list[tuple[int, LayerMeasurement]] = []
-        pairs: list[tuple[int, int, LayerMeasurement, LayerMeasurement]] = []
-        sorted_candidates = sorted(
-            enumerate(candidates),
-            key=lambda item: cls.require_bbox(item[1]).x,
-        )
+def layer_label(measured: LayerMeasurement) -> str:
+    return f"{measured.layer_type} layer {measured.layer_id}"
 
-        for candidate_order, candidate in sorted_candidates:
-            candidate_box = cls.require_bbox(candidate)
-            active = [
-                (other_order, other)
-                for other_order, other in active
-                if cls.require_bbox(other).right > candidate_box.x
-            ]
-            cls._append_candidate_pairs(active, candidate_order, candidate, pairs)
-            active.append((candidate_order, candidate))
 
-        for _, _, lower, upper in sorted(pairs, key=lambda item: (item[0], item[1])):
-            yield lower, upper
+def visible_leaf_layers(measurements: Iterable[LayerMeasurement]) -> Iterable[LayerMeasurement]:
+    for measured in measurements:
+        if measured.children:
+            yield from visible_leaf_layers(measured.children)
+        elif measured.visible and measured.bbox is not None and not measured.bbox.is_empty:
+            yield measured
 
-    @staticmethod
-    def _append_candidate_pairs(
-        active: list[tuple[int, LayerMeasurement]],
-        candidate_order: int,
-        candidate: LayerMeasurement,
-        pairs: list[tuple[int, int, LayerMeasurement, LayerMeasurement]],
-    ) -> None:
+
+def overlap_pairs(
+    candidates: Iterable[LayerMeasurement],
+) -> Iterable[tuple[LayerMeasurement, LayerMeasurement]]:
+    active: list[tuple[int, LayerMeasurement]] = []
+    pairs: list[tuple[int, int, LayerMeasurement, LayerMeasurement]] = []
+    sorted_candidates = sorted(
+        enumerate(candidates),
+        key=lambda item: require_bbox(item[1]).x,
+    )
+
+    for candidate_order, candidate in sorted_candidates:
+        candidate_box = require_bbox(candidate)
+        active = [
+            (other_order, other)
+            for other_order, other in active
+            if require_bbox(other).right > candidate_box.x
+        ]
         for other_order, other in active:
             if other_order < candidate_order:
                 lower_order, upper_order = other_order, candidate_order
@@ -113,75 +90,75 @@ class MeasurementGeometry:
                 lower_order, upper_order = candidate_order, other_order
                 lower, upper = candidate, other
             pairs.append((lower_order, upper_order, lower, upper))
+        active.append((candidate_order, candidate))
+
+    for _, _, lower, upper in sorted(pairs, key=lambda item: (item[0], item[1])):
+        yield lower, upper
 
 
-class DiagnosticSuggestions:
-    """Human-readable repair suggestions shared by diagnostic rules."""
+def move_inside_canvas_suggestion(
+    measured: LayerMeasurement, *, canvas_width: int, canvas_height: int
+) -> str:
+    box = measured.bbox
+    assert box is not None
+    if box.width > canvas_width or box.height > canvas_height:
+        return (
+            f"resize layer to fit within the {canvas_width}x{canvas_height} canvas before moving it"
+        )
 
-    def move_inside_canvas(
-        self, measured: LayerMeasurement, *, canvas_width: int, canvas_height: int
-    ) -> str:
-        box = measured.bbox
-        assert box is not None
-        if box.width > canvas_width or box.height > canvas_height:
-            return (
-                f"resize layer to fit within the {canvas_width}x{canvas_height} "
-                "canvas before moving it"
-            )
+    bbox_x = min(max(box.x, 0), canvas_width - box.width)
+    bbox_y = min(max(box.y, 0), canvas_height - box.height)
+    x, y = _aligned_position(measured, bbox_x, bbox_y)
+    return f"move layer to x={x}, y={y} to fit within the canvas"
 
-        bbox_x = min(max(box.x, 0), canvas_width - box.width)
-        bbox_y = min(max(box.y, 0), canvas_height - box.height)
-        x, y = self._aligned_position(measured, bbox_x, bbox_y)
-        return f"move layer to x={x}, y={y} to fit within the canvas"
 
-    def _aligned_position(
-        self, measured: LayerMeasurement, bbox_x: int, bbox_y: int
-    ) -> tuple[int, int]:
-        x, y = bbox_x, bbox_y
-        align = measured.metadata.get("align")
-        if not isinstance(align, Align):
-            align = getattr(measured.raw_layer, "align", None)
-        if isinstance(align, Align):
-            if align.horizontal == "center":
-                x += MeasurementGeometry.require_bbox(measured).width // 2
-            elif align.horizontal == "right":
-                x += MeasurementGeometry.require_bbox(measured).width
+def _aligned_position(measured: LayerMeasurement, bbox_x: int, bbox_y: int) -> tuple[int, int]:
+    x, y = bbox_x, bbox_y
+    align = measured.metadata.get("align")
+    if not isinstance(align, Align):
+        align = getattr(measured.raw_layer, "align", None)
+    if isinstance(align, Align):
+        box = require_bbox(measured)
+        if align.horizontal == "center":
+            x += box.width // 2
+        elif align.horizontal == "right":
+            x += box.width
 
-            if align.vertical == "middle":
-                y += MeasurementGeometry.require_bbox(measured).height // 2
-            elif align.vertical == "bottom":
-                y += MeasurementGeometry.require_bbox(measured).height
-        return x, y
+        if align.vertical == "middle":
+            y += box.height // 2
+        elif align.vertical == "bottom":
+            y += box.height
+    return x, y
 
-    def clear_overlap(
-        self,
-        upper: LayerMeasurement,
-        lower: LayerMeasurement,
-        *,
-        canvas_width: int,
-        canvas_height: int,
-        clearance: int,
-    ) -> str:
-        upper_box = MeasurementGeometry.require_bbox(upper)
-        lower_box = MeasurementGeometry.require_bbox(lower)
 
-        below_y = lower_box.bottom + clearance
-        if below_y + upper_box.height <= canvas_height:
-            return f"move layer {upper.index} to y={below_y} to clear the overlap"
+def clear_overlap_suggestion(
+    upper: LayerMeasurement,
+    lower: LayerMeasurement,
+    *,
+    canvas_width: int,
+    canvas_height: int,
+    clearance: int,
+) -> str:
+    upper_box = require_bbox(upper)
+    lower_box = require_bbox(lower)
 
-        above_y = lower_box.y - upper_box.height - clearance
-        if above_y >= 0:
-            return f"move layer {upper.index} to y={above_y} to clear the overlap"
+    below_y = lower_box.bottom + clearance
+    if below_y + upper_box.height <= canvas_height:
+        return f"move layer {upper.index} to y={below_y} to clear the overlap"
 
-        right_x = lower_box.right + clearance
-        if right_x + upper_box.width <= canvas_width:
-            return f"move layer {upper.index} to x={right_x} to clear the overlap"
+    above_y = lower_box.y - upper_box.height - clearance
+    if above_y >= 0:
+        return f"move layer {upper.index} to y={above_y} to clear the overlap"
 
-        left_x = lower_box.x - upper_box.width - clearance
-        if left_x >= 0:
-            return f"move layer {upper.index} to x={left_x} to clear the overlap"
+    right_x = lower_box.right + clearance
+    if right_x + upper_box.width <= canvas_width:
+        return f"move layer {upper.index} to x={right_x} to clear the overlap"
 
-        return f"move or resize layer {upper.index} to clear the overlap"
+    left_x = lower_box.x - upper_box.width - clearance
+    if left_x >= 0:
+        return f"move layer {upper.index} to x={left_x} to clear the overlap"
+
+    return f"move or resize layer {upper.index} to clear the overlap"
 
 
 class LayerAlphaCache:
@@ -205,7 +182,7 @@ class LayerAlphaCache:
             return cached
 
         if self._opaque_rectangle(measured):
-            alpha = LayerAlpha(visible_area=MeasurementGeometry.require_bbox(measured).area)
+            alpha = LayerAlpha(visible_area=require_bbox(measured).area)
         else:
             mask = self._render_mask(measured)
             alpha = LayerAlpha(visible_area=mask_area(mask), mask=mask)
@@ -226,8 +203,8 @@ class LayerAlphaCache:
         return OverlapMeasurement(
             bbox_area=overlap.area,
             visible_area=visible_area,
-            lower_bbox_pct=overlap.area / MeasurementGeometry.require_bbox(lower).area,
-            upper_bbox_pct=overlap.area / MeasurementGeometry.require_bbox(upper).area,
+            lower_bbox_pct=overlap.area / require_bbox(lower).area,
+            upper_bbox_pct=overlap.area / require_bbox(upper).area,
             lower_visible_pct=visible_area / lower_alpha.visible_area,
             upper_visible_pct=visible_area / upper_alpha.visible_area,
         )
@@ -253,39 +230,35 @@ class LayerAlphaCache:
     ) -> Image.Image:
         if alpha.mask is None:
             return Image.new("L", (region.width, region.height), 255)
-        box = MeasurementGeometry.require_bbox(measured)
+        box = require_bbox(measured)
         left, top = region.x - box.x, region.y - box.y
         mask = alpha.mask.crop((left, top, left + region.width, top + region.height))
         return mask.point(lambda value: 255 if value else 0)
 
 
-class RegionSampler:
-    """Pixel sampling helpers for diagnostic contrast-style rules."""
+def average_visible_background(image: Image.Image, region: BBox) -> tuple[float, float, float]:
+    crop = image.crop((region.x, region.y, region.right, region.bottom))
+    mean_r, mean_g, mean_b, mean_a = ImageStat.Stat(crop).mean
 
-    @staticmethod
-    def average_visible_background(image: Image.Image, region: BBox) -> tuple[float, float, float]:
-        crop = image.crop((region.x, region.y, region.right, region.bottom))
-        mean_r, mean_g, mean_b, mean_a = ImageStat.Stat(crop).mean
+    # Transparent areas read as white, matching JPEG export and typical viewers.
+    alpha = mean_a / 255
+    return tuple(channel * alpha + 255 * (1 - alpha) for channel in (mean_r, mean_g, mean_b))
 
-        # Transparent areas read as white, matching JPEG export and typical viewers.
-        alpha = mean_a / 255
-        return tuple(channel * alpha + 255 * (1 - alpha) for channel in (mean_r, mean_g, mean_b))
 
-    @staticmethod
-    def contrast_ratio(rgb_a: tuple[float, ...], rgb_b: tuple[float, ...]) -> float:
-        lum_a = RegionSampler._relative_luminance(rgb_a)
-        lum_b = RegionSampler._relative_luminance(rgb_b)
-        lighter, darker = max(lum_a, lum_b), min(lum_a, lum_b)
-        return (lighter + 0.05) / (darker + 0.05)
+def contrast_ratio(rgb_a: tuple[float, ...], rgb_b: tuple[float, ...]) -> float:
+    lum_a = _relative_luminance(rgb_a)
+    lum_b = _relative_luminance(rgb_b)
+    lighter, darker = max(lum_a, lum_b), min(lum_a, lum_b)
+    return (lighter + 0.05) / (darker + 0.05)
 
-    @staticmethod
-    def _relative_luminance(rgb: tuple[float, ...]) -> float:
-        channels = []
-        for value in rgb:
-            c = value / 255
-            channels.append(c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4)
-        r, g, b = channels[:3]
-        return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+def _relative_luminance(rgb: tuple[float, ...]) -> float:
+    channels = []
+    for value in rgb:
+        c = value / 255
+        channels.append(c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4)
+    r, g, b = channels[:3]
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
 
 
 def mask_area(mask: Image.Image) -> int:
