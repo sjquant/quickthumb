@@ -3,6 +3,7 @@
 from pathlib import Path
 
 import pytest
+from inline_snapshot import snapshot
 from PIL import Image
 
 FIXTURE_SVG = str(Path(__file__).parent / "fixtures" / "sample.svg")
