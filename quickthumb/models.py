@@ -812,6 +812,40 @@ class Diagnostic(quickthumbModel):
     message: str
 
 
+class InspectionBBox(quickthumbModel):
+    x: int
+    y: int
+    width: NonNegativeInt
+    height: NonNegativeInt
+
+
+class TextInspection(quickthumbModel):
+    wrapped_lines: list[str]
+    effective_font_size: PositiveInt | None = None
+    effective_font_sizes: list[PositiveInt] = []
+    max_width: int | str | None = None
+    auto_scaled: bool = False
+
+
+class LayerInspection(quickthumbModel):
+    id: str
+    index: NonNegativeInt
+    order: NonNegativeInt
+    z_order: NonNegativeInt
+    type: str
+    name: str | None = None
+    visible: bool
+    bbox: InspectionBBox | None = None
+    text: TextInspection | None = None
+    children: list["LayerInspection"] = []
+
+
+class CanvasInspection(quickthumbModel):
+    width: PositiveInt
+    height: PositiveInt
+    layers: list[LayerInspection]
+
+
 LayerType = Annotated[
     BackgroundLayer | TextLayer | OutlineLayer | ImageLayer | ShapeLayer | SvgLayer | GroupLayer,
     Discriminator("type"),

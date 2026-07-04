@@ -281,7 +281,8 @@ class LayerMeasurementEngine:
         metadata: Mapping[str, Any] | None = None,
     ) -> LayerMeasurement:
         effective = self._text.effective_layer(layer)
-        w, h = self._groups.measure_group_child(effective)
+        layout = self._text.measure_text_layout(effective)
+        w, h = layout["size"]
         base_x, base_y = self._text.get_text_base_position(effective)
         x = self._text.get_horizontal_start_x(base_x, w, effective.align)
         y = self._text.get_vertical_start_y(base_y, h, effective.align)
@@ -294,6 +295,9 @@ class LayerMeasurementEngine:
             "align": effective.align,
             "position": effective.position,
             "max_width": effective.max_width,
+            "wrapped_lines": layout["wrapped_lines"],
+            "effective_font_size": layout["effective_font_size"],
+            "effective_font_sizes": layout["effective_font_sizes"],
         }
         if metadata:
             details.update(metadata)

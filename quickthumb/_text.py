@@ -56,6 +56,13 @@ class TextPartMetadata(TypedDict):
     width: int
 
 
+class TextLayoutMetadata(TypedDict):
+    size: tuple[int, int]
+    wrapped_lines: tuple[str, ...]
+    effective_font_size: int
+    effective_font_sizes: tuple[int, ...]
+
+
 class TextEngine:
     """Text layout, measurement, wrapping, effects, and rendering."""
 
@@ -159,6 +166,53 @@ class TextEngine:
         if isinstance(layer.content, list):
             return self._auto_scale_rich_text(layer)
         return self._auto_scale_simple_text(layer)
+
+    def measure_text_layout(self, layer: TextLayer) -> TextLayoutMetadata:
+        """Return rendered text line and font-size metadata for inspection."""
+        if isinstance(layer.content, list):
+            return self._measure_rich_text_layout(layer)
+        return self._measure_simple_text_layout(layer)
+
+    def _measure_simple_text_layout(self, layer: TextLayer) -> TextLayoutMetadata:
+        font = self._fonts.load_font(layer)
+        content = layer.content if isinstance(layer.content, str) else ""
+        if layer.max_width:
+            max_width_px = parse_coordinate(layer.max_width, self._ctx.width)
+            lines = self._wrap_text(content, font, max_width_px, layer.letter_spacing)
+        elif "\n" in content:
+            lines = content.split("\n")
+        else:
+            lines = [content]
+        size = self.measure_text_bounds(
+            "\n".join(lines),
+            font,
+            layer.letter_spacing or 0,
+            layer.line_height or DEFAULT_LINE_HEIGHT_MULTIPLIER,
+        )
+
+        return {
+            "size": size,
+            "wrapped_lines": tuple(lines),
+            "effective_font_size": layer.size or DEFAULT_TEXT_SIZE,
+            "effective_font_sizes": (layer.size or DEFAULT_TEXT_SIZE,),
+        }
+
+    def _measure_rich_text_layout(self, layer: TextLayer) -> TextLayoutMetadata:
+        lines = self._prepare_rich_text_lines(layer, apply_wrapping=not layer.auto_scale)
+        line_text = tuple("".join(part["text"] for part in line) for line in lines)
+        sizes = tuple(sorted({part["size"] for line in lines for part in line}))
+        effective_size = min(sizes) if sizes else layer.size or DEFAULT_TEXT_SIZE
+        _, total_height = self._calculate_rich_text_dimensions(layer, lines)
+        size = (
+            max((self._measure_rich_line_width(line_parts) for line_parts in lines), default=0),
+            total_height,
+        )
+        return {
+            "size": size,
+            "wrapped_lines": line_text,
+            "effective_font_size": effective_size,
+            "effective_font_sizes": sizes or (effective_size,),
+        }
 
     def _render_simple_text(self, image: Image.Image, layer: TextLayer):
         # Apply auto-scaling if enabled
@@ -931,14 +985,11 @@ class TextEngine:
         then compositing the result onto the main canvas. This approach preserves
         all text effects during rotation.
         """
-        font = self._fonts.load_font(layer)
-        content = layer.content if isinstance(layer.content, str) else ""
-
         stroke_effects = self._get_stroke_effects(layer.effects)
         shadow_effects = self._get_shadow_effects(layer.effects)
         glow_effects = self._get_glow_effects(layer.effects)
 
-        text_width, text_height = self.measure_simple_text_size(layer, font, content)
+        text_width, text_height = self.measure_text_size(layer)
         padding = self._calculate_text_effects_padding(stroke_effects, shadow_effects, glow_effects)
         temp_image, _ = self._create_temp_image_for_text(text_width, text_height, padding)
 
@@ -954,28 +1005,9 @@ class TextEngine:
         self._render_simple_text(temp_image, temp_layer)
         self._rotate_and_composite_text(image, temp_image, layer)
 
-    def measure_simple_text_size(
-        self, layer: TextLayer, font: FontType, content: str
-    ) -> tuple[int, int]:
-        """Calculate text bounding box size accounting for wrapping."""
-        line_height_mult = layer.line_height or DEFAULT_LINE_HEIGHT_MULTIPLIER
-
-        if layer.max_width:
-            max_width_px = parse_coordinate(layer.max_width, self._ctx.width)
-            lines = self._wrap_text(content, font, max_width_px, layer.letter_spacing)
-            return self.measure_text_bounds(
-                "\n".join(lines),
-                font,
-                layer.letter_spacing or 0,
-                line_height_mult,
-            )
-
-        return self.measure_text_bounds(
-            content,
-            font,
-            layer.letter_spacing or 0,
-            line_height_mult,
-        )
+    def measure_text_size(self, layer: TextLayer) -> tuple[int, int]:
+        """Calculate rendered text bounding box size accounting for wrapping."""
+        return self.measure_text_layout(layer)["size"]
 
     def _render_rotated_rich_text(self, image: Image.Image, layer: TextLayer):
         """Render rich text with rotation applied.
@@ -987,7 +1019,7 @@ class TextEngine:
         if not isinstance(layer.content, list):
             return
 
-        text_width, text_height = self.measure_rich_text_size(layer)
+        text_width, text_height = self.measure_text_size(layer)
         padding = self._calculate_rich_text_effects_padding(layer)
         temp_image, _ = self._create_temp_image_for_text(text_width, text_height, padding)
 
@@ -1002,18 +1034,6 @@ class TextEngine:
         )
         self._render_rich_text(temp_image, temp_layer)
         self._rotate_and_composite_text(image, temp_image, layer)
-
-    def measure_rich_text_size(self, layer: TextLayer) -> tuple[int, int]:
-        """Calculate rich text bounding box size."""
-        lines = self._prepare_rich_text_lines(layer)
-        _, total_height = self._calculate_rich_text_dimensions(layer, lines)
-
-        max_width = 0
-        for line_parts in lines:
-            line_width = self._measure_rich_line_width(line_parts)
-            max_width = max(max_width, line_width)
-
-        return max_width, total_height
 
     def _calculate_rich_text_effects_padding(self, layer: TextLayer) -> int:
         """Calculate padding for rich text effects from both layer and part-level effects."""
