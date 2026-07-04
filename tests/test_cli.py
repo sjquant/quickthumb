@@ -534,29 +534,45 @@ class TestCLILint:
         # then
         assert result.exit_code == 3
         payload = json.loads(result.output)
-        assert payload["summary"] == {
-            "diagnostic_count": 1,
-            "error_count": 0,
-            "warning_count": 1,
+        assert payload == {
+            "summary": {
+                "diagnostic_count": 1,
+                "error_count": 0,
+                "warning_count": 1,
+            },
+            "diagnostics": [
+                {
+                    "code": "layer-overlap",
+                    "severity": "warning",
+                    "layer_index": 2,
+                    "message": (
+                        "shape layer layer:2 (order 2) overlaps shape layer layer:1 "
+                        "(order 1); bbox_overlap=1600px "
+                        "(bbox_overlap_pct=40% of upper, 27% of lower), "
+                        "visible_overlap=1600px "
+                        "(visible_overlap_pct=40% of upper, 27% of lower); "
+                        "move layer 2 to y=88 to clear the overlap"
+                    ),
+                    "layer_id": "layer:2",
+                    "bbox": {"x": 80, "y": 40, "width": 40, "height": 40},
+                    "related_layers": ["layer:2", "layer:1"],
+                    "measured": {
+                        "lower_layer_id": "layer:1",
+                        "upper_layer_id": "layer:2",
+                        "lower_bbox": {"x": 20, "y": 20, "width": 100, "height": 60},
+                        "upper_bbox": {"x": 80, "y": 40, "width": 80, "height": 50},
+                        "overlap_bbox": {"x": 80, "y": 40, "width": 40, "height": 40},
+                        "bbox_overlap": 1600,
+                        "bbox_overlap_pct_lower": 1600 / 6000,
+                        "bbox_overlap_pct_upper": 1600 / 4000,
+                        "visible_overlap": 1600,
+                        "visible_overlap_pct_lower": 1600 / 6000,
+                        "visible_overlap_pct_upper": 1600 / 4000,
+                    },
+                    "suggestion": "move layer 2 to y=88 to clear the overlap",
+                }
+            ],
         }
-        finding = payload["diagnostics"][0]
-        assert finding["code"] == "layer-overlap"
-        assert finding["severity"] == "warning"
-        assert finding["layer_index"] == 2
-        assert finding["layer_id"] == "layer:2"
-        assert finding["bbox"] == {"x": 80, "y": 40, "width": 40, "height": 40}
-        assert finding["related_layers"] == ["layer:2", "layer:1"]
-        assert finding["measured"]["lower_layer_id"] == "layer:1"
-        assert finding["measured"]["upper_layer_id"] == "layer:2"
-        assert finding["measured"]["overlap_bbox"] == {
-            "x": 80,
-            "y": 40,
-            "width": 40,
-            "height": 40,
-        }
-        assert finding["measured"]["bbox_overlap"] == 1600
-        assert finding["measured"]["visible_overlap"] == 1600
-        assert finding["suggestion"] == "move layer 2 to y=88 to clear the overlap"
 
     def test_should_exit_1_for_invalid_lint_format(self, spec_file):
         """lint exits 1 when --format is neither text nor json"""
