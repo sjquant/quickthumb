@@ -1,5 +1,5 @@
 from math import ceil
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from PIL import Image
 
@@ -10,14 +10,12 @@ from quickthumb._base import (
     parse_coordinate,
 )
 from quickthumb._diagnostic_rules import (
-    CanvasBounds,
     DiagnosticPayloads,
     DiagnosticSuggestions,
     LayerAlphaCache,
     MeasurementGeometry,
     OverlapMeasurement,
     RegionSampler,
-    VisibleOverlapMeasurer,
 )
 from quickthumb._effects import EffectsEngine
 from quickthumb._fonts import FontEngine
@@ -67,12 +65,10 @@ class DiagnosticsEngine:
         self._shapes = shapes
         self._text = text
         self._groups = groups
-        canvas_bounds = CanvasBounds(ctx.width, ctx.height)
-        self._suggestions = DiagnosticSuggestions(canvas_bounds)
+        self._suggestions = DiagnosticSuggestions()
         self._alpha_cache = LayerAlphaCache(
             self._has_opaque_rectangle_mask, self._render_layer_alpha_mask
         )
-        self._overlap_measurer = VisibleOverlapMeasurer(self._alpha_cache)
 
     def diagnose(self) -> list[Diagnostic]:
         """Check layers for layout and legibility issues without producing an output file.
@@ -134,7 +130,13 @@ class DiagnosticsEngine:
         if not self._is_suspicious_overlap(lower, upper, measured_overlap):
             return None
 
-        suggestion = self._overlap_suggestion(upper, lower)
+        suggestion = self._suggestions.clear_overlap(
+            upper,
+            lower,
+            canvas_width=self._ctx.width,
+            canvas_height=self._ctx.height,
+            clearance=OVERLAP_CLEARANCE_PX,
+        )
         return Diagnostic(
             code="layer-overlap",
             severity="warning",
@@ -197,7 +199,7 @@ class DiagnosticsEngine:
     def _measure_visible_overlap(
         self, lower: LayerMeasurement, upper: LayerMeasurement, overlap: BBox
     ) -> OverlapMeasurement | None:
-        return self._overlap_measurer.measure(lower, upper, overlap)
+        return self._alpha_cache.measure(lower, upper, overlap)
 
     def _has_opaque_rectangle_mask(self, measured: LayerMeasurement) -> bool:
         layer = measured.raw_layer
@@ -230,9 +232,6 @@ class DiagnosticsEngine:
             .point(lambda value: 255 if value else 0)
         )
 
-    def _overlap_suggestion(self, upper: LayerMeasurement, lower: LayerMeasurement) -> str:
-        return self._suggestions.clear_overlap(upper, lower, clearance=OVERLAP_CLEARANCE_PX)
-
     def _diagnose_off_canvas(self, measured: LayerMeasurement) -> Diagnostic | None:
         box = measured.bbox
         if box is None or box.is_empty:
@@ -255,7 +254,11 @@ class DiagnosticsEngine:
                     "canvas_height": self._ctx.height,
                     "outside": "fully",
                 },
-                suggestion=self._move_inside_canvas_suggestion(measured),
+                suggestion=self._suggestions.move_inside_canvas(
+                    measured,
+                    canvas_width=self._ctx.width,
+                    canvas_height=self._ctx.height,
+                ),
                 **self._diagnostic_context(measured),
             )
         if box.is_partially_outside(self._ctx.width, self._ctx.height):
@@ -273,13 +276,14 @@ class DiagnosticsEngine:
                     "canvas_height": self._ctx.height,
                     "outside": "partially",
                 },
-                suggestion=self._move_inside_canvas_suggestion(measured),
+                suggestion=self._suggestions.move_inside_canvas(
+                    measured,
+                    canvas_width=self._ctx.width,
+                    canvas_height=self._ctx.height,
+                ),
                 **self._diagnostic_context(measured),
             )
         return None
-
-    def _move_inside_canvas_suggestion(self, measured: LayerMeasurement) -> str:
-        return self._suggestions.move_inside_canvas(measured)
 
     def _diagnose_text_layer(
         self, running: Image.Image, measured: LayerMeasurement
@@ -432,5 +436,5 @@ class DiagnosticsEngine:
             for color in text_colors
         )
 
-    def _diagnostic_context(self, measured: LayerMeasurement) -> dict[str, object]:
+    def _diagnostic_context(self, measured: LayerMeasurement) -> dict[str, Any]:
         return DiagnosticPayloads.context(measured)

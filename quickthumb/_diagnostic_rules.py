@@ -9,14 +9,6 @@ from quickthumb.models import Align
 
 
 @dataclass(frozen=True)
-class CanvasBounds:
-    """Canvas dimensions used by diagnostic rule utilities."""
-
-    width: int
-    height: int
-
-
-@dataclass(frozen=True)
 class LayerAlpha:
     """Binary alpha measurement for a rendered layer."""
 
@@ -49,21 +41,13 @@ class DiagnosticPayloads:
         }
 
     @classmethod
-    def context(
-        cls,
-        measured: LayerMeasurement,
-        *,
-        bbox: BBox | None = None,
-        related_layers: Iterable[str] | None = None,
-    ) -> dict[str, Any]:
-        box = measured.bbox if bbox is None else bbox
+    def context(cls, measured: LayerMeasurement) -> dict[str, Any]:
+        box = measured.bbox
         return {
             "layer_id": measured.layer_id,
             "layer_name": measured.name,
             "bbox": cls.bbox(box) if box is not None else None,
-            "related_layers": (
-                list(related_layers) if related_layers is not None else [measured.layer_id]
-            ),
+            "related_layers": [measured.layer_id],
         }
 
 
@@ -134,20 +118,19 @@ class MeasurementGeometry:
 class DiagnosticSuggestions:
     """Human-readable repair suggestions shared by diagnostic rules."""
 
-    def __init__(self, canvas: CanvasBounds):
-        self._canvas = canvas
-
-    def move_inside_canvas(self, measured: LayerMeasurement) -> str:
+    def move_inside_canvas(
+        self, measured: LayerMeasurement, *, canvas_width: int, canvas_height: int
+    ) -> str:
         box = measured.bbox
         assert box is not None
-        if box.width > self._canvas.width or box.height > self._canvas.height:
+        if box.width > canvas_width or box.height > canvas_height:
             return (
-                f"resize layer to fit within the {self._canvas.width}x{self._canvas.height} "
+                f"resize layer to fit within the {canvas_width}x{canvas_height} "
                 "canvas before moving it"
             )
 
-        bbox_x = min(max(box.x, 0), self._canvas.width - box.width)
-        bbox_y = min(max(box.y, 0), self._canvas.height - box.height)
+        bbox_x = min(max(box.x, 0), canvas_width - box.width)
+        bbox_y = min(max(box.y, 0), canvas_height - box.height)
         x, y = self._aligned_position(measured, bbox_x, bbox_y)
         return f"move layer to x={x}, y={y} to fit within the canvas"
 
@@ -171,13 +154,19 @@ class DiagnosticSuggestions:
         return x, y
 
     def clear_overlap(
-        self, upper: LayerMeasurement, lower: LayerMeasurement, *, clearance: int
+        self,
+        upper: LayerMeasurement,
+        lower: LayerMeasurement,
+        *,
+        canvas_width: int,
+        canvas_height: int,
+        clearance: int,
     ) -> str:
         upper_box = MeasurementGeometry.require_bbox(upper)
         lower_box = MeasurementGeometry.require_bbox(lower)
 
         below_y = lower_box.bottom + clearance
-        if below_y + upper_box.height <= self._canvas.height:
+        if below_y + upper_box.height <= canvas_height:
             return f"move layer {upper.index} to y={below_y} to clear the overlap"
 
         above_y = lower_box.y - upper_box.height - clearance
@@ -185,7 +174,7 @@ class DiagnosticSuggestions:
             return f"move layer {upper.index} to y={above_y} to clear the overlap"
 
         right_x = lower_box.right + clearance
-        if right_x + upper_box.width <= self._canvas.width:
+        if right_x + upper_box.width <= canvas_width:
             return f"move layer {upper.index} to x={right_x} to clear the overlap"
 
         left_x = lower_box.x - upper_box.width - clearance
@@ -223,18 +212,11 @@ class LayerAlphaCache:
         self._cache[measured.layer_id] = alpha
         return alpha
 
-
-class VisibleOverlapMeasurer:
-    """Measure visible-pixel intersection between two measured layers."""
-
-    def __init__(self, alpha_cache: LayerAlphaCache):
-        self._alpha_cache = alpha_cache
-
     def measure(
         self, lower: LayerMeasurement, upper: LayerMeasurement, overlap: BBox
     ) -> OverlapMeasurement | None:
-        lower_alpha = self._alpha_cache.get(lower)
-        upper_alpha = self._alpha_cache.get(upper)
+        lower_alpha = self.get(lower)
+        upper_alpha = self.get(upper)
         visible_area = self._visible_intersection_area(
             lower, upper, overlap, lower_alpha, upper_alpha
         )
