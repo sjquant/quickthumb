@@ -494,6 +494,70 @@ class TestCLILint:
         }
         assert finding["suggestion"] == "move layer to x=50, y=50 to fit within the canvas"
 
+    def test_should_emit_structured_json_for_layer_overlap(self):
+        """lint --format json includes structured layer-overlap fields"""
+        from quickthumb.cli import app
+
+        # given: a spec with two substantially overlapping visible shapes
+        spec_path = self._write_spec(
+            {
+                "width": 240,
+                "height": 180,
+                "layers": [
+                    {"type": "background", "color": "#FFFFFF"},
+                    {
+                        "type": "shape",
+                        "shape": "rectangle",
+                        "position": [20, 20],
+                        "width": 100,
+                        "height": 60,
+                        "color": "#FF0000",
+                    },
+                    {
+                        "type": "shape",
+                        "shape": "rectangle",
+                        "position": [80, 40],
+                        "width": 80,
+                        "height": 50,
+                        "color": "#00FF00",
+                    },
+                ],
+            }
+        )
+
+        # when
+        try:
+            result = CliRunner().invoke(app, ["lint", spec_path, "--format", "json"])
+        finally:
+            os.unlink(spec_path)
+
+        # then
+        assert result.exit_code == 3
+        payload = json.loads(result.output)
+        assert payload["summary"] == {
+            "diagnostic_count": 1,
+            "error_count": 0,
+            "warning_count": 1,
+        }
+        finding = payload["diagnostics"][0]
+        assert finding["code"] == "layer-overlap"
+        assert finding["severity"] == "warning"
+        assert finding["layer_index"] == 2
+        assert finding["layer_id"] == "layer:2"
+        assert finding["bbox"] == {"x": 80, "y": 40, "width": 40, "height": 40}
+        assert finding["related_layers"] == ["layer:2", "layer:1"]
+        assert finding["measured"]["lower_layer_id"] == "layer:1"
+        assert finding["measured"]["upper_layer_id"] == "layer:2"
+        assert finding["measured"]["overlap_bbox"] == {
+            "x": 80,
+            "y": 40,
+            "width": 40,
+            "height": 40,
+        }
+        assert finding["measured"]["bbox_overlap"] == 1600
+        assert finding["measured"]["visible_overlap"] == 1600
+        assert finding["suggestion"] == "move layer 2 to y=88 to clear the overlap"
+
     def test_should_exit_1_for_invalid_lint_format(self, spec_file):
         """lint exits 1 when --format is neither text nor json"""
         from quickthumb.cli import app

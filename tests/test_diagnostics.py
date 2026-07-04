@@ -3,7 +3,6 @@
 from pathlib import Path
 
 import pytest
-from inline_snapshot import snapshot
 from PIL import Image
 
 FIXTURE_SVG = str(Path(__file__).parent / "fixtures" / "sample.svg")
@@ -636,7 +635,6 @@ class TestDiagnoseLayerOverlap:
     def test_should_warn_for_partial_overlap(self):
         """Substantial partial overlap between measured boxes is suspicious"""
         from quickthumb import Canvas
-        from quickthumb.models import Diagnostic
 
         # given: two visible shapes with a 40x40 intersection
         canvas = (
@@ -662,23 +660,38 @@ class TestDiagnoseLayerOverlap:
         diagnostics = canvas.diagnose()
 
         # then
-        assert diagnostics == snapshot(
-            [
-                Diagnostic(
-                    code="layer-overlap",
-                    severity="warning",
-                    layer_index=2,
-                    message=(
-                        "shape layer layer:2 (order 2) overlaps shape layer layer:1 "
-                        "(order 1); bbox_overlap=1600px "
-                        "(bbox_overlap_pct=40% of upper, 27% of lower), "
-                        "visible_overlap=1600px "
-                        "(visible_overlap_pct=40% of upper, 27% of lower); "
-                        "move layer 2 to y=88 to clear the overlap"
-                    ),
-                )
-            ]
-        )
+        assert [finding.model_dump(mode="json", exclude_none=True) for finding in diagnostics] == [
+            {
+                "code": "layer-overlap",
+                "severity": "warning",
+                "layer_index": 2,
+                "message": (
+                    "shape layer layer:2 (order 2) overlaps shape layer layer:1 "
+                    "(order 1); bbox_overlap=1600px "
+                    "(bbox_overlap_pct=40% of upper, 27% of lower), "
+                    "visible_overlap=1600px "
+                    "(visible_overlap_pct=40% of upper, 27% of lower); "
+                    "move layer 2 to y=88 to clear the overlap"
+                ),
+                "layer_id": "layer:2",
+                "bbox": {"x": 80, "y": 40, "width": 40, "height": 40},
+                "related_layers": ["layer:2", "layer:1"],
+                "measured": {
+                    "lower_layer_id": "layer:1",
+                    "upper_layer_id": "layer:2",
+                    "lower_bbox": {"x": 20, "y": 20, "width": 100, "height": 60},
+                    "upper_bbox": {"x": 80, "y": 40, "width": 80, "height": 50},
+                    "overlap_bbox": {"x": 80, "y": 40, "width": 40, "height": 40},
+                    "bbox_overlap": 1600,
+                    "bbox_overlap_pct_lower": 1600 / 6000,
+                    "bbox_overlap_pct_upper": 1600 / 4000,
+                    "visible_overlap": 1600,
+                    "visible_overlap_pct_lower": 1600 / 6000,
+                    "visible_overlap_pct_upper": 1600 / 4000,
+                },
+                "suggestion": "move layer 2 to y=88 to clear the overlap",
+            }
+        ]
 
     def test_should_not_warn_for_ellipse_corner_bbox_overlap(self):
         """Ellipse masks prevent corner-only bounding-box intersections from warning"""

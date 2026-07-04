@@ -23,7 +23,7 @@ Each `Diagnostic` has stable human-readable fields and optional structured field
 
 | Field | Type | Description |
 | --- | --- | --- |
-| `code` | `str` | One of `"off-canvas"`, `"tiny-text"`, `"text-overflow"`, `"low-contrast"` |
+| `code` | `str` | One of `"off-canvas"`, `"tiny-text"`, `"text-overflow"`, `"low-contrast"`, `"layer-overlap"` |
 | `severity` | `str` | `"warning"` or `"error"` |
 | `layer_index` | `int` | Index of the offending layer in `canvas.layers` |
 | `message` | `str` | Human-readable explanation with the measured values |
@@ -42,6 +42,7 @@ Each `Diagnostic` has stable human-readable fields and optional structured field
 | `tiny-text` | Text smaller than 2.5% of the canvas height — likely illegible at thumbnail display sizes |
 | `text-overflow` | A single word is wider than the layer's `max_width` and cannot be wrapped |
 | `low-contrast` | Text color has a contrast ratio under 2.0 against the composited layers below it |
+| `layer-overlap` | Two visible layers overlap substantially enough to obscure one another |
 
 !!! tip "Agent loop"
     `diagnose()` is designed for render → diagnose → fix iteration: have an LLM emit a spec, run `diagnose()`, and feed the findings back as targeted edit instructions instead of re-prompting from scratch.

@@ -208,7 +208,34 @@ class DiagnosticsEngine:
                 f"(visible_overlap_pct={measured_overlap.upper_visible_pct:.0%} of upper, "
                 f"{measured_overlap.lower_visible_pct:.0%} of lower); {suggestion}"
             ),
+            layer_id=upper.layer_id,
+            layer_name=upper.name,
+            bbox=self._bbox_to_payload(overlap),
+            related_layers=[upper.layer_id, lower.layer_id],
+            measured={
+                "lower_layer_id": lower.layer_id,
+                "upper_layer_id": upper.layer_id,
+                "lower_bbox": self._bbox_to_payload(lower_box),
+                "upper_bbox": self._bbox_to_payload(upper_box),
+                "overlap_bbox": self._bbox_to_payload(overlap),
+                "bbox_overlap": measured_overlap.bbox_area,
+                "bbox_overlap_pct_lower": measured_overlap.lower_bbox_pct,
+                "bbox_overlap_pct_upper": measured_overlap.upper_bbox_pct,
+                "visible_overlap": measured_overlap.visible_area,
+                "visible_overlap_pct_lower": measured_overlap.lower_visible_pct,
+                "visible_overlap_pct_upper": measured_overlap.upper_visible_pct,
+            },
+            suggestion=suggestion,
         )
+
+    @staticmethod
+    def _bbox_to_payload(box: BBox) -> dict[str, int]:
+        return {
+            "x": box.x,
+            "y": box.y,
+            "width": box.width,
+            "height": box.height,
+        }
 
     def _is_suspicious_overlap(
         self, lower: LayerMeasurement, upper: LayerMeasurement, overlap: _OverlapMeasurement
@@ -602,9 +629,4 @@ class DiagnosticsEngine:
     def _bbox_payload(measured: LayerMeasurement) -> dict[str, int] | None:
         if measured.bbox is None:
             return None
-        return {
-            "x": measured.bbox.x,
-            "y": measured.bbox.y,
-            "width": measured.bbox.width,
-            "height": measured.bbox.height,
-        }
+        return DiagnosticsEngine._bbox_to_payload(measured.bbox)
