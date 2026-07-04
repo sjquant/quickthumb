@@ -402,11 +402,10 @@ def _compute_rotated_layout(canvas: Canvas, layer: TextLayer) -> TextBlockLayout
     """Mirror the engine's rotate-a-staging-image path as a transform description."""
     text = canvas._text
 
+    text_w, text_h = text.measure_text_size(layer)
     if isinstance(layer.content, list):
-        text_w, text_h = text.measure_rich_text_size(layer)
         padding = text._calculate_rich_text_effects_padding(layer)
     else:
-        text_w, text_h = text.measure_simple_text_size(layer)
         padding = text._calculate_text_effects_padding(
             text._get_stroke_effects(layer.effects),
             text._get_shadow_effects(layer.effects),

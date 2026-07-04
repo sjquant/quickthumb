@@ -989,7 +989,7 @@ class TextEngine:
         shadow_effects = self._get_shadow_effects(layer.effects)
         glow_effects = self._get_glow_effects(layer.effects)
 
-        text_width, text_height = self.measure_simple_text_size(layer)
+        text_width, text_height = self.measure_text_size(layer)
         padding = self._calculate_text_effects_padding(stroke_effects, shadow_effects, glow_effects)
         temp_image, _ = self._create_temp_image_for_text(text_width, text_height, padding)
 
@@ -1005,8 +1005,8 @@ class TextEngine:
         self._render_simple_text(temp_image, temp_layer)
         self._rotate_and_composite_text(image, temp_image, layer)
 
-    def measure_simple_text_size(self, layer: TextLayer) -> tuple[int, int]:
-        """Calculate text bounding box size accounting for wrapping."""
+    def measure_text_size(self, layer: TextLayer) -> tuple[int, int]:
+        """Calculate rendered text bounding box size accounting for wrapping."""
         return self.measure_text_layout(layer)["size"]
 
     def _render_rotated_rich_text(self, image: Image.Image, layer: TextLayer):
@@ -1019,7 +1019,7 @@ class TextEngine:
         if not isinstance(layer.content, list):
             return
 
-        text_width, text_height = self.measure_rich_text_size(layer)
+        text_width, text_height = self.measure_text_size(layer)
         padding = self._calculate_rich_text_effects_padding(layer)
         temp_image, _ = self._create_temp_image_for_text(text_width, text_height, padding)
 
@@ -1034,10 +1034,6 @@ class TextEngine:
         )
         self._render_rich_text(temp_image, temp_layer)
         self._rotate_and_composite_text(image, temp_image, layer)
-
-    def measure_rich_text_size(self, layer: TextLayer) -> tuple[int, int]:
-        """Calculate rich text bounding box size."""
-        return self.measure_text_layout(layer)["size"]
 
     def _calculate_rich_text_effects_padding(self, layer: TextLayer) -> int:
         """Calculate padding for rich text effects from both layer and part-level effects."""
