@@ -621,12 +621,6 @@ class DiagnosticsEngine:
         return {
             "layer_id": measured.layer_id,
             "layer_name": measured.name,
-            "bbox": self._bbox_payload(measured),
+            "bbox": (self._bbox_to_payload(measured.bbox) if measured.bbox is not None else None),
             "related_layers": [measured.layer_id],
         }
-
-    @staticmethod
-    def _bbox_payload(measured: LayerMeasurement) -> dict[str, int] | None:
-        if measured.bbox is None:
-            return None
-        return DiagnosticsEngine._bbox_to_payload(measured.bbox)
