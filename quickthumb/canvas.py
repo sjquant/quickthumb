@@ -25,6 +25,7 @@ from quickthumb.models import (
     BackgroundLayer,
     BlendMode,
     CanvasInspection,
+    Diagnostic,
     FitMode,
     Grain,
     GroupLayer,
@@ -211,7 +212,7 @@ class Canvas:
     def layers(self, value: list[RenderableLayer]):
         self._layers = value
 
-    def diagnose(self) -> list:
+    def diagnose(self) -> list[Diagnostic]:
         """Check layers for layout and legibility issues without producing an output file.
 
         Returns structured findings (off-canvas, tiny-text, text-overflow, low-contrast)
@@ -219,7 +220,7 @@ class Canvas:
         """
         return self._diagnostics.diagnose()
 
-    def inspect(self):
+    def inspect(self) -> CanvasInspection:
         """Return a deterministic layout report for this canvas without rendering output."""
         self._validate_image_paths()
         self._ctx.begin_render_pass()

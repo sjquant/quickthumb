@@ -56,6 +56,12 @@ class TextPartMetadata(TypedDict):
     width: int
 
 
+class TextLayoutMetadata(TypedDict):
+    wrapped_lines: tuple[str, ...]
+    effective_font_size: int
+    effective_font_sizes: tuple[int, ...]
+
+
 class TextEngine:
     """Text layout, measurement, wrapping, effects, and rendering."""
 
@@ -160,13 +166,13 @@ class TextEngine:
             return self._auto_scale_rich_text(layer)
         return self._auto_scale_simple_text(layer)
 
-    def measure_text_layout(self, layer: TextLayer) -> dict[str, object]:
+    def measure_text_layout(self, layer: TextLayer) -> TextLayoutMetadata:
         """Return rendered text line and font-size metadata for inspection."""
         if isinstance(layer.content, list):
             return self._measure_rich_text_layout(layer)
         return self._measure_simple_text_layout(layer)
 
-    def _measure_simple_text_layout(self, layer: TextLayer) -> dict[str, object]:
+    def _measure_simple_text_layout(self, layer: TextLayer) -> TextLayoutMetadata:
         font = self._fonts.load_font(layer)
         content = layer.content if isinstance(layer.content, str) else ""
         if layer.max_width:
@@ -183,7 +189,7 @@ class TextEngine:
             "effective_font_sizes": (layer.size or DEFAULT_TEXT_SIZE,),
         }
 
-    def _measure_rich_text_layout(self, layer: TextLayer) -> dict[str, object]:
+    def _measure_rich_text_layout(self, layer: TextLayer) -> TextLayoutMetadata:
         lines = self._prepare_rich_text_lines(layer, apply_wrapping=not layer.auto_scale)
         line_text = tuple("".join(part["text"] for part in line) for line in lines)
         sizes = tuple(sorted({part["size"] for line in lines for part in line}))
