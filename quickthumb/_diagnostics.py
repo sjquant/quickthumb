@@ -1,15 +1,23 @@
-from collections.abc import Iterable
-from dataclasses import dataclass
 from math import ceil
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
-from PIL import Image, ImageChops, ImageStat
+from PIL import Image
 
 from quickthumb._base import (
     DEFAULT_TEXT_COLOR,
     DEFAULT_TEXT_SIZE,
     RenderContext,
     parse_coordinate,
+)
+from quickthumb._diagnostic_rules import (
+    CanvasBounds,
+    DiagnosticPayloads,
+    DiagnosticSuggestions,
+    LayerAlphaCache,
+    MeasurementGeometry,
+    OverlapMeasurement,
+    RegionSampler,
+    VisibleOverlapMeasurer,
 )
 from quickthumb._effects import EffectsEngine
 from quickthumb._fonts import FontEngine
@@ -22,7 +30,6 @@ from quickthumb._text import TextEngine
 if TYPE_CHECKING:
     from quickthumb.canvas import Canvas
 from quickthumb.models import (
-    Align,
     Diagnostic,
     GroupLayer,
     ImageLayer,
@@ -36,38 +43,6 @@ LOW_CONTRAST_THRESHOLD = 2.0
 MIN_PARTIAL_OVERLAP_RATIO = 0.2
 BACKDROP_COVERAGE_RATIO = 0.95
 OVERLAP_CLEARANCE_PX = 8
-
-
-def _relative_luminance(rgb: tuple[float, ...]) -> float:
-    channels = []
-    for value in rgb:
-        c = value / 255
-        channels.append(c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4)
-    r, g, b = channels[:3]
-    return 0.2126 * r + 0.7152 * g + 0.0722 * b
-
-
-def _contrast_ratio(rgb_a: tuple[float, ...], rgb_b: tuple[float, ...]) -> float:
-    lum_a = _relative_luminance(rgb_a)
-    lum_b = _relative_luminance(rgb_b)
-    lighter, darker = max(lum_a, lum_b), min(lum_a, lum_b)
-    return (lighter + 0.05) / (darker + 0.05)
-
-
-@dataclass(frozen=True)
-class _LayerAlpha:
-    visible_area: int
-    mask: Image.Image | None = None
-
-
-@dataclass(frozen=True)
-class _OverlapMeasurement:
-    bbox_area: int
-    visible_area: int
-    lower_bbox_pct: float
-    upper_bbox_pct: float
-    lower_visible_pct: float
-    upper_visible_pct: float
 
 
 class DiagnosticsEngine:
@@ -92,7 +67,12 @@ class DiagnosticsEngine:
         self._shapes = shapes
         self._text = text
         self._groups = groups
-        self._alpha_cache: dict[str, _LayerAlpha] = {}
+        canvas_bounds = CanvasBounds(ctx.width, ctx.height)
+        self._suggestions = DiagnosticSuggestions(canvas_bounds)
+        self._alpha_cache = LayerAlphaCache(
+            self._has_opaque_rectangle_mask, self._render_layer_alpha_mask
+        )
+        self._overlap_measurer = VisibleOverlapMeasurer(self._alpha_cache)
 
     def diagnose(self) -> list[Diagnostic]:
         """Check layers for layout and legibility issues without producing an output file.
@@ -131,57 +111,18 @@ class DiagnosticsEngine:
 
     def _diagnose_layer_overlaps(self, measurements: list[LayerMeasurement]) -> list[Diagnostic]:
         findings: list[Diagnostic] = []
-        candidates = list(self._iter_overlap_candidates(measurements))
-        for lower, upper in self._candidate_overlap_pairs(candidates):
+        candidates = list(MeasurementGeometry.visible_leaf_layers(measurements))
+        for lower, upper in MeasurementGeometry.overlap_pairs(candidates):
             finding = self._diagnose_candidate_overlap(lower, upper)
             if finding is not None:
                 findings.append(finding)
         return findings
 
-    def _iter_overlap_candidates(
-        self, measurements: Iterable[LayerMeasurement]
-    ) -> Iterable[LayerMeasurement]:
-        for measured in measurements:
-            if measured.children:
-                yield from self._iter_overlap_candidates(measured.children)
-            elif measured.visible and measured.bbox is not None and not measured.bbox.is_empty:
-                yield measured
-
-    def _candidate_overlap_pairs(
-        self, candidates: list[LayerMeasurement]
-    ) -> Iterable[tuple[LayerMeasurement, LayerMeasurement]]:
-        active: list[tuple[int, LayerMeasurement]] = []
-        pairs: list[tuple[int, int, LayerMeasurement, LayerMeasurement]] = []
-        by_left_edge = sorted(
-            enumerate(candidates),
-            key=lambda item: self._bbox(item[1]).x,
-        )
-
-        for candidate_order, candidate in by_left_edge:
-            candidate_box = self._bbox(candidate)
-            active = [
-                (other_order, other)
-                for other_order, other in active
-                if self._bbox(other).right > candidate_box.x
-            ]
-            for other_order, other in active:
-                if other_order < candidate_order:
-                    lower_order, upper_order = other_order, candidate_order
-                    lower, upper = other, candidate
-                else:
-                    lower_order, upper_order = candidate_order, other_order
-                    lower, upper = candidate, other
-                pairs.append((lower_order, upper_order, lower, upper))
-            active.append((candidate_order, candidate))
-
-        for _, _, lower, upper in sorted(pairs, key=lambda item: (item[0], item[1])):
-            yield lower, upper
-
     def _diagnose_candidate_overlap(
         self, lower: LayerMeasurement, upper: LayerMeasurement
     ) -> Diagnostic | None:
-        lower_box = self._bbox(lower)
-        upper_box = self._bbox(upper)
+        lower_box = MeasurementGeometry.require_bbox(lower)
+        upper_box = MeasurementGeometry.require_bbox(upper)
         overlap = lower_box.intersection(upper_box)
         if overlap is None:
             return None
@@ -199,8 +140,8 @@ class DiagnosticsEngine:
             severity="warning",
             layer_index=upper.index,
             message=(
-                f"{self._layer_label(upper)} (order {upper.order}) "
-                f"overlaps {self._layer_label(lower)} "
+                f"{MeasurementGeometry.layer_label(upper)} (order {upper.order}) "
+                f"overlaps {MeasurementGeometry.layer_label(lower)} "
                 f"(order {lower.order}); bbox_overlap={measured_overlap.bbox_area}px "
                 f"(bbox_overlap_pct={measured_overlap.upper_bbox_pct:.0%} of upper, "
                 f"{measured_overlap.lower_bbox_pct:.0%} of lower), "
@@ -210,14 +151,14 @@ class DiagnosticsEngine:
             ),
             layer_id=upper.layer_id,
             layer_name=upper.name,
-            bbox=self._bbox_to_payload(overlap),
+            bbox=DiagnosticPayloads.bbox(overlap),
             related_layers=[upper.layer_id, lower.layer_id],
             measured={
                 "lower_layer_id": lower.layer_id,
                 "upper_layer_id": upper.layer_id,
-                "lower_bbox": self._bbox_to_payload(lower_box),
-                "upper_bbox": self._bbox_to_payload(upper_box),
-                "overlap_bbox": self._bbox_to_payload(overlap),
+                "lower_bbox": DiagnosticPayloads.bbox(lower_box),
+                "upper_bbox": DiagnosticPayloads.bbox(upper_box),
+                "overlap_bbox": DiagnosticPayloads.bbox(overlap),
                 "bbox_overlap": measured_overlap.bbox_area,
                 "bbox_overlap_pct_lower": measured_overlap.lower_bbox_pct,
                 "bbox_overlap_pct_upper": measured_overlap.upper_bbox_pct,
@@ -228,17 +169,8 @@ class DiagnosticsEngine:
             suggestion=suggestion,
         )
 
-    @staticmethod
-    def _bbox_to_payload(box: BBox) -> dict[str, int]:
-        return {
-            "x": box.x,
-            "y": box.y,
-            "width": box.width,
-            "height": box.height,
-        }
-
     def _is_suspicious_overlap(
-        self, lower: LayerMeasurement, upper: LayerMeasurement, overlap: _OverlapMeasurement
+        self, lower: LayerMeasurement, upper: LayerMeasurement, overlap: OverlapMeasurement
     ) -> bool:
         if lower.layer_type == "text" and upper.layer_type == "text":
             return True
@@ -256,7 +188,7 @@ class DiagnosticsEngine:
         return overlap_ratio >= MIN_PARTIAL_OVERLAP_RATIO
 
     def _is_text_on_backdrop(
-        self, lower: LayerMeasurement, upper: LayerMeasurement, overlap: _OverlapMeasurement
+        self, lower: LayerMeasurement, upper: LayerMeasurement, overlap: OverlapMeasurement
     ) -> bool:
         if lower.layer_type == "text" or upper.layer_type != "text":
             return False
@@ -264,62 +196,8 @@ class DiagnosticsEngine:
 
     def _measure_visible_overlap(
         self, lower: LayerMeasurement, upper: LayerMeasurement, overlap: BBox
-    ) -> _OverlapMeasurement | None:
-        lower_alpha = self._layer_alpha(lower)
-        upper_alpha = self._layer_alpha(upper)
-        visible_area = self._visible_intersection_area(
-            lower, upper, overlap, lower_alpha, upper_alpha
-        )
-        if visible_area == 0:
-            return None
-
-        return _OverlapMeasurement(
-            bbox_area=overlap.area,
-            visible_area=visible_area,
-            lower_bbox_pct=overlap.area / self._bbox(lower).area,
-            upper_bbox_pct=overlap.area / self._bbox(upper).area,
-            lower_visible_pct=visible_area / lower_alpha.visible_area,
-            upper_visible_pct=visible_area / upper_alpha.visible_area,
-        )
-
-    def _visible_intersection_area(
-        self,
-        lower: LayerMeasurement,
-        upper: LayerMeasurement,
-        overlap: BBox,
-        lower_alpha: _LayerAlpha,
-        upper_alpha: _LayerAlpha,
-    ) -> int:
-        if lower_alpha.mask is None and upper_alpha.mask is None:
-            return overlap.area
-
-        lower_mask = self._alpha_region(lower, lower_alpha, overlap)
-        upper_mask = self._alpha_region(upper, upper_alpha, overlap)
-        combined = ImageChops.multiply(lower_mask, upper_mask)
-        return int(ImageStat.Stat(combined).sum[0] / 255)
-
-    def _alpha_region(
-        self, measured: LayerMeasurement, alpha: _LayerAlpha, region: BBox
-    ) -> Image.Image:
-        if alpha.mask is None:
-            return Image.new("L", (region.width, region.height), 255)
-        box = self._bbox(measured)
-        left, top = region.x - box.x, region.y - box.y
-        mask = alpha.mask.crop((left, top, left + region.width, top + region.height))
-        return mask.point(lambda value: 255 if value else 0)
-
-    def _layer_alpha(self, measured: LayerMeasurement) -> _LayerAlpha:
-        cached = self._alpha_cache.get(measured.layer_id)
-        if cached is not None:
-            return cached
-
-        if self._has_opaque_rectangle_mask(measured):
-            alpha = _LayerAlpha(visible_area=self._bbox(measured).area)
-        else:
-            mask = self._render_layer_alpha_mask(measured)
-            alpha = _LayerAlpha(visible_area=self._mask_area(mask), mask=mask)
-        self._alpha_cache[measured.layer_id] = alpha
-        return alpha
+    ) -> OverlapMeasurement | None:
+        return self._overlap_measurer.measure(lower, upper, overlap)
 
     def _has_opaque_rectangle_mask(self, measured: LayerMeasurement) -> bool:
         layer = measured.raw_layer
@@ -333,7 +211,7 @@ class DiagnosticsEngine:
         )
 
     def _render_layer_alpha_mask(self, measured: LayerMeasurement) -> Image.Image:
-        box = self._bbox(measured)
+        box = MeasurementGeometry.require_bbox(measured)
         image = Image.new("RGBA", (self._ctx.width, self._ctx.height), (0, 0, 0, 0))
         layer = measured.raw_layer
         if isinstance(layer, TextLayer):
@@ -352,41 +230,8 @@ class DiagnosticsEngine:
             .point(lambda value: 255 if value else 0)
         )
 
-    @staticmethod
-    def _mask_area(mask: Image.Image) -> int:
-        return int(ImageStat.Stat(mask).sum[0] / 255)
-
     def _overlap_suggestion(self, upper: LayerMeasurement, lower: LayerMeasurement) -> str:
-        upper_box = self._bbox(upper)
-        lower_box = self._bbox(lower)
-
-        below_y = lower_box.bottom + OVERLAP_CLEARANCE_PX
-        if below_y + upper_box.height <= self._ctx.height:
-            return f"move layer {upper.index} to y={below_y} to clear the overlap"
-
-        above_y = lower_box.y - upper_box.height - OVERLAP_CLEARANCE_PX
-        if above_y >= 0:
-            return f"move layer {upper.index} to y={above_y} to clear the overlap"
-
-        right_x = lower_box.right + OVERLAP_CLEARANCE_PX
-        if right_x + upper_box.width <= self._ctx.width:
-            return f"move layer {upper.index} to x={right_x} to clear the overlap"
-
-        left_x = lower_box.x - upper_box.width - OVERLAP_CLEARANCE_PX
-        if left_x >= 0:
-            return f"move layer {upper.index} to x={left_x} to clear the overlap"
-
-        return f"move or resize layer {upper.index} to clear the overlap"
-
-    @staticmethod
-    def _layer_label(measured: LayerMeasurement) -> str:
-        return f"{measured.layer_type} layer {measured.layer_id}"
-
-    @staticmethod
-    def _bbox(measured: LayerMeasurement) -> BBox:
-        box = measured.bbox
-        assert box is not None and not box.is_empty
-        return box
+        return self._suggestions.clear_overlap(upper, lower, clearance=OVERLAP_CLEARANCE_PX)
 
     def _diagnose_off_canvas(self, measured: LayerMeasurement) -> Diagnostic | None:
         box = measured.bbox
@@ -434,31 +279,7 @@ class DiagnosticsEngine:
         return None
 
     def _move_inside_canvas_suggestion(self, measured: LayerMeasurement) -> str:
-        box = measured.bbox
-        assert box is not None
-        if box.width > self._ctx.width or box.height > self._ctx.height:
-            return (
-                f"resize layer to fit within the {self._ctx.width}x{self._ctx.height} canvas "
-                "before moving it"
-            )
-
-        bbox_x = min(max(box.x, 0), self._ctx.width - box.width)
-        bbox_y = min(max(box.y, 0), self._ctx.height - box.height)
-        x, y = bbox_x, bbox_y
-        align = measured.metadata.get("align")
-        if not isinstance(align, Align):
-            align = getattr(measured.raw_layer, "align", None)
-        if isinstance(align, Align):
-            if align.horizontal == "center":
-                x += box.width // 2
-            elif align.horizontal == "right":
-                x += box.width
-
-            if align.vertical == "middle":
-                y += box.height // 2
-            elif align.vertical == "bottom":
-                y += box.height
-        return f"move layer to x={x}, y={y} to fit within the canvas"
+        return self._suggestions.move_inside_canvas(measured)
 
     def _diagnose_text_layer(
         self, running: Image.Image, measured: LayerMeasurement
@@ -604,23 +425,12 @@ class DiagnosticsEngine:
         if clamped is None:
             return None
 
-        region = running.crop((clamped.x, clamped.y, clamped.right, clamped.bottom))
-        mean_r, mean_g, mean_b, mean_a = ImageStat.Stat(region).mean
-
-        # Transparent areas read as white, matching JPEG export and typical viewers.
-        alpha = mean_a / 255
-        background = tuple(
-            channel * alpha + 255 * (1 - alpha) for channel in (mean_r, mean_g, mean_b)
-        )
+        background = RegionSampler.average_visible_background(running, clamped)
 
         return min(
-            _contrast_ratio(tuple(float(c) for c in color[:3]), background) for color in text_colors
+            RegionSampler.contrast_ratio(tuple(float(c) for c in color[:3]), background)
+            for color in text_colors
         )
 
-    def _diagnostic_context(self, measured: LayerMeasurement) -> dict[str, Any]:
-        return {
-            "layer_id": measured.layer_id,
-            "layer_name": measured.name,
-            "bbox": (self._bbox_to_payload(measured.bbox) if measured.bbox is not None else None),
-            "related_layers": [measured.layer_id],
-        }
+    def _diagnostic_context(self, measured: LayerMeasurement) -> dict[str, object]:
+        return DiagnosticPayloads.context(measured)

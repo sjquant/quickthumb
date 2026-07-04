@@ -574,6 +574,63 @@ class TestCLILint:
             ],
         }
 
+    def test_should_emit_structured_json_for_group_child_overlap(self):
+        """lint --format json reports grouped child overlap with stable related layer ids"""
+        from quickthumb.cli import app
+
+        # given: a grouped text child and a later top-level text layer overlap
+        spec_path = self._write_spec(
+            {
+                "width": 360,
+                "height": 220,
+                "layers": [
+                    {"type": "background", "color": "#FFFFFF"},
+                    {
+                        "type": "group",
+                        "position": [20, 20],
+                        "children": [
+                            {
+                                "type": "text",
+                                "content": "Alpha",
+                                "size": 48,
+                                "color": "#000000",
+                            }
+                        ],
+                    },
+                    {
+                        "type": "text",
+                        "content": "Beta",
+                        "size": 48,
+                        "color": "#000000",
+                        "position": [50, 32],
+                    },
+                ],
+            }
+        )
+
+        # when
+        try:
+            result = CliRunner().invoke(app, ["lint", spec_path, "--format", "json"])
+        finally:
+            os.unlink(spec_path)
+
+        # then
+        assert result.exit_code == 3
+        payload = json.loads(result.output)
+        assert payload["summary"] == {
+            "diagnostic_count": 1,
+            "error_count": 0,
+            "warning_count": 1,
+        }
+        finding = payload["diagnostics"][0]
+        assert finding["code"] == "layer-overlap"
+        assert finding["layer_index"] == 2
+        assert finding["layer_id"] == "layer:2"
+        assert finding["related_layers"] == ["layer:2", "layer:1:0"]
+        assert finding["measured"]["lower_layer_id"] == "layer:1:0"
+        assert finding["measured"]["upper_layer_id"] == "layer:2"
+        assert "overlaps text layer layer:1:0" in finding["message"]
+
     def test_should_exit_1_for_invalid_lint_format(self, spec_file):
         """lint exits 1 when --format is neither text nor json"""
         from quickthumb.cli import app
