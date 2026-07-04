@@ -985,14 +985,11 @@ class TextEngine:
         then compositing the result onto the main canvas. This approach preserves
         all text effects during rotation.
         """
-        font = self._fonts.load_font(layer)
-        content = layer.content if isinstance(layer.content, str) else ""
-
         stroke_effects = self._get_stroke_effects(layer.effects)
         shadow_effects = self._get_shadow_effects(layer.effects)
         glow_effects = self._get_glow_effects(layer.effects)
 
-        text_width, text_height = self.measure_simple_text_size(layer, font, content)
+        text_width, text_height = self.measure_simple_text_size(layer)
         padding = self._calculate_text_effects_padding(stroke_effects, shadow_effects, glow_effects)
         temp_image, _ = self._create_temp_image_for_text(text_width, text_height, padding)
 
@@ -1008,9 +1005,7 @@ class TextEngine:
         self._render_simple_text(temp_image, temp_layer)
         self._rotate_and_composite_text(image, temp_image, layer)
 
-    def measure_simple_text_size(
-        self, layer: TextLayer, font: FontType, content: str
-    ) -> tuple[int, int]:
+    def measure_simple_text_size(self, layer: TextLayer) -> tuple[int, int]:
         """Calculate text bounding box size accounting for wrapping."""
         return self.measure_text_layout(layer)["size"]
 

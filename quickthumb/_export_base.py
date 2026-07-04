@@ -406,9 +406,7 @@ def _compute_rotated_layout(canvas: Canvas, layer: TextLayer) -> TextBlockLayout
         text_w, text_h = text.measure_rich_text_size(layer)
         padding = text._calculate_rich_text_effects_padding(layer)
     else:
-        font = canvas._fonts.load_font(layer)
-        content = layer.content if isinstance(layer.content, str) else ""
-        text_w, text_h = text.measure_simple_text_size(layer, font, content)
+        text_w, text_h = text.measure_simple_text_size(layer)
         padding = text._calculate_text_effects_padding(
             text._get_stroke_effects(layer.effects),
             text._get_shadow_effects(layer.effects),

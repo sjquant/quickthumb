@@ -177,8 +177,7 @@ class GroupEngine:
             child = self._text.effective_layer(child)
             if isinstance(child.content, list):
                 return self._text.measure_rich_text_size(child)
-            font = self._fonts.load_font(child)
-            return self._text.measure_simple_text_size(child, font, child.content)
+            return self._text.measure_simple_text_size(child)
         if isinstance(child, ImageLayer):
             return expanded_rotation_size(self._measure_image_size(child), child.rotation)
         if isinstance(child, SvgLayer):
