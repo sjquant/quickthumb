@@ -1,6 +1,7 @@
 from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from math import ceil
+from typing import TYPE_CHECKING, Any
 
 from PIL import Image, ImageChops, ImageStat
 
@@ -20,7 +21,15 @@ from quickthumb._text import TextEngine
 
 if TYPE_CHECKING:
     from quickthumb.canvas import Canvas
-from quickthumb.models import Diagnostic, GroupLayer, ImageLayer, ShapeLayer, SvgLayer, TextLayer
+from quickthumb.models import (
+    Align,
+    Diagnostic,
+    GroupLayer,
+    ImageLayer,
+    ShapeLayer,
+    SvgLayer,
+    TextLayer,
+)
 
 TINY_TEXT_RATIO = 0.025
 LOW_CONTRAST_THRESHOLD = 2.0
@@ -199,7 +208,34 @@ class DiagnosticsEngine:
                 f"(visible_overlap_pct={measured_overlap.upper_visible_pct:.0%} of upper, "
                 f"{measured_overlap.lower_visible_pct:.0%} of lower); {suggestion}"
             ),
+            layer_id=upper.layer_id,
+            layer_name=upper.name,
+            bbox=self._bbox_to_payload(overlap),
+            related_layers=[upper.layer_id, lower.layer_id],
+            measured={
+                "lower_layer_id": lower.layer_id,
+                "upper_layer_id": upper.layer_id,
+                "lower_bbox": self._bbox_to_payload(lower_box),
+                "upper_bbox": self._bbox_to_payload(upper_box),
+                "overlap_bbox": self._bbox_to_payload(overlap),
+                "bbox_overlap": measured_overlap.bbox_area,
+                "bbox_overlap_pct_lower": measured_overlap.lower_bbox_pct,
+                "bbox_overlap_pct_upper": measured_overlap.upper_bbox_pct,
+                "visible_overlap": measured_overlap.visible_area,
+                "visible_overlap_pct_lower": measured_overlap.lower_visible_pct,
+                "visible_overlap_pct_upper": measured_overlap.upper_visible_pct,
+            },
+            suggestion=suggestion,
         )
+
+    @staticmethod
+    def _bbox_to_payload(box: BBox) -> dict[str, int]:
+        return {
+            "x": box.x,
+            "y": box.y,
+            "width": box.width,
+            "height": box.height,
+        }
 
     def _is_suspicious_overlap(
         self, lower: LayerMeasurement, upper: LayerMeasurement, overlap: _OverlapMeasurement
@@ -368,6 +404,14 @@ class DiagnosticsEngine:
                     f"{layer_type} layer at ({x}, {y}) size {w}x{h} is entirely outside "
                     f"the {self._ctx.width}x{self._ctx.height} canvas"
                 ),
+                measured={
+                    "layer_type": layer_type,
+                    "canvas_width": self._ctx.width,
+                    "canvas_height": self._ctx.height,
+                    "outside": "fully",
+                },
+                suggestion=self._move_inside_canvas_suggestion(measured),
+                **self._diagnostic_context(measured),
             )
         if box.is_partially_outside(self._ctx.width, self._ctx.height):
             return Diagnostic(
@@ -378,8 +422,43 @@ class DiagnosticsEngine:
                     f"{layer_type} layer at ({x}, {y}) size {w}x{h} extends past the edge "
                     f"of the {self._ctx.width}x{self._ctx.height} canvas"
                 ),
+                measured={
+                    "layer_type": layer_type,
+                    "canvas_width": self._ctx.width,
+                    "canvas_height": self._ctx.height,
+                    "outside": "partially",
+                },
+                suggestion=self._move_inside_canvas_suggestion(measured),
+                **self._diagnostic_context(measured),
             )
         return None
+
+    def _move_inside_canvas_suggestion(self, measured: LayerMeasurement) -> str:
+        box = measured.bbox
+        assert box is not None
+        if box.width > self._ctx.width or box.height > self._ctx.height:
+            return (
+                f"resize layer to fit within the {self._ctx.width}x{self._ctx.height} canvas "
+                "before moving it"
+            )
+
+        bbox_x = min(max(box.x, 0), self._ctx.width - box.width)
+        bbox_y = min(max(box.y, 0), self._ctx.height - box.height)
+        x, y = bbox_x, bbox_y
+        align = measured.metadata.get("align")
+        if not isinstance(align, Align):
+            align = getattr(measured.raw_layer, "align", None)
+        if isinstance(align, Align):
+            if align.horizontal == "center":
+                x += box.width // 2
+            elif align.horizontal == "right":
+                x += box.width
+
+            if align.vertical == "middle":
+                y += box.height // 2
+            elif align.vertical == "bottom":
+                y += box.height
+        return f"move layer to x={x}, y={y} to fit within the canvas"
 
     def _diagnose_text_layer(
         self, running: Image.Image, measured: LayerMeasurement
@@ -389,10 +468,7 @@ class DiagnosticsEngine:
         if layer is None:
             return findings
 
-        if isinstance(layer.content, list):
-            size = min(self._text.resolve_size(part, layer) for part in layer.content)
-        else:
-            size = layer.size or DEFAULT_TEXT_SIZE
+        size = self._minimum_text_size(layer)
         tiny_threshold = self._ctx.height * TINY_TEXT_RATIO
         if size < tiny_threshold:
             findings.append(
@@ -405,20 +481,38 @@ class DiagnosticsEngine:
                         f"({TINY_TEXT_RATIO:.1%} of canvas height) and may be illegible "
                         "at thumbnail display sizes"
                     ),
+                    measured={
+                        "font_size": size,
+                        "threshold": tiny_threshold,
+                        "threshold_ratio": TINY_TEXT_RATIO,
+                        "canvas_height": self._ctx.height,
+                    },
+                    suggestion=f"increase text size to at least {ceil(tiny_threshold)}px",
+                    **self._diagnostic_context(measured),
                 )
             )
 
         overflow = self._find_overflowing_word(layer)
         if overflow is not None:
+            word, word_width, max_width = overflow
             findings.append(
                 Diagnostic(
                     code="text-overflow",
                     severity="warning",
                     layer_index=measured.index,
                     message=(
-                        f"word '{overflow}' is wider than max_width={layer.max_width} "
+                        f"word '{word}' is wider than max_width={layer.max_width} "
                         "and cannot be wrapped"
                     ),
+                    measured={
+                        "word": word,
+                        "word_width": word_width,
+                        "max_width": max_width,
+                    },
+                    suggestion=(
+                        f"increase max_width to at least {word_width}px or enable auto_scale"
+                    ),
+                    **self._diagnostic_context(measured),
                 )
             )
 
@@ -433,12 +527,26 @@ class DiagnosticsEngine:
                         f"text contrast ratio {contrast:.2f} against the layers below it "
                         f"is under {LOW_CONTRAST_THRESHOLD}; the text may be hard to read"
                     ),
+                    measured={
+                        "contrast": contrast,
+                        "threshold": LOW_CONTRAST_THRESHOLD,
+                    },
+                    suggestion=(
+                        f"increase foreground/background contrast to at least "
+                        f"{LOW_CONTRAST_THRESHOLD}:1"
+                    ),
+                    **self._diagnostic_context(measured),
                 )
             )
 
         return findings
 
-    def _find_overflowing_word(self, layer: TextLayer) -> str | None:
+    def _minimum_text_size(self, layer: TextLayer) -> int:
+        if isinstance(layer.content, list):
+            return min(self._text.resolve_size(part, layer) for part in layer.content)
+        return layer.size or DEFAULT_TEXT_SIZE
+
+    def _find_overflowing_word(self, layer: TextLayer) -> tuple[str, int, int] | None:
         if not layer.max_width:
             return None
 
@@ -467,11 +575,11 @@ class DiagnosticsEngine:
 
     def _first_word_wider_than(
         self, text: str, font, letter_spacing: int, max_width_px: int
-    ) -> str | None:
+    ) -> tuple[str, int, int] | None:
         for word in text.split():
             width, _ = self._text.measure_text_bounds(word, font, letter_spacing)
             if width > max_width_px:
-                return word
+                return word, width, max_width_px
         return None
 
     def _text_background_contrast(
@@ -508,3 +616,11 @@ class DiagnosticsEngine:
         return min(
             _contrast_ratio(tuple(float(c) for c in color[:3]), background) for color in text_colors
         )
+
+    def _diagnostic_context(self, measured: LayerMeasurement) -> dict[str, Any]:
+        return {
+            "layer_id": measured.layer_id,
+            "layer_name": measured.name,
+            "bbox": (self._bbox_to_payload(measured.bbox) if measured.bbox is not None else None),
+            "related_layers": [measured.layer_id],
+        }

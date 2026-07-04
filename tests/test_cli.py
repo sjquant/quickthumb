@@ -377,12 +377,35 @@ class TestCLILint:
         """lint exits 0 and reports no issues for a clean spec"""
         from quickthumb.cli import app
 
+        # given: a valid spec with no diagnostics
+
         # when: linting a plain background-only spec
         result = CliRunner().invoke(app, ["lint", spec_file])
 
         # then
         assert result.exit_code == 0
         assert "No issues found" in result.output
+
+    def test_should_emit_json_for_clean_spec(self, spec_file):
+        """lint --format json exits 0 and emits an empty diagnostics payload"""
+        from quickthumb.cli import app
+
+        # given: a valid spec with no diagnostics
+
+        # when
+        result = CliRunner().invoke(app, ["lint", spec_file, "--format", "json"])
+
+        # then
+        assert result.exit_code == 0
+        payload = json.loads(result.output)
+        assert payload == {
+            "summary": {
+                "diagnostic_count": 0,
+                "error_count": 0,
+                "warning_count": 0,
+            },
+            "diagnostics": [],
+        }
 
     def test_should_exit_3_and_list_findings(self):
         """lint exits 3 and prints each finding when diagnostics are reported"""
@@ -418,6 +441,151 @@ class TestCLILint:
         assert "off-canvas" in result.output
         assert "error" in result.output
         assert "layer 1" in result.output
+
+    def test_should_exit_3_and_emit_structured_json_findings(self):
+        """lint --format json exits 3 and emits structured diagnostics for findings"""
+        from quickthumb.cli import app
+
+        # given: a spec with a shape fully outside the canvas
+        spec_path = self._write_spec(
+            {
+                "width": 100,
+                "height": 100,
+                "layers": [
+                    {"type": "background", "color": "#FFFFFF"},
+                    {
+                        "type": "shape",
+                        "shape": "rectangle",
+                        "position": [300, 300],
+                        "width": 50,
+                        "height": 50,
+                        "color": "#FF0000",
+                    },
+                ],
+            }
+        )
+
+        # when
+        try:
+            result = CliRunner().invoke(app, ["lint", spec_path, "--format", "json"])
+        finally:
+            os.unlink(spec_path)
+
+        # then
+        assert result.exit_code == 3
+        payload = json.loads(result.output)
+        assert payload["summary"] == {
+            "diagnostic_count": 1,
+            "error_count": 1,
+            "warning_count": 0,
+        }
+        finding = payload["diagnostics"][0]
+        assert finding["code"] == "off-canvas"
+        assert finding["severity"] == "error"
+        assert finding["layer_index"] == 1
+        assert finding["layer_id"] == "layer:1"
+        assert finding["bbox"] == {"x": 300, "y": 300, "width": 50, "height": 50}
+        assert finding["related_layers"] == ["layer:1"]
+        assert finding["measured"] == {
+            "layer_type": "shape",
+            "canvas_width": 100,
+            "canvas_height": 100,
+            "outside": "fully",
+        }
+        assert finding["suggestion"] == "move layer to x=50, y=50 to fit within the canvas"
+
+    def test_should_emit_structured_json_for_layer_overlap(self):
+        """lint --format json includes structured layer-overlap fields"""
+        from quickthumb.cli import app
+
+        # given: a spec with two substantially overlapping visible shapes
+        spec_path = self._write_spec(
+            {
+                "width": 240,
+                "height": 180,
+                "layers": [
+                    {"type": "background", "color": "#FFFFFF"},
+                    {
+                        "type": "shape",
+                        "shape": "rectangle",
+                        "position": [20, 20],
+                        "width": 100,
+                        "height": 60,
+                        "color": "#FF0000",
+                    },
+                    {
+                        "type": "shape",
+                        "shape": "rectangle",
+                        "position": [80, 40],
+                        "width": 80,
+                        "height": 50,
+                        "color": "#00FF00",
+                    },
+                ],
+            }
+        )
+
+        # when
+        try:
+            result = CliRunner().invoke(app, ["lint", spec_path, "--format", "json"])
+        finally:
+            os.unlink(spec_path)
+
+        # then
+        assert result.exit_code == 3
+        payload = json.loads(result.output)
+        assert payload == {
+            "summary": {
+                "diagnostic_count": 1,
+                "error_count": 0,
+                "warning_count": 1,
+            },
+            "diagnostics": [
+                {
+                    "code": "layer-overlap",
+                    "severity": "warning",
+                    "layer_index": 2,
+                    "message": (
+                        "shape layer layer:2 (order 2) overlaps shape layer layer:1 "
+                        "(order 1); bbox_overlap=1600px "
+                        "(bbox_overlap_pct=40% of upper, 27% of lower), "
+                        "visible_overlap=1600px "
+                        "(visible_overlap_pct=40% of upper, 27% of lower); "
+                        "move layer 2 to y=88 to clear the overlap"
+                    ),
+                    "layer_id": "layer:2",
+                    "bbox": {"x": 80, "y": 40, "width": 40, "height": 40},
+                    "related_layers": ["layer:2", "layer:1"],
+                    "measured": {
+                        "lower_layer_id": "layer:1",
+                        "upper_layer_id": "layer:2",
+                        "lower_bbox": {"x": 20, "y": 20, "width": 100, "height": 60},
+                        "upper_bbox": {"x": 80, "y": 40, "width": 80, "height": 50},
+                        "overlap_bbox": {"x": 80, "y": 40, "width": 40, "height": 40},
+                        "bbox_overlap": 1600,
+                        "bbox_overlap_pct_lower": 1600 / 6000,
+                        "bbox_overlap_pct_upper": 1600 / 4000,
+                        "visible_overlap": 1600,
+                        "visible_overlap_pct_lower": 1600 / 6000,
+                        "visible_overlap_pct_upper": 1600 / 4000,
+                    },
+                    "suggestion": "move layer 2 to y=88 to clear the overlap",
+                }
+            ],
+        }
+
+    def test_should_exit_1_for_invalid_lint_format(self, spec_file):
+        """lint exits 1 when --format is neither text nor json"""
+        from quickthumb.cli import app
+
+        # given: a valid spec and an unsupported lint output format
+
+        # when
+        result = CliRunner().invoke(app, ["lint", spec_file, "--format", "xml"])
+
+        # then
+        assert result.exit_code == 1
+        assert "Invalid lint format 'xml'. Must be one of: text, json" in result.output
 
     def test_should_exit_1_for_invalid_spec(self):
         """lint exits 1 for specs that fail validation"""

@@ -106,6 +106,10 @@ def render(
 @app.command()
 def lint(
     spec: Annotated[Path, typer.Argument(help="Path to a JSON spec file")],
+    output_format: Annotated[
+        str,
+        typer.Option("--format", help="Output format: text or json"),
+    ] = "text",
     var: Annotated[
         list[str] | None,
         typer.Option("--var", help="Variable substitution as KEY=VALUE"),
@@ -115,6 +119,14 @@ def lint(
 
     Exit codes: 0 no issues, 1 invalid spec, 2 rendering failure, 3 issues found.
     """
+    lint_format = output_format.lower()
+    if lint_format not in ("text", "json"):
+        typer.echo(
+            f"Invalid lint format '{output_format}'. Must be one of: text, json",
+            err=True,
+        )
+        raise typer.Exit(1)
+
     canvas = _load_canvas(spec, _parse_var_options(var))
 
     try:
@@ -125,6 +137,29 @@ def lint(
     except (RenderingError, OSError) as e:
         typer.echo(str(e), err=True)
         raise typer.Exit(2) from e
+
+    if lint_format == "json":
+        error_count = sum(1 for finding in diagnostics if finding.severity == "error")
+        warning_count = sum(1 for finding in diagnostics if finding.severity == "warning")
+        typer.echo(
+            json.dumps(
+                {
+                    "summary": {
+                        "diagnostic_count": len(diagnostics),
+                        "error_count": error_count,
+                        "warning_count": warning_count,
+                    },
+                    "diagnostics": [
+                        finding.model_dump(mode="json", exclude_none=True)
+                        for finding in diagnostics
+                    ],
+                },
+                indent=2,
+            )
+        )
+        if diagnostics:
+            raise typer.Exit(3)
+        return
 
     if not diagnostics:
         typer.echo("No issues found.")
