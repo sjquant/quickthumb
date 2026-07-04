@@ -14,7 +14,7 @@ from quickthumb._effects import EffectsEngine
 from quickthumb._fonts import FontEngine
 from quickthumb._groups import GroupEngine
 from quickthumb._images import ImageEngine
-from quickthumb._inspection import inspect_canvas
+from quickthumb._measurements import BBox, LayerMeasurement, measure_layers
 from quickthumb._shapes import ShapeEngine
 from quickthumb._text import TextEngine
 from quickthumb.errors import RenderingError, ValidationError
@@ -24,11 +24,14 @@ from quickthumb.models import (
     BackgroundEffect,
     BackgroundLayer,
     BlendMode,
+    CanvasInspection,
     FitMode,
     Grain,
     GroupLayer,
     ImageEffect,
     ImageLayer,
+    InspectionBBox,
+    LayerInspection,
     LayerType,
     LinearGradient,
     OutlineLayer,
@@ -37,6 +40,7 @@ from quickthumb.models import (
     ShapeLayer,
     SvgLayer,
     TextFillImage,
+    TextInspection,
     TextLayer,
     TextPart,
 )
@@ -217,7 +221,57 @@ class Canvas:
 
     def inspect(self):
         """Return a deterministic layout report for this canvas without rendering output."""
-        return inspect_canvas(self)
+        self._validate_image_paths()
+        self._ctx.begin_render_pass()
+        return CanvasInspection(
+            width=self.width,
+            height=self.height,
+            layers=[self._inspect_layer(measured) for measured in measure_layers(self)],
+        )
+
+    def _inspect_layer(self, measured: LayerMeasurement) -> LayerInspection:
+        return LayerInspection(
+            id=measured.layer_id,
+            index=measured.index,
+            order=measured.order,
+            z_order=measured.z_order,
+            type=self._inspect_layer_type(measured),
+            name=measured.name,
+            visible=measured.visible,
+            bbox=self._inspect_bbox(measured.bbox),
+            text=self._inspect_text(measured),
+            children=[self._inspect_layer(child) for child in measured.children],
+        )
+
+    @staticmethod
+    def _inspect_layer_type(measured: LayerMeasurement) -> str:
+        raw_type = getattr(measured.raw_layer, "type", None)
+        if raw_type:
+            return str(raw_type)
+        if isinstance(measured.raw_layer, CustomLayer):
+            return "custom"
+        return measured.layer_type
+
+    @staticmethod
+    def _inspect_bbox(box: BBox | None) -> InspectionBBox | None:
+        if box is None:
+            return None
+        return InspectionBBox(x=box.x, y=box.y, width=box.width, height=box.height)
+
+    def _inspect_text(self, measured: LayerMeasurement) -> TextInspection | None:
+        if measured.layer_type != "text":
+            return None
+        layer = measured.effective_text_layer
+        if layer is None:
+            return None
+        layout = self._text.measure_text_layout(layer)
+        return TextInspection(
+            wrapped_lines=list(layout["wrapped_lines"]),
+            effective_font_size=layout["effective_font_size"],
+            effective_font_sizes=list(layout["effective_font_sizes"]),
+            max_width=layer.max_width,
+            auto_scaled=bool(measured.metadata.get("auto_scaled", False)),
+        )
 
     @classmethod
     def from_aspect_ratio(cls, ratio: str, base_width: int) -> Self:
