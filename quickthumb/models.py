@@ -806,7 +806,7 @@ GroupLayer.model_rebuild()
 
 
 class Diagnostic(quickthumbModel):
-    code: Literal["off-canvas", "tiny-text", "text-overflow", "low-contrast"]
+    code: Literal["off-canvas", "tiny-text", "text-overflow", "low-contrast", "layer-overlap"]
     severity: Literal["warning", "error"]
     layer_index: int
     message: str

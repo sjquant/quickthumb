@@ -158,7 +158,14 @@ class Canvas:
         self._shapes = ShapeEngine(self._ctx, self._effects, self._images)
         self._groups = GroupEngine(self._ctx, self._fonts, self._images, self._shapes, self._text)
         self._diagnostics = DiagnosticsEngine(
-            self._ctx, self, self._effects, self._fonts, self._text, self._groups
+            self._ctx,
+            self,
+            self._effects,
+            self._fonts,
+            self._images,
+            self._shapes,
+            self._text,
+            self._groups,
         )
 
     @property
