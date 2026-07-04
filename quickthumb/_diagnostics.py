@@ -1,7 +1,8 @@
 from collections.abc import Iterable
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from PIL import Image, ImageStat
+from PIL import Image, ImageChops, ImageStat
 
 from quickthumb._base import (
     DEFAULT_TEXT_COLOR,
@@ -12,12 +13,14 @@ from quickthumb._base import (
 from quickthumb._effects import EffectsEngine
 from quickthumb._fonts import FontEngine
 from quickthumb._groups import GroupEngine
+from quickthumb._images import ImageEngine
 from quickthumb._measurements import BBox, LayerMeasurement, measure_layers
+from quickthumb._shapes import ShapeEngine
 from quickthumb._text import TextEngine
 
 if TYPE_CHECKING:
     from quickthumb.canvas import Canvas
-from quickthumb.models import Diagnostic, GroupLayer, TextLayer
+from quickthumb.models import Diagnostic, GroupLayer, ImageLayer, ShapeLayer, SvgLayer, TextLayer
 
 TINY_TEXT_RATIO = 0.025
 LOW_CONTRAST_THRESHOLD = 2.0
@@ -42,6 +45,22 @@ def _contrast_ratio(rgb_a: tuple[float, ...], rgb_b: tuple[float, ...]) -> float
     return (lighter + 0.05) / (darker + 0.05)
 
 
+@dataclass(frozen=True)
+class _LayerAlpha:
+    visible_area: int
+    mask: Image.Image | None = None
+
+
+@dataclass(frozen=True)
+class _OverlapMeasurement:
+    bbox_area: int
+    visible_area: int
+    lower_bbox_pct: float
+    upper_bbox_pct: float
+    lower_visible_pct: float
+    upper_visible_pct: float
+
+
 class DiagnosticsEngine:
     """Pre-render legibility and layout checks over a canvas's layers."""
 
@@ -51,6 +70,8 @@ class DiagnosticsEngine:
         canvas: "Canvas",
         effects: EffectsEngine,
         fonts: FontEngine,
+        images: ImageEngine,
+        shapes: ShapeEngine,
         text: TextEngine,
         groups: GroupEngine,
     ):
@@ -58,8 +79,11 @@ class DiagnosticsEngine:
         self._canvas = canvas
         self._effects = effects
         self._fonts = fonts
+        self._images = images
+        self._shapes = shapes
         self._text = text
         self._groups = groups
+        self._alpha_cache: dict[str, _LayerAlpha] = {}
 
     def diagnose(self) -> list[Diagnostic]:
         """Check layers for layout and legibility issues without producing an output file.
@@ -152,11 +176,13 @@ class DiagnosticsEngine:
         if overlap is None:
             return None
 
-        if not self._is_suspicious_overlap(lower, upper, overlap.area):
+        measured_overlap = self._measure_visible_overlap(lower, upper, overlap)
+        if measured_overlap is None:
             return None
 
-        lower_pct = overlap.area / lower_box.area
-        upper_pct = overlap.area / upper_box.area
+        if not self._is_suspicious_overlap(lower, upper, measured_overlap):
+            return None
+
         suggestion = self._overlap_suggestion(upper, lower)
         return Diagnostic(
             code="layer-overlap",
@@ -165,30 +191,130 @@ class DiagnosticsEngine:
             message=(
                 f"{self._layer_label(upper)} (order {upper.order}) "
                 f"overlaps {self._layer_label(lower)} "
-                f"(order {lower.order}) by {overlap.area}px "
-                f"({upper_pct:.0%} of upper, {lower_pct:.0%} of lower); {suggestion}"
+                f"(order {lower.order}); bbox_overlap={measured_overlap.bbox_area}px "
+                f"(bbox_overlap_pct={measured_overlap.upper_bbox_pct:.0%} of upper, "
+                f"{measured_overlap.lower_bbox_pct:.0%} of lower), "
+                f"visible_overlap={measured_overlap.visible_area}px "
+                f"(visible_overlap_pct={measured_overlap.upper_visible_pct:.0%} of upper, "
+                f"{measured_overlap.lower_visible_pct:.0%} of lower); {suggestion}"
             ),
         )
 
     def _is_suspicious_overlap(
-        self, lower: LayerMeasurement, upper: LayerMeasurement, overlap_area: int
+        self, lower: LayerMeasurement, upper: LayerMeasurement, overlap: _OverlapMeasurement
     ) -> bool:
         if lower.layer_type == "text" and upper.layer_type == "text":
             return True
 
-        if self._is_text_on_backdrop(lower, upper, overlap_area):
+        if lower.layer_type == "text":
+            return overlap.lower_visible_pct >= MIN_PARTIAL_OVERLAP_RATIO
+
+        if self._is_text_on_backdrop(lower, upper, overlap):
             return False
 
-        smaller_area = min(self._bbox(lower).area, self._bbox(upper).area)
-        overlap_ratio = overlap_area / smaller_area
+        overlap_ratio = min(overlap.lower_visible_pct, overlap.upper_visible_pct)
         return overlap_ratio >= MIN_PARTIAL_OVERLAP_RATIO
 
     def _is_text_on_backdrop(
-        self, lower: LayerMeasurement, upper: LayerMeasurement, overlap_area: int
+        self, lower: LayerMeasurement, upper: LayerMeasurement, overlap: _OverlapMeasurement
     ) -> bool:
         if lower.layer_type == "text" or upper.layer_type != "text":
             return False
-        return overlap_area / self._bbox(upper).area >= BACKDROP_COVERAGE_RATIO
+        return overlap.upper_visible_pct >= BACKDROP_COVERAGE_RATIO
+
+    def _measure_visible_overlap(
+        self, lower: LayerMeasurement, upper: LayerMeasurement, overlap: BBox
+    ) -> _OverlapMeasurement | None:
+        lower_alpha = self._layer_alpha(lower)
+        upper_alpha = self._layer_alpha(upper)
+        visible_area = self._visible_intersection_area(
+            lower, upper, overlap, lower_alpha, upper_alpha
+        )
+        if visible_area == 0:
+            return None
+
+        return _OverlapMeasurement(
+            bbox_area=overlap.area,
+            visible_area=visible_area,
+            lower_bbox_pct=overlap.area / self._bbox(lower).area,
+            upper_bbox_pct=overlap.area / self._bbox(upper).area,
+            lower_visible_pct=visible_area / lower_alpha.visible_area,
+            upper_visible_pct=visible_area / upper_alpha.visible_area,
+        )
+
+    def _visible_intersection_area(
+        self,
+        lower: LayerMeasurement,
+        upper: LayerMeasurement,
+        overlap: BBox,
+        lower_alpha: _LayerAlpha,
+        upper_alpha: _LayerAlpha,
+    ) -> int:
+        if lower_alpha.mask is None and upper_alpha.mask is None:
+            return overlap.area
+
+        lower_mask = self._alpha_region(lower, lower_alpha, overlap)
+        upper_mask = self._alpha_region(upper, upper_alpha, overlap)
+        combined = ImageChops.multiply(lower_mask, upper_mask)
+        return int(ImageStat.Stat(combined).sum[0] / 255)
+
+    def _alpha_region(
+        self, measured: LayerMeasurement, alpha: _LayerAlpha, region: BBox
+    ) -> Image.Image:
+        if alpha.mask is None:
+            return Image.new("L", (region.width, region.height), 255)
+        box = self._bbox(measured)
+        left, top = region.x - box.x, region.y - box.y
+        mask = alpha.mask.crop((left, top, left + region.width, top + region.height))
+        return mask.point(lambda value: 255 if value else 0)
+
+    def _layer_alpha(self, measured: LayerMeasurement) -> _LayerAlpha:
+        cached = self._alpha_cache.get(measured.layer_id)
+        if cached is not None:
+            return cached
+
+        if self._has_opaque_rectangle_mask(measured):
+            alpha = _LayerAlpha(visible_area=self._bbox(measured).area)
+        else:
+            mask = self._render_layer_alpha_mask(measured)
+            alpha = _LayerAlpha(visible_area=self._mask_area(mask), mask=mask)
+        self._alpha_cache[measured.layer_id] = alpha
+        return alpha
+
+    def _has_opaque_rectangle_mask(self, measured: LayerMeasurement) -> bool:
+        layer = measured.raw_layer
+        return (
+            isinstance(layer, ShapeLayer)
+            and layer.shape == "rectangle"
+            and layer.border_radius == 0
+            and layer.rotation == 0
+            and layer.opacity == 1.0
+            and not layer.effects
+        )
+
+    def _render_layer_alpha_mask(self, measured: LayerMeasurement) -> Image.Image:
+        box = self._bbox(measured)
+        image = Image.new("RGBA", (self._ctx.width, self._ctx.height), (0, 0, 0, 0))
+        layer = measured.raw_layer
+        if isinstance(layer, TextLayer):
+            self._text.render_text_layer(image, layer)
+        elif isinstance(layer, ImageLayer):
+            self._images.render_image_layer(image, layer)
+        elif isinstance(layer, SvgLayer):
+            self._images.render_svg_layer(image, layer)
+        elif isinstance(layer, ShapeLayer):
+            self._shapes.render_shape_layer(image, layer)
+        else:
+            return Image.new("L", (box.width, box.height), 0)
+        return (
+            image.getchannel("A")
+            .crop((box.x, box.y, box.right, box.bottom))
+            .point(lambda value: 255 if value else 0)
+        )
+
+    @staticmethod
+    def _mask_area(mask: Image.Image) -> int:
+        return int(ImageStat.Stat(mask).sum[0] / 255)
 
     def _overlap_suggestion(self, upper: LayerMeasurement, lower: LayerMeasurement) -> str:
         upper_box = self._bbox(upper)

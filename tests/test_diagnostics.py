@@ -194,8 +194,11 @@ class TestDiagnoseText:
             )
         )
 
-        # when / then
-        assert canvas.diagnose() == []
+        # when
+        diagnostics = canvas.diagnose()
+
+        # then
+        assert diagnostics == []
 
     def test_should_warn_when_a_rich_text_word_exceeds_max_width(self):
         """An unbreakable word inside a rich-text part is flagged like plain-text overflow"""
@@ -412,7 +415,8 @@ class TestDiagnoseLayerOverlap:
         assert "text layer layer:2 (order 2) overlaps text layer layer:1 (order 1)" in (
             finding.message
         )
-        assert "by " in finding.message
+        assert "bbox_overlap_pct=" in finding.message
+        assert "visible_overlap_pct=" in finding.message
         assert "% of upper" in finding.message
         assert "move layer 2" in finding.message
 
@@ -477,12 +481,97 @@ class TestDiagnoseLayerOverlap:
                     layer_index=2,
                     message=(
                         "shape layer layer:2 (order 2) overlaps shape layer layer:1 "
-                        "(order 1) by 1600px (40% of upper, 27% of lower); "
+                        "(order 1); bbox_overlap=1600px "
+                        "(bbox_overlap_pct=40% of upper, 27% of lower), "
+                        "visible_overlap=1600px "
+                        "(visible_overlap_pct=40% of upper, 27% of lower); "
                         "move layer 2 to y=88 to clear the overlap"
                     ),
                 )
             ]
         )
+
+    def test_should_not_warn_for_ellipse_corner_bbox_overlap(self):
+        """Ellipse masks prevent corner-only bounding-box intersections from warning"""
+        from quickthumb import Canvas
+
+        # given: a rectangle fully inside an ellipse bbox corner but outside the ellipse pixels
+        canvas = (
+            Canvas(200, 200)
+            .background(color="#FFFFFF")
+            .shape(
+                shape="ellipse",
+                position=(20, 20),
+                width=80,
+                height=80,
+                color="#FF0000",
+            )
+            .shape(
+                shape="rectangle",
+                position=(20, 20),
+                width=10,
+                height=10,
+                color="#00FF00",
+            )
+        )
+
+        # when / then
+        assert canvas.diagnose() == []
+
+    def test_should_not_warn_for_transparent_png_bbox_overlap(self, tmp_path):
+        """Transparent image pixels do not count as visible overlap"""
+        from quickthumb import Canvas
+
+        # given: two same-size PNG layers whose opaque pixels occupy opposite sides
+        lower = tmp_path / "lower.png"
+        upper = tmp_path / "upper.png"
+        lower_image = Image.new("RGBA", (80, 80), (0, 0, 0, 0))
+        upper_image = Image.new("RGBA", (80, 80), (0, 0, 0, 0))
+        for x in range(0, 30):
+            for y in range(80):
+                lower_image.putpixel((x, y), (255, 0, 0, 255))
+        for x in range(50, 80):
+            for y in range(80):
+                upper_image.putpixel((x, y), (0, 255, 0, 255))
+        lower_image.save(lower)
+        upper_image.save(upper)
+
+        canvas = (
+            Canvas(160, 120)
+            .background(color="#FFFFFF")
+            .image(path=str(lower), position=(20, 20))
+            .image(path=str(upper), position=(20, 20))
+        )
+
+        # when
+        diagnostics = canvas.diagnose()
+
+        # then
+        assert diagnostics == []
+
+    def test_should_not_warn_for_glyph_hole_bbox_overlap(self):
+        """Text masks use rendered glyph pixels, not just text bounding boxes"""
+        from quickthumb import Canvas
+
+        # given: a shape placed inside the hollow center of a large glyph
+        canvas = (
+            Canvas(180, 160)
+            .background(color="#FFFFFF")
+            .text("O", size=110, color="#000000", position=(20, 10))
+            .shape(
+                shape="rectangle",
+                position=(58, 50),
+                width=24,
+                height=24,
+                color="#00FF00",
+            )
+        )
+
+        # when
+        diagnostics = canvas.diagnose()
+
+        # then
+        assert diagnostics == []
 
     @pytest.mark.parametrize(
         "canvas_size,lower_position,lower_size,upper_position,upper_size,expected_suggestion",
@@ -591,7 +680,7 @@ class TestDiagnoseLayerOverlap:
 
         # then
         assert [finding.code for finding in diagnostics] == ["layer-overlap"]
-        assert "100% of lower" in diagnostics[0].message
+        assert "visible_overlap_pct=25% of upper, 100% of lower" in diagnostics[0].message
 
     def test_should_warn_when_shape_covers_text(self):
         """Non-text layers covering text are suspicious, unlike text on a backdrop"""
