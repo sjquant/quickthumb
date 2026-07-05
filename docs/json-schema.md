@@ -48,6 +48,15 @@ quickthumb schema > quickthumb.schema.json
 quickthumb schema --output quickthumb.schema.json
 ```
 
+!!! note "Schema scope"
+    `quickthumb schema` describes concrete quickthumb specs for external tooling
+    and constrained generation. `Canvas.from_json()` remains the source of truth
+    for what quickthumb can load.
+
+    Authoring conveniences such as `$theme.*` are resolved by quickthumb before
+    model validation, so generic JSON Schema validators may reject unresolved
+    authoring specs that quickthumb itself can load.
+
 The command writes deterministic JSON only, so it can be checked into a repo, piped into an editor, or passed directly to a constrained-generation API. The schema includes the current canvas fields, built-in layer discriminators, effects, animations, supported platform presets, and the optional top-level `theme` block.
 
 For constrained generation, prefer concrete resolved values in typed fields:
@@ -59,8 +68,6 @@ Return only the JSON object.
 Use concrete hex colors and numeric sizes in layer fields.
 Use only these layer type discriminators: background, text, image, shape, svg, group, outline.
 ```
-
-`$theme.*` references are resolved by quickthumb before model validation. Generic JSON Schema validators do not know that a string token such as `"$theme.sizes.title"` will become a number later, so schema-constrained calls should generate concrete field values unless the caller performs quickthumb's theme-resolution step afterward.
 
 ## Theme tokens
 
