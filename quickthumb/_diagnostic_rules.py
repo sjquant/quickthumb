@@ -1,5 +1,6 @@
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
+from typing import cast
 
 from PIL import Image, ImageChops, ImageStat
 from typing_extensions import TypedDict
@@ -446,17 +447,83 @@ def worst_tile_contrast(
     tile_count = ((region.width + tile_size - 1) // tile_size) * (
         (region.height + tile_size - 1) // tile_size
     )
+    background_region = background_image.crop(
+        (region.x, region.y, region.right, region.bottom)
+    ).convert("RGBA")
+    foreground_region = foreground_image.crop(
+        (region.x, region.y, region.right, region.bottom)
+    ).convert("RGBA")
+    foreground_alpha_region = foreground_alpha.crop(
+        (region.x, region.y, region.right, region.bottom)
+    )
 
     worst: TiledContrastMeasurement | None = None
     for tile in _tiled_regions(region, tile_size):
-        alpha_tile = foreground_alpha.crop((tile.x, tile.y, tile.right, tile.bottom))
+        local_tile = BBox(tile.x - region.x, tile.y - region.y, tile.width, tile.height)
+        alpha_tile = foreground_alpha_region.crop(
+            (local_tile.x, local_tile.y, local_tile.right, local_tile.bottom)
+        )
         if alpha_tile.getbbox() is None:
             continue
 
-        background = average_visible_background(background_image, tile, mask=foreground_alpha)
-        foreground_crop = foreground_image.crop((tile.x, tile.y, tile.right, tile.bottom))
-        foreground_mask = foreground_alpha.crop((tile.x, tile.y, tile.right, tile.bottom))
-        foreground = tuple(ImageStat.Stat(foreground_crop, mask=foreground_mask).mean[:3])
+        measurement = _tile_contrast(
+            background_region,
+            foreground_region,
+            local_tile,
+            tile=tile,
+            tile_count=tile_count,
+        )
+        if measurement is not None and (worst is None or measurement.contrast < worst.contrast):
+            worst = measurement
+    return worst
+
+
+def _tile_contrast(
+    background_region: Image.Image,
+    foreground_region: Image.Image,
+    region: BBox,
+    *,
+    tile: BBox,
+    tile_count: int,
+) -> TiledContrastMeasurement | None:
+    background_crop = background_region.crop((region.x, region.y, region.right, region.bottom))
+    foreground_crop = foreground_region.crop((region.x, region.y, region.right, region.bottom))
+    background_pixels = background_crop.load()
+    foreground_pixels = foreground_crop.load()
+    assert background_pixels is not None and foreground_pixels is not None
+    groups: dict[tuple[int, int, int], list[float]] = {}
+
+    for y in range(region.height):
+        for x in range(region.width):
+            background_pixel = cast(tuple[int, int, int, int], background_pixels[x, y])
+            foreground_pixel = cast(tuple[int, int, int, int], foreground_pixels[x, y])
+            foreground_r, foreground_g, foreground_b, foreground_a = foreground_pixel
+            if foreground_a == 0:
+                continue
+
+            background_alpha = background_pixel[3] / 255
+            visible_background = (
+                background_pixel[0] * background_alpha + 255 * (1 - background_alpha),
+                background_pixel[1] * background_alpha + 255 * (1 - background_alpha),
+                background_pixel[2] * background_alpha + 255 * (1 - background_alpha),
+            )
+            key = (foreground_r, foreground_g, foreground_b)
+            group = groups.setdefault(key, [0.0, 0.0, 0.0, 0.0, 0.0])
+            group[0] += visible_background[0]
+            group[1] += visible_background[1]
+            group[2] += visible_background[2]
+            group[3] += 1
+            group[4] = max(group[4], foreground_a)
+
+    worst: TiledContrastMeasurement | None = None
+    for foreground_raw, group in groups.items():
+        background = (group[0] / group[3], group[1] / group[3], group[2] / group[3])
+        opacity = group[4] / 255
+        foreground = (
+            foreground_raw[0] * opacity + background[0] * (1 - opacity),
+            foreground_raw[1] * opacity + background[1] * (1 - opacity),
+            foreground_raw[2] * opacity + background[2] * (1 - opacity),
+        )
         contrast = contrast_ratio(foreground, background)
         if worst is None or contrast < worst.contrast:
             worst = TiledContrastMeasurement(

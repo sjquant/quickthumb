@@ -843,6 +843,67 @@ class TestDiagnoseText:
         assert [finding.code for finding in diagnostics] == ["low-contrast"]
         assert diagnostics[0].measured["foreground_rgb"] == (0.0, 0.0, 0.0)
 
+    def test_should_warn_for_low_opacity_text(self):
+        """Semi-transparent text is checked by its effective rendered contrast"""
+        from quickthumb import Canvas
+
+        # given: faint black text renders close to white over a white background
+        canvas = (
+            Canvas(240, 120)
+            .background(color="#FFFFFF")
+            .text("faint", size=36, color="#000000", opacity=0.1, position=(20, 20))
+        )
+
+        # when
+        diagnostics = canvas.diagnose()
+
+        # then
+        assert [finding.code for finding in diagnostics] == ["low-contrast"]
+        assert diagnostics[0].measured == {
+            "contrast": 1.2480715209939224,
+            "threshold": 2.0,
+            "method": "worst-tile",
+            "tile_bbox": {"x": 20, "y": 20, "width": 32, "height": 28},
+            "tile_count": 3,
+            "tile_size": 32,
+            "foreground_rgb": (230.0, 230.0, 230.0),
+            "background_rgb": (255.0, 255.0, 255.0),
+        }
+
+    def test_should_warn_for_low_contrast_rich_text_run_inside_tile(self):
+        """A high-contrast run cannot hide a low-contrast run in the same tile"""
+        from quickthumb import Canvas
+
+        # given: white rich text is readable but the following black run is invisible
+        canvas = (
+            Canvas(260, 120)
+            .background(color="#000000")
+            .text(
+                [
+                    {"text": "HELLO", "color": "#FFFFFF"},
+                    {"text": "I", "color": "#000000"},
+                ],
+                size=36,
+                position=(20, 20),
+            )
+        )
+
+        # when
+        diagnostics = canvas.diagnose()
+
+        # then
+        assert [finding.code for finding in diagnostics] == ["low-contrast"]
+        assert diagnostics[0].measured == {
+            "contrast": 1.0,
+            "threshold": 2.0,
+            "method": "worst-tile",
+            "tile_bbox": {"x": 116, "y": 20, "width": 26, "height": 32},
+            "tile_count": 8,
+            "tile_size": 32,
+            "foreground_rgb": (0.0, 0.0, 0.0),
+            "background_rgb": (0.0, 0.0, 0.0),
+        }
+
     @pytest.mark.parametrize(
         "background,color",
         [
