@@ -146,7 +146,9 @@ class TestCanvas:
                         "letter_spacing": None,
                         "auto_scale": False,
                         "rotation": 0.0,
-                        "opacity": 1.0, 'animation': None},
+                        "opacity": 1.0,
+                        "animation": None,
+                    },
                     {
                         "type": "text",
                         "content": "Subtitle",
@@ -165,7 +167,9 @@ class TestCanvas:
                         "letter_spacing": None,
                         "auto_scale": False,
                         "rotation": 0.0,
-                        "opacity": 1.0, 'animation': None},
+                        "opacity": 1.0,
+                        "animation": None,
+                    },
                 ],
             }
         )

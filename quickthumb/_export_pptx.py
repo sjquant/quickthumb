@@ -88,6 +88,8 @@ _ANIM_PRESET_IDS = {
     "box": 8,
 }
 
+AnimationSpec = Animation | list[Animation]
+
 
 def _emu(px: float) -> int:
     return round(px * EMU_PER_PX)
@@ -138,9 +140,7 @@ class PptxExporter:
         self.save_canvases(canvases, buffer, transitions=transitions)
         return buffer.getvalue()
 
-    def _build(
-        self, canvases: list[Canvas], transitions: list[Transition | None] | None = None
-    ):
+    def _build(self, canvases: list[Canvas], transitions: list[Transition | None] | None = None):
         from pptx import Presentation
         from pptx.util import Emu
 
@@ -165,7 +165,7 @@ class PptxExporter:
                 self._validate_slide_dimensions()
             self._slide = presentation.slides.add_slide(presentation.slide_layouts[6])
             # (animation-or-list, [shape_id, ...]) records collected per layer.
-            self._anim_records: list[tuple[object, list[int]]] = []
+            self._anim_records: list[tuple[AnimationSpec, list[int]]] = []
 
             prefix, rest = split_backdrop_prefix(flatten_layers(canvas))
             if prefix:
@@ -184,8 +184,13 @@ class PptxExporter:
 
         return presentation
 
+    def _current_canvas(self) -> Canvas:
+        if self._canvas is None:
+            raise RenderingError("PptxExporter() needs a canvas before drawing layers.")
+        return self._canvas
+
     def _validate_slide_dimensions(self) -> None:
-        canvas = self._canvas
+        canvas = self._current_canvas()
         width_emu = _emu(canvas.width)
         height_emu = _emu(canvas.height)
         if (
@@ -215,6 +220,7 @@ class PptxExporter:
         if animation is None:
             self._emit_layer(layer)
             return
+        animation = cast(AnimationSpec, animation)
 
         start = len(self._slide.shapes)
         self._emit_layer(layer)
@@ -232,7 +238,7 @@ class PptxExporter:
         set so the group animates as one effect. Each record's animation (a single
         effect or a list) then expands into one entry per effect.
         """
-        merged: list[tuple[object, list[int]]] = []
+        merged: list[tuple[AnimationSpec, list[int]]] = []
         for animation, ids in self._anim_records:
             if merged and merged[-1][0] is animation:
                 merged[-1][1].extend(ids)
@@ -259,7 +265,7 @@ class PptxExporter:
             self._emit_raster_fallback(layer)
 
     def _emit_raster_fallback(self, layer: RenderableLayer):
-        fragment = rasterize_layers(self._canvas, [layer])
+        fragment = rasterize_layers(self._current_canvas(), [layer])
         if fragment:
             self._add_fragment(fragment)
 
@@ -284,7 +290,7 @@ class PptxExporter:
         from pptx.enum.shapes import MSO_SHAPE
         from pptx.util import Emu
 
-        canvas = self._canvas
+        canvas = self._current_canvas()
         shape = self._slide.shapes.add_shape(
             MSO_SHAPE.RECTANGLE, Emu(0), Emu(0), Emu(_emu(canvas.width)), Emu(_emu(canvas.height))
         )
@@ -311,7 +317,7 @@ class PptxExporter:
         the gradient axis; PIL stretches it across the full diagonal, centered.
         """
         parsed = sorted(
-            ((color_to_rgba(self._canvas, color), position) for color, position in stops),
+            ((color_to_rgba(self._current_canvas(), color), position) for color, position in stops),
             key=lambda stop: stop[1],
         )
         diagonal = math.ceil(math.hypot(width, height))
@@ -350,7 +356,7 @@ class PptxExporter:
         from pptx.enum.shapes import MSO_SHAPE
         from pptx.util import Emu
 
-        canvas = self._canvas
+        canvas = self._current_canvas()
         inset = layer.offset + layer.width / 2
         shape = self._slide.shapes.add_shape(
             MSO_SHAPE.RECTANGLE,
@@ -367,7 +373,7 @@ class PptxExporter:
     # ------------------------------------------------------------------ shapes
 
     def _emit_shape(self, layer: ShapeLayer):
-        canvas = self._canvas
+        canvas = self._current_canvas()
         x = parse_coordinate(layer.position[0], canvas.width)
         y = parse_coordinate(layer.position[1], canvas.height)
         width, height = layer.width, layer.height
@@ -440,7 +446,7 @@ class PptxExporter:
     def _add_freeform(self, layer: ShapeLayer, left: float, top: float):
         from pptx.util import Emu
 
-        normalized = self._canvas._shapes.normalized_shape_points(layer)
+        normalized = self._current_canvas()._shapes.normalized_shape_points(layer)
         if not normalized:
             return None
         points = [(px * layer.width, py * layer.height) for px, py in normalized]
@@ -463,7 +469,7 @@ class PptxExporter:
             self._emit_raster_fallback(layer)
             return
 
-        layout = compute_text_layout(self._canvas, layer)
+        layout = compute_text_layout(self._current_canvas(), layer)
         if not any(layout.lines) or layout.block_box is None:
             return
 
@@ -502,7 +508,9 @@ class PptxExporter:
         shape.shadow.inherit = False
         if rotation:
             shape.rotation = rotation
-        rgba = color_to_rgba(self._canvas, background.color, background.opacity * layout.opacity)
+        rgba = color_to_rgba(
+            self._current_canvas(), background.color, background.opacity * layout.opacity
+        )
         self._set_solid_fill(shape, rgba)
 
     def _add_textbox(self, layer: TextLayer, layout: TextBlockLayout):
@@ -561,7 +569,7 @@ class PptxExporter:
                 self._set_gradient_fill_xml(rpr, stops, run_layout.fill.angle, layer_opacity)
             else:
                 first_color = color_to_rgba(
-                    self._canvas, sorted(run_layout.fill.stops, key=lambda s: s[1])[0][0]
+                    self._current_canvas(), sorted(run_layout.fill.stops, key=lambda s: s[1])[0][0]
                 )
                 font.color.rgb = RGBColor(*first_color[:3])
         else:
@@ -575,7 +583,7 @@ class PptxExporter:
             stroke = run_layout.strokes[0]
             self._prepend_text_outline(
                 rpr,
-                color_to_rgba(self._canvas, stroke.color, layer_opacity),
+                color_to_rgba(self._current_canvas(), stroke.color, layer_opacity),
                 stroke.width,
             )
         if run_layout.glows or run_layout.shadows:
@@ -704,10 +712,10 @@ class PptxExporter:
 
         parts = []
         for glow in glows:
-            rgba = color_to_rgba(self._canvas, glow.color, glow.opacity * opacity)
+            rgba = color_to_rgba(self._current_canvas(), glow.color, glow.opacity * opacity)
             parts.append(f'<a:glow rad="{_emu(glow.radius * 3)}">{self._srgb_xml(rgba)}</a:glow>')
         for shadow in shadows:
-            rgba = color_to_rgba(self._canvas, shadow.color, opacity)
+            rgba = color_to_rgba(self._current_canvas(), shadow.color, opacity)
             distance = math.hypot(shadow.offset_x, shadow.offset_y)
             direction = int(
                 round(math.degrees(math.atan2(shadow.offset_y, shadow.offset_x)) % 360 * 60000)
@@ -873,8 +881,7 @@ class PptxExporter:
         outer_id = self._next_id()
         inner_id = self._next_id()
         effects = "".join(
-            self._build_effect_par(anim, ids, index)
-            for index, (anim, ids) in enumerate(group)
+            self._build_effect_par(anim, ids, index) for index, (anim, ids) in enumerate(group)
         )
         return (
             "<p:par>"
@@ -930,9 +937,7 @@ class PptxExporter:
         # Entrance: reveal the shape, then play the chosen filter.
         parts = [self._set_visibility_xml(sid, "visible", delay=0)]
         if anim.effect != "appear":
-            parts.append(
-                self._anim_effect_xml("in", self._anim_filter(anim), duration_ms, sid)
-            )
+            parts.append(self._anim_effect_xml("in", self._anim_filter(anim), duration_ms, sid))
         return "".join(parts)
 
     def _set_visibility_xml(self, sid: int, value: str, delay: int) -> str:

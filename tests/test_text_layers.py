@@ -1104,7 +1104,9 @@ class TestTextRotation:
                 "letter_spacing": None,
                 "auto_scale": False,
                 "rotation": 45.0,
-                "opacity": 1.0, 'animation': None}
+                "opacity": 1.0,
+                "animation": None,
+            }
         )
 
     def test_should_deserialize_rotation_from_json(self):
@@ -1226,7 +1228,9 @@ class TestTextEffects:
                 "letter_spacing": None,
                 "auto_scale": False,
                 "rotation": 0.0,
-                "opacity": 1.0, 'animation': None}
+                "opacity": 1.0,
+                "animation": None,
+            }
         )
 
     def test_should_deserialize_text_with_effects_from_json(self):
@@ -1359,7 +1363,9 @@ class TestTextEffects:
                 "letter_spacing": None,
                 "auto_scale": False,
                 "rotation": 0.0,
-                "opacity": 1.0, 'animation': None}
+                "opacity": 1.0,
+                "animation": None,
+            }
         )
 
     def test_should_deserialize_text_with_shadow_from_json(self):
@@ -1498,7 +1504,9 @@ class TestTextEffects:
                 "letter_spacing": None,
                 "auto_scale": False,
                 "rotation": 0.0,
-                "opacity": 1.0, 'animation': None}
+                "opacity": 1.0,
+                "animation": None,
+            }
         )
 
     def test_should_deserialize_text_with_glow_from_json(self):

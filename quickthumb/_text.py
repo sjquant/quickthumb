@@ -614,8 +614,8 @@ class TextEngine:
 
         fill_img.putalpha(mask)
 
-        paste_x = position[0] + bbox[0]
-        paste_y = position[1] + bbox[1]
+        paste_x = int(position[0] + bbox[0])
+        paste_y = int(position[1] + bbox[1])
         image.alpha_composite(fill_img, (paste_x, paste_y))
 
     def _render_text_part(

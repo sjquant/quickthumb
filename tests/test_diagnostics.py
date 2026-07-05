@@ -174,6 +174,29 @@ class TestDiagnoseOffCanvas:
         assert finding.bbox.model_dump() == {"x": -10, "y": -10, "width": 20, "height": 20}
         assert finding.suggestion == "move layer to x=20, y=20 to fit within the canvas"
 
+    def test_should_use_current_canvas_size_for_off_canvas_suggestions(self):
+        """Off-canvas suggestions use canvas dimensions current at diagnose time"""
+        from quickthumb import Canvas
+
+        # given: a canvas resized after its diagnostics engine was constructed
+        canvas = Canvas(100, 100).shape(
+            shape="rectangle",
+            position=(180, 20),
+            width=50,
+            height=50,
+            color="#FF0000",
+        )
+        canvas.width = 200
+
+        # when
+        diagnostics = canvas.diagnose()
+
+        # then
+        finding = diagnostics[0]
+        assert finding.code == "off-canvas"
+        assert finding.measured["canvas_width"] == 200
+        assert finding.suggestion == "move layer to x=150, y=20 to fit within the canvas"
+
     def test_should_report_group_extending_past_canvas(self):
         """Group boxes are measured as a unit for off-canvas detection"""
         from quickthumb import Canvas
@@ -693,6 +716,48 @@ class TestDiagnoseLayerOverlap:
             }
         ]
 
+    def test_should_report_each_overlap_when_one_layer_intersects_multiple_layers(self):
+        """Overlapping several layers reports every suspicious pair through diagnose"""
+        from quickthumb import Canvas
+
+        # given: three visible shapes with pairwise intersections
+        canvas = (
+            Canvas(260, 220)
+            .background(color="#FFFFFF")
+            .shape(
+                shape="rectangle",
+                position=(20, 20),
+                width=100,
+                height=100,
+                color="#FF0000",
+            )
+            .shape(
+                shape="rectangle",
+                position=(40, 40),
+                width=100,
+                height=100,
+                color="#00FF00",
+            )
+            .shape(
+                shape="rectangle",
+                position=(60, 60),
+                width=100,
+                height=100,
+                color="#0000FF",
+            )
+        )
+
+        # when
+        diagnostics = canvas.diagnose()
+
+        # then: each intersecting pair is represented at the public boundary
+        overlap_findings = [finding for finding in diagnostics if finding.code == "layer-overlap"]
+        assert [finding.related_layers for finding in overlap_findings] == [
+            ["layer:2", "layer:1"],
+            ["layer:3", "layer:1"],
+            ["layer:3", "layer:2"],
+        ]
+
     def test_should_not_warn_for_ellipse_corner_bbox_overlap(self):
         """Ellipse masks prevent corner-only bounding-box intersections from warning"""
         from quickthumb import Canvas
@@ -852,6 +917,38 @@ class TestDiagnoseLayerOverlap:
         assert diagnostics[0].severity == "warning"
         assert diagnostics[0].layer_index == 2
         assert diagnostics[0].message.endswith(expected_suggestion)
+
+    def test_should_use_current_canvas_size_for_overlap_suggestions(self):
+        """Overlap suggestions use canvas dimensions current at diagnose time"""
+        from quickthumb import Canvas
+
+        # given: a canvas resized wide enough to make a rightward overlap repair possible
+        canvas = (
+            Canvas(100, 100)
+            .background(color="#FFFFFF")
+            .shape(
+                shape="rectangle",
+                position=(20, 5),
+                width=90,
+                height=90,
+                color="#FF0000",
+            )
+            .shape(
+                shape="rectangle",
+                position=(30, 10),
+                width=80,
+                height=80,
+                color="#00FF00",
+            )
+        )
+        canvas.width = 220
+
+        # when
+        diagnostics = canvas.diagnose()
+
+        # then
+        assert [finding.code for finding in diagnostics] == ["layer-overlap"]
+        assert diagnostics[0].message.endswith("move layer 2 to x=118 to clear the overlap")
 
     def test_should_warn_when_shape_fully_covers_shape(self):
         """A complete non-backdrop coverage overlap is still suspicious"""
