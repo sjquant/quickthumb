@@ -1,3 +1,5 @@
+from collections.abc import Iterable
+from itertools import islice
 from math import ceil
 from typing import TYPE_CHECKING
 
@@ -224,13 +226,22 @@ class DiagnosticsEngine:
     def _diagnose_hidden_layers(self, measurements: list[LayerMeasurement]) -> list[Diagnostic]:
         findings: list[Diagnostic] = []
         candidates = list(visible_leaf_layers(measurements))
-        later_backgrounds = self._opaque_background_layer_ids(measurements)
+        opaque_backgrounds = [
+            measured
+            for measured in measurements
+            if measured.visible
+            and isinstance(measured.raw_layer, BackgroundLayer)
+            and self._is_opaque_background(measured.raw_layer)
+        ]
         for lower_index, lower in enumerate(candidates):
             finding = self._diagnose_hidden_layer(
                 lower,
-                candidates,
-                lower_index + 1,
-                later_backgrounds.get(lower.order, []),
+                islice(candidates, lower_index + 1, None),
+                [
+                    background.layer_id
+                    for background in opaque_backgrounds
+                    if background.order > lower.order
+                ],
             )
             if finding is not None:
                 findings.append(finding)
@@ -239,8 +250,7 @@ class DiagnosticsEngine:
     def _diagnose_hidden_layer(
         self,
         lower: LayerMeasurement,
-        later_layers: list[LayerMeasurement],
-        later_start_index: int,
+        later_layers: Iterable[LayerMeasurement],
         later_background_ids: list[str],
     ) -> Diagnostic | None:
         lower_alpha = self._alpha_cache.get(lower)
@@ -258,8 +268,7 @@ class DiagnosticsEngine:
         if covered_visible_area >= lower_alpha.visible_area:
             return self._hidden_layer_diagnostic(lower, covering_layer_ids)
 
-        for upper_index in range(later_start_index, len(later_layers)):
-            upper = later_layers[upper_index]
+        for upper in later_layers:
             if not self._can_hide_lower_layer(upper):
                 continue
             overlap = lower_box.intersection(require_bbox(upper))
@@ -329,24 +338,6 @@ class DiagnosticsEngine:
             suggestion=suggestion,
         )
 
-    def _opaque_background_layer_ids(
-        self, measurements: list[LayerMeasurement]
-    ) -> dict[int, list[str]]:
-        opaque_backgrounds = [
-            measured
-            for measured in measurements
-            if isinstance(measured.raw_layer, BackgroundLayer)
-            and self._is_opaque_background(measured.raw_layer)
-        ]
-        return {
-            measured.order: [
-                background.layer_id
-                for background in opaque_backgrounds
-                if background.order > measured.order
-            ]
-            for measured in measurements
-        }
-
     def _can_hide_lower_layer(self, measured: LayerMeasurement) -> bool:
         layer = measured.raw_layer
         if not measured.visible or measured.bbox is None:
@@ -371,7 +362,8 @@ class DiagnosticsEngine:
         self, measurements: list[LayerMeasurement], *, ignored_layer_ids: set[str]
     ) -> list[Diagnostic]:
         findings: list[Diagnostic] = []
-        preset = self._safe_margin_preset()
+        platform = getattr(self._canvas, "platform", None)
+        preset = PLATFORM_SAFE_MARGIN_PRESETS.get(platform) if platform is not None else None
         margins = resolve_safe_margins(
             preset, canvas_width=self._ctx.width, canvas_height=self._ctx.height
         )
@@ -386,12 +378,6 @@ class DiagnosticsEngine:
                 findings.append(finding)
             findings.extend(self._diagnose_overlay_crowding(measured, preset))
         return findings
-
-    def _safe_margin_preset(self) -> SafeMarginPreset | None:
-        platform = getattr(self._canvas, "platform", None)
-        if platform is None:
-            return None
-        return PLATFORM_SAFE_MARGIN_PRESETS.get(platform)
 
     def _diagnose_margin_crowding(
         self,
@@ -489,15 +475,17 @@ class DiagnosticsEngine:
 
     def _has_opaque_rectangle_mask(self, measured: LayerMeasurement) -> bool:
         layer = measured.raw_layer
-        return (
+        if not (
             isinstance(layer, ShapeLayer)
             and layer.shape == "rectangle"
             and layer.border_radius == 0
             and layer.rotation == 0
             and layer.opacity == 1.0
-            and self._color_is_opaque(layer.color)
             and not layer.effects
-        )
+        ):
+            return False
+        color = self._effects.parse_color(layer.color)
+        return len(color) < 4 or color[3] == 255
 
     def _render_layer_alpha_mask(self, measured: LayerMeasurement) -> Image.Image:
         return self._render_layer_alpha_channel(measured).point(lambda value: 255 if value else 0)
@@ -532,10 +520,6 @@ class DiagnosticsEngine:
 
     def _opaque_mask(self, alpha: Image.Image) -> Image.Image:
         return alpha.point(lambda value: 255 if value == 255 else 0)
-
-    def _color_is_opaque(self, color: str | tuple) -> bool:
-        parsed = self._effects.parse_color(color)
-        return len(parsed) < 4 or parsed[3] == 255
 
     def _diagnose_off_canvas(self, measured: LayerMeasurement) -> Diagnostic | None:
         box = measured.bbox
