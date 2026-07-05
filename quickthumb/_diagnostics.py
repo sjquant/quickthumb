@@ -835,20 +835,15 @@ class DiagnosticsEngine:
         if clamped is None:
             return None
 
-        foreground = self._render_text_foreground(layer)
+        content = layer.content
+        if isinstance(content, list):
+            content = [part.model_copy(update={"effects": []}) for part in content]
+        foreground_layer = layer.model_copy(update={"content": content, "effects": []})
+        foreground = Image.new("RGBA", (self._ctx.width, self._ctx.height), (0, 0, 0, 0))
+        self._text.render_text_layer(foreground, foreground_layer)
         return worst_tile_contrast(
             running,
             foreground,
             clamped,
             tile_size=CONTRAST_TILE_SIZE,
         )
-
-    def _render_text_foreground(self, layer: TextLayer) -> Image.Image:
-        content = layer.content
-        if isinstance(content, list):
-            content = [part.model_copy(update={"effects": []}) for part in content]
-        foreground_layer = layer.model_copy(update={"content": content, "effects": []})
-
-        foreground = Image.new("RGBA", (self._ctx.width, self._ctx.height), (0, 0, 0, 0))
-        self._text.render_text_layer(foreground, foreground_layer)
-        return foreground

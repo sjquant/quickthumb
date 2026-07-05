@@ -439,8 +439,13 @@ def worst_tile_contrast(
     tile_size: int,
 ) -> TiledContrastMeasurement | None:
     """Measure the lowest text-pixel contrast across tiled samples."""
+    if tile_size <= 0:
+        raise ValueError("tile_size must be positive")
+
     foreground_alpha = foreground_image.getchannel("A").point(lambda value: 255 if value else 0)
-    tile_count = _tile_count(region, tile_size)
+    tile_count = ((region.width + tile_size - 1) // tile_size) * (
+        (region.height + tile_size - 1) // tile_size
+    )
 
     worst: TiledContrastMeasurement | None = None
     for tile in _tiled_regions(region, tile_size):
@@ -449,7 +454,9 @@ def worst_tile_contrast(
             continue
 
         background = average_visible_background(background_image, tile, mask=foreground_alpha)
-        foreground = _average_visible_foreground(foreground_image, tile, foreground_alpha)
+        foreground_crop = foreground_image.crop((tile.x, tile.y, tile.right, tile.bottom))
+        foreground_mask = foreground_alpha.crop((tile.x, tile.y, tile.right, tile.bottom))
+        foreground = tuple(ImageStat.Stat(foreground_crop, mask=foreground_mask).mean[:3])
         contrast = contrast_ratio(foreground, background)
         if worst is None or contrast < worst.contrast:
             worst = TiledContrastMeasurement(
@@ -462,27 +469,7 @@ def worst_tile_contrast(
     return worst
 
 
-def _average_visible_foreground(
-    image: Image.Image, region: BBox, mask: Image.Image
-) -> tuple[float, float, float]:
-    crop = image.crop((region.x, region.y, region.right, region.bottom))
-    mask_crop = mask.crop((region.x, region.y, region.right, region.bottom))
-    mean_r, mean_g, mean_b, *_ = ImageStat.Stat(crop, mask=mask_crop).mean
-    return mean_r, mean_g, mean_b
-
-
-def _tile_count(region: BBox, tile_size: int) -> int:
-    if tile_size <= 0:
-        raise ValueError("tile_size must be positive")
-    cols = (region.width + tile_size - 1) // tile_size
-    rows = (region.height + tile_size - 1) // tile_size
-    return cols * rows
-
-
 def _tiled_regions(region: BBox, tile_size: int) -> Iterable[BBox]:
-    if tile_size <= 0:
-        raise ValueError("tile_size must be positive")
-
     for y in range(region.y, region.bottom, tile_size):
         for x in range(region.x, region.right, tile_size):
             yield BBox.from_points(
