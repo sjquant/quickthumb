@@ -845,6 +845,29 @@ class TestCLILint:
             "overlap_bbox": {"x": 1100, "y": 620, "width": 90, "height": 20},
         }
 
+    def test_should_exit_1_when_platform_spec_has_only_one_dimension(self):
+        """lint rejects a platform spec with only width or height set explicitly"""
+        from quickthumb.cli import app
+
+        # given: a platform spec that provides width but omits height
+        spec_path = self._write_spec(
+            {
+                "platform": "youtube",
+                "width": 640,
+                "layers": [{"type": "background", "color": "#FFFFFF"}],
+            }
+        )
+
+        # when
+        try:
+            result = CliRunner().invoke(app, ["lint", spec_path, "--format", "json"])
+        finally:
+            os.unlink(spec_path)
+
+        # then
+        assert result.exit_code == 1
+        assert "'width' and 'height' must be integers" in result.output
+
     def test_should_exit_1_for_invalid_lint_format(self, spec_file):
         """lint exits 1 when --format is neither text nor json"""
         from quickthumb.cli import app

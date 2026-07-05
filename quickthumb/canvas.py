@@ -781,7 +781,7 @@ class Canvas:
 
         width = raw.get("width")
         height = raw.get("height")
-        if platform is not None and (width is None or height is None):
+        if platform is not None and width is None and height is None:
             try:
                 preset = PLATFORM_SAFE_MARGIN_PRESETS[platform]
             except KeyError:

@@ -1351,6 +1351,139 @@ class TestDiagnoseVisibility:
         # then
         assert "layer-hidden" not in [finding.code for finding in diagnostics]
 
+    def test_should_not_hide_layer_behind_transparent_shape_color(self):
+        """Transparent RGBA shape colors do not count as visible or hidden coverage"""
+        from quickthumb import Canvas
+
+        # given: a transparent same-size shape over a visible lower shape
+        canvas = (
+            Canvas(100, 100)
+            .shape(
+                shape="rectangle",
+                position=(20, 20),
+                width=30,
+                height=30,
+                color="#FF0000",
+            )
+            .shape(
+                shape="rectangle",
+                position=(20, 20),
+                width=30,
+                height=30,
+                color="#00000000",
+            )
+        )
+
+        # when
+        diagnostics = canvas.diagnose()
+
+        # then
+        assert diagnostics == []
+
+    def test_should_not_hide_layer_behind_partially_transparent_shape_color(self):
+        """Partially transparent RGBA shape colors may overlap but do not hide lower pixels"""
+        from quickthumb import Canvas
+
+        # given: a semi-transparent shape over a visible lower shape
+        canvas = (
+            Canvas(100, 100)
+            .shape(
+                shape="rectangle",
+                position=(20, 20),
+                width=30,
+                height=30,
+                color="#FF0000",
+            )
+            .shape(
+                shape="rectangle",
+                position=(20, 20),
+                width=30,
+                height=30,
+                color="#00FF0080",
+            )
+        )
+
+        # when
+        diagnostics = canvas.diagnose()
+
+        # then
+        assert [finding.code for finding in diagnostics] == ["layer-overlap"]
+
+    def test_should_warn_when_later_opaque_background_hides_layer(self):
+        """An opaque later background layer fully covers earlier visible layers"""
+        from quickthumb import Canvas
+
+        # given: a visible shape followed by a full-canvas solid background
+        canvas = (
+            Canvas(100, 100)
+            .shape(
+                shape="rectangle",
+                position=(20, 20),
+                width=30,
+                height=30,
+                color="#FF0000",
+            )
+            .background(color="#000000")
+        )
+
+        # when
+        diagnostics = canvas.diagnose()
+
+        # then
+        assert [finding.code for finding in diagnostics] == ["layer-hidden"]
+        assert diagnostics[0].related_layers == ["layer:0", "layer:1"]
+
+    def test_should_not_hide_layer_behind_transparent_background_color(self):
+        """Transparent RGBA background colors do not count as opaque full-canvas coverage"""
+        from quickthumb import Canvas
+
+        # given: a visible shape followed by a transparent full-canvas background
+        canvas = (
+            Canvas(100, 100)
+            .shape(
+                shape="rectangle",
+                position=(20, 20),
+                width=30,
+                height=30,
+                color="#FF0000",
+            )
+            .background(color="#00000000")
+        )
+
+        # when
+        diagnostics = canvas.diagnose()
+
+        # then
+        assert diagnostics == []
+
+    def test_should_warn_when_later_opaque_gradient_background_hides_layer(self):
+        """Opaque gradient backgrounds participate in layer-hidden diagnostics"""
+        from quickthumb import Canvas, LinearGradient
+
+        # given: a visible shape followed by an opaque full-canvas gradient background
+        canvas = (
+            Canvas(100, 100)
+            .shape(
+                shape="rectangle",
+                position=(20, 20),
+                width=30,
+                height=30,
+                color="#FF0000",
+            )
+            .background(
+                gradient=LinearGradient(
+                    angle=0,
+                    stops=[("#000000", 0), ("#111111", 1)],
+                )
+            )
+        )
+
+        # when
+        diagnostics = canvas.diagnose()
+
+        # then
+        assert [finding.code for finding in diagnostics] == ["layer-hidden"]
+
     def test_should_warn_when_layer_crowds_default_safe_margin(self):
         """A layer inside the canvas but too near an edge produces edge-crowding"""
         from quickthumb import Canvas
@@ -1395,6 +1528,23 @@ class TestDiagnoseVisibility:
                 "suggestion": "move layer 1 to x=4, y=120 to stay inside the safe area",
             }
         ]
+
+    def test_should_report_edge_crowding_with_unrelated_text_warning(self):
+        """Safe-area warnings are not suppressed by unrelated text diagnostics"""
+        from quickthumb import Canvas
+
+        # given: low-contrast text placed too close to the left edge
+        canvas = (
+            Canvas(400, 300)
+            .background(color="#FFFFFF")
+            .text("ghost", size=40, color="#FFFFFF", position=(2, 120))
+        )
+
+        # when
+        diagnostics = canvas.diagnose()
+
+        # then
+        assert [finding.code for finding in diagnostics] == ["low-contrast", "edge-crowding"]
 
     def test_should_apply_youtube_platform_overlay_diagnostics(self):
         """Canvas.for_platform enables preset dimensions, margins, and UI overlays"""
