@@ -25,6 +25,102 @@ def spec_file():
     os.unlink(f.name)
 
 
+class TestCLISchema:
+    """Test suite for the quickthumb schema subcommand"""
+
+    def test_should_emit_deterministic_json_schema_to_stdout(self):
+        """schema emits stable JSON only, suitable for shell pipelines"""
+        # given: the quickthumb CLI application
+        from quickthumb.cli import app
+
+        runner = CliRunner()
+
+        # when: the user asks for the published schema twice
+        first = runner.invoke(app, ["schema"])
+        second = runner.invoke(app, ["schema"])
+
+        # then: stdout is deterministic parseable JSON with schema metadata
+        assert first.exit_code == 0
+        assert second.exit_code == 0
+        assert first.output == second.output
+        payload = json.loads(first.output)
+        assert payload["$schema"] == "https://json-schema.org/draft/2020-12/schema"
+        assert payload["$id"] == "https://sjquant.github.io/quickthumb/schema.json"
+        assert payload["title"] == "quickthumb Canvas JSON Spec"
+
+    def test_should_include_canvas_theme_platform_and_layer_contracts(self):
+        """schema includes top-level spec fields and every JSON layer discriminator"""
+        # given: the quickthumb CLI application
+        from quickthumb.cli import app
+
+        # when: the user emits the schema
+        result = CliRunner().invoke(app, ["schema"])
+
+        # then: the schema describes canvas fields, theme tokens, and layer types
+        assert result.exit_code == 0
+        payload = json.loads(result.output)
+        assert set(payload["properties"]) == {"height", "layers", "platform", "theme", "width"}
+        assert payload["anyOf"] == [
+            {"required": ["width", "height"]},
+            {
+                "not": {"anyOf": [{"required": ["width"]}, {"required": ["height"]}]},
+                "required": ["platform"],
+            },
+        ]
+        assert payload["properties"]["theme"]["type"] == "object"
+        layer_mapping = payload["properties"]["layers"]["items"]["discriminator"]["mapping"]
+        assert set(layer_mapping) == {
+            "background",
+            "custom",
+            "group",
+            "image",
+            "outline",
+            "shape",
+            "svg",
+            "text",
+        }
+
+    def test_should_reflect_model_validation_for_common_fields(self):
+        """schema preserves generated constraints from the public Pydantic models"""
+        # given: the quickthumb CLI application
+        from quickthumb.cli import app
+
+        # when: the schema is emitted
+        result = CliRunner().invoke(app, ["schema"])
+
+        # then: generated field schemas include color, opacity, position, and align constraints
+        assert result.exit_code == 0
+        defs = json.loads(result.output)["$defs"]
+        text_props = defs["TextLayer"]["properties"]
+        assert text_props["color"]["anyOf"][0]["pattern"] == "^#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$"
+        assert text_props["opacity"]["minimum"] == 0.0
+        assert text_props["opacity"]["maximum"] == 1.0
+        assert text_props["position"]["anyOf"][0]["minItems"] == 2
+        assert text_props["position"]["anyOf"][0]["maxItems"] == 2
+        align_options = text_props["align"]["anyOf"]
+        assert align_options[0] == {"$ref": "#/$defs/Align"}
+        assert align_options[1]["prefixItems"][0]["enum"] == ["left", "center", "right"]
+        assert align_options[1]["prefixItems"][1]["enum"] == ["top", "middle", "bottom"]
+
+    def test_should_write_schema_to_output_path(self):
+        """schema --output writes the same script-friendly JSON to a file"""
+        # given: the quickthumb CLI application and an isolated output directory
+        from quickthumb.cli import app
+
+        runner = CliRunner()
+
+        # when: the user writes the schema to a file
+        with runner.isolated_filesystem():
+            result = runner.invoke(app, ["schema", "--output", "schema.json"])
+
+            # then: the command prints the path and writes parseable schema JSON
+            assert result.exit_code == 0
+            assert result.output.strip() == "schema.json"
+            with open("schema.json") as f:
+                payload = json.load(f)
+            assert payload["$schema"] == "https://json-schema.org/draft/2020-12/schema"
+
+
 class TestCLIRender:
     def test_should_render_to_default_output(self, spec_file):
         """Test that render writes output.png in the current directory by default"""

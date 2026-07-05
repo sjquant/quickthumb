@@ -9,6 +9,7 @@ import typer
 
 from quickthumb.canvas import _VAR_RE, Canvas, _is_theme_reference
 from quickthumb.errors import RenderingError, ValidationError
+from quickthumb.schema import canvas_json_schema
 
 _VALID_FORMATS = {"PNG", "JPEG", "WEBP"}
 
@@ -64,6 +65,27 @@ def _callback() -> None:
 
 def main() -> None:
     app()
+
+
+@app.command()
+def schema(
+    output: Annotated[
+        Path | None,
+        typer.Option("-o", "--output", help="Write schema JSON to a file instead of stdout"),
+    ] = None,
+) -> None:
+    """Emit the JSON Schema for quickthumb canvas specs."""
+    payload = json.dumps(canvas_json_schema(), indent=2, sort_keys=True) + "\n"
+    if output is None:
+        typer.echo(payload, nl=False)
+        return
+
+    try:
+        output.write_text(payload)
+    except OSError as e:
+        typer.echo(str(e), err=True)
+        raise typer.Exit(1) from e
+    typer.echo(str(output))
 
 
 @app.command()

@@ -12,6 +12,7 @@ from pydantic import (
     NonNegativeInt,
     PositiveFloat,
     PositiveInt,
+    WithJsonSchema,
     field_serializer,
     field_validator,
     model_validator,
@@ -21,6 +22,7 @@ from pydantic import ValidationError as PydanticValidationError
 from quickthumb.errors import ValidationError
 
 HEX_COLOR_PATTERN = r"^#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$"
+Position = tuple[int | float | str, int | float | str]
 
 
 def validate_hex_color(color: str) -> str:
@@ -31,7 +33,11 @@ def validate_hex_color(color: str) -> str:
 
 
 # Reusable color type with validation
-HexColor = Annotated[str, AfterValidator(validate_hex_color)]
+HexColor = Annotated[
+    str,
+    AfterValidator(validate_hex_color),
+    WithJsonSchema({"type": "string", "pattern": HEX_COLOR_PATTERN}),
+]
 
 
 def _validate_opacity(v: float) -> float:
@@ -40,7 +46,11 @@ def _validate_opacity(v: float) -> float:
     return v
 
 
-OpacityField = Annotated[float, AfterValidator(_validate_opacity)]
+OpacityField = Annotated[
+    float,
+    AfterValidator(_validate_opacity),
+    WithJsonSchema({"type": "number", "minimum": 0.0, "maximum": 1.0}),
+]
 
 
 # Generic enum converter
@@ -143,7 +153,10 @@ def _validate_align_with_hv_tuple(v: Any) -> Align | None:
     raise ValueError(f"invalid align value: {v}")
 
 
-AlignWithHVTuple = Annotated[Align | None, BeforeValidator(_validate_align_with_hv_tuple)]
+AlignWithHVTuple = Annotated[
+    Align | tuple[Literal["left", "center", "right"], Literal["top", "middle", "bottom"]] | None,
+    BeforeValidator(_validate_align_with_hv_tuple),
+]
 
 
 class quickthumbModel(BaseModel):  # noqa: N801
@@ -471,7 +484,7 @@ class TextLayer(quickthumbModel):
     size: PositiveInt | None = None
     color: HexColor | None = None
     fill: TextFill | None = None
-    position: tuple | None = None
+    position: Position | None = None
     align: AlignWithHVTuple = None
     bold: bool = False
     italic: bool = False
@@ -526,7 +539,7 @@ class TextLayer(quickthumbModel):
 
     @field_validator("position", mode="before")
     @classmethod
-    def validate_position(cls, v: tuple | list | None) -> tuple | None:
+    def validate_position(cls, v: tuple | list | None) -> Position | None:
         if v is None:
             return v
 
@@ -561,7 +574,7 @@ class OutlineLayer(quickthumbModel):
 class ImageLayer(quickthumbModel):
     type: Literal["image"]
     path: str
-    position: tuple
+    position: Position
     width: PositiveInt | None = None
     height: PositiveInt | None = None
     opacity: OpacityField = 1.0
@@ -580,7 +593,7 @@ class ImageLayer(quickthumbModel):
 
     @field_validator("position", mode="before")
     @classmethod
-    def validate_position(cls, v: tuple | list | None) -> tuple | None:
+    def validate_position(cls, v: tuple | list | None) -> Position | None:
         if v is None:
             raise ValueError("position is required")
 
@@ -605,7 +618,7 @@ class ImageLayer(quickthumbModel):
 class ShapeLayer(quickthumbModel):
     type: Literal["shape"]
     shape: Literal["rectangle", "ellipse", "pill", "triangle", "star", "polygon"]
-    position: tuple
+    position: Position
     width: PositiveInt
     height: PositiveInt
     color: HexColor
@@ -657,7 +670,7 @@ class ShapeLayer(quickthumbModel):
 
     @field_validator("position", mode="before")
     @classmethod
-    def validate_position(cls, v: tuple | list | None) -> tuple | None:
+    def validate_position(cls, v: tuple | list | None) -> Position | None:
         if v is None:
             raise ValueError("position is required")
 
@@ -683,7 +696,7 @@ class ShapeLayer(quickthumbModel):
 class SvgLayer(quickthumbModel):
     type: Literal["svg"]
     path: str
-    position: tuple
+    position: Position
     width: PositiveInt | None = None
     height: PositiveInt | None = None
     opacity: OpacityField = 1.0
@@ -697,7 +710,7 @@ class SvgLayer(quickthumbModel):
 
     @field_validator("position", mode="before")
     @classmethod
-    def validate_position(cls, v: tuple | list | None) -> tuple | None:
+    def validate_position(cls, v: tuple | list | None) -> Position | None:
         if v is None:
             raise ValueError("position is required")
 
@@ -723,7 +736,7 @@ class GroupLayer(quickthumbModel):
     direction: Literal["row", "column"] = "column"
     gap: NonNegativeInt = 0
     padding: int | tuple[int, int] | tuple[int, int, int, int] = 0
-    position: tuple | None = None
+    position: Position | None = None
     align: AlignWithHVTuple = None
     item_align: Literal["start", "center", "end"] = "start"
     animation: AnimationInput | None = None
@@ -775,7 +788,7 @@ class GroupLayer(quickthumbModel):
 
     @field_validator("position", mode="before")
     @classmethod
-    def validate_position(cls, v: tuple | list | None) -> tuple | None:
+    def validate_position(cls, v: tuple | list | None) -> Position | None:
         if v is None:
             return v
 
@@ -872,8 +885,35 @@ LayerType = Annotated[
 ]
 
 
+class CustomLayerSpec(quickthumbModel):
+    type: Literal["custom"]
+    name: str
+    kwargs: dict[str, Any] = Field(default_factory=dict)
+
+
+CanvasSpecLayerType = Annotated[
+    BackgroundLayer
+    | TextLayer
+    | OutlineLayer
+    | ImageLayer
+    | ShapeLayer
+    | SvgLayer
+    | GroupLayer
+    | CustomLayerSpec,
+    Discriminator("type"),
+]
+
+
 class CanvasModel(quickthumbModel):
     width: PositiveInt | None = None
     height: PositiveInt | None = None
     platform: str | None = None
     layers: list[LayerType]
+
+
+class CanvasSpecModel(quickthumbModel):
+    width: PositiveInt | None = None
+    height: PositiveInt | None = None
+    platform: str | None = None
+    theme: dict[str, Any] = Field(default_factory=dict)
+    layers: list[CanvasSpecLayerType]

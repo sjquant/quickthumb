@@ -39,6 +39,29 @@ A quickthumb JSON document has three required top-level fields, plus an optional
 
 Every layer object requires a `"type"` discriminator field. Layers render in array order — first item is backmost.
 
+## Published schema
+
+Emit the current JSON Schema from the same Pydantic models used by `Canvas.from_json()`:
+
+```bash
+quickthumb schema > quickthumb.schema.json
+quickthumb schema --output quickthumb.schema.json
+```
+
+The command writes deterministic JSON only, so it can be checked into a repo, piped into an editor, or passed directly to a constrained-generation API. The schema includes the current canvas fields, built-in layer discriminators, serializable custom layer shape, effects, animations, and the optional top-level `theme` block.
+
+For constrained generation, prefer concrete resolved values in typed fields:
+
+```text
+Use quickthumb.schema.json as the JSON response schema.
+Generate one valid quickthumb canvas spec for a 1280x720 YouTube thumbnail.
+Return only the JSON object.
+Use concrete hex colors and numeric sizes in layer fields.
+Use only these layer type discriminators: background, text, image, shape, svg, group, outline.
+```
+
+`$theme.*` references are resolved by quickthumb before model validation. Generic JSON Schema validators do not know that a string token such as `"$theme.sizes.title"` will become a number later, so schema-constrained calls should generate concrete field values unless the caller performs quickthumb's theme-resolution step afterward.
+
 ## Theme tokens
 
 Define brand tokens once in a top-level `theme` block and reference them anywhere in the spec with `$theme.path`:
