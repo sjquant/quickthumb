@@ -95,8 +95,7 @@ artifacts = [
 [tool.uv]
 required-version = ">=0.10.12"
 add-bounds = "major"
-exclude-newer = "P30D"
-exclude-newer-package = { idna = false, pillow = false, pygments = false, pymdown-extensions = false, pypdfium2 = false, pytest = false, rembg = false, requests = false, urllib3 = false }
+exclude-newer = "P14D"
 
 [tool.ruff]
 line-length = 100
