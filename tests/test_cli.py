@@ -771,26 +771,36 @@ class TestCLILint:
         payload = json.loads(result.output)
         assert payload["summary"]["diagnostic_count"] == 2
         finding = payload["diagnostics"][0]
-        assert finding["code"] == "text-clipped"
-        assert finding["severity"] == "warning"
-        assert finding["layer_index"] == 1
-        assert finding["layer_id"] == "layer:1"
-        assert finding["bbox"]["x"] == 10
-        assert finding["bbox"]["y"] == 70
-        assert finding["bbox"]["width"] <= 90
-        assert finding["bbox"]["y"] + finding["bbox"]["height"] > 110
-        assert finding["related_layers"] == ["layer:1"]
-        assert finding["measured"]["text_bbox"] == finding["bbox"]
-        assert finding["measured"]["wrapped_line_count"] > 1
-        assert finding["measured"]["max_width"] == 90
-        assert finding["measured"]["clipped_by"] == "canvas"
-        assert finding["measured"]["overflow"] == {
-            "bottom": finding["bbox"]["y"] + finding["bbox"]["height"] - 110
+        bbox = finding["bbox"]
+        assert bbox["width"] <= 90
+        assert bbox["y"] + bbox["height"] > 110
+        assert finding == {
+            "code": "text-clipped",
+            "severity": "warning",
+            "layer_index": 1,
+            "message": (
+                f"wrapped text block at (10, 70) size {bbox['width']}x{bbox['height']} "
+                "exceeds canvas and may be clipped"
+            ),
+            "layer_id": "layer:1",
+            "bbox": {"x": 10, "y": 70, "width": bbox["width"], "height": bbox["height"]},
+            "related_layers": ["layer:1"],
+            "measured": {
+                "text_bbox": {"x": 10, "y": 70, "width": bbox["width"], "height": bbox["height"]},
+                "wrapped_line_count": 10,
+                "max_width": 90,
+                "text_width": bbox["width"],
+                "text_height": bbox["height"],
+                "canvas_width": 260,
+                "canvas_height": 110,
+                "clipped_by": "canvas",
+                "overflow": {"bottom": bbox["y"] + bbox["height"] - 110},
+            },
+            "suggestion": (
+                "move the text fully inside the canvas, reduce text size, increase max_width, "
+                "or enable auto_scale"
+            ),
         }
-        assert finding["suggestion"] == (
-            "move the text fully inside the canvas, reduce text size, increase max_width, "
-            "or enable auto_scale"
-        )
 
     def test_should_emit_structured_json_for_declared_width_text_clipping(self):
         """lint --format json reports wrapped text that exceeds max_width"""
@@ -834,21 +844,35 @@ class TestCLILint:
             "text-clipped",
         ]
         finding = payload["diagnostics"][1]
-        assert finding["layer_id"] == "layer:1"
-        assert finding["bbox"]["x"] == 10
-        assert finding["bbox"]["width"] > 50
-        assert finding["bbox"]["x"] + finding["bbox"]["width"] <= 400
-        assert finding["related_layers"] == ["layer:1"]
-        assert finding["measured"] == {
-            "text_bbox": finding["bbox"],
-            "wrapped_line_count": 2,
-            "max_width": 50,
-            "text_width": finding["bbox"]["width"],
-            "text_height": finding["bbox"]["height"],
-            "canvas_width": 400,
-            "canvas_height": 300,
-            "clipped_by": "max_width",
-            "overflow_width": finding["bbox"]["width"] - 50,
+        bbox = finding["bbox"]
+        assert bbox["width"] > 50
+        assert bbox["x"] + bbox["width"] <= 400
+        assert finding == {
+            "code": "text-clipped",
+            "severity": "warning",
+            "layer_index": 1,
+            "message": (
+                f"wrapped text block at (10, 10) size {bbox['width']}x{bbox['height']} "
+                "exceeds max_width and may be clipped"
+            ),
+            "layer_id": "layer:1",
+            "bbox": {"x": 10, "y": 10, "width": bbox["width"], "height": bbox["height"]},
+            "related_layers": ["layer:1"],
+            "measured": {
+                "text_bbox": {"x": 10, "y": 10, "width": bbox["width"], "height": bbox["height"]},
+                "wrapped_line_count": 2,
+                "max_width": 50,
+                "text_width": bbox["width"],
+                "text_height": bbox["height"],
+                "canvas_width": 400,
+                "canvas_height": 300,
+                "clipped_by": "max_width",
+                "overflow_width": bbox["width"] - 50,
+            },
+            "suggestion": (
+                "move the text fully inside the canvas, reduce text size, increase max_width, "
+                "or enable auto_scale"
+            ),
         }
 
     def test_should_emit_structured_json_for_missing_glyph(self, monkeypatch):
@@ -889,13 +913,20 @@ class TestCLILint:
             "warning_count": 1,
         }
         finding = payload["diagnostics"][0]
-        assert finding["code"] == "missing-glyph"
-        assert finding["severity"] == "warning"
-        assert finding["layer_index"] == 1
-        assert finding["layer_id"] == "layer:1"
-        assert finding["related_layers"] == ["layer:1"]
-        assert finding["measured"] == {"characters": ["\ud55c"], "character_count": 1}
-        assert finding["suggestion"] == "use a font that supports '\ud55c'"
+        bbox = finding["bbox"]
+        assert finding == {
+            "code": "missing-glyph",
+            "severity": "warning",
+            "layer_index": 1,
+            "message": (
+                "text contains glyphs that render as the font replacement glyph: " + repr("\ud55c")
+            ),
+            "layer_id": "layer:1",
+            "bbox": {"x": 10, "y": 10, "width": bbox["width"], "height": bbox["height"]},
+            "related_layers": ["layer:1"],
+            "measured": {"characters": ["\ud55c"], "character_count": 1},
+            "suggestion": "use a font that supports '\ud55c'",
+        }
 
     def test_should_emit_structured_json_for_group_child_overlap(self):
         """lint --format json reports grouped child overlap with stable related layer ids"""

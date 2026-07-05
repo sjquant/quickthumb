@@ -455,29 +455,38 @@ class TestDiagnoseText:
         # then
         assert [d.code for d in diagnostics] == ["text-clipped", "off-canvas"]
         finding = diagnostics[0]
-        assert finding.severity == "warning"
-        assert finding.layer_id == "layer:1"
         assert finding.bbox is not None
-        assert finding.bbox.x == 10
-        assert finding.bbox.y == 70
-        assert finding.bbox.width <= 90
-        assert finding.bbox.y + finding.bbox.height > 110
-        assert finding.related_layers == ["layer:1"]
-        assert finding.measured["text_bbox"] == finding.bbox.model_dump()
-        assert finding.measured["wrapped_line_count"] > 1
-        assert finding.measured["max_width"] == 90
-        assert finding.measured["text_width"] == finding.bbox.width
-        assert finding.measured["text_height"] == finding.bbox.height
-        assert finding.measured["canvas_width"] == 260
-        assert finding.measured["canvas_height"] == 110
-        assert finding.measured["clipped_by"] == "canvas"
-        assert finding.measured["overflow"] == {
-            "bottom": finding.bbox.y + finding.bbox.height - 110
+        bbox = finding.bbox.model_dump()
+        assert bbox["width"] <= 90
+        assert bbox["y"] + bbox["height"] > 110
+        assert finding.model_dump() == {
+            "code": "text-clipped",
+            "severity": "warning",
+            "layer_index": 1,
+            "message": (
+                f"wrapped text block at (10, 70) size {bbox['width']}x{bbox['height']} "
+                "exceeds canvas and may be clipped"
+            ),
+            "layer_id": "layer:1",
+            "layer_name": None,
+            "bbox": {"x": 10, "y": 70, "width": bbox["width"], "height": bbox["height"]},
+            "related_layers": ["layer:1"],
+            "measured": {
+                "text_bbox": {"x": 10, "y": 70, "width": bbox["width"], "height": bbox["height"]},
+                "wrapped_line_count": 10,
+                "max_width": 90,
+                "text_width": bbox["width"],
+                "text_height": bbox["height"],
+                "canvas_width": 260,
+                "canvas_height": 110,
+                "clipped_by": "canvas",
+                "overflow": {"bottom": bbox["y"] + bbox["height"] - 110},
+            },
+            "suggestion": (
+                "move the text fully inside the canvas, reduce text size, increase max_width, "
+                "or enable auto_scale"
+            ),
         }
-        assert finding.suggestion == (
-            "move the text fully inside the canvas, reduce text size, increase max_width, "
-            "or enable auto_scale"
-        )
 
     def test_should_warn_when_wrapped_text_exceeds_declared_width(self):
         """Wrapped text wider than max_width receives a text-clipped warning"""
@@ -502,22 +511,37 @@ class TestDiagnoseText:
         # then
         assert [d.code for d in diagnostics] == ["text-overflow", "text-clipped"]
         finding = diagnostics[1]
-        assert finding.severity == "warning"
-        assert finding.layer_id == "layer:1"
         assert finding.bbox is not None
-        assert finding.bbox.x == 10
-        assert finding.bbox.width > 50
-        assert finding.bbox.x + finding.bbox.width <= 400
-        assert finding.measured == {
-            "text_bbox": finding.bbox.model_dump(),
-            "wrapped_line_count": 2,
-            "max_width": 50,
-            "text_width": finding.bbox.width,
-            "text_height": finding.bbox.height,
-            "canvas_width": 400,
-            "canvas_height": 300,
-            "clipped_by": "max_width",
-            "overflow_width": finding.bbox.width - 50,
+        bbox = finding.bbox.model_dump()
+        assert bbox["width"] > 50
+        assert bbox["x"] + bbox["width"] <= 400
+        assert finding.model_dump() == {
+            "code": "text-clipped",
+            "severity": "warning",
+            "layer_index": 1,
+            "message": (
+                f"wrapped text block at (10, 10) size {bbox['width']}x{bbox['height']} "
+                "exceeds max_width and may be clipped"
+            ),
+            "layer_id": "layer:1",
+            "layer_name": None,
+            "bbox": {"x": 10, "y": 10, "width": bbox["width"], "height": bbox["height"]},
+            "related_layers": ["layer:1"],
+            "measured": {
+                "text_bbox": {"x": 10, "y": 10, "width": bbox["width"], "height": bbox["height"]},
+                "wrapped_line_count": 2,
+                "max_width": 50,
+                "text_width": bbox["width"],
+                "text_height": bbox["height"],
+                "canvas_width": 400,
+                "canvas_height": 300,
+                "clipped_by": "max_width",
+                "overflow_width": bbox["width"] - 50,
+            },
+            "suggestion": (
+                "move the text fully inside the canvas, reduce text size, increase max_width, "
+                "or enable auto_scale"
+            ),
         }
 
     def test_should_warn_when_overflowing_word_also_extends_past_canvas_vertically(self):
@@ -544,16 +568,34 @@ class TestDiagnoseText:
         assert [d.code for d in diagnostics] == ["text-overflow", "text-clipped", "off-canvas"]
         finding = diagnostics[1]
         assert finding.bbox is not None
-        assert finding.measured == {
-            "text_bbox": finding.bbox.model_dump(),
-            "wrapped_line_count": 2,
-            "max_width": 50,
-            "text_width": finding.bbox.width,
-            "text_height": finding.bbox.height,
-            "canvas_width": 400,
-            "canvas_height": 300,
-            "clipped_by": "canvas",
-            "overflow": {"bottom": finding.bbox.y + finding.bbox.height - 300},
+        bbox = finding.bbox.model_dump()
+        assert finding.model_dump() == {
+            "code": "text-clipped",
+            "severity": "warning",
+            "layer_index": 1,
+            "message": (
+                f"wrapped text block at (10, 250) size {bbox['width']}x{bbox['height']} "
+                "exceeds canvas and may be clipped"
+            ),
+            "layer_id": "layer:1",
+            "layer_name": None,
+            "bbox": {"x": 10, "y": 250, "width": bbox["width"], "height": bbox["height"]},
+            "related_layers": ["layer:1"],
+            "measured": {
+                "text_bbox": {"x": 10, "y": 250, "width": bbox["width"], "height": bbox["height"]},
+                "wrapped_line_count": 2,
+                "max_width": 50,
+                "text_width": bbox["width"],
+                "text_height": bbox["height"],
+                "canvas_width": 400,
+                "canvas_height": 300,
+                "clipped_by": "canvas",
+                "overflow": {"bottom": bbox["y"] + bbox["height"] - 300},
+            },
+            "suggestion": (
+                "move the text fully inside the canvas, reduce text size, increase max_width, "
+                "or enable auto_scale"
+            ),
         }
 
     def test_should_warn_when_default_font_renders_missing_glyph(self, monkeypatch):
@@ -574,11 +616,22 @@ class TestDiagnoseText:
         # then
         assert [d.code for d in diagnostics] == ["missing-glyph"]
         finding = diagnostics[0]
-        assert finding.severity == "warning"
-        assert finding.layer_id == "layer:1"
         assert finding.bbox is not None
-        assert finding.measured == {"characters": ["\ud55c"], "character_count": 1}
-        assert finding.suggestion == "use a font that supports '\ud55c'"
+        bbox = finding.bbox.model_dump()
+        assert finding.model_dump() == {
+            "code": "missing-glyph",
+            "severity": "warning",
+            "layer_index": 1,
+            "message": (
+                "text contains glyphs that render as the font replacement glyph: " + repr("\ud55c")
+            ),
+            "layer_id": "layer:1",
+            "layer_name": None,
+            "bbox": {"x": 10, "y": 10, "width": bbox["width"], "height": bbox["height"]},
+            "related_layers": ["layer:1"],
+            "measured": {"characters": ["\ud55c"], "character_count": 1},
+            "suggestion": "use a font that supports '\ud55c'",
+        }
 
     def test_should_not_warn_for_skipped_missing_glyph_sentinels(self, monkeypatch):
         """Replacement glyph sentinels and whitespace are not reported as missing glyphs"""
