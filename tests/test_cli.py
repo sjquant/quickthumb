@@ -839,10 +839,17 @@ class TestCLILint:
         assert finding["bbox"]["width"] > 50
         assert finding["bbox"]["x"] + finding["bbox"]["width"] <= 400
         assert finding["related_layers"] == ["layer:1"]
-        assert finding["measured"]["text_bbox"] == finding["bbox"]
-        assert finding["measured"]["clipped_by"] == "max_width"
-        assert finding["measured"]["max_width"] == 50
-        assert finding["measured"]["overflow_width"] == finding["bbox"]["width"] - 50
+        assert finding["measured"] == {
+            "text_bbox": finding["bbox"],
+            "wrapped_line_count": 2,
+            "max_width": 50,
+            "text_width": finding["bbox"]["width"],
+            "text_height": finding["bbox"]["height"],
+            "canvas_width": 400,
+            "canvas_height": 300,
+            "clipped_by": "max_width",
+            "overflow_width": finding["bbox"]["width"] - 50,
+        }
 
     def test_should_emit_structured_json_for_missing_glyph(self, monkeypatch):
         """lint --format json includes structured missing-glyph diagnostics"""

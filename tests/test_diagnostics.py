@@ -508,10 +508,17 @@ class TestDiagnoseText:
         assert finding.bbox.x == 10
         assert finding.bbox.width > 50
         assert finding.bbox.x + finding.bbox.width <= 400
-        assert finding.measured["text_bbox"] == finding.bbox.model_dump()
-        assert finding.measured["clipped_by"] == "max_width"
-        assert finding.measured["max_width"] == 50
-        assert finding.measured["overflow_width"] == finding.bbox.width - 50
+        assert finding.measured == {
+            "text_bbox": finding.bbox.model_dump(),
+            "wrapped_line_count": 2,
+            "max_width": 50,
+            "text_width": finding.bbox.width,
+            "text_height": finding.bbox.height,
+            "canvas_width": 400,
+            "canvas_height": 300,
+            "clipped_by": "max_width",
+            "overflow_width": finding.bbox.width - 50,
+        }
 
     def test_should_warn_when_overflowing_word_also_extends_past_canvas_vertically(self):
         """Text overflow does not suppress vertical text-clipped canvas diagnostics"""
@@ -536,10 +543,17 @@ class TestDiagnoseText:
         # then
         assert [d.code for d in diagnostics] == ["text-overflow", "text-clipped", "off-canvas"]
         finding = diagnostics[1]
-        assert finding.measured["clipped_by"] == "canvas"
         assert finding.bbox is not None
-        assert finding.measured["overflow"] == {
-            "bottom": finding.bbox.y + finding.bbox.height - 300
+        assert finding.measured == {
+            "text_bbox": finding.bbox.model_dump(),
+            "wrapped_line_count": 2,
+            "max_width": 50,
+            "text_width": finding.bbox.width,
+            "text_height": finding.bbox.height,
+            "canvas_width": 400,
+            "canvas_height": 300,
+            "clipped_by": "canvas",
+            "overflow": {"bottom": finding.bbox.y + finding.bbox.height - 300},
         }
 
     def test_should_warn_when_default_font_renders_missing_glyph(self, monkeypatch):
