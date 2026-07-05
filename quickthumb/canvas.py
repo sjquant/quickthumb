@@ -9,6 +9,7 @@ from PIL import Image, ImageDraw
 from typing_extensions import Self
 
 from quickthumb._base import FileFormat, RenderContext, aspect_ratio_dimensions, is_url
+from quickthumb._diagnostic_rules import PLATFORM_SAFE_MARGIN_PRESETS
 from quickthumb._diagnostics import DiagnosticsEngine
 from quickthumb._effects import EffectsEngine
 from quickthumb._fonts import FontEngine
@@ -136,7 +137,16 @@ class Canvas:
         width: int | None = None,
         height: int | None = None,
         layers: list[RenderableLayer] | None = None,
+        platform: str | None = None,
     ):
+        if platform is not None:
+            try:
+                platform = PLATFORM_SAFE_MARGIN_PRESETS[platform].name
+            except KeyError:
+                supported = ", ".join(sorted(PLATFORM_SAFE_MARGIN_PRESETS))
+                raise ValidationError(
+                    f"Unsupported platform preset '{platform}'. Supported: {supported}"
+                ) from None
         if (width is None) != (height is None):
             raise ValidationError("Provide both width and height, or neither.")
         if width is not None and width <= 0:
@@ -150,6 +160,7 @@ class Canvas:
         self._has_size = width is not None
         self._ctx = RenderContext(width or 0, height or 0)
         self._layers: list[RenderableLayer] = layers or []
+        self._platform = platform
 
         self._effects = EffectsEngine()
         self._fonts = FontEngine()
@@ -172,6 +183,23 @@ class Canvas:
     def has_size(self) -> bool:
         """Whether the canvas has concrete dimensions (False until a Deck assigns them)."""
         return self._has_size
+
+    @property
+    def platform(self) -> str | None:
+        """Optional publishing platform preset used by diagnostic safe-margin rules."""
+        return self._platform
+
+    @classmethod
+    def for_platform(cls, platform: str) -> Self:
+        """Create a canvas sized for a platform and enable its diagnostic overlays."""
+        try:
+            preset = PLATFORM_SAFE_MARGIN_PRESETS[platform]
+        except KeyError:
+            supported = ", ".join(sorted(PLATFORM_SAFE_MARGIN_PRESETS))
+            raise ValidationError(
+                f"Unsupported platform preset '{platform}'. Supported: {supported}"
+            ) from None
+        return cls(width=preset.width, height=preset.height, platform=preset.name)
 
     def _inherit_size(self, width: int, height: int) -> None:
         """Assign a size to an unsized canvas; no-op if it already has one.
@@ -696,7 +724,14 @@ class Canvas:
             else:
                 layers_json.append(_json.loads(layer.model_dump_json()))
 
-        return _json.dumps({"width": self.width, "height": self.height, "layers": layers_json})
+        payload: dict[str, Any] = {
+            "width": self.width,
+            "height": self.height,
+            "layers": layers_json,
+        }
+        if self.platform is not None:
+            payload["platform"] = self.platform
+        return _json.dumps(payload)
 
     @classmethod
     def from_json(cls, data: str) -> Self:
@@ -742,13 +777,29 @@ class Canvas:
             else:
                 renderable_layers.append(layer_adapter.validate_python(layer_dict))
 
+        platform = raw.get("platform")
+        if platform is not None and not isinstance(platform, str):
+            CanvasModel.model_validate(raw)  # raises ValidationError with good message
+            raise ValidationError("'platform' must be a string.")
+
         width = raw.get("width")
         height = raw.get("height")
+        if platform is not None and width is None and height is None:
+            try:
+                preset = PLATFORM_SAFE_MARGIN_PRESETS[platform]
+            except KeyError:
+                supported = ", ".join(sorted(PLATFORM_SAFE_MARGIN_PRESETS))
+                raise ValidationError(
+                    f"Unsupported platform preset '{platform}'. Supported: {supported}"
+                ) from None
+            width = preset.width
+            height = preset.height
+
         if not isinstance(width, int) or not isinstance(height, int):
             CanvasModel.model_validate(raw)  # raises ValidationError with good message
             raise ValidationError("'width' and 'height' must be integers.")
 
-        return cls(width=width, height=height, layers=renderable_layers)
+        return cls(width=width, height=height, layers=renderable_layers, platform=platform)
 
     @classmethod
     def _read_template_file(cls, path: str) -> str:

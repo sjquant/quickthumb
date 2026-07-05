@@ -1,7 +1,9 @@
+from collections.abc import Iterable
+from itertools import islice
 from math import ceil
 from typing import TYPE_CHECKING
 
-from PIL import Image
+from PIL import Image, ImageChops
 
 from quickthumb._base import (
     DEFAULT_TEXT_COLOR,
@@ -10,30 +12,39 @@ from quickthumb._base import (
     parse_coordinate,
 )
 from quickthumb._diagnostic_rules import (
+    PLATFORM_SAFE_MARGIN_PRESETS,
     LayerAlphaCache,
     OverlapMeasurement,
+    SafeMarginPreset,
     average_visible_background,
     bbox_payload,
     clear_overlap_suggestion,
     contrast_ratio,
     diagnostic_context,
+    edge_distances,
     layer_label,
+    mask_area,
     move_inside_canvas_suggestion,
+    move_inside_safe_area_suggestion,
     overlap_pairs,
     require_bbox,
+    resolve_overlay_bbox,
+    resolve_safe_margins,
+    safe_area_bbox,
     visible_leaf_layers,
 )
 from quickthumb._effects import EffectsEngine
 from quickthumb._fonts import FontEngine
 from quickthumb._groups import GroupEngine
 from quickthumb._images import ImageEngine
-from quickthumb._measurements import LayerMeasurement, measure_layers
+from quickthumb._measurements import BBox, LayerMeasurement, measure_layers
 from quickthumb._shapes import ShapeEngine
 from quickthumb._text import TextEngine
 
 if TYPE_CHECKING:
     from quickthumb.canvas import Canvas
 from quickthumb.models import (
+    BackgroundLayer,
     Diagnostic,
     DiagnosticBBox,
     GroupLayer,
@@ -108,6 +119,16 @@ class DiagnosticsEngine:
             self._canvas._render_layer(running, measured.raw_layer)
 
         diagnostics.extend(self._diagnose_layer_overlaps(measurements))
+        diagnostics.extend(self._diagnose_hidden_layers(measurements))
+        edge_ignored_layer_ids = set()
+        for finding in diagnostics:
+            if finding.code == "off-canvas" and finding.layer_id is not None:
+                edge_ignored_layer_ids.add(finding.layer_id)
+            elif finding.code == "layer-hidden":
+                edge_ignored_layer_ids.update(finding.related_layers)
+        diagnostics.extend(
+            self._diagnose_edge_crowding(measurements, ignored_layer_ids=edge_ignored_layer_ids)
+        )
 
         return diagnostics
 
@@ -202,18 +223,286 @@ class DiagnosticsEngine:
             return False
         return overlap.upper_visible_pct >= BACKDROP_COVERAGE_RATIO
 
+    def _diagnose_hidden_layers(self, measurements: list[LayerMeasurement]) -> list[Diagnostic]:
+        findings: list[Diagnostic] = []
+        candidates = list(visible_leaf_layers(measurements))
+        opaque_backgrounds = [
+            measured
+            for measured in measurements
+            if measured.visible
+            and isinstance(measured.raw_layer, BackgroundLayer)
+            and self._is_opaque_background(measured.raw_layer)
+        ]
+        for lower_index, lower in enumerate(candidates):
+            finding = self._diagnose_hidden_layer(
+                lower,
+                islice(candidates, lower_index + 1, None),
+                [
+                    background.layer_id
+                    for background in opaque_backgrounds
+                    if background.order > lower.order
+                ],
+            )
+            if finding is not None:
+                findings.append(finding)
+        return findings
+
+    def _diagnose_hidden_layer(
+        self,
+        lower: LayerMeasurement,
+        later_layers: Iterable[LayerMeasurement],
+        later_background_ids: list[str],
+    ) -> Diagnostic | None:
+        lower_alpha = self._alpha_cache.get(lower)
+        if lower_alpha.visible_area == 0:
+            return None
+
+        lower_box = require_bbox(lower)
+        lower_mask = self._alpha_cache.region_mask(lower, lower_box)
+        coverage = Image.new("L", (lower_box.width, lower_box.height), 0)
+        covering_layer_ids = list(later_background_ids)
+        covered_visible_area = 0
+        if covering_layer_ids:
+            coverage.paste(255, (0, 0, lower_box.width, lower_box.height))
+            covered_visible_area = lower_alpha.visible_area
+        if covered_visible_area >= lower_alpha.visible_area:
+            return self._hidden_layer_diagnostic(lower, covering_layer_ids)
+
+        for upper in later_layers:
+            if not self._can_hide_lower_layer(upper):
+                continue
+            overlap = lower_box.intersection(require_bbox(upper))
+            if overlap is None:
+                continue
+
+            newly_covered = self._add_layer_coverage(
+                coverage, lower_box, lower_mask, upper, overlap
+            )
+            if newly_covered > 0:
+                covered_visible_area += newly_covered
+                covering_layer_ids.append(upper.layer_id)
+
+            if covered_visible_area >= lower_alpha.visible_area:
+                return self._hidden_layer_diagnostic(lower, covering_layer_ids)
+
+        return None
+
+    def _add_layer_coverage(
+        self,
+        coverage: Image.Image,
+        lower_box: BBox,
+        lower_mask: Image.Image,
+        upper: LayerMeasurement,
+        overlap: BBox,
+    ) -> int:
+        local_box = (
+            overlap.x - lower_box.x,
+            overlap.y - lower_box.y,
+            overlap.right - lower_box.x,
+            overlap.bottom - lower_box.y,
+        )
+        upper_mask = self._opaque_region_mask(upper, overlap)
+        existing = coverage.crop(local_box)
+        lower_region = lower_mask.crop(local_box)
+        newly_covered = ImageChops.multiply(ImageChops.subtract(upper_mask, existing), lower_region)
+        combined = ImageChops.lighter(existing, upper_mask)
+        coverage.paste(combined, local_box)
+        return mask_area(newly_covered)
+
+    def _hidden_layer_diagnostic(
+        self, lower: LayerMeasurement, covering_layer_ids: list[str]
+    ) -> Diagnostic:
+        lower_box = require_bbox(lower)
+        suggestion = (
+            f"remove layer {lower.index}, move it above the covering layers, "
+            "or move the covering layers"
+        )
+        return Diagnostic(
+            code="layer-hidden",
+            severity="warning",
+            layer_index=lower.index,
+            message=(
+                f"{layer_label(lower)} (order {lower.order}) is fully hidden by later "
+                f"opaque visible layers; {suggestion}"
+            ),
+            layer_id=lower.layer_id,
+            layer_name=lower.name,
+            bbox=DiagnosticBBox(**bbox_payload(lower_box)),
+            related_layers=[lower.layer_id, *covering_layer_ids],
+            measured={
+                "layer_type": lower.layer_type,
+                "visible_area": self._alpha_cache.get(lower).visible_area,
+                "hidden_visible_pct": 1.0,
+                "covering_layer_ids": covering_layer_ids,
+            },
+            suggestion=suggestion,
+        )
+
+    def _can_hide_lower_layer(self, measured: LayerMeasurement) -> bool:
+        layer = measured.raw_layer
+        if not measured.visible or measured.bbox is None:
+            return False
+        if float(getattr(layer, "opacity", 1.0)) < 1.0:
+            return False
+        blend_mode = getattr(layer, "blend_mode", None)
+        blend_value = getattr(blend_mode, "value", blend_mode)
+        return blend_value in (None, "normal")
+
+    def _is_opaque_background(self, layer: BackgroundLayer) -> bool:
+        if layer.blend_mode is not None:
+            return False
+        image = self._canvas._create_canvas()
+        self._canvas._render_background_layer(image, layer)
+        return (
+            mask_area(self._opaque_mask(image.getchannel("A")))
+            == self._ctx.width * self._ctx.height
+        )
+
+    def _diagnose_edge_crowding(
+        self, measurements: list[LayerMeasurement], *, ignored_layer_ids: set[str]
+    ) -> list[Diagnostic]:
+        findings: list[Diagnostic] = []
+        platform = getattr(self._canvas, "platform", None)
+        preset = PLATFORM_SAFE_MARGIN_PRESETS.get(platform) if platform is not None else None
+        margins = resolve_safe_margins(
+            preset, canvas_width=self._ctx.width, canvas_height=self._ctx.height
+        )
+        safe_area = safe_area_bbox(
+            canvas_width=self._ctx.width, canvas_height=self._ctx.height, margins=margins
+        )
+        for measured in visible_leaf_layers(measurements):
+            if measured.layer_id in ignored_layer_ids:
+                continue
+            finding = self._diagnose_margin_crowding(measured, preset, margins, safe_area)
+            if finding is not None:
+                findings.append(finding)
+            findings.extend(self._diagnose_overlay_crowding(measured, preset))
+        return findings
+
+    def _diagnose_margin_crowding(
+        self,
+        measured: LayerMeasurement,
+        preset: SafeMarginPreset | None,
+        margins: tuple[int, int, int, int],
+        safe_area: BBox,
+    ) -> Diagnostic | None:
+        box = require_bbox(measured)
+        if box.is_partially_outside(self._ctx.width, self._ctx.height):
+            return None
+        distances = edge_distances(
+            box, canvas_width=self._ctx.width, canvas_height=self._ctx.height
+        )
+        top, right, bottom, left = margins
+        thresholds = {"top": top, "right": right, "bottom": bottom, "left": left}
+        crowded_edges = [
+            edge for edge, distance in distances.items() if distance < thresholds[edge]
+        ]
+        if not crowded_edges:
+            return None
+
+        platform = preset.name if preset is not None else None
+        suggestion = move_inside_safe_area_suggestion(measured, safe_area, platform=platform)
+        target = f"{platform} safe area" if platform else "safe area"
+        return Diagnostic(
+            code="edge-crowding",
+            severity="warning",
+            layer_index=measured.index,
+            message=(
+                f"{layer_label(measured)} is too close to the "
+                f"{', '.join(crowded_edges)} edge(s) of the {target}; {suggestion}"
+            ),
+            measured={
+                "layer_type": measured.layer_type,
+                "platform": platform,
+                "edges": crowded_edges,
+                "distances": distances,
+                "margins": {
+                    "top": top,
+                    "right": right,
+                    "bottom": bottom,
+                    "left": left,
+                },
+                "safe_bbox": bbox_payload(safe_area),
+            },
+            suggestion=suggestion,
+            **diagnostic_context(measured),
+        )
+
+    def _diagnose_overlay_crowding(
+        self, measured: LayerMeasurement, preset: SafeMarginPreset | None
+    ) -> list[Diagnostic]:
+        if preset is None:
+            return []
+
+        box = require_bbox(measured)
+        findings: list[Diagnostic] = []
+        for overlay in preset.overlays:
+            overlay_box = resolve_overlay_bbox(
+                overlay, canvas_width=self._ctx.width, canvas_height=self._ctx.height
+            )
+            overlap = box.intersection(overlay_box)
+            if overlap is None:
+                continue
+
+            suggestion = (
+                f"move layer {measured.index} away from the {preset.name} {overlay.label} overlay"
+            )
+            findings.append(
+                Diagnostic(
+                    code="edge-crowding",
+                    severity="warning",
+                    layer_index=measured.index,
+                    message=(
+                        f"{layer_label(measured)} intersects the {preset.name} "
+                        f"{overlay.label} overlay; {suggestion}"
+                    ),
+                    layer_id=measured.layer_id,
+                    layer_name=measured.name,
+                    bbox=DiagnosticBBox(**bbox_payload(overlap)),
+                    related_layers=[measured.layer_id],
+                    measured={
+                        "layer_type": measured.layer_type,
+                        "platform": preset.name,
+                        "overlay": overlay.name,
+                        "overlay_label": overlay.label,
+                        "overlay_bbox": bbox_payload(overlay_box),
+                        "overlap_bbox": bbox_payload(overlap),
+                    },
+                    suggestion=suggestion,
+                )
+            )
+        return findings
+
     def _has_opaque_rectangle_mask(self, measured: LayerMeasurement) -> bool:
         layer = measured.raw_layer
-        return (
+        if not (
             isinstance(layer, ShapeLayer)
             and layer.shape == "rectangle"
             and layer.border_radius == 0
             and layer.rotation == 0
             and layer.opacity == 1.0
             and not layer.effects
-        )
+        ):
+            return False
+        color = self._effects.parse_color(layer.color)
+        return len(color) < 4 or color[3] == 255
 
     def _render_layer_alpha_mask(self, measured: LayerMeasurement) -> Image.Image:
+        return self._render_layer_alpha_channel(measured).point(lambda value: 255 if value else 0)
+
+    def _opaque_region_mask(self, measured: LayerMeasurement, region: BBox) -> Image.Image:
+        if self._has_opaque_rectangle_mask(measured):
+            return Image.new("L", (region.width, region.height), 255)
+
+        box = require_bbox(measured)
+        left, top = region.x - box.x, region.y - box.y
+        return self._opaque_mask(
+            self._render_layer_alpha_channel(measured).crop(
+                (left, top, left + region.width, top + region.height)
+            )
+        )
+
+    def _render_layer_alpha_channel(self, measured: LayerMeasurement) -> Image.Image:
         box = require_bbox(measured)
         image = Image.new("RGBA", (self._ctx.width, self._ctx.height), (0, 0, 0, 0))
         layer = measured.raw_layer
@@ -227,11 +516,10 @@ class DiagnosticsEngine:
             self._shapes.render_shape_layer(image, layer)
         else:
             return Image.new("L", (box.width, box.height), 0)
-        return (
-            image.getchannel("A")
-            .crop((box.x, box.y, box.right, box.bottom))
-            .point(lambda value: 255 if value else 0)
-        )
+        return image.getchannel("A").crop((box.x, box.y, box.right, box.bottom))
+
+    def _opaque_mask(self, alpha: Image.Image) -> Image.Image:
+        return alpha.point(lambda value: 255 if value == 255 else 0)
 
     def _diagnose_off_canvas(self, measured: LayerMeasurement) -> Diagnostic | None:
         box = measured.bbox
