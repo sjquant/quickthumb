@@ -913,10 +913,11 @@ class TestDiagnoseLayerOverlap:
         diagnostics = canvas.diagnose()
 
         # then
-        assert [finding.code for finding in diagnostics] == ["layer-overlap"]
-        assert diagnostics[0].severity == "warning"
-        assert diagnostics[0].layer_index == 2
-        assert diagnostics[0].message.endswith(expected_suggestion)
+        overlap_findings = [finding for finding in diagnostics if finding.code == "layer-overlap"]
+        assert len(overlap_findings) == 1
+        assert overlap_findings[0].severity == "warning"
+        assert overlap_findings[0].layer_index == 2
+        assert overlap_findings[0].message.endswith(expected_suggestion)
 
     def test_should_use_current_canvas_size_for_overlap_suggestions(self):
         """Overlap suggestions use canvas dimensions current at diagnose time"""
@@ -978,7 +979,7 @@ class TestDiagnoseLayerOverlap:
         diagnostics = canvas.diagnose()
 
         # then
-        assert [finding.code for finding in diagnostics] == ["layer-overlap"]
+        assert [finding.code for finding in diagnostics] == ["layer-overlap", "layer-hidden"]
         assert "visible_overlap_pct=25% of upper, 100% of lower" in diagnostics[0].message
 
     def test_should_warn_when_large_shape_fully_covers_small_shape(self):
@@ -1009,7 +1010,7 @@ class TestDiagnoseLayerOverlap:
         diagnostics = canvas.diagnose()
 
         # then
-        assert [finding.code for finding in diagnostics] == ["layer-overlap"]
+        assert [finding.code for finding in diagnostics] == ["layer-overlap", "layer-hidden"]
         assert "visible_overlap_pct=0% of upper, 100% of lower" in diagnostics[0].message
 
     def test_should_remeasure_alpha_masks_after_canvas_layers_change(self):
@@ -1081,7 +1082,7 @@ class TestDiagnoseLayerOverlap:
         diagnostics = canvas.diagnose()
 
         # then
-        assert [finding.code for finding in diagnostics] == ["layer-overlap"]
+        assert [finding.code for finding in diagnostics] == ["layer-overlap", "layer-hidden"]
         assert diagnostics[0].layer_index == 2
         assert "shape layer layer:2" in diagnostics[0].message
         assert "text layer layer:1" in diagnostics[0].message
@@ -1227,6 +1228,209 @@ class TestDiagnoseLayerOverlap:
         assert "text layer layer:2 (order 2) overlaps text layer layer:1:0 (order 1)" in (
             overlap_findings[0].message
         )
+
+
+class TestDiagnoseVisibility:
+    """Test suite for visibility and platform-safe diagnostics"""
+
+    def test_should_warn_when_layer_is_fully_hidden_by_later_opaque_layer(self):
+        """A later opaque layer covering every visible pixel produces a layer-hidden warning"""
+        from quickthumb import Canvas
+
+        # given: a small shape entirely covered by a later opaque rectangle
+        canvas = (
+            Canvas(240, 180)
+            .background(color="#FFFFFF")
+            .shape(
+                shape="rectangle",
+                position=(80, 70),
+                width=40,
+                height=30,
+                color="#FF0000",
+            )
+            .shape(
+                shape="rectangle",
+                position=(70, 60),
+                width=80,
+                height=60,
+                color="#00FF00",
+            )
+        )
+
+        # when
+        diagnostics = canvas.diagnose()
+
+        # then
+        hidden = [finding for finding in diagnostics if finding.code == "layer-hidden"]
+        assert len(hidden) == 1
+        finding = hidden[0]
+        assert finding.severity == "warning"
+        assert finding.layer_index == 1
+        assert finding.layer_id == "layer:1"
+        assert finding.bbox is not None
+        assert finding.bbox.model_dump() == {"x": 80, "y": 70, "width": 40, "height": 30}
+        assert finding.related_layers == ["layer:1", "layer:2"]
+        assert finding.measured == {
+            "layer_type": "shape",
+            "visible_area": 1200,
+            "hidden_visible_pct": 1.0,
+            "covering_layer_ids": ["layer:2"],
+        }
+        assert finding.suggestion == (
+            "remove layer 1, move it above the covering layers, or move the covering layers"
+        )
+
+    def test_should_warn_when_later_layers_jointly_hide_a_layer(self):
+        """Layer-hidden measures cumulative coverage from multiple later layers"""
+        from quickthumb import Canvas
+
+        # given: two later opaque rectangles that together cover a lower rectangle
+        canvas = (
+            Canvas(240, 180)
+            .background(color="#FFFFFF")
+            .shape(
+                shape="rectangle",
+                position=(80, 70),
+                width=40,
+                height=40,
+                color="#FF0000",
+            )
+            .shape(
+                shape="rectangle",
+                position=(80, 70),
+                width=20,
+                height=40,
+                color="#00FF00",
+            )
+            .shape(
+                shape="rectangle",
+                position=(100, 70),
+                width=20,
+                height=40,
+                color="#0000FF",
+            )
+        )
+
+        # when
+        diagnostics = canvas.diagnose()
+
+        # then
+        hidden = [finding for finding in diagnostics if finding.code == "layer-hidden"]
+        assert len(hidden) == 1
+        assert hidden[0].layer_id == "layer:1"
+        assert hidden[0].related_layers == ["layer:1", "layer:2", "layer:3"]
+
+    def test_should_not_hide_layer_behind_translucent_cover(self):
+        """Translucent later layers do not count as fully painting over a lower layer"""
+        from quickthumb import Canvas
+
+        # given: a lower layer geometrically covered by a translucent layer
+        canvas = (
+            Canvas(240, 180)
+            .background(color="#FFFFFF")
+            .shape(
+                shape="rectangle",
+                position=(80, 70),
+                width=40,
+                height=30,
+                color="#FF0000",
+            )
+            .shape(
+                shape="rectangle",
+                position=(70, 60),
+                width=80,
+                height=60,
+                color="#00FF00",
+                opacity=0.5,
+            )
+        )
+
+        # when
+        diagnostics = canvas.diagnose()
+
+        # then
+        assert "layer-hidden" not in [finding.code for finding in diagnostics]
+
+    def test_should_warn_when_layer_crowds_default_safe_margin(self):
+        """A layer inside the canvas but too near an edge produces edge-crowding"""
+        from quickthumb import Canvas
+
+        # given: a visible shape two pixels from the left edge on a 400px canvas
+        canvas = (
+            Canvas(400, 300)
+            .background(color="#FFFFFF")
+            .shape(
+                shape="rectangle",
+                position=(2, 120),
+                width=40,
+                height=40,
+                color="#FF0000",
+            )
+        )
+
+        # when
+        diagnostics = canvas.diagnose()
+
+        # then
+        assert [finding.model_dump(mode="json", exclude_none=True) for finding in diagnostics] == [
+            {
+                "code": "edge-crowding",
+                "severity": "warning",
+                "layer_index": 1,
+                "message": (
+                    "shape layer layer:1 is too close to the left edge(s) of the safe area; "
+                    "move layer 1 to x=4, y=120 to stay inside the safe area"
+                ),
+                "layer_id": "layer:1",
+                "bbox": {"x": 2, "y": 120, "width": 40, "height": 40},
+                "related_layers": ["layer:1"],
+                "measured": {
+                    "layer_type": "shape",
+                    "platform": None,
+                    "edges": ["left"],
+                    "distances": {"left": 2, "top": 120, "right": 358, "bottom": 140},
+                    "margins": {"top": 4, "right": 4, "bottom": 4, "left": 4},
+                    "safe_bbox": {"x": 4, "y": 4, "width": 392, "height": 292},
+                },
+                "suggestion": "move layer 1 to x=4, y=120 to stay inside the safe area",
+            }
+        ]
+
+    def test_should_apply_youtube_platform_overlay_diagnostics(self):
+        """Canvas.for_platform enables preset dimensions, margins, and UI overlays"""
+        from quickthumb import Canvas
+
+        # given: a YouTube thumbnail layer crossing the bottom-right duration badge overlay
+        canvas = (
+            Canvas.for_platform("youtube")
+            .background(color="#FFFFFF")
+            .shape(
+                shape="rectangle",
+                position=(1100, 620),
+                width=90,
+                height=20,
+                color="#FF0000",
+            )
+        )
+
+        # when
+        diagnostics = canvas.diagnose()
+
+        # then
+        crowding = [finding for finding in diagnostics if finding.code == "edge-crowding"]
+        assert len(crowding) == 1
+        finding = crowding[0]
+        assert finding.layer_index == 1
+        assert finding.bbox is not None
+        assert finding.bbox.model_dump() == {"x": 1100, "y": 620, "width": 90, "height": 20}
+        assert finding.measured["platform"] == "youtube"
+        assert finding.measured["overlay"] == "duration-badge"
+        assert finding.measured["overlay_bbox"] == {
+            "x": 1075,
+            "y": 619,
+            "width": 179,
+            "height": 72,
+        }
 
 
 class TestDiagnoseMeasuredLayers:

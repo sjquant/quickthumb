@@ -794,6 +794,57 @@ class TestCLILint:
         assert finding["measured"]["upper_layer_id"] == "layer:2"
         assert "overlaps text layer layer:1:0" in finding["message"]
 
+    def test_should_emit_structured_json_for_platform_edge_crowding(self):
+        """lint --format json includes edge-crowding fields from platform presets"""
+        from quickthumb.cli import app
+
+        # given: a YouTube spec whose platform sets size and a duration badge overlay
+        spec_path = self._write_spec(
+            {
+                "platform": "youtube",
+                "layers": [
+                    {"type": "background", "color": "#FFFFFF"},
+                    {
+                        "type": "shape",
+                        "shape": "rectangle",
+                        "position": [1100, 620],
+                        "width": 90,
+                        "height": 20,
+                        "color": "#FF0000",
+                    },
+                ],
+            }
+        )
+
+        # when
+        try:
+            result = CliRunner().invoke(app, ["lint", spec_path, "--format", "json"])
+        finally:
+            os.unlink(spec_path)
+
+        # then
+        assert result.exit_code == 3
+        payload = json.loads(result.output)
+        assert payload["summary"] == {
+            "diagnostic_count": 1,
+            "error_count": 0,
+            "warning_count": 1,
+        }
+        finding = payload["diagnostics"][0]
+        assert finding["code"] == "edge-crowding"
+        assert finding["layer_index"] == 1
+        assert finding["layer_id"] == "layer:1"
+        assert finding["bbox"] == {"x": 1100, "y": 620, "width": 90, "height": 20}
+        assert finding["related_layers"] == ["layer:1"]
+        assert finding["measured"] == {
+            "layer_type": "shape",
+            "platform": "youtube",
+            "overlay": "duration-badge",
+            "overlay_label": "duration badge",
+            "overlay_bbox": {"x": 1075, "y": 619, "width": 179, "height": 72},
+            "overlap_bbox": {"x": 1100, "y": 620, "width": 90, "height": 20},
+        }
+
     def test_should_exit_1_for_invalid_lint_format(self, spec_file):
         """lint exits 1 when --format is neither text nor json"""
         from quickthumb.cli import app

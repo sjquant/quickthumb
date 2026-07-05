@@ -37,6 +37,93 @@ class OverlapMeasurement:
     upper_visible_pct: float
 
 
+@dataclass(frozen=True)
+class SafeMarginOverlay:
+    """A platform UI region that should stay clear of important layer pixels."""
+
+    name: str
+    label: str
+    bounds: tuple[float, float, float, float]
+
+
+@dataclass(frozen=True)
+class SafeMarginPreset:
+    """Canvas preset dimensions and safe regions for a publishing platform."""
+
+    name: str
+    width: int
+    height: int
+    margins: tuple[float, float, float, float]
+    overlays: tuple[SafeMarginOverlay, ...] = ()
+
+
+PLATFORM_SAFE_MARGIN_PRESETS: dict[str, SafeMarginPreset] = {
+    "youtube": SafeMarginPreset(
+        name="youtube",
+        width=1280,
+        height=720,
+        margins=(0.05, 0.05, 0.08, 0.05),
+        overlays=(
+            SafeMarginOverlay(
+                name="duration-badge",
+                label="duration badge",
+                bounds=(0.84, 0.86, 0.14, 0.10),
+            ),
+        ),
+    ),
+    "youtube-thumbnail": SafeMarginPreset(
+        name="youtube-thumbnail",
+        width=1280,
+        height=720,
+        margins=(0.05, 0.05, 0.08, 0.05),
+        overlays=(
+            SafeMarginOverlay(
+                name="duration-badge",
+                label="duration badge",
+                bounds=(0.84, 0.86, 0.14, 0.10),
+            ),
+        ),
+    ),
+    "instagram-square": SafeMarginPreset(
+        name="instagram-square",
+        width=1080,
+        height=1080,
+        margins=(0.07, 0.07, 0.07, 0.07),
+    ),
+    "instagram-reel": SafeMarginPreset(
+        name="instagram-reel",
+        width=1080,
+        height=1920,
+        margins=(0.12, 0.08, 0.16, 0.08),
+        overlays=(
+            SafeMarginOverlay(
+                name="right-rail",
+                label="right action rail",
+                bounds=(0.86, 0.45, 0.12, 0.36),
+            ),
+        ),
+    ),
+    "tiktok": SafeMarginPreset(
+        name="tiktok",
+        width=1080,
+        height=1920,
+        margins=(0.14, 0.08, 0.18, 0.08),
+        overlays=(
+            SafeMarginOverlay(
+                name="right-rail",
+                label="right action rail",
+                bounds=(0.86, 0.42, 0.12, 0.40),
+            ),
+            SafeMarginOverlay(
+                name="caption-area",
+                label="caption area",
+                bounds=(0.05, 0.80, 0.72, 0.12),
+            ),
+        ),
+    ),
+}
+
+
 def bbox_payload(box: BBox) -> dict[str, int]:
     return {
         "x": box.x,
@@ -170,6 +257,62 @@ def clear_overlap_suggestion(
     return f"move or resize layer {upper.index} to clear the overlap"
 
 
+def edge_distances(box: BBox, *, canvas_width: int, canvas_height: int) -> dict[str, int]:
+    return {
+        "left": box.x,
+        "top": box.y,
+        "right": canvas_width - box.right,
+        "bottom": canvas_height - box.bottom,
+    }
+
+
+def resolve_safe_margins(
+    preset: SafeMarginPreset | None, *, canvas_width: int, canvas_height: int
+) -> tuple[int, int, int, int]:
+    if preset is None:
+        margin = max(4, round(min(canvas_width, canvas_height) * 0.01))
+        return margin, margin, margin, margin
+
+    top, right, bottom, left = preset.margins
+    return (
+        round(canvas_height * top),
+        round(canvas_width * right),
+        round(canvas_height * bottom),
+        round(canvas_width * left),
+    )
+
+
+def safe_area_bbox(
+    *, canvas_width: int, canvas_height: int, margins: tuple[int, int, int, int]
+) -> BBox:
+    top, right, bottom, left = margins
+    return BBox.from_points(left, top, canvas_width - right, canvas_height - bottom)
+
+
+def resolve_overlay_bbox(
+    overlay: SafeMarginOverlay, *, canvas_width: int, canvas_height: int
+) -> BBox:
+    x, y, width, height = overlay.bounds
+    left = round(canvas_width * x)
+    top = round(canvas_height * y)
+    return BBox(left, top, round(canvas_width * width), round(canvas_height * height))
+
+
+def move_inside_safe_area_suggestion(
+    measured: LayerMeasurement, safe_area: BBox, *, platform: str | None
+) -> str:
+    box = require_bbox(measured)
+    if box.width > safe_area.width or box.height > safe_area.height:
+        target = f"{platform} safe area" if platform else "safe area"
+        return f"resize layer {measured.index} to fit within the {target}"
+
+    bbox_x = min(max(box.x, safe_area.x), safe_area.right - box.width)
+    bbox_y = min(max(box.y, safe_area.y), safe_area.bottom - box.height)
+    x, y = _aligned_position(measured, bbox_x, bbox_y)
+    target = f"{platform} safe area" if platform else "safe area"
+    return f"move layer {measured.index} to x={x}, y={y} to stay inside the {target}"
+
+
 class LayerAlphaCache:
     """Measure and cache visible alpha masks for overlap-style rules."""
 
@@ -217,6 +360,10 @@ class LayerAlphaCache:
             lower_visible_pct=visible_area / lower_alpha.visible_area,
             upper_visible_pct=visible_area / upper_alpha.visible_area,
         )
+
+    def region_mask(self, measured: LayerMeasurement, region: BBox) -> Image.Image:
+        """Return a binary alpha mask for a canvas-space region of one layer."""
+        return self._alpha_region(measured, self.get(measured), region)
 
     def _visible_intersection_area(
         self,

@@ -817,7 +817,15 @@ DiagnosticBBox = InspectionBBox
 
 
 class Diagnostic(quickthumbModel):
-    code: Literal["off-canvas", "tiny-text", "text-overflow", "low-contrast", "layer-overlap"]
+    code: Literal[
+        "off-canvas",
+        "tiny-text",
+        "text-overflow",
+        "low-contrast",
+        "layer-overlap",
+        "layer-hidden",
+        "edge-crowding",
+    ]
     severity: Literal["warning", "error"]
     layer_index: int
     message: str
@@ -863,6 +871,7 @@ LayerType = Annotated[
 
 
 class CanvasModel(quickthumbModel):
-    width: PositiveInt
-    height: PositiveInt
+    width: PositiveInt | None = None
+    height: PositiveInt | None = None
+    platform: str | None = None
     layers: list[LayerType]
