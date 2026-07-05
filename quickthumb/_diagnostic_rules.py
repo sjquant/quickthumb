@@ -417,9 +417,14 @@ class LayerAlphaCache:
         return mask.point(lambda value: 255 if value else 0)
 
 
-def average_visible_background(image: Image.Image, region: BBox) -> tuple[float, float, float]:
+def average_visible_background(
+    image: Image.Image, region: BBox, mask: Image.Image | None = None
+) -> tuple[float, float, float]:
     crop = image.crop((region.x, region.y, region.right, region.bottom))
-    mean_r, mean_g, mean_b, mean_a = ImageStat.Stat(crop).mean
+    mask_crop = (
+        None if mask is None else mask.crop((region.x, region.y, region.right, region.bottom))
+    )
+    mean_r, mean_g, mean_b, mean_a = ImageStat.Stat(crop, mask=mask_crop).mean
 
     # Transparent areas read as white, matching JPEG export and typical viewers.
     alpha = mean_a / 255
@@ -427,31 +432,51 @@ def average_visible_background(image: Image.Image, region: BBox) -> tuple[float,
 
 
 def worst_tile_contrast(
-    image: Image.Image,
+    background_image: Image.Image,
+    foreground_image: Image.Image,
     region: BBox,
-    foregrounds: Iterable[tuple[float, float, float]],
     *,
     tile_size: int,
 ) -> TiledContrastMeasurement | None:
-    """Measure the lowest foreground/background contrast across tiled samples."""
-    tiles = list(_tiled_regions(region, tile_size))
-    if not tiles:
-        return None
+    """Measure the lowest text-pixel contrast across tiled samples."""
+    foreground_alpha = foreground_image.getchannel("A").point(lambda value: 255 if value else 0)
+    tile_count = _tile_count(region, tile_size)
 
     worst: TiledContrastMeasurement | None = None
-    for tile in tiles:
-        background = average_visible_background(image, tile)
-        for foreground in foregrounds:
-            contrast = contrast_ratio(foreground, background)
-            if worst is None or contrast < worst.contrast:
-                worst = TiledContrastMeasurement(
-                    contrast=contrast,
-                    foreground=foreground,
-                    background=background,
-                    tile=tile,
-                    tile_count=len(tiles),
-                )
+    for tile in _tiled_regions(region, tile_size):
+        alpha_tile = foreground_alpha.crop((tile.x, tile.y, tile.right, tile.bottom))
+        if alpha_tile.getbbox() is None:
+            continue
+
+        background = average_visible_background(background_image, tile, mask=foreground_alpha)
+        foreground = _average_visible_foreground(foreground_image, tile, foreground_alpha)
+        contrast = contrast_ratio(foreground, background)
+        if worst is None or contrast < worst.contrast:
+            worst = TiledContrastMeasurement(
+                contrast=contrast,
+                foreground=foreground,
+                background=background,
+                tile=tile,
+                tile_count=tile_count,
+            )
     return worst
+
+
+def _average_visible_foreground(
+    image: Image.Image, region: BBox, mask: Image.Image
+) -> tuple[float, float, float]:
+    crop = image.crop((region.x, region.y, region.right, region.bottom))
+    mask_crop = mask.crop((region.x, region.y, region.right, region.bottom))
+    mean_r, mean_g, mean_b, *_ = ImageStat.Stat(crop, mask=mask_crop).mean
+    return mean_r, mean_g, mean_b
+
+
+def _tile_count(region: BBox, tile_size: int) -> int:
+    if tile_size <= 0:
+        raise ValueError("tile_size must be positive")
+    cols = (region.width + tile_size - 1) // tile_size
+    rows = (region.height + tile_size - 1) // tile_size
+    return cols * rows
 
 
 def _tiled_regions(region: BBox, tile_size: int) -> Iterable[BBox]:

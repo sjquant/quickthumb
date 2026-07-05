@@ -776,6 +776,63 @@ class TestDiagnoseText:
         assert finding.measured["tile_bbox"]["x"] >= 116
         assert finding.measured["background_rgb"][0] > 240
 
+    def test_should_ignore_low_contrast_tiles_without_text_pixels(self):
+        """Whitespace inside the text bbox does not drive low-contrast findings"""
+        from quickthumb import Canvas
+
+        def paint_background_with_light_gap(image: Image.Image) -> None:
+            image.paste((0, 0, 0, 255), (0, 0, 300, 120))
+            image.paste((255, 255, 255, 255), (70, 0, 120, 120))
+
+        # given: white glyphs sit on black while only the empty space crosses white
+        canvas = (
+            Canvas(300, 120)
+            .custom(paint_background_with_light_gap)
+            .text("A          A", size=36, color="#FFFFFF", position=(20, 30))
+        )
+
+        # when / then
+        assert canvas.diagnose() == []
+
+    def test_should_not_warn_for_readable_rich_text_on_split_background(self):
+        """Rich text colors are compared only where each colored run renders"""
+        from quickthumb import Canvas
+
+        def paint_split_background(image: Image.Image) -> None:
+            image.paste((0, 0, 0, 255), (0, 0, 300, 120))
+            image.paste((255, 255, 255, 255), (70, 0, 300, 120))
+
+        # given: white rich text renders on black and black rich text renders on white
+        canvas = (
+            Canvas(300, 120)
+            .custom(paint_split_background)
+            .text(
+                [
+                    {"text": "L", "color": "#FFFFFF"},
+                    {"text": "          R", "color": "#000000"},
+                ],
+                size=36,
+                position=(20, 30),
+            )
+        )
+
+        # when / then
+        assert canvas.diagnose() == []
+
+    def test_should_use_default_text_color_for_worst_tile_contrast(self):
+        """Text without a color still uses the public default black foreground"""
+        from quickthumb import Canvas
+
+        # given: default black text over a black background
+        canvas = Canvas(200, 120).background(color="#000000").text("default", size=36)
+
+        # when
+        diagnostics = canvas.diagnose()
+
+        # then
+        assert [finding.code for finding in diagnostics] == ["low-contrast"]
+        assert diagnostics[0].measured["foreground_rgb"] == (0.0, 0.0, 0.0)
+
     @pytest.mark.parametrize(
         "background,color",
         [

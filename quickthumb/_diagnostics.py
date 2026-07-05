@@ -6,12 +6,7 @@ from unicodedata import category
 
 from PIL import Image, ImageChops
 
-from quickthumb._base import (
-    DEFAULT_TEXT_COLOR,
-    DEFAULT_TEXT_SIZE,
-    RenderContext,
-    parse_coordinate,
-)
+from quickthumb._base import DEFAULT_TEXT_SIZE, RenderContext, parse_coordinate
 from quickthumb._diagnostic_rules import (
     PLATFORM_SAFE_MARGIN_PRESETS,
     LayerAlphaCache,
@@ -828,19 +823,10 @@ class DiagnosticsEngine:
     def _text_background_contrast(
         self, running: Image.Image, measured: LayerMeasurement
     ) -> TiledContrastMeasurement | None:
-        """Worst contrast ratio between the layer's text colors and the area below it."""
+        """Worst contrast ratio between the layer's visible text pixels and the area below."""
         layer = measured.effective_text_layer
         if layer is None:
             return None
-
-        if isinstance(layer.content, list):
-            text_colors = {
-                _rgb_tuple(self._text.resolve_color(part, layer)) for part in layer.content
-            }
-        elif layer.color:
-            text_colors = {_rgb_tuple(self._effects.parse_color(layer.color))}
-        else:
-            text_colors = {_rgb_tuple(DEFAULT_TEXT_COLOR)}
 
         box = measured.bbox
         if box is None:
@@ -849,13 +835,20 @@ class DiagnosticsEngine:
         if clamped is None:
             return None
 
+        foreground = self._render_text_foreground(layer)
         return worst_tile_contrast(
             running,
+            foreground,
             clamped,
-            text_colors,
             tile_size=CONTRAST_TILE_SIZE,
         )
 
+    def _render_text_foreground(self, layer: TextLayer) -> Image.Image:
+        content = layer.content
+        if isinstance(content, list):
+            content = [part.model_copy(update={"effects": []}) for part in content]
+        foreground_layer = layer.model_copy(update={"content": content, "effects": []})
 
-def _rgb_tuple(color: tuple[int, ...]) -> tuple[float, float, float]:
-    return float(color[0]), float(color[1]), float(color[2])
+        foreground = Image.new("RGBA", (self._ctx.width, self._ctx.height), (0, 0, 0, 0))
+        self._text.render_text_layer(foreground, foreground_layer)
+        return foreground
