@@ -101,38 +101,40 @@ INSTAGRAM_REELS_PRESET = SafeMarginPreset(
         ),
     ),
 )
+INSTAGRAM_SQUARE_PRESET = SafeMarginPreset(
+    name="instagram-square",
+    width=1080,
+    height=1080,
+    margins=(0.07, 0.07, 0.07, 0.07),
+)
+TIKTOK_PRESET = SafeMarginPreset(
+    name="tiktok",
+    width=1080,
+    height=1920,
+    margins=(0.14, 0.08, 0.18, 0.08),
+    overlays=(
+        SafeMarginOverlay(
+            name="right-rail",
+            label="right action rail",
+            bounds=(0.86, 0.42, 0.12, 0.40),
+        ),
+        SafeMarginOverlay(
+            name="caption-area",
+            label="caption area",
+            bounds=(0.05, 0.80, 0.72, 0.12),
+        ),
+    ),
+)
 
 
 PLATFORM_SAFE_MARGIN_PRESETS: dict[str, SafeMarginPreset] = {
     "youtube": YOUTUBE_THUMBNAIL_PRESET,
     "youtube-thumbnail": YOUTUBE_THUMBNAIL_PRESET,
     "youtube-shorts": YOUTUBE_SHORTS_PRESET,
-    "instagram-square": SafeMarginPreset(
-        name="instagram-square",
-        width=1080,
-        height=1080,
-        margins=(0.07, 0.07, 0.07, 0.07),
-    ),
+    "instagram-square": INSTAGRAM_SQUARE_PRESET,
     "instagram-reel": INSTAGRAM_REELS_PRESET,
     "instagram-reels": INSTAGRAM_REELS_PRESET,
-    "tiktok": SafeMarginPreset(
-        name="tiktok",
-        width=1080,
-        height=1920,
-        margins=(0.14, 0.08, 0.18, 0.08),
-        overlays=(
-            SafeMarginOverlay(
-                name="right-rail",
-                label="right action rail",
-                bounds=(0.86, 0.42, 0.12, 0.40),
-            ),
-            SafeMarginOverlay(
-                name="caption-area",
-                label="caption area",
-                bounds=(0.05, 0.80, 0.72, 0.12),
-            ),
-        ),
-    ),
+    "tiktok": TIKTOK_PRESET,
 }
 
 
