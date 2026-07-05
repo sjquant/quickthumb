@@ -35,7 +35,6 @@ from quickthumb._diagnostic_rules import (
     visible_leaf_layers,
 )
 from quickthumb._effects import EffectsEngine
-from quickthumb._fonts import FontEngine
 from quickthumb._groups import GroupEngine
 from quickthumb._images import ImageEngine
 from quickthumb._measurements import BBox, LayerMeasurement, measure_layers
@@ -70,7 +69,6 @@ class DiagnosticsEngine:
         ctx: RenderContext,
         canvas: "Canvas",
         effects: EffectsEngine,
-        fonts: FontEngine,
         images: ImageEngine,
         shapes: ShapeEngine,
         text: TextEngine,
@@ -79,7 +77,6 @@ class DiagnosticsEngine:
         self._ctx = ctx
         self._canvas = canvas
         self._effects = effects
-        self._fonts = fonts
         self._images = images
         self._shapes = shapes
         self._text = text
@@ -709,23 +706,8 @@ class DiagnosticsEngine:
 
         max_width_px = parse_coordinate(layer.max_width, self._ctx.width)
 
-        if isinstance(layer.content, str):
-            font = self._fonts.load_font(layer)
-            return self._first_word_wider_than(
-                layer.content, font, layer.letter_spacing or 0, max_width_px
-            )
-
-        for part in layer.content:
-            font = self._fonts.load_font_variant(
-                part.font or layer.font,
-                self._text.resolve_size(part, layer),
-                self._text.resolve_bold(part, layer),
-                self._text.resolve_italic(part, layer),
-                self._text.resolve_weight(part, layer),
-            )
-            word = self._first_word_wider_than(
-                part.text, font, self._text.resolve_letter_spacing(part, layer), max_width_px
-            )
+        for text, font, letter_spacing in self._text.iter_text_runs(layer):
+            word = self._first_word_wider_than(text, font, letter_spacing, max_width_px)
             if word is not None:
                 return word
         return None
@@ -794,7 +776,7 @@ class DiagnosticsEngine:
     def _find_missing_glyphs(self, layer: TextLayer) -> list[str]:
         missing: list[str] = []
         seen: set[str] = set()
-        for text, font in self._text.iter_font_runs(layer):
+        for text, font, _letter_spacing in self._text.iter_text_runs(layer):
             missing_signatures = self._missing_glyph_signatures(font)
             for char in text:
                 if (
@@ -805,7 +787,8 @@ class DiagnosticsEngine:
                 ):
                     continue
                 seen.add(char)
-                if self._renders_as_missing_glyph(font, char, missing_signatures):
+                signature = self._glyph_signature(font, char)
+                if signature is not None and signature in missing_signatures:
                     missing.append(char)
         return missing
 
@@ -815,12 +798,6 @@ class DiagnosticsEngine:
             for probe in ("\ufffd", "\uffff", "\u0378")
             if (signature := self._glyph_signature(font, probe)) is not None
         }
-
-    def _renders_as_missing_glyph(self, font, char: str, missing_signatures: set) -> bool:
-        signature = self._glyph_signature(font, char)
-        if signature is None:
-            return False
-        return signature in missing_signatures
 
     def _glyph_signature(self, font, char: str):
         try:

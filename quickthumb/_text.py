@@ -173,10 +173,10 @@ class TextEngine:
             return self._measure_rich_text_layout(layer)
         return self._measure_simple_text_layout(layer)
 
-    def iter_font_runs(self, layer: TextLayer) -> Iterable[tuple[str, FontType]]:
-        """Yield text with the font variant that renders it."""
+    def iter_text_runs(self, layer: TextLayer) -> Iterable[tuple[str, FontType, int]]:
+        """Yield text with the font variant and spacing that render it."""
         if isinstance(layer.content, str):
-            yield layer.content, self._fonts.load_font(layer)
+            yield layer.content, self._fonts.load_font(layer), layer.letter_spacing or 0
             return
 
         for part in layer.content:
@@ -189,6 +189,7 @@ class TextEngine:
                     self.resolve_italic(part, layer),
                     self.resolve_weight(part, layer),
                 ),
+                self.resolve_letter_spacing(part, layer),
             )
 
     def _measure_simple_text_layout(self, layer: TextLayer) -> TextLayoutMetadata:
