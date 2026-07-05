@@ -38,6 +38,17 @@ class OverlapMeasurement:
 
 
 @dataclass(frozen=True)
+class TiledContrastMeasurement:
+    """Worst contrast found by sampling a region in tiles."""
+
+    contrast: float
+    foreground: tuple[float, float, float]
+    background: tuple[float, float, float]
+    tile: BBox
+    tile_count: int
+
+
+@dataclass(frozen=True)
 class SafeMarginOverlay:
     """A platform UI region that should stay clear of important layer pixels."""
 
@@ -413,6 +424,48 @@ def average_visible_background(image: Image.Image, region: BBox) -> tuple[float,
     # Transparent areas read as white, matching JPEG export and typical viewers.
     alpha = mean_a / 255
     return tuple(channel * alpha + 255 * (1 - alpha) for channel in (mean_r, mean_g, mean_b))
+
+
+def worst_tile_contrast(
+    image: Image.Image,
+    region: BBox,
+    foregrounds: Iterable[tuple[float, float, float]],
+    *,
+    tile_size: int,
+) -> TiledContrastMeasurement | None:
+    """Measure the lowest foreground/background contrast across tiled samples."""
+    tiles = list(_tiled_regions(region, tile_size))
+    if not tiles:
+        return None
+
+    worst: TiledContrastMeasurement | None = None
+    for tile in tiles:
+        background = average_visible_background(image, tile)
+        for foreground in foregrounds:
+            contrast = contrast_ratio(foreground, background)
+            if worst is None or contrast < worst.contrast:
+                worst = TiledContrastMeasurement(
+                    contrast=contrast,
+                    foreground=foreground,
+                    background=background,
+                    tile=tile,
+                    tile_count=len(tiles),
+                )
+    return worst
+
+
+def _tiled_regions(region: BBox, tile_size: int) -> Iterable[BBox]:
+    if tile_size <= 0:
+        raise ValueError("tile_size must be positive")
+
+    for y in range(region.y, region.bottom, tile_size):
+        for x in range(region.x, region.right, tile_size):
+            yield BBox.from_points(
+                x,
+                y,
+                min(x + tile_size, region.right),
+                min(y + tile_size, region.bottom),
+            )
 
 
 def contrast_ratio(rgb_a: tuple[float, ...], rgb_b: tuple[float, ...]) -> float:

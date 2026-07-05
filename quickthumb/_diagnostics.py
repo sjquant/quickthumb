@@ -17,10 +17,10 @@ from quickthumb._diagnostic_rules import (
     LayerAlphaCache,
     OverlapMeasurement,
     SafeMarginPreset,
+    TiledContrastMeasurement,
     average_visible_background,
     bbox_payload,
     clear_overlap_suggestion,
-    contrast_ratio,
     diagnostic_context,
     edge_distances,
     layer_label,
@@ -33,6 +33,7 @@ from quickthumb._diagnostic_rules import (
     resolve_safe_margins,
     safe_area_bbox,
     visible_leaf_layers,
+    worst_tile_contrast,
 )
 from quickthumb._effects import EffectsEngine
 from quickthumb._groups import GroupEngine
@@ -56,6 +57,7 @@ from quickthumb.models import (
 
 TINY_TEXT_RATIO = 0.025
 LOW_CONTRAST_THRESHOLD = 2.0
+CONTRAST_TILE_SIZE = 32
 MIN_PARTIAL_OVERLAP_RATIO = 0.2
 BACKDROP_COVERAGE_RATIO = 0.95
 OVERLAP_CLEARANCE_PX = 8
@@ -671,19 +673,26 @@ class DiagnosticsEngine:
             )
 
         contrast = self._text_background_contrast(running, measured)
-        if contrast is not None and contrast < LOW_CONTRAST_THRESHOLD:
+        if contrast is not None and contrast.contrast < LOW_CONTRAST_THRESHOLD:
             findings.append(
                 Diagnostic(
                     code="low-contrast",
                     severity="warning",
                     layer_index=measured.index,
                     message=(
-                        f"text contrast ratio {contrast:.2f} against the layers below it "
+                        f"text worst-tile contrast ratio {contrast.contrast:.2f} "
+                        "against the layers below it "
                         f"is under {LOW_CONTRAST_THRESHOLD}; the text may be hard to read"
                     ),
                     measured={
-                        "contrast": contrast,
+                        "contrast": contrast.contrast,
                         "threshold": LOW_CONTRAST_THRESHOLD,
+                        "method": "worst-tile",
+                        "tile_bbox": bbox_payload(contrast.tile),
+                        "tile_count": contrast.tile_count,
+                        "tile_size": CONTRAST_TILE_SIZE,
+                        "foreground_rgb": contrast.foreground,
+                        "background_rgb": contrast.background,
                     },
                     suggestion=(
                         f"increase foreground/background contrast to at least "
@@ -818,18 +827,20 @@ class DiagnosticsEngine:
 
     def _text_background_contrast(
         self, running: Image.Image, measured: LayerMeasurement
-    ) -> float | None:
+    ) -> TiledContrastMeasurement | None:
         """Worst contrast ratio between the layer's text colors and the area below it."""
         layer = measured.effective_text_layer
         if layer is None:
             return None
 
         if isinstance(layer.content, list):
-            text_colors = {self._text.resolve_color(part, layer) for part in layer.content}
+            text_colors = {
+                _rgb_tuple(self._text.resolve_color(part, layer)) for part in layer.content
+            }
         elif layer.color:
-            text_colors = {self._effects.parse_color(layer.color)}
+            text_colors = {_rgb_tuple(self._effects.parse_color(layer.color))}
         else:
-            text_colors = {DEFAULT_TEXT_COLOR}
+            text_colors = {_rgb_tuple(DEFAULT_TEXT_COLOR)}
 
         box = measured.bbox
         if box is None:
@@ -838,8 +849,13 @@ class DiagnosticsEngine:
         if clamped is None:
             return None
 
-        background = average_visible_background(running, clamped)
-
-        return min(
-            contrast_ratio(tuple(float(c) for c in color[:3]), background) for color in text_colors
+        return worst_tile_contrast(
+            running,
+            clamped,
+            text_colors,
+            tile_size=CONTRAST_TILE_SIZE,
         )
+
+
+def _rgb_tuple(color: tuple[int, ...]) -> tuple[float, float, float]:
+    return float(color[0]), float(color[1]), float(color[2])

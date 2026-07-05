@@ -741,7 +741,40 @@ class TestDiagnoseText:
         assert finding.bbox.height > 0
         assert finding.related_layers == ["layer:1"]
         assert finding.measured["contrast"] < finding.measured["threshold"]
+        assert finding.measured["method"] == "worst-tile"
+        assert finding.measured["tile_count"] >= 1
+        assert finding.measured["tile_size"] == 32
+        assert finding.measured["tile_bbox"]["width"] > 0
+        assert finding.measured["tile_bbox"]["height"] > 0
+        assert len(finding.measured["foreground_rgb"]) == 3
+        assert len(finding.measured["background_rgb"]) == 3
         assert finding.suggestion == "increase foreground/background contrast to at least 2.0:1"
+
+    def test_should_warn_for_worst_tile_contrast_on_busy_background(self):
+        """Mixed backgrounds fail when any tile under the text has low contrast"""
+        from quickthumb import Canvas
+
+        def paint_split_background(image: Image.Image) -> None:
+            image.paste((0, 0, 0, 255), (0, 0, 240, 120))
+            image.paste((255, 255, 255, 255), (116, 0, 240, 120))
+
+        # given: white text spans a black/white split background whose average is readable
+        canvas = (
+            Canvas(240, 120)
+            .custom(paint_split_background)
+            .text("BUSY TITLE", size=36, color="#FFFFFF", position=(20, 30))
+        )
+
+        # when
+        diagnostics = canvas.diagnose()
+
+        # then
+        assert [d.code for d in diagnostics] == ["low-contrast"]
+        finding = diagnostics[0]
+        assert finding.measured["method"] == "worst-tile"
+        assert finding.measured["contrast"] < finding.measured["threshold"]
+        assert finding.measured["tile_bbox"]["x"] >= 116
+        assert finding.measured["background_rgb"][0] > 240
 
     @pytest.mark.parametrize(
         "background,color",
