@@ -57,52 +57,64 @@ class SafeMarginPreset:
     overlays: tuple[SafeMarginOverlay, ...] = ()
 
 
+YOUTUBE_THUMBNAIL_PRESET = SafeMarginPreset(
+    name="youtube-thumbnail",
+    width=1280,
+    height=720,
+    margins=(0.05, 0.05, 0.08, 0.05),
+    overlays=(
+        SafeMarginOverlay(
+            name="duration-badge",
+            label="duration badge",
+            bounds=(0.84, 0.86, 0.14, 0.10),
+        ),
+    ),
+)
+YOUTUBE_SHORTS_PRESET = SafeMarginPreset(
+    name="youtube-shorts",
+    width=1080,
+    height=1920,
+    margins=(0.14, 0.08, 0.18, 0.08),
+    overlays=(
+        SafeMarginOverlay(
+            name="right-rail",
+            label="right action rail",
+            bounds=(0.86, 0.42, 0.12, 0.40),
+        ),
+        SafeMarginOverlay(
+            name="caption-area",
+            label="caption area",
+            bounds=(0.05, 0.80, 0.72, 0.12),
+        ),
+    ),
+)
+INSTAGRAM_REELS_PRESET = SafeMarginPreset(
+    name="instagram-reels",
+    width=1080,
+    height=1920,
+    margins=(0.12, 0.08, 0.16, 0.08),
+    overlays=(
+        SafeMarginOverlay(
+            name="right-rail",
+            label="right action rail",
+            bounds=(0.86, 0.45, 0.12, 0.36),
+        ),
+    ),
+)
+
+
 PLATFORM_SAFE_MARGIN_PRESETS: dict[str, SafeMarginPreset] = {
-    "youtube": SafeMarginPreset(
-        name="youtube",
-        width=1280,
-        height=720,
-        margins=(0.05, 0.05, 0.08, 0.05),
-        overlays=(
-            SafeMarginOverlay(
-                name="duration-badge",
-                label="duration badge",
-                bounds=(0.84, 0.86, 0.14, 0.10),
-            ),
-        ),
-    ),
-    "youtube-thumbnail": SafeMarginPreset(
-        name="youtube-thumbnail",
-        width=1280,
-        height=720,
-        margins=(0.05, 0.05, 0.08, 0.05),
-        overlays=(
-            SafeMarginOverlay(
-                name="duration-badge",
-                label="duration badge",
-                bounds=(0.84, 0.86, 0.14, 0.10),
-            ),
-        ),
-    ),
+    "youtube": YOUTUBE_THUMBNAIL_PRESET,
+    "youtube-thumbnail": YOUTUBE_THUMBNAIL_PRESET,
+    "youtube-shorts": YOUTUBE_SHORTS_PRESET,
     "instagram-square": SafeMarginPreset(
         name="instagram-square",
         width=1080,
         height=1080,
         margins=(0.07, 0.07, 0.07, 0.07),
     ),
-    "instagram-reel": SafeMarginPreset(
-        name="instagram-reel",
-        width=1080,
-        height=1920,
-        margins=(0.12, 0.08, 0.16, 0.08),
-        overlays=(
-            SafeMarginOverlay(
-                name="right-rail",
-                label="right action rail",
-                bounds=(0.86, 0.45, 0.12, 0.36),
-            ),
-        ),
-    ),
+    "instagram-reel": INSTAGRAM_REELS_PRESET,
+    "instagram-reels": INSTAGRAM_REELS_PRESET,
     "tiktok": SafeMarginPreset(
         name="tiktok",
         width=1080,

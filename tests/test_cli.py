@@ -798,7 +798,7 @@ class TestCLILint:
         """lint --format json includes edge-crowding fields from platform presets"""
         from quickthumb.cli import app
 
-        # given: a YouTube spec whose platform sets size and a duration badge overlay
+        # given: a YouTube alias spec whose platform sets size and a duration badge overlay
         spec_path = self._write_spec(
             {
                 "platform": "youtube",
@@ -838,7 +838,7 @@ class TestCLILint:
         assert finding["related_layers"] == ["layer:1"]
         assert finding["measured"] == {
             "layer_type": "shape",
-            "platform": "youtube",
+            "platform": "youtube-thumbnail",
             "overlay": "duration-badge",
             "overlay_label": "duration badge",
             "overlay_bbox": {"x": 1075, "y": 619, "width": 179, "height": 72},

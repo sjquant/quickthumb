@@ -139,11 +139,14 @@ class Canvas:
         layers: list[RenderableLayer] | None = None,
         platform: str | None = None,
     ):
-        if platform is not None and platform not in PLATFORM_SAFE_MARGIN_PRESETS:
-            supported = ", ".join(sorted(PLATFORM_SAFE_MARGIN_PRESETS))
-            raise ValidationError(
-                f"Unsupported platform preset '{platform}'. Supported: {supported}"
-            )
+        if platform is not None:
+            try:
+                platform = PLATFORM_SAFE_MARGIN_PRESETS[platform].name
+            except KeyError:
+                supported = ", ".join(sorted(PLATFORM_SAFE_MARGIN_PRESETS))
+                raise ValidationError(
+                    f"Unsupported platform preset '{platform}'. Supported: {supported}"
+                ) from None
         if (width is None) != (height is None):
             raise ValidationError("Provide both width and height, or neither.")
         if width is not None and width <= 0:

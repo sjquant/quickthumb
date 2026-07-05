@@ -1550,7 +1550,7 @@ class TestDiagnoseVisibility:
         """Canvas.for_platform enables preset dimensions, margins, and UI overlays"""
         from quickthumb import Canvas
 
-        # given: a YouTube thumbnail layer crossing the bottom-right duration badge overlay
+        # given: a YouTube alias layer crossing the bottom-right duration badge overlay
         canvas = (
             Canvas.for_platform("youtube")
             .background(color="#FFFFFF")
@@ -1573,7 +1573,8 @@ class TestDiagnoseVisibility:
         assert finding.layer_index == 1
         assert finding.bbox is not None
         assert finding.bbox.model_dump() == {"x": 1100, "y": 620, "width": 90, "height": 20}
-        assert finding.measured["platform"] == "youtube"
+        assert canvas.platform == "youtube-thumbnail"
+        assert finding.measured["platform"] == "youtube-thumbnail"
         assert finding.measured["overlay"] == "duration-badge"
         assert finding.measured["overlay_bbox"] == {
             "x": 1075,
@@ -1581,6 +1582,59 @@ class TestDiagnoseVisibility:
             "width": 179,
             "height": 72,
         }
+
+    def test_should_apply_youtube_shorts_platform_overlay_diagnostics(self):
+        """Canvas.for_platform supports YouTube Shorts vertical safe overlays"""
+        from quickthumb import Canvas
+
+        # given: a Shorts layer crossing the right action rail without crowding the edge margin
+        canvas = (
+            Canvas.for_platform("youtube-shorts")
+            .background(color="#FFFFFF")
+            .shape(
+                shape="rectangle",
+                position=(930, 820),
+                width=40,
+                height=80,
+                color="#FF0000",
+            )
+        )
+
+        # when
+        diagnostics = canvas.diagnose()
+
+        # then
+        crowding = [finding for finding in diagnostics if finding.code == "edge-crowding"]
+        assert len(crowding) == 1
+        finding = crowding[0]
+        assert canvas.width == 1080
+        assert canvas.height == 1920
+        assert finding.measured["platform"] == "youtube-shorts"
+        assert finding.measured["overlay"] == "right-rail"
+        assert finding.measured["overlay_bbox"] == {
+            "x": 929,
+            "y": 806,
+            "width": 130,
+            "height": 768,
+        }
+
+    def test_should_normalize_platform_aliases_to_canonical_names(self):
+        """Platform aliases keep old inputs while exposing canonical preset names"""
+        from quickthumb import Canvas
+
+        # given: legacy platform aliases
+        youtube = Canvas.for_platform("youtube")
+        instagram = Canvas.for_platform("instagram-reel")
+
+        # when
+        youtube_payload = youtube.to_json()
+        instagram_payload = instagram.to_json()
+
+        # then
+        assert youtube.platform == "youtube-thumbnail"
+        assert instagram.platform == "instagram-reels"
+        assert '"platform": "youtube-thumbnail"' in youtube_payload
+        assert '"platform": "instagram-reels"' in instagram_payload
 
 
 class TestDiagnoseMeasuredLayers:
