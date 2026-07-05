@@ -604,6 +604,7 @@ Notes:
 - JSON uses top-level `width`, `height`, and `layers`
 - Named custom layers added with `canvas.custom(fn, name="...", kwargs={...})` are JSON-serializable via the registry; unnamed custom layers are not
 - Enum-like values such as `blend_mode`, `fit`, and `align` can be passed as strings
+- `quickthumb schema` emits the current JSON Schema for constrained generation and editor autocomplete
 
 ## AI-Friendly Workflows
 
@@ -625,6 +626,8 @@ Generate a quickthumb JSON config with top-level width, height, and layers.
 Use one background image layer, one dark overlay background layer, two text layers, and one outline layer.
 Only use valid quickthumb layer types and effect names.
 ```
+
+For constrained generation, first run `quickthumb schema > quickthumb.schema.json` and pass that schema to the model or editor. Prefer concrete field values in schema-constrained calls; `$theme.*` tokens are resolved by quickthumb before model validation and may not satisfy generic JSON Schema validators by themselves.
 
 Recommended workflow:
 
