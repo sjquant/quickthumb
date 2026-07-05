@@ -432,6 +432,265 @@ class TestDiagnoseText:
         )
         assert finding.suggestion == expected_suggestion
 
+    def test_should_warn_when_wrapped_text_extends_past_canvas(self):
+        """Wrapped text that runs beyond the canvas receives a text-clipped warning"""
+        from quickthumb import Canvas
+
+        # given: a wrapped text block starting too low to fit all rendered lines
+        canvas = (
+            Canvas(260, 110)
+            .background(color="#FFFFFF")
+            .text(
+                "one two three four five six seven eight nine ten",
+                size=30,
+                color="#000000",
+                position=(10, 70),
+                max_width=90,
+            )
+        )
+
+        # when
+        diagnostics = canvas.diagnose()
+
+        # then
+        assert [d.code for d in diagnostics] == ["text-clipped", "off-canvas"]
+        finding = diagnostics[0]
+        assert finding.bbox is not None
+        bbox = finding.bbox.model_dump()
+        assert bbox["width"] <= 90
+        assert bbox["y"] + bbox["height"] > 110
+        assert finding.model_dump() == {
+            "code": "text-clipped",
+            "severity": "warning",
+            "layer_index": 1,
+            "message": (
+                f"wrapped text block at (10, 70) size {bbox['width']}x{bbox['height']} "
+                "exceeds canvas and may be clipped"
+            ),
+            "layer_id": "layer:1",
+            "layer_name": None,
+            "bbox": {"x": 10, "y": 70, "width": bbox["width"], "height": bbox["height"]},
+            "related_layers": ["layer:1"],
+            "measured": {
+                "text_bbox": {"x": 10, "y": 70, "width": bbox["width"], "height": bbox["height"]},
+                "wrapped_line_count": 10,
+                "max_width": 90,
+                "text_width": bbox["width"],
+                "text_height": bbox["height"],
+                "canvas_width": 260,
+                "canvas_height": 110,
+                "clipped_by": "canvas",
+                "overflow": {"bottom": bbox["y"] + bbox["height"] - 110},
+            },
+            "suggestion": (
+                "move the text fully inside the canvas, reduce text size, increase max_width, "
+                "or enable auto_scale"
+            ),
+        }
+
+    def test_should_warn_when_wrapped_text_exceeds_declared_width(self):
+        """Wrapped text wider than max_width receives a text-clipped warning"""
+        from quickthumb import Canvas
+
+        # given: a wrapped block with an unbreakable word that exceeds max_width
+        canvas = (
+            Canvas(400, 300)
+            .background(color="#FFFFFF")
+            .text(
+                "overlong ok",
+                size=40,
+                color="#000000",
+                position=(10, 10),
+                max_width=50,
+            )
+        )
+
+        # when
+        diagnostics = canvas.diagnose()
+
+        # then
+        assert [d.code for d in diagnostics] == ["text-overflow", "text-clipped"]
+        finding = diagnostics[1]
+        assert finding.bbox is not None
+        bbox = finding.bbox.model_dump()
+        assert bbox["width"] > 50
+        assert bbox["x"] + bbox["width"] <= 400
+        assert finding.model_dump() == {
+            "code": "text-clipped",
+            "severity": "warning",
+            "layer_index": 1,
+            "message": (
+                f"wrapped text block at (10, 10) size {bbox['width']}x{bbox['height']} "
+                "exceeds max_width and may be clipped"
+            ),
+            "layer_id": "layer:1",
+            "layer_name": None,
+            "bbox": {"x": 10, "y": 10, "width": bbox["width"], "height": bbox["height"]},
+            "related_layers": ["layer:1"],
+            "measured": {
+                "text_bbox": {"x": 10, "y": 10, "width": bbox["width"], "height": bbox["height"]},
+                "wrapped_line_count": 2,
+                "max_width": 50,
+                "text_width": bbox["width"],
+                "text_height": bbox["height"],
+                "canvas_width": 400,
+                "canvas_height": 300,
+                "clipped_by": "max_width",
+                "overflow_width": bbox["width"] - 50,
+            },
+            "suggestion": (
+                "move the text fully inside the canvas, reduce text size, increase max_width, "
+                "or enable auto_scale"
+            ),
+        }
+
+    def test_should_warn_when_overflowing_word_also_extends_past_canvas_vertically(self):
+        """Text overflow does not suppress vertical text-clipped canvas diagnostics"""
+        from quickthumb import Canvas
+
+        # given: a wrapped block with an overflowing word that starts too low to fit
+        canvas = (
+            Canvas(400, 300)
+            .background(color="#FFFFFF")
+            .text(
+                "overlong ok",
+                size=40,
+                color="#000000",
+                position=(10, 250),
+                max_width=50,
+            )
+        )
+
+        # when
+        diagnostics = canvas.diagnose()
+
+        # then
+        assert [d.code for d in diagnostics] == ["text-overflow", "text-clipped", "off-canvas"]
+        finding = diagnostics[1]
+        assert finding.bbox is not None
+        bbox = finding.bbox.model_dump()
+        assert finding.model_dump() == {
+            "code": "text-clipped",
+            "severity": "warning",
+            "layer_index": 1,
+            "message": (
+                f"wrapped text block at (10, 250) size {bbox['width']}x{bbox['height']} "
+                "exceeds canvas and may be clipped"
+            ),
+            "layer_id": "layer:1",
+            "layer_name": None,
+            "bbox": {"x": 10, "y": 250, "width": bbox["width"], "height": bbox["height"]},
+            "related_layers": ["layer:1"],
+            "measured": {
+                "text_bbox": {"x": 10, "y": 250, "width": bbox["width"], "height": bbox["height"]},
+                "wrapped_line_count": 2,
+                "max_width": 50,
+                "text_width": bbox["width"],
+                "text_height": bbox["height"],
+                "canvas_width": 400,
+                "canvas_height": 300,
+                "clipped_by": "canvas",
+                "overflow": {"bottom": bbox["y"] + bbox["height"] - 300},
+            },
+            "suggestion": (
+                "move the text fully inside the canvas, reduce text size, increase max_width, "
+                "or enable auto_scale"
+            ),
+        }
+
+    def test_should_warn_when_default_font_renders_missing_glyph(self, monkeypatch):
+        """Characters rendered as the active font replacement glyph are flagged"""
+        from quickthumb import Canvas
+
+        # given: the bundled default font and a Hangul character it cannot draw
+        monkeypatch.delenv("QUICKTHUMB_DEFAULT_FONT", raising=False)
+        canvas = (
+            Canvas(200, 120)
+            .background(color="#FFFFFF")
+            .text("\ud55c", size=40, color="#000000", position=(10, 10))
+        )
+
+        # when
+        diagnostics = canvas.diagnose()
+
+        # then
+        assert [d.code for d in diagnostics] == ["missing-glyph"]
+        finding = diagnostics[0]
+        assert finding.bbox is not None
+        bbox = finding.bbox.model_dump()
+        assert finding.model_dump() == {
+            "code": "missing-glyph",
+            "severity": "warning",
+            "layer_index": 1,
+            "message": (
+                "text contains glyphs that render as the font replacement glyph: " + repr("\ud55c")
+            ),
+            "layer_id": "layer:1",
+            "layer_name": None,
+            "bbox": {"x": 10, "y": 10, "width": bbox["width"], "height": bbox["height"]},
+            "related_layers": ["layer:1"],
+            "measured": {"characters": ["\ud55c"], "character_count": 1},
+            "suggestion": "use a font that supports '\ud55c'",
+        }
+
+    def test_should_warn_when_later_rich_text_part_renders_same_character_as_missing_glyph(self):
+        """Missing-glyph checks evaluate repeated characters across rich-text font runs"""
+        from quickthumb import Canvas, TextPart
+
+        # given: the first font supports the character, but a later font renders it as tofu
+        missing = "\u0180"
+        canvas = (
+            Canvas(200, 120)
+            .background(color="#FFFFFF")
+            .text(
+                [
+                    TextPart(text=missing, font="NotoSans"),
+                    TextPart(text=missing, font="Roboto"),
+                ],
+                size=40,
+                color="#000000",
+                position=(10, 10),
+            )
+        )
+
+        # when
+        diagnostics = canvas.diagnose()
+
+        # then
+        assert [d.code for d in diagnostics] == ["missing-glyph"]
+        finding = diagnostics[0]
+        assert finding.bbox is not None
+        bbox = finding.bbox.model_dump()
+        assert finding.model_dump() == {
+            "code": "missing-glyph",
+            "severity": "warning",
+            "layer_index": 1,
+            "message": (
+                "text contains glyphs that render as the font replacement glyph: " + repr(missing)
+            ),
+            "layer_id": "layer:1",
+            "layer_name": None,
+            "bbox": {"x": 10, "y": 10, "width": bbox["width"], "height": bbox["height"]},
+            "related_layers": ["layer:1"],
+            "measured": {"characters": [missing], "character_count": 1},
+            "suggestion": f"use a font that supports {repr(missing)}",
+        }
+
+    def test_should_not_warn_for_skipped_missing_glyph_sentinels(self, monkeypatch):
+        """Replacement glyph sentinels and whitespace are not reported as missing glyphs"""
+        from quickthumb import Canvas
+
+        # given: sentinel characters are intentional fallback markers, not missing content
+        monkeypatch.delenv("QUICKTHUMB_DEFAULT_FONT", raising=False)
+        canvas = (
+            Canvas(200, 120)
+            .background(color="#FFFFFF")
+            .text("\ufffd \u25a1\n\tA", size=40, color="#000000", position=(10, 10))
+        )
+
+        # when / then
+        assert canvas.diagnose() == []
+
     def test_should_warn_for_low_contrast_text(self):
         """Near-white text on a white background is flagged as low contrast"""
         from quickthumb import Canvas

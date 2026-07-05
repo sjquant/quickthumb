@@ -2,6 +2,7 @@ from collections.abc import Iterable
 from itertools import islice
 from math import ceil
 from typing import TYPE_CHECKING
+from unicodedata import category
 
 from PIL import Image, ImageChops
 
@@ -34,7 +35,6 @@ from quickthumb._diagnostic_rules import (
     visible_leaf_layers,
 )
 from quickthumb._effects import EffectsEngine
-from quickthumb._fonts import FontEngine
 from quickthumb._groups import GroupEngine
 from quickthumb._images import ImageEngine
 from quickthumb._measurements import BBox, LayerMeasurement, measure_layers
@@ -69,7 +69,6 @@ class DiagnosticsEngine:
         ctx: RenderContext,
         canvas: "Canvas",
         effects: EffectsEngine,
-        fonts: FontEngine,
         images: ImageEngine,
         shapes: ShapeEngine,
         text: TextEngine,
@@ -78,7 +77,6 @@ class DiagnosticsEngine:
         self._ctx = ctx
         self._canvas = canvas
         self._effects = effects
-        self._fonts = fonts
         self._images = images
         self._shapes = shapes
         self._text = text
@@ -630,6 +628,48 @@ class DiagnosticsEngine:
                 )
             )
 
+        clipping = self._find_text_clipping(measured, has_overflow=overflow is not None)
+        if clipping is not None:
+            findings.append(
+                Diagnostic(
+                    code="text-clipped",
+                    severity="warning",
+                    layer_index=measured.index,
+                    message=(
+                        f"wrapped text block at ({clipping['text_bbox']['x']}, "
+                        f"{clipping['text_bbox']['y']}) size "
+                        f"{clipping['text_bbox']['width']}x{clipping['text_bbox']['height']} "
+                        f"exceeds {clipping['clipped_by']} and may be clipped"
+                    ),
+                    measured=clipping,
+                    suggestion=(
+                        "move the text fully inside the canvas, reduce text size, "
+                        "increase max_width, or enable auto_scale"
+                    ),
+                    **diagnostic_context(measured),
+                )
+            )
+
+        missing_glyphs = self._find_missing_glyphs(layer)
+        if missing_glyphs:
+            display = ", ".join(repr(char) for char in missing_glyphs)
+            findings.append(
+                Diagnostic(
+                    code="missing-glyph",
+                    severity="warning",
+                    layer_index=measured.index,
+                    message=(
+                        f"text contains glyphs that render as the font replacement glyph: {display}"
+                    ),
+                    measured={
+                        "characters": missing_glyphs,
+                        "character_count": len(missing_glyphs),
+                    },
+                    suggestion=f"use a font that supports {display}",
+                    **diagnostic_context(measured),
+                )
+            )
+
         contrast = self._text_background_contrast(running, measured)
         if contrast is not None and contrast < LOW_CONTRAST_THRESHOLD:
             findings.append(
@@ -666,23 +706,8 @@ class DiagnosticsEngine:
 
         max_width_px = parse_coordinate(layer.max_width, self._ctx.width)
 
-        if isinstance(layer.content, str):
-            font = self._fonts.load_font(layer)
-            return self._first_word_wider_than(
-                layer.content, font, layer.letter_spacing or 0, max_width_px
-            )
-
-        for part in layer.content:
-            font = self._fonts.load_font_variant(
-                part.font or layer.font,
-                self._text.resolve_size(part, layer),
-                self._text.resolve_bold(part, layer),
-                self._text.resolve_italic(part, layer),
-                self._text.resolve_weight(part, layer),
-            )
-            word = self._first_word_wider_than(
-                part.text, font, self._text.resolve_letter_spacing(part, layer), max_width_px
-            )
+        for text, font, letter_spacing in self._text.iter_text_runs(layer):
+            word = self._first_word_wider_than(text, font, letter_spacing, max_width_px)
             if word is not None:
                 return word
         return None
@@ -695,6 +720,101 @@ class DiagnosticsEngine:
             if width > max_width_px:
                 return word, width, max_width_px
         return None
+
+    def _find_text_clipping(
+        self, measured: LayerMeasurement, *, has_overflow: bool = False
+    ) -> dict | None:
+        layer = measured.effective_text_layer
+        box = measured.bbox
+        if layer is None or box is None or not layer.max_width:
+            return None
+
+        wrapped_lines = tuple(measured.metadata.get("wrapped_lines", ()))
+        if len(wrapped_lines) < 2:
+            return None
+
+        max_width_px = parse_coordinate(layer.max_width, self._ctx.width)
+        text_bbox = bbox_payload(box)
+        base = {
+            "text_bbox": text_bbox,
+            "wrapped_line_count": len(wrapped_lines),
+            "max_width": max_width_px,
+            "text_width": box.width,
+            "text_height": box.height,
+            "canvas_width": self._ctx.width,
+            "canvas_height": self._ctx.height,
+        }
+
+        canvas_overflow = self._canvas_overflow(box)
+        if canvas_overflow:
+            if has_overflow and "top" not in canvas_overflow and "bottom" not in canvas_overflow:
+                return None
+            return {
+                **base,
+                "clipped_by": "canvas",
+                "overflow": canvas_overflow,
+            }
+
+        if box.width > max_width_px:
+            return {
+                **base,
+                "clipped_by": "max_width",
+                "overflow_width": box.width - max_width_px,
+            }
+
+        return None
+
+    def _canvas_overflow(self, box) -> dict[str, int]:
+        overflow = {
+            "left": max(0, -box.x),
+            "top": max(0, -box.y),
+            "right": max(0, box.right - self._ctx.width),
+            "bottom": max(0, box.bottom - self._ctx.height),
+        }
+        return {edge: amount for edge, amount in overflow.items() if amount > 0}
+
+    def _find_missing_glyphs(self, layer: TextLayer) -> list[str]:
+        missing: list[str] = []
+        reported_missing: set[str] = set()
+        checked: set[tuple[object, str]] = set()
+        for text, font, _letter_spacing in self._text.iter_text_runs(layer):
+            missing_signatures = self._missing_glyph_signatures(font)
+            for char in text:
+                if (
+                    char in reported_missing
+                    or char in {"\u25a1", "\ufffd"}
+                    or char.isspace()
+                    or category(char)[0] == "C"
+                ):
+                    continue
+
+                checked_key = (font, char)
+                if checked_key in checked:
+                    continue
+                checked.add(checked_key)
+
+                signature = self._glyph_signature(font, char)
+                if signature is not None and signature in missing_signatures:
+                    missing.append(char)
+                    reported_missing.add(char)
+        return missing
+
+    def _missing_glyph_signatures(self, font) -> set:
+        return {
+            signature
+            for probe in ("\ufffd", "\uffff", "\u0378")
+            if (signature := self._glyph_signature(font, probe)) is not None
+        }
+
+    def _glyph_signature(self, font, char: str):
+        try:
+            mask = font.getmask(char)
+            data = bytes(mask)
+            if not data or not any(data):
+                return None
+            return font.getbbox(char), mask.size, data
+        except (OSError, UnicodeError, ValueError):
+            return None
 
     def _text_background_contrast(
         self, running: Image.Image, measured: LayerMeasurement

@@ -172,7 +172,6 @@ class Canvas:
             self._ctx,
             self,
             self._effects,
-            self._fonts,
             self._images,
             self._shapes,
             self._text,

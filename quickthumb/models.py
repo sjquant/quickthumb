@@ -821,6 +821,8 @@ class Diagnostic(quickthumbModel):
         "off-canvas",
         "tiny-text",
         "text-overflow",
+        "text-clipped",
+        "missing-glyph",
         "low-contrast",
         "layer-overlap",
         "layer-hidden",

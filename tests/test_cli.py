@@ -737,6 +737,197 @@ class TestCLILint:
             ],
         }
 
+    def test_should_emit_structured_json_for_text_clipped(self):
+        """lint --format json includes structured text-clipped diagnostics"""
+        from quickthumb.cli import app
+
+        # given: a spec with wrapped text that runs beyond the canvas
+        spec_path = self._write_spec(
+            {
+                "width": 260,
+                "height": 110,
+                "layers": [
+                    {"type": "background", "color": "#FFFFFF"},
+                    {
+                        "type": "text",
+                        "content": "one two three four five six seven eight nine ten",
+                        "size": 30,
+                        "color": "#000000",
+                        "position": [10, 70],
+                        "max_width": 90,
+                    },
+                ],
+            }
+        )
+
+        # when
+        try:
+            result = CliRunner().invoke(app, ["lint", spec_path, "--format", "json"])
+        finally:
+            os.unlink(spec_path)
+
+        # then
+        assert result.exit_code == 3
+        payload = json.loads(result.output)
+        assert payload["summary"]["diagnostic_count"] == 2
+        finding = payload["diagnostics"][0]
+        bbox = finding["bbox"]
+        assert bbox["width"] <= 90
+        assert bbox["y"] + bbox["height"] > 110
+        assert finding == {
+            "code": "text-clipped",
+            "severity": "warning",
+            "layer_index": 1,
+            "message": (
+                f"wrapped text block at (10, 70) size {bbox['width']}x{bbox['height']} "
+                "exceeds canvas and may be clipped"
+            ),
+            "layer_id": "layer:1",
+            "bbox": {"x": 10, "y": 70, "width": bbox["width"], "height": bbox["height"]},
+            "related_layers": ["layer:1"],
+            "measured": {
+                "text_bbox": {"x": 10, "y": 70, "width": bbox["width"], "height": bbox["height"]},
+                "wrapped_line_count": 10,
+                "max_width": 90,
+                "text_width": bbox["width"],
+                "text_height": bbox["height"],
+                "canvas_width": 260,
+                "canvas_height": 110,
+                "clipped_by": "canvas",
+                "overflow": {"bottom": bbox["y"] + bbox["height"] - 110},
+            },
+            "suggestion": (
+                "move the text fully inside the canvas, reduce text size, increase max_width, "
+                "or enable auto_scale"
+            ),
+        }
+
+    def test_should_emit_structured_json_for_declared_width_text_clipping(self):
+        """lint --format json reports wrapped text that exceeds max_width"""
+        from quickthumb.cli import app
+
+        # given: a wrapped block exceeds max_width but stays within the canvas
+        spec_path = self._write_spec(
+            {
+                "width": 400,
+                "height": 300,
+                "layers": [
+                    {"type": "background", "color": "#FFFFFF"},
+                    {
+                        "type": "text",
+                        "content": "overlong ok",
+                        "size": 40,
+                        "color": "#000000",
+                        "position": [10, 10],
+                        "max_width": 50,
+                    },
+                ],
+            }
+        )
+
+        # when
+        try:
+            result = CliRunner().invoke(app, ["lint", spec_path, "--format", "json"])
+        finally:
+            os.unlink(spec_path)
+
+        # then
+        assert result.exit_code == 3
+        payload = json.loads(result.output)
+        assert payload["summary"] == {
+            "diagnostic_count": 2,
+            "error_count": 0,
+            "warning_count": 2,
+        }
+        assert [finding["code"] for finding in payload["diagnostics"]] == [
+            "text-overflow",
+            "text-clipped",
+        ]
+        finding = payload["diagnostics"][1]
+        bbox = finding["bbox"]
+        assert bbox["width"] > 50
+        assert bbox["x"] + bbox["width"] <= 400
+        assert finding == {
+            "code": "text-clipped",
+            "severity": "warning",
+            "layer_index": 1,
+            "message": (
+                f"wrapped text block at (10, 10) size {bbox['width']}x{bbox['height']} "
+                "exceeds max_width and may be clipped"
+            ),
+            "layer_id": "layer:1",
+            "bbox": {"x": 10, "y": 10, "width": bbox["width"], "height": bbox["height"]},
+            "related_layers": ["layer:1"],
+            "measured": {
+                "text_bbox": {"x": 10, "y": 10, "width": bbox["width"], "height": bbox["height"]},
+                "wrapped_line_count": 2,
+                "max_width": 50,
+                "text_width": bbox["width"],
+                "text_height": bbox["height"],
+                "canvas_width": 400,
+                "canvas_height": 300,
+                "clipped_by": "max_width",
+                "overflow_width": bbox["width"] - 50,
+            },
+            "suggestion": (
+                "move the text fully inside the canvas, reduce text size, increase max_width, "
+                "or enable auto_scale"
+            ),
+        }
+
+    def test_should_emit_structured_json_for_missing_glyph(self, monkeypatch):
+        """lint --format json includes structured missing-glyph diagnostics"""
+        from quickthumb.cli import app
+
+        # given: the bundled default font and a character it renders as tofu
+        monkeypatch.delenv("QUICKTHUMB_DEFAULT_FONT", raising=False)
+        spec_path = self._write_spec(
+            {
+                "width": 200,
+                "height": 120,
+                "layers": [
+                    {"type": "background", "color": "#FFFFFF"},
+                    {
+                        "type": "text",
+                        "content": "\ud55c",
+                        "size": 40,
+                        "color": "#000000",
+                        "position": [10, 10],
+                    },
+                ],
+            }
+        )
+
+        # when
+        try:
+            result = CliRunner().invoke(app, ["lint", spec_path, "--format", "json"])
+        finally:
+            os.unlink(spec_path)
+
+        # then
+        assert result.exit_code == 3
+        payload = json.loads(result.output)
+        assert payload["summary"] == {
+            "diagnostic_count": 1,
+            "error_count": 0,
+            "warning_count": 1,
+        }
+        finding = payload["diagnostics"][0]
+        bbox = finding["bbox"]
+        assert finding == {
+            "code": "missing-glyph",
+            "severity": "warning",
+            "layer_index": 1,
+            "message": (
+                "text contains glyphs that render as the font replacement glyph: " + repr("\ud55c")
+            ),
+            "layer_id": "layer:1",
+            "bbox": {"x": 10, "y": 10, "width": bbox["width"], "height": bbox["height"]},
+            "related_layers": ["layer:1"],
+            "measured": {"characters": ["\ud55c"], "character_count": 1},
+            "suggestion": "use a font that supports '\ud55c'",
+        }
+
     def test_should_emit_structured_json_for_group_child_overlap(self):
         """lint --format json reports grouped child overlap with stable related layer ids"""
         from quickthumb.cli import app
