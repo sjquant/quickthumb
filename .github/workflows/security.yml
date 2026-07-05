@@ -27,7 +27,7 @@ jobs:
         uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86
         with:
           enable-cache: true
-          python-version: "3.11"
+          python-version: "3.10"
 
       - name: Secret scan
         uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7
@@ -41,10 +41,10 @@ jobs:
 
       - name: Code security scan
         run: |
-          uvx semgrep scan \
+          uvx semgrep==1.168.0 scan \
             --config p/ci \
             --exclude-rule package_managers.uv.uv-missing-dependency-cooldown.uv-missing-dependency-cooldown \
             --error
 
       - name: Workflow security scan
-        run: uvx zizmor --min-severity high .
+        run: uvx zizmor==1.26.1 --min-severity high .

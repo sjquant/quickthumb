@@ -25,10 +25,10 @@ jobs:
         uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86
         with:
           enable-cache: true
-          python-version: "3.11"
+          python-version: "3.10"
 
       - name: Install dependencies
-        run: uv sync --locked --all-extras --dev
+        run: uv sync --locked --extra cli --extra svg --extra pptx --extra pdf --dev
 
       - name: Format check
         run: uv run --locked ruff format --check .
@@ -72,10 +72,10 @@ jobs:
         uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86
         with:
           enable-cache: true
-          python-version: "3.11"
+          python-version: "3.10"
 
       - name: Install dependencies
-        run: uv sync --locked --all-extras --dev
+        run: uv sync --locked --extra cli --extra svg --extra pptx --extra pdf --dev
 
       - name: Test with coverage
         run: |

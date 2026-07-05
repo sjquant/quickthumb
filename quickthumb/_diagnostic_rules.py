@@ -1,11 +1,20 @@
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
-from typing import Any
 
 from PIL import Image, ImageChops, ImageStat
+from typing_extensions import TypedDict
 
 from quickthumb._measurements import BBox, LayerMeasurement
-from quickthumb.models import Align
+from quickthumb.models import Align, DiagnosticBBox
+
+
+class DiagnosticContext(TypedDict):
+    """Keyword payload shared by diagnostics for a single measured layer."""
+
+    layer_id: str
+    layer_name: str | None
+    bbox: DiagnosticBBox | None
+    related_layers: list[str]
 
 
 @dataclass(frozen=True)
@@ -37,12 +46,12 @@ def bbox_payload(box: BBox) -> dict[str, int]:
     }
 
 
-def diagnostic_context(measured: LayerMeasurement) -> dict[str, Any]:
+def diagnostic_context(measured: LayerMeasurement) -> DiagnosticContext:
     box = measured.bbox
     return {
         "layer_id": measured.layer_id,
         "layer_name": measured.name,
-        "bbox": bbox_payload(box) if box is not None else None,
+        "bbox": DiagnosticBBox(**bbox_payload(box)) if box is not None else None,
         "related_layers": [measured.layer_id],
     }
 

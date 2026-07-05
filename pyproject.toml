@@ -141,9 +141,7 @@ omit = ["tests/*", "quickthumb/__init__.py"]
 
 [tool.coverage.report]
 show_missing = true
-# Branch coverage is 79.32% with platform-specific rendering snapshots excluded.
-# Raise this to 80 once those snapshots are portable in CI.
-fail_under = 79
+fail_under = 80
 exclude_lines = [
     "pragma: no cover",
     "def __repr__",

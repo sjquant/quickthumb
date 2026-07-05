@@ -365,6 +365,169 @@ class TestCLIRender:
             os.unlink(spec_path)
 
 
+class TestCLIWatch:
+    """Test suite for the quickthumb watch subcommand"""
+
+    def test_should_exit_1_when_watchfiles_is_missing(self, spec_file, monkeypatch):
+        """watch exits 1 with install guidance when watchfiles cannot be imported"""
+        # Given: a valid spec and an environment where watchfiles is unavailable
+        import builtins
+
+        from quickthumb.cli import app
+
+        original_import = builtins.__import__
+
+        def fake_import(name, globals=None, locals=None, fromlist=(), level=0):
+            if name == "watchfiles":
+                raise ImportError("watchfiles missing")
+            return original_import(name, globals, locals, fromlist, level)
+
+        monkeypatch.setattr(builtins, "__import__", fake_import)
+
+        # When: the user runs the watch command
+        result = CliRunner().invoke(app, ["watch", spec_file])
+
+        # Then: the command fails with the optional dependency hint
+        assert result.exit_code == 1
+        assert "watchfiles is not installed" in result.output
+
+    def test_should_render_initial_watch_pass_and_stop_on_keyboard_interrupt(
+        self, spec_file, monkeypatch
+    ):
+        """watch renders once immediately and stops cleanly on Ctrl+C"""
+        # Given: a valid spec, a fake filesystem watcher, and a fake render target
+        import sys
+        import types
+
+        import quickthumb.cli as cli
+
+        rendered: list[tuple[str, str | None, int | None]] = []
+
+        class FakeCanvas:
+            def render(self, output, format=None, quality=None):
+                rendered.append((output, format, quality))
+
+        def fake_load_canvas(spec, variables):
+            assert str(spec) == spec_file
+            assert variables == {"accent": "#00FF00"}
+            return FakeCanvas()
+
+        def fake_watch(spec):
+            assert str(spec) == spec_file
+            raise KeyboardInterrupt
+            yield
+
+        monkeypatch.setattr(cli, "_load_canvas", fake_load_canvas)
+        monkeypatch.setitem(sys.modules, "watchfiles", types.SimpleNamespace(watch=fake_watch))
+
+        # When: the user runs watch with format, quality, and variable options
+        result = CliRunner().invoke(
+            cli.app,
+            [
+                "watch",
+                spec_file,
+                "-o",
+                "thumb.webp",
+                "--format",
+                "WEBP",
+                "--quality",
+                "75",
+                "--var",
+                "accent=#00FF00",
+            ],
+        )
+
+        # Then: watch exits cleanly after the simulated interrupt and renders once
+        assert result.exit_code == 0
+        assert rendered == [("thumb.webp", "WEBP", 75)]
+        assert "thumb.webp" in result.output
+
+    def test_should_keep_watching_when_initial_render_spec_is_invalid(self, spec_file, monkeypatch):
+        """watch keeps running when the initial spec load exits with a validation error"""
+        # Given: a watch run where loading the spec fails and the watcher is then interrupted
+        import sys
+        import types
+
+        import quickthumb.cli as cli
+        import typer
+
+        def fake_load_canvas(spec, variables):
+            raise typer.Exit(1)
+
+        def fake_watch(spec):
+            raise KeyboardInterrupt
+            yield
+
+        monkeypatch.setattr(cli, "_load_canvas", fake_load_canvas)
+        monkeypatch.setitem(sys.modules, "watchfiles", types.SimpleNamespace(watch=fake_watch))
+
+        # When: the user starts watching the spec
+        result = CliRunner().invoke(cli.app, ["watch", spec_file])
+
+        # Then: watch handles the load failure and exits cleanly on interrupt
+        assert result.exit_code == 0
+        assert "Watching" in result.output
+
+    def test_should_render_again_when_watch_reports_a_change(self, spec_file, monkeypatch):
+        """watch renders once at startup and again for filesystem changes"""
+        # Given: a valid loaded canvas and a watcher that emits one change event
+        import sys
+        import types
+
+        import quickthumb.cli as cli
+
+        rendered: list[str] = []
+
+        class FakeCanvas:
+            def render(self, output, format=None, quality=None):
+                rendered.append(output)
+
+        def fake_load_canvas(spec, variables):
+            return FakeCanvas()
+
+        def fake_watch(spec):
+            yield {("modified", spec)}
+
+        monkeypatch.setattr(cli, "_load_canvas", fake_load_canvas)
+        monkeypatch.setitem(sys.modules, "watchfiles", types.SimpleNamespace(watch=fake_watch))
+
+        # When: the watched spec changes once and the watcher exits naturally
+        result = CliRunner().invoke(cli.app, ["watch", spec_file, "-o", "thumb.png"])
+
+        # Then: watch renders the initial pass and the changed pass
+        assert result.exit_code == 0
+        assert rendered == ["thumb.png", "thumb.png"]
+
+    def test_should_report_watch_render_errors_and_continue(self, spec_file, monkeypatch):
+        """watch reports render errors without crashing the watch loop"""
+        # Given: a valid loaded canvas whose render step fails
+        import sys
+        import types
+
+        import quickthumb.cli as cli
+
+        class FailingCanvas:
+            def render(self, output, format=None, quality=None):
+                raise OSError("cannot write output")
+
+        def fake_load_canvas(spec, variables):
+            return FailingCanvas()
+
+        def fake_watch(spec):
+            raise KeyboardInterrupt
+            yield
+
+        monkeypatch.setattr(cli, "_load_canvas", fake_load_canvas)
+        monkeypatch.setitem(sys.modules, "watchfiles", types.SimpleNamespace(watch=fake_watch))
+
+        # When: the user starts watching the spec
+        result = CliRunner().invoke(cli.app, ["watch", spec_file])
+
+        # Then: the render error is printed and watch exits cleanly on interrupt
+        assert result.exit_code == 0
+        assert "cannot write output" in result.output
+
+
 class TestCLILint:
     """Test suite for the quickthumb lint subcommand"""
 
@@ -659,3 +822,122 @@ class TestCLILint:
 
         # then
         assert result.exit_code == 1
+
+    def test_should_exit_1_when_lint_variable_substitution_leaves_placeholder(self):
+        """lint exits 1 when variable substitution leaves unresolved placeholders"""
+        from quickthumb.cli import app
+
+        # given: a spec template with one unresolved placeholder after substitution
+        spec_path = self._write_spec(
+            {
+                "width": 100,
+                "height": 100,
+                "layers": [{"type": "background", "color": "$missing_color"}],
+            }
+        )
+
+        # when
+        try:
+            result = CliRunner().invoke(app, ["lint", spec_path, "--var", "other=#FFFFFF"])
+        finally:
+            os.unlink(spec_path)
+
+        # then
+        assert result.exit_code == 1
+        assert "missing_color" in result.output
+
+    def test_should_exit_1_when_lint_diagnose_reports_missing_referenced_file(self, monkeypatch):
+        """lint exits 1 when diagnostics discover a missing referenced file"""
+        # given: a loaded canvas whose diagnose step raises FileNotFoundError
+        import quickthumb.cli as cli
+
+        class MissingFileCanvas:
+            def diagnose(self):
+                raise FileNotFoundError("asset.png")
+
+        monkeypatch.setattr(cli, "_load_canvas", lambda spec, variables: MissingFileCanvas())
+
+        # when
+        result = CliRunner().invoke(cli.app, ["lint", "spec.json"])
+
+        # then
+        assert result.exit_code == 1
+        assert "Referenced file not found" in result.output
+
+    def test_should_exit_2_when_lint_diagnose_reports_rendering_error(self, monkeypatch):
+        """lint exits 2 when diagnostics fail during rendering-style analysis"""
+        # given: a loaded canvas whose diagnose step raises an OSError
+        import quickthumb.cli as cli
+
+        class BrokenCanvas:
+            def diagnose(self):
+                raise OSError("cannot inspect image")
+
+        monkeypatch.setattr(cli, "_load_canvas", lambda spec, variables: BrokenCanvas())
+
+        # when
+        result = CliRunner().invoke(cli.app, ["lint", "spec.json"])
+
+        # then
+        assert result.exit_code == 2
+        assert "cannot inspect image" in result.output
+
+
+class TestCLIEntry:
+    """Test suite for the installed quickthumb entrypoint"""
+
+    def test_should_call_typer_app_from_cli_main(self, monkeypatch):
+        """cli.main invokes the configured Typer application"""
+        # Given: a replacement Typer app callable
+        import quickthumb.cli as cli
+
+        calls: list[str] = []
+        monkeypatch.setattr(cli, "app", lambda: calls.append("called"))
+
+        # When: the CLI module main function runs
+        cli.main()
+
+        # Then: it dispatches to the configured app callable
+        assert calls == ["called"]
+
+    def test_should_exit_1_when_typer_is_missing(self, monkeypatch, capsys):
+        """entrypoint exits 1 with install guidance when typer is unavailable"""
+        # Given: an environment where typer cannot be imported
+        import builtins
+
+        from quickthumb import _entry
+
+        original_import = builtins.__import__
+
+        def fake_import(name, globals=None, locals=None, fromlist=(), level=0):
+            if name == "typer":
+                raise ImportError("typer missing")
+            return original_import(name, globals, locals, fromlist, level)
+
+        monkeypatch.setattr(builtins, "__import__", fake_import)
+
+        # When: the installed entrypoint starts
+        with pytest.raises(SystemExit) as exc_info:
+            _entry.main()
+
+        # Then: it exits with a clear optional dependency message
+        assert exc_info.value.code == 1
+        assert "quickthumb[cli]" in capsys.readouterr().err
+
+    def test_should_dispatch_to_cli_main_when_typer_is_available(self, monkeypatch):
+        """entrypoint delegates to quickthumb.cli.main when CLI dependencies are installed"""
+        # Given: a fake CLI main function in the import path
+        import sys
+        import types
+
+        from quickthumb import _entry
+
+        calls: list[str] = []
+        fake_cli = types.SimpleNamespace(main=lambda: calls.append("called"))
+        monkeypatch.setitem(sys.modules, "quickthumb.cli", fake_cli)
+
+        # When: the installed entrypoint starts
+        _entry.main()
+
+        # Then: it delegates to the CLI module main function
+        assert calls == ["called"]

@@ -716,6 +716,48 @@ class TestDiagnoseLayerOverlap:
             }
         ]
 
+    def test_should_report_each_overlap_when_one_layer_intersects_multiple_layers(self):
+        """Overlapping several layers reports every suspicious pair through diagnose"""
+        from quickthumb import Canvas
+
+        # given: three visible shapes with pairwise intersections
+        canvas = (
+            Canvas(260, 220)
+            .background(color="#FFFFFF")
+            .shape(
+                shape="rectangle",
+                position=(20, 20),
+                width=100,
+                height=100,
+                color="#FF0000",
+            )
+            .shape(
+                shape="rectangle",
+                position=(40, 40),
+                width=100,
+                height=100,
+                color="#00FF00",
+            )
+            .shape(
+                shape="rectangle",
+                position=(60, 60),
+                width=100,
+                height=100,
+                color="#0000FF",
+            )
+        )
+
+        # when
+        diagnostics = canvas.diagnose()
+
+        # then: each intersecting pair is represented at the public boundary
+        overlap_findings = [finding for finding in diagnostics if finding.code == "layer-overlap"]
+        assert [finding.related_layers for finding in overlap_findings] == [
+            ["layer:2", "layer:1"],
+            ["layer:3", "layer:1"],
+            ["layer:3", "layer:2"],
+        ]
+
     def test_should_not_warn_for_ellipse_corner_bbox_overlap(self):
         """Ellipse masks prevent corner-only bounding-box intersections from warning"""
         from quickthumb import Canvas
