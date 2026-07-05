@@ -297,7 +297,7 @@ class SvgExporter:
                         layer,
                         shape_x,
                         shape_y,
-                        f'{_fill_attr(stroke_rgba)} {_stroke_attr(stroke_rgba)} '
+                        f"{_fill_attr(stroke_rgba)} {_stroke_attr(stroke_rgba)} "
                         f'stroke-width="{effect.width * 2}"',
                         rotate,
                     )
@@ -391,7 +391,6 @@ class SvgExporter:
             self._body.append("</g>")
 
     def _emit_text_background(self, background, content_box: Box):
-
         pad_top, pad_right, pad_bottom, pad_left = parse_padding(background.padding)
         rgba = color_to_rgba(self._canvas, background.color, background.opacity)
         alpha = rgba[3] / 255
@@ -416,8 +415,8 @@ class SvgExporter:
             self._body.append(
                 self._text_element(
                     run,
-                    f'{_fill_attr(glow_rgba, glow.opacity)} '
-                    f'{_stroke_attr(glow_rgba, glow.opacity)} '
+                    f"{_fill_attr(glow_rgba, glow.opacity)} "
+                    f"{_stroke_attr(glow_rgba, glow.opacity)} "
                     f'stroke-width="{expansion * 2}" filter="url(#{filter_id})"',
                 )
             )
@@ -443,7 +442,7 @@ class SvgExporter:
             self._body.append(
                 self._text_element(
                     run,
-                    f'{_fill_attr(stroke_rgba)} {_stroke_attr(stroke_rgba)} '
+                    f"{_fill_attr(stroke_rgba)} {_stroke_attr(stroke_rgba)} "
                     f'stroke-width="{stroke.width * 2}"',
                 )
             )

@@ -35,6 +35,7 @@ if TYPE_CHECKING:
     from quickthumb.canvas import Canvas
 from quickthumb.models import (
     Diagnostic,
+    DiagnosticBBox,
     GroupLayer,
     ImageLayer,
     ShapeLayer,
@@ -158,7 +159,7 @@ class DiagnosticsEngine:
             ),
             layer_id=upper.layer_id,
             layer_name=upper.name,
-            bbox=bbox_payload(overlap),
+            bbox=DiagnosticBBox(**bbox_payload(overlap)),
             related_layers=[upper.layer_id, lower.layer_id],
             measured={
                 "lower_layer_id": lower.layer_id,

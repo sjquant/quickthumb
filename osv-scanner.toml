@@ -1,0 +1,7 @@
+[[IgnoredVulns]]
+id = "GHSA-3wqj-33cg-xc48"
+reason = "rembg fixed versions require Python 3.11+, while quickthumb still supports Python 3.10."
+
+[[IgnoredVulns]]
+id = "GHSA-55v6-g8pm-pw4c"
+reason = "rembg fixed versions require Python 3.11+, while quickthumb still supports Python 3.10."

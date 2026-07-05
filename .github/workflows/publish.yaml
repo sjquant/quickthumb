@@ -13,17 +13,21 @@ jobs:
       id-token: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86
         with:
-          enable-cache: true
+          enable-cache: false
           python-version: "3.10"
 
+      - name: Install dependencies
+        run: uv sync --locked --all-extras --dev
+
       - name: Test
-        run: |
-          uv run --extra cli pytest tests/ --ignore=tests/test_rendering.py
+        run: uv run --locked pytest tests/ --ignore=tests/test_rendering.py
 
       - name: Determine Version Change
         id: version_check
@@ -44,7 +48,7 @@ jobs:
 
       - name: Create Release
         if: steps.version_check.outputs.version_changed == 'true'
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65
         with:
           tag_name: ${{ steps.version_check.outputs.new_version }}
           generate_release_notes: True
@@ -69,6 +73,8 @@ jobs:
 
       - name: Build and publish to PyPI
         if: steps.version_check.outputs.version_changed == 'true'
+        env:
+          UV_PUBLISH_TOKEN: ${{ steps.mint-token.outputs.api-token }}
         run: |
           uv build
-          uv publish --token ${{ steps.mint-token.outputs.api-token }}
+          uv publish --token "$UV_PUBLISH_TOKEN"

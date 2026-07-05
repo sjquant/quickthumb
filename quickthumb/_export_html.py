@@ -162,10 +162,7 @@ def _remap_linear_stops(
     element_extent = abs((ex1 - ex0) * dx) + abs((ey1 - ey0) * dy)
     if element_extent == 0 or diagonal == 0:
         return positions
-    center_offset = (
-        ((ex0 + ex1 - bx0 - bx1) / 2) * dx
-        + ((ey0 + ey1 - by0 - by1) / 2) * dy
-    )
+    center_offset = ((ex0 + ex1 - bx0 - bx1) / 2) * dx + ((ey0 + ey1 - by0 - by1) / 2) * dy
     return [((q - 0.5) * diagonal - center_offset) / element_extent + 0.5 for q in positions]
 
 
@@ -663,9 +660,7 @@ class HtmlExporter:
         if run.glows or run.shadows:
             ink_w = run.ink_box[2] - run.ink_box[0]
             ink_h = run.ink_box[3] - run.ink_box[1]
-            css += self._effect_filter_css(
-                [*run.shadows, *run.glows], ink_w, ink_h, is_text=True
-            )
+            css += self._effect_filter_css([*run.shadows, *run.glows], ink_w, ink_h, is_text=True)
         if run.strokes:
             stroke = run.strokes[-1]
             color = _css_color(color_to_rgba(self._canvas, stroke.color))
@@ -930,7 +925,8 @@ def _document(
                 "1" if transition is None or transition.advance_on_click else "0"
             )
             stage.transition_after = (
-                "" if transition is None or transition.advance_after is None
+                ""
+                if transition is None or transition.advance_after is None
                 else _fmt(transition.advance_after)
             )
             timing = f"{_fmt(duration)}s ease both"

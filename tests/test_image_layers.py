@@ -388,7 +388,9 @@ class TestImageLayerSerialization:
                         "border_radius": 0,
                         "fit": None,
                         "blend_mode": None,
-                        "effects": [], 'animation': None}
+                        "effects": [],
+                        "animation": None,
+                    }
                 ],
             }
         )
@@ -435,7 +437,9 @@ class TestImageLayerSerialization:
                                 "color": "#000000",
                                 "blur_radius": 10,
                             }
-                        ], 'animation': None}
+                        ],
+                        "animation": None,
+                    }
                 ],
             }
         )
@@ -548,7 +552,9 @@ class TestImageLayerSerialization:
                                 "contrast": 1.2,
                                 "saturation": 0.5,
                             }
-                        ], 'animation': None}
+                        ],
+                        "animation": None,
+                    }
                 ],
             }
         )

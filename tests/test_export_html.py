@@ -279,7 +279,11 @@ class TestHtmlShapes:
         """A rounded rectangle becomes a div with border-radius"""
         # given
         canvas = Canvas(400, 300).shape(
-            shape="rectangle", position=(20, 20), width=120, height=60, color="#CC0000",
+            shape="rectangle",
+            position=(20, 20),
+            width=120,
+            height=60,
+            color="#CC0000",
             border_radius=12,
         )
 
@@ -304,7 +308,11 @@ class TestHtmlShapes:
         """A star/polygon becomes a clip-path polygon"""
         # given
         canvas = Canvas(400, 300).shape(
-            shape="star", position=(20, 20), width=100, height=100, color="#FFD700",
+            shape="star",
+            position=(20, 20),
+            width=100,
+            height=100,
+            color="#FFD700",
         )
 
         # when / then
@@ -451,7 +459,7 @@ class TestHtmlImages:
         html = canvas.to_html()
 
         # then
-        assert '<img' in html
+        assert "<img" in html
         assert "data:image/png;base64," in html
 
     def test_should_embed_svg_layer_natively(self):

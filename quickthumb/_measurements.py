@@ -100,7 +100,7 @@ class LayerMeasurement:
     layer_id: str
     name: str | None
     visible: bool
-    raw_layer: object
+    raw_layer: Any
     metadata: Mapping[str, Any] = field(default_factory=lambda: MappingProxyType({}))
     children: tuple["LayerMeasurement", ...] = ()
 

@@ -421,9 +421,7 @@ class TestPptxElementAnimations:
     def test_should_not_emit_timing_without_animations(self):
         """A slide with no animated layers produces no <p:timing> element"""
         # given
-        canvas = Canvas(400, 300).background(color="#000000").text(
-            "Hi", size=40, position=(10, 10)
-        )
+        canvas = Canvas(400, 300).background(color="#000000").text("Hi", size=40, position=(10, 10))
 
         # when
         timing = timing_of(canvas)

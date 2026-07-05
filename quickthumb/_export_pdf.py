@@ -127,6 +127,11 @@ class PdfExporter:
 
         pdf.showPage()
 
+    def _current_canvas(self) -> Canvas:
+        if self._canvas is None:
+            raise RenderingError("PdfExporter() needs a canvas before drawing layers.")
+        return self._canvas
+
     # ------------------------------------------------------------------ layers
 
     def _emit_layer(self, layer: RenderableLayer) -> None:
@@ -142,7 +147,7 @@ class PdfExporter:
             self._emit_raster_fallback(layer)
 
     def _emit_raster_fallback(self, layer: RenderableLayer) -> None:
-        fragment = rasterize_layers(self._canvas, [layer])
+        fragment = rasterize_layers(self._current_canvas(), [layer])
         if fragment:
             self._draw_fragment(fragment)
 
@@ -165,10 +170,11 @@ class PdfExporter:
             self._emit_raster_fallback(layer)
             return
 
-        width, height = self._canvas.width, self._canvas.height
+        canvas = self._current_canvas()
+        width, height = canvas.width, canvas.height
         box = (0.0, 0.0, float(width), float(height))
         if layer.color is not None:
-            rgba = color_to_rgba(self._canvas, layer.color, layer.opacity)
+            rgba = color_to_rgba(canvas, layer.color, layer.opacity)
             self._fill_rect(box, rgba)
             return
 
@@ -181,12 +187,13 @@ class PdfExporter:
         self._fill_gradient(layer.gradient, box)
 
     def _gradient_is_opaque(self, gradient: LinearGradient | RadialGradient) -> bool:
-        return all(color_to_rgba(self._canvas, color)[3] == 255 for color, _ in gradient.stops)
+        canvas = self._current_canvas()
+        return all(color_to_rgba(canvas, color)[3] == 255 for color, _ in gradient.stops)
 
     # ----------------------------------------------------------------- outline
 
     def _emit_outline(self, layer: OutlineLayer) -> None:
-        canvas = self._canvas
+        canvas = self._current_canvas()
         rgba = color_to_rgba(canvas, layer.color, layer.opacity)
         inset = layer.offset + layer.width / 2
         width = canvas.width - 2 * layer.offset - layer.width
@@ -206,7 +213,7 @@ class PdfExporter:
             self._emit_raster_fallback(layer)
             return
 
-        canvas = self._canvas
+        canvas = self._current_canvas()
         x = parse_coordinate(layer.position[0], canvas.width)
         y = parse_coordinate(layer.position[1], canvas.height)
         width, height = layer.width, layer.height
@@ -248,7 +255,7 @@ class PdfExporter:
             pdf.roundRect(left, top, width, height, min(width, height) / 2, fill=1, stroke=0)
             return
 
-        normalized = self._canvas._shapes.normalized_shape_points(layer)
+        normalized = self._current_canvas()._shapes.normalized_shape_points(layer)
         if not normalized:
             return
         path = pdf.beginPath()
@@ -261,7 +268,7 @@ class PdfExporter:
     # -------------------------------------------------------------------- text
 
     def _emit_text(self, layer: TextLayer) -> None:
-        layout = compute_text_layout(self._canvas, layer)
+        layout = compute_text_layout(self._current_canvas(), layer)
         if not any(layout.lines):
             return
 
@@ -306,7 +313,9 @@ class PdfExporter:
             content_box[2] + pad_right,
             content_box[3] + pad_bottom,
         )
-        rgba = color_to_rgba(self._canvas, background.color, background.opacity * layer_opacity)
+        rgba = color_to_rgba(
+            self._current_canvas(), background.color, background.opacity * layer_opacity
+        )
         self._fill_rect(box, rgba, radius=background.border_radius)
 
     def _draw_text_run(self, run: TextRunLayout, layer_opacity: float) -> None:
@@ -372,7 +381,8 @@ class PdfExporter:
         stops = sorted(gradient.stops, key=lambda stop: stop[1])
         positions = [max(0.0, min(1.0, position)) for _, position in stops]
         # This path only runs for fully opaque gradients, so alpha is dropped.
-        colors = [self._rl_color(color_to_rgba(self._canvas, color)[:3]) for color, _ in stops]
+        canvas = self._current_canvas()
+        colors = [self._rl_color(color_to_rgba(canvas, color)[:3]) for color, _ in stops]
 
         pdf = self._pdf
         pdf.saveState()

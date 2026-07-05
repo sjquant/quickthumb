@@ -116,9 +116,7 @@ class Deck:
         """The deck-wide default slide transition, if set."""
         return self._transition
 
-    def slide(
-        self, canvas: Canvas, transition: Transition | dict | str | None = None
-    ) -> Self:
+    def slide(self, canvas: Canvas, transition: Transition | dict | str | None = None) -> Self:
         """Append a single Canvas as the next slide (chainable).
 
         Pass ``transition`` to set this slide's transition inline; it overrides

@@ -29,7 +29,7 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = [
-    "pillow>=10.4.0,<11.0.0",
+    "pillow>=12.2.0,<13.0.0",
     "pydantic>=2.12.5,<3.0.0",
     "typing-extensions>=4.15.0,<5.0.0",
 ]
@@ -68,7 +68,7 @@ docs = [
 ]
 dev = [
     "ty>=0.0.12,<0.0.13",
-    "pytest>=8.0.0,<9.0.0",
+    "pytest>=9.0.3,<10.0.0",
     "pytest-cov>=6.0.0,<7.0.0",
     "ruff>=0.8.0,<1.0.0",
     "inline-snapshot>=0.31.1,<0.32.0",
@@ -76,6 +76,8 @@ dev = [
     "python-pptx>=1.0.2,<2.0",
     "reportlab>=4.0.0,<5.0.0",
     "pypdfium2>=5.10.1,<6.0.0",
+    "pre-commit>=4.6.0,<5.0.0",
+    "diff-cover>=10.3.0,<11.0.0",
 ]
 
 [build-system]
@@ -93,7 +95,8 @@ artifacts = [
 [tool.uv]
 required-version = ">=0.10.12"
 add-bounds = "major"
-exclude-newer = "P14D"
+exclude-newer = "P30D"
+exclude-newer-package = { idna = false, pillow = false, pygments = false, pymdown-extensions = false, pypdfium2 = false, pytest = false, rembg = false, requests = false, urllib3 = false }
 
 [tool.ruff]
 line-length = 100
@@ -132,9 +135,15 @@ addopts = "-v --cov=quickthumb --cov-report=term-missing"
 
 [tool.coverage.run]
 source = ["quickthumb"]
+branch = true
+relative_files = true
 omit = ["tests/*", "quickthumb/__init__.py"]
 
 [tool.coverage.report]
+show_missing = true
+# Branch coverage is 79.32% with platform-specific rendering snapshots excluded.
+# Raise this to 80 once those snapshots are portable in CI.
+fail_under = 79
 exclude_lines = [
     "pragma: no cover",
     "def __repr__",

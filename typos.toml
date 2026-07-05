@@ -1,0 +1,11 @@
+[default.extend-words]
+PN = "PN"
+PNGs = "PNGs"
+ser = "ser"
+
+[files]
+extend-exclude = [
+  "assets/fonts/**",
+  "tests/snapshots/**",
+  "uv.lock",
+]

@@ -219,7 +219,7 @@ def watch(
 ) -> None:
     """Watch a JSON spec file and re-render on changes."""
     try:
-        from watchfiles import watch as _watch  # type: ignore[import-untyped]
+        from watchfiles import watch as _watch
     except ImportError:
         typer.echo(
             "watchfiles is not installed. Install it with: pip install 'quickthumb[cli]'",
