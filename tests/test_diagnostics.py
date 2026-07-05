@@ -633,6 +633,49 @@ class TestDiagnoseText:
             "suggestion": "use a font that supports '\ud55c'",
         }
 
+    def test_should_warn_when_later_rich_text_part_renders_same_character_as_missing_glyph(self):
+        """Missing-glyph checks evaluate repeated characters across rich-text font runs"""
+        from quickthumb import Canvas, TextPart
+
+        # given: the first font supports the character, but a later font renders it as tofu
+        missing = "\u0180"
+        canvas = (
+            Canvas(200, 120)
+            .background(color="#FFFFFF")
+            .text(
+                [
+                    TextPart(text=missing, font="NotoSans"),
+                    TextPart(text=missing, font="Roboto"),
+                ],
+                size=40,
+                color="#000000",
+                position=(10, 10),
+            )
+        )
+
+        # when
+        diagnostics = canvas.diagnose()
+
+        # then
+        assert [d.code for d in diagnostics] == ["missing-glyph"]
+        finding = diagnostics[0]
+        assert finding.bbox is not None
+        bbox = finding.bbox.model_dump()
+        assert finding.model_dump() == {
+            "code": "missing-glyph",
+            "severity": "warning",
+            "layer_index": 1,
+            "message": (
+                "text contains glyphs that render as the font replacement glyph: " + repr(missing)
+            ),
+            "layer_id": "layer:1",
+            "layer_name": None,
+            "bbox": {"x": 10, "y": 10, "width": bbox["width"], "height": bbox["height"]},
+            "related_layers": ["layer:1"],
+            "measured": {"characters": [missing], "character_count": 1},
+            "suggestion": f"use a font that supports {repr(missing)}",
+        }
+
     def test_should_not_warn_for_skipped_missing_glyph_sentinels(self, monkeypatch):
         """Replacement glyph sentinels and whitespace are not reported as missing glyphs"""
         from quickthumb import Canvas

@@ -775,21 +775,28 @@ class DiagnosticsEngine:
 
     def _find_missing_glyphs(self, layer: TextLayer) -> list[str]:
         missing: list[str] = []
-        seen: set[str] = set()
+        reported_missing: set[str] = set()
+        checked: set[tuple[object, str]] = set()
         for text, font, _letter_spacing in self._text.iter_text_runs(layer):
             missing_signatures = self._missing_glyph_signatures(font)
             for char in text:
                 if (
-                    char in seen
+                    char in reported_missing
                     or char in {"\u25a1", "\ufffd"}
                     or char.isspace()
                     or category(char)[0] == "C"
                 ):
                     continue
-                seen.add(char)
+
+                checked_key = (font, char)
+                if checked_key in checked:
+                    continue
+                checked.add(checked_key)
+
                 signature = self._glyph_signature(font, char)
                 if signature is not None and signature in missing_signatures:
                     missing.append(char)
+                    reported_missing.add(char)
         return missing
 
     def _missing_glyph_signatures(self, font) -> set:
