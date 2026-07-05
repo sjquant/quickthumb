@@ -60,18 +60,42 @@ class TestCLISchema:
         assert result.exit_code == 0
         payload = json.loads(result.output)
         assert set(payload["properties"]) == {"height", "layers", "platform", "theme", "width"}
-        assert payload["anyOf"] == [
-            {"required": ["width", "height"]},
-            {
-                "not": {"anyOf": [{"required": ["width"]}, {"required": ["height"]}]},
-                "required": ["platform"],
+        assert payload["anyOf"][0]["properties"] == {
+            "width": {"exclusiveMinimum": 0, "type": "integer"},
+            "height": {"exclusiveMinimum": 0, "type": "integer"},
+        }
+        assert payload["anyOf"][0]["required"] == ["width", "height"]
+        assert payload["anyOf"][1] == {
+            "not": {"anyOf": [{"required": ["width"]}, {"required": ["height"]}]},
+            "properties": {
+                "platform": {
+                    "enum": [
+                        "instagram-reel",
+                        "instagram-reels",
+                        "instagram-square",
+                        "tiktok",
+                        "youtube",
+                        "youtube-shorts",
+                        "youtube-thumbnail",
+                    ],
+                    "type": "string",
+                }
             },
+            "required": ["platform"],
+        }
+        assert payload["properties"]["platform"]["anyOf"][0]["enum"] == [
+            "instagram-reel",
+            "instagram-reels",
+            "instagram-square",
+            "tiktok",
+            "youtube",
+            "youtube-shorts",
+            "youtube-thumbnail",
         ]
         assert payload["properties"]["theme"]["type"] == "object"
         layer_mapping = payload["properties"]["layers"]["items"]["discriminator"]["mapping"]
         assert set(layer_mapping) == {
             "background",
-            "custom",
             "group",
             "image",
             "outline",
@@ -97,6 +121,19 @@ class TestCLISchema:
         assert text_props["opacity"]["maximum"] == 1.0
         assert text_props["position"]["anyOf"][0]["minItems"] == 2
         assert text_props["position"]["anyOf"][0]["maxItems"] == 2
+        position_item_options = text_props["position"]["anyOf"][0]["prefixItems"][0]["anyOf"]
+        assert position_item_options == [
+            {"type": "integer"},
+            {"pattern": "^-?(\\d+(\\.\\d+)?)%$", "type": "string"},
+        ]
+        max_width_options = text_props["max_width"]["anyOf"]
+        assert max_width_options == [
+            {"type": "integer"},
+            {"pattern": "^(\\d+(\\.\\d+)?)%$", "type": "string"},
+            {"type": "null"},
+        ]
+        text_fill_image_props = defs["TextFillImage"]["properties"]
+        assert text_fill_image_props["fit"]["$ref"] == "#/$defs/FitMode"
         align_options = text_props["align"]["anyOf"]
         assert align_options[0] == {"$ref": "#/$defs/Align"}
         assert align_options[1]["prefixItems"][0]["enum"] == ["left", "center", "right"]
@@ -119,6 +156,22 @@ class TestCLISchema:
             with open("schema.json") as f:
                 payload = json.load(f)
             assert payload["$schema"] == "https://json-schema.org/draft/2020-12/schema"
+
+    def test_should_exit_1_when_schema_output_path_cannot_be_written(self):
+        """schema --output exits 1 when the target cannot be written as a file"""
+        # given: the quickthumb CLI application and a directory used as the output path
+        from quickthumb.cli import app
+
+        runner = CliRunner()
+
+        # when: the user asks schema to write to a directory
+        with runner.isolated_filesystem():
+            os.mkdir("schema-dir")
+            result = runner.invoke(app, ["schema", "--output", "schema-dir"])
+
+            # then: the command exits 1 and surfaces the filesystem error
+            assert result.exit_code == 1
+            assert "schema-dir" in result.output
 
 
 class TestCLIRender:

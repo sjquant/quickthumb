@@ -48,7 +48,7 @@ quickthumb schema > quickthumb.schema.json
 quickthumb schema --output quickthumb.schema.json
 ```
 
-The command writes deterministic JSON only, so it can be checked into a repo, piped into an editor, or passed directly to a constrained-generation API. The schema includes the current canvas fields, built-in layer discriminators, serializable custom layer shape, effects, animations, and the optional top-level `theme` block.
+The command writes deterministic JSON only, so it can be checked into a repo, piped into an editor, or passed directly to a constrained-generation API. The schema includes the current canvas fields, built-in layer discriminators, effects, animations, supported platform presets, and the optional top-level `theme` block.
 
 For constrained generation, prefer concrete resolved values in typed fields:
 

@@ -22,7 +22,18 @@ from pydantic import ValidationError as PydanticValidationError
 from quickthumb.errors import ValidationError
 
 HEX_COLOR_PATTERN = r"^#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$"
-Position = tuple[int | float | str, int | float | str]
+PERCENT_COORDINATE_PATTERN = r"^-?(\d+(\.\d+)?)%$"
+POSITIVE_PERCENT_PATTERN = r"^(\d+(\.\d+)?)%$"
+
+PercentCoordinate = Annotated[
+    str,
+    WithJsonSchema({"type": "string", "pattern": PERCENT_COORDINATE_PATTERN}),
+]
+PositivePercent = Annotated[
+    str,
+    WithJsonSchema({"type": "string", "pattern": POSITIVE_PERCENT_PATTERN}),
+]
+Position = tuple[int | PercentCoordinate, int | PercentCoordinate]
 
 
 def validate_hex_color(color: str) -> str:
@@ -154,8 +165,13 @@ def _validate_align_with_hv_tuple(v: Any) -> Align | None:
 
 
 AlignWithHVTuple = Annotated[
-    Align | tuple[Literal["left", "center", "right"], Literal["top", "middle", "bottom"]] | None,
-    BeforeValidator(_validate_align_with_hv_tuple),
+    Align | None,
+    BeforeValidator(
+        _validate_align_with_hv_tuple,
+        json_schema_input_type=Align
+        | tuple[Literal["left", "center", "right"], Literal["top", "middle", "bottom"]]
+        | None,
+    ),
 ]
 
 
@@ -195,7 +211,7 @@ class TextFillImage(quickthumbModel):
     type: Literal["image"] = "image"
     path: str
     fit: Annotated[
-        FitMode | str, AfterValidator(lambda v: enum_converter(FitMode)(v) if v else FitMode.COVER)
+        FitMode, BeforeValidator(lambda v: enum_converter(FitMode)(v) if v else FitMode.COVER)
     ] = FitMode.COVER
 
 
@@ -489,7 +505,7 @@ class TextLayer(quickthumbModel):
     bold: bool = False
     italic: bool = False
     weight: int | str | None = None
-    max_width: int | str | None = None
+    max_width: int | PositivePercent | None = None
     effects: list[TextEffect] = []
     line_height: PositiveFloat | None = None
     letter_spacing: int | None = None
@@ -885,25 +901,6 @@ LayerType = Annotated[
 ]
 
 
-class CustomLayerSpec(quickthumbModel):
-    type: Literal["custom"]
-    name: str
-    kwargs: dict[str, Any] = Field(default_factory=dict)
-
-
-CanvasSpecLayerType = Annotated[
-    BackgroundLayer
-    | TextLayer
-    | OutlineLayer
-    | ImageLayer
-    | ShapeLayer
-    | SvgLayer
-    | GroupLayer
-    | CustomLayerSpec,
-    Discriminator("type"),
-]
-
-
 class CanvasModel(quickthumbModel):
     width: PositiveInt | None = None
     height: PositiveInt | None = None
@@ -916,4 +913,4 @@ class CanvasSpecModel(quickthumbModel):
     height: PositiveInt | None = None
     platform: str | None = None
     theme: dict[str, Any] = Field(default_factory=dict)
-    layers: list[CanvasSpecLayerType]
+    layers: list[LayerType]
