@@ -832,7 +832,9 @@ class TestDiagnoseText:
         from quickthumb import Canvas
 
         # given: default black text over a black background
-        canvas = Canvas(200, 120).background(color="#000000").text("default", size=36)
+        canvas = (
+            Canvas(200, 120).background(color="#000000").text("default", size=36, position=(20, 20))
+        )
 
         # when
         diagnostics = canvas.diagnose()

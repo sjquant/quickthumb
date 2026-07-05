@@ -13,7 +13,6 @@ from quickthumb._diagnostic_rules import (
     OverlapMeasurement,
     SafeMarginPreset,
     TiledContrastMeasurement,
-    average_visible_background,
     bbox_payload,
     clear_overlap_suggestion,
     diagnostic_context,
