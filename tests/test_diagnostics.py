@@ -1,5 +1,6 @@
 """Tests for canvas diagnostics (canvas.diagnose())"""
 
+import json
 from pathlib import Path
 
 import pytest
@@ -1570,17 +1571,18 @@ class TestDiagnoseVisibility:
         crowding = [finding for finding in diagnostics if finding.code == "edge-crowding"]
         assert len(crowding) == 1
         finding = crowding[0]
-        assert finding.layer_index == 1
-        assert finding.bbox is not None
-        assert finding.bbox.model_dump() == {"x": 1100, "y": 620, "width": 90, "height": 20}
         assert canvas.platform == "youtube-thumbnail"
-        assert finding.measured["platform"] == "youtube-thumbnail"
-        assert finding.measured["overlay"] == "duration-badge"
-        assert finding.measured["overlay_bbox"] == {
-            "x": 1075,
-            "y": 619,
-            "width": 179,
-            "height": 72,
+        assert finding.model_dump(include={"layer_index", "bbox", "measured"}) == {
+            "layer_index": 1,
+            "bbox": {"x": 1100, "y": 620, "width": 90, "height": 20},
+            "measured": {
+                "layer_type": "shape",
+                "platform": "youtube-thumbnail",
+                "overlay": "duration-badge",
+                "overlay_label": "duration badge",
+                "overlay_bbox": {"x": 1075, "y": 619, "width": 179, "height": 72},
+                "overlap_bbox": {"x": 1100, "y": 620, "width": 90, "height": 20},
+            },
         }
 
     def test_should_apply_youtube_shorts_platform_overlay_diagnostics(self):
@@ -1607,15 +1609,18 @@ class TestDiagnoseVisibility:
         crowding = [finding for finding in diagnostics if finding.code == "edge-crowding"]
         assert len(crowding) == 1
         finding = crowding[0]
-        assert canvas.width == 1080
-        assert canvas.height == 1920
-        assert finding.measured["platform"] == "youtube-shorts"
-        assert finding.measured["overlay"] == "right-rail"
-        assert finding.measured["overlay_bbox"] == {
-            "x": 929,
-            "y": 806,
-            "width": 130,
-            "height": 768,
+        assert (canvas.width, canvas.height) == (1080, 1920)
+        assert finding.model_dump(include={"layer_index", "bbox", "measured"}) == {
+            "layer_index": 1,
+            "bbox": {"x": 930, "y": 820, "width": 40, "height": 80},
+            "measured": {
+                "layer_type": "shape",
+                "platform": "youtube-shorts",
+                "overlay": "right-rail",
+                "overlay_label": "right action rail",
+                "overlay_bbox": {"x": 929, "y": 806, "width": 130, "height": 768},
+                "overlap_bbox": {"x": 930, "y": 820, "width": 40, "height": 80},
+            },
         }
 
     def test_should_normalize_platform_aliases_to_canonical_names(self):
@@ -1627,14 +1632,21 @@ class TestDiagnoseVisibility:
         instagram = Canvas.for_platform("instagram-reel")
 
         # when
-        youtube_payload = youtube.to_json()
-        instagram_payload = instagram.to_json()
+        youtube_payload = json.loads(youtube.to_json())
+        instagram_payload = json.loads(instagram.to_json())
 
         # then
-        assert youtube.platform == "youtube-thumbnail"
-        assert instagram.platform == "instagram-reels"
-        assert '"platform": "youtube-thumbnail"' in youtube_payload
-        assert '"platform": "instagram-reels"' in instagram_payload
+        assert (
+            youtube.platform,
+            instagram.platform,
+            youtube_payload,
+            instagram_payload,
+        ) == (
+            "youtube-thumbnail",
+            "instagram-reels",
+            {"width": 1280, "height": 720, "layers": [], "platform": "youtube-thumbnail"},
+            {"width": 1080, "height": 1920, "layers": [], "platform": "instagram-reels"},
+        )
 
 
 class TestDiagnoseMeasuredLayers:
