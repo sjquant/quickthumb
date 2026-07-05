@@ -6,21 +6,15 @@ from unicodedata import category
 
 from PIL import Image, ImageChops
 
-from quickthumb._base import (
-    DEFAULT_TEXT_COLOR,
-    DEFAULT_TEXT_SIZE,
-    RenderContext,
-    parse_coordinate,
-)
+from quickthumb._base import DEFAULT_TEXT_SIZE, RenderContext, parse_coordinate
 from quickthumb._diagnostic_rules import (
     PLATFORM_SAFE_MARGIN_PRESETS,
     LayerAlphaCache,
     OverlapMeasurement,
     SafeMarginPreset,
-    average_visible_background,
+    TiledContrastMeasurement,
     bbox_payload,
     clear_overlap_suggestion,
-    contrast_ratio,
     diagnostic_context,
     edge_distances,
     layer_label,
@@ -33,6 +27,7 @@ from quickthumb._diagnostic_rules import (
     resolve_safe_margins,
     safe_area_bbox,
     visible_leaf_layers,
+    worst_tile_contrast,
 )
 from quickthumb._effects import EffectsEngine
 from quickthumb._groups import GroupEngine
@@ -56,6 +51,7 @@ from quickthumb.models import (
 
 TINY_TEXT_RATIO = 0.025
 LOW_CONTRAST_THRESHOLD = 2.0
+CONTRAST_TILE_SIZE = 32
 MIN_PARTIAL_OVERLAP_RATIO = 0.2
 BACKDROP_COVERAGE_RATIO = 0.95
 OVERLAP_CLEARANCE_PX = 8
@@ -671,19 +667,26 @@ class DiagnosticsEngine:
             )
 
         contrast = self._text_background_contrast(running, measured)
-        if contrast is not None and contrast < LOW_CONTRAST_THRESHOLD:
+        if contrast is not None and contrast.contrast < LOW_CONTRAST_THRESHOLD:
             findings.append(
                 Diagnostic(
                     code="low-contrast",
                     severity="warning",
                     layer_index=measured.index,
                     message=(
-                        f"text contrast ratio {contrast:.2f} against the layers below it "
+                        f"text worst-tile contrast ratio {contrast.contrast:.2f} "
+                        "against the layers below it "
                         f"is under {LOW_CONTRAST_THRESHOLD}; the text may be hard to read"
                     ),
                     measured={
-                        "contrast": contrast,
+                        "contrast": contrast.contrast,
                         "threshold": LOW_CONTRAST_THRESHOLD,
+                        "method": "worst-tile",
+                        "tile_bbox": bbox_payload(contrast.tile),
+                        "tile_count": contrast.tile_count,
+                        "tile_size": CONTRAST_TILE_SIZE,
+                        "foreground_rgb": contrast.foreground,
+                        "background_rgb": contrast.background,
                     },
                     suggestion=(
                         f"increase foreground/background contrast to at least "
@@ -818,18 +821,11 @@ class DiagnosticsEngine:
 
     def _text_background_contrast(
         self, running: Image.Image, measured: LayerMeasurement
-    ) -> float | None:
-        """Worst contrast ratio between the layer's text colors and the area below it."""
+    ) -> TiledContrastMeasurement | None:
+        """Worst contrast ratio between the layer's visible text pixels and the area below."""
         layer = measured.effective_text_layer
         if layer is None:
             return None
-
-        if isinstance(layer.content, list):
-            text_colors = {self._text.resolve_color(part, layer) for part in layer.content}
-        elif layer.color:
-            text_colors = {self._effects.parse_color(layer.color)}
-        else:
-            text_colors = {DEFAULT_TEXT_COLOR}
 
         box = measured.bbox
         if box is None:
@@ -838,8 +834,15 @@ class DiagnosticsEngine:
         if clamped is None:
             return None
 
-        background = average_visible_background(running, clamped)
-
-        return min(
-            contrast_ratio(tuple(float(c) for c in color[:3]), background) for color in text_colors
+        content = layer.content
+        if isinstance(content, list):
+            content = [part.model_copy(update={"effects": []}) for part in content]
+        foreground_layer = layer.model_copy(update={"content": content, "effects": []})
+        foreground = Image.new("RGBA", (self._ctx.width, self._ctx.height), (0, 0, 0, 0))
+        self._text.render_text_layer(foreground, foreground_layer)
+        return worst_tile_contrast(
+            running,
+            foreground,
+            clamped,
+            tile_size=CONTRAST_TILE_SIZE,
         )

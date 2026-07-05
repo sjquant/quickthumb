@@ -740,8 +740,171 @@ class TestDiagnoseText:
         assert finding.bbox.width > 0
         assert finding.bbox.height > 0
         assert finding.related_layers == ["layer:1"]
-        assert finding.measured["contrast"] < finding.measured["threshold"]
+        assert finding.measured == {
+            "contrast": 1.0620159366897584,
+            "threshold": 2.0,
+            "method": "worst-tile",
+            "tile_bbox": {"x": 10, "y": 10, "width": 32, "height": 32},
+            "tile_count": 12,
+            "tile_size": 32,
+            "foreground_rgb": (248.0, 248.0, 248.0),
+            "background_rgb": (255.0, 255.0, 255.0),
+        }
         assert finding.suggestion == "increase foreground/background contrast to at least 2.0:1"
+
+    def test_should_warn_for_worst_tile_contrast_on_busy_background(self):
+        """Mixed backgrounds fail when any tile under the text has low contrast"""
+        from quickthumb import Canvas
+
+        def paint_split_background(image: Image.Image) -> None:
+            image.paste((0, 0, 0, 255), (0, 0, 240, 120))
+            image.paste((255, 255, 255, 255), (116, 0, 240, 120))
+
+        # given: white text spans a black/white split background whose average is readable
+        canvas = (
+            Canvas(240, 120)
+            .custom(paint_split_background)
+            .text("BUSY TITLE", size=36, color="#FFFFFF", position=(20, 30))
+        )
+
+        # when
+        diagnostics = canvas.diagnose()
+
+        # then
+        assert [d.code for d in diagnostics] == ["low-contrast"]
+        finding = diagnostics[0]
+        assert finding.measured == {
+            "contrast": 1.0,
+            "threshold": 2.0,
+            "method": "worst-tile",
+            "tile_bbox": {"x": 116, "y": 30, "width": 32, "height": 26},
+            "tile_count": 6,
+            "tile_size": 32,
+            "foreground_rgb": (255.0, 255.0, 255.0),
+            "background_rgb": (255.0, 255.0, 255.0),
+        }
+
+    def test_should_ignore_low_contrast_tiles_without_text_pixels(self):
+        """Whitespace inside the text bbox does not drive low-contrast findings"""
+        from quickthumb import Canvas
+
+        def paint_background_with_light_gap(image: Image.Image) -> None:
+            image.paste((0, 0, 0, 255), (0, 0, 300, 120))
+            image.paste((255, 255, 255, 255), (70, 0, 120, 120))
+
+        # given: white glyphs sit on black while only the empty space crosses white
+        canvas = (
+            Canvas(300, 120)
+            .custom(paint_background_with_light_gap)
+            .text("A          A", size=36, color="#FFFFFF", position=(20, 30))
+        )
+
+        # when / then
+        assert canvas.diagnose() == []
+
+    def test_should_not_warn_for_readable_rich_text_on_split_background(self):
+        """Rich text colors are compared only where each colored run renders"""
+        from quickthumb import Canvas
+
+        def paint_split_background(image: Image.Image) -> None:
+            image.paste((0, 0, 0, 255), (0, 0, 300, 120))
+            image.paste((255, 255, 255, 255), (70, 0, 300, 120))
+
+        # given: white rich text renders on black and black rich text renders on white
+        canvas = (
+            Canvas(300, 120)
+            .custom(paint_split_background)
+            .text(
+                [
+                    {"text": "L", "color": "#FFFFFF"},
+                    {"text": "          R", "color": "#000000"},
+                ],
+                size=36,
+                position=(20, 30),
+            )
+        )
+
+        # when / then
+        assert canvas.diagnose() == []
+
+    def test_should_use_default_text_color_for_worst_tile_contrast(self):
+        """Text without a color still uses the public default black foreground"""
+        from quickthumb import Canvas
+
+        # given: default black text over a black background
+        canvas = (
+            Canvas(200, 120).background(color="#000000").text("default", size=36, position=(20, 20))
+        )
+
+        # when
+        diagnostics = canvas.diagnose()
+
+        # then
+        assert [finding.code for finding in diagnostics] == ["low-contrast"]
+        assert diagnostics[0].measured["foreground_rgb"] == (0.0, 0.0, 0.0)
+
+    def test_should_warn_for_low_opacity_text(self):
+        """Semi-transparent text is checked by its effective rendered contrast"""
+        from quickthumb import Canvas
+
+        # given: faint black text renders close to white over a white background
+        canvas = (
+            Canvas(240, 120)
+            .background(color="#FFFFFF")
+            .text("faint", size=36, color="#000000", opacity=0.1, position=(20, 20))
+        )
+
+        # when
+        diagnostics = canvas.diagnose()
+
+        # then
+        assert [finding.code for finding in diagnostics] == ["low-contrast"]
+        assert diagnostics[0].measured == {
+            "contrast": 1.2480715209939224,
+            "threshold": 2.0,
+            "method": "worst-tile",
+            "tile_bbox": {"x": 20, "y": 20, "width": 32, "height": 28},
+            "tile_count": 3,
+            "tile_size": 32,
+            "foreground_rgb": (230.0, 230.0, 230.0),
+            "background_rgb": (255.0, 255.0, 255.0),
+        }
+
+    def test_should_warn_for_low_contrast_rich_text_run_inside_tile(self):
+        """A high-contrast run cannot hide a low-contrast run in the same tile"""
+        from unittest.mock import ANY
+
+        from quickthumb import Canvas
+
+        # given: white rich text is readable but the following black run is invisible
+        canvas = (
+            Canvas(260, 120)
+            .background(color="#000000")
+            .text(
+                [
+                    {"text": "HELLO", "color": "#FFFFFF"},
+                    {"text": "I", "color": "#000000"},
+                ],
+                size=36,
+                position=(20, 20),
+            )
+        )
+
+        # when
+        diagnostics = canvas.diagnose()
+
+        # then
+        assert [finding.code for finding in diagnostics] == ["low-contrast"]
+        assert diagnostics[0].measured == {
+            "contrast": 1.0,
+            "threshold": 2.0,
+            "method": "worst-tile",
+            "tile_bbox": {"x": 116, "y": 20, "width": ANY, "height": 32},
+            "tile_count": 8,
+            "tile_size": 32,
+            "foreground_rgb": (0.0, 0.0, 0.0),
+            "background_rgb": (0.0, 0.0, 0.0),
+        }
 
     @pytest.mark.parametrize(
         "background,color",

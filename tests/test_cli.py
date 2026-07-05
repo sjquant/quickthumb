@@ -1059,6 +1059,62 @@ class TestCLILint:
         assert result.exit_code == 1
         assert "'width' and 'height' must be integers" in result.output
 
+    def test_should_emit_worst_tile_contrast_json_for_busy_background(self):
+        """lint --format json reports the tile that drives low-contrast text"""
+        from PIL import Image
+        from quickthumb.cli import app
+
+        # given: a raster background with white text crossing black and white regions
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as image_file:
+            image_path = image_file.name
+        image = Image.new("RGBA", (240, 120), (0, 0, 0, 255))
+        image.paste((255, 255, 255, 255), (116, 0, 240, 120))
+        image.save(image_path)
+        spec_path = self._write_spec(
+            {
+                "width": 240,
+                "height": 120,
+                "layers": [
+                    {"type": "background", "image": image_path},
+                    {
+                        "type": "text",
+                        "content": "BUSY TITLE",
+                        "size": 36,
+                        "color": "#FFFFFF",
+                        "position": [20, 30],
+                    },
+                ],
+            }
+        )
+
+        # when
+        try:
+            result = CliRunner().invoke(app, ["lint", spec_path, "--format", "json"])
+        finally:
+            os.unlink(spec_path)
+            os.unlink(image_path)
+
+        # then
+        assert result.exit_code == 3
+        payload = json.loads(result.output)
+        assert payload["summary"] == {
+            "diagnostic_count": 1,
+            "error_count": 0,
+            "warning_count": 1,
+        }
+        finding = payload["diagnostics"][0]
+        assert finding["code"] == "low-contrast"
+        assert finding["measured"] == {
+            "contrast": 1.0,
+            "threshold": 2.0,
+            "method": "worst-tile",
+            "tile_bbox": {"x": 116, "y": 30, "width": 32, "height": 26},
+            "tile_count": 6,
+            "tile_size": 32,
+            "foreground_rgb": [255.0, 255.0, 255.0],
+            "background_rgb": [255.0, 255.0, 255.0],
+        }
+
     def test_should_exit_1_for_invalid_lint_format(self, spec_file):
         """lint exits 1 when --format is neither text nor json"""
         from quickthumb.cli import app
