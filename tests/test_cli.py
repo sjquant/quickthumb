@@ -792,6 +792,58 @@ class TestCLILint:
             "or enable auto_scale"
         )
 
+    def test_should_emit_structured_json_for_declared_width_text_clipping(self):
+        """lint --format json reports wrapped text that exceeds max_width"""
+        from quickthumb.cli import app
+
+        # given: a wrapped block exceeds max_width but stays within the canvas
+        spec_path = self._write_spec(
+            {
+                "width": 400,
+                "height": 300,
+                "layers": [
+                    {"type": "background", "color": "#FFFFFF"},
+                    {
+                        "type": "text",
+                        "content": "overlong ok",
+                        "size": 40,
+                        "color": "#000000",
+                        "position": [10, 10],
+                        "max_width": 50,
+                    },
+                ],
+            }
+        )
+
+        # when
+        try:
+            result = CliRunner().invoke(app, ["lint", spec_path, "--format", "json"])
+        finally:
+            os.unlink(spec_path)
+
+        # then
+        assert result.exit_code == 3
+        payload = json.loads(result.output)
+        assert payload["summary"] == {
+            "diagnostic_count": 2,
+            "error_count": 0,
+            "warning_count": 2,
+        }
+        assert [finding["code"] for finding in payload["diagnostics"]] == [
+            "text-overflow",
+            "text-clipped",
+        ]
+        finding = payload["diagnostics"][1]
+        assert finding["layer_id"] == "layer:1"
+        assert finding["bbox"]["x"] == 10
+        assert finding["bbox"]["width"] > 50
+        assert finding["bbox"]["x"] + finding["bbox"]["width"] <= 400
+        assert finding["related_layers"] == ["layer:1"]
+        assert finding["measured"]["text_bbox"] == finding["bbox"]
+        assert finding["measured"]["clipped_by"] == "max_width"
+        assert finding["measured"]["max_width"] == 50
+        assert finding["measured"]["overflow_width"] == finding["bbox"]["width"] - 50
+
     def test_should_emit_structured_json_for_missing_glyph(self, monkeypatch):
         """lint --format json includes structured missing-glyph diagnostics"""
         from quickthumb.cli import app

@@ -631,7 +631,7 @@ class DiagnosticsEngine:
                 )
             )
 
-        clipping = None if overflow is not None else self._find_text_clipping(measured)
+        clipping = self._find_text_clipping(measured, has_overflow=overflow is not None)
         if clipping is not None:
             findings.append(
                 Diagnostic(
@@ -739,7 +739,9 @@ class DiagnosticsEngine:
                 return word, width, max_width_px
         return None
 
-    def _find_text_clipping(self, measured: LayerMeasurement) -> dict | None:
+    def _find_text_clipping(
+        self, measured: LayerMeasurement, *, has_overflow: bool = False
+    ) -> dict | None:
         layer = measured.effective_text_layer
         box = measured.bbox
         if layer is None or box is None or not layer.max_width:
@@ -761,19 +763,21 @@ class DiagnosticsEngine:
             "canvas_height": self._ctx.height,
         }
 
+        canvas_overflow = self._canvas_overflow(box)
+        if canvas_overflow:
+            if has_overflow and "top" not in canvas_overflow and "bottom" not in canvas_overflow:
+                return None
+            return {
+                **base,
+                "clipped_by": "canvas",
+                "overflow": canvas_overflow,
+            }
+
         if box.width > max_width_px:
             return {
                 **base,
                 "clipped_by": "max_width",
                 "overflow_width": box.width - max_width_px,
-            }
-
-        canvas_overflow = self._canvas_overflow(box)
-        if canvas_overflow:
-            return {
-                **base,
-                "clipped_by": "canvas",
-                "overflow": canvas_overflow,
             }
 
         return None
@@ -790,46 +794,33 @@ class DiagnosticsEngine:
     def _find_missing_glyphs(self, layer: TextLayer) -> list[str]:
         missing: list[str] = []
         seen: set[str] = set()
-        for text, font in self._text_font_runs(layer):
+        for text, font in self._text.iter_font_runs(layer):
+            missing_signatures = self._missing_glyph_signatures(font)
             for char in text:
-                if char in seen or not self._should_check_glyph(char):
+                if (
+                    char in seen
+                    or char in {"\u25a1", "\ufffd"}
+                    or char.isspace()
+                    or category(char)[0] == "C"
+                ):
                     continue
                 seen.add(char)
-                if self._renders_as_missing_glyph(font, char):
+                if self._renders_as_missing_glyph(font, char, missing_signatures):
                     missing.append(char)
         return missing
 
-    def _text_font_runs(self, layer: TextLayer):
-        if isinstance(layer.content, str):
-            yield layer.content, self._fonts.load_font(layer)
-            return
+    def _missing_glyph_signatures(self, font) -> set:
+        return {
+            signature
+            for probe in ("\ufffd", "\uffff", "\u0378")
+            if (signature := self._glyph_signature(font, probe)) is not None
+        }
 
-        for part in layer.content:
-            yield (
-                part.text,
-                self._fonts.load_font_variant(
-                    part.font or layer.font,
-                    self._text.resolve_size(part, layer),
-                    self._text.resolve_bold(part, layer),
-                    self._text.resolve_italic(part, layer),
-                    self._text.resolve_weight(part, layer),
-                ),
-            )
-
-    def _should_check_glyph(self, char: str) -> bool:
-        if char in {"\u25a1", "\ufffd"}:
-            return False
-        return not char.isspace() and category(char)[0] != "C"
-
-    def _renders_as_missing_glyph(self, font, char: str) -> bool:
+    def _renders_as_missing_glyph(self, font, char: str, missing_signatures: set) -> bool:
         signature = self._glyph_signature(font, char)
         if signature is None:
             return False
-
-        for probe in ("\ufffd", "\uffff", "\u0378"):
-            if char != probe and signature == self._glyph_signature(font, probe):
-                return True
-        return False
+        return signature in missing_signatures
 
     def _glyph_signature(self, font, char: str):
         try:

@@ -1,5 +1,5 @@
 import warnings
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from typing import TypedDict, cast
 
 from PIL import Image, ImageDraw, ImageFilter
@@ -172,6 +172,24 @@ class TextEngine:
         if isinstance(layer.content, list):
             return self._measure_rich_text_layout(layer)
         return self._measure_simple_text_layout(layer)
+
+    def iter_font_runs(self, layer: TextLayer) -> Iterable[tuple[str, FontType]]:
+        """Yield text with the font variant that renders it."""
+        if isinstance(layer.content, str):
+            yield layer.content, self._fonts.load_font(layer)
+            return
+
+        for part in layer.content:
+            yield (
+                part.text,
+                self._fonts.load_font_variant(
+                    part.font or layer.font,
+                    self.resolve_size(part, layer),
+                    self.resolve_bold(part, layer),
+                    self.resolve_italic(part, layer),
+                    self.resolve_weight(part, layer),
+                ),
+            )
 
     def _measure_simple_text_layout(self, layer: TextLayer) -> TextLayoutMetadata:
         font = self._fonts.load_font(layer)
