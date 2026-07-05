@@ -33,17 +33,17 @@ jobs:
         id: version_check
         run: |
           VERSION="v$(uv version --short)"
-          echo "Current version: $VERSION"
+          echo "Current version: ${VERSION}"
 
           LATEST_RELEASE=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            https://api.github.com/repos/${{ github.repository }}/releases/latest | jq -r '.tag_name')
-          echo "Latest release version: $LATEST_RELEASE"
+            "https://api.github.com/repos/${{ github.repository }}/releases/latest" | jq -r '.tag_name')
+          echo "Latest release version: ${LATEST_RELEASE}"
 
-          if [ "$VERSION" != "$LATEST_RELEASE" ]; then
-            echo "version_changed=true" >> $GITHUB_OUTPUT
-            echo "new_version=$VERSION"  >> $GITHUB_OUTPUT
+          if [ "${VERSION}" != "${LATEST_RELEASE}" ]; then
+            echo "version_changed=true" >> "${GITHUB_OUTPUT}"
+            echo "new_version=${VERSION}" >> "${GITHUB_OUTPUT}"
           else
-            echo "version_changed=false" >> $GITHUB_OUTPUT
+            echo "version_changed=false" >> "${GITHUB_OUTPUT}"
           fi
 
       - name: Create Release
