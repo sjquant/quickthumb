@@ -740,14 +740,16 @@ class TestDiagnoseText:
         assert finding.bbox.width > 0
         assert finding.bbox.height > 0
         assert finding.related_layers == ["layer:1"]
-        assert finding.measured["contrast"] < finding.measured["threshold"]
-        assert finding.measured["method"] == "worst-tile"
-        assert finding.measured["tile_count"] >= 1
-        assert finding.measured["tile_size"] == 32
-        assert finding.measured["tile_bbox"]["width"] > 0
-        assert finding.measured["tile_bbox"]["height"] > 0
-        assert len(finding.measured["foreground_rgb"]) == 3
-        assert len(finding.measured["background_rgb"]) == 3
+        assert finding.measured == {
+            "contrast": 1.0620159366897584,
+            "threshold": 2.0,
+            "method": "worst-tile",
+            "tile_bbox": {"x": 10, "y": 10, "width": 32, "height": 32},
+            "tile_count": 12,
+            "tile_size": 32,
+            "foreground_rgb": (248.0, 248.0, 248.0),
+            "background_rgb": (255.0, 255.0, 255.0),
+        }
         assert finding.suggestion == "increase foreground/background contrast to at least 2.0:1"
 
     def test_should_warn_for_worst_tile_contrast_on_busy_background(self):
@@ -771,10 +773,16 @@ class TestDiagnoseText:
         # then
         assert [d.code for d in diagnostics] == ["low-contrast"]
         finding = diagnostics[0]
-        assert finding.measured["method"] == "worst-tile"
-        assert finding.measured["contrast"] < finding.measured["threshold"]
-        assert finding.measured["tile_bbox"]["x"] >= 116
-        assert finding.measured["background_rgb"][0] > 240
+        assert finding.measured == {
+            "contrast": 1.0,
+            "threshold": 2.0,
+            "method": "worst-tile",
+            "tile_bbox": {"x": 116, "y": 30, "width": 32, "height": 26},
+            "tile_count": 6,
+            "tile_size": 32,
+            "foreground_rgb": (255.0, 255.0, 255.0),
+            "background_rgb": (255.0, 255.0, 255.0),
+        }
 
     def test_should_ignore_low_contrast_tiles_without_text_pixels(self):
         """Whitespace inside the text bbox does not drive low-contrast findings"""

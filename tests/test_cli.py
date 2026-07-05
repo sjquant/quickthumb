@@ -1104,12 +1104,16 @@ class TestCLILint:
         }
         finding = payload["diagnostics"][0]
         assert finding["code"] == "low-contrast"
-        assert finding["measured"]["contrast"] < finding["measured"]["threshold"]
-        assert finding["measured"]["method"] == "worst-tile"
-        assert finding["measured"]["tile_size"] == 32
-        assert finding["measured"]["tile_count"] > 1
-        assert finding["measured"]["tile_bbox"]["x"] >= 116
-        assert finding["measured"]["background_rgb"][0] > 240
+        assert finding["measured"] == {
+            "contrast": 1.0,
+            "threshold": 2.0,
+            "method": "worst-tile",
+            "tile_bbox": {"x": 116, "y": 30, "width": 32, "height": 26},
+            "tile_count": 6,
+            "tile_size": 32,
+            "foreground_rgb": [255.0, 255.0, 255.0],
+            "background_rgb": [255.0, 255.0, 255.0],
+        }
 
     def test_should_exit_1_for_invalid_lint_format(self, spec_file):
         """lint exits 1 when --format is neither text nor json"""
