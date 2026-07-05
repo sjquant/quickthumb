@@ -737,6 +737,107 @@ class TestCLILint:
             ],
         }
 
+    def test_should_emit_structured_json_for_text_clipped(self):
+        """lint --format json includes structured text-clipped diagnostics"""
+        from quickthumb.cli import app
+
+        # given: a spec with wrapped text that runs beyond the canvas
+        spec_path = self._write_spec(
+            {
+                "width": 260,
+                "height": 110,
+                "layers": [
+                    {"type": "background", "color": "#FFFFFF"},
+                    {
+                        "type": "text",
+                        "content": "one two three four five six seven eight nine ten",
+                        "size": 30,
+                        "color": "#000000",
+                        "position": [10, 70],
+                        "max_width": 90,
+                    },
+                ],
+            }
+        )
+
+        # when
+        try:
+            result = CliRunner().invoke(app, ["lint", spec_path, "--format", "json"])
+        finally:
+            os.unlink(spec_path)
+
+        # then
+        assert result.exit_code == 3
+        payload = json.loads(result.output)
+        assert payload["summary"]["diagnostic_count"] == 2
+        finding = payload["diagnostics"][0]
+        assert finding["code"] == "text-clipped"
+        assert finding["severity"] == "warning"
+        assert finding["layer_index"] == 1
+        assert finding["layer_id"] == "layer:1"
+        assert finding["bbox"]["x"] == 10
+        assert finding["bbox"]["y"] == 70
+        assert finding["bbox"]["width"] <= 90
+        assert finding["bbox"]["y"] + finding["bbox"]["height"] > 110
+        assert finding["related_layers"] == ["layer:1"]
+        assert finding["measured"]["text_bbox"] == finding["bbox"]
+        assert finding["measured"]["wrapped_line_count"] > 1
+        assert finding["measured"]["max_width"] == 90
+        assert finding["measured"]["clipped_by"] == "canvas"
+        assert finding["measured"]["overflow"] == {
+            "bottom": finding["bbox"]["y"] + finding["bbox"]["height"] - 110
+        }
+        assert finding["suggestion"] == (
+            "move the text fully inside the canvas, reduce text size, increase max_width, "
+            "or enable auto_scale"
+        )
+
+    def test_should_emit_structured_json_for_missing_glyph(self, monkeypatch):
+        """lint --format json includes structured missing-glyph diagnostics"""
+        from quickthumb.cli import app
+
+        # given: the bundled default font and a character it renders as tofu
+        monkeypatch.delenv("QUICKTHUMB_DEFAULT_FONT", raising=False)
+        spec_path = self._write_spec(
+            {
+                "width": 200,
+                "height": 120,
+                "layers": [
+                    {"type": "background", "color": "#FFFFFF"},
+                    {
+                        "type": "text",
+                        "content": "\ud55c",
+                        "size": 40,
+                        "color": "#000000",
+                        "position": [10, 10],
+                    },
+                ],
+            }
+        )
+
+        # when
+        try:
+            result = CliRunner().invoke(app, ["lint", spec_path, "--format", "json"])
+        finally:
+            os.unlink(spec_path)
+
+        # then
+        assert result.exit_code == 3
+        payload = json.loads(result.output)
+        assert payload["summary"] == {
+            "diagnostic_count": 1,
+            "error_count": 0,
+            "warning_count": 1,
+        }
+        finding = payload["diagnostics"][0]
+        assert finding["code"] == "missing-glyph"
+        assert finding["severity"] == "warning"
+        assert finding["layer_index"] == 1
+        assert finding["layer_id"] == "layer:1"
+        assert finding["related_layers"] == ["layer:1"]
+        assert finding["measured"] == {"characters": ["\ud55c"], "character_count": 1}
+        assert finding["suggestion"] == "use a font that supports '\ud55c'"
+
     def test_should_emit_structured_json_for_group_child_overlap(self):
         """lint --format json reports grouped child overlap with stable related layer ids"""
         from quickthumb.cli import app

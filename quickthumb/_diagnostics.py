@@ -2,6 +2,7 @@ from collections.abc import Iterable
 from itertools import islice
 from math import ceil
 from typing import TYPE_CHECKING
+from unicodedata import category
 
 from PIL import Image, ImageChops
 
@@ -630,6 +631,48 @@ class DiagnosticsEngine:
                 )
             )
 
+        clipping = None if overflow is not None else self._find_text_clipping(measured)
+        if clipping is not None:
+            findings.append(
+                Diagnostic(
+                    code="text-clipped",
+                    severity="warning",
+                    layer_index=measured.index,
+                    message=(
+                        f"wrapped text block at ({clipping['text_bbox']['x']}, "
+                        f"{clipping['text_bbox']['y']}) size "
+                        f"{clipping['text_bbox']['width']}x{clipping['text_bbox']['height']} "
+                        f"exceeds {clipping['clipped_by']} and may be clipped"
+                    ),
+                    measured=clipping,
+                    suggestion=(
+                        "move the text fully inside the canvas, reduce text size, "
+                        "increase max_width, or enable auto_scale"
+                    ),
+                    **diagnostic_context(measured),
+                )
+            )
+
+        missing_glyphs = self._find_missing_glyphs(layer)
+        if missing_glyphs:
+            display = ", ".join(repr(char) for char in missing_glyphs)
+            findings.append(
+                Diagnostic(
+                    code="missing-glyph",
+                    severity="warning",
+                    layer_index=measured.index,
+                    message=(
+                        f"text contains glyphs that render as the font replacement glyph: {display}"
+                    ),
+                    measured={
+                        "characters": missing_glyphs,
+                        "character_count": len(missing_glyphs),
+                    },
+                    suggestion=f"use a font that supports {display}",
+                    **diagnostic_context(measured),
+                )
+            )
+
         contrast = self._text_background_contrast(running, measured)
         if contrast is not None and contrast < LOW_CONTRAST_THRESHOLD:
             findings.append(
@@ -695,6 +738,108 @@ class DiagnosticsEngine:
             if width > max_width_px:
                 return word, width, max_width_px
         return None
+
+    def _find_text_clipping(self, measured: LayerMeasurement) -> dict | None:
+        layer = measured.effective_text_layer
+        box = measured.bbox
+        if layer is None or box is None or not layer.max_width:
+            return None
+
+        wrapped_lines = tuple(measured.metadata.get("wrapped_lines", ()))
+        if len(wrapped_lines) < 2:
+            return None
+
+        max_width_px = parse_coordinate(layer.max_width, self._ctx.width)
+        text_bbox = bbox_payload(box)
+        base = {
+            "text_bbox": text_bbox,
+            "wrapped_line_count": len(wrapped_lines),
+            "max_width": max_width_px,
+            "text_width": box.width,
+            "text_height": box.height,
+            "canvas_width": self._ctx.width,
+            "canvas_height": self._ctx.height,
+        }
+
+        if box.width > max_width_px:
+            return {
+                **base,
+                "clipped_by": "max_width",
+                "overflow_width": box.width - max_width_px,
+            }
+
+        canvas_overflow = self._canvas_overflow(box)
+        if canvas_overflow:
+            return {
+                **base,
+                "clipped_by": "canvas",
+                "overflow": canvas_overflow,
+            }
+
+        return None
+
+    def _canvas_overflow(self, box) -> dict[str, int]:
+        overflow = {
+            "left": max(0, -box.x),
+            "top": max(0, -box.y),
+            "right": max(0, box.right - self._ctx.width),
+            "bottom": max(0, box.bottom - self._ctx.height),
+        }
+        return {edge: amount for edge, amount in overflow.items() if amount > 0}
+
+    def _find_missing_glyphs(self, layer: TextLayer) -> list[str]:
+        missing: list[str] = []
+        seen: set[str] = set()
+        for text, font in self._text_font_runs(layer):
+            for char in text:
+                if char in seen or not self._should_check_glyph(char):
+                    continue
+                seen.add(char)
+                if self._renders_as_missing_glyph(font, char):
+                    missing.append(char)
+        return missing
+
+    def _text_font_runs(self, layer: TextLayer):
+        if isinstance(layer.content, str):
+            yield layer.content, self._fonts.load_font(layer)
+            return
+
+        for part in layer.content:
+            yield (
+                part.text,
+                self._fonts.load_font_variant(
+                    part.font or layer.font,
+                    self._text.resolve_size(part, layer),
+                    self._text.resolve_bold(part, layer),
+                    self._text.resolve_italic(part, layer),
+                    self._text.resolve_weight(part, layer),
+                ),
+            )
+
+    def _should_check_glyph(self, char: str) -> bool:
+        if char in {"\u25a1", "\ufffd"}:
+            return False
+        return not char.isspace() and category(char)[0] != "C"
+
+    def _renders_as_missing_glyph(self, font, char: str) -> bool:
+        signature = self._glyph_signature(font, char)
+        if signature is None:
+            return False
+
+        for probe in ("\ufffd", "\uffff", "\u0378"):
+            if char != probe and signature == self._glyph_signature(font, probe):
+                return True
+        return False
+
+    def _glyph_signature(self, font, char: str):
+        try:
+            mask = font.getmask(char)
+            data = bytes(mask)
+            if not data or not any(data):
+                return None
+            return font.getbbox(char), mask.size, data
+        except (OSError, UnicodeError, ValueError):
+            return None
 
     def _text_background_contrast(
         self, running: Image.Image, measured: LayerMeasurement

@@ -432,6 +432,77 @@ class TestDiagnoseText:
         )
         assert finding.suggestion == expected_suggestion
 
+    def test_should_warn_when_wrapped_text_extends_past_canvas(self):
+        """Wrapped text that runs beyond the canvas receives a text-clipped warning"""
+        from quickthumb import Canvas
+
+        # given: a wrapped text block starting too low to fit all rendered lines
+        canvas = (
+            Canvas(260, 110)
+            .background(color="#FFFFFF")
+            .text(
+                "one two three four five six seven eight nine ten",
+                size=30,
+                color="#000000",
+                position=(10, 70),
+                max_width=90,
+            )
+        )
+
+        # when
+        diagnostics = canvas.diagnose()
+
+        # then
+        assert [d.code for d in diagnostics] == ["text-clipped", "off-canvas"]
+        finding = diagnostics[0]
+        assert finding.severity == "warning"
+        assert finding.layer_id == "layer:1"
+        assert finding.bbox is not None
+        assert finding.bbox.x == 10
+        assert finding.bbox.y == 70
+        assert finding.bbox.width <= 90
+        assert finding.bbox.y + finding.bbox.height > 110
+        assert finding.related_layers == ["layer:1"]
+        assert finding.measured["text_bbox"] == finding.bbox.model_dump()
+        assert finding.measured["wrapped_line_count"] > 1
+        assert finding.measured["max_width"] == 90
+        assert finding.measured["text_width"] == finding.bbox.width
+        assert finding.measured["text_height"] == finding.bbox.height
+        assert finding.measured["canvas_width"] == 260
+        assert finding.measured["canvas_height"] == 110
+        assert finding.measured["clipped_by"] == "canvas"
+        assert finding.measured["overflow"] == {
+            "bottom": finding.bbox.y + finding.bbox.height - 110
+        }
+        assert finding.suggestion == (
+            "move the text fully inside the canvas, reduce text size, increase max_width, "
+            "or enable auto_scale"
+        )
+
+    def test_should_warn_when_default_font_renders_missing_glyph(self, monkeypatch):
+        """Characters rendered as the active font replacement glyph are flagged"""
+        from quickthumb import Canvas
+
+        # given: the bundled default font and a Hangul character it cannot draw
+        monkeypatch.delenv("QUICKTHUMB_DEFAULT_FONT", raising=False)
+        canvas = (
+            Canvas(200, 120)
+            .background(color="#FFFFFF")
+            .text("\ud55c", size=40, color="#000000", position=(10, 10))
+        )
+
+        # when
+        diagnostics = canvas.diagnose()
+
+        # then
+        assert [d.code for d in diagnostics] == ["missing-glyph"]
+        finding = diagnostics[0]
+        assert finding.severity == "warning"
+        assert finding.layer_id == "layer:1"
+        assert finding.bbox is not None
+        assert finding.measured == {"characters": ["\ud55c"], "character_count": 1}
+        assert finding.suggestion == "use a font that supports '\ud55c'"
+
     def test_should_warn_for_low_contrast_text(self):
         """Near-white text on a white background is flagged as low contrast"""
         from quickthumb import Canvas
