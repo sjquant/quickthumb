@@ -8,7 +8,7 @@ from quickthumb._base import (
     parse_coordinate,
     parse_padding,
 )
-from quickthumb._composition import apply_layer_composition, has_layer_composition
+from quickthumb._composition import composite_layer_with_boundary, has_layer_composition
 from quickthumb._effects import EffectsEngine
 from quickthumb._fonts import FontEngine
 from quickthumb._images import ImageEngine
@@ -74,21 +74,27 @@ class GroupEngine:
         child: GroupChildLayer,
         origin: tuple[int, int] | None = None,
     ):
-        layer_surface = Image.new("RGBA", image.size, (0, 0, 0, 0))
         isolated = self._child_without_boundary_blend(child)
-        if isinstance(isolated, GroupLayer):
-            self.render_group_layer(layer_surface, isolated, origin=origin)
-        else:
-            self._render_group_child_direct(layer_surface, isolated)
-        layer_surface = apply_layer_composition(self._ctx, layer_surface, child)
+        composite_layer_with_boundary(
+            self._ctx,
+            self._effects,
+            image,
+            child,
+            lambda layer_surface: self._render_group_child_boundary(
+                layer_surface, isolated, origin
+            ),
+        )
 
-        blend_mode = getattr(child, "blend_mode", None)
-        if blend_mode:
-            blended = self._effects.apply_blend_mode(image, layer_surface, blend_mode)
-            image.paste(blended, (0, 0), layer_surface.split()[3])
+    def _render_group_child_boundary(
+        self,
+        image: Image.Image,
+        child: GroupChildLayer,
+        origin: tuple[int, int] | None = None,
+    ):
+        if isinstance(child, GroupLayer):
+            self.render_group_layer(image, child, origin=origin)
             return
-
-        image.alpha_composite(layer_surface)
+        self._render_group_child_direct(image, child)
 
     @staticmethod
     def _child_without_boundary_blend(child: GroupChildLayer) -> GroupChildLayer:

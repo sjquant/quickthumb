@@ -195,6 +195,23 @@ class quickthumbModel(BaseModel):  # noqa: N801
 QuickThumbModel = quickthumbModel
 
 
+def _validate_required_position(v: tuple | list | None) -> Position:
+    if v is None:
+        raise ValueError("position is required")
+
+    if not isinstance(v, (tuple, list)) or len(v) != 2:
+        raise ValueError("position must be a tuple of two elements")
+
+    if isinstance(v[0], str) or isinstance(v[1], str):
+        for item in v:
+            if isinstance(item, str):
+                match = re.fullmatch(r"-?(\d+(\.\d+)?)%", item)
+                if not match:
+                    raise ValueError(f"invalid percentage format: {item}")
+
+    return tuple(v)
+
+
 class LayerClip(quickthumbModel):
     """Canvas-space rectangle that clips a layer after it is rendered."""
 
@@ -208,20 +225,7 @@ class LayerClip(quickthumbModel):
     @field_validator("position", mode="before")
     @classmethod
     def validate_position(cls, v: tuple | list | None) -> Position:
-        if v is None:
-            raise ValueError("position is required")
-
-        if not isinstance(v, (tuple, list)) or len(v) != 2:
-            raise ValueError("position must be a tuple of two elements")
-
-        if isinstance(v[0], str) or isinstance(v[1], str):
-            for item in v:
-                if isinstance(item, str):
-                    match = re.fullmatch(r"-?(\d+(\.\d+)?)%", item)
-                    if not match:
-                        raise ValueError(f"invalid percentage format: {item}")
-
-        return tuple(v)
+        return _validate_required_position(v)
 
     @field_serializer("align")
     def serialize_align(self, align: Align | None) -> str | None:
@@ -246,20 +250,7 @@ class LayerMask(quickthumbModel):
     @field_validator("position", mode="before")
     @classmethod
     def validate_position(cls, v: tuple | list | None) -> Position:
-        if v is None:
-            raise ValueError("position is required")
-
-        if not isinstance(v, (tuple, list)) or len(v) != 2:
-            raise ValueError("position must be a tuple of two elements")
-
-        if isinstance(v[0], str) or isinstance(v[1], str):
-            for item in v:
-                if isinstance(item, str):
-                    match = re.fullmatch(r"-?(\d+(\.\d+)?)%", item)
-                    if not match:
-                        raise ValueError(f"invalid percentage format: {item}")
-
-        return tuple(v)
+        return _validate_required_position(v)
 
     @field_validator("points")
     @classmethod

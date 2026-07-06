@@ -1208,6 +1208,36 @@ class TestDiagnoseLayerOverlap:
         # when / then
         assert canvas.diagnose() == []
 
+    def test_should_not_warn_for_composed_mask_corner_bbox_overlap(self):
+        """Layer masks remove transparent composition pixels from overlap diagnostics"""
+        from quickthumb import Canvas
+
+        # given: a small upper shape sits only in the transparent corner of a masked rectangle
+        canvas = (
+            Canvas(80, 80)
+            .shape(
+                shape="rectangle",
+                position=(10, 10),
+                width=60,
+                height=60,
+                color="#FF0000",
+                mask={"shape": "ellipse", "position": (10, 10), "width": 60, "height": 60},
+            )
+            .shape(
+                shape="rectangle",
+                position=(10, 10),
+                width=5,
+                height=5,
+                color="#0000FF",
+            )
+        )
+
+        # when
+        diagnostics = canvas.diagnose()
+
+        # then
+        assert [finding for finding in diagnostics if finding.code == "layer-overlap"] == []
+
     def test_should_not_warn_for_transparent_png_bbox_overlap(self, tmp_path):
         """Transparent image pixels do not count as visible overlap"""
         from quickthumb import Canvas

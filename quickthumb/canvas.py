@@ -9,7 +9,7 @@ from PIL import Image, ImageDraw
 from typing_extensions import Self
 
 from quickthumb._base import FileFormat, RenderContext, aspect_ratio_dimensions, is_url
-from quickthumb._composition import apply_layer_composition, has_layer_composition
+from quickthumb._composition import composite_layer_with_boundary, has_layer_composition
 from quickthumb._diagnostic_rules import PLATFORM_SAFE_MARGIN_PRESETS
 from quickthumb._diagnostics import DiagnosticsEngine
 from quickthumb._effects import EffectsEngine
@@ -746,7 +746,7 @@ class Canvas:
                     ) from e
                 layers_json.append({"type": "custom", "name": layer.name, "kwargs": layer.kwargs})
             else:
-                layer_json = _json.loads(layer.model_dump_json())
+                layer_json = layer.model_dump(mode="json")
                 layers_json.append(self._omit_unset_composition_fields(layer_json))
 
         payload: dict[str, Any] = {
@@ -933,18 +933,14 @@ class Canvas:
         self._render_layer_direct(image, layer)
 
     def _render_composed_layer(self, image: Image.Image, layer: RenderableLayer):
-        layer_surface = self._create_canvas()
         isolated = self._layer_without_boundary_blend(layer)
-        self._render_layer_direct(layer_surface, isolated)
-        layer_surface = apply_layer_composition(self._ctx, layer_surface, layer)
-
-        blend_mode = getattr(layer, "blend_mode", None)
-        if blend_mode:
-            blended = self._effects.apply_blend_mode(image, layer_surface, blend_mode)
-            image.paste(blended, (0, 0), layer_surface.split()[3])
-            return
-
-        image.alpha_composite(layer_surface)
+        composite_layer_with_boundary(
+            self._ctx,
+            self._effects,
+            image,
+            layer,
+            lambda layer_surface: self._render_layer_direct(layer_surface, isolated),
+        )
 
     @staticmethod
     def _layer_without_boundary_blend(layer: RenderableLayer) -> RenderableLayer:

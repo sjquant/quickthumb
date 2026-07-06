@@ -1,11 +1,24 @@
 from __future__ import annotations
 
+from collections.abc import Callable
+from dataclasses import dataclass
 from typing import Any
 
 from PIL import Image, ImageChops, ImageDraw
 
 from quickthumb._base import RenderContext, apply_alignment, parse_coordinate
+from quickthumb._effects import EffectsEngine
 from quickthumb.models import Align, LayerClip, LayerMask
+
+Bounds = tuple[int, int, int, int]
+
+
+@dataclass(frozen=True)
+class ComposedLayer:
+    """A clipped/masked layer patch ready to composite at a canvas offset."""
+
+    image: Image.Image
+    offset: tuple[int, int]
 
 
 def has_layer_composition(layer: Any) -> bool:
@@ -13,9 +26,34 @@ def has_layer_composition(layer: Any) -> bool:
     return getattr(layer, "clip", None) is not None or getattr(layer, "mask", None) is not None
 
 
-def composition_bounds(ctx: RenderContext, layer: Any) -> tuple[int, int, int, int] | None:
+def composite_layer_with_boundary(
+    ctx: RenderContext,
+    effects: EffectsEngine,
+    image: Image.Image,
+    layer: Any,
+    render_isolated: Callable[[Image.Image], None],
+) -> None:
+    """Render a layer in isolation, apply composition, then composite it onto image."""
+    layer_surface = Image.new("RGBA", image.size, (0, 0, 0, 0))
+    render_isolated(layer_surface)
+    composed = apply_layer_composition(ctx, layer_surface, layer)
+    if composed is None:
+        return
+
+    blend_mode = getattr(layer, "blend_mode", None)
+    if blend_mode:
+        overlay = Image.new("RGBA", image.size, (0, 0, 0, 0))
+        overlay.alpha_composite(composed.image, composed.offset)
+        blended = effects.apply_blend_mode(image, overlay, blend_mode)
+        image.paste(blended, (0, 0), overlay.split()[3])
+        return
+
+    image.alpha_composite(composed.image, composed.offset)
+
+
+def composition_bounds(ctx: RenderContext, layer: Any) -> Bounds | None:
     """Return the visible composition bounds as (x, y, width, height) when finite."""
-    bounds: tuple[int, int, int, int] | None = None
+    bounds: Bounds | None = None
     clip = getattr(layer, "clip", None)
     if isinstance(clip, LayerClip):
         bounds = _intersect_bounds(bounds, _clip_bounds(ctx, clip))
@@ -29,26 +67,33 @@ def composition_bounds(ctx: RenderContext, layer: Any) -> tuple[int, int, int, i
 
 def apply_layer_composition(
     ctx: RenderContext, layer_image: Image.Image, layer: Any
-) -> Image.Image:
-    """Apply clip and mask primitives to a full-canvas rendered layer image."""
-    alpha = layer_image.split()[3]
+) -> ComposedLayer | None:
+    """Apply clip and mask primitives to an isolated layer image."""
+    offset = _composition_offset(ctx, layer, layer_image.size)
+    if offset is None:
+        return None
+
+    left, top, right, bottom = offset
+    layer_patch = layer_image.crop((left, top, right, bottom))
+    alpha = layer_patch.split()[3]
 
     clip = getattr(layer, "clip", None)
     if isinstance(clip, LayerClip):
-        alpha = ImageChops.multiply(alpha, _clip_alpha(ctx, layer_image.size, clip))
+        alpha = ImageChops.multiply(
+            alpha, _clip_alpha(ctx, layer_patch.size, clip, offset=(left, top))
+        )
 
     mask = getattr(layer, "mask", None)
     if isinstance(mask, LayerMask):
-        alpha = ImageChops.multiply(alpha, _mask_alpha(ctx, layer_image.size, mask))
+        alpha = ImageChops.multiply(
+            alpha, _mask_alpha(ctx, layer_patch.size, mask, offset=(left, top))
+        )
 
-    result = layer_image.copy()
-    result.putalpha(alpha)
-    return result
+    layer_patch.putalpha(alpha)
+    return ComposedLayer(image=layer_patch, offset=(left, top))
 
 
-def _intersect_bounds(
-    current: tuple[int, int, int, int] | None, incoming: tuple[int, int, int, int]
-) -> tuple[int, int, int, int] | None:
+def _intersect_bounds(current: Bounds | None, incoming: Bounds) -> Bounds | None:
     if current is None:
         return incoming
 
@@ -57,11 +102,37 @@ def _intersect_bounds(
     right = min(current[0] + current[2], incoming[0] + incoming[2])
     bottom = min(current[1] + current[3], incoming[1] + incoming[3])
     if right <= left or bottom <= top:
-        return None
+        return left, top, 0, 0
     return left, top, right - left, bottom - top
 
 
-def _clip_alpha(ctx: RenderContext, size: tuple[int, int], clip: LayerClip) -> Image.Image:
+def _composition_offset(
+    ctx: RenderContext, layer: Any, size: tuple[int, int]
+) -> tuple[int, int, int, int] | None:
+    bounds = composition_bounds(ctx, layer)
+    if bounds is None:
+        return (0, 0, size[0], size[1])
+
+    x, y, width, height = bounds
+    if width <= 0 or height <= 0:
+        return None
+
+    left = max(0, x)
+    top = max(0, y)
+    right = min(size[0], x + width)
+    bottom = min(size[1], y + height)
+    if right <= left or bottom <= top:
+        return None
+    return left, top, right, bottom
+
+
+def _clip_alpha(
+    ctx: RenderContext,
+    size: tuple[int, int],
+    clip: LayerClip,
+    *,
+    offset: tuple[int, int] = (0, 0),
+) -> Image.Image:
     x, y, width, height = _clip_bounds(ctx, clip)
     return _shape_alpha(
         size,
@@ -72,10 +143,17 @@ def _clip_alpha(ctx: RenderContext, size: tuple[int, int], clip: LayerClip) -> I
         shape="rectangle",
         border_radius=clip.border_radius,
         opacity=1.0,
+        offset=offset,
     )
 
 
-def _mask_alpha(ctx: RenderContext, size: tuple[int, int], mask: LayerMask) -> Image.Image:
+def _mask_alpha(
+    ctx: RenderContext,
+    size: tuple[int, int],
+    mask: LayerMask,
+    *,
+    offset: tuple[int, int] = (0, 0),
+) -> Image.Image:
     x, y, width, height = _mask_bounds(ctx, mask)
     alpha = _shape_alpha(
         size,
@@ -86,6 +164,7 @@ def _mask_alpha(ctx: RenderContext, size: tuple[int, int], mask: LayerMask) -> I
         shape=mask.shape,
         points=mask.points,
         opacity=mask.opacity,
+        offset=offset,
     )
     if mask.invert:
         alpha = ImageChops.invert(alpha)
@@ -125,15 +204,18 @@ def _shape_alpha(
     border_radius: int = 0,
     points: list[tuple[float, float]] | None = None,
     opacity: float = 1.0,
+    offset: tuple[int, int] = (0, 0),
 ) -> Image.Image:
     scale = 4
     alpha = Image.new("L", (size[0] * scale, size[1] * scale), 0)
     draw = ImageDraw.Draw(alpha)
+    local_x = x - offset[0]
+    local_y = y - offset[1]
     bbox = [
-        x * scale,
-        y * scale,
-        (x + width) * scale - 1,
-        (y + height) * scale - 1,
+        local_x * scale,
+        local_y * scale,
+        (local_x + width) * scale - 1,
+        (local_y + height) * scale - 1,
     ]
     fill = round(255 * opacity)
 
@@ -143,7 +225,9 @@ def _shape_alpha(
         draw.rounded_rectangle(bbox, radius=min(width, height) * scale // 2, fill=fill)
     elif shape == "polygon":
         assert points is not None
-        pixel_points = [((x + px * width) * scale, (y + py * height) * scale) for px, py in points]
+        pixel_points = [
+            ((local_x + px * width) * scale, (local_y + py * height) * scale) for px, py in points
+        ]
         draw.polygon(pixel_points, fill=fill)
     else:
         draw.rounded_rectangle(bbox, radius=border_radius * scale, fill=fill)

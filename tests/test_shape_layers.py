@@ -315,6 +315,180 @@ class TestShapeLayerComposition:
         assert rendered.getpixel((40, 40)) == (255, 0, 0, 255)
         assert rendered.getpixel((12, 12)) == (255, 255, 255, 255)
 
+    def test_should_apply_inverted_shape_mask_to_shape_layer_pixels(self, tmp_path):
+        """Inverted masks remove the mask shape and preserve pixels outside it"""
+        from quickthumb import Canvas
+
+        # Given: a red rectangle with its left half removed by an inverted mask
+        output = tmp_path / "shape-inverted-mask.png"
+        canvas = (
+            Canvas(80, 40)
+            .background(color="#FFFFFF")
+            .shape(
+                shape="rectangle",
+                position=(0, 0),
+                width=80,
+                height=40,
+                color="#FF0000",
+                mask={"position": (0, 0), "width": 40, "height": 40, "invert": True},
+            )
+        )
+
+        # When: rendering the inverted mask
+        canvas.render(str(output))
+
+        # Then: the masked half is removed and the unmasked half remains
+        rendered = Image.open(output).convert("RGBA")
+        assert rendered.getpixel((20, 20)) == (255, 255, 255, 255)
+        assert rendered.getpixel((60, 20)) == (255, 0, 0, 255)
+
+    def test_should_apply_partial_opacity_mask_to_shape_layer_pixels(self, tmp_path):
+        """Mask opacity scales the composed layer alpha before final blending"""
+        from quickthumb import Canvas
+
+        # Given: a red rectangle with a 50% rectangle mask over white
+        output = tmp_path / "shape-opacity-mask.png"
+        canvas = (
+            Canvas(40, 40)
+            .background(color="#FFFFFF")
+            .shape(
+                shape="rectangle",
+                position=(0, 0),
+                width=40,
+                height=40,
+                color="#FF0000",
+                mask={"position": (0, 0), "width": 40, "height": 40, "opacity": 0.5},
+            )
+        )
+
+        # When: rendering the partial mask
+        canvas.render(str(output))
+
+        # Then: the masked pixels blend halfway with the backdrop
+        rendered = Image.open(output).convert("RGBA")
+        assert rendered.getpixel((20, 20)) == (255, 127, 127, 255)
+
+    def test_should_apply_aligned_pill_mask_to_shape_layer_pixels(self, tmp_path):
+        """Aligned pill masks resolve their canvas-space anchor before masking"""
+        from quickthumb import Canvas
+
+        # Given: a full red rectangle with a centered pill mask
+        output = tmp_path / "shape-pill-mask.png"
+        canvas = (
+            Canvas(80, 60)
+            .background(color="#FFFFFF")
+            .shape(
+                shape="rectangle",
+                position=(0, 0),
+                width=80,
+                height=60,
+                color="#FF0000",
+                mask={
+                    "shape": "pill",
+                    "position": ("50%", "50%"),
+                    "align": "center",
+                    "width": 40,
+                    "height": 20,
+                },
+            )
+        )
+
+        # When: rendering the aligned pill mask
+        canvas.render(str(output))
+
+        # Then: only the centered pill area remains visible
+        rendered = Image.open(output).convert("RGBA")
+        assert rendered.getpixel((40, 30)) == (255, 0, 0, 255)
+        assert rendered.getpixel((10, 30)) == (255, 255, 255, 255)
+
+    def test_should_apply_polygon_mask_to_shape_layer_pixels(self, tmp_path):
+        """Polygon masks use normalized points within the mask box"""
+        from quickthumb import Canvas
+
+        # Given: a red rectangle with a triangular mask
+        output = tmp_path / "shape-polygon-mask.png"
+        canvas = (
+            Canvas(80, 80)
+            .background(color="#FFFFFF")
+            .shape(
+                shape="rectangle",
+                position=(0, 0),
+                width=80,
+                height=80,
+                color="#FF0000",
+                mask={
+                    "shape": "polygon",
+                    "position": (0, 0),
+                    "width": 80,
+                    "height": 80,
+                    "points": [(0.5, 0.0), (1.0, 1.0), (0.0, 1.0)],
+                },
+            )
+        )
+
+        # When: rendering the polygon mask
+        canvas.render(str(output))
+
+        # Then: pixels inside the triangle remain and outside pixels reveal the backdrop
+        rendered = Image.open(output).convert("RGBA")
+        assert rendered.getpixel((40, 60)) == (255, 0, 0, 255)
+        assert rendered.getpixel((10, 10)) == (255, 255, 255, 255)
+
+    def test_should_report_empty_bbox_for_non_overlapping_clip_and_mask(self, tmp_path):
+        """Disjoint clip and mask bounds inspect as empty and render no pixels"""
+        from quickthumb import Canvas
+
+        # Given: a layer whose clip and mask do not overlap
+        output = tmp_path / "shape-empty-composition.png"
+        canvas = (
+            Canvas(100, 100)
+            .background(color="#FFFFFF")
+            .shape(
+                shape="rectangle",
+                position=(0, 0),
+                width=40,
+                height=40,
+                color="#FF0000",
+                clip={"position": (0, 0), "width": 20, "height": 20},
+                mask={"position": (80, 80), "width": 10, "height": 10},
+            )
+        )
+
+        # When: inspecting and rendering the composed layer
+        bbox = canvas.inspect().layers[1].bbox
+        canvas.render(str(output))
+
+        # Then: the meaningful bounds are empty and no red pixels are painted
+        rendered = Image.open(output).convert("RGBA")
+        assert bbox is not None
+        assert bbox.width == 0
+        assert bbox.height == 0
+        assert rendered.getpixel((10, 10)) == (255, 255, 255, 255)
+
+    def test_should_reject_invalid_polygon_mask_points(self):
+        """Polygon masks require at least three normalized points"""
+        from quickthumb import Canvas
+
+        # Given: a polygon mask with too few points
+        canvas = Canvas(80, 80)
+
+        # When / Then: layer validation rejects the invalid mask
+        with pytest.raises(ValidationError, match="points must contain at least 3 entries"):
+            canvas.shape(
+                shape="rectangle",
+                position=(0, 0),
+                width=80,
+                height=80,
+                color="#FF0000",
+                mask={
+                    "shape": "polygon",
+                    "position": (0, 0),
+                    "width": 80,
+                    "height": 80,
+                    "points": [(0.0, 0.0), (1.0, 1.0)],
+                },
+            )
+
 
 class TestGroupLayerComposition:
     """Test suite for grouped layer masks"""
@@ -357,6 +531,90 @@ class TestGroupLayerComposition:
         rendered = Image.open(output).convert("RGBA")
         assert rendered.getpixel((25, 25)) == (255, 0, 0, 255)
         assert rendered.getpixel((75, 25)) == (255, 255, 255, 255)
+
+    def test_should_apply_mask_to_group_child_layer(self, tmp_path):
+        """Masked group children are composed after the group assigns their slot"""
+        from quickthumb import Canvas
+
+        # Given: a group child whose canvas-space mask covers only its left half
+        output = tmp_path / "group-child-mask.png"
+        canvas = (
+            Canvas(80, 40)
+            .background(color="#FFFFFF")
+            .group(
+                children=[
+                    {
+                        "type": "shape",
+                        "shape": "rectangle",
+                        "width": 80,
+                        "height": 40,
+                        "color": "#00FF00",
+                        "mask": {"position": (0, 0), "width": 40, "height": 40},
+                    }
+                ]
+            )
+        )
+
+        # When: rendering the group child mask
+        canvas.render(str(output))
+
+        # Then: the child is clipped at its mask boundary
+        rendered = Image.open(output).convert("RGBA")
+        assert rendered.getpixel((20, 20)) == (0, 255, 0, 255)
+        assert rendered.getpixel((60, 20)) == (255, 255, 255, 255)
+
+    def test_should_apply_mask_to_nested_group_layer(self, tmp_path):
+        """Nested group masks are applied to the nested group as one composite"""
+        from quickthumb import Canvas
+
+        # Given: a parent group containing a nested masked row group
+        output = tmp_path / "nested-group-mask.png"
+        canvas = (
+            Canvas(120, 50)
+            .background(color="#FFFFFF")
+            .group(
+                children=[
+                    {
+                        "type": "group",
+                        "direction": "row",
+                        "mask": {"position": (0, 0), "width": 50, "height": 50},
+                        "children": [
+                            {
+                                "type": "shape",
+                                "shape": "rectangle",
+                                "width": 50,
+                                "height": 50,
+                                "color": "#FF0000",
+                            },
+                            {
+                                "type": "shape",
+                                "shape": "rectangle",
+                                "width": 50,
+                                "height": 50,
+                                "color": "#0000FF",
+                            },
+                        ],
+                    },
+                    {
+                        "type": "shape",
+                        "shape": "rectangle",
+                        "width": 20,
+                        "height": 50,
+                        "color": "#00FF00",
+                    },
+                ],
+                direction="row",
+            )
+        )
+
+        # When: rendering the nested group mask
+        canvas.render(str(output))
+
+        # Then: the nested mask hides the blue child while the parent still places siblings
+        rendered = Image.open(output).convert("RGBA")
+        assert rendered.getpixel((25, 25)) == (255, 0, 0, 255)
+        assert rendered.getpixel((75, 25)) == (255, 255, 255, 255)
+        assert rendered.getpixel((110, 25)) == (0, 255, 0, 255)
 
 
 class TestShapePrimitives:
