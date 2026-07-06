@@ -3074,38 +3074,56 @@ class TestGroupLayerRendering:
         """Snapshot test for masked group composition hiding child pixels"""
         from quickthumb import Canvas
 
-        # given: a row group masks out its second child before a later layer is composited
+        # given: a labeled row group masks out its blue child before a later layer is composited
         canvas = (
-            Canvas(120, 60)
+            Canvas(260, 120)
             .background(color="#FFFFFF")
+            .text("mask keeps red", size=12, color="#111111", position=(20, 8))
+            .text("gray = masked blue child", size=12, color="#1D4ED8", position=(20, 92))
+            .shape(
+                shape="rectangle",
+                position=(20, 25),
+                width=160,
+                height=50,
+                color="#E5E7EB",
+            )
             .group(
                 children=[
                     {
                         "type": "shape",
                         "shape": "rectangle",
-                        "width": 50,
+                        "width": 70,
                         "height": 50,
                         "color": "#FF0000",
                     },
                     {
                         "type": "shape",
                         "shape": "rectangle",
-                        "width": 50,
+                        "width": 90,
                         "height": 50,
                         "color": "#0000FF",
                     },
                 ],
                 direction="row",
-                position=(10, 5),
-                mask={"position": (10, 5), "width": 50, "height": 50},
+                position=(20, 25),
+                mask={"position": (20, 25), "width": 70, "height": 50},
             )
             .shape(
                 shape="rectangle",
-                position=(85, 25),
-                width=12,
-                height=12,
+                position=(125, 42),
+                width=18,
+                height=18,
                 color="#00AA00",
             )
+            .text("later layer", size=12, color="#166534", position=(150, 44))
+            .shape(shape="rectangle", position=(20, 25), width=160, height=2, color="#6B7280")
+            .shape(shape="rectangle", position=(20, 73), width=160, height=2, color="#6B7280")
+            .shape(shape="rectangle", position=(20, 25), width=2, height=50, color="#6B7280")
+            .shape(shape="rectangle", position=(178, 25), width=2, height=50, color="#6B7280")
+            .shape(shape="rectangle", position=(20, 25), width=70, height=2, color="#111111")
+            .shape(shape="rectangle", position=(20, 73), width=70, height=2, color="#111111")
+            .shape(shape="rectangle", position=(20, 25), width=2, height=50, color="#111111")
+            .shape(shape="rectangle", position=(88, 25), width=2, height=50, color="#111111")
         )
 
         # when
