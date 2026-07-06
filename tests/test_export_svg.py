@@ -1,11 +1,13 @@
 """Tests for SVG export (Canvas.to_svg and rendering to .svg files)"""
 
+import base64
 import builtins
 import xml.etree.ElementTree as ET
 from io import BytesIO
 from pathlib import Path
 
 import pytest
+from PIL import Image
 from quickthumb import Canvas, LinearGradient, RadialGradient, TextPart
 from quickthumb.errors import RenderingError
 from quickthumb.models import Background, Glow, Grain, Shadow, Stroke, TextFillImage
@@ -13,6 +15,7 @@ from quickthumb.models import Background, Glow, Grain, Shadow, Stroke, TextFillI
 from tests._optional import require_cairosvg
 
 SVG_NS = "{http://www.w3.org/2000/svg}"
+XLINK_NS = "{http://www.w3.org/1999/xlink}"
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 SAMPLE_IMAGE = str(FIXTURES_DIR / "sample_image.jpg")
 SAMPLE_SVG = str(FIXTURES_DIR / "sample.svg")
@@ -30,6 +33,12 @@ def require_attr(element: ET.Element, name: str) -> str:
     value = element.get(name)
     assert value is not None
     return value
+
+
+def png_image_from_svg_href(href: str) -> Image.Image:
+    prefix = "data:image/png;base64,"
+    assert href.startswith(prefix)
+    return Image.open(BytesIO(base64.b64decode(href.removeprefix(prefix)))).convert("RGBA")
 
 
 class TestSvgDocument:
@@ -202,6 +211,29 @@ class TestSvgShapesAndOutline:
         assert rect.get("y") == "50"
         assert rect.get("rx") == "12"
         assert rect.get("fill") == "#22C55E"
+
+    def test_should_fall_back_to_raster_for_masked_shape(self):
+        """Masked shapes are embedded as PNG fragments so SVG export preserves the mask"""
+        # given
+        canvas = Canvas(80, 80).shape(
+            shape="rectangle",
+            position=(10, 10),
+            width=60,
+            height=60,
+            color="#FF0000",
+            mask={"shape": "ellipse", "position": (10, 10), "width": 60, "height": 60},
+        )
+
+        # when
+        root = parse_svg(canvas.to_svg())
+
+        # then
+        images = find_all(root, "image")
+        assert len(images) == 1
+        assert not find_all(root, "rect")
+        embedded = png_image_from_svg_href(require_attr(images[0], f"{XLINK_NS}href"))
+        assert embedded.getpixel((embedded.width // 2, embedded.height // 2)) == (255, 0, 0, 255)
+        assert embedded.getpixel((0, 0))[3] == 0
 
     def test_should_emit_star_as_polygon_with_expected_points(self):
         """A star becomes a polygon with two points per spike"""
@@ -634,6 +666,46 @@ class TestSvgEmbeddedLayers:
         rect = find_all(root, "rect")[0]
         assert float(require_attr(rect, "x")) == pytest.approx(60)
         assert not find_all(root, "image")
+
+    def test_should_fall_back_to_raster_for_nested_masked_group(self):
+        """Nested composed groups survive exporter flattening as masked PNG fragments"""
+        # given
+        canvas = Canvas(100, 50).group(
+            children=[
+                {
+                    "type": "group",
+                    "direction": "row",
+                    "mask": {"position": (0, 0), "width": 50, "height": 50},
+                    "children": [
+                        {
+                            "type": "shape",
+                            "shape": "rectangle",
+                            "width": 50,
+                            "height": 50,
+                            "color": "#FF0000",
+                        },
+                        {
+                            "type": "shape",
+                            "shape": "rectangle",
+                            "width": 50,
+                            "height": 50,
+                            "color": "#0000FF",
+                        },
+                    ],
+                }
+            ]
+        )
+
+        # when
+        root = parse_svg(canvas.to_svg())
+
+        # then
+        images = find_all(root, "image")
+        assert len(images) == 1
+        assert not find_all(root, "rect")
+        embedded = png_image_from_svg_href(require_attr(images[0], f"{XLINK_NS}href"))
+        assert embedded.size == (50, 50)
+        assert embedded.getpixel((25, 25)) == (255, 0, 0, 255)
 
 
 class TestSvgFontEmbedding:

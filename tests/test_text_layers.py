@@ -4,6 +4,7 @@ import json
 
 import pytest
 from inline_snapshot import snapshot
+from PIL import Image
 from quickthumb.models import Stroke, TextLayer, TextPart
 
 
@@ -218,6 +219,33 @@ class TestTextLayers:
         # Then: Should raise ValidationError
         with pytest.raises(ValidationError, match=error_pattern):
             canvas.text("Hello", max_width=max_width)
+
+    def test_should_clip_text_layer_pixels_to_rect(self, tmp_path):
+        """Text clip applies to the whole rendered text layer including backgrounds"""
+        from quickthumb import Background, Canvas
+
+        # Given: a text layer with a red text background clipped to the left side
+        output = tmp_path / "text-clip.png"
+        canvas = (
+            Canvas(120, 80)
+            .background(color="#FFFFFF")
+            .text(
+                "MASK",
+                position=(10, 30),
+                size=28,
+                color="#000000",
+                effects=[Background(color="#FF0000", padding=(20, 20))],
+                clip={"position": (0, 0), "width": 45, "height": 80},
+            )
+        )
+
+        # When: rendering the clipped text layer
+        canvas.render(str(output))
+
+        # Then: painted text-layer pixels stop at the clip boundary
+        rendered = Image.open(output).convert("RGBA")
+        assert rendered.getpixel((20, 30))[:3] == (255, 0, 0)
+        assert rendered.getpixel((70, 30)) == (255, 255, 255, 255)
 
     def test_should_serialize_text_layer_to_json(self):
         """Test that canvas with text layers can be serialized to JSON"""

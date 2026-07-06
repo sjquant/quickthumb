@@ -1,13 +1,16 @@
 """Tests for HTML export (Canvas.to_html / Deck.to_html and rendering to .html)."""
 
+import base64
 import json
 import re
 import subprocess
 from html import unescape
 from importlib.resources import files
+from io import BytesIO
 from pathlib import Path
 
 import pytest
+from PIL import Image
 from quickthumb import (
     Blinds,
     Box,
@@ -43,6 +46,13 @@ def stage_style(html: str) -> str:
 def timelines(html: str) -> list[list[dict]]:
     """Parse every stage's animation timeline JSON."""
     return [json.loads(unescape(raw)) for raw in re.findall(r"data-qt-timeline='([^']*)'", html)]
+
+
+def first_embedded_png(html: str) -> Image.Image:
+    """Decode the first embedded PNG data URL in an exported HTML document."""
+    match = re.search(r"data:image/png;base64,([^\"']+)", html)
+    assert match is not None
+    return Image.open(BytesIO(base64.b64decode(match.group(1)))).convert("RGBA")
 
 
 class TestHtmlDocument:
@@ -317,6 +327,28 @@ class TestHtmlShapes:
 
         # when / then
         assert "clip-path:polygon(" in canvas.to_html()
+
+    def test_should_fall_back_to_raster_for_masked_shape(self):
+        """Masked shapes become PNG fragments so HTML preserves the composition"""
+        # given
+        canvas = Canvas(80, 80).shape(
+            shape="rectangle",
+            position=(10, 10),
+            width=60,
+            height=60,
+            color="#FF0000",
+            mask={"shape": "ellipse", "position": (10, 10), "width": 60, "height": 60},
+        )
+
+        # when
+        html = canvas.to_html()
+
+        # then
+        assert "data:image/png;base64," in html
+        assert "background:rgb(255,0,0)" not in html
+        embedded = first_embedded_png(html)
+        assert embedded.getpixel((embedded.width // 2, embedded.height // 2)) == (255, 0, 0, 255)
+        assert embedded.getpixel((0, 0))[3] == 0
 
 
 class TestHtmlText:

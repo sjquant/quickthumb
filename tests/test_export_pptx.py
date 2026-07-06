@@ -4,6 +4,7 @@ from io import BytesIO
 from pathlib import Path
 
 import pytest
+from PIL import Image
 from quickthumb import Canvas, Fade, LinearGradient, TextPart, Wipe
 from quickthumb.errors import RenderingError
 from quickthumb.models import Background, Glow, RadialGradient, Shadow, Stroke
@@ -176,6 +177,27 @@ class TestPptxShapes:
         # then
         assert shape.shape_type == MSO_SHAPE_TYPE.FREEFORM
         assert str(shape.fill.fore_color.rgb) == "14B8A6"
+
+    def test_should_fall_back_to_picture_for_masked_shape(self):
+        """Masked shapes are emitted as pictures so PPTX preserves the mask boundary"""
+        # given
+        canvas = Canvas(400, 300).shape(
+            shape="rectangle",
+            position=(10, 10),
+            width=120,
+            height=120,
+            color="#FF0000",
+            mask={"shape": "ellipse", "position": (10, 10), "width": 120, "height": 120},
+        )
+
+        # when
+        shape = slide_of(canvas).shapes[0]
+
+        # then
+        assert shape.shape_type == MSO_SHAPE_TYPE.PICTURE
+        embedded = Image.open(BytesIO(shape.image.blob)).convert("RGBA")
+        assert embedded.getpixel((embedded.width // 2, embedded.height // 2)) == (255, 0, 0, 255)
+        assert embedded.getpixel((0, 0))[3] == 0
 
     def test_should_apply_rotation_and_stroke_to_shapes(self):
         """Rotation maps to shape.rotation and stroke effects to the shape line"""

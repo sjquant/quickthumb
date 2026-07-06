@@ -191,6 +191,57 @@ class TestImageLayerBackgroundRemoval:
                 sys.modules["rembg"] = saved
 
 
+class TestImageLayerComposition:
+    """Test suite for image layer clipping and masking"""
+
+    def test_should_clip_image_layer_pixels_to_rect(self, tmp_path):
+        """Image clip removes pixels outside the configured canvas-space rectangle"""
+        from quickthumb import Canvas
+
+        # Given: a red image covering the canvas and a clip over its left half
+        source = tmp_path / "red.png"
+        output = tmp_path / "out.png"
+        Image.new("RGBA", (80, 40), (255, 0, 0, 255)).save(source)
+        canvas = (
+            Canvas(80, 40)
+            .background(color="#0000FF")
+            .image(
+                path=str(source),
+                position=(0, 0),
+                clip={"position": (0, 0), "width": 40, "height": 40},
+            )
+        )
+
+        # When: rendering the clipped image
+        canvas.render(str(output))
+
+        # Then: pixels inside the clip show the image and pixels outside show the backdrop
+        rendered = Image.open(output).convert("RGBA")
+        assert rendered.getpixel((20, 20)) == (255, 0, 0, 255)
+        assert rendered.getpixel((60, 20)) == (0, 0, 255, 255)
+
+    def test_should_round_trip_image_layer_composition_through_json(self):
+        """Image layer clip and mask primitives survive JSON round-trip"""
+        from quickthumb import Canvas, LayerClip, LayerMask
+
+        # Given: an image layer with both composition primitives
+        canvas = Canvas(80, 40).image(
+            path="logo.png",
+            position=(0, 0),
+            clip=LayerClip(position=(0, 0), width=40, height=40),
+            mask=LayerMask(shape="ellipse", position=(20, 0), width=40, height=40),
+        )
+
+        # When: serializing and restoring the spec
+        data = json.loads(canvas.to_json())
+        restored = Canvas.from_json(canvas.to_json())
+
+        # Then: unset specs stay concise and set composition fields are preserved
+        assert data["layers"][0]["clip"]["position"] == [0, 0]
+        assert data["layers"][0]["mask"]["shape"] == "ellipse"
+        assert restored.layers[0] == canvas.layers[0]
+
+
 class TestImageLayerBorderRadius:
     """Test suite for image layer border_radius (rounded corners)"""
 

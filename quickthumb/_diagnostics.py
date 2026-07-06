@@ -7,6 +7,7 @@ from unicodedata import category
 from PIL import Image, ImageChops
 
 from quickthumb._base import DEFAULT_TEXT_SIZE, RenderContext, parse_coordinate
+from quickthumb._composition import has_layer_composition
 from quickthumb._diagnostic_rules import (
     PLATFORM_SAFE_MARGIN_PRESETS,
     LayerAlphaCache,
@@ -469,6 +470,8 @@ class DiagnosticsEngine:
 
     def _has_opaque_rectangle_mask(self, measured: LayerMeasurement) -> bool:
         layer = measured.raw_layer
+        if has_layer_composition(layer):
+            return False
         if not (
             isinstance(layer, ShapeLayer)
             and layer.shape == "rectangle"
@@ -499,17 +502,11 @@ class DiagnosticsEngine:
     def _render_layer_alpha_channel(self, measured: LayerMeasurement) -> Image.Image:
         box = require_bbox(measured)
         image = Image.new("RGBA", (self._ctx.width, self._ctx.height), (0, 0, 0, 0))
-        layer = measured.raw_layer
-        if isinstance(layer, TextLayer):
-            self._text.render_text_layer(image, layer)
-        elif isinstance(layer, ImageLayer):
-            self._images.render_image_layer(image, layer)
-        elif isinstance(layer, SvgLayer):
-            self._images.render_svg_layer(image, layer)
-        elif isinstance(layer, ShapeLayer):
-            self._shapes.render_shape_layer(image, layer)
-        else:
+        if not isinstance(
+            measured.raw_layer, (GroupLayer, TextLayer, ImageLayer, SvgLayer, ShapeLayer)
+        ):
             return Image.new("L", (box.width, box.height), 0)
+        self._canvas._render_layer(image, measured.raw_layer)
         return image.getchannel("A").crop((box.x, box.y, box.right, box.bottom))
 
     def _opaque_mask(self, alpha: Image.Image) -> Image.Image:

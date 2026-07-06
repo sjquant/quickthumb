@@ -3069,3 +3069,120 @@ class TestGroupLayerRendering:
 
             with open(output_path, "rb") as f:
                 assert f.read() == external_file("snapshots/group_thumbnail_layout.png")
+
+    def test_snapshot_group_mask_composition_boundary(self):
+        """Snapshot test for a masked group hiding child pixels before later composition"""
+        from quickthumb import Canvas
+
+        # given: a group mask keeps only the red child while a later green layer remains visible
+        canvas = (
+            Canvas(200, 90)
+            .background(color="#FFFFFF")
+            .shape(
+                shape="rectangle",
+                position=(20, 20),
+                width=160,
+                height=50,
+                color="#E5E7EB",
+            )
+            .group(
+                children=[
+                    {
+                        "type": "shape",
+                        "shape": "rectangle",
+                        "width": 70,
+                        "height": 50,
+                        "color": "#FF0000",
+                    },
+                    {
+                        "type": "shape",
+                        "shape": "rectangle",
+                        "width": 90,
+                        "height": 50,
+                        "color": "#0000FF",
+                    },
+                ],
+                direction="row",
+                position=(20, 20),
+                mask={"position": (20, 20), "width": 70, "height": 50},
+            )
+            .shape(
+                shape="rectangle",
+                position=(125, 37),
+                width=18,
+                height=18,
+                color="#00AA00",
+            )
+            .shape(shape="rectangle", position=(20, 20), width=160, height=2, color="#6B7280")
+            .shape(shape="rectangle", position=(20, 68), width=160, height=2, color="#6B7280")
+            .shape(shape="rectangle", position=(20, 20), width=2, height=50, color="#6B7280")
+            .shape(shape="rectangle", position=(178, 20), width=2, height=50, color="#6B7280")
+            .shape(shape="rectangle", position=(20, 20), width=70, height=2, color="#111111")
+            .shape(shape="rectangle", position=(20, 68), width=70, height=2, color="#111111")
+            .shape(shape="rectangle", position=(20, 20), width=2, height=50, color="#111111")
+            .shape(shape="rectangle", position=(88, 20), width=2, height=50, color="#111111")
+        )
+
+        # when
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            # then
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/group_mask_composition_boundary.png")
+
+    def test_snapshot_image_clip_with_polygon_mask(self):
+        """Snapshot test for clipping an image before applying a polygon mask"""
+        from quickthumb import Canvas
+
+        fixture = os.path.join(os.path.dirname(__file__), "fixtures", "sample_image.jpg")
+
+        # given: an image is clipped to a rectangle and then constrained by a diamond mask
+        canvas = (
+            Canvas(180, 130)
+            .background(color="#FFFFFF")
+            .shape(
+                shape="rectangle",
+                position=(20, 20),
+                width=140,
+                height=90,
+                color="#E5E7EB",
+            )
+            .image(
+                path=fixture,
+                position=(-5, 5),
+                width=190,
+                height=120,
+                fit="cover",
+                clip={"position": (20, 20), "width": 140, "height": 90},
+                mask={
+                    "shape": "polygon",
+                    "position": (20, 20),
+                    "width": 140,
+                    "height": 90,
+                    "points": [(0.5, 0), (1, 0.5), (0.5, 1), (0, 0.5)],
+                },
+            )
+            .shape(
+                shape="polygon",
+                position=(20, 20),
+                width=140,
+                height=90,
+                color="#F59E0B33",
+                points=[(0.5, 0), (1, 0.5), (0.5, 1), (0, 0.5)],
+            )
+            .shape(shape="rectangle", position=(20, 20), width=140, height=2, color="#6B7280")
+            .shape(shape="rectangle", position=(20, 108), width=140, height=2, color="#6B7280")
+            .shape(shape="rectangle", position=(20, 20), width=2, height=90, color="#6B7280")
+            .shape(shape="rectangle", position=(158, 20), width=2, height=90, color="#6B7280")
+        )
+
+        # when
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            # then
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/image_clip_with_polygon_mask.png")
