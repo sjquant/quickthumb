@@ -3070,20 +3070,17 @@ class TestGroupLayerRendering:
             with open(output_path, "rb") as f:
                 assert f.read() == external_file("snapshots/group_thumbnail_layout.png")
 
-    def test_snapshot_composition_primitives_visual_map(self):
-        """Snapshot test for mask, clip, polygon, and image composition primitives"""
+    def test_snapshot_group_mask_composition_boundary(self):
+        """Snapshot test for a masked group hiding child pixels before later composition"""
         from quickthumb import Canvas
 
-        fixture = os.path.join(os.path.dirname(__file__), "fixtures", "sample_image.jpg")
-
-        # given: labeled composition primitives with a masked group and a clipped photo
+        # given: a group mask keeps only the red child while a later green layer remains visible
         canvas = (
-            Canvas(420, 180)
+            Canvas(200, 90)
             .background(color="#FFFFFF")
-            .text("group mask", size=14, color="#111111", position=(20, 12))
             .shape(
                 shape="rectangle",
-                position=(20, 40),
+                position=(20, 20),
                 width=160,
                 height=50,
                 color="#E5E7EB",
@@ -3106,62 +3103,24 @@ class TestGroupLayerRendering:
                     },
                 ],
                 direction="row",
-                position=(20, 40),
-                mask={"position": (20, 40), "width": 70, "height": 50},
+                position=(20, 20),
+                mask={"position": (20, 20), "width": 70, "height": 50},
             )
             .shape(
                 shape="rectangle",
-                position=(125, 57),
+                position=(125, 37),
                 width=18,
                 height=18,
                 color="#00AA00",
             )
-            .text("gray = masked blue", size=12, color="#1D4ED8", position=(20, 105))
-            .text("green = later layer", size=12, color="#166534", position=(20, 125))
-            .text("image clip + polygon mask", size=14, color="#111111", position=(215, 12))
-            .shape(
-                shape="rectangle",
-                position=(225, 40),
-                width=140,
-                height=90,
-                color="#E5E7EB",
-            )
-            .image(
-                path=fixture,
-                position=(200, 25),
-                width=190,
-                height=120,
-                fit="cover",
-                clip={"position": (225, 40), "width": 140, "height": 90},
-                mask={
-                    "shape": "polygon",
-                    "position": (225, 40),
-                    "width": 140,
-                    "height": 90,
-                    "points": [(0.5, 0), (1, 0.5), (0.5, 1), (0, 0.5)],
-                },
-            )
-            .shape(
-                shape="polygon",
-                position=(225, 40),
-                width=140,
-                height=90,
-                color="#F59E0B33",
-                points=[(0.5, 0), (1, 0.5), (0.5, 1), (0, 0.5)],
-            )
-            .text("diamond = polygon mask", size=12, color="#92400E", position=(225, 142))
-            .shape(shape="rectangle", position=(20, 40), width=160, height=2, color="#6B7280")
-            .shape(shape="rectangle", position=(20, 88), width=160, height=2, color="#6B7280")
-            .shape(shape="rectangle", position=(20, 40), width=2, height=50, color="#6B7280")
-            .shape(shape="rectangle", position=(178, 40), width=2, height=50, color="#6B7280")
-            .shape(shape="rectangle", position=(20, 40), width=70, height=2, color="#111111")
-            .shape(shape="rectangle", position=(20, 88), width=70, height=2, color="#111111")
-            .shape(shape="rectangle", position=(20, 40), width=2, height=50, color="#111111")
-            .shape(shape="rectangle", position=(88, 40), width=2, height=50, color="#111111")
-            .shape(shape="rectangle", position=(225, 40), width=140, height=2, color="#6B7280")
-            .shape(shape="rectangle", position=(225, 128), width=140, height=2, color="#6B7280")
-            .shape(shape="rectangle", position=(225, 40), width=2, height=90, color="#6B7280")
-            .shape(shape="rectangle", position=(363, 40), width=2, height=90, color="#6B7280")
+            .shape(shape="rectangle", position=(20, 20), width=160, height=2, color="#6B7280")
+            .shape(shape="rectangle", position=(20, 68), width=160, height=2, color="#6B7280")
+            .shape(shape="rectangle", position=(20, 20), width=2, height=50, color="#6B7280")
+            .shape(shape="rectangle", position=(178, 20), width=2, height=50, color="#6B7280")
+            .shape(shape="rectangle", position=(20, 20), width=70, height=2, color="#111111")
+            .shape(shape="rectangle", position=(20, 68), width=70, height=2, color="#111111")
+            .shape(shape="rectangle", position=(20, 20), width=2, height=50, color="#111111")
+            .shape(shape="rectangle", position=(88, 20), width=2, height=50, color="#111111")
         )
 
         # when
@@ -3171,4 +3130,59 @@ class TestGroupLayerRendering:
 
             # then
             with open(output_path, "rb") as f:
-                assert f.read() == external_file("snapshots/composition_primitives_visual_map.png")
+                assert f.read() == external_file("snapshots/group_mask_composition_boundary.png")
+
+    def test_snapshot_image_clip_with_polygon_mask(self):
+        """Snapshot test for clipping an image before applying a polygon mask"""
+        from quickthumb import Canvas
+
+        fixture = os.path.join(os.path.dirname(__file__), "fixtures", "sample_image.jpg")
+
+        # given: an image is clipped to a rectangle and then constrained by a diamond mask
+        canvas = (
+            Canvas(180, 130)
+            .background(color="#FFFFFF")
+            .shape(
+                shape="rectangle",
+                position=(20, 20),
+                width=140,
+                height=90,
+                color="#E5E7EB",
+            )
+            .image(
+                path=fixture,
+                position=(-5, 5),
+                width=190,
+                height=120,
+                fit="cover",
+                clip={"position": (20, 20), "width": 140, "height": 90},
+                mask={
+                    "shape": "polygon",
+                    "position": (20, 20),
+                    "width": 140,
+                    "height": 90,
+                    "points": [(0.5, 0), (1, 0.5), (0.5, 1), (0, 0.5)],
+                },
+            )
+            .shape(
+                shape="polygon",
+                position=(20, 20),
+                width=140,
+                height=90,
+                color="#F59E0B33",
+                points=[(0.5, 0), (1, 0.5), (0.5, 1), (0, 0.5)],
+            )
+            .shape(shape="rectangle", position=(20, 20), width=140, height=2, color="#6B7280")
+            .shape(shape="rectangle", position=(20, 108), width=140, height=2, color="#6B7280")
+            .shape(shape="rectangle", position=(20, 20), width=2, height=90, color="#6B7280")
+            .shape(shape="rectangle", position=(158, 20), width=2, height=90, color="#6B7280")
+        )
+
+        # when
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            # then
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/image_clip_with_polygon_mask.png")
