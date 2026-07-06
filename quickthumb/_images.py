@@ -71,6 +71,7 @@ class ImageEngine:
     def render_image_layer(self, image: Image.Image, layer: ImageLayer):
         # Load the image
         img = self.load_image_from_url(layer.path) if is_url(layer.path) else Image.open(layer.path)
+        self._ctx.image_size_cache.setdefault(layer.path, img.size)
 
         img = img.convert("RGBA")
 

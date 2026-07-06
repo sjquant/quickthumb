@@ -103,6 +103,10 @@ def render(
         int | None,
         typer.Option("--quality", help="Quality for JPEG/WEBP (1-95)"),
     ] = None,
+    debug: Annotated[
+        bool,
+        typer.Option("--debug", help="Overlay public layer-id bounding boxes on raster output"),
+    ] = False,
     var: Annotated[
         list[str] | None,
         typer.Option("--var", help="Variable substitution as KEY=VALUE"),
@@ -117,6 +121,7 @@ def render(
             str(output),
             format=fmt.upper() if fmt else None,  # type: ignore[arg-type]
             quality=quality,
+            debug=debug,
         )
     except (RenderingError, OSError) as e:
         typer.echo(str(e), err=True)
@@ -234,6 +239,10 @@ def watch(
         int | None,
         typer.Option("--quality", help="Quality for JPEG/WEBP (1-95)"),
     ] = None,
+    debug: Annotated[
+        bool,
+        typer.Option("--debug", help="Overlay public layer-id bounding boxes on raster output"),
+    ] = False,
     var: Annotated[
         list[str] | None,
         typer.Option("--var", help="Variable substitution as KEY=VALUE"),
@@ -263,6 +272,7 @@ def watch(
                 str(output),
                 format=fmt.upper() if fmt else None,  # type: ignore[arg-type]
                 quality=quality,
+                debug=debug,
             )
             typer.echo(str(output))
         except (RenderingError, OSError) as e:

@@ -113,6 +113,7 @@ Renders a JSON spec to an image file:
 ```bash
 quickthumb render spec.json -o thumbnail.png
 quickthumb render spec.json -o thumbnail.webp --format WEBP --quality 90
+quickthumb render spec.json -o debug.png --debug
 ```
 
 | Option | Description |
@@ -120,6 +121,7 @@ quickthumb render spec.json -o thumbnail.webp --format WEBP --quality 90
 | `-o, --output` | Output file path (default `output.png`) |
 | `--format` | `PNG`, `JPEG`, or `WEBP` |
 | `--quality` | Quality 1–95, JPEG/WEBP only |
+| `--debug` | Overlay public layer-id bounding boxes on raster output |
 | `--var KEY=VALUE` | Substitute `$KEY` placeholders in the spec (repeatable) |
 
 ### `quickthumb watch`
