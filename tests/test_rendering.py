@@ -3070,19 +3070,20 @@ class TestGroupLayerRendering:
             with open(output_path, "rb") as f:
                 assert f.read() == external_file("snapshots/group_thumbnail_layout.png")
 
-    def test_snapshot_group_mask_composition_boundary(self):
-        """Snapshot test for masked group composition hiding child pixels"""
+    def test_snapshot_composition_primitives_visual_map(self):
+        """Snapshot test for mask, clip, polygon, and image composition primitives"""
         from quickthumb import Canvas
 
-        # given: a labeled row group masks out its blue child before a later layer is composited
+        fixture = os.path.join(os.path.dirname(__file__), "fixtures", "sample_image.jpg")
+
+        # given: labeled composition primitives with a masked group and a clipped photo
         canvas = (
-            Canvas(260, 120)
+            Canvas(420, 180)
             .background(color="#FFFFFF")
-            .text("mask keeps red", size=12, color="#111111", position=(20, 8))
-            .text("gray = masked blue child", size=12, color="#1D4ED8", position=(20, 92))
+            .text("group mask", size=14, color="#111111", position=(20, 12))
             .shape(
                 shape="rectangle",
-                position=(20, 25),
+                position=(20, 40),
                 width=160,
                 height=50,
                 color="#E5E7EB",
@@ -3105,25 +3106,62 @@ class TestGroupLayerRendering:
                     },
                 ],
                 direction="row",
-                position=(20, 25),
-                mask={"position": (20, 25), "width": 70, "height": 50},
+                position=(20, 40),
+                mask={"position": (20, 40), "width": 70, "height": 50},
             )
             .shape(
                 shape="rectangle",
-                position=(125, 42),
+                position=(125, 57),
                 width=18,
                 height=18,
                 color="#00AA00",
             )
-            .text("later layer", size=12, color="#166534", position=(150, 44))
-            .shape(shape="rectangle", position=(20, 25), width=160, height=2, color="#6B7280")
-            .shape(shape="rectangle", position=(20, 73), width=160, height=2, color="#6B7280")
-            .shape(shape="rectangle", position=(20, 25), width=2, height=50, color="#6B7280")
-            .shape(shape="rectangle", position=(178, 25), width=2, height=50, color="#6B7280")
-            .shape(shape="rectangle", position=(20, 25), width=70, height=2, color="#111111")
-            .shape(shape="rectangle", position=(20, 73), width=70, height=2, color="#111111")
-            .shape(shape="rectangle", position=(20, 25), width=2, height=50, color="#111111")
-            .shape(shape="rectangle", position=(88, 25), width=2, height=50, color="#111111")
+            .text("gray = masked blue", size=12, color="#1D4ED8", position=(20, 105))
+            .text("green = later layer", size=12, color="#166534", position=(20, 125))
+            .text("image clip + polygon mask", size=14, color="#111111", position=(215, 12))
+            .shape(
+                shape="rectangle",
+                position=(225, 40),
+                width=140,
+                height=90,
+                color="#E5E7EB",
+            )
+            .image(
+                path=fixture,
+                position=(200, 25),
+                width=190,
+                height=120,
+                fit="cover",
+                clip={"position": (225, 40), "width": 140, "height": 90},
+                mask={
+                    "shape": "polygon",
+                    "position": (225, 40),
+                    "width": 140,
+                    "height": 90,
+                    "points": [(0.5, 0), (1, 0.5), (0.5, 1), (0, 0.5)],
+                },
+            )
+            .shape(
+                shape="polygon",
+                position=(225, 40),
+                width=140,
+                height=90,
+                color="#F59E0B33",
+                points=[(0.5, 0), (1, 0.5), (0.5, 1), (0, 0.5)],
+            )
+            .text("diamond = polygon mask", size=12, color="#92400E", position=(225, 142))
+            .shape(shape="rectangle", position=(20, 40), width=160, height=2, color="#6B7280")
+            .shape(shape="rectangle", position=(20, 88), width=160, height=2, color="#6B7280")
+            .shape(shape="rectangle", position=(20, 40), width=2, height=50, color="#6B7280")
+            .shape(shape="rectangle", position=(178, 40), width=2, height=50, color="#6B7280")
+            .shape(shape="rectangle", position=(20, 40), width=70, height=2, color="#111111")
+            .shape(shape="rectangle", position=(20, 88), width=70, height=2, color="#111111")
+            .shape(shape="rectangle", position=(20, 40), width=2, height=50, color="#111111")
+            .shape(shape="rectangle", position=(88, 40), width=2, height=50, color="#111111")
+            .shape(shape="rectangle", position=(225, 40), width=140, height=2, color="#6B7280")
+            .shape(shape="rectangle", position=(225, 128), width=140, height=2, color="#6B7280")
+            .shape(shape="rectangle", position=(225, 40), width=2, height=90, color="#6B7280")
+            .shape(shape="rectangle", position=(363, 40), width=2, height=90, color="#6B7280")
         )
 
         # when
@@ -3133,4 +3171,4 @@ class TestGroupLayerRendering:
 
             # then
             with open(output_path, "rb") as f:
-                assert f.read() == external_file("snapshots/group_mask_composition_boundary.png")
+                assert f.read() == external_file("snapshots/composition_primitives_visual_map.png")
