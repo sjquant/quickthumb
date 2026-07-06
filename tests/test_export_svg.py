@@ -203,6 +203,26 @@ class TestSvgShapesAndOutline:
         assert rect.get("rx") == "12"
         assert rect.get("fill") == "#22C55E"
 
+    def test_should_fall_back_to_raster_for_masked_shape(self):
+        """Masked shapes are embedded as PNG fragments so SVG export preserves the mask"""
+        # given
+        canvas = Canvas(80, 80).shape(
+            shape="rectangle",
+            position=(10, 10),
+            width=60,
+            height=60,
+            color="#FF0000",
+            mask={"shape": "ellipse", "position": (10, 10), "width": 60, "height": 60},
+        )
+
+        # when
+        root = parse_svg(canvas.to_svg())
+
+        # then
+        images = find_all(root, "image")
+        assert len(images) == 1
+        assert not find_all(root, "rect")
+
     def test_should_emit_star_as_polygon_with_expected_points(self):
         """A star becomes a polygon with two points per spike"""
         # given

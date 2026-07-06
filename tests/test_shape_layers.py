@@ -4,6 +4,7 @@ import json
 
 import pytest
 from inline_snapshot import snapshot
+from PIL import Image
 from quickthumb.errors import ValidationError
 from quickthumb.models import Align, ShapeLayer
 
@@ -282,6 +283,80 @@ class TestShapeLayerSerialization:
             height=150,
             color="#FF5733",
         )
+
+
+class TestShapeLayerComposition:
+    """Test suite for shape layer masks"""
+
+    def test_should_apply_shape_mask_to_shape_layer_pixels(self, tmp_path):
+        """Shape masks use alpha composition so masked corners reveal the backdrop"""
+        from quickthumb import Canvas
+
+        # Given: a red rectangle masked by an ellipse on a white background
+        output = tmp_path / "shape-mask.png"
+        canvas = (
+            Canvas(80, 80)
+            .background(color="#FFFFFF")
+            .shape(
+                shape="rectangle",
+                position=(10, 10),
+                width=60,
+                height=60,
+                color="#FF0000",
+                mask={"shape": "ellipse", "position": (10, 10), "width": 60, "height": 60},
+            )
+        )
+
+        # When: rendering the masked shape
+        canvas.render(str(output))
+
+        # Then: the ellipse center is painted and its bounding-box corner is masked out
+        rendered = Image.open(output).convert("RGBA")
+        assert rendered.getpixel((40, 40)) == (255, 0, 0, 255)
+        assert rendered.getpixel((12, 12)) == (255, 255, 255, 255)
+
+
+class TestGroupLayerComposition:
+    """Test suite for grouped layer masks"""
+
+    def test_should_apply_mask_to_grouped_children_as_one_composite(self, tmp_path):
+        """Group masks are applied after all children render into the group boundary"""
+        from quickthumb import Canvas
+
+        # Given: a row group with red and blue children masked to the red half
+        output = tmp_path / "group-mask.png"
+        canvas = (
+            Canvas(100, 50)
+            .background(color="#FFFFFF")
+            .group(
+                children=[
+                    {
+                        "type": "shape",
+                        "shape": "rectangle",
+                        "width": 50,
+                        "height": 50,
+                        "color": "#FF0000",
+                    },
+                    {
+                        "type": "shape",
+                        "shape": "rectangle",
+                        "width": 50,
+                        "height": 50,
+                        "color": "#0000FF",
+                    },
+                ],
+                direction="row",
+                mask={"position": (0, 0), "width": 50, "height": 50},
+            )
+        )
+
+        # When: rendering the masked group
+        canvas.render(str(output))
+
+        # Then: the first child remains visible and the second child is masked away
+        rendered = Image.open(output).convert("RGBA")
+        assert rendered.getpixel((25, 25)) == (255, 0, 0, 255)
+        assert rendered.getpixel((75, 25)) == (255, 255, 255, 255)
 
 
 class TestShapePrimitives:

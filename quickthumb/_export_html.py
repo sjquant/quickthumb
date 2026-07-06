@@ -40,6 +40,7 @@ from quickthumb._base import (
     parse_coordinate,
     parse_padding,
 )
+from quickthumb._composition import has_layer_composition
 from quickthumb._export_base import (
     Box,
     RasterFragment,
@@ -437,6 +438,10 @@ class HtmlExporter:
     # ------------------------------------------------------------------ layers
 
     def _emit_layer(self, layer: RenderableLayer):
+        if has_layer_composition(layer):
+            self._emit_raster_fallback(layer)
+            return
+
         if isinstance(layer, BackgroundLayer):
             self._emit_background(layer)
         elif isinstance(layer, OutlineLayer):

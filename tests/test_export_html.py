@@ -318,6 +318,25 @@ class TestHtmlShapes:
         # when / then
         assert "clip-path:polygon(" in canvas.to_html()
 
+    def test_should_fall_back_to_raster_for_masked_shape(self):
+        """Masked shapes become PNG fragments so HTML preserves the composition"""
+        # given
+        canvas = Canvas(80, 80).shape(
+            shape="rectangle",
+            position=(10, 10),
+            width=60,
+            height=60,
+            color="#FF0000",
+            mask={"shape": "ellipse", "position": (10, 10), "width": 60, "height": 60},
+        )
+
+        # when
+        html = canvas.to_html()
+
+        # then
+        assert "data:image/png;base64," in html
+        assert "background:rgb(255,0,0)" not in html
+
 
 class TestHtmlText:
     """Test suite for text layer export"""

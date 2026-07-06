@@ -27,6 +27,7 @@ from quickthumb._base import (
     expanded_rotation_size,
     parse_coordinate,
 )
+from quickthumb._composition import has_layer_composition
 from quickthumb.errors import RenderingError
 from quickthumb.models import (
     Align,
@@ -60,7 +61,7 @@ def flatten_layers(canvas: Canvas) -> list[RenderableLayer]:
     """Resolve group layers into placed children so exporters see a flat list."""
     flat: list[RenderableLayer] = []
     for layer in canvas.layers:
-        if isinstance(layer, GroupLayer):
+        if isinstance(layer, GroupLayer) and not has_layer_composition(layer):
             flat.extend(_flatten_group(canvas, layer))
         else:
             flat.append(layer)
@@ -82,7 +83,17 @@ def _flatten_group(
     placed: list[RenderableLayer] = []
     for child, position, size in placements:
         if isinstance(child, GroupLayer):
-            placed.extend(_flatten_group(canvas, child, position, inherited_animation=animation))
+            if has_layer_composition(child):
+                placed.append(
+                    _with_group_animation(
+                        child.model_copy(update={"position": position, "align": None}),
+                        animation,
+                    )
+                )
+            else:
+                placed.extend(
+                    _flatten_group(canvas, child, position, inherited_animation=animation)
+                )
         elif isinstance(child, TextLayer):
             placed.append(
                 _with_group_animation(

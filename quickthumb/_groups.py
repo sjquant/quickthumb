@@ -8,6 +8,8 @@ from quickthumb._base import (
     parse_coordinate,
     parse_padding,
 )
+from quickthumb._composition import apply_layer_composition, has_layer_composition
+from quickthumb._effects import EffectsEngine
 from quickthumb._fonts import FontEngine
 from quickthumb._images import ImageEngine
 from quickthumb._shapes import ShapeEngine
@@ -26,12 +28,14 @@ class GroupEngine:
         self,
         ctx: RenderContext,
         fonts: FontEngine,
+        effects: EffectsEngine,
         images: ImageEngine,
         shapes: ShapeEngine,
         text: TextEngine,
     ):
         self._ctx = ctx
         self._fonts = fonts
+        self._effects = effects
         self._images = images
         self._shapes = shapes
         self._text = text
@@ -51,18 +55,70 @@ class GroupEngine:
         size: tuple[int, int],
     ):
         if isinstance(child, GroupLayer):
-            self.render_group_layer(image, child, origin=position)
-        elif isinstance(child, TextLayer):
-            self._text.render_text_layer(image, self.place_text_child(child, position, size))
+            if has_layer_composition(child):
+                self._render_composed_group_child(image, child, origin=position)
+            else:
+                self.render_group_layer(image, child, origin=position)
+            return
+
+        placed = self._place_group_child(child, position, size)
+        if has_layer_composition(placed):
+            self._render_composed_group_child(image, placed)
+            return
+
+        self._render_group_child_direct(image, placed)
+
+    def _render_composed_group_child(
+        self,
+        image: Image.Image,
+        child: GroupChildLayer,
+        origin: tuple[int, int] | None = None,
+    ):
+        layer_surface = Image.new("RGBA", image.size, (0, 0, 0, 0))
+        isolated = self._child_without_boundary_blend(child)
+        if isinstance(isolated, GroupLayer):
+            self.render_group_layer(layer_surface, isolated, origin=origin)
+        else:
+            self._render_group_child_direct(layer_surface, isolated)
+        layer_surface = apply_layer_composition(self._ctx, layer_surface, child)
+
+        blend_mode = getattr(child, "blend_mode", None)
+        if blend_mode:
+            blended = self._effects.apply_blend_mode(image, layer_surface, blend_mode)
+            image.paste(blended, (0, 0), layer_surface.split()[3])
+            return
+
+        image.alpha_composite(layer_surface)
+
+    @staticmethod
+    def _child_without_boundary_blend(child: GroupChildLayer) -> GroupChildLayer:
+        if isinstance(child, (ImageLayer, SvgLayer)) and child.blend_mode is not None:
+            return child.model_copy(update={"blend_mode": None})
+        return child
+
+    def _render_group_child_direct(self, image: Image.Image, child: GroupChildLayer):
+        if isinstance(child, TextLayer):
+            self._text.render_text_layer(image, child)
         elif isinstance(child, ImageLayer):
-            placed = child.model_copy(update={"position": position, "align": Align.TOP_LEFT})
-            self._images.render_image_layer(image, placed)
+            self._images.render_image_layer(image, child)
         elif isinstance(child, SvgLayer):
-            placed = child.model_copy(update={"position": position, "align": Align.TOP_LEFT})
-            self._images.render_svg_layer(image, placed)
+            self._images.render_svg_layer(image, child)
         elif isinstance(child, ShapeLayer):
-            placed = child.model_copy(update={"position": position, "align": None})
-            self._shapes.render_shape_layer(image, placed)
+            self._shapes.render_shape_layer(image, child)
+
+    def _place_group_child(
+        self,
+        child: GroupChildLayer,
+        position: tuple[int, int],
+        size: tuple[int, int],
+    ) -> GroupChildLayer:
+        if isinstance(child, TextLayer):
+            return self.place_text_child(child, position, size)
+        if isinstance(child, (ImageLayer, SvgLayer)):
+            return child.model_copy(update={"position": position, "align": Align.TOP_LEFT})
+        if isinstance(child, ShapeLayer):
+            return child.model_copy(update={"position": position, "align": None})
+        return child
 
     @staticmethod
     def place_text_child(

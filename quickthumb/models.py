@@ -195,6 +195,101 @@ class quickthumbModel(BaseModel):  # noqa: N801
 QuickThumbModel = quickthumbModel
 
 
+class LayerClip(quickthumbModel):
+    """Canvas-space rectangle that clips a layer after it is rendered."""
+
+    type: Literal["rect"] = "rect"
+    position: Position
+    width: PositiveInt
+    height: PositiveInt
+    border_radius: NonNegativeInt = 0
+    align: AlignWithHVTuple = Align.TOP_LEFT
+
+    @field_validator("position", mode="before")
+    @classmethod
+    def validate_position(cls, v: tuple | list | None) -> Position:
+        if v is None:
+            raise ValueError("position is required")
+
+        if not isinstance(v, (tuple, list)) or len(v) != 2:
+            raise ValueError("position must be a tuple of two elements")
+
+        if isinstance(v[0], str) or isinstance(v[1], str):
+            for item in v:
+                if isinstance(item, str):
+                    match = re.fullmatch(r"-?(\d+(\.\d+)?)%", item)
+                    if not match:
+                        raise ValueError(f"invalid percentage format: {item}")
+
+        return tuple(v)
+
+    @field_serializer("align")
+    def serialize_align(self, align: Align | None) -> str | None:
+        if align is None:
+            return None
+        return align.value
+
+
+class LayerMask(quickthumbModel):
+    """Canvas-space alpha mask applied to a layer after it is rendered."""
+
+    type: Literal["shape"] = "shape"
+    shape: Literal["rectangle", "ellipse", "pill", "polygon"] = "rectangle"
+    position: Position
+    width: PositiveInt
+    height: PositiveInt
+    align: AlignWithHVTuple = Align.TOP_LEFT
+    points: list[tuple[float, float]] | None = None
+    invert: bool = False
+    opacity: OpacityField = 1.0
+
+    @field_validator("position", mode="before")
+    @classmethod
+    def validate_position(cls, v: tuple | list | None) -> Position:
+        if v is None:
+            raise ValueError("position is required")
+
+        if not isinstance(v, (tuple, list)) or len(v) != 2:
+            raise ValueError("position must be a tuple of two elements")
+
+        if isinstance(v[0], str) or isinstance(v[1], str):
+            for item in v:
+                if isinstance(item, str):
+                    match = re.fullmatch(r"-?(\d+(\.\d+)?)%", item)
+                    if not match:
+                        raise ValueError(f"invalid percentage format: {item}")
+
+        return tuple(v)
+
+    @field_validator("points")
+    @classmethod
+    def validate_points(
+        cls, v: list[tuple[float, float]] | None
+    ) -> list[tuple[float, float]] | None:
+        if v is None:
+            return v
+        if len(v) < 3:
+            raise ValueError("points must contain at least 3 entries")
+        for x, y in v:
+            if not (0.0 <= x <= 1.0 and 0.0 <= y <= 1.0):
+                raise ValueError("points coordinates must be normalized between 0.0 and 1.0")
+        return v
+
+    @model_validator(mode="after")
+    def validate_points_match_shape(self) -> "LayerMask":
+        if self.shape == "polygon" and self.points is None:
+            raise ValidationError("polygon masks require points")
+        if self.shape != "polygon" and self.points is not None:
+            raise ValidationError("points is only valid for polygon masks")
+        return self
+
+    @field_serializer("align")
+    def serialize_align(self, align: Align | None) -> str | None:
+        if align is None:
+            return None
+        return align.value
+
+
 class LinearGradient(quickthumbModel):
     type: Literal["linear"] = "linear"
     angle: float
@@ -512,6 +607,8 @@ class TextLayer(quickthumbModel):
     auto_scale: bool = False
     rotation: float = 0.0
     opacity: OpacityField = 1.0
+    clip: LayerClip | None = None
+    mask: LayerMask | None = None
     animation: AnimationInput | None = None
 
     @field_validator("max_width")
@@ -604,6 +701,8 @@ class ImageLayer(quickthumbModel):
     blend_mode: Annotated[
         BlendMode | None, AfterValidator(lambda v: enum_converter(BlendMode)(v) if v else None)
     ] = None
+    clip: LayerClip | None = None
+    mask: LayerMask | None = None
     effects: list[ImageEffect] = []
     animation: AnimationInput | None = None
 
@@ -645,6 +744,8 @@ class ShapeLayer(quickthumbModel):
     points: list[tuple[float, float]] | None = None
     star_points: int = 5
     inner_radius: float = 0.5
+    clip: LayerClip | None = None
+    mask: LayerMask | None = None
     effects: list[ShapeEffect] = []
     animation: AnimationInput | None = None
 
@@ -721,6 +822,8 @@ class SvgLayer(quickthumbModel):
     blend_mode: Annotated[
         BlendMode | None, AfterValidator(lambda v: enum_converter(BlendMode)(v) if v else None)
     ] = None
+    clip: LayerClip | None = None
+    mask: LayerMask | None = None
     effects: list[ImageEffect] = []
     animation: AnimationInput | None = None
 
@@ -755,6 +858,8 @@ class GroupLayer(quickthumbModel):
     position: Position | None = None
     align: AlignWithHVTuple = None
     item_align: Literal["start", "center", "end"] = "start"
+    clip: LayerClip | None = None
+    mask: LayerMask | None = None
     animation: AnimationInput | None = None
     children: list["GroupChild"]
 

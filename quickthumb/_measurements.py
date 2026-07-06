@@ -4,6 +4,7 @@ from types import MappingProxyType
 from typing import TYPE_CHECKING, Any
 
 from quickthumb._base import RenderContext, apply_alignment, parse_coordinate
+from quickthumb._composition import composition_bounds
 from quickthumb._groups import GroupEngine
 from quickthumb._text import TextEngine
 from quickthumb.models import Align, GroupLayer, ImageLayer, ShapeLayer, SvgLayer, TextLayer
@@ -156,6 +157,7 @@ class LayerMeasurementEngine:
 
         if isinstance(layer, (ImageLayer, SvgLayer, ShapeLayer)):
             bbox = self._measure_positioned_layer(layer)
+            bbox = self._apply_composition_bounds(layer, bbox)
             return self._measurement(
                 layer,
                 index,
@@ -181,6 +183,7 @@ class LayerMeasurementEngine:
         bbox = BBox.union(child.bbox for child in children if child.bbox is not None)
         if bbox is None:
             bbox = BBox(*layout_box)
+        bbox = self._apply_composition_bounds(layer, bbox)
         metadata = {
             "child_count": len(layer.children),
             "direction": layer.direction,
@@ -220,6 +223,7 @@ class LayerMeasurementEngine:
             bbox = BBox.union(grandchild.bbox for grandchild in children if grandchild.bbox)
             if bbox is None:
                 bbox = BBox(*layout_box)
+            bbox = self._apply_composition_bounds(child, bbox)
             return self._measurement(
                 child,
                 index,
@@ -246,6 +250,7 @@ class LayerMeasurementEngine:
         if isinstance(child, (ImageLayer, SvgLayer)):
             placed = child.model_copy(update={"position": position, "align": Align.TOP_LEFT})
             bbox = BBox(position[0], position[1], size[0], size[1])
+            bbox = self._apply_composition_bounds(placed, bbox)
             return self._measurement(
                 placed,
                 index,
@@ -259,6 +264,7 @@ class LayerMeasurementEngine:
         if isinstance(child, ShapeLayer):
             placed = child.model_copy(update={"position": position, "align": None})
             bbox = BBox(position[0], position[1], size[0], size[1])
+            bbox = self._apply_composition_bounds(placed, bbox)
             return self._measurement(
                 placed,
                 index,
@@ -308,9 +314,18 @@ class LayerMeasurementEngine:
         }
         if metadata:
             details.update(metadata)
-        return self._measurement(
-            layer, index, order, path, "text", BBox(x, y, w, h), metadata=details
-        )
+        bbox = self._apply_composition_bounds(layer, BBox(x, y, w, h))
+        return self._measurement(layer, index, order, path, "text", bbox, metadata=details)
+
+    def _apply_composition_bounds(self, layer: object, bbox: BBox) -> BBox:
+        bounds = composition_bounds(self._ctx, layer)
+        if bounds is None:
+            return bbox
+
+        clipped = bbox.intersection(BBox(*bounds))
+        if clipped is None:
+            return BBox(bounds[0], bounds[1], 0, 0)
+        return clipped
 
     def _measure_positioned_layer(self, layer: ImageLayer | SvgLayer | ShapeLayer) -> BBox:
         w, h = self._groups.measure_group_child(layer)

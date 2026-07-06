@@ -117,3 +117,27 @@ class TestPdfContent:
         # then the page is the canvas size and is not a single flat color
         assert image.size == (400, 300)
         assert len(image.getcolors(maxcolors=1_000_000)) > 100
+
+    def test_should_preserve_masked_shape_via_raster_fallback(self):
+        """Masked shapes render correctly in PDF export through raster fallback"""
+        # given
+        canvas = (
+            Canvas(80, 80)
+            .background(color="#FFFFFF")
+            .shape(
+                shape="rectangle",
+                position=(10, 10),
+                width=60,
+                height=60,
+                color="#FF0000",
+                mask={"shape": "ellipse", "position": (10, 10), "width": 60, "height": 60},
+            )
+        )
+
+        # when
+        page = open_pdf(canvas)[0]
+        image = page.render(scale=canvas.width / page.get_size()[0]).to_pil().convert("RGB")
+
+        # then
+        assert image.getpixel((40, 40)) == (255, 0, 0)
+        assert image.getpixel((12, 12)) == (255, 255, 255)
