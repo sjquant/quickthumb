@@ -3069,3 +3069,50 @@ class TestGroupLayerRendering:
 
             with open(output_path, "rb") as f:
                 assert f.read() == external_file("snapshots/group_thumbnail_layout.png")
+
+    def test_snapshot_group_mask_composition_boundary(self):
+        """Snapshot test for masked group composition hiding child pixels"""
+        from quickthumb import Canvas
+
+        # given: a row group masks out its second child before a later layer is composited
+        canvas = (
+            Canvas(120, 60)
+            .background(color="#FFFFFF")
+            .group(
+                children=[
+                    {
+                        "type": "shape",
+                        "shape": "rectangle",
+                        "width": 50,
+                        "height": 50,
+                        "color": "#FF0000",
+                    },
+                    {
+                        "type": "shape",
+                        "shape": "rectangle",
+                        "width": 50,
+                        "height": 50,
+                        "color": "#0000FF",
+                    },
+                ],
+                direction="row",
+                position=(10, 5),
+                mask={"position": (10, 5), "width": 50, "height": 50},
+            )
+            .shape(
+                shape="rectangle",
+                position=(85, 25),
+                width=12,
+                height=12,
+                color="#00AA00",
+            )
+        )
+
+        # when
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            # then
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/group_mask_composition_boundary.png")

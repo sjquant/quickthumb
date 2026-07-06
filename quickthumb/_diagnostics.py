@@ -27,7 +27,6 @@ from quickthumb._diagnostic_rules import (
     resolve_overlay_bbox,
     resolve_safe_margins,
     safe_area_bbox,
-    visible_leaf_layers,
     worst_tile_contrast,
 )
 from quickthumb._effects import EffectsEngine
@@ -129,12 +128,27 @@ class DiagnosticsEngine:
 
     def _diagnose_layer_overlaps(self, measurements: list[LayerMeasurement]) -> list[Diagnostic]:
         findings: list[Diagnostic] = []
-        candidates = list(visible_leaf_layers(measurements))
+        candidates = list(self._visible_diagnostic_layers(measurements))
         for lower, upper in overlap_pairs(candidates):
             finding = self._diagnose_candidate_overlap(lower, upper)
             if finding is not None:
                 findings.append(finding)
         return findings
+
+    def _visible_diagnostic_layers(
+        self, measurements: Iterable[LayerMeasurement]
+    ) -> Iterable[LayerMeasurement]:
+        for measured in measurements:
+            if measured.children and not self._is_composed_group_measurement(measured):
+                yield from self._visible_diagnostic_layers(measured.children)
+            elif measured.visible and measured.bbox is not None and not measured.bbox.is_empty:
+                yield measured
+
+    @staticmethod
+    def _is_composed_group_measurement(measured: LayerMeasurement) -> bool:
+        return isinstance(measured.raw_layer, GroupLayer) and has_layer_composition(
+            measured.raw_layer
+        )
 
     def _diagnose_candidate_overlap(
         self, lower: LayerMeasurement, upper: LayerMeasurement
@@ -220,7 +234,7 @@ class DiagnosticsEngine:
 
     def _diagnose_hidden_layers(self, measurements: list[LayerMeasurement]) -> list[Diagnostic]:
         findings: list[Diagnostic] = []
-        candidates = list(visible_leaf_layers(measurements))
+        candidates = list(self._visible_diagnostic_layers(measurements))
         opaque_backgrounds = [
             measured
             for measured in measurements
@@ -365,7 +379,7 @@ class DiagnosticsEngine:
         safe_area = safe_area_bbox(
             canvas_width=self._ctx.width, canvas_height=self._ctx.height, margins=margins
         )
-        for measured in visible_leaf_layers(measurements):
+        for measured in self._visible_diagnostic_layers(measurements):
             if measured.layer_id in ignored_layer_ids:
                 continue
             finding = self._diagnose_margin_crowding(measured, preset, margins, safe_area)

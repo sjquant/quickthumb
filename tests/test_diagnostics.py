@@ -1238,6 +1238,48 @@ class TestDiagnoseLayerOverlap:
         # then
         assert [finding for finding in diagnostics if finding.code == "layer-overlap"] == []
 
+    def test_should_not_warn_for_group_masked_child_overlap(self):
+        """Group masks remove hidden child pixels from overlap diagnostics"""
+        from quickthumb import Canvas
+
+        # given: a top-level shape sits only over pixels hidden by a parent group mask
+        canvas = (
+            Canvas(100, 50)
+            .group(
+                children=[
+                    {
+                        "type": "shape",
+                        "shape": "rectangle",
+                        "width": 50,
+                        "height": 50,
+                        "color": "#FF0000",
+                    },
+                    {
+                        "type": "shape",
+                        "shape": "rectangle",
+                        "width": 50,
+                        "height": 50,
+                        "color": "#0000FF",
+                    },
+                ],
+                direction="row",
+                mask={"position": (0, 0), "width": 50, "height": 50},
+            )
+            .shape(
+                shape="rectangle",
+                position=(75, 20),
+                width=5,
+                height=5,
+                color="#00FF00",
+            )
+        )
+
+        # when
+        diagnostics = canvas.diagnose()
+
+        # then
+        assert [finding for finding in diagnostics if finding.code == "layer-overlap"] == []
+
     def test_should_not_warn_for_transparent_png_bbox_overlap(self, tmp_path):
         """Transparent image pixels do not count as visible overlap"""
         from quickthumb import Canvas
