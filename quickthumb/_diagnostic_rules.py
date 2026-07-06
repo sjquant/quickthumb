@@ -5,6 +5,7 @@ from typing import cast
 from PIL import Image, ImageChops, ImageStat
 from typing_extensions import TypedDict
 
+from quickthumb._composition import has_layer_composition
 from quickthumb._measurements import BBox, LayerMeasurement
 from quickthumb.models import Align, DiagnosticBBox
 
@@ -181,7 +182,7 @@ def layer_label(measured: LayerMeasurement) -> str:
 
 def visible_leaf_layers(measurements: Iterable[LayerMeasurement]) -> Iterable[LayerMeasurement]:
     for measured in measurements:
-        if measured.children:
+        if measured.children and not has_layer_composition(measured.raw_layer):
             yield from visible_leaf_layers(measured.children)
         elif measured.visible and measured.bbox is not None and not measured.bbox.is_empty:
             yield measured
