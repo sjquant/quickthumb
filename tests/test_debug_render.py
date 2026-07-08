@@ -1,11 +1,66 @@
 """Black-box tests for annotated debug raster rendering."""
 
 import pytest
+from inline_snapshot import external_file
 from PIL import Image
 
 
 class TestDebugRender:
     """Test suite for render(debug=True) output."""
+
+    def test_snapshot_debug_render_overlay(self, tmp_path):
+        """Debug rendering visually matches the expected annotated overlay."""
+        from quickthumb import Canvas
+
+        # given: a deterministic canvas with top-level and nested visible layer bboxes
+        fixture = tmp_path / "sample.png"
+        Image.new("RGBA", (28, 22), (24, 120, 210, 255)).save(fixture)
+        canvas = (
+            Canvas(240, 150)
+            .background(color="#F7F4EE")
+            .shape(
+                shape="rectangle",
+                position=(18, 20),
+                width=62,
+                height=42,
+                color="#1D4ED8",
+                border_radius=6,
+            )
+            .text(
+                "Debug",
+                size=30,
+                color="#111827",
+                position=(104, 24),
+            )
+            .image(path=str(fixture), position=(188, 24), width=28, height=22)
+            .group(
+                children=[
+                    {
+                        "type": "shape",
+                        "shape": "ellipse",
+                        "width": 34,
+                        "height": 28,
+                        "color": "#F97316",
+                    },
+                    {
+                        "type": "text",
+                        "content": "G",
+                        "size": 24,
+                        "color": "#0F172A",
+                    },
+                ],
+                direction="row",
+                gap=12,
+                position=(24, 92),
+            )
+        )
+
+        # when: rendering with debug annotations enabled
+        output_path = tmp_path / "debug.png"
+        canvas.render(str(output_path), debug=True)
+
+        # then: the raster output matches the visual debug-overlay baseline
+        assert output_path.read_bytes() == external_file("snapshots/debug_render_overlay.png")
 
     def test_should_reject_debug_render_for_document_output(self, tmp_path):
         """debug=True raises a rendering error for document output formats."""
