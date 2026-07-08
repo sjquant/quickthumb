@@ -14,7 +14,15 @@ from quickthumb._fonts import FontEngine
 from quickthumb._images import ImageEngine
 from quickthumb._shapes import ShapeEngine
 from quickthumb._text import TextEngine
-from quickthumb.models import Align, GroupLayer, ImageLayer, ShapeLayer, SvgLayer, TextLayer
+from quickthumb.models import (
+    Align,
+    BackdropBlur,
+    GroupLayer,
+    ImageLayer,
+    ShapeLayer,
+    SvgLayer,
+    TextLayer,
+)
 
 GroupChildLayer = TextLayer | ImageLayer | ShapeLayer | SvgLayer | GroupLayer
 GroupBox = tuple[int, int, int, int]
@@ -98,8 +106,16 @@ class GroupEngine:
 
     @staticmethod
     def _child_without_boundary_blend(child: GroupChildLayer) -> GroupChildLayer:
+        updates = {}
         if isinstance(child, (ImageLayer, SvgLayer)) and child.blend_mode is not None:
-            return child.model_copy(update={"blend_mode": None})
+            updates["blend_mode"] = None
+        effects = getattr(child, "effects", None)
+        if effects is not None:
+            filtered = [effect for effect in effects if not isinstance(effect, BackdropBlur)]
+            if len(filtered) != len(effects):
+                updates["effects"] = filtered
+        if updates and isinstance(child, (ImageLayer, ShapeLayer, SvgLayer)):
+            return child.model_copy(update=updates)
         return child
 
     def _render_group_child_direct(self, image: Image.Image, child: GroupChildLayer):

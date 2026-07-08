@@ -5,6 +5,7 @@ import tempfile
 
 import pytest
 from inline_snapshot import external_file
+from PIL import Image
 from quickthumb.models import Align
 
 from tests._optional import require_cairosvg
@@ -3186,3 +3187,267 @@ class TestGroupLayerRendering:
             # then
             with open(output_path, "rb") as f:
                 assert f.read() == external_file("snapshots/image_clip_with_polygon_mask.png")
+
+    def test_snapshot_backdrop_blur_clip_composition_boundary(self):
+        """Snapshot backdrop blur constrained by final clip alpha"""
+        from quickthumb import BackdropBlur, Canvas
+
+        # given: a no-blur control above a clipped backdrop blur variant
+        canvas = (
+            Canvas(160, 130)
+            .shape(shape="rectangle", position=(0, 0), width=80, height=60, color="#FF0000")
+            .shape(shape="rectangle", position=(80, 0), width=80, height=60, color="#0000FF")
+            .shape(
+                shape="rectangle",
+                position=(45, 10),
+                width=70,
+                height=40,
+                color="#FFFFFF40",
+                clip={"position": (70, 10), "width": 20, "height": 40},
+            )
+            .shape(shape="rectangle", position=(0, 70), width=80, height=60, color="#FF0000")
+            .shape(shape="rectangle", position=(80, 70), width=80, height=60, color="#0000FF")
+            .shape(
+                shape="rectangle",
+                position=(45, 80),
+                width=70,
+                height=40,
+                color="#FFFFFF40",
+                effects=[BackdropBlur(radius=10)],
+                clip={"position": (70, 80), "width": 20, "height": 40},
+            )
+        )
+
+        # when: rendering the composition-boundary comparison
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            # then: only the clipped alpha receives backdrop blur, not the raw layer bbox
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file(
+                    "snapshots/backdrop_blur_clip_composition_boundary.png"
+                )
+
+    def test_snapshot_backdrop_blur_mask_composition_boundary(self):
+        """Snapshot backdrop blur constrained by final mask alpha"""
+        from quickthumb import BackdropBlur, Canvas
+
+        # given: a no-blur control above a masked backdrop blur variant
+        canvas = (
+            Canvas(160, 130)
+            .shape(shape="rectangle", position=(0, 0), width=80, height=60, color="#FF0000")
+            .shape(shape="rectangle", position=(80, 0), width=80, height=60, color="#0000FF")
+            .shape(
+                shape="rectangle",
+                position=(45, 10),
+                width=70,
+                height=40,
+                color="#FFFFFF40",
+                mask={"position": (70, 10), "width": 20, "height": 40},
+            )
+            .shape(shape="rectangle", position=(0, 70), width=80, height=60, color="#FF0000")
+            .shape(shape="rectangle", position=(80, 70), width=80, height=60, color="#0000FF")
+            .shape(
+                shape="rectangle",
+                position=(45, 80),
+                width=70,
+                height=40,
+                color="#FFFFFF40",
+                effects=[BackdropBlur(radius=10)],
+                mask={"position": (70, 80), "width": 20, "height": 40},
+            )
+        )
+
+        # when: rendering the composition-boundary comparison
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            # then: only the masked alpha receives backdrop blur, not the raw layer bbox
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file(
+                    "snapshots/backdrop_blur_mask_composition_boundary.png"
+                )
+
+    def test_snapshot_duotone_effect(self):
+        """Snapshot duotone effect rendering"""
+        from quickthumb import Canvas, Duotone
+
+        # given: the same image rendered normally and with duotone
+        with tempfile.TemporaryDirectory() as tmpdir:
+            source = os.path.join(tmpdir, "duotone-source.png")
+            gradient = Image.new("RGBA", (90, 70), (0, 0, 0, 255))
+            for x in range(90):
+                tone = round(255 * x / 89)
+                for y in range(70):
+                    gradient.putpixel((x, y), (tone, round(255 * y / 69), 255 - tone, 255))
+            gradient.save(source)
+
+            canvas = (
+                Canvas(220, 90)
+                .background(color="#F9FAFB")
+                .image(path=source, position=(10, 10))
+                .image(
+                    path=source,
+                    position=(120, 10),
+                    effects=[Duotone(shadows="#111827", highlights="#FDE68A")],
+                )
+            )
+
+            # when: rendering the duotone comparison
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            # then: the effect output matches the maintained visual snapshot
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/duotone_effect.png")
+
+    def test_snapshot_inner_shadow_effect(self):
+        """Snapshot inner shadow effect rendering"""
+        from quickthumb import Canvas, InnerShadow
+
+        # given: the same shape rendered normally and with inner shadow
+        canvas = (
+            Canvas(220, 90)
+            .background(color="#E5E7EB")
+            .shape(
+                shape="rectangle",
+                position=(15, 15),
+                width=75,
+                height=60,
+                color="#FFFFFF",
+                border_radius=10,
+            )
+            .shape(
+                shape="rectangle",
+                position=(130, 15),
+                width=75,
+                height=60,
+                color="#FFFFFF",
+                border_radius=10,
+                effects=[
+                    InnerShadow(
+                        offset_x=8,
+                        offset_y=8,
+                        color="#111827AA",
+                        blur_radius=8,
+                    )
+                ],
+            )
+        )
+
+        # when: rendering the inner shadow comparison
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            # then: the effect output matches the maintained visual snapshot
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/inner_shadow_effect.png")
+
+    def test_snapshot_backdrop_blur_effect(self):
+        """Snapshot backdrop blur effect rendering"""
+        from quickthumb import BackdropBlur, Canvas
+
+        # given: translucent overlays on a striped backdrop, with blur only on the right
+        canvas = Canvas(220, 90)
+        stripe_colors = [
+            "#DC2626",
+            "#F59E0B",
+            "#FDE047",
+            "#16A34A",
+            "#0891B2",
+            "#2563EB",
+            "#7C3AED",
+            "#DB2777",
+            "#4B5563",
+            "#0F172A",
+            "#DC2626",
+        ]
+        for index, color in enumerate(stripe_colors):
+            canvas = canvas.shape(
+                shape="rectangle",
+                position=(index * 20, 0),
+                width=20,
+                height=90,
+                color=color,
+            )
+        canvas = canvas.shape(
+            shape="rectangle",
+            position=(20, 18),
+            width=75,
+            height=54,
+            color="#FFFFFF66",
+            border_radius=10,
+        ).shape(
+            shape="rectangle",
+            position=(125, 18),
+            width=75,
+            height=54,
+            color="#FFFFFF66",
+            border_radius=10,
+            effects=[BackdropBlur(radius=8)],
+        )
+
+        # when: rendering the backdrop blur comparison
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            # then: the effect output matches the maintained visual snapshot
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/backdrop_blur_effect.png")
+
+    def test_snapshot_composition_effects(self):
+        """Snapshot test for duotone, inner shadow, and backdrop blur composition effects"""
+        from quickthumb import BackdropBlur, Canvas, Duotone, InnerShadow
+
+        # given: a composition scene that uses each layer effect category
+        with tempfile.TemporaryDirectory() as tmpdir:
+            source = os.path.join(tmpdir, "duotone-source.png")
+            gradient = Image.new("RGBA", (80, 50), (0, 0, 0, 255))
+            for x in range(80):
+                value = round(255 * x / 79)
+                for y in range(50):
+                    gradient.putpixel((x, y), (value, 90, 255 - value, 255))
+            gradient.save(source)
+
+            canvas = (
+                Canvas(200, 120)
+                .shape(shape="rectangle", position=(0, 0), width=100, height=120, color="#DC2626")
+                .shape(shape="rectangle", position=(100, 0), width=100, height=120, color="#2563EB")
+                .image(
+                    path=source,
+                    position=(18, 18),
+                    effects=[Duotone(shadows="#111827", highlights="#FDE68A")],
+                )
+                .shape(
+                    shape="rectangle",
+                    position=(70, 24),
+                    width=110,
+                    height=72,
+                    color="#FFFFFF55",
+                    border_radius=12,
+                    effects=[
+                        BackdropBlur(radius=7),
+                        InnerShadow(offset_x=6, offset_y=6, color="#00000099", blur_radius=5),
+                    ],
+                )
+                .shape(
+                    shape="rectangle",
+                    position=(86, 38),
+                    width=78,
+                    height=44,
+                    color="#FFFFFF22",
+                    border_radius=8,
+                )
+            )
+
+            # when: rendering the composition effects scene
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            # then: the pixels match the maintained visual snapshot
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/composition_effects.png")

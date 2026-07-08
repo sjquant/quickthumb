@@ -7,7 +7,7 @@ from PIL import Image, ImageChops, ImageEnhance, ImageFilter
 
 from quickthumb._base import DEFAULT_TEXT_COLOR, FULL_OPACITY
 from quickthumb.errors import RenderingError
-from quickthumb.models import BlendMode, Filter, Grain
+from quickthumb.models import BlendMode, Duotone, Filter, Grain, InnerShadow
 
 
 class EffectsEngine:
@@ -77,6 +77,72 @@ class EffectsEngine:
         if effect.saturation != 1.0:
             image = self._apply_saturation(image, effect.saturation)
         return image
+
+    def apply_duotone(self, image: Image.Image, effect: Duotone) -> Image.Image:
+        if effect.opacity == 0.0:
+            return image
+        if image.mode != "RGBA":
+            image = image.convert("RGBA")
+
+        shadows = self._rgba_color(effect.shadows)
+        highlights = self._rgba_color(effect.highlights)
+        gray = image.convert("L")
+        r_lut = [self._interpolate_channel(shadows[0], highlights[0], i) for i in range(256)]
+        g_lut = [self._interpolate_channel(shadows[1], highlights[1], i) for i in range(256)]
+        b_lut = [self._interpolate_channel(shadows[2], highlights[2], i) for i in range(256)]
+        toned = Image.merge(
+            "RGBA", (gray.point(r_lut), gray.point(g_lut), gray.point(b_lut), image.split()[3])
+        )
+
+        if effect.opacity < 1.0:
+            toned = Image.blend(image, toned, effect.opacity)
+        return toned
+
+    def apply_inner_shadow(self, image: Image.Image, effect: InnerShadow) -> Image.Image:
+        if effect.opacity == 0.0:
+            return image
+        if image.mode != "RGBA":
+            image = image.convert("RGBA")
+
+        alpha = image.split()[3]
+        shadow_alpha = self._inner_shadow_alpha(alpha, effect)
+        if effect.opacity < 1.0:
+            shadow_alpha = shadow_alpha.point(lambda value: int(value * effect.opacity))
+
+        shadow_color = self._rgba_color(effect.color)
+        if shadow_color[3] < FULL_OPACITY:
+            shadow_alpha = shadow_alpha.point(
+                lambda value: int(value * shadow_color[3] / FULL_OPACITY)
+            )
+
+        shadow = Image.new("RGBA", image.size, shadow_color[:3] + (0,))
+        shadow.putalpha(shadow_alpha)
+        result = image.copy()
+        result.alpha_composite(shadow)
+        result.putalpha(alpha)
+        return result
+
+    def _inner_shadow_alpha(self, alpha: Image.Image, effect: InnerShadow) -> Image.Image:
+        radius = effect.blur_radius
+        padding = radius * 2 + max(abs(effect.offset_x), abs(effect.offset_y), 1)
+        padded_size = (alpha.width + padding * 2, alpha.height + padding * 2)
+        shifted = Image.new("L", padded_size, 0)
+        shifted.paste(alpha, (padding + effect.offset_x, padding + effect.offset_y))
+        if radius > 0:
+            shifted = shifted.filter(ImageFilter.GaussianBlur(radius))
+        shifted = shifted.crop((padding, padding, padding + alpha.width, padding + alpha.height))
+        return ImageChops.multiply(alpha, ImageChops.invert(shifted))
+
+    def _rgba_color(self, color: str | tuple) -> tuple[int, int, int, int]:
+        parsed = self.parse_color(color)
+        if len(parsed) == 4:
+            return cast(tuple[int, int, int, int], parsed)
+        r, g, b = parsed[:3]
+        return (r, g, b, FULL_OPACITY)
+
+    @staticmethod
+    def _interpolate_channel(start: int, end: int, value: int) -> int:
+        return int(start + (end - start) * (value / 255))
 
     @staticmethod
     def _generate_noise_image(

@@ -5,7 +5,7 @@ from PIL import Image, ImageDraw
 from quickthumb._base import RenderContext, apply_alignment, parse_coordinate
 from quickthumb._effects import EffectsEngine
 from quickthumb._images import ImageEngine
-from quickthumb.models import Glow, Shadow, ShapeLayer, Stroke
+from quickthumb.models import BackdropBlur, Glow, InnerShadow, Shadow, ShapeLayer, Stroke
 
 TRIANGLE_POINTS = [(0.5, 0.0), (1.0, 1.0), (0.0, 1.0)]
 
@@ -58,6 +58,14 @@ class ShapeEngine:
         paste_x, paste_y = x, y
         if layer.align:
             paste_x, paste_y = apply_alignment(x, y, shape_img.size, layer.align)
+
+        for effect in layer.effects:
+            if isinstance(effect, InnerShadow):
+                shape_img = self._effects.apply_inner_shadow(shape_img, effect)
+
+        for effect in layer.effects:
+            if isinstance(effect, BackdropBlur):
+                self._images.apply_backdrop_blur(image, shape_img, paste_x, paste_y, effect)
 
         for effect in layer.effects:
             if isinstance(effect, Glow):

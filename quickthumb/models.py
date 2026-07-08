@@ -332,6 +332,28 @@ class Glow(quickthumbModel):
     opacity: OpacityField = 1.0
 
 
+class Duotone(quickthumbModel):
+    type: Literal["duotone"] = "duotone"
+    shadows: HexColor
+    highlights: HexColor
+    opacity: OpacityField = 1.0
+
+
+class InnerShadow(quickthumbModel):
+    type: Literal["inner_shadow"] = "inner_shadow"
+    offset_x: int = 0
+    offset_y: int = 0
+    color: HexColor
+    blur_radius: NonNegativeInt = 0
+    opacity: OpacityField = 1.0
+
+
+class BackdropBlur(quickthumbModel):
+    type: Literal["backdrop_blur"] = "backdrop_blur"
+    radius: PositiveInt
+    opacity: OpacityField = 1.0
+
+
 class Background(quickthumbModel):
     type: Literal["background"] = "background"
     color: HexColor
@@ -409,9 +431,12 @@ class Grain(quickthumbModel):
 
 TextEffect = Annotated[Stroke | Shadow | Glow | Background, Discriminator("type")]
 
-ImageEffect = Annotated[Stroke | Shadow | Glow | Filter | Grain, Discriminator("type")]
+ImageEffect = Annotated[
+    Stroke | Shadow | Glow | Filter | Grain | Duotone | InnerShadow | BackdropBlur,
+    Discriminator("type"),
+]
 
-ShapeEffect = Annotated[Stroke | Shadow | Glow, Discriminator("type")]
+ShapeEffect = Annotated[Stroke | Shadow | Glow | InnerShadow | BackdropBlur, Discriminator("type")]
 
 BackgroundEffect = Annotated[Filter | Grain, Discriminator("type")]
 

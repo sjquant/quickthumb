@@ -235,6 +235,47 @@ class TestSvgShapesAndOutline:
         assert embedded.getpixel((embedded.width // 2, embedded.height // 2)) == (255, 0, 0, 255)
         assert embedded.getpixel((0, 0))[3] == 0
 
+    def test_should_rasterize_backdrop_blur_with_prior_layers(self, tmp_path):
+        """Backdrop-blur shapes rasterize with their backdrop in SVG export"""
+        # given
+        no_blur = (
+            Canvas(80, 50)
+            .shape(shape="rectangle", position=(0, 0), width=40, height=50, color="#FF0000")
+            .shape(shape="rectangle", position=(40, 0), width=40, height=50, color="#0000FF")
+            .shape(
+                shape="rectangle",
+                position=(30, 5),
+                width=20,
+                height=40,
+                color="#FFFFFF40",
+            )
+        )
+        with_blur = (
+            Canvas(80, 50)
+            .shape(shape="rectangle", position=(0, 0), width=40, height=50, color="#FF0000")
+            .shape(shape="rectangle", position=(40, 0), width=40, height=50, color="#0000FF")
+            .shape(
+                shape="rectangle",
+                position=(30, 5),
+                width=20,
+                height=40,
+                color="#FFFFFF40",
+                effects=[{"type": "backdrop_blur", "radius": 5}],
+            )
+        )
+
+        # when
+        control_output = tmp_path / "control.png"
+        no_blur.render(str(control_output))
+        control = Image.open(control_output).convert("RGBA")
+        root = parse_svg(with_blur.to_svg())
+
+        # then
+        images = find_all(root, "image")
+        assert len(images) == 1
+        embedded = png_image_from_svg_href(require_attr(images[0], f"{XLINK_NS}href"))
+        assert embedded.getpixel((36, 25))[2] - control.getpixel((36, 25))[2] >= 10
+
     def test_should_emit_star_as_polygon_with_expected_points(self):
         """A star becomes a polygon with two points per spike"""
         # given

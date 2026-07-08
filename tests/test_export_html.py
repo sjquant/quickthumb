@@ -350,6 +350,46 @@ class TestHtmlShapes:
         assert embedded.getpixel((embedded.width // 2, embedded.height // 2)) == (255, 0, 0, 255)
         assert embedded.getpixel((0, 0))[3] == 0
 
+    def test_should_fall_back_to_raster_for_backdrop_blur_shape(self, tmp_path):
+        """Backdrop-blur shapes become PNG fragments so HTML preserves the effect"""
+        # given
+        no_blur = (
+            Canvas(80, 50)
+            .shape(shape="rectangle", position=(0, 0), width=40, height=50, color="#FF0000")
+            .shape(shape="rectangle", position=(40, 0), width=40, height=50, color="#0000FF")
+            .shape(
+                shape="rectangle",
+                position=(30, 5),
+                width=20,
+                height=40,
+                color="#FFFFFF40",
+            )
+        )
+        with_blur = (
+            Canvas(80, 50)
+            .shape(shape="rectangle", position=(0, 0), width=40, height=50, color="#FF0000")
+            .shape(shape="rectangle", position=(40, 0), width=40, height=50, color="#0000FF")
+            .shape(
+                shape="rectangle",
+                position=(30, 5),
+                width=20,
+                height=40,
+                color="#FFFFFF40",
+                effects=[{"type": "backdrop_blur", "radius": 5}],
+            )
+        )
+
+        # when
+        control_output = tmp_path / "control.png"
+        no_blur.render(str(control_output))
+        control = Image.open(control_output).convert("RGBA")
+        html = with_blur.to_html()
+
+        # then
+        assert "data:image/png;base64," in html
+        embedded = first_embedded_png(html)
+        assert embedded.getpixel((36, 25))[2] - control.getpixel((36, 25))[2] >= 10
+
 
 class TestHtmlText:
     """Test suite for text layer export"""

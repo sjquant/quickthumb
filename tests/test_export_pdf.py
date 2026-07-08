@@ -90,6 +90,59 @@ class TestPdfDocument:
         assert b"FontFile" in data
 
 
+class TestPdfCompositionEffects:
+    """Test suite for composition effects in PDF raster fallbacks"""
+
+    def setup_method(self):
+        require_pypdfium2()
+
+    def test_should_preserve_backdrop_blur_via_raster_fallback(self):
+        """Backdrop blur renders with prior layers in PDF export through raster fallback"""
+        # given
+        no_blur = (
+            Canvas(80, 50)
+            .shape(shape="rectangle", position=(0, 0), width=40, height=50, color="#FF0000")
+            .shape(shape="rectangle", position=(40, 0), width=40, height=50, color="#0000FF")
+            .shape(
+                shape="rectangle",
+                position=(30, 5),
+                width=20,
+                height=40,
+                color="#FFFFFF40",
+            )
+        )
+        with_blur = (
+            Canvas(80, 50)
+            .shape(shape="rectangle", position=(0, 0), width=40, height=50, color="#FF0000")
+            .shape(shape="rectangle", position=(40, 0), width=40, height=50, color="#0000FF")
+            .shape(
+                shape="rectangle",
+                position=(30, 5),
+                width=20,
+                height=40,
+                color="#FFFFFF40",
+                effects=[{"type": "backdrop_blur", "radius": 5}],
+            )
+        )
+
+        # when
+        control_page = open_pdf(no_blur)[0]
+        control = (
+            control_page.render(scale=no_blur.width / control_page.get_size()[0])
+            .to_pil()
+            .convert("RGB")
+        )
+        blurred_page = open_pdf(with_blur)[0]
+        blurred = (
+            blurred_page.render(scale=with_blur.width / blurred_page.get_size()[0])
+            .to_pil()
+            .convert("RGB")
+        )
+
+        # then
+        assert blurred.getpixel((36, 25))[2] - control.getpixel((36, 25))[2] >= 10
+
+
 class TestPdfContent:
     """Test suite for the PDF carrying every layer's content"""
 

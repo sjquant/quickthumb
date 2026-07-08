@@ -4,11 +4,11 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
-from PIL import Image, ImageChops, ImageDraw
+from PIL import Image, ImageChops, ImageDraw, ImageFilter
 
 from quickthumb._base import RenderContext, apply_alignment, parse_coordinate
 from quickthumb._effects import EffectsEngine
-from quickthumb.models import Align, LayerClip, LayerMask
+from quickthumb.models import Align, BackdropBlur, LayerClip, LayerMask
 
 Bounds = tuple[int, int, int, int]
 
@@ -23,7 +23,17 @@ class ComposedLayer:
 
 def has_layer_composition(layer: Any) -> bool:
     """Return True when a layer uses the W4a composition boundary."""
+    return requires_composition_boundary(layer)
+
+
+def requires_composition_boundary(layer: Any) -> bool:
+    """Return True when a layer needs isolated alpha-boundary composition."""
     return getattr(layer, "clip", None) is not None or getattr(layer, "mask", None) is not None
+
+
+def layer_depends_on_backdrop(layer: Any) -> bool:
+    """Return True when a layer effect samples already-composited pixels."""
+    return any(isinstance(effect, BackdropBlur) for effect in getattr(layer, "effects", []))
 
 
 def composite_layer_with_boundary(
@@ -39,6 +49,10 @@ def composite_layer_with_boundary(
     composed = apply_layer_composition(ctx, layer_surface, layer)
     if composed is None:
         return
+
+    for effect in getattr(layer, "effects", []):
+        if isinstance(effect, BackdropBlur):
+            _apply_backdrop_blur(image, composed, effect)
 
     blend_mode = getattr(layer, "blend_mode", None)
     if blend_mode:
@@ -68,8 +82,8 @@ def composition_bounds(ctx: RenderContext, layer: Any) -> Bounds | None:
 def apply_layer_composition(
     ctx: RenderContext, layer_image: Image.Image, layer: Any
 ) -> ComposedLayer | None:
-    """Apply clip and mask primitives to an isolated layer image."""
-    offset = _composition_offset(ctx, layer, layer_image.size)
+    """Apply clip, mask, and boundary effects to an isolated layer image."""
+    offset = _composition_offset(ctx, layer, layer_image)
     if offset is None:
         return None
 
@@ -93,6 +107,24 @@ def apply_layer_composition(
     return ComposedLayer(image=layer_patch, offset=(left, top))
 
 
+def _apply_backdrop_blur(
+    image: Image.Image,
+    composed: ComposedLayer,
+    effect: BackdropBlur,
+) -> None:
+    if effect.opacity == 0.0:
+        return
+
+    x, y = composed.offset
+    box = (x, y, x + composed.image.width, y + composed.image.height)
+    backdrop = image.crop(box).filter(ImageFilter.GaussianBlur(effect.radius))
+    alpha = composed.image.split()[3]
+    if effect.opacity < 1.0:
+        alpha = alpha.point(lambda value: int(value * effect.opacity))
+    backdrop.putalpha(alpha)
+    image.alpha_composite(backdrop, composed.offset)
+
+
 def _intersect_bounds(current: Bounds | None, incoming: Bounds) -> Bounds | None:
     if current is None:
         return incoming
@@ -107,11 +139,12 @@ def _intersect_bounds(current: Bounds | None, incoming: Bounds) -> Bounds | None
 
 
 def _composition_offset(
-    ctx: RenderContext, layer: Any, size: tuple[int, int]
+    ctx: RenderContext, layer: Any, layer_image: Image.Image
 ) -> tuple[int, int, int, int] | None:
     bounds = composition_bounds(ctx, layer)
     if bounds is None:
-        return (0, 0, size[0], size[1])
+        bbox = layer_image.getbbox()
+        return None if bbox is None else bbox
 
     x, y, width, height = bounds
     if width <= 0 or height <= 0:
@@ -119,8 +152,8 @@ def _composition_offset(
 
     left = max(0, x)
     top = max(0, y)
-    right = min(size[0], x + width)
-    bottom = min(size[1], y + height)
+    right = min(layer_image.width, x + width)
+    bottom = min(layer_image.height, y + height)
     if right <= left or bottom <= top:
         return None
     return left, top, right, bottom

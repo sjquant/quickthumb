@@ -23,6 +23,7 @@ from quickthumb.errors import RenderingError, ValidationError
 from quickthumb.models import (
     Align,
     AnimationInput,
+    BackdropBlur,
     BackgroundEffect,
     BackgroundLayer,
     BlendMode,
@@ -1000,8 +1001,16 @@ class Canvas:
 
     @staticmethod
     def _layer_without_boundary_blend(layer: RenderableLayer) -> RenderableLayer:
+        updates: dict[str, Any] = {}
         if isinstance(layer, (ImageLayer, SvgLayer)) and layer.blend_mode is not None:
-            return layer.model_copy(update={"blend_mode": None})
+            updates["blend_mode"] = None
+        effects = getattr(layer, "effects", None)
+        if effects is not None:
+            filtered = [effect for effect in effects if not isinstance(effect, BackdropBlur)]
+            if len(filtered) != len(effects):
+                updates["effects"] = filtered
+        if updates and isinstance(layer, (ImageLayer, ShapeLayer, SvgLayer)):
+            return layer.model_copy(update=updates)
         return layer
 
     def _render_layer_direct(self, image: Image.Image, layer: RenderableLayer):
