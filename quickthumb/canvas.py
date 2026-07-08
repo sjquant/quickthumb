@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from io import BytesIO
 from typing import Any, Literal, cast
 
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont
 from typing_extensions import Self
 
 from quickthumb._base import FileFormat, RenderContext, aspect_ratio_dimensions, is_url
@@ -16,7 +16,7 @@ from quickthumb._effects import EffectsEngine
 from quickthumb._fonts import FontEngine
 from quickthumb._groups import GroupEngine
 from quickthumb._images import ImageEngine
-from quickthumb._measurements import LayerMeasurement, measure_layers
+from quickthumb._measurements import BBox, LayerMeasurement, measure_layers
 from quickthumb._shapes import ShapeEngine
 from quickthumb._text import TextEngine
 from quickthumb.errors import RenderingError, ValidationError
@@ -625,16 +625,22 @@ class Canvas:
         output_path: str,
         format: FileFormat | None = None,
         quality: int | None = None,
+        debug: bool = False,
     ):
         """Render the canvas to a file.
 
         The output format is detected from the file extension: PNG, JPEG, and
         WEBP render through the raster pipeline, while .svg, .pptx, and .pdf
         produce vector/document output (see to_svg, to_pptx, and to_pdf).
+        Set debug=True for raster output annotated with public layer-id bboxes.
         """
         if format is None:
             extension = os.path.splitext(output_path)[1].lower()
             if extension in (".svg", ".pptx", ".pdf", ".html", ".htm"):
+                if debug:
+                    raise RenderingError(
+                        "Debug render is only supported for PNG, JPEG, and WEBP output."
+                    )
                 if quality is not None:
                     raise RenderingError(
                         "Quality parameter is only supported for JPEG and WEBP formats, "
@@ -644,7 +650,7 @@ class Canvas:
                 return
 
         self._validate_image_paths()
-        image = self._render_to_image()
+        image = self._render_to_image(debug=debug)
         self._save_to_file(image, output_path, quality, format=format)
 
     def _render_document(self, output_path: str, extension: str):
@@ -916,14 +922,64 @@ class Canvas:
     def _create_canvas(self) -> Image.Image:
         return Image.new("RGBA", (self.width, self.height), (0, 0, 0, 0))
 
-    def _render_to_image(self) -> Image.Image:
+    def _render_to_image(self, debug: bool = False) -> Image.Image:
         self._ctx.begin_render_pass()
         image = self._create_canvas()
 
         for layer in self._layers:
             self._render_layer(image, layer)
 
+        if debug:
+            self._draw_debug_overlay(image)
+
         return image
+
+    def _draw_debug_overlay(self, image: Image.Image) -> None:
+        draw = ImageDraw.Draw(image, "RGBA")
+        font = self._fonts.load_font_variant(None, 10, False, False)
+
+        measurements = list(reversed(measure_layers(self)))
+        while measurements:
+            measured = measurements.pop()
+            measurements.extend(reversed(measured.children))
+
+            if measured.bbox is None or not measured.visible or measured.bbox.is_empty:
+                continue
+
+            bbox = measured.bbox.clamped_to(self.width, self.height)
+            if bbox is None:
+                continue
+
+            self._draw_debug_box(
+                draw,
+                bbox,
+                measured.layer_id,
+                (255, 45, 85, 255),
+                font,
+                image.size,
+            )
+
+    @staticmethod
+    def _draw_debug_box(
+        draw: ImageDraw.ImageDraw,
+        bbox: BBox,
+        label: str,
+        color: tuple[int, int, int, int],
+        font: ImageFont.ImageFont | ImageFont.FreeTypeFont,
+        canvas_size: tuple[int, int],
+    ) -> None:
+        draw.rectangle((bbox.x, bbox.y, bbox.right - 1, bbox.bottom - 1), outline=color, width=2)
+
+        label_bbox = draw.textbbox((0, 0), label, font=font)
+        label_width = label_bbox[2] - label_bbox[0] + 6
+        label_height = label_bbox[3] - label_bbox[1] + 4
+        label_left = min(max(bbox.x, 0), max(0, canvas_size[0] - label_width))
+        label_top = min(max(bbox.y, 0), max(0, canvas_size[1] - label_height))
+        draw.rectangle(
+            (label_left, label_top, label_left + label_width, label_top + label_height),
+            fill=color,
+        )
+        draw.text((label_left + 3, label_top + 2), label, fill=(255, 255, 255, 255), font=font)
 
     def _render_layer(self, image: Image.Image, layer: RenderableLayer):
         if has_layer_composition(layer):

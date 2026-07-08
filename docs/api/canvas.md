@@ -68,7 +68,7 @@ Finding codes: `off-canvas`, `tiny-text`, `text-overflow`, `low-contrast`. See [
 
 ## Export methods
 
-### `.render(path, format="PNG", quality=None)`
+### `.render(path, format=None, quality=None, debug=False)`
 
 Renders the canvas and writes the result to a file. The format is detected from the file extension; `.svg`, `.pptx`, and `.pdf` produce vector/document output (see [Exporting to SVG, PPTX & PDF](../exports.md)).
 
@@ -76,6 +76,7 @@ Renders the canvas and writes the result to a file. The format is detected from 
 canvas.render("output.png")
 canvas.render("output.jpg", format="JPEG", quality=85)
 canvas.render("output.webp", format="WEBP", quality=90)
+canvas.render("debug.png", debug=True)  # raster output with public layer-id bboxes
 canvas.render("output.svg")
 canvas.render("output.pptx")  # requires quickthumb[pptx]
 canvas.render("output.pdf")   # requires quickthumb[pdf]
@@ -84,11 +85,12 @@ canvas.render("output.pdf")   # requires quickthumb[pdf]
 | Parameter | Type | Default | Description |
 | --- | --- | --- | --- |
 | `path` | `str` | — | Output file path |
-| `format` | `str` | `"PNG"` | Raster output format: `"PNG"`, `"JPEG"`, or `"WEBP"` |
+| `format` | `str \| None` | `None` | Optional raster output format override: `"PNG"`, `"JPEG"`, or `"WEBP"` |
 | `quality` | `int \| None` | `None` | Compression quality (1–95). Only valid for `JPEG` and `WEBP`. |
+| `debug` | `bool` | `False` | Draw public layer-id bounding boxes on raster output for visual review. |
 
 !!! warning
-    Passing `quality` with `format="PNG"` raises `RenderingError`.
+    Passing `quality` with `format="PNG"` raises `RenderingError`. Passing `debug=True` for document output (`.svg`, `.pptx`, `.pdf`, or `.html`) raises `RenderingError`.
 
 ### `.to_svg(embed_fonts=False)`
 

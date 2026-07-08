@@ -3,6 +3,7 @@
 import json
 import os
 import tempfile
+from pathlib import Path
 
 import pytest
 from typer.testing import CliRunner
@@ -11,7 +12,16 @@ SIMPLE_SPEC = json.dumps(
     {
         "width": 100,
         "height": 100,
-        "layers": [{"type": "background", "color": "#FF0000"}],
+        "layers": [
+            {
+                "type": "shape",
+                "shape": "rectangle",
+                "position": [10, 10],
+                "width": 30,
+                "height": 20,
+                "color": "#00FF00",
+            },
+        ],
     }
 )
 
@@ -255,6 +265,35 @@ class TestCLIRender:
             # Then: thumb.jpg is created and the command exits successfully
             assert result.exit_code == 0
             assert os.path.exists("thumb.jpg")
+
+    def test_should_render_debug_overlay(self, spec_file):
+        """render --debug writes annotated raster output"""
+        # Given: a valid spec file
+        from quickthumb.cli import app
+
+        # When: User runs `quickthumb render spec.json --debug`
+        with CliRunner().isolated_filesystem():
+            normal = CliRunner().invoke(app, ["render", spec_file, "-o", "normal.png"])
+            result = CliRunner().invoke(app, ["render", spec_file, "-o", "debug.png", "--debug"])
+
+            # Then: the debug output is created and differs from the normal render
+            assert normal.exit_code == 0
+            assert result.exit_code == 0
+            assert Path("debug.png").read_bytes() != Path("normal.png").read_bytes()
+
+    def test_should_exit_2_for_debug_document_output(self, spec_file):
+        """render --debug rejects document output through the CLI."""
+        # Given: a valid spec file and a document output path
+        from quickthumb.cli import app
+
+        runner = CliRunner()
+
+        # When: User runs `quickthumb render spec.json -o out.svg --debug`
+        result = runner.invoke(app, ["render", spec_file, "-o", "out.svg", "--debug"])
+
+        # Then: the CLI reports the raster-only debug error
+        assert result.exit_code == 2
+        assert "Debug render is only supported for PNG, JPEG, and WEBP output." in result.output
 
     def test_should_print_output_path_on_success(self, spec_file):
         """Test that the output file path is printed to stdout on success"""
@@ -543,18 +582,18 @@ class TestCLIWatch:
     def test_should_render_initial_watch_pass_and_stop_on_keyboard_interrupt(
         self, spec_file, monkeypatch
     ):
-        """watch renders once immediately and stops cleanly on Ctrl+C"""
+        """watch --debug renders once immediately and stops cleanly on Ctrl+C"""
         # Given: a valid spec, a fake filesystem watcher, and a fake render target
         import sys
         import types
 
         import quickthumb.cli as cli
 
-        rendered: list[tuple[str, str | None, int | None]] = []
+        rendered: list[tuple[str, str | None, int | None, bool]] = []
 
         class FakeCanvas:
-            def render(self, output, format=None, quality=None):
-                rendered.append((output, format, quality))
+            def render(self, output, format=None, quality=None, debug=False):
+                rendered.append((output, format, quality, debug))
 
         def fake_load_canvas(spec, variables):
             assert str(spec) == spec_file
@@ -569,7 +608,7 @@ class TestCLIWatch:
         monkeypatch.setattr(cli, "_load_canvas", fake_load_canvas)
         monkeypatch.setitem(sys.modules, "watchfiles", types.SimpleNamespace(watch=fake_watch))
 
-        # When: the user runs watch with format, quality, and variable options
+        # When: the user runs watch with format, quality, variable, and debug options
         result = CliRunner().invoke(
             cli.app,
             [
@@ -583,12 +622,13 @@ class TestCLIWatch:
                 "75",
                 "--var",
                 "accent=#00FF00",
+                "--debug",
             ],
         )
 
         # Then: watch exits cleanly after the simulated interrupt and renders once
         assert result.exit_code == 0
-        assert rendered == [("thumb.webp", "WEBP", 75)]
+        assert rendered == [("thumb.webp", "WEBP", 75, True)]
         assert "thumb.webp" in result.output
 
     def test_should_keep_watching_when_initial_render_spec_is_invalid(self, spec_file, monkeypatch):
@@ -628,7 +668,7 @@ class TestCLIWatch:
         rendered: list[str] = []
 
         class FakeCanvas:
-            def render(self, output, format=None, quality=None):
+            def render(self, output, format=None, quality=None, debug=False):
                 rendered.append(output)
 
         def fake_load_canvas(spec, variables):
@@ -656,7 +696,7 @@ class TestCLIWatch:
         import quickthumb.cli as cli
 
         class FailingCanvas:
-            def render(self, output, format=None, quality=None):
+            def render(self, output, format=None, quality=None, debug=False):
                 raise OSError("cannot write output")
 
         def fake_load_canvas(spec, variables):
