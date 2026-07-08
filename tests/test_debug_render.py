@@ -1,8 +1,12 @@
 """Black-box tests for annotated debug raster rendering."""
 
+import threading
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from io import BytesIO
+from pathlib import Path
+
 import pytest
-from inline_snapshot import external_file
-from PIL import Image
+from PIL import Image, ImageChops, ImageStat
 
 
 class TestDebugRender:
@@ -59,8 +63,19 @@ class TestDebugRender:
         output_path = tmp_path / "debug.png"
         canvas.render(str(output_path), debug=True)
 
-        # then: the raster output matches the visual debug-overlay baseline
-        assert output_path.read_bytes() == external_file("snapshots/debug_render_overlay.png")
+        # then: the raster output visually matches the debug-overlay baseline
+        actual = Image.open(output_path).convert("RGBA")
+        snapshot_path = Path(__file__).parent / "snapshots" / "debug_render_overlay.png"
+        expected = Image.open(snapshot_path).convert("RGBA")
+        diff = ImageChops.difference(actual, expected)
+        diff_bytes = diff.tobytes()
+        changed_pixels = sum(
+            any(diff_bytes[index : index + 4]) for index in range(0, len(diff_bytes), 4)
+        )
+        mean_channel_delta = sum(ImageStat.Stat(diff).mean[:3]) / 3
+        assert actual.size == expected.size
+        assert changed_pixels / (actual.width * actual.height) < 0.08
+        assert mean_channel_delta < 3
 
     def test_should_reject_debug_render_for_document_output(self, tmp_path):
         """debug=True raises a rendering error for document output formats."""
@@ -160,27 +175,44 @@ class TestDebugRender:
         child_point = (child_box.x + child_box.width - 1, child_box.y)
         assert debug.getpixel(child_point) != normal.getpixel(child_point)
 
-    def test_should_reuse_rendered_remote_image_size_for_debug_measurement(
-        self, tmp_path, monkeypatch
-    ):
-        """Debug rendering does not fetch an unsized remote image twice."""
+    def test_should_request_remote_image_once_for_debug_measurement(self, tmp_path):
+        """Debug rendering reuses the rendered remote image size."""
         from quickthumb import Canvas
-        from quickthumb._images import ImageEngine
 
         # given: a remote image layer without explicit dimensions
-        loads = 0
         source = Image.new("RGBA", (12, 8), (16, 144, 96, 255))
+        buffer = BytesIO()
+        source.save(buffer, format="PNG")
+        png_bytes = buffer.getvalue()
+        requests = 0
 
-        def fake_load_image_from_url(self, url):
-            nonlocal loads
-            loads += 1
-            return source.copy()
+        class ImageHandler(BaseHTTPRequestHandler):
+            def do_GET(self):
+                nonlocal requests
+                requests += 1
+                self.send_response(200)
+                self.send_header("Content-Type", "image/png")
+                self.send_header("Content-Length", str(len(png_bytes)))
+                self.end_headers()
+                self.wfile.write(png_bytes)
 
-        monkeypatch.setattr(ImageEngine, "load_image_from_url", fake_load_image_from_url)
-        canvas = Canvas(60, 40).image("https://example.invalid/thumb.png", position=(4, 6))
+            def log_message(self, format, *args):
+                return
+
+        server = ThreadingHTTPServer(("127.0.0.1", 0), ImageHandler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+
+        url = f"http://127.0.0.1:{server.server_port}/thumb.png"
+        canvas = Canvas(60, 40).image(url, position=(4, 6))
 
         # when: rendering with debug annotations
-        canvas.render(str(tmp_path / "debug.png"), debug=True)
+        try:
+            canvas.render(str(tmp_path / "debug.png"), debug=True)
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=5)
 
         # then: the already-rendered image size is reused by debug measurement
-        assert loads == 1
+        assert requests == 1

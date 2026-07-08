@@ -281,6 +281,20 @@ class TestCLIRender:
             assert result.exit_code == 0
             assert Path("debug.png").read_bytes() != Path("normal.png").read_bytes()
 
+    def test_should_exit_2_for_debug_document_output(self, spec_file):
+        """render --debug rejects document output through the CLI."""
+        # Given: a valid spec file and a document output path
+        from quickthumb.cli import app
+
+        runner = CliRunner()
+
+        # When: User runs `quickthumb render spec.json -o out.svg --debug`
+        result = runner.invoke(app, ["render", spec_file, "-o", "out.svg", "--debug"])
+
+        # Then: the CLI reports the raster-only debug error
+        assert result.exit_code == 2
+        assert "Debug render is only supported for PNG, JPEG, and WEBP output." in result.output
+
     def test_should_print_output_path_on_success(self, spec_file):
         """Test that the output file path is printed to stdout on success"""
         # Given: A valid spec file and a custom output path
@@ -569,32 +583,53 @@ class TestCLIWatch:
         self, spec_file, monkeypatch
     ):
         """watch --debug renders once immediately and stops cleanly on Ctrl+C"""
-        # Given: a valid spec and a fake filesystem watcher
+        # Given: a valid spec, a fake filesystem watcher, and a fake render target
         import sys
         import types
 
         import quickthumb.cli as cli
+
+        rendered: list[tuple[str, str | None, int | None, bool]] = []
+
+        class FakeCanvas:
+            def render(self, output, format=None, quality=None, debug=False):
+                rendered.append((output, format, quality, debug))
+
+        def fake_load_canvas(spec, variables):
+            assert str(spec) == spec_file
+            assert variables == {"accent": "#00FF00"}
+            return FakeCanvas()
 
         def fake_watch(spec):
             assert str(spec) == spec_file
             raise KeyboardInterrupt
             yield
 
+        monkeypatch.setattr(cli, "_load_canvas", fake_load_canvas)
         monkeypatch.setitem(sys.modules, "watchfiles", types.SimpleNamespace(watch=fake_watch))
 
-        # When: the user runs watch with debug annotations
-        with CliRunner().isolated_filesystem():
-            normal = CliRunner().invoke(cli.app, ["render", spec_file, "-o", "normal.png"])
-            result = CliRunner().invoke(
-                cli.app,
-                ["watch", spec_file, "-o", "debug.png", "--debug"],
-            )
+        # When: the user runs watch with format, quality, variable, and debug options
+        result = CliRunner().invoke(
+            cli.app,
+            [
+                "watch",
+                spec_file,
+                "-o",
+                "thumb.webp",
+                "--format",
+                "WEBP",
+                "--quality",
+                "75",
+                "--var",
+                "accent=#00FF00",
+                "--debug",
+            ],
+        )
 
-            # Then: watch exits cleanly and writes annotated output
-            assert normal.exit_code == 0
-            assert result.exit_code == 0
-            assert "debug.png" in result.output
-            assert Path("debug.png").read_bytes() != Path("normal.png").read_bytes()
+        # Then: watch exits cleanly after the simulated interrupt and renders once
+        assert result.exit_code == 0
+        assert rendered == [("thumb.webp", "WEBP", 75, True)]
+        assert "thumb.webp" in result.output
 
     def test_should_keep_watching_when_initial_render_spec_is_invalid(self, spec_file, monkeypatch):
         """watch keeps running when the initial spec load exits with a validation error"""

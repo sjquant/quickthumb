@@ -936,7 +936,7 @@ class Canvas:
 
     def _draw_debug_overlay(self, image: Image.Image) -> None:
         draw = ImageDraw.Draw(image, "RGBA")
-        font = ImageFont.load_default()
+        font = self._fonts.load_font_variant(None, 10, False, False)
 
         measurements = list(reversed(measure_layers(self)))
         while measurements:
@@ -968,17 +968,13 @@ class Canvas:
         font: ImageFont.ImageFont | ImageFont.FreeTypeFont,
         canvas_size: tuple[int, int],
     ) -> None:
-        left = bbox.x
-        top = bbox.y
-        right = max(bbox.x, bbox.right - 1)
-        bottom = max(bbox.y, bbox.bottom - 1)
-        draw.rectangle((left, top, right, bottom), outline=color, width=2)
+        draw.rectangle((bbox.x, bbox.y, bbox.right - 1, bbox.bottom - 1), outline=color, width=2)
 
         label_bbox = draw.textbbox((0, 0), label, font=font)
         label_width = label_bbox[2] - label_bbox[0] + 6
         label_height = label_bbox[3] - label_bbox[1] + 4
-        label_left = min(max(left, 0), max(0, canvas_size[0] - label_width))
-        label_top = min(max(top, 0), max(0, canvas_size[1] - label_height))
+        label_left = min(max(bbox.x, 0), max(0, canvas_size[0] - label_width))
+        label_top = min(max(bbox.y, 0), max(0, canvas_size[1] - label_height))
         draw.rectangle(
             (label_left, label_top, label_left + label_width, label_top + label_height),
             fill=color,
