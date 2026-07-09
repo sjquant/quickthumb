@@ -148,7 +148,7 @@ class FontCache:
         try:
             for root, _, files in os.walk(directory):
                 for filename in files:
-                    if filename.lower().endswith((".ttf", ".otf")):
+                    if filename.lower().endswith((".ttf", ".otf", ".ttc")):
                         font_path = os.path.join(root, filename)
                         result = self._parse_font_filename(font_path)
                         if result:
@@ -164,6 +164,10 @@ class FontCache:
         filename = os.path.basename(font_path)
         name_without_ext = os.path.splitext(filename)[0]
 
+        variable_result = self._parse_variable_font_filename(name_without_ext, font_path)
+        if variable_result:
+            return variable_result
+
         family, variant_part = self._split_family_and_variant(name_without_ext)
         if not family:
             return None
@@ -172,6 +176,30 @@ class FontCache:
 
         variant = FontVariant(path=font_path, weight=weight, italic=is_italic)
         return family, variant
+
+    def _parse_variable_font_filename(
+        self, name: str, font_path: str
+    ) -> tuple[str, FontVariant] | None:
+        if "[" in name:
+            family = name.split("[", 1)[0].strip()
+            if not family:
+                return None
+            weight, is_italic = self._extract_weight_and_italic(family)
+            clean_family = re.sub(r"[-_ ]?(italic|oblique)$", "", family, flags=re.I).strip()
+            return clean_family, FontVariant(path=font_path, weight=weight, italic=is_italic)
+
+        marker = "variablefont"
+        normalized = name.lower().replace("_", "").replace("-", "")
+        if marker not in normalized:
+            return None
+
+        family_part = re.split(r"[-_]?VariableFont", name, maxsplit=1, flags=re.I)[0]
+        family_part = family_part.strip("-_ ")
+        if not family_part:
+            return None
+        weight, is_italic = self._extract_weight_and_italic(family_part)
+        clean_family = re.sub(r"[-_ ]?(italic|oblique)$", "", family_part, flags=re.I).strip()
+        return clean_family, FontVariant(path=font_path, weight=weight, italic=is_italic)
 
     def _split_family_and_variant(self, name: str) -> tuple[str, str]:
         hyphen_match = re.match(r"^(.+?)[-_](.+)$", name)

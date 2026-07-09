@@ -281,6 +281,9 @@ class TestTextLayers:
             "type": "text",
             "content": "Python Tutorial",
             "font": "Roboto",
+            "font_source": "auto",
+            "font_variations": {},
+            "emoji_style": "monochrome",
             "size": 84,
             "color": "#FFFFFF",
             "fill": None,
@@ -291,6 +294,9 @@ class TestTextLayers:
             "italic": False,
             "weight": None,
             "max_width": None,
+            "max_height": None,
+            "min_size": 1,
+            "balance_lines": False,
             "line_height": 1.5,
             "letter_spacing": 2,
             "auto_scale": False,
@@ -453,6 +459,9 @@ class TestRichText:
             "line_height": None,
             "letter_spacing": None,
             "font": "Arial",
+            "font_source": "auto",
+            "font_variations": {},
+            "emoji_style": "monochrome",
         }
         assert data["layers"][0]["content"][1] == {
             "text": "World",
@@ -466,6 +475,9 @@ class TestRichText:
             "line_height": 1.5,
             "letter_spacing": 2,
             "font": None,
+            "font_source": "auto",
+            "font_variations": {},
+            "emoji_style": "monochrome",
         }
 
     def test_should_deserialize_rich_text_from_json_correctly(self):
@@ -986,6 +998,101 @@ class TestAutoScale:
         assert output_with.read_bytes() == output_without.read_bytes()
 
 
+class TestTextAutoFitV2:
+    """Test suite for box-aware text fitting and balanced wrapping"""
+
+    def test_should_round_trip_text_layout_pipeline_fields_through_json(self):
+        """Text font/layout pipeline fields validate and survive JSON serialization"""
+        from quickthumb import Canvas, TextLayer
+
+        # Given: a text layer using every W4d public layout/font field
+        canvas = Canvas(640, 360).text(
+            "Pipeline",
+            font="Roboto",
+            font_source="google",
+            font_variations={"wght": 650},
+            emoji_style="color",
+            size=72,
+            max_width=240,
+            max_height="40%",
+            min_size=18,
+            balance_lines=True,
+            auto_scale=True,
+        )
+
+        # When: the canvas round-trips through JSON
+        loaded = Canvas.from_json(canvas.to_json())
+
+        # Then: the public model fields are preserved
+        assert len(loaded.layers) == 1
+        assert isinstance(loaded.layers[0], TextLayer)
+        assert loaded.layers[0].font_source == "google"
+        assert loaded.layers[0].font_variations == {"wght": 650.0}
+        assert loaded.layers[0].emoji_style == "color"
+        assert loaded.layers[0].max_height == "40%"
+        assert loaded.layers[0].min_size == 18
+        assert loaded.layers[0].balance_lines is True
+        assert loaded.layers[0].auto_scale is True
+
+    def test_should_inspect_auto_fit_v2_final_box_and_lines(self):
+        """Inspection reports the same fitted size and balanced lines used for rendering"""
+        from quickthumb import Canvas
+
+        # Given: a headline constrained by width and height
+        canvas = (
+            Canvas(420, 220)
+            .background(color="#FFFFFF")
+            .text(
+                "Alpha beta gamma delta",
+                font="Roboto",
+                size=48,
+                color="#111111",
+                position=(210, 110),
+                align="center",
+                max_width=210,
+                max_height=78,
+                min_size=18,
+                balance_lines=True,
+                auto_scale=True,
+            )
+        )
+
+        # When: inspecting the resolved layout
+        layer = canvas.inspect().layers[1]
+
+        # Then: the fitted bbox satisfies both constraints and exposes final layout controls
+        assert layer.bbox is not None
+        assert layer.bbox.width <= 210
+        assert layer.bbox.height <= 78
+        assert layer.text is not None
+        assert layer.text.auto_scaled is True
+        assert layer.text.effective_font_size is not None
+        assert 18 <= layer.text.effective_font_size <= 48
+        assert layer.text.max_height == 78
+        assert layer.text.min_size == 18
+        assert layer.text.balance_lines is True
+        assert layer.text.wrapped_lines == ["Alpha beta", "gamma delta"]
+
+    def test_should_render_emoji_with_default_monochrome_pipeline(self, tmp_path):
+        """Emoji text continues rendering when the color emoji groundwork is disabled"""
+        from quickthumb import Canvas
+
+        # Given: a text layer containing emoji with default monochrome behavior
+        canvas = (
+            Canvas(240, 120)
+            .background(color="#FFFFFF")
+            .text("Launch 🚀", font="NotoSans", size=32, color="#111111", position=(10, 40))
+        )
+
+        # When: rendering the canvas
+        output = tmp_path / "emoji.png"
+        canvas.render(str(output))
+
+        # Then: rendering succeeds and produces a non-empty image
+        assert output.exists()
+        assert output.stat().st_size > 0
+
+
 class TestTextWrapping:
     """Test suite for text word-wrapping behaviour"""
 
@@ -1118,6 +1225,9 @@ class TestTextRotation:
                 "type": "text",
                 "content": "Rotated",
                 "font": None,
+                "font_source": "auto",
+                "font_variations": {},
+                "emoji_style": "monochrome",
                 "size": 48,
                 "color": None,
                 "fill": None,
@@ -1127,6 +1237,9 @@ class TestTextRotation:
                 "italic": False,
                 "weight": None,
                 "max_width": None,
+                "max_height": None,
+                "min_size": 1,
+                "balance_lines": False,
                 "effects": [],
                 "line_height": None,
                 "letter_spacing": None,
@@ -1242,6 +1355,9 @@ class TestTextEffects:
                 "type": "text",
                 "content": "Hello",
                 "font": None,
+                "font_source": "auto",
+                "font_variations": {},
+                "emoji_style": "monochrome",
                 "size": 72,
                 "color": None,
                 "fill": None,
@@ -1251,6 +1367,9 @@ class TestTextEffects:
                 "italic": False,
                 "weight": None,
                 "max_width": None,
+                "max_height": None,
+                "min_size": 1,
+                "balance_lines": False,
                 "effects": [{"type": "stroke", "width": 3, "color": "#000000"}],
                 "line_height": None,
                 "letter_spacing": None,
@@ -1369,6 +1488,9 @@ class TestTextEffects:
                 "type": "text",
                 "content": "Hello",
                 "font": None,
+                "font_source": "auto",
+                "font_variations": {},
+                "emoji_style": "monochrome",
                 "size": 72,
                 "color": None,
                 "fill": None,
@@ -1378,6 +1500,9 @@ class TestTextEffects:
                 "italic": False,
                 "weight": None,
                 "max_width": None,
+                "max_height": None,
+                "min_size": 1,
+                "balance_lines": False,
                 "effects": [
                     {
                         "type": "shadow",
@@ -1518,6 +1643,9 @@ class TestTextEffects:
                 "type": "text",
                 "content": "Hello",
                 "font": None,
+                "font_source": "auto",
+                "font_variations": {},
+                "emoji_style": "monochrome",
                 "size": 72,
                 "color": None,
                 "fill": None,
@@ -1527,6 +1655,9 @@ class TestTextEffects:
                 "italic": False,
                 "weight": None,
                 "max_width": None,
+                "max_height": None,
+                "min_size": 1,
+                "balance_lines": False,
                 "effects": [{"type": "glow", "color": "#FF0000", "radius": 10, "opacity": 0.9}],
                 "line_height": None,
                 "letter_spacing": None,

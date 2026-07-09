@@ -472,7 +472,13 @@ def _layout_simple(
 
     if layer.max_width:
         max_width_px = parse_coordinate(layer.max_width, canvas._ctx.width)
-        lines_text = text._wrap_text(content, font, max_width_px, layer.letter_spacing)
+        lines_text = text._wrap_text(
+            content,
+            font,
+            max_width_px,
+            layer.letter_spacing,
+            balance_lines=layer.balance_lines,
+        )
         return _layout_simple_multiline(canvas, layer, lines_text, font, color)
     if "\n" in content:
         return _layout_simple_multiline(canvas, layer, content.split("\n"), font, color)
@@ -684,7 +690,7 @@ def _layout_rich(canvas, layer) -> tuple[list[list[TextRunLayout]], list[int]]:
     text = canvas._text
     fonts = canvas._fonts
 
-    lines_data = text._prepare_rich_text_lines(layer, apply_wrapping=not layer.auto_scale)
+    lines_data = text._prepare_rich_text_lines(layer, apply_wrapping=layer.max_width is not None)
     line_heights, total_height = text._calculate_rich_text_dimensions(layer, lines_data)
     base_x, start_y = text._calculate_start_position(layer, total_height)
 
@@ -697,7 +703,13 @@ def _layout_rich(canvas, layer) -> tuple[list[list[TextRunLayout]], list[int]]:
         line_width = 0
         for part in line_parts:
             font = fonts.load_font_variant(
-                part["font_name"], part["size"], part["bold"], part["italic"], part["weight"]
+                part["font_name"],
+                part["size"],
+                part["bold"],
+                part["italic"],
+                part["weight"],
+                part["font_source"],
+                part["font_variations"],
             )
             width, _ = text.measure_text_bounds(part["text"], font, part["letter_spacing"])
             metadata.append((font, width))

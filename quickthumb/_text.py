@@ -38,6 +38,9 @@ class TextPartData(TypedDict):
     color: tuple[int, ...]
     fill: "LinearGradient | RadialGradient | TextFillImage | None"
     font_name: str | None
+    font_source: str
+    font_variations: dict[str, float]
+    emoji_style: str
     size: int
     bold: bool
     italic: bool
@@ -92,10 +95,12 @@ class TextEngine:
         else:
             self._render_simple_text(image, layer)
 
-    def _find_max_fitting_size(self, max_size: int, fits: Callable[[int], bool]) -> int:
-        """Binary search for the largest font size in [1, max_size] where fits() returns True."""
-        best = 1
-        lo, hi = 1, max_size
+    def _find_max_fitting_size(
+        self, min_size: int, max_size: int, fits: Callable[[int], bool]
+    ) -> int:
+        """Binary search for the largest font size in [min_size, max_size] that fits."""
+        best = min_size
+        lo, hi = min_size, max_size
         while lo <= hi:
             mid = (lo + hi) // 2
             if fits(mid):
@@ -106,23 +111,71 @@ class TextEngine:
         return best
 
     def _auto_scale_simple_text(self, layer: TextLayer) -> TextLayer:
-        assert layer.max_width is not None
-        max_width_px = parse_coordinate(layer.max_width, self._ctx.width)
+        max_width_px = (
+            parse_coordinate(layer.max_width, self._ctx.width)
+            if layer.max_width is not None
+            else None
+        )
+        max_height_px = (
+            parse_coordinate(layer.max_height, self._ctx.height)
+            if layer.max_height is not None
+            else None
+        )
         base_size = layer.size or DEFAULT_TEXT_SIZE
         content = layer.content if isinstance(layer.content, str) else ""
 
         def fits(size: int) -> bool:
             font = self._fonts.load_font_variant(
-                layer.font, size, layer.bold, layer.italic, layer.weight
+                layer.font,
+                size,
+                layer.bold,
+                layer.italic,
+                layer.weight,
+                layer.font_source,
+                layer.font_variations,
             )
-            lines = self._wrap_text(content, font, max_width_px, layer.letter_spacing)
-            return all(
-                self.measure_text_bounds(line, font, layer.letter_spacing or 0)[0] <= max_width_px
-                for line in lines
+            lines = self._simple_lines_for_layer(layer, content, font, max_width_px)
+            width, height = self.measure_text_bounds(
+                "\n".join(lines),
+                font,
+                layer.letter_spacing or 0,
+                layer.line_height or DEFAULT_LINE_HEIGHT_MULTIPLIER,
             )
+            return self._fits_constraints(width, height, max_width_px, max_height_px)
 
-        best_size = self._find_max_fitting_size(base_size, fits)
-        return layer.model_copy(update={"size": best_size})
+        max_size = max(layer.min_size, base_size)
+        best_size = self._find_max_fitting_size(layer.min_size, max_size, fits)
+        return layer.model_copy(update={"size": best_size, "auto_scale": False})
+
+    def _simple_lines_for_layer(
+        self,
+        layer: TextLayer,
+        content: str,
+        font: FontType,
+        max_width_px: int | None,
+    ) -> list[str]:
+        if max_width_px is not None:
+            return self._wrap_text(
+                content,
+                font,
+                max_width_px,
+                layer.letter_spacing,
+                balance_lines=layer.balance_lines,
+            )
+        if "\n" in content:
+            return content.split("\n")
+        return [content]
+
+    def _fits_constraints(
+        self,
+        width: int,
+        height: int,
+        max_width_px: int | None,
+        max_height_px: int | None,
+    ) -> bool:
+        if max_width_px is not None and width > max_width_px:
+            return False
+        return not (max_height_px is not None and height > max_height_px)
 
     def _scale_rich_text_parts(self, layer: TextLayer, scale_factor: float) -> list[TextPart]:
         return [
@@ -136,32 +189,53 @@ class TextEngine:
         width = 0
         for part in line_parts:
             font = self._fonts.load_font_variant(
-                part["font_name"], part["size"], part["bold"], part["italic"], part["weight"]
+                part["font_name"],
+                part["size"],
+                part["bold"],
+                part["italic"],
+                part["weight"],
+                part["font_source"],
+                part["font_variations"],
             )
             w, _ = self.measure_text_bounds(part["text"], font, part["letter_spacing"])
             width += w
         return width
 
     def _auto_scale_rich_text(self, layer: TextLayer) -> TextLayer:
-        assert layer.max_width is not None
-        max_width_px = parse_coordinate(layer.max_width, self._ctx.width)
+        max_width_px = (
+            parse_coordinate(layer.max_width, self._ctx.width)
+            if layer.max_width is not None
+            else None
+        )
+        max_height_px = (
+            parse_coordinate(layer.max_height, self._ctx.height)
+            if layer.max_height is not None
+            else None
+        )
         base_size = layer.size or DEFAULT_TEXT_SIZE
 
         def fits(size: int) -> bool:
             scaled_parts = self._scale_rich_text_parts(layer, size / base_size)
             temp_layer = layer.model_copy(update={"content": scaled_parts, "size": size})
-            lines = self._prepare_rich_text_lines(temp_layer, apply_wrapping=False)
-            return all(
-                self._measure_rich_line_width(line_parts) <= max_width_px for line_parts in lines
+            lines = self._prepare_rich_text_lines(
+                temp_layer, apply_wrapping=temp_layer.max_width is not None
             )
+            width = max(
+                (self._measure_rich_line_width(line_parts) for line_parts in lines), default=0
+            )
+            _, height = self._calculate_rich_text_dimensions(temp_layer, lines)
+            return self._fits_constraints(width, height, max_width_px, max_height_px)
 
-        best_size = self._find_max_fitting_size(base_size, fits)
+        max_size = max(layer.min_size, base_size)
+        best_size = self._find_max_fitting_size(layer.min_size, max_size, fits)
         final_parts = self._scale_rich_text_parts(layer, best_size / base_size)
-        return layer.model_copy(update={"content": final_parts, "size": best_size})
+        return layer.model_copy(
+            update={"content": final_parts, "size": best_size, "auto_scale": False}
+        )
 
     def effective_layer(self, layer: TextLayer) -> TextLayer:
         """Return the layer as it will actually render, with auto-scaling applied."""
-        if not (layer.auto_scale and layer.max_width):
+        if not (layer.auto_scale and (layer.max_width or layer.max_height)):
             return layer
         if isinstance(layer.content, list):
             return self._auto_scale_rich_text(layer)
@@ -188,6 +262,8 @@ class TextEngine:
                     self.resolve_bold(part, layer),
                     self.resolve_italic(part, layer),
                     self.resolve_weight(part, layer),
+                    self._resolve_font_source(part, layer),
+                    self._resolve_font_variations(part, layer),
                 ),
                 self.resolve_letter_spacing(part, layer),
             )
@@ -195,13 +271,12 @@ class TextEngine:
     def _measure_simple_text_layout(self, layer: TextLayer) -> TextLayoutMetadata:
         font = self._fonts.load_font(layer)
         content = layer.content if isinstance(layer.content, str) else ""
-        if layer.max_width:
-            max_width_px = parse_coordinate(layer.max_width, self._ctx.width)
-            lines = self._wrap_text(content, font, max_width_px, layer.letter_spacing)
-        elif "\n" in content:
-            lines = content.split("\n")
-        else:
-            lines = [content]
+        max_width_px = (
+            parse_coordinate(layer.max_width, self._ctx.width)
+            if layer.max_width is not None
+            else None
+        )
+        lines = self._simple_lines_for_layer(layer, content, font, max_width_px)
         size = self.measure_text_bounds(
             "\n".join(lines),
             font,
@@ -217,7 +292,7 @@ class TextEngine:
         }
 
     def _measure_rich_text_layout(self, layer: TextLayer) -> TextLayoutMetadata:
-        lines = self._prepare_rich_text_lines(layer, apply_wrapping=not layer.auto_scale)
+        lines = self._prepare_rich_text_lines(layer, apply_wrapping=layer.max_width is not None)
         line_text = tuple("".join(part["text"] for part in line) for line in lines)
         sizes = tuple(sorted({part["size"] for line in lines for part in line}))
         effective_size = min(sizes) if sizes else layer.size or DEFAULT_TEXT_SIZE
@@ -235,7 +310,7 @@ class TextEngine:
 
     def _render_simple_text(self, image: Image.Image, layer: TextLayer):
         # Apply auto-scaling if enabled
-        if layer.auto_scale and layer.max_width:
+        if layer.auto_scale and (layer.max_width or layer.max_height):
             layer = self._auto_scale_simple_text(layer)
 
         # If rotation is needed, render to temporary image first
@@ -255,7 +330,7 @@ class TextEngine:
 
         if layer.max_width:
             max_width_px = parse_coordinate(layer.max_width, self._ctx.width)
-            lines = self._wrap_text(content, font, max_width_px, layer.letter_spacing)
+            lines = self._simple_lines_for_layer(layer, content, font, max_width_px)
             self._render_multiline_text(draw, lines, font, color, layer, image)
         elif "\n" in content:
             lines = content.split("\n")
@@ -272,6 +347,7 @@ class TextEngine:
                 shadow_effects,
                 stroke_effects,
                 background_effects,
+                layer.emoji_style == "color",
             )
         else:
             self._render_normal_text(
@@ -285,6 +361,7 @@ class TextEngine:
                 shadow_effects,
                 stroke_effects,
                 background_effects,
+                layer.emoji_style == "color",
             )
 
     def _render_rich_text(self, image: Image.Image, layer: TextLayer):
@@ -292,7 +369,7 @@ class TextEngine:
             return
 
         # Apply auto-scaling if enabled
-        if layer.auto_scale and layer.max_width:
+        if layer.auto_scale and (layer.max_width or layer.max_height):
             layer = self._auto_scale_rich_text(layer)
 
         # If rotation is needed, render to temporary image first
@@ -301,7 +378,7 @@ class TextEngine:
             return
 
         draw = ImageDraw.Draw(image)
-        lines = self._prepare_rich_text_lines(layer, apply_wrapping=not layer.auto_scale)
+        lines = self._prepare_rich_text_lines(layer, apply_wrapping=layer.max_width is not None)
         line_heights, total_height = self._calculate_rich_text_dimensions(layer, lines)
         base_x, start_y = self._calculate_start_position(layer, total_height)
 
@@ -327,6 +404,8 @@ class TextEngine:
                         part["bold"],
                         part["italic"],
                         part["weight"],
+                        part["font_source"],
+                        part["font_variations"],
                     )
                     lh = self._calculate_line_height(font, part["line_height_multiplier"])
                     max_line_height = max(max_line_height, lh)
@@ -365,6 +444,8 @@ class TextEngine:
                     part["bold"],
                     part["italic"],
                     part["weight"],
+                    part["font_source"],
+                    part["font_variations"],
                 )
 
                 w, _ = self.measure_text_bounds(part["text"], font, part["letter_spacing"])
@@ -404,6 +485,9 @@ class TextEngine:
             italic = self.resolve_italic(part, layer)
             weight = self.resolve_weight(part, layer)
             font_name = self._resolve_font_name(part, layer)
+            font_source = self._resolve_font_source(part, layer)
+            font_variations = self._resolve_font_variations(part, layer)
+            emoji_style = self._resolve_emoji_style(part, layer)
             lh_mult = self._resolve_line_height(part, layer)
             letter_spacing = self.resolve_letter_spacing(part, layer)
 
@@ -413,6 +497,9 @@ class TextEngine:
                 "color": color,
                 "fill": self._resolve_fill(part, layer),
                 "font_name": font_name,
+                "font_source": font_source,
+                "font_variations": font_variations,
+                "emoji_style": emoji_style,
                 "size": size,
                 "bold": bold,
                 "italic": italic,
@@ -452,14 +539,22 @@ class TextEngine:
             italic = self.resolve_italic(part, layer)
             weight = self.resolve_weight(part, layer)
             font_name = self._resolve_font_name(part, layer)
+            font_source = self._resolve_font_source(part, layer)
+            font_variations = self._resolve_font_variations(part, layer)
+            emoji_style = self._resolve_emoji_style(part, layer)
             lh_mult = self._resolve_line_height(part, layer)
             letter_spacing = self.resolve_letter_spacing(part, layer)
             combined_effects = list(layer.effects) + list(part.effects)
-            font = self._fonts.load_font_variant(font_name, size, bold, italic, weight)
+            font = self._fonts.load_font_variant(
+                font_name, size, bold, italic, weight, font_source, font_variations
+            )
             part_template: TextPartData = {
                 "color": color,
                 "fill": self._resolve_fill(part, layer),
                 "font_name": font_name,
+                "font_source": font_source,
+                "font_variations": font_variations,
+                "emoji_style": emoji_style,
                 "size": size,
                 "bold": bold,
                 "italic": italic,
@@ -549,6 +644,21 @@ class TextEngine:
         if part.font is not None:
             return part.font
         return layer.font
+
+    def _resolve_font_source(self, part: TextPart, layer: TextLayer):
+        if part.font_source != "auto":
+            return part.font_source
+        return layer.font_source
+
+    def _resolve_font_variations(self, part: TextPart, layer: TextLayer):
+        if part.font_variations:
+            return part.font_variations
+        return layer.font_variations
+
+    def _resolve_emoji_style(self, part: TextPart, layer: TextLayer):
+        if part.emoji_style != "monochrome":
+            return part.emoji_style
+        return layer.emoji_style
 
     def _resolve_line_height(self, part: TextPart, layer: TextLayer):
         if part.line_height is not None:
@@ -684,6 +794,7 @@ class TextEngine:
                         letter_spacing,
                         [stroke],
                         char_widths,
+                        part_data["emoji_style"] == "color",
                     )
             fill_img = self._create_text_fill_image((total_width, text_height), part_fill)
             bbox_ls = font.getbbox(text, anchor="ls")
@@ -709,10 +820,17 @@ class TextEngine:
                 part_data["color"],
                 letter_spacing,
                 part_data["stroke_effects"],
+                embedded_color=part_data["emoji_style"] == "color",
             )
         else:
             self._draw_text(
-                draw, text, (x, y), font, part_data["color"], part_data["stroke_effects"]
+                draw,
+                text,
+                (x, y),
+                font,
+                part_data["color"],
+                part_data["stroke_effects"],
+                embedded_color=part_data["emoji_style"] == "color",
             )
 
     def _render_multiline_text(
@@ -867,10 +985,25 @@ class TextEngine:
 
                 if layer.letter_spacing:
                     self._draw_text_with_letter_spacing(
-                        draw, line, (x, y), font, color, layer.letter_spacing, stroke_effects
+                        draw,
+                        line,
+                        (x, y),
+                        font,
+                        color,
+                        layer.letter_spacing,
+                        stroke_effects,
+                        embedded_color=layer.emoji_style == "color",
                     )
                 else:
-                    self._draw_text(draw, line, (x, y), font, color, stroke_effects)
+                    self._draw_text(
+                        draw,
+                        line,
+                        (x, y),
+                        font,
+                        color,
+                        stroke_effects,
+                        embedded_color=layer.emoji_style == "color",
+                    )
 
     def get_text_base_position(self, layer: TextLayer) -> tuple[int, int]:
         """Return base (x, y) for text, deriving from alignment when position is not set."""
@@ -912,6 +1045,7 @@ class TextEngine:
         shadow_effects: list[Shadow],
         stroke_effects: list[Stroke],
         background_effects: list[Background],
+        embedded_color: bool = False,
     ):
         letter_spacing = layer.letter_spacing or 0
         total_width, char_widths = self._calculate_spaced_text_width(content, font, letter_spacing)
@@ -970,7 +1104,15 @@ class TextEngine:
             image.alpha_composite(fill_img, (x, y))
         else:
             self._draw_text_with_letter_spacing(
-                draw, content, position, font, color, letter_spacing, stroke_effects, char_widths
+                draw,
+                content,
+                position,
+                font,
+                color,
+                letter_spacing,
+                stroke_effects,
+                char_widths,
+                embedded_color,
             )
 
     def _render_normal_text(
@@ -985,6 +1127,7 @@ class TextEngine:
         shadow_effects: list[Shadow],
         stroke_effects: list[Stroke],
         background_effects: list[Background],
+        embedded_color: bool = False,
     ):
         position = self.get_text_base_position(layer)
         anchor = self._get_text_anchor(layer.align)
@@ -1001,7 +1144,16 @@ class TextEngine:
                 image, content, position, font, layer.fill, stroke_effects, anchor
             )
         else:
-            self._draw_text(draw, content, position, font, color, stroke_effects, anchor)
+            self._draw_text(
+                draw,
+                content,
+                position,
+                font,
+                color,
+                stroke_effects,
+                anchor,
+                embedded_color,
+            )
 
     def _render_rotated_simple_text(self, image: Image.Image, layer: TextLayer):
         """Render simple text with rotation applied.
@@ -1135,7 +1287,13 @@ class TextEngine:
         return h_anchor + v_anchor
 
     def _wrap_text(
-        self, text: str, font, max_width: int, letter_spacing: int | None = None
+        self,
+        text: str,
+        font,
+        max_width: int,
+        letter_spacing: int | None = None,
+        *,
+        balance_lines: bool = False,
     ) -> list[str]:
         wrapped_lines: list[str] = []
 
@@ -1144,6 +1302,11 @@ class TextEngine:
 
             if not words:
                 wrapped_lines.append("")
+                continue
+
+            if balance_lines:
+                balanced = self._balanced_wrap_words(words, font, max_width, letter_spacing or 0)
+                wrapped_lines.extend(balanced)
                 continue
 
             current_line: list[str] = []
@@ -1169,6 +1332,84 @@ class TextEngine:
             if current_line:
                 wrapped_lines.append(" ".join(current_line))
 
+        return wrapped_lines
+
+    def _balanced_wrap_words(
+        self,
+        words: list[str],
+        font: FontType,
+        max_width: int,
+        letter_spacing: int,
+    ) -> list[str]:
+        greedy = self._greedy_wrap_words(words, font, max_width, letter_spacing)
+        if len(greedy) <= 1:
+            return greedy
+
+        line_count = len(greedy)
+        widths = [self.measure_text_bounds(word, font, letter_spacing)[0] for word in words]
+        space_width = self.measure_text_bounds(" ", font, letter_spacing)[0]
+        total_width = sum(widths) + space_width * max(0, len(words) - 1)
+        target_width = max(1, total_width // line_count)
+
+        lines: list[str] = []
+        current_words: list[str] = []
+        current_width = 0
+        for index, word in enumerate(words):
+            word_width = widths[index]
+            test_width = (
+                word_width if not current_words else current_width + space_width + word_width
+            )
+            remaining_words = len(words) - index - 1
+            remaining_lines = line_count - len(lines) - 1
+            should_break = (
+                current_words
+                and remaining_lines > 0
+                and remaining_words >= remaining_lines
+                and test_width > target_width
+            )
+            if should_break:
+                lines.append(" ".join(current_words))
+                current_words = [word]
+                current_width = word_width
+                continue
+            if test_width <= max_width or not current_words:
+                current_words.append(word)
+                current_width = test_width
+            else:
+                lines.append(" ".join(current_words))
+                current_words = [word]
+                current_width = word_width
+
+        if current_words:
+            lines.append(" ".join(current_words))
+        return lines
+
+    def _greedy_wrap_words(
+        self,
+        words: list[str],
+        font: FontType,
+        max_width: int,
+        letter_spacing: int,
+    ) -> list[str]:
+        wrapped_lines: list[str] = []
+        current_line: list[str] = []
+        for word in words:
+            test_line = " ".join(current_line + [word])
+            width, _ = self.measure_text_bounds(test_line, font, letter_spacing)
+            if width <= max_width:
+                current_line.append(word)
+            elif current_line:
+                wrapped_lines.append(" ".join(current_line))
+                current_line = [word]
+            else:
+                warnings.warn(
+                    f"Word '{word}' exceeds max_width and cannot be wrapped.",
+                    UserWarning,
+                    stacklevel=2,
+                )
+                wrapped_lines.append(word)
+        if current_line:
+            wrapped_lines.append(" ".join(current_line))
         return wrapped_lines
 
     def measure_text_bounds(
@@ -1282,6 +1523,7 @@ class TextEngine:
         letter_spacing: int,
         stroke_effects: list[Stroke] | None = None,
         char_widths: list[int] | None = None,
+        embedded_color: bool = False,
     ):
         x, y = position
         widths = char_widths if char_widths is not None else self._calculate_char_widths(text, font)
@@ -1295,7 +1537,16 @@ class TextEngine:
         baseline_y = int(y - bbox[1])
 
         for char, char_x in self._iterate_letter_spaced_positions(text, letter_spacing, widths, x):
-            self._draw_text(draw, char, (char_x, baseline_y), font, color, strokes, "ls")
+            self._draw_text(
+                draw,
+                char,
+                (char_x, baseline_y),
+                font,
+                color,
+                strokes,
+                "ls",
+                embedded_color,
+            )
 
     def _draw_text(
         self,
@@ -1306,9 +1557,25 @@ class TextEngine:
         color: tuple[int, ...],
         stroke_effects: list[Stroke],
         anchor: str = "lt",
+        embedded_color: bool = False,
     ):
         if stroke_effects:
             for stroke in stroke_effects:
+                if embedded_color:
+                    try:
+                        draw.text(
+                            position,
+                            text,
+                            font=font,
+                            fill=color,
+                            stroke_width=stroke.width,
+                            stroke_fill=self._effects.parse_color(stroke.color),
+                            anchor=anchor,
+                            embedded_color=True,
+                        )
+                        continue
+                    except TypeError:
+                        pass
                 draw.text(
                     position,
                     text,
@@ -1319,6 +1586,19 @@ class TextEngine:
                     anchor=anchor,
                 )
         else:
+            if embedded_color:
+                try:
+                    draw.text(
+                        position,
+                        text,
+                        font=font,
+                        fill=color,
+                        anchor=anchor,
+                        embedded_color=True,
+                    )
+                    return
+                except TypeError:
+                    pass
             draw.text(position, text, font=font, fill=color, anchor=anchor)
 
     def _render_glow(

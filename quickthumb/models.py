@@ -1,6 +1,6 @@
 import re
 from enum import Enum
-from typing import Annotated, Any, Literal, TypeVar
+from typing import Annotated, Any, Literal, TypeAlias, TypeVar
 
 from pydantic import (
     AfterValidator,
@@ -34,6 +34,9 @@ PositivePercent = Annotated[
     WithJsonSchema({"type": "string", "pattern": POSITIVE_PERCENT_PATTERN}),
 ]
 Position = tuple[int | PercentCoordinate, int | PercentCoordinate]
+FontSource: TypeAlias = Literal["auto", "system", "google"]
+EmojiStyle: TypeAlias = Literal["monochrome", "color"]
+FontVariations: TypeAlias = dict[str, float]
 
 
 def validate_hex_color(color: str) -> str:
@@ -576,6 +579,9 @@ class TextPart(quickthumbModel):
     line_height: PositiveFloat | None = None
     letter_spacing: int | None = None
     font: str | None = None
+    font_source: FontSource = "auto"
+    font_variations: FontVariations = Field(default_factory=dict)
+    emoji_style: EmojiStyle = "monochrome"
 
     @model_validator(mode="after")
     def validate_weight_bold_mutual_exclusivity(self) -> "TextPart":
@@ -589,6 +595,11 @@ class TextPart(quickthumbModel):
         if not v:
             raise ValueError("text field cannot be empty")
         return v
+
+    @field_validator("font_variations")
+    @classmethod
+    def validate_font_variations(cls, v: FontVariations) -> FontVariations:
+        return _validate_font_variations(v)
 
 
 class BackgroundLayer(quickthumbModel):
@@ -632,6 +643,9 @@ class TextLayer(quickthumbModel):
     type: Literal["text"]
     content: str | list[TextPart]
     font: str | None = None
+    font_source: FontSource = "auto"
+    font_variations: FontVariations = Field(default_factory=dict)
+    emoji_style: EmojiStyle = "monochrome"
     size: PositiveInt | None = None
     color: HexColor | None = None
     fill: TextFill | None = None
@@ -641,6 +655,9 @@ class TextLayer(quickthumbModel):
     italic: bool = False
     weight: int | str | None = None
     max_width: int | PositivePercent | None = None
+    max_height: int | PositivePercent | None = None
+    min_size: PositiveInt = 1
+    balance_lines: bool = False
     effects: list[TextEffect] = []
     line_height: PositiveFloat | None = None
     letter_spacing: int | None = None
@@ -654,40 +671,35 @@ class TextLayer(quickthumbModel):
     @field_validator("max_width")
     @classmethod
     def validate_max_width(cls, v: int | str | None) -> int | str | None:
-        if v is None:
-            return v
+        return _validate_positive_dimension(v, "max_width")
 
-        if isinstance(v, str):
-            match = re.fullmatch(r"(\d+(\.\d+)?)%", v)
-            if not match:
-                raise ValueError(f"invalid percentage format: {v}")
-            percentage = float(match.group(1))
-            if percentage <= 0:
-                raise ValueError("max_width must be positive")
-            return v
-
-        if v <= 0:
-            raise ValueError("max_width must be positive")
-
-        return v
-
-    @field_validator("content")
+    @field_validator("max_height")
     @classmethod
-    def validate_content(cls, v: str | list[TextPart]) -> str | list[TextPart]:
-        if isinstance(v, list) and len(v) == 0:
-            raise ValueError("content list cannot be empty")
+    def validate_max_height(cls, v: int | str | None) -> int | str | None:
+        return _validate_positive_dimension(v, "max_height")
+
+    @field_validator("font_variations")
+    @classmethod
+    def validate_font_variations(cls, v: FontVariations) -> FontVariations:
+        return _validate_font_variations(v)
+
+    @field_validator("weight")
+    @classmethod
+    def validate_weight(cls, v: int | str | None) -> int | str | None:
+        if isinstance(v, int) and not 1 <= v <= 1000:
+            raise ValueError("weight must be between 1 and 1000")
         return v
 
     @model_validator(mode="after")
-    def validate_weight_bold_mutual_exclusivity(self) -> "TextLayer":
-        if self.weight is not None and self.bold is True:
-            raise ValidationError("cannot specify both weight and bold parameters")
+    def validate_min_size_not_above_size(self) -> "TextLayer":
+        if self.size is not None and self.min_size > self.size:
+            raise ValidationError("min_size cannot exceed size")
         return self
 
     @model_validator(mode="after")
-    def validate_auto_scale_requires_max_width(self) -> "TextLayer":
-        if self.auto_scale and not self.max_width:
-            raise ValidationError("auto_scale requires max_width to be set")
+    def validate_balance_lines_requires_width(self) -> "TextLayer":
+        if self.balance_lines and not self.max_width:
+            raise ValidationError("balance_lines requires max_width to be set")
         return self
 
     @field_validator("position", mode="before")
@@ -708,12 +720,59 @@ class TextLayer(quickthumbModel):
 
         return tuple(v)
 
+    @field_validator("content")
+    @classmethod
+    def validate_content(cls, v: str | list[TextPart]) -> str | list[TextPart]:
+        if isinstance(v, list) and len(v) == 0:
+            raise ValueError("content list cannot be empty")
+        return v
+
+    @model_validator(mode="after")
+    def validate_weight_bold_mutual_exclusivity(self) -> "TextLayer":
+        if self.weight is not None and self.bold is True:
+            raise ValidationError("cannot specify both weight and bold parameters")
+        return self
+
+    @model_validator(mode="after")
+    def validate_auto_scale_requires_bounds(self) -> "TextLayer":
+        if self.auto_scale and not (self.max_width or self.max_height):
+            raise ValidationError("auto_scale requires max_width or max_height to be set")
+        return self
+
     @field_serializer("align")
     def serialize_align(self, align: Align | None) -> str | None:
         """Serialize TextAlign to its string value for JSON."""
         if align is None:
             return None
         return align.value
+
+
+def _validate_positive_dimension(v: int | str | None, field_name: str) -> int | str | None:
+    if v is None:
+        return v
+
+    if isinstance(v, str):
+        match = re.fullmatch(r"(\d+(\.\d+)?)%", v)
+        if not match:
+            raise ValueError(f"invalid percentage format: {v}")
+        percentage = float(match.group(1))
+        if percentage <= 0:
+            raise ValueError(f"{field_name} must be positive")
+        return v
+
+    if v <= 0:
+        raise ValueError(f"{field_name} must be positive")
+
+    return v
+
+
+def _validate_font_variations(v: FontVariations) -> FontVariations:
+    for axis, value in v.items():
+        if not re.fullmatch(r"[A-Za-z0-9]{4}", axis):
+            raise ValueError("font_variations axes must be four alphanumeric characters")
+        if not isinstance(value, int | float):
+            raise ValueError("font_variations values must be numbers")
+    return dict(v)
 
 
 class OutlineLayer(quickthumbModel):
@@ -1020,6 +1079,12 @@ class TextInspection(quickthumbModel):
     effective_font_size: PositiveInt | None = None
     effective_font_sizes: list[PositiveInt] = []
     max_width: int | str | None = None
+    max_height: int | str | None = None
+    min_size: PositiveInt = 1
+    balance_lines: bool = False
+    font_source: FontSource = "auto"
+    font_variations: FontVariations = Field(default_factory=dict)
+    emoji_style: EmojiStyle = "monochrome"
     auto_scaled: bool = False
 
 
