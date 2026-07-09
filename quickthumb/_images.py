@@ -9,11 +9,14 @@ from quickthumb._effects import EffectsEngine
 from quickthumb.errors import RenderingError
 from quickthumb.models import (
     Align,
+    BackdropBlur,
+    Duotone,
     Filter,
     FitMode,
     Glow,
     Grain,
     ImageLayer,
+    InnerShadow,
     Shadow,
     Stroke,
     SvgLayer,
@@ -148,6 +151,14 @@ class ImageEngine:
                 img = self._effects.apply_filter(img, effect)
             elif isinstance(effect, Grain):
                 img = self._effects.apply_grain(img, effect)
+            elif isinstance(effect, Duotone):
+                img = self._effects.apply_duotone(img, effect)
+            elif isinstance(effect, InnerShadow):
+                img = self._effects.apply_inner_shadow(img, effect)
+
+        for effect in layer.effects:
+            if isinstance(effect, BackdropBlur):
+                self.apply_backdrop_blur(image, img, x, y, effect)
 
         for effect in layer.effects:
             if isinstance(effect, Glow):
@@ -204,6 +215,28 @@ class ImageEngine:
             sx = x + shadow.offset_x
             sy = y + shadow.offset_y
         self._composite_clamped(canvas, shadow_img, sx, sy)
+
+    def apply_backdrop_blur(
+        self, canvas: Image.Image, img: Image.Image, x: int, y: int, effect: BackdropBlur
+    ):
+        """Blur already-painted canvas pixels through img's alpha mask."""
+        if effect.opacity == 0.0:
+            return
+
+        src_x, src_y = max(0, -x), max(0, -y)
+        dst_x, dst_y = max(0, x), max(0, y)
+        width = min(img.width - src_x, canvas.width - dst_x)
+        height = min(img.height - src_y, canvas.height - dst_y)
+        if width <= 0 or height <= 0:
+            return
+
+        box = (dst_x, dst_y, dst_x + width, dst_y + height)
+        backdrop = canvas.crop(box).filter(ImageFilter.GaussianBlur(effect.radius))
+        alpha = img.split()[3].crop((src_x, src_y, src_x + width, src_y + height))
+        if effect.opacity < 1.0:
+            alpha = alpha.point(lambda value: int(value * effect.opacity))
+        backdrop.putalpha(alpha)
+        canvas.alpha_composite(backdrop, (dst_x, dst_y))
 
     def apply_image_stroke(
         self, canvas: Image.Image, img: Image.Image, x: int, y: int, stroke: Stroke

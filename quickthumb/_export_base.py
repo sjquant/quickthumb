@@ -27,7 +27,7 @@ from quickthumb._base import (
     expanded_rotation_size,
     parse_coordinate,
 )
-from quickthumb._composition import has_layer_composition
+from quickthumb._composition import has_layer_composition, layer_depends_on_backdrop
 from quickthumb.errors import RenderingError
 from quickthumb.models import (
     Align,
@@ -133,6 +133,8 @@ def is_backdrop_dependent(layer: RenderableLayer) -> bool:
     from quickthumb.canvas import CustomLayer
 
     if isinstance(layer, CustomLayer):
+        return True
+    if layer_depends_on_backdrop(layer):
         return True
     return getattr(layer, "blend_mode", None) is not None
 
