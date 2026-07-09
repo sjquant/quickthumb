@@ -97,6 +97,14 @@ class FitMode(Enum):
     FILL = "fill"
 
 
+NormalizedUnitFloat = Annotated[
+    float,
+    Field(ge=0.0, le=1.0),
+    WithJsonSchema({"type": "number", "minimum": 0.0, "maximum": 1.0}),
+]
+FocalPoint = tuple[NormalizedUnitFloat, NormalizedUnitFloat]
+
+
 class Align(Enum):
     """Text alignment enum supporting all 9 combinations of horizontal and vertical alignment."""
 
@@ -193,6 +201,21 @@ class quickthumbModel(BaseModel):  # noqa: N801
 
 
 QuickThumbModel = quickthumbModel
+
+
+class FaceRegion(quickthumbModel):
+    """Normalized source-image face box used to guide cover crops."""
+
+    x: NormalizedUnitFloat
+    y: NormalizedUnitFloat
+    width: PositiveFloat
+    height: PositiveFloat
+
+    @model_validator(mode="after")
+    def validate_bounds(self) -> "FaceRegion":
+        if self.x + self.width > 1.0 or self.y + self.height > 1.0:
+            raise ValueError("face region must fit within normalized image bounds")
+        return self
 
 
 def _validate_required_position(v: tuple | list | None) -> Position:
@@ -299,6 +322,8 @@ class TextFillImage(quickthumbModel):
     fit: Annotated[
         FitMode, BeforeValidator(lambda v: enum_converter(FitMode)(v) if v else FitMode.COVER)
     ] = FitMode.COVER
+    focal_point: FocalPoint | None = None
+    faces: list[FaceRegion] = []
 
 
 TextFill = Annotated[LinearGradient | RadialGradient | TextFillImage, Discriminator("type")]
@@ -581,6 +606,8 @@ class BackgroundLayer(quickthumbModel):
     fit: Annotated[
         FitMode | None, AfterValidator(lambda v: enum_converter(FitMode)(v) if v else None)
     ] = None
+    focal_point: FocalPoint | None = None
+    faces: list[FaceRegion] = []
     effects: list[BackgroundEffect] = []
 
     @field_validator("color")
@@ -714,6 +741,8 @@ class ImageLayer(quickthumbModel):
     fit: Annotated[
         FitMode | None, AfterValidator(lambda v: enum_converter(FitMode)(v) if v else None)
     ] = None
+    focal_point: FocalPoint | None = None
+    faces: list[FaceRegion] = []
     blend_mode: Annotated[
         BlendMode | None, AfterValidator(lambda v: enum_converter(BlendMode)(v) if v else None)
     ] = None
