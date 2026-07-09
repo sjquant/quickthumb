@@ -325,6 +325,40 @@ class TestFontCacheFallbackMechanism:
         assert "Roboto" in font_path
 
 
+class TestVariableFontDiscovery:
+    def test_should_discover_bracket_style_variable_font_filename(self, monkeypatch):
+        """Variable font files with bracket axes are indexed by clean family name"""
+        from quickthumb.font_cache import FontCache
+
+        with tempfile.TemporaryDirectory() as font_dir:
+            # Given: a variable font filename that declares axes in brackets
+            font_path = os.path.join(font_dir, "AcmeItalic[wdth,wght].ttf")
+            open(font_path, "wb").close()
+            monkeypatch.setenv("QUICKTHUMB_FONT_DIR", font_dir)
+
+            # When: looking up the clean italic family
+            discovered = FontCache().find_font("Acme", italic=True)
+
+            # Then: the variable font file is discoverable
+            assert discovered == font_path
+
+    def test_should_discover_google_style_variable_font_filename(self, monkeypatch):
+        """Google-style VariableFont filenames are indexed by clean family name"""
+        from quickthumb.font_cache import FontCache
+
+        with tempfile.TemporaryDirectory() as font_dir:
+            # Given: a Google Fonts variable filename with an axis suffix
+            font_path = os.path.join(font_dir, "AcmeSans-VariableFont_wght.ttf")
+            open(font_path, "wb").close()
+            monkeypatch.setenv("QUICKTHUMB_FONT_DIR", font_dir)
+
+            # When: looking up the family
+            discovered = FontCache().find_font("AcmeSans")
+
+            # Then: the variable font file is discoverable
+            assert discovered == font_path
+
+
 class TestFontEngineLoading:
     def test_should_cache_google_font_by_family_weight_and_style(self, monkeypatch):
         """Google Fonts family loading uses deterministic cached CSS and font files"""
@@ -484,6 +518,41 @@ class TestFontEngineLoading:
                 pytest.raises(RenderingError, match="not a valid font"),
             ):
                 # Then: invalid font bytes are rejected
+                canvas.render(os.path.join(cache_dir, "output.png"))
+
+    def test_should_raise_rendering_error_when_google_css_has_no_font_url(self, monkeypatch):
+        """Google font CSS without a downloadable URL fails after refresh"""
+        from unittest.mock import MagicMock, patch
+
+        from quickthumb import Canvas
+        from quickthumb.errors import RenderingError
+
+        with tempfile.TemporaryDirectory() as cache_dir:
+            # Given: Google Fonts CSS responses contain no url() font entries
+            monkeypatch.setenv("QUICKTHUMB_FONT_CACHE_DIR", cache_dir)
+            css_response_a = MagicMock()
+            css_response_a.__enter__ = lambda s: s
+            css_response_a.__exit__ = MagicMock(return_value=False)
+            css_response_a.read.return_value = b"@font-face{src:local('Roboto');}"
+            css_response_b = MagicMock()
+            css_response_b.__enter__ = lambda s: s
+            css_response_b.__exit__ = MagicMock(return_value=False)
+            css_response_b.read.return_value = b"@font-face{src:local('Roboto');}"
+            canvas = (
+                Canvas(200, 100)
+                .background(color="#FFFFFF")
+                .text("Hello", font="Roboto", font_source="google", size=24, color="#000000")
+            )
+
+            # When: rendering the text
+            with (
+                patch(
+                    "quickthumb._fonts.urlopen",
+                    side_effect=[css_response_a, css_response_b],
+                ),
+                pytest.raises(RenderingError, match="did not return a font file"),
+            ):
+                # Then: a clear RenderingError is raised after refetching CSS
                 canvas.render(os.path.join(cache_dir, "output.png"))
 
     def test_should_cache_webfont_url_with_query_string_and_warn_for_style_flags(self, monkeypatch):
