@@ -412,6 +412,63 @@ class TestFontEngineLoading:
             assert os.path.exists(os.path.join(cache_dir, f"quickthumb_google_{cache_hash}.css"))
             assert os.path.exists(os.path.join(cache_dir, f"quickthumb_google_{cache_hash}.ttf"))
 
+    def test_should_request_variations_and_select_nearest_google_face(self, monkeypatch):
+        """Google loading keys variation requests and chooses the nearest returned face"""
+        import hashlib
+        from unittest.mock import MagicMock, patch
+
+        from quickthumb import Canvas
+
+        with open("assets/fonts/Roboto-Regular.ttf", "rb") as f:
+            real_font_data = f.read()
+
+        with tempfile.TemporaryDirectory() as cache_dir:
+            # Given: Google CSS returns two static faces around a requested variable weight
+            monkeypatch.setenv("QUICKTHUMB_FONT_CACHE_DIR", cache_dir)
+            css = b"""
+            @font-face{font-family:'Roboto';font-style:normal;font-weight:600;
+            src:url(https://fonts.gstatic.com/s/roboto/v1/Roboto-600.ttf) format('truetype');}
+            @font-face{font-family:'Roboto';font-style:normal;font-weight:700;
+            src:url(https://fonts.gstatic.com/s/roboto/v1/Roboto-700.ttf) format('truetype');}
+            """
+            css_response = MagicMock()
+            css_response.__enter__ = lambda s: s
+            css_response.__exit__ = MagicMock(return_value=False)
+            css_response.read.return_value = css
+            font_response = MagicMock()
+            font_response.__enter__ = lambda s: s
+            font_response.__exit__ = MagicMock(return_value=False)
+            font_response.read.return_value = real_font_data
+            canvas = (
+                Canvas(240, 100)
+                .background(color="#FFFFFF")
+                .text(
+                    "Variable",
+                    font="Roboto",
+                    font_source="google",
+                    font_variations={"wght": 650},
+                    size=28,
+                    color="#000000",
+                )
+            )
+
+            # When: rendering with a variation request
+            with (
+                patch("quickthumb._fonts.urlopen", side_effect=[css_response, font_response]) as u,
+                pytest.warns(UserWarning, match="font_variations"),
+            ):
+                canvas.render(os.path.join(cache_dir, "output.png"))
+
+            # Then: the CSS request, selected face, cache key, and timeout are deterministic
+            css_request = u.call_args_list[0].args[0]
+            font_request = u.call_args_list[1].args[0]
+            assert "wght@0,650" in css_request.full_url
+            assert font_request.full_url.endswith("Roboto-600.ttf")
+            assert all(call.kwargs["timeout"] == 15 for call in u.call_args_list)
+            cache_hash = hashlib.md5(b"Roboto|650|0|wght=650").hexdigest()
+            assert os.path.exists(os.path.join(cache_dir, f"quickthumb_google_{cache_hash}.css"))
+            assert os.path.exists(os.path.join(cache_dir, f"quickthumb_google_{cache_hash}.ttf"))
+
     def test_should_refresh_stale_google_css_for_google_font_prefix(self, monkeypatch):
         """google: family shorthand refreshes stale CSS without a usable font URL"""
         import hashlib
@@ -617,3 +674,46 @@ class TestFontEngineLoading:
         # Then: the static font fallback still renders output
         assert output.exists()
         assert output.stat().st_size > 0
+
+    def test_should_apply_variation_axis_to_variable_font(self, tmp_path):
+        """Public rendering applies different values of a real variable font axis"""
+        from PIL import Image, ImageChops
+        from quickthumb import Canvas
+
+        # Given: the bundled variable font is rendered at two width-axis values
+        narrow = tmp_path / "narrow.png"
+        wide = tmp_path / "wide.png"
+        narrow_canvas = (
+            Canvas(500, 120)
+            .background(color="#FFFFFF")
+            .text(
+                "Variable width",
+                font="assets/fonts/RobotoFlex-Variable.ttf",
+                font_variations={"wdth": 25},
+                size=48,
+                color="#000000",
+                position=(20, 70),
+            )
+        )
+        wide_canvas = (
+            Canvas(500, 120)
+            .background(color="#FFFFFF")
+            .text(
+                "Variable width",
+                font="assets/fonts/RobotoFlex-Variable.ttf",
+                font_variations={"wdth": 151},
+                size=48,
+                color="#000000",
+                position=(20, 70),
+            )
+        )
+
+        # When: both public canvases render
+        narrow_canvas.render(str(narrow))
+        wide_canvas.render(str(wide))
+
+        # Then: changing the axis changes the rendered glyph pixels
+        difference = ImageChops.difference(
+            Image.open(narrow).convert("RGB"), Image.open(wide).convert("RGB")
+        )
+        assert difference.getbbox() is not None

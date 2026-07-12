@@ -425,6 +425,32 @@ class TestHtmlText:
         assert "color:rgb(255,69,0)" in html
         assert "color:rgb(0,191,255)" in html
 
+    def test_should_emit_resolved_variations_and_emoji_style_per_span(self):
+        """HTML spans preserve inherited and explicitly cleared font settings"""
+        # given: a layer-level variable font and color-emoji setting
+        canvas = Canvas(600, 200).text(
+            content=[
+                TextPart(text="wide "),
+                TextPart(text="plain", font_variations={}, emoji_style="monochrome"),
+            ],
+            font="assets/fonts/RobotoFlex-Variable.ttf",
+            font_variations={"wdth": 25},
+            emoji_style="color",
+            size=40,
+            position=(20, 60),
+        )
+
+        # when: exporting native HTML text
+        html = canvas.to_html()
+        spans = re.findall(r'<span style="([^"]*)">(wide |plain)</span>', html)
+
+        # then: inherited values apply only to the first span and explicit defaults clear them
+        assert len(spans) == 2
+        assert "font-variation-settings:'wdth' 25;" in spans[0][0]
+        assert "font-variant-emoji:emoji;" in spans[0][0]
+        assert "font-variation-settings" not in spans[1][0]
+        assert "font-variant-emoji:text;" in spans[1][0]
+
     def test_should_apply_stroke_and_shadow_effects(self):
         """Stroke maps to -webkit-text-stroke; shadow to an SVG blur+offset filter"""
         # given

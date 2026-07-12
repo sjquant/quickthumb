@@ -135,17 +135,42 @@ class TextEngine:
                 layer.font_variations,
             )
             lines = self._simple_lines_for_layer(layer, content, font, max_width_px)
-            width, height = self.measure_text_bounds(
-                "\n".join(lines),
-                font,
-                layer.letter_spacing or 0,
-                layer.line_height or DEFAULT_LINE_HEIGHT_MULTIPLIER,
-            )
+            if max_width_px is not None or "\n" in content:
+                width, height = self._measure_simple_lines(
+                    lines,
+                    font,
+                    layer.letter_spacing or 0,
+                    layer.line_height or DEFAULT_LINE_HEIGHT_MULTIPLIER,
+                )
+            else:
+                width, height = self.measure_text_bounds(
+                    content,
+                    font,
+                    layer.letter_spacing or 0,
+                    layer.line_height or DEFAULT_LINE_HEIGHT_MULTIPLIER,
+                )
             return self._fits_constraints(width, height, max_width_px, max_height_px)
 
         max_size = max(layer.min_size, base_size)
         best_size = self._find_max_fitting_size(layer.min_size, max_size, fits)
         return layer.model_copy(update={"size": best_size, "auto_scale": False})
+
+    def _measure_simple_lines(
+        self,
+        lines: list[str],
+        font: FontType,
+        letter_spacing: int,
+        line_height_multiplier: float,
+    ) -> tuple[int, int]:
+        """Measure simple text with the same line boxes used by multiline rendering."""
+        if not lines:
+            return 0, 0
+        max_width = max(
+            (self.measure_text_bounds(line, font, letter_spacing)[0] for line in lines),
+            default=0,
+        )
+        line_height = self._calculate_line_height(font, line_height_multiplier)
+        return max_width, line_height * len(lines)
 
     def _simple_lines_for_layer(
         self,
@@ -277,12 +302,20 @@ class TextEngine:
             else None
         )
         lines = self._simple_lines_for_layer(layer, content, font, max_width_px)
-        size = self.measure_text_bounds(
-            "\n".join(lines),
-            font,
-            layer.letter_spacing or 0,
-            layer.line_height or DEFAULT_LINE_HEIGHT_MULTIPLIER,
-        )
+        if max_width_px is not None or "\n" in content:
+            size = self._measure_simple_lines(
+                lines,
+                font,
+                layer.letter_spacing or 0,
+                layer.line_height or DEFAULT_LINE_HEIGHT_MULTIPLIER,
+            )
+        else:
+            size = self.measure_text_bounds(
+                content,
+                font,
+                layer.letter_spacing or 0,
+                layer.line_height or DEFAULT_LINE_HEIGHT_MULTIPLIER,
+            )
 
         return {
             "size": size,
@@ -651,12 +684,12 @@ class TextEngine:
         return layer.font_source
 
     def _resolve_font_variations(self, part: TextPart, layer: TextLayer):
-        if part.font_variations:
+        if part.font_variations is not None:
             return part.font_variations
         return layer.font_variations
 
     def _resolve_emoji_style(self, part: TextPart, layer: TextLayer):
-        if part.emoji_style != "monochrome":
+        if part.emoji_style is not None:
             return part.emoji_style
         return layer.emoji_style
 

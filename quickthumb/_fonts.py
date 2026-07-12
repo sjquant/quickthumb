@@ -15,6 +15,8 @@ from quickthumb.errors import RenderingError
 from quickthumb.font_cache import FontCache
 from quickthumb.models import TextLayer
 
+_FONT_REQUEST_TIMEOUT = 15
+
 
 class FontEngine:
     """Font loading with webfont download caching and system font discovery."""
@@ -52,7 +54,9 @@ class FontEngine:
         font_source: str = "auto",
         font_variations: dict[str, float] | None = None,
     ) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
-        normalized_variations = tuple(sorted((font_variations or {}).items()))
+        normalized_variations = tuple(
+            sorted((axis.lower(), float(value)) for axis, value in (font_variations or {}).items())
+        )
         key = (font_name, size, bold, italic, weight, font_source, normalized_variations)
         cached = self._variant_cache.get(key)
         if cached is not None:
@@ -98,8 +102,15 @@ class FontEngine:
                 return self._apply_font_variations(font, font_variations, weight)
 
             if font_name and font_source == "google":
+                requested_variations = {
+                    axis.lower(): float(value) for axis, value in font_variations.items()
+                }
                 font_path = self._download_and_cache_google_font(
-                    font_name, bold or False, italic or False, weight
+                    font_name,
+                    bold or False,
+                    italic or False,
+                    weight,
+                    requested_variations,
                 )
                 font = ImageFont.truetype(font_path, size)
                 return self._apply_font_variations(font, font_variations, weight)
@@ -135,13 +146,24 @@ class FontEngine:
         bold: bool,
         italic: bool,
         weight: int | str | None,
+        font_variations: dict[str, float] | None = None,
     ) -> str:
+        requested_variations = {
+            axis.lower(): float(value) for axis, value in (font_variations or {}).items()
+        }
         target_weight = self._normalize_weight(weight, bold)
+        if "wght" in requested_variations:
+            target_weight = min(1000, max(1, int(round(requested_variations["wght"]))))
         family = family.strip()
         if not family:
             raise RenderingError("Google font family cannot be empty.")
 
+        variation_key = ",".join(
+            f"{axis}={value:g}" for axis, value in sorted(requested_variations.items())
+        )
         cache_key = f"{family}|{target_weight}|{int(italic)}"
+        if variation_key:
+            cache_key += f"|{variation_key}"
         cache_hash = hashlib.md5(cache_key.encode()).hexdigest()
         cache_dir = self._font_cache_dir()
 
@@ -152,18 +174,18 @@ class FontEngine:
         css_path = os.path.join(cache_dir, f"quickthumb_google_{cache_hash}.css")
         css = self._read_cached_css(css_path)
         if css is None:
-            css = self._fetch_google_font_css(family, target_weight, italic)
+            css = self._fetch_google_font_css(family, target_weight, italic, requested_variations)
             with open(css_path, "w", encoding="utf-8") as f:
                 f.write(css)
 
-        font_url = self._select_google_font_url(css)
+        font_url = self._select_google_font_url(css, target_weight, italic)
         if not font_url:
             with contextlib.suppress(OSError):
                 os.remove(css_path)
-            css = self._fetch_google_font_css(family, target_weight, italic)
+            css = self._fetch_google_font_css(family, target_weight, italic, requested_variations)
             with open(css_path, "w", encoding="utf-8") as f:
                 f.write(css)
-            font_url = self._select_google_font_url(css)
+            font_url = self._select_google_font_url(css, target_weight, italic)
 
         if not font_url:
             raise RenderingError(f"Google Fonts did not return a font file for '{family}'.")
@@ -172,17 +194,46 @@ class FontEngine:
         cache_path = os.path.join(cache_dir, f"quickthumb_google_{cache_hash}{extension}")
         return self._download_font_url_to_cache(font_url, cache_path, f"Google font '{family}'")
 
-    def _fetch_google_font_css(self, family: str, weight: int, italic: bool) -> str:
+    def _fetch_google_font_css(
+        self,
+        family: str,
+        weight: int,
+        italic: bool,
+        font_variations: dict[str, float] | None = None,
+    ) -> str:
         family_query = quote_plus(family)
+        requested_variations = {
+            axis.lower(): float(value) for axis, value in (font_variations or {}).items()
+        }
+        axes = set(requested_variations)
+        axes.add("wght")
+        axes.add("ital")
+        axis_tags = sorted(axes)
+        axis_values = []
+        for axis in axis_tags:
+            if axis == "ital":
+                axis_values.append(str(int(italic)))
+            elif axis == "wght":
+                axis_values.append(str(weight))
+            else:
+                axis_values.append(f"{requested_variations[axis]:g}")
+        axis_spec = f"{','.join(axis_tags)}@{','.join(axis_values)}"
         css_url = (
-            "https://fonts.googleapis.com/css2?"
-            f"family={family_query}:ital,wght@{int(italic)},{weight}&display=swap"
+            f"https://fonts.googleapis.com/css2?family={family_query}:{axis_spec}&display=swap"
         )
         try:
             request = Request(css_url, headers={"User-Agent": "quickthumb/1.0"})
-            with urlopen(request) as response:
+            with urlopen(request, timeout=_FONT_REQUEST_TIMEOUT) as response:
                 return response.read().decode("utf-8")
         except Exception as e:
+            if requested_variations:
+                warnings.warn(
+                    "Google Fonts could not resolve the requested variation axes; "
+                    "falling back to the requested weight/style face.",
+                    UserWarning,
+                    stacklevel=3,
+                )
+                return self._fetch_google_font_css(family, weight, italic)
             raise RenderingError(f"Failed to fetch Google font '{family}'.") from e
 
     def _read_cached_css(self, css_path: str) -> str | None:
@@ -192,11 +243,50 @@ class FontEngine:
         except OSError:
             return None
 
-    def _select_google_font_url(self, css: str) -> str | None:
-        urls = re.findall(r"url\((https://[^)]+)\)", css)
+    def _select_google_font_url(
+        self, css: str, target_weight: int = 400, italic: bool = False
+    ) -> str | None:
+        candidates: list[tuple[int, float, int, int, str]] = []
+        blocks = re.findall(r"@font-face\s*\{([^}]*)\}", css, flags=re.IGNORECASE | re.DOTALL)
+        for block_index, block in enumerate(blocks):
+            urls = re.findall(r"url\(\s*['\"]?(https://[^)'\"]+)['\"]?\s*\)", block)
+            if not urls:
+                continue
+
+            style_match = re.search(r"font-style\s*:\s*([^;]+)", block, flags=re.IGNORECASE)
+            block_italic = style_match is not None and "italic" in style_match.group(1).lower()
+            style_penalty = int(block_italic != italic)
+
+            weight_match = re.search(r"font-weight\s*:\s*([^;]+)", block, flags=re.IGNORECASE)
+            weight_distance = self._google_weight_distance(
+                weight_match.group(1) if weight_match else "400", target_weight
+            )
+            for url_index, url in enumerate(urls):
+                format_penalty = 0 if ".woff2" in url.lower() else 1
+                candidates.append(
+                    (style_penalty, weight_distance, format_penalty, block_index + url_index, url)
+                )
+
+        if candidates:
+            return min(candidates)[-1]
+
+        urls = re.findall(r"url\(\s*['\"]?(https://[^)'\"]+)['\"]?\s*\)", css)
         if not urls:
             return None
-        return next((url for url in urls if ".woff2" in url), urls[0])
+        return next((url for url in urls if ".woff2" in url.lower()), urls[0])
+
+    def _google_weight_distance(self, declaration: str, target_weight: int) -> float:
+        normalized = declaration.strip().lower()
+        named_weights = {"normal": 400.0, "bold": 700.0}
+        if normalized in named_weights:
+            return abs(named_weights[normalized] - target_weight)
+
+        values = [float(value) for value in re.findall(r"\d+(?:\.\d+)?", normalized)]
+        if not values:
+            return float("inf")
+        if len(values) >= 2 and values[0] <= target_weight <= values[1]:
+            return 0.0
+        return min(abs(value - target_weight) for value in values)
 
     def _valid_cached_google_font_path(self, cache_dir: str, cache_hash: str) -> str | None:
         for extension in (".woff2", ".woff", ".ttf", ".otf"):
@@ -241,7 +331,7 @@ class FontEngine:
     def _download_font_url_to_cache(self, url: str, cache_path: str, description: str) -> str:
         try:
             request = Request(url, headers={"User-Agent": "quickthumb/1.0"})
-            with urlopen(request) as response:
+            with urlopen(request, timeout=_FONT_REQUEST_TIMEOUT) as response:
                 font_data = response.read()
         except Exception as e:
             raise RenderingError(f"Failed to download {description}.") from e

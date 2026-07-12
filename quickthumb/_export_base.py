@@ -313,6 +313,11 @@ def _css_string(value: str) -> str:
     return f"'{escaped}'"
 
 
+def font_variation_settings(variations: dict[str, float]) -> str:
+    """Format resolved OpenType variation axes for CSS-capable exporters."""
+    return ", ".join(f"'{axis}' {_fmt(value)}" for axis, value in sorted(variations.items()))
+
+
 def union_boxes(boxes: list[Box]) -> Box | None:
     if not boxes:
         return None
@@ -361,6 +366,8 @@ class TextRunLayout:
     bold: bool
     italic: bool
     weight: int | str | None
+    font_variations: dict[str, float]
+    emoji_style: str
     strokes: list[Stroke] = field(default_factory=list)
     shadows: list[Shadow] = field(default_factory=list)
     glows: list[Glow] = field(default_factory=list)
@@ -519,6 +526,8 @@ def _make_simple_run(
         bold=layer.bold,
         italic=layer.italic,
         weight=layer.weight,
+        font_variations=layer.font_variations,
+        emoji_style=layer.emoji_style,
         strokes=text_engine._get_stroke_effects(layer.effects),
         shadows=text_engine._get_shadow_effects(layer.effects),
         glows=text_engine._get_glow_effects(layer.effects),
@@ -781,6 +790,8 @@ def _layout_rich(canvas, layer) -> tuple[list[list[TextRunLayout]], list[int]]:
                     bold=bool(part["bold"]),
                     italic=bool(part["italic"]),
                     weight=part["weight"],
+                    font_variations=part["font_variations"],
+                    emoji_style=part["emoji_style"],
                     strokes=part["stroke_effects"],
                     shadows=part["shadow_effects"],
                     glows=part["glow_effects"],

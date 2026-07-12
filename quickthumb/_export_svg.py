@@ -31,6 +31,7 @@ from quickthumb._export_base import (
     compute_text_layout,
     flatten_layers,
     font_face_declarations,
+    font_variation_settings,
     rasterize_layers,
     read_svg_layer_bytes_and_size,
     resolve_font_face,
@@ -476,6 +477,11 @@ class SvgExporter:
             font_attrs += f' font-weight="{weight}"'
         if style == "italic":
             font_attrs += ' font-style="italic"'
+        if run.font_variations:
+            settings = quoteattr(font_variation_settings(run.font_variations))
+            font_attrs += f" font-variation-settings={settings}"
+        emoji_value = "emoji" if run.emoji_style == "color" else "text"
+        font_attrs += f" font-variant-emoji={quoteattr(emoji_value)}"
 
         return (
             f'<text x="{x_attr}" y="{_fmt(run.baseline_y + dy)}" {font_attrs} '

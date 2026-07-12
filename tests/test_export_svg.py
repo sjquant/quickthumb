@@ -496,6 +496,31 @@ class TestSvgText:
         assert texts[1].get("font-style") == "italic"
         assert texts[1].get("font-size") == "24px"
 
+    def test_should_emit_resolved_variations_and_emoji_style_per_run(self):
+        """SVG text runs preserve inherited and explicitly cleared font settings"""
+        # given: a layer-level variable font and color-emoji setting
+        canvas = Canvas(600, 200).text(
+            content=[
+                TextPart(text="wide "),
+                TextPart(text="plain", font_variations={}, emoji_style="monochrome"),
+            ],
+            font="assets/fonts/RobotoFlex-Variable.ttf",
+            font_variations={"wdth": 25},
+            emoji_style="color",
+            size=40,
+            position=(20, 60),
+        )
+
+        # when: exporting native SVG text
+        root = parse_svg(canvas.to_svg())
+        texts = find_all(root, "text")
+
+        # then: inherited values apply only to the first run and explicit defaults clear them
+        assert texts[0].get("font-variation-settings") == "'wdth' 25"
+        assert texts[0].get("font-variant-emoji") == "emoji"
+        assert texts[1].get("font-variation-settings") is None
+        assert texts[1].get("font-variant-emoji") == "text"
+
     def test_should_emit_gradient_text_fill(self):
         """Gradient glyph fills reference a gradient def spanning the text block"""
         # given

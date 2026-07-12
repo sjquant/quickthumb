@@ -51,6 +51,7 @@ from quickthumb._export_base import (
     compute_text_layout,
     flatten_layers,
     font_face_declarations,
+    font_variation_settings,
     rasterize_layers,
     read_svg_layer_bytes_and_size,
     resolve_font_face,
@@ -656,6 +657,9 @@ class HtmlExporter:
             css += f"font-weight:{weight};"
         if style == "italic":
             css += "font-style:italic;"
+        css += f"font-variant-emoji:{'emoji' if run.emoji_style == 'color' else 'text'};"
+        if run.font_variations:
+            css += f"font-variation-settings:{font_variation_settings(run.font_variations)};"
         if run.letter_spacing:
             css += f"letter-spacing:{run.letter_spacing}px;"
 

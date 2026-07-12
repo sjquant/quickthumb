@@ -580,8 +580,8 @@ class TextPart(quickthumbModel):
     letter_spacing: int | None = None
     font: str | None = None
     font_source: FontSource = "auto"
-    font_variations: FontVariations = Field(default_factory=dict)
-    emoji_style: EmojiStyle = "monochrome"
+    font_variations: FontVariations | None = None
+    emoji_style: EmojiStyle | None = None
 
     @model_validator(mode="after")
     def validate_weight_bold_mutual_exclusivity(self) -> "TextPart":
@@ -598,7 +598,9 @@ class TextPart(quickthumbModel):
 
     @field_validator("font_variations")
     @classmethod
-    def validate_font_variations(cls, v: FontVariations) -> FontVariations:
+    def validate_font_variations(cls, v: FontVariations | None) -> FontVariations | None:
+        if v is None:
+            return None
         return _validate_font_variations(v)
 
 

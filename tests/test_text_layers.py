@@ -460,8 +460,8 @@ class TestRichText:
             "letter_spacing": None,
             "font": "Arial",
             "font_source": "auto",
-            "font_variations": {},
-            "emoji_style": "monochrome",
+            "font_variations": None,
+            "emoji_style": None,
         }
         assert data["layers"][0]["content"][1] == {
             "text": "World",
@@ -476,9 +476,41 @@ class TestRichText:
             "letter_spacing": 2,
             "font": None,
             "font_source": "auto",
-            "font_variations": {},
-            "emoji_style": "monochrome",
+            "font_variations": None,
+            "emoji_style": None,
         }
+
+    def test_should_preserve_rich_part_inheritance_through_json(self):
+        """Omitted rich-part settings inherit after JSON round-trip while explicit values clear"""
+        from quickthumb import Canvas
+
+        # Given: a layer default and one part with explicit clear values
+        canvas = Canvas(600, 200).text(
+            content=[
+                TextPart(text="inherits"),
+                TextPart(text="clears", font_variations={}, emoji_style="monochrome"),
+            ],
+            font="assets/fonts/RobotoFlex-Variable.ttf",
+            font_variations={"wdth": 25},
+            emoji_style="color",
+            size=40,
+            position=(20, 60),
+        )
+
+        # When: the public canvas is serialized and reconstructed
+        loaded = Canvas.from_json(canvas.to_json())
+        parts = loaded.layers[0].content
+
+        # Then: both model intent and public SVG output survive the round-trip
+        assert isinstance(parts, list)
+        assert parts[0].font_variations is None
+        assert parts[0].emoji_style is None
+        assert parts[1].font_variations == {}
+        assert parts[1].emoji_style == "monochrome"
+        svg = loaded.to_svg()
+        assert svg.count("font-variation-settings=\"'wdth' 25\"") == 1
+        assert svg.count('font-variant-emoji="emoji"') == 1
+        assert svg.count('font-variant-emoji="text"') == 1
 
     def test_should_deserialize_rich_text_from_json_correctly(self):
         """Test that canvas with rich text can be deserialized from JSON"""
@@ -1072,6 +1104,70 @@ class TestTextAutoFitV2:
         assert layer.text.min_size == 18
         assert layer.text.balance_lines is True
         assert layer.text.wrapped_lines == ["Alpha beta", "gamma delta"]
+
+    def test_should_auto_scale_with_max_height_only(self, tmp_path):
+        """Auto-fit accepts a height-only constraint and keeps the rendered box within it"""
+        from quickthumb import Canvas
+
+        # Given: text constrained only by max_height
+        canvas = (
+            Canvas(400, 160)
+            .background(color="#FFFFFF")
+            .text(
+                "Tall headline",
+                font="Roboto",
+                size=72,
+                color="#111111",
+                position=(200, 80),
+                align="center",
+                max_height=32,
+                min_size=18,
+                auto_scale=True,
+            )
+        )
+
+        # When: inspection and rendering resolve the effective text layer
+        inspected = canvas.inspect().layers[1]
+        output = tmp_path / "height_only.png"
+        canvas.render(str(output))
+
+        # Then: the public layout contract reports a fitting size and a real image exists
+        assert inspected.bbox is not None
+        assert inspected.bbox.height <= 32
+        assert inspected.text is not None
+        assert inspected.text.auto_scaled is True
+        assert inspected.text.effective_font_size is not None
+        assert inspected.text.effective_font_size < 72
+        assert output.exists()
+        assert output.stat().st_size > 0
+
+    def test_should_fit_single_wrapped_line_using_multiline_line_box(self):
+        """Auto-fit uses the renderer line box even when wrapping leaves one line"""
+        from quickthumb import Canvas
+
+        # Given: one line that is width-safe but too tall for the multiline renderer box
+        canvas = Canvas(600, 160).text(
+            "Short headline",
+            font="Roboto",
+            size=72,
+            color="#111111",
+            position=(300, 80),
+            align="center",
+            max_width=500,
+            max_height=75,
+            min_size=20,
+            auto_scale=True,
+        )
+
+        # When: inspection resolves the final layout
+        inspected = canvas.inspect().layers[0]
+
+        # Then: the font is reduced for the line-height box, not only the glyph ink bounds
+        assert inspected.bbox is not None
+        assert inspected.bbox.height <= 75
+        assert inspected.text is not None
+        assert inspected.text.effective_font_size is not None
+        assert inspected.text.effective_font_size < 72
 
     def test_should_render_emoji_with_default_monochrome_pipeline(self, tmp_path):
         """Emoji text continues rendering when the color emoji groundwork is disabled"""
