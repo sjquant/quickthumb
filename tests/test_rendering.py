@@ -749,6 +749,62 @@ class TestRendering:
             with open(output_path, "rb") as f:
                 assert f.read() == external_file(f"snapshots/{snapshot_name}")
 
+    def test_snapshot_image_fit_cover_focal_point(self):
+        """Snapshot test for a realistic focal-point cover crop comparison"""
+        from quickthumb import Canvas
+
+        # Given: A local Unsplash portrait fixture by Richard Pouncy Jr.
+        # The subject sits left of center, making focal-point behavior visible.
+        source_path = "tests/fixtures/richard-pouncy-jr-dYP-kAvfVoM-unsplash.jpg"
+        canvas = (
+            Canvas(540, 360)
+            .background(color="#E2E8F0")
+            .text(
+                "cover crop",
+                size=30,
+                color="#111827",
+                position=(270, 30),
+                align=("center", "top"),
+                bold=True,
+            )
+        )
+        for label, x, focal_point in (
+            ("center", 150, None),
+            ("focal point", 390, (0.18, 0.5)),
+        ):
+            canvas.text(
+                label,
+                size=20,
+                color="#334155",
+                position=(x, 78),
+                align=("center", "top"),
+            ).shape(
+                shape="rectangle",
+                position=(x, 220),
+                width=172,
+                height=230,
+                color="#0F172A",
+                align=("center", "middle"),
+            ).image(
+                path=source_path,
+                position=(x, 220),
+                width=158,
+                height=216,
+                fit="cover",
+                focal_point=focal_point,
+                align=("center", "middle"),
+            )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+
+            # When: Rendering center and focal-point cover crops side by side
+            canvas.render(output_path)
+
+            # Then: The realistic crop comparison should stay stable
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/image_fit_cover_focal_point.png")
+
     def test_should_handle_unknown_font_name_gracefully(self):
         """Test that invalid font name falls back to default font gracefully"""
         from quickthumb import Canvas

@@ -11,6 +11,7 @@ from quickthumb.models import (
     Align,
     BackdropBlur,
     Duotone,
+    FaceRegion,
     Filter,
     FitMode,
     Glow,
@@ -36,11 +37,23 @@ class ImageEngine:
         return Image.open(BytesIO(image_data))
 
     def load_and_fit_image(
-        self, image_path: str, canvas_size: tuple[int, int], fit: FitMode | str | None
+        self,
+        image_path: str,
+        canvas_size: tuple[int, int],
+        fit: FitMode | str | None,
+        focal_point: tuple[float, float] | None = None,
+        faces: list[FaceRegion] | None = None,
     ) -> Image.Image:
         img = self.load_image_from_url(image_path) if is_url(image_path) else Image.open(image_path)
 
-        return self._fit_image(img.convert("RGBA"), canvas_size, fit, Image.Resampling.BICUBIC)
+        return self._fit_image(
+            img.convert("RGBA"),
+            canvas_size,
+            fit,
+            Image.Resampling.BICUBIC,
+            focal_point=focal_point,
+            faces=faces,
+        )
 
     @staticmethod
     def _fit_image(
@@ -48,21 +61,20 @@ class ImageEngine:
         target_size: tuple[int, int],
         fit: FitMode | str | None,
         resample: Image.Resampling,
+        focal_point: tuple[float, float] | None = None,
+        faces: list[FaceRegion] | None = None,
     ) -> Image.Image:
         """Scale img into target_size using FILL (stretch), COVER (crop), or CONTAIN (pad)."""
         target_w, target_h = target_size
         src_w, src_h = img.size
+        fit = FitMode(fit) if isinstance(fit, str) else fit
 
         if fit is None or fit == FitMode.FILL:
             return img.resize(target_size, resample)
 
         if fit == FitMode.COVER:
-            scale = max(target_w / src_w, target_h / src_h)
-            scaled_w, scaled_h = int(src_w * scale), int(src_h * scale)
-            resized = img.resize((scaled_w, scaled_h), resample)
-            left = (scaled_w - target_w) // 2
-            top = (scaled_h - target_h) // 2
-            return resized.crop((left, top, left + target_w, top + target_h))
+            source_box = ImageEngine._cover_source_box(img.size, target_size, focal_point, faces)
+            return img.resize(target_size, resample, box=source_box)
 
         scale = min(target_w / src_w, target_h / src_h)
         scaled_w, scaled_h = int(src_w * scale), int(src_h * scale)
@@ -70,6 +82,87 @@ class ImageEngine:
         result = Image.new("RGBA", target_size, (0, 0, 0, 0))
         result.paste(resized, ((target_w - scaled_w) // 2, (target_h - scaled_h) // 2))
         return result
+
+    @staticmethod
+    def _cover_source_box(
+        source_size: tuple[int, int],
+        target_size: tuple[int, int],
+        focal_point: tuple[float, float] | None,
+        faces: list[FaceRegion] | None,
+    ) -> tuple[float, float, float, float]:
+        """Return the selected cover crop in source-image coordinates."""
+        src_w, src_h = source_size
+        target_w, target_h = target_size
+        scale = max(target_w / src_w, target_h / src_h)
+        scaled_w = max(target_w, int(src_w * scale))
+        scaled_h = max(target_h, int(src_h * scale))
+        left, top = ImageEngine._cover_crop_offset(
+            (scaled_w, scaled_h), target_size, focal_point, faces
+        )
+        return (
+            left * src_w / scaled_w,
+            top * src_h / scaled_h,
+            (left + target_w) * src_w / scaled_w,
+            (top + target_h) * src_h / scaled_h,
+        )
+
+    @staticmethod
+    def _cover_crop_offset(
+        scaled_size: tuple[int, int],
+        target_size: tuple[int, int],
+        focal_point: tuple[float, float] | None,
+        faces: list[FaceRegion] | None,
+    ) -> tuple[int, int]:
+        """Return a crop origin for cover-fit content in scaled source coordinates."""
+        scaled_w, scaled_h = scaled_size
+        target_w, target_h = target_size
+
+        if faces:
+            face_box = (
+                min(face.x * scaled_w for face in faces),
+                min(face.y * scaled_h for face in faces),
+                max((face.x + face.width) * scaled_w for face in faces),
+                max((face.y + face.height) * scaled_h for face in faces),
+            )
+            left = (face_box[0] + face_box[2]) / 2 - target_w / 2
+            top = (face_box[1] + face_box[3]) / 2 - target_h / 2
+            left = ImageEngine._clamp_crop_to_face(
+                left, target_w, scaled_w, face_box[0], face_box[2]
+            )
+            top = ImageEngine._clamp_crop_to_face(top, target_h, scaled_h, face_box[1], face_box[3])
+        else:
+            focus_x, focus_y = focal_point or (0.5, 0.5)
+            left = focus_x * scaled_w - target_w / 2
+            top = focus_y * scaled_h - target_h / 2
+            left = ImageEngine._clamp(left, 0, scaled_w - target_w)
+            top = ImageEngine._clamp(top, 0, scaled_h - target_h)
+
+        return int(left), int(top)
+
+    @staticmethod
+    def _clamp_crop_to_face(
+        crop_origin: float,
+        target_length: int,
+        scaled_length: int,
+        face_start: float,
+        face_end: float,
+    ) -> float:
+        if scaled_length <= target_length:
+            return 0
+
+        face_length = face_end - face_start
+        if face_length <= target_length:
+            margin = min(target_length * 0.05, max(0.0, (target_length - face_length) / 2))
+            low = face_end + margin - target_length
+            high = face_start - margin
+            if low <= high:
+                crop_origin = ImageEngine._clamp(crop_origin, low, high)
+
+        return ImageEngine._clamp(crop_origin, 0, scaled_length - target_length)
+
+    @staticmethod
+    def _clamp(value: float, low: float, high: float) -> float:
+        return max(low, min(value, high))
 
     def render_image_layer(self, image: Image.Image, layer: ImageLayer):
         # Load the image
@@ -82,7 +175,9 @@ class ImageEngine:
             img = self._remove_background(img)
 
         if layer.width or layer.height:
-            img = self._resize_image(img, layer.width, layer.height, layer.fit)
+            img = self._resize_image(
+                img, layer.width, layer.height, layer.fit, layer.focal_point, layer.faces
+            )
 
         if layer.border_radius > 0:
             img = self._apply_border_radius(img, layer.border_radius)
@@ -309,13 +404,22 @@ class ImageEngine:
         img: Image.Image,
         width: int | None,
         height: int | None,
-        fit: FitMode | None = None,
+        fit: FitMode | str | None = None,
+        focal_point: tuple[float, float] | None = None,
+        faces: list[FaceRegion] | None = None,
     ) -> Image.Image:
         """Resize image preserving aspect ratio if only one dimension specified."""
         original_width, original_height = img.size
 
         if width and height:
-            return self._fit_image(img, (width, height), fit, Image.Resampling.LANCZOS)
+            return self._fit_image(
+                img,
+                (width, height),
+                fit,
+                Image.Resampling.LANCZOS,
+                focal_point=focal_point,
+                faces=faces,
+            )
         elif width:
             aspect_ratio = original_height / original_width
             new_height = int(width * aspect_ratio)

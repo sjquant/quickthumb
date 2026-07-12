@@ -122,10 +122,12 @@ class TestCLISchema:
         # when: the schema is emitted
         result = CliRunner().invoke(app, ["schema"])
 
-        # then: generated field schemas include color, opacity, position, and align constraints
+        # then: generated field schemas include color, opacity, position, align, and fit constraints
         assert result.exit_code == 0
         defs = json.loads(result.output)["$defs"]
         text_props = defs["TextLayer"]["properties"]
+        image_props = defs["ImageLayer"]["properties"]
+        background_props = defs["BackgroundLayer"]["properties"]
         assert text_props["color"]["anyOf"][0]["pattern"] == "^#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$"
         assert text_props["opacity"]["minimum"] == 0.0
         assert text_props["opacity"]["maximum"] == 1.0
@@ -144,6 +146,19 @@ class TestCLISchema:
         ]
         text_fill_image_props = defs["TextFillImage"]["properties"]
         assert text_fill_image_props["fit"]["$ref"] == "#/$defs/FitMode"
+        for props in (image_props, background_props, text_fill_image_props):
+            focal_options = props["focal_point"]["anyOf"]
+            assert focal_options[0]["minItems"] == 2
+            assert focal_options[0]["maxItems"] == 2
+            assert focal_options[0]["prefixItems"][0]["minimum"] == 0.0
+            assert focal_options[0]["prefixItems"][0]["maximum"] == 1.0
+            assert props["faces"]["items"]["$ref"] == "#/$defs/FaceRegion"
+        face_props = defs["FaceRegion"]["properties"]
+        assert face_props["x"]["minimum"] == 0.0
+        assert face_props["x"]["maximum"] == 1.0
+        for property_name in ("width", "height"):
+            assert face_props[property_name]["exclusiveMinimum"] == 0
+            assert face_props[property_name]["maximum"] == 1.0
         align_options = text_props["align"]["anyOf"]
         assert align_options[0] == {"$ref": "#/$defs/Align"}
         assert align_options[1]["prefixItems"][0]["enum"] == ["left", "center", "right"]

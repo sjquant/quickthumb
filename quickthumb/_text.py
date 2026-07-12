@@ -580,7 +580,13 @@ class TextEngine:
         if isinstance(fill, RadialGradient):
             return self._effects.create_radial_gradient(size, fill.stops, fill.center)
         if isinstance(fill, TextFillImage):
-            return self._images.load_and_fit_image(fill.path, size, fill.fit)
+            return self._images.load_and_fit_image(
+                fill.path,
+                size,
+                fill.fit,
+                focal_point=fill.focal_point,
+                faces=fill.faces,
+            )
         raise RenderingError(f"Unsupported fill type: {type(fill).__name__}")
 
     def _draw_filled_text(

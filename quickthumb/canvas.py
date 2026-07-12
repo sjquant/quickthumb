@@ -29,6 +29,7 @@ from quickthumb.models import (
     BlendMode,
     CanvasInspection,
     Diagnostic,
+    FaceRegion,
     FitMode,
     Grain,
     GroupLayer,
@@ -328,6 +329,8 @@ class Canvas:
         opacity: float = 1.0,
         blend_mode: BlendMode | str | None = None,
         fit: FitMode | str | None = None,
+        focal_point: tuple[float, float] | None = None,
+        faces: list[FaceRegion | dict[str, float]] | None = None,
         effects: list[BackgroundEffect] | None = None,
     ) -> Self:
         if color is None and gradient is None and image is None:
@@ -342,6 +345,8 @@ class Canvas:
             opacity=opacity,
             blend_mode=blend_mode,  # type: ignore
             fit=fit,  # type: ignore
+            focal_point=focal_point,
+            faces=faces or [],  # type: ignore[arg-type]
             effects=effects or [],
         )
         self._layers.append(layer)
@@ -460,6 +465,8 @@ class Canvas:
         width: int | None = None,
         height: int | None = None,
         fit: FitMode | str | None = None,
+        focal_point: tuple[float, float] | None = None,
+        faces: list[FaceRegion | dict[str, float]] | None = None,
         opacity: float = 1.0,
         rotation: float = 0.0,
         align: Align | str | tuple[str, str] = Align.TOP_LEFT,
@@ -479,6 +486,8 @@ class Canvas:
             width: Image width in pixels (preserves aspect ratio if height is None)
             height: Image height in pixels (preserves aspect ratio if width is None)
             fit: Fit mode when width and height define a target box: "fill", "contain", or "cover"
+            focal_point: Normalized (x, y) source-image point to keep visible for fit="cover"
+            faces: Normalized source-image face boxes that guide fit="cover" crops
             opacity: Image opacity from 0.0 (transparent) to 1.0 (opaque)
             rotation: Rotation angle in degrees
             align: Image alignment, accepts:
@@ -502,6 +511,8 @@ class Canvas:
             align=align,  # type: ignore[arg-type]  # Pydantic validator handles conversion
             border_radius=border_radius,
             fit=fit,  # type: ignore[arg-type]  # Pydantic validator handles conversion
+            focal_point=focal_point,
+            faces=faces or [],  # type: ignore[arg-type]
             blend_mode=blend_mode,  # type: ignore[arg-type]  # Pydantic validator handles conversion
             clip=cast(Any, clip),
             mask=cast(Any, mask),
@@ -772,6 +783,10 @@ class Canvas:
                 value.pop("clip", None)
             if value.get("mask") is None:
                 value.pop("mask", None)
+            if value.get("focal_point") is None:
+                value.pop("focal_point", None)
+            if value.get("faces") == []:
+                value.pop("faces", None)
             return {key: cls._omit_unset_composition_fields(item) for key, item in value.items()}
         if isinstance(value, list):
             return [cls._omit_unset_composition_fields(item) for item in value]
@@ -1172,7 +1187,13 @@ class Canvas:
                 )
 
         if layer.image:
-            return self._images.load_and_fit_image(layer.image, size, layer.fit)
+            return self._images.load_and_fit_image(
+                layer.image,
+                size,
+                layer.fit,
+                focal_point=layer.focal_point,
+                faces=layer.faces,
+            )
 
         return None
 
