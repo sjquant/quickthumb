@@ -690,7 +690,7 @@ See the shipped examples in [`examples/README.md`](examples/README.md):
 ## Gotchas
 
 - `weight` and `bold=True` are mutually exclusive on text layers and `TextPart`
-- `auto_scale=True` requires `max_width`
+- `auto_scale=True` requires `max_width` or `max_height`
 - `position` percentage values must be strings like `"50%"`
 - `fill` and `color` are independent fields; when `fill` is set it takes visual precedence over `color`
 - `canvas.custom(fn)` without a `name` runs during render order but cannot be serialized to JSON; pass `name=` and register the function with `Canvas.register_layer_fn()` to enable serialization

@@ -316,6 +316,25 @@ class TestPptxText:
         assert runs[1].font.italic is True
         assert str(runs[1].font.color.rgb) == "00FF00"
 
+    def test_should_rasterize_text_with_unsupported_font_semantics(self):
+        """Variable-font and color-emoji runs fall back to a pixel-exact picture"""
+        # given: text semantics that DrawingML cannot preserve
+        canvas = Canvas(600, 200).text(
+            "Variable 🚀",
+            font="assets/fonts/RobotoFlex-Variable.ttf",
+            font_variations={"wdth": 25},
+            emoji_style="color",
+            size=40,
+            color="#FFFFFF",
+            position=(40, 60),
+        )
+
+        # when: exporting to PPTX
+        shape = slide_of(canvas).shapes[0]
+
+        # then: the exporter uses the raster fallback for unsupported semantics
+        assert shape.shape_type == MSO_SHAPE_TYPE.PICTURE
+
     def test_should_emit_valid_drawingml_for_gradient_plus_stroke_run(self):
         """A run with both a gradient fill and a stroke keeps valid rPr child order"""
         # given a gradient-filled headline that also has a stroke effect

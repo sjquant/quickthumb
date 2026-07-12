@@ -306,7 +306,14 @@ class PdfExporter:
         """Blur effects and non-solid glyph fills cannot be drawn as vector text."""
         for line in layout.lines:
             for run in line:
-                if run.fill is not None or run.strokes or run.shadows or run.glows:
+                if (
+                    run.fill is not None
+                    or run.strokes
+                    or run.shadows
+                    or run.glows
+                    or run.font_variations
+                    or run.emoji_style == "color"
+                ):
                     return True
         return False
 

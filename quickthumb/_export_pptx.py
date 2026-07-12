@@ -477,6 +477,13 @@ class PptxExporter:
         layout = compute_text_layout(self._current_canvas(), layer)
         if not any(layout.lines) or layout.block_box is None:
             return
+        if any(
+            run.font_variations or run.emoji_style == "color"
+            for line in layout.lines
+            for run in line
+        ):
+            self._emit_raster_fallback(layer)
+            return
 
         if layout.block_backgrounds and layout.block_bg_box:
             for background in layout.block_backgrounds:

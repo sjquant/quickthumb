@@ -1761,6 +1761,46 @@ class TestRendering:
             with open(output_path, "rb") as f:
                 assert f.read() == external_file("snapshots/auto_scale_rich_text.png")
 
+    def test_snapshot_auto_fit_balanced_text(self):
+        """Snapshot test for box-aware auto-fit with balanced wrapped lines"""
+        from quickthumb import Canvas
+
+        # Given: a title constrained by both width and height
+        canvas = (
+            Canvas(420, 220)
+            .background(color="#F8FAFC")
+            .shape(
+                "rectangle",
+                position=(210, 110),
+                width=250,
+                height=90,
+                color="#E2E8F0",
+                align="center",
+            )
+            .text(
+                "Alpha beta gamma delta",
+                font="Roboto",
+                size=52,
+                color="#0F172A",
+                position=(210, 110),
+                align="center",
+                max_width=220,
+                max_height=82,
+                min_size=20,
+                balance_lines=True,
+                auto_scale=True,
+            )
+        )
+
+        # When: rendering the fitted text
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            # Then: output matches the visual auto-fit snapshot
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/auto_fit_balanced_text.png")
+
     def test_snapshot_rich_text_wrapping(self):
         """Snapshot test for rich text word-wrapping with list[TextPart] and max_width"""
         from quickthumb import Canvas, TextPart
@@ -2753,6 +2793,85 @@ class TestRendering:
 
 class TestWebfontCache:
     """Integration tests for webfont downloading and caching behaviour."""
+
+    def test_should_cache_google_font_by_family_weight_and_style(self, monkeypatch):
+        """Google Fonts family loading uses deterministic cached CSS and font files"""
+        import hashlib
+        from unittest.mock import MagicMock, patch
+
+        from quickthumb import Canvas
+
+        with open("assets/fonts/Roboto-Regular.ttf", "rb") as f:
+            real_font_data = f.read()
+
+        with tempfile.TemporaryDirectory() as cache_dir:
+            # Given: Google Fonts CSS points at a downloadable font file
+            monkeypatch.setenv("QUICKTHUMB_FONT_CACHE_DIR", cache_dir)
+            css = (
+                b"@font-face{font-family:'Roboto';font-style:normal;font-weight:400;"
+                b"src:url(https://fonts.gstatic.com/s/roboto/v1/Roboto-Regular.ttf)"
+                b" format('truetype');}"
+            )
+            css_response = MagicMock()
+            css_response.__enter__ = lambda s: s
+            css_response.__exit__ = MagicMock(return_value=False)
+            css_response.read.return_value = css
+            font_response = MagicMock()
+            font_response.__enter__ = lambda s: s
+            font_response.__exit__ = MagicMock(return_value=False)
+            font_response.read.return_value = real_font_data
+
+            # When: two separate canvases render with the same Google font family
+            output_a = os.path.join(cache_dir, "a.png")
+            output_b = os.path.join(cache_dir, "b.png")
+            with patch("quickthumb._fonts.urlopen", side_effect=[css_response, font_response]) as u:
+                Canvas(200, 100).background(color="#FFFFFF").text(
+                    "Hello",
+                    font="Roboto",
+                    font_source="google",
+                    size=24,
+                    color="#000000",
+                ).render(output_a)
+                Canvas(200, 100).background(color="#FFFFFF").text(
+                    "Hello",
+                    font="Roboto",
+                    font_source="google",
+                    size=24,
+                    color="#000000",
+                ).render(output_b)
+
+            # Then: CSS and font were fetched once, and the deterministic cache files exist
+            cache_hash = hashlib.md5(b"Roboto|400|0").hexdigest()
+            assert u.call_count == 2
+            assert os.path.exists(os.path.join(cache_dir, f"quickthumb_google_{cache_hash}.css"))
+            assert os.path.exists(os.path.join(cache_dir, f"quickthumb_google_{cache_hash}.ttf"))
+
+    def test_should_warn_and_render_when_variation_axis_is_not_available(self, tmp_path):
+        """Static fonts ignore unsupported variation axes with a clear fallback warning"""
+        from quickthumb import Canvas
+
+        # Given: a static repo font with an explicit variation request
+        canvas = (
+            Canvas(220, 100)
+            .background(color="#FFFFFF")
+            .text(
+                "Axis",
+                font="Roboto",
+                font_variations={"wdth": 75},
+                size=36,
+                color="#000000",
+                position=(20, 30),
+            )
+        )
+
+        # When: rendering the text
+        output = tmp_path / "axis.png"
+        with pytest.warns(UserWarning, match="font_variations"):
+            canvas.render(str(output))
+
+        # Then: the static font fallback still renders output
+        assert output.exists()
+        assert output.stat().st_size > 0
 
     def test_should_cache_webfont_in_font_cache_dir(self, monkeypatch):
         """Font downloaded from URL is written into QUICKTHUMB_FONT_CACHE_DIR"""

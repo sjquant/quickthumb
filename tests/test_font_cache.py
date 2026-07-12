@@ -1,4 +1,7 @@
 import os
+import tempfile
+
+import pytest
 
 
 class TestFontCache:
@@ -320,3 +323,398 @@ class TestFontCacheFallbackMechanism:
 
         assert font_path is not None
         assert "Roboto" in font_path
+
+
+class TestVariableFontDiscovery:
+    def test_should_discover_bracket_style_variable_font_filename(self, monkeypatch):
+        """Variable font files with bracket axes are indexed by clean family name"""
+        from quickthumb.font_cache import FontCache
+
+        with tempfile.TemporaryDirectory() as font_dir:
+            # Given: a variable font filename that declares axes in brackets
+            font_path = os.path.join(font_dir, "AcmeItalic[wdth,wght].ttf")
+            open(font_path, "wb").close()
+            monkeypatch.setenv("QUICKTHUMB_FONT_DIR", font_dir)
+
+            # When: looking up the clean italic family
+            discovered = FontCache().find_font("Acme", italic=True)
+
+            # Then: the variable font file is discoverable
+            assert discovered == font_path
+
+    def test_should_discover_google_style_variable_font_filename(self, monkeypatch):
+        """Google-style VariableFont filenames are indexed by clean family name"""
+        from quickthumb.font_cache import FontCache
+
+        with tempfile.TemporaryDirectory() as font_dir:
+            # Given: a Google Fonts variable filename with an axis suffix
+            font_path = os.path.join(font_dir, "AcmeSans-VariableFont_wght.ttf")
+            open(font_path, "wb").close()
+            monkeypatch.setenv("QUICKTHUMB_FONT_DIR", font_dir)
+
+            # When: looking up the family
+            discovered = FontCache().find_font("AcmeSans")
+
+            # Then: the variable font file is discoverable
+            assert discovered == font_path
+
+
+class TestFontEngineLoading:
+    def test_should_cache_google_font_by_family_weight_and_style(self, monkeypatch):
+        """Google Fonts family loading uses deterministic cached CSS and font files"""
+        import hashlib
+        from unittest.mock import MagicMock, patch
+
+        from quickthumb import Canvas
+
+        with open("assets/fonts/Roboto-Regular.ttf", "rb") as f:
+            real_font_data = f.read()
+
+        with tempfile.TemporaryDirectory() as cache_dir:
+            # Given: Google Fonts CSS points at a downloadable font file
+            monkeypatch.setenv("QUICKTHUMB_FONT_CACHE_DIR", cache_dir)
+            css = (
+                b"@font-face{font-family:'Roboto';font-style:normal;font-weight:400;"
+                b"src:url(https://fonts.gstatic.com/s/roboto/v1/Roboto-Regular.ttf)"
+                b" format('truetype');}"
+            )
+            css_response = MagicMock()
+            css_response.__enter__ = lambda s: s
+            css_response.__exit__ = MagicMock(return_value=False)
+            css_response.read.return_value = css
+            font_response = MagicMock()
+            font_response.__enter__ = lambda s: s
+            font_response.__exit__ = MagicMock(return_value=False)
+            font_response.read.return_value = real_font_data
+
+            # When: two separate canvases render with the same Google font family
+            output_a = os.path.join(cache_dir, "a.png")
+            output_b = os.path.join(cache_dir, "b.png")
+            with patch("quickthumb._fonts.urlopen", side_effect=[css_response, font_response]) as u:
+                Canvas(200, 100).background(color="#FFFFFF").text(
+                    "Hello",
+                    font="Roboto",
+                    font_source="google",
+                    size=24,
+                    color="#000000",
+                ).render(output_a)
+                Canvas(200, 100).background(color="#FFFFFF").text(
+                    "Hello",
+                    font="Roboto",
+                    font_source="google",
+                    size=24,
+                    color="#000000",
+                ).render(output_b)
+
+            # Then: CSS and font were fetched once, and the deterministic cache files exist
+            cache_hash = hashlib.md5(b"Roboto|400|0").hexdigest()
+            assert u.call_count == 2
+            assert os.path.exists(os.path.join(cache_dir, f"quickthumb_google_{cache_hash}.css"))
+            assert os.path.exists(os.path.join(cache_dir, f"quickthumb_google_{cache_hash}.ttf"))
+
+    def test_should_request_variations_and_select_nearest_google_face(self, monkeypatch):
+        """Google loading keys variation requests and chooses the nearest returned face"""
+        import hashlib
+        from unittest.mock import MagicMock, patch
+
+        from quickthumb import Canvas
+
+        with open("assets/fonts/Roboto-Regular.ttf", "rb") as f:
+            real_font_data = f.read()
+
+        with tempfile.TemporaryDirectory() as cache_dir:
+            # Given: Google CSS returns two static faces around a requested variable weight
+            monkeypatch.setenv("QUICKTHUMB_FONT_CACHE_DIR", cache_dir)
+            css = b"""
+            @font-face{font-family:'Roboto';font-style:normal;font-weight:600;
+            src:url(https://fonts.gstatic.com/s/roboto/v1/Roboto-600.ttf) format('truetype');}
+            @font-face{font-family:'Roboto';font-style:normal;font-weight:700;
+            src:url(https://fonts.gstatic.com/s/roboto/v1/Roboto-700.ttf) format('truetype');}
+            """
+            css_response = MagicMock()
+            css_response.__enter__ = lambda s: s
+            css_response.__exit__ = MagicMock(return_value=False)
+            css_response.read.return_value = css
+            font_response = MagicMock()
+            font_response.__enter__ = lambda s: s
+            font_response.__exit__ = MagicMock(return_value=False)
+            font_response.read.return_value = real_font_data
+            canvas = (
+                Canvas(240, 100)
+                .background(color="#FFFFFF")
+                .text(
+                    "Variable",
+                    font="Roboto",
+                    font_source="google",
+                    font_variations={"wght": 650},
+                    size=28,
+                    color="#000000",
+                )
+            )
+
+            # When: rendering with a variation request
+            with (
+                patch("quickthumb._fonts.urlopen", side_effect=[css_response, font_response]) as u,
+                pytest.warns(UserWarning, match="font_variations"),
+            ):
+                canvas.render(os.path.join(cache_dir, "output.png"))
+
+            # Then: the CSS request, selected face, cache key, and timeout are deterministic
+            css_request = u.call_args_list[0].args[0]
+            font_request = u.call_args_list[1].args[0]
+            assert "wght@0,650" in css_request.full_url
+            assert font_request.full_url.endswith("Roboto-600.ttf")
+            assert all(call.kwargs["timeout"] == 15 for call in u.call_args_list)
+            cache_hash = hashlib.md5(b"Roboto|650|0|wght=650").hexdigest()
+            assert os.path.exists(os.path.join(cache_dir, f"quickthumb_google_{cache_hash}.css"))
+            assert os.path.exists(os.path.join(cache_dir, f"quickthumb_google_{cache_hash}.ttf"))
+
+    def test_should_refresh_stale_google_css(self, monkeypatch):
+        """Google loading refreshes stale CSS without a usable font URL"""
+        import hashlib
+        from unittest.mock import MagicMock, patch
+
+        from quickthumb import Canvas
+
+        with open("assets/fonts/Roboto-Regular.ttf", "rb") as f:
+            real_font_data = f.read()
+
+        with tempfile.TemporaryDirectory() as cache_dir:
+            # Given: a stale cached CSS file for a Google font family
+            monkeypatch.setenv("QUICKTHUMB_FONT_CACHE_DIR", cache_dir)
+            cache_hash = hashlib.md5(b"Roboto|400|0").hexdigest()
+            css_path = os.path.join(cache_dir, f"quickthumb_google_{cache_hash}.css")
+            with open(css_path, "w", encoding="utf-8") as f:
+                f.write("@font-face{src:local('Roboto');}")
+
+            fresh_css = (
+                b"@font-face{font-family:'Roboto';font-style:normal;font-weight:400;"
+                b"src:url(https://fonts.gstatic.com/s/roboto/v1/Roboto-Regular.ttf)"
+                b" format('truetype');}"
+            )
+            css_response = MagicMock()
+            css_response.__enter__ = lambda s: s
+            css_response.__exit__ = MagicMock(return_value=False)
+            css_response.read.return_value = fresh_css
+            font_response = MagicMock()
+            font_response.__enter__ = lambda s: s
+            font_response.__exit__ = MagicMock(return_value=False)
+            font_response.read.return_value = real_font_data
+
+            # When: rendering text through the canonical Google font source
+            output_path = os.path.join(cache_dir, "output.png")
+            with patch("quickthumb._fonts.urlopen", side_effect=[css_response, font_response]):
+                Canvas(200, 100).background(color="#FFFFFF").text(
+                    "Hello",
+                    font="Roboto",
+                    font_source="google",
+                    size=24,
+                    color="#000000",
+                ).render(output_path)
+
+            # Then: stale CSS is replaced and a valid font cache entry is written
+            with open(css_path, encoding="utf-8") as f:
+                assert "fonts.gstatic.com" in f.read()
+            assert os.path.exists(os.path.join(cache_dir, f"quickthumb_google_{cache_hash}.ttf"))
+
+    def test_should_raise_rendering_error_when_google_font_css_fetch_fails(self, monkeypatch):
+        """Google font network failures surface as RenderingError"""
+        from unittest.mock import patch
+
+        from quickthumb import Canvas
+        from quickthumb.errors import RenderingError
+
+        with tempfile.TemporaryDirectory() as cache_dir:
+            # Given: Google Fonts CSS cannot be fetched
+            monkeypatch.setenv("QUICKTHUMB_FONT_CACHE_DIR", cache_dir)
+            canvas = (
+                Canvas(200, 100)
+                .background(color="#FFFFFF")
+                .text("Hello", font="Roboto", font_source="google", size=24, color="#000000")
+            )
+
+            # When: rendering the text
+            with (
+                patch("quickthumb._fonts.urlopen", side_effect=OSError("offline")),
+                pytest.raises(RenderingError, match="Failed to fetch Google font"),
+            ):
+                # Then: a clear RenderingError is raised
+                canvas.render(os.path.join(cache_dir, "output.png"))
+
+    def test_should_raise_rendering_error_when_google_font_payload_is_invalid(self, monkeypatch):
+        """Google font downloads validate that cached payloads are font files"""
+        from unittest.mock import MagicMock, patch
+
+        from quickthumb import Canvas
+        from quickthumb.errors import RenderingError
+
+        with tempfile.TemporaryDirectory() as cache_dir:
+            # Given: Google Fonts CSS resolves to non-font bytes
+            monkeypatch.setenv("QUICKTHUMB_FONT_CACHE_DIR", cache_dir)
+            css = (
+                b"@font-face{font-family:'Roboto';font-style:normal;font-weight:400;"
+                b"src:url(https://fonts.gstatic.com/s/roboto/v1/Roboto-Regular.ttf)"
+                b" format('truetype');}"
+            )
+            css_response = MagicMock()
+            css_response.__enter__ = lambda s: s
+            css_response.__exit__ = MagicMock(return_value=False)
+            css_response.read.return_value = css
+            font_response = MagicMock()
+            font_response.__enter__ = lambda s: s
+            font_response.__exit__ = MagicMock(return_value=False)
+            font_response.read.return_value = b"<html>not a font</html>"
+
+            # When: rendering the text
+            canvas = (
+                Canvas(200, 100)
+                .background(color="#FFFFFF")
+                .text("Hello", font="Roboto", font_source="google", size=24, color="#000000")
+            )
+            with (
+                patch("quickthumb._fonts.urlopen", side_effect=[css_response, font_response]),
+                pytest.raises(RenderingError, match="not a valid font"),
+            ):
+                # Then: invalid font bytes are rejected
+                canvas.render(os.path.join(cache_dir, "output.png"))
+
+    def test_should_raise_rendering_error_when_google_css_has_no_font_url(self, monkeypatch):
+        """Google font CSS without a downloadable URL fails after refresh"""
+        from unittest.mock import MagicMock, patch
+
+        from quickthumb import Canvas
+        from quickthumb.errors import RenderingError
+
+        with tempfile.TemporaryDirectory() as cache_dir:
+            # Given: Google Fonts CSS responses contain no url() font entries
+            monkeypatch.setenv("QUICKTHUMB_FONT_CACHE_DIR", cache_dir)
+            css_response_a = MagicMock()
+            css_response_a.__enter__ = lambda s: s
+            css_response_a.__exit__ = MagicMock(return_value=False)
+            css_response_a.read.return_value = b"@font-face{src:local('Roboto');}"
+            css_response_b = MagicMock()
+            css_response_b.__enter__ = lambda s: s
+            css_response_b.__exit__ = MagicMock(return_value=False)
+            css_response_b.read.return_value = b"@font-face{src:local('Roboto');}"
+            canvas = (
+                Canvas(200, 100)
+                .background(color="#FFFFFF")
+                .text("Hello", font="Roboto", font_source="google", size=24, color="#000000")
+            )
+
+            # When: rendering the text
+            with (
+                patch(
+                    "quickthumb._fonts.urlopen",
+                    side_effect=[css_response_a, css_response_b],
+                ),
+                pytest.raises(RenderingError, match="did not return a font file"),
+            ):
+                # Then: a clear RenderingError is raised after refetching CSS
+                canvas.render(os.path.join(cache_dir, "output.png"))
+
+    def test_should_cache_webfont_url_with_query_string_and_warn_for_style_flags(self, monkeypatch):
+        """Webfont URL loading strips query strings for extension and ignores style flags"""
+        import hashlib
+        from unittest.mock import MagicMock, patch
+
+        from quickthumb import Canvas
+
+        with open("assets/fonts/Roboto-Regular.ttf", "rb") as f:
+            real_font_data = f.read()
+
+        with tempfile.TemporaryDirectory() as cache_dir:
+            # Given: a styled text layer points at a direct webfont URL with query params
+            monkeypatch.setenv("QUICKTHUMB_FONT_CACHE_DIR", cache_dir)
+            mock_response = MagicMock()
+            mock_response.__enter__ = lambda s: s
+            mock_response.__exit__ = MagicMock(return_value=False)
+            mock_response.read.return_value = real_font_data
+            font_url = "https://example.com/Roboto.ttf?v=1"
+            canvas = (
+                Canvas(200, 100)
+                .background(color="#FFFFFF")
+                .text("Hello", font=font_url, bold=True, size=24, color="#000000")
+            )
+
+            # When: rendering with style flags that URL fonts cannot honor
+            with (
+                patch("quickthumb._fonts.urlopen", return_value=mock_response),
+                pytest.warns(UserWarning, match="ignored for webfont URLs"),
+            ):
+                canvas.render(os.path.join(cache_dir, "output.png"))
+
+            # Then: the URL cache uses a stable hash and the real font extension
+            url_hash = hashlib.md5(font_url.encode()).hexdigest()
+            cached_file = os.path.join(cache_dir, f"quickthumb_font_{url_hash}.ttf")
+            assert os.path.exists(cached_file)
+
+    def test_should_warn_and_render_when_variation_axis_is_not_available(self, tmp_path):
+        """Static fonts ignore unsupported variation axes with a clear fallback warning"""
+        from quickthumb import Canvas
+
+        # Given: a static repo font with an explicit variation request
+        canvas = (
+            Canvas(220, 100)
+            .background(color="#FFFFFF")
+            .text(
+                "Axis",
+                font="Roboto",
+                font_variations={"wdth": 75},
+                size=36,
+                color="#000000",
+                position=(20, 30),
+            )
+        )
+
+        # When: rendering the text
+        output = tmp_path / "axis.png"
+        with pytest.warns(UserWarning, match="font_variations"):
+            canvas.render(str(output))
+
+        # Then: the static font fallback still renders output
+        assert output.exists()
+        assert output.stat().st_size > 0
+
+    def test_should_apply_variation_axis_to_variable_font(self, tmp_path):
+        """Public rendering applies different values of a real variable font axis"""
+        from PIL import Image, ImageChops
+        from quickthumb import Canvas
+
+        # Given: the bundled variable font is rendered at two width-axis values
+        narrow = tmp_path / "narrow.png"
+        wide = tmp_path / "wide.png"
+        narrow_canvas = (
+            Canvas(500, 120)
+            .background(color="#FFFFFF")
+            .text(
+                "Variable width",
+                font="assets/fonts/RobotoFlex-Variable.ttf",
+                font_variations={"wdth": 25},
+                size=48,
+                color="#000000",
+                position=(20, 70),
+            )
+        )
+        wide_canvas = (
+            Canvas(500, 120)
+            .background(color="#FFFFFF")
+            .text(
+                "Variable width",
+                font="assets/fonts/RobotoFlex-Variable.ttf",
+                font_variations={"wdth": 151},
+                size=48,
+                color="#000000",
+                position=(20, 70),
+            )
+        )
+
+        # When: both public canvases render
+        narrow_canvas.render(str(narrow))
+        wide_canvas.render(str(wide))
+
+        # Then: changing the axis changes the rendered glyph pixels
+        difference = ImageChops.difference(
+            Image.open(narrow).convert("RGB"), Image.open(wide).convert("RGB")
+        )
+        assert difference.getbbox() is not None

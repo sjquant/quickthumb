@@ -82,7 +82,7 @@ Use `max_width` to enable wrapping:
 canvas.text(content="Long title here", size=72, color="#fff", max_width="60%")
 ```
 
-Or use `auto_scale=True` with `max_width` to shrink the text until it fits on one line instead of wrapping.
+Or use `auto_scale=True` with `max_width` and/or `max_height` to shrink the text until it fits the declared bounds.
 
 ### Can I mix fonts and colors in a single text block?
 

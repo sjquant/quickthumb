@@ -2,6 +2,7 @@
 PN = "PN"
 PNGs = "PNGs"
 ser = "ser"
+wdth = "wdth"
 
 [files]
 extend-exclude = [

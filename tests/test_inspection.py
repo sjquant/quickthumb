@@ -117,9 +117,9 @@ class TestInspectCanvas:
 
         # then
         assert text == TextInspection(
-            wrapped_lines=["ALPHA BETA"],
-            effective_font_size=17,
-            effective_font_sizes=[17, 35],
+            wrapped_lines=["ALPHA", "BETA"],
+            effective_font_size=27,
+            effective_font_sizes=[27, 55],
             max_width=180,
             auto_scaled=True,
         )

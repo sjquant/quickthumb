@@ -281,6 +281,9 @@ class TestTextLayers:
             "type": "text",
             "content": "Python Tutorial",
             "font": "Roboto",
+            "font_source": "auto",
+            "font_variations": {},
+            "emoji_style": "monochrome",
             "size": 84,
             "color": "#FFFFFF",
             "fill": None,
@@ -291,6 +294,9 @@ class TestTextLayers:
             "italic": False,
             "weight": None,
             "max_width": None,
+            "max_height": None,
+            "min_size": 1,
+            "balance_lines": False,
             "line_height": 1.5,
             "letter_spacing": 2,
             "auto_scale": False,
@@ -453,6 +459,9 @@ class TestRichText:
             "line_height": None,
             "letter_spacing": None,
             "font": "Arial",
+            "font_source": None,
+            "font_variations": None,
+            "emoji_style": None,
         }
         assert data["layers"][0]["content"][1] == {
             "text": "World",
@@ -466,7 +475,53 @@ class TestRichText:
             "line_height": 1.5,
             "letter_spacing": 2,
             "font": None,
+            "font_source": None,
+            "font_variations": None,
+            "emoji_style": None,
         }
+
+    def test_should_preserve_rich_part_inheritance_through_json(self):
+        """Omitted rich-part settings inherit after JSON round-trip while explicit values clear"""
+        from quickthumb import Canvas
+
+        # Given: a layer default and one part with explicit clear values
+        canvas = Canvas(600, 200).text(
+            content=[
+                TextPart(text="inherits"),
+                TextPart(
+                    text="clears",
+                    font_source="auto",
+                    font_variations={},
+                    emoji_style="monochrome",
+                ),
+            ],
+            font="assets/fonts/RobotoFlex-Variable.ttf",
+            font_variations={"wdth": 25},
+            emoji_style="color",
+            size=40,
+            position=(20, 60),
+        )
+
+        # When: the public canvas is serialized and reconstructed
+        encoded = canvas.to_json()
+        payload = json.loads(encoded)
+        loaded = Canvas.from_json(encoded)
+        parts = loaded.layers[0].content
+
+        # Then: both model intent and public SVG output survive the round-trip
+        assert payload["layers"][0]["content"][0]["font_source"] is None
+        assert payload["layers"][0]["content"][1]["font_source"] == "auto"
+        assert isinstance(parts, list)
+        assert parts[0].font_variations is None
+        assert parts[0].emoji_style is None
+        assert parts[0].font_source is None
+        assert parts[1].font_source == "auto"
+        assert parts[1].font_variations == {}
+        assert parts[1].emoji_style == "monochrome"
+        svg = loaded.to_svg()
+        assert svg.count("font-variation-settings=\"'wdth' 25\"") == 1
+        assert svg.count('font-variant-emoji="emoji"') == 1
+        assert svg.count('font-variant-emoji="text"') == 1
 
     def test_should_deserialize_rich_text_from_json_correctly(self):
         """Test that canvas with rich text can be deserialized from JSON"""
@@ -755,16 +810,16 @@ class TestTextLayerFontWeight:
             )
 
 
-class TestAutoScale:
-    """Test suite for auto_scale parameter validation"""
+class TestAutoFit:
+    """Test suite for auto-fit parameter validation"""
 
-    def test_should_raise_error_when_auto_scale_without_max_width(self):
-        """Test that auto_scale=True without max_width raises ValidationError"""
+    def test_should_raise_error_when_auto_scale_without_bounds(self):
+        """Test that auto_scale=True without width or height bounds raises ValidationError"""
         from quickthumb import Canvas, ValidationError
 
         canvas = Canvas(1920, 1080)
 
-        with pytest.raises(ValidationError, match="auto_scale.*max_width"):
+        with pytest.raises(ValidationError, match="auto_scale.*max_width or max_height"):
             canvas.text("Hello", auto_scale=True)
 
     def test_should_accept_auto_scale_with_max_width(self):
@@ -986,6 +1041,165 @@ class TestAutoScale:
         assert output_with.read_bytes() == output_without.read_bytes()
 
 
+class TestTextAutoFit:
+    """Test suite for box-aware text fitting and balanced wrapping"""
+
+    def test_should_round_trip_text_layout_pipeline_fields_through_json(self):
+        """Text font/layout pipeline fields validate and survive JSON serialization"""
+        from quickthumb import Canvas, TextLayer
+
+        # Given: a text layer using every W4d public layout/font field
+        canvas = Canvas(640, 360).text(
+            "Pipeline",
+            font="Roboto",
+            font_source="google",
+            font_variations={"wght": 650},
+            emoji_style="color",
+            size=72,
+            max_width=240,
+            max_height="40%",
+            min_size=18,
+            balance_lines=True,
+            auto_scale=True,
+        )
+
+        # When: the canvas round-trips through JSON
+        loaded = Canvas.from_json(canvas.to_json())
+
+        # Then: the public model fields are preserved
+        assert len(loaded.layers) == 1
+        assert isinstance(loaded.layers[0], TextLayer)
+        assert loaded.layers[0].font_source == "google"
+        assert loaded.layers[0].font_variations == {"wght": 650.0}
+        assert loaded.layers[0].emoji_style == "color"
+        assert loaded.layers[0].max_height == "40%"
+        assert loaded.layers[0].min_size == 18
+        assert loaded.layers[0].balance_lines is True
+        assert loaded.layers[0].auto_scale is True
+
+    def test_should_inspect_auto_fit_final_box_and_lines(self):
+        """Inspection reports the same fitted size and balanced lines used for rendering"""
+        from quickthumb import Canvas
+
+        # Given: a headline constrained by width and height
+        canvas = (
+            Canvas(420, 220)
+            .background(color="#FFFFFF")
+            .text(
+                "Alpha beta gamma delta",
+                font="Roboto",
+                size=48,
+                color="#111111",
+                position=(210, 110),
+                align="center",
+                max_width=210,
+                max_height=78,
+                min_size=18,
+                balance_lines=True,
+                auto_scale=True,
+            )
+        )
+
+        # When: inspecting the resolved layout
+        layer = canvas.inspect().layers[1]
+
+        # Then: the fitted bbox satisfies both constraints and exposes final layout controls
+        assert layer.bbox is not None
+        assert layer.bbox.width <= 210
+        assert layer.bbox.height <= 78
+        assert layer.text is not None
+        assert layer.text.auto_scaled is True
+        assert layer.text.effective_font_size is not None
+        assert 18 <= layer.text.effective_font_size <= 48
+        assert layer.text.max_height == 78
+        assert layer.text.min_size == 18
+        assert layer.text.balance_lines is True
+        assert layer.text.wrapped_lines == ["Alpha beta", "gamma delta"]
+
+    def test_should_auto_scale_with_max_height_only(self, tmp_path):
+        """Auto-fit accepts a height-only constraint and keeps the rendered box within it"""
+        from quickthumb import Canvas
+
+        # Given: text constrained only by max_height
+        canvas = (
+            Canvas(400, 160)
+            .background(color="#FFFFFF")
+            .text(
+                "Tall headline",
+                font="Roboto",
+                size=72,
+                color="#111111",
+                position=(200, 80),
+                align="center",
+                max_height=32,
+                min_size=18,
+                auto_scale=True,
+            )
+        )
+
+        # When: inspection and rendering resolve the effective text layer
+        inspected = canvas.inspect().layers[1]
+        output = tmp_path / "height_only.png"
+        canvas.render(str(output))
+
+        # Then: the public layout contract reports a fitting size and a real image exists
+        assert inspected.bbox is not None
+        assert inspected.bbox.height <= 32
+        assert inspected.text is not None
+        assert inspected.text.auto_scaled is True
+        assert inspected.text.effective_font_size is not None
+        assert inspected.text.effective_font_size < 72
+        assert output.exists()
+        assert output.stat().st_size > 0
+
+    def test_should_fit_single_wrapped_line_using_multiline_line_box(self):
+        """Auto-fit uses the renderer line box even when wrapping leaves one line"""
+        from quickthumb import Canvas
+
+        # Given: one line that is width-safe but too tall for the multiline renderer box
+        canvas = Canvas(600, 160).text(
+            "Short headline",
+            font="Roboto",
+            size=72,
+            color="#111111",
+            position=(300, 80),
+            align="center",
+            max_width=500,
+            max_height=75,
+            min_size=20,
+            auto_scale=True,
+        )
+
+        # When: inspection resolves the final layout
+        inspected = canvas.inspect().layers[0]
+
+        # Then: the font is reduced for the line-height box, not only the glyph ink bounds
+        assert inspected.bbox is not None
+        assert inspected.bbox.height <= 75
+        assert inspected.text is not None
+        assert inspected.text.effective_font_size is not None
+        assert inspected.text.effective_font_size < 72
+
+    def test_should_render_emoji_with_default_monochrome_pipeline(self, tmp_path):
+        """Emoji text continues rendering when the color emoji groundwork is disabled"""
+        from quickthumb import Canvas
+
+        # Given: a text layer containing emoji with default monochrome behavior
+        canvas = (
+            Canvas(240, 120)
+            .background(color="#FFFFFF")
+            .text("Launch 🚀", font="NotoSans", size=32, color="#111111", position=(10, 40))
+        )
+
+        # When: rendering the canvas
+        output = tmp_path / "emoji.png"
+        canvas.render(str(output))
+
+        # Then: rendering succeeds and produces a non-empty image
+        assert output.exists()
+        assert output.stat().st_size > 0
+
+
 class TestTextWrapping:
     """Test suite for text word-wrapping behaviour"""
 
@@ -1118,6 +1332,9 @@ class TestTextRotation:
                 "type": "text",
                 "content": "Rotated",
                 "font": None,
+                "font_source": "auto",
+                "font_variations": {},
+                "emoji_style": "monochrome",
                 "size": 48,
                 "color": None,
                 "fill": None,
@@ -1127,6 +1344,9 @@ class TestTextRotation:
                 "italic": False,
                 "weight": None,
                 "max_width": None,
+                "max_height": None,
+                "min_size": 1,
+                "balance_lines": False,
                 "effects": [],
                 "line_height": None,
                 "letter_spacing": None,
@@ -1242,6 +1462,9 @@ class TestTextEffects:
                 "type": "text",
                 "content": "Hello",
                 "font": None,
+                "font_source": "auto",
+                "font_variations": {},
+                "emoji_style": "monochrome",
                 "size": 72,
                 "color": None,
                 "fill": None,
@@ -1251,6 +1474,9 @@ class TestTextEffects:
                 "italic": False,
                 "weight": None,
                 "max_width": None,
+                "max_height": None,
+                "min_size": 1,
+                "balance_lines": False,
                 "effects": [{"type": "stroke", "width": 3, "color": "#000000"}],
                 "line_height": None,
                 "letter_spacing": None,
@@ -1369,6 +1595,9 @@ class TestTextEffects:
                 "type": "text",
                 "content": "Hello",
                 "font": None,
+                "font_source": "auto",
+                "font_variations": {},
+                "emoji_style": "monochrome",
                 "size": 72,
                 "color": None,
                 "fill": None,
@@ -1378,6 +1607,9 @@ class TestTextEffects:
                 "italic": False,
                 "weight": None,
                 "max_width": None,
+                "max_height": None,
+                "min_size": 1,
+                "balance_lines": False,
                 "effects": [
                     {
                         "type": "shadow",
@@ -1518,6 +1750,9 @@ class TestTextEffects:
                 "type": "text",
                 "content": "Hello",
                 "font": None,
+                "font_source": "auto",
+                "font_variations": {},
+                "emoji_style": "monochrome",
                 "size": 72,
                 "color": None,
                 "fill": None,
@@ -1527,6 +1762,9 @@ class TestTextEffects:
                 "italic": False,
                 "weight": None,
                 "max_width": None,
+                "max_height": None,
+                "min_size": 1,
+                "balance_lines": False,
                 "effects": [{"type": "glow", "color": "#FF0000", "radius": 10, "opacity": 0.9}],
                 "line_height": None,
                 "letter_spacing": None,
