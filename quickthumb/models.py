@@ -97,11 +97,8 @@ class FitMode(Enum):
     FILL = "fill"
 
 
-NormalizedUnitFloat = Annotated[
-    float,
-    Field(ge=0.0, le=1.0),
-    WithJsonSchema({"type": "number", "minimum": 0.0, "maximum": 1.0}),
-]
+NormalizedUnitFloat = Annotated[float, Field(ge=0.0, le=1.0)]
+PositiveNormalizedUnitFloat = Annotated[float, Field(gt=0.0, le=1.0)]
 FocalPoint = tuple[NormalizedUnitFloat, NormalizedUnitFloat]
 
 
@@ -208,8 +205,8 @@ class FaceRegion(quickthumbModel):
 
     x: NormalizedUnitFloat
     y: NormalizedUnitFloat
-    width: PositiveFloat
-    height: PositiveFloat
+    width: PositiveNormalizedUnitFloat
+    height: PositiveNormalizedUnitFloat
 
     @model_validator(mode="after")
     def validate_bounds(self) -> "FaceRegion":

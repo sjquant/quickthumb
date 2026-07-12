@@ -156,7 +156,9 @@ class TestCLISchema:
         face_props = defs["FaceRegion"]["properties"]
         assert face_props["x"]["minimum"] == 0.0
         assert face_props["x"]["maximum"] == 1.0
-        assert face_props["width"]["exclusiveMinimum"] == 0
+        for property_name in ("width", "height"):
+            assert face_props[property_name]["exclusiveMinimum"] == 0
+            assert face_props[property_name]["maximum"] == 1.0
         align_options = text_props["align"]["anyOf"]
         assert align_options[0] == {"$ref": "#/$defs/Align"}
         assert align_options[1]["prefixItems"][0]["enum"] == ["left", "center", "right"]

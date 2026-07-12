@@ -73,13 +73,8 @@ class ImageEngine:
             return img.resize(target_size, resample)
 
         if fit == FitMode.COVER:
-            scale = max(target_w / src_w, target_h / src_h)
-            scaled_w, scaled_h = int(src_w * scale), int(src_h * scale)
-            resized = img.resize((scaled_w, scaled_h), resample)
-            left, top = ImageEngine._cover_crop_offset(
-                (scaled_w, scaled_h), target_size, focal_point, faces
-            )
-            return resized.crop((left, top, left + target_w, top + target_h))
+            source_box = ImageEngine._cover_source_box(img.size, target_size, focal_point, faces)
+            return img.resize(target_size, resample, box=source_box)
 
         scale = min(target_w / src_w, target_h / src_h)
         scaled_w, scaled_h = int(src_w * scale), int(src_h * scale)
@@ -87,6 +82,28 @@ class ImageEngine:
         result = Image.new("RGBA", target_size, (0, 0, 0, 0))
         result.paste(resized, ((target_w - scaled_w) // 2, (target_h - scaled_h) // 2))
         return result
+
+    @staticmethod
+    def _cover_source_box(
+        source_size: tuple[int, int],
+        target_size: tuple[int, int],
+        focal_point: tuple[float, float] | None,
+        faces: list[FaceRegion] | None,
+    ) -> tuple[float, float, float, float]:
+        """Return the selected cover crop in source-image coordinates."""
+        src_w, src_h = source_size
+        target_w, target_h = target_size
+        scale = max(target_w / src_w, target_h / src_h)
+        scaled_w, scaled_h = int(src_w * scale), int(src_h * scale)
+        left, top = ImageEngine._cover_crop_offset(
+            (scaled_w, scaled_h), target_size, focal_point, faces
+        )
+        return (
+            left * src_w / scaled_w,
+            top * src_h / scaled_h,
+            (left + target_w) * src_w / scaled_w,
+            (top + target_h) * src_h / scaled_h,
+        )
 
     @staticmethod
     def _cover_crop_offset(
@@ -98,48 +115,28 @@ class ImageEngine:
         """Return a crop origin for cover-fit content in scaled source coordinates."""
         scaled_w, scaled_h = scaled_size
         target_w, target_h = target_size
-        focus_x, focus_y = ImageEngine._cover_crop_focus(focal_point, faces)
-        left = focus_x * scaled_w - target_w / 2
-        top = focus_y * scaled_h - target_h / 2
 
         if faces:
-            face_box = ImageEngine._scaled_face_union(scaled_size, faces)
+            face_box = (
+                min(face.x * scaled_w for face in faces),
+                min(face.y * scaled_h for face in faces),
+                max((face.x + face.width) * scaled_w for face in faces),
+                max((face.y + face.height) * scaled_h for face in faces),
+            )
+            left = (face_box[0] + face_box[2]) / 2 - target_w / 2
+            top = (face_box[1] + face_box[3]) / 2 - target_h / 2
             left = ImageEngine._clamp_crop_to_face(
                 left, target_w, scaled_w, face_box[0], face_box[2]
             )
             top = ImageEngine._clamp_crop_to_face(top, target_h, scaled_h, face_box[1], face_box[3])
         else:
+            focus_x, focus_y = focal_point or (0.5, 0.5)
+            left = focus_x * scaled_w - target_w / 2
+            top = focus_y * scaled_h - target_h / 2
             left = ImageEngine._clamp(left, 0, scaled_w - target_w)
             top = ImageEngine._clamp(top, 0, scaled_h - target_h)
 
         return int(left), int(top)
-
-    @staticmethod
-    def _cover_crop_focus(
-        focal_point: tuple[float, float] | None,
-        faces: list[FaceRegion] | None,
-    ) -> tuple[float, float]:
-        if faces:
-            left = min(face.x for face in faces)
-            top = min(face.y for face in faces)
-            right = max(face.x + face.width for face in faces)
-            bottom = max(face.y + face.height for face in faces)
-            return ((left + right) / 2, (top + bottom) / 2)
-        if focal_point is not None:
-            return focal_point
-        return (0.5, 0.5)
-
-    @staticmethod
-    def _scaled_face_union(
-        scaled_size: tuple[int, int], faces: list[FaceRegion]
-    ) -> tuple[float, float, float, float]:
-        scaled_w, scaled_h = scaled_size
-        return (
-            min(face.x * scaled_w for face in faces),
-            min(face.y * scaled_h for face in faces),
-            max((face.x + face.width) * scaled_w for face in faces),
-            max((face.y + face.height) * scaled_h for face in faces),
-        )
 
     @staticmethod
     def _clamp_crop_to_face(

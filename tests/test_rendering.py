@@ -749,67 +749,6 @@ class TestRendering:
             with open(output_path, "rb") as f:
                 assert f.read() == external_file(f"snapshots/{snapshot_name}")
 
-    def test_should_use_focal_point_for_cover_crop(self):
-        """fit='cover' crops around the requested normalized focal point"""
-        from quickthumb import Canvas
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            source_path = os.path.join(tmpdir, "bands.png")
-            output_path = os.path.join(tmpdir, "output.png")
-
-            # Given: A wide image with distinct left, center, and right regions
-            source = Image.new("RGBA", (300, 100), "#DC2626")
-            source.paste(Image.new("RGBA", (100, 100), "#16A34A"), (100, 0))
-            source.paste(Image.new("RGBA", (100, 100), "#2563EB"), (200, 0))
-            source.save(source_path)
-
-            # When: Rendering a square cover crop focused on the right edge
-            canvas = Canvas(100, 100).background(
-                image=source_path,
-                fit="cover",
-                focal_point=(1.0, 0.5),
-            )
-            canvas.render(output_path)
-
-            # Then: The crop should keep the focal right region in frame
-            rendered = Image.open(output_path).convert("RGBA")
-            assert rendered.getpixel((50, 50))[:3] == (37, 99, 235)
-
-    def test_should_use_faces_for_cover_crop_and_fallback_when_unavailable(self):
-        """fit='cover' keeps face boxes visible and falls back without faces"""
-        from quickthumb import Canvas
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            source_path = os.path.join(tmpdir, "vertical-bands.png")
-            face_output_path = os.path.join(tmpdir, "face-output.png")
-            fallback_output_path = os.path.join(tmpdir, "fallback-output.png")
-
-            # Given: A tall image where the face region is near the top but focal point is bottom
-            source = Image.new("RGBA", (100, 300), "#F97316")
-            source.paste(Image.new("RGBA", (100, 100), "#14B8A6"), (0, 100))
-            source.paste(Image.new("RGBA", (100, 100), "#4F46E5"), (0, 200))
-            source.save(source_path)
-
-            # When: Rendering with face metadata and with no available faces
-            Canvas(100, 100).background(
-                image=source_path,
-                fit="cover",
-                focal_point=(0.5, 1.0),
-                faces=[{"x": 0.2, "y": 0.08, "width": 0.6, "height": 0.1}],
-            ).render(face_output_path)
-            Canvas(100, 100).background(
-                image=source_path,
-                fit="cover",
-                focal_point=(0.5, 1.0),
-                faces=[],
-            ).render(fallback_output_path)
-
-            # Then: Face-aware crop keeps the top band, while fallback uses the focal point
-            face_render = Image.open(face_output_path).convert("RGBA")
-            fallback_render = Image.open(fallback_output_path).convert("RGBA")
-            assert face_render.getpixel((50, 50))[:3] == (249, 115, 22)
-            assert fallback_render.getpixel((50, 50))[:3] == (79, 70, 229)
-
     def test_snapshot_image_fit_cover_focal_point(self):
         """Snapshot test for cover fit with focal-point crop metadata"""
         from quickthumb import Canvas

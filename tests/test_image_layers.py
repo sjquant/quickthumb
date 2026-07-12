@@ -142,6 +142,32 @@ class TestImageLayers:
                 faces=[{"x": 0.9, "y": 0.2, "width": 0.2, "height": 0.3}],
             )
 
+    @pytest.mark.parametrize(
+        "face",
+        [
+            {"x": 0.0, "y": 0.2, "width": 1.1, "height": 0.3},
+            {"x": 0.2, "y": 0.0, "width": 0.3, "height": 1.1},
+        ],
+    )
+    def test_should_reject_face_region_dimensions_larger_than_source(self, face):
+        """Face region dimensions must be normalized to the source-image bounds"""
+        # Given: A canvas and a face box wider or taller than the source image
+        from quickthumb import Canvas
+
+        canvas = Canvas(1920, 1080)
+
+        # When: Creating an image layer with oversize face metadata
+        # Then: Validation rejects the invalid normalized dimension
+        with pytest.raises(ValidationError, match="less than or equal to 1"):
+            canvas.image(
+                path="assets/logo.png",
+                position=(0, 0),
+                width=300,
+                height=200,
+                fit="cover",
+                faces=[face],
+            )
+
     @pytest.mark.parametrize("blend_mode", ["invalid", "soft-light", "difference"])
     def test_should_reject_invalid_blend_mode(self, blend_mode):
         """Test that unsupported image blend mode raises ValidationError"""
@@ -305,13 +331,16 @@ class TestImageLayerComposition:
 class TestImageFitIntelligence:
     """Test suite for focal-point and face-aware cover rendering"""
 
-    def test_should_render_center_and_focal_point_cover_crops(self, tmp_path):
-        """Cover crops fall back to center and honor focal points through public rendering"""
+    def test_should_render_center_and_focal_point_cover_crops_for_background_and_image_layers(
+        self, tmp_path
+    ):
+        """Backgrounds and image layers fall back to center and honor focal points"""
         from quickthumb import Canvas
 
         source_path = tmp_path / "bands.png"
         center_output = tmp_path / "center.png"
         focal_output = tmp_path / "focal.png"
+        image_output = tmp_path / "image-layer.png"
 
         # Given: A wide source image with distinct left, center, and right regions
         source = Image.new("RGBA", (300, 100), "#DC2626")
@@ -319,27 +348,46 @@ class TestImageFitIntelligence:
         source.paste(Image.new("RGBA", (100, 100), "#2563EB"), (200, 0))
         source.save(source_path)
 
-        # When: Rendering default and right-focused square cover crops
+        # When: Rendering default and right-focused backgrounds plus a right-focused image layer
         Canvas(100, 100).background(image=str(source_path), fit="cover").render(center_output)
         Canvas(100, 100).background(
             image=str(source_path),
             fit="cover",
             focal_point=(1.0, 0.5),
         ).render(focal_output)
+        (
+            Canvas(120, 100)
+            .background(color="#000000")
+            .image(
+                path=str(source_path),
+                position=(10, 0),
+                width=100,
+                height=100,
+                fit="cover",
+                focal_point=(1.0, 0.5),
+            )
+            .render(image_output)
+        )
 
-        # Then: The default crop is centered and the focal crop keeps the right region
+        # Then: The default crop is centered and both focal crops keep the right region
         center_render = Image.open(center_output).convert("RGBA")
         focal_render = Image.open(focal_output).convert("RGBA")
+        image_render = Image.open(image_output).convert("RGBA")
         assert center_render.getpixel((50, 50))[:3] == (22, 163, 74)
         assert focal_render.getpixel((50, 50))[:3] == (37, 99, 235)
+        assert image_render.getpixel((60, 50))[:3] == (37, 99, 235)
 
-    def test_should_render_face_aware_cover_crop_and_fallback(self, tmp_path):
-        """Face-aware cover crops keep face boxes visible and fall back without faces"""
+    def test_should_render_face_aware_cover_crop_and_fallback_for_background_and_image_layers(
+        self, tmp_path
+    ):
+        """Backgrounds and image layers use face regions and fall back without them"""
         from quickthumb import Canvas
 
         source_path = tmp_path / "vertical-bands.png"
         face_output = tmp_path / "face.png"
         fallback_output = tmp_path / "fallback.png"
+        image_face_output = tmp_path / "image-face.png"
+        image_fallback_output = tmp_path / "image-fallback.png"
 
         # Given: A tall source image with face metadata near the top and focal point at bottom
         source = Image.new("RGBA", (100, 300), "#F97316")
@@ -347,7 +395,7 @@ class TestImageFitIntelligence:
         source.paste(Image.new("RGBA", (100, 100), "#4F46E5"), (0, 200))
         source.save(source_path)
 
-        # When: Rendering with face metadata and with no available face boxes
+        # When: Rendering backgrounds and image layers with face metadata and without faces
         Canvas(100, 100).background(
             image=str(source_path),
             fit="cover",
@@ -360,12 +408,88 @@ class TestImageFitIntelligence:
             focal_point=(0.5, 1.0),
             faces=[],
         ).render(fallback_output)
+        Canvas(100, 100).image(
+            path=str(source_path),
+            position=(0, 0),
+            width=100,
+            height=100,
+            fit="cover",
+            focal_point=(0.5, 1.0),
+            faces=[{"x": 0.2, "y": 0.08, "width": 0.6, "height": 0.1}],
+        ).render(image_face_output)
+        Canvas(100, 100).image(
+            path=str(source_path),
+            position=(0, 0),
+            width=100,
+            height=100,
+            fit="cover",
+            focal_point=(0.5, 1.0),
+            faces=[],
+        ).render(image_fallback_output)
 
-        # Then: The face-aware crop keeps the top band and fallback uses the focal point
+        # Then: Face-aware crops keep the top band, while fallback uses the focal point
         face_render = Image.open(face_output).convert("RGBA")
         fallback_render = Image.open(fallback_output).convert("RGBA")
+        image_face_render = Image.open(image_face_output).convert("RGBA")
+        image_fallback_render = Image.open(image_fallback_output).convert("RGBA")
         assert face_render.getpixel((50, 50))[:3] == (249, 115, 22)
         assert fallback_render.getpixel((50, 50))[:3] == (79, 70, 229)
+        assert image_face_render.getpixel((50, 50))[:3] == (249, 115, 22)
+        assert image_fallback_render.getpixel((50, 50))[:3] == (79, 70, 229)
+
+    def test_should_render_face_aware_text_fill_and_fallback(self, tmp_path):
+        """Text image fills use face regions and fall back to focal-point cropping"""
+        from quickthumb import Canvas, TextFillImage
+
+        source_path = tmp_path / "vertical-bands.png"
+        face_output = tmp_path / "text-face.png"
+        fallback_output = tmp_path / "text-fallback.png"
+
+        # Given: A tall source image with a face region near the top and a bottom focal point
+        source = Image.new("RGBA", (100, 300), "#F97316")
+        source.paste(Image.new("RGBA", (100, 100), "#14B8A6"), (0, 100))
+        source.paste(Image.new("RGBA", (100, 100), "#4F46E5"), (0, 200))
+        source.save(source_path)
+
+        # When: Rendering text with face-aware and fallback image fills
+        Canvas(160, 140).background(color="#000000").text(
+            "H",
+            size=120,
+            fill=TextFillImage(
+                path=str(source_path),
+                fit="cover",
+                focal_point=(0.5, 1.0),
+                faces=[{"x": 0.2, "y": 0.08, "width": 0.6, "height": 0.1}],
+            ),
+            position=(15, 0),
+        ).render(face_output)
+        Canvas(160, 140).background(color="#000000").text(
+            "H",
+            size=120,
+            fill=TextFillImage(
+                path=str(source_path),
+                fit="cover",
+                focal_point=(0.5, 1.0),
+                faces=[],
+            ),
+            position=(15, 0),
+        ).render(fallback_output)
+
+        # Then: The text fill follows face metadata and uses the focal point without faces
+        face_render = Image.open(face_output).convert("RGBA")
+        fallback_render = Image.open(fallback_output).convert("RGBA")
+        face_colors = {
+            color
+            for _, color in face_render.getcolors(maxcolors=face_render.width * face_render.height)
+        }
+        fallback_colors = {
+            color
+            for _, color in fallback_render.getcolors(
+                maxcolors=fallback_render.width * fallback_render.height
+            )
+        }
+        assert (249, 115, 22, 255) in face_colors
+        assert (79, 70, 229, 255) in fallback_colors
 
 
 class TestImageLayerBorderRadius:
