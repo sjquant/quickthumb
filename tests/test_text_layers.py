@@ -459,7 +459,7 @@ class TestRichText:
             "line_height": None,
             "letter_spacing": None,
             "font": "Arial",
-            "font_source": "auto",
+            "font_source": None,
             "font_variations": None,
             "emoji_style": None,
         }
@@ -475,7 +475,7 @@ class TestRichText:
             "line_height": 1.5,
             "letter_spacing": 2,
             "font": None,
-            "font_source": "auto",
+            "font_source": None,
             "font_variations": None,
             "emoji_style": None,
         }
@@ -488,7 +488,12 @@ class TestRichText:
         canvas = Canvas(600, 200).text(
             content=[
                 TextPart(text="inherits"),
-                TextPart(text="clears", font_variations={}, emoji_style="monochrome"),
+                TextPart(
+                    text="clears",
+                    font_source="auto",
+                    font_variations={},
+                    emoji_style="monochrome",
+                ),
             ],
             font="assets/fonts/RobotoFlex-Variable.ttf",
             font_variations={"wdth": 25},
@@ -498,13 +503,19 @@ class TestRichText:
         )
 
         # When: the public canvas is serialized and reconstructed
-        loaded = Canvas.from_json(canvas.to_json())
+        encoded = canvas.to_json()
+        payload = json.loads(encoded)
+        loaded = Canvas.from_json(encoded)
         parts = loaded.layers[0].content
 
         # Then: both model intent and public SVG output survive the round-trip
+        assert payload["layers"][0]["content"][0]["font_source"] is None
+        assert payload["layers"][0]["content"][1]["font_source"] == "auto"
         assert isinstance(parts, list)
         assert parts[0].font_variations is None
         assert parts[0].emoji_style is None
+        assert parts[0].font_source is None
+        assert parts[1].font_source == "auto"
         assert parts[1].font_variations == {}
         assert parts[1].emoji_style == "monochrome"
         svg = loaded.to_svg()
@@ -799,16 +810,16 @@ class TestTextLayerFontWeight:
             )
 
 
-class TestAutoScale:
-    """Test suite for auto_scale parameter validation"""
+class TestAutoFit:
+    """Test suite for auto-fit parameter validation"""
 
-    def test_should_raise_error_when_auto_scale_without_max_width(self):
-        """Test that auto_scale=True without max_width raises ValidationError"""
+    def test_should_raise_error_when_auto_scale_without_bounds(self):
+        """Test that auto_scale=True without width or height bounds raises ValidationError"""
         from quickthumb import Canvas, ValidationError
 
         canvas = Canvas(1920, 1080)
 
-        with pytest.raises(ValidationError, match="auto_scale.*max_width"):
+        with pytest.raises(ValidationError, match="auto_scale.*max_width or max_height"):
             canvas.text("Hello", auto_scale=True)
 
     def test_should_accept_auto_scale_with_max_width(self):
@@ -1030,7 +1041,7 @@ class TestAutoScale:
         assert output_with.read_bytes() == output_without.read_bytes()
 
 
-class TestTextAutoFitV2:
+class TestTextAutoFit:
     """Test suite for box-aware text fitting and balanced wrapping"""
 
     def test_should_round_trip_text_layout_pipeline_fields_through_json(self):
@@ -1066,7 +1077,7 @@ class TestTextAutoFitV2:
         assert loaded.layers[0].balance_lines is True
         assert loaded.layers[0].auto_scale is True
 
-    def test_should_inspect_auto_fit_v2_final_box_and_lines(self):
+    def test_should_inspect_auto_fit_final_box_and_lines(self):
         """Inspection reports the same fitted size and balanced lines used for rendering"""
         from quickthumb import Canvas
 

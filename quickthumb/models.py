@@ -579,7 +579,7 @@ class TextPart(quickthumbModel):
     line_height: PositiveFloat | None = None
     letter_spacing: int | None = None
     font: str | None = None
-    font_source: FontSource = "auto"
+    font_source: FontSource | None = None
     font_variations: FontVariations | None = None
     emoji_style: EmojiStyle | None = None
 

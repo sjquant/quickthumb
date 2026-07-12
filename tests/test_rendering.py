@@ -1761,7 +1761,7 @@ class TestRendering:
             with open(output_path, "rb") as f:
                 assert f.read() == external_file("snapshots/auto_scale_rich_text.png")
 
-    def test_snapshot_auto_fit_v2_balanced_text(self):
+    def test_snapshot_auto_fit_balanced_text(self):
         """Snapshot test for box-aware auto-fit with balanced wrapped lines"""
         from quickthumb import Canvas
 
@@ -1799,7 +1799,7 @@ class TestRendering:
 
             # Then: output matches the visual auto-fit snapshot
             with open(output_path, "rb") as f:
-                assert f.read() == external_file("snapshots/auto_fit_v2_balanced_text.png")
+                assert f.read() == external_file("snapshots/auto_fit_balanced_text.png")
 
     def test_snapshot_rich_text_wrapping(self):
         """Snapshot test for rich text word-wrapping with list[TextPart] and max_width"""

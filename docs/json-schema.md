@@ -163,10 +163,16 @@ Only include the fields you need — unspecified fields use their defaults.
 {
   "type": "text",
   "content": "Hello World",
+  "font_source": "auto",
+  "font_variations": {},
+  "emoji_style": "monochrome",
   "size": 72,
   "color": "#FFFFFF",
   "position": ["50%", "50%"],
   "align": "center",
+  "max_height": null,
+  "min_size": 1,
+  "balance_lines": false,
   "opacity": 1.0,
   "rotation": 0.0,
   "effects": []
@@ -179,8 +185,24 @@ Only include the fields you need — unspecified fields use their defaults.
 {
   "type": "text",
   "content": [
-    { "text": "5 ", "color": "#FBBF24", "weight": 900, "effects": [] },
-    { "text": "WARNING SIGNS", "color": "#FFFFFF", "weight": 900, "effects": [] }
+    {
+      "text": "5 ",
+      "color": "#FBBF24",
+      "font_source": null,
+      "font_variations": null,
+      "emoji_style": null,
+      "weight": 900,
+      "effects": []
+    },
+    {
+      "text": "WARNING SIGNS",
+      "color": "#FFFFFF",
+      "font_source": "auto",
+      "font_variations": {},
+      "emoji_style": "monochrome",
+      "weight": 900,
+      "effects": []
+    }
   ],
   "size": 80,
   "position": ["8%", "55%"],

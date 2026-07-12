@@ -342,9 +342,7 @@ class TextEngine:
         }
 
     def _render_simple_text(self, image: Image.Image, layer: TextLayer):
-        # Apply auto-scaling if enabled
-        if layer.auto_scale and (layer.max_width or layer.max_height):
-            layer = self._auto_scale_simple_text(layer)
+        layer = self.effective_layer(layer)
 
         # If rotation is needed, render to temporary image first
         if layer.rotation != 0:
@@ -401,9 +399,7 @@ class TextEngine:
         if not isinstance(layer.content, list):
             return
 
-        # Apply auto-scaling if enabled
-        if layer.auto_scale and (layer.max_width or layer.max_height):
-            layer = self._auto_scale_rich_text(layer)
+        layer = self.effective_layer(layer)
 
         # If rotation is needed, render to temporary image first
         if layer.rotation != 0:
@@ -679,7 +675,7 @@ class TextEngine:
         return layer.font
 
     def _resolve_font_source(self, part: TextPart, layer: TextLayer):
-        if part.font_source != "auto":
+        if part.font_source is not None:
             return part.font_source
         return layer.font_source
 

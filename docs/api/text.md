@@ -12,6 +12,9 @@ description: Reference for quickthumb text layers, including rich text parts, fo
 canvas.text(
     content,
     font=None,
+    font_source="auto",
+    font_variations=None,
+    emoji_style="monochrome",
     size=None,
     color=None,
     fill=None,
@@ -21,6 +24,9 @@ canvas.text(
     italic=False,
     weight=None,
     max_width=None,
+    max_height=None,
+    min_size=1,
+    balance_lines=False,
     effects=None,
     line_height=None,
     letter_spacing=None,
@@ -36,6 +42,9 @@ canvas.text(
 | --- | --- | --- | --- |
 | `content` | `str \| list[TextPart]` | **required** | Text content. Plain string or a list of `TextPart` for rich text. |
 | `font` | `str \| None` | `None` | Font family name, local file path, or remote webfont URL. |
+| `font_source` | `"auto" \| "system" \| "google"` | `"auto"` | Font lookup source. `"google"` loads and caches the named Google Font. |
+| `font_variations` | `dict[str, float] \| None` | `None` | OpenType variation-axis values such as `{"wght": 650}`. |
+| `emoji_style` | `"monochrome" \| "color"` | `"monochrome"` | Emoji presentation preference. |
 | `size` | `int \| None` | `None` | Font size in pixels. Must be a positive integer. |
 | `color` | `str \| None` | `None` | Default text color. Hex string (`"#RRGGBB"` or `"#RRGGBBAA"`). |
 | `fill` | `LinearGradient \| RadialGradient \| TextFillImage \| None` | `None` | Gradient or image fill applied to the text glyphs. Takes visual precedence over `color` when set. See [Gradient and image fills](#gradient-and-image-fills). |
@@ -44,11 +53,14 @@ canvas.text(
 | `bold` | `bool` | `False` | Bold flag. Mutually exclusive with `weight`. |
 | `italic` | `bool` | `False` | Italic flag. |
 | `weight` | `int \| str \| None` | `None` | CSS-style font weight (e.g. `700`, `900`, `"bold"`). Mutually exclusive with `bold`. |
-| `max_width` | `int \| str \| None` | `None` | Wrap width in pixels or percentage string (e.g. `"60%"`). Required for `auto_scale`. |
+| `max_width` | `int \| str \| None` | `None` | Wrap width in pixels or percentage string (e.g. `"60%"`). |
+| `max_height` | `int \| str \| None` | `None` | Maximum text-block height in pixels or percentage string. |
+| `min_size` | `int` | `1` | Smallest font size permitted during auto-fit. |
+| `balance_lines` | `bool` | `False` | Balance wrapped lines when `max_width` is set. |
 | `effects` | `list \| None` | `[]` | List of effects: `Stroke`, `Shadow`, `Glow`, `Background`. |
 | `line_height` | `float \| None` | `None` | Line height multiplier. Positive float. |
 | `letter_spacing` | `int \| None` | `None` | Horizontal tracking adjustment in pixels. |
-| `auto_scale` | `bool` | `False` | Shrink the font until the text fits within `max_width`. Requires `max_width`. |
+| `auto_scale` | `bool` | `False` | Shrink the font until the text fits within `max_width` and/or `max_height`. |
 | `rotation` | `float` | `0.0` | Rotation in degrees. |
 | `opacity` | `float` | `1.0` | Layer opacity from `0.0` to `1.0`. |
 
@@ -217,6 +229,9 @@ TextPart(
     fill=None,
     size=56,
     font="Impact",
+    font_source=None,
+    font_variations=None,
+    emoji_style=None,
     weight=900,
     italic=False,
     line_height=None,
@@ -232,6 +247,9 @@ TextPart(
 | `fill` | `LinearGradient \| RadialGradient \| TextFillImage \| None` | `None` | Gradient or image fill for this segment. Overrides the layer-level `fill` for this segment only. |
 | `size` | `int \| None` | `None` | Font size override for this segment. |
 | `font` | `str \| None` | `None` | Font override for this segment. |
+| `font_source` | `"auto" \| "system" \| "google" \| None` | `None` | Font source override. `None` inherits the layer; an explicit value overrides it. |
+| `font_variations` | `dict[str, float] \| None` | `None` | Variation override. `None` inherits the layer; `{}` explicitly clears inherited axes. |
+| `emoji_style` | `"monochrome" \| "color" \| None` | `None` | Emoji-style override. `None` inherits the layer; `"monochrome"` explicitly overrides it. |
 | `bold` | `bool \| None` | `None` | Bold override. Mutually exclusive with `weight`. |
 | `italic` | `bool \| None` | `None` | Italic override. |
 | `weight` | `int \| str \| None` | `None` | Font weight override. Mutually exclusive with `bold`. |
@@ -244,7 +262,7 @@ TextPart(
 - `content` is required and cannot be an empty list.
 - `TextPart.text` cannot be an empty string.
 - `weight` and `bold=True` are mutually exclusive on both `TextLayer` and `TextPart`.
-- `auto_scale=True` requires `max_width` to also be set.
+- `auto_scale=True` requires `max_width` or `max_height` to be set.
 - `max_width` must be a positive integer or a positive percentage string like `"60%"`.
 - Percentage strings in `position` must match the pattern `-?N%` (negative percentages are valid).
 - `fill` and `color` are independent fields; `fill` takes visual precedence when both are set.
