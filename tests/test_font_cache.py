@@ -469,8 +469,8 @@ class TestFontEngineLoading:
             assert os.path.exists(os.path.join(cache_dir, f"quickthumb_google_{cache_hash}.css"))
             assert os.path.exists(os.path.join(cache_dir, f"quickthumb_google_{cache_hash}.ttf"))
 
-    def test_should_refresh_stale_google_css_for_google_font_prefix(self, monkeypatch):
-        """google: family shorthand refreshes stale CSS without a usable font URL"""
+    def test_should_refresh_stale_google_css(self, monkeypatch):
+        """Google loading refreshes stale CSS without a usable font URL"""
         import hashlib
         from unittest.mock import MagicMock, patch
 
@@ -480,7 +480,7 @@ class TestFontEngineLoading:
             real_font_data = f.read()
 
         with tempfile.TemporaryDirectory() as cache_dir:
-            # Given: a stale cached CSS file for the google: font family shorthand
+            # Given: a stale cached CSS file for a Google font family
             monkeypatch.setenv("QUICKTHUMB_FONT_CACHE_DIR", cache_dir)
             cache_hash = hashlib.md5(b"Roboto|400|0").hexdigest()
             css_path = os.path.join(cache_dir, f"quickthumb_google_{cache_hash}.css")
@@ -501,12 +501,13 @@ class TestFontEngineLoading:
             font_response.__exit__ = MagicMock(return_value=False)
             font_response.read.return_value = real_font_data
 
-            # When: rendering text with the google: prefix
+            # When: rendering text through the canonical Google font source
             output_path = os.path.join(cache_dir, "output.png")
             with patch("quickthumb._fonts.urlopen", side_effect=[css_response, font_response]):
                 Canvas(200, 100).background(color="#FFFFFF").text(
                     "Hello",
-                    font="google:Roboto",
+                    font="Roboto",
+                    font_source="google",
                     size=24,
                     color="#000000",
                 ).render(output_path)

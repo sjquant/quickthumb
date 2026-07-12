@@ -359,12 +359,13 @@ class TextEngine:
         glow_effects = self._get_glow_effects(layer.effects)
         background_effects = self._get_background_effects(layer.effects)
 
-        if layer.max_width:
-            max_width_px = parse_coordinate(layer.max_width, self._ctx.width)
+        max_width_px = (
+            parse_coordinate(layer.max_width, self._ctx.width)
+            if layer.max_width is not None
+            else None
+        )
+        if max_width_px is not None or "\n" in content:
             lines = self._simple_lines_for_layer(layer, content, font, max_width_px)
-            self._render_multiline_text(draw, lines, font, color, layer, image)
-        elif "\n" in content:
-            lines = content.split("\n")
             self._render_multiline_text(draw, lines, font, color, layer, image)
         elif layer.letter_spacing:
             self._render_letter_spaced_text(

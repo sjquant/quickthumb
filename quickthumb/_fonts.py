@@ -85,10 +85,6 @@ class FontEngine:
         font_variations: dict[str, float],
     ) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
         try:
-            if font_name and font_name.lower().startswith("google:"):
-                font_source = "google"
-                font_name = font_name.split(":", 1)[1].strip()
-
             if font_name and is_url(font_name):
                 if bold or italic or weight:
                     warnings.warn(
@@ -167,13 +163,16 @@ class FontEngine:
         cache_hash = hashlib.md5(cache_key.encode()).hexdigest()
         cache_dir = self._font_cache_dir()
 
-        cached_font = self._valid_cached_google_font_path(cache_dir, cache_hash)
-        if cached_font:
-            return cached_font
+        for extension in (".woff2", ".woff", ".ttf", ".otf"):
+            cache_path = os.path.join(cache_dir, f"quickthumb_google_{cache_hash}{extension}")
+            if self._is_valid_cached_font(cache_path):
+                return cache_path
 
         css_path = os.path.join(cache_dir, f"quickthumb_google_{cache_hash}.css")
-        css = self._read_cached_css(css_path)
-        if css is None:
+        try:
+            with open(css_path, encoding="utf-8") as f:
+                css = f.read()
+        except OSError:
             css = self._fetch_google_font_css(family, target_weight, italic, requested_variations)
             with open(css_path, "w", encoding="utf-8") as f:
                 f.write(css)
@@ -236,13 +235,6 @@ class FontEngine:
                 return self._fetch_google_font_css(family, weight, italic)
             raise RenderingError(f"Failed to fetch Google font '{family}'.") from e
 
-    def _read_cached_css(self, css_path: str) -> str | None:
-        try:
-            with open(css_path, encoding="utf-8") as f:
-                return f.read()
-        except OSError:
-            return None
-
     def _select_google_font_url(
         self, css: str, target_weight: int = 400, italic: bool = False
     ) -> str | None:
@@ -287,13 +279,6 @@ class FontEngine:
         if len(values) >= 2 and values[0] <= target_weight <= values[1]:
             return 0.0
         return min(abs(value - target_weight) for value in values)
-
-    def _valid_cached_google_font_path(self, cache_dir: str, cache_hash: str) -> str | None:
-        for extension in (".woff2", ".woff", ".ttf", ".otf"):
-            cache_path = os.path.join(cache_dir, f"quickthumb_google_{cache_hash}{extension}")
-            if self._is_valid_cached_font(cache_path):
-                return cache_path
-        return None
 
     def _download_and_cache_font(self, url: str) -> str:
         url_hash = hashlib.md5(url.encode()).hexdigest()

@@ -182,23 +182,15 @@ class FontCache:
     ) -> tuple[str, FontVariant] | None:
         if "[" in name:
             family = name.split("[", 1)[0].strip()
-            if not family:
-                return None
-            weight, is_italic = self._extract_weight_and_italic(family)
-            clean_family = re.sub(r"[-_ ]?(italic|oblique)$", "", family, flags=re.I).strip()
-            return clean_family, FontVariant(path=font_path, weight=weight, italic=is_italic)
-
-        marker = "variablefont"
-        normalized = name.lower().replace("_", "").replace("-", "")
-        if marker not in normalized:
+        elif "variablefont" in name.lower().replace("_", "").replace("-", ""):
+            family = re.split(r"[-_]?VariableFont", name, maxsplit=1, flags=re.I)[0].strip("-_ ")
+        else:
             return None
 
-        family_part = re.split(r"[-_]?VariableFont", name, maxsplit=1, flags=re.I)[0]
-        family_part = family_part.strip("-_ ")
-        if not family_part:
+        if not family:
             return None
-        weight, is_italic = self._extract_weight_and_italic(family_part)
-        clean_family = re.sub(r"[-_ ]?(italic|oblique)$", "", family_part, flags=re.I).strip()
+        weight, is_italic = self._extract_weight_and_italic(family)
+        clean_family = re.sub(r"[-_ ]?(italic|oblique)$", "", family, flags=re.I).strip()
         return clean_family, FontVariant(path=font_path, weight=weight, italic=is_italic)
 
     def _split_family_and_variant(self, name: str) -> tuple[str, str]:
