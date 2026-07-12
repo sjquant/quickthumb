@@ -17,8 +17,10 @@ from __future__ import annotations
 
 import hashlib
 import math
+import unicodedata
+from functools import lru_cache
 from io import BytesIO
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
 
 from PIL import ImageFont
 
@@ -54,6 +56,35 @@ if TYPE_CHECKING:
     from quickthumb.canvas import Canvas, RenderableLayer
 
 
+FontKey = tuple[str, int]
+ConvertedFontKey = tuple[str, int, str]
+
+_RESTRICTED_LICENSE_EMBEDDING = 0x0002
+_NO_SUBSETTING = 0x0100
+_BITMAP_ONLY = 0x0200
+_COMPLEX_SCRIPT_RANGES = (
+    (0x0600, 0x06FF),  # Arabic
+    (0x0750, 0x077F),
+    (0x08A0, 0x08FF),
+    (0x0900, 0x0DFF),  # Indic scripts
+    (0x0E00, 0x0EFF),  # Thai and Lao
+    (0x0F00, 0x0FFF),  # Tibetan
+    (0x1000, 0x109F),  # Myanmar
+    (0x1780, 0x17FF),  # Khmer
+    (0xFB50, 0xFDFF),
+    (0xFE70, 0xFEFF),
+)
+
+
+def _requires_shaping(text: str) -> bool:
+    """Return whether ReportLab's plain text path cannot preserve shaping."""
+    return any(
+        unicodedata.combining(character) != 0
+        or any(start <= ord(character) <= end for start, end in _COMPLEX_SCRIPT_RANGES)
+        for character in text
+    )
+
+
 def _require_reportlab():
     try:
         import reportlab  # noqa: F401
@@ -69,7 +100,14 @@ class PdfExporter:
         # canvas is the single-canvas convenience target; the multi-page paths
         # take their canvases explicitly and leave this None.
         self._canvas = canvas
-        self._font_names: dict[str, str] = {}  # font path -> registered reportlab name
+        self._font_names: dict[FontKey, str] = {}
+        self._font_failures: set[FontKey] = set()
+        self._converted_font_names: dict[ConvertedFontKey, str | None] = {}
+        self._font_texts: dict[FontKey, set[str]] = {}
+        self._prepared_font_names: dict[FontKey, str | None] = {}
+        self._text_layouts: dict[int, TextBlockLayout] = {}
+        self._registered_fonts: dict[str, Any] = {}
+        self._global_font_names: set[str] = set()
 
     def export_bytes(self) -> bytes:
         buffer = BytesIO()
@@ -99,12 +137,66 @@ class PdfExporter:
     def _build(self, canvases: list[Canvas], stream) -> None:
         from reportlab.pdfgen import canvas as rl_canvas
 
-        first = canvases[0]
-        pdf = rl_canvas.Canvas(stream, pagesize=(first.width, first.height))
-        self._pdf = pdf
+        self._unregister_fonts()
+        self._font_names.clear()
+        self._font_failures.clear()
+        self._converted_font_names.clear()
+        self._font_texts.clear()
+        self._prepared_font_names.clear()
+        self._text_layouts.clear()
+        self._global_font_names = set(self._registered_font_names())
+        try:
+            self._collect_font_texts(canvases)
+            self._prepare_fonts()
+            first = canvases[0]
+            pdf = rl_canvas.Canvas(stream, pagesize=(first.width, first.height))
+            self._pdf = pdf
+            for canvas in canvases:
+                self._draw_page(canvas)
+            pdf.save()
+        finally:
+            self._unregister_fonts()
+
+    def _collect_font_texts(self, canvases: list[Canvas]) -> None:
+        """Collect text per font face so converted subsets are document-scoped."""
         for canvas in canvases:
-            self._draw_page(canvas)
-        pdf.save()
+            canvas._ctx.begin_render_pass()
+            for layer in flatten_layers(canvas):
+                if not isinstance(layer, TextLayer):
+                    continue
+                layout = compute_text_layout(canvas, layer)
+                self._text_layouts[id(layer)] = layout
+                if self._has_raster_only_features(layout):
+                    continue
+                for line in layout.lines:
+                    for run in line:
+                        key = self._font_key(run.font)
+                        if key is not None:
+                            self._font_texts.setdefault(key, set()).add(run.text)
+
+    def _prepare_fonts(self) -> None:
+        """Register one vector font or fallback decision for each font face."""
+        for key, texts in self._font_texts.items():
+            subset_text = "".join(sorted(texts))
+            self._prepared_font_names[key] = self._register_font_key(key, subset_text)
+
+    def _registered_font_names(self) -> list[str]:
+        from reportlab.pdfbase import pdfmetrics
+
+        return pdfmetrics.getRegisteredFontNames()
+
+    def _unregister_fonts(self) -> None:
+        """Remove temporary ReportLab registrations owned by this export."""
+        from reportlab.pdfbase import pdfmetrics
+
+        for name, font in self._registered_fonts.items():
+            if pdfmetrics._fonts.get(name) is font:
+                del pdfmetrics._fonts[name]
+            face = getattr(font, "face", None)
+            face_name = getattr(face, "name", None)
+            if face_name and pdfmetrics._dynFaceNames.get(face_name) is font:
+                del pdfmetrics._dynFaceNames[face_name]
+        self._registered_fonts.clear()
 
     def _draw_page(self, canvas: Canvas) -> None:
         canvas._validate_image_paths()
@@ -273,7 +365,9 @@ class PdfExporter:
     # -------------------------------------------------------------------- text
 
     def _emit_text(self, layer: TextLayer) -> None:
-        layout = compute_text_layout(self._current_canvas(), layer)
+        layout = self._text_layouts.get(id(layer))
+        if layout is None:
+            layout = compute_text_layout(self._current_canvas(), layer)
         if not any(layout.lines):
             return
 
@@ -302,8 +396,8 @@ class PdfExporter:
         pdf.restoreState()
 
     @staticmethod
-    def _text_needs_raster(layout: TextBlockLayout) -> bool:
-        """Blur effects and non-solid glyph fills cannot be drawn as vector text."""
+    def _has_raster_only_features(layout: TextBlockLayout) -> bool:
+        """Return whether text effects require the existing raster fallback."""
         for line in layout.lines:
             for run in line:
                 if (
@@ -314,6 +408,17 @@ class PdfExporter:
                     or run.font_variations
                     or run.emoji_style == "color"
                 ):
+                    return True
+        return False
+
+    def _text_needs_raster(self, layout: TextBlockLayout) -> bool:
+        """Return whether text must use the pixel-exact raster fallback."""
+        if self._has_raster_only_features(layout):
+            return True
+        for line in layout.lines:
+            for run in line:
+                key = self._font_key(run.font)
+                if key is None or self._prepared_font_names.get(key) is None:
                     return True
         return False
 
@@ -334,7 +439,10 @@ class PdfExporter:
         rgba = run.color
         alpha = (rgba[3] / 255) * layer_opacity
         color_alpha = (rgba[0], rgba[1], rgba[2], int(round(alpha * 255)))
-        font_name = self._register_font(run)
+        key = self._font_key(run.font)
+        font_name = self._prepared_font_names.get(key) if key is not None else None
+        if font_name is None:
+            raise RenderingError("PDF text reached the vector renderer without an embeddable font.")
 
         self._set_fill(color_alpha)
         pdf = self._pdf
@@ -350,28 +458,188 @@ class PdfExporter:
             pdf.drawString(run.pen_x, -run.baseline_y, run.text)
         pdf.restoreState()
 
-    def _register_font(self, run: TextRunLayout) -> str:
-        font = run.font
+    @staticmethod
+    def _font_key(font) -> FontKey | None:
         path = getattr(font, "path", None) if isinstance(font, ImageFont.FreeTypeFont) else None
         if not isinstance(path, str):
-            return "Helvetica"
-        cached = self._font_names.get(path)
-        if cached:
-            return cached
+            return None
+        index = getattr(font, "index", 0)
+        subfont_index = index if isinstance(index, int) and index >= 0 else 0
+        return path, subfont_index
 
-        from reportlab.pdfbase import pdfmetrics
-        from reportlab.pdfbase.ttfonts import TTFont
+    def _register_font_key(self, key: FontKey, text: str) -> str | None:
+        from reportlab.pdfbase.ttfonts import TTFError, TTFont
 
-        # A stable, path-derived name keeps the reportlab global font registry
-        # collision-free and order-independent across exports in one process.
-        name = "qt-" + hashlib.md5(path.encode("utf-8")).hexdigest()[:16]
-        if name not in pdfmetrics.getRegisteredFontNames():
+        path, subfont_index = key
+        if key in self._font_names:
+            return self._font_names[key]
+        if key not in self._font_failures and self._font_embedding_allowed(key):
+            name = "qt-" + hashlib.md5(f"{path}:{subfont_index}".encode()).hexdigest()[:16]
             try:
-                pdfmetrics.registerFont(TTFont(name, path))
-            except Exception:  # noqa: BLE001 - fall back to a core font on any load error
-                return "Helvetica"
-        self._font_names[path] = name
+                font = TTFont(name, path, subfontIndex=subfont_index)
+                self._register_reportlab_font(name, font)
+                self._font_names[key] = name
+                return name
+            except (OSError, TTFError, ValueError):
+                self._font_failures.add(key)
+        elif key not in self._font_names:
+            self._font_failures.add(key)
+
+        converted_key = (path, subfont_index, text)
+        if converted_key in self._converted_font_names:
+            return self._converted_font_names[converted_key]
+        name = "qt-" + hashlib.md5(f"{path}:{subfont_index}:{text}".encode()).hexdigest()[:16]
+        converted = self._convert_font_to_truetype(path, subfont_index, text)
+        if converted is None:
+            self._converted_font_names[converted_key] = None
+            return None
+        try:
+            self._register_reportlab_font(name, TTFont(name, BytesIO(converted)))
+        except (OSError, TTFError, ValueError):
+            self._converted_font_names[converted_key] = None
+            return None
+        self._converted_font_names[converted_key] = name
         return name
+
+    def _register_reportlab_font(self, name: str, font: Any) -> None:
+        from reportlab.pdfbase import pdfmetrics
+
+        if name in self._global_font_names:
+            return
+        pdfmetrics.registerFont(font)
+        self._global_font_names.add(name)
+        self._registered_fonts[name] = font
+
+    def _font_embedding_allowed(self, key: FontKey) -> bool:
+        fs_type = self._font_embedding_flags(*key)
+        if fs_type is None:
+            return True
+        blocked = _RESTRICTED_LICENSE_EMBEDDING | _NO_SUBSETTING | _BITMAP_ONLY
+        return not fs_type & blocked
+
+    @staticmethod
+    @lru_cache(maxsize=32)
+    def _font_embedding_flags(path: str, subfont_index: int) -> int | None:
+        try:
+            from fontTools.ttLib import TTFont as FontToolsTTFont
+            from fontTools.ttLib import TTLibError
+        except ImportError:
+            return None
+
+        try:
+            with FontToolsTTFont(path, fontNumber=subfont_index) as source:
+                os2 = source.get("OS/2")
+                return int(getattr(os2, "fsType", 0)) if os2 is not None else 0
+        except (OSError, ValueError, KeyError, TypeError, AssertionError, TTLibError):
+            return None
+
+    @staticmethod
+    @lru_cache(maxsize=32)
+    def _convert_font_to_truetype(path: str, subfont_index: int, text: str) -> bytes | None:
+        """Convert a CFF font face into a quadratic-outline font for ReportLab."""
+        try:
+            from fontTools.fontBuilder import FontBuilder
+            from fontTools.pens.cu2quPen import Cu2QuPen
+            from fontTools.pens.ttGlyphPen import TTGlyphPen
+            from fontTools.ttLib import TTFont as FontToolsTTFont
+            from fontTools.ttLib import TTLibError
+        except ImportError:
+            return None
+
+        try:
+            with FontToolsTTFont(path, fontNumber=subfont_index) as source:
+                if _requires_shaping(text):
+                    return None
+                source_glyph_order = source.getGlyphOrder()
+                source_cmap = cast(dict[int, str], source.getBestCmap() or {})
+                character_map: dict[int, str] = {}
+                for character in text:
+                    codepoint = ord(character)
+                    glyph_name = source_cmap.get(codepoint)
+                    if glyph_name is None:
+                        return None
+                    character_map[codepoint] = glyph_name
+
+                notdef_name = (
+                    ".notdef" if ".notdef" in source_glyph_order else source_glyph_order[0]
+                )
+                glyph_order = [notdef_name]
+                glyph_order_set = {notdef_name}
+                for glyph_name in character_map.values():
+                    if glyph_name not in glyph_order_set:
+                        glyph_order.append(glyph_name)
+                        glyph_order_set.add(glyph_name)
+                glyph_set = cast(Any, source.getGlyphSet())
+                glyphs: dict[str, Any] = {}
+                pending = list(glyph_order)
+                while pending:
+                    glyph_name = pending.pop()
+                    if glyph_name in glyphs:
+                        continue
+                    tt_pen = TTGlyphPen(glyph_set)
+                    cu2qu_pen = Cu2QuPen(tt_pen, max_err=1.0, reverse_direction=True)
+                    glyph_set[glyph_name].draw(cu2qu_pen)
+                    glyph = cast(Any, tt_pen.glyph())
+                    glyphs[glyph_name] = glyph
+                    for component in getattr(glyph, "components", []):
+                        component_name = component.glyphName
+                        if component_name not in glyphs:
+                            pending.append(component_name)
+                            if component_name not in glyph_order_set:
+                                glyph_order.append(component_name)
+                                glyph_order_set.add(component_name)
+
+                head = cast(Any, source["head"])
+                hhea = cast(Any, source["hhea"])
+                os2 = cast(Any, source["OS/2"])
+                fs_type = int(getattr(os2, "fsType", 0))
+                blocked = _RESTRICTED_LICENSE_EMBEDDING | _NO_SUBSETTING | _BITMAP_ONLY
+                if fs_type & blocked:
+                    return None
+                builder = FontBuilder(int(head.unitsPerEm), isTTF=True)
+                builder.setupGlyphOrder(glyph_order)
+                builder.setupCharacterMap(character_map)
+                builder.setupGlyf(glyphs)
+                metrics = cast(Any, source["hmtx"].metrics)
+                builder.setupHorizontalMetrics(
+                    {glyph_name: metrics[glyph_name] for glyph_name in glyph_order}
+                )
+                builder.setupHorizontalHeader(
+                    ascent=int(hhea.ascent),
+                    descent=int(hhea.descent),
+                    lineGap=int(hhea.lineGap),
+                )
+                builder.setupOS2(
+                    fsType=fs_type,
+                    sTypoAscender=int(os2.sTypoAscender),
+                    sTypoDescender=int(os2.sTypoDescender),
+                    sTypoLineGap=int(os2.sTypoLineGap),
+                    usWinAscent=int(os2.usWinAscent),
+                    usWinDescent=int(os2.usWinDescent),
+                    usWeightClass=int(os2.usWeightClass),
+                )
+                family_name = source["name"].getDebugName(1) or "Quickthumb PDF Font"
+                style_name = source["name"].getDebugName(2) or "Regular"
+                ps_name = (
+                    "Quickthumb-"
+                    + hashlib.md5(f"{path}:{subfont_index}:{text}".encode()).hexdigest()[:16]
+                )
+                builder.setupNameTable(
+                    {
+                        "familyName": f"{family_name} PDF",
+                        "styleName": style_name,
+                        "uniqueFontIdentifier": f"{family_name} {style_name} PDF",
+                        "fullName": f"{family_name} {style_name} PDF",
+                        "psName": ps_name,
+                    }
+                )
+                builder.setupPost()
+                builder.setupHead()
+                buffer = BytesIO()
+                builder.save(buffer)
+                return buffer.getvalue()
+        except (OSError, ValueError, KeyError, TypeError, AssertionError, TTLibError):
+            return None
 
     # ----------------------------------------------------------------- drawing
 
