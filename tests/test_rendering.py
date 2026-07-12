@@ -767,54 +767,33 @@ class TestRendering:
                 align=("center", "top"),
                 bold=True,
             )
-            .text(
-                "center",
-                size=20,
-                color="#334155",
-                position=(150, 78),
-                align=("center", "top"),
-            )
-            .text(
-                "focal point",
-                size=20,
-                color="#334155",
-                position=(390, 78),
-                align=("center", "top"),
-            )
-            .shape(
-                shape="rectangle",
-                position=(150, 220),
-                width=172,
-                height=230,
-                color="#0F172A",
-                align=("center", "middle"),
-            )
-            .shape(
-                shape="rectangle",
-                position=(390, 220),
-                width=172,
-                height=230,
-                color="#0F172A",
-                align=("center", "middle"),
-            )
-            .image(
-                path=source_path,
-                position=(150, 220),
-                width=158,
-                height=216,
-                fit="cover",
-                align=("center", "middle"),
-            )
-            .image(
-                path=source_path,
-                position=(390, 220),
-                width=158,
-                height=216,
-                fit="cover",
-                focal_point=(0.18, 0.5),
-                align=("center", "middle"),
-            )
         )
+        for label, x, focal_point in (
+            ("center", 150, None),
+            ("focal point", 390, (0.18, 0.5)),
+        ):
+            canvas.text(
+                label,
+                size=20,
+                color="#334155",
+                position=(x, 78),
+                align=("center", "top"),
+            ).shape(
+                shape="rectangle",
+                position=(x, 220),
+                width=172,
+                height=230,
+                color="#0F172A",
+                align=("center", "middle"),
+            ).image(
+                path=source_path,
+                position=(x, 220),
+                width=158,
+                height=216,
+                fit="cover",
+                focal_point=focal_point,
+                align=("center", "middle"),
+            )
 
         with tempfile.TemporaryDirectory() as tmpdir:
             output_path = os.path.join(tmpdir, "output.png")
