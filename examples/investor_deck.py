@@ -8,8 +8,11 @@ A production-quality HTML slideshow demonstrating:
   - Five varied layouts: cover → problem → product → traction → CTA
 
 Run:
+    quickthumb serve examples/investor_deck.py
+    open http://localhost:3030/?presenter
+
+Export:
     uv run python examples/investor_deck.py
-    open examples/investor_deck.html
 """
 
 import os
@@ -496,16 +499,35 @@ s5 = s5.text(
 # (and in PPTX/HTML export). The cover slide cross-fades in by default.
 deck = (
     Deck(1280, 720)
-    .slide(s1)
-    .slide(s2, transition=tr.Push(direction="left", duration=0.6))
-    .slide(s3, transition=tr.Wipe(direction="up", duration=0.5))
-    .slide(s4, transition=tr.Push(direction="left", duration=0.6))
-    .slide(s5, transition=tr.Cover(direction="up", duration=0.6))
+    .slide(s1, notes="Open with the decision-speed thesis and establish the Series A context.")
+    .slide(
+        s2,
+        transition=tr.Push(direction="left", duration=0.6),
+        notes="Pause on 73%, then connect the three causes to the audience's workflow.",
+    )
+    .slide(
+        s3,
+        transition=tr.Wipe(direction="up", duration=0.5),
+        notes=(
+            "Walk left to right through the signal pipeline before revealing the product promise."
+        ),
+    )
+    .slide(
+        s4,
+        transition=tr.Push(direction="left", duration=0.6),
+        notes="Lead with ARR, then use the customer quote to make the growth concrete.",
+    )
+    .slide(
+        s5,
+        transition=tr.Cover(direction="up", duration=0.6),
+        notes="Close on the 20-minute demo ask and leave the URL visible for questions.",
+    )
 )
 
-deck.render(OUT_HTML)
-deck.render(OUT_PPTX)
+if __name__ == "__main__":
+    deck.render(OUT_HTML)
+    deck.render(OUT_PPTX)
 
-print(f"✓ {OUT_HTML}")
-print(f"  {len(deck)} slides — open in a browser.")
-print("  Click / Space → advance   ArrowLeft → back")
+    print(f"✓ {OUT_HTML}")
+    print(f"  {len(deck)} slides — open in a browser.")
+    print("  Click / Space → advance   ArrowLeft → back")

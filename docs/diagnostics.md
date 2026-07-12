@@ -134,9 +134,38 @@ quickthumb watch spec.json -o preview.png
 
 `watch` takes the same options as `render`.
 
+### `quickthumb serve`
+
+Runs a local HTML slideshow server with live reload. With no source argument it
+looks for `slides.py`, `slides.json`, `slides.html`, or `slides.htm` in that
+order:
+
+```bash
+quickthumb serve
+quickthumb serve examples/investor_deck.py
+quickthumb serve deck.json --port 4040 --no-open
+```
+
+A Python source should define one module-level `Deck` or `Canvas` as `deck`,
+`slides`, or `canvas`. A JSON source may be a canvas spec or a deck object with a
+top-level `slides` list. Use `--host` and `--port` to change the listening
+address, `--no-open` to suppress the initial browser window, and repeat
+`--var KEY=VALUE` for JSON template substitutions.
+
+The audience view is `/`. Presenter mode is selected by the `?presenter` query:
+
+```text
+http://localhost:3030/?presenter
+```
+
+Presenter mode shows the current slide, next-slide preview, speaker notes,
+elapsed timer, and controls. Its navigation is broadcast to audience tabs
+opened from the same server. Add notes in Python with
+`.slide(canvas, notes="...")` or as a `notes` string on a JSON slide.
+
 ### Variable substitution
 
-All three commands accept `--var` to fill `$KEY` (or `${KEY}`) placeholders before parsing:
+The JSON-based commands accept `--var` to fill `$KEY` (or `${KEY}`) placeholders before parsing:
 
 ```bash
 quickthumb render template.json -o ep42.png \

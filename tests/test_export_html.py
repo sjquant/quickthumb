@@ -96,6 +96,7 @@ class TestHtmlDocument:
             "base.css",
             "fixed.css",
             "fixed_deck.css",
+            "presenter.css",
             "timeline.js",
             "canvas_runtime.js",
             "deck_runtime.js",
@@ -797,6 +798,41 @@ class TestDeckHtml:
         assert "function go(i,backward)" in html
         assert "<script src" not in html
 
+    def test_should_embed_query_selected_presenter_view_with_speaker_notes(self):
+        """Deck HTML activates a current/next presenter dashboard for ?presenter."""
+        # given: a deck whose first slide carries private speaker notes
+        deck = (
+            Deck(640, 360)
+            .slide(Canvas().background(color="#101820"), notes="Open with the key metric.")
+            .slide(Canvas().background(color="#1E293B"))
+        )
+
+        # when: the deck is exported to standalone HTML
+        html = deck.to_html(embed_fonts=False)
+
+        # then: notes and the self-contained presenter UI/runtime are embedded
+        assert 'data-qt-notes="Open with the key metric."' in html
+        assert "get('presenter')" in html
+        assert "qt-presenter-shell" in html
+        assert "Speaker notes" in html
+        assert "Open audience view" in html
+        assert "window.BroadcastChannel" in html
+
+    def test_should_escape_speaker_notes_in_stage_attributes(self):
+        """Speaker notes cannot escape their stage attribute into executable markup."""
+        # given: notes containing HTML-significant characters
+        deck = Deck(320, 180).slide(
+            Canvas().background(color="#101820"),
+            notes='Say "hello" </div><script>alert(1)</script>',
+        )
+
+        # when: the deck is exported
+        html = deck.to_html(embed_fonts=False)
+
+        # then: the notes remain inert attribute text
+        assert 'data-qt-notes="Say &quot;hello&quot; &lt;/div&gt;&lt;script&gt;' in html
+        assert "<script>alert(1)</script>" not in html
+
     def test_should_animate_slides_with_their_transition(self):
         """A slide's transition drives the CSS animation the deck plays into it"""
         # given
@@ -1098,6 +1134,11 @@ const stages = Array.from(html.matchAll(/<div class="qt-stage"[^>]*>/g), (match)
   return stage;
 });
 const listeners = {};
+const syncMessages = [];
+class BroadcastChannel {
+  addEventListener() {}
+  postMessage(message) { syncMessages.push(message); }
+}
 const document = {
   querySelectorAll(selector) {
     return selector === '.qt-stage' ? stages : [];
@@ -1114,6 +1155,7 @@ const scripts = Array.from(
   (match) => match[1],
 ).join('\n');
 const context = {
+  BroadcastChannel,
   CSS: { escape: (value) => value },
   clearTimeout,
   console,
@@ -1122,7 +1164,12 @@ const context = {
   parseFloat,
   Promise,
   setTimeout,
-  window: { addEventListener() {} },
+  URLSearchParams,
+  window: {
+    addEventListener() {},
+    BroadcastChannel,
+    location: { origin: 'http://localhost:3030', pathname: '/', search: '' },
+  },
 };
 vm.createContext(context);
 vm.runInContext(scripts, context);
@@ -1141,6 +1188,10 @@ function wait(ms) {
   await wait(90);
   assert(stages[0].hidden === false, 'rapid click during transition is ignored');
   assert(stages[1].hidden === true, 'rapid click does not reveal slide two');
+  assert(
+    syncMessages.some((message) => message.action === 'ready'),
+    'audience requests presenter state after its entrance transition settles',
+  );
   document.dispatch('click');
   await wait(30);
   assert(

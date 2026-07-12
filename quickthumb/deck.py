@@ -88,6 +88,7 @@ class Deck:
         self._slide_transitions: list[Transition | None] = []
         self._slide_audio: list[AudioTrack | None] = []
         self._slide_durations: list[float | None] = []
+        self._slide_notes: list[str | None] = []
         for slide in slides or []:
             self._append_slide(slide)
 
@@ -106,6 +107,11 @@ class Deck:
         # Return a copy so callers cannot bypass the Canvas type guard in
         # _append_slide by mutating the internal list directly.
         return list(self._slides)
+
+    @property
+    def notes(self) -> list[str | None]:
+        """Speaker notes aligned with :attr:`slides`, for presenter-mode HTML."""
+        return list(self._slide_notes)
 
     def __len__(self) -> int:
         return len(self._slides)
@@ -139,12 +145,14 @@ class Deck:
         *,
         audio: AudioTrack | str | dict | None = None,
         duration: float | None = None,
+        notes: str | None = None,
     ) -> Self:
         """Append a single Canvas as the next slide (chainable).
 
         Pass ``transition`` to set this slide's transition inline; it overrides
         the deck default for this slide only. ``audio`` supplies this slide's
         MP4 narration, while ``duration`` trims or pads it to an exact length.
+        ``notes`` are shown only in the HTML slideshow's presenter view.
         """
         # Validate the transition before mutating state so a bad value can't
         # leave a half-added slide behind.
@@ -156,12 +164,15 @@ class Deck:
             or duration <= 0
         ):
             raise ValidationError("duration must be a finite value > 0")
+        if notes is not None and not isinstance(notes, str):
+            raise ValidationError("Slide notes must be a string or None.")
         normalized_audio = coerce_audio_track(audio)
         self._append_slide(canvas)
         if override is not None:
             self._slide_transitions[-1] = override
         self._slide_audio[-1] = normalized_audio
         self._slide_durations[-1] = duration
+        self._slide_notes[-1] = notes
         return self
 
     def _append_slide(self, canvas: Canvas) -> None:
@@ -179,6 +190,7 @@ class Deck:
         self._slide_transitions.append(None)
         self._slide_audio.append(None)
         self._slide_durations.append(None)
+        self._slide_notes.append(None)
 
     def _resolved_transitions(self) -> list[Transition | None]:
         """The effective transition per slide: its own override, else the default."""
@@ -408,6 +420,7 @@ class Deck:
             embed_fonts=embed_fonts,
             responsive=responsive,
             transitions=self._resolved_transitions(),
+            notes=self._slide_notes,
         )
 
     def to_pptx(self) -> bytes:
@@ -630,11 +643,12 @@ class Deck:
         if self._transition is not None:
             payload["transition"] = json.loads(self._transition.model_dump_json())
         slides = []
-        for canvas, override, audio, duration in zip(
+        for canvas, override, audio, duration, notes in zip(
             self._slides,
             self._slide_transitions,
             self._slide_audio,
             self._slide_durations,
+            self._slide_notes,
             strict=True,
         ):
             slide = json.loads(canvas.to_json())
@@ -646,6 +660,8 @@ class Deck:
                 slide["audio"] = audio.model_dump()
             if duration is not None:
                 slide["duration"] = duration
+            if notes is not None:
+                slide["notes"] = notes
             slides.append(slide)
         payload["slides"] = slides
         return json.dumps(payload)
@@ -677,25 +693,39 @@ class Deck:
         )
         for slide in slides_raw:
             override = None
+            audio = None
+            duration = None
+            notes = None
             if isinstance(slide, dict):
                 # Lift the per-slide transition off the spec before it reaches
                 # Canvas.from_json, which does not understand transitions.
                 override = slide.get("transition")
                 audio = slide.get("audio")
                 duration = slide.get("duration")
+                notes = slide.get("notes")
+                if notes is not None and not isinstance(notes, str):
+                    raise ValidationError("Deck slide 'notes' must be a string.")
                 slide = {
                     key: value
                     for key, value in slide.items()
-                    if key not in {"transition", "audio", "duration"}
+                    if key not in {"transition", "audio", "duration", "notes"}
                 }
                 # Share the deck-level theme so $theme.* tokens resolve; a slide's
                 # own theme block takes precedence.
                 if theme:
                     slide = {**slide, "theme": {**theme, **slide.get("theme", {})}}
+                if (
+                    deck._width is not None
+                    and "width" not in slide
+                    and "height" not in slide
+                    and "platform" not in slide
+                ):
+                    slide = {**slide, "width": deck._width, "height": deck._height}
             deck.slide(
                 Canvas.from_json(json.dumps(slide)),
                 transition=override,
                 audio=audio,
                 duration=duration,
+                notes=notes,
             )
         return deck

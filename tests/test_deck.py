@@ -68,6 +68,17 @@ class TestDeckComposition:
         assert len(deck) == 0
         assert not slide.has_size
 
+    def test_should_reject_non_string_speaker_notes_before_adding_slide(self):
+        """Invalid speaker notes leave the deck unchanged."""
+        # given: an empty deck and a valid canvas
+        deck = Deck()
+        slide = make_slide("1")
+
+        # when / then: structured notes are rejected without appending the slide
+        with pytest.raises(ValidationError, match="notes"):
+            deck.slide(slide, notes=["not", "text"])  # type: ignore[arg-type]
+        assert len(deck) == 0
+
     def test_should_reject_rendering_an_empty_deck(self, tmp_path: Path):
         """An empty deck cannot be rendered to any format."""
         # given
@@ -384,6 +395,40 @@ class TestJsonRoundTrip:
         }
         assert payload["slides"][0]["duration"] == 1.5
         assert json.loads(restored.to_json())["slides"] == payload["slides"]
+
+    def test_should_round_trip_presenter_notes_without_exposing_internal_lists(self):
+        """Speaker notes survive JSON while the public notes collection stays isolated."""
+        # given: a deck with notes on only its first slide
+        deck = Deck().slide(make_slide("1"), notes="Introduce the thesis.").slide(make_slide("2"))
+
+        # when: the deck is restored and the returned notes list is mutated
+        restored = Deck.from_json(deck.to_json())
+        public_notes = restored.notes
+        public_notes[0] = "changed"
+
+        # then: serialized notes survive and callers cannot mutate deck state through the property
+        assert restored.notes == ["Introduce the thesis.", None]
+        assert json.loads(restored.to_json())["slides"][0]["notes"] == "Introduce the thesis."
+
+    def test_should_reject_non_string_presenter_notes(self):
+        """Deck JSON rejects speaker notes that cannot be rendered as text."""
+        # given: a deck-shaped JSON document with structured notes
+        spec = json.dumps(
+            {
+                "slides": [
+                    {
+                        "width": 1280,
+                        "height": 720,
+                        "layers": [],
+                        "notes": ["not", "text"],
+                    }
+                ]
+            }
+        )
+
+        # when / then: parsing fails at the public Deck boundary
+        with pytest.raises(ValidationError, match="notes"):
+            Deck.from_json(spec)
 
     def test_should_reject_json_without_slides(self):
         """Deck JSON must carry a 'slides' list."""
