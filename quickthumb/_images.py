@@ -94,7 +94,8 @@ class ImageEngine:
         src_w, src_h = source_size
         target_w, target_h = target_size
         scale = max(target_w / src_w, target_h / src_h)
-        scaled_w, scaled_h = int(src_w * scale), int(src_h * scale)
+        scaled_w = max(target_w, int(src_w * scale))
+        scaled_h = max(target_h, int(src_h * scale))
         left, top = ImageEngine._cover_crop_offset(
             (scaled_w, scaled_h), target_size, focal_point, faces
         )

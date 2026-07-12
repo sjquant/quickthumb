@@ -5,7 +5,7 @@ import tempfile
 
 import pytest
 from inline_snapshot import external_file
-from PIL import Image, ImageDraw
+from PIL import Image
 from quickthumb.models import Align
 
 from tests._optional import require_cairosvg
@@ -750,32 +750,79 @@ class TestRendering:
                 assert f.read() == external_file(f"snapshots/{snapshot_name}")
 
     def test_snapshot_image_fit_cover_focal_point(self):
-        """Snapshot test for cover fit with focal-point crop metadata"""
+        """Snapshot test for a realistic focal-point cover crop comparison"""
         from quickthumb import Canvas
 
+        # Given: A local Unsplash portrait fixture by Richard Pouncy Jr.
+        # The subject sits left of center, making focal-point behavior visible.
+        source_path = "tests/fixtures/richard-pouncy-jr-dYP-kAvfVoM-unsplash.jpg"
+        canvas = (
+            Canvas(540, 360)
+            .background(color="#E2E8F0")
+            .text(
+                "cover crop",
+                size=30,
+                color="#111827",
+                position=(270, 30),
+                align=("center", "top"),
+                bold=True,
+            )
+            .text(
+                "center",
+                size=20,
+                color="#334155",
+                position=(150, 78),
+                align=("center", "top"),
+            )
+            .text(
+                "focal point",
+                size=20,
+                color="#334155",
+                position=(390, 78),
+                align=("center", "top"),
+            )
+            .shape(
+                shape="rectangle",
+                position=(150, 220),
+                width=172,
+                height=230,
+                color="#0F172A",
+                align=("center", "middle"),
+            )
+            .shape(
+                shape="rectangle",
+                position=(390, 220),
+                width=172,
+                height=230,
+                color="#0F172A",
+                align=("center", "middle"),
+            )
+            .image(
+                path=source_path,
+                position=(150, 220),
+                width=158,
+                height=216,
+                fit="cover",
+                align=("center", "middle"),
+            )
+            .image(
+                path=source_path,
+                position=(390, 220),
+                width=158,
+                height=216,
+                fit="cover",
+                focal_point=(0.18, 0.5),
+                align=("center", "middle"),
+            )
+        )
+
         with tempfile.TemporaryDirectory() as tmpdir:
-            source_path = os.path.join(tmpdir, "focal-source.png")
             output_path = os.path.join(tmpdir, "output.png")
 
-            # Given: A deterministic source image with a clear right-side subject
-            source = Image.new("RGBA", (360, 160), "#F8FAFC")
-            draw = ImageDraw.Draw(source)
-            draw.rectangle((0, 0, 119, 159), fill="#F97316")
-            draw.rectangle((120, 0, 239, 159), fill="#0F766E")
-            draw.rectangle((240, 0, 359, 159), fill="#312E81")
-            draw.ellipse((266, 34, 334, 112), fill="#FDE68A")
-            draw.rectangle((278, 108, 322, 152), fill="#F59E0B")
-            source.save(source_path)
-
-            # When: Rendering a square cover crop focused on the right-side subject
-            canvas = Canvas(180, 180).background(
-                image=source_path,
-                fit="cover",
-                focal_point=(0.86, 0.5),
-            )
+            # When: Rendering center and focal-point cover crops side by side
             canvas.render(output_path)
 
-            # Then: The visual crop should stay stable
+            # Then: The realistic crop comparison should stay stable
             with open(output_path, "rb") as f:
                 assert f.read() == external_file("snapshots/image_fit_cover_focal_point.png")
 
