@@ -468,8 +468,8 @@ BackgroundEffect = Annotated[Filter | Grain, Discriminator("type")]
 
 # --------------------------------------------------------------- slide effects
 # Per-layer entrance/exit animations (below) and slide-level transitions (in
-# quickthumb.transitions) play in PowerPoint (PPTX) and HTML output; raster,
-# SVG, and PDF renderers ignore them.
+# quickthumb.transitions) play in PowerPoint (PPTX), HTML, and animated
+# GIF/MP4/WebM output; still-image renderers (raster, SVG, PDF) ignore them.
 
 AnimationTrigger = Literal["on_click", "with_previous", "after_previous"]
 
@@ -481,9 +481,11 @@ class _AnimationBase(quickthumbModel):
     only exposes the options that effect actually supports — directional effects
     add a ``direction``/``orientation``, ``Wheel`` adds ``spokes``, and the rest
     add nothing. Attach one (or a list) to a ``text``/``shape``/``image``/
-    ``svg``/``group`` layer via ``animation=``. Honoured by the PPTX and HTML exporters
-    only; the layer renders normally in every other format. ``trigger`` controls
-    how the effect starts relative to the previous animation on the slide.
+    ``svg``/``group`` layer via ``animation=``. Honoured by the PPTX, HTML, and
+    animated GIF/MP4/WebM exporters; the layer renders normally in every other
+    format. ``trigger`` controls how the effect starts relative to the previous
+    animation on the slide (in video output, where there is nothing to click,
+    ``on_click`` plays automatically like ``after_previous``).
     """
 
     animate: Literal["entrance", "exit"] = "entrance"

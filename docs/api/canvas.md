@@ -70,7 +70,7 @@ Finding codes: `off-canvas`, `tiny-text`, `text-overflow`, `low-contrast`. See [
 
 ### `.render(path, format=None, quality=None, debug=False)`
 
-Renders the canvas and writes the result to a file. The format is detected from the file extension; `.svg`, `.pptx`, and `.pdf` produce vector/document output (see [Exporting to SVG, PPTX & PDF](../exports.md)).
+Renders the canvas and writes the result to a file. The format is detected from the file extension; `.svg`, `.pptx`, and `.pdf` produce vector/document output, and `.gif`/`.mp4`/`.webm` produce an animation playing the canvas's layer `animation` effects (see [Exporting to SVG, PPTX, PDF & video](../exports.md)).
 
 ```python
 canvas.render("output.png")
@@ -80,6 +80,7 @@ canvas.render("debug.png", debug=True)  # raster output with public layer-id bbo
 canvas.render("output.svg")
 canvas.render("output.pptx")  # requires quickthumb[pptx]
 canvas.render("output.pdf")   # requires quickthumb[pdf]
+canvas.render("output.gif")   # animated; .mp4/.webm require the ffmpeg binary
 ```
 
 | Parameter | Type | Default | Description |
@@ -90,7 +91,7 @@ canvas.render("output.pdf")   # requires quickthumb[pdf]
 | `debug` | `bool` | `False` | Draw public layer-id bounding boxes on raster output for visual review. |
 
 !!! warning
-    Passing `quality` with `format="PNG"` raises `RenderingError`. Passing `debug=True` for document output (`.svg`, `.pptx`, `.pdf`, or `.html`) raises `RenderingError`.
+    Passing `quality` with `format="PNG"` raises `RenderingError`. Passing `debug=True` for document or animated output (`.svg`, `.pptx`, `.pdf`, `.html`, `.gif`, `.mp4`, or `.webm`) raises `RenderingError`.
 
 ### `.to_svg(embed_fonts=False)`
 
@@ -116,6 +117,16 @@ Returns the canvas as PDF file bytes — a single page with native vector backgr
 ```python
 with open("card.pdf", "wb") as f:
     f.write(canvas.to_pdf())
+```
+
+### `.to_gif(...)` / `.to_mp4(...)` / `.to_webm(...)`
+
+Return the canvas as an animation that plays its layer `animation` effects in sequence, then holds the settled composition for `hold` seconds (see [Animated GIF & video](../exports.md#animated-gif-video-mp4webm)). A canvas with no animations yields a single-frame GIF. `.to_mp4()`/`.to_webm()` require the `ffmpeg` binary on `PATH` (or named by `QUICKTHUMB_FFMPEG`).
+
+```python
+gif_bytes = canvas.to_gif(fps=20, hold=3.0, loop=0, matte="#000000")
+mp4_bytes = canvas.to_mp4(fps=30, hold=2.0)
+webm_bytes = canvas.to_webm(fps=30, hold=2.0)
 ```
 
 ### `.to_base64(format="PNG", quality=None)`

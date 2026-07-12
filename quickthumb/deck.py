@@ -1,9 +1,9 @@
 """Multi-slide / multi-image decks built on top of Canvas.
 
 A Deck is an ordered collection of Canvas objects ("slides"). It renders to a
-multi-page PDF, a multi-slide PPTX, or a numbered sequence of raster images,
-reusing the exact same per-canvas render pipeline so every slide looks
-identical to rendering that Canvas on its own.
+multi-page PDF, a multi-slide PPTX, an animated GIF/MP4/WebM, or a numbered
+sequence of raster images, reusing the exact same per-canvas render pipeline
+so every slide looks identical to rendering that Canvas on its own.
 """
 
 from __future__ import annotations
@@ -20,6 +20,7 @@ from quickthumb.transitions import Transition, coerce_transition
 
 _DOCUMENT_EXTENSIONS = {".pdf", ".pptx", ".html", ".htm"}
 _RASTER_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp"}
+_ANIMATION_EXTENSIONS = {".gif", ".mp4", ".webm"}
 
 
 @dataclass
@@ -161,14 +162,38 @@ class Deck:
         """Render the deck, dispatching on the output extension.
 
         ``.pdf`` and ``.pptx`` produce a single multi-page/multi-slide document.
-        Raster extensions (``.png``, ``.jpg``, ``.jpeg``, ``.webp``) write one
-        file per slide as a zero-padded numbered sequence derived from
-        ``output_path`` (e.g. ``slides.png`` -> ``slides_01.png``,
-        ``slides_02.png``). Returns the list of written file paths (unlike
-        ``Canvas.render``, which returns None).
+        Animated extensions (``.gif``, ``.mp4``, ``.webm``) produce one video
+        that plays each slide's layer animations and the deck's slide
+        transitions with default settings (see ``to_gif``/``to_mp4``/``to_webm``
+        for the tunable variants). Raster extensions (``.png``, ``.jpg``,
+        ``.jpeg``, ``.webp``) write one file per slide as a zero-padded
+        numbered sequence derived from ``output_path`` (e.g. ``slides.png`` ->
+        ``slides_01.png``, ``slides_02.png``). Returns the list of written
+        file paths (unlike ``Canvas.render``, which returns None).
         """
         self._require_slides()
         extension = os.path.splitext(output_path)[1].lower()
+
+        if extension in _ANIMATION_EXTENSIONS:
+            if quality is not None:
+                raise RenderingError(
+                    "Quality parameter is only supported for JPEG and WEBP formats, "
+                    f"not {extension} output."
+                )
+            if format is not None:
+                raise RenderingError(
+                    "format override is only supported for raster output, "
+                    f"not {extension} animations."
+                )
+            from quickthumb._export_video import write_animation
+
+            write_animation(
+                self._slides,
+                self._resolved_transitions(),
+                output_path,
+                format=extension[1:],  # type: ignore[arg-type]
+            )
+            return [output_path]
 
         if extension in _DOCUMENT_EXTENSIONS:
             if quality is not None:
@@ -195,7 +220,8 @@ class Deck:
 
         raise RenderingError(
             f"Unsupported deck output format: {extension or output_path!r}.\n"
-            "Use .pdf, .pptx, .html, or a raster extension (.png, .jpg, .jpeg, .webp)."
+            "Use .pdf, .pptx, .html, an animated extension (.gif, .mp4, .webm), "
+            "or a raster extension (.png, .jpg, .jpeg, .webp)."
         )
 
     def _render_document(self, output_path: str, extension: str) -> None:
@@ -253,8 +279,8 @@ class Deck:
         viewport. ``embed_fonts`` defaults to ``True`` so the slideshow carries
         its fonts and renders identically on any machine; pass ``False`` for a
         smaller file that relies on the viewer's system fonts. This is the one
-        format where both slide transitions and per-layer animations actually
-        play.
+        *interactive* format where transitions and animations play; the
+        animated GIF/MP4/WebM exports play them too, on a fixed timeline.
         """
         self._require_slides()
         from quickthumb._export_html import export_deck
@@ -273,6 +299,80 @@ class Deck:
 
         return PptxExporter().export_bytes_canvases(
             self._slides, transitions=self._resolved_transitions()
+        )
+
+    def to_gif(
+        self,
+        fps: float = 20.0,
+        slide_duration: float = 3.0,
+        loop: int = 0,
+        matte: str = "#000000",
+    ) -> bytes:
+        """Render the deck to animated GIF bytes.
+
+        Each slide plays its layer animations, holds its settled state, then
+        its transition animates the change into the next slide (a slide with
+        no transition set cross-fades in over 0.5s; slide 0 with none starts
+        instantly). ``on_click`` animations play automatically in sequence --
+        there are no clicks in a video. A slide holds for its transition's
+        ``advance_after`` when set, else for ``slide_duration`` seconds after
+        its animations finish. ``loop`` is the GIF repeat count (0 = forever).
+        Frames are composited onto the opaque ``matte`` color, and mixed-size
+        slides are letterboxed onto the first slide's size.
+        """
+        self._require_slides()
+        from quickthumb._export_video import export_animation_bytes
+
+        return export_animation_bytes(
+            self._slides,
+            self._resolved_transitions(),
+            format="gif",
+            fps=fps,
+            slide_duration=slide_duration,
+            loop=loop,
+            matte=matte,
+        )
+
+    def to_mp4(
+        self, fps: float = 30.0, slide_duration: float = 3.0, matte: str = "#000000"
+    ) -> bytes:
+        """Render the deck to MP4 (H.264) bytes; timing model as in ``to_gif``.
+
+        Requires the ``ffmpeg`` binary on PATH (or ``QUICKTHUMB_FFMPEG``).
+        Odd-sized canvases lose their last pixel row/column (H.264 4:2:0
+        output needs even dimensions).
+        """
+        self._require_slides()
+        from quickthumb._export_video import export_animation_bytes
+
+        return export_animation_bytes(
+            self._slides,
+            self._resolved_transitions(),
+            format="mp4",
+            fps=fps,
+            slide_duration=slide_duration,
+            matte=matte,
+        )
+
+    def to_webm(
+        self, fps: float = 30.0, slide_duration: float = 3.0, matte: str = "#000000"
+    ) -> bytes:
+        """Render the deck to WebM (VP9) bytes; timing model as in ``to_gif``.
+
+        Requires the ``ffmpeg`` binary on PATH (or ``QUICKTHUMB_FFMPEG``).
+        Odd-sized canvases lose their last pixel row/column (VP9 4:2:0 output
+        needs even dimensions).
+        """
+        self._require_slides()
+        from quickthumb._export_video import export_animation_bytes
+
+        return export_animation_bytes(
+            self._slides,
+            self._resolved_transitions(),
+            format="webm",
+            fps=fps,
+            slide_duration=slide_duration,
+            matte=matte,
         )
 
     def diagnose(self) -> list[DeckDiagnostic]:

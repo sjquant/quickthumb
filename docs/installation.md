@@ -62,7 +62,7 @@ pip install "quickthumb[pptx]"
 uv pip install "quickthumb[pptx]"
 ```
 
-SVG export needs no extra dependencies. See [Exporting to SVG, PPTX & PDF](exports.md) for details.
+SVG export needs no extra dependencies. See [Exporting to SVG, PPTX, PDF & video](exports.md) for details.
 
 ## Optional: PDF Export
 
@@ -74,6 +74,18 @@ pip install "quickthumb[pdf]"
 
 # uv
 uv pip install "quickthumb[pdf]"
+```
+
+## Optional: MP4/WebM Export
+
+Animated GIF export (`canvas.to_gif()` / `deck.render("deck.gif")`) needs no extra dependencies. MP4 and WebM export additionally require the [ffmpeg](https://ffmpeg.org/) binary on `PATH` (or pointed to by the `QUICKTHUMB_FFMPEG` environment variable) — it is a system program, not a Python package:
+
+```bash
+# macOS
+brew install ffmpeg
+
+# Debian/Ubuntu
+apt install ffmpeg
 ```
 
 ## Optional: CLI
@@ -96,12 +108,13 @@ print(version("quickthumb"))
 
 ## Environment Variables
 
-quickthumb reads two optional environment variables at startup:
+quickthumb reads a few optional environment variables:
 
 | Variable | Purpose |
 | --- | --- |
 | `QUICKTHUMB_FONT_DIR` | Directory that contains custom font files |
 | `QUICKTHUMB_DEFAULT_FONT` | Font family/name to use when `font` is omitted |
+| `QUICKTHUMB_FFMPEG` | Path to the ffmpeg binary for MP4/WebM export (when not on `PATH`) |
 
 ```python
 import os

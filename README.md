@@ -378,11 +378,14 @@ canvas.render("card.svg")    # vector SVG with native shapes, gradients, and sel
 canvas.render("card.html")   # self-contained, animated HTML/CSS page
 canvas.render("card.pptx")   # PowerPoint slide with editable text boxes and autoshapes
 canvas.render("card.pdf")    # single-page PDF with native vectors and eligible embedded fonts
+canvas.render("card.gif")    # animated GIF playing the layer animations
+canvas.render("card.mp4")    # H.264 video (needs the ffmpeg binary); .webm for VP9
 
 svg_markup = canvas.to_svg(embed_fonts=True)   # inline @font-face for portable text
 html_doc = canvas.to_html(embed_fonts=True)    # standalone document string
 pptx_bytes = canvas.to_pptx()                  # requires quickthumb[pptx]
 pdf_bytes = canvas.to_pdf()                    # requires quickthumb[pdf]
+gif_bytes = canvas.to_gif(fps=20, hold=3.0)    # and to_mp4() / to_webm()
 ```
 
 Layers the target format can express (backgrounds, gradients, outlines, shapes, text — including wrapping, rich parts, letter spacing, and effects) are exported natively and stay editable; everything else (raster images, blend modes, custom layers) is embedded as pixel-exact PNG fragments rendered by the regular pipeline. See the [export docs](https://sjquant.github.io/quickthumb/exports/) for the full mapping.
@@ -443,10 +446,12 @@ deck = (
 deck.render("deck.pdf")        # one multi-page PDF (a page per slide)
 deck.render("deck.pptx")       # one multi-slide PPTX (a slide per slide)
 deck.render("deck.html")       # one self-contained, navigable HTML slideshow
+deck.render("deck.gif")        # one animation playing slide transitions (.mp4/.webm too)
 deck.render("slides.png")      # numbered sequence: slides_01.png, slides_02.png, …
 
 pdf_bytes = deck.to_pdf()      # requires quickthumb[pdf]
 pptx_bytes = deck.to_pptx()    # requires quickthumb[pptx]
+gif_bytes = deck.to_gif()      # deck.to_mp4()/to_webm() need the ffmpeg binary
 ```
 
 An unsized `Canvas()` inherits the deck's size when added; a canvas built with an

@@ -1,16 +1,18 @@
 ---
-description: Export quickthumb canvases to SVG, editable PowerPoint (PPTX), and PDF documents alongside PNG/JPEG/WEBP.
+description: Export quickthumb canvases to SVG, editable PowerPoint (PPTX), PDF documents, and animated GIF/MP4/WebM alongside PNG/JPEG/WEBP.
 ---
 
-# Exporting to SVG, PPTX & PDF
+# Exporting to SVG, PPTX, PDF & video
 
-Beyond raster images, a canvas can render to vector and document formats. The output format is detected from the file extension:
+Beyond raster images, a canvas can render to vector, document, and animated formats. The output format is detected from the file extension:
 
 ```python
 canvas.render("thumbnail.png")   # raster (PNG/JPEG/WEBP)
 canvas.render("thumbnail.svg")   # vector SVG
 canvas.render("thumbnail.pptx")  # editable PowerPoint slide
 canvas.render("thumbnail.pdf")   # single-page PDF
+canvas.render("thumbnail.gif")   # animated GIF playing the layer animations
+canvas.render("thumbnail.mp4")   # H.264 video (requires ffmpeg); .webm for VP9
 ```
 
 Each format also has a direct method when you want the content in memory:
@@ -19,6 +21,8 @@ Each format also has a direct method when you want the content in memory:
 svg_markup = canvas.to_svg()
 pptx_bytes = canvas.to_pptx()
 pdf_bytes = canvas.to_pdf()
+gif_bytes = canvas.to_gif()
+mp4_bytes = canvas.to_mp4()      # and canvas.to_webm()
 ```
 
 ## How export works
@@ -88,6 +92,33 @@ with open("promo.pdf", "wb") as f:
 !!! note "Fidelity"
     PDF shadings cannot express transparency, so translucent gradients (and gradients with translucent stops) are embedded as pictures. Blur effects (shadow, glow), strokes on shapes, and gradient/image glyph fills have no faithful PDF vector form and are likewise embedded as pixel-exact PNG fragments.
 
+## Animated GIF & video (MP4/WebM)
+
+Animated export renders the per-layer `animation` effects and the deck's slide `transition`s as real raster frames, sampled through the same pixel pipeline as PNG output — every effect plays faithfully, not as a CSS or PowerPoint approximation.
+
+```python
+from quickthumb import Canvas, Deck, Fade
+from quickthumb.transitions import Push
+
+canvas = Canvas(1280, 720).background(color="#101820").text(
+    content="Hello", position=("50%", "50%"), size=96, color="#FFFFFF",
+    animation=Fade(duration=0.6),
+)
+canvas.render("hello.gif")                     # defaults: 20 fps, 3s hold
+mp4 = canvas.to_mp4(fps=30, hold=2.0)          # tunable variants return bytes
+
+deck = Deck(1280, 720).slide(canvas).slide(other, transition=Push(direction="left"))
+deck.render("deck.mp4")
+gif = deck.to_gif(fps=20, slide_duration=3.0, loop=0)
+```
+
+The timing model mirrors the HTML slideshow, with one difference a non-interactive medium forces: there is nothing to click, so `on_click` animations play automatically in sequence, exactly like `after_previous` (the same choice PowerPoint's own video export makes). Each slide plays its transition (over the previous slide's final frame), runs its animation timeline (starting when the transition starts, like the HTML runtime), then holds its settled state — for the transition's `advance_after` when set, else for `slide_duration` (`hold` on `Canvas`). A slide with no transition cross-fades in over 0.5s (slide 0 with none starts instantly); set a transition on slide 0 to animate in from the matte, which also makes looping GIFs wrap smoothly.
+
+GIF is encoded by Pillow with per-frame durations, so no extra dependency is needed. MP4 (H.264) and WebM (VP9) require the `ffmpeg` binary on `PATH` (or pointed to by the `QUICKTHUMB_FFMPEG` environment variable).
+
+!!! note "Format limits"
+    None of these formats carry transparency: frames are composited onto the opaque `matte` color (default black). Mixed-size slides are scaled to fit and centered on the first slide's size. H.264/VP9 4:2:0 output needs even dimensions, so odd-sized canvases lose their last pixel row/column in MP4/WebM output.
+
 ## Decks (multiple images and slides)
 
 A `Deck` is an ordered collection of canvases. Each slide is a full `Canvas` and renders exactly as it would on its own, so a deck is just a multi-output container on top of the same pipeline. See the [Deck API reference](api/deck.md) for the full method list.
@@ -106,13 +137,15 @@ deck = (
 
 deck.render("deck.pdf")     # one multi-page PDF (a page per slide)
 deck.render("deck.pptx")    # one multi-slide PPTX (a slide per slide)
+deck.render("deck.gif")     # one animation playing transitions between slides
 deck.render("slides.png")   # numbered sequence: slides_01.png, slides_02.png, …
 
 pdf_bytes = deck.to_pdf()
 pptx_bytes = deck.to_pptx()
+gif_bytes = deck.to_gif()   # and deck.to_mp4() / deck.to_webm()
 ```
 
-`render()` dispatches on the output extension: `.pdf` and `.pptx` produce a single document, while raster extensions have no native multi-page container, so the deck writes one file per slide as a zero-padded numbered sequence and returns the written paths.
+`render()` dispatches on the output extension: `.pdf` and `.pptx` produce a single document and `.gif`/`.mp4`/`.webm` a single animation, while raster extensions have no native multi-page container, so the deck writes one file per slide as a zero-padded numbered sequence and returns the written paths.
 
 Slides may have different dimensions. `deck.diagnose()` aggregates each slide's [diagnostics](diagnostics.md) (each tagged with its `slide_index`) and adds a `mixed-slide-size` warning when they differ. The PDF path sizes each page to its slide, but PPTX has a single presentation size taken from the first slide, so slides larger than the first are clipped by PowerPoint — keep slides a uniform size when targeting `.pptx`. Decks round-trip through JSON with `deck.to_json()` / `Deck.from_json(...)`, reusing the per-canvas serialization.
 

@@ -62,6 +62,7 @@ Renders the deck, dispatching on the output extension. Returns the list of writt
 ```python
 deck.render("deck.pdf")      # one multi-page PDF (a page per slide)
 deck.render("deck.pptx")     # one multi-slide PPTX (a slide per slide)
+deck.render("deck.gif")      # one animation playing transitions between slides
 deck.render("slides.png")    # slides_01.png, slides_02.png, …
 deck.render("slides.jpg", quality=85)
 ```
@@ -70,6 +71,7 @@ deck.render("slides.jpg", quality=85)
 | --- | --- |
 | `.pdf` | Single multi-page PDF. Requires the `pdf` extra. |
 | `.pptx` | Single multi-slide PPTX. Requires the `pptx` extra. |
+| `.gif` / `.mp4` / `.webm` | Single animation playing layer animations and slide transitions with default settings. `.mp4`/`.webm` require the `ffmpeg` binary. |
 | `.png` / `.jpg` / `.jpeg` / `.webp` | One file per slide as a zero-padded numbered sequence. |
 
 | Parameter | Type | Default | Description |
@@ -79,7 +81,7 @@ deck.render("slides.jpg", quality=85)
 | `quality` | `int \| None` | `None` | Compression quality. Only valid for raster sequences. |
 
 !!! warning
-    Passing `quality` with `.pdf` or `.pptx` output raises `RenderingError`, as does rendering an empty deck.
+    Passing `quality` with `.pdf`, `.pptx`, or animated output raises `RenderingError`, as does rendering an empty deck.
 
 ### `.to_pdf()` / `.to_pptx()`
 
@@ -90,6 +92,23 @@ with open("deck.pdf", "wb") as f:
     f.write(deck.to_pdf())   # requires quickthumb[pdf]
 pptx_bytes = deck.to_pptx()  # requires quickthumb[pptx]
 ```
+
+### `.to_gif(...)` / `.to_mp4(...)` / `.to_webm(...)`
+
+Return the deck as an animation: each slide plays its layer animations, holds its settled state, and its transition animates the change into it (see [Animated GIF & video](../exports.md#animated-gif-video-mp4webm) for the timing model). `.to_mp4()`/`.to_webm()` require the `ffmpeg` binary on `PATH` (or named by `QUICKTHUMB_FFMPEG`).
+
+```python
+gif_bytes = deck.to_gif(fps=20, slide_duration=3.0, loop=0, matte="#000000")
+mp4_bytes = deck.to_mp4(fps=30, slide_duration=3.0)
+webm_bytes = deck.to_webm(fps=30, slide_duration=3.0)
+```
+
+| Parameter | Type | Default | Description |
+| --- | --- | --- | --- |
+| `fps` | `float` | `20.0` GIF / `30.0` video | Frames per second (max 120) |
+| `slide_duration` | `float` | `3.0` | Seconds a slide holds after its animations finish, unless its transition sets `advance_after` |
+| `loop` | `int` | `0` | GIF repeat count; `0` loops forever (GIF only) |
+| `matte` | `str` | `"#000000"` | Opaque background color frames are composited onto |
 
 ## `.diagnose()`
 

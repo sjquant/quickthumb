@@ -93,7 +93,11 @@ def render(
     spec: Annotated[Path, typer.Argument(help="Path to a JSON spec file")],
     output: Annotated[
         Path,
-        typer.Option("-o", "--output", help="Output file path (.png/.jpg/.webp/.svg/.pptx/.pdf)"),
+        typer.Option(
+            "-o",
+            "--output",
+            help="Output file path (.png/.jpg/.webp/.svg/.pptx/.pdf/.html/.gif/.mp4/.webm)",
+        ),
     ] = Path("output.png"),
     fmt: Annotated[
         str | None,
@@ -112,7 +116,8 @@ def render(
         typer.Option("--var", help="Variable substitution as KEY=VALUE"),
     ] = None,
 ) -> None:
-    """Render a JSON spec file to an image, or to SVG/PPTX/PDF by file extension."""
+    """Render a JSON spec file to an image, to SVG/PPTX/PDF/HTML, or to an
+    animated GIF/MP4/WebM that plays the spec's layer animations, by extension."""
     _validate_render_options(fmt, quality)
     canvas = _load_canvas(spec, _parse_var_options(var))
 

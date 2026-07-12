@@ -660,13 +660,16 @@ class Canvas:
         """Render the canvas to a file.
 
         The output format is detected from the file extension: PNG, JPEG, and
-        WEBP render through the raster pipeline, while .svg, .pptx, and .pdf
-        produce vector/document output (see to_svg, to_pptx, and to_pdf).
+        WEBP render through the raster pipeline; .svg, .pptx, and .pdf produce
+        vector/document output (see to_svg, to_pptx, and to_pdf); .gif, .mp4,
+        and .webm produce an animation that plays the canvas's layer
+        ``animation`` effects with default settings (see to_gif, to_mp4, and
+        to_webm for the tunable variants).
         Set debug=True for raster output annotated with public layer-id bboxes.
         """
         if format is None:
             extension = os.path.splitext(output_path)[1].lower()
-            if extension in (".svg", ".pptx", ".pdf", ".html", ".htm"):
+            if extension in (".svg", ".pptx", ".pdf", ".html", ".htm", ".gif", ".mp4", ".webm"):
                 if debug:
                     raise RenderingError(
                         "Debug render is only supported for PNG, JPEG, and WEBP output."
@@ -676,6 +679,11 @@ class Canvas:
                         "Quality parameter is only supported for JPEG and WEBP formats, "
                         f"not {extension} output."
                     )
+                if extension in (".gif", ".mp4", ".webm"):
+                    from quickthumb._export_video import write_animation
+
+                    write_animation([self], [None], output_path, format=extension[1:])  # type: ignore[arg-type]
+                    return
                 self._render_document(output_path, extension)
                 return
 
@@ -765,6 +773,50 @@ class Canvas:
         from quickthumb._export_pdf import PdfExporter
 
         return PdfExporter(self).export_bytes()
+
+    def to_gif(
+        self, fps: float = 20.0, hold: float = 3.0, loop: int = 0, matte: str = "#000000"
+    ) -> bytes:
+        """Render the canvas to animated GIF bytes that play its layer animations.
+
+        Layer ``animation`` effects play in sequence (``on_click`` effects run
+        automatically -- there are no clicks in a video), then the settled
+        composition holds for ``hold`` seconds. A canvas with no animations
+        yields a single-frame GIF. ``loop`` is the GIF repeat count (0 =
+        forever). Frames are composited onto the opaque ``matte`` color since
+        GIF cannot carry the canvas's alpha.
+        """
+        from quickthumb._export_video import export_animation_bytes
+
+        return export_animation_bytes(
+            [self], [None], format="gif", fps=fps, slide_duration=hold, loop=loop, matte=matte
+        )
+
+    def to_mp4(self, fps: float = 30.0, hold: float = 3.0, matte: str = "#000000") -> bytes:
+        """Render the canvas to MP4 (H.264) bytes; timing model as in ``to_gif``.
+
+        Requires the ``ffmpeg`` binary on PATH (or ``QUICKTHUMB_FFMPEG``).
+        An odd-sized canvas loses its last pixel row/column (H.264 4:2:0
+        output needs even dimensions).
+        """
+        from quickthumb._export_video import export_animation_bytes
+
+        return export_animation_bytes(
+            [self], [None], format="mp4", fps=fps, slide_duration=hold, matte=matte
+        )
+
+    def to_webm(self, fps: float = 30.0, hold: float = 3.0, matte: str = "#000000") -> bytes:
+        """Render the canvas to WebM (VP9) bytes; timing model as in ``to_gif``.
+
+        Requires the ``ffmpeg`` binary on PATH (or ``QUICKTHUMB_FFMPEG``).
+        An odd-sized canvas loses its last pixel row/column (VP9 4:2:0 output
+        needs even dimensions).
+        """
+        from quickthumb._export_video import export_animation_bytes
+
+        return export_animation_bytes(
+            [self], [None], format="webm", fps=fps, slide_duration=hold, matte=matte
+        )
 
     def to_json(self) -> str:
         import json as _json

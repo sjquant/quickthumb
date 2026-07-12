@@ -137,7 +137,7 @@ class TestRenderDispatch:
 
         # when / then
         with pytest.raises(RenderingError, match="Unsupported deck output format"):
-            deck.render(str(tmp_path / "deck.gif"))
+            deck.render(str(tmp_path / "deck.docx"))
 
     def test_should_reject_format_override_for_document_output(self, tmp_path: Path):
         """A raster format override is meaningless for document output."""
