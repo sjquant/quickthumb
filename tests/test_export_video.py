@@ -1,6 +1,7 @@
 """Tests for animated GIF/MP4/WebM export (Canvas/Deck .to_gif/.to_mp4/.to_webm and render)."""
 
 import shutil
+import subprocess
 from io import BytesIO
 
 import pytest
@@ -145,6 +146,71 @@ class TestCanvasGif:
         assert total_ms(frames) == pytest.approx(1500, abs=100)
         assert close_to(frames[0][0].getpixel((80, 45)), BLUE)
         assert frames[0][1] >= 500
+
+    def test_should_collapse_timeline_gaps_into_held_frames(self):
+        """Idle spans between effect windows become single held shots, not fps frames"""
+        # given: two 0.2s fades separated by long delays (2.6s of idle timeline)
+        canvas = (
+            Canvas(160, 90)
+            .background(color="#1131AA")
+            .shape(
+                "rectangle", (10, 10), 40, 30, "#FF2D55", animation=Fade(duration=0.2, delay=1.3)
+            )
+            .shape(
+                "rectangle", (60, 10), 40, 30, "#22AA55", animation=Fade(duration=0.2, delay=1.3)
+            )
+        )
+
+        # when
+        frames = gif_frames(canvas.to_gif(fps=20, hold=0.5))
+
+        # then: the clock covers the full 3.5s, but only the 0.4s of actual
+        # animation is sampled at fps -- the gaps are single held frames
+        assert total_ms(frames) == pytest.approx(3500, abs=50)
+        assert len(frames) <= 20  # naive fps sampling would need ~70
+        assert any(duration >= 1000 for _, duration in frames)
+
+    def test_should_show_settled_frame_even_with_zero_hold(self):
+        """The fully settled composition appears even when the hold is zero"""
+        # given
+        canvas = (
+            Canvas(160, 90)
+            .background(color="#1131AA")
+            .shape("rectangle", (40, 20), 80, 50, "#FF2D55", animation=Fade(duration=0.5))
+        )
+
+        # when
+        frames = gif_frames(canvas.to_gif(fps=10, hold=0.0))
+
+        # then: the last frame is the settled state, not a ~95%-reveal sample
+        assert close_to(frames[-1][0].getpixel((80, 45)), RED)
+
+    def test_should_keep_timing_exact_when_effect_boundaries_land_one_ulp_apart(self):
+        """Float-noise effect boundaries (0.1+0.2 vs 0.3) don't distort the timeline"""
+        # given: concurrent fades whose windows end/start one float ulp apart
+        canvas = (
+            Canvas(160, 90)
+            .background(color="#1131AA")
+            .shape(
+                "rectangle", (10, 20), 60, 50, "#FF2D55", animation=Fade(duration=0.2, delay=0.1)
+            )
+            .shape(
+                "rectangle",
+                (90, 20),
+                60,
+                50,
+                "#22AA55",
+                animation=Fade(duration=0.2, delay=0.3, trigger="with_previous"),
+            )
+        )
+
+        # when
+        frames = gif_frames(canvas.to_gif(fps=20, hold=0.5))
+
+        # then: the clock stays exact and both layers settle fully
+        assert total_ms(frames) == pytest.approx(1000, abs=30)
+        assert close_to(frames[-1][0].getpixel((40, 45)), RED)
+        assert close_to(frames[-1][0].getpixel((120, 45)), GREEN)
 
     def test_should_keep_gif_clock_accurate_at_non_centisecond_fps(self):
         """GIF centisecond durations don't drift the clock at fps like 30"""
@@ -500,6 +566,31 @@ class TestVideoEncoding:
 
         # then
         assert data[:4] == b"\x1a\x45\xdf\xa3"
+
+    def test_should_write_settled_frame_when_clock_lands_on_half_frame(self, tmp_path):
+        """The settled frame is encoded even when its count lands on an exact .5 boundary"""
+        # given: 0.75s of animation at 10fps puts the settled shot at 8.5 frames,
+        # where round-half-even would emit zero frames for it
+        canvas = (
+            Canvas(160, 90)
+            .background(color="#1131AA")
+            .shape("rectangle", (40, 20), 80, 50, "#FF2D55", animation=Fade(duration=0.75))
+        )
+        path = tmp_path / "clip.mp4"
+        path.write_bytes(canvas.to_mp4(fps=10, hold=0.0))
+
+        # when
+        raw = subprocess.run(
+            ["ffmpeg", "-v", "error", "-i", str(path), "-f", "rawvideo", "-pix_fmt", "rgb24", "-"],
+            check=True,
+            capture_output=True,
+        ).stdout
+        frame_count = len(raw) // (160 * 90 * 3)
+        last = Image.frombytes("RGB", (160, 90), raw[-160 * 90 * 3 :])
+
+        # then: 8 animation frames plus the settled frame, which shows full red
+        assert frame_count == 9
+        assert close_to(last.getpixel((80, 45)), RED)
 
     def test_should_render_canvas_to_mp4_file(self, tmp_path):
         """Canvas.render dispatches .mp4 through the animation exporter"""

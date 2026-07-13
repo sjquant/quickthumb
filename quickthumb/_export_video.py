@@ -42,6 +42,7 @@ are scaled to fit and centered on the matte (PPTX-viewer letterboxing).
 from __future__ import annotations
 
 import contextlib
+import itertools
 import math
 import os
 import random
@@ -68,6 +69,9 @@ AnimationFormat = Literal["gif", "mp4", "webm"]
 # HTML deck parity: a slide with no transition set cross-fades in over 0.5s.
 _DEFAULT_TRANSITION_DURATION = 0.5
 _DEFAULT_FPS = {"gif": 20.0, "mp4": 30.0, "webm": 30.0}
+# Tolerance for float noise in timeline arithmetic (seconds); boundaries
+# closer than this are the same instant, far below any representable frame.
+_TIME_EPSILON = 1e-9
 # Fixed seeds keep dissolve speckle patterns deterministic across renders.
 _TRANSITION_DISSOLVE_SEED = 97
 _UNIT_DISSOLVE_SEED = 31
@@ -213,20 +217,27 @@ def _deck_shots(
         else:
             exit_time = max(animation_end, duration_in) + slide_duration
 
-        emitted = False
         for time, duration in _sample_span(0.0, duration_in, fps):
             incoming = _conform(animator.frame_at(time), size, matte_rgb)
             progress = _ease(time / duration_in)
             yield _Shot(_transition_frame(transition, previous_final, incoming, progress), duration)
-            emitted = True
-        for time, duration in _sample_span(duration_in, animation_end, fps):
-            yield _Shot(_conform(animator.frame_at(time), size, matte_rgb), duration)
-            emitted = True
+        # Between effect windows every unit's state is constant, so gaps (a
+        # trailing `delay`, a pause between chained effects) collapse into one
+        # held frame instead of resampling identical frames at fps.
+        for seg_start, seg_end, animating in animator.segments(duration_in, animation_end):
+            if animating:
+                for time, duration in _sample_span(seg_start, seg_end, fps):
+                    yield _Shot(_conform(animator.frame_at(time), size, matte_rgb), duration)
+            else:
+                frame = _conform(animator.frame_at(seg_start), size, matte_rgb)
+                yield _Shot(frame, seg_end - seg_start)
 
+        # The spans above are half-open, so the fully settled state only ever
+        # appears here; always emit it (at least one frame) even when the hold
+        # rounds to zero.
         final = _conform(animator.final_frame(), size, matte_rgb)
         hold = exit_time - max(animation_end, duration_in)
-        if hold > 0 or not emitted:
-            yield _Shot(final, max(hold, 1.0 / fps))
+        yield _Shot(final, max(hold, 1.0 / fps))
         previous_final = final
 
 
@@ -345,6 +356,47 @@ class _SlideAnimator:
         if self._final is None:
             self._final = self.frame_at(self.duration)
         return self._final
+
+    def segments(self, start: float, end: float) -> list[tuple[float, float, bool]]:
+        """Split [start, end) into (seg_start, seg_end, animating) runs.
+
+        A segment is ``animating`` when some effect window overlaps it; outside
+        every window each unit's state is constant, so a non-animating segment
+        renders identically at any point within it and one frame can hold for
+        the whole gap.
+        """
+        if end <= start:
+            return []
+        windows: list[tuple[float, float]] = []
+        boundaries = {start, end}
+        for unit in self._units:
+            for node in unit.nodes:
+                active_start = node.start + node.effect.delay
+                window_start = max(active_start, start)
+                window_end = min(active_start + node.effect.duration, end)
+                if window_end > window_start:
+                    windows.append((window_start, window_end))
+                    boundaries.update((window_start, window_end))
+        # Window boundaries derived from float sums can land one ulp apart
+        # (e.g. 0.1 + 0.2 vs 0.3); merging cuts closer than the epsilon avoids
+        # degenerate near-zero segments that would each emit a wasted frame.
+        cuts = [start]
+        for cut in sorted(boundaries):
+            if cut - cuts[-1] > _TIME_EPSILON:
+                cuts.append(cut)
+        if len(cuts) == 1:
+            return []
+        cuts[-1] = end
+        return [
+            (
+                seg_start,
+                seg_end,
+                # A segment's midpoint sits inside a window exactly when the
+                # window covers the segment, staying robust to merged cuts.
+                any(ws < (seg_start + seg_end) / 2 < we for ws, we in windows),
+            )
+            for seg_start, seg_end in itertools.pairwise(cuts)
+        ]
 
 
 def _build_units(canvas: Canvas) -> list[_Unit]:
@@ -587,13 +639,13 @@ def _push_frame(
 ) -> Image.Image:
     width, height = incoming.size
     out_dx, out_dy = _SLIDE_OUT[direction]
-    in_dx, in_dy = _SLIDE_IN[direction]
+    # Both offsets derive from one rounded shift so the slides stay exactly one
+    # frame apart; rounding them independently could leave a 1px seam between.
+    shift_x = round(out_dx * width * progress)
+    shift_y = round(out_dy * height * progress)
     frame = Image.new("RGB", incoming.size)
-    frame.paste(previous, (round(out_dx * width * progress), round(out_dy * height * progress)))
-    frame.paste(
-        incoming,
-        (round(in_dx * width * (1 - progress)), round(in_dy * height * (1 - progress))),
-    )
+    frame.paste(previous, (shift_x, shift_y))
+    frame.paste(incoming, (shift_x - out_dx * width, shift_y - out_dy * height))
     return frame
 
 
@@ -913,8 +965,12 @@ def _encode_video_file(
 ) -> None:
     """Stream raw RGB frames into ffmpeg, expanding shots to a constant frame rate.
 
-    Frame counts follow the cumulative clock (round(clock*fps) - emitted), so
-    rounding never drifts the timing across long decks.
+    Frame counts follow the cumulative clock (floor(clock*fps + 0.5) - emitted),
+    so rounding never drifts the timing across long decks. Half-up rounding
+    (rather than round()'s half-even) makes the count shift-invariant by one
+    frame, guaranteeing every shot lasting >= 1/fps writes at least one frame —
+    round-half-even can swallow a full-frame shot that lands on an exact .5
+    boundary, dropping the deck's final settled frame.
     """
     binary = _ffmpeg_binary()
     width, height = size
@@ -939,7 +995,7 @@ def _encode_video_file(
                 for shot in shots:
                     clock += shot.duration
                     last_frame = shot.frame.tobytes()
-                    count = round(clock * fps) - emitted
+                    count = math.floor(clock * fps + 0.5) - emitted
                     for _ in range(count):
                         process.stdin.write(last_frame)
                     emitted += count
