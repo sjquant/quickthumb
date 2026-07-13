@@ -111,7 +111,7 @@ with open("deck.pptx", "wb") as f:
 
 ### `.to_pdf()`
 
-Returns the canvas as PDF file bytes — a single page with native vector backgrounds, shapes, and selectable text, and embedded fonts. Requires the `pdf` extra.
+Returns the canvas as PDF file bytes — a single page with native vector backgrounds, shapes, and selectable text when its font can be safely embedded and the text does not require complex shaping. Unsupported text is embedded as a pixel-exact image fragment. Requires the `pdf` extra.
 
 ```python
 with open("card.pdf", "wb") as f:

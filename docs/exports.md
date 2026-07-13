@@ -30,7 +30,7 @@ Exporters keep layers **native** wherever the target format can express them, an
 | Background color / gradient | Native `rect` + gradient defs | Native shape fill (linear gradients native, radial embedded) | Native fill; opaque gradients native, translucent gradients embedded |
 | Outline | Native `rect` stroke | Native bordered rectangle | Native rectangle stroke |
 | Shapes (all primitives) | Native elements, incl. rotation and stroke/shadow/glow | Native autoshapes; polygons become freeforms | Native paths incl. rotation; shapes with effects embedded |
-| Text (simple & rich) | Native `<text>` per line/run, incl. wrapping, letter spacing, gradient fills, effects | Editable text boxes with per-run styling | Native selectable text with embedded fonts; runs with gradient/image fills or blur effects embedded |
+| Text (simple & rich) | Native `<text>` per line/run, incl. wrapping, letter spacing, gradient fills, effects | Editable text boxes with per-run styling | Native selectable text when its font can be embedded and the text does not need complex shaping; unsupported fonts and gradient/image fills or blur effects are embedded as pixels |
 | Groups (auto-layout) | Children exported natively at their layout positions | Same | Same |
 | Images & image-filled text | Embedded PNG fragment | Embedded picture | Embedded picture |
 | SVG layers | Embedded as vector data URL (raster when effects are applied) | Embedded picture | Embedded picture |
@@ -76,7 +76,7 @@ PDF export requires the optional dependency:
 uv pip install "quickthumb[pdf]"
 ```
 
-The canvas becomes a single PDF page sized to the canvas pixels (one point per pixel). Backgrounds, outlines, shapes, and text are drawn as native PDF vector primitives using the same layout math as the raster renderer, and the fonts used for text are subset and embedded into the document, so it is self-contained and renders correctly in any reader.
+The canvas becomes a single PDF page sized to the canvas pixels (one point per pixel). Backgrounds, outlines, shapes, and eligible text are drawn as native PDF vector primitives using the same layout math as the raster renderer. Fonts that can be safely embedded are subset when their text does not need complex shaping; unsupported text is embedded as a pixel-exact PNG fragment so its visual result remains faithful.
 
 ```python
 canvas.render("promo.pdf")

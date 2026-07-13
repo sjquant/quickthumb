@@ -754,12 +754,13 @@ class Canvas:
         """Render the canvas to a single-page PDF as bytes (requires quickthumb[pdf]).
 
         The page is sized to the canvas pixels (one point per pixel).
-        Backgrounds, outlines, shapes, and text are drawn as native PDF vector
-        primitives, while raster images, blend modes, blur effects, gradient or
-        image glyph fills, translucent gradients, and custom layers are embedded
-        as pixel-exact PNG fragments. The fonts used for text are subset and
-        embedded into the PDF, so the document is self-contained and renders
-        correctly in any reader without the fonts installed.
+        Backgrounds, outlines, shapes, and eligible text are drawn as native PDF
+        vector primitives. Raster images, blend modes, blur effects, gradient or
+        image glyph fills, translucent gradients, custom layers, and text whose
+        font cannot be safely embedded or whose script needs complex shaping are
+        embedded as pixel-exact PNG fragments. Vector text fonts are subset and
+        embedded, so eligible text is selectable and self-contained in readers
+        without those fonts installed.
         """
         from quickthumb._export_pdf import PdfExporter
 
