@@ -334,13 +334,20 @@ class Deck:
         )
 
     def to_mp4(
-        self, fps: float = 30.0, slide_duration: float = 3.0, matte: str = "#000000"
+        self,
+        fps: float = 30.0,
+        slide_duration: float = 3.0,
+        matte: str = "#000000",
+        soundtrack: str | None = None,
+        loop_audio: bool = True,
     ) -> bytes:
         """Render the deck to MP4 (H.264) bytes; timing model as in ``to_gif``.
 
         Requires the ``ffmpeg`` binary on PATH (or ``QUICKTHUMB_FFMPEG``).
         Odd-sized canvases lose their last pixel row/column (H.264 4:2:0
-        output needs even dimensions).
+        output needs even dimensions). ``soundtrack`` muxes an audio file
+        (any format ffmpeg decodes) as AAC, trimmed to the video length;
+        ``loop_audio`` repeats a shorter track to fill the video.
         """
         self._require_slides()
         from quickthumb._export_video import export_animation_bytes
@@ -352,16 +359,25 @@ class Deck:
             fps=fps,
             slide_duration=slide_duration,
             matte=matte,
+            soundtrack=soundtrack,
+            loop_audio=loop_audio,
         )
 
     def to_webm(
-        self, fps: float = 30.0, slide_duration: float = 3.0, matte: str = "#000000"
+        self,
+        fps: float = 30.0,
+        slide_duration: float = 3.0,
+        matte: str = "#000000",
+        soundtrack: str | None = None,
+        loop_audio: bool = True,
     ) -> bytes:
         """Render the deck to WebM (VP9) bytes; timing model as in ``to_gif``.
 
         Requires the ``ffmpeg`` binary on PATH (or ``QUICKTHUMB_FFMPEG``).
         Odd-sized canvases lose their last pixel row/column (VP9 4:2:0 output
-        needs even dimensions).
+        needs even dimensions). ``soundtrack`` muxes an audio file (any
+        format ffmpeg decodes) as Opus, trimmed to the video length;
+        ``loop_audio`` repeats a shorter track to fill the video.
         """
         self._require_slides()
         from quickthumb._export_video import export_animation_bytes
@@ -373,6 +389,8 @@ class Deck:
             fps=fps,
             slide_duration=slide_duration,
             matte=matte,
+            soundtrack=soundtrack,
+            loop_audio=loop_audio,
         )
 
     def diagnose(self) -> list[DeckDiagnostic]:

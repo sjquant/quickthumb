@@ -1,7 +1,10 @@
 """Tests for animated GIF/MP4/WebM export (Canvas/Deck .to_gif/.to_mp4/.to_webm and render)."""
 
+import math
 import shutil
+import struct
 import subprocess
+import wave
 from io import BytesIO
 
 import pytest
@@ -21,6 +24,7 @@ from quickthumb import (
     Wipe,
 )
 from quickthumb import transitions as tr
+from quickthumb._export_video import export_animation_bytes
 from quickthumb.errors import RenderingError, ValidationError
 
 RED = (255, 45, 85)
@@ -57,6 +61,33 @@ def red_box_slide() -> Canvas:
         .background(color="#1131AA")
         .shape("rectangle", (40, 20), 80, 50, "#FF2D55", animation=Fade(duration=0.5))
     )
+
+
+def tone_wav(path, seconds: float) -> str:
+    """Write a mono 16-bit 440Hz sine WAV used as a soundtrack fixture."""
+    rate = 44100
+    frames = b"".join(
+        struct.pack("<h", int(20000 * math.sin(2 * math.pi * 440 * i / rate)))
+        for i in range(int(rate * seconds))
+    )
+    with wave.open(str(path), "wb") as wav:
+        wav.setnchannels(1)
+        wav.setsampwidth(2)
+        wav.setframerate(rate)
+        wav.writeframes(frames)
+    return str(path)
+
+
+def decoded_audio(data: bytes, path) -> list[int]:
+    """Decode a video's audio track to 8kHz mono PCM samples via ffmpeg."""
+    path.write_bytes(data)
+    pcm = subprocess.run(
+        ["ffmpeg", "-v", "error", "-i", str(path), "-map", "0:a", "-f", "s16le",
+         "-ar", "8000", "-ac", "1", "-"],
+        check=True,
+        capture_output=True,
+    ).stdout  # fmt: skip
+    return list(struct.unpack(f"<{len(pcm) // 2}h", pcm))
 
 
 class TestCanvasGif:
@@ -592,6 +623,46 @@ class TestVideoEncoding:
         assert frame_count == 9
         assert close_to(last.getpixel((80, 45)), RED)
 
+    @pytest.mark.parametrize("container", ["mp4", "webm"])
+    def test_should_loop_soundtrack_across_the_video(self, tmp_path, container):
+        """A short soundtrack repeats to cover the whole video"""
+        # given: a 0.5s tone under a 2s video
+        canvas = Canvas(160, 90).background(color="#1131AA")
+        tone = tone_wav(tmp_path / "tone.wav", 0.5)
+
+        # when
+        export = canvas.to_mp4 if container == "mp4" else canvas.to_webm
+        data = export(fps=10, hold=2.0, soundtrack=tone)
+        samples = decoded_audio(data, tmp_path / f"clip.{container}")
+
+        # then: the audio spans the video and the tone still plays at the end
+        assert len(samples) / 8000 == pytest.approx(2.0, abs=0.15)
+        assert max(abs(sample) for sample in samples[-2000:]) > 5000
+
+    def test_should_pad_unlooped_soundtrack_with_silence(self, tmp_path):
+        """loop_audio=False plays the track once without cutting the video short"""
+        # given: a 0.5s tone under a 2s video, playing once
+        canvas = Canvas(160, 90).background(color="#1131AA")
+        tone = tone_wav(tmp_path / "tone.wav", 0.5)
+        path = tmp_path / "clip.mp4"
+
+        # when
+        data = canvas.to_mp4(fps=10, hold=2.0, soundtrack=tone, loop_audio=False)
+        samples = decoded_audio(data, path)
+
+        # then: the audio tail is silence, not a repeated tone
+        assert len(samples) / 8000 == pytest.approx(2.0, abs=0.15)
+        assert max(abs(sample) for sample in samples[-2000:]) < 500
+
+        # and the video keeps its full length (the short track must not trim it)
+        raw = subprocess.run(
+            ["ffmpeg", "-v", "error", "-i", str(path), "-map", "0:v", "-f", "rawvideo",
+             "-pix_fmt", "rgb24", "-"],
+            check=True,
+            capture_output=True,
+        ).stdout  # fmt: skip
+        assert len(raw) // (160 * 90 * 3) == 20
+
     def test_should_render_canvas_to_mp4_file(self, tmp_path):
         """Canvas.render dispatches .mp4 through the animation exporter"""
         # given
@@ -693,6 +764,24 @@ class TestVideoErrors:
         # when / then
         with pytest.raises(ValidationError, match=message):
             canvas.to_gif(**kwargs)
+
+    def test_should_reject_soundtrack_for_gif(self):
+        """GIF cannot carry audio, so a soundtrack is rejected up front"""
+        # given
+        canvas = Canvas(160, 90).background(color="#1131AA")
+
+        # when / then
+        with pytest.raises(ValidationError, match="GIF cannot carry audio"):
+            export_animation_bytes([canvas], [None], format="gif", soundtrack="tone.wav")
+
+    def test_should_reject_missing_soundtrack_file(self, tmp_path):
+        """A nonexistent soundtrack fails before any frame is rendered"""
+        # given
+        canvas = Canvas(160, 90).background(color="#1131AA")
+
+        # when / then
+        with pytest.raises(ValidationError, match="Soundtrack file not found"):
+            canvas.to_mp4(soundtrack=str(tmp_path / "missing.mp3"))
 
     def test_should_reject_animated_layers_under_backdrop_compositing(self):
         """Layers that must flatten with a blend/custom backdrop cannot animate"""

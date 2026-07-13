@@ -116,6 +116,15 @@ The timing model mirrors the HTML slideshow, with one difference a non-interacti
 
 GIF is encoded by Pillow with per-frame durations, so no extra dependency is needed. MP4 (H.264) and WebM (VP9) require the `ffmpeg` binary on `PATH` (or pointed to by the `QUICKTHUMB_FFMPEG` environment variable).
 
+MP4 and WebM output can carry a soundtrack — any audio file ffmpeg decodes (MP3, WAV, AAC, OGG, ...), encoded as AAC in MP4 and Opus in WebM:
+
+```python
+mp4 = deck.to_mp4(soundtrack="music.mp3")                    # loops to fill the video
+mp4 = deck.to_mp4(soundtrack="jingle.wav", loop_audio=False) # plays once, then silence
+```
+
+The audio is always trimmed to the video length. With `loop_audio` (the default) a track shorter than the video repeats seamlessly; with `loop_audio=False` it plays once and the rest of the video is silent. GIF cannot carry audio, so passing `soundtrack` to a GIF export raises a `ValidationError`.
+
 !!! note "Format limits"
     None of these formats carry transparency: frames are composited onto the opaque `matte` color (default black). Mixed-size slides are scaled to fit and centered on the first slide's size. H.264/VP9 4:2:0 output needs even dimensions, so odd-sized canvases lose their last pixel row/column in MP4/WebM output.
 

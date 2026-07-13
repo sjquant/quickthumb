@@ -792,30 +792,62 @@ class Canvas:
             [self], [None], format="gif", fps=fps, slide_duration=hold, loop=loop, matte=matte
         )
 
-    def to_mp4(self, fps: float = 30.0, hold: float = 3.0, matte: str = "#000000") -> bytes:
+    def to_mp4(
+        self,
+        fps: float = 30.0,
+        hold: float = 3.0,
+        matte: str = "#000000",
+        soundtrack: str | None = None,
+        loop_audio: bool = True,
+    ) -> bytes:
         """Render the canvas to MP4 (H.264) bytes; timing model as in ``to_gif``.
 
         Requires the ``ffmpeg`` binary on PATH (or ``QUICKTHUMB_FFMPEG``).
         An odd-sized canvas loses its last pixel row/column (H.264 4:2:0
-        output needs even dimensions).
+        output needs even dimensions). ``soundtrack`` muxes an audio file
+        (any format ffmpeg decodes) as AAC, trimmed to the video length;
+        ``loop_audio`` repeats a shorter track to fill the video.
         """
         from quickthumb._export_video import export_animation_bytes
 
         return export_animation_bytes(
-            [self], [None], format="mp4", fps=fps, slide_duration=hold, matte=matte
+            [self],
+            [None],
+            format="mp4",
+            fps=fps,
+            slide_duration=hold,
+            matte=matte,
+            soundtrack=soundtrack,
+            loop_audio=loop_audio,
         )
 
-    def to_webm(self, fps: float = 30.0, hold: float = 3.0, matte: str = "#000000") -> bytes:
+    def to_webm(
+        self,
+        fps: float = 30.0,
+        hold: float = 3.0,
+        matte: str = "#000000",
+        soundtrack: str | None = None,
+        loop_audio: bool = True,
+    ) -> bytes:
         """Render the canvas to WebM (VP9) bytes; timing model as in ``to_gif``.
 
         Requires the ``ffmpeg`` binary on PATH (or ``QUICKTHUMB_FFMPEG``).
         An odd-sized canvas loses its last pixel row/column (VP9 4:2:0 output
-        needs even dimensions).
+        needs even dimensions). ``soundtrack`` muxes an audio file (any
+        format ffmpeg decodes) as Opus, trimmed to the video length;
+        ``loop_audio`` repeats a shorter track to fill the video.
         """
         from quickthumb._export_video import export_animation_bytes
 
         return export_animation_bytes(
-            [self], [None], format="webm", fps=fps, slide_duration=hold, matte=matte
+            [self],
+            [None],
+            format="webm",
+            fps=fps,
+            slide_duration=hold,
+            matte=matte,
+            soundtrack=soundtrack,
+            loop_audio=loop_audio,
         )
 
     def to_json(self) -> str:

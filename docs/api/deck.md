@@ -99,7 +99,7 @@ Return the deck as an animation: each slide plays its layer animations, holds it
 
 ```python
 gif_bytes = deck.to_gif(fps=20, slide_duration=3.0, loop=0, matte="#000000")
-mp4_bytes = deck.to_mp4(fps=30, slide_duration=3.0)
+mp4_bytes = deck.to_mp4(fps=30, slide_duration=3.0, soundtrack="music.mp3")
 webm_bytes = deck.to_webm(fps=30, slide_duration=3.0)
 ```
 
@@ -109,6 +109,8 @@ webm_bytes = deck.to_webm(fps=30, slide_duration=3.0)
 | `slide_duration` | `float` | `3.0` | Seconds a slide holds after its animations finish, unless its transition sets `advance_after` |
 | `loop` | `int` | `0` | GIF repeat count; `0` loops forever (GIF only) |
 | `matte` | `str` | `"#000000"` | Opaque background color frames are composited onto |
+| `soundtrack` | `str \| None` | `None` | Audio file muxed into the video, trimmed to the video length (MP4/WebM only; any format ffmpeg decodes) |
+| `loop_audio` | `bool` | `True` | Repeat a soundtrack shorter than the video; `False` plays it once and pads with silence |
 
 ## `.diagnose()`
 

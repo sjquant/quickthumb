@@ -37,6 +37,12 @@ pixel row/column in MP4/WebM output.
 Alpha does not survive into these formats: every frame is composited onto an
 opaque ``matte`` color first. Slides that differ from the first slide's size
 are scaled to fit and centered on the matte (PPTX-viewer letterboxing).
+
+MP4/WebM output can carry a ``soundtrack`` audio file (any format ffmpeg
+decodes: MP3, WAV, AAC, OGG, ...), encoded as AAC in MP4 and Opus in WebM.
+The audio is trimmed to the video length; when ``loop_audio`` is set (the
+default) a track shorter than the video repeats seamlessly. GIF cannot carry
+audio.
 """
 
 from __future__ import annotations
@@ -89,6 +95,8 @@ def write_animation(
     slide_duration: float = 3.0,
     loop: int = 0,
     matte: str = "#000000",
+    soundtrack: str | None = None,
+    loop_audio: bool = True,
 ) -> None:
     """Render slides to an animated file, dispatching on ``format``."""
     if format == "gif":
@@ -100,15 +108,18 @@ def write_animation(
             slide_duration=slide_duration,
             loop=loop,
             matte=matte,
+            soundtrack=soundtrack,
         )
         with open(output_path, "wb") as output_file:
             output_file.write(data)
         return
 
-    fps, matte_rgb = _validated_settings(canvases, format, fps, slide_duration, loop, matte)
+    fps, matte_rgb = _validated_settings(
+        canvases, format, fps, slide_duration, loop, matte, soundtrack
+    )
     size = (canvases[0].width, canvases[0].height)
     shots = _deck_shots(canvases, transitions, fps, slide_duration, matte_rgb)
-    _encode_video_file(shots, size, fps, format, output_path)
+    _encode_video_file(shots, size, fps, format, output_path, soundtrack, loop_audio)
 
 
 def export_animation_bytes(
@@ -119,9 +130,13 @@ def export_animation_bytes(
     slide_duration: float = 3.0,
     loop: int = 0,
     matte: str = "#000000",
+    soundtrack: str | None = None,
+    loop_audio: bool = True,
 ) -> bytes:
     """Render slides to animated GIF/MP4/WebM bytes."""
-    fps, matte_rgb = _validated_settings(canvases, format, fps, slide_duration, loop, matte)
+    fps, matte_rgb = _validated_settings(
+        canvases, format, fps, slide_duration, loop, matte, soundtrack
+    )
     shots = _deck_shots(canvases, transitions, fps, slide_duration, matte_rgb)
 
     if format == "gif":
@@ -133,7 +148,7 @@ def export_animation_bytes(
     descriptor, temp_path = tempfile.mkstemp(suffix=f".{format}")
     os.close(descriptor)
     try:
-        _encode_video_file(shots, size, fps, format, temp_path)
+        _encode_video_file(shots, size, fps, format, temp_path, soundtrack, loop_audio)
         with open(temp_path, "rb") as video_file:
             return video_file.read()
     finally:
@@ -148,12 +163,18 @@ def _validated_settings(
     slide_duration: float,
     loop: int,
     matte: str,
+    soundtrack: str | None = None,
 ) -> tuple[float, tuple[int, int, int]]:
     """Validate the shared export knobs and resolve fps and matte defaults."""
     if format not in _DEFAULT_FPS:
         raise ValidationError(f"Unsupported animation format: {format!r}. Use gif, mp4, or webm.")
     if not canvases:
         raise RenderingError("No slides to animate.")
+    if soundtrack is not None:
+        if format == "gif":
+            raise ValidationError("GIF cannot carry audio; use mp4 or webm for a soundtrack.")
+        if not os.path.isfile(soundtrack):
+            raise ValidationError(f"Soundtrack file not found: {soundtrack!r}")
     if fps is None:
         fps = _DEFAULT_FPS[format]
     if not fps > 0:
@@ -954,6 +975,11 @@ _CODEC_ARGS = {
         "-b:v", "0", "-crf", "32", "-row-mt", "1",
     ],
 }  # fmt: skip
+# WebM containers only allow Opus/Vorbis audio; MP4 uses the universal AAC.
+_AUDIO_ARGS = {
+    "mp4": ["-c:a", "aac", "-b:a", "192k"],
+    "webm": ["-c:a", "libopus", "-b:a", "128k"],
+}
 
 
 def _encode_video_file(
@@ -962,6 +988,8 @@ def _encode_video_file(
     fps: float,
     format: str,
     output_path: str,
+    soundtrack: str | None = None,
+    loop_audio: bool = True,
 ) -> None:
     """Stream raw RGB frames into ffmpeg, expanding shots to a constant frame rate.
 
@@ -971,13 +999,30 @@ def _encode_video_file(
     frame, guaranteeing every shot lasting >= 1/fps writes at least one frame —
     round-half-even can swallow a full-frame shot that lands on an exact .5
     boundary, dropping the deck's final settled frame.
+
+    A ``soundtrack`` becomes a second ffmpeg input muxed alongside the piped
+    video; ``-shortest`` trims it to the video length, so the total duration
+    never needs to be known before the frames stream.
     """
     binary = _ffmpeg_binary()
     width, height = size
+    if soundtrack is None:
+        audio_input, audio_output = [], ["-an"]
+    else:
+        # The audio must never be the shortest stream or -shortest would cut
+        # the video to the track length: looping repeats the track forever
+        # (-stream_loop precedes its -i), otherwise silence pads it forever
+        # (apad), and either way -shortest then trims audio to video length.
+        audio_input = (["-stream_loop", "-1"] if loop_audio else []) + ["-i", soundtrack]
+        audio_filter = [] if loop_audio else ["-af", "apad"]
+        audio_output = [
+            "-map", "0:v", "-map", "1:a:0",
+            *audio_filter, *_AUDIO_ARGS[format], "-shortest",
+        ]  # fmt: skip
     command = [
         binary, "-hide_banner", "-loglevel", "error", "-y",
         "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{width}x{height}",
-        "-r", f"{fps:g}", "-i", "pipe:0", "-an",
+        "-r", f"{fps:g}", "-i", "pipe:0", *audio_input, *audio_output,
         "-vf", "crop=trunc(iw/2)*2:trunc(ih/2)*2",
         *_CODEC_ARGS[format], output_path,
     ]  # fmt: skip

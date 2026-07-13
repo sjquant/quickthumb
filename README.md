@@ -452,6 +452,7 @@ deck.render("slides.png")      # numbered sequence: slides_01.png, slides_02.png
 pdf_bytes = deck.to_pdf()      # requires quickthumb[pdf]
 pptx_bytes = deck.to_pptx()    # requires quickthumb[pptx]
 gif_bytes = deck.to_gif()      # deck.to_mp4()/to_webm() need the ffmpeg binary
+mp4_bytes = deck.to_mp4(soundtrack="music.mp3")  # mux audio into MP4/WebM output
 ```
 
 An unsized `Canvas()` inherits the deck's size when added; a canvas built with an
