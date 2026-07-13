@@ -168,14 +168,15 @@ Use it when you want a realistic animated deck example that exercises both HTML 
 
 Output: `product_hype_reel.gif`, `product_hype_reel.mp4`, and `product_hype_reel.webm`
 
-Builds a Korean-style vertical (1080x1920) 8-scene app-launch reel — a full ad arc (hook → pain point → solution → three features → social proof → CTA), not just a 3-card teaser — and exports it as a self-playing ~23s animation with a soundtrack:
+Builds a polished Korean-style vertical (1080x1920) 8-scene app-launch reel — a full ad arc (hook → pain point → solution → three features → social proof → CTA) — and exports it as a self-playing 15-second animation with a soundtrack:
 
-- An Instagram-Stories-style segmented progress bar across the top of every scene, tracking position in the 8-scene arc
-- Native-register Korean (Hangul) copy set in Pretendard — the typeface behind most current Korean tech/startup product design (Toss, Naver, Danggeun, ...) — bundled locally per weight under `assets/fonts`, so rendering needs no network access
-- A K-style promo palette (hot pink → violet) with sparkle-star and "신규 출시" pill-badge accents, backdrop glow accents for depth, and tight negative letter-spacing on display headlines for the native "premium Pretendard" look
-- A `feature_slide()` helper reused across the three numbered feature cards (01/02/03), and a 5-star social-proof scene with a testimonial
-- Per-layer entrance animations (`Box`, `Wipe`, `Fade`, `Dissolve`, `Wheel`) staggered with `with_previous`/`after_previous`
-- Slide transitions (`Wipe`, `Push`, `Zoom`) rendered as real frames through the raster pipeline, with direction matched to the story beat (vertical for the scroll-stopping open, horizontal for the feature carousel, zoom for the CTA punch) and cuts locked to the soundtrack's 128 BPM tempo via `advance_after` so every scene change lands on a downbeat
+- A single 96px layout grid inside the Instagram Reels safe area, with an 8-part progress rail and consistent left alignment across every scene
+- Native Korean copy set in locally bundled Pretendard, with display, body, metric, and metadata sizes tuned for legibility on a phone
+- Layered dark gradients, ambient color glows, elevated metric cards, and a high-contrast gradient CTA
+- Reusable product-card helpers for live heart rate, AI coaching, streaks, and social proof, with deliberate information hierarchy instead of decorative filler
+- Per-layer entrance animations (`Box`, `Wipe`, `Fade`, `Dissolve`) staggered with `with_previous`/`after_previous`
+- Slide transitions (`Wipe`, `Push`, `Zoom`) rendered as real frames through the raster pipeline, with all eight cuts locked to a 32-beat, 128 BPM timeline — exactly four loops of the bundled two-bar soundtrack
+- `deck.diagnose()` before export, validating contrast, overflow, overlap, canvas bounds, and Reels UI-safe placement for all eight scenes
 - The bytes-returning tunable export API — `deck.to_gif(...)`, `.to_mp4(...)`, `.to_webm(...)`
 - A looping soundtrack (`assets/audio/hype_beat.wav`, a procedurally generated synth-pop loop) muxed into the MP4/WebM output via `soundtrack=`
 - Graceful fallback when `ffmpeg` isn't installed (GIF still renders; MP4/WebM are skipped with a message) and when the soundtrack asset is missing (both raise `QuickthumbError` subclasses)

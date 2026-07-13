@@ -1,32 +1,15 @@
-"""
-PULSE — Korean-style vertical app-launch hype reel.
+"""PULSE — a polished, beat-synced vertical product hype reel.
 
-A production-quality animated GIF/MP4/WebM export demonstrating:
-  - Vertical 1080x1920 Reels/TikTok/Stories deck with a full 8-scene ad arc
-    (hook -> pain point -> solution -> three features -> social proof -> CTA)
-    and a Stories-style segmented progress bar, instead of a 3-card teaser
-  - Native-register Korean (Hangul) copy set in Pretendard, the typeface
-    behind most current Korean tech/startup product design (Toss, Naver,
-    Danggeun, ...), bundled locally per weight under assets/fonts (see
-    PRETENDARD below) so the example needs no network access to render
-  - A K-style promo palette (hot pink -> violet) with sparkle/badge accents
-  - Per-layer entrance animations (Box, Wipe, Fade, Dissolve, Wheel) staggered
-    with `with_previous` / `after_previous`, exactly as they'd play in HTML export
-  - Slide transitions (Wipe, Push, Zoom) rendered as real frames, not
-    approximations, with direction chosen to match the story beat: vertical
-    Wipe/Push for the "scroll" open, horizontal Push for the feature carousel,
-    Zoom for the closing CTA punch
-  - Cut points locked to the soundtrack's tempo via `advance_after` (see BEAT
-    below), so every slide change lands on a downbeat instead of drifting
-    against the music on its own independent clock
-  - The bytes-returning tunable API (`to_gif` / `to_mp4` / `to_webm`) and a
-    looping soundtrack muxed into the MP4/WebM output
+The example builds an eight-scene Korean fitness-app ad on one Reels-safe
+layout grid. It demonstrates platform-aware diagnostics, layered gradients,
+animated product-metric cards, native Pretendard typography, real slide
+transitions, and soundtrack muxing across GIF/MP4/WebM exports.
 
 Run:
     uv run python examples/product_hype_reel.py
 """
 
-import os
+from pathlib import Path
 
 from quickthumb import (
     Box,
@@ -35,486 +18,829 @@ from quickthumb import (
     Dissolve,
     Fade,
     Glow,
+    InnerShadow,
     LinearGradient,
     QuickthumbError,
-    Wheel,
+    RadialGradient,
+    Shadow,
+    Stroke,
     Wipe,
 )
 from quickthumb import transitions as tr
 
-FILE_DIR = os.path.dirname(__file__)
-ASSETS_DIR = os.path.join(FILE_DIR, "..", "assets")
-SOUNDTRACK = os.path.join(ASSETS_DIR, "audio", "hype_beat.wav")
-OUT_GIF = os.path.join(FILE_DIR, "product_hype_reel.gif")
-OUT_MP4 = os.path.join(FILE_DIR, "product_hype_reel.mp4")
-OUT_WEBM = os.path.join(FILE_DIR, "product_hype_reel.webm")
+FILE_DIR = Path(__file__).resolve().parent
+ASSETS_DIR = FILE_DIR.parent / "assets"
+SOUNDTRACK = ASSETS_DIR / "audio" / "hype_beat.wav"
+OUT_GIF = FILE_DIR / "product_hype_reel.gif"
+OUT_MP4 = FILE_DIR / "product_hype_reel.mp4"
+OUT_WEBM = FILE_DIR / "product_hype_reel.webm"
 
-os.environ["QUICKTHUMB_FONT_DIR"] = os.path.join(ASSETS_DIR, "fonts")
-os.environ["QUICKTHUMB_DEFAULT_FONT"] = "Roboto"
+PRETENDARD = {
+    400: str(ASSETS_DIR / "fonts" / "Pretendard-Regular.woff2"),
+    500: str(ASSETS_DIR / "fonts" / "Pretendard-Medium.woff2"),
+    700: str(ASSETS_DIR / "fonts" / "Pretendard-Bold.woff2"),
+    800: str(ASSETS_DIR / "fonts" / "Pretendard-ExtraBold.woff2"),
+    900: str(ASSETS_DIR / "fonts" / "Pretendard-Black.woff2"),
+}
+BRAND_FONT = str(ASSETS_DIR / "fonts" / "Roboto-Bold.ttf")
 
-# assets/audio/hype_beat.wav is a 128 BPM, 2-bar (3.75s) loop. Every slide's
-# on-screen time below is a whole multiple of one beat so each cut lands
-# exactly on the music instead of drifting against it on its own clock.
+WIDTH = 1080
+HEIGHT = 1920
+SCENE_COUNT = 8
+CONTENT_X = 96
+CONTENT_WIDTH = 800
+CONTENT_RIGHT = CONTENT_X + CONTENT_WIDTH
+CONTENT_CENTER = CONTENT_X + CONTENT_WIDTH // 2
 BEAT = 60.0 / 128.0
 
-# Pretendard ships one static file per weight rather than a variable font, so
-# each usage below picks the matching bundled file directly instead of passing
-# a `weight=` kwarg -- a font loaded by direct path silently ignores
-# bold/italic/weight flags (no warning, unlike the webfont-URL path) since
-# the file itself *is* the weight.
-_PRETENDARD_DIR = os.path.join(ASSETS_DIR, "fonts")
-PRETENDARD = {
-    400: os.path.join(_PRETENDARD_DIR, "Pretendard-Regular.woff2"),
-    500: os.path.join(_PRETENDARD_DIR, "Pretendard-Medium.woff2"),
-    700: os.path.join(_PRETENDARD_DIR, "Pretendard-Bold.woff2"),
-    800: os.path.join(_PRETENDARD_DIR, "Pretendard-ExtraBold.woff2"),
-    900: os.path.join(_PRETENDARD_DIR, "Pretendard-Black.woff2"),
-}
-
-# ── Palette ────────────────────────────────────────────────────────────────────
-# Hot pink -> violet is the K-beauty/K-pop promo staple; gold sparkles and a
-# pill "NEW" badge are the corner details Korean app-store teasers lean on.
-
-INK = "#0B0714"
-SURFACE = "#171126"
-PINK = "#FF3D81"
-VIOLET = "#7C3AED"
-GOLD = "#FFD166"
+INK = "#090711"
+SURFACE = "#100D1D"
+SURFACE_RAISED = "#12101E"
+PINK = "#FF4F9A"
+VIOLET = "#9A6BFF"
+CYAN = "#5DE8FF"
+LIME = "#C9FF63"
 WHITE = "#FFFFFF"
-OFFWHITE = "#F5EEFF"
-MUTED = "#A99BC2"
-RULE = "#2E2640"
+OFFWHITE = "#F8F4FF"
+MUTED = "#C7BDD9"
+RULE = "#403653"
 
-HYPE = LinearGradient(angle=100, stops=[(PINK, 0.0), (VIOLET, 1.0)])
 DEPTH = LinearGradient(angle=165, stops=[(INK, 0.0), (SURFACE, 1.0)])
-GLOW_ACCENT = Glow(radius=18, color=PINK, opacity=0.45)
+HYPE = LinearGradient(angle=115, stops=[(PINK, 0.0), (VIOLET, 1.0)])
+CARD_EFFECTS = [
+    Shadow(offset_x=0, offset_y=24, color="#00000080", blur_radius=34),
+    Stroke(width=2, color="#3A304E"),
+    InnerShadow(offset_x=0, offset_y=2, color=WHITE, blur_radius=10, opacity=0.06),
+]
+BUTTON_EFFECTS = [
+    Shadow(offset_x=0, offset_y=22, color="#3A0C4E70", blur_radius=30),
+    Glow(radius=20, color=WHITE, opacity=0.18),
+]
 
-SCENE_COUNT = 8
+
+def main() -> None:
+    """Build, diagnose, and export the complete reel."""
+    deck = build_deck()
+    print_diagnostics(deck)
+    export_reel(deck)
 
 
-# ── Design helpers ─────────────────────────────────────────────────────────────
+def build_deck() -> Deck:
+    """Return the eight-scene, 32-beat PULSE reel."""
+    hook = build_hook_scene()
+    problem = build_problem_scene()
+    solution = build_solution_scene()
+    live_sync = build_live_sync_scene()
+    ai_coach = build_ai_coach_scene()
+    streak = build_streak_scene()
+    proof = build_social_proof_scene()
+    cta = build_cta_scene()
 
-
-def dark_stage() -> Canvas:
-    return Canvas(1080, 1920).background(gradient=DEPTH)
-
-
-def progress_bar(c: Canvas, index: int) -> Canvas:
-    """Instagram-Stories-style segmented bar marking scene `index` of SCENE_COUNT."""
-    margin, gap = 40, 8
-    width = (1080 - 2 * margin - (SCENE_COUNT - 1) * gap) / SCENE_COUNT
-    for i in range(SCENE_COUNT):
-        c = c.shape(
-            shape="pill",
-            position=(round(margin + i * (width + gap)), 30),
-            width=round(width),
-            height=4,
-            color=WHITE,
-            opacity=1.0 if i == index else 0.28,
+    # Four beats per scene makes the complete edit exactly four loops of the
+    # bundled two-bar soundtrack: 32 beats / 128 BPM = 15 seconds.
+    return (
+        Deck(WIDTH, HEIGHT)
+        .slide(hook, transition=tr.Cut(advance_after=4 * BEAT))
+        .slide(problem, transition=tr.Wipe(direction="up", duration=BEAT, advance_after=3 * BEAT))
+        .slide(solution, transition=tr.Push(direction="up", duration=BEAT, advance_after=3 * BEAT))
+        .slide(
+            live_sync, transition=tr.Push(direction="left", duration=BEAT, advance_after=3 * BEAT)
         )
-    return c
-
-
-def brand_mark(c: Canvas) -> Canvas:
-    return c.text(
-        content="PULSE",
-        font="Roboto",
-        size=24,
-        color=PINK,
-        weight=700,
-        letter_spacing=5,
-        position=("50%", "7.5%"),
-        align="center",
+        .slide(
+            ai_coach, transition=tr.Push(direction="left", duration=BEAT, advance_after=3 * BEAT)
+        )
+        .slide(streak, transition=tr.Push(direction="left", duration=BEAT, advance_after=3 * BEAT))
+        .slide(proof, transition=tr.Push(direction="left", duration=BEAT, advance_after=3 * BEAT))
+        .slide(cta, transition=tr.Zoom(direction="in", duration=BEAT, advance_after=3 * BEAT))
     )
 
 
-def new_badge(c: Canvas) -> Canvas:
-    """Top-right "NEW" pill, the corner detail Korean app teasers flag a launch with."""
-    c = c.shape(
-        shape="pill",
-        position=("86%", "6.8%"),
-        width=112,
-        height=40,
-        color=PINK,
-        align=("center", "middle"),
+def build_hook_scene() -> Canvas:
+    """Open with a bold promise and a live heart-rate product card."""
+    canvas = base_scene(0, PINK)
+    canvas = add_copy(
+        canvas,
+        eyebrow="NEW  ·  PERSONAL FITNESS OS",
+        headline="운동이,\n데이터가 된다.",
+        body="심박수부터 회복까지, 내 몸의 리듬을 한눈에.",
+        accent=PINK,
+        headline_size=108,
     )
-    return c.text(
-        content="신규 출시",
-        font=PRETENDARD[800],
-        size=17,
-        color=WHITE,
-        position=("86%", "6.8%"),
-        align=("center", "middle"),
+    canvas = add_card(
+        canvas,
+        y=965,
+        height=450,
+        animation=Dissolve(duration=0.28, trigger="after_previous"),
     )
-
-
-def sparkle(c: Canvas, x: str, y: str, size: int, *, animation=None) -> Canvas:
-    return c.shape(
-        shape="star",
-        position=(x, y),
-        width=size,
-        height=size,
-        color=GOLD,
-        star_points=4,
-        inner_radius=0.35,
-        align=("center", "middle"),
-        opacity=0.85,
-        animation=animation,
-    )
-
-
-def backdrop_glow(c: Canvas, x: str, y: str, size: int, color: str, opacity: float) -> Canvas:
-    """Soft out-of-focus circle that gives an otherwise flat slide some depth."""
-    return c.shape(
-        shape="ellipse", position=(x, y), width=size, height=size,
-        color=color, opacity=opacity, align=("center", "middle"),
-    )  # fmt: skip
-
-
-def eyebrow(c: Canvas, text: str, *, animation=None) -> Canvas:
-    return c.text(
-        content=text,
+    canvas = canvas.text(
+        content="●  LIVE HEART RATE",
         font=PRETENDARD[700],
-        size=23,
-        color=GOLD,
-        letter_spacing=2,
-        position=("50%", "16%"),
-        align="center",
-        animation=animation,
+        size=48,
+        color=PINK,
+        position=(144, 1018),
+        align=("left", "top"),
+        animation=Fade(duration=0.2, trigger="with_previous"),
     )
-
-
-def divider(c: Canvas, y: str, *, animation=None) -> Canvas:
-    return c.shape(
-        shape="rectangle",
-        position=("50%", y),
-        width=520,
-        height=1,
-        color=RULE,
-        align=("center", "middle"),
-        animation=animation,
+    canvas = canvas.text(
+        content="ZONE 4",
+        font=PRETENDARD[700],
+        size=48,
+        color=MUTED,
+        position=(848, 1018),
+        align=("right", "top"),
+        animation=Fade(duration=0.2, trigger="with_previous"),
     )
-
-
-def feature_slide(index: int, number: str, title: str, description: str) -> Canvas:
-    """One numbered feature card in the mid-reel carousel (scenes 4-6)."""
-    c = dark_stage()
-    c = progress_bar(c, index)
-    c = brand_mark(c)
-    c = backdrop_glow(c, "50%", "30%", 640, VIOLET, 0.10)
-    c = c.text(
-        content=number,
+    canvas = canvas.text(
+        content="148",
         font=PRETENDARD[900],
-        size=220,
-        fill=HYPE,
-        opacity=0.9,
-        position=("50%", "26%"),
-        align="center",
-        animation=Box(direction="in", duration=0.4, trigger="after_previous"),
+        size=176,
+        color=WHITE,
+        position=(140, 1092),
+        align=("left", "top"),
+        effects=[Glow(radius=20, color=PINK, opacity=0.3)],
+        animation=Box(direction="in", duration=0.3, trigger="after_previous"),
     )
-    c = c.text(
-        content=title,
+    canvas = canvas.text(
+        content="BPM",
+        font=PRETENDARD[800],
+        size=52,
+        color=PINK,
+        position=(520, 1230),
+        align=("left", "top"),
+        animation=Fade(duration=0.2, trigger="with_previous"),
+    )
+    canvas = canvas.text(
+        content="심박 구간  ·  퍼포먼스",
+        font=PRETENDARD[500],
+        size=48,
+        color=MUTED,
+        position=(144, 1340),
+        align=("left", "top"),
+        animation=Fade(duration=0.18, trigger="after_previous"),
+    )
+    return add_footer(
+        canvas,
+        "PULSE  ·  PERSONAL FITNESS OS",
+        animation=Fade(duration=0.18, trigger="with_previous"),
+    )
+
+
+def build_problem_scene() -> Canvas:
+    """Frame inconsistent exercise as a feedback problem, not a willpower problem."""
+    canvas = base_scene(1, VIOLET)
+    canvas = add_copy(
+        canvas,
+        eyebrow="THE PROBLEM",
+        headline="작심삼일은\n의지 문제가 아냐.",
+        body="피드백이 늦으면, 동기도 늦게 옵니다.",
+        accent=VIOLET,
+        headline_size=96,
+    )
+    canvas = add_card(
+        canvas,
+        y=980,
+        height=195,
+        animation=Dissolve(duration=0.22, trigger="after_previous"),
+    )
+    canvas = canvas.text(
+        content="평균 포기 시점",
+        font=PRETENDARD[700],
+        size=48,
+        color=MUTED,
+        position=(140, 1035),
+        align=("left", "top"),
+        animation=Fade(duration=0.18, trigger="with_previous"),
+    )
+    canvas = canvas.text(
+        content="DAY 03",
+        font=PRETENDARD[900],
+        size=82,
+        color=VIOLET,
+        position=(848, 1014),
+        align=("right", "top"),
+        animation=Box(direction="in", duration=0.26, trigger="with_previous"),
+    )
+    canvas = add_card(
+        canvas,
+        y=1200,
+        height=195,
+        animation=Dissolve(duration=0.22, trigger="after_previous"),
+    )
+    canvas = canvas.text(
+        content="실시간 피드백",
+        font=PRETENDARD[700],
+        size=48,
+        color=MUTED,
+        position=(140, 1255),
+        align=("left", "top"),
+        animation=Fade(duration=0.18, trigger="with_previous"),
+    )
+    canvas = canvas.text(
+        content="0%",
+        font=PRETENDARD[900],
+        size=90,
+        color=PINK,
+        position=(848, 1234),
+        align=("right", "top"),
+        animation=Box(direction="in", duration=0.26, trigger="with_previous"),
+    )
+    return add_footer(
+        canvas,
+        "문제는 의지가 아니라, 늦은 피드백.",
+        animation=Fade(duration=0.18, trigger="with_previous"),
+    )
+
+
+def build_solution_scene() -> Canvas:
+    """Introduce PULSE as one clear daily readiness signal."""
+    canvas = base_scene(2, CYAN)
+    canvas = add_copy(
+        canvas,
+        eyebrow="MEET PULSE",
+        headline="내 몸에 맞는\n리듬을 찾다.",
+        body="흩어진 운동 신호를, 오늘의 한 숫자로.",
+        accent=CYAN,
+        headline_size=108,
+        headline_letter_spacing=0,
+    )
+    canvas = add_card(
+        canvas,
+        y=965,
+        height=450,
+        animation=Dissolve(duration=0.28, trigger="after_previous"),
+    )
+    canvas = canvas.text(
+        content="RECOVERY",
+        font=PRETENDARD[700],
+        size=48,
+        color=CYAN,
+        position=(144, 1018),
+        align=("left", "top"),
+        animation=Fade(duration=0.2, trigger="with_previous"),
+    )
+    canvas = canvas.text(
+        content="EXCELLENT",
+        font=PRETENDARD[700],
+        size=48,
+        color=MUTED,
+        position=(848, 1018),
+        align=("right", "top"),
+        animation=Fade(duration=0.2, trigger="with_previous"),
+    )
+    canvas = canvas.text(
+        content="84",
+        font=PRETENDARD[900],
+        size=176,
+        color=WHITE,
+        position=(140, 1092),
+        align=("left", "top"),
+        effects=[Glow(radius=20, color=CYAN, opacity=0.28)],
+        animation=Box(direction="in", duration=0.3, trigger="after_previous"),
+    )
+    canvas = canvas.text(
+        content="/ 100",
+        font=PRETENDARD[800],
+        size=52,
+        color=CYAN,
+        position=(430, 1230),
+        align=("left", "top"),
+        animation=Fade(duration=0.2, trigger="with_previous"),
+    )
+    canvas = canvas.text(
+        content="수면 92  ·  컨디션 81  ·  스트레스 24",
+        font=PRETENDARD[500],
+        size=48,
+        color=MUTED,
+        position=(144, 1340),
+        align=("left", "top"),
+        max_width=704,
+        auto_scale=True,
+        min_size=48,
+        letter_spacing=2,
+        animation=Fade(duration=0.18, trigger="after_previous"),
+    )
+    return add_footer(
+        canvas,
+        "한 화면에서 오늘의 몸을 읽으세요.",
+        animation=Fade(duration=0.18, trigger="with_previous"),
+    )
+
+
+def build_live_sync_scene() -> Canvas:
+    """Show the first feature: live heart-rate synchronization."""
+    canvas = base_scene(3, PINK)
+    canvas = add_copy(
+        canvas,
+        eyebrow="01  ·  LIVE SYNC",
+        headline="심박수는\n1초도 놓치지 않게.",
+        body="운동 강도와 심박 구간을 실시간으로 확인하세요.",
+        accent=PINK,
+        headline_size=93,
+        headline_letter_spacing=0,
+    )
+    canvas = add_metric_card(
+        canvas,
+        label="LIVE HEART RATE",
+        status="SYNCED",
+        value="142",
+        unit="BPM",
+        detail="워밍업  ·  지방 연소  ·  유산소",
+        accent=PINK,
+    )
+    return add_footer(
+        canvas,
+        "APPLE WATCH  ·  GALAXY WATCH",
+        animation=Fade(duration=0.18, trigger="with_previous"),
+    )
+
+
+def build_ai_coach_scene() -> Canvas:
+    """Show the second feature: an adaptive daily training load."""
+    canvas = base_scene(4, CYAN)
+    canvas = add_copy(
+        canvas,
+        eyebrow="02  ·  AI COACH",
+        headline="오늘의 강도는\nAI가 먼저 계산.",
+        body="회복 상태에 맞춰 운동 시간과 강도를 자동 조절해요.",
+        accent=CYAN,
+        headline_size=95,
+        headline_letter_spacing=0,
+    )
+    canvas = add_metric_card(
+        canvas,
+        label="TODAY'S LOAD",
+        status="AUTO",
+        value="68",
+        unit="%",
+        detail="인터벌 24분  ·  권장 강도 보통",
+        accent=CYAN,
+    )
+    return add_footer(
+        canvas,
+        "매일 달라지는 나만의 코칭 플랜.",
+        animation=Fade(duration=0.18, trigger="with_previous"),
+    )
+
+
+def build_streak_scene() -> Canvas:
+    """Show the third feature: a motivating twenty-one-day streak."""
+    canvas = base_scene(5, LIME)
+    canvas = add_copy(
+        canvas,
+        eyebrow="03  ·  SMART STREAK",
+        headline="작심삼일을\n21일의 루틴으로.",
+        body="작은 성공을 연결해, 멈추지 않는 습관을 만듭니다.",
+        accent=LIME,
+        headline_size=96,
+    )
+    canvas = add_card(
+        canvas,
+        y=965,
+        height=450,
+        animation=Dissolve(duration=0.28, trigger="after_previous"),
+    )
+    canvas = canvas.text(
+        content="CONSISTENCY",
+        font=PRETENDARD[700],
+        size=48,
+        color=LIME,
+        position=(144, 1018),
+        align=("left", "top"),
+        animation=Fade(duration=0.2, trigger="with_previous"),
+    )
+    canvas = canvas.text(
+        content="BEST",
+        font=PRETENDARD[700],
+        size=48,
+        color=MUTED,
+        position=(848, 1018),
+        align=("right", "top"),
+        animation=Fade(duration=0.2, trigger="with_previous"),
+    )
+    canvas = canvas.text(
+        content="21",
+        font=PRETENDARD[900],
+        size=176,
+        color=WHITE,
+        position=(140, 1092),
+        align=("left", "top"),
+        effects=[Glow(radius=20, color=LIME, opacity=0.24)],
+        animation=Box(direction="in", duration=0.3, trigger="after_previous"),
+    )
+    canvas = canvas.text(
+        content="DAY STREAK",
+        font=PRETENDARD[800],
+        size=52,
+        color=LIME,
+        position=(430, 1230),
+        align=("left", "top"),
+        animation=Fade(duration=0.2, trigger="with_previous"),
+    )
+    canvas = canvas.text(
+        content="●  ●  ●  ●  ●  ●  ●",
+        font=PRETENDARD[700],
+        size=48,
+        color=LIME,
+        position=(144, 1340),
+        align=("left", "top"),
+        animation=Fade(duration=0.18, trigger="after_previous"),
+    )
+    return add_footer(
+        canvas,
+        "꾸준함이 눈에 보이면, 루틴은 계속됩니다.",
+        animation=Fade(duration=0.18, trigger="with_previous"),
+    )
+
+
+def build_social_proof_scene() -> Canvas:
+    """Land the product story with a credible, high-contrast testimonial."""
+    canvas = base_scene(6, VIOLET)
+    canvas = add_copy(
+        canvas,
+        eyebrow="4.9  ·  2,841 REVIEWS",
+        headline="혼자보다 오래,\n어제보다 멀리.",
+        body="펄스와 함께 만든 변화는 숫자로 남습니다.",
+        accent=VIOLET,
+        headline_size=100,
+    )
+    canvas = add_card(
+        canvas,
+        y=950,
+        height=465,
+        animation=Dissolve(duration=0.28, trigger="after_previous"),
+    )
+    canvas = canvas.text(
+        content="VERIFIED REVIEW",
+        font=PRETENDARD[700],
+        size=48,
+        color=LIME,
+        letter_spacing=2,
+        position=(140, 1004),
+        align=("left", "top"),
+        animation=Fade(duration=0.2, trigger="with_previous"),
+    )
+    canvas = canvas.text(
+        content="4.9",
+        font=PRETENDARD[900],
+        size=72,
+        color=VIOLET,
+        position=(848, 996),
+        align=("right", "top"),
+        animation=Box(direction="in", duration=0.26, trigger="with_previous"),
+    )
+    canvas = canvas.text(
+        content="“드디어 5km를\n완주했어요.”",
+        font=PRETENDARD[800],
+        size=68,
+        color=WHITE,
+        line_height=1.16,
+        position=(140, 1100),
+        align=("left", "top"),
+        animation=Wipe(direction="up", duration=0.3, trigger="after_previous"),
+    )
+    canvas = canvas.text(
+        content="베타 테스터 김O진  ·  러닝 8주 차",
+        font=PRETENDARD[500],
+        size=48,
+        color=MUTED,
+        position=(140, 1328),
+        align=("left", "top"),
+        animation=Fade(duration=0.18, trigger="after_previous"),
+    )
+    return add_footer(
+        canvas,
+        "당신의 다음 기록도 여기서 시작됩니다.",
+        animation=Fade(duration=0.18, trigger="with_previous"),
+    )
+
+
+def build_cta_scene() -> Canvas:
+    """Finish on a bright, single-action download screen."""
+    canvas = bright_scene(7)
+    canvas = add_copy(
+        canvas,
+        eyebrow="PULSE  ·  START TODAY",
+        headline="이제,\n움직일 시간.",
+        body="내 몸을 이해하는 가장 빠른 방법.",
+        accent=INK,
+        headline_size=124,
+        bright=True,
+    )
+    canvas = canvas.shape(
+        shape="pill",
+        position=(CONTENT_X, 1010),
+        width=CONTENT_WIDTH,
+        height=132,
+        color=INK,
+        align=("left", "top"),
+        effects=BUTTON_EFFECTS,
+        animation=Dissolve(duration=0.3, trigger="after_previous"),
+    )
+    canvas = canvas.text(
+        content="무료로 시작하기  →",
+        font=PRETENDARD[800],
+        size=56,
+        color=WHITE,
+        position=(CONTENT_CENTER, 1076),
+        align=("center", "middle"),
+        animation=Fade(duration=0.22, trigger="with_previous"),
+    )
+    canvas = canvas.text(
+        content="평점 4.9  ·  첫 7일 무료  ·  언제든 해지",
+        font=PRETENDARD[700],
+        size=48,
+        color=INK,
+        position=(CONTENT_X, 1220),
+        align=("left", "top"),
+        max_width=CONTENT_WIDTH,
+        auto_scale=True,
+        min_size=48,
+        animation=Fade(duration=0.2, trigger="after_previous"),
+    )
+    return canvas.text(
+        content="PULSE.APP  ↗",
         font=PRETENDARD[900],
         size=54,
+        color=INK,
+        letter_spacing=2,
+        position=(CONTENT_X, 1450),
+        align=("left", "top"),
+        animation=Fade(duration=0.2, trigger="with_previous"),
+    )
+
+
+def base_scene(index: int, accent: str) -> Canvas:
+    """Create a dark Reels-safe stage with layered ambient color."""
+    canvas = (
+        Canvas.for_platform("instagram-reels")
+        .background(gradient=DEPTH)
+        .background(
+            gradient=RadialGradient(
+                center=(0.82, 0.2),
+                stops=[(f"{accent}10", 0.0), (f"{accent}00", 1.0)],
+            )
+        )
+        .background(
+            gradient=RadialGradient(
+                center=(0.08, 0.78),
+                stops=[(f"{CYAN}08", 0.0), (f"{CYAN}00", 0.72)],
+            )
+        )
+    )
+    return add_chrome(canvas, index, bright=False)
+
+
+def bright_scene(index: int) -> Canvas:
+    """Create the bright gradient stage used for the final CTA."""
+    canvas = (
+        Canvas.for_platform("instagram-reels")
+        .background(gradient=HYPE)
+        .background(
+            gradient=RadialGradient(
+                center=(0.82, 0.24),
+                stops=[("#FFFFFF48", 0.0), ("#FFFFFF00", 0.72)],
+            )
+        )
+    )
+    return add_chrome(canvas, index, bright=True)
+
+
+def add_chrome(canvas: Canvas, index: int, *, bright: bool) -> Canvas:
+    """Add a safe-area progress rail and consistently aligned reel header."""
+    gap = 10
+    segment_width = (CONTENT_WIDTH - gap * (SCENE_COUNT - 1)) // SCENE_COUNT
+    for segment in range(SCENE_COUNT):
+        if bright:
+            color = WHITE if segment == index else "#D640A9"
+            opacity = 1.0 if segment == index else 0.55
+        elif segment < index:
+            color = PINK
+            opacity = 0.8
+        elif segment == index:
+            color = WHITE
+            opacity = 1.0
+        else:
+            color = RULE
+            opacity = 0.7
+        canvas = canvas.shape(
+            shape="pill",
+            position=(CONTENT_X + segment * (segment_width + gap), 244),
+            width=segment_width,
+            height=8,
+            color=color,
+            opacity=opacity,
+            align=("left", "top"),
+        )
+
+    header_color = INK if bright else OFFWHITE
+    canvas = canvas.text(
+        content="PULSE",
+        font=BRAND_FONT,
+        size=48,
+        color=header_color,
+        letter_spacing=7,
+        position=(CONTENT_X, 290),
+        align=("left", "top"),
+    )
+    return canvas.text(
+        content=f"{index + 1:02d} / {SCENE_COUNT:02d}",
+        font=PRETENDARD[700],
+        size=48,
+        color=header_color if bright else MUTED,
+        letter_spacing=3,
+        position=(CONTENT_RIGHT, 290),
+        align=("right", "top"),
+    )
+
+
+def add_copy(
+    canvas: Canvas,
+    *,
+    eyebrow: str,
+    headline: str,
+    body: str,
+    accent: str,
+    headline_size: int,
+    headline_letter_spacing: int = -3,
+    bright: bool = False,
+) -> Canvas:
+    """Place the shared eyebrow, headline, and body on one explicit grid."""
+    canvas = canvas.text(
+        content=eyebrow,
+        font=PRETENDARD[800],
+        size=48,
+        color=accent,
+        letter_spacing=2,
+        position=(CONTENT_X, 410),
+        align=("left", "top"),
+        max_width=CONTENT_WIDTH,
+        auto_scale=True,
+        min_size=48,
+        animation=Wipe(direction="right", duration=0.22),
+    )
+    canvas = canvas.text(
+        content=headline,
+        font=PRETENDARD[900],
+        size=headline_size,
+        color=INK if bright else WHITE,
+        line_height=1.05,
+        letter_spacing=headline_letter_spacing,
+        position=(CONTENT_X, 500),
+        align=("left", "top"),
+        max_width=CONTENT_WIDTH,
+        max_height=270,
+        auto_scale=True,
+        min_size=80,
+        animation=Box(direction="in", duration=0.34, trigger="after_previous"),
+    )
+    return canvas.text(
+        content=body,
+        font=PRETENDARD[500],
+        size=52,
+        color="#32112F" if bright else MUTED,
+        line_height=1.35,
+        position=(CONTENT_X, 805),
+        align=("left", "top"),
+        max_width=CONTENT_WIDTH,
+        max_height=130,
+        auto_scale=True,
+        min_size=48,
+        animation=Fade(duration=0.22, trigger="after_previous"),
+    )
+
+
+def add_card(
+    canvas: Canvas,
+    *,
+    y: int,
+    height: int,
+    animation: Dissolve,
+) -> Canvas:
+    """Add the shared elevated product-card surface."""
+    return canvas.shape(
+        shape="rectangle",
+        position=(CONTENT_X, y),
+        width=CONTENT_WIDTH,
+        height=height,
+        color=SURFACE_RAISED,
+        border_radius=42,
+        align=("left", "top"),
+        effects=CARD_EFFECTS,
+        animation=animation,
+    )
+
+
+def add_metric_card(
+    canvas: Canvas,
+    *,
+    label: str,
+    status: str,
+    value: str,
+    unit: str,
+    detail: str,
+    accent: str,
+) -> Canvas:
+    """Add a reusable animated feature metric card."""
+    canvas = add_card(
+        canvas,
+        y=965,
+        height=450,
+        animation=Dissolve(duration=0.28, trigger="after_previous"),
+    )
+    canvas = canvas.text(
+        content=label,
+        font=PRETENDARD[700],
+        size=48,
+        color=accent,
+        position=(144, 1018),
+        align=("left", "top"),
+        animation=Fade(duration=0.2, trigger="with_previous"),
+    )
+    canvas = canvas.text(
+        content=status,
+        font=PRETENDARD[700],
+        size=48,
+        color=MUTED,
+        position=(848, 1018),
+        align=("right", "top"),
+        animation=Fade(duration=0.2, trigger="with_previous"),
+    )
+    canvas = canvas.text(
+        content=value,
+        font=PRETENDARD[900],
+        size=176,
         color=WHITE,
-        letter_spacing=-2,
-        line_height=1.15,
-        position=("50%", "48%"),
-        align="center",
-        animation=Wipe(direction="up", duration=0.35, trigger="after_previous"),
+        position=(140, 1092),
+        align=("left", "top"),
+        effects=[Glow(radius=20, color=accent, opacity=0.28)],
+        animation=Box(direction="in", duration=0.3, trigger="after_previous"),
     )
-    return c.text(
-        content=description,
-        font=PRETENDARD[400],
-        size=27,
+    canvas = canvas.text(
+        content=unit,
+        font=PRETENDARD[800],
+        size=52,
+        color=accent,
+        position=(500, 1230),
+        align=("left", "top"),
+        animation=Fade(duration=0.2, trigger="with_previous"),
+    )
+    return canvas.text(
+        content=detail,
+        font=PRETENDARD[500],
+        size=48,
+        color=MUTED,
+        position=(144, 1340),
+        align=("left", "top"),
+        max_width=704,
+        auto_scale=True,
+        min_size=48,
+        animation=Fade(duration=0.18, trigger="after_previous"),
+    )
+
+
+def add_footer(canvas: Canvas, text: str, *, animation: Fade) -> Canvas:
+    """Add the final safe-area caption on the shared left edge."""
+    return canvas.text(
+        content=text,
+        font=PRETENDARD[700],
+        size=48,
         color=OFFWHITE,
-        max_width="76%",
-        line_height=1.5,
-        position=("50%", "58%"),
-        align="center",
-        animation=Fade(duration=0.3, trigger="after_previous"),
+        position=(CONTENT_X, 1496),
+        align=("left", "top"),
+        max_width=CONTENT_WIDTH,
+        auto_scale=True,
+        min_size=48,
+        animation=animation,
     )
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# Scene 1 — 훅 (The Hook)
-# ══════════════════════════════════════════════════════════════════════════════
+def print_diagnostics(deck: Deck) -> None:
+    """Print every layout finding before spending time on video encoding."""
+    findings = deck.diagnose()
+    for finding in findings:
+        location = (
+            f"scene {finding.slide_index + 1}, layer {finding.layer_index}"
+            if finding.slide_index is not None
+            else "deck"
+        )
+        print(f"[{finding.severity}] {location}: {finding.code} — {finding.message}")
+    if not findings:
+        print("✓ diagnose(): all 8 scenes pass layout and legibility checks")
 
-s1 = dark_stage()
-s1 = progress_bar(s1, 0)
-s1 = brand_mark(s1)
-s1 = new_badge(s1)
-s1 = eyebrow(s1, "신규 앱 출시", animation=Wipe(direction="right", duration=0.4))
 
-s1 = s1.text(
-    content="스크롤은\n여기까지.",
-    font=PRETENDARD[900],
-    size=128,
-    fill=HYPE,
-    line_height=1.08,
-    letter_spacing=-3,
-    position=("50%", "35%"),
-    align="center",
-    animation=Box(direction="in", duration=0.55, trigger="after_previous"),
-)
+def export_reel(deck: Deck) -> None:
+    """Render all supported outputs without truncating an existing file on failure."""
+    OUT_GIF.write_bytes(deck.to_gif(fps=8, loop=0))
 
-s1 = sparkle(s1, "82%", "31%", 46, animation=Wheel(duration=0.4, trigger="with_previous"))
-s1 = sparkle(s1, "16%", "47%", 30, animation=Wheel(duration=0.4, trigger="with_previous"))
+    try:
+        OUT_MP4.write_bytes(deck.to_mp4(fps=30, soundtrack=str(SOUNDTRACK)))
+        OUT_WEBM.write_bytes(deck.to_webm(fps=30, soundtrack=str(SOUNDTRACK)))
+    except QuickthumbError as error:
+        print(f"⚠ Skipped MP4/WebM ({error})")
 
-s1 = s1.text(
-    content="운동이 완전히 달라집니다.",
-    font=PRETENDARD[400],
-    size=32,
-    color=OFFWHITE,
-    position=("50%", "57%"),
-    align="center",
-    animation=Fade(duration=0.4, trigger="after_previous"),
-)
+    print(f"✓ {OUT_GIF}")
+    print(f"  {len(deck)} scenes · 15 seconds · 32-beat locked timeline")
 
-# ══════════════════════════════════════════════════════════════════════════════
-# Scene 2 — 공감 (The Pain Point)
-# ══════════════════════════════════════════════════════════════════════════════
-# A deliberately quiet, sparkle-free beat -- the contrast against scenes 1 and
-# 8 makes the hype hit harder when it comes back.
 
-s2 = dark_stage()
-s2 = progress_bar(s2, 1)
-s2 = brand_mark(s2)
-
-s2 = s2.text(
-    content="작심삼일,\n이제 그만.",
-    font=PRETENDARD[900],
-    size=118,
-    color=WHITE,
-    line_height=1.1,
-    letter_spacing=-3,
-    position=("50%", "40%"),
-    align="center",
-    animation=Box(direction="in", duration=0.5),
-)
-
-s2 = s2.text(
-    content="혼자 하는 운동은 오래가지 않아요.",
-    font=PRETENDARD[400],
-    size=30,
-    color=MUTED,
-    position=("50%", "58%"),
-    align="center",
-    animation=Fade(duration=0.4, trigger="after_previous"),
-)
-
-# ══════════════════════════════════════════════════════════════════════════════
-# Scene 3 — 솔루션 (Meet Pulse)
-# ══════════════════════════════════════════════════════════════════════════════
-
-s3 = dark_stage()
-s3 = progress_bar(s3, 2)
-s3 = brand_mark(s3)
-s3 = backdrop_glow(s3, "50%", "22%", 560, PINK, 0.08)
-s3 = eyebrow(s3, "펄스를 소개합니다")
-
-s3 = s3.text(
-    content="매일 움직이는\n습관을 만듭니다.",
-    font=PRETENDARD[900],
-    size=74,
-    fill=HYPE,
-    line_height=1.1,
-    letter_spacing=-2,
-    position=("50%", "24%"),
-    align="center",
-    animation=Wipe(direction="up", duration=0.5),
-)
-
-s3 = s3.text(
-    content="꼭 맞는 운동 파트너.",
-    font=PRETENDARD[400],
-    size=30,
-    color=OFFWHITE,
-    position=("50%", "42%"),
-    align="center",
-    animation=Fade(duration=0.35, trigger="after_previous"),
-)
-
-# ══════════════════════════════════════════════════════════════════════════════
-# Scenes 4-6 — 기능 (Feature Carousel)
-# ══════════════════════════════════════════════════════════════════════════════
-
-s4 = feature_slide(3, "01", "실시간 심박수 동기화", "운동 중 심박수를 실시간으로 확인하세요.")
-s5 = feature_slide(4, "02", "AI 맞춤 운동 코칭", "체력에 맞춰 강도를 자동으로 조절해요.")
-s6 = feature_slide(5, "03", "꾸준함을 만드는 스트릭", "매일의 작은 기록이 큰 변화를 만듭니다.")
-
-# ══════════════════════════════════════════════════════════════════════════════
-# Scene 7 — 후기 (Social Proof)
-# ══════════════════════════════════════════════════════════════════════════════
-
-s7 = dark_stage()
-s7 = progress_bar(s7, 6)
-s7 = brand_mark(s7)
-s7 = backdrop_glow(s7, "50%", "40%", 720, PINK, 0.07)
-
-star_size, star_step, star_count = 30, 42, 5
-stars_start = (1080 - (star_step * (star_count - 1) + star_size)) // 2
-for i in range(star_count):
-    # A trigger on the very first node in a slide never matters -- there's no
-    # prior group for it to join or wait on -- so all five can share
-    # "with_previous" and still land in one simultaneous reveal group.
-    s7 = s7.shape(
-        shape="star",
-        position=(stars_start + i * star_step, "34%"),
-        width=star_size,
-        height=star_size,
-        color=GOLD,
-        star_points=5,
-        inner_radius=0.45,
-        align=("left", "middle"),
-        animation=Dissolve(duration=0.25, trigger="with_previous"),
-    )
-
-s7 = s7.text(
-    content='"드디어 5km를 완주했어요."',
-    font=PRETENDARD[700],
-    size=42,
-    color=WHITE,
-    line_height=1.3,
-    max_width="76%",
-    position=("50%", "44%"),
-    align="center",
-    animation=Fade(duration=0.35, trigger="after_previous"),
-)
-
-s7 = divider(s7, "56%", animation=Wipe(direction="right", duration=0.35, trigger="after_previous"))
-
-s7 = s7.text(
-    content="베타 테스터 김O진 님",
-    font=PRETENDARD[400],
-    size=24,
-    color=MUTED,
-    position=("50%", "60%"),
-    align="center",
-    animation=Fade(duration=0.3, trigger="after_previous"),
-)
-
-# ══════════════════════════════════════════════════════════════════════════════
-# Scene 8 — 시작하기 (Call to Action)
-# ══════════════════════════════════════════════════════════════════════════════
-
-s8 = Canvas(1080, 1920).background(gradient=HYPE)
-s8 = progress_bar(s8, 7)
-
-s8 = s8.shape(
-    shape="ellipse",
-    position=("50%", "20%"),
-    width=900,
-    height=900,
-    color=WHITE,
-    opacity=0.06,
-    align=("center", "middle"),
-)
-
-s8 = s8.text(
-    content="이제,\n움직일 시간.",
-    font=PRETENDARD[900],
-    size=112,
-    color=WHITE,
-    line_height=1.08,
-    letter_spacing=-3,
-    position=("50%", "37%"),
-    align="center",
-    animation=Box(direction="in", duration=0.55),
-)
-
-# Sparkles join the headline's own animation group instead of preceding it
-# (matching scene 1's pattern), so they don't add a lead-in delay before
-# the CTA scene's payoff beat.
-s8 = sparkle(s8, "78%", "31%", 44, animation=Wheel(duration=0.4, trigger="with_previous"))
-s8 = sparkle(s8, "20%", "41%", 30, animation=Wheel(duration=0.4, trigger="with_previous"))
-
-s8 = s8.text(
-    content="이번 주, 펄스를 무료로 다운로드하세요.",
-    font=PRETENDARD[400],
-    size=29,
-    color="#FFF3E8",
-    position=("50%", "51%"),
-    align="center",
-    animation=Fade(duration=0.4, trigger="after_previous"),
-)
-
-s8 = s8.shape(
-    shape="pill",
-    position=("50%", "63%"),
-    width=440,
-    height=96,
-    color=INK,
-    align=("center", "middle"),
-    animation=Dissolve(duration=0.4, trigger="after_previous"),
-)
-s8 = s8.text(
-    content="지금 다운로드",
-    font=PRETENDARD[700],
-    size=28,
-    color=WHITE,
-    letter_spacing=1,
-    position=("50%", "63%"),
-    align=("center", "middle"),
-    animation=Fade(duration=0.3, trigger="with_previous"),
-)
-
-s8 = s8.text(
-    content="pulse.app",
-    font=PRETENDARD[400],
-    size=22,
-    color="#FFE8D6",
-    position=("50%", "92%"),
-    align="center",
-    animation=Fade(duration=0.35, trigger="after_previous"),
-)
-
-# ══════════════════════════════════════════════════════════════════════════════
-# Assemble and export
-# ══════════════════════════════════════════════════════════════════════════════
-
-# `advance_after` counts from the end of the slide's own transition, so a
-# slide's total on-screen time is transition duration + advance_after. Every
-# transition below is a snappy one beat, and `advance_after` is picked so
-# each scene's total lands on a whole-beat count -- six beats for a normal
-# scene, eight for the CTA's bigger finish. Direction follows the story:
-# vertical Wipe/Push carries the "scroll" open (scenes 1-3), horizontal Push
-# reads as swiping through the feature carousel (scenes 3-7), and Zoom lands
-# the closing CTA punch (scene 8).
-deck = (
-    Deck(1080, 1920)
-    # Cut's own `duration` field is unused here -- the exporter forces a hard
-    # cut to 0s regardless of it -- only `advance_after` does anything.
-    .slide(s1, transition=tr.Cut(advance_after=6 * BEAT))
-    .slide(s2, transition=tr.Wipe(direction="up", duration=BEAT, advance_after=5 * BEAT))
-    .slide(s3, transition=tr.Push(direction="up", duration=BEAT, advance_after=5 * BEAT))
-    .slide(s4, transition=tr.Push(direction="left", duration=BEAT, advance_after=5 * BEAT))
-    .slide(s5, transition=tr.Push(direction="left", duration=BEAT, advance_after=5 * BEAT))
-    .slide(s6, transition=tr.Push(direction="left", duration=BEAT, advance_after=5 * BEAT))
-    .slide(s7, transition=tr.Push(direction="left", duration=BEAT, advance_after=5 * BEAT))
-    .slide(s8, transition=tr.Zoom(direction="in", duration=BEAT, advance_after=7 * BEAT))
-)
-
-# .to_gif()/.to_mp4()/.to_webm() return bytes; .render() (used in
-# investor_deck.py) writes straight to a path chosen by extension instead.
-# `slide_duration` is omitted -- every slide above sets its own
-# `advance_after`, so the deck-level fallback never applies. MP4/WebM mux in
-# `soundtrack`; loop_audio=True (the default) repeats the beat loop
-# seamlessly for as long as the beat-locked edit runs. The GIF drops to 10fps
-# (vs. 30 for MP4/WebM) to keep the preview file a reasonable size across an
-# 8-scene, ~23s reel -- open the MP4/WebM for the full-quality motion.
-with open(OUT_GIF, "wb") as f:
-    f.write(deck.to_gif(fps=10, loop=0))
-
-try:
-    with open(OUT_MP4, "wb") as f:
-        f.write(deck.to_mp4(fps=30, soundtrack=SOUNDTRACK))
-    with open(OUT_WEBM, "wb") as f:
-        f.write(deck.to_webm(fps=30, soundtrack=SOUNDTRACK))
-except QuickthumbError as error:
-    # RenderingError (e.g. ffmpeg missing) or ValidationError (e.g. the
-    # soundtrack asset wasn't checked out) both degrade the same way here.
-    print(f"⚠ Skipped MP4/WebM ({error})")
-
-print(f"✓ {OUT_GIF}")
-print(f"  {len(deck)} scenes, cut on the beat — open the GIF or play the MP4/WebM clip.")
+if __name__ == "__main__":
+    main()
