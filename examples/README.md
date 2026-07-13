@@ -168,14 +168,17 @@ Use it when you want a realistic animated deck example that exercises both HTML 
 
 Output: `product_hype_reel.gif`, `product_hype_reel.mp4`, and `product_hype_reel.webm`
 
-Builds a vertical (1080x1920) three-slide app-launch teaser and exports it as a self-playing animation:
+Builds a Korean-style vertical (1080x1920) three-slide app-launch teaser and exports it as a self-playing animation with a soundtrack:
 
-- Per-layer entrance animations (`Box`, `Wipe`, `Fade`, `Dissolve`) staggered with `with_previous`/`after_previous`
+- Korean (Hangul) copy set in Noto Sans KR, fetched from Google Fonts (`font_source="google"`) and cached locally after the first run
+- A K-style promo palette (hot pink → violet) with sparkle-star and "신규 출시" pill-badge accents
+- Per-layer entrance animations (`Box`, `Wipe`, `Fade`, `Dissolve`, `Wheel`) staggered with `with_previous`/`after_previous`
 - Slide transitions (`Push`, `Zoom`) rendered as real frames through the raster pipeline
 - The bytes-returning tunable export API — `deck.to_gif(fps=..., slide_duration=...)`, `.to_mp4(...)`, `.to_webm(...)` — with pacing tuned for short-form video instead of the 3s default
+- A looping soundtrack (`assets/audio/hype_beat.wav`, a procedurally generated synth-pop loop) muxed into the MP4/WebM output via `soundtrack=`
 - Graceful fallback when `ffmpeg` isn't installed (GIF still renders; MP4/WebM are skipped with a message)
 
-Use it when you want a shareable, self-playing GIF or video clip (Reels/TikTok/Stories) instead of a static thumbnail, or as a reference for the animated export API.
+Use it when you want a shareable, self-playing GIF or video clip (Reels/TikTok/Stories) instead of a static thumbnail, or as a reference for the animated export API, Google Fonts integration, and MP4/WebM audio.
 
 ## Assets and Fonts
 
@@ -191,6 +194,8 @@ The JSON-first examples use repo-relative asset paths inside their checked-in JS
 The launch announcement example renders SVG layers, so install `quickthumb[svg]` (cairosvg) to run it locally.
 
 The podcast promo example additionally requires network access because it fetches remote images and a remote webfont at render time. It also uses `remove_background=True`, so install `quickthumb[rembg]` if you want to run it locally.
+
+The product hype reel example requires network access on first run to fetch Noto Sans KR from Google Fonts (`font_source="google"`), and needs the `ffmpeg` binary on `PATH` for the MP4/WebM outputs (the GIF still renders without it). Its soundtrack (`assets/audio/hype_beat.wav`) is a procedurally generated, license-free synth loop bundled with the repo — no extra asset to source.
 
 ## Extending These Examples
 
