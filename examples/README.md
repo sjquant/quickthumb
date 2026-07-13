@@ -17,6 +17,7 @@ uv run python examples/podcast_interview_promo.py
 uv run python examples/shorts_cover_agent.py
 uv run python examples/launch_announcement.py
 uv run python examples/investor_deck.py
+uv run python examples/product_hype_reel.py
 ```
 
 All examples write their rendered image back into this directory.
@@ -162,6 +163,19 @@ Builds a dark investor-style deck with staged text, metric cards, and chart-like
 - Shared composition code that keeps the browser and PowerPoint outputs aligned
 
 Use it when you want a realistic animated deck example that exercises both HTML and PPTX output from the same source.
+
+### `product_hype_reel.py`
+
+Output: `product_hype_reel.gif`, `product_hype_reel.mp4`, and `product_hype_reel.webm`
+
+Builds a vertical (1080x1920) three-slide app-launch teaser and exports it as a self-playing animation:
+
+- Per-layer entrance animations (`Box`, `Wipe`, `Fade`, `Dissolve`) staggered with `with_previous`/`after_previous`
+- Slide transitions (`Push`, `Zoom`) rendered as real frames through the raster pipeline
+- The bytes-returning tunable export API — `deck.to_gif(fps=..., slide_duration=...)`, `.to_mp4(...)`, `.to_webm(...)` — with pacing tuned for short-form video instead of the 3s default
+- Graceful fallback when `ffmpeg` isn't installed (GIF still renders; MP4/WebM are skipped with a message)
+
+Use it when you want a shareable, self-playing GIF or video clip (Reels/TikTok/Stories) instead of a static thumbnail, or as a reference for the animated export API.
 
 ## Assets and Fonts
 
