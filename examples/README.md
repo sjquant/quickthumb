@@ -168,14 +168,14 @@ Use it when you want a realistic animated deck example that exercises both HTML 
 
 Output: `product_hype_reel.gif`, `product_hype_reel.mp4`, and `product_hype_reel.webm`
 
-Builds a polished Korean-style vertical (1080x1920) 8-scene app-launch reel — a full ad arc (hook → pain point → solution → three features → social proof → CTA) — and exports it as a self-playing 15-second animation with a soundtrack:
+Builds a polished Korean-style vertical (1080x1920) 8-scene app-launch reel — a full ad arc (hook → pain point → solution → three features → social proof → CTA) — and exports it as a self-playing 22.5-second animation with a soundtrack:
 
 - A single 96px layout grid inside the Instagram Reels safe area, with an 8-part progress rail and consistent left alignment across every scene
 - Native Korean copy set in locally bundled Pretendard, with display, body, metric, and metadata sizes tuned for legibility on a phone
 - Layered dark gradients, ambient color glows, elevated metric cards, and a high-contrast gradient CTA
 - Reusable product-card helpers for live heart rate, AI coaching, streaks, and social proof, with deliberate information hierarchy instead of decorative filler
 - Per-layer entrance animations (`Box`, `Wipe`, `Fade`, `Dissolve`) staggered with `with_previous`/`after_previous`
-- Slide transitions (`Wipe`, `Push`, `Zoom`) rendered as real frames through the raster pipeline, with all eight cuts locked to a 32-beat, 128 BPM timeline — exactly four loops of the bundled two-bar soundtrack
+- Slide transitions (`Wipe`, `Push`, `Zoom`) rendered as real frames through the raster pipeline, with six beats of reading time per scene and all eight cuts locked to a 48-beat, 128 BPM timeline — exactly six loops of the bundled two-bar soundtrack
 - `deck.diagnose()` before export, validating contrast, overflow, overlap, canvas bounds, and Reels UI-safe placement for all eight scenes
 - The bytes-returning tunable export API — `deck.to_gif(...)`, `.to_mp4(...)`, `.to_webm(...)`
 - A looping soundtrack (`assets/audio/hype_beat.wav`, a procedurally generated synth-pop loop) muxed into the MP4/WebM output via `soundtrack=`

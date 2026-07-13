@@ -86,7 +86,7 @@ def main() -> None:
 
 
 def build_deck() -> Deck:
-    """Return the eight-scene, 32-beat PULSE reel."""
+    """Return the eight-scene, 48-beat PULSE reel."""
     hook = build_hook_scene()
     problem = build_problem_scene()
     solution = build_solution_scene()
@@ -96,22 +96,22 @@ def build_deck() -> Deck:
     proof = build_social_proof_scene()
     cta = build_cta_scene()
 
-    # Four beats per scene makes the complete edit exactly four loops of the
-    # bundled two-bar soundtrack: 32 beats / 128 BPM = 15 seconds.
+    # Six beats per scene makes room to read while keeping every cut on-grid:
+    # exactly six loops of the two-bar soundtrack (48 beats / 128 BPM = 22.5s).
     return (
         Deck(WIDTH, HEIGHT)
-        .slide(hook, transition=tr.Cut(advance_after=4 * BEAT))
-        .slide(problem, transition=tr.Wipe(direction="up", duration=BEAT, advance_after=3 * BEAT))
-        .slide(solution, transition=tr.Push(direction="up", duration=BEAT, advance_after=3 * BEAT))
+        .slide(hook, transition=tr.Cut(advance_after=6 * BEAT))
+        .slide(problem, transition=tr.Wipe(direction="up", duration=BEAT, advance_after=5 * BEAT))
+        .slide(solution, transition=tr.Push(direction="up", duration=BEAT, advance_after=5 * BEAT))
         .slide(
-            live_sync, transition=tr.Push(direction="left", duration=BEAT, advance_after=3 * BEAT)
+            live_sync, transition=tr.Push(direction="left", duration=BEAT, advance_after=5 * BEAT)
         )
         .slide(
-            ai_coach, transition=tr.Push(direction="left", duration=BEAT, advance_after=3 * BEAT)
+            ai_coach, transition=tr.Push(direction="left", duration=BEAT, advance_after=5 * BEAT)
         )
-        .slide(streak, transition=tr.Push(direction="left", duration=BEAT, advance_after=3 * BEAT))
-        .slide(proof, transition=tr.Push(direction="left", duration=BEAT, advance_after=3 * BEAT))
-        .slide(cta, transition=tr.Zoom(direction="in", duration=BEAT, advance_after=3 * BEAT))
+        .slide(streak, transition=tr.Push(direction="left", duration=BEAT, advance_after=5 * BEAT))
+        .slide(proof, transition=tr.Push(direction="left", duration=BEAT, advance_after=5 * BEAT))
+        .slide(cta, transition=tr.Zoom(direction="in", duration=BEAT, advance_after=5 * BEAT))
     )
 
 
@@ -830,7 +830,7 @@ def export_reel(deck: Deck) -> None:
         print(f"⚠ Skipped MP4/WebM ({error})")
 
     print(f"✓ {OUT_GIF}")
-    print(f"  {len(deck)} scenes · 15 seconds · 32-beat locked timeline")
+    print(f"  {len(deck)} scenes · 22.5 seconds · 48-beat locked timeline")
 
 
 if __name__ == "__main__":
