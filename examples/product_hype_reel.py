@@ -279,15 +279,6 @@ def build_solution_scene() -> Canvas:
         animation=Fade(duration=0.2, trigger="with_previous"),
     )
     canvas = canvas.text(
-        content="EXCELLENT",
-        font=PRETENDARD[700],
-        size=48,
-        color=MUTED,
-        position=(848, 1018),
-        align=("right", "top"),
-        animation=Fade(duration=0.2, trigger="with_previous"),
-    )
-    canvas = canvas.text(
         content="84",
         font=PRETENDARD[900],
         size=176,
@@ -537,7 +528,7 @@ def build_cta_scene() -> Canvas:
         animation=Dissolve(duration=0.3, trigger="after_previous"),
     )
     canvas = canvas.text(
-        content="무료로 시작하기  →",
+        content="무료로 시작하기",
         font=PRETENDARD[800],
         size=56,
         color=WHITE,
