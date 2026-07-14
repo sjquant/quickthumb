@@ -23,6 +23,7 @@ from quickthumb.errors import RenderingError, ValidationError
 from quickthumb.models import (
     Align,
     AnimationInput,
+    AudioTrack,
     BackdropBlur,
     BackgroundEffect,
     BackgroundLayer,
@@ -797,7 +798,7 @@ class Canvas:
         fps: float = 30.0,
         hold: float = 3.0,
         matte: str = "#000000",
-        soundtrack: str | None = None,
+        soundtrack: AudioTrack | str | dict | None = None,
         loop_audio: bool = True,
     ) -> bytes:
         """Render the canvas to MP4 (H.264) bytes; timing model as in ``to_gif``.
@@ -826,7 +827,7 @@ class Canvas:
         fps: float = 30.0,
         hold: float = 3.0,
         matte: str = "#000000",
-        soundtrack: str | None = None,
+        soundtrack: AudioTrack | str | dict | None = None,
         loop_audio: bool = True,
     ) -> bytes:
         """Render the canvas to WebM (VP9) bytes; timing model as in ``to_gif``.

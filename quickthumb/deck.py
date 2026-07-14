@@ -393,7 +393,7 @@ class Deck:
         fps: float = 30.0,
         slide_duration: float = 3.0,
         matte: str = "#000000",
-        soundtrack: str | None = None,
+        soundtrack: AudioTrack | str | dict | None = None,
         loop_audio: bool = True,
     ) -> bytes:
         """Render the Deck's animated timeline to MP4 bytes.
@@ -444,7 +444,7 @@ class Deck:
         fps: float = 30.0,
         slide_duration: float = 3.0,
         matte: str = "#000000",
-        soundtrack: str | None = None,
+        soundtrack: AudioTrack | str | dict | None = None,
         loop_audio: bool = True,
     ) -> bytes:
         """Render the deck to WebM (VP9) bytes; timing model as in ``to_gif``.

@@ -24,6 +24,7 @@ from quickthumb import (
     LinearGradient,
     QuickthumbError,
     RadialGradient,
+    RenderingError,
     Shadow,
     Stroke,
     Wipe,
@@ -900,7 +901,9 @@ def export_reel(deck: Deck) -> None:
 
 def _mix_soundtrack(output_path: Path) -> None:
     """Mix the looping music bed and slide voiceovers during export."""
-    command = ["ffmpeg", "-y", "-stream_loop", "-1", "-i", str(SOUNDTRACK)]
+    from quickthumb._export_video import _ffmpeg_binary
+
+    command = [_ffmpeg_binary(), "-y", "-stream_loop", "-1", "-i", str(SOUNDTRACK)]
     for voiceover in VOICEOVERS:
         command.extend(["-i", str(voiceover)])
     delays = ";".join(
@@ -921,7 +924,10 @@ def _mix_soundtrack(output_path: Path) -> None:
             str(output_path),
         ]
     )
-    subprocess.run(command, check=True, capture_output=True)
+    try:
+        subprocess.run(command, check=True, capture_output=True)
+    except (OSError, subprocess.CalledProcessError) as error:
+        raise RenderingError("Could not mix the reel soundtrack with ffmpeg.") from error
 
 
 if __name__ == "__main__":
