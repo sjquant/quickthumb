@@ -342,7 +342,7 @@ def build_solution_scene() -> Canvas:
         animation=Fade(duration=MOTION_FAST, trigger="with_previous"),
     )
     canvas = canvas.text(
-        content="SLEEP 92  ·  ENERGY 81  ·  STRESS 24",
+        content="SLEEP 92  ·  ENERGY 81\nSTRESS 24",
         font=PRETENDARD[500],
         size=48,
         color=MUTED,
@@ -353,6 +353,7 @@ def build_solution_scene() -> Canvas:
         auto_scale=True,
         min_size=48,
         letter_spacing=2,
+        line_height=1.1,
         animation=Fade(duration=MOTION_FAST, trigger="after_previous"),
     )
     return add_footer(
@@ -410,7 +411,7 @@ def build_ai_coach_scene() -> Canvas:
         value="68",
         unit="%",
         unit_x=390,
-        detail="INTERVAL 24 MIN  ·  RECOMMENDED: MODERATE",
+        detail="24 MIN  ·  MODERATE",
         accent=CYAN,
     )
     return add_footer(
@@ -547,7 +548,7 @@ def build_social_proof_scene() -> Canvas:
         animation=Wipe(direction="up", duration=MOTION_STANDARD, trigger="after_previous"),
     )
     canvas = canvas.text(
-        content="BETA TESTER  ·  RUNNING, WEEK 8",
+        content="BETA TESTER  ·  WEEK 8",
         font=PRETENDARD[500],
         size=48,
         color=MUTED,
@@ -829,7 +830,7 @@ def add_metric_card(
         font=PRETENDARD[800],
         size=52,
         color=accent,
-        position=(unit_x, 1230),
+        position=(unit_x, 1214),
         align=("left", "top"),
         animation=Fade(duration=MOTION_FAST, trigger="with_previous"),
     )
@@ -844,6 +845,7 @@ def add_metric_card(
         max_height=120,
         auto_scale=True,
         min_size=48,
+        line_height=1.1,
         animation=Fade(duration=MOTION_FAST, trigger="after_previous"),
     )
 
