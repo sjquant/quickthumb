@@ -104,18 +104,54 @@ def build_deck() -> Deck:
     # exactly six loops of the two-bar soundtrack (48 beats / 128 BPM = 22.5s).
     return (
         Deck(WIDTH, HEIGHT)
-        .slide(hook, transition=tr.Cut(advance_after=6 * BEAT))
-        .slide(problem, transition=tr.Wipe(direction="up", duration=BEAT, advance_after=5 * BEAT))
-        .slide(solution, transition=tr.Push(direction="up", duration=BEAT, advance_after=5 * BEAT))
         .slide(
-            live_sync, transition=tr.Push(direction="left", duration=BEAT, advance_after=5 * BEAT)
+            hook,
+            transition=tr.Cut(advance_after=6 * BEAT),
+            audio=str(SOUNDTRACK),
+            duration=6 * BEAT,
         )
         .slide(
-            ai_coach, transition=tr.Push(direction="left", duration=BEAT, advance_after=5 * BEAT)
+            problem,
+            transition=tr.Wipe(direction="up", duration=BEAT, advance_after=5 * BEAT),
+            audio=str(SOUNDTRACK),
+            duration=6 * BEAT,
         )
-        .slide(streak, transition=tr.Push(direction="left", duration=BEAT, advance_after=5 * BEAT))
-        .slide(proof, transition=tr.Fade(duration=BEAT, advance_after=5 * BEAT))
-        .slide(cta, transition=tr.Zoom(direction="in", duration=BEAT, advance_after=5 * BEAT))
+        .slide(
+            solution,
+            transition=tr.Push(direction="up", duration=BEAT, advance_after=5 * BEAT),
+            audio=str(SOUNDTRACK),
+            duration=6 * BEAT,
+        )
+        .slide(
+            live_sync,
+            transition=tr.Push(direction="left", duration=BEAT, advance_after=5 * BEAT),
+            audio=str(SOUNDTRACK),
+            duration=6 * BEAT,
+        )
+        .slide(
+            ai_coach,
+            transition=tr.Push(direction="left", duration=BEAT, advance_after=5 * BEAT),
+            audio=str(SOUNDTRACK),
+            duration=6 * BEAT,
+        )
+        .slide(
+            streak,
+            transition=tr.Push(direction="left", duration=BEAT, advance_after=5 * BEAT),
+            audio=str(SOUNDTRACK),
+            duration=6 * BEAT,
+        )
+        .slide(
+            proof,
+            transition=tr.Fade(duration=BEAT, advance_after=5 * BEAT),
+            audio=str(SOUNDTRACK),
+            duration=6 * BEAT,
+        )
+        .slide(
+            cta,
+            transition=tr.Zoom(direction="in", duration=BEAT, advance_after=5 * BEAT),
+            audio=str(SOUNDTRACK),
+            duration=6 * BEAT,
+        )
     )
 
 
@@ -841,7 +877,7 @@ def export_reel(deck: Deck) -> None:
     OUT_GIF.write_bytes(deck.to_gif(fps=8, loop=0))
 
     try:
-        OUT_MP4.write_bytes(deck.to_mp4(fps=30, soundtrack=str(SOUNDTRACK)))
+        deck.render(str(OUT_MP4))
         OUT_WEBM.write_bytes(deck.to_webm(fps=30, soundtrack=str(SOUNDTRACK)))
     except QuickthumbError as error:
         print(f"⚠ Skipped MP4/WebM ({error})")

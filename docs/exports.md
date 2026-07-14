@@ -113,6 +113,14 @@ deck.render("deck.mp4")
 gif = deck.to_gif(fps=20, slide_duration=3.0, loop=0)
 ```
 
+Deck MP4 export also supports per-slide narration. Pass `audio=` to `Deck.slide()`;
+without `duration=`, Quickthumb uses the file's ffprobe duration. An explicit
+duration trims audio or pads it with silence, while a slide without audio holds
+silently for `default_duration` (3 seconds). `deck.render("deck.mp4")` and
+`deck.render_mp4("deck.mp4")` produce H.264/yuv420p video with an AAC track on
+every output. This first Deck MP4 path deliberately renders static slides only:
+layer animations and slide transitions are not played.
+
 The timing model mirrors the HTML slideshow, with one difference a non-interactive medium forces: there is nothing to click, so `on_click` animations play automatically in sequence, exactly like `after_previous` (the same choice PowerPoint's own video export makes). Each slide plays its transition (over the previous slide's final frame), runs its animation timeline (starting when the transition starts, like the HTML runtime), then holds its settled state — for the transition's `advance_after` when set, else for `slide_duration` (`hold` on `Canvas`). A slide with no transition cross-fades in over 0.5s (slide 0 with none starts instantly); set a transition on slide 0 to animate in from the matte, which also makes looping GIFs wrap smoothly.
 
 GIF is encoded by Pillow with per-frame durations, so no extra dependency is needed. MP4 (H.264) and WebM (VP9) require the `ffmpeg` binary on `PATH` (or pointed to by the `QUICKTHUMB_FFMPEG` environment variable).

@@ -73,6 +73,8 @@ class Deck:
         self._transition = self._coerce_transition(transition)
         self._slides: list[Canvas] = []
         self._slide_transitions: list[Transition | None] = []
+        self._slide_audio: list[str | None] = []
+        self._slide_durations: list[float | None] = []
         for slide in slides or []:
             self._append_slide(slide)
 
@@ -117,11 +119,19 @@ class Deck:
         """The deck-wide default slide transition, if set."""
         return self._transition
 
-    def slide(self, canvas: Canvas, transition: Transition | dict | str | None = None) -> Self:
+    def slide(
+        self,
+        canvas: Canvas,
+        transition: Transition | dict | str | None = None,
+        *,
+        audio: str | None = None,
+        duration: float | None = None,
+    ) -> Self:
         """Append a single Canvas as the next slide (chainable).
 
         Pass ``transition`` to set this slide's transition inline; it overrides
-        the deck default for this slide only.
+        the deck default for this slide only. ``audio`` supplies this slide's
+        MP4 narration, while ``duration`` trims or pads it to an exact length.
         """
         # Validate the transition before mutating state so a bad value can't
         # leave a half-added slide behind.
@@ -129,6 +139,8 @@ class Deck:
         self._append_slide(canvas)
         if override is not None:
             self._slide_transitions[-1] = override
+        self._slide_audio[-1] = audio
+        self._slide_durations[-1] = duration
         return self
 
     def _append_slide(self, canvas: Canvas) -> None:
@@ -144,6 +156,8 @@ class Deck:
         self._slides.append(canvas)
         # Stay aligned with _slides; slide() may overwrite this with an override.
         self._slide_transitions.append(None)
+        self._slide_audio.append(None)
+        self._slide_durations.append(None)
 
     def _resolved_transitions(self) -> list[Transition | None]:
         """The effective transition per slide: its own override, else the default."""
@@ -174,6 +188,19 @@ class Deck:
         self._require_slides()
         extension = os.path.splitext(output_path)[1].lower()
 
+        if extension == ".mp4":
+            if quality is not None:
+                raise RenderingError(
+                    "Quality parameter is only supported for JPEG and WEBP formats, "
+                    "not .mp4 output."
+                )
+            if format is not None:
+                raise RenderingError(
+                    "format override is only supported for raster output, not .mp4 output."
+                )
+            self.render_mp4(output_path)
+            return [output_path]
+
         if extension in _ANIMATION_EXTENSIONS:
             if quality is not None:
                 raise RenderingError(
@@ -191,7 +218,7 @@ class Deck:
                 self._slides,
                 self._resolved_transitions(),
                 output_path,
-                format=extension[1:],  # type: ignore[arg-type]
+                format=extension[1:],
             )
             return [output_path]
 
@@ -337,30 +364,43 @@ class Deck:
         self,
         fps: float = 30.0,
         slide_duration: float = 3.0,
-        matte: str = "#000000",
-        soundtrack: str | None = None,
-        loop_audio: bool = True,
     ) -> bytes:
-        """Render the deck to MP4 (H.264) bytes; timing model as in ``to_gif``.
+        """Return a static, narrated Deck MP4 as bytes.
 
-        Requires the ``ffmpeg`` binary on PATH (or ``QUICKTHUMB_FFMPEG``).
-        Odd-sized canvases lose their last pixel row/column (H.264 4:2:0
-        output needs even dimensions). ``soundtrack`` muxes an audio file
-        (any format ffmpeg decodes) as AAC, trimmed to the video length;
-        ``loop_audio`` repeats a shorter track to fill the video.
+        Every slide becomes a still frame. Its optional ``audio`` is used as
+        narration; its ``duration`` overrides that audio's length, and silent
+        slides use ``slide_duration``. Layer animations and transitions are
+        not played by this Deck-specific MP4 export.
         """
         self._require_slides()
-        from quickthumb._export_video import export_animation_bytes
+        import tempfile
 
-        return export_animation_bytes(
+        with tempfile.NamedTemporaryFile(suffix=".mp4") as output:
+            self.render_mp4(output.name, default_duration=slide_duration, fps=fps)
+            with open(output.name, "rb") as rendered:
+                return rendered.read()
+
+    def render_mp4(
+        self, output_path: str, default_duration: float = 3.0, fps: float = 30.0
+    ) -> None:
+        """Render static slides and their per-slide AAC audio into an MP4 file.
+
+        Requires ``ffmpeg`` and ``ffprobe``. The first slide defines the video
+        dimensions (rounded down to even yuv420p dimensions); other slides are
+        letterboxed. Every output includes an AAC audio stream, including for
+        silent slides. This initial MP4 path intentionally does not play deck
+        transitions or layer animations.
+        """
+        self._require_slides()
+        from quickthumb._export_deck_mp4 import render_deck_mp4
+
+        render_deck_mp4(
             self._slides,
-            self._resolved_transitions(),
-            format="mp4",
+            self._slide_audio,
+            self._slide_durations,
+            output_path,
+            default_duration=default_duration,
             fps=fps,
-            slide_duration=slide_duration,
-            matte=matte,
-            soundtrack=soundtrack,
-            loop_audio=loop_audio,
         )
 
     def to_webm(
@@ -445,12 +485,22 @@ class Deck:
         if self._transition is not None:
             payload["transition"] = json.loads(self._transition.model_dump_json())
         slides = []
-        for canvas, override in zip(self._slides, self._slide_transitions, strict=True):
+        for canvas, override, audio, duration in zip(
+            self._slides,
+            self._slide_transitions,
+            self._slide_audio,
+            self._slide_durations,
+            strict=True,
+        ):
             slide = json.loads(canvas.to_json())
             # Per-slide overrides live on the deck, so attach them to the slide
             # dict here rather than in Canvas.to_json (which knows nothing of them).
             if override is not None:
                 slide["transition"] = json.loads(override.model_dump_json())
+            if audio is not None:
+                slide["audio"] = audio
+            if duration is not None:
+                slide["duration"] = duration
             slides.append(slide)
         payload["slides"] = slides
         return json.dumps(payload)
@@ -486,10 +536,21 @@ class Deck:
                 # Lift the per-slide transition off the spec before it reaches
                 # Canvas.from_json, which does not understand transitions.
                 override = slide.get("transition")
-                slide = {key: value for key, value in slide.items() if key != "transition"}
+                audio = slide.get("audio")
+                duration = slide.get("duration")
+                slide = {
+                    key: value
+                    for key, value in slide.items()
+                    if key not in {"transition", "audio", "duration"}
+                }
                 # Share the deck-level theme so $theme.* tokens resolve; a slide's
                 # own theme block takes precedence.
                 if theme:
                     slide = {**slide, "theme": {**theme, **slide.get("theme", {})}}
-            deck.slide(Canvas.from_json(json.dumps(slide)), transition=override)
+            deck.slide(
+                Canvas.from_json(json.dumps(slide)),
+                transition=override,
+                audio=audio,
+                duration=duration,
+            )
         return deck

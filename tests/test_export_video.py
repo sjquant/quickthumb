@@ -31,6 +31,7 @@ BLUE = (17, 49, 170)
 GREEN = (34, 170, 85)
 
 HAS_FFMPEG = shutil.which("ffmpeg") is not None
+HAS_FFPROBE = shutil.which("ffprobe") is not None
 
 
 def gif_frames(data: bytes) -> list[tuple[Image.Image, int]]:
@@ -703,6 +704,97 @@ class TestVideoEncoding:
 
         # then
         assert data[4:8] == b"ftyp"
+
+
+@pytest.mark.skipif(not (HAS_FFMPEG and HAS_FFPROBE), reason="ffmpeg/ffprobe not installed")
+class TestNarratedDeckMp4:
+    """Black-box tests for static Deck MP4 narration export."""
+
+    def test_should_render_ordered_static_slides_with_aac_audio(self, tmp_path):
+        """Deck MP4 joins explicit-audio and silent slides in their declared order"""
+        # given
+        audio = tone_wav(tmp_path / "voice 'quoted'.wav", 0.2)
+        deck = (
+            Deck(161, 91)
+            .slide(Canvas().background(color="#1131AA"), audio=audio, duration=0.4)
+            .slide(Canvas().background(color="#22AA55"), duration=0.4)
+        )
+        output = tmp_path / "deck.mp4"
+
+        # when
+        deck.render(str(output))
+        streams = subprocess.run(
+            [
+                "ffprobe",
+                "-v",
+                "error",
+                "-show_entries",
+                "stream=codec_type,codec_name",
+                "-of",
+                "csv=p=0",
+                str(output),
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout
+        raw = subprocess.run(
+            [
+                "ffmpeg",
+                "-v",
+                "error",
+                "-ss",
+                "0.55",
+                "-i",
+                str(output),
+                "-frames:v",
+                "1",
+                "-f",
+                "rawvideo",
+                "-pix_fmt",
+                "rgb24",
+                "-",
+            ],
+            check=True,
+            capture_output=True,
+        ).stdout
+
+        # then
+        assert "h264,video" in streams
+        assert "aac,audio" in streams
+        assert Image.frombytes("RGB", (160, 90), raw).getpixel((80, 45)) == pytest.approx(
+            GREEN, abs=24
+        )
+
+    def test_should_infer_audio_duration_when_not_explicit(self, tmp_path):
+        """Audio-only timing uses ffprobe's source duration instead of the default hold"""
+        # given
+        audio = tone_wav(tmp_path / "voice.wav", 0.3)
+        deck = Deck(160, 90).slide(Canvas().background(color="#1131AA"), audio=audio)
+        output = tmp_path / "deck.mp4"
+
+        # when
+        deck.render_mp4(str(output), default_duration=2.0)
+        duration = float(
+            subprocess.run(
+                [
+                    "ffprobe",
+                    "-v",
+                    "error",
+                    "-show_entries",
+                    "format=duration",
+                    "-of",
+                    "default=nw=1:nk=1",
+                    str(output),
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout
+        )
+
+        # then
+        assert duration == pytest.approx(0.3, abs=0.12)
 
 
 class TestVideoErrors:

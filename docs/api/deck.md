@@ -103,6 +103,14 @@ mp4_bytes = deck.to_mp4(fps=30, slide_duration=3.0, soundtrack="music.mp3")
 webm_bytes = deck.to_webm(fps=30, slide_duration=3.0)
 ```
 
+### `.render_mp4(...)`
+
+Render a static, narrated MP4 directly to a path. Add narration to a slide with
+`deck.slide(canvas, audio="voice.wav", duration=2.5)`. If duration is omitted,
+ffprobe supplies the audio length; silent slides use `default_duration=3.0`.
+The output is H.264/yuv420p plus AAC and requires both `ffmpeg` and `ffprobe`.
+This path does not currently play layer animations or slide transitions.
+
 | Parameter | Type | Default | Description |
 | --- | --- | --- | --- |
 | `fps` | `float` | `20.0` GIF / `30.0` video | Frames per second (max 100 GIF; max 120 video) |

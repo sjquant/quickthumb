@@ -712,6 +712,7 @@ See the shipped examples in [`examples/README.md`](examples/README.md):
 - HTML text placement is a close approximation (browsers rasterize fonts differently than PIL); use `embed_fonts=True` for the closest match, available when text uses local font files
 - HTML, GIF, MP4, and WebM play per-layer `animation`s and `Deck` slide transitions; HTML approximates a few exotic effects (blinds, checkerboard, wheel, dissolve) in CSS
 - HTML cannot animate a layer that must be rasterized together with earlier backdrop-dependent content, such as blend-mode or custom layers; move animated layers after that content or remove the backdrop dependency
+- Deck MP4 can attach `audio=` and `duration=` to each `slide()`: it requires FFmpeg/FFprobe, always writes H.264/AAC, and currently exports static slides without transitions or layer animations
 
 ## Development
 

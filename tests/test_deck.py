@@ -351,6 +351,20 @@ class TestJsonRoundTrip:
         assert len(restored) == 2
         assert [c.to_json() for c in restored] == [c.to_json() for c in deck]
 
+    def test_should_round_trip_per_slide_audio_metadata(self):
+        """Per-slide narration paths and durations survive Deck JSON serialization"""
+        # given
+        deck = Deck().slide(make_slide("1"), audio="voice.wav", duration=1.5).slide(make_slide("2"))
+
+        # when
+        payload = json.loads(deck.to_json())
+        restored = Deck.from_json(deck.to_json())
+
+        # then
+        assert payload["slides"][0]["audio"] == "voice.wav"
+        assert payload["slides"][0]["duration"] == 1.5
+        assert json.loads(restored.to_json())["slides"] == payload["slides"]
+
     def test_should_reject_json_without_slides(self):
         """Deck JSON must carry a 'slides' list."""
         # when / then
