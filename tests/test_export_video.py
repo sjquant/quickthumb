@@ -714,13 +714,17 @@ class TestNarratedDeckMp4:
     """Black-box tests for static Deck MP4 narration export."""
 
     @pytest.mark.parametrize(
-        ("container", "video_codec", "audio_codec"),
-        [("mp4", "h264", "aac"), ("webm", "vp9", "opus")],
+        ("container", "video_codec", "audio_codec", "with_soundtrack"),
+        [
+            ("mp4", "h264", "aac", True),
+            ("webm", "vp9", "opus", True),
+            ("webm", "vp9", "opus", False),
+        ],
     )
     def test_should_mix_soundtrack_and_slide_narration_on_animated_render(
-        self, tmp_path, container, video_codec, audio_codec
+        self, tmp_path, container, video_codec, audio_codec, with_soundtrack
     ):
-        """Deck.render mixes the music bed and narration into MP4 and WebM output"""
+        """Deck.render keeps scheduled narration audible in MP4 and WebM output"""
         # given
         music = tone_wav(tmp_path / "music.wav", 0.1)
         voice = tone_wav(tmp_path / "voice.wav", 0.2)
@@ -740,7 +744,8 @@ class TestNarratedDeckMp4:
         output = tmp_path / f"animated deck.{container}"
 
         # when
-        deck.render(str(output), soundtrack=AudioTrack(path=music, volume=0.2, loop=True))
+        soundtrack = AudioTrack(path=music, volume=0.2, loop=True) if with_soundtrack else None
+        deck.render(str(output), soundtrack=soundtrack)
         streams = subprocess.run(
             [
                 "ffprobe",
