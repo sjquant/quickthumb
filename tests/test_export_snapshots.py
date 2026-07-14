@@ -13,13 +13,14 @@ rasterized with LibreOffice when it is installed and skipped otherwise.
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 from io import BytesIO
 from pathlib import Path
 
 import pytest
 from inline_snapshot import external_file
-from PIL import Image
+from PIL import Image, ImageChops, ImageStat
 from quickthumb import Canvas, LinearGradient, RadialGradient, TextPart
 from quickthumb.models import Background, Glow, Shadow, Stroke
 
@@ -107,6 +108,29 @@ def comparison_strip(reference: Image.Image, produced: Image.Image) -> bytes:
     buffer = BytesIO()
     strip.save(buffer, format="PNG")
     return buffer.getvalue()
+
+
+def assert_pdf_visual_snapshot(canvas: Canvas, snapshot_path: str) -> None:
+    """Check PDF fidelity against a stable snapshot or the raster reference.
+
+    The committed comparison strips are rendered on Linux, where CI uses a
+    stable font stack. Other platforms still exercise PDF rendering but compare
+    the PDF directly with the canvas raster to avoid platform-specific glyph
+    antialiasing changing the baseline.
+    """
+    # given
+    reference = render_reference(canvas)
+
+    # when
+    produced = rasterize_pdf(canvas)
+
+    # then
+    if sys.platform.startswith("linux"):
+        assert comparison_strip(reference, produced) == external_file(snapshot_path)
+        return
+
+    difference = ImageStat.Stat(ImageChops.difference(reference, produced.resize(reference.size)))
+    assert max(difference.mean) < 4, "PDF output diverged materially from the canvas raster"
 
 
 def build_vector_shapes_canvas() -> Canvas:
@@ -334,35 +358,43 @@ class TestSvgVisualSnapshots:
 
 
 class TestPdfVisualSnapshots:
-    """Side-by-side snapshots: PIL render (top) vs rasterized PDF export (bottom)"""
+    """Visual PDF checks with Linux snapshots and cross-platform fidelity assertions."""
 
     def setup_method(self):
-        require_cairosvg()
         require_pypdfium2()
 
     def test_snapshot_pdf_vector_shapes(self):
         """Gradients, every shape primitive, effects, and outline as native PDF vectors"""
+        # given
         canvas = build_vector_shapes_canvas()
-        strip = comparison_strip(render_reference(canvas), rasterize_pdf(canvas))
-        assert strip == external_file("snapshots/export_pdf_vector_shapes.png")
+
+        # when / then
+        assert_pdf_visual_snapshot(canvas, "snapshots/export_pdf_vector_shapes.png")
 
     def test_snapshot_pdf_text_styles(self):
         """Wrapping, shadow, stroke+glow, letter spacing, and badge backgrounds"""
+        # given
         canvas = build_text_styles_canvas()
-        strip = comparison_strip(render_reference(canvas), rasterize_pdf(canvas))
-        assert strip == external_file("snapshots/export_pdf_text_styles.png")
+
+        # when / then
+        assert_pdf_visual_snapshot(canvas, "snapshots/export_pdf_text_styles.png")
 
     def test_snapshot_pdf_rich_text(self):
         """Rich parts, gradient glyph fill, and rotated badge text"""
+        # given
         canvas = build_rich_text_canvas()
-        strip = comparison_strip(render_reference(canvas), rasterize_pdf(canvas))
-        assert strip == external_file("snapshots/export_pdf_rich_text.png")
+
+        # when / then
+        assert_pdf_visual_snapshot(canvas, "snapshots/export_pdf_rich_text.png")
 
     def test_snapshot_pdf_image_and_blend(self):
         """Blend-mode flattening, SVG overlay embedding, and native layers above"""
+        # given
+        require_cairosvg()
         canvas = build_image_and_blend_canvas()
-        strip = comparison_strip(render_reference(canvas), rasterize_pdf(canvas))
-        assert strip == external_file("snapshots/export_pdf_image_and_blend.png")
+
+        # when / then
+        assert_pdf_visual_snapshot(canvas, "snapshots/export_pdf_image_and_blend.png")
 
 
 @pytest.mark.skipif(SOFFICE is None, reason="LibreOffice is required to rasterize PPTX")

@@ -377,7 +377,7 @@ The same canvas renders to vector and document formats, detected from the file e
 canvas.render("card.svg")    # vector SVG with native shapes, gradients, and selectable text
 canvas.render("card.html")   # self-contained, animated HTML/CSS page
 canvas.render("card.pptx")   # PowerPoint slide with editable text boxes and autoshapes
-canvas.render("card.pdf")    # single-page PDF with native vectors and embedded fonts
+canvas.render("card.pdf")    # single-page PDF with native vectors and eligible embedded fonts
 
 svg_markup = canvas.to_svg(embed_fonts=True)   # inline @font-face for portable text
 html_doc = canvas.to_html(embed_fonts=True)    # standalone document string
