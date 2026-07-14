@@ -4,9 +4,9 @@ import json
 
 
 def test_product_hype_reel_meets_layout_and_pacing_contract():
-    """The complete reel stays legible and gives every scene six beats to read."""
+    """The complete reel stays legible and gives every scene narration room."""
     # given: the public example composition
-    from examples.product_hype_reel import BEAT, build_deck
+    from examples.product_hype_reel import BEAT, SCENE_DURATION, build_deck
 
     deck = build_deck()
 
@@ -26,8 +26,8 @@ def test_product_hype_reel_meets_layout_and_pacing_contract():
 
     # then: every scene has reading room and no layout or legibility issue remains
     assert len(deck) == 8
-    assert scene_durations == [6 * BEAT] * 8
-    assert sum(scene_durations) == 22.5
+    assert scene_durations == [SCENE_DURATION] * 8
+    assert sum(scene_durations) == 36.0
     assert first_animation_delays == [BEAT / 2] * 8
     assert transition_effects == ["cut", "wipe", "push", "push", "push", "push", "fade", "zoom"]
     assert findings == []

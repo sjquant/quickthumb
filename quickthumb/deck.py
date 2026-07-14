@@ -384,6 +384,34 @@ class Deck:
             with contextlib.suppress(FileNotFoundError):
                 os.remove(output_path)
 
+    def to_animated_mp4(
+        self,
+        fps: float = 30.0,
+        slide_duration: float = 3.0,
+        matte: str = "#000000",
+        soundtrack: str | None = None,
+        loop_audio: bool = True,
+    ) -> bytes:
+        """Render the Deck's animated timeline to MP4 bytes.
+
+        Unlike ``to_mp4()``, this path plays layer animations and slide
+        transitions. ``soundtrack`` is a single mixed audio track for the
+        complete timeline.
+        """
+        self._require_slides()
+        from quickthumb._export_video import export_animation_bytes
+
+        return export_animation_bytes(
+            self._slides,
+            self._resolved_transitions(),
+            format="mp4",
+            fps=fps,
+            slide_duration=slide_duration,
+            matte=matte,
+            soundtrack=soundtrack,
+            loop_audio=loop_audio,
+        )
+
     def render_mp4(
         self, output_path: str, default_duration: float = 3.0, fps: float = 30.0
     ) -> None:

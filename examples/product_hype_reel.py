@@ -32,6 +32,7 @@ ASSETS_DIR = FILE_DIR.parent / "assets"
 SOUNDTRACK = ASSETS_DIR / "audio" / "hype_beat.wav"
 VOICEOVER_DIR = ASSETS_DIR / "audio" / "product_hype_reel_voiceover"
 VOICEOVERS = [VOICEOVER_DIR / f"scene-{index:02d}.wav" for index in range(1, 9)]
+MIXED_SOUNDTRACK = VOICEOVER_DIR / "reel_mix.m4a"
 OUT_GIF = FILE_DIR / "product_hype_reel.gif"
 OUT_MP4 = FILE_DIR / "product_hype_reel.mp4"
 OUT_WEBM = FILE_DIR / "product_hype_reel.webm"
@@ -53,6 +54,8 @@ CONTENT_WIDTH = 800
 CONTENT_RIGHT = CONTENT_X + CONTENT_WIDTH
 CONTENT_CENTER = CONTENT_X + CONTENT_WIDTH // 2
 BEAT = 60.0 / 128.0
+SCENE_DURATION = 4.5
+SCENE_HOLD = SCENE_DURATION - BEAT
 COPY_LEAD_IN = BEAT / 2
 MOTION_FAST = BEAT * 0.6
 MOTION_STANDARD = BEAT * 0.8
@@ -101,57 +104,57 @@ def build_deck() -> Deck:
     proof = build_social_proof_scene()
     cta = build_cta_scene()
 
-    # Six beats per scene makes room to read while keeping every cut on-grid:
-    # exactly six loops of the two-bar soundtrack (48 beats / 128 BPM = 22.5s).
+    # Longer scenes give the Korean narration room to breathe while keeping
+    # every incoming transition aligned to a beat.
     return (
         Deck(WIDTH, HEIGHT)
         .slide(
             hook,
-            transition=tr.Cut(advance_after=6 * BEAT),
+            transition=tr.Cut(advance_after=SCENE_DURATION),
             audio=str(VOICEOVERS[0]),
-            duration=6 * BEAT,
+            duration=SCENE_DURATION,
         )
         .slide(
             problem,
-            transition=tr.Wipe(direction="up", duration=BEAT, advance_after=5 * BEAT),
+            transition=tr.Wipe(direction="up", duration=BEAT, advance_after=SCENE_HOLD),
             audio=str(VOICEOVERS[1]),
-            duration=6 * BEAT,
+            duration=SCENE_DURATION,
         )
         .slide(
             solution,
-            transition=tr.Push(direction="up", duration=BEAT, advance_after=5 * BEAT),
+            transition=tr.Push(direction="up", duration=BEAT, advance_after=SCENE_HOLD),
             audio=str(VOICEOVERS[2]),
-            duration=6 * BEAT,
+            duration=SCENE_DURATION,
         )
         .slide(
             live_sync,
-            transition=tr.Push(direction="left", duration=BEAT, advance_after=5 * BEAT),
+            transition=tr.Push(direction="left", duration=BEAT, advance_after=SCENE_HOLD),
             audio=str(VOICEOVERS[3]),
-            duration=6 * BEAT,
+            duration=SCENE_DURATION,
         )
         .slide(
             ai_coach,
-            transition=tr.Push(direction="left", duration=BEAT, advance_after=5 * BEAT),
+            transition=tr.Push(direction="left", duration=BEAT, advance_after=SCENE_HOLD),
             audio=str(VOICEOVERS[4]),
-            duration=6 * BEAT,
+            duration=SCENE_DURATION,
         )
         .slide(
             streak,
-            transition=tr.Push(direction="left", duration=BEAT, advance_after=5 * BEAT),
+            transition=tr.Push(direction="left", duration=BEAT, advance_after=SCENE_HOLD),
             audio=str(VOICEOVERS[5]),
-            duration=6 * BEAT,
+            duration=SCENE_DURATION,
         )
         .slide(
             proof,
-            transition=tr.Fade(duration=BEAT, advance_after=5 * BEAT),
+            transition=tr.Fade(duration=BEAT, advance_after=SCENE_HOLD),
             audio=str(VOICEOVERS[6]),
-            duration=6 * BEAT,
+            duration=SCENE_DURATION,
         )
         .slide(
             cta,
-            transition=tr.Zoom(direction="in", duration=BEAT, advance_after=5 * BEAT),
+            transition=tr.Zoom(direction="in", duration=BEAT, advance_after=SCENE_HOLD),
             audio=str(VOICEOVERS[7]),
-            duration=6 * BEAT,
+            duration=SCENE_DURATION,
         )
     )
 
@@ -875,18 +878,18 @@ def print_diagnostics(deck: Deck) -> None:
 
 def export_reel(deck: Deck) -> None:
     """Render all supported outputs without truncating an existing file on failure."""
-    # A 1080×1920 GIF stores every frame in memory; 3fps keeps this long
+    # A 1080×1920 GIF stores every frame in memory; 2fps keeps this longer
     # reel below the export budget while MP4/WebM preserve smooth 30fps motion.
-    OUT_GIF.write_bytes(deck.to_gif(fps=3, loop=0))
+    OUT_GIF.write_bytes(deck.to_gif(fps=2, loop=0))
 
     try:
-        deck.render(str(OUT_MP4))
-        OUT_WEBM.write_bytes(deck.to_webm(fps=30, soundtrack=str(SOUNDTRACK)))
+        OUT_MP4.write_bytes(deck.to_animated_mp4(fps=30, soundtrack=str(MIXED_SOUNDTRACK)))
+        OUT_WEBM.write_bytes(deck.to_webm(fps=30, soundtrack=str(MIXED_SOUNDTRACK)))
     except QuickthumbError as error:
         print(f"⚠ Skipped MP4/WebM ({error})")
 
     print(f"✓ {OUT_GIF}")
-    print(f"  {len(deck)} scenes · 22.5 seconds · 48-beat locked timeline")
+    print(f"  {len(deck)} scenes · 36 seconds · narration-first timeline")
 
 
 if __name__ == "__main__":

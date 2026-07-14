@@ -114,6 +114,13 @@ This path does not currently play layer animations or slide transitions.
 `deck.to_mp4(fps=30, slide_duration=3.0)` returns the same static MP4 as bytes;
 its `slide_duration` argument supplies the silent-slide default.
 
+### `.to_animated_mp4(...)`
+
+Return the same animated timeline as `.to_webm()` in an H.264 MP4 container.
+Pass one pre-mixed `soundtrack` file when the animation needs background music
+and narration together. This is distinct from `.to_mp4()`, which renders static
+slides with their individual `audio` tracks.
+
 | Parameter | Type | Default | Description |
 | --- | --- | --- | --- |
 | `output_path` | `str` | — | Final `.mp4` path for `render_mp4()` |

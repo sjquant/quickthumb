@@ -121,6 +121,9 @@ silently for `default_duration` (3 seconds). `deck.render("deck.mp4")` and
 every output. This first Deck MP4 path deliberately renders static slides only:
 layer animations and slide transitions are not played.
 
+When an animated MP4 must match Deck WebM, use `deck.to_animated_mp4()` with a
+single pre-mixed soundtrack for background music and narration.
+
 The timing model mirrors the HTML slideshow, with one difference a non-interactive medium forces: there is nothing to click, so `on_click` animations play automatically in sequence, exactly like `after_previous` (the same choice PowerPoint's own video export makes). Each slide plays its transition (over the previous slide's final frame), runs its animation timeline (starting when the transition starts, like the HTML runtime), then holds its settled state — for the transition's `advance_after` when set, else for `slide_duration` (`hold` on `Canvas`). A slide with no transition cross-fades in over 0.5s (slide 0 with none starts instantly); set a transition on slide 0 to animate in from the matte, which also makes looping GIFs wrap smoothly.
 
 GIF is encoded by Pillow with per-frame durations, so no extra dependency is needed. MP4 (H.264) and WebM (VP9) require the `ffmpeg` binary on `PATH` (or pointed to by the `QUICKTHUMB_FFMPEG` environment variable).
