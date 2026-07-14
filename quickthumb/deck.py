@@ -181,8 +181,9 @@ class Deck:
 
         ``.pdf`` and ``.pptx`` produce a single multi-page/multi-slide document.
         ``.gif`` and ``.webm`` produce one animation that plays each slide's
-        layer animations and transitions. ``.mp4`` produces static slides with
-        each slide's optional narration. Raster extensions (``.png``, ``.jpg``,
+        layer animations and transitions. ``.mp4`` renders static slides with
+        per-slide narration unless a ``soundtrack`` is supplied, in which case
+        it uses the animated timeline. Raster extensions (``.png``, ``.jpg``,
         ``.jpeg``, ``.webp``) write one file per slide as a zero-padded
         numbered sequence derived from ``output_path`` (e.g. ``slides.png`` ->
         ``slides_01.png``, ``slides_02.png``). Returns the list of written
@@ -190,6 +191,19 @@ class Deck:
         """
         self._require_slides()
         extension = os.path.splitext(output_path)[1].lower()
+
+        if extension == ".mp4" and soundtrack is None:
+            if quality is not None:
+                raise RenderingError(
+                    "Quality parameter is only supported for JPEG and WEBP formats, "
+                    "not .mp4 output."
+                )
+            if format is not None:
+                raise RenderingError(
+                    "format override is only supported for raster output, not .mp4 output."
+                )
+            self.render_mp4(output_path)
+            return [output_path]
 
         if extension in (*_ANIMATION_EXTENSIONS, ".mp4"):
             if quality is not None:
