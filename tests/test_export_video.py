@@ -685,7 +685,9 @@ class TestVideoEncoding:
         first = Canvas(160, 90).background(color="#1131AA")
         second = Canvas(160, 90).background(color="#22AA55").custom(boom)
         deck = Deck(160, 90, slides=[first, second])
-        output = tmp_path / "deck.mp4"
+        output_dir = tmp_path / "deck 'quoted'"
+        output_dir.mkdir()
+        output = output_dir / "deck.mp4"
 
         # when
         with pytest.raises(RenderingError, match="Custom layer callback failed"):
@@ -796,9 +798,30 @@ class TestNarratedDeckMp4:
         # then
         assert duration == pytest.approx(0.3, abs=0.12)
 
+    def test_should_reject_non_numeric_slide_duration(self, tmp_path):
+        """Malformed per-slide duration raises ValidationError before any output is created"""
+        # given
+        deck = Deck(160, 90).slide(Canvas().background(color="#1131AA"), duration="invalid")
+        output = tmp_path / "deck.mp4"
+
+        # when / then
+        with pytest.raises(ValidationError, match="duration must be a finite"):
+            deck.render_mp4(str(output))
+        assert not output.exists()
+
 
 class TestVideoErrors:
     """Test suite for animated-export validation and error paths"""
+
+    def test_should_reject_missing_configured_media_tool(self, monkeypatch, tmp_path):
+        """An invalid configured ffmpeg path raises the install-guidance RenderingError"""
+        # given
+        monkeypatch.setenv("QUICKTHUMB_FFMPEG", str(tmp_path / "missing-ffmpeg"))
+        deck = Deck(160, 90).slide(Canvas().background(color="#1131AA"))
+
+        # when / then
+        with pytest.raises(RenderingError, match="requires both ffmpeg and ffprobe"):
+            deck.render_mp4(str(tmp_path / "deck.mp4"))
 
     def test_should_reject_quality_for_animated_output(self, tmp_path):
         """The quality parameter has no meaning for GIF/MP4/WebM output"""

@@ -92,9 +92,9 @@ with open("promo.pdf", "wb") as f:
 !!! note "Fidelity"
     PDF shadings cannot express transparency, so translucent gradients (and gradients with translucent stops) are embedded as pictures. Blur effects (shadow, glow), strokes on shapes, and gradient/image glyph fills have no faithful PDF vector form and are likewise embedded as pixel-exact PNG fragments.
 
-## Animated GIF & video (MP4/WebM)
+## Animated GIF & video (Canvas MP4/WebM, Deck GIF/WebM)
 
-Animated export renders the per-layer `animation` effects and the deck's slide `transition`s as real raster frames, sampled through the same pixel pipeline as PNG output — every effect plays faithfully, not as a CSS or PowerPoint approximation.
+Animated export renders per-layer `animation` effects and deck slide `transition`s as real raster frames, sampled through the same pixel pipeline as PNG output. Canvas GIF/MP4/WebM and Deck GIF/WebM play this animated timeline; Deck MP4 is the separate static narration workflow below.
 
 ```python
 from quickthumb import Canvas, Deck, Fade
@@ -109,8 +109,8 @@ mp4 = canvas.to_mp4(fps=30, hold=2.0)          # tunable variants return bytes
 
 other = Canvas(1280, 720).background(color="#204060")
 deck = Deck(1280, 720).slide(canvas).slide(other, transition=Push(direction="left"))
-deck.render("deck.mp4")
 gif = deck.to_gif(fps=20, slide_duration=3.0, loop=0)
+webm = deck.to_webm(fps=30, slide_duration=3.0)
 ```
 
 Deck MP4 export also supports per-slide narration. Pass `audio=` to `Deck.slide()`;
@@ -125,11 +125,11 @@ The timing model mirrors the HTML slideshow, with one difference a non-interacti
 
 GIF is encoded by Pillow with per-frame durations, so no extra dependency is needed. MP4 (H.264) and WebM (VP9) require the `ffmpeg` binary on `PATH` (or pointed to by the `QUICKTHUMB_FFMPEG` environment variable).
 
-MP4 and WebM output can carry a soundtrack — any audio file ffmpeg decodes (MP3, WAV, AAC, OGG, ...), encoded as AAC in MP4 and Opus in WebM:
+Canvas MP4 and WebM output can carry a soundtrack — any audio file ffmpeg decodes (MP3, WAV, AAC, OGG, ...), encoded as AAC in MP4 and Opus in WebM:
 
 ```python
-mp4 = deck.to_mp4(soundtrack="music.mp3")                    # loops to fill the video
-mp4 = deck.to_mp4(soundtrack="jingle.wav", loop_audio=False) # plays once, then silence
+mp4 = canvas.to_mp4(soundtrack="music.mp3")                    # loops to fill the video
+mp4 = canvas.to_mp4(soundtrack="jingle.wav", loop_audio=False) # plays once, then silence
 ```
 
 The audio is always trimmed to the video length. With `loop_audio` (the default) a track shorter than the video repeats seamlessly; with `loop_audio=False` it plays once and the rest of the video is silent. GIF exports do not accept a soundtrack.
@@ -156,14 +156,17 @@ deck = (
 deck.render("deck.pdf")     # one multi-page PDF (a page per slide)
 deck.render("deck.pptx")    # one multi-slide PPTX (a slide per slide)
 deck.render("deck.gif")     # one animation playing transitions between slides
+deck.render("deck.mp4")     # static slides with per-slide narration
 deck.render("slides.png")   # numbered sequence: slides_01.png, slides_02.png, …
 
 pdf_bytes = deck.to_pdf()
 pptx_bytes = deck.to_pptx()
-gif_bytes = deck.to_gif()   # and deck.to_mp4() / deck.to_webm()
+gif_bytes = deck.to_gif()
+webm_bytes = deck.to_webm()
+mp4_bytes = deck.to_mp4()   # static slides with per-slide narration
 ```
 
-`render()` dispatches on the output extension: `.pdf` and `.pptx` produce a single document and `.gif`/`.mp4`/`.webm` a single animation, while raster extensions have no native multi-page container, so the deck writes one file per slide as a zero-padded numbered sequence and returns the written paths.
+`render()` dispatches on the output extension: `.pdf` and `.pptx` produce a single document; `.gif` and `.webm` produce an animation; `.mp4` produces static slides with per-slide narration; and raster extensions have no native multi-page container, so the deck writes one file per slide as a zero-padded numbered sequence and returns the written paths.
 
 Slides may have different dimensions. `deck.diagnose()` aggregates each slide's [diagnostics](diagnostics.md) (each tagged with its `slide_index`) and adds a `mixed-slide-size` warning when they differ. The PDF path sizes each page to its slide, but PPTX has a single presentation size taken from the first slide, so slides larger than the first are clipped by PowerPoint — keep slides a uniform size when targeting `.pptx`. Decks round-trip through JSON with `deck.to_json()` / `Deck.from_json(...)`, reusing the per-canvas serialization.
 

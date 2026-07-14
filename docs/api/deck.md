@@ -71,7 +71,8 @@ deck.render("slides.jpg", quality=85)
 | --- | --- |
 | `.pdf` | Single multi-page PDF. Requires the `pdf` extra. |
 | `.pptx` | Single multi-slide PPTX. Requires the `pptx` extra. |
-| `.gif` / `.mp4` / `.webm` | Single animation playing layer animations and slide transitions with default settings. `.mp4`/`.webm` require the `ffmpeg` binary. |
+| `.gif` / `.webm` | Single animation playing layer animations and slide transitions with default settings. WebM requires `ffmpeg`. |
+| `.mp4` | Static slides with optional per-slide narration, H.264/yuv420p video, and AAC audio. Requires `ffmpeg` and `ffprobe`. |
 | `.png` / `.jpg` / `.jpeg` / `.webp` | One file per slide as a zero-padded numbered sequence. |
 
 | Parameter | Type | Default | Description |
@@ -93,13 +94,12 @@ with open("deck.pdf", "wb") as f:
 pptx_bytes = deck.to_pptx()  # requires quickthumb[pptx]
 ```
 
-### `.to_gif(...)` / `.to_mp4(...)` / `.to_webm(...)`
+### `.to_gif(...)` / `.to_webm(...)`
 
-Return the deck as an animation: each slide plays its layer animations, holds its settled state, and its transition animates the change into it (see [Animated GIF & video](../exports.md#animated-gif-video-mp4webm) for the timing model). `.to_mp4()`/`.to_webm()` require the `ffmpeg` binary on `PATH` (or named by `QUICKTHUMB_FFMPEG`).
+Return the deck as an animation: each slide plays its layer animations, holds its settled state, and its transition animates the change into it (see [Animated GIF & video](../exports.md#animated-gif-video-mp4webm) for the timing model). `.to_webm()` requires the `ffmpeg` binary on `PATH` (or named by `QUICKTHUMB_FFMPEG`).
 
 ```python
 gif_bytes = deck.to_gif(fps=20, slide_duration=3.0, loop=0, matte="#000000")
-mp4_bytes = deck.to_mp4(fps=30, slide_duration=3.0, soundtrack="music.mp3")
 webm_bytes = deck.to_webm(fps=30, slide_duration=3.0)
 ```
 
@@ -111,14 +111,14 @@ ffprobe supplies the audio length; silent slides use `default_duration=3.0`.
 The output is H.264/yuv420p plus AAC and requires both `ffmpeg` and `ffprobe`.
 This path does not currently play layer animations or slide transitions.
 
+`deck.to_mp4(fps=30, slide_duration=3.0)` returns the same static MP4 as bytes;
+its `slide_duration` argument supplies the silent-slide default.
+
 | Parameter | Type | Default | Description |
 | --- | --- | --- | --- |
-| `fps` | `float` | `20.0` GIF / `30.0` video | Frames per second (max 100 GIF; max 120 video) |
-| `slide_duration` | `float` | `3.0` | Seconds a slide holds after its animations finish, unless its transition sets `advance_after` |
-| `loop` | `int` | `0` | GIF repeat count; `0` loops forever (GIF only) |
-| `matte` | `str` | `"#000000"` | Opaque background color frames are composited onto |
-| `soundtrack` | `str \| None` | `None` | Audio file muxed into the video, trimmed to the video length (MP4/WebM only; any format ffmpeg decodes) |
-| `loop_audio` | `bool` | `True` | Repeat a soundtrack shorter than the video; `False` plays it once and pads with silence |
+| `output_path` | `str` | — | Final `.mp4` path for `render_mp4()` |
+| `default_duration` / `slide_duration` | `float` | `3.0` | Duration of a slide with neither audio nor duration |
+| `fps` | `float` | `30.0` | Static-video frame rate |
 
 ## `.diagnose()`
 

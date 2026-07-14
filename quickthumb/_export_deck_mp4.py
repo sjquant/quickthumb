@@ -63,27 +63,48 @@ def _validate_settings(
         raise RenderingError("Deck has no slides to render.")
     if len(slides) != len(audio_paths) or len(slides) != len(durations):
         raise RenderingError("Deck slide metadata is out of sync.")
-    if not math.isfinite(default_duration) or default_duration <= 0:
+    if not _is_positive_finite(default_duration):
         raise ValidationError("default_duration must be a finite value > 0")
-    if not math.isfinite(fps) or fps <= 0:
+    if not _is_positive_finite(fps):
         raise ValidationError("fps must be a finite value > 0")
     for audio, duration in zip(audio_paths, durations, strict=True):
-        if audio is not None and not os.path.isfile(audio):
-            raise ValidationError(f"Audio file not found: {audio!r}")
-        if duration is not None and (not math.isfinite(duration) or duration <= 0):
+        if audio is not None:
+            if not isinstance(audio, str):
+                raise ValidationError("audio must be a file path string")
+            if not os.path.isfile(audio):
+                raise ValidationError(f"Audio file not found: {audio!r}")
+        if duration is not None and not _is_positive_finite(duration):
             raise ValidationError("duration must be a finite value > 0")
+
+
+def _is_positive_finite(value: object) -> bool:
+    """Return whether an export timing value is a positive finite number."""
+    return (
+        isinstance(value, (int, float))
+        and not isinstance(value, bool)
+        and math.isfinite(value)
+        and value > 0
+    )
 
 
 def _media_tools() -> tuple[str, str]:
     """Resolve ffmpeg and ffprobe with an actionable installation message."""
-    ffmpeg = os.environ.get("QUICKTHUMB_FFMPEG") or shutil.which("ffmpeg")
-    ffprobe = os.environ.get("QUICKTHUMB_FFPROBE") or shutil.which("ffprobe")
+    ffmpeg = _configured_tool("QUICKTHUMB_FFMPEG", "ffmpeg")
+    ffprobe = _configured_tool("QUICKTHUMB_FFPROBE", "ffprobe")
     if ffmpeg and ffprobe:
         return ffmpeg, ffprobe
     raise RenderingError(
         "MP4 export requires both ffmpeg and ffprobe. Install FFmpeg "
         "(macOS: brew install ffmpeg; Ubuntu/Debian: sudo apt install ffmpeg)."
     )
+
+
+def _configured_tool(variable: str, fallback: str) -> str | None:
+    """Resolve an optional configured executable or the standard PATH tool."""
+    configured = os.environ.get(variable)
+    if configured is not None:
+        return shutil.which(configured)
+    return shutil.which(fallback)
 
 
 def _resolved_duration(
@@ -94,21 +115,24 @@ def _resolved_duration(
         return duration
     if audio is None:
         return default_duration
-    probe = subprocess.run(
-        [
-            ffprobe,
-            "-v",
-            "error",
-            "-show_entries",
-            "format=duration",
-            "-of",
-            "default=nw=1:nk=1",
-            audio,
-        ],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
+    try:
+        probe = subprocess.run(
+            [
+                ffprobe,
+                "-v",
+                "error",
+                "-show_entries",
+                "format=duration",
+                "-of",
+                "default=nw=1:nk=1",
+                audio,
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except OSError as error:
+        raise _media_tools_error() from error
     try:
         result = float(probe.stdout.strip())
     except ValueError as error:
@@ -170,33 +194,52 @@ def _encode_segment(
 
 
 def _concatenate_segments(ffmpeg: str, segments: list[Path], output_path: Path) -> None:
-    """Concatenate normalized segments without shell-sensitive path quoting."""
-    command = [ffmpeg, "-y"]
-    for segment in segments:
-        command.extend(["-i", str(segment)])
-    command.extend(
+    """Stream-copy normalized segments using FFmpeg's concat demuxer."""
+    manifest = output_path.with_suffix(".concat.txt")
+    manifest.write_text(
+        "".join(_concat_manifest_entry(segment) for segment in segments),
+        encoding="utf-8",
+    )
+    _run_ffmpeg(
         [
-            "-filter_complex",
-            f"concat=n={len(segments)}:v=1:a=1",
-            "-c:v",
-            "libx264",
-            "-pix_fmt",
-            "yuv420p",
-            "-c:a",
-            "aac",
+            ffmpeg,
+            "-y",
+            "-f",
+            "concat",
+            "-safe",
+            "0",
+            "-i",
+            str(manifest),
+            "-c",
+            "copy",
             "-movflags",
             "+faststart",
             str(output_path),
         ]
     )
-    _run_ffmpeg(command)
+
+
+def _concat_manifest_entry(segment: Path) -> str:
+    """Quote one segment path for FFmpeg's concat manifest syntax."""
+    return "file '" + str(segment).replace("'", r"'\''") + "'\n"
 
 
 def _run_ffmpeg(command: list[str]) -> None:
     """Run ffmpeg safely and surface its concise diagnostic on failure."""
-    result = subprocess.run(command, check=False, capture_output=True, text=True)
+    try:
+        result = subprocess.run(command, check=False, capture_output=True, text=True)
+    except OSError as error:
+        raise _media_tools_error() from error
     if result.returncode != 0:
         detail = (
             result.stderr.strip().splitlines()[-1] if result.stderr.strip() else "unknown error"
         )
         raise RenderingError(f"ffmpeg failed: {detail}")
+
+
+def _media_tools_error() -> RenderingError:
+    """Build the shared installation guidance for unavailable media tools."""
+    return RenderingError(
+        "MP4 export requires both ffmpeg and ffprobe. Install FFmpeg "
+        "(macOS: brew install ffmpeg; Ubuntu/Debian: sudo apt install ffmpeg)."
+    )

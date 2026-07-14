@@ -1,14 +1,16 @@
 """Multi-slide / multi-image decks built on top of Canvas.
 
 A Deck is an ordered collection of Canvas objects ("slides"). It renders to a
-multi-page PDF, a multi-slide PPTX, an animated GIF/MP4/WebM, or a numbered
+multi-page PDF, a multi-slide PPTX, an animated GIF/WebM, a narrated static MP4, or a numbered
 sequence of raster images, reusing the exact same per-canvas render pipeline
 so every slide looks identical to rendering that Canvas on its own.
 """
 
 from __future__ import annotations
 
+import contextlib
 import os
+import tempfile
 from dataclasses import dataclass
 
 from typing_extensions import Self
@@ -20,7 +22,7 @@ from quickthumb.transitions import Transition, coerce_transition
 
 _DOCUMENT_EXTENSIONS = {".pdf", ".pptx", ".html", ".htm"}
 _RASTER_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp"}
-_ANIMATION_EXTENSIONS = {".gif", ".mp4", ".webm"}
+_ANIMATION_EXTENSIONS = {".gif", ".webm"}
 
 
 @dataclass
@@ -176,10 +178,9 @@ class Deck:
         """Render the deck, dispatching on the output extension.
 
         ``.pdf`` and ``.pptx`` produce a single multi-page/multi-slide document.
-        Animated extensions (``.gif``, ``.mp4``, ``.webm``) produce one video
-        that plays each slide's layer animations and the deck's slide
-        transitions with default settings (see ``to_gif``/``to_mp4``/``to_webm``
-        for the tunable variants). Raster extensions (``.png``, ``.jpg``,
+        ``.gif`` and ``.webm`` produce one animation that plays each slide's
+        layer animations and transitions. ``.mp4`` produces static slides with
+        each slide's optional narration. Raster extensions (``.png``, ``.jpg``,
         ``.jpeg``, ``.webp``) write one file per slide as a zero-padded
         numbered sequence derived from ``output_path`` (e.g. ``slides.png`` ->
         ``slides_01.png``, ``slides_02.png``). Returns the list of written
@@ -247,8 +248,8 @@ class Deck:
 
         raise RenderingError(
             f"Unsupported deck output format: {extension or output_path!r}.\n"
-            "Use .pdf, .pptx, .html, an animated extension (.gif, .mp4, .webm), "
-            "or a raster extension (.png, .jpg, .jpeg, .webp)."
+            "Use .pdf, .pptx, .html, an animated extension (.gif, .webm), .mp4 for "
+            "static narrated slides, or a raster extension (.png, .jpg, .jpeg, .webp)."
         )
 
     def _render_document(self, output_path: str, extension: str) -> None:
@@ -307,7 +308,7 @@ class Deck:
         its fonts and renders identically on any machine; pass ``False`` for a
         smaller file that relies on the viewer's system fonts. This is the one
         *interactive* format where transitions and animations play; the
-        animated GIF/MP4/WebM exports play them too, on a fixed timeline.
+        animated GIF/WebM exports play them too, on a fixed timeline.
         """
         self._require_slides()
         from quickthumb._export_html import export_deck
@@ -373,12 +374,15 @@ class Deck:
         not played by this Deck-specific MP4 export.
         """
         self._require_slides()
-        import tempfile
-
-        with tempfile.NamedTemporaryFile(suffix=".mp4") as output:
-            self.render_mp4(output.name, default_duration=slide_duration, fps=fps)
-            with open(output.name, "rb") as rendered:
+        descriptor, output_path = tempfile.mkstemp(suffix=".mp4")
+        os.close(descriptor)
+        try:
+            self.render_mp4(output_path, default_duration=slide_duration, fps=fps)
+            with open(output_path, "rb") as rendered:
                 return rendered.read()
+        finally:
+            with contextlib.suppress(FileNotFoundError):
+                os.remove(output_path)
 
     def render_mp4(
         self, output_path: str, default_duration: float = 3.0, fps: float = 30.0

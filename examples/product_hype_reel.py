@@ -2,8 +2,8 @@
 
 The example builds an eight-scene Korean fitness-app ad on one Reels-safe
 layout grid. It demonstrates platform-aware diagnostics, layered gradients,
-animated product-metric cards, native Pretendard typography, real slide
-transitions, and soundtrack muxing across GIF/MP4/WebM exports.
+animated product-metric cards, native Pretendard typography, slide transitions
+in GIF/WebM, and per-scene Korean voiceovers in the static MP4 export.
 
 Run:
     uv run python examples/product_hype_reel.py

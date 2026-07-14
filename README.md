@@ -446,13 +446,15 @@ deck = (
 deck.render("deck.pdf")        # one multi-page PDF (a page per slide)
 deck.render("deck.pptx")       # one multi-slide PPTX (a slide per slide)
 deck.render("deck.html")       # one self-contained, navigable HTML slideshow
-deck.render("deck.gif")        # one animation playing slide transitions (.mp4/.webm too)
+deck.render("deck.gif")        # one animation playing slide transitions (.webm too)
+deck.render("deck.mp4")        # static slides with each slide's optional narration
 deck.render("slides.png")      # numbered sequence: slides_01.png, slides_02.png, …
 
 pdf_bytes = deck.to_pdf()      # requires quickthumb[pdf]
 pptx_bytes = deck.to_pptx()    # requires quickthumb[pptx]
-gif_bytes = deck.to_gif()      # deck.to_mp4()/to_webm() need the ffmpeg binary
-mp4_bytes = deck.to_mp4(soundtrack="music.mp3")  # mux audio into MP4/WebM output
+gif_bytes = deck.to_gif()
+webm_bytes = deck.to_webm()    # requires ffmpeg; plays the animated timeline
+mp4_bytes = deck.to_mp4()      # requires ffmpeg/ffprobe; static, per-slide narration
 ```
 
 An unsized `Canvas()` inherits the deck's size when added; a canvas built with an
@@ -705,12 +707,12 @@ See the shipped examples in [`examples/README.md`](examples/README.md):
 - Group children must not set `position`; the group assigns positions (their `align` is also ignored — use `item_align`)
 - `svg` layers raise `RenderingError` unless `quickthumb[svg]` (cairosvg) is installed
 - `theme` blocks are resolved at parse time; `to_json()` emits resolved values without the `theme` block
-- Slide `Transition`s and layer `Animation`s affect PPTX, HTML, GIF, MP4, and WebM output; raster, SVG, and PDF renderers ignore them
+- Slide `Transition`s and layer `Animation`s affect PPTX, HTML, GIF, and Deck WebM output; Deck MP4 currently renders static slides with per-slide narration
 - Transitions live on the `Deck` (default plus per-slide override), not on `Canvas`; a per-slide override wins over the deck default
 - Animations are valid on `text`, `shape`, `image`, `svg`, and `group` layers; pass one effect or a list of effects played in order
 - HTML export needs no optional extra; the document is fixed-layout and scaled to fit (`responsive=True` by default), never reflowed, so it stays a faithful twin of the PNG/SVG/PDF/PPTX output
 - HTML text placement is a close approximation (browsers rasterize fonts differently than PIL); use `embed_fonts=True` for the closest match, available when text uses local font files
-- HTML, GIF, MP4, and WebM play per-layer `animation`s and `Deck` slide transitions; HTML approximates a few exotic effects (blinds, checkerboard, wheel, dissolve) in CSS
+- HTML, GIF, and Deck WebM play per-layer `animation`s and `Deck` slide transitions; HTML approximates a few exotic effects (blinds, checkerboard, wheel, dissolve) in CSS
 - HTML cannot animate a layer that must be rasterized together with earlier backdrop-dependent content, such as blend-mode or custom layers; move animated layers after that content or remove the backdrop dependency
 - Deck MP4 can attach `audio=` and `duration=` to each `slide()`: it requires FFmpeg/FFprobe, always writes H.264/AAC, and currently exports static slides without transitions or layer animations
 
