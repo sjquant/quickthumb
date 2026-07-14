@@ -875,7 +875,9 @@ def print_diagnostics(deck: Deck) -> None:
 
 def export_reel(deck: Deck) -> None:
     """Render all supported outputs without truncating an existing file on failure."""
-    OUT_GIF.write_bytes(deck.to_gif(fps=8, loop=0))
+    # A 1080×1920 GIF stores every frame in memory; 3fps keeps this long
+    # reel below the export budget while MP4/WebM preserve smooth 30fps motion.
+    OUT_GIF.write_bytes(deck.to_gif(fps=3, loop=0))
 
     try:
         deck.render(str(OUT_MP4))
