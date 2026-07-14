@@ -261,10 +261,10 @@ class Deck:
         soundtrack: AudioTrack | str | dict | None,
     ) -> None:
         """Render an animated Deck, mixing scheduled narration when requested."""
-        from quickthumb._export_video import mix_deck_audio, write_animation
+        from quickthumb._export_video import write_animation
 
         soundtrack = coerce_audio_track(soundtrack)
-        if not any(self._slide_audio):
+        if format == "gif" or not any(self._slide_audio):
             write_animation(
                 self._slides,
                 self._resolved_transitions(),
@@ -274,32 +274,33 @@ class Deck:
                 loop_audio=soundtrack.loop if soundtrack is not None else True,
             )
             return
-        offsets, duration = self._audio_timeline()
-        with tempfile.TemporaryDirectory() as directory:
-            mixed = os.path.join(directory, "deck-audio.m4a")
-            mix_deck_audio(soundtrack, self._slide_audio, offsets, duration, mixed)
-            write_animation(
-                self._slides,
-                self._resolved_transitions(),
-                output_path,
-                format=format,
-                soundtrack=AudioTrack(path=mixed),
-                loop_audio=False,
-            )
+        offsets, durations, timeline_duration = self._animation_audio_schedule()
+        write_animation(
+            self._slides,
+            self._resolved_transitions(),
+            output_path,
+            format=format,
+            soundtrack=soundtrack,
+            loop_audio=soundtrack.loop if soundtrack is not None else True,
+            slide_audio=self._slide_audio,
+            audio_offsets=offsets,
+            audio_durations=durations,
+            audio_timeline_duration=timeline_duration,
+        )
 
-    def _audio_timeline(self) -> tuple[list[float], float]:
-        """Estimate slide start offsets from the deck transition timeline."""
-        offsets: list[float] = []
-        time = 0.0
-        for transition in self._resolved_transitions():
-            offsets.append(time)
-            if transition is None:
-                time += 3.0
-            elif transition.effect == "cut":
-                time += transition.advance_after or 3.0
-            else:
-                time += transition.duration + (transition.advance_after or 3.0)
-        return offsets, time
+    def _animation_audio_schedule(self) -> tuple[list[float], list[float], float]:
+        """Return visual slide start offsets and narration clip durations."""
+        from quickthumb._export_video import animation_timeline
+
+        offsets, total_duration = animation_timeline(
+            self._slides, self._resolved_transitions(), slide_duration=3.0
+        )
+        ends = [*offsets[1:], total_duration]
+        durations = [
+            explicit if explicit is not None else end - start
+            for start, end, explicit in zip(offsets, ends, self._slide_durations, strict=True)
+        ]
+        return offsets, durations, total_duration
 
     def _render_document(self, output_path: str, extension: str) -> None:
         if extension == ".pdf":
@@ -439,7 +440,7 @@ class Deck:
         slide_duration: float = 3.0,
         matte: str = "#000000",
         soundtrack: AudioTrack | str | dict | None = None,
-        loop_audio: bool = True,
+        loop_audio: bool | None = None,
     ) -> bytes:
         """Render the Deck's animated timeline to MP4 bytes.
 
@@ -490,7 +491,7 @@ class Deck:
         slide_duration: float = 3.0,
         matte: str = "#000000",
         soundtrack: AudioTrack | str | dict | None = None,
-        loop_audio: bool = True,
+        loop_audio: bool | None = None,
     ) -> bytes:
         """Render the deck to WebM (VP9) bytes; timing model as in ``to_gif``.
 
@@ -498,7 +499,8 @@ class Deck:
         Odd-sized canvases lose their last pixel row/column (VP9 4:2:0 output
         needs even dimensions). ``soundtrack`` muxes an audio file (any
         format ffmpeg decodes) as Opus, trimmed to the video length;
-        ``loop_audio`` repeats a shorter track to fill the video.
+        ``loop_audio`` overrides `AudioTrack.loop`, while legacy string paths
+        continue to loop by default.
         """
         self._require_slides()
         from quickthumb._export_video import export_animation_bytes

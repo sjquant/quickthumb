@@ -129,7 +129,7 @@ mp4_bytes = canvas.to_mp4(fps=30, hold=2.0, soundtrack="music.mp3")
 webm_bytes = canvas.to_webm(fps=30, hold=2.0)
 ```
 
-`.to_mp4()`/`.to_webm()` also accept `soundtrack` (an audio file muxed into the video, trimmed to the video length) and `loop_audio` (default `True`: repeat a shorter track; `False` plays it once and pads with silence). GIF cannot carry audio. See the [Deck API](deck.md) for the full parameter table.
+`.to_mp4()`/`.to_webm()` also accept `soundtrack` (an audio file muxed into the video, trimmed to the video length) and `loop_audio` (an explicit override). `AudioTrack(..., loop=True)` repeats a shorter configured track; legacy string paths keep the previous default of looping. GIF cannot carry audio. See the [Deck API](deck.md) for the full parameter table.
 
 ### `.to_base64(format="PNG", quality=None)`
 

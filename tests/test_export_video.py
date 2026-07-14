@@ -633,7 +633,7 @@ class TestVideoEncoding:
 
         # when
         export = canvas.to_mp4 if container == "mp4" else canvas.to_webm
-        data = export(fps=10, hold=2.0, soundtrack=AudioTrack(path=tone, volume=0.5))
+        data = export(fps=10, hold=2.0, soundtrack=AudioTrack(path=tone, volume=0.5, loop=True))
         samples = decoded_audio(data, tmp_path / f"clip.{container}")
 
         # then: the audio spans the video and the tone still plays at the end
@@ -672,9 +672,25 @@ class TestVideoEncoding:
 
         # when
         canvas.render(str(path))
+        streams = subprocess.run(
+            [
+                "ffprobe",
+                "-v",
+                "error",
+                "-show_entries",
+                "stream=codec_type,codec_name",
+                "-of",
+                "csv=p=0",
+                str(path),
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout
 
         # then
         assert path.read_bytes()[4:8] == b"ftyp"
+        assert "aac,audio" in streams
 
     def test_should_reap_ffmpeg_and_drop_output_when_a_slide_fails_mid_encode(self, tmp_path):
         """A slide failing to render mid-stream kills ffmpeg and removes the file"""
@@ -788,6 +804,63 @@ class TestNarratedDeckMp4:
         assert Image.frombytes("RGB", (160, 90), raw).getpixel((80, 45)) == pytest.approx(
             GREEN, abs=24
         )
+        assert (
+            max(
+                abs(sample) for sample in decoded_audio(output.read_bytes(), tmp_path / "audio.bin")
+            )
+            > 100
+        )
+
+    def test_should_keep_later_narration_when_the_soundtrack_does_not_loop(self, tmp_path):
+        """A short non-looping music bed does not silence delayed slide narration"""
+        # given
+        music = tone_wav(tmp_path / "music.wav", 0.1)
+        voice = tone_wav(tmp_path / "voice.wav", 0.2)
+        deck = (
+            Deck(160, 90)
+            .slide(
+                Canvas().background(color="#1131AA"),
+                transition=tr.Cut(advance_after=0.3),
+                audio=voice,
+            )
+            .slide(
+                Canvas().background(color="#22AA55"),
+                transition=tr.Cut(advance_after=0.3),
+                audio=voice,
+            )
+        )
+        output = tmp_path / "narrated.mp4"
+
+        # when
+        deck.render(str(output), soundtrack=AudioTrack(path=music, loop=False))
+        samples = decoded_audio(output.read_bytes(), tmp_path / "decoded.pcm")
+
+        # then
+        assert max(abs(sample) for sample in samples[2600:3600]) > 100
+
+    def test_should_trim_animated_narration_to_the_explicit_slide_duration(self, tmp_path):
+        """Animated MP4 applies the same explicit narration duration contract as static MP4"""
+        # given
+        music = tone_wav(tmp_path / "music.wav", 0.1)
+        voice = tone_wav(tmp_path / "voice.wav", 0.4)
+        deck = (
+            Deck(160, 90)
+            .slide(
+                Canvas().background(color="#1131AA"),
+                transition=tr.Cut(advance_after=0.3),
+                audio=voice,
+                duration=0.1,
+            )
+            .slide(Canvas().background(color="#22AA55"), transition=tr.Cut(advance_after=0.3))
+        )
+        output = tmp_path / "trimmed.mp4"
+
+        # when
+        deck.render(str(output), soundtrack=AudioTrack(path=music, loop=False))
+        samples = decoded_audio(output.read_bytes(), tmp_path / "trimmed.pcm")
+
+        # then
+        assert max(abs(sample) for sample in samples[1300:1900]) < 100
 
     def test_should_render_ordered_static_slides_with_aac_audio(self, tmp_path):
         """Deck MP4 joins explicit-audio and silent slides in their declared order"""

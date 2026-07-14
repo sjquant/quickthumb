@@ -799,7 +799,7 @@ class Canvas:
         hold: float = 3.0,
         matte: str = "#000000",
         soundtrack: AudioTrack | str | dict | None = None,
-        loop_audio: bool = True,
+        loop_audio: bool | None = None,
     ) -> bytes:
         """Render the canvas to MP4 (H.264) bytes; timing model as in ``to_gif``.
 
@@ -807,7 +807,7 @@ class Canvas:
         An odd-sized canvas loses its last pixel row/column (H.264 4:2:0
         output needs even dimensions). ``soundtrack`` muxes an audio file
         (any format ffmpeg decodes) as AAC, trimmed to the video length;
-        ``loop_audio`` repeats a shorter track to fill the video.
+        ``loop_audio`` overrides `AudioTrack.loop`; legacy path strings loop by default.
         """
         from quickthumb._export_video import export_animation_bytes
 
@@ -828,7 +828,7 @@ class Canvas:
         hold: float = 3.0,
         matte: str = "#000000",
         soundtrack: AudioTrack | str | dict | None = None,
-        loop_audio: bool = True,
+        loop_audio: bool | None = None,
     ) -> bytes:
         """Render the canvas to WebM (VP9) bytes; timing model as in ``to_gif``.
 
@@ -836,7 +836,7 @@ class Canvas:
         An odd-sized canvas loses its last pixel row/column (VP9 4:2:0 output
         needs even dimensions). ``soundtrack`` muxes an audio file (any
         format ffmpeg decodes) as Opus, trimmed to the video length;
-        ``loop_audio`` repeats a shorter track to fill the video.
+        ``loop_audio`` overrides `AudioTrack.loop`; legacy path strings loop by default.
         """
         from quickthumb._export_video import export_animation_bytes
 

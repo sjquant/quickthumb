@@ -98,9 +98,14 @@ def write_animation(
     loop: int = 0,
     matte: str = "#000000",
     soundtrack: AudioTrack | str | dict | None = None,
-    loop_audio: bool = True,
+    loop_audio: bool | None = None,
+    slide_audio: list[AudioTrack | None] | None = None,
+    audio_offsets: list[float] | None = None,
+    audio_durations: list[float] | None = None,
+    audio_timeline_duration: float | None = None,
 ) -> None:
     """Render slides to an animated file, dispatching on ``format``."""
+    loop_audio = _resolve_loop_audio(soundtrack, loop_audio)
     soundtrack = coerce_audio_track(soundtrack)
     if format == "gif":
         data = export_animation_bytes(
@@ -117,14 +122,36 @@ def write_animation(
         return
 
     fps, matte_rgb = _validated_settings(
-        canvases, format, fps, slide_duration, loop, matte, soundtrack
+        canvases,
+        format,
+        fps,
+        slide_duration,
+        loop,
+        matte,
+        soundtrack,
+        slide_audio,
+        audio_offsets,
+        audio_durations,
+        audio_timeline_duration,
     )
     size = (canvases[0].width, canvases[0].height)
     shots = _deck_shots(canvases, transitions, fps, slide_duration, matte_rgb)
     descriptor, temp_path = _temporary_output_path(output_path, suffix=f".{format}")
     os.close(descriptor)
     try:
-        _encode_video_file(shots, size, fps, format, temp_path, soundtrack, loop_audio)
+        _encode_video_file(
+            shots,
+            size,
+            fps,
+            format,
+            temp_path,
+            soundtrack,
+            loop_audio,
+            slide_audio,
+            audio_offsets,
+            audio_durations,
+            audio_timeline_duration,
+        )
         os.replace(temp_path, output_path)
     finally:
         _remove_quietly(temp_path)
@@ -158,9 +185,10 @@ def export_animation_bytes(
     loop: int = 0,
     matte: str = "#000000",
     soundtrack: AudioTrack | str | dict | None = None,
-    loop_audio: bool = True,
+    loop_audio: bool | None = None,
 ) -> bytes:
     """Render slides to animated GIF/MP4/WebM bytes."""
+    loop_audio = _resolve_loop_audio(soundtrack, loop_audio)
     soundtrack = coerce_audio_track(soundtrack)
     fps, matte_rgb = _validated_settings(
         canvases, format, fps, slide_duration, loop, matte, soundtrack
@@ -192,6 +220,10 @@ def _validated_settings(
     loop: int,
     matte: str,
     soundtrack: AudioTrack | None = None,
+    slide_audio: list[AudioTrack | None] | None = None,
+    audio_offsets: list[float] | None = None,
+    audio_durations: list[float] | None = None,
+    audio_timeline_duration: float | None = None,
 ) -> tuple[float, tuple[int, int, int]]:
     """Validate the shared export knobs and resolve fps and matte defaults."""
     if format not in _DEFAULT_FPS:
@@ -203,6 +235,26 @@ def _validated_settings(
             raise ValidationError("GIF cannot carry audio; use mp4 or webm for a soundtrack.")
         if not os.path.isfile(soundtrack.path):
             raise ValidationError(f"Soundtrack file not found: {soundtrack.path!r}")
+    if slide_audio is not None:
+        if audio_offsets is None or audio_durations is None:
+            raise RenderingError("Deck audio schedule is incomplete.")
+        if not (len(slide_audio) == len(audio_offsets) == len(audio_durations)):
+            raise RenderingError("Deck audio schedule is out of sync.")
+        if (
+            audio_timeline_duration is None
+            or not math.isfinite(audio_timeline_duration)
+            or audio_timeline_duration <= 0
+        ):
+            raise ValidationError("Deck audio timeline duration must be finite and > 0")
+        for audio, offset, duration in zip(
+            slide_audio, audio_offsets, audio_durations, strict=True
+        ):
+            if audio is not None and not os.path.isfile(audio.path):
+                raise ValidationError(f"Audio file not found: {audio.path!r}")
+            if not math.isfinite(offset) or offset < 0:
+                raise ValidationError("Deck audio offset must be finite and >= 0")
+            if not math.isfinite(duration) or duration <= 0:
+                raise ValidationError("Deck audio duration must be finite and > 0")
     if fps is None:
         fps = _DEFAULT_FPS[format]
     if not math.isfinite(fps) or fps <= 0:
@@ -230,6 +282,19 @@ def _validated_settings(
     return fps, matte_rgb
 
 
+def _resolve_loop_audio(
+    soundtrack: AudioTrack | str | dict | None, loop_audio: bool | None
+) -> bool:
+    """Preserve legacy string looping while honoring AudioTrack loop settings."""
+    if loop_audio is not None:
+        return loop_audio
+    if isinstance(soundtrack, (AudioTrack, dict)):
+        track = coerce_audio_track(soundtrack)
+        assert track is not None
+        return track.loop
+    return True
+
+
 # ------------------------------------------------------------------- timeline
 
 
@@ -251,25 +316,19 @@ def _deck_shots(
     """Yield the deck's full frame timeline as variable-duration shots."""
     size = (canvases[0].width, canvases[0].height)
     previous_final = Image.new("RGB", size, matte_rgb)
+    animators = [_SlideAnimator(canvas) for canvas in canvases]
 
-    for index, canvas in enumerate(canvases):
-        animator = _SlideAnimator(canvas)
-        transition = transitions[index] if index < len(transitions) else None
-
-        if transition is None:
-            # HTML parity for later slides; slide 0 with nothing set starts
-            # clean rather than fading in from the matte.
-            duration_in = 0.0 if index == 0 else _DEFAULT_TRANSITION_DURATION
-        elif transition.effect == "cut":
-            duration_in = 0.0
-        else:
-            duration_in = transition.duration
-
-        animation_end = animator.duration
-        if transition is not None and transition.advance_after is not None:
-            exit_time = max(duration_in + transition.advance_after, animation_end, duration_in)
-        else:
-            exit_time = max(animation_end, duration_in) + slide_duration
+    for animator, timing in zip(
+        animators,
+        _deck_timing(
+            canvases,
+            transitions,
+            slide_duration,
+            animation_durations=[animator.duration for animator in animators],
+        ),
+        strict=True,
+    ):
+        transition, duration_in, animation_end, exit_time = timing
 
         for time, duration in _sample_span(0.0, duration_in, fps):
             incoming = _conform(animator.frame_at(time), size, matte_rgb)
@@ -293,6 +352,44 @@ def _deck_shots(
         hold = exit_time - max(animation_end, duration_in)
         yield _Shot(final, max(hold, 1.0 / fps))
         previous_final = final
+
+
+def animation_timeline(
+    canvases: list[Canvas], transitions: list[Transition | None], slide_duration: float
+) -> tuple[list[float], float]:
+    """Return the shared visual start offsets and total duration for a Deck."""
+    offsets: list[float] = []
+    time = 0.0
+    for _, _, _, exit_time in _deck_timing(canvases, transitions, slide_duration):
+        offsets.append(time)
+        time += exit_time
+    return offsets, time
+
+
+def _deck_timing(
+    canvases: list[Canvas],
+    transitions: list[Transition | None],
+    slide_duration: float,
+    animation_durations: list[float] | None = None,
+) -> list[tuple[Transition | None, float, float, float]]:
+    """Resolve each slide's transition, animation, and exit timing once."""
+    if animation_durations is None:
+        animation_durations = [_SlideAnimator(canvas).duration for canvas in canvases]
+    timings = []
+    for index, animation_end in enumerate(animation_durations):
+        transition = transitions[index] if index < len(transitions) else None
+        if transition is None:
+            duration_in = 0.0 if index == 0 else _DEFAULT_TRANSITION_DURATION
+        elif transition.effect == "cut":
+            duration_in = 0.0
+        else:
+            duration_in = transition.duration
+        if transition is not None and transition.advance_after is not None:
+            exit_time = max(duration_in + transition.advance_after, animation_end, duration_in)
+        else:
+            exit_time = max(animation_end, duration_in) + slide_duration
+        timings.append((transition, duration_in, animation_end, exit_time))
+    return timings
 
 
 def _sample_span(start: float, end: float, fps: float) -> Iterator[tuple[float, float]]:
@@ -1055,6 +1152,10 @@ def _encode_video_file(
     output_path: str,
     soundtrack: AudioTrack | None = None,
     loop_audio: bool = True,
+    slide_audio: list[AudioTrack | None] | None = None,
+    audio_offsets: list[float] | None = None,
+    audio_durations: list[float] | None = None,
+    audio_timeline_duration: float | None = None,
 ) -> None:
     """Stream raw RGB frames into ffmpeg, expanding shots to a constant frame rate.
 
@@ -1071,8 +1172,22 @@ def _encode_video_file(
     """
     binary = _ffmpeg_binary()
     width, height = size
-    if soundtrack is None:
-        audio_input, audio_output = [], ["-an"]
+    if slide_audio is not None:
+        audio_input, audio_output = _scheduled_audio_args(
+            format,
+            soundtrack,
+            loop_audio,
+            slide_audio,
+            audio_offsets or [],
+            audio_durations or [],
+            audio_timeline_duration or 0.0,
+        )
+    elif soundtrack is None:
+        if format == "mp4":
+            audio_input = ["-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo"]
+            audio_output = ["-map", "0:v", "-map", "1:a:0", *_AUDIO_ARGS[format], "-shortest"]
+        else:
+            audio_input, audio_output = [], ["-an"]
     else:
         # The audio must never be the shortest stream or -shortest would cut
         # the video to the track length: looping repeats the track forever
@@ -1139,6 +1254,54 @@ def _encode_video_file(
             )
 
 
+def _scheduled_audio_args(
+    format: str,
+    soundtrack: AudioTrack | None,
+    loop_audio: bool,
+    slide_audio: list[AudioTrack | None],
+    offsets: list[float],
+    durations: list[float],
+    timeline_duration: float,
+) -> tuple[list[str], list[str]]:
+    """Build one ffmpeg filter graph for a music bed and scheduled narration."""
+    inputs: list[str] = []
+    input_index = 1
+    filters: list[str]
+    if soundtrack is None:
+        filters = [f"anullsrc=r=48000:cl=stereo,atrim=duration={timeline_duration:.6f}[bed]"]
+    else:
+        if loop_audio:
+            inputs.extend(["-stream_loop", "-1"])
+        inputs.extend(["-i", soundtrack.path])
+        filters = [
+            f"[{input_index}:a]volume={soundtrack.volume},apad,atrim=duration={timeline_duration:.6f}[bed]"
+        ]
+        input_index += 1
+    labels = ["[bed]"]
+    for audio, offset, duration in zip(slide_audio, offsets, durations, strict=True):
+        if audio is None:
+            continue
+        inputs.extend(["-i", audio.path])
+        label = f"[voice{input_index}]"
+        filters.append(
+            f"[{input_index}:a]volume={audio.volume},apad,atrim=duration={duration:.6f},"
+            f"adelay={round(offset * 1000)}:all=1{label}"
+        )
+        labels.append(label)
+        input_index += 1
+    filters.append(f"{''.join(labels)}amix=inputs={len(labels)}:duration=first:normalize=0[mix]")
+    return inputs, [
+        "-map",
+        "0:v",
+        "-filter_complex",
+        ";".join(filters),
+        "-map",
+        "[mix]",
+        *_AUDIO_ARGS[format],
+        "-shortest",
+    ]
+
+
 def _remove_quietly(path: str) -> None:
     with contextlib.suppress(OSError):
         os.unlink(path)
@@ -1157,63 +1320,3 @@ def _ffmpeg_binary() -> str:
             "Animated GIF export works without ffmpeg."
         )
     return binary
-
-
-def mix_deck_audio(
-    soundtrack: AudioTrack | None,
-    slide_audio: list[AudioTrack | None],
-    offsets: list[float],
-    duration: float,
-    output_path: str,
-) -> None:
-    """Mix an optional music bed and scheduled slide narration into one AAC track."""
-    command = [_ffmpeg_binary(), "-hide_banner", "-loglevel", "error", "-y"]
-    tracks = [(audio, offset) for audio, offset in zip(slide_audio, offsets, strict=True) if audio]
-    sources = ([soundtrack] if soundtrack is not None else []) + [audio for audio, _ in tracks]
-    for source in sources:
-        if not os.path.isfile(source.path):
-            raise ValidationError(f"Soundtrack file not found: {source.path!r}")
-    if soundtrack is not None:
-        if soundtrack.loop:
-            command.extend(["-stream_loop", "-1"])
-        command.extend(["-i", soundtrack.path])
-    for audio, _ in tracks:
-        command.extend(["-i", audio.path])
-    if soundtrack is None:
-        filters = [f"anullsrc=r=48000:cl=stereo,atrim=duration={duration}[bed]"]
-        input_offset = 0
-    else:
-        filters = [f"[0:a]volume={soundtrack.volume},atrim=duration={duration}[bed]"]
-        input_offset = 1
-    labels = ["[bed]"]
-    for index, (audio, offset) in enumerate(tracks, start=input_offset):
-        label = f"[voice{index + 1}]"
-        filters.append(
-            f"[{index}:a]volume={audio.volume},adelay={round(offset * 1000)}:all=1{label}"
-        )
-        labels.append(label)
-    filters.append(f"{''.join(labels)}amix=inputs={len(labels)}:duration=first:normalize=0[mix]")
-    command.extend(
-        [
-            "-filter_complex",
-            ";".join(filters),
-            "-map",
-            "[mix]",
-            "-c:a",
-            "aac",
-            "-b:a",
-            "192k",
-            output_path,
-        ]
-    )
-    try:
-        result = subprocess.run(command, check=False, capture_output=True, text=True)
-    except OSError as error:
-        raise RenderingError(
-            "MP4/WebM export requires the ffmpeg binary. Install ffmpeg "
-            "(e.g. 'brew install ffmpeg' or 'apt install ffmpeg')."
-        ) from error
-    if result.returncode != 0:
-        raise RenderingError(
-            f"ffmpeg failed while mixing deck audio: {result.stderr.strip()[-2000:]}"
-        )

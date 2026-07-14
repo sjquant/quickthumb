@@ -136,7 +136,7 @@ mp4 = canvas.to_mp4(soundtrack="music.mp3")                    # loops to fill t
 mp4 = canvas.to_mp4(soundtrack="jingle.wav", loop_audio=False) # plays once, then silence
 ```
 
-The audio is always trimmed to the video length. With `loop_audio` (the default) a track shorter than the video repeats seamlessly; with `loop_audio=False` it plays once and the rest of the video is silent. GIF exports do not accept a soundtrack.
+The audio is always trimmed to the video length. For an `AudioTrack`, `loop=True` repeats a shorter track and `loop=False` plays it once before silence; `loop_audio` is an explicit override. Legacy string paths keep the previous looping default. GIF exports do not accept a soundtrack.
 
 !!! note "Format limits"
     None of these formats carry transparency: frames are composited onto the opaque `matte` color (default black). Mixed-size slides are scaled to fit and centered on the first slide's size. H.264/VP9 4:2:0 output needs even dimensions, so odd-sized canvases lose their last pixel row/column in MP4/WebM output. GIF encoding keeps frames in memory and rejects timelines that exceed its frame budget; reduce FPS or duration, or use MP4/WebM for long, high-resolution animations.
