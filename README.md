@@ -705,12 +705,12 @@ See the shipped examples in [`examples/README.md`](examples/README.md):
 - Group children must not set `position`; the group assigns positions (their `align` is also ignored — use `item_align`)
 - `svg` layers raise `RenderingError` unless `quickthumb[svg]` (cairosvg) is installed
 - `theme` blocks are resolved at parse time; `to_json()` emits resolved values without the `theme` block
-- Slide `Transition`s and layer `Animation`s affect PPTX and HTML output; raster, SVG, and PDF renderers ignore them
+- Slide `Transition`s and layer `Animation`s affect PPTX, HTML, GIF, MP4, and WebM output; raster, SVG, and PDF renderers ignore them
 - Transitions live on the `Deck` (default plus per-slide override), not on `Canvas`; a per-slide override wins over the deck default
 - Animations are valid on `text`, `shape`, `image`, `svg`, and `group` layers; pass one effect or a list of effects played in order
 - HTML export needs no optional extra; the document is fixed-layout and scaled to fit (`responsive=True` by default), never reflowed, so it stays a faithful twin of the PNG/SVG/PDF/PPTX output
 - HTML text placement is a close approximation (browsers rasterize fonts differently than PIL); use `embed_fonts=True` for the closest match, available when text uses local font files
-- HTML is the only format that plays per-layer `animation`s (and `Deck` slide transitions); a few exotic effects (blinds, checkerboard, wheel, dissolve) fall back to a close CSS analogue
+- HTML, GIF, MP4, and WebM play per-layer `animation`s and `Deck` slide transitions; HTML approximates a few exotic effects (blinds, checkerboard, wheel, dissolve) in CSS
 - HTML cannot animate a layer that must be rasterized together with earlier backdrop-dependent content, such as blend-mode or custom layers; move animated layers after that content or remove the backdrop dependency
 
 ## Development

@@ -62,9 +62,10 @@ from typing import TYPE_CHECKING, Literal
 
 from PIL import Image, ImageChops, ImageColor, ImageDraw
 
+from quickthumb._composition import has_layer_composition
 from quickthumb._export_base import flatten_layers, split_backdrop_prefix
 from quickthumb.errors import RenderingError, ValidationError
-from quickthumb.models import Animation
+from quickthumb.models import Animation, GroupLayer
 
 if TYPE_CHECKING:
     from quickthumb.canvas import Canvas, RenderableLayer
@@ -84,6 +85,7 @@ _UNIT_DISSOLVE_SEED = 31
 _DISSOLVE_BLOCK = 8
 _BLINDS_STRIPS = 6
 _COMB_STRIPS = 8
+_MAX_GIF_FRAME_MEMORY_BYTES = 768 * 1024 * 1024
 
 
 def write_animation(
@@ -110,8 +112,7 @@ def write_animation(
             matte=matte,
             soundtrack=soundtrack,
         )
-        with open(output_path, "wb") as output_file:
-            output_file.write(data)
+        _write_bytes_atomically(output_path, data, suffix=".gif")
         return
 
     fps, matte_rgb = _validated_settings(
@@ -119,7 +120,32 @@ def write_animation(
     )
     size = (canvases[0].width, canvases[0].height)
     shots = _deck_shots(canvases, transitions, fps, slide_duration, matte_rgb)
-    _encode_video_file(shots, size, fps, format, output_path, soundtrack, loop_audio)
+    descriptor, temp_path = _temporary_output_path(output_path, suffix=f".{format}")
+    os.close(descriptor)
+    try:
+        _encode_video_file(shots, size, fps, format, temp_path, soundtrack, loop_audio)
+        os.replace(temp_path, output_path)
+    finally:
+        _remove_quietly(temp_path)
+
+
+def _write_bytes_atomically(output_path: str, data: bytes, suffix: str) -> None:
+    """Replace an output only after all encoded bytes have been written."""
+    descriptor, temp_path = _temporary_output_path(output_path, suffix=suffix)
+    try:
+        with os.fdopen(descriptor, "wb") as output_file:
+            output_file.write(data)
+        os.replace(temp_path, output_path)
+    finally:
+        _remove_quietly(temp_path)
+
+
+def _temporary_output_path(output_path: str, suffix: str) -> tuple[int, str]:
+    """Create a temporary output alongside its final destination for atomic replacement."""
+    return tempfile.mkstemp(
+        suffix=suffix,
+        dir=os.path.dirname(os.path.abspath(output_path)),
+    )
 
 
 def export_animation_bytes(
@@ -177,12 +203,17 @@ def _validated_settings(
             raise ValidationError(f"Soundtrack file not found: {soundtrack!r}")
     if fps is None:
         fps = _DEFAULT_FPS[format]
-    if not fps > 0:
+    if not math.isfinite(fps) or fps <= 0:
         raise ValidationError("fps must be > 0")
-    if fps > 120:
-        raise ValidationError("fps must be <= 120")
+    max_fps = 100 if format == "gif" else 120
+    if fps > max_fps:
+        raise ValidationError(f"fps must be <= {max_fps} for {format} output")
+    if not math.isfinite(slide_duration):
+        raise ValidationError("slide_duration must be finite")
     if slide_duration < 0:
         raise ValidationError("slide_duration must be >= 0")
+    if format in ("mp4", "webm") and (canvases[0].width < 2 or canvases[0].height < 2):
+        raise ValidationError("MP4/WebM export requires canvas dimensions of at least 2x2 pixels")
     if loop < 0:
         raise ValidationError("loop must be >= 0 (0 loops forever)")
     try:
@@ -425,6 +456,11 @@ def _build_units(canvas: Canvas) -> list[_Unit]:
     canvas._validate_image_paths()
     canvas._ctx.begin_render_pass()
     prefix, rest = split_backdrop_prefix(flatten_layers(canvas))
+    if any(_has_animated_descendant_in_composed_group(layer) for layer in (*prefix, *rest)):
+        raise RenderingError(
+            "Animated export cannot animate descendants of a clipped or masked group. "
+            "Move the animation to the group itself, or remove the group's clip or mask."
+        )
     if any(getattr(layer, "animation", None) is not None for layer in prefix):
         raise RenderingError(
             "Animated export cannot animate layers that must be rasterized together for "
@@ -453,6 +489,19 @@ def _build_units(canvas: Canvas) -> list[_Unit]:
         image, pos = _render_unit_image(canvas, layers)
         units.append(_Unit(image=image, pos=pos, effects=effects, seed=_UNIT_DISSOLVE_SEED + index))
     return units
+
+
+def _has_animated_descendant_in_composed_group(layer: RenderableLayer) -> bool:
+    """Return whether a clipped or masked group contains an independently animated child."""
+    if not isinstance(layer, GroupLayer):
+        return False
+    if layer.animation is None and has_layer_composition(layer) and any(
+        getattr(child, "animation", None) is not None
+        or _has_animated_descendant_in_composed_group(child)
+        for child in layer.children
+    ):
+        return True
+    return any(_has_animated_descendant_in_composed_group(child) for child in layer.children)
 
 
 def _render_unit_image(
@@ -594,6 +643,10 @@ def _transition_frame(
     """
     if progress >= 1:
         return incoming
+    if progress <= 0:
+        if transition is not None and transition.effect == "cut":
+            return incoming
+        return previous
     if transition is None:
         return Image.blend(previous, incoming, progress)
     effect = transition.effect
@@ -947,6 +1000,12 @@ def _encode_gif(shots: Iterable[_Shot], loop: int) -> bytes:
     clock = 0.0
     emitted_cs = 0
     for shot in shots:
+        estimated_memory = (len(frames) + 1) * shot.frame.width * shot.frame.height * 4
+        if estimated_memory > _MAX_GIF_FRAME_MEMORY_BYTES:
+            raise RenderingError(
+                "GIF export exceeds the in-memory frame budget. Reduce fps or duration, "
+                "or use MP4/WebM export."
+            )
         clock += shot.duration
         duration_cs = max(1, round(clock * 100) - emitted_cs)
         emitted_cs += duration_cs

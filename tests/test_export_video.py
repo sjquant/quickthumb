@@ -24,7 +24,6 @@ from quickthumb import (
     Wipe,
 )
 from quickthumb import transitions as tr
-from quickthumb._export_video import export_animation_bytes
 from quickthumb.errors import RenderingError, ValidationError
 
 RED = (255, 45, 85)
@@ -749,12 +748,20 @@ class TestVideoErrors:
         ("kwargs", "message"),
         [
             ({"fps": 0}, "fps must be > 0"),
-            ({"fps": 500}, "fps must be <= 120"),
+            ({"fps": 500}, "fps must be <= 100 for gif output"),
             ({"hold": -1.0}, "slide_duration must be >= 0"),
+            ({"hold": math.inf}, "slide_duration must be finite"),
             ({"loop": -1}, "loop must be >= 0"),
             ({"matte": "not-a-color"}, "Invalid matte color"),
         ],
-        ids=["fps-zero", "fps-huge", "negative-hold", "negative-loop", "bad-matte"],
+        ids=[
+            "fps-zero",
+            "fps-huge",
+            "negative-hold",
+            "infinite-hold",
+            "negative-loop",
+            "bad-matte",
+        ],
     )
     def test_should_validate_export_knobs(self, kwargs, message):
         """Out-of-range export settings raise a quickthumb ValidationError"""
@@ -766,13 +773,13 @@ class TestVideoErrors:
             canvas.to_gif(**kwargs)
 
     def test_should_reject_soundtrack_for_gif(self):
-        """GIF cannot carry audio, so a soundtrack is rejected up front"""
+        """The public GIF API does not accept a soundtrack option"""
         # given
         canvas = Canvas(160, 90).background(color="#1131AA")
 
         # when / then
-        with pytest.raises(ValidationError, match="GIF cannot carry audio"):
-            export_animation_bytes([canvas], [None], format="gif", soundtrack="tone.wav")
+        with pytest.raises(TypeError, match="soundtrack"):
+            canvas.to_gif(soundtrack="tone.wav")
 
     def test_should_reject_missing_soundtrack_file(self, tmp_path):
         """A nonexistent soundtrack fails before any frame is rendered"""
@@ -797,6 +804,44 @@ class TestVideoErrors:
         with pytest.raises(RenderingError, match="backdrop"):
             canvas.to_gif()
 
+    def test_should_reject_animated_children_in_clipped_groups(self):
+        """A clipped group cannot independently animate one of its children"""
+        # given
+        canvas = Canvas(160, 90).group(
+            children=[
+                {
+                    "type": "shape",
+                    "shape": "rectangle",
+                    "width": 80,
+                    "height": 50,
+                    "color": "#FF2D55",
+                    "animation": Fade(duration=0.5),
+                }
+            ],
+            position=(40, 20),
+            clip={"shape": "rectangle", "position": (0, 0), "width": 80, "height": 50},
+        )
+
+        # when / then
+        with pytest.raises(RenderingError, match="clipped or masked group"):
+            canvas.to_gif()
+
+    def test_should_reject_single_pixel_video_dimensions(self):
+        """MP4/WebM dimensions below 2 pixels fail before ffmpeg runs"""
+        # given
+        canvas = Canvas(1, 90).background(color="#1131AA")
+
+        # when / then
+        with pytest.raises(ValidationError, match="at least 2x2"):
+            canvas.to_mp4()
+
+    @pytest.mark.parametrize("wheel", [Wheel, tr.Wheel], ids=["animation", "transition"])
+    def test_should_cap_wheel_spokes(self, wheel):
+        """Wheel effects reject spoke counts that would make each frame excessively expensive"""
+        # given / when / then
+        with pytest.raises(ValidationError, match="less than or equal to 64"):
+            wheel(spokes=65)
+
     def test_should_surface_missing_ffmpeg_with_install_hint(self, monkeypatch, tmp_path):
         """MP4 export without ffmpeg raises a clear, actionable error"""
         # given: an environment where ffmpeg cannot be found
@@ -819,7 +864,7 @@ class TestVideoErrors:
             canvas.to_mp4(hold=0.2)
 
     def test_should_leave_no_partial_file_when_encoding_fails(self, monkeypatch, tmp_path):
-        """A failed video export removes its truncated output file"""
+        """A failed video export preserves a pre-existing destination file"""
         # given: an "ffmpeg" that exits nonzero after creating the output
         fake = tmp_path / "fake-ffmpeg"
         fake.write_text('#!/bin/sh\nfor last; do :; done\ntouch "$last"\nexit 1\n')
@@ -827,13 +872,14 @@ class TestVideoErrors:
         monkeypatch.setenv("QUICKTHUMB_FFMPEG", str(fake))
         canvas = Canvas(160, 90).background(color="#1131AA")
         output = tmp_path / "clip.mp4"
+        output.write_bytes(b"previous video")
 
         # when
         with pytest.raises(RenderingError, match="ffmpeg failed"):
             canvas.render(str(output))
 
         # then
-        assert not output.exists()
+        assert output.read_bytes() == b"previous video"
 
     def test_should_fail_before_encoding_when_an_asset_is_missing(self, tmp_path):
         """A missing image on any slide fails up front, writing nothing"""

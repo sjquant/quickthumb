@@ -31,6 +31,7 @@ from typing import Annotated, Literal
 
 from pydantic import (
     Discriminator,
+    Field,
     NonNegativeFloat,
     PositiveFloat,
     PositiveInt,
@@ -102,7 +103,7 @@ class Wheel(_TransitionBase):
     """Sweep the slide in like a clock hand, using ``spokes`` arms."""
 
     effect: Literal["wheel"] = "wheel"
-    spokes: PositiveInt = 1
+    spokes: Annotated[PositiveInt, Field(le=64)] = 1
 
 
 class Push(_TransitionBase):

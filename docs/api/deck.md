@@ -105,7 +105,7 @@ webm_bytes = deck.to_webm(fps=30, slide_duration=3.0)
 
 | Parameter | Type | Default | Description |
 | --- | --- | --- | --- |
-| `fps` | `float` | `20.0` GIF / `30.0` video | Frames per second (max 120) |
+| `fps` | `float` | `20.0` GIF / `30.0` video | Frames per second (max 100 GIF; max 120 video) |
 | `slide_duration` | `float` | `3.0` | Seconds a slide holds after its animations finish, unless its transition sets `advance_after` |
 | `loop` | `int` | `0` | GIF repeat count; `0` loops forever (GIF only) |
 | `matte` | `str` | `"#000000"` | Opaque background color frames are composited onto |

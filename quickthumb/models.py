@@ -556,7 +556,7 @@ class Wheel(_AnimationBase):
     """Sweep the layer in or out like a clock hand, using ``spokes`` arms."""
 
     effect: Literal["wheel"] = "wheel"
-    spokes: PositiveInt = 1
+    spokes: Annotated[PositiveInt, Field(le=64)] = 1
 
 
 # Discriminated union of every effect: validates a dict (e.g. from JSON) into the
