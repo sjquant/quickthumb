@@ -1,7 +1,7 @@
 """Multi-slide / multi-image decks built on top of Canvas.
 
 A Deck is an ordered collection of Canvas objects ("slides"). It renders to a
-multi-page PDF, a multi-slide PPTX, an animated GIF/WebM, a narrated static MP4, or a numbered
+multi-page PDF, a multi-slide PPTX, an animated GIF/WebM/MP4, or a numbered
 sequence of raster images, reusing the exact same per-canvas render pipeline
 so every slide looks identical to rendering that Canvas on its own.
 """
@@ -12,6 +12,7 @@ import contextlib
 import os
 import tempfile
 from dataclasses import dataclass
+from typing import TYPE_CHECKING, cast
 
 from typing_extensions import Self
 
@@ -20,6 +21,9 @@ from quickthumb.canvas import Canvas
 from quickthumb.errors import RenderingError, ValidationError
 from quickthumb.models import AudioTrack, coerce_audio_track
 from quickthumb.transitions import Transition, coerce_transition
+
+if TYPE_CHECKING:
+    from quickthumb._export_video import AnimationFormat
 
 _DOCUMENT_EXTENSIONS = {".pdf", ".pptx", ".html", ".htm"}
 _RASTER_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp"}
@@ -216,14 +220,8 @@ class Deck:
                     "format override is only supported for raster output, "
                     f"not {extension} animations."
                 )
-            from quickthumb._export_video import write_animation
-
-            write_animation(
-                self._slides,
-                self._resolved_transitions(),
-                output_path,
-                format=extension[1:],
-                soundtrack=soundtrack,
+            self._render_animated_file(
+                output_path, cast("AnimationFormat", extension[1:]), soundtrack
             )
             return [output_path]
 
@@ -253,8 +251,55 @@ class Deck:
         raise RenderingError(
             f"Unsupported deck output format: {extension or output_path!r}.\n"
             "Use .pdf, .pptx, .html, an animated extension (.gif, .webm), .mp4 for "
-            "static narrated slides, or a raster extension (.png, .jpg, .jpeg, .webp)."
+            "narrated slides, or a raster extension (.png, .jpg, .jpeg, .webp)."
         )
+
+    def _render_animated_file(
+        self,
+        output_path: str,
+        format: AnimationFormat,
+        soundtrack: AudioTrack | str | dict | None,
+    ) -> None:
+        """Render an animated Deck, mixing scheduled narration when requested."""
+        from quickthumb._export_video import mix_deck_audio, write_animation
+
+        soundtrack = coerce_audio_track(soundtrack)
+        if not any(self._slide_audio):
+            write_animation(
+                self._slides,
+                self._resolved_transitions(),
+                output_path,
+                format=format,
+                soundtrack=soundtrack,
+                loop_audio=soundtrack.loop if soundtrack is not None else True,
+            )
+            return
+        offsets, duration = self._audio_timeline()
+        with tempfile.TemporaryDirectory() as directory:
+            mixed = os.path.join(directory, "deck-audio.m4a")
+            mix_deck_audio(soundtrack, self._slide_audio, offsets, duration, mixed)
+            write_animation(
+                self._slides,
+                self._resolved_transitions(),
+                output_path,
+                format=format,
+                soundtrack=AudioTrack(path=mixed),
+                loop_audio=False,
+            )
+
+    def _audio_timeline(self) -> tuple[list[float], float]:
+        """Estimate slide start offsets from the deck transition timeline."""
+        offsets: list[float] = []
+        time = 0.0
+        for transition in self._resolved_transitions():
+            offsets.append(time)
+            if transition is None:
+                time += 3.0
+            elif transition.effect == "cut":
+                time += transition.advance_after or 3.0
+            else:
+                time += transition.duration + (transition.advance_after or 3.0)
+        return offsets, time
 
     def _render_document(self, output_path: str, extension: str) -> None:
         if extension == ".pdf":

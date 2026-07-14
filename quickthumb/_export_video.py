@@ -1157,3 +1157,63 @@ def _ffmpeg_binary() -> str:
             "Animated GIF export works without ffmpeg."
         )
     return binary
+
+
+def mix_deck_audio(
+    soundtrack: AudioTrack | None,
+    slide_audio: list[AudioTrack | None],
+    offsets: list[float],
+    duration: float,
+    output_path: str,
+) -> None:
+    """Mix an optional music bed and scheduled slide narration into one AAC track."""
+    command = [_ffmpeg_binary(), "-hide_banner", "-loglevel", "error", "-y"]
+    tracks = [(audio, offset) for audio, offset in zip(slide_audio, offsets, strict=True) if audio]
+    sources = ([soundtrack] if soundtrack is not None else []) + [audio for audio, _ in tracks]
+    for source in sources:
+        if not os.path.isfile(source.path):
+            raise ValidationError(f"Soundtrack file not found: {source.path!r}")
+    if soundtrack is not None:
+        if soundtrack.loop:
+            command.extend(["-stream_loop", "-1"])
+        command.extend(["-i", soundtrack.path])
+    for audio, _ in tracks:
+        command.extend(["-i", audio.path])
+    if soundtrack is None:
+        filters = [f"anullsrc=r=48000:cl=stereo,atrim=duration={duration}[bed]"]
+        input_offset = 0
+    else:
+        filters = [f"[0:a]volume={soundtrack.volume},atrim=duration={duration}[bed]"]
+        input_offset = 1
+    labels = ["[bed]"]
+    for index, (audio, offset) in enumerate(tracks, start=input_offset):
+        label = f"[voice{index + 1}]"
+        filters.append(
+            f"[{index}:a]volume={audio.volume},adelay={round(offset * 1000)}:all=1{label}"
+        )
+        labels.append(label)
+    filters.append(f"{''.join(labels)}amix=inputs={len(labels)}:duration=first:normalize=0[mix]")
+    command.extend(
+        [
+            "-filter_complex",
+            ";".join(filters),
+            "-map",
+            "[mix]",
+            "-c:a",
+            "aac",
+            "-b:a",
+            "192k",
+            output_path,
+        ]
+    )
+    try:
+        result = subprocess.run(command, check=False, capture_output=True, text=True)
+    except OSError as error:
+        raise RenderingError(
+            "MP4/WebM export requires the ffmpeg binary. Install ffmpeg "
+            "(e.g. 'brew install ffmpeg' or 'apt install ffmpeg')."
+        ) from error
+    if result.returncode != 0:
+        raise RenderingError(
+            f"ffmpeg failed while mixing deck audio: {result.stderr.strip()[-2000:]}"
+        )

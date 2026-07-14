@@ -713,6 +713,77 @@ class TestVideoEncoding:
 class TestNarratedDeckMp4:
     """Black-box tests for static Deck MP4 narration export."""
 
+    @pytest.mark.parametrize(
+        ("container", "video_codec", "audio_codec"),
+        [("mp4", "h264", "aac"), ("webm", "vp9", "opus")],
+    )
+    def test_should_mix_soundtrack_and_slide_narration_on_animated_render(
+        self, tmp_path, container, video_codec, audio_codec
+    ):
+        """Deck.render mixes the music bed and narration into MP4 and WebM output"""
+        # given
+        music = tone_wav(tmp_path / "music.wav", 0.1)
+        voice = tone_wav(tmp_path / "voice.wav", 0.2)
+        deck = (
+            Deck(160, 90)
+            .slide(
+                Canvas().background(color="#1131AA"),
+                transition=tr.Cut(advance_after=0.25),
+                audio=voice,
+            )
+            .slide(
+                Canvas().background(color="#22AA55"),
+                transition=tr.Cut(advance_after=0.25),
+                audio=voice,
+            )
+        )
+        output = tmp_path / f"animated deck.{container}"
+
+        # when
+        deck.render(str(output), soundtrack=AudioTrack(path=music, volume=0.2, loop=True))
+        streams = subprocess.run(
+            [
+                "ffprobe",
+                "-v",
+                "error",
+                "-show_entries",
+                "stream=codec_type,codec_name",
+                "-of",
+                "csv=p=0",
+                str(output),
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout
+        raw = subprocess.run(
+            [
+                "ffmpeg",
+                "-v",
+                "error",
+                "-ss",
+                "0.35",
+                "-i",
+                str(output),
+                "-frames:v",
+                "1",
+                "-f",
+                "rawvideo",
+                "-pix_fmt",
+                "rgb24",
+                "-",
+            ],
+            check=True,
+            capture_output=True,
+        ).stdout
+
+        # then
+        assert f"{video_codec},video" in streams
+        assert f"{audio_codec},audio" in streams
+        assert Image.frombytes("RGB", (160, 90), raw).getpixel((80, 45)) == pytest.approx(
+            GREEN, abs=24
+        )
+
     def test_should_render_ordered_static_slides_with_aac_audio(self, tmp_path):
         """Deck MP4 joins explicit-audio and silent slides in their declared order"""
         # given

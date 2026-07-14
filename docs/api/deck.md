@@ -72,7 +72,7 @@ deck.render("slides.jpg", quality=85)
 | `.pdf` | Single multi-page PDF. Requires the `pdf` extra. |
 | `.pptx` | Single multi-slide PPTX. Requires the `pptx` extra. |
 | `.gif` / `.webm` | Single animation playing layer animations and slide transitions with default settings. WebM requires `ffmpeg`. |
-| `.mp4` | Static slides with optional per-slide narration, H.264/yuv420p video, and AAC audio. Requires `ffmpeg` and `ffprobe`. |
+| `.mp4` | Static slides with optional per-slide narration, or animated/mixed audio when `soundtrack=` is given; H.264/yuv420p video and AAC audio. Requires `ffmpeg` and `ffprobe` for static narration. |
 | `.png` / `.jpg` / `.jpeg` / `.webp` | One file per slide as a zero-padded numbered sequence. |
 
 | Parameter | Type | Default | Description |
@@ -117,9 +117,10 @@ its `slide_duration` argument supplies the silent-slide default.
 ### `.to_animated_mp4(...)`
 
 Return the same animated timeline as `.to_webm()` in an H.264 MP4 container.
-Pass one pre-mixed `soundtrack` file when the animation needs background music
-and narration together. This is distinct from `.to_mp4()`, which renders static
-slides with their individual `audio` tracks.
+For a file export, prefer `deck.render("deck.mp4", soundtrack=...)`: it mixes
+the optional background `AudioTrack` with each slide's `audio` narration during
+rendering. Without `soundtrack`, `deck.render("deck.mp4")` uses the static
+narrated path described above.
 
 | Parameter | Type | Default | Description |
 | --- | --- | --- | --- |

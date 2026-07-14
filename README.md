@@ -707,14 +707,14 @@ See the shipped examples in [`examples/README.md`](examples/README.md):
 - Group children must not set `position`; the group assigns positions (their `align` is also ignored — use `item_align`)
 - `svg` layers raise `RenderingError` unless `quickthumb[svg]` (cairosvg) is installed
 - `theme` blocks are resolved at parse time; `to_json()` emits resolved values without the `theme` block
-- Slide `Transition`s and layer `Animation`s affect PPTX, HTML, GIF, and Deck WebM output; Deck MP4 currently renders static slides with per-slide narration
+- Slide `Transition`s and layer `Animation`s affect PPTX, HTML, GIF, and Deck WebM output. `deck.render("deck.mp4", soundtrack=...)` also plays that timeline and mixes the soundtrack with slide narration; without `soundtrack`, Deck MP4 renders static slides with per-slide narration
 - Transitions live on the `Deck` (default plus per-slide override), not on `Canvas`; a per-slide override wins over the deck default
 - Animations are valid on `text`, `shape`, `image`, `svg`, and `group` layers; pass one effect or a list of effects played in order
 - HTML export needs no optional extra; the document is fixed-layout and scaled to fit (`responsive=True` by default), never reflowed, so it stays a faithful twin of the PNG/SVG/PDF/PPTX output
 - HTML text placement is a close approximation (browsers rasterize fonts differently than PIL); use `embed_fonts=True` for the closest match, available when text uses local font files
 - HTML, GIF, and Deck WebM play per-layer `animation`s and `Deck` slide transitions; HTML approximates a few exotic effects (blinds, checkerboard, wheel, dissolve) in CSS
 - HTML cannot animate a layer that must be rasterized together with earlier backdrop-dependent content, such as blend-mode or custom layers; move animated layers after that content or remove the backdrop dependency
-- Deck MP4 can attach `audio=` and `duration=` to each `slide()`: it requires FFmpeg/FFprobe, always writes H.264/AAC, and currently exports static slides without transitions or layer animations
+- Deck MP4 can attach `audio=` and `duration=` to each `slide()`: it requires FFmpeg/FFprobe for the static narration path and always writes H.264/AAC. Use `deck.render("deck.mp4", soundtrack={"path": "music.mp3", "loop": True})` to play transitions/layer animations and mix the background track with slide narration during rendering
 
 ## Development
 

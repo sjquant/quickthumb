@@ -1,16 +1,14 @@
 """PULSE — a polished, beat-synced vertical product hype reel.
 
-The example builds an eight-scene Korean fitness-app ad on one Reels-safe
+The example builds an eight-scene fitness-app ad on one Reels-safe
 layout grid. It demonstrates platform-aware diagnostics, layered gradients,
 animated product-metric cards, native Pretendard typography, slide transitions
-in GIF/WebM, and per-scene Korean voiceovers in the static MP4 export.
+in GIF/WebM/MP4, with English per-scene voiceovers mixed with a soundtrack at render time.
 
 Run:
     uv run python examples/product_hype_reel.py
 """
 
-import subprocess
-import tempfile
 from pathlib import Path
 
 from quickthumb import (
@@ -24,7 +22,6 @@ from quickthumb import (
     LinearGradient,
     QuickthumbError,
     RadialGradient,
-    RenderingError,
     Shadow,
     Stroke,
     Wipe,
@@ -107,7 +104,7 @@ def build_deck() -> Deck:
     proof = build_social_proof_scene()
     cta = build_cta_scene()
 
-    # Longer scenes give the Korean narration room to breathe while keeping
+    # Longer scenes give the English narration room to breathe while keeping
     # every incoming transition aligned to a beat.
     return (
         Deck(WIDTH, HEIGHT)
@@ -886,48 +883,14 @@ def export_reel(deck: Deck) -> None:
     OUT_GIF.write_bytes(deck.to_gif(fps=2, loop=0))
 
     try:
-        with tempfile.TemporaryDirectory() as directory:
-            soundtrack = Path(directory) / "soundtrack.m4a"
-            _mix_soundtrack(soundtrack)
-            audio = AudioTrack(path=str(soundtrack), volume=0.9)
-            deck.render(str(OUT_MP4), soundtrack=audio)
-            deck.render(str(OUT_WEBM), soundtrack=audio)
+        soundtrack = AudioTrack(path=str(SOUNDTRACK), volume=0.16, loop=True)
+        deck.render(str(OUT_MP4), soundtrack=soundtrack)
+        deck.render(str(OUT_WEBM), soundtrack=soundtrack)
     except QuickthumbError as error:
         print(f"⚠ Skipped MP4/WebM ({error})")
 
     print(f"✓ {OUT_GIF}")
     print(f"  {len(deck)} scenes · 36 seconds · narration-first timeline")
-
-
-def _mix_soundtrack(output_path: Path) -> None:
-    """Mix the looping music bed and slide voiceovers during export."""
-    from quickthumb._export_video import _ffmpeg_binary
-
-    command = [_ffmpeg_binary(), "-y", "-stream_loop", "-1", "-i", str(SOUNDTRACK)]
-    for voiceover in VOICEOVERS:
-        command.extend(["-i", str(voiceover)])
-    delays = ";".join(
-        f"[{index}:a]adelay={int((index - 1) * SCENE_DURATION * 1000)}:all=1[v{index}]"
-        for index in range(1, len(VOICEOVERS) + 1)
-    )
-    voices = "".join(f"[v{index}]" for index in range(1, len(VOICEOVERS) + 1))
-    command.extend(
-        [
-            "-filter_complex",
-            f"[0:a]volume=0.16,atrim=duration=36[bg];{delays};[bg]{voices}amix=inputs=9:duration=first:normalize=0[a]",
-            "-map",
-            "[a]",
-            "-c:a",
-            "aac",
-            "-b:a",
-            "192k",
-            str(output_path),
-        ]
-    )
-    try:
-        subprocess.run(command, check=True, capture_output=True)
-    except (OSError, subprocess.CalledProcessError) as error:
-        raise RenderingError("Could not mix the reel soundtrack with ffmpeg.") from error
 
 
 if __name__ == "__main__":

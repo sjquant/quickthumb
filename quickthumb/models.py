@@ -208,6 +208,7 @@ class AudioTrack(quickthumbModel):
 
     path: str
     volume: Annotated[float, Field(ge=0)] = 1.0
+    loop: bool = False
 
 
 def coerce_audio_track(value: AudioTrack | str | dict | None) -> AudioTrack | None:
