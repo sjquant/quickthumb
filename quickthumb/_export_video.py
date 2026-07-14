@@ -65,7 +65,7 @@ from PIL import Image, ImageChops, ImageColor, ImageDraw
 from quickthumb._composition import has_layer_composition
 from quickthumb._export_base import flatten_layers, split_backdrop_prefix
 from quickthumb.errors import RenderingError, ValidationError
-from quickthumb.models import Animation, GroupLayer
+from quickthumb.models import Animation, AudioTrack, GroupLayer, coerce_audio_track
 
 if TYPE_CHECKING:
     from quickthumb.canvas import Canvas, RenderableLayer
@@ -97,10 +97,11 @@ def write_animation(
     slide_duration: float = 3.0,
     loop: int = 0,
     matte: str = "#000000",
-    soundtrack: str | None = None,
+    soundtrack: AudioTrack | str | dict | None = None,
     loop_audio: bool = True,
 ) -> None:
     """Render slides to an animated file, dispatching on ``format``."""
+    soundtrack = coerce_audio_track(soundtrack)
     if format == "gif":
         data = export_animation_bytes(
             canvases,
@@ -156,10 +157,11 @@ def export_animation_bytes(
     slide_duration: float = 3.0,
     loop: int = 0,
     matte: str = "#000000",
-    soundtrack: str | None = None,
+    soundtrack: AudioTrack | str | dict | None = None,
     loop_audio: bool = True,
 ) -> bytes:
     """Render slides to animated GIF/MP4/WebM bytes."""
+    soundtrack = coerce_audio_track(soundtrack)
     fps, matte_rgb = _validated_settings(
         canvases, format, fps, slide_duration, loop, matte, soundtrack
     )
@@ -189,7 +191,7 @@ def _validated_settings(
     slide_duration: float,
     loop: int,
     matte: str,
-    soundtrack: str | None = None,
+    soundtrack: AudioTrack | None = None,
 ) -> tuple[float, tuple[int, int, int]]:
     """Validate the shared export knobs and resolve fps and matte defaults."""
     if format not in _DEFAULT_FPS:
@@ -199,8 +201,8 @@ def _validated_settings(
     if soundtrack is not None:
         if format == "gif":
             raise ValidationError("GIF cannot carry audio; use mp4 or webm for a soundtrack.")
-        if not os.path.isfile(soundtrack):
-            raise ValidationError(f"Soundtrack file not found: {soundtrack!r}")
+        if not os.path.isfile(soundtrack.path):
+            raise ValidationError(f"Soundtrack file not found: {soundtrack.path!r}")
     if fps is None:
         fps = _DEFAULT_FPS[format]
     if not math.isfinite(fps) or fps <= 0:
@@ -495,10 +497,14 @@ def _has_animated_descendant_in_composed_group(layer: RenderableLayer) -> bool:
     """Return whether a clipped or masked group contains an independently animated child."""
     if not isinstance(layer, GroupLayer):
         return False
-    if layer.animation is None and has_layer_composition(layer) and any(
-        getattr(child, "animation", None) is not None
-        or _has_animated_descendant_in_composed_group(child)
-        for child in layer.children
+    if (
+        layer.animation is None
+        and has_layer_composition(layer)
+        and any(
+            getattr(child, "animation", None) is not None
+            or _has_animated_descendant_in_composed_group(child)
+            for child in layer.children
+        )
     ):
         return True
     return any(_has_animated_descendant_in_composed_group(child) for child in layer.children)
@@ -1047,7 +1053,7 @@ def _encode_video_file(
     fps: float,
     format: str,
     output_path: str,
-    soundtrack: str | None = None,
+    soundtrack: AudioTrack | None = None,
     loop_audio: bool = True,
 ) -> None:
     """Stream raw RGB frames into ffmpeg, expanding shots to a constant frame rate.
@@ -1072,11 +1078,13 @@ def _encode_video_file(
         # the video to the track length: looping repeats the track forever
         # (-stream_loop precedes its -i), otherwise silence pads it forever
         # (apad), and either way -shortest then trims audio to video length.
-        audio_input = (["-stream_loop", "-1"] if loop_audio else []) + ["-i", soundtrack]
-        audio_filter = [] if loop_audio else ["-af", "apad"]
+        audio_input = (["-stream_loop", "-1"] if loop_audio else []) + ["-i", soundtrack.path]
+        filters = [f"volume={soundtrack.volume}"]
+        if not loop_audio:
+            filters.append("apad")
         audio_output = [
-            "-map", "0:v", "-map", "1:a:0",
-            *audio_filter, *_AUDIO_ARGS[format], "-shortest",
+            "-map", "0:v", "-map", "1:a:0", "-af", ",".join(filters),
+            *_AUDIO_ARGS[format], "-shortest",
         ]  # fmt: skip
     command = [
         binary, "-hide_banner", "-loglevel", "error", "-y",

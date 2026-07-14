@@ -11,6 +11,7 @@ import pytest
 from PIL import Image
 from quickthumb import (
     Appear,
+    AudioTrack,
     Blinds,
     Box,
     Canvas,
@@ -632,7 +633,7 @@ class TestVideoEncoding:
 
         # when
         export = canvas.to_mp4 if container == "mp4" else canvas.to_webm
-        data = export(fps=10, hold=2.0, soundtrack=tone)
+        data = export(fps=10, hold=2.0, soundtrack=AudioTrack(path=tone, volume=0.5))
         samples = decoded_audio(data, tmp_path / f"clip.{container}")
 
         # then: the audio spans the video and the tone still plays at the end

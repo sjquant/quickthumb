@@ -203,6 +203,26 @@ class quickthumbModel(BaseModel):  # noqa: N801
 QuickThumbModel = quickthumbModel
 
 
+class AudioTrack(quickthumbModel):
+    """An audio source with room for export-time mix controls."""
+
+    path: str
+    volume: Annotated[float, Field(ge=0)] = 1.0
+
+
+def coerce_audio_track(value: AudioTrack | str | dict | None) -> AudioTrack | None:
+    """Normalize legacy path strings and mapping specs into an audio track."""
+    if value is None:
+        return None
+    if isinstance(value, AudioTrack):
+        return value
+    if isinstance(value, str):
+        return AudioTrack(path=value)
+    if isinstance(value, dict):
+        return AudioTrack(**value)
+    raise ValidationError("audio must be a path string or AudioTrack configuration")
+
+
 class FaceRegion(quickthumbModel):
     """Normalized source-image face box used to guide cover crops."""
 

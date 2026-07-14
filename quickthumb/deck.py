@@ -18,6 +18,7 @@ from typing_extensions import Self
 from quickthumb._base import FileFormat, aspect_ratio_dimensions
 from quickthumb.canvas import Canvas
 from quickthumb.errors import RenderingError, ValidationError
+from quickthumb.models import AudioTrack, coerce_audio_track
 from quickthumb.transitions import Transition, coerce_transition
 
 _DOCUMENT_EXTENSIONS = {".pdf", ".pptx", ".html", ".htm"}
@@ -75,7 +76,7 @@ class Deck:
         self._transition = self._coerce_transition(transition)
         self._slides: list[Canvas] = []
         self._slide_transitions: list[Transition | None] = []
-        self._slide_audio: list[str | None] = []
+        self._slide_audio: list[AudioTrack | None] = []
         self._slide_durations: list[float | None] = []
         for slide in slides or []:
             self._append_slide(slide)
@@ -126,7 +127,7 @@ class Deck:
         canvas: Canvas,
         transition: Transition | dict | str | None = None,
         *,
-        audio: str | None = None,
+        audio: AudioTrack | str | dict | None = None,
         duration: float | None = None,
     ) -> Self:
         """Append a single Canvas as the next slide (chainable).
@@ -141,7 +142,7 @@ class Deck:
         self._append_slide(canvas)
         if override is not None:
             self._slide_transitions[-1] = override
-        self._slide_audio[-1] = audio
+        self._slide_audio[-1] = coerce_audio_track(audio)
         self._slide_durations[-1] = duration
         return self
 
@@ -530,7 +531,7 @@ class Deck:
             if override is not None:
                 slide["transition"] = json.loads(override.model_dump_json())
             if audio is not None:
-                slide["audio"] = audio
+                slide["audio"] = audio.model_dump()
             if duration is not None:
                 slide["duration"] = duration
             slides.append(slide)

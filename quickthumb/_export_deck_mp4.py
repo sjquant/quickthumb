@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from quickthumb.errors import RenderingError, ValidationError
+from quickthumb.models import AudioTrack
 
 if TYPE_CHECKING:
     from quickthumb.canvas import Canvas
@@ -18,7 +19,7 @@ if TYPE_CHECKING:
 
 def render_deck_mp4(
     slides: list[Canvas],
-    audio_paths: list[str | None],
+    audio_paths: list[AudioTrack | None],
     durations: list[float | None],
     output_path: str,
     default_duration: float = 3.0,
@@ -53,7 +54,7 @@ def render_deck_mp4(
 
 def _validate_settings(
     slides: list[Canvas],
-    audio_paths: list[str | None],
+    audio_paths: list[AudioTrack | None],
     durations: list[float | None],
     default_duration: float,
     fps: float,
@@ -68,11 +69,8 @@ def _validate_settings(
     if not _is_positive_finite(fps):
         raise ValidationError("fps must be a finite value > 0")
     for audio, duration in zip(audio_paths, durations, strict=True):
-        if audio is not None:
-            if not isinstance(audio, str):
-                raise ValidationError("audio must be a file path string")
-            if not os.path.isfile(audio):
-                raise ValidationError(f"Audio file not found: {audio!r}")
+        if audio is not None and not os.path.isfile(audio.path):
+            raise ValidationError(f"Audio file not found: {audio.path!r}")
         if duration is not None and not _is_positive_finite(duration):
             raise ValidationError("duration must be a finite value > 0")
 
@@ -108,7 +106,7 @@ def _configured_tool(variable: str, fallback: str) -> str | None:
 
 
 def _resolved_duration(
-    audio: str | None, duration: float | None, default_duration: float, ffprobe: str
+    audio: AudioTrack | None, duration: float | None, default_duration: float, ffprobe: str
 ) -> float:
     """Use explicit timing, otherwise probe audio, otherwise use the silent default."""
     if duration is not None:
@@ -125,7 +123,7 @@ def _resolved_duration(
                 "format=duration",
                 "-of",
                 "default=nw=1:nk=1",
-                audio,
+                audio.path,
             ],
             check=False,
             capture_output=True,
@@ -136,9 +134,9 @@ def _resolved_duration(
     try:
         result = float(probe.stdout.strip())
     except ValueError as error:
-        raise RenderingError(f"ffprobe could not read audio duration: {audio!r}") from error
+        raise RenderingError(f"ffprobe could not read audio duration: {audio.path!r}") from error
     if probe.returncode != 0 or not math.isfinite(result) or result <= 0:
-        raise RenderingError(f"ffprobe could not read audio duration: {audio!r}")
+        raise RenderingError(f"ffprobe could not read audio duration: {audio.path!r}")
     return result
 
 
@@ -150,7 +148,7 @@ def _even_size(width: int, height: int) -> tuple[int, int]:
 def _encode_segment(
     ffmpeg: str,
     image_path: Path,
-    audio: str | None,
+    audio: AudioTrack | None,
     duration: float,
     fps: float,
     width: int,
@@ -162,7 +160,7 @@ def _encode_segment(
     if audio is None:
         command.extend(["-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo"])
     else:
-        command.extend(["-i", audio])
+        command.extend(["-i", audio.path])
     video_filter = (
         f"scale={width}:{height}:force_original_aspect_ratio=decrease,"
         f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:black"
@@ -184,7 +182,7 @@ def _encode_segment(
             "-ar",
             "48000",
             "-af",
-            "apad",
+            f"volume={audio.volume},apad" if audio is not None else "apad",
             "-movflags",
             "+faststart",
             str(output_path),

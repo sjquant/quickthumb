@@ -12,6 +12,7 @@ Run:
 from pathlib import Path
 
 from quickthumb import (
+    AudioTrack,
     Canvas,
     Deck,
     Dissolve,
@@ -165,8 +166,8 @@ def build_hook_scene() -> Canvas:
     canvas = add_copy(
         canvas,
         eyebrow="NEW  ·  PERSONAL FITNESS OS",
-        headline="운동이,\n데이터가 된다.",
-        body="심박수부터 회복까지, 내 몸의 리듬을 한눈에.",
+        headline="TRAINING,\nMADE PERSONAL.",
+        body="From heart rate to recovery, see your rhythm at a glance.",
         accent=PINK,
         headline_size=108,
     )
@@ -214,7 +215,7 @@ def build_hook_scene() -> Canvas:
         animation=Fade(duration=MOTION_FAST, trigger="with_previous"),
     )
     canvas = canvas.text(
-        content="심박 구간  ·  퍼포먼스",
+        content="HEART RATE  ·  PERFORMANCE",
         font=PRETENDARD[500],
         size=48,
         color=MUTED,
@@ -235,8 +236,8 @@ def build_problem_scene() -> Canvas:
     canvas = add_copy(
         canvas,
         eyebrow="THE PROBLEM",
-        headline="작심삼일은\n의지 문제가 아냐.",
-        body="피드백이 늦으면, 동기도 늦게 옵니다.",
+        headline="CONSISTENCY\nNEEDS A SYSTEM.",
+        body="When feedback arrives late, motivation follows.",
         accent=VIOLET,
         headline_size=96,
     )
@@ -247,7 +248,7 @@ def build_problem_scene() -> Canvas:
         animation=Dissolve(duration=MOTION_STANDARD, trigger="after_previous"),
     )
     canvas = canvas.text(
-        content="평균 포기 시점",
+        content="AVERAGE DROP-OFF",
         font=PRETENDARD[700],
         size=48,
         color=MUTED,
@@ -260,7 +261,7 @@ def build_problem_scene() -> Canvas:
         font=PRETENDARD[900],
         size=82,
         color=VIOLET,
-        position=(848, 1014),
+        position=(848, 1077),
         align=("right", "top"),
         animation=Fade(duration=MOTION_STANDARD, trigger="with_previous"),
     )
@@ -271,7 +272,7 @@ def build_problem_scene() -> Canvas:
         animation=Dissolve(duration=MOTION_STANDARD, trigger="after_previous"),
     )
     canvas = canvas.text(
-        content="실시간 피드백",
+        content="LIVE FEEDBACK",
         font=PRETENDARD[700],
         size=48,
         color=MUTED,
@@ -290,7 +291,7 @@ def build_problem_scene() -> Canvas:
     )
     return add_footer(
         canvas,
-        "문제는 의지가 아니라, 늦은 피드백.",
+        "LATE FEEDBACK KILLS MOMENTUM.",
         animation=Fade(duration=MOTION_FAST, trigger="with_previous"),
     )
 
@@ -301,8 +302,8 @@ def build_solution_scene() -> Canvas:
     canvas = add_copy(
         canvas,
         eyebrow="MEET PULSE",
-        headline="내 몸에 맞는\n리듬을 찾다.",
-        body="흩어진 운동 신호를, 오늘의 한 숫자로.",
+        headline="FIND YOUR\nDAILY RHYTHM.",
+        body="Turn scattered signals into one clear daily score.",
         accent=CYAN,
         headline_size=108,
         headline_letter_spacing=0,
@@ -342,7 +343,7 @@ def build_solution_scene() -> Canvas:
         animation=Fade(duration=MOTION_FAST, trigger="with_previous"),
     )
     canvas = canvas.text(
-        content="수면 92  ·  컨디션 81  ·  스트레스 24",
+        content="SLEEP 92  ·  ENERGY 81  ·  STRESS 24",
         font=PRETENDARD[500],
         size=48,
         color=MUTED,
@@ -356,7 +357,7 @@ def build_solution_scene() -> Canvas:
     )
     return add_footer(
         canvas,
-        "한 화면에서 오늘의 몸을 읽으세요.",
+        "READ TODAY'S BODY AT A GLANCE.",
         animation=Fade(duration=MOTION_FAST, trigger="with_previous"),
     )
 
@@ -367,8 +368,8 @@ def build_live_sync_scene() -> Canvas:
     canvas = add_copy(
         canvas,
         eyebrow="01  ·  LIVE SYNC",
-        headline="심박수는\n1초도 놓치지 않게.",
-        body="운동 강도와 심박 구간을 실시간으로 확인하세요.",
+        headline="NEVER MISS\nA BEAT.",
+        body="Track heart-rate zones and workout intensity live.",
         accent=PINK,
         headline_size=93,
         headline_letter_spacing=0,
@@ -380,7 +381,7 @@ def build_live_sync_scene() -> Canvas:
         value="142",
         unit="BPM",
         unit_x=500,
-        detail="워밍업  ·  지방 연소  ·  유산소",
+        detail="WARM-UP  ·  FAT BURN  ·  CARDIO",
         accent=PINK,
     )
     return add_footer(
@@ -396,8 +397,8 @@ def build_ai_coach_scene() -> Canvas:
     canvas = add_copy(
         canvas,
         eyebrow="02  ·  AI COACH",
-        headline="오늘의 강도는\nAI가 먼저 계산.",
-        body="회복 상태에 맞춰 운동 시간과 강도를 자동 조절해요.",
+        headline="AI SETS\nTODAY'S PACE.",
+        body="Adapt duration and intensity to your recovery.",
         accent=CYAN,
         headline_size=95,
         headline_letter_spacing=0,
@@ -409,12 +410,12 @@ def build_ai_coach_scene() -> Canvas:
         value="68",
         unit="%",
         unit_x=390,
-        detail="인터벌 24분  ·  권장 강도 보통",
+        detail="INTERVAL 24 MIN  ·  RECOMMENDED: MODERATE",
         accent=CYAN,
     )
     return add_footer(
         canvas,
-        "매일 달라지는 나만의 코칭 플랜.",
+        "A COACHING PLAN THAT ADAPTS EVERY DAY.",
         animation=Fade(duration=MOTION_FAST, trigger="with_previous"),
     )
 
@@ -425,8 +426,8 @@ def build_streak_scene() -> Canvas:
     canvas = add_copy(
         canvas,
         eyebrow="03  ·  SMART STREAK",
-        headline="작심삼일을\n21일의 루틴으로.",
-        body="작은 성공을 연결해, 멈추지 않는 습관을 만듭니다.",
+        headline="TURN THREE DAYS\nINTO TWENTY-ONE.",
+        body="Link small wins into a habit that lasts.",
         accent=LIME,
         headline_size=96,
     )
@@ -484,7 +485,7 @@ def build_streak_scene() -> Canvas:
     )
     return add_footer(
         canvas,
-        "꾸준함이 눈에 보이면, 루틴은 계속됩니다.",
+        "WHEN CONSISTENCY IS VISIBLE, HABITS KEEP GOING.",
         animation=Fade(duration=MOTION_FAST, trigger="with_previous"),
     )
 
@@ -495,8 +496,8 @@ def build_social_proof_scene() -> Canvas:
     canvas = add_copy(
         canvas,
         eyebrow="4.9  ·  2,841 REVIEWS",
-        headline="혼자보다 오래,\n어제보다 멀리.",
-        body="펄스와 함께 만든 변화는 숫자로 남습니다.",
+        headline="GO LONGER.\nGO FARTHER.",
+        body="Progress built with PULSE shows up in the numbers.",
         accent=VIOLET,
         headline_size=100,
     )
@@ -536,7 +537,7 @@ def build_social_proof_scene() -> Canvas:
         animation=Fade(duration=MOTION_FAST, trigger="with_previous"),
     )
     canvas = canvas.text(
-        content="“드디어 5km를\n완주했어요.”",
+        content="“I FINALLY RAN\nMY FIRST 5K.”",
         font=PRETENDARD[800],
         size=68,
         color=WHITE,
@@ -546,7 +547,7 @@ def build_social_proof_scene() -> Canvas:
         animation=Wipe(direction="up", duration=MOTION_STANDARD, trigger="after_previous"),
     )
     canvas = canvas.text(
-        content="베타 테스터 김O진  ·  러닝 8주 차",
+        content="BETA TESTER  ·  RUNNING, WEEK 8",
         font=PRETENDARD[500],
         size=48,
         color=MUTED,
@@ -556,7 +557,7 @@ def build_social_proof_scene() -> Canvas:
     )
     return add_footer(
         canvas,
-        "당신의 다음 기록도 여기서 시작됩니다.",
+        "YOUR NEXT PERSONAL BEST STARTS HERE.",
         animation=Fade(duration=MOTION_FAST, trigger="with_previous"),
     )
 
@@ -567,8 +568,8 @@ def build_cta_scene() -> Canvas:
     canvas = add_copy(
         canvas,
         eyebrow="PULSE  ·  START TODAY",
-        headline="이제,\n움직일 시간.",
-        body="내 몸을 이해하는 가장 빠른 방법.",
+        headline="TIME TO\nMOVE.",
+        body="The fastest way to understand your body.",
         accent=INK,
         headline_size=124,
         bright=True,
@@ -584,7 +585,7 @@ def build_cta_scene() -> Canvas:
         animation=Dissolve(duration=MOTION_STANDARD, trigger="after_previous"),
     )
     canvas = canvas.text(
-        content="무료로 시작하기",
+        content="START FREE",
         font=PRETENDARD[800],
         size=56,
         color=WHITE,
@@ -593,7 +594,7 @@ def build_cta_scene() -> Canvas:
         animation=Fade(duration=MOTION_FAST, trigger="with_previous"),
     )
     canvas = canvas.text(
-        content="평점 4.9  ·  첫 7일 무료  ·  언제든 해지",
+        content="4.9 RATING  ·  7 DAYS FREE  ·  CANCEL ANYTIME",
         font=PRETENDARD[700],
         size=48,
         color=INK,
@@ -883,8 +884,9 @@ def export_reel(deck: Deck) -> None:
     OUT_GIF.write_bytes(deck.to_gif(fps=2, loop=0))
 
     try:
-        OUT_MP4.write_bytes(deck.to_animated_mp4(fps=30, soundtrack=str(MIXED_SOUNDTRACK)))
-        OUT_WEBM.write_bytes(deck.to_webm(fps=30, soundtrack=str(MIXED_SOUNDTRACK)))
+        soundtrack = AudioTrack(path=str(MIXED_SOUNDTRACK), volume=0.9)
+        OUT_MP4.write_bytes(deck.to_animated_mp4(fps=30, soundtrack=soundtrack))
+        OUT_WEBM.write_bytes(deck.to_webm(fps=30, soundtrack=soundtrack))
     except QuickthumbError as error:
         print(f"⚠ Skipped MP4/WebM ({error})")
 
