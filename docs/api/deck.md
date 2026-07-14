@@ -116,7 +116,8 @@ its `slide_duration` argument supplies the silent-slide default.
 
 ### `.to_animated_mp4(...)`
 
-Return the same animated timeline as `.to_webm()` in an H.264 MP4 container.
+Return the same animated timeline as `.to_webm()` in an H.264 MP4 container,
+including scheduled per-slide narration and an optional mixed soundtrack.
 For a file export, prefer `deck.render("deck.mp4", soundtrack=...)`: it mixes
 the optional background `AudioTrack` with each slide's `audio` narration during
 rendering. Without `soundtrack`, `deck.render("deck.mp4")` uses the static

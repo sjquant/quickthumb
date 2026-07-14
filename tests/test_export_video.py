@@ -862,6 +862,43 @@ class TestNarratedDeckMp4:
         # then
         assert max(abs(sample) for sample in samples[1300:1900]) < 100
 
+    @pytest.mark.parametrize("export", ["to_animated_mp4", "to_webm"])
+    def test_should_extend_animated_bytes_to_inferred_narration_duration(self, tmp_path, export):
+        """Animated byte exports preserve a narration longer than the default visual hold."""
+        # given
+        voice = tone_wav(tmp_path / "long narration.wav", 0.55)
+        deck = Deck(160, 90).slide(
+            Canvas().background(color="#1131AA"),
+            transition=tr.Cut(advance_after=0),
+            audio=voice,
+        )
+        output = tmp_path / f"animated.{'mp4' if export == 'to_animated_mp4' else 'webm'}"
+
+        # when
+        output.write_bytes(getattr(deck, export)(fps=20, slide_duration=0.1))
+        duration = float(
+            subprocess.run(
+                [
+                    "ffprobe",
+                    "-v",
+                    "error",
+                    "-show_entries",
+                    "format=duration",
+                    "-of",
+                    "default=nw=1:nk=1",
+                    str(output),
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout
+        )
+        samples = decoded_audio(output.read_bytes(), tmp_path / f"{export}.pcm")
+
+        # then
+        assert duration == pytest.approx(0.55, abs=0.12)
+        assert max(abs(sample) for sample in samples) > 100
+
     def test_should_render_ordered_static_slides_with_aac_audio(self, tmp_path):
         """Deck MP4 joins explicit-audio and silent slides in their declared order"""
         # given
@@ -951,12 +988,11 @@ class TestNarratedDeckMp4:
     def test_should_reject_non_numeric_slide_duration(self, tmp_path):
         """Malformed per-slide duration raises ValidationError before any output is created"""
         # given
-        deck = Deck(160, 90).slide(Canvas().background(color="#1131AA"), duration="invalid")
         output = tmp_path / "deck.mp4"
 
         # when / then
         with pytest.raises(ValidationError, match="duration must be a finite"):
-            deck.render_mp4(str(output))
+            Deck(160, 90).slide(Canvas().background(color="#1131AA"), duration="invalid")
         assert not output.exists()
 
 

@@ -29,7 +29,7 @@ def render_deck_mp4(
     _validate_settings(slides, audio_paths, durations, default_duration, fps)
     ffmpeg, ffprobe = _media_tools()
     resolved_durations = [
-        _resolved_duration(audio, duration, default_duration, ffprobe)
+        resolve_audio_duration(audio, duration, default_duration, ffprobe)
         for audio, duration in zip(audio_paths, durations, strict=True)
     ]
     width, height = _even_size(slides[0].width, slides[0].height)
@@ -97,6 +97,17 @@ def _media_tools() -> tuple[str, str]:
     )
 
 
+def ffprobe_binary() -> str:
+    """Resolve ffprobe for exports that infer a slide narration's duration."""
+    ffprobe = _configured_tool("QUICKTHUMB_FFPROBE", "ffprobe")
+    if ffprobe:
+        return ffprobe
+    raise RenderingError(
+        "Audio duration inference requires ffprobe. Install FFmpeg "
+        "(macOS: brew install ffmpeg; Ubuntu/Debian: sudo apt install ffmpeg)."
+    )
+
+
 def _configured_tool(variable: str, fallback: str) -> str | None:
     """Resolve an optional configured executable or the standard PATH tool."""
     configured = os.environ.get(variable)
@@ -105,7 +116,7 @@ def _configured_tool(variable: str, fallback: str) -> str | None:
     return shutil.which(fallback)
 
 
-def _resolved_duration(
+def resolve_audio_duration(
     audio: AudioTrack | None, duration: float | None, default_duration: float, ffprobe: str
 ) -> float:
     """Use explicit timing, otherwise probe audio, otherwise use the silent default."""

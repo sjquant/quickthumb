@@ -9,6 +9,7 @@ so every slide looks identical to rendering that Canvas on its own.
 from __future__ import annotations
 
 import contextlib
+import math
 import os
 import tempfile
 from dataclasses import dataclass
@@ -143,6 +144,13 @@ class Deck:
         # Validate the transition before mutating state so a bad value can't
         # leave a half-added slide behind.
         override = self._coerce_transition(transition)
+        if duration is not None and (
+            not isinstance(duration, (int, float))
+            or isinstance(duration, bool)
+            or not math.isfinite(duration)
+            or duration <= 0
+        ):
+            raise ValidationError("duration must be a finite value > 0")
         self._append_slide(canvas)
         if override is not None:
             self._slide_transitions[-1] = override
@@ -264,7 +272,7 @@ class Deck:
         from quickthumb._export_video import write_animation
 
         soundtrack = coerce_audio_track(soundtrack)
-        if format == "gif" or not any(self._slide_audio):
+        if format == "gif":
             write_animation(
                 self._slides,
                 self._resolved_transitions(),
@@ -274,7 +282,7 @@ class Deck:
                 loop_audio=soundtrack.loop if soundtrack is not None else True,
             )
             return
-        offsets, durations, timeline_duration = self._animation_audio_schedule()
+        slide_durations = self._animation_audio_schedule()
         write_animation(
             self._slides,
             self._resolved_transitions(),
@@ -283,24 +291,23 @@ class Deck:
             soundtrack=soundtrack,
             loop_audio=soundtrack.loop if soundtrack is not None else True,
             slide_audio=self._slide_audio,
-            audio_offsets=offsets,
-            audio_durations=durations,
-            audio_timeline_duration=timeline_duration,
+            slide_durations=slide_durations,
+            audio_durations=slide_durations,
         )
 
-    def _animation_audio_schedule(self) -> tuple[list[float], list[float], float]:
-        """Return visual slide start offsets and narration clip durations."""
-        from quickthumb._export_video import animation_timeline
+    def _animation_audio_schedule(self, default_duration: float = 3.0) -> list[float]:
+        """Resolve the duration assigned to each animated slide narration."""
+        from quickthumb._export_deck_mp4 import ffprobe_binary, resolve_audio_duration
 
-        offsets, total_duration = animation_timeline(
-            self._slides, self._resolved_transitions(), slide_duration=3.0
-        )
-        ends = [*offsets[1:], total_duration]
+        ffprobe = ffprobe_binary() if any(
+            audio is not None and duration is None
+            for audio, duration in zip(self._slide_audio, self._slide_durations, strict=True)
+        ) else ""
         durations = [
-            explicit if explicit is not None else end - start
-            for start, end, explicit in zip(offsets, ends, self._slide_durations, strict=True)
+            resolve_audio_duration(audio, duration, default_duration, ffprobe)
+            for audio, duration in zip(self._slide_audio, self._slide_durations, strict=True)
         ]
-        return offsets, durations, total_duration
+        return durations
 
     def _render_document(self, output_path: str, extension: str) -> None:
         if extension == ".pdf":
@@ -445,12 +452,14 @@ class Deck:
         """Render the Deck's animated timeline to MP4 bytes.
 
         Unlike ``to_mp4()``, this path plays layer animations and slide
-        transitions. ``soundtrack`` is a single mixed audio track for the
-        complete timeline.
+        transitions. Per-slide narration and the optional ``soundtrack`` are
+        mixed into the complete timeline; a narration without an explicit
+        duration holds its slide for the source audio length.
         """
         self._require_slides()
         from quickthumb._export_video import export_animation_bytes
 
+        slide_durations = self._animation_audio_schedule(slide_duration)
         return export_animation_bytes(
             self._slides,
             self._resolved_transitions(),
@@ -460,6 +469,9 @@ class Deck:
             matte=matte,
             soundtrack=soundtrack,
             loop_audio=loop_audio,
+            slide_audio=self._slide_audio,
+            slide_durations=slide_durations,
+            audio_durations=slide_durations,
         )
 
     def render_mp4(
@@ -497,14 +509,16 @@ class Deck:
 
         Requires the ``ffmpeg`` binary on PATH (or ``QUICKTHUMB_FFMPEG``).
         Odd-sized canvases lose their last pixel row/column (VP9 4:2:0 output
-        needs even dimensions). ``soundtrack`` muxes an audio file (any
-        format ffmpeg decodes) as Opus, trimmed to the video length;
+        needs even dimensions). Per-slide narration and ``soundtrack`` are
+        mixed as Opus and trimmed to the video length; a narration without an
+        explicit duration holds its slide for the source audio length.
         ``loop_audio`` overrides `AudioTrack.loop`, while legacy string paths
         continue to loop by default.
         """
         self._require_slides()
         from quickthumb._export_video import export_animation_bytes
 
+        slide_durations = self._animation_audio_schedule(slide_duration)
         return export_animation_bytes(
             self._slides,
             self._resolved_transitions(),
@@ -514,6 +528,9 @@ class Deck:
             matte=matte,
             soundtrack=soundtrack,
             loop_audio=loop_audio,
+            slide_audio=self._slide_audio,
+            slide_durations=slide_durations,
+            audio_durations=slide_durations,
         )
 
     def diagnose(self) -> list[DeckDiagnostic]:

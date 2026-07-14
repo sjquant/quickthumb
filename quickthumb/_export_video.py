@@ -86,6 +86,7 @@ _DISSOLVE_BLOCK = 8
 _BLINDS_STRIPS = 6
 _COMB_STRIPS = 8
 _MAX_GIF_FRAME_MEMORY_BYTES = 768 * 1024 * 1024
+_MAX_SCHEDULED_AUDIO_TRACKS = 64
 
 
 def write_animation(
@@ -100,6 +101,7 @@ def write_animation(
     soundtrack: AudioTrack | str | dict | None = None,
     loop_audio: bool | None = None,
     slide_audio: list[AudioTrack | None] | None = None,
+    slide_durations: list[float] | None = None,
     audio_offsets: list[float] | None = None,
     audio_durations: list[float] | None = None,
     audio_timeline_duration: float | None = None,
@@ -130,12 +132,17 @@ def write_animation(
         matte,
         soundtrack,
         slide_audio,
+        slide_durations,
         audio_offsets,
         audio_durations,
         audio_timeline_duration,
     )
     size = (canvases[0].width, canvases[0].height)
-    shots = _deck_shots(canvases, transitions, fps, slide_duration, matte_rgb)
+    plan = _deck_plan(canvases, transitions, fps, slide_duration, slide_durations)
+    if slide_audio is not None and audio_offsets is None:
+        audio_offsets = plan.offsets
+        audio_timeline_duration = plan.duration
+    shots = _deck_shots(canvases, transitions, fps, slide_duration, matte_rgb, plan=plan)
     descriptor, temp_path = _temporary_output_path(output_path, suffix=f".{format}")
     os.close(descriptor)
     try:
@@ -186,14 +193,24 @@ def export_animation_bytes(
     matte: str = "#000000",
     soundtrack: AudioTrack | str | dict | None = None,
     loop_audio: bool | None = None,
+    slide_audio: list[AudioTrack | None] | None = None,
+    slide_durations: list[float] | None = None,
+    audio_offsets: list[float] | None = None,
+    audio_durations: list[float] | None = None,
+    audio_timeline_duration: float | None = None,
 ) -> bytes:
     """Render slides to animated GIF/MP4/WebM bytes."""
     loop_audio = _resolve_loop_audio(soundtrack, loop_audio)
     soundtrack = coerce_audio_track(soundtrack)
     fps, matte_rgb = _validated_settings(
-        canvases, format, fps, slide_duration, loop, matte, soundtrack
+        canvases, format, fps, slide_duration, loop, matte, soundtrack, slide_audio,
+        slide_durations, audio_offsets, audio_durations, audio_timeline_duration,
     )
-    shots = _deck_shots(canvases, transitions, fps, slide_duration, matte_rgb)
+    plan = _deck_plan(canvases, transitions, fps, slide_duration, slide_durations)
+    if slide_audio is not None and audio_offsets is None:
+        audio_offsets = plan.offsets
+        audio_timeline_duration = plan.duration
+    shots = _deck_shots(canvases, transitions, fps, slide_duration, matte_rgb, plan=plan)
 
     if format == "gif":
         return _encode_gif(shots, loop)
@@ -204,7 +221,10 @@ def export_animation_bytes(
     descriptor, temp_path = tempfile.mkstemp(suffix=f".{format}")
     os.close(descriptor)
     try:
-        _encode_video_file(shots, size, fps, format, temp_path, soundtrack, loop_audio)
+        _encode_video_file(
+            shots, size, fps, format, temp_path, soundtrack, loop_audio, slide_audio,
+            audio_offsets, audio_durations, audio_timeline_duration,
+        )
         with open(temp_path, "rb") as video_file:
             return video_file.read()
     finally:
@@ -221,6 +241,7 @@ def _validated_settings(
     matte: str,
     soundtrack: AudioTrack | None = None,
     slide_audio: list[AudioTrack | None] | None = None,
+    slide_durations: list[float] | None = None,
     audio_offsets: list[float] | None = None,
     audio_durations: list[float] | None = None,
     audio_timeline_duration: float | None = None,
@@ -236,25 +257,34 @@ def _validated_settings(
         if not os.path.isfile(soundtrack.path):
             raise ValidationError(f"Soundtrack file not found: {soundtrack.path!r}")
     if slide_audio is not None:
-        if audio_offsets is None or audio_durations is None:
+        if sum(audio is not None for audio in slide_audio) > _MAX_SCHEDULED_AUDIO_TRACKS:
+            raise ValidationError(
+                f"Deck animation supports at most {_MAX_SCHEDULED_AUDIO_TRACKS} narrated slides."
+            )
+        if slide_durations is None or len(slide_durations) != len(slide_audio):
+            raise RenderingError("Deck slide durations are out of sync.")
+        if audio_durations is None:
             raise RenderingError("Deck audio schedule is incomplete.")
-        if not (len(slide_audio) == len(audio_offsets) == len(audio_durations)):
+        if len(slide_audio) != len(audio_durations) or (
+            audio_offsets is not None and len(slide_audio) != len(audio_offsets)
+        ):
             raise RenderingError("Deck audio schedule is out of sync.")
-        if (
-            audio_timeline_duration is None
-            or not math.isfinite(audio_timeline_duration)
-            or audio_timeline_duration <= 0
+        if audio_timeline_duration is not None and (
+            not math.isfinite(audio_timeline_duration) or audio_timeline_duration <= 0
         ):
             raise ValidationError("Deck audio timeline duration must be finite and > 0")
-        for audio, offset, duration in zip(
-            slide_audio, audio_offsets, audio_durations, strict=True
-        ):
+        for index, (audio, duration) in enumerate(zip(slide_audio, audio_durations, strict=True)):
             if audio is not None and not os.path.isfile(audio.path):
                 raise ValidationError(f"Audio file not found: {audio.path!r}")
-            if not math.isfinite(offset) or offset < 0:
+            if audio_offsets is not None and (
+                not math.isfinite(audio_offsets[index]) or audio_offsets[index] < 0
+            ):
                 raise ValidationError("Deck audio offset must be finite and >= 0")
             if not math.isfinite(duration) or duration <= 0:
                 raise ValidationError("Deck audio duration must be finite and > 0")
+        for duration in slide_durations:
+            if not math.isfinite(duration) or duration <= 0:
+                raise ValidationError("Deck slide duration must be finite and > 0")
     if fps is None:
         fps = _DEFAULT_FPS[format]
     if not math.isfinite(fps) or fps <= 0:
@@ -306,26 +336,58 @@ class _Shot:
     duration: float
 
 
+@dataclass
+class _DeckPlan:
+    """The rendered slide animators and their shared timeline metadata."""
+
+    animators: list[_SlideAnimator]
+    timings: list[tuple[Transition | None, float, float, float]]
+    offsets: list[float]
+    duration: float
+
+
+def _deck_plan(
+    canvases: list[Canvas],
+    transitions: list[Transition | None],
+    fps: float,
+    slide_duration: float,
+    slide_durations: list[float] | None,
+) -> _DeckPlan:
+    """Build animation state once for both visuals and scheduled narration."""
+    animators = [_SlideAnimator(canvas) for canvas in canvases]
+    timings = _deck_timing(
+        canvases,
+        transitions,
+        slide_duration,
+        animation_durations=[animator.duration for animator in animators],
+        slide_durations=slide_durations,
+        minimum_duration=1.0 / fps,
+    )
+    offsets: list[float] = []
+    duration = 0.0
+    for _, _, _, exit_time in timings:
+        offsets.append(duration)
+        duration += exit_time
+    return _DeckPlan(animators, timings, offsets, duration)
+
+
 def _deck_shots(
     canvases: list[Canvas],
     transitions: list[Transition | None],
     fps: float,
     slide_duration: float,
     matte_rgb: tuple[int, int, int],
+    slide_durations: list[float] | None = None,
+    plan: _DeckPlan | None = None,
 ) -> Iterator[_Shot]:
     """Yield the deck's full frame timeline as variable-duration shots."""
     size = (canvases[0].width, canvases[0].height)
     previous_final = Image.new("RGB", size, matte_rgb)
-    animators = [_SlideAnimator(canvas) for canvas in canvases]
+    plan = plan or _deck_plan(canvases, transitions, fps, slide_duration, slide_durations)
 
     for animator, timing in zip(
-        animators,
-        _deck_timing(
-            canvases,
-            transitions,
-            slide_duration,
-            animation_durations=[animator.duration for animator in animators],
-        ),
+        plan.animators,
+        plan.timings,
         strict=True,
     ):
         transition, duration_in, animation_end, exit_time = timing
@@ -355,15 +417,15 @@ def _deck_shots(
 
 
 def animation_timeline(
-    canvases: list[Canvas], transitions: list[Transition | None], slide_duration: float
+    canvases: list[Canvas],
+    transitions: list[Transition | None],
+    slide_duration: float,
+    slide_durations: list[float] | None = None,
+    fps: float = _DEFAULT_FPS["mp4"],
 ) -> tuple[list[float], float]:
     """Return the shared visual start offsets and total duration for a Deck."""
-    offsets: list[float] = []
-    time = 0.0
-    for _, _, _, exit_time in _deck_timing(canvases, transitions, slide_duration):
-        offsets.append(time)
-        time += exit_time
-    return offsets, time
+    plan = _deck_plan(canvases, transitions, fps, slide_duration, slide_durations)
+    return plan.offsets, plan.duration
 
 
 def _deck_timing(
@@ -371,10 +433,14 @@ def _deck_timing(
     transitions: list[Transition | None],
     slide_duration: float,
     animation_durations: list[float] | None = None,
+    slide_durations: list[float] | None = None,
+    minimum_duration: float = 0.0,
 ) -> list[tuple[Transition | None, float, float, float]]:
     """Resolve each slide's transition, animation, and exit timing once."""
     if animation_durations is None:
         animation_durations = [_SlideAnimator(canvas).duration for canvas in canvases]
+    if slide_durations is not None and len(slide_durations) != len(canvases):
+        raise RenderingError("Deck slide durations are out of sync.")
     timings = []
     for index, animation_end in enumerate(animation_durations):
         transition = transitions[index] if index < len(transitions) else None
@@ -384,10 +450,14 @@ def _deck_timing(
             duration_in = 0.0
         else:
             duration_in = transition.duration
+        duration = slide_durations[index] if slide_durations is not None else slide_duration
         if transition is not None and transition.advance_after is not None:
-            exit_time = max(duration_in + transition.advance_after, animation_end, duration_in)
+            exit_time = max(
+                duration_in + transition.advance_after, animation_end, duration_in, duration
+            )
         else:
-            exit_time = max(animation_end, duration_in) + slide_duration
+            exit_time = max(animation_end, duration_in) + duration
+        exit_time = max(exit_time, minimum_duration)
         timings.append((transition, duration_in, animation_end, exit_time))
     return timings
 
@@ -1210,9 +1280,17 @@ def _encode_video_file(
     ]  # fmt: skip
 
     with tempfile.TemporaryFile() as stderr_file:
-        process = subprocess.Popen(
-            command, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=stderr_file
-        )
+        try:
+            process = subprocess.Popen(
+                command, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=stderr_file
+            )
+        except OSError as error:
+            _remove_quietly(output_path)
+            raise RenderingError(
+                "MP4/WebM export could not start ffmpeg. Install FFmpeg "
+                "(e.g. 'brew install ffmpeg' or 'apt install ffmpeg'), or set "
+                "QUICKTHUMB_FFMPEG to its executable path."
+            ) from error
         assert process.stdin is not None
         clock = 0.0
         emitted = 0
@@ -1310,7 +1388,14 @@ def _remove_quietly(path: str) -> None:
 def _ffmpeg_binary() -> str:
     override = os.environ.get("QUICKTHUMB_FFMPEG")
     if override:
-        return override
+        binary = shutil.which(override)
+        if binary:
+            return binary
+        raise RenderingError(
+            "MP4/WebM export requires a working ffmpeg binary. Install ffmpeg "
+            "(e.g. 'brew install ffmpeg' or 'apt install ffmpeg'), or set "
+            "QUICKTHUMB_FFMPEG to its executable path."
+        )
     binary = shutil.which("ffmpeg")
     if binary is None:
         raise RenderingError(

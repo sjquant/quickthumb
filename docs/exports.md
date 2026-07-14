@@ -113,7 +113,7 @@ gif = deck.to_gif(fps=20, slide_duration=3.0, loop=0)
 webm = deck.to_webm(fps=30, slide_duration=3.0)
 ```
 
-Deck MP4 export also supports per-slide narration. Pass `audio=` to `Deck.slide()`;
+Deck MP4 and WebM exports support per-slide narration. Pass `audio=` to `Deck.slide()`;
 without `duration=`, Quickthumb uses the file's ffprobe duration. An explicit
 duration trims audio or pads it with silence, while a slide without audio holds
 silently for `default_duration` (3 seconds). `deck.render("deck.mp4")` and
@@ -122,7 +122,8 @@ every output. Without a soundtrack, this is the static narrated path: layer
 animations and slide transitions are not played. Pass
 `soundtrack=AudioTrack(path="music.mp3", volume=0.16, loop=True)` to
 `deck.render()` for animated MP4/WebM. Quickthumb mixes that bed and the
-scheduled `Deck.slide(audio=...)` narration during rendering; callers do not
+scheduled `Deck.slide(audio=...)` narration during rendering; `deck.to_animated_mp4()`
+and `deck.to_webm()` do the same for byte exports. Callers do not
 need to pre-mix audio themselves.
 
 The timing model mirrors the HTML slideshow, with one difference a non-interactive medium forces: there is nothing to click, so `on_click` animations play automatically in sequence, exactly like `after_previous` (the same choice PowerPoint's own video export makes). Each slide plays its transition (over the previous slide's final frame), runs its animation timeline (starting when the transition starts, like the HTML runtime), then holds its settled state — for the transition's `advance_after` when set, else for `slide_duration` (`hold` on `Canvas`). A slide with no transition cross-fades in over 0.5s (slide 0 with none starts instantly); set a transition on slide 0 to animate in from the matte, which also makes looping GIFs wrap smoothly.
