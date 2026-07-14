@@ -174,8 +174,8 @@ Builds a polished Korean-style vertical (1080x1920) 8-scene app-launch reel — 
 - Native Korean copy set in locally bundled Pretendard, with display, body, metric, and metadata sizes tuned for legibility on a phone
 - Layered dark gradients, ambient color glows, elevated metric cards, and a high-contrast gradient CTA
 - Reusable product-card helpers for live heart rate, AI coaching, streaks, and social proof, with deliberate information hierarchy instead of decorative filler
-- Per-layer entrance animations (`Box`, `Wipe`, `Fade`, `Dissolve`) staggered with `with_previous`/`after_previous`
-- Slide transitions (`Wipe`, `Push`, `Zoom`) rendered as real frames through the raster pipeline, with six beats of reading time per scene and all eight cuts locked to a 48-beat, 128 BPM timeline — exactly six loops of the bundled two-bar soundtrack
+- Beat-phased entrance animations (`Box`, `Wipe`, `Fade`, `Dissolve`) that delay copy by half a beat, keep headlines clear of slide transitions, and settle before each reading window
+- Story-aware slide transitions (`Wipe`, `Push`, `Fade`, `Zoom`) rendered as real frames through the raster pipeline, with six beats per scene and all eight cuts locked to a 48-beat, 128 BPM timeline — exactly six loops of the bundled two-bar soundtrack
 - `deck.diagnose()` before export, validating contrast, overflow, overlap, canvas bounds, and Reels UI-safe placement for all eight scenes
 - The bytes-returning tunable export API — `deck.to_gif(...)`, `.to_mp4(...)`, `.to_webm(...)`
 - A looping soundtrack (`assets/audio/hype_beat.wav`, a procedurally generated synth-pop loop) muxed into the MP4/WebM output via `soundtrack=`

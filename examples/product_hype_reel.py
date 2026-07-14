@@ -52,6 +52,10 @@ CONTENT_WIDTH = 800
 CONTENT_RIGHT = CONTENT_X + CONTENT_WIDTH
 CONTENT_CENTER = CONTENT_X + CONTENT_WIDTH // 2
 BEAT = 60.0 / 128.0
+COPY_LEAD_IN = BEAT / 2
+MOTION_FAST = BEAT * 0.6
+MOTION_STANDARD = BEAT * 0.8
+MOTION_HERO = BEAT * 0.9
 
 INK = "#090711"
 SURFACE = "#100D1D"
@@ -110,7 +114,7 @@ def build_deck() -> Deck:
             ai_coach, transition=tr.Push(direction="left", duration=BEAT, advance_after=5 * BEAT)
         )
         .slide(streak, transition=tr.Push(direction="left", duration=BEAT, advance_after=5 * BEAT))
-        .slide(proof, transition=tr.Push(direction="left", duration=BEAT, advance_after=5 * BEAT))
+        .slide(proof, transition=tr.Fade(duration=BEAT, advance_after=5 * BEAT))
         .slide(cta, transition=tr.Zoom(direction="in", duration=BEAT, advance_after=5 * BEAT))
     )
 
@@ -130,7 +134,7 @@ def build_hook_scene() -> Canvas:
         canvas,
         y=965,
         height=450,
-        animation=Dissolve(duration=0.28, trigger="after_previous"),
+        animation=Dissolve(duration=MOTION_STANDARD, trigger="after_previous"),
     )
     canvas = canvas.text(
         content="●  LIVE HEART RATE",
@@ -139,7 +143,7 @@ def build_hook_scene() -> Canvas:
         color=PINK,
         position=(144, 1018),
         align=("left", "top"),
-        animation=Fade(duration=0.2, trigger="with_previous"),
+        animation=Fade(duration=MOTION_FAST, trigger="with_previous"),
     )
     canvas = canvas.text(
         content="ZONE 4",
@@ -148,7 +152,7 @@ def build_hook_scene() -> Canvas:
         color=MUTED,
         position=(848, 1018),
         align=("right", "top"),
-        animation=Fade(duration=0.2, trigger="with_previous"),
+        animation=Fade(duration=MOTION_FAST, trigger="with_previous"),
     )
     canvas = canvas.text(
         content="148",
@@ -158,7 +162,7 @@ def build_hook_scene() -> Canvas:
         position=(140, 1092),
         align=("left", "top"),
         effects=[Glow(radius=20, color=PINK, opacity=0.3)],
-        animation=Box(direction="in", duration=0.3, trigger="after_previous"),
+        animation=Box(direction="in", duration=MOTION_STANDARD, trigger="after_previous"),
     )
     canvas = canvas.text(
         content="BPM",
@@ -167,7 +171,7 @@ def build_hook_scene() -> Canvas:
         color=PINK,
         position=(520, 1230),
         align=("left", "top"),
-        animation=Fade(duration=0.2, trigger="with_previous"),
+        animation=Fade(duration=MOTION_FAST, trigger="with_previous"),
     )
     canvas = canvas.text(
         content="심박 구간  ·  퍼포먼스",
@@ -176,12 +180,12 @@ def build_hook_scene() -> Canvas:
         color=MUTED,
         position=(144, 1340),
         align=("left", "top"),
-        animation=Fade(duration=0.18, trigger="after_previous"),
+        animation=Fade(duration=MOTION_FAST, trigger="after_previous"),
     )
     return add_footer(
         canvas,
         "PULSE  ·  PERSONAL FITNESS OS",
-        animation=Fade(duration=0.18, trigger="with_previous"),
+        animation=Fade(duration=MOTION_FAST, trigger="with_previous"),
     )
 
 
@@ -200,7 +204,7 @@ def build_problem_scene() -> Canvas:
         canvas,
         y=980,
         height=195,
-        animation=Dissolve(duration=0.22, trigger="after_previous"),
+        animation=Dissolve(duration=MOTION_STANDARD, trigger="after_previous"),
     )
     canvas = canvas.text(
         content="평균 포기 시점",
@@ -209,7 +213,7 @@ def build_problem_scene() -> Canvas:
         color=MUTED,
         position=(140, 1035),
         align=("left", "top"),
-        animation=Fade(duration=0.18, trigger="with_previous"),
+        animation=Fade(duration=MOTION_FAST, trigger="with_previous"),
     )
     canvas = canvas.text(
         content="DAY 03",
@@ -218,13 +222,13 @@ def build_problem_scene() -> Canvas:
         color=VIOLET,
         position=(848, 1014),
         align=("right", "top"),
-        animation=Box(direction="in", duration=0.26, trigger="with_previous"),
+        animation=Box(direction="in", duration=MOTION_STANDARD, trigger="with_previous"),
     )
     canvas = add_card(
         canvas,
         y=1200,
         height=195,
-        animation=Dissolve(duration=0.22, trigger="after_previous"),
+        animation=Dissolve(duration=MOTION_STANDARD, trigger="after_previous"),
     )
     canvas = canvas.text(
         content="실시간 피드백",
@@ -233,7 +237,7 @@ def build_problem_scene() -> Canvas:
         color=MUTED,
         position=(140, 1255),
         align=("left", "top"),
-        animation=Fade(duration=0.18, trigger="with_previous"),
+        animation=Fade(duration=MOTION_FAST, trigger="with_previous"),
     )
     canvas = canvas.text(
         content="0%",
@@ -242,12 +246,12 @@ def build_problem_scene() -> Canvas:
         color=PINK,
         position=(848, 1234),
         align=("right", "top"),
-        animation=Box(direction="in", duration=0.26, trigger="with_previous"),
+        animation=Box(direction="in", duration=MOTION_STANDARD, trigger="with_previous"),
     )
     return add_footer(
         canvas,
         "문제는 의지가 아니라, 늦은 피드백.",
-        animation=Fade(duration=0.18, trigger="with_previous"),
+        animation=Fade(duration=MOTION_FAST, trigger="with_previous"),
     )
 
 
@@ -267,7 +271,7 @@ def build_solution_scene() -> Canvas:
         canvas,
         y=965,
         height=450,
-        animation=Dissolve(duration=0.28, trigger="after_previous"),
+        animation=Dissolve(duration=MOTION_STANDARD, trigger="after_previous"),
     )
     canvas = canvas.text(
         content="RECOVERY",
@@ -276,7 +280,7 @@ def build_solution_scene() -> Canvas:
         color=CYAN,
         position=(144, 1018),
         align=("left", "top"),
-        animation=Fade(duration=0.2, trigger="with_previous"),
+        animation=Fade(duration=MOTION_FAST, trigger="with_previous"),
     )
     canvas = canvas.text(
         content="84",
@@ -286,7 +290,7 @@ def build_solution_scene() -> Canvas:
         position=(140, 1092),
         align=("left", "top"),
         effects=[Glow(radius=20, color=CYAN, opacity=0.28)],
-        animation=Box(direction="in", duration=0.3, trigger="after_previous"),
+        animation=Box(direction="in", duration=MOTION_STANDARD, trigger="after_previous"),
     )
     canvas = canvas.text(
         content="/ 100",
@@ -295,7 +299,7 @@ def build_solution_scene() -> Canvas:
         color=CYAN,
         position=(430, 1230),
         align=("left", "top"),
-        animation=Fade(duration=0.2, trigger="with_previous"),
+        animation=Fade(duration=MOTION_FAST, trigger="with_previous"),
     )
     canvas = canvas.text(
         content="수면 92  ·  컨디션 81  ·  스트레스 24",
@@ -308,12 +312,12 @@ def build_solution_scene() -> Canvas:
         auto_scale=True,
         min_size=48,
         letter_spacing=2,
-        animation=Fade(duration=0.18, trigger="after_previous"),
+        animation=Fade(duration=MOTION_FAST, trigger="after_previous"),
     )
     return add_footer(
         canvas,
         "한 화면에서 오늘의 몸을 읽으세요.",
-        animation=Fade(duration=0.18, trigger="with_previous"),
+        animation=Fade(duration=MOTION_FAST, trigger="with_previous"),
     )
 
 
@@ -335,13 +339,14 @@ def build_live_sync_scene() -> Canvas:
         status="SYNCED",
         value="142",
         unit="BPM",
+        unit_x=500,
         detail="워밍업  ·  지방 연소  ·  유산소",
         accent=PINK,
     )
     return add_footer(
         canvas,
         "APPLE WATCH  ·  GALAXY WATCH",
-        animation=Fade(duration=0.18, trigger="with_previous"),
+        animation=Fade(duration=MOTION_FAST, trigger="with_previous"),
     )
 
 
@@ -363,13 +368,14 @@ def build_ai_coach_scene() -> Canvas:
         status="AUTO",
         value="68",
         unit="%",
+        unit_x=390,
         detail="인터벌 24분  ·  권장 강도 보통",
         accent=CYAN,
     )
     return add_footer(
         canvas,
         "매일 달라지는 나만의 코칭 플랜.",
-        animation=Fade(duration=0.18, trigger="with_previous"),
+        animation=Fade(duration=MOTION_FAST, trigger="with_previous"),
     )
 
 
@@ -388,7 +394,7 @@ def build_streak_scene() -> Canvas:
         canvas,
         y=965,
         height=450,
-        animation=Dissolve(duration=0.28, trigger="after_previous"),
+        animation=Dissolve(duration=MOTION_STANDARD, trigger="after_previous"),
     )
     canvas = canvas.text(
         content="CONSISTENCY",
@@ -397,7 +403,7 @@ def build_streak_scene() -> Canvas:
         color=LIME,
         position=(144, 1018),
         align=("left", "top"),
-        animation=Fade(duration=0.2, trigger="with_previous"),
+        animation=Fade(duration=MOTION_FAST, trigger="with_previous"),
     )
     canvas = canvas.text(
         content="BEST",
@@ -406,7 +412,7 @@ def build_streak_scene() -> Canvas:
         color=MUTED,
         position=(848, 1018),
         align=("right", "top"),
-        animation=Fade(duration=0.2, trigger="with_previous"),
+        animation=Fade(duration=MOTION_FAST, trigger="with_previous"),
     )
     canvas = canvas.text(
         content="21",
@@ -416,7 +422,7 @@ def build_streak_scene() -> Canvas:
         position=(140, 1092),
         align=("left", "top"),
         effects=[Glow(radius=20, color=LIME, opacity=0.24)],
-        animation=Box(direction="in", duration=0.3, trigger="after_previous"),
+        animation=Box(direction="in", duration=MOTION_STANDARD, trigger="after_previous"),
     )
     canvas = canvas.text(
         content="DAY STREAK",
@@ -425,7 +431,7 @@ def build_streak_scene() -> Canvas:
         color=LIME,
         position=(430, 1230),
         align=("left", "top"),
-        animation=Fade(duration=0.2, trigger="with_previous"),
+        animation=Fade(duration=MOTION_FAST, trigger="with_previous"),
     )
     canvas = canvas.text(
         content="●  ●  ●  ●  ●  ●  ●",
@@ -434,12 +440,12 @@ def build_streak_scene() -> Canvas:
         color=LIME,
         position=(144, 1340),
         align=("left", "top"),
-        animation=Fade(duration=0.18, trigger="after_previous"),
+        animation=Fade(duration=MOTION_FAST, trigger="after_previous"),
     )
     return add_footer(
         canvas,
         "꾸준함이 눈에 보이면, 루틴은 계속됩니다.",
-        animation=Fade(duration=0.18, trigger="with_previous"),
+        animation=Fade(duration=MOTION_FAST, trigger="with_previous"),
     )
 
 
@@ -458,7 +464,7 @@ def build_social_proof_scene() -> Canvas:
         canvas,
         y=950,
         height=465,
-        animation=Dissolve(duration=0.28, trigger="after_previous"),
+        animation=Dissolve(duration=MOTION_STANDARD, trigger="after_previous"),
     )
     canvas = canvas.text(
         content="VERIFIED REVIEW",
@@ -468,7 +474,7 @@ def build_social_proof_scene() -> Canvas:
         letter_spacing=2,
         position=(140, 1004),
         align=("left", "top"),
-        animation=Fade(duration=0.2, trigger="with_previous"),
+        animation=Fade(duration=MOTION_FAST, trigger="with_previous"),
     )
     canvas = canvas.text(
         content="4.9",
@@ -477,7 +483,17 @@ def build_social_proof_scene() -> Canvas:
         color=VIOLET,
         position=(848, 996),
         align=("right", "top"),
-        animation=Box(direction="in", duration=0.26, trigger="with_previous"),
+        animation=Box(direction="in", duration=MOTION_STANDARD, trigger="with_previous"),
+    )
+    canvas = canvas.text(
+        content="★★★★★",
+        font=PRETENDARD[700],
+        size=48,
+        color=LIME,
+        letter_spacing=3,
+        position=(140, 1072),
+        align=("left", "top"),
+        animation=Fade(duration=MOTION_FAST, trigger="with_previous"),
     )
     canvas = canvas.text(
         content="“드디어 5km를\n완주했어요.”",
@@ -485,23 +501,23 @@ def build_social_proof_scene() -> Canvas:
         size=68,
         color=WHITE,
         line_height=1.16,
-        position=(140, 1100),
+        position=(140, 1140),
         align=("left", "top"),
-        animation=Wipe(direction="up", duration=0.3, trigger="after_previous"),
+        animation=Wipe(direction="up", duration=MOTION_STANDARD, trigger="after_previous"),
     )
     canvas = canvas.text(
         content="베타 테스터 김O진  ·  러닝 8주 차",
         font=PRETENDARD[500],
         size=48,
         color=MUTED,
-        position=(140, 1328),
+        position=(140, 1338),
         align=("left", "top"),
-        animation=Fade(duration=0.18, trigger="after_previous"),
+        animation=Fade(duration=MOTION_FAST, trigger="after_previous"),
     )
     return add_footer(
         canvas,
         "당신의 다음 기록도 여기서 시작됩니다.",
-        animation=Fade(duration=0.18, trigger="with_previous"),
+        animation=Fade(duration=MOTION_FAST, trigger="with_previous"),
     )
 
 
@@ -525,16 +541,16 @@ def build_cta_scene() -> Canvas:
         color=INK,
         align=("left", "top"),
         effects=BUTTON_EFFECTS,
-        animation=Dissolve(duration=0.3, trigger="after_previous"),
+        animation=Dissolve(duration=MOTION_STANDARD, trigger="after_previous"),
     )
     canvas = canvas.text(
-        content="무료로 시작하기",
+        content="무료로 시작하기  →",
         font=PRETENDARD[800],
         size=56,
         color=WHITE,
         position=(CONTENT_CENTER, 1076),
         align=("center", "middle"),
-        animation=Fade(duration=0.22, trigger="with_previous"),
+        animation=Fade(duration=MOTION_FAST, trigger="with_previous"),
     )
     canvas = canvas.text(
         content="평점 4.9  ·  첫 7일 무료  ·  언제든 해지",
@@ -546,7 +562,7 @@ def build_cta_scene() -> Canvas:
         max_width=CONTENT_WIDTH,
         auto_scale=True,
         min_size=48,
-        animation=Fade(duration=0.2, trigger="after_previous"),
+        animation=Fade(duration=MOTION_FAST, trigger="after_previous"),
     )
     return canvas.text(
         content="PULSE.APP  ↗",
@@ -556,7 +572,7 @@ def build_cta_scene() -> Canvas:
         letter_spacing=2,
         position=(CONTENT_X, 1450),
         align=("left", "top"),
-        animation=Fade(duration=0.2, trigger="with_previous"),
+        animation=Fade(duration=MOTION_FAST, trigger="after_previous"),
     )
 
 
@@ -667,7 +683,7 @@ def add_copy(
         max_width=CONTENT_WIDTH,
         auto_scale=True,
         min_size=48,
-        animation=Wipe(direction="right", duration=0.22),
+        animation=Wipe(direction="right", duration=MOTION_FAST, delay=COPY_LEAD_IN),
     )
     canvas = canvas.text(
         content=headline,
@@ -682,7 +698,7 @@ def add_copy(
         max_height=270,
         auto_scale=True,
         min_size=80,
-        animation=Box(direction="in", duration=0.34, trigger="after_previous"),
+        animation=Box(direction="in", duration=MOTION_HERO, trigger="after_previous"),
     )
     return canvas.text(
         content=body,
@@ -696,7 +712,7 @@ def add_copy(
         max_height=130,
         auto_scale=True,
         min_size=48,
-        animation=Fade(duration=0.22, trigger="after_previous"),
+        animation=Fade(duration=MOTION_FAST, trigger="after_previous"),
     )
 
 
@@ -728,6 +744,7 @@ def add_metric_card(
     status: str,
     value: str,
     unit: str,
+    unit_x: int,
     detail: str,
     accent: str,
 ) -> Canvas:
@@ -736,7 +753,7 @@ def add_metric_card(
         canvas,
         y=965,
         height=450,
-        animation=Dissolve(duration=0.28, trigger="after_previous"),
+        animation=Dissolve(duration=MOTION_STANDARD, trigger="after_previous"),
     )
     canvas = canvas.text(
         content=label,
@@ -745,7 +762,7 @@ def add_metric_card(
         color=accent,
         position=(144, 1018),
         align=("left", "top"),
-        animation=Fade(duration=0.2, trigger="with_previous"),
+        animation=Fade(duration=MOTION_FAST, trigger="with_previous"),
     )
     canvas = canvas.text(
         content=status,
@@ -754,7 +771,7 @@ def add_metric_card(
         color=MUTED,
         position=(848, 1018),
         align=("right", "top"),
-        animation=Fade(duration=0.2, trigger="with_previous"),
+        animation=Fade(duration=MOTION_FAST, trigger="with_previous"),
     )
     canvas = canvas.text(
         content=value,
@@ -764,16 +781,16 @@ def add_metric_card(
         position=(140, 1092),
         align=("left", "top"),
         effects=[Glow(radius=20, color=accent, opacity=0.28)],
-        animation=Box(direction="in", duration=0.3, trigger="after_previous"),
+        animation=Box(direction="in", duration=MOTION_STANDARD, trigger="after_previous"),
     )
     canvas = canvas.text(
         content=unit,
         font=PRETENDARD[800],
         size=52,
         color=accent,
-        position=(500, 1230),
+        position=(unit_x, 1230),
         align=("left", "top"),
-        animation=Fade(duration=0.2, trigger="with_previous"),
+        animation=Fade(duration=MOTION_FAST, trigger="with_previous"),
     )
     return canvas.text(
         content=detail,
@@ -785,7 +802,7 @@ def add_metric_card(
         max_width=704,
         auto_scale=True,
         min_size=48,
-        animation=Fade(duration=0.18, trigger="after_previous"),
+        animation=Fade(duration=MOTION_FAST, trigger="after_previous"),
     )
 
 

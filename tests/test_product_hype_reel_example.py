@@ -17,10 +17,17 @@ def test_product_hype_reel_meets_layout_and_pacing_contract():
         + (0 if slide["transition"]["effect"] == "cut" else slide["transition"]["duration"])
         for slide in slides
     ]
+    first_animation_delays = [
+        next(layer["animation"]["delay"] for layer in slide["layers"] if layer.get("animation"))
+        for slide in slides
+    ]
+    transition_effects = [slide["transition"]["effect"] for slide in slides]
     findings = deck.diagnose()
 
     # then: every scene has reading room and no layout or legibility issue remains
     assert len(deck) == 8
     assert scene_durations == [6 * BEAT] * 8
     assert sum(scene_durations) == 22.5
+    assert first_animation_delays == [BEAT / 2] * 8
+    assert transition_effects == ["cut", "wipe", "push", "push", "push", "push", "fade", "zoom"]
     assert findings == []
