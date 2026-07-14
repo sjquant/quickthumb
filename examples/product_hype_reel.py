@@ -544,7 +544,7 @@ def build_cta_scene() -> Canvas:
         animation=Dissolve(duration=MOTION_STANDARD, trigger="after_previous"),
     )
     canvas = canvas.text(
-        content="무료로 시작하기  →",
+        content="무료로 시작하기",
         font=PRETENDARD[800],
         size=56,
         color=WHITE,
