@@ -12,7 +12,6 @@ Run:
 from pathlib import Path
 
 from quickthumb import (
-    Box,
     Canvas,
     Deck,
     Dissolve,
@@ -31,6 +30,8 @@ from quickthumb import transitions as tr
 FILE_DIR = Path(__file__).resolve().parent
 ASSETS_DIR = FILE_DIR.parent / "assets"
 SOUNDTRACK = ASSETS_DIR / "audio" / "hype_beat.wav"
+VOICEOVER_DIR = ASSETS_DIR / "audio" / "product_hype_reel_voiceover"
+VOICEOVERS = [VOICEOVER_DIR / f"scene-{index:02d}.wav" for index in range(1, 9)]
 OUT_GIF = FILE_DIR / "product_hype_reel.gif"
 OUT_MP4 = FILE_DIR / "product_hype_reel.mp4"
 OUT_WEBM = FILE_DIR / "product_hype_reel.webm"
@@ -107,49 +108,49 @@ def build_deck() -> Deck:
         .slide(
             hook,
             transition=tr.Cut(advance_after=6 * BEAT),
-            audio=str(SOUNDTRACK),
+            audio=str(VOICEOVERS[0]),
             duration=6 * BEAT,
         )
         .slide(
             problem,
             transition=tr.Wipe(direction="up", duration=BEAT, advance_after=5 * BEAT),
-            audio=str(SOUNDTRACK),
+            audio=str(VOICEOVERS[1]),
             duration=6 * BEAT,
         )
         .slide(
             solution,
             transition=tr.Push(direction="up", duration=BEAT, advance_after=5 * BEAT),
-            audio=str(SOUNDTRACK),
+            audio=str(VOICEOVERS[2]),
             duration=6 * BEAT,
         )
         .slide(
             live_sync,
             transition=tr.Push(direction="left", duration=BEAT, advance_after=5 * BEAT),
-            audio=str(SOUNDTRACK),
+            audio=str(VOICEOVERS[3]),
             duration=6 * BEAT,
         )
         .slide(
             ai_coach,
             transition=tr.Push(direction="left", duration=BEAT, advance_after=5 * BEAT),
-            audio=str(SOUNDTRACK),
+            audio=str(VOICEOVERS[4]),
             duration=6 * BEAT,
         )
         .slide(
             streak,
             transition=tr.Push(direction="left", duration=BEAT, advance_after=5 * BEAT),
-            audio=str(SOUNDTRACK),
+            audio=str(VOICEOVERS[5]),
             duration=6 * BEAT,
         )
         .slide(
             proof,
             transition=tr.Fade(duration=BEAT, advance_after=5 * BEAT),
-            audio=str(SOUNDTRACK),
+            audio=str(VOICEOVERS[6]),
             duration=6 * BEAT,
         )
         .slide(
             cta,
             transition=tr.Zoom(direction="in", duration=BEAT, advance_after=5 * BEAT),
-            audio=str(SOUNDTRACK),
+            audio=str(VOICEOVERS[7]),
             duration=6 * BEAT,
         )
     )
@@ -198,7 +199,7 @@ def build_hook_scene() -> Canvas:
         position=(140, 1092),
         align=("left", "top"),
         effects=[Glow(radius=20, color=PINK, opacity=0.3)],
-        animation=Box(direction="in", duration=MOTION_STANDARD, trigger="after_previous"),
+        animation=Fade(duration=MOTION_STANDARD, trigger="after_previous"),
     )
     canvas = canvas.text(
         content="BPM",
@@ -258,7 +259,7 @@ def build_problem_scene() -> Canvas:
         color=VIOLET,
         position=(848, 1014),
         align=("right", "top"),
-        animation=Box(direction="in", duration=MOTION_STANDARD, trigger="with_previous"),
+        animation=Fade(duration=MOTION_STANDARD, trigger="with_previous"),
     )
     canvas = add_card(
         canvas,
@@ -282,7 +283,7 @@ def build_problem_scene() -> Canvas:
         color=PINK,
         position=(848, 1234),
         align=("right", "top"),
-        animation=Box(direction="in", duration=MOTION_STANDARD, trigger="with_previous"),
+        animation=Fade(duration=MOTION_STANDARD, trigger="with_previous"),
     )
     return add_footer(
         canvas,
@@ -326,7 +327,7 @@ def build_solution_scene() -> Canvas:
         position=(140, 1092),
         align=("left", "top"),
         effects=[Glow(radius=20, color=CYAN, opacity=0.28)],
-        animation=Box(direction="in", duration=MOTION_STANDARD, trigger="after_previous"),
+        animation=Fade(duration=MOTION_STANDARD, trigger="after_previous"),
     )
     canvas = canvas.text(
         content="/ 100",
@@ -458,7 +459,7 @@ def build_streak_scene() -> Canvas:
         position=(140, 1092),
         align=("left", "top"),
         effects=[Glow(radius=20, color=LIME, opacity=0.24)],
-        animation=Box(direction="in", duration=MOTION_STANDARD, trigger="after_previous"),
+        animation=Fade(duration=MOTION_STANDARD, trigger="after_previous"),
     )
     canvas = canvas.text(
         content="DAY STREAK",
@@ -519,7 +520,7 @@ def build_social_proof_scene() -> Canvas:
         color=VIOLET,
         position=(848, 996),
         align=("right", "top"),
-        animation=Box(direction="in", duration=MOTION_STANDARD, trigger="with_previous"),
+        animation=Fade(duration=MOTION_STANDARD, trigger="with_previous"),
     )
     canvas = canvas.text(
         content="★★★★★",
@@ -734,7 +735,7 @@ def add_copy(
         max_height=270,
         auto_scale=True,
         min_size=80,
-        animation=Box(direction="in", duration=MOTION_HERO, trigger="after_previous"),
+        animation=Fade(duration=MOTION_HERO, trigger="after_previous"),
     )
     return canvas.text(
         content=body,
@@ -817,7 +818,7 @@ def add_metric_card(
         position=(140, 1092),
         align=("left", "top"),
         effects=[Glow(radius=20, color=accent, opacity=0.28)],
-        animation=Box(direction="in", duration=MOTION_STANDARD, trigger="after_previous"),
+        animation=Fade(duration=MOTION_STANDARD, trigger="after_previous"),
     )
     canvas = canvas.text(
         content=unit,
