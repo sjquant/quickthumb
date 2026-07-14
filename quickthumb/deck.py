@@ -175,6 +175,7 @@ class Deck:
         output_path: str,
         format: FileFormat | None = None,
         quality: int | None = None,
+        soundtrack: AudioTrack | str | dict | None = None,
     ) -> list[str]:
         """Render the deck, dispatching on the output extension.
 
@@ -190,20 +191,7 @@ class Deck:
         self._require_slides()
         extension = os.path.splitext(output_path)[1].lower()
 
-        if extension == ".mp4":
-            if quality is not None:
-                raise RenderingError(
-                    "Quality parameter is only supported for JPEG and WEBP formats, "
-                    "not .mp4 output."
-                )
-            if format is not None:
-                raise RenderingError(
-                    "format override is only supported for raster output, not .mp4 output."
-                )
-            self.render_mp4(output_path)
-            return [output_path]
-
-        if extension in _ANIMATION_EXTENSIONS:
+        if extension in (*_ANIMATION_EXTENSIONS, ".mp4"):
             if quality is not None:
                 raise RenderingError(
                     "Quality parameter is only supported for JPEG and WEBP formats, "
@@ -221,6 +209,7 @@ class Deck:
                 self._resolved_transitions(),
                 output_path,
                 format=extension[1:],
+                soundtrack=soundtrack,
             )
             return [output_path]
 

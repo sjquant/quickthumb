@@ -9,6 +9,8 @@ Run:
     uv run python examples/product_hype_reel.py
 """
 
+import subprocess
+import tempfile
 from pathlib import Path
 
 from quickthumb import (
@@ -33,7 +35,6 @@ ASSETS_DIR = FILE_DIR.parent / "assets"
 SOUNDTRACK = ASSETS_DIR / "audio" / "hype_beat.wav"
 VOICEOVER_DIR = ASSETS_DIR / "audio" / "product_hype_reel_voiceover"
 VOICEOVERS = [VOICEOVER_DIR / f"scene-{index:02d}.wav" for index in range(1, 9)]
-MIXED_SOUNDTRACK = VOICEOVER_DIR / "reel_mix.m4a"
 OUT_GIF = FILE_DIR / "product_hype_reel.gif"
 OUT_MP4 = FILE_DIR / "product_hype_reel.mp4"
 OUT_WEBM = FILE_DIR / "product_hype_reel.webm"
@@ -884,14 +885,43 @@ def export_reel(deck: Deck) -> None:
     OUT_GIF.write_bytes(deck.to_gif(fps=2, loop=0))
 
     try:
-        soundtrack = AudioTrack(path=str(MIXED_SOUNDTRACK), volume=0.9)
-        OUT_MP4.write_bytes(deck.to_animated_mp4(fps=30, soundtrack=soundtrack))
-        OUT_WEBM.write_bytes(deck.to_webm(fps=30, soundtrack=soundtrack))
+        with tempfile.TemporaryDirectory() as directory:
+            soundtrack = Path(directory) / "soundtrack.m4a"
+            _mix_soundtrack(soundtrack)
+            audio = AudioTrack(path=str(soundtrack), volume=0.9)
+            deck.render(str(OUT_MP4), soundtrack=audio)
+            deck.render(str(OUT_WEBM), soundtrack=audio)
     except QuickthumbError as error:
         print(f"⚠ Skipped MP4/WebM ({error})")
 
     print(f"✓ {OUT_GIF}")
     print(f"  {len(deck)} scenes · 36 seconds · narration-first timeline")
+
+
+def _mix_soundtrack(output_path: Path) -> None:
+    """Mix the looping music bed and slide voiceovers during export."""
+    command = ["ffmpeg", "-y", "-stream_loop", "-1", "-i", str(SOUNDTRACK)]
+    for voiceover in VOICEOVERS:
+        command.extend(["-i", str(voiceover)])
+    delays = ";".join(
+        f"[{index}:a]adelay={int((index - 1) * SCENE_DURATION * 1000)}:all=1[v{index}]"
+        for index in range(1, len(VOICEOVERS) + 1)
+    )
+    voices = "".join(f"[v{index}]" for index in range(1, len(VOICEOVERS) + 1))
+    command.extend(
+        [
+            "-filter_complex",
+            f"[0:a]volume=0.16,atrim=duration=36[bg];{delays};[bg]{voices}amix=inputs=9:duration=first:normalize=0[a]",
+            "-map",
+            "[a]",
+            "-c:a",
+            "aac",
+            "-b:a",
+            "192k",
+            str(output_path),
+        ]
+    )
+    subprocess.run(command, check=True, capture_output=True)
 
 
 if __name__ == "__main__":
