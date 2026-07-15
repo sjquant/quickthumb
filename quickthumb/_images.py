@@ -391,7 +391,7 @@ class ImageEngine:
 
     def _remove_background(self, img: Image.Image) -> Image.Image:
         try:
-            from rembg import remove  # type: ignore[unresolved-import]
+            from rembg import remove
         except ImportError:
             raise ImportError(
                 "rembg is required for background removal. "

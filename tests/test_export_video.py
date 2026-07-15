@@ -7,6 +7,7 @@ import subprocess
 import sys
 import wave
 from io import BytesIO
+from typing import Any, cast
 
 import pytest
 from PIL import Image
@@ -40,7 +41,7 @@ def gif_frames(data: bytes) -> list[tuple[Image.Image, int]]:
     """Decode a GIF into (RGB frame, duration ms) pairs."""
     image = Image.open(BytesIO(data))
     frames = []
-    for index in range(image.n_frames):
+    for index in range(getattr(image, "n_frames", 1)):
         image.seek(index)
         frames.append((image.convert("RGB"), image.info.get("duration", 0)))
     return frames
@@ -51,8 +52,10 @@ def total_ms(frames: list[tuple[Image.Image, int]]) -> int:
     return sum(duration for _, duration in frames)
 
 
-def close_to(color: tuple, expected: tuple, tolerance: int = 24) -> bool:
+def close_to(color: object, expected: tuple[int, ...], tolerance: int = 24) -> bool:
     """True when two RGB colors match within a GIF-quantization tolerance."""
+    if not isinstance(color, tuple):
+        return False
     return all(abs(a - b) <= tolerance for a, b in zip(color, expected, strict=True))
 
 
@@ -388,7 +391,7 @@ class TestDeckGif:
 
         # then
         assert written == [str(path)]
-        assert Image.open(path).n_frames > 1
+        assert getattr(Image.open(path), "n_frames", 1) > 1
 
     def test_should_cross_fade_between_slides(self):
         """A fade transition blends the outgoing and incoming slides"""
@@ -1130,7 +1133,7 @@ deck.render_mp4(__import__("sys").argv[1], default_duration=0.01, fps=10)
 
         # when / then
         with pytest.raises(ValidationError, match="duration must be a finite"):
-            Deck(160, 90).slide(Canvas().background(color="#1131AA"), duration="invalid")
+            Deck(160, 90).slide(Canvas().background(color="#1131AA"), duration=cast(Any, "invalid"))
         assert not output.exists()
 
 
@@ -1243,7 +1246,7 @@ class TestVideoErrors:
 
         # when / then
         with pytest.raises(TypeError, match="soundtrack"):
-            canvas.to_gif(soundtrack="tone.wav")
+            cast(Any, canvas.to_gif)(soundtrack="tone.wav")
 
     def test_should_reject_missing_soundtrack_file(self, tmp_path):
         """A nonexistent soundtrack fails before any frame is rendered"""

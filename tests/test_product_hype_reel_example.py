@@ -2,6 +2,7 @@
 
 import json
 from pathlib import Path
+from typing import cast
 
 
 def test_product_hype_reel_meets_layout_and_pacing_contract():
@@ -40,6 +41,7 @@ def test_product_hype_reel_exports_each_supported_file_with_valid_audio_options(
     """The example only supplies a soundtrack to containers that can carry audio."""
     # given
     import examples.product_hype_reel as reel
+    from quickthumb import Deck
 
     calls: list[tuple[str, bool]] = []
 
@@ -51,6 +53,7 @@ def test_product_hype_reel_exports_each_supported_file_with_valid_audio_options(
 
         def render(self, output_path, **kwargs):
             calls.append((Path(output_path).suffix, "soundtrack" in kwargs))
+            return [str(output_path)]
 
         def __len__(self):
             return 8
@@ -65,7 +68,7 @@ def test_product_hype_reel_exports_each_supported_file_with_valid_audio_options(
         monkeypatch.setattr(reel, name, tmp_path / f"reel{suffix}", raising=False)
 
     # when
-    reel.export_reel(RecordingDeck())
+    reel.export_reel(cast(Deck, RecordingDeck()))
 
     # then
     assert (tmp_path / "reel.gif").read_bytes() == b"GIF89a"
