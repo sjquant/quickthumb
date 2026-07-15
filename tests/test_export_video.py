@@ -616,8 +616,7 @@ class TestVideoEncoding:
 
     def test_should_write_settled_frame_when_clock_lands_on_half_frame(self, tmp_path):
         """The settled frame is encoded even when its count lands on an exact .5 boundary"""
-        # given: 0.75s of animation at 10fps puts the settled shot at 8.5 frames,
-        # where round-half-even would emit zero frames for it
+        # given: 0.75s of animation at 10fps rounds to eight output frames
         canvas = (
             Canvas(160, 90)
             .background(color="#1131AA")
@@ -635,8 +634,8 @@ class TestVideoEncoding:
         frame_count = len(raw) // (160 * 90 * 3)
         last = Image.frombytes("RGB", (160, 90), raw[-160 * 90 * 3 :])
 
-        # then: 8 animation frames plus the settled frame, which shows full red
-        assert frame_count == 9
+        # then: the final allocated frame is settled without extending the timeline
+        assert frame_count == 8
         assert close_to(last.getpixel((80, 45)), RED)
 
     @pytest.mark.parametrize("container", ["mp4", "webm"])
@@ -774,7 +773,7 @@ class TestVideoEncoding:
         frame_size = 64 * 36 * 3
 
         # then
-        assert len(raw) // frame_size == 66
+        assert len(raw) // frame_size == 65
         last = Image.frombytes("RGB", (64, 36), raw[-frame_size:])
         assert close_to(last.getpixel((32, 18)), RED)
 
@@ -1005,6 +1004,60 @@ class TestNarratedDeckMp4:
         # then
         assert duration == pytest.approx(0.6, abs=0.12)
 
+    def test_should_keep_exact_animation_boundary_aligned_with_next_narration(self, tmp_path):
+        """A settled frame does not delay the next slide beyond the shared audio timeline."""
+        # given
+        voice = tone_wav(tmp_path / "second.wav", 0.2)
+        animated = (
+            Canvas(160, 90)
+            .background(color="#1131AA")
+            .shape("rectangle", (40, 20), 80, 50, "#FF2D55", animation=Fade(duration=0.5))
+        )
+        deck = (
+            Deck(160, 90)
+            .slide(animated, transition=tr.Cut(), duration=0.5)
+            .slide(
+                Canvas().background(color="#22AA55"),
+                transition=tr.Cut(),
+                audio=voice,
+                duration=0.2,
+            )
+        )
+        output = tmp_path / "aligned.mp4"
+
+        # when
+        output.write_bytes(deck.to_animated_mp4(fps=10, slide_duration=0.1))
+        raw = subprocess.run(
+            [
+                "ffmpeg",
+                "-v",
+                "error",
+                "-i",
+                str(output),
+                "-vsync",
+                "0",
+                "-f",
+                "rawvideo",
+                "-pix_fmt",
+                "rgb24",
+                "-",
+            ],
+            check=True,
+            capture_output=True,
+        ).stdout
+        frame_size = 160 * 90 * 3
+        frames = [
+            Image.frombytes("RGB", (160, 90), raw[offset : offset + frame_size])
+            for offset in range(0, len(raw), frame_size)
+        ]
+        samples = decoded_audio(output.read_bytes(), tmp_path / "aligned.pcm")
+
+        # then
+        assert len(frames) == 7
+        assert close_to(frames[4].getpixel((10, 10)), BLUE)
+        assert close_to(frames[5].getpixel((10, 10)), GREEN)
+        assert max(abs(sample) for sample in samples[4200:5200]) > 100
+
     def test_should_render_ordered_static_slides_with_aac_audio(self, tmp_path):
         """Deck MP4 joins explicit-audio and silent slides in their declared order"""
         # given
@@ -1079,6 +1132,21 @@ deck.render_mp4(__import__("sys").argv[1], fps=10)
 
         # then
         assert output.read_bytes()[4:8] == b"ftyp"
+
+    def test_should_silence_narration_after_a_sub_frame_explicit_duration(self, tmp_path):
+        """The minimum video frame does not extend narration past its requested cutoff."""
+        # given
+        audio = tone_wav(tmp_path / "voice.wav", 0.2)
+        deck = Deck(16, 16).slide(Canvas().background(color="#123456"), audio=audio, duration=0.01)
+        output = tmp_path / "short-narrated.mp4"
+
+        # when
+        deck.render_mp4(str(output), fps=10)
+        samples = decoded_audio(output.read_bytes(), tmp_path / "short-narrated.pcm")
+
+        # then
+        assert max(abs(sample) for sample in samples[:80]) > 100
+        assert max(abs(sample) for sample in samples[240:640]) < 500
 
     def test_should_encode_large_static_deck_in_bounded_batches(self, tmp_path):
         """Static MP4 export supports decks larger than one FFmpeg input batch."""

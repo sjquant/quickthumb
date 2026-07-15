@@ -211,7 +211,8 @@ def _encode_deck_batch(
         )
         volume = f"volume={audio.volume}," if audio is not None else ""
         filters.append(
-            f"[{audio_index}:a]{volume}apad,atrim=duration={encoded_duration:.9f},"
+            f"[{audio_index}:a]{volume}atrim=duration={duration:.9f},apad,"
+            f"atrim=duration={encoded_duration:.9f},"
             "aformat=sample_rates=48000:channel_layouts=stereo,"
             f"asetpts=PTS-STARTPTS[{audio_label}]"
         )

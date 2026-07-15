@@ -408,29 +408,61 @@ def _deck_shots(
         strict=True,
     ):
         transition, duration_in, animation_end, exit_time = timing
+        pending: _Shot | None = None
+        for shot in _slide_motion_shots(
+            animator,
+            transition,
+            duration_in,
+            animation_end,
+            previous_final,
+            size,
+            matte_rgb,
+            fps,
+        ):
+            if pending is not None:
+                yield pending
+            pending = shot
 
-        for time, duration in _sample_span(0.0, duration_in, fps):
-            incoming = _conform(animator.frame_at(time), size, matte_rgb)
-            progress = _ease(time / duration_in)
-            yield _Shot(_transition_frame(transition, previous_final, incoming, progress), duration)
-        # Between effect windows every unit's state is constant, so gaps (a
-        # trailing `delay`, a pause between chained effects) collapse into one
-        # held frame instead of resampling identical frames at fps.
-        for seg_start, seg_end, animating in animator.segments(duration_in, animation_end):
-            if animating:
-                for time, duration in _sample_span(seg_start, seg_end, fps):
-                    yield _Shot(_conform(animator.frame_at(time), size, matte_rgb), duration)
-            else:
-                frame = _conform(animator.frame_at(seg_start), size, matte_rgb)
-                yield _Shot(frame, seg_end - seg_start)
-
-        # The spans above are half-open, so the fully settled state only ever
-        # appears here; always emit it (at least one frame) even when the hold
-        # rounds to zero.
+        # Keep one motion shot pending so a sub-frame or zero hold can replace
+        # it with the settled state without extending the shared timeline.
         final = _conform(animator.final_frame(), size, matte_rgb)
         hold = exit_time - max(animation_end, duration_in)
-        yield _Shot(final, max(hold, 1.0 / fps))
+        if hold + _TIME_EPSILON >= 1.0 / fps:
+            if pending is not None:
+                yield pending
+            yield _Shot(final, hold)
+        elif pending is not None:
+            yield _Shot(final, pending.duration + max(hold, 0.0))
+        else:
+            yield _Shot(final, max(exit_time, 1.0 / fps))
         previous_final = final
+
+
+def _slide_motion_shots(
+    animator: _SlideAnimator,
+    transition: Transition | None,
+    duration_in: float,
+    animation_end: float,
+    previous_final: Image.Image,
+    size: tuple[int, int],
+    matte_rgb: tuple[int, int, int],
+    fps: float,
+) -> Iterator[_Shot]:
+    """Yield transition and layer-animation shots before the settled hold."""
+    for time, duration in _sample_span(0.0, duration_in, fps):
+        incoming = _conform(animator.frame_at(time), size, matte_rgb)
+        progress = _ease(time / duration_in)
+        yield _Shot(_transition_frame(transition, previous_final, incoming, progress), duration)
+    # Between effect windows every unit's state is constant, so gaps (a
+    # trailing `delay`, a pause between chained effects) collapse into one
+    # held frame instead of resampling identical frames at fps.
+    for seg_start, seg_end, animating in animator.segments(duration_in, animation_end):
+        if animating:
+            for time, duration in _sample_span(seg_start, seg_end, fps):
+                yield _Shot(_conform(animator.frame_at(time), size, matte_rgb), duration)
+        else:
+            frame = _conform(animator.frame_at(seg_start), size, matte_rgb)
+            yield _Shot(frame, seg_end - seg_start)
 
 
 def animation_timeline(
