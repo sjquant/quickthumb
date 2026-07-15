@@ -52,6 +52,20 @@ class TestDeckComposition:
         with pytest.raises(ValidationError, match="must be Canvas"):
             deck.slide("not a canvas")  # type: ignore[arg-type]
 
+    def test_should_not_mutate_deck_or_canvas_when_audio_is_invalid(self):
+        """Rejecting slide audio leaves the Deck and unsized Canvas unchanged."""
+        # given
+        deck = Deck(1280, 720)
+        slide = Canvas().background(color="#101820")
+
+        # when
+        with pytest.raises(ValidationError, match="greater than or equal to 0"):
+            deck.slide(slide, audio={"path": "voice.wav", "volume": -1})
+
+        # then
+        assert len(deck) == 0
+        assert not slide.has_size
+
     def test_should_reject_rendering_an_empty_deck(self, tmp_path: Path):
         """An empty deck cannot be rendered to any format."""
         # given

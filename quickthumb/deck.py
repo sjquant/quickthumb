@@ -151,10 +151,11 @@ class Deck:
             or duration <= 0
         ):
             raise ValidationError("duration must be a finite value > 0")
+        normalized_audio = coerce_audio_track(audio)
         self._append_slide(canvas)
         if override is not None:
             self._slide_transitions[-1] = override
-        self._slide_audio[-1] = coerce_audio_track(audio)
+        self._slide_audio[-1] = normalized_audio
         self._slide_durations[-1] = duration
         return self
 
@@ -282,7 +283,7 @@ class Deck:
                 loop_audio=soundtrack.loop if soundtrack is not None else True,
             )
             return
-        slide_durations = self._animation_audio_schedule()
+        slide_durations, audio_durations = self._animation_audio_schedule()
         write_animation(
             self._slides,
             self._resolved_transitions(),
@@ -292,25 +293,40 @@ class Deck:
             loop_audio=soundtrack.loop if soundtrack is not None else True,
             slide_audio=self._slide_audio,
             slide_durations=slide_durations,
-            audio_durations=slide_durations,
+            audio_durations=audio_durations,
         )
 
-    def _animation_audio_schedule(self, default_duration: float = 3.0) -> list[float]:
-        """Resolve the duration assigned to each animated slide narration."""
+    def _animation_audio_schedule(
+        self, default_duration: float = 3.0
+    ) -> tuple[list[float | None], list[float]]:
+        """Resolve visual overrides and finite durations for the audio mixer."""
         from quickthumb._export_deck_mp4 import ffprobe_binary, resolve_audio_duration
 
         for audio in self._slide_audio:
             if audio is not None and not os.path.isfile(audio.path):
                 raise ValidationError(f"Audio file not found: {audio.path!r}")
-        ffprobe = ffprobe_binary() if any(
-            audio is not None and duration is None
-            for audio, duration in zip(self._slide_audio, self._slide_durations, strict=True)
-        ) else ""
+        ffprobe = (
+            ffprobe_binary()
+            if any(
+                audio is not None and duration is None
+                for audio, duration in zip(self._slide_audio, self._slide_durations, strict=True)
+            )
+            else ""
+        )
         durations = [
             resolve_audio_duration(audio, duration, default_duration, ffprobe)
             for audio, duration in zip(self._slide_audio, self._slide_durations, strict=True)
         ]
-        return durations
+        visual_durations = [
+            resolved if audio is not None or duration is not None else None
+            for audio, duration, resolved in zip(
+                self._slide_audio,
+                self._slide_durations,
+                durations,
+                strict=True,
+            )
+        ]
+        return visual_durations, durations
 
     def _render_document(self, output_path: str, extension: str) -> None:
         if extension == ".pdf":
@@ -482,7 +498,7 @@ class Deck:
         """Export animated MP4/WebM bytes with the Deck's narration schedule."""
         from quickthumb._export_video import export_animation_bytes
 
-        slide_durations = self._animation_audio_schedule(slide_duration)
+        slide_durations, audio_durations = self._animation_audio_schedule(slide_duration)
         return export_animation_bytes(
             self._slides,
             self._resolved_transitions(),
@@ -494,7 +510,7 @@ class Deck:
             loop_audio=loop_audio,
             slide_audio=self._slide_audio,
             slide_durations=slide_durations,
-            audio_durations=slide_durations,
+            audio_durations=audio_durations,
         )
 
     def render_mp4(

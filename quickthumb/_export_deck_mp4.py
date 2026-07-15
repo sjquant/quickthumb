@@ -38,18 +38,23 @@ def render_deck_mp4(
 
     with tempfile.TemporaryDirectory(dir=destination.parent) as temp_dir:
         workspace = Path(temp_dir)
-        segments = []
-        for index, (canvas, audio, duration) in enumerate(
-            zip(slides, audio_paths, resolved_durations, strict=True)
-        ):
+        image_paths = []
+        for index, canvas in enumerate(slides):
             image_path = workspace / f"slide-{index:03d}.png"
-            segment_path = workspace / f"segment-{index:03d}.mp4"
             canvas.render(str(image_path))
-            _encode_segment(ffmpeg, image_path, audio, duration, fps, width, height, segment_path)
-            segments.append(segment_path)
-        concatenated = workspace / "deck.mp4"
-        _concatenate_segments(ffmpeg, segments, concatenated)
-        os.replace(concatenated, destination)
+            image_paths.append(image_path)
+        encoded = workspace / "deck.mp4"
+        _encode_deck(
+            ffmpeg,
+            image_paths,
+            audio_paths,
+            resolved_durations,
+            fps,
+            width,
+            height,
+            encoded,
+        )
+        os.replace(encoded, destination)
 
 
 def _validate_settings(
@@ -156,34 +161,60 @@ def _even_size(width: int, height: int) -> tuple[int, int]:
     return max(2, width - width % 2), max(2, height - height % 2)
 
 
-def _encode_segment(
+def _encode_deck(
     ffmpeg: str,
-    image_path: Path,
-    audio: AudioTrack | None,
-    duration: float,
+    image_paths: list[Path],
+    audio_tracks: list[AudioTrack | None],
+    durations: list[float],
     fps: float,
     width: int,
     height: int,
     output_path: Path,
 ) -> None:
-    """Encode one still image and one finite AAC track into a normalized segment."""
-    command = [ffmpeg, "-y", "-loop", "1", "-i", str(image_path)]
-    if audio is None:
-        command.extend(["-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo"])
-    else:
-        command.extend(["-i", audio.path])
-    video_filter = (
-        f"scale={width}:{height}:force_original_aspect_ratio=decrease,"
-        f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:black"
-    )
-    command.extend(
+    """Encode normalized still-image and narration pairs in one filtergraph."""
+    inputs: list[str] = []
+    filters: list[str] = []
+    concat_inputs: list[str] = []
+    input_index = 0
+    for slide_index, (image_path, audio, duration) in enumerate(
+        zip(image_paths, audio_tracks, durations, strict=True)
+    ):
+        inputs.extend(["-loop", "1", "-i", str(image_path)])
+        video_index = input_index
+        input_index += 1
+        if audio is None:
+            inputs.extend(["-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo"])
+        else:
+            inputs.extend(["-i", audio.path])
+        audio_index = input_index
+        input_index += 1
+
+        video_label = f"v{slide_index}"
+        audio_label = f"a{slide_index}"
+        filters.append(
+            f"[{video_index}:v]scale={width}:{height}:force_original_aspect_ratio=decrease,"
+            f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:black,fps={fps:g},"
+            f"trim=duration={duration:.9f},setpts=PTS-STARTPTS[{video_label}]"
+        )
+        volume = f"volume={audio.volume}," if audio is not None else ""
+        filters.append(
+            f"[{audio_index}:a]{volume}apad,atrim=duration={duration:.9f},"
+            "aformat=sample_rates=48000:channel_layouts=stereo,"
+            f"asetpts=PTS-STARTPTS[{audio_label}]"
+        )
+        concat_inputs.extend((f"[{video_label}]", f"[{audio_label}]"))
+    filters.append(f"{''.join(concat_inputs)}concat=n={len(image_paths)}:v=1:a=1[video][audio]")
+    _run_ffmpeg(
         [
-            "-t",
-            str(duration),
-            "-r",
-            str(fps),
-            "-vf",
-            video_filter,
+            ffmpeg,
+            "-y",
+            *inputs,
+            "-filter_complex",
+            ";".join(filters),
+            "-map",
+            "[video]",
+            "-map",
+            "[audio]",
             "-c:v",
             "libx264",
             "-pix_fmt",
@@ -192,45 +223,11 @@ def _encode_segment(
             "aac",
             "-ar",
             "48000",
-            "-af",
-            f"volume={audio.volume},apad" if audio is not None else "apad",
             "-movflags",
             "+faststart",
             str(output_path),
         ]
     )
-    _run_ffmpeg(command)
-
-
-def _concatenate_segments(ffmpeg: str, segments: list[Path], output_path: Path) -> None:
-    """Stream-copy normalized segments using FFmpeg's concat demuxer."""
-    manifest = output_path.with_suffix(".concat.txt")
-    manifest.write_text(
-        "".join(_concat_manifest_entry(segment) for segment in segments),
-        encoding="utf-8",
-    )
-    _run_ffmpeg(
-        [
-            ffmpeg,
-            "-y",
-            "-f",
-            "concat",
-            "-safe",
-            "0",
-            "-i",
-            str(manifest),
-            "-c",
-            "copy",
-            "-movflags",
-            "+faststart",
-            str(output_path),
-        ]
-    )
-
-
-def _concat_manifest_entry(segment: Path) -> str:
-    """Quote one segment path for FFmpeg's concat manifest syntax."""
-    return "file '" + str(segment).replace("'", r"'\''") + "'\n"
 
 
 def _run_ffmpeg(command: list[str]) -> None:

@@ -29,10 +29,10 @@ Concretely, per slide:
 Frames are eased with the CSS ``ease`` curve the HTML export uses, so both
 animated formats move the same way. GIF is encoded by Pillow with per-frame
 durations (holds cost one frame, not ``fps`` copies); MP4 (H.264) and WebM
-(VP9) are piped as raw frames to the ``ffmpeg`` binary, which must be on PATH
-(or named via the ``QUICKTHUMB_FFMPEG`` environment variable). H.264/VP9
-4:2:0 output needs even dimensions, so odd-sized canvases lose their last
-pixel row/column in MP4/WebM output.
+(VP9) give each distinct shot and its duration to the ``ffmpeg`` binary, which
+must be on PATH (or named via the ``QUICKTHUMB_FFMPEG`` environment variable).
+H.264/VP9 4:2:0 output needs even dimensions, so odd-sized canvases lose their
+last pixel row/column in MP4/WebM output.
 
 Alpha does not survive into these formats: every frame is composited onto an
 opaque ``matte`` color first. Slides that differ from the first slide's size
@@ -58,6 +58,7 @@ import tempfile
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass, field
 from io import BytesIO
+from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
 from PIL import Image, ImageChops, ImageColor, ImageDraw
@@ -101,7 +102,7 @@ def write_animation(
     soundtrack: AudioTrack | str | dict | None = None,
     loop_audio: bool | None = None,
     slide_audio: list[AudioTrack | None] | None = None,
-    slide_durations: list[float] | None = None,
+    slide_durations: list[float | None] | None = None,
     audio_offsets: list[float] | None = None,
     audio_durations: list[float] | None = None,
     audio_timeline_duration: float | None = None,
@@ -137,7 +138,6 @@ def write_animation(
         audio_durations,
         audio_timeline_duration,
     )
-    size = (canvases[0].width, canvases[0].height)
     plan = _deck_plan(canvases, transitions, fps, slide_duration, slide_durations)
     if slide_audio is not None and audio_offsets is None:
         audio_offsets = plan.offsets
@@ -148,7 +148,6 @@ def write_animation(
     try:
         _encode_video_file(
             shots,
-            size,
             fps,
             format,
             temp_path,
@@ -194,7 +193,7 @@ def export_animation_bytes(
     soundtrack: AudioTrack | str | dict | None = None,
     loop_audio: bool | None = None,
     slide_audio: list[AudioTrack | None] | None = None,
-    slide_durations: list[float] | None = None,
+    slide_durations: list[float | None] | None = None,
     audio_offsets: list[float] | None = None,
     audio_durations: list[float] | None = None,
     audio_timeline_duration: float | None = None,
@@ -203,8 +202,18 @@ def export_animation_bytes(
     loop_audio = _resolve_loop_audio(soundtrack, loop_audio)
     soundtrack = coerce_audio_track(soundtrack)
     fps, matte_rgb = _validated_settings(
-        canvases, format, fps, slide_duration, loop, matte, soundtrack, slide_audio,
-        slide_durations, audio_offsets, audio_durations, audio_timeline_duration,
+        canvases,
+        format,
+        fps,
+        slide_duration,
+        loop,
+        matte,
+        soundtrack,
+        slide_audio,
+        slide_durations,
+        audio_offsets,
+        audio_durations,
+        audio_timeline_duration,
     )
     plan = _deck_plan(canvases, transitions, fps, slide_duration, slide_durations)
     if slide_audio is not None and audio_offsets is None:
@@ -217,13 +226,20 @@ def export_animation_bytes(
 
     # ffmpeg needs a real, seekable output file (MP4 faststart rewrites the
     # header), so bytes go through a temporary file.
-    size = (canvases[0].width, canvases[0].height)
     descriptor, temp_path = tempfile.mkstemp(suffix=f".{format}")
     os.close(descriptor)
     try:
         _encode_video_file(
-            shots, size, fps, format, temp_path, soundtrack, loop_audio, slide_audio,
-            audio_offsets, audio_durations, audio_timeline_duration,
+            shots,
+            fps,
+            format,
+            temp_path,
+            soundtrack,
+            loop_audio,
+            slide_audio,
+            audio_offsets,
+            audio_durations,
+            audio_timeline_duration,
         )
         with open(temp_path, "rb") as video_file:
             return video_file.read()
@@ -241,7 +257,7 @@ def _validated_settings(
     matte: str,
     soundtrack: AudioTrack | None = None,
     slide_audio: list[AudioTrack | None] | None = None,
-    slide_durations: list[float] | None = None,
+    slide_durations: list[float | None] | None = None,
     audio_offsets: list[float] | None = None,
     audio_durations: list[float] | None = None,
     audio_timeline_duration: float | None = None,
@@ -283,7 +299,7 @@ def _validated_settings(
             if not math.isfinite(duration) or duration <= 0:
                 raise ValidationError("Deck audio duration must be finite and > 0")
         for duration in slide_durations:
-            if not math.isfinite(duration) or duration <= 0:
+            if duration is not None and (not math.isfinite(duration) or duration <= 0):
                 raise ValidationError("Deck slide duration must be finite and > 0")
     if fps is None:
         fps = _DEFAULT_FPS[format]
@@ -351,7 +367,7 @@ def _deck_plan(
     transitions: list[Transition | None],
     fps: float,
     slide_duration: float,
-    slide_durations: list[float] | None,
+    slide_durations: list[float | None] | None,
 ) -> _DeckPlan:
     """Build animation state once for both visuals and scheduled narration."""
     animators = [_SlideAnimator(canvas) for canvas in canvases]
@@ -377,7 +393,7 @@ def _deck_shots(
     fps: float,
     slide_duration: float,
     matte_rgb: tuple[int, int, int],
-    slide_durations: list[float] | None = None,
+    slide_durations: list[float | None] | None = None,
     plan: _DeckPlan | None = None,
 ) -> Iterator[_Shot]:
     """Yield the deck's full frame timeline as variable-duration shots."""
@@ -420,7 +436,7 @@ def animation_timeline(
     canvases: list[Canvas],
     transitions: list[Transition | None],
     slide_duration: float,
-    slide_durations: list[float] | None = None,
+    slide_durations: list[float | None] | None = None,
     fps: float = _DEFAULT_FPS["mp4"],
 ) -> tuple[list[float], float]:
     """Return the shared visual start offsets and total duration for a Deck."""
@@ -433,7 +449,7 @@ def _deck_timing(
     transitions: list[Transition | None],
     slide_duration: float,
     animation_durations: list[float] | None = None,
-    slide_durations: list[float] | None = None,
+    slide_durations: list[float | None] | None = None,
     minimum_duration: float = 0.0,
 ) -> list[tuple[Transition | None, float, float, float]]:
     """Resolve each slide's transition, animation, and exit timing once."""
@@ -450,13 +466,18 @@ def _deck_timing(
             duration_in = 0.0
         else:
             duration_in = transition.duration
-        duration = slide_durations[index] if slide_durations is not None else slide_duration
+        duration = slide_durations[index] if slide_durations is not None else None
         if transition is not None and transition.advance_after is not None:
             exit_time = max(
-                duration_in + transition.advance_after, animation_end, duration_in, duration
+                duration_in + transition.advance_after,
+                animation_end,
+                duration_in,
+                duration or 0.0,
             )
         else:
-            exit_time = max(animation_end, duration_in) + duration
+            exit_time = max(animation_end, duration_in) + (
+                duration if duration is not None else slide_duration
+            )
         exit_time = max(exit_time, minimum_duration)
         timings.append((transition, duration_in, animation_end, exit_time))
     return timings
@@ -1216,7 +1237,6 @@ _AUDIO_ARGS = {
 
 def _encode_video_file(
     shots: Iterable[_Shot],
-    size: tuple[int, int],
     fps: float,
     format: str,
     output_path: str,
@@ -1227,7 +1247,7 @@ def _encode_video_file(
     audio_durations: list[float] | None = None,
     audio_timeline_duration: float | None = None,
 ) -> None:
-    """Stream raw RGB frames into ffmpeg, expanding shots to a constant frame rate.
+    """Encode timestamped shot images with ffmpeg at a constant output frame rate.
 
     Frame counts follow the cumulative clock (floor(clock*fps + 0.5) - emitted),
     so rounding never drifts the timing across long decks. Half-up rounding
@@ -1236,12 +1256,11 @@ def _encode_video_file(
     round-half-even can swallow a full-frame shot that lands on an exact .5
     boundary, dropping the deck's final settled frame.
 
-    A ``soundtrack`` becomes a second ffmpeg input muxed alongside the piped
-    video; ``-shortest`` trims it to the video length, so the total duration
-    never needs to be known before the frames stream.
+    Each distinct shot is written once with its duration in an ffconcat manifest;
+    ffmpeg performs constant-frame-rate duplication internally, avoiding repeated
+    full-resolution RGB writes through Python for long static holds.
     """
     binary = _ffmpeg_binary()
-    width, height = size
     if slide_audio is not None:
         audio_input, audio_output = _scheduled_audio_args(
             format,
@@ -1255,7 +1274,7 @@ def _encode_video_file(
     elif soundtrack is None:
         if format == "mp4":
             audio_input = ["-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo"]
-            audio_output = ["-map", "0:v", "-map", "1:a:0", *_AUDIO_ARGS[format], "-shortest"]
+            audio_output = ["-map", "0:v", "-map", "1:a:0", *_AUDIO_ARGS[format]]
         else:
             audio_input, audio_output = [], ["-an"]
     else:
@@ -1269,20 +1288,37 @@ def _encode_video_file(
             filters.append("apad")
         audio_output = [
             "-map", "0:v", "-map", "1:a:0", "-af", ",".join(filters),
-            *_AUDIO_ARGS[format], "-shortest",
+            *_AUDIO_ARGS[format],
         ]  # fmt: skip
-    command = [
-        binary, "-hide_banner", "-loglevel", "error", "-y",
-        "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{width}x{height}",
-        "-r", f"{fps:g}", "-i", "pipe:0", *audio_input, *audio_output,
-        "-vf", "crop=trunc(iw/2)*2:trunc(ih/2)*2",
-        *_CODEC_ARGS[format], output_path,
-    ]  # fmt: skip
-
-    with tempfile.TemporaryFile() as stderr_file:
+    with tempfile.TemporaryDirectory() as frame_dir:
+        manifest_path, duration = _write_shot_manifest(shots, fps, Path(frame_dir))
+        command = [
+            binary,
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-y",
+            "-f",
+            "concat",
+            "-safe",
+            "0",
+            "-i",
+            str(manifest_path),
+            *audio_input,
+            *audio_output,
+            "-t",
+            f"{duration:.9f}",
+            "-vf",
+            f"fps={fps:g},crop=trunc(iw/2)*2:trunc(ih/2)*2",
+            *_CODEC_ARGS[format],
+            output_path,
+        ]
         try:
-            process = subprocess.Popen(
-                command, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=stderr_file
+            result = subprocess.run(
+                command,
+                check=False,
+                capture_output=True,
+                text=True,
             )
         except OSError as error:
             _remove_quietly(output_path)
@@ -1291,45 +1327,43 @@ def _encode_video_file(
                 "(e.g. 'brew install ffmpeg' or 'apt install ffmpeg'), or set "
                 "QUICKTHUMB_FFMPEG to its executable path."
             ) from error
-        assert process.stdin is not None
-        clock = 0.0
-        emitted = 0
-        last_frame: bytes | None = None
-        try:
-            try:
-                for shot in shots:
-                    clock += shot.duration
-                    last_frame = shot.frame.tobytes()
-                    count = math.floor(clock * fps + 0.5) - emitted
-                    for _ in range(count):
-                        process.stdin.write(last_frame)
-                    emitted += count
-                if emitted == 0 and last_frame is not None:
-                    process.stdin.write(last_frame)
-            except BrokenPipeError:
-                # ffmpeg died mid-stream; fall through to surface its stderr.
-                pass
-            finally:
-                # Closing flushes, which can hit the same broken pipe; the exit
-                # code check below is what reports the failure.
-                with contextlib.suppress(BrokenPipeError, OSError):
-                    process.stdin.close()
-        except BaseException:
-            # Frame rendering failed mid-stream: reap ffmpeg and drop the
-            # truncated output so a partial file is never mistaken for a
-            # successful export.
-            process.kill()
-            process.wait()
+        if result.returncode != 0:
             _remove_quietly(output_path)
-            raise
-        if process.wait() != 0:
-            stderr_file.seek(0)
-            detail = stderr_file.read().decode("utf-8", errors="replace").strip()[-2000:]
-            _remove_quietly(output_path)
+            detail = result.stderr.strip()[-2000:]
             raise RenderingError(
                 f"ffmpeg failed while encoding {format} output"
                 + (f":\n{detail}" if detail else ".")
             )
+
+
+def _write_shot_manifest(shots: Iterable[_Shot], fps: float, directory: Path) -> tuple[Path, float]:
+    """Write each emitted shot once and return its CFR manifest and duration."""
+    entries = ["ffconcat version 1.0\n"]
+    clock = 0.0
+    emitted = 0
+    last_frame: Image.Image | None = None
+    last_name: str | None = None
+    for shot in shots:
+        clock += shot.duration
+        last_frame = shot.frame
+        count = math.floor(clock * fps + 0.5) - emitted
+        if count <= 0:
+            continue
+        last_name = f"shot-{emitted:09d}.png"
+        shot.frame.save(directory / last_name, format="PNG")
+        entries.extend((f"file '{last_name}'\n", f"duration {count / fps:.12f}\n"))
+        emitted += count
+    if emitted == 0 and last_frame is not None:
+        last_name = "shot-000000000.png"
+        last_frame.save(directory / last_name, format="PNG")
+        entries.extend((f"file '{last_name}'\n", f"duration {1.0 / fps:.12f}\n"))
+        emitted = 1
+    if last_name is None:
+        raise RenderingError("Animation produced no frames.")
+    entries.append(f"file '{last_name}'\n")
+    manifest_path = directory / "frames.ffconcat"
+    manifest_path.write_text("".join(entries), encoding="utf-8")
+    return manifest_path, emitted / fps
 
 
 def _scheduled_audio_args(
@@ -1376,7 +1410,6 @@ def _scheduled_audio_args(
         "-map",
         "[mix]",
         *_AUDIO_ARGS[format],
-        "-shortest",
     ]
 
 

@@ -522,6 +522,17 @@ class TestDeckGif:
         # then: slide 1 holds 0.5s, then 0.5s fade + 2.0s advance_after hold
         assert total_ms(frames) == pytest.approx(3000, abs=100)
 
+    def test_should_allow_advance_after_to_shorten_the_default_hold(self):
+        """A short advance_after is not extended by the fallback slide duration."""
+        # given
+        deck = self.two_slide_deck(tr.Fade(duration=0.5, advance_after=0.2))
+
+        # when
+        frames = gif_frames(deck.to_gif(fps=10, slide_duration=1.0))
+
+        # then: slide 1 holds 1s, then slide 2 fades for 0.5s and holds 0.2s
+        assert total_ms(frames) == pytest.approx(1700, abs=100)
+
     def test_should_play_slide_zero_transition_from_the_matte(self):
         """An explicit transition on the first slide fades in from the matte color"""
         # given
@@ -1006,9 +1017,7 @@ class TestVideoErrors:
         # given
         missing_audio = tmp_path / "missing narration.wav"
         monkeypatch.setenv("QUICKTHUMB_FFPROBE", str(tmp_path / "missing-ffprobe"))
-        deck = Deck(160, 90).slide(
-            Canvas().background(color="#1131AA"), audio=str(missing_audio)
-        )
+        deck = Deck(160, 90).slide(Canvas().background(color="#1131AA"), audio=str(missing_audio))
 
         # when / then
         with pytest.raises(ValidationError, match="Audio file not found"):
@@ -1020,9 +1029,7 @@ class TestVideoErrors:
         audio = tone_wav(tmp_path / "voice.wav", 0.1)
         deck = Deck(160, 90)
         for _ in range(65):
-            deck.slide(
-                Canvas().background(color="#1131AA"), audio=audio, duration=0.1
-            )
+            deck.slide(Canvas().background(color="#1131AA"), audio=audio, duration=0.1)
 
         # when / then
         with pytest.raises(ValidationError, match="at most 64 narrated slides"):
