@@ -715,6 +715,7 @@ See the shipped examples in [`examples/README.md`](examples/README.md):
 - HTML, GIF, and Deck WebM play per-layer `animation`s and `Deck` slide transitions; HTML approximates a few exotic effects (blinds, checkerboard, wheel, dissolve) in CSS
 - HTML cannot animate a layer that must be rasterized together with earlier backdrop-dependent content, such as blend-mode or custom layers; move animated layers after that content or remove the backdrop dependency
 - Deck MP4 can attach `audio=` and `duration=` to each `slide()`: it requires FFmpeg/FFprobe for the static narration path and always writes H.264/AAC. Use `deck.render("deck.mp4", soundtrack={"path": "music.mp3", "loop": True})` to play transitions/layer animations and mix the background track with slide narration during rendering
+- Animated Deck MP4/WebM supports up to 64 narrated slides per export because FFmpeg decodes each narration concurrently; silent slides do not count toward the limit
 
 ## Development
 

@@ -299,6 +299,9 @@ class Deck:
         """Resolve the duration assigned to each animated slide narration."""
         from quickthumb._export_deck_mp4 import ffprobe_binary, resolve_audio_duration
 
+        for audio in self._slide_audio:
+            if audio is not None and not os.path.isfile(audio.path):
+                raise ValidationError(f"Audio file not found: {audio.path!r}")
         ffprobe = ffprobe_binary() if any(
             audio is not None and duration is None
             for audio, duration in zip(self._slide_audio, self._slide_durations, strict=True)
@@ -457,13 +460,33 @@ class Deck:
         duration holds its slide for the source audio length.
         """
         self._require_slides()
+        return self._export_animated_video_bytes(
+            format="mp4",
+            fps=fps,
+            slide_duration=slide_duration,
+            matte=matte,
+            soundtrack=soundtrack,
+            loop_audio=loop_audio,
+        )
+
+    def _export_animated_video_bytes(
+        self,
+        *,
+        format: AnimationFormat,
+        fps: float,
+        slide_duration: float,
+        matte: str,
+        soundtrack: AudioTrack | str | dict | None,
+        loop_audio: bool | None,
+    ) -> bytes:
+        """Export animated MP4/WebM bytes with the Deck's narration schedule."""
         from quickthumb._export_video import export_animation_bytes
 
         slide_durations = self._animation_audio_schedule(slide_duration)
         return export_animation_bytes(
             self._slides,
             self._resolved_transitions(),
-            format="mp4",
+            format=format,
             fps=fps,
             slide_duration=slide_duration,
             matte=matte,
@@ -516,21 +539,13 @@ class Deck:
         continue to loop by default.
         """
         self._require_slides()
-        from quickthumb._export_video import export_animation_bytes
-
-        slide_durations = self._animation_audio_schedule(slide_duration)
-        return export_animation_bytes(
-            self._slides,
-            self._resolved_transitions(),
+        return self._export_animated_video_bytes(
             format="webm",
             fps=fps,
             slide_duration=slide_duration,
             matte=matte,
             soundtrack=soundtrack,
             loop_audio=loop_audio,
-            slide_audio=self._slide_audio,
-            slide_durations=slide_durations,
-            audio_durations=slide_durations,
         )
 
     def diagnose(self) -> list[DeckDiagnostic]:

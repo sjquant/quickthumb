@@ -166,7 +166,8 @@ Use it when you want a realistic animated deck example that exercises both HTML 
 
 ### `product_hype_reel.py`
 
-Output: `product_hype_reel.gif`, `product_hype_reel.mp4`, and `product_hype_reel.webm`
+Output: `product_hype_reel.gif`, `product_hype_reel.mp4`, `product_hype_reel.webm`,
+`product_hype_reel.html`, and `product_hype_reel.pptx`
 
 Builds a polished Korean-style vertical (1080x1920) 8-scene app-launch reel — a full ad arc (hook → pain point → solution → three features → social proof → CTA) — and exports it as a self-playing 22.5-second animation with a soundtrack:
 
@@ -179,7 +180,7 @@ Builds a polished Korean-style vertical (1080x1920) 8-scene app-launch reel — 
 - `deck.diagnose()` before export, validating contrast, overflow, overlap, canvas bounds, and Reels UI-safe placement for all eight scenes
 - The bytes-returning tunable export API — `deck.to_gif(...)`, `.to_mp4(...)`, `.to_webm(...)`
 - A looping soundtrack (`assets/audio/hype_beat.wav`, a procedurally generated synth-pop loop) muxed into the MP4/WebM output via `soundtrack=`
-- Graceful fallback when `ffmpeg` isn't installed (GIF still renders; MP4/WebM are skipped with a message) and when the soundtrack asset is missing (both raise `QuickthumbError` subclasses)
+- Graceful per-format fallback when an optional renderer is unavailable; one failed export does not suppress the remaining formats
 
 Use it when you want a shareable, self-playing GIF or video clip (Reels/TikTok/Stories) instead of a static thumbnail, or as a reference for the animated export API, beat-synced editing via `advance_after`, and MP4/WebM audio.
 

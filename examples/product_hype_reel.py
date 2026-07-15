@@ -36,6 +36,8 @@ VOICEOVERS = [VOICEOVER_DIR / f"scene-{index:02d}.wav" for index in range(1, 9)]
 OUT_GIF = FILE_DIR / "product_hype_reel.gif"
 OUT_MP4 = FILE_DIR / "product_hype_reel.mp4"
 OUT_WEBM = FILE_DIR / "product_hype_reel.webm"
+OUT_PPTX = FILE_DIR / "product_hype_reel.pptx"
+OUT_HTML = FILE_DIR / "product_hype_reel.html"
 
 PRETENDARD = {
     400: str(ASSETS_DIR / "fonts" / "Pretendard-Regular.woff2"),
@@ -886,14 +888,24 @@ def export_reel(deck: Deck) -> None:
     # reel below the export budget while MP4/WebM preserve smooth 30fps motion.
     OUT_GIF.write_bytes(deck.to_gif(fps=2, loop=0))
 
-    try:
-        soundtrack = AudioTrack(path=str(SOUNDTRACK), volume=0.16, loop=True)
-        deck.render(str(OUT_MP4), soundtrack=soundtrack)
-        deck.render(str(OUT_WEBM), soundtrack=soundtrack)
-    except QuickthumbError as error:
-        print(f"⚠ Skipped MP4/WebM ({error})")
+    for output in (OUT_PPTX, OUT_HTML):
+        try:
+            deck.render(str(output))
+        except QuickthumbError as error:
+            print(f"⚠ Skipped {output.suffix.removeprefix('.').upper()} ({error})")
+
+    soundtrack = AudioTrack(path=str(SOUNDTRACK), volume=0.16, loop=True)
+    for output in (OUT_MP4, OUT_WEBM):
+        try:
+            deck.render(str(output), soundtrack=soundtrack)
+        except QuickthumbError as error:
+            print(f"⚠ Skipped {output.suffix.removeprefix('.').upper()} ({error})")
 
     print(f"✓ {OUT_GIF}")
+    print(f"  {OUT_PPTX}")
+    print(f"  {OUT_HTML}")
+    print(f"  {OUT_MP4}")
+    print(f"  {OUT_WEBM}")
     print(f"  {len(deck)} scenes · 36 seconds · narration-first timeline")
 
 

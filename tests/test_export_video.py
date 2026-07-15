@@ -999,6 +999,35 @@ class TestNarratedDeckMp4:
 class TestVideoErrors:
     """Test suite for animated-export validation and error paths"""
 
+    def test_should_reject_missing_slide_audio_before_resolving_its_duration(
+        self, monkeypatch, tmp_path
+    ):
+        """Animated Deck export reports a missing narration before requiring ffprobe."""
+        # given
+        missing_audio = tmp_path / "missing narration.wav"
+        monkeypatch.setenv("QUICKTHUMB_FFPROBE", str(tmp_path / "missing-ffprobe"))
+        deck = Deck(160, 90).slide(
+            Canvas().background(color="#1131AA"), audio=str(missing_audio)
+        )
+
+        # when / then
+        with pytest.raises(ValidationError, match="Audio file not found"):
+            deck.to_webm(slide_duration=0.1)
+
+    def test_should_report_the_documented_animated_narration_limit(self, tmp_path):
+        """Animated Deck export rejects more simultaneous narration inputs clearly."""
+        # given
+        audio = tone_wav(tmp_path / "voice.wav", 0.1)
+        deck = Deck(160, 90)
+        for _ in range(65):
+            deck.slide(
+                Canvas().background(color="#1131AA"), audio=audio, duration=0.1
+            )
+
+        # when / then
+        with pytest.raises(ValidationError, match="at most 64 narrated slides"):
+            deck.to_webm(slide_duration=0.1)
+
     def test_should_reject_missing_configured_media_tool(self, monkeypatch, tmp_path):
         """An invalid configured ffmpeg path raises the install-guidance RenderingError"""
         # given

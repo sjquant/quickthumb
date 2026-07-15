@@ -1,6 +1,7 @@
 """Black-box integration coverage for the product hype reel example."""
 
 import json
+from pathlib import Path
 
 
 def test_product_hype_reel_meets_layout_and_pacing_contract():
@@ -31,3 +32,46 @@ def test_product_hype_reel_meets_layout_and_pacing_contract():
     assert first_animation_delays == [BEAT / 2] * 8
     assert transition_effects == ["cut", "wipe", "push", "push", "push", "push", "fade", "zoom"]
     assert findings == []
+
+
+def test_product_hype_reel_exports_each_supported_file_with_valid_audio_options(
+    monkeypatch, tmp_path
+):
+    """The example only supplies a soundtrack to containers that can carry audio."""
+    # given
+    import examples.product_hype_reel as reel
+
+    calls: list[tuple[str, bool]] = []
+
+    class RecordingDeck:
+        """Record the example's public export calls without encoding the full reel."""
+
+        def to_gif(self, **kwargs):
+            return b"GIF89a"
+
+        def render(self, output_path, **kwargs):
+            calls.append((Path(output_path).suffix, "soundtrack" in kwargs))
+
+        def __len__(self):
+            return 8
+
+    for name, suffix in {
+        "OUT_GIF": ".gif",
+        "OUT_MP4": ".mp4",
+        "OUT_WEBM": ".webm",
+        "OUT_PPTX": ".pptx",
+        "OUT_HTML": ".html",
+    }.items():
+        monkeypatch.setattr(reel, name, tmp_path / f"reel{suffix}", raising=False)
+
+    # when
+    reel.export_reel(RecordingDeck())
+
+    # then
+    assert (tmp_path / "reel.gif").read_bytes() == b"GIF89a"
+    assert calls == [
+        (".pptx", False),
+        (".html", False),
+        (".mp4", True),
+        (".webm", True),
+    ]
