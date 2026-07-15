@@ -88,6 +88,7 @@ _BLINDS_STRIPS = 6
 _COMB_STRIPS = 8
 _MAX_GIF_FRAME_MEMORY_BYTES = 768 * 1024 * 1024
 _MAX_SCHEDULED_AUDIO_TRACKS = 64
+_MAX_SHOTS_PER_VIDEO_BATCH = 64
 
 
 def write_animation(
@@ -474,10 +475,10 @@ def _deck_timing(
                 duration_in,
                 duration or 0.0,
             )
+        elif duration is not None:
+            exit_time = max(animation_end, duration_in, duration)
         else:
-            exit_time = max(animation_end, duration_in) + (
-                duration if duration is not None else slide_duration
-            )
+            exit_time = max(animation_end, duration_in) + slide_duration
         exit_time = max(exit_time, minimum_duration)
         timings.append((transition, duration_in, animation_end, exit_time))
     return timings
@@ -1276,7 +1277,7 @@ def _encode_video_file(
             audio_input = ["-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo"]
             audio_output = ["-map", "0:v", "-map", "1:a:0", *_AUDIO_ARGS[format]]
         else:
-            audio_input, audio_output = [], ["-an"]
+            audio_input, audio_output = [], ["-map", "0:v", "-an"]
     else:
         # The audio must never be the shortest stream or -shortest would cut
         # the video to the track length: looping repeats the track forever
@@ -1290,8 +1291,16 @@ def _encode_video_file(
             "-map", "0:v", "-map", "1:a:0", "-af", ",".join(filters),
             *_AUDIO_ARGS[format],
         ]  # fmt: skip
-    with tempfile.TemporaryDirectory() as frame_dir:
-        manifest_path, duration = _write_shot_manifest(shots, fps, Path(frame_dir))
+    with tempfile.TemporaryDirectory() as video_dir:
+        directory = Path(video_dir)
+        segments, duration = _encode_shot_batches(
+            binary,
+            shots,
+            fps,
+            format,
+            directory,
+        )
+        manifest_path = _write_video_segment_manifest(segments, directory)
         command = [
             binary,
             "-hide_banner",
@@ -1308,62 +1317,159 @@ def _encode_video_file(
             *audio_output,
             "-t",
             f"{duration:.9f}",
-            "-vf",
-            f"fps={fps:g},crop=trunc(iw/2)*2:trunc(ih/2)*2",
-            *_CODEC_ARGS[format],
+            "-c:v",
+            "copy",
+            *(["-movflags", "+faststart"] if format == "mp4" else []),
             output_path,
         ]
-        try:
-            result = subprocess.run(
-                command,
-                check=False,
-                capture_output=True,
-                text=True,
-            )
-        except OSError as error:
-            _remove_quietly(output_path)
-            raise RenderingError(
-                "MP4/WebM export could not start ffmpeg. Install FFmpeg "
-                "(e.g. 'brew install ffmpeg' or 'apt install ffmpeg'), or set "
-                "QUICKTHUMB_FFMPEG to its executable path."
-            ) from error
-        if result.returncode != 0:
-            _remove_quietly(output_path)
-            detail = result.stderr.strip()[-2000:]
-            raise RenderingError(
-                f"ffmpeg failed while encoding {format} output"
-                + (f":\n{detail}" if detail else ".")
-            )
+        _run_video_ffmpeg(command, format, output_path)
 
 
-def _write_shot_manifest(shots: Iterable[_Shot], fps: float, directory: Path) -> tuple[Path, float]:
-    """Write each emitted shot once and return its CFR manifest and duration."""
-    entries = ["ffconcat version 1.0\n"]
+def _encode_shot_batches(
+    binary: str,
+    shots: Iterable[_Shot],
+    fps: float,
+    format: str,
+    directory: Path,
+) -> tuple[list[Path], float]:
+    """Encode bounded groups of distinct shots and return their total duration."""
+    segments: list[Path] = []
+    entries: list[tuple[str, float]] = []
+    batch_directory = directory / "frames-000"
+    batch_directory.mkdir()
     clock = 0.0
     emitted = 0
+    batch_duration = 0.0
     last_frame: Image.Image | None = None
-    last_name: str | None = None
     for shot in shots:
         clock += shot.duration
         last_frame = shot.frame
         count = math.floor(clock * fps + 0.5) - emitted
         if count <= 0:
             continue
-        last_name = f"shot-{emitted:09d}.png"
-        shot.frame.save(directory / last_name, format="PNG")
-        entries.extend((f"file '{last_name}'\n", f"duration {count / fps:.12f}\n"))
+        name = f"shot-{len(entries):03d}.png"
+        shot.frame.save(batch_directory / name, format="PNG")
+        duration = count / fps
+        entries.append((name, duration))
+        batch_duration += duration
         emitted += count
+        if len(entries) == _MAX_SHOTS_PER_VIDEO_BATCH:
+            segments.append(
+                _encode_shot_batch(
+                    binary,
+                    batch_directory,
+                    entries,
+                    batch_duration,
+                    fps,
+                    format,
+                    directory,
+                    len(segments),
+                )
+            )
+            shutil.rmtree(batch_directory)
+            entries = []
+            batch_duration = 0.0
+            batch_directory = directory / f"frames-{len(segments):03d}"
+            batch_directory.mkdir()
     if emitted == 0 and last_frame is not None:
-        last_name = "shot-000000000.png"
-        last_frame.save(directory / last_name, format="PNG")
-        entries.extend((f"file '{last_name}'\n", f"duration {1.0 / fps:.12f}\n"))
+        name = "shot-000.png"
+        last_frame.save(batch_directory / name, format="PNG")
+        entries.append((name, 1.0 / fps))
+        batch_duration = 1.0 / fps
         emitted = 1
-    if last_name is None:
+    if entries:
+        segments.append(
+            _encode_shot_batch(
+                binary,
+                batch_directory,
+                entries,
+                batch_duration,
+                fps,
+                format,
+                directory,
+                len(segments),
+            )
+        )
+    shutil.rmtree(batch_directory)
+    if not segments:
         raise RenderingError("Animation produced no frames.")
-    entries.append(f"file '{last_name}'\n")
-    manifest_path = directory / "frames.ffconcat"
-    manifest_path.write_text("".join(entries), encoding="utf-8")
-    return manifest_path, emitted / fps
+    return segments, emitted / fps
+
+
+def _encode_shot_batch(
+    binary: str,
+    frame_directory: Path,
+    entries: list[tuple[str, float]],
+    duration: float,
+    fps: float,
+    format: str,
+    output_directory: Path,
+    index: int,
+) -> Path:
+    """Encode one bounded shot manifest into a normalized video segment."""
+    manifest_path = frame_directory / "frames.ffconcat"
+    manifest_path.write_text(
+        "ffconcat version 1.0\n"
+        + "".join(
+            f"file '{name}'\nduration {shot_duration:.12f}\n" for name, shot_duration in entries
+        )
+        + f"file '{entries[-1][0]}'\n",
+        encoding="utf-8",
+    )
+    output_path = output_directory / f"segment-{index:03d}.{format}"
+    _run_video_ffmpeg(
+        [
+            binary,
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-y",
+            "-f",
+            "concat",
+            "-safe",
+            "0",
+            "-i",
+            str(manifest_path),
+            "-t",
+            f"{max(duration - 0.5 / fps, 0.5 / fps):.9f}",
+            "-vf",
+            f"fps={fps:g},crop=trunc(iw/2)*2:trunc(ih/2)*2",
+            *_CODEC_ARGS[format],
+            str(output_path),
+        ],
+        format,
+        str(output_path),
+    )
+    return output_path
+
+
+def _write_video_segment_manifest(segments: list[Path], directory: Path) -> Path:
+    """Write the bounded encoded segments as one concat-demuxer input."""
+    manifest_path = directory / "segments.ffconcat"
+    manifest_path.write_text(
+        "ffconcat version 1.0\n" + "".join(f"file '{segment.name}'\n" for segment in segments),
+        encoding="utf-8",
+    )
+    return manifest_path
+
+
+def _run_video_ffmpeg(command: list[str], format: str, output_path: str) -> None:
+    """Run one video encoder/muxer command with shared failure cleanup."""
+    try:
+        result = subprocess.run(command, check=False, capture_output=True, text=True)
+    except OSError as error:
+        _remove_quietly(output_path)
+        raise RenderingError(
+            "MP4/WebM export could not start ffmpeg. Install FFmpeg "
+            "(e.g. 'brew install ffmpeg' or 'apt install ffmpeg'), or set "
+            "QUICKTHUMB_FFMPEG to its executable path."
+        ) from error
+    if result.returncode != 0:
+        _remove_quietly(output_path)
+        detail = result.stderr.strip()[-2000:]
+        raise RenderingError(
+            f"ffmpeg failed while encoding {format} output" + (f":\n{detail}" if detail else ".")
+        )
 
 
 def _scheduled_audio_args(

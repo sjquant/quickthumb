@@ -16,6 +16,8 @@ from quickthumb.models import AudioTrack
 if TYPE_CHECKING:
     from quickthumb.canvas import Canvas
 
+_MAX_SLIDES_PER_FFMPEG_BATCH = 32
+
 
 def render_deck_mp4(
     slides: list[Canvas],
@@ -43,17 +45,26 @@ def render_deck_mp4(
             image_path = workspace / f"slide-{index:03d}.png"
             canvas.render(str(image_path))
             image_paths.append(image_path)
+        batches = []
+        for start in range(0, len(image_paths), _MAX_SLIDES_PER_FFMPEG_BATCH):
+            batch_path = workspace / f"batch-{len(batches):03d}.mp4"
+            end = start + _MAX_SLIDES_PER_FFMPEG_BATCH
+            _encode_deck_batch(
+                ffmpeg,
+                image_paths[start:end],
+                audio_paths[start:end],
+                resolved_durations[start:end],
+                fps,
+                width,
+                height,
+                batch_path,
+            )
+            batches.append(batch_path)
         encoded = workspace / "deck.mp4"
-        _encode_deck(
-            ffmpeg,
-            image_paths,
-            audio_paths,
-            resolved_durations,
-            fps,
-            width,
-            height,
-            encoded,
-        )
+        if len(batches) == 1:
+            os.replace(batches[0], encoded)
+        else:
+            _concatenate_batches(ffmpeg, batches, encoded)
         os.replace(encoded, destination)
 
 
@@ -161,7 +172,7 @@ def _even_size(width: int, height: int) -> tuple[int, int]:
     return max(2, width - width % 2), max(2, height - height % 2)
 
 
-def _encode_deck(
+def _encode_deck_batch(
     ffmpeg: str,
     image_paths: list[Path],
     audio_tracks: list[AudioTrack | None],
@@ -171,7 +182,7 @@ def _encode_deck(
     height: int,
     output_path: Path,
 ) -> None:
-    """Encode normalized still-image and narration pairs in one filtergraph."""
+    """Encode a bounded group of still-image and narration pairs."""
     inputs: list[str] = []
     filters: list[str] = []
     concat_inputs: list[str] = []
@@ -179,6 +190,7 @@ def _encode_deck(
     for slide_index, (image_path, audio, duration) in enumerate(
         zip(image_paths, audio_tracks, durations, strict=True)
     ):
+        encoded_duration = max(duration, 1.0 / fps)
         inputs.extend(["-loop", "1", "-i", str(image_path)])
         video_index = input_index
         input_index += 1
@@ -193,12 +205,13 @@ def _encode_deck(
         audio_label = f"a{slide_index}"
         filters.append(
             f"[{video_index}:v]scale={width}:{height}:force_original_aspect_ratio=decrease,"
-            f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:black,fps={fps:g},"
-            f"trim=duration={duration:.9f},setpts=PTS-STARTPTS[{video_label}]"
+            f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:black,"
+            f"trim=duration={encoded_duration:.9f},setpts=PTS-STARTPTS,"
+            f"fps={fps:g}[{video_label}]"
         )
         volume = f"volume={audio.volume}," if audio is not None else ""
         filters.append(
-            f"[{audio_index}:a]{volume}apad,atrim=duration={duration:.9f},"
+            f"[{audio_index}:a]{volume}apad,atrim=duration={encoded_duration:.9f},"
             "aformat=sample_rates=48000:channel_layouts=stereo,"
             f"asetpts=PTS-STARTPTS[{audio_label}]"
         )
@@ -223,6 +236,32 @@ def _encode_deck(
             "aac",
             "-ar",
             "48000",
+            "-movflags",
+            "+faststart",
+            str(output_path),
+        ]
+    )
+
+
+def _concatenate_batches(ffmpeg: str, batches: list[Path], output_path: Path) -> None:
+    """Stream-copy normalized batch files into the final static Deck MP4."""
+    manifest = output_path.with_suffix(".ffconcat")
+    manifest.write_text(
+        "ffconcat version 1.0\n" + "".join(f"file '{batch.name}'\n" for batch in batches),
+        encoding="utf-8",
+    )
+    _run_ffmpeg(
+        [
+            ffmpeg,
+            "-y",
+            "-f",
+            "concat",
+            "-safe",
+            "0",
+            "-i",
+            str(manifest),
+            "-c",
+            "copy",
             "-movflags",
             "+faststart",
             str(output_path),

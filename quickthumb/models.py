@@ -207,7 +207,7 @@ class AudioTrack(quickthumbModel):
     """An audio source with room for export-time mix controls."""
 
     path: str
-    volume: Annotated[float, Field(ge=0)] = 1.0
+    volume: Annotated[float, Field(ge=0, allow_inf_nan=False)] = 1.0
     loop: bool = False
 
 

@@ -272,7 +272,6 @@ class Deck:
         """Render an animated Deck, mixing scheduled narration when requested."""
         from quickthumb._export_video import write_animation
 
-        soundtrack = coerce_audio_track(soundtrack)
         if format == "gif":
             write_animation(
                 self._slides,
@@ -280,7 +279,6 @@ class Deck:
                 output_path,
                 format=format,
                 soundtrack=soundtrack,
-                loop_audio=soundtrack.loop if soundtrack is not None else True,
             )
             return
         slide_durations, audio_durations = self._animation_audio_schedule()
@@ -290,7 +288,6 @@ class Deck:
             output_path,
             format=format,
             soundtrack=soundtrack,
-            loop_audio=soundtrack.loop if soundtrack is not None else True,
             slide_audio=self._slide_audio,
             slide_durations=slide_durations,
             audio_durations=audio_durations,

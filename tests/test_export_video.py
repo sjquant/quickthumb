@@ -4,6 +4,7 @@ import math
 import shutil
 import struct
 import subprocess
+import sys
 import wave
 from io import BytesIO
 
@@ -735,6 +736,45 @@ class TestVideoEncoding:
         # then
         assert data[4:8] == b"ftyp"
 
+    @pytest.mark.parametrize("container", ["mp4", "webm"])
+    def test_should_encode_dense_animation_across_bounded_frame_batches(self, tmp_path, container):
+        """Dense animation frames are encoded correctly across spool batches."""
+        # given
+        canvas = (
+            Canvas(64, 36)
+            .background(color="#1131AA")
+            .shape("rectangle", (16, 8), 32, 20, "#FF2D55", animation=Fade(duration=6.5))
+        )
+        output = tmp_path / f"batched.{container}"
+
+        # when
+        export = canvas.to_mp4 if container == "mp4" else canvas.to_webm
+        output.write_bytes(export(fps=10, hold=0.0))
+        raw = subprocess.run(
+            [
+                "ffmpeg",
+                "-v",
+                "error",
+                "-i",
+                str(output),
+                "-vsync",
+                "0",
+                "-f",
+                "rawvideo",
+                "-pix_fmt",
+                "rgb24",
+                "-",
+            ],
+            check=True,
+            capture_output=True,
+        ).stdout
+        frame_size = 64 * 36 * 3
+
+        # then
+        assert len(raw) // frame_size == 66
+        last = Image.frombytes("RGB", (64, 36), raw[-frame_size:])
+        assert close_to(last.getpixel((32, 18)), RED)
+
 
 @pytest.mark.skipif(not (HAS_FFMPEG and HAS_FFPROBE), reason="ffmpeg/ffprobe not installed")
 class TestNarratedDeckMp4:
@@ -849,6 +889,23 @@ class TestNarratedDeckMp4:
         # then
         assert max(abs(sample) for sample in samples[2600:3600]) > 100
 
+    def test_should_loop_legacy_string_soundtrack_during_deck_render(self, tmp_path):
+        """Deck.render preserves the looping default for legacy soundtrack paths."""
+        # given
+        music = tone_wav(tmp_path / "music.wav", 0.1)
+        deck = Deck(160, 90).slide(
+            Canvas().background(color="#1131AA"),
+            transition=tr.Cut(advance_after=1.0),
+        )
+        output = tmp_path / "looped.mp4"
+
+        # when
+        deck.render(str(output), soundtrack=music)
+        samples = decoded_audio(output.read_bytes(), tmp_path / "looped.pcm")
+
+        # then
+        assert max(abs(sample) for sample in samples[-2000:]) > 100
+
     def test_should_trim_animated_narration_to_the_explicit_slide_duration(self, tmp_path):
         """Animated MP4 applies the same explicit narration duration contract as static MP4"""
         # given
@@ -910,6 +967,41 @@ class TestNarratedDeckMp4:
         assert duration == pytest.approx(0.55, abs=0.12)
         assert max(abs(sample) for sample in samples) > 100
 
+    def test_should_treat_animated_narration_duration_as_total_slide_length(self, tmp_path):
+        """Narration duration extends, rather than follows, the animation timeline."""
+        # given
+        voice = tone_wav(tmp_path / "voice.wav", 0.2)
+        canvas = (
+            Canvas(160, 90)
+            .background(color="#1131AA")
+            .shape("rectangle", (40, 20), 80, 50, "#FF2D55", animation=Fade(duration=0.5))
+        )
+        deck = Deck(160, 90).slide(canvas, transition=tr.Cut(), audio=voice, duration=0.6)
+        output = tmp_path / "timed.mp4"
+
+        # when
+        output.write_bytes(deck.to_animated_mp4(fps=10, slide_duration=0.1))
+        duration = float(
+            subprocess.run(
+                [
+                    "ffprobe",
+                    "-v",
+                    "error",
+                    "-show_entries",
+                    "format=duration",
+                    "-of",
+                    "default=nw=1:nk=1",
+                    str(output),
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout
+        )
+
+        # then
+        assert duration == pytest.approx(0.6, abs=0.12)
+
     def test_should_render_ordered_static_slides_with_aac_audio(self, tmp_path):
         """Deck MP4 joins explicit-audio and silent slides in their declared order"""
         # given
@@ -958,6 +1050,7 @@ class TestNarratedDeckMp4:
             check=True,
             capture_output=True,
         ).stdout
+        samples = decoded_audio(output.read_bytes(), tmp_path / "static-deck.pcm")
 
         # then
         assert "h264,video" in streams
@@ -965,6 +1058,40 @@ class TestNarratedDeckMp4:
         assert Image.frombytes("RGB", (160, 90), raw).getpixel((80, 45)) == pytest.approx(
             GREEN, abs=24
         )
+        assert max(abs(sample) for sample in samples[:1600]) > 100
+        assert max(abs(sample) for sample in samples[4000:5600]) < 100
+
+    def test_should_finish_static_slide_shorter_than_one_frame(self, tmp_path):
+        """A valid sub-frame slide duration emits one frame without hanging."""
+        # given
+        output = tmp_path / "short.mp4"
+        script = """
+from quickthumb import Canvas, Deck
+deck = Deck(16, 16).slide(Canvas().background(color="#123456"), duration=0.01)
+deck.render_mp4(__import__("sys").argv[1], fps=10)
+"""
+
+        # when
+        subprocess.run([sys.executable, "-c", script, str(output)], check=True, timeout=10)
+
+        # then
+        assert output.read_bytes()[4:8] == b"ftyp"
+
+    def test_should_encode_large_static_deck_in_bounded_batches(self, tmp_path):
+        """Static MP4 export supports decks larger than one FFmpeg input batch."""
+        # given
+        output = tmp_path / "large.mp4"
+        script = """
+from quickthumb import Canvas, Deck
+deck = Deck(2, 2, slides=[Canvas().background(color="#123456") for _ in range(170)])
+deck.render_mp4(__import__("sys").argv[1], default_duration=0.01, fps=10)
+"""
+
+        # when
+        subprocess.run([sys.executable, "-c", script, str(output)], check=True, timeout=30)
+
+        # then
+        assert output.read_bytes()[4:8] == b"ftyp"
 
     def test_should_infer_audio_duration_when_not_explicit(self, tmp_path):
         """Audio-only timing uses ffprobe's source duration instead of the default hold"""
@@ -1126,6 +1253,12 @@ class TestVideoErrors:
         # when / then
         with pytest.raises(ValidationError, match="Soundtrack file not found"):
             canvas.to_mp4(soundtrack=str(tmp_path / "missing.mp3"))
+
+    def test_should_reject_infinite_audio_volume(self):
+        """Audio volume must be finite before an encoder command is built."""
+        # given / when / then
+        with pytest.raises(ValidationError, match="finite number"):
+            AudioTrack(path="voice.wav", volume=math.inf)
 
     def test_should_reject_animated_layers_under_backdrop_compositing(self):
         """Layers that must flatten with a blend/custom backdrop cannot animate"""
