@@ -746,7 +746,7 @@ See the shipped examples in [`examples/README.md`](examples/README.md):
 uv sync
 uv run pytest
 uv run ruff check .
-uv run ty quickthumb/
+uv run --locked ty check quickthumb tests
 ```
 
 ## Reference
