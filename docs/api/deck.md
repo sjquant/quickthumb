@@ -55,7 +55,7 @@ A deck is also a sequence: `len(deck)`, `deck[i]`, and iteration over slides all
 
 ## Export methods
 
-### `.render(path, format=None, quality=None, soundtrack=None, animation=None)`
+### `.render(path, format=None, quality=None, animation=None)`
 
 Renders the deck, dispatching on the output extension. Returns the list of written file paths.
 
@@ -78,7 +78,7 @@ deck.render("slides.jpg", quality=85)
 | `.pdf` | Single multi-page PDF. Requires the `pdf` extra. |
 | `.pptx` | Single multi-slide PPTX. Requires the `pptx` extra. |
 | `.gif` / `.webm` | Single animation playing layer animations and slide transitions with default settings. WebM requires `ffmpeg`. |
-| `.mp4` | Static slides with optional per-slide narration, or an animated timeline when `soundtrack=` or `animation=` is given; H.264/yuv420p video and AAC audio. Requires `ffmpeg` and `ffprobe`. |
+| `.mp4` | Static slides with optional per-slide narration, or an animated timeline when `animation=VideoOptions(...)` is given; H.264/yuv420p video and AAC audio. Requires `ffmpeg` and `ffprobe`. |
 | `.png` / `.jpg` / `.jpeg` / `.webp` | One file per slide as a zero-padded numbered sequence. |
 
 | Parameter | Type | Default | Description |
@@ -86,7 +86,6 @@ deck.render("slides.jpg", quality=85)
 | `path` | `str` | — | Output path; raster names become `<stem>_NN<ext>` |
 | `format` | `str \| None` | `None` | Raster format override (`"PNG"`, `"JPEG"`, `"WEBP"`) |
 | `quality` | `int \| None` | `None` | Compression quality. Only valid for raster sequences. |
-| `soundtrack` | `AudioTrack \| str \| dict \| None` | `None` | Audio bed for animated MP4/WebM output. |
 | `animation` | `GifOptions \| VideoOptions \| None` | `None` | Format-specific options: `GifOptions` for GIF, `VideoOptions` for MP4/WebM. |
 
 !!! warning
@@ -95,8 +94,8 @@ deck.render("slides.jpg", quality=85)
 `GifOptions` and `VideoOptions` are available from `quickthumb`. `GifOptions`
 controls GIF frame rate, loop count, matte, proportional `max_size`, and palette
 `colors`; `VideoOptions` controls MP4/WebM frame rate, matte, soundtrack, and
-audio looping. Format-specific options are rejected when used with the other
-animated format.
+audio looping. Supply its soundtrack as `AudioTrack(path="music.mp3", loop=True)`.
+Format-specific options are rejected when used with the other animated format.
 
 ### `.to_pdf()` / `.to_pptx()`
 
@@ -134,10 +133,11 @@ Return the same animated timeline as `.to_webm()` in an H.264 MP4 container,
 including scheduled per-slide narration and an optional mixed soundtrack.
 Animated MP4/WebM export supports at most 64 narrated slides per Deck; silent
 slides do not count toward that operational FFmpeg input limit.
-For a file export, prefer `deck.render("deck.mp4", soundtrack=...)`: it mixes
-the optional background `AudioTrack` with each slide's `audio` narration during
-rendering. Without `soundtrack`, `deck.render("deck.mp4")` uses the static
-narrated path described above.
+For a file export, use `deck.render("deck.mp4",
+animation=VideoOptions(soundtrack=AudioTrack(path="music.mp3", loop=True)))`.
+It mixes the background track with each slide's `audio` narration during rendering.
+Without `VideoOptions`, `deck.render("deck.mp4")` uses the static narrated path
+described above.
 
 | Parameter | Type | Default | Description |
 | --- | --- | --- | --- |

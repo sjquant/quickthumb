@@ -13,7 +13,6 @@ from typing import cast
 import pytest
 from PIL import Image
 from quickthumb import (
-    AnimationOptions,
     Appear,
     AudioTrack,
     Blinds,
@@ -406,7 +405,7 @@ class TestDeckGif:
         # when
         deck.render(
             str(path),
-            animation=AnimationOptions(fps=10, max_size=(80, 80), colors=32),
+            animation=GifOptions(fps=10, max_size=(80, 80), colors=32),
         )
 
         # then
@@ -847,7 +846,7 @@ class TestNarratedDeckMp4:
         output = tmp_path / "animated.mp4"
 
         # when
-        written = deck.render(str(output), animation=AnimationOptions(fps=10))
+        written = deck.render(str(output), animation=VideoOptions(fps=10))
         raw = subprocess.run(
             [
                 "ffmpeg",
@@ -903,7 +902,7 @@ class TestNarratedDeckMp4:
 
         # when
         soundtrack = AudioTrack(path=music, volume=0.2, loop=True) if with_soundtrack else None
-        deck.render(str(output), soundtrack=soundtrack)
+        deck.render(str(output), animation=VideoOptions(soundtrack=soundtrack))
         streams = subprocess.run(
             [
                 "ffprobe",
@@ -974,14 +973,25 @@ class TestNarratedDeckMp4:
         output = tmp_path / "narrated.mp4"
 
         # when
-        deck.render(str(output), soundtrack=AudioTrack(path=music, loop=False))
+        deck.render(
+            str(output), animation=VideoOptions(soundtrack=AudioTrack(path=music, loop=False))
+        )
         samples = decoded_audio(output.read_bytes(), tmp_path / "decoded.pcm")
 
         # then
         assert max(abs(sample) for sample in samples[2600:3600]) > 100
 
-    def test_should_loop_legacy_string_soundtrack_during_deck_render(self, tmp_path):
-        """Deck.render preserves the looping default for legacy soundtrack paths."""
+    def test_should_require_an_audio_track_for_video_render_options(self, tmp_path):
+        """VideoOptions keeps the soundtrack contract explicit and unambiguous."""
+        # given
+        music = tone_wav(tmp_path / "music.wav", 0.1)
+
+        # when / then
+        with pytest.raises(ValidationError, match="AudioTrack"):
+            VideoOptions.model_validate({"soundtrack": music})
+
+    def test_should_loop_a_configured_video_options_soundtrack(self, tmp_path):
+        """VideoOptions uses AudioTrack.loop when mixing a short music bed."""
         # given
         music = tone_wav(tmp_path / "music.wav", 0.1)
         deck = Deck(160, 90).slide(
@@ -991,7 +1001,10 @@ class TestNarratedDeckMp4:
         output = tmp_path / "looped.mp4"
 
         # when
-        deck.render(str(output), soundtrack=music)
+        deck.render(
+            str(output),
+            animation=VideoOptions(soundtrack=AudioTrack(path=music, loop=True)),
+        )
         samples = decoded_audio(output.read_bytes(), tmp_path / "looped.pcm")
 
         # then
@@ -1015,7 +1028,9 @@ class TestNarratedDeckMp4:
         output = tmp_path / "trimmed.mp4"
 
         # when
-        deck.render(str(output), soundtrack=AudioTrack(path=music, loop=False))
+        deck.render(
+            str(output), animation=VideoOptions(soundtrack=AudioTrack(path=music, loop=False))
+        )
         samples = decoded_audio(output.read_bytes(), tmp_path / "trimmed.pcm")
 
         # then
@@ -1343,23 +1358,17 @@ class TestVideoErrors:
         with pytest.raises(RenderingError, match="Quality parameter"):
             deck.render(str(tmp_path / "deck.gif"), quality=80)
 
-    def test_should_reject_soundtrack_for_still_deck_output(self, tmp_path):
-        """Deck.render rejects an audio bed for still raster output."""
+    def test_should_reject_top_level_soundtrack_for_deck_render(self, tmp_path):
+        """Deck.render keeps animated audio inside VideoOptions."""
         # given
         deck = Deck(160, 90, slides=[Canvas().background(color="#1131AA")])
 
         # when / then
-        with pytest.raises(RenderingError, match="soundtrack.*animated"):
-            deck.render(str(tmp_path / "slides.png"), soundtrack="music.wav")
-
-    def test_should_reject_soundtrack_for_gif_output(self, tmp_path):
-        """Deck.render rejects an audio bed for GIF output."""
-        # given
-        deck = Deck(160, 90, slides=[Canvas().background(color="#1131AA")])
-
-        # when / then
-        with pytest.raises(RenderingError, match="soundtrack.*MP4 or WebM"):
-            deck.render(str(tmp_path / "preview.gif"), soundtrack="music.wav")
+        with pytest.raises(TypeError, match="soundtrack"):
+            cast(Callable[..., list[str]], deck.render)(
+                str(tmp_path / "preview.mp4"),
+                soundtrack="music.wav",
+            )
 
     def test_should_reject_unbounded_static_deck_fps(self, tmp_path):
         """Static Deck MP4 rejects frame rates above the supported encoder limit."""
@@ -1379,7 +1388,7 @@ class TestVideoErrors:
         # when
         canvas.render(
             str(output),
-            animation=AnimationOptions(fps=10, max_size=(80, 80), colors=32),
+            animation=GifOptions(fps=10, max_size=(80, 80), colors=32),
         )
 
         # then
@@ -1396,19 +1405,19 @@ class TestVideoErrors:
         with pytest.raises(RenderingError, match="animated output extension"):
             canvas.render(
                 str(tmp_path / "preview.png"),
-                animation=AnimationOptions(fps=10),
+                animation=GifOptions(fps=10),
             )
 
-    def test_should_reject_gif_only_options_for_video_render(self, tmp_path):
+    def test_should_reject_gif_resize_options_for_video_render(self, tmp_path):
         """GIF palette and resize controls are rejected for WebM output."""
         # given
         deck = Deck(160, 90, slides=[Canvas().background(color="#1131AA")])
 
         # when / then
-        with pytest.raises(ValidationError, match="only supported for GIF"):
+        with pytest.raises(ValidationError, match="GifOptions.*GIF"):
             deck.render(
                 str(tmp_path / "preview.webm"),
-                animation=AnimationOptions(max_size=(80, 80)),
+                animation=GifOptions(max_size=(80, 80)),
             )
 
     def test_should_reject_gif_options_for_video_render(self, tmp_path):
@@ -1450,6 +1459,8 @@ class TestVideoErrors:
             VideoOptions.model_validate({"max_size": (80, 80)})
         with pytest.raises(ValidationError, match="soundtrack"):
             GifOptions.model_validate({"soundtrack": "music.wav"})
+        with pytest.raises(ValidationError, match="loop"):
+            VideoOptions.model_validate({"loop": 3})
 
     def test_should_read_the_soundtrack_from_video_options(self, tmp_path):
         """VideoOptions validates its soundtrack before any WebM encoding starts."""
@@ -1461,19 +1472,7 @@ class TestVideoErrors:
         with pytest.raises(ValidationError, match="Soundtrack file not found"):
             canvas.render(
                 str(tmp_path / "preview.webm"),
-                animation=VideoOptions(soundtrack=str(missing)),
-            )
-
-    def test_should_reject_loop_for_video_render(self, tmp_path):
-        """GIF loop counts are rejected for video output instead of ignored."""
-        # given
-        deck = Deck(160, 90, slides=[Canvas().background(color="#1131AA")])
-
-        # when / then
-        with pytest.raises(ValidationError, match="loop is only supported for GIF"):
-            deck.render(
-                str(tmp_path / "preview.webm"),
-                animation=AnimationOptions(loop=3),
+                animation=VideoOptions(soundtrack=AudioTrack(path=str(missing))),
             )
 
     def test_should_reject_format_override_for_animated_output(self, tmp_path):

@@ -245,27 +245,8 @@ class VideoOptions(quickthumbModel):
 
     fps: Annotated[float, Field(gt=0, allow_inf_nan=False)] | None = None
     matte: str = "#000000"
-    soundtrack: AudioTrack | str | dict | None = None
+    soundtrack: AudioTrack | None = None
     loop_audio: bool | None = None
-
-    @field_validator("soundtrack", mode="before")
-    @classmethod
-    def coerce_soundtrack(
-        cls, value: AudioTrack | str | dict | None
-    ) -> AudioTrack | str | dict | None:
-        if isinstance(value, str):
-            return AudioTrack(path=value)
-        return value
-
-
-class AnimationOptions(GifOptions):
-    """Backward-compatible options for animated ``render()`` output.
-
-    Use :class:`GifOptions` for GIF output and :class:`VideoOptions` for MP4
-    or WebM output in new code. This legacy class keeps the pre-1.0 common
-    options API working while format validation remains explicit at render
-    time.
-    """
 
 
 def coerce_audio_track(value: AudioTrack | str | dict | None) -> AudioTrack | None:

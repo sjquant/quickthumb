@@ -21,7 +21,6 @@ from quickthumb._base import FileFormat, aspect_ratio_dimensions
 from quickthumb.canvas import Canvas
 from quickthumb.errors import RenderingError, ValidationError
 from quickthumb.models import (
-    AnimationOptions,
     AudioTrack,
     GifOptions,
     VideoOptions,
@@ -194,7 +193,6 @@ class Deck:
         output_path: str,
         format: FileFormat | None = None,
         quality: int | None = None,
-        soundtrack: AudioTrack | str | dict | None = None,
         animation: GifOptions | VideoOptions | None = None,
     ) -> list[str]:
         """Render the deck, dispatching on the output extension.
@@ -202,8 +200,8 @@ class Deck:
         ``.pdf`` and ``.pptx`` produce a single multi-page/multi-slide document.
         ``.gif`` and ``.webm`` produce one animation that plays each slide's
         layer animations and transitions. ``.mp4`` renders static slides with
-        per-slide narration unless a ``soundtrack`` or ``animation`` is
-        supplied, in which case it uses the animated timeline. Raster
+        per-slide narration unless ``animation=VideoOptions(...)`` is supplied,
+        in which case it uses the animated timeline. Raster
         extensions (``.png``, ``.jpg``, ``.jpeg``, ``.webp``) write one file per
         slide as a zero-padded
         numbered sequence derived from ``output_path`` (e.g. ``slides.png`` ->
@@ -215,15 +213,12 @@ class Deck:
         self._require_slides()
         extension = os.path.splitext(output_path)[1].lower()
 
-        if soundtrack is not None and extension not in (".mp4", ".webm"):
-            raise RenderingError("soundtrack is only supported for animated MP4 or WebM output.")
-
         if animation is not None and extension not in (*_ANIMATION_EXTENSIONS, ".mp4"):
             raise RenderingError(
                 "animation options require an animated output extension (.gif, .mp4, or .webm)."
             )
 
-        if extension == ".mp4" and soundtrack is None and animation is None:
+        if extension == ".mp4" and animation is None:
             if quality is not None:
                 raise RenderingError(
                     "Quality parameter is only supported for JPEG and WEBP formats, "
@@ -250,7 +245,6 @@ class Deck:
             self._render_animated_file(
                 output_path,
                 cast("AnimationFormat", extension[1:]),
-                soundtrack,
                 animation,
             )
             return [output_path]
@@ -288,7 +282,6 @@ class Deck:
         self,
         output_path: str,
         format: AnimationFormat,
-        soundtrack: AudioTrack | str | dict | None,
         animation: GifOptions | VideoOptions | None = None,
     ) -> None:
         """Render an animated Deck, mixing scheduled narration when requested."""
@@ -300,11 +293,10 @@ class Deck:
                 self._resolved_transitions(),
                 output_path,
                 format=format,
-                soundtrack=soundtrack,
                 animation=animation,
             )
             return
-        if animation is not None and not isinstance(animation, (AnimationOptions, VideoOptions)):
+        if isinstance(animation, GifOptions):
             raise ValidationError("GifOptions are only supported for GIF output")
         slide_durations, audio_durations = self._animation_audio_schedule()
         write_animation(
@@ -312,7 +304,6 @@ class Deck:
             self._resolved_transitions(),
             output_path,
             format=format,
-            soundtrack=soundtrack,
             slide_audio=self._slide_audio,
             slide_durations=slide_durations,
             audio_durations=audio_durations,

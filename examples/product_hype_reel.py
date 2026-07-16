@@ -25,6 +25,7 @@ from quickthumb import (
     RadialGradient,
     Shadow,
     Stroke,
+    VideoOptions,
     Wipe,
 )
 from quickthumb import transitions as tr
@@ -901,7 +902,7 @@ def export_reel(deck: Deck) -> None:
     soundtrack = AudioTrack(path=str(SOUNDTRACK), volume=0.16, loop=True)
     for output in (OUT_MP4, OUT_WEBM):
         try:
-            deck.render(str(output), soundtrack=soundtrack)
+            deck.render(str(output), animation=VideoOptions(soundtrack=soundtrack))
         except QuickthumbError as error:
             print(f"⚠ Skipped {output.suffix.removeprefix('.').upper()} ({error})")
 

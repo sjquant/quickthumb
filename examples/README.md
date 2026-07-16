@@ -179,7 +179,7 @@ Builds a polished Korean-style vertical (1080x1920) 8-scene app-launch reel — 
 - Story-aware slide transitions (`Wipe`, `Push`, `Fade`, `Zoom`) rendered as real frames through the raster pipeline, with six beats per scene and all eight cuts locked to a 48-beat, 128 BPM timeline — exactly six loops of the bundled two-bar soundtrack
 - `deck.diagnose()` before export, validating contrast, overflow, overlap, canvas bounds, and Reels UI-safe placement for all eight scenes
 - The file-rendering animation API with GIF-specific `GifOptions`, plus the video-specific `VideoOptions` and bytes-returning `.to_mp4(...)` / `.to_webm(...)` variants
-- A looping soundtrack (`assets/audio/hype_beat.wav`, a procedurally generated synth-pop loop) muxed into the MP4/WebM output via `soundtrack=`
+- A looping soundtrack (`assets/audio/hype_beat.wav`, a procedurally generated synth-pop loop) muxed into the MP4/WebM output via `VideoOptions(soundtrack=AudioTrack(...))`
 - Graceful per-format fallback when an optional renderer is unavailable; one failed export does not suppress the remaining formats
 
 Use it when you want a shareable, self-playing GIF or video clip (Reels/TikTok/Stories) instead of a static thumbnail, or as a reference for the animated export API, beat-synced editing via `advance_after`, and MP4/WebM audio.
