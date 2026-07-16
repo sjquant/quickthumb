@@ -2,7 +2,28 @@
   var stages=Array.prototype.slice.call(document.querySelectorAll('.qt-stage'));
   if(!stages.length)return;
   var fit={{ responsive }};
-  var current=0,hideTimer,autoTimer,transitioning=false,timelineBusy=false,applyingRemote=false;
+  function syncPath(){
+    return window.location.pathname==='/presenter'?'/':window.location.pathname;
+  }
+  function stateKey(){
+    return 'quickthumb:slide:'+window.location.origin+syncPath();
+  }
+  function readSavedCurrent(){
+    try{
+      var value=window.localStorage&&window.localStorage.getItem(stateKey());
+      if(value===null||value==='')return null;
+      var index=Number(value);
+      return Number.isInteger(index)&&index>=0&&index<stages.length?index:null;
+    }catch(error){return null;}
+  }
+  function saveCurrent(){
+    try{
+      if(window.localStorage)window.localStorage.setItem(stateKey(),String(current));
+    }catch(error){}
+  }
+  var savedCurrent=readSavedCurrent();
+  var current=savedCurrent===null?0:savedCurrent;
+  var hideTimer,autoTimer,transitioning=false,timelineBusy=false,applyingRemote=false;
   var timelines=stages.map(function(s){return new qtTimeline(s);});
   var presenter=presenterRequested();
   var presenterUi=presenter?createPresenter():null;
@@ -99,8 +120,7 @@
   }
   function createSync(){
     if(!window.BroadcastChannel||!window.location)return null;
-    var path=window.location.pathname==='/presenter'?'/':window.location.pathname;
-    var channel=new window.BroadcastChannel('quickthumb:'+window.location.origin+path);
+    var channel=new window.BroadcastChannel('quickthumb:'+window.location.origin+syncPath());
     channel.addEventListener('message',function(event){
       var message=event.data||{};
       if(presenter){
@@ -195,6 +215,7 @@
     var out=stages[current],inc=stages[i];
     var source=backward?out:inc;
     current=i;
+    saveCurrent();
     sendSync({action:'go',index:i});
     var under=source.getAttribute('data-qt-z')==='under';
     var enter=source.getAttribute('data-qt-transition')||'';
@@ -235,14 +256,26 @@
     if(e.key==='ArrowRight'||e.key===' '){if(canClick())advance();}
     else if(e.key==='ArrowLeft'){if(current>0)go(current-1,true);}
   });
-  // First slide plays its own enter transition, then settles like any other.
-  if(fit)qtFit(stages[0]);
-  updatePresenter();
-  transitioning=true;
-  stages[0].hidden=false;
-  stages[0].style.willChange='transform,opacity,clip-path';
-  stages[0].style.animation=stages[0].getAttribute('data-qt-transition')||'';
-  runTimeline(0);
-  var d0=parseFloat(stages[0].getAttribute('data-qt-dur'))||0;
-  hideTimer=setTimeout(settle,d0*1000+60);
+  // First load plays slide 0's enter transition. A refresh restores the last
+  // controlled slide in its settled state so presenter and audience views do
+  // not diverge while one tab is reloading.
+  if(savedCurrent!==null){
+    stages.forEach(function(stage,j){
+      if(j!==current){stage.style.display='none';stage.hidden=true;}
+    });
+    stages[current].hidden=false;stages[current].style.display='block';
+    finishTimeline(current);
+    settle();
+  }else{
+    if(fit)qtFit(stages[current]);
+    updatePresenter();
+    transitioning=true;
+    stages[current].hidden=false;
+    stages[current].style.display='block';
+    stages[current].style.willChange='transform,opacity,clip-path';
+    stages[current].style.animation=stages[current].getAttribute('data-qt-transition')||'';
+    runTimeline(current);
+    var d0=parseFloat(stages[current].getAttribute('data-qt-dur'))||0;
+    hideTimer=setTimeout(settle,d0*1000+60);
+  }
 })();

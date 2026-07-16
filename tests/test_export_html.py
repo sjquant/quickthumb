@@ -1135,6 +1135,11 @@ const stages = Array.from(html.matchAll(/<div class="qt-stage"[^>]*>/g), (match)
 });
 const listeners = {};
 const syncMessages = [];
+const storage = {};
+const localStorage = {
+  getItem(key) { return Object.prototype.hasOwnProperty.call(storage, key) ? storage[key] : null; },
+  setItem(key, value) { storage[key] = String(value); },
+};
 class BroadcastChannel {
   addEventListener() {}
   postMessage(message) { syncMessages.push(message); }
@@ -1169,6 +1174,7 @@ const context = {
     addEventListener() {},
     BroadcastChannel,
     location: { origin: 'http://localhost:3030', pathname: '/', search: '' },
+    localStorage,
   },
 };
 vm.createContext(context);
@@ -1206,6 +1212,22 @@ function wait(ms) {
   await wait(90);
   assert(stages[0].hidden === false, 'arrow left restores slide one');
   assert(stages[1].hidden === true, 'arrow left hides slide two');
+  document.dispatch('keydown', { key: 'ArrowRight' });
+  await wait(90);
+  assert(stages[1].hidden === false, 'saved current slide is visible before reload');
+  assert(
+    storage['quickthumb:slide:http://localhost:3030/'] === '1',
+    'navigation persists the current slide for reload recovery',
+  );
+  stages.forEach((stage) => {
+    stage.hidden = true;
+    stage.style.display = 'none';
+    stage.style.animation = '';
+  });
+  vm.runInContext(scripts, context);
+  await wait(10);
+  assert(stages[0].hidden === true, 'reload keeps the previous slide hidden');
+  assert(stages[1].hidden === false, 'reload restores the saved current slide');
 })().catch((error) => {
   console.error(error.stack || error.message);
   process.exit(1);
