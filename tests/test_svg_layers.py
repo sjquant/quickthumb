@@ -5,12 +5,13 @@ import os
 import sys
 import tempfile
 from pathlib import Path
+from typing import cast
 
 import pytest
 from inline_snapshot import snapshot
 from PIL import Image
 from quickthumb.errors import RenderingError, ValidationError
-from quickthumb.models import Align, BlendMode
+from quickthumb.models import Align, BlendMode, SvgLayer
 
 from tests._optional import require_cairosvg
 
@@ -76,7 +77,13 @@ class TestCanvasSvgAPI:
         params.update(kwargs)
 
         with pytest.raises(ValidationError, match=error_pattern):
-            Canvas(400, 300).svg(**params)
+            Canvas(400, 300).svg(
+                path=cast(str, params["path"]),
+                position=cast(tuple[int, int], params["position"]),
+                width=cast(int | None, params.get("width")),
+                height=cast(int | None, params.get("height")),
+                opacity=cast(float, params.get("opacity", 1.0)),
+            )
 
 
 class TestSvgLayerSerialization:
@@ -97,7 +104,7 @@ class TestSvgLayerSerialization:
 
         # then
         assert data["layers"][0]["type"] == "svg"
-        layer = restored.layers[0]
+        layer = cast(SvgLayer, restored.layers[0])
         assert layer.path == FIXTURE_SVG
         assert layer.width == 120
         assert layer.position == ("50%", "50%")

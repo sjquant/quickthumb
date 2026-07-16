@@ -9,9 +9,10 @@ from fontTools.fontBuilder import FontBuilder
 from fontTools.misc.psCharStrings import T2CharString
 from fontTools.pens.ttGlyphPen import TTGlyphPen
 from PIL import Image
-from quickthumb import Canvas, Deck, LinearGradient
+from quickthumb import BackdropBlur, Canvas, Deck, LinearGradient
 from quickthumb.errors import RenderingError
 
+from tests._helpers import pixel_scalar
 from tests._optional import require_pypdfium2
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
@@ -190,19 +191,19 @@ def render_canvas_image(canvas: Canvas, tmp_path: Path, name: str) -> Image.Imag
 
 def _mask_overlap(actual: Image.Image, expected: Image.Image) -> float:
     """Return the intersection-over-union of dark-pixel masks."""
-    actual_pixels = actual.convert("L").load()
-    expected_pixels = expected.convert("L").load()
+    actual_pixels = actual.convert("L")
+    expected_pixels = expected.convert("L")
     actual_ink = {
         (x, y)
         for y in range(actual.height)
         for x in range(actual.width)
-        if actual_pixels[x, y] < 220
+        if pixel_scalar(actual_pixels, (x, y)) < 220
     }
     expected_ink = {
         (x, y)
         for y in range(expected.height)
         for x in range(expected.width)
-        if expected_pixels[x, y] < 220
+        if pixel_scalar(expected_pixels, (x, y)) < 220
     }
     if not actual_ink and not expected_ink:
         return 1.0
@@ -688,7 +689,7 @@ class TestPdfCompositionEffects:
                 width=20,
                 height=40,
                 color="#FFFFFF40",
-                effects=[{"type": "backdrop_blur", "radius": 5}],
+                effects=[BackdropBlur(radius=5)],
             )
         )
 

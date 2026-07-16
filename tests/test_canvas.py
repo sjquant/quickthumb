@@ -3,9 +3,11 @@
 import json
 import os
 import tempfile
+from typing import cast
 
 import pytest
 from inline_snapshot import snapshot
+from quickthumb.models import BackgroundLayer, Stroke, TextLayer
 
 
 class TestCanvas:
@@ -65,11 +67,11 @@ class TestCanvas:
         canvas = Canvas(200, 200).background(color="#FFFFFF").text("hi", size=20)
 
         # when: the layer list is replaced with a filtered copy
-        canvas.layers = [layer for layer in canvas.layers if layer.type == "background"]
+        canvas.layers = [layer for layer in canvas.layers if isinstance(layer, BackgroundLayer)]
 
         # then
         assert len(canvas.layers) == 1
-        assert canvas.layers[0].type == "background"
+        assert cast(BackgroundLayer, canvas.layers[0]).type == "background"
 
     @pytest.mark.parametrize("attribute", ["width", "height"])
     def test_should_reject_non_positive_dimension_assignment(self, attribute):
@@ -618,7 +620,7 @@ class TestCanvasTemplate:
 
         # then: the int survives as a number and stringifies inside the quoted field
         assert canvas.width == 400
-        assert canvas.layers[0].content == "42"
+        assert cast(TextLayer, canvas.layers[0]).content == "42"
 
     def test_variable_value_with_dollar_sign_is_not_resubstituted(self):
         """Variable values containing $ are inserted literally, not re-scanned for placeholders"""
@@ -716,11 +718,13 @@ class TestCanvasTheme:
         canvas = Canvas.from_json(config)
 
         # then: tokens are resolved with their native JSON types, including nested structures
-        assert canvas.layers[0].color == "#FF0000"
-        assert canvas.layers[1].size == 48
-        assert canvas.layers[1].color == "#FF0000"
-        assert canvas.layers[1].position == ("8%", "50%")
-        assert canvas.layers[1].effects[0].color == "#111111"
+        background = cast(BackgroundLayer, canvas.layers[0])
+        text = cast(TextLayer, canvas.layers[1])
+        assert background.color == "#FF0000"
+        assert text.size == 48
+        assert text.color == "#FF0000"
+        assert text.position == ("8%", "50%")
+        assert cast(Stroke, text.effects[0]).color == "#111111"
 
     def test_should_substitute_theme_tokens_embedded_in_strings(self):
         """Scalar theme tokens referenced inside a longer string are substituted in place"""
@@ -742,7 +746,7 @@ class TestCanvasTheme:
         canvas = Canvas.from_json(config)
 
         # then: the token is replaced inside the surrounding text
-        assert canvas.layers[0].content == "Made with quickthumb today"
+        assert cast(TextLayer, canvas.layers[0]).content == "Made with quickthumb today"
 
     @pytest.mark.parametrize(
         "theme,match",
@@ -788,7 +792,7 @@ class TestCanvasTheme:
         canvas = Canvas.from_json(config)
 
         # then
-        assert canvas.layers[0].color == "#FF0000"
+        assert cast(BackgroundLayer, canvas.layers[0]).color == "#FF0000"
 
     def test_should_raise_for_circular_theme_token_references(self):
         """Mutually referencing theme tokens fail with a circular-reference error"""
@@ -852,5 +856,6 @@ class TestCanvasTheme:
         canvas = Canvas.from_template(template, variables={"title": "Hello"})
 
         # then: both substitution systems applied
-        assert canvas.layers[0].content == "Hello"
-        assert canvas.layers[0].color == "#00FF00"
+        text = cast(TextLayer, canvas.layers[0])
+        assert text.content == "Hello"
+        assert text.color == "#00FF00"

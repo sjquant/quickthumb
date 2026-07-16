@@ -8,10 +8,11 @@ from pathlib import Path
 
 import pytest
 from PIL import Image
-from quickthumb import Canvas, LinearGradient, RadialGradient, TextPart
+from quickthumb import BackdropBlur, Canvas, LinearGradient, RadialGradient, TextPart
 from quickthumb.errors import RenderingError
 from quickthumb.models import Background, Glow, Grain, Shadow, Stroke, TextFillImage
 
+from tests._helpers import pixel_channel
 from tests._optional import require_cairosvg
 
 SVG_NS = "{http://www.w3.org/2000/svg}"
@@ -233,7 +234,7 @@ class TestSvgShapesAndOutline:
         assert not find_all(root, "rect")
         embedded = png_image_from_svg_href(require_attr(images[0], f"{XLINK_NS}href"))
         assert embedded.getpixel((embedded.width // 2, embedded.height // 2)) == (255, 0, 0, 255)
-        assert embedded.getpixel((0, 0))[3] == 0
+        assert pixel_channel(embedded, (0, 0), 3) == 0
 
     def test_should_rasterize_backdrop_blur_with_prior_layers(self, tmp_path):
         """Backdrop-blur shapes rasterize with their backdrop in SVG export"""
@@ -260,7 +261,7 @@ class TestSvgShapesAndOutline:
                 width=20,
                 height=40,
                 color="#FFFFFF40",
-                effects=[{"type": "backdrop_blur", "radius": 5}],
+                effects=[BackdropBlur(radius=5)],
             )
         )
 
@@ -274,7 +275,7 @@ class TestSvgShapesAndOutline:
         images = find_all(root, "image")
         assert len(images) == 1
         embedded = png_image_from_svg_href(require_attr(images[0], f"{XLINK_NS}href"))
-        assert embedded.getpixel((36, 25))[2] - control.getpixel((36, 25))[2] >= 10
+        assert pixel_channel(embedded, (36, 25), 2) - pixel_channel(control, (36, 25), 2) >= 10
 
     def test_should_emit_star_as_polygon_with_expected_points(self):
         """A star becomes a polygon with two points per spike"""
@@ -446,7 +447,7 @@ class TestSvgText:
         # then
         texts = find_all(root, "text")
         assert len(texts) > 1
-        joined = " ".join(t.text for t in texts)
+        joined = " ".join(t.text or "" for t in texts)
         assert joined == "several words that will certainly wrap around"
         ys = [float(require_attr(t, "y")) for t in texts]
         assert ys == sorted(ys)
@@ -641,9 +642,11 @@ class TestSvgEmbeddedLayers:
 
         # then
         image = find_all(root, "image")[0]
-        assert image.get("{http://www.w3.org/1999/xlink}href").startswith("data:image/png;base64,")
-        assert int(image.get("x")) == 50
-        assert int(image.get("width")) == 120
+        assert require_attr(image, "{http://www.w3.org/1999/xlink}href").startswith(
+            "data:image/png;base64,"
+        )
+        assert int(require_attr(image, "x")) == 50
+        assert int(require_attr(image, "width")) == 120
 
     def test_should_embed_svg_layer_as_vector_data_url(self):
         """Plain SVG overlays stay vector via an svg+xml data URL"""
@@ -655,7 +658,7 @@ class TestSvgEmbeddedLayers:
 
         # then
         image = find_all(root, "image")[0]
-        assert image.get("{http://www.w3.org/1999/xlink}href").startswith(
+        assert require_attr(image, "{http://www.w3.org/1999/xlink}href").startswith(
             "data:image/svg+xml;base64,"
         )
 
@@ -677,10 +680,10 @@ class TestSvgEmbeddedLayers:
 
         # then
         image = find_all(root, "image")[0]
-        assert image.get("{http://www.w3.org/1999/xlink}href").startswith(
+        assert require_attr(image, "{http://www.w3.org/1999/xlink}href").startswith(
             "data:image/svg+xml;base64,"
         )
-        assert image.get("width") == "100"
+        assert require_attr(image, "width") == "100"
 
     def test_should_flatten_blend_mode_stack_into_single_raster(self):
         """Blend modes depend on the backdrop, so the stack collapses to one PNG"""

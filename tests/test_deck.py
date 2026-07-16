@@ -3,11 +3,13 @@
 import json
 from io import BytesIO
 from pathlib import Path
+from typing import cast
 
 import pytest
 from PIL import Image
 from quickthumb import Canvas, Deck
 from quickthumb.errors import RenderingError, ValidationError
+from quickthumb.models import BackgroundLayer
 from quickthumb.transitions import Dissolve, Fade, Split, Wheel
 
 from tests._optional import require_pypdfium2
@@ -423,7 +425,7 @@ class TestJsonRoundTrip:
         deck = Deck.from_json(spec)
 
         # then the slide's token resolved to the deck-level theme value
-        assert deck[0].layers[0].color == "#B8FF00"
+        assert cast(BackgroundLayer, deck[0].layers[0]).color == "#B8FF00"
         # and the theme survives another round-trip
         assert json.loads(deck.to_json())["theme"] == {"brand": "#B8FF00"}
 
@@ -596,8 +598,9 @@ class TestDeckTransitions:
         restored = Deck.from_json(deck.to_json())
 
         # then
-        assert restored.default_transition.spokes == 4
-        override = restored._slide_transitions[1]
+        default_transition = cast(Wheel, restored.default_transition)
+        assert default_transition.spokes == 4
+        override = cast(Split, restored._slide_transitions[1])
         assert (override.effect, override.orientation, override.direction) == (
             "split",
             "vertical",

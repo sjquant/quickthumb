@@ -3,11 +3,13 @@
 import json
 import os
 import tempfile
+from typing import cast
 
 import pytest
 from inline_snapshot import snapshot
 from PIL import Image
 from quickthumb.errors import ValidationError
+from quickthumb.models import GroupLayer, ShapeLayer, TextLayer
 
 WHITE = (255, 255, 255, 255)
 RED = {"type": "shape", "shape": "rectangle", "width": 50, "height": 20, "color": "#FF0000"}
@@ -46,13 +48,13 @@ class TestCanvasGroupAPI:
         # then
         assert result is canvas
         assert len(canvas.layers) == 1
-        layer = canvas.layers[0]
+        layer = cast(GroupLayer, canvas.layers[0])
         assert layer.type == "group"
         assert layer.direction == "row"
         assert layer.gap == 12
         assert len(layer.children) == 2
-        assert layer.children[0].shape == "rectangle"
-        assert layer.children[1].content == "caption"
+        assert cast(ShapeLayer, layer.children[0]).shape == "rectangle"
+        assert cast(TextLayer, layer.children[1]).content == "caption"
 
     def test_should_round_trip_group_layer_through_json(self):
         """Group layers (including nested groups) survive a JSON round-trip"""
@@ -163,11 +165,12 @@ class TestCanvasGroupAPI:
             }
         )
         assert data["layers"][0]["children"][1]["type"] == "group"
-        layer = restored.layers[0]
+        layer = cast(GroupLayer, restored.layers[0])
         assert layer.direction == "column"
         assert layer.gap == 16
-        assert layer.children[0].content == "Title"
-        assert layer.children[1].children[1].color == "#0000FF"
+        assert cast(TextLayer, layer.children[0]).content == "Title"
+        nested = cast(GroupLayer, layer.children[1])
+        assert cast(ShapeLayer, nested.children[1]).color == "#0000FF"
 
     @pytest.mark.parametrize(
         "overrides,error_pattern",
@@ -178,7 +181,7 @@ class TestCanvasGroupAPI:
             ({"item_align": "middle"}, "item_align"),
             ({"children": [{"type": "background", "color": "#000000"}]}, "background"),
             ({"children": [{"type": "outline", "width": 2, "color": "#000000"}]}, "outline"),
-            ({"children": [dict(RED, position=5)]}, "must not set position"),
+            ({"children": [{**RED, "position": 5}]}, "must not set position"),
         ],
     )
     def test_should_reject_invalid_group_parameters(self, overrides, error_pattern):
@@ -195,7 +198,7 @@ class TestCanvasGroupAPI:
         """Children must not set position — the group assigns positions"""
         from quickthumb import Canvas
 
-        child = dict(RED, position=(50, 50))
+        child = {**RED, "position": (50, 50)}
         with pytest.raises(ValidationError, match="position"):
             Canvas(400, 300).group(children=[child])
 

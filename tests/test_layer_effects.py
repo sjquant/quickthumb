@@ -2,6 +2,8 @@ import json
 
 from PIL import Image
 
+from tests._helpers import pixel_channel, pixel_rgb
+
 
 class TestLayerEffects:
     def test_should_publish_effect_models_in_json_schema(self):
@@ -130,8 +132,8 @@ class TestLayerEffects:
         # then: dark pixels use the shadow color and light pixels use the highlight color
         rendered = Image.open(output).convert("RGBA")
         assert rendered.getpixel((0, 0)) == (255, 0, 0, 255)
-        assert rendered.getpixel((1, 0))[0] in range(126, 129)
-        assert rendered.getpixel((1, 0))[2] in range(127, 130)
+        assert pixel_channel(rendered, (1, 0), 0) in range(126, 129)
+        assert pixel_channel(rendered, (1, 0), 2) in range(127, 130)
         assert rendered.getpixel((2, 0)) == (0, 0, 255, 255)
 
     def test_should_respect_duotone_opacity(self, tmp_path):
@@ -161,13 +163,19 @@ class TestLayerEffects:
         ).render(str(outputs["full"]))
 
         # then: disabled is original, partial is between original and full duotone
-        disabled = Image.open(outputs["disabled"]).convert("RGBA").getpixel((0, 0))
-        partial = Image.open(outputs["partial"]).convert("RGBA").getpixel((0, 0))
-        full = Image.open(outputs["full"]).convert("RGBA").getpixel((0, 0))
-        assert disabled == (128, 128, 128, 255)
-        assert full != disabled
-        assert min(disabled[1], full[1]) <= partial[1] <= max(disabled[1], full[1])
-        assert min(disabled[2], full[2]) <= partial[2] <= max(disabled[2], full[2])
+        disabled = Image.open(outputs["disabled"]).convert("RGBA")
+        partial = Image.open(outputs["partial"]).convert("RGBA")
+        full = Image.open(outputs["full"]).convert("RGBA")
+        assert disabled.getpixel((0, 0)) == (128, 128, 128, 255)
+        assert full.getpixel((0, 0)) != disabled.getpixel((0, 0))
+        disabled_green = pixel_channel(disabled, (0, 0), 1)
+        partial_green = pixel_channel(partial, (0, 0), 1)
+        full_green = pixel_channel(full, (0, 0), 1)
+        disabled_blue = pixel_channel(disabled, (0, 0), 2)
+        partial_blue = pixel_channel(partial, (0, 0), 2)
+        full_blue = pixel_channel(full, (0, 0), 2)
+        assert min(disabled_green, full_green) <= partial_green <= max(disabled_green, full_green)
+        assert min(disabled_blue, full_blue) <= partial_blue <= max(disabled_blue, full_blue)
 
     def test_should_apply_duotone_before_drop_shadow(self, tmp_path):
         """Duotone recolors image content without tinting external shadows"""
@@ -195,8 +203,8 @@ class TestLayerEffects:
 
         # then: image pixels are duotoned while shadow-only pixels stay black
         rendered = Image.open(output).convert("RGBA")
-        assert rendered.getpixel((7, 4))[:3] == (0, 0, 255)
-        assert rendered.getpixel((12, 4))[:3] == (0, 0, 0)
+        assert pixel_rgb(rendered, (7, 4)) == (0, 0, 255)
+        assert pixel_rgb(rendered, (12, 4)) == (0, 0, 0)
 
     def test_should_apply_inner_shadow_inside_shape_alpha(self, tmp_path):
         """Inner shadow darkens the interior edge without expanding the layer bounds"""
@@ -222,8 +230,8 @@ class TestLayerEffects:
 
         # then: the shadow is inside the shape and the measured bbox stays unchanged
         rendered = Image.open(output).convert("RGBA")
-        assert rendered.getpixel((12, 12))[:3] == (0, 0, 0)
-        assert rendered.getpixel((35, 35))[:3] == (255, 255, 255)
+        assert pixel_rgb(rendered, (12, 12)) == (0, 0, 0)
+        assert pixel_rgb(rendered, (35, 35)) == (255, 255, 255)
         inspection = canvas.inspect()
         assert inspection.layers[1].bbox is not None
         assert inspection.layers[1].bbox.model_dump() == {
@@ -264,9 +272,9 @@ class TestLayerEffects:
             ).render(str(outputs[name]))
 
         # then: disabled remains white and partial darkening sits between disabled and full
-        disabled = Image.open(outputs["disabled"]).convert("RGBA").getpixel((6, 6))[0]
-        partial = Image.open(outputs["partial"]).convert("RGBA").getpixel((6, 6))[0]
-        full = Image.open(outputs["full"]).convert("RGBA").getpixel((6, 6))[0]
+        disabled = pixel_channel(Image.open(outputs["disabled"]).convert("RGBA"), (6, 6), 0)
+        partial = pixel_channel(Image.open(outputs["partial"]).convert("RGBA"), (6, 6), 0)
+        full = pixel_channel(Image.open(outputs["full"]).convert("RGBA"), (6, 6), 0)
         assert disabled == 255
         assert full < partial < disabled
 
@@ -308,10 +316,10 @@ class TestLayerEffects:
         with_blur.render(str(blur_output))
 
         # then: blur materially increases blue from the neighboring backdrop
-        control = Image.open(control_output).convert("RGBA").getpixel((36, 25))
-        blurred = Image.open(blur_output).convert("RGBA").getpixel((36, 25))
-        assert blurred[2] - control[2] >= 10
-        assert control[0] - blurred[0] >= 10
+        control = Image.open(control_output).convert("RGBA")
+        blurred = Image.open(blur_output).convert("RGBA")
+        assert pixel_channel(blurred, (36, 25), 2) - pixel_channel(control, (36, 25), 2) >= 10
+        assert pixel_channel(control, (36, 25), 0) - pixel_channel(blurred, (36, 25), 0) >= 10
 
     def test_should_respect_backdrop_blur_opacity(self, tmp_path):
         """Backdrop blur opacity controls how much blurred backdrop is composited"""
@@ -337,7 +345,7 @@ class TestLayerEffects:
             ).render(str(outputs[name]))
 
         # then: partial blur sits between disabled and full blur at the boundary sample
-        disabled = Image.open(outputs["disabled"]).convert("RGBA").getpixel((36, 25))[2]
-        partial = Image.open(outputs["partial"]).convert("RGBA").getpixel((36, 25))[2]
-        full = Image.open(outputs["full"]).convert("RGBA").getpixel((36, 25))[2]
+        disabled = pixel_channel(Image.open(outputs["disabled"]).convert("RGBA"), (36, 25), 2)
+        partial = pixel_channel(Image.open(outputs["partial"]).convert("RGBA"), (36, 25), 2)
+        full = pixel_channel(Image.open(outputs["full"]).convert("RGBA"), (36, 25), 2)
         assert disabled < partial < full

@@ -130,10 +130,12 @@ class TestDebugRender:
         debug = Image.open(debug_path).convert("RGBA")
         for layer in report.layers[1:4]:
             box = layer.bbox
+            assert box is not None
             point = (box.x + box.width - 1, box.y + box.height - 1)
             assert debug.getpixel(point) != normal.getpixel(point)
 
         invisible_box = report.layers[4].bbox
+        assert invisible_box is not None
         invisible_point = (invisible_box.x + invisible_box.width - 1, invisible_box.y)
         assert debug.getpixel(invisible_point) == normal.getpixel(invisible_point)
 
@@ -168,10 +170,12 @@ class TestDebugRender:
         normal = Image.open(normal_path).convert("RGBA")
         debug = Image.open(debug_path).convert("RGBA")
         group_box = group.bbox
+        assert group_box is not None
         group_point = (group_box.x + group_box.width - 1, group_box.y + group_box.height - 1)
         assert debug.getpixel(group_point) != normal.getpixel(group_point)
 
         child_box = group.children[1].bbox
+        assert child_box is not None
         child_point = (child_box.x + child_box.width - 1, child_box.y)
         assert debug.getpixel(child_point) != normal.getpixel(child_point)
 

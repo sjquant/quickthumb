@@ -1,11 +1,14 @@
 """Tests for text layer functionality"""
 
 import json
+from typing import cast
 
 import pytest
 from inline_snapshot import snapshot
 from PIL import Image
-from quickthumb.models import Stroke, TextLayer, TextPart
+from quickthumb.models import FitMode, Stroke, TextLayer, TextPart
+
+from tests._helpers import pixel_rgb
 
 
 class TestTextLayers:
@@ -244,7 +247,7 @@ class TestTextLayers:
 
         # Then: painted text-layer pixels stop at the clip boundary
         rendered = Image.open(output).convert("RGBA")
-        assert rendered.getpixel((20, 30))[:3] == (255, 0, 0)
+        assert pixel_rgb(rendered, (20, 30)) == (255, 0, 0)
         assert rendered.getpixel((70, 30)) == (255, 255, 255, 255)
 
     def test_should_serialize_text_layer_to_json(self):
@@ -506,7 +509,7 @@ class TestRichText:
         encoded = canvas.to_json()
         payload = json.loads(encoded)
         loaded = Canvas.from_json(encoded)
-        parts = loaded.layers[0].content
+        parts = cast(TextLayer, loaded.layers[0]).content
 
         # Then: both model intent and public SVG output survive the round-trip
         assert payload["layers"][0]["content"][0]["font_source"] is None
@@ -1867,7 +1870,7 @@ class TestTextFill:
         canvas = Canvas(400, 200).text(
             "TEXTURE",
             size=60,
-            fill=TextFillImage(path="fire.jpg", fit="contain"),
+            fill=TextFillImage(path="fire.jpg", fit=FitMode.CONTAIN),
             position=(0, 0),
         )
 
