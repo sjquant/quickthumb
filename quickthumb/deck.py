@@ -20,7 +20,7 @@ from typing_extensions import Self
 from quickthumb._base import FileFormat, aspect_ratio_dimensions
 from quickthumb.canvas import Canvas
 from quickthumb.errors import RenderingError, ValidationError
-from quickthumb.models import AudioTrack, coerce_audio_track
+from quickthumb.models import AnimationOptions, AudioTrack, coerce_audio_track
 from quickthumb.transitions import Transition, coerce_transition
 
 if TYPE_CHECKING:
@@ -189,6 +189,7 @@ class Deck:
         format: FileFormat | None = None,
         quality: int | None = None,
         soundtrack: AudioTrack | str | dict | None = None,
+        animation: AnimationOptions | None = None,
     ) -> list[str]:
         """Render the deck, dispatching on the output extension.
 
@@ -199,13 +200,23 @@ class Deck:
         it uses the animated timeline. Raster extensions (``.png``, ``.jpg``,
         ``.jpeg``, ``.webp``) write one file per slide as a zero-padded
         numbered sequence derived from ``output_path`` (e.g. ``slides.png`` ->
-        ``slides_01.png``, ``slides_02.png``). Returns the list of written
-        file paths (unlike ``Canvas.render``, which returns None).
+        ``slides_01.png``, ``slides_02.png``). Pass ``AnimationOptions`` to
+        tune animated output. Returns the list of written file paths (unlike
+        ``Canvas.render``, which returns None).
         """
         self._require_slides()
         extension = os.path.splitext(output_path)[1].lower()
 
+        if animation is not None and extension not in (*_ANIMATION_EXTENSIONS, ".mp4"):
+            raise RenderingError(
+                "animation options require an animated output extension (.gif, .mp4, or .webm)."
+            )
+
         if extension == ".mp4" and soundtrack is None:
+            if animation is not None:
+                raise RenderingError(
+                    "animation options require a soundtrack for animated Deck MP4 output."
+                )
             if quality is not None:
                 raise RenderingError(
                     "Quality parameter is only supported for JPEG and WEBP formats, "
@@ -230,7 +241,10 @@ class Deck:
                     f"not {extension} animations."
                 )
             self._render_animated_file(
-                output_path, cast("AnimationFormat", extension[1:]), soundtrack
+                output_path,
+                cast("AnimationFormat", extension[1:]),
+                soundtrack,
+                animation,
             )
             return [output_path]
 
@@ -268,6 +282,7 @@ class Deck:
         output_path: str,
         format: AnimationFormat,
         soundtrack: AudioTrack | str | dict | None,
+        animation: AnimationOptions | None = None,
     ) -> None:
         """Render an animated Deck, mixing scheduled narration when requested."""
         from quickthumb._export_video import write_animation
@@ -279,6 +294,7 @@ class Deck:
                 output_path,
                 format=format,
                 soundtrack=soundtrack,
+                animation=animation,
             )
             return
         slide_durations, audio_durations = self._animation_audio_schedule()
@@ -291,6 +307,7 @@ class Deck:
             slide_audio=self._slide_audio,
             slide_durations=slide_durations,
             audio_durations=audio_durations,
+            animation=animation,
         )
 
     def _animation_audio_schedule(

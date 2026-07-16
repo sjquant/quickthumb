@@ -23,6 +23,7 @@ from quickthumb.errors import RenderingError, ValidationError
 from quickthumb.models import (
     Align,
     AnimationInput,
+    AnimationOptions,
     AudioTrack,
     BackdropBlur,
     BackgroundEffect,
@@ -657,6 +658,7 @@ class Canvas:
         format: FileFormat | None = None,
         quality: int | None = None,
         debug: bool = False,
+        animation: AnimationOptions | None = None,
     ):
         """Render the canvas to a file.
 
@@ -664,13 +666,16 @@ class Canvas:
         WEBP render through the raster pipeline; .svg, .pptx, and .pdf produce
         vector/document output (see to_svg, to_pptx, and to_pdf); .gif, .mp4,
         and .webm produce an animation that plays the canvas's layer
-        ``animation`` effects with default settings (see to_gif, to_mp4, and
-        to_webm for the tunable variants).
+        ``animation`` effects. Pass ``AnimationOptions`` to tune animated output.
         Set debug=True for raster output annotated with public layer-id bboxes.
         """
         if format is None:
             extension = os.path.splitext(output_path)[1].lower()
             if extension in (".svg", ".pptx", ".pdf", ".html", ".htm", ".gif", ".mp4", ".webm"):
+                if animation is not None and extension not in (".gif", ".mp4", ".webm"):
+                    raise RenderingError(
+                        "animation options are only supported for GIF, MP4, and WebM output."
+                    )
                 if debug:
                     raise RenderingError(
                         "Debug render is only supported for PNG, JPEG, and WEBP output."
@@ -683,11 +688,21 @@ class Canvas:
                 if extension in (".gif", ".mp4", ".webm"):
                     from quickthumb._export_video import write_animation
 
-                    write_animation([self], [None], output_path, format=extension[1:])  # type: ignore[arg-type]
+                    write_animation(
+                        [self],
+                        [None],
+                        output_path,
+                        format=extension[1:],  # type: ignore[arg-type]
+                        animation=animation,
+                    )
                     return
                 self._render_document(output_path, extension)
                 return
 
+        if animation is not None:
+            raise RenderingError(
+                "animation options require an animated output extension (.gif, .mp4, or .webm)."
+            )
         self._validate_image_paths()
         image = self._render_to_image(debug=debug)
         self._save_to_file(image, output_path, quality, format=format)

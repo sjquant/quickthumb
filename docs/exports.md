@@ -97,7 +97,7 @@ with open("promo.pdf", "wb") as f:
 Animated export renders per-layer `animation` effects and deck slide `transition`s as real raster frames, sampled through the same pixel pipeline as PNG output. Canvas GIF/MP4/WebM and Deck GIF/WebM play this animated timeline. `deck.render("deck.mp4", soundtrack=...)` also uses it; Deck MP4 without a soundtrack is the separate static narration workflow below.
 
 ```python
-from quickthumb import Canvas, Deck, Fade
+from quickthumb import AnimationOptions, Canvas, Deck, Fade
 from quickthumb.transitions import Push
 
 canvas = Canvas(1280, 720).background(color="#101820").text(
@@ -105,6 +105,10 @@ canvas = Canvas(1280, 720).background(color="#101820").text(
     animation=Fade(duration=0.6),
 )
 canvas.render("hello.gif")                     # defaults: 20 fps, 3s hold
+canvas.render(
+    "preview.gif",
+    animation=AnimationOptions(fps=8, max_size=(540, 960), colors=128),
+)
 mp4 = canvas.to_mp4(fps=30, hold=2.0)          # tunable variants return bytes
 
 other = Canvas(1280, 720).background(color="#204060")
@@ -112,6 +116,12 @@ deck = Deck(1280, 720).slide(canvas).slide(other, transition=Push(direction="lef
 gif = deck.to_gif(fps=20, slide_duration=3.0, loop=0)
 webm = deck.to_webm(fps=30, slide_duration=3.0)
 ```
+
+`Canvas.render()` and `Deck.render()` accept an optional `AnimationOptions`
+object for animated file output. `fps`, `loop`, and `matte` apply to GIF,
+MP4, and WebM. `max_size=(width, height)` and `colors` are GIF-only controls;
+they proportionally reduce GIF frame dimensions and palette size, respectively.
+The generic `quality` option remains reserved for JPEG and WebP raster output.
 
 Deck MP4 and WebM exports support per-slide narration. Pass `audio=` to `Deck.slide()`;
 without `duration=`, Quickthumb uses the file's ffprobe duration. An explicit

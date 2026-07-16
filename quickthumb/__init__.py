@@ -5,6 +5,7 @@ from quickthumb.errors import QuickthumbError, RenderingError, ValidationError
 from quickthumb.models import (
     Align,
     Animation,
+    AnimationOptions,
     Appear,
     AudioTrack,
     BackdropBlur,
@@ -64,6 +65,7 @@ __all__ = [
     "Align",
     "AudioTrack",
     "Animation",
+    "AnimationOptions",
     "Appear",
     "BackdropBlur",
     "Blinds",

@@ -66,7 +66,13 @@ from PIL import Image, ImageChops, ImageColor, ImageDraw
 from quickthumb._composition import has_layer_composition
 from quickthumb._export_base import flatten_layers, split_backdrop_prefix
 from quickthumb.errors import RenderingError, ValidationError
-from quickthumb.models import Animation, AudioTrack, GroupLayer, coerce_audio_track
+from quickthumb.models import (
+    Animation,
+    AnimationOptions,
+    AudioTrack,
+    GroupLayer,
+    coerce_audio_track,
+)
 
 if TYPE_CHECKING:
     from quickthumb.canvas import Canvas, RenderableLayer
@@ -107,8 +113,18 @@ def write_animation(
     audio_offsets: list[float] | None = None,
     audio_durations: list[float] | None = None,
     audio_timeline_duration: float | None = None,
+    animation: AnimationOptions | None = None,
 ) -> None:
     """Render slides to an animated file, dispatching on ``format``."""
+    if animation is not None:
+        fps = animation.fps
+        loop = animation.loop
+        matte = animation.matte
+        max_size = animation.max_size
+        colors = animation.colors
+    else:
+        max_size = None
+        colors = None
     loop_audio = _resolve_loop_audio(soundtrack, loop_audio)
     soundtrack = coerce_audio_track(soundtrack)
     if format == "gif":
@@ -121,6 +137,8 @@ def write_animation(
             loop=loop,
             matte=matte,
             soundtrack=soundtrack,
+            max_size=max_size,
+            colors=colors,
         )
         _write_bytes_atomically(output_path, data, suffix=".gif")
         return
@@ -138,6 +156,8 @@ def write_animation(
         audio_offsets,
         audio_durations,
         audio_timeline_duration,
+        max_size,
+        colors,
     )
     plan = _deck_plan(canvases, transitions, fps, slide_duration, slide_durations)
     if slide_audio is not None and audio_offsets is None:
@@ -198,6 +218,8 @@ def export_animation_bytes(
     audio_offsets: list[float] | None = None,
     audio_durations: list[float] | None = None,
     audio_timeline_duration: float | None = None,
+    max_size: tuple[int, int] | None = None,
+    colors: int | None = None,
 ) -> bytes:
     """Render slides to animated GIF/MP4/WebM bytes."""
     loop_audio = _resolve_loop_audio(soundtrack, loop_audio)
@@ -215,6 +237,8 @@ def export_animation_bytes(
         audio_offsets,
         audio_durations,
         audio_timeline_duration,
+        max_size,
+        colors,
     )
     plan = _deck_plan(canvases, transitions, fps, slide_duration, slide_durations)
     if slide_audio is not None and audio_offsets is None:
@@ -223,7 +247,7 @@ def export_animation_bytes(
     shots = _deck_shots(canvases, transitions, fps, slide_duration, matte_rgb, plan=plan)
 
     if format == "gif":
-        return _encode_gif(shots, loop)
+        return _encode_gif(shots, loop, max_size=max_size, colors=colors)
 
     # ffmpeg needs a real, seekable output file (MP4 faststart rewrites the
     # header), so bytes go through a temporary file.
@@ -262,10 +286,22 @@ def _validated_settings(
     audio_offsets: list[float] | None = None,
     audio_durations: list[float] | None = None,
     audio_timeline_duration: float | None = None,
+    max_size: tuple[int, int] | None = None,
+    colors: int | None = None,
 ) -> tuple[float, tuple[int, int, int]]:
     """Validate the shared export knobs and resolve fps and matte defaults."""
     if format not in _DEFAULT_FPS:
         raise ValidationError(f"Unsupported animation format: {format!r}. Use gif, mp4, or webm.")
+    if format != "gif" and max_size is not None:
+        raise ValidationError("max_size is only supported for GIF output")
+    if format != "gif" and colors is not None:
+        raise ValidationError("colors is only supported for GIF output")
+    if max_size is not None and (
+        len(max_size) != 2 or any(not isinstance(value, int) or value <= 0 for value in max_size)
+    ):
+        raise ValidationError("max_size must contain two positive integers")
+    if colors is not None and not 2 <= colors <= 256:
+        raise ValidationError("colors must be between 2 and 256")
     if not canvases:
         raise RenderingError("No slides to animate.")
     if soundtrack is not None:
@@ -1212,7 +1248,13 @@ def _mask_dissolve(size: tuple[int, int], reveal: float, seed: int) -> Image.Ima
 # --------------------------------------------------------------------- encode
 
 
-def _encode_gif(shots: Iterable[_Shot], loop: int) -> bytes:
+def _encode_gif(
+    shots: Iterable[_Shot],
+    loop: int,
+    *,
+    max_size: tuple[int, int] | None = None,
+    colors: int | None = None,
+) -> bytes:
     """Encode shots as an animated GIF with per-frame durations via Pillow.
 
     GIF stores durations in centiseconds, so per-frame rounding would drift
@@ -1226,8 +1268,14 @@ def _encode_gif(shots: Iterable[_Shot], loop: int) -> bytes:
     durations: list[int] = []
     clock = 0.0
     emitted_cs = 0
+    target_size: tuple[int, int] | None = None
     for shot in shots:
-        estimated_memory = (len(frames) + 1) * shot.frame.width * shot.frame.height * 4
+        if target_size is None:
+            target_size = _gif_target_size(shot.frame.size, max_size)
+        frame = shot.frame
+        if frame.size != target_size:
+            frame = frame.resize(target_size, Image.Resampling.LANCZOS)
+        estimated_memory = (len(frames) + 1) * frame.width * frame.height * 4
         if estimated_memory > _MAX_GIF_FRAME_MEMORY_BYTES:
             raise RenderingError(
                 "GIF export exceeds the in-memory frame budget. Reduce fps or duration, "
@@ -1236,7 +1284,7 @@ def _encode_gif(shots: Iterable[_Shot], loop: int) -> bytes:
         clock += shot.duration
         duration_cs = max(1, round(clock * 100) - emitted_cs)
         emitted_cs += duration_cs
-        frames.append(shot.frame.quantize(colors=256))
+        frames.append(frame.quantize(colors=colors or 256))
         durations.append(duration_cs * 10)
     buffer = BytesIO()
     frames[0].save(
@@ -1249,6 +1297,21 @@ def _encode_gif(shots: Iterable[_Shot], loop: int) -> bytes:
         optimize=True,
     )
     return buffer.getvalue()
+
+
+def _gif_target_size(
+    source_size: tuple[int, int], max_size: tuple[int, int] | None
+) -> tuple[int, int]:
+    """Return a proportional GIF size without upscaling the source frame."""
+    if max_size is None:
+        return source_size
+    source_width, source_height = source_size
+    max_width, max_height = max_size
+    scale = min(1.0, max_width / source_width, max_height / source_height)
+    return (
+        max(1, round(source_width * scale)),
+        max(1, round(source_height * scale)),
+    )
 
 
 _CODEC_ARGS = {

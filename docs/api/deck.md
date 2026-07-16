@@ -55,14 +55,20 @@ A deck is also a sequence: `len(deck)`, `deck[i]`, and iteration over slides all
 
 ## Export methods
 
-### `.render(path, format=None, quality=None)`
+### `.render(path, format=None, quality=None, soundtrack=None, animation=None)`
 
 Renders the deck, dispatching on the output extension. Returns the list of written file paths.
 
 ```python
+from quickthumb import AnimationOptions
+
 deck.render("deck.pdf")      # one multi-page PDF (a page per slide)
 deck.render("deck.pptx")     # one multi-slide PPTX (a slide per slide)
 deck.render("deck.gif")      # one animation playing transitions between slides
+deck.render(
+    "preview.gif",
+    animation=AnimationOptions(fps=8, max_size=(540, 960), colors=128),
+)
 deck.render("slides.png")    # slides_01.png, slides_02.png, …
 deck.render("slides.jpg", quality=85)
 ```
@@ -80,9 +86,15 @@ deck.render("slides.jpg", quality=85)
 | `path` | `str` | — | Output path; raster names become `<stem>_NN<ext>` |
 | `format` | `str \| None` | `None` | Raster format override (`"PNG"`, `"JPEG"`, `"WEBP"`) |
 | `quality` | `int \| None` | `None` | Compression quality. Only valid for raster sequences. |
+| `soundtrack` | `AudioTrack \| str \| dict \| None` | `None` | Audio bed for animated MP4/WebM output. |
+| `animation` | `AnimationOptions \| None` | `None` | Options for GIF, MP4, or WebM output. GIF-only `max_size` and `colors` controls are validated by format. |
 
 !!! warning
     Passing `quality` with `.pdf`, `.pptx`, or animated output raises `RenderingError`, as does rendering an empty deck.
+
+`AnimationOptions` is available from `quickthumb`. Its `fps`, `loop`, and
+`matte` fields apply to animated output. `max_size` and `colors` are GIF-only;
+`max_size` preserves aspect ratio and avoids upscaling.
 
 ### `.to_pdf()` / `.to_pptx()`
 

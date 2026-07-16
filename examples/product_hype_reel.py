@@ -12,6 +12,7 @@ Run:
 from pathlib import Path
 
 from quickthumb import (
+    AnimationOptions,
     AudioTrack,
     Canvas,
     Deck,
@@ -884,9 +885,12 @@ def print_diagnostics(deck: Deck) -> None:
 
 def export_reel(deck: Deck) -> None:
     """Render all supported outputs without truncating an existing file on failure."""
-    # A 1080×1920 GIF stores every frame in memory; 2fps keeps this longer
-    # reel below the export budget while MP4/WebM preserve smooth 30fps motion.
-    OUT_GIF.write_bytes(deck.to_gif(fps=2, loop=0))
+    # GIF keeps every frame in memory, so use a smaller canvas and palette while
+    # retaining enough frames for a useful preview of the full reel.
+    deck.render(
+        str(OUT_GIF),
+        animation=AnimationOptions(fps=8, max_size=(540, 960), colors=128),
+    )
 
     for output in (OUT_PPTX, OUT_HTML):
         try:

@@ -12,6 +12,7 @@ from typing import Any, cast
 import pytest
 from PIL import Image
 from quickthumb import (
+    AnimationOptions,
     Appear,
     AudioTrack,
     Blinds,
@@ -392,6 +393,23 @@ class TestDeckGif:
         # then
         assert written == [str(path)]
         assert getattr(Image.open(path), "n_frames", 1) > 1
+
+    def test_should_apply_animation_options_to_deck_gif_render(self, tmp_path):
+        """Deck.render applies namespaced GIF sizing and palette options."""
+        # given
+        deck = self.two_slide_deck(tr.Fade(duration=0.5))
+        path = tmp_path / "preview.gif"
+
+        # when
+        deck.render(
+            str(path),
+            animation=AnimationOptions(fps=10, max_size=(80, 80), colors=32),
+        )
+
+        # then
+        image = Image.open(path)
+        assert image.size == (80, 45)
+        assert len(image.getcolors(maxcolors=256) or []) <= 32
 
     def test_should_cross_fade_between_slides(self):
         """A fade transition blends the outgoing and incoming slides"""
@@ -1251,6 +1269,47 @@ class TestVideoErrors:
         # when / then
         with pytest.raises(RenderingError, match="Quality parameter"):
             deck.render(str(tmp_path / "deck.gif"), quality=80)
+
+    def test_should_render_gif_with_namespaced_animation_options(self, tmp_path):
+        """GIF render options resize frames and constrain the GIF palette."""
+        # given
+        canvas = Canvas(160, 90).background(color="#1131AA")
+        output = tmp_path / "preview.gif"
+
+        # when
+        canvas.render(
+            str(output),
+            animation=AnimationOptions(fps=10, max_size=(80, 80), colors=32),
+        )
+
+        # then
+        image = Image.open(output)
+        assert image.size == (80, 45)
+        assert len(image.getcolors(maxcolors=256) or []) <= 32
+
+    def test_should_reject_animation_options_for_still_output(self, tmp_path):
+        """Namespaced animation options cannot silently affect a still render."""
+        # given
+        canvas = Canvas(160, 90).background(color="#1131AA")
+
+        # when / then
+        with pytest.raises(RenderingError, match="animated output extension"):
+            canvas.render(
+                str(tmp_path / "preview.png"),
+                animation=AnimationOptions(fps=10),
+            )
+
+    def test_should_reject_gif_only_options_for_video_render(self, tmp_path):
+        """GIF palette and resize controls are rejected for WebM output."""
+        # given
+        deck = Deck(160, 90, slides=[Canvas().background(color="#1131AA")])
+
+        # when / then
+        with pytest.raises(ValidationError, match="only supported for GIF"):
+            deck.render(
+                str(tmp_path / "preview.webm"),
+                animation=AnimationOptions(max_size=(80, 80)),
+            )
 
     def test_should_reject_format_override_for_animated_output(self, tmp_path):
         """The raster format override cannot apply to animated output"""

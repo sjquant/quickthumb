@@ -38,21 +38,23 @@ def test_product_hype_reel_meets_layout_and_pacing_contract():
 def test_product_hype_reel_exports_each_supported_file_with_valid_audio_options(
     monkeypatch, tmp_path
 ):
-    """The example only supplies a soundtrack to containers that can carry audio."""
+    """The example uses namespaced GIF options and audio only for video containers."""
     # given
     import examples.product_hype_reel as reel
-    from quickthumb import Deck
+    from quickthumb import AnimationOptions, Deck
 
-    calls: list[tuple[str, bool]] = []
+    calls: list[tuple[str, bool, bool]] = []
+    gif_options: list[AnimationOptions] = []
 
     class RecordingDeck:
         """Record the example's public export calls without encoding the full reel."""
 
-        def to_gif(self, **kwargs):
-            return b"GIF89a"
-
         def render(self, output_path, **kwargs):
-            calls.append((Path(output_path).suffix, "soundtrack" in kwargs))
+            suffix = Path(output_path).suffix
+            calls.append((suffix, "soundtrack" in kwargs, "animation" in kwargs))
+            if suffix == ".gif":
+                gif_options.append(kwargs["animation"])
+                Path(output_path).write_bytes(b"GIF89a")
             return [str(output_path)]
 
         def __len__(self):
@@ -73,8 +75,12 @@ def test_product_hype_reel_exports_each_supported_file_with_valid_audio_options(
     # then
     assert (tmp_path / "reel.gif").read_bytes() == b"GIF89a"
     assert calls == [
-        (".pptx", False),
-        (".html", False),
-        (".mp4", True),
-        (".webm", True),
+        (".gif", False, True),
+        (".pptx", False, False),
+        (".html", False, False),
+        (".mp4", True, False),
+        (".webm", True, False),
     ]
+    assert gif_options[0].fps == 8
+    assert gif_options[0].max_size == (540, 960)
+    assert gif_options[0].colors == 128

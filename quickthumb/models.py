@@ -211,6 +211,28 @@ class AudioTrack(quickthumbModel):
     loop: bool = False
 
 
+class AnimationOptions(quickthumbModel):
+    """Format-aware options for animated ``render()`` output.
+
+    ``fps``, ``loop``, and ``matte`` apply to GIF, MP4, and WebM output.
+    ``max_size`` and ``colors`` are GIF-only controls: GIF keeps every frame
+    in memory and has a bounded color palette.
+    """
+
+    fps: Annotated[float, Field(gt=0, allow_inf_nan=False)] | None = None
+    loop: NonNegativeInt = 0
+    matte: str = "#000000"
+    max_size: tuple[PositiveInt, PositiveInt] | None = None
+    colors: int | None = None
+
+    @field_validator("colors")
+    @classmethod
+    def validate_colors(cls, value: int | None) -> int | None:
+        if value is not None and not 2 <= value <= 256:
+            raise ValueError("colors must be between 2 and 256")
+        return value
+
+
 def coerce_audio_track(value: AudioTrack | str | dict | None) -> AudioTrack | None:
     """Normalize legacy path strings and mapping specs into an audio track."""
     if value is None:

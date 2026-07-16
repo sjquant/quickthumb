@@ -68,11 +68,13 @@ Finding codes: `off-canvas`, `tiny-text`, `text-overflow`, `low-contrast`. See [
 
 ## Export methods
 
-### `.render(path, format=None, quality=None, debug=False)`
+### `.render(path, format=None, quality=None, debug=False, animation=None)`
 
 Renders the canvas and writes the result to a file. The format is detected from the file extension; `.svg`, `.pptx`, and `.pdf` produce vector/document output, and `.gif`/`.mp4`/`.webm` produce an animation playing the canvas's layer `animation` effects (see [Exporting to SVG, PPTX, PDF & video](../exports.md)).
 
 ```python
+from quickthumb import AnimationOptions
+
 canvas.render("output.png")
 canvas.render("output.jpg", format="JPEG", quality=85)
 canvas.render("output.webp", format="WEBP", quality=90)
@@ -81,6 +83,10 @@ canvas.render("output.svg")
 canvas.render("output.pptx")  # requires quickthumb[pptx]
 canvas.render("output.pdf")   # requires quickthumb[pdf]
 canvas.render("output.gif")   # animated; .mp4/.webm require the ffmpeg binary
+canvas.render(
+    "preview.gif",
+    animation=AnimationOptions(fps=8, max_size=(540, 960), colors=128),
+)
 ```
 
 | Parameter | Type | Default | Description |
@@ -89,9 +95,16 @@ canvas.render("output.gif")   # animated; .mp4/.webm require the ffmpeg binary
 | `format` | `str \| None` | `None` | Optional raster output format override: `"PNG"`, `"JPEG"`, or `"WEBP"` |
 | `quality` | `int \| None` | `None` | Compression quality (1–95). Only valid for `JPEG` and `WEBP`. |
 | `debug` | `bool` | `False` | Draw public layer-id bounding boxes on raster output for visual review. |
+| `animation` | `AnimationOptions \| None` | `None` | Options for GIF, MP4, or WebM output. GIF-only `max_size` and `colors` controls are validated by format. |
 
 !!! warning
     Passing `quality` with `format="PNG"` raises `RenderingError`. Passing `debug=True` for document or animated output (`.svg`, `.pptx`, `.pdf`, `.html`, `.gif`, `.mp4`, or `.webm`) raises `RenderingError`.
+
+`AnimationOptions` is available from `quickthumb` and accepts `fps`, `loop`, and
+`matte` for animated formats. `max_size=(width, height)` proportionally
+downscales GIF frames without upscaling, and `colors` selects a GIF palette
+between 2 and 256 colors. These GIF controls are useful for long or large
+animations because GIF frames remain in memory during encoding.
 
 ### `.to_svg(embed_fonts=False)`
 
