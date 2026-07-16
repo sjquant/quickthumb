@@ -20,7 +20,7 @@ from typing_extensions import Self
 from quickthumb._base import FileFormat, aspect_ratio_dimensions
 from quickthumb.canvas import Canvas
 from quickthumb.errors import RenderingError, ValidationError
-from quickthumb.models import AnimationOptions, AudioTrack, coerce_audio_track
+from quickthumb.models import AudioTrack, GifOptions, VideoOptions, coerce_audio_track
 from quickthumb.transitions import Transition, coerce_transition
 
 if TYPE_CHECKING:
@@ -189,7 +189,7 @@ class Deck:
         format: FileFormat | None = None,
         quality: int | None = None,
         soundtrack: AudioTrack | str | dict | None = None,
-        animation: AnimationOptions | None = None,
+        animation: GifOptions | VideoOptions | None = None,
     ) -> list[str]:
         """Render the deck, dispatching on the output extension.
 
@@ -201,12 +201,16 @@ class Deck:
         extensions (``.png``, ``.jpg``, ``.jpeg``, ``.webp``) write one file per
         slide as a zero-padded
         numbered sequence derived from ``output_path`` (e.g. ``slides.png`` ->
-        ``slides_01.png``, ``slides_02.png``). Pass ``AnimationOptions`` to
-        tune animated output. Returns the list of written file paths (unlike
+        ``slides_01.png``, ``slides_02.png``). Pass ``GifOptions`` for GIF or
+        ``VideoOptions`` for MP4/WebM to tune animated output. Returns the list
+        of written file paths (unlike
         ``Canvas.render``, which returns None).
         """
         self._require_slides()
         extension = os.path.splitext(output_path)[1].lower()
+
+        if soundtrack is not None and extension not in (".mp4", ".webm"):
+            raise RenderingError("soundtrack is only supported for animated MP4 or WebM output.")
 
         if animation is not None and extension not in (*_ANIMATION_EXTENSIONS, ".mp4"):
             raise RenderingError(
@@ -279,7 +283,7 @@ class Deck:
         output_path: str,
         format: AnimationFormat,
         soundtrack: AudioTrack | str | dict | None,
-        animation: AnimationOptions | None = None,
+        animation: GifOptions | VideoOptions | None = None,
     ) -> None:
         """Render an animated Deck, mixing scheduled narration when requested."""
         from quickthumb._export_video import write_animation

@@ -41,10 +41,10 @@ def test_product_hype_reel_exports_each_supported_file_with_valid_audio_options(
     """The example uses namespaced GIF options and audio only for video containers."""
     # given
     import examples.product_hype_reel as reel
-    from quickthumb import AnimationOptions, Deck
+    from quickthumb import Deck, GifOptions
 
     calls: list[tuple[str, bool, bool]] = []
-    gif_options: list[AnimationOptions] = []
+    gif_options: list[GifOptions] = []
 
     class RecordingDeck:
         """Record the example's public export calls without encoding the full reel."""

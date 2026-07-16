@@ -60,14 +60,14 @@ A deck is also a sequence: `len(deck)`, `deck[i]`, and iteration over slides all
 Renders the deck, dispatching on the output extension. Returns the list of written file paths.
 
 ```python
-from quickthumb import AnimationOptions
+from quickthumb import GifOptions, VideoOptions
 
 deck.render("deck.pdf")      # one multi-page PDF (a page per slide)
 deck.render("deck.pptx")     # one multi-slide PPTX (a slide per slide)
 deck.render("deck.gif")      # one animation playing transitions between slides
 deck.render(
     "preview.gif",
-    animation=AnimationOptions(fps=8, max_size=(540, 960), colors=128),
+    animation=GifOptions(fps=8, max_size=(540, 960), colors=128),
 )
 deck.render("slides.png")    # slides_01.png, slides_02.png, …
 deck.render("slides.jpg", quality=85)
@@ -87,14 +87,16 @@ deck.render("slides.jpg", quality=85)
 | `format` | `str \| None` | `None` | Raster format override (`"PNG"`, `"JPEG"`, `"WEBP"`) |
 | `quality` | `int \| None` | `None` | Compression quality. Only valid for raster sequences. |
 | `soundtrack` | `AudioTrack \| str \| dict \| None` | `None` | Audio bed for animated MP4/WebM output. |
-| `animation` | `AnimationOptions \| None` | `None` | Options for GIF, MP4, or WebM output. GIF-only `max_size` and `colors` controls are validated by format. |
+| `animation` | `GifOptions \| VideoOptions \| None` | `None` | Format-specific options: `GifOptions` for GIF, `VideoOptions` for MP4/WebM. |
 
 !!! warning
     Passing `quality` with `.pdf`, `.pptx`, or animated output raises `RenderingError`, as does rendering an empty deck.
 
-`AnimationOptions` is available from `quickthumb`. Its `fps` and `matte` fields
-apply to animated output. `loop`, `max_size`, and `colors` are GIF-only;
-`max_size` preserves aspect ratio and avoids upscaling.
+`GifOptions` and `VideoOptions` are available from `quickthumb`. `GifOptions`
+controls GIF frame rate, loop count, matte, proportional `max_size`, and palette
+`colors`; `VideoOptions` controls MP4/WebM frame rate, matte, soundtrack, and
+audio looping. Format-specific options are rejected when used with the other
+animated format.
 
 ### `.to_pdf()` / `.to_pptx()`
 

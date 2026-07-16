@@ -12,12 +12,12 @@ Run:
 from pathlib import Path
 
 from quickthumb import (
-    AnimationOptions,
     AudioTrack,
     Canvas,
     Deck,
     Dissolve,
     Fade,
+    GifOptions,
     Glow,
     InnerShadow,
     LinearGradient,
@@ -889,7 +889,7 @@ def export_reel(deck: Deck) -> None:
     # retaining enough frames for a useful preview of the full reel.
     deck.render(
         str(OUT_GIF),
-        animation=AnimationOptions(fps=8, max_size=(540, 960), colors=128),
+        animation=GifOptions(fps=8, max_size=(540, 960), colors=128),
     )
 
     for output in (OUT_PPTX, OUT_HTML):

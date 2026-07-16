@@ -97,7 +97,7 @@ with open("promo.pdf", "wb") as f:
 Animated export renders per-layer `animation` effects and deck slide `transition`s as real raster frames, sampled through the same pixel pipeline as PNG output. Canvas GIF/MP4/WebM and Deck GIF/WebM play this animated timeline. `deck.render("deck.mp4", soundtrack=...)` also uses it; Deck MP4 without a soundtrack is the separate static narration workflow below.
 
 ```python
-from quickthumb import AnimationOptions, Canvas, Deck, Fade
+from quickthumb import Canvas, Deck, Fade, GifOptions, VideoOptions
 from quickthumb.transitions import Push
 
 canvas = Canvas(1280, 720).background(color="#101820").text(
@@ -107,7 +107,7 @@ canvas = Canvas(1280, 720).background(color="#101820").text(
 canvas.render("hello.gif")                     # defaults: 20 fps, 3s hold
 canvas.render(
     "preview.gif",
-    animation=AnimationOptions(fps=8, max_size=(540, 960), colors=128),
+    animation=GifOptions(fps=8, max_size=(540, 960), colors=128),
 )
 mp4 = canvas.to_mp4(fps=30, hold=2.0)          # tunable variants return bytes
 
@@ -117,10 +117,11 @@ gif = deck.to_gif(fps=20, slide_duration=3.0, loop=0)
 webm = deck.to_webm(fps=30, slide_duration=3.0)
 ```
 
-`Canvas.render()` and `Deck.render()` accept an optional `AnimationOptions`
-object for animated file output. `fps` and `matte` apply to GIF, MP4, and WebM.
-`loop`, `max_size=(width, height)`, and `colors` are GIF-only controls;
-they proportionally reduce GIF frame dimensions and palette size, respectively.
+`Canvas.render()` and `Deck.render()` accept a format-specific options object for
+animated file output. Use `GifOptions` for GIF (`fps`, `matte`, `loop`,
+`max_size=(width, height)`, and `colors`) and `VideoOptions` for MP4/WebM
+(`fps`, `matte`, `soundtrack`, and `loop_audio`). GIF sizing and palette controls
+are rejected for video output, and video options are rejected for GIF output.
 The generic `quality` option remains reserved for JPEG and WebP raster output.
 
 Deck MP4 and WebM exports support per-slide narration. Pass `audio=` to `Deck.slide()`;
@@ -131,7 +132,7 @@ silently for `default_duration` (3 seconds). `deck.render("deck.mp4")` and
 every output. Without a soundtrack or animation options, this is the static
 narrated path: layer animations and slide transitions are not played. Pass
 `soundtrack=AudioTrack(path="music.mp3", volume=0.16, loop=True)` or
-`animation=AnimationOptions(...)` to `deck.render()` for animated MP4/WebM.
+`animation=VideoOptions(...)` to `deck.render()` for animated MP4/WebM.
 Quickthumb mixes that bed and the
 scheduled `Deck.slide(audio=...)` narration during rendering; `deck.to_animated_mp4()`
 and `deck.to_webm()` do the same for byte exports. Callers do not
@@ -174,7 +175,7 @@ deck.render("deck.pptx")    # one multi-slide PPTX (a slide per slide)
 deck.render("deck.gif")     # one animation playing transitions between slides
 deck.render("deck.mp4")     # static slides with per-slide narration
 deck.render("deck.mp4", soundtrack={"path": "music.mp3", "loop": True})  # animated + mixed audio
-deck.render("animated.mp4", animation=AnimationOptions(fps=20))  # animated, silent
+deck.render("animated.mp4", animation=VideoOptions(fps=20))  # animated, silent
 deck.render("slides.png")   # numbered sequence: slides_01.png, slides_02.png, …
 
 pdf_bytes = deck.to_pdf()

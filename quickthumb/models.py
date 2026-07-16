@@ -6,6 +6,7 @@ from pydantic import (
     AfterValidator,
     BaseModel,
     BeforeValidator,
+    ConfigDict,
     Discriminator,
     Field,
     NonNegativeFloat,
@@ -211,14 +212,10 @@ class AudioTrack(quickthumbModel):
     loop: bool = False
 
 
-class AnimationOptions(quickthumbModel):
-    """Format-aware options for animated ``render()`` output.
+class GifOptions(quickthumbModel):
+    """Options specific to animated GIF output."""
 
-    ``fps`` and ``matte`` apply to GIF, MP4, and WebM output. ``loop`` is a
-    GIF-only control because video formats do not carry a finite loop count.
-    ``max_size`` and ``colors`` are also GIF-only controls: GIF keeps every
-    frame in memory and has a bounded color palette.
-    """
+    model_config = ConfigDict(extra="forbid")
 
     fps: Annotated[float, Field(gt=0, allow_inf_nan=False)] | None = None
     loop: NonNegativeInt = 0
@@ -226,12 +223,49 @@ class AnimationOptions(quickthumbModel):
     max_size: tuple[PositiveInt, PositiveInt] | None = None
     colors: int | None = None
 
+    @field_validator("loop")
+    @classmethod
+    def validate_loop(cls, value: int) -> int:
+        if value > 65535:
+            raise ValueError("loop must be <= 65535")
+        return value
+
     @field_validator("colors")
     @classmethod
     def validate_colors(cls, value: int | None) -> int | None:
         if value is not None and not 2 <= value <= 256:
             raise ValueError("colors must be between 2 and 256")
         return value
+
+
+class VideoOptions(quickthumbModel):
+    """Options specific to animated MP4 and WebM output."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    fps: Annotated[float, Field(gt=0, allow_inf_nan=False)] | None = None
+    matte: str = "#000000"
+    soundtrack: AudioTrack | str | dict | None = None
+    loop_audio: bool | None = None
+
+    @field_validator("soundtrack", mode="before")
+    @classmethod
+    def coerce_soundtrack(
+        cls, value: AudioTrack | str | dict | None
+    ) -> AudioTrack | str | dict | None:
+        if isinstance(value, str):
+            return AudioTrack(path=value)
+        return value
+
+
+class AnimationOptions(GifOptions):
+    """Backward-compatible options for animated ``render()`` output.
+
+    Use :class:`GifOptions` for GIF output and :class:`VideoOptions` for MP4
+    or WebM output in new code. This legacy class keeps the pre-1.0 common
+    options API working while format validation remains explicit at render
+    time.
+    """
 
 
 def coerce_audio_track(value: AudioTrack | str | dict | None) -> AudioTrack | None:

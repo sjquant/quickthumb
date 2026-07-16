@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     from quickthumb.canvas import Canvas
 
 _MAX_SLIDES_PER_FFMPEG_BATCH = 32
+_MAX_STATIC_DECK_FPS = 120.0
 
 
 def render_deck_mp4(
@@ -40,18 +41,18 @@ def render_deck_mp4(
 
     with tempfile.TemporaryDirectory(dir=destination.parent) as temp_dir:
         workspace = Path(temp_dir)
-        image_paths = []
-        for index, canvas in enumerate(slides):
-            image_path = workspace / f"slide-{index:03d}.png"
-            canvas.render(str(image_path))
-            image_paths.append(image_path)
         batches = []
-        for start in range(0, len(image_paths), _MAX_SLIDES_PER_FFMPEG_BATCH):
-            batch_path = workspace / f"batch-{len(batches):03d}.mp4"
+        for start in range(0, len(slides), _MAX_SLIDES_PER_FFMPEG_BATCH):
             end = start + _MAX_SLIDES_PER_FFMPEG_BATCH
+            image_paths = []
+            for index, canvas in enumerate(slides[start:end], start=start):
+                image_path = workspace / f"slide-{index:03d}.png"
+                canvas.render(str(image_path))
+                image_paths.append(image_path)
+            batch_path = workspace / f"batch-{len(batches):03d}.mp4"
             _encode_deck_batch(
                 ffmpeg,
-                image_paths[start:end],
+                image_paths,
                 audio_paths[start:end],
                 resolved_durations[start:end],
                 fps,
@@ -59,6 +60,8 @@ def render_deck_mp4(
                 height,
                 batch_path,
             )
+            for image_path in image_paths:
+                image_path.unlink()
             batches.append(batch_path)
         encoded = workspace / "deck.mp4"
         if len(batches) == 1:
@@ -84,6 +87,8 @@ def _validate_settings(
         raise ValidationError("default_duration must be a finite value > 0")
     if not _is_positive_finite(fps):
         raise ValidationError("fps must be a finite value > 0")
+    if fps > _MAX_STATIC_DECK_FPS:
+        raise ValidationError(f"fps must be <= {_MAX_STATIC_DECK_FPS:g}")
     for audio, duration in zip(audio_paths, durations, strict=True):
         if audio is not None and not os.path.isfile(audio.path):
             raise ValidationError(f"Audio file not found: {audio.path!r}")
@@ -206,8 +211,8 @@ def _encode_deck_batch(
         filters.append(
             f"[{video_index}:v]scale={width}:{height}:force_original_aspect_ratio=decrease,"
             f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:black,"
-            f"trim=duration={encoded_duration:.9f},setpts=PTS-STARTPTS,"
-            f"fps={fps:g}[{video_label}]"
+            f"fps={fps:g},trim=duration={encoded_duration:.9f},"
+            f"setpts=PTS-STARTPTS[{video_label}]"
         )
         volume = f"volume={audio.volume}," if audio is not None else ""
         filters.append(

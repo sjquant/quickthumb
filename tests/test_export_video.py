@@ -6,8 +6,9 @@ import struct
 import subprocess
 import sys
 import wave
+from collections.abc import Callable
 from io import BytesIO
-from typing import Any, cast
+from typing import cast
 
 import pytest
 from PIL import Image
@@ -24,6 +25,8 @@ from quickthumb import (
     Diamond,
     Dissolve,
     Fade,
+    GifOptions,
+    VideoOptions,
     Wheel,
     Wipe,
 )
@@ -800,6 +803,38 @@ class TestVideoEncoding:
 class TestNarratedDeckMp4:
     """Black-box tests for static Deck MP4 narration export."""
 
+    def test_should_preserve_short_explicit_slide_duration(self, tmp_path):
+        """Static MP4 does not add an extra frame to a short explicit duration."""
+        # given
+        deck = Deck(160, 90).slide(
+            Canvas().background(color="#1131AA"),
+            duration=0.1,
+        )
+        output = tmp_path / "short.mp4"
+
+        # when
+        deck.render_mp4(str(output), fps=30)
+        duration = float(
+            subprocess.run(
+                [
+                    "ffprobe",
+                    "-v",
+                    "error",
+                    "-show_entries",
+                    "format=duration",
+                    "-of",
+                    "default=nw=1:nk=1",
+                    str(output),
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout
+        )
+
+        # then
+        assert duration == pytest.approx(0.1, abs=0.01)
+
     def test_should_render_animated_deck_mp4_without_a_soundtrack(self, tmp_path):
         """Deck.render uses animation options to select silent animated MP4 output."""
         # given
@@ -1255,7 +1290,9 @@ deck.render_mp4(__import__("sys").argv[1], default_duration=0.01, fps=10)
 
         # when / then
         with pytest.raises(ValidationError, match="duration must be a finite"):
-            Deck(160, 90).slide(Canvas().background(color="#1131AA"), duration=cast(Any, "invalid"))
+            Deck(160, 90).slide(
+                Canvas().background(color="#1131AA"), duration=cast(float, "invalid")
+            )
         assert not output.exists()
 
 
@@ -1306,6 +1343,33 @@ class TestVideoErrors:
         with pytest.raises(RenderingError, match="Quality parameter"):
             deck.render(str(tmp_path / "deck.gif"), quality=80)
 
+    def test_should_reject_soundtrack_for_still_deck_output(self, tmp_path):
+        """Deck.render rejects an audio bed for still raster output."""
+        # given
+        deck = Deck(160, 90, slides=[Canvas().background(color="#1131AA")])
+
+        # when / then
+        with pytest.raises(RenderingError, match="soundtrack.*animated"):
+            deck.render(str(tmp_path / "slides.png"), soundtrack="music.wav")
+
+    def test_should_reject_soundtrack_for_gif_output(self, tmp_path):
+        """Deck.render rejects an audio bed for GIF output."""
+        # given
+        deck = Deck(160, 90, slides=[Canvas().background(color="#1131AA")])
+
+        # when / then
+        with pytest.raises(RenderingError, match="soundtrack.*MP4 or WebM"):
+            deck.render(str(tmp_path / "preview.gif"), soundtrack="music.wav")
+
+    def test_should_reject_unbounded_static_deck_fps(self, tmp_path):
+        """Static Deck MP4 rejects frame rates above the supported encoder limit."""
+        # given
+        deck = Deck(160, 90, slides=[Canvas().background(color="#1131AA")])
+
+        # when / then
+        with pytest.raises(ValidationError, match="fps must be <= 120"):
+            deck.render_mp4(str(tmp_path / "deck.mp4"), fps=121)
+
     def test_should_render_gif_with_namespaced_animation_options(self, tmp_path):
         """GIF render options resize frames and constrain the GIF palette."""
         # given
@@ -1347,6 +1411,48 @@ class TestVideoErrors:
                 animation=AnimationOptions(max_size=(80, 80)),
             )
 
+    def test_should_reject_gif_options_for_video_render(self, tmp_path):
+        """The GIF-specific options object cannot be used for WebM output."""
+        # given
+        deck = Deck(160, 90, slides=[Canvas().background(color="#1131AA")])
+
+        # when / then
+        with pytest.raises(ValidationError, match="GifOptions.*GIF"):
+            deck.render(
+                str(tmp_path / "preview.webm"),
+                animation=GifOptions(fps=10),
+            )
+
+    def test_should_reject_video_options_for_gif_render(self, tmp_path):
+        """The video-specific options object cannot be used for GIF output."""
+        # given
+        canvas = Canvas(160, 90).background(color="#1131AA")
+
+        # when / then
+        with pytest.raises(ValidationError, match="VideoOptions.*MP4 or WebM"):
+            canvas.render(str(tmp_path / "preview.gif"), animation=VideoOptions(fps=10))
+
+    def test_should_reject_cross_format_options_at_construction(self):
+        """Format-specific option objects reject controls from the other format."""
+        # given / when / then
+        with pytest.raises(ValidationError, match="max_size"):
+            VideoOptions.model_validate({"max_size": (80, 80)})
+        with pytest.raises(ValidationError, match="soundtrack"):
+            GifOptions.model_validate({"soundtrack": "music.wav"})
+
+    def test_should_read_the_soundtrack_from_video_options(self, tmp_path):
+        """VideoOptions validates its soundtrack before any WebM encoding starts."""
+        # given
+        missing = tmp_path / "missing.wav"
+        canvas = Canvas(160, 90).background(color="#1131AA")
+
+        # when / then
+        with pytest.raises(ValidationError, match="Soundtrack file not found"):
+            canvas.render(
+                str(tmp_path / "preview.webm"),
+                animation=VideoOptions(soundtrack=str(missing)),
+            )
+
     def test_should_reject_loop_for_video_render(self, tmp_path):
         """GIF loop counts are rejected for video output instead of ignored."""
         # given
@@ -1367,6 +1473,15 @@ class TestVideoErrors:
         # when / then
         with pytest.raises(RenderingError, match="format override"):
             deck.render(str(tmp_path / "deck.gif"), format="PNG")
+
+    def test_should_reject_canvas_format_override_for_animated_output(self, tmp_path):
+        """Canvas cannot write still raster bytes under an animated extension."""
+        # given
+        canvas = Canvas(160, 90).background(color="#1131AA")
+
+        # when / then
+        with pytest.raises(RenderingError, match="format override"):
+            canvas.render(str(tmp_path / "canvas.gif"), format="PNG")
 
     def test_should_reject_debug_render_for_animated_output(self, tmp_path):
         """Debug overlays only exist for still raster output"""
@@ -1390,18 +1505,26 @@ class TestVideoErrors:
         ("kwargs", "message"),
         [
             ({"fps": 0}, "fps must be > 0"),
+            ({"fps": "bad"}, "fps must be > 0"),
             ({"fps": 500}, "fps must be <= 100 for gif output"),
             ({"hold": -1.0}, "slide_duration must be >= 0"),
+            ({"hold": "bad"}, "slide_duration must be finite"),
             ({"hold": math.inf}, "slide_duration must be finite"),
             ({"loop": -1}, "loop must be >= 0"),
+            ({"loop": "bad"}, "loop must be >= 0"),
+            ({"loop": 65536}, "loop must be <= 65535"),
             ({"matte": "not-a-color"}, "Invalid matte color"),
         ],
         ids=[
             "fps-zero",
+            "fps-nonnumeric",
             "fps-huge",
             "negative-hold",
+            "nonnumeric-hold",
             "infinite-hold",
             "negative-loop",
+            "nonnumeric-loop",
+            "gif-loop-limit",
             "bad-matte",
         ],
     )
@@ -1421,7 +1544,7 @@ class TestVideoErrors:
 
         # when / then
         with pytest.raises(TypeError, match="soundtrack"):
-            cast(Any, canvas.to_gif)(soundtrack="tone.wav")
+            cast(Callable[..., bytes], canvas.to_gif)(soundtrack="tone.wav")
 
     def test_should_reject_missing_soundtrack_file(self, tmp_path):
         """A nonexistent soundtrack fails before any frame is rendered"""

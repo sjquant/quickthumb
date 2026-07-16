@@ -68,9 +68,10 @@ from quickthumb._export_base import flatten_layers, split_backdrop_prefix
 from quickthumb.errors import RenderingError, ValidationError
 from quickthumb.models import (
     Animation,
-    AnimationOptions,
     AudioTrack,
+    GifOptions,
     GroupLayer,
+    VideoOptions,
     coerce_audio_track,
 )
 
@@ -113,10 +114,24 @@ def write_animation(
     audio_offsets: list[float] | None = None,
     audio_durations: list[float] | None = None,
     audio_timeline_duration: float | None = None,
-    animation: AnimationOptions | None = None,
+    animation: GifOptions | VideoOptions | None = None,
 ) -> None:
     """Render slides to an animated file, dispatching on ``format``."""
-    if animation is not None:
+    if isinstance(animation, VideoOptions):
+        if format == "gif":
+            raise ValidationError("VideoOptions are only supported for MP4 or WebM output")
+        if soundtrack is not None and animation.soundtrack is not None:
+            raise ValidationError("specify the video soundtrack only once")
+        soundtrack = animation.soundtrack if animation.soundtrack is not None else soundtrack
+        loop_audio = animation.loop_audio if animation.loop_audio is not None else loop_audio
+        fps = animation.fps
+        matte = animation.matte
+        loop = 0
+        max_size = None
+        colors = None
+    elif animation is not None:
+        if format != "gif" and type(animation) is GifOptions:
+            raise ValidationError("GifOptions are only supported for GIF output")
         fps = animation.fps
         loop = animation.loop
         matte = animation.matte
@@ -296,13 +311,22 @@ def _validated_settings(
         raise ValidationError("max_size is only supported for GIF output")
     if format != "gif" and colors is not None:
         raise ValidationError("colors is only supported for GIF output")
+    if isinstance(loop, bool) or not isinstance(loop, int) or loop < 0:
+        raise ValidationError("loop must be >= 0 (0 loops forever)")
     if format != "gif" and loop != 0:
         raise ValidationError("loop is only supported for GIF output")
     if max_size is not None and (
-        len(max_size) != 2 or any(not isinstance(value, int) or value <= 0 for value in max_size)
+        not isinstance(max_size, (tuple, list))
+        or len(max_size) != 2
+        or any(
+            isinstance(value, bool) or not isinstance(value, int) or value <= 0
+            for value in max_size
+        )
     ):
         raise ValidationError("max_size must contain two positive integers")
-    if colors is not None and not 2 <= colors <= 256:
+    if colors is not None and (
+        isinstance(colors, bool) or not isinstance(colors, int) or not 2 <= colors <= 256
+    ):
         raise ValidationError("colors must be between 2 and 256")
     if not canvases:
         raise RenderingError("No slides to animate.")
@@ -325,39 +349,62 @@ def _validated_settings(
         ):
             raise RenderingError("Deck audio schedule is out of sync.")
         if audio_timeline_duration is not None and (
-            not math.isfinite(audio_timeline_duration) or audio_timeline_duration <= 0
+            isinstance(audio_timeline_duration, bool)
+            or not isinstance(audio_timeline_duration, (int, float))
+            or not math.isfinite(audio_timeline_duration)
+            or audio_timeline_duration <= 0
         ):
             raise ValidationError("Deck audio timeline duration must be finite and > 0")
         for index, (audio, duration) in enumerate(zip(slide_audio, audio_durations, strict=True)):
             if audio is not None and not os.path.isfile(audio.path):
                 raise ValidationError(f"Audio file not found: {audio.path!r}")
             if audio_offsets is not None and (
-                not math.isfinite(audio_offsets[index]) or audio_offsets[index] < 0
+                isinstance(audio_offsets[index], bool)
+                or not isinstance(audio_offsets[index], (int, float))
+                or not math.isfinite(audio_offsets[index])
+                or audio_offsets[index] < 0
             ):
                 raise ValidationError("Deck audio offset must be finite and >= 0")
-            if not math.isfinite(duration) or duration <= 0:
+            if (
+                isinstance(duration, bool)
+                or not isinstance(duration, (int, float))
+                or not math.isfinite(duration)
+                or duration <= 0
+            ):
                 raise ValidationError("Deck audio duration must be finite and > 0")
         for duration in slide_durations:
-            if duration is not None and (not math.isfinite(duration) or duration <= 0):
+            if duration is not None and (
+                isinstance(duration, bool)
+                or not isinstance(duration, (int, float))
+                or not math.isfinite(duration)
+                or duration <= 0
+            ):
                 raise ValidationError("Deck slide duration must be finite and > 0")
     if fps is None:
         fps = _DEFAULT_FPS[format]
-    if not math.isfinite(fps) or fps <= 0:
+    if (
+        isinstance(fps, bool)
+        or not isinstance(fps, (int, float))
+        or not math.isfinite(fps)
+        or fps <= 0
+    ):
         raise ValidationError("fps must be > 0")
     max_fps = 100 if format == "gif" else 120
     if fps > max_fps:
         raise ValidationError(f"fps must be <= {max_fps} for {format} output")
+    if isinstance(slide_duration, bool) or not isinstance(slide_duration, (int, float)):
+        raise ValidationError("slide_duration must be finite")
     if not math.isfinite(slide_duration):
         raise ValidationError("slide_duration must be finite")
     if slide_duration < 0:
         raise ValidationError("slide_duration must be >= 0")
     if format in ("mp4", "webm") and (canvases[0].width < 2 or canvases[0].height < 2):
         raise ValidationError("MP4/WebM export requires canvas dimensions of at least 2x2 pixels")
-    if loop < 0:
-        raise ValidationError("loop must be >= 0 (0 loops forever)")
+    if format == "gif" and loop > 65535:
+        raise ValidationError("loop must be <= 65535 for GIF output")
     try:
         matte_rgb = ImageColor.getrgb(matte)[:3]
-    except ValueError:
+    except (TypeError, ValueError):
         raise ValidationError(f"Invalid matte color: {matte!r}") from None
     # Validate every slide's assets up front so a missing image fails before
     # any frame is rendered or an encoder is started, leaving no partial
