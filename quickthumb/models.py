@@ -214,9 +214,10 @@ class AudioTrack(quickthumbModel):
 class AnimationOptions(quickthumbModel):
     """Format-aware options for animated ``render()`` output.
 
-    ``fps``, ``loop``, and ``matte`` apply to GIF, MP4, and WebM output.
-    ``max_size`` and ``colors`` are GIF-only controls: GIF keeps every frame
-    in memory and has a bounded color palette.
+    ``fps`` and ``matte`` apply to GIF, MP4, and WebM output. ``loop`` is a
+    GIF-only control because video formats do not carry a finite loop count.
+    ``max_size`` and ``colors`` are also GIF-only controls: GIF keeps every
+    frame in memory and has a bounded color palette.
     """
 
     fps: Annotated[float, Field(gt=0, allow_inf_nan=False)] | None = None

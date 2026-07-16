@@ -196,9 +196,10 @@ class Deck:
         ``.pdf`` and ``.pptx`` produce a single multi-page/multi-slide document.
         ``.gif`` and ``.webm`` produce one animation that plays each slide's
         layer animations and transitions. ``.mp4`` renders static slides with
-        per-slide narration unless a ``soundtrack`` is supplied, in which case
-        it uses the animated timeline. Raster extensions (``.png``, ``.jpg``,
-        ``.jpeg``, ``.webp``) write one file per slide as a zero-padded
+        per-slide narration unless a ``soundtrack`` or ``animation`` is
+        supplied, in which case it uses the animated timeline. Raster
+        extensions (``.png``, ``.jpg``, ``.jpeg``, ``.webp``) write one file per
+        slide as a zero-padded
         numbered sequence derived from ``output_path`` (e.g. ``slides.png`` ->
         ``slides_01.png``, ``slides_02.png``). Pass ``AnimationOptions`` to
         tune animated output. Returns the list of written file paths (unlike
@@ -212,11 +213,7 @@ class Deck:
                 "animation options require an animated output extension (.gif, .mp4, or .webm)."
             )
 
-        if extension == ".mp4" and soundtrack is None:
-            if animation is not None:
-                raise RenderingError(
-                    "animation options require a soundtrack for animated Deck MP4 output."
-                )
+        if extension == ".mp4" and soundtrack is None and animation is None:
             if quality is not None:
                 raise RenderingError(
                     "Quality parameter is only supported for JPEG and WEBP formats, "

@@ -296,6 +296,8 @@ def _validated_settings(
         raise ValidationError("max_size is only supported for GIF output")
     if format != "gif" and colors is not None:
         raise ValidationError("colors is only supported for GIF output")
+    if format != "gif" and loop != 0:
+        raise ValidationError("loop is only supported for GIF output")
     if max_size is not None and (
         len(max_size) != 2 or any(not isinstance(value, int) or value <= 0 for value in max_size)
     ):

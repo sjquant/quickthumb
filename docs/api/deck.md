@@ -78,7 +78,7 @@ deck.render("slides.jpg", quality=85)
 | `.pdf` | Single multi-page PDF. Requires the `pdf` extra. |
 | `.pptx` | Single multi-slide PPTX. Requires the `pptx` extra. |
 | `.gif` / `.webm` | Single animation playing layer animations and slide transitions with default settings. WebM requires `ffmpeg`. |
-| `.mp4` | Static slides with optional per-slide narration, or animated/mixed audio when `soundtrack=` is given; H.264/yuv420p video and AAC audio. Requires `ffmpeg` and `ffprobe` for static narration. |
+| `.mp4` | Static slides with optional per-slide narration, or an animated timeline when `soundtrack=` or `animation=` is given; H.264/yuv420p video and AAC audio. Requires `ffmpeg` and `ffprobe`. |
 | `.png` / `.jpg` / `.jpeg` / `.webp` | One file per slide as a zero-padded numbered sequence. |
 
 | Parameter | Type | Default | Description |
@@ -92,8 +92,8 @@ deck.render("slides.jpg", quality=85)
 !!! warning
     Passing `quality` with `.pdf`, `.pptx`, or animated output raises `RenderingError`, as does rendering an empty deck.
 
-`AnimationOptions` is available from `quickthumb`. Its `fps`, `loop`, and
-`matte` fields apply to animated output. `max_size` and `colors` are GIF-only;
+`AnimationOptions` is available from `quickthumb`. Its `fps` and `matte` fields
+apply to animated output. `loop`, `max_size`, and `colors` are GIF-only;
 `max_size` preserves aspect ratio and avoids upscaling.
 
 ### `.to_pdf()` / `.to_pptx()`

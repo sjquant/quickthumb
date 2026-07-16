@@ -118,8 +118,8 @@ webm = deck.to_webm(fps=30, slide_duration=3.0)
 ```
 
 `Canvas.render()` and `Deck.render()` accept an optional `AnimationOptions`
-object for animated file output. `fps`, `loop`, and `matte` apply to GIF,
-MP4, and WebM. `max_size=(width, height)` and `colors` are GIF-only controls;
+object for animated file output. `fps` and `matte` apply to GIF, MP4, and WebM.
+`loop`, `max_size=(width, height)`, and `colors` are GIF-only controls;
 they proportionally reduce GIF frame dimensions and palette size, respectively.
 The generic `quality` option remains reserved for JPEG and WebP raster output.
 
@@ -128,10 +128,11 @@ without `duration=`, Quickthumb uses the file's ffprobe duration. An explicit
 duration trims audio or pads it with silence, while a slide without audio holds
 silently for `default_duration` (3 seconds). `deck.render("deck.mp4")` and
 `deck.render_mp4("deck.mp4")` produce H.264/yuv420p video with an AAC track on
-every output. Without a soundtrack, this is the static narrated path: layer
-animations and slide transitions are not played. Pass
-`soundtrack=AudioTrack(path="music.mp3", volume=0.16, loop=True)` to
-`deck.render()` for animated MP4/WebM. Quickthumb mixes that bed and the
+every output. Without a soundtrack or animation options, this is the static
+narrated path: layer animations and slide transitions are not played. Pass
+`soundtrack=AudioTrack(path="music.mp3", volume=0.16, loop=True)` or
+`animation=AnimationOptions(...)` to `deck.render()` for animated MP4/WebM.
+Quickthumb mixes that bed and the
 scheduled `Deck.slide(audio=...)` narration during rendering; `deck.to_animated_mp4()`
 and `deck.to_webm()` do the same for byte exports. Callers do not
 need to pre-mix audio themselves.
@@ -173,6 +174,7 @@ deck.render("deck.pptx")    # one multi-slide PPTX (a slide per slide)
 deck.render("deck.gif")     # one animation playing transitions between slides
 deck.render("deck.mp4")     # static slides with per-slide narration
 deck.render("deck.mp4", soundtrack={"path": "music.mp3", "loop": True})  # animated + mixed audio
+deck.render("animated.mp4", animation=AnimationOptions(fps=20))  # animated, silent
 deck.render("slides.png")   # numbered sequence: slides_01.png, slides_02.png, …
 
 pdf_bytes = deck.to_pdf()
@@ -182,7 +184,7 @@ webm_bytes = deck.to_webm()
 mp4_bytes = deck.to_mp4()   # static slides with per-slide narration
 ```
 
-`render()` dispatches on the output extension: `.pdf` and `.pptx` produce a single document; `.gif` and `.webm` produce an animation; `.mp4` produces static slides with per-slide narration unless `soundtrack` selects the animated, mixed-audio path; and raster extensions have no native multi-page container, so the deck writes one file per slide as a zero-padded numbered sequence and returns the written paths.
+`render()` dispatches on the output extension: `.pdf` and `.pptx` produce a single document; `.gif` and `.webm` produce an animation; `.mp4` produces static slides with per-slide narration unless `soundtrack` or `animation` selects the animated path; and raster extensions have no native multi-page container, so the deck writes one file per slide as a zero-padded numbered sequence and returns the written paths.
 
 Slides may have different dimensions. `deck.diagnose()` aggregates each slide's [diagnostics](diagnostics.md) (each tagged with its `slide_index`) and adds a `mixed-slide-size` warning when they differ. The PDF path sizes each page to its slide, but PPTX has a single presentation size taken from the first slide, so slides larger than the first are clipped by PowerPoint — keep slides a uniform size when targeting `.pptx`. Decks round-trip through JSON with `deck.to_json()` / `Deck.from_json(...)`, reusing the per-canvas serialization.
 

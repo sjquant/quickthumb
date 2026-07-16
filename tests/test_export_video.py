@@ -800,6 +800,42 @@ class TestVideoEncoding:
 class TestNarratedDeckMp4:
     """Black-box tests for static Deck MP4 narration export."""
 
+    def test_should_render_animated_deck_mp4_without_a_soundtrack(self, tmp_path):
+        """Deck.render uses animation options to select silent animated MP4 output."""
+        # given
+        first = (
+            Canvas(160, 90)
+            .background(color="#1131AA")
+            .shape("rectangle", (40, 20), 80, 50, "#FF2D55", animation=Fade(duration=0.5))
+        )
+        deck = Deck(160, 90).slide(first).slide(Canvas(160, 90).background(color="#22AA55"))
+        output = tmp_path / "animated.mp4"
+
+        # when
+        written = deck.render(str(output), animation=AnimationOptions(fps=10))
+        raw = subprocess.run(
+            [
+                "ffmpeg",
+                "-v",
+                "error",
+                "-i",
+                str(output),
+                "-frames:v",
+                "1",
+                "-f",
+                "rawvideo",
+                "-pix_fmt",
+                "rgb24",
+                "-",
+            ],
+            check=True,
+            capture_output=True,
+        ).stdout
+
+        # then
+        assert written == [str(output)]
+        assert close_to(Image.frombytes("RGB", (160, 90), raw).getpixel((80, 45)), BLUE)
+
     @pytest.mark.parametrize(
         ("container", "video_codec", "audio_codec", "with_soundtrack"),
         [
@@ -1309,6 +1345,18 @@ class TestVideoErrors:
             deck.render(
                 str(tmp_path / "preview.webm"),
                 animation=AnimationOptions(max_size=(80, 80)),
+            )
+
+    def test_should_reject_loop_for_video_render(self, tmp_path):
+        """GIF loop counts are rejected for video output instead of ignored."""
+        # given
+        deck = Deck(160, 90, slides=[Canvas().background(color="#1131AA")])
+
+        # when / then
+        with pytest.raises(ValidationError, match="loop is only supported for GIF"):
+            deck.render(
+                str(tmp_path / "preview.webm"),
+                animation=AnimationOptions(loop=3),
             )
 
     def test_should_reject_format_override_for_animated_output(self, tmp_path):

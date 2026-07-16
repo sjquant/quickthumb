@@ -100,8 +100,8 @@ canvas.render(
 !!! warning
     Passing `quality` with `format="PNG"` raises `RenderingError`. Passing `debug=True` for document or animated output (`.svg`, `.pptx`, `.pdf`, `.html`, `.gif`, `.mp4`, or `.webm`) raises `RenderingError`.
 
-`AnimationOptions` is available from `quickthumb` and accepts `fps`, `loop`, and
-`matte` for animated formats. `max_size=(width, height)` proportionally
+`AnimationOptions` is available from `quickthumb` and accepts `fps` and `matte`
+for animated formats. `loop` is GIF-only. `max_size=(width, height)` proportionally
 downscales GIF frames without upscaling, and `colors` selects a GIF palette
 between 2 and 256 colors. These GIF controls are useful for long or large
 animations because GIF frames remain in memory during encoding.
