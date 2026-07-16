@@ -21,6 +21,7 @@ from quickthumb import (
     Diamond,
     Dissolve,
     Fade,
+    FitMode,
     LinearGradient,
     RadialGradient,
     TextPart,
@@ -29,7 +30,9 @@ from quickthumb import (
 )
 from quickthumb._export_base import font_face_declarations
 from quickthumb.errors import RenderingError
-from quickthumb.models import Background, Shadow, Stroke, TextFillImage
+from quickthumb.models import BackdropBlur, Background, Shadow, Stroke, TextFillImage
+
+from tests._helpers import pixel_channel
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 SAMPLE_IMAGE = str(FIXTURES_DIR / "sample_image.jpg")
@@ -348,7 +351,7 @@ class TestHtmlShapes:
         assert "background:rgb(255,0,0)" not in html
         embedded = first_embedded_png(html)
         assert embedded.getpixel((embedded.width // 2, embedded.height // 2)) == (255, 0, 0, 255)
-        assert embedded.getpixel((0, 0))[3] == 0
+        assert pixel_channel(embedded, (0, 0), 3) == 0
 
     def test_should_fall_back_to_raster_for_backdrop_blur_shape(self, tmp_path):
         """Backdrop-blur shapes become PNG fragments so HTML preserves the effect"""
@@ -375,7 +378,7 @@ class TestHtmlShapes:
                 width=20,
                 height=40,
                 color="#FFFFFF40",
-                effects=[{"type": "backdrop_blur", "radius": 5}],
+                effects=[BackdropBlur(radius=5)],
             )
         )
 
@@ -388,7 +391,7 @@ class TestHtmlShapes:
         # then
         assert "data:image/png;base64," in html
         embedded = first_embedded_png(html)
-        assert embedded.getpixel((36, 25))[2] - control.getpixel((36, 25))[2] >= 10
+        assert pixel_channel(embedded, (36, 25), 2) - pixel_channel(control, (36, 25), 2) >= 10
 
 
 class TestHtmlText:
@@ -519,7 +522,7 @@ class TestHtmlText:
         canvas = Canvas(400, 200).text(
             content="IMG",
             size=64,
-            fill=TextFillImage(path=SAMPLE_IMAGE, fit="cover"),
+            fill=TextFillImage(path=SAMPLE_IMAGE, fit=FitMode.COVER),
             position=(20, 20),
         )
 

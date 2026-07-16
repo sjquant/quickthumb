@@ -378,11 +378,14 @@ canvas.render("card.svg")    # vector SVG with native shapes, gradients, and sel
 canvas.render("card.html")   # self-contained, animated HTML/CSS page
 canvas.render("card.pptx")   # PowerPoint slide with editable text boxes and autoshapes
 canvas.render("card.pdf")    # single-page PDF with native vectors and eligible embedded fonts
+canvas.render("card.gif")    # animated GIF playing the layer animations
+canvas.render("card.mp4")    # H.264 video (needs the ffmpeg binary); .webm for VP9
 
 svg_markup = canvas.to_svg(embed_fonts=True)   # inline @font-face for portable text
 html_doc = canvas.to_html(embed_fonts=True)    # standalone document string
 pptx_bytes = canvas.to_pptx()                  # requires quickthumb[pptx]
 pdf_bytes = canvas.to_pdf()                    # requires quickthumb[pdf]
+gif_bytes = canvas.to_gif(fps=20, hold=3.0)    # and to_mp4() / to_webm()
 ```
 
 Layers the target format can express (backgrounds, gradients, outlines, shapes, text — including wrapping, rich parts, letter spacing, and effects) are exported natively and stay editable; everything else (raster images, blend modes, custom layers) is embedded as pixel-exact PNG fragments rendered by the regular pipeline. See the [export docs](https://sjquant.github.io/quickthumb/exports/) for the full mapping.
@@ -428,7 +431,7 @@ once and each slide can be written as a bare `Canvas()` that inherits it — no
 need to repeat the dimensions per slide:
 
 ```python
-from quickthumb import Canvas, Deck
+from quickthumb import Canvas, Deck, GifOptions, VideoOptions
 
 deck = (
     Deck(1280, 720)   # default slide size; Deck.from_aspect_ratio("16:9", 1280) also works
@@ -443,10 +446,16 @@ deck = (
 deck.render("deck.pdf")        # one multi-page PDF (a page per slide)
 deck.render("deck.pptx")       # one multi-slide PPTX (a slide per slide)
 deck.render("deck.html")       # one self-contained, navigable HTML slideshow
+deck.render("deck.gif")        # one animation playing slide transitions (.webm too)
+deck.render("deck.mp4")        # static slides with each slide's optional narration
+deck.render("animated.mp4", animation=VideoOptions(fps=20))  # animated, silent timeline
 deck.render("slides.png")      # numbered sequence: slides_01.png, slides_02.png, …
 
 pdf_bytes = deck.to_pdf()      # requires quickthumb[pdf]
 pptx_bytes = deck.to_pptx()    # requires quickthumb[pptx]
+gif_bytes = deck.to_gif()
+webm_bytes = deck.to_webm()    # requires ffmpeg; plays the animated timeline
+mp4_bytes = deck.to_mp4()      # requires ffmpeg/ffprobe; static, per-slide narration
 ```
 
 An unsized `Canvas()` inherits the deck's size when added; a canvas built with an
@@ -699,13 +708,15 @@ See the shipped examples in [`examples/README.md`](examples/README.md):
 - Group children must not set `position`; the group assigns positions (their `align` is also ignored — use `item_align`)
 - `svg` layers raise `RenderingError` unless `quickthumb[svg]` (cairosvg) is installed
 - `theme` blocks are resolved at parse time; `to_json()` emits resolved values without the `theme` block
-- Slide `Transition`s and layer `Animation`s affect PPTX and HTML output; raster, SVG, and PDF renderers ignore them
+- Slide `Transition`s and layer `Animation`s affect PPTX, HTML, GIF, and Deck WebM output. `deck.render("deck.mp4", animation=VideoOptions(...))` also plays that timeline; `VideoOptions(soundtrack=AudioTrack(...))` mixes a background track with slide narration, while animation-only MP4 is silent
 - Transitions live on the `Deck` (default plus per-slide override), not on `Canvas`; a per-slide override wins over the deck default
 - Animations are valid on `text`, `shape`, `image`, `svg`, and `group` layers; pass one effect or a list of effects played in order
 - HTML export needs no optional extra; the document is fixed-layout and scaled to fit (`responsive=True` by default), never reflowed, so it stays a faithful twin of the PNG/SVG/PDF/PPTX output
 - HTML text placement is a close approximation (browsers rasterize fonts differently than PIL); use `embed_fonts=True` for the closest match, available when text uses local font files
-- HTML is the only format that plays per-layer `animation`s (and `Deck` slide transitions); a few exotic effects (blinds, checkerboard, wheel, dissolve) fall back to a close CSS analogue
+- HTML, GIF, and Deck WebM play per-layer `animation`s and `Deck` slide transitions; HTML approximates a few exotic effects (blinds, checkerboard, wheel, dissolve) in CSS
 - HTML cannot animate a layer that must be rasterized together with earlier backdrop-dependent content, such as blend-mode or custom layers; move animated layers after that content or remove the backdrop dependency
+- Deck MP4 can attach `audio=` and `duration=` to each `slide()`: it requires FFmpeg/FFprobe for the static narration path and always writes H.264/AAC. Use `deck.render("deck.mp4", animation=VideoOptions(soundtrack=AudioTrack(path="music.mp3", loop=True)))` to play transitions/layer animations and mix the background track with slide narration, or pass `animation=VideoOptions(...)` for a silent animated timeline
+- Animated Deck MP4/WebM supports up to 64 narrated slides per export because FFmpeg decodes each narration concurrently; silent slides do not count toward the limit
 
 ## Development
 

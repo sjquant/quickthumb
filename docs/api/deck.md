@@ -55,13 +55,20 @@ A deck is also a sequence: `len(deck)`, `deck[i]`, and iteration over slides all
 
 ## Export methods
 
-### `.render(path, format=None, quality=None)`
+### `.render(path, format=None, quality=None, animation=None)`
 
 Renders the deck, dispatching on the output extension. Returns the list of written file paths.
 
 ```python
+from quickthumb import GifOptions, VideoOptions
+
 deck.render("deck.pdf")      # one multi-page PDF (a page per slide)
 deck.render("deck.pptx")     # one multi-slide PPTX (a slide per slide)
+deck.render("deck.gif")      # one animation playing transitions between slides
+deck.render(
+    "preview.gif",
+    animation=GifOptions(fps=8, max_size=(540, 960), colors=128),
+)
 deck.render("slides.png")    # slides_01.png, slides_02.png, …
 deck.render("slides.jpg", quality=85)
 ```
@@ -70,6 +77,8 @@ deck.render("slides.jpg", quality=85)
 | --- | --- |
 | `.pdf` | Single multi-page PDF. Requires the `pdf` extra. |
 | `.pptx` | Single multi-slide PPTX. Requires the `pptx` extra. |
+| `.gif` / `.webm` | Single animation playing layer animations and slide transitions with default settings. WebM requires `ffmpeg`. |
+| `.mp4` | Static slides with optional per-slide narration, or an animated timeline when `animation=VideoOptions(...)` is given; H.264/yuv420p video and AAC audio. Requires `ffmpeg` and `ffprobe`. |
 | `.png` / `.jpg` / `.jpeg` / `.webp` | One file per slide as a zero-padded numbered sequence. |
 
 | Parameter | Type | Default | Description |
@@ -77,9 +86,16 @@ deck.render("slides.jpg", quality=85)
 | `path` | `str` | — | Output path; raster names become `<stem>_NN<ext>` |
 | `format` | `str \| None` | `None` | Raster format override (`"PNG"`, `"JPEG"`, `"WEBP"`) |
 | `quality` | `int \| None` | `None` | Compression quality. Only valid for raster sequences. |
+| `animation` | `GifOptions \| VideoOptions \| None` | `None` | Format-specific options: `GifOptions` for GIF, `VideoOptions` for MP4/WebM. |
 
 !!! warning
-    Passing `quality` with `.pdf` or `.pptx` output raises `RenderingError`, as does rendering an empty deck.
+    Passing `quality` with `.pdf`, `.pptx`, or animated output raises `RenderingError`, as does rendering an empty deck.
+
+`GifOptions` and `VideoOptions` are available from `quickthumb`. `GifOptions`
+controls GIF frame rate, loop count, matte, proportional `max_size`, and palette
+`colors`; `VideoOptions` controls MP4/WebM frame rate, matte, soundtrack, and
+audio looping. Supply its soundtrack as `AudioTrack(path="music.mp3", loop=True)`.
+Format-specific options are rejected when used with the other animated format.
 
 ### `.to_pdf()` / `.to_pptx()`
 
@@ -90,6 +106,44 @@ with open("deck.pdf", "wb") as f:
     f.write(deck.to_pdf())   # requires quickthumb[pdf]
 pptx_bytes = deck.to_pptx()  # requires quickthumb[pptx]
 ```
+
+### `.to_gif(...)` / `.to_webm(...)`
+
+Return the deck as an animation: each slide plays its layer animations, holds its settled state, and its transition animates the change into it (see [Animated GIF & video](../exports.md#animated-gif-video-mp4webm) for the timing model). `.to_webm()` requires the `ffmpeg` binary on `PATH` (or named by `QUICKTHUMB_FFMPEG`).
+
+```python
+gif_bytes = deck.to_gif(fps=20, slide_duration=3.0, loop=0, matte="#000000")
+webm_bytes = deck.to_webm(fps=30, slide_duration=3.0)
+```
+
+### `.render_mp4(...)`
+
+Render a static, narrated MP4 directly to a path. Add narration to a slide with
+`deck.slide(canvas, audio="voice.wav", duration=2.5)`. If duration is omitted,
+ffprobe supplies the audio length; silent slides use `default_duration=3.0`.
+The output is H.264/yuv420p plus AAC and requires both `ffmpeg` and `ffprobe`.
+This path does not currently play layer animations or slide transitions.
+
+`deck.to_mp4(fps=30, slide_duration=3.0)` returns the same static MP4 as bytes;
+its `slide_duration` argument supplies the silent-slide default.
+
+### `.to_animated_mp4(...)`
+
+Return the same animated timeline as `.to_webm()` in an H.264 MP4 container,
+including scheduled per-slide narration and an optional mixed soundtrack.
+Animated MP4/WebM export supports at most 64 narrated slides per Deck; silent
+slides do not count toward that operational FFmpeg input limit.
+For a file export, use `deck.render("deck.mp4",
+animation=VideoOptions(soundtrack=AudioTrack(path="music.mp3", loop=True)))`.
+It mixes the background track with each slide's `audio` narration during rendering.
+Without `VideoOptions`, `deck.render("deck.mp4")` uses the static narrated path
+described above.
+
+| Parameter | Type | Default | Description |
+| --- | --- | --- | --- |
+| `output_path` | `str` | — | Final `.mp4` path for `render_mp4()` |
+| `default_duration` / `slide_duration` | `float` | `3.0` | Duration of a slide with neither audio nor duration |
+| `fps` | `float` | `30.0` | Static-video frame rate |
 
 ## `.diagnose()`
 

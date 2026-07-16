@@ -1,16 +1,18 @@
 ---
-description: Export quickthumb canvases to SVG, editable PowerPoint (PPTX), and PDF documents alongside PNG/JPEG/WEBP.
+description: Export quickthumb canvases to SVG, editable PowerPoint (PPTX), PDF documents, and animated GIF/MP4/WebM alongside PNG/JPEG/WEBP.
 ---
 
-# Exporting to SVG, PPTX & PDF
+# Exporting to SVG, PPTX, PDF & video
 
-Beyond raster images, a canvas can render to vector and document formats. The output format is detected from the file extension:
+Beyond raster images, a canvas can render to vector, document, and animated formats. The output format is detected from the file extension:
 
 ```python
 canvas.render("thumbnail.png")   # raster (PNG/JPEG/WEBP)
 canvas.render("thumbnail.svg")   # vector SVG
 canvas.render("thumbnail.pptx")  # editable PowerPoint slide
 canvas.render("thumbnail.pdf")   # single-page PDF
+canvas.render("thumbnail.gif")   # animated GIF playing the layer animations
+canvas.render("thumbnail.mp4")   # H.264 video (requires ffmpeg); .webm for VP9
 ```
 
 Each format also has a direct method when you want the content in memory:
@@ -19,6 +21,8 @@ Each format also has a direct method when you want the content in memory:
 svg_markup = canvas.to_svg()
 pptx_bytes = canvas.to_pptx()
 pdf_bytes = canvas.to_pdf()
+gif_bytes = canvas.to_gif()
+mp4_bytes = canvas.to_mp4()      # and canvas.to_webm()
 ```
 
 ## How export works
@@ -88,6 +92,68 @@ with open("promo.pdf", "wb") as f:
 !!! note "Fidelity"
     PDF shadings cannot express transparency, so translucent gradients (and gradients with translucent stops) are embedded as pictures. Blur effects (shadow, glow), strokes on shapes, and gradient/image glyph fills have no faithful PDF vector form and are likewise embedded as pixel-exact PNG fragments.
 
+## Animated GIF & video (Canvas MP4/WebM, Deck GIF/WebM)
+
+Animated export renders per-layer `animation` effects and deck slide `transition`s as real raster frames, sampled through the same pixel pipeline as PNG output. Canvas GIF/MP4/WebM and Deck GIF/WebM play this animated timeline. `deck.render("deck.mp4", animation=VideoOptions(...))` also uses it; Deck MP4 without `VideoOptions` is the separate static narration workflow below.
+
+```python
+from quickthumb import AudioTrack, Canvas, Deck, Fade, GifOptions, VideoOptions
+from quickthumb.transitions import Push
+
+canvas = Canvas(1280, 720).background(color="#101820").text(
+    content="Hello", position=("50%", "50%"), size=96, color="#FFFFFF",
+    animation=Fade(duration=0.6),
+)
+canvas.render("hello.gif")                     # defaults: 20 fps, 3s hold
+canvas.render(
+    "preview.gif",
+    animation=GifOptions(fps=8, max_size=(540, 960), colors=128),
+)
+mp4 = canvas.to_mp4(fps=30, hold=2.0)          # tunable variants return bytes
+
+other = Canvas(1280, 720).background(color="#204060")
+deck = Deck(1280, 720).slide(canvas).slide(other, transition=Push(direction="left"))
+gif = deck.to_gif(fps=20, slide_duration=3.0, loop=0)
+webm = deck.to_webm(fps=30, slide_duration=3.0)
+```
+
+`Canvas.render()` and `Deck.render()` accept a format-specific options object for
+animated file output. Use `GifOptions` for GIF (`fps`, `matte`, `loop`,
+`max_size=(width, height)`, and `colors`) and `VideoOptions` for MP4/WebM
+(`fps`, `matte`, `soundtrack=AudioTrack(...)`, and `loop_audio`). GIF sizing and palette controls
+are rejected for video output, and video options are rejected for GIF output.
+The generic `quality` option remains reserved for JPEG and WebP raster output.
+
+Deck MP4 and WebM exports support per-slide narration. Pass `audio=` to `Deck.slide()`;
+without `duration=`, Quickthumb uses the file's ffprobe duration. An explicit
+duration trims audio or pads it with silence, while a slide without audio holds
+silently for `default_duration` (3 seconds). `deck.render("deck.mp4")` and
+`deck.render_mp4("deck.mp4")` produce H.264/yuv420p video with an AAC track on
+every output. Without `VideoOptions`, this is the static narrated path: layer
+animations and slide transitions are not played. Pass
+`animation=VideoOptions(soundtrack=AudioTrack(path="music.mp3", volume=0.16, loop=True))`
+to `deck.render()` for animated MP4/WebM.
+Quickthumb mixes that bed and the
+scheduled `Deck.slide(audio=...)` narration during rendering; `deck.to_animated_mp4()`
+and `deck.to_webm()` do the same for byte exports. Callers do not
+need to pre-mix audio themselves.
+
+The timing model mirrors the HTML slideshow, with one difference a non-interactive medium forces: there is nothing to click, so `on_click` animations play automatically in sequence, exactly like `after_previous` (the same choice PowerPoint's own video export makes). Each slide plays its transition (over the previous slide's final frame), runs its animation timeline (starting when the transition starts, like the HTML runtime), then holds its settled state — for the transition's `advance_after` when set, else for `slide_duration` (`hold` on `Canvas`). In narrated MP4/WebM output, the inferred or explicit narration duration (or the silent-slide default) extends the visual slide when it is longer than `advance_after`. A slide with no transition cross-fades in over 0.5s (slide 0 with none starts instantly); set a transition on slide 0 to animate in from the matte, which also makes looping GIFs wrap smoothly.
+
+GIF is encoded by Pillow with per-frame durations, so no extra dependency is needed. MP4 (H.264) and WebM (VP9) require the `ffmpeg` binary on `PATH` (or pointed to by the `QUICKTHUMB_FFMPEG` environment variable).
+
+Canvas MP4 and WebM output can carry a soundtrack — any audio file ffmpeg decodes (MP3, WAV, AAC, OGG, ...), encoded as AAC in MP4 and Opus in WebM:
+
+```python
+mp4 = canvas.to_mp4(soundtrack="music.mp3")                    # loops to fill the video
+mp4 = canvas.to_mp4(soundtrack="jingle.wav", loop_audio=False) # plays once, then silence
+```
+
+The audio is always trimmed to the video length. For an `AudioTrack`, `loop=True` repeats a shorter track and `loop=False` plays it once before silence; `loop_audio` is an explicit override. Legacy string paths keep the previous looping default. GIF exports do not accept a soundtrack.
+
+!!! note "Format limits"
+    None of these formats carry transparency: frames are composited onto the opaque `matte` color (default black). Mixed-size slides are scaled to fit and centered on the first slide's size. H.264/VP9 4:2:0 output needs even dimensions, so odd-sized canvases lose their last pixel row/column in MP4/WebM output. GIF encoding keeps frames in memory and rejects timelines that exceed its frame budget; reduce FPS or duration, or use MP4/WebM for long, high-resolution animations. Animated Deck MP4/WebM accepts at most 64 slides with narration because each narration is decoded as a concurrent FFmpeg input; split larger narrated decks into multiple exports. Silent slides do not count toward this limit.
+
 ## Decks (multiple images and slides)
 
 A `Deck` is an ordered collection of canvases. Each slide is a full `Canvas` and renders exactly as it would on its own, so a deck is just a multi-output container on top of the same pipeline. See the [Deck API reference](api/deck.md) for the full method list.
@@ -106,13 +172,23 @@ deck = (
 
 deck.render("deck.pdf")     # one multi-page PDF (a page per slide)
 deck.render("deck.pptx")    # one multi-slide PPTX (a slide per slide)
+deck.render("deck.gif")     # one animation playing transitions between slides
+deck.render("deck.mp4")     # static slides with per-slide narration
+deck.render(
+    "deck.mp4",
+    animation=VideoOptions(soundtrack=AudioTrack(path="music.mp3", loop=True)),
+)  # animated + mixed audio
+deck.render("animated.mp4", animation=VideoOptions(fps=20))  # animated, silent
 deck.render("slides.png")   # numbered sequence: slides_01.png, slides_02.png, …
 
 pdf_bytes = deck.to_pdf()
 pptx_bytes = deck.to_pptx()
+gif_bytes = deck.to_gif()
+webm_bytes = deck.to_webm()
+mp4_bytes = deck.to_mp4()   # static slides with per-slide narration
 ```
 
-`render()` dispatches on the output extension: `.pdf` and `.pptx` produce a single document, while raster extensions have no native multi-page container, so the deck writes one file per slide as a zero-padded numbered sequence and returns the written paths.
+`render()` dispatches on the output extension: `.pdf` and `.pptx` produce a single document; `.gif` and `.webm` produce an animation; `.mp4` produces static slides with per-slide narration unless `animation=VideoOptions(...)` selects the animated path; and raster extensions have no native multi-page container, so the deck writes one file per slide as a zero-padded numbered sequence and returns the written paths.
 
 Slides may have different dimensions. `deck.diagnose()` aggregates each slide's [diagnostics](diagnostics.md) (each tagged with its `slide_index`) and adds a `mixed-slide-size` warning when they differ. The PDF path sizes each page to its slide, but PPTX has a single presentation size taken from the first slide, so slides larger than the first are clipped by PowerPoint — keep slides a uniform size when targeting `.pptx`. Decks round-trip through JSON with `deck.to_json()` / `Deck.from_json(...)`, reusing the per-canvas serialization.
 

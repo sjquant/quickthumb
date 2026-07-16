@@ -257,7 +257,7 @@ class TestBackgroundLayers:
         # Given: Canvas with multiple background layers, including a tuple color
         import json
 
-        from quickthumb import BlendMode, Canvas, Filter, LinearGradient
+        from quickthumb import BackgroundLayer, BlendMode, Canvas, Filter, LinearGradient
 
         gradient = LinearGradient(angle=45, stops=[("#FFD700", 0.0), ("#FFD70000", 1.0)])
         canvas = (
@@ -334,8 +334,8 @@ class TestBackgroundLayers:
         # Round-trip: after from_json the tuple-color layers come back as hex strings,
         # confirming the serializer normalises them correctly.
         roundtrip = Canvas.from_json(canvas.to_json())
-        assert roundtrip.layers[2].color == "#FF5733"
-        assert roundtrip.layers[3].color == "#FF5733C8"
+        assert cast(BackgroundLayer, roundtrip.layers[2]).color == "#FF5733"
+        assert cast(BackgroundLayer, roundtrip.layers[3]).color == "#FF5733C8"
 
     def test_should_deserialize_background_layer_from_json(self):
         """Test that canvas with background layers can be deserialized from JSON"""
@@ -510,12 +510,13 @@ class TestBackgroundLayers:
         import json
 
         from inline_snapshot import snapshot
-        from quickthumb import Canvas, Grain
+        from quickthumb import BackgroundLayer, Canvas, Grain
 
         # Defaults: monochrome=True, blend_mode="overlay", opacity=1.0
         canvas = Canvas(200, 150).background(color="#1A1A2E", effects=[Grain(intensity=0.12)])
 
-        assert canvas.layers[0].effects[0] == snapshot(
+        background = cast(BackgroundLayer, canvas.layers[0])
+        assert background.effects[0] == snapshot(
             Grain(intensity=0.12, monochrome=True, blend_mode="overlay", opacity=1.0)
         )
 
@@ -532,7 +533,7 @@ class TestBackgroundLayers:
             }
         )
         roundtrip = Canvas.from_json(json.dumps(data))
-        assert roundtrip.layers[0].effects[0] == Grain(intensity=0.12)
+        assert cast(BackgroundLayer, roundtrip.layers[0]).effects[0] == Grain(intensity=0.12)
 
     @pytest.mark.parametrize(
         "kwargs, match",

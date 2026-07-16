@@ -6,6 +6,7 @@ from pydantic import (
     AfterValidator,
     BaseModel,
     BeforeValidator,
+    ConfigDict,
     Discriminator,
     Field,
     NonNegativeFloat,
@@ -201,6 +202,64 @@ class quickthumbModel(BaseModel):  # noqa: N801
 
 
 QuickThumbModel = quickthumbModel
+
+
+class AudioTrack(quickthumbModel):
+    """An audio source with room for export-time mix controls."""
+
+    path: str
+    volume: Annotated[float, Field(ge=0, allow_inf_nan=False)] = 1.0
+    loop: bool = False
+
+
+class GifOptions(quickthumbModel):
+    """Options specific to animated GIF output."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    fps: Annotated[float, Field(gt=0, allow_inf_nan=False)] | None = None
+    loop: NonNegativeInt = 0
+    matte: str = "#000000"
+    max_size: tuple[PositiveInt, PositiveInt] | None = None
+    colors: int | None = None
+
+    @field_validator("loop")
+    @classmethod
+    def validate_loop(cls, value: int) -> int:
+        if value > 65535:
+            raise ValueError("loop must be <= 65535")
+        return value
+
+    @field_validator("colors")
+    @classmethod
+    def validate_colors(cls, value: int | None) -> int | None:
+        if value is not None and not 2 <= value <= 256:
+            raise ValueError("colors must be between 2 and 256")
+        return value
+
+
+class VideoOptions(quickthumbModel):
+    """Options specific to animated MP4 and WebM output."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    fps: Annotated[float, Field(gt=0, allow_inf_nan=False)] | None = None
+    matte: str = "#000000"
+    soundtrack: AudioTrack | None = None
+    loop_audio: bool | None = None
+
+
+def coerce_audio_track(value: AudioTrack | str | dict | None) -> AudioTrack | None:
+    """Normalize legacy path strings and mapping specs into an audio track."""
+    if value is None:
+        return None
+    if isinstance(value, AudioTrack):
+        return value
+    if isinstance(value, str):
+        return AudioTrack(path=value)
+    if isinstance(value, dict):
+        return AudioTrack(**value)
+    raise ValidationError("audio must be a path string or AudioTrack configuration")
 
 
 class FaceRegion(quickthumbModel):
@@ -468,8 +527,8 @@ BackgroundEffect = Annotated[Filter | Grain, Discriminator("type")]
 
 # --------------------------------------------------------------- slide effects
 # Per-layer entrance/exit animations (below) and slide-level transitions (in
-# quickthumb.transitions) play in PowerPoint (PPTX) and HTML output; raster,
-# SVG, and PDF renderers ignore them.
+# quickthumb.transitions) play in PowerPoint (PPTX), HTML, and animated
+# GIF/MP4/WebM output; still-image renderers (raster, SVG, PDF) ignore them.
 
 AnimationTrigger = Literal["on_click", "with_previous", "after_previous"]
 
@@ -481,9 +540,11 @@ class _AnimationBase(quickthumbModel):
     only exposes the options that effect actually supports — directional effects
     add a ``direction``/``orientation``, ``Wheel`` adds ``spokes``, and the rest
     add nothing. Attach one (or a list) to a ``text``/``shape``/``image``/
-    ``svg``/``group`` layer via ``animation=``. Honoured by the PPTX and HTML exporters
-    only; the layer renders normally in every other format. ``trigger`` controls
-    how the effect starts relative to the previous animation on the slide.
+    ``svg``/``group`` layer via ``animation=``. Honoured by the PPTX, HTML, and
+    animated GIF/MP4/WebM exporters; the layer renders normally in every other
+    format. ``trigger`` controls how the effect starts relative to the previous
+    animation on the slide (in video output, where there is nothing to click,
+    ``on_click`` plays automatically like ``after_previous``).
     """
 
     animate: Literal["entrance", "exit"] = "entrance"
@@ -554,7 +615,7 @@ class Wheel(_AnimationBase):
     """Sweep the layer in or out like a clock hand, using ``spokes`` arms."""
 
     effect: Literal["wheel"] = "wheel"
-    spokes: PositiveInt = 1
+    spokes: Annotated[PositiveInt, Field(le=64)] = 1
 
 
 # Discriminated union of every effect: validates a dict (e.g. from JSON) into the

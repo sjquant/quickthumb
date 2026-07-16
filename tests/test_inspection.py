@@ -186,6 +186,7 @@ class TestInspectCanvas:
 
         # then: text glyph width differs by platform font rasterizer, but layout stays stable
         text_bbox = group.children[0].bbox
+        assert text_bbox is not None
         text_width = text_bbox.width
         text_height = text_bbox.height
         assert text_width in {49, 50, 52}

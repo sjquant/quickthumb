@@ -9,6 +9,8 @@ from quickthumb import Canvas, Fade, LinearGradient, TextPart, Wipe
 from quickthumb.errors import RenderingError
 from quickthumb.models import Background, Glow, RadialGradient, Shadow, Stroke
 
+from tests._helpers import pixel_channel
+
 pptx = pytest.importorskip("pptx")
 
 from pptx import Presentation  # noqa: E402
@@ -197,7 +199,7 @@ class TestPptxShapes:
         assert shape.shape_type == MSO_SHAPE_TYPE.PICTURE
         embedded = Image.open(BytesIO(shape.image.blob)).convert("RGBA")
         assert embedded.getpixel((embedded.width // 2, embedded.height // 2)) == (255, 0, 0, 255)
-        assert embedded.getpixel((0, 0))[3] == 0
+        assert pixel_channel(embedded, (0, 0), 3) == 0
 
     def test_should_apply_rotation_and_stroke_to_shapes(self):
         """Rotation maps to shape.rotation and stroke effects to the shape line"""

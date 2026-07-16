@@ -1,6 +1,7 @@
 """Tests for shape layer functionality"""
 
 import json
+from typing import cast
 
 import pytest
 from inline_snapshot import snapshot
@@ -634,7 +635,7 @@ class TestShapePrimitives:
         restored = Canvas.from_json(canvas.to_json())
 
         # then: the shape type and geometry survive
-        layer = restored.layers[0]
+        layer = cast(ShapeLayer, restored.layers[0])
         assert layer.shape == shape
         assert (layer.width, layer.height) == (120, 80)
 
@@ -668,9 +669,11 @@ class TestShapePrimitives:
         restored = Canvas.from_json(canvas.to_json())
 
         # then: parameters are stored, serialized, and restored
-        assert restored.layers[0].star_points == 7
-        assert restored.layers[0].inner_radius == 0.4
-        assert restored.layers[1].star_points == 3
+        first_layer = cast(ShapeLayer, restored.layers[0])
+        second_layer = cast(ShapeLayer, restored.layers[1])
+        assert first_layer.star_points == 7
+        assert first_layer.inner_radius == 0.4
+        assert second_layer.star_points == 3
 
     def test_should_round_trip_polygon_points_through_json(self):
         """Polygon shapes preserve their normalized points across JSON round-trip"""
@@ -701,8 +704,10 @@ class TestShapePrimitives:
 
         # then: the wire format keeps points as [x, y] pairs and the round-trip preserves them
         assert serialized["layers"][0]["points"] == [list(p) for p in points]
-        assert restored.layers[0].shape == "polygon"
-        assert [tuple(p) for p in restored.layers[0].points] == points
+        layer = cast(ShapeLayer, restored.layers[0])
+        assert layer.shape == "polygon"
+        assert layer.points is not None
+        assert [tuple(p) for p in layer.points] == points
 
     @pytest.mark.parametrize(
         "points,error_pattern",

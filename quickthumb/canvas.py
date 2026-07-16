@@ -23,6 +23,7 @@ from quickthumb.errors import RenderingError, ValidationError
 from quickthumb.models import (
     Align,
     AnimationInput,
+    AudioTrack,
     BackdropBlur,
     BackgroundEffect,
     BackgroundLayer,
@@ -31,6 +32,7 @@ from quickthumb.models import (
     Diagnostic,
     FaceRegion,
     FitMode,
+    GifOptions,
     Grain,
     GroupLayer,
     ImageEffect,
@@ -50,6 +52,7 @@ from quickthumb.models import (
     TextInspection,
     TextLayer,
     TextPart,
+    VideoOptions,
 )
 
 
@@ -656,29 +659,64 @@ class Canvas:
         format: FileFormat | None = None,
         quality: int | None = None,
         debug: bool = False,
+        animation: GifOptions | VideoOptions | None = None,
     ):
         """Render the canvas to a file.
 
         The output format is detected from the file extension: PNG, JPEG, and
-        WEBP render through the raster pipeline, while .svg, .pptx, and .pdf
-        produce vector/document output (see to_svg, to_pptx, and to_pdf).
+        WEBP render through the raster pipeline; .svg, .pptx, and .pdf produce
+        vector/document output (see to_svg, to_pptx, and to_pdf); .gif, .mp4,
+        and .webm produce an animation that plays the canvas's layer
+        ``animation`` effects. Pass ``GifOptions`` for GIF or ``VideoOptions``
+        for MP4/WebM to tune animated output.
         Set debug=True for raster output annotated with public layer-id bboxes.
         """
-        if format is None:
-            extension = os.path.splitext(output_path)[1].lower()
-            if extension in (".svg", ".pptx", ".pdf", ".html", ".htm"):
-                if debug:
-                    raise RenderingError(
-                        "Debug render is only supported for PNG, JPEG, and WEBP output."
-                    )
-                if quality is not None:
-                    raise RenderingError(
-                        "Quality parameter is only supported for JPEG and WEBP formats, "
-                        f"not {extension} output."
-                    )
-                self._render_document(output_path, extension)
-                return
+        extension = os.path.splitext(output_path)[1].lower()
+        if format is not None and extension in (".gif", ".mp4", ".webm"):
+            raise RenderingError(
+                "format override is only supported for raster output, not animated output."
+            )
+        if format is None and extension in (
+            ".svg",
+            ".pptx",
+            ".pdf",
+            ".html",
+            ".htm",
+            ".gif",
+            ".mp4",
+            ".webm",
+        ):
+            if animation is not None and extension not in (".gif", ".mp4", ".webm"):
+                raise RenderingError(
+                    "animation options are only supported for GIF, MP4, and WebM output."
+                )
+            if debug:
+                raise RenderingError(
+                    "Debug render is only supported for PNG, JPEG, and WEBP output."
+                )
+            if quality is not None:
+                raise RenderingError(
+                    "Quality parameter is only supported for JPEG and WEBP formats, "
+                    f"not {extension} output."
+                )
+            if extension in (".gif", ".mp4", ".webm"):
+                from quickthumb._export_video import write_animation
 
+                write_animation(
+                    [self],
+                    [None],
+                    output_path,
+                    format=extension[1:],  # type: ignore[arg-type]
+                    animation=animation,
+                )
+                return
+            self._render_document(output_path, extension)
+            return
+
+        if animation is not None:
+            raise RenderingError(
+                "animation options require an animated output extension (.gif, .mp4, or .webm)."
+            )
         self._validate_image_paths()
         image = self._render_to_image(debug=debug)
         self._save_to_file(image, output_path, quality, format=format)
@@ -765,6 +803,82 @@ class Canvas:
         from quickthumb._export_pdf import PdfExporter
 
         return PdfExporter(self).export_bytes()
+
+    def to_gif(
+        self, fps: float = 20.0, hold: float = 3.0, loop: int = 0, matte: str = "#000000"
+    ) -> bytes:
+        """Render the canvas to animated GIF bytes that play its layer animations.
+
+        Layer ``animation`` effects play in sequence (``on_click`` effects run
+        automatically -- there are no clicks in a video), then the settled
+        composition holds for ``hold`` seconds. A canvas with no animations
+        yields a single-frame GIF. ``loop`` is the GIF repeat count (0 =
+        forever). Frames are composited onto the opaque ``matte`` color since
+        GIF cannot carry the canvas's alpha.
+        """
+        from quickthumb._export_video import export_animation_bytes
+
+        return export_animation_bytes(
+            [self], [None], format="gif", fps=fps, slide_duration=hold, loop=loop, matte=matte
+        )
+
+    def to_mp4(
+        self,
+        fps: float = 30.0,
+        hold: float = 3.0,
+        matte: str = "#000000",
+        soundtrack: AudioTrack | str | dict | None = None,
+        loop_audio: bool | None = None,
+    ) -> bytes:
+        """Render the canvas to MP4 (H.264) bytes; timing model as in ``to_gif``.
+
+        Requires the ``ffmpeg`` binary on PATH (or ``QUICKTHUMB_FFMPEG``).
+        An odd-sized canvas loses its last pixel row/column (H.264 4:2:0
+        output needs even dimensions). ``soundtrack`` muxes an audio file
+        (any format ffmpeg decodes) as AAC, trimmed to the video length;
+        ``loop_audio`` overrides `AudioTrack.loop`; legacy path strings loop by default.
+        """
+        from quickthumb._export_video import export_animation_bytes
+
+        return export_animation_bytes(
+            [self],
+            [None],
+            format="mp4",
+            fps=fps,
+            slide_duration=hold,
+            matte=matte,
+            soundtrack=soundtrack,
+            loop_audio=loop_audio,
+        )
+
+    def to_webm(
+        self,
+        fps: float = 30.0,
+        hold: float = 3.0,
+        matte: str = "#000000",
+        soundtrack: AudioTrack | str | dict | None = None,
+        loop_audio: bool | None = None,
+    ) -> bytes:
+        """Render the canvas to WebM (VP9) bytes; timing model as in ``to_gif``.
+
+        Requires the ``ffmpeg`` binary on PATH (or ``QUICKTHUMB_FFMPEG``).
+        An odd-sized canvas loses its last pixel row/column (VP9 4:2:0 output
+        needs even dimensions). ``soundtrack`` muxes an audio file (any
+        format ffmpeg decodes) as Opus, trimmed to the video length;
+        ``loop_audio`` overrides `AudioTrack.loop`; legacy path strings loop by default.
+        """
+        from quickthumb._export_video import export_animation_bytes
+
+        return export_animation_bytes(
+            [self],
+            [None],
+            format="webm",
+            fps=fps,
+            slide_duration=hold,
+            matte=matte,
+            soundtrack=soundtrack,
+            loop_audio=loop_audio,
+        )
 
     def to_json(self) -> str:
         import json as _json

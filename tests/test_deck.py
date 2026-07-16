@@ -3,11 +3,13 @@
 import json
 from io import BytesIO
 from pathlib import Path
+from typing import cast
 
 import pytest
 from PIL import Image
 from quickthumb import Canvas, Deck
 from quickthumb.errors import RenderingError, ValidationError
+from quickthumb.models import BackgroundLayer
 from quickthumb.transitions import Dissolve, Fade, Split, Wheel
 
 from tests._optional import require_pypdfium2
@@ -51,6 +53,20 @@ class TestDeckComposition:
         # when / then
         with pytest.raises(ValidationError, match="must be Canvas"):
             deck.slide("not a canvas")  # type: ignore[arg-type]
+
+    def test_should_not_mutate_deck_or_canvas_when_audio_is_invalid(self):
+        """Rejecting slide audio leaves the Deck and unsized Canvas unchanged."""
+        # given
+        deck = Deck(1280, 720)
+        slide = Canvas().background(color="#101820")
+
+        # when
+        with pytest.raises(ValidationError, match="greater than or equal to 0"):
+            deck.slide(slide, audio={"path": "voice.wav", "volume": -1})
+
+        # then
+        assert len(deck) == 0
+        assert not slide.has_size
 
     def test_should_reject_rendering_an_empty_deck(self, tmp_path: Path):
         """An empty deck cannot be rendered to any format."""
@@ -137,7 +153,7 @@ class TestRenderDispatch:
 
         # when / then
         with pytest.raises(RenderingError, match="Unsupported deck output format"):
-            deck.render(str(tmp_path / "deck.gif"))
+            deck.render(str(tmp_path / "deck.docx"))
 
     def test_should_reject_format_override_for_document_output(self, tmp_path: Path):
         """A raster format override is meaningless for document output."""
@@ -351,6 +367,24 @@ class TestJsonRoundTrip:
         assert len(restored) == 2
         assert [c.to_json() for c in restored] == [c.to_json() for c in deck]
 
+    def test_should_round_trip_per_slide_audio_metadata(self):
+        """Per-slide narration paths and durations survive Deck JSON serialization"""
+        # given
+        deck = Deck().slide(make_slide("1"), audio="voice.wav", duration=1.5).slide(make_slide("2"))
+
+        # when
+        payload = json.loads(deck.to_json())
+        restored = Deck.from_json(deck.to_json())
+
+        # then
+        assert payload["slides"][0]["audio"] == {
+            "path": "voice.wav",
+            "volume": 1.0,
+            "loop": False,
+        }
+        assert payload["slides"][0]["duration"] == 1.5
+        assert json.loads(restored.to_json())["slides"] == payload["slides"]
+
     def test_should_reject_json_without_slides(self):
         """Deck JSON must carry a 'slides' list."""
         # when / then
@@ -391,7 +425,7 @@ class TestJsonRoundTrip:
         deck = Deck.from_json(spec)
 
         # then the slide's token resolved to the deck-level theme value
-        assert deck[0].layers[0].color == "#B8FF00"
+        assert cast(BackgroundLayer, deck[0].layers[0]).color == "#B8FF00"
         # and the theme survives another round-trip
         assert json.loads(deck.to_json())["theme"] == {"brand": "#B8FF00"}
 
@@ -564,8 +598,9 @@ class TestDeckTransitions:
         restored = Deck.from_json(deck.to_json())
 
         # then
-        assert restored.default_transition.spokes == 4
-        override = restored._slide_transitions[1]
+        default_transition = cast(Wheel, restored.default_transition)
+        assert default_transition.spokes == 4
+        override = cast(Split, restored._slide_transitions[1])
         assert (override.effect, override.orientation, override.direction) == (
             "split",
             "vertical",

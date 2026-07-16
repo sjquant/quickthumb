@@ -68,11 +68,13 @@ Finding codes: `off-canvas`, `tiny-text`, `text-overflow`, `low-contrast`. See [
 
 ## Export methods
 
-### `.render(path, format=None, quality=None, debug=False)`
+### `.render(path, format=None, quality=None, debug=False, animation=None)`
 
-Renders the canvas and writes the result to a file. The format is detected from the file extension; `.svg`, `.pptx`, and `.pdf` produce vector/document output (see [Exporting to SVG, PPTX & PDF](../exports.md)).
+Renders the canvas and writes the result to a file. The format is detected from the file extension; `.svg`, `.pptx`, and `.pdf` produce vector/document output, and `.gif`/`.mp4`/`.webm` produce an animation playing the canvas's layer `animation` effects (see [Exporting to SVG, PPTX, PDF & video](../exports.md)).
 
 ```python
+from quickthumb import GifOptions, VideoOptions
+
 canvas.render("output.png")
 canvas.render("output.jpg", format="JPEG", quality=85)
 canvas.render("output.webp", format="WEBP", quality=90)
@@ -80,6 +82,12 @@ canvas.render("debug.png", debug=True)  # raster output with public layer-id bbo
 canvas.render("output.svg")
 canvas.render("output.pptx")  # requires quickthumb[pptx]
 canvas.render("output.pdf")   # requires quickthumb[pdf]
+canvas.render("output.gif")   # animated; .mp4/.webm require the ffmpeg binary
+canvas.render(
+    "preview.gif",
+    animation=GifOptions(fps=8, max_size=(540, 960), colors=128),
+)
+canvas.render("preview.mp4", animation=VideoOptions(fps=30))
 ```
 
 | Parameter | Type | Default | Description |
@@ -88,9 +96,15 @@ canvas.render("output.pdf")   # requires quickthumb[pdf]
 | `format` | `str \| None` | `None` | Optional raster output format override: `"PNG"`, `"JPEG"`, or `"WEBP"` |
 | `quality` | `int \| None` | `None` | Compression quality (1–95). Only valid for `JPEG` and `WEBP`. |
 | `debug` | `bool` | `False` | Draw public layer-id bounding boxes on raster output for visual review. |
+| `animation` | `GifOptions \| VideoOptions \| None` | `None` | Format-specific options: `GifOptions` for GIF, `VideoOptions` for MP4/WebM. |
 
 !!! warning
-    Passing `quality` with `format="PNG"` raises `RenderingError`. Passing `debug=True` for document output (`.svg`, `.pptx`, `.pdf`, or `.html`) raises `RenderingError`.
+    Passing `quality` with `format="PNG"` raises `RenderingError`. Passing `debug=True` for document or animated output (`.svg`, `.pptx`, `.pdf`, `.html`, `.gif`, `.mp4`, or `.webm`) raises `RenderingError`.
+
+`GifOptions` and `VideoOptions` are available from `quickthumb`. `GifOptions`
+accepts `fps`, `matte`, `loop`, `max_size=(width, height)`, and `colors`.
+`VideoOptions` accepts `fps`, `matte`, `soundtrack=AudioTrack(...)`, and `loop_audio`.
+GIF sizing and palette controls are rejected for MP4/WebM output.
 
 ### `.to_svg(embed_fonts=False)`
 
@@ -117,6 +131,18 @@ Returns the canvas as PDF file bytes — a single page with native vector backgr
 with open("card.pdf", "wb") as f:
     f.write(canvas.to_pdf())
 ```
+
+### `.to_gif(...)` / `.to_mp4(...)` / `.to_webm(...)`
+
+Return the canvas as an animation that plays its layer `animation` effects in sequence, then holds the settled composition for `hold` seconds (see [Animated GIF & video](../exports.md#animated-gif-video-mp4webm)). A canvas with no animations yields a single-frame GIF. `.to_mp4()`/`.to_webm()` require the `ffmpeg` binary on `PATH` (or named by `QUICKTHUMB_FFMPEG`).
+
+```python
+gif_bytes = canvas.to_gif(fps=20, hold=3.0, loop=0, matte="#000000")
+mp4_bytes = canvas.to_mp4(fps=30, hold=2.0, soundtrack="music.mp3")
+webm_bytes = canvas.to_webm(fps=30, hold=2.0)
+```
+
+`.to_mp4()`/`.to_webm()` also accept `soundtrack` (an audio file muxed into the video, trimmed to the video length) and `loop_audio` (an explicit override). `AudioTrack(..., loop=True)` repeats a shorter configured track; legacy string paths keep the previous default of looping. GIF cannot carry audio. See the [Deck API](deck.md) for the full parameter table.
 
 ### `.to_base64(format="PNG", quality=None)`
 

@@ -6,7 +6,7 @@ import tempfile
 import pytest
 from inline_snapshot import external_file
 from PIL import Image
-from quickthumb.models import Align
+from quickthumb.models import Align, FitMode
 
 from tests._optional import require_cairosvg
 
@@ -2658,7 +2658,7 @@ class TestRendering:
             .text(
                 "TEXTURE",
                 size=72,
-                fill=TextFillImage(path="tests/fixtures/sample_image.jpg", fit="cover"),
+                fill=TextFillImage(path="tests/fixtures/sample_image.jpg", fit=FitMode.COVER),
                 position=(200, 100),
                 align=("center", "middle"),
             )

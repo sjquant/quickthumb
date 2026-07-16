@@ -1,10 +1,12 @@
-"""Slide transitions for PowerPoint (PPTX) and HTML export.
+"""Slide transitions for PowerPoint (PPTX), HTML, and animated GIF/MP4/WebM export.
 
 In PPTX they map to native PowerPoint transitions; in the HTML slideshow they
 animate the change into each slide (the incoming stage), with effects that need
 to move the stage composed with the responsive fit-to-viewport scale. A few
 exotic effects (wheel, wedge, checker, comb, dissolve) fall back to the closest
-CSS analogue there. Other renderers (raster, SVG, PDF) ignore transitions.
+CSS analogue there. Animated GIF/MP4/WebM export renders every effect as real
+raster frames (``random`` plays as a cross-fade -- there is no viewer to
+randomize per playback). Still renderers (raster, SVG, PDF) ignore transitions.
 
 Each transition effect is its own class so it only exposes the options that
 effect actually supports — directional effects (``Push``, ``Wipe``, ``Cover``,
@@ -29,6 +31,7 @@ from typing import Annotated, Literal
 
 from pydantic import (
     Discriminator,
+    Field,
     NonNegativeFloat,
     PositiveFloat,
     PositiveInt,
@@ -100,7 +103,7 @@ class Wheel(_TransitionBase):
     """Sweep the slide in like a clock hand, using ``spokes`` arms."""
 
     effect: Literal["wheel"] = "wheel"
-    spokes: PositiveInt = 1
+    spokes: Annotated[PositiveInt, Field(le=64)] = 1
 
 
 class Push(_TransitionBase):

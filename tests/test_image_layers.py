@@ -3,13 +3,24 @@
 import builtins
 import json
 import sys
+from typing import cast
 from unittest.mock import patch
 
 import pytest
 from inline_snapshot import snapshot
 from PIL import Image
 from quickthumb.errors import ValidationError
-from quickthumb.models import Align, BlendMode, FaceRegion, FitMode, ImageLayer
+from quickthumb.models import (
+    Align,
+    BackgroundLayer,
+    BlendMode,
+    FaceRegion,
+    FitMode,
+    ImageLayer,
+    TextLayer,
+)
+
+from tests._helpers import pixel_rgb
 
 
 class TestImageLayers:
@@ -240,8 +251,9 @@ class TestCanvasImageAPI:
 
         # Then: The layer should retain normalized crop metadata
         assert result is canvas
-        assert canvas.layers[0].focal_point == (0.75, 0.25)
-        assert canvas.layers[0].faces == [face]
+        image_layer = cast(ImageLayer, canvas.layers[0])
+        assert image_layer.focal_point == (0.75, 0.25)
+        assert image_layer.faces == [face]
 
 
 class TestImageLayerBackgroundRemoval:
@@ -373,9 +385,9 @@ class TestImageFitIntelligence:
         center_render = Image.open(center_output).convert("RGBA")
         focal_render = Image.open(focal_output).convert("RGBA")
         image_render = Image.open(image_output).convert("RGBA")
-        assert center_render.getpixel((50, 50))[:3] == (22, 163, 74)
-        assert focal_render.getpixel((50, 50))[:3] == (37, 99, 235)
-        assert image_render.getpixel((60, 50))[:3] == (37, 99, 235)
+        assert pixel_rgb(center_render, (50, 50)) == (22, 163, 74)
+        assert pixel_rgb(focal_render, (50, 50)) == (37, 99, 235)
+        assert pixel_rgb(image_render, (60, 50)) == (37, 99, 235)
 
     def test_should_render_face_aware_cover_crop_and_fallback_for_background_and_image_layers(
         self, tmp_path
@@ -432,10 +444,10 @@ class TestImageFitIntelligence:
         fallback_render = Image.open(fallback_output).convert("RGBA")
         image_face_render = Image.open(image_face_output).convert("RGBA")
         image_fallback_render = Image.open(image_fallback_output).convert("RGBA")
-        assert face_render.getpixel((50, 50))[:3] == (249, 115, 22)
-        assert fallback_render.getpixel((50, 50))[:3] == (79, 70, 229)
-        assert image_face_render.getpixel((50, 50))[:3] == (249, 115, 22)
-        assert image_fallback_render.getpixel((50, 50))[:3] == (79, 70, 229)
+        assert pixel_rgb(face_render, (50, 50)) == (249, 115, 22)
+        assert pixel_rgb(fallback_render, (50, 50)) == (79, 70, 229)
+        assert pixel_rgb(image_face_render, (50, 50)) == (249, 115, 22)
+        assert pixel_rgb(image_fallback_render, (50, 50)) == (79, 70, 229)
 
     def test_should_render_face_aware_text_fill_and_fallback(self, tmp_path):
         """Text image fills use face regions and fall back to focal-point cropping"""
@@ -457,9 +469,9 @@ class TestImageFitIntelligence:
             size=120,
             fill=TextFillImage(
                 path=str(source_path),
-                fit="cover",
+                fit=FitMode.COVER,
                 focal_point=(0.5, 1.0),
-                faces=[{"x": 0.2, "y": 0.08, "width": 0.6, "height": 0.1}],
+                faces=[FaceRegion(x=0.2, y=0.08, width=0.6, height=0.1)],
             ),
             position=(15, 0),
         ).render(face_output)
@@ -468,7 +480,7 @@ class TestImageFitIntelligence:
             size=120,
             fill=TextFillImage(
                 path=str(source_path),
-                fit="cover",
+                fit=FitMode.COVER,
                 focal_point=(0.5, 1.0),
                 faces=[],
             ),
@@ -478,16 +490,14 @@ class TestImageFitIntelligence:
         # Then: The text fill follows face metadata and uses the focal point without faces
         face_render = Image.open(face_output).convert("RGBA")
         fallback_render = Image.open(fallback_output).convert("RGBA")
-        face_colors = {
-            color
-            for _, color in face_render.getcolors(maxcolors=face_render.width * face_render.height)
-        }
-        fallback_colors = {
-            color
-            for _, color in fallback_render.getcolors(
-                maxcolors=fallback_render.width * fallback_render.height
-            )
-        }
+        face_color_counts = face_render.getcolors(maxcolors=face_render.width * face_render.height)
+        fallback_color_counts = fallback_render.getcolors(
+            maxcolors=fallback_render.width * fallback_render.height
+        )
+        assert face_color_counts is not None
+        assert fallback_color_counts is not None
+        face_colors = {color for _, color in face_color_counts}
+        fallback_colors = {color for _, color in fallback_color_counts}
         assert (249, 115, 22, 255) in face_colors
         assert (79, 70, 229, 255) in fallback_colors
 
@@ -659,9 +669,9 @@ class TestImageLayerSerialization:
                 size=48,
                 fill=TextFillImage(
                     path="texture.jpg",
-                    fit="cover",
+                    fit=FitMode.COVER,
                     focal_point=(0.2, 0.5),
-                    faces=[{"x": 0.1, "y": 0.2, "width": 0.2, "height": 0.2}],
+                    faces=[FaceRegion(x=0.1, y=0.2, width=0.2, height=0.2)],
                 ),
                 position=(0, 0),
             )
@@ -681,9 +691,13 @@ class TestImageLayerSerialization:
         assert image["faces"] == [{"x": 0.3, "y": 0.15, "width": 0.25, "height": 0.4}]
         assert text_fill["focal_point"] == [0.2, 0.5]
         assert text_fill["faces"] == [{"x": 0.1, "y": 0.2, "width": 0.2, "height": 0.2}]
-        assert restored.layers[0].focal_point == (0.8, 0.25)
-        assert restored.layers[1].faces == [FaceRegion(x=0.3, y=0.15, width=0.25, height=0.4)]
-        assert restored.layers[2].fill.focal_point == (0.2, 0.5)
+        background_layer = cast(BackgroundLayer, restored.layers[0])
+        image_layer = cast(ImageLayer, restored.layers[1])
+        text_layer = cast(TextLayer, restored.layers[2])
+        assert background_layer.focal_point == (0.8, 0.25)
+        assert image_layer.faces == [FaceRegion(x=0.3, y=0.15, width=0.25, height=0.4)]
+        assert isinstance(text_layer.fill, TextFillImage)
+        assert text_layer.fill.focal_point == (0.2, 0.5)
 
     def test_should_round_trip_image_layer_through_json(self):
         """Test that canvas with image layer can be serialized and deserialized"""
