@@ -68,6 +68,7 @@ from quickthumb._export_base import flatten_layers, split_backdrop_prefix
 from quickthumb.errors import RenderingError, ValidationError
 from quickthumb.models import (
     Animation,
+    AnimationOptions,
     AudioTrack,
     GifOptions,
     GroupLayer,
@@ -130,7 +131,7 @@ def write_animation(
         max_size = None
         colors = None
     elif animation is not None:
-        if format != "gif" and type(animation) is GifOptions:
+        if format != "gif" and not isinstance(animation, AnimationOptions):
             raise ValidationError("GifOptions are only supported for GIF output")
         fps = animation.fps
         loop = animation.loop

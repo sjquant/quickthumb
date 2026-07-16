@@ -1414,13 +1414,24 @@ class TestVideoErrors:
     def test_should_reject_gif_options_for_video_render(self, tmp_path):
         """The GIF-specific options object cannot be used for WebM output."""
         # given
-        deck = Deck(160, 90, slides=[Canvas().background(color="#1131AA")])
+        deck = Deck(160, 90).slide(
+            Canvas().background(color="#1131AA"),
+            audio=str(tmp_path / "missing.wav"),
+        )
+
+        class CustomGifOptions(GifOptions):
+            """A user-defined GIF options subtype."""
 
         # when / then
         with pytest.raises(ValidationError, match="GifOptions.*GIF"):
             deck.render(
                 str(tmp_path / "preview.webm"),
                 animation=GifOptions(fps=10),
+            )
+        with pytest.raises(ValidationError, match="GifOptions.*GIF"):
+            deck.render(
+                str(tmp_path / "custom-preview.webm"),
+                animation=CustomGifOptions(fps=10),
             )
 
     def test_should_reject_video_options_for_gif_render(self, tmp_path):

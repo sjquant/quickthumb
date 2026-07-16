@@ -20,7 +20,13 @@ from typing_extensions import Self
 from quickthumb._base import FileFormat, aspect_ratio_dimensions
 from quickthumb.canvas import Canvas
 from quickthumb.errors import RenderingError, ValidationError
-from quickthumb.models import AudioTrack, GifOptions, VideoOptions, coerce_audio_track
+from quickthumb.models import (
+    AnimationOptions,
+    AudioTrack,
+    GifOptions,
+    VideoOptions,
+    coerce_audio_track,
+)
 from quickthumb.transitions import Transition, coerce_transition
 
 if TYPE_CHECKING:
@@ -298,6 +304,8 @@ class Deck:
                 animation=animation,
             )
             return
+        if animation is not None and not isinstance(animation, (AnimationOptions, VideoOptions)):
+            raise ValidationError("GifOptions are only supported for GIF output")
         slide_durations, audio_durations = self._animation_audio_schedule()
         write_animation(
             self._slides,
