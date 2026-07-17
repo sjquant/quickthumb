@@ -832,9 +832,19 @@ class TestDeckHtml:
         assert "qt-presenter-shell" in html
         assert "Speaker notes" in html
         assert "Open audience view" in html
-        assert "data-qt-reset-timer" in html
-        assert "Resume" in html
         assert "window.BroadcastChannel" in html
+
+    def test_should_keep_presenter_headings_above_previews_on_narrow_layouts(self):
+        """Narrow presenter layouts keep each heading above its preview column."""
+        # given: the packaged presenter stylesheet
+        css = files("quickthumb.html").joinpath("presenter.css").read_text(encoding="utf-8")
+
+        # when: the responsive sidebar rules are selected
+        responsive_css = css.split("@media(max-width:900px)", 1)[1]
+
+        # then: both headings have explicit, non-overlapping first-row placement
+        assert ".qt-presenter-next-label{grid-column:1;grid-row:1}" in responsive_css
+        assert ".qt-presenter-notes-label{grid-column:2;grid-row:1}" in responsive_css
 
     def test_should_escape_speaker_notes_in_stage_attributes(self):
         """Speaker notes cannot escape their stage attribute into executable markup."""
@@ -1167,6 +1177,8 @@ const html = fs.readFileSync(0, 'utf8');
 const presenterMode = process.argv[1].startsWith('presenter');
 const exitPreviewMode = process.argv[1] === 'presenter-exit';
 const audienceAdvanceMode = process.argv[1] === 'audience-advance';
+let fakeNow = 0;
+const intervalCallbacks = [];
 
 function decodeAttr(value) {
   return value
@@ -1213,8 +1225,24 @@ class Element {
   getAttribute(name) {
     return this.attrs[name] || '';
   }
+  set innerHTML(value) {
+    this._innerHTML = String(value);
+    this.nodes = {};
+  }
+  get innerHTML() {
+    return this._innerHTML || '';
+  }
   querySelector(selector) {
     if (selector.startsWith('#')) return this.children[selector.slice(1)] || null;
+    const markup = this.innerHTML;
+    const found = selector.startsWith('.')
+      ? Array.from(markup.matchAll(/class="([^"]*)"/g)).some((match) =>
+          match[1].split(/\s+/).includes(selector.slice(1)),
+        )
+      : selector.startsWith('[') && selector.endsWith(']')
+        ? markup.includes(selector.slice(1, -1))
+        : false;
+    if (!found) return null;
     if (!this.nodes[selector]) this.nodes[selector] = new Element({});
     return this.nodes[selector];
   }
@@ -1300,11 +1328,15 @@ const context = {
   CSS: { escape: (value) => value },
   clearTimeout,
   console,
+  Date: { now: () => fakeNow },
   document,
   isNaN,
   parseFloat,
   Promise,
-  setInterval: () => 0,
+  setInterval(callback) {
+    intervalCallbacks.push(callback);
+    return intervalCallbacks.length;
+  },
   setTimeout,
   clearInterval: () => {},
   URL,
@@ -1330,6 +1362,10 @@ function assert(condition, message) {
 }
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+function advanceClock(ms) {
+  fakeNow += ms;
+  intervalCallbacks.forEach((callback) => callback());
 }
 
 (async () => {
@@ -1375,15 +1411,23 @@ function wait(ms) {
     await wait(90);
     const presenterShell = body.appended[0];
     const timer = presenterShell.nodes['.qt-presenter-timer'];
+    const timerValue = presenterShell.nodes['[data-qt-timer-value]'];
     const timerLabel = presenterShell.nodes['[data-qt-timer-label]'];
+    advanceClock(2000);
+    assert(timerValue.textContent === '00:02', 'presenter timer advances with elapsed time');
     timer.dispatch('click', { stopPropagation() {} });
     assert(timer.getAttribute('aria-pressed') === 'false', 'presenter timer pauses');
     assert(timerLabel.textContent === 'Resume', 'paused timer offers resume');
+    advanceClock(3000);
+    assert(timerValue.textContent === '00:02', 'paused presenter timer keeps its elapsed time');
     timer.dispatch('click', { stopPropagation() {} });
     assert(timer.getAttribute('aria-pressed') === 'true', 'presenter timer resumes');
+    advanceClock(1000);
+    assert(timerValue.textContent === '00:03', 'resumed presenter timer continues elapsed time');
     const resetTimer = presenterShell.nodes['[data-qt-reset-timer]'];
     resetTimer.dispatch('click', { stopPropagation() {} });
     assert(timer.getAttribute('aria-pressed') === 'true', 'timer reset resumes timing');
+    assert(timerValue.textContent === '00:00', 'timer reset clears elapsed time');
     document.dispatch('keydown', { key: 'ArrowRight' });
     await wait(30);
     assert(

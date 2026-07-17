@@ -93,7 +93,7 @@
         '<div class="qt-presenter-current"></div>'+
       '</section>'+
       '<aside class="qt-presenter-sidebar">'+
-        '<header class="qt-presenter-heading"><span>Next slide</span><span data-qt-next></span></header>'+
+        '<header class="qt-presenter-heading qt-presenter-next-label"><span>Next slide</span><span data-qt-next></span></header>'+
         '<div class="qt-presenter-next"></div>'+
         '<div class="qt-presenter-heading qt-presenter-notes-label"><span>Speaker notes</span></div>'+
         '<div class="qt-presenter-notes" aria-live="polite"></div>'+
