@@ -188,11 +188,13 @@ class TestSlideServer:
         source_path.write_text("<!doctype html><body>Change</body>", encoding="utf-8")
         os.utime(source_path, ns=(original_stat.st_atime_ns, original_stat.st_mtime_ns))
 
-        def fake_watch(path, *, watch_filter, debounce, stop_event):
-            assert path == source_path.parent
+        def fake_watch(*paths, debounce, recursive, step, stop_event, yield_on_timeout):
+            assert paths == (source_path,)
             assert debounce == 100
-            assert watch_filter("modified", str(source_path)) is True
-            assert watch_filter("modified", str(tmp_path / "other.html")) is False
+            assert recursive is False
+            assert step == 100
+            assert yield_on_timeout is True
+            stop_event.set()
             yield {("modified", str(source_path))}
 
         monkeypatch.setitem(sys.modules, "watchfiles", types.SimpleNamespace(watch=fake_watch))
@@ -205,6 +207,31 @@ class TestSlideServer:
         assert updated.html == "<!doctype html><body>Change</body>"
         assert updated.version != initial.version
         assert updated.version.endswith(":1")
+
+    def test_should_reload_when_a_local_python_dependency_changes(self, tmp_path: Path):
+        """Python slide dependencies are watched and re-imported after an edit."""
+        # given: a Python deck importing a local module from the same source directory
+        dependency_path = tmp_path / "slide_dependency.py"
+        dependency_path.write_text("COLOR = '#112233'\n", encoding="utf-8")
+        source_path = tmp_path / "slides.py"
+        source_path.write_text(
+            "from quickthumb import Canvas, Deck\n"
+            "from slide_dependency import COLOR\n"
+            "deck = Deck(80, 40).slide(Canvas().background(color=COLOR))\n",
+            encoding="utf-8",
+        )
+        source = SlideSource(source_path, {})
+
+        # when: the source is rendered, the dependency changes, and the source is invalidated
+        initial_html = source.render()
+        assert dependency_path.resolve() in source.watch_paths
+        dependency_path.write_text("COLOR = '#445566'\n", encoding="utf-8")
+        source.invalidate()
+        updated_html = source.render()
+
+        # then: the second render imports the changed dependency instead of using sys.modules
+        assert "background:rgb(17,34,51)" in initial_html
+        assert "background:rgb(68,85,102)" in updated_html
 
     def test_should_validate_source_paths_and_template_variables(self, tmp_path: Path):
         """Explicit paths and substitutions fail with actionable validation errors."""
