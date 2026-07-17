@@ -101,6 +101,8 @@ class TestHtmlDocument:
             "canvas_runtime.js",
             "deck_runtime.js",
             "document.html",
+            "serve_error.html",
+            "serve_reload.html",
         ]
 
         # when
@@ -111,7 +113,7 @@ class TestHtmlDocument:
 
         # then
         assert all(content for content in contents)
-        assert "{{#stage}}" in contents[-1]
+        assert "{{#stage}}" in contents[resource_names.index("document.html")]
 
     def test_should_render_html_file_from_extension(self, tmp_path):
         """render() writes an HTML document when the output path ends in .html"""

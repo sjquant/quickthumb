@@ -169,6 +169,43 @@ class TestSlideServer:
         assert rendered.version == "new"
         assert rendered.html == "<!doctype html><body>Slides</body>"
 
+    def test_should_invalidate_the_cached_source_when_watchfiles_reports_an_edit(
+        self, tmp_path: Path, monkeypatch
+    ):
+        """A watchfiles event advances the reload token even when file metadata is unchanged."""
+        # given: a cached static source and a fake watchfiles event for that source
+        import os
+        import sys
+        import types
+
+        import quickthumb._serve as serve_module
+
+        source_path = tmp_path / "slides.html"
+        source_path.write_text("<!doctype html><body>Slides</body>", encoding="utf-8")
+        source = SlideSource(source_path, {})
+        initial = source.render_with_version()
+        original_stat = source_path.stat()
+        source_path.write_text("<!doctype html><body>Change</body>", encoding="utf-8")
+        os.utime(source_path, ns=(original_stat.st_atime_ns, original_stat.st_mtime_ns))
+
+        def fake_watch(path, *, watch_filter, debounce, stop_event):
+            assert path == source_path.parent
+            assert debounce == 100
+            assert watch_filter("modified", str(source_path)) is True
+            assert watch_filter("modified", str(tmp_path / "other.html")) is False
+            yield {("modified", str(source_path))}
+
+        monkeypatch.setitem(sys.modules, "watchfiles", types.SimpleNamespace(watch=fake_watch))
+
+        # when: the server-side watcher consumes the source change
+        serve_module._watch_source(source, threading.Event())
+        updated = source.render_with_version()
+
+        # then: the cached document is discarded and the browser token changes
+        assert updated.html == "<!doctype html><body>Change</body>"
+        assert updated.version != initial.version
+        assert updated.version.endswith(":1")
+
     def test_should_validate_source_paths_and_template_variables(self, tmp_path: Path):
         """Explicit paths and substitutions fail with actionable validation errors."""
         # given: an absent path, static HTML with --var, and unresolved JSON
@@ -270,7 +307,9 @@ class TestSlideServer:
         """A broken edit returns an explanatory 500 page while the server remains usable."""
         # given: a server whose Python source currently raises during execution
         source_path = tmp_path / "slides.py"
-        source_path.write_text("raise RuntimeError('broken slide source')\n", encoding="utf-8")
+        source_path.write_text(
+            "raise RuntimeError('<script>alert(1)</script>')\n", encoding="utf-8"
+        )
         source = SlideSource(source_path, {})
         server = ThreadingHTTPServer(("127.0.0.1", 0), slide_request_handler(source))
         thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -285,8 +324,11 @@ class TestSlideServer:
 
             # then: the response explains the source error and uses HTTP 500
             assert raised.value.code == 500
-            assert "RuntimeError: broken slide source" in error_html
+            assert "RuntimeError: &lt;script&gt;alert(1)&lt;/script&gt;" in error_html
             assert "server is still running" in error_html
+
+            # then: the Jinja error template escapes source-controlled HTML
+            assert "<script>alert(1)</script>" not in error_html
         finally:
             server.shutdown()
             server.server_close()

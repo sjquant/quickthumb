@@ -1898,6 +1898,7 @@ dependencies = [
 
 [package.optional-dependencies]
 cli = [
+    { name = "jinja2" },
     { name = "typer" },
     { name = "watchfiles" },
 ]
@@ -1939,6 +1940,7 @@ docs = [
 requires-dist = [
     { name = "cairosvg", marker = "extra == 'svg'", specifier = ">=2.7.0,<3.0.0" },
     { name = "fonttools", marker = "extra == 'pdf'", specifier = ">=4.0.0,<5.0.0" },
+    { name = "jinja2", marker = "extra == 'cli'", specifier = ">=3.1.0,<4.0.0" },
     { name = "onnxruntime", marker = "extra == 'rembg'", specifier = ">=1.24.1,<2.0.0" },
     { name = "pillow", specifier = ">=12.2.0,<13.0.0" },
     { name = "pydantic", specifier = ">=2.12.5,<3.0.0" },

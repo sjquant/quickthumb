@@ -8,19 +8,28 @@ import runpy
 import sys
 import threading
 import webbrowser
+from collections.abc import Callable
 from dataclasses import dataclass
-from html import escape
+from functools import cache
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from importlib.resources import files
 from pathlib import Path
+from typing import TYPE_CHECKING
 from urllib.parse import parse_qs, urlsplit
+
+from jinja2 import Environment, Template
 
 from quickthumb.canvas import _VAR_RE, Canvas, _is_theme_reference
 from quickthumb.deck import Deck
 from quickthumb.errors import ValidationError
 
+if TYPE_CHECKING:
+    from watchfiles import Change
+
 _DEFAULT_SOURCES = ("slides.py", "slides.json", "slides.html", "slides.htm")
 _HTML_PATHS = {"/", "/index.html", "/presenter"}
 _VERSION_PATH = "/__quickthumb_version"
+_SERVE_TEMPLATES = Environment(autoescape=True)
 
 
 @dataclass(frozen=True)
@@ -51,12 +60,56 @@ def serve_slides(
     if open_browser:
         threading.Timer(0.05, webbrowser.open, args=(url,)).start()
 
+    stop_event = threading.Event()
+    watcher = threading.Thread(
+        target=_watch_source,
+        args=(slide_source, stop_event),
+        name="quickthumb-slide-watcher",
+        daemon=True,
+    )
+    watcher.start()
     try:
         server.serve_forever()
     except KeyboardInterrupt:
         pass
     finally:
+        stop_event.set()
         server.server_close()
+        watcher.join(timeout=1)
+
+
+def _watch_source(source: SlideSource, stop_event: threading.Event) -> None:
+    """Invalidate the rendered source whenever watchfiles detects an edit."""
+    try:
+        from watchfiles import watch
+    except ImportError:
+        stop_event.wait()
+        return
+
+    try:
+        changes = watch(
+            source.path.parent,
+            watch_filter=_source_watch_filter(source.path),
+            debounce=100,
+            stop_event=stop_event,
+        )
+        for changed_paths in changes:
+            if changed_paths:
+                source.invalidate()
+    except OSError:
+        # The browser's version endpoint still provides a polling fallback when
+        # native filesystem watching is unavailable on the current platform.
+        return
+
+
+def _source_watch_filter(source_path: Path) -> Callable[[Change, str], bool]:
+    """Return a watchfiles filter that accepts only the selected source file."""
+    source_path = source_path.resolve()
+
+    def is_source_change(_change: Change, changed_path: str) -> bool:
+        return Path(changed_path).resolve() == source_path
+
+    return is_source_change
 
 
 def resolve_source(source: Path | None) -> Path:
@@ -84,6 +137,7 @@ class SlideSource:
         self._render_lock = threading.Lock()
         self._cached_version: str | None = None
         self._cached_html: str | None = None
+        self._generation = 0
 
     def render(self, *, presenter: bool = True) -> str:
         """Render the latest source contents to a standalone HTML document."""
@@ -105,6 +159,12 @@ class SlideSource:
                 if not presenter:
                     html = _without_speaker_notes(html)
                 return RenderedSource(html=html, version=version)
+
+    def invalidate(self) -> None:
+        """Discard cached HTML and advance the source generation."""
+        self._cached_version = None
+        self._cached_html = None
+        self._generation += 1
 
     def _render(self) -> str:
         suffix = self.path.suffix.lower()
@@ -164,7 +224,7 @@ class SlideSource:
             stat = self.path.stat()
         except OSError:
             return "missing"
-        return f"{stat.st_mtime_ns}:{stat.st_size}"
+        return f"{stat.st_mtime_ns}:{stat.st_size}:{self._generation}"
 
 
 def _substitute_variables(text: str, variables: dict[str, str]) -> str:
@@ -231,17 +291,10 @@ def slide_request_handler(source: SlideSource) -> type[BaseHTTPRequestHandler]:
 
 
 def _with_live_reload(html: str, version: str) -> str:
-    script = f"""<script>
-(function(){{
-  var current={json.dumps(version)};
-  setInterval(function(){{
-    fetch('{_VERSION_PATH}',{{cache:'no-store'}})
-      .then(function(response){{return response.text();}})
-      .then(function(next){{if(next!==current)location.reload();}})
-      .catch(function(){{}});
-  }},500);
-}})();
-</script>"""
+    script = _serve_template("serve_reload.html").render(
+        version=version,
+        version_path=_VERSION_PATH,
+    )
     marker = "</body>"
     if marker in html:
         return html.replace(marker, script + "\n" + marker, 1)
@@ -262,10 +315,11 @@ def _without_speaker_notes(html: str) -> str:
 
 
 def _error_document(error: Exception) -> str:
-    message = escape(f"{type(error).__name__}: {error}")
-    return f"""<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><title>quickthumb render error</title>
-<style>body{{background:#111827;color:#f8fafc;font:16px/1.5 ui-monospace,monospace;
-padding:3rem}}pre{{white-space:pre-wrap;color:#fca5a5}}</style></head>
-<body><h1>Could not render slides</h1><pre>{message}</pre>
-<p>Fix the source and refresh; the server is still running.</p></body></html>"""
+    return _serve_template("serve_error.html").render(message=f"{type(error).__name__}: {error}")
+
+
+@cache
+def _serve_template(name: str) -> Template:
+    """Load and cache a Jinja template shipped with the quickthumb package."""
+    template = files("quickthumb.html").joinpath(name).read_text(encoding="utf-8")
+    return _SERVE_TEMPLATES.from_string(template)

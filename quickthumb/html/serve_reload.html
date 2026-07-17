@@ -1,0 +1,11 @@
+<script>
+(function(){
+  var current={{ version|tojson }};
+  setInterval(function(){
+    fetch({{ version_path|tojson }},{cache:'no-store'})
+      .then(function(response){return response.text();})
+      .then(function(next){if(next!==current)location.reload();})
+      .catch(function(){});
+  },500);
+})();
+</script>
