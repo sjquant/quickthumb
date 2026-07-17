@@ -159,6 +159,8 @@ Output: `investor_deck.html` and `investor_deck.pptx`
 Builds a dark investor-style deck with staged text, metric cards, and chart-like visuals:
 
 - HTML export for browser playback of slide transitions and layer animations
+- `quickthumb serve examples/investor_deck.py` for live reload and `?presenter` mode
+- Per-slide speaker notes visible only in the presenter dashboard
 - PPTX export for editable presentation handoff
 - Shared composition code that keeps the browser and PowerPoint outputs aligned
 

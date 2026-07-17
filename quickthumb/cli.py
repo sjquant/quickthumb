@@ -230,6 +230,52 @@ def _substitute_vars(text: str, variables: dict[str, str]) -> str:
 
 
 @app.command()
+def serve(
+    source: Annotated[
+        Path | None,
+        typer.Argument(help="Slide source (.py, .json, or standalone .html); defaults to slides.*"),
+    ] = None,
+    host: Annotated[
+        str,
+        typer.Option("--host", help="Address to bind"),
+    ] = "127.0.0.1",
+    port: Annotated[
+        int,
+        typer.Option("--port", min=0, max=65535, help="Port to bind (0 chooses a free port)"),
+    ] = 3030,
+    open_browser: Annotated[
+        bool,
+        typer.Option("--open/--no-open", help="Open the slideshow in a browser"),
+    ] = True,
+    var: Annotated[
+        list[str] | None,
+        typer.Option("--var", help="Variable substitution for JSON sources as KEY=VALUE"),
+    ] = None,
+) -> None:
+    """Serve HTML slides with live reload and a ?presenter view."""
+    from quickthumb._serve import serve_slides
+
+    variables = _parse_var_options(var)
+    try:
+        serve_slides(
+            source=source,
+            host=host,
+            port=port,
+            open_browser=open_browser,
+            variables=variables,
+        )
+    except RenderingError as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(2) from error
+    except (json.JSONDecodeError, OSError, ValidationError) as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(1) from error
+    except Exception as error:
+        typer.echo(f"{type(error).__name__}: {error}", err=True)
+        raise typer.Exit(1) from error
+
+
+@app.command()
 def watch(
     spec: Annotated[Path, typer.Argument(help="Path to a JSON spec file")],
     output: Annotated[

@@ -200,4 +200,7 @@ The CLI picks the format from the output extension too:
 quickthumb render spec.json -o card.svg
 quickthumb render spec.json -o card.pptx
 quickthumb render spec.json -o card.pdf
+
+# Live HTML slides; open /?presenter for the presenter dashboard
+quickthumb serve slides.py
 ```

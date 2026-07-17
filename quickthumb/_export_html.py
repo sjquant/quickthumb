@@ -766,6 +766,7 @@ class Stage:
     transition_dur: str = "0"
     transition_click: str = "1"
     transition_after: str = ""
+    speaker_notes: str = ""
 
 
 # --------------------------------------------------------------- document shell
@@ -919,15 +920,20 @@ def _document(
     font_faces: dict[str, tuple[str, str, str]],
     deck: bool = False,
     transitions: list | None = None,
+    notes: list[str | None] | None = None,
     svg_filters: dict[str, str] | None = None,
 ) -> str:
     keyframes = [kf for stage in stages for kf in stage.keyframes]
     if deck:
         transitions = transitions or [None] * len(stages)
-        for index, (stage, transition) in enumerate(zip(stages, transitions, strict=True)):
+        notes = notes or [None] * len(stages)
+        for index, (stage, transition, speaker_notes) in enumerate(
+            zip(stages, transitions, notes, strict=True)
+        ):
             # No transition set keeps the historical 0.5s cross-fade default.
             duration = 0.5 if transition is None else transition.duration
             enter, leave, z = _transition_plan(transition)
+            stage.speaker_notes = speaker_notes or ""
             stage.transition_z = z
             stage.transition_dur = _fmt(duration)
             stage.transition_click = (
@@ -951,11 +957,10 @@ def _document(
                     "@keyframes " + name + "{from{" + leave[0] + "}to{" + leave[1] + "}}"
                 )
                 stage.transition_exit = f"{name} {timing}"
-    css = (
-        _html_resource(_base_css_resource(responsive, deck))
-        + font_face_declarations(font_faces)
-        + "".join(keyframes)
-    )
+    css = _html_resource(_base_css_resource(responsive, deck))
+    if deck:
+        css += _html_resource("presenter.css")
+    css += font_face_declarations(font_faces) + "".join(keyframes)
     runtime = _runtime_js(responsive=responsive, deck=deck)
     filters = "".join((svg_filters or {}).values())
     document_template, stage_template = _document_template_parts()
@@ -963,6 +968,7 @@ def _document(
         _render_stage_template(stage_template, stage, index=index, deck=deck)
         for index, stage in enumerate(stages)
     )
+    state_id = hashlib.sha256(stage_markup.encode("utf-8")).hexdigest()[:16]
     return _render_template(
         document_template,
         {
@@ -972,6 +978,7 @@ def _document(
             "frame_close": "</div>" if responsive else "",
             "runtime": runtime,
             "stages": stage_markup,
+            "state_id": state_id,
         },
     )
 
@@ -1001,6 +1008,7 @@ def _deck_stage_attrs(stage: Stage) -> str:
         "data-qt-dur": stage.transition_dur,
         "data-qt-click": stage.transition_click,
         "data-qt-after": stage.transition_after,
+        "data-qt-notes": stage.speaker_notes,
     }
     return "".join(f' {name}="{_attr(value)}"' for name, value in attrs.items())
 
@@ -1014,6 +1022,7 @@ def export_deck(
     embed_fonts: bool = False,
     responsive: bool = True,
     transitions: list | None = None,
+    notes: list[str | None] | None = None,
 ) -> str:
     stages: list[Stage] = []
     font_faces: dict[str, tuple[str, str, str]] = {}
@@ -1034,5 +1043,6 @@ def export_deck(
         font_faces=font_faces,
         deck=True,
         transitions=transitions,
+        notes=notes,
         svg_filters=svg_filters,
     )

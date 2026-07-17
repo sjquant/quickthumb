@@ -424,6 +424,30 @@ deck.render("slides.html")          # one self-contained, navigable slideshow
 html_doc = deck.to_html()           # the document as a string
 ```
 
+For a Slidev-style local workflow, put the deck in `slides.py` as a module-level
+variable named `deck`, then start the development server:
+
+```bash
+quickthumb serve                     # discovers slides.py, slides.json, or slides.html
+quickthumb serve path/to/deck.py     # an explicit source works too
+```
+
+The audience view opens at `http://localhost:3030/`. Add `?presenter` for the
+presenter dashboard with the current and next slides, speaker notes, and a
+pause/resume/reset presentation timer:
+
+```text
+http://localhost:3030/?presenter
+```
+
+Navigation from the presenter view is synchronized to audience tabs on the
+same origin. Presenter state, including per-slide animation progress, is
+restored on reload; audience-only navigation remains local and never becomes
+the presenter state. The server re-renders the source after edits and reloads
+connected browsers automatically. Python sources may expose `deck`, `slides`, or `canvas`;
+JSON sources accept the same repeatable `--var KEY=VALUE` substitutions as
+`quickthumb render`.
+
 ### Decks: multiple images and slides
 
 A `Deck` is an ordered collection of canvases ("slides"). Give the deck a size
@@ -437,7 +461,7 @@ deck = (
     Deck(1280, 720)   # default slide size; Deck.from_aspect_ratio("16:9", 1280) also works
     .slide(Canvas().background(color="#101820").text(
         content="Episode 12", size=120, color="#B8FF00", position=("50%", "50%"), align="center"
-    ))
+    ), notes="Open by framing the episode's main question.")
     .slide(Canvas().background(color="#101820").text(
         content="Show notes", size=96, color="#FFFFFF", position=("50%", "50%"), align="center"
     ))
@@ -724,7 +748,7 @@ See the shipped examples in [`examples/README.md`](examples/README.md):
 uv sync
 uv run pytest
 uv run ruff check .
-uv run ty quickthumb/
+uv run --locked ty check quickthumb tests
 ```
 
 ## Reference

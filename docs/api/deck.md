@@ -35,23 +35,28 @@ deck = Deck.from_aspect_ratio("16:9", 1280)   # default 1280×720
 
 ## Adding slides
 
-Pass initial slides to the constructor (`Deck(slides=[...])`) and/or append them one at a time with `.slide(canvas)`, which mutates the deck and returns `self` for chaining. When the deck has a default size, an **unsized** `Canvas()` inherits it; a canvas built with an explicit size keeps its own (and triggers a `mixed-slide-size` warning when it differs).
+Pass initial slides to the constructor (`Deck(slides=[...])`) and/or append them one at a time with `.slide(canvas, transition=None, *, audio=None, duration=None, notes=None)`, which mutates the deck and returns `self` for chaining. When the deck has a default size, an **unsized** `Canvas()` inherits it; a canvas built with an explicit size keeps its own (and triggers a `mixed-slide-size` warning when it differs).
 
 | Method | Description |
 | --- | --- |
-| `.slide(canvas)` | Append one `Canvas` as the next slide |
+| `.slide(canvas, transition=None, *, audio=None, duration=None, notes=None)` | Append one `Canvas`; optional audio/duration configure narration, and notes appear only in HTML presenter mode |
 
 ```python
 deck = (
     Deck(1280, 720)
-    .slide(Canvas().background(color="#101820").text(content="Cover", ...))
+    .slide(
+        Canvas().background(color="#101820").text(content="Cover", ...),
+        audio="voice.wav",
+        duration=2.5,
+        notes="Introduce the central thesis.",
+    )
     .slide(Canvas().background(color="#1A1A2E").text(content="Body", ...))
 )
 ```
 
 Adding an unsized canvas to a deck with no default size raises `ValidationError`: give the deck a size or size the canvas.
 
-A deck is also a sequence: `len(deck)`, `deck[i]`, and iteration over slides all work, and `deck.slides` returns a copy of the slide list (mutating it does not change the deck).
+A deck is also a sequence: `len(deck)`, `deck[i]`, and iteration over slides all work. `deck.slides` and `deck.notes` return copies of the aligned slide and speaker-note lists, so mutating either returned list does not change the deck.
 
 ## Export methods
 
@@ -69,6 +74,7 @@ deck.render(
     "preview.gif",
     animation=GifOptions(fps=8, max_size=(540, 960), colors=128),
 )
+deck.render("deck.html")     # one self-contained HTML slideshow
 deck.render("slides.png")    # slides_01.png, slides_02.png, …
 deck.render("slides.jpg", quality=85)
 ```
@@ -79,6 +85,7 @@ deck.render("slides.jpg", quality=85)
 | `.pptx` | Single multi-slide PPTX. Requires the `pptx` extra. |
 | `.gif` / `.webm` | Single animation playing layer animations and slide transitions with default settings. WebM requires `ffmpeg`. |
 | `.mp4` | Static slides with optional per-slide narration, or an animated timeline when `animation=VideoOptions(...)` is given; H.264/yuv420p video and AAC audio. Requires `ffmpeg` and `ffprobe`. |
+| `.html` / `.htm` | Single self-contained, animated HTML slideshow. |
 | `.png` / `.jpg` / `.jpeg` / `.webp` | One file per slide as a zero-padded numbered sequence. |
 
 | Parameter | Type | Default | Description |
@@ -96,6 +103,21 @@ controls GIF frame rate, loop count, matte, proportional `max_size`, and palette
 `colors`; `VideoOptions` controls MP4/WebM frame rate, matte, soundtrack, and
 audio looping. Supply its soundtrack as `AudioTrack(path="music.mp3", loop=True)`.
 Format-specific options are rejected when used with the other animated format.
+
+### `.to_html()`
+
+Returns a self-contained slideshow document. The normal audience view supports
+click, Space, and arrow-key navigation. Opening the document from
+`quickthumb serve` with the `?presenter` query adds the current/next dashboard,
+speaker notes, a pause/resume/reset timer, and synchronized audience controls.
+
+```python
+html = deck.to_html()
+deck.render("slides.html")
+```
+
+Use `quickthumb serve slides.py` during development; Python sources expose the
+deck as a module-level `deck`, `slides`, or `canvas` variable.
 
 ### `.to_pdf()` / `.to_pptx()`
 
@@ -168,7 +190,7 @@ A `mixed-slide-size` warning is added when slides do not all share the same dime
 
 ### `.to_json()` / `Deck.from_json(json_str)`
 
-Round-trips the deck through JSON, reusing each canvas's serialization. The shape is `{"width": ..., "height": ..., "theme": {...}, "slides": [<canvas spec>, ...]}`, where `width`/`height` (the default slide size) and `theme` are emitted only when set. A top-level `theme` is shared with every slide so slides can use `$theme.*` tokens, exactly like `Canvas.from_json`.
+Round-trips the deck through JSON, reusing each canvas's serialization. The shape is `{"width": ..., "height": ..., "theme": {...}, "slides": [<canvas spec>, ...]}`, where `width`/`height` (the default slide size) and `theme` are emitted only when set. Per-slide `transition`, `audio`, `duration`, and `notes` fields are preserved alongside the canvas fields. A top-level `theme` is shared with every slide so slides can use `$theme.*` tokens, exactly like `Canvas.from_json`.
 
 ```python
 spec = deck.to_json()

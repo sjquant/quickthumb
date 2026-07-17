@@ -96,10 +96,13 @@ class TestHtmlDocument:
             "base.css",
             "fixed.css",
             "fixed_deck.css",
+            "presenter.css",
             "timeline.js",
             "canvas_runtime.js",
             "deck_runtime.js",
             "document.html",
+            "serve_error.html",
+            "serve_reload.html",
         ]
 
         # when
@@ -110,7 +113,7 @@ class TestHtmlDocument:
 
         # then
         assert all(content for content in contents)
-        assert "{{#stage}}" in contents[-1]
+        assert "{{#stage}}" in contents[resource_names.index("document.html")]
 
     def test_should_render_html_file_from_extension(self, tmp_path):
         """render() writes an HTML document when the output path ends in .html"""
@@ -794,8 +797,73 @@ class TestDeckHtml:
         # default), wired through a data attribute the runtime reads on show().
         assert html.count("data-qt-transition=") == 2
         assert "@keyframes qt-t0{from{opacity:0}to{opacity:1}}" in html
-        assert "function go(i,backward)" in html
+        assert "function go(i,backward,restoreCursor)" in html
         assert "<script src" not in html
+
+    def test_should_namespace_persisted_state_by_document_content(self):
+        """Different decks receive different reload-state identities."""
+        # given: two decks served from the same origin and path
+        first = Deck(640, 360).slide(Canvas().background(color="#101820"))
+        second = Deck(640, 360).slide(Canvas().background(color="#1E293B"))
+
+        # when: both decks are exported
+        first_match = re.search(r'data-qt-state-id="([^"]+)"', first.to_html())
+        second_match = re.search(r'data-qt-state-id="([^"]+)"', second.to_html())
+        assert first_match is not None and second_match is not None
+        first_id = first_match.group(1)
+        second_id = second_match.group(1)
+
+        # then: a reload state cannot leak between the two documents
+        assert first_id != second_id
+
+    def test_should_embed_query_selected_presenter_view_with_speaker_notes(self):
+        """Deck HTML activates a current/next presenter dashboard for ?presenter."""
+        # given: a deck whose first slide carries private speaker notes
+        deck = (
+            Deck(640, 360)
+            .slide(Canvas().background(color="#101820"), notes="Open with the key metric.")
+            .slide(Canvas().background(color="#1E293B"))
+        )
+
+        # when: the deck is exported to standalone HTML
+        html = deck.to_html(embed_fonts=False)
+
+        # then: notes and the self-contained presenter UI/runtime are embedded
+        assert 'data-qt-notes="Open with the key metric."' in html
+        assert "get('presenter')" in html
+        assert "qt-presenter-shell" in html
+        assert "Speaker notes" in html
+        assert "Open audience view" in html
+        assert "window.BroadcastChannel" in html
+        assert "qt-presenter-timer-reset-icon" in html
+        assert "↺" not in html
+
+    def test_should_keep_presenter_headings_above_previews_on_narrow_layouts(self):
+        """Narrow presenter layouts keep each heading above its preview column."""
+        # given: the packaged presenter stylesheet
+        css = files("quickthumb.html").joinpath("presenter.css").read_text(encoding="utf-8")
+
+        # when: the responsive sidebar rules are selected
+        responsive_css = css.split("@media(max-width:900px)", 1)[1]
+
+        # then: both headings have explicit, non-overlapping first-row placement
+        assert ".qt-presenter-next-label{grid-column:1;grid-row:1}" in responsive_css
+        assert ".qt-presenter-notes-label{grid-column:2;grid-row:1}" in responsive_css
+
+    def test_should_escape_speaker_notes_in_stage_attributes(self):
+        """Speaker notes cannot escape their stage attribute into executable markup."""
+        # given: notes containing HTML-significant characters
+        deck = Deck(320, 180).slide(
+            Canvas().background(color="#101820"),
+            notes='Say "hello" </div><script>alert(1)</script>',
+        )
+
+        # when: the deck is exported
+        html = deck.to_html(embed_fonts=False)
+
+        # then: the notes remain inert attribute text
+        assert 'data-qt-notes="Say &quot;hello&quot; &lt;/div&gt;&lt;script&gt;' in html
+        assert "<script>alert(1)</script>" not in html
 
     def test_should_animate_slides_with_their_transition(self):
         """A slide's transition drives the CSS animation the deck plays into it"""
@@ -965,14 +1033,81 @@ class TestDeckHtml:
                     animation=Fade(duration=0.01),
                 )
             )
-            .slide(Canvas().background(color="#1E293B"))
+            .slide(
+                Canvas()
+                .background(color="#1E293B")
+                .shape(
+                    shape="rectangle",
+                    position=(80, 20),
+                    width=40,
+                    height=40,
+                    color="#FFFFFF",
+                    animation=Fade(duration=0.01),
+                )
+            )
         )
         html = deck.to_html(responsive=False, embed_fonts=False)
+        queued_deck = (
+            Deck(320, 180)
+            .transition(FadeTransition(duration=0.01))
+            .slide(
+                Canvas()
+                .shape(
+                    shape="ellipse",
+                    position=(20, 20),
+                    width=40,
+                    height=40,
+                    color="#FFFFFF",
+                    animation=Fade(duration=0.01),
+                )
+                .shape(
+                    shape="rectangle",
+                    position=(80, 20),
+                    width=40,
+                    height=40,
+                    color="#FFFFFF",
+                    animation=Fade(duration=0.01),
+                )
+            )
+            .slide(Canvas().background(color="#1E293B"))
+        )
+        queued_html = queued_deck.to_html(responsive=False, embed_fonts=False)
 
         # when
         result = _run_deck_runtime_in_node(html)
+        presenter_result = _run_deck_runtime_in_node(html, presenter=True)
+        audience_advance_result = _run_deck_runtime_in_node(html, replay_advance=True)
+        queued_advance_result = _run_deck_runtime_in_node(queued_html, replay_advance=True)
 
         # then
+        assert result.returncode == 0, result.stderr
+        assert presenter_result.returncode == 0, presenter_result.stderr
+        assert audience_advance_result.returncode == 0, audience_advance_result.stderr
+        assert queued_advance_result.returncode == 0, queued_advance_result.stderr
+
+    def test_should_keep_exit_layers_visible_in_presenter_preview(self):
+        """Presenter previews keep layers visible until their exit animation runs."""
+        # given: a next slide with a layer that exits only after the slide is shown
+        deck = (
+            Deck(320, 180)
+            .slide(Canvas().background(color="#101820"))
+            .slide(
+                Canvas().shape(
+                    shape="rectangle",
+                    position=(20, 20),
+                    width=40,
+                    height=40,
+                    color="#FFFFFF",
+                    animation=Fade(animate="exit", duration=0.01),
+                )
+            )
+        )
+        html = deck.to_html(responsive=False, embed_fonts=False)
+
+        # when: the presenter runtime builds its next-slide preview
+        result = _run_deck_runtime_in_node(html, presenter=True, exit_preview=True)
+
+        # then: the exit-only layer remains visible in the preview
         assert result.returncode == 0, result.stderr
 
     def test_should_namespace_layer_keyframes_per_slide(self):
@@ -1032,11 +1167,22 @@ class TestDeckHtml:
         assert per_slide[1] == []
 
 
-def _run_deck_runtime_in_node(html: str) -> subprocess.CompletedProcess[str]:
+def _run_deck_runtime_in_node(
+    html: str,
+    *,
+    presenter: bool = False,
+    exit_preview: bool = False,
+    replay_advance: bool = False,
+) -> subprocess.CompletedProcess[str]:
     script = r"""
 const fs = require('fs');
 const vm = require('vm');
 const html = fs.readFileSync(0, 'utf8');
+const presenterMode = process.argv[1].startsWith('presenter');
+const exitPreviewMode = process.argv[1] === 'presenter-exit';
+const audienceAdvanceMode = process.argv[1] === 'audience-advance';
+let fakeNow = 0;
+const intervalCallbacks = [];
 
 function decodeAttr(value) {
   return value
@@ -1047,6 +1193,7 @@ function decodeAttr(value) {
     .replace(/&gt;/g, '>');
 }
 
+const animationAssignments = [];
 class Style {
   constructor(styleText) {
     for (const part of styleText.split(';')) {
@@ -1057,6 +1204,11 @@ class Style {
       if (name) this[name.replace(/-([a-z])/g, (_, c) => c.toUpperCase())] = value;
     }
   }
+  get animation() { return this._animation || ''; }
+  set animation(value) {
+    this._animation = String(value);
+    if (this._animation.includes('qt-s')) animationAssignments.push(this._animation);
+  }
   setProperty(name, value) {
     this[name] = String(value);
   }
@@ -1064,19 +1216,57 @@ class Style {
 
 class Element {
   constructor(attrs) {
-    this.attrs = attrs;
-    this.hidden = attrs.hidden;
-    this.style = new Style(attrs.style || '');
+    this.attrs = attrs || {};
+    this.hidden = this.attrs.hidden;
+    this.style = new Style(this.attrs.style || '');
     this.parentElement = { clientWidth: 320, clientHeight: 180 };
     this.children = {};
+    this.nodes = {};
+    this.appended = [];
+    this.listeners = {};
+    this.classList = { add() {} };
   }
   getAttribute(name) {
     return this.attrs[name] || '';
   }
-  querySelector(selector) {
-    return this.children[selector.slice(1)] || null;
+  set innerHTML(value) {
+    this._innerHTML = String(value);
+    this.nodes = {};
   }
-  addEventListener() {}
+  get innerHTML() {
+    return this._innerHTML || '';
+  }
+  querySelector(selector) {
+    if (selector.startsWith('#')) return this.children[selector.slice(1)] || null;
+    const markup = this.innerHTML;
+    const found = selector.startsWith('.')
+      ? Array.from(markup.matchAll(/class="([^"]*)"/g)).some((match) =>
+          match[1].split(/\s+/).includes(selector.slice(1)),
+        )
+      : selector.startsWith('[') && selector.endsWith(']')
+        ? markup.includes(selector.slice(1, -1))
+        : false;
+    if (!found) return null;
+    if (!this.nodes[selector]) this.nodes[selector] = new Element({});
+    return this.nodes[selector];
+  }
+  setAttribute(name, value) { this.attrs[name] = String(value); }
+  appendChild(child) { this.appended.push(child); child.parentElement = this; return child; }
+  replaceChildren(...children) { this.appended = children; }
+  cloneNode() {
+    const clone = new Element({ ...this.attrs });
+    clone.hidden = this.hidden;
+    clone.style = Object.assign(new Style(''), this.style);
+    clone.children = this.children;
+    return clone;
+  }
+  closest() { return null; }
+  addEventListener(type, listener) {
+    (this.listeners[type] ||= []).push(listener);
+  }
+  dispatch(type, event = {}) {
+    for (const listener of this.listeners[type] || []) listener(event);
+  }
 }
 
 function parseStage(tag) {
@@ -1093,12 +1283,40 @@ function parseStage(tag) {
 const stages = Array.from(html.matchAll(/<div class="qt-stage"[^>]*>/g), (match) => {
   const stage = parseStage(match[0]);
   for (const node of JSON.parse(stage.getAttribute('data-qt-timeline') || '[]')) {
-    for (const id of node.t) stage.children[id] = new Element({});
+    for (const id of node.t) {
+      const element = html.match(new RegExp(`id="${id}"[^>]*style="([^"]*)"`));
+      stage.children[id] = new Element({ style: element ? decodeAttr(element[1]) : '' });
+    }
   }
   return stage;
 });
+const frame = new Element({});
+frame.clientWidth = 320;
+frame.clientHeight = 180;
+stages.forEach((stage) => frame.appendChild(stage));
 const listeners = {};
+const syncMessages = [];
+let channelListener = null;
+const storage = {};
+const documentStateId = html.match(/data-qt-state-id="([^"]+)"/)[1];
+const localStorage = {
+  getItem(key) { return Object.prototype.hasOwnProperty.call(storage, key) ? storage[key] : null; },
+  setItem(key, value) { storage[key] = String(value); },
+};
+class BroadcastChannel {
+  addEventListener(type, listener) {
+    if (type === 'message') channelListener = listener;
+  }
+  postMessage(message) { syncMessages.push(message); }
+}
+function deliver(message) {
+  if (channelListener) channelListener({ data: message });
+}
+const body = new Element({});
+body.getAttribute = (name) => name === 'data-qt-state-id' ? documentStateId : null;
 const document = {
+  body,
+  createElement() { return new Element({}); },
   querySelectorAll(selector) {
     return selector === '.qt-stage' ? stages : [];
   },
@@ -1114,15 +1332,35 @@ const scripts = Array.from(
   (match) => match[1],
 ).join('\n');
 const context = {
+  BroadcastChannel,
   CSS: { escape: (value) => value },
   clearTimeout,
   console,
+  Date: { now: () => fakeNow },
   document,
   isNaN,
   parseFloat,
   Promise,
+  setInterval(callback) {
+    intervalCallbacks.push(callback);
+    return intervalCallbacks.length;
+  },
   setTimeout,
-  window: { addEventListener() {} },
+  clearInterval: () => {},
+  URL,
+  URLSearchParams,
+  window: {
+    addEventListener() {},
+    BroadcastChannel,
+    requestAnimationFrame(callback) { callback(); },
+    location: {
+      href: presenterMode ? 'http://localhost:3030/presenter' : 'http://localhost:3030/',
+      origin: 'http://localhost:3030',
+      pathname: presenterMode ? '/presenter' : '/',
+      search: '',
+    },
+    localStorage,
+  },
 };
 vm.createContext(context);
 vm.runInContext(scripts, context);
@@ -1133,14 +1371,134 @@ function assert(condition, message) {
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+function advanceClock(ms) {
+  fakeNow += ms;
+  intervalCallbacks.forEach((callback) => callback());
+}
 
 (async () => {
+  if (audienceAdvanceMode) {
+    await wait(90);
+    const timelineNodes = JSON.parse(stages[0].getAttribute('data-qt-timeline') || '[]');
+    const hasSecondTimeline = timelineNodes.length > 1;
+    deliver({ action: 'advance', state: { slide: 0, timeline: 0 } });
+    await wait(1);
+    if (hasSecondTimeline) {
+      deliver({ action: 'advance', state: { slide: 0, timeline: 1 } });
+      await wait(1);
+      deliver({ action: 'state', state: { slide: 0, timeline: 2 } });
+      await wait(12);
+      assert(
+        animationAssignments.filter((value) => value.includes('qt-s0-k')).length >= 2,
+        `audience replays a queued presenter timeline advance (${animationAssignments})`,
+      );
+    } else {
+      deliver({ action: 'state', state: { slide: 0, timeline: 1 } });
+    }
+    await wait(30);
+    assert(
+      stages[0].children['qt-l1'].style.visibility === 'visible',
+      'audience replays a presenter timeline advance',
+    );
+    if (hasSecondTimeline) {
+      assert(
+        stages[0].children[timelineNodes[1].t[0]].style.visibility === 'visible',
+        'audience settles the queued presenter timeline advance',
+      );
+    }
+    return;
+  }
+  if (presenterMode) {
+    assert(body.appended.length === 1, 'presenter shell is rendered');
+    if (exitPreviewMode) {
+      const preview = body.appended[0].nodes['.qt-presenter-next'].appended[0];
+      const exitLayer = preview.children[Object.keys(preview.children)[0]];
+      assert(exitLayer.style.visibility !== 'hidden', 'exit preview layer stays visible');
+      return;
+    }
+    await wait(90);
+    const presenterShell = body.appended[0];
+    const timer = presenterShell.nodes['.qt-presenter-timer'];
+    const timerValue = presenterShell.nodes['[data-qt-timer-value]'];
+    const timerLabel = presenterShell.nodes['[data-qt-timer-label]'];
+    advanceClock(2000);
+    assert(timerValue.textContent === '00:02', 'presenter timer advances with elapsed time');
+    timer.dispatch('click', { stopPropagation() {} });
+    assert(timer.getAttribute('aria-pressed') === 'false', 'presenter timer pauses');
+    assert(timerLabel.textContent === 'Resume', 'paused timer offers resume');
+    advanceClock(3000);
+    assert(timerValue.textContent === '00:02', 'paused presenter timer keeps its elapsed time');
+    timer.dispatch('click', { stopPropagation() {} });
+    assert(timer.getAttribute('aria-pressed') === 'true', 'presenter timer resumes');
+    advanceClock(1000);
+    assert(timerValue.textContent === '00:03', 'resumed presenter timer continues elapsed time');
+    const resetTimer = presenterShell.nodes['[data-qt-reset-timer]'];
+    resetTimer.dispatch('click', { stopPropagation() {} });
+    assert(timer.getAttribute('aria-pressed') === 'true', 'timer reset resumes timing');
+    assert(timerValue.textContent === '00:00', 'timer reset clears elapsed time');
+    document.dispatch('keydown', { key: 'ArrowRight' });
+    await wait(30);
+    assert(
+      syncMessages.some((message) => message.action === 'advance'),
+      'presenter broadcasts a timeline advance before its final state',
+    );
+    const stateKey = `quickthumb:state:http://localhost:3030/:${documentStateId}`;
+    assert(
+      storage[stateKey] === JSON.stringify({ slide: 0, timeline: 1 }),
+      `presenter persists the complete presentation state (${storage[stateKey]})`,
+    );
+    stages.forEach((stage) => {
+      stage.hidden = true;
+      stage.style.display = 'none';
+      stage.style.animation = '';
+    });
+    vm.runInContext(scripts, context);
+    await wait(10);
+    assert(body.appended.length === 2, 'presenter reload renders the presenter shell');
+    assert(stages[0].hidden === false, 'presenter reload restores the saved slide');
+    assert(
+      stages[0].children['qt-l1'].style.visibility === 'visible',
+      'presenter reload restores the saved timeline cursor',
+    );
+    // given: the presenter is on the final slide after its timeline completes
+    // when: it advances beyond the deck
+    document.dispatch('keydown', { key: 'ArrowRight' });
+    await wait(90);
+    document.dispatch('keydown', { key: 'ArrowRight' });
+    await wait(30);
+    document.dispatch('keydown', { key: 'ArrowRight' });
+    await wait(10);
+    const presenterEndScreen = frame.appended[frame.appended.length - 1];
+    assert(
+      presenterEndScreen.hidden === false,
+      'presenter shows the end screen after the final slide',
+    );
+    assert(
+      storage[stateKey] === JSON.stringify({ slide: 2, timeline: 0 }),
+      `presenter persists the ended state (${storage[stateKey]})`,
+    );
+    // then: a presenter reload restores the ended state
+    stages.forEach((stage) => {
+      stage.hidden = true;
+      stage.style.display = 'none';
+      stage.style.animation = '';
+    });
+    vm.runInContext(scripts, context);
+    await wait(10);
+    const restoredEndScreen = frame.appended[frame.appended.length - 1];
+    assert(restoredEndScreen.hidden === false, 'presenter reload restores the end screen');
+    return;
+  }
   assert(stages[0].hidden === false, 'first slide starts visible');
   assert(stages[1].hidden === true, 'second slide starts hidden');
   document.dispatch('click');
   await wait(90);
   assert(stages[0].hidden === false, 'rapid click during transition is ignored');
   assert(stages[1].hidden === true, 'rapid click does not reveal slide two');
+  assert(
+    syncMessages.some((message) => message.action === 'ready'),
+    'audience requests presenter state after its entrance transition settles',
+  );
   document.dispatch('click');
   await wait(30);
   assert(
@@ -1155,13 +1513,65 @@ function wait(ms) {
   await wait(90);
   assert(stages[0].hidden === false, 'arrow left restores slide one');
   assert(stages[1].hidden === true, 'arrow left hides slide two');
+  document.dispatch('keydown', { key: 'ArrowRight' });
+  await wait(90);
+  assert(stages[1].hidden === false, 'saved current slide is visible before reload');
+  // given: the final slide is visible after its timeline has completed
+  // when: the audience advances once more
+  document.dispatch('keydown', { key: 'ArrowRight' });
+  await wait(30);
+  document.dispatch('keydown', { key: 'ArrowRight' });
+  await wait(10);
+  const endScreen = frame.appended[frame.appended.length - 1];
+  assert(endScreen.hidden === false, 'end screen is visible after the final slide');
+  assert(
+    endScreen.innerHTML.includes('End of presentation'),
+    'end screen explains that the deck is over',
+  );
+  // then: navigating backward returns to the final slide
+  document.dispatch('keydown', { key: 'ArrowLeft' });
+  await wait(10);
+  assert(stages[1].hidden === false, 'arrow left returns from the end screen');
+  assert(endScreen.hidden === true, 'arrow left hides the end screen');
+  deliver({ action: 'state', state: { slide: 2, timeline: 0 } });
+  await wait(10);
+  assert(endScreen.hidden === false, 'audience follows presenter to the end screen');
+  document.dispatch('keydown', { key: 'ArrowLeft' });
+  await wait(10);
+  const stateKey = `quickthumb:state:http://localhost:3030/:${documentStateId}`;
+  assert(storage[stateKey] === undefined, 'audience navigation does not own presenter state');
+  storage[stateKey] = JSON.stringify({ slide: 1, timeline: 0 });
+  stages.forEach((stage) => {
+    stage.hidden = true;
+    stage.style.display = 'none';
+    stage.style.animation = '';
+  });
+  vm.runInContext(scripts, context);
+  await wait(10);
+  assert(stages[0].hidden === false, 'audience reload starts from the first slide');
+  assert(stages[1].hidden === true, 'audience reload ignores the saved presenter slide');
+  assert(
+    storage[stateKey] === JSON.stringify({ slide: 1, timeline: 0 }),
+    'audience reload does not overwrite the saved presenter state',
+  );
 })().catch((error) => {
   console.error(error.stack || error.message);
   process.exit(1);
 });
 """
     return subprocess.run(
-        ["node", "-e", script],
+        [
+            "node",
+            "-e",
+            script,
+            "audience-advance"
+            if replay_advance
+            else "presenter-exit"
+            if exit_preview
+            else "presenter"
+            if presenter
+            else "audience",
+        ],
         capture_output=True,
         check=False,
         input=html,

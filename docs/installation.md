@@ -90,7 +90,7 @@ apt install ffmpeg
 
 ## Optional: CLI
 
-To use the `quickthumb` command (`render`, `lint`, `watch`), install the `cli` extra:
+To use the `quickthumb` command (`render`, `lint`, `watch`, `serve`), install the `cli` extra:
 
 ```bash
 pip install "quickthumb[cli]"
