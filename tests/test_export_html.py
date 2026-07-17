@@ -1290,6 +1290,10 @@ const stages = Array.from(html.matchAll(/<div class="qt-stage"[^>]*>/g), (match)
   }
   return stage;
 });
+const frame = new Element({});
+frame.clientWidth = 320;
+frame.clientHeight = 180;
+stages.forEach((stage) => frame.appendChild(stage));
 const listeners = {};
 const syncMessages = [];
 let channelListener = null;
@@ -1456,6 +1460,33 @@ function advanceClock(ms) {
       stages[0].children['qt-l1'].style.visibility === 'visible',
       'presenter reload restores the saved timeline cursor',
     );
+    // given: the presenter is on the final slide after its timeline completes
+    // when: it advances beyond the deck
+    document.dispatch('keydown', { key: 'ArrowRight' });
+    await wait(90);
+    document.dispatch('keydown', { key: 'ArrowRight' });
+    await wait(30);
+    document.dispatch('keydown', { key: 'ArrowRight' });
+    await wait(10);
+    const presenterEndScreen = frame.appended[frame.appended.length - 1];
+    assert(
+      presenterEndScreen.hidden === false,
+      'presenter shows the end screen after the final slide',
+    );
+    assert(
+      storage[stateKey] === JSON.stringify({ slide: 2, timeline: 0 }),
+      `presenter persists the ended state (${storage[stateKey]})`,
+    );
+    // then: a presenter reload restores the ended state
+    stages.forEach((stage) => {
+      stage.hidden = true;
+      stage.style.display = 'none';
+      stage.style.animation = '';
+    });
+    vm.runInContext(scripts, context);
+    await wait(10);
+    const restoredEndScreen = frame.appended[frame.appended.length - 1];
+    assert(restoredEndScreen.hidden === false, 'presenter reload restores the end screen');
     return;
   }
   assert(stages[0].hidden === false, 'first slide starts visible');
@@ -1485,6 +1516,28 @@ function advanceClock(ms) {
   document.dispatch('keydown', { key: 'ArrowRight' });
   await wait(90);
   assert(stages[1].hidden === false, 'saved current slide is visible before reload');
+  // given: the final slide is visible after its timeline has completed
+  // when: the audience advances once more
+  document.dispatch('keydown', { key: 'ArrowRight' });
+  await wait(30);
+  document.dispatch('keydown', { key: 'ArrowRight' });
+  await wait(10);
+  const endScreen = frame.appended[frame.appended.length - 1];
+  assert(endScreen.hidden === false, 'end screen is visible after the final slide');
+  assert(
+    endScreen.innerHTML.includes('End of presentation'),
+    'end screen explains that the deck is over',
+  );
+  // then: navigating backward returns to the final slide
+  document.dispatch('keydown', { key: 'ArrowLeft' });
+  await wait(10);
+  assert(stages[1].hidden === false, 'arrow left returns from the end screen');
+  assert(endScreen.hidden === true, 'arrow left hides the end screen');
+  deliver({ action: 'state', state: { slide: 2, timeline: 0 } });
+  await wait(10);
+  assert(endScreen.hidden === false, 'audience follows presenter to the end screen');
+  document.dispatch('keydown', { key: 'ArrowLeft' });
+  await wait(10);
   const stateKey = `quickthumb:state:http://localhost:3030/:${documentStateId}`;
   assert(storage[stateKey] === undefined, 'audience navigation does not own presenter state');
   storage[stateKey] = JSON.stringify({ slide: 1, timeline: 0 });

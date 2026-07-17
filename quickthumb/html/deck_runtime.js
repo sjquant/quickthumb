@@ -23,15 +23,17 @@
   function normalizeState(state){
     if(!state||typeof state!=='object')return null;
     var slide=Number(state.slide),timeline=Number(state.timeline);
-    return Number.isInteger(slide)&&slide>=0&&slide<stages.length&&
-      Number.isInteger(timeline)&&timeline>=0&&timeline<=timelines[slide].length()
-      ?{slide:slide,timeline:timeline}:null;
+    if(!Number.isInteger(slide)||slide<0||slide>stages.length||
+      !Number.isInteger(timeline)||timeline<0)return null;
+    if(slide===stages.length)return timeline===0?{slide:slide,timeline:0}:null;
+    return timeline<=timelines[slide].length()?{slide:slide,timeline:timeline}:null;
   }
   var presenter=presenterRequested();
   var savedState=presenter?normalizeState(readSavedState()):null;
-  var current=savedState?savedState.slide:0;
+  var current=savedState&&savedState.slide<stages.length?savedState.slide:0;
+  var ended=false;
   function snapshot(){
-    return {slide:current,timeline:timelines[current].position()};
+    return {slide:ended?stages.length:current,timeline:ended?0:timelines[current].position()};
   }
   function saveState(state){
     if(!presenter)return;
@@ -42,6 +44,7 @@
   var hideTimer,autoTimer,transitioning=false,timelineBusy=false,applyingRemote=false;
   var pendingRemoteState=null,pendingRemoteAdvance=null;
   var presenterUi=presenter?createPresenter():null;
+  var endScreen=createEndScreen(stages[0].parentElement);
   var needsInitialSync=!presenter;
   var sync=createSync();
   if(presenter)fit=true;
@@ -128,7 +131,7 @@
     };
     ui.shell.querySelector('[data-qt-audience]').href=audienceUrl();
     ui.previous.addEventListener('click',function(e){
-      e.stopPropagation();if(current>0)go(current-1,true);
+      e.stopPropagation();if(ended)leaveEnd();else if(current>0)go(current-1,true);
     });
     ui.forward.addEventListener('click',function(e){
       e.stopPropagation();if(canClick())advance();
@@ -155,6 +158,19 @@
     });
     setInterval(updateTimer,1000);
     return ui;
+  }
+  function createEndScreen(frame){
+    var screen=document.createElement('section');
+    screen.className='qt-presentation-end';
+    screen.setAttribute('role','status');
+    screen.innerHTML=
+      '<div class="qt-presentation-end-card">'+
+        '<span class="qt-presentation-end-kicker">Presentation complete</span>'+
+        '<strong>End of presentation</strong>'+
+        '<span>Press ← to return to the last slide</span>'+
+      '</div>';
+    screen.hidden=true;screen.style.display='none';frame.appendChild(screen);
+    return screen;
   }
   function audienceUrl(){
     var url=new URL(window.location.href);
@@ -187,16 +203,24 @@
   }
   function updatePresenter(){
     if(!presenterUi)return;
-    presenterUi.progress.textContent='Slide '+(current+1)+' of '+stages.length;
-    presenterUi.previous.disabled=current===0;
-    presenterUi.forward.disabled=!canClick()||(
+    presenterUi.progress.textContent=ended?'Presentation ended':'Slide '+(current+1)+' of '+stages.length;
+    presenterUi.previous.disabled=!ended&&current===0;
+    presenterUi.forward.disabled=ended||!canClick()||(
       current===stages.length-1&&!timelines[current].hasNext()
     );
+    presenterUi.nextFrame.replaceChildren();
+    presenterUi.preview=null;
+    if(ended){
+      presenterUi.nextLabel.textContent='End';
+      presenterUi.notes.textContent='Presentation complete.';
+      presenterUi.notes.setAttribute('data-empty','false');
+      var end=document.createElement('div');end.className='qt-presenter-empty';
+      end.textContent='End of presentation';presenterUi.nextFrame.appendChild(end);
+      return;
+    }
     var notes=stages[current].getAttribute('data-qt-notes')||'';
     presenterUi.notes.textContent=notes||'No speaker notes for this slide.';
     presenterUi.notes.setAttribute('data-empty',notes?'false':'true');
-    presenterUi.nextFrame.replaceChildren();
-    presenterUi.preview=null;
     if(current>=stages.length-1){
       presenterUi.nextLabel.textContent='End';
       var empty=document.createElement('div');empty.className='qt-presenter-empty';
@@ -258,7 +282,7 @@
     flushPendingRemoteState();
   }
   function flushPendingRemoteAdvance(){
-    if(!pendingRemoteAdvance||transitioning||timelineBusy)return;
+    if(!pendingRemoteAdvance||ended||transitioning||timelineBusy)return;
     var next=pendingRemoteAdvance;pendingRemoteAdvance=null;
     if(next.slide!==current||!timelines[current].hasNext())return;
     timelines[current].setPosition(next.timeline);
@@ -272,6 +296,8 @@
     var next=normalizeState(state);
     if(!next)return;
     if(transitioning||timelineBusy){pendingRemoteState=next;return;}
+    if(next.slide===stages.length){showEnd();return;}
+    if(ended)leaveEnd();
     if(next.slide===current){
       timelines[current].setPosition(next.timeline);
       updatePresenter();scheduleAuto();
@@ -326,7 +352,7 @@
     clearTimeout(hideTimer);hideTimer=setTimeout(function(){settle(restoreCursor);},dur*1000+60);
   }
   function advance(){
-    if(transitioning||timelineBusy)return;
+    if(ended||transitioning||timelineBusy)return;
     clearAuto();
     if(timelines[current].hasNext()){
       timelineBusy=true;
@@ -338,6 +364,25 @@
       });
     }
     else if(current<stages.length-1)go(current+1,false);
+    else showEnd();
+  }
+  function showEnd(){
+    if(ended)return;
+    clearAuto();clearTimeout(hideTimer);transitioning=false;ended=true;
+    stages.forEach(function(stage){
+      stage.style.animation='';stage.style.zIndex='';stage.style.willChange='';
+      stage.style.display='none';stage.hidden=true;
+    });
+    endScreen.hidden=false;endScreen.style.display='grid';
+    updatePresenter();publishState();
+  }
+  function leaveEnd(){
+    if(!ended)return;
+    ended=false;endScreen.hidden=true;endScreen.style.display='none';
+    stages[current].hidden=false;stages[current].style.display='block';
+    timelines[current].setPosition(timelines[current].length());
+    if(fit)qtFit(stages[current]);
+    updatePresenter();publishState();
   }
   document.addEventListener('click',function(e){
     if(e&&e.target&&e.target.closest&&e.target.closest('[data-qt-presenter-control]'))return;
@@ -346,18 +391,21 @@
   document.addEventListener('keydown',function(e){
     if(e.target&&e.target.closest&&e.target.closest('[data-qt-presenter-control]'))return;
     if(e.key==='ArrowRight'||e.key===' '){if(canClick())advance();}
-    else if(e.key==='ArrowLeft'){if(current>0)go(current-1,true);}
+    else if(e.key==='ArrowLeft'){if(ended)leaveEnd();else if(current>0)go(current-1,true);}
   });
   // First load plays slide 0's enter transition. A refresh restores the last
   // controlled slide in its settled state so presenter and audience views do
   // not diverge while one tab is reloading.
   if(savedState){
-    stages.forEach(function(stage,j){
-      if(j!==current){stage.style.display='none';stage.hidden=true;}
+    stages.forEach(function(stage){
+      stage.style.display='none';stage.hidden=true;
     });
-    stages[current].hidden=false;stages[current].style.display='block';
-    timelines[current].setPosition(savedState.timeline);
-    settle();
+    if(savedState.slide===stages.length){showEnd();}
+    else{
+      stages[current].hidden=false;stages[current].style.display='block';
+      timelines[current].setPosition(savedState.timeline);
+      settle();
+    }
   }else{
     if(fit)qtFit(stages[current]);
     updatePresenter();
