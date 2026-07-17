@@ -39,7 +39,7 @@
     }catch(error){}
   }
   var hideTimer,autoTimer,transitioning=false,timelineBusy=false,applyingRemote=false;
-  var pendingRemoteState=null;
+  var pendingRemoteState=null,pendingRemoteAdvance=null;
   var presenter=presenterRequested();
   var presenterUi=presenter?createPresenter():null;
   var needsInitialSync=!presenter;
@@ -226,7 +226,15 @@
       needsInitialSync=false;
       sync.postMessage({action:'ready'});
     }
+    flushPendingRemoteAdvance();
     flushPendingRemoteState();
+  }
+  function flushPendingRemoteAdvance(){
+    if(!pendingRemoteAdvance||transitioning||timelineBusy)return;
+    var next=pendingRemoteAdvance;pendingRemoteAdvance=null;
+    if(next.slide!==current||!timelines[current].hasNext())return;
+    timelines[current].setPosition(next.timeline);
+    advance();
   }
   function flushPendingRemoteState(){
     if(!pendingRemoteState||transitioning||timelineBusy)return;
@@ -245,7 +253,8 @@
   }
   function applyRemoteAdvance(state){
     var next=normalizeState(state);
-    if(!next||transitioning||timelineBusy||next.slide!==current)return;
+    if(!next||next.slide!==current)return;
+    if(transitioning||timelineBusy){pendingRemoteAdvance=next;return;}
     timelines[current].setPosition(next.timeline);
     advance();
   }
@@ -296,6 +305,7 @@
       sendSync({action:'advance',state:snapshot()});
       timelines[current].advance().then(function(){
         timelineBusy=false;updatePresenter();scheduleAuto();publishState();
+        flushPendingRemoteAdvance();
         flushPendingRemoteState();
       });
     }

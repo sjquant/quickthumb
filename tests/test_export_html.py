@@ -1031,16 +1031,43 @@ class TestDeckHtml:
             )
         )
         html = deck.to_html(responsive=False, embed_fonts=False)
+        queued_deck = (
+            Deck(320, 180)
+            .transition(FadeTransition(duration=0.01))
+            .slide(
+                Canvas()
+                .shape(
+                    shape="ellipse",
+                    position=(20, 20),
+                    width=40,
+                    height=40,
+                    color="#FFFFFF",
+                    animation=Fade(duration=0.01),
+                )
+                .shape(
+                    shape="rectangle",
+                    position=(80, 20),
+                    width=40,
+                    height=40,
+                    color="#FFFFFF",
+                    animation=Fade(duration=0.01),
+                )
+            )
+            .slide(Canvas().background(color="#1E293B"))
+        )
+        queued_html = queued_deck.to_html(responsive=False, embed_fonts=False)
 
         # when
         result = _run_deck_runtime_in_node(html)
         presenter_result = _run_deck_runtime_in_node(html, presenter=True)
         audience_advance_result = _run_deck_runtime_in_node(html, replay_advance=True)
+        queued_advance_result = _run_deck_runtime_in_node(queued_html, replay_advance=True)
 
         # then
         assert result.returncode == 0, result.stderr
         assert presenter_result.returncode == 0, presenter_result.stderr
         assert audience_advance_result.returncode == 0, audience_advance_result.stderr
+        assert queued_advance_result.returncode == 0, queued_advance_result.stderr
 
     def test_should_keep_exit_layers_visible_in_presenter_preview(self):
         """Presenter previews keep layers visible until their exit animation runs."""
@@ -1148,6 +1175,7 @@ function decodeAttr(value) {
     .replace(/&gt;/g, '>');
 }
 
+const animationAssignments = [];
 class Style {
   constructor(styleText) {
     for (const part of styleText.split(';')) {
@@ -1157,6 +1185,11 @@ class Style {
       const value = part.slice(index + 1).trim();
       if (name) this[name.replace(/-([a-z])/g, (_, c) => c.toUpperCase())] = value;
     }
+  }
+  get animation() { return this._animation || ''; }
+  set animation(value) {
+    this._animation = String(value);
+    if (this._animation.includes('qt-s')) animationAssignments.push(this._animation);
   }
   setProperty(name, value) {
     this[name] = String(value);
@@ -1294,12 +1327,33 @@ function wait(ms) {
 (async () => {
   if (audienceAdvanceMode) {
     await wait(90);
+    const timelineNodes = JSON.parse(stages[0].getAttribute('data-qt-timeline') || '[]');
+    const hasSecondTimeline = timelineNodes.length > 1;
     deliver({ action: 'advance', state: { slide: 0, timeline: 0 } });
+    await wait(1);
+    if (hasSecondTimeline) {
+      deliver({ action: 'advance', state: { slide: 0, timeline: 1 } });
+      await wait(1);
+      deliver({ action: 'state', state: { slide: 0, timeline: 2 } });
+      await wait(12);
+      assert(
+        animationAssignments.filter((value) => value.includes('qt-s0-k')).length >= 2,
+        `audience replays a queued presenter timeline advance (${animationAssignments})`,
+      );
+    } else {
+      deliver({ action: 'state', state: { slide: 0, timeline: 1 } });
+    }
     await wait(30);
     assert(
       stages[0].children['qt-l1'].style.visibility === 'visible',
       'audience replays a presenter timeline advance',
     );
+    if (hasSecondTimeline) {
+      assert(
+        stages[0].children[timelineNodes[1].t[0]].style.visibility === 'visible',
+        'audience settles the queued presenter timeline advance',
+      );
+    }
     return;
   }
   if (presenterMode) {
