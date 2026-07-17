@@ -27,7 +27,8 @@
       Number.isInteger(timeline)&&timeline>=0&&timeline<=timelines[slide].length()
       ?{slide:slide,timeline:timeline}:null;
   }
-  var savedState=normalizeState(readSavedState());
+  var presenter=presenterRequested();
+  var savedState=presenter?normalizeState(readSavedState()):null;
   var current=savedState?savedState.slide:0;
   function snapshot(){
     return {slide:current,timeline:timelines[current].position()};
@@ -40,7 +41,6 @@
   }
   var hideTimer,autoTimer,transitioning=false,timelineBusy=false,applyingRemote=false;
   var pendingRemoteState=null,pendingRemoteAdvance=null;
-  var presenter=presenterRequested();
   var presenterUi=presenter?createPresenter():null;
   var needsInitialSync=!presenter;
   var sync=createSync();

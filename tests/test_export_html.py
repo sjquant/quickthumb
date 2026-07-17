@@ -1495,11 +1495,11 @@ function advanceClock(ms) {
   });
   vm.runInContext(scripts, context);
   await wait(10);
-  assert(stages[0].hidden === true, 'reload keeps the previous slide hidden');
-  assert(stages[1].hidden === false, 'reload restores the saved current slide');
+  assert(stages[0].hidden === false, 'audience reload starts from the first slide');
+  assert(stages[1].hidden === true, 'audience reload ignores the saved presenter slide');
   assert(
-    stages[1].children['qt-l2'].style.visibility === 'hidden',
-    'reload restores the saved timeline cursor',
+    storage[stateKey] === JSON.stringify({ slide: 1, timeline: 0 }),
+    'audience reload does not overwrite the saved presenter state',
   );
 })().catch((error) => {
   console.error(error.stack || error.message);
