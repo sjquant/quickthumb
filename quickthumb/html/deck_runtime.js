@@ -87,7 +87,10 @@
             '</button>'+
             '<button class="qt-presenter-timer-reset" type="button" '+
               'title="Reset timer" aria-label="Reset timer" data-qt-reset-timer '+
-              'data-qt-presenter-control>↺</button>'+
+              'data-qt-presenter-control><svg class="qt-presenter-timer-reset-icon" '+
+              'viewBox="0 0 24 24" aria-hidden="true" focusable="false">'+
+              '<path d="M20 11a8 8 0 0 0-14.9-4L3 9m0 0V4m0 5h5M4 13a8 8 0 0 0 14.9 4L21 15m0 0v5m0-5h-5"/>'+
+              '</svg></button>'+
           '</div>'+
         '</div>'+
         '<div class="qt-presenter-current"></div>'+

@@ -833,6 +833,8 @@ class TestDeckHtml:
         assert "Speaker notes" in html
         assert "Open audience view" in html
         assert "window.BroadcastChannel" in html
+        assert "qt-presenter-timer-reset-icon" in html
+        assert "↺" not in html
 
     def test_should_keep_presenter_headings_above_previews_on_narrow_layouts(self):
         """Narrow presenter layouts keep each heading above its preview column."""
