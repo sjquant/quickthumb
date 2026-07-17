@@ -142,9 +142,9 @@
         if(message.action==='ready')channel.postMessage({action:'state',state:snapshot()});
         return;
       }
-      if(message.action!=='state')return;
       applyingRemote=true;
-      applyRemoteState(message.state);
+      if(message.action==='advance')applyRemoteAdvance(message.state);
+      else if(message.action==='state')applyRemoteState(message.state);
       applyingRemote=false;
     });
     return channel;
@@ -226,9 +226,11 @@
       needsInitialSync=false;
       sync.postMessage({action:'ready'});
     }
-    if(pendingRemoteState){
-      var next=pendingRemoteState;pendingRemoteState=null;applyRemoteState(next);
-    }
+    flushPendingRemoteState();
+  }
+  function flushPendingRemoteState(){
+    if(!pendingRemoteState||transitioning||timelineBusy)return;
+    var next=pendingRemoteState;pendingRemoteState=null;applyRemoteState(next);
   }
   function applyRemoteState(state){
     var next=normalizeState(state);
@@ -240,6 +242,12 @@
       return;
     }
     go(next.slide,next.slide<current,next.timeline);
+  }
+  function applyRemoteAdvance(state){
+    var next=normalizeState(state);
+    if(!next||transitioning||timelineBusy||next.slide!==current)return;
+    timelines[current].setPosition(next.timeline);
+    advance();
   }
   function reverse(anim){return anim?anim+' reverse':'';}
   function go(i,backward,restoreCursor){
@@ -285,8 +293,10 @@
     clearAuto();
     if(timelines[current].hasNext()){
       timelineBusy=true;
+      sendSync({action:'advance',state:snapshot()});
       timelines[current].advance().then(function(){
         timelineBusy=false;updatePresenter();scheduleAuto();publishState();
+        flushPendingRemoteState();
       });
     }
     else if(current<stages.length-1)go(current+1,false);

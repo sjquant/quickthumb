@@ -1035,10 +1035,12 @@ class TestDeckHtml:
         # when
         result = _run_deck_runtime_in_node(html)
         presenter_result = _run_deck_runtime_in_node(html, presenter=True)
+        audience_advance_result = _run_deck_runtime_in_node(html, replay_advance=True)
 
         # then
         assert result.returncode == 0, result.stderr
         assert presenter_result.returncode == 0, presenter_result.stderr
+        assert audience_advance_result.returncode == 0, audience_advance_result.stderr
 
     def test_should_keep_exit_layers_visible_in_presenter_preview(self):
         """Presenter previews keep layers visible until their exit animation runs."""
@@ -1123,7 +1125,11 @@ class TestDeckHtml:
 
 
 def _run_deck_runtime_in_node(
-    html: str, *, presenter: bool = False, exit_preview: bool = False
+    html: str,
+    *,
+    presenter: bool = False,
+    exit_preview: bool = False,
+    replay_advance: bool = False,
 ) -> subprocess.CompletedProcess[str]:
     script = r"""
 const fs = require('fs');
@@ -1131,6 +1137,7 @@ const vm = require('vm');
 const html = fs.readFileSync(0, 'utf8');
 const presenterMode = process.argv[1].startsWith('presenter');
 const exitPreviewMode = process.argv[1] === 'presenter-exit';
+const audienceAdvanceMode = process.argv[1] === 'audience-advance';
 
 function decodeAttr(value) {
   return value
@@ -1212,6 +1219,7 @@ const stages = Array.from(html.matchAll(/<div class="qt-stage"[^>]*>/g), (match)
 });
 const listeners = {};
 const syncMessages = [];
+let channelListener = null;
 const storage = {};
 const documentStateId = html.match(/data-qt-state-id="([^"]+)"/)[1];
 const localStorage = {
@@ -1219,8 +1227,13 @@ const localStorage = {
   setItem(key, value) { storage[key] = String(value); },
 };
 class BroadcastChannel {
-  addEventListener() {}
+  addEventListener(type, listener) {
+    if (type === 'message') channelListener = listener;
+  }
   postMessage(message) { syncMessages.push(message); }
+}
+function deliver(message) {
+  if (channelListener) channelListener({ data: message });
 }
 const body = new Element({});
 body.getAttribute = (name) => name === 'data-qt-state-id' ? documentStateId : null;
@@ -1279,6 +1292,16 @@ function wait(ms) {
 }
 
 (async () => {
+  if (audienceAdvanceMode) {
+    await wait(90);
+    deliver({ action: 'advance', state: { slide: 0, timeline: 0 } });
+    await wait(30);
+    assert(
+      stages[0].children['qt-l1'].style.visibility === 'visible',
+      'audience replays a presenter timeline advance',
+    );
+    return;
+  }
   if (presenterMode) {
     assert(body.appended.length === 1, 'presenter shell is rendered');
     if (exitPreviewMode) {
@@ -1290,6 +1313,10 @@ function wait(ms) {
     await wait(90);
     document.dispatch('keydown', { key: 'ArrowRight' });
     await wait(30);
+    assert(
+      syncMessages.some((message) => message.action === 'advance'),
+      'presenter broadcasts a timeline advance before its final state',
+    );
     const stateKey = `quickthumb:state:http://localhost:3030/:${documentStateId}`;
     assert(
       storage[stateKey] === JSON.stringify({ slide: 0, timeline: 1 }),
@@ -1363,7 +1390,13 @@ function wait(ms) {
             "node",
             "-e",
             script,
-            "presenter-exit" if exit_preview else "presenter" if presenter else "audience",
+            "audience-advance"
+            if replay_advance
+            else "presenter-exit"
+            if exit_preview
+            else "presenter"
+            if presenter
+            else "audience",
         ],
         capture_output=True,
         check=False,
