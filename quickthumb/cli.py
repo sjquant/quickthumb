@@ -255,13 +255,14 @@ def serve(
     """Serve HTML slides with live reload and a ?presenter view."""
     from quickthumb._serve import serve_slides
 
+    variables = _parse_var_options(var)
     try:
         serve_slides(
             source=source,
             host=host,
             port=port,
             open_browser=open_browser,
-            variables=_parse_var_options(var),
+            variables=variables,
         )
     except RenderingError as error:
         typer.echo(str(error), err=True)

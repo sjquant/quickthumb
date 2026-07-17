@@ -33,17 +33,21 @@ function qtTimeline(stage){
       }
     });
   });
-  function resetElements(){
+  function setInitialElements(){
+    var seen={};
     nodes.forEach(function(node){
-      if(node.a==='entrance'){
-        node.t.forEach(function(id){
-          var el=elMap[id];
-          if(el){
-            el.style.visibility='hidden';el.style.animation='';
-            el.style.clipPath=origClips[id]||'';el.style.opacity=origOpacity[id]||'';
-          }
-        });
-      }
+      node.t.forEach(function(id){
+        var el=elMap[id];
+        if(!el||seen[id])return;
+        seen[id]=true;
+        el.style.animation='';el.style.willChange='';
+        if(node.a==='entrance'){
+          el.style.visibility='hidden';
+          el.style.clipPath=origClips[id]||'';el.style.opacity=origOpacity[id]||'';
+        }else{
+          el.style.visibility='visible';
+        }
+      });
     });
   }
   function play(node){
@@ -103,9 +107,31 @@ function qtTimeline(stage){
       });
     });
   }
+  function setElementsAt(position){
+    setInitialElements();
+    nodes.forEach(function(node,index){
+      if(index>=position)return;
+      node.t.forEach(function(id){
+        var el=elMap[id];
+        if(!el)return;
+        if(node.a==='entrance'){
+          el.style.visibility='visible';
+          el.style.clipPath=origClips[id]||'';el.style.opacity=origOpacity[id]||'';
+        }else{
+          el.style.visibility='hidden';
+        }
+      });
+    });
+  }
   this.hasNext=function(){return cursor<nodes.length;};
+  this.length=function(){return nodes.length;};
+  this.position=function(){return cursor;};
+  this.setPosition=function(position){
+    var next=Math.max(0,Math.min(nodes.length,Number(position)||0));
+    setElementsAt(next);cursor=next;
+  };
   this.advance=function(){if(cursor<nodes.length)return runGroup(cursor);return Promise.resolve();};
-  this.reset=function(){cursor=0;resetElements();};
+  this.reset=function(){cursor=0;setInitialElements();};
   this.finish=function(){finishElements();cursor=nodes.length;};
   this.start=autoLead;
 }

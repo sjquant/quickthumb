@@ -795,8 +795,24 @@ class TestDeckHtml:
         # default), wired through a data attribute the runtime reads on show().
         assert html.count("data-qt-transition=") == 2
         assert "@keyframes qt-t0{from{opacity:0}to{opacity:1}}" in html
-        assert "function go(i,backward)" in html
+        assert "function go(i,backward,restoreCursor)" in html
         assert "<script src" not in html
+
+    def test_should_namespace_persisted_state_by_document_content(self):
+        """Different decks receive different reload-state identities."""
+        # given: two decks served from the same origin and path
+        first = Deck(640, 360).slide(Canvas().background(color="#101820"))
+        second = Deck(640, 360).slide(Canvas().background(color="#1E293B"))
+
+        # when: both decks are exported
+        first_match = re.search(r'data-qt-state-id="([^"]+)"', first.to_html())
+        second_match = re.search(r'data-qt-state-id="([^"]+)"', second.to_html())
+        assert first_match is not None and second_match is not None
+        first_id = first_match.group(1)
+        second_id = second_match.group(1)
+
+        # then: a reload state cannot leak between the two documents
+        assert first_id != second_id
 
     def test_should_embed_query_selected_presenter_view_with_speaker_notes(self):
         """Deck HTML activates a current/next presenter dashboard for ?presenter."""
@@ -1001,14 +1017,52 @@ class TestDeckHtml:
                     animation=Fade(duration=0.01),
                 )
             )
-            .slide(Canvas().background(color="#1E293B"))
+            .slide(
+                Canvas()
+                .background(color="#1E293B")
+                .shape(
+                    shape="rectangle",
+                    position=(80, 20),
+                    width=40,
+                    height=40,
+                    color="#FFFFFF",
+                    animation=Fade(duration=0.01),
+                )
+            )
         )
         html = deck.to_html(responsive=False, embed_fonts=False)
 
         # when
         result = _run_deck_runtime_in_node(html)
+        presenter_result = _run_deck_runtime_in_node(html, presenter=True)
 
         # then
+        assert result.returncode == 0, result.stderr
+        assert presenter_result.returncode == 0, presenter_result.stderr
+
+    def test_should_keep_exit_layers_visible_in_presenter_preview(self):
+        """Presenter previews keep layers visible until their exit animation runs."""
+        # given: a next slide with a layer that exits only after the slide is shown
+        deck = (
+            Deck(320, 180)
+            .slide(Canvas().background(color="#101820"))
+            .slide(
+                Canvas().shape(
+                    shape="rectangle",
+                    position=(20, 20),
+                    width=40,
+                    height=40,
+                    color="#FFFFFF",
+                    animation=Fade(animate="exit", duration=0.01),
+                )
+            )
+        )
+        html = deck.to_html(responsive=False, embed_fonts=False)
+
+        # when: the presenter runtime builds its next-slide preview
+        result = _run_deck_runtime_in_node(html, presenter=True, exit_preview=True)
+
+        # then: the exit-only layer remains visible in the preview
         assert result.returncode == 0, result.stderr
 
     def test_should_namespace_layer_keyframes_per_slide(self):
@@ -1068,11 +1122,15 @@ class TestDeckHtml:
         assert per_slide[1] == []
 
 
-def _run_deck_runtime_in_node(html: str) -> subprocess.CompletedProcess[str]:
+def _run_deck_runtime_in_node(
+    html: str, *, presenter: bool = False, exit_preview: bool = False
+) -> subprocess.CompletedProcess[str]:
     script = r"""
 const fs = require('fs');
 const vm = require('vm');
 const html = fs.readFileSync(0, 'utf8');
+const presenterMode = process.argv[1].startsWith('presenter');
+const exitPreviewMode = process.argv[1] === 'presenter-exit';
 
 function decodeAttr(value) {
   return value
@@ -1100,18 +1158,34 @@ class Style {
 
 class Element {
   constructor(attrs) {
-    this.attrs = attrs;
-    this.hidden = attrs.hidden;
-    this.style = new Style(attrs.style || '');
+    this.attrs = attrs || {};
+    this.hidden = this.attrs.hidden;
+    this.style = new Style(this.attrs.style || '');
     this.parentElement = { clientWidth: 320, clientHeight: 180 };
     this.children = {};
+    this.nodes = {};
+    this.appended = [];
+    this.classList = { add() {} };
   }
   getAttribute(name) {
     return this.attrs[name] || '';
   }
   querySelector(selector) {
-    return this.children[selector.slice(1)] || null;
+    if (selector.startsWith('#')) return this.children[selector.slice(1)] || null;
+    if (!this.nodes[selector]) this.nodes[selector] = new Element({});
+    return this.nodes[selector];
   }
+  setAttribute(name, value) { this.attrs[name] = String(value); }
+  appendChild(child) { this.appended.push(child); child.parentElement = this; return child; }
+  replaceChildren(...children) { this.appended = children; }
+  cloneNode() {
+    const clone = new Element({ ...this.attrs });
+    clone.hidden = this.hidden;
+    clone.style = Object.assign(new Style(''), this.style);
+    clone.children = this.children;
+    return clone;
+  }
+  closest() { return null; }
   addEventListener() {}
 }
 
@@ -1129,13 +1203,17 @@ function parseStage(tag) {
 const stages = Array.from(html.matchAll(/<div class="qt-stage"[^>]*>/g), (match) => {
   const stage = parseStage(match[0]);
   for (const node of JSON.parse(stage.getAttribute('data-qt-timeline') || '[]')) {
-    for (const id of node.t) stage.children[id] = new Element({});
+    for (const id of node.t) {
+      const element = html.match(new RegExp(`id="${id}"[^>]*style="([^"]*)"`));
+      stage.children[id] = new Element({ style: element ? decodeAttr(element[1]) : '' });
+    }
   }
   return stage;
 });
 const listeners = {};
 const syncMessages = [];
 const storage = {};
+const documentStateId = html.match(/data-qt-state-id="([^"]+)"/)[1];
 const localStorage = {
   getItem(key) { return Object.prototype.hasOwnProperty.call(storage, key) ? storage[key] : null; },
   setItem(key, value) { storage[key] = String(value); },
@@ -1144,7 +1222,11 @@ class BroadcastChannel {
   addEventListener() {}
   postMessage(message) { syncMessages.push(message); }
 }
+const body = new Element({});
+body.getAttribute = (name) => name === 'data-qt-state-id' ? documentStateId : null;
 const document = {
+  body,
+  createElement() { return new Element({}); },
   querySelectorAll(selector) {
     return selector === '.qt-stage' ? stages : [];
   },
@@ -1168,12 +1250,21 @@ const context = {
   isNaN,
   parseFloat,
   Promise,
+  setInterval: () => 0,
   setTimeout,
+  clearInterval: () => {},
+  URL,
   URLSearchParams,
   window: {
     addEventListener() {},
     BroadcastChannel,
-    location: { origin: 'http://localhost:3030', pathname: '/', search: '' },
+    requestAnimationFrame(callback) { callback(); },
+    location: {
+      href: presenterMode ? 'http://localhost:3030/presenter' : 'http://localhost:3030/',
+      origin: 'http://localhost:3030',
+      pathname: presenterMode ? '/presenter' : '/',
+      search: '',
+    },
     localStorage,
   },
 };
@@ -1188,6 +1279,37 @@ function wait(ms) {
 }
 
 (async () => {
+  if (presenterMode) {
+    assert(body.appended.length === 1, 'presenter shell is rendered');
+    if (exitPreviewMode) {
+      const preview = body.appended[0].nodes['.qt-presenter-next'].appended[0];
+      const exitLayer = preview.children[Object.keys(preview.children)[0]];
+      assert(exitLayer.style.visibility !== 'hidden', 'exit preview layer stays visible');
+      return;
+    }
+    await wait(90);
+    document.dispatch('keydown', { key: 'ArrowRight' });
+    await wait(30);
+    const stateKey = `quickthumb:state:http://localhost:3030/:${documentStateId}`;
+    assert(
+      storage[stateKey] === JSON.stringify({ slide: 0, timeline: 1 }),
+      `presenter persists the complete presentation state (${storage[stateKey]})`,
+    );
+    stages.forEach((stage) => {
+      stage.hidden = true;
+      stage.style.display = 'none';
+      stage.style.animation = '';
+    });
+    vm.runInContext(scripts, context);
+    await wait(10);
+    assert(body.appended.length === 2, 'presenter reload renders the presenter shell');
+    assert(stages[0].hidden === false, 'presenter reload restores the saved slide');
+    assert(
+      stages[0].children['qt-l1'].style.visibility === 'visible',
+      'presenter reload restores the saved timeline cursor',
+    );
+    return;
+  }
   assert(stages[0].hidden === false, 'first slide starts visible');
   assert(stages[1].hidden === true, 'second slide starts hidden');
   document.dispatch('click');
@@ -1215,10 +1337,9 @@ function wait(ms) {
   document.dispatch('keydown', { key: 'ArrowRight' });
   await wait(90);
   assert(stages[1].hidden === false, 'saved current slide is visible before reload');
-  assert(
-    storage['quickthumb:slide:http://localhost:3030/'] === '1',
-    'navigation persists the current slide for reload recovery',
-  );
+  const stateKey = `quickthumb:state:http://localhost:3030/:${documentStateId}`;
+  assert(storage[stateKey] === undefined, 'audience navigation does not own presenter state');
+  storage[stateKey] = JSON.stringify({ slide: 1, timeline: 0 });
   stages.forEach((stage) => {
     stage.hidden = true;
     stage.style.display = 'none';
@@ -1228,13 +1349,22 @@ function wait(ms) {
   await wait(10);
   assert(stages[0].hidden === true, 'reload keeps the previous slide hidden');
   assert(stages[1].hidden === false, 'reload restores the saved current slide');
+  assert(
+    stages[1].children['qt-l2'].style.visibility === 'hidden',
+    'reload restores the saved timeline cursor',
+  );
 })().catch((error) => {
   console.error(error.stack || error.message);
   process.exit(1);
 });
 """
     return subprocess.run(
-        ["node", "-e", script],
+        [
+            "node",
+            "-e",
+            script,
+            "presenter-exit" if exit_preview else "presenter" if presenter else "audience",
+        ],
         capture_output=True,
         check=False,
         input=html,

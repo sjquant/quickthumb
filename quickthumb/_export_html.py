@@ -968,6 +968,7 @@ def _document(
         _render_stage_template(stage_template, stage, index=index, deck=deck)
         for index, stage in enumerate(stages)
     )
+    state_id = hashlib.sha256(stage_markup.encode("utf-8")).hexdigest()[:16]
     return _render_template(
         document_template,
         {
@@ -977,6 +978,7 @@ def _document(
             "frame_close": "</div>" if responsive else "",
             "runtime": runtime,
             "stages": stage_markup,
+            "state_id": state_id,
         },
     )
 

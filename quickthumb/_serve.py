@@ -3,14 +3,16 @@
 from __future__ import annotations
 
 import json
+import re
 import runpy
 import sys
 import threading
 import webbrowser
+from dataclasses import dataclass
 from html import escape
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import urlsplit
+from urllib.parse import parse_qs, urlsplit
 
 from quickthumb.canvas import _VAR_RE, Canvas, _is_theme_reference
 from quickthumb.deck import Deck
@@ -19,6 +21,14 @@ from quickthumb.errors import ValidationError
 _DEFAULT_SOURCES = ("slides.py", "slides.json", "slides.html", "slides.htm")
 _HTML_PATHS = {"/", "/index.html", "/presenter"}
 _VERSION_PATH = "/__quickthumb_version"
+
+
+@dataclass(frozen=True)
+class RenderedSource:
+    """Rendered source HTML paired with the exact version used to render it."""
+
+    html: str
+    version: str
 
 
 def serve_slides(
@@ -75,16 +85,26 @@ class SlideSource:
         self._cached_version: str | None = None
         self._cached_html: str | None = None
 
-    def render(self) -> str:
+    def render(self, *, presenter: bool = True) -> str:
         """Render the latest source contents to a standalone HTML document."""
+        return self.render_with_version(presenter=presenter).html
+
+    def render_with_version(self, *, presenter: bool = True) -> RenderedSource:
+        """Render source HTML and return the matching source version atomically."""
         with self._render_lock:
-            version = self.version()
-            if self._cached_html is not None and version == self._cached_version:
-                return self._cached_html
-            html = self._render()
-            self._cached_version = version
-            self._cached_html = html
-            return html
+            while True:
+                version = self.version()
+                if self._cached_html is not None and version == self._cached_version:
+                    html = self._cached_html
+                else:
+                    html = self._render()
+                    if self.version() != version:
+                        continue
+                    self._cached_version = version
+                    self._cached_html = html
+                if not presenter:
+                    html = _without_speaker_notes(html)
+                return RenderedSource(html=html, version=version)
 
     def _render(self) -> str:
         suffix = self.path.suffix.lower()
@@ -171,7 +191,8 @@ def slide_request_handler(source: SlideSource) -> type[BaseHTTPRequestHandler]:
     class SlideRequestHandler(BaseHTTPRequestHandler):
         def do_GET(self) -> None:  # noqa: N802
             """Serve the slideshow, presenter alias, or live-reload version."""
-            path = urlsplit(self.path).path
+            request = urlsplit(self.path)
+            path = request.path
             if path == _VERSION_PATH:
                 self._send(200, source.version(), "text/plain; charset=utf-8")
                 return
@@ -184,7 +205,10 @@ def slide_request_handler(source: SlideSource) -> type[BaseHTTPRequestHandler]:
                 return
 
             try:
-                html = _with_live_reload(source.render(), source.version())
+                rendered = source.render_with_version(
+                    presenter=_is_presenter_request(path, request.query)
+                )
+                html = _with_live_reload(rendered.html, rendered.version)
             except Exception as error:  # Keep the server alive while the source is being edited.
                 html = _with_live_reload(_error_document(error), source.version())
                 self._send(500, html, "text/html; charset=utf-8")
@@ -222,6 +246,19 @@ def _with_live_reload(html: str, version: str) -> str:
     if marker in html:
         return html.replace(marker, script + "\n" + marker, 1)
     return html + "\n" + script
+
+
+def _is_presenter_request(path: str, query: str) -> bool:
+    """Return whether an HTTP request asks for the presenter document variant."""
+    if path == "/presenter":
+        return True
+    value = parse_qs(query, keep_blank_values=True).get("presenter", [None])[0]
+    return value is not None and value not in {"0", "false"}
+
+
+def _without_speaker_notes(html: str) -> str:
+    """Remove generated presenter-only notes from an audience document."""
+    return re.sub(r'\sdata-qt-notes="[^"]*"', "", html)
 
 
 def _error_document(error: Exception) -> str:

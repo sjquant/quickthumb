@@ -1,6 +1,8 @@
 """Black-box tests for the quickthumb slideshow development server."""
 
 import json
+import subprocess
+import sys
 import threading
 from http.server import ThreadingHTTPServer
 from pathlib import Path
@@ -59,17 +61,21 @@ class TestSlideServer:
             )
             with urlopen(base_url + "/", timeout=2) as response:
                 updated_html = response.read().decode()
+            with urlopen(base_url + "/?presenter", timeout=2) as response:
+                updated_presenter_html = response.read().decode()
 
-            # then: every view is standalone HTML and later requests reflect source changes
+            # then: audience HTML omits notes while both presenter paths include them
             assert response.status == 200
             assert audience_html.startswith("<!doctype html>")
-            assert audience_html == presenter_html == presenter_path_html
-            assert 'data-qt-notes="First note"' in audience_html
+            assert presenter_html == presenter_path_html
+            assert 'data-qt-notes="First note"' not in audience_html
+            assert 'data-qt-notes="First note"' in presenter_html
             assert "__quickthumb_version" in audience_html
             assert ":" in version
             assert favicon_status == 204
             assert missing.value.code == 404
-            assert 'data-qt-notes="Updated speaker note"' in updated_html
+            assert 'data-qt-notes="Updated speaker note"' not in updated_html
+            assert 'data-qt-notes="Updated speaker note"' in updated_presenter_html
         finally:
             server.shutdown()
             server.server_close()
@@ -102,6 +108,32 @@ class TestSlideServer:
         assert "background:rgb(184,255,0)" in html
         assert 'data-qt-notes="Use the accent color as the transition cue."' in html
 
+    def test_should_preserve_theme_references_while_substituting_json_variables(
+        self, tmp_path: Path
+    ):
+        """Server substitution leaves theme references for Deck.from_json to resolve."""
+        # given: a JSON deck using both a CLI variable and a theme token
+        source_path = tmp_path / "deck.json"
+        source_path.write_text(
+            json.dumps(
+                {
+                    "width": 320,
+                    "height": 180,
+                    "theme": {"colors": {"background": "$ACCENT"}},
+                    "slides": [
+                        {"layers": [{"type": "background", "color": "$theme.colors.background"}]}
+                    ],
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        # when: the source is rendered with a CLI variable
+        html = SlideSource(source_path, {"ACCENT": "#B8FF00"}).render()
+
+        # then: the theme token resolves after variable substitution
+        assert "background:rgb(184,255,0)" in html
+
     def test_should_render_canvas_json_and_static_html_sources(self, tmp_path: Path):
         """Canvas JSON and pre-rendered HTML remain valid serve inputs."""
         # given: one canvas JSON document and one standalone HTML document
@@ -120,6 +152,22 @@ class TestSlideServer:
         assert 'class="qt-stage"' in canvas_html
         assert "data-qt-transition" not in canvas_html
         assert static_html == "<!doctype html><title>Existing slides</title>"
+
+    def test_should_retry_when_source_changes_during_render(self, tmp_path: Path, monkeypatch):
+        """A source edit during rendering cannot be stamped with an old HTML version."""
+        # given: a source whose version changes while the first render is running
+        source_path = tmp_path / "slides.html"
+        source_path.write_text("<!doctype html><body>Slides</body>", encoding="utf-8")
+        source = SlideSource(source_path, {})
+        versions = iter(["old", "new", "new", "new"])
+        monkeypatch.setattr(source, "version", lambda: next(versions))
+
+        # when: HTML and its version are requested as one rendered result
+        rendered = source.render_with_version()
+
+        # then: the result carries the stable version sampled after the retry
+        assert rendered.version == "new"
+        assert rendered.html == "<!doctype html><body>Slides</body>"
 
     def test_should_validate_source_paths_and_template_variables(self, tmp_path: Path):
         """Explicit paths and substitutions fail with actionable validation errors."""
@@ -289,6 +337,61 @@ class TestCLIServe:
                 "variables": {"ACCENT": "#B8FF00"},
             }
         ]
+
+    def test_should_report_invalid_var_without_a_secondary_exit_message(self):
+        """Malformed --var input reports only its actionable validation error."""
+        # given: a serve invocation with a malformed variable
+        from quickthumb.cli import app
+
+        # when: the command parses its options
+        result = CliRunner().invoke(app, ["serve", "slides.json", "--var", "BROKEN", "--no-open"])
+
+        # then: the CLI keeps the validation output concise
+        assert result.exit_code == 1
+        assert result.output == "Invalid --var 'BROKEN': expected KEY=VALUE format.\n"
+
+    def test_should_run_the_public_serve_entrypoint_against_a_real_http_server(
+        self, tmp_path: Path
+    ):
+        """The public serve entrypoint binds a real server and serves its source."""
+        # given: a valid Python deck and the installed CLI entrypoint
+        source_path = tmp_path / "slides.py"
+        source_path.write_text(
+            "from quickthumb import Canvas, Deck\n"
+            "deck = Deck(80, 40).slide(Canvas().background(color='#112233'))\n",
+            encoding="utf-8",
+        )
+        process = subprocess.Popen(
+            [
+                sys.executable,
+                "-c",
+                "from quickthumb.cli import main; main()",
+                "serve",
+                str(source_path),
+                "--port",
+                "0",
+                "--no-open",
+            ],
+            cwd=tmp_path,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+        )
+
+        try:
+            # when: the real CLI starts and its reported URL is requested
+            assert process.stdout is not None
+            output = process.stdout.readline()
+            port = output.rsplit(":", 1)[-1].strip()
+            with urlopen(f"http://127.0.0.1:{port}/", timeout=2) as response:
+                html = response.read().decode()
+
+            # then: the public command returns the rendered deck over HTTP
+            assert response.status == 200
+            assert 'data-qt-slide-index="0"' in html
+        finally:
+            process.terminate()
+            process.wait(timeout=5)
 
     def test_should_explain_missing_default_slide_source(self):
         """serve exits with guidance when no conventional slide source exists."""

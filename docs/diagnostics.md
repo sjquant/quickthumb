@@ -159,8 +159,9 @@ http://localhost:3030/?presenter
 ```
 
 Presenter mode shows the current slide, next-slide preview, speaker notes,
-elapsed timer, and controls. Its navigation is broadcast to audience tabs
-opened from the same server. Add notes in Python with
+elapsed timer, and controls. Its navigation and per-slide animation progress
+are broadcast to audience tabs opened from the same server and restored on
+reload. Audience-only navigation remains local. Add notes in Python with
 `.slide(canvas, notes="...")` or as a `notes` string on a JSON slide.
 
 ### Variable substitution

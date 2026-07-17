@@ -5,26 +5,41 @@
   function syncPath(){
     return window.location.pathname==='/presenter'?'/':window.location.pathname;
   }
-  function stateKey(){
-    return 'quickthumb:slide:'+window.location.origin+syncPath();
+  function documentId(){
+    var body=document.body;
+    return body&&body.getAttribute('data-qt-state-id')||'default';
   }
-  function readSavedCurrent(){
+  function stateKey(){
+    return 'quickthumb:state:'+window.location.origin+syncPath()+':'+documentId();
+  }
+  function readSavedState(){
     try{
       var value=window.localStorage&&window.localStorage.getItem(stateKey());
       if(value===null||value==='')return null;
-      var index=Number(value);
-      return Number.isInteger(index)&&index>=0&&index<stages.length?index:null;
+      return JSON.parse(value);
     }catch(error){return null;}
   }
-  function saveCurrent(){
+  var timelines=stages.map(function(s){return new qtTimeline(s);});
+  function normalizeState(state){
+    if(!state||typeof state!=='object')return null;
+    var slide=Number(state.slide),timeline=Number(state.timeline);
+    return Number.isInteger(slide)&&slide>=0&&slide<stages.length&&
+      Number.isInteger(timeline)&&timeline>=0&&timeline<=timelines[slide].length()
+      ?{slide:slide,timeline:timeline}:null;
+  }
+  var savedState=normalizeState(readSavedState());
+  var current=savedState?savedState.slide:0;
+  function snapshot(){
+    return {slide:current,timeline:timelines[current].position()};
+  }
+  function saveState(state){
+    if(!presenter)return;
     try{
-      if(window.localStorage)window.localStorage.setItem(stateKey(),String(current));
+      if(window.localStorage)window.localStorage.setItem(stateKey(),JSON.stringify(state));
     }catch(error){}
   }
-  var savedCurrent=readSavedCurrent();
-  var current=savedCurrent===null?0:savedCurrent;
   var hideTimer,autoTimer,transitioning=false,timelineBusy=false,applyingRemote=false;
-  var timelines=stages.map(function(s){return new qtTimeline(s);});
+  var pendingRemoteState=null;
   var presenter=presenterRequested();
   var presenterUi=presenter?createPresenter():null;
   var needsInitialSync=!presenter;
@@ -120,22 +135,26 @@
   }
   function createSync(){
     if(!window.BroadcastChannel||!window.location)return null;
-    var channel=new window.BroadcastChannel('quickthumb:'+window.location.origin+syncPath());
+    var channel=new window.BroadcastChannel(stateKey());
     channel.addEventListener('message',function(event){
       var message=event.data||{};
       if(presenter){
-        if(message.action==='ready')channel.postMessage({action:'go',index:current});
+        if(message.action==='ready')channel.postMessage({action:'state',state:snapshot()});
         return;
       }
+      if(message.action!=='state')return;
       applyingRemote=true;
-      if(message.action==='advance')advance();
-      else if(message.action==='go')go(Number(message.index),Number(message.index)<current);
+      applyRemoteState(message.state);
       applyingRemote=false;
     });
     return channel;
   }
   function sendSync(message){
     if(presenter&&sync&&!applyingRemote)sync.postMessage(message);
+  }
+  function publishState(){
+    if(!presenter)return;
+    var state=snapshot();saveState(state);sendSync({action:'state',state:state});
   }
   function updatePresenter(){
     if(!presenterUi)return;
@@ -169,13 +188,12 @@
     nodes.forEach(function(node){
       node.t.forEach(function(id){
         var element=clone.querySelector('#'+CSS.escape(id));
-        if(element)element.style.visibility=node.a==='entrance'?'visible':'hidden';
+        if(element&&node.a==='entrance')element.style.visibility='visible';
       });
     });
     return clone;
   }
-  function runTimeline(i){timelines[i].reset();timelines[i].start();}
-  function finishTimeline(i){timelines[i].reset();timelines[i].finish();}
+  function runTimeline(i){timelines[i].reset();return timelines[i].start();}
   function clearAuto(){if(autoTimer){clearTimeout(autoTimer);autoTimer=null;}}
   function canClick(){return stages[current].getAttribute('data-qt-click')!=='0';}
   function scheduleAuto(){
@@ -191,7 +209,7 @@
   // Once a transition has run, drop the off-screen slides and clear the
   // transient transition styles (animation/z-index/will-change) so nothing
   // stays GPU-promoted longer than needed.
-  function settle(){
+  function settle(restoredCursor){
     clearTimeout(hideTimer);
     transitioning=false;
     stages.forEach(function(s,j){
@@ -199,24 +217,46 @@
       if(j!==current){s.style.display='none';s.hidden=true;}
       else{s.hidden=false;}
     });
+    if(restoredCursor!==undefined)timelines[current].setPosition(restoredCursor);
     if(fit)qtFit(stages[current]);
     updatePresenter();
     scheduleAuto();
+    publishState();
     if(needsInitialSync&&sync){
       needsInitialSync=false;
       sync.postMessage({action:'ready'});
     }
+    if(pendingRemoteState){
+      var next=pendingRemoteState;pendingRemoteState=null;applyRemoteState(next);
+    }
+  }
+  function applyRemoteState(state){
+    var next=normalizeState(state);
+    if(!next)return;
+    if(transitioning||timelineBusy){pendingRemoteState=next;return;}
+    if(next.slide===current){
+      timelines[current].setPosition(next.timeline);
+      updatePresenter();scheduleAuto();
+      return;
+    }
+    go(next.slide,next.slide<current,next.timeline);
   }
   function reverse(anim){return anim?anim+' reverse':'';}
-  function go(i,backward){
+  function go(i,backward,restoreCursor){
     if(transitioning||timelineBusy||i<0||i>=stages.length||i===current)return;
     clearAuto();
     transitioning=true;
     var out=stages[current],inc=stages[i];
     var source=backward?out:inc;
     current=i;
-    saveCurrent();
-    sendSync({action:'go',index:i});
+    if(backward){
+      timelines[i].setPosition(
+        restoreCursor===undefined?timelines[i].length():restoreCursor,
+      );
+    }else{
+      timelines[i].reset();
+    }
+    publishState();
     var under=source.getAttribute('data-qt-z')==='under';
     var enter=source.getAttribute('data-qt-transition')||'';
     var exit=source.getAttribute('data-qt-exit')||'';
@@ -230,19 +270,23 @@
     inc.hidden=false;inc.style.display='block';inc.style.zIndex=backward?(reverseIncomingOver?'2':'1'):(under?'1':'2');
     inc.style.willChange='transform,opacity,clip-path';if(fit)qtFit(inc);
     inc.style.animation=backward?reverse(exit):enter;
-    if(backward)finishTimeline(i);else runTimeline(i);
+    if(!backward){
+      var timelineRun=runTimeline(i);
+      Promise.resolve(timelineRun).then(function(){
+        if(current===i&&!transitioning){updatePresenter();publishState();}
+      });
+    }
     updatePresenter();
     var dur=parseFloat(source.getAttribute('data-qt-dur'))||0;
-    clearTimeout(hideTimer);hideTimer=setTimeout(settle,dur*1000+60);
+    clearTimeout(hideTimer);hideTimer=setTimeout(function(){settle(restoreCursor);},dur*1000+60);
   }
   function advance(){
     if(transitioning||timelineBusy)return;
     clearAuto();
     if(timelines[current].hasNext()){
-      sendSync({action:'advance'});
       timelineBusy=true;
       timelines[current].advance().then(function(){
-        timelineBusy=false;updatePresenter();scheduleAuto();
+        timelineBusy=false;updatePresenter();scheduleAuto();publishState();
       });
     }
     else if(current<stages.length-1)go(current+1,false);
@@ -259,12 +303,12 @@
   // First load plays slide 0's enter transition. A refresh restores the last
   // controlled slide in its settled state so presenter and audience views do
   // not diverge while one tab is reloading.
-  if(savedCurrent!==null){
+  if(savedState){
     stages.forEach(function(stage,j){
       if(j!==current){stage.style.display='none';stage.hidden=true;}
     });
     stages[current].hidden=false;stages[current].style.display='block';
-    finishTimeline(current);
+    timelines[current].setPosition(savedState.timeline);
     settle();
   }else{
     if(fit)qtFit(stages[current]);
@@ -274,7 +318,10 @@
     stages[current].style.display='block';
     stages[current].style.willChange='transform,opacity,clip-path';
     stages[current].style.animation=stages[current].getAttribute('data-qt-transition')||'';
-    runTimeline(current);
+    var initialTimeline=runTimeline(current);
+    Promise.resolve(initialTimeline).then(function(){
+      if(current===0){updatePresenter();publishState();}
+    });
     var d0=parseFloat(stages[current].getAttribute('data-qt-dur'))||0;
     hideTimer=setTimeout(settle,d0*1000+60);
   }

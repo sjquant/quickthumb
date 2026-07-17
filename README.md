@@ -441,8 +441,10 @@ http://localhost:3030/?presenter
 ```
 
 Navigation from the presenter view is synchronized to audience tabs on the
-same origin. The server re-renders the source after edits and reloads connected
-browsers automatically. Python sources may expose `deck`, `slides`, or `canvas`;
+same origin. Presenter state, including per-slide animation progress, is
+restored on reload; audience-only navigation remains local and never becomes
+the presenter state. The server re-renders the source after edits and reloads
+connected browsers automatically. Python sources may expose `deck`, `slides`, or `canvas`;
 JSON sources accept the same repeatable `--var KEY=VALUE` substitutions as
 `quickthumb render`.
 
