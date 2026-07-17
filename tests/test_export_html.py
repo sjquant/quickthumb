@@ -832,6 +832,8 @@ class TestDeckHtml:
         assert "qt-presenter-shell" in html
         assert "Speaker notes" in html
         assert "Open audience view" in html
+        assert "data-qt-reset-timer" in html
+        assert "Resume" in html
         assert "window.BroadcastChannel" in html
 
     def test_should_escape_speaker_notes_in_stage_attributes(self):
@@ -1205,6 +1207,7 @@ class Element {
     this.children = {};
     this.nodes = {};
     this.appended = [];
+    this.listeners = {};
     this.classList = { add() {} };
   }
   getAttribute(name) {
@@ -1226,7 +1229,12 @@ class Element {
     return clone;
   }
   closest() { return null; }
-  addEventListener() {}
+  addEventListener(type, listener) {
+    (this.listeners[type] ||= []).push(listener);
+  }
+  dispatch(type, event = {}) {
+    for (const listener of this.listeners[type] || []) listener(event);
+  }
 }
 
 function parseStage(tag) {
@@ -1365,6 +1373,17 @@ function wait(ms) {
       return;
     }
     await wait(90);
+    const presenterShell = body.appended[0];
+    const timer = presenterShell.nodes['.qt-presenter-timer'];
+    const timerLabel = presenterShell.nodes['[data-qt-timer-label]'];
+    timer.dispatch('click', { stopPropagation() {} });
+    assert(timer.getAttribute('aria-pressed') === 'false', 'presenter timer pauses');
+    assert(timerLabel.textContent === 'Resume', 'paused timer offers resume');
+    timer.dispatch('click', { stopPropagation() {} });
+    assert(timer.getAttribute('aria-pressed') === 'true', 'presenter timer resumes');
+    const resetTimer = presenterShell.nodes['[data-qt-reset-timer]'];
+    resetTimer.dispatch('click', { stopPropagation() {} });
+    assert(timer.getAttribute('aria-pressed') === 'true', 'timer reset resumes timing');
     document.dispatch('keydown', { key: 'ArrowRight' });
     await wait(30);
     assert(

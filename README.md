@@ -433,8 +433,8 @@ quickthumb serve path/to/deck.py     # an explicit source works too
 ```
 
 The audience view opens at `http://localhost:3030/`. Add `?presenter` for the
-presenter dashboard with the current and next slides, speaker notes, elapsed
-time, and navigation controls:
+presenter dashboard with the current and next slides, speaker notes, and a
+pause/resume/reset presentation timer:
 
 ```text
 http://localhost:3030/?presenter

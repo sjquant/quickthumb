@@ -73,7 +73,23 @@
     shell.setAttribute('aria-label','Presenter view');
     shell.innerHTML=
       '<section class="qt-presenter-main">'+
-        '<header class="qt-presenter-heading"><span>Current slide</span><span data-qt-current></span></header>'+
+        '<div class="qt-presenter-status">'+
+          '<div class="qt-presenter-status-meta">'+
+            '<span class="qt-presenter-status-kicker">Presentation</span>'+
+            '<span data-qt-progress></span>'+
+          '</div>'+
+          '<div class="qt-presenter-timer-group">'+
+            '<button class="qt-presenter-timer" type="button" data-qt-timer-toggle '+
+            'data-qt-presenter-control aria-pressed="true" data-running="true">'+
+              '<span class="qt-presenter-timer-icon" data-qt-timer-icon aria-hidden="true">Ⅱ</span>'+
+              '<span class="qt-presenter-timer-value" data-qt-timer-value>00:00</span>'+
+              '<span class="qt-presenter-timer-label" data-qt-timer-label>Pause</span>'+
+            '</button>'+
+            '<button class="qt-presenter-timer-reset" type="button" '+
+              'title="Reset timer" aria-label="Reset timer" data-qt-reset-timer '+
+              'data-qt-presenter-control>↺</button>'+
+          '</div>'+
+        '</div>'+
         '<div class="qt-presenter-current"></div>'+
       '</section>'+
       '<aside class="qt-presenter-sidebar">'+
@@ -81,17 +97,14 @@
         '<div class="qt-presenter-next"></div>'+
         '<div class="qt-presenter-heading qt-presenter-notes-label"><span>Speaker notes</span></div>'+
         '<div class="qt-presenter-notes" aria-live="polite"></div>'+
-        '<div><div class="qt-presenter-status">'+
-          '<span data-qt-progress></span><button class="qt-presenter-timer" type="button" '+
-          'title="Reset timer" data-qt-presenter-control>00:00</button></div>'+
-          '<nav class="qt-presenter-controls" aria-label="Slide controls">'+
+        '<nav class="qt-presenter-controls" aria-label="Slide controls">'+
             '<button class="qt-presenter-control" type="button" data-qt-previous '+
             'data-qt-presenter-control>Previous</button>'+
             '<button class="qt-presenter-control" type="button" data-qt-forward '+
             'data-qt-presenter-control>Next</button>'+
             '<a class="qt-presenter-audience" target="_blank" rel="noopener" '+
             'data-qt-audience data-qt-presenter-control>Open audience view</a>'+
-          '</nav></div>'+
+        '</nav>'+
       '</aside>';
     document.body.appendChild(shell);
     shell.querySelector('.qt-presenter-current').appendChild(frame);
@@ -99,10 +112,13 @@
       shell:shell,
       nextFrame:shell.querySelector('.qt-presenter-next'),
       notes:shell.querySelector('.qt-presenter-notes'),
-      currentLabel:shell.querySelector('[data-qt-current]'),
       nextLabel:shell.querySelector('[data-qt-next]'),
       progress:shell.querySelector('[data-qt-progress]'),
       timer:shell.querySelector('.qt-presenter-timer'),
+      timerIcon:shell.querySelector('[data-qt-timer-icon]'),
+      timerValue:shell.querySelector('[data-qt-timer-value]'),
+      timerLabel:shell.querySelector('[data-qt-timer-label]'),
+      resetTimer:shell.querySelector('[data-qt-reset-timer]'),
       previous:shell.querySelector('[data-qt-previous]'),
       forward:shell.querySelector('[data-qt-forward]'),
       preview:null
@@ -114,15 +130,25 @@
     ui.forward.addEventListener('click',function(e){
       e.stopPropagation();if(canClick())advance();
     });
-    var started=Date.now();
+    var timerElapsed=0,timerStartedAt=Date.now(),timerRunning=true;
     function updateTimer(){
-      var elapsed=Math.floor((Date.now()-started)/1000);
+      var elapsed=Math.floor((timerElapsed+(timerRunning?Date.now()-timerStartedAt:0))/1000);
       var minutes=String(Math.floor(elapsed/60)).padStart(2,'0');
       var seconds=String(elapsed%60).padStart(2,'0');
-      ui.timer.textContent=minutes+':'+seconds;
+      ui.timerValue.textContent=minutes+':'+seconds;
+      ui.timer.setAttribute('aria-pressed',timerRunning?'true':'false');
+      ui.timer.setAttribute('data-running',timerRunning?'true':'false');
+      ui.timerIcon.textContent=timerRunning?'Ⅱ':'▶';
+      ui.timerLabel.textContent=timerRunning?'Pause':'Resume';
     }
     ui.timer.addEventListener('click',function(e){
-      e.stopPropagation();started=Date.now();updateTimer();
+      e.stopPropagation();
+      if(timerRunning){timerElapsed+=Date.now()-timerStartedAt;timerRunning=false;}
+      else{timerStartedAt=Date.now();timerRunning=true;}
+      updateTimer();
+    });
+    ui.resetTimer.addEventListener('click',function(e){
+      e.stopPropagation();timerElapsed=0;timerStartedAt=Date.now();timerRunning=true;updateTimer();
     });
     setInterval(updateTimer,1000);
     return ui;
@@ -158,7 +184,6 @@
   }
   function updatePresenter(){
     if(!presenterUi)return;
-    presenterUi.currentLabel.textContent=(current+1)+' / '+stages.length;
     presenterUi.progress.textContent='Slide '+(current+1)+' of '+stages.length;
     presenterUi.previous.disabled=current===0;
     presenterUi.forward.disabled=!canClick()||(

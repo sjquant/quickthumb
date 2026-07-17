@@ -109,7 +109,7 @@ Format-specific options are rejected when used with the other animated format.
 Returns a self-contained slideshow document. The normal audience view supports
 click, Space, and arrow-key navigation. Opening the document from
 `quickthumb serve` with the `?presenter` query adds the current/next dashboard,
-speaker notes, timer, and synchronized audience controls.
+speaker notes, a pause/resume/reset timer, and synchronized audience controls.
 
 ```python
 html = deck.to_html()
