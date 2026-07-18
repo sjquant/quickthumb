@@ -1,4 +1,4 @@
-"""독립 오디오 저널을 닮은 인터뷰 프로모션."""
+"""An intimate audio-journal cover built around a bespoke editorial portrait."""
 
 import os
 
@@ -8,7 +8,8 @@ from quickthumb.models import Shadow
 FILE_DIR = os.path.dirname(__file__)
 ASSETS_DIR = os.path.join(FILE_DIR, "..", "assets")
 OUTPUT_PATH = os.path.join(FILE_DIR, "podcast_interview_promo.png")
-PRETENDARD = os.path.join(ASSETS_DIR, "fonts", "Pretendard-Bold.woff2")
+DISPLAY = os.path.join(ASSETS_DIR, "fonts", "NotoSerif-ExtraBold.ttf")
+SANS = os.path.join(ASSETS_DIR, "fonts", "Roboto-Medium.ttf")
 BACKGROUND_URL = (
     "https://images.unsplash.com/photo-1478737270239-2f02b77fc618?auto=format&fit=crop&w=1600&q=80"
 )
@@ -29,8 +30,8 @@ GUEST_IMAGE = os.path.join(ASSETS_DIR, "images", "podcast_guest_editorial.png")
         )
     )
     .text(
-        content="목소리의 온도",
-        font=PRETENDARD,
+        content="WORK, QUIETLY",
+        font=DISPLAY,
         size=24,
         color="#F2B8A2",
         weight=700,
@@ -38,8 +39,8 @@ GUEST_IMAGE = os.path.join(ASSETS_DIR, "images", "podcast_guest_editorial.png")
         position=(62, 54),
     )
     .text(
-        content="EP. 42",
-        font=PRETENDARD,
+        content="AUDIO JOURNAL  /  EP. 42",
+        font=SANS,
         size=17,
         color="#F4E8DE99",
         weight=700,
@@ -47,19 +48,19 @@ GUEST_IMAGE = os.path.join(ASSETS_DIR, "images", "podcast_guest_editorial.png")
         position=(62, 102),
     )
     .text(
-        content="좋은 피드백은\n사람을 남긴다",
-        font=PRETENDARD,
-        size=78,
+        content="FEEDBACK\nWITHOUT FEAR",
+        font=DISPLAY,
+        size=70,
         color="#FFF9F1",
         weight=700,
         line_height=1.12,
-        letter_spacing=-3,
+        letter_spacing=-2,
         position=(62, 168),
         max_width=650,
     )
     .text(
-        content="빠른 팀일수록 천천히 대화하는 이유",
-        font=PRETENDARD,
+        content="How thoughtful teams move fast without losing trust",
+        font=SANS,
         size=26,
         color="#D6C2B7",
         weight=400,
@@ -76,7 +77,7 @@ GUEST_IMAGE = os.path.join(ASSETS_DIR, "images", "podcast_guest_editorial.png")
     )
     .text(
         content="GUEST",
-        font=PRETENDARD,
+        font=SANS,
         size=15,
         color="#9A5748",
         weight=700,
@@ -84,12 +85,13 @@ GUEST_IMAGE = os.path.join(ASSETS_DIR, "images", "podcast_guest_editorial.png")
         position=(90, 528),
     )
     .text(
-        content="박민아  ·  AI 프로덕트 리드",
-        font=PRETENDARD,
-        size=28,
+        content="MINA PARK\nAI PRODUCT LEAD",
+        font=SANS,
+        size=24,
         color="#2A1A20",
         weight=700,
-        position=(90, 574),
+        line_height=1.35,
+        position=(90, 566),
     )
     .image(
         path=GUEST_IMAGE,
@@ -102,7 +104,7 @@ GUEST_IMAGE = os.path.join(ASSETS_DIR, "images", "podcast_guest_editorial.png")
     )
     .text(
         content="LISTEN WITH CARE",
-        font=PRETENDARD,
+        font=SANS,
         size=14,
         color="#F4E8DE99",
         weight=700,

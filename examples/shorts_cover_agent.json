@@ -31,10 +31,19 @@
     {
       "type": "shape",
       "shape": "rectangle",
+      "position": [72, 848],
+      "width": 936,
+      "height": 648,
+      "color": "#1738F5",
+      "border_radius": 8
+    },
+    {
+      "type": "shape",
+      "shape": "rectangle",
       "position": [72, 900],
       "width": 72,
       "height": 10,
-      "color": "#F45A3A",
+      "color": "#D7FF54",
       "border_radius": 5
     },
     {
@@ -42,7 +51,7 @@
       "content": "오래 보고 싶은 건\n대개 조용하다",
       "font": "assets/fonts/Pretendard-Bold.woff2",
       "size": 104,
-      "color": "#19211E",
+      "color": "#FFF7EA",
       "position": [72, 974],
       "align": "left",
       "max_width": 920,
@@ -56,7 +65,7 @@
       "content": "빠르게 넘기는 화면 사이에서\n마음이 머무는 장면에 관하여",
       "font": "assets/fonts/Pretendard-Regular.woff2",
       "size": 40,
-      "color": "#5C6560",
+      "color": "#C9D5FF",
       "position": [76, 1308],
       "align": "left",
       "max_width": 820,

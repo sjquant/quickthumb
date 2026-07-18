@@ -1,5 +1,5 @@
 """
-JSON-first launch announcement card.
+JSON-first editorial release announcement card.
 
 Exercises the quickthumb 0.5 feature set in a single themed spec:
 - A top-level `theme` block with `$theme.*` token references across layers

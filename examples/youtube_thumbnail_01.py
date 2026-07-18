@@ -1,4 +1,4 @@
-"""서울의 비 오는 밤을 담은 절제된 에디토리얼 썸네일."""
+"""A cinematic city-journal thumbnail with fashion-editorial typography."""
 
 import os
 
@@ -7,7 +7,8 @@ from quickthumb import Canvas, Filter, FitMode, LinearGradient
 FILE_DIR = os.path.dirname(__file__)
 ASSETS_DIR = os.path.join(FILE_DIR, "..", "assets")
 OUTPUT_PATH = os.path.join(FILE_DIR, "youtube_thumbnail_01.png")
-PRETENDARD = os.path.join(ASSETS_DIR, "fonts", "Pretendard-Bold.woff2")
+DISPLAY = os.path.join(ASSETS_DIR, "fonts", "NotoSerif-ExtraBoldItalic.ttf")
+SANS = os.path.join(ASSETS_DIR, "fonts", "Roboto-Medium.ttf")
 
 (
     Canvas.from_aspect_ratio("16:9", 1280)
@@ -19,27 +20,27 @@ PRETENDARD = os.path.join(ASSETS_DIR, "fonts", "Pretendard-Bold.woff2")
     .background(
         gradient=LinearGradient(
             angle=90,
-            stops=[("#101416F2", 0.0), ("#101416B8", 0.48), ("#10141612", 1.0)],
+            stops=[("#08162BF5", 0.0), ("#08162BC4", 0.5), ("#08162B10", 1.0)],
         )
     )
     .text(
-        content="CITY NOTE  07",
-        font=PRETENDARD,
+        content="NIGHT STUDIES  /  SEOUL 07",
+        font=SANS,
         size=20,
-        color="#D8FF4F",
+        color="#FFB547",
         weight=700,
         letter_spacing=3,
         position=(64, 58),
     )
     .text(
-        content="비가 오면\n서울은 조금\n느려진다",
-        font=PRETENDARD,
-        size=92,
-        color="#F5F1E8",
+        content="THE CITY\nAFTER RAIN",
+        font=DISPLAY,
+        size=108,
+        color="#F7F1E8",
         weight=700,
-        line_height=1.08,
-        letter_spacing=-3,
-        position=(64, 146),
+        line_height=1.02,
+        letter_spacing=-4,
+        position=(64, 162),
     )
     .shape(
         shape="rectangle",
@@ -49,16 +50,16 @@ PRETENDARD = os.path.join(ASSETS_DIR, "fonts", "Pretendard-Bold.woff2")
         color="#F5F1E866",
     )
     .text(
-        content="퇴근길에 발견한 빛과 소리, 그리고 작은 장면들",
-        font=PRETENDARD,
+        content="Light, sound, and the quiet choreography of a late commute",
+        font=SANS,
         size=25,
         color="#D9D4C9",
         weight=400,
         position=(64, 570),
     )
     .text(
-        content="06:42  /  EULJIRO",
-        font=PRETENDARD,
+        content="06:42 PM  /  EULJIRO",
+        font=SANS,
         size=17,
         color="#F5F1E899",
         weight=500,

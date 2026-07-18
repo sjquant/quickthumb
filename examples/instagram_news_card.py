@@ -11,7 +11,7 @@ PRETENDARD = os.path.join(ASSETS_DIR, "fonts", "Pretendard-Bold.woff2")
 
 (
     Canvas(1080, 1080)
-    .background(color="#EEE9DE")
+    .background(color="#BAC9FF")
     .image(
         path=os.path.join(ASSETS_DIR, "images", "tobias-rademacher-wnF27F85ZKw-unsplash.jpg"),
         position=(52, 52),
@@ -27,6 +27,13 @@ PRETENDARD = os.path.join(ASSETS_DIR, "fonts", "Pretendard-Bold.woff2")
         ),
         opacity=0.34,
     )
+    .shape(
+        shape="rectangle",
+        position=(52, 540),
+        width=976,
+        height=488,
+        color="#111A31",
+    )
     .text(
         content="THE WEEKLY CONTEXT",
         font=PRETENDARD,
@@ -40,7 +47,7 @@ PRETENDARD = os.path.join(ASSETS_DIR, "fonts", "Pretendard-Bold.woff2")
         content="기후는 숫자보다\n먼저 도착한다",
         font=PRETENDARD,
         size=79,
-        color="#17211D",
+        color="#F7F2E8",
         weight=700,
         line_height=1.12,
         letter_spacing=-3,
@@ -50,7 +57,7 @@ PRETENDARD = os.path.join(ASSETS_DIR, "fonts", "Pretendard-Bold.woff2")
         content="산불과 도시의 일상을 연결해 읽는 다섯 개의 장면",
         font=PRETENDARD,
         size=27,
-        color="#56605B",
+        color="#BFCDF5",
         weight=400,
         position=(64, 827),
     )
@@ -59,13 +66,13 @@ PRETENDARD = os.path.join(ASSETS_DIR, "fonts", "Pretendard-Bold.woff2")
         position=(64, 922),
         width=952,
         height=1,
-        color="#17211D55",
+        color="#F7F2E855",
     )
     .text(
         content="ENVIRONMENT  /  ISSUE 28",
         font=PRETENDARD,
         size=18,
-        color="#B6402E",
+        color="#FF7458",
         weight=700,
         letter_spacing=2,
         position=(64, 968),
@@ -74,7 +81,7 @@ PRETENDARD = os.path.join(ASSETS_DIR, "fonts", "Pretendard-Bold.woff2")
         content="2026. 02. 20",
         font=PRETENDARD,
         size=18,
-        color="#6E756F",
+        color="#AEBCE6",
         weight=500,
         position=(1016, 968),
         align=("right", "top"),

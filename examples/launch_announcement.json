@@ -3,12 +3,12 @@
   "height": 720,
   "theme": {
     "colors": {
-      "paper": "#F0ECE2",
-      "ink": "#17211D",
-      "muted": "#68716C",
-      "accent": "#F45A3A",
-      "green": "#1D4A3C",
-      "rule": "#17211D33"
+      "paper": "#1738F5",
+      "ink": "#FFF5E8",
+      "muted": "#C8D5FF",
+      "accent": "#FF684A",
+      "green": "#D7FF54",
+      "rule": "#FFF5E855"
     },
     "sizes": {
       "title": 86,
@@ -22,7 +22,7 @@
       "type": "background",
       "color": "$theme.colors.paper",
       "effects": [
-        { "type": "grain", "intensity": 0.035, "monochrome": true, "seed": 7 }
+        { "type": "grain", "intensity": 0.025, "monochrome": true, "seed": 7 }
       ]
     },
     {
@@ -31,7 +31,7 @@
       "position": [1040, 360],
       "width": 330,
       "height": 330,
-      "color": "$theme.colors.accent",
+      "color": "$theme.colors.green",
       "align": "center",
       "rotation": 12,
       "star_points": 8,
@@ -46,7 +46,7 @@
       "children": [
         {
           "type": "text",
-          "content": "QUICKTHUMB  0.5  /  PRODUCT NOTE",
+          "content": "QUICKTHUMB  0.5  /  RELEASE NOTE",
           "font": "assets/fonts/Pretendard-Bold.woff2",
           "size": "$theme.sizes.meta",
           "color": "$theme.colors.green",
@@ -55,18 +55,18 @@
         },
         {
           "type": "text",
-          "content": "레이아웃은 덜 고민하고\n이야기에 더 집중하세요",
-          "font": "assets/fonts/Pretendard-Bold.woff2",
+          "content": "DESIGN AT THE\nSPEED OF THOUGHT",
+          "font": "assets/fonts/NotoSans-Black.ttf",
           "size": "$theme.sizes.title",
           "color": "$theme.colors.ink",
           "weight": 700,
           "line_height": 1.13,
-          "letter_spacing": -3
+          "letter_spacing": -4
         },
         {
           "type": "text",
-          "content": "그룹, 테마 토큰, 진단 기능이 한 번에 맞물립니다.",
-          "font": "assets/fonts/Pretendard-Regular.woff2",
+          "content": "Auto-layout, theme tokens, and diagnostics — working as one system.",
+          "font": "assets/fonts/Roboto-Regular.ttf",
           "size": "$theme.sizes.subtitle",
           "color": "$theme.colors.muted",
           "line_height": 1.4
@@ -81,7 +81,7 @@
               "content": "AUTO LAYOUT",
               "font": "assets/fonts/Pretendard-Bold.woff2",
               "size": "$theme.sizes.chip",
-              "color": "$theme.colors.green",
+              "color": "$theme.colors.ink",
               "weight": 700,
               "letter_spacing": 1
             },
@@ -90,7 +90,7 @@
               "content": "THEME TOKENS",
               "font": "assets/fonts/Pretendard-Bold.woff2",
               "size": "$theme.sizes.chip",
-              "color": "$theme.colors.green",
+              "color": "$theme.colors.ink",
               "weight": 700,
               "letter_spacing": 1
             },
@@ -99,7 +99,7 @@
               "content": "DIAGNOSTICS",
               "font": "assets/fonts/Pretendard-Bold.woff2",
               "size": "$theme.sizes.chip",
-              "color": "$theme.colors.green",
+              "color": "$theme.colors.ink",
               "weight": 700,
               "letter_spacing": 1
             }
