@@ -43,17 +43,17 @@ HEIGHT = 720
     # Subtitle: "ARE YOU"
     .text(
         content="ARE YOU",
-        size=40,
+        size=32,
         color="#fbbf24",  # Amber accent
         position=(50, 80),
         weight=900,
-        letter_spacing=2,
+        letter_spacing=3,
         effects=[Shadow(offset_x=0, offset_y=4, color="#00000099", blur_radius=8)],
     )
     # Headline Line 1: "BURNING"
     .text(
         content="BURNING",
-        size=138,
+        size=132,
         color="#FFFFFF",
         position=(50, 130),
         weight=900,
@@ -62,12 +62,12 @@ HEIGHT = 720
     # Headline Line 2: "OUT?"
     .text(
         content="OUT?",
-        size=138,
+        size=132,
         color="#ff5722",  # Deep Orange
         position=(50, 260),
         weight=900,
         effects=[
-            Stroke(width=2, color="#FFFFFF"),
+            Stroke(width=1, color="#FFFFFF"),
             Shadow(offset_x=0, offset_y=8, color="#000000AA", blur_radius=12),
         ],
     )
@@ -87,7 +87,7 @@ HEIGHT = 720
     # "WARNING SIGNS"
     .text(
         content="WARNING SIGNS",
-        size=40,
+        size=36,
         color="#FFFFFF",
         position=(150, 580),
         weight=700,
@@ -96,7 +96,7 @@ HEIGHT = 720
     # "YOU'RE IGNORING"
     .text(
         content="YOU'RE IGNORING",
-        size=40,
+        size=36,
         color="#fbbf24",
         position=(150, 635),
         weight=700,

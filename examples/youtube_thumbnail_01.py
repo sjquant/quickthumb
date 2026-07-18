@@ -9,7 +9,7 @@ Creates an eye-catching YouTube-style thumbnail with:
 
 import os
 
-from quickthumb import Canvas, Filter, TextPart
+from quickthumb import Canvas, Filter, LinearGradient, Shadow, TextPart
 from quickthumb.models import Stroke
 
 FILE_DIR = os.path.dirname(__file__)
@@ -25,33 +25,52 @@ os.environ["QUICKTHUMB_DEFAULT_FONT"] = "Roboto"
     # For now, using a dark background as placeholder
     .background(
         image=os.path.join(ASSETS_DIR, "images", "c-g-JgDUVGAXsso-unsplash.jpg"),
-        effects=[Filter(brightness=0.7)],
+        effects=[Filter(brightness=0.78, contrast=1.06, saturation=0.9)],
     )
     # Add a semi-transparent overlay to darken the background
     # This helps text stand out better
-    .background(color="#000000", opacity=0.54)
+    .background(
+        gradient=LinearGradient(
+            angle=90,
+            stops=[("#050805F2", 0.0), ("#050805C7", 0.48), ("#0508052E", 1.0)],
+        )
+    )
+    .text(
+        content="QUICKTHUMB  /  CREATOR SERIES",
+        size=22,
+        color="#D8E0D5",
+        weight=700,
+        letter_spacing=3,
+        position=("8%", "16%"),
+    )
     # Add headline and subtitle as rich text with different sizes and colors
     .text(
         content=[
             TextPart(
-                text="MAKE BETTER\nTHUMBNAILS\nIN MINUTES\n",
-                color="#B8FF00",
-                effects=[Stroke(width=6, color="#000000")],
+                text="MAKE BETTER\nTHUMBNAILS\n",
+                color="#F7F9F5",
+                effects=[Stroke(width=2, color="#081008")],
             ),
             TextPart(
-                text="Design faster with Quickthumb",
-                color="#E0E0E0",
-                size=42,
-                effects=[Stroke(width=3, color="#000000")],
+                text="IN MINUTES\n",
+                color="#B8FF00",
+                effects=[Stroke(width=2, color="#081008")],
+            ),
+            TextPart(
+                text="A practical workflow for faster creative output",
+                color="#D8E0D5",
+                size=32,
             ),
         ],
-        size=108,
-        position=("8%", "50%"),
+        size=100,
+        line_height=1.02,
+        position=("8%", "53%"),
         align=("left", "middle"),
         bold=True,
+        effects=[Shadow(offset_x=0, offset_y=8, color="#00000099", blur_radius=16)],
     )
     # Add bright neon green border
-    .outline(width=10, color="#B8FF00")
+    .outline(width=6, color="#B8FF00")
     # Render the thumbnail
     .render(os.path.join(FILE_DIR, "youtube_thumbnail_01.png"))
 )

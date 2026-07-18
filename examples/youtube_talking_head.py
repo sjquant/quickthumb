@@ -46,12 +46,12 @@ PORTRAIT_URL = (
         width=244,
         height=52,
         color="#E53E3E",
-        border_radius=8,
+        border_radius=26,
         effects=[Shadow(offset_x=0, offset_y=6, color="#00000066", blur_radius=10)],
     )
     .text(
         content="FIELD NOTES  /  08",
-        size=22,
+        size=20,
         color="#FFFFFF",
         weight=900,
         letter_spacing=1,
@@ -64,20 +64,20 @@ PORTRAIT_URL = (
             TextPart(text="THE TRUTH\nABOUT\n", color="#FFFFFF", weight=900),
             TextPart(text="AI TOOLS", color="#FFD700", weight=900),
         ],
-        size=96,
-        line_height=0.95,
+        size=88,
+        line_height=0.97,
         position=(52, 155),
         align=("left", "top"),
         max_width="52%",
         effects=[
-            Stroke(width=2, color="#000000"),
-            Shadow(offset_x=0, offset_y=8, color="#000000AA", blur_radius=14),
+            Stroke(width=1, color="#000000"),
+            Shadow(offset_x=0, offset_y=8, color="#00000099", blur_radius=14),
         ],
     )
     # Sub-copy anchored near the bottom
     .text(
         content="What changes after the first 30 days",
-        size=36,
+        size=32,
         color="#D4D4D4",
         weight=500,
         position=(52, 620),
@@ -94,7 +94,7 @@ PORTRAIT_URL = (
         remove_background=True,
         effects=[Shadow(offset_x=-14, offset_y=0, color="#00000088", blur_radius=22)],
     )
-    .outline(width=8, color="#FFD700")
+    .outline(width=4, color="#FFD700")
     .render(OUTPUT_PATH)
 )
 

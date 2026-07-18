@@ -46,8 +46,8 @@ SHOW_FONT_URL = "https://fonts.gstatic.com/s/pacifico/v22/FwZY7-Qmy14u9lezJ-6H6M
         width=220,
         height=54,
         color="#F04D23",
-        border_radius=18,
-        effects=[Shadow(offset_x=0, offset_y=8, color="#00000066", blur_radius=14)],
+        border_radius=27,
+        effects=[Shadow(offset_x=0, offset_y=6, color="#00000055", blur_radius=12)],
     )
     .text(
         content="NEW EPISODE",
@@ -61,43 +61,43 @@ SHOW_FONT_URL = "https://fonts.gstatic.com/s/pacifico/v22/FwZY7-Qmy14u9lezJ-6H6M
     .text(
         content="Signal to Noise",
         font=SHOW_FONT_URL,
-        size=62,
+        size=48,
         color="#8CE1FF",
-        position=(60, 130),
-        effects=[Shadow(offset_x=0, offset_y=6, color="#021018CC", blur_radius=12)],
+        position=(60, 126),
+        effects=[Shadow(offset_x=0, offset_y=4, color="#021018AA", blur_radius=10)],
     )
     .text(
         content="HOW GREAT TEAMS\nBUILD BETTER\nFEEDBACK LOOPS",
-        size=64,
+        size=58,
         color="#FFFFFF",
         weight=900,
-        line_height=1.0,
-        position=(60, 220),
+        line_height=1.02,
+        position=(60, 204),
         effects=[
-            Stroke(width=2, color="#04111A"),
-            Shadow(offset_x=0, offset_y=8, color="#00000099", blur_radius=14),
+            Stroke(width=1, color="#04111A"),
+            Shadow(offset_x=0, offset_y=7, color="#00000088", blur_radius=14),
         ],
     )
     .text(
         content="A practical interview on shipping faster without breaking trust.",
-        size=34,
+        size=30,
         color="#C7D5E0",
-        position=(64, 415),
+        position=(64, 400),
         max_width=600,
         line_height=1.2,
         effects=[Shadow(offset_x=0, offset_y=4, color="#00000080", blur_radius=8)],
     )
     .shape(
         shape="rectangle",
-        position=(62, 530),
-        width=430,
-        height=120,
+        position=(62, 526),
+        width=380,
+        height=112,
         color="#0E2436",
         border_radius=20,
         opacity=0.92,
         effects=[
-            Stroke(width=2, color="#8CE1FF66"),
-            Shadow(offset_x=0, offset_y=12, color="#00000066", blur_radius=16),
+            Stroke(width=1, color="#8CE1FF66"),
+            Shadow(offset_x=0, offset_y=10, color="#00000055", blur_radius=16),
         ],
     )
     .text(
@@ -106,21 +106,21 @@ SHOW_FONT_URL = "https://fonts.gstatic.com/s/pacifico/v22/FwZY7-Qmy14u9lezJ-6H6M
         color="#8CE1FF",
         weight=700,
         letter_spacing=2,
-        position=(90, 556),
+        position=(88, 550),
     )
     .text(
         content="Mina Park",
-        size=42,
+        size=38,
         color="#FFFFFF",
         weight=900,
-        position=(88, 582),
+        position=(88, 578),
     )
     .text(
         content="AI Product Lead",
         size=24,
         color="#C7D5E0",
         weight=500,
-        position=(90, 622),
+        position=(90, 614),
     )
     .image(
         path=GUEST_URL,
@@ -134,7 +134,7 @@ SHOW_FONT_URL = "https://fonts.gstatic.com/s/pacifico/v22/FwZY7-Qmy14u9lezJ-6H6M
             Shadow(offset_x=16, offset_y=18, color="#000000AA", blur_radius=22),
         ],
     )
-    .outline(width=6, color="#8CE1FF")
+    .outline(width=4, color="#8CE1FF")
     .render(OUTPUT_PATH)
 )
 

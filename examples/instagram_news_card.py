@@ -40,25 +40,25 @@ SIZE = 1080
     # 3. "BREAKING NEWS" badge near the top
     .text(
         content="BREAKING NEWS",
-        size=32,
+        size=28,
         color="#FFFFFF",
         weight=900,
         letter_spacing=4,
         position=("50%", "8%"),
         align=("center", "top"),
         effects=[
-            Background(color="#CC0000", padding=(12, 24), border_radius=4),
+            Background(color="#CC0000", padding=(11, 22), border_radius=14),
         ],
     )
     # 4. Main headline — large, bold, white with shadow
     .text(
         content="Wildfires Spread\nAcross Thousands\nof Acres",
-        size=86,
+        size=82,
         color="#FFFFFF",
         weight=900,
         position=("8%", "48%"),
         align=("left", "middle"),
-        line_height=1.15,
+        line_height=1.12,
         effects=[
             Stroke(width=1, color="#000000"),
             Shadow(offset_x=0, offset_y=6, color="#000000AA", blur_radius=10),
@@ -67,7 +67,7 @@ SIZE = 1080
     # 5. Sub-headline / context line
     .text(
         content="Emergency evacuations ordered in three regions as firefighters battle the blaze",
-        size=32,
+        size=30,
         color="#E0E0E0",
         weight=400,
         position=("8%", "79%"),

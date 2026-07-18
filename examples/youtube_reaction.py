@@ -38,8 +38,8 @@ os.environ["QUICKTHUMB_DEFAULT_FONT"] = "Roboto"
         width=272,
         height=56,
         color="#FF4500",
-        border_radius=4,
-        effects=[Glow(color="#FF4500", radius=10, opacity=0.3)],
+        border_radius=28,
+        effects=[Shadow(offset_x=0, offset_y=6, color="#00000088", blur_radius=12)],
     )
     .text(
         content="REACTING TO",
@@ -50,27 +50,53 @@ os.environ["QUICKTHUMB_DEFAULT_FONT"] = "Roboto"
         position=(184, 76),
         align=("center", "middle"),
     )
-    # Oversized decorative punctuation on the right — purely visual
+    # Framed signal panel gives the decorative punctuation a clear visual role
+    .shape(
+        shape="rectangle",
+        position=(838, 126),
+        width=368,
+        height=420,
+        color="#121212",
+        border_radius=24,
+        opacity=0.92,
+        effects=[Stroke(width=1, color="#FFFFFF20")],
+    )
+    .text(
+        content="48H SIGNAL",
+        size=20,
+        color="#A3A3A3",
+        weight=700,
+        letter_spacing=3,
+        position=(882, 166),
+    )
     .text(
         content="?!",
-        size=380,
-        color="#1C1C1C",
+        size=280,
+        color="#FF450033",
         weight=900,
-        position=(900, 380),
+        position=(1022, 330),
         align=("center", "middle"),
         rotation=-12,
+    )
+    .text(
+        content="12.4M VIEWS",
+        size=28,
+        color="#F5F5F5",
+        weight=900,
+        letter_spacing=1,
+        position=(882, 490),
     )
     # Giant reaction word
     .text(
         content="VIRAL",
-        size=190,
+        size=176,
         color="#FF4500",
         weight=900,
         position=(52, 130),
         effects=[
-            Stroke(width=4, color="#000000"),
-            Glow(color="#FF4500", radius=20, opacity=0.24),
-            Shadow(offset_x=6, offset_y=8, color="#000000", blur_radius=4),
+            Stroke(width=2, color="#000000"),
+            Glow(color="#FF4500", radius=14, opacity=0.18),
+            Shadow(offset_x=0, offset_y=8, color="#000000AA", blur_radius=12),
         ],
     )
     # Secondary text line with accent number
@@ -79,24 +105,24 @@ os.environ["QUICKTHUMB_DEFAULT_FONT"] = "Roboto"
             TextPart(text="TREND ", color="#FFFFFF", weight=900),
             TextPart(text="#1", color="#FFD700", weight=900),
         ],
-        size=100,
+        size=88,
         position=(52, 365),
         effects=[
-            Stroke(width=3, color="#000000"),
-            Shadow(offset_x=4, offset_y=5, color="#000000", blur_radius=4),
+            Stroke(width=2, color="#000000"),
+            Shadow(offset_x=0, offset_y=6, color="#00000099", blur_radius=10),
         ],
     )
     # Bottom commentary label
     .text(
         content="WHY IT WORKED — AND WHAT COMES NEXT",
-        size=38,
+        size=30,
         color="#A3A3A3",
         weight=700,
         letter_spacing=1,
         position=(52, 624),
         effects=[Shadow(offset_x=2, offset_y=2, color="#000000", blur_radius=4)],
     )
-    .outline(width=8, color="#FF4500")
+    .outline(width=4, color="#FF4500")
     .render(OUTPUT_PATH)
 )
 
