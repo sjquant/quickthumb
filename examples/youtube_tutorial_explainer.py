@@ -11,7 +11,7 @@ Clean numbered-steps layout on a gradient background:
 
 import os
 
-from quickthumb import Canvas, LinearGradient, Shadow, Stroke, TextPart
+from quickthumb import Canvas, LinearGradient, RadialGradient, Shadow, Stroke, TextPart
 
 FILE_DIR = os.path.dirname(__file__)
 ASSETS_DIR = os.path.join(FILE_DIR, "..", "assets")
@@ -33,6 +33,12 @@ def main():
             gradient=LinearGradient(
                 angle=135,
                 stops=[("#0F172A", 0.0), ("#1E3A5F", 0.6), ("#0F172A", 1.0)],
+            )
+        )
+        .background(
+            gradient=RadialGradient(
+                center=(0.82, 0.5),
+                stops=[("#3B82F62B", 0.0), ("#3B82F600", 0.62)],
             )
         )
         # Subtle left-edge accent glow
@@ -93,6 +99,33 @@ def main():
             height=390,
             color="#3B82F630",
             border_radius=2,
+        )
+        .text(
+            content="01  /  CORE CONCEPTS",
+            size=17,
+            color="#60A5FA",
+            weight=700,
+            letter_spacing=2,
+            position=(52, 550),
+        )
+        .text(
+            content="learn  /  build  /  ship",
+            size=24,
+            color="#E2E8F0",
+            weight=500,
+            position=(52, 584),
+            effects=[
+                Shadow(offset_x=0, offset_y=6, color="#00000055", blur_radius=10),
+            ],
+        )
+        .text(
+            content="PYTHON / 30 DAYS",
+            size=16,
+            color="#FFFFFF88",
+            weight=700,
+            letter_spacing=2,
+            position=(1224, 64),
+            align=("right", "top"),
         )
     )
 

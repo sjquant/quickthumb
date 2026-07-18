@@ -39,6 +39,24 @@ PORTRAIT_URL = (
             stops=[("#0A0A0A", 0.0), ("#0A0A0ACC", 0.48), ("#0A0A0A00", 1.0)],
         )
     )
+    .text(
+        content="08",
+        size=290,
+        color="#FFD700",
+        opacity=0.1,
+        weight=900,
+        position=(716, 420),
+        align=("center", "middle"),
+        rotation=-8,
+    )
+    .shape(
+        shape="rectangle",
+        position=(52, 132),
+        width=56,
+        height=5,
+        color="#FFD700",
+        border_radius=3,
+    )
     # Topic badge
     .shape(
         shape="rectangle",
@@ -82,6 +100,15 @@ PORTRAIT_URL = (
         weight=500,
         position=(52, 620),
         effects=[Shadow(offset_x=2, offset_y=2, color="#000000", blur_radius=6)],
+    )
+    .text(
+        content="NO HYPE  ·  REAL-WORLD NOTES",
+        size=17,
+        color="#FFFFFF88",
+        weight=700,
+        letter_spacing=3,
+        position=(1228, 660),
+        align=("right", "top"),
     )
     # Subject portrait — bottom-anchored on the right side
     .image(

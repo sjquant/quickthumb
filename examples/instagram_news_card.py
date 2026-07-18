@@ -37,6 +37,22 @@ SIZE = 1080
             stops=[("#00000000", 0.0), ("#000000CC", 0.45), ("#000000F0", 1.0)],
         ),
     )
+    .text(
+        content="QUICKTHUMB  /  LIVE DESK",
+        size=19,
+        color="#FFFFFFAA",
+        weight=700,
+        letter_spacing=3,
+        position=("8%", "6%"),
+        align=("left", "top"),
+    )
+    .shape(
+        shape="rectangle",
+        position=("8%", "11%"),
+        width=908,
+        height=2,
+        color="#FFFFFF44",
+    )
     # 3. "BREAKING NEWS" badge near the top
     .text(
         content="BREAKING NEWS",
@@ -44,19 +60,28 @@ SIZE = 1080
         color="#FFFFFF",
         weight=900,
         letter_spacing=4,
-        position=("50%", "8%"),
-        align=("center", "top"),
+        position=("8%", "15%"),
+        align=("left", "top"),
         effects=[
-            Background(color="#CC0000", padding=(11, 22), border_radius=14),
+            Background(color="#CC0000", padding=(11, 22), border_radius=2),
         ],
+    )
+    .shape(
+        shape="rectangle",
+        position=("8%", "34%"),
+        width=7,
+        height=310,
+        color="#E11D2E",
+        border_radius=4,
     )
     # 4. Main headline — large, bold, white with shadow
     .text(
         content="Wildfires Spread\nAcross Thousands\nof Acres",
-        size=82,
+        font="NotoSerif",
+        size=80,
         color="#FFFFFF",
         weight=900,
-        position=("8%", "48%"),
+        position=("11%", "49%"),
         align=("left", "middle"),
         line_height=1.12,
         effects=[
@@ -72,7 +97,7 @@ SIZE = 1080
         weight=400,
         position=("8%", "79%"),
         align=("left", "top"),
-        max_width="84%",
+        max_width="78%",
         effects=[
             Shadow(offset_x=0, offset_y=3, color="#00000099", blur_radius=6),
         ],

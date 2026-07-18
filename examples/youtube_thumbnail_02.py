@@ -10,7 +10,7 @@ Professional thumbnail with:
 
 import os
 
-from quickthumb import Canvas, Filter, FitMode, LinearGradient
+from quickthumb import Canvas, Filter, FitMode, LinearGradient, RadialGradient
 from quickthumb.models import Background, Shadow, Stroke
 
 FILE_DIR = os.path.dirname(__file__)
@@ -38,6 +38,30 @@ HEIGHT = 720
             angle=120, stops=[("#0f0f23", 0.0), ("#0f0f23cc", 0.4), ("#0f0f2300", 1.0)]
         ),
         opacity=1.0,
+    )
+    .background(
+        gradient=RadialGradient(
+            center=(0.7, 0.48),
+            stops=[("#FF5A1F38", 0.0), ("#FF5A1F00", 0.68)],
+        )
+    )
+    .text(
+        content="05",
+        size=330,
+        color="#FFFFFF",
+        opacity=0.12,
+        weight=900,
+        position=(1200, 95),
+        align=("right", "top"),
+    )
+    .text(
+        content="WORK / LIFE  ·  FIELD GUIDE",
+        size=18,
+        color="#FFFFFF99",
+        weight=700,
+        letter_spacing=3,
+        position=(1214, 70),
+        align=("right", "top"),
     )
     # 3. Typography
     # Subtitle: "ARE YOU"
@@ -72,6 +96,15 @@ HEIGHT = 720
         ],
     )
     # 4. Footer / Hook
+    .shape(
+        shape="rectangle",
+        position=(24, 552),
+        width=568,
+        height=136,
+        color="#090B15DD",
+        border_radius=24,
+        effects=[Stroke(width=1, color="#FFFFFF24")],
+    )
     # "5" in a box
     .text(
         content="5",
@@ -80,7 +113,7 @@ HEIGHT = 720
         position=(50, 580),
         weight=900,
         effects=[
-            Background(color="#fbbf24", padding=(15, 25), border_radius=8),
+            Background(color="#fbbf24", padding=(15, 25), border_radius=16),
             Shadow(offset_x=0, offset_y=6, color="#00000088", blur_radius=10),
         ],
     )

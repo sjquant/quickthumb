@@ -43,6 +43,14 @@ os.environ["QUICKTHUMB_DEFAULT_FONT"] = "Roboto"
         letter_spacing=3,
         position=("8%", "16%"),
     )
+    .shape(
+        shape="rectangle",
+        position=("8%", "21%"),
+        width=64,
+        height=5,
+        color="#B8FF00",
+        border_radius=3,
+    )
     # Add headline and subtitle as rich text with different sizes and colors
     .text(
         content=[
@@ -68,6 +76,33 @@ os.environ["QUICKTHUMB_DEFAULT_FONT"] = "Roboto"
         align=("left", "middle"),
         bold=True,
         effects=[Shadow(offset_x=0, offset_y=8, color="#00000099", blur_radius=16)],
+    )
+    .shape(
+        shape="rectangle",
+        position=(1006, 116),
+        width=210,
+        height=42,
+        color="#071007CC",
+        border_radius=21,
+        effects=[Stroke(width=1, color="#B8FF0055")],
+    )
+    .text(
+        content="CODE  /  RENDER  /  SHIP",
+        size=16,
+        color="#D8E0D5",
+        weight=700,
+        letter_spacing=1,
+        position=(1111, 137),
+        align=("center", "middle"),
+    )
+    .text(
+        content="01",
+        size=168,
+        color="#B8FF00",
+        opacity=0.14,
+        weight=900,
+        position=(1185, 610),
+        align=("right", "bottom"),
     )
     # Add bright neon green border
     .outline(width=6, color="#B8FF00")

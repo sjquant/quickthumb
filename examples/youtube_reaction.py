@@ -10,7 +10,7 @@ High-energy reaction format built entirely from text and shape layers:
 
 import os
 
-from quickthumb import Canvas, Filter, FitMode, Glow, Shadow, Stroke, TextPart
+from quickthumb import Canvas, Filter, FitMode, Glow, LinearGradient, Shadow, Stroke, TextPart
 
 FILE_DIR = os.path.dirname(__file__)
 ASSETS_DIR = os.path.join(FILE_DIR, "..", "assets")
@@ -71,12 +71,38 @@ os.environ["QUICKTHUMB_DEFAULT_FONT"] = "Roboto"
     )
     .text(
         content="?!",
-        size=280,
-        color="#FF450033",
+        size=170,
+        color="#FF4500",
+        opacity=0.2,
         weight=900,
-        position=(1022, 330),
+        position=(1090, 285),
         align=("center", "middle"),
         rotation=-12,
+    )
+    .shape(
+        shape="rectangle",
+        position=(884, 386),
+        width=30,
+        height=54,
+        color="#FF450055",
+        border_radius=6,
+    )
+    .shape(
+        shape="rectangle",
+        position=(932, 354),
+        width=30,
+        height=86,
+        color="#FF450099",
+        border_radius=6,
+    )
+    .shape(
+        shape="rectangle",
+        position=(980, 310),
+        width=30,
+        height=130,
+        color="#FF4500",
+        border_radius=6,
+        effects=[Glow(color="#FF4500", radius=12, opacity=0.2)],
     )
     .text(
         content="12.4M VIEWS",
@@ -90,7 +116,10 @@ os.environ["QUICKTHUMB_DEFAULT_FONT"] = "Roboto"
     .text(
         content="VIRAL",
         size=176,
-        color="#FF4500",
+        fill=LinearGradient(
+            angle=90,
+            stops=[("#FF3D00", 0.0), ("#FF7A00", 1.0)],
+        ),
         weight=900,
         position=(52, 130),
         effects=[
@@ -121,6 +150,14 @@ os.environ["QUICKTHUMB_DEFAULT_FONT"] = "Roboto"
         letter_spacing=1,
         position=(52, 624),
         effects=[Shadow(offset_x=2, offset_y=2, color="#000000", blur_radius=4)],
+    )
+    .shape(
+        shape="rectangle",
+        position=(52, 596),
+        width=88,
+        height=3,
+        color="#FF4500",
+        border_radius=2,
     )
     .outline(width=4, color="#FF4500")
     .render(OUTPUT_PATH)

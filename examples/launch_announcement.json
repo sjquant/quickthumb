@@ -11,7 +11,7 @@
       "cyan": "#22D3EE",
       "lime": "#B8FF00",
       "text": "#F4F6FF",
-      "muted": "#9BA3C7"
+      "muted": "#C2C8E2"
     },
     "sizes": {
       "title": 96,
@@ -40,16 +40,17 @@
       "type": "shape",
       "shape": "star",
       "position": ["86%", "56%"],
-      "width": 270,
-      "height": 270,
+      "width": 250,
+      "height": 250,
       "color": "$theme.colors.accent",
       "align": "center",
       "rotation": 12,
       "star_points": 5,
       "inner_radius": 0.45,
       "effects": [
-        { "type": "glow", "color": "$theme.colors.accent", "radius": 42, "opacity": 0.55 },
-        { "type": "stroke", "width": 3, "color": "$theme.colors.cyan" }
+        { "type": "glow", "color": "$theme.colors.accent", "radius": 38, "opacity": 0.45 },
+        { "type": "shadow", "offset_x": 0, "offset_y": 20, "color": "#00000066", "blur_radius": 24 },
+        { "type": "stroke", "width": 2, "color": "$theme.colors.cyan" }
       ]
     },
     {
@@ -111,7 +112,7 @@
               "fill": {
                 "type": "linear",
                 "angle": 90,
-                "stops": [["$theme.colors.cyan", 0.0], ["$theme.colors.accent", 1.0]]
+                "stops": [["#67E8F9", 0.0], ["#93C5FD", 1.0]]
               }
             }
           ],
@@ -131,50 +132,50 @@
         {
           "type": "group",
           "direction": "row",
-          "gap": 14,
+          "gap": 22,
           "children": [
             {
               "type": "text",
               "content": "GROUPS",
-              "size": "$theme.sizes.chip",
+              "size": 18,
               "color": "$theme.colors.cyan",
               "weight": 700,
               "letter_spacing": 1,
               "effects": [
-                { "type": "background", "color": "$theme.colors.panel", "padding": [8, 14], "border_radius": 18 }
+                { "type": "background", "color": "$theme.colors.panel", "padding": [7, 11], "border_radius": 16 }
               ]
             },
             {
               "type": "text",
               "content": "THEME TOKENS",
-              "size": "$theme.sizes.chip",
+              "size": 18,
               "color": "$theme.colors.cyan",
               "weight": 700,
               "letter_spacing": 1,
               "effects": [
-                { "type": "background", "color": "$theme.colors.panel", "padding": [8, 14], "border_radius": 18 }
+                { "type": "background", "color": "$theme.colors.panel", "padding": [7, 11], "border_radius": 16 }
               ]
             },
             {
               "type": "text",
               "content": "SVG",
-              "size": "$theme.sizes.chip",
+              "size": 18,
               "color": "$theme.colors.cyan",
               "weight": 700,
               "letter_spacing": 1,
               "effects": [
-                { "type": "background", "color": "$theme.colors.panel", "padding": [8, 14], "border_radius": 18 }
+                { "type": "background", "color": "$theme.colors.panel", "padding": [7, 11], "border_radius": 16 }
               ]
             },
             {
               "type": "text",
               "content": "DIAGNOSTICS",
-              "size": "$theme.sizes.chip",
+              "size": 18,
               "color": "$theme.colors.cyan",
               "weight": 700,
               "letter_spacing": 1,
               "effects": [
-                { "type": "background", "color": "$theme.colors.panel", "padding": [8, 14], "border_radius": 18 }
+                { "type": "background", "color": "$theme.colors.panel", "padding": [7, 11], "border_radius": 16 }
               ]
             }
           ]
@@ -183,7 +184,7 @@
     },
     {
       "type": "outline",
-      "width": 8,
+      "width": 4,
       "color": "$theme.colors.panel"
     }
   ]
