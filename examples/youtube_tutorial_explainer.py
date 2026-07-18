@@ -1,101 +1,136 @@
-"""An education-brand thumbnail that turns a curriculum into a visual system."""
+"""
+YouTube Tutorial / Explainer Thumbnail
+
+Clean numbered-steps layout on a gradient background:
+- Deep blue gradient (no background photo needed)
+- "HOW TO" badge using shape + text
+- Large two-tone headline with method chaining
+- Three numbered step badges built with a helper function
+- Vertical divider separating headline from steps
+"""
 
 import os
 
-from quickthumb import Canvas
-from quickthumb.models import Shadow
+from quickthumb import Canvas, LinearGradient, Shadow, Stroke, TextPart
 
 FILE_DIR = os.path.dirname(__file__)
 ASSETS_DIR = os.path.join(FILE_DIR, "..", "assets")
 OUTPUT_PATH = os.path.join(FILE_DIR, "youtube_tutorial_explainer.png")
-DISPLAY = os.path.join(ASSETS_DIR, "fonts", "NotoSans-Black.ttf")
-SANS = os.path.join(ASSETS_DIR, "fonts", "Roboto-Medium.ttf")
 
-canvas = Canvas(1280, 720).background(color="#101B35")
+os.environ["QUICKTHUMB_FONT_DIR"] = os.path.join(ASSETS_DIR, "fonts")
+os.environ["QUICKTHUMB_DEFAULT_FONT"] = "Roboto"
 
-canvas.text(
-    content="LEARNING MAP  /  01",
-    font=SANS,
-    size=18,
-    color="#AFC6FF",
-    weight=700,
-    letter_spacing=3,
-    position=(62, 54),
-)
-canvas.text(
-    content="30 DAYS.\nONE SYSTEM.",
-    font=DISPLAY,
-    size=82,
-    color="#F7F2E9",
-    weight=700,
-    line_height=1.08,
-    letter_spacing=-4,
-    position=(62, 140),
-)
-canvas.text(
-    content="A hands-on Python lab\nfor people who learn by shipping",
-    font=SANS,
-    size=25,
-    color="#AFC6FF",
-    weight=400,
-    position=(66, 396),
-    max_width=520,
-    line_height=1.35,
-)
+BLUE = "#3B82F6"
+DARK = "#0F172A"
 
-steps = [
-    ("01", "READ", "See the pattern"),
-    ("02", "BUILD", "Make it real"),
-    ("03", "SHIP", "Share the work"),
-]
-for index, (number, title, detail) in enumerate(steps):
-    x = 650 + index * 196
+
+def add_step(canvas, number, label, x, y):
+    """Render a numbered circular badge followed by a step label."""
     canvas.shape(
-        shape="rectangle",
-        position=(x, 142),
-        width=164,
-        height=430,
-        color="#F1EDDF" if index != 1 else "#B8FF5A",
-        border_radius=82,
-        effects=[Shadow(offset_x=0, offset_y=12, color="#07130F44", blur_radius=18)],
+        shape="ellipse",
+        position=(x, y),
+        width=72,
+        height=72,
+        color=BLUE,
+        align=("center", "middle"),
+        effects=[Shadow(offset_x=0, offset_y=6, color="#00000066", blur_radius=10)],
     )
     canvas.text(
-        content=number,
-        font=SANS,
-        size=18,
-        color="#69716D" if index != 1 else "#243411",
+        content=str(number),
+        size=38,
+        color="#FFFFFF",
+        weight=900,
+        position=(x, y),
+        align=("center", "middle"),
+    )
+    canvas.text(
+        content=label,
+        size=32,
+        color="#E2E8F0",
         weight=700,
-        position=(x + 82, 190),
-        align=("center", "middle"),
+        position=(x + 48, y),
+        align=("left", "middle"),
+        effects=[Shadow(offset_x=0, offset_y=3, color="#00000088", blur_radius=6)],
     )
-    canvas.text(
-        content=title,
-        font=DISPLAY,
-        size=30,
-        color="#101B35",
-        weight=700,
-        position=(x + 82, 348),
-        align=("center", "middle"),
-    )
-    canvas.text(
-        content=detail,
-        font=SANS,
-        size=16,
-        color="#68746E" if index != 1 else "#243411",
-        weight=500,
-        position=(x + 82, 506),
-        align=("center", "middle"),
-    )
+    return canvas
 
-canvas.text(
-    content="DAY 01 — 30",
-    font=SANS,
-    size=16,
-    color="#AFC6FF",
-    weight=700,
-    letter_spacing=2,
-    position=(62, 660),
+
+canvas = (
+    Canvas(1280, 720)
+    # Deep blue diagonal gradient background
+    .background(
+        gradient=LinearGradient(
+            angle=135,
+            stops=[("#0F172A", 0.0), ("#1E3A5F", 0.6), ("#0F172A", 1.0)],
+        )
+    )
+    # Subtle left-edge accent glow
+    .background(
+        gradient=LinearGradient(
+            angle=90,
+            stops=[(BLUE + "22", 0.0), (BLUE + "00", 0.55)],
+        )
+    )
+    # "HOW TO" label badge
+    .shape(
+        shape="rectangle",
+        position=(52, 52),
+        width=168,
+        height=48,
+        color=BLUE,
+        border_radius=6,
+        effects=[Shadow(offset_x=0, offset_y=4, color="#00000055", blur_radius=8)],
+    )
+    .text(
+        content="HOW TO",
+        size=22,
+        color="#FFFFFF",
+        weight=900,
+        letter_spacing=2,
+        position=(136, 76),
+        align=("center", "middle"),
+    )
+    # Two-tone headline
+    .text(
+        content=[
+            TextPart(text="MASTER\n", color="#FFFFFF", weight=900),
+            TextPart(text="PYTHON", color="#60A5FA", weight=900),
+        ],
+        size=118,
+        line_height=0.95,
+        position=(52, 135),
+        align=("left", "top"),
+        effects=[
+            Stroke(width=2, color=DARK),
+            Shadow(offset_x=0, offset_y=7, color="#00000099", blur_radius=12),
+        ],
+    )
+    # Subtitle
+    .text(
+        content="in 30 days — from scratch",
+        size=32,
+        color="#94A3B8",
+        weight=500,
+        position=(52, 418),
+        effects=[Shadow(offset_x=2, offset_y=2, color="#000000", blur_radius=4)],
+    )
+    # Thin vertical divider between headline area and steps
+    .shape(
+        shape="rectangle",
+        position=(696, 148),
+        width=3,
+        height=390,
+        color="#3B82F630",
+        border_radius=2,
+    )
 )
+
+add_step(canvas, 1, "Learn the basics", 754, 210)
+add_step(canvas, 2, "Build real projects", 754, 330)
+add_step(canvas, 3, "Ship and deploy", 754, 450)
+
+canvas.outline(width=8, color=BLUE)
 canvas.render(OUTPUT_PATH)
 
-print(f"✓ Curriculum thumbnail created: {OUTPUT_PATH}")
+print(f"✓ Tutorial / explainer thumbnail created: {OUTPUT_PATH}")
+print("  Swap the step labels and headline text for any how-to topic.")

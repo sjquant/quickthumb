@@ -4,111 +4,299 @@
   "layers": [
     {
       "type": "background",
-      "color": "#ECE7DC"
+      "image": "assets/images/c-g-JgDUVGAXsso-unsplash.jpg",
+      "fit": "cover",
+      "effects": [
+        {
+          "type": "filter",
+          "brightness": 0.34,
+          "contrast": 1.18,
+          "saturation": 0.72,
+          "blur": 4
+        }
+      ]
     },
     {
-      "type": "image",
-      "path": "assets/images/denise-jans-WIRvXd1PYlg-unsplash.jpg",
-      "position": [72, 72],
-      "width": 936,
-      "height": 760,
-      "fit": "cover",
-      "border_radius": 8,
+      "type": "background",
+      "gradient": {
+        "type": "linear",
+        "angle": 18,
+        "stops": [
+          ["#020617E6", 0.0],
+          ["#020617CC", 0.42],
+          ["#02061799", 0.72],
+          ["#020617F7", 1.0]
+        ]
+      },
+      "opacity": 1.0
+    },
+    {
+      "type": "shape",
+      "shape": "ellipse",
+      "position": ["86%", "25%"],
+      "width": 400,
+      "height": 400,
+      "color": "#1D4ED8",
+      "rotation": 0,
+      "align": "center",
+      "opacity": 0.32,
       "effects": [
-        { "type": "filter", "brightness": 0.9, "contrast": 1.04, "saturation": 0.58, "blur": 0 }
+        {
+          "type": "glow",
+          "color": "#1D4ED8",
+          "radius": 46,
+          "opacity": 0.45
+        }
+      ]
+    },
+    {
+      "type": "shape",
+      "shape": "rectangle",
+      "position": ["8%", "8%"],
+      "width": 334,
+      "height": 92,
+      "color": "#C1121F",
+      "border_radius": 18,
+      "rotation": -3,
+      "align": "top-left",
+      "effects": [
+        {
+          "type": "shadow",
+          "offset_x": 0,
+          "offset_y": 10,
+          "color": "#000000",
+          "blur_radius": 16
+        },
+        {
+          "type": "stroke",
+          "width": 2,
+          "color": "#FCA5A5"
+        }
       ]
     },
     {
       "type": "text",
-      "content": "ONE MINUTE ESSAY  /  12",
-      "font": "assets/fonts/Pretendard-Bold.woff2",
-      "size": 24,
-      "color": "#F7F2E8",
-      "position": [112, 120],
-      "weight": 700,
-      "letter_spacing": 4
-    },
-    {
-      "type": "shape",
-      "shape": "rectangle",
-      "position": [72, 848],
-      "width": 936,
-      "height": 648,
-      "color": "#1738F5",
-      "border_radius": 8
-    },
-    {
-      "type": "shape",
-      "shape": "rectangle",
-      "position": [72, 900],
-      "width": 72,
-      "height": 10,
-      "color": "#D7FF54",
-      "border_radius": 5
+      "content": "JSON-FIRST",
+      "font": "Roboto",
+      "size": 36,
+      "color": "#FFFFFF",
+      "position": ["23.4%", "10.9%"],
+      "align": ["center", "middle"],
+      "weight": 900,
+      "letter_spacing": 2,
+      "rotation": -3,
+      "effects": [
+        {
+          "type": "shadow",
+          "offset_x": 2,
+          "offset_y": 2,
+          "color": "#000000",
+          "blur_radius": 4
+        }
+      ]
     },
     {
       "type": "text",
-      "content": "오래 보고 싶은 건\n대개 조용하다",
-      "font": "assets/fonts/Pretendard-Bold.woff2",
-      "size": 104,
-      "color": "#FFF7EA",
-      "position": [72, 974],
+      "content": [
+        {
+          "text": "TURN LONG\nVIDEOS INTO",
+          "color": "#F8FAFC",
+          "weight": 900
+        },
+        {
+          "text": "\nSHORTS",
+          "color": "#A3FF12",
+          "weight": 900,
+          "effects": [
+            {
+              "type": "stroke",
+              "width": 6,
+              "color": "#000000"
+            }
+          ]
+        }
+      ],
+      "font": "Roboto",
+      "size": 128,
+      "position": ["8%", "26%"],
       "align": "left",
-      "max_width": 920,
-      "auto_scale": true,
-      "line_height": 1.16,
-      "letter_spacing": -4,
-      "weight": 700
-    },
-    {
-      "type": "text",
-      "content": "빠르게 넘기는 화면 사이에서\n마음이 머무는 장면에 관하여",
-      "font": "assets/fonts/Pretendard-Regular.woff2",
-      "size": 40,
-      "color": "#C9D5FF",
-      "position": [76, 1308],
-      "align": "left",
-      "max_width": 820,
-      "line_height": 1.45,
-      "weight": 400
+      "max_width": "52%",
+      "line_height": 1.0,
+      "letter_spacing": -1,
+      "effects": [
+        {
+          "type": "shadow",
+          "offset_x": 8,
+          "offset_y": 8,
+          "color": "#000000",
+          "blur_radius": 12
+        }
+      ]
     },
     {
       "type": "shape",
       "shape": "rectangle",
-      "position": [72, 1584],
-      "width": 936,
-      "height": 2,
-      "color": "#19211E44"
+      "position": ["80.5%", "42.3%"],
+      "width": 340,
+      "height": 720,
+      "color": "#020617",
+      "border_radius": 44,
+      "opacity": 0.98,
+      "rotation": 8,
+      "align": "center",
+      "effects": [
+        {
+          "type": "stroke",
+          "width": 3,
+          "color": "#CBD5E1"
+        },
+        {
+          "type": "shadow",
+          "offset_x": 0,
+          "offset_y": 22,
+          "color": "#000000",
+          "blur_radius": 28
+        }
+      ]
+    },
+    {
+      "type": "image",
+      "path": "assets/images/denise-jans-WIRvXd1PYlg-unsplash.jpg",
+      "position": ["80.5%", "42.3%"],
+      "width": 286,
+      "height": 596,
+      "fit": "cover",
+      "opacity": 1.0,
+      "rotation": 8,
+      "align": "center",
+      "border_radius": 28,
+      "effects": [
+        {
+          "type": "filter",
+          "brightness": 0.86,
+          "contrast": 1.12,
+          "saturation": 0.96,
+          "blur": 0
+        }
+      ]
     },
     {
       "type": "text",
-      "content": "01:00",
-      "font": "assets/fonts/Pretendard-Bold.woff2",
+      "content": "HOOK",
+      "font": "Roboto",
       "size": 30,
-      "color": "#19211E",
-      "position": [72, 1644],
-      "weight": 700,
-      "letter_spacing": 2
+      "color": "#FFFFFF",
+      "position": ["66.2%", "71.8%"],
+      "align": "left",
+      "weight": 900,
+      "letter_spacing": 2,
+      "effects": [
+        {
+          "type": "background",
+          "color": "#0F172ACC",
+          "padding": [12, 18],
+          "border_radius": 14
+        }
+      ]
     },
     {
       "type": "text",
-      "content": "오늘의 감각을 기록합니다",
-      "font": "assets/fonts/Pretendard-Medium.woff2",
+      "content": "CUTS",
+      "font": "Roboto",
+      "size": 30,
+      "color": "#FFFFFF",
+      "position": ["75.2%", "75.8%"],
+      "align": "left",
+      "weight": 900,
+      "letter_spacing": 2,
+      "effects": [
+        {
+          "type": "background",
+          "color": "#14532DCC",
+          "padding": [12, 18],
+          "border_radius": 14
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "content": "CAPTIONS",
+      "font": "Roboto",
       "size": 28,
-      "color": "#68716C",
-      "position": [1008, 1646],
-      "align": ["right", "top"],
-      "weight": 500
+      "color": "#FFFFFF",
+      "position": ["65.4%", "79.8%"],
+      "align": "left",
+      "weight": 900,
+      "letter_spacing": 2,
+      "effects": [
+        {
+          "type": "background",
+          "color": "#1E3A8ACC",
+          "padding": [12, 18],
+          "border_radius": 14
+        }
+      ]
     },
     {
       "type": "text",
-      "content": "SLOW SCENE",
-      "font": "assets/fonts/Pretendard-Bold.woff2",
-      "size": 22,
-      "color": "#19211E",
-      "position": [72, 1816],
-      "weight": 700,
-      "letter_spacing": 5
+      "content": "JSON in.\nCover out.",
+      "font": "NotoSans",
+      "size": 58,
+      "color": "#E2E8F0",
+      "position": ["8%", "66.5%"],
+      "align": "left",
+      "max_width": "42%",
+      "auto_scale": true,
+      "line_height": 1.1,
+      "effects": [
+        {
+          "type": "background",
+          "color": "#0F172AE6",
+          "padding": [20, 24],
+          "border_radius": 16
+        },
+        {
+          "type": "shadow",
+          "offset_x": 0,
+          "offset_y": 10,
+          "color": "#000000",
+          "blur_radius": 20
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "content": [
+        {
+          "text": "AGENT EMITS JSON",
+          "color": "#FBBF24",
+          "weight": 800
+        },
+        {
+          "text": "  |  QUICKTHUMB RENDERS",
+          "color": "#94A3B8",
+          "weight": 500
+        }
+      ],
+      "font": "Roboto",
+      "size": 36,
+      "position": ["8%", "88.8%"],
+      "align": "left",
+      "max_width": "44%",
+      "effects": [
+        {
+          "type": "shadow",
+          "offset_x": 2,
+          "offset_y": 2,
+          "color": "#000000",
+          "blur_radius": 4
+        }
+      ]
+    },
+    {
+      "type": "outline",
+      "width": 6,
+      "color": "#0F172A"
     }
   ]
 }

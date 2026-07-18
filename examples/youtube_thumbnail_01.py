@@ -1,73 +1,60 @@
-"""A cinematic city-journal thumbnail with fashion-editorial typography."""
+"""
+YouTube Thumbnail Example
+
+Creates an eye-catching YouTube-style thumbnail with:
+- Background image (rainy/bokeh effect)
+- Bold headline with rich text (brand name highlighted)
+- Bright neon green border
+"""
 
 import os
 
-from quickthumb import Canvas, Filter, FitMode, LinearGradient
+from quickthumb import Canvas, Filter, TextPart
+from quickthumb.models import Stroke
 
 FILE_DIR = os.path.dirname(__file__)
 ASSETS_DIR = os.path.join(FILE_DIR, "..", "assets")
-OUTPUT_PATH = os.path.join(FILE_DIR, "youtube_thumbnail_01.png")
-DISPLAY = os.path.join(ASSETS_DIR, "fonts", "NotoSerif-ExtraBoldItalic.ttf")
-SANS = os.path.join(ASSETS_DIR, "fonts", "Roboto-Medium.ttf")
 
+os.environ["QUICKTHUMB_FONT_DIR"] = os.path.join(ASSETS_DIR, "fonts")
+os.environ["QUICKTHUMB_DEFAULT_FONT"] = "Roboto"
+
+# Create 16:9 YouTube thumbnail (1280x720) with method chaining
 (
     Canvas.from_aspect_ratio("16:9", 1280)
+    # Add background image (placeholder - you'll add your own image here)
+    # For now, using a dark background as placeholder
     .background(
         image=os.path.join(ASSETS_DIR, "images", "c-g-JgDUVGAXsso-unsplash.jpg"),
-        fit=FitMode.COVER,
-        effects=[Filter(brightness=0.82, contrast=1.08, saturation=0.62)],
+        effects=[Filter(brightness=0.7)],
     )
-    .background(
-        gradient=LinearGradient(
-            angle=90,
-            stops=[("#08162BF5", 0.0), ("#08162BC4", 0.5), ("#08162B10", 1.0)],
-        )
-    )
+    # Add a semi-transparent overlay to darken the background
+    # This helps text stand out better
+    .background(color="#000000", opacity=0.54)
+    # Add headline and subtitle as rich text with different sizes and colors
     .text(
-        content="NIGHT STUDIES  /  SEOUL 07",
-        font=SANS,
-        size=20,
-        color="#FFB547",
-        weight=700,
-        letter_spacing=3,
-        position=(64, 58),
-    )
-    .text(
-        content="THE CITY\nAFTER RAIN",
-        font=DISPLAY,
+        content=[
+            TextPart(
+                text="MAKE BETTER\nTHUMBNAILS\nIN MINUTES\n",
+                color="#B8FF00",
+                effects=[Stroke(width=6, color="#000000")],
+            ),
+            TextPart(
+                text="Design faster with Quickthumb",
+                color="#E0E0E0",
+                size=42,
+                effects=[Stroke(width=3, color="#000000")],
+            ),
+        ],
         size=108,
-        color="#F7F1E8",
-        weight=700,
-        line_height=1.02,
-        letter_spacing=-4,
-        position=(64, 162),
+        position=("8%", "50%"),
+        align=("left", "middle"),
+        bold=True,
     )
-    .shape(
-        shape="rectangle",
-        position=(64, 538),
-        width=470,
-        height=1,
-        color="#F5F1E866",
-    )
-    .text(
-        content="Light, sound, and the quiet choreography of a late commute",
-        font=SANS,
-        size=25,
-        color="#D9D4C9",
-        weight=400,
-        position=(64, 570),
-    )
-    .text(
-        content="06:42 PM  /  EULJIRO",
-        font=SANS,
-        size=17,
-        color="#F5F1E899",
-        weight=500,
-        letter_spacing=2,
-        position=(1216, 662),
-        align=("right", "bottom"),
-    )
-    .render(OUTPUT_PATH)
+    # Add bright neon green border
+    .outline(width=10, color="#B8FF00")
+    # Render the thumbnail
+    .render(os.path.join(FILE_DIR, "youtube_thumbnail_01.png"))
 )
 
-print(f"✓ Editorial city thumbnail created: {OUTPUT_PATH}")
+print(f"✓ YouTube thumbnail created: {os.path.join(FILE_DIR, 'youtube_thumbnail_01.png')}")
+print("  Replace the background and text content with your own.")

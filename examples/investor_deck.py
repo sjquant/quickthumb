@@ -1,414 +1,533 @@
-"""모아 — 생활비 데이터로 내일을 설계하는 한국형 투자 제안서."""
+"""
+Vela Analytics — Series A investor deck.
+
+A production-quality HTML slideshow demonstrating:
+  - NotoSerif display headlines mixed with Roboto UI copy
+  - Gradient text fills, layered depth, and shape accents
+  - Carefully choreographed, per-slide entrance animations
+  - Five varied layouts: cover → problem → product → traction → CTA
+
+Run:
+    quickthumb serve examples/investor_deck.py
+    open http://localhost:3030/?presenter
+
+Export:
+    uv run python examples/investor_deck.py
+"""
 
 import os
 
-from quickthumb import Box, Canvas, Deck, Fade, Wipe
+from quickthumb import Box, Canvas, Deck, Fade, LinearGradient, Wipe
 from quickthumb import transitions as tr
-from quickthumb.models import Shadow
+from quickthumb.models import Glow, Shadow
 
 FILE_DIR = os.path.dirname(__file__)
 ASSETS_DIR = os.path.join(FILE_DIR, "..", "assets")
 OUT_HTML = os.path.join(FILE_DIR, "investor_deck.html")
 OUT_PPTX = os.path.join(FILE_DIR, "investor_deck.pptx")
-PRETENDARD_REGULAR = os.path.join(ASSETS_DIR, "fonts", "Pretendard-Regular.woff2")
-PRETENDARD_BOLD = os.path.join(ASSETS_DIR, "fonts", "Pretendard-Bold.woff2")
-
-PAPER = "#EEE9DE"
-INK = "#17211D"
-GREEN = "#1D4A3C"
-ORANGE = "#F45A3A"
-MINT = "#B9D9C8"
-MUTED = "#68716C"
-RULE = "#17211D33"
-WHITE = "#FFFDF7"
-DROP = Shadow(offset_x=0, offset_y=16, color="#0B171240", blur_radius=28)
 
 
-def main() -> None:
-    """Build and export the complete investor deck."""
-    deck = build_deck()
-    deck.render(OUT_HTML)
-    deck.render(OUT_PPTX)
-    print(f"✓ {OUT_HTML}")
-    print(f"✓ {OUT_PPTX}")
+os.environ["QUICKTHUMB_FONT_DIR"] = os.path.join(ASSETS_DIR, "fonts")
+os.environ["QUICKTHUMB_DEFAULT_FONT"] = "Roboto"
+
+# ── Palette ────────────────────────────────────────────────────────────────────
+
+INK = "#08070E"
+SURFACE = "#12111C"
+PURPLE = "#8B5CF6"
+CYAN = "#22D3EE"
+GREEN = "#10B981"
+WHITE = "#F8F8FF"
+OFFWHITE = "#C4C4D4"
+MUTED = "#64748B"
+RULE = "#1E1D2F"
+
+BRAND = LinearGradient(angle=90, stops=[(PURPLE, 0.0), (CYAN, 1.0)])
+HERO = LinearGradient(angle=110, stops=[(CYAN, 0.0), (PURPLE, 1.0)])
+DEPTH = LinearGradient(angle=160, stops=[(INK, 0.0), (SURFACE, 1.0)])
+CTA_BG = LinearGradient(angle=140, stops=[(PURPLE, 0.0), ("#4338CA", 1.0)])
+
+DROP = Shadow(offset_x=0, offset_y=6, color="#00000077", blur_radius=18)
 
 
-def build_deck() -> Deck:
-    """Return a five-slide editorial investor narrative."""
-    cover = build_cover()
-    tension = build_tension()
-    product = build_product()
-    traction = build_traction()
-    ask = build_ask()
-    return (
-        Deck(1280, 720)
-        .slide(cover, notes="숫자보다 먼저, 모아가 바꾸려는 생활의 장면을 소개합니다.")
-        .slide(
-            tension,
-            transition=tr.Push(direction="left", duration=0.6),
-            notes="소득의 문제가 아니라 불확실성을 해석할 도구가 없다는 점을 강조합니다.",
-        )
-        .slide(
-            product,
-            transition=tr.Wipe(direction="up", duration=0.5),
-            notes="기록, 예측, 행동이 하나의 짧은 루프로 연결된 제품 경험을 설명합니다.",
-        )
-        .slide(
-            traction,
-            transition=tr.Push(direction="left", duration=0.6),
-            notes="성장률보다 반복 사용과 실제 절약액을 먼저 보여줍니다.",
-        )
-        .slide(
-            ask,
-            transition=tr.Cover(direction="up", duration=0.6),
-            notes="18개월의 구체적인 목표와 이번 라운드의 쓰임을 남깁니다.",
-        )
+# ── Design helpers ─────────────────────────────────────────────────────────────
+
+
+def dark_stage(width=1280, height=720) -> Canvas:
+    return Canvas(width, height).background(gradient=DEPTH)
+
+
+def brand_bar(c: Canvas) -> Canvas:
+    """2 px two-tone rule pinned to the top edge (PURPLE → CYAN)."""
+    return c.shape(shape="rectangle", position=(0, 0), width=640, height=2, color=PURPLE).shape(
+        shape="rectangle", position=(640, 0), width=640, height=2, color=CYAN
     )
 
 
-def build_cover() -> Canvas:
-    """Open on a calm, human promise rather than a category claim."""
-    canvas = Canvas(1280, 720).background(color=PAPER)
-    canvas = add_header(canvas, "MOA  /  SEED ROUND", "2026. 07")
-    canvas.shape(
-        shape="ellipse",
-        position=(1000, 352),
-        width=430,
-        height=430,
-        color=GREEN,
-        align=("center", "middle"),
-        animation=Box(direction="in", duration=0.55),
-    )
-    canvas.shape(
-        shape="ellipse",
-        position=(1000, 352),
-        width=190,
-        height=190,
-        color=ORANGE,
-        align=("center", "middle"),
-        animation=Fade(duration=0.4, trigger="after_previous"),
-    )
-    canvas.text(
-        content="돈을 관리하는 일이\n삶을 미루는 일이\n되지 않도록",
-        font=PRETENDARD_BOLD,
-        size=80,
-        color=INK,
+def logo(c: Canvas, x: str = "10%", y: str = "8.5%") -> Canvas:
+    return c.text(
+        content="VELA",
+        font="Roboto",
+        size=18,
+        color=PURPLE,
         weight=700,
-        line_height=1.12,
-        letter_spacing=-3,
-        position=(72, 152),
-        animation=Wipe(direction="up", duration=0.55),
+        letter_spacing=4,
+        position=(x, y),
     )
-    canvas.text(
-        content="생활비 데이터를 오늘의 선택으로 바꾸는 개인 금융 코파일럿",
-        font=PRETENDARD_REGULAR,
-        size=25,
+
+
+def label(c: Canvas, text: str, x: str, y: str, *, animation=None) -> Canvas:
+    return c.text(
+        content=text,
+        font="Roboto",
+        size=19,
         color=MUTED,
-        position=(76, 514),
-        animation=Fade(duration=0.4, trigger="after_previous"),
-    )
-    canvas.shape(shape="rectangle", position=(72, 636), width=1136, height=1, color=RULE)
-    canvas.text(
-        content="CONFIDENTIAL",
-        font=PRETENDARD_BOLD,
-        size=14,
-        color=MUTED,
-        weight=700,
+        weight=400,
         letter_spacing=3,
-        position=(1208, 664),
-        align=("right", "top"),
+        position=(x, y),
+        animation=animation,
     )
-    return canvas
 
 
-def add_header(
-    canvas: Canvas,
-    section: str,
-    page: str,
-    *,
-    accent: str = ORANGE,
-    meta: str = MUTED,
-) -> Canvas:
-    """Add the restrained folio shared by every slide."""
-    canvas.text(
-        content=section,
-        font=PRETENDARD_BOLD,
-        size=16,
+def divider(c: Canvas, y: str, *, x: str = "10%", w: int = 960, animation=None) -> Canvas:
+    return c.shape(
+        shape="rectangle",
+        position=(x, y),
+        width=w,
+        height=1,
+        color=RULE,
+        animation=animation,
+    )
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Slide 1 — Cover
+# ══════════════════════════════════════════════════════════════════════════════
+
+s1 = dark_stage()
+s1 = brand_bar(s1)
+
+# Decorative depth blobs — add dimensionality without distraction.
+s1 = s1.shape(
+    shape="ellipse",
+    position=("92%", "14%"),
+    width=560,
+    height=560,
+    color=PURPLE,
+    opacity=0.07,
+    align=("center", "middle"),
+)
+s1 = s1.shape(
+    shape="ellipse",
+    position=("4%", "90%"),
+    width=320,
+    height=320,
+    color=CYAN,
+    opacity=0.06,
+    align=("center", "middle"),
+)
+
+s1 = logo(s1)
+s1 = label(s1, "SERIES A  ·  INVESTOR PRESENTATION", "10%", "17.5%", animation=Fade(duration=0.45))
+
+# Three-line display headline; gradient fill draws the eye across the break.
+s1 = s1.text(
+    content="Make better\ndecisions,\nfaster.",
+    font="NotoSerif",
+    size=108,
+    fill=BRAND,
+    weight=900,
+    line_height=1.02,
+    position=("10%", "27%"),
+    effects=[DROP],
+    animation=Box(direction="in", duration=0.55, trigger="after_previous"),
+)
+
+# Thin accent rule under the headline before the sub-copy.
+s1 = divider(s1, "77%", animation=Wipe(direction="right", duration=0.4, trigger="after_previous"))
+
+s1 = s1.text(
+    content=(
+        "Vela surfaces the signals that matter in your product data\n"
+        "so your team stops guessing and starts shipping with confidence."
+    ),
+    font="Roboto",
+    size=27,
+    color=OFFWHITE,
+    weight=300,
+    line_height=1.6,
+    position=("10%", "81%"),
+    animation=Fade(duration=0.45, trigger="after_previous"),
+)
+
+s1 = s1.text(
+    content="Confidential",
+    font="Roboto",
+    size=17,
+    color=MUTED,
+    weight=300,
+    position=("90%", "93%"),
+    align=("right", "top"),
+)
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Slide 2 — The Problem
+# ══════════════════════════════════════════════════════════════════════════════
+
+s2 = dark_stage()
+s2 = brand_bar(s2)
+s2 = logo(s2)
+s2 = label(s2, "THE PROBLEM", "50%", "8.5%")
+
+# Oversized stat is the entire argument.
+s2 = s2.text(
+    content="73%",
+    font="NotoSerif",
+    size=210,
+    fill=BRAND,
+    weight=900,
+    position=("50%", "24%"),
+    align="center",
+    effects=[DROP],
+    animation=Box(direction="in", duration=0.6),
+)
+
+s2 = s2.text(
+    content="of product decisions are made without reliable data.",
+    font="Roboto",
+    size=30,
+    color=OFFWHITE,
+    weight=300,
+    position=("50%", "73%"),
+    align="center",
+    animation=Fade(duration=0.4, trigger="after_previous"),
+)
+
+s2 = divider(
+    s2,
+    "81.5%",
+    x="50%",
+    w=800,
+    animation=Wipe(direction="left", duration=0.35, trigger="after_previous"),
+)
+
+# Three root-causes as a single inline group; same animation = one reveal.
+s2 = s2.group(
+    children=[
+        {
+            "type": "text",
+            "content": "Siloed dashboards",
+            "font": "Roboto",
+            "size": 24,
+            "color": MUTED,
+            "weight": 300,
+        },
+        {"type": "text", "content": "·", "font": "Roboto", "size": 24, "color": RULE},
+        {
+            "type": "text",
+            "content": "Alert fatigue",
+            "font": "Roboto",
+            "size": 24,
+            "color": MUTED,
+            "weight": 300,
+        },
+        {"type": "text", "content": "·", "font": "Roboto", "size": 24, "color": RULE},
+        {
+            "type": "text",
+            "content": "No clear owner",
+            "font": "Roboto",
+            "size": 24,
+            "color": MUTED,
+            "weight": 300,
+        },
+    ],
+    direction="row",
+    gap=32,
+    position=("50%", "87%"),
+    align=("center", "top"),
+    item_align="center",
+    animation=Fade(duration=0.4, trigger="after_previous"),
+)
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Slide 3 — The Product (three feature columns)
+# ══════════════════════════════════════════════════════════════════════════════
+
+FEATURES = [
+    (
+        "28%",
+        "Signal\nDetection",
+        PURPLE,
+        "10B981",
+        "Automatically surfaces\nanomalies and trends\nbefore they become incidents.",
+    ),
+    (
+        "50%",
+        "Smart\nAlerts",
+        CYAN,
+        "22D3EE",
+        "Context-aware notifications\nthat cut through noise and\nreach the right person.",
+    ),
+    (
+        "72%",
+        "Team\nSync",
+        GREEN,
+        "10B981",
+        "One-click shared views\nthat turn findings into\naligned decisions fast.",
+    ),
+]
+
+s3 = dark_stage()
+s3 = brand_bar(s3)
+s3 = logo(s3)
+s3 = label(s3, "THE PRODUCT", "50%", "8.5%")
+
+s3 = s3.text(
+    content="One platform. Every signal.",
+    font="NotoSerif",
+    size=64,
+    fill=HERO,
+    weight=900,
+    position=("50%", "20%"),
+    align="center",
+    effects=[DROP],
+    animation=Fade(duration=0.5),
+)
+
+s3 = divider(
+    s3,
+    "35%",
+    x="50%",
+    w=1040,
+    animation=Wipe(direction="right", duration=0.4, trigger="after_previous"),
+)
+
+for x_pct, title, accent, _hex, body in FEATURES:
+    grad = LinearGradient(angle=100, stops=[(accent, 0.0), (WHITE, 0.85)])
+
+    # Soft ring + crisp inner dot as a visual anchor for the column.
+    s3 = s3.shape(
+        shape="ellipse",
+        position=(x_pct, "44%"),
+        width=56,
+        height=56,
         color=accent,
-        weight=700,
-        letter_spacing=3,
-        position=(72, 54),
+        opacity=0.15,
+        align=("center", "middle"),
+        animation=Fade(duration=0.4),
     )
-    canvas.text(
-        content=page,
-        font=PRETENDARD_BOLD,
-        size=15,
-        color=meta,
-        weight=700,
-        letter_spacing=2,
-        position=(1208, 54),
-        align=("right", "top"),
+    s3 = s3.shape(
+        shape="ellipse",
+        position=(x_pct, "44%"),
+        width=24,
+        height=24,
+        color=accent,
+        align=("center", "middle"),
+        effects=[Glow(radius=6, color=accent, opacity=0.3)],
+        animation=Fade(duration=0.4, trigger="with_previous"),
     )
-    return canvas
 
-
-def build_tension() -> Canvas:
-    """Frame the problem as uncertainty people feel every day."""
-    canvas = Canvas(1280, 720).background(color=INK)
-    canvas = add_header(canvas, "01  /  THE TENSION", "02")
-    canvas.text(
-        content="월급은 숫자인데,\n불안은 감각입니다.",
-        font=PRETENDARD_BOLD,
-        size=75,
-        color=WHITE,
-        weight=700,
-        line_height=1.14,
-        letter_spacing=-3,
-        position=(72, 130),
-        animation=Wipe(direction="up", duration=0.5),
-    )
-    canvas.text(
-        content="68%",
-        font=PRETENDARD_BOLD,
-        size=172,
-        color=ORANGE,
-        weight=700,
-        position=(842, 142),
-        animation=Box(direction="in", duration=0.5),
-    )
-    canvas.text(
-        content="다음 달 지출을 정확히\n예상하지 못하는 직장인",
-        font=PRETENDARD_REGULAR,
-        size=23,
-        color=MINT,
-        line_height=1.4,
-        position=(858, 332),
-        animation=Fade(duration=0.35, trigger="after_previous"),
-    )
-    problems = [
-        ("01", "흩어진 기록", "카드, 계좌, 메모에\n생활의 맥락이 나뉩니다."),
-        ("02", "늦은 알림", "이미 쓴 뒤에야\n예산 초과를 알게 됩니다."),
-        ("03", "막연한 조언", "내 일상과 무관한\n평균만 돌아옵니다."),
-    ]
-    for index, (number, title, body) in enumerate(problems):
-        x = 72 + index * 386
-        canvas.shape(shape="rectangle", position=(x, 500), width=348, height=1, color="#FFFFFF33")
-        canvas.text(
-            content=number,
-            font=PRETENDARD_BOLD,
-            size=16,
-            color=ORANGE,
-            weight=700,
-            position=(x, 532),
-        )
-        canvas.text(
-            content=title,
-            font=PRETENDARD_BOLD,
-            size=26,
-            color=WHITE,
-            weight=700,
-            position=(x + 52, 526),
-        )
-        canvas.text(
-            content=body,
-            font=PRETENDARD_REGULAR,
-            size=19,
-            color="#C7D0CB",
-            line_height=1.45,
-            position=(x + 52, 574),
-        )
-    return canvas
-
-
-def build_product() -> Canvas:
-    """Show the product as one short, legible daily loop."""
-    canvas = Canvas(1280, 720).background(color=PAPER)
-    canvas = add_header(canvas, "02  /  THE PRODUCT", "03")
-    canvas.text(
-        content="기록에서 행동까지,\n하루 한 번이면 충분합니다.",
-        font=PRETENDARD_BOLD,
-        size=59,
-        color=INK,
-        weight=700,
-        line_height=1.18,
-        letter_spacing=-2,
-        position=(72, 122),
-        animation=Fade(duration=0.45),
-    )
-    canvas.text(
-        content="모아는 거래 내역을 보여주는 대신\n오늘 바꿀 수 있는 한 가지를 제안합니다.",
-        font=PRETENDARD_REGULAR,
-        size=23,
-        color=MUTED,
-        line_height=1.5,
-        position=(790, 146),
-    )
-    steps = [
-        ("01", "모으고", "자동으로 맥락화", GREEN),
-        ("02", "내다보고", "7일 뒤를 예측", ORANGE),
-        ("03", "바꿉니다", "한 가지 행동 제안", GREEN),
-    ]
-    for index, (number, title, body, accent) in enumerate(steps):
-        x = 72 + index * 386
-        canvas.shape(
-            shape="rectangle",
-            position=(x, 382),
-            width=348,
-            height=236,
-            color=WHITE,
-            border_radius=8,
-            effects=[DROP],
-            animation=Box(direction="in", duration=0.4),
-        )
-        canvas.shape(
-            shape="ellipse",
-            position=(x + 48, 430),
-            width=56,
-            height=56,
-            color=accent,
-            align=("center", "middle"),
-        )
-        canvas.text(
-            content=number,
-            font=PRETENDARD_BOLD,
-            size=16,
-            color=WHITE,
-            weight=700,
-            position=(x + 48, 430),
-            align=("center", "middle"),
-        )
-        canvas.text(
-            content=title,
-            font=PRETENDARD_BOLD,
-            size=32,
-            color=INK,
-            weight=700,
-            position=(x + 28, 494),
-        )
-        canvas.text(
-            content=body,
-            font=PRETENDARD_REGULAR,
-            size=21,
-            color=MUTED,
-            position=(x + 28, 552),
-        )
-    return canvas
-
-
-def build_traction() -> Canvas:
-    """Let product behavior, not vanity growth, carry the proof."""
-    canvas = Canvas(1280, 720).background(color=GREEN)
-    canvas = add_header(canvas, "03  /  MOMENTUM", "04")
-    canvas.text(
-        content="사람들이 돌아오는 이유는\n절약이 눈에 보이기 때문입니다.",
-        font=PRETENDARD_BOLD,
-        size=58,
-        color=WHITE,
-        weight=700,
-        line_height=1.18,
-        letter_spacing=-2,
-        position=(72, 120),
-        animation=Wipe(direction="up", duration=0.5),
-    )
-    metrics = [
-        ("4.8만", "월간 활성 사용자"),
-        ("71%", "8주차 잔존율"),
-        ("₩84,000", "월평균 절약액"),
-    ]
-    for index, (value, label) in enumerate(metrics):
-        x = 72 + index * 386
-        canvas.shape(shape="rectangle", position=(x, 390), width=348, height=1, color="#FFFFFF44")
-        canvas.text(
-            content=value,
-            font=PRETENDARD_BOLD,
-            size=69,
-            color=ORANGE if index == 2 else WHITE,
-            weight=700,
-            letter_spacing=-2,
-            position=(x, 432),
-            animation=Box(direction="in", duration=0.4),
-        )
-        canvas.text(
-            content=label,
-            font=PRETENDARD_REGULAR,
-            size=21,
-            color=MINT,
-            position=(x, 526),
-        )
-    canvas.text(
-        content="“처음으로 다음 달이 덜 막막해졌어요.”  —  베타 사용자 인터뷰",
-        font=PRETENDARD_REGULAR,
-        size=21,
-        color="#E7F0EB",
-        position=(72, 650),
-        italic=True,
-        animation=Fade(duration=0.4, trigger="after_previous"),
-    )
-    return canvas
-
-
-def build_ask() -> Canvas:
-    """Close with a concrete destination and a disciplined use of funds."""
-    canvas = Canvas(1280, 720).background(color=ORANGE)
-    canvas = add_header(canvas, "04  /  THE ASK", "05", accent=INK, meta=INK)
-    canvas.text(
-        content="18개월 뒤,\n100만 명의 내일을\n조금 더 선명하게.",
-        font=PRETENDARD_BOLD,
-        size=76,
-        color=INK,
+    s3 = s3.text(
+        content=title,
+        font="Roboto",
+        size=38,
+        fill=grad,
         weight=700,
         line_height=1.1,
-        letter_spacing=-3,
-        position=(72, 128),
-        animation=Box(direction="in", duration=0.55),
+        position=(x_pct, "53%"),
+        align="center",
+        animation=Wipe(direction="up", duration=0.35, trigger="with_previous"),
     )
-    canvas.shape(
-        shape="rectangle",
-        position=(818, 132),
-        width=390,
-        height=430,
-        color=INK,
-        border_radius=8,
-        effects=[DROP],
-    )
-    canvas.text(
-        content="SEED ROUND",
-        font=PRETENDARD_BOLD,
-        size=16,
-        color=MINT,
-        weight=700,
-        letter_spacing=3,
-        position=(858, 176),
-    )
-    canvas.text(
-        content="30억 원",
-        font=PRETENDARD_BOLD,
-        size=65,
-        color=WHITE,
-        weight=700,
-        position=(856, 228),
-    )
-    canvas.shape(shape="rectangle", position=(858, 324), width=310, height=1, color="#FFFFFF33")
-    canvas.text(
-        content="제품  45%\n데이터  35%\n시장 확장  20%",
-        font=PRETENDARD_REGULAR,
-        size=23,
-        color="#D8E3DD",
-        line_height=1.8,
-        position=(858, 358),
-    )
-    canvas.text(
-        content="hello@moa.money  ·  moa.money/deck",
-        font=PRETENDARD_BOLD,
-        size=18,
-        color=INK,
-        weight=700,
-        letter_spacing=1,
-        position=(72, 650),
-        animation=Fade(duration=0.4, trigger="after_previous"),
-    )
-    return canvas
 
+    s3 = s3.text(
+        content=body,
+        font="Roboto",
+        size=22,
+        color=OFFWHITE,
+        weight=300,
+        line_height=1.6,
+        position=(x_pct, "70%"),
+        align="center",
+        animation=Fade(duration=0.35, trigger="with_previous"),
+    )
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Slide 4 — Traction (three headline metrics)
+# ══════════════════════════════════════════════════════════════════════════════
+
+METRICS = [
+    ("25%", "2,400+", "Active teams", PURPLE),
+    ("50%", "94%", "Retention rate", CYAN),
+    ("75%", "$1.8M", "ARR", GREEN),
+]
+
+s4 = dark_stage()
+s4 = brand_bar(s4)
+s4 = logo(s4)
+s4 = label(s4, "TRACTION", "50%", "8.5%")
+
+s4 = s4.text(
+    content="Growing fast.\nCustomers love it.",
+    font="NotoSerif",
+    size=72,
+    fill=BRAND,
+    weight=900,
+    line_height=1.08,
+    position=("50%", "27%"),
+    align="center",
+    effects=[DROP],
+    animation=Fade(duration=0.5),
+)
+
+for x_pct, value, sublabel, accent in METRICS:
+    num_grad = LinearGradient(angle=90, stops=[(accent, 0.0), (WHITE, 0.85)])
+
+    s4 = s4.text(
+        content=value,
+        font="NotoSerif",
+        size=92,
+        fill=num_grad,
+        weight=900,
+        position=(x_pct, "50%"),
+        align="center",
+        effects=[DROP],
+        animation=Box(direction="in", duration=0.45),
+    )
+    s4 = s4.text(
+        content=sublabel,
+        font="Roboto",
+        size=25,
+        color=MUTED,
+        weight=400,
+        letter_spacing=1,
+        position=(x_pct, "72%"),
+        align="center",
+        animation=Fade(duration=0.3, trigger="after_previous"),
+    )
+
+s4 = divider(
+    s4,
+    "84%",
+    x="50%",
+    w=960,
+    animation=Wipe(direction="right", duration=0.35, trigger="after_previous"),
+)
+
+s4 = s4.text(
+    content='"Vela cut our incident response time in half." — Head of Product, Series B fintech',
+    font="Roboto",
+    size=22,
+    color=MUTED,
+    weight=300,
+    italic=True,
+    position=("50%", "89%"),
+    align="center",
+    animation=Fade(duration=0.4, trigger="after_previous"),
+)
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Slide 5 — CTA
+# ══════════════════════════════════════════════════════════════════════════════
+
+s5 = Canvas(1280, 720).background(gradient=CTA_BG)
+s5 = brand_bar(s5)
+
+# Soft depth ring in the opposite corner.
+s5 = s5.shape(
+    shape="ellipse",
+    position=("88%", "18%"),
+    width=640,
+    height=640,
+    color=WHITE,
+    opacity=0.04,
+    align=("center", "middle"),
+)
+s5 = s5.shape(
+    shape="ellipse",
+    position=("8%", "82%"),
+    width=380,
+    height=380,
+    color=WHITE,
+    opacity=0.03,
+    align=("center", "middle"),
+)
+
+s5 = logo(s5, "10%", "8.5%")
+
+s5 = s5.text(
+    content="Ready to surface\nthe signal?",
+    font="NotoSerif",
+    size=108,
+    color=WHITE,
+    weight=900,
+    line_height=1.02,
+    position=("50%", "28%"),
+    align="center",
+    effects=[DROP],
+    animation=Box(direction="in", duration=0.55),
+)
+
+s5 = s5.text(
+    content="Book a 20-minute demo  ·  vela.so/demo",
+    font="Roboto",
+    size=28,
+    color="#DDD6FE",
+    weight=300,
+    letter_spacing=1,
+    position=("50%", "72%"),
+    align="center",
+    animation=Fade(duration=0.5, trigger="after_previous"),
+)
+
+s5 = s5.text(
+    content="hello@vela.so",
+    font="Roboto",
+    size=21,
+    color="#A78BFA",
+    weight=400,
+    letter_spacing=1,
+    position=("50%", "84%"),
+    align="center",
+    animation=Fade(duration=0.4, trigger="after_previous"),
+)
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Assemble and export
+# ══════════════════════════════════════════════════════════════════════════════
+
+# A distinct slide transition per slide — these play in the HTML slideshow
+# (and in PPTX/HTML export). The cover slide cross-fades in by default.
+deck = (
+    Deck(1280, 720)
+    .slide(s1, notes="Open with the decision-speed thesis and establish the Series A context.")
+    .slide(
+        s2,
+        transition=tr.Push(direction="left", duration=0.6),
+        notes="Pause on 73%, then connect the three causes to the audience's workflow.",
+    )
+    .slide(
+        s3,
+        transition=tr.Wipe(direction="up", duration=0.5),
+        notes=(
+            "Walk left to right through the signal pipeline before revealing the product promise."
+        ),
+    )
+    .slide(
+        s4,
+        transition=tr.Push(direction="left", duration=0.6),
+        notes="Lead with ARR, then use the customer quote to make the growth concrete.",
+    )
+    .slide(
+        s5,
+        transition=tr.Cover(direction="up", duration=0.6),
+        notes="Close on the 20-minute demo ask and leave the URL visible for questions.",
+    )
+)
 
 if __name__ == "__main__":
-    main()
+    deck.render(OUT_HTML)
+    deck.render(OUT_PPTX)
+
+    print(f"✓ {OUT_HTML}")
+    print(f"  {len(deck)} slides — open in a browser.")
+    print("  Click / Space → advance   ArrowLeft → back")

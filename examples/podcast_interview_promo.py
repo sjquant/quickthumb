@@ -1,119 +1,142 @@
-"""An intimate audio-journal cover built around a bespoke editorial portrait."""
+"""
+Podcast / interview promo example.
+
+Demonstrates:
+- Remote image URLs for the background and speaker portraits
+- Webfont loading from a URL for the show title
+- Background removal on image overlays for cutout-style portraits
+"""
 
 import os
 
 from quickthumb import Canvas, Filter, FitMode, LinearGradient
-from quickthumb.models import Shadow
+from quickthumb.models import Shadow, Stroke
 
 FILE_DIR = os.path.dirname(__file__)
 ASSETS_DIR = os.path.join(FILE_DIR, "..", "assets")
 OUTPUT_PATH = os.path.join(FILE_DIR, "podcast_interview_promo.png")
-DISPLAY = os.path.join(ASSETS_DIR, "fonts", "NotoSerif-ExtraBold.ttf")
-SANS = os.path.join(ASSETS_DIR, "fonts", "Roboto-Medium.ttf")
+
+os.environ["QUICKTHUMB_FONT_DIR"] = os.path.join(ASSETS_DIR, "fonts")
+os.environ["QUICKTHUMB_DEFAULT_FONT"] = "Roboto"
+
 BACKGROUND_URL = (
     "https://images.unsplash.com/photo-1478737270239-2f02b77fc618?auto=format&fit=crop&w=1600&q=80"
 )
-GUEST_IMAGE = os.path.join(ASSETS_DIR, "images", "podcast_guest_editorial.png")
+GUEST_URL = (
+    "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=900&q=80"
+)
+SHOW_FONT_URL = "https://fonts.gstatic.com/s/pacifico/v22/FwZY7-Qmy14u9lezJ-6H6MmBp0u-.woff2"
 
 (
     Canvas(1280, 720)
-    .background(color="#351D2A")
     .background(
         image=BACKGROUND_URL,
         fit=FitMode.COVER,
-        effects=[Filter(brightness=0.4, contrast=0.94, saturation=0.38, blur=2)],
+        effects=[Filter(brightness=0.42, saturation=0.75, blur=2)],
     )
     .background(
         gradient=LinearGradient(
-            angle=90,
-            stops=[("#351D2AF7", 0.0), ("#351D2AE8", 0.52), ("#351D2A44", 1.0)],
+            angle=0,
+            stops=[("#07111F", 0.0), ("#07111FE8", 0.45), ("#07111F70", 1.0)],
         )
-    )
-    .text(
-        content="WORK, QUIETLY",
-        font=DISPLAY,
-        size=24,
-        color="#F2B8A2",
-        weight=700,
-        letter_spacing=1,
-        position=(62, 54),
-    )
-    .text(
-        content="AUDIO JOURNAL  /  EP. 42",
-        font=SANS,
-        size=17,
-        color="#F4E8DE99",
-        weight=700,
-        letter_spacing=3,
-        position=(62, 102),
-    )
-    .text(
-        content="FEEDBACK\nWITHOUT FEAR",
-        font=DISPLAY,
-        size=70,
-        color="#FFF9F1",
-        weight=700,
-        line_height=1.12,
-        letter_spacing=-2,
-        position=(62, 168),
-        max_width=650,
-    )
-    .text(
-        content="How thoughtful teams move fast without losing trust",
-        font=SANS,
-        size=26,
-        color="#D6C2B7",
-        weight=400,
-        position=(66, 396),
     )
     .shape(
         shape="rectangle",
-        position=(62, 500),
-        width=430,
-        height=142,
-        color="#FFF8EE",
-        border_radius=6,
-        effects=[Shadow(offset_x=0, offset_y=18, color="#12070C66", blur_radius=24)],
+        position=(56, 48),
+        width=220,
+        height=54,
+        color="#F04D23",
+        border_radius=18,
+        effects=[Shadow(offset_x=0, offset_y=8, color="#00000066", blur_radius=14)],
     )
     .text(
-        content="GUEST",
-        font=SANS,
-        size=15,
-        color="#9A5748",
+        content="NEW EPISODE",
+        size=24,
+        color="#FFF7F2",
+        weight=900,
+        letter_spacing=2,
+        position=(166, 75),
+        align=("center", "middle"),
+    )
+    .text(
+        content="Signal to Noise",
+        font=SHOW_FONT_URL,
+        size=62,
+        color="#8CE1FF",
+        position=(60, 130),
+        effects=[Shadow(offset_x=0, offset_y=6, color="#021018CC", blur_radius=12)],
+    )
+    .text(
+        content="HOW GREAT TEAMS\nBUILD BETTER\nFEEDBACK LOOPS",
+        size=64,
+        color="#FFFFFF",
+        weight=900,
+        line_height=1.0,
+        position=(60, 220),
+        effects=[
+            Stroke(width=2, color="#04111A"),
+            Shadow(offset_x=0, offset_y=8, color="#00000099", blur_radius=14),
+        ],
+    )
+    .text(
+        content="A practical interview on shipping faster without breaking trust.",
+        size=34,
+        color="#C7D5E0",
+        position=(64, 415),
+        max_width=600,
+        line_height=1.2,
+        effects=[Shadow(offset_x=0, offset_y=4, color="#00000080", blur_radius=8)],
+    )
+    .shape(
+        shape="rectangle",
+        position=(62, 530),
+        width=430,
+        height=120,
+        color="#0E2436",
+        border_radius=20,
+        opacity=0.92,
+        effects=[
+            Stroke(width=2, color="#8CE1FF66"),
+            Shadow(offset_x=0, offset_y=12, color="#00000066", blur_radius=16),
+        ],
+    )
+    .text(
+        content="Guest",
+        size=22,
+        color="#8CE1FF",
         weight=700,
         letter_spacing=2,
-        position=(90, 528),
+        position=(90, 556),
     )
     .text(
-        content="MINA PARK\nAI PRODUCT LEAD",
-        font=SANS,
+        content="Mina Park",
+        size=42,
+        color="#FFFFFF",
+        weight=900,
+        position=(88, 582),
+    )
+    .text(
+        content="AI Product Lead",
         size=24,
-        color="#2A1A20",
-        weight=700,
-        line_height=1.35,
-        position=(90, 566),
+        color="#C7D5E0",
+        weight=500,
+        position=(90, 622),
     )
     .image(
-        path=GUEST_IMAGE,
-        position=(1055, 704),
-        width=510,
-        height=650,
+        path=GUEST_URL,
+        position=(1095, 698),
+        width=500,
+        height=660,
         fit=FitMode.COVER,
         align=("center", "bottom"),
-        effects=[Shadow(offset_x=-10, offset_y=12, color="#14080D88", blur_radius=26)],
+        remove_background=True,
+        effects=[
+            Shadow(offset_x=16, offset_y=18, color="#000000AA", blur_radius=22),
+        ],
     )
-    .text(
-        content="LISTEN WITH CARE",
-        font=SANS,
-        size=14,
-        color="#F4E8DE99",
-        weight=700,
-        letter_spacing=3,
-        position=(1218, 44),
-        align=("right", "top"),
-    )
+    .outline(width=6, color="#8CE1FF")
     .render(OUTPUT_PATH)
 )
 
-print(f"✓ Audio journal promo created: {OUTPUT_PATH}")
-print("  The guest portrait is bundled; network access is used only for the studio background.")
+print(f"✓ Podcast / interview promo created: {OUTPUT_PATH}")
+print("  This example requires network access and quickthumb[rembg] for portrait cutouts.")

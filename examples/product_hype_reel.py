@@ -1,9 +1,9 @@
-"""결 — 리듬에 맞춰 전개되는 한국어 세로형 제품 필름.
+"""PULSE — a polished, beat-synced vertical product hype reel.
 
 The example builds an eight-scene fitness-app ad on one Reels-safe
 layout grid. It demonstrates platform-aware diagnostics, layered gradients,
-animated product-metric cards, native Pretendard typography, and slide transitions
-in GIF/WebM/MP4 with a soundtrack mixed at render time.
+animated product-metric cards, native Pretendard typography, slide transitions
+in GIF/WebM/MP4, with English per-scene voiceovers mixed with a soundtrack at render time.
 
 Run:
     uv run python examples/product_hype_reel.py
@@ -33,6 +33,8 @@ from quickthumb import transitions as tr
 FILE_DIR = Path(__file__).resolve().parent
 ASSETS_DIR = FILE_DIR.parent / "assets"
 SOUNDTRACK = ASSETS_DIR / "audio" / "hype_beat.wav"
+VOICEOVER_DIR = ASSETS_DIR / "audio" / "product_hype_reel_voiceover"
+VOICEOVERS = [VOICEOVER_DIR / f"scene-{index:02d}.wav" for index in range(1, 9)]
 OUT_GIF = FILE_DIR / "product_hype_reel.gif"
 OUT_MP4 = FILE_DIR / "product_hype_reel.mp4"
 OUT_WEBM = FILE_DIR / "product_hype_reel.webm"
@@ -96,7 +98,7 @@ def main() -> None:
 
 
 def build_deck() -> Deck:
-    """Return the eight-scene, 48-beat GYEOL reel."""
+    """Return the eight-scene, 48-beat PULSE reel."""
     hook = build_hook_scene()
     problem = build_problem_scene()
     solution = build_solution_scene()
@@ -106,48 +108,56 @@ def build_deck() -> Deck:
     proof = build_social_proof_scene()
     cta = build_cta_scene()
 
-    # Longer scenes leave a calm reading window while every incoming
-    # transition stays aligned to a beat.
+    # Longer scenes give the English narration room to breathe while keeping
+    # every incoming transition aligned to a beat.
     return (
         Deck(WIDTH, HEIGHT)
         .slide(
             hook,
             transition=tr.Cut(advance_after=SCENE_DURATION),
+            audio=str(VOICEOVERS[0]),
             duration=SCENE_DURATION,
         )
         .slide(
             problem,
             transition=tr.Wipe(direction="up", duration=BEAT, advance_after=SCENE_HOLD),
+            audio=str(VOICEOVERS[1]),
             duration=SCENE_DURATION,
         )
         .slide(
             solution,
             transition=tr.Push(direction="up", duration=BEAT, advance_after=SCENE_HOLD),
+            audio=str(VOICEOVERS[2]),
             duration=SCENE_DURATION,
         )
         .slide(
             live_sync,
             transition=tr.Push(direction="left", duration=BEAT, advance_after=SCENE_HOLD),
+            audio=str(VOICEOVERS[3]),
             duration=SCENE_DURATION,
         )
         .slide(
             ai_coach,
             transition=tr.Push(direction="left", duration=BEAT, advance_after=SCENE_HOLD),
+            audio=str(VOICEOVERS[4]),
             duration=SCENE_DURATION,
         )
         .slide(
             streak,
             transition=tr.Push(direction="left", duration=BEAT, advance_after=SCENE_HOLD),
+            audio=str(VOICEOVERS[5]),
             duration=SCENE_DURATION,
         )
         .slide(
             proof,
             transition=tr.Fade(duration=BEAT, advance_after=SCENE_HOLD),
+            audio=str(VOICEOVERS[6]),
             duration=SCENE_DURATION,
         )
         .slide(
             cta,
             transition=tr.Zoom(direction="in", duration=BEAT, advance_after=SCENE_HOLD),
+            audio=str(VOICEOVERS[7]),
             duration=SCENE_DURATION,
         )
     )
@@ -159,8 +169,8 @@ def build_hook_scene() -> Canvas:
     canvas = add_copy(
         canvas,
         eyebrow="NEW  ·  PERSONAL FITNESS OS",
-        headline="내 몸의 리듬을\n다시 만나다.",
-        body="심박부터 회복까지, 오늘의 몸을 한눈에 읽습니다.",
+        headline="TRAINING,\nMADE PERSONAL.",
+        body="From heart rate to recovery, see your rhythm at a glance.",
         accent=PINK,
         headline_size=108,
     )
@@ -171,7 +181,7 @@ def build_hook_scene() -> Canvas:
         animation=Dissolve(duration=MOTION_STANDARD, trigger="after_previous"),
     )
     canvas = canvas.text(
-        content="●  실시간 심박",
+        content="●  LIVE HEART RATE",
         font=PRETENDARD[700],
         size=48,
         color=PINK,
@@ -180,7 +190,7 @@ def build_hook_scene() -> Canvas:
         animation=Fade(duration=MOTION_FAST, trigger="with_previous"),
     )
     canvas = canvas.text(
-        content="구간 4",
+        content="ZONE 4",
         font=PRETENDARD[700],
         size=48,
         color=MUTED,
@@ -208,7 +218,7 @@ def build_hook_scene() -> Canvas:
         animation=Fade(duration=MOTION_FAST, trigger="with_previous"),
     )
     canvas = canvas.text(
-        content="심박수  ·  운동 강도",
+        content="HEART RATE  ·  PERFORMANCE",
         font=PRETENDARD[500],
         size=48,
         color=MUTED,
@@ -218,7 +228,7 @@ def build_hook_scene() -> Canvas:
     )
     return add_footer(
         canvas,
-        "GYEOL  ·  나를 읽는 피트니스 OS",
+        "PULSE  ·  PERSONAL FITNESS OS",
         animation=Fade(duration=MOTION_FAST, trigger="with_previous"),
     )
 
@@ -228,9 +238,9 @@ def build_problem_scene() -> Canvas:
     canvas = base_scene(1, VIOLET)
     canvas = add_copy(
         canvas,
-        eyebrow="꾸준함의 조건",
-        headline="의지보다 먼저\n필요한 것.",
-        body="피드백이 늦으면 마음도 금세 멀어집니다.",
+        eyebrow="THE PROBLEM",
+        headline="CONSISTENCY\nNEEDS A SYSTEM.",
+        body="When feedback arrives late, motivation follows.",
         accent=VIOLET,
         headline_size=96,
     )
@@ -241,7 +251,7 @@ def build_problem_scene() -> Canvas:
         animation=Dissolve(duration=MOTION_STANDARD, trigger="after_previous"),
     )
     canvas = canvas.text(
-        content="평균 이탈 시점",
+        content="AVERAGE DROP-OFF",
         font=PRETENDARD[700],
         size=48,
         color=MUTED,
@@ -250,7 +260,7 @@ def build_problem_scene() -> Canvas:
         animation=Fade(duration=MOTION_FAST, trigger="with_previous"),
     )
     canvas = canvas.text(
-        content="3일째",
+        content="DAY 03",
         font=PRETENDARD[900],
         size=82,
         color=VIOLET,
@@ -265,7 +275,7 @@ def build_problem_scene() -> Canvas:
         animation=Dissolve(duration=MOTION_STANDARD, trigger="after_previous"),
     )
     canvas = canvas.text(
-        content="실시간 피드백",
+        content="LIVE FEEDBACK",
         font=PRETENDARD[700],
         size=48,
         color=MUTED,
@@ -284,19 +294,19 @@ def build_problem_scene() -> Canvas:
     )
     return add_footer(
         canvas,
-        "늦은 피드백은 움직일 마음을 놓칩니다.",
+        "LATE FEEDBACK KILLS MOMENTUM.",
         animation=Fade(duration=MOTION_FAST, trigger="with_previous"),
     )
 
 
 def build_solution_scene() -> Canvas:
-    """Introduce GYEOL as one clear daily readiness signal."""
+    """Introduce PULSE as one clear daily readiness signal."""
     canvas = base_scene(2, CYAN)
     canvas = add_copy(
         canvas,
-        eyebrow="MEET GYEOL",
-        headline="흩어진 신호가\n하나의 리듬으로.",
-        body="복잡한 몸의 신호를 오늘의 점수로 바꿉니다.",
+        eyebrow="MEET PULSE",
+        headline="FIND YOUR\nDAILY RHYTHM.",
+        body="Turn scattered signals into one clear daily score.",
         accent=CYAN,
         headline_size=108,
         headline_letter_spacing=0,
@@ -308,7 +318,7 @@ def build_solution_scene() -> Canvas:
         animation=Dissolve(duration=MOTION_STANDARD, trigger="after_previous"),
     )
     canvas = canvas.text(
-        content="회복 점수",
+        content="RECOVERY",
         font=PRETENDARD[700],
         size=48,
         color=CYAN,
@@ -336,7 +346,7 @@ def build_solution_scene() -> Canvas:
         animation=Fade(duration=MOTION_FAST, trigger="with_previous"),
     )
     canvas = canvas.text(
-        content="수면 92  ·  에너지 81\n스트레스 24",
+        content="SLEEP 92  ·  ENERGY 81\nSTRESS 24",
         font=PRETENDARD[500],
         size=48,
         color=MUTED,
@@ -352,7 +362,7 @@ def build_solution_scene() -> Canvas:
     )
     return add_footer(
         canvas,
-        "오늘의 몸을 한눈에 읽어보세요.",
+        "READ TODAY'S BODY AT A GLANCE.",
         animation=Fade(duration=MOTION_FAST, trigger="with_previous"),
     )
 
@@ -363,25 +373,25 @@ def build_live_sync_scene() -> Canvas:
     canvas = add_copy(
         canvas,
         eyebrow="01  ·  LIVE SYNC",
-        headline="움직이는 순간을\n놓치지 않게.",
-        body="심박 구간과 운동 강도를 실시간으로 읽습니다.",
+        headline="NEVER MISS\nA BEAT.",
+        body="Track heart-rate zones and workout intensity live.",
         accent=PINK,
         headline_size=93,
         headline_letter_spacing=0,
     )
     canvas = add_metric_card(
         canvas,
-        label="실시간 심박",
+        label="LIVE HEART RATE",
         status="SYNCED",
         value="142",
         unit="BPM",
         unit_x=500,
-        detail="워밍업  ·  지방 연소  ·  유산소",
+        detail="WARM-UP  ·  FAT BURN  ·  CARDIO",
         accent=PINK,
     )
     return add_footer(
         canvas,
-        "APPLE WATCH  ·  GALAXY WATCH 연동",
+        "APPLE WATCH  ·  GALAXY WATCH",
         animation=Fade(duration=MOTION_FAST, trigger="with_previous"),
     )
 
@@ -392,15 +402,15 @@ def build_ai_coach_scene() -> Canvas:
     canvas = add_copy(
         canvas,
         eyebrow="02  ·  AI COACH",
-        headline="오늘의 속도는\n몸이 정하니까.",
-        body="회복 상태에 맞춰 시간과 강도를 조정합니다.",
+        headline="AI SETS\nTODAY'S PACE.",
+        body="Adapt duration and intensity to your recovery.",
         accent=CYAN,
         headline_size=95,
         headline_letter_spacing=0,
     )
     canvas = add_metric_card(
         canvas,
-        label="오늘의 운동량",
+        label="TODAY'S LOAD",
         status="AUTO",
         value="68",
         unit="%",
@@ -410,7 +420,7 @@ def build_ai_coach_scene() -> Canvas:
     )
     return add_footer(
         canvas,
-        "매일 달라지는 나에게 맞춘 코칭.",
+        "A COACHING PLAN THAT ADAPTS EVERY DAY.",
         animation=Fade(duration=MOTION_FAST, trigger="with_previous"),
     )
 
@@ -421,8 +431,8 @@ def build_streak_scene() -> Canvas:
     canvas = add_copy(
         canvas,
         eyebrow="03  ·  SMART STREAK",
-        headline="작은 사흘이\n스물하루가 되도록.",
-        body="작은 성공을 오래가는 습관으로 연결합니다.",
+        headline="TURN THREE DAYS\nINTO TWENTY-ONE.",
+        body="Link small wins into a habit that lasts.",
         accent=LIME,
         headline_size=96,
     )
@@ -433,7 +443,7 @@ def build_streak_scene() -> Canvas:
         animation=Dissolve(duration=MOTION_STANDARD, trigger="after_previous"),
     )
     canvas = canvas.text(
-        content="꾸준함",
+        content="CONSISTENCY",
         font=PRETENDARD[700],
         size=48,
         color=LIME,
@@ -442,7 +452,7 @@ def build_streak_scene() -> Canvas:
         animation=Fade(duration=MOTION_FAST, trigger="with_previous"),
     )
     canvas = canvas.text(
-        content="최고 기록",
+        content="BEST",
         font=PRETENDARD[700],
         size=48,
         color=MUTED,
@@ -461,7 +471,7 @@ def build_streak_scene() -> Canvas:
         animation=Fade(duration=MOTION_STANDARD, trigger="after_previous"),
     )
     canvas = canvas.text(
-        content="일 연속",
+        content="DAY STREAK",
         font=PRETENDARD[800],
         size=52,
         color=LIME,
@@ -480,7 +490,7 @@ def build_streak_scene() -> Canvas:
     )
     return add_footer(
         canvas,
-        "꾸준함이 보이면 습관은 계속됩니다.",
+        "WHEN CONSISTENCY IS VISIBLE, HABITS KEEP GOING.",
         animation=Fade(duration=MOTION_FAST, trigger="with_previous"),
     )
 
@@ -490,9 +500,9 @@ def build_social_proof_scene() -> Canvas:
     canvas = base_scene(6, VIOLET)
     canvas = add_copy(
         canvas,
-        eyebrow="4.9  ·  2,841개의 기록",
-        headline="조금 더 오래,\n조금 더 멀리.",
-        body="결과 함께 만든 변화는 숫자로 남습니다.",
+        eyebrow="4.9  ·  2,841 REVIEWS",
+        headline="GO LONGER.\nGO FARTHER.",
+        body="Progress built with PULSE shows up in the numbers.",
         accent=VIOLET,
         headline_size=100,
     )
@@ -503,7 +513,7 @@ def build_social_proof_scene() -> Canvas:
         animation=Dissolve(duration=MOTION_STANDARD, trigger="after_previous"),
     )
     canvas = canvas.text(
-        content="확인된 후기",
+        content="VERIFIED REVIEW",
         font=PRETENDARD[700],
         size=48,
         color=LIME,
@@ -532,7 +542,7 @@ def build_social_proof_scene() -> Canvas:
         animation=Fade(duration=MOTION_FAST, trigger="with_previous"),
     )
     canvas = canvas.text(
-        content="“처음으로 5KM를\n끝까지 달렸어요.”",
+        content="“I FINALLY RAN\nMY FIRST 5K.”",
         font=PRETENDARD[800],
         size=68,
         color=WHITE,
@@ -542,7 +552,7 @@ def build_social_proof_scene() -> Canvas:
         animation=Wipe(direction="up", duration=MOTION_STANDARD, trigger="after_previous"),
     )
     canvas = canvas.text(
-        content="베타 테스터  ·  8주차",
+        content="BETA TESTER  ·  WEEK 8",
         font=PRETENDARD[500],
         size=48,
         color=MUTED,
@@ -552,34 +562,35 @@ def build_social_proof_scene() -> Canvas:
     )
     return add_footer(
         canvas,
-        "다음 기록은 오늘 여기서 시작됩니다.",
+        "YOUR NEXT PERSONAL BEST STARTS HERE.",
         animation=Fade(duration=MOTION_FAST, trigger="with_previous"),
     )
 
 
 def build_cta_scene() -> Canvas:
-    """Finish on a focused, single-action download screen."""
-    canvas = base_scene(7, PINK)
+    """Finish on a bright, single-action download screen."""
+    canvas = bright_scene(7)
     canvas = add_copy(
         canvas,
-        eyebrow="GYEOL  ·  START TODAY",
-        headline="오늘, 다시 시작\n나답게 움직이기",
-        body="내 몸을 이해하는 가장 선명한 방법.",
-        accent=PINK,
+        eyebrow="PULSE  ·  START TODAY",
+        headline="TIME TO\nMOVE.",
+        body="The fastest way to understand your body.",
+        accent=INK,
         headline_size=124,
+        bright=True,
     )
     canvas = canvas.shape(
         shape="pill",
         position=(CONTENT_X, 1010),
         width=CONTENT_WIDTH,
         height=132,
-        color=PINK,
+        color=INK,
         align=("left", "top"),
         effects=BUTTON_EFFECTS,
         animation=Dissolve(duration=MOTION_STANDARD, trigger="after_previous"),
     )
     canvas = canvas.text(
-        content="무료로 시작하기",
+        content="START FREE",
         font=PRETENDARD[800],
         size=56,
         color=WHITE,
@@ -588,10 +599,10 @@ def build_cta_scene() -> Canvas:
         animation=Fade(duration=MOTION_FAST, trigger="with_previous"),
     )
     canvas = canvas.text(
-        content="평점 4.9  ·  7일 무료  ·  언제든 해지",
+        content="4.9 RATING  ·  7 DAYS FREE  ·  CANCEL ANYTIME",
         font=PRETENDARD[700],
         size=48,
-        color=OFFWHITE,
+        color=INK,
         position=(CONTENT_X, 1220),
         align=("left", "top"),
         max_width=CONTENT_WIDTH,
@@ -600,10 +611,10 @@ def build_cta_scene() -> Canvas:
         animation=Fade(duration=MOTION_FAST, trigger="after_previous"),
     )
     return canvas.text(
-        content="GYEOL.APP  ↗",
+        content="PULSE.APP  ↗",
         font=PRETENDARD[900],
         size=54,
-        color=OFFWHITE,
+        color=INK,
         letter_spacing=2,
         position=(CONTENT_X, 1450),
         align=("left", "top"),
@@ -676,7 +687,7 @@ def add_chrome(canvas: Canvas, index: int, *, bright: bool) -> Canvas:
 
     header_color = INK if bright else OFFWHITE
     canvas = canvas.text(
-        content="GYEOL",
+        content="PULSE",
         font=BRAND_FONT,
         size=48,
         color=header_color,
@@ -900,7 +911,7 @@ def export_reel(deck: Deck) -> None:
     print(f"  {OUT_HTML}")
     print(f"  {OUT_MP4}")
     print(f"  {OUT_WEBM}")
-    print(f"  {len(deck)} scenes · 36 seconds · beat-synced timeline")
+    print(f"  {len(deck)} scenes · 36 seconds · narration-first timeline")
 
 
 if __name__ == "__main__":
