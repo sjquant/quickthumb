@@ -1,94 +1,85 @@
-"""
-Instagram News Card Example
-
-Creates a breaking news-style Instagram card (1080x1080) with:
-- Fire background image (cover fit, darkened)
-- Dark gradient overlay for text legibility
-- "BREAKING NEWS" badge
-- Bold headline with stroke
-- Source and timestamp at the bottom
-"""
+"""속보 대신 맥락을 전하는 주간 뉴스 매거진 카드."""
 
 import os
 
-from quickthumb import Canvas, Filter, FitMode, LinearGradient, TextPart
-from quickthumb.models import Background, Shadow, Stroke
+from quickthumb import Canvas, Filter, FitMode, LinearGradient
 
 FILE_DIR = os.path.dirname(__file__)
 ASSETS_DIR = os.path.join(FILE_DIR, "..", "assets")
-
-os.environ["QUICKTHUMB_FONT_DIR"] = os.path.join(ASSETS_DIR, "fonts")
-os.environ["QUICKTHUMB_DEFAULT_FONT"] = "Roboto"
-
-SIZE = 1080
+OUTPUT_PATH = os.path.join(FILE_DIR, "instagram_news_card.png")
+PRETENDARD = os.path.join(ASSETS_DIR, "fonts", "Pretendard-Bold.woff2")
 
 (
-    Canvas(SIZE, SIZE)
-    # 1. Background: fire image, cropped to fill the square
-    .background(
-        image=os.path.join(ASSETS_DIR, "images", "tobias-rademacher-wnF27F85ZKw-unsplash.jpg"),
+    Canvas(1080, 1080)
+    .background(color="#EEE9DE")
+    .image(
+        path=os.path.join(ASSETS_DIR, "images", "tobias-rademacher-wnF27F85ZKw-unsplash.jpg"),
+        position=(52, 52),
+        width=976,
+        height=488,
         fit=FitMode.COVER,
-        effects=[Filter(brightness=0.75)],
+        effects=[Filter(brightness=0.88, contrast=1.06, saturation=0.6)],
     )
-    # 2. Dark gradient overlay — bottom two-thirds darkened for text legibility
     .background(
         gradient=LinearGradient(
             angle=90,
-            stops=[("#00000000", 0.0), ("#000000CC", 0.45), ("#000000F0", 1.0)],
+            stops=[("#111A1700", 0.0), ("#111A1744", 0.5), ("#111A17AA", 1.0)],
         ),
+        opacity=0.34,
     )
-    # 3. "BREAKING NEWS" badge near the top
     .text(
-        content="BREAKING NEWS",
-        size=38,
-        color="#FFFFFF",
-        weight=900,
-        letter_spacing=4,
-        position=("50%", "8%"),
-        align=("center", "top"),
-        effects=[
-            Background(color="#CC0000", padding=(14, 28), border_radius=4),
-        ],
+        content="THE WEEKLY CONTEXT",
+        font=PRETENDARD,
+        size=18,
+        color="#F8F3E8",
+        weight=700,
+        letter_spacing=3,
+        position=(82, 84),
     )
-    # 4. Main headline — large, bold, white with shadow
     .text(
-        content="Wildfires Spread\nAcross Thousands\nof Acres",
-        size=96,
-        color="#FFFFFF",
-        weight=900,
-        position=("8%", "48%"),
-        align=("left", "middle"),
-        line_height=1.15,
-        effects=[
-            Stroke(width=2, color="#000000"),
-            Shadow(offset_x=4, offset_y=4, color="#000000", blur_radius=6),
-        ],
+        content="기후는 숫자보다\n먼저 도착한다",
+        font=PRETENDARD,
+        size=79,
+        color="#17211D",
+        weight=700,
+        line_height=1.12,
+        letter_spacing=-3,
+        position=(60, 606),
     )
-    # 5. Sub-headline / context line
     .text(
-        content="Emergency evacuations ordered in three regions as firefighters battle the blaze",
-        size=36,
-        color="#E0E0E0",
+        content="산불과 도시의 일상을 연결해 읽는 다섯 개의 장면",
+        font=PRETENDARD,
+        size=27,
+        color="#56605B",
         weight=400,
-        position=("8%", "79%"),
-        align=("left", "top"),
-        max_width="84%",
-        effects=[
-            Shadow(offset_x=2, offset_y=2, color="#000000", blur_radius=4),
-        ],
+        position=(64, 827),
     )
-    # 6. Source and timestamp row
+    .shape(
+        shape="rectangle",
+        position=(64, 922),
+        width=952,
+        height=1,
+        color="#17211D55",
+    )
     .text(
-        content=[
-            TextPart(text="WORLD NEWS  ", color="#FF4444", weight=700),
-            TextPart(text="·  Feb 20, 2026", color="#AAAAAA", weight=400),
-        ],
-        size=30,
-        position=("8%", "92%"),
-        align=("left", "top"),
+        content="ENVIRONMENT  /  ISSUE 28",
+        font=PRETENDARD,
+        size=18,
+        color="#B6402E",
+        weight=700,
+        letter_spacing=2,
+        position=(64, 968),
     )
-    # Render
-    .render(os.path.join(FILE_DIR, "instagram_news_card.png"))
+    .text(
+        content="2026. 02. 20",
+        font=PRETENDARD,
+        size=18,
+        color="#6E756F",
+        weight=500,
+        position=(1016, 968),
+        align=("right", "top"),
+    )
+    .render(OUTPUT_PATH)
 )
 
-print(f"✓ Instagram news card created: {os.path.join(FILE_DIR, 'instagram_news_card.png')}")
+print(f"✓ Weekly context card created: {OUTPUT_PATH}")

@@ -1,60 +1,72 @@
-"""
-YouTube Thumbnail Example
-
-Creates an eye-catching YouTube-style thumbnail with:
-- Background image (rainy/bokeh effect)
-- Bold headline with rich text (brand name highlighted)
-- Bright neon green border
-"""
+"""서울의 비 오는 밤을 담은 절제된 에디토리얼 썸네일."""
 
 import os
 
-from quickthumb import Canvas, Filter, TextPart
-from quickthumb.models import Stroke
+from quickthumb import Canvas, Filter, FitMode, LinearGradient
 
 FILE_DIR = os.path.dirname(__file__)
 ASSETS_DIR = os.path.join(FILE_DIR, "..", "assets")
+OUTPUT_PATH = os.path.join(FILE_DIR, "youtube_thumbnail_01.png")
+PRETENDARD = os.path.join(ASSETS_DIR, "fonts", "Pretendard-Bold.woff2")
 
-os.environ["QUICKTHUMB_FONT_DIR"] = os.path.join(ASSETS_DIR, "fonts")
-os.environ["QUICKTHUMB_DEFAULT_FONT"] = "Roboto"
-
-# Create 16:9 YouTube thumbnail (1280x720) with method chaining
 (
     Canvas.from_aspect_ratio("16:9", 1280)
-    # Add background image (placeholder - you'll add your own image here)
-    # For now, using a dark background as placeholder
     .background(
         image=os.path.join(ASSETS_DIR, "images", "c-g-JgDUVGAXsso-unsplash.jpg"),
-        effects=[Filter(brightness=0.7)],
+        fit=FitMode.COVER,
+        effects=[Filter(brightness=0.82, contrast=1.08, saturation=0.62)],
     )
-    # Add a semi-transparent overlay to darken the background
-    # This helps text stand out better
-    .background(color="#000000", opacity=0.6)
-    # Add headline and subtitle as rich text with different sizes and colors
+    .background(
+        gradient=LinearGradient(
+            angle=90,
+            stops=[("#101416F2", 0.0), ("#101416B8", 0.48), ("#10141612", 1.0)],
+        )
+    )
     .text(
-        content=[
-            TextPart(
-                text="HOW TO MAKE\nTHUMBNAILS\nIN NO SECONDS\n",
-                color="#B8FF00",
-                effects=[Stroke(width=8, color="#000000")],
-            ),
-            TextPart(
-                text="Try Quickthumb Today",
-                color="#E0E0E0",
-                size=48,
-                effects=[Stroke(width=4, color="#000000")],
-            ),
-        ],
-        size=120,
-        position=("8%", "50%"),
-        align=("left", "middle"),
-        bold=True,
+        content="CITY NOTE  07",
+        font=PRETENDARD,
+        size=20,
+        color="#D8FF4F",
+        weight=700,
+        letter_spacing=3,
+        position=(64, 58),
     )
-    # Add bright neon green border
-    .outline(width=15, color="#B8FF00")
-    # Render the thumbnail
-    .render(os.path.join(FILE_DIR, "youtube_thumbnail_01.png"))
+    .text(
+        content="비가 오면\n서울은 조금\n느려진다",
+        font=PRETENDARD,
+        size=92,
+        color="#F5F1E8",
+        weight=700,
+        line_height=1.08,
+        letter_spacing=-3,
+        position=(64, 146),
+    )
+    .shape(
+        shape="rectangle",
+        position=(64, 538),
+        width=470,
+        height=1,
+        color="#F5F1E866",
+    )
+    .text(
+        content="퇴근길에 발견한 빛과 소리, 그리고 작은 장면들",
+        font=PRETENDARD,
+        size=25,
+        color="#D9D4C9",
+        weight=400,
+        position=(64, 570),
+    )
+    .text(
+        content="06:42  /  EULJIRO",
+        font=PRETENDARD,
+        size=17,
+        color="#F5F1E899",
+        weight=500,
+        letter_spacing=2,
+        position=(1216, 662),
+        align=("right", "bottom"),
+    )
+    .render(OUTPUT_PATH)
 )
 
-print(f"✓ YouTube thumbnail created: {os.path.join(FILE_DIR, 'youtube_thumbnail_01.png')}")
-print("  Replace the background and text content with your own.")
+print(f"✓ Editorial city thumbnail created: {OUTPUT_PATH}")

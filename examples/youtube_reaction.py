@@ -1,103 +1,93 @@
-"""
-YouTube Reaction / Commentary Thumbnail
-
-High-energy reaction format built entirely from text and shape layers:
-- Dark base with a subtle image texture overlay at low opacity
-- Giant reaction word with glow and stroke effects
-- Stacked text hierarchy: "REACTING TO" badge, big word, secondary line
-- Oversized decorative punctuation as a right-side graphic element
-"""
+"""유행을 차분하게 해부하는 데이터 저널형 코멘터리 썸네일."""
 
 import os
 
-from quickthumb import Canvas, Filter, FitMode, Glow, Shadow, Stroke, TextPart
+from quickthumb import Canvas, LinearGradient
 
 FILE_DIR = os.path.dirname(__file__)
 ASSETS_DIR = os.path.join(FILE_DIR, "..", "assets")
 OUTPUT_PATH = os.path.join(FILE_DIR, "youtube_reaction.png")
-
-os.environ["QUICKTHUMB_FONT_DIR"] = os.path.join(ASSETS_DIR, "fonts")
-os.environ["QUICKTHUMB_DEFAULT_FONT"] = "Roboto"
+PRETENDARD = os.path.join(ASSETS_DIR, "fonts", "Pretendard-Bold.woff2")
 
 (
     Canvas(1280, 720)
-    # Deep dark base
-    .background(color="#0D0D0D")
-    # Subtle image texture blended at low opacity for visual depth
+    .background(color="#F2EFE6")
     .background(
-        image=os.path.join(ASSETS_DIR, "images", "c-g-JgDUVGAXsso-unsplash.jpg"),
-        fit=FitMode.COVER,
-        blend_mode="overlay",
-        opacity=0.12,
-        effects=[Filter(blur=3)],
+        gradient=LinearGradient(
+            angle=135,
+            stops=[("#F2EFE6", 0.0), ("#E6E0D2", 1.0)],
+        )
     )
-    # "REACTING TO" badge
+    .shape(
+        shape="ellipse",
+        position=(1034, 336),
+        width=390,
+        height=390,
+        color="#FF5A3D",
+        align=("center", "middle"),
+    )
+    .shape(
+        shape="ellipse",
+        position=(1034, 336),
+        width=246,
+        height=246,
+        color="#F2EFE6",
+        align=("center", "middle"),
+    )
+    .text(
+        content="24H",
+        font=PRETENDARD,
+        size=76,
+        color="#17221E",
+        weight=700,
+        position=(1034, 336),
+        align=("center", "middle"),
+    )
+    .text(
+        content="CULTURE CHECK  /  09",
+        font=PRETENDARD,
+        size=18,
+        color="#68706A",
+        weight=700,
+        letter_spacing=3,
+        position=(62, 56),
+    )
+    .text(
+        content="하루 만에\n모두가 따라 한\n그 장면",
+        font=PRETENDARD,
+        size=90,
+        color="#17221E",
+        weight=700,
+        line_height=1.08,
+        letter_spacing=-4,
+        position=(62, 138),
+    )
     .shape(
         shape="rectangle",
-        position=(48, 48),
-        width=272,
-        height=56,
-        color="#FF4500",
-        border_radius=4,
-        effects=[Glow(color="#FF4500", radius=14, opacity=0.45)],
+        position=(64, 534),
+        width=620,
+        height=2,
+        color="#17221E",
     )
     .text(
-        content="REACTING TO",
-        size=26,
-        color="#FFFFFF",
-        weight=900,
-        letter_spacing=3,
-        position=(184, 76),
-        align=("center", "middle"),
+        content="유행의 속도보다 오래 남는 이유를 봅니다",
+        font=PRETENDARD,
+        size=25,
+        color="#4F5853",
+        weight=400,
+        position=(64, 570),
     )
-    # Oversized decorative punctuation on the right — purely visual
     .text(
-        content="?!",
-        size=380,
-        color="#1C1C1C",
-        weight=900,
-        position=(900, 380),
-        align=("center", "middle"),
-        rotation=-12,
-    )
-    # Giant reaction word
-    .text(
-        content="VIRAL",
-        size=210,
-        color="#FF4500",
-        weight=900,
-        position=(52, 130),
-        effects=[
-            Stroke(width=6, color="#000000"),
-            Glow(color="#FF4500", radius=28, opacity=0.3),
-            Shadow(offset_x=10, offset_y=10, color="#000000", blur_radius=0),
-        ],
-    )
-    # Secondary text line with accent number
-    .text(
-        content=[
-            TextPart(text="TREND ", color="#FFFFFF", weight=900),
-            TextPart(text="#1", color="#FFD700", weight=900),
-        ],
-        size=100,
-        position=(52, 365),
-        effects=[
-            Stroke(width=5, color="#000000"),
-            Shadow(offset_x=6, offset_y=6, color="#000000", blur_radius=0),
-        ],
-    )
-    # Bottom commentary label
-    .text(
-        content="MY UNFILTERED THOUGHTS",
-        size=38,
-        color="#A3A3A3",
+        content="TREND ≠ TASTE",
+        font=PRETENDARD,
+        size=16,
+        color="#17221E",
         weight=700,
-        letter_spacing=1,
-        position=(52, 624),
-        effects=[Shadow(offset_x=2, offset_y=2, color="#000000", blur_radius=4)],
+        letter_spacing=2,
+        position=(1216, 664),
+        align=("right", "bottom"),
     )
-    .outline(width=12, color="#FF4500")
     .render(OUTPUT_PATH)
 )
 
-print(f"✓ Reaction / commentary thumbnail created: {OUTPUT_PATH}")
+print(f"✓ Culture commentary thumbnail created: {OUTPUT_PATH}")

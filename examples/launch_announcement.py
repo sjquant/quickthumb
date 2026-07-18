@@ -5,7 +5,7 @@ Exercises the quickthumb 0.5 feature set in a single themed spec:
 - A top-level `theme` block with `$theme.*` token references across layers
 - Auto-layout `group` layers (a column with a nested chip row) — no hand-placed
   coordinates for any text
-- `star` shape primitives and decorative `svg` layers
+- An eight-point `star` primitive used as a restrained product mark
 - Film grain on the base background
 - `canvas.diagnose()` before rendering, mirroring `quickthumb lint`
 """

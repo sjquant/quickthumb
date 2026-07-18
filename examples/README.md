@@ -1,10 +1,12 @@
 # quickthumb Examples
 
-This directory contains runnable end-to-end compositions that match the current quickthumb API.
+실제로 공개해도 어색하지 않은 결과물을 목표로 만든 end-to-end 예제 모음입니다.
+각 예제는 같은 API를 사용하지만, 하나의 템플릿을 색만 바꾸지 않고 매거진·인터뷰·
+데이터 저널·제품 필름처럼 서로 다른 편집 문법을 갖습니다.
 
 ## Run an Example
 
-From the repository root:
+저장소 루트에서 실행합니다.
 
 ```bash
 uv run python examples/youtube_thumbnail_01.py
@@ -20,7 +22,13 @@ uv run python examples/investor_deck.py
 uv run python examples/product_hype_reel.py
 ```
 
-All examples write their rendered image back into this directory.
+## Design Direction
+
+- Pretendard 기반의 자연스러운 한국어 조판
+- 과장된 스트로크·네온·글로우 대신 여백과 대비로 만드는 위계
+- 8px 단위에 가까운 일관된 간격과 좌우 비대칭 그리드
+- 크림, 먹색, 짙은 초록, 절제된 주황으로 이어지는 공통 팔레트
+- 장식보다 실제 콘텐츠와 매체의 맥락이 먼저 보이는 구성
 
 ## Included Examples
 
@@ -28,96 +36,53 @@ All examples write their rendered image back into this directory.
 
 Output: `youtube_thumbnail_01.png`
 
-Shows:
-
-- 16:9 canvas via `Canvas.from_aspect_ratio("16:9", 1280)`
-- Background image with brightness adjustment using `Filter`
-- Dark overlay background for readability
-- Rich text via `TextPart`
-- Thick text strokes and outer border for classic YouTube-thumbnail styling
-
-Use it when you want a bright, punchy thumbnail with large stacked headline text.
+비 오는 서울의 퇴근길을 다룬 시티 에세이형 썸네일입니다. `Filter`, 사진 위의
+좌우 그라디언트, 작은 폴리오와 메타데이터를 사용해 이미지의 분위기를 살리면서도
+긴 한국어 제목을 안정적으로 읽게 합니다.
 
 ### `youtube_thumbnail_02.py`
 
 Output: `youtube_thumbnail_02.png`
 
-Shows:
-
-- Full manual layout on a `1280x720` canvas
-- Background image with `FitMode.COVER`
-- Gradient overlay for contrast
-- Heavy-weight typography using CSS-style numeric font weights
-- `Shadow`, `Stroke`, and text `Background` effects together
-
-Use it when you want a more editorial thumbnail with strong hierarchy and multiple text blocks.
+번아웃을 자극적으로 소비하지 않는 라이프스타일 에디토리얼입니다. 사진을 오른쪽
+영역에만 배치하고 종이색 배경과 연결해, 제목·설명·브랜드 서명이 하나의 지면처럼
+보이도록 구성합니다.
 
 ### `youtube_talking_head.py`
 
 Output: `youtube_talking_head.png`
 
-Shows:
-
-- Split left/right layout: headline text on the left, subject portrait on the right
-- Left-to-right `LinearGradient` overlay that fades to transparent, keeping the portrait visible
-- Remote image URL for the subject portrait (swap for a local path)
-- Topic badge built from a `shape` + `text` layer pair
-- Rich text with a two-tone headline using `TextPart`
-
-Use it when you want the classic YouTube talking-head format with a presenter or guest alongside the topic.
+인물의 표정보다 인터뷰의 관점이 먼저 읽히는 메이커 인터뷰 커버입니다. 카드형
+프레임, 절제된 인물 크롭, 이름표를 통해 일반적인 talking-head 포맷을 독립
+비즈니스 매거진 문법으로 바꿉니다.
 
 ### `youtube_reaction.py`
 
 Output: `youtube_reaction.png`
 
-Shows:
-
-- Programmatic layout with no background photo — uses solid color + blended texture overlay
-- Oversized decorative text element (`?!`) as a right-side graphic at low opacity
-- `Glow` effect on both a shape badge and the main headline word
-- `blend_mode` overlay on a background image layer at very low opacity for subtle texture
-
-Use it when you want a high-energy reaction or commentary thumbnail driven entirely by typography and shape layers.
+유행을 소리 높여 반응하는 대신 차분하게 해부하는 문화 코멘터리 카드입니다.
+사진 없이 도형·타이포그래피·얇은 규칙선만으로 강한 썸네일을 만드는 방법을 보여줍니다.
 
 ### `youtube_tutorial_explainer.py`
 
 Output: `youtube_tutorial_explainer.png`
 
-Shows:
-
-- Pure gradient background (no photo dependency) using a diagonal `LinearGradient`
-- Reusable `add_step()` helper that composes an ellipse badge + two text layers per step
-- Two-tone headline via `TextPart` segments
-- Thin rectangle used as a visual divider between the headline area and the steps column
-
-Use it when you want a clean numbered-steps or how-to layout for tutorial and explainer videos.
+학습 과정을 세 개의 세로 캡슐에 담은 커리큘럼형 썸네일입니다. 반복 레이어를
+프로그램으로 생성하면서도 스프레드시트가 아니라 교육 브랜드의 캠페인처럼 보이게 합니다.
 
 ### `instagram_news_card.py`
 
 Output: `instagram_news_card.png`
 
-Shows:
-
-- Square `1080x1080` social card layout
-- Cover-fit background image with darkening filter
-- Vertical gradient overlay for headline legibility
-- Badge-style label using text background effects
-- Multiline headline, supporting copy, and rich-text metadata row
-
-Use it when you want a reusable template for Instagram posts, X cards, or social news promos.
+속보 배지 대신 맥락과 발행 주기를 강조하는 주간 뉴스 카드입니다. 상단 사진,
+하단 기사 제목, 이슈 번호로 이어지는 전통적인 매거진 그리드를 1:1 화면에 적용합니다.
 
 ### `podcast_interview_promo.py`
 
 Output: `podcast_interview_promo.png`
 
-Shows:
-
-- Remote image URLs for both the background photo and the speaker portrait
-- A webfont loaded from a URL for the show-title treatment
-- `remove_background=True` on the portrait layer for a cutout-style guest visual
-- Layered promo-card styling with shapes, shadows, and heavy headline typography
-
-Use it when you want an end-to-end podcast or interview promo example that exercises quickthumb's network-backed asset loading and portrait cutout workflow.
+차분한 오디오 저널 프로모션입니다. 전용으로 제작해 저장소에 포함한 한국인 게스트
+사진과 원격 스튜디오 배경을 결합하며, 기본 설치만으로 인물 합성을 렌더합니다.
 
 ### `shorts_cover_agent.py`
 
@@ -125,14 +90,9 @@ Output: `shorts_cover_agent.png`
 
 Spec: `shorts_cover_agent.json`
 
-Shows:
-
-- JSON-first rendering with `Canvas.from_json(...)` instead of hand-authored layer calls
-- Vertical `1080x1920` Shorts / Reels / cover layout
-- Repo-checked JSON spec that an AI agent could emit directly
-- Shape, rich text, `auto_scale`, gradient overlays, and outline layers in one spec
-
-Use it when you want to generate a vertical promo cover from an LLM-produced JSON layout and keep the rendering step deterministic.
+AI 에이전트가 만든 JSON spec을 그대로 렌더하는 세로형 1분 에세이 커버입니다.
+로컬 Pretendard 경로, `auto_scale`, 이미지 필터, 안전 영역 안의 긴 한국어 조판을
+모두 JSON만으로 표현합니다.
 
 ### `launch_announcement.py`
 
@@ -140,75 +100,35 @@ Output: `launch_announcement.png`
 
 Spec: `launch_announcement.json`
 
-Shows the quickthumb 0.5 feature set in a single themed JSON spec:
-
-- Top-level `theme` block with `$theme.*` token references for every color and font size
-- Auto-layout `group` layers — a column with a nested chip row, zero hand-placed text coordinates
-- `star` shape primitives with glow and stroke effects
-- Decorative `svg` layers (requires `quickthumb[svg]`)
-- Gradient-filled headline text via per-`TextPart` `fill`
-- `Grain` effect with a fixed seed for deterministic texture
-- `canvas.diagnose()` before rendering, mirroring `quickthumb lint`
-
-Use it when you want a brandable announcement-card template whose layout survives copy changes, or as a reference spec for LLM-generated layouts.
+quickthumb 0.5 기능을 하나의 절제된 제품 노트에 담습니다. 테마 토큰, 중첩된
+auto-layout 그룹, 8각 별 도형, 고정 seed의 `Grain`, `canvas.diagnose()`를 사용합니다.
+텍스트는 그룹이 배치하므로 카피가 바뀌어도 손으로 좌표를 다시 맞출 필요가 없습니다.
 
 ### `investor_deck.py`
 
-Output: `investor_deck.html` and `investor_deck.pptx`
+Output: `investor_deck.html`, `investor_deck.pptx`
 
-Builds a dark investor-style deck with staged text, metric cards, and chart-like visuals:
-
-- HTML export for browser playback of slide transitions and layer animations
-- `quickthumb serve examples/investor_deck.py` for live reload and `?presenter` mode
-- Per-slide speaker notes visible only in the presenter dashboard
-- PPTX export for editable presentation handoff
-- Shared composition code that keeps the browser and PowerPoint outputs aligned
-
-Use it when you want a realistic animated deck example that exercises both HTML and PPTX output from the same source.
+개인 금융 서비스 ‘모아’의 5장짜리 seed deck입니다. 어두운 미국식 SaaS 피치덱
+대신 따뜻한 종이색, 한국어 중심의 서사, 실제 사용 행동을 강조하는 지표 카드로
+구성했습니다. HTML 발표 모드, speaker note, 전환 애니메이션, 편집 가능한 PPTX를
+동일한 소스에서 내보냅니다.
 
 ### `product_hype_reel.py`
 
-Output: `product_hype_reel.gif`, `product_hype_reel.mp4`, `product_hype_reel.webm`,
-`product_hype_reel.html`, and `product_hype_reel.pptx`
+Output: `product_hype_reel.gif`, `product_hype_reel.mp4`,
+`product_hype_reel.webm`, `product_hype_reel.html`, `product_hype_reel.pptx`
 
-Builds a polished Korean-style vertical (1080x1920) 8-scene app-launch reel — a full ad arc (hook → pain point → solution → three features → social proof → CTA) — and exports it as a self-playing 22.5-second animation with a soundtrack:
-
-- A single 96px layout grid inside the Instagram Reels safe area, with an 8-part progress rail and consistent left alignment across every scene
-- Native Korean copy set in locally bundled Pretendard, with display, body, metric, and metadata sizes tuned for legibility on a phone
-- Layered dark gradients, ambient color glows, elevated metric cards, and a high-contrast gradient CTA
-- Reusable product-card helpers for live heart rate, AI coaching, streaks, and social proof, with deliberate information hierarchy instead of decorative filler
-- Beat-phased entrance animations (`Box`, `Wipe`, `Fade`, `Dissolve`) that delay copy by half a beat, keep headlines clear of slide transitions, and settle before each reading window
-- Story-aware slide transitions (`Wipe`, `Push`, `Fade`, `Zoom`) rendered as real frames through the raster pipeline, with six beats per scene and all eight cuts locked to a 48-beat, 128 BPM timeline — exactly six loops of the bundled two-bar soundtrack
-- `deck.diagnose()` before export, validating contrast, overflow, overlap, canvas bounds, and Reels UI-safe placement for all eight scenes
-- The file-rendering animation API with GIF-specific `GifOptions`, plus the video-specific `VideoOptions` and bytes-returning `.to_mp4(...)` / `.to_webm(...)` variants
-- A looping soundtrack (`assets/audio/hype_beat.wav`, a procedurally generated synth-pop loop) muxed into the MP4/WebM output via `VideoOptions(soundtrack=AudioTrack(...))`
-- Graceful per-format fallback when an optional renderer is unavailable; one failed export does not suppress the remaining formats
-
-Use it when you want a shareable, self-playing GIF or video clip (Reels/TikTok/Stories) instead of a static thumbnail, or as a reference for the animated export API, beat-synced editing via `advance_after`, and MP4/WebM audio.
+피트니스 앱 ‘결’의 8장짜리 한국어 세로 제품 필름입니다. Reels 안전 영역,
+Pretendard, 128 BPM에 맞춘 전환, 실시간 지표 카드, progress rail, 36초 길이의
+사운드트랙을 하나의 `Deck`으로 구성합니다. 한 포맷의 선택 렌더러가 없어도 나머지
+포맷을 계속 내보내는 graceful fallback도 포함합니다.
 
 ## Assets and Fonts
 
-The example scripts set:
+정적 예제는 `assets/fonts`의 Pretendard를 파일 경로로 직접 지정해 실행 환경과
+무관하게 같은 한글 조판을 만듭니다. 사진은 가능한 한 `assets/images`의 로컬 자산을
+사용합니다. 팟캐스트의 스튜디오 배경만 네트워크에서 가져오며, 게스트 인물 사진
+`assets/images/podcast_guest_editorial.png`은 저장소에 포함되어 있습니다.
 
-- `QUICKTHUMB_FONT_DIR` to `assets/fonts`
-- `QUICKTHUMB_DEFAULT_FONT` to `Roboto`
-
-They also use bundled example images from `assets/images`.
-
-The JSON-first examples use repo-relative asset paths inside their checked-in JSON specs. The companion Python scripts change into the repo root before rendering so the examples stay runnable from any working directory.
-
-The launch announcement example renders SVG layers, so install `quickthumb[svg]` (cairosvg) to run it locally.
-
-The podcast promo example additionally requires network access because it fetches remote images and a remote webfont at render time. It also uses `remove_background=True`, so install `quickthumb[rembg]` if you want to run it locally.
-
-The product hype reel example needs the `ffmpeg` binary on `PATH` for the MP4/WebM outputs (the GIF still renders without it). Its Pretendard fonts (`assets/fonts/Pretendard-*.woff2`) and soundtrack (`assets/audio/hype_beat.wav`, a procedurally generated synth-pop loop) are both bundled with the repo, so rendering it needs no network access.
-
-## Extending These Examples
-
-Common edits that are safe to make:
-
-- Replace the background image path or URL
-- Swap headline copy and highlight colors
-- Change the canvas size or aspect ratio
-- Add `canvas.image(...)` for logos, cutouts, or subject overlays
-- Export as JPEG or WebP instead of PNG
+제품 필름은 `ffmpeg`가 있으면 MP4/WebM을 만들고, 없어도 GIF·HTML·PPTX 렌더를
+계속 시도합니다. 사운드트랙은 `assets/audio/hype_beat.wav`에 포함되어 있습니다.

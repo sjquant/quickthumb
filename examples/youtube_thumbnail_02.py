@@ -1,109 +1,80 @@
-"""
-YouTube Thumbnail Example - Burnout Theme (Redesigned)
-
-Professional thumbnail with:
-- High contrast typography (Roboto Black)
-- Drop shadows using the Shadow effect
-- Gradient overlay for depth
-- Strong visual hierarchy
-"""
+"""일과 회복을 다루는 한국형 라이프스타일 에디토리얼 썸네일."""
 
 import os
 
 from quickthumb import Canvas, Filter, FitMode, LinearGradient
-from quickthumb.models import Background, Shadow, Stroke
+from quickthumb.models import Shadow
 
 FILE_DIR = os.path.dirname(__file__)
 ASSETS_DIR = os.path.join(FILE_DIR, "..", "assets")
-
-os.environ["QUICKTHUMB_FONT_DIR"] = os.path.join(ASSETS_DIR, "fonts")
-os.environ["QUICKTHUMB_DEFAULT_FONT"] = "Roboto"
-
-# Canvas dimensions
-WIDTH = 1280
-HEIGHT = 720
+OUTPUT_PATH = os.path.join(FILE_DIR, "youtube_thumbnail_02.png")
+PRETENDARD = os.path.join(ASSETS_DIR, "fonts", "Pretendard-Bold.woff2")
 
 (
-    Canvas(WIDTH, HEIGHT)
-    # 1. Background Image with darkening
-    .background(
-        image=os.path.join(ASSETS_DIR, "images", "denise-jans-WIRvXd1PYlg-unsplash.jpg"),
+    Canvas(1280, 720)
+    .background(color="#E9E4D8")
+    .image(
+        path=os.path.join(ASSETS_DIR, "images", "denise-jans-WIRvXd1PYlg-unsplash.jpg"),
+        position=(500, 0),
+        width=780,
+        height=720,
         fit=FitMode.COVER,
-        effects=[Filter(brightness=0.7)],  # Darken original image
+        effects=[Filter(brightness=0.86, contrast=1.03, saturation=0.68)],
     )
-    # 2. Gradient Overlay (Dark bottom-left to transparent top-right)
-    # This ensures text readability on the left side
     .background(
         gradient=LinearGradient(
-            angle=120, stops=[("#0f0f23", 0.0), ("#0f0f23cc", 0.4), ("#0f0f2300", 1.0)]
-        ),
-        opacity=1.0,
+            angle=90,
+            stops=[("#E9E4D8", 0.0), ("#E9E4D8F2", 0.34), ("#E9E4D800", 0.66)],
+        )
     )
-    # 3. Typography
-    # Subtitle: "ARE YOU"
     .text(
-        content="ARE YOU",
-        size=40,
-        color="#fbbf24",  # Amber accent
-        position=(50, 80),
-        weight=900,
+        content="WORK / LIFE  03",
+        font=PRETENDARD,
+        size=18,
+        color="#4A514C",
+        weight=700,
+        letter_spacing=3,
+        position=(58, 54),
+    )
+    .text(
+        content="잘 쉬는 것도\n연습이 필요해",
+        font=PRETENDARD,
+        size=82,
+        color="#171A18",
+        weight=700,
+        line_height=1.12,
+        letter_spacing=-3,
+        position=(58, 154),
+        effects=[Shadow(offset_x=0, offset_y=2, color="#FFFFFF55", blur_radius=4)],
+    )
+    .shape(
+        shape="rectangle",
+        position=(58, 450),
+        width=54,
+        height=6,
+        color="#F0543C",
+        border_radius=3,
+    )
+    .text(
+        content="번아웃 전에 알아차리는\n다섯 가지 작은 신호",
+        font=PRETENDARD,
+        size=28,
+        color="#343A36",
+        weight=500,
+        line_height=1.45,
+        position=(58, 490),
+    )
+    .text(
+        content="SLOW LETTER",
+        font=PRETENDARD,
+        size=16,
+        color="#F6F1E7",
+        weight=700,
         letter_spacing=2,
-        effects=[Shadow(offset_x=3, offset_y=3, color="#000000", blur_radius=0)],
+        position=(1224, 666),
+        align=("right", "bottom"),
     )
-    # Headline Line 1: "BURNING"
-    .text(
-        content="BURNING",
-        size=150,
-        color="#FFFFFF",
-        position=(50, 130),
-        weight=900,
-        effects=[Shadow(offset_x=8, offset_y=8, color="#000000", blur_radius=0)],
-    )
-    # Headline Line 2: "OUT?"
-    .text(
-        content="OUT?",
-        size=150,
-        color="#ff5722",  # Deep Orange
-        position=(50, 260),
-        weight=900,
-        effects=[
-            Stroke(width=3, color="#FFFFFF"),
-            Shadow(offset_x=8, offset_y=8, color="#000000", blur_radius=0),
-        ],
-    )
-    # 4. Footer / Hook
-    # "5" in a box
-    .text(
-        content="5",
-        size=70,
-        color="#0f0f23",
-        position=(50, 580),
-        weight=900,
-        effects=[
-            Background(color="#fbbf24", padding=(15, 25), border_radius=8),
-            Shadow(offset_x=4, offset_y=4, color="#000000", blur_radius=4),
-        ],
-    )
-    # "WARNING SIGNS"
-    .text(
-        content="WARNING SIGNS",
-        size=45,
-        color="#FFFFFF",
-        position=(150, 580),
-        weight=700,
-        effects=[Shadow(offset_x=3, offset_y=3, color="#000000", blur_radius=0)],
-    )
-    # "YOU'RE IGNORING"
-    .text(
-        content="YOU'RE IGNORING",
-        size=45,
-        color="#fbbf24",
-        position=(150, 635),
-        weight=700,
-        effects=[Shadow(offset_x=3, offset_y=3, color="#000000", blur_radius=0)],
-    )
-    # Render
-    .render(os.path.join(FILE_DIR, "youtube_thumbnail_02.png"))
+    .render(OUTPUT_PATH)
 )
 
-print(f"✓ Thumbnail created: {os.path.join(FILE_DIR, 'youtube_thumbnail_02.png')}")
+print(f"✓ Lifestyle editorial thumbnail created: {OUTPUT_PATH}")
