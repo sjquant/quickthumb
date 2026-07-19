@@ -1,17 +1,16 @@
 """
 YouTube Tutorial / Explainer Thumbnail
 
-Clean numbered-steps layout on a gradient background:
-- Deep blue gradient (no background photo needed)
-- "HOW TO" badge using shape + text
-- Large two-tone headline with method chaining
-- Three numbered step badges built with a helper function
-- Vertical divider separating headline from steps
+Focused curriculum layout built from a single headline and a structured step list:
+- Near-black background with one system-blue accent
+- Large two-tone headline as the only hero element
+- Three steps separated by rules instead of cards or badges
+- Compact metadata aligned to a consistent grid
 """
 
 import os
 
-from quickthumb import Canvas, LinearGradient, RadialGradient, Shadow, Stroke, TextPart
+from quickthumb import Canvas, TextPart
 
 FILE_DIR = os.path.dirname(__file__)
 ASSETS_DIR = os.path.join(FILE_DIR, "..", "assets")
@@ -20,120 +19,78 @@ OUTPUT_PATH = os.path.join(FILE_DIR, "youtube_tutorial_explainer.png")
 os.environ["QUICKTHUMB_FONT_DIR"] = os.path.join(ASSETS_DIR, "fonts")
 os.environ["QUICKTHUMB_DEFAULT_FONT"] = "Roboto"
 
-BLUE = "#3B82F6"
-DARK = "#0F172A"
+BLUE = "#0A84FF"
+WHITE = "#F5F5F7"
+GRAY = "#86868B"
 
 
 def main():
     """Render the tutorial thumbnail."""
     canvas = (
         Canvas(1280, 720)
-        # Deep blue diagonal gradient background
-        .background(
-            gradient=LinearGradient(
-                angle=135,
-                stops=[("#0F172A", 0.0), ("#1E3A5F", 0.6), ("#0F172A", 1.0)],
-            )
-        )
-        .background(
-            gradient=RadialGradient(
-                center=(0.82, 0.5),
-                stops=[("#3B82F62B", 0.0), ("#3B82F600", 0.62)],
-            )
-        )
-        # Subtle left-edge accent glow
-        .background(
-            gradient=LinearGradient(
-                angle=90,
-                stops=[(BLUE + "22", 0.0), (BLUE + "00", 0.55)],
-            )
-        )
-        # "HOW TO" label badge
+        .background(color="#000000")
         .shape(
             shape="rectangle",
-            position=(52, 52),
-            width=168,
-            height=48,
+            position=(56, 58),
+            width=10,
+            height=10,
             color=BLUE,
-            border_radius=6,
-            effects=[Shadow(offset_x=0, offset_y=4, color="#00000055", blur_radius=8)],
         )
         .text(
-            content="HOW TO",
-            size=22,
-            color="#FFFFFF",
-            weight=900,
-            letter_spacing=2,
-            position=(136, 76),
-            align=("center", "middle"),
+            content="HOW TO  /  PYTHON",
+            size=17,
+            color="#A1A1A6",
+            weight=700,
+            letter_spacing=3,
+            position=(88, 52),
         )
-        # Two-tone headline
+        .text(
+            content="30 DAYS  /  FROM SCRATCH",
+            size=16,
+            color=GRAY,
+            weight=700,
+            letter_spacing=2,
+            position=(1224, 52),
+            align=("right", "top"),
+        )
+        .shape(
+            shape="rectangle",
+            position=(56, 96),
+            width=1168,
+            height=1,
+            color="#FFFFFF33",
+        )
         .text(
             content=[
-                TextPart(text="MASTER\n", color="#FFFFFF", weight=900),
-                TextPart(text="PYTHON", color="#60A5FA", weight=900),
+                TextPart(text="MASTER\n", color=WHITE, weight=700),
+                TextPart(text="PYTHON", color=BLUE, weight=700),
             ],
-            size=112,
-            line_height=0.95,
-            position=(52, 135),
-            align=("left", "top"),
-            effects=[
-                Stroke(width=1, color=DARK),
-                Shadow(offset_x=0, offset_y=7, color="#00000088", blur_radius=12),
-            ],
+            size=128,
+            line_height=0.94,
+            letter_spacing=-3,
+            position=(56, 150),
         )
-        # Subtitle
         .text(
             content="in 30 days — from scratch",
-            size=32,
-            color="#94A3B8",
+            size=27,
+            color=GRAY,
             weight=500,
-            position=(52, 418),
-            effects=[Shadow(offset_x=0, offset_y=3, color="#00000066", blur_radius=6)],
-        )
-        # Thin vertical divider between headline area and steps
-        .shape(
-            shape="rectangle",
-            position=(696, 148),
-            width=2,
-            height=390,
-            color="#3B82F630",
-            border_radius=2,
+            position=(60, 445),
         )
         .text(
-            content="01  /  CORE CONCEPTS",
-            size=17,
-            color="#60A5FA",
+            content="LEARN  /  BUILD  /  SHIP",
+            size=15,
+            color="#A1A1A6",
             weight=700,
-            letter_spacing=2,
-            position=(52, 550),
-        )
-        .text(
-            content="learn  /  build  /  ship",
-            size=24,
-            color="#E2E8F0",
-            weight=500,
-            position=(52, 584),
-            effects=[
-                Shadow(offset_x=0, offset_y=6, color="#00000055", blur_radius=10),
-            ],
-        )
-        .text(
-            content="PYTHON / 30 DAYS",
-            size=16,
-            color="#FFFFFF88",
-            weight=700,
-            letter_spacing=2,
-            position=(1224, 64),
-            align=("right", "top"),
+            letter_spacing=3,
+            position=(60, 646),
         )
     )
 
-    add_step(canvas, 1, "Learn the basics", 754, 210)
-    add_step(canvas, 2, "Build real projects", 754, 330)
-    add_step(canvas, 3, "Ship and deploy", 754, 450)
+    add_step(canvas, "01", "Learn the basics", 760, 174)
+    add_step(canvas, "02", "Build real projects", 760, 298)
+    add_step(canvas, "03", "Ship and deploy", 760, 422)
 
-    canvas.outline(width=4, color=BLUE)
     canvas.render(OUTPUT_PATH)
 
     print(f"✓ Tutorial / explainer thumbnail created: {OUTPUT_PATH}")
@@ -141,41 +98,28 @@ def main():
 
 
 def add_step(canvas, number, label, x, y):
-    """Render a numbered circular badge followed by a step label."""
+    """Render one curriculum row on the shared grid."""
     canvas.shape(
         shape="rectangle",
-        position=(x - 36, y - 46),
-        width=478,
-        height=92,
-        color="#FFFFFF0A",
-        border_radius=18,
-        effects=[Stroke(width=1, color="#FFFFFF14")],
-    )
-    canvas.shape(
-        shape="ellipse",
         position=(x, y),
-        width=58,
-        height=58,
-        color=BLUE,
-        align=("center", "middle"),
-        effects=[Shadow(offset_x=0, offset_y=5, color="#00000055", blur_radius=10)],
+        width=464,
+        height=1,
+        color="#FFFFFF33",
     )
     canvas.text(
-        content=str(number),
-        size=30,
-        color="#FFFFFF",
-        weight=900,
-        position=(x, y),
-        align=("center", "middle"),
+        content=number,
+        size=17,
+        color=BLUE,
+        weight=700,
+        letter_spacing=2,
+        position=(x, y + 30),
     )
     canvas.text(
         content=label,
         size=32,
-        color="#E2E8F0",
-        weight=700,
-        position=(x + 44, y),
-        align=("left", "middle"),
-        effects=[Shadow(offset_x=0, offset_y=3, color="#00000088", blur_radius=6)],
+        color=WHITE,
+        weight=600,
+        position=(x + 70, y + 20),
     )
     return canvas
 

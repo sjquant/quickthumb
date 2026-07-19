@@ -6,12 +6,11 @@
       "paper": "#F5F5F7",
       "ink": "#1D1D1F",
       "blue": "#0066CC",
-      "orange": "#1D1D1F",
-      "muted": "#6E6E73",
+      "muted": "#515154",
       "rule": "#1D1D1F26"
     },
     "sizes": {
-      "title": 82,
+      "title": 94,
       "subtitle": 28,
       "meta": 18,
       "chip": 18
@@ -22,125 +21,113 @@
       "type": "background",
       "color": "$theme.colors.paper",
       "effects": [
-        { "type": "grain", "intensity": 0.018, "monochrome": true, "seed": 7 }
+        { "type": "grain", "intensity": 0.006, "monochrome": true, "seed": 7 }
       ]
-    },
-    {
-      "type": "text",
-      "content": "0.5",
-      "position": ["87%", "49%"],
-      "size": 220,
-      "color": "$theme.colors.blue",
-      "weight": 700,
-      "letter_spacing": -8,
-      "align": "center"
     },
     {
       "type": "shape",
       "shape": "star",
-      "position": ["78%", "72%"],
-      "width": 54,
-      "height": 54,
+      "position": ["50%", "15%"],
+      "width": 22,
+      "height": 22,
       "color": "$theme.colors.blue",
       "align": "center",
-      "rotation": -12,
+      "rotation": -8,
       "star_points": 5,
       "inner_radius": 0.44
     },
     {
       "type": "svg",
       "path": "assets/images/spark.svg",
-      "position": ["94%", "18%"],
-      "width": 42,
+      "position": ["52.5%", "15%"],
+      "width": 18,
       "align": "center",
-      "rotation": -8,
       "opacity": 0.08
     },
     {
       "type": "group",
       "direction": "column",
-      "gap": 22,
-      "position": ["7%", "48%"],
-      "align": ["left", "middle"],
+      "gap": 24,
+      "position": ["50%", "45%"],
+      "align": ["center", "middle"],
       "children": [
         {
           "type": "text",
           "content": "QUICKTHUMB 0.5  /  RELEASE",
           "size": "$theme.sizes.meta",
-          "color": "$theme.colors.orange",
-          "weight": 800,
-          "letter_spacing": 3
+          "color": "$theme.colors.muted",
+          "weight": 700,
+          "letter_spacing": 3,
+          "align": "center"
         },
         {
           "type": "text",
-          "content": [
-            { "text": "LAYOUTS THAT\n", "color": "$theme.colors.ink", "weight": 800 },
-            { "text": "BUILD THEMSELVES", "color": "$theme.colors.ink", "weight": 800 }
-          ],
+          "content": "Layouts that\nbuild themselves.",
           "size": "$theme.sizes.title",
-          "line_height": 1.05,
-          "letter_spacing": -2
+          "color": "$theme.colors.ink",
+          "weight": 700,
+          "line_height": 1.02,
+          "letter_spacing": -3,
+          "align": "center"
         },
         {
           "type": "text",
           "content": "Auto-layout groups, theme tokens, and built-in lint —\nno pixel coordinates required.",
           "size": "$theme.sizes.subtitle",
           "color": "$theme.colors.muted",
-          "line_height": 1.35
-        },
-        {
-          "type": "group",
-          "direction": "row",
-          "gap": 26,
-          "children": [
-            {
-              "type": "text",
-              "content": "01  GROUPS",
-              "size": "$theme.sizes.chip",
-              "color": "$theme.colors.ink",
-              "weight": 700,
-              "letter_spacing": 1
-            },
-            {
-              "type": "text",
-              "content": "02  TOKENS",
-              "size": "$theme.sizes.chip",
-              "color": "$theme.colors.ink",
-              "weight": 700,
-              "letter_spacing": 1
-            },
-            {
-              "type": "text",
-              "content": "03  SVG",
-              "size": "$theme.sizes.chip",
-              "color": "$theme.colors.ink",
-              "weight": 700,
-              "letter_spacing": 1
-            },
-            {
-              "type": "text",
-              "content": "04  DIAGNOSTICS",
-              "size": "$theme.sizes.chip",
-              "color": "$theme.colors.ink",
-              "weight": 700,
-              "letter_spacing": 1
-            }
-          ]
+          "line_height": 1.35,
+          "align": "center"
         }
       ]
     },
     {
       "type": "shape",
       "shape": "rectangle",
-      "position": ["7%", "91%"],
-      "width": 1102,
+      "position": ["12%", "83%"],
+      "width": 972,
       "height": 1,
       "color": "$theme.colors.rule"
     },
     {
-      "type": "outline",
-      "width": 1,
-      "color": "$theme.colors.ink"
+      "type": "group",
+      "direction": "row",
+      "gap": 48,
+      "position": ["50%", "88%"],
+      "align": ["center", "middle"],
+      "children": [
+        {
+          "type": "text",
+          "content": "01  GROUPS",
+          "size": "$theme.sizes.chip",
+          "color": "$theme.colors.ink",
+          "weight": 700,
+          "letter_spacing": 1
+        },
+        {
+          "type": "text",
+          "content": "02  TOKENS",
+          "size": "$theme.sizes.chip",
+          "color": "$theme.colors.ink",
+          "weight": 700,
+          "letter_spacing": 1
+        },
+        {
+          "type": "text",
+          "content": "03  SVG",
+          "size": "$theme.sizes.chip",
+          "color": "$theme.colors.ink",
+          "weight": 700,
+          "letter_spacing": 1
+        },
+        {
+          "type": "text",
+          "content": "04  DIAGNOSTICS",
+          "size": "$theme.sizes.chip",
+          "color": "$theme.colors.ink",
+          "weight": 700,
+          "letter_spacing": 1
+        }
+      ]
     }
   ]
 }
