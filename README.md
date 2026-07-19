@@ -20,7 +20,7 @@
 
 ![Launch announcement created with quickthumb](examples/launch_announcement.png)
 
-## Create the image. Keep the system.
+## Create the image. Keep the system
 
 quickthumb turns a visual composition into reusable Python or JSON. Build it once,
 change the content or assets, and render consistent creative at any scale.
