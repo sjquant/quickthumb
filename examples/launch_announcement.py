@@ -3,8 +3,8 @@ JSON-first launch announcement card.
 
 Exercises the quickthumb 0.5 feature set in a single themed spec:
 - A top-level `theme` block with `$theme.*` token references across layers
-- Auto-layout `group` layers (a column with a nested chip row) — no hand-placed
-  coordinates for any text
+- Auto-layout `group` layers for the headline column and feature row — no
+  hand-placed coordinates inside either text group
 - `star` shape primitives and decorative `svg` layers
 - Film grain on the base background
 - `canvas.diagnose()` before rendering, mirroring `quickthumb lint`

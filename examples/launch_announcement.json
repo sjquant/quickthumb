@@ -26,57 +26,70 @@
     },
     {
       "type": "shape",
-      "shape": "rectangle",
-      "position": ["78%", "0%"],
-      "width": 282,
-      "height": 720,
-      "color": "$theme.colors.blue"
+      "shape": "ellipse",
+      "position": ["93%", "50%"],
+      "width": 470,
+      "height": 470,
+      "color": "$theme.colors.blue",
+      "align": "center"
     },
     {
       "type": "shape",
       "shape": "rectangle",
-      "position": ["82%", "10%"],
-      "width": 164,
-      "height": 94,
-      "color": "#FFFFFF14",
-      "border_radius": 10,
-      "effects": [{ "type": "stroke", "width": 1, "color": "#FFFFFFAA" }]
+      "position": ["82%", "35%"],
+      "width": 170,
+      "height": 10,
+      "color": "$theme.colors.paper"
     },
     {
       "type": "shape",
       "shape": "rectangle",
-      "position": ["84%", "14%"],
+      "position": ["82%", "43%"],
       "width": 112,
-      "height": 12,
-      "color": "#FFFFFF"
+      "height": 10,
+      "color": "$theme.colors.paper"
     },
     {
       "type": "shape",
       "shape": "rectangle",
-      "position": ["82%", "31%"],
-      "width": 92,
-      "height": 138,
-      "color": "#FFFFFF14",
-      "border_radius": 10,
-      "effects": [{ "type": "stroke", "width": 1, "color": "#FFFFFFAA" }]
+      "position": ["82%", "51%"],
+      "width": 214,
+      "height": 10,
+      "color": "$theme.colors.paper"
     },
     {
       "type": "shape",
       "shape": "rectangle",
-      "position": ["91%", "31%"],
-      "width": 68,
-      "height": 138,
-      "color": "#FFFFFF14",
-      "border_radius": 10,
-      "effects": [{ "type": "stroke", "width": 1, "color": "#FFFFFFAA" }]
+      "position": ["82%", "59%"],
+      "width": 142,
+      "height": 10,
+      "color": "$theme.colors.paper"
     },
     {
       "type": "shape",
       "shape": "rectangle",
-      "position": ["82%", "57%"],
-      "width": 164,
-      "height": 12,
-      "color": "#FFFFFF"
+      "position": ["80.5%", "32%"],
+      "width": 2,
+      "height": 252,
+      "color": "#FFFFFF80"
+    },
+    {
+      "type": "shape",
+      "shape": "ellipse",
+      "position": ["80.6%", "35.5%"],
+      "width": 14,
+      "height": 14,
+      "color": "$theme.colors.paper",
+      "align": "center"
+    },
+    {
+      "type": "shape",
+      "shape": "ellipse",
+      "position": ["80.6%", "59.5%"],
+      "width": 14,
+      "height": 14,
+      "color": "$theme.colors.paper",
+      "align": "center"
     },
     {
       "type": "shape",

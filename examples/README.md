@@ -143,10 +143,10 @@ Spec: `launch_announcement.json`
 Shows the quickthumb 0.5 feature set in a single themed JSON spec:
 
 - Top-level `theme` block with `$theme.*` token references for every color and font size
-- Auto-layout `group` layers — a column with a nested chip row, zero hand-placed text coordinates
-- `star` shape primitives with glow and stroke effects
-- Decorative `svg` layers (requires `quickthumb[svg]`)
-- Gradient-filled headline text via per-`TextPart` `fill`
+- Auto-layout `group` layers for the headline column and feature row, with zero hand-placed coordinates inside either text group
+- An abstract alignment field that communicates reflow without imitating a dashboard UI
+- A `star` primitive and decorative `svg` accent (requires `quickthumb[svg]`)
+- Rich-text headline coloring through themed `TextPart` values
 - `Grain` effect with a fixed seed for deterministic texture
 - `canvas.diagnose()` before rendering, mirroring `quickthumb lint`
 
