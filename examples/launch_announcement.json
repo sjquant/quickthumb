@@ -27,9 +27,9 @@
     {
       "type": "shape",
       "shape": "ellipse",
-      "position": ["93%", "50%"],
-      "width": 470,
-      "height": 470,
+      "position": ["94%", "50%"],
+      "width": 460,
+      "height": 460,
       "color": "$theme.colors.blue",
       "align": "center"
     },
@@ -38,7 +38,7 @@
       "shape": "rectangle",
       "position": ["82%", "35%"],
       "width": 170,
-      "height": 10,
+      "height": 12,
       "color": "$theme.colors.paper"
     },
     {
@@ -46,7 +46,7 @@
       "shape": "rectangle",
       "position": ["82%", "43%"],
       "width": 112,
-      "height": 10,
+      "height": 6,
       "color": "$theme.colors.paper"
     },
     {
@@ -54,7 +54,7 @@
       "shape": "rectangle",
       "position": ["82%", "51%"],
       "width": 214,
-      "height": 10,
+      "height": 6,
       "color": "$theme.colors.paper"
     },
     {
@@ -62,54 +62,35 @@
       "shape": "rectangle",
       "position": ["82%", "59%"],
       "width": 142,
-      "height": 10,
-      "color": "$theme.colors.paper"
+      "height": 6,
+      "color": "#FFFFFFB3"
     },
     {
       "type": "shape",
       "shape": "rectangle",
       "position": ["80.5%", "32%"],
-      "width": 2,
+      "width": 1,
       "height": 252,
       "color": "#FFFFFF80"
     },
     {
-      "type": "shape",
-      "shape": "ellipse",
+      "type": "svg",
+      "path": "assets/images/spark.svg",
       "position": ["80.6%", "35.5%"],
-      "width": 14,
-      "height": 14,
-      "color": "$theme.colors.paper",
-      "align": "center"
-    },
-    {
-      "type": "shape",
-      "shape": "ellipse",
-      "position": ["80.6%", "59.5%"],
-      "width": 14,
-      "height": 14,
-      "color": "$theme.colors.paper",
-      "align": "center"
+      "width": 16,
+      "align": "center",
+      "effects": [{ "type": "filter", "saturation": 0.0, "brightness": 3.0 }]
     },
     {
       "type": "shape",
       "shape": "star",
-      "position": ["7%", "12%"],
-      "width": 28,
-      "height": 28,
-      "color": "$theme.colors.blue",
+      "position": ["80.6%", "59.5%"],
+      "width": 16,
+      "height": 16,
+      "color": "$theme.colors.paper",
       "align": "center",
-      "rotation": -8,
       "star_points": 5,
-      "inner_radius": 0.44
-    },
-    {
-      "type": "svg",
-      "path": "assets/images/spark.svg",
-      "position": ["10%", "12%"],
-      "width": 18,
-      "align": "center",
-      "opacity": 0.08
+      "inner_radius": 0.42
     },
     {
       "type": "group",
