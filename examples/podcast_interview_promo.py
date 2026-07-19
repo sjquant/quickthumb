@@ -2,14 +2,14 @@
 Podcast / interview promo example.
 
 Demonstrates:
-- Remote image URLs for the background and speaker portraits
+- Local editorial portrait assets used as full-bleed backgrounds
 - Webfont loading from a URL for the show title
-- Background removal on image overlays for cutout-style portraits
+- Tonal gradients that preserve portrait detail behind high-contrast copy
 """
 
 import os
 
-from quickthumb import Canvas, Filter, FitMode, LinearGradient
+from quickthumb import Canvas, FitMode, LinearGradient
 
 FILE_DIR = os.path.dirname(__file__)
 ASSETS_DIR = os.path.join(FILE_DIR, "..", "assets")
@@ -18,33 +18,25 @@ OUTPUT_PATH = os.path.join(FILE_DIR, "podcast_interview_promo.png")
 os.environ["QUICKTHUMB_FONT_DIR"] = os.path.join(ASSETS_DIR, "fonts")
 os.environ["QUICKTHUMB_DEFAULT_FONT"] = "Roboto"
 
-BACKGROUND_URL = (
-    "https://images.unsplash.com/photo-1478737270239-2f02b77fc618?auto=format&fit=crop&w=1600&q=80"
-)
-GUEST_URL = (
-    "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=900&q=80"
-)
+GUEST_IMAGE_PATH = os.path.join(ASSETS_DIR, "images", "podcast-guest-editorial.png")
 SHOW_FONT_URL = "https://fonts.gstatic.com/s/dmserifdisplay/v17/-nFnOHM81r4j6k0gjAW3mujVU2B2K_c.ttf"
 
 (
     Canvas(1280, 720)
     .background(
-        image=BACKGROUND_URL,
+        image=GUEST_IMAGE_PATH,
         fit=FitMode.COVER,
-        effects=[Filter(brightness=0.3, saturation=0.35, blur=2)],
     )
     .background(
         gradient=LinearGradient(
             angle=0,
-            stops=[("#000000", 0.0), ("#000000F2", 0.5), ("#00000080", 1.0)],
+            stops=[
+                ("#000000", 0.0),
+                ("#000000F7", 0.48),
+                ("#00000030", 0.72),
+                ("#00000000", 1.0),
+            ],
         )
-    )
-    .shape(
-        shape="rectangle",
-        position=(860, 0),
-        width=420,
-        height=720,
-        color="#EEEDE9",
     )
     .text(
         content="EPISODE 06",
@@ -113,17 +105,8 @@ SHOW_FONT_URL = "https://fonts.gstatic.com/s/dmserifdisplay/v17/-nFnOHM81r4j6k0g
         weight=500,
         position=(66, 630),
     )
-    .image(
-        path=GUEST_URL,
-        position=(1070, 706),
-        width=590,
-        height=700,
-        fit=FitMode.COVER,
-        align=("center", "bottom"),
-        remove_background=True,
-    )
     .render(OUTPUT_PATH)
 )
 
 print(f"✓ Podcast / interview promo created: {OUTPUT_PATH}")
-print("  This example requires network access and quickthumb[rembg] for portrait cutouts.")
+print("  This example requires network access only for the display webfont.")

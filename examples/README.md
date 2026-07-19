@@ -112,12 +112,12 @@ Output: `podcast_interview_promo.png`
 
 Shows:
 
-- Remote image URLs for both the background photo and the speaker portrait
+- A local, full-bleed editorial portrait composed directly into the dark stage
 - A webfont loaded from a URL for the show-title treatment
-- `remove_background=True` on the portrait layer for a cutout-style guest visual
-- Layered promo-card styling with shapes, shadows, and heavy headline typography
+- A tonal gradient that protects copy contrast without boxing in the subject
+- Restrained editorial typography and a single semantic accent
 
-Use it when you want an end-to-end podcast or interview promo example that exercises quickthumb's network-backed asset loading and portrait cutout workflow.
+Use it when you want a podcast or interview promo that integrates photography without visible cutout edges or a disconnected image panel.
 
 ### `shorts_cover_agent.py`
 
