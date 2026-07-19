@@ -26,6 +26,35 @@
     },
     {
       "type": "shape",
+      "shape": "rectangle",
+      "position": ["78%", "0%"],
+      "width": 282,
+      "height": 720,
+      "color": "$theme.colors.blue"
+    },
+    {
+      "type": "text",
+      "content": "LAYOUT\nENGINE",
+      "size": 18,
+      "color": "#FFFFFF",
+      "weight": 700,
+      "line_height": 1.5,
+      "letter_spacing": 3,
+      "position": ["82%", "10%"]
+    },
+    {
+      "type": "text",
+      "content": "05",
+      "size": 188,
+      "color": "#FFFFFF",
+      "opacity": 0.16,
+      "weight": 700,
+      "letter_spacing": -8,
+      "position": ["99%", "78%"],
+      "align": ["right", "bottom"]
+    },
+    {
+      "type": "shape",
       "shape": "star",
       "position": ["7%", "12%"],
       "width": 28,
@@ -87,7 +116,7 @@
       "type": "shape",
       "shape": "rectangle",
       "position": ["7%", "83%"],
-      "width": 1100,
+      "width": 860,
       "height": 1,
       "color": "$theme.colors.rule"
     },

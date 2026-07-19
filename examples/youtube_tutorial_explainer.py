@@ -31,6 +31,13 @@ def main():
         .background(color="#000000")
         .shape(
             shape="rectangle",
+            position=(704, 0),
+            width=576,
+            height=720,
+            color=BLUE,
+        )
+        .shape(
+            shape="rectangle",
             position=(56, 58),
             width=10,
             height=10,
@@ -47,7 +54,7 @@ def main():
         .text(
             content="30 DAYS  /  FROM SCRATCH",
             size=16,
-            color=GRAY,
+            color="#FFFFFFB8",
             weight=700,
             letter_spacing=2,
             position=(1224, 52),
@@ -104,12 +111,12 @@ def add_step(canvas, number, label, x, y):
         position=(x, y),
         width=480,
         height=1,
-        color="#FFFFFF33",
+        color="#FFFFFF66",
     )
     canvas.text(
         content=number,
         size=20,
-        color=BLUE,
+        color="#FFFFFFB8",
         weight=700,
         letter_spacing=2,
         position=(x, y + 30),

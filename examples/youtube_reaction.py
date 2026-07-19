@@ -38,6 +38,16 @@ PORTRAIT_URL = (
             stops=[("#000000", 0.0), ("#000000E8", 0.46), ("#00000011", 1.0)],
         )
     )
+    .text(
+        content="#1",
+        size=470,
+        color="#FF453A",
+        opacity=0.13,
+        weight=900,
+        letter_spacing=-18,
+        position=(1210, 28),
+        align=("right", "top"),
+    )
     .shape(
         shape="ellipse",
         position=(1034, 372),

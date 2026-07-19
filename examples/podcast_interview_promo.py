@@ -10,7 +10,6 @@ Demonstrates:
 import os
 
 from quickthumb import Canvas, Filter, FitMode, LinearGradient
-from quickthumb.models import Shadow
 
 FILE_DIR = os.path.dirname(__file__)
 ASSETS_DIR = os.path.join(FILE_DIR, "..", "assets")
@@ -39,6 +38,13 @@ SHOW_FONT_URL = "https://fonts.gstatic.com/s/dmserifdisplay/v17/-nFnOHM81r4j6k0g
             angle=0,
             stops=[("#000000", 0.0), ("#000000F2", 0.5), ("#00000080", 1.0)],
         )
+    )
+    .shape(
+        shape="rectangle",
+        position=(824, 0),
+        width=456,
+        height=720,
+        color="#F5F5F7",
     )
     .text(
         content="NEW EPISODE  /  06",
@@ -107,13 +113,6 @@ SHOW_FONT_URL = "https://fonts.gstatic.com/s/dmserifdisplay/v17/-nFnOHM81r4j6k0g
         weight=500,
         position=(66, 630),
     )
-    .shape(
-        shape="rectangle",
-        position=(824, 54),
-        width=3,
-        height=612,
-        color="#FFFFFF33",
-    )
     .image(
         path=GUEST_URL,
         position=(1080, 706),
@@ -122,9 +121,6 @@ SHOW_FONT_URL = "https://fonts.gstatic.com/s/dmserifdisplay/v17/-nFnOHM81r4j6k0g
         fit=FitMode.COVER,
         align=("center", "bottom"),
         remove_background=True,
-        effects=[
-            Shadow(offset_x=10, offset_y=18, color="#00000099", blur_radius=24),
-        ],
     )
     .render(OUTPUT_PATH)
 )
