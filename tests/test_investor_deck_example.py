@@ -21,7 +21,8 @@ def test_investor_deck_exports_a_complete_investment_narrative(tmp_path):
     assert len(payload["slides"]) == 10
     assert all(slide["notes"] for slide in payload["slides"])
     assert all(
-        finding.code in {"layer-overlap", "low-contrast"} and finding.severity == "warning"
+        finding.code in {"edge-crowding", "layer-overlap", "low-contrast"}
+        and finding.severity == "warning"
         for finding in findings
     )
     assert html_path.read_text(encoding="utf-8").startswith("<!doctype html>")

@@ -81,82 +81,112 @@ def build_deck() -> Deck:
 
 
 def build_cover_slide() -> Canvas:
-    """Lead with a specific thesis and a product-shaped signal field."""
-    canvas = stage("SERIES A", 1)
+    """Lead with the thesis inside a decisive split editorial composition."""
+    canvas = Canvas(1280, 720).background(color=PAPER)
+    canvas = canvas.shape(
+        shape="rectangle",
+        position=(940, 0),
+        width=340,
+        height=720,
+        color=BLUE,
+        animation=Wipe(direction="left", duration=0.45),
+    )
     canvas = canvas.text(
-        content="Know what changed.\nDecide what to do next.",
+        content="VELA",
         font="Roboto",
-        size=78,
+        size=18,
+        color=BLUE,
+        weight=700,
+        letter_spacing=4,
+        position=(80, 55),
+    )
+    canvas = canvas.text(
+        content="SERIES A  ·  2026",
+        font="Roboto",
+        size=18,
+        color=MUTED,
+        weight=500,
+        letter_spacing=2,
+        position=(860, 58),
+        align=("right", "top"),
+    )
+    canvas = canvas.text(
+        content="Know what\nchanged.",
+        font="Roboto",
+        size=92,
         color=INK,
         weight=500,
-        line_height=1.05,
-        letter_spacing=-2,
-        position=(96, 180),
-        max_width=760,
+        line_height=0.98,
+        letter_spacing=-4,
+        position=(80, 145),
+        max_width=800,
         animation=Fade(duration=0.45),
+    )
+    canvas = canvas.text(
+        content="Decide what happens next.",
+        font="Roboto",
+        size=39,
+        color=BLUE,
+        weight=500,
+        letter_spacing=-1,
+        position=(86, 365),
+        animation=Fade(duration=0.35, trigger="after_previous"),
     )
     canvas = canvas.text(
         content=(
             "Vela turns product data into an explained, owned decision — before the moment passes."
         ),
         font="Roboto",
-        size=27,
+        size=24,
         color=MUTED,
         weight=400,
-        line_height=1.45,
-        position=(100, 430),
+        line_height=1.4,
+        position=(86, 455),
         max_width=650,
-        animation=Fade(duration=0.35, trigger="after_previous"),
     )
-    canvas = canvas.shape(
-        shape="ellipse",
-        position=(1038, 355),
-        width=470,
-        height=470,
-        color=BLUE,
-        align=("center", "middle"),
-    )
-    for index, width in enumerate((180, 116, 224, 148)):
+    signal_widths = (118, 190, 86, 230, 154)
+    for index, width in enumerate(signal_widths):
         canvas = canvas.shape(
             shape="rectangle",
-            position=(970, 250 + index * 70),
+            position=(980, 170 + index * 67),
             width=width,
-            height=8 if index == 0 else 5,
+            height=6,
             color=WHITE,
             animation=Wipe(direction="right", duration=0.32, trigger="with_previous"),
         )
     canvas = canvas.text(
-        content="Decision intelligence for product teams",
+        content="01",
         font="Roboto",
-        size=20,
-        color=MUTED,
+        size=104,
+        color=WHITE,
         weight=500,
-        position=(100, 625),
+        letter_spacing=-5,
+        position=(1172, 535),
+        align=("right", "top"),
     )
     return canvas.text(
-        content="CONFIDENTIAL  ·  ILLUSTRATIVE COMPANY DATA",
+        content="DECISION INTELLIGENCE FOR PRODUCT TEAMS  ·  CONFIDENTIAL",
         font="Roboto",
         size=18,
         color=MUTED,
         weight=500,
         letter_spacing=1,
-        position=(1184, 625),
-        align=("right", "top"),
+        position=(80, 640),
     )
 
 
 def build_problem_slide() -> Canvas:
     """Quantify the customer cost with an explicit illustrative source."""
     canvas = stage("THE PROBLEM", 2)
-    canvas = section_title(canvas, "Teams find the signal\nafter the decision.")
+    canvas = section_title(canvas, "The decision arrives\nbefore the context.")
     canvas = canvas.text(
         content="11.4",
         font="Roboto",
-        size=190,
+        size=230,
         color=BLUE,
         weight=500,
         letter_spacing=-8,
-        position=(96, 300),
+        position=(88, 265),
         animation=Box(direction="in", duration=0.45),
     )
     canvas = canvas.text(
@@ -166,7 +196,7 @@ def build_problem_slide() -> Canvas:
         color=INK,
         weight=700,
         letter_spacing=2,
-        position=(110, 515),
+        position=(104, 530),
     )
     canvas = canvas.text(
         content=(
@@ -178,8 +208,8 @@ def build_problem_slide() -> Canvas:
         color=MUTED,
         weight=400,
         line_height=1.45,
-        position=(470, 335),
-        max_width=650,
+        position=(570, 320),
+        max_width=540,
     )
     canvas = add_source_note(
         canvas,
@@ -189,9 +219,9 @@ def build_problem_slide() -> Canvas:
 
 
 def build_why_now_slide() -> Canvas:
-    """Explain the category timing through three connected market shifts."""
+    """Explain category timing as three forces converging on one moment."""
     canvas = stage("WHY NOW", 3)
-    canvas = section_title(canvas, "The cost of finding context\nis collapsing.")
+    canvas = section_title(canvas, "Three forces converge.\nThe category opens now.")
     shifts = [
         ("01", "MORE SIGNAL", "Product teams now operate across dozens of live data sources."),
         ("02", "LOWER COST", "Models can explain anomalies in seconds, not analyst-days."),
@@ -202,13 +232,14 @@ def build_why_now_slide() -> Canvas:
         ),
     ]
     for index, (number, title, body) in enumerate(shifts):
-        x = 96 + index * 390
+        x = 96 + index * 370
+        y = 345 + index * 52
         canvas = canvas.shape(
             shape="rectangle",
-            position=(x, 360),
-            width=330,
-            height=4,
-            color=BLUE if index == 1 else RULE,
+            position=(x, y),
+            width=300,
+            height=7,
+            color=BLUE,
             animation=Wipe(direction="right", duration=0.35),
         )
         canvas = canvas.text(
@@ -217,7 +248,7 @@ def build_why_now_slide() -> Canvas:
             size=20,
             color=BLUE,
             weight=700,
-            position=(x, 390),
+            position=(x, y + 28),
         )
         canvas = canvas.text(
             content=title,
@@ -225,7 +256,7 @@ def build_why_now_slide() -> Canvas:
             size=31,
             color=INK,
             weight=700,
-            position=(x, 435),
+            position=(x, y + 68),
         )
         canvas = canvas.text(
             content=body,
@@ -234,8 +265,8 @@ def build_why_now_slide() -> Canvas:
             color=MUTED,
             weight=400,
             line_height=1.45,
-            position=(x, 500),
-            max_width=320,
+            position=(x, y + 118),
+            max_width=300,
         )
     return add_source_note(
         canvas,
@@ -246,53 +277,51 @@ def build_why_now_slide() -> Canvas:
 def build_workflow_slide() -> Canvas:
     """Make the product legible as one end-to-end operating workflow."""
     canvas = stage("THE WORKFLOW", 4)
-    canvas = section_title(canvas, "From anomaly to owned decision.")
+    canvas = section_title(canvas, "One signal.\nOne accountable decision.")
     steps = [
         ("DETECT", "Conversion -18.4%"),
         ("EXPLAIN", "Payment timeout"),
         ("ROUTE", "Owner: Checkout"),
         ("DECIDE", "Rollback recorded"),
     ]
-    canvas = canvas.shape(
-        shape="rectangle",
-        position=(135, 400),
-        width=980,
-        height=3,
-        color=RULE,
-    )
     for index, (title, detail) in enumerate(steps):
-        x = 150 + index * 300
+        x = 80 + index * 300
+        color = GREEN if index == 3 else BLUE
+        canvas = canvas.shape(
+            shape="rectangle",
+            position=(x, 370),
+            width=280,
+            height=205,
+            color=WHITE if index < 3 else "#E8F5EF",
+            effects=[{"type": "stroke", "width": 1, "color": RULE}],
+            animation=Fade(duration=0.3, trigger="after_previous"),
+        )
         canvas = canvas.shape(
             shape="ellipse",
-            position=(x, 402),
-            width=20,
-            height=20,
-            color=BLUE if index < 3 else GREEN,
+            position=(x + 32, 405),
+            width=12,
+            height=12,
+            color=color,
             align=("center", "middle"),
-            animation=(
-                Fade(duration=0.3) if index == 0 else Fade(duration=0.3, trigger="after_previous")
-            ),
         )
         canvas = canvas.text(
             content=title,
             font="Roboto",
             size=20,
-            color=BLUE,
+            color=color,
             weight=700,
             letter_spacing=2,
-            position=(x, 445),
-            align=("center", "top"),
+            position=(x + 55, 394),
         )
         canvas = canvas.text(
             content=detail,
             font="Roboto",
-            size=27,
+            size=29,
             color=INK,
             weight=500,
             line_height=1.25,
-            position=(x, 505),
-            align=("center", "top"),
-            max_width=230,
+            position=(x + 28, 465),
+            max_width=220,
         )
     return add_source_note(canvas, "Illustrative incident workflow")
 
@@ -377,9 +406,35 @@ def build_product_slide() -> Canvas:
 
 
 def build_traction_slide() -> Canvas:
-    """Present traction with periods, definitions, and a growth shape."""
+    """Make the growth trajectory the dominant visual proof."""
     canvas = stage("TRACTION", 6)
-    canvas = section_title(canvas, "$1.8M ARR.\n3.1× year over year.")
+    canvas = canvas.text(
+        content="$1.8M",
+        font="Roboto",
+        size=132,
+        color=INK,
+        weight=500,
+        letter_spacing=-6,
+        position=(88, 125),
+        animation=Fade(duration=0.4),
+    )
+    canvas = canvas.text(
+        content="ARR",
+        font="Roboto",
+        size=25,
+        color=MUTED,
+        weight=700,
+        letter_spacing=2,
+        position=(102, 285),
+    )
+    canvas = canvas.text(
+        content="3.1× YoY",
+        font="Roboto",
+        size=36,
+        color=BLUE,
+        weight=500,
+        position=(330, 265),
+    )
     canvas = add_arr_chart(canvas)
     metrics = [
         ("94%", "GROSS LOGO RETENTION", "Trailing 12 months"),
@@ -387,12 +442,19 @@ def build_traction_slide() -> Canvas:
         ("11 WKS", "SALES CYCLE", "Median, closed-won"),
     ]
     for index, (value, label, period) in enumerate(metrics):
-        x = 700 + (index % 2) * 270
-        y = 300 + (index // 2) * 185
+        x = 735
+        y = 205 + index * 135
+        canvas = canvas.shape(
+            shape="rectangle",
+            position=(x, y - 22),
+            width=445,
+            height=1,
+            color=RULE,
+        )
         canvas = canvas.text(
             content=value,
             font="Roboto",
-            size=58,
+            size=50,
             color=GREEN if index == 0 else INK,
             weight=500,
             letter_spacing=-2,
@@ -405,7 +467,7 @@ def build_traction_slide() -> Canvas:
             color=INK,
             weight=700,
             letter_spacing=1,
-            position=(x, y + 75),
+            position=(x + 180, y + 5),
         )
         canvas = canvas.text(
             content=period,
@@ -413,13 +475,13 @@ def build_traction_slide() -> Canvas:
             size=18,
             color=MUTED,
             weight=400,
-            position=(x, y + 110),
+            position=(x + 180, y + 38),
         )
     return add_source_note(canvas, "Illustrative operating metrics · Q2 2026")
 
 
 def build_business_model_slide() -> Canvas:
-    """Explain the land-and-expand mechanics with explicit unit metrics."""
+    """Show expansion as a visibly compounding account footprint."""
     canvas = stage("BUSINESS MODEL", 7)
     canvas = section_title(canvas, "Land with one team.\nExpand with shared context.")
     stages = [
@@ -427,8 +489,18 @@ def build_business_model_slide() -> Canvas:
         ("EXPAND", "$72K", "Median year-two ACV\n3 connected teams"),
         ("COMPOUND", "118%", "Net revenue retention\nTrailing 12 months"),
     ]
+    circle_sizes = (150, 220, 290)
     for index, (label, value, detail) in enumerate(stages):
-        x = 96 + index * 390
+        x = 170 + index * 390
+        canvas = canvas.shape(
+            shape="ellipse",
+            position=(x, 475),
+            width=circle_sizes[index],
+            height=circle_sizes[index],
+            color=("#E8F2FF", "#CFE5FF", BLUE)[index],
+            align=("center", "middle"),
+            animation=Fade(duration=0.32, trigger="after_previous"),
+        )
         canvas = canvas.text(
             content=label,
             font="Roboto",
@@ -436,42 +508,29 @@ def build_business_model_slide() -> Canvas:
             color=BLUE,
             weight=700,
             letter_spacing=2,
-            position=(x, 360),
+            position=(x, 362),
+            align=("center", "top"),
         )
         canvas = canvas.text(
             content=value,
             font="Roboto",
             size=76,
-            color=INK,
+            color=WHITE if index == 2 else INK,
             weight=500,
             letter_spacing=-3,
-            position=(x, 405),
+            position=(x, 433),
+            align=("center", "top"),
         )
         canvas = canvas.text(
             content=detail,
             font="Roboto",
             size=22,
-            color=MUTED,
+            color=WHITE if index == 2 else MUTED,
             weight=400,
             line_height=1.4,
-            position=(x, 510),
+            position=(x, 520),
+            align=("center", "top"),
         )
-        if index < 2:
-            canvas = canvas.shape(
-                shape="rectangle",
-                position=(x + 310, 455),
-                width=42,
-                height=2,
-                color=RULE,
-            )
-            canvas = canvas.shape(
-                shape="ellipse",
-                position=(x + 350, 456),
-                width=8,
-                height=8,
-                color=BLUE,
-                align=("center", "middle"),
-            )
     return add_source_note(canvas, "Illustrative pricing and retention metrics · Q2 2026")
 
 
@@ -551,7 +610,7 @@ def build_market_gtm_slide() -> Canvas:
 
 
 def build_moat_slide() -> Canvas:
-    """Position the product and explain what compounds with usage."""
+    """Position the product with a map that gives Vela unmistakable separation."""
     canvas = stage("DEFENSIBILITY", 9)
     canvas = section_title(canvas, "Context compounds.\nWorkflows become harder to replace.")
     canvas = add_competition_map(canvas)
@@ -562,7 +621,7 @@ def build_moat_slide() -> Canvas:
         color=BLUE,
         weight=700,
         letter_spacing=2,
-        position=(735, 350),
+        position=(760, 330),
     )
     moat = [
         "Decision history tied to live product signals",
@@ -576,7 +635,7 @@ def build_moat_slide() -> Canvas:
             size=18,
             color=BLUE,
             weight=700,
-            position=(735, 410 + index * 70),
+            position=(760, 390 + index * 76),
         )
         canvas = canvas.text(
             content=item,
@@ -584,68 +643,87 @@ def build_moat_slide() -> Canvas:
             size=22,
             color=INK,
             weight=400,
-            position=(790, 405 + index * 70),
-            max_width=390,
+            position=(815, 385 + index * 76),
+            max_width=360,
         )
     return add_source_note(canvas, "Illustrative competitive positioning")
 
 
 def build_team_ask_slide() -> Canvas:
-    """Close on team credibility, financing deployment, and milestones."""
-    canvas = stage("TEAM + ASK", 10)
+    """Close with a financing number that feels like the final decision."""
+    canvas = Canvas(1280, 720).background(color=INK)
+    canvas = canvas.shape(
+        shape="rectangle",
+        position=(0, 0),
+        width=520,
+        height=720,
+        color=BLUE,
+        animation=Wipe(direction="right", duration=0.4),
+    )
     canvas = canvas.text(
-        content="Raising $8M\nSeries A.",
+        content="VELA",
         font="Roboto",
-        size=78,
-        color=INK,
+        size=18,
+        color=WHITE,
+        weight=700,
+        letter_spacing=4,
+        position=(80, 55),
+    )
+    canvas = canvas.text(
+        content="$8M",
+        font="Roboto",
+        size=160,
+        color=WHITE,
         weight=500,
-        line_height=1.02,
-        letter_spacing=-2,
-        position=(96, 165),
+        letter_spacing=-7,
+        position=(70, 150),
         animation=Fade(duration=0.4),
     )
     canvas = canvas.text(
-        content="24 months to $8M ARR and repeatable enterprise distribution.",
+        content="SERIES A",
+        font="Roboto",
+        size=28,
+        color=WHITE,
+        weight=700,
+        letter_spacing=3,
+        position=(82, 345),
+    )
+    canvas = canvas.text(
+        content="24 months to $8M ARR\nand repeatable enterprise distribution.",
         font="Roboto",
         size=25,
-        color=MUTED,
+        color="#D7E9FF",
         weight=400,
-        position=(100, 365),
-        max_width=550,
+        line_height=1.35,
+        position=(82, 425),
+        max_width=360,
     )
     canvas = canvas.text(
         content="USE OF FUNDS",
         font="Roboto",
         size=18,
-        color=BLUE,
+        color="#D7E9FF",
         weight=700,
         letter_spacing=2,
-        position=(100, 455),
+        position=(82, 525),
     )
     canvas = canvas.text(
         content="45%  Product + AI\n35%  Enterprise GTM\n20%  Security + operations",
         font="Roboto",
-        size=23,
-        color=INK,
+        size=21,
+        color=WHITE,
         weight=500,
         line_height=1.65,
-        position=(100, 500),
-    )
-    canvas = canvas.shape(
-        shape="rectangle",
-        position=(690, 165),
-        width=1,
-        height=440,
-        color=RULE,
+        position=(82, 555),
     )
     canvas = canvas.text(
         content="FOUNDING TEAM",
         font="Roboto",
         size=18,
-        color=BLUE,
+        color="#80BFFF",
         weight=700,
         letter_spacing=2,
-        position=(750, 175),
+        position=(600, 105),
     )
     team = [
         ("Maya Chen", "CEO · Product analytics, ex-Atlas"),
@@ -653,38 +731,38 @@ def build_team_ask_slide() -> Canvas:
         ("Priya Shah", "VP GTM · Enterprise SaaS, ex-North"),
     ]
     for index, (name, role) in enumerate(team):
-        y = 245 + index * 105
+        y = 180 + index * 120
         canvas = canvas.text(
             content=name,
             font="Roboto",
             size=30,
-            color=INK,
+            color=WHITE,
             weight=500,
-            position=(750, y),
+            position=(600, y),
         )
         canvas = canvas.text(
             content=role,
             font="Roboto",
             size=19,
-            color=MUTED,
+            color="#A7A7AD",
             weight=400,
-            position=(750, y + 45),
+            position=(600, y + 45),
         )
     canvas = canvas.text(
         content="Illustrative names, roles, and financing data",
         font="Roboto",
         size=18,
-        color=MUTED,
+        color="#8E8E93",
         weight=400,
-        position=(750, 585),
+        position=(600, 575),
     )
     return canvas.text(
         content="invest@vela.so",
         font="Roboto",
         size=21,
-        color=BLUE,
+        color="#80BFFF",
         weight=700,
-        position=(1184, 650),
+        position=(1184, 645),
         align=("right", "top"),
     )
 
@@ -805,11 +883,11 @@ def add_arr_chart(canvas: Canvas) -> Canvas:
     values = (90, 130, 190, 270, 390, 540)
     labels = ("Q1'25", "Q2", "Q3", "Q4", "Q1'26", "Q2")
     for index, (height, label) in enumerate(zip(values, labels, strict=True)):
-        x = 100 + index * 88
+        x = 92 + index * 94
         canvas = canvas.shape(
             shape="rectangle",
             position=(x, 610 - height // 2),
-            width=50,
+            width=62,
             height=height // 2,
             color=BLUE if index == len(values) - 1 else "#A9CFF5",
             animation=Wipe(direction="up", duration=0.3, trigger="with_previous"),
@@ -820,7 +898,7 @@ def add_arr_chart(canvas: Canvas) -> Canvas:
             size=18,
             color=MUTED,
             weight=400,
-            position=(x + 25, 625),
+            position=(x + 31, 625),
             align=("center", "top"),
         )
     return canvas
@@ -830,30 +908,38 @@ def add_competition_map(canvas: Canvas) -> Canvas:
     """Place Vela on a simple context-versus-action competitive map."""
     canvas = canvas.shape(
         shape="rectangle",
-        position=(120, 365),
-        width=500,
+        position=(92, 300),
+        width=570,
+        height=320,
+        color=WHITE,
+        effects=[{"type": "stroke", "width": 1, "color": RULE}],
+    )
+    canvas = canvas.shape(
+        shape="rectangle",
+        position=(120, 455),
+        width=510,
         height=1,
         color=RULE,
     )
     canvas = canvas.shape(
         shape="rectangle",
-        position=(370, 275),
+        position=(375, 325),
         width=1,
-        height=300,
+        height=265,
         color=RULE,
     )
     points = [
-        ("BI", 220, 455, MUTED),
-        ("ALERTING", 455, 470, MUTED),
-        ("COPILOTS", 470, 320, MUTED),
-        ("VELA", 550, 295, BLUE),
+        ("BI", 190, 535, MUTED),
+        ("ALERTING", 470, 535, MUTED),
+        ("COPILOTS", 475, 390, MUTED),
+        ("VELA", 585, 345, BLUE),
     ]
     for label, x, y, color in points:
         canvas = canvas.shape(
             shape="ellipse",
             position=(x, y),
-            width=14 if label != "VELA" else 22,
-            height=14 if label != "VELA" else 22,
+            width=14 if label != "VELA" else 28,
+            height=14 if label != "VELA" else 28,
             color=color,
             align=("center", "middle"),
         )
@@ -872,7 +958,7 @@ def add_competition_map(canvas: Canvas) -> Canvas:
         color=MUTED,
         weight=500,
         letter_spacing=1,
-        position=(455, 585),
+        position=(485, 592),
     )
     return canvas.text(
         content="MORE ACTION",
@@ -881,7 +967,7 @@ def add_competition_map(canvas: Canvas) -> Canvas:
         color=MUTED,
         weight=500,
         letter_spacing=1,
-        position=(105, 275),
+        position=(108, 320),
     )
 
 
