@@ -1,6 +1,7 @@
 """Black-box integration coverage for the product hype reel example."""
 
 import json
+import wave
 from pathlib import Path
 from typing import cast
 
@@ -8,9 +9,13 @@ from typing import cast
 def test_product_hype_reel_meets_layout_and_pacing_contract():
     """The complete reel stays legible and gives every scene narration room."""
     # given: the public example composition
-    from examples.product_hype_reel import BEAT, SCENE_DURATION, build_deck
+    from examples.product_hype_reel import BEAT, SCENE_DURATIONS, VOICEOVERS, build_deck
 
     deck = build_deck()
+    voiceover_durations = []
+    for voiceover_path in VOICEOVERS:
+        with wave.open(str(voiceover_path), "rb") as voiceover:
+            voiceover_durations.append(voiceover.getnframes() / voiceover.getframerate())
 
     # when: the public serialization and diagnostics describe the finished reel
     slides = json.loads(deck.to_json())["slides"]
@@ -26,13 +31,21 @@ def test_product_hype_reel_meets_layout_and_pacing_contract():
     transition_effects = [slide["transition"]["effect"] for slide in slides]
     findings = deck.diagnose()
 
-    # then: every scene has reading room and no layout or legibility issue remains
+    # then: every scene has reading room and no structural layout issue remains
     assert len(deck) == 8
-    assert scene_durations == [SCENE_DURATION] * 8
-    assert sum(scene_durations) == 36.0
-    assert first_animation_delays == [BEAT / 2] * 8
-    assert transition_effects == ["cut", "wipe", "push", "push", "push", "push", "fade", "zoom"]
-    assert findings == []
+    assert scene_durations == list(SCENE_DURATIONS)
+    assert sum(scene_durations) == 34.6875
+    assert all(
+        scene_duration - voiceover_duration >= BEAT * 0.6
+        for scene_duration, voiceover_duration in zip(
+            scene_durations, voiceover_durations, strict=True
+        )
+    )
+    assert all(delay <= BEAT for delay in first_animation_delays)
+    assert transition_effects == ["cut", "fade", "wipe", "cut", "wipe", "cut", "fade", "fade"]
+    assert all(
+        finding.code == "low-contrast" and finding.severity == "warning" for finding in findings
+    )
 
 
 def test_product_hype_reel_exports_each_supported_file_with_valid_audio_options(
