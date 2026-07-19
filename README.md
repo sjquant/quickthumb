@@ -80,11 +80,24 @@ The core workflow stays small:
 | --- | --- |
 | ![Instagram news card](examples/instagram_news_card.png) | ![Podcast interview promo](examples/podcast_interview_promo.png) |
 
-<p align="center">
-  <img src="examples/shorts_cover_agent.png" alt="Vertical shorts cover" width="31%" />
-  &nbsp;&nbsp;
-  <img src="examples/product_hype_reel.gif" alt="Animated product reel" width="31%" />
-</p>
+<table>
+  <thead>
+    <tr>
+      <th>Vertical shorts cover</th>
+      <th>Animated product reel</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td align="center">
+        <img src="examples/shorts_cover_agent.png" alt="Vertical shorts cover" width="56%" />
+      </td>
+      <td align="center">
+        <img src="examples/product_hype_reel.gif" alt="Animated product reel" width="56%" />
+      </td>
+    </tr>
+  </tbody>
+</table>
 
 [Explore the examples and source files →](examples/README.md)
 
