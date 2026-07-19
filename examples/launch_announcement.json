@@ -5,7 +5,7 @@
     "colors": {
       "paper": "#F5F5F7",
       "ink": "#1D1D1F",
-      "blue": "#0071E3",
+      "blue": "#0066CC",
       "orange": "#1D1D1F",
       "muted": "#6E6E73",
       "rule": "#1D1D1F26"
@@ -26,33 +26,22 @@
       ]
     },
     {
-      "type": "shape",
-      "shape": "ellipse",
-      "position": ["86%", "52%"],
-      "width": 350,
-      "height": 350,
+      "type": "text",
+      "content": "0.5",
+      "position": ["87%", "49%"],
+      "size": 220,
       "color": "$theme.colors.blue",
+      "weight": 700,
+      "letter_spacing": -8,
       "align": "center"
     },
     {
       "type": "shape",
       "shape": "star",
-      "position": ["86%", "52%"],
-      "width": 218,
-      "height": 218,
-      "color": "$theme.colors.paper",
-      "align": "center",
-      "rotation": 8,
-      "star_points": 5,
-      "inner_radius": 0.44
-    },
-    {
-      "type": "shape",
-      "shape": "star",
-      "position": ["73%", "77%"],
-      "width": 72,
-      "height": 72,
-      "color": "$theme.colors.orange",
+      "position": ["78%", "72%"],
+      "width": 54,
+      "height": 54,
+      "color": "$theme.colors.blue",
       "align": "center",
       "rotation": -12,
       "star_points": 5,
@@ -61,8 +50,8 @@
     {
       "type": "svg",
       "path": "assets/images/spark.svg",
-      "position": ["93%", "13%"],
-      "width": 58,
+      "position": ["94%", "18%"],
+      "width": 42,
       "align": "center",
       "rotation": -8,
       "opacity": 0.08
@@ -86,7 +75,7 @@
           "type": "text",
           "content": [
             { "text": "LAYOUTS THAT\n", "color": "$theme.colors.ink", "weight": 800 },
-            { "text": "BUILD THEMSELVES", "color": "$theme.colors.blue", "weight": 800 }
+            { "text": "BUILD THEMSELVES", "color": "$theme.colors.ink", "weight": 800 }
           ],
           "size": "$theme.sizes.title",
           "line_height": 1.05,
