@@ -32,7 +32,7 @@ SHOW_FONT_URL = "https://fonts.gstatic.com/s/dmserifdisplay/v17/-nFnOHM81r4j6k0g
     .background(
         image=BACKGROUND_URL,
         fit=FitMode.COVER,
-        effects=[Filter(brightness=0.36, saturation=0.48, blur=2)],
+        effects=[Filter(brightness=0.3, saturation=0.35, blur=2)],
     )
     .background(
         gradient=LinearGradient(
@@ -51,30 +51,30 @@ SHOW_FONT_URL = "https://fonts.gstatic.com/s/dmserifdisplay/v17/-nFnOHM81r4j6k0g
     .text(
         content="Signal to Noise",
         font=SHOW_FONT_URL,
-        size=46,
+        size=50,
         color="#F5F5F7",
         position=(62, 88),
     )
     .shape(
         shape="rectangle",
         position=(64, 158),
-        width=78,
-        height=4,
-        color="#A1A1A6",
+        width=96,
+        height=6,
+        color="#FF453A",
     )
     .text(
         content="HOW GREAT TEAMS\nBUILD BETTER\nFEEDBACK LOOPS",
-        size=60,
+        size=68,
         color="#F5F5F7",
         weight=700,
-        line_height=1.04,
-        position=(60, 196),
+        line_height=0.98,
+        position=(58, 188),
     )
     .text(
         content="A practical interview on shipping faster without breaking trust.",
         size=27,
         color="#A1A1A6",
-        position=(64, 412),
+        position=(64, 424),
         max_width=570,
         line_height=1.25,
     )
@@ -109,16 +109,16 @@ SHOW_FONT_URL = "https://fonts.gstatic.com/s/dmserifdisplay/v17/-nFnOHM81r4j6k0g
     )
     .shape(
         shape="rectangle",
-        position=(872, 54),
+        position=(824, 54),
         width=3,
         height=612,
         color="#FFFFFF33",
     )
     .image(
         path=GUEST_URL,
-        position=(1095, 698),
-        width=500,
-        height=660,
+        position=(1080, 706),
+        width=590,
+        height=700,
         fit=FitMode.COVER,
         align=("center", "bottom"),
         remove_background=True,

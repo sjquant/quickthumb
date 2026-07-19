@@ -24,14 +24,14 @@ os.environ["QUICKTHUMB_DEFAULT_FONT"] = "Roboto"
     # For now, using a dark background as placeholder
     .background(
         image=os.path.join(ASSETS_DIR, "images", "c-g-JgDUVGAXsso-unsplash.jpg"),
-        effects=[Filter(brightness=0.66, contrast=1.03, saturation=0.32)],
+        effects=[Filter(brightness=0.76, contrast=1.08, saturation=0.5)],
     )
     # Add a semi-transparent overlay to darken the background
     # This helps text stand out better
     .background(
         gradient=LinearGradient(
             angle=90,
-            stops=[("#000000F7", 0.0), ("#000000D9", 0.52), ("#00000038", 1.0)],
+            stops=[("#000000FA", 0.0), ("#000000D6", 0.48), ("#00000014", 1.0)],
         )
     )
     .shape(
@@ -57,47 +57,44 @@ os.environ["QUICKTHUMB_DEFAULT_FONT"] = "Roboto"
                 color="#F5F5F7",
             ),
             TextPart(
-                text="IN MINUTES\n",
-                color="#D2D2D7",
-            ),
-            TextPart(
-                text="A practical workflow for faster creative output.",
-                color="#A1A1A6",
-                size=28,
+                text="IN MINUTES.",
+                color="#0A84FF",
             ),
         ],
-        size=96,
-        line_height=1.04,
-        position=("8%", "51%"),
+        size=108,
+        line_height=0.98,
+        position=("7%", "53%"),
         align=("left", "middle"),
         bold=True,
     )
     .shape(
         shape="rectangle",
-        position=(1040, 104),
+        position=(1052, 88),
         width=1,
         height=512,
         color="#FFFFFF33",
     )
     .text(
-        content="CODE\nRENDER\nSHIP",
+        content="CODE  /  RENDER  /  SHIP",
         size=17,
         color="#A1A1A6",
         weight=600,
         line_height=1.8,
         letter_spacing=2,
-        position=(1080, 112),
+        position=(1208, 68),
+        align=("right", "top"),
     )
     .text(
         content="01",
-        size=72,
+        size=190,
         color="#0A84FF",
-        weight=500,
-        position=(1192, 606),
+        opacity=0.9,
+        weight=700,
+        position=(1230, 690),
         align=("right", "bottom"),
     )
     # Add bright neon green border
-    .outline(width=1, color="#FFFFFF55")
+    .outline(width=4, color="#0A84FF")
     # Render the thumbnail
     .render(os.path.join(FILE_DIR, "youtube_thumbnail_01.png"))
 )

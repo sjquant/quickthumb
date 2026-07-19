@@ -28,13 +28,13 @@ SIZE = 1080
     .background(
         image=os.path.join(ASSETS_DIR, "images", "tobias-rademacher-wnF27F85ZKw-unsplash.jpg"),
         fit=FitMode.COVER,
-        effects=[Filter(brightness=0.75)],
+        effects=[Filter(brightness=0.9, contrast=1.1, saturation=0.9)],
     )
     # 2. Dark gradient overlay — bottom two-thirds darkened for text legibility
     .background(
         gradient=LinearGradient(
             angle=90,
-            stops=[("#00000000", 0.0), ("#000000CC", 0.45), ("#000000F0", 1.0)],
+            stops=[("#00000000", 0.0), ("#000000B8", 0.42), ("#000000F2", 1.0)],
         ),
     )
     .text(
@@ -69,8 +69,8 @@ SIZE = 1080
     .shape(
         shape="rectangle",
         position=("8%", "34%"),
-        width=7,
-        height=310,
+        width=9,
+        height=336,
         color="#E11D2E",
         border_radius=4,
     )
@@ -78,10 +78,10 @@ SIZE = 1080
     .text(
         content="Wildfires Spread\nAcross Thousands\nof Acres",
         font="NotoSerif",
-        size=80,
+        size=88,
         color="#FFFFFF",
         weight=900,
-        position=("11%", "49%"),
+        position=("11%", "50%"),
         align=("left", "middle"),
         line_height=1.12,
         effects=[

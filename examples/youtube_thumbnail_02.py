@@ -28,14 +28,14 @@ HEIGHT = 720
     .background(
         image=os.path.join(ASSETS_DIR, "images", "denise-jans-WIRvXd1PYlg-unsplash.jpg"),
         fit=FitMode.COVER,
-        effects=[Filter(brightness=0.58, contrast=1.04, saturation=0.18)],
+        effects=[Filter(brightness=0.78, contrast=1.12, saturation=0.32)],
     )
     # 2. Gradient Overlay (Dark bottom-left to transparent top-right)
     # This ensures text readability on the left side
     .background(
         gradient=LinearGradient(
             angle=110,
-            stops=[("#000000F5", 0.0), ("#000000D6", 0.48), ("#00000033", 1.0)],
+            stops=[("#000000F7", 0.0), ("#000000B8", 0.44), ("#00000012", 1.0)],
         ),
     )
     .text(
@@ -60,24 +60,24 @@ HEIGHT = 720
     # Headline Line 1: "BURNING"
     .text(
         content="BURNING",
-        size=118,
+        size=148,
         color="#F5F5F7",
-        position=(50, 122),
+        position=(46, 108),
         weight=800,
     )
     # Headline Line 2: "OUT?"
     .text(
         content="OUT?",
-        size=118,
-        color="#D2D2D7",
-        position=(50, 242),
+        size=148,
+        color="#FF9F0A",
+        position=(46, 250),
         weight=800,
     )
     # 4. Footer / Hook
     .shape(
         shape="rectangle",
-        position=(52, 546),
-        width=540,
+        position=(52, 554),
+        width=620,
         height=1,
         color="#FFFFFF33",
     )
@@ -85,7 +85,7 @@ HEIGHT = 720
         content="05",
         size=30,
         color="#FF9F0A",
-        position=(52, 574),
+        position=(52, 582),
         weight=800,
     )
     # "WARNING SIGNS"
@@ -93,7 +93,7 @@ HEIGHT = 720
         content="WARNING SIGNS",
         size=28,
         color="#F5F5F7",
-        position=(126, 576),
+        position=(126, 584),
         weight=600,
     )
     # "YOU'RE IGNORING"
@@ -101,7 +101,7 @@ HEIGHT = 720
         content="YOU'RE IGNORING",
         size=28,
         color="#A1A1A6",
-        position=(126, 620),
+        position=(126, 628),
         weight=500,
     )
     # Render

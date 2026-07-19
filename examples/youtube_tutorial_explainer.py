@@ -63,19 +63,19 @@ def main():
         .text(
             content=[
                 TextPart(text="MASTER\n", color=WHITE, weight=700),
-                TextPart(text="PYTHON", color=BLUE, weight=700),
+                TextPart(text="PYTHON.", color=BLUE, weight=800),
             ],
-            size=128,
-            line_height=0.94,
-            letter_spacing=-3,
-            position=(56, 150),
+            size=148,
+            line_height=0.88,
+            letter_spacing=-4,
+            position=(50, 136),
         )
         .text(
             content="in 30 days — from scratch",
             size=27,
             color=GRAY,
             weight=500,
-            position=(60, 445),
+            position=(58, 474),
         )
         .text(
             content="LEARN  /  BUILD  /  SHIP",
@@ -87,9 +87,9 @@ def main():
         )
     )
 
-    add_step(canvas, "01", "Learn the basics", 760, 174)
-    add_step(canvas, "02", "Build real projects", 760, 298)
-    add_step(canvas, "03", "Ship and deploy", 760, 422)
+    add_step(canvas, "01", "Learn the basics", 744, 158)
+    add_step(canvas, "02", "Build real projects", 744, 300)
+    add_step(canvas, "03", "Ship and deploy", 744, 442)
 
     canvas.render(OUTPUT_PATH)
 
@@ -102,13 +102,13 @@ def add_step(canvas, number, label, x, y):
     canvas.shape(
         shape="rectangle",
         position=(x, y),
-        width=464,
+        width=480,
         height=1,
         color="#FFFFFF33",
     )
     canvas.text(
         content=number,
-        size=17,
+        size=20,
         color=BLUE,
         weight=700,
         letter_spacing=2,
@@ -116,10 +116,10 @@ def add_step(canvas, number, label, x, y):
     )
     canvas.text(
         content=label,
-        size=32,
+        size=36,
         color=WHITE,
         weight=600,
-        position=(x + 70, y + 20),
+        position=(x + 76, y + 16),
     )
     return canvas
 

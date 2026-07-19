@@ -10,7 +10,7 @@
       "rule": "#1D1D1F26"
     },
     "sizes": {
-      "title": 94,
+      "title": 116,
       "subtitle": 28,
       "meta": 18,
       "chip": 18
@@ -27,9 +27,9 @@
     {
       "type": "shape",
       "shape": "star",
-      "position": ["50%", "15%"],
-      "width": 22,
-      "height": 22,
+      "position": ["7%", "12%"],
+      "width": 28,
+      "height": 28,
       "color": "$theme.colors.blue",
       "align": "center",
       "rotation": -8,
@@ -39,7 +39,7 @@
     {
       "type": "svg",
       "path": "assets/images/spark.svg",
-      "position": ["52.5%", "15%"],
+      "position": ["10%", "12%"],
       "width": 18,
       "align": "center",
       "opacity": 0.08
@@ -47,9 +47,9 @@
     {
       "type": "group",
       "direction": "column",
-      "gap": 24,
-      "position": ["50%", "45%"],
-      "align": ["center", "middle"],
+      "gap": 22,
+      "position": ["7%", "44%"],
+      "align": ["left", "middle"],
       "children": [
         {
           "type": "text",
@@ -58,17 +58,20 @@
           "color": "$theme.colors.muted",
           "weight": 700,
           "letter_spacing": 3,
-          "align": "center"
+          "align": "left"
         },
         {
           "type": "text",
-          "content": "Layouts that\nbuild themselves.",
+          "content": [
+            { "text": "Layouts that\n", "color": "$theme.colors.ink", "weight": 700 },
+            { "text": "build themselves.", "color": "$theme.colors.blue", "weight": 700 }
+          ],
           "size": "$theme.sizes.title",
           "color": "$theme.colors.ink",
           "weight": 700,
           "line_height": 1.02,
           "letter_spacing": -3,
-          "align": "center"
+          "align": "left"
         },
         {
           "type": "text",
@@ -76,24 +79,24 @@
           "size": "$theme.sizes.subtitle",
           "color": "$theme.colors.muted",
           "line_height": 1.35,
-          "align": "center"
+          "align": "left"
         }
       ]
     },
     {
       "type": "shape",
       "shape": "rectangle",
-      "position": ["12%", "83%"],
-      "width": 972,
+      "position": ["7%", "83%"],
+      "width": 1100,
       "height": 1,
       "color": "$theme.colors.rule"
     },
     {
       "type": "group",
       "direction": "row",
-      "gap": 48,
-      "position": ["50%", "88%"],
-      "align": ["center", "middle"],
+      "gap": 54,
+      "position": ["7%", "88%"],
+      "align": ["left", "middle"],
       "children": [
         {
           "type": "text",

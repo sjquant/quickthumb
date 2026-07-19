@@ -52,9 +52,17 @@
     {
       "type": "shape",
       "shape": "rectangle",
-      "position": ["75%", "53%"],
-      "width": 392,
-      "height": 790,
+      "position": ["0%", "50%"],
+      "width": 1080,
+      "height": 720,
+      "color": "#0066CC"
+    },
+    {
+      "type": "shape",
+      "shape": "rectangle",
+      "position": ["77%", "53%"],
+      "width": 430,
+      "height": 850,
       "color": "#0A0A0A",
       "border_radius": 50,
       "rotation": 3,
@@ -67,9 +75,9 @@
     {
       "type": "image",
       "path": "assets/images/denise-jans-WIRvXd1PYlg-unsplash.jpg",
-      "position": ["75%", "53%"],
-      "width": 342,
-      "height": 676,
+      "position": ["77%", "53%"],
+      "width": 376,
+      "height": 728,
       "fit": "cover",
       "rotation": 3,
       "align": "center",
@@ -84,14 +92,14 @@
       "position": ["8%", "62%"],
       "width": 430,
       "height": 1,
-      "color": "#1D1D1F26"
+      "color": "#FFFFFF66"
     },
     {
       "type": "text",
       "content": "01",
       "font": "Roboto",
       "size": 22,
-      "color": "#0066CC",
+      "color": "#FFFFFFB8",
       "position": ["8%", "64%"],
       "weight": 700,
       "letter_spacing": 2
@@ -101,7 +109,7 @@
       "content": "HOOK",
       "font": "Roboto",
       "size": 30,
-      "color": "#1D1D1F",
+      "color": "#FFFFFF",
       "position": ["16%", "63.6%"],
       "weight": 600,
       "letter_spacing": 2
@@ -112,14 +120,14 @@
       "position": ["8%", "69%"],
       "width": 430,
       "height": 1,
-      "color": "#1D1D1F26"
+      "color": "#FFFFFF66"
     },
     {
       "type": "text",
       "content": "02",
       "font": "Roboto",
       "size": 22,
-      "color": "#0066CC",
+      "color": "#FFFFFFB8",
       "position": ["8%", "71%"],
       "weight": 700,
       "letter_spacing": 2
@@ -129,7 +137,7 @@
       "content": "CUTS",
       "font": "Roboto",
       "size": 30,
-      "color": "#1D1D1F",
+      "color": "#FFFFFF",
       "position": ["16%", "70.6%"],
       "weight": 600,
       "letter_spacing": 2
@@ -140,14 +148,14 @@
       "position": ["8%", "76%"],
       "width": 430,
       "height": 1,
-      "color": "#1D1D1F26"
+      "color": "#FFFFFF66"
     },
     {
       "type": "text",
       "content": "03",
       "font": "Roboto",
       "size": 22,
-      "color": "#0066CC",
+      "color": "#FFFFFFB8",
       "position": ["8%", "78%"],
       "weight": 700,
       "letter_spacing": 2
@@ -157,7 +165,7 @@
       "content": "CAPTIONS",
       "font": "Roboto",
       "size": 30,
-      "color": "#1D1D1F",
+      "color": "#FFFFFF",
       "position": ["16%", "77.6%"],
       "weight": 600,
       "letter_spacing": 2

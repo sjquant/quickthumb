@@ -30,63 +30,41 @@ PORTRAIT_URL = (
     .background(
         image=os.path.join(ASSETS_DIR, "images", "tobias-rademacher-wnF27F85ZKw-unsplash.jpg"),
         fit=FitMode.COVER,
-        effects=[Filter(brightness=0.5, saturation=0.75)],
+        effects=[Filter(brightness=0.42, saturation=0.36, contrast=1.08)],
     )
     # Left-to-right gradient: dark on left for text legibility, transparent on right
     .background(
         gradient=LinearGradient(
             angle=90,
-            stops=[("#0A0A0A", 0.0), ("#0A0A0ACC", 0.48), ("#0A0A0A00", 1.0)],
+            stops=[("#000000", 0.0), ("#000000E8", 0.48), ("#00000011", 1.0)],
         )
-    )
-    .text(
-        content="08",
-        size=290,
-        color="#FFD700",
-        opacity=0.1,
-        weight=900,
-        position=(716, 420),
-        align=("center", "middle"),
-        rotation=-8,
     )
     .shape(
         shape="rectangle",
         position=(52, 132),
         width=56,
         height=5,
-        color="#FFD700",
+        color="#0A84FF",
         border_radius=3,
-    )
-    # Topic badge
-    .shape(
-        shape="rectangle",
-        position=(52, 56),
-        width=244,
-        height=52,
-        color="#E53E3E",
-        border_radius=26,
-        effects=[Shadow(offset_x=0, offset_y=6, color="#00000066", blur_radius=10)],
     )
     .text(
         content="FIELD NOTES  /  08",
-        size=20,
-        color="#FFFFFF",
+        size=18,
+        color="#A1A1A6",
         weight=900,
         letter_spacing=1,
-        position=(174, 82),
-        align=("center", "middle"),
+        position=(52, 64),
     )
     # Main headline: stacked rich text with accent highlight
     .text(
         content=[
-            TextPart(text="THE TRUTH\nABOUT\n", color="#FFFFFF", weight=900),
-            TextPart(text="AI TOOLS", color="#FFD700", weight=900),
+            TextPart(text="THE TRUTH\nABOUT\n", color="#FFFFFF", weight=800),
+            TextPart(text="AI TOOLS.", color="#0A84FF", weight=900),
         ],
-        size=88,
-        line_height=0.97,
-        position=(52, 155),
-        align=("left", "top"),
-        max_width="52%",
+        size=106,
+        line_height=0.92,
+        position=(48, 142),
+        max_width="55%",
         effects=[
             Stroke(width=1, color="#000000"),
             Shadow(offset_x=0, offset_y=8, color="#00000099", blur_radius=14),
@@ -114,14 +92,14 @@ PORTRAIT_URL = (
     .image(
         path=PORTRAIT_URL,
         position=(1280, 720),
-        width=480,
-        height=680,
+        width=570,
+        height=710,
         fit=FitMode.COVER,
         align=("right", "bottom"),
         remove_background=True,
         effects=[Shadow(offset_x=-14, offset_y=0, color="#00000088", blur_radius=22)],
     )
-    .outline(width=4, color="#FFD700")
+    .outline(width=4, color="#0A84FF")
     .render(OUTPUT_PATH)
 )
 

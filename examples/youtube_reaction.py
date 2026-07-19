@@ -28,36 +28,36 @@ PORTRAIT_URL = (
     .background(color="#000000")
     .background(
         gradient=RadialGradient(
-            center=(0.78, 0.48),
-            stops=[("#32100F", 0.0), ("#000000", 0.72)],
+            center=(0.82, 0.48),
+            stops=[("#3D1110", 0.0), ("#000000", 0.68)],
         )
     )
     .background(
         gradient=LinearGradient(
             angle=90,
-            stops=[("#000000", 0.0), ("#000000E8", 0.52), ("#00000033", 1.0)],
+            stops=[("#000000", 0.0), ("#000000E8", 0.46), ("#00000011", 1.0)],
         )
     )
     .shape(
         shape="ellipse",
-        position=(1040, 382),
-        width=430,
-        height=430,
+        position=(1034, 372),
+        width=548,
+        height=548,
         color="#1C1C1E",
         align=("center", "middle"),
     )
     .image(
         path=PORTRAIT_URL,
         position=(1280, 720),
-        width=500,
-        height=670,
+        width=620,
+        height=710,
         fit=FitMode.COVER,
         align=("right", "bottom"),
         remove_background=True,
         effects=[Shadow(offset_x=-12, offset_y=12, color="#00000099", blur_radius=26)],
     )
     .text(
-        content="COMMENTARY  /  SIGNAL 01  /  48H",
+        content="COMMENTARY  /  48H SIGNAL",
         size=17,
         color="#A1A1A6",
         weight=700,
@@ -67,33 +67,33 @@ PORTRAIT_URL = (
     .shape(
         shape="rectangle",
         position=(64, 92),
-        width=560,
+        width=610,
         height=1,
         color="#FFFFFF33",
     )
     .text(
         content="VIRAL",
-        size=176,
+        size=212,
         color="#F5F5F7",
         weight=900,
         letter_spacing=-5,
-        position=(58, 132),
+        position=(52, 104),
     )
     .text(
         content=[
             TextPart(text="TREND ", color="#A1A1A6", weight=600),
             TextPart(text="#1", color="#FF453A", weight=800),
         ],
-        size=62,
-        position=(64, 338),
+        size=80,
+        position=(60, 344),
     )
     .text(
         content="12.4M",
-        size=62,
+        size=82,
         color="#F5F5F7",
         weight=700,
         letter_spacing=-2,
-        position=(64, 470),
+        position=(60, 474),
     )
     .text(
         content="VIEWS / 48H",
@@ -101,7 +101,7 @@ PORTRAIT_URL = (
         color="#86868B",
         weight=700,
         letter_spacing=3,
-        position=(68, 548),
+        position=(64, 568),
     )
     .text(
         content="WHY IT WORKED — AND WHAT COMES NEXT",
@@ -114,7 +114,7 @@ PORTRAIT_URL = (
     .shape(
         shape="rectangle",
         position=(64, 620),
-        width=560,
+        width=610,
         height=1,
         color="#FFFFFF33",
     )
