@@ -9,8 +9,7 @@ Creates an eye-catching YouTube-style thumbnail with:
 
 import os
 
-from quickthumb import Canvas, Filter, LinearGradient, Shadow, TextPart
-from quickthumb.models import Stroke
+from quickthumb import Canvas, Filter, LinearGradient, TextPart
 
 FILE_DIR = os.path.dirname(__file__)
 ASSETS_DIR = os.path.join(FILE_DIR, "..", "assets")
@@ -25,87 +24,80 @@ os.environ["QUICKTHUMB_DEFAULT_FONT"] = "Roboto"
     # For now, using a dark background as placeholder
     .background(
         image=os.path.join(ASSETS_DIR, "images", "c-g-JgDUVGAXsso-unsplash.jpg"),
-        effects=[Filter(brightness=0.78, contrast=1.06, saturation=0.9)],
+        effects=[Filter(brightness=0.68, contrast=1.04, saturation=0.52)],
     )
     # Add a semi-transparent overlay to darken the background
     # This helps text stand out better
     .background(
         gradient=LinearGradient(
             angle=90,
-            stops=[("#050805F2", 0.0), ("#050805C7", 0.48), ("#0508052E", 1.0)],
+            stops=[("#0B1424F7", 0.0), ("#0B1424D9", 0.52), ("#0B142438", 1.0)],
         )
-    )
-    .text(
-        content="QUICKTHUMB  /  CREATOR SERIES",
-        size=22,
-        color="#D8E0D5",
-        weight=700,
-        letter_spacing=3,
-        position=("8%", "16%"),
     )
     .shape(
         shape="rectangle",
-        position=("8%", "21%"),
-        width=64,
-        height=5,
-        color="#B8FF00",
-        border_radius=3,
+        position=("8%", "13%"),
+        width=12,
+        height=12,
+        color="#86A9E6",
+    )
+    .text(
+        content="QUICKTHUMB  /  FIELD GUIDE 01",
+        size=18,
+        color="#D7DCE5",
+        weight=700,
+        letter_spacing=3,
+        position=("10.5%", "12.5%"),
     )
     # Add headline and subtitle as rich text with different sizes and colors
     .text(
         content=[
             TextPart(
                 text="MAKE BETTER\nTHUMBNAILS\n",
-                color="#F7F9F5",
-                effects=[Stroke(width=2, color="#081008")],
+                color="#F2F3F5",
             ),
             TextPart(
                 text="IN MINUTES\n",
-                color="#B8FF00",
-                effects=[Stroke(width=2, color="#081008")],
+                color="#86A9E6",
             ),
             TextPart(
-                text="A practical workflow for faster creative output",
-                color="#D8E0D5",
-                size=32,
+                text="A practical workflow for faster creative output.",
+                color="#B8C0CC",
+                size=28,
             ),
         ],
-        size=100,
-        line_height=1.02,
-        position=("8%", "53%"),
+        size=96,
+        line_height=1.04,
+        position=("8%", "51%"),
         align=("left", "middle"),
         bold=True,
-        effects=[Shadow(offset_x=0, offset_y=8, color="#00000099", blur_radius=16)],
     )
     .shape(
         shape="rectangle",
-        position=(1006, 116),
-        width=210,
-        height=42,
-        color="#071007CC",
-        border_radius=21,
-        effects=[Stroke(width=1, color="#B8FF0055")],
+        position=(1040, 104),
+        width=1,
+        height=512,
+        color="#D7DCE555",
     )
     .text(
-        content="CODE  /  RENDER  /  SHIP",
-        size=16,
-        color="#D8E0D5",
-        weight=700,
-        letter_spacing=1,
-        position=(1111, 137),
-        align=("center", "middle"),
+        content="CODE\nRENDER\nSHIP",
+        size=17,
+        color="#D7DCE5",
+        weight=600,
+        line_height=1.8,
+        letter_spacing=2,
+        position=(1080, 112),
     )
     .text(
         content="01",
-        size=168,
-        color="#B8FF00",
-        opacity=0.14,
-        weight=900,
-        position=(1185, 610),
+        size=72,
+        color="#86A9E6",
+        weight=500,
+        position=(1192, 606),
         align=("right", "bottom"),
     )
     # Add bright neon green border
-    .outline(width=6, color="#B8FF00")
+    .outline(width=2, color="#D7DCE5")
     # Render the thumbnail
     .render(os.path.join(FILE_DIR, "youtube_thumbnail_01.png"))
 )

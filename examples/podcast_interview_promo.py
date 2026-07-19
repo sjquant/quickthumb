@@ -10,7 +10,7 @@ Demonstrates:
 import os
 
 from quickthumb import Canvas, Filter, FitMode, LinearGradient
-from quickthumb.models import Shadow, Stroke
+from quickthumb.models import Shadow
 
 FILE_DIR = os.path.dirname(__file__)
 ASSETS_DIR = os.path.join(FILE_DIR, "..", "assets")
@@ -25,102 +25,94 @@ BACKGROUND_URL = (
 GUEST_URL = (
     "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=900&q=80"
 )
-SHOW_FONT_URL = "https://fonts.gstatic.com/s/pacifico/v22/FwZY7-Qmy14u9lezJ-6H6MmBp0u-.woff2"
+SHOW_FONT_URL = "https://fonts.gstatic.com/s/dmserifdisplay/v17/-nFnOHM81r4j6k0gjAW3mujVU2B2K_c.ttf"
 
 (
     Canvas(1280, 720)
     .background(
         image=BACKGROUND_URL,
         fit=FitMode.COVER,
-        effects=[Filter(brightness=0.42, saturation=0.75, blur=2)],
+        effects=[Filter(brightness=0.36, saturation=0.48, blur=2)],
     )
     .background(
         gradient=LinearGradient(
             angle=0,
-            stops=[("#07111F", 0.0), ("#07111FE8", 0.45), ("#07111F70", 1.0)],
+            stops=[("#10100F", 0.0), ("#10100FF2", 0.5), ("#10100F80", 1.0)],
         )
     )
-    .shape(
-        shape="rectangle",
-        position=(56, 48),
-        width=220,
-        height=54,
-        color="#F04D23",
-        border_radius=27,
-        effects=[Shadow(offset_x=0, offset_y=6, color="#00000055", blur_radius=12)],
-    )
     .text(
-        content="NEW EPISODE",
-        size=24,
-        color="#FFF7F2",
-        weight=900,
-        letter_spacing=2,
-        position=(166, 75),
-        align=("center", "middle"),
+        content="NEW EPISODE  /  06",
+        size=18,
+        color="#E96A4A",
+        weight=800,
+        letter_spacing=3,
+        position=(64, 54),
     )
     .text(
         content="Signal to Noise",
         font=SHOW_FONT_URL,
-        size=48,
-        color="#8CE1FF",
-        position=(60, 126),
-        effects=[Shadow(offset_x=0, offset_y=4, color="#021018AA", blur_radius=10)],
-    )
-    .text(
-        content="HOW GREAT TEAMS\nBUILD BETTER\nFEEDBACK LOOPS",
-        size=58,
-        color="#FFFFFF",
-        weight=900,
-        line_height=1.02,
-        position=(60, 204),
-        effects=[
-            Stroke(width=1, color="#04111A"),
-            Shadow(offset_x=0, offset_y=7, color="#00000088", blur_radius=14),
-        ],
-    )
-    .text(
-        content="A practical interview on shipping faster without breaking trust.",
-        size=30,
-        color="#C7D5E0",
-        position=(64, 400),
-        max_width=600,
-        line_height=1.2,
-        effects=[Shadow(offset_x=0, offset_y=4, color="#00000080", blur_radius=8)],
+        size=46,
+        color="#F0EDE4",
+        position=(62, 88),
     )
     .shape(
         shape="rectangle",
-        position=(62, 526),
-        width=380,
-        height=112,
-        color="#0E2436",
-        border_radius=20,
-        opacity=0.92,
-        effects=[
-            Stroke(width=1, color="#8CE1FF66"),
-            Shadow(offset_x=0, offset_y=10, color="#00000055", blur_radius=16),
-        ],
+        position=(64, 158),
+        width=78,
+        height=4,
+        color="#E96A4A",
     )
     .text(
-        content="Guest",
-        size=22,
-        color="#8CE1FF",
+        content="HOW GREAT TEAMS\nBUILD BETTER\nFEEDBACK LOOPS",
+        size=60,
+        color="#F5F2EA",
         weight=700,
-        letter_spacing=2,
-        position=(88, 550),
+        line_height=1.04,
+        position=(60, 196),
+    )
+    .text(
+        content="A practical interview on shipping faster without breaking trust.",
+        size=27,
+        color="#B8B5AD",
+        position=(64, 412),
+        max_width=570,
+        line_height=1.25,
+    )
+    .shape(
+        shape="rectangle",
+        position=(64, 536),
+        width=420,
+        height=1,
+        color="#F0EDE455",
+    )
+    .text(
+        content="GUEST",
+        size=15,
+        color="#E96A4A",
+        weight=700,
+        letter_spacing=3,
+        position=(64, 558),
     )
     .text(
         content="Mina Park",
+        font=SHOW_FONT_URL,
         size=38,
-        color="#FFFFFF",
-        weight=900,
-        position=(88, 578),
+        color="#F5F2EA",
+        position=(62, 582),
     )
     .text(
         content="AI Product Lead",
-        size=24,
-        color="#C7D5E0",
+        size=19,
+        color="#A6A39C",
         weight=500,
-        position=(90, 614),
+        position=(66, 630),
+    )
+    .shape(
+        shape="rectangle",
+        position=(872, 54),
+        width=3,
+        height=612,
+        color="#E96A4A",
     )
     .image(
         path=GUEST_URL,
@@ -131,10 +123,9 @@ SHOW_FONT_URL = "https://fonts.gstatic.com/s/pacifico/v22/FwZY7-Qmy14u9lezJ-6H6M
         align=("center", "bottom"),
         remove_background=True,
         effects=[
-            Shadow(offset_x=16, offset_y=18, color="#000000AA", blur_radius=22),
+            Shadow(offset_x=10, offset_y=18, color="#00000099", blur_radius=24),
         ],
     )
-    .outline(width=4, color="#8CE1FF")
     .render(OUTPUT_PATH)
 )
 
