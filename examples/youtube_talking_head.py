@@ -10,7 +10,7 @@ Classic split layout with subject on the right and headline on the left:
 
 import os
 
-from quickthumb import Canvas, Filter, FitMode, LinearGradient, Shadow, Stroke, TextPart
+from quickthumb import Canvas, FitMode, LinearGradient, Shadow, Stroke, TextPart
 
 FILE_DIR = os.path.dirname(__file__)
 ASSETS_DIR = os.path.join(FILE_DIR, "..", "assets")
@@ -26,58 +26,55 @@ PORTRAIT_URL = (
 
 (
     Canvas(1280, 720)
-    # Background image with darkening
-    .background(
-        image=os.path.join(ASSETS_DIR, "images", "tobias-rademacher-wnF27F85ZKw-unsplash.jpg"),
-        fit=FitMode.COVER,
-        effects=[Filter(brightness=0.5, saturation=0.75)],
-    )
-    # Left-to-right gradient: dark on left for text legibility, transparent on right
+    .background(color="#000000")
     .background(
         gradient=LinearGradient(
             angle=90,
-            stops=[("#0A0A0A", 0.0), ("#0A0A0ACC", 0.48), ("#0A0A0A00", 1.0)],
+            stops=[("#000000", 0.0), ("#000000E8", 0.48), ("#00000011", 1.0)],
         )
     )
-    # Topic badge
     .shape(
         shape="rectangle",
-        position=(52, 56),
-        width=244,
-        height=52,
-        color="#E53E3E",
-        border_radius=8,
-        effects=[Shadow(offset_x=0, offset_y=6, color="#00000066", blur_radius=10)],
+        position=(840, 0),
+        width=440,
+        height=720,
+        color="#0A84FF",
+    )
+    .shape(
+        shape="rectangle",
+        position=(52, 132),
+        width=56,
+        height=5,
+        color="#0A84FF",
+        border_radius=3,
     )
     .text(
-        content="MY HONEST REVIEW",
-        size=22,
-        color="#FFFFFF",
+        content="30-DAY REVIEW",
+        size=18,
+        color="#A1A1A6",
         weight=900,
         letter_spacing=1,
-        position=(174, 82),
-        align=("center", "middle"),
+        position=(52, 64),
     )
     # Main headline: stacked rich text with accent highlight
     .text(
         content=[
-            TextPart(text="THE TRUTH\nABOUT\n", color="#FFFFFF", weight=900),
-            TextPart(text="AI TOOLS", color="#FFD700", weight=900),
+            TextPart(text="AI TOOLS.\n", color="#FFFFFF", weight=800),
+            TextPart(text="WHAT ACTUALLY\nWORKS.", color="#0A84FF", weight=900),
         ],
-        size=96,
-        line_height=0.95,
-        position=(52, 155),
-        align=("left", "top"),
-        max_width="52%",
+        size=92,
+        line_height=0.92,
+        position=(48, 142),
+        max_width="55%",
         effects=[
-            Stroke(width=4, color="#000000"),
-            Shadow(offset_x=4, offset_y=4, color="#000000", blur_radius=8),
+            Stroke(width=1, color="#000000"),
+            Shadow(offset_x=0, offset_y=8, color="#00000099", blur_radius=14),
         ],
     )
     # Sub-copy anchored near the bottom
     .text(
-        content="What nobody tells you",
-        size=36,
+        content="24 TESTED.  3 KEPT.",
+        size=32,
         color="#D4D4D4",
         weight=500,
         position=(52, 620),
@@ -87,14 +84,13 @@ PORTRAIT_URL = (
     .image(
         path=PORTRAIT_URL,
         position=(1280, 720),
-        width=480,
-        height=680,
+        width=570,
+        height=710,
         fit=FitMode.COVER,
         align=("right", "bottom"),
         remove_background=True,
         effects=[Shadow(offset_x=-14, offset_y=0, color="#00000088", blur_radius=22)],
     )
-    .outline(width=12, color="#FFD700")
     .render(OUTPUT_PATH)
 )
 

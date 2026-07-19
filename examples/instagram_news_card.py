@@ -28,56 +28,68 @@ SIZE = 1080
     .background(
         image=os.path.join(ASSETS_DIR, "images", "tobias-rademacher-wnF27F85ZKw-unsplash.jpg"),
         fit=FitMode.COVER,
-        effects=[Filter(brightness=0.75)],
+        effects=[Filter(brightness=0.9, contrast=1.1, saturation=0.9)],
     )
     # 2. Dark gradient overlay — bottom two-thirds darkened for text legibility
     .background(
         gradient=LinearGradient(
             angle=90,
-            stops=[("#00000000", 0.0), ("#000000CC", 0.45), ("#000000F0", 1.0)],
+            stops=[("#00000000", 0.0), ("#000000B8", 0.42), ("#000000F2", 1.0)],
         ),
+    )
+    .text(
+        content="LIVE  /  20:42 UTC",
+        size=19,
+        color="#FFFFFFAA",
+        weight=700,
+        letter_spacing=3,
+        position=("8%", "6%"),
+        align=("left", "top"),
+    )
+    .shape(
+        shape="rectangle",
+        position=("8%", "11%"),
+        width=908,
+        height=2,
+        color="#FFFFFF44",
     )
     # 3. "BREAKING NEWS" badge near the top
     .text(
         content="BREAKING NEWS",
-        size=38,
+        size=28,
         color="#FFFFFF",
         weight=900,
         letter_spacing=4,
-        position=("50%", "8%"),
-        align=("center", "top"),
+        position=("8%", "15%"),
+        align=("left", "top"),
         effects=[
-            Background(color="#CC0000", padding=(14, 28), border_radius=4),
+            Background(color="#CC0000", padding=(11, 22), border_radius=2),
         ],
+    )
+    .shape(
+        shape="rectangle",
+        position=("8%", "34%"),
+        width=9,
+        height=336,
+        color="#E11D2E",
+        border_radius=4,
     )
     # 4. Main headline — large, bold, white with shadow
     .text(
-        content="Wildfires Spread\nAcross Thousands\nof Acres",
-        size=96,
+        content="Wildfires Spread\nAcross 18,000 Acres",
+        font="NotoSerif",
+        size=92,
         color="#FFFFFF",
         weight=900,
-        position=("8%", "48%"),
+        position=("11%", "52%"),
         align=("left", "middle"),
-        line_height=1.15,
+        line_height=1.12,
         effects=[
-            Stroke(width=2, color="#000000"),
-            Shadow(offset_x=4, offset_y=4, color="#000000", blur_radius=6),
+            Stroke(width=1, color="#000000"),
+            Shadow(offset_x=0, offset_y=6, color="#000000AA", blur_radius=10),
         ],
     )
-    # 5. Sub-headline / context line
-    .text(
-        content="Emergency evacuations ordered in three regions as firefighters battle the blaze",
-        size=36,
-        color="#E0E0E0",
-        weight=400,
-        position=("8%", "79%"),
-        align=("left", "top"),
-        max_width="84%",
-        effects=[
-            Shadow(offset_x=2, offset_y=2, color="#000000", blur_radius=4),
-        ],
-    )
-    # 6. Source and timestamp row
+    # 5. Source and timestamp row
     .text(
         content=[
             TextPart(text="WORLD NEWS  ", color="#FF4444", weight=700),

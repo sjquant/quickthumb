@@ -13,6 +13,11 @@ It is designed for code-first and JSON-first workflows, with a layer-based API t
 | --- | --- | --- |
 | ![Talking head thumbnail example](examples/youtube_talking_head.png) | ![Reaction thumbnail example](examples/youtube_reaction.png) | ![Tutorial thumbnail example](examples/youtube_tutorial_explainer.png) |
 
+<p align="center">
+  <img src="examples/shorts_cover_agent.png" alt="Shorts cover example" width="28%" />
+  <img src="examples/podcast_interview_promo.png" alt="Podcast promo example" width="68%" />
+</p>
+
 ![Launch announcement example built with auto-layout groups, theme tokens, star shapes, and SVG layers](examples/launch_announcement.png)
 
 *One JSON spec, zero hand-placed text coordinates: [`examples/launch_announcement.json`](examples/launch_announcement.json) combines auto-layout groups, theme tokens, star shapes, SVG layers, grain, and `diagnose()`.*

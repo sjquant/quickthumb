@@ -112,12 +112,12 @@ Output: `podcast_interview_promo.png`
 
 Shows:
 
-- Remote image URLs for both the background photo and the speaker portrait
+- A local, full-bleed editorial portrait composed directly into the dark stage
 - A webfont loaded from a URL for the show-title treatment
-- `remove_background=True` on the portrait layer for a cutout-style guest visual
-- Layered promo-card styling with shapes, shadows, and heavy headline typography
+- A tonal gradient that protects copy contrast without boxing in the subject
+- Restrained editorial typography and a single semantic accent
 
-Use it when you want an end-to-end podcast or interview promo example that exercises quickthumb's network-backed asset loading and portrait cutout workflow.
+Use it when you want a podcast or interview promo that integrates photography without visible cutout edges or a disconnected image panel.
 
 ### `shorts_cover_agent.py`
 
@@ -143,10 +143,10 @@ Spec: `launch_announcement.json`
 Shows the quickthumb 0.5 feature set in a single themed JSON spec:
 
 - Top-level `theme` block with `$theme.*` token references for every color and font size
-- Auto-layout `group` layers — a column with a nested chip row, zero hand-placed text coordinates
-- `star` shape primitives with glow and stroke effects
-- Decorative `svg` layers (requires `quickthumb[svg]`)
-- Gradient-filled headline text via per-`TextPart` `fill`
+- Auto-layout `group` layers for the headline column and feature row, with zero hand-placed coordinates inside either text group
+- An abstract alignment field that communicates reflow without imitating a dashboard UI
+- A `star` primitive and decorative `svg` accent (requires `quickthumb[svg]`)
+- Rich-text headline coloring through themed `TextPart` values
 - `Grain` effect with a fixed seed for deterministic texture
 - `canvas.diagnose()` before rendering, mirroring `quickthumb lint`
 
@@ -156,32 +156,34 @@ Use it when you want a brandable announcement-card template whose layout survive
 
 Output: `investor_deck.html` and `investor_deck.pptx`
 
-Builds a dark investor-style deck with staged text, metric cards, and chart-like visuals:
+Builds a restrained, evidence-led 10-slide Series A narrative:
 
 - HTML export for browser playback of slide transitions and layer animations
 - `quickthumb serve examples/investor_deck.py` for live reload and `?presenter` mode
 - Per-slide speaker notes visible only in the presenter dashboard
+- A complete investment arc: thesis, problem, why now, workflow, product proof, traction, business model, market and GTM, defensibility, and team plus ask
+- Explicit periods, definitions, and `Illustrative` provenance notes for every sample company claim
+- One dark product-proof surface inside an otherwise neutral editorial system with a single semantic blue accent
 - PPTX export for editable presentation handoff
 - Shared composition code that keeps the browser and PowerPoint outputs aligned
 
-Use it when you want a realistic animated deck example that exercises both HTML and PPTX output from the same source.
+Use it when you want a realistic investor narrative that exercises HTML, presenter notes, and editable PPTX output from the same source.
 
 ### `product_hype_reel.py`
 
 Output: `product_hype_reel.gif`, `product_hype_reel.mp4`, `product_hype_reel.webm`,
 `product_hype_reel.html`, and `product_hype_reel.pptx`
 
-Builds a polished Korean-style vertical (1080x1920) 8-scene app-launch reel — a full ad arc (hook → pain point → solution → three features → social proof → CTA) — and exports it as a self-playing 22.5-second animation with a soundtrack:
+Builds a restrained vertical (1080x1920) 8-scene product film — hook → pain point → solution → three features → proof → CTA — and exports it as a 34.69-second narration-led animation:
 
-- A single 96px layout grid inside the Instagram Reels safe area, with an 8-part progress rail and consistent left alignment across every scene
-- Native Korean copy set in locally bundled Pretendard, with display, body, metric, and metadata sizes tuned for legibility on a phone
-- Layered dark gradients, ambient color glows, elevated metric cards, and a high-contrast gradient CTA
-- Reusable product-card helpers for live heart rate, AI coaching, streaks, and social proof, with deliberate information hierarchy instead of decorative filler
-- Beat-phased entrance animations (`Box`, `Wipe`, `Fade`, `Dissolve`) that delay copy by half a beat, keep headlines clear of slide transitions, and settle before each reading window
-- Story-aware slide transitions (`Wipe`, `Push`, `Fade`, `Zoom`) rendered as real frames through the raster pipeline, with six beats per scene and all eight cuts locked to a 48-beat, 128 BPM timeline — exactly six loops of the bundled two-bar soundtrack
+- Eight distinct visual ideas instead of one repeated card template: rhythm trace, broken timeline, readiness field, live pulse, adaptive plan, streak grid, measured outcome, and one clear action
+- English copy set in locally bundled Pretendard, with every supporting label at least 48px for phone-scale legibility
+- One semantic blue accent on neutral stages, without glow, elevated cards, progress chrome, or per-scene rainbow colors
+- Per-scene durations of 8–10 beats derived from the actual 3.41–4.29-second voiceovers, preserving every narration ending while reducing the original timeline
+- Semantic `Cut`, `Fade`, and `Wipe` transitions that support the story instead of adding arbitrary motion variety
 - `deck.diagnose()` before export, validating contrast, overflow, overlap, canvas bounds, and Reels UI-safe placement for all eight scenes
 - The file-rendering animation API with GIF-specific `GifOptions`, plus the video-specific `VideoOptions` and bytes-returning `.to_mp4(...)` / `.to_webm(...)` variants
-- A looping soundtrack (`assets/audio/hype_beat.wav`, a procedurally generated synth-pop loop) muxed into the MP4/WebM output via `VideoOptions(soundtrack=AudioTrack(...))`
+- Eight bundled voiceovers mixed above a quieter looping soundtrack via `VideoOptions(soundtrack=AudioTrack(...))`
 - Graceful per-format fallback when an optional renderer is unavailable; one failed export does not suppress the remaining formats
 
 Use it when you want a shareable, self-playing GIF or video clip (Reels/TikTok/Stories) instead of a static thumbnail, or as a reference for the animated export API, beat-synced editing via `advance_after`, and MP4/WebM audio.
@@ -199,9 +201,9 @@ The JSON-first examples use repo-relative asset paths inside their checked-in JS
 
 The launch announcement example renders SVG layers, so install `quickthumb[svg]` (cairosvg) to run it locally.
 
-The podcast promo example additionally requires network access because it fetches remote images and a remote webfont at render time. It also uses `remove_background=True`, so install `quickthumb[rembg]` if you want to run it locally.
+The podcast promo example uses a bundled editorial portrait and requires network access only for its display webfont.
 
-The product hype reel example needs the `ffmpeg` binary on `PATH` for the MP4/WebM outputs (the GIF still renders without it). Its Pretendard fonts (`assets/fonts/Pretendard-*.woff2`) and soundtrack (`assets/audio/hype_beat.wav`, a procedurally generated synth-pop loop) are both bundled with the repo, so rendering it needs no network access.
+The product hype reel example needs the `ffmpeg` binary on `PATH` for the MP4/WebM outputs (the GIF still renders without it). Its Pretendard fonts, voiceovers, and soundtrack are bundled with the repo, so rendering it needs no network access.
 
 ## Extending These Examples
 

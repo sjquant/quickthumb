@@ -3,188 +3,182 @@
   "height": 720,
   "theme": {
     "colors": {
-      "ink": "#0B1021",
-      "panel": "#1D2547",
-      "accent": "#7C5CFF",
-      "accent_glow": "#7C5CFF66",
-      "accent_fade": "#7C5CFF00",
-      "cyan": "#22D3EE",
-      "lime": "#B8FF00",
-      "text": "#F4F6FF",
-      "muted": "#9BA3C7"
+      "paper": "#F5F5F7",
+      "ink": "#1D1D1F",
+      "blue": "#0066CC",
+      "muted": "#515154",
+      "rule": "#1D1D1F26"
     },
     "sizes": {
-      "title": 96,
-      "subtitle": 36,
-      "badge": 26,
-      "chip": 22
+      "title": 116,
+      "subtitle": 28,
+      "meta": 18,
+      "chip": 18
     }
   },
   "layers": [
     {
       "type": "background",
-      "color": "$theme.colors.ink",
+      "color": "$theme.colors.paper",
       "effects": [
-        { "type": "grain", "intensity": 0.05, "monochrome": true, "seed": 7 }
-      ]
-    },
-    {
-      "type": "background",
-      "gradient": {
-        "type": "radial",
-        "stops": [["$theme.colors.accent_glow", 0.0], ["$theme.colors.accent_fade", 1.0]],
-        "center": [0.78, 0.4]
-      }
-    },
-    {
-      "type": "shape",
-      "shape": "star",
-      "position": ["86%", "56%"],
-      "width": 270,
-      "height": 270,
-      "color": "$theme.colors.accent",
-      "align": "center",
-      "rotation": 12,
-      "star_points": 5,
-      "inner_radius": 0.45,
-      "effects": [
-        { "type": "glow", "color": "$theme.colors.accent", "radius": 42, "opacity": 0.55 },
-        { "type": "stroke", "width": 3, "color": "$theme.colors.cyan" }
+        { "type": "grain", "intensity": 0.006, "monochrome": true, "seed": 7 }
       ]
     },
     {
       "type": "shape",
+      "shape": "ellipse",
+      "position": ["94%", "50%"],
+      "width": 460,
+      "height": 460,
+      "color": "$theme.colors.blue",
+      "align": "center"
+    },
+    {
+      "type": "shape",
+      "shape": "rectangle",
+      "position": ["82%", "35%"],
+      "width": 170,
+      "height": 12,
+      "color": "$theme.colors.paper"
+    },
+    {
+      "type": "shape",
+      "shape": "rectangle",
+      "position": ["82%", "43%"],
+      "width": 112,
+      "height": 6,
+      "color": "$theme.colors.paper"
+    },
+    {
+      "type": "shape",
+      "shape": "rectangle",
+      "position": ["82%", "51%"],
+      "width": 214,
+      "height": 6,
+      "color": "$theme.colors.paper"
+    },
+    {
+      "type": "shape",
+      "shape": "rectangle",
+      "position": ["82%", "59%"],
+      "width": 142,
+      "height": 6,
+      "color": "#FFFFFFB3"
+    },
+    {
+      "type": "shape",
+      "shape": "rectangle",
+      "position": ["80.5%", "32%"],
+      "width": 1,
+      "height": 252,
+      "color": "#FFFFFF80"
+    },
+    {
+      "type": "svg",
+      "path": "assets/images/spark.svg",
+      "position": ["80.6%", "35.5%"],
+      "width": 16,
+      "align": "center",
+      "effects": [{ "type": "filter", "saturation": 0.0, "brightness": 3.0 }]
+    },
+    {
+      "type": "shape",
       "shape": "star",
-      "position": ["70%", "82%"],
-      "width": 96,
-      "height": 96,
-      "color": "$theme.colors.cyan",
+      "position": ["80.6%", "59.5%"],
+      "width": 16,
+      "height": 16,
+      "color": "$theme.colors.paper",
       "align": "center",
-      "rotation": -18,
       "star_points": 5,
-      "inner_radius": 0.45,
-      "opacity": 0.9
-    },
-    {
-      "type": "svg",
-      "path": "assets/images/spark.svg",
-      "position": ["92%", "13%"],
-      "width": 96,
-      "align": "center",
-      "rotation": -8
-    },
-    {
-      "type": "svg",
-      "path": "assets/images/spark.svg",
-      "position": ["70%", "20%"],
-      "width": 44,
-      "align": "center",
-      "rotation": 20,
-      "opacity": 0.8
+      "inner_radius": 0.42
     },
     {
       "type": "group",
       "direction": "column",
-      "gap": 26,
-      "position": ["7%", "50%"],
+      "gap": 22,
+      "position": ["7%", "44%"],
       "align": ["left", "middle"],
       "children": [
         {
           "type": "text",
-          "content": "NEW IN QUICKTHUMB 0.5",
-          "size": "$theme.sizes.badge",
-          "color": "$theme.colors.lime",
-          "weight": 800,
-          "letter_spacing": 2,
-          "effects": [
-            { "type": "background", "color": "$theme.colors.panel", "padding": [10, 18], "border_radius": 24 }
-          ]
+          "content": "QUICKTHUMB 0.5  /  RELEASE",
+          "size": "$theme.sizes.meta",
+          "color": "$theme.colors.muted",
+          "weight": 700,
+          "letter_spacing": 3,
+          "align": "left"
         },
         {
           "type": "text",
           "content": [
-            { "text": "LAYOUTS THAT\n", "color": "$theme.colors.text", "weight": 900 },
-            {
-              "text": "BUILD THEMSELVES",
-              "color": "$theme.colors.cyan",
-              "weight": 900,
-              "fill": {
-                "type": "linear",
-                "angle": 90,
-                "stops": [["$theme.colors.cyan", 0.0], ["$theme.colors.accent", 1.0]]
-              }
-            }
+            { "text": "Layouts that\n", "color": "$theme.colors.ink", "weight": 700 },
+            { "text": "build themselves.", "color": "$theme.colors.blue", "weight": 700 }
           ],
           "size": "$theme.sizes.title",
-          "line_height": 1.08,
-          "effects": [
-            { "type": "shadow", "offset_x": 0, "offset_y": 6, "color": "#00000088", "blur_radius": 18 }
-          ]
+          "color": "$theme.colors.ink",
+          "weight": 700,
+          "line_height": 1.02,
+          "letter_spacing": -3,
+          "align": "left"
         },
         {
           "type": "text",
           "content": "Auto-layout groups, theme tokens, and built-in lint —\nno pixel coordinates required.",
           "size": "$theme.sizes.subtitle",
           "color": "$theme.colors.muted",
-          "line_height": 1.35
-        },
-        {
-          "type": "group",
-          "direction": "row",
-          "gap": 14,
-          "children": [
-            {
-              "type": "text",
-              "content": "GROUPS",
-              "size": "$theme.sizes.chip",
-              "color": "$theme.colors.cyan",
-              "weight": 700,
-              "letter_spacing": 1,
-              "effects": [
-                { "type": "background", "color": "$theme.colors.panel", "padding": [8, 14], "border_radius": 18 }
-              ]
-            },
-            {
-              "type": "text",
-              "content": "THEME TOKENS",
-              "size": "$theme.sizes.chip",
-              "color": "$theme.colors.cyan",
-              "weight": 700,
-              "letter_spacing": 1,
-              "effects": [
-                { "type": "background", "color": "$theme.colors.panel", "padding": [8, 14], "border_radius": 18 }
-              ]
-            },
-            {
-              "type": "text",
-              "content": "SVG",
-              "size": "$theme.sizes.chip",
-              "color": "$theme.colors.cyan",
-              "weight": 700,
-              "letter_spacing": 1,
-              "effects": [
-                { "type": "background", "color": "$theme.colors.panel", "padding": [8, 14], "border_radius": 18 }
-              ]
-            },
-            {
-              "type": "text",
-              "content": "DIAGNOSTICS",
-              "size": "$theme.sizes.chip",
-              "color": "$theme.colors.cyan",
-              "weight": 700,
-              "letter_spacing": 1,
-              "effects": [
-                { "type": "background", "color": "$theme.colors.panel", "padding": [8, 14], "border_radius": 18 }
-              ]
-            }
-          ]
+          "line_height": 1.35,
+          "align": "left"
         }
       ]
     },
     {
-      "type": "outline",
-      "width": 8,
-      "color": "$theme.colors.panel"
+      "type": "shape",
+      "shape": "rectangle",
+      "position": ["7%", "83%"],
+      "width": 860,
+      "height": 1,
+      "color": "$theme.colors.rule"
+    },
+    {
+      "type": "group",
+      "direction": "row",
+      "gap": 54,
+      "position": ["7%", "88%"],
+      "align": ["left", "middle"],
+      "children": [
+        {
+          "type": "text",
+          "content": "01  GROUPS",
+          "size": "$theme.sizes.chip",
+          "color": "$theme.colors.ink",
+          "weight": 700,
+          "letter_spacing": 1
+        },
+        {
+          "type": "text",
+          "content": "02  TOKENS",
+          "size": "$theme.sizes.chip",
+          "color": "$theme.colors.ink",
+          "weight": 700,
+          "letter_spacing": 1
+        },
+        {
+          "type": "text",
+          "content": "03  SVG",
+          "size": "$theme.sizes.chip",
+          "color": "$theme.colors.ink",
+          "weight": 700,
+          "letter_spacing": 1
+        },
+        {
+          "type": "text",
+          "content": "04  DIAGNOSTICS",
+          "size": "$theme.sizes.chip",
+          "color": "$theme.colors.ink",
+          "weight": 700,
+          "letter_spacing": 1
+        }
+      ]
     }
   ]
 }

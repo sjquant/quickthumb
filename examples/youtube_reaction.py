@@ -10,7 +10,7 @@ High-energy reaction format built entirely from text and shape layers:
 
 import os
 
-from quickthumb import Canvas, Filter, FitMode, Glow, Shadow, Stroke, TextPart
+from quickthumb import Canvas, Filter, FitMode, LinearGradient, RadialGradient, Shadow, TextPart
 
 FILE_DIR = os.path.dirname(__file__)
 ASSETS_DIR = os.path.join(FILE_DIR, "..", "assets")
@@ -19,84 +19,103 @@ OUTPUT_PATH = os.path.join(FILE_DIR, "youtube_reaction.png")
 os.environ["QUICKTHUMB_FONT_DIR"] = os.path.join(ASSETS_DIR, "fonts")
 os.environ["QUICKTHUMB_DEFAULT_FONT"] = "Roboto"
 
+PORTRAIT_PATH = os.path.join(ASSETS_DIR, "images", "reaction-surprised.jpg")
+
 (
     Canvas(1280, 720)
-    # Deep dark base
-    .background(color="#0D0D0D")
-    # Subtle image texture blended at low opacity for visual depth
+    .background(color="#000000")
     .background(
-        image=os.path.join(ASSETS_DIR, "images", "c-g-JgDUVGAXsso-unsplash.jpg"),
-        fit=FitMode.COVER,
-        blend_mode="overlay",
-        opacity=0.12,
-        effects=[Filter(blur=3)],
+        gradient=RadialGradient(
+            center=(0.82, 0.48),
+            stops=[("#3D1110", 0.0), ("#000000", 0.68)],
+        )
     )
-    # "REACTING TO" badge
+    .background(
+        gradient=LinearGradient(
+            angle=90,
+            stops=[("#000000", 0.0), ("#000000E8", 0.46), ("#00000011", 1.0)],
+        )
+    )
+    .text(
+        content="#1",
+        size=470,
+        color="#FF453A",
+        opacity=0.13,
+        weight=900,
+        letter_spacing=-18,
+        position=(1210, 28),
+        align=("right", "top"),
+    )
+    .shape(
+        shape="ellipse",
+        position=(1034, 372),
+        width=548,
+        height=548,
+        color="#1C1C1E",
+        align=("center", "middle"),
+    )
+    .image(
+        path=PORTRAIT_PATH,
+        position=(1280, 720),
+        width=620,
+        height=710,
+        fit=FitMode.COVER,
+        align=("right", "bottom"),
+        remove_background=True,
+        effects=[
+            Filter(contrast=1.08, saturation=0.08),
+            Shadow(offset_x=-12, offset_y=12, color="#00000099", blur_radius=26),
+        ],
+    )
+    .text(
+        content="48H SIGNAL",
+        size=17,
+        color="#A1A1A6",
+        weight=700,
+        letter_spacing=3,
+        position=(64, 54),
+    )
     .shape(
         shape="rectangle",
-        position=(48, 48),
-        width=272,
-        height=56,
-        color="#FF4500",
-        border_radius=4,
-        effects=[Glow(color="#FF4500", radius=14, opacity=0.45)],
+        position=(64, 92),
+        width=610,
+        height=1,
+        color="#FFFFFF33",
     )
-    .text(
-        content="REACTING TO",
-        size=26,
-        color="#FFFFFF",
-        weight=900,
-        letter_spacing=3,
-        position=(184, 76),
-        align=("center", "middle"),
-    )
-    # Oversized decorative punctuation on the right — purely visual
-    .text(
-        content="?!",
-        size=380,
-        color="#1C1C1C",
-        weight=900,
-        position=(900, 380),
-        align=("center", "middle"),
-        rotation=-12,
-    )
-    # Giant reaction word
     .text(
         content="VIRAL",
-        size=210,
-        color="#FF4500",
+        size=212,
+        color="#F5F5F7",
         weight=900,
-        position=(52, 130),
-        effects=[
-            Stroke(width=6, color="#000000"),
-            Glow(color="#FF4500", radius=28, opacity=0.3),
-            Shadow(offset_x=10, offset_y=10, color="#000000", blur_radius=0),
-        ],
+        letter_spacing=-5,
+        position=(52, 104),
     )
-    # Secondary text line with accent number
     .text(
         content=[
-            TextPart(text="TREND ", color="#FFFFFF", weight=900),
-            TextPart(text="#1", color="#FFD700", weight=900),
+            TextPart(text="12.4M", color="#F5F5F7", weight=700),
+            TextPart(text="  VIEWS", color="#A1A1A6", size=24, weight=600),
         ],
-        size=100,
-        position=(52, 365),
-        effects=[
-            Stroke(width=5, color="#000000"),
-            Shadow(offset_x=6, offset_y=6, color="#000000", blur_radius=0),
-        ],
-    )
-    # Bottom commentary label
-    .text(
-        content="MY UNFILTERED THOUGHTS",
-        size=38,
-        color="#A3A3A3",
+        size=92,
+        color="#F5F5F7",
         weight=700,
-        letter_spacing=1,
-        position=(52, 624),
-        effects=[Shadow(offset_x=2, offset_y=2, color="#000000", blur_radius=4)],
+        letter_spacing=-2,
+        position=(60, 392),
     )
-    .outline(width=12, color="#FF4500")
+    .text(
+        content="WHY IT WORKED — AND WHAT COMES NEXT",
+        size=19,
+        color="#A1A1A6",
+        weight=600,
+        letter_spacing=2,
+        position=(64, 650),
+    )
+    .shape(
+        shape="rectangle",
+        position=(64, 620),
+        width=610,
+        height=1,
+        color="#FFFFFF33",
+    )
     .render(OUTPUT_PATH)
 )
 

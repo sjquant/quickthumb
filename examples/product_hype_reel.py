@@ -1,9 +1,9 @@
-"""PULSE — a polished, beat-synced vertical product hype reel.
+"""PULSE — an audio-led vertical product film.
 
-The example builds an eight-scene fitness-app ad on one Reels-safe
-layout grid. It demonstrates platform-aware diagnostics, layered gradients,
-animated product-metric cards, native Pretendard typography, slide transitions
-in GIF/WebM/MP4, with English per-scene voiceovers mixed with a soundtrack at render time.
+Eight English voiceovers remain intact while every scene uses a distinct visual
+idea: live rhythm, broken momentum, readiness, heart-rate sync, adaptive load,
+habit formation, proof, and one clear action. Scene lengths follow the actual
+narration and land on 128 BPM beat boundaries.
 
 Run:
     uv run python examples/product_hype_reel.py
@@ -15,16 +15,9 @@ from quickthumb import (
     AudioTrack,
     Canvas,
     Deck,
-    Dissolve,
     Fade,
     GifOptions,
-    Glow,
-    InnerShadow,
-    LinearGradient,
     QuickthumbError,
-    RadialGradient,
-    Shadow,
-    Stroke,
     VideoOptions,
     Wipe,
 )
@@ -52,657 +45,481 @@ BRAND_FONT = str(ASSETS_DIR / "fonts" / "Roboto-Bold.ttf")
 
 WIDTH = 1080
 HEIGHT = 1920
-SCENE_COUNT = 8
 CONTENT_X = 96
-CONTENT_WIDTH = 800
-CONTENT_RIGHT = CONTENT_X + CONTENT_WIDTH
-CONTENT_CENTER = CONTENT_X + CONTENT_WIDTH // 2
+CONTENT_WIDTH = 888
 BEAT = 60.0 / 128.0
-SCENE_DURATION = 4.5
-SCENE_HOLD = SCENE_DURATION - BEAT
-COPY_LEAD_IN = BEAT / 2
-MOTION_FAST = BEAT * 0.6
-MOTION_STANDARD = BEAT * 0.8
-MOTION_HERO = BEAT * 0.9
+SCENE_BEATS = (10, 10, 10, 8, 10, 9, 9, 8)
+SCENE_DURATIONS = tuple(beats * BEAT for beats in SCENE_BEATS)
+MOTION_FAST = BEAT * 0.55
+MOTION_STANDARD = BEAT * 0.85
 
-INK = "#090711"
-SURFACE = "#100D1D"
-SURFACE_RAISED = "#12101E"
-PINK = "#FF4F9A"
-VIOLET = "#9A6BFF"
-CYAN = "#5DE8FF"
-LIME = "#C9FF63"
-WHITE = "#FFFFFF"
-OFFWHITE = "#F8F4FF"
-MUTED = "#C7BDD9"
-RULE = "#403653"
-
-DEPTH = LinearGradient(angle=165, stops=[(INK, 0.0), (SURFACE, 1.0)])
-HYPE = LinearGradient(angle=115, stops=[(PINK, 0.0), (VIOLET, 1.0)])
-CARD_EFFECTS = [
-    Shadow(offset_x=0, offset_y=24, color="#00000080", blur_radius=34),
-    Stroke(width=2, color="#3A304E"),
-    InnerShadow(offset_x=0, offset_y=2, color=WHITE, blur_radius=10, opacity=0.06),
-]
-BUTTON_EFFECTS = [
-    Shadow(offset_x=0, offset_y=22, color="#3A0C4E70", blur_radius=30),
-    Glow(radius=20, color=WHITE, opacity=0.18),
-]
+INK = "#080A0E"
+SURFACE = "#10141B"
+BLUE = "#147CE5"
+BLUE_SOFT = "#5EA8FF"
+WHITE = "#F5F5F7"
+MUTED = "#9A9BA1"
+RULE = "#30343C"
 
 
 def main() -> None:
-    """Build, diagnose, and export the complete reel."""
+    """Build, diagnose, and export the complete audio-led reel."""
     deck = build_deck()
     print_diagnostics(deck)
     export_reel(deck)
 
 
 def build_deck() -> Deck:
-    """Return the eight-scene, 48-beat PULSE reel."""
-    hook = build_hook_scene()
-    problem = build_problem_scene()
-    solution = build_solution_scene()
-    live_sync = build_live_sync_scene()
-    ai_coach = build_ai_coach_scene()
-    streak = build_streak_scene()
-    proof = build_social_proof_scene()
-    cta = build_cta_scene()
+    """Return eight beat-aligned scenes without truncating any narration."""
+    scenes = [
+        build_hook_scene(),
+        build_problem_scene(),
+        build_solution_scene(),
+        build_live_sync_scene(),
+        build_ai_coach_scene(),
+        build_streak_scene(),
+        build_social_proof_scene(),
+        build_cta_scene(),
+    ]
+    transitions = [
+        tr.Cut(advance_after=SCENE_DURATIONS[0]),
+        tr.Fade(duration=BEAT, advance_after=SCENE_DURATIONS[1] - BEAT),
+        tr.Wipe(direction="up", duration=BEAT, advance_after=SCENE_DURATIONS[2] - BEAT),
+        tr.Cut(advance_after=SCENE_DURATIONS[3]),
+        tr.Wipe(direction="right", duration=BEAT, advance_after=SCENE_DURATIONS[4] - BEAT),
+        tr.Cut(advance_after=SCENE_DURATIONS[5]),
+        tr.Fade(duration=BEAT, advance_after=SCENE_DURATIONS[6] - BEAT),
+        tr.Fade(duration=BEAT, advance_after=SCENE_DURATIONS[7] - BEAT),
+    ]
 
-    # Longer scenes give the English narration room to breathe while keeping
-    # every incoming transition aligned to a beat.
-    return (
-        Deck(WIDTH, HEIGHT)
-        .slide(
-            hook,
-            transition=tr.Cut(advance_after=SCENE_DURATION),
-            audio=str(VOICEOVERS[0]),
-            duration=SCENE_DURATION,
+    deck = Deck(WIDTH, HEIGHT)
+    for index, scene in enumerate(scenes):
+        deck = deck.slide(
+            scene,
+            transition=transitions[index],
+            audio=str(VOICEOVERS[index]),
+            duration=SCENE_DURATIONS[index],
         )
-        .slide(
-            problem,
-            transition=tr.Wipe(direction="up", duration=BEAT, advance_after=SCENE_HOLD),
-            audio=str(VOICEOVERS[1]),
-            duration=SCENE_DURATION,
-        )
-        .slide(
-            solution,
-            transition=tr.Push(direction="up", duration=BEAT, advance_after=SCENE_HOLD),
-            audio=str(VOICEOVERS[2]),
-            duration=SCENE_DURATION,
-        )
-        .slide(
-            live_sync,
-            transition=tr.Push(direction="left", duration=BEAT, advance_after=SCENE_HOLD),
-            audio=str(VOICEOVERS[3]),
-            duration=SCENE_DURATION,
-        )
-        .slide(
-            ai_coach,
-            transition=tr.Push(direction="left", duration=BEAT, advance_after=SCENE_HOLD),
-            audio=str(VOICEOVERS[4]),
-            duration=SCENE_DURATION,
-        )
-        .slide(
-            streak,
-            transition=tr.Push(direction="left", duration=BEAT, advance_after=SCENE_HOLD),
-            audio=str(VOICEOVERS[5]),
-            duration=SCENE_DURATION,
-        )
-        .slide(
-            proof,
-            transition=tr.Fade(duration=BEAT, advance_after=SCENE_HOLD),
-            audio=str(VOICEOVERS[6]),
-            duration=SCENE_DURATION,
-        )
-        .slide(
-            cta,
-            transition=tr.Zoom(direction="in", duration=BEAT, advance_after=SCENE_HOLD),
-            audio=str(VOICEOVERS[7]),
-            duration=SCENE_DURATION,
-        )
-    )
+    return deck
 
 
 def build_hook_scene() -> Canvas:
-    """Open with a bold promise and a live heart-rate product card."""
-    canvas = base_scene(0, PINK)
-    canvas = add_copy(
+    """Open on live rhythm rather than a generic product card."""
+    canvas = dark_scene()
+    canvas = add_brand(canvas, color=WHITE)
+    canvas = add_intro_copy(
         canvas,
-        eyebrow="NEW  ·  PERSONAL FITNESS OS",
+        eyebrow="PERSONAL FITNESS OS",
         headline="TRAINING,\nMADE PERSONAL.",
         body="From heart rate to recovery, see your rhythm at a glance.",
-        accent=PINK,
-        headline_size=108,
-    )
-    canvas = add_card(
-        canvas,
-        y=965,
-        height=450,
-        animation=Dissolve(duration=MOTION_STANDARD, trigger="after_previous"),
-    )
-    canvas = canvas.text(
-        content="●  LIVE HEART RATE",
-        font=PRETENDARD[700],
-        size=48,
-        color=PINK,
-        position=(144, 1018),
-        align=("left", "top"),
-        animation=Fade(duration=MOTION_FAST, trigger="with_previous"),
-    )
-    canvas = canvas.text(
-        content="ZONE 4",
-        font=PRETENDARD[700],
-        size=48,
-        color=MUTED,
-        position=(848, 1018),
-        align=("right", "top"),
-        animation=Fade(duration=MOTION_FAST, trigger="with_previous"),
     )
     canvas = canvas.text(
         content="148",
         font=PRETENDARD[900],
-        size=176,
+        size=280,
         color=WHITE,
-        position=(140, 1092),
-        align=("left", "top"),
-        effects=[Glow(radius=20, color=PINK, opacity=0.3)],
+        letter_spacing=-12,
+        position=(CONTENT_X, 1050),
         animation=Fade(duration=MOTION_STANDARD, trigger="after_previous"),
     )
     canvas = canvas.text(
-        content="BPM",
+        content="BPM  ·  LIVE",
         font=PRETENDARD[800],
-        size=52,
-        color=PINK,
-        position=(520, 1230),
-        align=("left", "top"),
-        animation=Fade(duration=MOTION_FAST, trigger="with_previous"),
-    )
-    canvas = canvas.text(
-        content="HEART RATE  ·  PERFORMANCE",
-        font=PRETENDARD[500],
         size=48,
-        color=MUTED,
-        position=(144, 1340),
-        align=("left", "top"),
-        animation=Fade(duration=MOTION_FAST, trigger="after_previous"),
-    )
-    return add_footer(
-        canvas,
-        "PULSE  ·  PERSONAL FITNESS OS",
+        color=WHITE,
+        letter_spacing=2,
+        position=(CONTENT_X + 8, 1370),
         animation=Fade(duration=MOTION_FAST, trigger="with_previous"),
     )
+    return add_pulse_bars(canvas, y=1510, color=WHITE)
 
 
 def build_problem_scene() -> Canvas:
-    """Frame inconsistent exercise as a feedback problem, not a willpower problem."""
-    canvas = base_scene(1, VIOLET)
-    canvas = add_copy(
+    """Show momentum breaking on day three as a timeline, not a dashboard."""
+    canvas = dark_scene()
+    canvas = add_section_copy(
         canvas,
         eyebrow="THE PROBLEM",
         headline="CONSISTENCY\nNEEDS A SYSTEM.",
         body="When feedback arrives late, motivation follows.",
-        accent=VIOLET,
-        headline_size=96,
     )
-    canvas = add_card(
-        canvas,
-        y=980,
-        height=195,
-        animation=Dissolve(duration=MOTION_STANDARD, trigger="after_previous"),
+    canvas = canvas.shape(
+        shape="rectangle",
+        position=(392, 1125),
+        width=496,
+        height=4,
+        color=RULE,
     )
+    canvas = canvas.shape(
+        shape="rectangle",
+        position=(104, 1125),
+        width=288,
+        height=4,
+        color=BLUE,
+        animation=Wipe(direction="right", duration=MOTION_STANDARD, trigger="after_previous"),
+    )
+    for index, x in enumerate((104, 248, 392, 536, 680, 824)):
+        active = index < 3
+        canvas = canvas.shape(
+            shape="ellipse",
+            position=(x, 1127),
+            width=22 if active else 14,
+            height=22 if active else 14,
+            color=BLUE if active else RULE,
+            align=("center", "middle"),
+            animation=Fade(duration=MOTION_FAST, trigger="with_previous"),
+        )
     canvas = canvas.text(
-        content="AVERAGE DROP-OFF",
+        content="DAY 01        DAY 02        DAY 03",
         font=PRETENDARD[700],
         size=48,
         color=MUTED,
-        position=(140, 1035),
-        align=("left", "top"),
-        animation=Fade(duration=MOTION_FAST, trigger="with_previous"),
+        letter_spacing=1,
+        position=(104, 1180),
+        max_width=670,
+        auto_scale=True,
+        min_size=48,
     )
     canvas = canvas.text(
-        content="DAY 03",
+        content="FEEDBACK\nARRIVES HERE",
+        font=PRETENDARD[800],
+        size=58,
+        color=WHITE,
+        line_height=1.05,
+        position=(CONTENT_X, 1320),
+        animation=Fade(duration=MOTION_STANDARD, trigger="after_previous"),
+    )
+    return canvas.text(
+        content="TOO LATE",
         font=PRETENDARD[900],
-        size=82,
-        color=VIOLET,
-        position=(848, 1077),
-        align=("right", "top"),
-        animation=Fade(duration=MOTION_STANDARD, trigger="with_previous"),
-    )
-    canvas = add_card(
-        canvas,
-        y=1200,
-        height=195,
-        animation=Dissolve(duration=MOTION_STANDARD, trigger="after_previous"),
-    )
-    canvas = canvas.text(
-        content="LIVE FEEDBACK",
-        font=PRETENDARD[700],
-        size=48,
-        color=MUTED,
-        position=(140, 1255),
-        align=("left", "top"),
-        animation=Fade(duration=MOTION_FAST, trigger="with_previous"),
-    )
-    canvas = canvas.text(
-        content="0%",
-        font=PRETENDARD[900],
-        size=90,
-        color=PINK,
-        position=(848, 1234),
-        align=("right", "top"),
-        animation=Fade(duration=MOTION_STANDARD, trigger="with_previous"),
-    )
-    return add_footer(
-        canvas,
-        "LATE FEEDBACK KILLS MOMENTUM.",
+        size=58,
+        color=BLUE_SOFT,
+        position=(CONTENT_X, 1485),
         animation=Fade(duration=MOTION_FAST, trigger="with_previous"),
     )
 
 
 def build_solution_scene() -> Canvas:
-    """Introduce PULSE as one clear daily readiness signal."""
-    canvas = base_scene(2, CYAN)
-    canvas = add_copy(
+    """Resolve scattered inputs into one dominant readiness signal."""
+    canvas = dark_scene()
+    canvas = add_section_copy(
         canvas,
         eyebrow="MEET PULSE",
         headline="FIND YOUR\nDAILY RHYTHM.",
         body="Turn scattered signals into one clear daily score.",
-        accent=CYAN,
-        headline_size=108,
-        headline_letter_spacing=0,
     )
-    canvas = add_card(
-        canvas,
-        y=965,
-        height=450,
-        animation=Dissolve(duration=MOTION_STANDARD, trigger="after_previous"),
-    )
-    canvas = canvas.text(
-        content="RECOVERY",
-        font=PRETENDARD[700],
-        size=48,
-        color=CYAN,
-        position=(144, 1018),
-        align=("left", "top"),
-        animation=Fade(duration=MOTION_FAST, trigger="with_previous"),
+    canvas = canvas.shape(
+        shape="ellipse",
+        position=(470, 1190),
+        width=650,
+        height=650,
+        color=BLUE,
+        opacity=0.16,
+        align=("center", "middle"),
     )
     canvas = canvas.text(
         content="84",
         font=PRETENDARD[900],
-        size=176,
+        size=310,
         color=WHITE,
-        position=(140, 1092),
-        align=("left", "top"),
-        effects=[Glow(radius=20, color=CYAN, opacity=0.28)],
+        letter_spacing=-14,
+        position=(CONTENT_X, 980),
         animation=Fade(duration=MOTION_STANDARD, trigger="after_previous"),
     )
     canvas = canvas.text(
-        content="/ 100",
+        content="RECOVERY / 100",
         font=PRETENDARD[800],
-        size=52,
-        color=CYAN,
-        position=(430, 1230),
-        align=("left", "top"),
-        animation=Fade(duration=MOTION_FAST, trigger="with_previous"),
-    )
-    canvas = canvas.text(
-        content="SLEEP 92  ·  ENERGY 81\nSTRESS 24",
-        font=PRETENDARD[500],
         size=48,
-        color=MUTED,
-        position=(144, 1280),
-        align=("left", "top"),
-        max_width=704,
-        max_height=120,
-        auto_scale=True,
-        min_size=48,
+        color=BLUE_SOFT,
         letter_spacing=2,
-        line_height=1.1,
-        animation=Fade(duration=MOTION_FAST, trigger="after_previous"),
+        position=(CONTENT_X + 8, 1285),
     )
-    return add_footer(
-        canvas,
-        "READ TODAY'S BODY AT A GLANCE.",
-        animation=Fade(duration=MOTION_FAST, trigger="with_previous"),
-    )
+    return add_signal_rows(canvas, start_y=1360)
 
 
 def build_live_sync_scene() -> Canvas:
-    """Show the first feature: live heart-rate synchronization."""
-    canvas = base_scene(3, PINK)
-    canvas = add_copy(
+    """Turn the current heart rate into a full-screen live instrument."""
+    canvas = dark_scene()
+    canvas = add_section_copy(
         canvas,
-        eyebrow="01  ·  LIVE SYNC",
+        eyebrow="01  /  LIVE SYNC",
         headline="NEVER MISS\nA BEAT.",
         body="Track heart-rate zones and workout intensity live.",
-        accent=PINK,
-        headline_size=93,
-        headline_letter_spacing=0,
     )
-    canvas = add_metric_card(
-        canvas,
-        label="LIVE HEART RATE",
-        status="SYNCED",
-        value="142",
-        unit="BPM",
-        unit_x=500,
-        detail="WARM-UP  ·  FAT BURN  ·  CARDIO",
-        accent=PINK,
+    canvas = canvas.text(
+        content="142",
+        font=PRETENDARD[900],
+        size=300,
+        color=WHITE,
+        letter_spacing=-12,
+        position=(CONTENT_X, 980),
+        animation=Fade(duration=MOTION_STANDARD, trigger="after_previous"),
     )
-    return add_footer(
-        canvas,
-        "APPLE WATCH  ·  GALAXY WATCH",
-        animation=Fade(duration=MOTION_FAST, trigger="with_previous"),
+    canvas = canvas.text(
+        content="BPM   ZONE 3",
+        font=PRETENDARD[800],
+        size=48,
+        color=BLUE_SOFT,
+        letter_spacing=2,
+        position=(CONTENT_X + 8, 1320),
+    )
+    canvas = add_pulse_bars(canvas, y=1440, color=BLUE)
+    return canvas.text(
+        content="LIVE  /  SYNCED",
+        font=PRETENDARD[700],
+        size=48,
+        color=MUTED,
+        letter_spacing=2,
+        position=(CONTENT_X, 1560),
     )
 
 
 def build_ai_coach_scene() -> Canvas:
-    """Show the second feature: an adaptive daily training load."""
-    canvas = base_scene(4, CYAN)
-    canvas = add_copy(
+    """Show the training plan visibly adapting to recovery."""
+    canvas = dark_scene()
+    canvas = add_section_copy(
         canvas,
-        eyebrow="02  ·  AI COACH",
+        eyebrow="02  /  ADAPTIVE COACH",
         headline="AI SETS\nTODAY'S PACE.",
         body="Adapt duration and intensity to your recovery.",
-        accent=CYAN,
-        headline_size=95,
-        headline_letter_spacing=0,
     )
-    canvas = add_metric_card(
-        canvas,
-        label="TODAY'S LOAD",
-        status="AUTO",
-        value="68",
-        unit="%",
-        unit_x=390,
-        detail="24 MIN  ·  MODERATE",
-        accent=CYAN,
+    canvas = canvas.text(
+        content="PLANNED",
+        font=PRETENDARD[700],
+        size=48,
+        color=MUTED,
+        letter_spacing=2,
+        position=(CONTENT_X, 1010),
     )
-    return add_footer(
-        canvas,
-        "A COACHING PLAN THAT ADAPTS EVERY DAY.",
-        animation=Fade(duration=MOTION_FAST, trigger="with_previous"),
+    canvas = canvas.text(
+        content="32 MIN  /  HIGH",
+        font=PRETENDARD[800],
+        size=68,
+        color="#666971",
+        position=(CONTENT_X, 1070),
+    )
+    canvas = canvas.shape(
+        shape="rectangle",
+        position=(CONTENT_X, 1123),
+        width=610,
+        height=4,
+        color=BLUE_SOFT,
+        animation=Wipe(direction="right", duration=MOTION_FAST, trigger="after_previous"),
+    )
+    canvas = canvas.text(
+        content="↓  RECOVERY 84",
+        font=PRETENDARD[800],
+        size=48,
+        color=BLUE_SOFT,
+        position=(CONTENT_X, 1230),
+        animation=Fade(duration=MOTION_FAST, trigger="after_previous"),
+    )
+    canvas = canvas.text(
+        content="TODAY",
+        font=PRETENDARD[700],
+        size=48,
+        color=MUTED,
+        letter_spacing=2,
+        position=(CONTENT_X, 1360),
+    )
+    canvas = canvas.text(
+        content="24 MIN",
+        font=PRETENDARD[900],
+        size=150,
+        color=WHITE,
+        letter_spacing=-5,
+        position=(CONTENT_X, 1410),
+        animation=Fade(duration=MOTION_STANDARD, trigger="after_previous"),
+    )
+    return canvas.text(
+        content="MODERATE  /  AUTO-ADJUSTED",
+        font=PRETENDARD[800],
+        size=48,
+        color=BLUE_SOFT,
+        letter_spacing=1,
+        position=(CONTENT_X, 1560),
     )
 
 
 def build_streak_scene() -> Canvas:
-    """Show the third feature: a motivating twenty-one-day streak."""
-    canvas = base_scene(5, LIME)
-    canvas = add_copy(
+    """Make twenty-one accumulated days the visual proof of habit."""
+    canvas = dark_scene()
+    canvas = add_section_copy(
         canvas,
-        eyebrow="03  ·  SMART STREAK",
+        eyebrow="03  /  SMART STREAK",
         headline="TURN THREE DAYS\nINTO TWENTY-ONE.",
         body="Link small wins into a habit that lasts.",
-        accent=LIME,
-        headline_size=96,
-    )
-    canvas = add_card(
-        canvas,
-        y=965,
-        height=450,
-        animation=Dissolve(duration=MOTION_STANDARD, trigger="after_previous"),
-    )
-    canvas = canvas.text(
-        content="CONSISTENCY",
-        font=PRETENDARD[700],
-        size=48,
-        color=LIME,
-        position=(144, 1018),
-        align=("left", "top"),
-        animation=Fade(duration=MOTION_FAST, trigger="with_previous"),
-    )
-    canvas = canvas.text(
-        content="BEST",
-        font=PRETENDARD[700],
-        size=48,
-        color=MUTED,
-        position=(848, 1018),
-        align=("right", "top"),
-        animation=Fade(duration=MOTION_FAST, trigger="with_previous"),
+        headline_size=92,
     )
     canvas = canvas.text(
         content="21",
         font=PRETENDARD[900],
-        size=176,
+        size=330,
         color=WHITE,
-        position=(140, 1092),
-        align=("left", "top"),
-        effects=[Glow(radius=20, color=LIME, opacity=0.24)],
+        letter_spacing=-16,
+        position=(CONTENT_X, 930),
         animation=Fade(duration=MOTION_STANDARD, trigger="after_previous"),
     )
     canvas = canvas.text(
         content="DAY STREAK",
         font=PRETENDARD[800],
-        size=52,
-        color=LIME,
-        position=(430, 1230),
-        align=("left", "top"),
-        animation=Fade(duration=MOTION_FAST, trigger="with_previous"),
-    )
-    canvas = canvas.text(
-        content="●  ●  ●  ●  ●  ●  ●",
-        font=PRETENDARD[700],
         size=48,
-        color=LIME,
-        position=(144, 1340),
-        align=("left", "top"),
-        animation=Fade(duration=MOTION_FAST, trigger="after_previous"),
+        color=BLUE_SOFT,
+        letter_spacing=2,
+        position=(CONTENT_X + 10, 1300),
     )
-    return add_footer(
-        canvas,
-        "WHEN CONSISTENCY IS VISIBLE, HABITS KEEP GOING.",
-        animation=Fade(duration=MOTION_FAST, trigger="with_previous"),
-    )
+    return add_streak_grid(canvas, start_y=1360)
 
 
 def build_social_proof_scene() -> Canvas:
-    """Land the product story with a credible, high-contrast testimonial."""
-    canvas = base_scene(6, VIOLET)
-    canvas = add_copy(
+    """Use a measurable outcome as proof instead of a testimonial card."""
+    canvas = dark_scene()
+    canvas = add_section_copy(
         canvas,
-        eyebrow="4.9  ·  2,841 REVIEWS",
+        eyebrow="PROOF  /  WEEK 8",
         headline="GO LONGER.\nGO FARTHER.",
         body="Progress built with PULSE shows up in the numbers.",
-        accent=VIOLET,
-        headline_size=100,
     )
-    canvas = add_card(
-        canvas,
-        y=950,
-        height=465,
-        animation=Dissolve(duration=MOTION_STANDARD, trigger="after_previous"),
-    )
-    canvas = canvas.text(
-        content="VERIFIED REVIEW",
-        font=PRETENDARD[700],
-        size=48,
-        color=LIME,
-        letter_spacing=2,
-        position=(140, 1004),
-        align=("left", "top"),
-        animation=Fade(duration=MOTION_FAST, trigger="with_previous"),
+    canvas = canvas.shape(
+        shape="rectangle",
+        position=(CONTENT_X, 995),
+        width=8,
+        height=510,
+        color=BLUE,
+        animation=Wipe(direction="up", duration=MOTION_STANDARD, trigger="after_previous"),
     )
     canvas = canvas.text(
-        content="4.9",
+        content="5K",
         font=PRETENDARD[900],
-        size=72,
-        color=VIOLET,
-        position=(848, 996),
-        align=("right", "top"),
+        size=320,
+        color=WHITE,
+        letter_spacing=-14,
+        position=(CONTENT_X + 54, 960),
         animation=Fade(duration=MOTION_STANDARD, trigger="with_previous"),
     )
     canvas = canvas.text(
-        content="★★★★★",
-        font=PRETENDARD[700],
+        content="FIRST FINISH\n+32% DISTANCE",
+        font=PRETENDARD[800],
         size=48,
-        color=LIME,
-        letter_spacing=3,
-        position=(140, 1072),
-        align=("left", "top"),
-        animation=Fade(duration=MOTION_FAST, trigger="with_previous"),
+        color=BLUE_SOFT,
+        letter_spacing=1,
+        line_height=1.1,
+        position=(CONTENT_X + 62, 1300),
     )
     canvas = canvas.text(
         content="“I FINALLY RAN\nMY FIRST 5K.”",
         font=PRETENDARD[800],
-        size=68,
+        size=56,
         color=WHITE,
-        line_height=1.16,
-        position=(140, 1140),
-        align=("left", "top"),
+        line_height=1.05,
+        position=(CONTENT_X + 62, 1440),
         animation=Wipe(direction="up", duration=MOTION_STANDARD, trigger="after_previous"),
     )
-    canvas = canvas.text(
-        content="BETA TESTER  ·  WEEK 8",
-        font=PRETENDARD[500],
+    return canvas.text(
+        content="VERIFIED BETA USER",
+        font=PRETENDARD[700],
         size=48,
         color=MUTED,
-        position=(140, 1338),
-        align=("left", "top"),
-        animation=Fade(duration=MOTION_FAST, trigger="after_previous"),
-    )
-    return add_footer(
-        canvas,
-        "YOUR NEXT PERSONAL BEST STARTS HERE.",
-        animation=Fade(duration=MOTION_FAST, trigger="with_previous"),
+        letter_spacing=2,
+        position=(CONTENT_X + 62, 1570),
     )
 
 
 def build_cta_scene() -> Canvas:
-    """Finish on a bright, single-action download screen."""
-    canvas = bright_scene(7)
-    canvas = add_copy(
-        canvas,
-        eyebrow="PULSE  ·  START TODAY",
-        headline="TIME TO\nMOVE.",
-        body="The fastest way to understand your body.",
-        accent=INK,
-        headline_size=124,
-        bright=True,
+    """Close with one action on a clean product-blue field."""
+    canvas = Canvas.for_platform("instagram-reels").background(color=BLUE)
+    canvas = add_brand(canvas, color=WHITE)
+    canvas = canvas.text(
+        content="TIME TO\nMOVE.",
+        font=PRETENDARD[900],
+        size=150,
+        color=INK,
+        line_height=0.98,
+        letter_spacing=-5,
+        position=(CONTENT_X, 500),
+        animation=Fade(duration=MOTION_STANDARD),
+    )
+    canvas = canvas.text(
+        content="The fastest way to understand your body.",
+        font=PRETENDARD[500],
+        size=50,
+        color="#E8F2FF",
+        line_height=1.3,
+        position=(CONTENT_X, 850),
+        max_width=790,
+        animation=Fade(duration=MOTION_FAST, trigger="after_previous"),
+    )
+    canvas = canvas.text(
+        content="START FREE  →",
+        font=PRETENDARD[900],
+        size=76,
+        color=WHITE,
+        position=(CONTENT_X, 1120),
+        animation=Wipe(direction="right", duration=MOTION_STANDARD, trigger="after_previous"),
     )
     canvas = canvas.shape(
-        shape="pill",
-        position=(CONTENT_X, 1010),
-        width=CONTENT_WIDTH,
-        height=132,
-        color=INK,
-        align=("left", "top"),
-        effects=BUTTON_EFFECTS,
-        animation=Dissolve(duration=MOTION_STANDARD, trigger="after_previous"),
-    )
-    canvas = canvas.text(
-        content="START FREE",
-        font=PRETENDARD[800],
-        size=56,
+        shape="rectangle",
+        position=(CONTENT_X, 1225),
+        width=520,
+        height=5,
         color=WHITE,
-        position=(CONTENT_CENTER, 1076),
-        align=("center", "middle"),
-        animation=Fade(duration=MOTION_FAST, trigger="with_previous"),
     )
     canvas = canvas.text(
-        content="4.9 RATING  ·  7 DAYS FREE  ·  CANCEL ANYTIME",
+        content="7 DAYS FREE  /  CANCEL ANYTIME",
         font=PRETENDARD[700],
         size=48,
-        color=INK,
-        position=(CONTENT_X, 1220),
-        align=("left", "top"),
-        max_width=CONTENT_WIDTH,
-        auto_scale=True,
-        min_size=48,
-        animation=Fade(duration=MOTION_FAST, trigger="after_previous"),
+        color="#D7E9FF",
+        letter_spacing=1,
+        position=(CONTENT_X, 1320),
     )
     return canvas.text(
-        content="PULSE.APP  ↗",
+        content="PULSE.APP",
         font=PRETENDARD[900],
         size=54,
-        color=INK,
-        letter_spacing=2,
-        position=(CONTENT_X, 1450),
-        align=("left", "top"),
-        animation=Fade(duration=MOTION_FAST, trigger="after_previous"),
+        color=WHITE,
+        letter_spacing=3,
+        position=(CONTENT_X, 1560),
     )
 
 
-def base_scene(index: int, accent: str) -> Canvas:
-    """Create a dark Reels-safe stage with layered ambient color."""
-    canvas = (
-        Canvas.for_platform("instagram-reels")
-        .background(gradient=DEPTH)
-        .background(
-            gradient=RadialGradient(
-                center=(0.82, 0.2),
-                stops=[(f"{accent}10", 0.0), (f"{accent}00", 1.0)],
-            )
-        )
-        .background(
-            gradient=RadialGradient(
-                center=(0.08, 0.78),
-                stops=[(f"{CYAN}08", 0.0), (f"{CYAN}00", 0.72)],
-            )
-        )
-    )
-    return add_chrome(canvas, index, bright=False)
+def dark_scene() -> Canvas:
+    """Create a restrained dark stage with one semantic brand accent."""
+    return Canvas.for_platform("instagram-reels").background(color=INK)
 
 
-def bright_scene(index: int) -> Canvas:
-    """Create the bright gradient stage used for the final CTA."""
-    canvas = (
-        Canvas.for_platform("instagram-reels")
-        .background(gradient=HYPE)
-        .background(
-            gradient=RadialGradient(
-                center=(0.82, 0.24),
-                stops=[("#FFFFFF48", 0.0), ("#FFFFFF00", 0.72)],
-            )
-        )
-    )
-    return add_chrome(canvas, index, bright=True)
-
-
-def add_chrome(canvas: Canvas, index: int, *, bright: bool) -> Canvas:
-    """Add a safe-area progress rail and consistently aligned reel header."""
-    gap = 10
-    segment_width = (CONTENT_WIDTH - gap * (SCENE_COUNT - 1)) // SCENE_COUNT
-    for segment in range(SCENE_COUNT):
-        if bright:
-            color = WHITE if segment == index else "#D640A9"
-            opacity = 1.0 if segment == index else 0.55
-        elif segment < index:
-            color = PINK
-            opacity = 0.8
-        elif segment == index:
-            color = WHITE
-            opacity = 1.0
-        else:
-            color = RULE
-            opacity = 0.7
-        canvas = canvas.shape(
-            shape="pill",
-            position=(CONTENT_X + segment * (segment_width + gap), 244),
-            width=segment_width,
-            height=8,
-            color=color,
-            opacity=opacity,
-            align=("left", "top"),
-        )
-
-    header_color = INK if bright else OFFWHITE
-    canvas = canvas.text(
+def add_brand(canvas: Canvas, *, color: str) -> Canvas:
+    """Add the wordmark only where it anchors the story."""
+    return canvas.text(
         content="PULSE",
         font=BRAND_FONT,
         size=48,
-        color=header_color,
+        color=color,
         letter_spacing=7,
-        position=(CONTENT_X, 290),
-        align=("left", "top"),
+        position=(CONTENT_X, 250),
     )
-    return canvas.text(
-        content=f"{index + 1:02d} / {SCENE_COUNT:02d}",
-        font=PRETENDARD[700],
-        size=48,
-        color=header_color if bright else MUTED,
-        letter_spacing=3,
-        position=(CONTENT_RIGHT, 290),
-        align=("right", "top"),
+
+
+def add_intro_copy(canvas: Canvas, *, eyebrow: str, headline: str, body: str) -> Canvas:
+    """Place the opening copy below the one-time wordmark."""
+    return add_copy(canvas, eyebrow=eyebrow, headline=headline, body=body, top=360)
+
+
+def add_section_copy(
+    canvas: Canvas,
+    *,
+    eyebrow: str,
+    headline: str,
+    body: str,
+    headline_size: int = 108,
+) -> Canvas:
+    """Place copy on the shared safe grid without persistent reel chrome."""
+    return add_copy(
+        canvas,
+        eyebrow=eyebrow,
+        headline=headline,
+        body=body,
+        top=280,
+        headline_size=headline_size,
     )
 
 
@@ -712,48 +529,40 @@ def add_copy(
     eyebrow: str,
     headline: str,
     body: str,
-    accent: str,
-    headline_size: int,
-    headline_letter_spacing: int = -3,
-    bright: bool = False,
+    top: int,
+    headline_size: int = 108,
 ) -> Canvas:
-    """Place the shared eyebrow, headline, and body on one explicit grid."""
+    """Build one concise narrative stack for the current scene."""
     canvas = canvas.text(
         content=eyebrow,
         font=PRETENDARD[800],
         size=48,
-        color=accent,
-        letter_spacing=2,
-        position=(CONTENT_X, 410),
-        align=("left", "top"),
-        max_width=CONTENT_WIDTH,
-        auto_scale=True,
-        min_size=48,
-        animation=Wipe(direction="right", duration=MOTION_FAST, delay=COPY_LEAD_IN),
+        color=BLUE_SOFT,
+        letter_spacing=3,
+        position=(CONTENT_X, top),
+        animation=Wipe(direction="right", duration=MOTION_FAST),
     )
     canvas = canvas.text(
         content=headline,
         font=PRETENDARD[900],
         size=headline_size,
-        color=INK if bright else WHITE,
-        line_height=1.05,
-        letter_spacing=headline_letter_spacing,
-        position=(CONTENT_X, 500),
-        align=("left", "top"),
+        color=WHITE,
+        line_height=1.02,
+        letter_spacing=-3,
+        position=(CONTENT_X, top + 78),
         max_width=CONTENT_WIDTH,
         max_height=270,
         auto_scale=True,
-        min_size=80,
-        animation=Fade(duration=MOTION_HERO, trigger="after_previous"),
+        min_size=78,
+        animation=Fade(duration=MOTION_STANDARD, trigger="after_previous"),
     )
     return canvas.text(
         content=body,
         font=PRETENDARD[500],
-        size=52,
-        color="#32112F" if bright else MUTED,
-        line_height=1.35,
-        position=(CONTENT_X, 805),
-        align=("left", "top"),
+        size=48,
+        color=MUTED,
+        line_height=1.3,
+        position=(CONTENT_X, top + 390),
         max_width=CONTENT_WIDTH,
         max_height=130,
         auto_scale=True,
@@ -762,112 +571,60 @@ def add_copy(
     )
 
 
-def add_card(
-    canvas: Canvas,
-    *,
-    y: int,
-    height: int,
-    animation: Dissolve,
-) -> Canvas:
-    """Add the shared elevated product-card surface."""
-    return canvas.shape(
-        shape="rectangle",
-        position=(CONTENT_X, y),
-        width=CONTENT_WIDTH,
-        height=height,
-        color=SURFACE_RAISED,
-        border_radius=42,
-        align=("left", "top"),
-        effects=CARD_EFFECTS,
-        animation=animation,
-    )
+def add_pulse_bars(canvas: Canvas, *, y: int, color: str) -> Canvas:
+    """Draw a beat trace whose uneven amplitude communicates live motion."""
+    heights = (24, 46, 82, 160, 72, 38, 54, 118, 48, 28, 74, 132, 60, 32)
+    for index, height in enumerate(heights):
+        canvas = canvas.shape(
+            shape="pill",
+            position=(CONTENT_X + index * 58, y - height // 2),
+            width=12,
+            height=height,
+            color=color,
+            opacity=1.0 if index in (3, 7, 11) else 0.52,
+            animation=Fade(duration=MOTION_FAST, trigger="with_previous"),
+        )
+    return canvas
 
 
-def add_metric_card(
-    canvas: Canvas,
-    *,
-    label: str,
-    status: str,
-    value: str,
-    unit: str,
-    unit_x: int,
-    detail: str,
-    accent: str,
-) -> Canvas:
-    """Add a reusable animated feature metric card."""
-    canvas = add_card(
-        canvas,
-        y=965,
-        height=450,
-        animation=Dissolve(duration=MOTION_STANDARD, trigger="after_previous"),
-    )
-    canvas = canvas.text(
-        content=label,
-        font=PRETENDARD[700],
-        size=48,
-        color=accent,
-        position=(144, 1018),
-        align=("left", "top"),
-        animation=Fade(duration=MOTION_FAST, trigger="with_previous"),
-    )
-    canvas = canvas.text(
-        content=status,
-        font=PRETENDARD[700],
-        size=48,
-        color=MUTED,
-        position=(848, 1018),
-        align=("right", "top"),
-        animation=Fade(duration=MOTION_FAST, trigger="with_previous"),
-    )
-    canvas = canvas.text(
-        content=value,
-        font=PRETENDARD[900],
-        size=176,
-        color=WHITE,
-        position=(140, 1092),
-        align=("left", "top"),
-        effects=[Glow(radius=20, color=accent, opacity=0.28)],
-        animation=Fade(duration=MOTION_STANDARD, trigger="after_previous"),
-    )
-    canvas = canvas.text(
-        content=unit,
-        font=PRETENDARD[800],
-        size=52,
-        color=accent,
-        position=(unit_x, 1214),
-        align=("left", "top"),
-        animation=Fade(duration=MOTION_FAST, trigger="with_previous"),
-    )
-    return canvas.text(
-        content=detail,
-        font=PRETENDARD[500],
-        size=48,
-        color=MUTED,
-        position=(144, 1280),
-        align=("left", "top"),
-        max_width=704,
-        max_height=120,
-        auto_scale=True,
-        min_size=48,
-        line_height=1.1,
-        animation=Fade(duration=MOTION_FAST, trigger="after_previous"),
-    )
+def add_signal_rows(canvas: Canvas, *, start_y: int) -> Canvas:
+    """Show the three inputs that resolve into the recovery score."""
+    rows = (("SLEEP", "92", 0.92), ("ENERGY", "81", 0.81), ("STRESS", "24", 0.24))
+    for index, (label, value, ratio) in enumerate(rows):
+        y = start_y + index * 100
+        canvas = canvas.text(
+            content=f"{label}  {value}",
+            font=PRETENDARD[700],
+            size=48,
+            color=MUTED,
+            letter_spacing=1,
+            position=(CONTENT_X, y),
+        )
+        canvas = canvas.shape(
+            shape="rectangle",
+            position=(430, y + 18),
+            width=int(460 * ratio),
+            height=8,
+            color=BLUE,
+            animation=Wipe(direction="right", duration=MOTION_STANDARD, trigger="with_previous"),
+        )
+    return canvas
 
 
-def add_footer(canvas: Canvas, text: str, *, animation: Fade) -> Canvas:
-    """Add the final safe-area caption on the shared left edge."""
-    return canvas.text(
-        content=text,
-        font=PRETENDARD[700],
-        size=48,
-        color=OFFWHITE,
-        position=(CONTENT_X, 1496),
-        align=("left", "top"),
-        max_width=CONTENT_WIDTH,
-        auto_scale=True,
-        min_size=48,
-        animation=animation,
-    )
+def add_streak_grid(canvas: Canvas, *, start_y: int) -> Canvas:
+    """Render twenty-one completed days as one accumulated field."""
+    for index in range(21):
+        row, column = divmod(index, 7)
+        canvas = canvas.shape(
+            shape="ellipse",
+            position=(CONTENT_X + column * 112, start_y + row * 94),
+            width=34,
+            height=34,
+            color=BLUE if index < 20 else WHITE,
+            opacity=0.55 + index * 0.02,
+            animation=Fade(duration=MOTION_FAST, trigger="with_previous"),
+        )
+    return canvas
 
 
 def print_diagnostics(deck: Deck) -> None:
@@ -885,9 +642,7 @@ def print_diagnostics(deck: Deck) -> None:
 
 
 def export_reel(deck: Deck) -> None:
-    """Render all supported outputs without truncating an existing file on failure."""
-    # GIF keeps every frame in memory, so use a smaller canvas and palette while
-    # retaining enough frames for a useful preview of the full reel.
+    """Export every format with narration and a quiet looping soundtrack."""
     deck.render(
         str(OUT_GIF),
         animation=GifOptions(fps=8, max_size=(540, 960), colors=128),
@@ -899,19 +654,20 @@ def export_reel(deck: Deck) -> None:
         except QuickthumbError as error:
             print(f"⚠ Skipped {output.suffix.removeprefix('.').upper()} ({error})")
 
-    soundtrack = AudioTrack(path=str(SOUNDTRACK), volume=0.16, loop=True)
+    soundtrack = AudioTrack(path=str(SOUNDTRACK), volume=0.13, loop=True)
     for output in (OUT_MP4, OUT_WEBM):
         try:
             deck.render(str(output), animation=VideoOptions(soundtrack=soundtrack))
         except QuickthumbError as error:
             print(f"⚠ Skipped {output.suffix.removeprefix('.').upper()} ({error})")
 
+    total_duration = sum(SCENE_DURATIONS)
     print(f"✓ {OUT_GIF}")
     print(f"  {OUT_PPTX}")
     print(f"  {OUT_HTML}")
     print(f"  {OUT_MP4}")
     print(f"  {OUT_WEBM}")
-    print(f"  {len(deck)} scenes · 36 seconds · narration-first timeline")
+    print(f"  {len(deck)} scenes · {total_duration:.2f} seconds · narration-led timeline")
 
 
 if __name__ == "__main__":

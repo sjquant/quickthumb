@@ -11,7 +11,6 @@ Professional thumbnail with:
 import os
 
 from quickthumb import Canvas, Filter, FitMode, LinearGradient
-from quickthumb.models import Background, Shadow, Stroke
 
 FILE_DIR = os.path.dirname(__file__)
 ASSETS_DIR = os.path.join(FILE_DIR, "..", "assets")
@@ -29,78 +28,56 @@ HEIGHT = 720
     .background(
         image=os.path.join(ASSETS_DIR, "images", "denise-jans-WIRvXd1PYlg-unsplash.jpg"),
         fit=FitMode.COVER,
-        effects=[Filter(brightness=0.7)],  # Darken original image
+        effects=[Filter(brightness=0.78, contrast=1.12, saturation=0.32)],
     )
     # 2. Gradient Overlay (Dark bottom-left to transparent top-right)
     # This ensures text readability on the left side
     .background(
         gradient=LinearGradient(
-            angle=120, stops=[("#0f0f23", 0.0), ("#0f0f23cc", 0.4), ("#0f0f2300", 1.0)]
+            angle=110,
+            stops=[("#000000F7", 0.0), ("#000000B8", 0.44), ("#00000012", 1.0)],
         ),
-        opacity=1.0,
     )
     # 3. Typography
     # Subtitle: "ARE YOU"
     .text(
         content="ARE YOU",
-        size=40,
-        color="#fbbf24",  # Amber accent
-        position=(50, 80),
-        weight=900,
-        letter_spacing=2,
-        effects=[Shadow(offset_x=3, offset_y=3, color="#000000", blur_radius=0)],
+        size=20,
+        color="#FF9F0A",
+        position=(54, 74),
+        weight=700,
+        letter_spacing=3,
     )
     # Headline Line 1: "BURNING"
     .text(
         content="BURNING",
-        size=150,
-        color="#FFFFFF",
-        position=(50, 130),
-        weight=900,
-        effects=[Shadow(offset_x=8, offset_y=8, color="#000000", blur_radius=0)],
+        size=148,
+        color="#F5F5F7",
+        position=(46, 108),
+        weight=800,
     )
     # Headline Line 2: "OUT?"
     .text(
         content="OUT?",
-        size=150,
-        color="#ff5722",  # Deep Orange
-        position=(50, 260),
-        weight=900,
-        effects=[
-            Stroke(width=3, color="#FFFFFF"),
-            Shadow(offset_x=8, offset_y=8, color="#000000", blur_radius=0),
-        ],
+        size=148,
+        color="#FF9F0A",
+        position=(46, 250),
+        weight=800,
     )
     # 4. Footer / Hook
-    # "5" in a box
-    .text(
-        content="5",
-        size=70,
-        color="#0f0f23",
-        position=(50, 580),
-        weight=900,
-        effects=[
-            Background(color="#fbbf24", padding=(15, 25), border_radius=8),
-            Shadow(offset_x=4, offset_y=4, color="#000000", blur_radius=4),
-        ],
+    .shape(
+        shape="rectangle",
+        position=(52, 554),
+        width=620,
+        height=1,
+        color="#FFFFFF33",
     )
-    # "WARNING SIGNS"
     .text(
-        content="WARNING SIGNS",
-        size=45,
-        color="#FFFFFF",
-        position=(150, 580),
-        weight=700,
-        effects=[Shadow(offset_x=3, offset_y=3, color="#000000", blur_radius=0)],
-    )
-    # "YOU'RE IGNORING"
-    .text(
-        content="YOU'RE IGNORING",
-        size=45,
-        color="#fbbf24",
-        position=(150, 635),
-        weight=700,
-        effects=[Shadow(offset_x=3, offset_y=3, color="#000000", blur_radius=0)],
+        content="5 SIGNS YOU'RE IGNORING",
+        size=32,
+        color="#F5F5F7",
+        position=(52, 592),
+        weight=600,
     )
     # Render
     .render(os.path.join(FILE_DIR, "youtube_thumbnail_02.png"))
