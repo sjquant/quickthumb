@@ -52,7 +52,7 @@ def main():
             position=(88, 52),
         )
         .text(
-            content="30 DAYS  /  FROM SCRATCH",
+            content="PYTHON  /  RUN",
             size=16,
             color="#FFFFFFB8",
             weight=700,
@@ -85,50 +85,47 @@ def main():
             position=(58, 474),
         )
         .text(
-            content="LEARN  /  BUILD  /  SHIP",
+            content="BUILD  /  RUN  /  SHIP",
             size=15,
             color="#A1A1A6",
             weight=700,
             letter_spacing=3,
             position=(60, 646),
         )
+        .text(
+            content=[
+                TextPart(text="def ", color="#FFFFFFB8", weight=500),
+                TextPart(text="ship", color="#1D1D1F", weight=800),
+                TextPart(text="(idea):\n", color="#FFFFFF", weight=500),
+                TextPart(text="    build(idea)\n", color="#FFFFFF", weight=500),
+                TextPart(text="    return ", color="#FFFFFFB8", weight=500),
+                TextPart(text='"LIVE"', color="#1D1D1F", weight=800),
+            ],
+            size=42,
+            line_height=1.55,
+            position=(744, 168),
+        )
+        .shape(
+            shape="rectangle",
+            position=(744, 474),
+            width=480,
+            height=1,
+            color="#FFFFFF66",
+        )
+        .text(
+            content=">>>  SHIPPED / LIVE",
+            size=36,
+            color="#FFFFFF",
+            weight=700,
+            letter_spacing=1,
+            position=(744, 510),
+        )
     )
-
-    add_step(canvas, "01", "Learn the basics", 744, 158)
-    add_step(canvas, "02", "Build real projects", 744, 300)
-    add_step(canvas, "03", "Ship and deploy", 744, 442)
 
     canvas.render(OUTPUT_PATH)
 
     print(f"✓ Tutorial / explainer thumbnail created: {OUTPUT_PATH}")
     print("  Swap the step labels and headline text for any how-to topic.")
-
-
-def add_step(canvas, number, label, x, y):
-    """Render one curriculum row on the shared grid."""
-    canvas.shape(
-        shape="rectangle",
-        position=(x, y),
-        width=480,
-        height=1,
-        color="#FFFFFF66",
-    )
-    canvas.text(
-        content=number,
-        size=20,
-        color="#FFFFFFB8",
-        weight=700,
-        letter_spacing=2,
-        position=(x, y + 30),
-    )
-    canvas.text(
-        content=label,
-        size=36,
-        color=WHITE,
-        weight=600,
-        position=(x + 76, y + 16),
-    )
-    return canvas
 
 
 if __name__ == "__main__":

@@ -33,25 +33,50 @@
       "color": "$theme.colors.blue"
     },
     {
-      "type": "text",
-      "content": "LAYOUT\nENGINE",
-      "size": 18,
-      "color": "#FFFFFF",
-      "weight": 700,
-      "line_height": 1.5,
-      "letter_spacing": 3,
-      "position": ["82%", "10%"]
+      "type": "shape",
+      "shape": "rectangle",
+      "position": ["82%", "10%"],
+      "width": 164,
+      "height": 94,
+      "color": "#FFFFFF14",
+      "border_radius": 10,
+      "effects": [{ "type": "stroke", "width": 1, "color": "#FFFFFFAA" }]
     },
     {
-      "type": "text",
-      "content": "05",
-      "size": 188,
-      "color": "#FFFFFF",
-      "opacity": 0.16,
-      "weight": 700,
-      "letter_spacing": -8,
-      "position": ["99%", "78%"],
-      "align": ["right", "bottom"]
+      "type": "shape",
+      "shape": "rectangle",
+      "position": ["84%", "14%"],
+      "width": 112,
+      "height": 12,
+      "color": "#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "shape": "rectangle",
+      "position": ["82%", "31%"],
+      "width": 92,
+      "height": 138,
+      "color": "#FFFFFF14",
+      "border_radius": 10,
+      "effects": [{ "type": "stroke", "width": 1, "color": "#FFFFFFAA" }]
+    },
+    {
+      "type": "shape",
+      "shape": "rectangle",
+      "position": ["91%", "31%"],
+      "width": 68,
+      "height": 138,
+      "color": "#FFFFFF14",
+      "border_radius": 10,
+      "effects": [{ "type": "stroke", "width": 1, "color": "#FFFFFFAA" }]
+    },
+    {
+      "type": "shape",
+      "shape": "rectangle",
+      "position": ["82%", "57%"],
+      "width": 164,
+      "height": 12,
+      "color": "#FFFFFF"
     },
     {
       "type": "shape",

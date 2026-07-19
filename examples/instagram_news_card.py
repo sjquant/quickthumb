@@ -38,7 +38,7 @@ SIZE = 1080
         ),
     )
     .text(
-        content="QUICKTHUMB  /  LIVE DESK",
+        content="LIVE  /  20:42 UTC",
         size=19,
         color="#FFFFFFAA",
         weight=700,
@@ -76,12 +76,12 @@ SIZE = 1080
     )
     # 4. Main headline — large, bold, white with shadow
     .text(
-        content="Wildfires Spread\nAcross Thousands\nof Acres",
+        content="Wildfires Spread\nAcross 18,000 Acres",
         font="NotoSerif",
-        size=88,
+        size=92,
         color="#FFFFFF",
         weight=900,
-        position=("11%", "50%"),
+        position=("11%", "52%"),
         align=("left", "middle"),
         line_height=1.12,
         effects=[
@@ -89,20 +89,7 @@ SIZE = 1080
             Shadow(offset_x=0, offset_y=6, color="#000000AA", blur_radius=10),
         ],
     )
-    # 5. Sub-headline / context line
-    .text(
-        content="Emergency evacuations ordered in three regions as firefighters battle the blaze",
-        size=30,
-        color="#E0E0E0",
-        weight=400,
-        position=("8%", "79%"),
-        align=("left", "top"),
-        max_width="78%",
-        effects=[
-            Shadow(offset_x=0, offset_y=3, color="#00000099", blur_radius=6),
-        ],
-    )
-    # 6. Source and timestamp row
+    # 5. Source and timestamp row
     .text(
         content=[
             TextPart(text="WORLD NEWS  ", color="#FF4444", weight=700),

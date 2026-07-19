@@ -10,7 +10,7 @@ High-energy reaction format built entirely from text and shape layers:
 
 import os
 
-from quickthumb import Canvas, FitMode, LinearGradient, RadialGradient, Shadow, TextPart
+from quickthumb import Canvas, Filter, FitMode, LinearGradient, RadialGradient, Shadow, TextPart
 
 FILE_DIR = os.path.dirname(__file__)
 ASSETS_DIR = os.path.join(FILE_DIR, "..", "assets")
@@ -19,9 +19,7 @@ OUTPUT_PATH = os.path.join(FILE_DIR, "youtube_reaction.png")
 os.environ["QUICKTHUMB_FONT_DIR"] = os.path.join(ASSETS_DIR, "fonts")
 os.environ["QUICKTHUMB_DEFAULT_FONT"] = "Roboto"
 
-PORTRAIT_URL = (
-    "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=900&q=80"
-)
+PORTRAIT_PATH = os.path.join(ASSETS_DIR, "images", "reaction-surprised.jpg")
 
 (
     Canvas(1280, 720)
@@ -57,17 +55,20 @@ PORTRAIT_URL = (
         align=("center", "middle"),
     )
     .image(
-        path=PORTRAIT_URL,
+        path=PORTRAIT_PATH,
         position=(1280, 720),
         width=620,
         height=710,
         fit=FitMode.COVER,
         align=("right", "bottom"),
         remove_background=True,
-        effects=[Shadow(offset_x=-12, offset_y=12, color="#00000099", blur_radius=26)],
+        effects=[
+            Filter(contrast=1.08, saturation=0.08),
+            Shadow(offset_x=-12, offset_y=12, color="#00000099", blur_radius=26),
+        ],
     )
     .text(
-        content="COMMENTARY  /  48H SIGNAL",
+        content="48H SIGNAL",
         size=17,
         color="#A1A1A6",
         weight=700,
@@ -91,27 +92,14 @@ PORTRAIT_URL = (
     )
     .text(
         content=[
-            TextPart(text="TREND ", color="#A1A1A6", weight=600),
-            TextPart(text="#1", color="#FF453A", weight=800),
+            TextPart(text="12.4M", color="#F5F5F7", weight=700),
+            TextPart(text="  VIEWS", color="#A1A1A6", size=24, weight=600),
         ],
-        size=80,
-        position=(60, 344),
-    )
-    .text(
-        content="12.4M",
-        size=82,
+        size=92,
         color="#F5F5F7",
         weight=700,
         letter_spacing=-2,
-        position=(60, 474),
-    )
-    .text(
-        content="VIEWS / 48H",
-        size=16,
-        color="#86868B",
-        weight=700,
-        letter_spacing=3,
-        position=(64, 568),
+        position=(60, 392),
     )
     .text(
         content="WHY IT WORKED — AND WHAT COMES NEXT",

@@ -41,13 +41,13 @@ SHOW_FONT_URL = "https://fonts.gstatic.com/s/dmserifdisplay/v17/-nFnOHM81r4j6k0g
     )
     .shape(
         shape="rectangle",
-        position=(824, 0),
-        width=456,
+        position=(860, 0),
+        width=420,
         height=720,
-        color="#F5F5F7",
+        color="#EEEDE9",
     )
     .text(
-        content="NEW EPISODE  /  06",
+        content="EPISODE 06",
         size=18,
         color="#A1A1A6",
         weight=800,
@@ -77,7 +77,7 @@ SHOW_FONT_URL = "https://fonts.gstatic.com/s/dmserifdisplay/v17/-nFnOHM81r4j6k0g
         position=(58, 188),
     )
     .text(
-        content="A practical interview on shipping faster without breaking trust.",
+        content="Shipping faster — without breaking trust.",
         size=27,
         color="#A1A1A6",
         position=(64, 424),
@@ -115,7 +115,7 @@ SHOW_FONT_URL = "https://fonts.gstatic.com/s/dmserifdisplay/v17/-nFnOHM81r4j6k0g
     )
     .image(
         path=GUEST_URL,
-        position=(1080, 706),
+        position=(1070, 706),
         width=590,
         height=700,
         fit=FitMode.COVER,

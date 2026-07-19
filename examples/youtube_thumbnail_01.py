@@ -9,7 +9,7 @@ Creates an eye-catching YouTube-style thumbnail with:
 
 import os
 
-from quickthumb import Canvas, Filter, LinearGradient, TextPart
+from quickthumb import Canvas, Filter, LinearGradient, Shadow, Stroke, TextPart
 
 FILE_DIR = os.path.dirname(__file__)
 ASSETS_DIR = os.path.join(FILE_DIR, "..", "assets")
@@ -42,7 +42,7 @@ os.environ["QUICKTHUMB_DEFAULT_FONT"] = "Roboto"
         color="#0A84FF",
     )
     .text(
-        content="QUICKTHUMB  /  FIELD GUIDE 01",
+        content="BEFORE  /  AFTER",
         size=18,
         color="#D2D2D7",
         weight=700,
@@ -52,49 +52,60 @@ os.environ["QUICKTHUMB_DEFAULT_FONT"] = "Roboto"
     # Add headline and subtitle as rich text with different sizes and colors
     .text(
         content=[
-            TextPart(
-                text="MAKE BETTER\nTHUMBNAILS\n",
-                color="#F5F5F7",
-            ),
-            TextPart(
-                text="IN MINUTES.",
-                color="#0A84FF",
-            ),
+            TextPart(text="BETTER\n", color="#F5F5F7", size=96),
+            TextPart(text="THUMBNAILS.\n", color="#F5F5F7", size=78),
+            TextPart(text="FASTER.", color="#0A84FF", size=96),
         ],
-        size=108,
+        size=96,
         line_height=0.98,
-        position=("7%", "53%"),
+        position=("7%", "54%"),
         align=("left", "middle"),
         bold=True,
     )
     .shape(
         shape="rectangle",
-        position=(1052, 88),
-        width=1,
-        height=512,
-        color="#FFFFFF33",
+        position=(832, 370),
+        width=260,
+        height=300,
+        color="#242426",
+        border_radius=16,
+        rotation=-7,
+        align=("center", "middle"),
+        effects=[Stroke(width=2, color="#FFFFFF55")],
     )
     .text(
-        content="CODE  /  RENDER  /  SHIP",
-        size=17,
+        content="BEFORE\nTOO MUCH\nNO FOCUS",
+        size=22,
         color="#A1A1A6",
-        weight=600,
-        line_height=1.8,
-        letter_spacing=2,
-        position=(1208, 68),
-        align=("right", "top"),
+        weight=700,
+        line_height=1.7,
+        letter_spacing=1,
+        position=(750, 270),
+        rotation=-7,
+    )
+    .shape(
+        shape="rectangle",
+        position=(1054, 366),
+        width=300,
+        height=340,
+        color="#0A84FF",
+        border_radius=18,
+        rotation=5,
+        align=("center", "middle"),
+        effects=[
+            Stroke(width=2, color="#FFFFFFAA"),
+            Shadow(offset_x=0, offset_y=18, color="#00000088", blur_radius=24),
+        ],
     )
     .text(
-        content="01",
-        size=190,
-        color="#0A84FF",
-        opacity=0.9,
-        weight=700,
-        position=(1230, 690),
-        align=("right", "bottom"),
+        content="AFTER\nONE IDEA.\nONE FOCUS.",
+        size=28,
+        color="#FFFFFF",
+        weight=800,
+        line_height=1.55,
+        position=(958, 248),
+        rotation=5,
     )
-    # Add bright neon green border
-    .outline(width=4, color="#0A84FF")
     # Render the thumbnail
     .render(os.path.join(FILE_DIR, "youtube_thumbnail_01.png"))
 )

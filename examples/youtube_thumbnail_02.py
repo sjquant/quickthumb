@@ -38,15 +38,6 @@ HEIGHT = 720
             stops=[("#000000F7", 0.0), ("#000000B8", 0.44), ("#00000012", 1.0)],
         ),
     )
-    .text(
-        content="WORK / LIFE  —  FIELD GUIDE 05",
-        size=17,
-        color="#A1A1A6",
-        weight=700,
-        letter_spacing=3,
-        position=(1216, 58),
-        align=("right", "top"),
-    )
     # 3. Typography
     # Subtitle: "ARE YOU"
     .text(
@@ -82,27 +73,11 @@ HEIGHT = 720
         color="#FFFFFF33",
     )
     .text(
-        content="05",
-        size=30,
-        color="#FF9F0A",
-        position=(52, 582),
-        weight=800,
-    )
-    # "WARNING SIGNS"
-    .text(
-        content="WARNING SIGNS",
-        size=28,
+        content="5 SIGNS YOU'RE IGNORING",
+        size=32,
         color="#F5F5F7",
-        position=(126, 584),
+        position=(52, 592),
         weight=600,
-    )
-    # "YOU'RE IGNORING"
-    .text(
-        content="YOU'RE IGNORING",
-        size=28,
-        color="#A1A1A6",
-        position=(126, 628),
-        weight=500,
     )
     # Render
     .render(os.path.join(FILE_DIR, "youtube_thumbnail_02.png"))
