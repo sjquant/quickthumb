@@ -36,7 +36,7 @@
       "position": ["86%", "25%"],
       "width": 400,
       "height": 400,
-      "color": "#607EA8",
+      "color": "#FFFFFF",
       "rotation": 0,
       "align": "center",
       "opacity": 0.12
@@ -46,7 +46,7 @@
       "content": "JSON WORKFLOW  /  01",
       "font": "Roboto",
       "size": 24,
-      "color": "#9CB3D1",
+      "color": "#A1A1A6",
       "position": ["8%", "8%"],
       "align": "left",
       "weight": 700,
@@ -57,12 +57,12 @@
       "content": [
         {
           "text": "TURN LONG\nVIDEOS INTO",
-          "color": "#EEF0F2",
+          "color": "#F5F5F7",
           "weight": 800
         },
         {
           "text": "\nSHORTS",
-          "color": "#8FAED3",
+          "color": "#D2D2D7",
           "weight": 800
         }
       ],
@@ -89,7 +89,7 @@
         {
           "type": "stroke",
           "width": 2,
-          "color": "#9CA9B8"
+          "color": "#A1A1A6"
         },
         {
           "type": "shadow",
@@ -126,7 +126,7 @@
       "content": "01  HOOK",
       "font": "Roboto",
       "size": 23,
-      "color": "#BFC6CE",
+      "color": "#A1A1A6",
       "position": ["64%", "71%"],
       "align": "left",
       "weight": 600,
@@ -137,7 +137,7 @@
       "content": "02  CUTS",
       "font": "Roboto",
       "size": 23,
-      "color": "#BFC6CE",
+      "color": "#A1A1A6",
       "position": ["64%", "75.2%"],
       "align": "left",
       "weight": 600,
@@ -148,7 +148,7 @@
       "content": "03  CAPTIONS",
       "font": "Roboto",
       "size": 23,
-      "color": "#BFC6CE",
+      "color": "#A1A1A6",
       "position": ["64%", "79.4%"],
       "align": "left",
       "weight": 600,
@@ -159,7 +159,7 @@
       "content": "JSON in.\nCover out.",
       "font": "NotoSans",
       "size": 38,
-      "color": "#BFC6CE",
+      "color": "#A1A1A6",
       "position": ["8%", "68%"],
       "align": "left",
       "max_width": "42%",
@@ -171,12 +171,12 @@
       "content": [
         {
           "text": "AGENT EMITS JSON",
-          "color": "#8FAED3",
+          "color": "#D2D2D7",
           "weight": 800
         },
         {
           "text": "  |  QUICKTHUMB RENDERS",
-          "color": "#94A3B8",
+          "color": "#86868B",
           "weight": 500
         }
       ],
@@ -198,7 +198,7 @@
     {
       "type": "outline",
       "width": 2,
-      "color": "#7D8997"
+      "color": "#6E6E73"
     }
   ]
 }

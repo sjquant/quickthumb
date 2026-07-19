@@ -3,12 +3,12 @@
   "height": 720,
   "theme": {
     "colors": {
-      "paper": "#F2F0E9",
-      "ink": "#151515",
-      "blue": "#3157D5",
-      "orange": "#F05A3C",
-      "muted": "#5F625F",
-      "rule": "#15151533"
+      "paper": "#F5F5F7",
+      "ink": "#1D1D1F",
+      "blue": "#0071E3",
+      "orange": "#1D1D1F",
+      "muted": "#6E6E73",
+      "rule": "#1D1D1F26"
     },
     "sizes": {
       "title": 82,
@@ -65,7 +65,7 @@
       "width": 58,
       "align": "center",
       "rotation": -8,
-      "opacity": 0.25
+      "opacity": 0.08
     },
     {
       "type": "group",
@@ -150,7 +150,7 @@
     },
     {
       "type": "outline",
-      "width": 2,
+      "width": 1,
       "color": "$theme.colors.ink"
     }
   ]

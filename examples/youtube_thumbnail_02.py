@@ -28,20 +28,20 @@ HEIGHT = 720
     .background(
         image=os.path.join(ASSETS_DIR, "images", "denise-jans-WIRvXd1PYlg-unsplash.jpg"),
         fit=FitMode.COVER,
-        effects=[Filter(brightness=0.62, contrast=1.06, saturation=0.38)],
+        effects=[Filter(brightness=0.58, contrast=1.04, saturation=0.18)],
     )
     # 2. Gradient Overlay (Dark bottom-left to transparent top-right)
     # This ensures text readability on the left side
     .background(
         gradient=LinearGradient(
             angle=110,
-            stops=[("#151210F5", 0.0), ("#151210D6", 0.48), ("#15121033", 1.0)],
+            stops=[("#000000F5", 0.0), ("#000000D6", 0.48), ("#00000033", 1.0)],
         ),
     )
     .text(
         content="WORK / LIFE  —  FIELD GUIDE 05",
         size=17,
-        color="#D7D0C6",
+        color="#A1A1A6",
         weight=700,
         letter_spacing=3,
         position=(1216, 58),
@@ -52,7 +52,7 @@ HEIGHT = 720
     .text(
         content="ARE YOU",
         size=20,
-        color="#D86546",
+        color="#FF9F0A",
         position=(54, 74),
         weight=700,
         letter_spacing=3,
@@ -61,7 +61,7 @@ HEIGHT = 720
     .text(
         content="BURNING",
         size=118,
-        color="#F1EEE8",
+        color="#F5F5F7",
         position=(50, 122),
         weight=800,
     )
@@ -69,7 +69,7 @@ HEIGHT = 720
     .text(
         content="OUT?",
         size=118,
-        color="#D86546",
+        color="#D2D2D7",
         position=(50, 242),
         weight=800,
     )
@@ -79,12 +79,12 @@ HEIGHT = 720
         position=(52, 546),
         width=540,
         height=1,
-        color="#F1EEE855",
+        color="#FFFFFF33",
     )
     .text(
         content="05",
         size=30,
-        color="#D86546",
+        color="#FF9F0A",
         position=(52, 574),
         weight=800,
     )
@@ -92,7 +92,7 @@ HEIGHT = 720
     .text(
         content="WARNING SIGNS",
         size=28,
-        color="#F1EEE8",
+        color="#F5F5F7",
         position=(126, 576),
         weight=600,
     )
@@ -100,7 +100,7 @@ HEIGHT = 720
     .text(
         content="YOU'RE IGNORING",
         size=28,
-        color="#B8B1A8",
+        color="#A1A1A6",
         position=(126, 620),
         weight=500,
     )

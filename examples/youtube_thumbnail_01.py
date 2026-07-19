@@ -24,14 +24,14 @@ os.environ["QUICKTHUMB_DEFAULT_FONT"] = "Roboto"
     # For now, using a dark background as placeholder
     .background(
         image=os.path.join(ASSETS_DIR, "images", "c-g-JgDUVGAXsso-unsplash.jpg"),
-        effects=[Filter(brightness=0.68, contrast=1.04, saturation=0.52)],
+        effects=[Filter(brightness=0.66, contrast=1.03, saturation=0.32)],
     )
     # Add a semi-transparent overlay to darken the background
     # This helps text stand out better
     .background(
         gradient=LinearGradient(
             angle=90,
-            stops=[("#0B1424F7", 0.0), ("#0B1424D9", 0.52), ("#0B142438", 1.0)],
+            stops=[("#000000F7", 0.0), ("#000000D9", 0.52), ("#00000038", 1.0)],
         )
     )
     .shape(
@@ -39,12 +39,12 @@ os.environ["QUICKTHUMB_DEFAULT_FONT"] = "Roboto"
         position=("8%", "13%"),
         width=12,
         height=12,
-        color="#86A9E6",
+        color="#0A84FF",
     )
     .text(
         content="QUICKTHUMB  /  FIELD GUIDE 01",
         size=18,
-        color="#D7DCE5",
+        color="#D2D2D7",
         weight=700,
         letter_spacing=3,
         position=("10.5%", "12.5%"),
@@ -54,15 +54,15 @@ os.environ["QUICKTHUMB_DEFAULT_FONT"] = "Roboto"
         content=[
             TextPart(
                 text="MAKE BETTER\nTHUMBNAILS\n",
-                color="#F2F3F5",
+                color="#F5F5F7",
             ),
             TextPart(
                 text="IN MINUTES\n",
-                color="#86A9E6",
+                color="#D2D2D7",
             ),
             TextPart(
                 text="A practical workflow for faster creative output.",
-                color="#B8C0CC",
+                color="#A1A1A6",
                 size=28,
             ),
         ],
@@ -77,12 +77,12 @@ os.environ["QUICKTHUMB_DEFAULT_FONT"] = "Roboto"
         position=(1040, 104),
         width=1,
         height=512,
-        color="#D7DCE555",
+        color="#FFFFFF33",
     )
     .text(
         content="CODE\nRENDER\nSHIP",
         size=17,
-        color="#D7DCE5",
+        color="#A1A1A6",
         weight=600,
         line_height=1.8,
         letter_spacing=2,
@@ -91,13 +91,13 @@ os.environ["QUICKTHUMB_DEFAULT_FONT"] = "Roboto"
     .text(
         content="01",
         size=72,
-        color="#86A9E6",
+        color="#0A84FF",
         weight=500,
         position=(1192, 606),
         align=("right", "bottom"),
     )
     # Add bright neon green border
-    .outline(width=2, color="#D7DCE5")
+    .outline(width=1, color="#FFFFFF55")
     # Render the thumbnail
     .render(os.path.join(FILE_DIR, "youtube_thumbnail_01.png"))
 )

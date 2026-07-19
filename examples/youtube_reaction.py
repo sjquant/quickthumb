@@ -21,11 +21,11 @@ os.environ["QUICKTHUMB_DEFAULT_FONT"] = "Roboto"
 
 (
     Canvas(1280, 720)
-    .background(color="#F0EEE8", effects=[Grain(intensity=0.018, monochrome=True, seed=11)])
+    .background(color="#F5F5F7", effects=[Grain(intensity=0.012, monochrome=True, seed=11)])
     .text(
         content="COMMENTARY  /  SIGNAL 01",
         size=17,
-        color="#1A1A18",
+        color="#1D1D1F",
         weight=700,
         letter_spacing=3,
         position=(64, 54),
@@ -35,20 +35,20 @@ os.environ["QUICKTHUMB_DEFAULT_FONT"] = "Roboto"
         position=(64, 92),
         width=1152,
         height=2,
-        color="#1A1A18",
+        color="#1D1D1F",
     )
     .text(
         content="VIRAL",
         size=198,
-        color="#171715",
+        color="#1D1D1F",
         weight=900,
         letter_spacing=-5,
         position=(58, 124),
     )
     .text(
         content=[
-            TextPart(text="TREND ", color="#171715", weight=700),
-            TextPart(text="#1", color="#D84B32", weight=900),
+            TextPart(text="TREND ", color="#1D1D1F", weight=700),
+            TextPart(text="#1", color="#FF3B30", weight=900),
         ],
         size=76,
         position=(64, 360),
@@ -58,14 +58,14 @@ os.environ["QUICKTHUMB_DEFAULT_FONT"] = "Roboto"
         position=(1000, 290),
         width=340,
         height=340,
-        color="#F0EEE8",
+        color="#F5F5F7",
         align=("center", "middle"),
-        effects=[Stroke(width=3, color="#D84B32")],
+        effects=[Stroke(width=3, color="#FF3B30")],
     )
     .text(
         content="12.4M",
         size=104,
-        color="#D84B32",
+        color="#FF3B30",
         weight=900,
         letter_spacing=-3,
         position=(1000, 245),
@@ -74,7 +74,7 @@ os.environ["QUICKTHUMB_DEFAULT_FONT"] = "Roboto"
     .text(
         content="VIEWS / 48H",
         size=19,
-        color="#171715",
+        color="#1D1D1F",
         weight=700,
         letter_spacing=3,
         position=(1000, 338),
@@ -83,7 +83,7 @@ os.environ["QUICKTHUMB_DEFAULT_FONT"] = "Roboto"
     .text(
         content="?!",
         size=66,
-        color="#171715",
+        color="#1D1D1F",
         weight=700,
         position=(1178, 536),
         align=("right", "top"),
@@ -91,7 +91,7 @@ os.environ["QUICKTHUMB_DEFAULT_FONT"] = "Roboto"
     .text(
         content="WHY IT WORKED — AND WHAT COMES NEXT",
         size=22,
-        color="#5E5D58",
+        color="#6E6E73",
         weight=600,
         letter_spacing=2,
         position=(64, 642),
@@ -101,9 +101,9 @@ os.environ["QUICKTHUMB_DEFAULT_FONT"] = "Roboto"
         position=(64, 610),
         width=1152,
         height=1,
-        color="#1A1A1844",
+        color="#1D1D1F33",
     )
-    .outline(width=2, color="#171715")
+    .outline(width=1, color="#1D1D1F")
     .render(OUTPUT_PATH)
 )
 

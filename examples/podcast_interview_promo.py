@@ -37,13 +37,13 @@ SHOW_FONT_URL = "https://fonts.gstatic.com/s/dmserifdisplay/v17/-nFnOHM81r4j6k0g
     .background(
         gradient=LinearGradient(
             angle=0,
-            stops=[("#10100F", 0.0), ("#10100FF2", 0.5), ("#10100F80", 1.0)],
+            stops=[("#000000", 0.0), ("#000000F2", 0.5), ("#00000080", 1.0)],
         )
     )
     .text(
         content="NEW EPISODE  /  06",
         size=18,
-        color="#E96A4A",
+        color="#A1A1A6",
         weight=800,
         letter_spacing=3,
         position=(64, 54),
@@ -52,7 +52,7 @@ SHOW_FONT_URL = "https://fonts.gstatic.com/s/dmserifdisplay/v17/-nFnOHM81r4j6k0g
         content="Signal to Noise",
         font=SHOW_FONT_URL,
         size=46,
-        color="#F0EDE4",
+        color="#F5F5F7",
         position=(62, 88),
     )
     .shape(
@@ -60,12 +60,12 @@ SHOW_FONT_URL = "https://fonts.gstatic.com/s/dmserifdisplay/v17/-nFnOHM81r4j6k0g
         position=(64, 158),
         width=78,
         height=4,
-        color="#E96A4A",
+        color="#A1A1A6",
     )
     .text(
         content="HOW GREAT TEAMS\nBUILD BETTER\nFEEDBACK LOOPS",
         size=60,
-        color="#F5F2EA",
+        color="#F5F5F7",
         weight=700,
         line_height=1.04,
         position=(60, 196),
@@ -73,7 +73,7 @@ SHOW_FONT_URL = "https://fonts.gstatic.com/s/dmserifdisplay/v17/-nFnOHM81r4j6k0g
     .text(
         content="A practical interview on shipping faster without breaking trust.",
         size=27,
-        color="#B8B5AD",
+        color="#A1A1A6",
         position=(64, 412),
         max_width=570,
         line_height=1.25,
@@ -83,12 +83,12 @@ SHOW_FONT_URL = "https://fonts.gstatic.com/s/dmserifdisplay/v17/-nFnOHM81r4j6k0g
         position=(64, 536),
         width=420,
         height=1,
-        color="#F0EDE455",
+        color="#FFFFFF33",
     )
     .text(
         content="GUEST",
         size=15,
-        color="#E96A4A",
+        color="#A1A1A6",
         weight=700,
         letter_spacing=3,
         position=(64, 558),
@@ -97,13 +97,13 @@ SHOW_FONT_URL = "https://fonts.gstatic.com/s/dmserifdisplay/v17/-nFnOHM81r4j6k0g
         content="Mina Park",
         font=SHOW_FONT_URL,
         size=38,
-        color="#F5F2EA",
+        color="#F5F5F7",
         position=(62, 582),
     )
     .text(
         content="AI Product Lead",
         size=19,
-        color="#A6A39C",
+        color="#86868B",
         weight=500,
         position=(66, 630),
     )
@@ -112,7 +112,7 @@ SHOW_FONT_URL = "https://fonts.gstatic.com/s/dmserifdisplay/v17/-nFnOHM81r4j6k0g
         position=(872, 54),
         width=3,
         height=612,
-        color="#E96A4A",
+        color="#FFFFFF33",
     )
     .image(
         path=GUEST_URL,
