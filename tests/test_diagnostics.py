@@ -2633,8 +2633,20 @@ class TestDiagnoseVisibility:
         ) == (
             "youtube-thumbnail",
             "instagram-reels",
-            {"width": 1280, "height": 720, "layers": [], "platform": "youtube-thumbnail"},
-            {"width": 1080, "height": 1920, "layers": [], "platform": "instagram-reels"},
+            {
+                "kind": "canvas",
+                "width": 1280,
+                "height": 720,
+                "layers": [],
+                "platform": "youtube-thumbnail",
+            },
+            {
+                "kind": "canvas",
+                "width": 1080,
+                "height": 1920,
+                "layers": [],
+                "platform": "instagram-reels",
+            },
         )
 
 

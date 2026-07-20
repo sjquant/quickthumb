@@ -902,6 +902,7 @@ class Canvas:
                 layers_json.append(self._omit_unset_composition_fields(layer_json))
 
         payload: dict[str, Any] = {
+            "kind": "canvas",
             "width": self.width,
             "height": self.height,
             "layers": layers_json,
@@ -949,6 +950,12 @@ class Canvas:
         if not isinstance(raw, dict):
             CanvasModel.model_validate_json(data)  # raises ValidationError with good message
         raw = cast(dict[str, Any], raw)
+
+        kind = raw.pop("kind", None)
+        if kind is not None and kind != "canvas":
+            raise ValidationError("Canvas JSON 'kind' must be 'canvas'.")
+        if "slides" in raw:
+            raise ValidationError("Canvas JSON must not contain a top-level 'slides' field.")
 
         theme = raw.pop("theme", {})
         if not isinstance(theme, dict):

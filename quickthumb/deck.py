@@ -85,6 +85,9 @@ class Deck:
         theme: dict | None = None,
         transition: Transition | dict | str | None = None,
     ):
+        for name, value in (("width", width), ("height", height)):
+            if value is not None and (isinstance(value, bool) or not isinstance(value, int)):
+                raise ValidationError(f"{name} must be an integer")
         if (width is None) != (height is None):
             raise ValidationError("Provide both width and height, or neither.")
         if width is not None and width <= 0:
@@ -659,6 +662,7 @@ class Deck:
         import json
 
         payload: dict = {}
+        payload["kind"] = "deck"
         if self._width is not None:
             payload["width"] = self._width
             payload["height"] = self._height
@@ -697,6 +701,11 @@ class Deck:
         raw = json.loads(data)
         if not isinstance(raw, dict) or "slides" not in raw:
             raise ValidationError("Deck JSON must be an object with a 'slides' list.")
+        kind = raw.get("kind")
+        if kind is not None and kind != "deck":
+            raise ValidationError("Deck JSON 'kind' must be 'deck'.")
+        if "layers" in raw:
+            raise ValidationError("Deck JSON must not contain a top-level 'layers' field.")
         slides_raw = raw["slides"]
         if not isinstance(slides_raw, list):
             raise ValidationError("Deck 'slides' must be a list of canvas specs.")
@@ -709,6 +718,9 @@ class Deck:
         if transition is not None and not isinstance(transition, dict):
             raise ValidationError("Deck 'transition' must be a JSON object.")
 
+        for name, value in (("width", raw.get("width")), ("height", raw.get("height"))):
+            if value is not None and (isinstance(value, bool) or not isinstance(value, int)):
+                raise ValidationError(f"Deck '{name}' must be an integer.")
         deck = cls(
             width=raw.get("width"),
             height=raw.get("height"),
@@ -729,6 +741,9 @@ class Deck:
                 notes = slide.get("notes")
                 if notes is not None and not isinstance(notes, str):
                     raise ValidationError("Deck slide 'notes' must be a string.")
+                slide_theme = slide.get("theme", {})
+                if not isinstance(slide_theme, dict):
+                    raise ValidationError("Deck slide 'theme' must be an object of token groups.")
                 slide = {
                     key: value
                     for key, value in slide.items()
@@ -736,8 +751,8 @@ class Deck:
                 }
                 # Share the deck-level theme so $theme.* tokens resolve; a slide's
                 # own theme block takes precedence.
-                if theme:
-                    slide = {**slide, "theme": {**theme, **slide.get("theme", {})}}
+                if theme or "theme" in slide:
+                    slide = {**slide, "theme": {**theme, **slide_theme}}
                 if (
                     deck._width is not None
                     and "width" not in slide

@@ -174,7 +174,8 @@ printing the findings. `--ignore` removes matching diagnostic codes from both th
 the exit-status calculation. Invalid specs with `--format json` emit an `error` object rather
 than a traceback.
 
-Deck JSON is accepted as well as Canvas JSON. Deck findings include `slide_index` and retain
+JSON inputs must declare a top-level `kind` discriminator (`canvas` or `deck`). Deck findings
+include `slide_index` and retain
 the originating layer id, bounding box, measurements, related layers, and suggestion.
 
 ### `quickthumb render`
@@ -218,8 +219,9 @@ quickthumb serve deck.json --port 4040 --no-open
 ```
 
 A Python source should define one module-level `Deck` or `Canvas` as `deck`,
-`slides`, or `canvas`. A JSON source may be a canvas spec or a deck object with a
-top-level `slides` list. Use `--host` and `--port` to change the listening
+`slides`, or `canvas`. A JSON source must declare `kind: "canvas"` or `kind: "deck"`;
+Canvas documents contain `layers`, while Deck documents contain a top-level `slides` list.
+Use `--host` and `--port` to change the listening
 address, `--no-open` to suppress the initial browser window, and repeat
 `--var KEY=VALUE` for JSON template substitutions.
 

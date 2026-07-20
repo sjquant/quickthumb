@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Annotated, Protocol, TypeAlias
+from typing import Annotated, Protocol, TypeAlias, cast
 
 import typer
 from PIL import Image
@@ -17,6 +18,7 @@ from quickthumb._diff import (
     compare_images,
     create_diff_image,
 )
+from quickthumb._document import require_document_kind
 from quickthumb.canvas import _VAR_RE, Canvas, _is_theme_reference
 from quickthumb.deck import Deck, DeckDiagnostic
 from quickthumb.errors import RenderingError, ValidationError
@@ -80,7 +82,8 @@ def _load_canvas(spec: Path, variables: dict[str, str]) -> Diagnosable:
         text = _substitute_vars(text, variables)
 
     raw = json.loads(text)
-    if isinstance(raw, dict) and "slides" in raw:
+    kind = require_document_kind(raw)
+    if kind == "deck":
         return Deck.from_json(text)
     return Canvas.from_json(text)
 
@@ -125,7 +128,7 @@ def _diagnostic_payload(finding: _DiagnosticLike) -> dict:
 
 
 def _filter_diagnostics(
-    findings: list[_DiagnosticLike], ignored_codes: set[str]
+    findings: Iterable[_DiagnosticLike], ignored_codes: set[str]
 ) -> list[_DiagnosticLike]:
     return [finding for finding in findings if finding.code not in ignored_codes]
 
@@ -134,8 +137,7 @@ def _should_fail(findings: list[_DiagnosticLike], fail_on: str) -> bool:
     if fail_on == "never":
         return False
     return any(
-        finding.severity == "error"
-        or (fail_on == "warning" and finding.severity == "warning")
+        finding.severity == "error" or (fail_on == "warning" and finding.severity == "warning")
         for finding in findings
     )
 
@@ -169,9 +171,7 @@ def _run_lint(
             err=True,
         )
         raise typer.Exit(1)
-    normalized_fail_on, ignored = _validate_diagnostic_options(
-        fail_on, ignored_codes, lint_format
-    )
+    normalized_fail_on, ignored = _validate_diagnostic_options(fail_on, ignored_codes, lint_format)
 
     try:
         source = _load_canvas(spec, _parse_var_options(var))
@@ -180,7 +180,9 @@ def _run_lint(
         raise typer.Exit(1) from None
 
     try:
-        diagnostics = _filter_diagnostics(source.diagnose(), ignored)
+        diagnostics = _filter_diagnostics(
+            cast(Iterable[_DiagnosticLike], source.diagnose()), ignored
+        )
     except FileNotFoundError as error:
         _echo_input_error(FileNotFoundError(f"Referenced file not found: {error}"), lint_format)
         raise typer.Exit(1) from None
@@ -193,9 +195,7 @@ def _run_lint(
 
     if lint_format == "json":
         error_count = sum(1 for finding in diagnostics if finding.severity == "error")
-        warning_count = sum(
-            1 for finding in diagnostics if finding.severity == "warning"
-        )
+        warning_count = sum(1 for finding in diagnostics if finding.severity == "warning")
         typer.echo(
             json.dumps(
                 {
@@ -305,6 +305,9 @@ def render(
             quality=quality,
             debug=debug,
         )
+    except ValidationError as e:
+        typer.echo(str(e), err=True)
+        raise typer.Exit(1) from e
     except (RenderingError, OSError) as e:
         typer.echo(str(e), err=True)
         raise typer.Exit(2) from e
@@ -566,7 +569,7 @@ def watch(
                 debug=debug,
             )
             typer.echo(str(output))
-        except (RenderingError, OSError) as e:
+        except (ValidationError, RenderingError, OSError) as e:
             typer.echo(str(e), err=True)
 
     typer.echo(f"Watching {spec} … (Ctrl+C to stop)")

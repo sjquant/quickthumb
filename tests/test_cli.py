@@ -10,6 +10,7 @@ from typer.testing import CliRunner
 
 SIMPLE_SPEC = json.dumps(
     {
+        "kind": "canvas",
         "width": 100,
         "height": 100,
         "layers": [
@@ -69,7 +70,16 @@ class TestCLISchema:
         # then: the schema describes canvas fields, theme tokens, and layer types
         assert result.exit_code == 0
         payload = json.loads(result.output)
-        assert set(payload["properties"]) == {"height", "layers", "platform", "theme", "width"}
+        assert set(payload["properties"]) == {
+            "height",
+            "kind",
+            "layers",
+            "platform",
+            "theme",
+            "width",
+        }
+        assert payload["properties"]["kind"] == {"const": "canvas", "type": "string"}
+        assert "kind" in payload["required"]
         assert payload["anyOf"][0]["properties"] == {
             "width": {"exclusiveMinimum": 0, "type": "integer"},
             "height": {"exclusiveMinimum": 0, "type": "integer"},
@@ -354,6 +364,7 @@ class TestCLIRender:
             f.write(
                 json.dumps(
                     {
+                        "kind": "canvas",
                         "width": 100,
                         "height": 100,
                         "layers": [
@@ -377,6 +388,39 @@ class TestCLIRender:
         finally:
             os.unlink(bad_spec)
 
+    def test_should_report_deck_render_validation_errors_without_traceback(self):
+        """render maps invalid Deck audio metadata to a clean input error."""
+        from quickthumb.cli import app
+
+        # given: a Deck JSON document referring to an audio file that does not exist
+        with tempfile.NamedTemporaryFile(suffix=".json", mode="w", delete=False) as spec_file:
+            json.dump(
+                {
+                    "kind": "deck",
+                    "slides": [
+                        {
+                            "width": 100,
+                            "height": 100,
+                            "layers": [],
+                            "audio": "missing-narration.wav",
+                        }
+                    ],
+                },
+                spec_file,
+            )
+            spec_path = spec_file.name
+
+        # when: rendering the Deck to the narrated MP4 path
+        try:
+            result = CliRunner().invoke(app, ["render", spec_path, "-o", "deck.mp4"])
+        finally:
+            os.unlink(spec_path)
+
+        # then: the CLI returns an input error without leaking a traceback
+        assert result.exit_code == 1
+        assert "Audio file not found" in result.output
+        assert "Traceback" not in result.output
+
     def test_should_substitute_var_placeholders(self):
         """Test that --var KEY=VALUE substitutes $KEY placeholders in the spec before parsing"""
         # Given: A spec template using $bg_color and a --var flag
@@ -384,6 +428,7 @@ class TestCLIRender:
 
         template_spec = json.dumps(
             {
+                "kind": "canvas",
                 "width": 100,
                 "height": 100,
                 "layers": [{"type": "background", "color": "$bg_color"}],
@@ -447,6 +492,7 @@ class TestCLIRender:
 
         template_spec = json.dumps(
             {
+                "kind": "canvas",
                 "width": 100,
                 "height": 100,
                 "layers": [{"type": "background", "color": "$missing_var"}],
@@ -519,6 +565,7 @@ class TestCLIRender:
 
         template_spec = json.dumps(
             {
+                "kind": "canvas",
                 "width": 100,
                 "height": 100,
                 "layers": [{"type": "background", "color": "${bg}"}],
@@ -546,6 +593,7 @@ class TestCLIRender:
 
         themed_spec = json.dumps(
             {
+                "kind": "canvas",
                 "width": 100,
                 "height": 100,
                 "theme": {"colors": {"bg": "#FF0000"}},
@@ -731,11 +779,40 @@ class TestCLIWatch:
         assert result.exit_code == 0
         assert "cannot write output" in result.output
 
+    def test_should_keep_watching_after_deck_render_validation_error(self, spec_file, monkeypatch):
+        """watch reports Deck validation errors and continues to the next change."""
+        import sys
+        import types
+
+        import quickthumb.cli as cli
+        from quickthumb import Canvas, Deck
+
+        # given: a Deck whose narration path is invalid and a watcher interrupted after startup
+        deck = Deck(100, 100).slide(Canvas(), audio="missing-narration.wav")
+
+        def fake_load_canvas(spec, variables):
+            return deck
+
+        def fake_watch(spec):
+            raise KeyboardInterrupt
+            yield
+
+        monkeypatch.setattr(cli, "_load_canvas", fake_load_canvas)
+        monkeypatch.setitem(sys.modules, "watchfiles", types.SimpleNamespace(watch=fake_watch))
+
+        # when: the user starts watching a Deck MP4 render
+        result = CliRunner().invoke(cli.app, ["watch", spec_file, "-o", "deck.mp4"])
+
+        # then: validation output is reported and the watcher exits normally
+        assert result.exit_code == 0
+        assert "Audio file not found" in result.output
+
 
 class TestCLILint:
     """Test suite for the quickthumb lint subcommand"""
 
     def _write_spec(self, spec: dict) -> str:
+        spec = {"kind": "deck" if "slides" in spec else "canvas", **spec}
         with tempfile.NamedTemporaryFile(suffix=".json", mode="w", delete=False) as f:
             f.write(json.dumps(spec))
         return f.name
@@ -1423,9 +1500,7 @@ class TestCLILint:
         from quickthumb.cli import app
 
         # given: a spec with an unknown layer type
-        spec_path = self._write_spec(
-            {"width": 100, "height": 100, "layers": [{"type": "unknown"}]}
-        )
+        spec_path = self._write_spec({"width": 100, "height": 100, "layers": [{"type": "unknown"}]})
 
         # when
         try:
@@ -1439,6 +1514,108 @@ class TestCLILint:
         payload = json.loads(result.output)
         assert payload["error"]["code"] == "invalid-spec"
         assert "unknown" in payload["error"]["message"]
+
+    def test_should_reject_an_ambiguous_canvas_document(self):
+        """lint rejects a Canvas document that also claims to contain Deck slides."""
+        from quickthumb.cli import app
+
+        # given: a document explicitly marked as Canvas but carrying a top-level slides field
+        spec_path = self._write_spec(
+            {
+                "kind": "canvas",
+                "width": 100,
+                "height": 100,
+                "layers": [],
+                "slides": [],
+            }
+        )
+
+        # when: linting the ambiguous JSON document
+        try:
+            result = CliRunner().invoke(app, ["lint", spec_path, "--format", "json"])
+        finally:
+            os.unlink(spec_path)
+
+        # then: the structured invalid-spec contract is preserved
+        assert result.exit_code == 1
+        payload = json.loads(result.output)
+        assert payload["error"]["code"] == "invalid-spec"
+        assert "slides" in payload["error"]["message"]
+
+    def test_should_require_a_top_level_document_kind(self):
+        """lint rejects JSON documents without an explicit Canvas or Deck discriminator."""
+        from quickthumb.cli import app
+
+        # given: a legacy shape-only JSON document
+        with tempfile.NamedTemporaryFile(suffix=".json", mode="w", delete=False) as spec_file:
+            json.dump({"width": 100, "height": 100, "layers": []}, spec_file)
+            spec_path = spec_file.name
+
+        # when: linting the document through the CLI boundary
+        try:
+            result = CliRunner().invoke(app, ["lint", spec_path, "--format", "json"])
+        finally:
+            os.unlink(spec_path)
+
+        # then: the missing discriminator is a structured invalid-spec error
+        assert result.exit_code == 1
+        payload = json.loads(result.output)
+        assert payload["error"]["code"] == "invalid-spec"
+        assert "kind" in payload["error"]["message"]
+
+    @pytest.mark.parametrize("width", ["100", 100.5, True])
+    def test_should_reject_non_integer_deck_dimensions(self, width):
+        """lint rejects Deck dimensions that are not positive JSON integers."""
+        from quickthumb.cli import app
+
+        # given: a Deck with one malformed root dimension
+        spec_path = self._write_spec({"kind": "deck", "width": width, "height": 100, "slides": []})
+
+        # when: linting the malformed Deck
+        try:
+            result = CliRunner().invoke(app, ["lint", spec_path, "--format", "json"])
+        finally:
+            os.unlink(spec_path)
+
+        # then: invalid dimensions produce structured JSON and no traceback
+        assert result.exit_code == 1
+        assert "Traceback" not in result.output
+        payload = json.loads(result.output)
+        assert payload["error"]["code"] == "invalid-spec"
+        assert "integer" in payload["error"]["message"]
+
+    def test_should_reject_non_mapping_deck_slide_theme(self):
+        """lint rejects a non-object slide theme instead of leaking a merge TypeError."""
+        from quickthumb.cli import app
+
+        # given: a Deck with a shared theme and an invalid per-slide theme value
+        spec_path = self._write_spec(
+            {
+                "kind": "deck",
+                "theme": {"brand": "#B8FF00"},
+                "slides": [
+                    {
+                        "width": 100,
+                        "height": 100,
+                        "theme": "not-an-object",
+                        "layers": [],
+                    }
+                ],
+            }
+        )
+
+        # when: linting the malformed slide theme
+        try:
+            result = CliRunner().invoke(app, ["lint", spec_path, "--format", "json"])
+        finally:
+            os.unlink(spec_path)
+
+        # then: the public invalid-spec response is structured and traceback-free
+        assert result.exit_code == 1
+        assert "Traceback" not in result.output
+        payload = json.loads(result.output)
+        assert payload["error"]["code"] == "invalid-spec"
+        assert "theme" in payload["error"]["message"]
 
     def test_should_support_deck_specs_and_preserve_slide_diagnostic_fields(self):
         """lint accepts deck JSON and includes slide and layer diagnostic context"""
@@ -1505,9 +1682,7 @@ class TestCLILint:
 
         # when: warnings are ignored for exit status and then filtered entirely
         try:
-            warning_result = CliRunner().invoke(
-                app, ["diagnose", spec_path, "--fail-on", "error"]
-            )
+            warning_result = CliRunner().invoke(app, ["diagnose", spec_path, "--fail-on", "error"])
             ignored_result = CliRunner().invoke(
                 app,
                 ["diagnose", spec_path, "--ignore", "edge-crowding", "--format", "json"],

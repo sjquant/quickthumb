@@ -88,6 +88,7 @@ class TestSlideServer:
         source_path.write_text(
             json.dumps(
                 {
+                    "kind": "deck",
                     "width": 320,
                     "height": 180,
                     "slides": [
@@ -117,6 +118,7 @@ class TestSlideServer:
         source_path.write_text(
             json.dumps(
                 {
+                    "kind": "deck",
                     "width": 320,
                     "height": 180,
                     "theme": {"colors": {"background": "$ACCENT"}},
@@ -139,7 +141,8 @@ class TestSlideServer:
         # given: one canvas JSON document and one standalone HTML document
         canvas_path = tmp_path / "canvas.json"
         canvas_path.write_text(
-            json.dumps({"width": 80, "height": 40, "layers": []}), encoding="utf-8"
+            json.dumps({"kind": "canvas", "width": 80, "height": 40, "layers": []}),
+            encoding="utf-8",
         )
         html_path = tmp_path / "slides.html"
         html_path.write_text("<!doctype html><title>Existing slides</title>", encoding="utf-8")

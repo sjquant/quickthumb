@@ -26,9 +26,12 @@ def canvas_json_schema() -> dict[str, Any]:
     schema["$id"] = QUICKTHUMB_SCHEMA_ID
     schema["title"] = "quickthumb Canvas JSON Spec"
     schema["description"] = (
-        "A quickthumb canvas spec accepted by Canvas.from_json() and the quickthumb CLI."
+        "A quickthumb canvas spec accepted by the quickthumb CLI. Canvas.from_json() also "
+        "accepts legacy documents without the top-level kind."
     )
+    schema["properties"]["kind"] = {"const": "canvas", "type": "string"}
     schema["properties"]["platform"] = platform_schema
+    schema["required"] = ["kind", *schema.get("required", [])]
     schema["anyOf"] = [
         {
             "properties": {

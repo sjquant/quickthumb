@@ -103,6 +103,7 @@ class TestCanvas:
         # Then: All layers should be serialized in correct order
         assert canvas_dict == snapshot(
             {
+                "kind": "canvas",
                 "width": 1920,
                 "height": 1080,
                 "layers": [
@@ -338,6 +339,7 @@ class TestCanvas:
             json_str = canvas.to_json()
             assert json.loads(json_str) == snapshot(
                 {
+                    "kind": "canvas",
                     "width": 100,
                     "height": 100,
                     "layers": [
@@ -469,6 +471,7 @@ class TestCanvasTemplate:
         # Then: The layer has the substituted color value in its JSON representation
         assert json.loads(canvas.to_json()) == snapshot(
             {
+                "kind": "canvas",
                 "width": 100,
                 "height": 100,
                 "layers": [

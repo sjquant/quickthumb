@@ -20,6 +20,7 @@ from urllib.parse import parse_qs, urlsplit
 
 from jinja2 import Environment, Template
 
+from quickthumb._document import require_document_kind
 from quickthumb.canvas import _VAR_RE, Canvas, _is_theme_reference
 from quickthumb.deck import Deck
 from quickthumb.errors import ValidationError
@@ -288,7 +289,8 @@ class SlideSource:
         if self.variables:
             text = _substitute_variables(text, self.variables)
         payload = json.loads(text)
-        if isinstance(payload, dict) and "slides" in payload:
+        kind = require_document_kind(payload)
+        if kind == "deck":
             return Deck.from_json(text).to_html()
         return Canvas.from_json(text).to_html()
 

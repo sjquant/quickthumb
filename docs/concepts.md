@@ -271,6 +271,7 @@ JSON specs can define brand tokens once in a top-level `theme` block and referen
 
 ```json
 {
+  "kind": "canvas",
   "width": 1280,
   "height": 720,
   "theme": { "colors": { "primary": "#B8FF00" }, "sizes": { "title": 96 } },

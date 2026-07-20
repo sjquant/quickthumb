@@ -1178,6 +1178,7 @@ LayerType = Annotated[
 
 
 class CanvasModel(quickthumbModel):
+    kind: Literal["canvas"] = "canvas"
     width: PositiveInt | None = None
     height: PositiveInt | None = None
     platform: str | None = None
@@ -1185,6 +1186,7 @@ class CanvasModel(quickthumbModel):
 
 
 class CanvasSpecModel(quickthumbModel):
+    kind: Literal["canvas"] = "canvas"
     width: PositiveInt | None = None
     height: PositiveInt | None = None
     platform: str | None = None
