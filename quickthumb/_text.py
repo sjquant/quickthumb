@@ -12,6 +12,7 @@ from quickthumb._base import (
     FontType,
     RenderContext,
     apply_alignment,
+    expanded_rotation_size,
     parse_coordinate,
     parse_padding,
 )
@@ -1215,6 +1216,28 @@ class TextEngine:
     def measure_text_size(self, layer: TextLayer) -> tuple[int, int]:
         """Calculate rendered text bounding box size accounting for wrapping."""
         return self.measure_text_layout(layer)["size"]
+
+    def measure_text_rendered_size(
+        self, layer: TextLayer, *, layout: TextLayoutMetadata | None = None
+    ) -> tuple[int, int]:
+        """Calculate canvas-space text size, reusing an existing layout when available."""
+        layer = self.effective_layer(layer)
+        if layout is None:
+            layout = self.measure_text_layout(layer)
+        text_width, text_height = layout["size"]
+        if layer.rotation == 0:
+            return text_width, text_height
+
+        if isinstance(layer.content, list):
+            padding = self._calculate_rich_text_effects_padding(layer)
+        else:
+            padding = self._calculate_text_effects_padding(
+                self._get_stroke_effects(layer.effects),
+                self._get_shadow_effects(layer.effects),
+                self._get_glow_effects(layer.effects),
+            )
+        staged_size = (text_width + padding * 2, text_height + padding * 2)
+        return expanded_rotation_size(staged_size, layer.rotation, scale=1)
 
     def _render_rotated_rich_text(self, image: Image.Image, layer: TextLayer):
         """Render rich text with rotation applied.

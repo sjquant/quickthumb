@@ -227,6 +227,61 @@ class TestDiagnoseOffCanvas:
         assert [d.code for d in diagnostics] == ["off-canvas"]
         assert diagnostics[0].severity == "warning"
 
+    def test_should_report_rotated_text_in_a_group_extending_past_canvas(self):
+        """Rotated text uses its rendered bounds for grouped off-canvas detection"""
+        from quickthumb import Canvas
+
+        # given: multiline text whose rotated render extends beyond the right edge
+        canvas = Canvas(400, 300).group(
+            children=[
+                {
+                    "type": "text",
+                    "content": "A\nB\nC\nD",
+                    "size": 40,
+                    "color": "#000000",
+                    "rotation": 45,
+                }
+            ],
+            position=(300, 10),
+        )
+
+        # when
+        diagnostics = canvas.diagnose()
+
+        # then: the group reports the rotated child crossing the canvas edge
+        off_canvas = [finding for finding in diagnostics if finding.code == "off-canvas"]
+        assert len(off_canvas) == 1
+        assert off_canvas[0].layer_index == 0
+        group_bbox = canvas.inspect().layers[0].bbox
+        assert off_canvas[0].bbox == group_bbox
+        assert off_canvas[0].bbox is not None
+        assert off_canvas[0].bbox.x + off_canvas[0].bbox.width > canvas.width
+
+    def test_should_not_report_rotated_wrapped_text_as_max_width_clipped(self):
+        """Rotated staging bounds do not replace logical wrapped-text bounds"""
+        from quickthumb import Canvas
+
+        # given: wrapped text fits its max_width before rotation
+        canvas = Canvas(400, 400).group(
+            children=[
+                {
+                    "type": "text",
+                    "content": "one two three four five six",
+                    "size": 30,
+                    "color": "#000000",
+                    "max_width": 100,
+                    "rotation": 45,
+                }
+            ],
+            position=(10, 10),
+        )
+
+        # when
+        diagnostics = canvas.diagnose()
+
+        # then: the rotated canvas bbox does not trigger a logical max_width warning
+        assert [finding for finding in diagnostics if finding.code == "text-clipped"] == []
+
 
 class TestDiagnoseText:
     """Test suite for text legibility findings"""
@@ -1279,6 +1334,210 @@ class TestDiagnoseLayerOverlap:
 
         # then
         assert [finding for finding in diagnostics if finding.code == "layer-overlap"] == []
+
+    def test_should_not_warn_for_a_nested_masked_group_at_a_parent_offset(self):
+        """Nested group alpha masks are measured at their auto-layout position"""
+        from quickthumb import Canvas
+
+        # given: a nested mask keeps an ellipse whose top corner is transparent
+        canvas = (
+            Canvas(140, 80)
+            .group(
+                children=[
+                    {
+                        "type": "group",
+                        "direction": "row",
+                        "mask": {"position": (20, 10), "width": 50, "height": 50},
+                        "children": [
+                            {
+                                "type": "shape",
+                                "shape": "ellipse",
+                                "width": 50,
+                                "height": 50,
+                                "color": "#FF0000",
+                            },
+                            {
+                                "type": "shape",
+                                "shape": "rectangle",
+                                "width": 50,
+                                "height": 50,
+                                "color": "#0000FF",
+                            },
+                        ],
+                    }
+                ],
+                direction="row",
+                position=(20, 10),
+            )
+            .shape(
+                shape="rectangle",
+                position=(65, 10),
+                width=5,
+                height=5,
+                color="#00FF00",
+            )
+        )
+
+        # when
+        diagnostics = canvas.diagnose()
+
+        # then: the green layer sits over transparent ellipse pixels, not the group
+        assert [finding for finding in diagnostics if finding.code == "layer-overlap"] == []
+
+    def test_should_not_report_off_canvas_for_a_fully_clipped_group(self):
+        """A group with no visible clipped children has no off-canvas bbox"""
+        from quickthumb import Canvas
+
+        # given: the only text child is fully outside its composition mask
+        canvas = Canvas(200, 120).group(
+            children=[
+                {
+                    "type": "text",
+                    "content": "hidden",
+                    "size": 36,
+                    "color": "#000000",
+                    "mask": {"position": (0, 0), "width": 1, "height": 1},
+                }
+            ],
+            position=(190, 10),
+        )
+
+        # when
+        diagnostics = canvas.diagnose()
+
+        # then: invisible composition content does not create a layout warning
+        assert diagnostics == []
+
+    def test_should_ignore_invisible_children_when_unioning_group_bounds(self):
+        """Opacity-zero group children do not contribute to visible group bounds"""
+        from quickthumb import Canvas
+
+        # given: a visible child followed by an off-canvas opacity-zero child
+        canvas = Canvas(200, 120).group(
+            children=[
+                {
+                    "type": "shape",
+                    "shape": "rectangle",
+                    "width": 10,
+                    "height": 10,
+                    "color": "#000000",
+                },
+                {
+                    "type": "shape",
+                    "shape": "rectangle",
+                    "width": 100,
+                    "height": 20,
+                    "color": "#000000",
+                    "opacity": 0,
+                },
+            ],
+            direction="row",
+            position=(20, 20),
+        )
+
+        # when
+        inspection = canvas.inspect()
+        diagnostics = canvas.diagnose()
+
+        # then: only the visible child contributes to the group bbox
+        assert inspection.layers[0].bbox is not None
+        assert inspection.layers[0].bbox.width == 10
+        assert diagnostics == []
+
+    def test_should_report_empty_bbox_for_a_nested_fully_clipped_group(self):
+        """Nested groups with no visible children expose an empty bbox"""
+        from quickthumb import Canvas
+
+        # given: a nested group's only child is outside its composition mask
+        canvas = Canvas(200, 120).group(
+            children=[
+                {
+                    "type": "group",
+                    "children": [
+                        {
+                            "type": "text",
+                            "content": "hidden",
+                            "size": 36,
+                            "color": "#000000",
+                        }
+                    ],
+                    "mask": {"position": (0, 0), "width": 1, "height": 1},
+                }
+            ],
+            position=(190, 10),
+        )
+
+        # when
+        inspection = canvas.inspect()
+        diagnostics = canvas.diagnose()
+
+        # then: both nested and parent visible bboxes remain empty
+        assert inspection.layers[0].bbox is not None
+        assert inspection.layers[0].bbox.width == 0
+        assert inspection.layers[0].children[0].bbox is not None
+        assert inspection.layers[0].children[0].bbox.width == 0
+        assert diagnostics == []
+
+    def test_should_not_report_off_canvas_for_a_zero_opacity_mask(self):
+        """A non-inverted zero-opacity mask produces no visible group bounds"""
+        from quickthumb import Canvas
+
+        # given: the mask covers the child but contributes no alpha
+        canvas = Canvas(200, 120).group(
+            children=[
+                {
+                    "type": "text",
+                    "content": "hidden",
+                    "size": 36,
+                    "color": "#000000",
+                    "mask": {
+                        "position": (190, 10),
+                        "width": 50,
+                        "height": 50,
+                        "opacity": 0,
+                    },
+                }
+            ],
+            position=(190, 10),
+        )
+
+        # when
+        diagnostics = canvas.diagnose()
+
+        # then: fully transparent composition does not create an edge warning
+        assert diagnostics == []
+
+    def test_should_measure_rotated_rich_text_effects_in_a_group(self):
+        """Rotated rich text includes part-level effects in its group bounds"""
+        from quickthumb import Canvas
+
+        # given: rich text with a part-level stroke is rotated inside a group
+        canvas = Canvas(300, 200).group(
+            children=[
+                {
+                    "type": "text",
+                    "content": [
+                        {
+                            "text": "Rich",
+                            "effects": [{"type": "stroke", "width": 8, "color": "#000000"}],
+                        }
+                    ],
+                    "size": 32,
+                    "rotation": 45,
+                }
+            ],
+            position=(20, 20),
+        )
+
+        # when
+        inspection = canvas.inspect()
+        diagnostics = canvas.diagnose()
+
+        # then: the effect-aware rotated child is measurable without diagnostics
+        assert inspection.layers[0].children[0].bbox is not None
+        assert inspection.layers[0].children[0].bbox.width > 0
+        assert inspection.layers[0].children[0].bbox.height > 0
+        assert diagnostics == []
 
     def test_should_not_warn_for_transparent_png_bbox_overlap(self, tmp_path):
         """Transparent image pixels do not count as visible overlap"""

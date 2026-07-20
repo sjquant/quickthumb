@@ -252,8 +252,7 @@ class GroupEngine:
 
     def _measure_group_child_uncached(self, child: GroupChildLayer) -> tuple[int, int]:
         if isinstance(child, TextLayer):
-            child = self._text.effective_layer(child)
-            return self._text.measure_text_size(child)
+            return self._text.measure_text_rendered_size(child)
         if isinstance(child, ImageLayer):
             return expanded_rotation_size(self._measure_image_size(child), child.rotation)
         if isinstance(child, SvgLayer):
