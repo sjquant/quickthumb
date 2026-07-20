@@ -227,6 +227,32 @@ class TestDiagnoseOffCanvas:
         assert [d.code for d in diagnostics] == ["off-canvas"]
         assert diagnostics[0].severity == "warning"
 
+    def test_should_report_rotated_text_in_a_group_extending_past_canvas(self):
+        """Rotated text uses its rendered bounds for grouped off-canvas detection"""
+        from quickthumb import Canvas
+
+        # given: multiline text whose rotated render extends beyond the right edge
+        canvas = Canvas(400, 300).group(
+            children=[
+                {
+                    "type": "text",
+                    "content": "A\nB\nC\nD",
+                    "size": 40,
+                    "color": "#000000",
+                    "rotation": 45,
+                }
+            ],
+            position=(300, 10),
+        )
+
+        # when
+        diagnostics = canvas.diagnose()
+
+        # then: the group reports the rotated child crossing the canvas edge
+        off_canvas = [finding for finding in diagnostics if finding.code == "off-canvas"]
+        assert len(off_canvas) == 1
+        assert off_canvas[0].layer_index == 0
+
 
 class TestDiagnoseText:
     """Test suite for text legibility findings"""
@@ -1279,6 +1305,79 @@ class TestDiagnoseLayerOverlap:
 
         # then
         assert [finding for finding in diagnostics if finding.code == "layer-overlap"] == []
+
+    def test_should_not_warn_for_a_nested_masked_group_at_a_parent_offset(self):
+        """Nested group alpha masks are measured at their auto-layout position"""
+        from quickthumb import Canvas
+
+        # given: a nested mask keeps an ellipse whose top corner is transparent
+        canvas = (
+            Canvas(140, 80)
+            .group(
+                children=[
+                    {
+                        "type": "group",
+                        "direction": "row",
+                        "mask": {"position": (20, 10), "width": 50, "height": 50},
+                        "children": [
+                            {
+                                "type": "shape",
+                                "shape": "ellipse",
+                                "width": 50,
+                                "height": 50,
+                                "color": "#FF0000",
+                            },
+                            {
+                                "type": "shape",
+                                "shape": "rectangle",
+                                "width": 50,
+                                "height": 50,
+                                "color": "#0000FF",
+                            },
+                        ],
+                    }
+                ],
+                direction="row",
+                position=(20, 10),
+            )
+            .shape(
+                shape="rectangle",
+                position=(65, 10),
+                width=5,
+                height=5,
+                color="#00FF00",
+            )
+        )
+
+        # when
+        diagnostics = canvas.diagnose()
+
+        # then: the green layer sits over transparent ellipse pixels, not the group
+        assert [finding for finding in diagnostics if finding.code == "layer-overlap"] == []
+
+    def test_should_not_report_off_canvas_for_a_fully_clipped_group(self):
+        """A group with no visible clipped children has no off-canvas bbox"""
+        from quickthumb import Canvas
+
+        # given: the only text child is fully outside its composition mask
+        canvas = Canvas(200, 120).group(
+            children=[
+                {
+                    "type": "text",
+                    "content": "hidden",
+                    "size": 36,
+                    "color": "#000000",
+                    "mask": {"position": (0, 0), "width": 1, "height": 1},
+                }
+            ],
+            position=(190, 10),
+        )
+
+        # when
+        diagnostics = canvas.diagnose()
+
+        # then: invisible composition content does not create a layout warning
+        assert diagnostics == []
 
     def test_should_not_warn_for_transparent_png_bbox_overlap(self, tmp_path):
         """Transparent image pixels do not count as visible overlap"""

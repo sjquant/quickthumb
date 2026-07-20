@@ -180,9 +180,13 @@ class LayerMeasurementEngine:
             self._measure_group_child(child, position, size, index, order, path + (child_index,))
             for child_index, (child, position, size) in enumerate(placements)
         )
-        bbox = BBox.union(child.bbox for child in children if child.bbox is not None)
+        bbox = BBox.union(
+            child.bbox
+            for child in children
+            if child.visible and child.bbox is not None and not child.bbox.is_empty
+        )
         if bbox is None:
-            bbox = BBox(*layout_box)
+            bbox = BBox(layout_box[0], layout_box[1], 0, 0)
         bbox = self._apply_composition_bounds(layer, bbox)
         metadata = {
             "child_count": len(layer.children),
@@ -220,9 +224,15 @@ class LayerMeasurementEngine:
                     placements
                 )
             )
-            bbox = BBox.union(grandchild.bbox for grandchild in children if grandchild.bbox)
+            bbox = BBox.union(
+                grandchild.bbox
+                for grandchild in children
+                if grandchild.visible
+                and grandchild.bbox is not None
+                and not grandchild.bbox.is_empty
+            )
             if bbox is None:
-                bbox = BBox(*layout_box)
+                bbox = BBox(layout_box[0], layout_box[1], 0, 0)
             bbox = self._apply_composition_bounds(child, bbox)
             return self._measurement(
                 child,
@@ -295,7 +305,7 @@ class LayerMeasurementEngine:
     ) -> LayerMeasurement:
         effective = self._text.effective_layer(layer)
         layout = self._text.measure_text_layout(effective)
-        w, h = layout["size"]
+        w, h = self._text.measure_text_rendered_size(effective)
         base_x, base_y = self._text.get_text_base_position(effective)
         x = self._text.get_horizontal_start_x(base_x, w, effective.align)
         y = self._text.get_vertical_start_y(base_y, h, effective.align)
@@ -324,6 +334,9 @@ class LayerMeasurementEngine:
         return self._measurement(layer, index, order, path, "text", bbox, metadata=details)
 
     def _apply_composition_bounds(self, layer: object, bbox: BBox) -> BBox:
+        if bbox.is_empty:
+            return bbox
+
         bounds = composition_bounds(self._ctx, layer)
         if bounds is None:
             return bbox
