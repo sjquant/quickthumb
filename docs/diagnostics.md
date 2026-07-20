@@ -97,6 +97,51 @@ With `--format json`, lint prints a machine-readable payload:
 }
 ```
 
+### `quickthumb diff`
+
+Compare a rendered image with a golden image before accepting a visual change:
+
+```bash
+quickthumb diff tests/snapshots/solid_background.png output.png
+quickthumb diff golden.png output.png --format json --output diff.png
+```
+
+The comparison combines an average perceptual hash with pixel-level metrics.
+By default, per-channel differences of up to 2 are ignored and at most 1% of
+pixels may exceed that tolerance. The default perceptual-hash similarity
+threshold is `0.95`. Tighten or relax those values for a particular renderer:
+
+```bash
+quickthumb diff golden.png output.png \
+  --threshold 0.98 \
+  --pixel-tolerance 1 \
+  --max-diff-ratio 0.005
+```
+
+Use `--format json` for CI or agent pipelines. `--output` writes a raw RGBA
+pixel-difference image for visual inspection. Exit codes are:
+
+| Exit code | Meaning |
+| --- | --- |
+| `0` | Images match within the configured tolerances |
+| `1` | Images differ, inputs are invalid, or output cannot be written |
+
+The same comparison is available as a Python assertion:
+
+```python
+from quickthumb import assert_image_similar
+
+assert_image_similar(
+    "tests/snapshots/solid_background.png",
+    "output.png",
+    threshold=0.95,
+)
+```
+
+The assertion returns an `ImageDiff` with image sizes, changed-pixel counts,
+normalized mean error, perceptual hashes, and similarity metrics when callers
+need to report more detail.
+
 Exit codes make it easy to gate CI or agent pipelines:
 
 | Exit code | Meaning |
