@@ -1418,6 +1418,130 @@ class TestCLILint:
         # then
         assert result.exit_code == 1
 
+    def test_should_emit_json_error_without_traceback_for_invalid_layer(self):
+        """lint --format json emits a parseable error for an invalid layer discriminator"""
+        from quickthumb.cli import app
+
+        # given: a spec with an unknown layer type
+        spec_path = self._write_spec(
+            {"width": 100, "height": 100, "layers": [{"type": "unknown"}]}
+        )
+
+        # when
+        try:
+            result = CliRunner().invoke(app, ["lint", spec_path, "--format", "json"])
+        finally:
+            os.unlink(spec_path)
+
+        # then: expected input failures are structured and do not expose a traceback
+        assert result.exit_code == 1
+        assert "Traceback" not in result.output
+        payload = json.loads(result.output)
+        assert payload["error"]["code"] == "invalid-spec"
+        assert "unknown" in payload["error"]["message"]
+
+    def test_should_support_deck_specs_and_preserve_slide_diagnostic_fields(self):
+        """lint accepts deck JSON and includes slide and layer diagnostic context"""
+        from quickthumb.cli import app
+
+        # given: a deck whose first slide has an off-canvas layer
+        spec_path = self._write_spec(
+            {
+                "slides": [
+                    {
+                        "width": 100,
+                        "height": 100,
+                        "layers": [
+                            {
+                                "type": "shape",
+                                "shape": "rectangle",
+                                "position": [300, 300],
+                                "width": 50,
+                                "height": 50,
+                                "color": "#FF0000",
+                            }
+                        ],
+                    }
+                ]
+            }
+        )
+
+        # when
+        try:
+            result = CliRunner().invoke(app, ["lint", spec_path, "--format", "json"])
+        finally:
+            os.unlink(spec_path)
+
+        # then: the finding carries both slide and original Canvas context
+        assert result.exit_code == 3
+        finding = json.loads(result.output)["diagnostics"][0]
+        assert finding["slide_index"] == 0
+        assert finding["layer_index"] == 0
+        assert finding["layer_id"] == "layer:0"
+        assert finding["bbox"] == {"x": 300, "y": 300, "width": 50, "height": 50}
+        assert finding["suggestion"] == "move layer to x=50, y=50 to fit within the canvas"
+
+    def test_should_support_diagnose_alias_and_fail_on_filters(self):
+        """diagnose aliases lint and fail-on controls warning-only findings"""
+        from quickthumb.cli import app
+
+        # given: a shape that produces only an edge-crowding warning
+        spec_path = self._write_spec(
+            {
+                "width": 100,
+                "height": 100,
+                "layers": [
+                    {
+                        "type": "shape",
+                        "shape": "rectangle",
+                        "position": [0, 10],
+                        "width": 20,
+                        "height": 20,
+                        "color": "#FF0000",
+                    }
+                ],
+            }
+        )
+
+        # when: warnings are ignored for exit status and then filtered entirely
+        try:
+            warning_result = CliRunner().invoke(
+                app, ["diagnose", spec_path, "--fail-on", "error"]
+            )
+            ignored_result = CliRunner().invoke(
+                app,
+                ["diagnose", spec_path, "--ignore", "edge-crowding", "--format", "json"],
+            )
+        finally:
+            os.unlink(spec_path)
+
+        # then
+        assert warning_result.exit_code == 0
+        assert "edge-crowding" in warning_result.output
+        assert ignored_result.exit_code == 0
+        assert json.loads(ignored_result.output)["diagnostics"] == []
+
+    def test_should_emit_json_error_for_unknown_diagnostic_filter(self, spec_file):
+        """lint --format json reports unknown diagnostic filters as structured errors"""
+        from quickthumb.cli import app
+
+        # given: a valid canvas and a misspelled diagnostic code
+
+        # when
+        result = CliRunner().invoke(
+            app,
+            ["lint", spec_file, "--format", "json", "--ignore", "not-a-rule"],
+        )
+
+        # then
+        assert result.exit_code == 1
+        assert json.loads(result.output) == {
+            "error": {
+                "code": "invalid-options",
+                "message": "Unknown diagnostic code(s): not-a-rule",
+            }
+        }
+
     def test_should_exit_1_when_lint_variable_substitution_leaves_placeholder(self):
         """lint exits 1 when variable substitution leaves unresolved placeholders"""
         from quickthumb.cli import app

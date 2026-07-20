@@ -12,7 +12,7 @@ import contextlib
 import math
 import os
 import tempfile
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING, cast
 
 from typing_extensions import Self
@@ -50,6 +50,23 @@ class DeckDiagnostic:
     message: str
     slide_index: int | None = None
     layer_index: int | None = None
+    layer_id: str | None = None
+    layer_name: str | None = None
+    bbox: dict[str, int] | None = None
+    related_layers: list[str] | None = None
+    measured: dict | None = None
+    suggestion: str | None = None
+
+    def model_dump(self, *, mode: str = "python", exclude_none: bool = False) -> dict:
+        """Return a serialization-compatible payload like a Pydantic diagnostic."""
+        payload = asdict(self)
+        if mode == "json":
+            import json
+
+            payload = json.loads(json.dumps(payload))
+        if exclude_none:
+            payload = {key: value for key, value in payload.items() if value is not None}
+        return payload
 
 
 class Deck:
@@ -620,6 +637,7 @@ class Deck:
 
         for slide_index, canvas in enumerate(self._slides):
             for finding in canvas.diagnose():
+                payload = finding.model_dump(mode="json", exclude_none=True)
                 findings.append(
                     DeckDiagnostic(
                         code=finding.code,
@@ -627,6 +645,12 @@ class Deck:
                         message=finding.message,
                         slide_index=slide_index,
                         layer_index=finding.layer_index,
+                        layer_id=payload.get("layer_id"),
+                        layer_name=payload.get("layer_name"),
+                        bbox=payload.get("bbox"),
+                        related_layers=payload.get("related_layers"),
+                        measured=payload.get("measured"),
+                        suggestion=payload.get("suggestion"),
                     )
                 )
         return findings

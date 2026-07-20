@@ -6,6 +6,7 @@ from io import BytesIO
 from typing import Any, Literal, cast
 
 from PIL import Image, ImageDraw, ImageFont
+from pydantic import ValidationError as PydanticValidationError
 from typing_extensions import Self
 
 from quickthumb._base import FileFormat, RenderContext, aspect_ratio_dimensions, is_url
@@ -259,8 +260,8 @@ class Canvas:
     def diagnose(self) -> list[Diagnostic]:
         """Check layers for layout and legibility issues without producing an output file.
 
-        Returns structured findings (off-canvas, tiny-text, text-overflow, low-contrast)
-        that an agent or human can act on before rendering.
+        Returns structured findings for layout, legibility, visibility, and safe-area
+        checks that an agent or human can act on before rendering.
         """
         return self._diagnostics.diagnose()
 
@@ -927,6 +928,17 @@ class Canvas:
 
     @classmethod
     def from_json(cls, data: str) -> Self:
+        try:
+            return cls._from_json(data)
+        except PydanticValidationError as error:
+            messages = []
+            for detail in error.errors():
+                field = " -> ".join(map(str, detail["loc"]))
+                messages.append(f"Field '{field}': {detail['msg']}")
+            raise ValidationError(" | ".join(messages), original_error=error) from error
+
+    @classmethod
+    def _from_json(cls, data: str) -> Self:
         import json as _json
 
         from pydantic import TypeAdapter
