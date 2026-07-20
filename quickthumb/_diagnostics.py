@@ -539,6 +539,10 @@ class DiagnosticsEngine:
         box = require_bbox(measured)
         image = Image.new("RGBA", (self._ctx.width, self._ctx.height), (0, 0, 0, 0))
         layer = measured.raw_layer
+        if isinstance(layer, GroupLayer):
+            origin = measured.metadata.get("position")
+            if isinstance(origin, tuple):
+                layer = layer.model_copy(update={"position": origin, "align": None})
         if not isinstance(layer, (GroupLayer, TextLayer, ImageLayer, SvgLayer, ShapeLayer)):
             return Image.new("L", (box.width, box.height), 0)
         self._canvas._render_layer(image, layer)
