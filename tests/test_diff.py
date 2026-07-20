@@ -96,7 +96,7 @@ class TestImageDiffCLI:
         assert payload["different_pixels"] == 1024
         assert payload["diff_output"] == str(diff_path)
         with Image.open(diff_path) as diff_image:
-            assert diff_image.getpixel((0, 0))[:3] == (255, 255, 255)
+            assert diff_image.getpixel((0, 0)) == (255, 255, 255, 0)
 
     def test_should_report_dimension_mismatches(self, tmp_path):
         """diff reports incompatible image dimensions as a failed comparison"""
