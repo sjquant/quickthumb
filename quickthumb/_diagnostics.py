@@ -503,10 +503,6 @@ class DiagnosticsEngine:
         box = require_bbox(measured)
         image = Image.new("RGBA", (self._ctx.width, self._ctx.height), (0, 0, 0, 0))
         layer = measured.raw_layer
-        if isinstance(layer, GroupLayer):
-            origin = measured.metadata.get("position")
-            if isinstance(origin, tuple):
-                layer = layer.model_copy(update={"position": origin, "align": None})
         if not isinstance(layer, (GroupLayer, TextLayer, ImageLayer, SvgLayer, ShapeLayer)):
             return Image.new("L", (box.width, box.height), 0)
         self._canvas._render_layer(image, layer)
@@ -737,13 +733,14 @@ class DiagnosticsEngine:
             return None
 
         max_width_px = parse_coordinate(layer.max_width, self._ctx.width)
+        layout_width, layout_height = measured.metadata.get("layout_size", (box.width, box.height))
         text_bbox = bbox_payload(box)
         base = {
             "text_bbox": text_bbox,
             "wrapped_line_count": len(wrapped_lines),
             "max_width": max_width_px,
-            "text_width": box.width,
-            "text_height": box.height,
+            "text_width": layout_width,
+            "text_height": layout_height,
             "canvas_width": self._ctx.width,
             "canvas_height": self._ctx.height,
         }
@@ -758,11 +755,11 @@ class DiagnosticsEngine:
                 "overflow": canvas_overflow,
             }
 
-        if box.width > max_width_px:
+        if layout_width > max_width_px:
             return {
                 **base,
                 "clipped_by": "max_width",
-                "overflow_width": box.width - max_width_px,
+                "overflow_width": layout_width - max_width_px,
             }
 
         return None

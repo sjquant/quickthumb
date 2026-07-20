@@ -1217,10 +1217,14 @@ class TextEngine:
         """Calculate rendered text bounding box size accounting for wrapping."""
         return self.measure_text_layout(layer)["size"]
 
-    def measure_text_rendered_size(self, layer: TextLayer) -> tuple[int, int]:
-        """Calculate the canvas-space size of text, including rotated staging bounds."""
+    def measure_text_rendered_size(
+        self, layer: TextLayer, *, layout: TextLayoutMetadata | None = None
+    ) -> tuple[int, int]:
+        """Calculate canvas-space text size, reusing an existing layout when available."""
         layer = self.effective_layer(layer)
-        text_width, text_height = self.measure_text_size(layer)
+        if layout is None:
+            layout = self.measure_text_layout(layer)
+        text_width, text_height = layout["size"]
         if layer.rotation == 0:
             return text_width, text_height
 

@@ -74,7 +74,10 @@ def composition_bounds(ctx: RenderContext, layer: Any) -> Bounds | None:
 
     mask = getattr(layer, "mask", None)
     if isinstance(mask, LayerMask) and not mask.invert:
-        bounds = _intersect_bounds(bounds, _mask_bounds(ctx, mask))
+        mask_bounds = _mask_bounds(ctx, mask)
+        if mask.opacity == 0.0:
+            mask_bounds = mask_bounds[0], mask_bounds[1], 0, 0
+        bounds = _intersect_bounds(bounds, mask_bounds)
 
     return bounds
 

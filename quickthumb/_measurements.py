@@ -210,6 +210,7 @@ class LayerMeasurementEngine:
         path: tuple[int, ...],
     ) -> LayerMeasurement:
         if isinstance(child, GroupLayer):
+            placed = child.model_copy(update={"position": position, "align": None})
             placements, layout_box = self._groups.layout_group(child, origin=position)
             children = tuple(
                 self._measure_group_child(
@@ -233,9 +234,9 @@ class LayerMeasurementEngine:
             )
             if bbox is None:
                 bbox = BBox(layout_box[0], layout_box[1], 0, 0)
-            bbox = self._apply_composition_bounds(child, bbox)
+            bbox = self._apply_composition_bounds(placed, bbox)
             return self._measurement(
-                child,
+                placed,
                 index,
                 order,
                 path,
@@ -305,7 +306,7 @@ class LayerMeasurementEngine:
     ) -> LayerMeasurement:
         effective = self._text.effective_layer(layer)
         layout = self._text.measure_text_layout(effective)
-        w, h = self._text.measure_text_rendered_size(effective)
+        w, h = self._text.measure_text_rendered_size(effective, layout=layout)
         base_x, base_y = self._text.get_text_base_position(effective)
         x = self._text.get_horizontal_start_x(base_x, w, effective.align)
         y = self._text.get_vertical_start_y(base_y, h, effective.align)
@@ -315,6 +316,7 @@ class LayerMeasurementEngine:
             "effective_layer": effective,
             "auto_scaled": effective is not layer,
             "content": effective.content,
+            "layout_size": layout["size"],
             "align": effective.align,
             "position": effective.position,
             "max_width": effective.max_width,
