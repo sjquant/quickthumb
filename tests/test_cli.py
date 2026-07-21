@@ -124,6 +124,30 @@ class TestCLISchema:
             "text",
         }
 
+    def test_should_emit_a_discriminated_canvas_and_deck_schema(self):
+        """schema --document describes both top-level JSON document kinds."""
+        from quickthumb.cli import app
+
+        # given: the quickthumb schema command
+
+        # when: the user requests the combined document schema
+        result = CliRunner().invoke(app, ["schema", "--document"])
+
+        # then: the published schema maps both discriminated document roots
+        assert result.exit_code == 0
+        payload = json.loads(result.output)
+        assert payload["title"] == "quickthumb JSON Document Spec"
+        assert payload["discriminator"] == {
+            "propertyName": "kind",
+            "mapping": {
+                "canvas": "#/$defs/CanvasDocument",
+                "deck": "#/$defs/DeckDocument",
+            },
+        }
+        assert payload["$defs"]["DeckDocument"]["properties"]["slides"]["items"] == {
+            "$ref": "#/$defs/CanvasDocument"
+        }
+
     def test_should_reflect_model_validation_for_common_fields(self):
         """schema preserves generated constraints from the public Pydantic models"""
         # given: the quickthumb CLI application
@@ -1616,6 +1640,39 @@ class TestCLILint:
         payload = json.loads(result.output)
         assert payload["error"]["code"] == "invalid-spec"
         assert "theme" in payload["error"]["message"]
+
+    @pytest.mark.parametrize(
+        ("spec", "message"),
+        [
+            ({"kind": "canvas", "width": 100, "height": 100}, "layers"),
+            (
+                {"kind": "canvas", "width": 100, "height": 100, "layerz": []},
+                "unknown field",
+            ),
+            (
+                {"kind": "canvas", "width": True, "height": 100, "layers": []},
+                "integer",
+            ),
+        ],
+    )
+    def test_should_reject_malformed_canvas_envelopes(self, spec, message):
+        """lint rejects missing, misspelled, and boolean Canvas envelope fields."""
+        from quickthumb.cli import app
+
+        # given: a Canvas document with one malformed top-level field
+        spec_path = self._write_spec(spec)
+
+        # when: linting the malformed Canvas document
+        try:
+            result = CliRunner().invoke(app, ["lint", spec_path, "--format", "json"])
+        finally:
+            os.unlink(spec_path)
+
+        # then: the CLI emits a structured invalid-spec response
+        assert result.exit_code == 1
+        payload = json.loads(result.output)
+        assert payload["error"]["code"] == "invalid-spec"
+        assert message in payload["error"]["message"]
 
     def test_should_support_deck_specs_and_preserve_slide_diagnostic_fields(self):
         """lint accepts deck JSON and includes slide and layer diagnostic context"""

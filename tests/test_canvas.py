@@ -223,6 +223,15 @@ class TestCanvas:
                 ),
                 "no_such_fn_xyz",
             ),
+            ('{"kind": "canvas", "width": 100, "height": 100}', "layers"),
+            (
+                '{"kind": "canvas", "width": 100, "height": 100, "layerz": []}',
+                "unknown field",
+            ),
+            (
+                '{"kind": "canvas", "width": true, "height": 100, "layers": []}',
+                "integer",
+            ),
         ],
     )
     def test_should_raise_error_for_invalid_json(self, json_str, match):

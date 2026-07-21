@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, cast
 from typing_extensions import Self
 
 from quickthumb._base import FileFormat, aspect_ratio_dimensions
+from quickthumb._validation import validate_dimensions
 from quickthumb.canvas import Canvas
 from quickthumb.errors import RenderingError, ValidationError
 from quickthumb.models import (
@@ -85,15 +86,7 @@ class Deck:
         theme: dict | None = None,
         transition: Transition | dict | str | None = None,
     ):
-        for name, value in (("width", width), ("height", height)):
-            if value is not None and (isinstance(value, bool) or not isinstance(value, int)):
-                raise ValidationError(f"{name} must be an integer")
-        if (width is None) != (height is None):
-            raise ValidationError("Provide both width and height, or neither.")
-        if width is not None and width <= 0:
-            raise ValidationError("width must be > 0")
-        if height is not None and height <= 0:
-            raise ValidationError("height must be > 0")
+        validate_dimensions(width, height)
         if theme is not None and not isinstance(theme, dict):
             raise ValidationError("theme must be a dict of token groups.")
 
@@ -704,8 +697,9 @@ class Deck:
         kind = raw.get("kind")
         if kind is not None and kind != "deck":
             raise ValidationError("Deck JSON 'kind' must be 'deck'.")
-        if "layers" in raw:
-            raise ValidationError("Deck JSON must not contain a top-level 'layers' field.")
+        unknown = sorted(set(raw) - {"kind", "width", "height", "theme", "transition", "slides"})
+        if unknown:
+            raise ValidationError(f"Deck JSON contains unknown field(s): {', '.join(unknown)}")
         slides_raw = raw["slides"]
         if not isinstance(slides_raw, list):
             raise ValidationError("Deck 'slides' must be a list of canvas specs.")
@@ -718,9 +712,6 @@ class Deck:
         if transition is not None and not isinstance(transition, dict):
             raise ValidationError("Deck 'transition' must be a JSON object.")
 
-        for name, value in (("width", raw.get("width")), ("height", raw.get("height"))):
-            if value is not None and (isinstance(value, bool) or not isinstance(value, int)):
-                raise ValidationError(f"Deck '{name}' must be an integer.")
         deck = cls(
             width=raw.get("width"),
             height=raw.get("height"),

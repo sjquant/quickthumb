@@ -18,11 +18,11 @@ from quickthumb._diff import (
     compare_images,
     create_diff_image,
 )
-from quickthumb._document import require_document_kind
+from quickthumb._document import load_document
 from quickthumb.canvas import _VAR_RE, Canvas, _is_theme_reference
 from quickthumb.deck import Deck, DeckDiagnostic
 from quickthumb.errors import RenderingError, ValidationError
-from quickthumb.schema import canvas_json_schema
+from quickthumb.schema import canvas_json_schema, document_json_schema
 
 _VALID_FORMATS = {"PNG", "JPEG", "WEBP"}
 _DIAGNOSTIC_CODES = {
@@ -81,11 +81,7 @@ def _load_canvas(spec: Path, variables: dict[str, str]) -> Diagnosable:
     if variables:
         text = _substitute_vars(text, variables)
 
-    raw = json.loads(text)
-    kind = require_document_kind(raw)
-    if kind == "deck":
-        return Deck.from_json(text)
-    return Canvas.from_json(text)
+    return load_document(text)
 
 
 def _echo_input_error(
@@ -234,9 +230,17 @@ def schema(
         Path | None,
         typer.Option("-o", "--output", help="Write schema JSON to a file instead of stdout"),
     ] = None,
+    document: Annotated[
+        bool,
+        typer.Option(
+            "--document",
+            help="Emit the combined Canvas/Deck discriminator schema",
+        ),
+    ] = False,
 ) -> None:
-    """Emit the JSON Schema for quickthumb canvas specs."""
-    payload = json.dumps(canvas_json_schema(), indent=2, sort_keys=True) + "\n"
+    """Emit the JSON Schema for quickthumb Canvas or Deck specs."""
+    schema_payload = document_json_schema() if document else canvas_json_schema()
+    payload = json.dumps(schema_payload, indent=2, sort_keys=True) + "\n"
     if output is None:
         typer.echo(payload, nl=False)
         return
