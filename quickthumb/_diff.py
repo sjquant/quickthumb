@@ -12,7 +12,7 @@ ImageSource: TypeAlias = str | Path | Image.Image
 DEFAULT_HASH_SIZE = 8
 DEFAULT_HASH_THRESHOLD = 0.95
 DEFAULT_PIXEL_TOLERANCE = 2
-DEFAULT_MAX_DIFFERENT_PIXEL_RATIO = 0.01
+DEFAULT_MAX_DIFFERENT_PIXEL_RATIO = 0.0
 
 
 @dataclass(frozen=True)
@@ -164,7 +164,9 @@ def compare_images(
             reason="image dimensions differ",
         )
 
-    metrics = _pixel_metrics(expected_image, actual_image, pixel_tolerance)
+    expected_composited = _composite_for_comparison(expected_image)
+    actual_composited = _composite_for_comparison(actual_image)
+    metrics = _pixel_metrics(expected_composited, actual_composited, pixel_tolerance)
     exact = metrics.max_channel_delta == 0
     matches = (
         hash_similarity >= threshold and metrics.different_pixel_ratio <= max_different_pixel_ratio
@@ -202,6 +204,10 @@ def _validate_options(
         raise ValueError("pixel_tolerance must be between 0 and 255")
     if not isfinite(max_different_pixel_ratio) or not 0.0 <= max_different_pixel_ratio <= 1.0:
         raise ValueError("max_different_pixel_ratio must be between 0 and 1")
+    _validate_hash_size(hash_size)
+
+
+def _validate_hash_size(hash_size: int) -> None:
     if not isinstance(hash_size, int) or not 2 <= hash_size <= 32:
         raise ValueError("hash_size must be between 2 and 32")
 
@@ -215,6 +221,11 @@ def _load_image(source: ImageSource) -> Image.Image:
             return image.convert("RGBA")
     except (OSError, UnidentifiedImageError) as error:
         raise ValueError(f"unable to read image '{source}': {error}") from error
+
+
+def _composite_for_comparison(image: Image.Image) -> Image.Image:
+    white_background = Image.new("RGBA", image.size, (255, 255, 255, 255))
+    return Image.alpha_composite(white_background, image).convert("RGB")
 
 
 def _pixel_metrics(
@@ -238,7 +249,7 @@ def _pixel_metrics(
         if any(delta > pixel_tolerance for delta in deltas):
             different_pixels += 1
 
-    channel_count = total_pixels * 4
+    channel_count = total_pixels * 3
     return _PixelMetrics(
         pixel_count=total_pixels,
         different_pixels=different_pixels,
@@ -249,8 +260,7 @@ def _pixel_metrics(
 
 
 def _perceptual_hash_image(image: Image.Image, hash_size: int) -> str:
-    white_background = Image.new("RGBA", image.size, (255, 255, 255, 255))
-    composited = Image.alpha_composite(white_background, image).convert("L")
+    composited = _composite_for_comparison(image).convert("L")
     resized = composited.resize((hash_size, hash_size), Image.Resampling.LANCZOS)
     pixels = list(resized.get_flattened_data())
     average = sum(pixels) / len(pixels)
@@ -276,10 +286,5 @@ def create_diff_image(expected: ImageSource, actual: ImageSource) -> Image.Image
 
 def perceptual_hash(source: ImageSource, *, hash_size: int = DEFAULT_HASH_SIZE) -> str:
     """Return a stable average perceptual hash for an image or image path."""
-    _validate_options(
-        DEFAULT_HASH_THRESHOLD,
-        DEFAULT_PIXEL_TOLERANCE,
-        DEFAULT_MAX_DIFFERENT_PIXEL_RATIO,
-        hash_size,
-    )
+    _validate_hash_size(hash_size)
     return _perceptual_hash_image(_load_image(source), hash_size)

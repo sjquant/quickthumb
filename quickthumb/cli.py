@@ -6,12 +6,14 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
+from PIL import Image
 
 from quickthumb._diff import (
     DEFAULT_HASH_SIZE,
     DEFAULT_HASH_THRESHOLD,
     DEFAULT_MAX_DIFFERENT_PIXEL_RATIO,
     DEFAULT_PIXEL_TOLERANCE,
+    _load_image,
     compare_images,
     create_diff_image,
 )
@@ -192,16 +194,18 @@ def diff(
         raise typer.Exit(1)
 
     try:
+        expected_image = _load_image(expected)
+        actual_image = _load_image(actual)
         comparison = compare_images(
-            expected,
-            actual,
+            expected_image,
+            actual_image,
             threshold=threshold,
             pixel_tolerance=pixel_tolerance,
             max_different_pixel_ratio=max_diff_ratio,
             hash_size=hash_size,
         )
         if output is not None:
-            create_diff_image(expected, actual).save(output)
+            _save_diff_image(expected_image, actual_image, output)
     except (OSError, ValueError) as error:
         typer.echo(str(error), err=True)
         raise typer.Exit(1) from error
@@ -218,6 +222,13 @@ def diff(
 
     if not comparison.matches:
         raise typer.Exit(1)
+
+
+def _save_diff_image(expected: Image.Image, actual: Image.Image, output: Path) -> None:
+    diff_image = create_diff_image(expected, actual)
+    if output.suffix.lower() in {".jpg", ".jpeg"}:
+        diff_image = diff_image.convert("RGB")
+    diff_image.save(output)
 
 
 @app.command()

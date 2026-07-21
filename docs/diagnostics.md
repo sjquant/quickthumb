@@ -107,9 +107,10 @@ quickthumb diff golden.png output.png --format json --output diff.png
 ```
 
 The comparison combines an average perceptual hash with pixel-level metrics.
-By default, per-channel differences of up to 2 are ignored and at most 1% of
-pixels may exceed that tolerance. The default perceptual-hash similarity
-threshold is `0.95`. Tighten or relax those values for a particular renderer:
+By default, per-channel differences of up to 2 are ignored, but any pixel that
+exceeds that tolerance fails the comparison. The default perceptual-hash
+similarity threshold is `0.95`. Tighten or relax those values for a particular
+renderer:
 
 ```bash
 quickthumb diff golden.png output.png \
@@ -118,8 +119,9 @@ quickthumb diff golden.png output.png \
   --max-diff-ratio 0.005
 ```
 
-Use `--format json` for CI or agent pipelines. `--output` writes a raw RGBA
-pixel-difference image for visual inspection. Exit codes are:
+Use `--format json` for CI or agent pipelines. `--max-diff-ratio` can allow a
+small fraction of pixels to differ, and `--output` writes a pixel-difference
+image for visual inspection. Exit codes are:
 
 | Exit code | Meaning |
 | --- | --- |

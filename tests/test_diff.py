@@ -98,6 +98,29 @@ class TestImageDiffCLI:
         with Image.open(diff_path) as diff_image:
             assert diff_image.getpixel((0, 0)) == (255, 255, 255, 0)
 
+    def test_should_write_rgb_visual_diffs_as_jpeg(self, tmp_path):
+        """diff writes a valid RGB image when the requested output is JPEG"""
+        from quickthumb.cli import app
+
+        # given: two image files and a JPEG diff destination
+        expected_path = tmp_path / "expected.png"
+        actual_path = tmp_path / "actual.png"
+        diff_path = tmp_path / "diff.jpg"
+        _write_image(expected_path, (255, 255, 255, 255))
+        _write_image(actual_path, (0, 0, 0, 255))
+
+        # when: the images are compared with a JPEG visual diff requested
+        result = CliRunner().invoke(
+            app,
+            ["diff", str(expected_path), str(actual_path), "--output", str(diff_path)],
+        )
+
+        # then: the command reports the mismatch and leaves a JPEG-readable diff
+        assert result.exit_code == 1
+        with Image.open(diff_path) as diff_image:
+            assert diff_image.mode == "RGB"
+            assert diff_image.format == "JPEG"
+
     def test_should_report_dimension_mismatches(self, tmp_path):
         """diff reports incompatible image dimensions as a failed comparison"""
         from quickthumb.cli import app
@@ -121,6 +144,33 @@ class TestImageDiffCLI:
         assert payload["expected_size"] == [32, 32]
         assert payload["actual_size"] == [16, 16]
         assert payload["reason"] == "image dimensions differ"
+
+    def test_should_reject_a_small_high_contrast_patch_by_default(self, tmp_path):
+        """diff does not hide a visible localized change behind the hash threshold"""
+        from quickthumb.cli import app
+
+        # given: a white image with a small black patch in the actual render
+        expected_path = tmp_path / "expected.png"
+        actual_path = tmp_path / "actual.png"
+        _write_image(expected_path, (255, 255, 255, 255), size=(32, 32))
+        actual_image = Image.new("RGBA", (32, 32), (255, 255, 255, 255))
+        for x in range(14, 17):
+            for y in range(14, 17):
+                actual_image.putpixel((x, y), (0, 0, 0, 255))
+        actual_image.save(actual_path)
+
+        # when: the images are compared with the default strict diff ratio
+        result = CliRunner().invoke(
+            app,
+            ["diff", str(expected_path), str(actual_path), "--format", "json"],
+        )
+
+        # then: the visible patch is reported as a mismatch
+        assert result.exit_code == 1
+        payload = json.loads(result.output)
+        assert payload["matches"] is False
+        assert payload["different_pixels"] == 9
+        assert payload["max_different_pixel_ratio"] == 0.0
 
     def test_should_reject_unknown_output_formats(self, tmp_path):
         """diff exits one before reading images when its output format is invalid"""
@@ -162,6 +212,28 @@ class TestImageDiffAPI:
         # then: it returns the structured comparison for further reporting
         assert comparison.matches is True
         assert comparison.exact is True
+
+    def test_should_ignore_hidden_rgb_changes_in_transparent_pixels(self):
+        """compare_images measures visible output instead of hidden transparent RGB"""
+        from quickthumb import compare_images
+
+        # given: fully transparent pixels with different hidden RGB values
+        expected = Image.new("RGBA", (2, 2), (0, 0, 0, 0))
+        actual = Image.new("RGBA", (2, 2), (255, 0, 0, 0))
+
+        # when: the public image comparison uses zero tolerance
+        comparison = compare_images(
+            expected,
+            actual,
+            pixel_tolerance=0,
+            max_different_pixel_ratio=0.0,
+        )
+
+        # then: invisible channel differences do not count as changed pixels
+        assert comparison.matches is True
+        assert comparison.exact is True
+        assert comparison.different_pixels == 0
+        assert comparison.different_pixel_ratio == 0.0
 
     def test_should_raise_a_readable_assertion_for_failed_comparison(self, tmp_path):
         """assert_image_similar raises a readable failure for changed images"""
