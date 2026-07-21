@@ -82,6 +82,7 @@ nav:
       - SVG: api/svg.md
       - Group (Auto Layout): api/group.md
       - Outline: api/outline.md
+      - Data visualizations: api/data-visualizations.md
       - Effects: api/effects.md
       - Enums & Gradients: api/enums.md
   - JSON & AI:

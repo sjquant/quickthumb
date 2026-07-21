@@ -1,18 +1,41 @@
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from quickthumb._base import RenderContext, apply_alignment, parse_coordinate
 from quickthumb._composition import composition_bounds
 from quickthumb._groups import GroupEngine
 from quickthumb._text import TextEngine
-from quickthumb.models import Align, GroupLayer, ImageLayer, ShapeLayer, SvgLayer, TextLayer
+from quickthumb.models import (
+    Align,
+    BarChartLayer,
+    GroupLayer,
+    ImageLayer,
+    LineChartLayer,
+    QRCodeLayer,
+    ShapeLayer,
+    SparklineLayer,
+    SvgLayer,
+    TextLayer,
+)
 
 if TYPE_CHECKING:
     from quickthumb.canvas import Canvas
 
-MEASURABLE_LAYER_TYPES = frozenset({"text", "shape", "image", "svg", "group"})
+MEASURABLE_LAYER_TYPES = frozenset(
+    {
+        "text",
+        "shape",
+        "image",
+        "svg",
+        "group",
+        "sparkline",
+        "bar_chart",
+        "line_chart",
+        "qr_code",
+    }
+)
 
 
 def measure_layers(canvas: "Canvas") -> list["LayerMeasurement"]:
@@ -155,7 +178,18 @@ class LayerMeasurementEngine:
         if isinstance(layer, TextLayer):
             return self._measure_text_layer(layer, index, order, path)
 
-        if isinstance(layer, (ImageLayer, SvgLayer, ShapeLayer)):
+        if isinstance(
+            layer,
+            (
+                ImageLayer,
+                SvgLayer,
+                ShapeLayer,
+                SparklineLayer,
+                BarChartLayer,
+                LineChartLayer,
+                QRCodeLayer,
+            ),
+        ):
             bbox = self._measure_positioned_layer(layer)
             bbox = self._apply_composition_bounds(layer, bbox)
             return self._measurement(
@@ -348,23 +382,27 @@ class LayerMeasurementEngine:
             return BBox(bounds[0], bounds[1], 0, 0)
         return clipped
 
-    def _measure_positioned_layer(self, layer: ImageLayer | SvgLayer | ShapeLayer) -> BBox:
-        w, h = self._groups.measure_group_child(layer)
-        x = parse_coordinate(layer.position[0], self._ctx.width)
-        y = parse_coordinate(layer.position[1], self._ctx.height)
-        if layer.align:
-            x, y = apply_alignment(x, y, (w, h), layer.align)
+    def _measure_positioned_layer(self, layer: object) -> BBox:
+        positioned = cast(Any, layer)
+        if isinstance(layer, (ImageLayer, SvgLayer, ShapeLayer)):
+            w, h = self._groups.measure_group_child(layer)
+        elif isinstance(layer, QRCodeLayer):
+            w, h = layer.size, layer.size
+        else:
+            w, h = positioned.width, positioned.height
+        x = parse_coordinate(positioned.position[0], self._ctx.width)
+        y = parse_coordinate(positioned.position[1], self._ctx.height)
+        if positioned.align:
+            x, y = apply_alignment(x, y, (w, h), positioned.align)
         return BBox(x, y, w, h)
 
     @staticmethod
-    def _positioned_metadata(
-        layer: ImageLayer | SvgLayer | ShapeLayer, bbox: BBox
-    ) -> Mapping[str, Any]:
+    def _positioned_metadata(layer: object, bbox: BBox) -> Mapping[str, Any]:
         metadata = {
             "size": (bbox.width, bbox.height),
-            "position": layer.position,
-            "align": layer.align,
-            "rotation": layer.rotation,
+            "position": getattr(layer, "position", None),
+            "align": getattr(layer, "align", None),
+            "rotation": getattr(layer, "rotation", 0),
         }
         if isinstance(layer, (ImageLayer, SvgLayer)):
             metadata["path"] = layer.path

@@ -21,6 +21,7 @@ from quickthumb._measurements import BBox, LayerMeasurement, measure_layers
 from quickthumb._shapes import ShapeEngine
 from quickthumb._text import TextEngine
 from quickthumb._validation import validate_dimensions
+from quickthumb._visualizations import VisualizationEngine
 from quickthumb.errors import RenderingError, ValidationError
 from quickthumb.models import (
     Align,
@@ -29,8 +30,11 @@ from quickthumb.models import (
     BackdropBlur,
     BackgroundEffect,
     BackgroundLayer,
+    BarChartLayer,
     BlendMode,
     CanvasInspection,
+    ChartData,
+    ChartStyle,
     Diagnostic,
     FaceRegion,
     FitMode,
@@ -45,10 +49,13 @@ from quickthumb.models import (
     LayerMask,
     LayerType,
     LinearGradient,
+    LineChartLayer,
     OutlineLayer,
+    QRCodeLayer,
     RadialGradient,
     ShapeEffect,
     ShapeLayer,
+    SparklineLayer,
     SvgLayer,
     TextFillImage,
     TextInspection,
@@ -171,6 +178,7 @@ class Canvas:
         self._images = ImageEngine(self._ctx, self._effects)
         self._text = TextEngine(self._ctx, self._fonts, self._effects, self._images)
         self._shapes = ShapeEngine(self._ctx, self._effects, self._images)
+        self._visualizations = VisualizationEngine(self._ctx, self._effects)
         self._groups = GroupEngine(
             self._ctx, self._fonts, self._effects, self._images, self._shapes, self._text
         )
@@ -583,6 +591,154 @@ class Canvas:
             mask=cast(Any, mask),
             effects=effects or [],
             animation=animation,
+        )
+        self._layers.append(layer)
+        return self
+
+    def sparkline(
+        self,
+        data: list[float] | ChartData,
+        position: tuple[int | str, int | str],
+        width: int,
+        height: int,
+        style: ChartStyle | dict[str, Any] | None = None,
+        color: str | None = None,
+        fill: str | None = None,
+        fill_opacity: float | None = None,
+        stroke_width: int | None = None,
+        point_radius: int | None = None,
+        show_points: bool | None = None,
+        padding: int | None = None,
+        opacity: float = 1.0,
+        align: Align | str | tuple[str, str] = Align.TOP_LEFT,
+        clip: LayerClip | dict[str, Any] | None = None,
+        mask: LayerMask | dict[str, Any] | None = None,
+    ) -> Self:
+        """Add a compact line trend layer using deterministic chart scaling."""
+        layer = SparklineLayer(
+            data=cast(Any, data),
+            position=position,
+            width=width,
+            height=height,
+            style=cast(Any, style or ChartStyle()),
+            color=color,
+            fill=fill,
+            fill_opacity=fill_opacity,
+            stroke_width=stroke_width,
+            point_radius=point_radius,
+            show_points=show_points,
+            padding=padding,
+            opacity=opacity,
+            align=align,  # type: ignore[arg-type]
+            clip=cast(Any, clip),
+            mask=cast(Any, mask),
+        )
+        self._layers.append(layer)
+        return self
+
+    def bar_chart(
+        self,
+        data: list[float] | ChartData,
+        position: tuple[int | str, int | str],
+        width: int,
+        height: int,
+        style: ChartStyle | dict[str, Any] | None = None,
+        color: str | None = None,
+        negative_color: str | None = None,
+        bar_gap: float | None = None,
+        padding: int | None = None,
+        opacity: float = 1.0,
+        align: Align | str | tuple[str, str] = Align.TOP_LEFT,
+        clip: LayerClip | dict[str, Any] | None = None,
+        mask: LayerMask | dict[str, Any] | None = None,
+    ) -> Self:
+        """Add a zero-aware vertical bar chart layer."""
+        layer = BarChartLayer(
+            data=cast(Any, data),
+            position=position,
+            width=width,
+            height=height,
+            style=cast(Any, style or ChartStyle()),
+            color=color,
+            negative_color=negative_color,
+            bar_gap=bar_gap,
+            padding=padding,
+            opacity=opacity,
+            align=align,  # type: ignore[arg-type]
+            clip=cast(Any, clip),
+            mask=cast(Any, mask),
+        )
+        self._layers.append(layer)
+        return self
+
+    def line_chart(
+        self,
+        data: list[float] | ChartData,
+        position: tuple[int | str, int | str],
+        width: int,
+        height: int,
+        style: ChartStyle | dict[str, Any] | None = None,
+        color: str | None = None,
+        fill: str | None = None,
+        fill_opacity: float | None = None,
+        stroke_width: int | None = None,
+        point_radius: int | None = None,
+        show_points: bool | None = None,
+        padding: int | None = None,
+        opacity: float = 1.0,
+        align: Align | str | tuple[str, str] = Align.TOP_LEFT,
+        clip: LayerClip | dict[str, Any] | None = None,
+        mask: LayerMask | dict[str, Any] | None = None,
+    ) -> Self:
+        """Add a line chart layer with point markers enabled by default."""
+        layer = LineChartLayer(
+            data=cast(Any, data),
+            position=position,
+            width=width,
+            height=height,
+            style=cast(Any, style or ChartStyle()),
+            color=color,
+            fill=fill,
+            fill_opacity=fill_opacity,
+            stroke_width=stroke_width,
+            point_radius=point_radius,
+            show_points=show_points,
+            padding=padding,
+            opacity=opacity,
+            align=align,  # type: ignore[arg-type]
+            clip=cast(Any, clip),
+            mask=cast(Any, mask),
+        )
+        self._layers.append(layer)
+        return self
+
+    def qr_code(
+        self,
+        data: str,
+        position: tuple[int | str, int | str] = (0, 0),
+        size: int = 128,
+        foreground: str = "#000000",
+        background: str | None = "#FFFFFF",
+        error_correction: Literal["L", "M", "Q", "H"] = "M",
+        quiet_zone: int = 4,
+        align: Align | str | tuple[str, str] = Align.TOP_LEFT,
+        opacity: float = 1.0,
+        clip: LayerClip | dict[str, Any] | None = None,
+        mask: LayerMask | dict[str, Any] | None = None,
+    ) -> Self:
+        """Add a square QR code layer."""
+        layer = QRCodeLayer(
+            data=data,
+            position=position,
+            size=size,
+            foreground=foreground,
+            background=background,
+            error_correction=error_correction,
+            quiet_zone=quiet_zone,
+            align=align,  # type: ignore[arg-type]
+            opacity=opacity,
+            clip=cast(Any, clip),
+            mask=cast(Any, mask),
         )
         self._layers.append(layer)
         return self
@@ -1193,6 +1349,14 @@ class Canvas:
             self._shapes.render_shape_layer(image, layer)
         elif isinstance(layer, SvgLayer):
             self._images.render_svg_layer(image, layer)
+        elif isinstance(layer, SparklineLayer):
+            self._visualizations.render_sparkline(image, layer)
+        elif isinstance(layer, BarChartLayer):
+            self._visualizations.render_bar_chart(image, layer)
+        elif isinstance(layer, LineChartLayer):
+            self._visualizations.render_line_chart(image, layer)
+        elif isinstance(layer, QRCodeLayer):
+            self._visualizations.render_qr_code(image, layer)
         elif isinstance(layer, GroupLayer):
             self._groups.render_group_layer(image, layer)
         elif isinstance(layer, CustomLayer):

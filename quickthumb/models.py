@@ -1,3 +1,4 @@
+import math
 import re
 from enum import Enum
 from typing import Annotated, Any, Literal, TypeAlias, TypeVar
@@ -665,6 +666,140 @@ class TextPart(quickthumbModel):
         return _validate_font_variations(v)
 
 
+class ChartData(quickthumbModel):
+    """Validated numeric samples shared by the chart layer models."""
+
+    values: list[float] = Field(default_factory=list)
+
+    @field_validator("values", mode="before")
+    @classmethod
+    def validate_values(cls, value: Any) -> list[float]:
+        if not isinstance(value, (list, tuple)):
+            raise ValueError("chart values must be a list of numbers")
+
+        normalized: list[float] = []
+        for item in value:
+            if isinstance(item, bool) or not isinstance(item, (int, float)):
+                raise ValueError("chart values must contain only numbers")
+            number = float(item)
+            if not math.isfinite(number):
+                raise ValueError("chart values must be finite numbers")
+            normalized.append(number)
+        return normalized
+
+
+class ChartStyle(quickthumbModel):
+    """Shared deterministic paint and geometry options for chart layers."""
+
+    color: HexColor = "#2563EB"
+    negative_color: HexColor | None = None
+    fill: HexColor | None = None
+    fill_opacity: OpacityField = 0.16
+    stroke_width: PositiveInt = 2
+    point_radius: NonNegativeInt = 2
+    show_points: bool = False
+    bar_gap: Annotated[float, Field(ge=0.0, lt=1.0)] = 0.2
+    padding: NonNegativeInt = 0
+    opacity: OpacityField = 1.0
+
+
+class _ChartLayer(quickthumbModel):
+    """Shared public contract for data-driven chart layers."""
+
+    data: ChartData
+    position: Position
+    width: PositiveInt
+    height: PositiveInt
+    align: AlignWithHVTuple = Align.TOP_LEFT
+    style: ChartStyle = Field(default_factory=ChartStyle)
+    color: HexColor | None = None
+    negative_color: HexColor | None = None
+    fill: HexColor | None = None
+    fill_opacity: OpacityField | None = None
+    stroke_width: PositiveInt | None = None
+    point_radius: NonNegativeInt | None = None
+    show_points: bool | None = None
+    bar_gap: Annotated[float, Field(ge=0.0, lt=1.0)] | None = None
+    padding: NonNegativeInt | None = None
+    opacity: OpacityField = 1.0
+    clip: LayerClip | None = None
+    mask: LayerMask | None = None
+
+    @field_validator(
+        "data",
+        mode="before",
+        json_schema_input_type=list[float] | ChartData,
+    )
+    @classmethod
+    def validate_data(cls, value: Any) -> ChartData:
+        if isinstance(value, ChartData):
+            return value
+        if isinstance(value, dict):
+            return ChartData.model_validate(value)
+        return ChartData(values=value)
+
+    @field_serializer("data")
+    def serialize_data(self, data: ChartData) -> list[float]:
+        return data.values
+
+    @field_validator("position", mode="before")
+    @classmethod
+    def validate_position(cls, value: tuple | list | None) -> Position:
+        return _validate_required_position(value)
+
+    @field_serializer("align")
+    def serialize_align(self, align: Align | None) -> str | None:
+        if align is None:
+            return None
+        return align.value
+
+
+class SparklineLayer(_ChartLayer):
+    """Compact line chart intended for small trend indicators."""
+
+    type: Literal["sparkline"] = "sparkline"
+
+
+class BarChartLayer(_ChartLayer):
+    """Deterministic vertical bar chart with a zero-aware baseline."""
+
+    type: Literal["bar_chart"] = "bar_chart"
+
+
+class LineChartLayer(_ChartLayer):
+    """Deterministic line chart with optional points and area fill."""
+
+    type: Literal["line_chart"] = "line_chart"
+
+
+class QRCodeLayer(quickthumbModel):
+    """A deterministic QR code rendered into a square canvas region."""
+
+    type: Literal["qr_code"] = "qr_code"
+    data: str = Field(min_length=1)
+    position: Position
+    size: PositiveInt
+    foreground: HexColor = "#000000"
+    background: HexColor | None = "#FFFFFF"
+    error_correction: Literal["L", "M", "Q", "H"] = "M"
+    quiet_zone: NonNegativeInt = 4
+    align: AlignWithHVTuple = Align.TOP_LEFT
+    opacity: OpacityField = 1.0
+    clip: LayerClip | None = None
+    mask: LayerMask | None = None
+
+    @field_validator("position", mode="before")
+    @classmethod
+    def validate_position(cls, value: tuple | list | None) -> Position:
+        return _validate_required_position(value)
+
+    @field_serializer("align")
+    def serialize_align(self, align: Align | None) -> str | None:
+        if align is None:
+            return None
+        return align.value
+
+
 class BackgroundLayer(quickthumbModel):
     type: Literal["background"]
     color: HexColor | tuple | None = None
@@ -1172,7 +1307,17 @@ class CanvasInspection(quickthumbModel):
 
 
 LayerType = Annotated[
-    BackgroundLayer | TextLayer | OutlineLayer | ImageLayer | ShapeLayer | SvgLayer | GroupLayer,
+    BackgroundLayer
+    | TextLayer
+    | OutlineLayer
+    | ImageLayer
+    | ShapeLayer
+    | SvgLayer
+    | SparklineLayer
+    | BarChartLayer
+    | LineChartLayer
+    | QRCodeLayer
+    | GroupLayer,
     Discriminator("type"),
 ]
 
