@@ -1,10 +1,10 @@
 ---
-description: Reference for deterministic sparkline, bar chart, line chart, and QR code layers.
+description: Reference for deterministic bar chart, line chart, and QR code layers.
 ---
 
 # Data visualizations
 
-quickthumb includes four compact, deterministic visualization layers for dashboards,
+quickthumb includes three compact, deterministic visualization layers for dashboards,
 cards, and generated social graphics. They share `ChartData` and `ChartStyle` primitives;
 they are intentionally not a general-purpose plotting system.
 
@@ -13,17 +13,16 @@ from quickthumb import Canvas, ChartStyle
 
 canvas = (
     Canvas(800, 400)
-    .sparkline([12, 18, 15, 24], position=(40, 40), width=180, height=48)
     .bar_chart(
         [-4, 8, 12, 6],
-        position=(260, 40),
+        position=(40, 40),
         width=220,
         height=120,
         style=ChartStyle(color="#2563EB", negative_color="#DC2626"),
     )
     .line_chart(
         [2, 5, 3, 7],
-        position=(40, 160),
+        position=(40, 200),
         width=440,
         height=120,
         color="#7C3AED",
@@ -44,7 +43,7 @@ non-numeric values raise `ValidationError`.
 `stroke_width`, `point_radius`, `show_points`, `bar_gap`, `padding`, and `opacity`.
 The same fields can be passed directly to a chart builder when convenient.
 
-Line and sparkline values are scaled to the plot box. Constant series sit on the
+Line chart values are scaled to the plot box. Constant series sit on the
 vertical midpoint. Bar charts always include zero in their range, so positive and
 negative values render on opposite sides of the baseline. Empty series render no
 pixels.
@@ -53,7 +52,6 @@ pixels.
 
 | Builder | JSON type | Purpose |
 | --- | --- | --- |
-| `.sparkline(data, position, width, height)` | `sparkline` | Small trend line without point markers by default |
 | `.bar_chart(data, position, width, height)` | `bar_chart` | Vertical bars with a zero-aware baseline |
 | `.line_chart(data, position, width, height)` | `line_chart` | Line chart with point markers by default |
 | `.qr_code(data, position, size)` | `qr_code` | Square QR code with explicit error correction and quiet zone |

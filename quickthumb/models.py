@@ -697,7 +697,7 @@ class ChartStyle(quickthumbModel):
     fill_opacity: OpacityField = 0.16
     stroke_width: PositiveInt = 2
     point_radius: NonNegativeInt = 2
-    show_points: bool = False
+    show_points: bool = True
     bar_gap: Annotated[float, Field(ge=0.0, lt=1.0)] = 0.2
     padding: NonNegativeInt = 0
     opacity: OpacityField = 1.0
@@ -752,12 +752,6 @@ class _ChartLayer(quickthumbModel):
         if align is None:
             return None
         return align.value
-
-
-class SparklineLayer(_ChartLayer):
-    """Compact line chart intended for small trend indicators."""
-
-    type: Literal["sparkline"] = "sparkline"
 
 
 class BarChartLayer(_ChartLayer):
@@ -1313,7 +1307,6 @@ LayerType = Annotated[
     | ImageLayer
     | ShapeLayer
     | SvgLayer
-    | SparklineLayer
     | BarChartLayer
     | LineChartLayer
     | QRCodeLayer

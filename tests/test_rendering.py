@@ -2169,41 +2169,6 @@ class TestRendering:
             with open(output_path, "rb") as f:
                 assert f.read() == external_file("snapshots/shape_rectangle_basic.png")
 
-    def test_snapshot_sparkline_layer(self):
-        """Snapshot test for a styled sparkline layer."""
-        from quickthumb import Canvas, ChartStyle
-
-        # Given: a canvas with one filled sparkline and point markers
-        canvas = (
-            Canvas(360, 220)
-            .background(color="#E2E8F0")
-            .text("Sparkline", size=18, color="#0F172A", position=(40, 28))
-            .sparkline(
-                [2, 5, 3, 7, 6],
-                position=(40, 70),
-                width=280,
-                height=110,
-                style=ChartStyle(
-                    color="#2563EB",
-                    fill="#BFDBFE",
-                    fill_opacity=0.45,
-                    stroke_width=3,
-                    point_radius=3,
-                    show_points=True,
-                    padding=8,
-                ),
-            )
-        )
-
-        # When: the sparkline canvas is rendered to PNG
-        with tempfile.TemporaryDirectory() as tmpdir:
-            output_path = os.path.join(tmpdir, "output.png")
-            canvas.render(output_path)
-
-            # Then: the sparkline pixels match its independent golden image
-            with open(output_path, "rb") as f:
-                assert f.read() == external_file("snapshots/sparkline_layer.png")
-
     def test_snapshot_bar_chart_layer(self):
         """Snapshot test for a zero-aware positive and negative bar chart."""
         from quickthumb import Canvas, ChartStyle

@@ -123,7 +123,6 @@ class TestCLISchema:
             "outline",
             "qr_code",
             "shape",
-            "sparkline",
             "svg",
             "text",
         }

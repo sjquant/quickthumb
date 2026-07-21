@@ -15,7 +15,6 @@ from quickthumb.models import (
     ChartStyle,
     LineChartLayer,
     QRCodeLayer,
-    SparklineLayer,
 )
 
 if TYPE_CHECKING:
@@ -23,17 +22,13 @@ if TYPE_CHECKING:
 
 
 class VisualizationEngine:
-    """Render sparklines, charts, and QR codes through one stable PIL path."""
+    """Render charts and QR codes through one stable PIL path."""
 
     _SUPERSAMPLE = 4
 
     def __init__(self, ctx: RenderContext, effects: EffectsEngine):
         self._ctx = ctx
         self._effects = effects
-
-    def render_sparkline(self, image: Image.Image, layer: SparklineLayer) -> None:
-        """Render a sparkline using the shared line geometry without point markers."""
-        self._render_line(image, layer, default_show_points=False)
 
     def render_bar_chart(self, image: Image.Image, layer: BarChartLayer) -> None:
         """Render vertical bars against a baseline that includes zero."""
@@ -76,7 +71,7 @@ class VisualizationEngine:
 
     def render_line_chart(self, image: Image.Image, layer: LineChartLayer) -> None:
         """Render a line chart with points enabled by default."""
-        self._render_line(image, layer, default_show_points=True)
+        self._render_line(image, layer)
 
     def render_qr_code(self, image: Image.Image, layer: QRCodeLayer) -> None:
         """Render a QR matrix with nearest-neighbour module boundaries."""
@@ -144,9 +139,7 @@ class VisualizationEngine:
     def _render_line(
         self,
         image: Image.Image,
-        layer: SparklineLayer | LineChartLayer,
-        *,
-        default_show_points: bool,
+        layer: LineChartLayer,
     ) -> None:
         """Draw a line layer into an antialiased local surface."""
         values = self._chart_values(layer)
@@ -188,7 +181,7 @@ class VisualizationEngine:
 
         show_points = layer.show_points
         if show_points is None:
-            show_points = style.show_points or default_show_points
+            show_points = style.show_points
         if show_points:
             radius = max(1, style.point_radius * self._SUPERSAMPLE)
             for point_x, point_y in self._scaled_points(points):

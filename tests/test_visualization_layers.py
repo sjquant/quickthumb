@@ -42,7 +42,7 @@ class TestVisualizationValidation:
 
         # when / then
         with pytest.raises(ValidationError, match="chart values"):
-            canvas.sparkline([value], position=(0, 0), width=80, height=40)  # type: ignore[list-item]
+            canvas.line_chart([value], position=(0, 0), width=80, height=40)  # type: ignore[list-item]
 
     def test_should_validate_shared_chart_style_and_position(self):
         """Shared style fields use the same color, opacity, and coordinate constraints."""
@@ -66,14 +66,13 @@ class TestVisualizationRendering:
     """Test suite for deterministic chart and QR raster behavior."""
 
     def test_should_render_all_visualization_types_deterministically(self):
-        """All four layers paint stable pixels and repeated renders are byte-identical."""
+        """All three visualization layers paint stable, repeated pixels."""
 
         # given
         def make_canvas() -> Canvas:
             return (
                 Canvas(320, 180)
                 .background(color="#FFFFFF")
-                .sparkline([1, 3, 2, 5], position=(10, 10), width=80, height=28, color="#FF0000")
                 .bar_chart(
                     [-2, -1, 0, 3],
                     position=(105, 10),
@@ -103,7 +102,7 @@ class TestVisualizationRendering:
 
         # then
         assert first_png == second_png
-        for box in ((10, 10, 90, 38), (105, 10, 185, 60), (200, 10, 280, 60), (10, 90, 82, 162)):
+        for box in ((105, 10, 185, 60), (200, 10, 280, 60), (10, 90, 82, 162)):
             crop = image.crop(box)
             assert any(
                 crop.getpixel((x, y))[:3] != (255, 255, 255)
@@ -114,7 +113,9 @@ class TestVisualizationRendering:
     def test_should_leave_an_empty_chart_transparent(self):
         """An empty chart has no accidental baseline, point, or fill pixels."""
         # given
-        canvas = Canvas(100, 60).sparkline([], position=(10, 10), width=60, height=30)
+        canvas = Canvas(100, 60).line_chart(
+            [], position=(10, 10), width=60, height=30, show_points=False
+        )
         expected = Image.new("RGBA", (100, 60), (0, 0, 0, 0))
 
         # when
@@ -145,34 +146,27 @@ class TestVisualizationSerialization:
     """Test suite for JSON, schema, and CLI visualization support."""
 
     def test_should_round_trip_all_visualization_layer_discriminators(self):
-        """JSON loading and serialization preserve all four layer types and data."""
+        """JSON loading and serialization preserve all three layer types and data."""
         # given
         payload = {
             "width": 240,
             "height": 160,
             "layers": [
                 {
-                    "type": "sparkline",
-                    "data": [1, 2],
-                    "position": [0, 0],
-                    "width": 50,
-                    "height": 20,
-                },
-                {
                     "type": "bar_chart",
                     "data": [-1, 2],
-                    "position": [60, 0],
+                    "position": [0, 0],
                     "width": 50,
                     "height": 20,
                 },
                 {
                     "type": "line_chart",
                     "data": [2, 3],
-                    "position": [120, 0],
+                    "position": [60, 0],
                     "width": 50,
                     "height": 20,
                 },
-                {"type": "qr_code", "data": "hello", "position": [180, 0], "size": 50},
+                {"type": "qr_code", "data": "hello", "position": [120, 0], "size": 50},
             ],
         }
 
@@ -182,13 +176,12 @@ class TestVisualizationSerialization:
 
         # then
         assert [layer["type"] for layer in serialized["layers"]] == [
-            "sparkline",
             "bar_chart",
             "line_chart",
             "qr_code",
         ]
-        assert serialized["layers"][0]["data"] == [1.0, 2.0]
-        assert serialized["layers"][3]["data"] == "hello"
+        assert serialized["layers"][0]["data"] == [-1.0, 2.0]
+        assert serialized["layers"][2]["data"] == "hello"
 
     def test_should_publish_visualization_schema_discriminators(self):
         """The generated schema advertises validated chart data, style, and QR contracts."""
@@ -200,7 +193,7 @@ class TestVisualizationSerialization:
         definitions = schema["$defs"]
 
         # then
-        assert set(mapping) >= {"sparkline", "bar_chart", "line_chart", "qr_code"}
+        assert set(mapping) >= {"bar_chart", "line_chart", "qr_code"}
         assert "ChartData" in definitions
         assert "ChartStyle" in definitions
         assert definitions["QRCodeLayer"]["properties"]["error_correction"]["enum"] == [

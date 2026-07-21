@@ -15,7 +15,6 @@ from quickthumb.models import (
     LineChartLayer,
     QRCodeLayer,
     ShapeLayer,
-    SparklineLayer,
     SvgLayer,
     TextLayer,
 )
@@ -30,7 +29,6 @@ MEASURABLE_LAYER_TYPES = frozenset(
         "image",
         "svg",
         "group",
-        "sparkline",
         "bar_chart",
         "line_chart",
         "qr_code",
@@ -184,7 +182,6 @@ class LayerMeasurementEngine:
                 ImageLayer,
                 SvgLayer,
                 ShapeLayer,
-                SparklineLayer,
                 BarChartLayer,
                 LineChartLayer,
                 QRCodeLayer,

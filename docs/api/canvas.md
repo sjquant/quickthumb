@@ -51,7 +51,6 @@ All builder methods mutate the canvas and return `self`, enabling method chainin
 | `.svg(...)` | Add an SVG layer, rasterized at render time |
 | `.group(...)` | Add an auto-layout group of child layers |
 | `.outline(...)` | Add a canvas border |
-| `.sparkline(...)` | Add a compact data trend layer |
 | `.bar_chart(...)` | Add a deterministic bar chart layer |
 | `.line_chart(...)` | Add a deterministic line chart layer |
 | `.qr_code(...)` | Add a square QR code layer |
