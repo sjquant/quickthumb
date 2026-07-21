@@ -11,6 +11,7 @@ from quickthumb._composition import has_layer_composition
 from quickthumb._diagnostic_rules import (
     PLATFORM_SAFE_MARGIN_PRESETS,
     LayerAlphaCache,
+    NearAlignment,
     OverlapMeasurement,
     SafeMarginPreset,
     TiledContrastMeasurement,
@@ -22,6 +23,9 @@ from quickthumb._diagnostic_rules import (
     mask_area,
     move_inside_canvas_suggestion,
     move_inside_safe_area_suggestion,
+    near_alignment_pairs,
+    near_alignment_payload,
+    near_alignment_suggestion,
     overlap_pairs,
     require_bbox,
     resolve_overlay_bbox,
@@ -56,6 +60,7 @@ CONTRAST_TILE_SIZE = 32
 MIN_PARTIAL_OVERLAP_RATIO = 0.2
 BACKDROP_COVERAGE_RATIO = 0.95
 OVERLAP_CLEARANCE_PX = 8
+NEAR_ALIGNMENT_TOLERANCE = 3
 
 
 class DiagnosticsEngine:
@@ -86,8 +91,8 @@ class DiagnosticsEngine:
         """Check layers for layout and legibility issues without producing an output file.
 
         Returns structured findings (off-canvas, tiny-text, text-overflow,
-        low-contrast, layer-overlap) that an agent or human can act on before
-        rendering.
+        low-contrast, layer-overlap, near-alignment) that an agent or human can
+        act on before rendering.
         """
         self._alpha_cache.clear()
         self._canvas._validate_image_paths()
@@ -114,6 +119,7 @@ class DiagnosticsEngine:
             self._canvas._render_layer(running, measured.raw_layer)
 
         diagnostics.extend(self._diagnose_layer_overlaps(measurements))
+        diagnostics.extend(self._diagnose_near_alignments(measurements))
         diagnostics.extend(self._diagnose_hidden_layers(measurements))
         edge_ignored_layer_ids = set()
         for finding in diagnostics:
@@ -126,6 +132,36 @@ class DiagnosticsEngine:
         )
 
         return diagnostics
+
+    def _diagnose_near_alignments(self, measurements: list[LayerMeasurement]) -> list[Diagnostic]:
+        """Report related layers whose measured starts differ by only a few pixels."""
+        candidates = list(visible_leaf_layers(measurements))
+        return [
+            self._diagnose_near_alignment(alignment)
+            for alignment in near_alignment_pairs(candidates, tolerance=NEAR_ALIGNMENT_TOLERANCE)
+        ]
+
+    def _diagnose_near_alignment(self, alignment: NearAlignment) -> Diagnostic:
+        """Build a structured near-alignment finding from one measured pair."""
+        actual = alignment.actual
+        suggestion = near_alignment_suggestion(alignment)
+        return Diagnostic(
+            code="near-alignment",
+            severity="warning",
+            layer_index=actual.index,
+            message=(
+                f"{layer_label(actual)} is nearly aligned with "
+                f"{layer_label(alignment.reference)} on {alignment.axis} "
+                f"({alignment.actual_coordinate} vs {alignment.reference_coordinate}, "
+                f"delta={alignment.delta}px); {suggestion}"
+            ),
+            layer_id=actual.layer_id,
+            layer_name=actual.name,
+            bbox=DiagnosticBBox(**bbox_payload(require_bbox(actual))),
+            related_layers=[actual.layer_id, alignment.reference.layer_id],
+            measured=near_alignment_payload(alignment, tolerance=NEAR_ALIGNMENT_TOLERANCE),
+            suggestion=suggestion,
+        )
 
     def _diagnose_layer_overlaps(self, measurements: list[LayerMeasurement]) -> list[Diagnostic]:
         findings: list[Diagnostic] = []

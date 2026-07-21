@@ -40,6 +40,18 @@ class OverlapMeasurement:
 
 
 @dataclass(frozen=True)
+class NearAlignment:
+    """A pair of layers whose measured start coordinates nearly agree."""
+
+    reference: LayerMeasurement
+    actual: LayerMeasurement
+    axis: str
+    reference_coordinate: int
+    actual_coordinate: int
+    delta: int
+
+
+@dataclass(frozen=True)
 class TiledContrastMeasurement:
     """Worst contrast found by sampling a region in tiles."""
 
@@ -217,6 +229,93 @@ def overlap_pairs(
 
     for _, _, lower, upper in sorted(pairs, key=lambda item: (item[0], item[1])):
         yield lower, upper
+
+
+def near_alignment_pairs(
+    candidates: Iterable[LayerMeasurement], *, tolerance: int
+) -> Iterable[NearAlignment]:
+    """Find stable, near-equal measured x/y starts for related layer pairs."""
+    if tolerance < 1:
+        raise ValueError("tolerance must be at least 1")
+
+    ordered = list(candidates)
+    for index, reference in enumerate(ordered):
+        if not _can_check_near_alignment(reference):
+            continue
+        for actual in ordered[index + 1 :]:
+            if not _can_check_near_alignment(actual):
+                continue
+
+            matches = []
+            reference_box = require_bbox(reference)
+            actual_box = require_bbox(actual)
+            if (
+                reference.layer_type == "text" or actual.layer_type == "text"
+            ) and reference_box.intersection(actual_box) is not None:
+                continue
+            if _spans_overlap(reference_box, actual_box, axis="x"):
+                delta = abs(actual_box.x - reference_box.x)
+                if 0 < delta <= tolerance:
+                    matches.append((delta, 0, "x", reference_box.x, actual_box.x))
+            if _spans_overlap(reference_box, actual_box, axis="y"):
+                delta = abs(actual_box.y - reference_box.y)
+                if 0 < delta <= tolerance:
+                    matches.append((delta, 1, "y", reference_box.y, actual_box.y))
+
+            if matches:
+                delta, _axis_order, axis, reference_coordinate, actual_coordinate = min(matches)
+                yield NearAlignment(
+                    reference=reference,
+                    actual=actual,
+                    axis=axis,
+                    reference_coordinate=reference_coordinate,
+                    actual_coordinate=actual_coordinate,
+                    delta=delta,
+                )
+
+
+def near_alignment_payload(alignment: NearAlignment, *, tolerance: int) -> dict[str, object]:
+    """Return measured values for a near-alignment diagnostic."""
+    return {
+        "axis": alignment.axis,
+        "reference_layer_id": alignment.reference.layer_id,
+        "actual_layer_id": alignment.actual.layer_id,
+        "reference_coordinate": alignment.reference_coordinate,
+        "actual_coordinate": alignment.actual_coordinate,
+        "delta": alignment.delta,
+        "tolerance": tolerance,
+        "reference_bbox": bbox_payload(require_bbox(alignment.reference)),
+        "actual_bbox": bbox_payload(require_bbox(alignment.actual)),
+    }
+
+
+def near_alignment_suggestion(alignment: NearAlignment) -> str:
+    """Suggest moving the later layer's measured coordinate to its peer."""
+    actual = alignment.actual
+    return (
+        f"move layer {actual.index} {alignment.axis} from "
+        f"{alignment.actual_coordinate} to {alignment.reference_coordinate} "
+        f"to align with layer {alignment.reference.index}"
+    )
+
+
+def _can_check_near_alignment(measured: LayerMeasurement) -> bool:
+    """Exclude geometry whose measured bbox is not a stable layout anchor."""
+    if not measured.visible or measured.bbox is None or measured.bbox.is_empty:
+        return False
+    if has_layer_composition(measured.raw_layer):
+        return False
+
+    layer = measured.effective_text_layer or measured.raw_layer
+    rotation = getattr(layer, "rotation", 0.0)
+    return rotation == 0
+
+
+def _spans_overlap(first: BBox, second: BBox, *, axis: str) -> bool:
+    """Return whether two boxes share a non-empty span perpendicular to an axis."""
+    if axis == "x":
+        return first.y < second.bottom and second.y < first.bottom
+    return first.x < second.right and second.x < first.right
 
 
 def move_inside_canvas_suggestion(

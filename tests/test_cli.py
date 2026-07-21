@@ -941,6 +941,76 @@ class TestCLILint:
             ],
         }
 
+    def test_should_emit_structured_json_for_near_alignment(self):
+        """lint --format json serializes measured near-alignment repair data"""
+        from quickthumb.cli import app
+
+        # given: two related shapes whose measured x starts differ by three pixels
+        spec_path = self._write_spec(
+            {
+                "width": 160,
+                "height": 100,
+                "layers": [
+                    {
+                        "type": "shape",
+                        "shape": "rectangle",
+                        "position": [80, 20],
+                        "width": 2,
+                        "height": 30,
+                        "color": "#FF0000",
+                    },
+                    {
+                        "type": "shape",
+                        "shape": "rectangle",
+                        "position": [83, 20],
+                        "width": 2,
+                        "height": 30,
+                        "color": "#00FF00",
+                    },
+                ],
+            }
+        )
+
+        # when: the JSON lint command inspects the spec
+        try:
+            result = CliRunner().invoke(app, ["lint", spec_path, "--format", "json"])
+        finally:
+            os.unlink(spec_path)
+
+        # then: the command reports one warning with the measured coordinate delta
+        assert result.exit_code == 3
+        payload = json.loads(result.output)
+        assert payload["summary"] == {
+            "diagnostic_count": 1,
+            "error_count": 0,
+            "warning_count": 1,
+        }
+        finding = payload["diagnostics"][0]
+        assert finding == {
+            "code": "near-alignment",
+            "severity": "warning",
+            "layer_index": 1,
+            "message": (
+                "shape layer layer:1 is nearly aligned with shape layer layer:0 on x "
+                "(83 vs 80, delta=3px); move layer 1 x from 83 to 80 to align with layer 0"
+            ),
+            "layer_id": "layer:1",
+            "bbox": {"x": 83, "y": 20, "width": 2, "height": 30},
+            "related_layers": ["layer:1", "layer:0"],
+            "measured": {
+                "axis": "x",
+                "reference_layer_id": "layer:0",
+                "actual_layer_id": "layer:1",
+                "reference_coordinate": 80,
+                "actual_coordinate": 83,
+                "delta": 3,
+                "tolerance": 3,
+                "reference_bbox": {"x": 80, "y": 20, "width": 2, "height": 30},
+                "actual_bbox": {"x": 83, "y": 20, "width": 2, "height": 30},
+            },
+            "suggestion": "move layer 1 x from 83 to 80 to align with layer 0",
+        }
+
     def test_should_emit_structured_json_for_text_clipped(self):
         """lint --format json includes structured text-clipped diagnostics"""
         from quickthumb.cli import app
