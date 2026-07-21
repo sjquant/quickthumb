@@ -1,4 +1,11 @@
 from quickthumb import transitions
+from quickthumb._diff import (
+    ImageDiff,
+    assert_image_similar,
+    compare_images,
+    create_diff_image,
+    perceptual_hash,
+)
 from quickthumb.canvas import Canvas
 from quickthumb.deck import Deck, DeckDiagnostic
 from quickthumb.errors import QuickthumbError, RenderingError, ValidationError
@@ -58,6 +65,11 @@ from quickthumb.transitions import Transition
 
 __all__ = [
     "Canvas",
+    "ImageDiff",
+    "assert_image_similar",
+    "compare_images",
+    "create_diff_image",
+    "perceptual_hash",
     "Deck",
     "DeckDiagnostic",
     "QuickthumbError",

@@ -6,7 +6,17 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
+from PIL import Image
 
+from quickthumb._diff import (
+    DEFAULT_HASH_SIZE,
+    DEFAULT_HASH_THRESHOLD,
+    DEFAULT_MAX_DIFFERENT_PIXEL_RATIO,
+    DEFAULT_PIXEL_TOLERANCE,
+    _load_image,
+    compare_images,
+    create_diff_image,
+)
 from quickthumb.canvas import _VAR_RE, Canvas, _is_theme_reference
 from quickthumb.errors import RenderingError, ValidationError
 from quickthumb.schema import canvas_json_schema
@@ -133,6 +143,92 @@ def render(
         raise typer.Exit(2) from e
 
     typer.echo(str(output))
+
+
+@app.command()
+def diff(
+    expected: Annotated[Path, typer.Argument(help="Path to the golden image")],
+    actual: Annotated[Path, typer.Argument(help="Path to the image under test")],
+    output: Annotated[
+        Path | None,
+        typer.Option("-o", "--output", help="Write a raw pixel-difference image"),
+    ] = None,
+    threshold: Annotated[
+        float,
+        typer.Option("--threshold", min=0.0, max=1.0, help="Minimum perceptual-hash similarity"),
+    ] = DEFAULT_HASH_THRESHOLD,
+    pixel_tolerance: Annotated[
+        int,
+        typer.Option(
+            "--pixel-tolerance",
+            min=0,
+            max=255,
+            help="Ignore per-channel deltas up to this value",
+        ),
+    ] = DEFAULT_PIXEL_TOLERANCE,
+    max_diff_ratio: Annotated[
+        float,
+        typer.Option(
+            "--max-diff-ratio",
+            min=0.0,
+            max=1.0,
+            help="Maximum fraction of pixels allowed to differ",
+        ),
+    ] = DEFAULT_MAX_DIFFERENT_PIXEL_RATIO,
+    hash_size: Annotated[
+        int,
+        typer.Option("--hash-size", min=2, max=32, help="Perceptual hash width and height"),
+    ] = DEFAULT_HASH_SIZE,
+    output_format: Annotated[
+        str,
+        typer.Option("--format", help="Output format: text or json"),
+    ] = "text",
+) -> None:
+    """Compare a golden image with an image under test for CI or review."""
+    diff_format = output_format.lower()
+    if diff_format not in ("text", "json"):
+        typer.echo(
+            f"Invalid diff format '{output_format}'. Must be one of: text, json",
+            err=True,
+        )
+        raise typer.Exit(1)
+
+    try:
+        expected_image = _load_image(expected)
+        actual_image = _load_image(actual)
+        comparison = compare_images(
+            expected_image,
+            actual_image,
+            threshold=threshold,
+            pixel_tolerance=pixel_tolerance,
+            max_different_pixel_ratio=max_diff_ratio,
+            hash_size=hash_size,
+        )
+        if output is not None:
+            _save_diff_image(expected_image, actual_image, output)
+    except (OSError, ValueError) as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(1) from error
+
+    if diff_format == "json":
+        payload = comparison.to_dict()
+        if output is not None:
+            payload["diff_output"] = str(output)
+        typer.echo(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        typer.echo(comparison.format_text())
+        if output is not None:
+            typer.echo(f"diff image: {output}")
+
+    if not comparison.matches:
+        raise typer.Exit(1)
+
+
+def _save_diff_image(expected: Image.Image, actual: Image.Image, output: Path) -> None:
+    diff_image = create_diff_image(expected, actual)
+    if output.suffix.lower() in {".jpg", ".jpeg"}:
+        diff_image = diff_image.convert("RGB")
+    diff_image.save(output)
 
 
 @app.command()
