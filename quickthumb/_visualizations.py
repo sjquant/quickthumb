@@ -139,7 +139,7 @@ class VisualizationEngine:
                 if right > left and bottom > top:
                     draw.rectangle((left, top, right - 1, bottom - 1), fill=foreground)
 
-        self._composite_surface(image, surface, x, y)
+        image.alpha_composite(surface, (x, y))
 
     def _render_line(
         self,

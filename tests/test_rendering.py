@@ -2169,6 +2169,79 @@ class TestRendering:
             with open(output_path, "rb") as f:
                 assert f.read() == external_file("snapshots/shape_rectangle_basic.png")
 
+    def test_snapshot_data_visualization_layers(self):
+        """Snapshot test for the sparkline, bar, line, and QR visualization layers."""
+        from quickthumb import Canvas, ChartStyle
+
+        # Given: one canvas showing each compact data-visualization layer
+        canvas = (
+            Canvas(640, 360)
+            .background(color="#E2E8F0")
+            .text("Sparkline", size=18, color="#0F172A", position=(40, 28))
+            .sparkline(
+                [2, 5, 3, 7, 6],
+                position=(40, 70),
+                width=240,
+                height=100,
+                style=ChartStyle(
+                    color="#2563EB",
+                    fill="#BFDBFE",
+                    fill_opacity=0.45,
+                    stroke_width=3,
+                    point_radius=3,
+                    show_points=True,
+                    padding=8,
+                ),
+            )
+            .text("Bar chart", size=18, color="#0F172A", position=(340, 28))
+            .bar_chart(
+                [-4, 8, -2, 10, 5],
+                position=(340, 70),
+                width=240,
+                height=100,
+                style=ChartStyle(
+                    color="#16A34A",
+                    negative_color="#DC2626",
+                    bar_gap=0.25,
+                    padding=8,
+                ),
+            )
+            .text("Line chart", size=18, color="#0F172A", position=(40, 198))
+            .line_chart(
+                [-2, 1, 0, 5, 3],
+                position=(40, 240),
+                width=240,
+                height=90,
+                style=ChartStyle(
+                    color="#7C3AED",
+                    fill="#DDD6FE",
+                    fill_opacity=0.5,
+                    stroke_width=3,
+                    point_radius=3,
+                    show_points=True,
+                    padding=8,
+                ),
+            )
+            .text("QR code", size=18, color="#0F172A", position=(420, 198))
+            .qr_code(
+                "https://example.com/quickthumb",
+                position=(420, 240),
+                size=90,
+                foreground="#111827",
+                background="#FFFFFF",
+                error_correction="Q",
+            )
+        )
+
+        # When: the composed visualization canvas is rendered to PNG
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            # Then: every visualization's pixels match its checked-in golden image
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/data_visualization_layers.png")
+
     def test_snapshot_shape_ellipse_basic(self):
         """Snapshot test for basic ellipse shape layer"""
         from quickthumb import Canvas
