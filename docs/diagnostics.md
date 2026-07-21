@@ -23,7 +23,7 @@ Each `Diagnostic` has stable human-readable fields and optional structured field
 
 | Field | Type | Description |
 | --- | --- | --- |
-| `code` | `str` | One of `"off-canvas"`, `"tiny-text"`, `"text-overflow"`, `"low-contrast"`, `"layer-overlap"` |
+| `code` | `str` | One of `"off-canvas"`, `"tiny-text"`, `"text-overflow"`, `"text-clipped"`, `"missing-glyph"`, `"low-contrast"`, `"layer-overlap"`, `"layer-hidden"`, `"edge-crowding"`, `"near-alignment"` |
 | `severity` | `str` | `"warning"` or `"error"` |
 | `layer_index` | `int` | Index of the offending layer in `canvas.layers` |
 | `message` | `str` | Human-readable explanation with the measured values |
@@ -41,11 +41,18 @@ Each `Diagnostic` has stable human-readable fields and optional structured field
 | `off-canvas` | A layer's bounding box falls partly or fully outside the canvas |
 | `tiny-text` | Text smaller than 2.5% of the canvas height — likely illegible at thumbnail display sizes |
 | `text-overflow` | A single word is wider than the layer's `max_width` and cannot be wrapped |
+| `text-clipped` | Wrapped text extends past the canvas or its declared text box |
+| `missing-glyph` | The selected font renders one or more characters as a missing-glyph placeholder |
 | `low-contrast` | Text color has a contrast ratio under 2.0 against the composited layers below it |
 | `layer-overlap` | Two visible layers overlap substantially enough to obscure one another |
+| `layer-hidden` | A visible layer is fully covered by later opaque layers |
+| `edge-crowding` | A visible layer is too close to a canvas safe margin or platform overlay |
+| `near-alignment` | Related, unrotated layers have measured x/y starts within three pixels but are not exactly aligned |
 
 !!! tip "Agent loop"
     `diagnose()` is designed for render → diagnose → fix iteration: have an LLM emit a spec, run `diagnose()`, and feed the findings back as targeted edit instructions instead of re-prompting from scratch.
+
+Near-alignment findings compare final measured starts, rather than raw declared positions. The rule only compares layers that share a perpendicular span, ignores exact matches, intentional text-on-backdrop overlap, and layers with rotation or clip/mask composition, and reports the measured delta plus a coordinate repair suggestion.
 
 !!! note
     The contrast check compares text color against the layers *below* the text layer. Text that gets its contrast from its own `Background` effect (e.g. dark text on its own bright pill) can report a false positive.

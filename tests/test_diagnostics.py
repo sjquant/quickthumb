@@ -1984,6 +1984,238 @@ class TestDiagnoseLayerOverlap:
         )
 
 
+class TestDiagnoseNearAlignment:
+    """Test suite for polish-tier near-alignment findings."""
+
+    def test_should_report_stable_measured_values_for_near_x_alignment(self):
+        """A later layer three pixels right of a related peer gets a repair hint"""
+        from quickthumb import Canvas
+
+        # given: two narrow layers with overlapping y spans and near x starts
+        canvas = (
+            Canvas(160, 100)
+            .shape(
+                shape="rectangle",
+                position=(80, 20),
+                width=2,
+                height=30,
+                color="#FF0000",
+            )
+            .shape(
+                shape="rectangle",
+                position=(83, 20),
+                width=2,
+                height=30,
+                color="#00FF00",
+            )
+        )
+
+        # when: diagnostics run twice over the same measured composition
+        first = canvas.diagnose()
+        second = canvas.diagnose()
+
+        # then: the near-alignment payload is stable and actionable
+        findings = [finding for finding in first if finding.code == "near-alignment"]
+        assert len(findings) == 1
+        finding = findings[0]
+        assert finding.model_dump(mode="json", exclude_none=True) == {
+            "code": "near-alignment",
+            "severity": "warning",
+            "layer_index": 1,
+            "message": (
+                "shape layer layer:1 is nearly aligned with shape layer layer:0 on x "
+                "(83 vs 80, delta=3px); move layer 1 x from 83 to 80 to align with layer 0"
+            ),
+            "layer_id": "layer:1",
+            "bbox": {"x": 83, "y": 20, "width": 2, "height": 30},
+            "related_layers": ["layer:1", "layer:0"],
+            "measured": {
+                "axis": "x",
+                "reference_layer_id": "layer:0",
+                "actual_layer_id": "layer:1",
+                "reference_coordinate": 80,
+                "actual_coordinate": 83,
+                "delta": 3,
+                "tolerance": 3,
+                "reference_bbox": {"x": 80, "y": 20, "width": 2, "height": 30},
+                "actual_bbox": {"x": 83, "y": 20, "width": 2, "height": 30},
+            },
+            "suggestion": "move layer 1 x from 83 to 80 to align with layer 0",
+        }
+        assert [item.model_dump(mode="json") for item in second] == [
+            item.model_dump(mode="json") for item in first
+        ]
+        assert json.loads(finding.model_dump_json())["measured"]["actual_coordinate"] == 83
+
+    def test_should_not_report_exact_alignment_or_intentional_spacing(self):
+        """Exact starts and separated layers do not create near-alignment findings"""
+        from quickthumb import Canvas
+
+        # given: one exact pair and one pair separated outside the perpendicular span
+        canvas = (
+            Canvas(160, 120)
+            .shape(
+                shape="rectangle",
+                position=(80, 10),
+                width=2,
+                height=20,
+                color="#FF0000",
+            )
+            .shape(
+                shape="rectangle",
+                position=(80, 50),
+                width=2,
+                height=20,
+                color="#00FF00",
+            )
+            .shape(
+                shape="rectangle",
+                position=(83, 90),
+                width=2,
+                height=20,
+                color="#0000FF",
+            )
+        )
+
+        # when: diagnostics inspect exact and intentionally spaced geometry
+        diagnostics = canvas.diagnose()
+
+        # then: no near-alignment finding is emitted
+        assert [finding for finding in diagnostics if finding.code == "near-alignment"] == []
+
+    def test_should_report_near_y_alignment_when_x_spans_overlap(self):
+        """A three-pixel y-start drift gets the same measured repair treatment"""
+        from quickthumb import Canvas
+
+        # given: two layers with shared x span and near y starts
+        canvas = (
+            Canvas(160, 120)
+            .shape(
+                shape="rectangle",
+                position=(20, 80),
+                width=30,
+                height=2,
+                color="#FF0000",
+            )
+            .shape(
+                shape="rectangle",
+                position=(20, 83),
+                width=30,
+                height=2,
+                color="#00FF00",
+            )
+        )
+
+        # when: diagnostics inspect the measured y starts
+        diagnostics = canvas.diagnose()
+
+        # then: the finding points the later layer at the earlier y coordinate
+        findings = [finding for finding in diagnostics if finding.code == "near-alignment"]
+        assert len(findings) == 1
+        assert findings[0].measured == {
+            "axis": "y",
+            "reference_layer_id": "layer:0",
+            "actual_layer_id": "layer:1",
+            "reference_coordinate": 80,
+            "actual_coordinate": 83,
+            "delta": 3,
+            "tolerance": 3,
+            "reference_bbox": {"x": 20, "y": 80, "width": 30, "height": 2},
+            "actual_bbox": {"x": 20, "y": 83, "width": 30, "height": 2},
+        }
+        assert findings[0].suggestion == "move layer 1 y from 83 to 80 to align with layer 0"
+
+    @pytest.mark.parametrize(
+        "updates",
+        [
+            {"rotation": 5},
+            {"mask": {"position": (83, 20), "width": 2, "height": 30}},
+        ],
+        ids=["rotated", "composed"],
+    )
+    def test_should_ignore_rotated_and_composed_layers(self, updates):
+        """Rotated or clip/mask-composed layers are not stable alignment anchors"""
+        from quickthumb import Canvas
+
+        # given: a near x coordinate on a layer that changes the measured geometry
+        canvas = (
+            Canvas(160, 100)
+            .shape(
+                shape="rectangle",
+                position=(80, 20),
+                width=2,
+                height=30,
+                color="#FF0000",
+            )
+            .shape(
+                shape="rectangle",
+                position=(83, 20),
+                width=2,
+                height=30,
+                color="#00FF00",
+                **updates,
+            )
+        )
+
+        # when: diagnostics inspect the pair
+        diagnostics = canvas.diagnose()
+
+        # then: the geometry-sensitive rule stays quiet
+        assert [finding for finding in diagnostics if finding.code == "near-alignment"] == []
+
+    def test_should_ignore_unrelated_layers_with_near_x_starts(self):
+        """Layers without a shared perpendicular span are unrelated for alignment"""
+        from quickthumb import Canvas
+
+        # given: near x starts on layers separated by a deliberate vertical gap
+        canvas = (
+            Canvas(160, 120)
+            .shape(
+                shape="rectangle",
+                position=(80, 10),
+                width=2,
+                height=20,
+                color="#FF0000",
+            )
+            .shape(
+                shape="rectangle",
+                position=(83, 80),
+                width=2,
+                height=20,
+                color="#00FF00",
+            )
+        )
+
+        # when: diagnostics inspect unrelated layers
+        diagnostics = canvas.diagnose()
+
+        # then: near coordinates alone do not create a finding
+        assert [finding for finding in diagnostics if finding.code == "near-alignment"] == []
+
+    def test_should_not_report_text_inside_a_backdrop_as_near_alignment(self):
+        """Text placed inside a backdrop is intentional overlap, not peer alignment"""
+        from quickthumb import Canvas
+
+        # given: a text label whose measured x start nearly matches its backdrop
+        canvas = (
+            Canvas(160, 100)
+            .shape(
+                shape="rectangle",
+                position=(80, 20),
+                width=40,
+                height=30,
+                color="#EEEEEE",
+            )
+            .text("label", size=20, color="#000000", position=(82, 22))
+        )
+
+        # when: diagnostics inspect the intentional text-on-backdrop composition
+        diagnostics = canvas.diagnose()
+
+        # then: the alignment rule does not duplicate the intentional layout
+        assert [finding for finding in diagnostics if finding.code == "near-alignment"] == []
+
+
 class TestDiagnoseVisibility:
     """Test suite for visibility and platform-safe diagnostics"""
 

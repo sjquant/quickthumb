@@ -1123,6 +1123,7 @@ class Diagnostic(quickthumbModel):
         "missing-glyph",
         "low-contrast",
         "layer-overlap",
+        "near-alignment",
         "layer-hidden",
         "edge-crowding",
     ]
