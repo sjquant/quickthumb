@@ -134,10 +134,7 @@ class DiagnosticsEngine:
         diagnostics.extend(self._diagnose_hidden_layers(measurements))
         edge_ignored_layer_ids = set()
         for finding in diagnostics:
-            if (
-                finding.code in {"off-canvas", "layer-hidden"}
-                and finding.layer_id is not None
-            ):
+            if finding.code in {"off-canvas", "layer-hidden"} and finding.layer_id is not None:
                 edge_ignored_layer_ids.add(finding.layer_id)
         diagnostics.extend(
             self._diagnose_edge_crowding(measurements, ignored_layer_ids=edge_ignored_layer_ids)
