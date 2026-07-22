@@ -63,7 +63,9 @@ and the existing `clip` and `mask` composition primitives. Chart layers can also
 be used as group children; the group assigns their positions automatically. QR codes accept
 `foreground`, `background`, `error_correction` (`L`, `M`, `Q`, or `H`), and
 `quiet_zone`. QR rendering raises `RenderingError` when the requested square is
-too small to preserve the generated QR module matrix.
+too small to preserve the generated QR module matrix. Charts and QR codes also
+accept the existing layer-level `animation` contract for PPTX and GIF/video
+exports; omitting it keeps the deterministic static behavior.
 
 Chart and QR layers serialize through `Canvas.to_json()`, validate through
 `Canvas.from_json()`, and appear in `quickthumb schema`. SVG, HTML, PDF, and

@@ -13,7 +13,10 @@ from quickthumb import (
     Canvas,
     ChartData,
     ChartStyle,
+    Fade,
+    GifOptions,
     LineChartLayer,
+    QRCodeLayer,
     RenderingError,
     ValidationError,
     canvas_json_schema,
@@ -308,6 +311,25 @@ class TestVisualizationRendering:
         assert all(child.bbox is not None for child in inspection.layers[0].children)
         assert isinstance(diagnostics, list)
 
+    def test_should_render_animated_chart_to_gif(self, tmp_path):
+        """A chart layer participates in the existing deterministic GIF animation path."""
+        # given
+        canvas = Canvas(160, 100).line_chart(
+            [1, 3, 2],
+            position=(10, 10),
+            width=80,
+            height=40,
+            animation=Fade(duration=0.2),
+        )
+        output = tmp_path / "animated-chart.gif"
+
+        # when
+        canvas.render(str(output), animation=GifOptions(fps=10))
+
+        # then
+        with Image.open(output) as rendered:
+            assert getattr(rendered, "n_frames", 1) >= 2
+
 
 class TestVisualizationSerialization:
     """Test suite for JSON, schema, and CLI visualization support."""
@@ -382,6 +404,32 @@ class TestVisualizationSerialization:
         assert serialized["layers"][2]["error_correction"] == "H"
         assert serialized["layers"][2]["foreground"] == "#111111"
         assert json.loads(reloaded.to_json()) == serialized
+
+    def test_should_round_trip_visualization_animation(self):
+        """Chart and QR animation fields survive JSON serialization and loading."""
+        # given
+        canvas = (
+            Canvas(240, 160)
+            .line_chart(
+                [1, 2, 3],
+                position=(0, 0),
+                width=80,
+                height=40,
+                animation=Fade(duration=0.25),
+            )
+            .qr_code("hello", position=(100, 0), size=50, animation=Fade(duration=0.4))
+        )
+
+        # when
+        reloaded = Canvas.from_json(canvas.to_json())
+
+        # then
+        line = reloaded.layers[0]
+        qr = reloaded.layers[1]
+        assert isinstance(line, LineChartLayer)
+        assert isinstance(qr, QRCodeLayer)
+        assert isinstance(line.animation, Fade)
+        assert isinstance(qr.animation, Fade)
 
     def test_should_publish_visualization_schema_discriminators(self):
         """The generated schema advertises validated chart data, style, and QR contracts."""
@@ -486,3 +534,22 @@ class TestVisualizationExportFallback:
             assert len(media) == 1
             exported = Image.open(BytesIO(archive.read(media[0]))).convert("RGBA")
         assert ImageChops.difference(expected.crop((20, 20, 90, 90)), exported).getbbox() is None
+
+    def test_should_emit_pptx_timing_for_animated_visualization(self):
+        """PPTX export keeps animation timing when a visualization is rasterized."""
+        # given
+        canvas = Canvas(160, 120).line_chart(
+            [1, 3, 2],
+            position=(10, 10),
+            width=80,
+            height=40,
+            animation=Fade(duration=0.25),
+        )
+
+        # when
+        presentation = canvas.to_pptx()
+
+        # then
+        with zipfile.ZipFile(BytesIO(presentation)) as archive:
+            slide_xml = archive.read("ppt/slides/slide1.xml")
+        assert b"<p:timing" in slide_xml

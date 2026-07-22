@@ -612,6 +612,7 @@ class Canvas:
         bar_gap: float | None = None,
         padding: int | None = None,
         opacity: float = 1.0,
+        animation: AnimationInput | None = None,
         align: Align | str | tuple[str, str] = Align.TOP_LEFT,
         clip: LayerClip | dict[str, Any] | None = None,
         mask: LayerMask | dict[str, Any] | None = None,
@@ -628,6 +629,7 @@ class Canvas:
             bar_gap=bar_gap,
             padding=padding,
             opacity=opacity,
+            animation=animation,
             align=align,  # type: ignore[arg-type]
             clip=cast(Any, clip),
             mask=cast(Any, mask),
@@ -650,6 +652,7 @@ class Canvas:
         show_points: bool | None = None,
         padding: int | None = None,
         opacity: float = 1.0,
+        animation: AnimationInput | None = None,
         align: Align | str | tuple[str, str] = Align.TOP_LEFT,
         clip: LayerClip | dict[str, Any] | None = None,
         mask: LayerMask | dict[str, Any] | None = None,
@@ -669,6 +672,7 @@ class Canvas:
             show_points=show_points,
             padding=padding,
             opacity=opacity,
+            animation=animation,
             align=align,  # type: ignore[arg-type]
             clip=cast(Any, clip),
             mask=cast(Any, mask),
@@ -687,6 +691,7 @@ class Canvas:
         quiet_zone: int = 4,
         align: Align | str | tuple[str, str] = Align.TOP_LEFT,
         opacity: float = 1.0,
+        animation: AnimationInput | None = None,
         clip: LayerClip | dict[str, Any] | None = None,
         mask: LayerMask | dict[str, Any] | None = None,
     ) -> Self:
@@ -701,6 +706,7 @@ class Canvas:
             quiet_zone=quiet_zone,
             align=align,  # type: ignore[arg-type]
             opacity=opacity,
+            animation=animation,
             clip=cast(Any, clip),
             mask=cast(Any, mask),
         )

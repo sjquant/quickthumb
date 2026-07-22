@@ -727,6 +727,7 @@ class _ChartLayer(quickthumbModel):
     opacity: OpacityField = 1.0
     clip: LayerClip | None = None
     mask: LayerMask | None = None
+    animation: AnimationInput | None = None
 
     @field_validator(
         "data",
@@ -824,6 +825,7 @@ class QRCodeLayer(quickthumbModel):
     opacity: OpacityField = 1.0
     clip: LayerClip | None = None
     mask: LayerMask | None = None
+    animation: AnimationInput | None = None
 
     @field_validator("position", mode="before")
     @classmethod
