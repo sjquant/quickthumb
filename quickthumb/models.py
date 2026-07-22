@@ -57,7 +57,7 @@ HexColor = Annotated[
 
 
 def _validate_opacity(v: float) -> float:
-    if v < 0.0 or v > 1.0:
+    if not math.isfinite(v) or v < 0.0 or v > 1.0:
         raise ValueError("opacity must be between 0.0 and 1.0")
     return v
 
@@ -681,7 +681,10 @@ class ChartData(quickthumbModel):
         for item in value:
             if isinstance(item, bool) or not isinstance(item, (int, float)):
                 raise ValueError("chart values must contain only numbers")
-            number = float(item)
+            try:
+                number = float(item)
+            except (OverflowError, ValueError):
+                raise ValueError("chart values must contain only finite numbers") from None
             if not math.isfinite(number):
                 raise ValueError("chart values must be finite numbers")
             normalized.append(number)
@@ -742,6 +745,19 @@ class _ChartLayer(quickthumbModel):
     def serialize_data(self, data: ChartData) -> list[float]:
         return data.values
 
+    @field_serializer("style")
+    def serialize_style(self, style: ChartStyle) -> dict[str, Any]:
+        """Serialize only style options defined for this chart type."""
+        serialized = style.model_dump()
+        chart_type = getattr(self, "type", None)
+        if chart_type == "bar_chart":
+            for name in ("fill", "fill_opacity", "stroke_width", "point_radius", "show_points"):
+                serialized.pop(name, None)
+        elif chart_type == "line_chart":
+            for name in ("negative_color", "bar_gap"):
+                serialized.pop(name, None)
+        return serialized
+
     @field_validator("position", mode="before")
     @classmethod
     def validate_position(cls, value: tuple | list | None) -> Position:
@@ -754,16 +770,43 @@ class _ChartLayer(quickthumbModel):
         return align.value
 
 
+def _reject_unsupported_chart_options(layer: _ChartLayer, unsupported: set[str]) -> None:
+    """Reject style aliases that have no defined meaning for a chart type."""
+    style_options = unsupported.intersection(layer.style.model_fields_set)
+    layer_options = {name for name in unsupported if getattr(layer, name, None) is not None}
+    options = sorted(style_options | layer_options)
+    if options:
+        raise ValidationError(
+            f"{getattr(layer, 'type', 'chart')} does not support chart style option(s): "
+            f"{', '.join(options)}"
+        )
+    return None
+
+
 class BarChartLayer(_ChartLayer):
     """Deterministic vertical bar chart with a zero-aware baseline."""
 
     type: Literal["bar_chart"] = "bar_chart"
+
+    @model_validator(mode="after")
+    def validate_chart_options(self) -> "BarChartLayer":
+        """Reject line-only style options instead of silently ignoring them."""
+        _reject_unsupported_chart_options(
+            self, {"fill", "fill_opacity", "stroke_width", "point_radius", "show_points"}
+        )
+        return self
 
 
 class LineChartLayer(_ChartLayer):
     """Deterministic line chart with optional points and area fill."""
 
     type: Literal["line_chart"] = "line_chart"
+
+    @model_validator(mode="after")
+    def validate_chart_options(self) -> "LineChartLayer":
+        """Reject bar-only style options instead of silently ignoring them."""
+        _reject_unsupported_chart_options(self, {"negative_color", "bar_gap"})
+        return self
 
 
 class QRCodeLayer(quickthumbModel):
@@ -1172,7 +1215,14 @@ class GroupLayer(quickthumbModel):
                     raise ValueError(
                         "group children must not set position; the group assigns positions"
                     )
-                if child.get("type") in ("image", "svg", "shape"):
+                if child.get("type") in (
+                    "image",
+                    "svg",
+                    "shape",
+                    "bar_chart",
+                    "line_chart",
+                    "qr_code",
+                ):
                     child = {**child, "position": (0, 0)}
             elif getattr(child, "position", None) not in (None, (0, 0)):
                 raise ValueError(
@@ -1226,7 +1276,14 @@ class GroupLayer(quickthumbModel):
 
 
 GroupChild = Annotated[
-    TextLayer | ImageLayer | ShapeLayer | SvgLayer | GroupLayer,
+    TextLayer
+    | ImageLayer
+    | ShapeLayer
+    | SvgLayer
+    | BarChartLayer
+    | LineChartLayer
+    | QRCodeLayer
+    | GroupLayer,
     Discriminator("type"),
 ]
 

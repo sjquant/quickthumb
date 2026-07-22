@@ -24,7 +24,7 @@ canvas.group(
 
 | Parameter | Type | Default | Description |
 | --- | --- | --- | --- |
-| `children` | `list` | **required** | Child layers in stacking order. Dicts or layer models of type `text`, `image`, `shape`, `svg`, or nested `group`. |
+| `children` | `list` | **required** | Child layers in stacking order. Dicts or layer models of type `text`, `image`, `shape`, `svg`, `bar_chart`, `line_chart`, `qr_code`, or nested `group`. |
 | `direction` | `str` | `"column"` | Main axis: `"column"` stacks top-to-bottom, `"row"` left-to-right. |
 | `gap` | `int` | `0` | Pixels between adjacent children along the main axis. Non-negative. |
 | `padding` | `int \| tuple` | `0` | Inner padding: a single int, `(vertical, horizontal)`, or `(top, right, bottom, left)`. |

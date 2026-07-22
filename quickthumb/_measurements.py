@@ -317,6 +317,20 @@ class LayerMeasurementEngine:
                 metadata=self._positioned_metadata(placed, bbox),
             )
 
+        if isinstance(child, (BarChartLayer, LineChartLayer, QRCodeLayer)):
+            placed = child.model_copy(update={"position": position, "align": Align.TOP_LEFT})
+            bbox = BBox(position[0], position[1], size[0], size[1])
+            bbox = self._apply_composition_bounds(placed, bbox)
+            return self._measurement(
+                placed,
+                index,
+                order,
+                path,
+                self._layer_type(child),
+                bbox,
+                metadata=self._positioned_metadata(placed, bbox),
+            )
+
         return self._measurement(
             child,
             index,

@@ -2,13 +2,26 @@
 
 import base64
 import json
+import re
+import zipfile
 from io import BytesIO
+from typing import Any, cast
 
 import pytest
 from PIL import Image, ImageChops
-from quickthumb import Canvas, ChartData, ChartStyle, ValidationError, canvas_json_schema
+from quickthumb import (
+    Canvas,
+    ChartData,
+    ChartStyle,
+    LineChartLayer,
+    RenderingError,
+    ValidationError,
+    canvas_json_schema,
+)
 from quickthumb.cli import app
 from typer.testing import CliRunner
+
+from tests.test_export_snapshots import rasterize_pdf
 
 
 def rendered_image(canvas: Canvas) -> Image.Image:
@@ -16,6 +29,22 @@ def rendered_image(canvas: Canvas) -> Image.Image:
     data = base64.b64decode(canvas.to_base64())
     with Image.open(BytesIO(data)) as image:
         return image.convert("RGBA")
+
+
+def rgb_pixel(image: Image.Image, x: int, y: int) -> tuple[int, int, int]:
+    """Return an RGB pixel after narrowing Pillow's mode-dependent pixel type."""
+    pixel = image.getpixel((x, y))
+    if not isinstance(pixel, tuple) or len(pixel) < 3:
+        raise AssertionError(f"expected a tuple pixel, got {pixel!r}")
+    return cast(tuple[int, int, int], pixel[:3])
+
+
+def embedded_png(markup: str) -> Image.Image:
+    """Decode the first PNG data URI emitted by an HTML-like exporter."""
+    match = re.search(r"data:image/png;base64,([^\"']+)", markup)
+    if match is None:
+        raise AssertionError("expected a PNG data URI")
+    return Image.open(BytesIO(base64.b64decode(match.group(1)))).convert("RGBA")
 
 
 class TestVisualizationValidation:
@@ -31,18 +60,20 @@ class TestVisualizationValidation:
         canvas.line_chart(values, position=(0, 0), width=80, height=40)
 
         # then
-        assert isinstance(canvas.layers[0].data, ChartData)
-        assert canvas.layers[0].data.values == values
+        layer = canvas.layers[0]
+        assert isinstance(layer, LineChartLayer)
+        assert isinstance(layer.data, ChartData)
+        assert layer.data.values == values
 
     @pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf"), "1"])
-    def test_should_reject_non_finite_or_non_numeric_data(self, value):
+    def test_should_reject_non_finite_or_non_numeric_data(self, value: object):
         """Chart models reject values that cannot be rendered deterministically."""
         # given
         canvas = Canvas(160, 100)
 
         # when / then
         with pytest.raises(ValidationError, match="chart values"):
-            canvas.line_chart([value], position=(0, 0), width=80, height=40)  # type: ignore[list-item]
+            canvas.line_chart(cast(Any, [value]), position=(0, 0), width=80, height=40)
 
     def test_should_validate_shared_chart_style_and_position(self):
         """Shared style fields use the same color, opacity, and coordinate constraints."""
@@ -60,6 +91,90 @@ class TestVisualizationValidation:
             )
         with pytest.raises(ValidationError, match="opacity"):
             canvas.line_chart([1, 2], position=(0, 0), width=80, height=40, style={"opacity": 2.0})
+
+        with pytest.raises(ValidationError, match="opacity"):
+            canvas.line_chart(
+                [1, 2],
+                position=(0, 0),
+                width=80,
+                height=40,
+                style={"opacity": float("nan")},
+            )
+
+    def test_should_reject_extremely_large_integer_data_as_validation_error(self):
+        """Huge integer samples fail through the public validation error contract."""
+        # given
+        canvas = Canvas(160, 100)
+
+        # when / then
+        with pytest.raises(ValidationError, match="chart values"):
+            canvas.line_chart(cast(Any, [10**1000, 0]), position=(0, 0), width=80, height=40)
+
+    def test_should_render_extreme_finite_float_range_without_overflow(self):
+        """Opposite extreme finite samples still map to deterministic chart pixels."""
+        # given
+        canvas = Canvas(160, 100).line_chart([1e308, -1e308], position=(0, 0), width=80, height=40)
+
+        # when
+        first = canvas.to_base64()
+        second = (
+            Canvas(160, 100)
+            .line_chart([1e308, -1e308], position=(0, 0), width=80, height=40)
+            .to_base64()
+        )
+
+        # then
+        assert first == second
+
+    def test_should_reject_chart_style_options_without_defined_semantics(self):
+        """Chart builders reject style fields that belong to another chart type."""
+        # given
+        canvas = Canvas(160, 100)
+
+        # when / then
+        with pytest.raises(ValidationError, match="does not support"):
+            canvas.bar_chart(
+                [1, 2],
+                position=(0, 0),
+                width=80,
+                height=40,
+                style=ChartStyle(fill="#FF0000"),
+            )
+        with pytest.raises(ValidationError, match="does not support"):
+            canvas.line_chart(
+                [1, 2],
+                position=(0, 0),
+                width=80,
+                height=40,
+                style=ChartStyle(bar_gap=0.3),
+            )
+
+    def test_should_reject_qr_code_that_cannot_preserve_all_modules(self):
+        """QR rendering fails clearly when the requested square is smaller than its matrix."""
+        # given
+        canvas = Canvas(160, 100).qr_code("hello", position=(0, 0), size=1)
+
+        # when / then
+        with pytest.raises(RenderingError, match="too small"):
+            canvas.to_base64()
+
+    @pytest.mark.parametrize(
+        "kwargs",
+        [
+            {"data": "", "position": (0, 0), "size": 40},
+            {"data": "hello", "position": (0,), "size": 40},
+            {"data": "hello", "position": (0, 0), "size": 40, "quiet_zone": -1},
+            {"data": "hello", "position": (0, 0), "size": 40, "error_correction": "X"},
+        ],
+    )
+    def test_should_reject_invalid_qr_inputs(self, kwargs: dict[str, Any]):
+        """QR data, position, quiet-zone, and correction contracts reject invalid inputs."""
+        # given
+        canvas = Canvas(160, 100)
+
+        # when / then
+        with pytest.raises(ValidationError):
+            canvas.qr_code(**cast(Any, kwargs))
 
 
 class TestVisualizationRendering:
@@ -105,7 +220,7 @@ class TestVisualizationRendering:
         for box in ((105, 10, 185, 60), (200, 10, 280, 60), (10, 90, 82, 162)):
             crop = image.crop(box)
             assert any(
-                crop.getpixel((x, y))[:3] != (255, 255, 255)
+                rgb_pixel(crop, x, y) != (255, 255, 255)
                 for x in range(crop.width)
                 for y in range(crop.height)
             )
@@ -137,16 +252,68 @@ class TestVisualizationRendering:
         image = rendered_image(canvas)
 
         # then
-        assert image.getpixel((35, 25))[0] > 200
-        assert image.getpixel((95, 55))[2] > 150
-        assert image.getpixel((125, 20))[2] > 150
+        assert rgb_pixel(image, 35, 25)[0] > 200
+        assert rgb_pixel(image, 95, 55)[2] > 150
+        assert rgb_pixel(image, 125, 20)[2] > 150
+
+    def test_should_disable_line_markers_when_radius_is_zero(self):
+        """A zero marker radius produces the same raster as explicitly hiding points."""
+        # given
+        without_points = rendered_image(
+            Canvas(100, 60).line_chart(
+                [0, 2], position=(10, 10), width=60, height=30, show_points=False
+            )
+        )
+
+        # when
+        zero_radius = rendered_image(
+            Canvas(100, 60).line_chart(
+                [0, 2],
+                position=(10, 10),
+                width=60,
+                height=30,
+                style=ChartStyle(point_radius=0),
+            )
+        )
+
+        # then
+        assert ImageChops.difference(without_points, zero_radius).getbbox() is None
+
+    def test_should_render_and_measure_visualization_group_children(self):
+        """Groups render and inspect chart and QR children through the public APIs."""
+        # given
+        canvas = Canvas(220, 90).group(
+            children=[
+                {"type": "bar_chart", "data": [-1, 2], "width": 50, "height": 35},
+                {"type": "line_chart", "data": [1, 3, 2], "width": 60, "height": 35},
+                {"type": "qr_code", "data": "group", "size": 40},
+            ],
+            direction="row",
+            gap=8,
+            position=(8, 8),
+        )
+
+        # when
+        image = rendered_image(canvas)
+        inspection = canvas.inspect()
+        diagnostics = canvas.diagnose()
+
+        # then
+        assert image.getbbox() is not None
+        assert [child.type for child in inspection.layers[0].children] == [
+            "bar_chart",
+            "line_chart",
+            "qr_code",
+        ]
+        assert all(child.bbox is not None for child in inspection.layers[0].children)
+        assert isinstance(diagnostics, list)
 
 
 class TestVisualizationSerialization:
     """Test suite for JSON, schema, and CLI visualization support."""
 
     def test_should_round_trip_all_visualization_layer_discriminators(self):
-        """JSON loading and serialization preserve all three layer types and data."""
+        """JSON loading and serialization preserve visualization behavior fields."""
         # given
         payload = {
             "width": 240,
@@ -158,6 +325,13 @@ class TestVisualizationSerialization:
                     "position": [0, 0],
                     "width": 50,
                     "height": 20,
+                    "style": {
+                        "color": "#0000FF",
+                        "negative_color": "#FF0000",
+                        "bar_gap": 0.3,
+                        "padding": 2,
+                        "opacity": 0.8,
+                    },
                 },
                 {
                     "type": "line_chart",
@@ -165,14 +339,35 @@ class TestVisualizationSerialization:
                     "position": [60, 0],
                     "width": 50,
                     "height": 20,
+                    "style": {
+                        "color": "#00AA00",
+                        "fill": "#CCFFCC",
+                        "fill_opacity": 0.4,
+                        "stroke_width": 3,
+                        "point_radius": 1,
+                        "show_points": False,
+                        "padding": 1,
+                        "opacity": 0.9,
+                    },
                 },
-                {"type": "qr_code", "data": "hello", "position": [120, 0], "size": 50},
+                {
+                    "type": "qr_code",
+                    "data": "hello",
+                    "position": [120, 0],
+                    "size": 50,
+                    "foreground": "#111111",
+                    "background": "#EEEEEE",
+                    "error_correction": "H",
+                    "quiet_zone": 4,
+                    "opacity": 0.75,
+                },
             ],
         }
 
         # when
         canvas = Canvas.from_json(json.dumps(payload))
         serialized = json.loads(canvas.to_json())
+        reloaded = Canvas.from_json(json.dumps(serialized))
 
         # then
         assert [layer["type"] for layer in serialized["layers"]] == [
@@ -181,7 +376,12 @@ class TestVisualizationSerialization:
             "qr_code",
         ]
         assert serialized["layers"][0]["data"] == [-1.0, 2.0]
+        assert serialized["layers"][0]["style"]["bar_gap"] == 0.3
+        assert serialized["layers"][1]["style"]["show_points"] is False
         assert serialized["layers"][2]["data"] == "hello"
+        assert serialized["layers"][2]["error_correction"] == "H"
+        assert serialized["layers"][2]["foreground"] == "#111111"
+        assert json.loads(reloaded.to_json()) == serialized
 
     def test_should_publish_visualization_schema_discriminators(self):
         """The generated schema advertises validated chart data, style, and QR contracts."""
@@ -211,9 +411,16 @@ class TestVisualizationSerialization:
         spec.write_text(
             json.dumps(
                 {
-                    "width": 120,
-                    "height": 100,
+                    "width": 160,
+                    "height": 120,
                     "layers": [
+                        {
+                            "type": "bar_chart",
+                            "data": [-2, 3],
+                            "position": [100, 10],
+                            "width": 50,
+                            "height": 40,
+                        },
                         {
                             "type": "line_chart",
                             "data": [-1, 0, 1],
@@ -221,7 +428,7 @@ class TestVisualizationSerialization:
                             "width": 80,
                             "height": 40,
                         },
-                        {"type": "qr_code", "data": "cli", "position": [10, 55], "size": 35},
+                        {"type": "qr_code", "data": "cli", "position": [10, 55], "size": 50},
                     ],
                 }
             )
@@ -233,7 +440,12 @@ class TestVisualizationSerialization:
         # then
         assert result.exit_code == 0, result.output
         assert output.exists()
-        assert Image.open(output).size == (120, 100)
+        with Image.open(output) as image:
+            rendered = image.convert("RGBA")
+        assert rendered.size == (160, 120)
+        assert rendered.crop((10, 10, 90, 50)).getbbox() is not None
+        assert rendered.crop((100, 10, 150, 50)).getbbox() is not None
+        assert rendered.crop((10, 55, 60, 105)).getbbox() is not None
 
 
 class TestVisualizationExportFallback:
@@ -243,15 +455,17 @@ class TestVisualizationExportFallback:
         """SVG and HTML exports embed the same raster layer when no native
         chart primitive exists."""
         # given
-        canvas = Canvas(120, 90).line_chart([1, 3, 2], position=(10, 10), width=80, height=40)
+        canvas = Canvas(160, 120).line_chart([1, 3, 2], position=(10, 10), width=80, height=40)
 
         # when
+        expected = rendered_image(canvas)
         svg = canvas.to_svg()
         html = canvas.to_html()
 
         # then
-        assert "data:image/png;base64," in svg
-        assert "data:image/png;base64," in html
+        expected_layer = expected.crop((10, 10, 90, 50))
+        assert ImageChops.difference(expected_layer, embedded_png(svg)).getbbox() is None
+        assert ImageChops.difference(expected_layer, embedded_png(html)).getbbox() is None
 
     def test_should_preserve_qr_code_in_optional_document_exports(self):
         """PDF and PPTX exports keep QR pixels through their established picture fallback."""
@@ -259,9 +473,16 @@ class TestVisualizationExportFallback:
         canvas = Canvas(160, 120).qr_code("document", position=(20, 20), size=70)
 
         # when
-        pdf = canvas.to_pdf()
+        expected = rendered_image(canvas)
         pptx = canvas.to_pptx()
 
         # then
-        assert pdf.startswith(b"%PDF-")
-        assert pptx.startswith(b"PK")
+        pdf_image = rasterize_pdf(canvas)
+        pdf_crop = pdf_image.crop((20, 20, 90, 90))
+        white = Image.new("RGB", pdf_crop.size, "white")
+        assert ImageChops.difference(pdf_crop, white).getbbox() is not None
+        with zipfile.ZipFile(BytesIO(pptx)) as archive:
+            media = [name for name in archive.namelist() if name.startswith("ppt/media/")]
+            assert len(media) == 1
+            exported = Image.open(BytesIO(archive.read(media[0]))).convert("RGBA")
+        assert ImageChops.difference(expected.crop((20, 20, 90, 90)), exported).getbbox() is None

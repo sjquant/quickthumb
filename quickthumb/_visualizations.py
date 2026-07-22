@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from typing import TYPE_CHECKING
 
 from PIL import Image, ImageDraw
@@ -107,6 +108,12 @@ class VisualizationEngine:
         except Exception as error:
             raise RenderingError(f"Could not render QR code: {error}") from error
 
+        if layer.size < len(matrix):
+            raise RenderingError(
+                f"QR code size {layer.size} is too small for its {len(matrix)}x{len(matrix)} "
+                "module matrix. Increase size or reduce the QR data/error correction."
+            )
+
         x = parse_coordinate(layer.position[0], self._ctx.width)
         y = parse_coordinate(layer.position[1], self._ctx.height)
         if layer.align:
@@ -182,8 +189,8 @@ class VisualizationEngine:
         show_points = layer.show_points
         if show_points is None:
             show_points = style.show_points
-        if show_points:
-            radius = max(1, style.point_radius * self._SUPERSAMPLE)
+        if show_points and style.point_radius > 0:
+            radius = style.point_radius * self._SUPERSAMPLE
             for point_x, point_y in self._scaled_points(points):
                 draw.ellipse(
                     (point_x - radius, point_y - radius, point_x + radius, point_y + radius),
@@ -242,7 +249,12 @@ class VisualizationEngine:
         """Map a numeric sample to a pixel, centering a constant series."""
         if low == high:
             return (top + bottom) // 2
-        fraction = (value - low) / (high - low)
+        span = high - low
+        if math.isfinite(span):
+            fraction = (value - low) / span
+        else:
+            scale = max(abs(low), abs(high), 1.0)
+            fraction = (value / scale - low / scale) / (high / scale - low / scale)
         return bottom - round(fraction * (bottom - top))
 
     def _new_surface(self, width: int, height: int) -> Image.Image:

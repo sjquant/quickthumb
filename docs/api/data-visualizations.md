@@ -39,9 +39,11 @@ object; builders and JSON also accept a plain numeric list. Empty, constant, and
 negative series are valid. Values must be finite numbers, so `NaN`, infinity, and
 non-numeric values raise `ValidationError`.
 
-`ChartStyle` accepts `color`, `negative_color`, `fill`, `fill_opacity`,
-`stroke_width`, `point_radius`, `show_points`, `bar_gap`, `padding`, and `opacity`.
-The same fields can be passed directly to a chart builder when convenient.
+`ChartStyle` accepts `color`, `padding`, and `opacity` as shared options. Bar charts
+also accept `negative_color` and `bar_gap`; line charts accept `fill`, `fill_opacity`,
+`stroke_width`, `point_radius`, and `show_points`. Passing an option that has no
+meaning for the selected chart type raises `ValidationError` instead of silently
+changing nothing. The same supported fields can be passed directly to a builder.
 
 Line chart values are scaled to the plot box. Constant series sit on the
 vertical midpoint. Bar charts always include zero in their range, so positive and
@@ -57,9 +59,11 @@ pixels.
 | `.qr_code(data, position, size)` | `qr_code` | Square QR code with explicit error correction and quiet zone |
 
 All chart builders accept pixel or percentage positions, `align`, `opacity`,
-and the existing `clip` and `mask` composition primitives. QR codes accept
+and the existing `clip` and `mask` composition primitives. Chart layers can also
+be used as group children; the group assigns their positions automatically. QR codes accept
 `foreground`, `background`, `error_correction` (`L`, `M`, `Q`, or `H`), and
-`quiet_zone`.
+`quiet_zone`. QR rendering raises `RenderingError` when the requested square is
+too small to preserve the generated QR module matrix.
 
 Chart and QR layers serialize through `Canvas.to_json()`, validate through
 `Canvas.from_json()`, and appear in `quickthumb schema`. SVG, HTML, PDF, and

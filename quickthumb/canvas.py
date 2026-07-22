@@ -179,7 +179,13 @@ class Canvas:
         self._shapes = ShapeEngine(self._ctx, self._effects, self._images)
         self._visualizations = VisualizationEngine(self._ctx, self._effects)
         self._groups = GroupEngine(
-            self._ctx, self._fonts, self._effects, self._images, self._shapes, self._text
+            self._ctx,
+            self._fonts,
+            self._effects,
+            self._images,
+            self._shapes,
+            self._text,
+            self._visualizations,
         )
         self._diagnostics = DiagnosticsEngine(
             self._ctx,
@@ -720,7 +726,7 @@ class Canvas:
 
         Children are measured at their natural size and positioned by the group:
         they must not set their own position. Children may be dicts or layer models
-        of type text, image, shape, svg, or nested group.
+        of type text, image, shape, svg, bar_chart, line_chart, qr_code, or nested group.
 
         Args:
             children: Child layer dicts or models, in stacking order
