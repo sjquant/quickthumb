@@ -4,12 +4,13 @@ description: Reference for deterministic bar chart, line chart, and QR code laye
 
 # Data visualizations
 
-quickthumb includes three compact, deterministic visualization layers for dashboards,
-cards, and generated social graphics. They share `ChartData` and `ChartStyle` primitives;
+quickthumb includes a compact, deterministic chart layer and a QR code layer for dashboards,
+cards, and generated social graphics. Bar and line charts share `ChartData`, while each
+chart type has a focused style model;
 they are intentionally not a general-purpose plotting system.
 
 ```python
-from quickthumb import Canvas, ChartStyle
+from quickthumb import BarChartStyle, Canvas, LineChartStyle
 
 canvas = (
     Canvas(800, 400)
@@ -18,7 +19,7 @@ canvas = (
         position=(40, 40),
         width=220,
         height=120,
-        style=ChartStyle(color="#2563EB", negative_color="#DC2626"),
+        style=BarChartStyle(color="#2563EB", negative_color="#DC2626"),
     )
     .line_chart(
         [2, 5, 3, 7],
@@ -26,7 +27,7 @@ canvas = (
         width=440,
         height=120,
         color="#7C3AED",
-        fill="#DDD6FE",
+        style=LineChartStyle(fill="#DDD6FE"),
     )
     .qr_code("https://example.com", position=(620, 40), size=140)
 )
@@ -39,8 +40,8 @@ object; builders and JSON also accept a plain numeric list. Empty, constant, and
 negative series are valid. Values must be finite numbers, so `NaN`, infinity, and
 non-numeric values raise `ValidationError`.
 
-`ChartStyle` accepts `color`, `padding`, and `opacity` as shared options. Bar charts
-also accept `negative_color` and `bar_gap`; line charts accept `fill`, `fill_opacity`,
+`BarChartStyle` accepts `color`, `padding`, `opacity`, `negative_color`, and `bar_gap`.
+`LineChartStyle` accepts `color`, `padding`, `opacity`, `fill`, `fill_opacity`,
 `stroke_width`, `point_radius`, and `show_points`. Passing an option that has no
 meaning for the selected chart type raises `ValidationError` instead of silently
 changing nothing. The same supported fields can be passed directly to a builder.
@@ -54,8 +55,8 @@ pixels.
 
 | Builder | JSON type | Purpose |
 | --- | --- | --- |
-| `.bar_chart(data, position, width, height)` | `bar_chart` | Vertical bars with a zero-aware baseline |
-| `.line_chart(data, position, width, height)` | `line_chart` | Line chart with point markers by default |
+| `.bar_chart(data, position, width, height)` | `chart` / `bar` | Vertical bars with a zero-aware baseline |
+| `.line_chart(data, position, width, height)` | `chart` / `line` | Line chart with point markers by default |
 | `.qr_code(data, position, size)` | `qr_code` | Square QR code with explicit error correction and quiet zone |
 
 All chart builders accept pixel or percentage positions, `align`, `opacity`,

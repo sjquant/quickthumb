@@ -541,8 +541,9 @@ class _AnimationBase(quickthumbModel):
     only exposes the options that effect actually supports — directional effects
     add a ``direction``/``orientation``, ``Wheel`` adds ``spokes``, and the rest
     add nothing. Attach one (or a list) to a ``text``/``shape``/``image``/
-    ``svg``/``group`` layer via ``animation=``. Honoured by the PPTX, HTML, and
-    animated GIF/MP4/WebM exporters; the layer renders normally in every other
+    ``svg``/``chart``/``qr_code``/``group`` layer via ``animation=``. Honoured by
+    the PPTX, HTML, and animated GIF/MP4/WebM exporters; the layer renders normally
+    in every other
     format. ``trigger`` controls how the effect starts relative to the previous
     animation on the slide (in video output, where there is nothing to click,
     ``on_click`` plays automatically like ``after_previous``).
@@ -691,152 +692,106 @@ class ChartData(quickthumbModel):
         return normalized
 
 
-class ChartStyle(quickthumbModel):
-    """Shared deterministic paint and geometry options for chart layers."""
+class BaseLayerModel(quickthumbModel):
+    """Common positioning and composition contract for drawable layers."""
+
+    position: Position = (0, 0)
+    align: AlignWithHVTuple = Align.TOP_LEFT
+    opacity: OpacityField = 1.0
+    clip: LayerClip | None = None
+    mask: LayerMask | None = None
+    animation: AnimationInput | None = None
+
+    @field_serializer("align")
+    def serialize_align(self, align: Align | None) -> str | None:
+        if align is None:
+            return None
+        return align.value
+
+
+class BarChartStyle(quickthumbModel):
+    """Deterministic paint and geometry options for bar charts."""
+
+    model_config = ConfigDict(extra="forbid")
 
     color: HexColor = "#2563EB"
     negative_color: HexColor | None = None
-    fill: HexColor | None = None
-    fill_opacity: OpacityField = 0.16
-    stroke_width: PositiveInt = 2
-    point_radius: NonNegativeInt = 2
-    show_points: bool = True
     bar_gap: Annotated[float, Field(ge=0.0, lt=1.0)] = 0.2
     padding: NonNegativeInt = 0
     opacity: OpacityField = 1.0
 
 
-class _ChartLayer(quickthumbModel):
-    """Shared public contract for data-driven chart layers."""
+class LineChartStyle(quickthumbModel):
+    """Deterministic paint and geometry options for line charts."""
 
-    data: ChartData
-    position: Position
-    width: PositiveInt
-    height: PositiveInt
-    align: AlignWithHVTuple = Align.TOP_LEFT
-    style: ChartStyle = Field(default_factory=ChartStyle)
-    color: HexColor | None = None
-    negative_color: HexColor | None = None
+    model_config = ConfigDict(extra="forbid")
+
+    color: HexColor = "#2563EB"
     fill: HexColor | None = None
-    fill_opacity: OpacityField | None = None
-    stroke_width: PositiveInt | None = None
-    point_radius: NonNegativeInt | None = None
-    show_points: bool | None = None
-    bar_gap: Annotated[float, Field(ge=0.0, lt=1.0)] | None = None
-    padding: NonNegativeInt | None = None
+    fill_opacity: OpacityField = 0.16
+    stroke_width: PositiveInt = 2
+    point_radius: NonNegativeInt = 2
+    show_points: bool = True
+    padding: NonNegativeInt = 0
     opacity: OpacityField = 1.0
-    clip: LayerClip | None = None
-    mask: LayerMask | None = None
-    animation: AnimationInput | None = None
 
-    @field_validator(
-        "data",
-        mode="before",
-        json_schema_input_type=list[float] | ChartData,
-    )
+
+class BarChartSpec(quickthumbModel):
+    """Validated bar chart data and bar-specific options."""
+
+    type: Literal["bar"] = "bar"
+    data: ChartData
+    style: BarChartStyle = Field(default_factory=BarChartStyle)
+
+    @field_validator("data", mode="before")
     @classmethod
     def validate_data(cls, value: Any) -> ChartData:
-        if isinstance(value, ChartData):
-            return value
-        if isinstance(value, dict):
-            return ChartData.model_validate(value)
-        return ChartData(values=value)
+        return value if isinstance(value, ChartData) else ChartData(values=value)
 
     @field_serializer("data")
     def serialize_data(self, data: ChartData) -> list[float]:
         return data.values
 
-    @field_serializer("style")
-    def serialize_style(self, style: ChartStyle) -> dict[str, Any]:
-        """Serialize only style options defined for this chart type."""
-        serialized = style.model_dump()
-        chart_type = getattr(self, "type", None)
-        if chart_type == "bar_chart":
-            for name in ("fill", "fill_opacity", "stroke_width", "point_radius", "show_points"):
-                serialized.pop(name, None)
-        elif chart_type == "line_chart":
-            for name in ("negative_color", "bar_gap"):
-                serialized.pop(name, None)
-        return serialized
 
-    @field_validator("position", mode="before")
+class LineChartSpec(quickthumbModel):
+    """Validated line chart data and line-specific options."""
+
+    type: Literal["line"] = "line"
+    data: ChartData
+    style: LineChartStyle = Field(default_factory=LineChartStyle)
+
+    @field_validator("data", mode="before")
     @classmethod
-    def validate_position(cls, value: tuple | list | None) -> Position:
-        return _validate_required_position(value)
+    def validate_data(cls, value: Any) -> ChartData:
+        return value if isinstance(value, ChartData) else ChartData(values=value)
 
-    @field_serializer("align")
-    def serialize_align(self, align: Align | None) -> str | None:
-        if align is None:
-            return None
-        return align.value
+    @field_serializer("data")
+    def serialize_data(self, data: ChartData) -> list[float]:
+        return data.values
 
 
-def _reject_unsupported_chart_options(layer: _ChartLayer, unsupported: set[str]) -> None:
-    """Reject style aliases that have no defined meaning for a chart type."""
-    style_options = unsupported.intersection(layer.style.model_fields_set)
-    layer_options = {name for name in unsupported if getattr(layer, name, None) is not None}
-    options = sorted(style_options | layer_options)
-    if options:
-        raise ValidationError(
-            f"{getattr(layer, 'type', 'chart')} does not support chart style option(s): "
-            f"{', '.join(options)}"
-        )
-    return None
+ChartSpec = Annotated[BarChartSpec | LineChartSpec, Discriminator("type")]
 
 
-class BarChartLayer(_ChartLayer):
-    """Deterministic vertical bar chart with a zero-aware baseline."""
+class ChartLayer(BaseLayerModel):
+    """A deterministic data visualization layer selected by its chart spec."""
 
-    type: Literal["bar_chart"] = "bar_chart"
-
-    @model_validator(mode="after")
-    def validate_chart_options(self) -> "BarChartLayer":
-        """Reject line-only style options instead of silently ignoring them."""
-        _reject_unsupported_chart_options(
-            self, {"fill", "fill_opacity", "stroke_width", "point_radius", "show_points"}
-        )
-        return self
+    type: Literal["chart"] = "chart"
+    width: PositiveInt
+    height: PositiveInt
+    chart: ChartSpec
 
 
-class LineChartLayer(_ChartLayer):
-    """Deterministic line chart with optional points and area fill."""
-
-    type: Literal["line_chart"] = "line_chart"
-
-    @model_validator(mode="after")
-    def validate_chart_options(self) -> "LineChartLayer":
-        """Reject bar-only style options instead of silently ignoring them."""
-        _reject_unsupported_chart_options(self, {"negative_color", "bar_gap"})
-        return self
-
-
-class QRCodeLayer(quickthumbModel):
+class QRCodeLayer(BaseLayerModel):
     """A deterministic QR code rendered into a square canvas region."""
 
     type: Literal["qr_code"] = "qr_code"
     data: str = Field(min_length=1)
-    position: Position
     size: PositiveInt
     foreground: HexColor = "#000000"
     background: HexColor | None = "#FFFFFF"
     error_correction: Literal["L", "M", "Q", "H"] = "M"
     quiet_zone: NonNegativeInt = 4
-    align: AlignWithHVTuple = Align.TOP_LEFT
-    opacity: OpacityField = 1.0
-    clip: LayerClip | None = None
-    mask: LayerMask | None = None
-    animation: AnimationInput | None = None
-
-    @field_validator("position", mode="before")
-    @classmethod
-    def validate_position(cls, value: tuple | list | None) -> Position:
-        return _validate_required_position(value)
-
-    @field_serializer("align")
-    def serialize_align(self, align: Align | None) -> str | None:
-        if align is None:
-            return None
-        return align.value
 
 
 class BackgroundLayer(quickthumbModel):
@@ -1221,8 +1176,7 @@ class GroupLayer(quickthumbModel):
                     "image",
                     "svg",
                     "shape",
-                    "bar_chart",
-                    "line_chart",
+                    "chart",
                     "qr_code",
                 ):
                     child = {**child, "position": (0, 0)}
@@ -1282,8 +1236,7 @@ GroupChild = Annotated[
     | ImageLayer
     | ShapeLayer
     | SvgLayer
-    | BarChartLayer
-    | LineChartLayer
+    | ChartLayer
     | QRCodeLayer
     | GroupLayer,
     Discriminator("type"),
@@ -1366,8 +1319,7 @@ LayerType = Annotated[
     | ImageLayer
     | ShapeLayer
     | SvgLayer
-    | BarChartLayer
-    | LineChartLayer
+    | ChartLayer
     | QRCodeLayer
     | GroupLayer,
     Discriminator("type"),

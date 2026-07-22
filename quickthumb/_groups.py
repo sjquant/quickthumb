@@ -18,10 +18,9 @@ from quickthumb._visualizations import VisualizationEngine
 from quickthumb.models import (
     Align,
     BackdropBlur,
-    BarChartLayer,
+    ChartLayer,
     GroupLayer,
     ImageLayer,
-    LineChartLayer,
     QRCodeLayer,
     ShapeLayer,
     SvgLayer,
@@ -33,8 +32,7 @@ GroupChildLayer = (
     | ImageLayer
     | ShapeLayer
     | SvgLayer
-    | BarChartLayer
-    | LineChartLayer
+    | ChartLayer
     | QRCodeLayer
     | GroupLayer
 )
@@ -142,10 +140,8 @@ class GroupEngine:
             self._images.render_svg_layer(image, child)
         elif isinstance(child, ShapeLayer):
             self._shapes.render_shape_layer(image, child)
-        elif isinstance(child, BarChartLayer):
-            self._visualizations.render_bar_chart(image, child)
-        elif isinstance(child, LineChartLayer):
-            self._visualizations.render_line_chart(image, child)
+        elif isinstance(child, ChartLayer):
+            self._visualizations.render_chart(image, child)
         elif isinstance(child, QRCodeLayer):
             self._visualizations.render_qr_code(image, child)
 
@@ -161,7 +157,7 @@ class GroupEngine:
             return child.model_copy(update={"position": position, "align": Align.TOP_LEFT})
         if isinstance(child, ShapeLayer):
             return child.model_copy(update={"position": position, "align": None})
-        if isinstance(child, (BarChartLayer, LineChartLayer, QRCodeLayer)):
+        if isinstance(child, (ChartLayer, QRCodeLayer)):
             return child.model_copy(update={"position": position, "align": Align.TOP_LEFT})
         return child
 
@@ -286,7 +282,7 @@ class GroupEngine:
             return expanded_rotation_size(size, child.rotation)
         if isinstance(child, ShapeLayer):
             return expanded_rotation_size((child.width, child.height), child.rotation)
-        if isinstance(child, (BarChartLayer, LineChartLayer)):
+        if isinstance(child, ChartLayer):
             return child.width, child.height
         if isinstance(child, QRCodeLayer):
             return child.size, child.size

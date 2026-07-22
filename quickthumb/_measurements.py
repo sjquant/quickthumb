@@ -9,10 +9,9 @@ from quickthumb._groups import GroupEngine
 from quickthumb._text import TextEngine
 from quickthumb.models import (
     Align,
-    BarChartLayer,
+    ChartLayer,
     GroupLayer,
     ImageLayer,
-    LineChartLayer,
     QRCodeLayer,
     ShapeLayer,
     SvgLayer,
@@ -29,8 +28,7 @@ MEASURABLE_LAYER_TYPES = frozenset(
         "image",
         "svg",
         "group",
-        "bar_chart",
-        "line_chart",
+        "chart",
         "qr_code",
     }
 )
@@ -182,8 +180,7 @@ class LayerMeasurementEngine:
                 ImageLayer,
                 SvgLayer,
                 ShapeLayer,
-                BarChartLayer,
-                LineChartLayer,
+                ChartLayer,
                 QRCodeLayer,
             ),
         ):
@@ -317,7 +314,7 @@ class LayerMeasurementEngine:
                 metadata=self._positioned_metadata(placed, bbox),
             )
 
-        if isinstance(child, (BarChartLayer, LineChartLayer, QRCodeLayer)):
+        if isinstance(child, (ChartLayer, QRCodeLayer)):
             placed = child.model_copy(update={"position": position, "align": Align.TOP_LEFT})
             bbox = BBox(position[0], position[1], size[0], size[1])
             bbox = self._apply_composition_bounds(placed, bbox)

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import math
-from typing import TYPE_CHECKING
 
 from PIL import Image, ImageDraw
 
@@ -11,15 +10,11 @@ from quickthumb._base import RenderContext, apply_alignment, parse_coordinate
 from quickthumb._effects import EffectsEngine
 from quickthumb.errors import RenderingError
 from quickthumb.models import (
-    BarChartLayer,
-    ChartData,
-    ChartStyle,
-    LineChartLayer,
+    BarChartSpec,
+    ChartLayer,
+    LineChartSpec,
     QRCodeLayer,
 )
-
-if TYPE_CHECKING:
-    from quickthumb.models import _ChartLayer
 
 
 class VisualizationEngine:
@@ -31,15 +26,24 @@ class VisualizationEngine:
         self._ctx = ctx
         self._effects = effects
 
-    def render_bar_chart(self, image: Image.Image, layer: BarChartLayer) -> None:
+    def render_chart(self, image: Image.Image, layer: ChartLayer) -> None:
+        """Render the chart spec selected by its discriminator."""
+        if isinstance(layer.chart, BarChartSpec):
+            self._render_bar_chart(image, layer)
+        else:
+            self._render_line_chart(image, layer)
+
+    def _render_bar_chart(self, image: Image.Image, layer: ChartLayer) -> None:
         """Render vertical bars against a baseline that includes zero."""
-        values = self._chart_values(layer)
+        if not isinstance(layer.chart, BarChartSpec):
+            raise RenderingError("bar renderer received a non-bar chart spec")
+        values = layer.chart.data.values
         if not values:
             return
 
         x, y = self._layer_origin(layer)
         width, height = layer.width, layer.height
-        style = self._effective_style(layer)
+        style = layer.chart.style
         surface = self._new_surface(width, height)
         draw = ImageDraw.Draw(surface, "RGBA")
         plot = self._plot_box(width, height, style.padding)
@@ -70,7 +74,7 @@ class VisualizationEngine:
 
         self._composite_surface(image, surface, x, y)
 
-    def render_line_chart(self, image: Image.Image, layer: LineChartLayer) -> None:
+    def _render_line_chart(self, image: Image.Image, layer: ChartLayer) -> None:
         """Render a line chart with points enabled by default."""
         self._render_line(image, layer)
 
@@ -146,15 +150,17 @@ class VisualizationEngine:
     def _render_line(
         self,
         image: Image.Image,
-        layer: LineChartLayer,
+        layer: ChartLayer,
     ) -> None:
         """Draw a line layer into an antialiased local surface."""
-        values = self._chart_values(layer)
+        if not isinstance(layer.chart, LineChartSpec):
+            raise RenderingError("line renderer received a non-line chart spec")
+        values = layer.chart.data.values
         if not values:
             return
 
         x, y = self._layer_origin(layer)
-        style = self._effective_style(layer)
+        style = layer.chart.style
         plot = self._plot_box(layer.width, layer.height, style.padding)
         if plot is None:
             return
@@ -186,9 +192,7 @@ class VisualizationEngine:
                 joint="curve",
             )
 
-        show_points = layer.show_points
-        if show_points is None:
-            show_points = style.show_points
+        show_points = style.show_points
         if show_points and style.point_radius > 0:
             radius = style.point_radius * self._SUPERSAMPLE
             for point_x, point_y in self._scaled_points(points):
@@ -199,31 +203,7 @@ class VisualizationEngine:
 
         self._composite_surface(image, surface, x, y)
 
-    def _chart_values(self, layer: _ChartLayer) -> list[float]:
-        """Return the numeric samples regardless of the JSON input form."""
-        data = layer.data
-        return data.values if isinstance(data, ChartData) else data
-
-    def _effective_style(self, layer: _ChartLayer) -> ChartStyle:
-        """Apply layer-level style aliases over the shared style object."""
-        updates = {
-            name: getattr(layer, name)
-            for name in (
-                "color",
-                "negative_color",
-                "fill",
-                "fill_opacity",
-                "stroke_width",
-                "point_radius",
-                "show_points",
-                "bar_gap",
-                "padding",
-            )
-            if getattr(layer, name) is not None
-        }
-        return layer.style.model_copy(update=updates)
-
-    def _layer_origin(self, layer: _ChartLayer) -> tuple[int, int]:
+    def _layer_origin(self, layer: ChartLayer) -> tuple[int, int]:
         """Resolve a chart's canvas-space anchor and alignment."""
         x = parse_coordinate(layer.position[0], self._ctx.width)
         y = parse_coordinate(layer.position[1], self._ctx.height)

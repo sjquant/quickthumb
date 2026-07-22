@@ -12,10 +12,11 @@ from PIL import Image, ImageChops
 from quickthumb import (
     Canvas,
     ChartData,
-    ChartStyle,
+    ChartLayer,
     Fade,
     GifOptions,
-    LineChartLayer,
+    LineChartSpec,
+    LineChartStyle,
     QRCodeLayer,
     RenderingError,
     ValidationError,
@@ -64,9 +65,10 @@ class TestVisualizationValidation:
 
         # then
         layer = canvas.layers[0]
-        assert isinstance(layer, LineChartLayer)
-        assert isinstance(layer.data, ChartData)
-        assert layer.data.values == values
+        assert isinstance(layer, ChartLayer)
+        assert isinstance(layer.chart, LineChartSpec)
+        assert isinstance(layer.chart.data, ChartData)
+        assert layer.chart.data.values == values
 
     @pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf"), "1"])
     def test_should_reject_non_finite_or_non_numeric_data(self, value: object):
@@ -90,7 +92,7 @@ class TestVisualizationValidation:
                 position=(0, 0),
                 width=80,
                 height=40,
-                style=ChartStyle(color="blue"),
+                style=LineChartStyle(color="blue"),
             )
         with pytest.raises(ValidationError, match="opacity"):
             canvas.line_chart([1, 2], position=(0, 0), width=80, height=40, style={"opacity": 2.0})
@@ -135,21 +137,21 @@ class TestVisualizationValidation:
         canvas = Canvas(160, 100)
 
         # when / then
-        with pytest.raises(ValidationError, match="does not support"):
+        with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
             canvas.bar_chart(
                 [1, 2],
                 position=(0, 0),
                 width=80,
                 height=40,
-                style=ChartStyle(fill="#FF0000"),
+                style={"fill": "#FF0000"},
             )
-        with pytest.raises(ValidationError, match="does not support"):
+        with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
             canvas.line_chart(
                 [1, 2],
                 position=(0, 0),
                 width=80,
                 height=40,
-                style=ChartStyle(bar_gap=0.3),
+                style={"bar_gap": 0.3},
             )
 
     def test_should_reject_qr_code_that_cannot_preserve_all_modules(self):
@@ -275,7 +277,7 @@ class TestVisualizationRendering:
                 position=(10, 10),
                 width=60,
                 height=30,
-                style=ChartStyle(point_radius=0),
+                style=LineChartStyle(point_radius=0),
             )
         )
 
@@ -287,8 +289,28 @@ class TestVisualizationRendering:
         # given
         canvas = Canvas(220, 90).group(
             children=[
-                {"type": "bar_chart", "data": [-1, 2], "width": 50, "height": 35},
-                {"type": "line_chart", "data": [1, 3, 2], "width": 60, "height": 35},
+                {
+                    "type": "chart",
+                    "chart": {
+                        "type": "bar",
+                        "data": [-1, 2],
+                        "style": {
+                            "color": "#0000FF",
+                            "negative_color": "#FF0000",
+                            "bar_gap": 0.3,
+                            "padding": 2,
+                            "opacity": 0.8,
+                        },
+                    },
+                    "width": 50,
+                    "height": 35,
+                },
+                {
+                    "type": "chart",
+                    "chart": {"type": "line", "data": [1, 3, 2]},
+                    "width": 60,
+                    "height": 35,
+                },
                 {"type": "qr_code", "data": "group", "size": 40},
             ],
             direction="row",
@@ -304,8 +326,8 @@ class TestVisualizationRendering:
         # then
         assert image.getbbox() is not None
         assert [child.type for child in inspection.layers[0].children] == [
-            "bar_chart",
-            "line_chart",
+            "chart",
+            "chart",
             "qr_code",
         ]
         assert all(child.bbox is not None for child in inspection.layers[0].children)
@@ -342,35 +364,41 @@ class TestVisualizationSerialization:
             "height": 160,
             "layers": [
                 {
-                    "type": "bar_chart",
-                    "data": [-1, 2],
+                    "type": "chart",
+                    "chart": {
+                        "type": "bar",
+                        "data": [-1, 2],
+                        "style": {
+                            "color": "#0000FF",
+                            "negative_color": "#FF0000",
+                            "bar_gap": 0.3,
+                            "padding": 2,
+                            "opacity": 0.8,
+                        },
+                    },
                     "position": [0, 0],
                     "width": 50,
                     "height": 20,
-                    "style": {
-                        "color": "#0000FF",
-                        "negative_color": "#FF0000",
-                        "bar_gap": 0.3,
-                        "padding": 2,
-                        "opacity": 0.8,
-                    },
                 },
                 {
-                    "type": "line_chart",
-                    "data": [2, 3],
+                    "type": "chart",
+                    "chart": {
+                        "type": "line",
+                        "data": [2, 3],
+                        "style": {
+                            "color": "#00AA00",
+                            "fill": "#CCFFCC",
+                            "fill_opacity": 0.4,
+                            "stroke_width": 3,
+                            "point_radius": 1,
+                            "show_points": False,
+                            "padding": 1,
+                            "opacity": 0.9,
+                        },
+                    },
                     "position": [60, 0],
                     "width": 50,
                     "height": 20,
-                    "style": {
-                        "color": "#00AA00",
-                        "fill": "#CCFFCC",
-                        "fill_opacity": 0.4,
-                        "stroke_width": 3,
-                        "point_radius": 1,
-                        "show_points": False,
-                        "padding": 1,
-                        "opacity": 0.9,
-                    },
                 },
                 {
                     "type": "qr_code",
@@ -393,13 +421,13 @@ class TestVisualizationSerialization:
 
         # then
         assert [layer["type"] for layer in serialized["layers"]] == [
-            "bar_chart",
-            "line_chart",
+            "chart",
+            "chart",
             "qr_code",
         ]
-        assert serialized["layers"][0]["data"] == [-1.0, 2.0]
-        assert serialized["layers"][0]["style"]["bar_gap"] == 0.3
-        assert serialized["layers"][1]["style"]["show_points"] is False
+        assert serialized["layers"][0]["chart"]["data"] == [-1.0, 2.0]
+        assert serialized["layers"][0]["chart"]["style"]["bar_gap"] == 0.3
+        assert serialized["layers"][1]["chart"]["style"]["show_points"] is False
         assert serialized["layers"][2]["data"] == "hello"
         assert serialized["layers"][2]["error_correction"] == "H"
         assert serialized["layers"][2]["foreground"] == "#111111"
@@ -426,7 +454,8 @@ class TestVisualizationSerialization:
         # then
         line = reloaded.layers[0]
         qr = reloaded.layers[1]
-        assert isinstance(line, LineChartLayer)
+        assert isinstance(line, ChartLayer)
+        assert isinstance(line.chart, LineChartSpec)
         assert isinstance(qr, QRCodeLayer)
         assert isinstance(line.animation, Fade)
         assert isinstance(qr.animation, Fade)
@@ -441,9 +470,10 @@ class TestVisualizationSerialization:
         definitions = schema["$defs"]
 
         # then
-        assert set(mapping) >= {"bar_chart", "line_chart", "qr_code"}
+        assert set(mapping) >= {"chart", "qr_code"}
         assert "ChartData" in definitions
-        assert "ChartStyle" in definitions
+        assert "BarChartStyle" in definitions
+        assert "LineChartStyle" in definitions
         assert definitions["QRCodeLayer"]["properties"]["error_correction"]["enum"] == [
             "L",
             "M",
@@ -463,15 +493,15 @@ class TestVisualizationSerialization:
                     "height": 120,
                     "layers": [
                         {
-                            "type": "bar_chart",
-                            "data": [-2, 3],
+                            "type": "chart",
+                            "chart": {"type": "bar", "data": [-2, 3]},
                             "position": [100, 10],
                             "width": 50,
                             "height": 40,
                         },
                         {
-                            "type": "line_chart",
-                            "data": [-1, 0, 1],
+                            "type": "chart",
+                            "chart": {"type": "line", "data": [-1, 0, 1]},
                             "position": [10, 10],
                             "width": 80,
                             "height": 40,

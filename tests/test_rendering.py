@@ -2171,7 +2171,7 @@ class TestRendering:
 
     def test_snapshot_bar_chart_layer(self):
         """Snapshot test for a zero-aware positive and negative bar chart."""
-        from quickthumb import Canvas, ChartStyle
+        from quickthumb import BarChartStyle, Canvas
 
         # Given: a canvas with a bar chart containing positive and negative values
         canvas = (
@@ -2183,7 +2183,7 @@ class TestRendering:
                 position=(40, 70),
                 width=280,
                 height=110,
-                style=ChartStyle(
+                style=BarChartStyle(
                     color="#16A34A",
                     negative_color="#DC2626",
                     bar_gap=0.25,
@@ -2203,7 +2203,7 @@ class TestRendering:
 
     def test_snapshot_line_chart_layer(self):
         """Snapshot test for a filled line chart with point markers."""
-        from quickthumb import Canvas, ChartStyle
+        from quickthumb import Canvas, LineChartStyle
 
         # Given: a canvas with one line chart spanning negative and positive values
         canvas = (
@@ -2215,7 +2215,7 @@ class TestRendering:
                 position=(40, 70),
                 width=280,
                 height=110,
-                style=ChartStyle(
+                style=LineChartStyle(
                     color="#7C3AED",
                     fill="#DDD6FE",
                     fill_opacity=0.5,

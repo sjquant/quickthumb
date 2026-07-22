@@ -30,11 +30,12 @@ from quickthumb.models import (
     BackdropBlur,
     BackgroundEffect,
     BackgroundLayer,
-    BarChartLayer,
+    BarChartSpec,
+    BarChartStyle,
     BlendMode,
     CanvasInspection,
     ChartData,
-    ChartStyle,
+    ChartLayer,
     Diagnostic,
     FaceRegion,
     FitMode,
@@ -49,7 +50,8 @@ from quickthumb.models import (
     LayerMask,
     LayerType,
     LinearGradient,
-    LineChartLayer,
+    LineChartSpec,
+    LineChartStyle,
     OutlineLayer,
     QRCodeLayer,
     RadialGradient,
@@ -606,33 +608,44 @@ class Canvas:
         position: tuple[int | str, int | str],
         width: int,
         height: int,
-        style: ChartStyle | dict[str, Any] | None = None,
+        style: BarChartStyle | dict[str, Any] | None = None,
         color: str | None = None,
         negative_color: str | None = None,
         bar_gap: float | None = None,
         padding: int | None = None,
         opacity: float = 1.0,
-        animation: AnimationInput | None = None,
         align: Align | str | tuple[str, str] = Align.TOP_LEFT,
         clip: LayerClip | dict[str, Any] | None = None,
         mask: LayerMask | dict[str, Any] | None = None,
+        animation: AnimationInput | None = None,
     ) -> Self:
         """Add a zero-aware vertical bar chart layer."""
-        layer = BarChartLayer(
-            data=cast(Any, data),
+        style_model = BarChartStyle.model_validate(style or {})
+        style_model = BarChartStyle.model_validate(
+            {
+                **style_model.model_dump(),
+                **{
+                    name: value
+                    for name, value in {
+                        "color": color,
+                        "negative_color": negative_color,
+                        "bar_gap": bar_gap,
+                        "padding": padding,
+                    }.items()
+                    if value is not None
+                },
+            }
+        )
+        layer = ChartLayer(
             position=position,
             width=width,
             height=height,
-            style=cast(Any, style or ChartStyle()),
-            color=color,
-            negative_color=negative_color,
-            bar_gap=bar_gap,
-            padding=padding,
             opacity=opacity,
             animation=animation,
             align=align,  # type: ignore[arg-type]
             clip=cast(Any, clip),
             mask=cast(Any, mask),
+            chart=BarChartSpec(data=cast(Any, data), style=style_model),
         )
         self._layers.append(layer)
         return self
@@ -643,7 +656,7 @@ class Canvas:
         position: tuple[int | str, int | str],
         width: int,
         height: int,
-        style: ChartStyle | dict[str, Any] | None = None,
+        style: LineChartStyle | dict[str, Any] | None = None,
         color: str | None = None,
         fill: str | None = None,
         fill_opacity: float | None = None,
@@ -652,30 +665,41 @@ class Canvas:
         show_points: bool | None = None,
         padding: int | None = None,
         opacity: float = 1.0,
-        animation: AnimationInput | None = None,
         align: Align | str | tuple[str, str] = Align.TOP_LEFT,
         clip: LayerClip | dict[str, Any] | None = None,
         mask: LayerMask | dict[str, Any] | None = None,
+        animation: AnimationInput | None = None,
     ) -> Self:
         """Add a line chart layer with point markers enabled by default."""
-        layer = LineChartLayer(
-            data=cast(Any, data),
+        style_model = LineChartStyle.model_validate(style or {})
+        style_model = LineChartStyle.model_validate(
+            {
+                **style_model.model_dump(),
+                **{
+                    name: value
+                    for name, value in {
+                        "color": color,
+                        "fill": fill,
+                        "fill_opacity": fill_opacity,
+                        "stroke_width": stroke_width,
+                        "point_radius": point_radius,
+                        "show_points": show_points,
+                        "padding": padding,
+                    }.items()
+                    if value is not None
+                },
+            }
+        )
+        layer = ChartLayer(
             position=position,
             width=width,
             height=height,
-            style=cast(Any, style or ChartStyle()),
-            color=color,
-            fill=fill,
-            fill_opacity=fill_opacity,
-            stroke_width=stroke_width,
-            point_radius=point_radius,
-            show_points=show_points,
-            padding=padding,
             opacity=opacity,
             animation=animation,
             align=align,  # type: ignore[arg-type]
             clip=cast(Any, clip),
             mask=cast(Any, mask),
+            chart=LineChartSpec(data=cast(Any, data), style=style_model),
         )
         self._layers.append(layer)
         return self
@@ -691,9 +715,9 @@ class Canvas:
         quiet_zone: int = 4,
         align: Align | str | tuple[str, str] = Align.TOP_LEFT,
         opacity: float = 1.0,
-        animation: AnimationInput | None = None,
         clip: LayerClip | dict[str, Any] | None = None,
         mask: LayerMask | dict[str, Any] | None = None,
+        animation: AnimationInput | None = None,
     ) -> Self:
         """Add a square QR code layer."""
         layer = QRCodeLayer(
@@ -732,7 +756,7 @@ class Canvas:
 
         Children are measured at their natural size and positioned by the group:
         they must not set their own position. Children may be dicts or layer models
-        of type text, image, shape, svg, bar_chart, line_chart, qr_code, or nested group.
+        of type text, image, shape, svg, chart, qr_code, or nested group.
 
         Args:
             children: Child layer dicts or models, in stacking order
@@ -1319,10 +1343,8 @@ class Canvas:
             self._shapes.render_shape_layer(image, layer)
         elif isinstance(layer, SvgLayer):
             self._images.render_svg_layer(image, layer)
-        elif isinstance(layer, BarChartLayer):
-            self._visualizations.render_bar_chart(image, layer)
-        elif isinstance(layer, LineChartLayer):
-            self._visualizations.render_line_chart(image, layer)
+        elif isinstance(layer, ChartLayer):
+            self._visualizations.render_chart(image, layer)
         elif isinstance(layer, QRCodeLayer):
             self._visualizations.render_qr_code(image, layer)
         elif isinstance(layer, GroupLayer):
