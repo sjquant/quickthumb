@@ -60,7 +60,7 @@ from quickthumb.models import (
     Wheel,
     Wipe,
 )
-from quickthumb.schema import canvas_json_schema
+from quickthumb.schema import canvas_json_schema, document_json_schema
 from quickthumb.transitions import Transition
 
 __all__ = [
@@ -126,5 +126,6 @@ __all__ = [
     "VideoOptions",
     "Transition",
     "canvas_json_schema",
+    "document_json_schema",
     "transitions",
 ]

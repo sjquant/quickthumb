@@ -740,6 +740,7 @@ class TestImageLayerSerialization:
         # Then
         assert data == snapshot(
             {
+                "kind": "canvas",
                 "width": 1920,
                 "height": 1080,
                 "layers": [
@@ -781,6 +782,7 @@ class TestImageLayerSerialization:
 
         assert data == snapshot(
             {
+                "kind": "canvas",
                 "width": 400,
                 "height": 300,
                 "layers": [
@@ -896,6 +898,7 @@ class TestImageLayerSerialization:
 
         assert data == snapshot(
             {
+                "kind": "canvas",
                 "width": 400,
                 "height": 300,
                 "layers": [

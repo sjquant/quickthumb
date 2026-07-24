@@ -23,7 +23,7 @@ Each `Diagnostic` has stable human-readable fields and optional structured field
 
 | Field | Type | Description |
 | --- | --- | --- |
-| `code` | `str` | One of `"off-canvas"`, `"tiny-text"`, `"text-overflow"`, `"text-clipped"`, `"missing-glyph"`, `"low-contrast"`, `"layer-overlap"`, `"layer-hidden"`, `"edge-crowding"`, `"near-alignment"` |
+| `code` | `str` | One of `"off-canvas"`, `"tiny-text"`, `"text-overflow"`, `"text-clipped"`, `"missing-glyph"`, `"low-contrast"`, `"layer-overlap"`, `"layer-hidden"`, `"edge-crowding"`, or `"near-alignment"` |
 | `severity` | `str` | `"warning"` or `"error"` |
 | `layer_index` | `int` | Index of the offending layer in `canvas.layers` |
 | `message` | `str` | Human-readable explanation with the measured values |
@@ -72,6 +72,7 @@ Checks a JSON spec for the same findings as `diagnose()`:
 ```bash
 quickthumb lint spec.json
 quickthumb lint spec.json --format json
+quickthumb diagnose spec.json --format json
 ```
 
 ```text
@@ -160,6 +161,23 @@ Exit codes make it easy to gate CI or agent pipelines:
 | `2` | Rendering failure |
 | `3` | Findings reported |
 
+`diagnose` is an alias for `lint`. Both commands accept the same automation options:
+
+```bash
+quickthumb lint spec.json --fail-on error
+quickthumb lint spec.json --ignore edge-crowding --ignore missing-glyph
+```
+
+`--fail-on warning` (the default) exits 3 for any remaining finding. `--fail-on error`
+allows warnings while still failing on errors, and `--fail-on never` always exits 0 after
+printing the findings. `--ignore` removes matching diagnostic codes from both the output and
+the exit-status calculation. Invalid specs with `--format json` emit an `error` object rather
+than a traceback.
+
+JSON inputs must declare a top-level `kind` discriminator (`canvas` or `deck`). Deck findings
+include `slide_index` and retain
+the originating layer id, bounding box, measurements, related layers, and suggestion.
+
 ### `quickthumb render`
 
 Renders a JSON spec to an image file:
@@ -201,8 +219,9 @@ quickthumb serve deck.json --port 4040 --no-open
 ```
 
 A Python source should define one module-level `Deck` or `Canvas` as `deck`,
-`slides`, or `canvas`. A JSON source may be a canvas spec or a deck object with a
-top-level `slides` list. Use `--host` and `--port` to change the listening
+`slides`, or `canvas`. A JSON source must declare `kind: "canvas"` or `kind: "deck"`;
+Canvas documents contain `layers`, while Deck documents contain a top-level `slides` list.
+Use `--host` and `--port` to change the listening
 address, `--no-open` to suppress the initial browser window, and repeat
 `--var KEY=VALUE` for JSON template substitutions.
 

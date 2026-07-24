@@ -26,9 +26,13 @@ def canvas_json_schema() -> dict[str, Any]:
     schema["$id"] = QUICKTHUMB_SCHEMA_ID
     schema["title"] = "quickthumb Canvas JSON Spec"
     schema["description"] = (
-        "A quickthumb canvas spec accepted by Canvas.from_json() and the quickthumb CLI."
+        "A quickthumb canvas spec accepted by the quickthumb CLI. Canvas.from_json() also "
+        "accepts legacy documents without the top-level kind."
     )
+    schema["properties"]["kind"] = {"const": "canvas", "type": "string"}
     schema["properties"]["platform"] = platform_schema
+    schema["required"] = ["kind", *schema.get("required", [])]
+    schema["additionalProperties"] = False
     schema["anyOf"] = [
         {
             "properties": {
@@ -44,3 +48,59 @@ def canvas_json_schema() -> dict[str, Any]:
         },
     ]
     return schema
+
+
+def document_json_schema() -> dict[str, Any]:
+    """Return a discriminated JSON Schema for Canvas and Deck documents."""
+    canvas = canvas_json_schema()
+    canvas_defs = canvas.pop("$defs", {})
+    canvas_document = {key: value for key, value in canvas.items() if key not in {"$schema", "$id"}}
+    deck_document = {
+        "type": "object",
+        "title": "quickthumb Deck JSON Spec",
+        "properties": {
+            "kind": {"const": "deck", "type": "string"},
+            "width": {"exclusiveMinimum": 0, "type": "integer"},
+            "height": {"exclusiveMinimum": 0, "type": "integer"},
+            "theme": {"type": "object"},
+            "transition": {"type": "object"},
+            "slides": {
+                "type": "array",
+                "items": {"$ref": "#/$defs/CanvasDocument"},
+            },
+        },
+        "required": ["kind", "slides"],
+        "additionalProperties": False,
+        "allOf": [
+            {
+                "if": {"required": ["width"]},
+                "then": {"required": ["height"]},
+            },
+            {
+                "if": {"required": ["height"]},
+                "then": {"required": ["width"]},
+            },
+        ],
+    }
+    return {
+        "$schema": JSON_SCHEMA_DRAFT,
+        "$id": f"{QUICKTHUMB_SCHEMA_ID.rsplit('/', 1)[0]}/document-schema.json",
+        "title": "quickthumb JSON Document Spec",
+        "description": "A discriminated quickthumb Canvas or Deck JSON document.",
+        "oneOf": [
+            {"$ref": "#/$defs/CanvasDocument"},
+            {"$ref": "#/$defs/DeckDocument"},
+        ],
+        "discriminator": {
+            "propertyName": "kind",
+            "mapping": {
+                "canvas": "#/$defs/CanvasDocument",
+                "deck": "#/$defs/DeckDocument",
+            },
+        },
+        "$defs": {
+            **canvas_defs,
+            "CanvasDocument": canvas_document,
+            "DeckDocument": deck_document,
+        },
+    }

@@ -12,12 +12,13 @@ import contextlib
 import math
 import os
 import tempfile
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING, cast
 
 from typing_extensions import Self
 
 from quickthumb._base import FileFormat, aspect_ratio_dimensions
+from quickthumb._validation import validate_dimensions
 from quickthumb.canvas import Canvas
 from quickthumb.errors import RenderingError, ValidationError
 from quickthumb.models import (
@@ -50,6 +51,23 @@ class DeckDiagnostic:
     message: str
     slide_index: int | None = None
     layer_index: int | None = None
+    layer_id: str | None = None
+    layer_name: str | None = None
+    bbox: dict[str, int] | None = None
+    related_layers: list[str] | None = None
+    measured: dict | None = None
+    suggestion: str | None = None
+
+    def model_dump(self, *, mode: str = "python", exclude_none: bool = False) -> dict:
+        """Return a serialization-compatible payload like a Pydantic diagnostic."""
+        payload = asdict(self)
+        if mode == "json":
+            import json
+
+            payload = json.loads(json.dumps(payload))
+        if exclude_none:
+            payload = {key: value for key, value in payload.items() if value is not None}
+        return payload
 
 
 class Deck:
@@ -68,12 +86,7 @@ class Deck:
         theme: dict | None = None,
         transition: Transition | dict | str | None = None,
     ):
-        if (width is None) != (height is None):
-            raise ValidationError("Provide both width and height, or neither.")
-        if width is not None and width <= 0:
-            raise ValidationError("width must be > 0")
-        if height is not None and height <= 0:
-            raise ValidationError("height must be > 0")
+        validate_dimensions(width, height)
         if theme is not None and not isinstance(theme, dict):
             raise ValidationError("theme must be a dict of token groups.")
 
@@ -620,6 +633,7 @@ class Deck:
 
         for slide_index, canvas in enumerate(self._slides):
             for finding in canvas.diagnose():
+                payload = finding.model_dump(mode="json", exclude_none=True)
                 findings.append(
                     DeckDiagnostic(
                         code=finding.code,
@@ -627,6 +641,12 @@ class Deck:
                         message=finding.message,
                         slide_index=slide_index,
                         layer_index=finding.layer_index,
+                        layer_id=payload.get("layer_id"),
+                        layer_name=payload.get("layer_name"),
+                        bbox=payload.get("bbox"),
+                        related_layers=payload.get("related_layers"),
+                        measured=payload.get("measured"),
+                        suggestion=payload.get("suggestion"),
                     )
                 )
         return findings
@@ -635,6 +655,7 @@ class Deck:
         import json
 
         payload: dict = {}
+        payload["kind"] = "deck"
         if self._width is not None:
             payload["width"] = self._width
             payload["height"] = self._height
@@ -673,6 +694,12 @@ class Deck:
         raw = json.loads(data)
         if not isinstance(raw, dict) or "slides" not in raw:
             raise ValidationError("Deck JSON must be an object with a 'slides' list.")
+        kind = raw.get("kind")
+        if kind is not None and kind != "deck":
+            raise ValidationError("Deck JSON 'kind' must be 'deck'.")
+        unknown = sorted(set(raw) - {"kind", "width", "height", "theme", "transition", "slides"})
+        if unknown:
+            raise ValidationError(f"Deck JSON contains unknown field(s): {', '.join(unknown)}")
         slides_raw = raw["slides"]
         if not isinstance(slides_raw, list):
             raise ValidationError("Deck 'slides' must be a list of canvas specs.")
@@ -705,6 +732,9 @@ class Deck:
                 notes = slide.get("notes")
                 if notes is not None and not isinstance(notes, str):
                     raise ValidationError("Deck slide 'notes' must be a string.")
+                slide_theme = slide.get("theme", {})
+                if not isinstance(slide_theme, dict):
+                    raise ValidationError("Deck slide 'theme' must be an object of token groups.")
                 slide = {
                     key: value
                     for key, value in slide.items()
@@ -712,8 +742,8 @@ class Deck:
                 }
                 # Share the deck-level theme so $theme.* tokens resolve; a slide's
                 # own theme block takes precedence.
-                if theme:
-                    slide = {**slide, "theme": {**theme, **slide.get("theme", {})}}
+                if theme or "theme" in slide:
+                    slide = {**slide, "theme": {**theme, **slide_theme}}
                 if (
                     deck._width is not None
                     and "width" not in slide

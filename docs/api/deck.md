@@ -183,6 +183,12 @@ for finding in deck.diagnose():
 | `message` | `str` | Human-readable description |
 | `slide_index` | `int \| None` | Originating slide, or `None` for deck-wide findings |
 | `layer_index` | `int \| None` | Originating layer within the slide, when applicable |
+| `layer_id` | `str \| None` | Stable originating layer id, including group-child ids |
+| `layer_name` | `str \| None` | Originating layer name when present |
+| `bbox` | `dict \| None` | Measured canvas-space bounding box |
+| `related_layers` | `list[str]` | Layer ids involved in the finding |
+| `measured` | `dict` | Rule-specific measured values |
+| `suggestion` | `str \| None` | Repair hint when available |
 
 A `mixed-slide-size` warning is added when slides do not all share the same dimensions. The PDF path sizes each page to its slide, but PPTX export uses the first slide's size for the whole deck, so larger later slides are clipped by PowerPoint — keep slides a uniform size when targeting `.pptx`.
 
@@ -190,7 +196,7 @@ A `mixed-slide-size` warning is added when slides do not all share the same dime
 
 ### `.to_json()` / `Deck.from_json(json_str)`
 
-Round-trips the deck through JSON, reusing each canvas's serialization. The shape is `{"width": ..., "height": ..., "theme": {...}, "slides": [<canvas spec>, ...]}`, where `width`/`height` (the default slide size) and `theme` are emitted only when set. Per-slide `transition`, `audio`, `duration`, and `notes` fields are preserved alongside the canvas fields. A top-level `theme` is shared with every slide so slides can use `$theme.*` tokens, exactly like `Canvas.from_json`.
+Round-trips the deck through JSON, reusing each canvas's serialization. The shape is `{"kind": "deck", "width": ..., "height": ..., "theme": {...}, "slides": [<canvas spec>, ...]}`, where `width`/`height` (the default slide size) and `theme` are emitted only when set. Per-slide `transition`, `audio`, `duration`, and `notes` fields are preserved alongside the canvas fields. A top-level `theme` is shared with every slide so slides can use `$theme.*` tokens, exactly like `Canvas.from_json`.
 
 ```python
 spec = deck.to_json()

@@ -64,7 +64,10 @@ for finding in canvas.diagnose():
     print(finding.severity, finding.code, finding.message)
 ```
 
-Finding codes: `off-canvas`, `tiny-text`, `text-overflow`, `low-contrast`. See [Diagnostics & CLI](../diagnostics.md) for details and the `quickthumb lint` equivalent.
+Finding codes: `off-canvas`, `tiny-text`, `text-overflow`, `text-clipped`, `missing-glyph`,
+`low-contrast`, `layer-overlap`, `layer-hidden`, and `edge-crowding`. See
+[Diagnostics & CLI](../diagnostics.md) for details and the `quickthumb lint` (or
+`quickthumb diagnose`) equivalent.
 
 ## Export methods
 

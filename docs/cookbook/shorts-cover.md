@@ -23,6 +23,7 @@ That's it. The entire composition lives in the JSON file.
 
 ```json
 {
+  "kind": "canvas",
   "width": 1080,
   "height": 1920,
   "layers": [

@@ -32,7 +32,7 @@ quickthumb is designed to be a reliable target for LLM-generated image specs. Th
 Generate a quickthumb JSON config for a 1280×720 YouTube thumbnail.
 
 Schema rules:
-- Top-level fields: "width", "height", "layers"
+- Top-level fields: "kind": "canvas", "width", "height", "layers"
 - Every layer must have a "type": "background" | "text" | "image" | "shape" | "outline"
 - Every effect must have a "type": "stroke" | "shadow" | "glow" | "filter" | "background"
 - Positions are [x, y] JSON arrays — values can be integers (px) or percentage strings ("50%")

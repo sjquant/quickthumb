@@ -1,3 +1,4 @@
+import warnings
 from collections.abc import Iterable
 from itertools import islice
 from math import ceil
@@ -91,9 +92,19 @@ class DiagnosticsEngine:
         """Check layers for layout and legibility issues without producing an output file.
 
         Returns structured findings (off-canvas, tiny-text, text-overflow,
-        low-contrast, layer-overlap, near-alignment) that an agent or human can
-        act on before rendering.
+        text-clipped, missing-glyph, low-contrast, layer-overlap, layer-hidden,
+        edge-crowding, near-alignment) that an agent or human can act on before
+        rendering.
         """
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "ignore",
+                message=r"Word .* exceeds max_width and cannot be wrapped\.",
+                category=UserWarning,
+            )
+            return self._diagnose_impl()
+
+    def _diagnose_impl(self) -> list[Diagnostic]:
         self._alpha_cache.clear()
         self._canvas._validate_image_paths()
         self._ctx.begin_render_pass()
@@ -123,10 +134,8 @@ class DiagnosticsEngine:
         diagnostics.extend(self._diagnose_hidden_layers(measurements))
         edge_ignored_layer_ids = set()
         for finding in diagnostics:
-            if finding.code == "off-canvas" and finding.layer_id is not None:
+            if finding.code in {"off-canvas", "layer-hidden"} and finding.layer_id is not None:
                 edge_ignored_layer_ids.add(finding.layer_id)
-            elif finding.code == "layer-hidden":
-                edge_ignored_layer_ids.update(finding.related_layers)
         diagnostics.extend(
             self._diagnose_edge_crowding(measurements, ignored_layer_ids=edge_ignored_layer_ids)
         )
@@ -539,6 +548,10 @@ class DiagnosticsEngine:
         box = require_bbox(measured)
         image = Image.new("RGBA", (self._ctx.width, self._ctx.height), (0, 0, 0, 0))
         layer = measured.raw_layer
+        if isinstance(layer, GroupLayer):
+            origin = measured.metadata.get("position")
+            if isinstance(origin, tuple):
+                layer = layer.model_copy(update={"position": origin, "align": None})
         if not isinstance(layer, (GroupLayer, TextLayer, ImageLayer, SvgLayer, ShapeLayer)):
             return Image.new("L", (box.width, box.height), 0)
         self._canvas._render_layer(image, layer)

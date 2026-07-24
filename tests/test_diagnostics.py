@@ -1764,7 +1764,11 @@ class TestDiagnoseLayerOverlap:
         diagnostics = canvas.diagnose()
 
         # then
-        assert [finding.code for finding in diagnostics] == ["layer-overlap", "layer-hidden"]
+        assert [finding.code for finding in diagnostics] == [
+            "layer-overlap",
+            "layer-hidden",
+            "edge-crowding",
+        ]
         assert "visible_overlap_pct=0% of upper, 100% of lower" in diagnostics[0].message
 
     def test_should_remeasure_alpha_masks_after_canvas_layers_change(self):
@@ -2629,8 +2633,20 @@ class TestDiagnoseVisibility:
         ) == (
             "youtube-thumbnail",
             "instagram-reels",
-            {"width": 1280, "height": 720, "layers": [], "platform": "youtube-thumbnail"},
-            {"width": 1080, "height": 1920, "layers": [], "platform": "instagram-reels"},
+            {
+                "kind": "canvas",
+                "width": 1280,
+                "height": 720,
+                "layers": [],
+                "platform": "youtube-thumbnail",
+            },
+            {
+                "kind": "canvas",
+                "width": 1080,
+                "height": 1920,
+                "layers": [],
+                "platform": "instagram-reels",
+            },
         )
 
 

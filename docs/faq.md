@@ -68,7 +68,7 @@ A child's `align` is also ignored; use the group's `item_align` for cross-axis p
 
 ### How do I check a composition for problems before rendering?
 
-Call `canvas.diagnose()` (or run `quickthumb lint spec.json`). It reports off-canvas layers, tiny text, unwrappable words, and low text contrast. See [Diagnostics & CLI](diagnostics.md).
+Call `canvas.diagnose()` (or run `quickthumb lint spec.json` / `quickthumb diagnose spec.json`). It reports off-canvas layers, tiny or clipped text, unwrappable words, missing glyphs, hidden or overlapping layers, safe-area crowding, and low text contrast. See [Diagnostics & CLI](diagnostics.md).
 
 ---
 

@@ -388,6 +388,7 @@ class TestJsonRoundTrip:
         restored = Deck.from_json(deck.to_json())
 
         # then
+        assert payload["kind"] == "deck"
         assert payload["slides"][0]["audio"] == {
             "path": "voice.wav",
             "volume": 1.0,

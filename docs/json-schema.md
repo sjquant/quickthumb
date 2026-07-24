@@ -26,10 +26,11 @@ canvas = Canvas.from_json(json_str)
 
 ## JSON structure
 
-A quickthumb JSON document has three required top-level fields, plus an optional `theme` block:
+A Canvas JSON document has four required top-level fields, plus an optional `theme` block:
 
 ```json
 {
+  "kind": "canvas",
   "width": 1280,
   "height": 720,
   "theme": { ... },
@@ -37,7 +38,10 @@ A quickthumb JSON document has three required top-level fields, plus an optional
 }
 ```
 
-Every layer object requires a `"type"` discriminator field. Layers render in array order — first item is backmost.
+The top-level `"kind"` discriminator is required by the CLI and must be `"canvas"` or `"deck"`.
+Canvas documents carry `layers`; Deck documents carry `slides` and may also define a shared
+default size, theme, and transitions. Every layer object requires its own `"type"`
+discriminator field. Layers render in array order — first item is backmost.
 
 ## Published schema
 
@@ -46,18 +50,27 @@ Emit the current JSON Schema from the same Pydantic models used by `Canvas.from_
 ```bash
 quickthumb schema > quickthumb.schema.json
 quickthumb schema --output quickthumb.schema.json
+quickthumb schema --document --output quickthumb.document-schema.json
 ```
 
+The same schemas are available from Python as `canvas_json_schema()` and
+`document_json_schema()`.
+
 !!! note "Schema scope"
-    `quickthumb schema` describes concrete quickthumb specs for external tooling
-    and constrained generation. `Canvas.from_json()` remains the source of truth
+    `quickthumb schema` describes concrete Canvas specs for external tooling and
+    constrained generation. Use `quickthumb schema --document` for the combined
+    Canvas/Deck discriminator schema. `Canvas.from_json()` remains the source of truth
     for what quickthumb can load.
+
+    The CLI and `serve` command require the top-level `kind` discriminator. The
+    direct `Canvas.from_json()` and `Deck.from_json()` APIs continue to accept
+    legacy strings without it; newly serialized documents always include `kind`.
 
     Authoring conveniences such as `$theme.*` are resolved by quickthumb before
     model validation, so generic JSON Schema validators may reject unresolved
     authoring specs that quickthumb itself can load.
 
-The command writes deterministic JSON only, so it can be checked into a repo, piped into an editor, or passed directly to a constrained-generation API. The schema includes the current canvas fields, built-in layer discriminators, effects, animations, supported platform presets, and the optional top-level `theme` block.
+The command writes deterministic JSON only, so it can be checked into a repo, piped into an editor, or passed directly to a constrained-generation API. The Canvas schema includes the current canvas fields, built-in layer discriminators, effects, animations, supported platform presets, and the optional top-level `theme` block. The `--document` schema adds the Deck root and maps both document kinds through `kind`.
 
 For constrained generation, prefer concrete resolved values in typed fields:
 
@@ -75,6 +88,7 @@ Define brand tokens once in a top-level `theme` block and reference them anywher
 
 ```json
 {
+  "kind": "canvas",
   "width": 1280,
   "height": 720,
   "theme": {
@@ -521,7 +535,7 @@ quickthumb JSON is well-suited for LLM generation because the schema is flat, ev
 Generate a quickthumb JSON config for a 1280×720 YouTube thumbnail.
 
 Rules:
-- Top-level fields: "width", "height", "layers" (optional "theme" for shared tokens)
+- Top-level fields: "kind": "canvas", "width", "height", "layers" (optional "theme" for shared tokens)
 - Every layer must have a "type" field: "background", "text", "image", "shape", "svg", "group", or "outline"
 - Every effect must have a "type" field: "stroke", "shadow", "glow", "filter", "background", or "grain"
 - Positions are [x, y] arrays — values can be integers (px) or percentage strings like "50%"

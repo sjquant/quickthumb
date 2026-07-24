@@ -191,6 +191,7 @@ from quickthumb import Canvas
 
 config = """
 {
+  "kind": "canvas",
   "width": 1280,
   "height": 720,
   "layers": [

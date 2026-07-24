@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Protocol, TypeAlias, cast
 
 import typer
 from PIL import Image
@@ -17,11 +18,39 @@ from quickthumb._diff import (
     compare_images,
     create_diff_image,
 )
+from quickthumb._document import load_document
 from quickthumb.canvas import _VAR_RE, Canvas, _is_theme_reference
+from quickthumb.deck import Deck, DeckDiagnostic
 from quickthumb.errors import RenderingError, ValidationError
-from quickthumb.schema import canvas_json_schema
+from quickthumb.schema import canvas_json_schema, document_json_schema
 
 _VALID_FORMATS = {"PNG", "JPEG", "WEBP"}
+_DIAGNOSTIC_CODES = {
+    "off-canvas",
+    "tiny-text",
+    "text-overflow",
+    "text-clipped",
+    "missing-glyph",
+    "low-contrast",
+    "layer-overlap",
+    "layer-hidden",
+    "edge-crowding",
+    "mixed-slide-size",
+}
+_FAIL_ON_VALUES = {"warning", "error", "never"}
+Diagnosable: TypeAlias = Canvas | Deck
+
+
+class _DiagnosticLike(Protocol):
+    code: str
+    severity: str
+    layer_index: int | None
+    layer_id: str | None
+    message: str
+    suggestion: str | None
+
+    def model_dump(self, *, mode: str, exclude_none: bool) -> dict: ...
+
 
 app = typer.Typer(help="quickthumb — programmatic thumbnail generation")
 
@@ -40,32 +69,150 @@ def _parse_var_options(var: list[str] | None) -> dict[str, str]:
     for item in var or []:
         key, sep, value = item.partition("=")
         if not sep:
-            typer.echo(f"Invalid --var '{item}': expected KEY=VALUE format.", err=True)
-            raise typer.Exit(1)
+            raise ValidationError(f"Invalid --var '{item}': expected KEY=VALUE format.")
         variables[key] = value
     return variables
 
 
-def _load_canvas(spec: Path, variables: dict[str, str]) -> Canvas:
-    """Read, substitute, and parse a spec file; any input error exits with code 1."""
-    try:
-        text = spec.read_text()
-    except (FileNotFoundError, PermissionError) as e:
-        typer.echo(str(e), err=True)
-        raise typer.Exit(1) from e
+def _load_canvas(spec: Path, variables: dict[str, str]) -> Diagnosable:
+    """Read, substitute, and parse a Canvas or Deck JSON source."""
+    text = spec.read_text()
 
     if variables:
-        try:
-            text = _substitute_vars(text, variables)
-        except ValidationError as e:
-            typer.echo(str(e), err=True)
-            raise typer.Exit(1) from e
+        text = _substitute_vars(text, variables)
+
+    return load_document(text)
+
+
+def _echo_input_error(
+    error: Exception, output_format: str = "text", code: str = "invalid-spec"
+) -> None:
+    if output_format == "json":
+        typer.echo(json.dumps({"error": {"code": code, "message": str(error)}}))
+    else:
+        typer.echo(str(error), err=True)
+
+
+def _validate_diagnostic_options(
+    fail_on: str, ignored_codes: list[str] | None, output_format: str
+) -> tuple[str, set[str]]:
+    normalized_fail_on = fail_on.lower()
+    if normalized_fail_on not in _FAIL_ON_VALUES:
+        _echo_input_error(
+            ValidationError(
+                f"Invalid --fail-on '{fail_on}'. Must be one of: warning, error, never"
+            ),
+            output_format,
+            code="invalid-options",
+        )
+        raise typer.Exit(1) from None
+
+    ignored = {code.lower() for code in ignored_codes or []}
+    unknown = sorted(ignored - _DIAGNOSTIC_CODES)
+    if unknown:
+        _echo_input_error(
+            ValidationError(f"Unknown diagnostic code(s): {', '.join(unknown)}"),
+            output_format,
+            code="invalid-options",
+        )
+        raise typer.Exit(1) from None
+    return normalized_fail_on, ignored
+
+
+def _diagnostic_payload(finding: _DiagnosticLike) -> dict:
+    return finding.model_dump(mode="json", exclude_none=True)
+
+
+def _filter_diagnostics(
+    findings: Iterable[_DiagnosticLike], ignored_codes: set[str]
+) -> list[_DiagnosticLike]:
+    return [finding for finding in findings if finding.code not in ignored_codes]
+
+
+def _should_fail(findings: list[_DiagnosticLike], fail_on: str) -> bool:
+    if fail_on == "never":
+        return False
+    return any(
+        finding.severity == "error" or (fail_on == "warning" and finding.severity == "warning")
+        for finding in findings
+    )
+
+
+def _format_finding(finding: _DiagnosticLike) -> str:
+    location = "deck" if finding.layer_index is None else f"layer {finding.layer_index}"
+    slide_index = finding.slide_index if isinstance(finding, DeckDiagnostic) else None
+    if slide_index is not None:
+        location = f"slide {slide_index}, {location}"
+    layer_id = finding.layer_id
+    if layer_id:
+        location = f"{location} ({layer_id})"
+    message = f"[{finding.severity}] {location}: {finding.code} — {finding.message}"
+    suggestion = finding.suggestion
+    if suggestion and suggestion not in finding.message:
+        message += f" Suggestion: {suggestion}."
+    return message
+
+
+def _run_lint(
+    spec: Path,
+    output_format: str,
+    var: list[str] | None,
+    fail_on: str,
+    ignored_codes: list[str] | None,
+) -> None:
+    lint_format = output_format.lower()
+    if lint_format not in ("text", "json"):
+        typer.echo(
+            f"Invalid lint format '{output_format}'. Must be one of: text, json",
+            err=True,
+        )
+        raise typer.Exit(1)
+    normalized_fail_on, ignored = _validate_diagnostic_options(fail_on, ignored_codes, lint_format)
 
     try:
-        return Canvas.from_json(text)
-    except (json.JSONDecodeError, ValidationError) as e:
-        typer.echo(str(e), err=True)
-        raise typer.Exit(1) from e
+        source = _load_canvas(spec, _parse_var_options(var))
+    except (OSError, UnicodeError, json.JSONDecodeError, ValidationError) as error:
+        _echo_input_error(error, lint_format)
+        raise typer.Exit(1) from None
+
+    try:
+        diagnostics = _filter_diagnostics(
+            cast(Iterable[_DiagnosticLike], source.diagnose()), ignored
+        )
+    except FileNotFoundError as error:
+        _echo_input_error(FileNotFoundError(f"Referenced file not found: {error}"), lint_format)
+        raise typer.Exit(1) from None
+    except (RenderingError, OSError) as error:
+        if lint_format == "json":
+            typer.echo(json.dumps({"error": {"code": "rendering-failure", "message": str(error)}}))
+        else:
+            typer.echo(str(error), err=True)
+        raise typer.Exit(2) from None
+
+    if lint_format == "json":
+        error_count = sum(1 for finding in diagnostics if finding.severity == "error")
+        warning_count = sum(1 for finding in diagnostics if finding.severity == "warning")
+        typer.echo(
+            json.dumps(
+                {
+                    "summary": {
+                        "diagnostic_count": len(diagnostics),
+                        "error_count": error_count,
+                        "warning_count": warning_count,
+                    },
+                    "diagnostics": [_diagnostic_payload(finding) for finding in diagnostics],
+                },
+                indent=2,
+            )
+        )
+    elif not diagnostics:
+        typer.echo("No issues found.")
+    else:
+        for finding in diagnostics:
+            typer.echo(_format_finding(finding))
+
+    if _should_fail(diagnostics, normalized_fail_on):
+        raise typer.Exit(3)
 
 
 @app.callback()
@@ -83,9 +230,17 @@ def schema(
         Path | None,
         typer.Option("-o", "--output", help="Write schema JSON to a file instead of stdout"),
     ] = None,
+    document: Annotated[
+        bool,
+        typer.Option(
+            "--document",
+            help="Emit the combined Canvas/Deck discriminator schema",
+        ),
+    ] = False,
 ) -> None:
-    """Emit the JSON Schema for quickthumb canvas specs."""
-    payload = json.dumps(canvas_json_schema(), indent=2, sort_keys=True) + "\n"
+    """Emit the JSON Schema for quickthumb Canvas or Deck specs."""
+    schema_payload = document_json_schema() if document else canvas_json_schema()
+    payload = json.dumps(schema_payload, indent=2, sort_keys=True) + "\n"
     if output is None:
         typer.echo(payload, nl=False)
         return
@@ -129,15 +284,34 @@ def render(
     """Render a JSON spec file to an image, to SVG/PPTX/PDF/HTML, or to an
     animated GIF/MP4/WebM that plays the spec's layer animations, by extension."""
     _validate_render_options(fmt, quality)
-    canvas = _load_canvas(spec, _parse_var_options(var))
+    try:
+        source = _load_canvas(spec, _parse_var_options(var))
+    except (OSError, UnicodeError, json.JSONDecodeError, ValidationError) as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(1) from None
 
     try:
-        canvas.render(
+        if isinstance(source, Deck):
+            if debug:
+                typer.echo("--debug is only supported for Canvas specs.", err=True)
+                raise typer.Exit(1)
+            written = source.render(
+                str(output),
+                format=fmt.upper() if fmt else None,  # type: ignore[arg-type]
+                quality=quality,
+            )
+            for path in written:
+                typer.echo(path)
+            return
+        source.render(
             str(output),
             format=fmt.upper() if fmt else None,  # type: ignore[arg-type]
             quality=quality,
             debug=debug,
         )
+    except ValidationError as e:
+        typer.echo(str(e), err=True)
+        raise typer.Exit(1) from e
     except (RenderingError, OSError) as e:
         typer.echo(str(e), err=True)
         raise typer.Exit(2) from e
@@ -231,7 +405,8 @@ def _save_diff_image(expected: Image.Image, actual: Image.Image, output: Path) -
     diff_image.save(output)
 
 
-@app.command()
+@app.command("diagnose")
+@app.command("lint")
 def lint(
     spec: Annotated[Path, typer.Argument(help="Path to a JSON spec file")],
     output_format: Annotated[
@@ -242,62 +417,20 @@ def lint(
         list[str] | None,
         typer.Option("--var", help="Variable substitution as KEY=VALUE"),
     ] = None,
+    fail_on: Annotated[
+        str,
+        typer.Option("--fail-on", help="Fail on warning, error, or never"),
+    ] = "warning",
+    ignore: Annotated[
+        list[str] | None,
+        typer.Option("--ignore", help="Ignore a diagnostic code (repeatable)"),
+    ] = None,
 ) -> None:
     """Check a JSON spec for layout and legibility issues without rendering a file.
 
     Exit codes: 0 no issues, 1 invalid spec, 2 rendering failure, 3 issues found.
     """
-    lint_format = output_format.lower()
-    if lint_format not in ("text", "json"):
-        typer.echo(
-            f"Invalid lint format '{output_format}'. Must be one of: text, json",
-            err=True,
-        )
-        raise typer.Exit(1)
-
-    canvas = _load_canvas(spec, _parse_var_options(var))
-
-    try:
-        diagnostics = canvas.diagnose()
-    except FileNotFoundError as e:
-        typer.echo(f"Referenced file not found: {e}", err=True)
-        raise typer.Exit(1) from e
-    except (RenderingError, OSError) as e:
-        typer.echo(str(e), err=True)
-        raise typer.Exit(2) from e
-
-    if lint_format == "json":
-        error_count = sum(1 for finding in diagnostics if finding.severity == "error")
-        warning_count = sum(1 for finding in diagnostics if finding.severity == "warning")
-        typer.echo(
-            json.dumps(
-                {
-                    "summary": {
-                        "diagnostic_count": len(diagnostics),
-                        "error_count": error_count,
-                        "warning_count": warning_count,
-                    },
-                    "diagnostics": [
-                        finding.model_dump(mode="json", exclude_none=True)
-                        for finding in diagnostics
-                    ],
-                },
-                indent=2,
-            )
-        )
-        if diagnostics:
-            raise typer.Exit(3)
-        return
-
-    if not diagnostics:
-        typer.echo("No issues found.")
-        return
-
-    for finding in diagnostics:
-        typer.echo(
-            f"[{finding.severity}] layer {finding.layer_index}: {finding.code} — {finding.message}"
-        )
-    raise typer.Exit(3)
+    _run_lint(spec, output_format, var, fail_on, ignore)
 
 
 def _substitute_vars(text: str, variables: dict[str, str]) -> str:
@@ -351,8 +484,8 @@ def serve(
     """Serve HTML slides with live reload and a ?presenter view."""
     from quickthumb._serve import serve_slides
 
-    variables = _parse_var_options(var)
     try:
+        variables = _parse_var_options(var)
         serve_slides(
             source=source,
             host=host,
@@ -406,15 +539,33 @@ def watch(
         raise typer.Exit(1) from None
 
     _validate_render_options(fmt, quality)
-    variables = _parse_var_options(var)
+    try:
+        variables = _parse_var_options(var)
+    except ValidationError as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(1) from None
 
     def _render_once() -> None:
         try:
             canvas = _load_canvas(spec, variables)
         except typer.Exit:
             return  # error already echoed; keep watching for the next change
+        except (OSError, UnicodeError, json.JSONDecodeError, ValidationError) as error:
+            typer.echo(str(error), err=True)
+            return
 
         try:
+            if isinstance(canvas, Deck):
+                if debug:
+                    typer.echo("--debug is only supported for Canvas specs.", err=True)
+                    return
+                for path in canvas.render(
+                    str(output),
+                    format=fmt.upper() if fmt else None,  # type: ignore[arg-type]
+                    quality=quality,
+                ):
+                    typer.echo(path)
+                return
             canvas.render(
                 str(output),
                 format=fmt.upper() if fmt else None,  # type: ignore[arg-type]
@@ -422,7 +573,7 @@ def watch(
                 debug=debug,
             )
             typer.echo(str(output))
-        except (RenderingError, OSError) as e:
+        except (ValidationError, RenderingError, OSError) as e:
             typer.echo(str(e), err=True)
 
     typer.echo(f"Watching {spec} … (Ctrl+C to stop)")

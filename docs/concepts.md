@@ -271,6 +271,7 @@ JSON specs can define brand tokens once in a top-level `theme` block and referen
 
 ```json
 {
+  "kind": "canvas",
   "width": 1280,
   "height": 720,
   "theme": { "colors": { "primary": "#B8FF00" }, "sizes": { "title": 96 } },
@@ -284,7 +285,7 @@ Tokens are resolved at parse time; unknown tokens raise `ValidationError`. See [
 
 ## Diagnostics
 
-`canvas.diagnose()` checks a composition for common problems — layers outside the canvas, illegibly small text, unwrappable words, and low text contrast — without writing a file. The CLI equivalent is `quickthumb lint spec.json`. See [Diagnostics & CLI](diagnostics.md).
+`canvas.diagnose()` checks a composition for common problems — layers outside the canvas, illegibly small text, unwrappable or clipped text, missing glyphs, hidden or overlapping layers, safe-area crowding, and low text contrast — without writing a file. The CLI equivalents are `quickthumb lint spec.json` and `quickthumb diagnose spec.json`. See [Diagnostics & CLI](diagnostics.md).
 
 ## JSON round-trip
 

@@ -272,6 +272,7 @@ class TestBackgroundLayers:
         # tuple colors appear as hex strings, not arrays.
         assert json.loads(canvas.to_json()) == snapshot(
             {
+                "kind": "canvas",
                 "width": 1920,
                 "height": 1080,
                 "layers": [

@@ -6,6 +6,7 @@ from io import BytesIO
 from typing import Any, Literal, cast
 
 from PIL import Image, ImageDraw, ImageFont
+from pydantic import ValidationError as PydanticValidationError
 from typing_extensions import Self
 
 from quickthumb._base import FileFormat, RenderContext, aspect_ratio_dimensions, is_url
@@ -19,6 +20,7 @@ from quickthumb._images import ImageEngine
 from quickthumb._measurements import BBox, LayerMeasurement, measure_layers
 from quickthumb._shapes import ShapeEngine
 from quickthumb._text import TextEngine
+from quickthumb._validation import validate_dimensions
 from quickthumb.errors import RenderingError, ValidationError
 from quickthumb.models import (
     Align,
@@ -147,6 +149,7 @@ class Canvas:
         layers: list[RenderableLayer] | None = None,
         platform: str | None = None,
     ):
+        validate_dimensions(width, height)
         if platform is not None:
             try:
                 platform = PLATFORM_SAFE_MARGIN_PRESETS[platform].name
@@ -155,13 +158,6 @@ class Canvas:
                 raise ValidationError(
                     f"Unsupported platform preset '{platform}'. Supported: {supported}"
                 ) from None
-        if (width is None) != (height is None):
-            raise ValidationError("Provide both width and height, or neither.")
-        if width is not None and width <= 0:
-            raise ValidationError("width must be > 0")
-        if height is not None and height <= 0:
-            raise ValidationError("height must be > 0")
-
         # An unsized canvas defers its dimensions until a Deck injects them. Layer
         # builders never need a size (coordinates resolve at render time), so the
         # placeholder ctx stays valid; render/diagnose/serialize guard on _has_size.
@@ -259,8 +255,8 @@ class Canvas:
     def diagnose(self) -> list[Diagnostic]:
         """Check layers for layout and legibility issues without producing an output file.
 
-        Returns structured findings (off-canvas, tiny-text, text-overflow, low-contrast)
-        that an agent or human can act on before rendering.
+        Returns structured findings for layout, legibility, visibility, and safe-area
+        checks that an agent or human can act on before rendering.
         """
         return self._diagnostics.diagnose()
 
@@ -901,6 +897,7 @@ class Canvas:
                 layers_json.append(self._omit_unset_composition_fields(layer_json))
 
         payload: dict[str, Any] = {
+            "kind": "canvas",
             "width": self.width,
             "height": self.height,
             "layers": layers_json,
@@ -927,6 +924,17 @@ class Canvas:
 
     @classmethod
     def from_json(cls, data: str) -> Self:
+        try:
+            return cls._from_json(data)
+        except PydanticValidationError as error:
+            messages = []
+            for detail in error.errors():
+                field = " -> ".join(map(str, detail["loc"]))
+                messages.append(f"Field '{field}': {detail['msg']}")
+            raise ValidationError(" | ".join(messages), original_error=error) from error
+
+    @classmethod
+    def _from_json(cls, data: str) -> Self:
         import json as _json
 
         from pydantic import TypeAdapter
@@ -938,13 +946,24 @@ class Canvas:
             CanvasModel.model_validate_json(data)  # raises ValidationError with good message
         raw = cast(dict[str, Any], raw)
 
+        kind = raw.pop("kind", None)
+        if kind is not None and kind != "canvas":
+            raise ValidationError("Canvas JSON 'kind' must be 'canvas'.")
+        if "slides" in raw:
+            raise ValidationError("Canvas JSON must not contain a top-level 'slides' field.")
+
         theme = raw.pop("theme", {})
         if not isinstance(theme, dict):
             raise ValidationError("'theme' must be a JSON object of token groups")
+        unknown = sorted(set(raw) - {"width", "height", "platform", "layers"})
+        if unknown:
+            raise ValidationError(f"Canvas JSON contains unknown field(s): {', '.join(unknown)}")
+        if "layers" not in raw:
+            raise ValidationError("Canvas JSON must contain a 'layers' list.")
         raw = _resolve_theme_tokens(raw, theme)
         raw = cast(dict[str, Any], raw)
 
-        layers_raw = raw.get("layers", [])
+        layers_raw = raw["layers"]
 
         if not isinstance(layers_raw, list):
             CanvasModel.model_validate_json(data)  # raises ValidationError with good message

@@ -10,6 +10,7 @@ from typer.testing import CliRunner
 
 SIMPLE_SPEC = json.dumps(
     {
+        "kind": "canvas",
         "width": 100,
         "height": 100,
         "layers": [
@@ -69,7 +70,16 @@ class TestCLISchema:
         # then: the schema describes canvas fields, theme tokens, and layer types
         assert result.exit_code == 0
         payload = json.loads(result.output)
-        assert set(payload["properties"]) == {"height", "layers", "platform", "theme", "width"}
+        assert set(payload["properties"]) == {
+            "height",
+            "kind",
+            "layers",
+            "platform",
+            "theme",
+            "width",
+        }
+        assert payload["properties"]["kind"] == {"const": "canvas", "type": "string"}
+        assert "kind" in payload["required"]
         assert payload["anyOf"][0]["properties"] == {
             "width": {"exclusiveMinimum": 0, "type": "integer"},
             "height": {"exclusiveMinimum": 0, "type": "integer"},
@@ -112,6 +122,30 @@ class TestCLISchema:
             "shape",
             "svg",
             "text",
+        }
+
+    def test_should_emit_a_discriminated_canvas_and_deck_schema(self):
+        """schema --document describes both top-level JSON document kinds."""
+        from quickthumb.cli import app
+
+        # given: the quickthumb schema command
+
+        # when: the user requests the combined document schema
+        result = CliRunner().invoke(app, ["schema", "--document"])
+
+        # then: the published schema maps both discriminated document roots
+        assert result.exit_code == 0
+        payload = json.loads(result.output)
+        assert payload["title"] == "quickthumb JSON Document Spec"
+        assert payload["discriminator"] == {
+            "propertyName": "kind",
+            "mapping": {
+                "canvas": "#/$defs/CanvasDocument",
+                "deck": "#/$defs/DeckDocument",
+            },
+        }
+        assert payload["$defs"]["DeckDocument"]["properties"]["slides"]["items"] == {
+            "$ref": "#/$defs/CanvasDocument"
         }
 
     def test_should_reflect_model_validation_for_common_fields(self):
@@ -354,6 +388,7 @@ class TestCLIRender:
             f.write(
                 json.dumps(
                     {
+                        "kind": "canvas",
                         "width": 100,
                         "height": 100,
                         "layers": [
@@ -377,6 +412,39 @@ class TestCLIRender:
         finally:
             os.unlink(bad_spec)
 
+    def test_should_report_deck_render_validation_errors_without_traceback(self):
+        """render maps invalid Deck audio metadata to a clean input error."""
+        from quickthumb.cli import app
+
+        # given: a Deck JSON document referring to an audio file that does not exist
+        with tempfile.NamedTemporaryFile(suffix=".json", mode="w", delete=False) as spec_file:
+            json.dump(
+                {
+                    "kind": "deck",
+                    "slides": [
+                        {
+                            "width": 100,
+                            "height": 100,
+                            "layers": [],
+                            "audio": "missing-narration.wav",
+                        }
+                    ],
+                },
+                spec_file,
+            )
+            spec_path = spec_file.name
+
+        # when: rendering the Deck to the narrated MP4 path
+        try:
+            result = CliRunner().invoke(app, ["render", spec_path, "-o", "deck.mp4"])
+        finally:
+            os.unlink(spec_path)
+
+        # then: the CLI returns an input error without leaking a traceback
+        assert result.exit_code == 1
+        assert "Audio file not found" in result.output
+        assert "Traceback" not in result.output
+
     def test_should_substitute_var_placeholders(self):
         """Test that --var KEY=VALUE substitutes $KEY placeholders in the spec before parsing"""
         # Given: A spec template using $bg_color and a --var flag
@@ -384,6 +452,7 @@ class TestCLIRender:
 
         template_spec = json.dumps(
             {
+                "kind": "canvas",
                 "width": 100,
                 "height": 100,
                 "layers": [{"type": "background", "color": "$bg_color"}],
@@ -447,6 +516,7 @@ class TestCLIRender:
 
         template_spec = json.dumps(
             {
+                "kind": "canvas",
                 "width": 100,
                 "height": 100,
                 "layers": [{"type": "background", "color": "$missing_var"}],
@@ -519,6 +589,7 @@ class TestCLIRender:
 
         template_spec = json.dumps(
             {
+                "kind": "canvas",
                 "width": 100,
                 "height": 100,
                 "layers": [{"type": "background", "color": "${bg}"}],
@@ -546,6 +617,7 @@ class TestCLIRender:
 
         themed_spec = json.dumps(
             {
+                "kind": "canvas",
                 "width": 100,
                 "height": 100,
                 "theme": {"colors": {"bg": "#FF0000"}},
@@ -731,11 +803,40 @@ class TestCLIWatch:
         assert result.exit_code == 0
         assert "cannot write output" in result.output
 
+    def test_should_keep_watching_after_deck_render_validation_error(self, spec_file, monkeypatch):
+        """watch reports Deck validation errors and continues to the next change."""
+        import sys
+        import types
+
+        import quickthumb.cli as cli
+        from quickthumb import Canvas, Deck
+
+        # given: a Deck whose narration path is invalid and a watcher interrupted after startup
+        deck = Deck(100, 100).slide(Canvas(), audio="missing-narration.wav")
+
+        def fake_load_canvas(spec, variables):
+            return deck
+
+        def fake_watch(spec):
+            raise KeyboardInterrupt
+            yield
+
+        monkeypatch.setattr(cli, "_load_canvas", fake_load_canvas)
+        monkeypatch.setitem(sys.modules, "watchfiles", types.SimpleNamespace(watch=fake_watch))
+
+        # when: the user starts watching a Deck MP4 render
+        result = CliRunner().invoke(cli.app, ["watch", spec_file, "-o", "deck.mp4"])
+
+        # then: validation output is reported and the watcher exits normally
+        assert result.exit_code == 0
+        assert "Audio file not found" in result.output
+
 
 class TestCLILint:
     """Test suite for the quickthumb lint subcommand"""
 
     def _write_spec(self, spec: dict) -> str:
+        spec = {"kind": "deck" if "slides" in spec else "canvas", **spec}
         with tempfile.NamedTemporaryFile(suffix=".json", mode="w", delete=False) as f:
             f.write(json.dumps(spec))
         return f.name
@@ -1417,6 +1518,261 @@ class TestCLILint:
 
         # then
         assert result.exit_code == 1
+
+    def test_should_emit_json_error_without_traceback_for_invalid_layer(self):
+        """lint --format json emits a parseable error for an invalid layer discriminator"""
+        from quickthumb.cli import app
+
+        # given: a spec with an unknown layer type
+        spec_path = self._write_spec({"width": 100, "height": 100, "layers": [{"type": "unknown"}]})
+
+        # when
+        try:
+            result = CliRunner().invoke(app, ["lint", spec_path, "--format", "json"])
+        finally:
+            os.unlink(spec_path)
+
+        # then: expected input failures are structured and do not expose a traceback
+        assert result.exit_code == 1
+        assert "Traceback" not in result.output
+        payload = json.loads(result.output)
+        assert payload["error"]["code"] == "invalid-spec"
+        assert "unknown" in payload["error"]["message"]
+
+    def test_should_reject_an_ambiguous_canvas_document(self):
+        """lint rejects a Canvas document that also claims to contain Deck slides."""
+        from quickthumb.cli import app
+
+        # given: a document explicitly marked as Canvas but carrying a top-level slides field
+        spec_path = self._write_spec(
+            {
+                "kind": "canvas",
+                "width": 100,
+                "height": 100,
+                "layers": [],
+                "slides": [],
+            }
+        )
+
+        # when: linting the ambiguous JSON document
+        try:
+            result = CliRunner().invoke(app, ["lint", spec_path, "--format", "json"])
+        finally:
+            os.unlink(spec_path)
+
+        # then: the structured invalid-spec contract is preserved
+        assert result.exit_code == 1
+        payload = json.loads(result.output)
+        assert payload["error"]["code"] == "invalid-spec"
+        assert "slides" in payload["error"]["message"]
+
+    def test_should_require_a_top_level_document_kind(self):
+        """lint rejects JSON documents without an explicit Canvas or Deck discriminator."""
+        from quickthumb.cli import app
+
+        # given: a legacy shape-only JSON document
+        with tempfile.NamedTemporaryFile(suffix=".json", mode="w", delete=False) as spec_file:
+            json.dump({"width": 100, "height": 100, "layers": []}, spec_file)
+            spec_path = spec_file.name
+
+        # when: linting the document through the CLI boundary
+        try:
+            result = CliRunner().invoke(app, ["lint", spec_path, "--format", "json"])
+        finally:
+            os.unlink(spec_path)
+
+        # then: the missing discriminator is a structured invalid-spec error
+        assert result.exit_code == 1
+        payload = json.loads(result.output)
+        assert payload["error"]["code"] == "invalid-spec"
+        assert "kind" in payload["error"]["message"]
+
+    @pytest.mark.parametrize("width", ["100", 100.5, True])
+    def test_should_reject_non_integer_deck_dimensions(self, width):
+        """lint rejects Deck dimensions that are not positive JSON integers."""
+        from quickthumb.cli import app
+
+        # given: a Deck with one malformed root dimension
+        spec_path = self._write_spec({"kind": "deck", "width": width, "height": 100, "slides": []})
+
+        # when: linting the malformed Deck
+        try:
+            result = CliRunner().invoke(app, ["lint", spec_path, "--format", "json"])
+        finally:
+            os.unlink(spec_path)
+
+        # then: invalid dimensions produce structured JSON and no traceback
+        assert result.exit_code == 1
+        assert "Traceback" not in result.output
+        payload = json.loads(result.output)
+        assert payload["error"]["code"] == "invalid-spec"
+        assert "integer" in payload["error"]["message"]
+
+    def test_should_reject_non_mapping_deck_slide_theme(self):
+        """lint rejects a non-object slide theme instead of leaking a merge TypeError."""
+        from quickthumb.cli import app
+
+        # given: a Deck with a shared theme and an invalid per-slide theme value
+        spec_path = self._write_spec(
+            {
+                "kind": "deck",
+                "theme": {"brand": "#B8FF00"},
+                "slides": [
+                    {
+                        "width": 100,
+                        "height": 100,
+                        "theme": "not-an-object",
+                        "layers": [],
+                    }
+                ],
+            }
+        )
+
+        # when: linting the malformed slide theme
+        try:
+            result = CliRunner().invoke(app, ["lint", spec_path, "--format", "json"])
+        finally:
+            os.unlink(spec_path)
+
+        # then: the public invalid-spec response is structured and traceback-free
+        assert result.exit_code == 1
+        assert "Traceback" not in result.output
+        payload = json.loads(result.output)
+        assert payload["error"]["code"] == "invalid-spec"
+        assert "theme" in payload["error"]["message"]
+
+    @pytest.mark.parametrize(
+        ("spec", "message"),
+        [
+            ({"kind": "canvas", "width": 100, "height": 100}, "layers"),
+            (
+                {"kind": "canvas", "width": 100, "height": 100, "layerz": []},
+                "unknown field",
+            ),
+            (
+                {"kind": "canvas", "width": True, "height": 100, "layers": []},
+                "integer",
+            ),
+        ],
+    )
+    def test_should_reject_malformed_canvas_envelopes(self, spec, message):
+        """lint rejects missing, misspelled, and boolean Canvas envelope fields."""
+        from quickthumb.cli import app
+
+        # given: a Canvas document with one malformed top-level field
+        spec_path = self._write_spec(spec)
+
+        # when: linting the malformed Canvas document
+        try:
+            result = CliRunner().invoke(app, ["lint", spec_path, "--format", "json"])
+        finally:
+            os.unlink(spec_path)
+
+        # then: the CLI emits a structured invalid-spec response
+        assert result.exit_code == 1
+        payload = json.loads(result.output)
+        assert payload["error"]["code"] == "invalid-spec"
+        assert message in payload["error"]["message"]
+
+    def test_should_support_deck_specs_and_preserve_slide_diagnostic_fields(self):
+        """lint accepts deck JSON and includes slide and layer diagnostic context"""
+        from quickthumb.cli import app
+
+        # given: a deck whose first slide has an off-canvas layer
+        spec_path = self._write_spec(
+            {
+                "slides": [
+                    {
+                        "width": 100,
+                        "height": 100,
+                        "layers": [
+                            {
+                                "type": "shape",
+                                "shape": "rectangle",
+                                "position": [300, 300],
+                                "width": 50,
+                                "height": 50,
+                                "color": "#FF0000",
+                            }
+                        ],
+                    }
+                ]
+            }
+        )
+
+        # when
+        try:
+            result = CliRunner().invoke(app, ["lint", spec_path, "--format", "json"])
+        finally:
+            os.unlink(spec_path)
+
+        # then: the finding carries both slide and original Canvas context
+        assert result.exit_code == 3
+        finding = json.loads(result.output)["diagnostics"][0]
+        assert finding["slide_index"] == 0
+        assert finding["layer_index"] == 0
+        assert finding["layer_id"] == "layer:0"
+        assert finding["bbox"] == {"x": 300, "y": 300, "width": 50, "height": 50}
+        assert finding["suggestion"] == "move layer to x=50, y=50 to fit within the canvas"
+
+    def test_should_support_diagnose_alias_and_fail_on_filters(self):
+        """diagnose aliases lint and fail-on controls warning-only findings"""
+        from quickthumb.cli import app
+
+        # given: a shape that produces only an edge-crowding warning
+        spec_path = self._write_spec(
+            {
+                "width": 100,
+                "height": 100,
+                "layers": [
+                    {
+                        "type": "shape",
+                        "shape": "rectangle",
+                        "position": [0, 10],
+                        "width": 20,
+                        "height": 20,
+                        "color": "#FF0000",
+                    }
+                ],
+            }
+        )
+
+        # when: warnings are ignored for exit status and then filtered entirely
+        try:
+            warning_result = CliRunner().invoke(app, ["diagnose", spec_path, "--fail-on", "error"])
+            ignored_result = CliRunner().invoke(
+                app,
+                ["diagnose", spec_path, "--ignore", "edge-crowding", "--format", "json"],
+            )
+        finally:
+            os.unlink(spec_path)
+
+        # then
+        assert warning_result.exit_code == 0
+        assert "edge-crowding" in warning_result.output
+        assert ignored_result.exit_code == 0
+        assert json.loads(ignored_result.output)["diagnostics"] == []
+
+    def test_should_emit_json_error_for_unknown_diagnostic_filter(self, spec_file):
+        """lint --format json reports unknown diagnostic filters as structured errors"""
+        from quickthumb.cli import app
+
+        # given: a valid canvas and a misspelled diagnostic code
+
+        # when
+        result = CliRunner().invoke(
+            app,
+            ["lint", spec_file, "--format", "json", "--ignore", "not-a-rule"],
+        )
+
+        # then
+        assert result.exit_code == 1
+        assert json.loads(result.output) == {
+            "error": {
+                "code": "invalid-options",
+                "message": "Unknown diagnostic code(s): not-a-rule",
+            }
+        }
 
     def test_should_exit_1_when_lint_variable_substitution_leaves_placeholder(self):
         """lint exits 1 when variable substitution leaves unresolved placeholders"""
