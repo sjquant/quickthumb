@@ -964,7 +964,7 @@ class Canvas:
                     ) from e
                 layers_json.append({"type": "custom", "name": layer.name, "kwargs": layer.kwargs})
             else:
-                layer_json = layer.model_dump(mode="json")
+                layer_json = layer.model_dump(mode="json", by_alias=True)
                 layers_json.append(self._omit_unset_composition_fields(layer_json))
 
         payload: dict[str, Any] = {

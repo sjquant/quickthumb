@@ -33,6 +33,27 @@ def canvas_json_schema() -> dict[str, Any]:
     schema["properties"]["platform"] = platform_schema
     schema["required"] = ["kind", *schema.get("required", [])]
     schema["additionalProperties"] = False
+    animation_schema = schema.get("$defs", {}).get("AnimationSpec")
+    if animation_schema is not None:
+        # Pydantic's generated schema describes the two optional branches, but
+        # model-level validators are not represented there. Keep the published
+        # contract equally strict for constrained JSON generation and clients.
+        animation_schema["oneOf"] = [
+            {
+                "required": ["effect"],
+                "properties": {
+                    "effect": {"$ref": "#/$defs/AnimationEffect"},
+                    "tracks": {"type": "null"},
+                },
+            },
+            {
+                "required": ["tracks"],
+                "properties": {
+                    "effect": {"type": "null"},
+                    "tracks": {"type": "array", "minItems": 1},
+                },
+            },
+        ]
     schema["anyOf"] = [
         {
             "properties": {
