@@ -1,5 +1,6 @@
 import math
 import re
+from collections.abc import Sequence
 from enum import Enum
 from typing import Annotated, Any, Literal, TypeAlias, TypeVar
 
@@ -740,7 +741,7 @@ class BarChartSpec(quickthumbModel):
     """Validated bar chart data and bar-specific options."""
 
     type: Literal["bar"] = "bar"
-    data: ChartData
+    data: ChartData | Sequence[int | float]
     style: BarChartStyle = Field(default_factory=BarChartStyle)
 
     @field_validator(
@@ -761,7 +762,7 @@ class LineChartSpec(quickthumbModel):
     """Validated line chart data and line-specific options."""
 
     type: Literal["line"] = "line"
-    data: ChartData
+    data: ChartData | Sequence[int | float]
     style: LineChartStyle = Field(default_factory=LineChartStyle)
 
     @field_validator(

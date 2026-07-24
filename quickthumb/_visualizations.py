@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Sequence
 
 from PIL import Image, ImageDraw
 
@@ -11,6 +12,7 @@ from quickthumb._effects import EffectsEngine
 from quickthumb.errors import RenderingError
 from quickthumb.models import (
     BarChartSpec,
+    ChartData,
     ChartLayer,
     LineChartSpec,
     QRCodeLayer,
@@ -37,7 +39,7 @@ class VisualizationEngine:
         """Render vertical bars against a baseline that includes zero."""
         if not isinstance(layer.chart, BarChartSpec):
             raise RenderingError("bar renderer received a non-bar chart spec")
-        values = layer.chart.data.values
+        values = self._chart_values(layer.chart.data)
         if not values:
             return
 
@@ -155,7 +157,7 @@ class VisualizationEngine:
         """Draw a line layer into an antialiased local surface."""
         if not isinstance(layer.chart, LineChartSpec):
             raise RenderingError("line renderer received a non-line chart spec")
-        values = layer.chart.data.values
+        values = self._chart_values(layer.chart.data)
         if not values:
             return
 
@@ -210,6 +212,12 @@ class VisualizationEngine:
         if layer.align:
             return apply_alignment(x, y, (layer.width, layer.height), layer.align)
         return x, y
+
+    def _chart_values(self, data: ChartData | Sequence[int | float]) -> list[float]:
+        """Return normalized samples from a validated chart input."""
+        if isinstance(data, ChartData):
+            return data.values
+        return [float(value) for value in data]
 
     def _plot_box(self, width: int, height: int, padding: int) -> tuple[int, int, int, int] | None:
         """Return an inset plot box, or no box when padding consumes the layer."""

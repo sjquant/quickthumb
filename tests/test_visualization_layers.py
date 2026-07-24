@@ -99,7 +99,7 @@ class TestVisualizationValidation:
             )
         with pytest.raises(ValidationError, match="opacity"):
             canvas.chart(
-                LineChartSpec(data=[1, 2], style={"opacity": 2.0}),
+                LineChartSpec(data=[1, 2], style=cast(Any, {"opacity": 2.0})),
                 position=(0, 0),
                 width=80,
                 height=40,
@@ -107,7 +107,7 @@ class TestVisualizationValidation:
 
         with pytest.raises(ValidationError, match="opacity"):
             canvas.chart(
-                LineChartSpec(data=[1, 2], style={"opacity": float("nan")}),
+                LineChartSpec(data=[1, 2], style=cast(Any, {"opacity": float("nan")})),
                 position=(0, 0),
                 width=80,
                 height=40,
@@ -153,14 +153,14 @@ class TestVisualizationValidation:
         # when / then
         with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
             canvas.chart(
-                BarChartSpec(data=[1, 2], style={"fill": "#FF0000"}),
+                BarChartSpec(data=[1, 2], style=cast(Any, {"fill": "#FF0000"})),
                 position=(0, 0),
                 width=80,
                 height=40,
             )
         with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
             canvas.chart(
-                LineChartSpec(data=[1, 2], style={"bar_gap": 0.3}),
+                LineChartSpec(data=[1, 2], style=cast(Any, {"bar_gap": 0.3})),
                 position=(0, 0),
                 width=80,
                 height=40,
