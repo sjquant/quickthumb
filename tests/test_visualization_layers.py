@@ -532,6 +532,7 @@ class TestVisualizationSerialization:
         spec.write_text(
             json.dumps(
                 {
+                    "kind": "canvas",
                     "width": 160,
                     "height": 120,
                     "layers": [
