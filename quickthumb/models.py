@@ -1240,13 +1240,7 @@ class GroupLayer(quickthumbModel):
 
 
 GroupChild = Annotated[
-    TextLayer
-    | ImageLayer
-    | ShapeLayer
-    | SvgLayer
-    | ChartLayer
-    | QRCodeLayer
-    | GroupLayer,
+    TextLayer | ImageLayer | ShapeLayer | SvgLayer | ChartLayer | QRCodeLayer | GroupLayer,
     Discriminator("type"),
 ]
 

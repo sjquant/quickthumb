@@ -28,13 +28,7 @@ from quickthumb.models import (
 )
 
 GroupChildLayer = (
-    TextLayer
-    | ImageLayer
-    | ShapeLayer
-    | SvgLayer
-    | ChartLayer
-    | QRCodeLayer
-    | GroupLayer
+    TextLayer | ImageLayer | ShapeLayer | SvgLayer | ChartLayer | QRCodeLayer | GroupLayer
 )
 GroupBox = tuple[int, int, int, int]
 GroupPlacement = tuple[GroupChildLayer, tuple[int, int], tuple[int, int]]
