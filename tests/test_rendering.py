@@ -2169,6 +2169,105 @@ class TestRendering:
             with open(output_path, "rb") as f:
                 assert f.read() == external_file("snapshots/shape_rectangle_basic.png")
 
+    def test_snapshot_bar_chart_layer(self):
+        """Snapshot test for a zero-aware positive and negative bar chart."""
+        from quickthumb import BarChartSpec, BarChartStyle, Canvas
+
+        # Given: a canvas with a bar chart containing positive and negative values
+        canvas = (
+            Canvas(360, 220)
+            .background(color="#E2E8F0")
+            .text("Bar chart", size=18, color="#0F172A", position=(40, 28))
+            .chart(
+                BarChartSpec(
+                    data=[-4, 8, -2, 10, 5],
+                    style=BarChartStyle(
+                        color="#16A34A",
+                        negative_color="#DC2626",
+                        bar_gap=0.25,
+                        padding=8,
+                    ),
+                ),
+                position=(40, 70),
+                width=280,
+                height=110,
+            )
+        )
+
+        # When: the bar chart canvas is rendered to PNG
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            # Then: the bar chart pixels match its independent golden image
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/bar_chart_layer.png")
+
+    def test_snapshot_line_chart_layer(self):
+        """Snapshot test for a filled line chart with point markers."""
+        from quickthumb import Canvas, LineChartSpec, LineChartStyle
+
+        # Given: a canvas with one line chart spanning negative and positive values
+        canvas = (
+            Canvas(360, 220)
+            .background(color="#E2E8F0")
+            .text("Line chart", size=18, color="#0F172A", position=(40, 28))
+            .chart(
+                LineChartSpec(
+                    data=[-2, 1, 0, 5, 3],
+                    style=LineChartStyle(
+                        color="#7C3AED",
+                        fill="#DDD6FE",
+                        fill_opacity=0.5,
+                        stroke_width=3,
+                        point_radius=3,
+                        show_points=True,
+                        padding=8,
+                    ),
+                ),
+                position=(40, 70),
+                width=280,
+                height=110,
+            )
+        )
+
+        # When: the line chart canvas is rendered to PNG
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            # Then: the line chart pixels match its independent golden image
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/line_chart_layer.png")
+
+    def test_snapshot_qr_code_layer(self):
+        """Snapshot test for a QR code with explicit size and error correction."""
+        from quickthumb import Canvas
+
+        # Given: a canvas with one readable QR code layer
+        canvas = (
+            Canvas(360, 240)
+            .background(color="#E2E8F0")
+            .text("QR code", size=18, color="#0F172A", position=(40, 28))
+            .qr_code(
+                "https://example.com/quickthumb",
+                position=(110, 70),
+                size=140,
+                foreground="#111827",
+                background="#FFFFFF",
+                error_correction="Q",
+            )
+        )
+
+        # When: the QR canvas is rendered to PNG
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "output.png")
+            canvas.render(output_path)
+
+            # Then: the QR pixels match its independent golden image
+            with open(output_path, "rb") as f:
+                assert f.read() == external_file("snapshots/qr_code_layer.png")
+
     def test_snapshot_shape_ellipse_basic(self):
         """Snapshot test for basic ellipse shape layer"""
         from quickthumb import Canvas

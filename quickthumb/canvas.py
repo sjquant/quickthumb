@@ -21,6 +21,7 @@ from quickthumb._measurements import BBox, LayerMeasurement, measure_layers
 from quickthumb._shapes import ShapeEngine
 from quickthumb._text import TextEngine
 from quickthumb._validation import validate_dimensions
+from quickthumb._visualizations import VisualizationEngine
 from quickthumb.errors import RenderingError, ValidationError
 from quickthumb.models import (
     Align,
@@ -31,6 +32,8 @@ from quickthumb.models import (
     BackgroundLayer,
     BlendMode,
     CanvasInspection,
+    ChartLayer,
+    ChartSpec,
     Diagnostic,
     FaceRegion,
     FitMode,
@@ -46,6 +49,7 @@ from quickthumb.models import (
     LayerType,
     LinearGradient,
     OutlineLayer,
+    QRCodeLayer,
     RadialGradient,
     ShapeEffect,
     ShapeLayer,
@@ -171,8 +175,15 @@ class Canvas:
         self._images = ImageEngine(self._ctx, self._effects)
         self._text = TextEngine(self._ctx, self._fonts, self._effects, self._images)
         self._shapes = ShapeEngine(self._ctx, self._effects, self._images)
+        self._visualizations = VisualizationEngine(self._ctx, self._effects)
         self._groups = GroupEngine(
-            self._ctx, self._fonts, self._effects, self._images, self._shapes, self._text
+            self._ctx,
+            self._fonts,
+            self._effects,
+            self._images,
+            self._shapes,
+            self._text,
+            self._visualizations,
         )
         self._diagnostics = DiagnosticsEngine(
             self._ctx,
@@ -587,6 +598,66 @@ class Canvas:
         self._layers.append(layer)
         return self
 
+    def chart(
+        self,
+        spec: ChartSpec,
+        position: tuple[int | str, int | str],
+        width: int,
+        height: int,
+        opacity: float = 1.0,
+        align: Align | str | tuple[str, str] = Align.TOP_LEFT,
+        clip: LayerClip | dict[str, Any] | None = None,
+        mask: LayerMask | dict[str, Any] | None = None,
+        animation: AnimationInput | None = None,
+    ) -> Self:
+        """Add a chart layer using a validated bar or line specification."""
+        layer = ChartLayer(
+            position=position,
+            width=width,
+            height=height,
+            opacity=opacity,
+            animation=animation,
+            align=align,  # type: ignore[arg-type]
+            clip=cast(Any, clip),
+            mask=cast(Any, mask),
+            spec=spec,
+        )
+        self._layers.append(layer)
+        return self
+
+    def qr_code(
+        self,
+        data: str,
+        position: tuple[int | str, int | str] = (0, 0),
+        size: int = 128,
+        foreground: str = "#000000",
+        background: str | None = "#FFFFFF",
+        error_correction: Literal["L", "M", "Q", "H"] = "M",
+        quiet_zone: int = 4,
+        align: Align | str | tuple[str, str] = Align.TOP_LEFT,
+        opacity: float = 1.0,
+        clip: LayerClip | dict[str, Any] | None = None,
+        mask: LayerMask | dict[str, Any] | None = None,
+        animation: AnimationInput | None = None,
+    ) -> Self:
+        """Add a square QR code layer."""
+        layer = QRCodeLayer(
+            data=data,
+            position=position,
+            size=size,
+            foreground=foreground,
+            background=background,
+            error_correction=error_correction,
+            quiet_zone=quiet_zone,
+            align=align,  # type: ignore[arg-type]
+            opacity=opacity,
+            animation=animation,
+            clip=cast(Any, clip),
+            mask=cast(Any, mask),
+        )
+        self._layers.append(layer)
+        return self
+
     def group(
         self,
         children: list,
@@ -606,7 +677,7 @@ class Canvas:
 
         Children are measured at their natural size and positioned by the group:
         they must not set their own position. Children may be dicts or layer models
-        of type text, image, shape, svg, or nested group.
+        of type text, image, shape, svg, chart, qr_code, or nested group.
 
         Args:
             children: Child layer dicts or models, in stacking order
@@ -1193,6 +1264,10 @@ class Canvas:
             self._shapes.render_shape_layer(image, layer)
         elif isinstance(layer, SvgLayer):
             self._images.render_svg_layer(image, layer)
+        elif isinstance(layer, ChartLayer):
+            self._visualizations.render_chart(image, layer)
+        elif isinstance(layer, QRCodeLayer):
+            self._visualizations.render_qr_code(image, layer)
         elif isinstance(layer, GroupLayer):
             self._groups.render_group_layer(image, layer)
         elif isinstance(layer, CustomLayer):

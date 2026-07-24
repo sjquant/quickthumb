@@ -115,10 +115,12 @@ class TestCLISchema:
         assert payload["properties"]["theme"]["type"] == "object"
         layer_mapping = payload["properties"]["layers"]["items"]["discriminator"]["mapping"]
         assert set(layer_mapping) == {
+            "chart",
             "background",
             "group",
             "image",
             "outline",
+            "qr_code",
             "shape",
             "svg",
             "text",

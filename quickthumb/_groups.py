@@ -14,17 +14,22 @@ from quickthumb._fonts import FontEngine
 from quickthumb._images import ImageEngine
 from quickthumb._shapes import ShapeEngine
 from quickthumb._text import TextEngine
+from quickthumb._visualizations import VisualizationEngine
 from quickthumb.models import (
     Align,
     BackdropBlur,
+    ChartLayer,
     GroupLayer,
     ImageLayer,
+    QRCodeLayer,
     ShapeLayer,
     SvgLayer,
     TextLayer,
 )
 
-GroupChildLayer = TextLayer | ImageLayer | ShapeLayer | SvgLayer | GroupLayer
+GroupChildLayer = (
+    TextLayer | ImageLayer | ShapeLayer | SvgLayer | ChartLayer | QRCodeLayer | GroupLayer
+)
 GroupBox = tuple[int, int, int, int]
 GroupPlacement = tuple[GroupChildLayer, tuple[int, int], tuple[int, int]]
 
@@ -40,6 +45,7 @@ class GroupEngine:
         images: ImageEngine,
         shapes: ShapeEngine,
         text: TextEngine,
+        visualizations: VisualizationEngine,
     ):
         self._ctx = ctx
         self._fonts = fonts
@@ -47,6 +53,7 @@ class GroupEngine:
         self._images = images
         self._shapes = shapes
         self._text = text
+        self._visualizations = visualizations
 
     def render_group_layer(
         self, image: Image.Image, layer: GroupLayer, origin: tuple[int, int] | None = None
@@ -127,6 +134,10 @@ class GroupEngine:
             self._images.render_svg_layer(image, child)
         elif isinstance(child, ShapeLayer):
             self._shapes.render_shape_layer(image, child)
+        elif isinstance(child, ChartLayer):
+            self._visualizations.render_chart(image, child)
+        elif isinstance(child, QRCodeLayer):
+            self._visualizations.render_qr_code(image, child)
 
     def _place_group_child(
         self,
@@ -140,6 +151,8 @@ class GroupEngine:
             return child.model_copy(update={"position": position, "align": Align.TOP_LEFT})
         if isinstance(child, ShapeLayer):
             return child.model_copy(update={"position": position, "align": None})
+        if isinstance(child, (ChartLayer, QRCodeLayer)):
+            return child.model_copy(update={"position": position, "align": Align.TOP_LEFT})
         return child
 
     @staticmethod
@@ -263,6 +276,10 @@ class GroupEngine:
             return expanded_rotation_size(size, child.rotation)
         if isinstance(child, ShapeLayer):
             return expanded_rotation_size((child.width, child.height), child.rotation)
+        if isinstance(child, ChartLayer):
+            return child.width, child.height
+        if isinstance(child, QRCodeLayer):
+            return child.size, child.size
         _, (_, _, group_w, group_h) = self.layout_group(child, origin=(0, 0))
         return group_w, group_h
 
