@@ -46,7 +46,7 @@ from quickthumb import (
 | [SVG](svg.md) | `.svg()` — vector icons and logos rasterized at render time |
 | [Group](group.md) | `.group()` — auto-layout rows and columns |
 | [Outline](outline.md) | `.outline()` — canvas border |
-| [Data visualizations](data-visualizations.md) | `.bar_chart()`, `.line_chart()`, and `.qr_code()` |
+| [Data visualizations](data-visualizations.md) | `.chart()` and `.qr_code()` |
 | [Effects](effects.md) | `Stroke`, `Shadow`, `Glow`, `Filter`, `Background`, `Grain` |
 | [Enums & Gradients](enums.md) | `Align`, `BlendMode`, `FitMode`, `LinearGradient`, `RadialGradient`, `TextFillImage` |
 

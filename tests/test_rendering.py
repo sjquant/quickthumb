@@ -2171,24 +2171,26 @@ class TestRendering:
 
     def test_snapshot_bar_chart_layer(self):
         """Snapshot test for a zero-aware positive and negative bar chart."""
-        from quickthumb import BarChartStyle, Canvas
+        from quickthumb import BarChartSpec, BarChartStyle, Canvas
 
         # Given: a canvas with a bar chart containing positive and negative values
         canvas = (
             Canvas(360, 220)
             .background(color="#E2E8F0")
             .text("Bar chart", size=18, color="#0F172A", position=(40, 28))
-            .bar_chart(
-                [-4, 8, -2, 10, 5],
+            .chart(
+                BarChartSpec(
+                    data=[-4, 8, -2, 10, 5],
+                    style=BarChartStyle(
+                        color="#16A34A",
+                        negative_color="#DC2626",
+                        bar_gap=0.25,
+                        padding=8,
+                    ),
+                ),
                 position=(40, 70),
                 width=280,
                 height=110,
-                style=BarChartStyle(
-                    color="#16A34A",
-                    negative_color="#DC2626",
-                    bar_gap=0.25,
-                    padding=8,
-                ),
             )
         )
 
@@ -2203,27 +2205,29 @@ class TestRendering:
 
     def test_snapshot_line_chart_layer(self):
         """Snapshot test for a filled line chart with point markers."""
-        from quickthumb import Canvas, LineChartStyle
+        from quickthumb import Canvas, LineChartSpec, LineChartStyle
 
         # Given: a canvas with one line chart spanning negative and positive values
         canvas = (
             Canvas(360, 220)
             .background(color="#E2E8F0")
             .text("Line chart", size=18, color="#0F172A", position=(40, 28))
-            .line_chart(
-                [-2, 1, 0, 5, 3],
+            .chart(
+                LineChartSpec(
+                    data=[-2, 1, 0, 5, 3],
+                    style=LineChartStyle(
+                        color="#7C3AED",
+                        fill="#DDD6FE",
+                        fill_opacity=0.5,
+                        stroke_width=3,
+                        point_radius=3,
+                        show_points=True,
+                        padding=8,
+                    ),
+                ),
                 position=(40, 70),
                 width=280,
                 height=110,
-                style=LineChartStyle(
-                    color="#7C3AED",
-                    fill="#DDD6FE",
-                    fill_opacity=0.5,
-                    stroke_width=3,
-                    point_radius=3,
-                    show_points=True,
-                    padding=8,
-                ),
             )
         )
 

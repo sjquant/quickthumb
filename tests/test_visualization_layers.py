@@ -10,6 +10,8 @@ from typing import Any, cast
 import pytest
 from PIL import Image, ImageChops
 from quickthumb import (
+    BarChartSpec,
+    BarChartStyle,
     Canvas,
     ChartData,
     ChartLayer,
@@ -61,7 +63,7 @@ class TestVisualizationValidation:
         canvas = Canvas(160, 100)
 
         # when
-        canvas.line_chart(values, position=(0, 0), width=80, height=40)
+        canvas.chart(spec=LineChartSpec(data=values), position=(0, 0), width=80, height=40)
 
         # then
         layer = canvas.layers[0]
@@ -78,7 +80,9 @@ class TestVisualizationValidation:
 
         # when / then
         with pytest.raises(ValidationError, match="chart values"):
-            canvas.line_chart(cast(Any, [value]), position=(0, 0), width=80, height=40)
+            canvas.chart(
+                LineChartSpec(data=cast(Any, [value])), position=(0, 0), width=80, height=40
+            )
 
     def test_should_validate_shared_chart_style_and_position(self):
         """Shared style fields use the same color, opacity, and coordinate constraints."""
@@ -87,23 +91,26 @@ class TestVisualizationValidation:
 
         # when / then
         with pytest.raises(ValidationError, match="invalid hex color"):
-            canvas.bar_chart(
-                [1, 2],
+            canvas.chart(
+                BarChartSpec(data=[1, 2], style=BarChartStyle(color="blue")),
                 position=(0, 0),
                 width=80,
                 height=40,
-                style=LineChartStyle(color="blue"),
             )
         with pytest.raises(ValidationError, match="opacity"):
-            canvas.line_chart([1, 2], position=(0, 0), width=80, height=40, style={"opacity": 2.0})
-
-        with pytest.raises(ValidationError, match="opacity"):
-            canvas.line_chart(
-                [1, 2],
+            canvas.chart(
+                LineChartSpec(data=[1, 2], style={"opacity": 2.0}),
                 position=(0, 0),
                 width=80,
                 height=40,
-                style={"opacity": float("nan")},
+            )
+
+        with pytest.raises(ValidationError, match="opacity"):
+            canvas.chart(
+                LineChartSpec(data=[1, 2], style={"opacity": float("nan")}),
+                position=(0, 0),
+                width=80,
+                height=40,
             )
 
     def test_should_reject_extremely_large_integer_data_as_validation_error(self):
@@ -113,18 +120,25 @@ class TestVisualizationValidation:
 
         # when / then
         with pytest.raises(ValidationError, match="chart values"):
-            canvas.line_chart(cast(Any, [10**1000, 0]), position=(0, 0), width=80, height=40)
+            canvas.chart(
+                LineChartSpec(data=cast(Any, [10**1000, 0])),
+                position=(0, 0),
+                width=80,
+                height=40,
+            )
 
     def test_should_render_extreme_finite_float_range_without_overflow(self):
         """Opposite extreme finite samples still map to deterministic chart pixels."""
         # given
-        canvas = Canvas(160, 100).line_chart([1e308, -1e308], position=(0, 0), width=80, height=40)
+        canvas = Canvas(160, 100).chart(
+            LineChartSpec(data=[1e308, -1e308]), position=(0, 0), width=80, height=40
+        )
 
         # when
         first = canvas.to_base64()
         second = (
             Canvas(160, 100)
-            .line_chart([1e308, -1e308], position=(0, 0), width=80, height=40)
+            .chart(LineChartSpec(data=[1e308, -1e308]), position=(0, 0), width=80, height=40)
             .to_base64()
         )
 
@@ -138,20 +152,18 @@ class TestVisualizationValidation:
 
         # when / then
         with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
-            canvas.bar_chart(
-                [1, 2],
+            canvas.chart(
+                BarChartSpec(data=[1, 2], style={"fill": "#FF0000"}),
                 position=(0, 0),
                 width=80,
                 height=40,
-                style={"fill": "#FF0000"},
             )
         with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
-            canvas.line_chart(
-                [1, 2],
+            canvas.chart(
+                LineChartSpec(data=[1, 2], style={"bar_gap": 0.3}),
                 position=(0, 0),
                 width=80,
                 height=40,
-                style={"bar_gap": 0.3},
             )
 
     def test_should_reject_qr_code_that_cannot_preserve_all_modules(self):
@@ -193,21 +205,23 @@ class TestVisualizationRendering:
             return (
                 Canvas(320, 180)
                 .background(color="#FFFFFF")
-                .bar_chart(
-                    [-2, -1, 0, 3],
+                .chart(
+                    BarChartSpec(
+                        data=[-2, -1, 0, 3],
+                        style=BarChartStyle(color="#0000FF", negative_color="#00AA00"),
+                    ),
                     position=(105, 10),
                     width=80,
                     height=50,
-                    color="#0000FF",
-                    negative_color="#00AA00",
                 )
-                .line_chart(
-                    [-1, 0, 2],
+                .chart(
+                    LineChartSpec(
+                        data=[-1, 0, 2],
+                        style=LineChartStyle(color="#7C3AED", fill="#DDD6FE"),
+                    ),
                     position=(200, 10),
                     width=80,
                     height=50,
-                    color="#7C3AED",
-                    fill="#DDD6FE",
                 )
                 .qr_code("https://example.test", position=(10, 90), size=72)
             )
@@ -233,8 +247,11 @@ class TestVisualizationRendering:
     def test_should_leave_an_empty_chart_transparent(self):
         """An empty chart has no accidental baseline, point, or fill pixels."""
         # given
-        canvas = Canvas(100, 60).line_chart(
-            [], position=(10, 10), width=60, height=30, show_points=False
+        canvas = Canvas(100, 60).chart(
+            LineChartSpec(data=[], style=LineChartStyle(show_points=False)),
+            position=(10, 10),
+            width=60,
+            height=30,
         )
         expected = Image.new("RGBA", (100, 60), (0, 0, 0, 0))
 
@@ -249,8 +266,18 @@ class TestVisualizationRendering:
         # given
         canvas = (
             Canvas(160, 100)
-            .line_chart([4, 4, 4], position=(5, 5), width=60, height=40, color="#FF0000")
-            .bar_chart([-2, 2], position=(80, 5), width=60, height=70, color="#0000FF")
+            .chart(
+                LineChartSpec(data=[4, 4, 4], style=LineChartStyle(color="#FF0000")),
+                position=(5, 5),
+                width=60,
+                height=40,
+            )
+            .chart(
+                BarChartSpec(data=[-2, 2], style=BarChartStyle(color="#0000FF")),
+                position=(80, 5),
+                width=60,
+                height=70,
+            )
         )
 
         # when
@@ -265,19 +292,21 @@ class TestVisualizationRendering:
         """A zero marker radius produces the same raster as explicitly hiding points."""
         # given
         without_points = rendered_image(
-            Canvas(100, 60).line_chart(
-                [0, 2], position=(10, 10), width=60, height=30, show_points=False
+            Canvas(100, 60).chart(
+                LineChartSpec(data=[0, 2], style=LineChartStyle(show_points=False)),
+                position=(10, 10),
+                width=60,
+                height=30,
             )
         )
 
         # when
         zero_radius = rendered_image(
-            Canvas(100, 60).line_chart(
-                [0, 2],
+            Canvas(100, 60).chart(
+                LineChartSpec(data=[0, 2], style=LineChartStyle(point_radius=0)),
                 position=(10, 10),
                 width=60,
                 height=30,
-                style=LineChartStyle(point_radius=0),
             )
         )
 
@@ -336,8 +365,8 @@ class TestVisualizationRendering:
     def test_should_render_animated_chart_to_gif(self, tmp_path):
         """A chart layer participates in the existing deterministic GIF animation path."""
         # given
-        canvas = Canvas(160, 100).line_chart(
-            [1, 3, 2],
+        canvas = Canvas(160, 100).chart(
+            LineChartSpec(data=[1, 3, 2]),
             position=(10, 10),
             width=80,
             height=40,
@@ -438,8 +467,8 @@ class TestVisualizationSerialization:
         # given
         canvas = (
             Canvas(240, 160)
-            .line_chart(
-                [1, 2, 3],
+            .chart(
+                LineChartSpec(data=[1, 2, 3]),
                 position=(0, 0),
                 width=80,
                 height=40,
@@ -547,7 +576,9 @@ class TestVisualizationExportFallback:
         """SVG and HTML exports embed the same raster layer when no native
         chart primitive exists."""
         # given
-        canvas = Canvas(160, 120).line_chart([1, 3, 2], position=(10, 10), width=80, height=40)
+        canvas = Canvas(160, 120).chart(
+            LineChartSpec(data=[1, 3, 2]), position=(10, 10), width=80, height=40
+        )
 
         # when
         expected = rendered_image(canvas)
@@ -582,8 +613,8 @@ class TestVisualizationExportFallback:
     def test_should_emit_pptx_timing_for_animated_visualization(self):
         """PPTX export keeps animation timing when a visualization is rasterized."""
         # given
-        canvas = Canvas(160, 120).line_chart(
-            [1, 3, 2],
+        canvas = Canvas(160, 120).chart(
+            LineChartSpec(data=[1, 3, 2]),
             position=(10, 10),
             width=80,
             height=40,

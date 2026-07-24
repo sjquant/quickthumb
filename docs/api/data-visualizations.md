@@ -10,24 +10,33 @@ chart type has a focused style model;
 they are intentionally not a general-purpose plotting system.
 
 ```python
-from quickthumb import BarChartStyle, Canvas, LineChartStyle
+from quickthumb import (
+    BarChartSpec,
+    BarChartStyle,
+    Canvas,
+    LineChartSpec,
+    LineChartStyle,
+)
 
 canvas = (
     Canvas(800, 400)
-    .bar_chart(
-        [-4, 8, 12, 6],
+    .chart(
+        spec=BarChartSpec(
+            data=[-4, 8, 12, 6],
+            style=BarChartStyle(color="#2563EB", negative_color="#DC2626"),
+        ),
         position=(40, 40),
         width=220,
         height=120,
-        style=BarChartStyle(color="#2563EB", negative_color="#DC2626"),
     )
-    .line_chart(
-        [2, 5, 3, 7],
+    .chart(
+        spec=LineChartSpec(
+            data=[2, 5, 3, 7],
+            style=LineChartStyle(color="#7C3AED", fill="#DDD6FE"),
+        ),
         position=(40, 200),
         width=440,
         height=120,
-        color="#7C3AED",
-        style=LineChartStyle(fill="#DDD6FE"),
     )
     .qr_code("https://example.com", position=(620, 40), size=140)
 )
@@ -44,7 +53,7 @@ non-numeric values raise `ValidationError`.
 `LineChartStyle` accepts `color`, `padding`, `opacity`, `fill`, `fill_opacity`,
 `stroke_width`, `point_radius`, and `show_points`. Passing an option that has no
 meaning for the selected chart type raises `ValidationError` instead of silently
-changing nothing. The same supported fields can be passed directly to a builder.
+changing nothing. The selected spec is passed to the single `.chart()` builder.
 
 Line chart values are scaled to the plot box. Constant series sit on the
 vertical midpoint. Bar charts always include zero in their range, so positive and
@@ -55,11 +64,11 @@ pixels.
 
 | Builder | JSON type | Purpose |
 | --- | --- | --- |
-| `.bar_chart(data, position, width, height)` | `chart` / `bar` | Vertical bars with a zero-aware baseline |
-| `.line_chart(data, position, width, height)` | `chart` / `line` | Line chart with point markers by default |
+| `.chart(spec, position, width, height)` | `chart` / `bar` | Vertical bars with a zero-aware baseline when given `BarChartSpec` |
+| `.chart(spec, position, width, height)` | `chart` / `line` | Line chart with point markers by default when given `LineChartSpec` |
 | `.qr_code(data, position, size)` | `qr_code` | Square QR code with explicit error correction and quiet zone |
 
-All chart builders accept pixel or percentage positions, `align`, `opacity`,
+The chart builder accepts pixel or percentage positions, `align`, `opacity`,
 and the existing `clip` and `mask` composition primitives. Chart layers can also
 be used as group children; the group assigns their positions automatically. QR codes accept
 `foreground`, `background`, `error_correction` (`L`, `M`, `Q`, or `H`), and
