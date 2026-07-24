@@ -68,9 +68,9 @@ class TestVisualizationValidation:
         # then
         layer = canvas.layers[0]
         assert isinstance(layer, ChartLayer)
-        assert isinstance(layer.chart, LineChartSpec)
-        assert isinstance(layer.chart.data, ChartData)
-        assert layer.chart.data.values == values
+        assert isinstance(layer.spec, LineChartSpec)
+        assert isinstance(layer.spec.data, ChartData)
+        assert layer.spec.data.values == values
 
     @pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf"), "1"])
     def test_should_reject_non_finite_or_non_numeric_data(self, value: object):
@@ -320,7 +320,7 @@ class TestVisualizationRendering:
             children=[
                 {
                     "type": "chart",
-                    "chart": {
+                    "spec": {
                         "type": "bar",
                         "data": [-1, 2],
                         "style": {
@@ -336,7 +336,7 @@ class TestVisualizationRendering:
                 },
                 {
                     "type": "chart",
-                    "chart": {"type": "line", "data": [1, 3, 2]},
+                    "spec": {"type": "line", "data": [1, 3, 2]},
                     "width": 60,
                     "height": 35,
                 },
@@ -360,17 +360,24 @@ class TestVisualizationRendering:
             "qr_code",
         ]
         assert all(child.bbox is not None for child in inspection.layers[0].children)
+        for child in inspection.layers[0].children:
+            assert child.bbox is not None
+            bbox = child.bbox
+            assert (
+                image.crop((bbox.x, bbox.y, bbox.x + bbox.width, bbox.y + bbox.height)).getbbox()
+                is not None
+            )
         assert isinstance(diagnostics, list)
 
     def test_should_render_animated_chart_to_gif(self, tmp_path):
         """A chart layer participates in the existing deterministic GIF animation path."""
         # given
         canvas = Canvas(160, 100).chart(
-            LineChartSpec(data=[1, 3, 2]),
+            LineChartSpec(data=[1, 3, 2], style=LineChartStyle(color="#2563EB")),
             position=(10, 10),
             width=80,
             height=40,
-            animation=Fade(duration=0.2),
+            animation=Fade(duration=0.5),
         )
         output = tmp_path / "animated-chart.gif"
 
@@ -379,7 +386,13 @@ class TestVisualizationRendering:
 
         # then
         with Image.open(output) as rendered:
-            assert getattr(rendered, "n_frames", 1) >= 2
+            frame_count = getattr(rendered, "n_frames", 1)
+            assert frame_count >= 2
+            rendered.seek(0)
+            first = rendered.convert("RGB").copy()
+            rendered.seek(frame_count - 1)
+            last = rendered.convert("RGB").copy()
+        assert ImageChops.difference(first, last).getbbox() is not None
 
 
 class TestVisualizationSerialization:
@@ -394,7 +407,7 @@ class TestVisualizationSerialization:
             "layers": [
                 {
                     "type": "chart",
-                    "chart": {
+                    "spec": {
                         "type": "bar",
                         "data": [-1, 2],
                         "style": {
@@ -411,7 +424,7 @@ class TestVisualizationSerialization:
                 },
                 {
                     "type": "chart",
-                    "chart": {
+                    "spec": {
                         "type": "line",
                         "data": [2, 3],
                         "style": {
@@ -454,9 +467,9 @@ class TestVisualizationSerialization:
             "chart",
             "qr_code",
         ]
-        assert serialized["layers"][0]["chart"]["data"] == [-1.0, 2.0]
-        assert serialized["layers"][0]["chart"]["style"]["bar_gap"] == 0.3
-        assert serialized["layers"][1]["chart"]["style"]["show_points"] is False
+        assert serialized["layers"][0]["spec"]["data"] == [-1.0, 2.0]
+        assert serialized["layers"][0]["spec"]["style"]["bar_gap"] == 0.3
+        assert serialized["layers"][1]["spec"]["style"]["show_points"] is False
         assert serialized["layers"][2]["data"] == "hello"
         assert serialized["layers"][2]["error_correction"] == "H"
         assert serialized["layers"][2]["foreground"] == "#111111"
@@ -484,10 +497,33 @@ class TestVisualizationSerialization:
         line = reloaded.layers[0]
         qr = reloaded.layers[1]
         assert isinstance(line, ChartLayer)
-        assert isinstance(line.chart, LineChartSpec)
+        assert isinstance(line.spec, LineChartSpec)
         assert isinstance(qr, QRCodeLayer)
         assert isinstance(line.animation, Fade)
         assert isinstance(qr.animation, Fade)
+        assert line.animation.duration == 0.25
+        assert qr.animation.duration == 0.4
+
+    def test_should_validate_complete_visualization_document_against_canvas_model(self):
+        """The serialized visualization document satisfies the published model schema."""
+        # given
+        canvas = (
+            Canvas(240, 160)
+            .chart(LineChartSpec(data=[-2, 3]), position=(0, 0), width=80, height=40)
+            .qr_code("schema", position=(100, 0), size=50)
+        )
+        payload = json.loads(canvas.to_json())
+
+        # when
+        from quickthumb.models import CanvasModel
+
+        validated = CanvasModel.model_validate(payload)
+
+        # then
+        assert validated.width == 240
+        assert validated.layers[0].type == "chart"
+        assert validated.layers[1].type == "qr_code"
+        assert "spec" in canvas_json_schema()["$defs"]["ChartLayer"]["properties"]
 
     def test_should_publish_visualization_schema_discriminators(self):
         """The generated schema advertises validated chart data, style, and QR contracts."""
@@ -538,14 +574,14 @@ class TestVisualizationSerialization:
                     "layers": [
                         {
                             "type": "chart",
-                            "chart": {"type": "bar", "data": [-2, 3]},
+                            "spec": {"type": "bar", "data": [-2, 3]},
                             "position": [100, 10],
                             "width": 50,
                             "height": 40,
                         },
                         {
                             "type": "chart",
-                            "chart": {"type": "line", "data": [-1, 0, 1]},
+                            "spec": {"type": "line", "data": [-1, 0, 1]},
                             "position": [10, 10],
                             "width": 80,
                             "height": 40,
@@ -603,8 +639,9 @@ class TestVisualizationExportFallback:
         # then
         pdf_image = rasterize_pdf(canvas)
         pdf_crop = pdf_image.crop((20, 20, 90, 90))
-        white = Image.new("RGB", pdf_crop.size, "white")
-        assert ImageChops.difference(pdf_crop, white).getbbox() is not None
+        from quickthumb import assert_image_similar
+
+        assert_image_similar(expected.crop((20, 20, 90, 90)), pdf_crop, threshold=0.95)
         with zipfile.ZipFile(BytesIO(pptx)) as archive:
             media = [name for name in archive.namelist() if name.startswith("ppt/media/")]
             assert len(media) == 1
@@ -629,3 +666,5 @@ class TestVisualizationExportFallback:
         with zipfile.ZipFile(BytesIO(presentation)) as archive:
             slide_xml = archive.read("ppt/slides/slide1.xml")
         assert b"<p:timing" in slide_xml
+        assert b'dur="250"' in slide_xml
+        assert b"<p:spTgt" in slide_xml

@@ -30,22 +30,22 @@ class VisualizationEngine:
 
     def render_chart(self, image: Image.Image, layer: ChartLayer) -> None:
         """Render the chart spec selected by its discriminator."""
-        if isinstance(layer.chart, BarChartSpec):
+        if isinstance(layer.spec, BarChartSpec):
             self._render_bar_chart(image, layer)
         else:
             self._render_line_chart(image, layer)
 
     def _render_bar_chart(self, image: Image.Image, layer: ChartLayer) -> None:
         """Render vertical bars against a baseline that includes zero."""
-        if not isinstance(layer.chart, BarChartSpec):
+        if not isinstance(layer.spec, BarChartSpec):
             raise RenderingError("bar renderer received a non-bar chart spec")
-        values = self._chart_values(layer.chart.data)
+        values = self._chart_values(layer.spec.data)
         if not values:
             return
 
         x, y = self._layer_origin(layer)
         width, height = layer.width, layer.height
-        style = layer.chart.style
+        style = layer.spec.style
         surface = self._new_surface(width, height)
         draw = ImageDraw.Draw(surface, "RGBA")
         plot = self._plot_box(width, height, style.padding)
@@ -155,14 +155,14 @@ class VisualizationEngine:
         layer: ChartLayer,
     ) -> None:
         """Draw a line layer into an antialiased local surface."""
-        if not isinstance(layer.chart, LineChartSpec):
+        if not isinstance(layer.spec, LineChartSpec):
             raise RenderingError("line renderer received a non-line chart spec")
-        values = self._chart_values(layer.chart.data)
+        values = self._chart_values(layer.spec.data)
         if not values:
             return
 
         x, y = self._layer_origin(layer)
-        style = layer.chart.style
+        style = layer.spec.style
         plot = self._plot_box(layer.width, layer.height, style.padding)
         if plot is None:
             return

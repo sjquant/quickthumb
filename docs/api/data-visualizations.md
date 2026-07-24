@@ -68,6 +68,9 @@ pixels.
 | `.chart(spec, position, width, height)` | `chart` / `line` | Line chart with point markers by default when given `LineChartSpec` |
 | `.qr_code(data, position, size)` | `qr_code` | Square QR code with explicit error correction and quiet zone |
 
+In JSON, a chart layer stores its discriminated chart specification under
+`"spec"` (for example, `{ "type": "bar", "data": [1, -2] }`).
+
 The chart builder accepts pixel or percentage positions, `align`, `opacity`,
 and the existing `clip` and `mask` composition primitives. Chart layers can also
 be used as group children; the group assigns their positions automatically. QR codes accept

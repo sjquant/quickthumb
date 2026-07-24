@@ -620,7 +620,7 @@ class Canvas:
             align=align,  # type: ignore[arg-type]
             clip=cast(Any, clip),
             mask=cast(Any, mask),
-            chart=spec,
+            spec=spec,
         )
         self._layers.append(layer)
         return self

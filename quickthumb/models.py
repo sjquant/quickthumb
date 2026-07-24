@@ -693,8 +693,8 @@ class ChartData(quickthumbModel):
         return normalized
 
 
-class BaseLayerModel(quickthumbModel):
-    """Common positioning and composition contract for drawable layers."""
+class VisualizationLayerBase(quickthumbModel):
+    """Common positioning and composition contract for visualization layers."""
 
     position: Position = (0, 0)
     align: AlignWithHVTuple = Align.TOP_LEFT
@@ -737,61 +737,52 @@ class LineChartStyle(quickthumbModel):
     opacity: OpacityField = 1.0
 
 
-class BarChartSpec(quickthumbModel):
+class _ChartSpecBase(quickthumbModel):
+    """Shared data normalization and serialization for chart specifications."""
+
+    data: ChartData | Sequence[int | float]
+
+    @field_validator(
+        "data",
+        mode="before",
+        json_schema_input_type=list[float] | ChartData,
+    )
+    @classmethod
+    def validate_data(cls, value: Any) -> ChartData:
+        return value if isinstance(value, ChartData) else ChartData(values=value)
+
+    @field_serializer("data")
+    def serialize_data(self, data: ChartData) -> list[float]:
+        return data.values
+
+
+class BarChartSpec(_ChartSpecBase):
     """Validated bar chart data and bar-specific options."""
 
     type: Literal["bar"] = "bar"
-    data: ChartData | Sequence[int | float]
     style: BarChartStyle = Field(default_factory=BarChartStyle)
 
-    @field_validator(
-        "data",
-        mode="before",
-        json_schema_input_type=list[float] | ChartData,
-    )
-    @classmethod
-    def validate_data(cls, value: Any) -> ChartData:
-        return value if isinstance(value, ChartData) else ChartData(values=value)
 
-    @field_serializer("data")
-    def serialize_data(self, data: ChartData) -> list[float]:
-        return data.values
-
-
-class LineChartSpec(quickthumbModel):
+class LineChartSpec(_ChartSpecBase):
     """Validated line chart data and line-specific options."""
 
     type: Literal["line"] = "line"
-    data: ChartData | Sequence[int | float]
     style: LineChartStyle = Field(default_factory=LineChartStyle)
-
-    @field_validator(
-        "data",
-        mode="before",
-        json_schema_input_type=list[float] | ChartData,
-    )
-    @classmethod
-    def validate_data(cls, value: Any) -> ChartData:
-        return value if isinstance(value, ChartData) else ChartData(values=value)
-
-    @field_serializer("data")
-    def serialize_data(self, data: ChartData) -> list[float]:
-        return data.values
 
 
 ChartSpec = Annotated[BarChartSpec | LineChartSpec, Discriminator("type")]
 
 
-class ChartLayer(BaseLayerModel):
-    """A deterministic data visualization layer selected by its chart spec."""
+class ChartLayer(VisualizationLayerBase):
+    """A deterministic data visualization layer selected by its spec."""
 
     type: Literal["chart"] = "chart"
     width: PositiveInt
     height: PositiveInt
-    chart: ChartSpec
+    spec: ChartSpec
 
 
-class QRCodeLayer(BaseLayerModel):
+class QRCodeLayer(VisualizationLayerBase):
     """A deterministic QR code rendered into a square canvas region."""
 
     type: Literal["qr_code"] = "qr_code"
