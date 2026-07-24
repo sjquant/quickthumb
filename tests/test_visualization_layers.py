@@ -481,6 +481,20 @@ class TestVisualizationSerialization:
             "H",
         ]
 
+    def test_should_publish_chart_data_input_forms_used_by_serialization(self):
+        """The chart schema accepts both numeric arrays and named ChartData objects."""
+        # given
+        schema = canvas_json_schema()
+
+        # when
+        bar_data = schema["$defs"]["BarChartSpec"]["properties"]["data"]
+        line_data = schema["$defs"]["LineChartSpec"]["properties"]["data"]
+
+        # then
+        for data_schema in (bar_data, line_data):
+            assert {"type": "array", "items": {"type": "number"}} in data_schema["anyOf"]
+            assert {"$ref": "#/$defs/ChartData"} in data_schema["anyOf"]
+
     def test_should_render_visualization_json_through_cli(self, tmp_path):
         """The public render command accepts a visualization-only JSON document."""
         # given

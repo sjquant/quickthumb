@@ -743,7 +743,11 @@ class BarChartSpec(quickthumbModel):
     data: ChartData
     style: BarChartStyle = Field(default_factory=BarChartStyle)
 
-    @field_validator("data", mode="before")
+    @field_validator(
+        "data",
+        mode="before",
+        json_schema_input_type=list[float] | ChartData,
+    )
     @classmethod
     def validate_data(cls, value: Any) -> ChartData:
         return value if isinstance(value, ChartData) else ChartData(values=value)
@@ -760,7 +764,11 @@ class LineChartSpec(quickthumbModel):
     data: ChartData
     style: LineChartStyle = Field(default_factory=LineChartStyle)
 
-    @field_validator("data", mode="before")
+    @field_validator(
+        "data",
+        mode="before",
+        json_schema_input_type=list[float] | ChartData,
+    )
     @classmethod
     def validate_data(cls, value: Any) -> ChartData:
         return value if isinstance(value, ChartData) else ChartData(values=value)
