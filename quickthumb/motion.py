@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import math
 from typing import Any, Literal
 
@@ -26,17 +25,9 @@ MotionProperty = Literal[
 
 
 class _MotionIRModel(BaseModel):
-    """Small serialization mixin shared by the public IR models."""
+    """Shared validation configuration for the immutable motion IR models."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
-
-    def to_dict(self) -> dict[str, Any]:
-        """Return the canonical JSON-compatible representation."""
-        return self.model_dump(mode="json", exclude_none=True)
-
-    def to_json(self) -> str:
-        """Serialize the IR using stable JSON formatting."""
-        return json.dumps(self.to_dict(), sort_keys=True, separators=(",", ":"))
 
 
 class NormalizedKeyframe(_MotionIRModel):
@@ -139,24 +130,6 @@ class Timeline(_MotionIRModel):
             return (0.0,)
         count = max(1, math.ceil(self.duration * fps - 1e-12))
         return tuple(min(index / fps, self.duration) for index in range(count + 1))
-
-    @classmethod
-    def from_dict(cls, value: dict[str, Any]) -> Timeline:
-        """Load a canonical timeline representation."""
-        try:
-            return cls.model_validate(value)
-        except Exception as error:
-            if isinstance(error, ValidationError):
-                raise
-            raise ValidationError(f"invalid timeline: {error}") from error
-
-    @classmethod
-    def from_json(cls, value: str) -> Timeline:
-        """Load a timeline from canonical JSON."""
-        try:
-            return cls.from_dict(json.loads(value))
-        except json.JSONDecodeError as error:
-            raise ValidationError(f"invalid timeline JSON: {error.msg}") from error
 
 
 def compile_timeline(

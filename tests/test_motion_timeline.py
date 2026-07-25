@@ -1,6 +1,5 @@
-import json
-
 import pytest
+from pydantic import ValidationError as PydanticValidationError
 from quickthumb import (
     AnimationSpec,
     BlurTrack,
@@ -207,7 +206,7 @@ class TestMotionTimeline:
         )
 
         # when: it is serialized, restored, and sampled at a fixed rate
-        restored = Timeline.from_json(json.dumps(timeline.to_dict()))
+        restored = Timeline.model_validate_json(timeline.model_dump_json())
         frames = sample_frames(restored, 4)
 
         # then: serialization and deterministic frame sampling are stable
@@ -326,8 +325,8 @@ class TestMotionTimeline:
         with pytest.raises(ValidationError, match="fps must be"):
             compile_timeline([]).frame_times(0)
 
-        with pytest.raises(ValidationError, match="invalid timeline"):
-            Timeline.from_dict(
+        with pytest.raises(PydanticValidationError, match="finite"):
+            Timeline.model_validate(
                 {
                     "events": [
                         {
@@ -341,7 +340,7 @@ class TestMotionTimeline:
             )
 
         with pytest.raises(ValidationError, match="opacity keyframes"):
-            Timeline.from_dict(
+            Timeline.model_validate(
                 {
                     "events": [
                         {
@@ -377,7 +376,7 @@ class TestMotionTimeline:
         assert directional.events[0].options["direction"] == "right"
         with pytest.raises(ValidationError, match="greater than 0"):
             compile_transition_timeline({"effect": "fade", "duration": 0})
-        with pytest.raises(ValidationError, match="invalid timeline JSON"):
-            Timeline.from_json("{")
+        with pytest.raises(PydanticValidationError, match="Invalid JSON"):
+            Timeline.model_validate_json("{")
 
         # then: errors identify the invalid boundary rather than failing in a renderer
