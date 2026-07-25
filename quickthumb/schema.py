@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from quickthumb._diagnostic_rules import PLATFORM_SAFE_MARGIN_PRESETS
-from quickthumb.models import CanvasSpecModel
+from quickthumb.models import CanvasSpecModel, ExportDiagnostic, ExportPolicy, MotionProfile
 
 JSON_SCHEMA_DRAFT = "https://json-schema.org/draft/2020-12/schema"
 QUICKTHUMB_SCHEMA_ID = "https://sjquant.github.io/quickthumb/schema.json"
@@ -72,6 +72,8 @@ def canvas_json_schema() -> dict[str, Any]:
                 "type",
                 *[field for field in definition.get("required", []) if field != "type"],
             ]
+    for model in (MotionProfile, ExportPolicy, ExportDiagnostic):
+        schema.setdefault("$defs", {})[model.__name__] = model.model_json_schema()
     schema["anyOf"] = [
         {
             "properties": {

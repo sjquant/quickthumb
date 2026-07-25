@@ -180,6 +180,7 @@ class TestMotionContract:
         assert schema["$defs"]["AnimationEffect"]["required"] == ["type"]
         assert schema["$defs"]["PositionTrack"]["additionalProperties"] is False
         assert schema["$defs"]["PositionTrack"]["required"] == ["type", "keyframes"]
+        assert {"MotionProfile", "ExportPolicy", "ExportDiagnostic"} <= set(schema["$defs"])
 
     def test_should_validate_profile_and_export_policy_models(self):
         """Profile and exporter policy models expose constrained public options."""
