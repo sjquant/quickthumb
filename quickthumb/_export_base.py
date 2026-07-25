@@ -31,6 +31,7 @@ from quickthumb._composition import has_layer_composition, layer_depends_on_back
 from quickthumb.errors import RenderingError
 from quickthumb.models import (
     Align,
+    AnimationSpec,
     Background,
     Glow,
     GroupLayer,
@@ -66,6 +67,18 @@ def flatten_layers(canvas: Canvas) -> list[RenderableLayer]:
         else:
             flat.append(layer)
     return flat
+
+
+def validate_legacy_animation_export(canvas: Canvas) -> None:
+    """Reject canonical motion specs until a timeline compiler owns export."""
+    for layer in flatten_layers(canvas):
+        animation = getattr(layer, "animation", None)
+        effects = animation if isinstance(animation, list) else [animation]
+        if any(isinstance(effect, AnimationSpec) for effect in effects):
+            raise RenderingError(
+                "AnimationSpec export is not supported yet. Use legacy effect animations "
+                "for HTML, PPTX, GIF, MP4, or WebM, or wait for timeline compilation."
+            )
 
 
 def _flatten_group(

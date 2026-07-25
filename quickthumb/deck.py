@@ -697,7 +697,17 @@ class Deck:
         kind = raw.get("kind")
         if kind is not None and kind != "deck":
             raise ValidationError("Deck JSON 'kind' must be 'deck'.")
-        unknown = sorted(set(raw) - {"kind", "width", "height", "theme", "transition", "slides"})
+        unknown = sorted(
+            set(raw)
+            - {
+                "kind",
+                "width",
+                "height",
+                "theme",
+                "transition",
+                "slides",
+            }
+        )
         if unknown:
             raise ValidationError(f"Deck JSON contains unknown field(s): {', '.join(unknown)}")
         slides_raw = raw["slides"]
@@ -711,7 +721,6 @@ class Deck:
         transition = raw.get("transition")
         if transition is not None and not isinstance(transition, dict):
             raise ValidationError("Deck 'transition' must be a JSON object.")
-
         deck = cls(
             width=raw.get("width"),
             height=raw.get("height"),
