@@ -2,6 +2,8 @@ import json
 import math
 
 import pytest
+from jsonschema import ValidationError as JsonSchemaValidationError
+from jsonschema import validate
 from quickthumb import (
     AnimationSpec,
     BlurTrack,
@@ -181,6 +183,28 @@ class TestMotionContract:
         assert schema["$defs"]["PositionTrack"]["additionalProperties"] is False
         assert schema["$defs"]["PositionTrack"]["required"] == ["type", "keyframes"]
         assert {"MotionProfile", "ExportPolicy", "ExportDiagnostic"} <= set(schema["$defs"])
+
+    def test_should_validate_canonical_documents_against_published_schema(self):
+        """Published schema accepts valid motion and rejects malformed discriminators."""
+        # given: a valid Canvas document carrying a canonical preset animation
+        canvas = Canvas(100, 100).text(
+            "Motion", position=(0, 0), animation=AnimationSpec.rise(target="words")
+        )
+        schema = canvas_json_schema()
+        document = json.loads(canvas.to_json())
+
+        # when: the document is checked against the published JSON Schema
+        validate(document, schema)
+        missing_discriminator = json.loads(json.dumps(document))
+        del missing_discriminator["layers"][0]["animation"]["type"]
+        conflicting_branches = json.loads(json.dumps(document))
+        conflicting_branches["layers"][0]["animation"]["tracks"] = []
+
+        # then: malformed canonical documents are rejected by schema validation
+        with pytest.raises(JsonSchemaValidationError):
+            validate(missing_discriminator, schema)
+        with pytest.raises(JsonSchemaValidationError):
+            validate(conflicting_branches, schema)
 
     def test_should_validate_profile_and_export_policy_models(self):
         """Profile and exporter policy models expose constrained public options."""
