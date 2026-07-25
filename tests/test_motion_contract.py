@@ -75,9 +75,11 @@ class TestMotionContract:
         # given: both mutually exclusive branches are supplied
         # when: the public model validates the payload
         with pytest.raises(ValidationError, match="exactly one of effect or tracks"):
-            AnimationSpec(
-                effect={"type": "fade"},
-                tracks=[OpacityTrack(keyframes=[KeyframeSpec(time=0, value=1)])],
+            AnimationSpec.model_validate(
+                {
+                    "effect": {"type": "fade"},
+                    "tracks": [{"type": "opacity", "keyframes": [{"time": 0, "value": 1}]}],
+                }
             )
 
         # then: the validation error names the composition rule
@@ -95,11 +97,13 @@ class TestMotionContract:
                 keyframes=[KeyframeSpec(time=0, value=(0, 0)), KeyframeSpec(time=0, value=(1, 1))]
             )
         with pytest.raises(ValidationError, match="greater than 0"):
-            AnimationSpec(effect={"type": "fade"}, timing={"duration": 0})
+            AnimationSpec.model_validate({"effect": {"type": "fade"}, "timing": {"duration": 0}})
         with pytest.raises(ValidationError, match="relative trigger/delay or absolute start"):
-            AnimationSpec(
-                effect={"type": "fade"},
-                timing={"start": 1.0, "trigger": "after_previous"},
+            AnimationSpec.model_validate(
+                {
+                    "effect": {"type": "fade"},
+                    "timing": {"start": 1.0, "trigger": "after_previous"},
+                }
             )
 
         # then: all invalid inputs are rejected before exporter execution
@@ -132,9 +136,15 @@ class TestMotionContract:
         # given: unknown fields and missing mutually exclusive branches
         # when: the public models validate them
         with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
-            AnimationSpec(effect={"type": "fade"}, duration=0.5)
+            AnimationSpec.model_validate({"effect": {"type": "fade"}, "duration": 0.5})
         with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
-            PositionTrack(keyframes=[KeyframeSpec(time=0, value=(0, 0))], propety="position")
+            PositionTrack.model_validate(
+                {
+                    "type": "position",
+                    "keyframes": [{"time": 0, "value": [0, 0]}],
+                    "propety": "position",
+                }
+            )
         with pytest.raises(ValidationError, match="exactly one of effect or tracks"):
             AnimationSpec()
         with pytest.raises(ValidationError, match="at least one track"):
@@ -147,9 +157,13 @@ class TestMotionContract:
         # given: non-finite values in timing and keyframe positions
         # when: each value is validated
         with pytest.raises(ValidationError, match="finite number"):
-            AnimationSpec(effect={"type": "fade"}, timing={"duration": math.inf})
+            AnimationSpec.model_validate(
+                {"effect": {"type": "fade"}, "timing": {"duration": math.inf}}
+            )
         with pytest.raises(ValidationError, match="finite number"):
-            AnimationSpec(effect={"type": "fade"}, timing={"start": math.nan})
+            AnimationSpec.model_validate(
+                {"effect": {"type": "fade"}, "timing": {"start": math.nan}}
+            )
         with pytest.raises(ValidationError, match="finite number"):
             KeyframeSpec(time=math.inf, value=1)
 
@@ -223,9 +237,9 @@ class TestMotionContract:
         # given: invalid profile and exporter policy values
         # when: the constrained models validate them
         with pytest.raises(ValidationError, match="Input should be 'presentation'"):
-            MotionProfile(name="fast")
+            MotionProfile.model_validate({"name": "fast"})
         with pytest.raises(ValidationError, match="Input should be 'native'"):
-            ExportPolicy(pptx={"line-chart": "ignore"})
+            ExportPolicy.model_validate({"pptx": {"line-chart": "ignore"}})
 
         # then: unsupported configuration values are rejected clearly
 
