@@ -24,21 +24,19 @@ MotionProperty = Literal[
 ]
 
 
-class _MotionIRModel(BaseModel):
-    """Shared validation configuration for the immutable motion IR models."""
+class NormalizedKeyframe(BaseModel):
+    """A keyframe with a renderer-independent property value."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
-
-
-class NormalizedKeyframe(_MotionIRModel):
-    """A keyframe with a renderer-independent property value."""
 
     time: float = Field(ge=0.0, allow_inf_nan=False)
     value: MotionValue
 
 
-class NormalizedTrack(_MotionIRModel):
+class NormalizedTrack(BaseModel):
     """One normalized property track with local keyframe times."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     property: MotionProperty
     keyframes: tuple[NormalizedKeyframe, ...]
@@ -60,8 +58,10 @@ class NormalizedTrack(_MotionIRModel):
         return self.keyframes[-1].time
 
 
-class TimelineEvent(_MotionIRModel):
+class TimelineEvent(BaseModel):
     """A scheduled effect or track collection on the shared timeline."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     source: Literal["effect", "timeline", "legacy", "transition"]
     start: float = Field(ge=0.0, allow_inf_nan=False)
@@ -84,8 +84,10 @@ class TimelineEvent(_MotionIRModel):
         return self.active_start + self.duration
 
 
-class LayerState(_MotionIRModel):
+class LayerState(BaseModel):
     """The animatable state of a layer at one point in time."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     position: tuple[float, float] | None = None
     scale: float = Field(default=1.0, allow_inf_nan=False)
@@ -103,8 +105,10 @@ class LayerState(_MotionIRModel):
             raise ValidationError(f"invalid layer state update: {error}") from error
 
 
-class Timeline(_MotionIRModel):
+class Timeline(BaseModel):
     """An immutable, normalized collection of scheduled motion events."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     events: tuple[TimelineEvent, ...] = ()
 
