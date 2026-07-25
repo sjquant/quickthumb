@@ -7,9 +7,16 @@ import math
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import ValidationError as PydanticValidationError
 
 from quickthumb.errors import ValidationError
-from quickthumb.models import AnimationSpec, KeyframeSpec, TrackSpec
+from quickthumb.models import (
+    AnimationSpec,
+    KeyframeSpec,
+    TrackSpec,
+    validate_hex_color,
+)
+from quickthumb.transitions import Transition, coerce_transition
 
 MotionValue = tuple[float, float] | float | str
 MotionProperty = Literal[
@@ -34,7 +41,7 @@ class _MotionIRModel(BaseModel):
 class NormalizedKeyframe(_MotionIRModel):
     """A keyframe with a renderer-independent property value."""
 
-    time: float = Field(ge=0.0)
+    time: float = Field(ge=0.0, allow_inf_nan=False)
     value: MotionValue
 
 
@@ -51,6 +58,8 @@ class NormalizedTrack(_MotionIRModel):
         times = [keyframe.time for keyframe in self.keyframes]
         if times != sorted(times) or len(times) != len(set(times)):
             raise ValidationError("normalized keyframe times must be strictly increasing")
+        for keyframe in self.keyframes:
+            _validate_property_value(self.property, keyframe.value)
         return self
 
     @property
@@ -63,13 +72,14 @@ class TimelineEvent(_MotionIRModel):
     """A scheduled effect or track collection on the shared timeline."""
 
     source: Literal["effect", "timeline", "legacy", "transition"]
-    start: float = Field(ge=0.0)
-    delay: float = Field(ge=0.0)
-    duration: float = Field(ge=0.0)
+    start: float = Field(ge=0.0, allow_inf_nan=False)
+    delay: float = Field(ge=0.0, allow_inf_nan=False)
+    duration: float = Field(ge=0.0, allow_inf_nan=False)
     trigger: str | None = None
     effect: str | None = None
     options: dict[str, Any] = Field(default_factory=dict)
     tracks: tuple[NormalizedTrack, ...] = ()
+    stagger: dict[str, Any] | None = None
 
     @property
     def active_start(self) -> float:
@@ -86,16 +96,19 @@ class LayerState(_MotionIRModel):
     """The animatable state of a layer at one point in time."""
 
     position: tuple[float, float] | None = None
-    scale: float = 1.0
-    rotation: float = 0.0
-    opacity: float = Field(default=1.0, ge=0.0, le=1.0)
-    clip_progress: float = Field(default=1.0, ge=0.0, le=1.0)
-    blur: float = Field(default=0.0, ge=0.0)
+    scale: float = Field(default=1.0, allow_inf_nan=False)
+    rotation: float = Field(default=0.0, allow_inf_nan=False)
+    opacity: float = Field(default=1.0, ge=0.0, le=1.0, allow_inf_nan=False)
+    clip_progress: float = Field(default=1.0, ge=0.0, le=1.0, allow_inf_nan=False)
+    blur: float = Field(default=0.0, ge=0.0, allow_inf_nan=False)
     color: str | None = None
 
     def with_values(self, **values: MotionValue | None) -> LayerState:
         """Return a state with selected properties replaced."""
-        return self.model_copy(update=values)
+        try:
+            return type(self).model_validate({**self.model_dump(), **values})
+        except PydanticValidationError as error:
+            raise ValidationError(f"invalid layer state update: {error}") from error
 
 
 class Timeline(_MotionIRModel):
@@ -112,7 +125,7 @@ class Timeline(_MotionIRModel):
         """Sample the timeline at ``time`` seconds into a deterministic state."""
         if not math.isfinite(time):
             raise ValidationError("sample time must be finite")
-        state = base or LayerState()
+        state = base if base is not None else LayerState()
         for event in self.events:
             state = _sample_event(event, time, state)
         return state
@@ -166,21 +179,20 @@ def compile_timeline(
     return Timeline(events=tuple(events))
 
 
-def compile_transition_timeline(transition: Any | None) -> Timeline:
+def compile_transition_timeline(
+    transition: Transition | dict[str, Any] | str | None,
+) -> Timeline:
     """Normalize a slide transition's timing without importing exporter behavior."""
+    transition = coerce_transition(transition)
     if transition is None:
         return Timeline()
-    duration = getattr(transition, "duration", None)
-    effect = getattr(transition, "effect", None)
+    duration = transition.duration
+    effect = transition.effect
     if not isinstance(duration, (int, float)) or not math.isfinite(duration) or duration <= 0:
         raise ValidationError("transition duration must be a finite number greater than 0")
     if not isinstance(effect, str):
         raise ValidationError("transition must define an effect")
-    options = (
-        transition.model_dump(mode="json", exclude_none=True)
-        if hasattr(transition, "model_dump")
-        else {"effect": effect, "duration": duration}
-    )
+    options = transition.model_dump(mode="json", exclude_none=True)
     return Timeline(
         events=(
             TimelineEvent(
@@ -229,6 +241,11 @@ def _compile_spec(spec: AnimationSpec, previous_start: float, previous_end: floa
         effect=effect.type if effect else None,
         options=options,
         tracks=tracks,
+        stagger=(
+            spec.stagger.model_dump(mode="json", exclude_none=True)
+            if spec.stagger is not None
+            else None
+        ),
     )
 
 
@@ -253,6 +270,32 @@ def _normalize_value(keyframe: KeyframeSpec) -> MotionValue:
     if isinstance(value, str):
         return value
     raise ValidationError(f"unsupported keyframe value: {value!r}")
+
+
+def _validate_property_value(property: MotionProperty, value: MotionValue) -> None:
+    """Validate a normalized value against the state property it updates."""
+    if property == "position":
+        if (
+            not isinstance(value, tuple)
+            or len(value) != 2
+            or not all(math.isfinite(item) for item in value)
+        ):
+            raise ValidationError("position keyframes must contain two finite numbers")
+        return
+    if property == "color":
+        if not isinstance(value, str):
+            raise ValidationError("color keyframes must contain hexadecimal colors")
+        try:
+            validate_hex_color(value)
+        except ValueError as error:
+            raise ValidationError(str(error)) from error
+        return
+    if not isinstance(value, (int, float)) or isinstance(value, bool) or not math.isfinite(value):
+        raise ValidationError(f"{property} keyframes must contain finite numbers")
+    if property in {"opacity", "clip_progress"} and not 0.0 <= value <= 1.0:
+        raise ValidationError(f"{property} keyframes must be between 0.0 and 1.0")
+    if property == "blur" and value < 0.0:
+        raise ValidationError("blur keyframes must be non-negative")
 
 
 def _sample_event(event: TimelineEvent, time: float, state: LayerState) -> LayerState:
@@ -320,6 +363,19 @@ def _sample_effect(event: TimelineEvent, progress: float, state: LayerState) -> 
         return state.with_values(scale=0.8 + 0.2 * progress)
     if effect == "typewriter":
         return state.with_values(clip_progress=progress)
+    if effect == "ken_burns":
+        return state.with_values(scale=1.0 + 0.1 * progress)
+    if effect in {"float", "pulse", "shake"}:
+        distance = float(event.options.get("distance", 12.0) or 0.0)
+        oscillation = math.sin(progress * math.tau)
+        if effect == "pulse":
+            return state.with_values(scale=1.0 + 0.1 * math.sin(math.pi * progress))
+        if state.position is None:
+            return state
+        x, y = state.position
+        if effect == "float":
+            return state.with_values(position=(x, y - distance * oscillation))
+        return state.with_values(position=(x + distance * oscillation, y))
     if effect in {"rise", "fall", "slide"} and state.position is not None:
         distance = float(event.options.get("distance", 48.0) or 0.0)
         origin = event.options.get("from")
