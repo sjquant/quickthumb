@@ -12,6 +12,7 @@ from pydantic import ValidationError as PydanticValidationError
 from quickthumb.errors import ValidationError
 from quickthumb.models import (
     AnimationSpec,
+    HexColor,
     KeyframeSpec,
     TrackSpec,
     validate_hex_color,
@@ -101,7 +102,7 @@ class LayerState(_MotionIRModel):
     opacity: float = Field(default=1.0, ge=0.0, le=1.0, allow_inf_nan=False)
     clip_progress: float = Field(default=1.0, ge=0.0, le=1.0, allow_inf_nan=False)
     blur: float = Field(default=0.0, ge=0.0, allow_inf_nan=False)
-    color: str | None = None
+    color: HexColor | None = None
 
     def with_values(self, **values: MotionValue | None) -> LayerState:
         """Return a state with selected properties replaced."""
@@ -358,18 +359,18 @@ def _sample_effect(event: TimelineEvent, progress: float, state: LayerState) -> 
     """Sample renderer-independent effects whose state mapping is unambiguous."""
     effect = event.effect
     if effect == "fade":
-        return state.with_values(opacity=progress)
+        return state.with_values(opacity=state.opacity * progress)
     if effect in {"zoom", "pop"}:
-        return state.with_values(scale=0.8 + 0.2 * progress)
+        return state.with_values(scale=state.scale * (0.8 + 0.2 * progress))
     if effect == "typewriter":
-        return state.with_values(clip_progress=progress)
+        return state.with_values(clip_progress=state.clip_progress * progress)
     if effect == "ken_burns":
-        return state.with_values(scale=1.0 + 0.1 * progress)
+        return state.with_values(scale=state.scale * (1.0 + 0.1 * progress))
     if effect in {"float", "pulse", "shake"}:
         distance = float(event.options.get("distance", 12.0) or 0.0)
         oscillation = math.sin(progress * math.tau)
         if effect == "pulse":
-            return state.with_values(scale=1.0 + 0.1 * math.sin(math.pi * progress))
+            return state.with_values(scale=state.scale * (1.0 + 0.1 * math.sin(math.pi * progress)))
         if state.position is None:
             return state
         x, y = state.position
@@ -379,10 +380,12 @@ def _sample_effect(event: TimelineEvent, progress: float, state: LayerState) -> 
     if effect in {"rise", "fall", "slide"} and state.position is not None:
         distance = float(event.options.get("distance", 48.0) or 0.0)
         origin = event.options.get("from")
+        if origin is None:
+            origin = {"rise": "bottom", "fall": "top", "slide": "left"}[effect]
         x, y = state.position
-        if effect == "rise" or origin == "bottom":
+        if origin == "bottom":
             return state.with_values(position=(x, y + distance * (1.0 - progress)))
-        if effect == "fall" or origin == "top":
+        if origin == "top":
             return state.with_values(position=(x, y - distance * (1.0 - progress)))
         if origin == "left":
             return state.with_values(position=(x - distance * (1.0 - progress), y))

@@ -276,6 +276,40 @@ class TestMotionTimeline:
         # then: the preset maps to an explicit state property
         assert getattr(state, field) != getattr(base, field)
 
+    @pytest.mark.parametrize(
+        ("factory", "origin", "expected"),
+        [
+            ("rise", "top", (10.0, -4.0)),
+            ("fall", "bottom", (10.0, 44.0)),
+            ("slide", "left", (-14.0, 20.0)),
+        ],
+    )
+    def test_should_honor_preset_direction_from_the_base_position(self, factory, origin, expected):
+        """Directional presets apply their offset from the supplied base position."""
+        # given: a directional preset with a non-default base position
+        spec = getattr(AnimationSpec, factory)(from_=origin, duration=1, distance=24)
+
+        # when: the preset is sampled at its start
+        state = compile_timeline(spec).sample(0, LayerState(position=(10, 20)))
+
+        # then: the explicit direction determines the starting offset
+        assert state.position == expected
+
+    def test_should_compose_presets_with_non_default_base_values(self):
+        """Preset sampling preserves the settled base values at the end of motion."""
+        # given: a fade and pulse applied to non-default base state values
+        fade = compile_timeline(AnimationSpec.fade(duration=1))
+        pulse = compile_timeline(AnimationSpec.pulse(duration=1))
+        base = LayerState(opacity=0.4, scale=2)
+
+        # when: both presets are sampled at their settled endpoints
+        fade_state = fade.sample(1, base)
+        pulse_state = pulse.sample(1, base)
+
+        # then: preset transforms compose with rather than replace base values
+        assert fade_state.opacity == 0.4
+        assert pulse_state.scale == 2.0
+
     def test_should_reject_invalid_sampling_and_timing_inputs(self):
         """Invalid timeline inputs fail with actionable errors at the public boundary."""
         # given: a track whose timing window is shorter than its keyframes
@@ -328,6 +362,8 @@ class TestMotionTimeline:
 
         with pytest.raises(ValidationError, match="opacity"):
             LayerState().with_values(opacity=2)
+        with pytest.raises(ValidationError, match="hex color"):
+            LayerState().with_values(color="not-a-color")
 
     def test_should_coerce_transition_inputs_and_reject_invalid_transitions(self):
         """Transition compilation accepts public shorthand and rejects invalid timing."""
