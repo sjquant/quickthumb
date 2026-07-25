@@ -23,9 +23,7 @@ from quickthumb.canvas import Canvas
 from quickthumb.errors import RenderingError, ValidationError
 from quickthumb.models import (
     AudioTrack,
-    ExportPolicy,
     GifOptions,
-    MotionProfile,
     VideoOptions,
     coerce_audio_track,
 )
@@ -87,8 +85,6 @@ class Deck:
         slides: list[Canvas] | None = None,
         theme: dict | None = None,
         transition: Transition | dict | str | None = None,
-        motion_profile: MotionProfile | dict | str | None = None,
-        export_policy: ExportPolicy | dict | None = None,
     ):
         validate_dimensions(width, height)
         if theme is not None and not isinstance(theme, dict):
@@ -97,8 +93,6 @@ class Deck:
         self._width = width
         self._height = height
         self._theme = theme or {}
-        self._motion_profile = self._coerce_motion_profile(motion_profile)
-        self._export_policy = self._coerce_export_policy(export_policy)
         # Slide transitions are a deck concern: a deck-wide default
         # plus an optional per-slide override kept parallel to ``_slides``. The
         # Canvas itself stays unaware of transitions.
@@ -114,28 +108,6 @@ class Deck:
     @staticmethod
     def _coerce_transition(value: Transition | dict | str | None) -> Transition | None:
         return coerce_transition(value)
-
-    @staticmethod
-    def _coerce_motion_profile(value: MotionProfile | dict | str | None) -> MotionProfile | None:
-        if value is None:
-            return None
-        if isinstance(value, MotionProfile):
-            return value
-        if isinstance(value, str):
-            return MotionProfile(name=value)
-        if isinstance(value, dict):
-            return MotionProfile.model_validate(value)
-        raise ValidationError("motion_profile must be a profile name, object, or mapping.")
-
-    @staticmethod
-    def _coerce_export_policy(value: ExportPolicy | dict | None) -> ExportPolicy | None:
-        if value is None:
-            return None
-        if isinstance(value, ExportPolicy):
-            return value
-        if isinstance(value, dict):
-            return ExportPolicy.model_validate(value)
-        raise ValidationError("export_policy must be an ExportPolicy or mapping.")
 
     @classmethod
     def from_aspect_ratio(cls, ratio: str, base_width: int) -> Self:
@@ -178,16 +150,6 @@ class Deck:
     def default_transition(self) -> Transition | None:
         """The deck-wide default slide transition, if set."""
         return self._transition
-
-    @property
-    def motion_profile(self) -> MotionProfile | None:
-        """The deck-wide motion defaults, if configured."""
-        return self._motion_profile
-
-    @property
-    def export_policy(self) -> ExportPolicy | None:
-        """The deck-wide motion export policy, if configured."""
-        return self._export_policy
 
     def slide(
         self,
@@ -701,10 +663,6 @@ class Deck:
             payload["theme"] = self._theme
         if self._transition is not None:
             payload["transition"] = json.loads(self._transition.model_dump_json())
-        if self._motion_profile is not None:
-            payload["motion_profile"] = self._motion_profile.model_dump(mode="json")
-        if self._export_policy is not None:
-            payload["export_policy"] = self._export_policy.model_dump(mode="json")
         slides = []
         for canvas, override, audio, duration, notes in zip(
             self._slides,
@@ -747,8 +705,6 @@ class Deck:
                 "height",
                 "theme",
                 "transition",
-                "motion_profile",
-                "export_policy",
                 "slides",
             }
         )
@@ -765,16 +721,11 @@ class Deck:
         transition = raw.get("transition")
         if transition is not None and not isinstance(transition, dict):
             raise ValidationError("Deck 'transition' must be a JSON object.")
-        motion_profile = raw.get("motion_profile")
-        export_policy = raw.get("export_policy")
-
         deck = cls(
             width=raw.get("width"),
             height=raw.get("height"),
             theme=theme or None,
             transition=transition,
-            motion_profile=motion_profile,
-            export_policy=export_policy,
         )
         for slide in slides_raw:
             override = None

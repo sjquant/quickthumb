@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from quickthumb._diagnostic_rules import PLATFORM_SAFE_MARGIN_PRESETS
-from quickthumb.models import CanvasSpecModel, ExportPolicy, MotionProfile
+from quickthumb.models import CanvasSpecModel
 
 JSON_SCHEMA_DRAFT = "https://json-schema.org/draft/2020-12/schema"
 QUICKTHUMB_SCHEMA_ID = "https://sjquant.github.io/quickthumb/schema.json"
@@ -54,6 +54,24 @@ def canvas_json_schema() -> dict[str, Any]:
                 },
             },
         ]
+    for definition_name in (
+        "AnimationEffect",
+        "AnimationSpec",
+        "KeyframeSpec",
+        "PositionTrack",
+        "ScaleTrack",
+        "RotationTrack",
+        "OpacityTrack",
+        "ClipProgressTrack",
+        "BlurTrack",
+        "ColorTrack",
+    ):
+        definition = schema.get("$defs", {}).get(definition_name)
+        if definition is not None:
+            definition["required"] = [
+                "type",
+                *[field for field in definition.get("required", []) if field != "type"],
+            ]
     schema["anyOf"] = [
         {
             "properties": {
@@ -85,8 +103,6 @@ def document_json_schema() -> dict[str, Any]:
             "height": {"exclusiveMinimum": 0, "type": "integer"},
             "theme": {"type": "object"},
             "transition": {"type": "object"},
-            "motion_profile": {"$ref": "#/$defs/MotionProfile"},
-            "export_policy": {"$ref": "#/$defs/ExportPolicy"},
             "slides": {
                 "type": "array",
                 "items": {"$ref": "#/$defs/CanvasDocument"},
@@ -125,7 +141,5 @@ def document_json_schema() -> dict[str, Any]:
             **canvas_defs,
             "CanvasDocument": canvas_document,
             "DeckDocument": deck_document,
-            "MotionProfile": MotionProfile.model_json_schema(),
-            "ExportPolicy": ExportPolicy.model_json_schema(),
         },
     }

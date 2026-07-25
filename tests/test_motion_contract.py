@@ -8,7 +8,6 @@ from quickthumb import (
     Canvas,
     ClipProgressTrack,
     ColorTrack,
-    Deck,
     ExportPolicy,
     KeyframeSpec,
     MotionProfile,
@@ -177,7 +176,10 @@ class TestMotionContract:
             "color",
         }
         assert animation["additionalProperties"] is False
+        assert animation["required"] == ["type"]
+        assert schema["$defs"]["AnimationEffect"]["required"] == ["type"]
         assert schema["$defs"]["PositionTrack"]["additionalProperties"] is False
+        assert schema["$defs"]["PositionTrack"]["required"] == ["type", "keyframes"]
 
     def test_should_validate_profile_and_export_policy_models(self):
         """Profile and exporter policy models expose constrained public options."""
@@ -193,22 +195,14 @@ class TestMotionContract:
         assert profile_payload["speed"] == 1.0
         assert policy_payload["pptx"] == {"line-chart": "rasterize"}
 
-    def test_should_round_trip_deck_motion_configuration(self):
-        """Deck-owned motion profile and export policy survive JSON round-trips."""
-        # given: a deck configured with motion defaults and export policy
-        deck = Deck(
-            100,
-            100,
-            motion_profile="presentation",
-            export_policy=ExportPolicy(unsupported_motion="warn"),
-        ).slide(Canvas(100, 100))
+        # given: invalid profile and exporter policy values
+        # when: the constrained models validate them
+        with pytest.raises(ValidationError, match="Input should be 'presentation'"):
+            MotionProfile(name="fast")
+        with pytest.raises(ValidationError, match="Input should be 'native'"):
+            ExportPolicy(pptx={"line-chart": "ignore"})
 
-        # when: the deck is serialized and loaded
-        restored = Deck.from_json(deck.to_json())
-
-        # then: the configuration remains available through the public API
-        assert restored.motion_profile.name == "presentation"
-        assert restored.export_policy.unsupported_motion == "warn"
+        # then: unsupported configuration values are rejected clearly
 
     def test_should_reject_new_motion_specs_before_legacy_html_export(self):
         """Legacy exporters fail clearly instead of treating canonical motion as an effect."""

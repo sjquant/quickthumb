@@ -644,15 +644,6 @@ class _MotionModel(quickthumbModel):
     model_config = ConfigDict(extra="forbid")
 
 
-MotionProperty = Literal[
-    "position",
-    "scale",
-    "rotation",
-    "opacity",
-    "clip_progress",
-    "blur",
-    "color",
-]
 MotionPresetName = Literal[
     "fade",
     "rise",
