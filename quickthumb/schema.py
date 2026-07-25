@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from quickthumb._diagnostic_rules import PLATFORM_SAFE_MARGIN_PRESETS
-from quickthumb.models import CanvasSpecModel
+from quickthumb.models import CanvasSpecModel, ExportPolicy, MotionProfile
 
 JSON_SCHEMA_DRAFT = "https://json-schema.org/draft/2020-12/schema"
 QUICKTHUMB_SCHEMA_ID = "https://sjquant.github.io/quickthumb/schema.json"
@@ -85,6 +85,8 @@ def document_json_schema() -> dict[str, Any]:
             "height": {"exclusiveMinimum": 0, "type": "integer"},
             "theme": {"type": "object"},
             "transition": {"type": "object"},
+            "motion_profile": {"$ref": "#/$defs/MotionProfile"},
+            "export_policy": {"$ref": "#/$defs/ExportPolicy"},
             "slides": {
                 "type": "array",
                 "items": {"$ref": "#/$defs/CanvasDocument"},
@@ -123,5 +125,7 @@ def document_json_schema() -> dict[str, Any]:
             **canvas_defs,
             "CanvasDocument": canvas_document,
             "DeckDocument": deck_document,
+            "MotionProfile": MotionProfile.model_json_schema(),
+            "ExportPolicy": ExportPolicy.model_json_schema(),
         },
     }

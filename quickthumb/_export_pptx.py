@@ -37,6 +37,7 @@ from quickthumb._export_base import (
     split_backdrop_prefix,
     uses_image_fill,
     uses_radial_fill,
+    validate_legacy_animation_export,
 )
 from quickthumb.errors import RenderingError
 from quickthumb.models import (
@@ -159,6 +160,7 @@ class PptxExporter:
         presentation.slide_height = Emu(_emu(first.height))
 
         for index, canvas in enumerate(canvases):
+            validate_legacy_animation_export(canvas)
             canvas._validate_image_paths()
             canvas._ctx.begin_render_pass()
             self._canvas = canvas

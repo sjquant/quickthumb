@@ -58,6 +58,7 @@ from quickthumb._export_base import (
     split_backdrop_prefix,
     union_boxes,
     uses_image_fill,
+    validate_legacy_animation_export,
 )
 from quickthumb.errors import RenderingError
 from quickthumb.models import (
@@ -232,6 +233,7 @@ class HtmlExporter:
         keyframe_prefix: str = "qt-k",
     ):
         self._canvas = canvas
+        validate_legacy_animation_export(canvas)
         self._embed_fonts = embed_fonts
         self._responsive = responsive
         self._keyframe_prefix = keyframe_prefix

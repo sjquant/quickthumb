@@ -106,6 +106,8 @@ class FitMode(Enum):
 NormalizedUnitFloat = Annotated[float, Field(ge=0.0, le=1.0)]
 PositiveNormalizedUnitFloat = Annotated[float, Field(gt=0.0, le=1.0)]
 FocalPoint = tuple[NormalizedUnitFloat, NormalizedUnitFloat]
+FiniteNonNegativeFloat = Annotated[float, Field(ge=0.0, allow_inf_nan=False)]
+FinitePositiveFloat = Annotated[float, Field(gt=0.0, allow_inf_nan=False)]
 
 
 class Align(Enum):
@@ -636,6 +638,12 @@ Animation = Annotated[
 
 
 # --------------------------------------------------------------- motion contract
+class _MotionModel(quickthumbModel):
+    """Strict base for the canonical motion contract models."""
+
+    model_config = ConfigDict(extra="forbid")
+
+
 MotionProperty = Literal[
     "position",
     "scale",
@@ -661,15 +669,15 @@ MotionPresetName = Literal[
 MotionTarget = Literal["layer", "children", "characters", "words", "lines", "bars", "points"]
 
 
-class KeyframeSpec(quickthumbModel):
+class KeyframeSpec(_MotionModel):
     """A property value at a non-negative point on an animation timeline."""
 
     type: Literal["keyframe"] = "keyframe"
-    time: NonNegativeFloat
+    time: FiniteNonNegativeFloat
     value: Any
 
 
-class _TrackBase(quickthumbModel):
+class _TrackBase(_MotionModel):
     """Shared fields for a typed motion property track."""
 
     keyframes: list[KeyframeSpec]
@@ -697,7 +705,10 @@ class PositionTrack(_TrackBase):
             if not isinstance(value, (tuple, list)) or len(value) != 2:
                 raise ValueError("position keyframe values must contain exactly two numbers")
             if not all(
-                isinstance(item, (int, float)) and not isinstance(item, bool) for item in value
+                isinstance(item, (int, float))
+                and not isinstance(item, bool)
+                and math.isfinite(item)
+                for item in value
             ):
                 raise ValueError("position keyframe values must contain numbers")
         return keyframes
@@ -710,7 +721,11 @@ class ScalarTrack(_TrackBase):
     @classmethod
     def validate_scalars(cls, keyframes: list[KeyframeSpec]) -> list[KeyframeSpec]:
         for keyframe in keyframes:
-            if not isinstance(keyframe.value, (int, float)) or isinstance(keyframe.value, bool):
+            if (
+                not isinstance(keyframe.value, (int, float))
+                or isinstance(keyframe.value, bool)
+                or not math.isfinite(keyframe.value)
+            ):
                 raise ValueError(
                     f"{cls.model_fields['type'].default} keyframe values must be numbers"
                 )
@@ -796,13 +811,13 @@ TrackSpec = Annotated[
 ]
 
 
-class TimingSpec(quickthumbModel):
+class TimingSpec(_MotionModel):
     """Relative or absolute timing; the two forms cannot be mixed."""
 
-    duration: PositiveFloat = 0.5
+    duration: FinitePositiveFloat = 0.5
     trigger: AnimationTrigger | None = None
-    delay: NonNegativeFloat = 0.0
-    start: NonNegativeFloat | None = None
+    delay: FiniteNonNegativeFloat = 0.0
+    start: FiniteNonNegativeFloat | None = None
 
     @model_validator(mode="after")
     def validate_mode(self):
@@ -813,29 +828,33 @@ class TimingSpec(quickthumbModel):
         return self
 
 
-class StaggerSpec(quickthumbModel):
+class StaggerSpec(_MotionModel):
     """A deterministic interval for sequencing a target collection."""
 
-    delay: NonNegativeFloat
+    delay: FiniteNonNegativeFloat
     target: MotionTarget = "children"
     order: Literal["document", "top_to_bottom", "left_to_right", "reverse"] = "document"
 
 
-class AnimationEffect(quickthumbModel):
+class AnimationEffect(_MotionModel):
     """Validated semantic preset options used by ``AnimationSpec``."""
 
     type: MotionPresetName
     from_: Literal["top", "bottom", "left", "right", "center"] | None = Field(
         default=None, alias="from"
     )
-    distance: NonNegativeFloat | None = None
+    distance: FiniteNonNegativeFloat | None = None
     feel: Literal["gentle", "soft", "snappy", "dramatic", "minimal"] | None = None
     easing: str | None = None
 
-    model_config = ConfigDict(populate_by_name=True, extra="forbid")
+    model_config = ConfigDict(
+        populate_by_name=True,
+        serialize_by_alias=True,
+        extra="forbid",
+    )
 
 
-class AnimationSpec(quickthumbModel):
+class AnimationSpec(_MotionModel):
     """Canonical layer-motion contract for preset or advanced timeline animation."""
 
     type: Literal["animation"] = "animation"
@@ -859,7 +878,17 @@ class AnimationSpec(quickthumbModel):
             key: kwargs.pop(key) for key in ("duration", "trigger", "delay") if key in kwargs
         }
         stagger_delay = kwargs.pop("stagger", None)
-        stagger = StaggerSpec(delay=stagger_delay) if stagger_delay is not None else None
+        stagger_target = kwargs.pop("target", None)
+        stagger_order = kwargs.pop("order", "document")
+        stagger = (
+            StaggerSpec(
+                delay=stagger_delay or 0.0,
+                target=stagger_target or "children",
+                order=stagger_order,
+            )
+            if stagger_delay is not None or stagger_target is not None
+            else None
+        )
         return cls(
             effect=AnimationEffect(type=name, **kwargs),
             timing=TimingSpec(**timing_fields) if timing_fields else None,
@@ -916,15 +945,15 @@ class AnimationSpec(quickthumbModel):
         return cls._preset("typewriter", **kwargs)
 
 
-class MotionProfile(quickthumbModel):
+class MotionProfile(_MotionModel):
     """Deck-wide defaults for motion speed and visual feel."""
 
     name: Literal["presentation", "social", "cinematic", "minimal"]
-    speed: PositiveFloat = 1.0
+    speed: FinitePositiveFloat = 1.0
     feel: Literal["gentle", "soft", "snappy", "dramatic", "minimal"] = "soft"
 
 
-class ExportPolicy(quickthumbModel):
+class ExportPolicy(_MotionModel):
     """Policy controlling how an exporter handles unsupported motion."""
 
     unsupported_motion: Literal["error", "warn", "rasterize", "static"] = "warn"
@@ -932,7 +961,7 @@ class ExportPolicy(quickthumbModel):
     reduced_motion: bool = False
 
 
-class ExportDiagnostic(quickthumbModel):
+class ExportDiagnostic(_MotionModel):
     """Structured explanation of exporter support or fallback behavior."""
 
     layer_id: str | None = None

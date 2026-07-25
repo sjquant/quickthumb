@@ -1,14 +1,21 @@
 import json
+import math
 
 import pytest
 from quickthumb import (
     AnimationSpec,
+    BlurTrack,
     Canvas,
+    ClipProgressTrack,
+    ColorTrack,
+    Deck,
     ExportPolicy,
     KeyframeSpec,
     MotionProfile,
     OpacityTrack,
     PositionTrack,
+    RenderingError,
+    ScaleTrack,
     ValidationError,
     canvas_json_schema,
 )
@@ -96,6 +103,57 @@ class TestMotionContract:
 
         # then: all invalid inputs are rejected before exporter execution
 
+    @pytest.mark.parametrize(
+        ("track_type", "value", "message"),
+        [
+            (OpacityTrack, 1.1, "opacity"),
+            (ClipProgressTrack, -0.1, "clip_progress"),
+            (BlurTrack, -1, "blur"),
+            (ColorTrack, "red", "invalid hex color"),
+            (ScaleTrack, math.inf, "numbers"),
+        ],
+    )
+    def test_should_reject_invalid_values_for_every_supported_track(
+        self, track_type, value, message
+    ):
+        """Every typed track enforces its property-specific value contract."""
+        # given: one malformed value for a supported track
+        keyframe = KeyframeSpec(time=0, value=value)
+
+        # when: the track validates its keyframes
+        with pytest.raises(ValidationError, match=message):
+            track_type(keyframes=[keyframe])
+
+        # then: malformed values cannot enter the timeline
+
+    def test_should_reject_unknown_motion_fields_and_empty_timeline_branches(self):
+        """Strict motion models reject misspellings and incomplete compositions."""
+        # given: unknown fields and missing mutually exclusive branches
+        # when: the public models validate them
+        with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
+            AnimationSpec(effect={"type": "fade"}, duration=0.5)
+        with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
+            PositionTrack(keyframes=[KeyframeSpec(time=0, value=(0, 0))], propety="position")
+        with pytest.raises(ValidationError, match="exactly one of effect or tracks"):
+            AnimationSpec()
+        with pytest.raises(ValidationError, match="at least one track"):
+            AnimationSpec(tracks=[])
+
+        # then: invalid contract shapes fail before serialization
+
+    def test_should_reject_non_finite_timing_and_keyframe_values(self):
+        """Motion timing rejects infinity and NaN even when signs are valid."""
+        # given: non-finite values in timing and keyframe positions
+        # when: each value is validated
+        with pytest.raises(ValidationError, match="finite number"):
+            AnimationSpec(effect={"type": "fade"}, timing={"duration": math.inf})
+        with pytest.raises(ValidationError, match="finite number"):
+            AnimationSpec(effect={"type": "fade"}, timing={"start": math.nan})
+        with pytest.raises(ValidationError, match="finite number"):
+            KeyframeSpec(time=math.inf, value=1)
+
+        # then: exporters never receive unbounded timeline values
+
     def test_should_publish_motion_discriminators_and_xor_schema(self):
         """The generated canvas schema exposes motion types and composition rules."""
         # given: the published canvas schema
@@ -118,6 +176,8 @@ class TestMotionContract:
             "blur",
             "color",
         }
+        assert animation["additionalProperties"] is False
+        assert schema["$defs"]["PositionTrack"]["additionalProperties"] is False
 
     def test_should_validate_profile_and_export_policy_models(self):
         """Profile and exporter policy models expose constrained public options."""
@@ -132,6 +192,34 @@ class TestMotionContract:
         # then: the policy remains explicit and JSON-compatible
         assert profile_payload["speed"] == 1.0
         assert policy_payload["pptx"] == {"line-chart": "rasterize"}
+
+    def test_should_round_trip_deck_motion_configuration(self):
+        """Deck-owned motion profile and export policy survive JSON round-trips."""
+        # given: a deck configured with motion defaults and export policy
+        deck = Deck(
+            100,
+            100,
+            motion_profile="presentation",
+            export_policy=ExportPolicy(unsupported_motion="warn"),
+        ).slide(Canvas(100, 100))
+
+        # when: the deck is serialized and loaded
+        restored = Deck.from_json(deck.to_json())
+
+        # then: the configuration remains available through the public API
+        assert restored.motion_profile.name == "presentation"
+        assert restored.export_policy.unsupported_motion == "warn"
+
+    def test_should_reject_new_motion_specs_before_legacy_html_export(self):
+        """Legacy exporters fail clearly instead of treating canonical motion as an effect."""
+        # given: a layer using the not-yet-compiled canonical motion model
+        canvas = Canvas(100, 100).text("Motion", position=(0, 0), animation=AnimationSpec.fade())
+
+        # when: the legacy HTML exporter is requested
+        with pytest.raises(RenderingError, match="AnimationSpec export is not supported yet"):
+            canvas.to_html()
+
+        # then: no legacy exporter field access or partial document is produced
 
     def test_should_preserve_legacy_animation_json(self):
         """Existing effect animation JSON remains unchanged after the contract addition."""

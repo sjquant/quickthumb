@@ -64,7 +64,11 @@ from typing import TYPE_CHECKING, Literal
 from PIL import Image, ImageChops, ImageColor, ImageDraw
 
 from quickthumb._composition import has_layer_composition
-from quickthumb._export_base import flatten_layers, split_backdrop_prefix
+from quickthumb._export_base import (
+    flatten_layers,
+    split_backdrop_prefix,
+    validate_legacy_animation_export,
+)
 from quickthumb.errors import RenderingError, ValidationError
 from quickthumb.models import (
     Animation,
@@ -761,6 +765,7 @@ class _SlideAnimator:
 
 def _build_units(canvas: Canvas) -> list[_Unit]:
     """Flatten the canvas into animation units rendered through the PIL pipeline."""
+    validate_legacy_animation_export(canvas)
     canvas._validate_image_paths()
     canvas._ctx.begin_render_pass()
     prefix, rest = split_backdrop_prefix(flatten_layers(canvas))
