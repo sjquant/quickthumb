@@ -86,6 +86,16 @@ from quickthumb.models import (
     Wipe,
 )
 from quickthumb.schema import canvas_json_schema, document_json_schema
+from quickthumb.motion import (
+    LayerState,
+    NormalizedKeyframe,
+    NormalizedTrack,
+    Timeline,
+    TimelineEvent,
+    compile_timeline,
+    compile_transition_timeline,
+    sample_frames,
+)
 from quickthumb.transitions import Transition
 
 __all__ = [
@@ -178,4 +188,12 @@ __all__ = [
     "canvas_json_schema",
     "document_json_schema",
     "transitions",
+    "LayerState",
+    "NormalizedKeyframe",
+    "NormalizedTrack",
+    "Timeline",
+    "TimelineEvent",
+    "compile_timeline",
+    "compile_transition_timeline",
+    "sample_frames",
 ]
