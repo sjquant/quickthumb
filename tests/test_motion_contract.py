@@ -90,7 +90,10 @@ class TestMotionContract:
         # when: each payload is validated
         with pytest.raises(ValidationError, match="valid discriminator|type"):
             AnimationSpec.model_validate(
-                {"type": "animation", "tracks": [{"type": "positionn", "keyframes": []}]}
+                {
+                    "type": "animation",
+                    "tracks": [{"type": "bogus_position_tag", "keyframes": []}],
+                }
             )
         with pytest.raises(ValidationError, match="strictly increasing"):
             PositionTrack(
@@ -142,7 +145,7 @@ class TestMotionContract:
                 {
                     "type": "position",
                     "keyframes": [{"time": 0, "value": [0, 0]}],
-                    "propety": "position",
+                    "unknown_field_name": "position",
                 }
             )
         with pytest.raises(ValidationError, match="exactly one of effect or tracks"):
