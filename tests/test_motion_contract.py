@@ -23,7 +23,7 @@ from quickthumb import (
 
 
 class TestMotionContract:
-    """Black-box coverage for the public M0 motion contract."""
+    """Black-box coverage for the public motion contract."""
 
     def test_should_build_and_serialize_a_preset_animation(self):
         """A semantic preset serializes with the canonical animation discriminator."""
