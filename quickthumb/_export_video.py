@@ -74,6 +74,7 @@ from quickthumb.models import (
     Animation,
     AnimationSpec,
     AudioTrack,
+    ChartData,
     ChartLayer,
     GifOptions,
     GroupLayer,
@@ -993,7 +994,8 @@ def _component_animation_duration(layer: RenderableLayer) -> float:
         delay = timing.delay if timing is not None else 0.0
         if animation.stagger is not None:
             if isinstance(layer, ChartLayer):
-                count = len(layer.spec.data.values)
+                data = layer.spec.data
+                count = len(data.values) if isinstance(data, ChartData) else len(data)
             else:
                 count = _qr_module_count(layer)
             duration += max(0, count - 1) * animation.stagger.delay
@@ -1004,13 +1006,14 @@ def _component_animation_duration(layer: RenderableLayer) -> float:
 def _qr_module_count(layer: QRCodeLayer) -> int:
     """Return the deterministic QR matrix cell count used by module stagger."""
     try:
-        import qrcode
-        from qrcode.constants import (
+        import qrcode  # ty: ignore[unresolved-import]
+        from qrcode.constants import (  # ty: ignore[unresolved-import]
             ERROR_CORRECT_H,
             ERROR_CORRECT_L,
             ERROR_CORRECT_M,
             ERROR_CORRECT_Q,
         )
+
         code = qrcode.QRCode(
             version=None,
             error_correction={

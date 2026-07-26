@@ -146,8 +146,8 @@ class VisualizationEngine:
     ) -> None:
         """Render a QR matrix with nearest-neighbour module boundaries."""
         try:
-            import qrcode
-            from qrcode.constants import (
+            import qrcode  # ty: ignore[unresolved-import]
+            from qrcode.constants import (  # ty: ignore[unresolved-import]
                 ERROR_CORRECT_H,
                 ERROR_CORRECT_L,
                 ERROR_CORRECT_M,
@@ -272,11 +272,7 @@ class VisualizationEngine:
         if show_points and style.point_radius > 0:
             base_radius = style.point_radius * self._SUPERSAMPLE
             for index, (point_x, point_y) in enumerate(self._scaled_points(points)):
-                progress = (
-                    state.point_progress[index]
-                    if index < len(state.point_progress)
-                    else 1.0
-                )
+                progress = state.point_progress[index] if index < len(state.point_progress) else 1.0
                 if progress <= 0:
                     continue
                 radius = base_radius * progress
@@ -358,12 +354,14 @@ class VisualizationEngine:
                     1.0 if progress * count > index else 0.0 for index in range(count)
                 )
             )
-        return VisualizationState(qr_module_progress=tuple(
-            1.0
-            if _sample_component_progress(timeline, layer_state, time, index * stagger) >= 1.0
-            else 0.0
-            for index in range(count)
-        ))
+        return VisualizationState(
+            qr_module_progress=tuple(
+                1.0
+                if _sample_component_progress(timeline, layer_state, time, index * stagger) >= 1.0
+                else 0.0
+                for index in range(count)
+            )
+        )
 
     def _has_value_count_up(self, animation: object) -> bool:
         return _component_animation(animation, frozenset({"value_count_up"})) is not None
@@ -398,8 +396,12 @@ class VisualizationEngine:
         if end < len(points) - 1:
             ratio = position - end
             left, right = points[end], points[end + 1]
-            visible.append((round(left[0] + (right[0] - left[0]) * ratio),
-                            round(left[1] + (right[1] - left[1]) * ratio)))
+            visible.append(
+                (
+                    round(left[0] + (right[0] - left[0]) * ratio),
+                    round(left[1] + (right[1] - left[1]) * ratio),
+                )
+            )
         return visible
 
     def _layer_origin(self, layer: ChartLayer) -> tuple[int, int]:

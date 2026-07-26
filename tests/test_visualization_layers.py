@@ -19,6 +19,7 @@ from quickthumb import (
     ClipProgressTrack,
     Fade,
     GifOptions,
+    KeyframeSpec,
     LineChartSpec,
     LineChartStyle,
     QRCodeLayer,
@@ -416,7 +417,7 @@ class TestVisualizationRendering:
         """Given QR reveal motion, when sampled partway through, then only the leading
         row-major module prefix is visible."""
         # given
-        import qrcode
+        import qrcode  # ty: ignore[unresolved-import]
 
         animation = AnimationSpec.qr_reveal(duration=1.0)
         canvas = Canvas(120, 120).qr_code(
@@ -440,10 +441,8 @@ class TestVisualizationRendering:
                     left + max(0, ((column + 1) * 90) // matrix_size - left - 1) // 2,
                     top + max(0, ((row + 1) * 90) // matrix_size - top - 1) // 2,
                 )
-                is_visible = frame.getpixel(center)[:3] == (0, 0, 0)
-                assert is_visible == (
-                    bool(cell) and row * matrix_size + column < reveal_limit
-                )
+                is_visible = rgb_pixel(frame, *center) == (0, 0, 0)
+                assert is_visible == (bool(cell) and row * matrix_size + column < reveal_limit)
 
     def test_should_export_staggered_and_mixed_visualization_motion(self, tmp_path):
         """Given component and legacy animation entries together, when exported, then both
@@ -466,7 +465,7 @@ class TestVisualizationRendering:
 
         # then
         with Image.open(output) as image:
-            assert image.n_frames >= 2
+            assert getattr(cast(Any, image), "n_frames", 1) >= 2
 
     def test_should_honor_absolute_component_animation_start(self, tmp_path):
         """Given an absolute chart animation start, when exported, then the timeline includes
@@ -480,8 +479,8 @@ class TestVisualizationRendering:
             animation=AnimationSpec.timeline(
                 ClipProgressTrack(
                     keyframes=[
-                        {"time": 0.0, "value": 0.0},
-                        {"time": 0.2, "value": 1.0},
+                        KeyframeSpec(time=0.0, value=0.0),
+                        KeyframeSpec(time=0.2, value=1.0),
                     ]
                 ),
                 timing=TimingSpec(start=0.4, duration=0.2),
@@ -495,7 +494,7 @@ class TestVisualizationRendering:
         # then
         with Image.open(output) as image:
             total_duration = 0
-            for frame_index in range(image.n_frames):
+            for frame_index in range(getattr(cast(Any, image), "n_frames", 1)):
                 image.seek(frame_index)
                 total_duration += image.info.get("duration", 0)
         assert total_duration >= 600

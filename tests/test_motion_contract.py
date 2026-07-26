@@ -2,8 +2,8 @@ import json
 import math
 
 import pytest
-from jsonschema import ValidationError as JsonSchemaValidationError
-from jsonschema import validate
+from jsonschema import ValidationError as JsonSchemaValidationError  # ty: ignore[unresolved-import]
+from jsonschema import validate  # ty: ignore[unresolved-import]
 from quickthumb import (
     AnimationSpec,
     BlurTrack,
