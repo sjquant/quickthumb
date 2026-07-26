@@ -12,6 +12,7 @@ from PIL import Image
 from quickthumb.errors import ValidationError
 from quickthumb.models import (
     Align,
+    AnimationSpec,
     BackgroundLayer,
     BlendMode,
     FaceRegion,
@@ -723,6 +724,53 @@ class TestImageLayerSerialization:
         assert restored.height == original.height
         assert len(restored.layers) == len(original.layers)
         assert restored.layers[0] == original.layers[0]
+
+    def test_should_round_trip_image_motion_through_json(self):
+        """Given an animated image, JSON restoration preserves its motion contract."""
+        from quickthumb import Canvas
+
+        # Given: an image using the semantic Ken Burns preset
+        original = Canvas(160, 100).image(
+            path="tests/fixtures/sample_image.jpg",
+            position=(0, 0),
+            width=160,
+            height=100,
+            fit="cover",
+            focal_point=(0.8, 0.3),
+            animation=AnimationSpec.ken_burns(direction="in", duration=2),
+        )
+
+        # When: the canvas is serialized and restored
+        restored = Canvas.from_json(original.to_json())
+
+        # Then: the public layer contract is unchanged
+        assert restored.layers[0] == original.layers[0]
+
+    def test_should_keep_image_motion_inside_the_fitted_composition_boundary(self):
+        """Given viewport motion, frames change while masks and box dimensions stay fixed."""
+        from quickthumb import Canvas, LayerMask
+
+        # Given: a cover-fitted image with a rectangular composition mask
+        canvas = Canvas(160, 100).image(
+            path="tests/fixtures/sample_image.jpg",
+            position=(0, 0),
+            width=120,
+            height=80,
+            fit="cover",
+            focal_point=(0.8, 0.5),
+            mask=LayerMask(shape="ellipse", position=(0, 0), width=120, height=80),
+            animation=AnimationSpec.ken_burns(duration=1),
+        )
+
+        # When: deterministic frames are sampled before and after the motion
+        first = canvas.render_frame(0)
+        last = canvas.render_frame(1)
+
+        # Then: viewport motion changes pixels without changing the layer boundary
+        assert first.size == last.size == (160, 100)
+        assert first.tobytes() != last.tobytes()
+        assert first.getpixel((0, 0))[3] == 0
+        assert last.getpixel((0, 0))[3] == 0
 
     def test_should_serialize_percentage_position_to_json(self):
         """Test that percentage positions are serialized correctly"""

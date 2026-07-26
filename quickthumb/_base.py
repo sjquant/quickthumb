@@ -27,6 +27,7 @@ class RenderContext:
         # measure_cache holds (layer, size) so the keyed id() stays valid for the pass
         self.measure_cache: dict[int, tuple[object, tuple[int, int]]] = {}
         self.image_size_cache: dict[str, tuple[int, int]] = {}
+        self.motion_time: float | None = None
 
     def begin_render_pass(self):
         """Drop per-pass caches so a new render or diagnose picks up asset changes."""

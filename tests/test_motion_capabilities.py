@@ -5,6 +5,7 @@ from quickthumb import (
     Canvas,
     Deck,
     ExportPolicy,
+    ImagePanTrack,
     KeyframeSpec,
     PositionTrack,
     capabilities_for,
@@ -58,6 +59,33 @@ class TestMotionCapabilities:
         assert diagnostics[1].layer_id == "layer:0"
         assert diagnostics[1].fallback == "static"
         assert "blur" in diagnostics[1].message
+
+    def test_should_report_image_viewport_motion_as_pptx_raster_fallback(self):
+        """Given image viewport motion, PPTX validation reports its composition fallback."""
+        # Given: an image pan track that depends on pixel composition
+        canvas = Canvas(100, 100).image(
+            path="tests/fixtures/sample_image.jpg",
+            position=(0, 0),
+            width=100,
+            height=100,
+            fit="cover",
+            animation=AnimationSpec.timeline(
+                ImagePanTrack(
+                    keyframes=[
+                        KeyframeSpec(time=0, value=(-1, 0)),
+                        KeyframeSpec(time=1, value=(1, 0)),
+                    ]
+                )
+            ),
+        )
+
+        # When: the image is checked for PPTX export
+        diagnostics = canvas.validate_export("pptx")
+
+        # Then: the exporter contract requests deterministic raster fallback
+        assert diagnostics[0].feature == "image_pan"
+        assert diagnostics[0].support == "fallback"
+        assert diagnostics[0].fallback == "static"
 
     def test_should_resolve_error_rasterize_and_static_policies(self):
         """Unsupported motion policies resolve to distinct deterministic outcomes."""

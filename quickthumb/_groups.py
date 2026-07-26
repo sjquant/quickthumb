@@ -156,7 +156,7 @@ class GroupEngine:
         if isinstance(child, TextLayer):
             self._text.render_text_layer(image, child)
         elif isinstance(child, ImageLayer):
-            self._images.render_image_layer(image, child)
+            self._images.render_image_layer(image, child, time)
         elif isinstance(child, SvgLayer):
             self._images.render_svg_layer(image, child)
         elif isinstance(child, ShapeLayer):

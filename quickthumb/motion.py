@@ -35,7 +35,15 @@ MotionValue = tuple[float, float] | float | str
 MotionTargetName = Literal["characters", "words", "lines", "children"]
 TargetOrder = Literal["document", "top_to_bottom", "left_to_right", "reverse"]
 MotionProperty = Literal[
-    "position", "scale", "rotation", "opacity", "clip_progress", "blur", "color"
+    "position",
+    "image_pan",
+    "scale",
+    "image_zoom",
+    "rotation",
+    "opacity",
+    "clip_progress",
+    "blur",
+    "color",
 ]
 TrackBlend = Literal["replace", "add", "multiply"]
 
@@ -315,9 +323,11 @@ class NormalizedTrack(BaseModel):
             raise ValidationError("normalized keyframe times must be strictly increasing")
         for keyframe in self.keyframes:
             _validate_property_value(self.property, keyframe.value)
-        if self.blend == "add" and self.property != "position":
-            raise ValidationError("additive tracks are only supported for position")
-        if self.blend == "multiply" and self.property not in {"scale", "opacity", "clip_progress"}:
+        if self.blend == "add" and self.property not in {"position", "image_pan"}:
+            raise ValidationError("additive tracks are only supported for position and image_pan")
+        if self.blend == "multiply" and self.property not in {
+            "scale", "image_zoom", "opacity", "clip_progress"
+        }:
             raise ValidationError(
                 "multiplicative tracks are only supported for scale, opacity, and clip_progress"
             )
@@ -367,7 +377,10 @@ class LayerState(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     position: tuple[float, float] | None = None
+    image_pan: tuple[float, float] = (0.0, 0.0)
+    image_focal_point: tuple[float, float] | None = None
     scale: float = Field(default=1.0, allow_inf_nan=False)
+    image_zoom: float = Field(default=1.0, ge=1.0, allow_inf_nan=False)
     rotation: float = Field(default=0.0, allow_inf_nan=False)
     opacity: float = Field(default=1.0, ge=0.0, le=1.0, allow_inf_nan=False)
     clip_progress: float = Field(default=1.0, ge=0.0, le=1.0, allow_inf_nan=False)
@@ -381,6 +394,22 @@ class LayerState(BaseModel):
         if position is not None and not all(math.isfinite(value) for value in position):
             raise ValueError("position coordinates must be finite")
         return position
+
+    @field_validator("image_pan")
+    @classmethod
+    def validate_image_pan(cls, value: tuple[float, float]) -> tuple[float, float]:
+        if not all(math.isfinite(item) and -1.0 <= item <= 1.0 for item in value):
+            raise ValueError("image_pan coordinates must be finite values between -1.0 and 1.0")
+        return value
+
+    @field_validator("image_focal_point")
+    @classmethod
+    def validate_image_focal_point(
+        cls, value: tuple[float, float] | None
+    ) -> tuple[float, float] | None:
+        if value is not None and not all(0.0 <= item <= 1.0 for item in value):
+            raise ValueError("image_focal_point coordinates must be between 0.0 and 1.0")
+        return value
 
     def with_values(self, **values: MotionValue | None) -> LayerState:
         """Return a state with selected properties replaced."""
@@ -626,7 +655,22 @@ def _compile_preset_tracks(
     if effect in {"zoom", "pop"}:
         return (track("scale", (0.8, 1.0), blend="multiply"),)
     if effect == "ken_burns":
-        return (track("scale", (1.0, 1.1), blend="multiply"),)
+        direction = options.get("direction") or "in"
+        values = (1.0, 1.1) if direction == "in" else (1.1, 1.0)
+        # Keep the public preset on the established scale property. Image
+        # layers interpret it as viewport zoom; other layers retain the
+        # existing generic scale semantics.
+        return (track("scale", values, blend="multiply"),)
+    if effect == "pan":
+        origin = options.get("from") or "left"
+        offsets = {
+            "left": ((-1.0, 0.0), (1.0, 0.0)),
+            "right": ((1.0, 0.0), (-1.0, 0.0)),
+            "top": ((0.0, -1.0), (0.0, 1.0)),
+            "bottom": ((0.0, 1.0), (0.0, -1.0)),
+            "center": ((0.0, 0.0), (0.0, 0.0)),
+        }
+        return (track("image_pan", offsets.get(origin, offsets["left"])),)
     if effect == "typewriter":
         return (track("clip_progress", (0.0, 1.0), blend="multiply"),)
     if effect in {
@@ -716,6 +760,14 @@ def _validate_property_value(property: MotionProperty, value: MotionValue) -> No
         ):
             raise ValidationError("position keyframes must contain two finite numbers")
         return
+    if property == "image_pan":
+        if (
+            not isinstance(value, tuple)
+            or len(value) != 2
+            or not all(math.isfinite(item) and -1.0 <= item <= 1.0 for item in value)
+        ):
+            raise ValidationError("image_pan keyframes must contain values between -1.0 and 1.0")
+        return
     if property == "color":
         if not isinstance(value, str):
             raise ValidationError("color keyframes must contain hexadecimal colors")
@@ -728,6 +780,8 @@ def _validate_property_value(property: MotionProperty, value: MotionValue) -> No
         raise ValidationError(f"{property} keyframes must contain finite numbers")
     if property in {"opacity", "clip_progress"} and not 0.0 <= value <= 1.0:
         raise ValidationError(f"{property} keyframes must be between 0.0 and 1.0")
+    if property == "image_zoom" and value < 1.0:
+        raise ValidationError("image_zoom keyframes must be at least 1.0")
     if property == "blur" and value < 0.0:
         raise ValidationError("blur keyframes must be non-negative")
 
@@ -743,6 +797,8 @@ def _sample_event(event: TimelineEvent, time: float, state: LayerState) -> Layer
     for track in event.tracks:
         value = _sample_track(track, progress, event.duration, event.options.get("easing"))
         state = _compose_track_value(state, track, value)
+    if event.effect == "ken_burns" and event.options.get("focal_point") is not None:
+        state = state.with_values(image_focal_point=tuple(event.options["focal_point"]))
     if event.effect is not None and event.source == "legacy":
         state = _sample_effect(event, eased_progress, state)
     return state
@@ -757,6 +813,9 @@ def _compose_track_value(
     if track.blend == "add":
         if not isinstance(value, tuple):
             return state
+        if track.property == "image_pan":
+            x, y = state.image_pan
+            return state.with_values(image_pan=(x + value[0], y + value[1]))
         x, y = state.position or (0.0, 0.0)
         return state.with_values(position=(x + value[0], y + value[1]))
     current = getattr(state, track.property)
@@ -778,7 +837,7 @@ def _sample_track(
         if local_time <= right.time:
             ratio = (local_time - left.time) / (right.time - left.time)
             eased_ratio = easing_value(easing, ratio)
-            if track.property in {"opacity", "clip_progress", "color"}:
+            if track.property in {"opacity", "clip_progress", "color", "image_pan", "image_zoom"}:
                 eased_ratio = min(1.0, max(0.0, eased_ratio))
             return _interpolate(left.value, right.value, eased_ratio)
     return track.keyframes[-1].value
@@ -866,7 +925,9 @@ def sample_frames(timeline: Timeline, fps: float) -> tuple[tuple[float, LayerSta
 ExportTarget = Literal["raster", "video", "html", "pptx"]
 CapabilityFeature = Literal[
     "position",
+    "image_pan",
     "scale",
+    "image_zoom",
     "rotation",
     "opacity",
     "clip_progress",
@@ -895,7 +956,9 @@ class MotionCapability:
 
 _CAPABILITY_FEATURES: tuple[CapabilityFeature, ...] = (
     "position",
+    "image_pan",
     "scale",
+    "image_zoom",
     "rotation",
     "opacity",
     "clip_progress",
@@ -925,7 +988,9 @@ _CAPABILITIES["html"] = {
 }
 _PPTX_FALLBACKS: dict[CapabilityFeature, tuple[SupportLevel, Fallback | None]] = {
     "position": ("native", None),
+    "image_pan": ("fallback", "rasterize"),
     "scale": ("native", None),
+    "image_zoom": ("fallback", "rasterize"),
     "rotation": ("native", None),
     "opacity": ("native", None),
     "clip_progress": ("fallback", "fade"),
@@ -979,6 +1044,7 @@ def _capability_features_for(animation: object) -> tuple[CapabilityFeature, ...]
                 "pulse": ("scale",),
                 "shake": ("rotation",),
                 "ken_burns": ("position", "scale"),
+                "pan": ("image_pan",),
                 "typewriter": ("clip_progress",),
                 "bar_grow": ("clip_progress",),
                 "line_draw": ("clip_progress",),

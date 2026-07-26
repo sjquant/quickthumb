@@ -137,6 +137,7 @@ MotionPresetName = Literal[
     "pulse",
     "shake",
     "ken_burns",
+    "pan",
     "typewriter",
     "bar_grow",
     "line_draw",
@@ -218,6 +219,20 @@ class PositionTrack(_TrackBase):
         return keyframes
 
 
+class ImagePanTrack(PositionTrack):
+    """A normalized source-viewport pan track for image layers."""
+
+    type: Literal["image_pan"] = "image_pan"
+
+    @field_validator("keyframes")
+    @classmethod
+    def validate_pan(cls, keyframes: list[KeyframeSpec]) -> list[KeyframeSpec]:
+        for keyframe in keyframes:
+            if not all(-1.0 <= float(item) <= 1.0 for item in keyframe.value):
+                raise ValueError("image_pan keyframe values must be between -1.0 and 1.0")
+        return keyframes
+
+
 class ScalarTrack(_TrackBase):
     """Base for scalar motion tracks with a shared numeric validator."""
 
@@ -240,6 +255,20 @@ class ScaleTrack(ScalarTrack):
     """A uniform scale track."""
 
     type: Literal["scale"] = "scale"
+
+
+class ImageZoomTrack(ScalarTrack):
+    """A positive source-viewport zoom track for image layers."""
+
+    type: Literal["image_zoom"] = "image_zoom"
+
+    @field_validator("keyframes")
+    @classmethod
+    def validate_zoom(cls, keyframes: list[KeyframeSpec]) -> list[KeyframeSpec]:
+        for keyframe in keyframes:
+            if keyframe.value < 1.0:
+                raise ValueError("image_zoom keyframe values must be at least 1.0")
+        return keyframes
 
 
 class RotationTrack(ScalarTrack):
@@ -305,7 +334,9 @@ class ColorTrack(_TrackBase):
 
 TrackSpec = Annotated[
     PositionTrack
+    | ImagePanTrack
     | ScaleTrack
+    | ImageZoomTrack
     | RotationTrack
     | OpacityTrack
     | ClipProgressTrack
@@ -348,6 +379,8 @@ class AnimationEffect(_MotionModel):
         default=None, alias="from"
     )
     distance: FiniteNonNegativeFloat | None = None
+    direction: Literal["in", "out"] | None = None
+    focal_point: FocalPoint | None = None
     feel: Literal["gentle", "soft", "snappy", "dramatic", "minimal"] | None = None
     easing: MotionEasingName | None = None
 
