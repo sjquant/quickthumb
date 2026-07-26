@@ -1,3 +1,5 @@
+import math
+
 import pytest
 from pydantic import ValidationError as PydanticValidationError
 from quickthumb import (
@@ -33,19 +35,9 @@ class TestMotionTimeline:
             ("slide", "position", "add", ((-24.0, 0.0), (0.0, 0.0))),
             ("zoom", "scale", "multiply", (0.8, 1.0)),
             ("pop", "scale", "multiply", (0.8, 1.0)),
-            (
-                "float",
-                "position",
-                "add",
-                ((0.0, 0.0), (0.0, -24.0), (0.0, 0.0), (0.0, 24.0), (0.0, 0.0)),
-            ),
-            ("pulse", "scale", "multiply", (1.0, 1.1, 1.0)),
-            (
-                "shake",
-                "position",
-                "add",
-                ((0.0, 0.0), (24.0, 0.0), (0.0, 0.0), (-24.0, 0.0), (0.0, 0.0)),
-            ),
+            ("float", "position", "add", "sine"),
+            ("pulse", "scale", "multiply", "sine"),
+            ("shake", "position", "add", "sine"),
             ("ken_burns", "scale", "multiply", (1.0, 1.1)),
             ("typewriter", "clip_progress", "multiply", (0.0, 1.0)),
         ],
@@ -73,7 +65,20 @@ class TestMotionTimeline:
         assert event.tracks[0].property == property
         assert event.tracks[0].blend == blend
         assert event.tracks[0].keyframes[-1].time == pytest.approx(0.8)
-        assert [keyframe.value for keyframe in event.tracks[0].keyframes] == list(values)
+        actual_values = [keyframe.value for keyframe in event.tracks[0].keyframes]
+        if values == "sine":
+            assert len(actual_values) == 17
+            for index, value in enumerate(actual_values):
+                progress = index / 16
+                if factory == "float":
+                    expected = (0.0, -24.0 * math.sin(progress * math.tau))
+                elif factory == "shake":
+                    expected = (24.0 * math.sin(progress * math.tau), 0.0)
+                else:
+                    expected = 1.0 + 0.1 * math.sin(progress * math.pi)
+                assert value == pytest.approx(expected)
+        else:
+            assert actual_values == list(values)
 
     @pytest.mark.parametrize("factory", ["rise", "fall", "slide", "float", "shake"])
     def test_should_sample_positional_presets_from_the_default_origin(self, factory):

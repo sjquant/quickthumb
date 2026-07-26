@@ -457,6 +457,8 @@ def _compile_preset_tracks(
             ),
         )
 
+    oscillation_progress = tuple(index / 16 for index in range(17))
+
     if effect == "fade":
         return (track("opacity", (0.0, 1.0), blend="multiply"),)
     if effect in {"zoom", "pop"}:
@@ -466,12 +468,23 @@ def _compile_preset_tracks(
     if effect == "typewriter":
         return (track("clip_progress", (0.0, 1.0), blend="multiply"),)
     if effect == "pulse":
-        return (track("scale", (1.0, 1.1, 1.0), blend="multiply"),)
+        return (
+            track(
+                "scale",
+                tuple(
+                    1.0 + 0.1 * math.sin(math.pi * progress) for progress in oscillation_progress
+                ),
+                blend="multiply",
+            ),
+        )
     if effect == "float":
         return (
             track(
                 "position",
-                ((0.0, 0.0), (0.0, -distance), (0.0, 0.0), (0.0, distance), (0.0, 0.0)),
+                tuple(
+                    (0.0, -distance * math.sin(progress * math.tau))
+                    for progress in oscillation_progress
+                ),
                 blend="add",
             ),
         )
@@ -479,7 +492,10 @@ def _compile_preset_tracks(
         return (
             track(
                 "position",
-                ((0.0, 0.0), (distance, 0.0), (0.0, 0.0), (-distance, 0.0), (0.0, 0.0)),
+                tuple(
+                    (distance * math.sin(progress * math.tau), 0.0)
+                    for progress in oscillation_progress
+                ),
                 blend="add",
             ),
         )
@@ -492,9 +508,7 @@ def _compile_preset_tracks(
             "right": (distance, 0.0),
             "center": (0.0, 0.0),
         }
-        return (
-            track("position", (offsets.get(origin, (0.0, 0.0)), (0.0, 0.0)), blend="add"),
-        )
+        return (track("position", (offsets.get(origin, (0.0, 0.0)), (0.0, 0.0)), blend="add"),)
     raise ValidationError(f"unsupported motion preset {effect!r}")
 
 
