@@ -1167,12 +1167,12 @@ class Canvas:
     def _create_canvas(self) -> Image.Image:
         return Image.new("RGBA", (self.width, self.height), (0, 0, 0, 0))
 
-    def _render_to_image(self, debug: bool = False) -> Image.Image:
+    def _render_to_image(self, debug: bool = False, time: float | None = None) -> Image.Image:
         self._ctx.begin_render_pass()
         image = self._create_canvas()
 
         for layer in self._layers:
-            self._render_layer(image, layer)
+            self._render_layer(image, layer, time)
 
         if debug:
             self._draw_debug_overlay(image)
@@ -1226,21 +1226,23 @@ class Canvas:
         )
         draw.text((label_left + 3, label_top + 2), label, fill=(255, 255, 255, 255), font=font)
 
-    def _render_layer(self, image: Image.Image, layer: RenderableLayer):
+    def _render_layer(self, image: Image.Image, layer: RenderableLayer, time: float | None = None):
         if has_layer_composition(layer):
-            self._render_composed_layer(image, layer)
+            self._render_composed_layer(image, layer, time)
             return
 
-        self._render_layer_direct(image, layer)
+        self._render_layer_direct(image, layer, time)
 
-    def _render_composed_layer(self, image: Image.Image, layer: RenderableLayer):
+    def _render_composed_layer(
+        self, image: Image.Image, layer: RenderableLayer, time: float | None = None
+    ):
         isolated = self._layer_without_boundary_blend(layer)
         composite_layer_with_boundary(
             self._ctx,
             self._effects,
             image,
             layer,
-            lambda layer_surface: self._render_layer_direct(layer_surface, isolated),
+            lambda layer_surface: self._render_layer_direct(layer_surface, isolated, time),
         )
 
     @staticmethod
@@ -1257,7 +1259,9 @@ class Canvas:
             return layer.model_copy(update=updates)
         return layer
 
-    def _render_layer_direct(self, image: Image.Image, layer: RenderableLayer):
+    def _render_layer_direct(
+        self, image: Image.Image, layer: RenderableLayer, time: float | None = None
+    ):
         if isinstance(layer, BackgroundLayer):
             self._render_background_layer(image, layer)
         elif isinstance(layer, TextLayer):
@@ -1271,11 +1275,11 @@ class Canvas:
         elif isinstance(layer, SvgLayer):
             self._images.render_svg_layer(image, layer)
         elif isinstance(layer, ChartLayer):
-            self._visualizations.render_chart(image, layer)
+            self._visualizations.render_chart(image, layer, time)
         elif isinstance(layer, QRCodeLayer):
-            self._visualizations.render_qr_code(image, layer)
+            self._visualizations.render_qr_code(image, layer, time)
         elif isinstance(layer, GroupLayer):
-            self._groups.render_group_layer(image, layer)
+            self._groups.render_group_layer(image, layer, time=time)
         elif isinstance(layer, CustomLayer):
             self._render_custom_layer(image, layer)
 

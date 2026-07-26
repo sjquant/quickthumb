@@ -138,6 +138,12 @@ MotionPresetName = Literal[
     "shake",
     "ken_burns",
     "typewriter",
+    "bar_grow",
+    "line_draw",
+    "area_reveal",
+    "point_pop",
+    "value_count_up",
+    "qr_reveal",
 ]
 MotionTarget = Literal["layer", "children", "characters", "words", "lines", "bars", "points"]
 MotionEasingName = Literal[
@@ -449,6 +455,30 @@ class AnimationSpec(_MotionModel):
     @classmethod
     def typewriter(cls, **kwargs) -> "AnimationSpec":
         return cls._preset("typewriter", **kwargs)
+
+    @classmethod
+    def bar_grow(cls, **kwargs) -> "AnimationSpec":
+        return cls._preset("bar_grow", **kwargs)
+
+    @classmethod
+    def line_draw(cls, **kwargs) -> "AnimationSpec":
+        return cls._preset("line_draw", **kwargs)
+
+    @classmethod
+    def area_reveal(cls, **kwargs) -> "AnimationSpec":
+        return cls._preset("area_reveal", **kwargs)
+
+    @classmethod
+    def point_pop(cls, **kwargs) -> "AnimationSpec":
+        return cls._preset("point_pop", **kwargs)
+
+    @classmethod
+    def value_count_up(cls, **kwargs) -> "AnimationSpec":
+        return cls._preset("value_count_up", **kwargs)
+
+    @classmethod
+    def qr_reveal(cls, **kwargs) -> "AnimationSpec":
+        return cls._preset("qr_reveal", **kwargs)
 
 
 # A layer accepts legacy effects, the new canonical spec, or an ordered list.
