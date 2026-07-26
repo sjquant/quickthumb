@@ -724,7 +724,12 @@ class _SlideAnimator:
             else:
                 pos = unit.pos
                 image = unit.image
-            if unit.component_duration == 0 and isinstance(state, tuple) and state and state[0] == "canonical":
+            if (
+                unit.component_duration == 0
+                and isinstance(state, tuple)
+                and state
+                and state[0] == "canonical"
+            ):
                 image = _canonical_render(unit.image, state[1], state[2])
                 if image is None:
                     continue
@@ -794,7 +799,7 @@ class _SlideAnimator:
 
 def _build_units(canvas: Canvas) -> list[_Unit]:
     """Flatten the canvas into animation units rendered through the PIL pipeline."""
-    validate_legacy_animation_export(canvas, allow_visualization_motion=True)
+    validate_legacy_animation_export(canvas)
     canvas._validate_image_paths()
     canvas._ctx.begin_render_pass()
     group_target_counts = _canonical_group_target_counts(canvas)
