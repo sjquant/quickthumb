@@ -62,6 +62,18 @@ class GroupEngine:
         for child, position, size in placements:
             self._render_group_child(image, child, position, size)
 
+    def resolve_animation_targets(
+        self,
+        layer: GroupLayer,
+        order: str = "document",
+    ) -> tuple:
+        """Resolve children after auto-layout without changing their placements."""
+        from quickthumb.motion import resolve_targets
+
+        placements, _ = self.layout_group(layer)
+        positions = tuple(position for _, position, _ in placements)
+        return resolve_targets(placements, order=order, positions=positions)
+
     def _render_group_child(
         self,
         image: Image.Image,

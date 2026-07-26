@@ -17,6 +17,10 @@ from quickthumb import (
     TimingSpec,
     compile_timeline,
     compile_transition_timeline,
+    resolve_staggered_timelines,
+    resolve_target_order,
+    resolve_targets,
+    resolve_text_targets,
     sample_frames,
 )
 from quickthumb.errors import ValidationError
@@ -25,6 +29,51 @@ from quickthumb.transitions import Fade as SlideFade
 
 class TestMotionTimeline:
     """Black-box coverage for normalized timeline compilation and sampling."""
+
+    def test_should_resolve_text_targets_in_document_order_without_relaying_out_text(self):
+        """Given text members, when semantic targets resolve, then source order is preserved."""
+        # given
+        text = "Hello world"
+
+        # when
+        characters = resolve_text_targets(text, "characters")
+        words = resolve_text_targets(text, "words")
+        lines = resolve_text_targets(text, "lines", lines=("Hello", "world"))
+
+        # then
+        assert [target.value for target in characters] == list(text)
+        assert [target.value for target in words] == ["Hello", "world"]
+        assert [target.value for target in lines] == ["Hello", "world"]
+        assert [target.index for target in characters] == list(range(len(text)))
+
+    def test_should_resolve_text_and_group_orders_deterministically(self):
+        """Given semantic ordering, when targets resolve, then ties retain document order."""
+        # given
+        positions = ((10, 20), (10, 10), (4, 10), (4, 10))
+
+        # when
+        top_to_bottom = resolve_target_order(4, "top_to_bottom", positions)
+        left_to_right = resolve_target_order(4, "left_to_right", positions)
+        reverse = resolve_targets(("a", "b", "c"), order="reverse")
+
+        # then
+        assert top_to_bottom == (1, 2, 3, 0)
+        assert left_to_right == (2, 3, 0, 1)
+        assert [target.value for target in reverse] == ["c", "b", "a"]
+
+    def test_should_expand_stagger_metadata_into_independent_runtime_timelines(self):
+        """Given stagger metadata, when runtime timelines expand, then each target starts later."""
+        # given
+        timeline = compile_timeline(AnimationSpec.rise(duration=0.5, stagger=0.1, target="words"))
+
+        # when
+        expanded = resolve_staggered_timelines(timeline, 3)
+
+        # then
+        assert [item.events[0].start for item in expanded] == [0.0, 0.1, 0.2]
+        assert [item.events[0].stagger for item in expanded] == [None, None, None]
+        assert [item.duration for item in expanded] == [0.5, 0.6, 0.7]
+        assert timeline.events[0].stagger == {"delay": 0.1, "target": "words", "order": "document"}
 
     @pytest.mark.parametrize(
         ("factory", "property", "blend", "values"),

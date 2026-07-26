@@ -96,6 +96,22 @@ class TextEngine:
         else:
             self._render_simple_text(image, layer)
 
+    def resolve_animation_targets(
+        self,
+        layer: TextLayer,
+        target: str,
+        order: str = "document",
+    ) -> tuple:
+        """Resolve semantic targets from the same layout used to render text."""
+        from quickthumb.motion import resolve_text_targets
+
+        text = layer.content if isinstance(layer.content, str) else "".join(
+            part.text for part in layer.content
+        )
+        layout = self.measure_text_layout(layer)
+        lines = layout["wrapped_lines"] if target == "lines" else None
+        return resolve_text_targets(text, target, lines=lines, order=order)
+
     def _find_max_fitting_size(
         self, min_size: int, max_size: int, fits: Callable[[int], bool]
     ) -> int:

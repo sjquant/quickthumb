@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import math
-from collections.abc import Iterable, Mapping
+import re
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, Literal, cast, get_args
@@ -37,6 +38,128 @@ MotionProperty = Literal[
 TrackBlend = Literal["replace", "add", "multiply"]
 
 EASING_NAMES = frozenset(get_args(MotionEasingName))
+
+
+@dataclass(frozen=True)
+class ResolvedMotionTarget:
+    """One deterministic member of a semantic animation target collection.
+
+    ``value`` is deliberately opaque.  Text and group renderers can retain
+    their public layout/placement objects without making the normalized motion
+    model depend on renderer-specific types.
+    """
+
+    index: int
+    value: Any
+
+
+def resolve_target_order(
+    count: int,
+    order: Literal["document", "top_to_bottom", "left_to_right", "reverse"] = "document",
+    positions: Sequence[tuple[float, float]] | None = None,
+) -> tuple[int, ...]:
+    """Return stable indices for a semantic target collection.
+
+    Layout-aware orders require one position per item.  Equal coordinates keep
+    document order, making ties and repeated renders deterministic.
+    """
+    if isinstance(count, bool) or not isinstance(count, int) or count < 0:
+        raise ValidationError("target count must be a non-negative integer")
+    if order not in {"document", "top_to_bottom", "left_to_right", "reverse"}:
+        raise ValidationError(
+            "target order must be document, top_to_bottom, left_to_right, or reverse"
+        )
+    if positions is not None and len(positions) != count:
+        raise ValidationError("target positions must match target count")
+    indices = list(range(count))
+    if order == "reverse":
+        indices.reverse()
+    elif order in {"top_to_bottom", "left_to_right"}:
+        if positions is None:
+            raise ValidationError(f"{order} target order requires positions")
+        axis = 1 if order == "top_to_bottom" else 0
+        indices.sort(key=lambda index: (positions[index][axis], index))
+    return tuple(indices)
+
+
+def resolve_targets(
+    items: Sequence[Any],
+    *,
+    order: Literal["document", "top_to_bottom", "left_to_right", "reverse"] = "document",
+    positions: Sequence[tuple[float, float]] | None = None,
+) -> tuple[ResolvedMotionTarget, ...]:
+    """Resolve text/group members through an existing public layout sequence."""
+    ordered = resolve_target_order(len(items), order, positions)
+    return tuple(ResolvedMotionTarget(index=index, value=items[index]) for index in ordered)
+
+
+def resolve_text_targets(
+    text: str,
+    target: Literal["characters", "words", "lines"],
+    *,
+    lines: Sequence[str] | None = None,
+    order: Literal["document", "reverse"] = "document",
+) -> tuple[ResolvedMotionTarget, ...]:
+    """Resolve semantic text members without changing the text layout.
+
+    ``lines`` should be supplied by the renderer when wrapping is enabled.  If
+    omitted, explicit newline boundaries are used.  Word splitting preserves
+    whitespace in each returned member so the original text can be reconstructed
+    exactly and whitespace still advances layout.
+    """
+    if not isinstance(text, str):
+        raise ValidationError("text target resolution requires a string")
+    if target == "characters":
+        items: Sequence[Any] = tuple(text)
+    elif target == "words":
+        items = tuple(
+            match.group(0)
+            for match in re.finditer(r"\S+|\s+", text)
+            if match.group(0).strip()
+        )
+    elif target == "lines":
+        items = tuple(lines if lines is not None else text.splitlines() or (text,))
+    else:
+        raise ValidationError("text target must be characters, words, or lines")
+    ordered = resolve_target_order(len(items), order)
+    return tuple(ResolvedMotionTarget(index=index, value=items[index]) for index in ordered)
+
+
+def resolve_staggered_timelines(
+    timeline: Timeline,
+    target_count: int,
+) -> tuple[Timeline, ...]:
+    """Expand a normalized timeline into one timeline per semantic target.
+
+    Stagger metadata remains untouched in the serialized source timeline.  The
+    returned timelines are runtime views with the target offset folded into the
+    event start, so every renderer samples the shared ``Timeline``/``LayerState``
+    pipeline consistently.
+    """
+    if not isinstance(timeline, Timeline):
+        raise ValidationError("stagger expansion requires a Timeline")
+    if isinstance(target_count, bool) or not isinstance(target_count, int) or target_count < 0:
+        raise ValidationError("target count must be a non-negative integer")
+    if target_count == 0:
+        return ()
+    expanded: list[Timeline] = []
+    for target_index in range(target_count):
+        events = tuple(
+            event.model_copy(
+                update={
+                    "start": event.start
+                    + (
+                        float(event.stagger.get("delay", 0.0)) * target_index
+                        if event.stagger
+                        else 0.0
+                    ),
+                    "stagger": None if event.stagger else event.stagger,
+                }
+            )
+            for event in timeline.events
+        )
+        expanded.append(Timeline(events=events))
+    return tuple(expanded)
 
 
 def validate_easing_name(name: str | None) -> str:
