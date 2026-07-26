@@ -1,3 +1,5 @@
+import math
+
 import pytest
 from pydantic import ValidationError as PydanticValidationError
 from quickthumb import (
@@ -23,6 +25,130 @@ from quickthumb.transitions import Fade as SlideFade
 
 class TestMotionTimeline:
     """Black-box coverage for normalized timeline compilation and sampling."""
+
+    @pytest.mark.parametrize(
+        ("factory", "property", "blend", "values"),
+        [
+            ("fade", "opacity", "multiply", (0.0, 1.0)),
+            ("rise", "position", "add", ((0.0, 24.0), (0.0, 0.0))),
+            ("fall", "position", "add", ((0.0, -24.0), (0.0, 0.0))),
+            ("slide", "position", "add", ((-24.0, 0.0), (0.0, 0.0))),
+            ("zoom", "scale", "multiply", (0.8, 1.0)),
+            ("pop", "scale", "multiply", (0.8, 1.0)),
+            ("float", "position", "add", "sine"),
+            ("pulse", "scale", "multiply", "sine"),
+            ("shake", "position", "add", "sine"),
+            ("ken_burns", "scale", "multiply", (1.0, 1.1)),
+            ("typewriter", "clip_progress", "multiply", (0.0, 1.0)),
+        ],
+    )
+    def test_should_compile_each_preset_into_a_normalized_track(
+        self, factory, property, blend, values
+    ):
+        """Given a public preset, when compiled, then its normalized track is explicit."""
+        # given: a semantic preset with explicit timing and easing
+        spec = getattr(AnimationSpec, factory)(
+            distance=24, duration=0.8, delay=0.2, easing="ease_out_cubic"
+        )
+
+        # when: the preset is lowered into the shared timeline
+        event = compile_timeline(spec).events[0]
+
+        # then: the event preserves metadata and exposes renderer-independent track semantics
+        assert event.source == "effect"
+        assert event.effect == factory
+        assert event.start == 0.0
+        assert event.active_start == 0.2
+        assert event.end == 1.0
+        assert event.options["easing"] == "ease_out_cubic"
+        assert len(event.tracks) == 1
+        assert event.tracks[0].property == property
+        assert event.tracks[0].blend == blend
+        assert event.tracks[0].keyframes[-1].time == pytest.approx(0.8)
+        actual_values = [keyframe.value for keyframe in event.tracks[0].keyframes]
+        if values == "sine":
+            assert len(actual_values) == 17
+            for index, value in enumerate(actual_values):
+                progress = index / 16
+                if factory == "float":
+                    expected = (0.0, -24.0 * math.sin(progress * math.tau))
+                elif factory == "shake":
+                    expected = (24.0 * math.sin(progress * math.tau), 0.0)
+                else:
+                    expected = 1.0 + 0.1 * math.sin(progress * math.pi)
+                assert value == pytest.approx(expected)
+        else:
+            assert actual_values == list(values)
+
+    @pytest.mark.parametrize("factory", ["rise", "fall", "slide", "float", "shake"])
+    def test_should_sample_positional_presets_from_the_default_origin(self, factory):
+        """Given no base position, positional presets use the deterministic origin."""
+        # given: a positional preset and the default LayerState
+        timeline = compile_timeline(getattr(AnimationSpec, factory)(duration=1, distance=12))
+
+        # when: the preset is sampled during its active interval
+        state = timeline.sample(0.25)
+
+        # then: the preset still produces a concrete positional state
+        assert state.position is not None
+
+    def test_should_resolve_feel_profiles_without_changing_canonical_preset_json(self):
+        """Given a feel, when compiled, then easing resolves only in the normalized timeline."""
+        # given: a preset authored with a semantic feel
+        spec = AnimationSpec.rise(feel="soft", duration=0.6)
+
+        # when: both the authoring model and normalized timeline are serialized
+        authored = spec.model_dump(mode="json", by_alias=True)
+        event = compile_timeline(spec).events[0]
+
+        # then: canonical authoring JSON keeps the feel while the IR carries resolved easing
+        assert authored["effect"]["feel"] == "soft"
+        assert authored["effect"]["easing"] is None
+        assert event.options["feel"] == "soft"
+        assert event.options["easing"] == "ease_out_cubic"
+
+    @pytest.mark.parametrize(
+        "factory",
+        [
+            "fade",
+            "rise",
+            "fall",
+            "slide",
+            "zoom",
+            "pop",
+            "float",
+            "pulse",
+            "shake",
+            "ken_burns",
+            "typewriter",
+        ],
+    )
+    def test_should_round_trip_every_compiled_preset_without_changing_samples(self, factory):
+        """Given a compiled preset, restoring Timeline JSON preserves all samples."""
+        # given: a preset with options that exercise timing, direction, and stagger metadata
+        spec = getattr(AnimationSpec, factory)(
+            from_="right" if factory in {"rise", "fall", "slide"} else None,
+            distance=24,
+            duration=0.75,
+            delay=0.1,
+            easing="ease_in_out_sine",
+            stagger=0.04,
+            target="words",
+            order="reverse",
+        )
+        timeline = compile_timeline(spec)
+
+        # when: both the authoring model and normalized timeline are serialized and restored
+        restored_spec = AnimationSpec.model_validate_json(spec.model_dump_json())
+        restored = Timeline.model_validate_json(timeline.model_dump_json())
+
+        # then: canonical authoring and IR round-trips preserve all behavior
+        assert restored_spec == spec
+        assert compile_timeline(restored_spec) == timeline
+        assert restored == timeline
+        base = LayerState(position=(30, 40), opacity=0.7, scale=1.5)
+        for time in (0.0, 0.1, 0.35, 0.85, 2.0):
+            assert restored.sample(time, base) == timeline.sample(time, base)
 
     def test_should_compile_typed_tracks_into_one_normalized_event(self):
         """Typed tracks compile into a renderer-independent event with resolved duration."""
