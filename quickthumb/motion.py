@@ -289,7 +289,15 @@ class Timeline(BaseModel):
 def compile_timeline(
     spec: AnimationSpec | list[AnimationSpec] | tuple[AnimationSpec, ...],
 ) -> Timeline:
-    """Compile one or more canonical animation specs into a normalized timeline."""
+    """Compile canonical animation specs into one deterministic composition.
+
+    The input order is the composition order.  A spec starts a new sequence
+    group by default (including ``on_click`` and ``after_previous``), while
+    ``with_previous`` joins the current group.  Absolute ``start`` values are
+    anchors, not cursor assignments: a later relative event still follows the
+    latest settled event.  Keeping those rules here means exporters consume
+    the same event windows instead of implementing their own scheduler.
+    """
     specs = list(spec) if isinstance(spec, (list, tuple)) else [spec]
     if not specs:
         return Timeline()
@@ -297,13 +305,11 @@ def compile_timeline(
         raise ValidationError("timeline compilation requires AnimationSpec values")
 
     events: list[TimelineEvent] = []
-    previous_start = 0.0
-    previous_end = 0.0
+    composition = _CompositionCursor()
     for item in specs:
-        event = _compile_spec(item, previous_start, previous_end)
+        event = _compile_spec(item, composition)
         events.append(event)
-        previous_start = event.start
-        previous_end = max(previous_end, event.end)
+        composition.advance(event)
     return Timeline(events=tuple(events))
 
 
@@ -335,8 +341,32 @@ def compile_transition_timeline(
     )
 
 
-def _compile_spec(spec: AnimationSpec, previous_start: float, previous_end: float) -> TimelineEvent:
-    """Compile one spec after resolving its timing anchor."""
+@dataclass
+class _CompositionCursor:
+    """State used while lowering sequence and parallel composition groups."""
+
+    group_start: float = 0.0
+    settled_end: float = 0.0
+    has_event: bool = False
+
+    def start_for(self, timing: Any) -> float:
+        """Resolve a relative or absolute start without losing overlap state."""
+        if timing.start is not None:
+            return float(timing.start)
+        if timing.trigger == "with_previous" and self.has_event:
+            return self.group_start
+        return self.settled_end
+
+    def advance(self, event: TimelineEvent) -> None:
+        """Advance the settled cursor and open the next composition group."""
+        self.settled_end = max(self.settled_end, event.end)
+        if not self.has_event or event.trigger != "with_previous":
+            self.group_start = event.start
+        self.has_event = True
+
+
+def _compile_spec(spec: AnimationSpec, composition: _CompositionCursor) -> TimelineEvent:
+    """Compile one spec after resolving its composition-group timing anchor."""
     timing = spec.timing
     tracks = tuple(_normalize_track(track) for track in spec.tracks or ())
     track_duration = max((track.duration for track in tracks), default=0.0)
@@ -344,19 +374,14 @@ def _compile_spec(spec: AnimationSpec, previous_start: float, previous_end: floa
         duration = track_duration if spec.tracks is not None else 0.5
         trigger = None
         delay = 0.0
-        start = 0.0 if previous_end == 0 else previous_end
+        start = composition.settled_end
     else:
         duration = timing.duration
         if track_duration > duration:
             raise ValidationError("timing duration cannot be shorter than the final keyframe time")
         trigger = timing.trigger
         delay = timing.delay
-        if timing.start is not None:
-            start = timing.start
-        elif trigger == "with_previous":
-            start = previous_start
-        else:
-            start = previous_end
+        start = composition.start_for(timing)
 
     effect = spec.effect
     options = effect.model_dump(mode="json", by_alias=True, exclude_none=True) if effect else {}
