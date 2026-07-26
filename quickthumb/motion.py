@@ -20,6 +20,7 @@ from quickthumb.models import (
     HexColor,
     KeyframeSpec,
     MotionEasingName,
+    TimingSpec,
     TrackSpec,
     validate_hex_color,
 )
@@ -295,8 +296,8 @@ def compile_timeline(
     group by default (including ``on_click`` and ``after_previous``), while
     ``with_previous`` joins the current group.  Absolute ``start`` values are
     anchors, not cursor assignments: a later relative event still follows the
-    latest settled event.  Keeping those rules here means exporters consume
-    the same event windows instead of implementing their own scheduler.
+    latest settled event.  Stagger metadata is retained for layer-aware
+    consumers because target cardinality is not part of an AnimationSpec.
     """
     specs = list(spec) if isinstance(spec, (list, tuple)) else [spec]
     if not specs:
@@ -347,22 +348,20 @@ class _CompositionCursor:
 
     group_start: float = 0.0
     settled_end: float = 0.0
-    has_event: bool = False
 
-    def start_for(self, timing: Any) -> float:
+    def start_for(self, timing: TimingSpec) -> float:
         """Resolve a relative or absolute start without losing overlap state."""
         if timing.start is not None:
             return float(timing.start)
-        if timing.trigger == "with_previous" and self.has_event:
+        if timing.trigger == "with_previous":
             return self.group_start
         return self.settled_end
 
     def advance(self, event: TimelineEvent) -> None:
         """Advance the settled cursor and open the next composition group."""
         self.settled_end = max(self.settled_end, event.end)
-        if not self.has_event or event.trigger != "with_previous":
+        if event.trigger != "with_previous":
             self.group_start = event.start
-        self.has_event = True
 
 
 def _compile_spec(spec: AnimationSpec, composition: _CompositionCursor) -> TimelineEvent:

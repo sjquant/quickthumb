@@ -140,12 +140,19 @@ class TestMotionTimeline:
             ScaleTrack(keyframes=[KeyframeSpec(time=0, value=1), KeyframeSpec(time=1, value=2)]),
             timing=TimingSpec(duration=1, trigger=trigger),
         )
+        follower = AnimationSpec.timeline(
+            RotationTrack(
+                keyframes=[KeyframeSpec(time=0, value=0), KeyframeSpec(time=1, value=90)]
+            ),
+            timing=TimingSpec(duration=1, trigger="with_previous"),
+        )
 
-        # when: both events are compiled
-        events = compile_timeline([first, second]).events
+        # when: the boundary and a parallel follower are compiled
+        events = compile_timeline([first, second, follower]).events
 
-        # then: only with_previous overlaps the previous event
+        # then: only with_previous overlaps, and its follower joins the new group
         assert events[1].start == (0.0 if trigger == "with_previous" else 1.0)
+        assert events[2].start == (0.0 if trigger == "with_previous" else 1.0)
 
     def test_should_sequence_after_the_longest_parallel_companion(self):
         """A sequence group settles at its longest member before the next group starts."""
@@ -266,16 +273,17 @@ class TestMotionTimeline:
         assert [time for time, _ in frames] == [0.0, 0.25, 0.5, 0.75]
         assert frames[-1][1].scale == 2.0
 
-    def test_should_preserve_stagger_metadata_in_the_normalized_event(self):
-        """Stagger target metadata survives compilation for later orchestration."""
+    def test_should_preserve_stagger_metadata_without_inventing_target_cardinality(self):
+        """Compilation preserves stagger metadata for consumers that know target cardinality."""
         # given: a preset with explicit stagger configuration
         spec = AnimationSpec.rise(stagger=0.1, target="words", order="reverse")
 
         # when: it is compiled into the normalized IR
         event = compile_timeline(spec).events[0]
 
-        # then: no stagger configuration is silently discarded
+        # then: metadata survives, while the compiler keeps the declared event window
         assert event.stagger == {"delay": 0.1, "target": "words", "order": "reverse"}
+        assert event.duration == 0.5
 
     def test_should_normalize_effects_and_slide_transition_timing(self):
         """Effect presets and slide transitions share the normalized event shape."""
