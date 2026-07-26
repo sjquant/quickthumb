@@ -16,12 +16,14 @@ from quickthumb import (
     Canvas,
     ChartData,
     ChartLayer,
+    ClipProgressTrack,
     Fade,
     GifOptions,
     LineChartSpec,
     LineChartStyle,
     QRCodeLayer,
     RenderingError,
+    TimingSpec,
     ValidationError,
     canvas_json_schema,
 )
@@ -369,6 +371,27 @@ class TestVisualizationRendering:
         assert timeline.sample(0, LayerState(clip_progress=0)).clip_progress == 0
         assert timeline.sample(0.75, LayerState(clip_progress=0)).clip_progress == 1
 
+    def test_should_render_value_count_up_labels_deterministically(self):
+        """Given value count-up motion, when sampled before and after completion, then labels
+        change visibly and the settled labels remain deterministic."""
+        # given
+        canvas = Canvas(140, 90).chart(
+            BarChartSpec(data=[1, 3]),
+            position=(10, 10),
+            width=100,
+            height=50,
+            animation=AnimationSpec.value_count_up(duration=1.0),
+        )
+
+        # when
+        start = canvas._render_to_image(time=0.0)
+        settled = canvas._render_to_image(time=1.0)
+        repeated = canvas._render_to_image(time=1.0)
+
+        # then
+        assert ImageChops.difference(start, settled).getbbox() is not None
+        assert settled.tobytes() == repeated.tobytes()
+
     def test_should_reveal_qr_modules_deterministically_over_time(self):
         """Given QR reveal motion, when sampled at the same times, then module pixels are
         deterministic and the settled frame matches static rendering."""
@@ -388,6 +411,94 @@ class TestVisualizationRendering:
         assert first.tobytes() == second.tobytes()
         assert ImageChops.difference(first.convert("RGB"), settled.convert("RGB")).getbbox()
         assert ImageChops.difference(settled, rendered_image(static)).getbbox() is None
+
+    def test_should_reveal_qr_modules_in_row_major_progress_order(self):
+        """Given QR reveal motion, when sampled partway through, then only the leading
+        row-major module prefix is visible."""
+        # given
+        import qrcode
+
+        animation = AnimationSpec.qr_reveal(duration=1.0)
+        canvas = Canvas(120, 120).qr_code(
+            "ordered", position=(10, 10), size=90, animation=animation
+        )
+        code = qrcode.QRCode(version=None, box_size=1, border=4)
+        code.add_data("ordered", optimize=0)
+        code.make(fit=True)
+        matrix = code.get_matrix()
+        progress = 0.25
+        frame = canvas._render_to_image(time=progress)
+
+        # when / then
+        matrix_size = len(matrix)
+        reveal_limit = progress * matrix_size * matrix_size
+        for row, cells in enumerate(matrix):
+            for column, cell in enumerate(cells):
+                left = 10 + (column * 90) // matrix_size
+                top = 10 + (row * 90) // matrix_size
+                center = (
+                    left + max(0, ((column + 1) * 90) // matrix_size - left - 1) // 2,
+                    top + max(0, ((row + 1) * 90) // matrix_size - top - 1) // 2,
+                )
+                is_visible = frame.getpixel(center)[:3] == (0, 0, 0)
+                assert is_visible == (
+                    bool(cell) and row * matrix_size + column < reveal_limit
+                )
+
+    def test_should_export_staggered_and_mixed_visualization_motion(self, tmp_path):
+        """Given component and legacy animation entries together, when exported, then both
+        timing systems remain valid and the component animation is not discarded."""
+        # given
+        canvas = Canvas(160, 100).chart(
+            BarChartSpec(data=[1, 3, 2]),
+            position=(5, 5),
+            width=100,
+            height=50,
+            animation=[
+                AnimationSpec.bar_grow(duration=0.2, stagger=0.05),
+                Fade(duration=0.2),
+            ],
+        )
+        output = tmp_path / "mixed-chart.gif"
+
+        # when
+        canvas.render(str(output), animation=GifOptions(fps=10))
+
+        # then
+        with Image.open(output) as image:
+            assert image.n_frames >= 2
+
+    def test_should_honor_absolute_component_animation_start(self, tmp_path):
+        """Given an absolute chart animation start, when exported, then the timeline includes
+        the leading delay before the component settles."""
+        # given
+        canvas = Canvas(160, 100).chart(
+            LineChartSpec(data=[1, 3, 2], style=LineChartStyle(show_points=False)),
+            position=(5, 5),
+            width=100,
+            height=50,
+            animation=AnimationSpec.timeline(
+                ClipProgressTrack(
+                    keyframes=[
+                        {"time": 0.0, "value": 0.0},
+                        {"time": 0.2, "value": 1.0},
+                    ]
+                ),
+                timing=TimingSpec(start=0.4, duration=0.2),
+            ),
+        )
+        output = tmp_path / "delayed-chart.gif"
+
+        # when
+        canvas.render(str(output), animation=GifOptions(fps=10))
+
+        # then
+        with Image.open(output) as image:
+            total_duration = 0
+            for frame_index in range(image.n_frames):
+                image.seek(frame_index)
+                total_duration += image.info.get("duration", 0)
+        assert total_duration >= 600
 
     def test_should_render_and_measure_visualization_group_children(self):
         """Groups render and inspect chart and QR children through the public APIs."""

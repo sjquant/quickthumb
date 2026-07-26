@@ -6,7 +6,7 @@ import math
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont
 
 from quickthumb._base import RenderContext, apply_alignment, parse_coordinate
 from quickthumb._effects import EffectsEngine
@@ -33,20 +33,32 @@ class VisualizationState:
     qr_module_progress: tuple[float, ...] = ()
 
 
-def _sample_component_progress(
-    animation: object, time: float, name: str, offset: float = 0.0
-) -> float:
-    """Sample a component preset through the shared normalized Timeline IR."""
-    if not isinstance(animation, AnimationSpec):
-        return 1.0
-    if animation.effect is not None and animation.effect.type != name:
-        return 1.0
-    # Import lazily: the visualization engine is constructed while the
-    # measurement/group modules are still being imported.
+_COMPONENT_PRESETS = frozenset(
+    {"bar_grow", "line_draw", "area_reveal", "point_pop", "value_count_up", "qr_reveal"}
+)
+
+
+def _component_animation(animation: object, names: frozenset[str] = _COMPONENT_PRESETS):
+    """Return the first canonical visualization animation from a layer input."""
+    candidates = animation if isinstance(animation, list) else [animation]
+    for candidate in candidates:
+        if isinstance(candidate, AnimationSpec) and (
+            candidate.effect is None or candidate.effect.type in names
+        ):
+            return candidate
+    return None
+
+
+def _compile_component_timeline(animation: AnimationSpec):
+    """Compile one component animation lazily, avoiding the import cycle at module load."""
     from quickthumb.motion import LayerState, compile_timeline
 
-    timeline = compile_timeline(animation)
-    sampled = timeline.sample(time - offset, LayerState(clip_progress=0.0))
+    return compile_timeline(animation), LayerState
+
+
+def _sample_component_progress(timeline, layer_state, time: float, offset: float = 0.0) -> float:
+    """Sample a compiled component timeline through normalized clip progress."""
+    sampled = timeline.sample(time - offset, layer_state(clip_progress=0.0))
     return min(1.0, max(0.0, sampled.clip_progress))
 
 
@@ -111,6 +123,15 @@ class VisualizationEngine:
                 self._scaled_box(bar_left, bar_top, bar_right, bar_bottom),
                 fill=self._rgba(color, layer.opacity * style.opacity),
             )
+            if style.show_values or self._has_value_count_up(layer.animation):
+                shown_value = value / max(progress, 1e-12) * state.value_progress
+                self._draw_value(
+                    draw,
+                    f"{shown_value:g}",
+                    bar_left * self._SUPERSAMPLE,
+                    max(top, bar_top) * self._SUPERSAMPLE,
+                    self._rgba(style.color, layer.opacity * style.opacity),
+                )
 
         self._composite_surface(image, surface, x, y)
 
@@ -264,28 +285,59 @@ class VisualizationEngine:
                     fill=line_color,
                 )
 
+        if style.show_values or self._has_value_count_up(layer.animation):
+            for index, (point_x, point_y) in enumerate(points):
+                progress = state.value_progress
+                shown_value = values[index] * progress
+                self._draw_value(
+                    draw,
+                    f"{shown_value:g}",
+                    point_x * self._SUPERSAMPLE,
+                    point_y * self._SUPERSAMPLE,
+                    line_color,
+                )
+
         self._composite_surface(image, surface, x, y)
 
     def _chart_state(self, layer: ChartLayer, time: float | None) -> VisualizationState:
         values = self._chart_values(layer.spec.data)
-        if time is None or not isinstance(layer.animation, AnimationSpec):
+        animation = _component_animation(layer.animation)
+        if time is None or animation is None:
             return VisualizationState(
-                bar_progress=(1.0,) * len(values), point_progress=(1.0,) * len(values)
+                bar_progress=(1.0,) * len(values),
+                point_progress=(1.0,) * len(values),
+                value_progress=1.0,
             )
-        animation = layer.animation
+        timeline, layer_state = _compile_component_timeline(animation)
         stagger = animation.stagger.delay if animation.stagger is not None else 0.0
         return VisualizationState(
             bar_progress=tuple(
-                _sample_component_progress(animation, time, "bar_grow", index * stagger)
+                _sample_component_progress(timeline, layer_state, time, index * stagger)
                 for index in range(len(values))
+            )
+            if animation.effect is None or animation.effect.type == "bar_grow"
+            else (1.0,) * len(values),
+            line_progress=(
+                _sample_component_progress(timeline, layer_state, time)
+                if animation.effect is None or animation.effect.type == "line_draw"
+                else 1.0
             ),
-            line_progress=_sample_component_progress(animation, time, "line_draw"),
-            area_progress=_sample_component_progress(animation, time, "area_reveal"),
+            area_progress=(
+                _sample_component_progress(timeline, layer_state, time)
+                if animation.effect is None or animation.effect.type == "area_reveal"
+                else 1.0
+            ),
             point_progress=tuple(
-                _sample_component_progress(animation, time, "point_pop", index * stagger)
+                _sample_component_progress(timeline, layer_state, time, index * stagger)
                 for index in range(len(values))
+            )
+            if animation.effect is None or animation.effect.type == "point_pop"
+            else (1.0,) * len(values),
+            value_progress=(
+                _sample_component_progress(timeline, layer_state, time)
+                if animation.effect is None or animation.effect.type == "value_count_up"
+                else 1.0
             ),
-            value_progress=_sample_component_progress(animation, time, "value_count_up"),
         )
 
     def _qr_state(
@@ -293,13 +345,45 @@ class VisualizationEngine:
     ) -> VisualizationState:
         # The matrix is generated by the caller; this state only supplies a
         # deterministic row-major reveal threshold for its modules.
-        if time is None or not isinstance(layer.animation, AnimationSpec):
+        animation = _component_animation(layer.animation, frozenset({"qr_reveal"}))
+        if time is None or animation is None:
             return VisualizationState()
-        progress = _sample_component_progress(layer.animation, time, "qr_reveal")
+        timeline, layer_state = _compile_component_timeline(animation)
+        stagger = animation.stagger.delay if animation.stagger is not None else 0.0
         count = max(1, matrix_size * matrix_size)
+        progress = _sample_component_progress(timeline, layer_state, time)
+        if stagger == 0:
+            return VisualizationState(
+                qr_module_progress=tuple(
+                    1.0 if progress * count > index else 0.0 for index in range(count)
+                )
+            )
         return VisualizationState(qr_module_progress=tuple(
-            1.0 if index / count < progress else 0.0 for index in range(count)
+            1.0
+            if _sample_component_progress(timeline, layer_state, time, index * stagger) >= 1.0
+            else 0.0
+            for index in range(count)
         ))
+
+    def _has_value_count_up(self, animation: object) -> bool:
+        return _component_animation(animation, frozenset({"value_count_up"})) is not None
+
+    def _draw_value(
+        self,
+        draw: ImageDraw.ImageDraw,
+        value: str,
+        x: int,
+        y: int,
+        color: tuple[int, int, int, int],
+    ) -> None:
+        font = ImageFont.load_default(size=4 * self._SUPERSAMPLE)
+        bbox = draw.textbbox((0, 0), value, font=font)
+        draw.text(
+            (x - (bbox[2] - bbox[0]) // 2, y - (bbox[3] - bbox[1]) - 2),
+            value,
+            font=font,
+            fill=color,
+        )
 
     def _partial_points(
         self, points: list[tuple[int, int]], progress: float

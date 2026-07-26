@@ -105,6 +105,9 @@ _COMB_STRIPS = 8
 _MAX_GIF_FRAME_MEMORY_BYTES = 768 * 1024 * 1024
 _MAX_SCHEDULED_AUDIO_TRACKS = 64
 _MAX_SHOTS_PER_VIDEO_BATCH = 64
+_VISUALIZATION_PRESETS = frozenset(
+    {"bar_grow", "line_draw", "area_reveal", "point_pop", "value_count_up", "qr_reveal"}
+)
 
 
 def write_animation(
@@ -726,7 +729,7 @@ class _SlideAnimator:
                     continue
             elif unit.component_duration == 0 and state is not _SHOWN:
                 effect, reveal = state
-                revealed = _animation_reveal(unit.image, effect, reveal, unit.seed)
+                revealed = _animation_reveal(image, effect, reveal, unit.seed)
                 if revealed is None:
                     continue
                 image = revealed
@@ -825,6 +828,18 @@ def _build_units(canvas: Canvas) -> list[_Unit]:
     for index, (_, layers) in enumerate(groups):
         animation = getattr(layers[0], "animation", None)
         raw_effects = animation if isinstance(animation, list) else [animation] if animation else []
+        unsupported = [
+            effect
+            for effect in raw_effects
+            if isinstance(effect, AnimationSpec)
+            and effect.effect is not None
+            and effect.effect.type not in _VISUALIZATION_PRESETS
+        ]
+        if unsupported and any(isinstance(layer, (ChartLayer, QRCodeLayer)) for layer in layers):
+            raise RenderingError(
+                "Chart and QR layers only support visualization AnimationSpec presets in "
+                "animated export. Use a legacy effect for layer-level motion."
+            )
         effects = [effect for effect in raw_effects if not isinstance(effect, AnimationSpec)]
         image, pos = _render_unit_image(canvas, layers)
         canonical = animation if isinstance(animation, AnimationSpec) else None
@@ -961,17 +976,58 @@ def _component_animation_duration(layer: RenderableLayer) -> float:
     """Return the settled duration of a canonical chart/QR motion preset."""
     if not isinstance(layer, (ChartLayer, QRCodeLayer)):
         return 0.0
-    animation = getattr(layer, "animation", None)
-    if not isinstance(animation, AnimationSpec):
-        return 0.0
-    if animation.effect is None and animation.timing is None:
-        return 0.0
-    duration = animation.timing.duration if animation.timing is not None else 0.5
-    if animation.stagger is not None:
-        count = len(animation.spec.data.values) if isinstance(layer, ChartLayer) else layer.size
-        duration += max(0, count - 1) * animation.stagger.delay
-    delay = animation.timing.delay if animation.timing is not None else 0.0
-    return delay + duration
+    animations = getattr(layer, "animation", None)
+    candidates = animations if isinstance(animations, list) else [animations]
+    durations = []
+    for animation in candidates:
+        if not isinstance(animation, AnimationSpec):
+            continue
+        if animation.effect is None:
+            durations.append(compile_timeline(animation).duration)
+            continue
+        if animation.effect.type not in _VISUALIZATION_PRESETS:
+            continue
+        timing = animation.timing
+        duration = timing.duration if timing is not None else 0.5
+        start = timing.start if timing is not None and timing.start is not None else 0.0
+        delay = timing.delay if timing is not None else 0.0
+        if animation.stagger is not None:
+            if isinstance(layer, ChartLayer):
+                count = len(layer.spec.data.values)
+            else:
+                count = _qr_module_count(layer)
+            duration += max(0, count - 1) * animation.stagger.delay
+        durations.append(start + delay + duration)
+    return max(durations, default=0.0)
+
+
+def _qr_module_count(layer: QRCodeLayer) -> int:
+    """Return the deterministic QR matrix cell count used by module stagger."""
+    try:
+        import qrcode
+        from qrcode.constants import (
+            ERROR_CORRECT_H,
+            ERROR_CORRECT_L,
+            ERROR_CORRECT_M,
+            ERROR_CORRECT_Q,
+        )
+        code = qrcode.QRCode(
+            version=None,
+            error_correction={
+                "L": ERROR_CORRECT_L,
+                "M": ERROR_CORRECT_M,
+                "Q": ERROR_CORRECT_Q,
+                "H": ERROR_CORRECT_H,
+            }[layer.error_correction],
+            box_size=1,
+            border=layer.quiet_zone,
+        )
+        code.add_data(layer.data, optimize=0)
+        code.make(fit=True)
+        matrix_size = len(code.get_matrix())
+    except Exception as error:
+        raise RenderingError(f"Could not prepare QR animation timing: {error}") from error
+    return matrix_size * matrix_size
 
 
 def _unit_state(unit: _Unit, time: float):

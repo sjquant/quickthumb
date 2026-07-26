@@ -73,6 +73,7 @@ class BarChartStyle(quickthumbModel):
     bar_gap: Annotated[float, Field(ge=0.0, lt=1.0)] = 0.2
     padding: NonNegativeInt = 0
     opacity: OpacityField = 1.0
+    show_values: bool = False
 
 
 class LineChartStyle(quickthumbModel):
@@ -88,6 +89,7 @@ class LineChartStyle(quickthumbModel):
     show_points: bool = True
     padding: NonNegativeInt = 0
     opacity: OpacityField = 1.0
+    show_values: bool = False
 
 
 class _ChartSpecBase(quickthumbModel):
