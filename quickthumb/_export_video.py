@@ -72,12 +72,15 @@ from quickthumb._export_base import (
 from quickthumb.errors import RenderingError, ValidationError
 from quickthumb.models import (
     Animation,
+    AnimationSpec,
     AudioTrack,
     GifOptions,
     GroupLayer,
+    TextLayer,
     VideoOptions,
     coerce_audio_track,
 )
+from quickthumb.motion import LayerState, Timeline, compile_timeline, resolve_staggered_timelines
 
 if TYPE_CHECKING:
     from quickthumb.canvas import Canvas, RenderableLayer
@@ -684,6 +687,8 @@ class _Unit:
     effects: list[Animation]
     seed: int
     nodes: list[_Node] = field(default_factory=list)
+    timeline: Timeline | None = None
+    target_timelines: tuple[Timeline, ...] = ()
 
 
 class _SlideAnimator:
@@ -692,7 +697,7 @@ class _SlideAnimator:
     def __init__(self, canvas: Canvas):
         self._canvas = canvas
         self._units = _build_units(canvas)
-        self.duration = _schedule_units(self._units)
+        self.duration = max(_schedule_units(self._units), _schedule_timelines(self._units))
         self._final: Image.Image | None = None
 
     def frame_at(self, time: float) -> Image.Image:
@@ -706,6 +711,10 @@ class _SlideAnimator:
                 continue
             if state is _SHOWN:
                 image = unit.image
+            elif isinstance(state, tuple) and state and state[0] == "canonical":
+                image = _canonical_render(unit.image, state[1], state[2])
+                if image is None:
+                    continue
             else:
                 effect, reveal = state
                 revealed = _animation_reveal(unit.image, effect, reveal, unit.seed)
@@ -741,6 +750,13 @@ class _SlideAnimator:
                 if window_end > window_start:
                     windows.append((window_start, window_end))
                     boundaries.update((window_start, window_end))
+            for timeline in unit.target_timelines or ((unit.timeline,) if unit.timeline else ()):
+                for event in timeline.events:
+                    window_start = max(event.active_start, start)
+                    window_end = min(event.end, end)
+                    if window_end > window_start:
+                        windows.append((window_start, window_end))
+                        boundaries.update((window_start, window_end))
         # Window boundaries derived from float sums can land one ulp apart
         # (e.g. 0.1 + 0.2 vs 0.3); merging cuts closer than the epsilon avoids
         # degenerate near-zero segments that would each emit a wasted frame.
@@ -768,6 +784,7 @@ def _build_units(canvas: Canvas) -> list[_Unit]:
     validate_legacy_animation_export(canvas)
     canvas._validate_image_paths()
     canvas._ctx.begin_render_pass()
+    group_target_counts = _canonical_group_target_counts(canvas)
     prefix, rest = split_backdrop_prefix(flatten_layers(canvas))
     if any(_has_animated_descendant_in_composed_group(layer) for layer in (*prefix, *rest)):
         raise RenderingError(
@@ -800,8 +817,72 @@ def _build_units(canvas: Canvas) -> list[_Unit]:
         animation = getattr(layers[0], "animation", None)
         effects = animation if isinstance(animation, list) else [animation] if animation else []
         image, pos = _render_unit_image(canvas, layers)
-        units.append(_Unit(image=image, pos=pos, effects=effects, seed=_UNIT_DISSOLVE_SEED + index))
+        canonical = animation if isinstance(animation, AnimationSpec) else None
+        target_timelines: tuple[Timeline, ...] = ()
+        if canonical is not None:
+            timeline = compile_timeline(canonical)
+            target_count = 1
+            stagger = canonical.stagger
+            content = getattr(layers[0], "content", None)
+            if stagger is not None:
+                if stagger.target == "characters" and isinstance(content, str):
+                    target_count = len(content)
+                elif stagger.target in {"words", "lines"} and isinstance(layers[0], TextLayer):
+                    target_count = len(
+                        canvas._text.resolve_animation_targets(layers[0], stagger.target)
+                    )
+                elif stagger.target == "children":
+                    target_count = group_target_counts.get(id(canonical), 1)
+            target_timelines = resolve_staggered_timelines(timeline, target_count)
+        units.append(
+            _Unit(
+                image=image,
+                pos=pos,
+                effects=effects if canonical is None else [],
+                seed=_UNIT_DISSOLVE_SEED + index,
+                timeline=compile_timeline(canonical) if canonical is not None else None,
+                target_timelines=target_timelines,
+            )
+        )
     return units
+
+
+def _canonical_group_target_counts(canvas: Canvas) -> dict[int, int]:
+    """Capture child cardinality before flattening removes group boundaries."""
+    counts: dict[int, int] = {}
+
+    def visit(layer) -> None:
+        animation = getattr(layer, "animation", None)
+        if (
+            isinstance(animation, AnimationSpec)
+            and animation.stagger
+            and animation.stagger.target == "children"
+            and hasattr(layer, "children")
+        ):
+            counts[id(animation)] = len(layer.children)
+        for child in getattr(layer, "children", ()):
+            visit(child)
+
+    for layer in canvas.layers:
+        visit(layer)
+    return counts
+
+
+def _schedule_timelines(units: list[_Unit]) -> float:
+    """Return the settled duration of canonical normalized timeline units."""
+    return (
+        max(
+            (
+                max((timeline.duration for timeline in unit.target_timelines), default=0.0)
+                if unit.target_timelines
+                else unit.timeline.duration
+            )
+            for unit in units
+            if unit.timeline
+        )
+        if any(unit.timeline for unit in units)
+        else 0.0
+    )
 
 
 def _has_animated_descendant_in_composed_group(layer: RenderableLayer) -> bool:
@@ -870,6 +951,8 @@ def _unit_state(unit: _Unit, time: float):
     the reveal fraction runs 0..1 for entrances and 1..0 for exits; ``appear``
     snaps instead of interpolating.
     """
+    if unit.timeline is not None:
+        return _canonical_state(unit, time)
     if not unit.nodes:
         return _SHOWN
     state = _HIDDEN if unit.effects[0].animate == "entrance" else _SHOWN
@@ -888,6 +971,54 @@ def _unit_state(unit: _Unit, time: float):
         else:
             state = _SHOWN if entrance else _HIDDEN
     return state
+
+
+def _canonical_state(unit: _Unit, time: float):
+    """Sample canonical motion, aggregating semantic target reveal progress."""
+    timeline = unit.timeline
+    if timeline is None:
+        return _SHOWN
+    timelines = unit.target_timelines or (timeline,)
+    states = [timeline.sample(time, LayerState()) for timeline in timelines]
+    event = timeline.events[0] if timeline.events else None
+    if len(timelines) > 1 and event is not None:
+        progresses = []
+        for timeline in timelines:
+            target_event = timeline.events[0] if timeline.events else event
+            if time < target_event.active_start:
+                progresses.append(0.0)
+            elif target_event.duration == 0:
+                progresses.append(1.0)
+            else:
+                progresses.append(
+                    min(1.0, max(0.0, (time - target_event.active_start) / target_event.duration))
+                )
+        reveal = sum(progresses) / len(progresses)
+        if event.effect == "typewriter":
+            reveal = sum(state.clip_progress for state in states) / len(states)
+    elif event is not None and time < event.active_start and event.effect in {"fade", "typewriter"}:
+        reveal = 0.0
+    elif event is not None and event.effect == "typewriter":
+        reveal = sum(state.clip_progress for state in states) / len(states)
+    else:
+        reveal = sum(state.opacity for state in states) / len(states)
+    return ("canonical", states[-1], min(1.0, max(0.0, reveal)))
+
+
+def _canonical_render(image: Image.Image, state: LayerState, reveal: float) -> Image.Image | None:
+    """Apply renderer-independent opacity and left-to-right reveal to a frame."""
+    if reveal <= 0.0:
+        return None
+    output = image
+    opacity = min(1.0, max(0.0, state.opacity)) * reveal
+    if opacity < 1.0:
+        output = _scaled_alpha(output, opacity)
+    if reveal < 1.0 and state.clip_progress < 1.0:
+        width = max(0, min(output.width, round(output.width * reveal)))
+        mask = Image.new("L", output.size, 0)
+        ImageDraw.Draw(mask).rectangle((0, 0, width, output.height), fill=255)
+        output = _masked_alpha(output, mask)
+    return output
 
 
 def _animation_reveal(

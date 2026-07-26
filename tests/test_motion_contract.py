@@ -15,7 +15,6 @@ from quickthumb import (
     MotionProfile,
     OpacityTrack,
     PositionTrack,
-    RenderingError,
     ScaleTrack,
     ValidationError,
     canvas_json_schema,
@@ -246,16 +245,17 @@ class TestMotionContract:
 
         # then: unsupported configuration values are rejected clearly
 
-    def test_should_reject_new_motion_specs_before_legacy_html_export(self):
-        """Legacy exporters fail clearly instead of treating canonical motion as an effect."""
-        # given: a layer using the not-yet-compiled canonical motion model
+    def test_should_export_new_motion_specs_through_html(self):
+        """Canonical motion is compiled into the public HTML timeline."""
+        # given: a layer using the canonical motion model
         canvas = Canvas(100, 100).text("Motion", position=(0, 0), animation=AnimationSpec.fade())
 
-        # when: the legacy HTML exporter is requested
-        with pytest.raises(RenderingError, match="AnimationSpec export is not supported yet"):
-            canvas.to_html()
+        # when: the HTML exporter is requested
+        document = canvas.to_html()
 
-        # then: no legacy exporter field access or partial document is produced
+        # then: the normalized animation timeline is present in the document
+        assert "data-qt-timeline" in document
+        assert "@keyframes" in document
 
     def test_should_preserve_legacy_animation_json(self):
         """Existing effect animation JSON remains unchanged after the contract addition."""

@@ -1,3 +1,5 @@
+from typing import TYPE_CHECKING, Literal
+
 from PIL import Image
 
 from quickthumb._base import (
@@ -26,6 +28,9 @@ from quickthumb.models import (
     SvgLayer,
     TextLayer,
 )
+
+if TYPE_CHECKING:
+    from quickthumb.motion import ResolvedMotionTarget
 
 GroupChildLayer = (
     TextLayer | ImageLayer | ShapeLayer | SvgLayer | ChartLayer | QRCodeLayer | GroupLayer
@@ -61,6 +66,19 @@ class GroupEngine:
         placements, _ = self.layout_group(layer, origin)
         for child, position, size in placements:
             self._render_group_child(image, child, position, size)
+
+    def resolve_animation_targets(
+        self,
+        layer: GroupLayer,
+        order: Literal["document", "top_to_bottom", "left_to_right", "reverse"] = "document",
+    ) -> tuple["ResolvedMotionTarget", ...]:
+        """Resolve children after auto-layout without changing their placements."""
+        from quickthumb.motion import resolve_targets
+
+        placements, _ = self.layout_group(layer)
+        positions = tuple(position for _, position, _ in placements)
+        sizes = tuple(size for _, _, size in placements)
+        return resolve_targets(placements, order=order, positions=positions, sizes=sizes)
 
     def _render_group_child(
         self,

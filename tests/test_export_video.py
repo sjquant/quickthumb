@@ -13,6 +13,7 @@ from typing import cast
 import pytest
 from PIL import Image
 from quickthumb import (
+    AnimationSpec,
     Appear,
     AudioTrack,
     Blinds,
@@ -135,6 +136,24 @@ class TestCanvasGif:
         ]
         assert partial, "expected at least one partially faded frame"
         assert total_ms(frames) == pytest.approx(1500, abs=50)
+
+    def test_should_render_canonical_typewriter_motion_as_multiple_gif_frames(self):
+        """Canonical typewriter motion progressively reveals text before settling."""
+        # given
+        canvas = Canvas(160, 90).text(
+            "Hello world",
+            position=(10, 25),
+            size=24,
+            color="#FFFFFF",
+            animation=AnimationSpec.typewriter(duration=0.4, target="words", stagger=0.1),
+        )
+
+        # when
+        frames = gif_frames(canvas.to_gif(fps=10, hold=0.0))
+
+        # then
+        assert len(frames) > 1
+        assert total_ms(frames) == pytest.approx(500, abs=50)
 
     def test_should_run_on_click_effects_sequentially(self):
         """`on_click` effects auto-play one after another, so runtime adds up"""

@@ -1,6 +1,6 @@
 import warnings
 from collections.abc import Callable, Iterable
-from typing import TypedDict, cast
+from typing import TYPE_CHECKING, Literal, TypedDict, cast
 
 from PIL import Image, ImageDraw, ImageFilter
 
@@ -33,6 +33,9 @@ from quickthumb.models import (
     TextLayer,
     TextPart,
 )
+
+if TYPE_CHECKING:
+    from quickthumb.motion import ResolvedMotionTarget
 
 
 class TextPartData(TypedDict):
@@ -95,6 +98,25 @@ class TextEngine:
             self._render_rich_text(image, layer)
         else:
             self._render_simple_text(image, layer)
+
+    def resolve_animation_targets(
+        self,
+        layer: TextLayer,
+        target: Literal["characters", "words", "lines"],
+        order: Literal["document", "reverse"] = "document",
+    ) -> tuple["ResolvedMotionTarget", ...]:
+        """Resolve semantic targets from the same layout used to render text."""
+        from quickthumb.motion import resolve_text_targets
+
+        effective = self.effective_layer(layer)
+        text = (
+            effective.content
+            if isinstance(effective.content, str)
+            else "".join(part.text for part in effective.content)
+        )
+        layout = self.measure_text_layout(effective)
+        lines = layout["wrapped_lines"] if target == "lines" else None
+        return resolve_text_targets(text, target, lines=lines, order=order)
 
     def _find_max_fitting_size(
         self, min_size: int, max_size: int, fits: Callable[[int], bool]
