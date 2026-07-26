@@ -40,6 +40,17 @@ def measure_layers(canvas: "Canvas") -> list["LayerMeasurement"]:
     return engine.measure_layers(canvas.layers)
 
 
+def layer_id_for(layer: object, index: int, path: tuple[int, ...]) -> str:
+    """Return the stable public identifier shared by inspection and diagnostics."""
+    explicit_id = getattr(layer, "id", None)
+    if explicit_id:
+        return str(explicit_id)
+    if len(path) == 1:
+        return f"layer:{index}"
+    child_path = ".".join(str(part) for part in path[1:])
+    return f"layer:{index}:{child_path}"
+
+
 @dataclass(frozen=True)
 class BBox:
     """Canvas-space rectangle occupied by a measured layer."""
@@ -435,23 +446,13 @@ class LayerMeasurementEngine:
             order=order,
             layer_type=layer_type,
             bbox=bbox,
-            layer_id=self._layer_id(layer, index, path),
+            layer_id=layer_id_for(layer, index, path),
             name=self._layer_name(layer),
             visible=self._visible(layer),
             raw_layer=layer,
             metadata=MappingProxyType(dict(metadata)),
             children=children,
         )
-
-    @staticmethod
-    def _layer_id(layer: object, index: int, path: tuple[int, ...]) -> str:
-        explicit_id = getattr(layer, "id", None)
-        if explicit_id:
-            return str(explicit_id)
-        if len(path) == 1:
-            return f"layer:{index}"
-        child_path = ".".join(str(part) for part in path[1:])
-        return f"layer:{index}:{child_path}"
 
     @staticmethod
     def _layer_name(layer: object) -> str | None:

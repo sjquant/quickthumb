@@ -3,6 +3,7 @@ from quickthumb import (
     AnimationSpec,
     BlurTrack,
     Canvas,
+    Deck,
     ExportPolicy,
     KeyframeSpec,
     PositionTrack,
@@ -22,13 +23,14 @@ class TestMotionCapabilities:
 
         # then: every row declares the same feature vocabulary
         assert set(rows["raster"]) == set(rows["video"]) == set(rows["html"]) == set(rows["pptx"])
-        assert rows["raster"]["blur"].support == "full"
+        assert rows["raster"]["position"].support == "full"
+        assert rows["video"]["audio_sync"].support == "full"
         assert rows["html"]["blur"].support == "partial"
         assert rows["pptx"]["blur"].fallback == "rasterize"
 
     def test_should_report_native_and_fallback_motion_without_rendering(self):
         """Validation reports target, layer, feature, support, fallback, and message."""
-        # given: one native PPTX transform and one unsupported PPTX blur track
+        # given: canonical motion that current exporters have not compiled yet
         canvas = Canvas(100, 100)
         canvas.text(
             "Motion",
@@ -40,23 +42,21 @@ class TestMotionCapabilities:
                         KeyframeSpec(time=1, value=(10, 10)),
                     ]
                 ),
-                BlurTrack(
-                    keyframes=[KeyframeSpec(time=0, value=0), KeyframeSpec(time=1, value=4)]
-                ),
+                BlurTrack(keyframes=[KeyframeSpec(time=0, value=0), KeyframeSpec(time=1, value=4)]),
             ),
         )
 
         # when: the canvas is validated for PPTX
         diagnostics = canvas.validate_export("pptx")
 
-        # then: the report is structured and deterministic
+        # then: the report is structured and honest about current export support
         assert [(item.feature, item.support) for item in diagnostics] == [
-            ("position", "native"),
+            ("position", "fallback"),
             ("blur", "fallback"),
         ]
         assert diagnostics[1].target == "pptx"
-        assert diagnostics[1].layer_id == "slide-0-layer-0"
-        assert diagnostics[1].fallback == "rasterize"
+        assert diagnostics[1].layer_id == "layer:0"
+        assert diagnostics[1].fallback == "static"
         assert "blur" in diagnostics[1].message
 
     def test_should_resolve_error_rasterize_and_static_policies(self):
@@ -66,20 +66,64 @@ class TestMotionCapabilities:
             "Motion",
             position=(0, 0),
             animation=AnimationSpec.timeline(
-                BlurTrack(
-                    keyframes=[KeyframeSpec(time=0, value=0), KeyframeSpec(time=1, value=4)]
-                )
+                BlurTrack(keyframes=[KeyframeSpec(time=0, value=0), KeyframeSpec(time=1, value=4)])
             ),
         )
 
         # when: each policy is applied to the same source
-        rasterized = canvas.validate_export(
-            "pptx", ExportPolicy(unsupported_motion="rasterize")
-        )
+        warned = canvas.validate_export("pptx", ExportPolicy(unsupported_motion="warn"))
+        rasterized = canvas.validate_export("pptx", ExportPolicy(unsupported_motion="rasterize"))
         static = canvas.validate_export("pptx", ExportPolicy(unsupported_motion="static"))
 
         # then: each fallback is visible in the diagnostic contract
+        assert warned[0].support == "fallback"
+        assert warned[0].fallback == "static"
         assert rasterized[0].fallback == "rasterize"
         assert static[0].fallback == "static"
         with pytest.raises(RenderingError):
             canvas.validate_export("pptx", ExportPolicy(unsupported_motion="error"))
+
+    def test_should_apply_layer_policy_using_shared_layer_ids(self):
+        """A PPTX layer override uses the same identifier as inspection diagnostics."""
+        # given: canonical motion on the first canvas layer
+        canvas = Canvas(100, 100).text(
+            "Motion",
+            position=(0, 0),
+            animation=AnimationSpec.fade(),
+        )
+
+        # when: the layer is explicitly configured for raster fallback
+        diagnostics = canvas.validate_export("pptx", ExportPolicy(pptx={"layer:0": "rasterize"}))
+
+        # then: the override is applied to the matching layer
+        assert diagnostics[0].layer_id == "layer:0"
+        assert diagnostics[0].fallback == "rasterize"
+
+    def test_should_reject_native_policy_for_unsupported_motion(self):
+        """A native override cannot contradict an unsupported capability."""
+        # given: canonical blur motion and a contradictory native override
+        canvas = Canvas(100, 100).text(
+            "Motion",
+            position=(0, 0),
+            animation=AnimationSpec.timeline(
+                BlurTrack(keyframes=[KeyframeSpec(time=0, value=0), KeyframeSpec(time=1, value=4)])
+            ),
+        )
+
+        # when/then: validation rejects the contradictory policy
+        with pytest.raises(RenderingError, match="cannot use native"):
+            canvas.validate_export("pptx", ExportPolicy(pptx={"layer:0": "native"}))
+
+    def test_should_validate_deck_and_nested_layer_ids(self):
+        """Deck validation traverses nested layers with stable child identifiers."""
+        # given: a deck containing a nested animated child
+        canvas = Canvas(100, 100).group(
+            children=[{"type": "text", "content": "Motion", "animation": AnimationSpec.fade()}]
+        )
+        deck = Deck(100, 100).slide(canvas)
+
+        # when: the deck is validated for PPTX
+        diagnostics = deck.validate_export("pptx")
+
+        # then: the child diagnostic uses the shared nested-layer identifier
+        assert [item.layer_id for item in diagnostics] == ["layer:0:0"]

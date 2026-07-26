@@ -6,7 +6,7 @@ import math
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Any, Literal, get_args
+from typing import TYPE_CHECKING, Any, Literal, cast, get_args
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from pydantic import ValidationError as PydanticValidationError
@@ -545,10 +545,22 @@ def sample_frames(timeline: Timeline, fps: float) -> tuple[tuple[float, LayerSta
 
 ExportTarget = Literal["raster", "video", "html", "pptx"]
 CapabilityFeature = Literal[
-    "position", "scale", "rotation", "opacity", "clip_progress", "blur", "color",
-    "easing", "stagger", "motion_path", "morph", "chart_animation", "audio_sync",
+    "position",
+    "scale",
+    "rotation",
+    "opacity",
+    "clip_progress",
+    "blur",
+    "color",
+    "easing",
+    "stagger",
+    "motion_path",
+    "morph",
+    "chart_animation",
+    "audio_sync",
 ]
 SupportLevel = Literal["full", "native", "partial", "fallback", "unsupported"]
+Fallback = Literal["fade", "rasterize", "static"]
 
 
 @dataclass(frozen=True)
@@ -558,36 +570,53 @@ class MotionCapability:
     feature: CapabilityFeature
     target: ExportTarget
     support: SupportLevel
-    fallback: Literal["fade", "rasterize", "static"] | None = None
+    fallback: Fallback | None = None
 
 
 _CAPABILITY_FEATURES: tuple[CapabilityFeature, ...] = (
-    "position", "scale", "rotation", "opacity", "clip_progress", "blur", "color",
-    "easing", "stagger", "motion_path", "morph", "chart_animation", "audio_sync",
+    "position",
+    "scale",
+    "rotation",
+    "opacity",
+    "clip_progress",
+    "blur",
+    "color",
+    "easing",
+    "stagger",
+    "motion_path",
+    "morph",
+    "chart_animation",
+    "audio_sync",
 )
-_FULL_CAPABILITIES: dict[CapabilityFeature, tuple[SupportLevel, str | None]] = dict.fromkeys(
+_FULL_CAPABILITIES: dict[CapabilityFeature, tuple[SupportLevel, Fallback | None]] = dict.fromkeys(
     _CAPABILITY_FEATURES, ("full", None)
 )
-_CAPABILITIES: dict[ExportTarget, dict[CapabilityFeature, MotionCapability]] = {
-    target: {
-        feature: MotionCapability(feature, target, support, fallback)  # type: ignore[arg-type]
+_CAPABILITIES: dict[ExportTarget, dict[CapabilityFeature, MotionCapability]] = {}
+for _target in ("raster", "video"):
+    _CAPABILITIES[_target] = {
+        feature: MotionCapability(feature, _target, support, fallback)
         for feature, (support, fallback) in _FULL_CAPABILITIES.items()
     }
-    for target in ("raster", "video")
-}
 _CAPABILITIES["html"] = {
     feature: MotionCapability(feature, "html", "partial", "fade" if feature == "blur" else None)
     if feature == "blur"
     else MotionCapability(feature, "html", "full")
     for feature in _CAPABILITY_FEATURES
 }
-_PPTX_FALLBACKS: dict[CapabilityFeature, tuple[SupportLevel, str | None]] = {
-    "position": ("native", None), "scale": ("native", None), "rotation": ("native", None),
-    "opacity": ("native", None), "clip_progress": ("fallback", "fade"),
-    "blur": ("unsupported", "rasterize"), "color": ("partial", "static"),
-    "easing": ("partial", "fade"), "stagger": ("native", None),
-    "motion_path": ("partial", "rasterize"), "morph": ("partial", "fade"),
-    "chart_animation": ("fallback", "fade"), "audio_sync": ("unsupported", "static"),
+_PPTX_FALLBACKS: dict[CapabilityFeature, tuple[SupportLevel, Fallback | None]] = {
+    "position": ("native", None),
+    "scale": ("native", None),
+    "rotation": ("native", None),
+    "opacity": ("native", None),
+    "clip_progress": ("fallback", "fade"),
+    "blur": ("unsupported", "rasterize"),
+    "color": ("partial", "static"),
+    "easing": ("partial", "fade"),
+    "stagger": ("native", None),
+    "motion_path": ("partial", "rasterize"),
+    "morph": ("partial", "fade"),
+    "chart_animation": ("fallback", "fade"),
+    "audio_sync": ("unsupported", "static"),
 }
 _CAPABILITIES["pptx"] = {
     feature: MotionCapability(feature, "pptx", *_PPTX_FALLBACKS[feature])
@@ -617,14 +646,20 @@ def _capability_features_for(animation: object) -> tuple[CapabilityFeature, ...]
     if isinstance(animation, AnimationSpec):
         features: list[CapabilityFeature] = []
         if animation.tracks:
-            features.extend(track.type for track in animation.tracks)  # type: ignore[arg-type]
+            features.extend(track.type for track in animation.tracks)
         if animation.effect:
             preset_features: dict[str, tuple[CapabilityFeature, ...]] = {
-                "fade": ("opacity",), "rise": ("position", "opacity"),
-                "fall": ("position", "opacity"), "slide": ("position", "opacity"),
-                "zoom": ("scale", "opacity"), "pop": ("scale", "opacity"),
-                "float": ("position",), "pulse": ("scale",), "shake": ("rotation",),
-                "ken_burns": ("position", "scale"), "typewriter": ("clip_progress",),
+                "fade": ("opacity",),
+                "rise": ("position", "opacity"),
+                "fall": ("position", "opacity"),
+                "slide": ("position", "opacity"),
+                "zoom": ("scale", "opacity"),
+                "pop": ("scale", "opacity"),
+                "float": ("position",),
+                "pulse": ("scale",),
+                "shake": ("rotation",),
+                "ken_burns": ("position", "scale"),
+                "typewriter": ("clip_progress",),
             }
             features.extend(preset_features[animation.effect.type])
             if animation.effect.easing:
@@ -641,7 +676,7 @@ def _iter_export_layers(source: Canvas | Deck) -> Iterable[tuple[str, object]]:
         for child_index, child in enumerate(getattr(layer, "children", ())):
             yield from walk(child, child_index, (*path, child_index))
 
-    canvases = source.slides if hasattr(source, "slides") else [source]
+    canvases = cast(Iterable[Any], source.slides if hasattr(source, "slides") else [source])
     for canvas in canvases:
         for layer_index, layer in enumerate(canvas.layers):
             yield from walk(layer, layer_index, (layer_index,))
