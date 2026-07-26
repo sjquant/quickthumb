@@ -1,6 +1,6 @@
 import warnings
 from collections.abc import Callable, Iterable
-from typing import TYPE_CHECKING, TypedDict, cast
+from typing import TYPE_CHECKING, Literal, TypedDict, cast
 
 from PIL import Image, ImageDraw, ImageFilter
 
@@ -102,15 +102,17 @@ class TextEngine:
     def resolve_animation_targets(
         self,
         layer: TextLayer,
-        target: str,
-        order: str = "document",
+        target: Literal["characters", "words", "lines"],
+        order: Literal["document", "reverse"] = "document",
     ) -> tuple["ResolvedMotionTarget", ...]:
         """Resolve semantic targets from the same layout used to render text."""
         from quickthumb.motion import resolve_text_targets
 
         effective = self.effective_layer(layer)
-        text = effective.content if isinstance(effective.content, str) else "".join(
-            part.text for part in effective.content
+        text = (
+            effective.content
+            if isinstance(effective.content, str)
+            else "".join(part.text for part in effective.content)
         )
         layout = self.measure_text_layout(effective)
         lines = layout["wrapped_lines"] if target == "lines" else None

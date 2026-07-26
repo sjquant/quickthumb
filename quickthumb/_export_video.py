@@ -76,6 +76,7 @@ from quickthumb.models import (
     AudioTrack,
     GifOptions,
     GroupLayer,
+    TextLayer,
     VideoOptions,
     coerce_audio_track,
 )
@@ -826,10 +827,10 @@ def _build_units(canvas: Canvas) -> list[_Unit]:
             if stagger is not None:
                 if stagger.target == "characters" and isinstance(content, str):
                     target_count = len(content)
-                elif stagger.target == "words" and isinstance(content, str):
-                    target_count = len(canvas._text.resolve_animation_targets(layers[0], "words"))
-                elif stagger.target == "lines" and isinstance(content, str):
-                    target_count = len(canvas._text.resolve_animation_targets(layers[0], "lines"))
+                elif stagger.target in {"words", "lines"} and isinstance(layers[0], TextLayer):
+                    target_count = len(
+                        canvas._text.resolve_animation_targets(layers[0], stagger.target)
+                    )
                 elif stagger.target == "children":
                     target_count = group_target_counts.get(id(canonical), 1)
             target_timelines = resolve_staggered_timelines(timeline, target_count)
@@ -869,15 +870,19 @@ def _canonical_group_target_counts(canvas: Canvas) -> dict[int, int]:
 
 def _schedule_timelines(units: list[_Unit]) -> float:
     """Return the settled duration of canonical normalized timeline units."""
-    return max(
-        (
-            max((timeline.duration for timeline in unit.target_timelines), default=0.0)
-            if unit.target_timelines
-            else unit.timeline.duration
+    return (
+        max(
+            (
+                max((timeline.duration for timeline in unit.target_timelines), default=0.0)
+                if unit.target_timelines
+                else unit.timeline.duration
+            )
+            for unit in units
+            if unit.timeline
         )
-        for unit in units
-        if unit.timeline
-    ) if any(unit.timeline for unit in units) else 0.0
+        if any(unit.timeline for unit in units)
+        else 0.0
+    )
 
 
 def _has_animated_descendant_in_composed_group(layer: RenderableLayer) -> bool:
@@ -970,9 +975,12 @@ def _unit_state(unit: _Unit, time: float):
 
 def _canonical_state(unit: _Unit, time: float):
     """Sample canonical motion, aggregating semantic target reveal progress."""
-    timelines = unit.target_timelines or (unit.timeline,)
+    timeline = unit.timeline
+    if timeline is None:
+        return _SHOWN
+    timelines = unit.target_timelines or (timeline,)
     states = [timeline.sample(time, LayerState()) for timeline in timelines]
-    event = unit.timeline.events[0] if unit.timeline and unit.timeline.events else None
+    event = timeline.events[0] if timeline.events else None
     if len(timelines) > 1 and event is not None:
         progresses = []
         for timeline in timelines:

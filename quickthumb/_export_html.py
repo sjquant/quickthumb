@@ -160,11 +160,14 @@ def _canonical_effect_states(event) -> tuple[str, str]:
         return "transform:scale(.8);opacity:1", "transform:scale(1);opacity:1"
     if effect in {"rise", "fall", "slide"}:
         distance = float(event.options.get("distance", 48.0) or 0.0)
-        origin = event.options.get("from") or {
-            "rise": "bottom",
-            "fall": "top",
-            "slide": "left",
-        }[effect]
+        origin = (
+            event.options.get("from")
+            or {
+                "rise": "bottom",
+                "fall": "top",
+                "slide": "left",
+            }[effect]
+        )
         offsets = {
             "top": (0, -distance),
             "bottom": (0, distance),
@@ -185,8 +188,10 @@ def _canonical_target_count(layer: RenderableLayer, animation: AnimationSpec) ->
     if stagger.target == "children" and isinstance(layer, GroupLayer):
         return len(layer.children)
     if isinstance(layer, TextLayer):
-        content = layer.content if isinstance(layer.content, str) else "".join(
-            part.text for part in layer.content
+        content = (
+            layer.content
+            if isinstance(layer.content, str)
+            else "".join(part.text for part in layer.content)
         )
         if stagger.target == "characters":
             return len(content)

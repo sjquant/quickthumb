@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from PIL import Image
 
@@ -70,7 +70,7 @@ class GroupEngine:
     def resolve_animation_targets(
         self,
         layer: GroupLayer,
-        order: str = "document",
+        order: Literal["document", "top_to_bottom", "left_to_right", "reverse"] = "document",
     ) -> tuple["ResolvedMotionTarget", ...]:
         """Resolve children after auto-layout without changing their placements."""
         from quickthumb.motion import resolve_targets
