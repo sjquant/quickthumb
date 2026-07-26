@@ -326,7 +326,10 @@ class NormalizedTrack(BaseModel):
         if self.blend == "add" and self.property not in {"position", "image_pan"}:
             raise ValidationError("additive tracks are only supported for position and image_pan")
         if self.blend == "multiply" and self.property not in {
-            "scale", "image_zoom", "opacity", "clip_progress"
+            "scale",
+            "image_zoom",
+            "opacity",
+            "clip_progress",
         }:
             raise ValidationError(
                 "multiplicative tracks are only supported for scale, opacity, and clip_progress"

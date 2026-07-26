@@ -379,8 +379,10 @@ class AnimationEffect(_MotionModel):
         default=None, alias="from"
     )
     distance: FiniteNonNegativeFloat | None = None
-    direction: Literal["in", "out"] | None = None
-    focal_point: FocalPoint | None = None
+    direction: Literal["in", "out"] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    focal_point: FocalPoint | None = Field(default=None, exclude_if=lambda value: value is None)
     feel: Literal["gentle", "soft", "snappy", "dramatic", "minimal"] | None = None
     easing: MotionEasingName | None = None
 

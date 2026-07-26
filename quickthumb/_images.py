@@ -100,8 +100,11 @@ class ImageEngine:
 
     @staticmethod
     def _viewport_source_box(
-        source_size: tuple[int, int], target_size: tuple[int, int],
-        focal_point: tuple[float, float] | None, zoom: float, pan: tuple[float, float],
+        source_size: tuple[int, int],
+        target_size: tuple[int, int],
+        focal_point: tuple[float, float] | None,
+        zoom: float,
+        pan: tuple[float, float],
     ) -> tuple[float, float, float, float]:
         """Resolve a deterministic source viewport for fill/zoom motion."""
         src_w, src_h = source_size
@@ -121,9 +124,12 @@ class ImageEngine:
 
     @staticmethod
     def _zoom_source_box(
-        source_size: tuple[int, int], base_box: tuple[float, float, float, float],
-        focal_point: tuple[float, float] | None, faces: list[FaceRegion] | None,
-        zoom: float, pan: tuple[float, float],
+        source_size: tuple[int, int],
+        base_box: tuple[float, float, float, float],
+        focal_point: tuple[float, float] | None,
+        faces: list[FaceRegion] | None,
+        zoom: float,
+        pan: tuple[float, float],
     ) -> tuple[float, float, float, float]:
         """Zoom an existing cover crop while retaining its aspect ratio."""
         src_w, src_h = source_size
@@ -143,8 +149,12 @@ class ImageEngine:
 
     @staticmethod
     def _apply_viewport_transform(
-        image: Image.Image, target_size: tuple[int, int], focal_point: tuple[float, float] | None,
-        zoom: float, pan: tuple[float, float], resample: Image.Resampling,
+        image: Image.Image,
+        target_size: tuple[int, int],
+        focal_point: tuple[float, float] | None,
+        zoom: float,
+        pan: tuple[float, float],
+        resample: Image.Resampling,
     ) -> Image.Image:
         """Apply viewport motion without changing the fitted layer boundary."""
         width, height = image.size
@@ -239,9 +249,7 @@ class ImageEngine:
     def _clamp(value: float, low: float, high: float) -> float:
         return max(low, min(value, high))
 
-    def render_image_layer(
-        self, image: Image.Image, layer: ImageLayer, time: float | None = None
-    ):
+    def render_image_layer(self, image: Image.Image, layer: ImageLayer, time: float | None = None):
         # Load the image
         img = self.load_image_from_url(layer.path) if is_url(layer.path) else Image.open(layer.path)
         self._ctx.image_size_cache.setdefault(layer.path, img.size)

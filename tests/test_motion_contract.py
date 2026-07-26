@@ -186,7 +186,9 @@ class TestMotionContract:
         assert track_items["discriminator"]["propertyName"] == "type"
         assert set(track_items["discriminator"]["mapping"]) == {
             "position",
+            "image_pan",
             "scale",
+            "image_zoom",
             "rotation",
             "opacity",
             "clip_progress",
