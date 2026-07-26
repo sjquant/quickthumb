@@ -3,14 +3,20 @@
 from __future__ import annotations
 
 import math
-from typing import Any, Literal, get_args
+from collections.abc import Iterable, Mapping
+from dataclasses import dataclass
+from types import MappingProxyType
+from typing import TYPE_CHECKING, Any, Literal, get_args
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from pydantic import ValidationError as PydanticValidationError
 
-from quickthumb.errors import ValidationError
+from quickthumb._measurements import layer_id_for
+from quickthumb.errors import RenderingError, ValidationError
 from quickthumb.models import (
     AnimationSpec,
+    ExportDiagnostic,
+    ExportPolicy,
     HexColor,
     KeyframeSpec,
     MotionEasingName,
@@ -18,6 +24,10 @@ from quickthumb.models import (
     validate_hex_color,
 )
 from quickthumb.transitions import Transition, coerce_transition
+
+if TYPE_CHECKING:
+    from quickthumb.canvas import Canvas
+    from quickthumb.deck import Deck
 
 MotionValue = tuple[float, float] | float | str
 MotionProperty = Literal[
@@ -529,3 +539,179 @@ def _sample_effect(event: TimelineEvent, progress: float, state: LayerState) -> 
 def sample_frames(timeline: Timeline, fps: float) -> tuple[tuple[float, LayerState], ...]:
     """Return deterministic timestamp/state pairs for a normalized timeline."""
     return tuple((time, timeline.sample(time)) for time in timeline.frame_times(fps))
+
+
+# Export capability contract -------------------------------------------------
+
+ExportTarget = Literal["raster", "video", "html", "pptx"]
+CapabilityFeature = Literal[
+    "position", "scale", "rotation", "opacity", "clip_progress", "blur", "color",
+    "easing", "stagger", "motion_path", "morph", "chart_animation", "audio_sync",
+]
+SupportLevel = Literal["full", "native", "partial", "fallback", "unsupported"]
+
+
+@dataclass(frozen=True)
+class MotionCapability:
+    """The declared support and deterministic fallback for one target feature."""
+
+    feature: CapabilityFeature
+    target: ExportTarget
+    support: SupportLevel
+    fallback: Literal["fade", "rasterize", "static"] | None = None
+
+
+_CAPABILITY_FEATURES: tuple[CapabilityFeature, ...] = (
+    "position", "scale", "rotation", "opacity", "clip_progress", "blur", "color",
+    "easing", "stagger", "motion_path", "morph", "chart_animation", "audio_sync",
+)
+_FULL_CAPABILITIES: dict[CapabilityFeature, tuple[SupportLevel, str | None]] = dict.fromkeys(
+    _CAPABILITY_FEATURES, ("full", None)
+)
+_CAPABILITIES: dict[ExportTarget, dict[CapabilityFeature, MotionCapability]] = {
+    target: {
+        feature: MotionCapability(feature, target, support, fallback)  # type: ignore[arg-type]
+        for feature, (support, fallback) in _FULL_CAPABILITIES.items()
+    }
+    for target in ("raster", "video")
+}
+_CAPABILITIES["html"] = {
+    feature: MotionCapability(feature, "html", "partial", "fade" if feature == "blur" else None)
+    if feature == "blur"
+    else MotionCapability(feature, "html", "full")
+    for feature in _CAPABILITY_FEATURES
+}
+_PPTX_FALLBACKS: dict[CapabilityFeature, tuple[SupportLevel, str | None]] = {
+    "position": ("native", None), "scale": ("native", None), "rotation": ("native", None),
+    "opacity": ("native", None), "clip_progress": ("fallback", "fade"),
+    "blur": ("unsupported", "rasterize"), "color": ("partial", "static"),
+    "easing": ("partial", "fade"), "stagger": ("native", None),
+    "motion_path": ("partial", "rasterize"), "morph": ("partial", "fade"),
+    "chart_animation": ("fallback", "fade"), "audio_sync": ("unsupported", "static"),
+}
+_CAPABILITIES["pptx"] = {
+    feature: MotionCapability(feature, "pptx", *_PPTX_FALLBACKS[feature])
+    for feature in _CAPABILITY_FEATURES
+}
+
+CAPABILITY_MATRIX = MappingProxyType(
+    {target: MappingProxyType(row) for target, row in _CAPABILITIES.items()}
+)
+
+
+def _normalize_target(target: ExportTarget | str) -> ExportTarget:
+    aliases = {"gif": "raster", "mp4": "video", "webm": "video", "png": "raster"}
+    normalized = aliases.get(str(target).lower(), str(target).lower())
+    if normalized not in _CAPABILITIES:
+        raise ValidationError("target must be one of raster, video, html, or pptx")
+    return normalized  # type: ignore[return-value]
+
+
+def capabilities_for(target: ExportTarget | str) -> Mapping[CapabilityFeature, MotionCapability]:
+    """Return the immutable capability row for an export target."""
+    normalized = _normalize_target(target)
+    return CAPABILITY_MATRIX[normalized]
+
+
+def _capability_features_for(animation: object) -> tuple[CapabilityFeature, ...]:
+    if isinstance(animation, AnimationSpec):
+        features: list[CapabilityFeature] = []
+        if animation.tracks:
+            features.extend(track.type for track in animation.tracks)  # type: ignore[arg-type]
+        if animation.effect:
+            preset_features: dict[str, tuple[CapabilityFeature, ...]] = {
+                "fade": ("opacity",), "rise": ("position", "opacity"),
+                "fall": ("position", "opacity"), "slide": ("position", "opacity"),
+                "zoom": ("scale", "opacity"), "pop": ("scale", "opacity"),
+                "float": ("position",), "pulse": ("scale",), "shake": ("rotation",),
+                "ken_burns": ("position", "scale"), "typewriter": ("clip_progress",),
+            }
+            features.extend(preset_features[animation.effect.type])
+            if animation.effect.easing:
+                features.append("easing")
+        if animation.stagger:
+            features.append("stagger")
+        return tuple(dict.fromkeys(features))
+    return ("opacity",)
+
+
+def _iter_export_layers(source: Canvas | Deck) -> Iterable[tuple[str, object]]:
+    def walk(layer: object, index: int, path: tuple[int, ...]):
+        yield layer_id_for(layer, index, path), layer
+        for child_index, child in enumerate(getattr(layer, "children", ())):
+            yield from walk(child, child_index, (*path, child_index))
+
+    canvases = source.slides if hasattr(source, "slides") else [source]
+    for canvas in canvases:
+        for layer_index, layer in enumerate(canvas.layers):
+            yield from walk(layer, layer_index, (layer_index,))
+
+
+def validate_export(
+    source: Canvas | Deck,
+    target: ExportTarget | str,
+    policy: ExportPolicy | None = None,
+) -> list[ExportDiagnostic]:
+    """Validate motion against a target without invoking any exporter."""
+    normalized = _normalize_target(target)
+    resolved_policy = policy or ExportPolicy()
+    row = capabilities_for(normalized)
+    diagnostics: list[ExportDiagnostic] = []
+    for layer_id, layer in _iter_export_layers(source):
+        animations = getattr(layer, "animation", None)
+        if animations is None:
+            continue
+        items = animations if isinstance(animations, list) else [animations]
+        for animation in items:
+            for feature in _capability_features_for(animation):
+                capability = row[feature]
+                canonical_unimplemented = isinstance(animation, AnimationSpec)
+                declared_support = "unsupported" if canonical_unimplemented else capability.support
+                declared_fallback = "static" if canonical_unimplemented else capability.fallback
+                action = resolved_policy.pptx.get(layer_id) if normalized == "pptx" else None
+                if action is None:
+                    action = resolved_policy.unsupported_motion
+                fallback = declared_fallback
+                if action == "native" and declared_support not in ("full", "native"):
+                    raise RenderingError(
+                        f"{feature} motion on layer {layer_id} cannot use native handling "
+                        f"for {normalized}"
+                    )
+                if declared_support in ("full", "native"):
+                    action = "native"
+                    fallback = None
+                elif action == "rasterize":
+                    fallback = "rasterize"
+                elif action == "static":
+                    fallback = "static"
+                elif action == "warn" and fallback is None:
+                    fallback = "fade"
+                message = (
+                    f"{feature} motion on layer {layer_id} is {declared_support} for {normalized}"
+                    if action == "native"
+                    else (
+                        f"{feature} motion on layer {layer_id} requires {action} handling "
+                        f"for {normalized}"
+                    )
+                )
+                if action == "error" and declared_support not in ("full", "native"):
+                    raise RenderingError(message)
+                diagnostic_support = declared_support
+                if action != "native" and declared_support not in ("full", "native"):
+                    diagnostic_support = "fallback"
+                diagnostics.append(
+                    ExportDiagnostic(
+                        layer_id=layer_id,
+                        feature=feature,
+                        target=normalized,
+                        support=diagnostic_support,
+                        fallback=fallback,
+                        message=message,
+                    )
+                )
+    return diagnostics
+
+
+def validate_motion_export(source: Canvas | Deck, target: ExportTarget | str, policy=None):
+    """Backward-compatible descriptive alias for :func:`validate_export`."""
+    return validate_export(source, target, policy)
