@@ -34,6 +34,7 @@ MotionValue = tuple[float, float] | float | str
 MotionProperty = Literal[
     "position", "scale", "rotation", "opacity", "clip_progress", "blur", "color"
 ]
+TrackBlend = Literal["replace", "add", "multiply"]
 
 EASING_NAMES = frozenset(get_args(MotionEasingName))
 
@@ -141,6 +142,7 @@ class NormalizedTrack(BaseModel):
 
     property: MotionProperty
     keyframes: tuple[NormalizedKeyframe, ...]
+    blend: TrackBlend = "replace"
 
     @model_validator(mode="after")
     def validate_keyframes(self) -> NormalizedTrack:
@@ -151,6 +153,12 @@ class NormalizedTrack(BaseModel):
             raise ValidationError("normalized keyframe times must be strictly increasing")
         for keyframe in self.keyframes:
             _validate_property_value(self.property, keyframe.value)
+        if self.blend == "add" and self.property != "position":
+            raise ValidationError("additive tracks are only supported for position")
+        if self.blend == "multiply" and self.property not in {"scale", "opacity", "clip_progress"}:
+            raise ValidationError(
+                "multiplicative tracks are only supported for scale, opacity, and clip_progress"
+            )
         return self
 
     @property
@@ -367,6 +375,7 @@ class _CompositionCursor:
 def _compile_spec(spec: AnimationSpec, composition: _CompositionCursor) -> TimelineEvent:
     """Compile one spec after resolving its composition-group timing anchor."""
     timing = spec.timing
+    effect = spec.effect
     tracks = tuple(_normalize_track(track) for track in spec.tracks or ())
     track_duration = max((track.duration for track in tracks), default=0.0)
     if timing is None:
@@ -382,10 +391,13 @@ def _compile_spec(spec: AnimationSpec, composition: _CompositionCursor) -> Timel
         delay = timing.delay
         start = composition.start_for(timing)
 
-    effect = spec.effect
     options = effect.model_dump(mode="json", by_alias=True, exclude_none=True) if effect else {}
+    if effect is not None:
+        tracks = _compile_preset_tracks(effect.type, options, duration)
     if spec.easing is not None:
         options["easing"] = spec.easing
+    elif effect is not None:
+        options["easing"] = _preset_easing(options)
     validate_easing_name(options.get("easing"))
     return TimelineEvent(
         source="effect" if effect else "timeline",
@@ -402,6 +414,88 @@ def _compile_spec(spec: AnimationSpec, composition: _CompositionCursor) -> Timel
             else None
         ),
     )
+
+
+_FEEL_EASINGS = {
+    "gentle": "ease_in_out_sine",
+    "soft": "ease_out_cubic",
+    "snappy": "ease_out_back",
+    "dramatic": "ease_in_out_quint",
+    "minimal": "linear",
+}
+
+
+def _preset_easing(options: Mapping[str, Any]) -> str:
+    """Resolve a preset's explicit easing, feel profile, or linear default."""
+    return cast(str, options.get("easing") or _FEEL_EASINGS.get(options.get("feel"), "linear"))
+
+
+def _compile_preset_tracks(
+    effect: str, options: Mapping[str, Any], duration: float
+) -> tuple[NormalizedTrack, ...]:
+    """Lower a semantic preset into renderer-independent normalized tracks."""
+    distance = float(
+        options.get("distance", 48.0 if effect in {"rise", "fall", "slide"} else 12.0) or 0.0
+    )
+
+    def track(
+        property: MotionProperty,
+        values: tuple[MotionValue, ...],
+        *,
+        blend: TrackBlend = "replace",
+    ) -> NormalizedTrack:
+        if len(values) == 1:
+            times = (0.0,)
+        else:
+            times = tuple(index * duration / (len(values) - 1) for index in range(len(values)))
+        return NormalizedTrack(
+            property=property,
+            blend=blend,
+            keyframes=tuple(
+                NormalizedKeyframe(time=time, value=value)
+                for time, value in zip(times, values, strict=True)
+            ),
+        )
+
+    if effect == "fade":
+        return (track("opacity", (0.0, 1.0), blend="multiply"),)
+    if effect in {"zoom", "pop"}:
+        return (track("scale", (0.8, 1.0), blend="multiply"),)
+    if effect == "ken_burns":
+        return (track("scale", (1.0, 1.1), blend="multiply"),)
+    if effect == "typewriter":
+        return (track("clip_progress", (0.0, 1.0), blend="multiply"),)
+    if effect == "pulse":
+        return (track("scale", (1.0, 1.1, 1.0), blend="multiply"),)
+    if effect == "float":
+        return (
+            track(
+                "position",
+                ((0.0, 0.0), (0.0, -distance), (0.0, 0.0), (0.0, distance), (0.0, 0.0)),
+                blend="add",
+            ),
+        )
+    if effect == "shake":
+        return (
+            track(
+                "position",
+                ((0.0, 0.0), (distance, 0.0), (0.0, 0.0), (-distance, 0.0), (0.0, 0.0)),
+                blend="add",
+            ),
+        )
+    if effect in {"rise", "fall", "slide"}:
+        origin = options.get("from") or {"rise": "bottom", "fall": "top", "slide": "left"}[effect]
+        offsets = {
+            "bottom": (0.0, distance),
+            "top": (0.0, -distance),
+            "left": (-distance, 0.0),
+            "right": (distance, 0.0),
+            "center": (0.0, 0.0),
+        }
+        return (
+            track("position", (offsets.get(origin, (0.0, 0.0)), (0.0, 0.0)), blend="add"),
+        )
+    raise ValidationError(f"unsupported motion preset {effect!r}")
 
 
 def _normalize_track(track: TrackSpec) -> NormalizedTrack:
@@ -463,10 +557,27 @@ def _sample_event(event: TimelineEvent, time: float, state: LayerState) -> Layer
     eased_progress = easing_value(event.options.get("easing"), progress)
     for track in event.tracks:
         value = _sample_track(track, progress, event.duration, event.options.get("easing"))
-        state = state.with_values(**{track.property: value})
-    if event.effect is not None and event.source in {"effect", "legacy"}:
+        state = _compose_track_value(state, track, value)
+    if event.effect is not None and event.source == "legacy":
         state = _sample_effect(event, eased_progress, state)
     return state
+
+
+def _compose_track_value(
+    state: LayerState, track: NormalizedTrack, value: MotionValue
+) -> LayerState:
+    """Apply a normalized track using its explicit composition mode."""
+    if track.blend == "replace":
+        return state.with_values(**{track.property: value})
+    if track.blend == "add":
+        if state.position is None or not isinstance(value, tuple):
+            return state
+        x, y = state.position
+        return state.with_values(position=(x + value[0], y + value[1]))
+    current = getattr(state, track.property)
+    if not isinstance(current, (int, float)) or not isinstance(value, (int, float)):
+        raise ValidationError(f"{track.blend} tracks require numeric values")
+    return state.with_values(**{track.property: current * value})
 
 
 def _sample_track(

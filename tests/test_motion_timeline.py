@@ -24,6 +24,99 @@ from quickthumb.transitions import Fade as SlideFade
 class TestMotionTimeline:
     """Black-box coverage for normalized timeline compilation and sampling."""
 
+    @pytest.mark.parametrize(
+        ("factory", "property", "blend"),
+        [
+            ("fade", "opacity", "multiply"),
+            ("rise", "position", "add"),
+            ("fall", "position", "add"),
+            ("slide", "position", "add"),
+            ("zoom", "scale", "multiply"),
+            ("pop", "scale", "multiply"),
+            ("float", "position", "add"),
+            ("pulse", "scale", "multiply"),
+            ("shake", "position", "add"),
+            ("ken_burns", "scale", "multiply"),
+            ("typewriter", "clip_progress", "multiply"),
+        ],
+    )
+    def test_should_compile_each_preset_into_a_normalized_track(
+        self, factory, property, blend
+    ):
+        """Given a public preset, when compiled, then its normalized track is explicit."""
+        # given: a semantic preset with explicit timing and easing
+        spec = getattr(AnimationSpec, factory)(duration=0.8, delay=0.2, easing="ease_out_cubic")
+
+        # when: the preset is lowered into the shared timeline
+        event = compile_timeline(spec).events[0]
+
+        # then: the event preserves metadata and exposes renderer-independent track semantics
+        assert event.source == "effect"
+        assert event.effect == factory
+        assert event.start == 0.0
+        assert event.active_start == 0.2
+        assert event.end == 1.0
+        assert event.options["easing"] == "ease_out_cubic"
+        assert len(event.tracks) == 1
+        assert event.tracks[0].property == property
+        assert event.tracks[0].blend == blend
+        assert event.tracks[0].keyframes[-1].time == pytest.approx(0.8)
+
+    def test_should_resolve_feel_profiles_without_changing_canonical_preset_json(self):
+        """Given a feel, when compiled, then easing resolves only in the normalized timeline."""
+        # given: a preset authored with a semantic feel
+        spec = AnimationSpec.rise(feel="soft", duration=0.6)
+
+        # when: both the authoring model and normalized timeline are serialized
+        authored = spec.model_dump(mode="json", by_alias=True)
+        event = compile_timeline(spec).events[0]
+
+        # then: canonical authoring JSON keeps the feel while the IR carries resolved easing
+        assert authored["effect"]["feel"] == "soft"
+        assert authored["effect"]["easing"] is None
+        assert event.options["feel"] == "soft"
+        assert event.options["easing"] == "ease_out_cubic"
+
+    @pytest.mark.parametrize(
+        "factory",
+        [
+            "fade",
+            "rise",
+            "fall",
+            "slide",
+            "zoom",
+            "pop",
+            "float",
+            "pulse",
+            "shake",
+            "ken_burns",
+            "typewriter",
+        ],
+    )
+    def test_should_round_trip_every_compiled_preset_without_changing_samples(self, factory):
+        """Given a compiled preset, restoring Timeline JSON preserves all samples."""
+        # given: a preset with options that exercise timing, direction, and stagger metadata
+        spec = getattr(AnimationSpec, factory)(
+            from_="right" if factory in {"rise", "fall", "slide"} else None,
+            distance=24,
+            duration=0.75,
+            delay=0.1,
+            easing="ease_in_out_sine",
+            stagger=0.04,
+            target="words",
+            order="reverse",
+        )
+        timeline = compile_timeline(spec)
+
+        # when: the normalized timeline is serialized and restored
+        restored = Timeline.model_validate_json(timeline.model_dump_json())
+
+        # then: canonical IR and representative sampled states are identical
+        assert restored == timeline
+        base = LayerState(position=(30, 40), opacity=0.7, scale=1.5)
+        for time in (0.0, 0.1, 0.35, 0.85, 2.0):
+            assert restored.sample(time, base) == timeline.sample(time, base)
+
     def test_should_compile_typed_tracks_into_one_normalized_event(self):
         """Typed tracks compile into a renderer-independent event with resolved duration."""
         # given: position and opacity tracks with different local durations
