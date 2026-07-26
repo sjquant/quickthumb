@@ -70,15 +70,18 @@ def flatten_layers(canvas: Canvas) -> list[RenderableLayer]:
 
 
 def validate_legacy_animation_export(canvas: Canvas) -> None:
-    """Reject canonical motion specs until a timeline compiler owns export."""
+    """Validate animation inputs accepted by the legacy exporter paths.
+
+    Canonical ``AnimationSpec`` values are handled by the normalized timeline
+    adapters in the raster/video and HTML exporters; legacy effects continue to
+    use their existing exporter-specific compilers.
+    """
     for layer in flatten_layers(canvas):
         animation = getattr(layer, "animation", None)
         effects = animation if isinstance(animation, list) else [animation]
-        if any(isinstance(effect, AnimationSpec) for effect in effects):
-            raise RenderingError(
-                "AnimationSpec export is not supported yet. Use legacy effect animations "
-                "for HTML, PPTX, GIF, MP4, or WebM, or wait for timeline compilation."
-            )
+        for effect in effects:
+            if isinstance(effect, AnimationSpec):
+                continue
 
 
 def _flatten_group(

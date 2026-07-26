@@ -46,6 +46,15 @@ class TestMotionTimeline:
         assert [target.value for target in lines] == ["Hello", "world"]
         assert [target.index for target in characters] == list(range(len(text)))
 
+    def test_should_preserve_empty_trailing_line_targets(self):
+        """Given a trailing newline, when lines resolve, then the empty line remains addressable."""
+        # given / when
+        targets = resolve_text_targets("first\n", "lines")
+
+        # then
+        assert [target.value for target in targets] == ["first", ""]
+        assert [target.source_range for target in targets] == [(0, 5), (6, 6)]
+
     def test_should_resolve_text_and_group_orders_deterministically(self):
         """Given semantic ordering, when targets resolve, then ties retain document order."""
         # given

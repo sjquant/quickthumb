@@ -26,6 +26,7 @@ import base64
 import hashlib
 import json
 import math
+import re
 from dataclasses import dataclass
 from html import escape
 from importlib.resources import files
@@ -63,8 +64,10 @@ from quickthumb._export_base import (
 from quickthumb.errors import RenderingError
 from quickthumb.models import (
     Align,
+    AnimationSpec,
     BackgroundLayer,
     Glow,
+    GroupLayer,
     LinearGradient,
     OutlineLayer,
     RadialGradient,
@@ -74,6 +77,7 @@ from quickthumb.models import (
     SvgLayer,
     TextLayer,
 )
+from quickthumb.motion import compile_timeline
 
 if TYPE_CHECKING:
     from quickthumb.canvas import Canvas, RenderableLayer
@@ -143,6 +147,54 @@ def _effect_states(effect) -> tuple[str, str]:
             f"clip-path:circle(75% at 50% 50%);opacity:{_SHOWN_OPACITY}",
         )
     return "opacity:0", f"opacity:{_SHOWN_OPACITY}"
+
+
+def _canonical_effect_states(event) -> tuple[str, str]:
+    """Return a deterministic CSS analogue for one normalized motion event."""
+    effect = event.effect
+    if effect in {"fade", "typewriter"}:
+        if effect == "typewriter":
+            return "clip-path:inset(0 100% 0 0);opacity:1", "clip-path:inset(0);opacity:1"
+        return "opacity:0", "opacity:1"
+    if effect in {"zoom", "pop"}:
+        return "transform:scale(.8);opacity:1", "transform:scale(1);opacity:1"
+    if effect in {"rise", "fall", "slide"}:
+        distance = float(event.options.get("distance", 48.0) or 0.0)
+        origin = event.options.get("from") or {
+            "rise": "bottom",
+            "fall": "top",
+            "slide": "left",
+        }[effect]
+        offsets = {
+            "top": (0, -distance),
+            "bottom": (0, distance),
+            "left": (-distance, 0),
+            "right": (distance, 0),
+            "center": (0, 0),
+        }
+        x, y = offsets[origin]
+        return f"transform:translate({x}px,{y}px);opacity:1", "transform:translate(0,0);opacity:1"
+    return "opacity:0", "opacity:1"
+
+
+def _canonical_target_count(layer: RenderableLayer, animation: AnimationSpec) -> int:
+    """Return semantic target cardinality for HTML timing."""
+    stagger = animation.stagger
+    if stagger is None:
+        return 1
+    if stagger.target == "children" and isinstance(layer, GroupLayer):
+        return len(layer.children)
+    if isinstance(layer, TextLayer):
+        content = layer.content if isinstance(layer.content, str) else "".join(
+            part.text for part in layer.content
+        )
+        if stagger.target == "characters":
+            return len(content)
+        if stagger.target == "words":
+            return len(re.findall(r"\S+", content))
+        if stagger.target == "lines":
+            return len(content.split("\n"))
+    return 1
 
 
 def _remap_linear_stops(
@@ -405,6 +457,9 @@ class HtmlExporter:
             self._prev_anim_key = None
             return ""
 
+        if isinstance(effects[0], AnimationSpec):
+            return self._register_canonical_animation(effects[0], element_id, layer)
+
         hidden = "visibility:hidden;" if effects[0].animate == "entrance" else ""
         key = id(animation)
         if key == self._prev_anim_key:
@@ -437,6 +492,36 @@ class HtmlExporter:
         self._prev_anim_key = key
         self._prev_nodes = nodes
         return hidden
+
+    def _register_canonical_animation(
+        self, animation: AnimationSpec, element_id: str, layer: RenderableLayer
+    ) -> str:
+        """Compile a canonical timeline into the existing HTML timeline format."""
+        timeline = compile_timeline(animation)
+        target_count = _canonical_target_count(layer, animation)
+        nodes: list[dict] = []
+        for event in timeline.events:
+            kf = f"{self._keyframe_prefix}{self._next_kf}"
+            self._next_kf += 1
+            hidden, shown = _canonical_effect_states(event)
+            self._keyframes.append(f"@keyframes {kf}{{from{{{hidden}}}to{{{shown}}}}}")
+            duration = event.duration
+            if event.stagger is not None:
+                duration += float(event.stagger.get("delay", 0.0)) * max(0, target_count - 1)
+            nodes.append(
+                {
+                    "t": [element_id],
+                    "k": kf,
+                    "d": duration,
+                    "delay": event.start + event.delay,
+                    "tr": None,
+                    "a": "entrance",
+                }
+            )
+        self._timeline.extend(nodes)
+        self._prev_anim_key = id(animation)
+        self._prev_nodes = nodes
+        return "visibility:hidden;" if nodes else ""
 
     # ------------------------------------------------------------------ layers
 

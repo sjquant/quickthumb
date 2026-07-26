@@ -12,6 +12,7 @@ from pathlib import Path
 import pytest
 from PIL import Image
 from quickthumb import (
+    AnimationSpec,
     Blinds,
     Box,
     Canvas,
@@ -654,6 +655,26 @@ class TestHtmlAnimations:
 
         # when / then
         assert "visibility:hidden" in canvas.to_html()
+
+    def test_should_compile_canonical_text_motion_into_html_timeline(self):
+        """Canonical text motion emits normalized timing and CSS keyframes."""
+        # given
+        canvas = Canvas(400, 200).text(
+            content="Hello",
+            size=48,
+            color="#FFFFFF",
+            position=(20, 20),
+            animation=AnimationSpec.typewriter(duration=0.4, target="characters", stagger=0.05),
+        )
+
+        # when
+        html = canvas.to_html()
+
+        # then
+        assert "clip-path:inset(0 100% 0 0)" in html
+        nodes = timelines(html)[0]
+        assert nodes[0]["d"] == pytest.approx(0.6)
+        assert nodes[0]["a"] == "entrance"
 
     def test_should_preserve_animated_layer_opacity_through_entrance(self):
         """Entrance animation uses and restores the element's original opacity"""

@@ -32,6 +32,8 @@ if TYPE_CHECKING:
     from quickthumb.deck import Deck
 
 MotionValue = tuple[float, float] | float | str
+MotionTargetName = Literal["characters", "words", "lines", "children"]
+TargetOrder = Literal["document", "top_to_bottom", "left_to_right", "reverse"]
 MotionProperty = Literal[
     "position", "scale", "rotation", "opacity", "clip_progress", "blur", "color"
 ]
@@ -51,11 +53,14 @@ class ResolvedMotionTarget:
 
     index: int
     value: Any
+    source_range: tuple[int, int] | None = None
+    position: tuple[float, float] | None = None
+    size: tuple[float, float] | None = None
 
 
 def resolve_target_order(
     count: int,
-    order: Literal["document", "top_to_bottom", "left_to_right", "reverse"] = "document",
+    order: TargetOrder = "document",
     positions: Sequence[tuple[float, float]] | None = None,
 ) -> tuple[int, ...]:
     """Return stable indices for a semantic target collection.
@@ -85,12 +90,23 @@ def resolve_target_order(
 def resolve_targets(
     items: Sequence[Any],
     *,
-    order: Literal["document", "top_to_bottom", "left_to_right", "reverse"] = "document",
+    order: TargetOrder = "document",
     positions: Sequence[tuple[float, float]] | None = None,
+    sizes: Sequence[tuple[float, float]] | None = None,
 ) -> tuple[ResolvedMotionTarget, ...]:
     """Resolve text/group members through an existing public layout sequence."""
     ordered = resolve_target_order(len(items), order, positions)
-    return tuple(ResolvedMotionTarget(index=index, value=items[index]) for index in ordered)
+    if sizes is not None and len(sizes) != len(items):
+        raise ValidationError("target sizes must match target count")
+    return tuple(
+        ResolvedMotionTarget(
+            index=index,
+            value=items[index],
+            position=positions[index] if positions is not None else None,
+            size=sizes[index] if sizes is not None else None,
+        )
+        for index in ordered
+    )
 
 
 def resolve_text_targets(
@@ -111,18 +127,41 @@ def resolve_text_targets(
         raise ValidationError("text target resolution requires a string")
     if target == "characters":
         items: Sequence[Any] = tuple(text)
+        ranges = tuple((index, index + 1) for index in range(len(text)))
     elif target == "words":
-        items = tuple(
-            match.group(0)
-            for match in re.finditer(r"\S+|\s+", text)
-            if match.group(0).strip()
-        )
+        matches = tuple(match for match in re.finditer(r"\S+", text))
+        items = tuple(match.group(0) for match in matches)
+        ranges = tuple((match.start(), match.end()) for match in matches)
     elif target == "lines":
-        items = tuple(lines if lines is not None else text.splitlines() or (text,))
+        if lines is None:
+            items = tuple(text.split("\n"))
+            ranges = []
+            cursor = 0
+            for item in items:
+                ranges.append((cursor, cursor + len(item)))
+                cursor += len(item) + 1
+        else:
+            items = tuple(lines)
+            ranges = []
+            cursor = 0
+            for item in items:
+                start = text.find(item, cursor) if item else cursor
+                start = cursor if start < 0 else start
+                ranges.append((start, start + len(item)))
+                cursor = start + len(item)
+                if cursor < len(text) and text[cursor] == "\n":
+                    cursor += 1
     else:
         raise ValidationError("text target must be characters, words, or lines")
     ordered = resolve_target_order(len(items), order)
-    return tuple(ResolvedMotionTarget(index=index, value=items[index]) for index in ordered)
+    return tuple(
+        ResolvedMotionTarget(
+            index=index,
+            value=items[index],
+            source_range=ranges[index] if ranges else None,
+        )
+        for index in ordered
+    )
 
 
 def resolve_staggered_timelines(
