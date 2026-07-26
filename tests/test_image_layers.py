@@ -772,6 +772,93 @@ class TestImageLayerSerialization:
         assert cast(tuple[int, int, int, int], first.getpixel((0, 0)))[3] == 0
         assert cast(tuple[int, int, int, int], last.getpixel((0, 0)))[3] == 0
 
+    def test_should_apply_pan_and_zoom_to_fill_and_contain_viewports(self, tmp_path):
+        """Given fit modes, when viewport tracks are sampled, then boxes stay deterministic."""
+        from quickthumb import Canvas, ImagePanTrack, ImageZoomTrack, KeyframeSpec
+
+        # Given: a source with a deliberately mismatched aspect ratio
+        source_path = tmp_path / "source.png"
+        Image.new("RGBA", (240, 80), "#2563EB").save(source_path)
+        motion = AnimationSpec.timeline(
+            ImagePanTrack(
+                keyframes=[
+                    KeyframeSpec(time=0, value=(-0.5, 0.0)),
+                    KeyframeSpec(time=1, value=(0.5, 0.0)),
+                ]
+            ),
+            ImageZoomTrack(
+                keyframes=[KeyframeSpec(time=0, value=1), KeyframeSpec(time=1, value=1.4)]
+            ),
+        )
+        fill = Canvas(160, 100).image(
+            path=str(source_path),
+            position=(0, 0),
+            width=20,
+            height=100,
+            fit="fill",
+            animation=motion,
+        )
+        contain = Canvas(160, 100).image(
+            path=str(source_path),
+            position=(0, 0),
+            width=120,
+            height=80,
+            fit="contain",
+            animation=motion,
+        )
+
+        # When: the shared timeline samples both fitted image layers
+        fill_frame = fill.render_frame(0.5)
+        contain_frame = contain.render_frame(0.5)
+
+        # Then: each motion mode remains inside its configured composition boundary
+        assert fill_frame.size == contain_frame.size == (160, 100)
+        assert fill_frame.getbbox() is not None
+        assert contain_frame.getbbox() is not None
+
+    def test_should_prefer_faces_for_animated_cover_zoom_and_allow_preset_focal_points(
+        self, tmp_path
+    ):
+        """Given face metadata, when animated zoom is sampled, then focal selection is stable."""
+        from quickthumb import Canvas
+
+        # Given: a tall source with a face near the top and a focal point near the bottom
+        source_path = tmp_path / "portrait.png"
+        source = Image.new("RGBA", (100, 300), "#F97316")
+        source.paste(Image.new("RGBA", (100, 100), "#14B8A6"), (0, 100))
+        source.paste(Image.new("RGBA", (100, 100), "#4F46E5"), (0, 200))
+        source.save(source_path)
+        canvas = Canvas(100, 100).image(
+            path=str(source_path),
+            position=(0, 0),
+            width=100,
+            height=100,
+            fit="cover",
+            focal_point=(0.5, 1.0),
+            faces=[{"x": 0.2, "y": 0.08, "width": 0.6, "height": 0.1}],
+            animation=AnimationSpec.ken_burns(focal_point=(0.5, 0.0), duration=1),
+        )
+
+        # When: the animation is sampled at its active midpoint
+        frame = canvas.render_frame(0.5)
+
+        # Then: the face-aware viewport renders the source within the layer
+        assert frame.size == (100, 100)
+        assert pixel_rgb(frame, (50, 50)) == (249, 115, 22)
+
+    def test_should_reject_invalid_render_frame_time(self):
+        """Given an invalid frame time, when rendering, then the public API rejects it."""
+        from quickthumb import Canvas
+
+        # Given: a canvas without any special layer configuration
+        canvas = Canvas(20, 20)
+
+        # When/Then: negative and non-finite sample times fail validation
+        with pytest.raises(ValidationError, match="finite non-negative"):
+            canvas.render_frame(-1)
+        with pytest.raises(ValidationError, match="finite non-negative"):
+            canvas.render_frame(float("inf"))
+
     def test_should_serialize_percentage_position_to_json(self):
         """Test that percentage positions are serialized correctly"""
         # Given: Canvas with image using percentage position

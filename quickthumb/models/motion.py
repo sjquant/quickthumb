@@ -488,6 +488,10 @@ class AnimationSpec(_MotionModel):
         return cls._preset("ken_burns", **kwargs)
 
     @classmethod
+    def pan(cls, **kwargs) -> "AnimationSpec":
+        return cls._preset("pan", **kwargs)
+
+    @classmethod
     def typewriter(cls, **kwargs) -> "AnimationSpec":
         return cls._preset("typewriter", **kwargs)
 
