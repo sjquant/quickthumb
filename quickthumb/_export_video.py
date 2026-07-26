@@ -74,8 +74,10 @@ from quickthumb.models import (
     Animation,
     AnimationSpec,
     AudioTrack,
+    ChartLayer,
     GifOptions,
     GroupLayer,
+    QRCodeLayer,
     TextLayer,
     VideoOptions,
     coerce_audio_track,
@@ -686,6 +688,8 @@ class _Unit:
     pos: tuple[int, int]
     effects: list[Animation]
     seed: int
+    layers: list[RenderableLayer] = field(default_factory=list)
+    component_duration: float = 0.0
     nodes: list[_Node] = field(default_factory=list)
     timeline: Timeline | None = None
     target_timelines: tuple[Timeline, ...] = ()
@@ -709,19 +713,24 @@ class _SlideAnimator:
             state = _unit_state(unit, time)
             if state is _HIDDEN:
                 continue
-            if state is _SHOWN:
-                image = unit.image
-            elif isinstance(state, tuple) and state and state[0] == "canonical":
-                image = _canonical_render(unit.image, state[1], state[2])
+            if unit.component_duration > 0:
+                image, pos = _render_unit_image(self._canvas, unit.layers, time)
                 if image is None:
                     continue
             else:
+                pos = unit.pos
+                image = unit.image
+            if unit.component_duration == 0 and isinstance(state, tuple) and state and state[0] == "canonical":
+                image = _canonical_render(unit.image, state[1], state[2])
+                if image is None:
+                    continue
+            elif unit.component_duration == 0 and state is not _SHOWN:
                 effect, reveal = state
                 revealed = _animation_reveal(unit.image, effect, reveal, unit.seed)
                 if revealed is None:
                     continue
                 image = revealed
-            frame.alpha_composite(image, unit.pos)
+            frame.alpha_composite(image, pos)
         return frame
 
     def final_frame(self) -> Image.Image:
@@ -781,7 +790,7 @@ class _SlideAnimator:
 
 def _build_units(canvas: Canvas) -> list[_Unit]:
     """Flatten the canvas into animation units rendered through the PIL pipeline."""
-    validate_legacy_animation_export(canvas)
+    validate_legacy_animation_export(canvas, allow_visualization_motion=True)
     canvas._validate_image_paths()
     canvas._ctx.begin_render_pass()
     group_target_counts = _canonical_group_target_counts(canvas)
@@ -815,7 +824,8 @@ def _build_units(canvas: Canvas) -> list[_Unit]:
     units: list[_Unit] = []
     for index, (_, layers) in enumerate(groups):
         animation = getattr(layers[0], "animation", None)
-        effects = animation if isinstance(animation, list) else [animation] if animation else []
+        raw_effects = animation if isinstance(animation, list) else [animation] if animation else []
+        effects = [effect for effect in raw_effects if not isinstance(effect, AnimationSpec)]
         image, pos = _render_unit_image(canvas, layers)
         canonical = animation if isinstance(animation, AnimationSpec) else None
         target_timelines: tuple[Timeline, ...] = ()
@@ -834,12 +844,17 @@ def _build_units(canvas: Canvas) -> list[_Unit]:
                 elif stagger.target == "children":
                     target_count = group_target_counts.get(id(canonical), 1)
             target_timelines = resolve_staggered_timelines(timeline, target_count)
+        component_duration = max(
+            (_component_animation_duration(layer) for layer in layers), default=0.0
+        )
         units.append(
             _Unit(
                 image=image,
                 pos=pos,
                 effects=effects if canonical is None else [],
                 seed=_UNIT_DISSOLVE_SEED + index,
+                layers=layers,
+                component_duration=component_duration,
                 timeline=compile_timeline(canonical) if canonical is not None else None,
                 target_timelines=target_timelines,
             )
@@ -903,11 +918,11 @@ def _has_animated_descendant_in_composed_group(layer: RenderableLayer) -> bool:
 
 
 def _render_unit_image(
-    canvas: Canvas, layers: list[RenderableLayer]
+    canvas: Canvas, layers: list[RenderableLayer], time: float | None = None
 ) -> tuple[Image.Image | None, tuple[int, int]]:
     image = Image.new("RGBA", (canvas.width, canvas.height), (0, 0, 0, 0))
     for layer in layers:
-        canvas._render_layer(image, layer)
+        canvas._render_layer(image, layer, time)
     bbox = image.getbbox()
     if bbox is None:
         return None, (0, 0)
@@ -939,7 +954,24 @@ def _schedule_units(units: list[_Unit]) -> float:
         index = cursor
     for unit in units:
         unit.nodes.sort(key=lambda node: node.start + node.effect.delay)
-    return clock
+    return max([clock, *(unit.component_duration for unit in units)], default=0.0)
+
+
+def _component_animation_duration(layer: RenderableLayer) -> float:
+    """Return the settled duration of a canonical chart/QR motion preset."""
+    if not isinstance(layer, (ChartLayer, QRCodeLayer)):
+        return 0.0
+    animation = getattr(layer, "animation", None)
+    if not isinstance(animation, AnimationSpec):
+        return 0.0
+    if animation.effect is None and animation.timing is None:
+        return 0.0
+    duration = animation.timing.duration if animation.timing is not None else 0.5
+    if animation.stagger is not None:
+        count = len(animation.spec.data.values) if isinstance(layer, ChartLayer) else layer.size
+        duration += max(0, count - 1) * animation.stagger.delay
+    delay = animation.timing.delay if animation.timing is not None else 0.0
+    return delay + duration
 
 
 def _unit_state(unit: _Unit, time: float):

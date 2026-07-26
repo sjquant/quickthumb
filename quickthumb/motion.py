@@ -629,6 +629,15 @@ def _compile_preset_tracks(
         return (track("scale", (1.0, 1.1), blend="multiply"),)
     if effect == "typewriter":
         return (track("clip_progress", (0.0, 1.0), blend="multiply"),)
+    if effect in {
+        "bar_grow",
+        "line_draw",
+        "area_reveal",
+        "point_pop",
+        "value_count_up",
+        "qr_reveal",
+    }:
+        return (track("clip_progress", (0.0, 1.0)),)
     if effect == "pulse":
         return (
             track(
@@ -971,6 +980,12 @@ def _capability_features_for(animation: object) -> tuple[CapabilityFeature, ...]
                 "shake": ("rotation",),
                 "ken_burns": ("position", "scale"),
                 "typewriter": ("clip_progress",),
+                "bar_grow": ("clip_progress",),
+                "line_draw": ("clip_progress",),
+                "area_reveal": ("clip_progress",),
+                "point_pop": ("clip_progress",),
+                "value_count_up": ("clip_progress",),
+                "qr_reveal": ("clip_progress",),
             }
             features.extend(preset_features[animation.effect.type])
             if animation.effect.easing:

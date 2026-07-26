@@ -10,6 +10,7 @@ from typing import Any, cast
 import pytest
 from PIL import Image, ImageChops
 from quickthumb import (
+    AnimationSpec,
     BarChartSpec,
     BarChartStyle,
     Canvas,
@@ -313,6 +314,81 @@ class TestVisualizationRendering:
         # then
         assert ImageChops.difference(without_points, zero_radius).getbbox() is None
 
+    @pytest.mark.parametrize(
+        ("animation", "spec", "time"),
+        [
+            (AnimationSpec.bar_grow(duration=1.0), BarChartSpec(data=[1, 3]), 0.0),
+            (
+                AnimationSpec.line_draw(duration=1.0),
+                LineChartSpec(data=[1, 3, 2], style=LineChartStyle(show_points=False)),
+                0.0,
+            ),
+            (
+                AnimationSpec.area_reveal(duration=1.0),
+                LineChartSpec(data=[1, 3, 2], style=LineChartStyle(fill="#DDEEFF")),
+                0.0,
+            ),
+            (
+                AnimationSpec.point_pop(duration=1.0),
+                LineChartSpec(data=[1, 3, 2]),
+                0.0,
+            ),
+        ],
+    )
+    def test_should_sample_chart_motion_without_changing_settled_pixels(
+        self, animation, spec, time
+    ):
+        """Given a chart preset, when sampled before completion, then motion is visible and
+        the settled frame matches the deterministic static renderer."""
+        # given
+        animated = Canvas(140, 90).chart(
+            spec, position=(10, 10), width=100, height=50, animation=animation
+        )
+        static = Canvas(140, 90).chart(spec, position=(10, 10), width=100, height=50)
+
+        # when
+        start = animated._render_to_image(time=time)
+        settled = animated._render_to_image(time=1.0)
+
+        # then
+        assert ImageChops.difference(start, settled).getbbox() is not None
+        assert ImageChops.difference(settled, rendered_image(static)).getbbox() is None
+
+    def test_should_compile_value_count_up_as_a_shared_clip_progress_track(self):
+        """Given value count-up motion, when compiled, then it uses the shared timeline IR."""
+        # given
+        animation = AnimationSpec.value_count_up(duration=0.75)
+
+        # when
+        from quickthumb import LayerState, compile_timeline
+
+        timeline = compile_timeline(animation)
+
+        # then
+        assert timeline.events[0].tracks[0].property == "clip_progress"
+        assert timeline.sample(0, LayerState(clip_progress=0)).clip_progress == 0
+        assert timeline.sample(0.75, LayerState(clip_progress=0)).clip_progress == 1
+
+    def test_should_reveal_qr_modules_deterministically_over_time(self):
+        """Given QR reveal motion, when sampled at the same times, then module pixels are
+        deterministic and the settled frame matches static rendering."""
+        # given
+        animation = AnimationSpec.qr_reveal(duration=1.0)
+        animated = Canvas(120, 120).qr_code(
+            "motion", position=(10, 10), size=90, animation=animation
+        )
+        static = Canvas(120, 120).qr_code("motion", position=(10, 10), size=90)
+
+        # when
+        first = animated._render_to_image(time=0.4)
+        second = animated._render_to_image(time=0.4)
+        settled = animated._render_to_image(time=1.0)
+
+        # then
+        assert first.tobytes() == second.tobytes()
+        assert ImageChops.difference(first.convert("RGB"), settled.convert("RGB")).getbbox()
+        assert ImageChops.difference(settled, rendered_image(static)).getbbox() is None
+
     def test_should_render_and_measure_visualization_group_children(self):
         """Groups render and inspect chart and QR children through the public APIs."""
         # given
@@ -503,6 +579,36 @@ class TestVisualizationSerialization:
         assert isinstance(qr.animation, Fade)
         assert line.animation.duration == 0.25
         assert qr.animation.duration == 0.4
+
+    def test_should_round_trip_data_driven_animation_presets(self):
+        """Given chart and QR component presets, when serialized, then their canonical
+        animation discriminators and timing survive a JSON round-trip."""
+        # given
+        canvas = (
+            Canvas(240, 160)
+            .chart(
+                BarChartSpec(data=[1, 2, 3]),
+                position=(0, 0),
+                width=80,
+                height=40,
+                animation=AnimationSpec.bar_grow(duration=0.6, stagger=0.1),
+            )
+            .qr_code(
+                "hello",
+                position=(100, 0),
+                size=50,
+                animation=AnimationSpec.qr_reveal(duration=0.8),
+            )
+        )
+
+        # when
+        reloaded = Canvas.from_json(canvas.to_json())
+
+        # then
+        assert reloaded.layers[0].animation.effect.type == "bar_grow"
+        assert reloaded.layers[0].animation.stagger.delay == 0.1
+        assert reloaded.layers[1].animation.effect.type == "qr_reveal"
+        assert reloaded.layers[1].animation.timing.duration == 0.8
 
     def test_should_validate_complete_visualization_document_against_canvas_model(self):
         """The serialized visualization document satisfies the published model schema."""

@@ -61,11 +61,15 @@ class GroupEngine:
         self._visualizations = visualizations
 
     def render_group_layer(
-        self, image: Image.Image, layer: GroupLayer, origin: tuple[int, int] | None = None
+        self,
+        image: Image.Image,
+        layer: GroupLayer,
+        origin: tuple[int, int] | None = None,
+        time: float | None = None,
     ):
         placements, _ = self.layout_group(layer, origin)
         for child, position, size in placements:
-            self._render_group_child(image, child, position, size)
+            self._render_group_child(image, child, position, size, time)
 
     def resolve_animation_targets(
         self,
@@ -86,26 +90,28 @@ class GroupEngine:
         child: GroupChildLayer,
         position: tuple[int, int],
         size: tuple[int, int],
+        time: float | None = None,
     ):
         if isinstance(child, GroupLayer):
             if has_layer_composition(child):
-                self._render_composed_group_child(image, child, origin=position)
+                self._render_composed_group_child(image, child, origin=position, time=time)
             else:
-                self.render_group_layer(image, child, origin=position)
+                self.render_group_layer(image, child, origin=position, time=time)
             return
 
         placed = self._place_group_child(child, position, size)
         if has_layer_composition(placed):
-            self._render_composed_group_child(image, placed)
+            self._render_composed_group_child(image, placed, time=time)
             return
 
-        self._render_group_child_direct(image, placed)
+        self._render_group_child_direct(image, placed, time)
 
     def _render_composed_group_child(
         self,
         image: Image.Image,
         child: GroupChildLayer,
         origin: tuple[int, int] | None = None,
+        time: float | None = None,
     ):
         isolated = self._child_without_boundary_blend(child)
         composite_layer_with_boundary(
@@ -114,7 +120,7 @@ class GroupEngine:
             image,
             child,
             lambda layer_surface: self._render_group_child_boundary(
-                layer_surface, isolated, origin
+                layer_surface, isolated, origin, time
             ),
         )
 
@@ -123,11 +129,12 @@ class GroupEngine:
         image: Image.Image,
         child: GroupChildLayer,
         origin: tuple[int, int] | None = None,
+        time: float | None = None,
     ):
         if isinstance(child, GroupLayer):
-            self.render_group_layer(image, child, origin=origin)
+            self.render_group_layer(image, child, origin=origin, time=time)
             return
-        self._render_group_child_direct(image, child)
+        self._render_group_child_direct(image, child, time)
 
     @staticmethod
     def _child_without_boundary_blend(child: GroupChildLayer) -> GroupChildLayer:
@@ -143,7 +150,9 @@ class GroupEngine:
             return child.model_copy(update=updates)
         return child
 
-    def _render_group_child_direct(self, image: Image.Image, child: GroupChildLayer):
+    def _render_group_child_direct(
+        self, image: Image.Image, child: GroupChildLayer, time: float | None = None
+    ):
         if isinstance(child, TextLayer):
             self._text.render_text_layer(image, child)
         elif isinstance(child, ImageLayer):
@@ -153,9 +162,9 @@ class GroupEngine:
         elif isinstance(child, ShapeLayer):
             self._shapes.render_shape_layer(image, child)
         elif isinstance(child, ChartLayer):
-            self._visualizations.render_chart(image, child)
+            self._visualizations.render_chart(image, child, time)
         elif isinstance(child, QRCodeLayer):
-            self._visualizations.render_qr_code(image, child)
+            self._visualizations.render_qr_code(image, child, time)
 
     def _place_group_child(
         self,
