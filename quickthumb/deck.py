@@ -410,6 +410,12 @@ class Deck:
 
         return PdfExporter().export_bytes_canvases(self._slides)
 
+    def validate_export(self, target: str, policy=None):
+        """Return renderer-independent motion diagnostics for every slide."""
+        from quickthumb.motion import validate_export
+
+        return validate_export(self, target, policy)
+
     def to_html(self, responsive: bool = True, embed_fonts: bool = True) -> str:
         """Render the deck to a standalone HTML slideshow document string.
 

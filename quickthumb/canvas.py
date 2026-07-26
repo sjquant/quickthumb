@@ -281,6 +281,12 @@ class Canvas:
             layers=[self._inspect_layer(measured) for measured in measure_layers(self)],
         )
 
+    def validate_export(self, target: str, policy=None):
+        """Return renderer-independent motion diagnostics for an export target."""
+        from quickthumb.motion import validate_export
+
+        return validate_export(self, target, policy)
+
     def _inspect_layer(
         self, measured: LayerMeasurement, index: int | None = None, order: int | None = None
     ) -> LayerInspection:
