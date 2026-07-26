@@ -1,4 +1,5 @@
 import math
+from typing import Any, cast
 
 import pytest
 from quickthumb import (
@@ -30,7 +31,7 @@ class TestMotionInterpolation:
                     KeyframeSpec(time=2, value=2),
                 ]
             ),
-            timing={"duration": 2},
+            timing=cast(Any, {"duration": 2}),
             easing="ease_in_quad",
         )
 
@@ -64,8 +65,49 @@ class TestMotionInterpolation:
         # then: the model rejects the invalid name before sampling
         with pytest.raises(ValidationError, match="ease_in_quad"):
             AnimationSpec.timeline(
-                ScaleTrack(keyframes=[KeyframeSpec(time=0, value=1)]), easing="spring"
+                ScaleTrack(keyframes=[KeyframeSpec(time=0, value=1)]), easing=cast(Any, "spring")
             )
+
+        # given: an effect combined with timeline-only easing
+        # when: the public animation contract is constructed
+        # then: mutually ambiguous easing configuration is rejected
+        with pytest.raises(ValidationError, match="only valid with tracks"):
+            AnimationSpec(effect=cast(Any, {"type": "fade"}), easing="ease_in_quad")
+
+    def test_should_sample_each_supported_easing_family(self):
+        """Every public easing family produces finite deterministic progress."""
+        # given: one representative from every supported easing branch
+        names = [
+            "linear",
+            "ease",
+            "ease_in",
+            "ease_out",
+            "ease_in_out",
+            "ease_in_quad",
+            "ease_out_quad",
+            "ease_in_out_quad",
+            "ease_in_cubic",
+            "ease_out_cubic",
+            "ease_in_out_cubic",
+            "ease_in_quart",
+            "ease_out_quart",
+            "ease_in_out_quart",
+            "ease_in_quint",
+            "ease_out_quint",
+            "ease_in_out_quint",
+            "ease_in_sine",
+            "ease_out_sine",
+            "ease_in_out_sine",
+            "ease_in_back",
+            "ease_out_back",
+            "ease_in_out_back",
+        ]
+
+        # when: each easing is evaluated at an interior progress
+        values = [easing_value(name, 0.25) for name in names]
+
+        # then: all supported curves return deterministic finite values
+        assert all(math.isfinite(value) for value in values)
 
     def test_should_keep_bounded_properties_valid_with_overshooting_easing(self):
         """Back easing cannot produce invalid bounded or color state."""
@@ -75,9 +117,9 @@ class TestMotionInterpolation:
         for easing in ("ease_in_back", "ease_out_back", "ease_in_out_back"):
             state = compile_timeline(AnimationSpec.fade(duration=1, easing=easing)).sample(0.25)
             assert 0.0 <= state.opacity <= 1.0
-            clip = compile_timeline(
-                AnimationSpec.typewriter(duration=1, easing=easing)
-            ).sample(0.25)
+            clip = compile_timeline(AnimationSpec.typewriter(duration=1, easing=easing)).sample(
+                0.25
+            )
             assert 0.0 <= clip.clip_progress <= 1.0
             color = compile_timeline(
                 AnimationSpec.timeline(
@@ -140,7 +182,7 @@ class TestMotionInterpolation:
         # when: callers provide invalid base state or restore invalid metadata
         # then: both invalid inputs fail before rendering
         with pytest.raises(ValidationError, match="LayerState"):
-            compile_timeline([]).sample(0, base={})
+            compile_timeline([]).sample(0, base=cast(Any, {}))
         with pytest.raises(ValidationError, match="unknown easing"):
             compile_timeline([]).model_validate(
                 {

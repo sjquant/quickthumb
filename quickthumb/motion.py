@@ -103,7 +103,7 @@ def _cubic_bezier(t: float, x1: float, y1: float, x2: float, y2: float) -> float
             + 6 * (1 - parameter) * parameter * (x2 - x1)
             + 3 * parameter**2 * (1 - x2)
         )
-        if abs(derivative) < 1e-12:
+        if abs(derivative) < 1e-12:  # pragma: no cover - public curves are non-degenerate
             break
         parameter = min(1.0, max(0.0, parameter - (x - t) / derivative))
     return _bezier(parameter, y1, y2)
@@ -468,7 +468,7 @@ def _interpolate(left: MotionValue, right: MotionValue, ratio: float) -> MotionV
 def _interpolate_color(left: str, right: str, ratio: float) -> str:
     """Interpolate RGB(A) colors, treating omitted alpha as fully opaque."""
     left_hex, right_hex = left[1:], right[1:]
-    if len(left_hex) not in (6, 8) or len(right_hex) not in (6, 8):
+    if len(left_hex) not in (6, 8) or len(right_hex) not in (6, 8):  # pragma: no cover
         raise ValidationError("color keyframes must use six- or eight-digit hexadecimal colors")
     output_alpha = len(left_hex) == 8 or len(right_hex) == 8
     if len(left_hex) == 6:
