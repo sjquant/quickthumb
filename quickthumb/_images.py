@@ -9,6 +9,7 @@ from quickthumb._effects import EffectsEngine
 from quickthumb.errors import RenderingError
 from quickthumb.models import (
     Align,
+    AnimationSpec,
     BackdropBlur,
     Duotone,
     FaceRegion,
@@ -288,10 +289,10 @@ class ImageEngine:
         from quickthumb.motion import LayerState, compile_timeline
 
         animations = layer.animation if isinstance(layer.animation, list) else [layer.animation]
-        specs = [item for item in animations if item.__class__.__name__ == "AnimationSpec"]
+        specs = [item for item in animations if isinstance(item, AnimationSpec)]
         if not specs:
             return None
-        return compile_timeline(specs).sample(self._ctx.motion_time, LayerState())
+        return compile_timeline(specs).sample(float(time), LayerState())
 
     def render_svg_layer(self, image: Image.Image, layer: SvgLayer):
         img = self.rasterize_svg(layer)

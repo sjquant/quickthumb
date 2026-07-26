@@ -769,8 +769,8 @@ class TestImageLayerSerialization:
         # Then: viewport motion changes pixels without changing the layer boundary
         assert first.size == last.size == (160, 100)
         assert first.tobytes() != last.tobytes()
-        assert first.getpixel((0, 0))[3] == 0
-        assert last.getpixel((0, 0))[3] == 0
+        assert cast(tuple[int, int, int, int], first.getpixel((0, 0)))[3] == 0
+        assert cast(tuple[int, int, int, int], last.getpixel((0, 0)))[3] == 0
 
     def test_should_serialize_percentage_position_to_json(self):
         """Test that percentage positions are serialized correctly"""
