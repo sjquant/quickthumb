@@ -25,27 +25,39 @@ class TestMotionTimeline:
     """Black-box coverage for normalized timeline compilation and sampling."""
 
     @pytest.mark.parametrize(
-        ("factory", "property", "blend"),
+        ("factory", "property", "blend", "values"),
         [
-            ("fade", "opacity", "multiply"),
-            ("rise", "position", "add"),
-            ("fall", "position", "add"),
-            ("slide", "position", "add"),
-            ("zoom", "scale", "multiply"),
-            ("pop", "scale", "multiply"),
-            ("float", "position", "add"),
-            ("pulse", "scale", "multiply"),
-            ("shake", "position", "add"),
-            ("ken_burns", "scale", "multiply"),
-            ("typewriter", "clip_progress", "multiply"),
+            ("fade", "opacity", "multiply", (0.0, 1.0)),
+            ("rise", "position", "add", ((0.0, 24.0), (0.0, 0.0))),
+            ("fall", "position", "add", ((0.0, -24.0), (0.0, 0.0))),
+            ("slide", "position", "add", ((-24.0, 0.0), (0.0, 0.0))),
+            ("zoom", "scale", "multiply", (0.8, 1.0)),
+            ("pop", "scale", "multiply", (0.8, 1.0)),
+            (
+                "float",
+                "position",
+                "add",
+                ((0.0, 0.0), (0.0, -24.0), (0.0, 0.0), (0.0, 24.0), (0.0, 0.0)),
+            ),
+            ("pulse", "scale", "multiply", (1.0, 1.1, 1.0)),
+            (
+                "shake",
+                "position",
+                "add",
+                ((0.0, 0.0), (24.0, 0.0), (0.0, 0.0), (-24.0, 0.0), (0.0, 0.0)),
+            ),
+            ("ken_burns", "scale", "multiply", (1.0, 1.1)),
+            ("typewriter", "clip_progress", "multiply", (0.0, 1.0)),
         ],
     )
     def test_should_compile_each_preset_into_a_normalized_track(
-        self, factory, property, blend
+        self, factory, property, blend, values
     ):
         """Given a public preset, when compiled, then its normalized track is explicit."""
         # given: a semantic preset with explicit timing and easing
-        spec = getattr(AnimationSpec, factory)(duration=0.8, delay=0.2, easing="ease_out_cubic")
+        spec = getattr(AnimationSpec, factory)(
+            distance=24, duration=0.8, delay=0.2, easing="ease_out_cubic"
+        )
 
         # when: the preset is lowered into the shared timeline
         event = compile_timeline(spec).events[0]
@@ -61,6 +73,19 @@ class TestMotionTimeline:
         assert event.tracks[0].property == property
         assert event.tracks[0].blend == blend
         assert event.tracks[0].keyframes[-1].time == pytest.approx(0.8)
+        assert [keyframe.value for keyframe in event.tracks[0].keyframes] == list(values)
+
+    @pytest.mark.parametrize("factory", ["rise", "fall", "slide", "float", "shake"])
+    def test_should_sample_positional_presets_from_the_default_origin(self, factory):
+        """Given no base position, positional presets use the deterministic origin."""
+        # given: a positional preset and the default LayerState
+        timeline = compile_timeline(getattr(AnimationSpec, factory)(duration=1, distance=12))
+
+        # when: the preset is sampled during its active interval
+        state = timeline.sample(0.25)
+
+        # then: the preset still produces a concrete positional state
+        assert state.position is not None
 
     def test_should_resolve_feel_profiles_without_changing_canonical_preset_json(self):
         """Given a feel, when compiled, then easing resolves only in the normalized timeline."""
@@ -108,10 +133,13 @@ class TestMotionTimeline:
         )
         timeline = compile_timeline(spec)
 
-        # when: the normalized timeline is serialized and restored
+        # when: both the authoring model and normalized timeline are serialized and restored
+        restored_spec = AnimationSpec.model_validate_json(spec.model_dump_json())
         restored = Timeline.model_validate_json(timeline.model_dump_json())
 
-        # then: canonical IR and representative sampled states are identical
+        # then: canonical authoring and IR round-trips preserve all behavior
+        assert restored_spec == spec
+        assert compile_timeline(restored_spec) == timeline
         assert restored == timeline
         base = LayerState(position=(30, 40), opacity=0.7, scale=1.5)
         for time in (0.0, 0.1, 0.35, 0.85, 2.0):

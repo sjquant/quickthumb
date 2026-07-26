@@ -570,9 +570,9 @@ def _compose_track_value(
     if track.blend == "replace":
         return state.with_values(**{track.property: value})
     if track.blend == "add":
-        if state.position is None or not isinstance(value, tuple):
+        if not isinstance(value, tuple):
             return state
-        x, y = state.position
+        x, y = state.position or (0.0, 0.0)
         return state.with_values(position=(x + value[0], y + value[1]))
     current = getattr(state, track.property)
     if not isinstance(current, (int, float)) or not isinstance(value, (int, float)):
