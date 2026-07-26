@@ -140,6 +140,31 @@ MotionPresetName = Literal[
     "typewriter",
 ]
 MotionTarget = Literal["layer", "children", "characters", "words", "lines", "bars", "points"]
+MotionEasingName = Literal[
+    "linear",
+    "ease",
+    "ease_in",
+    "ease_out",
+    "ease_in_out",
+    "ease_in_quad",
+    "ease_out_quad",
+    "ease_in_out_quad",
+    "ease_in_cubic",
+    "ease_out_cubic",
+    "ease_in_out_cubic",
+    "ease_in_quart",
+    "ease_out_quart",
+    "ease_in_out_quart",
+    "ease_in_quint",
+    "ease_out_quint",
+    "ease_in_out_quint",
+    "ease_in_sine",
+    "ease_out_sine",
+    "ease_in_out_sine",
+    "ease_in_back",
+    "ease_out_back",
+    "ease_in_out_back",
+]
 
 
 class KeyframeSpec(_MotionModel):
@@ -318,7 +343,7 @@ class AnimationEffect(_MotionModel):
     )
     distance: FiniteNonNegativeFloat | None = None
     feel: Literal["gentle", "soft", "snappy", "dramatic", "minimal"] | None = None
-    easing: str | None = None
+    easing: MotionEasingName | None = None
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -333,6 +358,7 @@ class AnimationSpec(_MotionModel):
     type: Literal["animation"] = "animation"
     effect: AnimationEffect | None = None
     tracks: list[TrackSpec] | None = None
+    easing: MotionEasingName | None = None
     timing: TimingSpec | None = None
     stagger: StaggerSpec | None = None
 
@@ -342,6 +368,8 @@ class AnimationSpec(_MotionModel):
             raise ValidationError("animation must define exactly one of effect or tracks")
         if self.tracks is not None and not self.tracks:
             raise ValidationError("timeline animation must contain at least one track")
+        if self.effect is not None and self.easing is not None:
+            raise ValidationError("timeline easing is only valid with tracks")
         return self
 
     @classmethod
@@ -369,9 +397,14 @@ class AnimationSpec(_MotionModel):
         )
 
     @classmethod
-    def timeline(cls, *tracks: TrackSpec, timing: TimingSpec | None = None) -> "AnimationSpec":
+    def timeline(
+        cls,
+        *tracks: TrackSpec,
+        timing: TimingSpec | None = None,
+        easing: MotionEasingName | None = None,
+    ) -> "AnimationSpec":
         """Build an advanced animation from typed property tracks."""
-        return cls(tracks=list(tracks), timing=timing)
+        return cls(tracks=list(tracks), timing=timing, easing=easing)
 
     @classmethod
     def fade(cls, **kwargs) -> "AnimationSpec":
