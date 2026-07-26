@@ -86,14 +86,19 @@ from quickthumb.models import (
     Wipe,
 )
 from quickthumb.motion import (
+    EASING_NAMES,
     LayerState,
     NormalizedKeyframe,
     NormalizedTrack,
     Timeline,
     TimelineEvent,
+    apply_transform,
     compile_timeline,
     compile_transition_timeline,
+    easing_value,
     sample_frames,
+    transform_matrix,
+    validate_easing_name,
 )
 from quickthumb.schema import canvas_json_schema, document_json_schema
 from quickthumb.transitions import Transition
@@ -188,6 +193,7 @@ __all__ = [
     "canvas_json_schema",
     "document_json_schema",
     "transitions",
+    "EASING_NAMES",
     "LayerState",
     "NormalizedKeyframe",
     "NormalizedTrack",
@@ -195,5 +201,9 @@ __all__ = [
     "TimelineEvent",
     "compile_timeline",
     "compile_transition_timeline",
+    "validate_easing_name",
+    "easing_value",
+    "transform_matrix",
+    "apply_transform",
     "sample_frames",
 ]

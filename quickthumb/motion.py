@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import math
-from typing import Any, Literal
+from typing import Any, Literal, get_args
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from pydantic import ValidationError as PydanticValidationError
 
 from quickthumb.errors import ValidationError
@@ -13,6 +13,7 @@ from quickthumb.models import (
     AnimationSpec,
     HexColor,
     KeyframeSpec,
+    MotionEasingName,
     TrackSpec,
     validate_hex_color,
 )
@@ -22,6 +23,95 @@ MotionValue = tuple[float, float] | float | str
 MotionProperty = Literal[
     "position", "scale", "rotation", "opacity", "clip_progress", "blur", "color"
 ]
+
+EASING_NAMES = frozenset(get_args(MotionEasingName))
+
+
+def validate_easing_name(name: str | None) -> str:
+    """Validate and canonicalize a supported deterministic easing name."""
+    if name is None:
+        return "linear"
+    if not isinstance(name, str) or name not in EASING_NAMES:
+        supported = ", ".join(sorted(EASING_NAMES))
+        raise ValidationError(f"unknown easing {name!r}; expected one of: {supported}")
+    return name
+
+
+def easing_value(name: str | None, progress: float) -> float:
+    """Return an eased progress for a finite normalized input."""
+    easing = validate_easing_name(name)
+    if not math.isfinite(progress):
+        raise ValidationError("easing progress must be finite")
+    t = min(1.0, max(0.0, progress))
+    if easing == "linear":
+        return t
+    if easing == "ease":
+        return _cubic_bezier(t, 0.25, 0.1, 0.25, 1.0)
+    if easing == "ease_in":
+        return t * t
+    if easing == "ease_out":
+        return 1.0 - (1.0 - t) * (1.0 - t)
+    if easing == "ease_in_out":
+        return _ease_in_out(t, 2)
+    if easing.endswith("_sine"):
+        return _ease_sine(easing, t)
+    if easing.endswith("_back"):
+        return _ease_back(easing, t)
+    power = {"quad": 2, "cubic": 3, "quart": 4, "quint": 5}[easing.split("_")[-1]]
+    if easing.startswith("ease_in_out"):
+        return _ease_in_out(t, power)
+    if easing.startswith("ease_in"):
+        return t**power
+    return 1.0 - (1.0 - t) ** power
+
+
+def _ease_in_out(t: float, power: int) -> float:
+    """Apply a symmetric polynomial ease-in-out curve."""
+    return (2 ** (power - 1)) * t**power if t < 0.5 else 1 - ((-2 * t + 2) ** power) / 2
+
+
+def _ease_sine(name: str, t: float) -> float:
+    """Apply a deterministic sine easing curve."""
+    if name == "ease_in_sine":
+        return 1.0 - math.cos(t * math.pi / 2)
+    if name == "ease_out_sine":
+        return math.sin(t * math.pi / 2)
+    return -(math.cos(math.pi * t) - 1.0) / 2.0
+
+
+def _ease_back(name: str, t: float) -> float:
+    """Apply a fixed-overshoot back easing curve."""
+    amount = 1.70158
+    if name == "ease_in_back":
+        return (amount + 1) * t**3 - amount * t**2
+    if name == "ease_out_back":
+        return 1 + (amount + 1) * (t - 1) ** 3 + amount * (t - 1) ** 2
+    return (
+        ((2 * t) ** 2 * ((amount * 1.525 + 1) * 2 * t - amount * 1.525)) / 2
+        if t < 0.5
+        else ((2 * t - 2) ** 2 * ((amount * 1.525 + 1) * (t * 2 - 2) + amount * 1.525) + 2) / 2
+    )
+
+
+def _cubic_bezier(t: float, x1: float, y1: float, x2: float, y2: float) -> float:
+    """Solve a cubic-bezier y value for x using fixed Newton iterations."""
+    parameter = t
+    for _ in range(8):
+        x = _bezier(parameter, x1, x2)
+        derivative = (
+            3 * (1 - parameter) ** 2 * x1
+            + 6 * (1 - parameter) * parameter * (x2 - x1)
+            + 3 * parameter**2 * (1 - x2)
+        )
+        if abs(derivative) < 1e-12:
+            break
+        parameter = min(1.0, max(0.0, parameter - (x - t) / derivative))
+    return _bezier(parameter, y1, y2)
+
+
+def _bezier(t: float, first: float, second: float) -> float:
+    """Evaluate one cubic-bezier coordinate with endpoints 0 and 1."""
+    return 3 * (1 - t) ** 2 * t * first + 3 * (1 - t) * t**2 * second + t**3
 
 
 class NormalizedKeyframe(BaseModel):
@@ -73,6 +163,12 @@ class TimelineEvent(BaseModel):
     tracks: tuple[NormalizedTrack, ...] = ()
     stagger: dict[str, Any] | None = None
 
+    @model_validator(mode="after")
+    def validate_options(self) -> TimelineEvent:
+        """Validate easing metadata when normalized timelines are restored."""
+        validate_easing_name(self.options.get("easing"))
+        return self
+
     @property
     def active_start(self) -> float:
         """Return the instant at which this event begins changing state."""
@@ -97,12 +193,54 @@ class LayerState(BaseModel):
     blur: float = Field(default=0.0, ge=0.0, allow_inf_nan=False)
     color: HexColor | None = None
 
+    @field_validator("position")
+    @classmethod
+    def validate_position(cls, position: tuple[float, float] | None) -> tuple[float, float] | None:
+        """Reject non-finite coordinates before they reach a renderer."""
+        if position is not None and not all(math.isfinite(value) for value in position):
+            raise ValueError("position coordinates must be finite")
+        return position
+
     def with_values(self, **values: MotionValue | None) -> LayerState:
         """Return a state with selected properties replaced."""
         try:
             return type(self).model_validate({**self.model_dump(), **values})
         except PydanticValidationError as error:
             raise ValidationError(f"invalid layer state update: {error}") from error
+
+
+def transform_matrix(state: LayerState) -> tuple[tuple[float, float, float], ...]:
+    """Return the affine matrix for scale, then rotation, then translation.
+
+    The matrix follows the renderer-independent convention ``T · R · S``.
+    Consequently a local point is scaled first, rotated around the origin, and
+    translated by ``state.position``. A missing position is treated as zero.
+    """
+    x, y = state.position or (0.0, 0.0)
+    angle = math.radians(state.rotation)
+    cosine, sine = math.cos(angle), math.sin(angle)
+    scale = state.scale
+    return (
+        (scale * cosine, -scale * sine, x),
+        (scale * sine, scale * cosine, y),
+        (0.0, 0.0, 1.0),
+    )
+
+
+def apply_transform(point: tuple[float, float], state: LayerState) -> tuple[float, float]:
+    """Apply the documented ``T · R · S`` transform to a local point."""
+    if (
+        not isinstance(point, (tuple, list))
+        or len(point) != 2
+        or any(isinstance(value, bool) or not isinstance(value, (int, float)) for value in point)
+        or not all(math.isfinite(value) for value in point)
+    ):
+        raise ValidationError("transform points must contain two finite numbers")
+    matrix = transform_matrix(state)
+    return (
+        matrix[0][0] * point[0] + matrix[0][1] * point[1] + matrix[0][2],
+        matrix[1][0] * point[0] + matrix[1][1] * point[1] + matrix[1][2],
+    )
 
 
 class Timeline(BaseModel):
@@ -121,6 +259,8 @@ class Timeline(BaseModel):
         """Sample the timeline at ``time`` seconds into a deterministic state."""
         if not math.isfinite(time):
             raise ValidationError("sample time must be finite")
+        if base is not None and not isinstance(base, LayerState):
+            raise ValidationError("sample base must be a LayerState")
         state = base if base is not None else LayerState()
         for event in self.events:
             state = _sample_event(event, time, state)
@@ -210,6 +350,9 @@ def _compile_spec(spec: AnimationSpec, previous_start: float, previous_end: floa
 
     effect = spec.effect
     options = effect.model_dump(mode="json", by_alias=True, exclude_none=True) if effect else {}
+    if spec.easing is not None:
+        options["easing"] = spec.easing
+    validate_easing_name(options.get("easing"))
     return TimelineEvent(
         source="effect" if effect else "timeline",
         start=start,
@@ -283,15 +426,18 @@ def _sample_event(event: TimelineEvent, time: float, state: LayerState) -> Layer
     progress = (
         1.0 if event.duration == 0 else min(1.0, (time - event.active_start) / event.duration)
     )
+    eased_progress = easing_value(event.options.get("easing"), progress)
     for track in event.tracks:
-        value = _sample_track(track, progress, event.duration)
+        value = _sample_track(track, progress, event.duration, event.options.get("easing"))
         state = state.with_values(**{track.property: value})
     if event.effect is not None and event.source in {"effect", "legacy"}:
-        state = _sample_effect(event, progress, state)
+        state = _sample_effect(event, eased_progress, state)
     return state
 
 
-def _sample_track(track: NormalizedTrack, progress: float, duration: float) -> MotionValue:
+def _sample_track(
+    track: NormalizedTrack, progress: float, duration: float, easing: str | None = None
+) -> MotionValue:
     """Sample a local track at normalized event progress."""
     local_time = progress * duration
     if local_time <= track.keyframes[0].time:
@@ -301,7 +447,10 @@ def _sample_track(track: NormalizedTrack, progress: float, duration: float) -> M
     for left, right in zip(track.keyframes, track.keyframes[1:], strict=True):
         if local_time <= right.time:
             ratio = (local_time - left.time) / (right.time - left.time)
-            return _interpolate(left.value, right.value, ratio)
+            eased_ratio = easing_value(easing, ratio)
+            if track.property in {"opacity", "clip_progress", "color"}:
+                eased_ratio = min(1.0, max(0.0, eased_ratio))
+            return _interpolate(left.value, right.value, eased_ratio)
     return track.keyframes[-1].value
 
 
@@ -317,10 +466,15 @@ def _interpolate(left: MotionValue, right: MotionValue, ratio: float) -> MotionV
 
 
 def _interpolate_color(left: str, right: str, ratio: float) -> str:
-    """Interpolate RGB(A) hex colors while preserving the input channel count."""
+    """Interpolate RGB(A) colors, treating omitted alpha as fully opaque."""
     left_hex, right_hex = left[1:], right[1:]
-    if len(left_hex) != len(right_hex) or len(left_hex) not in (6, 8):
-        return left if ratio < 1.0 else right
+    if len(left_hex) not in (6, 8) or len(right_hex) not in (6, 8):
+        raise ValidationError("color keyframes must use six- or eight-digit hexadecimal colors")
+    output_alpha = len(left_hex) == 8 or len(right_hex) == 8
+    if len(left_hex) == 6:
+        left_hex += "FF"
+    if len(right_hex) == 6:
+        right_hex += "FF"
     channels = [
         round(int(a, 16) + (int(b, 16) - int(a, 16)) * ratio)
         for a, b in zip(
@@ -329,17 +483,18 @@ def _interpolate_color(left: str, right: str, ratio: float) -> str:
             strict=True,
         )
     ]
-    return "#" + "".join(f"{channel:02X}" for channel in channels)
+    return "#" + "".join(f"{channel:02X}" for channel in channels[: 4 if output_alpha else 3])
 
 
 def _sample_effect(event: TimelineEvent, progress: float, state: LayerState) -> LayerState:
     """Sample renderer-independent effects whose state mapping is unambiguous."""
     effect = event.effect
     if effect == "fade":
-        return state.with_values(opacity=state.opacity * progress)
+        return state.with_values(opacity=state.opacity * min(1.0, max(0.0, progress)))
     if effect in {"zoom", "pop"}:
         return state.with_values(scale=state.scale * (0.8 + 0.2 * progress))
     if effect == "typewriter":
+        progress = min(1.0, max(0.0, progress))
         return state.with_values(clip_progress=state.clip_progress * progress)
     if effect == "ken_burns":
         return state.with_values(scale=state.scale * (1.0 + 0.1 * progress))

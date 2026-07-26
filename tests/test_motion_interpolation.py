@@ -68,13 +68,29 @@ class TestMotionInterpolation:
             )
 
     def test_should_keep_bounded_properties_valid_with_overshooting_easing(self):
-        """Back easing cannot produce invalid opacity or clip-progress state."""
-        # given: valid bounded presets using overshooting easing curves
+        """Back easing cannot produce invalid bounded or color state."""
+        # given: valid bounded presets and tracks using overshooting easing curves
         # when: each animation is sampled at its overshoot point
         # then: the state remains within its declared bounds
         for easing in ("ease_in_back", "ease_out_back", "ease_in_out_back"):
             state = compile_timeline(AnimationSpec.fade(duration=1, easing=easing)).sample(0.25)
             assert 0.0 <= state.opacity <= 1.0
+            clip = compile_timeline(
+                AnimationSpec.typewriter(duration=1, easing=easing)
+            ).sample(0.25)
+            assert 0.0 <= clip.clip_progress <= 1.0
+            color = compile_timeline(
+                AnimationSpec.timeline(
+                    ColorTrack(
+                        keyframes=[
+                            KeyframeSpec(time=0, value="#000000"),
+                            KeyframeSpec(time=1, value="#FFFFFF"),
+                        ]
+                    ),
+                    easing=easing,
+                )
+            ).sample(0.25)
+            assert color.color is not None and len(color.color) == 7
 
     def test_should_interpolate_mixed_rgb_and_rgba_colors_deterministically(self):
         """Missing alpha is treated as opaque and output channels remain stable."""
@@ -117,3 +133,25 @@ class TestMotionInterpolation:
             LayerState(position=(math.nan, 0))
         with pytest.raises(ValidationError, match="finite"):
             apply_transform((math.inf, 0), LayerState())
+
+    def test_should_reject_invalid_bases_and_restored_easing_metadata(self):
+        """Sampling and timeline deserialization reject invalid runtime metadata."""
+        # given: an empty timeline and a serialized event with an unknown easing
+        # when: callers provide invalid base state or restore invalid metadata
+        # then: both invalid inputs fail before rendering
+        with pytest.raises(ValidationError, match="LayerState"):
+            compile_timeline([]).sample(0, base={})
+        with pytest.raises(ValidationError, match="unknown easing"):
+            compile_timeline([]).model_validate(
+                {
+                    "events": [
+                        {
+                            "source": "timeline",
+                            "start": 0,
+                            "delay": 0,
+                            "duration": 0,
+                            "options": {"easing": "spring"},
+                        }
+                    ]
+                }
+            )
