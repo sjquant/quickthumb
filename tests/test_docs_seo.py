@@ -32,14 +32,15 @@ def test_docs_build_includes_search_engine_metadata(tmp_path):
     assert (site_dir / "googleafa40cbb47cddae5.html").read_text(
         encoding="utf-8"
     ) == "google-site-verification: googleafa40cbb47cddae5.html\n"
-    assert "Sitemap: https://sjquant.github.io/quickthumb/sitemap.xml" in (
+    assert (site_dir / "CNAME").read_text(encoding="utf-8") == "quickthumb.solaqua.dev\n"
+    assert "Sitemap: https://quickthumb.solaqua.dev/sitemap.xml" in (
         site_dir / "robots.txt"
     ).read_text(encoding="utf-8")
     assert '<meta property="og:title" content="quickthumb">' in index_html
     assert '<meta name="twitter:card" content="summary_large_image">' in index_html
     assert (
         '<meta property="og:image" '
-        'content="https://sjquant.github.io/quickthumb/assets/brand/social-preview.png">'
+        'content="https://quickthumb.solaqua.dev/assets/brand/social-preview.png">'
         in index_html
     )
     assert (site_dir / "assets" / "brand" / "social-preview.png").read_bytes() == (
