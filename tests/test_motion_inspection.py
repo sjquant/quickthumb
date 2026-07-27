@@ -93,9 +93,7 @@ class TestMotionInspection:
 
     def test_should_report_legacy_effect_progress_at_inspection_samples(self):
         # Given: a legacy fade with a one-second active interval
-        canvas = Canvas(100, 100).text(
-            "Motion", position=(0, 0), animation=Fade(duration=1)
-        )
+        canvas = Canvas(100, 100).text("Motion", position=(0, 0), animation=Fade(duration=1))
 
         # When: motion is inspected at two frames per second
         event = canvas.inspect_motion(target="video", fps=2).slides[0].layers[0].events[0]

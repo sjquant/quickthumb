@@ -1382,11 +1382,7 @@ def _inspection_event(
         else (
             0.0
             if time <= event.active_start
-            else (
-                1.0
-                if time >= event.end
-                else (time - event.active_start) / event.duration
-            )
+            else (1.0 if time >= event.end else (time - event.active_start) / event.duration)
         )
         for time in sample_times
     ]
