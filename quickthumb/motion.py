@@ -581,17 +581,16 @@ def sample_scene_morph(
 
 
 def _layer_motion_state(layer: object, canvas: Canvas, time: float = 0.0) -> LayerState:
-    position = getattr(layer, "position", None)
-    if isinstance(position, tuple) and len(position) == 2:
+    raw_position = getattr(layer, "position", None)
+    position: tuple[int | float, int | float] | None = None
+    if isinstance(raw_position, tuple) and len(raw_position) == 2:
         try:
-            position = tuple(
-                parse_coordinate(value, size)
-                for value, size in zip(position, (canvas.width, canvas.height), strict=True)
+            position = (
+                parse_coordinate(raw_position[0], canvas.width),
+                parse_coordinate(raw_position[1], canvas.height),
             )
         except (TypeError, ValueError):
             position = None
-    else:
-        position = None
     state = LayerState(
         position=position,
         opacity=float(getattr(layer, "opacity", 1.0)),

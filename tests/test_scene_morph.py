@@ -1,5 +1,6 @@
 import json
 from io import BytesIO
+from typing import Literal, cast
 from zipfile import ZipFile
 
 import pytest
@@ -143,16 +144,16 @@ def test_should_render_a_keyed_shape_at_an_intermediate_morph_position():
     deck = Deck(slides=[source, target], transition=Morph(duration=1))
 
     # When the public animated export is sampled at a fixed frame rate
-    image = Image.open(BytesIO(deck.to_gif(fps=4, slide_duration=0.1)))
+    image: Image.Image = Image.open(BytesIO(deck.to_gif(fps=4, slide_duration=0.1)))
     red_bounds = []
-    for index in range(image.n_frames):
+    for index in range(int(getattr(image, "n_frames", 1))):
         image.seek(index)
         frame = image.convert("RGBA")
         points = [
             (x, y)
             for y in range(frame.height)
             for x in range(frame.width)
-            if (pixel := frame.getpixel((x, y)))[0] > 200
+            if (pixel := cast(tuple[int, int, int, int], frame.getpixel((x, y))))[0] > 200
             and pixel[1] < 50
             and pixel[2] < 50
             and pixel[3] > 0
@@ -165,13 +166,14 @@ def test_should_render_a_keyed_shape_at_an_intermediate_morph_position():
 
 
 @pytest.mark.parametrize("field", ["id", "motion_key"])
-def test_should_reject_invalid_layer_identity(field):
+def test_should_reject_invalid_layer_identity(field: Literal["id", "motion_key"]):
     # Given an identity that cannot be stable or safely serialized
-    kwargs = {field: "not valid"}
-
     # When a public Canvas builder receives it, then validation is explicit
     with pytest.raises(ValidationError, match="identity values"):
-        Canvas(100, 100).text("bad", position=(0, 0), **kwargs)
+        if field == "id":
+            Canvas(100, 100).text("bad", position=(0, 0), id="not valid")
+        else:
+            Canvas(100, 100).text("bad", position=(0, 0), motion_key="not valid")
 
 
 def test_should_reject_duplicate_authored_layer_ids_without_mutating_the_canvas():
