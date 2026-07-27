@@ -412,6 +412,88 @@ class SvgLayer(LayerIdentityModel):
         return align.value
 
 
+class VideoCaption(quickthumbModel):
+    """A deterministic caption cue rendered into video frames."""
+
+    text: str
+    start: FiniteNonNegativeFloat
+    end: FinitePositiveFloat
+    position: Position = ("50%", "90%")
+    size: PositiveInt = 24
+    color: HexColor = "#FFFFFF"
+
+    @field_validator("text")
+    @classmethod
+    def validate_text(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("caption text cannot be empty")
+        return value
+
+    @field_validator("position", mode="before")
+    @classmethod
+    def validate_position(cls, v: tuple | list) -> Position:
+        if not isinstance(v, (tuple, list)) or len(v) != 2:
+            raise ValueError("caption position must be a tuple of two elements")
+        for item in v:
+            if isinstance(item, str) and not re.fullmatch(r"-?(\d+(\.\d+)?)%", item):
+                raise ValueError(f"invalid percentage format: {item}")
+            if not isinstance(item, (int, str)):
+                raise ValueError("caption position values must be integers or percentages")
+        return tuple(v)
+
+    @model_validator(mode="after")
+    def validate_range(self) -> "VideoCaption":
+        if self.end <= self.start:
+            raise ValidationError("caption end must be greater than start")
+        return self
+
+
+class VideoLayer(LayerIdentityModel):
+    """A constrained single-clip video layer for animated export."""
+
+    type: Literal["video"]
+    source: str
+    position: Position
+    width: PositiveInt
+    height: PositiveInt
+    fit: Annotated[FitMode, AfterValidator(lambda v: enum_converter(FitMode)(v))] = FitMode.CONTAIN
+    trim_start: FiniteNonNegativeFloat = 0.0
+    trim_end: FinitePositiveFloat | None = None
+    start: FiniteNonNegativeFloat = 0.0
+    duration: FinitePositiveFloat | None = None
+    speed: FinitePositiveFloat = 1.0
+    volume: FiniteNonNegativeFloat = 1.0
+    captions: list[VideoCaption] = []
+
+    @field_validator("source")
+    @classmethod
+    def validate_source(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("video source cannot be empty")
+        return value
+
+    @field_validator("position", mode="before")
+    @classmethod
+    def validate_position(cls, v: tuple | list) -> Position:
+        if not isinstance(v, (tuple, list)) or len(v) != 2:
+            raise ValueError("position must be a tuple of two elements")
+        for item in v:
+            if isinstance(item, str) and not re.fullmatch(r"-?(\d+(\.\d+)?)%", item):
+                raise ValueError(f"invalid percentage format: {item}")
+            if not isinstance(item, (int, str)):
+                raise ValueError("position values must be integers or percentages")
+        return tuple(v)
+
+    @model_validator(mode="after")
+    def validate_timing(self) -> "VideoLayer":
+        if self.trim_end is not None and self.trim_end <= self.trim_start:
+            raise ValidationError("trim_end must be greater than trim_start")
+        for caption in self.captions:
+            if self.duration is not None and caption.start >= self.duration:
+                raise ValidationError("caption timing must fall within the video duration")
+        return self
+
+
 class GroupLayer(LayerIdentityModel):
     type: Literal["group"]
     direction: Literal["row", "column"] = "column"

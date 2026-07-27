@@ -69,6 +69,7 @@ from quickthumb._export_base import (
     split_backdrop_prefix,
     validate_legacy_animation_export,
 )
+from quickthumb._video import effective_duration, probe_video
 from quickthumb.errors import RenderingError, ValidationError
 from quickthumb.models import (
     Animation,
@@ -80,6 +81,7 @@ from quickthumb.models import (
     GroupLayer,
     QRCodeLayer,
     TextLayer,
+    VideoLayer,
     VideoOptions,
     coerce_audio_track,
 )
@@ -209,6 +211,9 @@ def write_animation(
         audio_offsets = plan.offsets
         audio_timeline_duration = plan.duration
     shots = _deck_shots(canvases, transitions, fps, slide_duration, matte_rgb, plan=plan)
+    video_audio = _video_audio_schedule(canvases, plan.offsets)
+    if video_audio and audio_timeline_duration is None:
+        audio_timeline_duration = plan.duration
     descriptor, temp_path = _temporary_output_path(output_path, suffix=f".{format}")
     os.close(descriptor)
     try:
@@ -223,6 +228,7 @@ def write_animation(
             audio_offsets,
             audio_durations,
             audio_timeline_duration,
+            video_audio,
         )
         os.replace(temp_path, output_path)
     finally:
@@ -300,6 +306,9 @@ def export_animation_bytes(
         audio_offsets = plan.offsets
         audio_timeline_duration = plan.duration
     shots = _deck_shots(canvases, transitions, fps, slide_duration, matte_rgb, plan=plan)
+    video_audio = _video_audio_schedule(canvases, plan.offsets)
+    if video_audio and audio_timeline_duration is None:
+        audio_timeline_duration = plan.duration
 
     if format == "gif":
         return _encode_gif(shots, loop, max_size=max_size, colors=colors)
@@ -320,6 +329,7 @@ def export_animation_bytes(
             audio_offsets,
             audio_durations,
             audio_timeline_duration,
+            video_audio,
         )
         with open(temp_path, "rb") as video_file:
             return video_file.read()
@@ -476,6 +486,16 @@ class _Shot:
 
     frame: Image.Image  # RGB at the deck size
     duration: float
+
+
+@dataclass(frozen=True)
+class _VideoAudio:
+    path: str
+    trim_start: float
+    duration: float
+    speed: float
+    volume: float
+    offset: float
 
 
 @dataclass
@@ -800,6 +820,9 @@ class _SlideAnimator:
         windows: list[tuple[float, float]] = []
         boundaries = {start, end}
         for unit in self._units:
+            if any(isinstance(layer, VideoLayer) for layer in unit.layers):
+                boundaries.update((start, end))
+                windows.append((start, end))
             for node in unit.nodes:
                 active_start = node.start + node.effect.delay
                 window_start = max(active_start, start)
@@ -991,6 +1014,16 @@ def _render_unit_image(
     for layer in layers:
         canvas._render_layer(image, layer, time)
     bbox = image.getbbox()
+    if bbox is None and time is None:
+        video_start = max(
+            (layer.start for layer in layers if isinstance(layer, VideoLayer)),
+            default=0.0,
+        )
+        if video_start > 0:
+            image = Image.new("RGBA", (canvas.width, canvas.height), (0, 0, 0, 0))
+            for layer in layers:
+                canvas._render_layer(image, layer, video_start)
+            bbox = image.getbbox()
     if bbox is None:
         return None, (0, 0)
     return image.crop(bbox), (bbox[0], bbox[1])
@@ -1026,6 +1059,9 @@ def _schedule_units(units: list[_Unit]) -> float:
 
 def _component_animation_duration(layer: RenderableLayer) -> float:
     """Return the settled duration of a canonical chart/QR motion preset."""
+    if isinstance(layer, VideoLayer):
+        info = probe_video(layer.source)
+        return layer.start + effective_duration(layer, info)
     if not isinstance(layer, (ChartLayer, QRCodeLayer)):
         return 0.0
     animations = getattr(layer, "animation", None)
@@ -1742,6 +1778,7 @@ def _encode_video_file(
     audio_offsets: list[float] | None = None,
     audio_durations: list[float] | None = None,
     audio_timeline_duration: float | None = None,
+    video_audio: list[_VideoAudio] | None = None,
 ) -> None:
     """Encode timestamped shot images with ffmpeg at a constant output frame rate.
 
@@ -1757,15 +1794,16 @@ def _encode_video_file(
     full-resolution RGB writes through Python for long static holds.
     """
     binary = _ffmpeg_binary()
-    if slide_audio is not None:
+    if slide_audio is not None or video_audio:
         audio_input, audio_output = _scheduled_audio_args(
             format,
             soundtrack,
             loop_audio,
-            slide_audio,
+            slide_audio or [],
             audio_offsets or [],
             audio_durations or [],
             audio_timeline_duration or 0.0,
+            video_audio or [],
         )
     elif soundtrack is None:
         if format == "mp4":
@@ -1975,6 +2013,7 @@ def _scheduled_audio_args(
     offsets: list[float],
     durations: list[float],
     timeline_duration: float,
+    video_audio: list[_VideoAudio],
 ) -> tuple[list[str], list[str]]:
     """Build one ffmpeg filter graph for a music bed and scheduled narration."""
     inputs: list[str] = []
@@ -2002,6 +2041,16 @@ def _scheduled_audio_args(
         )
         labels.append(label)
         input_index += 1
+    for clip in video_audio:
+        inputs.extend(["-ss", f"{clip.trim_start:.6f}", "-i", clip.path])
+        label = f"[clip{input_index}]"
+        filters.append(
+            f"[{input_index}:a]volume={clip.volume:.6f},{_atempo_filter(clip.speed)},"
+            f"apad,atrim=duration={clip.duration:.6f},"
+            f"adelay={round(clip.offset * 1000)}:all=1{label}"
+        )
+        labels.append(label)
+        input_index += 1
     filters.append(f"{''.join(labels)}amix=inputs={len(labels)}:duration=first:normalize=0[mix]")
     return inputs, [
         "-map",
@@ -2012,6 +2061,42 @@ def _scheduled_audio_args(
         "[mix]",
         *_AUDIO_ARGS[format],
     ]
+
+
+def _atempo_filter(speed: float) -> str:
+    """Build an FFmpeg atempo chain with bounded individual factors."""
+    filters: list[str] = []
+    remaining = speed
+    while remaining > 2.0:
+        filters.append("atempo=2.0")
+        remaining /= 2.0
+    while remaining < 0.5:
+        filters.append("atempo=0.5")
+        remaining /= 0.5
+    filters.append(f"atempo={remaining:.6f}")
+    return ",".join(filters)
+
+
+def _video_audio_schedule(canvases: list[Canvas], offsets: list[float]) -> list[_VideoAudio]:
+    clips: list[_VideoAudio] = []
+    for canvas, offset in zip(canvases, offsets, strict=True):
+        for layer in canvas._iter_layers_deep():
+            if not isinstance(layer, VideoLayer):
+                continue
+            info = probe_video(layer.source)
+            if not info.has_audio:
+                continue
+            clips.append(
+                _VideoAudio(
+                    path=layer.source,
+                    trim_start=layer.trim_start,
+                    duration=effective_duration(layer, info),
+                    speed=layer.speed,
+                    volume=layer.volume,
+                    offset=offset + layer.start,
+                )
+            )
+    return clips
 
 
 def _remove_quietly(path: str) -> None:

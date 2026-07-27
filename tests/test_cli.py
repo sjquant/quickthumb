@@ -124,6 +124,7 @@ class TestCLISchema:
             "shape",
             "svg",
             "text",
+            "video",
         }
 
     def test_should_emit_a_discriminated_canvas_and_deck_schema(self):

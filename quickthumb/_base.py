@@ -1,5 +1,5 @@
 import math
-from typing import Literal, TypeAlias, cast
+from typing import Any, Literal, TypeAlias, cast
 
 from PIL import ImageFont
 
@@ -27,6 +27,8 @@ class RenderContext:
         # measure_cache holds (layer, size) so the keyed id() stays valid for the pass
         self.measure_cache: dict[int, tuple[object, tuple[int, int]]] = {}
         self.image_size_cache: dict[str, tuple[int, int]] = {}
+        self.video_info_cache: dict[str, object] = {}
+        self.video_frame_cache: dict[tuple[str, float], Any] = {}
         self.motion_time: float | None = None
 
     def begin_render_pass(self):
@@ -34,6 +36,8 @@ class RenderContext:
         self.svg_raster_cache.clear()
         self.measure_cache.clear()
         self.image_size_cache.clear()
+        self.video_info_cache.clear()
+        self.video_frame_cache.clear()
 
 
 def parse_coordinate(value: int | str, dimension: int) -> int:

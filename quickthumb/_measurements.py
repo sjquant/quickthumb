@@ -16,6 +16,7 @@ from quickthumb.models import (
     ShapeLayer,
     SvgLayer,
     TextLayer,
+    VideoLayer,
 )
 
 if TYPE_CHECKING:
@@ -193,6 +194,7 @@ class LayerMeasurementEngine:
                 ShapeLayer,
                 ChartLayer,
                 QRCodeLayer,
+                VideoLayer,
             ),
         ):
             bbox = self._measure_positioned_layer(layer)
