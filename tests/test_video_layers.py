@@ -4,11 +4,12 @@ import json
 import shutil
 import subprocess
 from io import BytesIO
+from typing import cast
 
 import pytest
 from PIL import Image
 from quickthumb import Canvas, Deck, ValidationError
-from quickthumb.models import VideoLayer
+from quickthumb.models import VideoCaption, VideoLayer
 
 HAS_FFMPEG = shutil.which("ffmpeg") is not None
 HAS_FFPROBE = shutil.which("ffprobe") is not None
@@ -58,7 +59,7 @@ def source_video(tmp_path):
 def _gif_frames(data: bytes):
     image = Image.open(BytesIO(data))
     frames = []
-    for _ in range(image.n_frames):
+    for _ in range(int(getattr(image, "n_frames", 1))):
         image.seek(len(frames))
         frames.append(image.convert("RGBA"))
     return frames
@@ -85,7 +86,7 @@ def test_video_layer_rejects_invalid_trim_and_caption_ranges():
             position=(0, 0),
             width=20,
             height=20,
-            captions=[{"text": "bad", "start": 1, "end": 1}],
+            captions=cast(list[VideoCaption], [{"text": "bad", "start": 1, "end": 1}]),
         )
 
 
@@ -180,8 +181,10 @@ def test_video_layer_fit_and_trim_change_public_frame_content(source_video):
     contain_frame = contain.render_frame(0.1)
     cover_frame = cover.render_frame(0.1)
 
-    assert contain_frame.getpixel((32, 0))[3] == 0
-    assert cover_frame.getpixel((32, 0))[3] == 255
+    contain_pixel = cast(tuple[int, int, int, int], contain_frame.getpixel((32, 0)))
+    cover_pixel = cast(tuple[int, int, int, int], cover_frame.getpixel((32, 0)))
+    assert contain_pixel[3] == 0
+    assert cover_pixel[3] == 255
     assert contain.render_frame(0.1).tobytes() == contain.render_frame(0.1).tobytes()
 
 
