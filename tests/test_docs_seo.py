@@ -40,8 +40,7 @@ def test_docs_build_includes_search_engine_metadata(tmp_path):
     assert '<meta name="twitter:card" content="summary_large_image">' in index_html
     assert (
         '<meta property="og:image" '
-        'content="https://quickthumb.solaqua.dev/assets/brand/social-preview.png">'
-        in index_html
+        'content="https://quickthumb.solaqua.dev/assets/brand/social-preview.png">' in index_html
     )
     assert (site_dir / "assets" / "brand" / "social-preview.png").read_bytes() == (
         social_preview.read_bytes()
