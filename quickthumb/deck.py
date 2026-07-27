@@ -160,12 +160,14 @@ class Deck:
         except IndexError as error:
             raise ValidationError("scene index is out of range") from error
 
-    def sample_morph(self, source: int, target: int, progress: float):
+    def sample_morph(self, source: int, target: int, progress: float, duration: float = 1.0):
         """Sample public layer states for a cross-scene Morph transition."""
         from quickthumb.motion import sample_scene_morph
 
         try:
-            return sample_scene_morph(self._slides[source], self._slides[target], progress)
+            return sample_scene_morph(
+                self._slides[source], self._slides[target], progress, duration
+            )
         except IndexError as error:
             raise ValidationError("scene index is out of range") from error
 

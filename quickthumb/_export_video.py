@@ -69,7 +69,6 @@ from quickthumb._export_base import (
     split_backdrop_prefix,
     validate_legacy_animation_export,
 )
-from quickthumb._measurements import layer_id_for
 from quickthumb.errors import RenderingError, ValidationError
 from quickthumb.models import (
     Animation,
@@ -88,7 +87,6 @@ from quickthumb.motion import (
     LayerState,
     Timeline,
     compile_timeline,
-    match_scene_layers,
     resolve_staggered_timelines,
     sample_scene_morph,
 )
@@ -566,7 +564,7 @@ def _slide_motion_shots(
         incoming = _conform(animator.frame_at(time), size, matte_rgb)
         progress = _ease(time / duration_in)
         if transition is not None and transition.effect == "morph" and previous_canvas is not None:
-            frame = _morph_frame(previous_canvas, incoming_canvas, progress)
+            frame = _morph_frame(previous_canvas, incoming_canvas, progress, duration_in)
         else:
             frame = _transition_frame(transition, previous_final, incoming, progress)
         yield _Shot(frame, duration)
@@ -1193,38 +1191,28 @@ def _masked_alpha(image: Image.Image, mask: Image.Image) -> Image.Image:
 # ------------------------------------------------------------ slide transition
 
 
-def _morph_frame(source: Canvas, target: Canvas, progress: float) -> Image.Image:
+def _morph_frame(source: Canvas, target: Canvas, progress: float, duration: float) -> Image.Image:
     """Render a keyed shared-element Morph frame for raster/video output."""
-    source_layers = {
-        layer_id_for(layer, index, (index,)): layer for index, layer in enumerate(source.layers)
-    }
-    target_layers = {
-        layer_id_for(layer, index, (index,)): layer for index, layer in enumerate(target.layers)
-    }
-    # Group children are matched by the public sampler, but their layout is
-    # assigned by the group renderer; use a slide cross-fade for nested matches.
-    matches = tuple(
-        match
-        for match in match_scene_layers(source, target)
-        if match[0] in source_layers and match[1] in target_layers
-    )
-    if not matches:
+    source_layers = _morph_layer_index(source)
+    target_layers = _morph_layer_index(target)
+    matched_keys = sorted(source_layers.keys() & target_layers.keys())
+    if not matched_keys:
         return Image.blend(_render_canvas_frame(source), _render_canvas_frame(target), progress)
-    matched_source = {source_id for source_id, _, _ in matches}
-    matched_target = {target_id for _, target_id, _ in matches}
     source_base = _render_canvas_frame(
         source,
-        [layer for layer_id, layer in source_layers.items() if layer_id not in matched_source],
+        [layer for key, layer in source_layers.items() if key not in matched_keys],
     )
     target_base = _render_canvas_frame(
         target,
-        [layer for layer_id, layer in target_layers.items() if layer_id not in matched_target],
+        [layer for key, layer in target_layers.items() if key not in matched_keys],
     )
     frame = Image.blend(source_base, target_base, progress)
-    sampled = {item.motion_key: item for item in sample_scene_morph(source, target, progress)}
-    for source_id, target_id, key in matches:
-        source_image, source_box = _render_isolated_layer(source, source_layers[source_id])
-        target_image, target_box = _render_isolated_layer(target, target_layers[target_id])
+    sampled = {
+        item.motion_key: item for item in sample_scene_morph(source, target, progress, duration)
+    }
+    for key in matched_keys:
+        source_image, source_box = _render_isolated_layer(source, source_layers[key])
+        target_image, target_box = _render_isolated_layer(target, target_layers[key])
         state = sampled[key]
         if state.behavior == "crossfade":
             width = max(source_image.width, target_image.width)
@@ -1242,6 +1230,21 @@ def _morph_frame(source: Canvas, target: Canvas, progress: float) -> Image.Image
         image = source_image.resize((width, height), Image.Resampling.BICUBIC)
         frame.alpha_composite(_scaled_alpha(image, state.state.opacity), dest=(x, y))
     return frame
+
+
+def _morph_layer_index(canvas: Canvas) -> dict[str, RenderableLayer]:
+    """Return uniquely keyed, laid-out layers, including uncomposed groups."""
+    layers = flatten_layers(canvas)
+    occurrences: dict[str, list[RenderableLayer]] = {}
+    for layer in layers:
+        key = getattr(layer, "motion_key", None)
+        if key is not None:
+            occurrences.setdefault(key, []).append(layer)
+    return {
+        key: values[0]
+        for key, values in occurrences.items()
+        if len(values) == 1
+    }
 
 
 def _render_canvas_frame(canvas: Canvas, layers=None) -> Image.Image:

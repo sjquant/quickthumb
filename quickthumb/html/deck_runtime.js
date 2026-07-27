@@ -313,6 +313,44 @@
     advance();
   }
   function reverse(anim){return anim?anim+' reverse':'';}
+  function morphElements(out,inc,duration){
+    if(!Element.prototype.animate)return false;
+    var outgoing={},incoming={};
+    out.querySelectorAll('[data-qt-motion-key]').forEach(function(el){
+      var key=el.getAttribute('data-qt-motion-key');
+      if(key){if(Object.prototype.hasOwnProperty.call(outgoing,key))outgoing[key]=null;else outgoing[key]=el;}
+    });
+    inc.querySelectorAll('[data-qt-motion-key]').forEach(function(el){
+      var key=el.getAttribute('data-qt-motion-key');
+      if(key){if(Object.prototype.hasOwnProperty.call(incoming,key))incoming[key]=null;else incoming[key]=el;}
+    });
+    var ms=Math.max(0,duration*1000),keys={};
+    Object.keys(outgoing).forEach(function(key){keys[key]=true;});
+    Object.keys(incoming).forEach(function(key){keys[key]=true;});
+    Object.keys(keys).forEach(function(key){
+      if(outgoing[key]===null||incoming[key]===null)return;
+      var from=outgoing[key],to=incoming[key];
+      if(from&&to){
+        var a=from.getBoundingClientRect(),b=to.getBoundingClientRect();
+        var sx=b.width? a.width/b.width:1,sy=b.height? a.height/b.height:1;
+        to.style.visibility='visible';to.style.willChange='transform,opacity';
+        var move=to.animate([
+          {transform:'translate('+(a.left-b.left)+'px,'+(a.top-b.top)+'px) scale('+sx+','+sy+')',opacity:0},
+          {transform:'translate(0,0) scale(1,1)',opacity:1}
+        ],{duration:ms,easing:'ease',fill:'both'});
+        move.onfinish=function(){to.style.transform='';to.style.opacity='';to.style.willChange='';};
+      }else if(to){
+        to.style.visibility='visible';to.style.willChange='opacity';
+        var enterAnim=to.animate([{opacity:0},{opacity:1}],{duration:ms,easing:'ease',fill:'both'});
+        enterAnim.onfinish=function(){to.style.opacity='';to.style.willChange='';};
+      }else if(from){
+        from.style.willChange='opacity';
+        var exitAnim=from.animate([{opacity:1},{opacity:0}],{duration:ms,easing:'ease',fill:'both'});
+        exitAnim.onfinish=function(){from.style.opacity='';from.style.willChange='';};
+      }
+    });
+    return true;
+  }
   function go(i,backward,restoreCursor){
     if(transitioning||timelineBusy||i<0||i>=stages.length||i===current)return;
     clearAuto();
@@ -331,6 +369,7 @@
     var under=source.getAttribute('data-qt-z')==='under';
     var enter=source.getAttribute('data-qt-transition')||'';
     var exit=source.getAttribute('data-qt-exit')||'';
+    var morph=!backward&&source.getAttribute('data-qt-morph')==='1';
     var reverseIncomingOver=backward&&!enter&&exit;
     // Keep the outgoing slide on screen (static, or sliding out) under/over the
     // incoming one; will-change lifts both onto their own compositor layer so
@@ -340,7 +379,9 @@
     out.style.animation=backward?reverse(enter):exit;
     inc.hidden=false;inc.style.display='block';inc.style.zIndex=backward?(reverseIncomingOver?'2':'1'):(under?'1':'2');
     inc.style.willChange='transform,opacity,clip-path';if(fit)qtFit(inc);
-    inc.style.animation=backward?reverse(exit):enter;
+    var canMorph=morph&&Element.prototype.animate;
+    inc.style.animation=canMorph?'':(backward?reverse(exit):enter);
+    if(canMorph)morphElements(out,inc,parseFloat(source.getAttribute('data-qt-dur'))||0);
     if(!backward){
       var timelineRun=runTimeline(i);
       Promise.resolve(timelineRun).then(function(){

@@ -4,7 +4,7 @@ from zipfile import ZipFile
 
 import pytest
 from PIL import Image
-from quickthumb import Canvas, Deck, Morph
+from quickthumb import AnimationSpec, Canvas, Deck, KeyframeSpec, Morph, PositionTrack
 from quickthumb.errors import ValidationError
 
 
@@ -68,6 +68,20 @@ def test_should_resolve_percentage_positions_and_fade_unkeyed_layers():
     assert {item.behavior for item in unkeyed} == {"enter", "exit"}
 
 
+def test_should_interpolate_colors_for_matched_shape_layers():
+    # Given a keyed shape whose color changes between scenes
+    source = Canvas(100, 100).shape("rectangle", (0, 0), 20, 20, "#FF0000", motion_key="color-box")
+    target = Canvas(100, 100).shape(
+        "rectangle", (20, 20), 20, 20, "#0000FF", motion_key="color-box"
+    )
+
+    # When sampling halfway through the Morph
+    state = Deck(slides=[source, target]).sample_morph(0, 1, 0.5)[0]
+
+    # Then the existing color interpolation contract is reused
+    assert state.state.color == "#800080"
+
+
 def test_should_ignore_duplicate_motion_keys_and_crossfade_charts():
     # Given duplicate source identity and a chart identity
     source = scene(("one", (0, 0), "duplicate"), ("two", (10, 10), "duplicate"))
@@ -99,23 +113,26 @@ def test_should_ignore_duplicate_motion_keys_and_crossfade_charts():
 
 def test_should_fallback_morph_to_fade_for_document_exporters():
     # Given a Morph deck containing ordinary keyed text layers
-    source = scene(("old", (0, 0), "hero"))
-    target = scene(("new", (40, 20), "hero"))
+    source = Canvas(320, 180).text("old", position=(0, 0), id="source_title", motion_key="hero")
+    target = Canvas(320, 180).text("new", position=(40, 20), id="target_title", motion_key="hero")
     deck = Deck(slides=[source, target], transition=Morph())
 
     # When document exporters compile the transition
     html = deck.to_html()
     pptx = deck.to_pptx()
-    slide_xml = b"".join(
-        ZipFile(BytesIO(pptx)).read(name)
-        for name in ZipFile(BytesIO(pptx)).namelist()
-        if name.startswith("ppt/slides/slide")
-    )
+    with ZipFile(BytesIO(pptx)) as archive:
+        slide_xml = b"".join(
+            archive.read(name) for name in archive.namelist() if name.startswith("ppt/slides/slide")
+        )
 
-    # Then both retain the transition timing while using the safe fade fallback
+    # Then HTML carries per-element identities while PPTX keeps its safe fallback
     assert "data-qt-dur=" in html
     assert 'data-qt-transition="qt-t1' in html
-    assert "morph" not in html.lower()
+    assert 'data-qt-morph="1"' in html
+    assert 'data-qt-motion-key="hero"' in html
+    assert "function morphElements" in html
+    assert b"p14:morph" in slide_xml
+    assert b"!!qt-morph-hero-0" in slide_xml
     assert b"<p:fade/>" in slide_xml
 
 
@@ -167,3 +184,41 @@ def test_should_reject_duplicate_authored_layer_ids_without_mutating_the_canvas(
 
     # Then the rejected layer is not appended
     assert len(canvas.layers) == 1
+
+
+def test_should_keep_canvas_layers_read_only_through_the_public_collection():
+    # Given a canvas with one public layer
+    canvas = Canvas(100, 100).text("title", position=(0, 0))
+
+    # When a caller mutates the returned layer collection
+    layers = canvas.layers
+    layers.clear()
+
+    # Then the canvas itself remains unchanged
+    assert len(canvas.layers) == 1
+
+
+def test_should_sample_layer_timeline_at_the_morph_scene_time():
+    # Given a keyed source layer with a canonical position timeline
+    animation = AnimationSpec(
+        tracks=[
+            PositionTrack(
+                keyframes=[
+                    KeyframeSpec(time=0, value=(0, 0)),
+                    KeyframeSpec(time=1, value=(20, 0)),
+                ]
+            )
+        ]
+    )
+    source = Canvas(100, 100).shape(
+        "rectangle", (0, 0), 10, 10, "#FF0000", motion_key="hero", animation=animation
+    )
+    target = Canvas(100, 100).shape(
+        "rectangle", (100, 0), 10, 10, "#FF0000", motion_key="hero"
+    )
+
+    # When Morph is sampled halfway through a two-second transition
+    state = Deck(slides=[source, target]).sample_morph(0, 1, 0.5, duration=2)[0]
+
+    # Then the source timeline is sampled at its settled transition time before interpolation
+    assert state.state.position == (60.0, 0.0)

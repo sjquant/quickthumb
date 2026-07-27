@@ -222,6 +222,8 @@ class LayerIdentityModel(quickthumbModel):
     cross-scene identity used by Morph transitions.
     """
 
+    model_config = ConfigDict(validate_assignment=True)
+
     id: str | None = None
     motion_key: str | None = None
 

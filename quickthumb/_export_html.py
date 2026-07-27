@@ -554,7 +554,15 @@ class HtmlExporter:
         """Append one positioned element, wiring up any per-layer animation."""
         element_id = self._make_id()
         anim_style = self._register_animation(layer, element_id)
-        self._body.append(f'<{tag} id="{element_id}" style="{style}{anim_style}">{inner}</{tag}>')
+        identity = self._identity_attr(layer)
+        self._body.append(
+            f'<{tag} id="{element_id}"{identity} style="{style}{anim_style}">{inner}</{tag}>'
+        )
+
+    @staticmethod
+    def _identity_attr(layer: RenderableLayer) -> str:
+        key = getattr(layer, "motion_key", None)
+        return "" if key is None else f' data-qt-motion-key="{_attr(key)}"'
 
     def _emit_raster_fallback(self, layer: RenderableLayer):
         fragment = rasterize_layers(self._canvas, [layer])
@@ -570,8 +578,9 @@ class HtmlExporter:
         if layer is not None:
             element_id = self._make_id()
             anim_style = self._register_animation(layer, element_id)
+            identity = self._identity_attr(layer)
             self._body.append(
-                f'<img id="{element_id}" style="{style}{anim_style}" '
+                f'<img id="{element_id}"{identity} style="{style}{anim_style}" '
                 f'src="data:image/png;base64,{encoded}" alt="">'
             )
         else:
@@ -823,8 +832,9 @@ class HtmlExporter:
         encoded = base64.b64encode(svg_bytes).decode("ascii")
         element_id = self._make_id()
         anim_style = self._register_animation(layer, element_id)
+        identity = self._identity_attr(layer)
         self._body.append(
-            f'<img id="{element_id}" style="{style}{anim_style}" '
+            f'<img id="{element_id}"{identity} style="{style}{anim_style}" '
             f'src="data:image/svg+xml;base64,{encoded}" alt="">'
         )
 
@@ -858,6 +868,7 @@ class Stage:
     transition_dur: str = "0"
     transition_click: str = "1"
     transition_after: str = ""
+    transition_morph: str = ""
     speaker_notes: str = ""
 
 
@@ -1036,6 +1047,9 @@ def _document(
                 if transition is None or transition.advance_after is None
                 else _fmt(transition.advance_after)
             )
+            stage.transition_morph = (
+                "1" if transition is not None and transition.effect == "morph" else ""
+            )
             timing = f"{_fmt(duration)}s ease both"
             if enter is not None:
                 name = f"qt-t{index}"
@@ -1100,6 +1114,7 @@ def _deck_stage_attrs(stage: Stage) -> str:
         "data-qt-dur": stage.transition_dur,
         "data-qt-click": stage.transition_click,
         "data-qt-after": stage.transition_after,
+        "data-qt-morph": stage.transition_morph,
         "data-qt-notes": stage.speaker_notes,
     }
     return "".join(f' {name}="{_attr(value)}"' for name, value in attrs.items())

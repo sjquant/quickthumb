@@ -478,7 +478,7 @@ def match_scene_layers(source: Canvas, target: Canvas) -> tuple[tuple[str, str, 
 
 
 def sample_scene_morph(
-    source: Canvas, target: Canvas, progress: float
+    source: Canvas, target: Canvas, progress: float, duration: float = 1.0
 ) -> tuple[MorphLayerState, ...]:
     """Sample matched, entering, and exiting layer states at ``progress``.
 
@@ -492,6 +492,13 @@ def sample_scene_morph(
         or not math.isfinite(progress)
     ):
         raise ValidationError("morph progress must be a finite number")
+    if (
+        not isinstance(duration, (int, float))
+        or isinstance(duration, bool)
+        or not math.isfinite(duration)
+        or duration <= 0
+    ):
+        raise ValidationError("morph duration must be a finite number greater than 0")
     progress = min(1.0, max(0.0, float(progress)))
     sources = dict(_scene_layers(source))
     targets = dict(_scene_layers(target))
@@ -508,8 +515,8 @@ def sample_scene_morph(
         if source_item and target_item:
             source_id, source_layer = source_item
             target_id, target_layer = target_item
-            source_state = _layer_motion_state(source_layer, source)
-            target_state = _layer_motion_state(target_layer, target)
+            source_state = _layer_motion_state(source_layer, source, duration)
+            target_state = _layer_motion_state(target_layer, target, progress * duration)
             behavior: Literal["match", "crossfade"] = (
                 "crossfade"
                 if source_layer.__class__ is not target_layer.__class__
@@ -525,7 +532,9 @@ def sample_scene_morph(
                     key,
                     layer_id,
                     None,
-                    _layer_motion_state(layer, source).with_values(opacity=1.0 - progress),
+                    _layer_motion_state(layer, source, duration).with_values(
+                        opacity=1.0 - progress
+                    ),
                     "exit",
                 )
             )
@@ -536,7 +545,9 @@ def sample_scene_morph(
                     key,
                     None,
                     layer_id,
-                    _layer_motion_state(layer, target).with_values(opacity=progress),
+                    _layer_motion_state(layer, target, progress * duration).with_values(
+                        opacity=progress
+                    ),
                     "enter",
                 )
             )
@@ -547,7 +558,9 @@ def sample_scene_morph(
                     None,
                     layer_id,
                     None,
-                    _layer_motion_state(layer, source).with_values(opacity=1.0 - progress),
+                    _layer_motion_state(layer, source, duration).with_values(
+                        opacity=1.0 - progress
+                    ),
                     "exit",
                 )
             )
@@ -558,14 +571,16 @@ def sample_scene_morph(
                     None,
                     None,
                     layer_id,
-                    _layer_motion_state(layer, target).with_values(opacity=progress),
+                    _layer_motion_state(layer, target, progress * duration).with_values(
+                        opacity=progress
+                    ),
                     "enter",
                 )
             )
     return tuple(result)
 
 
-def _layer_motion_state(layer: object, canvas: Canvas) -> LayerState:
+def _layer_motion_state(layer: object, canvas: Canvas, time: float = 0.0) -> LayerState:
     position = getattr(layer, "position", None)
     if isinstance(position, tuple) and len(position) == 2:
         try:
@@ -577,11 +592,18 @@ def _layer_motion_state(layer: object, canvas: Canvas) -> LayerState:
             position = None
     else:
         position = None
-    return LayerState(
+    state = LayerState(
         position=position,
         opacity=float(getattr(layer, "opacity", 1.0)),
         rotation=float(getattr(layer, "rotation", 0.0)),
+        color=getattr(layer, "color", None),
     )
+    animation = getattr(layer, "animation", None)
+    if isinstance(animation, AnimationSpec) or (
+        isinstance(animation, list) and all(isinstance(item, AnimationSpec) for item in animation)
+    ):
+        return compile_timeline(animation).sample(time, state)
+    return state
 
 
 def _interpolate_layer_states(
@@ -598,6 +620,13 @@ def _interpolate_layer_states(
         position=mix(source.position, target.position),
         opacity=source.opacity + (target.opacity - source.opacity) * progress,
         rotation=source.rotation + (target.rotation - source.rotation) * progress,
+        color=(
+            _interpolate(source.color, target.color, progress)
+            if source.color is not None and target.color is not None
+            else target.color
+            if progress >= 1.0
+            else source.color
+        ),
     )
 
 

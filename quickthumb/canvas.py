@@ -259,12 +259,17 @@ class Canvas:
 
     @property
     def layers(self) -> list[RenderableLayer]:
-        return self._layers
+        return list(self._layers)
 
     @layers.setter
     def layers(self, value: list[RenderableLayer]):
+        previous = self._layers
         self._layers = value
-        self._validate_layer_identities()
+        try:
+            self._validate_layer_identities()
+        except Exception:
+            self._layers = previous
+            raise
 
     def _append_layer(self, layer: RenderableLayer) -> None:
         """Append a layer while preserving scene-local id uniqueness."""
