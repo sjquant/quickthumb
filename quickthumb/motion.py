@@ -1425,7 +1425,9 @@ def _inspection_targets(layer: object, animation: object) -> list[MotionTargetIn
             content = "".join(getattr(part, "text", str(part)) for part in content)
         if not isinstance(content, str):
             return []
-        resolved = resolve_text_targets(content, target, order=stagger.order)  # type: ignore[arg-type]
+        resolved = resolve_text_targets(
+            content, cast(Literal["characters", "words", "lines"], target), order=stagger.order
+        )
     else:
         return []
     return [
@@ -1444,7 +1446,7 @@ def _compile_legacy_timeline(animations: list[object]) -> Timeline:
     """Normalize legacy entrance effects into the inspection timeline."""
     events: list[TimelineEvent] = []
     composition = _CompositionCursor()
-    for animation in animations:
+    for animation in cast(list[Any], animations):
         event = TimelineEvent(
             source="legacy",
             start=composition.group_start
@@ -1481,13 +1483,13 @@ def _compile_inspection_timeline(animation: object) -> Timeline:
             else TimelineEvent(
                 source="legacy",
                 start=composition.group_start
-                if item.trigger == "with_previous"
+                if cast(Any, item).trigger == "with_previous"
                 else composition.settled_end,
-                delay=float(item.delay),
-                duration=float(item.duration),
-                trigger=item.trigger,
-                effect=item.effect,
-                options=item.model_dump(mode="json", exclude_none=True),
+                delay=float(cast(Any, item).delay),
+                duration=float(cast(Any, item).duration),
+                trigger=cast(Any, item).trigger,
+                effect=cast(Any, item).effect,
+                options=cast(Any, item).model_dump(mode="json", exclude_none=True),
             )
         )
         events.append(event)
@@ -1633,14 +1635,18 @@ def inspect_motion(
         requested = (target,)
     else:
         requested = tuple(target)
-    normalized_targets = tuple(dict.fromkeys(_normalize_target(item) for item in requested))
+    normalized_targets = cast(
+        tuple[ExportTarget, ...],
+        tuple(dict.fromkeys(_normalize_target(item) for item in requested)),
+    )
     if not normalized_targets:
         raise ValidationError("inspection target must not be empty")
     resolved_policy = policy or ExportPolicy()
-    canvases = tuple(source.slides) if hasattr(source, "slides") else (source,)
+    source_value = cast(Any, source)
+    canvases = tuple(source_value.slides) if hasattr(source, "slides") else (source,)
     if not canvases:
         raise RenderingError("cannot inspect motion for an empty deck")
-    transitions = tuple(source._resolved_transitions()) if hasattr(source, "slides") else ()
+    transitions = tuple(source_value._resolved_transitions()) if hasattr(source, "slides") else ()
     deck_offsets: tuple[float, ...] = ()
     deck_duration: float | None = None
     if hasattr(source, "slides"):
@@ -1650,7 +1656,7 @@ def inspect_motion(
             list(canvases),
             list(transitions),
             slide_duration=3.0,
-            slide_durations=source._slide_durations,
+            slide_durations=source_value._slide_durations,
             fps=float(fps),
         )
         deck_offsets = tuple(offsets)
@@ -1719,14 +1725,14 @@ def inspect_motion(
                         )
                     )
         explicit_duration = (
-            source._slide_durations[slide_index] if hasattr(source, "slides") else None
+            source_value._slide_durations[slide_index] if hasattr(source, "slides") else None
         )
         default_duration = 3.0 if hasattr(source, "slides") else 0.0
         if deck_offsets:
             slide_duration = (
                 deck_offsets[slide_index + 1] - deck_offsets[slide_index]
                 if slide_index + 1 < len(deck_offsets)
-                else float(deck_duration) - deck_offsets[slide_index]
+                else float(deck_duration or 0.0) - deck_offsets[slide_index]
             )
         else:
             slide_duration = max(explicit_duration or default_duration, motion_duration)
