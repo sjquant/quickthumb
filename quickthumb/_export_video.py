@@ -197,6 +197,7 @@ def write_animation(
         max_size,
         colors,
     )
+    probe_cache: dict[str, VideoInfo] = {}
     if reduced_motion:
         transitions = [None] * len(canvases)
     plan = _deck_plan(
@@ -206,12 +207,13 @@ def write_animation(
         slide_duration,
         slide_durations,
         reduced_motion=reduced_motion,
+        probe_cache=probe_cache,
     )
     if slide_audio is not None and audio_offsets is None:
         audio_offsets = plan.offsets
         audio_timeline_duration = plan.duration
     shots = _deck_shots(canvases, transitions, fps, slide_duration, matte_rgb, plan=plan)
-    video_audio = _video_audio_schedule(canvases, plan.offsets)
+    video_audio = _video_audio_schedule(canvases, plan.offsets, probe_cache)
     if video_audio and audio_timeline_duration is None:
         audio_timeline_duration = plan.duration
     descriptor, temp_path = _temporary_output_path(output_path, suffix=f".{format}")
@@ -293,6 +295,7 @@ def export_animation_bytes(
         max_size,
         colors,
     )
+    probe_cache: dict[str, VideoInfo] = {}
     if reduced_motion:
         transitions = [None] * len(canvases)
     plan = _deck_plan(
@@ -302,12 +305,13 @@ def export_animation_bytes(
         slide_duration,
         slide_durations,
         reduced_motion=reduced_motion,
+        probe_cache=probe_cache,
     )
     if slide_audio is not None and audio_offsets is None:
         audio_offsets = plan.offsets
         audio_timeline_duration = plan.duration
     shots = _deck_shots(canvases, transitions, fps, slide_duration, matte_rgb, plan=plan)
-    video_audio = _video_audio_schedule(canvases, plan.offsets)
+    video_audio = _video_audio_schedule(canvases, plan.offsets, probe_cache)
     if video_audio and audio_timeline_duration is None:
         audio_timeline_duration = plan.duration
 
@@ -520,9 +524,13 @@ def _deck_plan(
     slide_duration: float,
     slide_durations: list[float | None] | None,
     reduced_motion: bool = False,
+    probe_cache: dict[str, VideoInfo] | None = None,
 ) -> _DeckPlan:
     """Build animation state once for both visuals and scheduled narration."""
-    animators = [_SlideAnimator(canvas, reduced_motion=reduced_motion) for canvas in canvases]
+    cache = probe_cache if probe_cache is not None else {}
+    animators = [
+        _SlideAnimator(canvas, cache, reduced_motion=reduced_motion) for canvas in canvases
+    ]
     timings = _deck_timing(
         canvases,
         transitions,
@@ -649,7 +657,7 @@ def _deck_timing(
 ) -> list[tuple[Transition | None, float, float, float]]:
     """Resolve each slide's transition, animation, and exit timing once."""
     if animation_durations is None:
-        animation_durations = [_SlideAnimator(canvas).duration for canvas in canvases]
+        animation_durations = [_SlideAnimator(canvas, {}).duration for canvas in canvases]
     if slide_durations is not None and len(slide_durations) != len(canvases):
         raise RenderingError("Deck slide durations are out of sync.")
     timings = []
@@ -766,9 +774,14 @@ class _Unit:
 class _SlideAnimator:
     """Composites one slide's layer-animation state at any point in time."""
 
-    def __init__(self, canvas: Canvas, reduced_motion: bool = False):
+    def __init__(
+        self,
+        canvas: Canvas,
+        probe_cache: dict[str, VideoInfo],
+        reduced_motion: bool = False,
+    ):
         self._canvas = canvas
-        self._units = _build_units(canvas, reduced_motion=reduced_motion)
+        self._units = _build_units(canvas, probe_cache, reduced_motion=reduced_motion)
         self.duration = max(_schedule_units(self._units), _schedule_timelines(self._units))
         self._final: Image.Image | None = None
 
@@ -864,7 +877,11 @@ class _SlideAnimator:
         ]
 
 
-def _build_units(canvas: Canvas, reduced_motion: bool = False) -> list[_Unit]:
+def _build_units(
+    canvas: Canvas,
+    probe_cache: dict[str, VideoInfo],
+    reduced_motion: bool = False,
+) -> list[_Unit]:
     """Flatten the canvas into animation units rendered through the PIL pipeline."""
     if not reduced_motion:
         validate_legacy_animation_export(canvas)
@@ -940,7 +957,10 @@ def _build_units(canvas: Canvas, reduced_motion: bool = False) -> list[_Unit]:
         component_duration = (
             0.0
             if reduced_motion
-            else max((_component_animation_duration(layer) for layer in layers), default=0.0)
+            else max(
+                (_component_animation_duration(layer, probe_cache) for layer in layers),
+                default=0.0,
+            )
         )
         units.append(
             _Unit(
@@ -1062,10 +1082,15 @@ def _schedule_units(units: list[_Unit]) -> float:
     return max([clock, *(unit.component_duration for unit in units)], default=0.0)
 
 
-def _component_animation_duration(layer: RenderableLayer) -> float:
+def _component_animation_duration(
+    layer: RenderableLayer, probe_cache: dict[str, VideoInfo]
+) -> float:
     """Return the settled duration of a canonical chart/QR motion preset."""
     if isinstance(layer, VideoLayer):
-        info = probe_video(layer.source)
+        info = probe_cache.get(layer.source)
+        if info is None:
+            info = probe_video(layer.source)
+            probe_cache[layer.source] = info
         return layer.start + effective_duration(layer, info)
     if not isinstance(layer, (ChartLayer, QRCodeLayer)):
         return 0.0
@@ -2082,17 +2107,19 @@ def _atempo_filter(speed: float) -> str:
     return ",".join(filters)
 
 
-def _video_audio_schedule(canvases: list[Canvas], offsets: list[float]) -> list[_VideoAudio]:
+def _video_audio_schedule(
+    canvases: list[Canvas], offsets: list[float], probe_cache: dict[str, VideoInfo] | None = None
+) -> list[_VideoAudio]:
     clips: list[_VideoAudio] = []
-    probe_cache: dict[str, VideoInfo] = {}
+    cache = probe_cache if probe_cache is not None else {}
     for canvas, offset in zip(canvases, offsets, strict=True):
         for layer in canvas._iter_layers_deep():
             if not isinstance(layer, VideoLayer):
                 continue
-            info = probe_cache.get(layer.source)
+            info = cache.get(layer.source)
             if info is None:
                 info = probe_video(layer.source)
-                probe_cache[layer.source] = info
+                cache[layer.source] = info
             if not info.has_audio:
                 continue
             clips.append(

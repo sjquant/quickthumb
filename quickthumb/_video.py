@@ -95,6 +95,8 @@ class VideoDecoder:
                     *seek,
                     "-map",
                     "0:v:0",
+                    "-fps_mode",
+                    "passthrough",
                     "-f",
                     "rawvideo",
                     "-pix_fmt",
@@ -216,6 +218,11 @@ def effective_duration(layer: VideoLayer, info: VideoInfo) -> float:
             f"{info.duration:.6f} for {layer.source!r}"
         )
     available = max(0.0, source_end - layer.trim_start) / layer.speed
+    if layer.duration is not None and layer.duration > available + 1e-6:
+        raise ValidationError(
+            f"duration {layer.duration} exceeds available trimmed video duration "
+            f"{available:.6f} for {layer.source!r}"
+        )
     return layer.duration if layer.duration is not None else available
 
 

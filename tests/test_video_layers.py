@@ -217,6 +217,15 @@ def test_video_layer_speed_duration_caption_and_audio_stay_synchronized(source_v
 
 
 @pytest.mark.skipif(not HAS_FFMPEG, reason="ffmpeg is required")
+def test_video_layer_rejects_duration_longer_than_trimmed_source(source_video):
+    """Given a short clip, when duration exceeds its source, then rendering fails safely."""
+    canvas = Canvas(96, 64).video(str(source_video), (0, 0), 64, 32, duration=2)
+
+    with pytest.raises(ValidationError, match="exceeds available trimmed video duration"):
+        canvas.render_frame(0)
+
+
+@pytest.mark.skipif(not HAS_FFMPEG, reason="ffmpeg is required")
 def test_video_layer_missing_source_has_safe_error():
     """Given a missing source, when it is rendered, then the public error identifies the source."""
     canvas = Canvas(32, 32).video("missing.mp4", (0, 0), 32, 32)
