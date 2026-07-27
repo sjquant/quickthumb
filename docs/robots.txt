@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://sjquant.github.io/quickthumb/sitemap.xml
+Sitemap: https://quickthumb.solaqua.dev/sitemap.xml

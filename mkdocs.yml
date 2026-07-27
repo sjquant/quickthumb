@@ -1,6 +1,6 @@
 site_name: quickthumb
 site_description: Programmatic thumbnail and social image generation with layered Python and JSON APIs
-site_url: https://sjquant.github.io/quickthumb
+site_url: https://quickthumb.solaqua.dev
 site_author: Seonu Jang
 repo_name: sjquant/quickthumb
 repo_url: https://github.com/sjquant/quickthumb
@@ -49,7 +49,7 @@ extra_css:
   - stylesheets/extra.css
 
 extra:
-  social_image_url: https://sjquant.github.io/quickthumb/assets/brand/social-preview.png
+  social_image_url: https://quickthumb.solaqua.dev/assets/brand/social-preview.png
 
 markdown_extensions:
   - admonition
