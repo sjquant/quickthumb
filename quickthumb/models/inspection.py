@@ -109,6 +109,7 @@ class MotionEventInspection(quickthumbModel):
     effect: str | None = None
     tracks: list[MotionTrackInspection] = Field(default_factory=list)
     stagger: dict[str, Any] | None = None
+    progress: list[float] = Field(default_factory=list)
 
 
 class MotionTargetInspection(quickthumbModel):
@@ -183,6 +184,7 @@ class MotionInspection(quickthumbModel):
     height: PositiveInt
     duration: float = 0.0
     fps: float
+    max_samples: PositiveInt = 10_000
     sample_times: list[float] = Field(default_factory=list)
     slides: list[MotionSlideInspection] = Field(default_factory=list)
     capabilities: list[MotionCapabilityInspection] = Field(default_factory=list)

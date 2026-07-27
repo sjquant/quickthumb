@@ -1,5 +1,7 @@
 import json
 import math
+from io import BytesIO
+from zipfile import ZipFile
 
 import pytest
 from quickthumb import (
@@ -89,6 +91,18 @@ class TestMotionInspection:
         assert layer.events[0].effect == "fade"
         assert layer.duration == 1.0
 
+    def test_should_report_legacy_effect_progress_at_inspection_samples(self):
+        # Given: a legacy fade with a one-second active interval
+        canvas = Canvas(100, 100).text(
+            "Motion", position=(0, 0), animation=Fade(duration=1)
+        )
+
+        # When: motion is inspected at two frames per second
+        event = canvas.inspect_motion(target="video", fps=2).slides[0].layers[0].events[0]
+
+        # Then: the public event report exposes deterministic normalized progress
+        assert event.progress == [0.0, 0.5, 1.0]
+
     def test_should_report_capabilities_and_policy_fallbacks_for_each_exporter(self):
         # Given: blur motion that has different exporter support
         canvas = Canvas(100, 100).text(
@@ -130,6 +144,67 @@ class TestMotionInspection:
         assert report.slides[0].layers[0].events == []
         assert report.slides[0].layers[0].sample_times == [0.0]
 
+    def test_should_apply_reduced_motion_to_html_without_mutating_the_source(self):
+        # Given: a canvas with canonical motion
+        canvas = Canvas(100, 100).text(
+            "Motion", position=(0, 0), animation=AnimationSpec.fade(duration=1)
+        )
+        policy = ExportPolicy(reduced_motion=True)
+
+        # When: normal and reduced-motion HTML are exported
+        animated = canvas.to_html()
+        static = canvas.to_html(policy=policy)
+
+        # Then: only the reduced export omits motion CSS and source motion remains intact
+        assert "@keyframes qt-k" in animated
+        assert "@keyframes qt-k" not in static
+        assert canvas.inspect_motion(target="html").slides[0].layers[0].events
+
+    def test_should_apply_reduced_motion_to_pptx_without_timing_records(self):
+        # Given: a canvas with a legacy PowerPoint animation
+        pytest.importorskip("pptx")
+        canvas = Canvas(100, 100).text("Motion", position=(0, 0), animation=Fade(duration=1))
+
+        # When: the canvas is exported with reduced motion enabled
+        normal = canvas.to_pptx()
+        static = canvas.to_pptx(policy=ExportPolicy(reduced_motion=True))
+
+        # Then: the static document has no animation timing tree
+        def has_timing(data):
+            with ZipFile(BytesIO(data)) as archive:
+                return any(
+                    "<p:timing" in archive.read(name).decode("utf-8")
+                    for name in archive.namelist()
+                    if name.endswith(".xml")
+                )
+
+        assert has_timing(normal) is True
+        assert has_timing(static) is False
+
+    def test_should_bound_samples_and_preserve_endpoints(self):
+        # Given: a timeline much longer than the requested inspection sample cap
+        canvas = Canvas(100, 100).text(
+            "Motion",
+            position=(0, 0),
+            animation=AnimationSpec.timeline(
+                PositionTrack(
+                    keyframes=[
+                        KeyframeSpec(time=0, value=(0, 0)),
+                        KeyframeSpec(time=100, value=(10, 20)),
+                    ]
+                )
+            ),
+        )
+
+        # When: inspection is capped to three samples
+        layer = canvas.inspect_motion(target="video", fps=60, max_samples=3).slides[0].layers[0]
+
+        # Then: the cap is honored without losing the endpoints
+        assert canvas.inspect_motion(target="video", fps=60, max_samples=3).max_samples == 3
+        assert layer.sample_times == [0.0, 50.0, 100.0]
+        assert layer.samples[0]["position"] == [0.0, 0.0]
+        assert layer.samples[-1]["position"] == [10.0, 20.0]
+
     def test_should_match_exporter_deck_duration_with_transition_and_hold(self):
         # Given: two animated slides with one-second transitions
         first = Canvas(100, 100).text(
@@ -161,6 +236,22 @@ class TestMotionInspection:
         assert [slide.slide_index for slide in report.slides] == [0, 1]
         assert report.slides[1].matches[0].motion_key == "title"
         assert report.slides[1].matches[0].behavior == "match"
+
+    def test_should_report_implicit_deck_crossfades_and_zero_duration_cuts(self):
+        # Given: a deck with an implicit transition and an explicit cut
+        first = Canvas(100, 100).text("A", position=(0, 0))
+        second = Canvas(100, 100).text("B", position=(0, 0))
+        implicit_deck = Deck(100, 100).slide(first).slide(second)
+        cut_deck = Deck(100, 100).slide(first).slide(second, transition="cut")
+
+        # When: deck motion is inspected
+        report = implicit_deck.inspect_motion(target="video")
+        cut_report = cut_deck.inspect_motion(target="video")
+
+        # Then: implicit and cut transition timing are represented accurately
+        assert report.slides[1].transition.effect == "fade"
+        assert cut_report.slides[1].transition.effect == "cut"
+        assert cut_report.slides[1].transition.duration == 0.0
 
     def test_should_reject_empty_decks_invalid_fps_and_empty_targets(self):
         # Given: malformed inspection requests

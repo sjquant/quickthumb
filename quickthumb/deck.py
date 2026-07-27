@@ -23,6 +23,7 @@ from quickthumb.canvas import Canvas
 from quickthumb.errors import RenderingError, ValidationError
 from quickthumb.models import (
     AudioTrack,
+    ExportPolicy,
     GifOptions,
     VideoOptions,
     coerce_audio_track,
@@ -239,6 +240,7 @@ class Deck:
         format: FileFormat | None = None,
         quality: int | None = None,
         animation: GifOptions | VideoOptions | None = None,
+        policy: ExportPolicy | None = None,
     ) -> list[str]:
         """Render the deck, dispatching on the output extension.
 
@@ -291,6 +293,7 @@ class Deck:
                 output_path,
                 cast("AnimationFormat", extension[1:]),
                 animation,
+                policy=policy,
             )
             return [output_path]
 
@@ -305,11 +308,11 @@ class Deck:
                     "format override is only supported for raster output, "
                     f"not {extension} documents."
                 )
-            self._render_document(output_path, extension)
+            self._render_document(output_path, extension, policy=policy)
             return [output_path]
 
         if extension in _RASTER_EXTENSIONS:
-            return self._render_sequence(output_path, format, quality)
+            return self._render_sequence(output_path, format, quality, policy=policy)
 
         if extension == ".svg":
             raise RenderingError(
@@ -328,6 +331,7 @@ class Deck:
         output_path: str,
         format: AnimationFormat,
         animation: GifOptions | VideoOptions | None = None,
+        policy: ExportPolicy | None = None,
     ) -> None:
         """Render an animated Deck, mixing scheduled narration when requested."""
         from quickthumb._export_video import write_animation
@@ -339,6 +343,7 @@ class Deck:
                 output_path,
                 format=format,
                 animation=animation,
+                reduced_motion=bool(policy and policy.reduced_motion),
             )
             return
         if isinstance(animation, GifOptions):
@@ -353,6 +358,7 @@ class Deck:
             slide_durations=slide_durations,
             audio_durations=audio_durations,
             animation=animation,
+            reduced_motion=bool(policy and policy.reduced_motion),
         )
 
     def _animation_audio_schedule(
@@ -387,7 +393,9 @@ class Deck:
         ]
         return visual_durations, durations
 
-    def _render_document(self, output_path: str, extension: str) -> None:
+    def _render_document(
+        self, output_path: str, extension: str, policy: ExportPolicy | None = None
+    ) -> None:
         if extension == ".pdf":
             from quickthumb._export_pdf import PdfExporter
 
@@ -396,17 +404,21 @@ class Deck:
 
         if extension in (".html", ".htm"):
             with open(output_path, "w", encoding="utf-8") as f:
-                f.write(self.to_html())
+                f.write(self.to_html(policy=policy))
             return
 
         from quickthumb._export_pptx import PptxExporter
 
-        PptxExporter().save_canvases(
+        PptxExporter(reduced_motion=bool(policy and policy.reduced_motion)).save_canvases(
             self._slides, output_path, transitions=self._resolved_transitions()
         )
 
     def _render_sequence(
-        self, output_path: str, format: FileFormat | None, quality: int | None
+        self,
+        output_path: str,
+        format: FileFormat | None,
+        quality: int | None,
+        policy: ExportPolicy | None = None,
     ) -> list[str]:
         # Validate every slide's assets up front so a missing image fails before
         # any file is written, leaving no partial sequence on disk (matching the
@@ -419,7 +431,7 @@ class Deck:
         written: list[str] = []
         for index, canvas in enumerate(self._slides, start=1):
             slide_path = f"{stem}_{index:0{pad}d}{extension}"
-            canvas.render(slide_path, format=format, quality=quality)
+            canvas.render(slide_path, format=format, quality=quality, policy=policy)
             written.append(slide_path)
         return written
 
@@ -436,13 +448,21 @@ class Deck:
 
         return validate_export(self, target, policy)
 
-    def inspect_motion(self, target=None, policy=None, fps: float = 30.0):
+    def inspect_motion(
+        self, target=None, policy=None, fps: float = 30.0, max_samples: int = 10_000
+    ):
         """Return a serializable report of resolved slide and layer motion."""
         from quickthumb.motion import inspect_motion
 
-        return inspect_motion(self, target=target, policy=policy, fps=fps)
+        return inspect_motion(self, target=target, policy=policy, fps=fps, max_samples=max_samples)
 
-    def to_html(self, responsive: bool = True, embed_fonts: bool = True) -> str:
+    def to_html(
+        self,
+        responsive: bool = True,
+        embed_fonts: bool = True,
+        *,
+        policy: ExportPolicy | None = None,
+    ) -> str:
         """Render the deck to a standalone HTML slideshow document string.
 
         Each slide becomes a fixed-size stage; the runtime shows one at a time
@@ -466,16 +486,17 @@ class Deck:
             responsive=responsive,
             transitions=self._resolved_transitions(),
             notes=self._slide_notes,
+            reduced_motion=bool(policy and policy.reduced_motion),
         )
 
-    def to_pptx(self) -> bytes:
+    def to_pptx(self, *, policy: ExportPolicy | None = None) -> bytes:
         """Render the deck to a multi-slide PPTX as bytes (requires quickthumb[pptx])."""
         self._require_slides()
         from quickthumb._export_pptx import PptxExporter
 
-        return PptxExporter().export_bytes_canvases(
-            self._slides, transitions=self._resolved_transitions()
-        )
+        return PptxExporter(
+            reduced_motion=bool(policy and policy.reduced_motion)
+        ).export_bytes_canvases(self._slides, transitions=self._resolved_transitions())
 
     def to_gif(
         self,
@@ -483,6 +504,8 @@ class Deck:
         slide_duration: float = 3.0,
         loop: int = 0,
         matte: str = "#000000",
+        *,
+        policy: ExportPolicy | None = None,
     ) -> bytes:
         """Render the deck to animated GIF bytes.
 
@@ -507,12 +530,15 @@ class Deck:
             slide_duration=slide_duration,
             loop=loop,
             matte=matte,
+            reduced_motion=bool(policy and policy.reduced_motion),
         )
 
     def to_mp4(
         self,
         fps: float = 30.0,
         slide_duration: float = 3.0,
+        *,
+        policy: ExportPolicy | None = None,
     ) -> bytes:
         """Return a static, narrated Deck MP4 as bytes.
 
@@ -539,6 +565,8 @@ class Deck:
         matte: str = "#000000",
         soundtrack: AudioTrack | str | dict | None = None,
         loop_audio: bool | None = None,
+        *,
+        policy: ExportPolicy | None = None,
     ) -> bytes:
         """Render the Deck's animated timeline to MP4 bytes.
 
@@ -555,6 +583,7 @@ class Deck:
             matte=matte,
             soundtrack=soundtrack,
             loop_audio=loop_audio,
+            reduced_motion=bool(policy and policy.reduced_motion),
         )
 
     def _export_animated_video_bytes(
@@ -566,6 +595,7 @@ class Deck:
         matte: str,
         soundtrack: AudioTrack | str | dict | None,
         loop_audio: bool | None,
+        reduced_motion: bool = False,
     ) -> bytes:
         """Export animated MP4/WebM bytes with the Deck's narration schedule."""
         from quickthumb._export_video import export_animation_bytes
@@ -583,6 +613,7 @@ class Deck:
             slide_audio=self._slide_audio,
             slide_durations=slide_durations,
             audio_durations=audio_durations,
+            reduced_motion=reduced_motion,
         )
 
     def render_mp4(
@@ -615,6 +646,8 @@ class Deck:
         matte: str = "#000000",
         soundtrack: AudioTrack | str | dict | None = None,
         loop_audio: bool | None = None,
+        *,
+        policy: ExportPolicy | None = None,
     ) -> bytes:
         """Render the deck to WebM (VP9) bytes; timing model as in ``to_gif``.
 
@@ -634,6 +667,7 @@ class Deck:
             matte=matte,
             soundtrack=soundtrack,
             loop_audio=loop_audio,
+            reduced_motion=bool(policy and policy.reduced_motion),
         )
 
     def diagnose(self) -> list[DeckDiagnostic]:

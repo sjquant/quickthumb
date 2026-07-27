@@ -113,11 +113,12 @@ def _require_pptx():
 
 
 class PptxExporter:
-    def __init__(self, canvas: Canvas | None = None):
+    def __init__(self, canvas: Canvas | None = None, reduced_motion: bool = False):
         _require_pptx()
         # canvas is the single-slide convenience target; the multi-slide paths
         # take their canvases explicitly and leave this None.
         self._canvas = canvas
+        self._reduced_motion = reduced_motion
 
     def export_bytes(self) -> bytes:
         buffer = BytesIO()
@@ -165,7 +166,8 @@ class PptxExporter:
         presentation.slide_height = Emu(_emu(first.height))
 
         for index, canvas in enumerate(canvases):
-            validate_legacy_animation_export(canvas)
+            if not self._reduced_motion:
+                validate_legacy_animation_export(canvas)
             canvas._validate_image_paths()
             canvas._ctx.begin_render_pass()
             self._canvas = canvas
@@ -184,7 +186,7 @@ class PptxExporter:
                 self._emit_tracked_layer(layer)
 
             transition = transitions[index] if transitions else None
-            if transition is not None:
+            if transition is not None and not self._reduced_motion:
                 self._apply_transition(
                     transition,
                     native_morph=(
@@ -193,7 +195,7 @@ class PptxExporter:
                         and self._supports_native_morph(canvases[index - 1], canvas)
                     ),
                 )
-            entries = self._resolve_animation_entries()
+            entries = [] if self._reduced_motion else self._resolve_animation_entries()
             if entries:
                 self._apply_timing(entries)
 

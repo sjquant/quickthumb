@@ -36,7 +36,7 @@ from quickthumb.models import (
     TrackSpec,
     validate_hex_color,
 )
-from quickthumb.transitions import Transition, coerce_transition
+from quickthumb.transitions import Fade, Transition, coerce_transition
 
 if TYPE_CHECKING:
     from quickthumb.canvas import Canvas
@@ -1373,7 +1373,23 @@ def validate_motion_export(source: Canvas | Deck, target: ExportTarget | str, po
 # Public inspection contract -------------------------------------------------
 
 
-def _inspection_event(event: TimelineEvent) -> MotionEventInspection:
+def _inspection_event(
+    event: TimelineEvent, sample_times: tuple[float, ...] = ()
+) -> MotionEventInspection:
+    progress = [
+        1.0
+        if event.duration == 0 and time >= event.active_start
+        else (
+            0.0
+            if time <= event.active_start
+            else (
+                1.0
+                if time >= event.end
+                else (time - event.active_start) / event.duration
+            )
+        )
+        for time in sample_times
+    ]
     return MotionEventInspection(
         source=event.source,
         start=event.start,
@@ -1394,6 +1410,7 @@ def _inspection_event(event: TimelineEvent) -> MotionEventInspection:
             for track in event.tracks
         ],
         stagger=event.stagger,
+        progress=progress,
     )
 
 
@@ -1483,7 +1500,7 @@ def _compile_inspection_timeline(animation: object) -> Timeline:
 
 
 def _inspection_layer(
-    layer_id: str, layer: object, canvas: Canvas, fps: float
+    layer_id: str, layer: object, canvas: Canvas, fps: float, max_samples: int
 ) -> MotionLayerInspection:
     animation = getattr(layer, "animation", None)
     items = animation if isinstance(animation, list) else [animation]
@@ -1495,11 +1512,11 @@ def _inspection_layer(
     targets: list[MotionTargetInspection] = []
     for spec in specs:
         targets.extend(_inspection_targets(layer, spec))
-    sample_times = timeline.frame_times(fps)
+    sample_times = _bounded_frame_times(timeline.duration, fps, max_samples)
     return MotionLayerInspection(
         layer_id=layer_id,
         layer_type=str(getattr(layer, "type", type(layer).__name__)),
-        events=[_inspection_event(event) for event in timeline.events],
+        events=[_inspection_event(event, sample_times) for event in timeline.events],
         duration=timeline.duration,
         targets=targets,
         sample_times=list(sample_times),
@@ -1526,6 +1543,16 @@ def _inspection_capabilities(
         for feature, capability in capabilities_for(target).items()
         if feature in features
     ]
+
+
+def _bounded_frame_times(duration: float, fps: float, max_samples: int) -> tuple[float, ...]:
+    """Return deterministic frame times while preserving both endpoints."""
+    if duration == 0:
+        return (0.0,)
+    count = max(1, math.ceil(duration * fps - 1e-12))
+    if count + 1 <= max_samples:
+        return tuple(min(index / fps, duration) for index in range(count + 1))
+    return tuple(index * duration / (max_samples - 1) for index in range(max_samples))
 
 
 def _inspection_reduced_motion(duration: float, policy: ExportPolicy) -> ReducedMotionInspection:
@@ -1585,6 +1612,7 @@ def inspect_motion(
     target: ExportTarget | str | Iterable[ExportTarget | str] | None = None,
     policy: ExportPolicy | None = None,
     fps: float = 30.0,
+    max_samples: int = 10_000,
 ) -> MotionInspection:
     """Return a deterministic, serializable report of resolved motion.
 
@@ -1599,6 +1627,8 @@ def inspect_motion(
         or fps <= 0
     ):
         raise ValidationError("inspection fps must be a finite number greater than 0")
+    if isinstance(max_samples, bool) or not isinstance(max_samples, int) or max_samples < 2:
+        raise ValidationError("inspection max_samples must be an integer >= 2")
     if target is None:
         requested = ("raster", "html", "pptx", "video")
     elif isinstance(target, str):
@@ -1631,7 +1661,7 @@ def inspect_motion(
     source_features: set[CapabilityFeature] = set()
     for slide_index, canvas in enumerate(canvases):
         layers = [
-            _inspection_layer(layer_id, layer, canvas, float(fps))
+            _inspection_layer(layer_id, layer, canvas, float(fps), max_samples)
             for layer_id, layer in _iter_export_layers(canvas)
         ]
         motion_duration = max((layer.duration for layer in layers), default=0.0)
@@ -1647,12 +1677,19 @@ def inspect_motion(
         transition = None
         matches: list[MotionMatchInspection] = []
         if transitions:
-            transition_timeline = compile_transition_timeline(transitions[slide_index])
+            effective_transition = transitions[slide_index]
+            if effective_transition is None and slide_index > 0:
+                effective_transition = Fade()
+            transition_timeline = compile_transition_timeline(effective_transition)
             transition = (
                 _inspection_event(transition_timeline.events[0])
                 if transition_timeline.events
                 else None
             )
+            if transition is not None and getattr(effective_transition, "effect", None) == "cut":
+                transition = transition.model_copy(
+                    update={"duration": 0.0, "end": transition.start + transition.delay}
+                )
             if slide_index > 0 and getattr(transitions[slide_index], "effect", None) == "morph":
                 source_features.add("morph")
                 matches = []
@@ -1712,13 +1749,7 @@ def inspect_motion(
         slides = _resolve_reduced_motion(slides)
         total_duration = 0.0
     width, height = canvases[0].width, canvases[0].height
-    if total_duration == 0:
-        sample_times = (0.0,)
-    else:
-        frame_count = max(1, math.ceil(total_duration * float(fps) - 1e-12))
-        sample_times = tuple(
-            min(index / float(fps), total_duration) for index in range(frame_count + 1)
-        )
+    sample_times = _bounded_frame_times(float(total_duration), float(fps), max_samples)
     diagnostics = [
         item
         for target_name in normalized_targets
@@ -1729,6 +1760,7 @@ def inspect_motion(
         height=height,
         duration=total_duration,
         fps=float(fps),
+        max_samples=max_samples,
         sample_times=list(sample_times),
         slides=slides,
         capabilities=_inspection_capabilities(normalized_targets, source_features),

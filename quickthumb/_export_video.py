@@ -134,6 +134,7 @@ def write_animation(
     audio_durations: list[float] | None = None,
     audio_timeline_duration: float | None = None,
     animation: GifOptions | VideoOptions | None = None,
+    reduced_motion: bool = False,
 ) -> None:
     """Render slides to an animated file, dispatching on ``format``."""
     if isinstance(animation, VideoOptions):
@@ -173,6 +174,7 @@ def write_animation(
             soundtrack=soundtrack,
             max_size=max_size,
             colors=colors,
+            reduced_motion=reduced_motion,
         )
         _write_bytes_atomically(output_path, data, suffix=".gif")
         return
@@ -193,7 +195,16 @@ def write_animation(
         max_size,
         colors,
     )
-    plan = _deck_plan(canvases, transitions, fps, slide_duration, slide_durations)
+    if reduced_motion:
+        transitions = [None] * len(canvases)
+    plan = _deck_plan(
+        canvases,
+        transitions,
+        fps,
+        slide_duration,
+        slide_durations,
+        reduced_motion=reduced_motion,
+    )
     if slide_audio is not None and audio_offsets is None:
         audio_offsets = plan.offsets
         audio_timeline_duration = plan.duration
@@ -254,6 +265,7 @@ def export_animation_bytes(
     audio_timeline_duration: float | None = None,
     max_size: tuple[int, int] | None = None,
     colors: int | None = None,
+    reduced_motion: bool = False,
 ) -> bytes:
     """Render slides to animated GIF/MP4/WebM bytes."""
     loop_audio = _resolve_loop_audio(soundtrack, loop_audio)
@@ -274,7 +286,16 @@ def export_animation_bytes(
         max_size,
         colors,
     )
-    plan = _deck_plan(canvases, transitions, fps, slide_duration, slide_durations)
+    if reduced_motion:
+        transitions = [None] * len(canvases)
+    plan = _deck_plan(
+        canvases,
+        transitions,
+        fps,
+        slide_duration,
+        slide_durations,
+        reduced_motion=reduced_motion,
+    )
     if slide_audio is not None and audio_offsets is None:
         audio_offsets = plan.offsets
         audio_timeline_duration = plan.duration
@@ -473,9 +494,10 @@ def _deck_plan(
     fps: float,
     slide_duration: float,
     slide_durations: list[float | None] | None,
+    reduced_motion: bool = False,
 ) -> _DeckPlan:
     """Build animation state once for both visuals and scheduled narration."""
-    animators = [_SlideAnimator(canvas) for canvas in canvases]
+    animators = [_SlideAnimator(canvas, reduced_motion=reduced_motion) for canvas in canvases]
     timings = _deck_timing(
         canvases,
         transitions,
@@ -719,9 +741,9 @@ class _Unit:
 class _SlideAnimator:
     """Composites one slide's layer-animation state at any point in time."""
 
-    def __init__(self, canvas: Canvas):
+    def __init__(self, canvas: Canvas, reduced_motion: bool = False):
         self._canvas = canvas
-        self._units = _build_units(canvas)
+        self._units = _build_units(canvas, reduced_motion=reduced_motion)
         self.duration = max(_schedule_units(self._units), _schedule_timelines(self._units))
         self._final: Image.Image | None = None
 
@@ -814,19 +836,24 @@ class _SlideAnimator:
         ]
 
 
-def _build_units(canvas: Canvas) -> list[_Unit]:
+def _build_units(canvas: Canvas, reduced_motion: bool = False) -> list[_Unit]:
     """Flatten the canvas into animation units rendered through the PIL pipeline."""
-    validate_legacy_animation_export(canvas)
+    if not reduced_motion:
+        validate_legacy_animation_export(canvas)
     canvas._validate_image_paths()
     canvas._ctx.begin_render_pass()
     group_target_counts = _canonical_group_target_counts(canvas)
     prefix, rest = split_backdrop_prefix(flatten_layers(canvas))
-    if any(_has_animated_descendant_in_composed_group(layer) for layer in (*prefix, *rest)):
+    if not reduced_motion and any(
+        _has_animated_descendant_in_composed_group(layer) for layer in (*prefix, *rest)
+    ):
         raise RenderingError(
             "Animated export cannot animate descendants of a clipped or masked group. "
             "Move the animation to the group itself, or remove the group's clip or mask."
         )
-    if any(getattr(layer, "animation", None) is not None for layer in prefix):
+    if not reduced_motion and any(
+        getattr(layer, "animation", None) is not None for layer in prefix
+    ):
         raise RenderingError(
             "Animated export cannot animate layers that must be rasterized together for "
             "blend-mode or custom-layer backdrop compositing. Move animated layers "
@@ -840,7 +867,7 @@ def _build_units(canvas: Canvas) -> list[_Unit]:
     if prefix:
         groups.append((None, list(prefix)))
     for layer in rest:
-        animation = getattr(layer, "animation", None)
+        animation = None if reduced_motion else getattr(layer, "animation", None)
         key = id(animation) if animation is not None else None
         if groups and groups[-1][0] == key:
             groups[-1][1].append(layer)
