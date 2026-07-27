@@ -131,7 +131,7 @@ def test_video_caption_background_is_serializable_and_changes_only_active_frames
                 "end": 0.3,
                 "background": "#000000",
                 "background_opacity": 0.6,
-                "padding": (6, 3),
+                "padding": (1, 8, 3, 4),
                 "border_radius": 4,
             }
         ],

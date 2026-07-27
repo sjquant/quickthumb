@@ -285,16 +285,18 @@ def _render_captions(
         left = x - (bbox[2] - bbox[0]) // 2
         top = y - (bbox[3] - bbox[1]) // 2
         if caption.background is not None:
-            horizontal, vertical = _caption_padding(caption.padding)
+            top_padding, right_padding, bottom_padding, left_padding = _caption_padding(
+                caption.padding
+            )
             background = ImageColor.getrgb(caption.background) + (
                 round(caption.background_opacity * 255),
             )
             draw.rounded_rectangle(
                 (
-                    left - horizontal,
-                    top - vertical,
-                    left + (bbox[2] - bbox[0]) + horizontal,
-                    top + (bbox[3] - bbox[1]) + vertical,
+                    left - left_padding,
+                    top - top_padding,
+                    left + (bbox[2] - bbox[0]) + right_padding,
+                    top + (bbox[3] - bbox[1]) + bottom_padding,
                 ),
                 radius=caption.border_radius,
                 fill=background,
@@ -308,9 +310,10 @@ def _render_captions(
         )
 
 
-def _caption_padding(padding: int | tuple[int, ...]) -> tuple[int, int]:
+def _caption_padding(padding: int | tuple[int, ...]) -> tuple[int, int, int, int]:
     if isinstance(padding, int):
-        return padding, padding
+        return padding, padding, padding, padding
     if len(padding) == 2:
-        return padding[0], padding[1]
-    return max(padding[1], padding[3]), max(padding[0], padding[2])
+        horizontal, vertical = padding
+        return vertical, horizontal, vertical, horizontal
+    return padding[0], padding[1], padding[2], padding[3]
