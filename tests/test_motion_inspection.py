@@ -1,4 +1,5 @@
 import json
+import math
 
 import pytest
 from quickthumb import (
@@ -7,6 +8,7 @@ from quickthumb import (
     Canvas,
     Deck,
     ExportPolicy,
+    Fade,
     KeyframeSpec,
     PositionTrack,
     canvas_json_schema,
@@ -58,6 +60,35 @@ class TestMotionInspection:
         assert [target.index for target in targets] == [0, 1, 2]
         assert [target.source_range for target in targets] == [(0, 3), (4, 7), (8, 13)]
 
+    def test_should_sample_canonical_motion_from_the_static_base_state_once(self):
+        # Given: a rise preset whose initial position is offset from its static position
+        canvas = Canvas(100, 100).text(
+            "Motion",
+            position=(0, 0),
+            animation=AnimationSpec.rise(from_="bottom", distance=48, duration=1),
+        )
+
+        # When: the motion report samples the timeline
+        layer = canvas.inspect_motion(target="video").slides[0].layers[0]
+
+        # Then: the offset is applied once and settles at the authored position
+        assert layer.initial_state["position"] == [0.0, 48.0]
+        assert layer.final_state["position"] == [0.0, 0.0]
+
+    def test_should_inspect_supported_legacy_effects(self):
+        # Given: a legacy layer animation still accepted by the public layer API
+        canvas = Canvas(100, 100).text(
+            "Motion", position=(0, 0), animation=Fade(duration=1, trigger="after_previous")
+        )
+
+        # When: motion is inspected
+        layer = canvas.inspect_motion(target="video").slides[0].layers[0]
+
+        # Then: legacy timing is represented instead of disappearing
+        assert layer.events[0].source == "legacy"
+        assert layer.events[0].effect == "fade"
+        assert layer.duration == 1.0
+
     def test_should_report_capabilities_and_policy_fallbacks_for_each_exporter(self):
         # Given: blur motion that has different exporter support
         canvas = Canvas(100, 100).text(
@@ -94,6 +125,28 @@ class TestMotionInspection:
         assert report.reduced_motion.original_duration == 2.0
         assert report.reduced_motion.resolved_duration == 0.0
         assert "position" in report.reduced_motion.removed_features
+        assert report.duration == 0.0
+        assert report.slides[0].duration == 0.0
+        assert report.slides[0].layers[0].events == []
+        assert report.slides[0].layers[0].sample_times == [0.0]
+
+    def test_should_match_exporter_deck_duration_with_transition_and_hold(self):
+        # Given: two animated slides with one-second transitions
+        first = Canvas(100, 100).text(
+            "A", position=(0, 0), animation=AnimationSpec.fade(duration=1)
+        )
+        second = Canvas(100, 100).text(
+            "B", position=(0, 0), animation=AnimationSpec.fade(duration=1)
+        )
+        deck = Deck(100, 100).slide(first, transition={"effect": "fade", "duration": 1})
+        deck.slide(second, transition={"effect": "fade", "duration": 1})
+
+        # When: the deck motion report resolves the export schedule
+        report = deck.inspect_motion(target="video")
+
+        # Then: each slide includes its transition, animation, and default hold
+        assert [slide.duration for slide in report.slides] == [4.0, 4.0]
+        assert report.duration == 8.0
 
     def test_should_report_deck_morph_matches_and_slide_indices(self):
         # Given: two slides with one uniquely keyed shared layer
@@ -121,6 +174,12 @@ class TestMotionInspection:
             canvas.inspect_motion(fps=0)
         with pytest.raises(ValidationError, match="must not be empty"):
             canvas.inspect_motion(target=[])
+        with pytest.raises(ValidationError, match="target must be one of"):
+            canvas.inspect_motion(target="flash")
+        with pytest.raises(ValidationError, match="fps"):
+            canvas.inspect_motion(fps=math.nan)
+        with pytest.raises(ValidationError, match="fps"):
+            canvas.inspect_motion(fps=True)
 
     def test_should_publish_inspection_models_in_the_canvas_schema(self):
         # Given: the published JSON schema
