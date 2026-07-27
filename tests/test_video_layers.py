@@ -117,6 +117,50 @@ def test_video_layer_round_trips_through_public_canvas_json(source_video):
 
 
 @pytest.mark.skipif(not HAS_FFMPEG, reason="ffmpeg is required")
+def test_video_caption_background_is_serializable_and_changes_only_active_frames(source_video):
+    """Given a caption background, when it is sampled, then it is deterministic and time-bound."""
+    canvas = Canvas(96, 64).video(
+        str(source_video),
+        (8, 8),
+        64,
+        48,
+        captions=[
+            {
+                "text": "caption",
+                "start": 0.1,
+                "end": 0.3,
+                "background": "#000000",
+                "background_opacity": 0.6,
+                "padding": (6, 3),
+                "border_radius": 4,
+            }
+        ],
+    )
+
+    restored = Canvas.from_json(canvas.to_json())
+    before = restored.render_frame(0.09)
+    active = restored.render_frame(0.2)
+    after = restored.render_frame(0.3)
+
+    assert before.tobytes() == after.tobytes()
+    assert active.tobytes() != before.tobytes()
+    assert active.tobytes() == restored.render_frame(0.2).tobytes()
+
+
+@pytest.mark.skipif(not HAS_FFMPEG, reason="ffmpeg is required")
+def test_video_caption_rejects_negative_padding(source_video):
+    """Given negative caption padding, when the layer is built, then validation fails."""
+    with pytest.raises(ValidationError, match="padding cannot be negative"):
+        Canvas(96, 64).video(
+            str(source_video),
+            (8, 8),
+            64,
+            48,
+            captions=[{"text": "caption", "start": 0, "end": 1, "padding": -1}],
+        )
+
+
+@pytest.mark.skipif(not HAS_FFMPEG, reason="ffmpeg is required")
 def test_video_layer_inspection_and_static_fallback_keep_delayed_clips_visible(source_video):
     """Given a delayed clip, inspection and SVG fallback keep video identified and visible."""
     canvas = Canvas(96, 64).video(

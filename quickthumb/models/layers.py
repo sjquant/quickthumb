@@ -422,6 +422,10 @@ class VideoCaption(quickthumbModel):
     position: Position = ("50%", "90%")
     size: PositiveInt = 24
     color: HexColor = "#FFFFFF"
+    background: HexColor | None = None
+    background_opacity: OpacityField = 0.65
+    padding: int | tuple[int, int] | tuple[int, int, int, int] = 0
+    border_radius: NonNegativeInt = 0
 
     @field_validator("text")
     @classmethod
@@ -434,6 +438,21 @@ class VideoCaption(quickthumbModel):
     @classmethod
     def validate_position(cls, v: tuple | list) -> Position:
         return _validate_required_position(v)
+
+    @field_validator("padding")
+    @classmethod
+    def validate_padding(cls, value: int | tuple[int, ...]) -> int | tuple[int, ...]:
+        if isinstance(value, bool):
+            raise ValueError("caption padding must be an integer or tuple")
+        if isinstance(value, int):
+            if value < 0:
+                raise ValueError("caption padding cannot be negative")
+            return value
+        if len(value) not in (2, 4):
+            raise ValueError("caption padding tuple must have 2 or 4 elements")
+        if any(item < 0 for item in value):
+            raise ValueError("caption padding values cannot be negative")
+        return value
 
     @model_validator(mode="after")
     def validate_range(self) -> "VideoCaption":
