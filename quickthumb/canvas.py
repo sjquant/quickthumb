@@ -169,6 +169,7 @@ class Canvas:
         self._has_size = width is not None
         self._ctx = RenderContext(width or 0, height or 0)
         self._layers: list[RenderableLayer] = layers or []
+        self._validate_layer_identities()
         self._platform = platform
 
         self._effects = EffectsEngine()
@@ -258,11 +259,41 @@ class Canvas:
 
     @property
     def layers(self) -> list[RenderableLayer]:
-        return self._layers
+        return list(self._layers)
 
     @layers.setter
     def layers(self, value: list[RenderableLayer]):
-        self._layers = value
+        previous = self._layers
+        self._layers = list(value)
+        try:
+            self._validate_layer_identities()
+        except Exception:
+            self._layers = previous
+            raise
+
+    def _append_layer(self, layer: RenderableLayer) -> None:
+        """Append a layer while preserving scene-local id uniqueness."""
+        self._layers.append(layer)
+        try:
+            self._validate_layer_identities()
+        except Exception:
+            self._layers.pop()
+            raise
+
+    def _validate_layer_identities(self) -> None:
+        seen: set[str] = set()
+
+        def visit(layer: object) -> None:
+            layer_id = getattr(layer, "id", None)
+            if layer_id is not None:
+                if layer_id in seen:
+                    raise ValidationError(f"duplicate layer id: {layer_id}")
+                seen.add(layer_id)
+            for child in getattr(layer, "children", ()):
+                visit(child)
+
+        for layer in self._layers:
+            visit(layer)
 
     def diagnose(self) -> list[Diagnostic]:
         """Check layers for layout and legibility issues without producing an output file.
@@ -355,6 +386,9 @@ class Canvas:
         focal_point: tuple[float, float] | None = None,
         faces: list[FaceRegion | dict[str, float]] | None = None,
         effects: list[BackgroundEffect] | None = None,
+        *,
+        id: str | None = None,
+        motion_key: str | None = None,
     ) -> Self:
         if color is None and gradient is None and image is None:
             raise ValidationError(
@@ -371,8 +405,10 @@ class Canvas:
             focal_point=focal_point,
             faces=faces or [],  # type: ignore[arg-type]
             effects=effects or [],
+            id=id,
+            motion_key=motion_key,
         )
-        self._layers.append(layer)
+        self._append_layer(layer)
         return self
 
     def text(
@@ -405,6 +441,9 @@ class Canvas:
         clip: LayerClip | dict[str, Any] | None = None,
         mask: LayerMask | dict[str, Any] | None = None,
         animation: AnimationInput | None = None,
+        *,
+        id: str | None = None,
+        motion_key: str | None = None,
     ) -> Self:
         if content is None:
             raise ValidationError("content is required")
@@ -437,19 +476,32 @@ class Canvas:
             clip=cast(Any, clip),
             mask=cast(Any, mask),
             animation=animation,
+            id=id,
+            motion_key=motion_key,
         )
-        self._layers.append(layer)
+        self._append_layer(layer)
         return self
 
-    def outline(self, width: int, color: str, offset: int = 0, opacity: float = 1.0) -> Self:
+    def outline(
+        self,
+        width: int,
+        color: str,
+        offset: int = 0,
+        opacity: float = 1.0,
+        *,
+        id: str | None = None,
+        motion_key: str | None = None,
+    ) -> Self:
         layer = OutlineLayer(
             type="outline",
             width=width,
             color=color,
             offset=offset,
             opacity=opacity,
+            id=id,
+            motion_key=motion_key,
         )
-        self._layers.append(layer)
+        self._append_layer(layer)
         return self
 
     def shape(
@@ -470,6 +522,9 @@ class Canvas:
         clip: LayerClip | dict[str, Any] | None = None,
         mask: LayerMask | dict[str, Any] | None = None,
         animation: AnimationInput | None = None,
+        *,
+        id: str | None = None,
+        motion_key: str | None = None,
     ) -> Self:
         layer = ShapeLayer(
             type="shape",
@@ -489,8 +544,10 @@ class Canvas:
             mask=cast(Any, mask),
             effects=effects or [],
             animation=animation,
+            id=id,
+            motion_key=motion_key,
         )
-        self._layers.append(layer)
+        self._append_layer(layer)
         return self
 
     def image(
@@ -512,6 +569,9 @@ class Canvas:
         clip: LayerClip | dict[str, Any] | None = None,
         mask: LayerMask | dict[str, Any] | None = None,
         animation: AnimationInput | None = None,
+        *,
+        id: str | None = None,
+        motion_key: str | None = None,
     ) -> Self:
         """Add an image overlay layer to the canvas.
 
@@ -553,8 +613,10 @@ class Canvas:
             mask=cast(Any, mask),
             effects=effects or [],
             animation=animation,
+            id=id,
+            motion_key=motion_key,
         )
-        self._layers.append(layer)
+        self._append_layer(layer)
         return self
 
     def svg(
@@ -571,6 +633,9 @@ class Canvas:
         clip: LayerClip | dict[str, Any] | None = None,
         mask: LayerMask | dict[str, Any] | None = None,
         animation: AnimationInput | None = None,
+        *,
+        id: str | None = None,
+        motion_key: str | None = None,
     ) -> Self:
         """Add an SVG overlay layer, rasterized at render time (requires quickthumb[svg]).
 
@@ -601,8 +666,10 @@ class Canvas:
             mask=cast(Any, mask),
             effects=effects or [],
             animation=animation,
+            id=id,
+            motion_key=motion_key,
         )
-        self._layers.append(layer)
+        self._append_layer(layer)
         return self
 
     def chart(
@@ -616,6 +683,9 @@ class Canvas:
         clip: LayerClip | dict[str, Any] | None = None,
         mask: LayerMask | dict[str, Any] | None = None,
         animation: AnimationInput | None = None,
+        *,
+        id: str | None = None,
+        motion_key: str | None = None,
     ) -> Self:
         """Add a chart layer using a validated bar or line specification."""
         layer = ChartLayer(
@@ -628,8 +698,10 @@ class Canvas:
             clip=cast(Any, clip),
             mask=cast(Any, mask),
             spec=spec,
+            id=id,
+            motion_key=motion_key,
         )
-        self._layers.append(layer)
+        self._append_layer(layer)
         return self
 
     def qr_code(
@@ -646,6 +718,9 @@ class Canvas:
         clip: LayerClip | dict[str, Any] | None = None,
         mask: LayerMask | dict[str, Any] | None = None,
         animation: AnimationInput | None = None,
+        *,
+        id: str | None = None,
+        motion_key: str | None = None,
     ) -> Self:
         """Add a square QR code layer."""
         layer = QRCodeLayer(
@@ -661,8 +736,10 @@ class Canvas:
             animation=animation,
             clip=cast(Any, clip),
             mask=cast(Any, mask),
+            id=id,
+            motion_key=motion_key,
         )
-        self._layers.append(layer)
+        self._append_layer(layer)
         return self
 
     def group(
@@ -679,6 +756,9 @@ class Canvas:
         clip: LayerClip | dict[str, Any] | None = None,
         mask: LayerMask | dict[str, Any] | None = None,
         animation: AnimationInput | None = None,
+        *,
+        id: str | None = None,
+        motion_key: str | None = None,
     ) -> Self:
         """Add an auto-layout group that stacks child layers along a row or column.
 
@@ -710,8 +790,10 @@ class Canvas:
             mask=cast(Any, mask),
             animation=animation,
             children=children,
+            id=id,
+            motion_key=motion_key,
         )
-        self._layers.append(layer)
+        self._append_layer(layer)
         return self
 
     def custom(
@@ -724,7 +806,7 @@ class Canvas:
         if not callable(fn):
             raise ValidationError("fn must be callable")
 
-        self._layers.append(CustomLayer(fn=fn, name=name, kwargs=kwargs or {}))
+        self._append_layer(CustomLayer(fn=fn, name=name, kwargs=kwargs or {}))
         return self
 
     def render(
@@ -987,6 +1069,10 @@ class Canvas:
     @classmethod
     def _omit_unset_composition_fields(cls, value):
         if isinstance(value, dict):
+            if value.get("id") is None:
+                value.pop("id", None)
+            if value.get("motion_key") is None:
+                value.pop("motion_key", None)
             if value.get("clip") is None:
                 value.pop("clip", None)
             if value.get("mask") is None:

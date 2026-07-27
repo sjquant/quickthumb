@@ -91,6 +91,7 @@ from quickthumb.motion import (
     CAPABILITY_MATRIX,
     EASING_NAMES,
     LayerState,
+    MorphLayerState,
     MotionCapability,
     MotionTargetName,
     NormalizedKeyframe,
@@ -104,18 +105,20 @@ from quickthumb.motion import (
     compile_timeline,
     compile_transition_timeline,
     easing_value,
+    match_scene_layers,
     resolve_staggered_timelines,
     resolve_target_order,
     resolve_targets,
     resolve_text_targets,
     sample_frames,
+    sample_scene_morph,
     transform_matrix,
     validate_easing_name,
     validate_export,
     validate_motion_export,
 )
 from quickthumb.schema import canvas_json_schema, document_json_schema
-from quickthumb.transitions import Transition
+from quickthumb.transitions import Morph, Transition
 
 __all__ = [
     "Canvas",
@@ -204,6 +207,7 @@ __all__ = [
     "LineChartStyle",
     "VideoOptions",
     "Transition",
+    "Morph",
     "canvas_json_schema",
     "document_json_schema",
     "transitions",
@@ -212,6 +216,7 @@ __all__ = [
     "MotionTargetName",
     "CAPABILITY_MATRIX",
     "LayerState",
+    "MorphLayerState",
     "NormalizedKeyframe",
     "NormalizedTrack",
     "ResolvedMotionTarget",
@@ -220,6 +225,8 @@ __all__ = [
     "TimelineEvent",
     "compile_timeline",
     "compile_transition_timeline",
+    "match_scene_layers",
+    "sample_scene_morph",
     "validate_easing_name",
     "easing_value",
     "transform_matrix",

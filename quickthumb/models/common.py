@@ -212,6 +212,34 @@ class quickthumbModel(BaseModel):  # noqa: N801
 QuickThumbModel = quickthumbModel
 
 
+_IDENTITY_PATTERN = re.compile(r"^[A-Za-z][A-Za-z0-9_.:-]*$")
+
+
+class LayerIdentityModel(quickthumbModel):
+    """Identity fields shared by every renderable layer.
+
+    ``id`` identifies a layer within a scene. ``motion_key`` is the opt-in
+    cross-scene identity used by Morph transitions.
+    """
+
+    model_config = ConfigDict(validate_assignment=True)
+
+    id: str | None = None
+    motion_key: str | None = None
+
+    @field_validator("id", "motion_key")
+    @classmethod
+    def validate_identity(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        if not isinstance(value, str) or not _IDENTITY_PATTERN.fullmatch(value):
+            raise ValueError(
+                "identity values must start with a letter and contain only letters, "
+                "numbers, '.', '_', ':', or '-'"
+            )
+        return value
+
+
 class _MotionModel(quickthumbModel):
     """Strict base for canonical motion and export policy models."""
 

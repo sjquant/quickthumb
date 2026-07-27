@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any, Literal, cast, get_args
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from pydantic import ValidationError as PydanticValidationError
 
+from quickthumb._base import parse_coordinate
 from quickthumb._measurements import layer_id_for
 from quickthumb.errors import RenderingError, ValidationError
 from quickthumb.models import (
@@ -420,6 +421,212 @@ class LayerState(BaseModel):
             return type(self).model_validate({**self.model_dump(), **values})
         except PydanticValidationError as error:
             raise ValidationError(f"invalid layer state update: {error}") from error
+
+
+@dataclass(frozen=True)
+class MorphLayerState:
+    """The deterministic state of one layer during a scene transition."""
+
+    motion_key: str | None
+    source_id: str | None
+    target_id: str | None
+    state: LayerState
+    behavior: Literal["match", "enter", "exit", "crossfade"]
+
+
+def _scene_layers(canvas: Canvas) -> tuple[tuple[str, object], ...]:
+    def walk(layer: object, index: int, path: tuple[int, ...]):
+        yield layer_id_for(layer, index, path), layer
+        for child_index, child in enumerate(getattr(layer, "children", ())):
+            yield from walk(child, child_index, (*path, child_index))
+
+    result = []
+    for index, layer in enumerate(canvas.layers):
+        result.extend(walk(layer, index, (index,)))
+    return tuple(result)
+
+
+def _identity_index(canvas: Canvas) -> tuple[dict[str, tuple[str, object]], set[str]]:
+    """Index unique motion keys and return keys made ambiguous by duplicates."""
+    layers = _scene_layers(canvas)
+    occurrences: dict[str, list[tuple[str, object]]] = {}
+    for layer_id, layer in layers:
+        key = getattr(layer, "motion_key", None)
+        if key is not None:
+            occurrences.setdefault(key, []).append((layer_id, layer))
+    duplicates = {key for key, values in occurrences.items() if len(values) > 1}
+    return (
+        {key: values[0] for key, values in occurrences.items() if key not in duplicates},
+        duplicates,
+    )
+
+
+def match_scene_layers(source: Canvas, target: Canvas) -> tuple[tuple[str, str, str], ...]:
+    """Match unique ``motion_key`` values across two canvases.
+
+    ``id`` remains scene-local. Duplicate keys, missing keys, and keys that
+    cannot identify exactly one layer on both sides are deliberately ignored.
+    This makes malformed authored identity data degrade to ordinary transitions.
+    """
+    source_by_key, source_duplicates = _identity_index(source)
+    target_by_key, target_duplicates = _identity_index(target)
+    return tuple(
+        (source_by_key[key][0], target_by_key[key][0], key)
+        for key in sorted(source_by_key.keys() & target_by_key.keys())
+        if key not in source_duplicates and key not in target_duplicates
+    )
+
+
+def sample_scene_morph(
+    source: Canvas, target: Canvas, progress: float, duration: float = 1.0
+) -> tuple[MorphLayerState, ...]:
+    """Sample matched, entering, and exiting layer states at ``progress``.
+
+    Position, rotation, and opacity use the same interpolation rules as the
+    regular timeline. Charts and other incompatible visualizations are marked
+    ``crossfade`` so exporters can safely composite them as whole layers.
+    """
+    if (
+        not isinstance(progress, (int, float))
+        or isinstance(progress, bool)
+        or not math.isfinite(progress)
+    ):
+        raise ValidationError("morph progress must be a finite number")
+    if (
+        not isinstance(duration, (int, float))
+        or isinstance(duration, bool)
+        or not math.isfinite(duration)
+        or duration <= 0
+    ):
+        raise ValidationError("morph duration must be a finite number greater than 0")
+    progress = min(1.0, max(0.0, float(progress)))
+    sources = dict(_scene_layers(source))
+    targets = dict(_scene_layers(target))
+    source_by_key, duplicate_source = _identity_index(source)
+    target_by_key, duplicate_target = _identity_index(target)
+    matched_source_ids = {item[0] for key, item in source_by_key.items() if key in target_by_key}
+    matched_target_ids = {item[0] for key, item in target_by_key.items() if key in source_by_key}
+    keys = sorted(set(source_by_key) | set(target_by_key))
+    result: list[MorphLayerState] = []
+    for key in keys:
+        if key in duplicate_source or key in duplicate_target:
+            continue
+        source_item, target_item = source_by_key.get(key), target_by_key.get(key)
+        if source_item and target_item:
+            source_id, source_layer = source_item
+            target_id, target_layer = target_item
+            source_state = _layer_motion_state(source_layer, source, duration)
+            target_state = _layer_motion_state(target_layer, target, progress * duration)
+            behavior: Literal["match", "crossfade"] = (
+                "crossfade"
+                if source_layer.__class__ is not target_layer.__class__
+                or getattr(source_layer, "type", None) in {"chart", "qr_code"}
+                else "match"
+            )
+            state = _interpolate_layer_states(source_state, target_state, progress)
+            result.append(MorphLayerState(key, source_id, target_id, state, behavior))
+        elif source_item:
+            layer_id, layer = source_item
+            result.append(
+                MorphLayerState(
+                    key,
+                    layer_id,
+                    None,
+                    _layer_motion_state(layer, source, duration).with_values(
+                        opacity=1.0 - progress
+                    ),
+                    "exit",
+                )
+            )
+        else:
+            layer_id, layer = target_item  # type: ignore[misc]
+            result.append(
+                MorphLayerState(
+                    key,
+                    None,
+                    layer_id,
+                    _layer_motion_state(layer, target, progress * duration).with_values(
+                        opacity=progress
+                    ),
+                    "enter",
+                )
+            )
+    for layer_id, layer in sources.items():
+        if layer_id not in matched_source_ids and getattr(layer, "motion_key", None) is None:
+            result.append(
+                MorphLayerState(
+                    None,
+                    layer_id,
+                    None,
+                    _layer_motion_state(layer, source, duration).with_values(
+                        opacity=1.0 - progress
+                    ),
+                    "exit",
+                )
+            )
+    for layer_id, layer in targets.items():
+        if layer_id not in matched_target_ids and getattr(layer, "motion_key", None) is None:
+            result.append(
+                MorphLayerState(
+                    None,
+                    None,
+                    layer_id,
+                    _layer_motion_state(layer, target, progress * duration).with_values(
+                        opacity=progress
+                    ),
+                    "enter",
+                )
+            )
+    return tuple(result)
+
+
+def _layer_motion_state(layer: object, canvas: Canvas, time: float = 0.0) -> LayerState:
+    raw_position = getattr(layer, "position", None)
+    position: tuple[int | float, int | float] | None = None
+    if isinstance(raw_position, tuple) and len(raw_position) == 2:
+        try:
+            position = (
+                parse_coordinate(raw_position[0], canvas.width),
+                parse_coordinate(raw_position[1], canvas.height),
+            )
+        except (TypeError, ValueError):
+            position = None
+    state = LayerState(
+        position=position,
+        opacity=float(getattr(layer, "opacity", 1.0)),
+        rotation=float(getattr(layer, "rotation", 0.0)),
+        color=getattr(layer, "color", None),
+    )
+    animation = getattr(layer, "animation", None)
+    if isinstance(animation, AnimationSpec) or (
+        isinstance(animation, list) and all(isinstance(item, AnimationSpec) for item in animation)
+    ):
+        return compile_timeline(animation).sample(time, state)
+    return state
+
+
+def _interpolate_layer_states(
+    source: LayerState, target: LayerState, progress: float
+) -> LayerState:
+    def mix(left, right):
+        if left is None:
+            return right
+        if right is None:
+            return left
+        return tuple(a + (b - a) * progress for a, b in zip(left, right, strict=True))
+
+    return source.with_values(
+        position=mix(source.position, target.position),
+        opacity=source.opacity + (target.opacity - source.opacity) * progress,
+        rotation=source.rotation + (target.rotation - source.rotation) * progress,
+        color=(
+            _interpolate(source.color, target.color, progress)
+            if source.color is not None and target.color is not None
+            else target.color
+            if progress >= 1.0
+            else source.color
+        ),
+    )
 
 
 def transform_matrix(state: LayerState) -> tuple[tuple[float, float, float], ...]:

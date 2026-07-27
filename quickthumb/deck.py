@@ -151,6 +151,26 @@ class Deck:
         """The deck-wide default slide transition, if set."""
         return self._transition
 
+    def match_layers(self, source: int, target: int) -> tuple[tuple[str, str, str], ...]:
+        """Return unique cross-scene layer matches by ``motion_key``."""
+        from quickthumb.motion import match_scene_layers
+
+        try:
+            return match_scene_layers(self._slides[source], self._slides[target])
+        except IndexError as error:
+            raise ValidationError("scene index is out of range") from error
+
+    def sample_morph(self, source: int, target: int, progress: float, duration: float = 1.0):
+        """Sample public layer states for a cross-scene Morph transition."""
+        from quickthumb.motion import sample_scene_morph
+
+        try:
+            return sample_scene_morph(
+                self._slides[source], self._slides[target], progress, duration
+            )
+        except IndexError as error:
+            raise ValidationError("scene index is out of range") from error
+
     def slide(
         self,
         canvas: Canvas,

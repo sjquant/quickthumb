@@ -39,15 +39,18 @@ from quickthumb._export_base import (
     uses_radial_fill,
     validate_legacy_animation_export,
 )
+from quickthumb._measurements import layer_id_for
 from quickthumb.errors import RenderingError
 from quickthumb.models import (
     Animation,
     BackgroundLayer,
     Blinds,
+    ChartLayer,
     Checkerboard,
     Glow,
     LinearGradient,
     OutlineLayer,
+    QRCodeLayer,
     RadialGradient,
     Shadow,
     ShapeLayer,
@@ -57,6 +60,7 @@ from quickthumb.models import (
     Wipe,
 )
 from quickthumb.models import Box as BoxAnimation  # avoid clash with _export_base.Box
+from quickthumb.motion import match_scene_layers
 from quickthumb.transitions import Transition
 
 if TYPE_CHECKING:
@@ -74,6 +78,7 @@ _ALIGN_MAP = {"left": "LEFT", "center": "CENTER", "right": "RIGHT"}
 # 2010 transition extension namespace, used for a precise transition duration in
 # milliseconds (the base spd attribute only offers slow/med/fast).
 _P14_NS = "http://schemas.microsoft.com/office/powerpoint/2010/main"
+_P15_NS = "http://schemas.microsoft.com/office/powerpoint/2015/09/main"
 
 # presetID values PowerPoint uses to label entrance/exit effects in its UI. The
 # actual motion comes from the behaviour XML, so an approximate id is harmless.
@@ -180,7 +185,14 @@ class PptxExporter:
 
             transition = transitions[index] if transitions else None
             if transition is not None:
-                self._apply_transition(transition)
+                self._apply_transition(
+                    transition,
+                    native_morph=(
+                        transition.effect == "morph"
+                        and index > 0
+                        and self._supports_native_morph(canvases[index - 1], canvas)
+                    ),
+                )
             entries = self._resolve_animation_entries()
             if entries:
                 self._apply_timing(entries)
@@ -220,18 +232,43 @@ class PptxExporter:
         applied to all of them together.
         """
         animation = getattr(layer, "animation", None)
+        start = len(self._slide.shapes)
         if animation is None:
             self._emit_layer(layer)
-            return
-        animation = cast(AnimationSpec, animation)
-
-        start = len(self._slide.shapes)
-        self._emit_layer(layer)
+        else:
+            animation = cast(AnimationSpec, animation)
+            self._emit_layer(layer)
         new_ids = [
             self._slide.shapes[index].shape_id for index in range(start, len(self._slide.shapes))
         ]
-        if new_ids:
+        key = getattr(layer, "motion_key", None)
+        if key is not None:
+            for ordinal, shape_id in enumerate(new_ids):
+                shape = next(shape for shape in self._slide.shapes if shape.shape_id == shape_id)
+                # PowerPoint's explicit Morph identity contract is a unique
+                # name beginning with two exclamation points.
+                shape.name = f"!!qt-morph-{key}-{ordinal}"
+        if new_ids and animation is not None:
             self._anim_records.append((animation, new_ids))
+
+    @staticmethod
+    def _supports_native_morph(source: Canvas, target: Canvas) -> bool:
+        """Return whether both slides expose at least one top-level match."""
+        source_layers = {
+            layer_id_for(layer, index, (index,)): layer for index, layer in enumerate(source.layers)
+        }
+        target_layers = {
+            layer_id_for(layer, index, (index,)): layer for index, layer in enumerate(target.layers)
+        }
+        for source_id, target_id, _ in match_scene_layers(source, target):
+            if source_id not in source_layers or target_id not in target_layers:
+                continue
+            if isinstance(source_layers[source_id], (ChartLayer, QRCodeLayer)):
+                continue
+            if isinstance(target_layers[target_id], (ChartLayer, QRCodeLayer)):
+                continue
+            return True
+        return False
 
     def _resolve_animation_entries(self) -> list[tuple[Animation, list[int]]]:
         """Turn the per-layer records into (animation, shape_ids) effect entries.
@@ -769,12 +806,12 @@ class PptxExporter:
 
     # ------------------------------------------------------ slide transitions
 
-    def _apply_transition(self, transition: Transition):
+    def _apply_transition(self, transition: Transition, *, native_morph: bool = False):
         """Append a <p:transition> element describing this slide's transition."""
         from pptx.oxml import parse_xml
         from pptx.oxml.ns import nsdecls
 
-        child = self._transition_child(transition)
+        child = self._transition_child(transition, native_morph=native_morph)
         duration = transition.duration
         speed = "fast" if duration <= 0.5 else "med" if duration <= 1.0 else "slow"
 
@@ -791,10 +828,23 @@ class PptxExporter:
         )
         self._slide._element.append(parse_xml(xml))
 
-    def _transition_child(self, t: Transition) -> str:
+    def _transition_child(self, t: Transition, *, native_morph: bool = False) -> str:
         """Build the DrawingML child element for a transition effect object."""
         effect = t.effect
-        childless = ("cut", "fade", "dissolve", "newsflash", "wedge", "circle", "diamond", "random")
+        childless = (
+            "cut",
+            "fade",
+            "dissolve",
+            "newsflash",
+            "wedge",
+            "circle",
+            "diamond",
+            "random",
+        )
+        if effect == "morph":
+            if native_morph:
+                return f'<p14:morph xmlns:p14="{_P15_NS}" option="byObject"/>'
+            return "<p:fade/>"
         if effect in childless:
             return f"<p:{effect}/>"
         if effect == "wheel":
