@@ -264,7 +264,7 @@ class Canvas:
     @layers.setter
     def layers(self, value: list[RenderableLayer]):
         previous = self._layers
-        self._layers = value
+        self._layers = list(value)
         try:
             self._validate_layer_identities()
         except Exception:
@@ -483,8 +483,14 @@ class Canvas:
         return self
 
     def outline(
-        self, width: int, color: str, offset: int = 0, opacity: float = 1.0, *,
-        id: str | None = None, motion_key: str | None = None
+        self,
+        width: int,
+        color: str,
+        offset: int = 0,
+        opacity: float = 1.0,
+        *,
+        id: str | None = None,
+        motion_key: str | None = None,
     ) -> Self:
         layer = OutlineLayer(
             type="outline",

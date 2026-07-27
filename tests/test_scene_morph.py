@@ -197,6 +197,14 @@ def test_should_keep_canvas_layers_read_only_through_the_public_collection():
     # Then the canvas itself remains unchanged
     assert len(canvas.layers) == 1
 
+    # When a caller replaces the collection and later mutates its input list
+    replacement = [canvas.layers[0]]
+    canvas.layers = replacement
+    replacement.clear()
+
+    # Then the assigned canvas collection remains isolated as well
+    assert len(canvas.layers) == 1
+
 
 def test_should_sample_layer_timeline_at_the_morph_scene_time():
     # Given a keyed source layer with a canonical position timeline
@@ -213,9 +221,7 @@ def test_should_sample_layer_timeline_at_the_morph_scene_time():
     source = Canvas(100, 100).shape(
         "rectangle", (0, 0), 10, 10, "#FF0000", motion_key="hero", animation=animation
     )
-    target = Canvas(100, 100).shape(
-        "rectangle", (100, 0), 10, 10, "#FF0000", motion_key="hero"
-    )
+    target = Canvas(100, 100).shape("rectangle", (100, 0), 10, 10, "#FF0000", motion_key="hero")
 
     # When Morph is sampled halfway through a two-second transition
     state = Deck(slides=[source, target]).sample_morph(0, 1, 0.5, duration=2)[0]

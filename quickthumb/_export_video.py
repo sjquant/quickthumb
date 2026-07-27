@@ -1240,11 +1240,7 @@ def _morph_layer_index(canvas: Canvas) -> dict[str, RenderableLayer]:
         key = getattr(layer, "motion_key", None)
         if key is not None:
             occurrences.setdefault(key, []).append(layer)
-    return {
-        key: values[0]
-        for key, values in occurrences.items()
-        if len(values) == 1
-    }
+    return {key: values[0] for key, values in occurrences.items() if len(values) == 1}
 
 
 def _render_canvas_frame(canvas: Canvas, layers=None) -> Image.Image:
