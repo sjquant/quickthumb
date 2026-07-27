@@ -46,7 +46,7 @@ class ChartData(quickthumbModel):
         return normalized
 
 
-class VisualizationLayerBase(quickthumbModel):
+class VisualizationLayerBase(LayerIdentityModel):
     """Common positioning and composition contract for visualization layers."""
 
     position: Position = (0, 0)

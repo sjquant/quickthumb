@@ -63,6 +63,12 @@ class Fade(_TransitionBase):
     effect: Literal["fade"] = "fade"
 
 
+class Morph(_TransitionBase):
+    """Move uniquely keyed layers between adjacent scenes."""
+
+    effect: Literal["morph"] = "morph"
+
+
 class Dissolve(_TransitionBase):
     """Dissolve into the slide through a speckled mask."""
 
@@ -175,6 +181,7 @@ class Comb(_TransitionBase):
 Transition = Annotated[
     Cut
     | Fade
+    | Morph
     | Dissolve
     | Newsflash
     | Wedge
@@ -195,7 +202,7 @@ Transition = Annotated[
 ]
 
 _EFFECT_CLASSES = (
-    Cut, Fade, Dissolve, Newsflash, Wedge, Circle, Diamond, Random, Wheel,
+    Cut, Fade, Morph, Dissolve, Newsflash, Wedge, Circle, Diamond, Random, Wheel,
     Push, Wipe, Cover, Uncover, Zoom, Split, Blinds, Checker, Comb,
 )  # fmt: skip
 _EFFECT_NAMES = ", ".join(cls.model_fields["effect"].default for cls in _EFFECT_CLASSES)

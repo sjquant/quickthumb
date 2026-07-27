@@ -1196,7 +1196,7 @@ def _transition_frame(
     effect = transition.effect
     if effect == "cut":
         return incoming
-    if effect in ("fade", "random"):
+    if effect in ("fade", "random", "morph"):
         return Image.blend(previous, incoming, progress)
     if effect == "push":
         return _push_frame(previous, incoming, progress, getattr(transition, "direction", "left"))

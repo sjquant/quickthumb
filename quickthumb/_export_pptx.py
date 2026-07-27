@@ -794,7 +794,20 @@ class PptxExporter:
     def _transition_child(self, t: Transition) -> str:
         """Build the DrawingML child element for a transition effect object."""
         effect = t.effect
-        childless = ("cut", "fade", "dissolve", "newsflash", "wedge", "circle", "diamond", "random")
+        childless = (
+            "cut",
+            "fade",
+            "dissolve",
+            "newsflash",
+            "wedge",
+            "circle",
+            "diamond",
+            "random",
+        )
+        if effect == "morph":
+            # Native Morph needs a viewer-specific shape identity contract;
+            # emit the deterministic safe fallback for generic layers.
+            return "<p:fade/>"
         if effect in childless:
             return f"<p:{effect}/>"
         if effect == "wheel":

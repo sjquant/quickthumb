@@ -63,7 +63,7 @@ class TextPart(quickthumbModel):
         return _validate_font_variations(v)
 
 
-class BackgroundLayer(quickthumbModel):
+class BackgroundLayer(LayerIdentityModel):
     type: Literal["background"]
     color: HexColor | tuple | None = None
     gradient: Annotated[LinearGradient | RadialGradient, Discriminator("type")] | None = None
@@ -100,7 +100,7 @@ class BackgroundLayer(quickthumbModel):
         return "#" + "".join(f"{c:02X}" for c in v)
 
 
-class TextLayer(quickthumbModel):
+class TextLayer(LayerIdentityModel):
     type: Literal["text"]
     content: str | list[TextPart]
     font: str | None = None
@@ -236,7 +236,7 @@ def _validate_font_variations(v: FontVariations) -> FontVariations:
     return dict(v)
 
 
-class OutlineLayer(quickthumbModel):
+class OutlineLayer(LayerIdentityModel):
     type: Literal["outline"]
     width: PositiveInt
     color: HexColor
@@ -244,7 +244,7 @@ class OutlineLayer(quickthumbModel):
     opacity: OpacityField = 1.0
 
 
-class ImageLayer(quickthumbModel):
+class ImageLayer(LayerIdentityModel):
     type: Literal["image"]
     path: str
     position: Position
@@ -292,7 +292,7 @@ class ImageLayer(quickthumbModel):
         return align.value
 
 
-class ShapeLayer(quickthumbModel):
+class ShapeLayer(LayerIdentityModel):
     type: Literal["shape"]
     shape: Literal["rectangle", "ellipse", "pill", "triangle", "star", "polygon"]
     position: Position
@@ -372,7 +372,7 @@ class ShapeLayer(quickthumbModel):
         return align.value
 
 
-class SvgLayer(quickthumbModel):
+class SvgLayer(LayerIdentityModel):
     type: Literal["svg"]
     path: str
     position: Position
@@ -412,7 +412,7 @@ class SvgLayer(quickthumbModel):
         return align.value
 
 
-class GroupLayer(quickthumbModel):
+class GroupLayer(LayerIdentityModel):
     type: Literal["group"]
     direction: Literal["row", "column"] = "column"
     gap: NonNegativeInt = 0

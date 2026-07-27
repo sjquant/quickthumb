@@ -940,7 +940,7 @@ def _transition_states(transition) -> tuple[str, str]:
     case that arrives here (the new slide sliding in over a static old one).
     """
     effect = transition.effect
-    if effect in ("fade", "dissolve", "random", "checker"):
+    if effect in ("fade", "morph", "dissolve", "random", "checker"):
         return "opacity:0", "opacity:1"
     if effect in ("wipe", "comb", "blinds"):
         direction = getattr(transition, "direction", "up")

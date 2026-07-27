@@ -422,6 +422,167 @@ class LayerState(BaseModel):
             raise ValidationError(f"invalid layer state update: {error}") from error
 
 
+@dataclass(frozen=True)
+class MorphLayerState:
+    """The deterministic state of one layer during a scene transition."""
+
+    motion_key: str
+    source_id: str | None
+    target_id: str | None
+    state: LayerState
+    behavior: Literal["match", "enter", "exit", "crossfade"]
+
+
+def _scene_layers(canvas: Canvas) -> tuple[tuple[str, object], ...]:
+    def walk(layer: object, index: int, path: tuple[int, ...]):
+        yield layer_id_for(layer, index, path), layer
+        for child_index, child in enumerate(getattr(layer, "children", ())):
+            yield from walk(child, child_index, (*path, child_index))
+
+    result = []
+    for index, layer in enumerate(canvas.layers):
+        result.extend(walk(layer, index, (index,)))
+    return tuple(result)
+
+
+def match_scene_layers(source: Canvas, target: Canvas) -> tuple[tuple[str, str, str], ...]:
+    """Match unique ``motion_key`` values across two canvases.
+
+    ``id`` remains scene-local. Duplicate keys, missing keys, and keys that
+    cannot identify exactly one layer on both sides are deliberately ignored.
+    This makes malformed authored identity data degrade to ordinary transitions.
+    """
+    source_layers = _scene_layers(source)
+    target_layers = _scene_layers(target)
+    source_by_key: dict[str, list[str]] = {}
+    target_by_key: dict[str, list[str]] = {}
+    for layer_id, layer in source_layers:
+        key = getattr(layer, "motion_key", None)
+        if key is not None:
+            source_by_key.setdefault(key, []).append(layer_id)
+    for layer_id, layer in target_layers:
+        key = getattr(layer, "motion_key", None)
+        if key is not None:
+            target_by_key.setdefault(key, []).append(layer_id)
+    return tuple(
+        (source_by_key[key][0], target_by_key[key][0], key)
+        for key in sorted(source_by_key.keys() & target_by_key.keys())
+        if len(source_by_key[key]) == 1 and len(target_by_key[key]) == 1
+    )
+
+
+def sample_scene_morph(
+    source: Canvas, target: Canvas, progress: float
+) -> tuple[MorphLayerState, ...]:
+    """Sample matched, entering, and exiting layer states at ``progress``.
+
+    Position, rotation, and opacity use the same interpolation rules as the
+    regular timeline. Charts and other incompatible visualizations are marked
+    ``crossfade`` so exporters can safely composite them as whole layers.
+    """
+    if (
+        not isinstance(progress, (int, float))
+        or isinstance(progress, bool)
+        or not math.isfinite(progress)
+    ):
+        raise ValidationError("morph progress must be a finite number")
+    progress = min(1.0, max(0.0, float(progress)))
+    sources = dict(_scene_layers(source))
+    targets = dict(_scene_layers(target))
+    source_by_key = {
+        getattr(layer, "motion_key", None): (layer_id, layer)
+        for layer_id, layer in sources.items()
+        if getattr(layer, "motion_key", None)
+    }
+    target_by_key = {
+        getattr(layer, "motion_key", None): (layer_id, layer)
+        for layer_id, layer in targets.items()
+        if getattr(layer, "motion_key", None)
+    }
+    duplicate_source = {
+        key
+        for key in source_by_key
+        if sum(getattr(layer, "motion_key", None) == key for layer in sources.values()) > 1
+    }
+    duplicate_target = {
+        key
+        for key in target_by_key
+        if sum(getattr(layer, "motion_key", None) == key for layer in targets.values()) > 1
+    }
+    keys = sorted(set(source_by_key) | set(target_by_key))
+    result: list[MorphLayerState] = []
+    for key in keys:
+        if key in duplicate_source or key in duplicate_target:
+            continue
+        source_item, target_item = source_by_key.get(key), target_by_key.get(key)
+        if source_item and target_item:
+            source_id, source_layer = source_item
+            target_id, target_layer = target_item
+            source_state = _layer_motion_state(source_layer)
+            target_state = _layer_motion_state(target_layer)
+            behavior: Literal["match", "crossfade"] = (
+                "crossfade"
+                if source_layer.__class__ is not target_layer.__class__
+                or getattr(source_layer, "type", None) in {"chart", "qr_code"}
+                else "match"
+            )
+            state = _interpolate_layer_states(source_state, target_state, progress)
+            result.append(MorphLayerState(key, source_id, target_id, state, behavior))
+        elif source_item:
+            layer_id, layer = source_item
+            result.append(
+                MorphLayerState(
+                    key,
+                    layer_id,
+                    None,
+                    _layer_motion_state(layer).with_values(opacity=1.0 - progress),
+                    "exit",
+                )
+            )
+        else:
+            layer_id, layer = target_item  # type: ignore[misc]
+            result.append(
+                MorphLayerState(
+                    key,
+                    None,
+                    layer_id,
+                    _layer_motion_state(layer).with_values(opacity=progress),
+                    "enter",
+                )
+            )
+    return tuple(result)
+
+
+def _layer_motion_state(layer: object) -> LayerState:
+    position = getattr(layer, "position", None)
+    if not isinstance(position, tuple) or not all(
+        isinstance(value, (int, float)) for value in position
+    ):
+        position = None
+    return LayerState(
+        position=position,
+        opacity=float(getattr(layer, "opacity", 1.0)),
+        rotation=float(getattr(layer, "rotation", 0.0)),
+    )
+
+
+def _interpolate_layer_states(
+    source: LayerState, target: LayerState, progress: float
+) -> LayerState:
+    def mix(left, right):
+        if left is None:
+            return right
+        if right is None:
+            return left
+        return tuple(a + (b - a) * progress for a, b in zip(left, right, strict=True))
+
+    return source.with_values(
+        position=mix(source.position, target.position),
+        opacity=source.opacity + (target.opacity - source.opacity) * progress,
+        rotation=source.rotation + (target.rotation - source.rotation) * progress,
+    )
+
+
 def transform_matrix(state: LayerState) -> tuple[tuple[float, float, float], ...]:
     """Return the affine matrix for scale, then rotation, then translation.
 

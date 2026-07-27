@@ -355,6 +355,9 @@ class Canvas:
         focal_point: tuple[float, float] | None = None,
         faces: list[FaceRegion | dict[str, float]] | None = None,
         effects: list[BackgroundEffect] | None = None,
+        *,
+        id: str | None = None,
+        motion_key: str | None = None,
     ) -> Self:
         if color is None and gradient is None and image is None:
             raise ValidationError(
@@ -371,6 +374,8 @@ class Canvas:
             focal_point=focal_point,
             faces=faces or [],  # type: ignore[arg-type]
             effects=effects or [],
+            id=id,
+            motion_key=motion_key,
         )
         self._layers.append(layer)
         return self
@@ -405,6 +410,9 @@ class Canvas:
         clip: LayerClip | dict[str, Any] | None = None,
         mask: LayerMask | dict[str, Any] | None = None,
         animation: AnimationInput | None = None,
+        *,
+        id: str | None = None,
+        motion_key: str | None = None,
     ) -> Self:
         if content is None:
             raise ValidationError("content is required")
@@ -437,17 +445,24 @@ class Canvas:
             clip=cast(Any, clip),
             mask=cast(Any, mask),
             animation=animation,
+            id=id,
+            motion_key=motion_key,
         )
         self._layers.append(layer)
         return self
 
-    def outline(self, width: int, color: str, offset: int = 0, opacity: float = 1.0) -> Self:
+    def outline(
+        self, width: int, color: str, offset: int = 0, opacity: float = 1.0, *,
+        id: str | None = None, motion_key: str | None = None
+    ) -> Self:
         layer = OutlineLayer(
             type="outline",
             width=width,
             color=color,
             offset=offset,
             opacity=opacity,
+            id=id,
+            motion_key=motion_key,
         )
         self._layers.append(layer)
         return self
@@ -470,6 +485,9 @@ class Canvas:
         clip: LayerClip | dict[str, Any] | None = None,
         mask: LayerMask | dict[str, Any] | None = None,
         animation: AnimationInput | None = None,
+        *,
+        id: str | None = None,
+        motion_key: str | None = None,
     ) -> Self:
         layer = ShapeLayer(
             type="shape",
@@ -489,6 +507,8 @@ class Canvas:
             mask=cast(Any, mask),
             effects=effects or [],
             animation=animation,
+            id=id,
+            motion_key=motion_key,
         )
         self._layers.append(layer)
         return self
@@ -512,6 +532,9 @@ class Canvas:
         clip: LayerClip | dict[str, Any] | None = None,
         mask: LayerMask | dict[str, Any] | None = None,
         animation: AnimationInput | None = None,
+        *,
+        id: str | None = None,
+        motion_key: str | None = None,
     ) -> Self:
         """Add an image overlay layer to the canvas.
 
@@ -553,6 +576,8 @@ class Canvas:
             mask=cast(Any, mask),
             effects=effects or [],
             animation=animation,
+            id=id,
+            motion_key=motion_key,
         )
         self._layers.append(layer)
         return self
@@ -571,6 +596,9 @@ class Canvas:
         clip: LayerClip | dict[str, Any] | None = None,
         mask: LayerMask | dict[str, Any] | None = None,
         animation: AnimationInput | None = None,
+        *,
+        id: str | None = None,
+        motion_key: str | None = None,
     ) -> Self:
         """Add an SVG overlay layer, rasterized at render time (requires quickthumb[svg]).
 
@@ -601,6 +629,8 @@ class Canvas:
             mask=cast(Any, mask),
             effects=effects or [],
             animation=animation,
+            id=id,
+            motion_key=motion_key,
         )
         self._layers.append(layer)
         return self
@@ -616,6 +646,9 @@ class Canvas:
         clip: LayerClip | dict[str, Any] | None = None,
         mask: LayerMask | dict[str, Any] | None = None,
         animation: AnimationInput | None = None,
+        *,
+        id: str | None = None,
+        motion_key: str | None = None,
     ) -> Self:
         """Add a chart layer using a validated bar or line specification."""
         layer = ChartLayer(
@@ -628,6 +661,8 @@ class Canvas:
             clip=cast(Any, clip),
             mask=cast(Any, mask),
             spec=spec,
+            id=id,
+            motion_key=motion_key,
         )
         self._layers.append(layer)
         return self
@@ -646,6 +681,9 @@ class Canvas:
         clip: LayerClip | dict[str, Any] | None = None,
         mask: LayerMask | dict[str, Any] | None = None,
         animation: AnimationInput | None = None,
+        *,
+        id: str | None = None,
+        motion_key: str | None = None,
     ) -> Self:
         """Add a square QR code layer."""
         layer = QRCodeLayer(
@@ -661,6 +699,8 @@ class Canvas:
             animation=animation,
             clip=cast(Any, clip),
             mask=cast(Any, mask),
+            id=id,
+            motion_key=motion_key,
         )
         self._layers.append(layer)
         return self
@@ -679,6 +719,9 @@ class Canvas:
         clip: LayerClip | dict[str, Any] | None = None,
         mask: LayerMask | dict[str, Any] | None = None,
         animation: AnimationInput | None = None,
+        *,
+        id: str | None = None,
+        motion_key: str | None = None,
     ) -> Self:
         """Add an auto-layout group that stacks child layers along a row or column.
 
@@ -710,6 +753,8 @@ class Canvas:
             mask=cast(Any, mask),
             animation=animation,
             children=children,
+            id=id,
+            motion_key=motion_key,
         )
         self._layers.append(layer)
         return self
@@ -987,6 +1032,10 @@ class Canvas:
     @classmethod
     def _omit_unset_composition_fields(cls, value):
         if isinstance(value, dict):
+            if value.get("id") is None:
+                value.pop("id", None)
+            if value.get("motion_key") is None:
+                value.pop("motion_key", None)
             if value.get("clip") is None:
                 value.pop("clip", None)
             if value.get("mask") is None:
