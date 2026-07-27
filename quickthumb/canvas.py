@@ -1349,16 +1349,16 @@ class Canvas:
     def _render_to_image(self, debug: bool = False, time: float | None = None) -> Image.Image:
         self._ctx.begin_render_pass()
         self._ctx.motion_time = time
-        image = self._create_canvas()
-
-        for layer in self._layers:
-            self._render_layer(image, layer, time)
-
-        if debug:
-            self._draw_debug_overlay(image)
-
-        self._ctx.motion_time = None
-        return image
+        try:
+            image = self._create_canvas()
+            for layer in self._layers:
+                self._render_layer(image, layer, time)
+            if debug:
+                self._draw_debug_overlay(image)
+            return image
+        finally:
+            self._ctx.motion_time = None
+            self._ctx.close_video_decoders()
 
     def _draw_debug_overlay(self, image: Image.Image) -> None:
         draw = ImageDraw.Draw(image, "RGBA")
@@ -1472,6 +1472,7 @@ class Canvas:
                 0.0 if time is None else time,
                 info,
                 self._ctx.video_frame_cache,
+                self._ctx.video_decoder_cache,
                 self._fonts.load_font_variant,
             )
         elif isinstance(layer, CustomLayer):

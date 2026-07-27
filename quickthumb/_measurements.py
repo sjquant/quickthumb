@@ -31,6 +31,7 @@ MEASURABLE_LAYER_TYPES = frozenset(
         "group",
         "chart",
         "qr_code",
+        "video",
     }
 )
 
@@ -413,8 +414,9 @@ class LayerMeasurementEngine:
             w, h = positioned.width, positioned.height
         x = parse_coordinate(positioned.position[0], self._ctx.width)
         y = parse_coordinate(positioned.position[1], self._ctx.height)
-        if positioned.align:
-            x, y = apply_alignment(x, y, (w, h), positioned.align)
+        align = getattr(positioned, "align", None)
+        if align:
+            x, y = apply_alignment(x, y, (w, h), align)
         return BBox(x, y, w, h)
 
     @staticmethod

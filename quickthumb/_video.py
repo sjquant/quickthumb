@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 import shutil
 import subprocess
 from dataclasses import dataclass
-from io import BytesIO
+from fractions import Fraction
 
 from PIL import Image, ImageColor, ImageDraw, ImageFont
 
@@ -23,6 +24,71 @@ class VideoInfo:
     width: int
     height: int
     has_audio: bool
+    frame_rate: float
+
+
+class VideoDecoder:
+    """A sequential raw-frame decoder reused across timeline samples."""
+
+    def __init__(self, source: str, info: VideoInfo):
+        self.source = source
+        self.info = info
+        self._process: subprocess.Popen[bytes] | None = None
+        self._next_index = 0
+
+    def close(self) -> None:
+        if self._process is None:
+            return
+        self._process.stdout.close() if self._process.stdout else None
+        self._process.terminate()
+        try:
+            self._process.wait(timeout=2)
+        except subprocess.TimeoutExpired:
+            self._process.kill()
+            self._process.wait()
+        self._process = None
+
+    def frame_at(self, time: float) -> Image.Image:
+        max_index = max(0, math.ceil(self.info.duration * self.info.frame_rate) - 1)
+        target_index = min(max_index, max(0, int(time * self.info.frame_rate + 0.5)))
+        if target_index < self._next_index:
+            self.close()
+            self._next_index = 0
+        if self._process is None:
+            self._process = self._start()
+        frame_size = self.info.width * self.info.height * 4
+        raw = b""
+        while self._next_index <= target_index:
+            raw = self._process.stdout.read(frame_size) if self._process.stdout else b""
+            if len(raw) != frame_size:
+                self.close()
+                raise RenderingError(f"Could not decode video frame from {self.source!r}")
+            self._next_index += 1
+        return Image.frombytes("RGBA", (self.info.width, self.info.height), raw)
+
+    def _start(self) -> subprocess.Popen[bytes]:
+        ffmpeg = _tool("ffmpeg", "QUICKTHUMB_FFMPEG")
+        try:
+            return subprocess.Popen(
+                [
+                    ffmpeg,
+                    "-v",
+                    "error",
+                    "-i",
+                    self.source,
+                    "-map",
+                    "0:v:0",
+                    "-f",
+                    "rawvideo",
+                    "-pix_fmt",
+                    "rgba",
+                    "pipe:1",
+                ],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+            )
+        except OSError as error:
+            raise RenderingError(f"Could not start FFmpeg for {self.source!r}") from error
 
 
 def _tool(name: str, setting: str) -> str:
@@ -44,7 +110,7 @@ def probe_video(source: str) -> VideoInfo:
             "-v",
             "error",
             "-show_entries",
-            "stream=codec_type,width,height,duration:format=duration",
+            "stream=codec_type,width,height,duration,avg_frame_rate:format=duration",
             "-of",
             "json",
             source,
@@ -63,11 +129,19 @@ def probe_video(source: str) -> VideoInfo:
         duration = float(stream.get("duration") or payload["format"]["duration"])
         width, height = int(stream["width"]), int(stream["height"])
         has_audio = any(item.get("codec_type") == "audio" for item in streams)
-    except (KeyError, IndexError, TypeError, ValueError, json.JSONDecodeError) as error:
+        frame_rate = float(Fraction(stream.get("avg_frame_rate", "30/1")))
+    except (
+        KeyError,
+        IndexError,
+        TypeError,
+        ValueError,
+        ZeroDivisionError,
+        json.JSONDecodeError,
+    ) as error:
         raise RenderingError(f"Video source has no usable video stream: {source!r}") from error
     if duration <= 0 or width <= 0 or height <= 0:
         raise RenderingError(f"Video source has invalid dimensions or duration: {source!r}")
-    return VideoInfo(duration, width, height, has_audio)
+    return VideoInfo(duration, width, height, has_audio, frame_rate or 30.0)
 
 
 def effective_duration(layer: VideoLayer, info: VideoInfo) -> float:
@@ -91,43 +165,13 @@ def source_time(layer: VideoLayer, time: float, info: VideoInfo) -> float:
     return min(info.duration, layer.trim_start + local * layer.speed)
 
 
-def extract_frame(source: str, time: float) -> Image.Image:
-    ffmpeg = _tool("ffmpeg", "QUICKTHUMB_FFMPEG")
-    result = subprocess.run(
-        [
-            ffmpeg,
-            "-v",
-            "error",
-            "-ss",
-            f"{max(0.0, time):.6f}",
-            "-i",
-            source,
-            "-frames:v",
-            "1",
-            "-f",
-            "image2pipe",
-            "-vcodec",
-            "png",
-            "pipe:1",
-        ],
-        capture_output=True,
-        check=False,
-    )
-    if result.returncode != 0 or not result.stdout:
-        detail = result.stderr.decode(errors="replace").strip()[-500:]
-        raise RenderingError(f"Could not decode video source {source!r}: {detail}")
-    try:
-        return Image.open(BytesIO(result.stdout)).convert("RGBA")
-    except Exception as error:
-        raise RenderingError(f"FFmpeg returned an invalid frame for {source!r}") from error
-
-
 def render_video_layer(
     image: Image.Image,
     layer: VideoLayer,
     time: float,
     info: VideoInfo,
     frame_cache: dict[tuple[str, float], Image.Image],
+    decoder_cache: dict[str, VideoDecoder],
     font_loader=None,
 ) -> None:
     """Composite one sampled clip and its active captions onto a canvas."""
@@ -138,7 +182,11 @@ def render_video_layer(
     key = (layer.source, round(sample_time, 6))
     frame = frame_cache.get(key)
     if frame is None:
-        frame = extract_frame(layer.source, sample_time)
+        decoder = decoder_cache.get(layer.source)
+        if decoder is None:
+            decoder = VideoDecoder(layer.source, info)
+            decoder_cache[layer.source] = decoder
+        frame = decoder.frame_at(sample_time)
         frame_cache[key] = frame
     fitted = ImageEngine._fit_image(
         frame, (layer.width, layer.height), layer.fit, Image.Resampling.BICUBIC

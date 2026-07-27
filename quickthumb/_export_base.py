@@ -184,15 +184,23 @@ class RasterFragment:
 def rasterize_layers(canvas: Canvas, layers: list[RenderableLayer]) -> RasterFragment | None:
     """Render layers through the PIL pipeline and crop the result to its bounds."""
     image = Image.new("RGBA", (canvas.width, canvas.height), (0, 0, 0, 0))
-    for layer in layers:
-        canvas._render_layer(image, layer)
-    bbox = image.getbbox()
-    if bbox is None:
-        return None
-    cropped = image.crop(bbox)
-    buffer = BytesIO()
-    cropped.save(buffer, format="PNG")
-    return RasterFragment(buffer.getvalue(), bbox[0], bbox[1], cropped.width, cropped.height)
+    try:
+        for layer in layers:
+            sample_time = (
+                getattr(layer, "start", None)
+                if getattr(layer, "type", None) == "video"
+                else None
+            )
+            canvas._render_layer(image, layer, sample_time)
+        bbox = image.getbbox()
+        if bbox is None:
+            return None
+        cropped = image.crop(bbox)
+        buffer = BytesIO()
+        cropped.save(buffer, format="PNG")
+        return RasterFragment(buffer.getvalue(), bbox[0], bbox[1], cropped.width, cropped.height)
+    finally:
+        canvas._ctx.close_video_decoders()
 
 
 def color_to_rgba(canvas: Canvas, color: str | tuple, opacity: float = 1.0) -> tuple:

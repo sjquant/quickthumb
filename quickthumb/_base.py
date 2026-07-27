@@ -29,6 +29,7 @@ class RenderContext:
         self.image_size_cache: dict[str, tuple[int, int]] = {}
         self.video_info_cache: dict[str, object] = {}
         self.video_frame_cache: dict[tuple[str, float], Any] = {}
+        self.video_decoder_cache: dict[str, Any] = {}
         self.motion_time: float | None = None
 
     def begin_render_pass(self):
@@ -36,8 +37,15 @@ class RenderContext:
         self.svg_raster_cache.clear()
         self.measure_cache.clear()
         self.image_size_cache.clear()
+        self.close_video_decoders()
         self.video_info_cache.clear()
         self.video_frame_cache.clear()
+
+    def close_video_decoders(self):
+        """Close persistent FFmpeg readers owned by this render context."""
+        for decoder in self.video_decoder_cache.values():
+            decoder.close()
+        self.video_decoder_cache.clear()
 
 
 def parse_coordinate(value: int | str, dimension: int) -> int:

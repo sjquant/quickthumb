@@ -21,6 +21,7 @@ from pydantic import (
 from quickthumb.errors import ValidationError
 
 from .common import *  # noqa: F401,F403
+from .common import _validate_required_position
 from .effects import *  # noqa: F401,F403
 from .motion import AnimationInput
 from .visualizations import ChartLayer, QRCodeLayer
@@ -432,14 +433,7 @@ class VideoCaption(quickthumbModel):
     @field_validator("position", mode="before")
     @classmethod
     def validate_position(cls, v: tuple | list) -> Position:
-        if not isinstance(v, (tuple, list)) or len(v) != 2:
-            raise ValueError("caption position must be a tuple of two elements")
-        for item in v:
-            if isinstance(item, str) and not re.fullmatch(r"-?(\d+(\.\d+)?)%", item):
-                raise ValueError(f"invalid percentage format: {item}")
-            if not isinstance(item, (int, str)):
-                raise ValueError("caption position values must be integers or percentages")
-        return tuple(v)
+        return _validate_required_position(v)
 
     @model_validator(mode="after")
     def validate_range(self) -> "VideoCaption":
@@ -475,14 +469,7 @@ class VideoLayer(LayerIdentityModel):
     @field_validator("position", mode="before")
     @classmethod
     def validate_position(cls, v: tuple | list) -> Position:
-        if not isinstance(v, (tuple, list)) or len(v) != 2:
-            raise ValueError("position must be a tuple of two elements")
-        for item in v:
-            if isinstance(item, str) and not re.fullmatch(r"-?(\d+(\.\d+)?)%", item):
-                raise ValueError(f"invalid percentage format: {item}")
-            if not isinstance(item, (int, str)):
-                raise ValueError("position values must be integers or percentages")
-        return tuple(v)
+        return _validate_required_position(v)
 
     @model_validator(mode="after")
     def validate_timing(self) -> "VideoLayer":

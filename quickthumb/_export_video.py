@@ -233,6 +233,7 @@ def write_animation(
         os.replace(temp_path, output_path)
     finally:
         _remove_quietly(temp_path)
+        _close_video_decoders(canvases)
 
 
 def _write_bytes_atomically(output_path: str, data: bytes, suffix: str) -> None:
@@ -311,7 +312,10 @@ def export_animation_bytes(
         audio_timeline_duration = plan.duration
 
     if format == "gif":
-        return _encode_gif(shots, loop, max_size=max_size, colors=colors)
+        try:
+            return _encode_gif(shots, loop, max_size=max_size, colors=colors)
+        finally:
+            _close_video_decoders(canvases)
 
     # ffmpeg needs a real, seekable output file (MP4 faststart rewrites the
     # header), so bytes go through a temporary file.
@@ -336,6 +340,7 @@ def export_animation_bytes(
     finally:
         # The encoder already removes the file when it fails.
         _remove_quietly(temp_path)
+        _close_video_decoders(canvases)
 
 
 def _validated_settings(
@@ -2097,6 +2102,11 @@ def _video_audio_schedule(canvases: list[Canvas], offsets: list[float]) -> list[
                 )
             )
     return clips
+
+
+def _close_video_decoders(canvases: list[Canvas]) -> None:
+    for canvas in canvases:
+        canvas._ctx.close_video_decoders()
 
 
 def _remove_quietly(path: str) -> None:

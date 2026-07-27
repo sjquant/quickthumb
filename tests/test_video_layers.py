@@ -117,6 +117,17 @@ def test_video_layer_round_trips_through_public_canvas_json(source_video):
 
 
 @pytest.mark.skipif(not HAS_FFMPEG, reason="ffmpeg is required")
+def test_video_layer_inspection_and_static_fallback_keep_delayed_clips_visible(source_video):
+    """Given a delayed clip, inspection and SVG fallback keep video identified and visible."""
+    canvas = Canvas(96, 64).video(
+        str(source_video), (8, 8), 64, 48, start=0.2, trim_start=0.1, trim_end=0.4
+    )
+
+    assert canvas.inspect().layers[0].type == "video"
+    assert "data:image/png;base64," in canvas.to_svg()
+
+
+@pytest.mark.skipif(not HAS_FFMPEG, reason="ffmpeg is required")
 def test_video_layer_fit_and_trim_change_public_frame_content(source_video):
     """Given a clip, when fit and trim vary, then the public frame changes predictably."""
     contain = Canvas(64, 64).video(str(source_video), (0, 0), 64, 64, fit="contain")
@@ -128,6 +139,25 @@ def test_video_layer_fit_and_trim_change_public_frame_content(source_video):
     assert contain_frame.getpixel((32, 0))[3] == 0
     assert cover_frame.getpixel((32, 0))[3] == 255
     assert contain.render_frame(0.1).tobytes() == contain.render_frame(0.1).tobytes()
+
+
+@pytest.mark.skipif(not HAS_FFMPEG, reason="ffmpeg is required")
+def test_caption_cues_have_deterministic_half_open_boundaries(source_video):
+    """Caption sampling uses an inclusive start and exclusive end boundary."""
+    canvas = Canvas(96, 64).video(
+        str(source_video),
+        (8, 8),
+        64,
+        48,
+        captions=[{"text": "caption", "start": 0.1, "end": 0.3, "size": 12}],
+    )
+
+    before = canvas.render_frame(0.09)
+    active = canvas.render_frame(0.2)
+    after = canvas.render_frame(0.3)
+
+    assert before.tobytes() == after.tobytes()
+    assert active.tobytes() != before.tobytes()
 
 
 @pytest.mark.skipif(not (HAS_FFMPEG and HAS_FFPROBE), reason="FFmpeg tools are required")
