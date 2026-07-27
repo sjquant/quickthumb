@@ -97,12 +97,8 @@ class TestMotionCapabilities:
         pptx = canvas.validate_export("pptx")
 
         # Then: both reports identify deterministic rasterization
-        assert [(item.feature, item.fallback) for item in html] == [
-            ("video_layer", "rasterize")
-        ]
-        assert [(item.feature, item.fallback) for item in pptx] == [
-            ("video_layer", "rasterize")
-        ]
+        assert [(item.feature, item.fallback) for item in html] == [("video_layer", "rasterize")]
+        assert [(item.feature, item.fallback) for item in pptx] == [("video_layer", "rasterize")]
         assert html[0].support == "fallback"
 
     def test_should_resolve_error_rasterize_and_static_policies(self):

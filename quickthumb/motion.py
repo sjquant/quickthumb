@@ -1321,8 +1321,7 @@ def validate_export(
                     support="fallback",
                     fallback="rasterize",
                     message=(
-                        f"video layer {layer_id} is rasterized as a static frame "
-                        f"for {normalized}"
+                        f"video layer {layer_id} is rasterized as a static frame for {normalized}"
                     ),
                 )
             )

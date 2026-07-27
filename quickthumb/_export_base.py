@@ -187,9 +187,7 @@ def rasterize_layers(canvas: Canvas, layers: list[RenderableLayer]) -> RasterFra
     try:
         for layer in layers:
             sample_time = (
-                getattr(layer, "start", None)
-                if getattr(layer, "type", None) == "video"
-                else None
+                getattr(layer, "start", None) if getattr(layer, "type", None) == "video" else None
             )
             canvas._render_layer(image, layer, sample_time)
         bbox = image.getbbox()
