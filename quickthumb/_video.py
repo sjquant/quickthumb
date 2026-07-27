@@ -7,6 +7,8 @@ import math
 import os
 import shutil
 import subprocess
+from bisect import bisect_right
+from collections import OrderedDict
 from dataclasses import dataclass
 from fractions import Fraction
 
@@ -25,6 +27,7 @@ class VideoInfo:
     height: int
     has_audio: bool
     frame_rate: float
+    frame_times: tuple[float, ...] = ()
 
 
 class VideoDecoder:
@@ -49,11 +52,18 @@ class VideoDecoder:
         self._process = None
 
     def frame_at(self, time: float) -> Image.Image:
-        max_index = max(0, math.ceil(self.info.duration * self.info.frame_rate) - 1)
-        target_index = min(max_index, max(0, int(time * self.info.frame_rate + 0.5)))
+        if self.info.frame_times:
+            target_index = min(
+                len(self.info.frame_times) - 1,
+                max(0, bisect_right(self.info.frame_times, time) - 1),
+            )
+        else:
+            max_index = max(0, math.ceil(self.info.duration * self.info.frame_rate) - 1)
+            target_index = min(max_index, max(0, int(time * self.info.frame_rate + 0.5)))
         if target_index < self._next_index:
             self.close()
-            self._next_index = 0
+            self._next_index = target_index
+            self._process = self._start(self._timestamp_for_index(target_index))
         if self._process is None:
             self._process = self._start()
         frame_size = self.info.width * self.info.height * 4
@@ -66,9 +76,15 @@ class VideoDecoder:
             self._next_index += 1
         return Image.frombytes("RGBA", (self.info.width, self.info.height), raw)
 
-    def _start(self) -> subprocess.Popen[bytes]:
+    def _timestamp_for_index(self, index: int) -> float:
+        if self.info.frame_times:
+            return self.info.frame_times[index]
+        return index / self.info.frame_rate
+
+    def _start(self, start_time: float = 0.0) -> subprocess.Popen[bytes]:
         ffmpeg = _tool("ffmpeg", "QUICKTHUMB_FFMPEG")
         try:
+            seek = ["-ss", f"{start_time:.6f}"] if start_time > 0 else []
             return subprocess.Popen(
                 [
                     ffmpeg,
@@ -76,6 +92,7 @@ class VideoDecoder:
                     "error",
                     "-i",
                     self.source,
+                    *seek,
                     "-map",
                     "0:v:0",
                     "-f",
@@ -129,7 +146,8 @@ def probe_video(source: str) -> VideoInfo:
         duration = float(stream.get("duration") or payload["format"]["duration"])
         width, height = int(stream["width"]), int(stream["height"])
         has_audio = any(item.get("codec_type") == "audio" for item in streams)
-        frame_rate = float(Fraction(stream.get("avg_frame_rate", "30/1")))
+        frame_rate_raw = stream.get("avg_frame_rate") or "30/1"
+        frame_rate = _parse_frame_rate(frame_rate_raw)
     except (
         KeyError,
         IndexError,
@@ -141,7 +159,49 @@ def probe_video(source: str) -> VideoInfo:
         raise RenderingError(f"Video source has no usable video stream: {source!r}") from error
     if duration <= 0 or width <= 0 or height <= 0:
         raise RenderingError(f"Video source has invalid dimensions or duration: {source!r}")
-    return VideoInfo(duration, width, height, has_audio, frame_rate or 30.0)
+    frame_times = _probe_frame_times(ffprobe, source)
+    return VideoInfo(duration, width, height, has_audio, frame_rate, frame_times)
+
+
+def _parse_frame_rate(value: str) -> float:
+    try:
+        parsed = float(Fraction(value))
+    except (TypeError, ValueError, ZeroDivisionError):
+        return 30.0
+    return parsed if math.isfinite(parsed) and parsed > 0 else 30.0
+
+
+def _probe_frame_times(ffprobe: str, source: str) -> tuple[float, ...]:
+    """Read presentation timestamps when available, retaining CFR fallback support."""
+    result = subprocess.run(
+        [
+            ffprobe,
+            "-v",
+            "error",
+            "-select_streams",
+            "v:0",
+            "-show_frames",
+            "-show_entries",
+            "frame=best_effort_timestamp_time",
+            "-of",
+            "csv=p=0",
+            source,
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        return ()
+    values: list[float] = []
+    for line in result.stdout.splitlines():
+        try:
+            timestamp = float(line.strip())
+        except ValueError:
+            continue
+        if math.isfinite(timestamp) and (not values or timestamp >= values[-1]):
+            values.append(timestamp)
+    return tuple(values)
 
 
 def effective_duration(layer: VideoLayer, info: VideoInfo) -> float:
@@ -170,7 +230,7 @@ def render_video_layer(
     layer: VideoLayer,
     time: float,
     info: VideoInfo,
-    frame_cache: dict[tuple[str, float], Image.Image],
+    frame_cache: OrderedDict[tuple[str, float], Image.Image],
     decoder_cache: dict[str, VideoDecoder],
     font_loader=None,
 ) -> None:
@@ -188,6 +248,9 @@ def render_video_layer(
             decoder_cache[layer.source] = decoder
         frame = decoder.frame_at(sample_time)
         frame_cache[key] = frame
+    frame_cache.move_to_end(key)
+    while len(frame_cache) > 8:
+        frame_cache.popitem(last=False)
     fitted = ImageEngine._fit_image(
         frame, (layer.width, layer.height), layer.fit, Image.Resampling.BICUBIC
     )

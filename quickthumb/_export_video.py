@@ -69,7 +69,7 @@ from quickthumb._export_base import (
     split_backdrop_prefix,
     validate_legacy_animation_export,
 )
-from quickthumb._video import effective_duration, probe_video
+from quickthumb._video import VideoInfo, effective_duration, probe_video
 from quickthumb.errors import RenderingError, ValidationError
 from quickthumb.models import (
     Animation,
@@ -2084,11 +2084,15 @@ def _atempo_filter(speed: float) -> str:
 
 def _video_audio_schedule(canvases: list[Canvas], offsets: list[float]) -> list[_VideoAudio]:
     clips: list[_VideoAudio] = []
+    probe_cache: dict[str, VideoInfo] = {}
     for canvas, offset in zip(canvases, offsets, strict=True):
         for layer in canvas._iter_layers_deep():
             if not isinstance(layer, VideoLayer):
                 continue
-            info = probe_video(layer.source)
+            info = probe_cache.get(layer.source)
+            if info is None:
+                info = probe_video(layer.source)
+                probe_cache[layer.source] = info
             if not info.has_audio:
                 continue
             clips.append(

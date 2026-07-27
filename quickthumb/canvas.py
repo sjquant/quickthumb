@@ -61,6 +61,7 @@ from quickthumb.models import (
     TextInspection,
     TextLayer,
     TextPart,
+    VideoCaption,
     VideoLayer,
     VideoOptions,
 )
@@ -643,7 +644,7 @@ class Canvas:
         duration: float | None = None,
         speed: float = 1.0,
         volume: float = 1.0,
-        captions: list | None = None,
+        captions: list[VideoCaption | dict[str, Any]] | None = None,
         *,
         id: str | None = None,
         motion_key: str | None = None,
@@ -662,7 +663,7 @@ class Canvas:
             duration=duration,
             speed=speed,
             volume=volume,
-            captions=captions or [],
+            captions=cast(list[VideoCaption], captions or []),
             id=id,
             motion_key=motion_key,
         )

@@ -87,6 +87,24 @@ class TestMotionCapabilities:
         assert diagnostics[0].support == "fallback"
         assert diagnostics[0].fallback == "static"
 
+    def test_should_report_video_layers_as_static_raster_fallbacks_for_document_exports(self):
+        """Given a video layer, document export validation describes its static fallback."""
+        # Given: a public video composition that document exporters cannot animate
+        canvas = Canvas(100, 100).video("clip.mp4", (0, 0), 100, 100)
+
+        # When: the canvas is checked for HTML and PPTX export
+        html = canvas.validate_export("html")
+        pptx = canvas.validate_export("pptx")
+
+        # Then: both reports identify deterministic rasterization
+        assert [(item.feature, item.fallback) for item in html] == [
+            ("video_layer", "rasterize")
+        ]
+        assert [(item.feature, item.fallback) for item in pptx] == [
+            ("video_layer", "rasterize")
+        ]
+        assert html[0].support == "fallback"
+
     def test_should_resolve_error_rasterize_and_static_policies(self):
         """Unsupported motion policies resolve to distinct deterministic outcomes."""
         # given: a canvas with motion unsupported by PPTX
