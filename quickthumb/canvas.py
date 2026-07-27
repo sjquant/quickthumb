@@ -319,6 +319,12 @@ class Canvas:
 
         return validate_export(self, target, policy)
 
+    def inspect_motion(self, target=None, policy=None, fps: float = 30.0):
+        """Return a serializable report of this canvas's resolved motion."""
+        from quickthumb.motion import inspect_motion
+
+        return inspect_motion(self, target=target, policy=policy, fps=fps)
+
     def _inspect_layer(
         self, measured: LayerMeasurement, index: int | None = None, order: int | None = None
     ) -> LayerInspection:

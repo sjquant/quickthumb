@@ -21,7 +21,17 @@ from quickthumb.models import (
     ExportPolicy,
     HexColor,
     KeyframeSpec,
+    MotionCapabilityInspection,
     MotionEasingName,
+    MotionEventInspection,
+    MotionInspection,
+    MotionKeyframeInspection,
+    MotionLayerInspection,
+    MotionMatchInspection,
+    MotionSlideInspection,
+    MotionTargetInspection,
+    MotionTrackInspection,
+    ReducedMotionInspection,
     TimingSpec,
     TrackSpec,
     validate_hex_color,
@@ -1352,3 +1362,246 @@ def validate_export(
 def validate_motion_export(source: Canvas | Deck, target: ExportTarget | str, policy=None):
     """Backward-compatible descriptive alias for :func:`validate_export`."""
     return validate_export(source, target, policy)
+
+
+# Public inspection contract -------------------------------------------------
+
+
+def _inspection_event(event: TimelineEvent) -> MotionEventInspection:
+    return MotionEventInspection(
+        source=event.source,
+        start=event.start,
+        delay=event.delay,
+        active_start=event.active_start,
+        duration=event.duration,
+        end=event.end,
+        trigger=event.trigger,
+        effect=event.effect,
+        tracks=[
+            MotionTrackInspection(
+                type=track.property,
+                keyframes=[
+                    MotionKeyframeInspection(time=keyframe.time, value=keyframe.value)
+                    for keyframe in track.keyframes
+                ],
+            )
+            for track in event.tracks
+        ],
+        stagger=event.stagger,
+    )
+
+
+def _inspection_targets(layer: object, animation: object) -> list[MotionTargetInspection]:
+    stagger = getattr(animation, "stagger", None)
+    if stagger is None:
+        return []
+    target = stagger.target
+    if target == "children":
+        values = tuple(getattr(layer, "children", ()))
+        order = stagger.order
+        resolved = resolve_targets(values, order=order)
+    elif target in {"characters", "words", "lines"}:
+        content = getattr(layer, "content", "")
+        if isinstance(content, list):
+            content = "".join(getattr(part, "text", str(part)) for part in content)
+        if not isinstance(content, str):
+            return []
+        resolved = resolve_text_targets(content, target, order=stagger.order)  # type: ignore[arg-type]
+    else:
+        return []
+    return [
+        MotionTargetInspection(
+            target=stagger.target,
+            index=item.index,
+            source_range=item.source_range,
+            position=item.position,
+            size=item.size,
+        )
+        for item in resolved
+    ]
+
+
+def _inspection_layer(
+    layer_id: str, layer: object, canvas: Canvas, fps: float
+) -> MotionLayerInspection:
+    animation = getattr(layer, "animation", None)
+    specs = animation if isinstance(animation, (list, tuple)) else [animation]
+    specs = [item for item in specs if isinstance(item, AnimationSpec)]
+    timeline = compile_timeline(specs) if specs else Timeline()
+    base = _layer_motion_state(layer, canvas)
+    initial = timeline.sample(0.0, base)
+    final = timeline.sample(timeline.duration, base)
+    targets: list[MotionTargetInspection] = []
+    for spec in specs:
+        targets.extend(_inspection_targets(layer, spec))
+    sample_times = timeline.frame_times(fps)
+    return MotionLayerInspection(
+        layer_id=layer_id,
+        layer_type=str(getattr(layer, "type", type(layer).__name__)),
+        events=[_inspection_event(event) for event in timeline.events],
+        duration=timeline.duration,
+        targets=targets,
+        sample_times=list(sample_times),
+        samples=[
+            timeline.sample(time, base).model_dump(mode="json", exclude_none=True)
+            for time in sample_times
+        ],
+        initial_state=initial.model_dump(mode="json", exclude_none=True),
+        final_state=final.model_dump(mode="json", exclude_none=True),
+    )
+
+
+def _inspection_capabilities(targets: tuple[ExportTarget, ...]) -> list[MotionCapabilityInspection]:
+    return [
+        MotionCapabilityInspection(
+            feature=feature,
+            target=target,
+            support=capability.support,
+            fallback=capability.fallback,
+        )
+        for target in targets
+        for feature, capability in capabilities_for(target).items()
+    ]
+
+
+def _inspection_reduced_motion(duration: float, policy: ExportPolicy) -> ReducedMotionInspection:
+    if not policy.reduced_motion:
+        return ReducedMotionInspection(original_duration=duration, resolved_duration=duration)
+    return ReducedMotionInspection(
+        enabled=True,
+        mode="static",
+        original_duration=duration,
+        resolved_duration=0.0,
+        removed_features=[
+            "position",
+            "scale",
+            "rotation",
+            "opacity",
+            "clip_progress",
+            "blur",
+            "stagger",
+            "morph",
+        ],
+    )
+
+
+def inspect_motion(
+    source: Canvas | Deck,
+    target: ExportTarget | str | Iterable[ExportTarget | str] | None = None,
+    policy: ExportPolicy | None = None,
+    fps: float = 30.0,
+) -> MotionInspection:
+    """Return a deterministic, serializable report of resolved motion.
+
+    The report is renderer-independent and does not write files.  ``target``
+    accepts one exporter family, an iterable of families, or ``None`` for GIF,
+    HTML, PPTX, and video capability rows.
+    """
+    if (
+        not isinstance(fps, (int, float))
+        or isinstance(fps, bool)
+        or not math.isfinite(fps)
+        or fps <= 0
+    ):
+        raise ValidationError("inspection fps must be a finite number greater than 0")
+    if target is None:
+        requested = ("raster", "html", "pptx", "video")
+    elif isinstance(target, str):
+        requested = (target,)
+    else:
+        requested = tuple(target)
+    normalized_targets = tuple(dict.fromkeys(_normalize_target(item) for item in requested))
+    if not normalized_targets:
+        raise ValidationError("inspection target must not be empty")
+    resolved_policy = policy or ExportPolicy()
+    canvases = tuple(source.slides) if hasattr(source, "slides") else (source,)
+    if not canvases:
+        raise RenderingError("cannot inspect motion for an empty deck")
+    transitions = tuple(source._resolved_transitions()) if hasattr(source, "slides") else ()
+    slides: list[MotionSlideInspection] = []
+    total_duration = 0.0
+    for slide_index, canvas in enumerate(canvases):
+        layers = [
+            _inspection_layer(layer_id, layer, canvas, float(fps))
+            for layer_id, layer in _iter_export_layers(canvas)
+        ]
+        motion_duration = max((layer.duration for layer in layers), default=0.0)
+        transition = None
+        matches: list[MotionMatchInspection] = []
+        if transitions:
+            transition_timeline = compile_transition_timeline(transitions[slide_index])
+            transition = (
+                _inspection_event(transition_timeline.events[0])
+                if transition_timeline.events
+                else None
+            )
+            if slide_index > 0 and getattr(transitions[slide_index], "effect", None) == "morph":
+                matches = []
+                for source_id, target_id, key in match_scene_layers(
+                    canvases[slide_index - 1], canvas
+                ):
+                    source_layer = next(
+                        layer
+                        for candidate_id, layer in _iter_export_layers(canvases[slide_index - 1])
+                        if candidate_id == source_id
+                    )
+                    target_layer = next(
+                        layer
+                        for candidate_id, layer in _iter_export_layers(canvas)
+                        if candidate_id == target_id
+                    )
+                    behavior = (
+                        "crossfade"
+                        if type(source_layer) is not type(target_layer)
+                        or getattr(source_layer, "type", None) in {"chart", "qr_code"}
+                        else "match"
+                    )
+                    matches.append(
+                        MotionMatchInspection(
+                            source_id=source_id,
+                            target_id=target_id,
+                            motion_key=key,
+                            behavior=behavior,
+                        )
+                    )
+        explicit_duration = (
+            source._slide_durations[slide_index] if hasattr(source, "slides") else None
+        )
+        default_duration = 3.0 if hasattr(source, "slides") else 0.0
+        slide_duration = max(explicit_duration or default_duration, motion_duration)
+        total_duration += slide_duration + (transition.duration if transition else 0.0)
+        slides.append(
+            MotionSlideInspection(
+                slide_index=slide_index if hasattr(source, "slides") else None,
+                width=canvas.width,
+                height=canvas.height,
+                duration=slide_duration,
+                layers=layers,
+                transition=transition,
+                matches=matches,
+            )
+        )
+    width, height = canvases[0].width, canvases[0].height
+    if total_duration == 0:
+        sample_times = (0.0,)
+    else:
+        frame_count = max(1, math.ceil(total_duration * float(fps) - 1e-12))
+        sample_times = tuple(
+            min(index / float(fps), total_duration) for index in range(frame_count + 1)
+        )
+    diagnostics = [
+        item
+        for target_name in normalized_targets
+        for item in validate_export(source, target_name, resolved_policy)
+    ]
+    return MotionInspection(
+        width=width,
+        height=height,
+        duration=total_duration,
+        fps=float(fps),
+        sample_times=list(sample_times),
+        slides=slides,
+        capabilities=_inspection_capabilities(normalized_targets),
+        diagnostics=diagnostics,
+        reduced_motion=_inspection_reduced_motion(total_duration, resolved_policy),
+    )

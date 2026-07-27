@@ -436,6 +436,12 @@ class Deck:
 
         return validate_export(self, target, policy)
 
+    def inspect_motion(self, target=None, policy=None, fps: float = 30.0):
+        """Return a serializable report of resolved slide and layer motion."""
+        from quickthumb.motion import inspect_motion
+
+        return inspect_motion(self, target=target, policy=policy, fps=fps)
+
     def to_html(self, responsive: bool = True, embed_fonts: bool = True) -> str:
         """Render the deck to a standalone HTML slideshow document string.
 
