@@ -288,11 +288,14 @@ class HtmlExporter:
         embed_fonts: bool = False,
         responsive: bool = True,
         keyframe_prefix: str = "qt-k",
+        reduced_motion: bool = False,
     ):
         self._canvas = canvas
-        validate_legacy_animation_export(canvas)
+        if not reduced_motion:
+            validate_legacy_animation_export(canvas)
         self._embed_fonts = embed_fonts
         self._responsive = responsive
+        self._reduced_motion = reduced_motion
         self._keyframe_prefix = keyframe_prefix
         self._body: list[str] = []
         self._keyframes: list[str] = []
@@ -318,6 +321,7 @@ class HtmlExporter:
             responsive=self._responsive,
             font_faces=self._font_faces,
             svg_filters=self._svg_filters,
+            reduced_motion=self._reduced_motion,
         )
 
     def _effect_filter_css(self, effects, width: float, height: float, *, is_text: bool) -> str:
@@ -416,7 +420,9 @@ class HtmlExporter:
         canvas._ctx.begin_render_pass()
 
         prefix, rest = split_backdrop_prefix(flatten_layers(canvas))
-        if any(getattr(layer, "animation", None) is not None for layer in prefix):
+        if not self._reduced_motion and any(
+            getattr(layer, "animation", None) is not None for layer in prefix
+        ):
             raise RenderingError(
                 "HTML export cannot animate layers that must be rasterized together for "
                 "blend-mode or custom-layer backdrop compositing. Move animated layers "
@@ -451,6 +457,10 @@ class HtmlExporter:
         when an entrance effect must play before the layer is first shown, else
         an empty string.
         """
+        if self._reduced_motion:
+            self._prev_anim_key = None
+            self._prev_nodes = []
+            return ""
         animation = getattr(layer, "animation", None)
         if animation is None:
             effects = []
@@ -1025,6 +1035,7 @@ def _document(
     transitions: list | None = None,
     notes: list[str | None] | None = None,
     svg_filters: dict[str, str] | None = None,
+    reduced_motion: bool = False,
 ) -> str:
     keyframes = [kf for stage in stages for kf in stage.keyframes]
     if deck:
@@ -1033,6 +1044,16 @@ def _document(
         for index, (stage, transition, speaker_notes) in enumerate(
             zip(stages, transitions, notes, strict=True)
         ):
+            if reduced_motion:
+                stage.speaker_notes = speaker_notes or ""
+                stage.transition_anim = ""
+                stage.transition_exit = ""
+                stage.transition_z = "over"
+                stage.transition_dur = "0"
+                stage.transition_click = "1"
+                stage.transition_after = ""
+                stage.transition_morph = ""
+                continue
             # No transition set keeps the historical 0.5s cross-fade default.
             duration = 0.5 if transition is None else transition.duration
             enter, leave, z = _transition_plan(transition)
@@ -1130,6 +1151,7 @@ def export_deck(
     responsive: bool = True,
     transitions: list | None = None,
     notes: list[str | None] | None = None,
+    reduced_motion: bool = False,
 ) -> str:
     stages: list[Stage] = []
     font_faces: dict[str, tuple[str, str, str]] = {}
@@ -1140,6 +1162,7 @@ def export_deck(
             embed_fonts=embed_fonts,
             responsive=responsive,
             keyframe_prefix=f"qt-s{index}-k",
+            reduced_motion=reduced_motion,
         )
         stages.append(exporter.render_stage())
         font_faces.update(exporter._font_faces)
@@ -1149,7 +1172,8 @@ def export_deck(
         responsive=responsive,
         font_faces=font_faces,
         deck=True,
-        transitions=transitions,
+        transitions=None if reduced_motion else transitions,
         notes=notes,
         svg_filters=svg_filters,
+        reduced_motion=reduced_motion,
     )

@@ -36,6 +36,7 @@ from quickthumb.models import (
     ChartLayer,
     ChartSpec,
     Diagnostic,
+    ExportPolicy,
     FaceRegion,
     FitMode,
     GifOptions,
@@ -318,6 +319,14 @@ class Canvas:
         from quickthumb.motion import validate_export
 
         return validate_export(self, target, policy)
+
+    def inspect_motion(
+        self, target=None, policy=None, fps: float = 30.0, max_samples: int = 10_000
+    ):
+        """Return a serializable report of this canvas's resolved motion."""
+        from quickthumb.motion import inspect_motion
+
+        return inspect_motion(self, target=target, policy=policy, fps=fps, max_samples=max_samples)
 
     def _inspect_layer(
         self, measured: LayerMeasurement, index: int | None = None, order: int | None = None
@@ -816,6 +825,7 @@ class Canvas:
         quality: int | None = None,
         debug: bool = False,
         animation: GifOptions | VideoOptions | None = None,
+        policy: ExportPolicy | None = None,
     ):
         """Render the canvas to a file.
 
@@ -864,9 +874,10 @@ class Canvas:
                     output_path,
                     format=extension[1:],  # type: ignore[arg-type]
                     animation=animation,
+                    reduced_motion=bool(policy and policy.reduced_motion),
                 )
                 return
-            self._render_document(output_path, extension)
+            self._render_document(output_path, extension, policy=policy)
             return
 
         if animation is not None:
@@ -877,7 +888,9 @@ class Canvas:
         image = self._render_to_image(debug=debug)
         self._save_to_file(image, output_path, quality, format=format)
 
-    def _render_document(self, output_path: str, extension: str):
+    def _render_document(
+        self, output_path: str, extension: str, policy: ExportPolicy | None = None
+    ):
         if extension == ".svg":
             with open(output_path, "w", encoding="utf-8") as f:
                 f.write(self.to_svg())
@@ -885,7 +898,7 @@ class Canvas:
 
         if extension in (".html", ".htm"):
             with open(output_path, "w", encoding="utf-8") as f:
-                f.write(self.to_html())
+                f.write(self.to_html(policy=policy))
             return
 
         if extension == ".pdf":
@@ -896,7 +909,7 @@ class Canvas:
 
         from quickthumb._export_pptx import PptxExporter
 
-        PptxExporter(self).save(output_path)
+        PptxExporter(self, reduced_motion=bool(policy and policy.reduced_motion)).save(output_path)
 
     def to_svg(self, embed_fonts: bool = False) -> str:
         """Render the canvas to an SVG document string.
@@ -912,7 +925,13 @@ class Canvas:
 
         return SvgExporter(self, embed_fonts=embed_fonts).export()
 
-    def to_html(self, responsive: bool = True, embed_fonts: bool = True) -> str:
+    def to_html(
+        self,
+        responsive: bool = True,
+        embed_fonts: bool = True,
+        *,
+        policy: ExportPolicy | None = None,
+    ) -> str:
         """Render the canvas to a standalone, self-contained HTML document string.
 
         Backgrounds, gradients, outlines, shapes, and text become native
@@ -932,9 +951,14 @@ class Canvas:
         """
         from quickthumb._export_html import HtmlExporter
 
-        return HtmlExporter(self, embed_fonts=embed_fonts, responsive=responsive).export()
+        return HtmlExporter(
+            self,
+            embed_fonts=embed_fonts,
+            responsive=responsive,
+            reduced_motion=bool(policy and policy.reduced_motion),
+        ).export()
 
-    def to_pptx(self) -> bytes:
+    def to_pptx(self, *, policy: ExportPolicy | None = None) -> bytes:
         """Render the canvas to a PowerPoint file as bytes (requires quickthumb[pptx]).
 
         The canvas becomes a single slide: text stays editable text boxes,
@@ -942,7 +966,9 @@ class Canvas:
         """
         from quickthumb._export_pptx import PptxExporter
 
-        return PptxExporter(self).export_bytes()
+        return PptxExporter(
+            self, reduced_motion=bool(policy and policy.reduced_motion)
+        ).export_bytes()
 
     def to_pdf(self) -> bytes:
         """Render the canvas to a single-page PDF as bytes (requires quickthumb[pdf]).
@@ -961,7 +987,13 @@ class Canvas:
         return PdfExporter(self).export_bytes()
 
     def to_gif(
-        self, fps: float = 20.0, hold: float = 3.0, loop: int = 0, matte: str = "#000000"
+        self,
+        fps: float = 20.0,
+        hold: float = 3.0,
+        loop: int = 0,
+        matte: str = "#000000",
+        *,
+        policy: ExportPolicy | None = None,
     ) -> bytes:
         """Render the canvas to animated GIF bytes that play its layer animations.
 
@@ -975,7 +1007,14 @@ class Canvas:
         from quickthumb._export_video import export_animation_bytes
 
         return export_animation_bytes(
-            [self], [None], format="gif", fps=fps, slide_duration=hold, loop=loop, matte=matte
+            [self],
+            [None],
+            format="gif",
+            fps=fps,
+            slide_duration=hold,
+            loop=loop,
+            matte=matte,
+            reduced_motion=bool(policy and policy.reduced_motion),
         )
 
     def to_mp4(
@@ -985,6 +1024,8 @@ class Canvas:
         matte: str = "#000000",
         soundtrack: AudioTrack | str | dict | None = None,
         loop_audio: bool | None = None,
+        *,
+        policy: ExportPolicy | None = None,
     ) -> bytes:
         """Render the canvas to MP4 (H.264) bytes; timing model as in ``to_gif``.
 
@@ -1005,6 +1046,7 @@ class Canvas:
             matte=matte,
             soundtrack=soundtrack,
             loop_audio=loop_audio,
+            reduced_motion=bool(policy and policy.reduced_motion),
         )
 
     def to_webm(
@@ -1014,6 +1056,8 @@ class Canvas:
         matte: str = "#000000",
         soundtrack: AudioTrack | str | dict | None = None,
         loop_audio: bool | None = None,
+        *,
+        policy: ExportPolicy | None = None,
     ) -> bytes:
         """Render the canvas to WebM (VP9) bytes; timing model as in ``to_gif``.
 
@@ -1034,6 +1078,7 @@ class Canvas:
             matte=matte,
             soundtrack=soundtrack,
             loop_audio=loop_audio,
+            reduced_motion=bool(policy and policy.reduced_motion),
         )
 
     def to_json(self) -> str:
