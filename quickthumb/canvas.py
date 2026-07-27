@@ -1,3 +1,4 @@
+import math
 import os
 import re
 from collections.abc import Callable, Mapping
@@ -1167,8 +1168,15 @@ class Canvas:
     def _create_canvas(self) -> Image.Image:
         return Image.new("RGBA", (self.width, self.height), (0, 0, 0, 0))
 
+    def render_frame(self, time: float = 0.0) -> Image.Image:
+        """Render one deterministic sampled frame of canonical layer motion."""
+        if not isinstance(time, (int, float)) or not math.isfinite(time) or time < 0:
+            raise ValidationError("motion frame time must be a finite non-negative number")
+        return self._render_to_image(time=float(time))
+
     def _render_to_image(self, debug: bool = False, time: float | None = None) -> Image.Image:
         self._ctx.begin_render_pass()
+        self._ctx.motion_time = time
         image = self._create_canvas()
 
         for layer in self._layers:
@@ -1177,6 +1185,7 @@ class Canvas:
         if debug:
             self._draw_debug_overlay(image)
 
+        self._ctx.motion_time = None
         return image
 
     def _draw_debug_overlay(self, image: Image.Image) -> None:
@@ -1269,7 +1278,7 @@ class Canvas:
         elif isinstance(layer, OutlineLayer):
             self._render_outline_layer(image, layer)
         elif isinstance(layer, ImageLayer):
-            self._images.render_image_layer(image, layer)
+            self._images.render_image_layer(image, layer, time)
         elif isinstance(layer, ShapeLayer):
             self._shapes.render_shape_layer(image, layer)
         elif isinstance(layer, SvgLayer):

@@ -11,6 +11,8 @@ from quickthumb import (
     ClipProgressTrack,
     ColorTrack,
     ExportPolicy,
+    ImagePanTrack,
+    ImageZoomTrack,
     KeyframeSpec,
     MotionProfile,
     OpacityTrack,
@@ -18,6 +20,7 @@ from quickthumb import (
     ScaleTrack,
     ValidationError,
     canvas_json_schema,
+    compile_timeline,
 )
 
 
@@ -110,6 +113,8 @@ class TestMotionContract:
 
         # then: all invalid inputs are rejected before exporter execution
 
+        # then: all invalid inputs are rejected before exporter execution
+
     @pytest.mark.parametrize(
         ("track_type", "value", "message"),
         [
@@ -118,6 +123,8 @@ class TestMotionContract:
             (BlurTrack, -1, "blur"),
             (ColorTrack, "red", "invalid hex color"),
             (ScaleTrack, math.inf, "numbers"),
+            (ImagePanTrack, (1.1, 0.0), "image_pan"),
+            (ImageZoomTrack, 0.5, "image_zoom"),
         ],
     )
     def test_should_reject_invalid_values_for_every_supported_track(
@@ -131,7 +138,18 @@ class TestMotionContract:
         with pytest.raises(ValidationError, match=message):
             track_type(keyframes=[keyframe])
 
-        # then: malformed values cannot enter the timeline
+    def test_should_compile_directional_pan_as_a_source_viewport_track(self):
+        """Given a pan preset, when compiled, then direction becomes normalized offsets."""
+        # Given: a semantic pan from the right edge
+        animation = AnimationSpec.pan(from_="right", duration=1)
+
+        # When: the shared compiler lowers the preset
+        track = compile_timeline(animation).events[0].tracks[0]
+
+        # Then: the image-specific property and deterministic endpoints are explicit
+        assert track.property == "image_pan"
+        assert track.blend == "replace"
+        assert [keyframe.value for keyframe in track.keyframes] == [(1.0, 0.0), (-1.0, 0.0)]
 
     def test_should_reject_unknown_motion_fields_and_empty_timeline_branches(self):
         """Strict motion models reject misspellings and incomplete compositions."""
@@ -186,7 +204,9 @@ class TestMotionContract:
         assert track_items["discriminator"]["propertyName"] == "type"
         assert set(track_items["discriminator"]["mapping"]) == {
             "position",
+            "image_pan",
             "scale",
+            "image_zoom",
             "rotation",
             "opacity",
             "clip_progress",

@@ -9,6 +9,7 @@ from quickthumb._effects import EffectsEngine
 from quickthumb.errors import RenderingError
 from quickthumb.models import (
     Align,
+    AnimationSpec,
     BackdropBlur,
     Duotone,
     FaceRegion,
@@ -63,6 +64,8 @@ class ImageEngine:
         resample: Image.Resampling,
         focal_point: tuple[float, float] | None = None,
         faces: list[FaceRegion] | None = None,
+        motion_zoom: float = 1.0,
+        motion_pan: tuple[float, float] = (0.0, 0.0),
     ) -> Image.Image:
         """Scale img into target_size using FILL (stretch), COVER (crop), or CONTAIN (pad)."""
         target_w, target_h = target_size
@@ -70,10 +73,19 @@ class ImageEngine:
         fit = FitMode(fit) if isinstance(fit, str) else fit
 
         if fit is None or fit == FitMode.FILL:
-            return img.resize(target_size, resample)
+            if motion_zoom == 1.0 and motion_pan == (0.0, 0.0):
+                return img.resize(target_size, resample)
+            source_box = ImageEngine._viewport_source_box(
+                img.size, target_size, focal_point, motion_zoom, motion_pan
+            )
+            return img.resize(target_size, resample, box=source_box)
 
         if fit == FitMode.COVER:
             source_box = ImageEngine._cover_source_box(img.size, target_size, focal_point, faces)
+            if motion_zoom != 1.0 or motion_pan != (0.0, 0.0):
+                source_box = ImageEngine._zoom_source_box(
+                    img.size, source_box, focal_point, faces, motion_zoom, motion_pan
+                )
             return img.resize(target_size, resample, box=source_box)
 
         scale = min(target_w / src_w, target_h / src_h)
@@ -81,7 +93,81 @@ class ImageEngine:
         resized = img.resize((scaled_w, scaled_h), resample)
         result = Image.new("RGBA", target_size, (0, 0, 0, 0))
         result.paste(resized, ((target_w - scaled_w) // 2, (target_h - scaled_h) // 2))
+        if motion_zoom != 1.0 or motion_pan != (0.0, 0.0):
+            return ImageEngine._apply_viewport_transform(
+                result, target_size, focal_point, motion_zoom, motion_pan, resample
+            )
         return result
+
+    @staticmethod
+    def _viewport_source_box(
+        source_size: tuple[int, int],
+        target_size: tuple[int, int],
+        focal_point: tuple[float, float] | None,
+        zoom: float,
+        pan: tuple[float, float],
+    ) -> tuple[float, float, float, float]:
+        """Resolve a deterministic source viewport for fill/zoom motion."""
+        src_w, src_h = source_size
+        target_w, target_h = target_size
+        aspect = target_w / target_h
+        crop_w = min(src_w, src_h * aspect) / max(zoom, 1.0)
+        crop_h = crop_w / aspect
+        if crop_h > src_h:
+            crop_h = src_h / max(zoom, 1.0)
+            crop_w = crop_h * aspect
+        focus_x, focus_y = focal_point or (0.5, 0.5)
+        cx = focus_x * src_w + pan[0] * (src_w - crop_w) / 2
+        cy = focus_y * src_h + pan[1] * (src_h - crop_h) / 2
+        left = ImageEngine._clamp(cx - crop_w / 2, 0, src_w - crop_w)
+        top = ImageEngine._clamp(cy - crop_h / 2, 0, src_h - crop_h)
+        return (left, top, left + crop_w, top + crop_h)
+
+    @staticmethod
+    def _zoom_source_box(
+        source_size: tuple[int, int],
+        base_box: tuple[float, float, float, float],
+        focal_point: tuple[float, float] | None,
+        faces: list[FaceRegion] | None,
+        zoom: float,
+        pan: tuple[float, float],
+    ) -> tuple[float, float, float, float]:
+        """Zoom an existing cover crop while retaining its aspect ratio."""
+        src_w, src_h = source_size
+        left, top, right, bottom = base_box
+        width, height = (right - left) / max(zoom, 1.0), (bottom - top) / max(zoom, 1.0)
+        if faces:
+            cx = sum(face.x + face.width / 2 for face in faces) / len(faces) * src_w
+            cy = sum(face.y + face.height / 2 for face in faces) / len(faces) * src_h
+        else:
+            fx, fy = focal_point or (0.5, 0.5)
+            cx, cy = fx * src_w, fy * src_h
+        cx += pan[0] * (src_w - width) / 2
+        cy += pan[1] * (src_h - height) / 2
+        left = ImageEngine._clamp(cx - width / 2, 0, src_w - width)
+        top = ImageEngine._clamp(cy - height / 2, 0, src_h - height)
+        return (left, top, left + width, top + height)
+
+    @staticmethod
+    def _apply_viewport_transform(
+        image: Image.Image,
+        target_size: tuple[int, int],
+        focal_point: tuple[float, float] | None,
+        zoom: float,
+        pan: tuple[float, float],
+        resample: Image.Resampling,
+    ) -> Image.Image:
+        """Apply viewport motion without changing the fitted layer boundary."""
+        width, height = image.size
+        focus_x, focus_y = focal_point or (0.5, 0.5)
+        scale = max(zoom, 1.0)
+        scaled_size = (max(1, round(width * scale)), max(1, round(height * scale)))
+        scaled = image.resize(scaled_size, resample)
+        cx = focus_x * scaled.width + pan[0] * (scaled.width - width) / 2
+        cy = focus_y * scaled.height + pan[1] * (scaled.height - height) / 2
+        left = round(ImageEngine._clamp(cx - width / 2, 0, scaled.width - width))
+        top = round(ImageEngine._clamp(cy - height / 2, 0, scaled.height - height))
+        return scaled.crop((left, top, left + width, top + height))
 
     @staticmethod
     def _cover_source_box(
@@ -164,25 +250,49 @@ class ImageEngine:
     def _clamp(value: float, low: float, high: float) -> float:
         return max(low, min(value, high))
 
-    def render_image_layer(self, image: Image.Image, layer: ImageLayer):
+    def render_image_layer(self, image: Image.Image, layer: ImageLayer, time: float | None = None):
         # Load the image
         img = self.load_image_from_url(layer.path) if is_url(layer.path) else Image.open(layer.path)
         self._ctx.image_size_cache.setdefault(layer.path, img.size)
 
         img = img.convert("RGBA")
 
+        motion = self._motion_state(layer, time)
+        focal_point = (
+            motion.image_focal_point if motion and motion.image_focal_point else layer.focal_point
+        )
+
         if layer.remove_background:
             img = self._remove_background(img)
 
         if layer.width or layer.height:
             img = self._resize_image(
-                img, layer.width, layer.height, layer.fit, layer.focal_point, layer.faces
+                img,
+                layer.width,
+                layer.height,
+                layer.fit,
+                focal_point,
+                layer.faces,
+                motion_zoom=(motion.image_zoom * motion.scale) if motion else 1.0,
+                motion_pan=motion.image_pan if motion else (0.0, 0.0),
             )
 
         if layer.border_radius > 0:
             img = self._apply_border_radius(img, layer.border_radius)
 
         self._composite_overlay_layer(image, img, layer)
+
+    def _motion_state(self, layer: ImageLayer, time: float | None):
+        """Resolve canonical image motion at the current render timestamp."""
+        if time is None or layer.animation is None:
+            return None
+        from quickthumb.motion import LayerState, compile_timeline
+
+        animations = layer.animation if isinstance(layer.animation, list) else [layer.animation]
+        specs = [item for item in animations if isinstance(item, AnimationSpec)]
+        if not specs:
+            return None
+        return compile_timeline(specs).sample(float(time), LayerState())
 
     def render_svg_layer(self, image: Image.Image, layer: SvgLayer):
         img = self.rasterize_svg(layer)
@@ -407,6 +517,8 @@ class ImageEngine:
         fit: FitMode | str | None = None,
         focal_point: tuple[float, float] | None = None,
         faces: list[FaceRegion] | None = None,
+        motion_zoom: float = 1.0,
+        motion_pan: tuple[float, float] = (0.0, 0.0),
     ) -> Image.Image:
         """Resize image preserving aspect ratio if only one dimension specified."""
         original_width, original_height = img.size
@@ -419,6 +531,8 @@ class ImageEngine:
                 Image.Resampling.LANCZOS,
                 focal_point=focal_point,
                 faces=faces,
+                motion_zoom=motion_zoom,
+                motion_pan=motion_pan,
             )
         elif width:
             aspect_ratio = original_height / original_width

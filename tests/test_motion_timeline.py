@@ -7,6 +7,8 @@ from quickthumb import (
     BlurTrack,
     ClipProgressTrack,
     ColorTrack,
+    ImagePanTrack,
+    ImageZoomTrack,
     KeyframeSpec,
     LayerState,
     OpacityTrack,
@@ -137,6 +139,31 @@ class TestMotionTimeline:
                 assert value == pytest.approx(expected)
         else:
             assert actual_values == list(values)
+
+    def test_should_compile_image_viewport_tracks_and_sample_them_deterministically(self):
+        """Given image viewport tracks, when sampled, then pan and zoom are stable."""
+        # Given: a canonical image viewport timeline
+        spec = AnimationSpec.timeline(
+            ImagePanTrack(
+                keyframes=[
+                    KeyframeSpec(time=0, value=(-1, 0)),
+                    KeyframeSpec(time=1, value=(1, 0)),
+                ]
+            ),
+            ImageZoomTrack(
+                keyframes=[KeyframeSpec(time=0, value=1), KeyframeSpec(time=1, value=1.2)]
+            ),
+        )
+
+        # When: the shared timeline is sampled twice at the same instant
+        timeline = compile_timeline(spec)
+        first = timeline.sample(0.5)
+        second = timeline.sample(0.5)
+
+        # Then: image state is interpolated and reproducible
+        assert first == second
+        assert first.image_pan == pytest.approx((0.0, 0.0))
+        assert first.image_zoom == pytest.approx(1.1)
 
     @pytest.mark.parametrize("factory", ["rise", "fall", "slide", "float", "shake"])
     def test_should_sample_positional_presets_from_the_default_origin(self, factory):

@@ -50,6 +50,8 @@ from quickthumb.models import (
     GroupLayer,
     ImageEffect,
     ImageLayer,
+    ImagePanTrack,
+    ImageZoomTrack,
     InnerShadow,
     InspectionBBox,
     KeyframeSpec,
