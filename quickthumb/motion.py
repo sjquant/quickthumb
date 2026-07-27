@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any, Literal, cast, get_args
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from pydantic import ValidationError as PydanticValidationError
 
+from quickthumb._base import parse_coordinate
 from quickthumb._measurements import layer_id_for
 from quickthumb.errors import RenderingError, ValidationError
 from quickthumb.models import (
@@ -426,7 +427,7 @@ class LayerState(BaseModel):
 class MorphLayerState:
     """The deterministic state of one layer during a scene transition."""
 
-    motion_key: str
+    motion_key: str | None
     source_id: str | None
     target_id: str | None
     state: LayerState
@@ -445,6 +446,21 @@ def _scene_layers(canvas: Canvas) -> tuple[tuple[str, object], ...]:
     return tuple(result)
 
 
+def _identity_index(canvas: Canvas) -> tuple[dict[str, tuple[str, object]], set[str]]:
+    """Index unique motion keys and return keys made ambiguous by duplicates."""
+    layers = _scene_layers(canvas)
+    occurrences: dict[str, list[tuple[str, object]]] = {}
+    for layer_id, layer in layers:
+        key = getattr(layer, "motion_key", None)
+        if key is not None:
+            occurrences.setdefault(key, []).append((layer_id, layer))
+    duplicates = {key for key, values in occurrences.items() if len(values) > 1}
+    return (
+        {key: values[0] for key, values in occurrences.items() if key not in duplicates},
+        duplicates,
+    )
+
+
 def match_scene_layers(source: Canvas, target: Canvas) -> tuple[tuple[str, str, str], ...]:
     """Match unique ``motion_key`` values across two canvases.
 
@@ -452,22 +468,12 @@ def match_scene_layers(source: Canvas, target: Canvas) -> tuple[tuple[str, str, 
     cannot identify exactly one layer on both sides are deliberately ignored.
     This makes malformed authored identity data degrade to ordinary transitions.
     """
-    source_layers = _scene_layers(source)
-    target_layers = _scene_layers(target)
-    source_by_key: dict[str, list[str]] = {}
-    target_by_key: dict[str, list[str]] = {}
-    for layer_id, layer in source_layers:
-        key = getattr(layer, "motion_key", None)
-        if key is not None:
-            source_by_key.setdefault(key, []).append(layer_id)
-    for layer_id, layer in target_layers:
-        key = getattr(layer, "motion_key", None)
-        if key is not None:
-            target_by_key.setdefault(key, []).append(layer_id)
+    source_by_key, source_duplicates = _identity_index(source)
+    target_by_key, target_duplicates = _identity_index(target)
     return tuple(
         (source_by_key[key][0], target_by_key[key][0], key)
         for key in sorted(source_by_key.keys() & target_by_key.keys())
-        if len(source_by_key[key]) == 1 and len(target_by_key[key]) == 1
+        if key not in source_duplicates and key not in target_duplicates
     )
 
 
@@ -489,26 +495,10 @@ def sample_scene_morph(
     progress = min(1.0, max(0.0, float(progress)))
     sources = dict(_scene_layers(source))
     targets = dict(_scene_layers(target))
-    source_by_key = {
-        getattr(layer, "motion_key", None): (layer_id, layer)
-        for layer_id, layer in sources.items()
-        if getattr(layer, "motion_key", None)
-    }
-    target_by_key = {
-        getattr(layer, "motion_key", None): (layer_id, layer)
-        for layer_id, layer in targets.items()
-        if getattr(layer, "motion_key", None)
-    }
-    duplicate_source = {
-        key
-        for key in source_by_key
-        if sum(getattr(layer, "motion_key", None) == key for layer in sources.values()) > 1
-    }
-    duplicate_target = {
-        key
-        for key in target_by_key
-        if sum(getattr(layer, "motion_key", None) == key for layer in targets.values()) > 1
-    }
+    source_by_key, duplicate_source = _identity_index(source)
+    target_by_key, duplicate_target = _identity_index(target)
+    matched_source_ids = {item[0] for key, item in source_by_key.items() if key in target_by_key}
+    matched_target_ids = {item[0] for key, item in target_by_key.items() if key in source_by_key}
     keys = sorted(set(source_by_key) | set(target_by_key))
     result: list[MorphLayerState] = []
     for key in keys:
@@ -518,8 +508,8 @@ def sample_scene_morph(
         if source_item and target_item:
             source_id, source_layer = source_item
             target_id, target_layer = target_item
-            source_state = _layer_motion_state(source_layer)
-            target_state = _layer_motion_state(target_layer)
+            source_state = _layer_motion_state(source_layer, source)
+            target_state = _layer_motion_state(target_layer, target)
             behavior: Literal["match", "crossfade"] = (
                 "crossfade"
                 if source_layer.__class__ is not target_layer.__class__
@@ -535,7 +525,7 @@ def sample_scene_morph(
                     key,
                     layer_id,
                     None,
-                    _layer_motion_state(layer).with_values(opacity=1.0 - progress),
+                    _layer_motion_state(layer, source).with_values(opacity=1.0 - progress),
                     "exit",
                 )
             )
@@ -546,18 +536,46 @@ def sample_scene_morph(
                     key,
                     None,
                     layer_id,
-                    _layer_motion_state(layer).with_values(opacity=progress),
+                    _layer_motion_state(layer, target).with_values(opacity=progress),
+                    "enter",
+                )
+            )
+    for layer_id, layer in sources.items():
+        if layer_id not in matched_source_ids and getattr(layer, "motion_key", None) is None:
+            result.append(
+                MorphLayerState(
+                    None,
+                    layer_id,
+                    None,
+                    _layer_motion_state(layer, source).with_values(opacity=1.0 - progress),
+                    "exit",
+                )
+            )
+    for layer_id, layer in targets.items():
+        if layer_id not in matched_target_ids and getattr(layer, "motion_key", None) is None:
+            result.append(
+                MorphLayerState(
+                    None,
+                    None,
+                    layer_id,
+                    _layer_motion_state(layer, target).with_values(opacity=progress),
                     "enter",
                 )
             )
     return tuple(result)
 
 
-def _layer_motion_state(layer: object) -> LayerState:
+def _layer_motion_state(layer: object, canvas: Canvas) -> LayerState:
     position = getattr(layer, "position", None)
-    if not isinstance(position, tuple) or not all(
-        isinstance(value, (int, float)) for value in position
-    ):
+    if isinstance(position, tuple) and len(position) == 2:
+        try:
+            position = tuple(
+                parse_coordinate(value, size)
+                for value, size in zip(position, (canvas.width, canvas.height), strict=True)
+            )
+        except (TypeError, ValueError):
+            position = None
+    else:
         position = None
     return LayerState(
         position=position,

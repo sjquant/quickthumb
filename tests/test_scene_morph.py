@@ -3,6 +3,7 @@ from io import BytesIO
 from zipfile import ZipFile
 
 import pytest
+from PIL import Image
 from quickthumb import Canvas, Deck, Morph
 from quickthumb.errors import ValidationError
 
@@ -46,6 +47,25 @@ def test_should_interpolate_a_unique_match_and_define_enter_exit_states():
     assert states["gone"].state.opacity == 0.5
     assert states["new"].behavior == "enter"
     assert states["new"].state.opacity == 0.5
+
+
+def test_should_resolve_percentage_positions_and_fade_unkeyed_layers():
+    # Given scenes with percentage-positioned shared content and unkeyed layers
+    source = Canvas(200, 100).text("shared", position=("10%", "20%"), motion_key="hero")
+    source.text("old-only", position=(0, 0))
+    target = Canvas(400, 200).text("shared", position=("50%", "60%"), motion_key="hero")
+    target.text("new-only", position=(0, 0))
+    deck = Deck(slides=[source, target])
+
+    # When sampling halfway through the transition
+    states = deck.sample_morph(0, 1, 0.5)
+
+    # Then percentages resolve in each scene's coordinate space and unkeyed layers fade
+    hero = next(item for item in states if item.motion_key == "hero")
+    unkeyed = [item for item in states if item.motion_key is None]
+    assert hero.state.position == (110.0, 70.0)
+    assert len(unkeyed) == 2
+    assert {item.behavior for item in unkeyed} == {"enter", "exit"}
 
 
 def test_should_ignore_duplicate_motion_keys_and_crossfade_charts():
@@ -94,9 +114,37 @@ def test_should_fallback_morph_to_fade_for_document_exporters():
 
     # Then both retain the transition timing while using the safe fade fallback
     assert "data-qt-dur=" in html
-    assert "data-qt-transition=\"qt-t1" in html
+    assert 'data-qt-transition="qt-t1' in html
     assert "morph" not in html.lower()
     assert b"<p:fade/>" in slide_xml
+
+
+def test_should_render_a_keyed_shape_at_an_intermediate_morph_position():
+    # Given two slides with the same keyed shape at different positions
+    source = Canvas(160, 100).shape("rectangle", (0, 40), 20, 20, "#FF0000", motion_key="box")
+    target = Canvas(160, 100).shape("rectangle", (100, 40), 20, 20, "#FF0000", motion_key="box")
+    deck = Deck(slides=[source, target], transition=Morph(duration=1))
+
+    # When the public animated export is sampled at a fixed frame rate
+    image = Image.open(BytesIO(deck.to_gif(fps=4, slide_duration=0.1)))
+    red_bounds = []
+    for index in range(image.n_frames):
+        image.seek(index)
+        frame = image.convert("RGBA")
+        points = [
+            (x, y)
+            for y in range(frame.height)
+            for x in range(frame.width)
+            if (pixel := frame.getpixel((x, y)))[0] > 200
+            and pixel[1] < 50
+            and pixel[2] < 50
+            and pixel[3] > 0
+        ]
+        if points:
+            red_bounds.append((min(x for x, _ in points), max(x for x, _ in points)))
+
+    # Then at least one rendered frame contains the shared element in flight
+    assert any(0 < left < 80 and 20 < right < 120 for left, right in red_bounds)
 
 
 @pytest.mark.parametrize("field", ["id", "motion_key"])
@@ -107,3 +155,15 @@ def test_should_reject_invalid_layer_identity(field):
     # When a public Canvas builder receives it, then validation is explicit
     with pytest.raises(ValidationError, match="identity values"):
         Canvas(100, 100).text("bad", position=(0, 0), **kwargs)
+
+
+def test_should_reject_duplicate_authored_layer_ids_without_mutating_the_canvas():
+    # Given a canvas with one authored local id
+    canvas = Canvas(100, 100).text("first", position=(0, 0), id="title")
+
+    # When a second layer reuses that id
+    with pytest.raises(ValidationError, match="duplicate layer id"):
+        canvas.text("second", position=(0, 0), id="title")
+
+    # Then the rejected layer is not appended
+    assert len(canvas.layers) == 1

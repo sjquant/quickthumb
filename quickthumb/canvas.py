@@ -169,6 +169,7 @@ class Canvas:
         self._has_size = width is not None
         self._ctx = RenderContext(width or 0, height or 0)
         self._layers: list[RenderableLayer] = layers or []
+        self._validate_layer_identities()
         self._platform = platform
 
         self._effects = EffectsEngine()
@@ -263,6 +264,31 @@ class Canvas:
     @layers.setter
     def layers(self, value: list[RenderableLayer]):
         self._layers = value
+        self._validate_layer_identities()
+
+    def _append_layer(self, layer: RenderableLayer) -> None:
+        """Append a layer while preserving scene-local id uniqueness."""
+        self._layers.append(layer)
+        try:
+            self._validate_layer_identities()
+        except Exception:
+            self._layers.pop()
+            raise
+
+    def _validate_layer_identities(self) -> None:
+        seen: set[str] = set()
+
+        def visit(layer: object) -> None:
+            layer_id = getattr(layer, "id", None)
+            if layer_id is not None:
+                if layer_id in seen:
+                    raise ValidationError(f"duplicate layer id: {layer_id}")
+                seen.add(layer_id)
+            for child in getattr(layer, "children", ()):
+                visit(child)
+
+        for layer in self._layers:
+            visit(layer)
 
     def diagnose(self) -> list[Diagnostic]:
         """Check layers for layout and legibility issues without producing an output file.
@@ -377,7 +403,7 @@ class Canvas:
             id=id,
             motion_key=motion_key,
         )
-        self._layers.append(layer)
+        self._append_layer(layer)
         return self
 
     def text(
@@ -448,7 +474,7 @@ class Canvas:
             id=id,
             motion_key=motion_key,
         )
-        self._layers.append(layer)
+        self._append_layer(layer)
         return self
 
     def outline(
@@ -464,7 +490,7 @@ class Canvas:
             id=id,
             motion_key=motion_key,
         )
-        self._layers.append(layer)
+        self._append_layer(layer)
         return self
 
     def shape(
@@ -510,7 +536,7 @@ class Canvas:
             id=id,
             motion_key=motion_key,
         )
-        self._layers.append(layer)
+        self._append_layer(layer)
         return self
 
     def image(
@@ -579,7 +605,7 @@ class Canvas:
             id=id,
             motion_key=motion_key,
         )
-        self._layers.append(layer)
+        self._append_layer(layer)
         return self
 
     def svg(
@@ -632,7 +658,7 @@ class Canvas:
             id=id,
             motion_key=motion_key,
         )
-        self._layers.append(layer)
+        self._append_layer(layer)
         return self
 
     def chart(
@@ -664,7 +690,7 @@ class Canvas:
             id=id,
             motion_key=motion_key,
         )
-        self._layers.append(layer)
+        self._append_layer(layer)
         return self
 
     def qr_code(
@@ -702,7 +728,7 @@ class Canvas:
             id=id,
             motion_key=motion_key,
         )
-        self._layers.append(layer)
+        self._append_layer(layer)
         return self
 
     def group(
@@ -756,7 +782,7 @@ class Canvas:
             id=id,
             motion_key=motion_key,
         )
-        self._layers.append(layer)
+        self._append_layer(layer)
         return self
 
     def custom(
@@ -769,7 +795,7 @@ class Canvas:
         if not callable(fn):
             raise ValidationError("fn must be callable")
 
-        self._layers.append(CustomLayer(fn=fn, name=name, kwargs=kwargs or {}))
+        self._append_layer(CustomLayer(fn=fn, name=name, kwargs=kwargs or {}))
         return self
 
     def render(

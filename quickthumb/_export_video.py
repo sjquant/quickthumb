@@ -69,6 +69,7 @@ from quickthumb._export_base import (
     split_backdrop_prefix,
     validate_legacy_animation_export,
 )
+from quickthumb._measurements import layer_id_for
 from quickthumb.errors import RenderingError, ValidationError
 from quickthumb.models import (
     Animation,
@@ -83,7 +84,14 @@ from quickthumb.models import (
     VideoOptions,
     coerce_audio_track,
 )
-from quickthumb.motion import LayerState, Timeline, compile_timeline, resolve_staggered_timelines
+from quickthumb.motion import (
+    LayerState,
+    Timeline,
+    compile_timeline,
+    match_scene_layers,
+    resolve_staggered_timelines,
+    sample_scene_morph,
+)
 
 if TYPE_CHECKING:
     from quickthumb.canvas import Canvas, RenderableLayer
@@ -500,8 +508,10 @@ def _deck_shots(
     previous_final = Image.new("RGB", size, matte_rgb)
     plan = plan or _deck_plan(canvases, transitions, fps, slide_duration, slide_durations)
 
-    for animator, timing in zip(
+    previous_canvas = None
+    for animator, canvas, timing in zip(
         plan.animators,
+        canvases,
         plan.timings,
         strict=True,
     ):
@@ -516,6 +526,8 @@ def _deck_shots(
             size,
             matte_rgb,
             fps,
+            previous_canvas,
+            canvas,
         ):
             if pending is not None:
                 yield pending
@@ -534,6 +546,7 @@ def _deck_shots(
         else:
             yield _Shot(final, max(exit_time, 1.0 / fps))
         previous_final = final
+        previous_canvas = canvas
 
 
 def _slide_motion_shots(
@@ -545,12 +558,18 @@ def _slide_motion_shots(
     size: tuple[int, int],
     matte_rgb: tuple[int, int, int],
     fps: float,
+    previous_canvas: Canvas | None,
+    incoming_canvas: Canvas,
 ) -> Iterator[_Shot]:
     """Yield transition and layer-animation shots before the settled hold."""
     for time, duration in _sample_span(0.0, duration_in, fps):
         incoming = _conform(animator.frame_at(time), size, matte_rgb)
         progress = _ease(time / duration_in)
-        yield _Shot(_transition_frame(transition, previous_final, incoming, progress), duration)
+        if transition is not None and transition.effect == "morph" and previous_canvas is not None:
+            frame = _morph_frame(previous_canvas, incoming_canvas, progress)
+        else:
+            frame = _transition_frame(transition, previous_final, incoming, progress)
+        yield _Shot(frame, duration)
     # Between effect windows every unit's state is constant, so gaps (a
     # trailing `delay`, a pause between chained effects) collapse into one
     # held frame instead of resampling identical frames at fps.
@@ -1172,6 +1191,78 @@ def _masked_alpha(image: Image.Image, mask: Image.Image) -> Image.Image:
 
 
 # ------------------------------------------------------------ slide transition
+
+
+def _morph_frame(source: Canvas, target: Canvas, progress: float) -> Image.Image:
+    """Render a keyed shared-element Morph frame for raster/video output."""
+    source_layers = {
+        layer_id_for(layer, index, (index,)): layer for index, layer in enumerate(source.layers)
+    }
+    target_layers = {
+        layer_id_for(layer, index, (index,)): layer for index, layer in enumerate(target.layers)
+    }
+    # Group children are matched by the public sampler, but their layout is
+    # assigned by the group renderer; use a slide cross-fade for nested matches.
+    matches = tuple(
+        match
+        for match in match_scene_layers(source, target)
+        if match[0] in source_layers and match[1] in target_layers
+    )
+    if not matches:
+        return Image.blend(_render_canvas_frame(source), _render_canvas_frame(target), progress)
+    matched_source = {source_id for source_id, _, _ in matches}
+    matched_target = {target_id for _, target_id, _ in matches}
+    source_base = _render_canvas_frame(
+        source,
+        [layer for layer_id, layer in source_layers.items() if layer_id not in matched_source],
+    )
+    target_base = _render_canvas_frame(
+        target,
+        [layer for layer_id, layer in target_layers.items() if layer_id not in matched_target],
+    )
+    frame = Image.blend(source_base, target_base, progress)
+    sampled = {item.motion_key: item for item in sample_scene_morph(source, target, progress)}
+    for source_id, target_id, key in matches:
+        source_image, source_box = _render_isolated_layer(source, source_layers[source_id])
+        target_image, target_box = _render_isolated_layer(target, target_layers[target_id])
+        state = sampled[key]
+        if state.behavior == "crossfade":
+            width = max(source_image.width, target_image.width)
+            height = max(source_image.height, target_image.height)
+            source_image = _pad_image(source_image, (width, height))
+            target_image = _pad_image(target_image, (width, height))
+            x = round(source_box[0] + (target_box[0] - source_box[0]) * progress)
+            y = round(source_box[1] + (target_box[1] - source_box[1]) * progress)
+            frame.alpha_composite(Image.blend(source_image, target_image, progress), dest=(x, y))
+            continue
+        width = max(1, round(source_box[2] + (target_box[2] - source_box[2]) * progress))
+        height = max(1, round(source_box[3] + (target_box[3] - source_box[3]) * progress))
+        x = round(source_box[0] + (target_box[0] - source_box[0]) * progress)
+        y = round(source_box[1] + (target_box[1] - source_box[1]) * progress)
+        image = source_image.resize((width, height), Image.Resampling.BICUBIC)
+        frame.alpha_composite(_scaled_alpha(image, state.state.opacity), dest=(x, y))
+    return frame
+
+
+def _render_canvas_frame(canvas: Canvas, layers=None) -> Image.Image:
+    image = Image.new("RGBA", (canvas.width, canvas.height), (0, 0, 0, 0))
+    for layer in canvas.layers if layers is None else layers:
+        canvas._render_layer(image, layer)
+    return image
+
+
+def _render_isolated_layer(canvas: Canvas, layer) -> tuple[Image.Image, tuple[int, int, int, int]]:
+    image = _render_canvas_frame(canvas, [layer])
+    box = image.getbbox()
+    if box is None:
+        return Image.new("RGBA", (1, 1), (0, 0, 0, 0)), (0, 0, 1, 1)
+    return image.crop(box), box
+
+
+def _pad_image(image: Image.Image, size: tuple[int, int]) -> Image.Image:
+    padded = Image.new("RGBA", size, (0, 0, 0, 0))
+    padded.alpha_composite(image)
+    return padded
 
 
 def _transition_frame(
