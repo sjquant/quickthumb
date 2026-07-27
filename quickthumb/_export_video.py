@@ -69,6 +69,7 @@ from quickthumb._export_base import (
     split_backdrop_prefix,
     validate_legacy_animation_export,
 )
+from quickthumb._video import VideoInfo, effective_duration, probe_video
 from quickthumb.errors import RenderingError, ValidationError
 from quickthumb.models import (
     Animation,
@@ -80,6 +81,7 @@ from quickthumb.models import (
     GroupLayer,
     QRCodeLayer,
     TextLayer,
+    VideoLayer,
     VideoOptions,
     coerce_audio_track,
 )
@@ -195,6 +197,7 @@ def write_animation(
         max_size,
         colors,
     )
+    probe_cache: dict[str, VideoInfo] = {}
     if reduced_motion:
         transitions = [None] * len(canvases)
     plan = _deck_plan(
@@ -204,11 +207,15 @@ def write_animation(
         slide_duration,
         slide_durations,
         reduced_motion=reduced_motion,
+        probe_cache=probe_cache,
     )
     if slide_audio is not None and audio_offsets is None:
         audio_offsets = plan.offsets
         audio_timeline_duration = plan.duration
     shots = _deck_shots(canvases, transitions, fps, slide_duration, matte_rgb, plan=plan)
+    video_audio = _video_audio_schedule(canvases, plan.offsets, probe_cache)
+    if video_audio and audio_timeline_duration is None:
+        audio_timeline_duration = plan.duration
     descriptor, temp_path = _temporary_output_path(output_path, suffix=f".{format}")
     os.close(descriptor)
     try:
@@ -223,10 +230,12 @@ def write_animation(
             audio_offsets,
             audio_durations,
             audio_timeline_duration,
+            video_audio,
         )
         os.replace(temp_path, output_path)
     finally:
         _remove_quietly(temp_path)
+        _close_video_decoders(canvases)
 
 
 def _write_bytes_atomically(output_path: str, data: bytes, suffix: str) -> None:
@@ -286,6 +295,7 @@ def export_animation_bytes(
         max_size,
         colors,
     )
+    probe_cache: dict[str, VideoInfo] = {}
     if reduced_motion:
         transitions = [None] * len(canvases)
     plan = _deck_plan(
@@ -295,14 +305,21 @@ def export_animation_bytes(
         slide_duration,
         slide_durations,
         reduced_motion=reduced_motion,
+        probe_cache=probe_cache,
     )
     if slide_audio is not None and audio_offsets is None:
         audio_offsets = plan.offsets
         audio_timeline_duration = plan.duration
     shots = _deck_shots(canvases, transitions, fps, slide_duration, matte_rgb, plan=plan)
+    video_audio = _video_audio_schedule(canvases, plan.offsets, probe_cache)
+    if video_audio and audio_timeline_duration is None:
+        audio_timeline_duration = plan.duration
 
     if format == "gif":
-        return _encode_gif(shots, loop, max_size=max_size, colors=colors)
+        try:
+            return _encode_gif(shots, loop, max_size=max_size, colors=colors)
+        finally:
+            _close_video_decoders(canvases)
 
     # ffmpeg needs a real, seekable output file (MP4 faststart rewrites the
     # header), so bytes go through a temporary file.
@@ -320,12 +337,14 @@ def export_animation_bytes(
             audio_offsets,
             audio_durations,
             audio_timeline_duration,
+            video_audio,
         )
         with open(temp_path, "rb") as video_file:
             return video_file.read()
     finally:
         # The encoder already removes the file when it fails.
         _remove_quietly(temp_path)
+        _close_video_decoders(canvases)
 
 
 def _validated_settings(
@@ -478,6 +497,16 @@ class _Shot:
     duration: float
 
 
+@dataclass(frozen=True)
+class _VideoAudio:
+    path: str
+    trim_start: float
+    duration: float
+    speed: float
+    volume: float
+    offset: float
+
+
 @dataclass
 class _DeckPlan:
     """The rendered slide animators and their shared timeline metadata."""
@@ -495,9 +524,13 @@ def _deck_plan(
     slide_duration: float,
     slide_durations: list[float | None] | None,
     reduced_motion: bool = False,
+    probe_cache: dict[str, VideoInfo] | None = None,
 ) -> _DeckPlan:
     """Build animation state once for both visuals and scheduled narration."""
-    animators = [_SlideAnimator(canvas, reduced_motion=reduced_motion) for canvas in canvases]
+    cache = probe_cache if probe_cache is not None else {}
+    animators = [
+        _SlideAnimator(canvas, cache, reduced_motion=reduced_motion) for canvas in canvases
+    ]
     timings = _deck_timing(
         canvases,
         transitions,
@@ -624,7 +657,7 @@ def _deck_timing(
 ) -> list[tuple[Transition | None, float, float, float]]:
     """Resolve each slide's transition, animation, and exit timing once."""
     if animation_durations is None:
-        animation_durations = [_SlideAnimator(canvas).duration for canvas in canvases]
+        animation_durations = [_SlideAnimator(canvas, {}).duration for canvas in canvases]
     if slide_durations is not None and len(slide_durations) != len(canvases):
         raise RenderingError("Deck slide durations are out of sync.")
     timings = []
@@ -741,9 +774,14 @@ class _Unit:
 class _SlideAnimator:
     """Composites one slide's layer-animation state at any point in time."""
 
-    def __init__(self, canvas: Canvas, reduced_motion: bool = False):
+    def __init__(
+        self,
+        canvas: Canvas,
+        probe_cache: dict[str, VideoInfo],
+        reduced_motion: bool = False,
+    ):
         self._canvas = canvas
-        self._units = _build_units(canvas, reduced_motion=reduced_motion)
+        self._units = _build_units(canvas, probe_cache, reduced_motion=reduced_motion)
         self.duration = max(_schedule_units(self._units), _schedule_timelines(self._units))
         self._final: Image.Image | None = None
 
@@ -800,6 +838,9 @@ class _SlideAnimator:
         windows: list[tuple[float, float]] = []
         boundaries = {start, end}
         for unit in self._units:
+            if any(isinstance(layer, VideoLayer) for layer in unit.layers):
+                boundaries.update((start, end))
+                windows.append((start, end))
             for node in unit.nodes:
                 active_start = node.start + node.effect.delay
                 window_start = max(active_start, start)
@@ -836,7 +877,11 @@ class _SlideAnimator:
         ]
 
 
-def _build_units(canvas: Canvas, reduced_motion: bool = False) -> list[_Unit]:
+def _build_units(
+    canvas: Canvas,
+    probe_cache: dict[str, VideoInfo],
+    reduced_motion: bool = False,
+) -> list[_Unit]:
     """Flatten the canvas into animation units rendered through the PIL pipeline."""
     if not reduced_motion:
         validate_legacy_animation_export(canvas)
@@ -912,7 +957,10 @@ def _build_units(canvas: Canvas, reduced_motion: bool = False) -> list[_Unit]:
         component_duration = (
             0.0
             if reduced_motion
-            else max((_component_animation_duration(layer) for layer in layers), default=0.0)
+            else max(
+                (_component_animation_duration(layer, probe_cache) for layer in layers),
+                default=0.0,
+            )
         )
         units.append(
             _Unit(
@@ -991,6 +1039,16 @@ def _render_unit_image(
     for layer in layers:
         canvas._render_layer(image, layer, time)
     bbox = image.getbbox()
+    if bbox is None and time is None:
+        video_start = max(
+            (layer.start for layer in layers if isinstance(layer, VideoLayer)),
+            default=0.0,
+        )
+        if video_start > 0:
+            image = Image.new("RGBA", (canvas.width, canvas.height), (0, 0, 0, 0))
+            for layer in layers:
+                canvas._render_layer(image, layer, video_start)
+            bbox = image.getbbox()
     if bbox is None:
         return None, (0, 0)
     return image.crop(bbox), (bbox[0], bbox[1])
@@ -1024,8 +1082,16 @@ def _schedule_units(units: list[_Unit]) -> float:
     return max([clock, *(unit.component_duration for unit in units)], default=0.0)
 
 
-def _component_animation_duration(layer: RenderableLayer) -> float:
+def _component_animation_duration(
+    layer: RenderableLayer, probe_cache: dict[str, VideoInfo]
+) -> float:
     """Return the settled duration of a canonical chart/QR motion preset."""
+    if isinstance(layer, VideoLayer):
+        info = probe_cache.get(layer.source)
+        if info is None:
+            info = probe_video(layer.source)
+            probe_cache[layer.source] = info
+        return layer.start + effective_duration(layer, info)
     if not isinstance(layer, (ChartLayer, QRCodeLayer)):
         return 0.0
     animations = getattr(layer, "animation", None)
@@ -1742,6 +1808,7 @@ def _encode_video_file(
     audio_offsets: list[float] | None = None,
     audio_durations: list[float] | None = None,
     audio_timeline_duration: float | None = None,
+    video_audio: list[_VideoAudio] | None = None,
 ) -> None:
     """Encode timestamped shot images with ffmpeg at a constant output frame rate.
 
@@ -1757,15 +1824,16 @@ def _encode_video_file(
     full-resolution RGB writes through Python for long static holds.
     """
     binary = _ffmpeg_binary()
-    if slide_audio is not None:
+    if slide_audio is not None or video_audio:
         audio_input, audio_output = _scheduled_audio_args(
             format,
             soundtrack,
             loop_audio,
-            slide_audio,
+            slide_audio or [],
             audio_offsets or [],
             audio_durations or [],
             audio_timeline_duration or 0.0,
+            video_audio or [],
         )
     elif soundtrack is None:
         if format == "mp4":
@@ -1975,6 +2043,7 @@ def _scheduled_audio_args(
     offsets: list[float],
     durations: list[float],
     timeline_duration: float,
+    video_audio: list[_VideoAudio],
 ) -> tuple[list[str], list[str]]:
     """Build one ffmpeg filter graph for a music bed and scheduled narration."""
     inputs: list[str] = []
@@ -2002,6 +2071,16 @@ def _scheduled_audio_args(
         )
         labels.append(label)
         input_index += 1
+    for clip in video_audio:
+        inputs.extend(["-ss", f"{clip.trim_start:.6f}", "-i", clip.path])
+        label = f"[clip{input_index}]"
+        filters.append(
+            f"[{input_index}:a]volume={clip.volume:.6f},{_atempo_filter(clip.speed)},"
+            f"apad,atrim=duration={clip.duration:.6f},"
+            f"adelay={round(clip.offset * 1000)}:all=1{label}"
+        )
+        labels.append(label)
+        input_index += 1
     filters.append(f"{''.join(labels)}amix=inputs={len(labels)}:duration=first:normalize=0[mix]")
     return inputs, [
         "-map",
@@ -2012,6 +2091,53 @@ def _scheduled_audio_args(
         "[mix]",
         *_AUDIO_ARGS[format],
     ]
+
+
+def _atempo_filter(speed: float) -> str:
+    """Build an FFmpeg atempo chain with bounded individual factors."""
+    filters: list[str] = []
+    remaining = speed
+    while remaining > 2.0:
+        filters.append("atempo=2.0")
+        remaining /= 2.0
+    while remaining < 0.5:
+        filters.append("atempo=0.5")
+        remaining /= 0.5
+    filters.append(f"atempo={remaining:.6f}")
+    return ",".join(filters)
+
+
+def _video_audio_schedule(
+    canvases: list[Canvas], offsets: list[float], probe_cache: dict[str, VideoInfo] | None = None
+) -> list[_VideoAudio]:
+    clips: list[_VideoAudio] = []
+    cache = probe_cache if probe_cache is not None else {}
+    for canvas, offset in zip(canvases, offsets, strict=True):
+        for layer in canvas._iter_layers_deep():
+            if not isinstance(layer, VideoLayer):
+                continue
+            info = cache.get(layer.source)
+            if info is None:
+                info = probe_video(layer.source)
+                cache[layer.source] = info
+            if not info.has_audio:
+                continue
+            clips.append(
+                _VideoAudio(
+                    path=layer.source,
+                    trim_start=layer.trim_start,
+                    duration=effective_duration(layer, info),
+                    speed=layer.speed,
+                    volume=layer.volume,
+                    offset=offset + layer.start,
+                )
+            )
+    return clips
+
+
+def _close_video_decoders(canvases: list[Canvas]) -> None:
+    for canvas in canvases:
+        canvas._ctx.close_video_decoders()
 
 
 def _remove_quietly(path: str) -> None:

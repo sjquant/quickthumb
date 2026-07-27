@@ -21,6 +21,7 @@ from pydantic import (
 from quickthumb.errors import ValidationError
 
 from .common import *  # noqa: F401,F403
+from .common import _validate_required_position
 from .effects import *  # noqa: F401,F403
 from .motion import AnimationInput
 from .visualizations import ChartLayer, QRCodeLayer
@@ -410,6 +411,93 @@ class SvgLayer(LayerIdentityModel):
     @field_serializer("align")
     def serialize_align(self, align: Align) -> str:
         return align.value
+
+
+class VideoCaption(quickthumbModel):
+    """A deterministic caption cue rendered into video frames."""
+
+    text: str
+    start: FiniteNonNegativeFloat
+    end: FinitePositiveFloat
+    position: Position = ("50%", "90%")
+    size: PositiveInt = 24
+    color: HexColor = "#FFFFFF"
+    background: HexColor | None = None
+    background_opacity: OpacityField = 0.65
+    padding: int | tuple[int, int] | tuple[int, int, int, int] = 0
+    border_radius: NonNegativeInt = 0
+
+    @field_validator("text")
+    @classmethod
+    def validate_text(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("caption text cannot be empty")
+        return value
+
+    @field_validator("position", mode="before")
+    @classmethod
+    def validate_position(cls, v: tuple | list) -> Position:
+        return _validate_required_position(v)
+
+    @field_validator("padding")
+    @classmethod
+    def validate_padding(cls, value: int | tuple[int, ...]) -> int | tuple[int, ...]:
+        if isinstance(value, bool):
+            raise ValueError("caption padding must be an integer or tuple")
+        if isinstance(value, int):
+            if value < 0:
+                raise ValueError("caption padding cannot be negative")
+            return value
+        if len(value) not in (2, 4):
+            raise ValueError("caption padding tuple must have 2 or 4 elements")
+        if any(item < 0 for item in value):
+            raise ValueError("caption padding values cannot be negative")
+        return value
+
+    @model_validator(mode="after")
+    def validate_range(self) -> "VideoCaption":
+        if self.end <= self.start:
+            raise ValidationError("caption end must be greater than start")
+        return self
+
+
+class VideoLayer(LayerIdentityModel):
+    """A constrained single-clip video layer for animated export."""
+
+    type: Literal["video"]
+    source: str
+    position: Position
+    width: PositiveInt
+    height: PositiveInt
+    fit: Annotated[FitMode, AfterValidator(lambda v: enum_converter(FitMode)(v))] = FitMode.CONTAIN
+    trim_start: FiniteNonNegativeFloat = 0.0
+    trim_end: FinitePositiveFloat | None = None
+    start: FiniteNonNegativeFloat = 0.0
+    duration: FinitePositiveFloat | None = None
+    speed: FinitePositiveFloat = 1.0
+    volume: FiniteNonNegativeFloat = 1.0
+    captions: list[VideoCaption] = []
+
+    @field_validator("source")
+    @classmethod
+    def validate_source(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("video source cannot be empty")
+        return value
+
+    @field_validator("position", mode="before")
+    @classmethod
+    def validate_position(cls, v: tuple | list) -> Position:
+        return _validate_required_position(v)
+
+    @model_validator(mode="after")
+    def validate_timing(self) -> "VideoLayer":
+        if self.trim_end is not None and self.trim_end <= self.trim_start:
+            raise ValidationError("trim_end must be greater than trim_start")
+        for caption in self.captions:
+            if self.duration is not None and caption.start >= self.duration:
+                raise ValidationError("caption timing must fall within the video duration")
+        return self
 
 
 class GroupLayer(LayerIdentityModel):

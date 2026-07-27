@@ -20,6 +20,7 @@ from .layers import (
     ShapeLayer,
     SvgLayer,
     TextLayer,
+    VideoLayer,
 )
 from .visualizations import ChartLayer, QRCodeLayer
 
@@ -32,6 +33,7 @@ LayerType = Annotated[
     | SvgLayer
     | ChartLayer
     | QRCodeLayer
+    | VideoLayer
     | GroupLayer,
     Discriminator("type"),
 ]

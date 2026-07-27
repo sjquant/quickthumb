@@ -34,6 +34,7 @@ from quickthumb.models import (
     ReducedMotionInspection,
     TimingSpec,
     TrackSpec,
+    VideoLayer,
     validate_hex_color,
 )
 from quickthumb.transitions import Fade, Transition, coerce_transition
@@ -1311,6 +1312,19 @@ def validate_export(
     row = capabilities_for(normalized)
     diagnostics: list[ExportDiagnostic] = []
     for layer_id, layer in _iter_export_layers(source):
+        if isinstance(layer, VideoLayer) and normalized not in ("video", "raster"):
+            diagnostics.append(
+                ExportDiagnostic(
+                    layer_id=layer_id,
+                    feature="video_layer",
+                    target=normalized,
+                    support="fallback",
+                    fallback="rasterize",
+                    message=(
+                        f"video layer {layer_id} is rasterized as a static frame for {normalized}"
+                    ),
+                )
+            )
         animations = getattr(layer, "animation", None)
         if animations is None:
             continue

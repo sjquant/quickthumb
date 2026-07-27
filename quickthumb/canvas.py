@@ -22,6 +22,7 @@ from quickthumb._measurements import BBox, LayerMeasurement, measure_layers
 from quickthumb._shapes import ShapeEngine
 from quickthumb._text import TextEngine
 from quickthumb._validation import validate_dimensions
+from quickthumb._video import VideoInfo, probe_video, render_video_layer
 from quickthumb._visualizations import VisualizationEngine
 from quickthumb.errors import RenderingError, ValidationError
 from quickthumb.models import (
@@ -60,6 +61,8 @@ from quickthumb.models import (
     TextInspection,
     TextLayer,
     TextPart,
+    VideoCaption,
+    VideoLayer,
     VideoOptions,
 )
 
@@ -622,6 +625,45 @@ class Canvas:
             mask=cast(Any, mask),
             effects=effects or [],
             animation=animation,
+            id=id,
+            motion_key=motion_key,
+        )
+        self._append_layer(layer)
+        return self
+
+    def video(
+        self,
+        source: str,
+        position: tuple[int, int] | tuple[str, str] | tuple[int, str] | tuple[str, int],
+        width: int,
+        height: int,
+        fit: FitMode | str = FitMode.CONTAIN,
+        trim_start: float = 0.0,
+        trim_end: float | None = None,
+        start: float = 0.0,
+        duration: float | None = None,
+        speed: float = 1.0,
+        volume: float = 1.0,
+        captions: list[VideoCaption | dict[str, Any]] | None = None,
+        *,
+        id: str | None = None,
+        motion_key: str | None = None,
+    ) -> Self:
+        """Add a constrained video clip layer for GIF, MP4, and WebM export."""
+        layer = VideoLayer(
+            type="video",
+            source=source,
+            position=position,
+            width=width,
+            height=height,
+            fit=FitMode(fit),
+            trim_start=trim_start,
+            trim_end=trim_end,
+            start=start,
+            duration=duration,
+            speed=speed,
+            volume=volume,
+            captions=cast(list[VideoCaption], captions or []),
             id=id,
             motion_key=motion_key,
         )
@@ -1308,16 +1350,16 @@ class Canvas:
     def _render_to_image(self, debug: bool = False, time: float | None = None) -> Image.Image:
         self._ctx.begin_render_pass()
         self._ctx.motion_time = time
-        image = self._create_canvas()
-
-        for layer in self._layers:
-            self._render_layer(image, layer, time)
-
-        if debug:
-            self._draw_debug_overlay(image)
-
-        self._ctx.motion_time = None
-        return image
+        try:
+            image = self._create_canvas()
+            for layer in self._layers:
+                self._render_layer(image, layer, time)
+            if debug:
+                self._draw_debug_overlay(image)
+            return image
+        finally:
+            self._ctx.motion_time = None
+            self._ctx.close_video_decoders()
 
     def _draw_debug_overlay(self, image: Image.Image) -> None:
         draw = ImageDraw.Draw(image, "RGBA")
@@ -1420,6 +1462,20 @@ class Canvas:
             self._visualizations.render_qr_code(image, layer, time)
         elif isinstance(layer, GroupLayer):
             self._groups.render_group_layer(image, layer, time=time)
+        elif isinstance(layer, VideoLayer):
+            info = cast(VideoInfo | None, self._ctx.video_info_cache.get(layer.source))
+            if info is None:
+                info = probe_video(layer.source)
+                self._ctx.video_info_cache[layer.source] = info
+            render_video_layer(
+                image,
+                layer,
+                0.0 if time is None else time,
+                info,
+                self._ctx.video_frame_cache,
+                self._ctx.video_decoder_cache,
+                self._fonts.load_font_variant,
+            )
         elif isinstance(layer, CustomLayer):
             self._render_custom_layer(image, layer)
 
@@ -1490,6 +1546,12 @@ class Canvas:
                 and not os.path.exists(layer.path)
             ):
                 raise FileNotFoundError(f"{layer.path}")
+            elif (
+                isinstance(layer, VideoLayer)
+                and not is_url(layer.source)
+                and not os.path.exists(layer.source)
+            ):
+                raise FileNotFoundError(f"{layer.source}")
             elif isinstance(layer, TextLayer):
                 fills_to_check: list[TextFillImage] = []
                 if isinstance(layer.fill, TextFillImage):
