@@ -876,7 +876,7 @@ def _build_units(canvas: Canvas, reduced_motion: bool = False) -> list[_Unit]:
 
     units: list[_Unit] = []
     for index, (_, layers) in enumerate(groups):
-        animation = getattr(layers[0], "animation", None)
+        animation = None if reduced_motion else getattr(layers[0], "animation", None)
         raw_effects = animation if isinstance(animation, list) else [animation] if animation else []
         unsupported = [
             effect
@@ -909,8 +909,10 @@ def _build_units(canvas: Canvas, reduced_motion: bool = False) -> list[_Unit]:
                 elif stagger.target == "children":
                     target_count = group_target_counts.get(id(canonical), 1)
             target_timelines = resolve_staggered_timelines(timeline, target_count)
-        component_duration = max(
-            (_component_animation_duration(layer) for layer in layers), default=0.0
+        component_duration = (
+            0.0
+            if reduced_motion
+            else max((_component_animation_duration(layer) for layer in layers), default=0.0)
         )
         units.append(
             _Unit(

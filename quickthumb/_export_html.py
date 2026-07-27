@@ -420,7 +420,9 @@ class HtmlExporter:
         canvas._ctx.begin_render_pass()
 
         prefix, rest = split_backdrop_prefix(flatten_layers(canvas))
-        if any(getattr(layer, "animation", None) is not None for layer in prefix):
+        if not self._reduced_motion and any(
+            getattr(layer, "animation", None) is not None for layer in prefix
+        ):
             raise RenderingError(
                 "HTML export cannot animate layers that must be rasterized together for "
                 "blend-mode or custom-layer backdrop compositing. Move animated layers "

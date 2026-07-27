@@ -1513,6 +1513,7 @@ def _inspection_layer(
     for spec in specs:
         targets.extend(_inspection_targets(layer, spec))
     sample_times = _bounded_frame_times(timeline.duration, fps, max_samples)
+    static_state = base.model_dump(mode="json", exclude_none=True)
     return MotionLayerInspection(
         layer_id=layer_id,
         layer_type=str(getattr(layer, "type", type(layer).__name__)),
@@ -1524,6 +1525,7 @@ def _inspection_layer(
             timeline.sample(time, base).model_dump(mode="json", exclude_none=True)
             for time in sample_times
         ],
+        static_state=static_state,
         initial_state=initial.model_dump(mode="json", exclude_none=True),
         final_state=final.model_dump(mode="json", exclude_none=True),
     )
@@ -1588,8 +1590,8 @@ def _resolve_reduced_motion(
                     "events": [],
                     "duration": 0.0,
                     "sample_times": [0.0],
-                    "samples": [layer.final_state],
-                    "initial_state": layer.final_state,
+                    "samples": [layer.static_state],
+                    "initial_state": layer.static_state,
                 }
             )
             for layer in slide.layers

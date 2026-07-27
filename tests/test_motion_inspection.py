@@ -144,6 +144,28 @@ class TestMotionInspection:
         assert report.slides[0].layers[0].events == []
         assert report.slides[0].layers[0].sample_times == [0.0]
 
+    def test_should_report_the_exported_static_state_for_reduced_motion(self):
+        # Given: motion whose final keyframe differs from the authored layer state
+        canvas = Canvas(100, 100).text(
+            "Motion",
+            position=(0, 0),
+            animation=AnimationSpec.timeline(
+                PositionTrack(
+                    keyframes=[
+                        KeyframeSpec(time=0, value=(0, 0)),
+                        KeyframeSpec(time=1, value=(50, 0)),
+                    ]
+                )
+            ),
+        )
+
+        # When: reduced-motion inspection resolves the export
+        layer = canvas.inspect_motion(policy=ExportPolicy(reduced_motion=True)).slides[0].layers[0]
+
+        # Then: the static sample matches the state used by static exporters
+        assert layer.samples == [layer.static_state]
+        assert layer.samples[0]["position"] == [0.0, 0.0]
+
     def test_should_apply_reduced_motion_to_html_without_mutating_the_source(self):
         # Given: a canvas with canonical motion
         canvas = Canvas(100, 100).text(
@@ -159,6 +181,21 @@ class TestMotionInspection:
         assert "@keyframes qt-k" in animated
         assert "@keyframes qt-k" not in static
         assert canvas.inspect_motion(target="html").slides[0].layers[0].events
+
+    def test_should_allow_reduced_motion_html_for_backdrop_compositing(self):
+        # Given: an animated layer that normally requires backdrop rasterization
+        canvas = (
+            Canvas(160, 90)
+            .background(color="#1131AA")
+            .shape("rectangle", (40, 20), 80, 50, "#FF2D55", animation=Fade(duration=0.5))
+            .custom(lambda image: None)
+        )
+
+        # When: HTML is exported with reduced motion
+        html = canvas.to_html(policy=ExportPolicy(reduced_motion=True))
+
+        # Then: the static policy does not reject the otherwise unsupported animation path
+        assert "@keyframes qt-k" not in html
 
     def test_should_apply_reduced_motion_to_pptx_without_timing_records(self):
         # Given: a canvas with a legacy PowerPoint animation

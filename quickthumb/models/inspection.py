@@ -132,6 +132,7 @@ class MotionLayerInspection(quickthumbModel):
     targets: list[MotionTargetInspection] = Field(default_factory=list)
     sample_times: list[float] = Field(default_factory=list)
     samples: list[dict[str, Any]] = Field(default_factory=list)
+    static_state: dict[str, Any] = Field(default_factory=dict)
     initial_state: dict[str, Any] = Field(default_factory=dict)
     final_state: dict[str, Any] = Field(default_factory=dict)
 
