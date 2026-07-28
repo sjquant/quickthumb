@@ -1973,7 +1973,7 @@ dev = [
     { name = "cairosvg", specifier = ">=2.7.0,<3.0.0" },
     { name = "diff-cover", specifier = ">=10.3.0,<11.0.0" },
     { name = "fonttools", specifier = ">=4.0.0,<5.0.0" },
-    { name = "inline-snapshot", specifier = ">=0.31.1,<0.35.0" },
+    { name = "inline-snapshot", specifier = ">=0.31.1,<0.36.0" },
     { name = "jsonschema", specifier = ">=4.0.0,<5.0.0" },
     { name = "pre-commit", specifier = ">=4.6.0,<5.0.0" },
     { name = "pypdfium2", specifier = ">=5.10.1,<6.0.0" },
