@@ -308,7 +308,6 @@ def _render_captions(
             if font_loader
             else ImageFont.load_default()
         )
-        draw.multiline_text((left + 2, top + 2), caption.text, font=font, fill=(0, 0, 0, 180))
         draw.multiline_text(
             (left, top),
             caption.text,

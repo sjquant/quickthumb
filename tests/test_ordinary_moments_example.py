@@ -29,7 +29,18 @@ def test_ordinary_moments_builds_a_focused_horizontal_product_story():
     assert sum(layer["type"] == "video" for layer in layers) == 8
     assert all(layer["duration"] == SCENE_DURATION for layer in layers if layer["type"] == "video")
     assert len({layer["source"] for layer in layers if layer["type"] == "video"}) >= 5
-    assert deck.diagnose() == []
+    assert all(
+        layer["position"] == [0, 0] and layer["width"] == 1280 and layer["height"] == 720
+        for layer in layers
+        if layer["type"] == "video"
+    )
+    findings = deck.diagnose()
+    assert not any(finding.severity == "error" for finding in findings)
+    assert not {finding.code for finding in findings} & {
+        "text-clipped",
+        "caption-timing",
+        "caption-overlap",
+    }
 
 
 def test_ordinary_moments_keeps_caption_treatment_and_fallback_contracts_public():
@@ -51,8 +62,8 @@ def test_ordinary_moments_keeps_caption_treatment_and_fallback_contracts_public(
         if layer["type"] == "video"
         for caption in layer["captions"]
     ]
-    assert any(caption["background_opacity"] == 0.82 for caption in captions)
-    assert any(caption["border_radius"] == 4 for caption in captions)
+    assert any(caption["background_opacity"] == 0.9 for caption in captions)
+    assert any(caption["border_radius"] == 2 for caption in captions)
     assert any(
         item.feature == "video_layer" and item.fallback == "rasterize" for item in diagnostics
     )

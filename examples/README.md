@@ -193,14 +193,14 @@ Use it when you want a shareable, self-playing GIF or video clip (Reels/TikTok/S
 
 Output: `ordinary_moments.mp4`, `ordinary_moments.webm`, and `ordinary_moments_preview.gif`
 
-Builds a focused, 60-second horizontal Korean-language product film titled “한 번 만든 장면. 어디서나.”:
+Builds a focused, 60-second horizontal Korean-language product film with the advertising line “한 번의 구성, 모든 포맷.”:
 
 - Five distinct locally bundled Pexels clips with a checked-in provenance manifest
-- Pretendard Korean typography with a warm editorial palette and centered panel hierarchy
-- `VideoLayer` composition with deterministic trim, fit, constant speed, and centered caption anchors
-- A shared 72px editorial grid with aligned video/panel edges and safe text margins
-- Timed Korean caption cues with centered text backgrounds, opacity, asymmetric padding, and rounded corners
-- Purposeful `Cut`, `Fade`, and `Wipe` transitions with a restrained Mixkit ambient soundtrack loop
+- Pretendard Korean typography with a warm editorial palette and full-bleed footage
+- `VideoLayer` composition with deterministic trim, fit, constant speed, and optically centered caption anchors
+- Four alternating overlay compositions (left, right, bottom, and top) instead of repeating one card layout
+- Animated accent bars and purposeful `Cut`, `Fade`, and `Wipe` transitions with a restrained Mixkit soundtrack loop
+- Timed Korean caption cues with centered text backgrounds, symmetric padding, and rounded corners
 - MP4, WebM, and silent GIF preview exports from the same deterministic timeline
 - A clear Korean-language product narrative that demonstrates the video API through a finished piece
 

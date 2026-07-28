@@ -31,80 +31,73 @@ OUT_GIF = OUT_DIR / "ordinary_moments_preview.gif"
 WIDTH, HEIGHT = 1280, 720
 SCENE_DURATION = 7.5
 VIDEO_END = 7.8
-VIDEO_POSITION = (72, 174)
-VIDEO_SIZE = (720, 405)
 SOURCE_ENDS = {
     "ordinary-city.mp4": 4.8,
     "ordinary-coffee.mp4": 7.1,
     "ordinary-sunrise.mp4": 7.2,
 }
-SAFE_X, SAFE_RIGHT = 72, 1208
 INK = "#191817"
-SURFACE = "#F3EFE7"
-TEXT = "#211F1D"
 CREAM = "#F8F3E9"
-MUTED = "#5F5852"
 ACCENT = "#E45B45"
-RULE = "#D8D0C5"
 
 # Each source is a different visual beat. The deliberate reuse is non-adjacent
 # and only happens when the story needs a familiar visual anchor.
 SCENES = (
     (
         "ordinary-city.mp4",
-        "01  /  아이디어",
-        "한 번 만든 장면.\n어디서나.",
-        "화면이 달라도, 이야기는 흔들리지 않게.",
-        "이야기부터 시작합니다.",
+        "01  /  START WITH THE MOMENT",
+        "장면 하나로\n시작합니다.",
+        "아이디어가 생기는 순간부터, 화면은 움직이기 시작하니까.",
+        "아이디어를 움직이세요.",
     ),
     (
         "ordinary-notebook.mp4",
-        "02  /  원본",
-        "원본을 다듬고.\n의도를 남기고.",
-        "필요한 순간만 남겨, 장면의 힘을 키웁니다.",
+        "02  /  SHAPE THE RAW",
+        "필요한 순간만\n남깁니다.",
+        "자르고, 맞추고, 배치하면 원본은 메시지가 됩니다.",
         "자르고. 맞추고. 배치합니다.",
     ),
     (
         "ordinary-coffee.mp4",
-        "03  /  구성",
-        "정렬이\n완성도를 만듭니다.",
-        "영상과 텍스트가 같은 기준선 위에 놓입니다.",
+        "03  /  FIND THE FRAME",
+        "정렬된 순간은\n더 오래 남습니다.",
+        "영상과 텍스트가 하나의 기준선 위에서 같은 이야기를 합니다.",
         "모든 요소에는 자리가 있습니다.",
     ),
     (
         "ordinary-phone.mp4",
-        "04  /  자막",
-        "자막은\n정확한 순간에.",
-        "말이 이미지보다 늦게 도착하지 않도록.",
+        "04  /  LET WORDS LAND",
+        "말은\n정확한 순간에.",
+        "자막의 위치와 타이밍까지, 장면 안에서 함께 설계합니다.",
         "타이밍이 메시지를 만듭니다.",
     ),
     (
         "ordinary-sunrise.mp4",
-        "05  /  타임라인",
-        "움직임은\n기억에 남게.",
-        "자르고, 늦추고, 전환해도 타임라인은 정확합니다.",
+        "05  /  MAKE IT MOVE",
+        "움직임은\n기억을 만듭니다.",
+        "속도와 전환을 바꿔도, 모든 프레임은 같은 타임라인을 따릅니다.",
         "모든 프레임이 같은 이야기를 합니다.",
     ),
     (
         "ordinary-city.mp4",
-        "06  /  사운드",
-        "소리는\n화면을 따라가고.",
-        "영상의 길이가 달라져도 리듬은 흐트러지지 않습니다.",
+        "06  /  KEEP THE RHYTHM",
+        "소리도\n화면을 따라갑니다.",
+        "영상의 길이와 오디오의 길이가 어긋나지 않도록 함께 흐릅니다.",
         "화면과 소리 사이, 오차 없이.",
     ),
     (
         "ordinary-notebook.mp4",
-        "07  /  결과물",
+        "07  /  ONE TIMELINE",
         "하나의 구성.\n세 가지 결과.",
-        "피드에는 MP4, 웹에는 WebM, 미리보기에는 GIF.",
+        "피드에는 MP4, 웹에는 WebM, 미리보기에는 GIF로 바로 이어집니다.",
         "MP4  /  WEBM  /  GIF",
     ),
     (
         "ordinary-coffee.mp4",
         "08  /  QUICKTHUMB",
-        "한 번 만들고.\n모두에게 보냅니다.",
-        "구성은 한 번, 전달은 어디서나.",
-        "의도를 담아, 바로 보냅니다.",
+        "한 번 만들고.\n바로 보냅니다.",
+        "의도는 하나로, 전달되는 모든 포맷은 정확하게.",
+        "한 번의 구성, 모든 포맷",
     ),
 )
 
@@ -144,7 +137,7 @@ def build_scene(
     detail: str,
     caption: str,
 ) -> Canvas:
-    """Build one scene on the shared 72px editorial grid."""
+    """Build one full-bleed advertising scene with varied overlay treatment."""
     source = str(VIDEO_DIR / source_name)
     trim_start = min(0.8, index * 0.11)
     # Source clips have different durations; slow shorter shots down instead
@@ -154,9 +147,9 @@ def build_scene(
     canvas = Canvas(WIDTH, HEIGHT).background(color=INK)
     canvas.video(
         source,
-        position=VIDEO_POSITION,
-        width=VIDEO_SIZE[0],
-        height=VIDEO_SIZE[1],
+        position=(0, 0),
+        width=WIDTH,
+        height=HEIGHT,
         fit="cover",
         trim_start=trim_start,
         trim_end=trim_end,
@@ -167,44 +160,64 @@ def build_scene(
                 "text": caption,
                 "start": 1.0,
                 "end": 6.5,
-                # VideoCaption positions are center anchors, not top-left corners.
                 "font": FONT_BOLD,
-                "position": (
-                    VIDEO_POSITION[0] + VIDEO_SIZE[0] // 2,
-                    VIDEO_POSITION[1] + VIDEO_SIZE[1] - 42,
-                ),
+                "position": (WIDTH // 2, 630 if index % 2 else 650),
                 "size": 20,
                 "color": CREAM,
                 "background": INK,
-                "background_opacity": 0.82,
-                "padding": (6, 12, 7, 12),
-                "border_radius": 4,
+                "background_opacity": 0.9,
+                "padding": (6, 14, 6, 14),
+                "border_radius": 2,
             }
         ],
     )
+    panel_styles = (
+        ("left", (48, 72, 510, 500), 0.82),
+        ("right", (744, 72, 488, 500), 0.84),
+        ("bottom", (0, 470, 1280, 190), 0.78),
+        ("top", (0, 0, 1280, 330), 0.76),
+    )
+    panel_style, (panel_x, panel_y, panel_width, panel_height), panel_opacity = panel_styles[
+        index % len(panel_styles)
+    ]
     canvas = canvas.shape(
         shape="rectangle",
-        position=(SAFE_X, 32),
-        width=1136,
-        height=72,
-        color=SURFACE,
-        opacity=1.0,
+        position=(panel_x, panel_y),
+        width=panel_width,
+        height=panel_height,
+        color=INK,
+        opacity=panel_opacity,
     )
-    canvas = canvas.shape(
-        shape="rectangle",
-        position=(SAFE_X, 104),
-        width=1136,
-        height=2,
-        color=RULE,
-    )
+    if panel_style in {"left", "right"}:
+        accent_x = panel_x + (panel_width - 8 if panel_style == "right" else 0)
+        canvas = canvas.shape(
+            shape="rectangle",
+            position=(accent_x, panel_y),
+            width=8,
+            height=panel_height,
+            color=ACCENT,
+            animation=Wipe(direction="down", duration=0.4),
+        )
+    else:
+        canvas = canvas.shape(
+            shape="rectangle",
+            position=(72, panel_y + panel_height - 8),
+            width=280 if panel_style == "bottom" else 440,
+            height=8,
+            color=ACCENT,
+            animation=Wipe(direction="right", duration=0.4),
+        )
+    text_x = panel_x + 48
+    text_top = panel_y + (88 if panel_style == "top" else 40)
+    text_width = panel_width - 96
     canvas = canvas.text(
         content="QUICKTHUMB  /  VIDEO COMPOSITION",
         font=FONT_BOLD,
-        size=18,
-        color=TEXT,
+        size=16,
+        color=CREAM,
         letter_spacing=1,
-        position=(SAFE_X + 24, 57),
-        animation=Fade(duration=0.25, trigger="after_previous"),
+        position=(72, 32),
+        animation=Fade(duration=0.2),
     )
     canvas = canvas.text(
         content=f"{index + 1:02d}  /  08",
@@ -212,68 +225,64 @@ def build_scene(
         size=18,
         color=ACCENT,
         letter_spacing=1,
-        position=(SAFE_RIGHT - 84, 57),
-        animation=Fade(duration=0.25, trigger="with_previous"),
-    )
-    canvas = canvas.shape(
-        shape="rectangle",
-        position=(840, 174),
-        width=368,
-        height=405,
-        color=SURFACE,
-        opacity=1.0,
+        position=(1208, 32),
+        align=("right", "top"),
+        animation=Fade(duration=0.2, trigger="with_previous"),
     )
     canvas = canvas.text(
         content=eyebrow,
         font=FONT_BOLD,
-        size=18,
+        size=16,
         color=ACCENT,
-        letter_spacing=2,
-        position=(1024, 206),
-        align=("center", "top"),
+        letter_spacing=1,
+        position=(text_x, text_top),
+        align=("left", "top"),
+        max_width=text_width,
+        auto_scale=True,
+        min_size=12,
     )
     canvas = canvas.text(
         content=headline,
         font=FONT_BOLD,
-        size=42,
-        color=TEXT,
+        size=54 if panel_style in {"left", "right"} else 50,
+        color=CREAM,
         line_height=0.98,
-        letter_spacing=-1,
-        position=(1024, 256),
-        align=("center", "top"),
-        max_width=300,
+        position=(text_x, text_top + 54),
+        align=("left", "top"),
+        max_width=text_width,
         auto_scale=True,
-        min_size=30,
+        min_size=28,
+        animation=Wipe(direction="up", duration=0.45, trigger="after_previous"),
     )
     canvas = canvas.text(
         content="—",
         font=FONT_BOLD,
-        size=24,
+        size=22,
         color=ACCENT,
-        position=(1024, 410),
-        align=("center", "top"),
+        position=(text_x, panel_y + panel_height - 78),
+        align=("left", "top"),
         animation=Wipe(direction="right", duration=0.3, trigger="after_previous"),
     )
     canvas = canvas.text(
         content=detail,
         font=FONT,
-        size=20,
-        color=MUTED,
+        size=19,
+        color=CREAM,
         line_height=1.2,
-        position=(1024, 446),
-        align=("center", "top"),
-        max_width=292,
+        position=(text_x, panel_y + panel_height - 48),
+        align=("left", "bottom"),
+        max_width=text_width,
         auto_scale=True,
-        min_size=17,
+        min_size=14,
     )
     return canvas.text(
-        content="한 번의 구성, 모든 포맷",
+        content="ONE IDEA. EVERY FORMAT.",
         font=FONT_BOLD,
-        size=18,
-        color=MUTED,
+        size=16,
+        color=CREAM,
         letter_spacing=1,
-        position=(1024, 548),
-        align=("center", "top"),
+        position=(72, 692),
+        align=("left", "bottom"),
     )
 
 
