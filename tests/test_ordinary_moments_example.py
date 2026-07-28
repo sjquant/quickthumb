@@ -14,10 +14,10 @@ def test_ordinary_moments_builds_a_focused_horizontal_product_story():
     payload = json.loads(deck.to_json())
     layers = [layer for slide in payload["slides"] for layer in slide["layers"]]
 
-    # Then: it is a horizontal, eight-scene VideoLayer film with a focused runtime
+    # Then: it is a horizontal, eight-scene VideoLayer film with a settled end card
     assert payload["width"] == 1280
     assert payload["height"] == 720
-    assert len(payload["slides"]) == 8
+    assert len(payload["slides"]) == 9
     assert (
         sum(
             slide["transition"]["advance_after"]
@@ -34,6 +34,7 @@ def test_ordinary_moments_builds_a_focused_horizontal_product_story():
         for layer in layers
         if layer["type"] == "video"
     )
+    assert not any(layer["type"] == "video" for layer in payload["slides"][-1]["layers"])
     findings = deck.diagnose()
     assert not any(finding.severity == "error" for finding in findings)
     assert not {finding.code for finding in findings} & {

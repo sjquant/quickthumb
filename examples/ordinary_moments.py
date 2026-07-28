@@ -29,16 +29,16 @@ OUT_WEBM = OUT_DIR / "ordinary_moments.webm"
 OUT_GIF = OUT_DIR / "ordinary_moments_preview.gif"
 
 WIDTH, HEIGHT = 1280, 720
-SCENE_DURATION = 7.5
+SCENE_DURATION = 7.25
 VIDEO_END = 7.8
 SOURCE_ENDS = {
     "ordinary-city.mp4": 4.8,
     "ordinary-coffee.mp4": 7.1,
     "ordinary-sunrise.mp4": 7.2,
 }
-INK = "#191817"
-CREAM = "#F8F3E9"
-ACCENT = "#E45B45"
+INK = "#101820"
+CREAM = "#F5F3ED"
+ACCENT = "#D0A464"
 
 # Each source is a different visual beat. The deliberate reuse is non-adjacent
 # and only happens when the story needs a familiar visual anchor.
@@ -122,11 +122,62 @@ def build_deck() -> Deck:
         ),
         tr.Cut(advance_after=SCENE_DURATION),
         tr.Fade(duration=0.5, advance_after=SCENE_DURATION - 0.5),
+        tr.Fade(duration=0.5, advance_after=1.5),
     )
     deck = Deck(WIDTH, HEIGHT)
     for index, scene in enumerate(SCENES):
         deck = deck.slide(build_scene(index, *scene), transition=transitions[index])
+    deck = deck.slide(build_outro(), transition=transitions[-1])
     return deck
+
+
+def build_outro() -> Canvas:
+    """Build a quiet two-second end card so the film lands instead of stopping."""
+    return (
+        Canvas(WIDTH, HEIGHT)
+        .background(color=INK)
+        .shape(
+            shape="rectangle",
+            position=(72, 132),
+            width=8,
+            height=456,
+            color=ACCENT,
+        )
+        .text(
+            content="QUICKTHUMB",
+            font=FONT_BOLD,
+            size=18,
+            color=ACCENT,
+            letter_spacing=1,
+            position=(120, 144),
+        )
+        .text(
+            content="한 번의 구성.\n모든 포맷.",
+            font=FONT_BOLD,
+            size=64,
+            color=CREAM,
+            line_height=0.98,
+            position=(120, 216),
+            max_width=720,
+            auto_scale=True,
+            min_size=42,
+        )
+        .text(
+            content="Trim. Fit. Place. Move.",
+            font=FONT,
+            size=22,
+            color=CREAM,
+            position=(120, 430),
+        )
+        .text(
+            content="MP4  /  WEBM  /  GIF",
+            font=FONT_BOLD,
+            size=18,
+            color=ACCENT,
+            letter_spacing=1,
+            position=(120, 548),
+        )
+    )
 
 
 def build_scene(
@@ -161,7 +212,12 @@ def build_scene(
                 "start": 1.0,
                 "end": 6.5,
                 "font": FONT_BOLD,
-                "position": (WIDTH // 2, 630 if index % 2 else 650),
+                # Bottom-panel scenes reserve the lower band for the overlay,
+                # so the cue sits just above it instead of being covered.
+                "position": (
+                    WIDTH // 2,
+                    380 if index % 4 == 2 else 630 if index % 2 else 650,
+                ),
                 "size": 20,
                 "color": CREAM,
                 "background": INK,
@@ -174,7 +230,7 @@ def build_scene(
     panel_styles = (
         ("left", (48, 72, 510, 500), 0.82),
         ("right", (744, 72, 488, 500), 0.84),
-        ("bottom", (0, 470, 1280, 190), 0.78),
+        ("bottom", (0, 420, 1280, 240), 0.82),
         ("top", (0, 0, 1280, 330), 0.76),
     )
     panel_style, (panel_x, panel_y, panel_width, panel_height), panel_opacity = panel_styles[
@@ -187,6 +243,14 @@ def build_scene(
         height=panel_height,
         color=INK,
         opacity=panel_opacity,
+    )
+    canvas = canvas.shape(
+        shape="rectangle",
+        position=(0, 0),
+        width=WIDTH,
+        height=72,
+        color=INK,
+        opacity=0.55,
     )
     if panel_style in {"left", "right"}:
         accent_x = panel_x + (panel_width - 8 if panel_style == "right" else 0)
@@ -208,7 +272,7 @@ def build_scene(
             animation=Wipe(direction="right", duration=0.4),
         )
     text_x = panel_x + 48
-    text_top = panel_y + (88 if panel_style == "top" else 40)
+    text_top = panel_y + (88 if panel_style == "top" else 20 if panel_style == "bottom" else 40)
     text_width = panel_width - 96
     canvas = canvas.text(
         content="QUICKTHUMB  /  VIDEO COMPOSITION",
@@ -244,7 +308,7 @@ def build_scene(
     canvas = canvas.text(
         content=headline,
         font=FONT_BOLD,
-        size=54 if panel_style in {"left", "right"} else 50,
+        size=54 if panel_style in {"left", "right"} else 46,
         color=CREAM,
         line_height=0.98,
         position=(text_x, text_top + 54),
@@ -275,7 +339,7 @@ def build_scene(
         auto_scale=True,
         min_size=14,
     )
-    return canvas.text(
+    canvas = canvas.text(
         content="ONE IDEA. EVERY FORMAT.",
         font=FONT_BOLD,
         size=16,
@@ -284,6 +348,7 @@ def build_scene(
         position=(72, 692),
         align=("left", "bottom"),
     )
+    return canvas
 
 
 def main() -> None:
