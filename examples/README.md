@@ -193,14 +193,15 @@ Use it when you want a shareable, self-playing GIF or video clip (Reels/TikTok/S
 
 Output: `ordinary_moments.mp4`, `ordinary_moments.webm`, and `ordinary_moments_preview.gif`
 
-Builds an approximately two-minute, horizontal editorial film titled “Make the Ordinary Impossible to Skip”:
+Builds a focused, 60-second horizontal product film titled “One composition. Every delivery.”:
 
-- Locally bundled Pexels footage with a checked-in provenance manifest
+- Five distinct locally bundled Pexels clips with a checked-in provenance manifest
 - Full-bleed `VideoLayer` composition with deterministic trim, fit, and constant speed
+- A shared 72px editorial grid with a contained video frame, aligned metadata, and safe text margins
 - Timed caption cues with background, opacity, asymmetric padding, and rounded corners
-- Beat-like scene pacing with `Cut`, `Fade`, and `Wipe` transitions
-- A restrained soundtrack loop and silent GIF preview
-- A human-first narrative that demonstrates the video API through a finished piece rather than a feature checklist
+- Purposeful `Cut`, `Fade`, and `Wipe` transitions with a restrained Mixkit ambient soundtrack loop
+- MP4, WebM, and silent GIF preview exports from the same deterministic timeline
+- A clear product narrative that demonstrates the video API through a finished piece
 
 Use it when you want a production-style reference for combining footage, captions, audio, and editorial motion in a reproducible 16:9 composition.
 
