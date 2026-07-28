@@ -294,7 +294,7 @@ def main() -> None:
     if errors:
         raise RuntimeError(f"ordinary_moments has diagnostics: {errors}")
 
-    soundtrack = AudioTrack(path=str(SOUNDTRACK), volume=0.16, loop=True)
+    soundtrack = AudioTrack(path=str(SOUNDTRACK), volume=0.16, loop=True, fade_out=1.4)
     OUT_MP4.write_bytes(deck.to_animated_mp4(fps=24, soundtrack=soundtrack))
     OUT_WEBM.write_bytes(deck.to_webm(fps=24, soundtrack=soundtrack))
     # VideoLayer supplies the timeline; zero avoids adding a second settled hold.

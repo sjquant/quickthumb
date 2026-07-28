@@ -667,3 +667,18 @@ class TestDeckTransitions:
         assert restored.default_transition is not None
         assert restored.default_transition.effect == "cover"
         assert self._transition_effects(restored) == ["cover", "wipe"]
+
+    def test_should_report_consecutive_identical_transitions(self):
+        """Consecutive identical transitions produce an explicit rhythm warning"""
+        # given: two adjacent slides with the same transition configuration
+        deck = Deck(1280, 720).slide(make_slide("1"), transition=Fade()).slide(
+            make_slide("2"), transition=Fade()
+        )
+
+        # when
+        findings = deck.diagnose()
+
+        # then
+        repetition = [finding for finding in findings if finding.code == "transition-repetition"]
+        assert len(repetition) == 1
+        assert repetition[0].slide_index == 1

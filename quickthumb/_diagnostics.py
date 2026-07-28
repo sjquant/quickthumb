@@ -64,6 +64,7 @@ MIN_PARTIAL_OVERLAP_RATIO = 0.2
 BACKDROP_COVERAGE_RATIO = 0.95
 OVERLAP_CLEARANCE_PX = 8
 NEAR_ALIGNMENT_TOLERANCE = 3
+CAPTION_SAFE_MARGIN = 24
 
 
 def _boxes_intersect(first: tuple[int, int, int, int], second: tuple[int, int, int, int]) -> bool:
@@ -207,6 +208,41 @@ class DiagnosticsEngine:
                             "move the caption position toward the canvas center, "
                             "reduce text size, or shorten the caption"
                         ),
+                        **diagnostic_context(measured),
+                    )
+                )
+            safe_edges = []
+            rendered_left, rendered_top, rendered_right, rendered_bottom = geometry.rendered_bbox
+            if rendered_left < CAPTION_SAFE_MARGIN:
+                safe_edges.append("left")
+            if rendered_top < CAPTION_SAFE_MARGIN:
+                safe_edges.append("top")
+            if rendered_right > self._ctx.width - CAPTION_SAFE_MARGIN:
+                safe_edges.append("right")
+            if rendered_bottom > self._ctx.height - CAPTION_SAFE_MARGIN:
+                safe_edges.append("bottom")
+            if safe_edges:
+                findings.append(
+                    Diagnostic(
+                        code="caption-safe-area",
+                        severity="warning",
+                        layer_index=measured.index,
+                        message=(
+                            f"video caption {index} enters the {', '.join(safe_edges)} "
+                            "safe-area margin"
+                        ),
+                        measured={
+                            "caption_index": index,
+                            "safe_edges": safe_edges,
+                            "safe_margin": CAPTION_SAFE_MARGIN,
+                            "rendered_bbox": {
+                                "x": rendered_left,
+                                "y": rendered_top,
+                                "width": rendered_right - rendered_left,
+                                "height": rendered_bottom - rendered_top,
+                            },
+                        },
+                        suggestion="move the caption farther from the canvas edge",
                         **diagnostic_context(measured),
                     )
                 )

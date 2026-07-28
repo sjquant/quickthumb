@@ -347,6 +347,36 @@ def test_video_caption_diagnostics_cover_multiline_timing_and_background_overlap
     assert "caption-overlap" in codes
 
 
+@pytest.mark.skipif(not HAS_FFMPEG, reason="FFmpeg is required")
+def test_video_caption_safe_area_diagnostic_reports_a_caption_near_the_bottom_edge(source_video):
+    """Given a bottom-edge cue, when diagnosed, then its safe-area risk is explicit."""
+    # Given: a caption whose background enters the 24px canvas safety margin
+    canvas = Canvas(160, 96).video(
+        str(source_video),
+        (0, 0),
+        160,
+        96,
+        trim_end=1,
+        captions=[
+            {
+                "text": "Bottom edge",
+                "start": 0,
+                "end": 0.5,
+                "position": (80, 90),
+                "size": 12,
+                "background": "#000000",
+                "padding": 4,
+            }
+        ],
+    )
+
+    # When: the public diagnostic API inspects the composition
+    findings = canvas.diagnose()
+
+    # Then: the caption is identified without requiring an export
+    assert any(finding.code == "caption-safe-area" for finding in findings)
+
+
 @pytest.mark.skipif(not HAS_FFMPEG, reason="ffmpeg is required")
 def test_video_layer_rejects_duration_longer_than_trimmed_source(source_video):
     """Given a short clip, when duration exceeds its source, then rendering fails safely."""

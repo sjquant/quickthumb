@@ -715,6 +715,30 @@ class Deck:
                         suggestion=payload.get("suggestion"),
                     )
                 )
+        effective = [transition or self._transition for transition in self._slide_transitions]
+        for index in range(1, len(effective)):
+            previous, current = effective[index - 1], effective[index]
+            if previous is None or current is None:
+                continue
+            if previous.model_dump(mode="json") != current.model_dump(mode="json"):
+                continue
+            findings.append(
+                DeckDiagnostic(
+                    code="transition-repetition",
+                    severity="warning",
+                    message=(
+                        f"slides {index - 1} and {index} use the same "
+                        f"{current.effect} transition consecutively"
+                    ),
+                    slide_index=index,
+                    measured={
+                        "previous_slide": index - 1,
+                        "slide": index,
+                        "transition": current.model_dump(mode="json"),
+                    },
+                    suggestion="vary the transition or use a cut to create a deliberate rhythm",
+                )
+            )
         return findings
 
     def to_json(self) -> str:

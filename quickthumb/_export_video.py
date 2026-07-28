@@ -1824,36 +1824,6 @@ def _encode_video_file(
     full-resolution RGB writes through Python for long static holds.
     """
     binary = _ffmpeg_binary()
-    if slide_audio is not None or video_audio:
-        audio_input, audio_output = _scheduled_audio_args(
-            format,
-            soundtrack,
-            loop_audio,
-            slide_audio or [],
-            audio_offsets or [],
-            audio_durations or [],
-            audio_timeline_duration or 0.0,
-            video_audio or [],
-        )
-    elif soundtrack is None:
-        if format == "mp4":
-            audio_input = ["-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo"]
-            audio_output = ["-map", "0:v", "-map", "1:a:0", *_AUDIO_ARGS[format]]
-        else:
-            audio_input, audio_output = [], ["-map", "0:v", "-an"]
-    else:
-        # The audio must never be the shortest stream or -shortest would cut
-        # the video to the track length: looping repeats the track forever
-        # (-stream_loop precedes its -i), otherwise silence pads it forever
-        # (apad), and either way -shortest then trims audio to video length.
-        audio_input = (["-stream_loop", "-1"] if loop_audio else []) + ["-i", soundtrack.path]
-        filters = [f"volume={soundtrack.volume}"]
-        if not loop_audio:
-            filters.append("apad")
-        audio_output = [
-            "-map", "0:v", "-map", "1:a:0", "-af", ",".join(filters),
-            *_AUDIO_ARGS[format],
-        ]  # fmt: skip
     with tempfile.TemporaryDirectory() as video_dir:
         directory = Path(video_dir)
         segments, duration = _encode_shot_batches(
@@ -1863,6 +1833,41 @@ def _encode_video_file(
             format,
             directory,
         )
+        if slide_audio is not None or video_audio:
+            audio_input, audio_output = _scheduled_audio_args(
+                format,
+                soundtrack,
+                loop_audio,
+                slide_audio or [],
+                audio_offsets or [],
+                audio_durations or [],
+                audio_timeline_duration or duration,
+                video_audio or [],
+            )
+        elif soundtrack is None:
+            if format == "mp4":
+                audio_input = ["-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo"]
+                audio_output = ["-map", "0:v", "-map", "1:a:0", *_AUDIO_ARGS[format]]
+            else:
+                audio_input, audio_output = [], ["-map", "0:v", "-an"]
+        else:
+            # The audio must never be the shortest stream or -shortest would cut
+            # the video to the track length: looping repeats the track forever
+            # (-stream_loop precedes its -i), otherwise silence pads it forever
+            # (apad), and either way -shortest then trims audio to video length.
+            audio_input = (["-stream_loop", "-1"] if loop_audio else []) + ["-i", soundtrack.path]
+            filters = [f"volume={soundtrack.volume}"]
+            if not loop_audio:
+                filters.append("apad")
+            if soundtrack.fade_out > 0:
+                fade_duration = min(soundtrack.fade_out, duration)
+                filters.append(
+                    f"afade=t=out:st={duration - fade_duration:.6f}:d={fade_duration:.6f}"
+                )
+            audio_output = [
+                "-map", "0:v", "-map", "1:a:0", "-af", ",".join(filters),
+                *_AUDIO_ARGS[format],
+            ]  # fmt: skip
         manifest_path = _write_video_segment_manifest(segments, directory)
         command = [
             binary,
@@ -2055,9 +2060,17 @@ def _scheduled_audio_args(
         if loop_audio:
             inputs.extend(["-stream_loop", "-1"])
         inputs.extend(["-i", soundtrack.path])
-        filters = [
-            f"[{input_index}:a]volume={soundtrack.volume},apad,atrim=duration={timeline_duration:.6f}[bed]"
-        ]
+        bed_filters = (
+            f"[{input_index}:a]volume={soundtrack.volume},"
+            f"apad,atrim=duration={timeline_duration:.6f}"
+        )
+        if soundtrack.fade_out > 0:
+            fade_duration = min(soundtrack.fade_out, timeline_duration)
+            bed_filters += (
+                f",afade=t=out:st={timeline_duration - fade_duration:.6f}:"
+                f"d={fade_duration:.6f}"
+            )
+        filters = [f"{bed_filters}[bed]"]
         input_index += 1
     labels = ["[bed]"]
     for audio, offset, duration in zip(slide_audio, offsets, durations, strict=True):

@@ -693,6 +693,24 @@ class TestVideoEncoding:
         assert len(samples) / 8000 == pytest.approx(2.0, abs=0.15)
         assert max(abs(sample) for sample in samples[-2000:]) > 5000
 
+    def test_should_fade_out_a_looping_soundtrack_before_video_ends(self, tmp_path):
+        """A configured soundtrack fades to silence while the video keeps its full duration"""
+        # given: a looping tone with a one-second outro fade
+        canvas = Canvas(160, 90).background(color="#1131AA")
+        tone = tone_wav(tmp_path / "tone.wav", 0.5)
+
+        # when
+        data = canvas.to_mp4(
+            fps=10,
+            hold=2.0,
+            soundtrack=AudioTrack(path=tone, loop=True, fade_out=1.0),
+        )
+        samples = decoded_audio(data, tmp_path / "fade.pcm")
+
+        # then: the soundtrack is audible before the fade and silent at the end
+        assert max(abs(sample) for sample in samples[6000:8000]) > 5000
+        assert max(abs(sample) for sample in samples[-400:]) < 4000
+
     def test_should_pad_unlooped_soundtrack_with_silence(self, tmp_path):
         """loop_audio=False plays the track once without cutting the video short"""
         # given: a 0.5s tone under a 2s video, playing once
