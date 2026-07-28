@@ -592,13 +592,21 @@ def _tile_contrast(
     foreground_pixels = foreground_crop.load()
     assert background_pixels is not None and foreground_pixels is not None
     groups: dict[tuple[int, int, int], list[float]] = {}
+    max_foreground_alpha = max(
+        cast(tuple[int, int, int, int], foreground_pixels[x, y])[3]
+        for y in range(region.height)
+        for x in range(region.width)
+    )
+    alpha_floor = 64 if max_foreground_alpha >= 64 else 1
 
     for y in range(region.height):
         for x in range(region.width):
             background_pixel = cast(tuple[int, int, int, int], background_pixels[x, y])
             foreground_pixel = cast(tuple[int, int, int, int], foreground_pixels[x, y])
             foreground_r, foreground_g, foreground_b, foreground_a = foreground_pixel
-            if foreground_a == 0:
+            # Ignore subpixel antialiasing fringes when the tile also contains
+            # solid text. Preserve genuinely low-opacity text diagnostics.
+            if foreground_a < alpha_floor:
                 continue
 
             background_alpha = background_pixel[3] / 255
@@ -617,6 +625,11 @@ def _tile_contrast(
 
     worst: TiledContrastMeasurement | None = None
     for foreground_raw, group in groups.items():
+        # A single antialiased edge pixel is not meaningful evidence that a
+        # text treatment lacks contrast. Require a small visible sample while
+        # retaining warnings for genuinely faint text across a larger area.
+        if group[3] < 4:
+            continue
         background = (group[0] / group[3], group[1] / group[3], group[2] / group[3])
         opacity = group[4] / 255
         foreground = (

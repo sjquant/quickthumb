@@ -31,6 +31,8 @@ class Diagnostic(quickthumbModel):
         "tiny-text",
         "text-overflow",
         "text-clipped",
+        "caption-timing",
+        "caption-overlap",
         "missing-glyph",
         "low-contrast",
         "layer-overlap",

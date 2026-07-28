@@ -19,8 +19,8 @@ from quickthumb import transitions as tr
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT / "assets"
 VIDEO_DIR = ASSETS / "video"
-FONT = str(ASSETS / "fonts" / "NotoSans-Regular.ttf")
-FONT_BOLD = str(ASSETS / "fonts" / "NotoSans-Bold.ttf")
+FONT = str(ASSETS / "fonts" / "Pretendard-Regular.woff2")
+FONT_BOLD = str(ASSETS / "fonts" / "Pretendard-ExtraBold.woff2")
 SOUNDTRACK = ASSETS / "audio" / "ordinary_moments_vastness.mp3"
 
 OUT_DIR = ROOT / "examples"
@@ -39,72 +39,72 @@ SOURCE_ENDS = {
     "ordinary-sunrise.mp4": 7.2,
 }
 SAFE_X, SAFE_RIGHT = 72, 1208
-INK = "#080A0E"
-SURFACE = "#11161D"
-SURFACE_2 = "#1B222C"
-WHITE = "#F5F5F7"
-MUTED = "#AAB2BE"
-ACCENT = "#FFB454"
-RULE = "#303A48"
+INK = "#191817"
+SURFACE = "#F3EFE7"
+TEXT = "#211F1D"
+CREAM = "#F8F3E9"
+MUTED = "#5F5852"
+ACCENT = "#E45B45"
+RULE = "#D8D0C5"
 
 # Each source is a different visual beat. The deliberate reuse is non-adjacent
 # and only happens when the story needs a familiar visual anchor.
 SCENES = (
     (
         "ordinary-city.mp4",
-        "THE PROBLEM",
-        "ONE IDEA.\nEVERYWHERE.",
-        "A story should not be rebuilt for every screen.",
-        "START WITH THE STORY.",
+        "01  /  아이디어",
+        "한 번 만든 장면.\n어디서나.",
+        "화면이 달라도, 이야기는 흔들리지 않게.",
+        "이야기부터 시작합니다.",
     ),
     (
         "ordinary-notebook.mp4",
-        "THE SOURCE",
-        "MAKE THE\nFRAME YOURS.",
-        "Trim the moment. Keep the intent.",
-        "TRIM. FIT. PLACE.",
+        "02  /  원본",
+        "원본을 다듬고.\n의도를 남기고.",
+        "필요한 순간만 남겨, 장면의 힘을 키웁니다.",
+        "자르고. 맞추고. 배치합니다.",
     ),
     (
         "ordinary-coffee.mp4",
-        "THE COMPOSITION",
-        "LAYOUT THAT\nHOLDS TOGETHER.",
-        "A safe grid keeps every element in its lane.",
-        "EVERY PIXEL HAS A JOB.",
+        "03  /  구성",
+        "정렬이\n완성도를 만듭니다.",
+        "영상과 텍스트가 같은 기준선 위에 놓입니다.",
+        "모든 요소에는 자리가 있습니다.",
     ),
     (
         "ordinary-phone.mp4",
-        "THE VOICE",
-        "CAPTIONS\nON CUE.",
-        "Words arrive with the image, not after it.",
-        "MAKE IT LAND.",
+        "04  /  자막",
+        "자막은\n정확한 순간에.",
+        "말이 이미지보다 늦게 도착하지 않도록.",
+        "타이밍이 메시지를 만듭니다.",
     ),
     (
         "ordinary-sunrise.mp4",
-        "THE TIMELINE",
-        "MOTION WITH\nA MEMORY.",
-        "Trim, speed, and transitions stay deterministic.",
-        "SAME TIMELINE. EVERY FRAME.",
+        "05  /  타임라인",
+        "움직임은\n기억에 남게.",
+        "자르고, 늦추고, 전환해도 타임라인은 정확합니다.",
+        "모든 프레임이 같은 이야기를 합니다.",
     ),
     (
         "ordinary-city.mp4",
-        "THE HANDOFF",
-        "AUDIO THAT\nFOLLOWS.",
-        "The soundtrack respects the visual duration.",
-        "NO DRIFT. NO SURPRISES.",
+        "06  /  사운드",
+        "소리는\n화면을 따라가고.",
+        "영상의 길이가 달라져도 리듬은 흐트러지지 않습니다.",
+        "화면과 소리 사이, 오차 없이.",
     ),
     (
         "ordinary-notebook.mp4",
-        "THE OUTPUT",
-        "ONE BUILD.\nTHREE DELIVERIES.",
-        "MP4 for the feed. WebM for the web. GIF for the preview.",
+        "07  /  결과물",
+        "하나의 구성.\n세 가지 결과.",
+        "피드에는 MP4, 웹에는 WebM, 미리보기에는 GIF.",
         "MP4  /  WEBM  /  GIF",
     ),
     (
         "ordinary-coffee.mp4",
-        "QUICKTHUMB",
-        "BUILD ONCE.\nSHIP WITH CONFIDENCE.",
-        "A finished composition, ready for everywhere.",
-        "COMPOSE WITH INTENT.",
+        "08  /  QUICKTHUMB",
+        "한 번 만들고.\n모두에게 보냅니다.",
+        "구성은 한 번, 전달은 어디서나.",
+        "의도를 담아, 바로 보냅니다.",
     ),
 )
 
@@ -152,14 +152,6 @@ def build_scene(
     trim_end = SOURCE_ENDS.get(source_name, VIDEO_END)
     speed = (trim_end - trim_start) / SCENE_DURATION
     canvas = Canvas(WIDTH, HEIGHT).background(color=INK)
-    canvas = canvas.shape(
-        shape="rectangle",
-        position=(56, 158),
-        width=752,
-        height=437,
-        color=SURFACE,
-        opacity=1.0,
-    )
     canvas.video(
         source,
         position=VIDEO_POSITION,
@@ -176,9 +168,13 @@ def build_scene(
                 "start": 1.0,
                 "end": 6.5,
                 # VideoCaption positions are center anchors, not top-left corners.
-                "position": (VIDEO_POSITION[0] + 250, VIDEO_POSITION[1] + VIDEO_SIZE[1] - 42),
+                "font": FONT_BOLD,
+                "position": (
+                    VIDEO_POSITION[0] + VIDEO_SIZE[0] // 2,
+                    VIDEO_POSITION[1] + VIDEO_SIZE[1] - 42,
+                ),
                 "size": 20,
-                "color": WHITE,
+                "color": CREAM,
                 "background": INK,
                 "background_opacity": 0.82,
                 "padding": (6, 12, 7, 12),
@@ -205,7 +201,7 @@ def build_scene(
         content="QUICKTHUMB  /  VIDEO COMPOSITION",
         font=FONT_BOLD,
         size=18,
-        color=WHITE,
+        color=TEXT,
         letter_spacing=1,
         position=(SAFE_X + 24, 57),
         animation=Fade(duration=0.25, trigger="after_previous"),
@@ -233,28 +229,29 @@ def build_scene(
         size=18,
         color=ACCENT,
         letter_spacing=2,
-        position=(872, 206),
-        animation=Fade(duration=0.3, trigger="after_previous"),
+        position=(1024, 206),
+        align=("center", "top"),
     )
     canvas = canvas.text(
         content=headline,
         font=FONT_BOLD,
         size=42,
-        color=WHITE,
+        color=TEXT,
         line_height=0.98,
         letter_spacing=-1,
-        position=(872, 256),
+        position=(1024, 256),
+        align=("center", "top"),
         max_width=300,
         auto_scale=True,
         min_size=30,
-        animation=Fade(duration=0.4, trigger="with_previous"),
     )
     canvas = canvas.text(
         content="—",
         font=FONT_BOLD,
         size=24,
         color=ACCENT,
-        position=(872, 410),
+        position=(1024, 410),
+        align=("center", "top"),
         animation=Wipe(direction="right", duration=0.3, trigger="after_previous"),
     )
     canvas = canvas.text(
@@ -263,19 +260,20 @@ def build_scene(
         size=20,
         color=MUTED,
         line_height=1.2,
-        position=(872, 446),
+        position=(1024, 446),
+        align=("center", "top"),
         max_width=292,
         auto_scale=True,
         min_size=17,
-        animation=Fade(duration=0.35, trigger="with_previous"),
     )
     return canvas.text(
-        content="DETERMINISTIC BY DESIGN",
+        content="한 번의 구성, 모든 포맷",
         font=FONT_BOLD,
         size=18,
         color=MUTED,
         letter_spacing=1,
-        position=(872, 548),
+        position=(1024, 548),
+        align=("center", "top"),
     )
 
 

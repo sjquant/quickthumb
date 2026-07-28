@@ -103,7 +103,14 @@ def test_video_layer_round_trips_through_public_canvas_json(source_video):
         start=0.1,
         speed=2,
         volume=0.4,
-        captions=[{"text": "hello", "start": 0.1, "end": 0.4}],
+        captions=[
+            {
+                "text": "hello",
+                "font": "Pretendard-Regular.woff2",
+                "start": 0.1,
+                "end": 0.4,
+            }
+        ],
     )
 
     restored = Canvas.from_json(canvas.to_json())
@@ -115,6 +122,7 @@ def test_video_layer_round_trips_through_public_canvas_json(source_video):
     assert layer["start"] == 0.1
     assert layer["speed"] == 2.0
     assert layer["captions"][0]["text"] == "hello"
+    assert layer["captions"][0]["font"] == "Pretendard-Regular.woff2"
 
 
 @pytest.mark.skipif(not HAS_FFMPEG, reason="ffmpeg is required")
@@ -294,6 +302,49 @@ def test_video_caption_outside_canvas_is_diagnosed_and_safely_rendered(source_vi
     assert clipped
     assert clipped[0].measured["caption_index"] == 0
     assert frame.size == (96, 64)
+
+
+@pytest.mark.skipif(not HAS_FFMPEG, reason="FFmpeg is required")
+def test_video_caption_diagnostics_cover_multiline_timing_and_background_overlap(source_video):
+    """Given overlapping multiline cues, when diagnosed, then timing and overlap are explicit."""
+    # Given: two centered Korean/English cues, with one extending beyond the layer timeline
+    canvas = Canvas(160, 96).video(
+        str(source_video),
+        (16, 8),
+        128,
+        80,
+        trim_start=0,
+        trim_end=1,
+        duration=1,
+        captions=[
+            {
+                "text": "첫 줄\nSECOND LINE",
+                "start": 0,
+                "end": 0.8,
+                "position": (80, 48),
+                "size": 12,
+                "background": "#000000",
+                "padding": (4, 8),
+            },
+            {
+                "text": "겹치는 자막",
+                "start": 0.4,
+                "end": 1.2,
+                "position": (80, 48),
+                "size": 12,
+                "background": "#000000",
+                "padding": (4, 8),
+            },
+        ],
+    )
+
+    # When: the public diagnostic API inspects the composition
+    codes = [finding.code for finding in canvas.diagnose()]
+
+    # Then: multiline geometry remains safe and semantic timing issues are reported
+    assert "text-clipped" not in codes
+    assert "caption-timing" in codes
+    assert "caption-overlap" in codes
 
 
 @pytest.mark.skipif(not HAS_FFMPEG, reason="ffmpeg is required")

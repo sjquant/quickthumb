@@ -41,7 +41,7 @@ from quickthumb._images import ImageEngine
 from quickthumb._measurements import BBox, LayerMeasurement, measure_layers
 from quickthumb._shapes import ShapeEngine
 from quickthumb._text import TextEngine
-from quickthumb._video import caption_bounds
+from quickthumb._video import caption_geometry
 
 if TYPE_CHECKING:
     from quickthumb.canvas import Canvas
@@ -64,6 +64,16 @@ MIN_PARTIAL_OVERLAP_RATIO = 0.2
 BACKDROP_COVERAGE_RATIO = 0.95
 OVERLAP_CLEARANCE_PX = 8
 NEAR_ALIGNMENT_TOLERANCE = 3
+
+
+def _boxes_intersect(first: tuple[int, int, int, int], second: tuple[int, int, int, int]) -> bool:
+    """Return whether two caption background boxes have visible area in common."""
+    return (
+        first[0] < second[2]
+        and second[0] < first[2]
+        and first[1] < second[3]
+        and second[1] < first[3]
+    )
 
 
 class DiagnosticsEngine:
@@ -151,10 +161,11 @@ class DiagnosticsEngine:
     ) -> list[Diagnostic]:
         findings: list[Diagnostic] = []
         font_loader = self._canvas._fonts.load_font_variant
+        geometries = []
         for index, caption in enumerate(layer.captions):
-            left, top, right, bottom = caption_bounds(
-                (self._ctx.width, self._ctx.height), caption, font_loader
-            )
+            geometry = caption_geometry((self._ctx.width, self._ctx.height), caption, font_loader)
+            geometries.append(geometry)
+            left, top, right, bottom = geometry.requested_bbox
             clipped_by: list[str] = []
             if left < 0:
                 clipped_by.append("left edge")
@@ -164,35 +175,93 @@ class DiagnosticsEngine:
                 clipped_by.append("right edge")
             if bottom > self._ctx.height:
                 clipped_by.append("bottom edge")
-            if not clipped_by:
-                continue
-            findings.append(
-                Diagnostic(
-                    code="text-clipped",
-                    severity="warning",
-                    layer_index=measured.index,
-                    message=(
-                        f"video caption {index} extends past the "
-                        f"{', '.join(clipped_by)} and may be clipped"
-                    ),
-                    measured={
-                        "caption_index": index,
-                        "caption_text": caption.text,
-                        "caption_bbox": {
-                            "x": left,
-                            "y": top,
-                            "width": right - left,
-                            "height": bottom - top,
+            if clipped_by:
+                findings.append(
+                    Diagnostic(
+                        code="text-clipped",
+                        severity="warning",
+                        layer_index=measured.index,
+                        message=(
+                            f"video caption {index} extends past the "
+                            f"{', '.join(clipped_by)} and may be clipped"
+                        ),
+                        measured={
+                            "caption_index": index,
+                            "caption_text": caption.text,
+                            "caption_bbox": {
+                                "x": left,
+                                "y": top,
+                                "width": right - left,
+                                "height": bottom - top,
+                            },
+                            "clipped_by": clipped_by,
+                            "rendered_bbox": {
+                                "x": geometry.rendered_bbox[0],
+                                "y": geometry.rendered_bbox[1],
+                                "width": geometry.rendered_bbox[2] - geometry.rendered_bbox[0],
+                                "height": geometry.rendered_bbox[3] - geometry.rendered_bbox[1],
+                            },
+                            "adjusted_by": {"x": geometry.shift[0], "y": geometry.shift[1]},
                         },
-                        "clipped_by": clipped_by,
-                    },
-                    suggestion=(
-                        "move the caption position toward the canvas center, "
-                        "reduce text size, or shorten the caption"
-                    ),
-                    **diagnostic_context(measured),
+                        suggestion=(
+                            "move the caption position toward the canvas center, "
+                            "reduce text size, or shorten the caption"
+                        ),
+                        **diagnostic_context(measured),
+                    )
                 )
-            )
+            if layer.duration is not None and caption.end > layer.duration + 1e-9:
+                findings.append(
+                    Diagnostic(
+                        code="caption-timing",
+                        severity="warning",
+                        layer_index=measured.index,
+                        message=(
+                            f"video caption {index} ends at {caption.end:.3f}s, "
+                            f"after the layer duration {layer.duration:.3f}s"
+                        ),
+                        measured={
+                            "caption_index": index,
+                            "caption_end": caption.end,
+                            "layer_duration": layer.duration,
+                        },
+                        suggestion="end the caption at or before the video layer duration",
+                        **diagnostic_context(measured),
+                    )
+                )
+
+        for first_index, first in enumerate(layer.captions):
+            for second_index in range(first_index + 1, len(layer.captions)):
+                second = layer.captions[second_index]
+                if first.end <= second.start or second.end <= first.start:
+                    continue
+                first_box = geometries[first_index].requested_bbox
+                second_box = geometries[second_index].requested_bbox
+                if not _boxes_intersect(first_box, second_box):
+                    continue
+                findings.append(
+                    Diagnostic(
+                        code="caption-overlap",
+                        severity="warning",
+                        layer_index=measured.index,
+                        message=(
+                            f"video captions {first_index} and {second_index} overlap "
+                            "in time and rendered background"
+                        ),
+                        measured={
+                            "first_caption_index": first_index,
+                            "second_caption_index": second_index,
+                            "time_overlap": {
+                                "start": max(first.start, second.start),
+                                "end": min(first.end, second.end),
+                            },
+                        },
+                        suggestion=(
+                            "separate caption timing or move one caption to another position"
+                        ),
+                        **diagnostic_context(measured),
+                    )
+                )
         return findings
 
     def _diagnose_near_alignments(self, measurements: list[LayerMeasurement]) -> list[Diagnostic]:

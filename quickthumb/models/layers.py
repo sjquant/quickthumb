@@ -417,6 +417,7 @@ class VideoCaption(quickthumbModel):
     """A deterministic caption cue rendered into video frames."""
 
     text: str
+    font: str | None = None
     start: FiniteNonNegativeFloat
     end: FinitePositiveFloat
     position: Position = ("50%", "90%")

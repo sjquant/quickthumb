@@ -30,6 +30,17 @@ class VideoInfo:
     frame_times: tuple[float, ...] = ()
 
 
+@dataclass(frozen=True)
+class CaptionGeometry:
+    """Measured and safely positioned geometry for one video caption."""
+
+    text_position: tuple[int, int]
+    requested_bbox: tuple[int, int, int, int]
+    rendered_bbox: tuple[int, int, int, int]
+    shift: tuple[int, int]
+    text_size: tuple[int, int]
+
+
 class VideoDecoder:
     """A sequential raw-frame decoder reused across timeline samples."""
 
@@ -274,26 +285,10 @@ def _render_captions(
     for caption in captions:
         if not caption.start <= time < caption.end:
             continue
-        font = (
-            font_loader(None, caption.size, False, False)
-            if font_loader
-            else ImageFont.load_default()
-        )
-        x = parse_coordinate(caption.position[0], image.width)
-        y = parse_coordinate(caption.position[1], image.height)
-        bbox = draw.textbbox((0, 0), caption.text, font=font)
-        left = x - (bbox[2] - bbox[0]) // 2
-        top = y - (bbox[3] - bbox[1]) // 2
+        geometry = caption_geometry(image.size, caption, font_loader)
+        left, top = geometry.text_position
+        text_width, text_height = geometry.text_size
         top_padding, right_padding, bottom_padding, left_padding = _caption_padding(caption.padding)
-        raw_box = (
-            left - left_padding,
-            top - top_padding,
-            left + (bbox[2] - bbox[0]) + right_padding,
-            top + (bbox[3] - bbox[1]) + bottom_padding,
-        )
-        shift_x, shift_y = _caption_safe_shift(raw_box, image.size)
-        left += shift_x
-        top += shift_y
         if caption.background is not None:
             background = ImageColor.getrgb(caption.background) + (
                 round(caption.background_opacity * 255),
@@ -302,14 +297,19 @@ def _render_captions(
                 (
                     left - left_padding,
                     top - top_padding,
-                    left + (bbox[2] - bbox[0]) + right_padding,
-                    top + (bbox[3] - bbox[1]) + bottom_padding,
+                    left + text_width + right_padding,
+                    top + text_height + bottom_padding,
                 ),
                 radius=caption.border_radius,
                 fill=background,
             )
-        draw.text((left + 2, top + 2), caption.text, font=font, fill=(0, 0, 0, 180))
-        draw.text(
+        font = (
+            font_loader(caption.font, caption.size, False, False)
+            if font_loader
+            else ImageFont.load_default()
+        )
+        draw.multiline_text((left + 2, top + 2), caption.text, font=font, fill=(0, 0, 0, 180))
+        draw.multiline_text(
             (left, top),
             caption.text,
             font=font,
@@ -317,27 +317,50 @@ def _render_captions(
         )
 
 
+def caption_geometry(
+    image_size: tuple[int, int], caption: VideoCaption, font_loader=None
+) -> CaptionGeometry:
+    """Measure one caption and return requested plus safely rendered geometry."""
+    image = Image.new("RGBA", (1, 1))
+    draw = ImageDraw.Draw(image, "RGBA")
+    font = (
+        font_loader(caption.font, caption.size, False, False)
+        if font_loader
+        else ImageFont.load_default()
+    )
+    x = parse_coordinate(caption.position[0], image_size[0])
+    y = parse_coordinate(caption.position[1], image_size[1])
+    text_bbox = draw.multiline_textbbox((0, 0), caption.text, font=font)
+    width = text_bbox[2] - text_bbox[0]
+    height = text_bbox[3] - text_bbox[1]
+    top_padding, right_padding, bottom_padding, left_padding = _caption_padding(caption.padding)
+    text_left = x - width // 2 - text_bbox[0]
+    text_top = y - height // 2 - text_bbox[1]
+    requested = (
+        text_left - left_padding,
+        text_top - top_padding,
+        text_left + width + right_padding,
+        text_top + height + bottom_padding,
+    )
+    shift = _caption_safe_shift(requested, image_size)
+    rendered = tuple(
+        value + delta
+        for value, delta in zip(requested, (shift[0], shift[1], shift[0], shift[1]), strict=True)
+    )
+    return CaptionGeometry(
+        text_position=(text_left + shift[0], text_top + shift[1]),
+        requested_bbox=requested,
+        rendered_bbox=rendered,
+        shift=shift,
+        text_size=(width, height),
+    )
+
+
 def caption_bounds(
     image_size: tuple[int, int], caption: VideoCaption, font_loader=None
 ) -> tuple[int, int, int, int]:
     """Return the unclamped canvas bounds of a caption including its padding."""
-    image = Image.new("RGBA", (1, 1))
-    draw = ImageDraw.Draw(image, "RGBA")
-    font = (
-        font_loader(None, caption.size, False, False) if font_loader else ImageFont.load_default()
-    )
-    x = parse_coordinate(caption.position[0], image_size[0])
-    y = parse_coordinate(caption.position[1], image_size[1])
-    text_bbox = draw.textbbox((0, 0), caption.text, font=font)
-    width = text_bbox[2] - text_bbox[0]
-    height = text_bbox[3] - text_bbox[1]
-    top_padding, right_padding, bottom_padding, left_padding = _caption_padding(caption.padding)
-    return (
-        x - width // 2 - left_padding,
-        y - height // 2 - top_padding,
-        x + width - width // 2 + right_padding,
-        y + height - height // 2 + bottom_padding,
-    )
+    return caption_geometry(image_size, caption, font_loader).requested_bbox
 
 
 def _caption_safe_shift(
