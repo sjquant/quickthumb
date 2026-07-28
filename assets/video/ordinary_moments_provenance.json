@@ -1,0 +1,16 @@
+{
+  "ordinary-coffee.mp4": {
+    "source_url": "https://www.pexels.com/video/man-working-in-a-coffee-shop-3626147/",
+    "creator": "cottonbro studio",
+    "license": "Pexels License",
+    "source_format": "MP4",
+    "local_transform": "Trimmed to 8 seconds, center-cropped to 1280x720, H.264 yuv420p, no audio"
+  },
+  "ordinary-sunrise.mp4": {
+    "source_url": "https://www.pexels.com/video/video-of-sunrise-854738/",
+    "creator": "Pexels contributor listed on source page",
+    "license": "Pexels License",
+    "source_format": "MP4",
+    "local_transform": "Trimmed to 8 seconds, center-cropped to 1280x720, H.264 yuv420p, no audio"
+  }
+}

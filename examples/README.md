@@ -18,6 +18,7 @@ uv run python examples/shorts_cover_agent.py
 uv run python examples/launch_announcement.py
 uv run python examples/investor_deck.py
 uv run python examples/product_hype_reel.py
+uv run python examples/ordinary_moments.py
 ```
 
 All examples write their rendered image back into this directory.
@@ -187,6 +188,21 @@ Builds a restrained vertical (1080x1920) 8-scene product film — hook → pain 
 - Graceful per-format fallback when an optional renderer is unavailable; one failed export does not suppress the remaining formats
 
 Use it when you want a shareable, self-playing GIF or video clip (Reels/TikTok/Stories) instead of a static thumbnail, or as a reference for the animated export API, beat-synced editing via `advance_after`, and MP4/WebM audio.
+
+### `ordinary_moments.py`
+
+Output: `ordinary_moments.mp4`, `ordinary_moments.webm`, and `ordinary_moments_preview.gif`
+
+Builds an approximately two-minute, horizontal editorial film titled “Make the Ordinary Impossible to Skip”:
+
+- Locally bundled Pexels footage with a checked-in provenance manifest
+- Full-bleed `VideoLayer` composition with deterministic trim, fit, and constant speed
+- Timed caption cues with background, opacity, asymmetric padding, and rounded corners
+- Beat-like scene pacing with `Cut`, `Fade`, and `Wipe` transitions
+- A restrained soundtrack loop and silent GIF preview
+- A human-first narrative that demonstrates the video API through a finished piece rather than a feature checklist
+
+Use it when you want a production-style reference for combining footage, captions, audio, and editorial motion in a reproducible 16:9 composition.
 
 ## Assets and Fonts
 
