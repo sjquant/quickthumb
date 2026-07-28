@@ -284,10 +284,17 @@ def _render_captions(
         bbox = draw.textbbox((0, 0), caption.text, font=font)
         left = x - (bbox[2] - bbox[0]) // 2
         top = y - (bbox[3] - bbox[1]) // 2
+        top_padding, right_padding, bottom_padding, left_padding = _caption_padding(caption.padding)
+        raw_box = (
+            left - left_padding,
+            top - top_padding,
+            left + (bbox[2] - bbox[0]) + right_padding,
+            top + (bbox[3] - bbox[1]) + bottom_padding,
+        )
+        shift_x, shift_y = _caption_safe_shift(raw_box, image.size)
+        left += shift_x
+        top += shift_y
         if caption.background is not None:
-            top_padding, right_padding, bottom_padding, left_padding = _caption_padding(
-                caption.padding
-            )
             background = ImageColor.getrgb(caption.background) + (
                 round(caption.background_opacity * 255),
             )
@@ -308,6 +315,40 @@ def _render_captions(
             font=font,
             fill=ImageColor.getrgb(caption.color) + (255,),
         )
+
+
+def caption_bounds(
+    image_size: tuple[int, int], caption: VideoCaption, font_loader=None
+) -> tuple[int, int, int, int]:
+    """Return the unclamped canvas bounds of a caption including its padding."""
+    image = Image.new("RGBA", (1, 1))
+    draw = ImageDraw.Draw(image, "RGBA")
+    font = (
+        font_loader(None, caption.size, False, False) if font_loader else ImageFont.load_default()
+    )
+    x = parse_coordinate(caption.position[0], image_size[0])
+    y = parse_coordinate(caption.position[1], image_size[1])
+    text_bbox = draw.textbbox((0, 0), caption.text, font=font)
+    width = text_bbox[2] - text_bbox[0]
+    height = text_bbox[3] - text_bbox[1]
+    top_padding, right_padding, bottom_padding, left_padding = _caption_padding(caption.padding)
+    return (
+        x - width // 2 - left_padding,
+        y - height // 2 - top_padding,
+        x + width - width // 2 + right_padding,
+        y + height - height // 2 + bottom_padding,
+    )
+
+
+def _caption_safe_shift(
+    box: tuple[int, int, int, int], image_size: tuple[int, int]
+) -> tuple[int, int]:
+    """Shift a caption box into the image where the box can fit."""
+    left, top, right, bottom = box
+    width, height = image_size
+    shift_x = -left if right - left > width else max(-left, min(width - right, 0))
+    shift_y = -top if bottom - top > height else max(-top, min(height - bottom, 0))
+    return shift_x, shift_y
 
 
 def _caption_padding(padding: int | tuple[int, ...]) -> tuple[int, int, int, int]:

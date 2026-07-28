@@ -175,7 +175,8 @@ def build_scene(
                 "text": caption,
                 "start": 1.0,
                 "end": 6.5,
-                "position": (VIDEO_POSITION[0] + 24, VIDEO_POSITION[1] + VIDEO_SIZE[1] - 42),
+                # VideoCaption positions are center anchors, not top-left corners.
+                "position": (VIDEO_POSITION[0] + 250, VIDEO_POSITION[1] + VIDEO_SIZE[1] - 42),
                 "size": 20,
                 "color": WHITE,
                 "background": INK,

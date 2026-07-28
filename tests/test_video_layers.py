@@ -263,6 +263,39 @@ def test_video_layer_speed_duration_caption_and_audio_stay_synchronized(source_v
     )
 
 
+@pytest.mark.skipif(not HAS_FFMPEG, reason="FFmpeg is required")
+def test_video_caption_outside_canvas_is_diagnosed_and_safely_rendered(source_video):
+    """Given an edge-anchored caption, when rendered, then it is diagnosed and kept visible."""
+    # Given: a caption whose center anchor would place its background outside the canvas
+    canvas = Canvas(96, 64).video(
+        str(source_video),
+        (16, 8),
+        64,
+        48,
+        captions=[
+            {
+                "text": "caption extends left",
+                "start": 0,
+                "end": 1,
+                "position": (2, 40),
+                "size": 12,
+                "background": "#000000",
+                "padding": (4, 8),
+            }
+        ],
+    )
+
+    # When: public diagnostics and frame rendering are requested
+    diagnostics = canvas.diagnose()
+    frame = canvas.render_frame(0.2)
+
+    # Then: the unsafe source geometry is reported and rendering still succeeds
+    clipped = [finding for finding in diagnostics if finding.code == "text-clipped"]
+    assert clipped
+    assert clipped[0].measured["caption_index"] == 0
+    assert frame.size == (96, 64)
+
+
 @pytest.mark.skipif(not HAS_FFMPEG, reason="ffmpeg is required")
 def test_video_layer_rejects_duration_longer_than_trimmed_source(source_video):
     """Given a short clip, when duration exceeds its source, then rendering fails safely."""

@@ -41,6 +41,7 @@ from quickthumb._images import ImageEngine
 from quickthumb._measurements import BBox, LayerMeasurement, measure_layers
 from quickthumb._shapes import ShapeEngine
 from quickthumb._text import TextEngine
+from quickthumb._video import caption_bounds
 
 if TYPE_CHECKING:
     from quickthumb.canvas import Canvas
@@ -53,6 +54,7 @@ from quickthumb.models import (
     ShapeLayer,
     SvgLayer,
     TextLayer,
+    VideoLayer,
 )
 
 TINY_TEXT_RATIO = 0.025
@@ -117,6 +119,8 @@ class DiagnosticsEngine:
                 layer = measured.raw_layer
                 if isinstance(layer, TextLayer):
                     diagnostics.extend(self._diagnose_text_layer(running, measured))
+                elif isinstance(layer, VideoLayer):
+                    diagnostics.extend(self._diagnose_video_captions(measured, layer))
                 elif isinstance(layer, GroupLayer):
                     for child in measured.text_descendants():
                         if child.visible:
@@ -141,6 +145,55 @@ class DiagnosticsEngine:
         )
 
         return diagnostics
+
+    def _diagnose_video_captions(
+        self, measured: LayerMeasurement, layer: VideoLayer
+    ) -> list[Diagnostic]:
+        findings: list[Diagnostic] = []
+        font_loader = self._canvas._fonts.load_font_variant
+        for index, caption in enumerate(layer.captions):
+            left, top, right, bottom = caption_bounds(
+                (self._ctx.width, self._ctx.height), caption, font_loader
+            )
+            clipped_by: list[str] = []
+            if left < 0:
+                clipped_by.append("left edge")
+            if top < 0:
+                clipped_by.append("top edge")
+            if right > self._ctx.width:
+                clipped_by.append("right edge")
+            if bottom > self._ctx.height:
+                clipped_by.append("bottom edge")
+            if not clipped_by:
+                continue
+            findings.append(
+                Diagnostic(
+                    code="text-clipped",
+                    severity="warning",
+                    layer_index=measured.index,
+                    message=(
+                        f"video caption {index} extends past the "
+                        f"{', '.join(clipped_by)} and may be clipped"
+                    ),
+                    measured={
+                        "caption_index": index,
+                        "caption_text": caption.text,
+                        "caption_bbox": {
+                            "x": left,
+                            "y": top,
+                            "width": right - left,
+                            "height": bottom - top,
+                        },
+                        "clipped_by": clipped_by,
+                    },
+                    suggestion=(
+                        "move the caption position toward the canvas center, "
+                        "reduce text size, or shorten the caption"
+                    ),
+                    **diagnostic_context(measured),
+                )
+            )
+        return findings
 
     def _diagnose_near_alignments(self, measurements: list[LayerMeasurement]) -> list[Diagnostic]:
         """Report related layers whose measured starts differ by only a few pixels."""
