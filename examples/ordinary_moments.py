@@ -228,8 +228,8 @@ def build_scene(
         ],
     )
     panel_styles = (
-        ("left", (48, 72, 510, 500), 0.82),
-        ("right", (744, 72, 488, 500), 0.84),
+        ("left", (48, 104, 510, 468), 0.82),
+        ("right", (744, 104, 488, 468), 0.84),
         ("bottom", (0, 420, 1280, 240), 0.82),
         ("top", (0, 0, 1280, 330), 0.76),
     )
@@ -248,9 +248,9 @@ def build_scene(
         shape="rectangle",
         position=(0, 0),
         width=WIDTH,
-        height=72,
+        height=56,
         color=INK,
-        opacity=0.55,
+        opacity=0.48,
     )
     if panel_style in {"left", "right"}:
         accent_x = panel_x + (panel_width - 8 if panel_style == "right" else 0)
@@ -282,16 +282,6 @@ def build_scene(
         letter_spacing=1,
         position=(72, 32),
         animation=Fade(duration=0.2),
-    )
-    canvas = canvas.text(
-        content=f"{index + 1:02d}  /  08",
-        font=FONT_BOLD,
-        size=18,
-        color=ACCENT,
-        letter_spacing=1,
-        position=(1208, 32),
-        align=("right", "top"),
-        animation=Fade(duration=0.2, trigger="with_previous"),
     )
     canvas = canvas.text(
         content=eyebrow,
@@ -338,15 +328,6 @@ def build_scene(
         max_width=text_width,
         auto_scale=True,
         min_size=14,
-    )
-    canvas = canvas.text(
-        content="ONE IDEA. EVERY FORMAT.",
-        font=FONT_BOLD,
-        size=16,
-        color=CREAM,
-        letter_spacing=1,
-        position=(72, 692),
-        align=("left", "bottom"),
     )
     return canvas
 
