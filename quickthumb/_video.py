@@ -41,6 +41,9 @@ class CaptionGeometry:
     text_size: tuple[int, int]
 
 
+CAPTION_OPTICAL_BIAS_PX = -2
+
+
 class VideoDecoder:
     """A sequential raw-frame decoder reused across timeline samples."""
 
@@ -287,18 +290,16 @@ def _render_captions(
             continue
         geometry = caption_geometry(image.size, caption, font_loader)
         left, top = geometry.text_position
-        text_width, text_height = geometry.text_size
-        top_padding, right_padding, bottom_padding, left_padding = _caption_padding(caption.padding)
         if caption.background is not None:
             background = ImageColor.getrgb(caption.background) + (
                 round(caption.background_opacity * 255),
             )
             draw.rounded_rectangle(
                 (
-                    left - left_padding,
-                    top - top_padding,
-                    left + text_width + right_padding,
-                    top + text_height + bottom_padding,
+                    geometry.rendered_bbox[0],
+                    geometry.rendered_bbox[1],
+                    geometry.rendered_bbox[2],
+                    geometry.rendered_bbox[3],
                 ),
                 radius=caption.border_radius,
                 fill=background,
@@ -332,12 +333,14 @@ def caption_geometry(
     height = text_bbox[3] - text_bbox[1]
     top_padding, right_padding, bottom_padding, left_padding = _caption_padding(caption.padding)
     text_left = x - width // 2 - text_bbox[0]
-    text_top = y - height // 2 - text_bbox[1]
+    text_top = y - height // 2 - text_bbox[1] + CAPTION_OPTICAL_BIAS_PX
+    background_width = width + left_padding + right_padding
+    background_height = height + top_padding + bottom_padding
     requested = (
-        text_left - left_padding,
-        text_top - top_padding,
-        text_left + width + right_padding,
-        text_top + height + bottom_padding,
+        x - background_width // 2,
+        y - background_height // 2,
+        x - background_width // 2 + background_width,
+        y - background_height // 2 + background_height,
     )
     shift = _caption_safe_shift(requested, image_size)
     rendered = tuple(

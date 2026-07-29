@@ -348,6 +348,7 @@ def test_video_caption_ink_is_optically_centered_inside_its_background(source_vi
     # Then: the glyph ink center stays within 2px of the background center
     background_center_y = (min(y for _, y in black) + max(y for _, y in black)) / 2
     ink_center_y = (min(y for _, y in white) + max(y for _, y in white)) / 2
+    assert ink_center_y < background_center_y
     assert abs(background_center_y - ink_center_y) <= 2
 
 
