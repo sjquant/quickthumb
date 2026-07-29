@@ -224,7 +224,7 @@ def build_scene(
                 # so the cue sits just above it instead of being covered.
                 "position": (
                     WIDTH // 2,
-                    320 if index == 5 else 104 if index in {2, 3} else 650,
+                    390 if index == 3 else 320 if index == 5 else 104 if index == 2 else 650,
                 ),
                 "size": 20,
                 "color": CREAM,
