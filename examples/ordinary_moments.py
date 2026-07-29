@@ -104,7 +104,7 @@ SCENES = (
         "08  /  QUICKTHUMB",
         "구성은 한 번.\n전달은 어디서나.",
         "Trim. Fit. Place. Move. 아이디어를 다시 만들지 마세요.",
-        "COMPOSE ONCE",
+        "한 번의 구성, 모든 포맷.",
     ),
 )
 
@@ -447,7 +447,7 @@ def build_scene(
             .shape(shape="rectangle", position=(72, 556), width=420, height=4, color=ACCENT)
             .shape(shape="rectangle", position=(492, 544), width=4, height=28, color=CREAM)
             .text(
-                content="AUDIO TRACK",
+                content="CAPTION CUE",
                 font=FONT_BOLD,
                 size=16,
                 color=CREAM,
@@ -487,7 +487,7 @@ def build_scene(
             .shape(shape="rectangle", position=(768, 384), width=320, height=4, color="#64727A")
             .shape(shape="rectangle", position=(768, 384), width=232, height=4, color=ACCENT)
             .text(
-                content="RENDER CHECK",
+                content="AUDIO TRACK",
                 font=FONT_BOLD,
                 size=15,
                 color=CREAM,
@@ -598,7 +598,7 @@ def build_scene(
             .shape(shape="rectangle", position=(104, 400), width=420, height=2, color="#64727A")
             .shape(shape="rectangle", position=(104, 400), width=420, height=2, color=ACCENT)
             .text(
-                content=caption,
+                content="RENDER CHECK",
                 font=FONT_BOLD,
                 size=18,
                 color=CREAM,
@@ -679,7 +679,7 @@ def build_scene(
                 min_size=16,
             )
             .text(
-                content=caption,
+                content="COMPOSE ONCE",
                 font=FONT_BOLD,
                 size=18,
                 color=ACCENT,
