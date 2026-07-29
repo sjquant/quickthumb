@@ -108,6 +108,7 @@ def test_video_layer_round_trips_through_public_canvas_json(source_video):
             {
                 "text": "hello",
                 "font": "Pretendard-Regular.woff2",
+                "vertical_align": "optical-center",
                 "start": 0.1,
                 "end": 0.4,
             }
@@ -124,6 +125,7 @@ def test_video_layer_round_trips_through_public_canvas_json(source_video):
     assert layer["speed"] == 2.0
     assert layer["captions"][0]["text"] == "hello"
     assert layer["captions"][0]["font"] == "Pretendard-Regular.woff2"
+    assert layer["captions"][0]["vertical_align"] == "optical-center"
 
 
 @pytest.mark.skipif(not HAS_FFMPEG, reason="ffmpeg is required")
@@ -319,6 +321,7 @@ def test_video_caption_ink_is_optically_centered_inside_its_background(source_vi
             {
                 "text": "정렬된 자막",
                 "font": font,
+                "vertical_align": "optical-center",
                 "start": 0,
                 "end": 1,
                 "position": (48, 32),

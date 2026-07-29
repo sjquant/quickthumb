@@ -212,11 +212,12 @@ def build_scene(
                 "start": 1.0,
                 "end": 6.5,
                 "font": FONT_BOLD,
+                "vertical_align": "center",
                 # Bottom-panel scenes reserve the lower band for the overlay,
                 # so the cue sits just above it instead of being covered.
                 "position": (
                     WIDTH // 2,
-                    380 if index % 4 == 2 else 630 if index % 2 else 650,
+                    380 if index % 4 == 2 else 650,
                 ),
                 "size": 20,
                 "color": CREAM,

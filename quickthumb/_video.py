@@ -333,7 +333,8 @@ def caption_geometry(
     height = text_bbox[3] - text_bbox[1]
     top_padding, right_padding, bottom_padding, left_padding = _caption_padding(caption.padding)
     text_left = x - width // 2 - text_bbox[0]
-    text_top = y - height // 2 - text_bbox[1] + CAPTION_OPTICAL_BIAS_PX
+    optical_bias = CAPTION_OPTICAL_BIAS_PX if caption.vertical_align == "optical-center" else 0
+    text_top = y - height // 2 - text_bbox[1] + optical_bias
     background_width = width + left_padding + right_padding
     background_height = height + top_padding + bottom_padding
     requested = (

@@ -421,6 +421,7 @@ class VideoCaption(quickthumbModel):
     start: FiniteNonNegativeFloat
     end: FinitePositiveFloat
     position: Position = ("50%", "90%")
+    vertical_align: Literal["center", "optical-center"] = "center"
     size: PositiveInt = 24
     color: HexColor = "#FFFFFF"
     background: HexColor | None = None
