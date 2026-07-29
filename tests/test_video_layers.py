@@ -4,6 +4,7 @@ import json
 import shutil
 import subprocess
 from io import BytesIO
+from pathlib import Path
 from typing import cast
 
 import pytest
@@ -302,6 +303,52 @@ def test_video_caption_outside_canvas_is_diagnosed_and_safely_rendered(source_vi
     assert clipped
     assert clipped[0].measured["caption_index"] == 0
     assert frame.size == (96, 64)
+
+
+@pytest.mark.skipif(not HAS_FFMPEG, reason="FFmpeg is required")
+def test_video_caption_ink_is_optically_centered_inside_its_background(source_video):
+    """Given a caption cue, when rendered, then visible glyph ink is centered in its box."""
+    # Given: a centered caption using a real font with non-symmetric vertical metrics
+    font = str(Path(__file__).parents[1] / "assets" / "fonts" / "Pretendard-Regular.woff2")
+    canvas = Canvas(96, 64).video(
+        str(source_video),
+        (0, 0),
+        96,
+        64,
+        captions=[
+            {
+                "text": "정렬된 자막",
+                "font": font,
+                "start": 0,
+                "end": 1,
+                "position": (48, 32),
+                "size": 12,
+                "color": "#FFFFFF",
+                "background": "#000000",
+                "padding": 6,
+            }
+        ],
+    )
+
+    # When: the public frame renderer composites the caption
+    frame = canvas.render_frame(0.2).convert("RGB")
+    black = [
+        (x, y)
+        for y in range(frame.height)
+        for x in range(frame.width)
+        if max(frame.getpixel((x, y))) < 20
+    ]
+    white = [
+        (x, y)
+        for y in range(frame.height)
+        for x in range(frame.width)
+        if min(frame.getpixel((x, y))) > 220
+    ]
+
+    # Then: the glyph ink center stays within 2px of the background center
+    background_center_y = (min(y for _, y in black) + max(y for _, y in black)) / 2
+    ink_center_y = (min(y for _, y in white) + max(y for _, y in white)) / 2
+    assert abs(background_center_y - ink_center_y) <= 2
 
 
 @pytest.mark.skipif(not HAS_FFMPEG, reason="FFmpeg is required")

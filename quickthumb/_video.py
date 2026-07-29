@@ -320,8 +320,6 @@ def caption_geometry(
     image_size: tuple[int, int], caption: VideoCaption, font_loader=None
 ) -> CaptionGeometry:
     """Measure one caption and return requested plus safely rendered geometry."""
-    image = Image.new("RGBA", (1, 1))
-    draw = ImageDraw.Draw(image, "RGBA")
     font = (
         font_loader(caption.font, caption.size, False, False)
         if font_loader
@@ -329,7 +327,7 @@ def caption_geometry(
     )
     x = parse_coordinate(caption.position[0], image_size[0])
     y = parse_coordinate(caption.position[1], image_size[1])
-    text_bbox = draw.multiline_textbbox((0, 0), caption.text, font=font)
+    text_bbox = _caption_ink_bbox(caption.text, font)
     width = text_bbox[2] - text_bbox[0]
     height = text_bbox[3] - text_bbox[1]
     top_padding, right_padding, bottom_padding, left_padding = _caption_padding(caption.padding)
@@ -353,6 +351,22 @@ def caption_geometry(
         shift=shift,
         text_size=(width, height),
     )
+
+
+def _caption_ink_bbox(text: str, font: ImageFont.ImageFont) -> tuple[int, int, int, int]:
+    """Measure the visible glyph ink, excluding font ascent/descent whitespace."""
+    probe = Image.new("L", (1, 1), 0)
+    probe_draw = ImageDraw.Draw(probe)
+    layout_bbox = probe_draw.multiline_textbbox((0, 0), text, font=font)
+    margin = max(8, getattr(font, "size", 16))
+    width = max(1, layout_bbox[2] - layout_bbox[0] + margin * 2)
+    height = max(1, layout_bbox[3] - layout_bbox[1] + margin * 2)
+    probe = Image.new("L", (width, height), 0)
+    ImageDraw.Draw(probe).multiline_text((margin, margin), text, font=font, fill=255)
+    ink = probe.getbbox()
+    if ink is None:
+        return (0, 0, 0, 0)
+    return tuple(value - margin for value in ink)
 
 
 def caption_bounds(
