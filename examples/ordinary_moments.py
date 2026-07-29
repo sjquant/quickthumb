@@ -13,7 +13,7 @@ FFmpeg is required for the MP4, WebM, and GIF outputs.
 
 from pathlib import Path
 
-from quickthumb import AudioTrack, Canvas, Deck, Fade, Wipe
+from quickthumb import AudioTrack, Canvas, Deck, Wipe
 from quickthumb import transitions as tr
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -39,6 +39,13 @@ SOURCE_ENDS = {
 INK = "#101820"
 CREAM = "#F5F3ED"
 ACCENT = "#D0A464"
+PANEL_PADDING_X = 48
+PANEL_PADDING_TOP = 40
+EYEBROW_TO_HEADLINE = 54
+BOTTOM_RULE_OFFSET = 60
+BOTTOM_DETAIL_OFFSET = 38
+SIDE_RULE_OFFSET = 78
+SIDE_DETAIL_OFFSET = 48
 
 # Each source is a different visual beat. The deliberate reuse is non-adjacent
 # and only happens when the story needs a familiar visual anchor.
@@ -245,14 +252,6 @@ def build_scene(
         color=INK,
         opacity=panel_opacity,
     )
-    canvas = canvas.shape(
-        shape="rectangle",
-        position=(0, 0),
-        width=WIDTH,
-        height=56,
-        color=INK,
-        opacity=0.48,
-    )
     if panel_style in {"left", "right"}:
         accent_x = panel_x + (panel_width - 8 if panel_style == "right" else 0)
         canvas = canvas.shape(
@@ -272,18 +271,9 @@ def build_scene(
             color=ACCENT,
             animation=Wipe(direction="right", duration=0.4),
         )
-    text_x = panel_x + 48
-    text_top = panel_y + (88 if panel_style == "top" else 20 if panel_style == "bottom" else 40)
+    text_x = panel_x + PANEL_PADDING_X
+    text_top = panel_y + PANEL_PADDING_TOP
     text_width = panel_width - 96
-    canvas = canvas.text(
-        content="QUICKTHUMB  /  VIDEO COMPOSITION",
-        font=FONT_BOLD,
-        size=16,
-        color=CREAM,
-        letter_spacing=1,
-        position=(72, 32),
-        animation=Fade(duration=0.2),
-    )
     canvas = canvas.text(
         content=eyebrow,
         font=FONT_BOLD,
@@ -302,7 +292,7 @@ def build_scene(
         size=54 if panel_style in {"left", "right"} else 46,
         color=CREAM,
         line_height=0.98,
-        position=(text_x, text_top + 54),
+        position=(text_x, text_top + EYEBROW_TO_HEADLINE),
         align=("left", "top"),
         max_width=text_width,
         auto_scale=True,
@@ -314,7 +304,12 @@ def build_scene(
         font=FONT_BOLD,
         size=22,
         color=ACCENT,
-        position=(text_x, panel_y + panel_height - 78),
+        position=(
+            text_x,
+            panel_y
+            + panel_height
+            - (BOTTOM_RULE_OFFSET if panel_style == "bottom" else SIDE_RULE_OFFSET),
+        ),
         align=("left", "top"),
         animation=Wipe(direction="right", duration=0.3, trigger="after_previous"),
     )
@@ -324,7 +319,12 @@ def build_scene(
         size=19,
         color=CREAM,
         line_height=1.2,
-        position=(text_x, panel_y + panel_height - 48),
+        position=(
+            text_x,
+            panel_y
+            + panel_height
+            - (BOTTOM_DETAIL_OFFSET if panel_style == "bottom" else SIDE_DETAIL_OFFSET),
+        ),
         align=("left", "bottom"),
         max_width=text_width,
         auto_scale=True,
