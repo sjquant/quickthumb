@@ -34,6 +34,13 @@ def test_ordinary_moments_builds_a_focused_horizontal_product_story():
         for layer in layers
         if layer["type"] == "video"
     )
+    text_content = {layer["content"] for layer in layers if layer["type"] == "text"}
+    assert {
+        "RAW  →  COMPOSE  →  DELIVER",
+        "16:9",
+        "MP4",
+        "RUN 01",
+    } <= text_content
     assert not any(layer["type"] == "video" for layer in payload["slides"][-1]["layers"])
     findings = deck.diagnose()
     assert not any(finding.severity == "error" for finding in findings)

@@ -1,8 +1,8 @@
 """QuickThumb in motion: one composition, every delivery.
 
-This 60-second landscape film is a compact product story rather than a feature
-checklist. It starts with a raw idea, composes it on a shared grid, then proves
-that the same deterministic timeline can ship as MP4, WebM, and GIF.
+This 60-second landscape product film turns one ordinary moment into a complete
+delivery system. Each scene demonstrates one composition decision, then the
+same deterministic timeline branches into MP4, WebM, and GIF.
 
 Run from the repository root with::
 
@@ -52,59 +52,59 @@ SIDE_DETAIL_OFFSET = 48
 SCENES = (
     (
         "ordinary-city.mp4",
-        "01  /  START WITH THE MOMENT",
-        "장면 하나로\n시작합니다.",
-        "아이디어가 생기는 순간부터, 화면은 움직이기 시작하니까.",
+        "01  /  THE INPUT",
+        "하나의 장면에서\n시작합니다.",
+        "좋은 아이디어는 포맷마다 다시 만들 필요가 없습니다.",
         "아이디어를 움직이세요.",
     ),
     (
         "ordinary-notebook.mp4",
-        "02  /  SHAPE THE RAW",
+        "02  /  TRIM",
         "필요한 순간만\n남깁니다.",
-        "자르고, 맞추고, 배치하면 원본은 메시지가 됩니다.",
+        "원본에서 메시지가 시작되는 순간까지 정확하게 자릅니다.",
         "자르고. 맞추고. 배치합니다.",
     ),
     (
         "ordinary-coffee.mp4",
-        "03  /  FIND THE FRAME",
-        "정렬된 순간은\n더 오래 남습니다.",
-        "영상과 텍스트가 하나의 기준선 위에서 같은 이야기를 합니다.",
-        "모든 요소에는 자리가 있습니다.",
+        "03  /  FIT",
+        "같은 장면을\n모든 화면에.",
+        "cover, contain, placement. 프레임은 의도대로 남습니다.",
+        "모든 포맷에 같은 의도.",
     ),
     (
         "ordinary-phone.mp4",
-        "04  /  LET WORDS LAND",
+        "04  /  CAPTIONS",
         "말은\n정확한 순간에.",
-        "자막의 위치와 타이밍까지, 장면 안에서 함께 설계합니다.",
-        "타이밍이 메시지를 만듭니다.",
+        "자막도 타임라인의 일부입니다. 위치, 배경, 시작과 끝까지.",
+        "자막은 타이밍입니다.",
     ),
     (
         "ordinary-sunrise.mp4",
-        "05  /  MAKE IT MOVE",
-        "움직임은\n기억을 만듭니다.",
-        "속도와 전환을 바꿔도, 모든 프레임은 같은 타임라인을 따릅니다.",
-        "모든 프레임이 같은 이야기를 합니다.",
+        "05  /  TIMELINE",
+        "움직임과 소리를\n함께 맞춥니다.",
+        "속도, 볼륨, 전환, 페이드아웃이 하나의 시간축을 공유합니다.",
+        "화면과 소리, 오차 없이.",
     ),
     (
         "ordinary-city.mp4",
-        "06  /  KEEP THE RHYTHM",
-        "소리도\n화면을 따라갑니다.",
-        "영상의 길이와 오디오의 길이가 어긋나지 않도록 함께 흐릅니다.",
-        "화면과 소리 사이, 오차 없이.",
+        "06  /  OUTPUT",
+        "한 번 만들고.\n세 곳에 보냅니다.",
+        "같은 구성에서 필요한 전달 포맷을 바로 출력합니다.",
+        "필요한 포맷으로 바로 보냅니다.",
     ),
     (
         "ordinary-notebook.mp4",
-        "07  /  ONE TIMELINE",
-        "하나의 구성.\n세 가지 결과.",
-        "피드에는 MP4, 웹에는 WebM, 미리보기에는 GIF로 바로 이어집니다.",
-        "MP4  /  WEBM  /  GIF",
+        "07  /  DETERMINISTIC",
+        "같은 타임라인.\n같은 프레임.",
+        "다시 렌더링해도 장면과 오디오의 기준은 흔들리지 않습니다.",
+        "같은 입력은 같은 결과를 만듭니다.",
     ),
     (
         "ordinary-coffee.mp4",
         "08  /  QUICKTHUMB",
-        "한 번 만들고.\n바로 보냅니다.",
-        "의도는 하나로, 전달되는 모든 포맷은 정확하게.",
-        "한 번의 구성, 모든 포맷",
+        "구성은 한 번.\n전달은 어디서나.",
+        "Trim. Fit. Place. Move. 아이디어를 다시 만들지 마세요.",
+        "COMPOSE ONCE",
     ),
 )
 
@@ -224,7 +224,7 @@ def build_scene(
                 # so the cue sits just above it instead of being covered.
                 "position": (
                     WIDTH // 2,
-                    380 if index % 4 == 2 else 650,
+                    320 if index == 5 else 104 if index in {2, 3} else 650,
                 ),
                 "size": 20,
                 "color": CREAM,
@@ -235,101 +235,458 @@ def build_scene(
             }
         ],
     )
-    panel_styles = (
-        ("left", (48, 104, 510, 468), 0.82),
-        ("right", (744, 104, 488, 468), 0.84),
-        ("bottom", (0, 420, 1280, 240), 0.82),
-        ("top", (0, 0, 1280, 330), 0.76),
-    )
-    panel_style, (panel_x, panel_y, panel_width, panel_height), panel_opacity = panel_styles[
-        index % len(panel_styles)
-    ]
-    canvas = canvas.shape(
-        shape="rectangle",
-        position=(panel_x, panel_y),
-        width=panel_width,
-        height=panel_height,
-        color=INK,
-        opacity=panel_opacity,
-    )
-    if panel_style in {"left", "right"}:
-        accent_x = panel_x + (panel_width - 8 if panel_style == "right" else 0)
-        canvas = canvas.shape(
-            shape="rectangle",
-            position=(accent_x, panel_y),
-            width=8,
-            height=panel_height,
-            color=ACCENT,
-            animation=Wipe(direction="down", duration=0.4),
+    if index == 0:
+        canvas = (
+            canvas.shape(
+                shape="rectangle",
+                position=(0, 0),
+                width=WIDTH,
+                height=HEIGHT,
+                color=INK,
+                opacity=0.55,
+            )
+            .shape(shape="rectangle", position=(72, 104), width=8, height=300, color=ACCENT)
+            .text(
+                content=eyebrow,
+                font=FONT_BOLD,
+                size=18,
+                color=ACCENT,
+                letter_spacing=1,
+                position=(120, 112),
+            )
+            .text(
+                content=headline,
+                font=FONT_BOLD,
+                size=66,
+                color=CREAM,
+                line_height=0.98,
+                position=(120, 176),
+                max_width=620,
+                auto_scale=True,
+                min_size=42,
+            )
+            .text(
+                content=detail,
+                font=FONT,
+                size=22,
+                color=CREAM,
+                position=(120, 360),
+                max_width=620,
+                auto_scale=True,
+                min_size=16,
+            )
+            .text(
+                content="RAW  →  COMPOSE  →  DELIVER",
+                font=FONT_BOLD,
+                size=16,
+                color=ACCENT,
+                letter_spacing=1,
+                position=(120, 548),
+            )
+        )
+    elif index == 1:
+        canvas = (
+            canvas.shape(
+                shape="rectangle",
+                position=(64, 88),
+                width=460,
+                height=544,
+                color=INK,
+                opacity=0.86,
+            )
+            .shape(
+                shape="rectangle",
+                position=(64, 88),
+                width=8,
+                height=544,
+                color=ACCENT,
+                animation=Wipe(direction="down", duration=0.4),
+            )
+            .text(
+                content=eyebrow,
+                font=FONT_BOLD,
+                size=16,
+                color=ACCENT,
+                letter_spacing=1,
+                position=(112, 128),
+            )
+            .text(
+                content=headline,
+                font=FONT_BOLD,
+                size=54,
+                color=CREAM,
+                line_height=0.98,
+                position=(112, 190),
+                max_width=340,
+                auto_scale=True,
+                min_size=34,
+                animation=Wipe(direction="up", duration=0.45, trigger="after_previous"),
+            )
+            .shape(shape="rectangle", position=(112, 508), width=120, height=6, color=ACCENT)
+            .text(
+                content=detail,
+                font=FONT,
+                size=18,
+                color=CREAM,
+                line_height=1.2,
+                position=(112, 544),
+                max_width=340,
+                auto_scale=True,
+                min_size=14,
+            )
+            .text(
+                content="TRIM RANGE",
+                font=FONT_BOLD,
+                size=14,
+                color=ACCENT,
+                position=(650, 584),
+            )
+        )
+    elif index == 2:
+        canvas = (
+            canvas.shape(
+                shape="rectangle",
+                position=(0, 432),
+                width=WIDTH,
+                height=288,
+                color=INK,
+                opacity=0.88,
+            )
+            .text(
+                content=eyebrow,
+                font=FONT_BOLD,
+                size=16,
+                color=ACCENT,
+                letter_spacing=1,
+                position=(64, 466),
+            )
+            .text(
+                content=headline,
+                font=FONT_BOLD,
+                size=42,
+                color=CREAM,
+                line_height=0.98,
+                position=(64, 514),
+                max_width=390,
+                auto_scale=True,
+                min_size=28,
+            )
+        )
+        for x, label in ((610, "16:9"), (810, "1:1"), (1010, "9:16")):
+            canvas = (
+                canvas.shape(
+                    shape="rectangle",
+                    position=(x, 474),
+                    width=150,
+                    height=174,
+                    color="#25313A",
+                    opacity=0.96,
+                )
+                .shape(
+                    shape="rectangle",
+                    position=(x + 14, 488),
+                    width=122 if label == "16:9" else 96,
+                    height=6 if label == "16:9" else 96,
+                    color=ACCENT,
+                    opacity=0.9,
+                )
+                .text(
+                    content=label,
+                    font=FONT_BOLD,
+                    size=18,
+                    color=CREAM,
+                    position=(x + 16, 612),
+                )
+            )
+    elif index == 3:
+        canvas = (
+            canvas.shape(
+                shape="rectangle",
+                position=(56, 72),
+                width=560,
+                height=270,
+                color=INK,
+                opacity=0.82,
+            )
+            .text(
+                content=eyebrow,
+                font=FONT_BOLD,
+                size=16,
+                color=ACCENT,
+                letter_spacing=1,
+                position=(96, 110),
+            )
+            .text(
+                content=headline,
+                font=FONT_BOLD,
+                size=54,
+                color=CREAM,
+                line_height=0.98,
+                position=(96, 164),
+                max_width=440,
+                auto_scale=True,
+                min_size=34,
+            )
+            .shape(
+                shape="rectangle",
+                position=(0, 488),
+                width=WIDTH,
+                height=144,
+                color=INK,
+                opacity=0.92,
+            )
+            .text(
+                content="CAPTION TIMELINE",
+                font=FONT_BOLD,
+                size=15,
+                color=ACCENT,
+                letter_spacing=1,
+                position=(72, 516),
+            )
+            .shape(shape="rectangle", position=(72, 556), width=1000, height=4, color="#64727A")
+            .shape(shape="rectangle", position=(72, 556), width=420, height=4, color=ACCENT)
+            .shape(shape="rectangle", position=(492, 544), width=4, height=28, color=CREAM)
+            .text(
+                content="AUDIO TRACK",
+                font=FONT_BOLD,
+                size=16,
+                color=CREAM,
+                position=(72, 588),
+            )
+        )
+    elif index == 4:
+        canvas = (
+            canvas.shape(
+                shape="rectangle",
+                position=(720, 74),
+                width=488,
+                height=572,
+                color=INK,
+                opacity=0.88,
+            )
+            .shape(shape="rectangle", position=(1200, 74), width=8, height=572, color=ACCENT)
+            .text(
+                content=eyebrow,
+                font=FONT_BOLD,
+                size=16,
+                color=ACCENT,
+                letter_spacing=1,
+                position=(768, 116),
+            )
+            .text(
+                content=headline,
+                font=FONT_BOLD,
+                size=48,
+                color=CREAM,
+                line_height=0.98,
+                position=(768, 170),
+                max_width=380,
+                auto_scale=True,
+                min_size=32,
+            )
+            .shape(shape="rectangle", position=(768, 384), width=320, height=4, color="#64727A")
+            .shape(shape="rectangle", position=(768, 384), width=232, height=4, color=ACCENT)
+            .text(
+                content="RENDER CHECK",
+                font=FONT_BOLD,
+                size=15,
+                color=CREAM,
+                position=(768, 418),
+            )
+            .text(
+                content=detail,
+                font=FONT,
+                size=18,
+                color=CREAM,
+                line_height=1.2,
+                position=(768, 494),
+                max_width=350,
+                auto_scale=True,
+                min_size=14,
+            )
+        )
+    elif index == 5:
+        canvas = (
+            canvas.shape(
+                shape="rectangle",
+                position=(0, 0),
+                width=WIDTH,
+                height=250,
+                color=INK,
+                opacity=0.78,
+            )
+            .text(
+                content=eyebrow,
+                font=FONT_BOLD,
+                size=16,
+                color=ACCENT,
+                letter_spacing=1,
+                position=(64, 64),
+            )
+            .text(
+                content=headline,
+                font=FONT_BOLD,
+                size=48,
+                color=CREAM,
+                line_height=0.98,
+                position=(64, 110),
+                max_width=520,
+                auto_scale=True,
+                min_size=32,
+            )
+        )
+        for x, label, detail_label in (
+            (64, "MP4", "FEED"),
+            (444, "WEBM", "WEB"),
+            (824, "GIF", "PREVIEW"),
+        ):
+            canvas = (
+                canvas.shape(
+                    shape="rectangle",
+                    position=(x, 392),
+                    width=320,
+                    height=230,
+                    color=INK,
+                    opacity=0.88,
+                )
+                .shape(shape="rectangle", position=(x, 392), width=320, height=8, color=ACCENT)
+                .text(
+                    content=label,
+                    font=FONT_BOLD,
+                    size=34,
+                    color=CREAM,
+                    position=(x + 28, 438),
+                )
+                .text(
+                    content=detail_label,
+                    font=FONT_BOLD,
+                    size=14,
+                    color=ACCENT,
+                    letter_spacing=1,
+                    position=(x + 28, 570),
+                )
+            )
+    elif index == 6:
+        canvas = (
+            canvas.shape(
+                shape="rectangle",
+                position=(56, 74),
+                width=520,
+                height=570,
+                color=INK,
+                opacity=0.86,
+            )
+            .text(
+                content=eyebrow,
+                font=FONT_BOLD,
+                size=16,
+                color=ACCENT,
+                letter_spacing=1,
+                position=(104, 116),
+            )
+            .text(
+                content=headline,
+                font=FONT_BOLD,
+                size=48,
+                color=CREAM,
+                line_height=0.98,
+                position=(104, 170),
+                max_width=420,
+                auto_scale=True,
+                min_size=32,
+            )
+            .shape(shape="rectangle", position=(104, 400), width=420, height=2, color="#64727A")
+            .shape(shape="rectangle", position=(104, 400), width=420, height=2, color=ACCENT)
+            .text(
+                content=caption,
+                font=FONT_BOLD,
+                size=18,
+                color=CREAM,
+                position=(104, 430),
+            )
+            .text(
+                content=detail,
+                font=FONT,
+                size=18,
+                color=CREAM,
+                line_height=1.2,
+                position=(104, 510),
+                max_width=390,
+                auto_scale=True,
+                min_size=14,
+            )
+            .shape(
+                shape="rectangle",
+                position=(688, 184),
+                width=480,
+                height=176,
+                color=INK,
+                opacity=0.82,
+            )
+            .shape(shape="rectangle", position=(688, 184), width=8, height=176, color=ACCENT)
+            .text(content="RUN 01", font=FONT_BOLD, size=16, color=ACCENT, position=(736, 220))
+            .text(content="00:42.000", font=FONT_BOLD, size=34, color=CREAM, position=(736, 262))
+            .shape(
+                shape="rectangle",
+                position=(688, 392),
+                width=480,
+                height=176,
+                color=INK,
+                opacity=0.82,
+            )
+            .shape(shape="rectangle", position=(688, 392), width=8, height=176, color=ACCENT)
+            .text(content="RUN 02", font=FONT_BOLD, size=16, color=ACCENT, position=(736, 428))
+            .text(content="00:42.000", font=FONT_BOLD, size=34, color=CREAM, position=(736, 470))
         )
     else:
-        canvas = canvas.shape(
-            shape="rectangle",
-            position=(72, panel_y + panel_height - 8),
-            width=280 if panel_style == "bottom" else 440,
-            height=8,
-            color=ACCENT,
-            animation=Wipe(direction="right", duration=0.4),
+        canvas = (
+            canvas.shape(
+                shape="rectangle",
+                position=(0, 0),
+                width=WIDTH,
+                height=HEIGHT,
+                color=INK,
+                opacity=0.62,
+            )
+            .shape(shape="rectangle", position=(72, 118), width=8, height=430, color=ACCENT)
+            .text(
+                content=eyebrow,
+                font=FONT_BOLD,
+                size=18,
+                color=ACCENT,
+                letter_spacing=1,
+                position=(120, 128),
+            )
+            .text(
+                content=headline,
+                font=FONT_BOLD,
+                size=68,
+                color=CREAM,
+                line_height=0.98,
+                position=(120, 194),
+                max_width=720,
+                auto_scale=True,
+                min_size=44,
+            )
+            .text(
+                content=detail,
+                font=FONT,
+                size=22,
+                color=CREAM,
+                position=(120, 410),
+                max_width=720,
+                auto_scale=True,
+                min_size=16,
+            )
+            .text(
+                content=caption,
+                font=FONT_BOLD,
+                size=18,
+                color=ACCENT,
+                letter_spacing=1,
+                position=(120, 530),
+            )
         )
-    text_x = panel_x + PANEL_PADDING_X
-    text_top = panel_y + PANEL_PADDING_TOP
-    text_width = panel_width - 96
-    canvas = canvas.text(
-        content=eyebrow,
-        font=FONT_BOLD,
-        size=16,
-        color=ACCENT,
-        letter_spacing=1,
-        position=(text_x, text_top),
-        align=("left", "top"),
-        max_width=text_width,
-        auto_scale=True,
-        min_size=12,
-    )
-    canvas = canvas.text(
-        content=headline,
-        font=FONT_BOLD,
-        size=54 if panel_style in {"left", "right"} else 46,
-        color=CREAM,
-        line_height=0.98,
-        position=(text_x, text_top + EYEBROW_TO_HEADLINE),
-        align=("left", "top"),
-        max_width=text_width,
-        auto_scale=True,
-        min_size=28,
-        animation=Wipe(direction="up", duration=0.45, trigger="after_previous"),
-    )
-    canvas = canvas.text(
-        content="—",
-        font=FONT_BOLD,
-        size=22,
-        color=ACCENT,
-        position=(
-            text_x,
-            panel_y
-            + panel_height
-            - (BOTTOM_RULE_OFFSET if panel_style == "bottom" else SIDE_RULE_OFFSET),
-        ),
-        align=("left", "top"),
-        animation=Wipe(direction="right", duration=0.3, trigger="after_previous"),
-    )
-    canvas = canvas.text(
-        content=detail,
-        font=FONT,
-        size=19,
-        color=CREAM,
-        line_height=1.2,
-        position=(
-            text_x,
-            panel_y
-            + panel_height
-            - (BOTTOM_DETAIL_OFFSET if panel_style == "bottom" else SIDE_DETAIL_OFFSET),
-        ),
-        align=("left", "bottom"),
-        max_width=text_width,
-        auto_scale=True,
-        min_size=14,
-    )
     return canvas
 
 
