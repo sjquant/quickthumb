@@ -502,6 +502,14 @@ def build_scene(
                 position=(768, 418),
             )
             .text(
+                content="SPEED 1.25×   VOL 16%   FADE 1.4s",
+                font=FONT_BOLD,
+                size=15,
+                color=ACCENT,
+                letter_spacing=1,
+                position=(768, 450),
+            )
+            .text(
                 content=detail,
                 font=FONT,
                 size=18,

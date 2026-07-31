@@ -39,6 +39,7 @@ def test_ordinary_moments_builds_a_focused_horizontal_product_story():
         "RAW  →  COMPOSE  →  DELIVER",
         "TRIM 00:00 → 00:04",
         "COVER  /  CONTAIN  /  PLACE",
+        "SPEED 1.25×   VOL 16%   FADE 1.4s",
         "16:9",
         "MP4",
         "RUN 01",
