@@ -37,6 +37,8 @@ def test_ordinary_moments_builds_a_focused_horizontal_product_story():
     text_content = {layer["content"] for layer in layers if layer["type"] == "text"}
     assert {
         "RAW  →  COMPOSE  →  DELIVER",
+        "TRIM 00:00 → 00:04",
+        "COVER  /  CONTAIN  /  PLACE",
         "16:9",
         "MP4",
         "RUN 01",

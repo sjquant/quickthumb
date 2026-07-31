@@ -335,7 +335,7 @@ def build_scene(
                 min_size=14,
             )
             .text(
-                content="TRIM RANGE",
+                content="TRIM 00:00 → 00:04",
                 font=FONT_BOLD,
                 size=14,
                 color=ACCENT,
@@ -370,6 +370,14 @@ def build_scene(
                 max_width=390,
                 auto_scale=True,
                 min_size=28,
+            )
+            .text(
+                content="COVER  /  CONTAIN  /  PLACE",
+                font=FONT_BOLD,
+                size=15,
+                color=ACCENT,
+                letter_spacing=1,
+                position=(64, 678),
             )
         )
         for x, label in ((610, "16:9"), (810, "1:1"), (1010, "9:16")):
