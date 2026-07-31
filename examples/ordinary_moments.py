@@ -202,6 +202,7 @@ def build_scene(
     # of asking the exporter to read beyond a validated media boundary.
     trim_end = SOURCE_ENDS.get(source_name, VIDEO_END)
     speed = (trim_end - trim_start) / SCENE_DURATION
+    timeline_status = f"SPEED {speed:.2f}×   VOL 16%   FADE 1.4s"
     canvas = Canvas(WIDTH, HEIGHT).background(color=INK)
     canvas.video(
         source,
@@ -502,7 +503,7 @@ def build_scene(
                 position=(768, 418),
             )
             .text(
-                content="SPEED 1.25×   VOL 16%   FADE 1.4s",
+                content=timeline_status,
                 font=FONT_BOLD,
                 size=15,
                 color=ACCENT,

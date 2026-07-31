@@ -39,11 +39,15 @@ def test_ordinary_moments_builds_a_focused_horizontal_product_story():
         "RAW  →  COMPOSE  →  DELIVER",
         "TRIM 00:00 → 00:04",
         "COVER  /  CONTAIN  /  PLACE",
-        "SPEED 1.25×   VOL 16%   FADE 1.4s",
         "16:9",
         "MP4",
         "RUN 01",
     } <= text_content
+    assert any(
+        content.startswith("SPEED ")
+        and "×   VOL 16%   FADE 1.4s" in content
+        for content in text_content
+    )
     assert not any(layer["type"] == "video" for layer in payload["slides"][-1]["layers"])
     findings = deck.diagnose()
     assert not any(finding.severity == "error" for finding in findings)
