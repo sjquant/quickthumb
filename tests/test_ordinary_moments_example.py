@@ -35,14 +35,23 @@ def test_ordinary_moments_builds_a_focused_horizontal_product_story():
         if layer["type"] == "video"
     )
     text_content = {layer["content"] for layer in layers if layer["type"] == "text"}
+    trim_layer = next(layer for layer in payload["slides"][1]["layers"] if layer["type"] == "video")
+
+    def timestamp(seconds: float) -> str:
+        minutes, remainder = divmod(seconds, 60)
+        return f"{int(minutes):02d}:{remainder:04.1f}"
+
+    expected_trim = (
+        f"TRIM {timestamp(trim_layer['trim_start'])} → {timestamp(trim_layer['trim_end'])}"
+    )
     assert {
         "RAW  →  COMPOSE  →  DELIVER",
-        "TRIM 00:00 → 00:04",
         "COVER  /  CONTAIN  /  PLACE",
         "16:9",
         "MP4",
         "RUN 01",
     } <= text_content
+    assert expected_trim in text_content
     assert any(
         content.startswith("SPEED ")
         and "×   VOL 16%   FADE 1.4s" in content

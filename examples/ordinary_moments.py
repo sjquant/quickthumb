@@ -47,6 +47,13 @@ BOTTOM_DETAIL_OFFSET = 38
 SIDE_RULE_OFFSET = 78
 SIDE_DETAIL_OFFSET = 48
 
+
+def _format_timestamp(seconds: float) -> str:
+    """Format a short media timestamp for the on-screen demo controls."""
+    minutes, remainder = divmod(seconds, 60)
+    return f"{int(minutes):02d}:{remainder:04.1f}"
+
+
 # Each source is a different visual beat. The deliberate reuse is non-adjacent
 # and only happens when the story needs a familiar visual anchor.
 SCENES = (
@@ -202,6 +209,7 @@ def build_scene(
     # of asking the exporter to read beyond a validated media boundary.
     trim_end = SOURCE_ENDS.get(source_name, VIDEO_END)
     speed = (trim_end - trim_start) / SCENE_DURATION
+    trim_status = f"TRIM {_format_timestamp(trim_start)} → {_format_timestamp(trim_end)}"
     timeline_status = f"SPEED {speed:.2f}×   VOL 16%   FADE 1.4s"
     canvas = Canvas(WIDTH, HEIGHT).background(color=INK)
     canvas.video(
@@ -336,7 +344,7 @@ def build_scene(
                 min_size=14,
             )
             .text(
-                content="TRIM 00:00 → 00:04",
+                content=trim_status,
                 font=FONT_BOLD,
                 size=14,
                 color=ACCENT,
