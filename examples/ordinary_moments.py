@@ -406,6 +406,7 @@ def build_scene(
                     height=174,
                     color="#25313A",
                     opacity=0.96,
+                    animation=Wipe(direction="up", duration=0.35, trigger="after_previous"),
                 )
                 .shape(
                     shape="rectangle",
@@ -581,6 +582,7 @@ def build_scene(
                     height=230,
                     color=INK,
                     opacity=0.88,
+                    animation=Wipe(direction="up", duration=0.35, trigger="after_previous"),
                 )
                 .shape(shape="rectangle", position=(x, 392), width=320, height=8, color=ACCENT)
                 .text(
