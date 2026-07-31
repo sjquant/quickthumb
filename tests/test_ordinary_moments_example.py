@@ -47,6 +47,7 @@ def test_ordinary_moments_builds_a_focused_horizontal_product_story():
     assert {
         "RAW  →  COMPOSE  →  DELIVER",
         "COVER  /  CONTAIN  /  PLACE",
+        "CUE 00:01.0 → 00:06.5",
         "16:9",
         "MP4",
         "RUN 01",

@@ -31,6 +31,10 @@ OUT_GIF = OUT_DIR / "ordinary_moments_preview.gif"
 WIDTH, HEIGHT = 1280, 720
 SCENE_DURATION = 7.25
 VIDEO_END = 7.8
+CAPTION_START = 1.0
+CAPTION_END = 6.5
+SOUNDTRACK_VOLUME = 0.16
+SOUNDTRACK_FADE_OUT = 1.4
 SOURCE_ENDS = {
     "ordinary-city.mp4": 4.8,
     "ordinary-coffee.mp4": 7.1,
@@ -210,7 +214,11 @@ def build_scene(
     trim_end = SOURCE_ENDS.get(source_name, VIDEO_END)
     speed = (trim_end - trim_start) / SCENE_DURATION
     trim_status = f"TRIM {_format_timestamp(trim_start)} → {_format_timestamp(trim_end)}"
-    timeline_status = f"SPEED {speed:.2f}×   VOL 16%   FADE 1.4s"
+    timeline_status = (
+        f"SPEED {speed:.2f}×   VOL {SOUNDTRACK_VOLUME:.0%}   "
+        f"FADE {SOUNDTRACK_FADE_OUT:.1f}s"
+    )
+    caption_status = f"CUE {_format_timestamp(CAPTION_START)} → {_format_timestamp(CAPTION_END)}"
     canvas = Canvas(WIDTH, HEIGHT).background(color=INK)
     canvas.video(
         source,
@@ -225,8 +233,8 @@ def build_scene(
         captions=[
             {
                 "text": caption,
-                "start": 1.0,
-                "end": 6.5,
+                "start": CAPTION_START,
+                "end": CAPTION_END,
                 "font": FONT_BOLD,
                 "vertical_align": "center",
                 # Bottom-panel scenes reserve the lower band for the overlay,
@@ -464,7 +472,7 @@ def build_scene(
             .shape(shape="rectangle", position=(72, 556), width=420, height=4, color=ACCENT)
             .shape(shape="rectangle", position=(492, 544), width=4, height=28, color=CREAM)
             .text(
-                content="CAPTION CUE",
+                content=caption_status,
                 font=FONT_BOLD,
                 size=16,
                 color=CREAM,
@@ -723,7 +731,12 @@ def main() -> None:
     if errors:
         raise RuntimeError(f"ordinary_moments has diagnostics: {errors}")
 
-    soundtrack = AudioTrack(path=str(SOUNDTRACK), volume=0.16, loop=True, fade_out=1.4)
+    soundtrack = AudioTrack(
+        path=str(SOUNDTRACK),
+        volume=SOUNDTRACK_VOLUME,
+        loop=True,
+        fade_out=SOUNDTRACK_FADE_OUT,
+    )
     OUT_MP4.write_bytes(deck.to_animated_mp4(fps=24, soundtrack=soundtrack))
     OUT_WEBM.write_bytes(deck.to_webm(fps=24, soundtrack=soundtrack))
     # VideoLayer supplies the timeline; zero avoids adding a second settled hold.
