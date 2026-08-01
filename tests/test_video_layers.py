@@ -160,6 +160,48 @@ def test_video_caption_background_is_serializable_and_changes_only_active_frames
 
 
 @pytest.mark.skipif(not HAS_FFMPEG, reason="ffmpeg is required")
+def test_video_captions_render_above_later_canvas_layers(source_video):
+    """Given a later shade, when a cue is active, then its glyphs stay foreground-visible."""
+    # Given: a caption-owned video followed by a mostly opaque full-canvas shade
+    canvas = Canvas(96, 64).video(
+        str(source_video),
+        (0, 0),
+        96,
+        64,
+        captions=[
+            {
+                "text": "caption",
+                "start": 0.1,
+                "end": 0.3,
+                "size": 12,
+                "color": "#FFFFFF",
+            }
+        ],
+    )
+    canvas.shape("rectangle", (0, 0), 96, 64, "#000000", opacity=0.9)
+
+    # When: the public frame renderer samples the active cue
+    frame = canvas.render_frame(0.2).convert("RGB")
+
+    # Then: the caption remains visibly white instead of being dimmed by the shade
+    pixels = frame.load()
+    assert any(
+        min(pixels[x, y]) > 240
+        for y in range(frame.height)
+        for x in range(frame.width)
+    )
+
+    # The animated exporter uses the same foreground pass as direct sampling.
+    exported_frames = _gif_frames(canvas.to_gif(fps=10, hold=0))
+    assert any(
+        min(exported.load()[x, y]) > 240
+        for exported in exported_frames
+        for y in range(exported.height)
+        for x in range(exported.width)
+    )
+
+
+@pytest.mark.skipif(not HAS_FFMPEG, reason="ffmpeg is required")
 def test_video_caption_rejects_negative_padding(source_video):
     """Given negative caption padding, when the layer is built, then validation fails."""
     with pytest.raises(ValidationError, match="padding cannot be negative"):

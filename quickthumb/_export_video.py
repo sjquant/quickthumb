@@ -69,7 +69,13 @@ from quickthumb._export_base import (
     split_backdrop_prefix,
     validate_legacy_animation_export,
 )
-from quickthumb._video import VideoInfo, effective_duration, probe_video
+from quickthumb._video import (
+    VideoInfo,
+    effective_duration,
+    iter_video_layers,
+    probe_video,
+    render_video_captions,
+)
 from quickthumb.errors import RenderingError, ValidationError
 from quickthumb.models import (
     Animation,
@@ -588,14 +594,33 @@ def _deck_shots(
 
         # Keep one motion shot pending so a sub-frame or zero hold can replace
         # it with the settled state without extending the shared timeline.
-        final = _conform(animator.final_frame(), size, matte_rgb)
+        final_time = max(0.0, animator.duration - _TIME_EPSILON)
+        final_image = (
+            animator.frame_at(final_time)
+            if animator._has_active_caption(final_time)
+            else animator.final_frame()
+        )
+        final = _conform(final_image, size, matte_rgb)
         hold = exit_time - max(animation_end, duration_in)
         if hold + _TIME_EPSILON >= 1.0 / fps:
             if pending is not None:
                 yield pending
             yield _Shot(final, hold)
         elif pending is not None:
-            yield _Shot(final, pending.duration + max(hold, 0.0))
+            # A zero/sub-frame hold may end immediately after a transient
+            # caption cue. Preserve that last sampled frame when the cue has
+            # ended; otherwise a short export can silently drop the cue.
+            final_caption_active = animator._has_active_caption(
+                max(0.0, animator.duration - _TIME_EPSILON)
+            )
+            if (
+                final.tobytes() == pending.frame.tobytes()
+                or not animator.has_captions
+                or final_caption_active
+            ):
+                yield _Shot(final, pending.duration + max(hold, 0.0))
+            else:
+                yield pending
         else:
             yield _Shot(final, max(exit_time, 1.0 / fps))
         previous_final = final
@@ -788,12 +813,14 @@ class _SlideAnimator:
     def frame_at(self, time: float) -> Image.Image:
         """Render the slide's full RGBA frame at ``time`` seconds."""
         frame = Image.new("RGBA", (self._canvas.width, self._canvas.height), (0, 0, 0, 0))
+        visible_video_layers: list[VideoLayer] = []
         for unit in self._units:
             if unit.image is None:
                 continue
             state = _unit_state(unit, time)
             if state is _HIDDEN:
                 continue
+            visible_video_layers.extend(iter_video_layers(unit.layers))
             if unit.component_duration > 0:
                 image, pos = _render_unit_image(self._canvas, unit.layers, time)
                 if image is None:
@@ -817,6 +844,13 @@ class _SlideAnimator:
                     continue
                 image = revealed
             frame.alpha_composite(image, pos)
+        render_video_captions(
+            frame,
+            visible_video_layers,
+            time,
+            self._canvas._ctx.video_info_cache,
+            self._canvas._fonts.load_font_variant,
+        )
         return frame
 
     def final_frame(self) -> Image.Image:
@@ -824,6 +858,21 @@ class _SlideAnimator:
         if self._final is None:
             self._final = self.frame_at(self.duration)
         return self._final
+
+    @property
+    def has_captions(self) -> bool:
+        """Return whether this slide owns any timed video captions."""
+        return any(layer.captions for layer in iter_video_layers(self._canvas.layers))
+
+    def _has_active_caption(self, time: float) -> bool:
+        """Return whether a video caption is active at a local slide time."""
+        for layer in iter_video_layers(self._canvas.layers):
+            if not layer.captions:
+                continue
+            local_time = time - layer.start
+            if any(caption.start <= local_time < caption.end for caption in layer.captions):
+                return True
+        return False
 
     def segments(self, start: float, end: float) -> list[tuple[float, float, bool]]:
         """Split [start, end) into (seg_start, seg_end, animating) runs.
@@ -1338,15 +1387,26 @@ def _morph_layer_index(canvas: Canvas) -> dict[str, RenderableLayer]:
     return {key: values[0] for key, values in occurrences.items() if len(values) == 1}
 
 
-def _render_canvas_frame(canvas: Canvas, layers=None) -> Image.Image:
+def _render_canvas_frame(
+    canvas: Canvas, layers=None, time: float = 0.0, include_captions: bool = True
+) -> Image.Image:
     image = Image.new("RGBA", (canvas.width, canvas.height), (0, 0, 0, 0))
-    for layer in canvas.layers if layers is None else layers:
-        canvas._render_layer(image, layer)
+    rendered_layers = list(canvas.layers if layers is None else layers)
+    for layer in rendered_layers:
+        canvas._render_layer(image, layer, time)
+    if include_captions:
+        render_video_captions(
+            image,
+            iter_video_layers(rendered_layers),
+            time,
+            canvas._ctx.video_info_cache,
+            canvas._fonts.load_font_variant,
+        )
     return image
 
 
 def _render_isolated_layer(canvas: Canvas, layer) -> tuple[Image.Image, tuple[int, int, int, int]]:
-    image = _render_canvas_frame(canvas, [layer])
+    image = _render_canvas_frame(canvas, [layer], include_captions=False)
     box = image.getbbox()
     if box is None:
         return Image.new("RGBA", (1, 1), (0, 0, 0, 0)), (0, 0, 1, 1)

@@ -9,6 +9,7 @@ import shutil
 import subprocess
 from bisect import bisect_right
 from collections import OrderedDict
+from collections.abc import Iterable
 from dataclasses import dataclass
 from fractions import Fraction
 
@@ -278,7 +279,42 @@ def render_video_layer(
     x = parse_coordinate(layer.position[0], image.width)
     y = parse_coordinate(layer.position[1], image.height)
     image.alpha_composite(fitted, (x, y))
-    _render_captions(image, layer.captions, time - layer.start, font_loader)
+
+
+def render_video_captions(
+    image: Image.Image,
+    layers: Iterable[VideoLayer],
+    time: float,
+    info_cache: dict[str, VideoInfo],
+    font_loader=None,
+) -> None:
+    """Render active video captions in the composition foreground pass.
+
+    Captions remain owned by their ``VideoLayer`` for serialization and timing,
+    but are deliberately rendered after the regular layer stack. This keeps a
+    later shade, panel, or text layer from accidentally obscuring timed media
+    copy. The caption pass does not decode frames itself; it only probes a
+    source when its duration is not already available in the render context.
+    """
+    for layer in iter_video_layers(layers):
+        if not layer.captions:
+            continue
+        info = info_cache.get(layer.source)
+        if info is None:
+            info = probe_video(layer.source)
+            info_cache[layer.source] = info
+        duration = effective_duration(layer, info)
+        if not layer.start <= time < layer.start + duration:
+            continue
+        _render_captions(image, layer.captions, time - layer.start, font_loader)
+
+
+def iter_video_layers(layers: Iterable[object]) -> Iterable[VideoLayer]:
+    """Yield video descendants once, preserving composition order."""
+    for layer in layers:
+        if isinstance(layer, VideoLayer):
+            yield layer
+        yield from iter_video_layers(getattr(layer, "children", ()))
 
 
 def _render_captions(

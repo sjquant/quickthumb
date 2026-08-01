@@ -22,7 +22,13 @@ from quickthumb._measurements import BBox, LayerMeasurement, measure_layers
 from quickthumb._shapes import ShapeEngine
 from quickthumb._text import TextEngine
 from quickthumb._validation import validate_dimensions
-from quickthumb._video import VideoInfo, probe_video, render_video_layer
+from quickthumb._video import (
+    VideoInfo,
+    iter_video_layers,
+    probe_video,
+    render_video_captions,
+    render_video_layer,
+)
 from quickthumb._visualizations import VisualizationEngine
 from quickthumb.errors import RenderingError, ValidationError
 from quickthumb.models import (
@@ -1354,6 +1360,13 @@ class Canvas:
             image = self._create_canvas()
             for layer in self._layers:
                 self._render_layer(image, layer, time)
+            render_video_captions(
+                image,
+                iter_video_layers(self._layers),
+                0.0 if time is None else time,
+                self._ctx.video_info_cache,
+                self._fonts.load_font_variant,
+            )
             if debug:
                 self._draw_debug_overlay(image)
             return image
