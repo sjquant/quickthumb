@@ -135,6 +135,25 @@ def test_odometer_keeps_rolling_digits_inside_one_numeric_window():
     assert bbox[3] - bbox[1] < 70
 
 
+def test_odometer_keeps_digit_baseline_when_glyph_shape_changes():
+    """Given 1-to-8 motion, when it settles, then the visible baseline is stable."""
+    canvas = Canvas(320, 120).counter(
+        1,
+        8,
+        1.0,
+        position=(20, 20),
+        size=48,
+        style="odometer",
+    )
+
+    start_bbox = canvas.render_frame(0.0).getchannel("A").getbbox()
+    end_bbox = canvas.render_frame(1.0).getchannel("A").getbbox()
+
+    assert start_bbox is not None
+    assert end_bbox is not None
+    assert start_bbox[3] == end_bbox[3]
+
+
 def test_flip_style_serializes_and_reaches_the_target_without_suffix_motion():
     """Given flip motion, when settled, then the target and label are stable."""
     canvas = Canvas(640, 180).counter(
@@ -154,10 +173,7 @@ def test_flip_style_serializes_and_reaches_the_target_without_suffix_motion():
 
     assert restored.layers[0].value.style == "flip"
     assert restored.layers[0].value.text_at(1.0) == "3 formats ready"
-    assert (
-        before.crop((160, 0, 640, 180)).tobytes()
-        == settled.crop((160, 0, 640, 180)).tobytes()
-    )
+    assert before.crop((160, 0, 640, 180)).tobytes() == settled.crop((160, 0, 640, 180)).tobytes()
 
 
 def test_counter_rejects_rich_text_content():

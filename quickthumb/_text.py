@@ -125,6 +125,18 @@ class TextEngine:
         following = current + direction * step
         fraction = min(1.0, max(0.0, abs(sampled - current) / step))
         if fraction <= 1e-9 or time >= value.delay + value.duration:
+            if value.style == "odometer":
+                settled_number = value.number_text(value.value_at(time))
+                self._render_odometer_slots(
+                    image,
+                    layer,
+                    value,
+                    settled_number,
+                    settled_number,
+                    0.0,
+                    direction,
+                )
+                return
             self.render_text_layer(
                 image,
                 layer.model_copy(
@@ -175,9 +187,7 @@ class TextEngine:
                 shift = round(movement * fraction * 2)
                 self.render_text_layer(
                     image,
-                    static.model_copy(
-                        update={"position": (x, y - direction * shift)}
-                    ),
+                    static.model_copy(update={"position": (x, y - direction * shift)}),
                 )
             else:
                 shift = round(movement * (1.0 - fraction) * 2)
@@ -268,6 +278,12 @@ class TextEngine:
             (prefix_width + number_width + suffix_width, height),
             layer.align or Align.TOP_LEFT,
         )
+        # Keep every part of the counter on one logical baseline.  A shared top
+        # coordinate is not sufficient here: Pillow's glyph boxes have different
+        # bottoms for digits such as 1 and 8, which makes a handoff look like a
+        # vertical jiggle even when the animation offset is zero.
+        baseline_layer = suffix if value.suffix else prefix if value.prefix else anchor
+        baseline = self._text_baseline(baseline_layer, top)
         prefix_position = (left, top)
         suffix_position = (left + prefix_width + number_width, top)
         if value.prefix:
@@ -276,38 +292,16 @@ class TextEngine:
             self.render_text_layer(image, suffix.model_copy(update={"position": suffix_position}))
 
         number_x = left + prefix_width
-        anchor_image = Image.new("RGBA", image.size, (0, 0, 0, 0))
-        self.render_text_layer(
-            anchor_image,
-            anchor.model_copy(update={"position": (number_x, top)}),
-        )
-        anchor_bbox = anchor_image.getbbox()
-        if anchor_bbox is None:
-            return
-        reference_image = Image.new("RGBA", image.size, (0, 0, 0, 0))
-        reference_layer = suffix if value.suffix else prefix
-        reference_position = suffix_position if value.suffix else prefix_position
-        reference_bbox = None
-        if value.prefix or value.suffix:
-            self.render_text_layer(
-                reference_image,
-                reference_layer.model_copy(update={"position": reference_position}),
-            )
-            reference_bbox = reference_image.getbbox()
-        number_top = top
-        if reference_bbox is not None:
-            number_top += reference_bbox[1] - anchor_bbox[1]
-
         slot_x = number_x
-        for old_char, new_char, slot_width in zip(
-            old_slots, new_slots, slot_widths, strict=True
-        ):
+        for old_char, new_char, slot_width in zip(old_slots, new_slots, slot_widths, strict=True):
             old_layer = static.model_copy(update={"content": old_char})
             new_layer = static.model_copy(update={"content": new_char})
             if old_char == new_char or not old_char.isdigit() or not new_char.isdigit():
                 self.render_text_layer(
                     image,
-                    new_layer.model_copy(update={"position": (slot_x, number_top)}),
+                    new_layer.model_copy(
+                        update={"position": self._position_on_baseline(new_layer, slot_x, baseline)}
+                    ),
                 )
                 slot_x += slot_width + letter_spacing
                 continue
@@ -318,9 +312,10 @@ class TextEngine:
                     image,
                     old_layer.model_copy(
                         update={
-                            "position": (
+                            "position": self._position_on_baseline(
+                                old_layer,
                                 slot_x,
-                                number_top - direction * shift,
+                                baseline - direction * shift,
                             )
                         }
                     ),
@@ -331,9 +326,10 @@ class TextEngine:
                     image,
                     new_layer.model_copy(
                         update={
-                            "position": (
+                            "position": self._position_on_baseline(
+                                new_layer,
                                 slot_x,
-                                number_top + direction * shift,
+                                baseline + direction * shift,
                             )
                         }
                     ),
@@ -371,18 +367,10 @@ class TextEngine:
             (prefix_width + number_width + suffix_width, height),
             layer.align or Align.TOP_LEFT,
         )
+        baseline_layer = suffix if value.suffix else prefix if value.prefix else old
+        baseline = self._text_baseline(baseline_layer, top)
         prefix_position = (left, top)
         suffix_position = (left + prefix_width + number_width, top)
-        reference_image = Image.new("RGBA", image.size, (0, 0, 0, 0))
-        reference_layer = suffix if value.suffix else prefix
-        reference_position = suffix_position if value.suffix else prefix_position
-        reference_bbox = None
-        if value.prefix or value.suffix:
-            self.render_text_layer(
-                reference_image,
-                reference_layer.model_copy(update={"position": reference_position}),
-            )
-            reference_bbox = reference_image.getbbox()
         if value.prefix:
             self.render_text_layer(image, prefix.model_copy(update={"position": prefix_position}))
         if value.suffix:
@@ -392,21 +380,16 @@ class TextEngine:
             )
 
         number_x = left + prefix_width
-        numeric_anchor = old.model_copy(update={"position": (number_x, top)})
-        anchor_image = Image.new("RGBA", image.size, (0, 0, 0, 0))
-        self.render_text_layer(anchor_image, numeric_anchor)
-        viewport = anchor_image.getbbox()
-        if viewport is None:
-            return
-        if reference_bbox is not None:
-            baseline_shift = reference_bbox[1] - viewport[1]
-            number_top = top + baseline_shift
-            viewport = tuple(
-                value + (baseline_shift if index == 1 or index == 3 else 0)
-                for index, value in enumerate(viewport)
-            )
-        else:
-            number_top = top
+        old_position = self._position_on_baseline(old, number_x, baseline)
+        new_position = self._position_on_baseline(new, number_x, baseline)
+        old_bbox = self._text_bbox_at_position(old, old_position)
+        new_bbox = self._text_bbox_at_position(new, new_position)
+        viewport = (
+            min(old_bbox[0], new_bbox[0]),
+            min(old_bbox[1], new_bbox[1]),
+            max(old_bbox[2], new_bbox[2]),
+            max(old_bbox[3], new_bbox[3]),
+        )
         if value.style == "flip":
             movement = 10
             if fraction < 0.5:
@@ -415,9 +398,10 @@ class TextEngine:
                     image,
                     old.model_copy(
                         update={
-                            "position": (
+                            "position": self._position_on_baseline(
+                                old,
                                 number_x,
-                                number_top - direction * shift,
+                                baseline - direction * shift,
                             )
                         }
                     ),
@@ -428,9 +412,10 @@ class TextEngine:
                     image,
                     new.model_copy(
                         update={
-                            "position": (
+                            "position": self._position_on_baseline(
+                                new,
                                 number_x,
-                                number_top + direction * shift,
+                                baseline + direction * shift,
                             )
                         }
                     ),
@@ -443,15 +428,24 @@ class TextEngine:
         new_image = Image.new("RGBA", image.size, (0, 0, 0, 0))
         self.render_text_layer(
             old_image,
-            old.model_copy(update={"position": (number_x, number_top - direction * shift)}),
+            old.model_copy(
+                update={
+                    "position": self._position_on_baseline(
+                        old, number_x, baseline - direction * shift
+                    )
+                }
+            ),
         )
         self.render_text_layer(
             new_image,
             new.model_copy(
                 update={
                     "position": (
-                        number_x,
-                        number_top + direction * (roll_distance - shift),
+                        self._position_on_baseline(
+                            new,
+                            number_x,
+                            baseline + direction * (roll_distance - shift),
+                        )
                     )
                 }
             ),
@@ -461,6 +455,40 @@ class TextEngine:
         transparent = Image.new("RGBA", image.size, (0, 0, 0, 0))
         image.alpha_composite(Image.composite(old_image, transparent, mask))
         image.alpha_composite(Image.composite(new_image, transparent, mask))
+
+    def _text_baseline(self, layer: TextLayer, top: int) -> int:
+        """Resolve the stable visual baseline used by animated text slots."""
+        font = self._fonts.load_font(self.effective_layer(layer))
+        return top + self._text_ink_bottom(font, "0")
+
+    def _position_on_baseline(self, layer: TextLayer, x: int, baseline: int) -> tuple[int, int]:
+        """Return a top-left position whose font box shares ``baseline``."""
+        content = layer.content if isinstance(layer.content, str) else ""
+        if not content:
+            return x, baseline
+        font = self._fonts.load_font(self.effective_layer(layer))
+        return x, baseline - self._text_ink_bottom(font, content)
+
+    def _text_ink_bottom(self, font: FontType, content: str) -> int:
+        """Return a glyph's visible bottom relative to its Pillow draw position."""
+        mask_bbox = font.getmask(content).getbbox()
+        if mask_bbox is not None:
+            return int(mask_bbox[3])
+        return int(font.getbbox(content)[3])
+
+    def _text_bbox_at_position(
+        self, layer: TextLayer, position: tuple[int, int]
+    ) -> tuple[int, int, int, int]:
+        """Return a content bbox in canvas coordinates for a clipping viewport."""
+        content = layer.content if isinstance(layer.content, str) else ""
+        font = self._fonts.load_font(self.effective_layer(layer))
+        bbox = font.getbbox(content)
+        return (
+            position[0] + bbox[0],
+            position[1] + bbox[1],
+            position[0] + bbox[2],
+            position[1] + bbox[3],
+        )
 
     def resolve_animation_targets(
         self,
