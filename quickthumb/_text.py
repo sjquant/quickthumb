@@ -134,6 +134,17 @@ class TextEngine:
             return
         old_text = value.format_value(current)
         new_text = value.format_value(following)
+        if value.style == "odometer":
+            self._render_odometer_slots(
+                image,
+                layer,
+                value,
+                value.number_text(current),
+                value.number_text(following),
+                fraction,
+                direction,
+            )
+            return
         if value.prefix or value.suffix:
             self._render_odometer_parts(
                 image,
@@ -159,7 +170,7 @@ class TextEngine:
         if old_bbox is None or new_bbox is None:
             return
         if value.style == "flip":
-            movement = 6
+            movement = 10
             if fraction < 0.5:
                 shift = round(movement * fraction * 2)
                 self.render_text_layer(
@@ -205,6 +216,150 @@ class TextEngine:
         transparent = Image.new("RGBA", image.size, (0, 0, 0, 0))
         image.alpha_composite(Image.composite(old_image, transparent, mask))
         image.alpha_composite(Image.composite(new_image, transparent, mask))
+
+    def _render_odometer_slots(
+        self,
+        image: Image.Image,
+        layer: TextLayer,
+        value: AnimatedTextValue,
+        old_number: str,
+        new_number: str,
+        fraction: float,
+        direction: int,
+    ) -> None:
+        """Render changing digits in independent fixed-width vertical slots."""
+        static = layer.model_copy(update={"value": None, "align": None})
+        prefix = static.model_copy(update={"content": value.prefix})
+        suffix = static.model_copy(update={"content": value.suffix})
+        target_width = max(
+            len(old_number),
+            len(new_number),
+            len(value.number_text(value.from_)),
+            len(value.number_text(value.to)),
+            value.minimum_integer_digits,
+        )
+        old_slots = old_number.rjust(target_width)
+        new_slots = new_number.rjust(target_width)
+        letter_spacing = static.letter_spacing or 0
+        slot_widths = [
+            max(
+                self.measure_text_size(static.model_copy(update={"content": old_char}))[0],
+                self.measure_text_size(static.model_copy(update={"content": new_char}))[0],
+            )
+            for old_char, new_char in zip(old_slots, new_slots, strict=True)
+        ]
+        number_width = sum(slot_widths) + letter_spacing * max(0, target_width - 1)
+        prefix_width = self.measure_text_size(prefix)[0] if value.prefix else 0
+        suffix_width = self.measure_text_size(suffix)[0] if value.suffix else 0
+        anchor_char = next(
+            (char for char in old_slots + new_slots if char.isdigit()),
+            "0",
+        )
+        anchor = static.model_copy(update={"content": anchor_char})
+        height = self.measure_text_size(anchor)[1]
+        if value.prefix:
+            height = max(height, self.measure_text_size(prefix)[1])
+        if value.suffix:
+            height = max(height, self.measure_text_size(suffix)[1])
+        x, y = self.get_text_base_position(layer)
+        left, top = apply_alignment(
+            x,
+            y,
+            (prefix_width + number_width + suffix_width, height),
+            layer.align or Align.TOP_LEFT,
+        )
+        prefix_position = (left, top)
+        suffix_position = (left + prefix_width + number_width, top)
+        if value.prefix:
+            self.render_text_layer(image, prefix.model_copy(update={"position": prefix_position}))
+        if value.suffix:
+            self.render_text_layer(image, suffix.model_copy(update={"position": suffix_position}))
+
+        number_x = left + prefix_width
+        anchor_image = Image.new("RGBA", image.size, (0, 0, 0, 0))
+        self.render_text_layer(
+            anchor_image,
+            anchor.model_copy(update={"position": (number_x, top)}),
+        )
+        anchor_bbox = anchor_image.getbbox()
+        if anchor_bbox is None:
+            return
+        reference_image = Image.new("RGBA", image.size, (0, 0, 0, 0))
+        reference_layer = suffix if value.suffix else prefix
+        reference_position = suffix_position if value.suffix else prefix_position
+        reference_bbox = None
+        if value.prefix or value.suffix:
+            self.render_text_layer(
+                reference_image,
+                reference_layer.model_copy(update={"position": reference_position}),
+            )
+            reference_bbox = reference_image.getbbox()
+        number_top = top
+        if reference_bbox is not None:
+            number_top += reference_bbox[1] - anchor_bbox[1]
+
+        slot_x = number_x
+        for old_char, new_char, slot_width in zip(
+            old_slots, new_slots, slot_widths, strict=True
+        ):
+            old_layer = static.model_copy(update={"content": old_char})
+            new_layer = static.model_copy(update={"content": new_char})
+            if old_char == new_char or not old_char.isdigit() or not new_char.isdigit():
+                self.render_text_layer(
+                    image,
+                    new_layer.model_copy(update={"position": (slot_x, number_top)}),
+                )
+                slot_x += slot_width + letter_spacing
+                continue
+            old_anchor = Image.new("RGBA", image.size, (0, 0, 0, 0))
+            new_anchor = Image.new("RGBA", image.size, (0, 0, 0, 0))
+            old_position = (slot_x, number_top)
+            self.render_text_layer(
+                old_anchor,
+                old_layer.model_copy(update={"position": old_position}),
+            )
+            self.render_text_layer(
+                new_anchor,
+                new_layer.model_copy(update={"position": old_position}),
+            )
+            old_bbox = old_anchor.getbbox()
+            new_bbox = new_anchor.getbbox()
+            if old_bbox is None or new_bbox is None:
+                slot_x += slot_width + letter_spacing
+                continue
+            viewport = (
+                min(old_bbox[0], new_bbox[0]),
+                min(old_bbox[1], new_bbox[1]),
+                max(old_bbox[2], new_bbox[2]),
+                max(old_bbox[3], new_bbox[3]),
+            )
+            roll_distance = viewport[3] - viewport[1] + 8
+            shift = round(fraction * roll_distance)
+            old_image = Image.new("RGBA", image.size, (0, 0, 0, 0))
+            new_image = Image.new("RGBA", image.size, (0, 0, 0, 0))
+            self.render_text_layer(
+                old_image,
+                old_layer.model_copy(
+                    update={"position": (slot_x, number_top - direction * shift)}
+                ),
+            )
+            self.render_text_layer(
+                new_image,
+                new_layer.model_copy(
+                    update={
+                        "position": (
+                            slot_x,
+                            number_top + direction * (roll_distance - shift),
+                        )
+                    }
+                ),
+            )
+            mask = Image.new("L", image.size, 0)
+            ImageDraw.Draw(mask).rectangle(viewport, fill=255)
+            transparent = Image.new("RGBA", image.size, (0, 0, 0, 0))
+            image.alpha_composite(Image.composite(old_image, transparent, mask))
+            image.alpha_composite(Image.composite(new_image, transparent, mask))
+            slot_x += slot_width + letter_spacing
 
     def _render_odometer_parts(
         self,
@@ -274,7 +429,7 @@ class TextEngine:
         else:
             number_top = top
         if value.style == "flip":
-            movement = 6
+            movement = 10
             if fraction < 0.5:
                 shift = round(movement * fraction * 2)
                 self.render_text_layer(

@@ -206,7 +206,7 @@ def build_output_scene() -> Canvas:
     canvas.counter(
         1,
         100,
-        1.4,
+        1.8,
         position=(120, 516),
         size=68,
         color=ACCENT,
