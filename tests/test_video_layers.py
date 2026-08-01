@@ -59,11 +59,15 @@ def source_video(tmp_path):
 
 
 def _gif_frames(data: bytes):
+    return [frame for frame, _ in _gif_frames_with_durations(data)]
+
+
+def _gif_frames_with_durations(data: bytes):
     image = Image.open(BytesIO(data))
     frames = []
     for _ in range(int(getattr(image, "n_frames", 1))):
         image.seek(len(frames))
-        frames.append(image.convert("RGBA"))
+        frames.append((image.convert("RGBA"), image.info.get("duration", 0)))
     return frames
 
 
@@ -218,12 +222,15 @@ def test_video_captions_render_above_later_canvas_layers(source_video):
     assert difference.getbbox()[1] > frame.height // 2
 
     # The animated exporter uses the same foreground pass as direct sampling.
-    exported_frames = _gif_frames(canvas.to_gif(fps=10, hold=0))
+    lower = (0, frame.height // 2, frame.width, frame.height)
+    exported_timed = _gif_frames_with_durations(canvas.to_gif(fps=10, hold=0))
+    exported_gif = [frame for frame, _ in exported_timed]
+    assert sum(duration for _, duration in exported_timed) / 1000 == pytest.approx(1.0, abs=0.15)
     assert any(
-        min(exported.load()[x, y]) > 240
-        for exported in exported_frames
-        for y in range(frame.height // 2, frame.height)
-        for x in range(frame.width)
+        min(exported.getpixel((x, y))) > 240
+        for exported in exported_gif
+        for y in range(lower[1], lower[3])
+        for x in range(lower[0], lower[2])
     )
 
 
@@ -336,15 +343,31 @@ def test_video_layer_speed_duration_caption_and_audio_stay_synchronized(source_v
         payload = json.loads(metadata.stdout)
         assert float(payload["format"]["duration"]) == pytest.approx(0.25, abs=0.15)
         assert {stream["codec_type"] for stream in payload["streams"]} == {"video", "audio"}
+        baseline_path = tmp_path / f"plain-{output.suffix[1:]}.mp4"
+        if output.suffix == ".webm":
+            baseline_path = tmp_path / "plain.webm"
+            baseline_path.write_bytes(plain.to_webm(fps=10, hold=0))
+        else:
+            baseline_path.write_bytes(plain.to_mp4(fps=10, hold=0))
         exported = _decoded_frame(output, 0.125)
-        baseline = plain.render_frame(0.125).convert("RGB")
-        assert ImageChops.difference(exported, baseline).getbbox() is not None
+        baseline = _decoded_frame(baseline_path, 0.125)
+        caption_region = (16, 32, 80, 64)
+        assert (
+            ImageChops.difference(
+                exported.crop(caption_region), baseline.crop(caption_region)
+            ).getbbox()
+            is not None
+        )
 
-    gif_with_caption = _gif_frames(canvas.to_gif(fps=10, hold=0))
-    gif_without_caption = _gif_frames(plain.to_gif(fps=10, hold=0))
+    gif_timed = _gif_frames_with_durations(canvas.to_gif(fps=10, hold=0))
+    gif_with_caption = [frame for frame, _ in gif_timed]
+    assert sum(duration for _, duration in gif_timed) / 1000 == pytest.approx(0.25, abs=0.1)
+    caption_region = (16, 32, 80, 64)
     assert any(
-        a.tobytes() != b.tobytes()
-        for a, b in zip(gif_with_caption, gif_without_caption, strict=True)
+        min(frame.getpixel((x, y))) > 240
+        for frame in gif_with_caption
+        for y in range(caption_region[1], caption_region[3])
+        for x in range(caption_region[0], caption_region[2])
     )
 
 
@@ -371,7 +394,20 @@ def test_captioned_morph_falls_back_to_timed_fade(source_video):
     morph = Deck(slides=[source, target], transition=Morph(duration=0.4))
     fade = Deck(slides=[source, target], transition=Fade(duration=0.4))
 
-    assert morph.to_gif(fps=10, slide_duration=0) == fade.to_gif(fps=10, slide_duration=0)
+    morph_frames = _gif_frames(morph.to_gif(fps=10, slide_duration=0))
+    fade_frames = _gif_frames(fade.to_gif(fps=10, slide_duration=0))
+    assert len(morph_frames) == len(fade_frames)
+    assert all(
+        ImageChops.difference(morph_frame, fade_frame).getbbox() is None
+        for morph_frame, fade_frame in zip(morph_frames, fade_frames, strict=True)
+    )
+    diagnostic = [
+        item for item in morph.validate_export("video") if item.feature == "morph_caption_timing"
+    ]
+    assert len(diagnostic) == 1
+    assert diagnostic[0].fallback == "fade"
+    inspection = morph.inspect_motion(target="video")
+    assert any(item.feature == "morph_caption_timing" for item in inspection.diagnostics)
 
 
 @pytest.mark.skipif(not HAS_FFMPEG, reason="FFmpeg is required")

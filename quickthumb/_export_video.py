@@ -595,12 +595,7 @@ def _deck_shots(
 
         # Keep one motion shot pending so a sub-frame or zero hold can replace
         # it with the settled state without extending the shared timeline.
-        final_time = max(0.0, animator.duration - _TIME_EPSILON)
-        final_image = (
-            animator.frame_at(final_time)
-            if animator._has_active_caption(final_time)
-            else animator.final_frame()
-        )
+        final_image = animator.final_export_frame()
         final = _conform(final_image, size, matte_rgb)
         hold = exit_time - max(animation_end, duration_in)
         if hold + _TIME_EPSILON >= 1.0 / fps:
@@ -826,7 +821,7 @@ class _SlideAnimator:
         self.duration = max(_schedule_units(self._units), _schedule_timelines(self._units))
         self._final: Image.Image | None = None
 
-    def frame_at(self, time: float) -> Image.Image:
+    def frame_at(self, time: float, *, include_captions: bool = True) -> Image.Image:
         """Render the slide's full RGBA frame at ``time`` seconds."""
         frame = Image.new("RGBA", (self._canvas.width, self._canvas.height), (0, 0, 0, 0))
         visible_video_layers: list[VideoLayer] = []
@@ -860,13 +855,14 @@ class _SlideAnimator:
                     continue
                 image = revealed
             frame.alpha_composite(image, pos)
-        render_video_captions(
-            frame,
-            visible_video_layers,
-            time,
-            self._canvas._ctx.video_info_cache,
-            self._canvas._fonts.load_font_variant,
-        )
+        if include_captions:
+            render_video_captions(
+                frame,
+                visible_video_layers,
+                time,
+                self._canvas._ctx.video_info_cache,
+                self._canvas._fonts.load_font_variant,
+            )
         return frame
 
     def final_frame(self) -> Image.Image:
@@ -874,6 +870,20 @@ class _SlideAnimator:
         if self._final is None:
             self._final = self.frame_at(self.duration)
         return self._final
+
+    def final_export_frame(self) -> Image.Image:
+        """Render the settled base and endpoint caption sample separately."""
+        final_time = max(0.0, self.duration - _TIME_EPSILON)
+        frame = self.frame_at(self.duration, include_captions=False)
+        if self._has_active_caption(final_time):
+            render_video_captions(
+                frame,
+                iter_video_layers(self._canvas.layers),
+                final_time,
+                self._canvas._ctx.video_info_cache,
+                self._canvas._fonts.load_font_variant,
+            )
+        return frame
 
     def _has_active_caption(self, time: float) -> bool:
         """Return whether a video caption is active at a local slide time."""

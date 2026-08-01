@@ -1376,7 +1376,39 @@ def validate_export(
                         message=message,
                     )
                 )
+    if normalized == "video" and hasattr(source, "slides"):
+        canvases = tuple(source.slides)
+        transitions = tuple(source._resolved_transitions())
+        for index, transition in enumerate(transitions):
+            if getattr(transition, "effect", None) != "morph" or index == 0:
+                continue
+            if _canvas_has_video_captions(canvases[index - 1]) or _canvas_has_video_captions(
+                canvases[index]
+            ):
+                diagnostics.append(
+                    ExportDiagnostic(
+                        feature="morph_caption_timing",
+                        target=normalized,
+                        support="fallback",
+                        fallback="fade",
+                        message=(
+                            f"morph transition before slide {index} falls back to fade for "
+                            "timed video captions"
+                        ),
+                    )
+                )
     return diagnostics
+
+
+def _canvas_has_video_captions(canvas: Canvas) -> bool:
+    return any(layer.captions for layer in _iter_video_layers(canvas.layers))
+
+
+def _iter_video_layers(layers: Iterable[object]) -> Iterable[VideoLayer]:
+    for layer in layers:
+        if isinstance(layer, VideoLayer):
+            yield layer
+        yield from _iter_video_layers(getattr(layer, "children", ()))
 
 
 def validate_motion_export(source: Canvas | Deck, target: ExportTarget | str, policy=None):
