@@ -16,6 +16,7 @@ from quickthumb._base import parse_coordinate
 from quickthumb._measurements import layer_id_for
 from quickthumb.errors import RenderingError, ValidationError
 from quickthumb.models import (
+    AnimatedTextValue,
     AnimationSpec,
     ExportDiagnostic,
     ExportPolicy,
@@ -1312,6 +1313,21 @@ def validate_export(
     row = capabilities_for(normalized)
     diagnostics: list[ExportDiagnostic] = []
     for layer_id, layer in _iter_export_layers(source):
+        value = getattr(layer, "value", None)
+        if isinstance(value, AnimatedTextValue) and normalized in ("html", "pptx"):
+            diagnostics.append(
+                ExportDiagnostic(
+                    layer_id=layer_id,
+                    feature="animated_text_value",
+                    target=normalized,
+                    support="fallback",
+                    fallback="static",
+                    message=(
+                        f"animated text value on layer {layer_id} is emitted as a static "
+                        f"value for {normalized}"
+                    ),
+                )
+            )
         if isinstance(layer, VideoLayer) and normalized not in ("video", "raster"):
             diagnostics.append(
                 ExportDiagnostic(
@@ -1550,19 +1566,24 @@ def _inspection_layer(
     items = animation if isinstance(animation, list) else [animation]
     specs = [item for item in items if isinstance(item, AnimationSpec)]
     timeline = _compile_inspection_timeline(animation)
+    value = getattr(layer, "value", None)
+    value_duration = (
+        value.delay + value.duration if isinstance(value, AnimatedTextValue) else 0.0
+    )
     base = _layer_base_state(layer, canvas)
     initial = timeline.sample(0.0, base)
     final = timeline.sample(timeline.duration, base)
     targets: list[MotionTargetInspection] = []
     for spec in specs:
         targets.extend(_inspection_targets(layer, spec))
-    sample_times = _bounded_frame_times(timeline.duration, fps, max_samples)
+    duration = max(timeline.duration, value_duration)
+    sample_times = _bounded_frame_times(duration, fps, max_samples)
     static_state = base.model_dump(mode="json", exclude_none=True)
     return MotionLayerInspection(
         layer_id=layer_id,
         layer_type=str(getattr(layer, "type", type(layer).__name__)),
         events=[_inspection_event(event, sample_times) for event in timeline.events],
-        duration=timeline.duration,
+        duration=duration,
         targets=targets,
         sample_times=list(sample_times),
         samples=[

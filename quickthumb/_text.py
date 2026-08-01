@@ -1,3 +1,4 @@
+import math
 import warnings
 from collections.abc import Callable, Iterable
 from typing import TYPE_CHECKING, Literal, TypedDict, cast
@@ -22,6 +23,7 @@ from quickthumb._images import ImageEngine
 from quickthumb.errors import RenderingError
 from quickthumb.models import (
     Align,
+    AnimatedTextValue,
     Background,
     Glow,
     LinearGradient,
@@ -85,7 +87,14 @@ class TextEngine:
         self._effects = effects
         self._images = images
 
-    def render_text_layer(self, image: Image.Image, layer: TextLayer):
+    def render_text_layer(self, image: Image.Image, layer: TextLayer, time: float | None = None):
+        if layer.value is not None:
+            if layer.value.style == "odometer" and time is not None:
+                self._render_odometer(image, layer, time)
+                return
+            layer = layer.model_copy(
+                update={"content": layer.value.text_at(0.0 if time is None else time)}
+            )
         if layer.opacity < 1.0:
             temp = Image.new("RGBA", image.size, (0, 0, 0, 0))
             if isinstance(layer.content, list):
@@ -98,6 +107,53 @@ class TextEngine:
             self._render_rich_text(image, layer)
         else:
             self._render_simple_text(image, layer)
+
+    def _render_odometer(self, image: Image.Image, layer: TextLayer, time: float) -> None:
+        """Roll the current and next formatted values through a clipped text window."""
+        value = layer.value
+        if not isinstance(value, AnimatedTextValue) or layer.position is None:
+            self.render_text_layer(
+                image,
+                layer.model_copy(update={"content": value.text_at(time), "value": None}),
+            )
+            return
+        step = 10 ** (-value.decimals)
+        sampled = value.value_at(time)
+        lower = math.floor(sampled / step) * step
+        direction = 1 if value.to >= value.from_ else -1
+        current = lower if direction > 0 else math.ceil(sampled / step) * step
+        following = current + direction * step
+        fraction = min(1.0, max(0.0, abs(sampled - current) / step))
+        if fraction <= 1e-9 or time >= value.delay + value.duration:
+            self.render_text_layer(
+                image,
+                layer.model_copy(
+                    update={"content": value.format_value(value.value_at(time)), "value": None}
+                ),
+            )
+            return
+        old_text = value.format_value(current)
+        new_text = value.format_value(following)
+        static = layer.model_copy(update={"value": None, "content": old_text})
+        width, height = self.measure_text_size(static)
+        x, y = self.get_text_base_position(layer)
+        old_layer = static.model_copy(update={"position": (x, y - round(fraction * height))})
+        new_layer = static.model_copy(
+            update={
+                "content": new_text,
+                "position": (x, y + direction * round((1.0 - fraction) * height)),
+            }
+        )
+        old_image = Image.new("RGBA", image.size, (0, 0, 0, 0))
+        new_image = Image.new("RGBA", image.size, (0, 0, 0, 0))
+        self.render_text_layer(old_image, old_layer)
+        self.render_text_layer(new_image, new_layer)
+        anchor = layer.align or Align.TOP_LEFT
+        left, top = apply_alignment(x, y, (width, height), anchor)
+        mask = Image.new("L", image.size, 0)
+        ImageDraw.Draw(mask).rectangle((left, top, left + width, top + height), fill=255)
+        clipped = Image.composite(new_image, old_image, mask)
+        image.alpha_composite(clipped)
 
     def resolve_animation_targets(
         self,

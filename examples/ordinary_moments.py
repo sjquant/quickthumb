@@ -195,6 +195,16 @@ def build_output_scene() -> Canvas:
             animation=Wipe(direction="up", duration=0.4, trigger="after_previous"),
         )
     )
+    canvas.counter(
+        0,
+        3,
+        0.9,
+        position=(120, 516),
+        size=34,
+        color=ACCENT,
+        suffix=" formats ready",
+        animation=Wipe(direction="right", duration=0.3, trigger="after_previous"),
+    )
     for index, (label, sublabel) in enumerate(
         (("MP4", "MASTER"), ("WEBM", "WEB"), ("GIF", "PREVIEW"))
     ):

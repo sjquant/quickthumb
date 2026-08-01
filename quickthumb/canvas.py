@@ -33,6 +33,7 @@ from quickthumb._visualizations import VisualizationEngine
 from quickthumb.errors import RenderingError, ValidationError
 from quickthumb.models import (
     Align,
+    AnimatedTextValue,
     AnimationInput,
     AudioTrack,
     BackdropBlur,
@@ -429,6 +430,40 @@ class Canvas:
         self._append_layer(layer)
         return self
 
+    def counter(
+        self,
+        from_: float,
+        to: float,
+        duration: float,
+        *,
+        delay: float = 0.0,
+        decimals: int = 0,
+        minimum_integer_digits: int = 1,
+        prefix: str = "",
+        suffix: str = "",
+        grouping: bool = False,
+        style: Literal["plain", "odometer"] = "odometer",
+        easing: Literal["linear", "ease_in", "ease_out", "ease_in_out"] = "ease_out",
+        **text_options: Any,
+    ) -> Self:
+        """Add a deterministic animated numeric TextLayer."""
+        value = AnimatedTextValue(
+            **{
+                "from": from_,
+                "to": to,
+                "duration": duration,
+                "delay": delay,
+                "decimals": decimals,
+                "minimum_integer_digits": minimum_integer_digits,
+                "prefix": prefix,
+                "suffix": suffix,
+                "grouping": grouping,
+                "style": style,
+                "easing": easing,
+            }
+        )
+        return self.text(content=value.text_at(0.0), value=value, **text_options)
+
     def text(
         self,
         content: TextContentInput | None = None,
@@ -459,6 +494,7 @@ class Canvas:
         clip: LayerClip | dict[str, Any] | None = None,
         mask: LayerMask | dict[str, Any] | None = None,
         animation: AnimationInput | None = None,
+        value: "AnimatedTextValue | dict[str, Any] | None" = None,
         *,
         id: str | None = None,
         motion_key: str | None = None,
@@ -469,6 +505,7 @@ class Canvas:
         layer = TextLayer(
             type="text",
             content=cast(str | list[TextPart], content),
+            value=cast(Any, value),
             font=font,
             font_source=font_source,
             font_variations=font_variations or {},
@@ -1460,7 +1497,7 @@ class Canvas:
         if isinstance(layer, BackgroundLayer):
             self._render_background_layer(image, layer)
         elif isinstance(layer, TextLayer):
-            self._text.render_text_layer(image, layer)
+            self._text.render_text_layer(image, layer, time)
         elif isinstance(layer, OutlineLayer):
             self._render_outline_layer(image, layer)
         elif isinstance(layer, ImageLayer):

@@ -78,6 +78,7 @@ from quickthumb._video import (
 )
 from quickthumb.errors import RenderingError, ValidationError
 from quickthumb.models import (
+    AnimatedTextValue,
     Animation,
     AnimationSpec,
     AudioTrack,
@@ -911,6 +912,9 @@ class _SlideAnimator:
             if any(isinstance(layer, VideoLayer) for layer in unit.layers):
                 boundaries.update((start, end))
                 windows.append((start, end))
+            if any(getattr(layer, "value", None) is not None for layer in unit.layers):
+                boundaries.update((start, end))
+                windows.append((start, end))
             for node in unit.nodes:
                 active_start = node.start + node.effect.delay
                 window_start = max(active_start, start)
@@ -1162,6 +1166,9 @@ def _component_animation_duration(
             info = probe_video(layer.source)
             probe_cache[layer.source] = info
         return layer.start + effective_duration(layer, info)
+    value = getattr(layer, "value", None)
+    if isinstance(value, AnimatedTextValue):
+        return value.delay + value.duration
     if not isinstance(layer, (ChartLayer, QRCodeLayer)):
         return 0.0
     animations = getattr(layer, "animation", None)

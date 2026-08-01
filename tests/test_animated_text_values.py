@@ -1,0 +1,87 @@
+"""Behavioral specifications for deterministic animated numeric text."""
+
+from io import BytesIO
+
+import pytest
+from PIL import Image
+from quickthumb import Canvas, ValidationError
+
+
+def _gif_frames(data: bytes) -> list[bytes]:
+    image = Image.open(BytesIO(data))
+    frames = []
+    for index in range(getattr(image, "n_frames", 1)):
+        image.seek(index)
+        frames.append(image.convert("RGBA").tobytes())
+    return frames
+
+
+def test_counter_samples_values_and_round_trips_through_json():
+    """Given a counter, when it is sampled and serialized, then its value is stable."""
+    canvas = Canvas(320, 120).counter(
+        0,
+        100,
+        1.0,
+        position=(160, 60),
+        align="center",
+        size=48,
+        prefix="$",
+        grouping=True,
+    )
+
+    restored = Canvas.from_json(canvas.to_json())
+    value = restored.layers[0].value
+
+    assert value is not None
+    assert value.text_at(0) == "$0"
+    assert value.text_at(0.5) == "$75"
+    assert value.text_at(1.0) == "$100"
+    assert restored.render_frame(0).tobytes() != restored.render_frame(0.5).tobytes()
+
+
+def test_counter_duration_and_export_fallback_are_inspectable():
+    """Given a counter, inspection exposes duration and static fallbacks."""
+    canvas = Canvas(320, 120).counter(
+        0,
+        3,
+        1.25,
+        position=(160, 60),
+        align="center",
+        size=48,
+        suffix=" exports",
+    )
+
+    assert canvas.inspect_motion(target="video").duration == pytest.approx(1.25)
+    diagnostics = canvas.validate_export("pptx")
+    assert diagnostics[0].feature == "animated_text_value"
+    assert diagnostics[0].fallback == "static"
+
+
+def test_counter_gif_contains_multiple_deterministic_states():
+    """Given an odometer counter, when GIF is exported, then sampled states change reproducibly."""
+    canvas = Canvas(320, 120).counter(
+        0,
+        9,
+        0.8,
+        position=(160, 60),
+        align="center",
+        size=48,
+        color="#ffffff",
+        minimum_integer_digits=2,
+    )
+
+    first = _gif_frames(canvas.to_gif(fps=10, hold=0))
+    second = _gif_frames(canvas.to_gif(fps=10, hold=0))
+
+    assert first == second
+    assert len(set(first)) > 2
+
+
+def test_counter_rejects_rich_text_content():
+    """Given rich text content, when a value animation is attached, then validation fails."""
+    with pytest.raises(ValidationError, match="plain string content"):
+        Canvas(320, 120).text(
+            content=[{"text": "value", "bold": True}],
+            position=(0, 0),
+            value={"from": 0, "to": 1, "duration": 1},
+        )
