@@ -80,6 +80,10 @@ class AnimatedTextValue(quickthumbModel):
 
     def format_value(self, value: float) -> str:
         """Format a numeric value using this animation's stable text contract."""
+        return f"{self.prefix}{self.number_text(value)}{self.suffix}"
+
+    def number_text(self, value: float) -> str:
+        """Format only the numeric portion, preserving prefix/suffix placement."""
         if self.decimals:
             number = (
                 f"{value:,.{self.decimals}f}"
@@ -95,7 +99,7 @@ class AnimatedTextValue(quickthumbModel):
             grouped = unsigned.split(",")
             grouped[-1] = grouped[-1].zfill(self.minimum_integer_digits)
             number = sign + ",".join(grouped)
-        return f"{self.prefix}{number}{self.suffix}"
+        return number
 
 
 class TextPart(quickthumbModel):

@@ -134,26 +134,143 @@ class TextEngine:
             return
         old_text = value.format_value(current)
         new_text = value.format_value(following)
+        if value.prefix or value.suffix:
+            self._render_odometer_parts(
+                image,
+                layer,
+                value,
+                value.number_text(current),
+                value.number_text(following),
+                fraction,
+                direction,
+            )
+            return
         static = layer.model_copy(update={"value": None, "content": old_text})
-        width, height = self.measure_text_size(static)
         x, y = self.get_text_base_position(layer)
-        old_layer = static.model_copy(update={"position": (x, y - round(fraction * height))})
+        old_anchor = Image.new("RGBA", image.size, (0, 0, 0, 0))
+        new_anchor = Image.new("RGBA", image.size, (0, 0, 0, 0))
+        self.render_text_layer(old_anchor, static)
+        self.render_text_layer(
+            new_anchor,
+            static.model_copy(update={"content": new_text}),
+        )
+        old_bbox = old_anchor.getbbox()
+        new_bbox = new_anchor.getbbox()
+        if old_bbox is None or new_bbox is None:
+            return
+        viewport = (
+            min(old_bbox[0], new_bbox[0]),
+            min(old_bbox[1], new_bbox[1]),
+            max(old_bbox[2], new_bbox[2]),
+            max(old_bbox[3], new_bbox[3]),
+        )
+        height = viewport[3] - viewport[1]
+        shift = round(fraction * height)
+        old_layer = static.model_copy(update={"position": (x, y - direction * shift)})
         new_layer = static.model_copy(
             update={
                 "content": new_text,
-                "position": (x, y + direction * round((1.0 - fraction) * height)),
+                "position": (x, y + direction * (height - shift)),
             }
         )
         old_image = Image.new("RGBA", image.size, (0, 0, 0, 0))
         new_image = Image.new("RGBA", image.size, (0, 0, 0, 0))
         self.render_text_layer(old_image, old_layer)
         self.render_text_layer(new_image, new_layer)
-        anchor = layer.align or Align.TOP_LEFT
-        left, top = apply_alignment(x, y, (width, height), anchor)
         mask = Image.new("L", image.size, 0)
-        ImageDraw.Draw(mask).rectangle((left, top, left + width, top + height), fill=255)
+        ImageDraw.Draw(mask).rectangle(viewport, fill=255)
         clipped = Image.composite(new_image, old_image, mask)
         image.alpha_composite(clipped)
+
+    def _render_odometer_parts(
+        self,
+        image: Image.Image,
+        layer: TextLayer,
+        value: AnimatedTextValue,
+        old_number: str,
+        new_number: str,
+        fraction: float,
+        direction: int,
+    ) -> None:
+        """Roll only digits while keeping prefix and suffix in one stable line."""
+        static = layer.model_copy(update={"value": None, "align": None})
+        prefix = static.model_copy(update={"content": value.prefix})
+        suffix = static.model_copy(update={"content": value.suffix})
+        old = static.model_copy(update={"content": old_number})
+        new = static.model_copy(update={"content": new_number})
+        prefix_width = self.measure_text_size(prefix)[0] if value.prefix else 0
+        suffix_width = self.measure_text_size(suffix)[0] if value.suffix else 0
+        number_width = max(self.measure_text_size(old)[0], self.measure_text_size(new)[0])
+        height = max(
+            self.measure_text_size(prefix)[1] if value.prefix else 0,
+            self.measure_text_size(old)[1],
+            self.measure_text_size(suffix)[1] if value.suffix else 0,
+        )
+        x, y = self.get_text_base_position(layer)
+        left, top = apply_alignment(
+            x,
+            y,
+            (prefix_width + number_width + suffix_width, height),
+            layer.align or Align.TOP_LEFT,
+        )
+        prefix_position = (left, top)
+        suffix_position = (left + prefix_width + number_width, top)
+        reference_image = Image.new("RGBA", image.size, (0, 0, 0, 0))
+        reference_layer = suffix if value.suffix else prefix
+        reference_position = suffix_position if value.suffix else prefix_position
+        reference_bbox = None
+        if value.prefix or value.suffix:
+            self.render_text_layer(
+                reference_image,
+                reference_layer.model_copy(update={"position": reference_position}),
+            )
+            reference_bbox = reference_image.getbbox()
+        if value.prefix:
+            self.render_text_layer(image, prefix.model_copy(update={"position": prefix_position}))
+        if value.suffix:
+            self.render_text_layer(
+                image,
+                suffix.model_copy(update={"position": suffix_position}),
+            )
+
+        number_x = left + prefix_width
+        numeric_anchor = old.model_copy(update={"position": (number_x, top)})
+        anchor_image = Image.new("RGBA", image.size, (0, 0, 0, 0))
+        self.render_text_layer(anchor_image, numeric_anchor)
+        viewport = anchor_image.getbbox()
+        if viewport is None:
+            return
+        if reference_bbox is not None:
+            baseline_shift = reference_bbox[1] - viewport[1]
+            number_top = top + baseline_shift
+            viewport = tuple(
+                value + (baseline_shift if index == 1 or index == 3 else 0)
+                for index, value in enumerate(viewport)
+            )
+        else:
+            number_top = top
+        viewport_height = viewport[3] - viewport[1]
+        shift = round(fraction * viewport_height)
+        old_image = Image.new("RGBA", image.size, (0, 0, 0, 0))
+        new_image = Image.new("RGBA", image.size, (0, 0, 0, 0))
+        self.render_text_layer(
+            old_image,
+            old.model_copy(update={"position": (number_x, number_top - direction * shift)}),
+        )
+        self.render_text_layer(
+            new_image,
+            new.model_copy(
+                update={
+                    "position": (
+                        number_x,
+                        number_top + direction * (viewport_height - shift),
+                    )
+                }
+            ),
+        )
+        mask = Image.new("L", image.size, 0)
+        ImageDraw.Draw(mask).rectangle(viewport, fill=255)
+        image.alpha_composite(Image.composite(new_image, old_image, mask))
 
     def resolve_animation_targets(
         self,

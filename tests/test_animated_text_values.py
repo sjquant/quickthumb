@@ -77,6 +77,25 @@ def test_counter_gif_contains_multiple_deterministic_states():
     assert len(set(first)) > 2
 
 
+def test_odometer_keeps_suffix_static_while_numeric_window_rolls():
+    """Given a suffix, when digits roll, then only the numeric window changes."""
+    canvas = Canvas(640, 180).counter(
+        0,
+        3,
+        0.9,
+        position=(120, 90),
+        size=48,
+        color="#d0a464",
+        suffix=" formats ready",
+    )
+
+    before = canvas.render_frame(0.0)
+    middle = canvas.render_frame(0.5)
+
+    assert before.crop((160, 0, 640, 180)).tobytes() == middle.crop((160, 0, 640, 180)).tobytes()
+    assert before.crop((100, 0, 160, 180)).tobytes() != middle.crop((100, 0, 160, 180)).tobytes()
+
+
 def test_counter_rejects_rich_text_content():
     """Given rich text content, when a value animation is attached, then validation fails."""
     with pytest.raises(ValidationError, match="plain string content"):
