@@ -202,8 +202,9 @@ class TextEngine:
         self.render_text_layer(new_image, new_layer)
         mask = Image.new("L", image.size, 0)
         ImageDraw.Draw(mask).rectangle(viewport, fill=255)
-        clipped = Image.composite(new_image, old_image, mask)
-        image.alpha_composite(clipped)
+        transparent = Image.new("RGBA", image.size, (0, 0, 0, 0))
+        image.alpha_composite(Image.composite(old_image, transparent, mask))
+        image.alpha_composite(Image.composite(new_image, transparent, mask))
 
     def _render_odometer_parts(
         self,
@@ -323,7 +324,9 @@ class TextEngine:
         )
         mask = Image.new("L", image.size, 0)
         ImageDraw.Draw(mask).rectangle(viewport, fill=255)
-        image.alpha_composite(Image.composite(new_image, old_image, mask))
+        transparent = Image.new("RGBA", image.size, (0, 0, 0, 0))
+        image.alpha_composite(Image.composite(old_image, transparent, mask))
+        image.alpha_composite(Image.composite(new_image, transparent, mask))
 
     def resolve_animation_targets(
         self,

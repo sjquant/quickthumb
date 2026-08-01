@@ -200,7 +200,7 @@ Builds a focused, roughly 40-second horizontal Korean-language product film with
 - `VideoLayer` composition with deterministic trim, fit, constant speed, and optically centered caption anchors
 - Five distinct video beats followed by an animated output-proof card and a held end card, avoiding repeated footage
 - Micro-animations for each hierarchy change: accent reveal, headline entrance, timeline cue, and staggered format cards
-- Deterministic `Canvas.counter(...)` numeric motion, including a larger flip-style output KPI and an odometer speed readout
+- Deterministic `Canvas.counter(...)` numeric motion, including a fast 1-to-100 odometer KPI and an odometer speed readout
 - Animated accent bars and purposeful `Cut`, `Fade`, and `Wipe` transitions with a restrained Mixkit soundtrack loop
 - Timed Korean caption cues with centered text backgrounds, symmetric padding, and rounded corners
 - MP4/WebM exports for the full composition plus a silent 6-second GIF preview of the opening beat

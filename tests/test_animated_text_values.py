@@ -77,6 +77,26 @@ def test_counter_gif_contains_multiple_deterministic_states():
     assert len(set(first)) > 2
 
 
+def test_large_odometer_range_reaches_a_fixed_width_target():
+    """Given a large counter, when it settles, then the padded target is stable."""
+    canvas = Canvas(640, 180).counter(
+        1,
+        100,
+        1.4,
+        position=(120, 90),
+        size=68,
+        minimum_integer_digits=3,
+        style="odometer",
+    )
+
+    value = canvas.layers[0].value
+
+    assert value is not None
+    assert value.text_at(0.0) == "001"
+    assert value.text_at(1.4) == "100"
+    assert canvas.render_frame(0.7).tobytes() != canvas.render_frame(1.4).tobytes()
+
+
 def test_odometer_keeps_suffix_static_while_numeric_window_rolls():
     """Given a suffix, when digits roll, then only the numeric window changes."""
     canvas = Canvas(640, 180).counter(
@@ -94,6 +114,25 @@ def test_odometer_keeps_suffix_static_while_numeric_window_rolls():
 
     assert before.crop((160, 0, 640, 180)).tobytes() == middle.crop((160, 0, 640, 180)).tobytes()
     assert before.crop((100, 0, 160, 180)).tobytes() != middle.crop((100, 0, 160, 180)).tobytes()
+
+
+def test_odometer_keeps_rolling_digits_inside_one_numeric_window():
+    """Given an odometer, when digits roll, then they stay inside one visual row."""
+    canvas = Canvas(640, 180).counter(
+        1,
+        100,
+        1.4,
+        position=(120, 90),
+        size=48,
+        minimum_integer_digits=3,
+        style="odometer",
+    )
+
+    frame = canvas.render_frame(0.7)
+    bbox = frame.getchannel("A").getbbox()
+
+    assert bbox is not None
+    assert bbox[3] - bbox[1] < 70
 
 
 def test_flip_style_serializes_and_reaches_the_target_without_suffix_motion():

@@ -198,22 +198,22 @@ def build_output_scene() -> Canvas:
     canvas.shape(
         shape="rectangle",
         position=(108, 500),
-        width=88,
+        width=140,
         height=78,
         color="#1B2730",
         opacity=0.95,
     )
     canvas.counter(
-        0,
-        3,
-        1.1,
+        1,
+        100,
+        1.4,
         position=(120, 516),
         size=68,
         color=ACCENT,
         style="flip",
     )
     canvas.text(
-        content="FORMATS READY",
+        content="FRAMES COMPOSED",
         font=FONT_BOLD,
         size=18,
         color=CREAM,
