@@ -197,28 +197,43 @@ def build_output_scene() -> Canvas:
     )
     canvas.shape(
         shape="rectangle",
-        position=(108, 500),
-        width=140,
-        height=78,
+        position=(108, 468),
+        width=232,
+        height=136,
         color="#1B2730",
         opacity=0.95,
+    )
+    canvas.shape(
+        shape="rectangle",
+        position=(108, 468),
+        width=232,
+        height=4,
+        color=ACCENT,
+    )
+    canvas.text(
+        content="RENDER STATUS",
+        font=FONT_BOLD,
+        size=13,
+        color=ACCENT,
+        letter_spacing=1,
+        position=(124, 488),
     )
     canvas.counter(
         1,
         100,
-        1.8,
-        position=(120, 516),
-        size=68,
+        2.0,
+        position=(124, 514),
+        size=96,
         color=ACCENT,
         style="flip",
     )
     canvas.text(
-        content="FRAMES COMPOSED",
+        content="READY TO DELIVER",
         font=FONT_BOLD,
-        size=18,
+        size=16,
         color=CREAM,
         letter_spacing=1,
-        position=(120, 590),
+        position=(124, 622),
     )
     for index, (label, sublabel) in enumerate(
         (("MP4", "MASTER"), ("WEBM", "WEB"), ("GIF", "PREVIEW"))
