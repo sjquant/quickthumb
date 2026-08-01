@@ -1,6 +1,6 @@
 """QuickThumb in motion: one composition, every delivery.
 
-This 60-second landscape product film turns one ordinary moment into a complete
+This 45-second landscape product film turns one ordinary moment into a complete
 delivery system. Each scene demonstrates one composition decision, then the
 same deterministic timeline branches into MP4, WebM, and GIF.
 
@@ -29,10 +29,10 @@ OUT_WEBM = OUT_DIR / "ordinary_moments.webm"
 OUT_GIF = OUT_DIR / "ordinary_moments_preview.gif"
 
 WIDTH, HEIGHT = 1280, 720
-SCENE_DURATION = 7.25
+SCENE_DURATION = 6.2
 VIDEO_END = 7.8
 CAPTION_START = 1.0
-CAPTION_END = 6.5
+CAPTION_END = 5.35
 SOUNDTRACK_VOLUME = 0.16
 SOUNDTRACK_FADE_OUT = 1.4
 SOURCE_ENDS = {
@@ -89,15 +89,11 @@ def _caption_position(index: int) -> tuple[int, int]:
         return WIDTH // 2, 390
     if index == 4:
         return 550, 650
-    if index == 5:
-        return WIDTH // 2, 320
-    if index == 6:
-        return WIDTH // 2, 675
     return WIDTH // 2, 650
 
 
-# Each source is a different visual beat. The deliberate reuse is non-adjacent
-# and only happens when the story needs a familiar visual anchor.
+# Each source appears once. The final proof scene is intentionally graphic so
+# the film changes visual grammar before the end card instead of looping footage.
 SCENES = (
     (
         "ordinary-city.mp4",
@@ -134,33 +130,12 @@ SCENES = (
         "속도, 볼륨, 전환, 페이드아웃이 하나의 시간축을 공유합니다.",
         "화면과 소리, 오차 없이.",
     ),
-    (
-        "ordinary-city.mp4",
-        "06  /  OUTPUT",
-        "한 번 만들고.\n세 곳에 보냅니다.",
-        "같은 구성에서 필요한 전달 포맷을 바로 출력합니다.",
-        "필요한 포맷으로 바로 보냅니다.",
-    ),
-    (
-        "ordinary-notebook.mp4",
-        "07  /  DETERMINISTIC",
-        "같은 타임라인.\n같은 프레임.",
-        "다시 렌더링해도 장면과 오디오의 기준은 흔들리지 않습니다.",
-        "같은 입력은 같은 결과를 만듭니다.",
-    ),
-    (
-        "ordinary-coffee.mp4",
-        "08  /  QUICKTHUMB",
-        "구성은 한 번.\n전달은 어디서나.",
-        "Trim. Fit. Place. Move. 아이디어를 다시 만들지 마세요.",
-        "한 번의 구성, 모든 포맷.",
-    ),
 )
 
 
 def build_deck() -> Deck:
-    """Build the public 60-second QuickThumb composition."""
-    transition_duration = 0.35
+    """Build the public short-form QuickThumb composition."""
+    transition_duration = 0.32
     transitions = (
         tr.Cut(advance_after=SCENE_DURATION),
         tr.Fade(duration=transition_duration, advance_after=SCENE_DURATION - transition_duration),
@@ -171,20 +146,86 @@ def build_deck() -> Deck:
         ),
         tr.Cut(advance_after=SCENE_DURATION),
         tr.Fade(duration=transition_duration, advance_after=SCENE_DURATION - transition_duration),
-        tr.Wipe(
-            direction="up",
-            duration=transition_duration,
-            advance_after=SCENE_DURATION - transition_duration,
-        ),
-        tr.Cut(advance_after=SCENE_DURATION),
-        tr.Fade(duration=0.5, advance_after=SCENE_DURATION - 0.5),
-        tr.Fade(duration=0.5, advance_after=1.5),
+        tr.Wipe(direction="up", duration=0.42, advance_after=2.8),
+        tr.Fade(duration=0.5, advance_after=2.8),
     )
     deck = Deck(WIDTH, HEIGHT)
     for index, scene in enumerate(SCENES):
         deck = deck.slide(build_scene(index, *scene), transition=transitions[index])
+    deck = deck.slide(build_output_scene(), transition=transitions[len(SCENES)])
     deck = deck.slide(build_outro(), transition=transitions[-1])
     return deck
+
+
+def build_output_scene() -> Canvas:
+    """Break the footage rhythm with a concise, animated delivery proof."""
+    canvas = (
+        Canvas(WIDTH, HEIGHT)
+        .background(color=INK)
+        .shape(shape="rectangle", position=(72, 82), width=8, height=556, color=ACCENT)
+        .text(
+            content="06  /  OUTPUT",
+            font=FONT_BOLD,
+            size=18,
+            color=ACCENT,
+            letter_spacing=1,
+            position=(120, 116),
+        )
+        .text(
+            content="한 번 만들고.\n세 곳에 보냅니다.",
+            font=FONT_BOLD,
+            size=62,
+            color=CREAM,
+            line_height=0.98,
+            position=(120, 188),
+            max_width=560,
+            auto_scale=True,
+            min_size=42,
+            animation=Wipe(direction="up", duration=0.45),
+        )
+        .text(
+            content="같은 구성에서 필요한 전달 포맷을 바로 출력합니다.",
+            font=FONT,
+            size=21,
+            color=CREAM,
+            position=(120, 410),
+            max_width=520,
+            auto_scale=True,
+            min_size=16,
+            animation=Wipe(direction="up", duration=0.4, trigger="after_previous"),
+        )
+    )
+    for index, (label, sublabel) in enumerate(
+        (("MP4", "MASTER"), ("WEBM", "WEB"), ("GIF", "PREVIEW"))
+    ):
+        x = 744 + index * 152
+        canvas = (
+            canvas.shape(
+                shape="rectangle",
+                position=(x, 176),
+                width=128,
+                height=250,
+                color="#25313A",
+                opacity=0.96,
+                animation=Wipe(direction="up", duration=0.38, trigger="after_previous"),
+            ).shape(shape="rectangle", position=(x, 176), width=128, height=8, color=ACCENT)
+            .text(
+                content=label,
+                font=FONT_BOLD,
+                size=28,
+                color=CREAM,
+                position=(x + 22, 234),
+            )
+            .text(
+                content=sublabel,
+                font=FONT_BOLD,
+                size=12,
+                color=ACCENT,
+                letter_spacing=1,
+                position=(x + 22, 362),
+            )
+        )
+    return canvas
 
 
 def build_outro() -> Canvas:
@@ -296,7 +337,7 @@ def build_scene(
         f"FADE {SOUNDTRACK_FADE_OUT:.1f}s"
     )
     caption_status = f"CUE {_format_timestamp(CAPTION_START)} → {_format_timestamp(CAPTION_END)}"
-    foreground_caption = index in {0, 7}
+    foreground_caption = index == 0
     caption_x, caption_y = _caption_position(index)
     canvas = Canvas(WIDTH, HEIGHT).background(color=INK)
     canvas.video(
@@ -317,7 +358,7 @@ def build_scene(
                 "start": CAPTION_START,
                 "end": CAPTION_END,
                 "font": FONT_BOLD,
-                "vertical_align": "center",
+                "vertical_align": "optical-center",
                 # Bottom-panel scenes reserve the lower band for the overlay,
                 # so the cue sits just above it instead of being covered.
                 "position": (caption_x, caption_y),
@@ -623,140 +664,6 @@ def build_scene(
                 auto_scale=True,
                 min_size=14,
             )
-        )
-    elif index == 5:
-        canvas = (
-            canvas.shape(
-                shape="rectangle",
-                position=(0, 0),
-                width=WIDTH,
-                height=250,
-                color=INK,
-                opacity=0.78,
-            )
-            .text(
-                content=eyebrow,
-                font=FONT_BOLD,
-                size=16,
-                color=ACCENT,
-                letter_spacing=1,
-                position=(64, 64),
-            )
-            .text(
-                content=headline,
-                font=FONT_BOLD,
-                size=48,
-                color=CREAM,
-                line_height=0.98,
-                position=(64, 110),
-                max_width=520,
-                auto_scale=True,
-                min_size=32,
-            )
-        )
-        for x, label, detail_label in (
-            (64, "MP4", "FEED"),
-            (444, "WEBM", "WEB"),
-            (824, "GIF", "PREVIEW"),
-        ):
-            canvas = (
-                canvas.shape(
-                    shape="rectangle",
-                    position=(x, 392),
-                    width=320,
-                    height=230,
-                    color=INK,
-                    opacity=0.88,
-                    animation=Wipe(direction="up", duration=0.35, trigger="after_previous"),
-                )
-                .shape(shape="rectangle", position=(x, 392), width=320, height=8, color=ACCENT)
-                .text(
-                    content=label,
-                    font=FONT_BOLD,
-                    size=34,
-                    color=CREAM,
-                    position=(x + 28, 438),
-                )
-                .text(
-                    content=detail_label,
-                    font=FONT_BOLD,
-                    size=14,
-                    color=ACCENT,
-                    letter_spacing=1,
-                    position=(x + 28, 570),
-                )
-            )
-    elif index == 6:
-        canvas = (
-            canvas.shape(
-                shape="rectangle",
-                position=(56, 74),
-                width=520,
-                height=570,
-                color=INK,
-                opacity=0.86,
-            )
-            .text(
-                content=eyebrow,
-                font=FONT_BOLD,
-                size=16,
-                color=ACCENT,
-                letter_spacing=1,
-                position=(104, 116),
-            )
-            .text(
-                content=headline,
-                font=FONT_BOLD,
-                size=48,
-                color=CREAM,
-                line_height=0.98,
-                position=(104, 170),
-                max_width=420,
-                auto_scale=True,
-                min_size=32,
-            )
-            .shape(shape="rectangle", position=(104, 400), width=420, height=2, color="#64727A")
-            .shape(shape="rectangle", position=(104, 400), width=420, height=2, color=ACCENT)
-            .text(
-                content="RENDER CHECK",
-                font=FONT_BOLD,
-                size=18,
-                color=CREAM,
-                position=(104, 430),
-            )
-            .text(
-                content=detail,
-                font=FONT,
-                size=18,
-                color=CREAM,
-                line_height=1.2,
-                position=(104, 510),
-                max_width=390,
-                auto_scale=True,
-                min_size=14,
-            )
-            .shape(
-                shape="rectangle",
-                position=(688, 184),
-                width=480,
-                height=176,
-                color=INK,
-                opacity=0.82,
-            )
-            .shape(shape="rectangle", position=(688, 184), width=8, height=176, color=ACCENT)
-            .text(content="RUN 01", font=FONT_BOLD, size=16, color=ACCENT, position=(736, 220))
-            .text(content="00:42.000", font=FONT_BOLD, size=34, color=CREAM, position=(736, 262))
-            .shape(
-                shape="rectangle",
-                position=(688, 392),
-                width=480,
-                height=176,
-                color=INK,
-                opacity=0.82,
-            )
-            .shape(shape="rectangle", position=(688, 392), width=8, height=176, color=ACCENT)
-            .text(content="RUN 02", font=FONT_BOLD, size=16, color=ACCENT, position=(736, 428))
-            .text(content="00:42.000", font=FONT_BOLD, size=34, color=CREAM, position=(736, 470))
         )
     else:
         canvas = (

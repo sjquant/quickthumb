@@ -182,7 +182,7 @@ Builds a restrained vertical (1080x1920) 8-scene product film — hook → pain 
 - One semantic blue accent on neutral stages, without glow, elevated cards, progress chrome, or per-scene rainbow colors
 - Per-scene durations of 8–10 beats derived from the actual 3.41–4.29-second voiceovers, preserving every narration ending while reducing the original timeline
 - Semantic `Cut`, `Fade`, and `Wipe` transitions that support the story instead of adding arbitrary motion variety
-- `deck.diagnose()` before export, validating contrast, overflow, overlap, canvas bounds, and Reels UI-safe placement for all eight scenes
+- `deck.diagnose()` before export, validating contrast, overflow, overlap, canvas bounds, and UI-safe placement before encoding
 - The file-rendering animation API with GIF-specific `GifOptions`, plus the video-specific `VideoOptions` and bytes-returning `.to_mp4(...)` / `.to_webm(...)` variants
 - Eight bundled voiceovers mixed above a quieter looping soundtrack via `VideoOptions(soundtrack=AudioTrack(...))`
 - Graceful per-format fallback when an optional renderer is unavailable; one failed export does not suppress the remaining formats
@@ -193,15 +193,15 @@ Use it when you want a shareable, self-playing GIF or video clip (Reels/TikTok/S
 
 Output: `ordinary_moments.mp4`, `ordinary_moments.webm`, and `ordinary_moments_preview.gif`
 
-Builds a focused, 60-second horizontal Korean-language product film with the advertising line “한 번의 구성, 모든 포맷.”:
+Builds a focused, roughly 38-second horizontal Korean-language product film with the advertising line “한 번의 구성, 모든 포맷.”:
 
 - Five distinct locally bundled Pexels clips with a checked-in provenance manifest
 - Pretendard Korean typography with a warm editorial palette and full-bleed footage
 - `VideoLayer` composition with deterministic trim, fit, constant speed, and optically centered caption anchors
-- Four alternating overlay compositions (left, right, bottom, and top) instead of repeating one card layout
+- Five distinct video beats followed by an animated output-proof card and a held end card, avoiding repeated footage
 - Animated accent bars and purposeful `Cut`, `Fade`, and `Wipe` transitions with a restrained Mixkit soundtrack loop
 - Timed Korean caption cues with centered text backgrounds, symmetric padding, and rounded corners
-- MP4, WebM, and silent GIF preview exports from the same deterministic timeline
+- MP4/WebM exports for the full composition plus a silent 6.2-second GIF preview of the opening beat
 - A clear Korean-language product narrative that demonstrates the video API through a finished piece
 
 Use it when you want a production-style reference for combining footage, captions, audio, and editorial motion in a reproducible 16:9 composition.
