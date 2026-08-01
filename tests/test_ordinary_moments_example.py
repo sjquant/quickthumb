@@ -51,6 +51,11 @@ def test_ordinary_moments_builds_a_focused_horizontal_product_story():
         "16:9",
         "MP4",
         "RUN 01",
+        "START COMPOSING",
+        "uv add quickthumb",
+        "github.com/sjquant/quickthumb",
+        "아이디어를 움직이세요.",
+        "한 번의 구성, 모든 포맷.",
     } <= text_content
     assert expected_trim in text_content
     assert any(
@@ -58,6 +63,11 @@ def test_ordinary_moments_builds_a_focused_horizontal_product_story():
         and "×   VOL 16%   FADE 1.4s" in content
         for content in text_content
     )
+    for slide_index in (0, 7):
+        video = next(
+            layer for layer in payload["slides"][slide_index]["layers"] if layer["type"] == "video"
+        )
+        assert video["captions"] == []
     assert not any(layer["type"] == "video" for layer in payload["slides"][-1]["layers"])
     findings = deck.diagnose()
     assert not any(finding.severity == "error" for finding in findings)

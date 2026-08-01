@@ -58,6 +58,44 @@ def _format_timestamp(seconds: float) -> str:
     return f"{int(minutes):02d}:{remainder:04.1f}"
 
 
+def _add_foreground_caption(canvas: Canvas, content: str) -> Canvas:
+    """Place a high-contrast caption above scene-wide shade layers."""
+    width = 300 if len(content) > 12 else 248
+    return canvas.shape(
+        shape="rectangle",
+        position=((WIDTH - width) // 2, 629),
+        width=width,
+        height=42,
+        color=INK,
+        opacity=0.9,
+    ).text(
+        content=content,
+        font=FONT_BOLD,
+        size=20,
+        color=CREAM,
+        position=(WIDTH // 2, 650),
+        align=("center", "middle"),
+        max_width=width - 28,
+        auto_scale=True,
+        min_size=16,
+    )
+
+
+def _caption_position(index: int) -> tuple[int, int]:
+    """Keep captions in scene-specific negative space, clear of later panels."""
+    if index == 2:
+        return WIDTH // 2, 104
+    if index == 3:
+        return WIDTH // 2, 390
+    if index == 4:
+        return 550, 650
+    if index == 5:
+        return WIDTH // 2, 320
+    if index == 6:
+        return WIDTH // 2, 675
+    return WIDTH // 2, 650
+
+
 # Each source is a different visual beat. The deliberate reuse is non-adjacent
 # and only happens when the story needs a familiar visual anchor.
 SCENES = (
@@ -195,6 +233,45 @@ def build_outro() -> Canvas:
             letter_spacing=1,
             position=(120, 548),
         )
+        .shape(
+            shape="rectangle",
+            position=(792, 180),
+            width=400,
+            height=360,
+            color="#18232B",
+        )
+        .text(
+            content="START COMPOSING",
+            font=FONT_BOLD,
+            size=16,
+            color=ACCENT,
+            letter_spacing=1,
+            position=(840, 228),
+        )
+        .text(
+            content="uv add quickthumb",
+            font=FONT_BOLD,
+            size=30,
+            color=CREAM,
+            position=(840, 292),
+        )
+        .shape(
+            shape="rectangle",
+            position=(840, 354),
+            width=280,
+            height=2,
+            color=ACCENT,
+        )
+        .text(
+            content="github.com/sjquant/quickthumb",
+            font=FONT,
+            size=18,
+            color=CREAM,
+            position=(840, 396),
+            max_width=300,
+            auto_scale=True,
+            min_size=14,
+        )
     )
 
 
@@ -219,6 +296,8 @@ def build_scene(
         f"FADE {SOUNDTRACK_FADE_OUT:.1f}s"
     )
     caption_status = f"CUE {_format_timestamp(CAPTION_START)} → {_format_timestamp(CAPTION_END)}"
+    foreground_caption = index in {0, 7}
+    caption_x, caption_y = _caption_position(index)
     canvas = Canvas(WIDTH, HEIGHT).background(color=INK)
     canvas.video(
         source,
@@ -230,7 +309,9 @@ def build_scene(
         trim_end=trim_end,
         duration=SCENE_DURATION,
         speed=speed,
-        captions=[
+        captions=[]
+        if foreground_caption
+        else [
             {
                 "text": caption,
                 "start": CAPTION_START,
@@ -239,10 +320,7 @@ def build_scene(
                 "vertical_align": "center",
                 # Bottom-panel scenes reserve the lower band for the overlay,
                 # so the cue sits just above it instead of being covered.
-                "position": (
-                    WIDTH // 2,
-                    390 if index == 3 else 320 if index == 5 else 104 if index == 2 else 650,
-                ),
+                "position": (caption_x, caption_y),
                 "size": 20,
                 "color": CREAM,
                 "background": INK,
@@ -397,7 +475,11 @@ def build_scene(
                 position=(64, 678),
             )
         )
-        for x, label in ((610, "16:9"), (810, "1:1"), (1010, "9:16")):
+        for x, label, marker_width, marker_height in (
+            (610, "16:9", 122, 69),
+            (810, "1:1", 96, 96),
+            (1010, "9:16", 54, 96),
+        ):
             canvas = (
                 canvas.shape(
                     shape="rectangle",
@@ -410,9 +492,12 @@ def build_scene(
                 )
                 .shape(
                     shape="rectangle",
-                    position=(x + 14, 488),
-                    width=122 if label == "16:9" else 96,
-                    height=6 if label == "16:9" else 96,
+                    position=(
+                        x + (150 - marker_width) // 2,
+                        488 + (96 - marker_height) // 2,
+                    ),
+                    width=marker_width,
+                    height=marker_height,
                     color=ACCENT,
                     opacity=0.9,
                 )
@@ -722,6 +807,8 @@ def build_scene(
                 position=(120, 530),
             )
         )
+    if foreground_caption:
+        canvas = _add_foreground_caption(canvas, caption)
     return canvas
 
 
