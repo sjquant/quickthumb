@@ -158,6 +158,28 @@ class TextEngine:
         new_bbox = new_anchor.getbbox()
         if old_bbox is None or new_bbox is None:
             return
+        if value.style == "flip":
+            movement = 6
+            if fraction < 0.5:
+                shift = round(movement * fraction * 2)
+                self.render_text_layer(
+                    image,
+                    static.model_copy(
+                        update={"position": (x, y - direction * shift)}
+                    ),
+                )
+            else:
+                shift = round(movement * (1.0 - fraction) * 2)
+                self.render_text_layer(
+                    image,
+                    static.model_copy(
+                        update={
+                            "content": new_text,
+                            "position": (x, y + direction * shift),
+                        }
+                    ),
+                )
+            return
         viewport = (
             min(old_bbox[0], new_bbox[0]),
             min(old_bbox[1], new_bbox[1]),
@@ -165,47 +187,21 @@ class TextEngine:
             max(old_bbox[3], new_bbox[3]),
         )
         height = viewport[3] - viewport[1]
-        roll_distance = height + (8 if value.style == "odometer" else 16)
+        roll_distance = height + 8
         shift = round(fraction * roll_distance)
-        if value.style == "flip":
-            if fraction < 0.5:
-                shift = round(fraction * 2 * roll_distance)
-                old_layer = static.model_copy(
-                    update={"position": (x, y - direction * shift)}
-                )
-                new_layer = None
-            else:
-                old_layer = None
-                new_layer = static.model_copy(
-                    update={
-                        "content": new_text,
-                        "position": (x, y),
-                    }
-                )
-        else:
-            old_layer = static.model_copy(update={"position": (x, y - direction * shift)})
-            new_layer = static.model_copy(
-                update={
-                    "content": new_text,
-                    "position": (x, y + direction * (roll_distance - shift)),
-                }
-            )
+        old_layer = static.model_copy(update={"position": (x, y - direction * shift)})
+        new_layer = static.model_copy(
+            update={
+                "content": new_text,
+                "position": (x, y + direction * (roll_distance - shift)),
+            }
+        )
         old_image = Image.new("RGBA", image.size, (0, 0, 0, 0))
         new_image = Image.new("RGBA", image.size, (0, 0, 0, 0))
-        if old_layer is not None:
-            self.render_text_layer(old_image, old_layer)
-        if new_layer is not None:
-            self.render_text_layer(new_image, new_layer)
+        self.render_text_layer(old_image, old_layer)
+        self.render_text_layer(new_image, new_layer)
         mask = Image.new("L", image.size, 0)
-        mask_draw = ImageDraw.Draw(mask)
-        if value.style == "flip" and fraction >= 0.5:
-            reveal = (fraction - 0.5) * 2
-            reveal_top = viewport[3] - round((viewport[3] - viewport[1]) * reveal)
-            mask_draw.rectangle(
-                (viewport[0], reveal_top, viewport[2], viewport[3]), fill=255
-            )
-        else:
-            mask_draw.rectangle(viewport, fill=255)
+        ImageDraw.Draw(mask).rectangle(viewport, fill=255)
         clipped = Image.composite(new_image, old_image, mask)
         image.alpha_composite(clipped)
 
@@ -276,57 +272,57 @@ class TextEngine:
             )
         else:
             number_top = top
-        viewport_height = viewport[3] - viewport[1]
-        roll_distance = viewport_height + (8 if value.style == "odometer" else 16)
-        shift = round(fraction * roll_distance)
-        old_image = Image.new("RGBA", image.size, (0, 0, 0, 0))
-        new_image = Image.new("RGBA", image.size, (0, 0, 0, 0))
         if value.style == "flip":
+            movement = 6
             if fraction < 0.5:
-                shift = round(fraction * 2 * roll_distance)
+                shift = round(movement * fraction * 2)
                 self.render_text_layer(
-                    old_image,
+                    image,
                     old.model_copy(
                         update={
-                            "position": (number_x, number_top - direction * shift)
+                            "position": (
+                                number_x,
+                                number_top - direction * shift,
+                            )
                         }
                     ),
                 )
             else:
+                shift = round(movement * (1.0 - fraction) * 2)
                 self.render_text_layer(
-                    new_image,
+                    image,
                     new.model_copy(
                         update={
-                            "position": (number_x, number_top)
+                            "position": (
+                                number_x,
+                                number_top + direction * shift,
+                            )
                         }
                     ),
                 )
-        else:
-            self.render_text_layer(
-                old_image,
-                old.model_copy(update={"position": (number_x, number_top - direction * shift)}),
-            )
-            self.render_text_layer(
-                new_image,
-                new.model_copy(
-                    update={
-                        "position": (
-                            number_x,
-                            number_top + direction * (roll_distance - shift),
-                        )
-                    }
-                ),
-            )
+            return
+        viewport_height = viewport[3] - viewport[1]
+        roll_distance = viewport_height + 8
+        shift = round(fraction * roll_distance)
+        old_image = Image.new("RGBA", image.size, (0, 0, 0, 0))
+        new_image = Image.new("RGBA", image.size, (0, 0, 0, 0))
+        self.render_text_layer(
+            old_image,
+            old.model_copy(update={"position": (number_x, number_top - direction * shift)}),
+        )
+        self.render_text_layer(
+            new_image,
+            new.model_copy(
+                update={
+                    "position": (
+                        number_x,
+                        number_top + direction * (roll_distance - shift),
+                    )
+                }
+            ),
+        )
         mask = Image.new("L", image.size, 0)
-        mask_draw = ImageDraw.Draw(mask)
-        if value.style == "flip" and fraction >= 0.5:
-            reveal = (fraction - 0.5) * 2
-            reveal_top = viewport[3] - round((viewport[3] - viewport[1]) * reveal)
-            mask_draw.rectangle(
-                (viewport[0], reveal_top, viewport[2], viewport[3]), fill=255
-            )
-        else:
-            mask_draw.rectangle(viewport, fill=255)
+        ImageDraw.Draw(mask).rectangle(viewport, fill=255)
         image.alpha_composite(Image.composite(new_image, old_image, mask))
 
     def resolve_animation_targets(
