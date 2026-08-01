@@ -311,54 +311,33 @@ class TextEngine:
                 )
                 slot_x += slot_width + letter_spacing
                 continue
-            old_anchor = Image.new("RGBA", image.size, (0, 0, 0, 0))
-            new_anchor = Image.new("RGBA", image.size, (0, 0, 0, 0))
-            old_position = (slot_x, number_top)
-            self.render_text_layer(
-                old_anchor,
-                old_layer.model_copy(update={"position": old_position}),
-            )
-            self.render_text_layer(
-                new_anchor,
-                new_layer.model_copy(update={"position": old_position}),
-            )
-            old_bbox = old_anchor.getbbox()
-            new_bbox = new_anchor.getbbox()
-            if old_bbox is None or new_bbox is None:
-                slot_x += slot_width + letter_spacing
-                continue
-            viewport = (
-                min(old_bbox[0], new_bbox[0]),
-                min(old_bbox[1], new_bbox[1]),
-                max(old_bbox[2], new_bbox[2]),
-                max(old_bbox[3], new_bbox[3]),
-            )
-            roll_distance = viewport[3] - viewport[1] + 8
-            shift = round(fraction * roll_distance)
-            old_image = Image.new("RGBA", image.size, (0, 0, 0, 0))
-            new_image = Image.new("RGBA", image.size, (0, 0, 0, 0))
-            self.render_text_layer(
-                old_image,
-                old_layer.model_copy(
-                    update={"position": (slot_x, number_top - direction * shift)}
-                ),
-            )
-            self.render_text_layer(
-                new_image,
-                new_layer.model_copy(
-                    update={
-                        "position": (
-                            slot_x,
-                            number_top + direction * (roll_distance - shift),
-                        )
-                    }
-                ),
-            )
-            mask = Image.new("L", image.size, 0)
-            ImageDraw.Draw(mask).rectangle(viewport, fill=255)
-            transparent = Image.new("RGBA", image.size, (0, 0, 0, 0))
-            image.alpha_composite(Image.composite(old_image, transparent, mask))
-            image.alpha_composite(Image.composite(new_image, transparent, mask))
+            movement = 8
+            if fraction < 0.5:
+                shift = round(movement * fraction * 2)
+                self.render_text_layer(
+                    image,
+                    old_layer.model_copy(
+                        update={
+                            "position": (
+                                slot_x,
+                                number_top - direction * shift,
+                            )
+                        }
+                    ),
+                )
+            else:
+                shift = round(movement * (1.0 - fraction) * 2)
+                self.render_text_layer(
+                    image,
+                    new_layer.model_copy(
+                        update={
+                            "position": (
+                                slot_x,
+                                number_top + direction * shift,
+                            )
+                        }
+                    ),
+                )
             slot_x += slot_width + letter_spacing
 
     def _render_odometer_parts(

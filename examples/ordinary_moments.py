@@ -221,11 +221,11 @@ def build_output_scene() -> Canvas:
     canvas.counter(
         1,
         100,
-        2.0,
+        2.2,
         position=(124, 514),
         size=96,
         color=ACCENT,
-        style="flip",
+        style="odometer",
     )
     canvas.text(
         content="READY TO DELIVER",
