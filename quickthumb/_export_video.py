@@ -501,6 +501,7 @@ class _Shot:
 
     frame: Image.Image  # RGB at the deck size
     duration: float
+    caption_active: bool = False
 
 
 @dataclass(frozen=True)
@@ -615,7 +616,7 @@ def _deck_shots(
             )
             if (
                 final.tobytes() == pending.frame.tobytes()
-                or not animator.has_captions
+                or not pending.caption_active
                 or final_caption_active
             ):
                 yield _Shot(final, pending.duration + max(hold, 0.0))
@@ -643,21 +644,36 @@ def _slide_motion_shots(
     for time, duration in _sample_span(0.0, duration_in, fps):
         incoming = _conform(animator.frame_at(time), size, matte_rgb)
         progress = _ease(time / duration_in)
-        if transition is not None and transition.effect == "morph" and previous_canvas is not None:
+        morph_safe = (
+            transition is not None
+            and transition.effect == "morph"
+            and previous_canvas is not None
+            and not _canvas_has_video_captions(previous_canvas)
+            and not _canvas_has_video_captions(incoming_canvas)
+        )
+        if morph_safe:
             frame = _morph_frame(previous_canvas, incoming_canvas, progress, duration_in)
         else:
             frame = _transition_frame(transition, previous_final, incoming, progress)
-        yield _Shot(frame, duration)
+        yield _Shot(frame, duration, animator._has_active_caption(time))
     # Between effect windows every unit's state is constant, so gaps (a
     # trailing `delay`, a pause between chained effects) collapse into one
     # held frame instead of resampling identical frames at fps.
     for seg_start, seg_end, animating in animator.segments(duration_in, animation_end):
         if animating:
             for time, duration in _sample_span(seg_start, seg_end, fps):
-                yield _Shot(_conform(animator.frame_at(time), size, matte_rgb), duration)
+                yield _Shot(
+                    _conform(animator.frame_at(time), size, matte_rgb),
+                    duration,
+                    animator._has_active_caption(time),
+                )
         else:
             frame = _conform(animator.frame_at(seg_start), size, matte_rgb)
-            yield _Shot(frame, seg_end - seg_start)
+            yield _Shot(
+                frame,
+                seg_end - seg_start,
+                animator._has_active_caption(seg_start),
+            )
 
 
 def animation_timeline(
@@ -858,11 +874,6 @@ class _SlideAnimator:
         if self._final is None:
             self._final = self.frame_at(self.duration)
         return self._final
-
-    @property
-    def has_captions(self) -> bool:
-        """Return whether this slide owns any timed video captions."""
-        return any(layer.captions for layer in iter_video_layers(self._canvas.layers))
 
     def _has_active_caption(self, time: float) -> bool:
         """Return whether a video caption is active at a local slide time."""
@@ -1335,6 +1346,11 @@ def _masked_alpha(image: Image.Image, mask: Image.Image) -> Image.Image:
 # ------------------------------------------------------------ slide transition
 
 
+def _canvas_has_video_captions(canvas: Canvas) -> bool:
+    """Return whether a canvas contains captions that need foreground timing."""
+    return any(layer.captions for layer in iter_video_layers(canvas.layers))
+
+
 def _morph_frame(source: Canvas, target: Canvas, progress: float, duration: float) -> Image.Image:
     """Render a keyed shared-element Morph frame for raster/video output."""
     source_layers = _morph_layer_index(source)
@@ -1387,26 +1403,16 @@ def _morph_layer_index(canvas: Canvas) -> dict[str, RenderableLayer]:
     return {key: values[0] for key, values in occurrences.items() if len(values) == 1}
 
 
-def _render_canvas_frame(
-    canvas: Canvas, layers=None, time: float = 0.0, include_captions: bool = True
-) -> Image.Image:
+def _render_canvas_frame(canvas: Canvas, layers=None, time: float = 0.0) -> Image.Image:
     image = Image.new("RGBA", (canvas.width, canvas.height), (0, 0, 0, 0))
     rendered_layers = list(canvas.layers if layers is None else layers)
     for layer in rendered_layers:
         canvas._render_layer(image, layer, time)
-    if include_captions:
-        render_video_captions(
-            image,
-            iter_video_layers(rendered_layers),
-            time,
-            canvas._ctx.video_info_cache,
-            canvas._fonts.load_font_variant,
-        )
     return image
 
 
 def _render_isolated_layer(canvas: Canvas, layer) -> tuple[Image.Image, tuple[int, int, int, int]]:
-    image = _render_canvas_frame(canvas, [layer], include_captions=False)
+    image = _render_canvas_frame(canvas, [layer])
     box = image.getbbox()
     if box is None:
         return Image.new("RGBA", (1, 1), (0, 0, 0, 0)), (0, 0, 1, 1)

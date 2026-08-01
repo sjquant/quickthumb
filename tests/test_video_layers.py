@@ -8,9 +8,10 @@ from pathlib import Path
 from typing import cast
 
 import pytest
-from PIL import Image
+from PIL import Image, ImageChops
 from quickthumb import Canvas, Deck, ValidationError
 from quickthumb.models import VideoCaption, VideoLayer
+from quickthumb.transitions import Fade, Morph
 
 HAS_FFMPEG = shutil.which("ffmpeg") is not None
 HAS_FFPROBE = shutil.which("ffprobe") is not None
@@ -64,6 +65,31 @@ def _gif_frames(data: bytes):
         image.seek(len(frames))
         frames.append(image.convert("RGBA"))
     return frames
+
+
+def _decoded_frame(path: Path, time: float) -> Image.Image:
+    """Decode one public export frame for codec-level assertions."""
+    result = subprocess.run(
+        [
+            "ffmpeg",
+            "-v",
+            "error",
+            "-ss",
+            str(time),
+            "-i",
+            str(path),
+            "-frames:v",
+            "1",
+            "-f",
+            "image2pipe",
+            "-vcodec",
+            "png",
+            "pipe:1",
+        ],
+        capture_output=True,
+        check=True,
+    )
+    return Image.open(BytesIO(result.stdout)).convert("RGB")
 
 
 @pytest.mark.skipif(not HAS_FFMPEG, reason="ffmpeg is required")
@@ -182,22 +208,22 @@ def test_video_captions_render_above_later_canvas_layers(source_video):
 
     # When: the public frame renderer samples the active cue
     frame = canvas.render_frame(0.2).convert("RGB")
+    plain = Canvas(96, 64).video(str(source_video), (0, 0), 96, 64)
+    plain.shape("rectangle", (0, 0), 96, 64, "#000000", opacity=0.9)
+    baseline = plain.render_frame(0.2).convert("RGB")
 
     # Then: the caption remains visibly white instead of being dimmed by the shade
-    pixels = frame.load()
-    assert any(
-        min(pixels[x, y]) > 240
-        for y in range(frame.height)
-        for x in range(frame.width)
-    )
+    difference = ImageChops.difference(frame, baseline)
+    assert difference.getbbox() is not None
+    assert difference.getbbox()[1] > frame.height // 2
 
     # The animated exporter uses the same foreground pass as direct sampling.
     exported_frames = _gif_frames(canvas.to_gif(fps=10, hold=0))
     assert any(
         min(exported.load()[x, y]) > 240
         for exported in exported_frames
-        for y in range(exported.height)
-        for x in range(exported.width)
+        for y in range(frame.height // 2, frame.height)
+        for x in range(frame.width)
     )
 
 
@@ -276,6 +302,18 @@ def test_video_layer_speed_duration_caption_and_audio_stay_synchronized(source_v
     )
     mp4 = tmp_path / "clip.mp4"
     webm = tmp_path / "clip.webm"
+
+    plain = Canvas(96, 64).video(
+        str(source_video),
+        (16, 8),
+        64,
+        48,
+        trim_start=0.25,
+        trim_end=0.75,
+        speed=2,
+    )
+    canvas.shape("rectangle", (0, 0), 96, 64, "#000000", opacity=0.9)
+    plain.shape("rectangle", (0, 0), 96, 64, "#000000", opacity=0.9)
     mp4.write_bytes(canvas.to_mp4(fps=10, hold=0))
     webm.write_bytes(canvas.to_webm(fps=10, hold=0))
 
@@ -298,22 +336,42 @@ def test_video_layer_speed_duration_caption_and_audio_stay_synchronized(source_v
         payload = json.loads(metadata.stdout)
         assert float(payload["format"]["duration"]) == pytest.approx(0.25, abs=0.15)
         assert {stream["codec_type"] for stream in payload["streams"]} == {"video", "audio"}
+        exported = _decoded_frame(output, 0.125)
+        baseline = plain.render_frame(0.125).convert("RGB")
+        assert ImageChops.difference(exported, baseline).getbbox() is not None
 
     gif_with_caption = _gif_frames(canvas.to_gif(fps=10, hold=0))
-    plain = Canvas(96, 64).video(
-        str(source_video),
-        (16, 8),
-        64,
-        48,
-        trim_start=0.25,
-        trim_end=0.75,
-        speed=2,
-    )
     gif_without_caption = _gif_frames(plain.to_gif(fps=10, hold=0))
     assert any(
         a.tobytes() != b.tobytes()
         for a, b in zip(gif_with_caption, gif_without_caption, strict=True)
     )
+
+
+@pytest.mark.skipif(not HAS_FFMPEG, reason="ffmpeg is required")
+def test_captioned_morph_falls_back_to_timed_fade(source_video):
+    """Given captioned morph slides, when exported, then captions keep fade timing."""
+    source = Canvas(96, 64).video(
+        str(source_video),
+        (0, 0),
+        96,
+        64,
+        motion_key="clip",
+        captions=[{"text": "source", "start": 0.1, "end": 0.4, "size": 12}],
+    )
+    target = Canvas(96, 64).video(
+        str(source_video),
+        (0, 0),
+        96,
+        64,
+        motion_key="clip",
+        captions=[{"text": "target", "start": 0.1, "end": 0.4, "size": 12}],
+    )
+
+    morph = Deck(slides=[source, target], transition=Morph(duration=0.4))
+    fade = Deck(slides=[source, target], transition=Fade(duration=0.4))
+
+    assert morph.to_gif(fps=10, slide_duration=0) == fade.to_gif(fps=10, slide_duration=0)
 
 
 @pytest.mark.skipif(not HAS_FFMPEG, reason="FFmpeg is required")

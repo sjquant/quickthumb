@@ -296,7 +296,7 @@ def render_video_captions(
     copy. The caption pass does not decode frames itself; it only probes a
     source when its duration is not already available in the render context.
     """
-    for layer in iter_video_layers(layers):
+    for layer in layers:
         if not layer.captions:
             continue
         info = info_cache.get(layer.source)
