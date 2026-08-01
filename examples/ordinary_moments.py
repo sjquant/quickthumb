@@ -29,10 +29,10 @@ OUT_WEBM = OUT_DIR / "ordinary_moments.webm"
 OUT_GIF = OUT_DIR / "ordinary_moments_preview.gif"
 
 WIDTH, HEIGHT = 1280, 720
-SCENE_DURATION = 4.8
+SCENE_DURATION = 6.0
 VIDEO_END = 7.8
-CAPTION_START = 0.65
-CAPTION_END = 3.9
+CAPTION_START = 0.85
+CAPTION_END = 5.0
 SOUNDTRACK_VOLUME = 0.16
 SOUNDTRACK_FADE_OUT = 1.4
 SOURCE_ENDS = {
@@ -135,7 +135,7 @@ SCENES = (
 
 def build_deck() -> Deck:
     """Build the public short-form QuickThumb composition."""
-    transition_duration = 0.32
+    transition_duration = 0.45
     transitions = (
         tr.Cut(advance_after=SCENE_DURATION),
         tr.Fade(duration=transition_duration, advance_after=SCENE_DURATION - transition_duration),
@@ -146,8 +146,8 @@ def build_deck() -> Deck:
         ),
         tr.Cut(advance_after=SCENE_DURATION),
         tr.Fade(duration=transition_duration, advance_after=SCENE_DURATION - transition_duration),
-        tr.Wipe(direction="up", duration=0.42, advance_after=2.6),
-        tr.Fade(duration=0.5, advance_after=2.6),
+        tr.Wipe(direction="up", duration=0.5, advance_after=3.4),
+        tr.Fade(duration=0.6, advance_after=3.4),
     )
     deck = Deck(WIDTH, HEIGHT)
     for index, scene in enumerate(SCENES):
@@ -195,16 +195,30 @@ def build_output_scene() -> Canvas:
             animation=Wipe(direction="up", duration=0.4, trigger="after_previous"),
         )
     )
+    canvas.shape(
+        shape="rectangle",
+        position=(108, 500),
+        width=88,
+        height=78,
+        color="#1B2730",
+        opacity=0.95,
+    )
     canvas.counter(
         0,
         3,
-        0.9,
+        1.1,
         position=(120, 516),
-        size=52,
+        size=68,
         color=ACCENT,
-        suffix=" formats ready",
         style="flip",
-        animation=Wipe(direction="right", duration=0.3, trigger="after_previous"),
+    )
+    canvas.text(
+        content="FORMATS READY",
+        font=FONT_BOLD,
+        size=18,
+        color=CREAM,
+        letter_spacing=1,
+        position=(120, 590),
     )
     for index, (label, sublabel) in enumerate(
         (("MP4", "MASTER"), ("WEBM", "WEB"), ("GIF", "PREVIEW"))
@@ -341,7 +355,7 @@ def build_scene(
     # Source clips have different durations; slow shorter shots down instead
     # of asking the exporter to read beyond a validated media boundary.
     trim_end = SOURCE_ENDS.get(source_name, VIDEO_END)
-    speed = (trim_end - trim_start) / SCENE_DURATION
+    speed = min(1.0, (trim_end - trim_start) / SCENE_DURATION)
     trim_status = f"TRIM {_format_timestamp(trim_start)} → {_format_timestamp(trim_end)}"
     caption_status = f"CUE {_format_timestamp(CAPTION_START)} → {_format_timestamp(CAPTION_END)}"
     foreground_caption = index == 0
@@ -679,7 +693,7 @@ def build_scene(
                 position=(768, 450),
                 size=30,
                 color=ACCENT,
-                suffix="× SPEED",
+                suffix=" SPEED",
                 style="odometer",
                 animation=Wipe(direction="right", duration=0.3, trigger="after_previous"),
             )

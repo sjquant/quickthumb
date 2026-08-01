@@ -167,19 +167,45 @@ class TextEngine:
         height = viewport[3] - viewport[1]
         roll_distance = height + (8 if value.style == "odometer" else 16)
         shift = round(fraction * roll_distance)
-        old_layer = static.model_copy(update={"position": (x, y - direction * shift)})
-        new_layer = static.model_copy(
-            update={
-                "content": new_text,
-                "position": (x, y + direction * (roll_distance - shift)),
-            }
-        )
+        if value.style == "flip":
+            if fraction < 0.5:
+                shift = round(fraction * 2 * roll_distance)
+                old_layer = static.model_copy(
+                    update={"position": (x, y - direction * shift)}
+                )
+                new_layer = None
+            else:
+                old_layer = None
+                new_layer = static.model_copy(
+                    update={
+                        "content": new_text,
+                        "position": (x, y),
+                    }
+                )
+        else:
+            old_layer = static.model_copy(update={"position": (x, y - direction * shift)})
+            new_layer = static.model_copy(
+                update={
+                    "content": new_text,
+                    "position": (x, y + direction * (roll_distance - shift)),
+                }
+            )
         old_image = Image.new("RGBA", image.size, (0, 0, 0, 0))
         new_image = Image.new("RGBA", image.size, (0, 0, 0, 0))
-        self.render_text_layer(old_image, old_layer)
-        self.render_text_layer(new_image, new_layer)
+        if old_layer is not None:
+            self.render_text_layer(old_image, old_layer)
+        if new_layer is not None:
+            self.render_text_layer(new_image, new_layer)
         mask = Image.new("L", image.size, 0)
-        ImageDraw.Draw(mask).rectangle(viewport, fill=255)
+        mask_draw = ImageDraw.Draw(mask)
+        if value.style == "flip" and fraction >= 0.5:
+            reveal = (fraction - 0.5) * 2
+            reveal_top = viewport[3] - round((viewport[3] - viewport[1]) * reveal)
+            mask_draw.rectangle(
+                (viewport[0], reveal_top, viewport[2], viewport[3]), fill=255
+            )
+        else:
+            mask_draw.rectangle(viewport, fill=255)
         clipped = Image.composite(new_image, old_image, mask)
         image.alpha_composite(clipped)
 
@@ -255,23 +281,52 @@ class TextEngine:
         shift = round(fraction * roll_distance)
         old_image = Image.new("RGBA", image.size, (0, 0, 0, 0))
         new_image = Image.new("RGBA", image.size, (0, 0, 0, 0))
-        self.render_text_layer(
-            old_image,
-            old.model_copy(update={"position": (number_x, number_top - direction * shift)}),
-        )
-        self.render_text_layer(
-            new_image,
-            new.model_copy(
-                update={
-                    "position": (
-                        number_x,
-                        number_top + direction * (roll_distance - shift),
-                    )
-                }
-            ),
-        )
+        if value.style == "flip":
+            if fraction < 0.5:
+                shift = round(fraction * 2 * roll_distance)
+                self.render_text_layer(
+                    old_image,
+                    old.model_copy(
+                        update={
+                            "position": (number_x, number_top - direction * shift)
+                        }
+                    ),
+                )
+            else:
+                self.render_text_layer(
+                    new_image,
+                    new.model_copy(
+                        update={
+                            "position": (number_x, number_top)
+                        }
+                    ),
+                )
+        else:
+            self.render_text_layer(
+                old_image,
+                old.model_copy(update={"position": (number_x, number_top - direction * shift)}),
+            )
+            self.render_text_layer(
+                new_image,
+                new.model_copy(
+                    update={
+                        "position": (
+                            number_x,
+                            number_top + direction * (roll_distance - shift),
+                        )
+                    }
+                ),
+            )
         mask = Image.new("L", image.size, 0)
-        ImageDraw.Draw(mask).rectangle(viewport, fill=255)
+        mask_draw = ImageDraw.Draw(mask)
+        if value.style == "flip" and fraction >= 0.5:
+            reveal = (fraction - 0.5) * 2
+            reveal_top = viewport[3] - round((viewport[3] - viewport[1]) * reveal)
+            mask_draw.rectangle(
+                (viewport[0], reveal_top, viewport[2], viewport[3]), fill=255
+            )
+        else:
+            mask_draw.rectangle(viewport, fill=255)
         image.alpha_composite(Image.composite(new_image, old_image, mask))
 
     def resolve_animation_targets(

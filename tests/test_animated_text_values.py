@@ -96,6 +96,31 @@ def test_odometer_keeps_suffix_static_while_numeric_window_rolls():
     assert before.crop((100, 0, 160, 180)).tobytes() != middle.crop((100, 0, 160, 180)).tobytes()
 
 
+def test_flip_style_serializes_and_reaches_the_target_without_suffix_motion():
+    """Given flip motion, when settled, then the target and label are stable."""
+    canvas = Canvas(640, 180).counter(
+        0,
+        3,
+        1.0,
+        position=(120, 90),
+        size=48,
+        color="#d0a464",
+        suffix=" formats ready",
+        style="flip",
+    )
+
+    restored = Canvas.from_json(canvas.to_json())
+    before = restored.render_frame(0.0)
+    settled = restored.render_frame(1.0)
+
+    assert restored.layers[0].value.style == "flip"
+    assert restored.layers[0].value.text_at(1.0) == "3 formats ready"
+    assert (
+        before.crop((160, 0, 640, 180)).tobytes()
+        == settled.crop((160, 0, 640, 180)).tobytes()
+    )
+
+
 def test_counter_rejects_rich_text_content():
     """Given rich text content, when a value animation is attached, then validation fails."""
     with pytest.raises(ValidationError, match="plain string content"):
