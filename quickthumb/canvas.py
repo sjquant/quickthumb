@@ -442,7 +442,7 @@ class Canvas:
         prefix: str = "",
         suffix: str = "",
         grouping: bool = False,
-        style: Literal["plain", "odometer"] = "odometer",
+        style: Literal["plain", "odometer", "flip"] = "odometer",
         easing: Literal["linear", "ease_in", "ease_out", "ease_in_out"] = "ease_out",
         **text_options: Any,
     ) -> Self:

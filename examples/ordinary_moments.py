@@ -200,9 +200,10 @@ def build_output_scene() -> Canvas:
         3,
         0.9,
         position=(120, 516),
-        size=34,
+        size=52,
         color=ACCENT,
         suffix=" formats ready",
+        style="flip",
         animation=Wipe(direction="right", duration=0.3, trigger="after_previous"),
     )
     for index, (label, sublabel) in enumerate(
@@ -342,10 +343,6 @@ def build_scene(
     trim_end = SOURCE_ENDS.get(source_name, VIDEO_END)
     speed = (trim_end - trim_start) / SCENE_DURATION
     trim_status = f"TRIM {_format_timestamp(trim_start)} → {_format_timestamp(trim_end)}"
-    timeline_status = (
-        f"SPEED {speed:.2f}×   VOL {SOUNDTRACK_VOLUME:.0%}   "
-        f"FADE {SOUNDTRACK_FADE_OUT:.1f}s"
-    )
     caption_status = f"CUE {_format_timestamp(CAPTION_START)} → {_format_timestamp(CAPTION_END)}"
     foreground_caption = index == 0
     caption_x, caption_y = _caption_position(index)
@@ -675,13 +672,24 @@ def build_scene(
                 color=CREAM,
                 position=(768, 418),
             )
-            .text(
-                content=timeline_status,
-                font=FONT_BOLD,
-                size=15,
-                color=ACCENT,
-                letter_spacing=1,
+            .counter(
+                0,
+                speed,
+                0.9,
                 position=(768, 450),
+                size=30,
+                color=ACCENT,
+                suffix="× SPEED",
+                style="odometer",
+                animation=Wipe(direction="right", duration=0.3, trigger="after_previous"),
+            )
+            .text(
+                content=f"VOL {SOUNDTRACK_VOLUME:.0%}   FADE {SOUNDTRACK_FADE_OUT:.1f}s",
+                font=FONT_BOLD,
+                size=13,
+                color=CREAM,
+                letter_spacing=1,
+                position=(768, 492),
             )
             .text(
                 content=detail,
@@ -689,8 +697,8 @@ def build_scene(
                 size=18,
                 color=CREAM,
                 line_height=1.2,
-                position=(768, 494),
-                max_width=350,
+                position=(768, 532),
+                max_width=330,
                 auto_scale=True,
                 min_size=14,
                 animation=Wipe(direction="right", duration=0.3, trigger="after_previous"),

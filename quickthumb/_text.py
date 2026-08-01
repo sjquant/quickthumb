@@ -89,7 +89,7 @@ class TextEngine:
 
     def render_text_layer(self, image: Image.Image, layer: TextLayer, time: float | None = None):
         if layer.value is not None:
-            if layer.value.style == "odometer" and time is not None:
+            if layer.value.style in {"odometer", "flip"} and time is not None:
                 self._render_odometer(image, layer, time)
                 return
             layer = layer.model_copy(
@@ -165,12 +165,13 @@ class TextEngine:
             max(old_bbox[3], new_bbox[3]),
         )
         height = viewport[3] - viewport[1]
-        shift = round(fraction * height)
+        roll_distance = height + (8 if value.style == "odometer" else 16)
+        shift = round(fraction * roll_distance)
         old_layer = static.model_copy(update={"position": (x, y - direction * shift)})
         new_layer = static.model_copy(
             update={
                 "content": new_text,
-                "position": (x, y + direction * (height - shift)),
+                "position": (x, y + direction * (roll_distance - shift)),
             }
         )
         old_image = Image.new("RGBA", image.size, (0, 0, 0, 0))
@@ -250,7 +251,8 @@ class TextEngine:
         else:
             number_top = top
         viewport_height = viewport[3] - viewport[1]
-        shift = round(fraction * viewport_height)
+        roll_distance = viewport_height + (8 if value.style == "odometer" else 16)
+        shift = round(fraction * roll_distance)
         old_image = Image.new("RGBA", image.size, (0, 0, 0, 0))
         new_image = Image.new("RGBA", image.size, (0, 0, 0, 0))
         self.render_text_layer(
@@ -263,7 +265,7 @@ class TextEngine:
                 update={
                     "position": (
                         number_x,
-                        number_top + direction * (viewport_height - shift),
+                        number_top + direction * (roll_distance - shift),
                     )
                 }
             ),
