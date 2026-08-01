@@ -193,18 +193,17 @@ Use it when you want a shareable, self-playing GIF or video clip (Reels/TikTok/S
 
 Output: `ordinary_moments.mp4`, `ordinary_moments.webm`, and `ordinary_moments_preview.gif`
 
-Builds a focused, roughly 40-second horizontal Korean-language product film with the advertising line “한 번의 구성, 모든 포맷.”:
+Builds a 60-second horizontal Korean-language product film that argues one case — remaking the same video for every screen is the expensive part — across nine scenes: hook, cost, turn, three proofs, delivery payoff, resolution, and close.
 
-- Five distinct locally bundled Pexels clips with a checked-in provenance manifest
-- Pretendard Korean typography with a warm editorial palette and full-bleed footage
-- `VideoLayer` composition with deterministic trim, fit, constant speed, and optically centered caption anchors
-- Five distinct video beats followed by an animated output-proof card and a held end card, avoiding repeated footage
-- Micro-animations for each hierarchy change: accent reveal, headline entrance, timeline cue, and staggered format cards
-- Deterministic `Canvas.counter(...)` numeric motion, including a fast 1-to-100 KPI handoff and an odometer speed readout
-- Animated accent bars and purposeful `Cut`, `Fade`, and `Wipe` transitions with a restrained Mixkit soundtrack loop
-- Timed Korean caption cues with centered text backgrounds, symmetric padding, and rounded corners
-- MP4/WebM exports for the full composition plus a silent 6-second GIF preview of the opening beat
-- A clear Korean-language product narrative that demonstrates the video API through a finished piece
+- Five locally bundled Pexels clips with a checked-in provenance manifest, each reused only as a deliberate callback in a different frame
+- One proof scene places the same second of one source in 16:9, 1:1, and 9:16 frames simultaneously, so `fit` and placement are demonstrated rather than described
+- Timed caption cues that prove their own timing: a cue strip and a playhead cross each block at the moment its caption appears
+- `AnimationSpec` motion tied to meaning — line-staggered entrances for repeated work, position-track playheads for timeline scenes, `Canvas.counter(...)` for cost and render progress
+- A frosted `BackdropBlur` readout panel printing the film's real `speed`, `volume`, and `fade_out` values
+- Pretendard for the Korean voice and Roboto for every functional readout, on a shared margin and type scale
+- An accent colour introduced at the narrative turn and held back from the opening act
+- Purposeful `Cut`, `Fade`, and `Wipe` transitions over a restrained Mixkit soundtrack loop that fades out on the close
+- MP4/WebM exports of the full 60-second composition plus a silent GIF preview of the delivery scene
 
 Use it when you want a production-style reference for combining footage, captions, audio, and editorial motion in a reproducible 16:9 composition.
 

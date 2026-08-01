@@ -1,8 +1,10 @@
-"""QuickThumb in motion: one composition, every delivery.
+"""ORDINARY MOMENTS — a 60-second product film about composing once.
 
-This short landscape product film turns one ordinary moment into a complete
-delivery system. Each scene demonstrates one composition decision, then the
-same deterministic timeline branches into MP4, WebM, and GIF.
+The film argues one thing: making the same video again for every screen is the
+expensive part, and a composition you write once removes it. Nine scenes carry
+that argument — hook, cost, turn, three proofs, the delivery payoff, and a
+close — and every visual device on screen is one of QuickThumb's primitives
+doing the job it is being talked about.
 
 Run from the repository root with::
 
@@ -13,14 +15,21 @@ FFmpeg is required for the MP4, WebM, and GIF outputs.
 
 from pathlib import Path
 
-from quickthumb import AudioTrack, Canvas, Deck, Wipe
+from quickthumb import (
+    AudioTrack,
+    BackdropBlur,
+    Background,
+    Canvas,
+    Deck,
+    Fade,
+    Shadow,
+    Wipe,
+)
 from quickthumb import transitions as tr
 
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT / "assets"
 VIDEO_DIR = ASSETS / "video"
-FONT = str(ASSETS / "fonts" / "Pretendard-Regular.woff2")
-FONT_BOLD = str(ASSETS / "fonts" / "Pretendard-ExtraBold.woff2")
 SOUNDTRACK = ASSETS / "audio" / "ordinary_moments_vastness.mp3"
 
 OUT_DIR = ROOT / "examples"
@@ -28,770 +37,59 @@ OUT_MP4 = OUT_DIR / "ordinary_moments.mp4"
 OUT_WEBM = OUT_DIR / "ordinary_moments.webm"
 OUT_GIF = OUT_DIR / "ordinary_moments_preview.gif"
 
+# Korean copy is set in Pretendard; every functional readout is set in Roboto so
+# on-screen product data never competes with the film's voice.
+KR = str(ASSETS / "fonts" / "Pretendard-Regular.woff2")
+KR_BOLD = str(ASSETS / "fonts" / "Pretendard-Bold.woff2")
+KR_HEAVY = str(ASSETS / "fonts" / "Pretendard-ExtraBold.woff2")
+UI = str(ASSETS / "fonts" / "Roboto-Medium.ttf")
+
 WIDTH, HEIGHT = 1280, 720
-SCENE_DURATION = 6.0
-VIDEO_END = 7.8
-CAPTION_START = 0.85
-CAPTION_END = 5.0
+FPS = 24
+MARGIN = 80
+
+# Amber is the "composed once" colour. Act one is deliberately colourless: the
+# accent is introduced at the turn and grows until the delivery scene.
+INK = "#0A0E12"
+SURFACE = "#141B22"
+CREAM = "#F2EFE9"
+MUTE = "#8A949C"
+ACCENT = "#E8A552"
+
+DISPLAY_SIZE = 66
+HEADLINE_SIZE = 46
+BODY_SIZE = 20
+LABEL_SIZE = 13
+DATA_SIZE = 22
+
+# Scene lengths carry the pacing: act one breathes, the proofs move, the payoff
+# is held the longest, and the close settles under the soundtrack fade.
+HOOK_DURATION = 7.0
+COST_DURATION = 6.1
+TURN_DURATION = 7.0
+FIT_DURATION = 6.0
+CUE_DURATION = 6.8
+TIME_DURATION = 6.7
+DELIVER_DURATION = 7.9
+RESOLVE_DURATION = 6.6
+CLOSE_DURATION = 5.9
+FILM_DURATION = 60.0
+GIF_PREVIEW_DURATION = 4.0
+
+# Real values, printed on screen by the scenes that set them. The speed readout
+# is derived from the trim it labels, so the two cannot drift apart.
+TIME_TRIM = (0.2, 5.0)
+TIME_SPEED = (TIME_TRIM[1] - TIME_TRIM[0]) / TIME_DURATION
 SOUNDTRACK_VOLUME = 0.16
 SOUNDTRACK_FADE_OUT = 1.4
-SOURCE_ENDS = {
-    "ordinary-city.mp4": 4.8,
-    "ordinary-coffee.mp4": 7.1,
-    "ordinary-sunrise.mp4": 7.2,
-}
-INK = "#101820"
-CREAM = "#F5F3ED"
-ACCENT = "#D0A464"
-PANEL_PADDING_X = 48
-PANEL_PADDING_TOP = 40
-EYEBROW_TO_HEADLINE = 54
-BOTTOM_RULE_OFFSET = 60
-BOTTOM_DETAIL_OFFSET = 38
-SIDE_RULE_OFFSET = 78
-SIDE_DETAIL_OFFSET = 48
-
-
-def _format_timestamp(seconds: float) -> str:
-    """Format a short media timestamp for the on-screen demo controls."""
-    minutes, remainder = divmod(seconds, 60)
-    return f"{int(minutes):02d}:{remainder:04.1f}"
-
-
-def _add_foreground_caption(canvas: Canvas, content: str) -> Canvas:
-    """Place a high-contrast caption above scene-wide shade layers."""
-    width = 300 if len(content) > 12 else 248
-    return canvas.shape(
-        shape="rectangle",
-        position=((WIDTH - width) // 2, 629),
-        width=width,
-        height=42,
-        color=INK,
-        opacity=0.9,
-    ).text(
-        content=content,
-        font=FONT_BOLD,
-        size=20,
-        color=CREAM,
-        position=(WIDTH // 2, 650),
-        align=("center", "middle"),
-        max_width=width - 28,
-        auto_scale=True,
-        min_size=16,
-    )
-
-
-def _caption_position(index: int) -> tuple[int, int]:
-    """Keep captions in scene-specific negative space, clear of later panels."""
-    if index == 2:
-        return WIDTH // 2, 104
-    if index == 3:
-        return WIDTH // 2, 390
-    if index == 4:
-        return 550, 650
-    return WIDTH // 2, 650
-
-
-# Each source appears once. The final proof scene is intentionally graphic so
-# the film changes visual grammar before the end card instead of looping footage.
-SCENES = (
-    (
-        "ordinary-city.mp4",
-        "01  /  THE INPUT",
-        "같은 장면을\n다시 만들고 있나요?",
-        "아이디어 하나를 포맷마다 다시 만드는 순간, 속도가 멈춥니다.",
-        "한 번 구성하면 됩니다.",
-    ),
-    (
-        "ordinary-notebook.mp4",
-        "02  /  TRIM",
-        "필요한 순간만\n남깁니다.",
-        "원본에서 메시지가 시작되는 순간까지 정확하게 자릅니다.",
-        "TRIM. FIT. PLACE.",
-    ),
-    (
-        "ordinary-coffee.mp4",
-        "03  /  FIT",
-        "가로에서\n세로까지.",
-        "cover, contain, placement. 프레임의 의도는 화면이 바뀌어도 남습니다.",
-        "한 장면. 세 화면.",
-    ),
-    (
-        "ordinary-phone.mp4",
-        "04  /  CAPTIONS",
-        "말은\n정확한 순간에.",
-        "자막도 타임라인의 일부입니다. 위치, 배경, 시작과 끝까지.",
-        "보이는 말은 타이밍입니다.",
-    ),
-    (
-        "ordinary-sunrise.mp4",
-        "05  /  TIMELINE",
-        "움직임과 소리를\n한 타임라인에.",
-        "속도, 볼륨, 전환, 페이드아웃이 하나의 시간축을 공유합니다.",
-        "화면과 소리, 함께.",
-    ),
-)
-
-
-def build_deck() -> Deck:
-    """Build the public short-form QuickThumb composition."""
-    transition_duration = 0.45
-    transitions = (
-        tr.Cut(advance_after=SCENE_DURATION),
-        tr.Fade(duration=transition_duration, advance_after=SCENE_DURATION - transition_duration),
-        tr.Wipe(
-            direction="left",
-            duration=transition_duration,
-            advance_after=SCENE_DURATION - transition_duration,
-        ),
-        tr.Cut(advance_after=SCENE_DURATION),
-        tr.Fade(duration=transition_duration, advance_after=SCENE_DURATION - transition_duration),
-        tr.Wipe(direction="up", duration=0.5, advance_after=3.4),
-        tr.Fade(duration=0.6, advance_after=3.4),
-    )
-    deck = Deck(WIDTH, HEIGHT)
-    for index, scene in enumerate(SCENES):
-        deck = deck.slide(build_scene(index, *scene), transition=transitions[index])
-    deck = deck.slide(build_output_scene(), transition=transitions[len(SCENES)])
-    deck = deck.slide(build_outro(), transition=transitions[-1])
-    return deck
-
-
-def build_output_scene() -> Canvas:
-    """Break the footage rhythm with a concise, animated delivery proof."""
-    canvas = (
-        Canvas(WIDTH, HEIGHT)
-        .background(color=INK)
-        .shape(shape="rectangle", position=(72, 82), width=8, height=556, color=ACCENT)
-        .text(
-            content="06  /  OUTPUT",
-            font=FONT_BOLD,
-            size=18,
-            color=ACCENT,
-            letter_spacing=1,
-            position=(120, 116),
-        )
-        .text(
-            content="한 번 만들고.\n세 곳에 보냅니다.",
-            font=FONT_BOLD,
-            size=62,
-            color=CREAM,
-            line_height=0.98,
-            position=(120, 188),
-            max_width=560,
-            auto_scale=True,
-            min_size=42,
-            animation=Wipe(direction="up", duration=0.45),
-        )
-        .text(
-            content="같은 구성에서 필요한 전달 포맷을 바로 출력합니다.",
-            font=FONT,
-            size=21,
-            color=CREAM,
-            position=(120, 410),
-            max_width=520,
-            auto_scale=True,
-            min_size=16,
-            animation=Wipe(direction="up", duration=0.4, trigger="after_previous"),
-        )
-    )
-    canvas.shape(
-        shape="rectangle",
-        position=(108, 468),
-        width=232,
-        height=136,
-        color="#1B2730",
-        opacity=0.95,
-    )
-    canvas.shape(
-        shape="rectangle",
-        position=(108, 468),
-        width=232,
-        height=4,
-        color=ACCENT,
-    )
-    canvas.text(
-        content="RENDER STATUS",
-        font=FONT_BOLD,
-        size=13,
-        color=ACCENT,
-        letter_spacing=1,
-        position=(124, 488),
-    )
-    canvas.counter(
-        1,
-        100,
-        2.2,
-        position=(124, 514),
-        size=96,
-        color=ACCENT,
-        style="odometer",
-    )
-    canvas.text(
-        content="READY TO DELIVER",
-        font=FONT_BOLD,
-        size=16,
-        color=CREAM,
-        letter_spacing=1,
-        position=(124, 622),
-    )
-    for index, (label, sublabel) in enumerate(
-        (("MP4", "MASTER"), ("WEBM", "WEB"), ("GIF", "PREVIEW"))
-    ):
-        x = 744 + index * 152
-        canvas = (
-            canvas.shape(
-                shape="rectangle",
-                position=(x, 176),
-                width=128,
-                height=250,
-                color="#25313A",
-                opacity=0.96,
-                animation=Wipe(direction="up", duration=0.38, trigger="after_previous"),
-            ).shape(shape="rectangle", position=(x, 176), width=128, height=8, color=ACCENT)
-            .text(
-                content=label,
-                font=FONT_BOLD,
-                size=28,
-                color=CREAM,
-                position=(x + 22, 234),
-            )
-            .text(
-                content=sublabel,
-                font=FONT_BOLD,
-                size=12,
-                color=ACCENT,
-                letter_spacing=1,
-                position=(x + 22, 362),
-            )
-        )
-    return canvas
-
-
-def build_outro() -> Canvas:
-    """Build a quiet two-second end card so the film lands instead of stopping."""
-    return (
-        Canvas(WIDTH, HEIGHT)
-        .background(color=INK)
-        .shape(
-            shape="rectangle",
-            position=(72, 132),
-            width=8,
-            height=456,
-            color=ACCENT,
-        )
-        .text(
-            content="QUICKTHUMB",
-            font=FONT_BOLD,
-            size=18,
-            color=ACCENT,
-            letter_spacing=1,
-            position=(120, 144),
-        )
-        .text(
-            content="한 번의 구성.\n모든 포맷.",
-            font=FONT_BOLD,
-            size=64,
-            color=CREAM,
-            line_height=0.98,
-            position=(120, 216),
-            max_width=720,
-            auto_scale=True,
-            min_size=42,
-        )
-        .text(
-            content="Trim. Fit. Place. Move.",
-            font=FONT,
-            size=22,
-            color=CREAM,
-            position=(120, 430),
-        )
-        .text(
-            content="MP4  /  WEBM  /  GIF",
-            font=FONT_BOLD,
-            size=18,
-            color=ACCENT,
-            letter_spacing=1,
-            position=(120, 548),
-        )
-        .shape(
-            shape="rectangle",
-            position=(792, 180),
-            width=400,
-            height=360,
-            color="#18232B",
-        )
-        .text(
-            content="START COMPOSING",
-            font=FONT_BOLD,
-            size=16,
-            color=ACCENT,
-            letter_spacing=1,
-            position=(840, 228),
-        )
-        .text(
-            content="uv add quickthumb",
-            font=FONT_BOLD,
-            size=30,
-            color=CREAM,
-            position=(840, 292),
-        )
-        .shape(
-            shape="rectangle",
-            position=(840, 354),
-            width=280,
-            height=2,
-            color=ACCENT,
-        )
-        .text(
-            content="github.com/sjquant/quickthumb",
-            font=FONT,
-            size=18,
-            color=CREAM,
-            position=(840, 396),
-            max_width=300,
-            auto_scale=True,
-            min_size=14,
-        )
-    )
-
-
-def build_scene(
-    index: int,
-    source_name: str,
-    eyebrow: str,
-    headline: str,
-    detail: str,
-    caption: str,
-) -> Canvas:
-    """Build one full-bleed advertising scene with varied overlay treatment."""
-    source = str(VIDEO_DIR / source_name)
-    trim_start = min(0.8, index * 0.11)
-    # Source clips have different durations; slow shorter shots down instead
-    # of asking the exporter to read beyond a validated media boundary.
-    trim_end = SOURCE_ENDS.get(source_name, VIDEO_END)
-    speed = min(1.0, (trim_end - trim_start) / SCENE_DURATION)
-    trim_status = f"TRIM {_format_timestamp(trim_start)} → {_format_timestamp(trim_end)}"
-    caption_status = f"CUE {_format_timestamp(CAPTION_START)} → {_format_timestamp(CAPTION_END)}"
-    foreground_caption = index == 0
-    caption_x, caption_y = _caption_position(index)
-    canvas = Canvas(WIDTH, HEIGHT).background(color=INK)
-    canvas.video(
-        source,
-        position=(0, 0),
-        width=WIDTH,
-        height=HEIGHT,
-        fit="cover",
-        trim_start=trim_start,
-        trim_end=trim_end,
-        duration=SCENE_DURATION,
-        speed=speed,
-        captions=[]
-        if foreground_caption
-        else [
-            {
-                "text": caption,
-                "start": CAPTION_START,
-                "end": CAPTION_END,
-                "font": FONT_BOLD,
-                "vertical_align": "optical-center",
-                # Bottom-panel scenes reserve the lower band for the overlay,
-                # so the cue sits just above it instead of being covered.
-                "position": (caption_x, caption_y),
-                "size": 20,
-                "color": CREAM,
-                "background": INK,
-                "background_opacity": 0.9,
-                "padding": (6, 14, 6, 14),
-                "border_radius": 2,
-            }
-        ],
-    )
-    if index == 0:
-        canvas = (
-            canvas.shape(
-                shape="rectangle",
-                position=(0, 0),
-                width=WIDTH,
-                height=HEIGHT,
-                color=INK,
-                opacity=0.55,
-            )
-            .shape(
-                shape="rectangle",
-                position=(72, 104),
-                width=8,
-                height=300,
-                color=ACCENT,
-                animation=Wipe(direction="down", duration=0.28),
-            )
-            .text(
-                content=eyebrow,
-                font=FONT_BOLD,
-                size=18,
-                color=ACCENT,
-                letter_spacing=1,
-                position=(120, 112),
-                animation=Wipe(direction="right", duration=0.25, trigger="after_previous"),
-            )
-            .text(
-                content=headline,
-                font=FONT_BOLD,
-                size=66,
-                color=CREAM,
-                line_height=0.98,
-                position=(120, 176),
-                max_width=620,
-                auto_scale=True,
-                min_size=42,
-                animation=Wipe(direction="up", duration=0.42, trigger="after_previous"),
-            )
-            .text(
-                content=detail,
-                font=FONT,
-                size=22,
-                color=CREAM,
-                position=(120, 360),
-                max_width=620,
-                auto_scale=True,
-                min_size=16,
-                animation=Wipe(direction="up", duration=0.32, trigger="after_previous"),
-            )
-            .text(
-                content="RAW  →  COMPOSE  →  DELIVER",
-                font=FONT_BOLD,
-                size=16,
-                color=ACCENT,
-                letter_spacing=1,
-                position=(120, 548),
-                animation=Wipe(direction="right", duration=0.28, trigger="after_previous"),
-            )
-        )
-    elif index == 1:
-        canvas = (
-            canvas.shape(
-                shape="rectangle",
-                position=(64, 88),
-                width=460,
-                height=544,
-                color=INK,
-                opacity=0.86,
-            )
-            .shape(
-                shape="rectangle",
-                position=(64, 88),
-                width=8,
-                height=544,
-                color=ACCENT,
-                animation=Wipe(direction="down", duration=0.4),
-            )
-            .text(
-                content=eyebrow,
-                font=FONT_BOLD,
-                size=16,
-                color=ACCENT,
-                letter_spacing=1,
-                position=(112, 128),
-                animation=Wipe(direction="right", duration=0.25, trigger="after_previous"),
-            )
-            .text(
-                content=headline,
-                font=FONT_BOLD,
-                size=54,
-                color=CREAM,
-                line_height=0.98,
-                position=(112, 190),
-                max_width=340,
-                auto_scale=True,
-                min_size=34,
-                animation=Wipe(direction="up", duration=0.45, trigger="after_previous"),
-            )
-            .shape(shape="rectangle", position=(112, 508), width=120, height=6, color=ACCENT)
-            .text(
-                content=detail,
-                font=FONT,
-                size=18,
-                color=CREAM,
-                line_height=1.2,
-                position=(112, 544),
-                max_width=340,
-                auto_scale=True,
-                min_size=14,
-                animation=Wipe(direction="up", duration=0.35, trigger="after_previous"),
-            )
-            .text(
-                content=trim_status,
-                font=FONT_BOLD,
-                size=14,
-                color=ACCENT,
-                position=(650, 584),
-            )
-        )
-    elif index == 2:
-        canvas = (
-            canvas.shape(
-                shape="rectangle",
-                position=(0, 432),
-                width=WIDTH,
-                height=288,
-                color=INK,
-                opacity=0.88,
-            )
-            .text(
-                content=eyebrow,
-                font=FONT_BOLD,
-                size=16,
-                color=ACCENT,
-                letter_spacing=1,
-                position=(64, 466),
-                animation=Wipe(direction="right", duration=0.24, trigger="after_previous"),
-            )
-            .text(
-                content=headline,
-                font=FONT_BOLD,
-                size=42,
-                color=CREAM,
-                line_height=0.98,
-                position=(64, 514),
-                max_width=390,
-                auto_scale=True,
-                min_size=28,
-                animation=Wipe(direction="up", duration=0.34, trigger="after_previous"),
-            )
-            .text(
-                content="COVER  /  CONTAIN  /  PLACE",
-                font=FONT_BOLD,
-                size=15,
-                color=ACCENT,
-                letter_spacing=1,
-                position=(64, 678),
-                animation=Wipe(direction="right", duration=0.24, trigger="after_previous"),
-            )
-        )
-        for x, label, marker_width, marker_height in (
-            (610, "16:9", 122, 69),
-            (810, "1:1", 96, 96),
-            (1010, "9:16", 54, 96),
-        ):
-            canvas = (
-                canvas.shape(
-                    shape="rectangle",
-                    position=(x, 474),
-                    width=150,
-                    height=174,
-                    color="#25313A",
-                    opacity=0.96,
-                    animation=Wipe(direction="up", duration=0.35, trigger="after_previous"),
-                )
-                .shape(
-                    shape="rectangle",
-                    position=(
-                        x + (150 - marker_width) // 2,
-                        488 + (96 - marker_height) // 2,
-                    ),
-                    width=marker_width,
-                    height=marker_height,
-                    color=ACCENT,
-                    opacity=0.9,
-                )
-                .text(
-                    content=label,
-                    font=FONT_BOLD,
-                    size=18,
-                    color=CREAM,
-                    position=(x + 16, 612),
-                )
-            )
-    elif index == 3:
-        canvas = (
-            canvas.shape(
-                shape="rectangle",
-                position=(56, 72),
-                width=560,
-                height=270,
-                color=INK,
-                opacity=0.82,
-            )
-            .text(
-                content=eyebrow,
-                font=FONT_BOLD,
-                size=16,
-                    color=ACCENT,
-                    letter_spacing=1,
-                    position=(96, 110),
-                    animation=Wipe(direction="right", duration=0.24, trigger="after_previous"),
-            )
-            .text(
-                content=headline,
-                font=FONT_BOLD,
-                size=54,
-                color=CREAM,
-                line_height=0.98,
-                position=(96, 164),
-                max_width=440,
-                auto_scale=True,
-                min_size=34,
-                animation=Wipe(direction="up", duration=0.38, trigger="after_previous"),
-            )
-            .shape(
-                shape="rectangle",
-                position=(0, 488),
-                width=WIDTH,
-                height=144,
-                color=INK,
-                opacity=0.92,
-            )
-            .text(
-                content="CAPTION TIMELINE",
-                font=FONT_BOLD,
-                size=15,
-                color=ACCENT,
-                letter_spacing=1,
-                position=(72, 516),
-            )
-            .shape(shape="rectangle", position=(72, 556), width=1000, height=4, color="#64727A")
-            .shape(shape="rectangle", position=(72, 556), width=420, height=4, color=ACCENT)
-            .shape(shape="rectangle", position=(492, 544), width=4, height=28, color=CREAM)
-            .text(
-                content=caption_status,
-                font=FONT_BOLD,
-                size=16,
-                color=CREAM,
-                position=(72, 588),
-                animation=Wipe(direction="right", duration=0.28, trigger="after_previous"),
-            )
-        )
-    elif index == 4:
-        canvas = (
-            canvas.shape(
-                shape="rectangle",
-                position=(720, 74),
-                width=488,
-                height=572,
-                color=INK,
-                opacity=0.88,
-            )
-            .shape(shape="rectangle", position=(1200, 74), width=8, height=572, color=ACCENT)
-            .text(
-                content=eyebrow,
-                font=FONT_BOLD,
-                size=16,
-                color=ACCENT,
-                letter_spacing=1,
-                position=(768, 116),
-            )
-            .text(
-                content=headline,
-                font=FONT_BOLD,
-                size=48,
-                color=CREAM,
-                line_height=0.98,
-                position=(768, 170),
-                max_width=380,
-                auto_scale=True,
-                min_size=32,
-                animation=Wipe(direction="up", duration=0.38, trigger="after_previous"),
-            )
-            .shape(shape="rectangle", position=(768, 384), width=320, height=4, color="#64727A")
-            .shape(shape="rectangle", position=(768, 384), width=232, height=4, color=ACCENT)
-            .text(
-                content="AUDIO TRACK",
-                font=FONT_BOLD,
-                size=15,
-                color=CREAM,
-                position=(768, 418),
-            )
-            .counter(
-                0,
-                speed,
-                0.9,
-                position=(768, 450),
-                size=30,
-                color=ACCENT,
-                suffix=" SPEED",
-                style="odometer",
-                animation=Wipe(direction="right", duration=0.3, trigger="after_previous"),
-            )
-            .text(
-                content=f"VOL {SOUNDTRACK_VOLUME:.0%}   FADE {SOUNDTRACK_FADE_OUT:.1f}s",
-                font=FONT_BOLD,
-                size=13,
-                color=CREAM,
-                letter_spacing=1,
-                position=(768, 492),
-            )
-            .text(
-                content=detail,
-                font=FONT,
-                size=18,
-                color=CREAM,
-                line_height=1.2,
-                position=(768, 532),
-                max_width=330,
-                auto_scale=True,
-                min_size=14,
-                animation=Wipe(direction="right", duration=0.3, trigger="after_previous"),
-            )
-        )
-    else:
-        canvas = (
-            canvas.shape(
-                shape="rectangle",
-                position=(0, 0),
-                width=WIDTH,
-                height=HEIGHT,
-                color=INK,
-                opacity=0.62,
-            )
-            .shape(shape="rectangle", position=(72, 118), width=8, height=430, color=ACCENT)
-            .text(
-                content=eyebrow,
-                font=FONT_BOLD,
-                size=18,
-                color=ACCENT,
-                letter_spacing=1,
-                position=(120, 128),
-            )
-            .text(
-                content=headline,
-                font=FONT_BOLD,
-                size=68,
-                color=CREAM,
-                line_height=0.98,
-                position=(120, 194),
-                max_width=720,
-                auto_scale=True,
-                min_size=44,
-            )
-            .text(
-                content=detail,
-                font=FONT,
-                size=22,
-                color=CREAM,
-                position=(120, 410),
-                max_width=720,
-                auto_scale=True,
-                min_size=16,
-            )
-            .text(
-                content="COMPOSE ONCE",
-                font=FONT_BOLD,
-                size=18,
-                color=ACCENT,
-                letter_spacing=1,
-                position=(120, 530),
-            )
-        )
-    if foreground_caption:
-        canvas = _add_foreground_caption(canvas, caption)
-    return canvas
+FIRST_CUE = (0.9, 3.3)
+SECOND_CUE = (3.5, 6.4)
 
 
 def main() -> None:
-    """Diagnose and export the finished composition."""
+    """Diagnose the film, then export every delivery format from one deck."""
     deck = build_deck()
-    findings = deck.diagnose()
-    errors = [finding for finding in findings if finding.severity == "error"]
+    errors = [finding for finding in deck.diagnose() if finding.severity == "error"]
     if errors:
         raise RuntimeError(f"ordinary_moments has diagnostics: {errors}")
 
@@ -801,13 +99,815 @@ def main() -> None:
         loop=True,
         fade_out=SOUNDTRACK_FADE_OUT,
     )
-    OUT_MP4.write_bytes(deck.to_animated_mp4(fps=24, soundtrack=soundtrack))
-    OUT_WEBM.write_bytes(deck.to_webm(fps=24, soundtrack=soundtrack))
-    # VideoLayer supplies the timeline; zero avoids adding a second settled hold.
-    OUT_GIF.write_bytes(build_scene(0, *SCENES[0]).to_gif(fps=10, hold=0))
+    OUT_MP4.write_bytes(deck.to_animated_mp4(fps=FPS, soundtrack=soundtrack))
+    OUT_WEBM.write_bytes(deck.to_webm(fps=FPS, soundtrack=soundtrack))
+    # The payoff scene carries its own timeline, so the preview needs no settled
+    # hold — just a shorter cut of the same composition.
+    OUT_GIF.write_bytes(build_deliver_scene(duration=GIF_PREVIEW_DURATION).to_gif(fps=10, hold=0))
     print(f"Wrote {OUT_MP4}")
     print(f"Wrote {OUT_WEBM}")
     print(f"Wrote {OUT_GIF}")
+
+
+def build_deck() -> Deck:
+    """Assemble the nine scenes into one 60-second timeline."""
+    # A transition holds its slide for ``advance_after`` and then plays for
+    # ``duration``, so each pair below is one scene's full screen time. The cut
+    # into the turn and the wipe into the payoff are the film's two gear changes.
+    plan = (
+        (build_hook_scene(), tr.Fade(duration=0.4, advance_after=HOOK_DURATION - 0.4)),
+        (build_cost_scene(), tr.Cut(advance_after=COST_DURATION)),
+        (
+            build_turn_scene(),
+            tr.Wipe(direction="left", duration=0.5, advance_after=TURN_DURATION - 0.5),
+        ),
+        (build_fit_scene(), tr.Cut(advance_after=FIT_DURATION)),
+        (build_cue_scene(), tr.Fade(duration=0.4, advance_after=CUE_DURATION - 0.4)),
+        (
+            build_time_scene(),
+            tr.Wipe(direction="up", duration=0.5, advance_after=TIME_DURATION - 0.5),
+        ),
+        (build_deliver_scene(), tr.Fade(duration=0.5, advance_after=DELIVER_DURATION - 0.5)),
+        (build_resolve_scene(), tr.Fade(duration=0.6, advance_after=RESOLVE_DURATION - 0.6)),
+        (build_close_scene(), tr.Fade(duration=0.6, advance_after=CLOSE_DURATION - 0.6)),
+    )
+    deck = Deck(WIDTH, HEIGHT)
+    for canvas, transition in plan:
+        deck = deck.slide(canvas, transition=transition)
+    return deck
+
+
+def build_hook_scene() -> Canvas:
+    """Open on the question the whole film answers, over an unhurried city."""
+    canvas = _full_bleed(Canvas(WIDTH, HEIGHT), "ordinary-city.mp4", HOOK_DURATION, 0.0, 5.0)
+    _scrim(canvas, edge="bottom", boundary=410, fade=230, peak=0.8)
+    return (
+        canvas.text(
+            content="같은 영상을\n몇 번이나 다시 만드나요?",
+            font=KR_HEAVY,
+            size=DISPLAY_SIZE,
+            color=CREAM,
+            line_height=1.1,
+            position=(MARGIN, 434),
+            max_width=WIDTH - MARGIN * 2,
+            auto_scale=True,
+            min_size=48,
+            effects=[Shadow(offset_x=0, offset_y=2, color="#000000", blur_radius=28)],
+            animation=Wipe(direction="up", duration=0.7),
+        )
+        .shape(
+            shape="rectangle",
+            position=(MARGIN, 606),
+            width=104,
+            height=3,
+            color=MUTE,
+            animation=Wipe(direction="right", duration=0.4, trigger="after_previous", delay=0.5),
+        )
+        .text(
+            content="가로 하나. 세로 하나. 미리보기 하나.",
+            font=KR,
+            size=BODY_SIZE,
+            color=CREAM,
+            opacity=0.82,
+            position=(MARGIN, 634),
+            animation=Fade(duration=0.5, trigger="after_previous"),
+        )
+    )
+
+
+def build_cost_scene() -> Canvas:
+    """Name the cost: one idea, remade three times, counted on screen."""
+    canvas = _full_bleed(Canvas(WIDTH, HEIGHT), "ordinary-notebook.mp4", COST_DURATION, 0.5, 6.6)
+    column_x = 624
+    text_x = column_x + 64
+    return (
+        canvas.shape(
+            shape="rectangle",
+            position=(column_x, 0),
+            width=WIDTH - column_x,
+            height=HEIGHT,
+            color=INK,
+            opacity=0.88,
+        )
+        .shape(shape="rectangle", position=(column_x, 0), width=2, height=HEIGHT, color=MUTE)
+        .text(
+            content="가로로 한 번.",
+            font=KR_BOLD,
+            size=38,
+            color=CREAM,
+            position=(text_x, 152),
+            max_width=WIDTH - text_x - MARGIN,
+            auto_scale=True,
+            min_size=28,
+            animation=Wipe(direction="up", duration=0.4),
+        )
+        # One line per remake, each arriving on its own beat: the repetition is
+        # the argument, so the sequence has to carry it.
+        .text(
+            content="세로로 한 번.",
+            font=KR_BOLD,
+            size=38,
+            color=CREAM,
+            position=(text_x, 209),
+            max_width=WIDTH - text_x - MARGIN,
+            auto_scale=True,
+            min_size=28,
+            animation=Wipe(direction="up", duration=0.4, trigger="after_previous"),
+        )
+        .text(
+            content="미리보기로 또 한 번.",
+            font=KR_BOLD,
+            size=38,
+            color=CREAM,
+            position=(text_x, 266),
+            max_width=WIDTH - text_x - MARGIN,
+            auto_scale=True,
+            min_size=28,
+            animation=Wipe(direction="up", duration=0.4, trigger="after_previous"),
+        )
+        .counter(
+            1,
+            3,
+            1.2,
+            delay=0.7,
+            position=(text_x, 404),
+            size=104,
+            color=MUTE,
+            suffix="배",
+            font=KR_HEAVY,
+            style="odometer",
+        )
+        .text(
+            content="아이디어는 하나인데,\n시간은 세 배로 듭니다.",
+            font=KR,
+            size=BODY_SIZE,
+            color=MUTE,
+            line_height=1.5,
+            position=(text_x, 556),
+            max_width=WIDTH - text_x - MARGIN,
+            auto_scale=True,
+            min_size=16,
+            animation=Fade(duration=0.5, trigger="after_previous", delay=0.3),
+        )
+    )
+
+
+def build_turn_scene() -> Canvas:
+    """The pivot: one sentence, the brand, and the first amber on screen."""
+    canvas = _full_bleed(Canvas(WIDTH, HEIGHT), "ordinary-coffee.mp4", TURN_DURATION, 0.25, 7.25)
+    canvas.shape(
+        shape="rectangle", position=(0, 0), width=WIDTH, height=HEIGHT, color=INK, opacity=0.28
+    )
+    _scrim(canvas, edge="bottom", boundary=400, fade=220, peak=0.82)
+    return (
+        canvas.text(
+            content="QUICKTHUMB",
+            font=UI,
+            size=14,
+            color=ACCENT,
+            letter_spacing=4,
+            position=(MARGIN, 424),
+            animation=Fade(duration=0.5),
+        )
+        # The rule sweeps the frame once, left to right, before the line lands.
+        .shape(
+            shape="rectangle",
+            position=(MARGIN, 464),
+            width=WIDTH - MARGIN * 2,
+            height=3,
+            color=ACCENT,
+            animation=Wipe(direction="right", duration=0.75, trigger="after_previous"),
+        )
+        .text(
+            content="구성은 한 번이면 됩니다.",
+            font=KR_HEAVY,
+            size=DISPLAY_SIZE,
+            color=CREAM,
+            position=(MARGIN, 502),
+            max_width=WIDTH - MARGIN * 2,
+            auto_scale=True,
+            min_size=48,
+            effects=[Shadow(offset_x=0, offset_y=2, color="#000000", blur_radius=28)],
+            animation=Wipe(direction="up", duration=0.6, trigger="after_previous"),
+        )
+        .text(
+            content="화면도, 자막도, 소리도 같은 타임라인 위에 남습니다.",
+            font=KR,
+            size=BODY_SIZE,
+            color=CREAM,
+            opacity=0.86,
+            position=(MARGIN, 612),
+            max_width=760,
+            auto_scale=True,
+            min_size=16,
+            animation=Fade(duration=0.5, trigger="after_previous", delay=0.2),
+        )
+    )
+
+
+def build_fit_scene() -> Canvas:
+    """Proof one: the same second of footage, live in three frame shapes."""
+    canvas = Canvas(WIDTH, HEIGHT).background(color=INK)
+    canvas = _copy_block(
+        canvas,
+        label="FIT & PLACE",
+        headline="화면이 달라져도\n의도는 그대로.",
+        body="한 소스의 같은 구간을 세 화면이 그대로 나눠 씁니다. 자르는 방식만 화면을 따릅니다.",
+        top=88,
+        width=560,
+    )
+    # The readout names the single clip and window every frame below is cut
+    # from, so "same moment" is stated as fact rather than asserted in copy.
+    source_name, trim_start, trim_end = "ordinary-phone.mp4", 1.0, 7.0
+    canvas.text(
+        content="ONE SOURCE",
+        font=UI,
+        size=LABEL_SIZE,
+        color=MUTE,
+        letter_spacing=2,
+        position=(WIDTH - MARGIN, 88),
+        align=("right", "top"),
+    )
+    canvas.text(
+        content=source_name,
+        font=UI,
+        size=18,
+        color=CREAM,
+        position=(WIDTH - MARGIN, 114),
+        align=("right", "top"),
+    )
+    canvas.text(
+        content=f"TRIM {_timestamp(trim_start)} – {_timestamp(trim_end)}",
+        font=UI,
+        size=14,
+        color=MUTE,
+        letter_spacing=1,
+        position=(WIDTH - MARGIN, 146),
+        align=("right", "top"),
+    )
+    # Three live crops of one source, sharing a baseline so only the frame
+    # shape — never the moment inside it — changes across the row.
+    frame_top, frame_height, gap = 348, 232, 172
+    x = MARGIN
+    for label, frame_width in (("16:9", 412), ("1:1", 232), ("9:16", 131)):
+        canvas.shape(
+            shape="rectangle",
+            position=(x, frame_top - 16),
+            width=frame_width,
+            height=3,
+            color=ACCENT,
+            animation=Wipe(direction="right", duration=0.4, trigger="after_previous"),
+        )
+        _clip(
+            canvas,
+            source_name,
+            FIT_DURATION,
+            trim_start,
+            trim_end,
+            (x, frame_top),
+            frame_width,
+            frame_height,
+        )
+        canvas.text(
+            content=label,
+            font=UI,
+            size=16,
+            color=CREAM,
+            letter_spacing=1,
+            position=(x, frame_top + frame_height + 22),
+        )
+        canvas.text(
+            content="cover",
+            font=UI,
+            size=LABEL_SIZE,
+            color=MUTE,
+            letter_spacing=2,
+            position=(x, frame_top + frame_height + 48),
+        )
+        x += frame_width + gap
+    return canvas
+
+
+def build_cue_scene() -> Canvas:
+    """Proof two: two captions that prove their own cue times as they play."""
+    canvas = _full_bleed(
+        Canvas(WIDTH, HEIGHT),
+        "ordinary-notebook.mp4",
+        CUE_DURATION,
+        1.2,
+        8.0,
+        captions=[
+            _caption("말은 정확한 순간에 나타나고", *FIRST_CUE),
+            _caption("정확한 순간에 사라집니다.", *SECOND_CUE),
+        ],
+    )
+    _scrim(canvas, edge="top", boundary=250, fade=180, peak=0.85)
+    canvas.text(
+        content="자막도 타임라인입니다.",
+        font=KR_HEAVY,
+        size=HEADLINE_SIZE,
+        color=CREAM,
+        position=(MARGIN, 88),
+        max_width=640,
+        auto_scale=True,
+        min_size=32,
+        animation=Wipe(direction="up", duration=0.55),
+    )
+    # The strip is the scene's clock. Each block is drawn across at exactly its
+    # own cue window, so the bar fills while its caption is on screen and stops
+    # the moment the caption leaves.
+    track_x, track_y, track_width = MARGIN, 186, 620
+    canvas.shape(
+        shape="rectangle",
+        position=(track_x, track_y),
+        width=track_width,
+        height=2,
+        color=CREAM,
+        opacity=0.45,
+    )
+    for index, (start, end) in enumerate((FIRST_CUE, SECOND_CUE)):
+        block_x = track_x + round(track_width * start / CUE_DURATION)
+        block_width = round(track_width * (end - start) / CUE_DURATION)
+        canvas.shape(
+            shape="rectangle",
+            position=(block_x, track_y - 6),
+            width=block_width,
+            height=14,
+            color=ACCENT,
+            opacity=0.22,
+        )
+        canvas.shape(
+            shape="rectangle",
+            position=(block_x, track_y - 6),
+            width=block_width,
+            height=14,
+            color=ACCENT,
+            animation=Wipe(
+                direction="right",
+                duration=end - start,
+                delay=start,
+                trigger="with_previous",
+            ),
+        )
+        canvas.text(
+            content=f"CUE {index + 1}   {_timestamp(start)} – {_timestamp(end)}",
+            font=UI,
+            size=14,
+            color=CREAM,
+            opacity=0.75,
+            letter_spacing=1,
+            position=(block_x, track_y + 26),
+        )
+    return canvas
+
+
+def build_time_scene() -> Canvas:
+    """Proof three: speed, volume, and fade are three dials on one timeline."""
+    canvas = _full_bleed(Canvas(WIDTH, HEIGHT), "ordinary-city.mp4", TIME_DURATION, *TIME_TRIM)
+    _scrim(canvas, edge="bottom", boundary=420, fade=210, peak=0.8)
+    panel_x, panel_y, panel_width = 744, 104, 456
+    canvas.shape(
+        shape="rectangle",
+        position=(panel_x, panel_y),
+        width=panel_width,
+        height=214,
+        color=INK,
+        opacity=0.62,
+        # A frosted panel keeps the reading over live footage instead of hiding
+        # it. Backdrop-dependent layers are rasterised with everything beneath
+        # them, so this one stays unanimated and the readouts above it move.
+        effects=[BackdropBlur(radius=16)],
+    )
+    canvas.shape(
+        shape="rectangle", position=(panel_x, panel_y), width=panel_width, height=3, color=ACCENT
+    )
+    for index, (label, value) in enumerate(
+        (
+            ("SPEED", f"{TIME_SPEED:.2f}×"),
+            ("VOLUME", f"{SOUNDTRACK_VOLUME:.0%}"),
+            ("FADE OUT", f"{SOUNDTRACK_FADE_OUT:.1f}s"),
+        )
+    ):
+        row_y = panel_y + 46 + index * 54
+        canvas.text(
+            content=label,
+            font=UI,
+            size=14,
+            color=CREAM,
+            opacity=0.7,
+            letter_spacing=2,
+            position=(panel_x + 32, row_y + 7),
+        )
+        canvas.text(
+            content=value,
+            font=UI,
+            size=DATA_SIZE,
+            color=CREAM if index else ACCENT,
+            position=(panel_x + panel_width - 32, row_y),
+            align=("right", "top"),
+        )
+    # The scene's own progress bar, riding the bottom edge of the frame and
+    # taking exactly as long to fill as the scene takes to play. It anchors the
+    # timeline, so the headline runs alongside it rather than after it.
+    canvas.shape(
+        shape="rectangle", position=(0, 710), width=WIDTH, height=2, color=MUTE, opacity=0.5
+    )
+    canvas.shape(
+        shape="rectangle",
+        position=(0, 708),
+        width=WIDTH,
+        height=6,
+        color=ACCENT,
+        animation=Wipe(direction="right", duration=TIME_DURATION),
+    )
+    return canvas.text(
+        content="속도도 소리도\n같은 타임라인 위에.",
+        font=KR_HEAVY,
+        size=HEADLINE_SIZE + 6,
+        color=CREAM,
+        line_height=1.12,
+        position=(MARGIN, 452),
+        max_width=620,
+        auto_scale=True,
+        min_size=34,
+        effects=[Shadow(offset_x=0, offset_y=2, color="#000000", blur_radius=24)],
+        animation=Wipe(direction="up", duration=0.6, trigger="with_previous", delay=0.15),
+    )
+
+
+def build_deliver_scene(duration: float = DELIVER_DURATION) -> Canvas:
+    """The payoff: one composition leaves as three files, counted to 100%.
+
+    ``duration`` is shortened for the standalone GIF preview, which needs the
+    same composition in fewer frames than the film gives it.
+    """
+    canvas = Canvas(WIDTH, HEIGHT).background(color=INK)
+    canvas = _copy_block(
+        canvas,
+        label="OUTPUT",
+        headline="한 번의 구성에서\n세 개의 파일.",
+        body="같은 타임라인이 MP4, WebM, GIF로 그대로 나갑니다.",
+        top=110,
+        width=470,
+    )
+    canvas.text(
+        content="RENDER",
+        font=UI,
+        size=LABEL_SIZE,
+        color=MUTE,
+        letter_spacing=2,
+        position=(MARGIN, 402),
+    )
+    canvas.counter(
+        0,
+        100,
+        1.8,
+        delay=0.6,
+        position=(MARGIN, 428),
+        size=88,
+        color=ACCENT,
+        suffix="%",
+        font=UI,
+        style="odometer",
+    )
+    canvas.text(
+        content="RUN 01 = RUN 02",
+        font=UI,
+        size=LABEL_SIZE,
+        color=INK,
+        letter_spacing=2,
+        position=(MARGIN, 556),
+        effects=[Background(color=ACCENT, padding=(14, 9), border_radius=2)],
+        animation=Fade(duration=0.4, trigger="after_previous", delay=0.4),
+    )
+    canvas.text(
+        content="같은 구성은 언제나 같은 결과를 냅니다.",
+        font=KR,
+        size=BODY_SIZE - 2,
+        color=MUTE,
+        position=(MARGIN, 606),
+        max_width=470,
+        auto_scale=True,
+        min_size=14,
+        animation=Fade(duration=0.4, trigger="after_previous"),
+    )
+    frame_x, frame_y, frame_width, frame_height = 640, 108, 560, 315
+    canvas.shape(
+        shape="rectangle",
+        position=(frame_x, frame_y - 14),
+        width=frame_width,
+        height=3,
+        color=ACCENT,
+    )
+    _clip(
+        canvas,
+        "ordinary-coffee.mp4",
+        duration,
+        0.0,
+        7.25,
+        (frame_x, frame_y),
+        frame_width,
+        frame_height,
+    )
+    card_width, card_gap = 170, 25
+    for index, (name, role) in enumerate((("MP4", "MASTER"), ("WEBM", "WEB"), ("GIF", "PREVIEW"))):
+        card_x = frame_x + index * (card_width + card_gap)
+        canvas.shape(
+            shape="rectangle",
+            position=(card_x, 466),
+            width=card_width,
+            height=96,
+            color=SURFACE,
+            animation=Wipe(
+                direction="up",
+                duration=0.4,
+                delay=0.16 * index,
+                trigger="with_previous" if index else "after_previous",
+            ),
+        )
+        canvas.text(content=name, font=UI, size=26, color=CREAM, position=(card_x + 22, 492))
+        canvas.text(
+            content=role,
+            font=UI,
+            size=11,
+            color=ACCENT,
+            letter_spacing=2,
+            position=(card_x + 22, 528),
+        )
+    return canvas.text(
+        content=f"1280 × 720   ·   {FPS} FPS   ·   {FILM_DURATION:.0f} SEC",
+        font=UI,
+        size=LABEL_SIZE,
+        color=MUTE,
+        letter_spacing=2,
+        position=(frame_x, 600),
+    )
+
+
+def build_resolve_scene() -> Canvas:
+    """Land the argument on the film's last piece of footage."""
+    canvas = _full_bleed(Canvas(WIDTH, HEIGHT), "ordinary-sunrise.mp4", RESOLVE_DURATION, 0.7, 7.3)
+    _scrim(canvas, edge="bottom", boundary=396, fade=220, peak=0.78)
+    return (
+        canvas.shape(
+            shape="rectangle",
+            position=(MARGIN, 424),
+            width=96,
+            height=3,
+            color=ACCENT,
+            animation=Wipe(direction="right", duration=0.45),
+        )
+        .text(
+            content="다시 만들지 마세요.",
+            font=KR_HEAVY,
+            size=DISPLAY_SIZE,
+            color=CREAM,
+            position=(MARGIN, 462),
+            max_width=WIDTH - MARGIN * 2,
+            auto_scale=True,
+            min_size=46,
+            effects=[Shadow(offset_x=0, offset_y=2, color="#000000", blur_radius=28)],
+            animation=Wipe(direction="up", duration=0.65, trigger="after_previous"),
+        )
+        .text(
+            content="한 번 구성하세요.",
+            font=KR_HEAVY,
+            size=DISPLAY_SIZE,
+            color=CREAM,
+            position=(MARGIN, 535),
+            max_width=WIDTH - MARGIN * 2,
+            auto_scale=True,
+            min_size=46,
+            effects=[Shadow(offset_x=0, offset_y=2, color="#000000", blur_radius=28)],
+            animation=Wipe(direction="up", duration=0.65, trigger="after_previous"),
+        )
+    )
+
+
+def build_close_scene() -> Canvas:
+    """Close on the one centred card in the film, so the ending reads as an end."""
+    centre = WIDTH // 2
+    return (
+        Canvas(WIDTH, HEIGHT)
+        .background(color=INK)
+        .shape(
+            shape="rectangle",
+            position=(centre - 24, 176),
+            width=48,
+            height=3,
+            color=ACCENT,
+            animation=Fade(duration=0.4),
+        )
+        .text(
+            content="QUICKTHUMB",
+            font=KR_HEAVY,
+            size=44,
+            color=CREAM,
+            letter_spacing=8,
+            position=(centre, 230),
+            align=("center", "top"),
+            animation=Wipe(direction="up", duration=0.55, trigger="after_previous"),
+        )
+        .text(
+            content="한 번의 구성, 모든 포맷.",
+            font=KR,
+            size=24,
+            color=MUTE,
+            position=(centre, 302),
+            align=("center", "top"),
+            animation=Fade(duration=0.5, trigger="after_previous"),
+        )
+        .text(
+            content="uv add quickthumb",
+            font=UI,
+            size=26,
+            color=INK,
+            position=(centre, 396),
+            align=("center", "top"),
+            effects=[Background(color=ACCENT, padding=(26, 16), border_radius=3)],
+            animation=Wipe(direction="up", duration=0.5, trigger="after_previous"),
+        )
+        .text(
+            content="github.com/sjquant/quickthumb",
+            font=UI,
+            size=17,
+            color=MUTE,
+            position=(centre, 494),
+            align=("center", "top"),
+            animation=Fade(duration=0.5, trigger="after_previous"),
+        )
+        .text(
+            content="MP4   ·   WEBM   ·   GIF",
+            font=UI,
+            size=LABEL_SIZE,
+            color=MUTE,
+            letter_spacing=3,
+            position=(centre, 562),
+            align=("center", "top"),
+            animation=Fade(duration=0.5, trigger="after_previous"),
+        )
+    )
+
+
+def _copy_block(
+    canvas: Canvas,
+    *,
+    label: str,
+    headline: str,
+    body: str,
+    top: int,
+    width: int,
+) -> Canvas:
+    """Set the shared label → headline → body stack used by the graphic scenes."""
+    headline_height = round(len(headline.split("\n")) * HEADLINE_SIZE * 1.14)
+    return (
+        canvas.text(
+            content=label,
+            font=UI,
+            size=LABEL_SIZE,
+            color=ACCENT,
+            letter_spacing=2,
+            position=(MARGIN, top),
+            animation=Fade(duration=0.4),
+        )
+        .text(
+            content=headline,
+            font=KR_HEAVY,
+            size=HEADLINE_SIZE,
+            color=CREAM,
+            line_height=1.14,
+            position=(MARGIN, top + 34),
+            max_width=width,
+            auto_scale=True,
+            min_size=32,
+            animation=Wipe(direction="up", duration=0.5, trigger="after_previous"),
+        )
+        .text(
+            content=body,
+            font=KR,
+            size=BODY_SIZE,
+            color=MUTE,
+            line_height=1.5,
+            position=(MARGIN, top + 34 + headline_height + 30),
+            max_width=width,
+            auto_scale=True,
+            min_size=16,
+            animation=Fade(duration=0.5, trigger="after_previous"),
+        )
+    )
+
+
+def _full_bleed(
+    canvas: Canvas,
+    source_name: str,
+    duration: float,
+    trim_start: float,
+    trim_end: float,
+    captions: list[dict] | None = None,
+) -> Canvas:
+    """Fill the frame with one clip stretched to the scene's exact length."""
+    return _clip(
+        canvas,
+        source_name,
+        duration,
+        trim_start,
+        trim_end,
+        (0, 0),
+        WIDTH,
+        HEIGHT,
+        captions=captions,
+    )
+
+
+def _clip(
+    canvas: Canvas,
+    source_name: str,
+    duration: float,
+    trim_start: float,
+    trim_end: float,
+    position: tuple[int, int],
+    width: int,
+    height: int,
+    captions: list[dict] | None = None,
+) -> Canvas:
+    """Place one clip, slowing shorter footage instead of reading past its end."""
+    # Sources run 5.0s to 8.0s, so a scene longer than its clip plays slower
+    # rather than asking the exporter for frames the media does not have.
+    speed = min(1.0, (trim_end - trim_start) / duration)
+    return canvas.video(
+        str(VIDEO_DIR / source_name),
+        position=position,
+        width=width,
+        height=height,
+        fit="cover",
+        trim_start=trim_start,
+        trim_end=trim_end,
+        duration=duration,
+        speed=speed,
+        captions=captions or [],
+    )
+
+
+def _caption(text: str, start: float, end: float) -> dict:
+    """Style one caption cue; every cue in the film shares this treatment."""
+    return {
+        "text": text,
+        "start": start,
+        "end": end,
+        "font": KR_BOLD,
+        "vertical_align": "optical-center",
+        "position": (WIDTH // 2, 636),
+        "size": 24,
+        "color": CREAM,
+        "background": INK,
+        "background_opacity": 0.9,
+        "padding": (20, 12),
+        "border_radius": 2,
+    }
+
+
+def _scrim(canvas: Canvas, *, edge: str, boundary: int, fade: int, peak: float) -> Canvas:
+    """Hold ink solid behind the copy, then fall off smoothly into the shot.
+
+    The falloff is stacked 2px bands: fine enough that the stepped alpha stays
+    under the threshold where it would show as stripes on sky or paper, and
+    eased at both ends so neither edge of the ramp leaves a seam.
+    """
+    solid_top, solid_height = (0, boundary) if edge == "top" else (boundary, HEIGHT - boundary)
+    canvas.shape(
+        shape="rectangle",
+        position=(0, solid_top),
+        width=WIDTH,
+        height=solid_height,
+        color=INK,
+        opacity=peak,
+    )
+    bands = max(8, fade // 2)
+    step = fade / bands if edge == "top" else -fade / bands
+    for index in range(bands):
+        # Neighbouring bands share a rounded edge so the ramp tiles exactly; a
+        # single pixel of gap or overlap anywhere in it reads as a stripe.
+        near = round(boundary + step * index)
+        far = round(boundary + step * (index + 1))
+        start, height = (near, far - near) if edge == "top" else (far, near - far)
+        if height <= 0:
+            continue
+        progress = 1 - (index + 0.5) / bands
+        canvas.shape(
+            shape="rectangle",
+            position=(0, start),
+            width=WIDTH,
+            height=height,
+            color=INK,
+            opacity=round(peak * progress * progress * (3 - 2 * progress), 4),
+        )
+    return canvas
+
+
+def _timestamp(seconds: float) -> str:
+    """Format one cue time the way the caption timeline prints it."""
+    minutes, remainder = divmod(seconds, 60)
+    return f"{int(minutes):02d}:{remainder:04.1f}"
 
 
 if __name__ == "__main__":
