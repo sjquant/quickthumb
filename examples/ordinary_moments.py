@@ -1,6 +1,6 @@
 """QuickThumb in motion: one composition, every delivery.
 
-This 45-second landscape product film turns one ordinary moment into a complete
+This short landscape product film turns one ordinary moment into a complete
 delivery system. Each scene demonstrates one composition decision, then the
 same deterministic timeline branches into MP4, WebM, and GIF.
 
@@ -29,10 +29,10 @@ OUT_WEBM = OUT_DIR / "ordinary_moments.webm"
 OUT_GIF = OUT_DIR / "ordinary_moments_preview.gif"
 
 WIDTH, HEIGHT = 1280, 720
-SCENE_DURATION = 6.2
+SCENE_DURATION = 4.8
 VIDEO_END = 7.8
-CAPTION_START = 1.0
-CAPTION_END = 5.35
+CAPTION_START = 0.65
+CAPTION_END = 3.9
 SOUNDTRACK_VOLUME = 0.16
 SOUNDTRACK_FADE_OUT = 1.4
 SOURCE_ENDS = {
@@ -98,37 +98,37 @@ SCENES = (
     (
         "ordinary-city.mp4",
         "01  /  THE INPUT",
-        "하나의 장면에서\n시작합니다.",
-        "좋은 아이디어는 포맷마다 다시 만들 필요가 없습니다.",
-        "아이디어를 움직이세요.",
+        "같은 장면을\n다시 만들고 있나요?",
+        "아이디어 하나를 포맷마다 다시 만드는 순간, 속도가 멈춥니다.",
+        "한 번 구성하면 됩니다.",
     ),
     (
         "ordinary-notebook.mp4",
         "02  /  TRIM",
         "필요한 순간만\n남깁니다.",
         "원본에서 메시지가 시작되는 순간까지 정확하게 자릅니다.",
-        "자르고. 맞추고. 배치합니다.",
+        "TRIM. FIT. PLACE.",
     ),
     (
         "ordinary-coffee.mp4",
         "03  /  FIT",
-        "같은 장면을\n모든 화면에.",
-        "cover, contain, placement. 프레임은 의도대로 남습니다.",
-        "모든 포맷에 같은 의도.",
+        "가로에서\n세로까지.",
+        "cover, contain, placement. 프레임의 의도는 화면이 바뀌어도 남습니다.",
+        "한 장면. 세 화면.",
     ),
     (
         "ordinary-phone.mp4",
         "04  /  CAPTIONS",
         "말은\n정확한 순간에.",
         "자막도 타임라인의 일부입니다. 위치, 배경, 시작과 끝까지.",
-        "자막은 타이밍입니다.",
+        "보이는 말은 타이밍입니다.",
     ),
     (
         "ordinary-sunrise.mp4",
         "05  /  TIMELINE",
-        "움직임과 소리를\n함께 맞춥니다.",
+        "움직임과 소리를\n한 타임라인에.",
         "속도, 볼륨, 전환, 페이드아웃이 하나의 시간축을 공유합니다.",
-        "화면과 소리, 오차 없이.",
+        "화면과 소리, 함께.",
     ),
 )
 
@@ -146,8 +146,8 @@ def build_deck() -> Deck:
         ),
         tr.Cut(advance_after=SCENE_DURATION),
         tr.Fade(duration=transition_duration, advance_after=SCENE_DURATION - transition_duration),
-        tr.Wipe(direction="up", duration=0.42, advance_after=2.8),
-        tr.Fade(duration=0.5, advance_after=2.8),
+        tr.Wipe(direction="up", duration=0.42, advance_after=2.6),
+        tr.Fade(duration=0.5, advance_after=2.6),
     )
     deck = Deck(WIDTH, HEIGHT)
     for index, scene in enumerate(SCENES):
@@ -381,7 +381,14 @@ def build_scene(
                 color=INK,
                 opacity=0.55,
             )
-            .shape(shape="rectangle", position=(72, 104), width=8, height=300, color=ACCENT)
+            .shape(
+                shape="rectangle",
+                position=(72, 104),
+                width=8,
+                height=300,
+                color=ACCENT,
+                animation=Wipe(direction="down", duration=0.28),
+            )
             .text(
                 content=eyebrow,
                 font=FONT_BOLD,
@@ -389,6 +396,7 @@ def build_scene(
                 color=ACCENT,
                 letter_spacing=1,
                 position=(120, 112),
+                animation=Wipe(direction="right", duration=0.25, trigger="after_previous"),
             )
             .text(
                 content=headline,
@@ -400,6 +408,7 @@ def build_scene(
                 max_width=620,
                 auto_scale=True,
                 min_size=42,
+                animation=Wipe(direction="up", duration=0.42, trigger="after_previous"),
             )
             .text(
                 content=detail,
@@ -410,6 +419,7 @@ def build_scene(
                 max_width=620,
                 auto_scale=True,
                 min_size=16,
+                animation=Wipe(direction="up", duration=0.32, trigger="after_previous"),
             )
             .text(
                 content="RAW  →  COMPOSE  →  DELIVER",
@@ -418,6 +428,7 @@ def build_scene(
                 color=ACCENT,
                 letter_spacing=1,
                 position=(120, 548),
+                animation=Wipe(direction="right", duration=0.28, trigger="after_previous"),
             )
         )
     elif index == 1:
@@ -445,6 +456,7 @@ def build_scene(
                 color=ACCENT,
                 letter_spacing=1,
                 position=(112, 128),
+                animation=Wipe(direction="right", duration=0.25, trigger="after_previous"),
             )
             .text(
                 content=headline,
@@ -469,6 +481,7 @@ def build_scene(
                 max_width=340,
                 auto_scale=True,
                 min_size=14,
+                animation=Wipe(direction="up", duration=0.35, trigger="after_previous"),
             )
             .text(
                 content=trim_status,
@@ -495,6 +508,7 @@ def build_scene(
                 color=ACCENT,
                 letter_spacing=1,
                 position=(64, 466),
+                animation=Wipe(direction="right", duration=0.24, trigger="after_previous"),
             )
             .text(
                 content=headline,
@@ -506,6 +520,7 @@ def build_scene(
                 max_width=390,
                 auto_scale=True,
                 min_size=28,
+                animation=Wipe(direction="up", duration=0.34, trigger="after_previous"),
             )
             .text(
                 content="COVER  /  CONTAIN  /  PLACE",
@@ -514,6 +529,7 @@ def build_scene(
                 color=ACCENT,
                 letter_spacing=1,
                 position=(64, 678),
+                animation=Wipe(direction="right", duration=0.24, trigger="after_previous"),
             )
         )
         for x, label, marker_width, marker_height in (
@@ -564,9 +580,10 @@ def build_scene(
                 content=eyebrow,
                 font=FONT_BOLD,
                 size=16,
-                color=ACCENT,
-                letter_spacing=1,
-                position=(96, 110),
+                    color=ACCENT,
+                    letter_spacing=1,
+                    position=(96, 110),
+                    animation=Wipe(direction="right", duration=0.24, trigger="after_previous"),
             )
             .text(
                 content=headline,
@@ -578,6 +595,7 @@ def build_scene(
                 max_width=440,
                 auto_scale=True,
                 min_size=34,
+                animation=Wipe(direction="up", duration=0.38, trigger="after_previous"),
             )
             .shape(
                 shape="rectangle",
@@ -604,6 +622,7 @@ def build_scene(
                 size=16,
                 color=CREAM,
                 position=(72, 588),
+                animation=Wipe(direction="right", duration=0.28, trigger="after_previous"),
             )
         )
     elif index == 4:
@@ -635,6 +654,7 @@ def build_scene(
                 max_width=380,
                 auto_scale=True,
                 min_size=32,
+                animation=Wipe(direction="up", duration=0.38, trigger="after_previous"),
             )
             .shape(shape="rectangle", position=(768, 384), width=320, height=4, color="#64727A")
             .shape(shape="rectangle", position=(768, 384), width=232, height=4, color=ACCENT)
@@ -663,6 +683,7 @@ def build_scene(
                 max_width=350,
                 auto_scale=True,
                 min_size=14,
+                animation=Wipe(direction="right", duration=0.3, trigger="after_previous"),
             )
         )
     else:
