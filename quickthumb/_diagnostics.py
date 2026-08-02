@@ -46,6 +46,7 @@ from quickthumb._video import caption_geometry
 if TYPE_CHECKING:
     from quickthumb.canvas import Canvas
 from quickthumb.models import (
+    Background,
     BackgroundLayer,
     Diagnostic,
     DiagnosticBBox,
@@ -405,7 +406,12 @@ class DiagnosticsEngine:
         if lower.layer_type == "text":
             return overlap.lower_visible_pct >= MIN_PARTIAL_OVERLAP_RATIO
 
-        if self._is_text_on_backdrop(lower, upper, overlap):
+        if self._is_element_on_backdrop(lower, upper, overlap):
+            return False
+
+        # A layer that animates over another is a reveal, not a collision: the
+        # pair is a before and an after, and both are seen in turn.
+        if getattr(upper.raw_layer, "animation", None) is not None:
             return False
 
         if max(overlap.lower_visible_pct, overlap.upper_visible_pct) >= BACKDROP_COVERAGE_RATIO:
@@ -414,9 +420,10 @@ class DiagnosticsEngine:
         overlap_ratio = min(overlap.lower_visible_pct, overlap.upper_visible_pct)
         return overlap_ratio >= MIN_PARTIAL_OVERLAP_RATIO
 
-    def _is_text_on_backdrop(
+    def _is_element_on_backdrop(
         self, lower: LayerMeasurement, upper: LayerMeasurement, overlap: OverlapMeasurement
     ) -> bool:
+        """Whether text sits wholly on a backdrop drawn for it."""
         if lower.layer_type == "text" or upper.layer_type != "text":
             return False
         return overlap.upper_visible_pct >= BACKDROP_COVERAGE_RATIO
@@ -540,6 +547,11 @@ class DiagnosticsEngine:
         layer = measured.raw_layer
         if not measured.visible or measured.bbox is None:
             return False
+        # A layer that animates in is absent for part of the slide, so whatever
+        # it settles over is still seen. Judging the settled frame alone would
+        # call every pre-roll state redundant.
+        if getattr(layer, "animation", None) is not None:
+            return False
         if float(getattr(layer, "opacity", 1.0)) < 1.0:
             return False
         blend_mode = getattr(layer, "blend_mode", None)
@@ -592,8 +604,29 @@ class DiagnosticsEngine:
         )
         top, right, bottom, left = margins
         thresholds = {"top": top, "right": right, "bottom": bottom, "left": left}
+        # A layer that spans the canvas is bleeding on purpose — full-bleed
+        # footage, a full-width scrim — and cannot be moved off an edge it is
+        # meant to cover. Crowding is about content stopping just short of an
+        # edge, so only edges the layer does not span are worth reporting.
+        spans_width = box.x <= 0 and box.right >= self._ctx.width
+        spans_height = box.y <= 0 and box.bottom >= self._ctx.height
+        spanned = set()
+        if spans_width:
+            spanned |= {"left", "right"}
+        if spans_height:
+            spanned |= {"top", "bottom"}
+        if spans_width and box.bottom >= self._ctx.height:
+            spanned.add("bottom")
+        if spans_width and box.y <= 0:
+            spanned.add("top")
+        if spans_height and box.right >= self._ctx.width:
+            spanned.add("right")
+        if spans_height and box.x <= 0:
+            spanned.add("left")
         crowded_edges = [
-            edge for edge, distance in distances.items() if distance < thresholds[edge]
+            edge
+            for edge, distance in distances.items()
+            if distance < thresholds[edge] and edge not in spanned
         ]
         if not crowded_edges:
             return None
@@ -1023,6 +1056,27 @@ class DiagnosticsEngine:
         except (OSError, UnicodeError, ValueError):
             return None
 
+    def _with_text_backing(self, running: Image.Image, layer: TextLayer) -> Image.Image:
+        """Return the composite the glyphs actually sit on.
+
+        A ``Background`` effect is painted by the text layer itself, so it never
+        appears in the layers below. Measuring contrast without it compares the
+        glyphs against whatever is behind their chip, which reads as no contrast
+        at all for ink-on-accent copy.
+        """
+        backing = [effect for effect in layer.effects if isinstance(effect, Background)]
+        if not backing:
+            return running
+        content = layer.content
+        if isinstance(content, list):
+            content = [part.model_copy(update={"color": "#00000000"}) for part in content]
+        backing_layer = layer.model_copy(
+            update={"content": content, "color": "#00000000", "effects": backing}
+        )
+        composite = running.copy()
+        self._text.render_text_layer(composite, backing_layer)
+        return composite
+
     def _text_background_contrast(
         self, running: Image.Image, measured: LayerMeasurement
     ) -> TiledContrastMeasurement | None:
@@ -1044,6 +1098,7 @@ class DiagnosticsEngine:
         foreground_layer = layer.model_copy(update={"content": content, "effects": []})
         foreground = Image.new("RGBA", (self._ctx.width, self._ctx.height), (0, 0, 0, 0))
         self._text.render_text_layer(foreground, foreground_layer)
+        running = self._with_text_backing(running, layer)
         return worst_tile_contrast(
             running,
             foreground,
