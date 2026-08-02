@@ -98,6 +98,7 @@ from quickthumb.motion import (
     LayerState,
     Timeline,
     compile_timeline,
+    easing_value,
     resolve_staggered_timelines,
     sample_scene_morph,
 )
@@ -1142,10 +1143,14 @@ def _schedule_units(units: list[_Unit]) -> float:
     ``with_previous`` effects start together with the previous effect; every
     other trigger (``on_click`` has no click to wait for in a video, so it
     behaves like ``after_previous``) starts a new group after the previous
-    group's longest effect ends. Returns the time the last effect settles.
+    group's longest effect ends. An effect with an explicit ``start`` is
+    anchored to that time on the slide instead, without moving the cursor the
+    relative effects around it are chained from. Returns the time the last
+    effect settles.
     """
     flat = [(unit, effect) for unit in units for effect in unit.effects]
     clock = 0.0
+    settled = 0.0
     index = 0
     while index < len(flat):
         group = [flat[index]]
@@ -1155,10 +1160,14 @@ def _schedule_units(units: list[_Unit]) -> float:
             cursor += 1
         group_end = clock
         for unit, effect in group:
-            unit.nodes.append(_Node(effect=effect, start=clock))
-            group_end = max(group_end, clock + effect.delay + effect.duration)
+            anchor = clock if effect.start is None else effect.start
+            unit.nodes.append(_Node(effect=effect, start=anchor))
+            settled = max(settled, anchor + effect.delay + effect.duration)
+            if effect.start is None:
+                group_end = max(group_end, anchor + effect.delay + effect.duration)
         clock = group_end
         index = cursor
+    clock = max(clock, settled)
     for unit in units:
         unit.nodes.sort(key=lambda node: node.start + node.effect.delay)
     return max([clock, *(unit.component_duration for unit in units)], default=0.0)
@@ -1280,7 +1289,9 @@ def _unit_state(unit: _Unit, time: float):
             if node.effect.effect == "appear":
                 state = _SHOWN if entrance else _HIDDEN
             else:
-                progress = _ease((time - active_start) / node.effect.duration)
+                progress = easing_value(
+                    node.effect.easing, (time - active_start) / node.effect.duration
+                )
                 state = (node.effect, progress if entrance else 1.0 - progress)
         else:
             state = _SHOWN if entrance else _HIDDEN

@@ -278,7 +278,7 @@ class TestMotionContract:
         assert "@keyframes" in document
 
     def test_should_preserve_legacy_animation_json(self):
-        """Existing effect animation JSON remains unchanged after the contract addition."""
+        """Existing effect animation JSON still parses, keeping its original fields."""
         # given: the established legacy layer animation payload
         raw = {
             "kind": "canvas",
@@ -298,11 +298,14 @@ class TestMotionContract:
         canvas = Canvas.from_json(json.dumps(raw))
         payload = json.loads(canvas.to_json())
 
-        # then: the old effect discriminator and fields remain intact
+        # then: the old effect discriminator and fields survive, and the timing
+        # fields added since then serialize at their defaults
         assert payload["layers"][0]["animation"] == {
             "animate": "entrance",
             "duration": 0.25,
             "delay": 0.0,
             "trigger": "on_click",
+            "easing": "ease",
+            "start": None,
             "effect": "fade",
         }

@@ -49,6 +49,12 @@ class _AnimationBase(quickthumbModel):
     duration: PositiveFloat = 0.5
     delay: NonNegativeFloat = 0.0
     trigger: AnimationTrigger = "on_click"
+    # ``easing`` shapes the reveal over ``duration``; "linear" is what a bar
+    # measuring elapsed time needs, since the default eased curve would make it
+    # misreport its own progress. ``start`` pins the effect to an absolute time
+    # on the slide instead of chaining it to whatever ran before.
+    easing: "MotionEasingName" = "ease"
+    start: FiniteNonNegativeFloat | None = None
 
 
 class Appear(_AnimationBase):

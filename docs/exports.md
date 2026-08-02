@@ -117,6 +117,29 @@ gif = deck.to_gif(fps=20, slide_duration=3.0, loop=0)
 webm = deck.to_webm(fps=30, slide_duration=3.0)
 ```
 
+Every effect takes `duration`, `delay`, and `trigger`, plus two timing controls:
+
+- `easing` picks the curve the reveal follows, from the shared easing vocabulary
+  (`"linear"`, `"ease"`, `"ease_out_cubic"`, `"ease_out_back"`, …). It defaults to
+  `"ease"`; a bar that reports elapsed time wants `"linear"`, or it will
+  misrepresent its own progress.
+- `start` pins the effect to an absolute time on the slide instead of chaining it
+  to whatever ran before. Anchored effects do not move the cursor the relative
+  effects around them are chained from, so the two styles can be mixed.
+
+```python
+from quickthumb import Wipe
+
+canvas.shape(
+    shape="rectangle", position=(0, 700), width=1280, height=6, color="#E8A552",
+    animation=Wipe(direction="right", duration=6.0, easing="linear"),
+)
+canvas.shape(
+    shape="rectangle", position=(80, 180), width=180, height=14, color="#E8A552",
+    animation=Wipe(direction="right", duration=2.4, start=0.9, easing="linear"),
+)
+```
+
 `Canvas.render()` and `Deck.render()` accept a format-specific options object for
 animated file output. Use `GifOptions` for GIF (`fps`, `matte`, `loop`,
 `max_size=(width, height)`, and `colors`) and `VideoOptions` for MP4/WebM

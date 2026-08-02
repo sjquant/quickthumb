@@ -451,8 +451,8 @@ def build_cue_scene() -> Canvas:
             animation=Wipe(
                 direction="right",
                 duration=end - start,
-                delay=start,
-                trigger="with_previous",
+                start=start,
+                easing="linear",
             ),
         )
         canvas.text(
@@ -531,7 +531,7 @@ def build_time_scene() -> Canvas:
         width=WIDTH,
         height=6,
         color=ACCENT,
-        animation=Wipe(direction="right", duration=TIME_DURATION),
+        animation=Wipe(direction="right", duration=TIME_DURATION, easing="linear"),
     )
     canvas.shape(
         shape="rectangle",
