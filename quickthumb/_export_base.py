@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 from io import BytesIO
 from typing import TYPE_CHECKING
 
-from PIL import Image, ImageFilter, ImageFont
+from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont
 
 from quickthumb._base import (
     DEFAULT_LINE_HEIGHT_MULTIPLIER,
@@ -200,6 +200,38 @@ def rasterize_layers(canvas: Canvas, layers: list[RenderableLayer]) -> RasterFra
         return RasterFragment(buffer.getvalue(), bbox[0], bbox[1], cropped.width, cropped.height)
     finally:
         canvas._ctx.close_video_decoders()
+
+
+def apply_canonical_alpha(
+    image: Image.Image, state, reveal: float = 1.0, clip_progress: float | None = None
+) -> Image.Image | None:
+    """Apply a sampled layer's opacity and left-to-right reveal to its pixels.
+
+    ``clip_progress`` defaults to the sampled state's own value; pass 1.0 for
+    layers whose renderer already reveals itself from the same track.
+
+    Returns None when nothing of the layer is visible yet, so callers can skip
+    compositing it entirely.
+    """
+    opacity = min(1.0, max(0.0, state.opacity)) * min(1.0, max(0.0, reveal))
+    if opacity <= 0.0:
+        return None
+    clip = state.clip_progress if clip_progress is None else clip_progress
+    output = image
+    if opacity < 1.0:
+        alpha = output.getchannel("A").point(lambda value: round(value * opacity))
+        output = output.copy()
+        output.putalpha(alpha)
+    if clip < 1.0:
+        width = max(0, min(output.width, round(output.width * clip)))
+        if width <= 0:
+            return None
+        mask = Image.new("L", output.size, 0)
+        ImageDraw.Draw(mask).rectangle((0, 0, width, output.height), fill=255)
+        masked = output.copy()
+        masked.putalpha(ImageChops.multiply(masked.getchannel("A"), mask))
+        output = masked
+    return output
 
 
 def apply_canonical_geometry(

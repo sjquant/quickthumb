@@ -1488,7 +1488,7 @@ class Canvas:
         pass transforms; the exporters render layers untimed and apply the same
         geometry once per animation unit.
         """
-        from quickthumb._export_base import apply_canonical_geometry
+        from quickthumb._export_base import apply_canonical_alpha, apply_canonical_geometry
         from quickthumb.motion import sample_canonical_state
 
         state = sample_canonical_state(layer, time)
@@ -1507,6 +1507,14 @@ class Canvas:
             # Image layers fold scale into their source crop already.
             include_scale=not isinstance(layer, ImageLayer),
         )
+        # Charts and QR codes reveal their own bars, points, and modules from the
+        # same track, so a second generic clip on top would reveal twice.
+        self_revealing = isinstance(layer, (ChartLayer, QRCodeLayer))
+        fragment = apply_canonical_alpha(
+            fragment, state, clip_progress=1.0 if self_revealing else state.clip_progress
+        )
+        if fragment is None:
+            return
         image.alpha_composite(fragment, position)
 
     def _render_layer(self, image: Image.Image, layer: RenderableLayer, time: float | None = None):

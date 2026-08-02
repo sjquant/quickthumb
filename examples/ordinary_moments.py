@@ -487,9 +487,9 @@ def build_time_scene() -> Canvas:
         color=INK,
         opacity=0.62,
         # A frosted panel keeps the reading over live footage instead of hiding
-        # it. Backdrop-dependent layers are rasterised with everything beneath
-        # them, so this one stays unanimated and the readouts above it move.
+        # it, and arrives with the scene rather than being there from frame one.
         effects=[BackdropBlur(radius=16)],
+        animation=AnimationSpec.fade(duration=0.5),
     )
     canvas.shape(
         shape="rectangle", position=(panel_x, panel_y), width=panel_width, height=3, color=ACCENT

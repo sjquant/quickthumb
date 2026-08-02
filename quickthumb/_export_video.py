@@ -809,6 +809,9 @@ class _Unit:
     nodes: list[_Node] = field(default_factory=list)
     timeline: Timeline | None = None
     target_timelines: tuple[Timeline, ...] = ()
+    # Set for the backdrop prefix, whose layers carry their own motion rather
+    # than sharing one animation applied to the finished unit image.
+    animates_layers: bool = False
 
 
 class _SlideAnimator:
@@ -837,7 +840,9 @@ class _SlideAnimator:
                 continue
             visible_video_layers.extend(iter_video_layers(unit.layers))
             if unit.component_duration > 0:
-                image, pos = _render_unit_image(self._canvas, unit.layers, time)
+                image, pos = _render_unit_image(
+                    self._canvas, unit.layers, time, animate_layers=unit.animates_layers
+                )
                 if image is None:
                     continue
             else:
@@ -851,6 +856,7 @@ class _SlideAnimator:
                     state[1],
                     state[2],
                     pos,
+                    clip_scale=state[3],
                     include_scale=not any(isinstance(item, ImageLayer) for item in unit.layers),
                 )
                 if rendered is None:
@@ -979,13 +985,12 @@ def _build_units(
             "Animated export cannot animate descendants of a clipped or masked group. "
             "Move the animation to the group itself, or remove the group's clip or mask."
         )
-    if not reduced_motion and any(
-        getattr(layer, "animation", None) is not None for layer in prefix
-    ):
+    if not reduced_motion and any(_has_legacy_animation(layer) for layer in prefix):
         raise RenderingError(
-            "Animated export cannot animate layers that must be rasterized together for "
-            "blend-mode or custom-layer backdrop compositing. Move animated layers "
-            "after those backdrop-dependent layers, or remove the blend/custom layer."
+            "Animated export cannot play entrance effects on a layer that is rasterized "
+            "with a backdrop-dependent layer (blend mode, backdrop blur, or custom layer) "
+            "or on anything beneath it. Use an AnimationSpec for those layers, move them "
+            "above the backdrop-dependent layer, or remove the blend/backdrop layer."
         )
 
     # Group layers into units: the backdrop prefix is one static unit, layers
@@ -994,6 +999,11 @@ def _build_units(
     groups: list[tuple[object | None, list[RenderableLayer]]] = []
     if prefix:
         groups.append((None, list(prefix)))
+    prefix_motion = (
+        0.0
+        if reduced_motion
+        else max((_canonical_layer_duration(layer) for layer in prefix), default=0.0)
+    )
     for layer in rest:
         animation = None if reduced_motion else getattr(layer, "animation", None)
         key = id(animation) if animation is not None else None
@@ -1045,6 +1055,13 @@ def _build_units(
                 default=0.0,
             )
         )
+        # The backdrop prefix has to be rasterized as one picture, so motion
+        # inside it cannot be applied to a finished unit image. Re-render it per
+        # frame instead, which lets a frosted panel and everything beneath it
+        # move together.
+        is_prefix = bool(prefix) and index == 0
+        if is_prefix:
+            component_duration = max(component_duration, prefix_motion)
         units.append(
             _Unit(
                 image=image,
@@ -1053,6 +1070,7 @@ def _build_units(
                 seed=_UNIT_DISSOLVE_SEED + index,
                 layers=layers,
                 component_duration=component_duration,
+                animates_layers=is_prefix and prefix_motion > 0,
                 timeline=compile_timeline(canonical) if canonical is not None else None,
                 target_timelines=target_timelines,
             )
@@ -1116,11 +1134,15 @@ def _has_animated_descendant_in_composed_group(layer: RenderableLayer) -> bool:
 
 
 def _render_unit_image(
-    canvas: Canvas, layers: list[RenderableLayer], time: float | None = None
+    canvas: Canvas,
+    layers: list[RenderableLayer],
+    time: float | None = None,
+    animate_layers: bool = False,
 ) -> tuple[Image.Image | None, tuple[int, int]]:
     image = Image.new("RGBA", (canvas.width, canvas.height), (0, 0, 0, 0))
+    draw = canvas._render_moving_layer if animate_layers else canvas._render_layer
     for layer in layers:
-        canvas._render_layer(image, layer, time)
+        draw(image, layer, time)
     bbox = image.getbbox()
     if bbox is None and time is None:
         video_start = max(
@@ -1171,6 +1193,25 @@ def _schedule_units(units: list[_Unit]) -> float:
     for unit in units:
         unit.nodes.sort(key=lambda node: node.start + node.effect.delay)
     return max([clock, *(unit.component_duration for unit in units)], default=0.0)
+
+
+def _has_legacy_animation(layer: RenderableLayer) -> bool:
+    """Whether a layer carries a PPTX-style entrance effect rather than a spec."""
+    animation = getattr(layer, "animation", None)
+    if animation is None:
+        return False
+    items = animation if isinstance(animation, list) else [animation]
+    return any(not isinstance(item, AnimationSpec) for item in items)
+
+
+def _canonical_layer_duration(layer: RenderableLayer) -> float:
+    """Return how long a layer's canonical motion runs, else zero."""
+    animation = getattr(layer, "animation", None)
+    if animation is None:
+        return 0.0
+    items = animation if isinstance(animation, list) else [animation]
+    specs = [item for item in items if isinstance(item, AnimationSpec)]
+    return compile_timeline(specs).duration if specs else 0.0
 
 
 def _component_animation_duration(
@@ -1299,13 +1340,22 @@ def _unit_state(unit: _Unit, time: float):
 
 
 def _canonical_state(unit: _Unit, time: float):
-    """Sample canonical motion, aggregating semantic target reveal progress."""
+    """Sample canonical motion as a state plus its alpha and clip multipliers.
+
+    A single timeline already carries opacity and clip progress in its sampled
+    state, so both multipliers stay neutral: folding opacity back in would square
+    a fade, and folding clip progress back in would make a typewriter type at a
+    quarter speed. Only a staggered group needs them, to stand in for targets
+    that have not been rendered separately.
+    """
     timeline = unit.timeline
     if timeline is None:
         return _SHOWN
     timelines = unit.target_timelines or (timeline,)
     states = [timeline.sample(time, LayerState()) for timeline in timelines]
     event = timeline.events[0] if timeline.events else None
+    alpha_scale = 1.0
+    clip_scale = 1.0
     if len(timelines) > 1 and event is not None:
         progresses = []
         for timeline in timelines:
@@ -1318,16 +1368,18 @@ def _canonical_state(unit: _Unit, time: float):
                 progresses.append(
                     min(1.0, max(0.0, (time - target_event.active_start) / target_event.duration))
                 )
-        reveal = sum(progresses) / len(progresses)
-        if event.effect == "typewriter":
-            reveal = sum(state.clip_progress for state in states) / len(states)
+        arrived = sum(progresses) / len(progresses)
+        clip_scale = arrived
+        # A typing effect arrives by revealing, not by fading.
+        alpha_scale = 1.0 if event.effect == "typewriter" else arrived
     elif event is not None and time < event.active_start and event.effect in {"fade", "typewriter"}:
-        reveal = 0.0
-    elif event is not None and event.effect == "typewriter":
-        reveal = sum(state.clip_progress for state in states) / len(states)
-    else:
-        reveal = sum(state.opacity for state in states) / len(states)
-    return ("canonical", states[-1], min(1.0, max(0.0, reveal)))
+        alpha_scale = 0.0
+    return (
+        "canonical",
+        states[-1],
+        min(1.0, max(0.0, alpha_scale)),
+        min(1.0, max(0.0, clip_scale)),
+    )
 
 
 def _canonical_render(
@@ -1336,6 +1388,7 @@ def _canonical_render(
     reveal: float,
     pos: tuple[int, int],
     *,
+    clip_scale: float = 1.0,
     include_scale: bool = True,
 ) -> tuple[Image.Image, tuple[int, int]] | None:
     """Apply renderer-independent opacity, reveal, and geometry to a frame.
@@ -1350,8 +1403,13 @@ def _canonical_render(
     opacity = min(1.0, max(0.0, state.opacity)) * reveal
     if opacity < 1.0:
         output = _scaled_alpha(output, opacity)
-    if reveal < 1.0 and state.clip_progress < 1.0:
-        width = max(0, min(output.width, round(output.width * reveal)))
+    progress = min(clip_scale, state.clip_progress)
+    if progress < 1.0:
+        # Either signal can drive the clip: a staggered group reports how much of
+        # it has arrived, a clip_progress track reports its own reveal. Taking the
+        # tighter of the two keeps a bare track clipping without a typewriter
+        # counting its progress twice.
+        width = max(0, min(output.width, round(output.width * progress)))
         mask = Image.new("L", output.size, 0)
         ImageDraw.Draw(mask).rectangle((0, 0, width, output.height), fill=255)
         output = _masked_alpha(output, mask)
