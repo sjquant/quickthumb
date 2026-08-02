@@ -382,6 +382,10 @@ class ShapeLayer(LayerIdentityModel):
     width: PositiveInt
     height: PositiveInt
     color: HexColor
+    # A gradient fill replaces ``color`` wherever it can be drawn. Targets that
+    # cannot express one (PPTX, PDF, SVG, HTML) keep using ``color``, so it
+    # doubles as the declared flat fallback.
+    fill: Annotated[LinearGradient | RadialGradient, Discriminator("type")] | None = None
     border_radius: NonNegativeInt = 0
     opacity: OpacityField = 1.0
     rotation: float = 0.0

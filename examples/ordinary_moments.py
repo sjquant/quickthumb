@@ -22,6 +22,7 @@ from quickthumb import (
     Canvas,
     Deck,
     Fade,
+    LinearGradient,
     Shadow,
     Wipe,
 )
@@ -869,39 +870,24 @@ def _caption(text: str, start: float, end: float) -> dict:
 def _scrim(canvas: Canvas, *, edge: str, boundary: int, fade: int, peak: float) -> Canvas:
     """Hold ink solid behind the copy, then fall off smoothly into the shot.
 
-    The falloff is stacked 2px bands: fine enough that the stepped alpha stays
-    under the threshold where it would show as stripes on sky or paper, and
-    eased at both ends so neither edge of the ramp leaves a seam.
+    One gradient-filled rectangle covers both parts: the stop at ``boundary``
+    is where the ramp reaches full strength, and everything past it stays there.
     """
-    solid_top, solid_height = (0, boundary) if edge == "top" else (boundary, HEIGHT - boundary)
-    canvas.shape(
+    alpha = f"{round(peak * 255):02X}"
+    if edge == "top":
+        top, height = 0, boundary + fade
+        stops = [(f"{INK}{alpha}", 0.0), (f"{INK}{alpha}", boundary / height), (f"{INK}00", 1.0)]
+    else:
+        top, height = boundary - fade, HEIGHT - boundary + fade
+        stops = [(f"{INK}00", 0.0), (f"{INK}{alpha}", fade / height), (f"{INK}{alpha}", 1.0)]
+    return canvas.shape(
         shape="rectangle",
-        position=(0, solid_top),
+        position=(0, top),
         width=WIDTH,
-        height=solid_height,
+        height=height,
         color=INK,
-        opacity=peak,
+        fill=LinearGradient(angle=90, stops=stops),
     )
-    bands = max(8, fade // 2)
-    step = fade / bands if edge == "top" else -fade / bands
-    for index in range(bands):
-        # Neighbouring bands share a rounded edge so the ramp tiles exactly; a
-        # single pixel of gap or overlap anywhere in it reads as a stripe.
-        near = round(boundary + step * index)
-        far = round(boundary + step * (index + 1))
-        start, height = (near, far - near) if edge == "top" else (far, near - far)
-        if height <= 0:
-            continue
-        progress = 1 - (index + 0.5) / bands
-        canvas.shape(
-            shape="rectangle",
-            position=(0, start),
-            width=WIDTH,
-            height=height,
-            color=INK,
-            opacity=round(peak * progress * progress * (3 - 2 * progress), 4),
-        )
-    return canvas
 
 
 def _timestamp(seconds: float) -> str:

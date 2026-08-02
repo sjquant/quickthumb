@@ -1,11 +1,19 @@
 import math
 
-from PIL import Image, ImageDraw
+from PIL import Image, ImageChops, ImageDraw
 
 from quickthumb._base import RenderContext, apply_alignment, parse_coordinate
 from quickthumb._effects import EffectsEngine
 from quickthumb._images import ImageEngine
-from quickthumb.models import BackdropBlur, Glow, InnerShadow, Shadow, ShapeLayer, Stroke
+from quickthumb.models import (
+    BackdropBlur,
+    Glow,
+    InnerShadow,
+    LinearGradient,
+    Shadow,
+    ShapeLayer,
+    Stroke,
+)
 
 TRIANGLE_POINTS = [(0.5, 0.0), (1.0, 1.0), (0.0, 1.0)]
 
@@ -18,11 +26,28 @@ class ShapeEngine:
         self._effects = effects
         self._images = images
 
+    def _gradient_fill(self, fill, shape: Image.Image) -> Image.Image:
+        """Paint a gradient through a drawn shape's alpha."""
+        if isinstance(fill, LinearGradient):
+            gradient = self._effects.create_linear_gradient(shape.size, fill.angle, fill.stops)
+        else:
+            gradient = self._effects.create_radial_gradient(shape.size, fill.stops, fill.center)
+        gradient.putalpha(
+            ImageChops.multiply(gradient.getchannel("A"), shape.getchannel("A"))
+        )
+        return gradient
+
     def render_shape_layer(self, image: Image.Image, layer: ShapeLayer):
         x = parse_coordinate(layer.position[0], self._ctx.width)
         y = parse_coordinate(layer.position[1], self._ctx.height)
 
-        fill_color = self._effects.parse_color(layer.color)
+        # A gradient fill is painted through the shape's own alpha, so the shape
+        # is drawn opaque first and tinted afterwards.
+        fill_color = (
+            (255, 255, 255, 255)
+            if layer.fill is not None
+            else self._effects.parse_color(layer.color)
+        )
 
         # Draw at 4x and keep at 4x through rotation so both curved edges and
         # rotation edges are anti-aliased when downscaled with LANCZOS.
@@ -42,6 +67,10 @@ class ShapeEngine:
             normalized = self.normalized_shape_points(layer)
             pixel_points = [(px * (shape_w - 1), py * (shape_h - 1)) for px, py in normalized]
             draw.polygon(pixel_points, fill=fill_color)
+
+        if layer.fill is not None:
+            # Tint before rotation so the gradient turns with the shape.
+            shape_big = self._gradient_fill(layer.fill, shape_big)
 
         if layer.rotation != 0:
             shape_big = shape_big.rotate(

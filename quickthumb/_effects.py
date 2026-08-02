@@ -13,6 +13,20 @@ from quickthumb.models import BlendMode, Duotone, Filter, Grain, InnerShadow
 class EffectsEngine:
     """Stateless color, gradient, filter, and blend-mode operations."""
 
+    def __init__(self) -> None:
+        # Building a gradient rotates a diagonal-sized ramp, which is far too
+        # expensive to repeat for every frame of an animation. The result only
+        # depends on its inputs, so it is memoised per engine.
+        self._gradient_cache: dict[tuple, Image.Image] = {}
+
+    def _cached_gradient(self, key: tuple, build) -> Image.Image:
+        """Return a memoised gradient, building it on first use."""
+        cached = self._gradient_cache.get(key)
+        if cached is None:
+            cached = build()
+            self._gradient_cache[key] = cached
+        return cached.copy()
+
     def parse_color(self, color: str | tuple) -> tuple[int, ...]:
         if isinstance(color, tuple):
             return color
@@ -282,6 +296,14 @@ class EffectsEngine:
     def create_linear_gradient(
         self, size: tuple[int, int], angle: float, stops: list[tuple[str, float]]
     ) -> Image.Image:
+        return self._cached_gradient(
+            ("linear", size, angle, tuple(map(tuple, stops))),
+            lambda: self._build_linear_gradient(size, angle, stops),
+        )
+
+    def _build_linear_gradient(
+        self, size: tuple[int, int], angle: float, stops: list[tuple[str, float]]
+    ) -> Image.Image:
         width, height = size
 
         diagonal = int(math.ceil(math.sqrt(width**2 + height**2)))
@@ -298,6 +320,24 @@ class EffectsEngine:
         top = (diagonal - height) // 2
         gradient_mask = gradient_mask.crop((left, top, left + width, top + height))
 
+        # The ramp is built across the diagonal, so cropping to the layer box
+        # only ever exposes its middle. Stretch what remains back out, or the
+        # first and last stops never actually appear: a black-to-white gradient
+        # on a 400x200 box would render 71 to 184 instead of 0 to 255.
+        radians = math.radians(angle)
+        span = abs(width * math.cos(radians)) + abs(height * math.sin(radians))
+        visible = min(1.0, span / diagonal) if diagonal else 1.0
+        if visible > 0:
+            low = (1.0 - visible) / 2.0 * 255.0
+            high = 255.0 - low
+            if high > low:
+                gradient_mask = gradient_mask.point(
+                    [
+                        max(0, min(255, round((value - low) * 255.0 / (high - low))))
+                        for value in range(256)
+                    ]
+                )
+
         r_lut, g_lut, b_lut, a_lut = self._create_gradient_lut(stops)
         r = gradient_mask.point(r_lut)
         g = gradient_mask.point(g_lut)
@@ -307,6 +347,14 @@ class EffectsEngine:
         return Image.merge("RGBA", (r, g, b, a))
 
     def create_radial_gradient(
+        self, size: tuple[int, int], stops: list[tuple[str, float]], center: tuple[float, float]
+    ) -> Image.Image:
+        return self._cached_gradient(
+            ("radial", size, tuple(map(tuple, stops)), center),
+            lambda: self._build_radial_gradient(size, stops, center),
+        )
+
+    def _build_radial_gradient(
         self, size: tuple[int, int], stops: list[tuple[str, float]], center: tuple[float, float]
     ) -> Image.Image:
         width, height = size
@@ -331,6 +379,13 @@ class EffectsEngine:
         top = grad_center - int(center_y_px)
 
         gradient_mask = gradient_mask.crop((left, top, left + width, top + height))
+
+        # PIL's radial ramp reaches white at its corner, so it is only 1/sqrt(2)
+        # of the way along at the farthest pixel of the layer. Stretch it back
+        # out or the last stop never lands.
+        gradient_mask = gradient_mask.point(
+            [min(255, round(value * math.sqrt(2))) for value in range(256)]
+        )
 
         r_lut, g_lut, b_lut, a_lut = self._create_gradient_lut(stops)
         r = gradient_mask.point(r_lut)

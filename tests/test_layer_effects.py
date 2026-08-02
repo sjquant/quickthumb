@@ -62,6 +62,7 @@ class TestLayerEffects:
                 "width": 40,
                 "height": 30,
                 "color": "#FFFFFF80",
+                "fill": None,
                 "border_radius": 0,
                 "opacity": 1.0,
                 "rotation": 0.0,
