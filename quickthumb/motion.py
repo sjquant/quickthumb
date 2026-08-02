@@ -759,6 +759,33 @@ def sample_canonical_state(layer: object, time: float | None) -> LayerState | No
     return compile_timeline(specs).sample(float(time), LayerState())
 
 
+def sample_canonical_targets(
+    layer: object, time: float | None, target_count: int
+) -> tuple[LayerState | None, ...] | None:
+    """Sample one state per staggered target, or None when the layer has none.
+
+    Each target runs the same timeline offset by its own stagger delay, so the
+    caller can move, fade, and reveal every line independently instead of
+    averaging them into one reveal. A target whose turn has not come yet samples
+    to ``None``: it is waiting off screen rather than sitting in its settled
+    place, which is what makes a stagger read as a sequence.
+    """
+    if time is None or target_count < 2:
+        return None
+    animation = getattr(layer, "animation", None)
+    if animation is None:
+        return None
+    animations = animation if isinstance(animation, list) else [animation]
+    specs = [item for item in animations if isinstance(item, AnimationSpec)]
+    if not specs or not any(item.stagger is not None for item in specs):
+        return None
+    sampled: list[LayerState | None] = []
+    for timeline in resolve_staggered_timelines(compile_timeline(specs), target_count):
+        start = min((event.active_start for event in timeline.events), default=0.0)
+        sampled.append(None if time < start else timeline.sample(float(time), LayerState()))
+    return tuple(sampled)
+
+
 def compile_transition_timeline(
     transition: Transition | dict[str, Any] | str | None,
 ) -> Timeline:

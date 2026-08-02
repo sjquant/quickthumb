@@ -195,40 +195,26 @@ def build_cost_scene() -> Canvas:
             opacity=0.88,
         )
         .shape(shape="rectangle", position=(column_x, 0), width=2, height=HEIGHT, color=MUTE)
+        # One line per remake, each arriving on its own beat: the repetition is
+        # the argument, so the stagger carries it.
         .text(
-            content="가로로 한 번.",
+            content="가로로 한 번.\n세로로 한 번.\n미리보기로 또 한 번.",
             font=KR_BOLD,
             size=38,
             color=CREAM,
+            line_height=1.5,
             position=(text_x, 152),
             max_width=WIDTH - text_x - MARGIN,
             auto_scale=True,
             min_size=28,
-            animation=Wipe(direction="up", duration=0.4),
-        )
-        # One line per remake, each arriving on its own beat: the repetition is
-        # the argument, so the sequence has to carry it.
-        .text(
-            content="세로로 한 번.",
-            font=KR_BOLD,
-            size=38,
-            color=CREAM,
-            position=(text_x, 209),
-            max_width=WIDTH - text_x - MARGIN,
-            auto_scale=True,
-            min_size=28,
-            animation=Wipe(direction="up", duration=0.4, trigger="after_previous"),
-        )
-        .text(
-            content="미리보기로 또 한 번.",
-            font=KR_BOLD,
-            size=38,
-            color=CREAM,
-            position=(text_x, 266),
-            max_width=WIDTH - text_x - MARGIN,
-            auto_scale=True,
-            min_size=28,
-            animation=Wipe(direction="up", duration=0.4, trigger="after_previous"),
+            animation=AnimationSpec.rise(
+                from_="bottom",
+                distance=26,
+                duration=0.45,
+                stagger=0.32,
+                target="lines",
+                easing="ease_out_cubic",
+            ),
         )
         .counter(
             1,

@@ -1478,6 +1478,63 @@ class Canvas:
         )
         draw.text((label_left + 3, label_top + 2), label, fill=(255, 255, 255, 255), font=font)
 
+    def _staggered_target_count(self, layer: RenderableLayer) -> int:
+        """Return how many semantic targets a layer's stagger addresses."""
+        animation = getattr(layer, "animation", None)
+        if animation is None:
+            return 0
+        from quickthumb.models import AnimationSpec
+
+        animations = animation if isinstance(animation, list) else [animation]
+        staggers = [
+            item.stagger
+            for item in animations
+            if isinstance(item, AnimationSpec) and item.stagger is not None
+        ]
+        if not staggers or not isinstance(layer, TextLayer):
+            return 0
+        target = staggers[0].target
+        if target not in {"lines", "words", "characters"}:
+            return 0
+        return len(self._text.resolve_animation_targets(layer, target))
+
+    def _render_staggered_targets(
+        self,
+        image: Image.Image,
+        surface: Image.Image,
+        layer: RenderableLayer,
+        time: float | None,
+    ) -> bool:
+        """Move each staggered target on its own, returning whether it applied.
+
+        The layer is sliced out of its own finished render, so every target keeps
+        the layout it was drawn with. Targets that cannot be told apart — lines
+        set tight enough to touch, or a target kind with no visual band — fall
+        back to moving the layer as a whole.
+        """
+        from quickthumb._export_base import (
+            apply_canonical_alpha,
+            apply_canonical_geometry,
+            split_into_bands,
+        )
+        from quickthumb.motion import sample_canonical_targets
+
+        count = self._staggered_target_count(layer)
+        states = sample_canonical_targets(layer, time, count)
+        if states is None:
+            return False
+        fragments = split_into_bands(surface, count)
+        if fragments is None:
+            return False
+        for (fragment, position), state in zip(fragments, states, strict=True):
+            if state is None:
+                continue
+            moved, placed = apply_canonical_geometry(fragment, state, position)
+            moved = apply_canonical_alpha(moved, state)
+            if moved is not None:
+                image.alpha_composite(moved, placed)
+        return True
+
     def _render_moving_layer(
         self, image: Image.Image, layer: RenderableLayer, time: float | None = None
     ):
@@ -1497,6 +1554,8 @@ class Canvas:
             return
         surface = Image.new("RGBA", image.size, (0, 0, 0, 0))
         self._render_layer(surface, layer, time)
+        if self._render_staggered_targets(image, surface, layer, time):
+            return
         bounds = surface.getbbox()
         if bounds is None:
             return

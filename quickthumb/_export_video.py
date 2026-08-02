@@ -65,9 +65,11 @@ from PIL import Image, ImageChops, ImageColor, ImageDraw
 
 from quickthumb._composition import has_layer_composition
 from quickthumb._export_base import (
+    apply_canonical_alpha,
     apply_canonical_geometry,
     flatten_layers,
     split_backdrop_prefix,
+    split_into_bands,
     validate_legacy_animation_export,
 )
 from quickthumb._video import (
@@ -812,6 +814,9 @@ class _Unit:
     # Set for the backdrop prefix, whose layers carry their own motion rather
     # than sharing one animation applied to the finished unit image.
     animates_layers: bool = False
+    # One fragment per staggered target, sliced from this unit's own render so
+    # each line can be moved on its own beat.
+    target_images: tuple[tuple[Image.Image, tuple[int, int]], ...] = ()
 
 
 class _SlideAnimator:
@@ -848,6 +853,21 @@ class _SlideAnimator:
             else:
                 pos = unit.pos
                 image = unit.image
+            if unit.target_images and isinstance(state, tuple) and state[0] == "canonical":
+                # Each staggered target carries its own state, so they arrive one
+                # after another instead of sharing one averaged reveal.
+                for (fragment, place), target in zip(
+                    unit.target_images,
+                    _canonical_target_states(unit, time),
+                    strict=True,
+                ):
+                    if target is None:
+                        continue
+                    moved, moved_pos = apply_canonical_geometry(fragment, target, place)
+                    moved = apply_canonical_alpha(moved, target)
+                    if moved is not None:
+                        frame.alpha_composite(moved, moved_pos)
+                continue
             if isinstance(state, tuple) and state and state[0] == "canonical":
                 # Canonical motion applies to component units (video, animated
                 # text values) too, so a clip can move while it plays.
@@ -1032,6 +1052,7 @@ def _build_units(
         image, pos = _render_unit_image(canvas, layers)
         canonical = animation if isinstance(animation, AnimationSpec) else None
         target_timelines: tuple[Timeline, ...] = ()
+        target_images: tuple[tuple[Image.Image, tuple[int, int]], ...] = ()
         if canonical is not None:
             timeline = compile_timeline(canonical)
             target_count = 1
@@ -1047,6 +1068,13 @@ def _build_units(
                 elif stagger.target == "children":
                     target_count = group_target_counts.get(id(canonical), 1)
             target_timelines = resolve_staggered_timelines(timeline, target_count)
+            if image is not None and target_count > 1:
+                bands = split_into_bands(image, target_count)
+                if bands is not None:
+                    target_images = tuple(
+                        (fragment, (pos[0] + offset[0], pos[1] + offset[1]))
+                        for fragment, offset in bands
+                    )
         component_duration = (
             0.0
             if reduced_motion
@@ -1073,6 +1101,7 @@ def _build_units(
                 animates_layers=is_prefix and prefix_motion > 0,
                 timeline=compile_timeline(canonical) if canonical is not None else None,
                 target_timelines=target_timelines,
+                target_images=target_images,
             )
         )
     return units
@@ -1337,6 +1366,15 @@ def _unit_state(unit: _Unit, time: float):
         else:
             state = _SHOWN if entrance else _HIDDEN
     return state
+
+
+def _canonical_target_states(unit: _Unit, time: float) -> tuple[LayerState | None, ...]:
+    """Sample each staggered target, leaving the ones whose turn has not come."""
+    states: list[LayerState | None] = []
+    for timeline in unit.target_timelines:
+        start = min((event.active_start for event in timeline.events), default=0.0)
+        states.append(None if time < start else timeline.sample(time, LayerState()))
+    return tuple(states)
 
 
 def _canonical_state(unit: _Unit, time: float):

@@ -202,6 +202,46 @@ def rasterize_layers(canvas: Canvas, layers: list[RenderableLayer]) -> RasterFra
         canvas._ctx.close_video_decoders()
 
 
+def split_into_bands(
+    surface: Image.Image, count: int
+) -> tuple[tuple[Image.Image, tuple[int, int]], ...] | None:
+    """Split a rendered layer into one fragment per horizontal band of ink.
+
+    Staggering lines means moving each line on its own, which needs each line as
+    its own picture. Slicing the real render keeps the layout exactly as it was
+    drawn, unlike re-rendering a subset of the text. Returns None when the ink
+    does not separate into the expected number of bands — lines set tight enough
+    to touch cannot be told apart this way, and the caller falls back to moving
+    the block as a whole.
+    """
+    if count < 2:
+        return None
+    alpha = surface.getchannel("A")
+    rows = [
+        row
+        for row in range(surface.height)
+        if alpha.crop((0, row, surface.width, row + 1)).getbbox()
+    ]
+    if not rows:
+        return None
+    bands: list[list[int]] = [[rows[0]]]
+    for row in rows[1:]:
+        if row == bands[-1][-1] + 1:
+            bands[-1].append(row)
+        else:
+            bands.append([row])
+    if len(bands) != count:
+        return None
+    fragments = []
+    for band in bands:
+        strip = surface.crop((0, band[0], surface.width, band[-1] + 1))
+        bounds = strip.getbbox()
+        if bounds is None:
+            return None
+        fragments.append((strip.crop(bounds), (bounds[0], band[0] + bounds[1])))
+    return tuple(fragments)
+
+
 def apply_canonical_alpha(
     image: Image.Image, state, reveal: float = 1.0, clip_progress: float | None = None
 ) -> Image.Image | None:

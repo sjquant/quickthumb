@@ -140,6 +140,26 @@ canvas.shape(
 )
 ```
 
+A canonical `AnimationSpec` with a `stagger` moves each target on its own beat.
+Line targets are sliced out of the layer's finished render, so every line keeps
+the layout it was drawn with and waits off screen until its turn:
+
+```python
+from quickthumb import AnimationSpec
+
+canvas.text(
+    content="가로로 한 번.\n세로로 한 번.\n미리보기로 또 한 번.",
+    position=(80, 150), size=38, color="#F2EFE9", line_height=1.5,
+    animation=AnimationSpec.rise(
+        from_="bottom", distance=26, duration=0.45, stagger=0.32, target="lines"
+    ),
+)
+```
+
+Lines set tight enough to touch cannot be told apart in the render, and word and
+character targets have no separable band; those fall back to moving the layer as
+a whole.
+
 `Canvas.render()` and `Deck.render()` accept a format-specific options object for
 animated file output. Use `GifOptions` for GIF (`fps`, `matte`, `loop`,
 `max_size=(width, height)`, and `colors`) and `VideoOptions` for MP4/WebM
