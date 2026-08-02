@@ -65,6 +65,7 @@ from PIL import Image, ImageChops, ImageColor, ImageDraw
 
 from quickthumb._composition import has_layer_composition
 from quickthumb._export_base import (
+    apply_canonical_geometry,
     flatten_layers,
     split_backdrop_prefix,
     validate_legacy_animation_export,
@@ -86,6 +87,7 @@ from quickthumb.models import (
     ChartLayer,
     GifOptions,
     GroupLayer,
+    ImageLayer,
     QRCodeLayer,
     TextLayer,
     VideoLayer,
@@ -840,15 +842,19 @@ class _SlideAnimator:
             else:
                 pos = unit.pos
                 image = unit.image
-            if (
-                unit.component_duration == 0
-                and isinstance(state, tuple)
-                and state
-                and state[0] == "canonical"
-            ):
-                image = _canonical_render(unit.image, state[1], state[2])
-                if image is None:
+            if isinstance(state, tuple) and state and state[0] == "canonical":
+                # Canonical motion applies to component units (video, animated
+                # text values) too, so a clip can move while it plays.
+                rendered = _canonical_render(
+                    image,
+                    state[1],
+                    state[2],
+                    pos,
+                    include_scale=not any(isinstance(item, ImageLayer) for item in unit.layers),
+                )
+                if rendered is None:
                     continue
+                image, pos = rendered
             elif unit.component_duration == 0 and state is not _SHOWN:
                 effect, reveal = state
                 revealed = _animation_reveal(image, effect, reveal, unit.seed)
@@ -1169,6 +1175,11 @@ def _component_animation_duration(
     value = getattr(layer, "value", None)
     if isinstance(value, AnimatedTextValue):
         return value.delay + value.duration
+    if isinstance(layer, ImageLayer):
+        # An image layer reads scale as a viewport zoom and pans inside its own
+        # frame, so it has to be re-rendered per frame rather than transformed
+        # as a finished picture.
+        return _canonical_viewport_duration(layer)
     if not isinstance(layer, (ChartLayer, QRCodeLayer)):
         return 0.0
     animations = getattr(layer, "animation", None)
@@ -1195,6 +1206,22 @@ def _component_animation_duration(
             duration += max(0, count - 1) * animation.stagger.delay
         durations.append(start + delay + duration)
     return max(durations, default=0.0)
+
+
+def _canonical_viewport_duration(layer: ImageLayer) -> float:
+    """Return how long an image layer's viewport motion runs, else zero."""
+    animations = getattr(layer, "animation", None)
+    if animations is None:
+        return 0.0
+    candidates = animations if isinstance(animations, list) else [animations]
+    specs = [item for item in candidates if isinstance(item, AnimationSpec)]
+    if not specs:
+        return 0.0
+    timeline = compile_timeline(specs)
+    viewport = {"image_pan", "image_zoom", "scale"}
+    if not any(track.property in viewport for event in timeline.events for track in event.tracks):
+        return 0.0
+    return timeline.duration
 
 
 def _qr_module_count(layer: QRCodeLayer) -> int:
@@ -1290,8 +1317,20 @@ def _canonical_state(unit: _Unit, time: float):
     return ("canonical", states[-1], min(1.0, max(0.0, reveal)))
 
 
-def _canonical_render(image: Image.Image, state: LayerState, reveal: float) -> Image.Image | None:
-    """Apply renderer-independent opacity and left-to-right reveal to a frame."""
+def _canonical_render(
+    image: Image.Image,
+    state: LayerState,
+    reveal: float,
+    pos: tuple[int, int],
+    *,
+    include_scale: bool = True,
+) -> tuple[Image.Image, tuple[int, int]] | None:
+    """Apply renderer-independent opacity, reveal, and geometry to a frame.
+
+    Returns the transformed image with the position it should be composited at,
+    since scale, rotation, and blur all change the image's size around a fixed
+    centre and translation moves it outright.
+    """
     if reveal <= 0.0:
         return None
     output = image
@@ -1303,7 +1342,7 @@ def _canonical_render(image: Image.Image, state: LayerState, reveal: float) -> I
         mask = Image.new("L", output.size, 0)
         ImageDraw.Draw(mask).rectangle((0, 0, width, output.height), fill=255)
         output = _masked_alpha(output, mask)
-    return output
+    return apply_canonical_geometry(output, state, pos, include_scale=include_scale)
 
 
 def _animation_reveal(
@@ -2150,8 +2189,7 @@ def _scheduled_audio_args(
         if soundtrack.fade_out > 0:
             fade_duration = min(soundtrack.fade_out, timeline_duration)
             bed_filters += (
-                f",afade=t=out:st={timeline_duration - fade_duration:.6f}:"
-                f"d={fade_duration:.6f}"
+                f",afade=t=out:st={timeline_duration - fade_duration:.6f}:d={fade_duration:.6f}"
             )
         filters = [f"{bed_filters}[bed]"]
         input_index += 1

@@ -1396,7 +1396,7 @@ class Canvas:
         try:
             image = self._create_canvas()
             for layer in self._layers:
-                self._render_layer(image, layer, time)
+                self._render_moving_layer(image, layer, time)
             render_video_captions(
                 image,
                 iter_video_layers(self._layers),
@@ -1457,6 +1457,37 @@ class Canvas:
             fill=color,
         )
         draw.text((label_left + 3, label_top + 2), label, fill=(255, 255, 255, 255), font=font)
+
+    def _render_moving_layer(
+        self, image: Image.Image, layer: RenderableLayer, time: float | None = None
+    ):
+        """Render one layer, moving it when canonical motion is being sampled.
+
+        Geometry is applied to the layer's own rendered pixels rather than by
+        each renderer, so every layer type moves the same way. Only this timed
+        pass transforms; the exporters render layers untimed and apply the same
+        geometry once per animation unit.
+        """
+        from quickthumb._export_base import apply_canonical_geometry
+        from quickthumb.motion import sample_canonical_state
+
+        state = sample_canonical_state(layer, time)
+        if state is None:
+            self._render_layer(image, layer, time)
+            return
+        surface = Image.new("RGBA", image.size, (0, 0, 0, 0))
+        self._render_layer(surface, layer, time)
+        bounds = surface.getbbox()
+        if bounds is None:
+            return
+        fragment, position = apply_canonical_geometry(
+            surface.crop(bounds),
+            state,
+            (bounds[0], bounds[1]),
+            # Image layers fold scale into their source crop already.
+            include_scale=not isinstance(layer, ImageLayer),
+        )
+        image.alpha_composite(fragment, position)
 
     def _render_layer(self, image: Image.Image, layer: RenderableLayer, time: float | None = None):
         if has_layer_composition(layer):

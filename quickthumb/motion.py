@@ -741,6 +741,24 @@ def compile_timeline(
     return Timeline(events=tuple(events))
 
 
+def sample_canonical_state(layer: object, time: float | None) -> LayerState | None:
+    """Sample a layer's canonical motion at ``time``, or None when it has none.
+
+    Returns None for layers with no ``AnimationSpec`` and for the untimed render
+    pass, so callers can skip the isolated-surface work entirely.
+    """
+    if time is None:
+        return None
+    animation = getattr(layer, "animation", None)
+    if animation is None:
+        return None
+    animations = animation if isinstance(animation, list) else [animation]
+    specs = [item for item in animations if isinstance(item, AnimationSpec)]
+    if not specs:
+        return None
+    return compile_timeline(specs).sample(float(time), LayerState())
+
+
 def compile_transition_timeline(
     transition: Transition | dict[str, Any] | str | None,
 ) -> Timeline:
@@ -1202,12 +1220,44 @@ _CAPABILITY_FEATURES: tuple[CapabilityFeature, ...] = (
 _FULL_CAPABILITIES: dict[CapabilityFeature, tuple[SupportLevel, Fallback | None]] = dict.fromkeys(
     _CAPABILITY_FEATURES, ("full", None)
 )
+# The pixel pipelines compile every geometry property, but a colour track has no
+# consumer and stagger is approximated by a shared reveal rather than per-target
+# geometry. Declaring that here keeps `capabilities_for` and `validate_export`
+# telling callers the same story.
+_RASTER_OVERRIDES: dict[CapabilityFeature, tuple[SupportLevel, Fallback | None]] = {
+    "color": ("unsupported", "static"),
+    "stagger": ("partial", None),
+}
 _CAPABILITIES: dict[ExportTarget, dict[CapabilityFeature, MotionCapability]] = {}
 for _target in ("raster", "video"):
+    _row = dict(_FULL_CAPABILITIES) | _RASTER_OVERRIDES
+    if _target == "raster":
+        _row["audio_sync"] = ("unsupported", "static")
     _CAPABILITIES[_target] = {
         feature: MotionCapability(feature, _target, support, fallback)
-        for feature, (support, fallback) in _FULL_CAPABILITIES.items()
+        for feature, (support, fallback) in _row.items()
     }
+
+# Features the raster and video pipelines genuinely compile from a canonical
+# AnimationSpec. The document exporters still approximate canonical motion, so
+# they keep declaring a fallback for all of it.
+_CANONICAL_RENDERED: dict[str, frozenset[str]] = {
+    target: frozenset(
+        {
+            "position",
+            "scale",
+            "rotation",
+            "opacity",
+            "clip_progress",
+            "blur",
+            "easing",
+            "image_pan",
+            "image_zoom",
+            "stagger",
+        }
+    )
+    for target in ("raster", "video")
+}
 _CAPABILITIES["html"] = {
     feature: MotionCapability(feature, "html", "partial", "fade" if feature == "blur" else None)
     if feature == "blur"
@@ -1348,7 +1398,9 @@ def validate_export(
         for animation in items:
             for feature in _capability_features_for(animation):
                 capability = row[feature]
-                canonical_unimplemented = isinstance(animation, AnimationSpec)
+                canonical_unimplemented = isinstance(
+                    animation, AnimationSpec
+                ) and feature not in _CANONICAL_RENDERED.get(normalized, frozenset())
                 declared_support = "unsupported" if canonical_unimplemented else capability.support
                 declared_fallback = "static" if canonical_unimplemented else capability.fallback
                 action = resolved_policy.pptx.get(layer_id) if normalized == "pptx" else None
@@ -1567,9 +1619,7 @@ def _inspection_layer(
     specs = [item for item in items if isinstance(item, AnimationSpec)]
     timeline = _compile_inspection_timeline(animation)
     value = getattr(layer, "value", None)
-    value_duration = (
-        value.delay + value.duration if isinstance(value, AnimatedTextValue) else 0.0
-    )
+    value_duration = value.delay + value.duration if isinstance(value, AnimatedTextValue) else 0.0
     base = _layer_base_state(layer, canvas)
     initial = timeline.sample(0.0, base)
     final = timeline.sample(timeline.duration, base)

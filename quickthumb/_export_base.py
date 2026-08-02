@@ -11,13 +11,14 @@ mirrors TextEngine's positioning math run for run.
 from __future__ import annotations
 
 import base64
+import math
 import re
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from io import BytesIO
 from typing import TYPE_CHECKING
 
-from PIL import Image, ImageFont
+from PIL import Image, ImageFilter, ImageFont
 
 from quickthumb._base import (
     DEFAULT_LINE_HEIGHT_MULTIPLIER,
@@ -199,6 +200,47 @@ def rasterize_layers(canvas: Canvas, layers: list[RenderableLayer]) -> RasterFra
         return RasterFragment(buffer.getvalue(), bbox[0], bbox[1], cropped.width, cropped.height)
     finally:
         canvas._ctx.close_video_decoders()
+
+
+def apply_canonical_geometry(
+    image: Image.Image,
+    state,
+    pos: tuple[int, int],
+    *,
+    include_scale: bool = True,
+) -> tuple[Image.Image, tuple[int, int]]:
+    """Scale, rotate, and blur a rendered layer about its centre, then move it.
+
+    This is the ``T · R · S`` convention ``quickthumb.motion.transform_matrix``
+    documents: a layer is scaled, rotated about its own centre, and finally
+    translated by ``state.position``. Scale, rotation, and blur all change the
+    image's size, so the position it should be composited at comes back with it.
+
+    ``include_scale`` is off for image layers, whose renderer already folds
+    ``scale`` into the source crop so the frame stays put while its content
+    zooms.
+    """
+    centre_x = pos[0] + image.width / 2
+    centre_y = pos[1] + image.height / 2
+    if include_scale and state.scale > 0 and state.scale != 1.0:
+        image = image.resize(
+            (max(1, round(image.width * state.scale)), max(1, round(image.height * state.scale))),
+            resample=Image.Resampling.LANCZOS,
+        )
+    if state.rotation:
+        image = image.rotate(-state.rotation, expand=True, resample=Image.Resampling.BICUBIC)
+    if state.blur > 0:
+        # Pad by the kernel's usable reach so the blur fades out instead of
+        # being cut off at the layer's own edge.
+        margin = max(1, math.ceil(state.blur * 3))
+        padded = Image.new("RGBA", (image.width + margin * 2, image.height + margin * 2))
+        padded.alpha_composite(image.convert("RGBA"), (margin, margin))
+        image = padded.filter(ImageFilter.GaussianBlur(state.blur))
+    offset_x, offset_y = state.position or (0.0, 0.0)
+    return image, (
+        round(centre_x - image.width / 2 + offset_x),
+        round(centre_y - image.height / 2 + offset_y),
+    )
 
 
 def color_to_rgba(canvas: Canvas, color: str | tuple, opacity: float = 1.0) -> tuple:
