@@ -168,7 +168,7 @@ class TestCanonicalMotionRendering:
         end = canvas.render_frame(2.0)
 
         # Then: the layer keeps its frame to the pixel while its content moves
-        assert all(abs(a - b) <= 1 for a, b in zip(ink_bounds(start), ink_bounds(end)))
+        assert all(abs(a - b) <= 1 for a, b in zip(ink_bounds(start), ink_bounds(end), strict=True))
         assert start.tobytes() != end.tobytes()
 
     @pytest.mark.skipif(not HAS_FFMPEG, reason="ffmpeg is required")

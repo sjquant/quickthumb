@@ -15,6 +15,7 @@ canvas.shape(
     width,
     height,
     color,
+    fill=None,
     border_radius=0,
     opacity=1.0,
     rotation=0.0,
@@ -35,6 +36,7 @@ canvas.shape(
 | `width` | `int` | **required** | Shape width in pixels. Positive integer. |
 | `height` | `int` | **required** | Shape height in pixels. Positive integer. |
 | `color` | `str` | **required** | Fill color. Hex string (`"#RRGGBB"` or `"#RRGGBBAA"`). |
+| `fill` | `LinearGradient \| RadialGradient \| None` | `None` | Gradient fill, painted through the shape and rotated with it. `color` stays the flat fallback for targets that cannot draw a gradient (PPTX, PDF, SVG, HTML). |
 | `border_radius` | `int` | `0` | Corner rounding in pixels. Only applies to `"rectangle"`. Non-negative integer. |
 | `opacity` | `float` | `1.0` | Layer opacity from `0.0` to `1.0`. |
 | `rotation` | `float` | `0.0` | Rotation in degrees. |

@@ -80,6 +80,7 @@ nav:
       - Image: api/image.md
       - Shape: api/shape.md
       - SVG: api/svg.md
+      - Video: api/video.md
       - Group (Auto Layout): api/group.md
       - Outline: api/outline.md
       - Data visualizations: api/data-visualizations.md

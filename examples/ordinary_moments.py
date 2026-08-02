@@ -16,14 +16,18 @@ FFmpeg is required for the MP4, WebM, and GIF outputs.
 from pathlib import Path
 
 from quickthumb import (
+    AnimationSpec,
     AudioTrack,
     BackdropBlur,
     Background,
     Canvas,
     Deck,
     Fade,
+    KeyframeSpec,
     LinearGradient,
+    PositionTrack,
     Shadow,
+    TimingSpec,
     Wipe,
 )
 from quickthumb import transitions as tr
@@ -368,6 +372,7 @@ def build_fit_scene() -> Canvas:
             (x, frame_top),
             frame_width,
             frame_height,
+            border_radius=4,
         )
         canvas.text(
             content=label,
@@ -459,7 +464,14 @@ def build_cue_scene() -> Canvas:
             letter_spacing=1,
             position=(block_x, track_y + 26),
         )
-    return canvas
+    return canvas.shape(
+        shape="rectangle",
+        position=(track_x, track_y - 14),
+        width=3,
+        height=30,
+        color=CREAM,
+        animation=_sweep(track_width, CUE_DURATION),
+    )
 
 
 def build_time_scene() -> Canvas:
@@ -520,6 +532,14 @@ def build_time_scene() -> Canvas:
         height=6,
         color=ACCENT,
         animation=Wipe(direction="right", duration=TIME_DURATION),
+    )
+    canvas.shape(
+        shape="rectangle",
+        position=(0, 702),
+        width=3,
+        height=18,
+        color=CREAM,
+        animation=_sweep(WIDTH - 3, TIME_DURATION),
     )
     return canvas.text(
         content="속도도 소리도\n같은 타임라인 위에.",
@@ -609,6 +629,7 @@ def build_deliver_scene(duration: float = DELIVER_DURATION) -> Canvas:
         (frame_x, frame_y),
         frame_width,
         frame_height,
+        border_radius=4,
     )
     card_width, card_gap = 170, 25
     for index, (name, role) in enumerate((("MP4", "MASTER"), ("WEBM", "WEB"), ("GIF", "PREVIEW"))):
@@ -830,6 +851,7 @@ def _clip(
     width: int,
     height: int,
     captions: list[dict] | None = None,
+    border_radius: int = 0,
 ) -> Canvas:
     """Place one clip, slowing shorter footage instead of reading past its end."""
     # Sources run 5.0s to 8.0s, so a scene longer than its clip plays slower
@@ -846,6 +868,7 @@ def _clip(
         duration=duration,
         speed=speed,
         captions=captions or [],
+        border_radius=border_radius,
     )
 
 
@@ -865,6 +888,20 @@ def _caption(text: str, start: float, end: float) -> dict:
         "padding": (20, 12),
         "border_radius": 2,
     }
+
+
+def _sweep(distance: int, duration: float) -> AnimationSpec:
+    """Carry a playhead across its track at exactly the scene's own rate."""
+    return AnimationSpec.timeline(
+        PositionTrack(
+            keyframes=[
+                KeyframeSpec(time=0.0, value=(0.0, 0.0)),
+                KeyframeSpec(time=duration, value=(float(distance), 0.0)),
+            ]
+        ),
+        timing=TimingSpec(start=0.0, duration=duration),
+        easing="linear",
+    )
 
 
 def _scrim(canvas: Canvas, *, edge: str, boundary: int, fade: int, peak: float) -> Canvas:
