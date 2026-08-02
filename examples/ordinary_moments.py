@@ -523,7 +523,7 @@ def build_time_scene() -> Canvas:
     # taking exactly as long to fill as the scene takes to play. It anchors the
     # timeline, so the headline runs alongside it rather than after it.
     canvas.shape(
-        shape="rectangle", position=(0, 710), width=WIDTH, height=2, color=MUTE, opacity=0.5
+        shape="rectangle", position=(0, 708), width=WIDTH, height=6, color=MUTE, opacity=0.45
     )
     canvas.shape(
         shape="rectangle",

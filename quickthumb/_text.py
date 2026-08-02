@@ -251,8 +251,18 @@ class TextEngine:
         old_slots = old_number.rjust(target_width)
         new_slots = new_number.rjust(target_width)
         letter_spacing = static.letter_spacing or 0
+        # Every digit position reserves the same width for the whole animation,
+        # including the blank ones a number has not grown into yet. Measuring a
+        # blank as a space instead would shrink the block and slide the counter
+        # sideways each time it gains a digit.
+        digit_width = max(
+            self.measure_text_size(static.model_copy(update={"content": digit}))[0]
+            for digit in "0123456789"
+        )
         slot_widths = [
-            max(
+            digit_width
+            if old_char.isdigit() or new_char.isdigit() or " " in (old_char, new_char)
+            else max(
                 self.measure_text_size(static.model_copy(update={"content": old_char}))[0],
                 self.measure_text_size(static.model_copy(update={"content": new_char}))[0],
             )
@@ -296,7 +306,7 @@ class TextEngine:
         for old_char, new_char, slot_width in zip(old_slots, new_slots, slot_widths, strict=True):
             old_layer = static.model_copy(update={"content": old_char})
             new_layer = static.model_copy(update={"content": new_char})
-            if old_char == new_char or not old_char.isdigit() or not new_char.isdigit():
+            if old_char == new_char:
                 self.render_text_layer(
                     image,
                     new_layer.model_copy(
@@ -305,31 +315,24 @@ class TextEngine:
                 )
                 slot_x += slot_width + letter_spacing
                 continue
+            # A slot the number has not reached yet holds a blank, and a blank
+            # rolls like any other character: showing its incoming digit early
+            # would read as a value the counter never passes through, such as
+            # "199" on the way from 99 to 100.
             movement = 8
             if fraction < 0.5:
-                shift = round(movement * fraction * 2)
-                self.render_text_layer(
-                    image,
-                    old_layer.model_copy(
-                        update={
-                            "position": self._position_on_baseline(
-                                old_layer,
-                                slot_x,
-                                baseline - direction * shift,
-                            )
-                        }
-                    ),
-                )
+                rolling_char, rolling_layer = old_char, old_layer
+                offset = -direction * round(movement * fraction * 2)
             else:
-                shift = round(movement * (1.0 - fraction) * 2)
+                rolling_char, rolling_layer = new_char, new_layer
+                offset = direction * round(movement * (1.0 - fraction) * 2)
+            if not rolling_char.isspace():
                 self.render_text_layer(
                     image,
-                    new_layer.model_copy(
+                    rolling_layer.model_copy(
                         update={
                             "position": self._position_on_baseline(
-                                new_layer,
-                                slot_x,
-                                baseline + direction * shift,
+                                rolling_layer, slot_x, baseline + offset
                             )
                         }
                     ),
