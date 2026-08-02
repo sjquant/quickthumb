@@ -565,6 +565,19 @@ class VideoLayer(LayerIdentityModel):
     speed: FinitePositiveFloat = 1.0
     volume: FiniteNonNegativeFloat = 1.0
     captions: list[VideoCaption] = []
+    # A clip is a picture like any other: it grades, rounds, masks, fades, and
+    # animates with the same vocabulary as an image layer.
+    border_radius: NonNegativeInt = 0
+    opacity: OpacityField = 1.0
+    rotation: float = 0.0
+    align: AlignWithHVTuple = None
+    blend_mode: Annotated[
+        BlendMode | None, AfterValidator(lambda v: enum_converter(BlendMode)(v) if v else None)
+    ] = None
+    effects: list[ImageEffect] = []
+    clip: LayerClip | None = None
+    mask: LayerMask | None = None
+    animation: AnimationInput | None = None
 
     @field_validator("source")
     @classmethod

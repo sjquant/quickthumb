@@ -855,7 +855,9 @@ class _SlideAnimator:
                 if rendered is None:
                     continue
                 image, pos = rendered
-            elif unit.component_duration == 0 and state is not _SHOWN:
+            elif state is not _SHOWN:
+                # Component units (clips, animated counters) take the same
+                # entrance reveals as anything else on the slide.
                 effect, reveal = state
                 revealed = _animation_reveal(image, effect, reveal, unit.seed)
                 if revealed is None:

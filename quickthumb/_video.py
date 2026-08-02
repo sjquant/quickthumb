@@ -255,8 +255,11 @@ def render_video_layer(
     frame_cache: OrderedDict[tuple[str, float], Image.Image],
     decoder_cache: dict[str, VideoDecoder],
     font_loader=None,
+    images: ImageEngine | None = None,
 ) -> None:
     """Composite one sampled clip and its active captions onto a canvas."""
+    if images is None:
+        raise RenderingError("rendering a video layer requires the image engine")
     duration = effective_duration(layer, info)
     if time < layer.start or time > layer.start + duration + 1e-9:
         return
@@ -276,9 +279,11 @@ def render_video_layer(
     fitted = ImageEngine._fit_image(
         frame, (layer.width, layer.height), layer.fit, Image.Resampling.BICUBIC
     )
-    x = parse_coordinate(layer.position[0], image.width)
-    y = parse_coordinate(layer.position[1], image.height)
-    image.alpha_composite(fitted, (x, y))
+    if layer.border_radius > 0:
+        fitted = images._apply_border_radius(fitted, layer.border_radius)
+    # A sampled clip frame is composited exactly like an image layer's picture,
+    # so rotation, opacity, effects, and blending behave the same on footage.
+    images._composite_overlay_layer(image, fitted, layer)
 
 
 def render_video_captions(

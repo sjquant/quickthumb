@@ -690,6 +690,15 @@ class Canvas:
         speed: float = 1.0,
         volume: float = 1.0,
         captions: list[VideoCaption | dict[str, Any]] | None = None,
+        border_radius: int = 0,
+        opacity: float = 1.0,
+        rotation: float = 0.0,
+        align: Align | str | tuple[str, str] | None = None,
+        blend_mode: BlendMode | str | None = None,
+        effects: list[ImageEffect] | None = None,
+        clip: LayerClip | dict[str, Any] | None = None,
+        mask: LayerMask | dict[str, Any] | None = None,
+        animation: AnimationInput | None = None,
         *,
         id: str | None = None,
         motion_key: str | None = None,
@@ -709,6 +718,15 @@ class Canvas:
             speed=speed,
             volume=volume,
             captions=cast(list[VideoCaption], captions or []),
+            border_radius=border_radius,
+            opacity=opacity,
+            rotation=rotation,
+            align=align,  # type: ignore[arg-type]  # Pydantic validator handles conversion
+            blend_mode=blend_mode,  # type: ignore[arg-type]
+            effects=effects or [],
+            clip=cast(Any, clip),
+            mask=cast(Any, mask),
+            animation=animation,
             id=id,
             motion_key=motion_key,
         )
@@ -1558,6 +1576,7 @@ class Canvas:
                 self._ctx.video_frame_cache,
                 self._ctx.video_decoder_cache,
                 self._fonts.load_font_variant,
+                self._images,
             )
         elif isinstance(layer, CustomLayer):
             self._render_custom_layer(image, layer)

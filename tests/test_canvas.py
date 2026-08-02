@@ -134,6 +134,7 @@ class TestCanvas:
                     {
                         "type": "text",
                         "content": "Title",
+                        "value": None,
                         "font": None,
                         "font_source": "auto",
                         "font_variations": {},
@@ -161,6 +162,7 @@ class TestCanvas:
                     {
                         "type": "text",
                         "content": "Subtitle",
+                        "value": None,
                         "font": None,
                         "font_source": "auto",
                         "font_variations": {},
