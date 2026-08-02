@@ -13,6 +13,8 @@ from quickthumb import (
 )
 from quickthumb._export_video import _SlideAnimator
 
+from tests._helpers import lit_span
+
 FONT = "assets/fonts/Roboto-Medium.ttf"
 
 
@@ -58,9 +60,7 @@ def frosted_canvas(bar_animation=None, panel_animation=None):
 
 def bar_span(animator, time):
     """Return the horizontal extent of the bar seen through the panel."""
-    frame = animator.frame_at(time).convert("RGB")
-    lit = [x for x in range(400) if frame.getpixel((x, 100))[0] > 60]
-    return (min(lit), max(lit)) if lit else None
+    return lit_span(animator.frame_at(time).convert("RGB"), row=100, threshold=180)
 
 
 class TestMotionUnderABackdrop:

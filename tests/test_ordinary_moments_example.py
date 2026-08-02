@@ -76,9 +76,7 @@ def test_ordinary_moments_gives_every_clip_a_distinct_job():
 
     # When: every video layer is collected with the scene that hosts it
     slides = json.loads(deck.to_json())["slides"]
-    clips = [
-        [layer for layer in slide["layers"] if layer["type"] == "video"] for slide in slides
-    ]
+    clips = [[layer for layer in slide["layers"] if layer["type"] == "video"] for slide in slides]
     flattened = [clip for scene in clips for clip in scene]
 
     # Then: eight scenes carry footage and the closing card is graphic only

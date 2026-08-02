@@ -15,15 +15,15 @@ from quickthumb import (
 )
 from quickthumb.models import Filter
 
+from tests._helpers import lit_span
+
 HAS_FFMPEG = shutil.which("ffmpeg") is not None
 SOURCE = "assets/video/ordinary-coffee.mp4"
 
 
-def lit_span(image, row):
+def clip_span(image, row):
     """Return the horizontal extent of visible pixels along one row."""
-    rgb = image.convert("RGB")
-    lit = [x for x in range(rgb.width) if sum(rgb.getpixel((x, row))) > 60]
-    return (min(lit), max(lit)) if lit else None
+    return lit_span(image.convert("RGB"), row, threshold=60)
 
 
 def clip_canvas(**video_options):
@@ -140,8 +140,8 @@ class TestVideoLayerComposition:
         animator = _SlideAnimator(canvas, {})
 
         # Then: the clip has moved its own width across the frame
-        assert lit_span(animator.frame_at(0.0), 100) == (0, 299)
-        assert lit_span(animator.frame_at(3.0), 100) == (300, 599)
+        assert clip_span(animator.frame_at(0.0), 100) == (0, 299)
+        assert clip_span(animator.frame_at(3.0), 100) == (300, 599)
 
     def test_should_round_trip_the_new_clip_options_through_json(self):
         """Given a composed clip, when serialized, then every option survives."""

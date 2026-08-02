@@ -46,9 +46,7 @@ class TestShapeGradientFills:
                 width=200,
                 height=200,
                 color="#000000",
-                fill=LinearGradient(
-                    angle=90, stops=[("#00000000", 0.0), ("#000000FF", 1.0)]
-                ),
+                fill=LinearGradient(angle=90, stops=[("#00000000", 0.0), ("#000000FF", 1.0)]),
             )
         )
 

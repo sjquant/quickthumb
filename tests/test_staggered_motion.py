@@ -3,6 +3,8 @@
 from quickthumb import AnimationSpec, Canvas
 from quickthumb._export_video import _SlideAnimator
 
+from tests._helpers import ink_bands
+
 FONT = "assets/fonts/Pretendard-ExtraBold.woff2"
 
 
@@ -27,17 +29,7 @@ def staggered_canvas(stagger=0.4, target="lines", content="ONE\nTWO\nTHREE"):
 
 def line_tops(frame):
     """Return the top row of every separated band of ink in a frame."""
-    rgb = frame.convert("RGB")
-    rows = [
-        y for y in range(rgb.height) if any(rgb.getpixel((x, y))[0] > 100 for x in range(rgb.width))
-    ]
-    bands: list[list[int]] = []
-    for row in rows:
-        if bands and row == bands[-1][-1] + 1:
-            bands[-1].append(row)
-        else:
-            bands.append([row])
-    return [band[0] for band in bands]
+    return [band[0] for band in ink_bands(frame.convert("RGB"))]
 
 
 class TestStaggeredTargetsMoveIndependently:

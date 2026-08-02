@@ -16,6 +16,24 @@ from quickthumb import (
 )
 from quickthumb import transitions as tr
 
+from tests._helpers import ink_bounds, solid_pixels
+
+# The square is drawn in amber on near-black, so anything above a dark-grey sum
+# is the layer; the blur assertions need the faint antialiased edge counted too.
+INK = 90
+CORE = 400
+
+
+def ink_bounds_of(frame):
+    """Bounding box of the ink in a rendered frame, edges included."""
+    return ink_bounds(frame.convert("RGB"), threshold=INK)
+
+
+def solid_pixels_of(frame):
+    """Count of the layer's solid core, excluding the blurred halo."""
+    return solid_pixels(frame.convert("RGB"), threshold=CORE)
+
+
 HAS_FFMPEG = shutil.which("ffmpeg") is not None
 
 
@@ -26,33 +44,6 @@ def timeline(track, duration=2.0):
     return AnimationSpec.timeline(
         track, timing=TimingSpec(start=0.0, duration=duration), easing="linear"
     )
-
-
-def solid_pixels(image, threshold=400):
-    """Count pixels bright enough to be the layer's solid core, not its halo."""
-    rgb = image.convert("RGB")
-    return sum(
-        1
-        for x in range(rgb.width)
-        for y in range(rgb.height)
-        if sum(rgb.getpixel((x, y))) > threshold
-    )
-
-
-def ink_bounds(image):
-    """Return the bounding box of everything brighter than the background."""
-    rgb = image.convert("RGB")
-    lit = [
-        (x, y)
-        for x in range(rgb.width)
-        for y in range(rgb.height)
-        if sum(rgb.getpixel((x, y))) > 90
-    ]
-    if not lit:
-        return None
-    xs = [point[0] for point in lit]
-    ys = [point[1] for point in lit]
-    return min(xs), min(ys), max(xs), max(ys)
 
 
 def marked_canvas(animation):
@@ -89,7 +80,10 @@ class TestCanonicalMotionRendering:
         )
 
         # When: the composition is sampled across the track
-        starts = [ink_bounds(canvas.render_frame(time))[0] for time in (0.0, 1.0, 2.0)]
+        starts = [
+            ink_bounds(canvas.render_frame(time).convert("RGB"), threshold=INK)[0]
+            for time in (0.0, 1.0, 2.0)
+        ]
 
         # Then: it is where the track says it is at every sample
         assert starts == [100, 150, 200]
@@ -109,8 +103,8 @@ class TestCanonicalMotionRendering:
         )
 
         # When: the first and last frames are measured
-        start = ink_bounds(canvas.render_frame(0.0))
-        end = ink_bounds(canvas.render_frame(2.0))
+        start = ink_bounds(canvas.render_frame(0.0).convert("RGB"), threshold=INK)
+        end = ink_bounds(canvas.render_frame(2.0).convert("RGB"), threshold=INK)
 
         # Then: the box doubles while keeping the same centre
         assert start == (100, 100, 139, 139)
@@ -141,15 +135,17 @@ class TestCanonicalMotionRendering:
         )
 
         # When: each is sampled before and after its track runs
-        square = ink_bounds(rotating.render_frame(0.0))
-        turned = ink_bounds(rotating.render_frame(2.0))
+        square = ink_bounds_of(rotating.render_frame(0.0))
+        turned = ink_bounds_of(rotating.render_frame(2.0))
 
         # Then: a turned square occupies a wider footprint than an upright one
         assert turned[2] - turned[0] > square[2] - square[0]
 
         # Then: blur spreads the same ink over a larger, softer area
-        assert solid_pixels(blurring.render_frame(2.0)) < solid_pixels(blurring.render_frame(0.0))
-        assert ink_bounds(blurring.render_frame(2.0))[0] < square[0]
+        assert solid_pixels_of(blurring.render_frame(2.0)) < solid_pixels_of(
+            blurring.render_frame(0.0)
+        )
+        assert ink_bounds_of(blurring.render_frame(2.0))[0] < square[0]
 
     def test_should_zoom_an_image_inside_its_frame_instead_of_scaling_the_layer(self):
         """Given ken burns, when it plays, then the frame holds while content zooms."""
@@ -168,7 +164,9 @@ class TestCanonicalMotionRendering:
         end = canvas.render_frame(2.0)
 
         # Then: the layer keeps its frame to the pixel while its content moves
-        assert all(abs(a - b) <= 1 for a, b in zip(ink_bounds(start), ink_bounds(end), strict=True))
+        assert all(
+            abs(a - b) <= 1 for a, b in zip(ink_bounds_of(start), ink_bounds_of(end), strict=True)
+        )
         assert start.tobytes() != end.tobytes()
 
     @pytest.mark.skipif(not HAS_FFMPEG, reason="ffmpeg is required")
@@ -194,7 +192,7 @@ class TestCanonicalMotionRendering:
         moving = _SlideAnimator(deck.slides[0], {}).frame_at(1.0).convert("RGB")
 
         # Then: neither pipeline is the odd one out
-        assert ink_bounds(still) == ink_bounds(moving) == (150, 120, 189, 159)
+        assert ink_bounds_of(still) == ink_bounds_of(moving) == (150, 120, 189, 159)
 
 
 class TestCanonicalMotionDeclarations:

@@ -671,8 +671,10 @@ class TestDeckTransitions:
     def test_should_report_consecutive_identical_transitions(self):
         """Consecutive identical transitions produce an explicit rhythm warning"""
         # given: two adjacent slides with the same transition configuration
-        deck = Deck(1280, 720).slide(make_slide("1"), transition=Fade()).slide(
-            make_slide("2"), transition=Fade()
+        deck = (
+            Deck(1280, 720)
+            .slide(make_slide("1"), transition=Fade())
+            .slide(make_slide("2"), transition=Fade())
         )
 
         # when

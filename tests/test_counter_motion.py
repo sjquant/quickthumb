@@ -2,6 +2,8 @@
 
 from quickthumb import Canvas
 
+from tests._helpers import lit_span
+
 FONT = "assets/fonts/Roboto-Medium.ttf"
 
 
@@ -19,13 +21,7 @@ def counter_canvas(**options):
 
 def ink_span(canvas, time):
     """Return the horizontal extent of the counter's ink at a moment."""
-    frame = canvas.render_frame(time).convert("RGB")
-    lit = [
-        x
-        for x in range(frame.width)
-        if any(sum(frame.getpixel((x, y))) > 200 for y in range(frame.height))
-    ]
-    return (min(lit), max(lit)) if lit else None
+    return lit_span(canvas.render_frame(time).convert("RGB"))
 
 
 def roll_samples(canvas, start=0.2, step=0.02, count=100):

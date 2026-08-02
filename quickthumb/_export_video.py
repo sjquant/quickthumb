@@ -780,8 +780,32 @@ def _ease(progress: float) -> float:
 # ------------------------------------------------------- per-slide animation
 
 # Sentinel states for a unit outside its animation windows.
-_HIDDEN = object()
-_SHOWN = object()
+@dataclass(frozen=True)
+class _CanonicalState:
+    """A sampled canonical state with the multipliers a staggered group needs."""
+
+    layer: LayerState
+    alpha_scale: float
+    clip_scale: float
+
+
+@dataclass(frozen=True)
+class _UnitState:
+    """How one unit is drawn at a moment.
+
+    A unit is either off screen, drawn as it stands, part way through a legacy
+    entrance reveal, or carrying sampled canonical motion. Naming the four cases
+    keeps every reader of ``_unit_state`` from having to know which shape of
+    tuple or sentinel means what.
+    """
+
+    hidden: bool = False
+    reveal: tuple[Animation, float] | None = None
+    canonical: _CanonicalState | None = None
+
+
+_HIDDEN = _UnitState(hidden=True)
+_SHOWN = _UnitState()
 
 
 @dataclass
@@ -841,7 +865,7 @@ class _SlideAnimator:
             if unit.image is None:
                 continue
             state = _unit_state(unit, time)
-            if state is _HIDDEN:
+            if state.hidden:
                 continue
             visible_video_layers.extend(iter_video_layers(unit.layers))
             if unit.component_duration > 0:
@@ -853,31 +877,31 @@ class _SlideAnimator:
             else:
                 pos = unit.pos
                 image = unit.image
-            if unit.target_images and isinstance(state, _CanonicalState):
+            if unit.target_images and state.canonical is not None:
                 # Each staggered target carries its own state, so they arrive one
                 # after another instead of sharing one averaged reveal.
                 composite_motion_targets(
                     frame, unit.target_images, _canonical_target_states(unit, time)
                 )
                 continue
-            if isinstance(state, _CanonicalState):
+            if state.canonical is not None:
                 # Canonical motion applies to component units (video, animated
                 # text values) too, so a clip can move while it plays.
                 rendered = _canonical_render(
                     image,
-                    state.layer,
-                    state.alpha_scale,
+                    state.canonical.layer,
+                    state.canonical.alpha_scale,
                     pos,
-                    clip_scale=state.clip_scale,
+                    clip_scale=state.canonical.clip_scale,
                     include_scale=not any(isinstance(item, ImageLayer) for item in unit.layers),
                 )
                 if rendered is None:
                     continue
                 image, pos = rendered
-            elif state is not _SHOWN:
+            elif state.reveal is not None:
                 # Component units (clips, animated counters) take the same
                 # entrance reveals as anything else on the slide.
-                effect, reveal = state
+                effect, reveal = state.reveal
                 revealed = _animation_reveal(image, effect, reveal, unit.seed)
                 if revealed is None:
                     continue
@@ -1327,8 +1351,8 @@ def _qr_module_count(layer: QRCodeLayer) -> int:
     return matrix_size * matrix_size
 
 
-def _unit_state(unit: _Unit, time: float):
-    """Resolve a unit's visibility at ``time``: hidden, shown, or (effect, reveal).
+def _unit_state(unit: _Unit, time: float) -> _UnitState:
+    """Resolve how a unit is drawn at ``time``.
 
     The unit starts hidden when its first effect is an entrance (the HTML
     exporter's ``visibility:hidden`` priming); each node then leaves it shown
@@ -1354,19 +1378,12 @@ def _unit_state(unit: _Unit, time: float):
                 progress = easing_value(
                     node.effect.easing, (time - active_start) / node.effect.duration
                 )
-                state = (node.effect, progress if entrance else 1.0 - progress)
+                state = _UnitState(
+                    reveal=(node.effect, progress if entrance else 1.0 - progress)
+                )
         else:
             state = _SHOWN if entrance else _HIDDEN
     return state
-
-
-@dataclass(frozen=True)
-class _CanonicalState:
-    """A sampled canonical state with the multipliers a staggered group needs."""
-
-    layer: LayerState
-    alpha_scale: float
-    clip_scale: float
 
 
 def _canonical_target_states(unit: _Unit, time: float) -> tuple[LayerState | None, ...]:
@@ -1413,10 +1430,12 @@ def _canonical_state(unit: _Unit, time: float):
         alpha_scale = 1.0 if event.effect == "typewriter" else arrived
     elif event is not None and time < event.active_start and event.effect in {"fade", "typewriter"}:
         alpha_scale = 0.0
-    return _CanonicalState(
-        layer=states[-1],
-        alpha_scale=min(1.0, max(0.0, alpha_scale)),
-        clip_scale=min(1.0, max(0.0, clip_scale)),
+    return _UnitState(
+        canonical=_CanonicalState(
+            layer=states[-1],
+            alpha_scale=min(1.0, max(0.0, alpha_scale)),
+            clip_scale=min(1.0, max(0.0, clip_scale)),
+        )
     )
 
 
