@@ -34,6 +34,8 @@ class Diagnostic(quickthumbModel):
         "caption-safe-area",
         "caption-timing",
         "caption-overlap",
+        "caption-reading-time",
+        "clip-stretch",
         "missing-glyph",
         "low-contrast",
         "layer-overlap",

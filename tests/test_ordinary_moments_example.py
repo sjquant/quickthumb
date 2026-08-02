@@ -127,3 +127,16 @@ def test_ordinary_moments_keeps_caption_treatment_and_fallback_contracts_public(
     assert any(
         item.feature == "video_layer" and item.fallback == "rasterize" for item in diagnostics
     )
+
+
+def test_ordinary_moments_reads_at_a_pace_the_diagnostics_accept():
+    """Given the film, when diagnosed, then its cues and clip speeds pass unremarked."""
+    # Given: a film whose caption timing and clip speeds were tuned by hand
+    from examples.ordinary_moments import build_deck
+
+    # When: the time-aware video rules run over it
+    codes = {finding.code for finding in build_deck().diagnose()}
+
+    # Then: neither reading time nor clip stretch has anything to say
+    assert "caption-reading-time" not in codes
+    assert "clip-stretch" not in codes
