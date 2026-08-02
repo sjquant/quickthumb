@@ -65,8 +65,8 @@ from PIL import Image, ImageChops, ImageColor, ImageDraw
 
 from quickthumb._composition import has_layer_composition
 from quickthumb._export_base import (
-    apply_canonical_alpha,
     apply_canonical_geometry,
+    composite_motion_targets,
     flatten_layers,
     split_backdrop_prefix,
     split_into_bands,
@@ -853,30 +853,22 @@ class _SlideAnimator:
             else:
                 pos = unit.pos
                 image = unit.image
-            if unit.target_images and isinstance(state, tuple) and state[0] == "canonical":
+            if unit.target_images and isinstance(state, _CanonicalState):
                 # Each staggered target carries its own state, so they arrive one
                 # after another instead of sharing one averaged reveal.
-                for (fragment, place), target in zip(
-                    unit.target_images,
-                    _canonical_target_states(unit, time),
-                    strict=True,
-                ):
-                    if target is None:
-                        continue
-                    moved, moved_pos = apply_canonical_geometry(fragment, target, place)
-                    moved = apply_canonical_alpha(moved, target)
-                    if moved is not None:
-                        frame.alpha_composite(moved, moved_pos)
+                composite_motion_targets(
+                    frame, unit.target_images, _canonical_target_states(unit, time)
+                )
                 continue
-            if isinstance(state, tuple) and state and state[0] == "canonical":
+            if isinstance(state, _CanonicalState):
                 # Canonical motion applies to component units (video, animated
                 # text values) too, so a clip can move while it plays.
                 rendered = _canonical_render(
                     image,
-                    state[1],
-                    state[2],
+                    state.layer,
+                    state.alpha_scale,
                     pos,
-                    clip_scale=state[3],
+                    clip_scale=state.clip_scale,
                     include_scale=not any(isinstance(item, ImageLayer) for item in unit.layers),
                 )
                 if rendered is None:
@@ -1368,6 +1360,15 @@ def _unit_state(unit: _Unit, time: float):
     return state
 
 
+@dataclass(frozen=True)
+class _CanonicalState:
+    """A sampled canonical state with the multipliers a staggered group needs."""
+
+    layer: LayerState
+    alpha_scale: float
+    clip_scale: float
+
+
 def _canonical_target_states(unit: _Unit, time: float) -> tuple[LayerState | None, ...]:
     """Sample each staggered target, leaving the ones whose turn has not come."""
     states: list[LayerState | None] = []
@@ -1412,18 +1413,17 @@ def _canonical_state(unit: _Unit, time: float):
         alpha_scale = 1.0 if event.effect == "typewriter" else arrived
     elif event is not None and time < event.active_start and event.effect in {"fade", "typewriter"}:
         alpha_scale = 0.0
-    return (
-        "canonical",
-        states[-1],
-        min(1.0, max(0.0, alpha_scale)),
-        min(1.0, max(0.0, clip_scale)),
+    return _CanonicalState(
+        layer=states[-1],
+        alpha_scale=min(1.0, max(0.0, alpha_scale)),
+        clip_scale=min(1.0, max(0.0, clip_scale)),
     )
 
 
 def _canonical_render(
     image: Image.Image,
     state: LayerState,
-    reveal: float,
+    alpha_scale: float,
     pos: tuple[int, int],
     *,
     clip_scale: float = 1.0,
@@ -1435,10 +1435,10 @@ def _canonical_render(
     since scale, rotation, and blur all change the image's size around a fixed
     centre and translation moves it outright.
     """
-    if reveal <= 0.0:
+    if alpha_scale <= 0.0:
         return None
     output = image
-    opacity = min(1.0, max(0.0, state.opacity)) * reveal
+    opacity = min(1.0, max(0.0, state.opacity)) * alpha_scale
     if opacity < 1.0:
         output = _scaled_alpha(output, opacity)
     progress = min(clip_scale, state.clip_progress)

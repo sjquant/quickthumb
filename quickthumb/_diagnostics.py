@@ -610,19 +610,17 @@ class DiagnosticsEngine:
         # edge, so only edges the layer does not span are worth reporting.
         spans_width = box.x <= 0 and box.right >= self._ctx.width
         spans_height = box.y <= 0 and box.bottom >= self._ctx.height
-        spanned = set()
-        if spans_width:
-            spanned |= {"left", "right"}
-        if spans_height:
-            spanned |= {"top", "bottom"}
-        if spans_width and box.bottom >= self._ctx.height:
-            spanned.add("bottom")
-        if spans_width and box.y <= 0:
-            spanned.add("top")
-        if spans_height and box.right >= self._ctx.width:
-            spanned.add("right")
-        if spans_height and box.x <= 0:
-            spanned.add("left")
+        # A layer that spans the canvas is bleeding rather than crowding, and it
+        # bleeds off precisely the edges it reaches: a full-width band flush with
+        # the bottom runs off it, the same band floating above it does not.
+        bleeds = spans_width or spans_height
+        reaches = {
+            "left": box.x <= 0,
+            "right": box.right >= self._ctx.width,
+            "top": box.y <= 0,
+            "bottom": box.bottom >= self._ctx.height,
+        }
+        spanned = {edge for edge, reached in reaches.items() if reached and bleeds}
         crowded_edges = [
             edge
             for edge, distance in distances.items()

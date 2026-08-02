@@ -217,10 +217,18 @@ def split_into_bands(
     if count < 2:
         return None
     alpha = surface.getchannel("A")
+    ink = alpha.getbbox()
+    if ink is None:
+        return None
+    # One byte scan per row beats cropping each one: this runs for every frame of
+    # a staggered layer in the still pipeline.
+    band = alpha.crop((0, ink[1], surface.width, ink[3]))
+    pixels = band.tobytes()
+    width = band.width
     rows = [
-        row
-        for row in range(surface.height)
-        if alpha.crop((0, row, surface.width, row + 1)).getbbox()
+        ink[1] + row
+        for row in range(band.height)
+        if pixels[row * width : (row + 1) * width].count(0) != width
     ]
     if not rows:
         return None
@@ -242,8 +250,22 @@ def split_into_bands(
     return tuple(fragments)
 
 
+def composite_motion_targets(image: Image.Image, fragments, states) -> None:
+    """Place each staggered target using its own sampled state.
+
+    A target whose turn has not come samples to None and is simply not drawn.
+    """
+    for (fragment, position), state in zip(fragments, states, strict=True):
+        if state is None:
+            continue
+        moved, placed = apply_canonical_geometry(fragment, state, position)
+        moved = apply_canonical_alpha(moved, state)
+        if moved is not None:
+            image.alpha_composite(moved, placed)
+
+
 def apply_canonical_alpha(
-    image: Image.Image, state, reveal: float = 1.0, clip_progress: float | None = None
+    image: Image.Image, state, clip_progress: float | None = None
 ) -> Image.Image | None:
     """Apply a sampled layer's opacity and left-to-right reveal to its pixels.
 
@@ -253,7 +275,7 @@ def apply_canonical_alpha(
     Returns None when nothing of the layer is visible yet, so callers can skip
     compositing it entirely.
     """
-    opacity = min(1.0, max(0.0, state.opacity)) * min(1.0, max(0.0, reveal))
+    opacity = min(1.0, max(0.0, state.opacity))
     if opacity <= 0.0:
         return None
     clip = state.clip_progress if clip_progress is None else clip_progress

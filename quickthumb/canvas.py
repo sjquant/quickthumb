@@ -1512,11 +1512,7 @@ class Canvas:
         set tight enough to touch, or a target kind with no visual band — fall
         back to moving the layer as a whole.
         """
-        from quickthumb._export_base import (
-            apply_canonical_alpha,
-            apply_canonical_geometry,
-            split_into_bands,
-        )
+        from quickthumb._export_base import composite_motion_targets, split_into_bands
         from quickthumb.motion import sample_canonical_targets
 
         count = self._staggered_target_count(layer)
@@ -1526,13 +1522,7 @@ class Canvas:
         fragments = split_into_bands(surface, count)
         if fragments is None:
             return False
-        for (fragment, position), state in zip(fragments, states, strict=True):
-            if state is None:
-                continue
-            moved, placed = apply_canonical_geometry(fragment, state, position)
-            moved = apply_canonical_alpha(moved, state)
-            if moved is not None:
-                image.alpha_composite(moved, placed)
+        composite_motion_targets(image, fragments, states)
         return True
 
     def _render_moving_layer(
