@@ -26,6 +26,7 @@ from quickthumb import (
     KeyframeSpec,
     LinearGradient,
     PositionTrack,
+    ScaleTrack,
     Shadow,
     TimingSpec,
     Wipe,
@@ -86,7 +87,9 @@ GIF_PREVIEW_DURATION = 4.0
 TIME_TRIM = (0.2, 5.0)
 TIME_SPEED = (TIME_TRIM[1] - TIME_TRIM[0]) / TIME_DURATION
 SOUNDTRACK_VOLUME = 0.16
-SOUNDTRACK_FADE_OUT = 1.4
+# The bed is a uniform ambient loop with no arc of its own, so the ending has to
+# come from the mix: it starts receding exactly as the closing card arrives.
+SOUNDTRACK_FADE_OUT = CLOSE_DURATION
 FIRST_CUE = (0.9, 3.3)
 SECOND_CUE = (3.5, 6.4)
 
@@ -144,7 +147,14 @@ def build_deck() -> Deck:
 
 def build_hook_scene() -> Canvas:
     """Open on the question the whole film answers, over an unhurried city."""
-    canvas = _full_bleed(Canvas(WIDTH, HEIGHT), "ordinary-city.mp4", HOOK_DURATION, 0.0, 5.0)
+    canvas = _full_bleed(
+        Canvas(WIDTH, HEIGHT),
+        "ordinary-city.mp4",
+        HOOK_DURATION,
+        0.0,
+        5.0,
+        animation=_push_in(HOOK_DURATION),
+    )
     _scrim(canvas, edge="bottom", boundary=410, fade=230, peak=0.8)
     return (
         canvas.text(
@@ -654,7 +664,14 @@ def build_deliver_scene(duration: float = DELIVER_DURATION) -> Canvas:
 
 def build_resolve_scene() -> Canvas:
     """Land the argument on the film's last piece of footage."""
-    canvas = _full_bleed(Canvas(WIDTH, HEIGHT), "ordinary-sunrise.mp4", RESOLVE_DURATION, 0.7, 7.3)
+    canvas = _full_bleed(
+        Canvas(WIDTH, HEIGHT),
+        "ordinary-sunrise.mp4",
+        RESOLVE_DURATION,
+        0.7,
+        7.3,
+        animation=_push_in(RESOLVE_DURATION, amount=1.05),
+    )
     _scrim(canvas, edge="bottom", boundary=396, fade=220, peak=0.78)
     return (
         canvas.shape(
@@ -805,6 +822,25 @@ def _copy_block(
     )
 
 
+def _push_in(duration: float, amount: float = 1.06) -> AnimationSpec:
+    """Creep the frame closer over a whole scene.
+
+    A statement scene holds one line for six or seven seconds. Without this the
+    composition is still and only the footage moves; a push this slow is not read
+    as an effect, just as the shot refusing to sit completely still.
+    """
+    return AnimationSpec.timeline(
+        ScaleTrack(
+            keyframes=[
+                KeyframeSpec(time=0.0, value=1.0),
+                KeyframeSpec(time=duration, value=amount),
+            ]
+        ),
+        timing=TimingSpec(start=0.0, duration=duration),
+        easing="linear",
+    )
+
+
 def _full_bleed(
     canvas: Canvas,
     source_name: str,
@@ -812,6 +848,7 @@ def _full_bleed(
     trim_start: float,
     trim_end: float,
     captions: list[dict] | None = None,
+    animation: AnimationSpec | None = None,
 ) -> Canvas:
     """Fill the frame with one clip stretched to the scene's exact length."""
     return _clip(
@@ -824,6 +861,7 @@ def _full_bleed(
         WIDTH,
         HEIGHT,
         captions=captions,
+        animation=animation,
     )
 
 
@@ -838,6 +876,7 @@ def _clip(
     height: int,
     captions: list[dict] | None = None,
     border_radius: int = 0,
+    animation: AnimationSpec | None = None,
 ) -> Canvas:
     """Place one clip, slowing shorter footage instead of reading past its end."""
     # Sources run 5.0s to 8.0s, so a scene longer than its clip plays slower
@@ -855,6 +894,7 @@ def _clip(
         speed=speed,
         captions=captions or [],
         border_radius=border_radius,
+        animation=animation,
     )
 
 
