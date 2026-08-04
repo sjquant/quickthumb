@@ -1,4 +1,3 @@
-import unicodedata
 import warnings
 from collections.abc import Iterable
 from itertools import islice
@@ -11,6 +10,10 @@ from PIL import Image, ImageChops
 from quickthumb._base import DEFAULT_TEXT_SIZE, RenderContext, parse_coordinate
 from quickthumb._composition import has_layer_composition
 from quickthumb._diagnostic_rules import (
+    MAX_CAPTION_COLUMNS_PER_SECOND,
+    MAX_NATURAL_CLIP_SPEED,
+    MIN_CAPTION_SECONDS,
+    MIN_NATURAL_CLIP_SPEED,
     PLATFORM_SAFE_MARGIN_PRESETS,
     LayerAlphaCache,
     NearAlignment,
@@ -18,6 +21,7 @@ from quickthumb._diagnostic_rules import (
     SafeMarginPreset,
     TiledContrastMeasurement,
     bbox_payload,
+    caption_reading_cost,
     clear_overlap_suggestion,
     diagnostic_context,
     edge_distances,
@@ -61,17 +65,6 @@ from quickthumb.models import (
 )
 
 TINY_TEXT_RATIO = 0.025
-# Deliberately generous reading limits: they exist to catch a cue that flashes
-# past, not to arbitrate typography. A line held for 0.4s is a mistake in any
-# language; 20 columns a second is beyond a fast reader. Cost is counted in
-# display columns rather than characters so a wide script is not treated as
-# though it read at the same rate as a narrow one.
-MIN_CAPTION_SECONDS = 0.8
-MAX_CAPTION_COLUMNS_PER_SECOND = 20.0
-# Below and above these rates a clip is being stretched or rushed to fill its
-# scene rather than played, which renders cleanly and looks wrong.
-MIN_NATURAL_CLIP_SPEED = 0.5
-MAX_NATURAL_CLIP_SPEED = 2.0
 LOW_CONTRAST_THRESHOLD = 2.0
 CONTRAST_TILE_SIZE = 32
 MIN_PARTIAL_OVERLAP_RATIO = 0.2
@@ -79,16 +72,6 @@ BACKDROP_COVERAGE_RATIO = 0.95
 OVERLAP_CLEARANCE_PX = 8
 NEAR_ALIGNMENT_TOLERANCE = 3
 CAPTION_SAFE_MARGIN = 24
-
-
-def _display_columns(text: str) -> int:
-    """Return the terminal-style width of text, counting wide scripts as two.
-
-    A Korean or Japanese line carries far more per character than a Latin one,
-    so measuring reading cost in characters would let a dense cue race past
-    unreported. East Asian width is the standard approximation for that.
-    """
-    return sum(2 if unicodedata.east_asian_width(char) in {"W", "F"} else 1 for char in text)
 
 
 def _boxes_intersect(first: tuple[int, int, int, int], second: tuple[int, int, int, int]) -> bool:
@@ -128,10 +111,8 @@ class DiagnosticsEngine:
     def diagnose(self) -> list[Diagnostic]:
         """Check layers for layout and legibility issues without producing an output file.
 
-        Returns structured findings (off-canvas, tiny-text, text-overflow,
-        text-clipped, missing-glyph, low-contrast, layer-overlap, layer-hidden,
-        edge-crowding, near-alignment) that an agent or human can act on before
-        rendering.
+        Returns structured findings that an agent or human can act on before
+        rendering. ``Diagnostic.code`` enumerates every rule this can report.
         """
         with warnings.catch_warnings():
             warnings.filterwarnings(
@@ -142,6 +123,15 @@ class DiagnosticsEngine:
             return self._diagnose_impl()
 
     def _diagnose_impl(self) -> list[Diagnostic]:
+        # Diagnosing composites every layer, which opens a decoder per video
+        # source. The render and export paths both close theirs in a finally;
+        # without one here a caller that only diagnoses leaks a live process.
+        try:
+            return self._collect_diagnostics()
+        finally:
+            self._ctx.close_video_decoders()
+
+    def _collect_diagnostics(self) -> list[Diagnostic]:
         self._alpha_cache.clear()
         self._canvas._validate_image_paths()
         self._ctx.begin_render_pass()
@@ -183,29 +173,37 @@ class DiagnosticsEngine:
         return diagnostics
 
     def _diagnose_caption_reading_time(
-        self, measured: LayerMeasurement, index: int, caption: VideoCaption
+        self, measured: LayerMeasurement, index: int, caption: VideoCaption, layer: VideoLayer
     ) -> list[Diagnostic]:
         """Report a cue that leaves too little time on screen to be read."""
-        # VideoCaption already guarantees non-empty text and end > start, so the
-        # rate below cannot divide by zero.
-        duration = caption.end - caption.start
-        columns = _display_columns(caption.text.strip())
+        columns, duration = caption_reading_cost(
+            caption.text, caption.start, caption.end, layer.duration
+        )
+        # VideoCaption guarantees end > start, but clamping to the layer can
+        # leave nothing on screen at all, which caption-timing already reports.
+        if duration <= 0:
+            return []
         rate = columns / duration
         too_brief = duration < MIN_CAPTION_SECONDS
-        too_fast = rate > MAX_CAPTION_COLUMNS_PER_SECOND
-        if not (too_brief or too_fast):
+        if too_brief:
+            reason = (
+                f"is too brief to read: {duration:.2f}s on screen, "
+                f"under the {MIN_CAPTION_SECONDS:.2f}s minimum"
+            )
+        elif rate > MAX_CAPTION_COLUMNS_PER_SECOND:
+            reason = (
+                f"reads too fast: {columns} columns of text in {duration:.2f}s, "
+                f"above {MAX_CAPTION_COLUMNS_PER_SECOND:.0f} columns per second"
+            )
+        else:
             return []
         readable = max(MIN_CAPTION_SECONDS, columns / MAX_CAPTION_COLUMNS_PER_SECOND)
-        reason = "is too brief to read" if too_brief else "reads too fast"
         return [
             Diagnostic(
                 code="caption-reading-time",
                 severity="warning",
                 layer_index=measured.index,
-                message=(
-                    f"video caption {index} {reason}: {len(caption.text.strip())} "
-                    f"characters in {duration:.2f}s"
-                ),
+                message=f"video caption {index} {reason}",
                 measured={
                     "caption_index": index,
                     "caption_text": caption.text,
@@ -225,32 +223,31 @@ class DiagnosticsEngine:
     def _diagnose_clip_stretch(
         self, measured: LayerMeasurement, layer: VideoLayer
     ) -> list[Diagnostic]:
-        """Report footage pulled far from its own rate to fill a scene."""
+        """Report footage played far from its own rate."""
         speed = layer.speed
         if MIN_NATURAL_CLIP_SPEED <= speed <= MAX_NATURAL_CLIP_SPEED:
             return []
-        slowed = speed < MIN_NATURAL_CLIP_SPEED
-        effect = "crawls" if slowed else "races"
+        if speed < MIN_NATURAL_CLIP_SPEED:
+            effect = "crawls"
+            repair = "trim a longer window from the source, or shorten the scene"
+        else:
+            effect = "races"
+            repair = "trim a shorter window from the source, or lengthen the scene"
         return [
             Diagnostic(
                 code="clip-stretch",
                 severity="warning",
                 layer_index=measured.index,
-                message=(
-                    f"video plays at {speed:.2f}x and {effect}; the clip is being "
-                    "stretched to fit its scene rather than played"
-                ),
+                message=f"video plays at {speed:.2f}x of its own rate and {effect}",
                 measured={
                     "speed": speed,
                     "trim_start": layer.trim_start,
                     "trim_end": layer.trim_end,
                     "duration": layer.duration,
-                    "natural_speed_range": [MIN_NATURAL_CLIP_SPEED, MAX_NATURAL_CLIP_SPEED],
+                    "minimum_speed": MIN_NATURAL_CLIP_SPEED,
+                    "maximum_speed": MAX_NATURAL_CLIP_SPEED,
                 },
-                suggestion=(
-                    "trim a longer window from the source, or shorten the scene, "
-                    "so the clip plays closer to its own rate"
-                ),
+                suggestion=f"{repair}, so the clip plays closer to its own rate",
                 **diagnostic_context(measured),
             )
         ]
@@ -344,7 +341,7 @@ class DiagnosticsEngine:
                         **diagnostic_context(measured),
                     )
                 )
-            findings.extend(self._diagnose_caption_reading_time(measured, index, caption))
+            findings.extend(self._diagnose_caption_reading_time(measured, index, caption, layer))
             if layer.duration is not None and caption.end > layer.duration + 1e-9:
                 findings.append(
                     Diagnostic(

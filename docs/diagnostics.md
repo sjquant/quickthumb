@@ -51,8 +51,8 @@ Each `Diagnostic` has stable human-readable fields and optional structured field
 | `caption-safe-area` | A video caption sits inside the canvas safe-area margin |
 | `caption-timing` | A video caption ends after its clip does, so it is never seen |
 | `caption-overlap` | Two video captions share both a moment and a rendered background |
-| `caption-reading-time` | A cue is held under 0.8s, or runs past 20 display columns a second, leaving too little time to read it. Wide scripts such as Korean and Japanese count as two columns per character |
-| `clip-stretch` | A clip plays at 0.5x or slower, or 2x or faster, meaning it is being stretched to fit its scene rather than played |
+| `caption-reading-time` | A cue is on screen under 0.8s, or runs past 20 display columns a second, leaving too little time to read it. Wide scripts such as Korean and Japanese count as two columns per character, and a cue is measured over the time it is really visible rather than its declared window |
+| `clip-stretch` | A clip plays slower than 0.5x or faster than 2x of its own rate. Usually it is being stretched to fit a scene, but a deliberate slow-motion or timelapse beat is reported the same way |
 
 !!! tip "Agent loop"
     `diagnose()` is designed for render → diagnose → fix iteration: have an LLM emit a spec, run `diagnose()`, and feed the findings back as targeted edit instructions instead of re-prompting from scratch.

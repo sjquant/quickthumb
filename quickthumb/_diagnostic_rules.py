@@ -1,6 +1,7 @@
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from typing import cast
+from unicodedata import category, east_asian_width
 
 from PIL import Image, ImageChops, ImageStat
 from typing_extensions import TypedDict
@@ -161,6 +162,51 @@ PLATFORM_SAFE_MARGIN_PRESETS: dict[str, SafeMarginPreset] = {
     "instagram-reels": INSTAGRAM_REELS_PRESET,
     "tiktok": TIKTOK_PRESET,
 }
+
+
+# Deliberately generous reading limits: they exist to catch a cue that flashes
+# past, not to arbitrate typography. A line held under a second is a mistake in
+# any language, and 20 columns a second is beyond a fast reader.
+MIN_CAPTION_SECONDS = 0.8
+MAX_CAPTION_COLUMNS_PER_SECOND = 20.0
+# Outside this range a clip is being played far from its own rate, which renders
+# cleanly and reads as wrong.
+MIN_NATURAL_CLIP_SPEED = 0.5
+MAX_NATURAL_CLIP_SPEED = 2.0
+
+
+def display_columns(text: str) -> int:
+    """Return the terminal-style width of text, counting wide scripts as two.
+
+    A Korean or Japanese line carries far more per character than a Latin one,
+    so measuring reading cost in characters would let a dense cue race past
+    unreported. East Asian width is the standard approximation for that.
+
+    Marks and joiners that render into a neighbouring glyph rather than beside
+    it cost nothing, so a decomposed accent or an emoji built from a joined
+    sequence is not charged once per code point.
+    """
+    return sum(
+        0 if _is_zero_width(char) else 2 if east_asian_width(char) in {"W", "F"} else 1
+        for char in text
+    )
+
+
+def _is_zero_width(char: str) -> bool:
+    """Whether a character renders into its neighbour instead of beside it."""
+    return category(char) in {"Mn", "Me", "Cf"}
+
+
+def caption_reading_cost(
+    text: str, start: float, end: float, layer_duration: float | None
+) -> tuple[int, float]:
+    """Return a cue's column count and the seconds it is really on screen.
+
+    A cue is only drawn while its layer is live, so one that runs past the end
+    of its clip is visible for less time than it declares.
+    """
+    visible_end = end if layer_duration is None else min(end, layer_duration)
+    return display_columns(text.strip()), max(0.0, visible_end - start)
 
 
 def bbox_payload(box: BBox) -> dict[str, int]:
