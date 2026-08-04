@@ -32,9 +32,7 @@ class ShapeEngine:
             gradient = self._effects.create_linear_gradient(shape.size, fill.angle, fill.stops)
         else:
             gradient = self._effects.create_radial_gradient(shape.size, fill.stops, fill.center)
-        gradient.putalpha(
-            ImageChops.multiply(gradient.getchannel("A"), shape.getchannel("A"))
-        )
+        gradient.putalpha(ImageChops.multiply(gradient.getchannel("A"), shape.getchannel("A")))
         return gradient
 
     def render_shape_layer(self, image: Image.Image, layer: ShapeLayer):

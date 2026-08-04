@@ -68,9 +68,7 @@ class AnimatedTextValue(quickthumbModel):
             progress = 1.0 - (1.0 - progress) ** 2
         elif self.easing == "ease_in_out":
             progress = (
-                2 * progress * progress
-                if progress < 0.5
-                else 1 - (-2 * progress + 2) ** 2 / 2
+                2 * progress * progress if progress < 0.5 else 1 - (-2 * progress + 2) ** 2 / 2
             )
         return self.from_ + (self.to - self.from_) * progress
 
@@ -86,9 +84,7 @@ class AnimatedTextValue(quickthumbModel):
         """Format only the numeric portion, preserving prefix/suffix placement."""
         if self.decimals:
             number = (
-                f"{value:,.{self.decimals}f}"
-                if self.grouping
-                else f"{value:.{self.decimals}f}"
+                f"{value:,.{self.decimals}f}" if self.grouping else f"{value:.{self.decimals}f}"
             )
         else:
             rounded = round(value)

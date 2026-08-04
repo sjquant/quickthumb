@@ -2,7 +2,7 @@ import warnings
 from collections.abc import Iterable
 from itertools import islice
 from math import ceil
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 from unicodedata import category
 
 from PIL import Image, ImageChops
@@ -21,12 +21,13 @@ from quickthumb._diagnostic_rules import (
     SafeMarginPreset,
     TiledContrastMeasurement,
     bbox_payload,
-    caption_reading_cost,
     clear_overlap_suggestion,
+    clip_pace,
     diagnostic_context,
     edge_distances,
     layer_label,
     mask_area,
+    measure_caption_reading,
     move_inside_canvas_suggestion,
     move_inside_safe_area_suggestion,
     near_alignment_pairs,
@@ -46,7 +47,8 @@ from quickthumb._images import ImageEngine
 from quickthumb._measurements import BBox, LayerMeasurement, measure_layers
 from quickthumb._shapes import ShapeEngine
 from quickthumb._text import TextEngine
-from quickthumb._video import caption_geometry
+from quickthumb._video import VideoInfo, caption_geometry, effective_duration, probe_video
+from quickthumb.errors import ValidationError
 
 if TYPE_CHECKING:
     from quickthumb.canvas import Canvas
@@ -176,28 +178,32 @@ class DiagnosticsEngine:
         self, measured: LayerMeasurement, index: int, caption: VideoCaption, layer: VideoLayer
     ) -> list[Diagnostic]:
         """Report a cue that leaves too little time on screen to be read."""
-        columns, duration = caption_reading_cost(
-            caption.text, caption.start, caption.end, layer.duration
-        )
-        # VideoCaption guarantees end > start, but clamping to the layer can
-        # leave nothing on screen at all, which caption-timing already reports.
-        if duration <= 0:
-            return []
-        rate = columns / duration
-        too_brief = duration < MIN_CAPTION_SECONDS
-        if too_brief:
+        reading = measure_caption_reading(caption, self._clip_seconds(layer))
+        if reading.is_too_brief:
             reason = (
-                f"is too brief to read: {duration:.2f}s on screen, "
+                f"is too brief to read: {reading.visible_seconds:.2f}s on screen, "
                 f"under the {MIN_CAPTION_SECONDS:.2f}s minimum"
             )
-        elif rate > MAX_CAPTION_COLUMNS_PER_SECOND:
+        elif reading.is_too_fast:
             reason = (
-                f"reads too fast: {columns} columns of text in {duration:.2f}s, "
-                f"above {MAX_CAPTION_COLUMNS_PER_SECOND:.0f} columns per second"
+                f"reads too fast: {reading.columns} columns of text in "
+                f"{reading.visible_seconds:.2f}s, above "
+                f"{MAX_CAPTION_COLUMNS_PER_SECOND:.0f} columns per second"
             )
         else:
             return []
-        readable = max(MIN_CAPTION_SECONDS, columns / MAX_CAPTION_COLUMNS_PER_SECOND)
+        if reading.outlives_clip:
+            # Holding it longer cannot help: the clip stops before the cue does.
+            suggestion = (
+                f"start caption {index} earlier or lengthen the clip; it asks for "
+                f"{reading.declared_seconds:.2f}s but only {reading.visible_seconds:.2f}s "
+                "of it is on screen"
+            )
+        else:
+            suggestion = (
+                f"hold caption {index} for at least {reading.readable_seconds:.2f}s "
+                "or shorten its text"
+            )
         return [
             Diagnostic(
                 code="caption-reading-time",
@@ -207,40 +213,56 @@ class DiagnosticsEngine:
                 measured={
                     "caption_index": index,
                     "caption_text": caption.text,
-                    "caption_duration": duration,
-                    "columns": columns,
-                    "columns_per_second": rate,
+                    "caption_duration": reading.visible_seconds,
+                    "declared_duration": reading.declared_seconds,
+                    "columns": reading.columns,
+                    "columns_per_second": reading.columns_per_second,
                     "minimum_duration": MIN_CAPTION_SECONDS,
                     "maximum_columns_per_second": MAX_CAPTION_COLUMNS_PER_SECOND,
                 },
-                suggestion=(
-                    f"hold caption {index} for at least {readable:.2f}s or shorten its text"
-                ),
+                suggestion=suggestion,
                 **diagnostic_context(measured),
             )
         ]
+
+    def _clip_seconds(self, layer: VideoLayer) -> float | None:
+        """Return how long a clip is on screen, probing its source only if needed."""
+        if layer.duration is not None:
+            return layer.duration
+        info = self._ctx.video_info_cache.get(layer.source)
+        if info is None:
+            try:
+                info = probe_video(layer.source)
+            except Exception:
+                # A source this broken fails loudly at render time; a diagnostic
+                # pass should not be the thing that raises.
+                return None
+            self._ctx.video_info_cache[layer.source] = info
+        try:
+            return effective_duration(layer, cast(VideoInfo, info))
+        except ValidationError:
+            return None
 
     def _diagnose_clip_stretch(
         self, measured: LayerMeasurement, layer: VideoLayer
     ) -> list[Diagnostic]:
         """Report footage played far from its own rate."""
-        speed = layer.speed
-        if MIN_NATURAL_CLIP_SPEED <= speed <= MAX_NATURAL_CLIP_SPEED:
+        pace = clip_pace(layer.speed)
+        if pace is None:
             return []
-        if speed < MIN_NATURAL_CLIP_SPEED:
-            effect = "crawls"
-            repair = "trim a longer window from the source, or shorten the scene"
-        else:
-            effect = "races"
-            repair = "trim a shorter window from the source, or lengthen the scene"
+        repair = (
+            "trim a longer window from the source, or shorten the scene"
+            if pace == "crawls"
+            else "trim a shorter window from the source, or lengthen the scene"
+        )
         return [
             Diagnostic(
                 code="clip-stretch",
                 severity="warning",
                 layer_index=measured.index,
-                message=f"video plays at {speed:.2f}x of its own rate and {effect}",
+                message=f"video plays at {layer.speed:.2f}x of its own rate and {pace}",
                 measured={
-                    "speed": speed,
+                    "speed": layer.speed,
                     "trim_start": layer.trim_start,
                     "trim_end": layer.trim_end,
                     "duration": layer.duration,

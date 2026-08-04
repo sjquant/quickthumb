@@ -51,7 +51,7 @@ Each `Diagnostic` has stable human-readable fields and optional structured field
 | `caption-safe-area` | A video caption sits inside the canvas safe-area margin |
 | `caption-timing` | A video caption ends after its clip does, so it is never seen |
 | `caption-overlap` | Two video captions share both a moment and a rendered background |
-| `caption-reading-time` | A cue is on screen under 0.8s, or runs past 20 display columns a second, leaving too little time to read it. Wide scripts such as Korean and Japanese count as two columns per character, and a cue is measured over the time it is really visible rather than its declared window |
+| `caption-reading-time` | A cue is on screen under 0.8s, or runs past 20 display columns a second, leaving too little time to read it. Wide scripts such as Korean and Japanese count two columns per character while joiners and combining marks count none, and a cue that outlives its clip is measured over the part of it that is actually seen |
 | `clip-stretch` | A clip plays slower than 0.5x or faster than 2x of its own rate. Usually it is being stretched to fit a scene, but a deliberate slow-motion or timelapse beat is reported the same way |
 
 !!! tip "Agent loop"

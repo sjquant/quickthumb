@@ -779,6 +779,7 @@ def _ease(progress: float) -> float:
 
 # ------------------------------------------------------- per-slide animation
 
+
 # Sentinel states for a unit outside its animation windows.
 @dataclass(frozen=True)
 class _CanonicalState:
@@ -1378,9 +1379,7 @@ def _unit_state(unit: _Unit, time: float) -> _UnitState:
                 progress = easing_value(
                     node.effect.easing, (time - active_start) / node.effect.duration
                 )
-                state = _UnitState(
-                    reveal=(node.effect, progress if entrance else 1.0 - progress)
-                )
+                state = _UnitState(reveal=(node.effect, progress if entrance else 1.0 - progress))
         else:
             state = _SHOWN if entrance else _HIDDEN
     return state

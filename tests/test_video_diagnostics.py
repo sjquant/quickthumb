@@ -11,6 +11,7 @@ from quickthumb._diagnostic_rules import (
     MIN_CAPTION_SECONDS,
     MIN_NATURAL_CLIP_SPEED,
 )
+from quickthumb._video import VideoDecoder
 
 HAS_FFMPEG = shutil.which("ffmpeg") is not None
 CLIP_SECONDS = 4.0
@@ -76,8 +77,8 @@ class TestCaptionReadingTime:
         # Then: the message names the shortfall and the minimum it fell under
         assert len(findings) == 1
         assert "too brief" in findings[0].message
-        assert f"{MIN_CAPTION_SECONDS:.2f}s minimum" in findings[0].message
-        assert f"at least {MIN_CAPTION_SECONDS:.2f}s" in findings[0].suggestion
+        assert "0.80s minimum" in findings[0].message
+        assert "at least 0.80s" in findings[0].suggestion
 
     def test_should_report_a_cue_that_reads_too_fast(self, source_video):
         """Given a long cue in a short window, when diagnosed, then the rate is reported."""
@@ -165,6 +166,68 @@ class TestCaptionReadingTime:
         assert len(findings) == 1
         assert "too brief" in findings[0].message
 
+    def test_should_publish_what_it_measured_for_an_agent_to_act_on(self, source_video):
+        """Given a finding, when inspected, then its payload carries the whole measurement."""
+        # Given: forty columns crammed into one second
+        canvas = clip_canvas(source_video, captions=[caption("x" * 40, 1.0, 2.0)])
+
+        # When: the finding's measured payload is read
+        payload = findings_for(canvas, "caption-reading-time")[0].measured
+
+        # Then: every value an agent needs to repair the cue is present
+        assert findings_for(canvas, "caption-reading-time")[0].severity == "warning"
+        assert payload == {
+            "caption_index": 0,
+            "caption_text": "x" * 40,
+            "caption_duration": pytest.approx(1.0),
+            "declared_duration": pytest.approx(1.0),
+            "columns": 40,
+            "columns_per_second": pytest.approx(40.0),
+            "minimum_duration": 0.8,
+            "maximum_columns_per_second": 20.0,
+        }
+
+    def test_should_not_charge_for_marks_that_render_into_their_neighbour(self, source_video):
+        """Given joiners and accents, when measured, then only the visible glyphs count."""
+        # Given: one cue of plain letters and one where every letter carries an accent
+        plain = clip_canvas(source_video, captions=[caption("x" * 21, 1.0, 2.0)])
+        accented = clip_canvas(source_video, captions=[caption("e\u0301" * 21, 1.0, 2.0)])
+
+        # When / Then: the combining accents cost nothing, so both read the same
+        assert findings_for(plain, "caption-reading-time") != []
+        assert (
+            findings_for(accented, "caption-reading-time")[0].measured["columns"]
+            == findings_for(plain, "caption-reading-time")[0].measured["columns"]
+        )
+
+    def test_should_not_charge_for_joiners_between_glyphs(self, source_video):
+        """Given zero-width joiners, when measured, then only the joined glyphs count."""
+        # Given: fifteen letters, each followed by a joiner that renders nothing
+        canvas = clip_canvas(source_video, captions=[caption("a\u200d" * 15, 1.0, 2.0)])
+
+        # When / Then: fifteen columns is a readable rate; thirty would not be
+        assert findings_for(canvas, "caption-reading-time") == []
+
+    def test_should_not_charge_for_padding_around_the_text(self, source_video):
+        """Given a padded cue, when measured, then the surrounding spaces are ignored."""
+        # Given: fifteen letters inside ten spaces of padding
+        canvas = clip_canvas(
+            source_video, captions=[caption("     " + "x" * 15 + "     ", 1.0, 1.9)]
+        )
+
+        # When / Then: the padding is not text anybody has to read
+        assert findings_for(canvas, "caption-reading-time") == []
+
+    def test_should_charge_a_fullwidth_form_like_the_wide_script_it_is(self, source_video):
+        """Given fullwidth Latin, when measured, then it costs twice its halfwidth twin."""
+        # Given: the same eleven letters, once halfwidth and once fullwidth
+        halfwidth = clip_canvas(source_video, captions=[caption("A" * 11, 1.0, 2.0)])
+        fullwidth = clip_canvas(source_video, captions=[caption("\uff21" * 11, 1.0, 2.0)])
+
+        # When / Then: only the fullwidth line is dense enough to report
+        assert findings_for(halfwidth, "caption-reading-time") == []
+        assert findings_for(fullwidth, "caption-reading-time") != []
+
     def test_should_stay_quiet_for_a_cue_with_room_to_breathe(self, source_video):
         """Given a comfortable cue, when diagnosed, then nothing is reported."""
         # Given: sixteen columns held for two seconds
@@ -202,7 +265,7 @@ class TestClipStretch:
     def test_should_report_a_clip_crawling_through_its_scene(self, source_video):
         """Given a heavily slowed clip, when diagnosed, then the stretch is reported."""
         # Given: a clip playing at a third of its rate
-        canvas = clip_canvas(source_video, speed=1 / 3, duration=CLIP_SECONDS)
+        canvas = clip_canvas(source_video, speed=1 / 3)
 
         # When: the composition is diagnosed
         findings = findings_for(canvas, "clip-stretch")
@@ -216,7 +279,7 @@ class TestClipStretch:
     def test_should_report_a_clip_racing_through_its_scene(self, source_video):
         """Given a heavily sped-up clip, when diagnosed, then the repair is inverted."""
         # Given: a clip playing at three times its rate
-        canvas = clip_canvas(source_video, speed=3.0, duration=1.0)
+        canvas = clip_canvas(source_video, speed=3.0, duration=CLIP_SECONDS / 3)
 
         # When: the composition is diagnosed
         findings = findings_for(canvas, "clip-stretch")
@@ -227,10 +290,29 @@ class TestClipStretch:
         assert "shorter window" in findings[0].suggestion
         assert "lengthen the scene" in findings[0].suggestion
 
+    def test_should_publish_the_speed_and_window_it_judged(self, source_video):
+        """Given a finding, when inspected, then its payload names the clip's timing."""
+        # Given: a clip crawling through its scene
+        canvas = clip_canvas(source_video, speed=1 / 3)
+
+        # When: the finding's measured payload is read
+        payload = findings_for(canvas, "clip-stretch")[0].measured
+
+        # Then: the speed, the window it came from, and the limits are all present
+        assert findings_for(canvas, "clip-stretch")[0].severity == "warning"
+        assert payload == {
+            "speed": pytest.approx(1 / 3),
+            "trim_start": 0.0,
+            "trim_end": CLIP_SECONDS,
+            "duration": CLIP_SECONDS,
+            "minimum_speed": 0.5,
+            "maximum_speed": 2.0,
+        }
+
     def test_should_accept_a_clip_played_near_its_own_rate(self, source_video):
         """Given a mild adjustment, when diagnosed, then it is left alone."""
         # Given: a clip slowed by a quarter, as fitting a scene often needs
-        canvas = clip_canvas(source_video, speed=0.75, duration=CLIP_SECONDS)
+        canvas = clip_canvas(source_video, speed=0.75)
 
         # When / Then: ordinary fitting is not treated as a defect
         assert findings_for(canvas, "clip-stretch") == []
@@ -241,8 +323,8 @@ class TestClipStretch:
         assert (MIN_NATURAL_CLIP_SPEED, MAX_NATURAL_CLIP_SPEED) == (0.5, 2.0)
 
         # Given: clips at the slowest and fastest accepted rates
-        slowest = clip_canvas(source_video, speed=0.5, duration=CLIP_SECONDS)
-        fastest = clip_canvas(source_video, speed=2.0, duration=1.0)
+        slowest = clip_canvas(source_video, speed=0.5)
+        fastest = clip_canvas(source_video, speed=2.0, duration=CLIP_SECONDS / 2)
 
         # When / Then: the boundary itself is not a defect
         assert findings_for(slowest, "clip-stretch") == []
@@ -251,8 +333,8 @@ class TestClipStretch:
     def test_should_report_a_clip_just_past_each_limit(self, source_video):
         """Given clips a hair outside the limits, when diagnosed, then both report."""
         # Given: clips fractionally slower and faster than the accepted range
-        slower = clip_canvas(source_video, speed=0.49, duration=1.0)
-        faster = clip_canvas(source_video, speed=2.01, duration=1.0)
+        slower = clip_canvas(source_video, speed=0.49)
+        faster = clip_canvas(source_video, speed=2.01, duration=CLIP_SECONDS / 3)
 
         # When / Then: the thresholds bite immediately outside the range
         assert findings_for(slower, "clip-stretch") != []
@@ -260,13 +342,22 @@ class TestClipStretch:
 
 
 @pytest.mark.skipif(not HAS_FFMPEG, reason="ffmpeg is required")
-def test_should_close_its_decoders_rather_than_leave_them_running(source_video):
-    """Given a diagnosed clip, when it returns, then no decoder is left open."""
-    # Given: a composition carrying footage
+def test_should_close_the_decoders_it_opens(source_video, monkeypatch):
+    """Given a diagnosed clip, when it returns, then its decoder process is gone."""
+    # Given: a recording decoder, so the ones diagnose opens can be inspected after
+    opened = []
+
+    class RecordingDecoder(VideoDecoder):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            opened.append(self)
+
+    monkeypatch.setattr("quickthumb._video.VideoDecoder", RecordingDecoder)
     canvas = clip_canvas(source_video)
 
-    # When: it is diagnosed
+    # When: the composition is diagnosed
     canvas.diagnose()
 
-    # Then: diagnosing has not stranded a decoder process behind it
-    assert list(canvas._ctx.video_decoder_cache) == []
+    # Then: every ffmpeg child it started was terminated, not merely dropped
+    assert opened, "diagnosing a clip should open a decoder for it"
+    assert all(decoder._process is None for decoder in opened)

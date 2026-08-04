@@ -8,7 +8,7 @@ from typing_extensions import TypedDict
 
 from quickthumb._composition import has_layer_composition
 from quickthumb._measurements import BBox, LayerMeasurement
-from quickthumb.models import Align, DiagnosticBBox
+from quickthumb.models import Align, DiagnosticBBox, VideoCaption
 
 
 class DiagnosticContext(TypedDict):
@@ -173,6 +173,9 @@ MAX_CAPTION_COLUMNS_PER_SECOND = 20.0
 # cleanly and reads as wrong.
 MIN_NATURAL_CLIP_SPEED = 0.5
 MAX_NATURAL_CLIP_SPEED = 2.0
+# Timing is compared with the same slack the caption-timing rule uses, so a cue
+# sitting exactly on a limit is not failed by float representation.
+TIMING_EPSILON = 1e-9
 
 
 def display_columns(text: str) -> int:
@@ -182,9 +185,9 @@ def display_columns(text: str) -> int:
     so measuring reading cost in characters would let a dense cue race past
     unreported. East Asian width is the standard approximation for that.
 
-    Marks and joiners that render into a neighbouring glyph rather than beside
-    it cost nothing, so a decomposed accent or an emoji built from a joined
-    sequence is not charged once per code point.
+    Joiners, variation selectors and combining marks render into a neighbouring
+    glyph rather than beside it, so they cost nothing. The glyphs they join are
+    still counted individually: an emoji family costs what its members cost.
     """
     return sum(
         0 if _is_zero_width(char) else 2 if east_asian_width(char) in {"W", "F"} else 1
@@ -197,16 +200,60 @@ def _is_zero_width(char: str) -> bool:
     return category(char) in {"Mn", "Me", "Cf"}
 
 
-def caption_reading_cost(
-    text: str, start: float, end: float, layer_duration: float | None
-) -> tuple[int, float]:
-    """Return a cue's column count and the seconds it is really on screen.
+@dataclass(frozen=True)
+class CaptionReading:
+    """How much a cue asks a viewer to read, and how long they really get."""
 
-    A cue is only drawn while its layer is live, so one that runs past the end
-    of its clip is visible for less time than it declares.
+    columns: int
+    visible_seconds: float
+    declared_seconds: float
+
+    @property
+    def columns_per_second(self) -> float:
+        return self.columns / self.visible_seconds
+
+    @property
+    def outlives_clip(self) -> bool:
+        """Whether the cue is cut short because its clip ends first."""
+        return self.visible_seconds < self.declared_seconds - TIMING_EPSILON
+
+    @property
+    def is_too_brief(self) -> bool:
+        return self.visible_seconds < MIN_CAPTION_SECONDS - TIMING_EPSILON
+
+    @property
+    def is_too_fast(self) -> bool:
+        return self.columns_per_second > MAX_CAPTION_COLUMNS_PER_SECOND + TIMING_EPSILON
+
+    @property
+    def readable_seconds(self) -> float:
+        """The shortest hold that would let this much text be read."""
+        return max(MIN_CAPTION_SECONDS, self.columns / MAX_CAPTION_COLUMNS_PER_SECOND)
+
+
+def measure_caption_reading(caption: VideoCaption, clip_seconds: float | None) -> CaptionReading:
+    """Measure a cue over the time it is really on screen.
+
+    A cue is only drawn while its clip is live, so one that runs past the end of
+    its clip is seen for less time than it declares. ``clip_seconds`` is the
+    clip's own on-screen length; None when it could not be resolved.
     """
-    visible_end = end if layer_duration is None else min(end, layer_duration)
-    return display_columns(text.strip()), max(0.0, visible_end - start)
+    declared = caption.end - caption.start
+    visible = declared if clip_seconds is None else min(caption.end, clip_seconds) - caption.start
+    return CaptionReading(
+        columns=display_columns(caption.text.strip()),
+        visible_seconds=visible,
+        declared_seconds=declared,
+    )
+
+
+def clip_pace(speed: float) -> str | None:
+    """Return how a clip departs from its own rate, or None when it is natural."""
+    if speed < MIN_NATURAL_CLIP_SPEED:
+        return "crawls"
+    if speed > MAX_NATURAL_CLIP_SPEED:
+        return "races"
+    return None
 
 
 def bbox_payload(box: BBox) -> dict[str, int]:

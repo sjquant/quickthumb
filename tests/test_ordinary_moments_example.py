@@ -2,6 +2,8 @@
 
 import json
 
+from quickthumb.models import VideoLayer
+
 
 def test_ordinary_moments_tells_a_sixty_second_story_in_nine_scenes():
     """Given the public example, when serialized, then its story contract is preserved."""
@@ -130,36 +132,22 @@ def test_ordinary_moments_keeps_caption_treatment_and_fallback_contracts_public(
 
 
 def test_ordinary_moments_reads_at_a_pace_a_viewer_can_follow():
-    """Given the film, when measured, then its cues and clip speeds stay within bounds."""
-    # Given: the published caption and clip-speed limits, and the film's own values
+    """Given the film, when diagnosed, then no cue or clip is flagged as unreadable."""
+    # Given: a film whose caption timing and clip speeds were tuned by hand
     from examples.ordinary_moments import build_deck
-    from quickthumb._diagnostic_rules import (
-        MAX_CAPTION_COLUMNS_PER_SECOND,
-        MAX_NATURAL_CLIP_SPEED,
-        MIN_CAPTION_SECONDS,
-        MIN_NATURAL_CLIP_SPEED,
-        caption_reading_cost,
-    )
 
+    deck = build_deck()
+
+    # Given: it carries the timed cues and off-rate clips these rules judge
     clips = [
-        layer
-        for slide in build_deck().slides
-        for layer in slide.layers
-        if getattr(layer, "type", None) == "video"
+        layer for slide in deck.slides for layer in slide.layers if isinstance(layer, VideoLayer)
     ]
-    cues = [(cue, clip) for clip in clips for cue in clip.captions]
-
-    # When: the film's own timing is measured against those limits
-    # Then: it has cues and off-rate clips to judge in the first place
-    assert cues, "the film should carry timed cues for this to mean anything"
+    assert any(clip.captions for clip in clips)
     assert any(clip.speed != 1.0 for clip in clips)
 
-    # Then: every cue is on screen long enough, at a rate a reader can follow
-    for cue, clip in cues:
-        columns, duration = caption_reading_cost(cue.text, cue.start, cue.end, clip.duration)
-        assert duration >= MIN_CAPTION_SECONDS
-        assert columns / duration <= MAX_CAPTION_COLUMNS_PER_SECOND
+    # When: the whole deck is diagnosed through the public API
+    codes = {finding.code for finding in deck.diagnose()}
 
-    # Then: no clip is stretched far enough from its own rate to crawl or race
-    for clip in clips:
-        assert MIN_NATURAL_CLIP_SPEED <= clip.speed <= MAX_NATURAL_CLIP_SPEED
+    # Then: neither time-aware video rule has anything to say about it
+    assert "caption-reading-time" not in codes
+    assert "clip-stretch" not in codes
