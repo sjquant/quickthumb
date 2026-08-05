@@ -23,7 +23,6 @@ from quickthumb._shapes import ShapeEngine
 from quickthumb._text import TextEngine
 from quickthumb._validation import validate_dimensions
 from quickthumb._video import (
-    VideoInfo,
     iter_video_layers,
     probe_video,
     render_video_captions,
@@ -447,8 +446,9 @@ class Canvas:
         **text_options: Any,
     ) -> Self:
         """Add a deterministic animated numeric TextLayer."""
-        value = AnimatedTextValue(
-            **{
+        # `from` is a keyword, so the alias can only be supplied through validation.
+        value = AnimatedTextValue.model_validate(
+            {
                 "from": from_,
                 "to": to,
                 "duration": duration,
@@ -1621,7 +1621,7 @@ class Canvas:
         elif isinstance(layer, GroupLayer):
             self._groups.render_group_layer(image, layer, time=time)
         elif isinstance(layer, VideoLayer):
-            info = cast(VideoInfo | None, self._ctx.video_info_cache.get(layer.source))
+            info = self._ctx.video_info_cache.get(layer.source)
             if info is None:
                 info = probe_video(layer.source)
                 self._ctx.video_info_cache[layer.source] = info

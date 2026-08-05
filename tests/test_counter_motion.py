@@ -1,5 +1,7 @@
 """Behavioral specifications for how an animated numeric value moves."""
 
+from typing import Any
+
 from quickthumb import Canvas
 
 from tests._helpers import lit_span
@@ -9,7 +11,7 @@ FONT = "assets/fonts/Roboto-Medium.ttf"
 
 def counter_canvas(**options):
     """Place one odometer counter on a dark canvas."""
-    defaults = {
+    defaults: dict[str, Any] = {
         "position": (30, 20),
         "size": 88,
         "color": "#E8A552",

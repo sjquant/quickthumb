@@ -16,7 +16,7 @@ from quickthumb import (
 )
 from quickthumb import transitions as tr
 
-from tests._helpers import ink_bounds, solid_pixels
+from tests._helpers import ink_bounds, require_ink_bounds, solid_pixels
 
 # The square is drawn in amber on near-black, so anything above a dark-grey sum
 # is the layer; the blur assertions need the faint antialiased edge counted too.
@@ -81,7 +81,7 @@ class TestCanonicalMotionRendering:
 
         # When: the composition is sampled across the track
         starts = [
-            ink_bounds(canvas.render_frame(time).convert("RGB"), threshold=INK)[0]
+            require_ink_bounds(canvas.render_frame(time).convert("RGB"), threshold=INK)[0]
             for time in (0.0, 1.0, 2.0)
         ]
 

@@ -15,7 +15,7 @@ from quickthumb import (
 )
 from quickthumb.models import Filter
 
-from tests._helpers import lit_span
+from tests._helpers import lit_span, pixel_rgb
 
 HAS_FFMPEG = shutil.which("ffmpeg") is not None
 SOURCE = "assets/video/ordinary-coffee.mp4"
@@ -100,8 +100,8 @@ class TestVideoLayerComposition:
         from quickthumb._export_video import _SlideAnimator
 
         animator = _SlideAnimator(canvas, {})
-        early = animator.frame_at(0.1).convert("RGB").getpixel((320, 180))
-        settled = animator.frame_at(2.0).convert("RGB").getpixel((320, 180))
+        early = pixel_rgb(animator.frame_at(0.1).convert("RGB"), (320, 180))
+        settled = pixel_rgb(animator.frame_at(2.0).convert("RGB"), (320, 180))
 
         # Then: the clip starts nearly invisible and ends fully composited
         assert sum(early) < sum(settled)

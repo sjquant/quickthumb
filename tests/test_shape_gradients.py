@@ -4,6 +4,8 @@ import json
 
 from quickthumb import Canvas, LinearGradient, RadialGradient
 
+from tests._helpers import pixel_channel
+
 
 def column(image, x):
     """Return the red channel down one column of a rendered frame."""
@@ -110,5 +112,5 @@ class TestGradientStopCoverage:
         frame = canvas.render_frame(0.0).convert("RGB")
 
         # Then: the ramp covers the full distance rather than stopping short
-        assert frame.getpixel((150, 150))[0] <= 1
-        assert frame.getpixel((0, 0))[0] >= 254
+        assert pixel_channel(frame, (150, 150), 0) <= 1
+        assert pixel_channel(frame, (0, 0), 0) >= 254

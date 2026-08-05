@@ -64,6 +64,14 @@ def ink_bounds(image: Image.Image, threshold: int = LIT) -> tuple[int, int, int,
     return min(xs), min(ys), max(xs), max(ys)
 
 
+def require_ink_bounds(image: Image.Image, threshold: int = LIT) -> tuple[int, int, int, int]:
+    """Return the ink bounding box, failing the spec when the frame carries none."""
+    bounds = ink_bounds(image, threshold)
+    if bounds is None:
+        raise AssertionError("expected the frame to carry ink, found none")
+    return bounds
+
+
 def ink_bands(image: Image.Image, threshold: int = LIT) -> list[list[int]]:
     """Group the rows carrying ink into runs separated by blank rows."""
     bands: list[list[int]] = []

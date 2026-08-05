@@ -15,7 +15,7 @@ from fractions import Fraction
 
 from PIL import Image, ImageColor, ImageDraw, ImageFont
 
-from quickthumb._base import parse_coordinate
+from quickthumb._base import FontType, parse_coordinate
 from quickthumb._images import ImageEngine
 from quickthumb.errors import RenderingError, ValidationError
 from quickthumb.models import VideoCaption, VideoLayer
@@ -398,20 +398,20 @@ def caption_geometry(
     )
 
 
-def _caption_ink_bbox(text: str, font: ImageFont.ImageFont) -> tuple[int, int, int, int]:
+def _caption_ink_bbox(text: str, font: FontType) -> tuple[int, int, int, int]:
     """Measure the visible glyph ink, excluding font ascent/descent whitespace."""
     probe = Image.new("L", (1, 1), 0)
     probe_draw = ImageDraw.Draw(probe)
     layout_bbox = probe_draw.multiline_textbbox((0, 0), text, font=font)
-    margin = max(8, getattr(font, "size", 16))
-    width = max(1, layout_bbox[2] - layout_bbox[0] + margin * 2)
-    height = max(1, layout_bbox[3] - layout_bbox[1] + margin * 2)
+    margin = max(8, int(getattr(font, "size", 16)))
+    width = max(1, int(layout_bbox[2] - layout_bbox[0]) + margin * 2)
+    height = max(1, int(layout_bbox[3] - layout_bbox[1]) + margin * 2)
     probe = Image.new("L", (width, height), 0)
     ImageDraw.Draw(probe).multiline_text((margin, margin), text, font=font, fill=255)
     ink = probe.getbbox()
     if ink is None:
         return (0, 0, 0, 0)
-    return tuple(value - margin for value in ink)
+    return (ink[0] - margin, ink[1] - margin, ink[2] - margin, ink[3] - margin)
 
 
 def caption_bounds(

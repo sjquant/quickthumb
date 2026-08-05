@@ -2,7 +2,7 @@ import warnings
 from collections.abc import Iterable
 from itertools import islice
 from math import ceil
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 from unicodedata import category
 
 from PIL import Image, ImageChops
@@ -47,7 +47,7 @@ from quickthumb._images import ImageEngine
 from quickthumb._measurements import BBox, LayerMeasurement, measure_layers
 from quickthumb._shapes import ShapeEngine
 from quickthumb._text import TextEngine
-from quickthumb._video import VideoInfo, caption_geometry, effective_duration, probe_video
+from quickthumb._video import caption_geometry, effective_duration, probe_video
 from quickthumb.errors import ValidationError
 
 if TYPE_CHECKING:
@@ -239,7 +239,7 @@ class DiagnosticsEngine:
                 return None
             self._ctx.video_info_cache[layer.source] = info
         try:
-            return effective_duration(layer, cast(VideoInfo, info))
+            return effective_duration(layer, info)
         except ValidationError:
             return None
 

@@ -13,6 +13,8 @@ from quickthumb import Canvas, Deck, ValidationError
 from quickthumb.models import VideoCaption, VideoLayer
 from quickthumb.transitions import Fade, Morph
 
+from tests._helpers import pixel_rgb
+
 HAS_FFMPEG = shutil.which("ffmpeg") is not None
 HAS_FFPROBE = shutil.which("ffprobe") is not None
 
@@ -217,9 +219,9 @@ def test_video_captions_render_above_later_canvas_layers(source_video):
     baseline = plain.render_frame(0.2).convert("RGB")
 
     # Then: the caption remains visibly white instead of being dimmed by the shade
-    difference = ImageChops.difference(frame, baseline)
-    assert difference.getbbox() is not None
-    assert difference.getbbox()[1] > frame.height // 2
+    changed = ImageChops.difference(frame, baseline).getbbox()
+    assert changed is not None
+    assert changed[1] > frame.height // 2
 
     # The animated exporter uses the same foreground pass as direct sampling.
     lower = (0, frame.height // 2, frame.width, frame.height)
@@ -475,13 +477,13 @@ def test_video_caption_ink_is_optically_centered_inside_its_background(source_vi
         (x, y)
         for y in range(frame.height)
         for x in range(frame.width)
-        if max(frame.getpixel((x, y))) < 20
+        if max(pixel_rgb(frame, (x, y))) < 20
     ]
     white = [
         (x, y)
         for y in range(frame.height)
         for x in range(frame.width)
-        if min(frame.getpixel((x, y))) > 220
+        if min(pixel_rgb(frame, (x, y))) > 220
     ]
 
     # Then: the glyph ink center stays within 2px of the background center

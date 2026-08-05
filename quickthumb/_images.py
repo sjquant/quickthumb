@@ -22,6 +22,7 @@ from quickthumb.models import (
     Shadow,
     Stroke,
     SvgLayer,
+    VideoLayer,
 )
 
 
@@ -330,7 +331,7 @@ class ImageEngine:
         return Image.open(BytesIO(png_bytes)).convert("RGBA")
 
     def _composite_overlay_layer(
-        self, image: Image.Image, img: Image.Image, layer: ImageLayer | SvgLayer
+        self, image: Image.Image, img: Image.Image, layer: "ImageLayer | SvgLayer | VideoLayer"
     ):
         """Apply rotation, opacity, alignment, effects, and blending shared by overlay layers."""
         if layer.rotation != 0:

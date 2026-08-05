@@ -1471,8 +1471,10 @@ def validate_export(
                         message=message,
                     )
                 )
-    if normalized == "video" and hasattr(source, "slides"):
-        canvases = tuple(source.slides)
+    # A Deck is duck-typed here because deck.py imports this module.
+    slides = getattr(source, "slides", None)
+    if normalized == "video" and slides is not None:
+        canvases = tuple(slides)
         transitions = tuple(source._resolved_transitions())
         for index, transition in enumerate(transitions):
             if getattr(transition, "effect", None) != "morph" or index == 0:

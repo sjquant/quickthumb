@@ -487,10 +487,10 @@ class TextEngine:
         font = self._fonts.load_font(self.effective_layer(layer))
         bbox = font.getbbox(content)
         return (
-            position[0] + bbox[0],
-            position[1] + bbox[1],
-            position[0] + bbox[2],
-            position[1] + bbox[3],
+            position[0] + int(bbox[0]),
+            position[1] + int(bbox[1]),
+            position[0] + int(bbox[2]),
+            position[1] + int(bbox[3]),
         )
 
     def resolve_animation_targets(

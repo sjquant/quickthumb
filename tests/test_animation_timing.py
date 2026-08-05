@@ -4,6 +4,8 @@ import pytest
 from quickthumb import Canvas, Fade, ValidationError, Wipe
 from quickthumb._export_video import _SlideAnimator
 
+from tests._helpers import pixel_channel
+
 
 def bar_canvas(animation, width=400):
     """Place one full-width bar under the given animation."""
@@ -24,7 +26,7 @@ def bar_canvas(animation, width=400):
 def revealed_width(canvas, time, width=400):
     """Return how far a left-to-right reveal has travelled."""
     frame = _SlideAnimator(canvas, {}).frame_at(time).convert("RGB")
-    lit = [x for x in range(width) if frame.getpixel((x, 40))[0] > 100]
+    lit = [x for x in range(width) if pixel_channel(frame, (x, 40), 0) > 100]
     return max(lit) + 1 if lit else 0
 
 
@@ -61,7 +63,7 @@ class TestAnimationEasing:
         """Given an unknown easing name, when the effect is built, then it is refused."""
         # Given / When / Then: the shared easing vocabulary is enforced
         with pytest.raises(ValidationError):
-            Wipe(direction="right", duration=1.0, easing="swoosh")
+            Wipe(direction="right", duration=1.0, easing="swoosh")  # ty: ignore[invalid-argument-type]
 
 
 class TestAbsoluteAnimationStart:
@@ -108,8 +110,8 @@ class TestAbsoluteAnimationStart:
         frame = _SlideAnimator(canvas, {}).frame_at(1.0).convert("RGB")
 
         # Then: the chained fade has already run rather than waiting for the anchor
-        assert frame.getpixel((200, 80))[0] > 100
-        assert frame.getpixel((200, 30))[0] < 60
+        assert pixel_channel(frame, (200, 80), 0) > 100
+        assert pixel_channel(frame, (200, 30), 0) < 60
 
     def test_should_extend_the_slide_to_cover_an_anchored_effect(self):
         """Given a late anchor, when the slide is scheduled, then it runs long enough."""

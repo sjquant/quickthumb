@@ -642,18 +642,23 @@ def _slide_motion_shots(
     incoming_canvas: Canvas,
 ) -> Iterator[_Shot]:
     """Yield transition and layer-animation shots before the settled hold."""
-    for time, duration in _sample_span(0.0, duration_in, fps):
-        incoming = _conform(animator.frame_at(time), size, matte_rgb)
-        progress = _ease(time / duration_in)
-        morph_safe = (
+    # Whether a morph is safe depends only on the pair of canvases, so decide once.
+    morph_from = (
+        previous_canvas
+        if (
             transition is not None
             and transition.effect == "morph"
             and previous_canvas is not None
             and not _canvas_has_video_captions(previous_canvas)
             and not _canvas_has_video_captions(incoming_canvas)
         )
-        if morph_safe:
-            frame = _morph_frame(previous_canvas, incoming_canvas, progress, duration_in)
+        else None
+    )
+    for time, duration in _sample_span(0.0, duration_in, fps):
+        incoming = _conform(animator.frame_at(time), size, matte_rgb)
+        progress = _ease(time / duration_in)
+        if morph_from is not None:
+            frame = _morph_frame(morph_from, incoming_canvas, progress, duration_in)
         else:
             frame = _transition_frame(transition, previous_final, incoming, progress)
         yield _Shot(frame, duration, animator._has_active_caption(time))

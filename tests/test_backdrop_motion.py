@@ -13,7 +13,7 @@ from quickthumb import (
 )
 from quickthumb._export_video import _SlideAnimator
 
-from tests._helpers import lit_span
+from tests._helpers import lit_span, pixel_channel
 
 FONT = "assets/fonts/Roboto-Medium.ttf"
 
@@ -120,8 +120,10 @@ class TestCanonicalAlphaMatchesAcrossPipelines:
         )
 
         # When: the midpoint is measured in both pipelines
-        still = canvas.render_frame(0.5).convert("RGB").getpixel((100, 50))[0]
-        moving = _SlideAnimator(canvas, {}).frame_at(0.5).convert("RGB").getpixel((100, 50))[0]
+        still = pixel_channel(canvas.render_frame(0.5).convert("RGB"), (100, 50), 0)
+        moving = pixel_channel(
+            _SlideAnimator(canvas, {}).frame_at(0.5).convert("RGB"), (100, 50), 0
+        )
 
         # Then: halfway through a linear fade is halfway, not a quarter
         assert still == pytest.approx(128, abs=2)

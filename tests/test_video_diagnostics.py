@@ -2,6 +2,7 @@
 
 import shutil
 import subprocess
+from typing import Any
 
 import pytest
 from quickthumb import Canvas
@@ -41,7 +42,7 @@ def source_video(tmp_path):
 
 def clip_canvas(source, captions=None, **options):
     """Place one clip that fills its scene at its own rate unless told otherwise."""
-    defaults = {
+    defaults: dict[str, Any] = {
         "position": (0, 0),
         "width": 64,
         "height": 32,
