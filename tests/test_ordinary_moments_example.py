@@ -34,11 +34,10 @@ def test_ordinary_moments_tells_a_sixty_second_story_in_nine_scenes():
         layer["content"] for slide in slides for layer in slide["layers"] if layer["type"] == "text"
     }
     assert {
-        "같은 영상을\n몇 번이나 다시 만드나요?",
-        "구성은 한 번이면 됩니다.",
-        "한 번의 구성에서\n세 개의 파일.",
-        "다시 만들지 마세요.",
-        "한 번 구성하세요.",
+        "How many times have you\nrebuilt the same video?",
+        "Compose it once.",
+        "One composition.\nThree deliverables.",
+        "Stop remaking it.",
         "uv add quickthumb",
         "github.com/sjquant/quickthumb",
     } <= text_content

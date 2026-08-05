@@ -193,14 +193,14 @@ Use it when you want a shareable, self-playing GIF or video clip (Reels/TikTok/S
 
 Output: `ordinary_moments.mp4`, `ordinary_moments.webm`, and `ordinary_moments_preview.gif`
 
-Builds a 60-second horizontal Korean-language product film that argues one case — remaking the same video for every screen is the expensive part — across nine scenes: hook, cost, turn, three proofs, delivery payoff, resolution, and close.
+Builds a 60-second horizontal product film that argues one case — remaking the same video for every screen is the expensive part — across nine scenes: hook, cost, turn, three proofs, delivery payoff, resolution, and close.
 
 - Five locally bundled Pexels clips with a checked-in provenance manifest, each reused only as a deliberate callback in a different frame
 - One proof scene places the same second of one source in 16:9, 1:1, and 9:16 frames simultaneously, so `fit` and placement are demonstrated rather than described
 - Timed caption cues that prove their own timing: a cue strip and a playhead cross each block at the moment its caption appears
 - `AnimationSpec` motion tied to meaning — line-staggered entrances for repeated work, position-track playheads for timeline scenes, `Canvas.counter(...)` for cost and render progress
 - A frosted `BackdropBlur` readout panel printing the film's real `speed`, `volume`, and `fade_out` values
-- Pretendard for the Korean voice and Roboto for every functional readout, on a shared margin and type scale
+- Pretendard for the film's voice and Roboto for every functional readout, on a shared margin and type scale
 - An accent colour introduced at the narrative turn and held back from the opening act
 - Purposeful `Cut`, `Fade`, and `Wipe` transitions over a restrained Mixkit soundtrack loop that fades out on the close
 - MP4/WebM exports of the full 60-second composition plus a silent GIF preview of the delivery scene

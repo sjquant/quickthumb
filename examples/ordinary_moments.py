@@ -43,11 +43,11 @@ OUT_MP4 = OUT_DIR / "ordinary_moments.mp4"
 OUT_WEBM = OUT_DIR / "ordinary_moments.webm"
 OUT_GIF = OUT_DIR / "ordinary_moments_preview.gif"
 
-# Korean copy is set in Pretendard; every functional readout is set in Roboto so
-# on-screen product data never competes with the film's voice.
-KR = str(ASSETS / "fonts" / "Pretendard-Regular.woff2")
-KR_BOLD = str(ASSETS / "fonts" / "Pretendard-Bold.woff2")
-KR_HEAVY = str(ASSETS / "fonts" / "Pretendard-ExtraBold.woff2")
+# The film's voice is set in Pretendard and every functional readout in Roboto,
+# so on-screen product data never competes with the copy.
+VOICE = str(ASSETS / "fonts" / "Pretendard-Regular.woff2")
+VOICE_BOLD = str(ASSETS / "fonts" / "Pretendard-Bold.woff2")
+VOICE_HEAVY = str(ASSETS / "fonts" / "Pretendard-ExtraBold.woff2")
 UI = str(ASSETS / "fonts" / "Roboto-Medium.ttf")
 
 WIDTH, HEIGHT = 1280, 720
@@ -158,8 +158,8 @@ def build_hook_scene() -> Canvas:
     _scrim(canvas, edge="bottom", boundary=410, fade=230, peak=0.8)
     return (
         canvas.text(
-            content="같은 영상을\n몇 번이나 다시 만드나요?",
-            font=KR_HEAVY,
+            content="How many times have you\nrebuilt the same video?",
+            font=VOICE_HEAVY,
             size=DISPLAY_SIZE,
             color=CREAM,
             line_height=1.1,
@@ -179,8 +179,8 @@ def build_hook_scene() -> Canvas:
             animation=Wipe(direction="right", duration=0.4, trigger="after_previous", delay=0.5),
         )
         .text(
-            content="가로 하나. 세로 하나. 미리보기 하나.",
-            font=KR,
+            content="One landscape. One vertical. One preview.",
+            font=VOICE,
             size=BODY_SIZE,
             color=CREAM,
             opacity=0.82,
@@ -208,8 +208,8 @@ def build_cost_scene() -> Canvas:
         # One line per remake, each arriving on its own beat: the repetition is
         # the argument, so the stagger carries it.
         .text(
-            content="가로로 한 번.\n세로로 한 번.\n미리보기로 또 한 번.",
-            font=KR_BOLD,
+            content="Once for landscape.\nOnce for vertical.\nOnce more for the preview.",
+            font=VOICE_BOLD,
             size=38,
             color=CREAM,
             line_height=1.5,
@@ -234,13 +234,13 @@ def build_cost_scene() -> Canvas:
             position=(text_x, 404),
             size=104,
             color=MUTE,
-            suffix="배",
-            font=KR_HEAVY,
+            suffix="\u00d7",
+            font=VOICE_HEAVY,
             style="odometer",
         )
         .text(
-            content="아이디어는 하나인데,\n시간은 세 배로 듭니다.",
-            font=KR,
+            content="One idea.\nThree times the work.",
+            font=VOICE,
             size=BODY_SIZE,
             color=MUTE,
             line_height=1.5,
@@ -280,8 +280,8 @@ def build_turn_scene() -> Canvas:
             animation=Wipe(direction="right", duration=0.75, trigger="after_previous"),
         )
         .text(
-            content="구성은 한 번이면 됩니다.",
-            font=KR_HEAVY,
+            content="Compose it once.",
+            font=VOICE_HEAVY,
             size=DISPLAY_SIZE,
             color=CREAM,
             position=(MARGIN, 502),
@@ -292,8 +292,10 @@ def build_turn_scene() -> Canvas:
             animation=Wipe(direction="up", duration=0.6, trigger="after_previous"),
         )
         .text(
-            content="화면도, 자막도, 소리도 같은 타임라인 위에 남습니다.",
-            font=KR,
+            content=(
+                "Framing, captions, motion and sound on one timeline \u2014 written once, in code."
+            ),
+            font=VOICE,
             size=BODY_SIZE,
             color=CREAM,
             opacity=0.86,
@@ -312,8 +314,11 @@ def build_fit_scene() -> Canvas:
     canvas = _copy_block(
         canvas,
         label="FIT & PLACE",
-        headline="화면이 달라져도\n의도는 그대로.",
-        body="한 소스의 같은 구간을 세 화면이 그대로 나눠 씁니다. 자르는 방식만 화면을 따릅니다.",
+        headline="Every screen.\nOne intent.",
+        body=(
+            "cover, contain, exact placement. Three frames, one moment "
+            "\u2014 only the crop follows the screen."
+        ),
         top=88,
         width=560,
     )
@@ -399,14 +404,14 @@ def build_cue_scene() -> Canvas:
         1.2,
         8.0,
         captions=[
-            _caption("말은 정확한 순간에 나타나고", *FIRST_CUE),
-            _caption("정확한 순간에 사라집니다.", *SECOND_CUE),
+            _caption("Words arrive on the exact frame", *FIRST_CUE),
+            _caption("and leave on the exact frame.", *SECOND_CUE),
         ],
     )
     _scrim(canvas, edge="top", boundary=250, fade=180, peak=0.85)
     canvas.text(
-        content="자막도 타임라인입니다.",
-        font=KR_HEAVY,
+        content="Captions are timing.",
+        font=VOICE_HEAVY,
         size=HEADLINE_SIZE,
         color=CREAM,
         position=(MARGIN, 88),
@@ -538,8 +543,8 @@ def build_time_scene() -> Canvas:
         animation=_sweep(WIDTH - 3, TIME_DURATION),
     )
     return canvas.text(
-        content="속도도 소리도\n같은 타임라인 위에.",
-        font=KR_HEAVY,
+        content="Speed and sound\nshare one timeline.",
+        font=VOICE_HEAVY,
         size=HEADLINE_SIZE + 6,
         color=CREAM,
         line_height=1.12,
@@ -562,8 +567,8 @@ def build_deliver_scene(duration: float = DELIVER_DURATION) -> Canvas:
     canvas = _copy_block(
         canvas,
         label="OUTPUT",
-        headline="한 번의 구성에서\n세 개의 파일.",
-        body="같은 타임라인이 MP4, WebM, GIF로 그대로 나갑니다.",
+        headline="One composition.\nThree deliverables.",
+        body="The same timeline ships as MP4, WebM and GIF.",
         top=110,
         width=470,
     )
@@ -598,8 +603,8 @@ def build_deliver_scene(duration: float = DELIVER_DURATION) -> Canvas:
         animation=Fade(duration=0.4, trigger="after_previous", delay=0.4),
     )
     canvas.text(
-        content="같은 구성은 언제나 같은 결과를 냅니다.",
-        font=KR,
+        content="Same composition, same frames, every single run.",
+        font=VOICE,
         size=BODY_SIZE - 2,
         color=MUTE,
         position=(MARGIN, 606),
@@ -683,8 +688,8 @@ def build_resolve_scene() -> Canvas:
             animation=Wipe(direction="right", duration=0.45),
         )
         .text(
-            content="다시 만들지 마세요.",
-            font=KR_HEAVY,
+            content="Stop remaking it.",
+            font=VOICE_HEAVY,
             size=DISPLAY_SIZE,
             color=CREAM,
             position=(MARGIN, 462),
@@ -695,8 +700,8 @@ def build_resolve_scene() -> Canvas:
             animation=Wipe(direction="up", duration=0.65, trigger="after_previous"),
         )
         .text(
-            content="한 번 구성하세요.",
-            font=KR_HEAVY,
+            content="Compose it once.",
+            font=VOICE_HEAVY,
             size=DISPLAY_SIZE,
             color=CREAM,
             position=(MARGIN, 535),
@@ -725,7 +730,7 @@ def build_close_scene() -> Canvas:
         )
         .text(
             content="QUICKTHUMB",
-            font=KR_HEAVY,
+            font=VOICE_HEAVY,
             size=44,
             color=CREAM,
             letter_spacing=8,
@@ -734,8 +739,8 @@ def build_close_scene() -> Canvas:
             animation=Wipe(direction="up", duration=0.55, trigger="after_previous"),
         )
         .text(
-            content="한 번의 구성, 모든 포맷.",
-            font=KR,
+            content="Compose once. Ship everywhere.",
+            font=VOICE,
             size=24,
             color=MUTE,
             position=(centre, 302),
@@ -797,7 +802,7 @@ def _copy_block(
         )
         .text(
             content=headline,
-            font=KR_HEAVY,
+            font=VOICE_HEAVY,
             size=HEADLINE_SIZE,
             color=CREAM,
             line_height=1.14,
@@ -809,7 +814,7 @@ def _copy_block(
         )
         .text(
             content=body,
-            font=KR,
+            font=VOICE,
             size=BODY_SIZE,
             color=MUTE,
             line_height=1.5,
@@ -904,7 +909,7 @@ def _caption(text: str, start: float, end: float) -> dict:
         "text": text,
         "start": start,
         "end": end,
-        "font": KR_BOLD,
+        "font": VOICE_BOLD,
         "vertical_align": "optical-center",
         "position": (WIDTH // 2, 636),
         "size": 24,
