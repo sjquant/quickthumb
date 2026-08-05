@@ -22,10 +22,12 @@ from quickthumb import (
     Background,
     Canvas,
     Deck,
+    Duotone,
     Fade,
     KeyframeSpec,
     LinearGradient,
     PositionTrack,
+    RadialGradient,
     ScaleTrack,
     Shadow,
     TimingSpec,
@@ -62,7 +64,19 @@ CREAM = "#F2EFE9"
 MUTE = "#8A949C"
 ACCENT = "#E8A552"
 
-DISPLAY_SIZE = 66
+# The footage is graded on the same arc as the accent. While the film states the
+# problem the world is cool and steel; from the turn onward it warms toward the
+# accent, so the imagery carries the argument as well as the copy does.
+COOL_GRADE = [Duotone(shadows=INK, highlights="#C9D4DC", opacity=0.6)]
+WARM_GRADE = [Duotone(shadows=INK, highlights=ACCENT, opacity=0.42)]
+# The sunrise is already the warmest thing in the film; it needs a nudge, not a wash.
+SUNRISE_GRADE = [Duotone(shadows=INK, highlights=ACCENT, opacity=0.2)]
+# The scenes built from graphics rather than footage would otherwise be flat
+# black. A single soft light keeps them in the same room as the graded clips.
+STAGE_LIGHT = RadialGradient(stops=[("#2A2118", 0.0), (INK, 1.0)], center=(0.66, 0.28))
+CLOSING_LIGHT = RadialGradient(stops=[("#1D2229", 0.0), (INK, 1.0)], center=(0.5, 0.42))
+
+DISPLAY_SIZE = 84
 HEADLINE_SIZE = 46
 BODY_SIZE = 20
 LABEL_SIZE = 13
@@ -80,6 +94,7 @@ DELIVER_DURATION = 7.9
 RESOLVE_DURATION = 6.6
 CLOSE_DURATION = 5.9
 FILM_DURATION = 60.0
+SCENE_COUNT = 9
 GIF_PREVIEW_DURATION = 4.0
 
 # Real values, printed on screen by the scenes that set them. The speed readout
@@ -139,6 +154,7 @@ def build_deck() -> Deck:
         (build_resolve_scene(), tr.Fade(duration=0.6, advance_after=RESOLVE_DURATION - 0.6)),
         (build_close_scene(), tr.Fade(duration=0.6, advance_after=CLOSE_DURATION - 0.6)),
     )
+    assert len(plan) == SCENE_COUNT, "the film tells the viewer how many scenes it has"
     deck = Deck(WIDTH, HEIGHT)
     for canvas, transition in plan:
         deck = deck.slide(canvas, transition=transition)
@@ -154,11 +170,12 @@ def build_hook_scene() -> Canvas:
         0.0,
         5.0,
         animation=_push_in(HOOK_DURATION),
+        effects=COOL_GRADE,
     )
     _scrim(canvas, edge="bottom", boundary=410, fade=230, peak=0.8)
     return (
         canvas.text(
-            content="How many times have you\nrebuilt the same video?",
+            content="The title changed.\nAgain.",
             font=VOICE_HEAVY,
             size=DISPLAY_SIZE,
             color=CREAM,
@@ -179,7 +196,7 @@ def build_hook_scene() -> Canvas:
             animation=Wipe(direction="right", duration=0.4, trigger="after_previous", delay=0.5),
         )
         .text(
-            content="One landscape. One vertical. One preview.",
+            content="Every thumbnail. Every format. Every size.",
             font=VOICE,
             size=BODY_SIZE,
             color=CREAM,
@@ -192,7 +209,14 @@ def build_hook_scene() -> Canvas:
 
 def build_cost_scene() -> Canvas:
     """Name the cost: one idea, remade three times, counted on screen."""
-    canvas = _full_bleed(Canvas(WIDTH, HEIGHT), "ordinary-notebook.mp4", COST_DURATION, 0.5, 6.6)
+    canvas = _full_bleed(
+        Canvas(WIDTH, HEIGHT),
+        "ordinary-notebook.mp4",
+        COST_DURATION,
+        0.5,
+        6.6,
+        effects=COOL_GRADE,
+    )
     column_x = 624
     text_x = column_x + 64
     return (
@@ -208,7 +232,7 @@ def build_cost_scene() -> Canvas:
         # One line per remake, each arriving on its own beat: the repetition is
         # the argument, so the stagger carries it.
         .text(
-            content="Once for landscape.\nOnce for vertical.\nOnce more for the preview.",
+            content="Open the file.\nChange the text.\nExport it again.",
             font=VOICE_BOLD,
             size=38,
             color=CREAM,
@@ -228,8 +252,8 @@ def build_cost_scene() -> Canvas:
         )
         .counter(
             1,
-            3,
-            1.2,
+            48,
+            1.4,
             delay=0.7,
             position=(text_x, 404),
             size=104,
@@ -239,7 +263,7 @@ def build_cost_scene() -> Canvas:
             style="odometer",
         )
         .text(
-            content="One idea.\nThree times the work.",
+            content="One edit.\nForty-eight exports.",
             font=VOICE,
             size=BODY_SIZE,
             color=MUTE,
@@ -255,7 +279,14 @@ def build_cost_scene() -> Canvas:
 
 def build_turn_scene() -> Canvas:
     """The pivot: one sentence, the brand, and the first amber on screen."""
-    canvas = _full_bleed(Canvas(WIDTH, HEIGHT), "ordinary-coffee.mp4", TURN_DURATION, 0.25, 7.25)
+    canvas = _full_bleed(
+        Canvas(WIDTH, HEIGHT),
+        "ordinary-coffee.mp4",
+        TURN_DURATION,
+        0.25,
+        7.25,
+        effects=WARM_GRADE,
+    )
     canvas.shape(
         shape="rectangle", position=(0, 0), width=WIDTH, height=HEIGHT, color=INK, opacity=0.28
     )
@@ -293,7 +324,8 @@ def build_turn_scene() -> Canvas:
         )
         .text(
             content=(
-                "Framing, captions, motion and sound on one timeline \u2014 written once, in code."
+                "One file holds the framing, captions, motion and sound. "
+                "Change it there, and every format follows."
             ),
             font=VOICE,
             size=BODY_SIZE,
@@ -310,7 +342,7 @@ def build_turn_scene() -> Canvas:
 
 def build_fit_scene() -> Canvas:
     """Proof one: the same second of footage, live in three frame shapes."""
-    canvas = Canvas(WIDTH, HEIGHT).background(color=INK)
+    canvas = Canvas(WIDTH, HEIGHT).background(color=INK, gradient=STAGE_LIGHT)
     canvas = _copy_block(
         canvas,
         label="FIT & PLACE",
@@ -374,6 +406,7 @@ def build_fit_scene() -> Canvas:
             frame_width,
             frame_height,
             border_radius=4,
+            effects=WARM_GRADE,
         )
         canvas.text(
             content=label,
@@ -403,6 +436,7 @@ def build_cue_scene() -> Canvas:
         CUE_DURATION,
         1.2,
         8.0,
+        effects=WARM_GRADE,
         captions=[
             _caption("Words arrive on the exact frame", *FIRST_CUE),
             _caption("and leave on the exact frame.", *SECOND_CUE),
@@ -477,7 +511,13 @@ def build_cue_scene() -> Canvas:
 
 def build_time_scene() -> Canvas:
     """Proof three: speed, volume, and fade are three dials on one timeline."""
-    canvas = _full_bleed(Canvas(WIDTH, HEIGHT), "ordinary-city.mp4", TIME_DURATION, *TIME_TRIM)
+    canvas = _full_bleed(
+        Canvas(WIDTH, HEIGHT),
+        "ordinary-city.mp4",
+        TIME_DURATION,
+        *TIME_TRIM,
+        effects=WARM_GRADE,
+    )
     _scrim(canvas, edge="bottom", boundary=420, fade=210, peak=0.8)
     panel_x, panel_y, panel_width = 744, 104, 456
     canvas.shape(
@@ -563,12 +603,12 @@ def build_deliver_scene(duration: float = DELIVER_DURATION) -> Canvas:
     ``duration`` is shortened for the standalone GIF preview, which needs the
     same composition in fewer frames than the film gives it.
     """
-    canvas = Canvas(WIDTH, HEIGHT).background(color=INK)
+    canvas = Canvas(WIDTH, HEIGHT).background(color=INK, gradient=STAGE_LIGHT)
     canvas = _copy_block(
         canvas,
         label="OUTPUT",
         headline="One composition.\nThree deliverables.",
-        body="The same timeline ships as MP4, WebM and GIF.",
+        body="The same timeline ships as MP4, WebM and GIF \u2014 including this one.",
         top=110,
         width=470,
     )
@@ -631,6 +671,7 @@ def build_deliver_scene(duration: float = DELIVER_DURATION) -> Canvas:
         frame_width,
         frame_height,
         border_radius=4,
+        effects=WARM_GRADE,
     )
     card_width, card_gap = 170, 25
     for index, (name, role) in enumerate((("MP4", "MASTER"), ("WEBM", "WEB"), ("GIF", "PREVIEW"))):
@@ -658,7 +699,7 @@ def build_deliver_scene(duration: float = DELIVER_DURATION) -> Canvas:
             position=(card_x + 22, 528),
         )
     return canvas.text(
-        content=f"1280 × 720   ·   {FPS} FPS   ·   {FILM_DURATION:.0f} SEC",
+        content=f"THIS FILM   ·   ONE FILE   ·   {SCENE_COUNT} SCENES   ·   ONE COMMAND",
         font=UI,
         size=LABEL_SIZE,
         color=MUTE,
@@ -676,6 +717,7 @@ def build_resolve_scene() -> Canvas:
         0.7,
         7.3,
         animation=_push_in(RESOLVE_DURATION, amount=1.05),
+        effects=SUNRISE_GRADE,
     )
     _scrim(canvas, edge="bottom", boundary=396, fade=220, peak=0.78)
     return (
@@ -688,7 +730,7 @@ def build_resolve_scene() -> Canvas:
             animation=Wipe(direction="right", duration=0.45),
         )
         .text(
-            content="Stop remaking it.",
+            content="Stop repeating yourself.",
             font=VOICE_HEAVY,
             size=DISPLAY_SIZE,
             color=CREAM,
@@ -719,7 +761,7 @@ def build_close_scene() -> Canvas:
     centre = WIDTH // 2
     return (
         Canvas(WIDTH, HEIGHT)
-        .background(color=INK)
+        .background(color=INK, gradient=CLOSING_LIGHT)
         .shape(
             shape="rectangle",
             position=(centre - 24, 176),
@@ -762,9 +804,19 @@ def build_close_scene() -> Canvas:
             font=UI,
             size=17,
             color=MUTE,
-            position=(centre, 494),
+            position=(centre, 492),
             align=("center", "top"),
             animation=Fade(duration=0.5, trigger="after_previous"),
+        )
+        .text(
+            content="examples/ordinary_moments.py",
+            font=UI,
+            size=14,
+            color=MUTE,
+            letter_spacing=1,
+            position=(centre, 524),
+            align=("center", "top"),
+            animation=Fade(duration=0.4, trigger="after_previous"),
         )
         .text(
             content="MP4   ·   WEBM   ·   GIF",
@@ -772,7 +824,7 @@ def build_close_scene() -> Canvas:
             size=LABEL_SIZE,
             color=MUTE,
             letter_spacing=3,
-            position=(centre, 562),
+            position=(centre, 580),
             align=("center", "top"),
             animation=Fade(duration=0.5, trigger="after_previous"),
         )
@@ -854,6 +906,7 @@ def _full_bleed(
     trim_end: float,
     captions: list[dict] | None = None,
     animation: AnimationSpec | None = None,
+    effects: list | None = None,
 ) -> Canvas:
     """Fill the frame with one clip stretched to the scene's exact length."""
     return _clip(
@@ -867,6 +920,7 @@ def _full_bleed(
         HEIGHT,
         captions=captions,
         animation=animation,
+        effects=effects,
     )
 
 
@@ -882,6 +936,7 @@ def _clip(
     captions: list[dict] | None = None,
     border_radius: int = 0,
     animation: AnimationSpec | None = None,
+    effects: list | None = None,
 ) -> Canvas:
     """Place one clip, slowing shorter footage instead of reading past its end."""
     # Sources run 5.0s to 8.0s, so a scene longer than its clip plays slower
@@ -900,6 +955,7 @@ def _clip(
         captions=captions or [],
         border_radius=border_radius,
         animation=animation,
+        effects=effects or [],
     )
 
 

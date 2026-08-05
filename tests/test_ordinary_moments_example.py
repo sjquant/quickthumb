@@ -34,10 +34,10 @@ def test_ordinary_moments_tells_a_sixty_second_story_in_nine_scenes():
         layer["content"] for slide in slides for layer in slide["layers"] if layer["type"] == "text"
     }
     assert {
-        "How many times have you\nrebuilt the same video?",
+        "The title changed.\nAgain.",
         "Compose it once.",
         "One composition.\nThree deliverables.",
-        "Stop remaking it.",
+        "Stop repeating yourself.",
         "uv add quickthumb",
         "github.com/sjquant/quickthumb",
     } <= text_content
@@ -56,6 +56,10 @@ def test_ordinary_moments_tells_a_sixty_second_story_in_nine_scenes():
     )
     assert f"CUE 1   00:0{FIRST_CUE[0]} – 00:0{FIRST_CUE[1]}" in text_content
     assert f"CUE 2   00:0{SECOND_CUE[0]} – 00:0{SECOND_CUE[1]}" in text_content
+
+    # Then: the film's claim about its own shape is true of the deck that renders it
+    assert "THIS FILM   ·   ONE FILE   ·   9 SCENES   ·   ONE COMMAND" in text_content
+    assert len(slides) == 9
 
     # Then: nothing in the composition is broken or cropped away
     findings = deck.diagnose()

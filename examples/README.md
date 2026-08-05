@@ -193,8 +193,9 @@ Use it when you want a shareable, self-playing GIF or video clip (Reels/TikTok/S
 
 Output: `ordinary_moments.mp4`, `ordinary_moments.webm`, and `ordinary_moments_preview.gif`
 
-Builds a 60-second horizontal product film that argues one case — remaking the same video for every screen is the expensive part — across nine scenes: hook, cost, turn, three proofs, delivery payoff, resolution, and close.
+Builds a 60-second horizontal product film that argues one case — when the copy changes, re-exporting every asset by hand is the expensive part — across nine scenes: hook, cost, turn, three proofs, delivery payoff, resolution, and close.
 
+- The film is its own evidence: the payoff scene names the file, scene count, and single command that produced what the viewer is watching, and the closing card points back at this script
 - Five locally bundled Pexels clips with a checked-in provenance manifest, each reused only as a deliberate callback in a different frame
 - One proof scene places the same second of one source in 16:9, 1:1, and 9:16 frames simultaneously, so `fit` and placement are demonstrated rather than described
 - Timed caption cues that prove their own timing: a cue strip and a playhead cross each block at the moment its caption appears
