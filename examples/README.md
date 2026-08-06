@@ -178,9 +178,11 @@ Output: `product_hype_reel.gif`, `product_hype_reel.mp4`, `product_hype_reel.web
 Builds a restrained vertical (1080x1920) 8-scene product film — hook → pain point → solution → three features → proof → CTA — and exports it as a 34.69-second narration-led animation:
 
 - One visual idea per scene rather than one card template repeated eight times: a live trace, a timeline whose playhead runs past the days it lit, three signals converging into one score, a full-width instrument, a plan that shortens as you watch, an accumulating streak field, an eight-week distance chart, and one clear action
-- Every claim the film makes about a number is drawn to scale: the adjusted session and the planned one share one pixels-per-minute rule, and the proof chart rises in all eight columns
+- Every claim the film makes about a number is drawn to scale: the adjusted session and the planned one share one pixels-per-minute rule, and the proof chart rises in all eight columns. The outcome scene charts eight weeks and labels the figures as illustrative rather than quoting an invented user
 - `Canvas.counter(...)` for each scene's headline reading, in the digit style that suits it — `odometer` where every digit fills its slot, `plain` where the typeface's narrow `1` would open a gap
 - `AnimationSpec` motion tied to meaning: line-staggered headlines, `bar_grow` on horizontal comparisons, a `PositionTrack` playhead crossing the timeline at the scene's own rate, and per-element delays that make traces and fields arrive rather than appear
+- Motion that fills its scene instead of finishing in the first second and holding a still frame for the rest, with the two heart-rate scenes reading continuously because they are labelled `LIVE`, and every stagger kept above one frame at the exporter's 30fps
+- Every scene's first animation triggers on arrival rather than on the default click, so the HTML slideshow plays a scene when it reaches it
 - A `RadialGradient` stage light per act instead of flat black, warming from steel to product blue as the film turns from problem to answer
 - English copy set in locally bundled Pretendard, with every supporting label at least 48px for phone-scale legibility, separated by weight, colour and tracking rather than by size alone
 - One semantic blue accent on neutral stages, without glow, elevated cards, progress chrome, or per-scene rainbow colors

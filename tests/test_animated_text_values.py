@@ -39,6 +39,32 @@ def test_counter_samples_values_and_round_trips_through_json():
     assert restored.render_frame(0).tobytes() != restored.render_frame(0.5).tobytes()
 
 
+def test_counter_settles_on_its_final_value_wherever_there_is_no_timeline():
+    """Given a counter, when rendered as a still, then it reads the number it lands on."""
+    # Given: a counter that climbs from 96 to 148 after a delay
+    canvas = (
+        Canvas(600, 300)
+        .background(color="#000000")
+        .counter(
+            96, 148, 1.0, delay=0.4, position=(40, 80), size=90, color="#FFFFFF", style="plain"
+        )
+    )
+
+    # When: the composition is asked for its untimed, settled representation
+    layer = canvas.layers[1]
+    svg = canvas.to_svg()
+
+    # Then: the still shows the value the count finished on, not the one it began from
+    assert layer.content == "148"
+    assert ">148<" in svg
+    assert ">96<" not in svg
+
+    # Then: a timed sample still reports where the count actually is
+    assert layer.value is not None
+    assert layer.value.text_at(0.0) == "96"
+    assert layer.value.text_at(0.4) == "96"
+
+
 def test_counter_duration_and_export_fallback_are_inspectable():
     """Given a counter, inspection exposes duration and static fallbacks."""
     canvas = Canvas(320, 120).counter(

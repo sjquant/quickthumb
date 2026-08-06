@@ -118,7 +118,10 @@ DIM = "#6E747D"
 COOL_LIGHT = RadialGradient(stops=[("#1B222C", 0.0), (INK, 1.0)], center=(0.26, 0.22))
 BLUE_LIGHT = RadialGradient(stops=[("#0F2537", 0.0), (INK, 1.0)], center=(0.5, 0.6))
 PROOF_LIGHT = RadialGradient(stops=[("#16324C", 0.0), (INK, 1.0)], center=(0.66, 0.54))
-CTA_LIGHT = RadialGradient(stops=[("#3193FF", 0.0), (BLUE, 1.0)], center=(0.28, 0.26))
+# The closing field is the one place the film goes to colour, and white type
+# has to hold on it. A light that climbs above the accent takes the type below
+# the contrast floor, so this one deepens outward instead of brightening in.
+CTA_LIGHT = RadialGradient(stops=[(BLUE, 0.0), ("#0E68C0", 1.0)], center=(0.28, 0.26))
 
 
 def main() -> None:
@@ -519,7 +522,7 @@ def build_social_proof_scene() -> Canvas:
     )
     canvas = add_week_chart(canvas, baseline=1260, peak=340)
     canvas = canvas.text(
-        content="“I FINALLY RAN\nMY FIRST 5K.”",
+        content="EIGHT WEEKS.\nFIRST 5K.",
         font=PRETENDARD[800],
         size=LEAD_SIZE,
         color=WHITE,
@@ -528,7 +531,7 @@ def build_social_proof_scene() -> Canvas:
         animation=Wipe(direction="up", duration=MOTION_STANDARD, trigger="after_previous"),
     )
     return canvas.text(
-        content="VERIFIED BETA USER",
+        content="ILLUSTRATIVE PROGRAM DATA",
         font=PRETENDARD[700],
         size=LABEL_SIZE,
         color=MUTED,
@@ -550,13 +553,13 @@ def build_cta_scene() -> Canvas:
         line_height=0.98,
         letter_spacing=-6,
         position=(CONTENT_X, 520),
-        animation=Fade(duration=MOTION_STANDARD),
+        animation=Fade(duration=MOTION_STANDARD, trigger="after_previous"),
     )
     canvas = canvas.text(
         content="The fastest way to understand your body.",
         font=PRETENDARD[500],
         size=BODY_SIZE,
-        color="#E8F2FF",
+        color=WHITE,
         line_height=1.3,
         position=(CONTENT_X, 920),
         max_width=CONTENT_WIDTH,
@@ -582,7 +585,7 @@ def build_cta_scene() -> Canvas:
         content="7 DAYS FREE  ·  CANCEL ANYTIME",
         font=PRETENDARD[700],
         size=LABEL_SIZE,
-        color="#D7E9FF",
+        color=WHITE,
         letter_spacing=1,
         position=(CONTENT_X, 1370),
         animation=Fade(duration=MOTION_FAST, trigger="after_previous"),
@@ -638,7 +641,10 @@ def add_copy(
         color=BLUE_SOFT,
         letter_spacing=3,
         position=(CONTENT_X, top),
-        animation=Wipe(direction="right", duration=MOTION_FAST),
+        # The default trigger is on_click, which leaves the HTML slideshow
+        # waiting for a click before a scene starts and the whole chain with
+        # it. A scene begins when it arrives.
+        animation=Wipe(direction="right", duration=MOTION_FAST, trigger="after_previous"),
     )
     canvas = canvas.text(
         content=headline,
@@ -931,7 +937,7 @@ def export_reel(deck: Deck) -> None:
     """Export every format with narration and a quiet looping soundtrack."""
     deck.render(
         str(OUT_GIF),
-        animation=GifOptions(fps=8, max_size=(540, 960), colors=128),
+        animation=GifOptions(fps=8, max_size=(432, 768), colors=64),
     )
 
     for output in (OUT_PPTX, OUT_HTML):

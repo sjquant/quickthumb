@@ -462,7 +462,7 @@ class Canvas:
                 "easing": easing,
             }
         )
-        return self.text(content=value.text_at(0.0), value=value, **text_options)
+        return self.text(content=value.settled_text(), value=value, **text_options)
 
     def text(
         self,

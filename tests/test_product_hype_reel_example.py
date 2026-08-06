@@ -154,8 +154,8 @@ def test_product_hype_reel_exports_each_supported_file_with_valid_audio_options(
         (".webm", False, True),
     ]
     assert gif_options[0].fps == 8
-    assert gif_options[0].max_size == (540, 960)
-    assert gif_options[0].colors == 128
+    assert gif_options[0].max_size == (432, 768)
+    assert gif_options[0].colors == 64
     assert all(
         options.soundtrack is not None and options.soundtrack.loop for options in video_options
     )

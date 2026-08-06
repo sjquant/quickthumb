@@ -93,7 +93,11 @@ class TextEngine:
                 self._render_odometer(image, layer, time)
                 return
             layer = layer.model_copy(
-                update={"content": layer.value.text_at(0.0 if time is None else time)}
+                update={
+                    "content": layer.value.text_at(time)
+                    if time is not None
+                    else layer.value.settled_text()
+                }
             )
         if layer.opacity < 1.0:
             temp = Image.new("RGBA", image.size, (0, 0, 0, 0))
