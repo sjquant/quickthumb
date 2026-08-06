@@ -565,7 +565,14 @@ class HtmlExporter:
                     "k": kf,
                     "d": duration,
                     "delay": event.start + event.delay,
-                    "tr": None,
+                    # A canonical event already carries its absolute place on the
+                    # slide in ``delay``, so it runs alongside the rest rather
+                    # than queueing behind it. Emitting no trigger at all stalls
+                    # the runtime: it neither joins the open group nor continues
+                    # the chain, so every canonical layer became a click of its
+                    # own and a scene took as many clicks as it had animations.
+                    "tr": event.trigger
+                    or ("after_previous" if not self._timeline else "with_previous"),
                     "a": "entrance",
                 }
             )

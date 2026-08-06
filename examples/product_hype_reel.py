@@ -94,9 +94,10 @@ _EPSILON = 1e-6
 # slot, so any reading that passes through a 1 is set `plain` instead and the
 # mechanical roll is kept for the one readout whose digits all fill their slot.
 DIGIT_STYLE = "plain"
-# Where the shared copy stack has finished, so a scene-long timeline can begin
-# when the copy has landed without being chained to it.
-COPY_SETTLED = MOTION_FAST * 2 + MOTION_STANDARD
+# The headline arrives line by line, so it settles a stagger step after its own
+# duration. Anything sized against the copy stack has to count that step too.
+HEADLINE_IN = MOTION_STANDARD + MOTION_FAST
+COPY_SETTLED = MOTION_FAST + HEADLINE_IN + MOTION_FAST
 
 INK = "#080A0E"
 SURFACE = "#161B23"
@@ -304,16 +305,6 @@ def build_live_sync_scene() -> Canvas:
         body="Track heart-rate zones and workout intensity live.",
         top=260,
     )
-    # The hook put the number first and the trace under it; here the trace
-    # arrives first, so the two heart-rate scenes never read as one layout.
-    canvas = add_pulse_trace(
-        canvas,
-        y=900,
-        color=BLUE,
-        height=260,
-        start=COPY_SETTLED,
-        end=SCENE_DURATIONS[3],
-    )
     canvas = canvas.counter(
         118,
         142,
@@ -326,6 +317,19 @@ def build_live_sync_scene() -> Canvas:
         letter_spacing=-10,
         font=PRETENDARD[900],
     )
+    # The hook put the number first and the trace under it; here the trace
+    # arrives first, so the two heart-rate scenes never read as one layout.
+    canvas = add_pulse_trace(
+        canvas,
+        y=900,
+        color=BLUE,
+        height=260,
+        start=COPY_SETTLED,
+        end=SCENE_DURATIONS[3],
+    )
+    # This is the shortest scene, and the trace holds the rest of it. The two
+    # labels therefore arrive alongside it on their own delays: chained behind
+    # a scene-long animation they would never get their turn.
     canvas = canvas.text(
         content="BPM   ZONE 3",
         font=PRETENDARD[800],
@@ -333,7 +337,7 @@ def build_live_sync_scene() -> Canvas:
         color=BLUE_SOFT,
         letter_spacing=2,
         position=(CONTENT_X + 6, 1372),
-        animation=Fade(duration=MOTION_FAST, trigger="after_previous"),
+        animation=Fade(duration=MOTION_FAST, delay=MOTION_FAST, trigger="with_previous"),
     )
     return canvas.text(
         content="LIVE  /  SYNCED",
@@ -342,7 +346,7 @@ def build_live_sync_scene() -> Canvas:
         color=MUTED,
         letter_spacing=2,
         position=(CONTENT_X, 1500),
-        animation=Fade(duration=MOTION_FAST, trigger="after_previous"),
+        animation=Fade(duration=MOTION_FAST, delay=MOTION_FAST * 2, trigger="with_previous"),
     )
 
 
@@ -701,12 +705,12 @@ def add_pulse_trace(
             height=bar_height,
             color=color,
             opacity=1.0 if amplitude > 0.7 else 0.55,
-            animation=_live_bar(end - start, start=start, order=index),
+            animation=_live_bar(end - start, order=index),
         )
     return canvas
 
 
-def _live_bar(window: float, *, start: float, order: int) -> AnimationSpec:
+def _live_bar(window: float, *, order: int) -> AnimationSpec:
     """Grow one trace bar in on its own beat, then keep it reading for the scene.
 
     Arrival and life are one curve rather than an entrance effect plus a second
@@ -717,8 +721,11 @@ def _live_bar(window: float, *, start: float, order: int) -> AnimationSpec:
     """
     # A stagger shorter than one frame collapses: two bars land on the same
     # frame and the sweep pops in clumps instead of travelling.
-    arrive = order * FRAME * 2
-    settled = arrive + MOTION_FAST
+    # Never schedule an arrival the window cannot hold: a short scene should
+    # compress the sweep, not produce a curve that runs past its own end.
+    reveal = min(MOTION_FAST, window * 0.25)
+    arrive = min(order * FRAME * 2, max(0.0, window * 0.5 - reveal))
+    settled = arrive + reveal
     low, high = 0.58, 1.0
     middle, swing = (high + low) / 2, (high - low) / 2
     cycles, steps = 5, 40
@@ -738,7 +745,14 @@ def _live_bar(window: float, *, start: float, order: int) -> AnimationSpec:
         )
     return AnimationSpec.timeline(
         ScaleTrack(keyframes=keyframes),
-        timing=TimingSpec(start=start, duration=window),
+        # Relative timing, not an absolute start: the HTML runtime schedules a
+        # slide as a chain of groups, so a bar that names its own place on the
+        # slide clock lands at that offset *after* the group it joins. Every bar
+        # follows the copy as one group and carries its own arrival in the
+        # curve above.
+        timing=TimingSpec(
+            trigger="after_previous" if order == 0 else "with_previous", duration=window
+        ),
         easing="linear",
     )
 
