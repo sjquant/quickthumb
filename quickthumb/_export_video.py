@@ -1072,7 +1072,7 @@ def _build_units(
             )
         effects = [effect for effect in raw_effects if not isinstance(effect, AnimationSpec)]
         image, pos = _render_unit_image(canvas, layers)
-        canonical = animation if isinstance(animation, AnimationSpec) else None
+        canonical = _canonical_animation(animation, effects)
         target_timelines: tuple[Timeline, ...] = ()
         target_images: tuple[tuple[Image.Image, tuple[int, int]], ...] = ()
         if canonical is not None:
@@ -1083,10 +1083,11 @@ def _build_units(
             if stagger is not None:
                 if stagger.target == "characters" and isinstance(content, str):
                     target_count = len(content)
-                elif stagger.target in {"words", "lines"} and isinstance(layers[0], TextLayer):
-                    target_count = len(
-                        canvas._text.resolve_animation_targets(layers[0], stagger.target)
-                    )
+                elif stagger.target == "words" or stagger.target == "lines":
+                    if isinstance(layers[0], TextLayer):
+                        target_count = len(
+                            canvas._text.resolve_animation_targets(layers[0], stagger.target)
+                        )
                 elif stagger.target == "children":
                     target_count = group_target_counts.get(id(canonical), 1)
             target_timelines = resolve_staggered_timelines(timeline, target_count)
@@ -1127,6 +1128,42 @@ def _build_units(
             )
         )
     return units
+
+
+def _canonical_animation(animation: object, legacy: list) -> AnimationSpec | None:
+    """Return the canonical spec driving a unit, refusing what it cannot render.
+
+    A visualization preset animates a layer's components, so it composes with a
+    legacy effect moving the layer itself. Anything else drives the layer, and a
+    unit plays either legacy effects or one canonical timeline — a layer asking
+    for both, or for several canonical specs at once, has no single animation to
+    compile. Saying so is the point: the alternative is a render that quietly
+    drops half of what the composition asked for and disagrees with the same
+    canvas rendered as a still.
+    """
+    if isinstance(animation, AnimationSpec):
+        return animation
+    if not isinstance(animation, list):
+        return None
+    specs = [
+        item
+        for item in animation
+        if isinstance(item, AnimationSpec)
+        and not (item.effect is not None and item.effect.type in _VISUALIZATION_PRESETS)
+    ]
+    if not specs:
+        return None
+    if legacy:
+        raise RenderingError(
+            "Animated export cannot play a legacy effect and a layer-level AnimationSpec "
+            "on the same layer. Express the whole animation as one AnimationSpec timeline."
+        )
+    if len(specs) > 1:
+        raise RenderingError(
+            "Animated export plays one layer-level AnimationSpec per layer. Combine the "
+            "tracks into a single AnimationSpec timeline."
+        )
+    return specs[0]
 
 
 def _canonical_group_target_counts(canvas: Canvas) -> dict[int, int]:
