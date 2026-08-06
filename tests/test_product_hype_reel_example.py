@@ -1,6 +1,7 @@
 """Black-box integration coverage for the product hype reel example."""
 
 import json
+import tempfile
 import wave
 from pathlib import Path
 from typing import cast
@@ -73,6 +74,39 @@ def test_product_hype_reel_animates_the_readings_it_is_about():
     }
     assert all(start != end for start, end in travelled.values())
     assert [index for index, (start, end) in travelled.items() if end < start] == [4]
+
+
+def test_product_hype_reel_finishes_every_scene_inside_its_own_beat():
+    """Given the film, when its slideshow timing is read, then no scene outruns itself."""
+    # Given: the exported slideshow, whose runtime chains a slide group by group
+    # and only advances once nothing is still waiting to play
+    import html as html_module
+    import re
+
+    from examples.product_hype_reel import SCENE_DURATIONS, build_deck
+
+    rendered = Path(tempfile.mkdtemp()) / "reel.html"
+    build_deck().render(str(rendered))
+
+    # When: each scene's nodes and its chained total are read back
+    stages = [
+        json.loads(html_module.unescape(stage))
+        for stage in re.findall(r"data-qt-timeline='([^']*)'", rendered.read_text())
+    ]
+    chains = [
+        sum(node["d"] for node in stage if node["tr"] == "after_previous") for stage in stages
+    ]
+    triggers = {node["tr"] for stage in stages for node in stage}
+
+    # Then: nothing waits for a click, so a scene plays and advances on its own
+    assert triggers <= {"after_previous", "with_previous"}
+
+    # Then: every chain lands inside the beat its scene was cut to, so no layer
+    # is scheduled after the film has already moved on
+    assert len(chains) == len(SCENE_DURATIONS)
+    assert all(
+        chain <= duration + 0.01 for chain, duration in zip(chains, SCENE_DURATIONS, strict=True)
+    )
 
 
 def test_product_hype_reel_draws_its_comparisons_to_one_scale():

@@ -88,7 +88,6 @@ MOTION_STANDARD = BEAT * 1.25
 COUNT_DURATION = BEAT * 4.5
 # One frame at the exporter's default 30fps for animated video.
 FRAME = 1 / 30
-_EPSILON = 1e-6
 # `odometer` reserves one fixed-width slot per digit so a growing number cannot
 # shift sideways mid-count. Pretendard Black sets a far narrower `1` than that
 # slot, so any reading that passes through a 1 is set `plain` instead and the
@@ -720,9 +719,9 @@ def _live_bar(window: float, *, order: int) -> AnimationSpec:
     push the tallest ones into the label above them.
     """
     # A stagger shorter than one frame collapses: two bars land on the same
-    # frame and the sweep pops in clumps instead of travelling.
-    # Never schedule an arrival the window cannot hold: a short scene should
-    # compress the sweep, not produce a curve that runs past its own end.
+    # frame and the sweep pops in clumps instead of travelling. The whole
+    # arrival is then held inside the window, so a short scene compresses the
+    # sweep rather than scheduling a curve that runs past its own end.
     reveal = min(MOTION_FAST, window * 0.25)
     arrive = min(order * FRAME * 2, max(0.0, window * 0.5 - reveal))
     settled = arrive + reveal
@@ -736,7 +735,7 @@ def _live_bar(window: float, *, order: int) -> AnimationSpec:
     keyframes.append(KeyframeSpec(time=settled, value=1.0))
     for step in range(1, steps + 1):
         time = settled + (window - settled) * step / steps
-        progress = (time - settled) / max(window - settled, _EPSILON)
+        progress = (time - settled) / (window - settled)
         keyframes.append(
             KeyframeSpec(
                 time=time,
