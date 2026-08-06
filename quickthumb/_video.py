@@ -9,12 +9,13 @@ import shutil
 import subprocess
 from bisect import bisect_right
 from collections import OrderedDict
+from collections.abc import Iterable
 from dataclasses import dataclass
 from fractions import Fraction
 
 from PIL import Image, ImageColor, ImageDraw, ImageFont
 
-from quickthumb._base import parse_coordinate
+from quickthumb._base import FontType, parse_coordinate
 from quickthumb._images import ImageEngine
 from quickthumb.errors import RenderingError, ValidationError
 from quickthumb.models import VideoCaption, VideoLayer
@@ -28,6 +29,20 @@ class VideoInfo:
     has_audio: bool
     frame_rate: float
     frame_times: tuple[float, ...] = ()
+
+
+@dataclass(frozen=True)
+class CaptionGeometry:
+    """Measured and safely positioned geometry for one video caption."""
+
+    text_position: tuple[int, int]
+    requested_bbox: tuple[int, int, int, int]
+    rendered_bbox: tuple[int, int, int, int]
+    shift: tuple[int, int]
+    text_size: tuple[int, int]
+
+
+CAPTION_OPTICAL_BIAS_PX = -2
 
 
 class VideoDecoder:
@@ -240,8 +255,11 @@ def render_video_layer(
     frame_cache: OrderedDict[tuple[str, float], Image.Image],
     decoder_cache: dict[str, VideoDecoder],
     font_loader=None,
+    images: ImageEngine | None = None,
 ) -> None:
     """Composite one sampled clip and its active captions onto a canvas."""
+    if images is None:
+        raise RenderingError("rendering a video layer requires the image engine")
     duration = effective_duration(layer, info)
     if time < layer.start or time > layer.start + duration + 1e-9:
         return
@@ -261,10 +279,47 @@ def render_video_layer(
     fitted = ImageEngine._fit_image(
         frame, (layer.width, layer.height), layer.fit, Image.Resampling.BICUBIC
     )
-    x = parse_coordinate(layer.position[0], image.width)
-    y = parse_coordinate(layer.position[1], image.height)
-    image.alpha_composite(fitted, (x, y))
-    _render_captions(image, layer.captions, time - layer.start, font_loader)
+    if layer.border_radius > 0:
+        fitted = images._apply_border_radius(fitted, layer.border_radius)
+    # A sampled clip frame is composited exactly like an image layer's picture,
+    # so rotation, opacity, effects, and blending behave the same on footage.
+    images._composite_overlay_layer(image, fitted, layer)
+
+
+def render_video_captions(
+    image: Image.Image,
+    layers: Iterable[VideoLayer],
+    time: float,
+    info_cache: dict[str, VideoInfo],
+    font_loader=None,
+) -> None:
+    """Render active video captions in the composition foreground pass.
+
+    Captions remain owned by their ``VideoLayer`` for serialization and timing,
+    but are deliberately rendered after the regular layer stack. This keeps a
+    later shade, panel, or text layer from accidentally obscuring timed media
+    copy. The caption pass does not decode frames itself; it only probes a
+    source when its duration is not already available in the render context.
+    """
+    for layer in layers:
+        if not layer.captions:
+            continue
+        info = info_cache.get(layer.source)
+        if info is None:
+            info = probe_video(layer.source)
+            info_cache[layer.source] = info
+        duration = effective_duration(layer, info)
+        if not layer.start <= time < layer.start + duration:
+            continue
+        _render_captions(image, layer.captions, time - layer.start, font_loader)
+
+
+def iter_video_layers(layers: Iterable[object]) -> Iterable[VideoLayer]:
+    """Yield video descendants once, preserving composition order."""
+    for layer in layers:
+        if isinstance(layer, VideoLayer):
+            yield layer
+        yield from iter_video_layers(getattr(layer, "children", ()))
 
 
 def _render_captions(
@@ -274,40 +329,107 @@ def _render_captions(
     for caption in captions:
         if not caption.start <= time < caption.end:
             continue
-        font = (
-            font_loader(None, caption.size, False, False)
-            if font_loader
-            else ImageFont.load_default()
-        )
-        x = parse_coordinate(caption.position[0], image.width)
-        y = parse_coordinate(caption.position[1], image.height)
-        bbox = draw.textbbox((0, 0), caption.text, font=font)
-        left = x - (bbox[2] - bbox[0]) // 2
-        top = y - (bbox[3] - bbox[1]) // 2
+        geometry = caption_geometry(image.size, caption, font_loader)
+        left, top = geometry.text_position
         if caption.background is not None:
-            top_padding, right_padding, bottom_padding, left_padding = _caption_padding(
-                caption.padding
-            )
             background = ImageColor.getrgb(caption.background) + (
                 round(caption.background_opacity * 255),
             )
             draw.rounded_rectangle(
                 (
-                    left - left_padding,
-                    top - top_padding,
-                    left + (bbox[2] - bbox[0]) + right_padding,
-                    top + (bbox[3] - bbox[1]) + bottom_padding,
+                    geometry.rendered_bbox[0],
+                    geometry.rendered_bbox[1],
+                    geometry.rendered_bbox[2],
+                    geometry.rendered_bbox[3],
                 ),
                 radius=caption.border_radius,
                 fill=background,
             )
-        draw.text((left + 2, top + 2), caption.text, font=font, fill=(0, 0, 0, 180))
-        draw.text(
+        font = (
+            font_loader(caption.font, caption.size, False, False)
+            if font_loader
+            else ImageFont.load_default()
+        )
+        draw.multiline_text(
             (left, top),
             caption.text,
             font=font,
             fill=ImageColor.getrgb(caption.color) + (255,),
         )
+
+
+def caption_geometry(
+    image_size: tuple[int, int], caption: VideoCaption, font_loader=None
+) -> CaptionGeometry:
+    """Measure one caption and return requested plus safely rendered geometry."""
+    font = (
+        font_loader(caption.font, caption.size, False, False)
+        if font_loader
+        else ImageFont.load_default()
+    )
+    x = parse_coordinate(caption.position[0], image_size[0])
+    y = parse_coordinate(caption.position[1], image_size[1])
+    text_bbox = _caption_ink_bbox(caption.text, font)
+    width = text_bbox[2] - text_bbox[0]
+    height = text_bbox[3] - text_bbox[1]
+    top_padding, right_padding, bottom_padding, left_padding = _caption_padding(caption.padding)
+    text_left = x - width // 2 - text_bbox[0]
+    optical_bias = CAPTION_OPTICAL_BIAS_PX if caption.vertical_align == "optical-center" else 0
+    text_top = y - height // 2 - text_bbox[1] + optical_bias
+    background_width = width + left_padding + right_padding
+    background_height = height + top_padding + bottom_padding
+    requested = (
+        x - background_width // 2,
+        y - background_height // 2,
+        x - background_width // 2 + background_width,
+        y - background_height // 2 + background_height,
+    )
+    shift = _caption_safe_shift(requested, image_size)
+    rendered = tuple(
+        value + delta
+        for value, delta in zip(requested, (shift[0], shift[1], shift[0], shift[1]), strict=True)
+    )
+    return CaptionGeometry(
+        text_position=(text_left + shift[0], text_top + shift[1]),
+        requested_bbox=requested,
+        rendered_bbox=rendered,
+        shift=shift,
+        text_size=(width, height),
+    )
+
+
+def _caption_ink_bbox(text: str, font: FontType) -> tuple[int, int, int, int]:
+    """Measure the visible glyph ink, excluding font ascent/descent whitespace."""
+    probe = Image.new("L", (1, 1), 0)
+    probe_draw = ImageDraw.Draw(probe)
+    layout_bbox = probe_draw.multiline_textbbox((0, 0), text, font=font)
+    margin = max(8, int(getattr(font, "size", 16)))
+    width = max(1, int(layout_bbox[2] - layout_bbox[0]) + margin * 2)
+    height = max(1, int(layout_bbox[3] - layout_bbox[1]) + margin * 2)
+    probe = Image.new("L", (width, height), 0)
+    ImageDraw.Draw(probe).multiline_text((margin, margin), text, font=font, fill=255)
+    ink = probe.getbbox()
+    if ink is None:
+        return (0, 0, 0, 0)
+    return (ink[0] - margin, ink[1] - margin, ink[2] - margin, ink[3] - margin)
+
+
+def caption_bounds(
+    image_size: tuple[int, int], caption: VideoCaption, font_loader=None
+) -> tuple[int, int, int, int]:
+    """Return the unclamped canvas bounds of a caption including its padding."""
+    return caption_geometry(image_size, caption, font_loader).requested_bbox
+
+
+def _caption_safe_shift(
+    box: tuple[int, int, int, int], image_size: tuple[int, int]
+) -> tuple[int, int]:
+    """Shift a caption box into the image where the box can fit."""
+    left, top, right, bottom = box
+    width, height = image_size
+    shift_x = -left if right - left > width else max(-left, min(width - right, 0))
+    shift_y = -top if bottom - top > height else max(-top, min(height - bottom, 0))
+    return shift_x, shift_y
 
 
 def _caption_padding(padding: int | tuple[int, ...]) -> tuple[int, int, int, int]:

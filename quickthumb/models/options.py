@@ -20,11 +20,14 @@ from .common import _MotionModel
 
 
 class AudioTrack(quickthumbModel):
-    """An audio source with room for export-time mix controls."""
+    """An audio source with deterministic export-time mix controls."""
 
     path: str
     volume: Annotated[float, Field(ge=0, allow_inf_nan=False)] = 1.0
     loop: bool = False
+    fade_out: Annotated[
+        float, Field(ge=0, allow_inf_nan=False, exclude_if=lambda value: value == 0.0)
+    ] = 0.0
 
 
 class GifOptions(quickthumbModel):

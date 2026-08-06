@@ -65,13 +65,23 @@ from PIL import Image, ImageChops, ImageColor, ImageDraw
 
 from quickthumb._composition import has_layer_composition
 from quickthumb._export_base import (
+    apply_canonical_geometry,
+    composite_motion_targets,
     flatten_layers,
     split_backdrop_prefix,
+    split_into_bands,
     validate_legacy_animation_export,
 )
-from quickthumb._video import VideoInfo, effective_duration, probe_video
+from quickthumb._video import (
+    VideoInfo,
+    effective_duration,
+    iter_video_layers,
+    probe_video,
+    render_video_captions,
+)
 from quickthumb.errors import RenderingError, ValidationError
 from quickthumb.models import (
+    AnimatedTextValue,
     Animation,
     AnimationSpec,
     AudioTrack,
@@ -79,6 +89,7 @@ from quickthumb.models import (
     ChartLayer,
     GifOptions,
     GroupLayer,
+    ImageLayer,
     QRCodeLayer,
     TextLayer,
     VideoLayer,
@@ -89,6 +100,7 @@ from quickthumb.motion import (
     LayerState,
     Timeline,
     compile_timeline,
+    easing_value,
     resolve_staggered_timelines,
     sample_scene_morph,
 )
@@ -495,6 +507,7 @@ class _Shot:
 
     frame: Image.Image  # RGB at the deck size
     duration: float
+    caption_active: bool = False
 
 
 @dataclass(frozen=True)
@@ -588,14 +601,28 @@ def _deck_shots(
 
         # Keep one motion shot pending so a sub-frame or zero hold can replace
         # it with the settled state without extending the shared timeline.
-        final = _conform(animator.final_frame(), size, matte_rgb)
+        final_image = animator.final_export_frame()
+        final = _conform(final_image, size, matte_rgb)
         hold = exit_time - max(animation_end, duration_in)
         if hold + _TIME_EPSILON >= 1.0 / fps:
             if pending is not None:
                 yield pending
             yield _Shot(final, hold)
         elif pending is not None:
-            yield _Shot(final, pending.duration + max(hold, 0.0))
+            # A zero/sub-frame hold may end immediately after a transient
+            # caption cue. Preserve that last sampled frame when the cue has
+            # ended; otherwise a short export can silently drop the cue.
+            final_caption_active = animator._has_active_caption(
+                max(0.0, animator.duration - _TIME_EPSILON)
+            )
+            if (
+                final.tobytes() == pending.frame.tobytes()
+                or not pending.caption_active
+                or final_caption_active
+            ):
+                yield _Shot(final, pending.duration + max(hold, 0.0))
+            else:
+                yield pending
         else:
             yield _Shot(final, max(exit_time, 1.0 / fps))
         previous_final = final
@@ -615,24 +642,44 @@ def _slide_motion_shots(
     incoming_canvas: Canvas,
 ) -> Iterator[_Shot]:
     """Yield transition and layer-animation shots before the settled hold."""
+    # Whether a morph is safe depends only on the pair of canvases, so decide once.
+    morph_from = (
+        previous_canvas
+        if (
+            transition is not None
+            and transition.effect == "morph"
+            and previous_canvas is not None
+            and not _canvas_has_video_captions(previous_canvas)
+            and not _canvas_has_video_captions(incoming_canvas)
+        )
+        else None
+    )
     for time, duration in _sample_span(0.0, duration_in, fps):
         incoming = _conform(animator.frame_at(time), size, matte_rgb)
         progress = _ease(time / duration_in)
-        if transition is not None and transition.effect == "morph" and previous_canvas is not None:
-            frame = _morph_frame(previous_canvas, incoming_canvas, progress, duration_in)
+        if morph_from is not None:
+            frame = _morph_frame(morph_from, incoming_canvas, progress, duration_in)
         else:
             frame = _transition_frame(transition, previous_final, incoming, progress)
-        yield _Shot(frame, duration)
+        yield _Shot(frame, duration, animator._has_active_caption(time))
     # Between effect windows every unit's state is constant, so gaps (a
     # trailing `delay`, a pause between chained effects) collapse into one
     # held frame instead of resampling identical frames at fps.
     for seg_start, seg_end, animating in animator.segments(duration_in, animation_end):
         if animating:
             for time, duration in _sample_span(seg_start, seg_end, fps):
-                yield _Shot(_conform(animator.frame_at(time), size, matte_rgb), duration)
+                yield _Shot(
+                    _conform(animator.frame_at(time), size, matte_rgb),
+                    duration,
+                    animator._has_active_caption(time),
+                )
         else:
             frame = _conform(animator.frame_at(seg_start), size, matte_rgb)
-            yield _Shot(frame, seg_end - seg_start)
+            yield _Shot(
+                frame,
+                seg_end - seg_start,
+                animator._has_active_caption(seg_start),
+            )
 
 
 def animation_timeline(
@@ -737,9 +784,34 @@ def _ease(progress: float) -> float:
 
 # ------------------------------------------------------- per-slide animation
 
+
 # Sentinel states for a unit outside its animation windows.
-_HIDDEN = object()
-_SHOWN = object()
+@dataclass(frozen=True)
+class _CanonicalState:
+    """A sampled canonical state with the multipliers a staggered group needs."""
+
+    layer: LayerState
+    alpha_scale: float
+    clip_scale: float
+
+
+@dataclass(frozen=True)
+class _UnitState:
+    """How one unit is drawn at a moment.
+
+    A unit is either off screen, drawn as it stands, part way through a legacy
+    entrance reveal, or carrying sampled canonical motion. Naming the four cases
+    keeps every reader of ``_unit_state`` from having to know which shape of
+    tuple or sentinel means what.
+    """
+
+    hidden: bool = False
+    reveal: tuple[Animation, float] | None = None
+    canonical: _CanonicalState | None = None
+
+
+_HIDDEN = _UnitState(hidden=True)
+_SHOWN = _UnitState()
 
 
 @dataclass
@@ -769,6 +841,12 @@ class _Unit:
     nodes: list[_Node] = field(default_factory=list)
     timeline: Timeline | None = None
     target_timelines: tuple[Timeline, ...] = ()
+    # Set for the backdrop prefix, whose layers carry their own motion rather
+    # than sharing one animation applied to the finished unit image.
+    animates_layers: bool = False
+    # One fragment per staggered target, sliced from this unit's own render so
+    # each line can be moved on its own beat.
+    target_images: tuple[tuple[Image.Image, tuple[int, int]], ...] = ()
 
 
 class _SlideAnimator:
@@ -785,38 +863,64 @@ class _SlideAnimator:
         self.duration = max(_schedule_units(self._units), _schedule_timelines(self._units))
         self._final: Image.Image | None = None
 
-    def frame_at(self, time: float) -> Image.Image:
+    def frame_at(self, time: float, *, include_captions: bool = True) -> Image.Image:
         """Render the slide's full RGBA frame at ``time`` seconds."""
         frame = Image.new("RGBA", (self._canvas.width, self._canvas.height), (0, 0, 0, 0))
+        visible_video_layers: list[VideoLayer] = []
         for unit in self._units:
             if unit.image is None:
                 continue
             state = _unit_state(unit, time)
-            if state is _HIDDEN:
+            if state.hidden:
                 continue
+            visible_video_layers.extend(iter_video_layers(unit.layers))
             if unit.component_duration > 0:
-                image, pos = _render_unit_image(self._canvas, unit.layers, time)
+                image, pos = _render_unit_image(
+                    self._canvas, unit.layers, time, animate_layers=unit.animates_layers
+                )
                 if image is None:
                     continue
             else:
                 pos = unit.pos
                 image = unit.image
-            if (
-                unit.component_duration == 0
-                and isinstance(state, tuple)
-                and state
-                and state[0] == "canonical"
-            ):
-                image = _canonical_render(unit.image, state[1], state[2])
-                if image is None:
+            if unit.target_images and state.canonical is not None:
+                # Each staggered target carries its own state, so they arrive one
+                # after another instead of sharing one averaged reveal.
+                composite_motion_targets(
+                    frame, unit.target_images, _canonical_target_states(unit, time)
+                )
+                continue
+            if state.canonical is not None:
+                # Canonical motion applies to component units (video, animated
+                # text values) too, so a clip can move while it plays.
+                rendered = _canonical_render(
+                    image,
+                    state.canonical.layer,
+                    state.canonical.alpha_scale,
+                    pos,
+                    clip_scale=state.canonical.clip_scale,
+                    include_scale=not any(isinstance(item, ImageLayer) for item in unit.layers),
+                )
+                if rendered is None:
                     continue
-            elif unit.component_duration == 0 and state is not _SHOWN:
-                effect, reveal = state
+                image, pos = rendered
+            elif state.reveal is not None:
+                # Component units (clips, animated counters) take the same
+                # entrance reveals as anything else on the slide.
+                effect, reveal = state.reveal
                 revealed = _animation_reveal(image, effect, reveal, unit.seed)
                 if revealed is None:
                     continue
                 image = revealed
             frame.alpha_composite(image, pos)
+        if include_captions:
+            render_video_captions(
+                frame,
+                visible_video_layers,
+                time,
+                self._canvas._ctx.video_info_cache,
+                self._canvas._fonts.load_font_variant,
+            )
         return frame
 
     def final_frame(self) -> Image.Image:
@@ -824,6 +928,30 @@ class _SlideAnimator:
         if self._final is None:
             self._final = self.frame_at(self.duration)
         return self._final
+
+    def final_export_frame(self) -> Image.Image:
+        """Render the settled base and endpoint caption sample separately."""
+        final_time = max(0.0, self.duration - _TIME_EPSILON)
+        frame = self.frame_at(self.duration, include_captions=False)
+        if self._has_active_caption(final_time):
+            render_video_captions(
+                frame,
+                iter_video_layers(self._canvas.layers),
+                final_time,
+                self._canvas._ctx.video_info_cache,
+                self._canvas._fonts.load_font_variant,
+            )
+        return frame
+
+    def _has_active_caption(self, time: float) -> bool:
+        """Return whether a video caption is active at a local slide time."""
+        for layer in iter_video_layers(self._canvas.layers):
+            if not layer.captions:
+                continue
+            local_time = time - layer.start
+            if any(caption.start <= local_time < caption.end for caption in layer.captions):
+                return True
+        return False
 
     def segments(self, start: float, end: float) -> list[tuple[float, float, bool]]:
         """Split [start, end) into (seg_start, seg_end, animating) runs.
@@ -839,6 +967,9 @@ class _SlideAnimator:
         boundaries = {start, end}
         for unit in self._units:
             if any(isinstance(layer, VideoLayer) for layer in unit.layers):
+                boundaries.update((start, end))
+                windows.append((start, end))
+            if any(getattr(layer, "value", None) is not None for layer in unit.layers):
                 boundaries.update((start, end))
                 windows.append((start, end))
             for node in unit.nodes:
@@ -896,13 +1027,12 @@ def _build_units(
             "Animated export cannot animate descendants of a clipped or masked group. "
             "Move the animation to the group itself, or remove the group's clip or mask."
         )
-    if not reduced_motion and any(
-        getattr(layer, "animation", None) is not None for layer in prefix
-    ):
+    if not reduced_motion and any(_has_legacy_animation(layer) for layer in prefix):
         raise RenderingError(
-            "Animated export cannot animate layers that must be rasterized together for "
-            "blend-mode or custom-layer backdrop compositing. Move animated layers "
-            "after those backdrop-dependent layers, or remove the blend/custom layer."
+            "Animated export cannot play entrance effects on a layer that is rasterized "
+            "with a backdrop-dependent layer (blend mode, backdrop blur, or custom layer) "
+            "or on anything beneath it. Use an AnimationSpec for those layers, move them "
+            "above the backdrop-dependent layer, or remove the blend/backdrop layer."
         )
 
     # Group layers into units: the backdrop prefix is one static unit, layers
@@ -911,6 +1041,11 @@ def _build_units(
     groups: list[tuple[object | None, list[RenderableLayer]]] = []
     if prefix:
         groups.append((None, list(prefix)))
+    prefix_motion = (
+        0.0
+        if reduced_motion
+        else max((_canonical_layer_duration(layer) for layer in prefix), default=0.0)
+    )
     for layer in rest:
         animation = None if reduced_motion else getattr(layer, "animation", None)
         key = id(animation) if animation is not None else None
@@ -939,6 +1074,7 @@ def _build_units(
         image, pos = _render_unit_image(canvas, layers)
         canonical = animation if isinstance(animation, AnimationSpec) else None
         target_timelines: tuple[Timeline, ...] = ()
+        target_images: tuple[tuple[Image.Image, tuple[int, int]], ...] = ()
         if canonical is not None:
             timeline = compile_timeline(canonical)
             target_count = 1
@@ -954,6 +1090,13 @@ def _build_units(
                 elif stagger.target == "children":
                     target_count = group_target_counts.get(id(canonical), 1)
             target_timelines = resolve_staggered_timelines(timeline, target_count)
+            if image is not None and target_count > 1:
+                bands = split_into_bands(image, target_count)
+                if bands is not None:
+                    target_images = tuple(
+                        (fragment, (pos[0] + offset[0], pos[1] + offset[1]))
+                        for fragment, offset in bands
+                    )
         component_duration = (
             0.0
             if reduced_motion
@@ -962,6 +1105,13 @@ def _build_units(
                 default=0.0,
             )
         )
+        # The backdrop prefix has to be rasterized as one picture, so motion
+        # inside it cannot be applied to a finished unit image. Re-render it per
+        # frame instead, which lets a frosted panel and everything beneath it
+        # move together.
+        is_prefix = bool(prefix) and index == 0
+        if is_prefix:
+            component_duration = max(component_duration, prefix_motion)
         units.append(
             _Unit(
                 image=image,
@@ -970,8 +1120,10 @@ def _build_units(
                 seed=_UNIT_DISSOLVE_SEED + index,
                 layers=layers,
                 component_duration=component_duration,
+                animates_layers=is_prefix and prefix_motion > 0,
                 timeline=compile_timeline(canonical) if canonical is not None else None,
                 target_timelines=target_timelines,
+                target_images=target_images,
             )
         )
     return units
@@ -1033,11 +1185,15 @@ def _has_animated_descendant_in_composed_group(layer: RenderableLayer) -> bool:
 
 
 def _render_unit_image(
-    canvas: Canvas, layers: list[RenderableLayer], time: float | None = None
+    canvas: Canvas,
+    layers: list[RenderableLayer],
+    time: float | None = None,
+    animate_layers: bool = False,
 ) -> tuple[Image.Image | None, tuple[int, int]]:
     image = Image.new("RGBA", (canvas.width, canvas.height), (0, 0, 0, 0))
+    draw = canvas._render_moving_layer if animate_layers else canvas._render_layer
     for layer in layers:
-        canvas._render_layer(image, layer, time)
+        draw(image, layer, time)
     bbox = image.getbbox()
     if bbox is None and time is None:
         video_start = max(
@@ -1060,10 +1216,14 @@ def _schedule_units(units: list[_Unit]) -> float:
     ``with_previous`` effects start together with the previous effect; every
     other trigger (``on_click`` has no click to wait for in a video, so it
     behaves like ``after_previous``) starts a new group after the previous
-    group's longest effect ends. Returns the time the last effect settles.
+    group's longest effect ends. An effect with an explicit ``start`` is
+    anchored to that time on the slide instead, without moving the cursor the
+    relative effects around it are chained from. Returns the time the last
+    effect settles.
     """
     flat = [(unit, effect) for unit in units for effect in unit.effects]
     clock = 0.0
+    settled = 0.0
     index = 0
     while index < len(flat):
         group = [flat[index]]
@@ -1073,13 +1233,36 @@ def _schedule_units(units: list[_Unit]) -> float:
             cursor += 1
         group_end = clock
         for unit, effect in group:
-            unit.nodes.append(_Node(effect=effect, start=clock))
-            group_end = max(group_end, clock + effect.delay + effect.duration)
+            anchor = clock if effect.start is None else effect.start
+            unit.nodes.append(_Node(effect=effect, start=anchor))
+            settled = max(settled, anchor + effect.delay + effect.duration)
+            if effect.start is None:
+                group_end = max(group_end, anchor + effect.delay + effect.duration)
         clock = group_end
         index = cursor
+    clock = max(clock, settled)
     for unit in units:
         unit.nodes.sort(key=lambda node: node.start + node.effect.delay)
     return max([clock, *(unit.component_duration for unit in units)], default=0.0)
+
+
+def _has_legacy_animation(layer: RenderableLayer) -> bool:
+    """Whether a layer carries a PPTX-style entrance effect rather than a spec."""
+    animation = getattr(layer, "animation", None)
+    if animation is None:
+        return False
+    items = animation if isinstance(animation, list) else [animation]
+    return any(not isinstance(item, AnimationSpec) for item in items)
+
+
+def _canonical_layer_duration(layer: RenderableLayer) -> float:
+    """Return how long a layer's canonical motion runs, else zero."""
+    animation = getattr(layer, "animation", None)
+    if animation is None:
+        return 0.0
+    items = animation if isinstance(animation, list) else [animation]
+    specs = [item for item in items if isinstance(item, AnimationSpec)]
+    return compile_timeline(specs).duration if specs else 0.0
 
 
 def _component_animation_duration(
@@ -1092,6 +1275,14 @@ def _component_animation_duration(
             info = probe_video(layer.source)
             probe_cache[layer.source] = info
         return layer.start + effective_duration(layer, info)
+    value = getattr(layer, "value", None)
+    if isinstance(value, AnimatedTextValue):
+        return value.delay + value.duration
+    if isinstance(layer, ImageLayer):
+        # An image layer reads scale as a viewport zoom and pans inside its own
+        # frame, so it has to be re-rendered per frame rather than transformed
+        # as a finished picture.
+        return _canonical_viewport_duration(layer)
     if not isinstance(layer, (ChartLayer, QRCodeLayer)):
         return 0.0
     animations = getattr(layer, "animation", None)
@@ -1118,6 +1309,22 @@ def _component_animation_duration(
             duration += max(0, count - 1) * animation.stagger.delay
         durations.append(start + delay + duration)
     return max(durations, default=0.0)
+
+
+def _canonical_viewport_duration(layer: ImageLayer) -> float:
+    """Return how long an image layer's viewport motion runs, else zero."""
+    animations = getattr(layer, "animation", None)
+    if animations is None:
+        return 0.0
+    candidates = animations if isinstance(animations, list) else [animations]
+    specs = [item for item in candidates if isinstance(item, AnimationSpec)]
+    if not specs:
+        return 0.0
+    timeline = compile_timeline(specs)
+    viewport = {"image_pan", "image_zoom", "scale"}
+    if not any(track.property in viewport for event in timeline.events for track in event.tracks):
+        return 0.0
+    return timeline.duration
 
 
 def _qr_module_count(layer: QRCodeLayer) -> int:
@@ -1150,8 +1357,8 @@ def _qr_module_count(layer: QRCodeLayer) -> int:
     return matrix_size * matrix_size
 
 
-def _unit_state(unit: _Unit, time: float):
-    """Resolve a unit's visibility at ``time``: hidden, shown, or (effect, reveal).
+def _unit_state(unit: _Unit, time: float) -> _UnitState:
+    """Resolve how a unit is drawn at ``time``.
 
     The unit starts hidden when its first effect is an entrance (the HTML
     exporter's ``visibility:hidden`` priming); each node then leaves it shown
@@ -1174,21 +1381,41 @@ def _unit_state(unit: _Unit, time: float):
             if node.effect.effect == "appear":
                 state = _SHOWN if entrance else _HIDDEN
             else:
-                progress = _ease((time - active_start) / node.effect.duration)
-                state = (node.effect, progress if entrance else 1.0 - progress)
+                progress = easing_value(
+                    node.effect.easing, (time - active_start) / node.effect.duration
+                )
+                state = _UnitState(reveal=(node.effect, progress if entrance else 1.0 - progress))
         else:
             state = _SHOWN if entrance else _HIDDEN
     return state
 
 
+def _canonical_target_states(unit: _Unit, time: float) -> tuple[LayerState | None, ...]:
+    """Sample each staggered target, leaving the ones whose turn has not come."""
+    states: list[LayerState | None] = []
+    for timeline in unit.target_timelines:
+        start = min((event.active_start for event in timeline.events), default=0.0)
+        states.append(None if time < start else timeline.sample(time, LayerState()))
+    return tuple(states)
+
+
 def _canonical_state(unit: _Unit, time: float):
-    """Sample canonical motion, aggregating semantic target reveal progress."""
+    """Sample canonical motion as a state plus its alpha and clip multipliers.
+
+    A single timeline already carries opacity and clip progress in its sampled
+    state, so both multipliers stay neutral: folding opacity back in would square
+    a fade, and folding clip progress back in would make a typewriter type at a
+    quarter speed. Only a staggered group needs them, to stand in for targets
+    that have not been rendered separately.
+    """
     timeline = unit.timeline
     if timeline is None:
         return _SHOWN
     timelines = unit.target_timelines or (timeline,)
     states = [timeline.sample(time, LayerState()) for timeline in timelines]
     event = timeline.events[0] if timeline.events else None
+    alpha_scale = 1.0
+    clip_scale = 1.0
     if len(timelines) > 1 and event is not None:
         progresses = []
         for timeline in timelines:
@@ -1201,32 +1428,53 @@ def _canonical_state(unit: _Unit, time: float):
                 progresses.append(
                     min(1.0, max(0.0, (time - target_event.active_start) / target_event.duration))
                 )
-        reveal = sum(progresses) / len(progresses)
-        if event.effect == "typewriter":
-            reveal = sum(state.clip_progress for state in states) / len(states)
+        arrived = sum(progresses) / len(progresses)
+        clip_scale = arrived
+        # A typing effect arrives by revealing, not by fading.
+        alpha_scale = 1.0 if event.effect == "typewriter" else arrived
     elif event is not None and time < event.active_start and event.effect in {"fade", "typewriter"}:
-        reveal = 0.0
-    elif event is not None and event.effect == "typewriter":
-        reveal = sum(state.clip_progress for state in states) / len(states)
-    else:
-        reveal = sum(state.opacity for state in states) / len(states)
-    return ("canonical", states[-1], min(1.0, max(0.0, reveal)))
+        alpha_scale = 0.0
+    return _UnitState(
+        canonical=_CanonicalState(
+            layer=states[-1],
+            alpha_scale=min(1.0, max(0.0, alpha_scale)),
+            clip_scale=min(1.0, max(0.0, clip_scale)),
+        )
+    )
 
 
-def _canonical_render(image: Image.Image, state: LayerState, reveal: float) -> Image.Image | None:
-    """Apply renderer-independent opacity and left-to-right reveal to a frame."""
-    if reveal <= 0.0:
+def _canonical_render(
+    image: Image.Image,
+    state: LayerState,
+    alpha_scale: float,
+    pos: tuple[int, int],
+    *,
+    clip_scale: float = 1.0,
+    include_scale: bool = True,
+) -> tuple[Image.Image, tuple[int, int]] | None:
+    """Apply renderer-independent opacity, reveal, and geometry to a frame.
+
+    Returns the transformed image with the position it should be composited at,
+    since scale, rotation, and blur all change the image's size around a fixed
+    centre and translation moves it outright.
+    """
+    if alpha_scale <= 0.0:
         return None
     output = image
-    opacity = min(1.0, max(0.0, state.opacity)) * reveal
+    opacity = min(1.0, max(0.0, state.opacity)) * alpha_scale
     if opacity < 1.0:
         output = _scaled_alpha(output, opacity)
-    if reveal < 1.0 and state.clip_progress < 1.0:
-        width = max(0, min(output.width, round(output.width * reveal)))
+    progress = min(clip_scale, state.clip_progress)
+    if progress < 1.0:
+        # Either signal can drive the clip: a staggered group reports how much of
+        # it has arrived, a clip_progress track reports its own reveal. Taking the
+        # tighter of the two keeps a bare track clipping without a typewriter
+        # counting its progress twice.
+        width = max(0, min(output.width, round(output.width * progress)))
         mask = Image.new("L", output.size, 0)
         ImageDraw.Draw(mask).rectangle((0, 0, width, output.height), fill=255)
         output = _masked_alpha(output, mask)
-    return output
+    return apply_canonical_geometry(output, state, pos, include_scale=include_scale)
 
 
 def _animation_reveal(
@@ -1286,6 +1534,11 @@ def _masked_alpha(image: Image.Image, mask: Image.Image) -> Image.Image:
 # ------------------------------------------------------------ slide transition
 
 
+def _canvas_has_video_captions(canvas: Canvas) -> bool:
+    """Return whether a canvas contains captions that need foreground timing."""
+    return any(layer.captions for layer in iter_video_layers(canvas.layers))
+
+
 def _morph_frame(source: Canvas, target: Canvas, progress: float, duration: float) -> Image.Image:
     """Render a keyed shared-element Morph frame for raster/video output."""
     source_layers = _morph_layer_index(source)
@@ -1338,10 +1591,11 @@ def _morph_layer_index(canvas: Canvas) -> dict[str, RenderableLayer]:
     return {key: values[0] for key, values in occurrences.items() if len(values) == 1}
 
 
-def _render_canvas_frame(canvas: Canvas, layers=None) -> Image.Image:
+def _render_canvas_frame(canvas: Canvas, layers=None, time: float = 0.0) -> Image.Image:
     image = Image.new("RGBA", (canvas.width, canvas.height), (0, 0, 0, 0))
-    for layer in canvas.layers if layers is None else layers:
-        canvas._render_layer(image, layer)
+    rendered_layers = list(canvas.layers if layers is None else layers)
+    for layer in rendered_layers:
+        canvas._render_layer(image, layer, time)
     return image
 
 
@@ -1824,36 +2078,6 @@ def _encode_video_file(
     full-resolution RGB writes through Python for long static holds.
     """
     binary = _ffmpeg_binary()
-    if slide_audio is not None or video_audio:
-        audio_input, audio_output = _scheduled_audio_args(
-            format,
-            soundtrack,
-            loop_audio,
-            slide_audio or [],
-            audio_offsets or [],
-            audio_durations or [],
-            audio_timeline_duration or 0.0,
-            video_audio or [],
-        )
-    elif soundtrack is None:
-        if format == "mp4":
-            audio_input = ["-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo"]
-            audio_output = ["-map", "0:v", "-map", "1:a:0", *_AUDIO_ARGS[format]]
-        else:
-            audio_input, audio_output = [], ["-map", "0:v", "-an"]
-    else:
-        # The audio must never be the shortest stream or -shortest would cut
-        # the video to the track length: looping repeats the track forever
-        # (-stream_loop precedes its -i), otherwise silence pads it forever
-        # (apad), and either way -shortest then trims audio to video length.
-        audio_input = (["-stream_loop", "-1"] if loop_audio else []) + ["-i", soundtrack.path]
-        filters = [f"volume={soundtrack.volume}"]
-        if not loop_audio:
-            filters.append("apad")
-        audio_output = [
-            "-map", "0:v", "-map", "1:a:0", "-af", ",".join(filters),
-            *_AUDIO_ARGS[format],
-        ]  # fmt: skip
     with tempfile.TemporaryDirectory() as video_dir:
         directory = Path(video_dir)
         segments, duration = _encode_shot_batches(
@@ -1863,6 +2087,41 @@ def _encode_video_file(
             format,
             directory,
         )
+        if slide_audio is not None or video_audio:
+            audio_input, audio_output = _scheduled_audio_args(
+                format,
+                soundtrack,
+                loop_audio,
+                slide_audio or [],
+                audio_offsets or [],
+                audio_durations or [],
+                audio_timeline_duration or duration,
+                video_audio or [],
+            )
+        elif soundtrack is None:
+            if format == "mp4":
+                audio_input = ["-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo"]
+                audio_output = ["-map", "0:v", "-map", "1:a:0", *_AUDIO_ARGS[format]]
+            else:
+                audio_input, audio_output = [], ["-map", "0:v", "-an"]
+        else:
+            # The audio must never be the shortest stream or -shortest would cut
+            # the video to the track length: looping repeats the track forever
+            # (-stream_loop precedes its -i), otherwise silence pads it forever
+            # (apad), and either way -shortest then trims audio to video length.
+            audio_input = (["-stream_loop", "-1"] if loop_audio else []) + ["-i", soundtrack.path]
+            filters = [f"volume={soundtrack.volume}"]
+            if not loop_audio:
+                filters.append("apad")
+            if soundtrack.fade_out > 0:
+                fade_duration = min(soundtrack.fade_out, duration)
+                filters.append(
+                    f"afade=t=out:st={duration - fade_duration:.6f}:d={fade_duration:.6f}"
+                )
+            audio_output = [
+                "-map", "0:v", "-map", "1:a:0", "-af", ",".join(filters),
+                *_AUDIO_ARGS[format],
+            ]  # fmt: skip
         manifest_path = _write_video_segment_manifest(segments, directory)
         command = [
             binary,
@@ -2055,9 +2314,16 @@ def _scheduled_audio_args(
         if loop_audio:
             inputs.extend(["-stream_loop", "-1"])
         inputs.extend(["-i", soundtrack.path])
-        filters = [
-            f"[{input_index}:a]volume={soundtrack.volume},apad,atrim=duration={timeline_duration:.6f}[bed]"
-        ]
+        bed_filters = (
+            f"[{input_index}:a]volume={soundtrack.volume},"
+            f"apad,atrim=duration={timeline_duration:.6f}"
+        )
+        if soundtrack.fade_out > 0:
+            fade_duration = min(soundtrack.fade_out, timeline_duration)
+            bed_filters += (
+                f",afade=t=out:st={timeline_duration - fade_duration:.6f}:d={fade_duration:.6f}"
+            )
+        filters = [f"{bed_filters}[bed]"]
         input_index += 1
     labels = ["[bed]"]
     for audio, offset, duration in zip(slide_audio, offsets, durations, strict=True):

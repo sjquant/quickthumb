@@ -11,6 +11,7 @@ from quickthumb.deck import Deck, DeckDiagnostic
 from quickthumb.errors import QuickthumbError, RenderingError, ValidationError
 from quickthumb.models import (
     Align,
+    AnimatedTextValue,
     Animation,
     AnimationEffect,
     AnimationSpec,

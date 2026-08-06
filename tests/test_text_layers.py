@@ -283,6 +283,7 @@ class TestTextLayers:
         assert data["layers"][1] == {
             "type": "text",
             "content": "Python Tutorial",
+            "value": None,
             "font": "Roboto",
             "font_source": "auto",
             "font_variations": {},
@@ -1334,6 +1335,7 @@ class TestTextRotation:
             {
                 "type": "text",
                 "content": "Rotated",
+                "value": None,
                 "font": None,
                 "font_source": "auto",
                 "font_variations": {},
@@ -1464,6 +1466,7 @@ class TestTextEffects:
             {
                 "type": "text",
                 "content": "Hello",
+                "value": None,
                 "font": None,
                 "font_source": "auto",
                 "font_variations": {},
@@ -1597,6 +1600,7 @@ class TestTextEffects:
             {
                 "type": "text",
                 "content": "Hello",
+                "value": None,
                 "font": None,
                 "font_source": "auto",
                 "font_variations": {},
@@ -1752,6 +1756,7 @@ class TestTextEffects:
             {
                 "type": "text",
                 "content": "Hello",
+                "value": None,
                 "font": None,
                 "font_source": "auto",
                 "font_variations": {},

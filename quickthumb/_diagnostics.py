@@ -10,6 +10,10 @@ from PIL import Image, ImageChops
 from quickthumb._base import DEFAULT_TEXT_SIZE, RenderContext, parse_coordinate
 from quickthumb._composition import has_layer_composition
 from quickthumb._diagnostic_rules import (
+    MAX_CAPTION_COLUMNS_PER_SECOND,
+    MAX_NATURAL_CLIP_SPEED,
+    MIN_CAPTION_SECONDS,
+    MIN_NATURAL_CLIP_SPEED,
     PLATFORM_SAFE_MARGIN_PRESETS,
     LayerAlphaCache,
     NearAlignment,
@@ -18,10 +22,12 @@ from quickthumb._diagnostic_rules import (
     TiledContrastMeasurement,
     bbox_payload,
     clear_overlap_suggestion,
+    clip_pace,
     diagnostic_context,
     edge_distances,
     layer_label,
     mask_area,
+    measure_caption_reading,
     move_inside_canvas_suggestion,
     move_inside_safe_area_suggestion,
     near_alignment_pairs,
@@ -41,10 +47,13 @@ from quickthumb._images import ImageEngine
 from quickthumb._measurements import BBox, LayerMeasurement, measure_layers
 from quickthumb._shapes import ShapeEngine
 from quickthumb._text import TextEngine
+from quickthumb._video import caption_geometry, effective_duration, probe_video
+from quickthumb.errors import ValidationError
 
 if TYPE_CHECKING:
     from quickthumb.canvas import Canvas
 from quickthumb.models import (
+    Background,
     BackgroundLayer,
     Diagnostic,
     DiagnosticBBox,
@@ -53,6 +62,8 @@ from quickthumb.models import (
     ShapeLayer,
     SvgLayer,
     TextLayer,
+    VideoCaption,
+    VideoLayer,
 )
 
 TINY_TEXT_RATIO = 0.025
@@ -62,6 +73,17 @@ MIN_PARTIAL_OVERLAP_RATIO = 0.2
 BACKDROP_COVERAGE_RATIO = 0.95
 OVERLAP_CLEARANCE_PX = 8
 NEAR_ALIGNMENT_TOLERANCE = 3
+CAPTION_SAFE_MARGIN = 24
+
+
+def _boxes_intersect(first: tuple[int, int, int, int], second: tuple[int, int, int, int]) -> bool:
+    """Return whether two caption background boxes have visible area in common."""
+    return (
+        first[0] < second[2]
+        and second[0] < first[2]
+        and first[1] < second[3]
+        and second[1] < first[3]
+    )
 
 
 class DiagnosticsEngine:
@@ -91,10 +113,8 @@ class DiagnosticsEngine:
     def diagnose(self) -> list[Diagnostic]:
         """Check layers for layout and legibility issues without producing an output file.
 
-        Returns structured findings (off-canvas, tiny-text, text-overflow,
-        text-clipped, missing-glyph, low-contrast, layer-overlap, layer-hidden,
-        edge-crowding, near-alignment) that an agent or human can act on before
-        rendering.
+        Returns structured findings that an agent or human can act on before
+        rendering. ``Diagnostic.code`` enumerates every rule this can report.
         """
         with warnings.catch_warnings():
             warnings.filterwarnings(
@@ -105,6 +125,15 @@ class DiagnosticsEngine:
             return self._diagnose_impl()
 
     def _diagnose_impl(self) -> list[Diagnostic]:
+        # Diagnosing composites every layer, which opens a decoder per video
+        # source. The render and export paths both close theirs in a finally;
+        # without one here a caller that only diagnoses leaks a live process.
+        try:
+            return self._collect_diagnostics()
+        finally:
+            self._ctx.close_video_decoders()
+
+    def _collect_diagnostics(self) -> list[Diagnostic]:
         self._alpha_cache.clear()
         self._canvas._validate_image_paths()
         self._ctx.begin_render_pass()
@@ -117,6 +146,9 @@ class DiagnosticsEngine:
                 layer = measured.raw_layer
                 if isinstance(layer, TextLayer):
                     diagnostics.extend(self._diagnose_text_layer(running, measured))
+                elif isinstance(layer, VideoLayer):
+                    diagnostics.extend(self._diagnose_video_captions(measured, layer))
+                    diagnostics.extend(self._diagnose_clip_stretch(measured, layer))
                 elif isinstance(layer, GroupLayer):
                     for child in measured.text_descendants():
                         if child.visible:
@@ -141,6 +173,250 @@ class DiagnosticsEngine:
         )
 
         return diagnostics
+
+    def _diagnose_caption_reading_time(
+        self, measured: LayerMeasurement, index: int, caption: VideoCaption, layer: VideoLayer
+    ) -> list[Diagnostic]:
+        """Report a cue that leaves too little time on screen to be read."""
+        reading = measure_caption_reading(caption, self._clip_seconds(layer))
+        if reading.is_too_brief:
+            reason = (
+                f"is too brief to read: {reading.visible_seconds:.2f}s on screen, "
+                f"under the {MIN_CAPTION_SECONDS:.2f}s minimum"
+            )
+        elif reading.is_too_fast:
+            reason = (
+                f"reads too fast: {reading.columns} columns of text in "
+                f"{reading.visible_seconds:.2f}s, above "
+                f"{MAX_CAPTION_COLUMNS_PER_SECOND:.0f} columns per second"
+            )
+        else:
+            return []
+        if reading.outlives_clip:
+            # Holding it longer cannot help: the clip stops before the cue does.
+            suggestion = (
+                f"start caption {index} earlier or lengthen the clip; it asks for "
+                f"{reading.declared_seconds:.2f}s but only {reading.visible_seconds:.2f}s "
+                "of it is on screen"
+            )
+        else:
+            suggestion = (
+                f"hold caption {index} for at least {reading.readable_seconds:.2f}s "
+                "or shorten its text"
+            )
+        return [
+            Diagnostic(
+                code="caption-reading-time",
+                severity="warning",
+                layer_index=measured.index,
+                message=f"video caption {index} {reason}",
+                measured={
+                    "caption_index": index,
+                    "caption_text": caption.text,
+                    "caption_duration": reading.visible_seconds,
+                    "declared_duration": reading.declared_seconds,
+                    "columns": reading.columns,
+                    "columns_per_second": reading.columns_per_second,
+                    "minimum_duration": MIN_CAPTION_SECONDS,
+                    "maximum_columns_per_second": MAX_CAPTION_COLUMNS_PER_SECOND,
+                },
+                suggestion=suggestion,
+                **diagnostic_context(measured),
+            )
+        ]
+
+    def _clip_seconds(self, layer: VideoLayer) -> float | None:
+        """Return how long a clip is on screen, probing its source only if needed."""
+        if layer.duration is not None:
+            return layer.duration
+        info = self._ctx.video_info_cache.get(layer.source)
+        if info is None:
+            try:
+                info = probe_video(layer.source)
+            except Exception:
+                # A source this broken fails loudly at render time; a diagnostic
+                # pass should not be the thing that raises.
+                return None
+            self._ctx.video_info_cache[layer.source] = info
+        try:
+            return effective_duration(layer, info)
+        except ValidationError:
+            return None
+
+    def _diagnose_clip_stretch(
+        self, measured: LayerMeasurement, layer: VideoLayer
+    ) -> list[Diagnostic]:
+        """Report footage played far from its own rate."""
+        pace = clip_pace(layer.speed)
+        if pace is None:
+            return []
+        repair = (
+            "trim a longer window from the source, or shorten the scene"
+            if pace == "crawls"
+            else "trim a shorter window from the source, or lengthen the scene"
+        )
+        return [
+            Diagnostic(
+                code="clip-stretch",
+                severity="warning",
+                layer_index=measured.index,
+                message=f"video plays at {layer.speed:.2f}x of its own rate and {pace}",
+                measured={
+                    "speed": layer.speed,
+                    "trim_start": layer.trim_start,
+                    "trim_end": layer.trim_end,
+                    "duration": layer.duration,
+                    "minimum_speed": MIN_NATURAL_CLIP_SPEED,
+                    "maximum_speed": MAX_NATURAL_CLIP_SPEED,
+                },
+                suggestion=f"{repair}, so the clip plays closer to its own rate",
+                **diagnostic_context(measured),
+            )
+        ]
+
+    def _diagnose_video_captions(
+        self, measured: LayerMeasurement, layer: VideoLayer
+    ) -> list[Diagnostic]:
+        findings: list[Diagnostic] = []
+        font_loader = self._canvas._fonts.load_font_variant
+        geometries = []
+        for index, caption in enumerate(layer.captions):
+            geometry = caption_geometry((self._ctx.width, self._ctx.height), caption, font_loader)
+            geometries.append(geometry)
+            left, top, right, bottom = geometry.requested_bbox
+            clipped_by: list[str] = []
+            if left < 0:
+                clipped_by.append("left edge")
+            if top < 0:
+                clipped_by.append("top edge")
+            if right > self._ctx.width:
+                clipped_by.append("right edge")
+            if bottom > self._ctx.height:
+                clipped_by.append("bottom edge")
+            if clipped_by:
+                findings.append(
+                    Diagnostic(
+                        code="text-clipped",
+                        severity="warning",
+                        layer_index=measured.index,
+                        message=(
+                            f"video caption {index} extends past the "
+                            f"{', '.join(clipped_by)} and may be clipped"
+                        ),
+                        measured={
+                            "caption_index": index,
+                            "caption_text": caption.text,
+                            "caption_bbox": {
+                                "x": left,
+                                "y": top,
+                                "width": right - left,
+                                "height": bottom - top,
+                            },
+                            "clipped_by": clipped_by,
+                            "rendered_bbox": {
+                                "x": geometry.rendered_bbox[0],
+                                "y": geometry.rendered_bbox[1],
+                                "width": geometry.rendered_bbox[2] - geometry.rendered_bbox[0],
+                                "height": geometry.rendered_bbox[3] - geometry.rendered_bbox[1],
+                            },
+                            "adjusted_by": {"x": geometry.shift[0], "y": geometry.shift[1]},
+                        },
+                        suggestion=(
+                            "move the caption position toward the canvas center, "
+                            "reduce text size, or shorten the caption"
+                        ),
+                        **diagnostic_context(measured),
+                    )
+                )
+            safe_edges = []
+            rendered_left, rendered_top, rendered_right, rendered_bottom = geometry.rendered_bbox
+            if rendered_left < CAPTION_SAFE_MARGIN:
+                safe_edges.append("left")
+            if rendered_top < CAPTION_SAFE_MARGIN:
+                safe_edges.append("top")
+            if rendered_right > self._ctx.width - CAPTION_SAFE_MARGIN:
+                safe_edges.append("right")
+            if rendered_bottom > self._ctx.height - CAPTION_SAFE_MARGIN:
+                safe_edges.append("bottom")
+            if safe_edges:
+                findings.append(
+                    Diagnostic(
+                        code="caption-safe-area",
+                        severity="warning",
+                        layer_index=measured.index,
+                        message=(
+                            f"video caption {index} enters the {', '.join(safe_edges)} "
+                            "safe-area margin"
+                        ),
+                        measured={
+                            "caption_index": index,
+                            "safe_edges": safe_edges,
+                            "safe_margin": CAPTION_SAFE_MARGIN,
+                            "rendered_bbox": {
+                                "x": rendered_left,
+                                "y": rendered_top,
+                                "width": rendered_right - rendered_left,
+                                "height": rendered_bottom - rendered_top,
+                            },
+                        },
+                        suggestion="move the caption farther from the canvas edge",
+                        **diagnostic_context(measured),
+                    )
+                )
+            findings.extend(self._diagnose_caption_reading_time(measured, index, caption, layer))
+            if layer.duration is not None and caption.end > layer.duration + 1e-9:
+                findings.append(
+                    Diagnostic(
+                        code="caption-timing",
+                        severity="warning",
+                        layer_index=measured.index,
+                        message=(
+                            f"video caption {index} ends at {caption.end:.3f}s, "
+                            f"after the layer duration {layer.duration:.3f}s"
+                        ),
+                        measured={
+                            "caption_index": index,
+                            "caption_end": caption.end,
+                            "layer_duration": layer.duration,
+                        },
+                        suggestion="end the caption at or before the video layer duration",
+                        **diagnostic_context(measured),
+                    )
+                )
+
+        for first_index, first in enumerate(layer.captions):
+            for second_index in range(first_index + 1, len(layer.captions)):
+                second = layer.captions[second_index]
+                if first.end <= second.start or second.end <= first.start:
+                    continue
+                first_box = geometries[first_index].requested_bbox
+                second_box = geometries[second_index].requested_bbox
+                if not _boxes_intersect(first_box, second_box):
+                    continue
+                findings.append(
+                    Diagnostic(
+                        code="caption-overlap",
+                        severity="warning",
+                        layer_index=measured.index,
+                        message=(
+                            f"video captions {first_index} and {second_index} overlap "
+                            "in time and rendered background"
+                        ),
+                        measured={
+                            "first_caption_index": first_index,
+                            "second_caption_index": second_index,
+                            "time_overlap": {
+                                "start": max(first.start, second.start),
+                                "end": min(first.end, second.end),
+                            },
+                        },
+                        suggestion=(
+                            "separate caption timing or move one caption to another position"
+                        ),
+                        **diagnostic_context(measured),
+                    )
+                )
+        return findings
 
     def _diagnose_near_alignments(self, measurements: list[LayerMeasurement]) -> list[Diagnostic]:
         """Report related layers whose measured starts differ by only a few pixels."""
@@ -247,7 +523,12 @@ class DiagnosticsEngine:
         if lower.layer_type == "text":
             return overlap.lower_visible_pct >= MIN_PARTIAL_OVERLAP_RATIO
 
-        if self._is_text_on_backdrop(lower, upper, overlap):
+        if self._is_element_on_backdrop(lower, upper, overlap):
+            return False
+
+        # A layer that animates over another is a reveal, not a collision: the
+        # pair is a before and an after, and both are seen in turn.
+        if getattr(upper.raw_layer, "animation", None) is not None:
             return False
 
         if max(overlap.lower_visible_pct, overlap.upper_visible_pct) >= BACKDROP_COVERAGE_RATIO:
@@ -256,9 +537,10 @@ class DiagnosticsEngine:
         overlap_ratio = min(overlap.lower_visible_pct, overlap.upper_visible_pct)
         return overlap_ratio >= MIN_PARTIAL_OVERLAP_RATIO
 
-    def _is_text_on_backdrop(
+    def _is_element_on_backdrop(
         self, lower: LayerMeasurement, upper: LayerMeasurement, overlap: OverlapMeasurement
     ) -> bool:
+        """Whether text sits wholly on a backdrop drawn for it."""
         if lower.layer_type == "text" or upper.layer_type != "text":
             return False
         return overlap.upper_visible_pct >= BACKDROP_COVERAGE_RATIO
@@ -382,6 +664,11 @@ class DiagnosticsEngine:
         layer = measured.raw_layer
         if not measured.visible or measured.bbox is None:
             return False
+        # A layer that animates in is absent for part of the slide, so whatever
+        # it settles over is still seen. Judging the settled frame alone would
+        # call every pre-roll state redundant.
+        if getattr(layer, "animation", None) is not None:
+            return False
         if float(getattr(layer, "opacity", 1.0)) < 1.0:
             return False
         blend_mode = getattr(layer, "blend_mode", None)
@@ -434,8 +721,27 @@ class DiagnosticsEngine:
         )
         top, right, bottom, left = margins
         thresholds = {"top": top, "right": right, "bottom": bottom, "left": left}
+        # A layer that spans the canvas is bleeding on purpose — full-bleed
+        # footage, a full-width scrim — and cannot be moved off an edge it is
+        # meant to cover. Crowding is about content stopping just short of an
+        # edge, so only edges the layer does not span are worth reporting.
+        spans_width = box.x <= 0 and box.right >= self._ctx.width
+        spans_height = box.y <= 0 and box.bottom >= self._ctx.height
+        # A layer that spans the canvas is bleeding rather than crowding, and it
+        # bleeds off precisely the edges it reaches: a full-width band flush with
+        # the bottom runs off it, the same band floating above it does not.
+        bleeds = spans_width or spans_height
+        reaches = {
+            "left": box.x <= 0,
+            "right": box.right >= self._ctx.width,
+            "top": box.y <= 0,
+            "bottom": box.bottom >= self._ctx.height,
+        }
+        spanned = {edge for edge, reached in reaches.items() if reached and bleeds}
         crowded_edges = [
-            edge for edge, distance in distances.items() if distance < thresholds[edge]
+            edge
+            for edge, distance in distances.items()
+            if distance < thresholds[edge] and edge not in spanned
         ]
         if not crowded_edges:
             return None
@@ -865,6 +1171,27 @@ class DiagnosticsEngine:
         except (OSError, UnicodeError, ValueError):
             return None
 
+    def _with_text_backing(self, running: Image.Image, layer: TextLayer) -> Image.Image:
+        """Return the composite the glyphs actually sit on.
+
+        A ``Background`` effect is painted by the text layer itself, so it never
+        appears in the layers below. Measuring contrast without it compares the
+        glyphs against whatever is behind their chip, which reads as no contrast
+        at all for ink-on-accent copy.
+        """
+        backing = [effect for effect in layer.effects if isinstance(effect, Background)]
+        if not backing:
+            return running
+        content = layer.content
+        if isinstance(content, list):
+            content = [part.model_copy(update={"color": "#00000000"}) for part in content]
+        backing_layer = layer.model_copy(
+            update={"content": content, "color": "#00000000", "effects": backing}
+        )
+        composite = running.copy()
+        self._text.render_text_layer(composite, backing_layer)
+        return composite
+
     def _text_background_contrast(
         self, running: Image.Image, measured: LayerMeasurement
     ) -> TiledContrastMeasurement | None:
@@ -886,6 +1213,7 @@ class DiagnosticsEngine:
         foreground_layer = layer.model_copy(update={"content": content, "effects": []})
         foreground = Image.new("RGBA", (self._ctx.width, self._ctx.height), (0, 0, 0, 0))
         self._text.render_text_layer(foreground, foreground_layer)
+        running = self._with_text_backing(running, layer)
         return worst_tile_contrast(
             running,
             foreground,

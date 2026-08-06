@@ -223,6 +223,7 @@ class TestShapeLayerSerialization:
                 "width": 200,
                 "height": 150,
                 "color": "#FF5733",
+                "fill": None,
                 "border_radius": 10,
                 "opacity": 0.9,
                 "rotation": 0.0,

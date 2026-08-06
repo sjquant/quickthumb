@@ -18,6 +18,7 @@ uv run python examples/shorts_cover_agent.py
 uv run python examples/launch_announcement.py
 uv run python examples/investor_deck.py
 uv run python examples/product_hype_reel.py
+uv run python examples/ordinary_moments.py
 ```
 
 All examples write their rendered image back into this directory.
@@ -181,12 +182,31 @@ Builds a restrained vertical (1080x1920) 8-scene product film — hook → pain 
 - One semantic blue accent on neutral stages, without glow, elevated cards, progress chrome, or per-scene rainbow colors
 - Per-scene durations of 8–10 beats derived from the actual 3.41–4.29-second voiceovers, preserving every narration ending while reducing the original timeline
 - Semantic `Cut`, `Fade`, and `Wipe` transitions that support the story instead of adding arbitrary motion variety
-- `deck.diagnose()` before export, validating contrast, overflow, overlap, canvas bounds, and Reels UI-safe placement for all eight scenes
+- `deck.diagnose()` before export, validating contrast, overflow, overlap, canvas bounds, and UI-safe placement before encoding
 - The file-rendering animation API with GIF-specific `GifOptions`, plus the video-specific `VideoOptions` and bytes-returning `.to_mp4(...)` / `.to_webm(...)` variants
 - Eight bundled voiceovers mixed above a quieter looping soundtrack via `VideoOptions(soundtrack=AudioTrack(...))`
 - Graceful per-format fallback when an optional renderer is unavailable; one failed export does not suppress the remaining formats
 
 Use it when you want a shareable, self-playing GIF or video clip (Reels/TikTok/Stories) instead of a static thumbnail, or as a reference for the animated export API, beat-synced editing via `advance_after`, and MP4/WebM audio.
+
+### `ordinary_moments.py`
+
+Output: `ordinary_moments.mp4`, `ordinary_moments.webm`, and `ordinary_moments_preview.gif`
+
+Builds a 60-second horizontal product film that argues one case — when the copy changes, re-exporting every asset by hand is the expensive part — across nine scenes: hook, cost, turn, three proofs, delivery payoff, resolution, and close.
+
+- The film is its own evidence: the payoff scene names the file, scene count, and single command that produced what the viewer is watching, and the closing card points back at this script
+- Five locally bundled Pexels clips with a checked-in provenance manifest, each reused only as a deliberate callback in a different frame
+- One proof scene places the same second of one source in 16:9, 1:1, and 9:16 frames simultaneously, so `fit` and placement are demonstrated rather than described
+- Timed caption cues that prove their own timing: a cue strip and a playhead cross each block at the moment its caption appears
+- `AnimationSpec` motion tied to meaning — line-staggered entrances for repeated work, position-track playheads for timeline scenes, `Canvas.counter(...)` for cost and render progress
+- A frosted `BackdropBlur` readout panel printing the film's real `speed`, `volume`, and `fade_out` values
+- Pretendard for the film's voice and Roboto for every functional readout, on a shared margin and type scale
+- An accent colour introduced at the narrative turn and held back from the opening act
+- Purposeful `Cut`, `Fade`, and `Wipe` transitions over a restrained Mixkit soundtrack loop that fades out on the close
+- MP4/WebM exports of the full 60-second composition plus a silent GIF preview of the delivery scene
+
+Use it when you want a production-style reference for combining footage, captions, audio, and editorial motion in a reproducible 16:9 composition.
 
 ## Assets and Fonts
 

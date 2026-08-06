@@ -16,6 +16,7 @@ from quickthumb._base import parse_coordinate
 from quickthumb._measurements import layer_id_for
 from quickthumb.errors import RenderingError, ValidationError
 from quickthumb.models import (
+    AnimatedTextValue,
     AnimationSpec,
     ExportDiagnostic,
     ExportPolicy,
@@ -740,6 +741,51 @@ def compile_timeline(
     return Timeline(events=tuple(events))
 
 
+def sample_canonical_state(layer: object, time: float | None) -> LayerState | None:
+    """Sample a layer's canonical motion at ``time``, or None when it has none.
+
+    Returns None for layers with no ``AnimationSpec`` and for the untimed render
+    pass, so callers can skip the isolated-surface work entirely.
+    """
+    if time is None:
+        return None
+    animation = getattr(layer, "animation", None)
+    if animation is None:
+        return None
+    animations = animation if isinstance(animation, list) else [animation]
+    specs = [item for item in animations if isinstance(item, AnimationSpec)]
+    if not specs:
+        return None
+    return compile_timeline(specs).sample(float(time), LayerState())
+
+
+def sample_canonical_targets(
+    layer: object, time: float | None, target_count: int
+) -> tuple[LayerState | None, ...] | None:
+    """Sample one state per staggered target, or None when the layer has none.
+
+    Each target runs the same timeline offset by its own stagger delay, so the
+    caller can move, fade, and reveal every line independently instead of
+    averaging them into one reveal. A target whose turn has not come yet samples
+    to ``None``: it is waiting off screen rather than sitting in its settled
+    place, which is what makes a stagger read as a sequence.
+    """
+    if time is None or target_count < 2:
+        return None
+    animation = getattr(layer, "animation", None)
+    if animation is None:
+        return None
+    animations = animation if isinstance(animation, list) else [animation]
+    specs = [item for item in animations if isinstance(item, AnimationSpec)]
+    if not specs or not any(item.stagger is not None for item in specs):
+        return None
+    sampled: list[LayerState | None] = []
+    for timeline in resolve_staggered_timelines(compile_timeline(specs), target_count):
+        start = min((event.active_start for event in timeline.events), default=0.0)
+        sampled.append(None if time < start else timeline.sample(float(time), LayerState()))
+    return tuple(sampled)
+
+
 def compile_transition_timeline(
     transition: Transition | dict[str, Any] | str | None,
 ) -> Timeline:
@@ -1201,12 +1247,44 @@ _CAPABILITY_FEATURES: tuple[CapabilityFeature, ...] = (
 _FULL_CAPABILITIES: dict[CapabilityFeature, tuple[SupportLevel, Fallback | None]] = dict.fromkeys(
     _CAPABILITY_FEATURES, ("full", None)
 )
+# The pixel pipelines compile every geometry property, but a colour track has no
+# consumer and stagger is approximated by a shared reveal rather than per-target
+# geometry. Declaring that here keeps `capabilities_for` and `validate_export`
+# telling callers the same story.
+_RASTER_OVERRIDES: dict[CapabilityFeature, tuple[SupportLevel, Fallback | None]] = {
+    "color": ("unsupported", "static"),
+    "stagger": ("partial", None),
+}
 _CAPABILITIES: dict[ExportTarget, dict[CapabilityFeature, MotionCapability]] = {}
 for _target in ("raster", "video"):
+    _row = dict(_FULL_CAPABILITIES) | _RASTER_OVERRIDES
+    if _target == "raster":
+        _row["audio_sync"] = ("unsupported", "static")
     _CAPABILITIES[_target] = {
         feature: MotionCapability(feature, _target, support, fallback)
-        for feature, (support, fallback) in _FULL_CAPABILITIES.items()
+        for feature, (support, fallback) in _row.items()
     }
+
+# Features the raster and video pipelines genuinely compile from a canonical
+# AnimationSpec. The document exporters still approximate canonical motion, so
+# they keep declaring a fallback for all of it.
+_CANONICAL_RENDERED: dict[str, frozenset[str]] = {
+    target: frozenset(
+        {
+            "position",
+            "scale",
+            "rotation",
+            "opacity",
+            "clip_progress",
+            "blur",
+            "easing",
+            "image_pan",
+            "image_zoom",
+            "stagger",
+        }
+    )
+    for target in ("raster", "video")
+}
 _CAPABILITIES["html"] = {
     feature: MotionCapability(feature, "html", "partial", "fade" if feature == "blur" else None)
     if feature == "blur"
@@ -1312,6 +1390,21 @@ def validate_export(
     row = capabilities_for(normalized)
     diagnostics: list[ExportDiagnostic] = []
     for layer_id, layer in _iter_export_layers(source):
+        value = getattr(layer, "value", None)
+        if isinstance(value, AnimatedTextValue) and normalized in ("html", "pptx"):
+            diagnostics.append(
+                ExportDiagnostic(
+                    layer_id=layer_id,
+                    feature="animated_text_value",
+                    target=normalized,
+                    support="fallback",
+                    fallback="static",
+                    message=(
+                        f"animated text value on layer {layer_id} is emitted as a static "
+                        f"value for {normalized}"
+                    ),
+                )
+            )
         if isinstance(layer, VideoLayer) and normalized not in ("video", "raster"):
             diagnostics.append(
                 ExportDiagnostic(
@@ -1332,7 +1425,9 @@ def validate_export(
         for animation in items:
             for feature in _capability_features_for(animation):
                 capability = row[feature]
-                canonical_unimplemented = isinstance(animation, AnimationSpec)
+                canonical_unimplemented = isinstance(
+                    animation, AnimationSpec
+                ) and feature not in _CANONICAL_RENDERED.get(normalized, frozenset())
                 declared_support = "unsupported" if canonical_unimplemented else capability.support
                 declared_fallback = "static" if canonical_unimplemented else capability.fallback
                 action = resolved_policy.pptx.get(layer_id) if normalized == "pptx" else None
@@ -1376,7 +1471,41 @@ def validate_export(
                         message=message,
                     )
                 )
+    # A Deck is duck-typed here because deck.py imports this module.
+    slides = getattr(source, "slides", None)
+    if normalized == "video" and slides is not None:
+        canvases = tuple(slides)
+        transitions = tuple(source._resolved_transitions())
+        for index, transition in enumerate(transitions):
+            if getattr(transition, "effect", None) != "morph" or index == 0:
+                continue
+            if _canvas_has_video_captions(canvases[index - 1]) or _canvas_has_video_captions(
+                canvases[index]
+            ):
+                diagnostics.append(
+                    ExportDiagnostic(
+                        feature="morph_caption_timing",
+                        target=normalized,
+                        support="fallback",
+                        fallback="fade",
+                        message=(
+                            f"morph transition before slide {index} falls back to fade for "
+                            "timed video captions"
+                        ),
+                    )
+                )
     return diagnostics
+
+
+def _canvas_has_video_captions(canvas: Canvas) -> bool:
+    return any(layer.captions for layer in _iter_video_layers(canvas.layers))
+
+
+def _iter_video_layers(layers: Iterable[object]) -> Iterable[VideoLayer]:
+    for layer in layers:
+        if isinstance(layer, VideoLayer):
+            yield layer
+        yield from _iter_video_layers(getattr(layer, "children", ()))
 
 
 def validate_motion_export(source: Canvas | Deck, target: ExportTarget | str, policy=None):
@@ -1518,19 +1647,22 @@ def _inspection_layer(
     items = animation if isinstance(animation, list) else [animation]
     specs = [item for item in items if isinstance(item, AnimationSpec)]
     timeline = _compile_inspection_timeline(animation)
+    value = getattr(layer, "value", None)
+    value_duration = value.delay + value.duration if isinstance(value, AnimatedTextValue) else 0.0
     base = _layer_base_state(layer, canvas)
     initial = timeline.sample(0.0, base)
     final = timeline.sample(timeline.duration, base)
     targets: list[MotionTargetInspection] = []
     for spec in specs:
         targets.extend(_inspection_targets(layer, spec))
-    sample_times = _bounded_frame_times(timeline.duration, fps, max_samples)
+    duration = max(timeline.duration, value_duration)
+    sample_times = _bounded_frame_times(duration, fps, max_samples)
     static_state = base.model_dump(mode="json", exclude_none=True)
     return MotionLayerInspection(
         layer_id=layer_id,
         layer_type=str(getattr(layer, "type", type(layer).__name__)),
         events=[_inspection_event(event, sample_times) for event in timeline.events],
-        duration=timeline.duration,
+        duration=duration,
         targets=targets,
         sample_times=list(sample_times),
         samples=[

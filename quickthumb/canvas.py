@@ -22,11 +22,17 @@ from quickthumb._measurements import BBox, LayerMeasurement, measure_layers
 from quickthumb._shapes import ShapeEngine
 from quickthumb._text import TextEngine
 from quickthumb._validation import validate_dimensions
-from quickthumb._video import VideoInfo, probe_video, render_video_layer
+from quickthumb._video import (
+    iter_video_layers,
+    probe_video,
+    render_video_captions,
+    render_video_layer,
+)
 from quickthumb._visualizations import VisualizationEngine
 from quickthumb.errors import RenderingError, ValidationError
 from quickthumb.models import (
     Align,
+    AnimatedTextValue,
     AnimationInput,
     AudioTrack,
     BackdropBlur,
@@ -423,6 +429,41 @@ class Canvas:
         self._append_layer(layer)
         return self
 
+    def counter(
+        self,
+        from_: float,
+        to: float,
+        duration: float,
+        *,
+        delay: float = 0.0,
+        decimals: int = 0,
+        minimum_integer_digits: int = 1,
+        prefix: str = "",
+        suffix: str = "",
+        grouping: bool = False,
+        style: Literal["plain", "odometer", "flip"] = "odometer",
+        easing: Literal["linear", "ease_in", "ease_out", "ease_in_out"] = "ease_out",
+        **text_options: Any,
+    ) -> Self:
+        """Add a deterministic animated numeric TextLayer."""
+        # `from` is a keyword, so the alias can only be supplied through validation.
+        value = AnimatedTextValue.model_validate(
+            {
+                "from": from_,
+                "to": to,
+                "duration": duration,
+                "delay": delay,
+                "decimals": decimals,
+                "minimum_integer_digits": minimum_integer_digits,
+                "prefix": prefix,
+                "suffix": suffix,
+                "grouping": grouping,
+                "style": style,
+                "easing": easing,
+            }
+        )
+        return self.text(content=value.text_at(0.0), value=value, **text_options)
+
     def text(
         self,
         content: TextContentInput | None = None,
@@ -453,6 +494,7 @@ class Canvas:
         clip: LayerClip | dict[str, Any] | None = None,
         mask: LayerMask | dict[str, Any] | None = None,
         animation: AnimationInput | None = None,
+        value: "AnimatedTextValue | dict[str, Any] | None" = None,
         *,
         id: str | None = None,
         motion_key: str | None = None,
@@ -463,6 +505,7 @@ class Canvas:
         layer = TextLayer(
             type="text",
             content=cast(str | list[TextPart], content),
+            value=cast(Any, value),
             font=font,
             font_source=font_source,
             font_variations=font_variations or {},
@@ -523,6 +566,7 @@ class Canvas:
         width: int,
         height: int,
         color: str,
+        fill: "LinearGradient | RadialGradient | None" = None,
         border_radius: int = 0,
         opacity: float = 1.0,
         rotation: float = 0.0,
@@ -545,6 +589,7 @@ class Canvas:
             width=width,
             height=height,
             color=color,
+            fill=fill,
             border_radius=border_radius,
             opacity=opacity,
             rotation=rotation,
@@ -645,6 +690,15 @@ class Canvas:
         speed: float = 1.0,
         volume: float = 1.0,
         captions: list[VideoCaption | dict[str, Any]] | None = None,
+        border_radius: int = 0,
+        opacity: float = 1.0,
+        rotation: float = 0.0,
+        align: Align | str | tuple[str, str] | None = None,
+        blend_mode: BlendMode | str | None = None,
+        effects: list[ImageEffect] | None = None,
+        clip: LayerClip | dict[str, Any] | None = None,
+        mask: LayerMask | dict[str, Any] | None = None,
+        animation: AnimationInput | None = None,
         *,
         id: str | None = None,
         motion_key: str | None = None,
@@ -664,6 +718,15 @@ class Canvas:
             speed=speed,
             volume=volume,
             captions=cast(list[VideoCaption], captions or []),
+            border_radius=border_radius,
+            opacity=opacity,
+            rotation=rotation,
+            align=align,  # type: ignore[arg-type]  # Pydantic validator handles conversion
+            blend_mode=blend_mode,  # type: ignore[arg-type]
+            effects=effects or [],
+            clip=cast(Any, clip),
+            mask=cast(Any, mask),
+            animation=animation,
             id=id,
             motion_key=motion_key,
         )
@@ -1353,7 +1416,14 @@ class Canvas:
         try:
             image = self._create_canvas()
             for layer in self._layers:
-                self._render_layer(image, layer, time)
+                self._render_moving_layer(image, layer, time)
+            render_video_captions(
+                image,
+                iter_video_layers(self._layers),
+                0.0 if time is None else time,
+                self._ctx.video_info_cache,
+                self._fonts.load_font_variant,
+            )
             if debug:
                 self._draw_debug_overlay(image)
             return image
@@ -1408,6 +1478,94 @@ class Canvas:
         )
         draw.text((label_left + 3, label_top + 2), label, fill=(255, 255, 255, 255), font=font)
 
+    def _staggered_target_count(self, layer: RenderableLayer) -> int:
+        """Return how many semantic targets a layer's stagger addresses."""
+        animation = getattr(layer, "animation", None)
+        if animation is None:
+            return 0
+        from quickthumb.models import AnimationSpec
+
+        animations = animation if isinstance(animation, list) else [animation]
+        staggers = [
+            item.stagger
+            for item in animations
+            if isinstance(item, AnimationSpec) and item.stagger is not None
+        ]
+        if not staggers or not isinstance(layer, TextLayer):
+            return 0
+        target = staggers[0].target
+        if target not in {"lines", "words", "characters"}:
+            return 0
+        return len(self._text.resolve_animation_targets(layer, target))
+
+    def _render_staggered_targets(
+        self,
+        image: Image.Image,
+        surface: Image.Image,
+        layer: RenderableLayer,
+        time: float | None,
+    ) -> bool:
+        """Move each staggered target on its own, returning whether it applied.
+
+        The layer is sliced out of its own finished render, so every target keeps
+        the layout it was drawn with. Targets that cannot be told apart — lines
+        set tight enough to touch, or a target kind with no visual band — fall
+        back to moving the layer as a whole.
+        """
+        from quickthumb._export_base import composite_motion_targets, split_into_bands
+        from quickthumb.motion import sample_canonical_targets
+
+        count = self._staggered_target_count(layer)
+        states = sample_canonical_targets(layer, time, count)
+        if states is None:
+            return False
+        fragments = split_into_bands(surface, count)
+        if fragments is None:
+            return False
+        composite_motion_targets(image, fragments, states)
+        return True
+
+    def _render_moving_layer(
+        self, image: Image.Image, layer: RenderableLayer, time: float | None = None
+    ):
+        """Render one layer, moving it when canonical motion is being sampled.
+
+        Geometry is applied to the layer's own rendered pixels rather than by
+        each renderer, so every layer type moves the same way. Only this timed
+        pass transforms; the exporters render layers untimed and apply the same
+        geometry once per animation unit.
+        """
+        from quickthumb._export_base import apply_canonical_alpha, apply_canonical_geometry
+        from quickthumb.motion import sample_canonical_state
+
+        state = sample_canonical_state(layer, time)
+        if state is None:
+            self._render_layer(image, layer, time)
+            return
+        surface = Image.new("RGBA", image.size, (0, 0, 0, 0))
+        self._render_layer(surface, layer, time)
+        if self._render_staggered_targets(image, surface, layer, time):
+            return
+        bounds = surface.getbbox()
+        if bounds is None:
+            return
+        fragment, position = apply_canonical_geometry(
+            surface.crop(bounds),
+            state,
+            (bounds[0], bounds[1]),
+            # Image layers fold scale into their source crop already.
+            include_scale=not isinstance(layer, ImageLayer),
+        )
+        # Charts and QR codes reveal their own bars, points, and modules from the
+        # same track, so a second generic clip on top would reveal twice.
+        self_revealing = isinstance(layer, (ChartLayer, QRCodeLayer))
+        fragment = apply_canonical_alpha(
+            fragment, state, clip_progress=1.0 if self_revealing else state.clip_progress
+        )
+        if fragment is None:
+            return
+        image.alpha_composite(fragment, position)
+
     def _render_layer(self, image: Image.Image, layer: RenderableLayer, time: float | None = None):
         if has_layer_composition(layer):
             self._render_composed_layer(image, layer, time)
@@ -1447,7 +1605,7 @@ class Canvas:
         if isinstance(layer, BackgroundLayer):
             self._render_background_layer(image, layer)
         elif isinstance(layer, TextLayer):
-            self._text.render_text_layer(image, layer)
+            self._text.render_text_layer(image, layer, time)
         elif isinstance(layer, OutlineLayer):
             self._render_outline_layer(image, layer)
         elif isinstance(layer, ImageLayer):
@@ -1463,7 +1621,7 @@ class Canvas:
         elif isinstance(layer, GroupLayer):
             self._groups.render_group_layer(image, layer, time=time)
         elif isinstance(layer, VideoLayer):
-            info = cast(VideoInfo | None, self._ctx.video_info_cache.get(layer.source))
+            info = self._ctx.video_info_cache.get(layer.source)
             if info is None:
                 info = probe_video(layer.source)
                 self._ctx.video_info_cache[layer.source] = info
@@ -1475,6 +1633,7 @@ class Canvas:
                 self._ctx.video_frame_cache,
                 self._ctx.video_decoder_cache,
                 self._fonts.load_font_variant,
+                self._images,
             )
         elif isinstance(layer, CustomLayer):
             self._render_custom_layer(image, layer)

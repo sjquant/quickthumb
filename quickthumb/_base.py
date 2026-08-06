@@ -1,11 +1,15 @@
 import math
 from collections import OrderedDict
-from typing import Any, Literal, TypeAlias, cast
+from typing import TYPE_CHECKING, Any, Literal, TypeAlias, cast
 
 from PIL import ImageFont
 
 from quickthumb.errors import ValidationError
 from quickthumb.models import Align
+
+if TYPE_CHECKING:
+    # _video imports _base, so the probe result is only a type here.
+    from quickthumb._video import VideoInfo
 
 FileFormat = Literal["JPEG", "WEBP", "PNG"]
 
@@ -28,7 +32,7 @@ class RenderContext:
         # measure_cache holds (layer, size) so the keyed id() stays valid for the pass
         self.measure_cache: dict[int, tuple[object, tuple[int, int]]] = {}
         self.image_size_cache: dict[str, tuple[int, int]] = {}
-        self.video_info_cache: dict[str, object] = {}
+        self.video_info_cache: dict[str, VideoInfo] = {}
         self.video_frame_cache: OrderedDict[tuple[str, float], Any] = OrderedDict()
         self.video_decoder_cache: dict[str, Any] = {}
         self.motion_time: float | None = None

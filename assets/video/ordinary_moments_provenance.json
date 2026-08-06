@@ -1,0 +1,45 @@
+{
+  "ordinary-coffee.mp4": {
+    "source_url": "https://www.pexels.com/video/man-working-in-a-coffee-shop-3626147/",
+    "creator": "cottonbro studio",
+    "license": "Pexels License",
+    "source_format": "MP4",
+    "local_transform": "Trimmed to 8 seconds, center-cropped to 1280x720, H.264 yuv420p, no audio"
+  },
+  "ordinary-sunrise.mp4": {
+    "source_url": "https://www.pexels.com/video/video-of-sunrise-854738/",
+    "creator": "Pexels contributor listed on source page",
+    "license": "Pexels License",
+    "source_format": "MP4",
+    "local_transform": "Trimmed to 8 seconds, center-cropped to 1280x720, H.264 yuv420p, no audio"
+  },
+  "ordinary-phone.mp4": {
+    "source_url": "https://www.pexels.com/video/person-scrolling-using-her-mobile-phone-5876327/",
+    "creator": "Lisa from Pexels",
+    "license": "Pexels License",
+    "source_format": "MP4",
+    "local_transform": "Trimmed to 8 seconds, center-cropped to 1280x720, H.264 yuv420p, no audio"
+  },
+  "ordinary-notebook.mp4": {
+    "source_url": "https://www.pexels.com/video/person-writing-on-a-notebook-8478110/",
+    "creator": "Pexels contributor listed on source page",
+    "license": "Pexels License",
+    "source_format": "MP4",
+    "local_transform": "Trimmed to 8 seconds, center-cropped to 1280x720, H.264 yuv420p, no audio"
+  },
+  "ordinary-city.mp4": {
+    "source_url": "https://www.pexels.com/video/dynamic-urban-skyline-timelapse-at-daytime-29536005/",
+    "creator": "Pexels contributor listed on source page",
+    "license": "Pexels License",
+    "source_format": "MP4",
+    "local_transform": "Trimmed to 8 seconds, center-cropped to 1280x720, H.264 yuv420p, no audio"
+  },
+  "ordinary_moments_vastness.mp3": {
+    "source_url": "https://mixkit.co/free-stock-music/ambient/",
+    "title": "Vastness",
+    "creator": "Andrew Ev",
+    "license": "Mixkit Stock Music Free License",
+    "source_format": "MP3",
+    "local_transform": "Used as a quiet looping soundtrack at 0.16 volume"
+  }
+}

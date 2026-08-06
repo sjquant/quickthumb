@@ -1,13 +1,14 @@
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from typing import cast
+from unicodedata import category, east_asian_width
 
 from PIL import Image, ImageChops, ImageStat
 from typing_extensions import TypedDict
 
 from quickthumb._composition import has_layer_composition
 from quickthumb._measurements import BBox, LayerMeasurement
-from quickthumb.models import Align, DiagnosticBBox
+from quickthumb.models import Align, DiagnosticBBox, VideoCaption
 
 
 class DiagnosticContext(TypedDict):
@@ -161,6 +162,98 @@ PLATFORM_SAFE_MARGIN_PRESETS: dict[str, SafeMarginPreset] = {
     "instagram-reels": INSTAGRAM_REELS_PRESET,
     "tiktok": TIKTOK_PRESET,
 }
+
+
+# Deliberately generous reading limits: they exist to catch a cue that flashes
+# past, not to arbitrate typography. A line held under a second is a mistake in
+# any language, and 20 columns a second is beyond a fast reader.
+MIN_CAPTION_SECONDS = 0.8
+MAX_CAPTION_COLUMNS_PER_SECOND = 20.0
+# Outside this range a clip is being played far from its own rate, which renders
+# cleanly and reads as wrong.
+MIN_NATURAL_CLIP_SPEED = 0.5
+MAX_NATURAL_CLIP_SPEED = 2.0
+# Timing is compared with the same slack the caption-timing rule uses, so a cue
+# sitting exactly on a limit is not failed by float representation.
+TIMING_EPSILON = 1e-9
+
+
+def display_columns(text: str) -> int:
+    """Return the terminal-style width of text, counting wide scripts as two.
+
+    A Korean or Japanese line carries far more per character than a Latin one,
+    so measuring reading cost in characters would let a dense cue race past
+    unreported. East Asian width is the standard approximation for that.
+
+    Joiners, variation selectors and combining marks render into a neighbouring
+    glyph rather than beside it, so they cost nothing. The glyphs they join are
+    still counted individually: an emoji family costs what its members cost.
+    """
+    return sum(
+        0 if _is_zero_width(char) else 2 if east_asian_width(char) in {"W", "F"} else 1
+        for char in text
+    )
+
+
+def _is_zero_width(char: str) -> bool:
+    """Whether a character renders into its neighbour instead of beside it."""
+    return category(char) in {"Mn", "Me", "Cf"}
+
+
+@dataclass(frozen=True)
+class CaptionReading:
+    """How much a cue asks a viewer to read, and how long they really get."""
+
+    columns: int
+    visible_seconds: float
+    declared_seconds: float
+
+    @property
+    def columns_per_second(self) -> float:
+        return self.columns / self.visible_seconds
+
+    @property
+    def outlives_clip(self) -> bool:
+        """Whether the cue is cut short because its clip ends first."""
+        return self.visible_seconds < self.declared_seconds - TIMING_EPSILON
+
+    @property
+    def is_too_brief(self) -> bool:
+        return self.visible_seconds < MIN_CAPTION_SECONDS - TIMING_EPSILON
+
+    @property
+    def is_too_fast(self) -> bool:
+        return self.columns_per_second > MAX_CAPTION_COLUMNS_PER_SECOND + TIMING_EPSILON
+
+    @property
+    def readable_seconds(self) -> float:
+        """The shortest hold that would let this much text be read."""
+        return max(MIN_CAPTION_SECONDS, self.columns / MAX_CAPTION_COLUMNS_PER_SECOND)
+
+
+def measure_caption_reading(caption: VideoCaption, clip_seconds: float | None) -> CaptionReading:
+    """Measure a cue over the time it is really on screen.
+
+    A cue is only drawn while its clip is live, so one that runs past the end of
+    its clip is seen for less time than it declares. ``clip_seconds`` is the
+    clip's own on-screen length; None when it could not be resolved.
+    """
+    declared = caption.end - caption.start
+    visible = declared if clip_seconds is None else min(caption.end, clip_seconds) - caption.start
+    return CaptionReading(
+        columns=display_columns(caption.text.strip()),
+        visible_seconds=visible,
+        declared_seconds=declared,
+    )
+
+
+def clip_pace(speed: float) -> str | None:
+    """Return how a clip departs from its own rate, or None when it is natural."""
+    if speed < MIN_NATURAL_CLIP_SPEED:
+        return "crawls"
+    if speed > MAX_NATURAL_CLIP_SPEED:
+        return "races"
+    return None
 
 
 def bbox_payload(box: BBox) -> dict[str, int]:
@@ -592,13 +685,21 @@ def _tile_contrast(
     foreground_pixels = foreground_crop.load()
     assert background_pixels is not None and foreground_pixels is not None
     groups: dict[tuple[int, int, int], list[float]] = {}
+    max_foreground_alpha = max(
+        cast(tuple[int, int, int, int], foreground_pixels[x, y])[3]
+        for y in range(region.height)
+        for x in range(region.width)
+    )
+    alpha_floor = 64 if max_foreground_alpha >= 64 else 1
 
     for y in range(region.height):
         for x in range(region.width):
             background_pixel = cast(tuple[int, int, int, int], background_pixels[x, y])
             foreground_pixel = cast(tuple[int, int, int, int], foreground_pixels[x, y])
             foreground_r, foreground_g, foreground_b, foreground_a = foreground_pixel
-            if foreground_a == 0:
+            # Ignore subpixel antialiasing fringes when the tile also contains
+            # solid text. Preserve genuinely low-opacity text diagnostics.
+            if foreground_a < alpha_floor:
                 continue
 
             background_alpha = background_pixel[3] / 255
@@ -617,6 +718,11 @@ def _tile_contrast(
 
     worst: TiledContrastMeasurement | None = None
     for foreground_raw, group in groups.items():
+        # A single antialiased edge pixel is not meaningful evidence that a
+        # text treatment lacks contrast. Require a small visible sample while
+        # retaining warnings for genuinely faint text across a larger area.
+        if group[3] < 4:
+            continue
         background = (group[0] / group[3], group[1] / group[3], group[2] / group[3])
         opacity = group[4] / 255
         foreground = (

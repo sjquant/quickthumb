@@ -91,6 +91,7 @@ class TestCanvasGroupAPI:
                     {
                         "type": "text",
                         "content": "Title",
+                        "value": None,
                         "font": None,
                         "font_source": "auto",
                         "font_variations": {},
@@ -132,6 +133,7 @@ class TestCanvasGroupAPI:
                                 "width": 50,
                                 "height": 20,
                                 "color": "#FF0000",
+                                "fill": None,
                                 "border_radius": 0,
                                 "opacity": 1.0,
                                 "rotation": 0.0,
@@ -149,6 +151,7 @@ class TestCanvasGroupAPI:
                                 "width": 30,
                                 "height": 40,
                                 "color": "#0000FF",
+                                "fill": None,
                                 "border_radius": 0,
                                 "opacity": 1.0,
                                 "rotation": 0.0,

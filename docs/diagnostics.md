@@ -23,7 +23,7 @@ Each `Diagnostic` has stable human-readable fields and optional structured field
 
 | Field | Type | Description |
 | --- | --- | --- |
-| `code` | `str` | One of `"off-canvas"`, `"tiny-text"`, `"text-overflow"`, `"text-clipped"`, `"missing-glyph"`, `"low-contrast"`, `"layer-overlap"`, `"layer-hidden"`, `"edge-crowding"`, or `"near-alignment"` |
+| `code` | `str` | One of `"off-canvas"`, `"tiny-text"`, `"text-overflow"`, `"text-clipped"`, `"missing-glyph"`, `"low-contrast"`, `"layer-overlap"`, `"layer-hidden"`, `"edge-crowding"`, `"near-alignment"`, `"caption-safe-area"`, `"caption-timing"`, `"caption-overlap"`, `"caption-reading-time"`, or `"clip-stretch"` |
 | `severity` | `str` | `"warning"` or `"error"` |
 | `layer_index` | `int` | Index of the offending layer in `canvas.layers` |
 | `message` | `str` | Human-readable explanation with the measured values |
@@ -48,6 +48,11 @@ Each `Diagnostic` has stable human-readable fields and optional structured field
 | `layer-hidden` | A visible layer is fully covered by later opaque layers |
 | `edge-crowding` | A visible layer is too close to a canvas safe margin or platform overlay |
 | `near-alignment` | Related, unrotated layers have measured x/y starts within three pixels but are not exactly aligned |
+| `caption-safe-area` | A video caption sits inside the canvas safe-area margin |
+| `caption-timing` | A video caption ends after its clip does, so it is never seen |
+| `caption-overlap` | Two video captions share both a moment and a rendered background |
+| `caption-reading-time` | A cue is on screen under 0.8s, or runs past 20 display columns a second, leaving too little time to read it. Wide scripts such as Korean and Japanese count two columns per character while joiners and combining marks count none, and a cue that outlives its clip is measured over the part of it that is actually seen |
+| `clip-stretch` | A clip plays slower than 0.5x or faster than 2x of its own rate. Usually it is being stretched to fit a scene, but a deliberate slow-motion or timelapse beat is reported the same way |
 
 !!! tip "Agent loop"
     `diagnose()` is designed for render → diagnose → fix iteration: have an LLM emit a spec, run `diagnose()`, and feed the findings back as targeted edit instructions instead of re-prompting from scratch.
@@ -55,7 +60,7 @@ Each `Diagnostic` has stable human-readable fields and optional structured field
 Near-alignment findings compare final measured starts, rather than raw declared positions. The rule only compares layers that share a perpendicular span, ignores exact matches, intentional text-on-backdrop overlap, and layers with rotation or clip/mask composition, and reports the measured delta plus a coordinate repair suggestion.
 
 !!! note
-    The contrast check compares text color against the layers *below* the text layer. Text that gets its contrast from its own `Background` effect (e.g. dark text on its own bright pill) can report a false positive.
+    The contrast check compares text against everything it is drawn on, including a `Background` effect the text layer carries itself, so dark text on its own bright pill is measured against that pill. It samples the settled composition, so a caption or headline over footage is judged against the clip's first frame rather than its brightest one.
 
 ## The `quickthumb` CLI
 

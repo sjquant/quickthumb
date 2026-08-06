@@ -3,11 +3,13 @@
 # Layer fields use the shared model vocabulary re-exported by ``common``.
 # ruff: noqa: F405
 
+import math
 import re
 from typing import Annotated, Any, Literal
 
 from pydantic import (
     AfterValidator,
+    ConfigDict,
     Discriminator,
     Field,
     NonNegativeInt,
@@ -25,6 +27,75 @@ from .common import _validate_required_position
 from .effects import *  # noqa: F401,F403
 from .motion import AnimationInput
 from .visualizations import ChartLayer, QRCodeLayer
+
+
+class AnimatedTextValue(quickthumbModel):
+    """A deterministic numeric value sampled by a TextLayer's render time."""
+
+    from_: float = Field(alias="from", allow_inf_nan=False)
+    to: float = Field(allow_inf_nan=False)
+    duration: FinitePositiveFloat
+    delay: FiniteNonNegativeFloat = 0.0
+    decimals: NonNegativeInt = 0
+    minimum_integer_digits: PositiveInt = 1
+    prefix: str = ""
+    suffix: str = ""
+    grouping: bool = False
+    style: Literal["plain", "odometer", "flip"] = "odometer"
+    easing: Literal["linear", "ease_in", "ease_out", "ease_in_out"] = "ease_out"
+
+    model_config = ConfigDict(
+        populate_by_name=True,
+        serialize_by_alias=True,
+        extra="forbid",
+    )
+
+    @model_validator(mode="after")
+    def validate_value_range(self) -> "AnimatedTextValue":
+        if not math.isfinite(self.from_) or not math.isfinite(self.to):
+            raise ValueError("animated text values must be finite")
+        return self
+
+    def value_at(self, time: float) -> float:
+        """Return the eased numeric value at a local render timestamp."""
+        if time <= self.delay:
+            progress = 0.0
+        else:
+            progress = min(1.0, max(0.0, (time - self.delay) / self.duration))
+        if self.easing == "ease_in":
+            progress = progress * progress
+        elif self.easing == "ease_out":
+            progress = 1.0 - (1.0 - progress) ** 2
+        elif self.easing == "ease_in_out":
+            progress = (
+                2 * progress * progress if progress < 0.5 else 1 - (-2 * progress + 2) ** 2 / 2
+            )
+        return self.from_ + (self.to - self.from_) * progress
+
+    def text_at(self, time: float) -> str:
+        """Format the sampled value without locale-dependent behavior."""
+        return self.format_value(self.value_at(time))
+
+    def format_value(self, value: float) -> str:
+        """Format a numeric value using this animation's stable text contract."""
+        return f"{self.prefix}{self.number_text(value)}{self.suffix}"
+
+    def number_text(self, value: float) -> str:
+        """Format only the numeric portion, preserving prefix/suffix placement."""
+        if self.decimals:
+            number = (
+                f"{value:,.{self.decimals}f}" if self.grouping else f"{value:.{self.decimals}f}"
+            )
+        else:
+            rounded = round(value)
+            number = f"{rounded:,}" if self.grouping else str(rounded)
+        if self.minimum_integer_digits > 1:
+            sign = "-" if number.startswith("-") else ""
+            unsigned = number[len(sign) :]
+            grouped = unsigned.split(",")
+            grouped[-1] = grouped[-1].zfill(self.minimum_integer_digits)
+            number = sign + ",".join(grouped)
+        return number
 
 
 class TextPart(quickthumbModel):
@@ -104,6 +175,7 @@ class BackgroundLayer(LayerIdentityModel):
 class TextLayer(LayerIdentityModel):
     type: Literal["text"]
     content: str | list[TextPart]
+    value: AnimatedTextValue | None = None
     font: str | None = None
     font_source: FontSource = "auto"
     font_variations: FontVariations = Field(default_factory=dict)
@@ -188,6 +260,12 @@ class TextLayer(LayerIdentityModel):
         if isinstance(v, list) and len(v) == 0:
             raise ValueError("content list cannot be empty")
         return v
+
+    @model_validator(mode="after")
+    def validate_value_content(self) -> "TextLayer":
+        if self.value is not None and isinstance(self.content, list):
+            raise ValidationError("animated text values require plain string content")
+        return self
 
     @model_validator(mode="after")
     def validate_weight_bold_mutual_exclusivity(self) -> "TextLayer":
@@ -300,6 +378,10 @@ class ShapeLayer(LayerIdentityModel):
     width: PositiveInt
     height: PositiveInt
     color: HexColor
+    # A gradient fill replaces ``color`` wherever it can be drawn. Targets that
+    # cannot express one (PPTX, PDF, SVG, HTML) keep using ``color``, so it
+    # doubles as the declared flat fallback.
+    fill: Annotated[LinearGradient | RadialGradient, Discriminator("type")] | None = None
     border_radius: NonNegativeInt = 0
     opacity: OpacityField = 1.0
     rotation: float = 0.0
@@ -417,9 +499,11 @@ class VideoCaption(quickthumbModel):
     """A deterministic caption cue rendered into video frames."""
 
     text: str
+    font: str | None = None
     start: FiniteNonNegativeFloat
     end: FinitePositiveFloat
     position: Position = ("50%", "90%")
+    vertical_align: Literal["center", "optical-center"] = "center"
     size: PositiveInt = 24
     color: HexColor = "#FFFFFF"
     background: HexColor | None = None
@@ -477,6 +561,19 @@ class VideoLayer(LayerIdentityModel):
     speed: FinitePositiveFloat = 1.0
     volume: FiniteNonNegativeFloat = 1.0
     captions: list[VideoCaption] = []
+    # A clip is a picture like any other: it grades, rounds, masks, fades, and
+    # animates with the same vocabulary as an image layer.
+    border_radius: NonNegativeInt = 0
+    opacity: OpacityField = 1.0
+    rotation: float = 0.0
+    align: AlignWithHVTuple = None
+    blend_mode: Annotated[
+        BlendMode | None, AfterValidator(lambda v: enum_converter(BlendMode)(v) if v else None)
+    ] = None
+    effects: list[ImageEffect] = []
+    clip: LayerClip | None = None
+    mask: LayerMask | None = None
+    animation: AnimationInput | None = None
 
     @field_validator("source")
     @classmethod

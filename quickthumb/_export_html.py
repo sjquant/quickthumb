@@ -149,6 +149,41 @@ def _effect_states(effect) -> tuple[str, str]:
     return "opacity:0", f"opacity:{_SHOWN_OPACITY}"
 
 
+# CSS timing functions for the shared easing vocabulary. The browser evaluates
+# a bezier where the pixel pipelines evaluate a polynomial, so the curves are
+# equivalent in shape rather than identical sample for sample.
+_CSS_EASINGS = {
+    "linear": "linear",
+    "ease": "ease",
+    "ease_in": "ease-in",
+    "ease_out": "ease-out",
+    "ease_in_out": "ease-in-out",
+    "ease_in_quad": "cubic-bezier(0.11,0,0.5,0)",
+    "ease_out_quad": "cubic-bezier(0.5,1,0.89,1)",
+    "ease_in_out_quad": "cubic-bezier(0.45,0,0.55,1)",
+    "ease_in_cubic": "cubic-bezier(0.32,0,0.67,0)",
+    "ease_out_cubic": "cubic-bezier(0.33,1,0.68,1)",
+    "ease_in_out_cubic": "cubic-bezier(0.65,0,0.35,1)",
+    "ease_in_quart": "cubic-bezier(0.5,0,0.75,0)",
+    "ease_out_quart": "cubic-bezier(0.25,1,0.5,1)",
+    "ease_in_out_quart": "cubic-bezier(0.76,0,0.24,1)",
+    "ease_in_quint": "cubic-bezier(0.64,0,0.78,0)",
+    "ease_out_quint": "cubic-bezier(0.22,1,0.36,1)",
+    "ease_in_out_quint": "cubic-bezier(0.83,0,0.17,1)",
+    "ease_in_sine": "cubic-bezier(0.12,0,0.39,0)",
+    "ease_out_sine": "cubic-bezier(0.61,1,0.88,1)",
+    "ease_in_out_sine": "cubic-bezier(0.37,0,0.63,1)",
+    "ease_in_back": "cubic-bezier(0.36,0,0.66,-0.56)",
+    "ease_out_back": "cubic-bezier(0.34,1.56,0.64,1)",
+    "ease_in_out_back": "cubic-bezier(0.68,-0.6,0.32,1.6)",
+}
+
+
+def css_easing(name: str | None) -> str:
+    """Return the CSS timing function for a shared easing name."""
+    return _CSS_EASINGS.get(name or "ease", "ease")
+
+
 def _canonical_effect_states(event) -> tuple[str, str]:
     """Return a deterministic CSS analogue for one normalized motion event."""
     effect = event.effect
@@ -501,6 +536,7 @@ class HtmlExporter:
                     "delay": effect.delay,
                     "tr": effect.trigger,
                     "a": effect.animate,
+                    "e": css_easing(effect.easing),
                 }
             )
         self._timeline.extend(nodes)

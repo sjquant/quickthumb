@@ -11,13 +11,14 @@ mirrors TextEngine's positioning math run for run.
 from __future__ import annotations
 
 import base64
+import math
 import re
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from io import BytesIO
 from typing import TYPE_CHECKING
 
-from PIL import Image, ImageFont
+from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont
 
 from quickthumb._base import (
     DEFAULT_LINE_HEIGHT_MULTIPLIER,
@@ -199,6 +200,141 @@ def rasterize_layers(canvas: Canvas, layers: list[RenderableLayer]) -> RasterFra
         return RasterFragment(buffer.getvalue(), bbox[0], bbox[1], cropped.width, cropped.height)
     finally:
         canvas._ctx.close_video_decoders()
+
+
+def split_into_bands(
+    surface: Image.Image, count: int
+) -> tuple[tuple[Image.Image, tuple[int, int]], ...] | None:
+    """Split a rendered layer into one fragment per horizontal band of ink.
+
+    Staggering lines means moving each line on its own, which needs each line as
+    its own picture. Slicing the real render keeps the layout exactly as it was
+    drawn, unlike re-rendering a subset of the text. Returns None when the ink
+    does not separate into the expected number of bands — lines set tight enough
+    to touch cannot be told apart this way, and the caller falls back to moving
+    the block as a whole.
+    """
+    if count < 2:
+        return None
+    alpha = surface.getchannel("A")
+    ink = alpha.getbbox()
+    if ink is None:
+        return None
+    # One byte scan per row beats cropping each one: this runs for every frame of
+    # a staggered layer in the still pipeline.
+    band = alpha.crop((0, ink[1], surface.width, ink[3]))
+    pixels = band.tobytes()
+    width = band.width
+    rows = [
+        ink[1] + row
+        for row in range(band.height)
+        if pixels[row * width : (row + 1) * width].count(0) != width
+    ]
+    if not rows:
+        return None
+    bands: list[list[int]] = [[rows[0]]]
+    for row in rows[1:]:
+        if row == bands[-1][-1] + 1:
+            bands[-1].append(row)
+        else:
+            bands.append([row])
+    if len(bands) != count:
+        return None
+    fragments = []
+    for band in bands:
+        strip = surface.crop((0, band[0], surface.width, band[-1] + 1))
+        bounds = strip.getbbox()
+        if bounds is None:
+            return None
+        fragments.append((strip.crop(bounds), (bounds[0], band[0] + bounds[1])))
+    return tuple(fragments)
+
+
+def composite_motion_targets(image: Image.Image, fragments, states) -> None:
+    """Place each staggered target using its own sampled state.
+
+    A target whose turn has not come samples to None and is simply not drawn.
+    """
+    for (fragment, position), state in zip(fragments, states, strict=True):
+        if state is None:
+            continue
+        moved, placed = apply_canonical_geometry(fragment, state, position)
+        moved = apply_canonical_alpha(moved, state)
+        if moved is not None:
+            image.alpha_composite(moved, placed)
+
+
+def apply_canonical_alpha(
+    image: Image.Image, state, clip_progress: float | None = None
+) -> Image.Image | None:
+    """Apply a sampled layer's opacity and left-to-right reveal to its pixels.
+
+    ``clip_progress`` defaults to the sampled state's own value; pass 1.0 for
+    layers whose renderer already reveals itself from the same track.
+
+    Returns None when nothing of the layer is visible yet, so callers can skip
+    compositing it entirely.
+    """
+    opacity = min(1.0, max(0.0, state.opacity))
+    if opacity <= 0.0:
+        return None
+    clip = state.clip_progress if clip_progress is None else clip_progress
+    output = image
+    if opacity < 1.0:
+        alpha = output.getchannel("A").point(lambda value: round(value * opacity))
+        output = output.copy()
+        output.putalpha(alpha)
+    if clip < 1.0:
+        width = max(0, min(output.width, round(output.width * clip)))
+        if width <= 0:
+            return None
+        mask = Image.new("L", output.size, 0)
+        ImageDraw.Draw(mask).rectangle((0, 0, width, output.height), fill=255)
+        masked = output.copy()
+        masked.putalpha(ImageChops.multiply(masked.getchannel("A"), mask))
+        output = masked
+    return output
+
+
+def apply_canonical_geometry(
+    image: Image.Image,
+    state,
+    pos: tuple[int, int],
+    *,
+    include_scale: bool = True,
+) -> tuple[Image.Image, tuple[int, int]]:
+    """Scale, rotate, and blur a rendered layer about its centre, then move it.
+
+    This is the ``T · R · S`` convention ``quickthumb.motion.transform_matrix``
+    documents: a layer is scaled, rotated about its own centre, and finally
+    translated by ``state.position``. Scale, rotation, and blur all change the
+    image's size, so the position it should be composited at comes back with it.
+
+    ``include_scale`` is off for image layers, whose renderer already folds
+    ``scale`` into the source crop so the frame stays put while its content
+    zooms.
+    """
+    centre_x = pos[0] + image.width / 2
+    centre_y = pos[1] + image.height / 2
+    if include_scale and state.scale > 0 and state.scale != 1.0:
+        image = image.resize(
+            (max(1, round(image.width * state.scale)), max(1, round(image.height * state.scale))),
+            resample=Image.Resampling.LANCZOS,
+        )
+    if state.rotation:
+        image = image.rotate(-state.rotation, expand=True, resample=Image.Resampling.BICUBIC)
+    if state.blur > 0:
+        # Pad by the kernel's usable reach so the blur fades out instead of
+        # being cut off at the layer's own edge.
+        margin = max(1, math.ceil(state.blur * 3))
+        padded = Image.new("RGBA", (image.width + margin * 2, image.height + margin * 2))
+        padded.alpha_composite(image.convert("RGBA"), (margin, margin))
+        image = padded.filter(ImageFilter.GaussianBlur(state.blur))
+    offset_x, offset_y = state.position or (0.0, 0.0)
+    return image, (
+        round(centre_x - image.width / 2 + offset_x),
+        round(centre_y - image.height / 2 + offset_y),
+    )
 
 
 def color_to_rgba(canvas: Canvas, color: str | tuple, opacity: float = 1.0) -> tuple:

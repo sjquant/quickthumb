@@ -60,7 +60,7 @@ function qtTimeline(stage){
         var origOp=origOpacity[id]||'';
         el.style.willChange='clip-path,opacity';
         el.style.visibility='visible';
-        el.style.animation=node.k+' '+node.d+'s ease both '+node.delay+'s';
+        el.style.animation=node.k+' '+node.d+'s '+(node.e||'ease')+' both '+node.delay+'s';
         function settle(){
           el.style.willChange='';
           el.style.animation='';
