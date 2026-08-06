@@ -1078,7 +1078,10 @@ def _build_units(
         if canonical is not None:
             timeline = compile_timeline(canonical)
             target_count = 1
-            stagger = canonical.stagger
+            # Composed specs are one timeline over one unit image, so the first
+            # stagger declared is the one that can split it into targets.
+            specs = canonical if isinstance(canonical, list) else [canonical]
+            stagger = next((item.stagger for item in specs if item.stagger), None)
             content = getattr(layers[0], "content", None)
             if stagger is not None:
                 if stagger.target == "characters" and isinstance(content, str):
@@ -1089,7 +1092,7 @@ def _build_units(
                             canvas._text.resolve_animation_targets(layers[0], stagger.target)
                         )
                 elif stagger.target == "children":
-                    target_count = group_target_counts.get(id(canonical), 1)
+                    target_count = group_target_counts.get(id(specs[0]), 1)
             target_timelines = resolve_staggered_timelines(timeline, target_count)
             if image is not None and target_count > 1:
                 bands = split_into_bands(image, target_count)
@@ -1130,16 +1133,18 @@ def _build_units(
     return units
 
 
-def _canonical_animation(animation: object, legacy: list) -> AnimationSpec | None:
-    """Return the canonical spec driving a unit, refusing what it cannot render.
+def _canonical_animation(
+    animation: object, legacy: list
+) -> AnimationSpec | list[AnimationSpec] | None:
+    """Return the canonical motion driving a unit, refusing what it cannot render.
 
-    A visualization preset animates a layer's components, so it composes with a
-    legacy effect moving the layer itself. Anything else drives the layer, and a
-    unit plays either legacy effects or one canonical timeline — a layer asking
-    for both, or for several canonical specs at once, has no single animation to
-    compile. Saying so is the point: the alternative is a render that quietly
-    drops half of what the composition asked for and disagrees with the same
-    canvas rendered as a still.
+    Several canonical specs compose into one timeline in authored order, the
+    same way every other consumer reads them. A visualization preset animates a
+    layer's components, so it composes with a legacy effect moving the layer
+    itself. What a unit cannot do is play legacy effects and a layer-level
+    timeline at once, and saying so is the point: the alternative is a render
+    that quietly drops half of what the composition asked for and disagrees
+    with the same canvas rendered as a still.
     """
     if isinstance(animation, AnimationSpec):
         return animation
@@ -1158,12 +1163,7 @@ def _canonical_animation(animation: object, legacy: list) -> AnimationSpec | Non
             "Animated export cannot play a legacy effect and a layer-level AnimationSpec "
             "on the same layer. Express the whole animation as one AnimationSpec timeline."
         )
-    if len(specs) > 1:
-        raise RenderingError(
-            "Animated export plays one layer-level AnimationSpec per layer. Combine the "
-            "tracks into a single AnimationSpec timeline."
-        )
-    return specs[0]
+    return specs[0] if len(specs) == 1 else specs
 
 
 def _canonical_group_target_counts(canvas: Canvas) -> dict[int, int]:

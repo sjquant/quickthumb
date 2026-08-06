@@ -1381,24 +1381,31 @@ class TestVideoErrors:
         with pytest.raises(RenderingError, match="one AnimationSpec timeline"):
             canvas.to_gif(fps=5)
 
-    def test_should_reject_a_layer_carrying_two_layer_level_timelines(self):
-        """Given two canonical specs on one layer, when exported, then only one can drive it."""
-        # Given: a layer given two independent layer-level animations
-        canvas = Canvas(200, 200).shape(
-            shape="rectangle",
-            position=(20, 20),
-            width=40,
-            height=120,
-            color="#FFFFFF",
-            animation=[
-                AnimationSpec.fade(duration=0.2),
-                AnimationSpec.rise(from_="bottom", duration=0.2),
-            ],
+    def test_should_compose_several_canonical_specs_on_one_layer(self):
+        """Given two canonical specs on one layer, when exported, then both play in order."""
+        # Given: a layer that fades in and then rises, as two authored specs
+        canvas = (
+            Canvas(200, 200)
+            .background(color="#000000")
+            .shape(
+                shape="rectangle",
+                position=(20, 20),
+                width=40,
+                height=120,
+                color="#FFFFFF",
+                animation=[
+                    AnimationSpec.fade(duration=0.4),
+                    AnimationSpec.rise(from_="bottom", duration=0.4, trigger="after_previous"),
+                ],
+            )
         )
 
-        # When / Then: the export names the limit rather than picking one
-        with pytest.raises(RenderingError, match="one layer-level AnimationSpec per layer"):
-            canvas.to_gif(fps=5)
+        # When: the animation is sampled across the span both specs occupy
+        frames = [canvas.render_frame(time).tobytes() for time in (0.0, 0.5, 1.0)]
+
+        # Then: neither spec is dropped, and the export runs for both of them
+        assert len(set(frames)) == 3
+        assert canvas.to_gif(fps=5)
 
     def test_should_reject_missing_slide_audio_before_resolving_its_duration(
         self, monkeypatch, tmp_path
