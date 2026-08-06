@@ -10,6 +10,7 @@ Run:
     uv run python examples/product_hype_reel.py
 """
 
+import math
 from pathlib import Path
 
 from quickthumb import (
@@ -23,6 +24,7 @@ from quickthumb import (
     PositionTrack,
     QuickthumbError,
     RadialGradient,
+    ScaleTrack,
     TimingSpec,
     VideoOptions,
     Wipe,
@@ -77,15 +79,24 @@ DISPLAY_SIZE = 250
 BEAT = 60.0 / 128.0
 SCENE_BEATS = (10, 10, 10, 8, 10, 9, 9, 8)
 SCENE_DURATIONS = tuple(beats * BEAT for beats in SCENE_BEATS)
-MOTION_FAST = BEAT * 0.55
-MOTION_STANDARD = BEAT * 0.85
+# A scene is nearly five seconds long. Entrances short enough to finish in the
+# first second leave the rest of it frozen, and eight frozen scenes in a row
+# read as stuttering, so each beat of the choreography is given room to land.
+MOTION_FAST = BEAT * 0.85
+MOTION_STANDARD = BEAT * 1.25
 # Long enough for a number to be read as it moves rather than as a flicker.
-COUNT_DURATION = BEAT * 3
+COUNT_DURATION = BEAT * 4.5
+# One frame at the exporter's default 30fps for animated video.
+FRAME = 1 / 30
+_EPSILON = 1e-6
 # `odometer` reserves one fixed-width slot per digit so a growing number cannot
 # shift sideways mid-count. Pretendard Black sets a far narrower `1` than that
 # slot, so any reading that passes through a 1 is set `plain` instead and the
 # mechanical roll is kept for the one readout whose digits all fill their slot.
 DIGIT_STYLE = "plain"
+# Where the shared copy stack has finished, so a scene-long timeline can begin
+# when the copy has landed without being chained to it.
+COPY_SETTLED = MOTION_FAST * 2 + MOTION_STANDARD
 
 INK = "#080A0E"
 SURFACE = "#161B23"
@@ -183,7 +194,14 @@ def build_hook_scene() -> Canvas:
         position=(CONTENT_X + 6, 1190),
         animation=Fade(duration=MOTION_FAST, trigger="after_previous"),
     )
-    return add_pulse_trace(canvas, y=1370, color=WHITE, height=220)
+    return add_pulse_trace(
+        canvas,
+        y=1370,
+        color=WHITE,
+        height=220,
+        start=COPY_SETTLED + MOTION_FAST,
+        end=SCENE_DURATIONS[0],
+    )
 
 
 def build_problem_scene() -> Canvas:
@@ -285,7 +303,14 @@ def build_live_sync_scene() -> Canvas:
     )
     # The hook put the number first and the trace under it; here the trace
     # arrives first, so the two heart-rate scenes never read as one layout.
-    canvas = add_pulse_trace(canvas, y=900, color=BLUE, height=260)
+    canvas = add_pulse_trace(
+        canvas,
+        y=900,
+        color=BLUE,
+        height=260,
+        start=COPY_SETTLED,
+        end=SCENE_DURATIONS[3],
+    )
     canvas = canvas.counter(
         118,
         142,
@@ -652,8 +677,10 @@ def add_copy(
     )
 
 
-def add_pulse_trace(canvas: Canvas, *, y: int, color: str, height: int) -> Canvas:
-    """Draw a heart-rate trace that arrives left to right, like a live reading."""
+def add_pulse_trace(
+    canvas: Canvas, *, y: int, color: str, height: int, start: float, end: float
+) -> Canvas:
+    """Draw a heart-rate trace that arrives left to right and then keeps reading."""
     amplitudes = (
         0.18, 0.30, 0.52, 1.00, 0.44, 0.24, 0.34, 0.74,
         0.30, 0.17, 0.46, 0.82, 0.38, 0.20, 0.29, 0.62,
@@ -668,15 +695,46 @@ def add_pulse_trace(canvas: Canvas, *, y: int, color: str, height: int) -> Canva
             height=bar_height,
             color=color,
             opacity=1.0 if amplitude > 0.7 else 0.55,
-            # A blanket fade lands the whole trace at once and reads as a static
-            # graphic; a per-bar delay makes it sweep like an instrument.
-            animation=Fade(
-                duration=MOTION_FAST,
-                delay=index * 0.025,
-                trigger="with_previous" if index else "after_previous",
-            ),
+            animation=_live_bar(end - start, start=start, order=index),
         )
     return canvas
+
+
+def _live_bar(window: float, *, start: float, order: int) -> AnimationSpec:
+    """Grow one trace bar in on its own beat, then keep it reading for the scene.
+
+    Arrival and life are one curve rather than an entrance effect plus a second
+    animation: a unit in animated export carries either legacy effects or one
+    canonical timeline, so a layer that needs both has to say both here. The
+    wave only ever shortens a bar, because swinging above its drawn height would
+    push the tallest ones into the label above them.
+    """
+    # A stagger shorter than one frame collapses: two bars land on the same
+    # frame and the sweep pops in clumps instead of travelling.
+    arrive = order * FRAME * 2
+    settled = arrive + MOTION_FAST
+    low, high = 0.58, 1.0
+    middle, swing = (high + low) / 2, (high - low) / 2
+    cycles, steps = 5, 40
+    phase = order / 5.0
+    keyframes = [KeyframeSpec(time=0.0, value=0.0)]
+    if arrive > 0:
+        keyframes.append(KeyframeSpec(time=arrive, value=0.0))
+    keyframes.append(KeyframeSpec(time=settled, value=1.0))
+    for step in range(1, steps + 1):
+        time = settled + (window - settled) * step / steps
+        progress = (time - settled) / max(window - settled, _EPSILON)
+        keyframes.append(
+            KeyframeSpec(
+                time=time,
+                value=middle + swing * math.sin(2 * math.pi * (cycles * progress + phase)),
+            )
+        )
+    return AnimationSpec.timeline(
+        ScaleTrack(keyframes=keyframes),
+        timing=TimingSpec(start=start, duration=window),
+        easing="linear",
+    )
 
 
 def add_day_timeline(canvas: Canvas, *, y: int, lit_days: int, duration: float) -> Canvas:
@@ -720,7 +778,7 @@ def add_day_timeline(canvas: Canvas, *, y: int, lit_days: int, duration: float) 
             height=26 if lit else 16,
             color=BLUE if lit else RULE,
             align=("center", "middle"),
-            animation=Fade(duration=MOTION_FAST, delay=index * 0.04, trigger="with_previous"),
+            animation=Fade(duration=MOTION_FAST, delay=index * FRAME * 2, trigger="with_previous"),
         )
         # Numerals sit centred on their own dot, so the row can never drift out
         # of alignment the way a single hand-spaced caption string does.
@@ -736,9 +794,9 @@ def add_day_timeline(canvas: Canvas, *, y: int, lit_days: int, duration: float) 
     # ends at day three and time keeps going, which is the scene's whole point.
     return canvas.shape(
         shape="rectangle",
-        position=(CONTENT_X, y - 22),
-        width=4,
-        height=48,
+        position=(CONTENT_X, y - 32),
+        width=8,
+        height=70,
         color=WHITE,
         animation=AnimationSpec.timeline(
             PositionTrack(
@@ -807,7 +865,7 @@ def add_streak_grid(canvas: Canvas, *, start_y: int) -> Canvas:
             opacity=0.55 + index * 0.02,
             animation=Fade(
                 duration=MOTION_FAST,
-                delay=index * 0.03,
+                delay=index * FRAME * 1.6,
                 trigger="with_previous" if index else "after_previous",
             ),
         )
