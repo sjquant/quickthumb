@@ -94,8 +94,9 @@ BLUE_SOFT = "#5EA8FF"
 WHITE = "#F5F5F7"
 MUTED = "#9A9BA1"
 RULE = "#30343C"
-# The value a later scene supersedes: still legible, visibly no longer current.
-SPENT = "#5B6068"
+# The value a later row supersedes: a step below MUTED so it reads as no longer
+# current, but still clear of the contrast floor against the panel it sits on.
+SPENT = "#7C838D"
 # Rules and dots can sit at RULE, but text at that value falls under the 2.0
 # contrast floor, so unreached weeks and days are labelled one step brighter.
 DIM = "#6E747D"

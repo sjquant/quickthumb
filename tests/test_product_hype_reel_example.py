@@ -43,7 +43,10 @@ def test_product_hype_reel_meets_layout_and_pacing_contract():
     )
     assert all(delay <= BEAT for delay in first_animation_delays)
     assert transition_effects == ["cut", "fade", "wipe", "cut", "wipe", "cut", "fade", "fade"]
-    assert [(finding.code, finding.message) for finding in findings] == []
+    assert [
+        (finding.slide_index, finding.layer_index, finding.code, finding.message)
+        for finding in findings
+    ] == []
 
 
 def test_product_hype_reel_animates_the_readings_it_is_about():
