@@ -655,7 +655,9 @@ def worst_tile_contrast(
     # only a glyph's antialiased edge reports that fringe as the text colour
     # and fails large, perfectly legible type on whichever rasteriser happens
     # to place a glyph edge there.
-    layer_alpha = max(foreground_region.getchannel("A").getextrema()[1], 1)
+    # getchannel is single-band by definition, which getextrema's type cannot say.
+    alpha_extrema = cast(tuple[int, int], foreground_region.getchannel("A").getextrema())
+    layer_alpha = max(alpha_extrema[1], 1)
 
     worst: TiledContrastMeasurement | None = None
     for tile in _tiled_regions(region, tile_size):
