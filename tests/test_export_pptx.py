@@ -5,7 +5,17 @@ from pathlib import Path
 
 import pytest
 from PIL import Image
-from quickthumb import Canvas, Fade, LinearGradient, TextPart, Wipe
+from quickthumb import (
+    AnimationSpec,
+    Canvas,
+    Fade,
+    KeyframeSpec,
+    LinearGradient,
+    PositionTrack,
+    TextPart,
+    TimingSpec,
+    Wipe,
+)
 from quickthumb.errors import RenderingError
 from quickthumb.models import Background, Glow, RadialGradient, Shadow, Stroke
 
@@ -585,6 +595,64 @@ class TestPptxElementAnimations:
 
         # then
         assert [e.get("filter") for e in timing.iter(qn("p:animEffect"))] == ["wipe(right)"]
+
+    def test_should_animate_a_canonical_spec_with_the_effect_powerpoint_has(self):
+        """Given canonical motion, when exported, then it plays as its nearest preset."""
+        # Given: two layers whose canonical presets each have a PowerPoint equivalent
+        canvas = (
+            Canvas(400, 300)
+            .text(
+                "Headline",
+                size=40,
+                position=(10, 10),
+                animation=AnimationSpec.rise(from_="bottom", duration=0.4),
+            )
+            .shape(
+                shape="rectangle",
+                position=(10, 100),
+                width=200,
+                height=20,
+                color="#147CE5",
+                animation=AnimationSpec.bar_grow(duration=0.4, trigger="after_previous"),
+            )
+        )
+
+        # When: the slide's animation timing is read back
+        timing = timing_of(canvas)
+
+        # Then: the rise reveals upward and the growing bar reveals left to right
+        assert [e.get("filter") for e in timing.iter(qn("p:animEffect"))] == [
+            "wipe(up)",
+            "wipe(right)",
+        ]
+
+    def test_should_export_canonical_motion_powerpoint_cannot_express_as_a_still_layer(self):
+        """Given a keyframed timeline, when exported, then the layer ships unanimated."""
+        # Given: a playhead driven by a position track, which has no PPTX preset
+        canvas = Canvas(400, 300).shape(
+            shape="rectangle",
+            position=(10, 100),
+            width=4,
+            height=40,
+            color="#FFFFFF",
+            animation=AnimationSpec.timeline(
+                PositionTrack(
+                    keyframes=[
+                        KeyframeSpec(time=0.0, value=(0.0, 0.0)),
+                        KeyframeSpec(time=2.0, value=(300.0, 0.0)),
+                    ]
+                ),
+                timing=TimingSpec(start=0.0, duration=2.0),
+                easing="linear",
+            ),
+        )
+
+        # When: the deck is exported
+        document = open_pptx(canvas)
+
+        # Then: the shape is present and the slide carries no timing tree at all
+        assert len(document.slides[0].shapes) == 1
+        assert document.slides[0]._element.find(qn("p:timing")) is None
 
     def test_should_play_a_list_of_animations_on_one_layer_in_order(self):
         """A layer can carry several animations that target the same shape in order"""
