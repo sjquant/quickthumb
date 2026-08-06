@@ -31,7 +31,7 @@ def test_product_hype_reel_meets_layout_and_pacing_contract():
     transition_effects = [slide["transition"]["effect"] for slide in slides]
     findings = deck.diagnose()
 
-    # then: every scene has reading room and no structural layout issue remains
+    # then: every scene has reading room and nothing is left for a viewer to trip on
     assert len(deck) == 8
     assert scene_durations == list(SCENE_DURATIONS)
     assert sum(scene_durations) == 34.6875
@@ -43,9 +43,62 @@ def test_product_hype_reel_meets_layout_and_pacing_contract():
     )
     assert all(delay <= BEAT for delay in first_animation_delays)
     assert transition_effects == ["cut", "fade", "wipe", "cut", "wipe", "cut", "fade", "fade"]
-    assert all(
-        finding.code == "low-contrast" and finding.severity == "warning" for finding in findings
-    )
+    assert [(finding.code, finding.message) for finding in findings] == []
+
+
+def test_product_hype_reel_animates_the_readings_it_is_about():
+    """Every scene that leads on a number counts to it rather than printing it."""
+    # given: the public example composition
+    from examples.product_hype_reel import build_deck
+
+    deck = build_deck()
+
+    # when: the animated numeric readouts are collected per scene
+    slides = json.loads(deck.to_json())["slides"]
+    counters = {
+        index: [layer["value"] for layer in slide["layers"] if layer.get("value")]
+        for index, slide in enumerate(slides)
+    }
+
+    # then: the five scenes built around a reading each animate exactly one
+    assert {index for index, values in counters.items() if values} == {0, 2, 3, 4, 5}
+    assert all(len(values) == 1 for values in counters.values() if values)
+
+    # then: each one actually travels, and the adapting plan is the one that falls
+    travelled = {
+        index: (values[0]["from"], values[0]["to"]) for index, values in counters.items() if values
+    }
+    assert all(start != end for start, end in travelled.values())
+    assert [index for index, (start, end) in travelled.items() if end < start] == [4]
+
+
+def test_product_hype_reel_draws_its_comparisons_to_one_scale():
+    """A length on screen means the same thing wherever the film draws it."""
+    # given: the scene that claims a shorter session and the scene that claims growth
+    from examples.product_hype_reel import build_deck
+
+    slides = json.loads(build_deck().to_json())["slides"]
+
+    # when: the bars each scene compares are read back off the composition
+    plan_bars = [
+        layer["width"]
+        for layer in slides[4]["layers"]
+        if layer["type"] == "shape" and layer["height"] == 14
+    ]
+    week_bars = [
+        layer["height"]
+        for layer in slides[6]["layers"]
+        if layer["type"] == "shape" and layer["width"] == 66
+    ]
+
+    # then: the planned and adjusted sessions are drawn at the same pixels per minute
+    planned, today = plan_bars
+    assert planned / 32 == today / 24
+
+    # then: the eight-week chart rises every single week, so the trend is not decoration
+    assert len(week_bars) == 8
+    assert week_bars == sorted(week_bars)
+    assert len(set(week_bars)) == 8
 
 
 def test_product_hype_reel_exports_each_supported_file_with_valid_audio_options(
