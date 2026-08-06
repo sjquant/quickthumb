@@ -303,6 +303,17 @@ class TextEngine:
 
         number_x = left + prefix_width
         slot_x = number_x
+
+        def centred(char_layer: TextLayer, x: int, width: int) -> int:
+            """Place a digit in the middle of its slot, the way a wheel carries it.
+
+            Slots are as wide as the widest digit so the block cannot shift as
+            the number grows. Setting a narrow glyph against the left edge of
+            one puts all of that reserve on its right, which reads as a gap in
+            the middle of the number rather than as even digit spacing.
+            """
+            return x + max(0, (width - self.measure_text_size(char_layer)[0]) // 2)
+
         for old_char, new_char, slot_width in zip(old_slots, new_slots, slot_widths, strict=True):
             old_layer = static.model_copy(update={"content": old_char})
             new_layer = static.model_copy(update={"content": new_char})
@@ -310,7 +321,11 @@ class TextEngine:
                 self.render_text_layer(
                     image,
                     new_layer.model_copy(
-                        update={"position": self._position_on_baseline(new_layer, slot_x, baseline)}
+                        update={
+                            "position": self._position_on_baseline(
+                                new_layer, centred(new_layer, slot_x, slot_width), baseline
+                            )
+                        }
                     ),
                 )
                 slot_x += slot_width + letter_spacing
@@ -332,7 +347,9 @@ class TextEngine:
                     rolling_layer.model_copy(
                         update={
                             "position": self._position_on_baseline(
-                                rolling_layer, slot_x, baseline + offset
+                                rolling_layer,
+                                centred(rolling_layer, slot_x, slot_width),
+                                baseline + offset,
                             )
                         }
                     ),
