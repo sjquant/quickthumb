@@ -86,8 +86,10 @@ MOTION_FAST = BEAT * 0.85
 MOTION_STANDARD = BEAT * 1.25
 # Long enough for a number to be read as it moves rather than as a flicker.
 COUNT_DURATION = BEAT * 4.5
-# One frame at the exporter's default 30fps for animated video.
-FRAME = 1 / 30
+# Stated rather than inherited: the stagger below is reasoned in frames, so the
+# rate those frames are counted at has to be the rate the film is encoded at.
+VIDEO_FPS = 30
+FRAME = 1 / VIDEO_FPS
 # `odometer` reserves one fixed-width slot per digit so a growing number cannot
 # shift sideways mid-count. Pretendard Black sets a far narrower `1` than that
 # slot, so any reading that passes through a 1 is set `plain` instead and the
@@ -962,7 +964,7 @@ def export_reel(deck: Deck) -> None:
     soundtrack = AudioTrack(path=str(SOUNDTRACK), volume=0.13, loop=True)
     for output in (OUT_MP4, OUT_WEBM):
         try:
-            deck.render(str(output), animation=VideoOptions(soundtrack=soundtrack))
+            deck.render(str(output), animation=VideoOptions(fps=VIDEO_FPS, soundtrack=soundtrack))
         except QuickthumbError as error:
             print(f"⚠ Skipped {output.suffix.removeprefix('.').upper()} ({error})")
 
