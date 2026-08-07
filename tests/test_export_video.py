@@ -26,6 +26,9 @@ from quickthumb import (
     Dissolve,
     Fade,
     GifOptions,
+    KeyframeSpec,
+    ScaleTrack,
+    TimingSpec,
     VideoOptions,
     Wheel,
     Wipe,
@@ -1350,6 +1353,59 @@ deck.render_mp4(__import__("sys").argv[1], default_duration=0.01, fps=10)
 
 class TestVideoErrors:
     """Test suite for animated-export validation and error paths"""
+
+    def test_should_reject_a_layer_that_asks_for_legacy_and_canonical_motion(self):
+        """Given both kinds of motion on one layer, when exported, then the export says so."""
+        # Given: a bar told to fade in and then run a keyframed timeline
+        canvas = Canvas(200, 200).shape(
+            shape="rectangle",
+            position=(20, 20),
+            width=40,
+            height=120,
+            color="#FFFFFF",
+            animation=[
+                Fade(duration=0.2),
+                AnimationSpec.timeline(
+                    ScaleTrack(
+                        keyframes=[
+                            KeyframeSpec(time=0.0, value=1.0),
+                            KeyframeSpec(time=1.0, value=0.5),
+                        ]
+                    ),
+                    timing=TimingSpec(start=0.0, duration=1.0),
+                ),
+            ],
+        )
+
+        # When / Then: the export refuses instead of dropping the timeline silently
+        with pytest.raises(RenderingError, match="one AnimationSpec timeline"):
+            canvas.to_gif(fps=5)
+
+    def test_should_compose_several_canonical_specs_on_one_layer(self):
+        """Given two canonical specs on one layer, when exported, then both play in order."""
+        # Given: a layer that fades in and then rises, as two authored specs
+        canvas = (
+            Canvas(200, 200)
+            .background(color="#000000")
+            .shape(
+                shape="rectangle",
+                position=(20, 20),
+                width=40,
+                height=120,
+                color="#FFFFFF",
+                animation=[
+                    AnimationSpec.fade(duration=0.4),
+                    AnimationSpec.rise(from_="bottom", duration=0.4, trigger="after_previous"),
+                ],
+            )
+        )
+
+        # When: the animation is sampled across the span both specs occupy
+        frames = [canvas.render_frame(time).tobytes() for time in (0.0, 0.5, 1.0)]
+
+        # Then: neither spec is dropped, and the export runs for both of them
+        assert len(set(frames)) == 3
+        assert canvas.to_gif(fps=5)
 
     def test_should_reject_missing_slide_audio_before_resolving_its_duration(
         self, monkeypatch, tmp_path

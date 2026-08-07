@@ -1072,23 +1072,27 @@ def _build_units(
             )
         effects = [effect for effect in raw_effects if not isinstance(effect, AnimationSpec)]
         image, pos = _render_unit_image(canvas, layers)
-        canonical = animation if isinstance(animation, AnimationSpec) else None
+        canonical = _canonical_animation(animation, effects)
         target_timelines: tuple[Timeline, ...] = ()
         target_images: tuple[tuple[Image.Image, tuple[int, int]], ...] = ()
         if canonical is not None:
             timeline = compile_timeline(canonical)
             target_count = 1
-            stagger = canonical.stagger
+            # Composed specs are one timeline over one unit image, so the first
+            # stagger declared is the one that can split it into targets.
+            specs = canonical if isinstance(canonical, list) else [canonical]
+            stagger = next((item.stagger for item in specs if item.stagger), None)
             content = getattr(layers[0], "content", None)
             if stagger is not None:
                 if stagger.target == "characters" and isinstance(content, str):
                     target_count = len(content)
-                elif stagger.target in {"words", "lines"} and isinstance(layers[0], TextLayer):
-                    target_count = len(
-                        canvas._text.resolve_animation_targets(layers[0], stagger.target)
-                    )
+                elif stagger.target == "words" or stagger.target == "lines":
+                    if isinstance(layers[0], TextLayer):
+                        target_count = len(
+                            canvas._text.resolve_animation_targets(layers[0], stagger.target)
+                        )
                 elif stagger.target == "children":
-                    target_count = group_target_counts.get(id(canonical), 1)
+                    target_count = group_target_counts.get(id(specs[0]), 1)
             target_timelines = resolve_staggered_timelines(timeline, target_count)
             if image is not None and target_count > 1:
                 bands = split_into_bands(image, target_count)
@@ -1127,6 +1131,39 @@ def _build_units(
             )
         )
     return units
+
+
+def _canonical_animation(
+    animation: object, legacy: list
+) -> AnimationSpec | list[AnimationSpec] | None:
+    """Return the canonical motion driving a unit, refusing what it cannot render.
+
+    Several canonical specs compose into one timeline in authored order, the
+    same way every other consumer reads them. A visualization preset animates a
+    layer's components, so it composes with a legacy effect moving the layer
+    itself. What a unit cannot do is play legacy effects and a layer-level
+    timeline at once, and saying so is the point: the alternative is a render
+    that quietly drops half of what the composition asked for and disagrees
+    with the same canvas rendered as a still.
+    """
+    if isinstance(animation, AnimationSpec):
+        return animation
+    if not isinstance(animation, list):
+        return None
+    specs = [
+        item
+        for item in animation
+        if isinstance(item, AnimationSpec)
+        and not (item.effect is not None and item.effect.type in _VISUALIZATION_PRESETS)
+    ]
+    if not specs:
+        return None
+    if legacy:
+        raise RenderingError(
+            "Animated export cannot play a legacy effect and a layer-level AnimationSpec "
+            "on the same layer. Express the whole animation as one AnimationSpec timeline."
+        )
+    return specs[0] if len(specs) == 1 else specs
 
 
 def _canonical_group_target_counts(canvas: Canvas) -> dict[int, int]:
