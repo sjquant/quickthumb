@@ -1,6 +1,7 @@
 """Behavioral specifications for deterministic animated numeric text."""
 
 from io import BytesIO
+from pathlib import Path
 
 import pytest
 from PIL import Image
@@ -121,6 +122,64 @@ def test_large_odometer_range_reaches_a_fixed_width_target():
     assert value.text_at(0.0) == "001"
     assert value.text_at(1.4) == "100"
     assert canvas.render_frame(0.7).tobytes() != canvas.render_frame(1.4).tobytes()
+
+
+def _glyph_spans(canvas, time: float) -> list[tuple[int, int]]:
+    """Return the horizontal ink span of each rendered glyph, left to right."""
+    frame = canvas.render_frame(time).convert("L")
+    lit = [
+        any(frame.getpixel((x, y)) > 60 for y in range(frame.height)) for x in range(frame.width)
+    ]
+    spans, start = [], None
+    for index, column in enumerate(lit):
+        if column and start is None:
+            start = index
+        elif not column and start is not None:
+            spans.append((start, index))
+            start = None
+    return spans
+
+
+# A face whose `1` is far narrower than its widest digit, which is where a slot's
+# reserve is wide enough to be seen. The bundled test fonts set a near-tabular 1.
+DISPLAY_FONT = str(Path(__file__).parent.parent / "assets" / "fonts" / "Pretendard-Black.woff2")
+
+
+def _odometer(settled: int, started: int):
+    return (
+        Canvas(520, 200)
+        .background(color="#000000")
+        .counter(
+            started,
+            settled,
+            0.5,
+            position=(40, 40),
+            size=110,
+            color="#FFFFFF",
+            font=DISPLAY_FONT,
+            style="odometer",
+        )
+    )
+
+
+def test_odometer_carries_every_digit_on_the_same_slot_centre():
+    """Given digits of different widths, when settled, then each sits mid-slot."""
+    # Given: two readings that differ only in the width of their middle glyph
+    narrow = _odometer(818, 800)
+    wide = _odometer(888, 800)
+
+    # When: the middle glyph of each is measured
+    narrow_span = _glyph_spans(narrow, 3.0)[1]
+    wide_span = _glyph_spans(wide, 3.0)[1]
+
+    # Then: the narrow glyph is carried near the middle of its slot rather than
+    # against one edge of it, which is where the whole reserve would otherwise go
+    narrow_centre = sum(narrow_span) / 2
+    wide_centre = sum(wide_span) / 2
+    assert narrow_span[1] - narrow_span[0] < wide_span[1] - wide_span[0]
+    # Left-aligning the narrow glyph puts the whole reserve on one side and moves
+    # its centre roughly twice this far off its neighbour's at this type size.
+    assert abs(narrow_centre - wide_centre) <= 8
 
 
 def test_odometer_keeps_suffix_static_while_numeric_window_rolls():
