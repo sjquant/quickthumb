@@ -23,9 +23,12 @@ from quickthumb import (
     Dissolve,
     Fade,
     FitMode,
+    KeyframeSpec,
     LinearGradient,
     RadialGradient,
+    ScaleTrack,
     TextPart,
+    TimingSpec,
     Wheel,
     Wipe,
 )
@@ -628,6 +631,83 @@ class TestHtmlFonts:
 
 class TestHtmlAnimations:
     """Test suite for per-layer animation export"""
+
+    def test_should_play_canonical_motion_without_waiting_for_a_click(self):
+        """Given canonical motion, when exported, then the slide plays it on its own."""
+        # Given: a slide whose copy is legacy and whose accent is canonical
+        canvas = (
+            Canvas(400, 300)
+            .background(color="#111111")
+            .text(
+                "Copy",
+                size=40,
+                position=(10, 10),
+                animation=Fade(duration=0.4, trigger="after_previous"),
+            )
+            .shape(
+                shape="rectangle",
+                position=(10, 100),
+                width=40,
+                height=40,
+                color="#FFFFFF",
+                animation=AnimationSpec.fade(duration=0.4, trigger="after_previous"),
+            )
+        )
+
+        # When: the slide's timeline is read back
+        nodes = timelines(canvas.to_html())[0]
+
+        # Then: the canonical layer keeps the trigger it declared, so the chain
+        # runs on; a node with no trigger is neither in the group nor in the
+        # chain and stalls the slide into a click step
+        assert [node["tr"] for node in nodes] == ["after_previous", "after_previous"]
+
+    def test_should_measure_an_absolute_start_from_the_slide_not_its_group(self):
+        """Given an absolute start, when exported, then it lands at the time it named."""
+
+        # Given: two chained half-second entrances, then motion asking for 2.0s
+        def at(start: float) -> AnimationSpec:
+            return AnimationSpec.timeline(
+                ScaleTrack(
+                    keyframes=[
+                        KeyframeSpec(time=0.0, value=0.0),
+                        KeyframeSpec(time=1.0, value=1.0),
+                    ]
+                ),
+                timing=TimingSpec(start=start, duration=1.0),
+                easing="linear",
+            )
+
+        canvas = (
+            Canvas(400, 300)
+            .background(color="#111111")
+            .text("A", size=40, position=(10, 10), animation=Fade(duration=0.5))
+            .text("B", size=40, position=(10, 60), animation=Fade(duration=0.5))
+            .shape(
+                shape="rectangle",
+                position=(10, 140),
+                width=40,
+                height=40,
+                color="#FFFFFF",
+                animation=at(2.0),
+            )
+            .shape(
+                shape="rectangle",
+                position=(60, 140),
+                width=40,
+                height=40,
+                color="#FFFFFF",
+                animation=at(0.3),
+            )
+        )
+
+        # When: the emitted delays are read
+        delays = [node["delay"] for node in timelines(canvas.to_html())[0]]
+
+        # Then: the runtime counts a delay from the group a node joins, so the
+        # 2.0s mark is 1.5s into the group that opens at 0.5s, and a moment that
+        # has already passed plays as soon as it can
+        assert delays == [0.0, 0.0, 1.5, 0.0]
 
     def test_should_emit_keyframes_and_timeline_for_animation(self):
         """An animated layer registers a keyframe and a timeline node"""
