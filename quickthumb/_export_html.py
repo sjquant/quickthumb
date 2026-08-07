@@ -475,7 +475,7 @@ class HtmlExporter:
             height=canvas.height,
             body="\n".join(self._body),
             keyframes=list(self._keyframes),
-            timeline=list(self._timeline),
+            timeline=_rebase_absolute_delays(self._timeline),
         )
 
     def _make_id(self) -> str:
@@ -565,8 +565,19 @@ class HtmlExporter:
                     "k": kf,
                     "d": duration,
                     "delay": event.start + event.delay,
-                    "tr": None,
+                    # A canonical event already carries its absolute place on the
+                    # slide in ``delay``, so it runs alongside the rest rather
+                    # than queueing behind it. Emitting no trigger at all stalls
+                    # the runtime: it neither joins the open group nor continues
+                    # the chain, so every canonical layer became a click of its
+                    # own and a scene took as many clicks as it had animations.
+                    "tr": event.trigger
+                    or ("after_previous" if not self._timeline else "with_previous"),
                     "a": "entrance",
+                    # An absolute start names a place on the slide clock, but the
+                    # runtime counts a delay from the group a node joins, so the
+                    # two have to be reconciled once the groups are known.
+                    "abs": event.trigger is None and event.start > 0,
                 }
             )
         self._timeline.extend(nodes)
@@ -1144,6 +1155,34 @@ def _document(
             "state_id": state_id,
         },
     )
+
+
+def _rebase_absolute_delays(nodes: list[dict]) -> list[dict]:
+    """Measure slide-absolute delays from the group each node actually starts in.
+
+    The runtime plays a slide as a chain of groups and counts a node's delay
+    from the moment its group starts. An animation that named an absolute place
+    on the slide clock would otherwise land that far *after* its group instead
+    of at the time it asked for. Walking the chain gives each group's own start,
+    which is what the absolute figure has to be measured against; a node whose
+    moment has already passed by then simply plays as soon as it can.
+    """
+    resolved = [dict(node) for node in nodes]
+    cursor = 0.0
+    index = 0
+    while index < len(resolved):
+        group = [resolved[index]]
+        index += 1
+        while index < len(resolved) and resolved[index]["tr"] == "with_previous":
+            group.append(resolved[index])
+            index += 1
+        for node in group:
+            if node.pop("abs", False):
+                node["delay"] = max(0.0, node["delay"] - cursor)
+        cursor += max((node["delay"] + node["d"] for node in group), default=0.0)
+    for node in resolved:
+        node.pop("abs", None)
+    return resolved
 
 
 def _render_stage_template(template: str, stage: Stage, index: int, deck: bool) -> str:

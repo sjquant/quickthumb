@@ -42,6 +42,9 @@ repos:
         args:
           - --config
           - typos.toml
+        # Exported slideshows are machine-written, down to content-derived ids
+        # whose hex happens to spell things. There is no prose in them to check.
+        exclude: ^examples/.*\.html$
 
   - repo: https://github.com/DavidAnson/markdownlint-cli2
     rev: v0.19.1

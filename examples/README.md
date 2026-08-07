@@ -177,12 +177,19 @@ Output: `product_hype_reel.gif`, `product_hype_reel.mp4`, `product_hype_reel.web
 
 Builds a restrained vertical (1080x1920) 8-scene product film — hook → pain point → solution → three features → proof → CTA — and exports it as a 34.69-second narration-led animation:
 
-- Eight distinct visual ideas instead of one repeated card template: rhythm trace, broken timeline, readiness field, live pulse, adaptive plan, streak grid, measured outcome, and one clear action
-- English copy set in locally bundled Pretendard, with every supporting label at least 48px for phone-scale legibility
+- One visual idea per scene rather than one card template repeated eight times: a live trace, a timeline whose playhead runs past the days it lit, three signals converging into one score, a full-width instrument, a plan that shortens as you watch, an accumulating streak field, an eight-week distance chart, and one clear action
+- Every claim the film makes about a number is drawn to scale: the adjusted session and the planned one share one pixels-per-minute rule, and the proof chart rises in all eight columns. The outcome scene charts eight weeks and labels the figures as illustrative rather than quoting an invented user
+- `Canvas.counter(...)` for each scene's headline reading, in the digit style that suits it — `odometer` where every digit fills its slot, `plain` where the typeface's narrow `1` would open a gap
+- `AnimationSpec` motion tied to meaning: line-staggered headlines, `bar_grow` on horizontal comparisons, a `PositionTrack` playhead crossing the timeline at the scene's own rate, and per-element delays that make traces and fields arrive rather than appear
+- Motion that fills its scene instead of finishing in the first second and holding a still frame for the rest, with the two heart-rate scenes reading continuously because they are labelled `LIVE`, and every stagger kept above one frame at the exporter's 30fps
+- Every scene's first animation triggers on arrival rather than on the default click, so the HTML slideshow plays a scene when it reaches it
+- A `RadialGradient` stage light per act instead of flat black, warming from steel to product blue as the film turns from problem to answer
+- English copy set in locally bundled Pretendard, with every supporting label at least 48px for phone-scale legibility, separated by weight, colour and tracking rather than by size alone
 - One semantic blue accent on neutral stages, without glow, elevated cards, progress chrome, or per-scene rainbow colors
+- A content column derived from the Reels action-rail position, so no text block is measured under the platform's own UI
 - Per-scene durations of 8–10 beats derived from the actual 3.41–4.29-second voiceovers, preserving every narration ending while reducing the original timeline
 - Semantic `Cut`, `Fade`, and `Wipe` transitions that support the story instead of adding arbitrary motion variety
-- `deck.diagnose()` before export, validating contrast, overflow, overlap, canvas bounds, and UI-safe placement before encoding
+- `deck.diagnose()` before export, returning nothing to report: contrast, overflow, overlap, alignment, canvas bounds, and Reels safe-area placement all clear before encoding
 - The file-rendering animation API with GIF-specific `GifOptions`, plus the video-specific `VideoOptions` and bytes-returning `.to_mp4(...)` / `.to_webm(...)` variants
 - Eight bundled voiceovers mixed above a quieter looping soundtrack via `VideoOptions(soundtrack=AudioTrack(...))`
 - Graceful per-format fallback when an optional renderer is unavailable; one failed export does not suppress the remaining formats

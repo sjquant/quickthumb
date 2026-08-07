@@ -14,7 +14,7 @@ from __future__ import annotations
 import contextlib
 import math
 from io import BytesIO
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Literal, cast
 
 from PIL import ImageFont
 
@@ -47,6 +47,7 @@ from quickthumb.models import (
     Blinds,
     ChartLayer,
     Checkerboard,
+    Fade,
     Glow,
     LinearGradient,
     OutlineLayer,
@@ -56,8 +57,12 @@ from quickthumb.models import (
     ShapeLayer,
     Stroke,
     TextLayer,
+    TimingSpec,
     Wheel,
     Wipe,
+)
+from quickthumb.models import (
+    AnimationSpec as MotionSpec,
 )
 from quickthumb.models import Box as BoxAnimation  # avoid clash with _export_base.Box
 from quickthumb.motion import match_scene_layers
@@ -95,11 +100,50 @@ _ANIM_PRESET_IDS = {
     "box": 8,
 }
 
-AnimationSpec = Animation | list[Animation]
+LayerAnimation = Animation | MotionSpec | list[Animation | MotionSpec]
+
+# A canonical spec entering from the bottom is revealed by a wipe running up.
+_CANONICAL_WIPE_EDGES: dict[str, Literal["up", "down", "left", "right"]] = {
+    "bottom": "up",
+    "top": "down",
+    "left": "right",
+    "right": "left",
+}
 
 
 def _emu(px: float) -> int:
     return round(px * EMU_PER_PX)
+
+
+def _lower_canonical(spec: MotionSpec) -> Animation | None:
+    """Return the legacy effect a canonical animation maps onto in PowerPoint.
+
+    PowerPoint animates a shape with one preset effect, so a canonical spec is
+    lowered to the closest one it has. A keyframed timeline and the continuous
+    or per-glyph presets have no such equivalent; those return None and the
+    layer is simply drawn in its settled state, which is what every other
+    unanimated PPTX layer does.
+    """
+    effect = spec.effect
+    if effect is None:
+        return None
+    timing = spec.timing or TimingSpec()
+    shared: dict = {"duration": timing.duration, "easing": effect.easing or "ease"}
+    if timing.start is not None:
+        shared["start"] = timing.start
+    else:
+        shared["delay"] = timing.delay
+        shared["trigger"] = timing.trigger or "on_click"
+    if effect.type == "fade":
+        return Fade(**shared)
+    if effect.type in {"rise", "fall", "slide"}:
+        edge = _CANONICAL_WIPE_EDGES.get(effect.from_ or "bottom", "up")
+        return Wipe(direction=edge, **shared)
+    if effect.type in {"bar_grow", "line_draw", "area_reveal"}:
+        return Wipe(direction="right", **shared)
+    if effect.type in {"zoom", "pop"}:
+        return BoxAnimation(**shared)
+    return None
 
 
 def _require_pptx():
@@ -175,7 +219,7 @@ class PptxExporter:
                 self._validate_slide_dimensions()
             self._slide = presentation.slides.add_slide(presentation.slide_layouts[6])
             # (animation-or-list, [shape_id, ...]) records collected per layer.
-            self._anim_records: list[tuple[AnimationSpec, list[int]]] = []
+            self._anim_records: list[tuple[LayerAnimation, list[int]]] = []
 
             prefix, rest = split_backdrop_prefix(flatten_layers(canvas))
             if prefix:
@@ -238,7 +282,7 @@ class PptxExporter:
         if animation is None:
             self._emit_layer(layer)
         else:
-            animation = cast(AnimationSpec, animation)
+            animation = cast(LayerAnimation, animation)
             self._emit_layer(layer)
         new_ids = [
             self._slide.shapes[index].shape_id for index in range(start, len(self._slide.shapes))
@@ -280,7 +324,7 @@ class PptxExporter:
         set so the group animates as one effect. Each record's animation (a single
         effect or a list) then expands into one entry per effect.
         """
-        merged: list[tuple[AnimationSpec, list[int]]] = []
+        merged: list[tuple[LayerAnimation, list[int]]] = []
         for animation, ids in self._anim_records:
             if merged and merged[-1][0] is animation:
                 merged[-1][1].extend(ids)
@@ -291,7 +335,9 @@ class PptxExporter:
         for animation, ids in merged:
             anims = animation if isinstance(animation, list) else [animation]
             for anim in anims:
-                entries.append((anim, ids))
+                lowered = _lower_canonical(anim) if isinstance(anim, MotionSpec) else anim
+                if lowered is not None:
+                    entries.append((lowered, ids))
         return entries
 
     def _emit_layer(self, layer: RenderableLayer):

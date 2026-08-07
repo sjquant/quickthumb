@@ -76,6 +76,15 @@ class AnimatedTextValue(quickthumbModel):
         """Format the sampled value without locale-dependent behavior."""
         return self.format_value(self.value_at(time))
 
+    def settled_text(self) -> str:
+        """Format the value the count lands on.
+
+        A still has no timestamp, and the state a composition settles into is
+        what every other animation renders there, so a counter reads as the
+        number it finished on rather than the one it started from.
+        """
+        return self.text_at(self.delay + self.duration)
+
     def format_value(self, value: float) -> str:
         """Format a numeric value using this animation's stable text contract."""
         return f"{self.prefix}{self.number_text(value)}{self.suffix}"

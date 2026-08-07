@@ -650,6 +650,15 @@ def worst_tile_contrast(
         (region.x, region.y, region.right, region.bottom)
     )
 
+    # How opaque the text is drawn is a property of the treatment, not of a
+    # 32px window onto it. Measured per tile, a window that happens to catch
+    # only a glyph's antialiased edge reports that fringe as the text colour
+    # and fails large, perfectly legible type on whichever rasteriser happens
+    # to place a glyph edge there.
+    # getchannel is single-band by definition, which getextrema's type cannot say.
+    alpha_extrema = cast(tuple[int, int], foreground_region.getchannel("A").getextrema())
+    layer_alpha = max(alpha_extrema[1], 1)
+
     worst: TiledContrastMeasurement | None = None
     for tile in _tiled_regions(region, tile_size):
         local_tile = BBox(tile.x - region.x, tile.y - region.y, tile.width, tile.height)
@@ -665,6 +674,7 @@ def worst_tile_contrast(
             local_tile,
             tile=tile,
             tile_count=tile_count,
+            layer_alpha=layer_alpha,
         )
         if measurement is not None and (worst is None or measurement.contrast < worst.contrast):
             worst = measurement
@@ -678,6 +688,7 @@ def _tile_contrast(
     *,
     tile: BBox,
     tile_count: int,
+    layer_alpha: int,
 ) -> TiledContrastMeasurement | None:
     background_crop = background_region.crop((region.x, region.y, region.right, region.bottom))
     foreground_crop = foreground_region.crop((region.x, region.y, region.right, region.bottom))
@@ -685,12 +696,7 @@ def _tile_contrast(
     foreground_pixels = foreground_crop.load()
     assert background_pixels is not None and foreground_pixels is not None
     groups: dict[tuple[int, int, int], list[float]] = {}
-    max_foreground_alpha = max(
-        cast(tuple[int, int, int, int], foreground_pixels[x, y])[3]
-        for y in range(region.height)
-        for x in range(region.width)
-    )
-    alpha_floor = 64 if max_foreground_alpha >= 64 else 1
+    alpha_floor = 64 if layer_alpha >= 64 else 1
 
     for y in range(region.height):
         for x in range(region.width):
@@ -709,12 +715,11 @@ def _tile_contrast(
                 background_pixel[2] * background_alpha + 255 * (1 - background_alpha),
             )
             key = (foreground_r, foreground_g, foreground_b)
-            group = groups.setdefault(key, [0.0, 0.0, 0.0, 0.0, 0.0])
+            group = groups.setdefault(key, [0.0, 0.0, 0.0, 0.0])
             group[0] += visible_background[0]
             group[1] += visible_background[1]
             group[2] += visible_background[2]
             group[3] += 1
-            group[4] = max(group[4], foreground_a)
 
     worst: TiledContrastMeasurement | None = None
     for foreground_raw, group in groups.items():
@@ -724,7 +729,7 @@ def _tile_contrast(
         if group[3] < 4:
             continue
         background = (group[0] / group[3], group[1] / group[3], group[2] / group[3])
-        opacity = group[4] / 255
+        opacity = layer_alpha / 255
         foreground = (
             foreground_raw[0] * opacity + background[0] * (1 - opacity),
             foreground_raw[1] * opacity + background[1] * (1 - opacity),

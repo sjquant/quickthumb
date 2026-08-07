@@ -882,6 +882,35 @@ class TestDiagnoseText:
         # when / then
         assert canvas.diagnose() == []
 
+    def test_should_judge_text_by_the_opacity_it_is_drawn_at_not_by_one_tile(self):
+        """Given solid display type, when diagnosed, then edge pixels are not the verdict."""
+        from quickthumb import Canvas
+
+        # Given: a large solid headline on a dark stage, whose glyph edges fade
+        # into that stage over a few pixels wherever a tile clips one
+        canvas = (
+            Canvas(800, 300)
+            .background(color="#080A0E")
+            .text("TOO LATE", size=150, color="#5EA8FF", position=(20, 60))
+        )
+
+        # When / Then: the reading is the colour the type is painted in, not its antialiasing
+        assert canvas.diagnose() == []
+
+    def test_should_still_report_text_that_is_genuinely_drawn_faint(self):
+        """Given text at low opacity, when diagnosed, then its faintness is still reported."""
+        from quickthumb import Canvas
+
+        # Given: text drawn at 15% over a background it barely separates from
+        canvas = (
+            Canvas(300, 120)
+            .background(color="#080A0E")
+            .text("barely there", size=36, color="#2A2F36", opacity=0.15, position=(20, 40))
+        )
+
+        # When / Then: the layer is faint everywhere, so the warning still stands
+        assert [finding.code for finding in canvas.diagnose()] == ["low-contrast"]
+
     def test_should_use_default_text_color_for_worst_tile_contrast(self):
         """Text without a color still uses the public default black foreground"""
         from quickthumb import Canvas
