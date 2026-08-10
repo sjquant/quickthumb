@@ -26,6 +26,9 @@ jobs:
       - name: Install dependencies
         run: uv sync --locked --extra cli --extra svg --extra pptx --extra pdf --dev
 
+      - name: Install FFmpeg
+        run: sudo apt-get update && sudo apt-get install --yes ffmpeg
+
       - name: Test
         # Quality CI owns coverage; release validation should not inherit the
         # project-wide pytest-cov addopts and combine incompatible data files.
