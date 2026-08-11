@@ -46,6 +46,8 @@ Some recipes use `remove_background=True` and require the `rembg` extra:
 pip install "quickthumb[rembg]"
 ```
 
+The `rembg` extra requires Python 3.11 or later.
+
 ## Asset paths
 
 The code snippets below use placeholder paths like `"background.jpg"` and `"portrait.png"`. Swap these for your own local files or remote URLs — quickthumb accepts both.

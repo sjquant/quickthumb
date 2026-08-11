@@ -97,6 +97,8 @@ quickthumb searches `QUICKTHUMB_FONT_DIR` for files matching the family name, an
 pip install "quickthumb[rembg]"
 ```
 
+The `rembg` extra requires Python 3.11 or later.
+
 The ONNX model (~170 MB) is downloaded on first use and cached. Subsequent renders are fast.
 
 ### Basic usage

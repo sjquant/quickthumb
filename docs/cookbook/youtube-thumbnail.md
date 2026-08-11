@@ -246,7 +246,7 @@ PORTRAIT_URL = "https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=f
 - Negative `offset_x` on the portrait shadow casts it leftward, adding depth between the person and the text
 
 !!! note "Background removal"
-    The talking-head example uses `remove_background=True`. Install the extra before running:
+    The talking-head example uses `remove_background=True` and requires Python 3.11 or later. Install the extra before running:
     ```bash
     pip install "quickthumb[rembg]"
     ```

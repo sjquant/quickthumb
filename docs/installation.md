@@ -34,7 +34,7 @@ uv pip install "quickthumb[rembg]"
 ```
 
 !!! note
-    The `rembg` extra pulls in `onnxruntime` and will download a model (~170 MB) on first use. It is not required for any other quickthumb feature.
+    The `rembg` extra requires Python **3.11** or later, pulls in `onnxruntime`, and downloads a model (~170 MB) on first use. The core quickthumb package still supports Python 3.10.
 
 ## Optional: SVG Layers
 

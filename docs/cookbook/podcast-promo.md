@@ -7,7 +7,7 @@ description: Build a podcast promo card with quickthumb using remote images, web
 A 1280×720 podcast episode promo card. This recipe demonstrates three advanced features together: **remote image URLs**, a **webfont loaded from a URL**, and **background removal** on a portrait.
 
 !!! note "Requirements"
-    This recipe requires network access and the `rembg` extra:
+    This recipe requires network access, Python 3.11 or later, and the `rembg` extra:
     ```bash
     pip install "quickthumb[rembg]"
     ```

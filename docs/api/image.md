@@ -91,7 +91,7 @@ canvas.image(
 ```
 
 !!! note
-    `remove_background=True` requires `uv pip install "quickthumb[rembg]"`. The ONNX model (~170 MB) is downloaded and cached on first use.
+    `remove_background=True` requires Python 3.11 or later and `uv pip install "quickthumb[rembg]"`. The ONNX model (~170 MB) is downloaded and cached on first use.
 
 ### Remote image
 

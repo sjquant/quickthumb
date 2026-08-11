@@ -12,11 +12,13 @@ Python 3.10, 3.11, and 3.12.
 
 ### Do I need to install anything else for background removal?
 
-Yes. Install the `rembg` extra:
+Yes. On Python 3.11 or later, install the `rembg` extra:
 
 ```bash
 pip install "quickthumb[rembg]"
 ```
+
+The core quickthumb package supports Python 3.10, but patched `rembg` releases require Python 3.11 or later.
 
 The first call to `remove_background=True` will download the ONNX model (~170 MB) and cache it locally.
 
