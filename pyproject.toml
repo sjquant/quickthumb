@@ -1,6 +1,6 @@
 [project]
 name = "quickthumb"
-version = "0.6.0"
+version = "0.7.0"
 description = "Programmatic thumbnail and social image generation with layered Python and JSON APIs"
 authors = [{name = "Seonu Jang"}]
 license = {text = "MIT"}
