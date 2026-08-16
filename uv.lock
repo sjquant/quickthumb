@@ -1875,7 +1875,7 @@ dev = [
     { name = "python-pptx", specifier = ">=1.0.2,<2.0" },
     { name = "reportlab", specifier = ">=4.0.0,<6.0.0" },
     { name = "ruff", specifier = ">=0.8.0,<1.0.0" },
-    { name = "ty", specifier = ">=0.0.12,<0.0.66" },
+    { name = "ty", specifier = ">=0.0.12,<0.0.70" },
 ]
 docs = [{ name = "mkdocs-material", specifier = ">=9.0" }]
 
