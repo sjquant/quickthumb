@@ -20,8 +20,8 @@ from quickthumb import (
     ScaleTrack,
     ValidationError,
     canvas_json_schema,
-    compile_timeline,
 )
+from quickthumb.motion import compile_timeline
 
 
 class TestMotionContract:

@@ -363,7 +363,7 @@ class TestVisualizationRendering:
         animation = AnimationSpec.value_count_up(duration=0.75)
 
         # when
-        from quickthumb import LayerState, compile_timeline
+        from quickthumb.motion import LayerState, compile_timeline
 
         timeline = compile_timeline(animation)
 

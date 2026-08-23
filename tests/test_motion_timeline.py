@@ -10,13 +10,16 @@ from quickthumb import (
     ImagePanTrack,
     ImageZoomTrack,
     KeyframeSpec,
-    LayerState,
     OpacityTrack,
     PositionTrack,
     RotationTrack,
     ScaleTrack,
-    Timeline,
     TimingSpec,
+)
+from quickthumb.errors import ValidationError
+from quickthumb.motion import (
+    LayerState,
+    Timeline,
     compile_timeline,
     compile_transition_timeline,
     resolve_staggered_timelines,
@@ -25,7 +28,6 @@ from quickthumb import (
     resolve_text_targets,
     sample_frames,
 )
-from quickthumb.errors import ValidationError
 from quickthumb.transitions import Fade as SlideFade
 
 

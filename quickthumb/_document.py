@@ -4,29 +4,33 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, Protocol, cast, runtime_checkable
 
-from quickthumb.canvas import Canvas
-from quickthumb.deck import Deck
 from quickthumb.errors import RenderingError, ValidationError
 from quickthumb.models import (
     AssetManifestEntry,
     CanonicalFrame,
     DiagnosticReport,
+    ExportDiagnostic,
     ExportPolicy,
     ExportResult,
     FallbackDiagnostic,
     FrameSequence,
+    GifOptions,
     PixelMetrics,
     ResolvedDocument,
     TimingMetrics,
     ValidationIssue,
     ValidationReport,
+    VideoOptions,
 )
 
 if TYPE_CHECKING:
+    from quickthumb.canvas import Canvas
+    from quickthumb.deck import Deck
     from quickthumb.models import CanvasInspection, DeckInspection
 
 DocumentKind = Literal["canvas", "deck"]
@@ -54,7 +58,10 @@ class Document(Protocol):
         self,
         output_path: str | os.PathLike[str],
         policy: ExportPolicy | None = None,
-        **options: Any,
+        *,
+        format: str | None = None,
+        quality: int | None = None,
+        animation: GifOptions | VideoOptions | None = None,
     ) -> ExportResult: ...
 
 
@@ -76,6 +83,9 @@ def require_document_kind(raw: object) -> DocumentKind:
 
 def load_document(text: str) -> Canvas | Deck:
     """Parse a discriminated Canvas or Deck JSON document."""
+    from quickthumb.canvas import Canvas
+    from quickthumb.deck import Deck
+
     raw = json.loads(text)
     kind = require_document_kind(raw)
     if kind == "deck":
@@ -88,27 +98,47 @@ def build_export_result(
     output_path: str,
     written_paths: list[str],
     policy: ExportPolicy | None = None,
+    *,
+    format: str | None = None,
+    animation: GifOptions | VideoOptions | None = None,
 ) -> ExportResult:
     """Build the shared result envelope after an existing exporter succeeds."""
-    target = _export_target(output_path)
+    output_format = _output_format(output_path, format)
+    target = _export_target(output_format)
     capability_report = _capability_report(source, target, policy)
-    timing = _timing_metrics(source, target, policy)
+    timing = _timing_metrics(source, target, output_format, policy, animation)
     dimensions = _document_dimensions(source)
     asset_manifest = _asset_manifest(source)
+    pixel_frame_count = _pixel_frame_count(source, target, output_format, written_paths, timing)
+    if output_format == "gif" and written_paths:
+        timing = timing.model_copy(update={"frame_count": pixel_frame_count})
     return ExportResult(
-        kind="deck" if hasattr(source, "slides") else "canvas",
+        kind=_contract_kind(source),
         target=target,
+        output_format=output_format,
         written_paths=written_paths,
         capability_report=capability_report,
         fallback_diagnostics=_fallback_diagnostics(capability_report),
         pixel_metrics=PixelMetrics(
             width=dimensions[0],
             height=dimensions[1],
-            frame_count=max(1, len(written_paths)),
+            frame_count=pixel_frame_count,
         ),
         timing_metrics=timing,
         asset_manifest=asset_manifest,
     )
+
+
+def preflight_export(
+    source: Document,
+    output_path: str,
+    policy: ExportPolicy | None = None,
+    *,
+    format: str | None = None,
+) -> None:
+    """Validate target capabilities before an exporter writes any files."""
+    output_format = _output_format(output_path, format)
+    _capability_report(source, _export_target(output_format), policy)
 
 
 def validation_report(source: Document, *, kind: DocumentKind) -> ValidationReport:
@@ -116,21 +146,28 @@ def validation_report(source: Document, *, kind: DocumentKind) -> ValidationRepo
     errors: list[ValidationIssue] = []
     try:
         if kind == "canvas":
-            if not source.has_size:  # type: ignore[attr-defined]
-                raise ValidationError("canvas has no size")
-            source._validate_layer_identities()  # type: ignore[attr-defined]
-            source._validate_image_paths()  # type: ignore[attr-defined]
+            _contract_validate_structure(source)
+            _contract_validate_assets(source)
             source.inspect()
         else:
-            slides = source.slides  # type: ignore[attr-defined]
-            if not slides:
-                raise ValidationError("deck has no slides")
+            slides = _contract_canvases(source)
+            _contract_validate_structure(source)
             for index, slide in enumerate(slides):
                 report = slide.validate()
                 errors.extend(
                     issue.model_copy(update={"path": f"/slides/{index}{issue.path or ''}"})
                     for issue in report.errors
                 )
+                audio_paths = _contract_audio_paths(source)
+                audio_path = audio_paths[index] if index < len(audio_paths) else None
+                if audio_path is not None and not _is_local_asset(audio_path):
+                    errors.append(
+                        ValidationIssue(
+                            code="asset_missing",
+                            message=audio_path,
+                            path=f"/slides/{index}/audio",
+                        )
+                    )
     except Exception as error:
         errors.append(_validation_issue(error))
     return ValidationReport(valid=not errors, errors=errors)
@@ -138,16 +175,50 @@ def validation_report(source: Document, *, kind: DocumentKind) -> ValidationRepo
 
 def resolved_document(source: Document, *, kind: DocumentKind) -> ResolvedDocument:
     """Resolve/check asset references without changing the renderer's loading path."""
-    if kind == "canvas":
-        source._validate_image_paths()  # type: ignore[attr-defined]
-    else:
-        for slide in source.slides:  # type: ignore[attr-defined]
-            slide._validate_image_paths()
+    _contract_validate_assets(source)
     return ResolvedDocument(kind=kind, asset_manifest=_asset_manifest(source))
 
 
-def _export_target(output_path: str) -> str:
+def _contract_kind(source: Document) -> DocumentKind:
+    return cast(DocumentKind, cast(Any, source)._contract_kind())
+
+
+def _contract_canvases(source: Document) -> list[Any]:
+    return list(cast(Any, source)._contract_canvases())
+
+
+def _contract_layers(source: Document):
+    return cast(Any, source)._contract_layers()
+
+
+def _contract_audio_paths(source: Document) -> tuple[str | None, ...]:
+    return tuple(cast(Any, source)._contract_audio_paths())
+
+
+def _contract_validate_assets(source: Document) -> None:
+    cast(Any, source)._contract_validate_assets()
+
+
+def _contract_validate_structure(source: Document) -> None:
+    cast(Any, source)._contract_validate_structure()
+
+
+def _contract_motion_report(source: Document, target: str, policy, fps: float):
+    return cast(Any, source)._contract_motion_report(target, policy, fps)
+
+
+def _contract_static_timing(source: Document) -> tuple[float, float] | None:
+    return cast(Any, source)._contract_static_timing()
+
+
+def _output_format(output_path: str, format: str | None = None) -> str:
+    if format is not None:
+        return format.lower()
     extension = Path(output_path).suffix.lower().lstrip(".")
+    return "html" if extension == "htm" else extension
+
+
+def _export_target(output_format: str) -> str:
     return {
         "png": "raster",
         "jpg": "raster",
@@ -155,16 +226,19 @@ def _export_target(output_path: str) -> str:
         "webp": "raster",
         "svg": "raster",
         "pdf": "raster",
-    }.get(extension, "video" if extension in {"gif", "mp4", "webm"} else extension)
+        "html": "html",
+        "pptx": "pptx",
+    }.get(output_format, "video" if output_format in {"gif", "mp4", "webm"} else output_format)
 
 
-def _capability_report(source: Document, target: str, policy: ExportPolicy | None) -> list:
+def _capability_report(
+    source: Document, target: str, policy: ExportPolicy | None
+) -> list[ExportDiagnostic]:
     from quickthumb.motion import validate_export
 
-    try:
-        return validate_export(cast(Canvas | Deck, source), target, policy)
-    except (RenderingError, ValidationError, ValueError):
+    if target not in {"raster", "video", "html", "pptx"}:
         return []
+    return validate_export(cast(Any, source), target, policy)
 
 
 def _fallback_diagnostics(capability_report: list) -> list[FallbackDiagnostic]:
@@ -181,46 +255,87 @@ def _fallback_diagnostics(capability_report: list) -> list[FallbackDiagnostic]:
     ]
 
 
-def _timing_metrics(source: Document, target: str, policy: ExportPolicy | None) -> TimingMetrics:
+def _timing_metrics(
+    source: Document,
+    target: str,
+    output_format: str,
+    policy: ExportPolicy | None,
+    animation: GifOptions | VideoOptions | None,
+) -> TimingMetrics:
+    if target != "video":
+        return TimingMetrics()
+    fps = _animation_fps(output_format, animation)
+    if _contract_kind(source) == "deck" and output_format == "mp4" and animation is None:
+        static_timing = _contract_static_timing(source)
+        assert static_timing is not None
+        duration, static_fps = static_timing
+        return TimingMetrics(
+            duration=duration,
+            fps=static_fps,
+            frame_count=max(1, math.ceil(duration * static_fps)),
+        )
     try:
-        report = source.inspect_motion(target=target, policy=policy)  # type: ignore[attr-defined]
+        report = _contract_motion_report(source, target, policy, fps)
     except (RenderingError, ValidationError, ValueError, RuntimeError):
         return TimingMetrics(frame_count=1)
+    duration = report.duration
+    if _contract_kind(source) == "canvas":
+        duration += 3.0
     return TimingMetrics(
-        duration=report.duration,
-        fps=report.fps,
-        frame_count=max(1, len(report.sample_times)),
+        duration=duration,
+        fps=fps,
+        frame_count=max(1, math.ceil(duration * fps)),
     )
 
 
+def _animation_fps(output_format: str, animation: GifOptions | VideoOptions | None) -> float:
+    if animation is not None and animation.fps is not None:
+        return float(animation.fps)
+    return 20.0 if output_format == "gif" else 30.0
+
+
+def _pixel_frame_count(
+    source: Document,
+    target: str,
+    output_format: str,
+    written_paths: list[str],
+    timing: TimingMetrics,
+) -> int:
+    if target == "video":
+        if output_format == "gif" and written_paths:
+            return _gif_frame_count(written_paths[0]) or timing.frame_count
+        return timing.frame_count
+    if output_format in {"pdf", "pptx"} and _contract_kind(source) == "deck":
+        return len(_contract_canvases(source))
+    return max(1, len(written_paths))
+
+
+def _gif_frame_count(path: str) -> int | None:
+    try:
+        from PIL import Image
+
+        with Image.open(path) as image:
+            return int(getattr(image, "n_frames", 1))
+    except (OSError, ValueError):
+        return None
+
+
 def _document_dimensions(source: Document) -> tuple[int | None, int | None]:
-    if isinstance(source, Deck):
-        slides = source.slides
-        if not slides:
-            return None, None
-        return slides[0].width, slides[0].height
-    return cast(Canvas, source).width, cast(Canvas, source).height
+    canvases = _contract_canvases(source)
+    if not canvases:
+        return None, None
+    return canvases[0].width, canvases[0].height
 
 
 def _asset_manifest(source: Document) -> list[AssetManifestEntry]:
-    canvases = source.slides if isinstance(source, Deck) else [cast(Canvas, source)]
     entries: list[AssetManifestEntry] = []
     seen: set[tuple[str, str]] = set()
-    for canvas in canvases:
-        for layer in canvas._iter_layers_deep():
-            for asset_type, value in _layer_asset_values(layer):
-                key = (asset_type, value)
-                if key in seen:
-                    continue
-                seen.add(key)
-                entries.append(
-                    AssetManifestEntry(
-                        source=value,
-                        asset_type=asset_type,
-                        status="remote" if _is_url(value) else "local",
-                        content_hash=_local_hash(value),
-                    )
-                )
+    for layer in _contract_layers(source):
+        for asset_type, value in _layer_asset_values(layer):
+            _append_asset_entry(entries, seen, asset_type, value)
+    for path in _contract_audio_paths(source):
+        if path is not None:
+            _append_asset_entry(entries, seen, "audio", path)
     return entries
 
 
@@ -236,10 +351,37 @@ def _layer_asset_values(layer: object):
     fill_path = getattr(fill, "path", None)
     if isinstance(fill_path, str):
         yield "text-fill", fill_path
+    content = getattr(layer, "content", None)
+    if isinstance(content, list):
+        for part in content:
+            part_fill_path = getattr(getattr(part, "fill", None), "path", None)
+            if isinstance(part_fill_path, str):
+                yield "text-fill", part_fill_path
+
+
+def _append_asset_entry(
+    entries: list[AssetManifestEntry], seen: set[tuple[str, str]], asset_type: str, value: str
+) -> None:
+    key = (asset_type, value)
+    if key in seen:
+        return
+    seen.add(key)
+    entries.append(
+        AssetManifestEntry(
+            source=value,
+            asset_type=asset_type,
+            status="remote" if _is_url(value) else "local",
+            content_hash=_local_hash(value),
+        )
+    )
 
 
 def _is_url(value: str) -> bool:
     return value.startswith("http://") or value.startswith("https://")
+
+
+def _is_local_asset(value: str) -> bool:
+    return _is_url(value) or os.path.isfile(value)
 
 
 def _local_hash(value: str) -> str | None:

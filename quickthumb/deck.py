@@ -13,7 +13,7 @@ import math
 import os
 import tempfile
 from dataclasses import asdict, dataclass
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Literal, cast
 
 from typing_extensions import Self
 
@@ -24,6 +24,7 @@ from quickthumb.errors import RenderingError, ValidationError
 from quickthumb.models import (
     AudioTrack,
     DeckInspection,
+    DiagnosticReport,
     ExportPolicy,
     ExportResult,
     FrameSequence,
@@ -245,6 +246,41 @@ class Deck:
 
         return validation_report(cast(Document, self), kind="deck")
 
+    def _contract_kind(self) -> Literal["deck"]:
+        return "deck"
+
+    def _contract_canvases(self) -> list[Canvas]:
+        return list(self._slides)
+
+    def _contract_layers(self):
+        for canvas in self._slides:
+            yield from canvas._iter_layers_deep()
+
+    def _contract_audio_paths(self) -> tuple[str | None, ...]:
+        return tuple(audio.path if audio is not None else None for audio in self._slide_audio)
+
+    def _contract_validate_assets(self) -> None:
+        for canvas in self._slides:
+            canvas._validate_image_paths()
+        for path in self._contract_audio_paths():
+            if (
+                path is not None
+                and not path.startswith(("http://", "https://"))
+                and not os.path.isfile(path)
+            ):
+                raise FileNotFoundError(path)
+
+    def _contract_validate_structure(self) -> None:
+        if not self._slides:
+            raise ValidationError("deck has no slides")
+
+    def _contract_motion_report(self, target: str, policy, fps: float):
+        return self.inspect_motion(target=target, policy=policy, fps=fps)
+
+    def _contract_static_timing(self) -> tuple[float, float]:
+        _, durations = self._animation_audio_schedule()
+        return sum(durations), 30.0
+
     def inspect(self) -> DeckInspection:
         """Return deterministic layout reports for every slide."""
         first = self._slides[0] if self._slides else None
@@ -361,15 +397,32 @@ class Deck:
         self,
         output_path: str | os.PathLike[str],
         policy: ExportPolicy | None = None,
-        **options,
+        *,
+        format: FileFormat | None = None,
+        quality: int | None = None,
+        animation: GifOptions | VideoOptions | None = None,
     ) -> ExportResult:
         """Export through the existing renderer and return the shared result envelope."""
-        from quickthumb._document import Document, build_export_result
+        from quickthumb._document import Document, build_export_result, preflight_export
 
         normalized_path = os.fspath(output_path)
-        written = self.render(normalized_path, policy=policy, **options)
+        preflight_export(cast(Document, self), normalized_path, policy, format=format)
+        written = self.render(
+            normalized_path,
+            format=format,
+            quality=quality,
+            animation=animation,
+            policy=policy,
+        )
         paths = [os.fspath(path) for path in written]
-        return build_export_result(cast(Document, self), normalized_path, paths, policy)
+        return build_export_result(
+            cast(Document, self),
+            normalized_path,
+            paths,
+            policy,
+            format=format,
+            animation=animation,
+        )
 
     def _render_animated_file(
         self,
@@ -715,7 +768,7 @@ class Deck:
             reduced_motion=bool(policy and policy.reduced_motion),
         )
 
-    def diagnose(self) -> list[DeckDiagnostic]:
+    def diagnose(self) -> DiagnosticReport:
         """Collect per-slide diagnostics plus deck-wide layout warnings.
 
         Each slide's Canvas.diagnose() findings are returned tagged with their

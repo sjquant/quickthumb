@@ -98,7 +98,7 @@ class DiagnosticReport(list[Any]):
     def model_dump(self, *, mode: str = "python", exclude_none: bool = False) -> dict:
         return {
             "version": self.version,
-            "findings": [_diagnostic_payload(item, mode) for item in self],
+            "findings": [_diagnostic_payload(item, mode, exclude_none) for item in self],
         }
 
     def model_dump_json(self, *, exclude_none: bool = False) -> str:
@@ -211,6 +211,7 @@ class ExportResult(quickthumbModel):
     version: Literal["1"] = "1"
     kind: Literal["canvas", "deck"]
     target: str
+    output_format: str
     written_paths: list[str] = Field(default_factory=list)
     capability_report: list[ExportDiagnostic] = Field(default_factory=list)
     fallback_diagnostics: list[FallbackDiagnostic] = Field(default_factory=list)
@@ -224,8 +225,8 @@ def _rgba_bytes(image) -> bytes:
     return image.tobytes()
 
 
-def _diagnostic_payload(item: Any, mode: str) -> Any:
+def _diagnostic_payload(item: Any, mode: str, exclude_none: bool) -> Any:
     model_dump = getattr(item, "model_dump", None)
     if callable(model_dump):
-        return model_dump(mode=mode, exclude_none=True)
+        return model_dump(mode=mode, exclude_none=exclude_none)
     return item

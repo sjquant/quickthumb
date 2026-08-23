@@ -82,6 +82,7 @@ class LayerInspection(quickthumbModel):
 
 
 class CanvasInspection(quickthumbModel):
+    kind: Literal["canvas"] = "canvas"
     width: PositiveInt
     height: PositiveInt
     layers: list[LayerInspection]
