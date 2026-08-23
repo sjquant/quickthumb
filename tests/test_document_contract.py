@@ -17,6 +17,7 @@ from quickthumb import (
     ExportResult,
     FrameSequence,
     GifOptions,
+    KeyframeSpec,
     ResolvedDocument,
     TextFillImage,
     TextPart,
@@ -154,7 +155,12 @@ def test_policy_errors_fail_before_writing_output(tmp_path: Path):
         "Motion",
         position=(0, 0),
         animation=AnimationSpec.timeline(
-            BlurTrack(keyframes=[{"time": 0, "value": 0}, {"time": 1, "value": 4}])
+            BlurTrack(
+                keyframes=[
+                    KeyframeSpec(time=0, value=0),
+                    KeyframeSpec(time=1, value=4),
+                ]
+            )
         ),
     )
     output = tmp_path / "motion.pptx"
