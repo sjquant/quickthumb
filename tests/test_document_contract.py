@@ -51,8 +51,8 @@ def test_stable_root_api_hides_timeline_compiler_internals():
     assert not hasattr(quickthumb, "sample_frames")
 
 
-def test_diagnose_keeps_list_behavior_with_a_shared_json_envelope():
-    """Given a clean document, diagnose remains iterable and gains stable serialization."""
+def test_diagnose_returns_a_shared_json_envelope():
+    """Given a clean document, diagnose returns a stable report model."""
     # Given: a clean canvas and deck
     canvas = Canvas(32, 24).background(color="#FFFFFF")
     deck = Deck(slides=[canvas])
@@ -61,10 +61,10 @@ def test_diagnose_keeps_list_behavior_with_a_shared_json_envelope():
     canvas_report = canvas.diagnose()
     deck_report = deck.diagnose()
 
-    # Then: legacy list consumers and JSON consumers see the same findings
+    # Then: both documents expose the same typed envelope and empty findings
     assert isinstance(canvas_report, DiagnosticReport)
     assert isinstance(deck_report, DiagnosticReport)
-    assert canvas_report == [] and deck_report == []
+    assert canvas_report.findings == [] and deck_report.findings == []
     assert json.loads(canvas_report.model_dump_json())["findings"] == []
 
 

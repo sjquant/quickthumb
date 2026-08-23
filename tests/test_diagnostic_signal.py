@@ -7,7 +7,7 @@ FONT = "assets/fonts/Roboto-Medium.ttf"
 
 def codes(canvas, code):
     """Return every finding of one code raised by a canvas."""
-    return [finding for finding in canvas.diagnose() if finding.code == code]
+    return [finding for finding in canvas.diagnose().findings if finding.code == code]
 
 
 class TestBleedingLayersAreNotCrowding:

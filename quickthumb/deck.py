@@ -12,7 +12,6 @@ import contextlib
 import math
 import os
 import tempfile
-from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING, Literal, cast
 
 from typing_extensions import Self
@@ -33,6 +32,7 @@ from quickthumb.models import (
     ValidationReport,
     VideoOptions,
     coerce_audio_track,
+    quickthumbModel,
 )
 from quickthumb.transitions import Transition, coerce_transition
 
@@ -44,8 +44,7 @@ _RASTER_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp"}
 _ANIMATION_EXTENSIONS = {".gif", ".webm"}
 
 
-@dataclass
-class DeckDiagnostic:
+class DeckDiagnostic(quickthumbModel):
     """A single deck-level finding.
 
     Slide findings mirror Canvas.diagnose() entries but carry the originating
@@ -64,17 +63,6 @@ class DeckDiagnostic:
     related_layers: list[str] | None = None
     measured: dict | None = None
     suggestion: str | None = None
-
-    def model_dump(self, *, mode: str = "python", exclude_none: bool = False) -> dict:
-        """Return a serialization-compatible payload like a Pydantic diagnostic."""
-        payload = asdict(self)
-        if mode == "json":
-            import json
-
-            payload = json.loads(json.dumps(payload))
-        if exclude_none:
-            payload = {key: value for key, value in payload.items() if value is not None}
-        return payload
 
 
 class Deck:
@@ -796,7 +784,7 @@ class Deck:
             )
 
         for slide_index, canvas in enumerate(self._slides):
-            for finding in canvas.diagnose():
+            for finding in canvas.diagnose().findings:
                 payload = finding.model_dump(mode="json", exclude_none=True)
                 findings.append(
                     DeckDiagnostic(
@@ -839,7 +827,7 @@ class Deck:
             )
         from quickthumb._document import DiagnosticReport
 
-        return DiagnosticReport(findings)
+        return DiagnosticReport(findings=findings)
 
     def to_json(self) -> str:
         import json

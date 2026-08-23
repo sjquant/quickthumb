@@ -60,7 +60,7 @@ def caption(text, start, end):
 
 def findings_for(canvas, code):
     """Return the findings of one code raised by a canvas."""
-    return [finding for finding in canvas.diagnose() if finding.code == code]
+    return [finding for finding in canvas.diagnose().findings if finding.code == code]
 
 
 @pytest.mark.skipif(not HAS_FFMPEG, reason="ffmpeg is required")

@@ -1,4 +1,4 @@
-"""Tests for canvas diagnostics (canvas.diagnose())"""
+"""Tests for canvas diagnostics (canvas.diagnose())."""
 
 import json
 from pathlib import Path
@@ -24,7 +24,7 @@ class TestDiagnoseCleanCanvas:
         )
 
         # when
-        diagnostics = canvas.diagnose()
+        diagnostics = canvas.diagnose().findings
 
         # then
         assert diagnostics == []
@@ -46,7 +46,7 @@ class TestDiagnoseOffCanvas:
         )
 
         # when
-        diagnostics = canvas.diagnose()
+        diagnostics = canvas.diagnose().findings
 
         # then: a single off-canvas error pointing at the shape layer
         assert len(diagnostics) == 1
@@ -67,7 +67,7 @@ class TestDiagnoseOffCanvas:
         )
 
         # when
-        diagnostics = canvas.diagnose()
+        diagnostics = canvas.diagnose().findings
 
         # then: the full finding (including its message) is pinned
         assert [finding.model_dump(mode="json", exclude_none=True) for finding in diagnostics] == [
@@ -110,7 +110,7 @@ class TestDiagnoseOffCanvas:
         )
 
         # when
-        diagnostics = canvas.diagnose()
+        diagnostics = canvas.diagnose().findings
 
         # then
         finding = diagnostics[0]
@@ -142,7 +142,7 @@ class TestDiagnoseOffCanvas:
         )
 
         # when
-        diagnostics = canvas.diagnose()
+        diagnostics = canvas.diagnose().findings
 
         # then
         finding = diagnostics[0]
@@ -166,7 +166,7 @@ class TestDiagnoseOffCanvas:
         )
 
         # when
-        diagnostics = canvas.diagnose()
+        diagnostics = canvas.diagnose().findings
 
         # then
         finding = diagnostics[0]
@@ -190,7 +190,7 @@ class TestDiagnoseOffCanvas:
         canvas.width = 200
 
         # when
-        diagnostics = canvas.diagnose()
+        diagnostics = canvas.diagnose().findings
 
         # then
         finding = diagnostics[0]
@@ -221,7 +221,7 @@ class TestDiagnoseOffCanvas:
         )
 
         # when
-        diagnostics = canvas.diagnose()
+        diagnostics = canvas.diagnose().findings
 
         # then
         assert [d.code for d in diagnostics] == ["off-canvas"]
@@ -246,7 +246,7 @@ class TestDiagnoseOffCanvas:
         )
 
         # when
-        diagnostics = canvas.diagnose()
+        diagnostics = canvas.diagnose().findings
 
         # then: the group reports the rotated child crossing the canvas edge
         off_canvas = [finding for finding in diagnostics if finding.code == "off-canvas"]
@@ -277,7 +277,7 @@ class TestDiagnoseOffCanvas:
         )
 
         # when
-        diagnostics = canvas.diagnose()
+        diagnostics = canvas.diagnose().findings
 
         # then: the rotated canvas bbox does not trigger a logical max_width warning
         assert [finding for finding in diagnostics if finding.code == "text-clipped"] == []
@@ -298,7 +298,7 @@ class TestDiagnoseText:
         )
 
         # when
-        diagnostics = canvas.diagnose()
+        diagnostics = canvas.diagnose().findings
 
         # then
         assert [d.code for d in diagnostics] == ["tiny-text"]
@@ -316,7 +316,7 @@ class TestDiagnoseText:
         )
 
         # when
-        diagnostics = canvas.diagnose()
+        diagnostics = canvas.diagnose().findings
 
         # then
         finding = diagnostics[0]
@@ -346,7 +346,7 @@ class TestDiagnoseText:
         )
 
         # when / then
-        assert canvas.diagnose() == []
+        assert canvas.diagnose().findings == []
 
     def test_should_warn_for_tiny_rich_text_parts(self):
         """Rich text is flagged when any part's effective size falls below the threshold"""
@@ -367,7 +367,7 @@ class TestDiagnoseText:
         )
 
         # when
-        diagnostics = canvas.diagnose()
+        diagnostics = canvas.diagnose().findings
 
         # then
         assert [d.code for d in diagnostics] == ["tiny-text"]
@@ -392,7 +392,7 @@ class TestDiagnoseText:
         )
 
         # when
-        diagnostics = canvas.diagnose()
+        diagnostics = canvas.diagnose().findings
 
         # then
         assert diagnostics == []
@@ -417,7 +417,7 @@ class TestDiagnoseText:
         )
 
         # when
-        diagnostics = canvas.diagnose()
+        diagnostics = canvas.diagnose().findings
 
         # then: one overflow finding naming the word, plus the off-canvas warning it causes
         assert [d.code for d in diagnostics] == ["text-overflow", "off-canvas"]
@@ -443,7 +443,7 @@ class TestDiagnoseText:
         )
 
         # when
-        diagnostics = canvas.diagnose()
+        diagnostics = canvas.diagnose().findings
 
         # then: text-overflow plus the off-canvas warning the overflow causes
         assert [d.code for d in diagnostics] == ["text-overflow", "off-canvas"]
@@ -468,7 +468,7 @@ class TestDiagnoseText:
         )
 
         # when
-        diagnostics = canvas.diagnose()
+        diagnostics = canvas.diagnose().findings
 
         # then
         finding = diagnostics[0]
@@ -505,7 +505,7 @@ class TestDiagnoseText:
         )
 
         # when
-        diagnostics = canvas.diagnose()
+        diagnostics = canvas.diagnose().findings
 
         # then
         assert [d.code for d in diagnostics] == ["text-clipped", "off-canvas"]
@@ -561,7 +561,7 @@ class TestDiagnoseText:
         )
 
         # when
-        diagnostics = canvas.diagnose()
+        diagnostics = canvas.diagnose().findings
 
         # then
         assert [d.code for d in diagnostics] == ["text-overflow", "text-clipped"]
@@ -617,7 +617,7 @@ class TestDiagnoseText:
         )
 
         # when
-        diagnostics = canvas.diagnose()
+        diagnostics = canvas.diagnose().findings
 
         # then
         assert [d.code for d in diagnostics] == ["text-overflow", "text-clipped", "off-canvas"]
@@ -666,7 +666,7 @@ class TestDiagnoseText:
         )
 
         # when
-        diagnostics = canvas.diagnose()
+        diagnostics = canvas.diagnose().findings
 
         # then
         assert [d.code for d in diagnostics] == ["missing-glyph"]
@@ -709,7 +709,7 @@ class TestDiagnoseText:
         )
 
         # when
-        diagnostics = canvas.diagnose()
+        diagnostics = canvas.diagnose().findings
 
         # then
         assert [d.code for d in diagnostics] == ["missing-glyph"]
@@ -744,7 +744,7 @@ class TestDiagnoseText:
         )
 
         # when / then
-        assert canvas.diagnose() == []
+        assert canvas.diagnose().findings == []
 
     def test_should_warn_for_low_contrast_text(self):
         """Near-white text on a white background is flagged as low contrast"""
@@ -758,7 +758,7 @@ class TestDiagnoseText:
         )
 
         # when
-        diagnostics = canvas.diagnose()
+        diagnostics = canvas.diagnose().findings
 
         # then
         assert [d.code for d in diagnostics] == ["low-contrast"]
@@ -782,7 +782,7 @@ class TestDiagnoseText:
         )
 
         # when
-        diagnostics = canvas.diagnose()
+        diagnostics = canvas.diagnose().findings
 
         # then
         finding = diagnostics[0]
@@ -823,7 +823,7 @@ class TestDiagnoseText:
         )
 
         # when
-        diagnostics = canvas.diagnose()
+        diagnostics = canvas.diagnose().findings
 
         # then
         assert [d.code for d in diagnostics] == ["low-contrast"]
@@ -855,7 +855,7 @@ class TestDiagnoseText:
         )
 
         # when / then
-        assert canvas.diagnose() == []
+        assert canvas.diagnose().findings == []
 
     def test_should_not_warn_for_readable_rich_text_on_split_background(self):
         """Rich text colors are compared only where each colored run renders"""
@@ -880,7 +880,7 @@ class TestDiagnoseText:
         )
 
         # when / then
-        assert canvas.diagnose() == []
+        assert canvas.diagnose().findings == []
 
     def test_should_judge_text_by_the_opacity_it_is_drawn_at_not_by_one_tile(self):
         """Given solid display type, when diagnosed, then edge pixels are not the verdict."""
@@ -895,7 +895,7 @@ class TestDiagnoseText:
         )
 
         # When / Then: the reading is the colour the type is painted in, not its antialiasing
-        assert canvas.diagnose() == []
+        assert canvas.diagnose().findings == []
 
     def test_should_still_report_text_that_is_genuinely_drawn_faint(self):
         """Given text at low opacity, when diagnosed, then its faintness is still reported."""
@@ -909,7 +909,7 @@ class TestDiagnoseText:
         )
 
         # When / Then: the layer is faint everywhere, so the warning still stands
-        assert [finding.code for finding in canvas.diagnose()] == ["low-contrast"]
+        assert [finding.code for finding in canvas.diagnose().findings] == ["low-contrast"]
 
     def test_should_use_default_text_color_for_worst_tile_contrast(self):
         """Text without a color still uses the public default black foreground"""
@@ -921,7 +921,7 @@ class TestDiagnoseText:
         )
 
         # when
-        diagnostics = canvas.diagnose()
+        diagnostics = canvas.diagnose().findings
 
         # then
         assert [finding.code for finding in diagnostics] == ["low-contrast"]
@@ -939,7 +939,7 @@ class TestDiagnoseText:
         )
 
         # when
-        diagnostics = canvas.diagnose()
+        diagnostics = canvas.diagnose().findings
 
         # then
         assert [finding.code for finding in diagnostics] == ["low-contrast"]
@@ -975,7 +975,7 @@ class TestDiagnoseText:
         )
 
         # when
-        diagnostics = canvas.diagnose()
+        diagnostics = canvas.diagnose().findings
 
         # then
         assert [finding.code for finding in diagnostics] == ["low-contrast"]
@@ -1009,7 +1009,7 @@ class TestDiagnoseText:
         )
 
         # when / then
-        assert canvas.diagnose() == []
+        assert canvas.diagnose().findings == []
 
     def test_should_use_rich_text_part_colors_for_contrast(self):
         """Contrast checks read TextPart colors, not just the layer-level color"""
@@ -1028,7 +1028,7 @@ class TestDiagnoseText:
         )
 
         # when / then: the part colors drive the finding despite the high-contrast layer color
-        assert [d.code for d in canvas.diagnose()] == ["low-contrast"]
+        assert [d.code for d in canvas.diagnose().findings] == ["low-contrast"]
 
     def test_should_not_warn_for_readable_rich_text_part_colors(self):
         """Rich text whose parts contrast well with the backdrop produces no finding"""
@@ -1046,7 +1046,7 @@ class TestDiagnoseText:
         )
 
         # when / then
-        assert canvas.diagnose() == []
+        assert canvas.diagnose().findings == []
 
     def test_should_not_flag_auto_scaled_text_that_fits_after_scaling(self):
         """diagnose evaluates auto_scale text at its rendered size, not its declared size"""
@@ -1067,7 +1067,7 @@ class TestDiagnoseText:
         )
 
         # when / then: no overflow or off-canvas findings for text that scales to fit
-        assert canvas.diagnose() == []
+        assert canvas.diagnose().findings == []
 
     def test_should_diagnose_text_children_inside_groups(self):
         """Legibility checks apply to text nested in group layers, not only top-level text"""
@@ -1084,7 +1084,7 @@ class TestDiagnoseText:
         )
 
         # when
-        diagnostics = canvas.diagnose()
+        diagnostics = canvas.diagnose().findings
 
         # then: the finding points at the group's layer index
         assert [d.code for d in diagnostics] == ["tiny-text"]
@@ -1103,7 +1103,7 @@ class TestDiagnoseText:
         )
 
         # when / then: the dark overlay makes white text readable
-        assert canvas.diagnose() == []
+        assert canvas.diagnose().findings == []
 
 
 class TestDiagnoseLayerOverlap:
@@ -1122,7 +1122,7 @@ class TestDiagnoseLayerOverlap:
         )
 
         # when
-        diagnostics = canvas.diagnose()
+        diagnostics = canvas.diagnose().findings
 
         # then: the overlap points at the upper text layer and includes measured values
         overlap_findings = [finding for finding in diagnostics if finding.code == "layer-overlap"]
@@ -1157,7 +1157,7 @@ class TestDiagnoseLayerOverlap:
         )
 
         # when
-        diagnostics = canvas.diagnose()
+        diagnostics = canvas.diagnose().findings
 
         # then
         assert [finding.code for finding in diagnostics] == []
@@ -1187,7 +1187,7 @@ class TestDiagnoseLayerOverlap:
         )
 
         # when
-        diagnostics = canvas.diagnose()
+        diagnostics = canvas.diagnose().findings
 
         # then
         assert [finding.model_dump(mode="json", exclude_none=True) for finding in diagnostics] == [
@@ -1255,7 +1255,7 @@ class TestDiagnoseLayerOverlap:
         )
 
         # when
-        diagnostics = canvas.diagnose()
+        diagnostics = canvas.diagnose().findings
 
         # then: each intersecting pair is represented at the public boundary
         overlap_findings = [finding for finding in diagnostics if finding.code == "layer-overlap"]
@@ -1290,7 +1290,7 @@ class TestDiagnoseLayerOverlap:
         )
 
         # when / then
-        assert canvas.diagnose() == []
+        assert canvas.diagnose().findings == []
 
     def test_should_not_warn_for_composed_mask_corner_bbox_overlap(self):
         """Layer masks remove transparent composition pixels from overlap diagnostics"""
@@ -1317,7 +1317,7 @@ class TestDiagnoseLayerOverlap:
         )
 
         # when
-        diagnostics = canvas.diagnose()
+        diagnostics = canvas.diagnose().findings
 
         # then
         assert [finding for finding in diagnostics if finding.code == "layer-overlap"] == []
@@ -1359,7 +1359,7 @@ class TestDiagnoseLayerOverlap:
         )
 
         # when
-        diagnostics = canvas.diagnose()
+        diagnostics = canvas.diagnose().findings
 
         # then
         assert [finding for finding in diagnostics if finding.code == "layer-overlap"] == []
@@ -1408,7 +1408,7 @@ class TestDiagnoseLayerOverlap:
         )
 
         # when
-        diagnostics = canvas.diagnose()
+        diagnostics = canvas.diagnose().findings
 
         # then: the green layer sits over transparent ellipse pixels, not the group
         assert [finding for finding in diagnostics if finding.code == "layer-overlap"] == []
@@ -1432,7 +1432,7 @@ class TestDiagnoseLayerOverlap:
         )
 
         # when
-        diagnostics = canvas.diagnose()
+        diagnostics = canvas.diagnose().findings
 
         # then: invisible composition content does not create a layout warning
         assert diagnostics == []
@@ -1466,7 +1466,7 @@ class TestDiagnoseLayerOverlap:
 
         # when
         inspection = canvas.inspect()
-        diagnostics = canvas.diagnose()
+        diagnostics = canvas.diagnose().findings
 
         # then: only the visible child contributes to the group bbox
         assert inspection.layers[0].bbox is not None
@@ -1498,7 +1498,7 @@ class TestDiagnoseLayerOverlap:
 
         # when
         inspection = canvas.inspect()
-        diagnostics = canvas.diagnose()
+        diagnostics = canvas.diagnose().findings
 
         # then: both nested and parent visible bboxes remain empty
         assert inspection.layers[0].bbox is not None
@@ -1531,7 +1531,7 @@ class TestDiagnoseLayerOverlap:
         )
 
         # when
-        diagnostics = canvas.diagnose()
+        diagnostics = canvas.diagnose().findings
 
         # then: fully transparent composition does not create an edge warning
         assert diagnostics == []
@@ -1560,7 +1560,7 @@ class TestDiagnoseLayerOverlap:
 
         # when
         inspection = canvas.inspect()
-        diagnostics = canvas.diagnose()
+        diagnostics = canvas.diagnose().findings
 
         # then: the effect-aware rotated child is measurable without diagnostics
         assert inspection.layers[0].children[0].bbox is not None
@@ -1594,7 +1594,7 @@ class TestDiagnoseLayerOverlap:
         )
 
         # when
-        diagnostics = canvas.diagnose()
+        diagnostics = canvas.diagnose().findings
 
         # then
         assert diagnostics == []
@@ -1618,7 +1618,7 @@ class TestDiagnoseLayerOverlap:
         )
 
         # when
-        diagnostics = canvas.diagnose()
+        diagnostics = canvas.diagnose().findings
 
         # then
         assert diagnostics == []
@@ -1693,7 +1693,7 @@ class TestDiagnoseLayerOverlap:
         )
 
         # when
-        diagnostics = canvas.diagnose()
+        diagnostics = canvas.diagnose().findings
 
         # then
         overlap_findings = [finding for finding in diagnostics if finding.code == "layer-overlap"]
@@ -1728,7 +1728,7 @@ class TestDiagnoseLayerOverlap:
         canvas.width = 220
 
         # when
-        diagnostics = canvas.diagnose()
+        diagnostics = canvas.diagnose().findings
 
         # then
         assert [finding.code for finding in diagnostics] == ["layer-overlap"]
@@ -1759,7 +1759,7 @@ class TestDiagnoseLayerOverlap:
         )
 
         # when
-        diagnostics = canvas.diagnose()
+        diagnostics = canvas.diagnose().findings
 
         # then
         assert [finding.code for finding in diagnostics] == ["layer-overlap", "layer-hidden"]
@@ -1790,7 +1790,7 @@ class TestDiagnoseLayerOverlap:
         )
 
         # when
-        diagnostics = canvas.diagnose()
+        diagnostics = canvas.diagnose().findings
 
         # then
         assert [finding.code for finding in diagnostics] == [
@@ -1823,7 +1823,7 @@ class TestDiagnoseLayerOverlap:
                 color="#00FF00",
             )
         )
-        first_diagnostics = canvas.diagnose()
+        first_diagnostics = canvas.diagnose().findings
 
         # when: the same implicit layer IDs now point to overlapping opaque rectangles
         canvas.layers = [canvas.layers[0]]
@@ -1841,7 +1841,7 @@ class TestDiagnoseLayerOverlap:
             height=10,
             color="#00FF00",
         )
-        second_diagnostics = canvas.diagnose()
+        second_diagnostics = canvas.diagnose().findings
 
         # then
         assert first_diagnostics == []
@@ -1866,7 +1866,7 @@ class TestDiagnoseLayerOverlap:
         )
 
         # when
-        diagnostics = canvas.diagnose()
+        diagnostics = canvas.diagnose().findings
 
         # then
         assert [finding.code for finding in diagnostics] == ["layer-overlap", "layer-hidden"]
@@ -1899,7 +1899,7 @@ class TestDiagnoseLayerOverlap:
         )
 
         # when / then
-        assert canvas.diagnose() == []
+        assert canvas.diagnose().findings == []
 
     def test_should_not_warn_for_touching_layer_edges(self):
         """Boxes whose edges touch without intersecting do not overlap"""
@@ -1926,7 +1926,7 @@ class TestDiagnoseLayerOverlap:
         )
 
         # when / then
-        assert canvas.diagnose() == []
+        assert canvas.diagnose().findings == []
 
     def test_should_not_warn_for_layers_separated_vertically(self):
         """Boxes with overlapping x-ranges but separated y-ranges do not overlap"""
@@ -1953,7 +1953,7 @@ class TestDiagnoseLayerOverlap:
         )
 
         # when / then
-        assert canvas.diagnose() == []
+        assert canvas.diagnose().findings == []
 
     def test_should_ignore_invisible_overlapping_layers(self):
         """Transparent layers do not participate in overlap diagnostics"""
@@ -1981,7 +1981,7 @@ class TestDiagnoseLayerOverlap:
         )
 
         # when / then
-        assert canvas.diagnose() == []
+        assert canvas.diagnose().findings == []
 
     def test_should_warn_when_grouped_text_overlaps_outer_text(self):
         """Grouped child measurements participate in z-order-aware overlap checks"""
@@ -2006,7 +2006,7 @@ class TestDiagnoseLayerOverlap:
         )
 
         # when
-        diagnostics = canvas.diagnose()
+        diagnostics = canvas.diagnose().findings
 
         # then
         overlap_findings = [finding for finding in diagnostics if finding.code == "layer-overlap"]
@@ -2044,8 +2044,8 @@ class TestDiagnoseNearAlignment:
         )
 
         # when: diagnostics run twice over the same measured composition
-        first = canvas.diagnose()
-        second = canvas.diagnose()
+        first = canvas.diagnose().findings
+        second = canvas.diagnose().findings
 
         # then: the near-alignment payload is stable and actionable
         findings = [finding for finding in first if finding.code == "near-alignment"]
@@ -2111,7 +2111,7 @@ class TestDiagnoseNearAlignment:
         )
 
         # when: diagnostics inspect exact and intentionally spaced geometry
-        diagnostics = canvas.diagnose()
+        diagnostics = canvas.diagnose().findings
 
         # then: no near-alignment finding is emitted
         assert [finding for finding in diagnostics if finding.code == "near-alignment"] == []
@@ -2140,7 +2140,7 @@ class TestDiagnoseNearAlignment:
         )
 
         # when: diagnostics inspect the measured y starts
-        diagnostics = canvas.diagnose()
+        diagnostics = canvas.diagnose().findings
 
         # then: the finding points the later layer at the earlier y coordinate
         findings = [finding for finding in diagnostics if finding.code == "near-alignment"]
@@ -2191,7 +2191,7 @@ class TestDiagnoseNearAlignment:
         )
 
         # when: diagnostics inspect the pair
-        diagnostics = canvas.diagnose()
+        diagnostics = canvas.diagnose().findings
 
         # then: the geometry-sensitive rule stays quiet
         assert [finding for finding in diagnostics if finding.code == "near-alignment"] == []
@@ -2220,7 +2220,7 @@ class TestDiagnoseNearAlignment:
         )
 
         # when: diagnostics inspect unrelated layers
-        diagnostics = canvas.diagnose()
+        diagnostics = canvas.diagnose().findings
 
         # then: near coordinates alone do not create a finding
         assert [finding for finding in diagnostics if finding.code == "near-alignment"] == []
@@ -2243,7 +2243,7 @@ class TestDiagnoseNearAlignment:
         )
 
         # when: diagnostics inspect the intentional text-on-backdrop composition
-        diagnostics = canvas.diagnose()
+        diagnostics = canvas.diagnose().findings
 
         # then: the alignment rule does not duplicate the intentional layout
         assert [finding for finding in diagnostics if finding.code == "near-alignment"] == []
@@ -2277,7 +2277,7 @@ class TestDiagnoseVisibility:
         )
 
         # when
-        diagnostics = canvas.diagnose()
+        diagnostics = canvas.diagnose().findings
 
         # then
         hidden = [finding for finding in diagnostics if finding.code == "layer-hidden"]
@@ -2331,7 +2331,7 @@ class TestDiagnoseVisibility:
         )
 
         # when
-        diagnostics = canvas.diagnose()
+        diagnostics = canvas.diagnose().findings
 
         # then
         hidden = [finding for finding in diagnostics if finding.code == "layer-hidden"]
@@ -2365,7 +2365,7 @@ class TestDiagnoseVisibility:
         )
 
         # when
-        diagnostics = canvas.diagnose()
+        diagnostics = canvas.diagnose().findings
 
         # then
         assert "layer-hidden" not in [finding.code for finding in diagnostics]
@@ -2394,7 +2394,7 @@ class TestDiagnoseVisibility:
         )
 
         # when
-        diagnostics = canvas.diagnose()
+        diagnostics = canvas.diagnose().findings
 
         # then
         assert diagnostics == []
@@ -2423,7 +2423,7 @@ class TestDiagnoseVisibility:
         )
 
         # when
-        diagnostics = canvas.diagnose()
+        diagnostics = canvas.diagnose().findings
 
         # then
         assert [finding.code for finding in diagnostics] == ["layer-overlap"]
@@ -2446,7 +2446,7 @@ class TestDiagnoseVisibility:
         )
 
         # when
-        diagnostics = canvas.diagnose()
+        diagnostics = canvas.diagnose().findings
 
         # then
         assert [finding.code for finding in diagnostics] == ["layer-hidden"]
@@ -2470,7 +2470,7 @@ class TestDiagnoseVisibility:
         )
 
         # when
-        diagnostics = canvas.diagnose()
+        diagnostics = canvas.diagnose().findings
 
         # then
         assert diagnostics == []
@@ -2498,7 +2498,7 @@ class TestDiagnoseVisibility:
         )
 
         # when
-        diagnostics = canvas.diagnose()
+        diagnostics = canvas.diagnose().findings
 
         # then
         assert [finding.code for finding in diagnostics] == ["layer-hidden"]
@@ -2521,7 +2521,7 @@ class TestDiagnoseVisibility:
         )
 
         # when
-        diagnostics = canvas.diagnose()
+        diagnostics = canvas.diagnose().findings
 
         # then
         assert [finding.model_dump(mode="json", exclude_none=True) for finding in diagnostics] == [
@@ -2560,7 +2560,7 @@ class TestDiagnoseVisibility:
         )
 
         # when
-        diagnostics = canvas.diagnose()
+        diagnostics = canvas.diagnose().findings
 
         # then
         assert [finding.code for finding in diagnostics] == ["low-contrast", "edge-crowding"]
@@ -2583,7 +2583,7 @@ class TestDiagnoseVisibility:
         )
 
         # when
-        diagnostics = canvas.diagnose()
+        diagnostics = canvas.diagnose().findings
 
         # then
         crowding = [finding for finding in diagnostics if finding.code == "edge-crowding"]
@@ -2621,7 +2621,7 @@ class TestDiagnoseVisibility:
         )
 
         # when
-        diagnostics = canvas.diagnose()
+        diagnostics = canvas.diagnose().findings
 
         # then
         crowding = [finding for finding in diagnostics if finding.code == "edge-crowding"]
@@ -2755,7 +2755,7 @@ class TestDiagnoseMeasuredLayers:
         )
 
         # when
-        diagnostics = canvas.diagnose()
+        diagnostics = canvas.diagnose().findings
 
         # then
         assert [finding.model_dump(mode="json", exclude_none=True) for finding in diagnostics] == [
@@ -2792,7 +2792,7 @@ class TestDiagnoseMeasuredLayers:
         )
 
         # when
-        diagnostics = canvas.diagnose()
+        diagnostics = canvas.diagnose().findings
         measurements = measure_layers(canvas)
 
         # then
@@ -2823,7 +2823,7 @@ class TestDiagnoseMeasuredLayers:
         )
 
         # when
-        diagnostics = canvas.diagnose()
+        diagnostics = canvas.diagnose().findings
         measurements = measure_layers(canvas)
 
         # then
@@ -2846,7 +2846,7 @@ class TestDiagnoseMeasuredLayers:
         )
 
         # when
-        diagnostics = canvas.diagnose()
+        diagnostics = canvas.diagnose().findings
 
         # then
         assert [finding.model_dump(mode="json", exclude_none=True) for finding in diagnostics] == [
@@ -2884,7 +2884,7 @@ class TestDiagnoseMeasuredLayers:
         )
 
         # when
-        diagnostics = canvas.diagnose()
+        diagnostics = canvas.diagnose().findings
 
         # then
         assert [finding.model_dump(mode="json", exclude_none=True) for finding in diagnostics] == [
@@ -2924,7 +2924,7 @@ class TestDiagnoseMeasuredLayers:
         )
 
         # when
-        diagnostics = canvas.diagnose()
+        diagnostics = canvas.diagnose().findings
         measurements = measure_layers(canvas)
 
         # then

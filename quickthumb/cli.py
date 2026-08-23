@@ -177,7 +177,7 @@ def _run_lint(
 
     try:
         diagnostics = _filter_diagnostics(
-            cast(Iterable[_DiagnosticLike], source.diagnose()), ignored
+            cast(Iterable[_DiagnosticLike], source.diagnose().findings), ignored
         )
     except FileNotFoundError as error:
         _echo_input_error(FileNotFoundError(f"Referenced file not found: {error}"), lint_format)

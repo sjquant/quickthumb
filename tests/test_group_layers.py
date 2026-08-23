@@ -444,7 +444,7 @@ class TestGroupLayout:
 
         # when / then: the group box fits the canvas because the text was measured scaled
         # (unscaled measurement produced an oversized box and an off-canvas finding)
-        assert canvas.diagnose() == []
+        assert canvas.diagnose().findings == []
 
     def test_should_justify_multiline_text_children_with_align(self):
         """A text child's align controls line justification within its layout slot"""

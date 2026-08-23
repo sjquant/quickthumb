@@ -536,7 +536,7 @@ class TestVisualizationRendering:
         # when
         image = rendered_image(canvas)
         inspection = canvas.inspect()
-        diagnostics = canvas.diagnose()
+        diagnostics = canvas.diagnose().findings
 
         # then
         assert image.getbbox() is not None

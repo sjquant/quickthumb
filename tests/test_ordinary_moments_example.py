@@ -62,7 +62,7 @@ def test_ordinary_moments_tells_a_sixty_second_story_in_nine_scenes():
     assert len(slides) == 9
 
     # Then: nothing in the composition is broken or cropped away
-    findings = deck.diagnose()
+    findings = deck.diagnose().findings
     assert not any(finding.severity == "error" for finding in findings)
     assert not {finding.code for finding in findings} & {
         "text-clipped",
@@ -149,7 +149,7 @@ def test_ordinary_moments_reads_at_a_pace_a_viewer_can_follow():
     assert any(clip.speed != 1.0 for clip in clips)
 
     # When: the whole deck is diagnosed through the public API
-    codes = {finding.code for finding in deck.diagnose()}
+    codes = {finding.code for finding in deck.diagnose().findings}
 
     # Then: neither time-aware video rule has anything to say about it
     assert "caption-reading-time" not in codes

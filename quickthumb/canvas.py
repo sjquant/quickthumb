@@ -360,7 +360,7 @@ class Canvas:
         """
         from quickthumb._document import DiagnosticReport
 
-        return DiagnosticReport(self._diagnostics.diagnose())
+        return DiagnosticReport(findings=self._diagnostics.diagnose())
 
     def inspect(self) -> CanvasInspection:
         """Return a deterministic layout report for this canvas without rendering output."""

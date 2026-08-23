@@ -4,7 +4,6 @@
 # ruff: noqa: F405
 
 import base64 as _base64
-import json as _json
 from typing import Annotated, Any, Literal
 
 from pydantic import (
@@ -86,23 +85,13 @@ class ValidationReport(quickthumbModel):
         return self.valid
 
 
-class DiagnosticReport(list[Any]):
-    """List-compatible diagnostic envelope shared by Canvas and Deck."""
+class DiagnosticReport(quickthumbModel):
+    """Stable diagnostic envelope shared by Canvas and Deck."""
 
-    version = "1"
+    model_config = ConfigDict(extra="forbid")
 
-    @property
-    def findings(self) -> list[Any]:
-        return list(self)
-
-    def model_dump(self, *, mode: str = "python", exclude_none: bool = False) -> dict:
-        return {
-            "version": self.version,
-            "findings": [_diagnostic_payload(item, mode, exclude_none) for item in self],
-        }
-
-    def model_dump_json(self, *, exclude_none: bool = False) -> str:
-        return _json.dumps(self.model_dump(mode="json", exclude_none=exclude_none))
+    version: Literal["1"] = "1"
+    findings: list[Any] = Field(default_factory=list)
 
 
 class AssetManifestEntry(quickthumbModel):
@@ -223,10 +212,3 @@ class ExportResult(quickthumbModel):
 def _rgba_bytes(image) -> bytes:
     """Return raw bytes without leaking a PIL object into public models."""
     return image.tobytes()
-
-
-def _diagnostic_payload(item: Any, mode: str, exclude_none: bool) -> Any:
-    model_dump = getattr(item, "model_dump", None)
-    if callable(model_dump):
-        return model_dump(mode=mode, exclude_none=exclude_none)
-    return item
