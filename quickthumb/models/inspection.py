@@ -87,6 +87,15 @@ class CanvasInspection(quickthumbModel):
     layers: list[LayerInspection]
 
 
+class DeckInspection(quickthumbModel):
+    """Deterministic inspection report for a multi-slide document."""
+
+    kind: Literal["deck"] = "deck"
+    width: PositiveInt | None = None
+    height: PositiveInt | None = None
+    slides: list[CanvasInspection] = Field(default_factory=list)
+
+
 class MotionKeyframeInspection(quickthumbModel):
     """One normalized keyframe exposed by motion inspection."""
 

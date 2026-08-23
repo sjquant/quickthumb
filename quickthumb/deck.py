@@ -23,8 +23,13 @@ from quickthumb.canvas import Canvas
 from quickthumb.errors import RenderingError, ValidationError
 from quickthumb.models import (
     AudioTrack,
+    DeckInspection,
     ExportPolicy,
+    ExportResult,
+    FrameSequence,
     GifOptions,
+    ResolvedDocument,
+    ValidationReport,
     VideoOptions,
     coerce_audio_track,
 )
@@ -234,6 +239,32 @@ class Deck:
         if not self._slides:
             raise RenderingError("Deck has no slides to render.")
 
+    def validate(self) -> ValidationReport:
+        """Return a structured validation report for this document."""
+        from quickthumb._document import Document, validation_report
+
+        return validation_report(cast(Document, self), kind="deck")
+
+    def inspect(self) -> DeckInspection:
+        """Return deterministic layout reports for every slide."""
+        first = self._slides[0] if self._slides else None
+        return DeckInspection(
+            width=self._width if self._width is not None else (first.width if first else None),
+            height=self._height if self._height is not None else (first.height if first else None),
+            slides=[slide.inspect() for slide in self._slides],
+        )
+
+    def resolve_assets(self) -> ResolvedDocument:
+        """Check slide assets and return one deck-level manifest."""
+        from quickthumb._document import Document, resolved_document
+
+        return resolved_document(cast(Document, self), kind="deck")
+
+    def sample(self, time: float = 0.0) -> FrameSequence:
+        """Return one canonical RGBA frame for each slide at ``time``."""
+        self._require_slides()
+        return FrameSequence(frames=[slide.sample(time) for slide in self._slides])
+
     def render(
         self,
         output_path: str,
@@ -325,6 +356,20 @@ class Deck:
             "Use .pdf, .pptx, .html, an animated extension (.gif, .webm), .mp4 for "
             "narrated slides, or a raster extension (.png, .jpg, .jpeg, .webp)."
         )
+
+    def export(
+        self,
+        output_path: str | os.PathLike[str],
+        policy: ExportPolicy | None = None,
+        **options,
+    ) -> ExportResult:
+        """Export through the existing renderer and return the shared result envelope."""
+        from quickthumb._document import Document, build_export_result
+
+        normalized_path = os.fspath(output_path)
+        written = self.render(normalized_path, policy=policy, **options)
+        paths = [os.fspath(path) for path in written]
+        return build_export_result(cast(Document, self), normalized_path, paths, policy)
 
     def _render_animated_file(
         self,
@@ -739,7 +784,9 @@ class Deck:
                     suggestion="vary the transition or use a cut to create a deliberate rhythm",
                 )
             )
-        return findings
+        from quickthumb._document import DiagnosticReport
+
+        return DiagnosticReport(findings)
 
     def to_json(self) -> str:
         import json

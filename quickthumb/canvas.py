@@ -39,11 +39,13 @@ from quickthumb.models import (
     BackgroundEffect,
     BackgroundLayer,
     BlendMode,
+    CanonicalFrame,
     CanvasInspection,
     ChartLayer,
     ChartSpec,
     Diagnostic,
     ExportPolicy,
+    ExportResult,
     FaceRegion,
     FitMode,
     GifOptions,
@@ -60,6 +62,7 @@ from quickthumb.models import (
     OutlineLayer,
     QRCodeLayer,
     RadialGradient,
+    ResolvedDocument,
     ShapeEffect,
     ShapeLayer,
     SvgLayer,
@@ -67,6 +70,7 @@ from quickthumb.models import (
     TextInspection,
     TextLayer,
     TextPart,
+    ValidationReport,
     VideoCaption,
     VideoLayer,
     VideoOptions,
@@ -305,13 +309,32 @@ class Canvas:
         for layer in self._layers:
             visit(layer)
 
+    def validate(self) -> ValidationReport:
+        """Return a structured validation report for this document."""
+        from quickthumb._document import Document, validation_report
+
+        return validation_report(cast(Document, self), kind="canvas")
+
+    def resolve_assets(self) -> ResolvedDocument:
+        """Check referenced assets and return their manifest metadata."""
+        from quickthumb._document import Document, resolved_document
+
+        return resolved_document(cast(Document, self), kind="canvas")
+
+    def sample(self, time: float = 0.0) -> CanonicalFrame:
+        """Return one canonical RGBA frame without exposing motion internals."""
+        self._validate_image_paths()
+        return CanonicalFrame.from_image(self.render_frame(time), time=float(time))
+
     def diagnose(self) -> list[Diagnostic]:
         """Check layers for layout and legibility issues without producing an output file.
 
         Returns structured findings for layout, legibility, visibility, and safe-area
         checks that an agent or human can act on before rendering.
         """
-        return self._diagnostics.diagnose()
+        from quickthumb._document import DiagnosticReport
+
+        return DiagnosticReport(self._diagnostics.diagnose())
 
     def inspect(self) -> CanvasInspection:
         """Return a deterministic layout report for this canvas without rendering output."""
@@ -992,6 +1015,20 @@ class Canvas:
         self._validate_image_paths()
         image = self._render_to_image(debug=debug)
         self._save_to_file(image, output_path, quality, format=format)
+
+    def export(
+        self,
+        output_path: str | os.PathLike[str],
+        policy: ExportPolicy | None = None,
+        **options: Any,
+    ) -> ExportResult:
+        """Export through the existing renderer and return the shared result envelope."""
+        from quickthumb._document import Document, build_export_result
+
+        normalized_path = os.fspath(output_path)
+        written = self.render(normalized_path, policy=policy, **options)
+        paths = [normalized_path] if written is None else [os.fspath(path) for path in written]
+        return build_export_result(cast(Document, self), normalized_path, paths, policy)
 
     def _render_document(
         self, output_path: str, extension: str, policy: ExportPolicy | None = None
