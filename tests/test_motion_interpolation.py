@@ -6,15 +6,17 @@ from quickthumb import (
     AnimationSpec,
     ColorTrack,
     KeyframeSpec,
-    LayerState,
     ScaleTrack,
+)
+from quickthumb.errors import ValidationError
+from quickthumb.motion import (
+    LayerState,
     apply_transform,
     compile_timeline,
     easing_value,
     transform_matrix,
     validate_easing_name,
 )
-from quickthumb.errors import ValidationError
 
 
 class TestMotionInterpolation:

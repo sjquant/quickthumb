@@ -13,7 +13,7 @@ def test_investor_deck_exports_a_complete_investment_narrative(tmp_path):
 
     # when: consumers serialize, diagnose, and export the finished deck
     payload = json.loads(deck.to_json())
-    findings = deck.diagnose()
+    findings = deck.diagnose().findings
     deck.render(str(html_path))
     deck.render(str(pptx_path))
 

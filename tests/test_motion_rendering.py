@@ -12,9 +12,9 @@ from quickthumb import (
     PositionTrack,
     RotationTrack,
     ScaleTrack,
-    capabilities_for,
 )
 from quickthumb import transitions as tr
+from quickthumb.motion import capabilities_for
 
 from tests._helpers import ink_bounds, require_ink_bounds, solid_pixels
 

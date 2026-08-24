@@ -363,7 +363,7 @@ class TestVisualizationRendering:
         animation = AnimationSpec.value_count_up(duration=0.75)
 
         # when
-        from quickthumb import LayerState, compile_timeline
+        from quickthumb.motion import LayerState, compile_timeline
 
         timeline = compile_timeline(animation)
 
@@ -536,7 +536,7 @@ class TestVisualizationRendering:
         # when
         image = rendered_image(canvas)
         inspection = canvas.inspect()
-        diagnostics = canvas.diagnose()
+        diagnostics = canvas.diagnose().findings
 
         # then
         assert image.getbbox() is not None

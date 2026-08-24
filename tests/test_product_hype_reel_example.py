@@ -30,7 +30,7 @@ def test_product_hype_reel_meets_layout_and_pacing_contract():
         for slide in slides
     ]
     transition_effects = [slide["transition"]["effect"] for slide in slides]
-    findings = deck.diagnose()
+    findings = deck.diagnose().findings
 
     # then: every scene has reading room and nothing is left for a viewer to trip on
     assert len(deck) == 8

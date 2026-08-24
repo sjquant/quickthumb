@@ -435,7 +435,7 @@ def test_video_caption_outside_canvas_is_diagnosed_and_safely_rendered(source_vi
     )
 
     # When: public diagnostics and frame rendering are requested
-    diagnostics = canvas.diagnose()
+    diagnostics = canvas.diagnose().findings
     frame = canvas.render_frame(0.2)
 
     # Then: the unsafe source geometry is reported and rendering still succeeds
@@ -528,7 +528,7 @@ def test_video_caption_diagnostics_cover_multiline_timing_and_background_overlap
     )
 
     # When: the public diagnostic API inspects the composition
-    codes = [finding.code for finding in canvas.diagnose()]
+    codes = [finding.code for finding in canvas.diagnose().findings]
 
     # Then: multiline geometry remains safe and semantic timing issues are reported
     assert "text-clipped" not in codes
@@ -560,7 +560,7 @@ def test_video_caption_safe_area_diagnostic_reports_a_caption_near_the_bottom_ed
     )
 
     # When: the public diagnostic API inspects the composition
-    findings = canvas.diagnose()
+    findings = canvas.diagnose().findings
 
     # Then: the caption is identified without requiring an export
     assert any(finding.code == "caption-safe-area" for finding in findings)

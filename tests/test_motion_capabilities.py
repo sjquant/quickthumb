@@ -8,9 +8,9 @@ from quickthumb import (
     ImagePanTrack,
     KeyframeSpec,
     PositionTrack,
-    capabilities_for,
 )
 from quickthumb.errors import RenderingError
+from quickthumb.motion import capabilities_for
 
 
 class TestMotionCapabilities:

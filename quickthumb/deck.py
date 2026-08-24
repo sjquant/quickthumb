@@ -12,8 +12,7 @@ import contextlib
 import math
 import os
 import tempfile
-from dataclasses import asdict, dataclass
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Literal, cast
 
 from typing_extensions import Self
 
@@ -23,10 +22,17 @@ from quickthumb.canvas import Canvas
 from quickthumb.errors import RenderingError, ValidationError
 from quickthumb.models import (
     AudioTrack,
+    DeckInspection,
+    DiagnosticReport,
     ExportPolicy,
+    ExportResult,
+    FrameSequence,
     GifOptions,
+    ResolvedDocument,
+    ValidationReport,
     VideoOptions,
     coerce_audio_track,
+    quickthumbModel,
 )
 from quickthumb.transitions import Transition, coerce_transition
 
@@ -38,8 +44,7 @@ _RASTER_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp"}
 _ANIMATION_EXTENSIONS = {".gif", ".webm"}
 
 
-@dataclass
-class DeckDiagnostic:
+class DeckDiagnostic(quickthumbModel):
     """A single deck-level finding.
 
     Slide findings mirror Canvas.diagnose() entries but carry the originating
@@ -58,17 +63,6 @@ class DeckDiagnostic:
     related_layers: list[str] | None = None
     measured: dict | None = None
     suggestion: str | None = None
-
-    def model_dump(self, *, mode: str = "python", exclude_none: bool = False) -> dict:
-        """Return a serialization-compatible payload like a Pydantic diagnostic."""
-        payload = asdict(self)
-        if mode == "json":
-            import json
-
-            payload = json.loads(json.dumps(payload))
-        if exclude_none:
-            payload = {key: value for key, value in payload.items() if value is not None}
-        return payload
 
 
 class Deck:
@@ -234,6 +228,67 @@ class Deck:
         if not self._slides:
             raise RenderingError("Deck has no slides to render.")
 
+    def validate(self) -> ValidationReport:
+        """Return a structured validation report for this document."""
+        from quickthumb._document import Document, validation_report
+
+        return validation_report(cast(Document, self), kind="deck")
+
+    def _contract_kind(self) -> Literal["deck"]:
+        return "deck"
+
+    def _contract_canvases(self) -> list[Canvas]:
+        return list(self._slides)
+
+    def _contract_layers(self):
+        for canvas in self._slides:
+            yield from canvas._iter_layers_deep()
+
+    def _contract_audio_paths(self) -> tuple[str | None, ...]:
+        return tuple(audio.path if audio is not None else None for audio in self._slide_audio)
+
+    def _contract_validate_assets(self) -> None:
+        for canvas in self._slides:
+            canvas._validate_image_paths()
+        for path in self._contract_audio_paths():
+            if (
+                path is not None
+                and not path.startswith(("http://", "https://"))
+                and not os.path.isfile(path)
+            ):
+                raise FileNotFoundError(path)
+
+    def _contract_validate_structure(self) -> None:
+        if not self._slides:
+            raise ValidationError("deck has no slides")
+
+    def _contract_motion_report(self, target: str, policy, fps: float):
+        return self.inspect_motion(target=target, policy=policy, fps=fps)
+
+    def _contract_static_timing(self) -> tuple[float, float]:
+        _, durations = self._animation_audio_schedule()
+        return sum(durations), 30.0
+
+    def inspect(self) -> DeckInspection:
+        """Return deterministic layout reports for every slide."""
+        first = self._slides[0] if self._slides else None
+        return DeckInspection(
+            width=self._width if self._width is not None else (first.width if first else None),
+            height=self._height if self._height is not None else (first.height if first else None),
+            slides=[slide.inspect() for slide in self._slides],
+        )
+
+    def resolve_assets(self) -> ResolvedDocument:
+        """Check slide assets and return one deck-level manifest."""
+        from quickthumb._document import Document, resolved_document
+
+        return resolved_document(cast(Document, self), kind="deck")
+
+    def sample(self, time: float = 0.0) -> FrameSequence:
+        """Return one canonical RGBA frame for each slide at ``time``."""
+        self._require_slides()
+        return FrameSequence(frames=[slide.sample(time) for slide in self._slides])
+
     def render(
         self,
         output_path: str,
@@ -324,6 +379,37 @@ class Deck:
             f"Unsupported deck output format: {extension or output_path!r}.\n"
             "Use .pdf, .pptx, .html, an animated extension (.gif, .webm), .mp4 for "
             "narrated slides, or a raster extension (.png, .jpg, .jpeg, .webp)."
+        )
+
+    def export(
+        self,
+        output_path: str | os.PathLike[str],
+        policy: ExportPolicy | None = None,
+        *,
+        format: FileFormat | None = None,
+        quality: int | None = None,
+        animation: GifOptions | VideoOptions | None = None,
+    ) -> ExportResult:
+        """Export through the existing renderer and return the shared result envelope."""
+        from quickthumb._document import Document, build_export_result, preflight_export
+
+        normalized_path = os.fspath(output_path)
+        preflight_export(cast(Document, self), normalized_path, policy, format=format)
+        written = self.render(
+            normalized_path,
+            format=format,
+            quality=quality,
+            animation=animation,
+            policy=policy,
+        )
+        paths = [os.fspath(path) for path in written]
+        return build_export_result(
+            cast(Document, self),
+            normalized_path,
+            paths,
+            policy,
+            format=format,
+            animation=animation,
         )
 
     def _render_animated_file(
@@ -670,7 +756,7 @@ class Deck:
             reduced_motion=bool(policy and policy.reduced_motion),
         )
 
-    def diagnose(self) -> list[DeckDiagnostic]:
+    def diagnose(self) -> DiagnosticReport:
         """Collect per-slide diagnostics plus deck-wide layout warnings.
 
         Each slide's Canvas.diagnose() findings are returned tagged with their
@@ -698,7 +784,7 @@ class Deck:
             )
 
         for slide_index, canvas in enumerate(self._slides):
-            for finding in canvas.diagnose():
+            for finding in canvas.diagnose().findings:
                 payload = finding.model_dump(mode="json", exclude_none=True)
                 findings.append(
                     DeckDiagnostic(
@@ -739,7 +825,9 @@ class Deck:
                     suggestion="vary the transition or use a cut to create a deliberate rhythm",
                 )
             )
-        return findings
+        from quickthumb._document import DiagnosticReport
+
+        return DiagnosticReport(findings=findings)
 
     def to_json(self) -> str:
         import json

@@ -330,7 +330,7 @@ class TestDiagnose:
         deck = Deck(slides=[make_slide("ok"), offending])
 
         # when
-        findings = deck.diagnose()
+        findings = deck.diagnose().findings
 
         # then
         off_canvas = [f for f in findings if f.code == "off-canvas"]
@@ -343,7 +343,7 @@ class TestDiagnose:
         deck = Deck(slides=[make_slide("a", 1280, 720), make_slide("b", 800, 800)])
 
         # when
-        findings = deck.diagnose()
+        findings = deck.diagnose().findings
 
         # then
         mixed = [f for f in findings if f.code == "mixed-slide-size"]
@@ -357,7 +357,7 @@ class TestDiagnose:
         deck = Deck(slides=[make_slide("a"), make_slide("b")])
 
         # when
-        findings = deck.diagnose()
+        findings = deck.diagnose().findings
 
         # then
         assert not [f for f in findings if f.code == "mixed-slide-size"]
@@ -678,7 +678,7 @@ class TestDeckTransitions:
         )
 
         # when
-        findings = deck.diagnose()
+        findings = deck.diagnose().findings
 
         # then
         repetition = [finding for finding in findings if finding.code == "transition-repetition"]
