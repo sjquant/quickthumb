@@ -184,3 +184,12 @@ def test_unknown_layer_fields_are_rejected_at_the_json_boundary():
     }
     with pytest.raises(ValidationError, match="oops"):
         Canvas.from_json(json.dumps(payload))
+
+    payload["layers"][0] = {
+        "type": "text",
+        "content": [{"text": "hello", "colour": "#FFFFFF"}],
+        "position": [0, 0],
+        "size": 12,
+    }
+    with pytest.raises(ValidationError, match="colour"):
+        Canvas.from_json(json.dumps(payload))

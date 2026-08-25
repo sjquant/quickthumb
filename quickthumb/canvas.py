@@ -1378,27 +1378,59 @@ class Canvas:
                     )
                     if isinstance(variant, str):
                         return resolve_json_schema(node={"$ref": variant}, value=value)
+                return node
 
             choices = node.get("oneOf") or node.get("anyOf")
-            if isinstance(choices, list) and isinstance(value, dict):
+            if isinstance(choices, list):
+                candidates: list[tuple[int, dict[str, Any]]] = []
                 for choice in choices:
                     if not isinstance(choice, dict):
                         continue
                     resolved = resolve_json_schema(choice, value)
-                    type_schema = resolved.get("properties", {}).get("type", {})
-                    type_value = value.get("type")
-                    if isinstance(type_schema, dict) and (
-                        type_schema.get("const") == type_value
-                        or type_value in type_schema.get("enum", [])
-                    ):
-                        return resolved
-                if "type" in value:
-                    return node
+                    if not _schema_matches_value(resolved, value):
+                        continue
+                    required = resolved.get("required", [])
+                    if isinstance(value, dict) and not all(key in value for key in required):
+                        continue
+                    candidates.append((len(required), resolved))
+                if candidates:
+                    return max(candidates, key=lambda candidate: candidate[0])[1]
             return node
+
+        def _schema_matches_value(node: dict[str, Any], value: object) -> bool:
+            if node.get("oneOf") or node.get("anyOf"):
+                return False
+            constant = node.get("const")
+            if constant is not None and value != constant:
+                return False
+            enum = node.get("enum")
+            if isinstance(enum, list) and value not in enum:
+                return False
+            schema_type = node.get("type")
+            if schema_type == "object":
+                return isinstance(value, dict)
+            if schema_type == "array":
+                return isinstance(value, list)
+            if schema_type == "string":
+                return isinstance(value, str)
+            if schema_type == "boolean":
+                return isinstance(value, bool)
+            if schema_type == "integer":
+                return isinstance(value, int) and not isinstance(value, bool)
+            if schema_type == "number":
+                return isinstance(value, (int, float)) and not isinstance(value, bool)
+            if schema_type == "null":
+                return value is None
+            if "properties" in node or "required" in node:
+                return isinstance(value, dict)
+            if "items" in node or "prefixItems" in node:
+                return isinstance(value, list)
+            return True
 
         def reject_unknown_json_fields(value: object, node: dict[str, Any], path: str) -> None:
             if isinstance(value, list):
-                item_schema = node.get("items")
+                resolved = resolve_json_schema(node, value)
+                item_schema = resolved.get("items")
                 if isinstance(item_schema, dict):
                     for index, item in enumerate(value):
                         reject_unknown_json_fields(item, item_schema, f"{path}/{index}")
@@ -1419,6 +1451,12 @@ class Canvas:
                 child_schema = properties.get(key)
                 if isinstance(child_schema, dict):
                     reject_unknown_json_fields(child, child_schema, f"{path}/{key}")
+                elif isinstance(resolved.get("additionalProperties"), dict):
+                    reject_unknown_json_fields(
+                        child,
+                        cast(dict[str, Any], resolved["additionalProperties"]),
+                        f"{path}/{key}",
+                    )
 
         renderable_layers: list[RenderableLayer] = []
         for layer_index, layer_dict in enumerate(layers_raw):
