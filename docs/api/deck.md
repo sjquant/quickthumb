@@ -196,7 +196,7 @@ A `mixed-slide-size` warning is added when slides do not all share the same dime
 
 ### `.to_json()` / `Deck.from_json(json_str)`
 
-Round-trips the deck through canonical JSON, reusing each canvas's serialization. The shape is `{"kind": "deck", "width": ..., "height": ..., "theme": {...}, "slides": [<canvas spec>, ...]}`, where every slide carries `"kind": "canvas"`; `width`/`height` (the default slide size) and `theme` are emitted only when set. Per-slide `transition`, `audio`, `duration`, and `notes` fields are preserved alongside the canvas fields. A top-level `theme` is shared with every slide so slides can use `$theme.*` tokens, exactly like `Canvas.from_json`.
+Round-trips the deck through canonical JSON, reusing each canvas's serialization. The shape is `{"kind": "deck", "width": ..., "height": ..., "theme": {...}, "slides": [<canvas spec>, ...]}`, where every slide carries `"kind": "canvas"`; `width`/`height` (the default slide size) and `theme` are emitted only when set. JSON-authored slides may omit dimensions when the deck supplies a default size; canonical serialization materializes those inherited dimensions. Per-slide `transition`, `audio`, `duration`, and `notes` fields are preserved alongside the canvas fields. A top-level `theme` is shared with every slide so slides can use `$theme.*` tokens, exactly like `Canvas.from_json`.
 
 ```python
 spec = deck.to_json()

@@ -1378,7 +1378,7 @@ class Canvas:
                     )
                     if isinstance(variant, str):
                         return resolve_json_schema(node={"$ref": variant}, value=value)
-                return node
+                    return node
 
             choices = node.get("oneOf") or node.get("anyOf")
             if isinstance(choices, list):
@@ -1400,8 +1400,7 @@ class Canvas:
         def _schema_matches_value(node: dict[str, Any], value: object) -> bool:
             if node.get("oneOf") or node.get("anyOf"):
                 return False
-            constant = node.get("const")
-            if constant is not None and value != constant:
+            if "const" in node and value != node["const"]:
                 return False
             enum = node.get("enum")
             if isinstance(enum, list) and value not in enum:

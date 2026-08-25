@@ -66,6 +66,11 @@ The same schemas are available from Python as `canvas_json_schema()` and
     the matching top-level `kind` discriminator. Newly serialized documents
     include the discriminator at every document boundary, including Deck slides.
 
+    Deck slides may omit `width` and `height` when the Deck supplies default
+    dimensions; the document schema accepts that form and canonical JSON emits
+    the inherited dimensions on each slide. Transition objects use the same
+    discriminated, strict contract as `Deck.from_json()`.
+
     Authoring conveniences such as `$theme.*` are resolved by quickthumb before
     model validation, so generic JSON Schema validators may reject unresolved
     authoring specs that quickthumb itself can load.

@@ -60,12 +60,18 @@ def decode_json_object(data: str) -> dict[str, Any]:
     """Decode one JSON object and normalize syntax/type failures."""
     if not isinstance(data, str):
         raise ValidationError("JSON document must be a string.")
+
+    def reject_constant(value: str) -> None:
+        raise ValueError(f"non-standard JSON constant {value!r} is not permitted")
+
     try:
-        raw = json.loads(data)
+        raw = json.loads(data, parse_constant=reject_constant)
     except json.JSONDecodeError as error:
         raise ValidationError(
             f"Invalid JSON document: {error.msg} at position {error.pos}."
         ) from error
+    except ValueError as error:
+        raise ValidationError(f"Invalid JSON document: {error}.") from error
     if not isinstance(raw, dict):
         raise ValidationError("JSON document must be an object.")
     return cast(dict[str, Any], raw)

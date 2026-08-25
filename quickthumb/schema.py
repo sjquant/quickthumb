@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from typing import Any
+from typing import Any, cast
+
+from pydantic import TypeAdapter
 
 from quickthumb._diagnostic_rules import PLATFORM_SAFE_MARGIN_PRESETS
 from quickthumb.models import (
@@ -20,6 +22,7 @@ from quickthumb.models import (
     MotionTrackInspection,
     ReducedMotionInspection,
 )
+from quickthumb.transitions import Transition
 
 JSON_SCHEMA_DRAFT = "https://json-schema.org/draft/2020-12/schema"
 QUICKTHUMB_SCHEMA_ID = "https://sjquant.github.io/quickthumb/schema.json"
@@ -118,7 +121,23 @@ def canvas_json_schema() -> dict[str, Any]:
             "not": {"anyOf": [{"required": ["width"]}, {"required": ["height"]}]},
         },
     ]
+    _close_model_object_schemas(schema)
     return schema
+
+
+def _close_model_object_schemas(value: object) -> None:
+    """Mark generated model objects strict without closing arbitrary mappings."""
+    if isinstance(value, list):
+        for item in value:
+            _close_model_object_schemas(item)
+        return
+    if not isinstance(value, dict):
+        return
+    schema = cast(dict[str, Any], value)
+    if schema.get("type") == "object" and "properties" in schema:
+        schema.setdefault("additionalProperties", False)
+    for item in schema.values():
+        _close_model_object_schemas(item)
 
 
 def document_json_schema() -> dict[str, Any]:
@@ -126,24 +145,60 @@ def document_json_schema() -> dict[str, Any]:
     canvas = canvas_json_schema()
     canvas_defs = canvas.pop("$defs", {})
     canvas_document = {key: value for key, value in canvas.items() if key not in {"$schema", "$id"}}
-    deck_slide_document = deepcopy(canvas_document)
+    sized_deck_slide_document = deepcopy(canvas_document)
+    sized_deck_slide_document["title"] = "quickthumb Sized Deck Slide JSON Spec"
+    slide_metadata = {
+        "transition": {"$ref": "#/$defs/TransitionDocument"},
+        "audio": {
+            "type": "object",
+            "properties": {
+                "path": {"type": "string"},
+                "volume": {"type": "number", "minimum": 0},
+                "loop": {"type": "boolean"},
+                "fade_out": {"type": "number", "minimum": 0},
+            },
+            "required": ["path"],
+            "additionalProperties": False,
+        },
+        "duration": {"exclusiveMinimum": 0, "type": "number"},
+        "notes": {"type": "string"},
+    }
+    sized_deck_slide_document["properties"].update(slide_metadata)
+
+    deck_slide_document = deepcopy(sized_deck_slide_document)
     deck_slide_document["title"] = "quickthumb Deck Slide JSON Spec"
+    deck_slide_document.pop("anyOf", None)
+    deck_slide_document["allOf"] = [
+        {
+            "if": {"required": ["width"]},
+            "then": {"required": ["height"]},
+        },
+        {
+            "if": {"required": ["height"]},
+            "then": {"required": ["width"]},
+        },
+    ]
+
+    transition_schema = TypeAdapter(Transition).json_schema(
+        ref_template="#/$defs/Transition_{model}"
+    )
+    transition_defs = transition_schema.pop("$defs", {})
+    transition_defs = {
+        f"Transition_{name}": definition for name, definition in transition_defs.items()
+    }
+    for definition in transition_defs.values():
+        if "properties" in definition and "effect" in definition["properties"]:
+            definition["required"] = [
+                "effect",
+                *[field for field in definition.get("required", []) if field != "effect"],
+            ]
+    transition_document = {
+        key: value for key, value in transition_schema.items() if key != "$schema"
+    }
+
     deck_slide_document["properties"].update(
         {
-            "transition": {"type": "object"},
-            "audio": {
-                "type": "object",
-                "properties": {
-                    "path": {"type": "string"},
-                    "volume": {"type": "number", "minimum": 0},
-                    "loop": {"type": "boolean"},
-                    "fade_out": {"type": "number", "minimum": 0},
-                },
-                "required": ["path"],
-                "additionalProperties": False,
-            },
-            "duration": {"exclusiveMinimum": 0, "type": "number"},
-            "notes": {"type": "string"},
+            "transition": transition_document,
         }
     )
     deck_document = {
@@ -154,7 +209,7 @@ def document_json_schema() -> dict[str, Any]:
             "width": {"exclusiveMinimum": 0, "type": "integer"},
             "height": {"exclusiveMinimum": 0, "type": "integer"},
             "theme": {"type": "object"},
-            "transition": {"type": "object"},
+            "transition": transition_document,
             "slides": {
                 "type": "array",
                 "items": {"$ref": "#/$defs/DeckSlideDocument"},
@@ -170,6 +225,20 @@ def document_json_schema() -> dict[str, Any]:
             {
                 "if": {"required": ["height"]},
                 "then": {"required": ["width"]},
+            },
+            {
+                "if": {
+                    "not": {
+                        "anyOf": [{"required": ["width"]}, {"required": ["height"]}]
+                    }
+                },
+                "then": {
+                    "properties": {
+                        "slides": {
+                            "items": {"$ref": "#/$defs/SizedDeckSlideDocument"}
+                        }
+                    }
+                },
             },
         ],
     }
@@ -191,8 +260,11 @@ def document_json_schema() -> dict[str, Any]:
         },
         "$defs": {
             **canvas_defs,
+            **transition_defs,
             "CanvasDocument": canvas_document,
             "DeckSlideDocument": deck_slide_document,
+            "SizedDeckSlideDocument": sized_deck_slide_document,
+            "TransitionDocument": transition_document,
             "DeckDocument": deck_document,
         },
     }
