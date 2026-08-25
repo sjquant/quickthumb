@@ -416,14 +416,16 @@ class TestJsonRoundTrip:
         # given: a deck-shaped JSON document with structured notes
         spec = json.dumps(
             {
+                "kind": "deck",
                 "slides": [
                     {
+                        "kind": "canvas",
                         "width": 1280,
                         "height": 720,
                         "layers": [],
                         "notes": ["not", "text"],
                     }
-                ]
+                ],
             }
         )
 
@@ -435,7 +437,7 @@ class TestJsonRoundTrip:
         """Deck JSON must carry a 'slides' list."""
         # when / then
         with pytest.raises(ValidationError, match="slides"):
-            Deck.from_json('{"pages": []}')
+            Deck.from_json('{"kind": "deck", "pages": []}')
 
     def test_should_preserve_default_size_across_json(self):
         """A restored deck keeps its default size so bare slides still inherit it."""
@@ -454,11 +456,13 @@ class TestJsonRoundTrip:
         # given a deck spec with a shared theme and a slide that references it
         spec = json.dumps(
             {
+                "kind": "deck",
                 "width": 1280,
                 "height": 720,
                 "theme": {"brand": "#B8FF00"},
                 "slides": [
                     {
+                        "kind": "canvas",
                         "width": 1280,
                         "height": 720,
                         "layers": [{"type": "background", "color": "$theme.brand"}],

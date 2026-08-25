@@ -93,6 +93,7 @@ class TestSlideServer:
                     "height": 180,
                     "slides": [
                         {
+                            "kind": "canvas",
                             "layers": [{"type": "background", "color": "$ACCENT"}],
                             "notes": "Use the accent color as the transition cue.",
                         }
@@ -123,7 +124,10 @@ class TestSlideServer:
                     "height": 180,
                     "theme": {"colors": {"background": "$ACCENT"}},
                     "slides": [
-                        {"layers": [{"type": "background", "color": "$theme.colors.background"}]}
+                        {
+                            "kind": "canvas",
+                            "layers": [{"type": "background", "color": "$theme.colors.background"}],
+                        }
                     ],
                 }
             ),

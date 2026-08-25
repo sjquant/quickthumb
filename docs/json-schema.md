@@ -62,9 +62,9 @@ The same schemas are available from Python as `canvas_json_schema()` and
     Canvas/Deck discriminator schema. `Canvas.from_json()` remains the source of truth
     for what quickthumb can load.
 
-    The CLI and `serve` command require the top-level `kind` discriminator. The
-    direct `Canvas.from_json()` and `Deck.from_json()` APIs continue to accept
-    legacy strings without it; newly serialized documents always include `kind`.
+    The CLI, `serve`, `Canvas.from_json()`, and `Deck.from_json()` all require
+    the matching top-level `kind` discriminator. Newly serialized documents
+    include the discriminator at every document boundary, including Deck slides.
 
     Authoring conveniences such as `$theme.*` are resolved by quickthumb before
     model validation, so generic JSON Schema validators may reject unresolved

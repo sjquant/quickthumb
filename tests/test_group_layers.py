@@ -192,7 +192,7 @@ class TestCanvasGroupAPI:
         from quickthumb import Canvas
 
         layer = {"type": "group", "children": [RED], **overrides}
-        spec = json.dumps({"width": 400, "height": 300, "layers": [layer]})
+        spec = json.dumps({"kind": "canvas", "width": 400, "height": 300, "layers": [layer]})
 
         with pytest.raises(ValidationError, match=error_pattern):
             Canvas.from_json(spec)

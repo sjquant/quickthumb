@@ -600,6 +600,7 @@ class TestImageLayerSerialization:
         # Given: JSON string with image layer
 
         json_data = {
+            "kind": "canvas",
             "width": 1920,
             "height": 1080,
             "layers": [
@@ -957,6 +958,7 @@ class TestImageLayerSerialization:
         from quickthumb.models import ImageLayer
 
         json_data = {
+            "kind": "canvas",
             "width": 400,
             "height": 300,
             "layers": [
@@ -995,6 +997,7 @@ class TestImageLayerSerialization:
         # Given: JSON with percentage position
 
         json_data = {
+            "kind": "canvas",
             "width": 1920,
             "height": 1080,
             "layers": [

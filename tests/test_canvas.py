@@ -212,12 +212,13 @@ class TestCanvas:
         "json_str, match",
         [
             (
-                '{"width": 1920, "height": 1080, "layers": "INVALID"}',
+                '{"kind":"canvas", "width": 1920, "height": 1080, "layers": "INVALID"}',
                 "layers.*",
             ),
             (
                 json.dumps(
                     {
+                        "kind": "canvas",
                         "width": 100,
                         "height": 100,
                         "layers": [{"type": "custom", "name": "no_such_fn_xyz"}],
@@ -387,6 +388,7 @@ class TestCanvas:
 
         json_str = json.dumps(
             {
+                "kind": "canvas",
                 "width": 100,
                 "height": 100,
                 "layers": [{"type": "custom", "name": "no_such_fn_xyz"}],
@@ -453,6 +455,7 @@ class TestCanvasTemplate:
 
     SIMPLE_TEMPLATE = json.dumps(
         {
+            "kind": "canvas",
             "width": 100,
             "height": 100,
             "layers": [{"type": "background", "color": "$bg_color"}],
@@ -470,6 +473,7 @@ class TestCanvasTemplate:
 
         template = json.dumps(
             {
+                "kind": "canvas",
                 "width": 100,
                 "height": 100,
                 "layers": [{"type": "background", "color": placeholder}],
@@ -559,7 +563,12 @@ class TestCanvasTemplate:
         from quickthumb import Canvas
 
         custom_spec = json.dumps(
-            {"width": 999, "height": 111, "layers": [{"type": "background", "color": "#000000"}]}
+            {
+                "kind": "canvas",
+                "width": 999,
+                "height": 111,
+                "layers": [{"type": "background", "color": "#000000"}],
+            }
         )
         with tempfile.NamedTemporaryFile(suffix=".json", mode="w", delete=False) as f:
             f.write(custom_spec)
@@ -605,6 +614,7 @@ class TestCanvasTemplate:
 
         template = json.dumps(
             {
+                "kind": "canvas",
                 "width": 100,
                 "height": 100,
                 "layers": [
@@ -627,7 +637,10 @@ class TestCanvasTemplate:
         from quickthumb import Canvas
 
         # given: a template using $w as a bare JSON number and $title inside a string
-        template = '{"width": $w, "height": 300, "layers": [{"type": "text", "content": "$title"}]}'
+        template = (
+            '{"kind": "canvas", "width": $w, "height": 300, '
+            '"layers": [{"type": "text", "content": "$title"}]}'
+        )
 
         # when
         canvas = Canvas.from_template(template, variables={"w": 400, "title": 42})
@@ -642,6 +655,7 @@ class TestCanvasTemplate:
 
         template = json.dumps(
             {
+                "kind": "canvas",
                 "width": 100,
                 "height": 100,
                 "layers": [{"type": "text", "content": "$title", "size": 48, "color": "#FFFFFF"}],
@@ -656,6 +670,7 @@ class TestCanvasTemplate:
 
         template = json.dumps(
             {
+                "kind": "canvas",
                 "width": 100,
                 "height": 100,
                 "layers": [{"type": "text", "content": "$title", "size": 48, "color": "#FFFFFF"}],
@@ -671,6 +686,7 @@ class TestCanvasTemplate:
             (
                 json.dumps(
                     {
+                        "kind": "canvas",
                         "width": 100,
                         "height": 100,
                         "layers": [{"type": "background", "color": "$missing_var"}],
@@ -707,6 +723,7 @@ class TestCanvasTheme:
         # given: a theme referenced from top-level fields, a nested effect, and a list-typed field
         config = json.dumps(
             {
+                "kind": "canvas",
                 "width": 320,
                 "height": 200,
                 "theme": {
@@ -747,6 +764,7 @@ class TestCanvasTheme:
         # given: a text layer embedding a string token mid-sentence
         config = json.dumps(
             {
+                "kind": "canvas",
                 "width": 320,
                 "height": 200,
                 "theme": {"brand": {"name": "quickthumb"}},
@@ -777,6 +795,7 @@ class TestCanvasTheme:
 
         # given: a spec referencing a token that no theme defines
         spec = {
+            "kind": "canvas",
             "width": 320,
             "height": 200,
             "layers": [{"type": "background", "color": "$theme.colors.accent"}],
@@ -795,6 +814,7 @@ class TestCanvasTheme:
         # given: accent aliases primary
         config = json.dumps(
             {
+                "kind": "canvas",
                 "width": 320,
                 "height": 200,
                 "theme": {"colors": {"primary": "#FF0000", "accent": "$theme.colors.primary"}},
@@ -814,6 +834,7 @@ class TestCanvasTheme:
 
         config = json.dumps(
             {
+                "kind": "canvas",
                 "width": 320,
                 "height": 200,
                 "theme": {"colors": {"a": "$theme.colors.b", "b": "$theme.colors.a"}},
@@ -831,6 +852,7 @@ class TestCanvasTheme:
         # given: a canvas built from a themed spec
         config = json.dumps(
             {
+                "kind": "canvas",
                 "width": 320,
                 "height": 200,
                 "theme": {"colors": {"bg": "#112233"}},
@@ -853,6 +875,7 @@ class TestCanvasTheme:
         # given: a template mixing a $title variable and a $theme color token
         template = json.dumps(
             {
+                "kind": "canvas",
                 "width": 320,
                 "height": 200,
                 "theme": {"colors": {"primary": "#00FF00"}},

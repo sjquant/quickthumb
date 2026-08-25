@@ -30,6 +30,7 @@ from __future__ import annotations
 from typing import Annotated, Literal
 
 from pydantic import (
+    ConfigDict,
     Discriminator,
     Field,
     NonNegativeFloat,
@@ -45,6 +46,8 @@ from quickthumb.models import quickthumbModel
 
 class _TransitionBase(quickthumbModel):
     """Shared timing fields for every slide transition."""
+
+    model_config = ConfigDict(extra="forbid")
 
     duration: PositiveFloat = 1.0
     advance_on_click: bool = True

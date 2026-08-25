@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from copy import deepcopy
 from typing import Any
 
 from quickthumb._diagnostic_rules import PLATFORM_SAFE_MARGIN_PRESETS
@@ -42,7 +43,7 @@ def canvas_json_schema() -> dict[str, Any]:
     schema["title"] = "quickthumb Canvas JSON Spec"
     schema["description"] = (
         "A quickthumb canvas spec accepted by the quickthumb CLI. Canvas.from_json() also "
-        "accepts legacy documents without the top-level kind."
+        "requires the top-level kind discriminator to be 'canvas'."
     )
     schema["properties"]["kind"] = {"const": "canvas", "type": "string"}
     schema["properties"]["platform"] = platform_schema
@@ -125,6 +126,26 @@ def document_json_schema() -> dict[str, Any]:
     canvas = canvas_json_schema()
     canvas_defs = canvas.pop("$defs", {})
     canvas_document = {key: value for key, value in canvas.items() if key not in {"$schema", "$id"}}
+    deck_slide_document = deepcopy(canvas_document)
+    deck_slide_document["title"] = "quickthumb Deck Slide JSON Spec"
+    deck_slide_document["properties"].update(
+        {
+            "transition": {"type": "object"},
+            "audio": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string"},
+                    "volume": {"type": "number", "minimum": 0},
+                    "loop": {"type": "boolean"},
+                    "fade_out": {"type": "number", "minimum": 0},
+                },
+                "required": ["path"],
+                "additionalProperties": False,
+            },
+            "duration": {"exclusiveMinimum": 0, "type": "number"},
+            "notes": {"type": "string"},
+        }
+    )
     deck_document = {
         "type": "object",
         "title": "quickthumb Deck JSON Spec",
@@ -136,7 +157,7 @@ def document_json_schema() -> dict[str, Any]:
             "transition": {"type": "object"},
             "slides": {
                 "type": "array",
-                "items": {"$ref": "#/$defs/CanvasDocument"},
+                "items": {"$ref": "#/$defs/DeckSlideDocument"},
             },
         },
         "required": ["kind", "slides"],
@@ -171,6 +192,7 @@ def document_json_schema() -> dict[str, Any]:
         "$defs": {
             **canvas_defs,
             "CanvasDocument": canvas_document,
+            "DeckSlideDocument": deck_slide_document,
             "DeckDocument": deck_document,
         },
     }
