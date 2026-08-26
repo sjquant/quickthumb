@@ -113,12 +113,8 @@ def test_python_and_json_deck_specs_normalize_metadata_and_samples():
 def test_canonical_serialization_is_deterministic_and_schema_valid():
     """Given a deck with metadata, serialization is stable and accepted by its schema."""
     # Given: equivalent JSON inputs with different insertion order
-    first_canvas = Canvas.from_json(
-        '{"kind":"canvas","width":16,"height":12,"layers":[]}'
-    )
-    second_canvas = Canvas.from_json(
-        '{"layers":[],"height":12,"kind":"canvas","width":16}'
-    )
+    first_canvas = Canvas.from_json('{"kind":"canvas","width":16,"height":12,"layers":[]}')
+    second_canvas = Canvas.from_json('{"layers":[],"height":12,"kind":"canvas","width":16}')
     assert first_canvas.to_json() == second_canvas.to_json()
 
     # And: a document with nested values whose input order is intentionally varied
@@ -221,19 +217,33 @@ def test_unknown_layer_fields_are_rejected_at_the_json_boundary():
         Canvas.from_json(json.dumps(payload))
 
     # Nested discriminated models use the same strict boundary.
-    payload["layers"][0] = {
-        "type": "background",
-        "color": "#FFFFFF",
-        "effects": [{"type": "grain", "intensity": 0.2, "oops": True}],
+    payload = {
+        "kind": "canvas",
+        "width": 10,
+        "height": 10,
+        "layers": [
+            {
+                "type": "background",
+                "color": "#FFFFFF",
+                "effects": [{"type": "grain", "intensity": 0.2, "oops": True}],
+            }
+        ],
     }
     with pytest.raises(ValidationError, match="oops"):
         Canvas.from_json(json.dumps(payload))
 
-    payload["layers"][0] = {
-        "type": "text",
-        "content": [{"text": "hello", "colour": "#FFFFFF"}],
-        "position": [0, 0],
-        "size": 12,
+    payload = {
+        "kind": "canvas",
+        "width": 10,
+        "height": 10,
+        "layers": [
+            {
+                "type": "text",
+                "content": [{"text": "hello", "colour": "#FFFFFF"}],
+                "position": [0, 0],
+                "size": 12,
+            }
+        ],
     }
     with pytest.raises(ValidationError, match="colour"):
         Canvas.from_json(json.dumps(payload))
@@ -370,7 +380,7 @@ def test_non_standard_json_constants_are_rejected_at_the_boundary(constant):
         '{"kind":"canvas","width":10,"height":10,"layers":['
         '{"type":"shape","shape":"rectangle","position":[0,0],'
         f'"width":2,"height":2,"color":"#FFFFFF","rotation":{constant}'
-        '}]}'
+        "}]}"
     )
 
     with pytest.raises(ValidationError, match="non-standard JSON constant"):

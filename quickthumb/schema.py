@@ -227,17 +227,9 @@ def document_json_schema() -> dict[str, Any]:
                 "then": {"required": ["width"]},
             },
             {
-                "if": {
-                    "not": {
-                        "anyOf": [{"required": ["width"]}, {"required": ["height"]}]
-                    }
-                },
+                "if": {"not": {"anyOf": [{"required": ["width"]}, {"required": ["height"]}]}},
                 "then": {
-                    "properties": {
-                        "slides": {
-                            "items": {"$ref": "#/$defs/SizedDeckSlideDocument"}
-                        }
-                    }
+                    "properties": {"slides": {"items": {"$ref": "#/$defs/SizedDeckSlideDocument"}}}
                 },
             },
         ],

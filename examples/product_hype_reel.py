@@ -936,7 +936,7 @@ def add_week_chart(canvas: Canvas, *, baseline: int, peak: int) -> Canvas:
 
 def print_diagnostics(deck: Deck) -> None:
     """Print every layout finding before spending time on video encoding."""
-    findings = deck.diagnose()
+    findings = deck.diagnose().findings
     for finding in findings:
         location = (
             f"scene {finding.slide_index + 1}, layer {finding.layer_index}"
