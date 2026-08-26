@@ -159,11 +159,11 @@ canvas.shape(
 `diagnose()` flags common problems — off-canvas layers, illegibly small text, words that can't wrap, low text contrast — before you render:
 
 ```python
-for finding in canvas.diagnose():
+for finding in canvas.diagnose().findings:
     print(finding.severity, finding.code, finding.message)
 ```
 
-An empty list means the composition is clean. See [Diagnostics & CLI](diagnostics.md).
+An empty `findings` list means the composition is clean. See [Diagnostics & CLI](diagnostics.md).
 
 ### 7. Export
 

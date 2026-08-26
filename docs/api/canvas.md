@@ -60,10 +60,10 @@ individual reference pages for full parameter details.
 
 ## `.diagnose()`
 
-Checks the composition for layout and legibility issues without writing a file. Returns a list of `Diagnostic` findings (empty when clean):
+Checks the composition for layout and legibility issues without writing a file. Returns a `DiagnosticReport` whose `findings` list contains `Diagnostic` entries (empty when clean):
 
 ```python
-for finding in canvas.diagnose():
+for finding in canvas.diagnose().findings:
     print(finding.severity, finding.code, finding.message)
 ```
 

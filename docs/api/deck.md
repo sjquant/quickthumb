@@ -169,10 +169,10 @@ described above.
 
 ## `.diagnose()`
 
-Aggregates each slide's [`Canvas.diagnose()`](canvas.md#diagnose) findings and adds deck-wide checks. Returns a list of `DeckDiagnostic` entries:
+Aggregates each slide's [`Canvas.diagnose()`](canvas.md#diagnose) findings and adds deck-wide checks. Returns a `DiagnosticReport` whose `findings` list contains `DeckDiagnostic` entries:
 
 ```python
-for finding in deck.diagnose():
+for finding in deck.diagnose().findings:
     print(finding.slide_index, finding.code, finding.message)
 ```
 
