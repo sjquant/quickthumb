@@ -7,6 +7,7 @@ from io import BytesIO
 from typing import Any, Literal, cast
 
 from PIL import Image, ImageDraw, ImageFont
+from pydantic import TypeAdapter
 from pydantic import ValidationError as PydanticValidationError
 from typing_extensions import Self
 
@@ -89,6 +90,8 @@ TextContentInput = str | list[TextPart | dict[str, Any]]
 
 _THEME_REF_RE = re.compile(r"\$theme\.([A-Za-z0-9_]+(?:\.[A-Za-z0-9_]+)*)")
 _VAR_RE = re.compile(r"\$\{(\w+)\}|\$(\w+)")
+_LAYER_ADAPTER: TypeAdapter[LayerType] = TypeAdapter(LayerType)
+_LAYER_SCHEMA: dict[str, Any] = _LAYER_ADAPTER.json_schema()
 
 
 def _is_theme_reference(match: re.Match) -> bool:
@@ -1329,10 +1332,8 @@ class Canvas:
 
     @classmethod
     def _from_json(cls, data: str) -> Self:
-        from pydantic import TypeAdapter
-
         from quickthumb._document import decode_json_object, require_document_kind
-        from quickthumb.models import CanvasModel, LayerType
+        from quickthumb.models import CanvasModel
 
         raw = decode_json_object(data)
         require_document_kind(raw, expected="canvas")
@@ -1355,9 +1356,7 @@ class Canvas:
         if not isinstance(layers_raw, list):
             CanvasModel.model_validate_json(data)  # raises ValidationError with good message
 
-        layer_adapter: TypeAdapter[LayerType] = TypeAdapter(LayerType)
-        layer_schema = layer_adapter.json_schema()
-        layer_defs = cast(dict[str, dict[str, Any]], layer_schema.get("$defs", {}))
+        layer_defs = cast(dict[str, dict[str, Any]], _LAYER_SCHEMA.get("$defs", {}))
 
         def resolve_json_schema(node: dict[str, Any], value: object) -> dict[str, Any]:
             reference = node.get("$ref")
@@ -1480,8 +1479,8 @@ class Canvas:
                     raise ValidationError(f"Custom layer '{name}' kwargs must be a JSON object.")
                 renderable_layers.append(CustomLayer(fn=fn, name=name, kwargs=kwargs))
             else:
-                reject_unknown_json_fields(layer_dict, layer_schema, f"/layers/{layer_index}")
-                renderable_layers.append(layer_adapter.validate_python(layer_dict))
+                reject_unknown_json_fields(layer_dict, _LAYER_SCHEMA, f"/layers/{layer_index}")
+                renderable_layers.append(_LAYER_ADAPTER.validate_python(layer_dict))
 
         platform = raw.get("platform")
         if platform is not None and not isinstance(platform, str):

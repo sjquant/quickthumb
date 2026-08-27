@@ -26,6 +26,10 @@ from quickthumb.transitions import Transition
 
 JSON_SCHEMA_DRAFT = "https://json-schema.org/draft/2020-12/schema"
 QUICKTHUMB_SCHEMA_ID = "https://sjquant.github.io/quickthumb/schema.json"
+_TRANSITION_ADAPTER: TypeAdapter[Transition] = TypeAdapter(Transition)
+_TRANSITION_SCHEMA: dict[str, Any] = _TRANSITION_ADAPTER.json_schema(
+    ref_template="#/$defs/Transition_{model}"
+)
 
 
 def canvas_json_schema() -> dict[str, Any]:
@@ -179,9 +183,7 @@ def document_json_schema() -> dict[str, Any]:
         },
     ]
 
-    transition_schema = TypeAdapter(Transition).json_schema(
-        ref_template="#/$defs/Transition_{model}"
-    )
+    transition_schema = deepcopy(_TRANSITION_SCHEMA)
     transition_defs = transition_schema.pop("$defs", {})
     transition_defs = {
         f"Transition_{name}": definition for name, definition in transition_defs.items()
