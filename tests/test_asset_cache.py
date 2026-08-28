@@ -78,6 +78,7 @@ def test_remote_image_manifest_persists_network_result_and_reuses_fresh_cache(
     assert second_manifest.source_key == first_manifest.source_key
     assert second_manifest.cache_key == first_manifest.cache_key
     assert second_manifest.content_hash == first_manifest.content_hash
+    assert second_manifest.cache_path is not None
     assert Path(second_manifest.cache_path).is_file()
 
 
@@ -105,6 +106,7 @@ def test_remote_font_render_uses_the_shared_cache_after_network_becomes_unavaila
     assert second_manifest.status == "fresh"
     assert first_manifest.content_hash == second_manifest.content_hash
     assert first_manifest.cache_key == second_manifest.cache_key
+    assert second_manifest.cache_path is not None
     assert Path(second_manifest.cache_path).is_file()
 
 
