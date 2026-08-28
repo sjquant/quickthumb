@@ -77,7 +77,7 @@ from quickthumb.models import (
     VideoLayer,
     VideoOptions,
 )
-from quickthumb.plugins import plugin_registry
+from quickthumb.plugins import PluginRegistry, plugin_registry
 
 
 @dataclass
@@ -172,6 +172,8 @@ class Canvas:
         height: int | None = None,
         layers: list[RenderableLayer] | None = None,
         platform: str | None = None,
+        *,
+        registry: PluginRegistry | None = None,
     ):
         validate_dimensions(width, height)
         if platform is not None:
@@ -188,6 +190,9 @@ class Canvas:
         self._has_size = width is not None
         self._ctx = RenderContext(width or 0, height or 0)
         self._layers: list[RenderableLayer] = layers or []
+        if registry is not None and not isinstance(registry, PluginRegistry):
+            raise ValidationError("registry must be a PluginRegistry instance")
+        self._plugin_registry = plugin_registry if registry is None else registry
         self._validate_layer_identities()
         self._platform = platform
 
@@ -339,6 +344,8 @@ class Canvas:
         if not self.has_size:
             raise ValidationError("canvas has no size")
         self._validate_layer_identities()
+        for layer in self._layers:
+            self._validate_plugin_layer_tree(layer, self._plugin_registry)
 
     def _contract_motion_report(self, target: str, policy, fps: float):
         return self.inspect_motion(target=target, policy=policy, fps=fps)
@@ -1322,9 +1329,9 @@ class Canvas:
         return value
 
     @classmethod
-    def from_json(cls, data: str) -> Self:
+    def from_json(cls, data: str, *, registry: PluginRegistry | None = None) -> Self:
         try:
-            return cls._from_json(data)
+            return cls._from_json(data, registry=registry)
         except PydanticValidationError as error:
             messages = []
             for detail in error.errors():
@@ -1333,10 +1340,13 @@ class Canvas:
             raise ValidationError(" | ".join(messages), original_error=error) from error
 
     @classmethod
-    def _from_json(cls, data: str) -> Self:
+    def _from_json(cls, data: str, *, registry: PluginRegistry | None = None) -> Self:
         from quickthumb._document import decode_json_object, require_document_kind
         from quickthumb.models import CanvasModel
 
+        parser_registry = plugin_registry if registry is None else registry
+        if not isinstance(parser_registry, PluginRegistry):
+            raise ValidationError("registry must be a PluginRegistry instance")
         raw = decode_json_object(data)
         require_document_kind(raw, expected="canvas")
         raw = dict(raw)
@@ -1483,7 +1493,7 @@ class Canvas:
             else:
                 reject_unknown_json_fields(layer_dict, _LAYER_SCHEMA, f"/layers/{layer_index}")
                 parsed_layer = _LAYER_ADAPTER.validate_python(layer_dict)
-                cls._validate_plugin_layer_tree(parsed_layer)
+                cls._validate_plugin_layer_tree(parsed_layer, parser_registry)
                 renderable_layers.append(parsed_layer)
 
         platform = raw.get("platform")
@@ -1508,17 +1518,23 @@ class Canvas:
             CanvasModel.model_validate(raw)  # raises ValidationError with good message
             raise ValidationError("'width' and 'height' must be integers.")
 
-        return cls(width=width, height=height, layers=renderable_layers, platform=platform)
+        return cls(
+            width=width,
+            height=height,
+            layers=renderable_layers,
+            platform=platform,
+            registry=parser_registry,
+        )
 
     @classmethod
-    def _validate_plugin_layer_tree(cls, layer: RenderableLayer) -> None:
+    def _validate_plugin_layer_tree(cls, layer: RenderableLayer, registry: PluginRegistry) -> None:
         """Resolve every plugin in a parsed layer tree before it enters a Canvas."""
         if isinstance(layer, PluginLayer):
-            plugin_registry.validate(layer)
+            registry.validate(layer)
             return
         if isinstance(layer, GroupLayer):
             for child in layer.children:
-                cls._validate_plugin_layer_tree(child)
+                cls._validate_plugin_layer_tree(child, registry)
 
     @classmethod
     def _read_template_file(cls, path: str) -> str:
@@ -1546,7 +1562,11 @@ class Canvas:
 
     @classmethod
     def from_template(
-        cls, spec_or_path: str, variables: Mapping[str, object] | None = None
+        cls,
+        spec_or_path: str,
+        variables: Mapping[str, object] | None = None,
+        *,
+        registry: PluginRegistry | None = None,
     ) -> Self:
         import json as _json
 
@@ -1567,7 +1587,7 @@ class Canvas:
             dumped = _json.dumps(value)
             return dumped[1:-1] if isinstance(value, str) else dumped
 
-        return cls.from_json(_VAR_RE.sub(substitute, raw_spec))
+        return cls.from_json(_VAR_RE.sub(substitute, raw_spec), registry=registry)
 
     def to_base64(self, format: FileFormat = "PNG", quality: int | None = None) -> str:
         import base64

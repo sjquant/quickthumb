@@ -21,6 +21,8 @@ from pydantic import (
 )
 from typing_extensions import TypeAliasType
 
+from quickthumb._json_values import validate_json_value
+from quickthumb._plugin_contract import PLUGIN_NAME_PATTERN, PLUGIN_VERSION_PATTERN
 from quickthumb.errors import ValidationError
 
 from .common import *  # noqa: F401,F403
@@ -123,7 +125,7 @@ class PluginLayer(LayerIdentityModel):
     make a lossless Python/JSON round trip.
     """
 
-    type: Literal["plugin"] = "plugin"
+    type: Literal["plugin"]
     renderer: str
     version: str
     params: JsonObject
@@ -139,10 +141,14 @@ class PluginLayer(LayerIdentityModel):
             raise ValueError(
                 f"plugin {info.field_name} must not contain leading or trailing whitespace"
             )
-        if info.field_name == "renderer" and not re.fullmatch(r"[A-Za-z][A-Za-z0-9_.:-]*", value):
+        if info.field_name == "renderer" and not PLUGIN_NAME_PATTERN.fullmatch(value):
             raise ValueError(
                 "plugin renderer must start with a letter and contain only letters, "
                 "numbers, '.', '_', ':', or '-'"
+            )
+        if info.field_name == "version" and not PLUGIN_VERSION_PATTERN.fullmatch(value):
+            raise ValueError(
+                f"plugin {info.field_name} must not contain leading or trailing whitespace"
             )
         return value
 
@@ -151,7 +157,7 @@ class PluginLayer(LayerIdentityModel):
     def validate_params(cls, value: JsonObject) -> JsonObject:
         if not isinstance(value, dict):
             raise ValueError("plugin params must be a JSON object")
-        _validate_json_value(value, "/params")
+        validate_json_value(value, "/params", context="plugin params value")
         return value
 
 
@@ -755,26 +761,3 @@ GroupChild = Annotated[
 ]
 
 GroupLayer.model_rebuild()
-
-
-def _validate_json_value(value: object, path: str) -> None:
-    """Reject values that cannot be represented by canonical JSON."""
-    if value is None or isinstance(value, (bool, int, str)):
-        return
-    if isinstance(value, float):
-        if math.isfinite(value):
-            return
-        raise ValueError(f"plugin params value at {path} must be finite")
-    if isinstance(value, (list, tuple)):
-        for index, item in enumerate(value):
-            _validate_json_value(item, f"{path}/{index}")
-        return
-    if isinstance(value, dict):
-        for key, item in value.items():
-            if not isinstance(key, str):
-                raise ValueError(f"plugin params object keys at {path} must be strings")
-            _validate_json_value(item, f"{path}/{key}")
-        return
-    raise ValueError(
-        f"plugin params value at {path} must be JSON-serializable, got {type(value).__name__}"
-    )
