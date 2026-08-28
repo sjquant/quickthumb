@@ -22,6 +22,7 @@ from quickthumb.models import (
     MotionTrackInspection,
     ReducedMotionInspection,
 )
+from quickthumb.plugins import _PLUGIN_NAME_PATTERN, plugin_registry
 from quickthumb.transitions import Transition
 
 JSON_SCHEMA_DRAFT = "https://json-schema.org/draft/2020-12/schema"
@@ -111,6 +112,16 @@ def canvas_json_schema() -> dict[str, Any]:
         ReducedMotionInspection,
     ):
         schema.setdefault("$defs", {})[model.__name__] = model.model_json_schema()
+    plugin_model_schema = schema.get("$defs", {}).get("PluginLayer")
+    if isinstance(plugin_model_schema, dict):
+        plugin_properties = plugin_model_schema.get("properties")
+        if isinstance(plugin_properties, dict):
+            renderer_schema = plugin_properties.get("renderer")
+            if isinstance(renderer_schema, dict):
+                renderer_schema.update({"minLength": 1, "pattern": _PLUGIN_NAME_PATTERN.pattern})
+            version_schema = plugin_properties.get("version")
+            if isinstance(version_schema, dict):
+                version_schema["minLength"] = 1
     schema["anyOf"] = [
         {
             "properties": {
@@ -126,7 +137,19 @@ def canvas_json_schema() -> dict[str, Any]:
         },
     ]
     _close_model_object_schemas(schema)
+    # Registry-provided parameter schemas are caller-owned JSON Schema and
+    # must retain their default ``additionalProperties`` semantics. Add the
+    # dynamic plugin definition after closing generated model schemas so the
+    # generic strictness pass cannot rewrite those arbitrary schemas.
+    plugin_schema = plugin_registry.json_schema()
+    if plugin_schema.get("oneOf"):
+        schema.setdefault("$defs", {})["PluginLayer"] = plugin_schema
     return schema
+
+
+def plugin_layer_json_schema() -> dict[str, Any]:
+    """Return the current registry-aware schema for a plugin layer."""
+    return plugin_registry.json_schema()
 
 
 def _close_model_object_schemas(value: object) -> None:

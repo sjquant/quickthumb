@@ -5,7 +5,16 @@ import json
 import pytest
 from jsonschema import ValidationError as JsonSchemaValidationError
 from jsonschema import validate
-from quickthumb import Canvas, Deck
+from quickthumb import (
+    Canvas,
+    Deck,
+    PluginLayer,
+    PluginRegistry,
+    canvas_json_schema,
+    lookup_plugin,
+    plugin_registry,
+    register_plugin,
+)
 from quickthumb.errors import ValidationError
 from quickthumb.schema import document_json_schema
 
@@ -385,3 +394,195 @@ def test_non_standard_json_constants_are_rejected_at_the_boundary(constant):
 
     with pytest.raises(ValidationError, match="non-standard JSON constant"):
         Canvas.from_json(payload)
+
+
+def test_named_plugin_layer_round_trips_through_canonical_json_and_schema():
+    """Given a registered plugin, canonical JSON preserves its versioned params."""
+    # Given: a deterministic renderer registration and equivalent JSON payload
+    plugin_registry.clear()
+    register_plugin(
+        "brand_badge",
+        "1.0",
+        schema={
+            "type": "object",
+            "required": ["label", "accent"],
+            "properties": {
+                "label": {"type": "string"},
+                "accent": {"type": "string", "pattern": r"^#[0-9A-Fa-f]{6}$"},
+            },
+            "additionalProperties": False,
+        },
+    )
+    try:
+        payload = {
+            "kind": "canvas",
+            "width": 120,
+            "height": 80,
+            "layers": [
+                {
+                    "type": "plugin",
+                    "renderer": "brand_badge",
+                    "version": "1.0",
+                    "params": {"accent": "#FF4D00", "label": "BETA"},
+                }
+            ],
+        }
+
+        # When: the payload crosses the public JSON boundary
+        parsed = Canvas.from_json(json.dumps(payload, indent=2))
+
+        # Then: canonical JSON is stable and the published schema accepts it
+        assert parsed.to_json() == (
+            '{"height":80,"kind":"canvas","layers":[{"params":{"accent":"#FF4D00",'
+            '"label":"BETA"},"renderer":"brand_badge","type":"plugin","version":"1.0"}],'
+            '"width":120}'
+        )
+        validate(json.loads(parsed.to_json()), canvas_json_schema())
+        definition = lookup_plugin("brand_badge", "1.0")
+        assert definition is not None
+        assert definition.renderer == "brand_badge"
+    finally:
+        plugin_registry.clear()
+
+
+def test_plugin_registry_lookup_and_schema_order_are_deterministic():
+    """Given registrations in arbitrary order, lookup and schema use stable ordering."""
+    # Given: registrations added in an intentionally unstable order
+    registry = PluginRegistry()
+    registry.register("zeta", "2.0")
+    registry.register("alpha", "1.0")
+    registry.register("zeta", "1.0")
+
+    # When: definitions and lookups are requested
+    assert [(item.renderer, item.version) for item in registry.definitions()] == [
+        ("alpha", "1.0"),
+        ("zeta", "1.0"),
+        ("zeta", "2.0"),
+    ]
+    with pytest.raises(ValidationError, match="multiple registered versions"):
+        registry.lookup("zeta")
+    definition = registry.lookup("zeta", "2.0")
+    assert definition is not None
+    assert definition.version == "2.0"
+    # Then: ordering and ambiguity behavior are deterministic
+    assert [
+        variant["properties"]["renderer"]["const"] for variant in registry.json_schema()["oneOf"]
+    ] == ["alpha", "zeta", "zeta"]
+
+
+def test_registered_plugin_schema_preserves_json_schema_defaults():
+    """Given an open params schema, runtime validation and exposed schema agree."""
+    # Given: a registration whose JSON Schema leaves additional properties open
+    registry = PluginRegistry()
+    registry.register(
+        "open_plugin",
+        "1.0",
+        schema={"type": "object", "properties": {"label": {"type": "string"}}},
+    )
+
+    # When: a layer uses both the declared and an extra parameter
+    layer = registry.validate(
+        {
+            "type": "plugin",
+            "renderer": "open_plugin",
+            "version": "1.0",
+            "params": {"label": "ok", "extra": True},
+        }
+    )
+
+    # Then: runtime and exposed schema preserve the same default semantics
+    assert layer.params["extra"] is True
+    params_schema = registry.json_schema()["oneOf"][0]["properties"]["params"]
+    assert "additionalProperties" not in params_schema
+
+
+def test_plugin_registry_lifecycle_rejects_duplicates_and_supports_replacement():
+    """Given a named registration, lifecycle operations remain explicit and deterministic."""
+    # Given: one registered renderer/version pair
+    registry = PluginRegistry()
+    registry.register("badge", "1.0", schema={"type": "object"})
+
+    # When: a duplicate is registered without an explicit replacement
+    with pytest.raises(ValidationError, match="already registered"):
+        registry.register("badge", "1.0", schema={"type": "object", "required": ["label"]})
+
+    # Then: replacement changes only the exact version and unregister is scoped
+    replacement = registry.register(
+        "badge", "1.0", schema={"type": "object", "required": ["label"]}, replace=True
+    )
+    assert replacement.params_schema == {"type": "object", "required": ["label"]}
+    registry.register("badge", "2.0")
+    registry.unregister("badge", "1.0")
+    assert registry.lookup("badge", "1.0") is None
+    assert registry.lookup("badge", "2.0") is not None
+    registry.unregister("badge")
+    assert registry.definitions() == ()
+
+
+@pytest.mark.parametrize(
+    ("layer", "message"),
+    [
+        (
+            {
+                "type": "plugin",
+                "renderer": "missing_renderer",
+                "version": "1.0",
+                "params": {},
+            },
+            "not registered",
+        ),
+        (
+            {"type": "plugin", "renderer": "brand_badge", "params": {}},
+            "version",
+        ),
+        (
+            {
+                "type": "plugin",
+                "renderer": "brand_badge",
+                "version": "1.0",
+                "params": {"label": "BETA"},
+            },
+            "accent",
+        ),
+        (
+            {
+                "type": "plugin",
+                "renderer": "brand_badge",
+                "version": "1.0",
+                "params": {"label": "BETA", "accent": "#FF4D00", "extra": True},
+            },
+            "unknown field",
+        ),
+    ],
+)
+def test_plugin_layer_invalid_inputs_fail_at_the_json_boundary(layer, message):
+    """Given an unresolved or schema-invalid plugin, parsing reports the contract failure."""
+    # Given: one valid registration and an unresolved or invalid layer payload
+    plugin_registry.clear()
+    register_plugin(
+        "brand_badge",
+        "1.0",
+        schema={
+            "type": "object",
+            "required": ["label", "accent"],
+            "properties": {
+                "label": {"type": "string"},
+                "accent": {"type": "string"},
+            },
+            "additionalProperties": False,
+        },
+    )
+    try:
+        # When / Then: parsing rejects the payload at the public boundary
+        payload = {"kind": "canvas", "width": 120, "height": 80, "layers": [layer]}
+        with pytest.raises(ValidationError, match=message):
+            Canvas.from_json(json.dumps(payload))
+    finally:
+        plugin_registry.clear()
+
+
+def test_plugin_layer_rejects_non_json_parameters_before_model_coercion():
+    """Given a Python-only parameter, the layer model rejects it instead of coercing it."""
+    # Given / When / Then: Python-only objects cannot cross the JSON layer contract
+    with pytest.raises(ValidationError, match="JSON-serializable"):
+        PluginLayer(renderer="brand_badge", version="1.0", params={"callback": object()})

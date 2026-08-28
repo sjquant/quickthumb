@@ -83,6 +83,7 @@ from quickthumb.models import (
     OpacityTrack,
     OutlineLayer,
     PixelMetrics,
+    PluginLayer,
     PositionTrack,
     QRCodeLayer,
     RadialGradient,
@@ -110,7 +111,17 @@ from quickthumb.models import (
     Wheel,
     Wipe,
 )
-from quickthumb.schema import canvas_json_schema, document_json_schema
+from quickthumb.plugins import (
+    PluginDefinition,
+    PluginRegistry,
+    lookup_plugin,
+    plugin_json_schema,
+    plugin_registry,
+    register_plugin,
+    unregister_plugin,
+    validate_plugin,
+)
+from quickthumb.schema import canvas_json_schema, document_json_schema, plugin_layer_json_schema
 from quickthumb.transitions import Morph, Transition
 
 __all__ = [
@@ -207,6 +218,16 @@ __all__ = [
     "LinearGradient",
     "LayerMask",
     "OutlineLayer",
+    "PluginDefinition",
+    "PluginLayer",
+    "PluginRegistry",
+    "plugin_registry",
+    "register_plugin",
+    "unregister_plugin",
+    "lookup_plugin",
+    "validate_plugin",
+    "plugin_json_schema",
+    "plugin_layer_json_schema",
     "QRCodeLayer",
     "RadialGradient",
     "Shadow",

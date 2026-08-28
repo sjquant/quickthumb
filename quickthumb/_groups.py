@@ -17,12 +17,14 @@ from quickthumb._images import ImageEngine
 from quickthumb._shapes import ShapeEngine
 from quickthumb._text import TextEngine
 from quickthumb._visualizations import VisualizationEngine
+from quickthumb.errors import RenderingError
 from quickthumb.models import (
     Align,
     BackdropBlur,
     ChartLayer,
     GroupLayer,
     ImageLayer,
+    PluginLayer,
     QRCodeLayer,
     ShapeLayer,
     SvgLayer,
@@ -33,7 +35,14 @@ if TYPE_CHECKING:
     from quickthumb.motion import ResolvedMotionTarget
 
 GroupChildLayer = (
-    TextLayer | ImageLayer | ShapeLayer | SvgLayer | ChartLayer | QRCodeLayer | GroupLayer
+    TextLayer
+    | ImageLayer
+    | ShapeLayer
+    | SvgLayer
+    | ChartLayer
+    | QRCodeLayer
+    | PluginLayer
+    | GroupLayer
 )
 GroupBox = tuple[int, int, int, int]
 GroupPlacement = tuple[GroupChildLayer, tuple[int, int], tuple[int, int]]
@@ -165,6 +174,8 @@ class GroupEngine:
             self._visualizations.render_chart(image, child, time)
         elif isinstance(child, QRCodeLayer):
             self._visualizations.render_qr_code(image, child, time)
+        elif isinstance(child, PluginLayer):
+            raise RenderingError("Plugin layer rendering is not available until the D2 runtime.")
 
     def _place_group_child(
         self,
@@ -291,6 +302,8 @@ class GroupEngine:
         return size
 
     def _measure_group_child_uncached(self, child: GroupChildLayer) -> tuple[int, int]:
+        if isinstance(child, PluginLayer):
+            raise RenderingError("Plugin layer measurement is not available until the D2 runtime.")
         if isinstance(child, TextLayer):
             return self._text.measure_text_rendered_size(child)
         if isinstance(child, ImageLayer):

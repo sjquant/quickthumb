@@ -61,6 +61,7 @@ from quickthumb.models import (
     LayerType,
     LinearGradient,
     OutlineLayer,
+    PluginLayer,
     QRCodeLayer,
     RadialGradient,
     ResolvedDocument,
@@ -76,6 +77,7 @@ from quickthumb.models import (
     VideoLayer,
     VideoOptions,
 )
+from quickthumb.plugins import plugin_registry
 
 
 @dataclass
@@ -1480,7 +1482,10 @@ class Canvas:
                 renderable_layers.append(CustomLayer(fn=fn, name=name, kwargs=kwargs))
             else:
                 reject_unknown_json_fields(layer_dict, _LAYER_SCHEMA, f"/layers/{layer_index}")
-                renderable_layers.append(_LAYER_ADAPTER.validate_python(layer_dict))
+                parsed_layer = _LAYER_ADAPTER.validate_python(layer_dict)
+                if isinstance(parsed_layer, PluginLayer):
+                    plugin_registry.validate(parsed_layer)
+                renderable_layers.append(parsed_layer)
 
         platform = raw.get("platform")
         if platform is not None and not isinstance(platform, str):
@@ -1815,6 +1820,8 @@ class Canvas:
                 self._fonts.load_font_variant,
                 self._images,
             )
+        elif isinstance(layer, PluginLayer):
+            raise RenderingError("Plugin layer rendering is not available until the D2 runtime.")
         elif isinstance(layer, CustomLayer):
             self._render_custom_layer(image, layer)
 
