@@ -7,6 +7,7 @@ from io import BytesIO
 from typing import Any, Literal, cast
 
 from PIL import Image, ImageDraw, ImageFont
+from pydantic import TypeAdapter
 from pydantic import ValidationError as PydanticValidationError
 from typing_extensions import Self
 
@@ -89,6 +90,8 @@ TextContentInput = str | list[TextPart | dict[str, Any]]
 
 _THEME_REF_RE = re.compile(r"\$theme\.([A-Za-z0-9_]+(?:\.[A-Za-z0-9_]+)*)")
 _VAR_RE = re.compile(r"\$\{(\w+)\}|\$(\w+)")
+_LAYER_ADAPTER: TypeAdapter[LayerType] = TypeAdapter(LayerType)
+_LAYER_SCHEMA: dict[str, Any] = _LAYER_ADAPTER.json_schema()
 
 
 def _is_theme_reference(match: re.Match) -> bool:
@@ -1267,7 +1270,7 @@ class Canvas:
         )
 
     def to_json(self) -> str:
-        import json as _json
+        from quickthumb._document import canonical_json
 
         layers_json = []
         for layer in self._layers:
@@ -1275,8 +1278,8 @@ class Canvas:
                 if layer.name is None:
                     raise ValidationError("Custom layers cannot be serialized to JSON")
                 try:
-                    _json.dumps(layer.kwargs)
-                except (TypeError, ValueError) as e:
+                    canonical_json(layer.kwargs)
+                except ValidationError as e:
                     raise ValidationError(
                         f"Custom layer '{layer.name}' has kwargs that are not JSON-serializable:"
                         f" {e}"
@@ -1294,7 +1297,7 @@ class Canvas:
         }
         if self.platform is not None:
             payload["platform"] = self.platform
-        return _json.dumps(payload)
+        return canonical_json(payload)
 
     @classmethod
     def _omit_unset_composition_fields(cls, value):
@@ -1329,22 +1332,13 @@ class Canvas:
 
     @classmethod
     def _from_json(cls, data: str) -> Self:
-        import json as _json
+        from quickthumb._document import decode_json_object, require_document_kind
+        from quickthumb.models import CanvasModel
 
-        from pydantic import TypeAdapter
-
-        from quickthumb.models import CanvasModel, LayerType
-
-        raw = _json.loads(data)
-        if not isinstance(raw, dict):
-            CanvasModel.model_validate_json(data)  # raises ValidationError with good message
-        raw = cast(dict[str, Any], raw)
-
-        kind = raw.pop("kind", None)
-        if kind is not None and kind != "canvas":
-            raise ValidationError("Canvas JSON 'kind' must be 'canvas'.")
-        if "slides" in raw:
-            raise ValidationError("Canvas JSON must not contain a top-level 'slides' field.")
+        raw = decode_json_object(data)
+        require_document_kind(raw, expected="canvas")
+        raw = dict(raw)
+        raw.pop("kind")
 
         theme = raw.pop("theme", {})
         if not isinstance(theme, dict):
@@ -1362,10 +1356,115 @@ class Canvas:
         if not isinstance(layers_raw, list):
             CanvasModel.model_validate_json(data)  # raises ValidationError with good message
 
-        layer_adapter: TypeAdapter[LayerType] = TypeAdapter(LayerType)
+        layer_defs = cast(dict[str, dict[str, Any]], _LAYER_SCHEMA.get("$defs", {}))
+
+        def resolve_json_schema(node: dict[str, Any], value: object) -> dict[str, Any]:
+            reference = node.get("$ref")
+            if isinstance(reference, str) and reference.startswith("#/$defs/"):
+                return resolve_json_schema(layer_defs[reference.rsplit("/", 1)[-1]], value)
+
+            if isinstance(value, dict):
+                value = cast(dict[str, Any], value)
+                discriminator = cast(dict[str, Any], node.get("discriminator", {}))
+                property_name = discriminator.get("propertyName")
+                mapping = discriminator.get("mapping", {})
+                if isinstance(property_name, str) and isinstance(mapping, dict):
+                    discriminator_value = value.get(property_name)
+                    variant = (
+                        mapping.get(discriminator_value)
+                        if isinstance(discriminator_value, str)
+                        else None
+                    )
+                    if isinstance(variant, str):
+                        return resolve_json_schema(node={"$ref": variant}, value=value)
+                    return node
+
+            choices = node.get("oneOf") or node.get("anyOf")
+            if isinstance(choices, list):
+                candidates: list[tuple[int, dict[str, Any]]] = []
+                for choice in choices:
+                    if not isinstance(choice, dict):
+                        continue
+                    resolved = resolve_json_schema(choice, value)
+                    if not _schema_matches_value(resolved, value):
+                        continue
+                    required = resolved.get("required", [])
+                    if isinstance(value, dict) and not all(key in value for key in required):
+                        continue
+                    candidates.append((len(required), resolved))
+                if candidates:
+                    return max(candidates, key=lambda candidate: candidate[0])[1]
+            return node
+
+        def _schema_matches_value(node: dict[str, Any], value: object) -> bool:
+            if node.get("oneOf") or node.get("anyOf"):
+                return False
+            if "const" in node and value != node["const"]:
+                return False
+            enum = node.get("enum")
+            if isinstance(enum, list) and value not in enum:
+                return False
+            schema_type = node.get("type")
+            if schema_type == "object":
+                return isinstance(value, dict)
+            if schema_type == "array":
+                return isinstance(value, list)
+            if schema_type == "string":
+                return isinstance(value, str)
+            if schema_type == "boolean":
+                return isinstance(value, bool)
+            if schema_type == "integer":
+                return isinstance(value, int) and not isinstance(value, bool)
+            if schema_type == "number":
+                return isinstance(value, (int, float)) and not isinstance(value, bool)
+            if schema_type == "null":
+                return value is None
+            if "properties" in node or "required" in node:
+                return isinstance(value, dict)
+            if "items" in node or "prefixItems" in node:
+                return isinstance(value, list)
+            return True
+
+        def reject_unknown_json_fields(value: object, node: dict[str, Any], path: str) -> None:
+            if isinstance(value, list):
+                resolved = resolve_json_schema(node, value)
+                item_schema = resolved.get("items")
+                if isinstance(item_schema, dict):
+                    for index, item in enumerate(value):
+                        reject_unknown_json_fields(item, item_schema, f"{path}/{index}")
+                return
+            if not isinstance(value, dict):
+                return
+
+            resolved = resolve_json_schema(node, value)
+            properties = resolved.get("properties")
+            if not isinstance(properties, dict):
+                return
+            unknown = sorted(str(key) for key in set(value) - set(properties))
+            if unknown:
+                raise ValidationError(
+                    f"JSON object at {path} contains unknown field(s): {', '.join(unknown)}"
+                )
+            for key, child in value.items():
+                child_schema = properties.get(key)
+                if isinstance(child_schema, dict):
+                    reject_unknown_json_fields(child, child_schema, f"{path}/{key}")
+                elif isinstance(resolved.get("additionalProperties"), dict):
+                    reject_unknown_json_fields(
+                        child,
+                        cast(dict[str, Any], resolved["additionalProperties"]),
+                        f"{path}/{key}",
+                    )
+
         renderable_layers: list[RenderableLayer] = []
-        for layer_dict in layers_raw:
+        for layer_index, layer_dict in enumerate(layers_raw):
             if isinstance(layer_dict, dict) and layer_dict.get("type") == "custom":
+                unknown = sorted(set(layer_dict) - {"type", "name", "kwargs"})
+                if unknown:
+                    raise ValidationError(
+                        f"Custom layer at /layers/{layer_index} contains unknown field(s): "
+                        f"{', '.join(unknown)}"
+                    )
                 name = layer_dict.get("name")
                 if not isinstance(name, str):
                     raise ValidationError("Custom layer 'name' must be a string.")
@@ -1380,7 +1479,8 @@ class Canvas:
                     raise ValidationError(f"Custom layer '{name}' kwargs must be a JSON object.")
                 renderable_layers.append(CustomLayer(fn=fn, name=name, kwargs=kwargs))
             else:
-                renderable_layers.append(layer_adapter.validate_python(layer_dict))
+                reject_unknown_json_fields(layer_dict, _LAYER_SCHEMA, f"/layers/{layer_index}")
+                renderable_layers.append(_LAYER_ADAPTER.validate_python(layer_dict))
 
         platform = raw.get("platform")
         if platform is not None and not isinstance(platform, str):

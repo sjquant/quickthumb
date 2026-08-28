@@ -148,7 +148,7 @@ class TestCLISchema:
             },
         }
         assert payload["$defs"]["DeckDocument"]["properties"]["slides"]["items"] == {
-            "$ref": "#/$defs/CanvasDocument"
+            "$ref": "#/$defs/DeckSlideDocument"
         }
 
     def test_should_reflect_model_validation_for_common_fields(self):
@@ -426,6 +426,7 @@ class TestCLIRender:
                     "kind": "deck",
                     "slides": [
                         {
+                            "kind": "canvas",
                             "width": 100,
                             "height": 100,
                             "layers": [],
@@ -1622,6 +1623,7 @@ class TestCLILint:
                 "theme": {"brand": "#B8FF00"},
                 "slides": [
                     {
+                        "kind": "canvas",
                         "width": 100,
                         "height": 100,
                         "theme": "not-an-object",
@@ -1684,8 +1686,10 @@ class TestCLILint:
         # given: a deck whose first slide has an off-canvas layer
         spec_path = self._write_spec(
             {
+                "kind": "deck",
                 "slides": [
                     {
+                        "kind": "canvas",
                         "width": 100,
                         "height": 100,
                         "layers": [
@@ -1699,7 +1703,7 @@ class TestCLILint:
                             }
                         ],
                     }
-                ]
+                ],
             }
         )
 

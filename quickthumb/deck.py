@@ -832,6 +832,8 @@ class Deck:
     def to_json(self) -> str:
         import json
 
+        from quickthumb._document import canonical_json
+
         payload: dict = {}
         payload["kind"] = "deck"
         if self._width is not None:
@@ -840,7 +842,7 @@ class Deck:
         if self._theme:
             payload["theme"] = self._theme
         if self._transition is not None:
-            payload["transition"] = json.loads(self._transition.model_dump_json())
+            payload["transition"] = self._transition.model_dump(mode="json")
         slides = []
         for canvas, override, audio, duration, notes in zip(
             self._slides,
@@ -854,27 +856,26 @@ class Deck:
             # Per-slide overrides live on the deck, so attach them to the slide
             # dict here rather than in Canvas.to_json (which knows nothing of them).
             if override is not None:
-                slide["transition"] = json.loads(override.model_dump_json())
+                slide["transition"] = override.model_dump(mode="json")
             if audio is not None:
-                slide["audio"] = audio.model_dump()
+                slide["audio"] = audio.model_dump(mode="json")
             if duration is not None:
                 slide["duration"] = duration
             if notes is not None:
                 slide["notes"] = notes
             slides.append(slide)
         payload["slides"] = slides
-        return json.dumps(payload)
+        return canonical_json(payload)
 
     @classmethod
     def from_json(cls, data: str) -> Self:
-        import json
+        from quickthumb._document import canonical_json, decode_json_object, require_document_kind
 
-        raw = json.loads(data)
-        if not isinstance(raw, dict) or "slides" not in raw:
-            raise ValidationError("Deck JSON must be an object with a 'slides' list.")
-        kind = raw.get("kind")
-        if kind is not None and kind != "deck":
-            raise ValidationError("Deck JSON 'kind' must be 'deck'.")
+        raw = decode_json_object(data)
+        require_document_kind(raw, expected="deck")
+        if "slides" not in raw:
+            raise ValidationError("Deck JSON must contain a 'slides' list.")
+        raw = dict(raw)
         unknown = sorted(
             set(raw)
             - {
@@ -905,41 +906,44 @@ class Deck:
             theme=theme or None,
             transition=transition,
         )
-        for slide in slides_raw:
+        for index, slide in enumerate(slides_raw):
             override = None
             audio = None
             duration = None
             notes = None
-            if isinstance(slide, dict):
-                # Lift the per-slide transition off the spec before it reaches
-                # Canvas.from_json, which does not understand transitions.
-                override = slide.get("transition")
-                audio = slide.get("audio")
-                duration = slide.get("duration")
-                notes = slide.get("notes")
-                if notes is not None and not isinstance(notes, str):
-                    raise ValidationError("Deck slide 'notes' must be a string.")
-                slide_theme = slide.get("theme", {})
-                if not isinstance(slide_theme, dict):
-                    raise ValidationError("Deck slide 'theme' must be an object of token groups.")
-                slide = {
-                    key: value
-                    for key, value in slide.items()
-                    if key not in {"transition", "audio", "duration", "notes"}
-                }
-                # Share the deck-level theme so $theme.* tokens resolve; a slide's
-                # own theme block takes precedence.
-                if theme or "theme" in slide:
-                    slide = {**slide, "theme": {**theme, **slide_theme}}
-                if (
-                    deck._width is not None
-                    and "width" not in slide
-                    and "height" not in slide
-                    and "platform" not in slide
-                ):
-                    slide = {**slide, "width": deck._width, "height": deck._height}
+            if not isinstance(slide, dict):
+                raise ValidationError(f"Deck slide at index {index} must be a JSON object.")
+            if slide.get("kind") != "canvas":
+                raise ValidationError(f"Deck slide at index {index} must have kind 'canvas'.")
+            # Lift the per-slide metadata off the spec before it reaches
+            # Canvas.from_json, which does not understand deck concerns.
+            override = slide.get("transition")
+            audio = slide.get("audio")
+            duration = slide.get("duration")
+            notes = slide.get("notes")
+            if notes is not None and not isinstance(notes, str):
+                raise ValidationError("Deck slide 'notes' must be a string.")
+            slide_theme = slide.get("theme", {})
+            if not isinstance(slide_theme, dict):
+                raise ValidationError("Deck slide 'theme' must be an object of token groups.")
+            slide = {
+                key: value
+                for key, value in slide.items()
+                if key not in {"transition", "audio", "duration", "notes"}
+            }
+            # Share the deck-level theme so $theme.* tokens resolve; a slide's
+            # own theme block takes precedence.
+            if theme or "theme" in slide:
+                slide = {**slide, "theme": {**theme, **slide_theme}}
+            if (
+                deck._width is not None
+                and "width" not in slide
+                and "height" not in slide
+                and "platform" not in slide
+            ):
+                slide = {**slide, "width": deck._width, "height": deck._height}
             deck.slide(
-                Canvas.from_json(json.dumps(slide)),
+                Canvas.from_json(canonical_json(slide)),
                 transition=override,
                 audio=audio,
                 duration=duration,

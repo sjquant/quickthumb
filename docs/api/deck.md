@@ -169,10 +169,10 @@ described above.
 
 ## `.diagnose()`
 
-Aggregates each slide's [`Canvas.diagnose()`](canvas.md#diagnose) findings and adds deck-wide checks. Returns a list of `DeckDiagnostic` entries:
+Aggregates each slide's [`Canvas.diagnose()`](canvas.md#diagnose) findings and adds deck-wide checks. Returns a `DiagnosticReport` whose `findings` list contains `DeckDiagnostic` entries:
 
 ```python
-for finding in deck.diagnose():
+for finding in deck.diagnose().findings:
     print(finding.slide_index, finding.code, finding.message)
 ```
 
@@ -196,7 +196,7 @@ A `mixed-slide-size` warning is added when slides do not all share the same dime
 
 ### `.to_json()` / `Deck.from_json(json_str)`
 
-Round-trips the deck through JSON, reusing each canvas's serialization. The shape is `{"kind": "deck", "width": ..., "height": ..., "theme": {...}, "slides": [<canvas spec>, ...]}`, where `width`/`height` (the default slide size) and `theme` are emitted only when set. Per-slide `transition`, `audio`, `duration`, and `notes` fields are preserved alongside the canvas fields. A top-level `theme` is shared with every slide so slides can use `$theme.*` tokens, exactly like `Canvas.from_json`.
+Round-trips the deck through canonical JSON, reusing each canvas's serialization. The shape is `{"kind": "deck", "width": ..., "height": ..., "theme": {...}, "slides": [<canvas spec>, ...]}`, where every slide carries `"kind": "canvas"`; `width`/`height` (the default slide size) and `theme` are emitted only when set. JSON-authored slides may omit dimensions when the deck supplies a default size; canonical serialization materializes those inherited dimensions. Per-slide `transition`, `audio`, `duration`, and `notes` fields are preserved alongside the canvas fields. A top-level `theme` is shared with every slide so slides can use `$theme.*` tokens, exactly like `Canvas.from_json`.
 
 ```python
 spec = deck.to_json()

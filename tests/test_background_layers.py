@@ -344,6 +344,7 @@ class TestBackgroundLayers:
         import json
 
         json_data = {
+            "kind": "canvas",
             "width": 1920,
             "height": 1080,
             "layers": [

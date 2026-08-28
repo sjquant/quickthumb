@@ -260,6 +260,7 @@ class TestShapeLayerSerialization:
         from quickthumb import Canvas
 
         json_data = {
+            "kind": "canvas",
             "width": 400,
             "height": 300,
             "layers": [

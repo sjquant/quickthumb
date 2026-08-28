@@ -32,7 +32,7 @@ try:
     os.chdir(REPO_DIR)
     canvas = Canvas.from_json(json_spec)
 
-    findings = canvas.diagnose()
+    findings = canvas.diagnose().findings
     for finding in findings:
         print(
             f"[{finding.severity}] layer {finding.layer_index}: {finding.code} — {finding.message}"

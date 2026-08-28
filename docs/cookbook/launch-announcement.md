@@ -19,7 +19,7 @@ with open("launch_announcement.json", encoding="utf-8") as f:
     canvas = Canvas.from_json(f.read())
 
 # Lint before rendering — same checks as `quickthumb lint`
-for finding in canvas.diagnose():
+for finding in canvas.diagnose().findings:
     print(f"[{finding.severity}] layer {finding.layer_index}: {finding.code} — {finding.message}")
 
 canvas.render("launch_announcement.png")

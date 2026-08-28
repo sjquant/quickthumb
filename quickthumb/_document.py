@@ -36,6 +36,47 @@ if TYPE_CHECKING:
 DocumentKind = Literal["canvas", "deck"]
 
 
+def canonical_json(payload: object) -> str:
+    """Serialize a document payload using the stable JSON wire format.
+
+    Canonical document JSON is deliberately independent of renderer objects:
+    callers hand this helper ordinary JSON-compatible values and receive one
+    deterministic representation regardless of whether the values originated
+    in Python authoring or a parsed JSON document.
+    """
+    try:
+        return json.dumps(
+            payload,
+            ensure_ascii=False,
+            allow_nan=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+    except (TypeError, ValueError) as error:
+        raise ValidationError(f"Document JSON contains non-serializable values: {error}") from error
+
+
+def decode_json_object(data: str) -> dict[str, Any]:
+    """Decode one JSON object and normalize syntax/type failures."""
+    if not isinstance(data, str):
+        raise ValidationError("JSON document must be a string.")
+
+    def reject_constant(value: str) -> None:
+        raise ValueError(f"non-standard JSON constant {value!r} is not permitted")
+
+    try:
+        raw = json.loads(data, parse_constant=reject_constant)
+    except json.JSONDecodeError as error:
+        raise ValidationError(
+            f"Invalid JSON document: {error.msg} at position {error.pos}."
+        ) from error
+    except ValueError as error:
+        raise ValidationError(f"Invalid JSON document: {error}.") from error
+    if not isinstance(raw, dict):
+        raise ValidationError("JSON document must be an object.")
+    return cast(dict[str, Any], raw)
+
+
 @runtime_checkable
 class Document(Protocol):
     """Stable document-level contract shared by Canvas and Deck.
@@ -65,15 +106,19 @@ class Document(Protocol):
     ) -> ExportResult: ...
 
 
-def require_document_kind(raw: object) -> DocumentKind:
+def require_document_kind(raw: object, *, expected: DocumentKind | None = None) -> DocumentKind:
     """Validate and return the top-level kind of a JSON document."""
     if not isinstance(raw, dict):
         raise ValidationError("JSON document must be an object with a 'kind' field.")
 
     document = cast(dict[str, object], raw)
-    kind = document.get("kind")
+    if "kind" not in document:
+        raise ValidationError("JSON document must contain a 'kind' discriminator.")
+    kind = document["kind"]
     if kind not in ("canvas", "deck"):
         raise ValidationError("JSON document 'kind' must be either 'canvas' or 'deck'.")
+    if expected is not None and kind != expected:
+        raise ValidationError(f"JSON document 'kind' must be '{expected}'.")
     if kind == "canvas" and "slides" in raw:
         raise ValidationError("Canvas JSON must not contain a top-level 'slides' field.")
     if kind == "deck" and "layers" in raw:
@@ -86,7 +131,7 @@ def load_document(text: str) -> Canvas | Deck:
     from quickthumb.canvas import Canvas
     from quickthumb.deck import Deck
 
-    raw = json.loads(text)
+    raw = decode_json_object(text)
     kind = require_document_kind(raw)
     if kind == "deck":
         return Deck.from_json(text)

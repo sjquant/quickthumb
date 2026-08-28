@@ -112,7 +112,7 @@ SECOND_CUE = (3.5, 6.4)
 def main() -> None:
     """Diagnose the film, then export every delivery format from one deck."""
     deck = build_deck()
-    errors = [finding for finding in deck.diagnose() if finding.severity == "error"]
+    errors = [finding for finding in deck.diagnose().findings if finding.severity == "error"]
     if errors:
         raise RuntimeError(f"ordinary_moments has diagnostics: {errors}")
 

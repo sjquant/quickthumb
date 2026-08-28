@@ -22,6 +22,8 @@ from .common import _MotionModel
 class AudioTrack(quickthumbModel):
     """An audio source with deterministic export-time mix controls."""
 
+    model_config = ConfigDict(extra="forbid")
+
     path: str
     volume: Annotated[float, Field(ge=0, allow_inf_nan=False)] = 1.0
     loop: bool = False

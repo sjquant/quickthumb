@@ -314,6 +314,7 @@ class TestTextLayers:
         # Given: JSON string with text layer
 
         json_data = {
+            "kind": "canvas",
             "width": 1920,
             "height": 1080,
             "layers": [
@@ -534,6 +535,7 @@ class TestRichText:
         from quickthumb import Canvas
 
         json_data = {
+            "kind": "canvas",
             "width": 1920,
             "height": 1080,
             "layers": [
@@ -658,6 +660,7 @@ class TestTextBackgroundEffect:
         from quickthumb import Background, Canvas, TextLayer
 
         json_data = {
+            "kind": "canvas",
             "width": 1920,
             "height": 1080,
             "layers": [
@@ -856,6 +859,7 @@ class TestAutoFit:
         from quickthumb import Canvas, TextLayer
 
         json_data = {
+            "kind": "canvas",
             "width": 1920,
             "height": 1080,
             "layers": [
@@ -1367,6 +1371,7 @@ class TestTextRotation:
         from quickthumb import Canvas, TextLayer
 
         json_data = {
+            "kind": "canvas",
             "width": 1920,
             "height": 1080,
             "layers": [
@@ -1500,6 +1505,7 @@ class TestTextEffects:
         from quickthumb import Canvas
 
         json_data = {
+            "kind": "canvas",
             "width": 1920,
             "height": 1080,
             "layers": [
@@ -1642,6 +1648,7 @@ class TestTextEffects:
         from quickthumb import Canvas, Shadow
 
         json_data = {
+            "kind": "canvas",
             "width": 1920,
             "height": 1080,
             "layers": [
@@ -1790,6 +1797,7 @@ class TestTextEffects:
         from quickthumb import Canvas, Glow
 
         json_data = {
+            "kind": "canvas",
             "width": 1920,
             "height": 1080,
             "layers": [

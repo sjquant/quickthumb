@@ -588,6 +588,7 @@ class TestVisualizationSerialization:
         """JSON loading and serialization preserve visualization behavior fields."""
         # given
         payload = {
+            "kind": "canvas",
             "width": 240,
             "height": 160,
             "layers": [

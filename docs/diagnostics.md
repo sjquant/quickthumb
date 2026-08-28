@@ -8,14 +8,14 @@ quickthumb can check a composition for common layout and legibility problems **w
 
 ## `canvas.diagnose()`
 
-Returns a list of `Diagnostic` findings. An empty list means no issues.
+Returns a `DiagnosticReport` whose `findings` list contains `Diagnostic` entries. An empty `findings` list means no issues.
 
 ```python
 from quickthumb import Canvas
 
 canvas = Canvas.from_json(spec)
 
-for finding in canvas.diagnose():
+for finding in canvas.diagnose().findings:
     print(finding.severity, finding.code, finding.message)
 ```
 
