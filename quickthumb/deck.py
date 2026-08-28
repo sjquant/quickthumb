@@ -258,6 +258,16 @@ class Deck:
             ):
                 raise FileNotFoundError(path)
 
+    def _contract_resolve_assets(self) -> None:
+        for canvas in self._slides:
+            canvas._contract_resolve_assets()
+
+    def _contract_asset_records(self):
+        records = {}
+        for canvas in self._slides:
+            records.update(canvas._contract_asset_records())
+        return records
+
     def _contract_validate_structure(self) -> None:
         if not self._slides:
             raise ValidationError("deck has no slides")

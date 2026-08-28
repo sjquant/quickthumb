@@ -2,36 +2,26 @@ import contextlib
 import hashlib
 import os
 import re
-import tempfile
 import warnings
 from typing import Any, cast
 from urllib.parse import quote_plus, urlparse
-from urllib.request import Request, urlopen
+from urllib.request import urlopen
 
 from PIL import ImageFont
 
 from quickthumb._base import DEFAULT_TEXT_SIZE, is_url
+from quickthumb.asset_cache import AssetResolver
 from quickthumb.errors import RenderingError
 from quickthumb.font_cache import FontCache
 from quickthumb.models import TextLayer
-
-_FONT_REQUEST_TIMEOUT = 15
 
 
 class FontEngine:
     """Font loading with webfont download caching and system font discovery."""
 
-    def __init__(self):
+    def __init__(self, asset_resolver: AssetResolver | None = None):
         self._variant_cache: dict[tuple, ImageFont.FreeTypeFont | ImageFont.ImageFont] = {}
-
-    _VALID_FONT_MAGIC = (
-        b"\x00\x01\x00\x00",  # TrueType
-        b"true",  # TrueType (macOS)
-        b"OTTO",  # OpenType/CFF
-        b"ttcf",  # TrueType Collection
-        b"wOFF",  # WOFF
-        b"wOF2",  # WOFF2
-    )
+        self._asset_resolver = asset_resolver or AssetResolver()
 
     def load_font(self, layer: TextLayer) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
         return self.load_font_variant(
@@ -221,9 +211,16 @@ class FontEngine:
             f"https://fonts.googleapis.com/css2?family={family_query}:{axis_spec}&display=swap"
         )
         try:
-            request = Request(css_url, headers={"User-Agent": "quickthumb/1.0"})
-            with urlopen(request, timeout=_FONT_REQUEST_TIMEOUT) as response:
-                return response.read().decode("utf-8")
+            cache_hash = self._google_cache_hash(family, weight, italic, requested_variations)
+            cache_filename = f"quickthumb_google_{cache_hash}.css"
+            asset = self._asset_resolver.resolve(
+                css_url,
+                "font-css",
+                extension=".css",
+                cache_filename=cache_filename,
+                fetcher=self._fetch,
+            )
+            return asset.data.decode("utf-8")
         except Exception as e:
             if requested_variations:
                 warnings.warn(
@@ -234,6 +231,24 @@ class FontEngine:
                 )
                 return self._fetch_google_font_css(family, weight, italic)
             raise RenderingError(f"Failed to fetch Google font '{family}'.") from e
+
+    @staticmethod
+    def _google_cache_hash(
+        family: str,
+        weight: int,
+        italic: bool,
+        font_variations: dict[str, float] | None = None,
+    ) -> str:
+        requested_variations = {
+            axis.lower(): float(value) for axis, value in (font_variations or {}).items()
+        }
+        variation_key = ",".join(
+            f"{axis}={value:g}" for axis, value in sorted(requested_variations.items())
+        )
+        cache_key = f"{family}|{weight}|{int(italic)}"
+        if variation_key:
+            cache_key += f"|{variation_key}"
+        return hashlib.md5(cache_key.encode()).hexdigest()
 
     def _select_google_font_url(
         self, css: str, target_weight: int = 400, italic: bool = False
@@ -281,24 +296,19 @@ class FontEngine:
         return min(abs(value - target_weight) for value in values)
 
     def _download_and_cache_font(self, url: str) -> str:
-        url_hash = hashlib.md5(url.encode()).hexdigest()
         extension = self._font_extension(url)
-        cache_filename = f"quickthumb_font_{url_hash}{extension}"
-        cache_dir = self._font_cache_dir()
-        cache_path = os.path.join(cache_dir, cache_filename)
-
-        if self._is_valid_cached_font(cache_path):
-            return cache_path
-        if os.path.exists(cache_path):
-            with contextlib.suppress(OSError):
-                os.remove(cache_path)  # stale invalid cache; re-download below.
-
-        return self._download_font_url_to_cache(url, cache_path, f"font from '{url}'")
+        cache_filename = f"quickthumb_font_{self._asset_resolver.cache_key(url)}{extension}"
+        asset = self._asset_resolver.resolve_font(
+            url,
+            extension=extension,
+            cache_filename=cache_filename,
+            fetcher=self._fetch,
+        )
+        return asset.cache_path or cache_filename
 
     def _font_cache_dir(self) -> str:
-        cache_dir = os.environ.get("QUICKTHUMB_FONT_CACHE_DIR", tempfile.gettempdir())
-        os.makedirs(cache_dir, exist_ok=True)
-        return cache_dir
+        self._asset_resolver.cache_dir.mkdir(parents=True, exist_ok=True)
+        return str(self._asset_resolver.cache_dir)
 
     def _font_extension(self, url: str) -> str:
         extension = os.path.splitext(urlparse(url).path)[1].lower()
@@ -311,22 +321,21 @@ class FontEngine:
             return False
         with open(cache_path, "rb") as f:
             cached_header = f.read(4)
-        return any(cached_header.startswith(magic) for magic in self._VALID_FONT_MAGIC)
+        return AssetResolver.is_font_data(cached_header)
 
     def _download_font_url_to_cache(self, url: str, cache_path: str, description: str) -> str:
-        try:
-            request = Request(url, headers={"User-Agent": "quickthumb/1.0"})
-            with urlopen(request, timeout=_FONT_REQUEST_TIMEOUT) as response:
-                font_data = response.read()
-        except Exception as e:
-            raise RenderingError(f"Failed to download {description}.") from e
+        del description
+        asset = self._asset_resolver.resolve_font(
+            url,
+            extension=os.path.splitext(cache_path)[1],
+            cache_filename=os.path.basename(cache_path),
+            fetcher=self._fetch,
+        )
+        return asset.cache_path or cache_path
 
-        if not any(font_data.startswith(magic) for magic in self._VALID_FONT_MAGIC):
-            raise RenderingError(f"Downloaded content for {description} is not a valid font file.")
-
-        with open(cache_path, "wb") as f:
-            f.write(font_data)
-        return cache_path
+    @staticmethod
+    def _fetch(request, timeout: float):
+        return urlopen(request, timeout=timeout)
 
     def _normalize_weight(self, weight: int | str | None, bold: bool) -> int:
         if isinstance(weight, int):

@@ -34,9 +34,10 @@ class ImageEngine:
         self._effects = effects
 
     def load_image_from_url(self, url: str) -> Image.Image:
-        with urlopen(url) as response:
-            image_data = response.read()
-        return Image.open(BytesIO(image_data))
+        asset = self._ctx.asset_resolver.resolve_image(url, fetcher=self._fetch)
+        image = Image.open(BytesIO(asset.data))
+        image.load()
+        return image
 
     def load_and_fit_image(
         self,
@@ -295,6 +296,10 @@ class ImageEngine:
             return None
         return compile_timeline(specs).sample(float(time), LayerState())
 
+    @staticmethod
+    def _fetch(request, timeout: float):
+        return urlopen(request, timeout=timeout)
+
     def render_svg_layer(self, image: Image.Image, layer: SvgLayer):
         img = self.rasterize_svg(layer)
         self._composite_overlay_layer(image, img, layer)
@@ -317,8 +322,14 @@ class ImageEngine:
             ) from None
 
         try:
+            svg_bytes = None
+            if is_url(layer.path):
+                svg_bytes = self._ctx.asset_resolver.resolve(
+                    layer.path, "svg", extension=".svg", fetcher=self._fetch
+                ).data
             png_bytes = cairosvg.svg2png(
-                url=layer.path,
+                bytestring=svg_bytes,
+                url=None if svg_bytes is not None else layer.path,
                 output_width=layer.width,
                 output_height=layer.height,
             )

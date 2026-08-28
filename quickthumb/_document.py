@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, Protocol, cast, runtime_checkable
 
+from quickthumb.asset_cache import ResolvedAsset
 from quickthumb.errors import RenderingError, ValidationError
 from quickthumb.models import (
     AssetManifestEntry,
@@ -219,8 +220,9 @@ def validation_report(source: Document, *, kind: DocumentKind) -> ValidationRepo
 
 
 def resolved_document(source: Document, *, kind: DocumentKind) -> ResolvedDocument:
-    """Resolve/check asset references without changing the renderer's loading path."""
+    """Resolve/check asset references and return one deterministic manifest."""
     _contract_validate_assets(source)
+    _contract_resolve_assets(source)
     return ResolvedDocument(kind=kind, asset_manifest=_asset_manifest(source))
 
 
@@ -242,6 +244,17 @@ def _contract_audio_paths(source: Document) -> tuple[str | None, ...]:
 
 def _contract_validate_assets(source: Document) -> None:
     cast(Any, source)._contract_validate_assets()
+
+
+def _contract_resolve_assets(source: Document) -> None:
+    resolver = getattr(cast(Any, source), "_contract_resolve_assets", None)
+    if resolver is not None:
+        resolver()
+
+
+def _contract_asset_records(source: Document) -> dict[tuple[str, str], ResolvedAsset]:
+    records = getattr(cast(Any, source), "_contract_asset_records", None)
+    return records() if records is not None else {}
 
 
 def _contract_validate_structure(source: Document) -> None:
@@ -375,23 +388,41 @@ def _document_dimensions(source: Document) -> tuple[int | None, int | None]:
 def _asset_manifest(source: Document) -> list[AssetManifestEntry]:
     entries: list[AssetManifestEntry] = []
     seen: set[tuple[str, str]] = set()
+    records = _contract_asset_records(source)
     for layer in _contract_layers(source):
         for asset_type, value in _layer_asset_values(layer):
-            _append_asset_entry(entries, seen, asset_type, value)
+            _append_asset_entry(entries, seen, asset_type, value, records)
     for path in _contract_audio_paths(source):
         if path is not None:
-            _append_asset_entry(entries, seen, "audio", path)
+            _append_asset_entry(entries, seen, "audio", path, records)
     return entries
 
 
 def _layer_asset_values(layer: object):
+    layer_type = getattr(layer, "type", None)
     for field in ("path", "source"):
         value = getattr(layer, field, None)
         if isinstance(value, str):
-            yield field, value
+            asset_type = {
+                "image": "image",
+                "svg": "svg",
+                "video": "video",
+            }.get(str(layer_type), field)
+            yield asset_type, value
     image = getattr(layer, "image", None)
     if isinstance(image, str):
         yield "image", image
+    font = getattr(layer, "font", None)
+    if isinstance(font, str) and (_is_url(font) or os.path.isfile(font)):
+        yield "font", font
+    captions = getattr(layer, "captions", None)
+    if isinstance(captions, list):
+        for caption in captions:
+            caption_font = getattr(caption, "font", None)
+            if isinstance(caption_font, str) and (
+                _is_url(caption_font) or os.path.isfile(caption_font)
+            ):
+                yield "font", caption_font
     fill = getattr(layer, "fill", None)
     fill_path = getattr(fill, "path", None)
     if isinstance(fill_path, str):
@@ -402,22 +433,51 @@ def _layer_asset_values(layer: object):
             part_fill_path = getattr(getattr(part, "fill", None), "path", None)
             if isinstance(part_fill_path, str):
                 yield "text-fill", part_fill_path
+            part_font = getattr(part, "font", None)
+            if isinstance(part_font, str) and (_is_url(part_font) or os.path.isfile(part_font)):
+                yield "font", part_font
 
 
 def _append_asset_entry(
-    entries: list[AssetManifestEntry], seen: set[tuple[str, str]], asset_type: str, value: str
+    entries: list[AssetManifestEntry],
+    seen: set[tuple[str, str]],
+    asset_type: str,
+    value: str,
+    records: dict,
 ) -> None:
     key = (asset_type, value)
     if key in seen:
         return
     seen.add(key)
-    entries.append(
-        AssetManifestEntry(
+    record = records.get((asset_type, value))
+    if record is None and _is_url(value):
+        from quickthumb.asset_cache import AssetResolver
+
+        record = records.get((asset_type, AssetResolver.source_key(value)))
+    entries.append(_manifest_entry(value, asset_type, record))
+
+
+def _manifest_entry(
+    value: str, asset_type: str, record: ResolvedAsset | None
+) -> AssetManifestEntry:
+    if record is not None:
+        return AssetManifestEntry(
             source=value,
             asset_type=asset_type,
-            status="remote" if _is_url(value) else "local",
-            content_hash=_local_hash(value),
+            status=record.status,
+            source_key=record.source_key,
+            cache_key=record.cache_key,
+            cache_path=record.cache_path,
+            content_hash=record.content_hash,
         )
+    return AssetManifestEntry(
+        source=value,
+        asset_type=asset_type,
+        status="unresolved" if _is_url(value) else "local",
+        source_key=value if _is_url(value) else None,
+        cache_key=None,
+        cache_path=value if not _is_url(value) else None,
+        content_hash=_local_hash(value),
     )
 
 

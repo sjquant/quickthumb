@@ -100,6 +100,9 @@ class AssetManifestEntry(quickthumbModel):
     source: str
     asset_type: str = "asset"
     status: str
+    source_key: str | None = None
+    cache_key: str | None = None
+    cache_path: str | None = None
     content_hash: str | None = None
 
 
