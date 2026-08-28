@@ -11,6 +11,8 @@ import tempfile
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
+from threading import Lock
+from typing import Any
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from urllib.request import Request, urlopen
 
@@ -19,6 +21,9 @@ from PIL import Image
 from quickthumb.errors import RenderingError
 
 _DEFAULT_TIMEOUT = 15
+_DEFAULT_MAX_BYTES = 64 * 1024 * 1024
+_CACHE_LOCK_GUARD = Lock()
+_CACHE_LOCKS: dict[str, Lock] = {}
 _FONT_MAGIC = (
     b"\x00\x01\x00\x00",
     b"true",
@@ -51,13 +56,17 @@ class AssetResolver:
         cache_dir: str | os.PathLike[str] | None = None,
         *,
         timeout: float = _DEFAULT_TIMEOUT,
+        max_bytes: int = _DEFAULT_MAX_BYTES,
         fetcher: Callable[..., object] | None = None,
     ) -> None:
+        if not isinstance(max_bytes, int) or isinstance(max_bytes, bool) or max_bytes <= 0:
+            raise ValueError("max_bytes must be a positive integer")
         selected_dir = cache_dir or os.environ.get("QUICKTHUMB_ASSET_CACHE_DIR")
         if selected_dir is None:
             selected_dir = os.environ.get("QUICKTHUMB_FONT_CACHE_DIR", tempfile.gettempdir())
         self.cache_dir = Path(selected_dir).expanduser()
         self.timeout = timeout
+        self.max_bytes = max_bytes
         self._fetcher = fetcher or urlopen
         self._records: dict[tuple[str, str], ResolvedAsset] = {}
 
@@ -113,43 +122,47 @@ class AssetResolver:
         if not _is_url(source):
             return self._resolve_local(source, asset_type, validator)
 
-        source_key = self.source_key(source)
+        try:
+            source_key = self.source_key(source)
+        except ValueError as error:
+            raise RenderingError(f"Invalid remote asset URL '{source}'.") from error
         cache_key = self.cache_key(source_key)
         path = self._cache_path(source_key, asset_type, extension, cache_filename)
-        cached = self._read_cached(
-            source,
-            source_key,
-            asset_type,
-            cache_key,
-            path,
-            validator,
-        )
-        if cached is not None:
-            self._records[(asset_type, source_key)] = cached
-            return cached
+        with self._lock_for(path):
+            cached = self._read_cached(
+                source,
+                source_key,
+                asset_type,
+                cache_key,
+                path,
+                validator,
+            )
+            if cached is not None:
+                self._records[(asset_type, source_key)] = cached
+                return cached
 
-        downloaded = self._download(
-            source,
-            asset_type,
-            fetcher=fetcher,
-        )
-        if validator is not None and not validator(downloaded):
-            raise RenderingError(invalid_message or f"Downloaded {asset_type} is invalid.")
-        content_hash = _content_hash(downloaded)
-        self._persist(path, downloaded)
-        result = ResolvedAsset(
-            source=source,
-            asset_type=asset_type,
-            source_key=source_key,
-            cache_key=cache_key,
-            cache_path=str(path),
-            content_hash=content_hash,
-            status="network",
-            data=downloaded,
-        )
-        self._persist_metadata(path, result)
-        self._records[(asset_type, source_key)] = result
-        return result
+            downloaded = self._download(
+                source,
+                asset_type,
+                fetcher=fetcher,
+            )
+            if validator is not None and not validator(downloaded):
+                raise RenderingError(invalid_message or f"Downloaded {asset_type} is invalid.")
+            content_hash = _content_hash(downloaded)
+            self._persist(path, downloaded)
+            result = ResolvedAsset(
+                source=source,
+                asset_type=asset_type,
+                source_key=source_key,
+                cache_key=cache_key,
+                cache_path=str(path),
+                content_hash=content_hash,
+                status="network",
+                data=downloaded,
+            )
+            self._persist_metadata(path, result)
+            self._records[(asset_type, source_key)] = result
+            return result
 
     def describe(self, source: str, asset_type: str = "asset") -> ResolvedAsset | None:
         """Return metadata for a valid cached URL without making a network request."""
@@ -166,6 +179,23 @@ class AssetResolver:
             return result
         return None
 
+    def invalidate(
+        self,
+        source: str,
+        asset_type: str = "asset",
+        *,
+        extension: str | None = None,
+        cache_filename: str | None = None,
+    ) -> None:
+        """Remove one URL's cache entry so the next resolution fetches it again."""
+        if not _is_url(source):
+            return
+        source_key = self.source_key(source)
+        path = self._cache_path(source_key, asset_type, extension, cache_filename)
+        with self._lock_for(path):
+            self._remove_cache(path)
+            self._records.pop((asset_type, source_key), None)
+
     def records(self) -> dict[tuple[str, str], ResolvedAsset]:
         """Return a snapshot of assets resolved by this resolver."""
         return dict(self._records)
@@ -173,15 +203,15 @@ class AssetResolver:
     @staticmethod
     def source_key(source: str) -> str:
         """Canonicalize a URL into a stable key while preserving its meaning."""
-        parsed = urlsplit(source.strip())
+        try:
+            parsed = urlsplit(source.strip())
+            hostname = parsed.hostname
+            port = parsed.port
+        except ValueError as error:
+            raise ValueError(f"Invalid URL '{source}'.") from error
         scheme = parsed.scheme.lower()
-        hostname = parsed.hostname
         if hostname is None:
             return source.strip()
-        try:
-            port = parsed.port
-        except ValueError:
-            port = None
         netloc = hostname.lower()
         if parsed.username is not None:
             credentials = parsed.username
@@ -261,6 +291,13 @@ class AssetResolver:
         if metadata is not None and metadata.get("source_key") != source_key:
             return None
         content_hash = _content_hash(data)
+        if metadata is not None:
+            if metadata.get("asset_type") not in (None, asset_type):
+                return None
+            if metadata.get("cache_key") not in (None, cache_key):
+                return None
+            if metadata.get("content_hash") not in (None, content_hash):
+                return None
         return ResolvedAsset(
             source=source,
             asset_type=asset_type,
@@ -282,11 +319,21 @@ class AssetResolver:
         request = Request(source, headers={"User-Agent": "quickthumb/1.0"})
         try:
             with (fetcher or self._fetcher)(request, timeout=self.timeout) as response:
-                return response.read()
+                return self._read_response(response, source, asset_type)
         except RenderingError:
             raise
         except Exception as error:
             raise RenderingError(f"Failed to fetch remote {asset_type} '{source}'.") from error
+
+    def _read_response(self, response: Any, source: str, asset_type: str) -> bytes:
+        data = response.read(self.max_bytes + 1)
+        if not isinstance(data, bytes):
+            raise RenderingError(f"Remote {asset_type} '{source}' returned non-byte content.")
+        if len(data) > self.max_bytes:
+            raise RenderingError(
+                f"Remote {asset_type} '{source}' exceeds the {self.max_bytes}-byte limit."
+            )
+        return data
 
     def _persist(self, path: Path, data: bytes) -> None:
         self._atomic_write(path, data)
@@ -334,6 +381,12 @@ class AssetResolver:
                 with contextlib.suppress(OSError):
                     os.unlink(temporary)
             raise RenderingError(f"Could not persist asset cache entry '{path}'.") from error
+
+    @staticmethod
+    def _lock_for(path: Path) -> Lock:
+        key = str(path.absolute())
+        with _CACHE_LOCK_GUARD:
+            return _CACHE_LOCKS.setdefault(key, Lock())
 
     @staticmethod
     def _is_image(data: bytes) -> bool:

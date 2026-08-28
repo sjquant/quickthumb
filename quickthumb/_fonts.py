@@ -3,6 +3,7 @@ import hashlib
 import os
 import re
 import warnings
+from dataclasses import replace
 from typing import Any, cast
 from urllib.parse import quote_plus, urlparse
 from urllib.request import urlopen
@@ -10,7 +11,7 @@ from urllib.request import urlopen
 from PIL import ImageFont
 
 from quickthumb._base import DEFAULT_TEXT_SIZE, is_url
-from quickthumb.asset_cache import AssetResolver
+from quickthumb.asset_cache import AssetResolver, ResolvedAsset
 from quickthumb.errors import RenderingError
 from quickthumb.font_cache import FontCache
 from quickthumb.models import TextLayer
@@ -22,6 +23,35 @@ class FontEngine:
     def __init__(self, asset_resolver: AssetResolver | None = None):
         self._variant_cache: dict[tuple, ImageFont.FreeTypeFont | ImageFont.ImageFont] = {}
         self._asset_resolver = asset_resolver or AssetResolver()
+        self._reference_records: dict[tuple[str, str], ResolvedAsset] = {}
+
+    def resolve_remote_font_reference(
+        self,
+        font_name: str,
+        *,
+        font_source: str = "auto",
+        bold: bool = False,
+        italic: bool = False,
+        weight: int | str | None = None,
+        font_variations: dict[str, float] | None = None,
+    ) -> ResolvedAsset:
+        """Resolve a URL or Google font and retain its semantic reference metadata."""
+        if font_source == "google":
+            asset = self._resolve_google_font_asset(
+                font_name,
+                bold,
+                italic,
+                weight,
+                font_variations,
+            )
+        else:
+            asset = self._asset_resolver.resolve_font(font_name, fetcher=self._fetch)
+        self._remember_reference(font_name, asset)
+        return asset
+
+    def reference_records(self) -> dict[tuple[str, str], ResolvedAsset]:
+        """Return semantic font references resolved by this engine."""
+        return dict(self._reference_records)
 
     def load_font(self, layer: TextLayer) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
         return self.load_font_variant(
@@ -134,6 +164,24 @@ class FontEngine:
         weight: int | str | None,
         font_variations: dict[str, float] | None = None,
     ) -> str:
+        asset = self._resolve_google_font_asset(
+            family,
+            bold,
+            italic,
+            weight,
+            font_variations,
+        )
+        self._remember_reference(family, asset)
+        return asset.cache_path or os.path.join(str(self._asset_resolver.cache_dir), family)
+
+    def _resolve_google_font_asset(
+        self,
+        family: str,
+        bold: bool,
+        italic: bool,
+        weight: int | str | None,
+        font_variations: dict[str, float] | None,
+    ) -> ResolvedAsset:
         requested_variations = {
             axis.lower(): float(value) for axis, value in (font_variations or {}).items()
         }
@@ -144,44 +192,30 @@ class FontEngine:
         if not family:
             raise RenderingError("Google font family cannot be empty.")
 
-        variation_key = ",".join(
-            f"{axis}={value:g}" for axis, value in sorted(requested_variations.items())
-        )
-        cache_key = f"{family}|{target_weight}|{int(italic)}"
-        if variation_key:
-            cache_key += f"|{variation_key}"
-        cache_hash = hashlib.md5(cache_key.encode()).hexdigest()
-        cache_dir = self._font_cache_dir()
-
-        for extension in (".woff2", ".woff", ".ttf", ".otf"):
-            cache_path = os.path.join(cache_dir, f"quickthumb_google_{cache_hash}{extension}")
-            if self._is_valid_cached_font(cache_path):
-                return cache_path
-
-        css_path = os.path.join(cache_dir, f"quickthumb_google_{cache_hash}.css")
-        try:
-            with open(css_path, encoding="utf-8") as f:
-                css = f.read()
-        except OSError:
-            css = self._fetch_google_font_css(family, target_weight, italic, requested_variations)
-            with open(css_path, "w", encoding="utf-8") as f:
-                f.write(css)
-
+        cache_hash = self._google_cache_hash(family, target_weight, italic, requested_variations)
+        css = self._fetch_google_font_css(family, target_weight, italic, requested_variations)
         font_url = self._select_google_font_url(css, target_weight, italic)
         if not font_url:
-            with contextlib.suppress(OSError):
-                os.remove(css_path)
-            css = self._fetch_google_font_css(family, target_weight, italic, requested_variations)
-            with open(css_path, "w", encoding="utf-8") as f:
-                f.write(css)
+            css = self._fetch_google_font_css(
+                family,
+                target_weight,
+                italic,
+                requested_variations,
+                force_refresh=True,
+            )
             font_url = self._select_google_font_url(css, target_weight, italic)
 
         if not font_url:
             raise RenderingError(f"Google Fonts did not return a font file for '{family}'.")
 
         extension = self._font_extension(font_url)
-        cache_path = os.path.join(cache_dir, f"quickthumb_google_{cache_hash}{extension}")
-        return self._download_font_url_to_cache(font_url, cache_path, f"Google font '{family}'")
+        cache_filename = f"quickthumb_google_{cache_hash}{extension}"
+        return self._asset_resolver.resolve_font(
+            font_url,
+            extension=extension,
+            cache_filename=cache_filename,
+            fetcher=self._fetch,
+        )
 
     def _fetch_google_font_css(
         self,
@@ -189,30 +223,23 @@ class FontEngine:
         weight: int,
         italic: bool,
         font_variations: dict[str, float] | None = None,
+        *,
+        force_refresh: bool = False,
     ) -> str:
-        family_query = quote_plus(family)
         requested_variations = {
             axis.lower(): float(value) for axis, value in (font_variations or {}).items()
         }
-        axes = set(requested_variations)
-        axes.add("wght")
-        axes.add("ital")
-        axis_tags = sorted(axes)
-        axis_values = []
-        for axis in axis_tags:
-            if axis == "ital":
-                axis_values.append(str(int(italic)))
-            elif axis == "wght":
-                axis_values.append(str(weight))
-            else:
-                axis_values.append(f"{requested_variations[axis]:g}")
-        axis_spec = f"{','.join(axis_tags)}@{','.join(axis_values)}"
-        css_url = (
-            f"https://fonts.googleapis.com/css2?family={family_query}:{axis_spec}&display=swap"
-        )
+        css_url = self._google_css_url(family, weight, italic, requested_variations)
+        cache_hash = self._google_cache_hash(family, weight, italic, requested_variations)
+        cache_filename = f"quickthumb_google_{cache_hash}.css"
         try:
-            cache_hash = self._google_cache_hash(family, weight, italic, requested_variations)
-            cache_filename = f"quickthumb_google_{cache_hash}.css"
+            if force_refresh:
+                self._asset_resolver.invalidate(
+                    css_url,
+                    "font-css",
+                    extension=".css",
+                    cache_filename=cache_filename,
+                )
             asset = self._asset_resolver.resolve(
                 css_url,
                 "font-css",
@@ -231,6 +258,29 @@ class FontEngine:
                 )
                 return self._fetch_google_font_css(family, weight, italic)
             raise RenderingError(f"Failed to fetch Google font '{family}'.") from e
+
+    def _google_css_url(
+        self,
+        family: str,
+        weight: int,
+        italic: bool,
+        requested_variations: dict[str, float],
+    ) -> str:
+        family_query = quote_plus(family)
+        axes = set(requested_variations)
+        axes.add("wght")
+        axes.add("ital")
+        axis_tags = sorted(axes)
+        axis_values = []
+        for axis in axis_tags:
+            if axis == "ital":
+                axis_values.append(str(int(italic)))
+            elif axis == "wght":
+                axis_values.append(str(weight))
+            else:
+                axis_values.append(f"{requested_variations[axis]:g}")
+        axis_spec = f"{','.join(axis_tags)}@{','.join(axis_values)}"
+        return f"https://fonts.googleapis.com/css2?family={family_query}:{axis_spec}&display=swap"
 
     @staticmethod
     def _google_cache_hash(
@@ -297,7 +347,11 @@ class FontEngine:
 
     def _download_and_cache_font(self, url: str) -> str:
         extension = self._font_extension(url)
-        cache_filename = f"quickthumb_font_{self._asset_resolver.cache_key(url)}{extension}"
+        try:
+            cache_key = self._asset_resolver.cache_key(url)
+        except ValueError as error:
+            raise RenderingError(f"Invalid remote asset URL '{url}'.") from error
+        cache_filename = f"quickthumb_font_{cache_key}{extension}"
         asset = self._asset_resolver.resolve_font(
             url,
             extension=extension,
@@ -306,32 +360,14 @@ class FontEngine:
         )
         return asset.cache_path or cache_filename
 
-    def _font_cache_dir(self) -> str:
-        self._asset_resolver.cache_dir.mkdir(parents=True, exist_ok=True)
-        return str(self._asset_resolver.cache_dir)
+    def _remember_reference(self, reference: str, asset: ResolvedAsset) -> None:
+        self._reference_records[("font", reference)] = replace(asset, source=reference)
 
     def _font_extension(self, url: str) -> str:
         extension = os.path.splitext(urlparse(url).path)[1].lower()
         if extension in {".ttf", ".otf", ".woff", ".woff2"}:
             return extension
         return ".ttf"
-
-    def _is_valid_cached_font(self, cache_path: str) -> bool:
-        if not os.path.exists(cache_path):
-            return False
-        with open(cache_path, "rb") as f:
-            cached_header = f.read(4)
-        return AssetResolver.is_font_data(cached_header)
-
-    def _download_font_url_to_cache(self, url: str, cache_path: str, description: str) -> str:
-        del description
-        asset = self._asset_resolver.resolve_font(
-            url,
-            extension=os.path.splitext(cache_path)[1],
-            cache_filename=os.path.basename(cache_path),
-            fetcher=self._fetch,
-        )
-        return asset.cache_path or cache_path
 
     @staticmethod
     def _fetch(request, timeout: float):

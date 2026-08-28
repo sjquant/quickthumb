@@ -339,17 +339,33 @@ class Canvas:
         for asset_type, source in self._remote_asset_references():
             if asset_type in {"image", "text-fill"}:
                 self._ctx.asset_resolver.resolve_image(
-                    source, asset_type=asset_type, fetcher=self._images._fetch
+                    source, asset_type="image", fetcher=self._images._fetch
                 )
-            elif asset_type == "font":
-                self._ctx.asset_resolver.resolve_font(source, fetcher=self._fonts._fetch)
             else:
                 self._ctx.asset_resolver.resolve(
                     source, asset_type, extension=".svg", fetcher=self._images._fetch
                 )
+        for (
+            font_name,
+            font_source,
+            bold,
+            italic,
+            weight,
+            font_variations,
+        ) in self._remote_font_references():
+            self._fonts.resolve_remote_font_reference(
+                font_name,
+                font_source=font_source,
+                bold=bold,
+                italic=italic,
+                weight=weight,
+                font_variations=font_variations,
+            )
 
     def _contract_asset_records(self):
-        return self._ctx.asset_resolver.records()
+        records = self._ctx.asset_resolver.records()
+        records.update(self._fonts.reference_records())
+        return records
 
     def _remote_asset_references(self):
         for layer in self._iter_layers_deep():
@@ -359,14 +375,8 @@ class Canvas:
                 yield "image", layer.path
             elif isinstance(layer, SvgLayer) and is_url(layer.path):
                 yield "svg", layer.path
-            elif isinstance(layer, VideoLayer):
-                for caption in layer.captions:
-                    if caption.font and is_url(caption.font):
-                        yield "font", caption.font
 
             if isinstance(layer, TextLayer):
-                if layer.font and is_url(layer.font):
-                    yield "font", layer.font
                 fills = []
                 if isinstance(layer.fill, TextFillImage):
                     fills.append(layer.fill)
@@ -374,11 +384,50 @@ class Canvas:
                     for part in layer.content:
                         if isinstance(part.fill, TextFillImage):
                             fills.append(part.fill)
-                        if part.font and is_url(part.font):
-                            yield "font", part.font
                 for fill in fills:
                     if is_url(fill.path):
                         yield "text-fill", fill.path
+
+    def _remote_font_references(self):
+        for layer in self._iter_layers_deep():
+            if isinstance(layer, VideoLayer):
+                for caption in layer.captions:
+                    if caption.font and is_url(caption.font):
+                        yield (caption.font, "auto", False, False, None, None)
+                continue
+
+            if not isinstance(layer, TextLayer):
+                continue
+
+            if layer.font and (is_url(layer.font) or layer.font_source == "google"):
+                font_source = "auto" if is_url(layer.font) else layer.font_source
+                yield (
+                    layer.font,
+                    font_source,
+                    layer.bold,
+                    layer.italic,
+                    layer.weight,
+                    layer.font_variations,
+                )
+
+            if not isinstance(layer.content, list):
+                continue
+            for part in layer.content:
+                if not part.font:
+                    continue
+                font_source = part.font_source or layer.font_source
+                if not (is_url(part.font) or font_source == "google"):
+                    continue
+                yield (
+                    part.font,
+                    "auto" if is_url(part.font) else font_source,
+                    part.bold if part.bold is not None else layer.bold,
+                    part.italic if part.italic is not None else layer.italic,
+                    part.weight if part.weight is not None else layer.weight,
+                    part.font_variations
+                    if part.font_variations is not None
+                    else layer.font_variations,
+                )
 
     def _contract_validate_structure(self) -> None:
         if not self.has_size:

@@ -413,7 +413,8 @@ def _layer_asset_values(layer: object):
     if isinstance(image, str):
         yield "image", image
     font = getattr(layer, "font", None)
-    if isinstance(font, str) and (_is_url(font) or os.path.isfile(font)):
+    font_source = getattr(layer, "font_source", None)
+    if isinstance(font, str) and (_is_url(font) or os.path.isfile(font) or font_source == "google"):
         yield "font", font
     captions = getattr(layer, "captions", None)
     if isinstance(captions, list):
@@ -434,7 +435,10 @@ def _layer_asset_values(layer: object):
             if isinstance(part_fill_path, str):
                 yield "text-fill", part_fill_path
             part_font = getattr(part, "font", None)
-            if isinstance(part_font, str) and (_is_url(part_font) or os.path.isfile(part_font)):
+            part_font_source = getattr(part, "font_source", None) or font_source
+            if isinstance(part_font, str) and (
+                _is_url(part_font) or os.path.isfile(part_font) or part_font_source == "google"
+            ):
                 yield "font", part_font
 
 
@@ -453,7 +457,10 @@ def _append_asset_entry(
     if record is None and _is_url(value):
         from quickthumb.asset_cache import AssetResolver
 
-        record = records.get((asset_type, AssetResolver.source_key(value)))
+        source_key = AssetResolver.source_key(value)
+        record = records.get((asset_type, source_key))
+        if record is None and asset_type == "text-fill":
+            record = records.get(("image", source_key))
     entries.append(_manifest_entry(value, asset_type, record))
 
 
