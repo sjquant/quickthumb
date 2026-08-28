@@ -581,6 +581,37 @@ def test_plugin_layer_invalid_inputs_fail_at_the_json_boundary(layer, message):
         plugin_registry.clear()
 
 
+def test_nested_plugin_layer_is_validated_at_the_json_boundary():
+    """Given a group child, registry validation reaches nested plugin layers."""
+    # Given: a group containing a renderer that is not registered
+    plugin_registry.clear()
+    try:
+        payload = {
+            "kind": "canvas",
+            "width": 120,
+            "height": 80,
+            "layers": [
+                {
+                    "type": "group",
+                    "children": [
+                        {
+                            "type": "plugin",
+                            "renderer": "missing_renderer",
+                            "version": "1.0",
+                            "params": {},
+                        }
+                    ],
+                }
+            ],
+        }
+
+        # When / Then: the nested layer is rejected just like a top-level one
+        with pytest.raises(ValidationError, match="not registered"):
+            Canvas.from_json(json.dumps(payload))
+    finally:
+        plugin_registry.clear()
+
+
 def test_plugin_layer_rejects_non_json_parameters_before_model_coercion():
     """Given a Python-only parameter, the layer model rejects it instead of coercing it."""
     # Given / When / Then: Python-only objects cannot cross the JSON layer contract

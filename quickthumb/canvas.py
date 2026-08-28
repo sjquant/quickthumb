@@ -1483,8 +1483,7 @@ class Canvas:
             else:
                 reject_unknown_json_fields(layer_dict, _LAYER_SCHEMA, f"/layers/{layer_index}")
                 parsed_layer = _LAYER_ADAPTER.validate_python(layer_dict)
-                if isinstance(parsed_layer, PluginLayer):
-                    plugin_registry.validate(parsed_layer)
+                cls._validate_plugin_layer_tree(parsed_layer)
                 renderable_layers.append(parsed_layer)
 
         platform = raw.get("platform")
@@ -1510,6 +1509,16 @@ class Canvas:
             raise ValidationError("'width' and 'height' must be integers.")
 
         return cls(width=width, height=height, layers=renderable_layers, platform=platform)
+
+    @classmethod
+    def _validate_plugin_layer_tree(cls, layer: RenderableLayer) -> None:
+        """Resolve every plugin in a parsed layer tree before it enters a Canvas."""
+        if isinstance(layer, PluginLayer):
+            plugin_registry.validate(layer)
+            return
+        if isinstance(layer, GroupLayer):
+            for child in layer.children:
+                cls._validate_plugin_layer_tree(child)
 
     @classmethod
     def _read_template_file(cls, path: str) -> str:
