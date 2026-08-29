@@ -9,7 +9,7 @@ import json
 import os
 import tempfile
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from threading import Lock
 from typing import Any
@@ -199,6 +199,40 @@ class AssetResolver:
     def records(self) -> dict[tuple[str, str], ResolvedAsset]:
         """Return a snapshot of assets resolved by this resolver."""
         return dict(self._records)
+
+    def record_for(self, source: str, asset_type: str = "asset") -> ResolvedAsset | None:
+        """Return the resolved record for a semantic source reference.
+
+        Callers do not need to know whether a URL is stored under its
+        canonical source key or whether a semantic type shares another
+        storage type (for example, text-fill images use the image cache).
+        """
+        record = self._records.get((asset_type, source))
+        if record is not None:
+            return record
+        if not _is_url(source):
+            return None
+        try:
+            source_key = self.source_key(source)
+        except ValueError:
+            return None
+        record = self._records.get((asset_type, source_key))
+        if record is not None:
+            return record
+        if asset_type == "text-fill":
+            return self._records.get(("image", source_key))
+        return None
+
+    def remember_reference(self, source: str, asset_type: str, asset: ResolvedAsset) -> None:
+        """Register a semantic reference against an already-resolved asset."""
+        record = replace(asset, source=source, asset_type=asset_type)
+        self._records[(asset_type, source)] = record
+        if _is_url(source):
+            try:
+                source_key = self.source_key(source)
+            except ValueError:
+                return
+            self._records[(asset_type, source_key)] = record
 
     @staticmethod
     def source_key(source: str) -> str:

@@ -6,6 +6,7 @@ from PIL import Image, ImageDraw, ImageFilter
 
 from quickthumb._base import RenderContext, apply_alignment, is_url, parse_coordinate
 from quickthumb._effects import EffectsEngine
+from quickthumb.asset_cache import ResolvedAsset
 from quickthumb.errors import RenderingError
 from quickthumb.models import (
     Align,
@@ -32,6 +33,14 @@ class ImageEngine:
     def __init__(self, ctx: RenderContext, effects: EffectsEngine):
         self._ctx = ctx
         self._effects = effects
+
+    def resolve_remote_reference(self, source: str, *, asset_type: str = "image") -> ResolvedAsset:
+        """Resolve a remote image or SVG reference for the document layer."""
+        if asset_type in {"image", "text-fill"}:
+            return self._ctx.asset_resolver.resolve_image(source, fetcher=self._fetch)
+        return self._ctx.asset_resolver.resolve(
+            source, asset_type, extension=".svg", fetcher=self._fetch
+        )
 
     def load_image_from_url(self, url: str) -> Image.Image:
         asset = self._ctx.asset_resolver.resolve_image(url, fetcher=self._fetch)

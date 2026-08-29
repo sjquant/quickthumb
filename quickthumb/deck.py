@@ -262,11 +262,12 @@ class Deck:
         for canvas in self._slides:
             canvas._contract_resolve_assets()
 
-    def _contract_asset_records(self):
-        records = {}
+    def _contract_asset_record(self, asset_type: str, source: str):
         for canvas in self._slides:
-            records.update(canvas._contract_asset_records())
-        return records
+            record = canvas._contract_asset_record(asset_type, source)
+            if record is not None:
+                return record
+        return None
 
     def _contract_validate_structure(self) -> None:
         if not self._slides:

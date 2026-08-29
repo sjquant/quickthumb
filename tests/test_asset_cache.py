@@ -127,7 +127,7 @@ def test_remote_text_fill_reuses_the_image_cache_after_resolution(
     monkeypatch.setenv("QUICKTHUMB_ASSET_CACHE_DIR", str(tmp_path / "assets"))
     canvas = Canvas(120, 80).text(
         "cached",
-        fill=TextFillImage(path=f"{base_url}/asset.png"),
+        fill=TextFillImage(path=f"{base_url}/asset.png?b=2&a=1"),
         size=24,
         position=(0, 0),
     )
@@ -140,6 +140,7 @@ def test_remote_text_fill_reuses_the_image_cache_after_resolution(
     assert len(requests) == 1
     assert manifest.asset_type == "text-fill"
     assert manifest.status == "network"
+    assert manifest.source_key == f"{base_url}/asset.png?a=1&b=2"
 
 
 def test_google_font_reference_is_resolved_in_the_manifest(tmp_path, monkeypatch):

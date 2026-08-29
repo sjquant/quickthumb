@@ -6,6 +6,7 @@ import hashlib
 import json
 import math
 import os
+from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, Protocol, cast, runtime_checkable
 
@@ -252,9 +253,9 @@ def _contract_resolve_assets(source: Document) -> None:
         resolver()
 
 
-def _contract_asset_records(source: Document) -> dict[tuple[str, str], ResolvedAsset]:
-    records = getattr(cast(Any, source), "_contract_asset_records", None)
-    return records() if records is not None else {}
+def _contract_asset_record(source: Document, asset_type: str, value: str) -> ResolvedAsset | None:
+    lookup = getattr(cast(Any, source), "_contract_asset_record", None)
+    return lookup(asset_type, value) if lookup is not None else None
 
 
 def _contract_validate_structure(source: Document) -> None:
@@ -388,13 +389,16 @@ def _document_dimensions(source: Document) -> tuple[int | None, int | None]:
 def _asset_manifest(source: Document) -> list[AssetManifestEntry]:
     entries: list[AssetManifestEntry] = []
     seen: set[tuple[str, str]] = set()
-    records = _contract_asset_records(source)
+
+    def record_for(kind: str, reference: str) -> ResolvedAsset | None:
+        return _contract_asset_record(source, kind, reference)
+
     for layer in _contract_layers(source):
         for asset_type, value in _layer_asset_values(layer):
-            _append_asset_entry(entries, seen, asset_type, value, records)
+            _append_asset_entry(entries, seen, asset_type, value, record_for)
     for path in _contract_audio_paths(source):
         if path is not None:
-            _append_asset_entry(entries, seen, "audio", path, records)
+            _append_asset_entry(entries, seen, "audio", path, record_for)
     return entries
 
 
@@ -447,20 +451,13 @@ def _append_asset_entry(
     seen: set[tuple[str, str]],
     asset_type: str,
     value: str,
-    records: dict,
+    record_for: Callable[[str, str], ResolvedAsset | None],
 ) -> None:
     key = (asset_type, value)
     if key in seen:
         return
     seen.add(key)
-    record = records.get((asset_type, value))
-    if record is None and _is_url(value):
-        from quickthumb.asset_cache import AssetResolver
-
-        source_key = AssetResolver.source_key(value)
-        record = records.get((asset_type, source_key))
-        if record is None and asset_type == "text-fill":
-            record = records.get(("image", source_key))
+    record = record_for(asset_type, value)
     entries.append(_manifest_entry(value, asset_type, record))
 
 
