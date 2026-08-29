@@ -114,12 +114,7 @@ from quickthumb.models import (
 from quickthumb.plugins import (
     PluginDefinition,
     PluginRegistry,
-    lookup_plugin,
-    plugin_json_schema,
     plugin_registry,
-    register_plugin,
-    unregister_plugin,
-    validate_plugin,
 )
 from quickthumb.schema import canvas_json_schema, document_json_schema, plugin_layer_json_schema
 from quickthumb.transitions import Morph, Transition
@@ -222,11 +217,6 @@ __all__ = [
     "PluginLayer",
     "PluginRegistry",
     "plugin_registry",
-    "register_plugin",
-    "unregister_plugin",
-    "lookup_plugin",
-    "validate_plugin",
-    "plugin_json_schema",
     "plugin_layer_json_schema",
     "QRCodeLayer",
     "RadialGradient",

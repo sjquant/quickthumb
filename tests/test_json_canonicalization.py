@@ -11,9 +11,7 @@ from quickthumb import (
     PluginLayer,
     PluginRegistry,
     canvas_json_schema,
-    lookup_plugin,
     plugin_registry,
-    register_plugin,
 )
 from quickthumb._document import load_document
 from quickthumb.errors import ValidationError
@@ -413,10 +411,10 @@ def test_non_standard_json_constants_are_rejected_at_the_boundary(constant):
 def test_named_plugin_layer_round_trips_through_canonical_json_and_schema():
     """Given a registered plugin, canonical JSON preserves its versioned params."""
     # Given: a deterministic renderer registration and equivalent JSON payload
-    register_plugin(
+    plugin_registry.register(
         "brand_badge",
         "1.0",
-        schema={
+        params_schema={
             "type": "object",
             "required": ["label", "accent"],
             "properties": {
@@ -450,7 +448,7 @@ def test_named_plugin_layer_round_trips_through_canonical_json_and_schema():
         '"width":120}'
     )
     validate(json.loads(parsed.to_json()), canvas_json_schema())
-    definition = lookup_plugin("brand_badge", "1.0")
+    definition = plugin_registry.lookup("brand_badge", "1.0")
     assert definition is not None
     assert definition.renderer == "brand_badge"
 
@@ -487,7 +485,7 @@ def test_registered_plugin_schema_preserves_json_schema_defaults():
     registry.register(
         "open_plugin",
         "1.0",
-        schema={"type": "object", "properties": {"label": {"type": "string"}}},
+        params_schema={"type": "object", "properties": {"label": {"type": "string"}}},
     )
 
     # When: a layer uses both the declared and an extra parameter
@@ -510,15 +508,18 @@ def test_plugin_registry_lifecycle_rejects_duplicates_and_supports_replacement()
     """Given a named registration, lifecycle operations remain explicit and deterministic."""
     # Given: one registered renderer/version pair
     registry = PluginRegistry()
-    registry.register("badge", "1.0", schema={"type": "object"})
+    registry.register("badge", "1.0", params_schema={"type": "object"})
 
     # When: a duplicate is registered without an explicit replacement
     with pytest.raises(ValidationError, match="already registered"):
-        registry.register("badge", "1.0", schema={"type": "object", "required": ["label"]})
+        registry.register("badge", "1.0", params_schema={"type": "object", "required": ["label"]})
 
     # Then: replacement changes only the exact version and unregister is scoped
     replacement = registry.register(
-        "badge", "1.0", schema={"type": "object", "required": ["label"]}, replace=True
+        "badge",
+        "1.0",
+        params_schema={"type": "object", "required": ["label"]},
+        replace=True,
     )
     assert replacement.params_schema == {"type": "object", "required": ["label"]}
     registry.register("badge", "2.0")
@@ -568,10 +569,10 @@ def test_plugin_registry_lifecycle_rejects_duplicates_and_supports_replacement()
 def test_plugin_layer_invalid_inputs_fail_at_the_json_boundary(layer, message):
     """Given an unresolved or schema-invalid plugin, parsing reports the contract failure."""
     # Given: one valid registration and an unresolved or invalid layer payload
-    register_plugin(
+    plugin_registry.register(
         "brand_badge",
         "1.0",
-        schema={
+        params_schema={
             "type": "object",
             "required": ["label", "accent"],
             "properties": {
@@ -647,7 +648,7 @@ def test_explicit_registry_is_used_by_canvas_deck_and_document_parsers():
     """Given an isolated registry, all document parsers resolve its plugins."""
     # Given: a registry that is intentionally different from the process-global one
     registry = PluginRegistry()
-    registry.register("isolated", "1.0", schema={"type": "object"})
+    registry.register("isolated", "1.0", params_schema={"type": "object"})
     canvas_payload = {
         "kind": "canvas",
         "width": 20,
@@ -701,7 +702,7 @@ def test_explicit_registry_is_used_by_canvas_deck_and_document_parsers():
 def test_plugin_registration_rejects_unsupported_or_malformed_schemas(schema, message):
     """Given an invalid schema document, registration fails with a stable error."""
     with pytest.raises(ValidationError, match=message):
-        PluginRegistry().register("invalid", "1.0", schema=schema)
+        PluginRegistry().register("invalid", "1.0", params_schema=schema)
 
 
 @pytest.mark.parametrize(
@@ -788,7 +789,7 @@ def test_plugin_registration_rejects_unsupported_or_malformed_schemas(schema, me
 def test_plugin_runtime_rejects_supported_schema_constraint_violations(schema, params):
     """Given a supported parameter constraint, invalid values fail validation."""
     registry = PluginRegistry()
-    registry.register("constrained", "1.0", schema=schema)
+    registry.register("constrained", "1.0", params_schema=schema)
 
     with pytest.raises(ValidationError, match="Plugin params"):
         registry.validate(
@@ -802,7 +803,7 @@ def test_plugin_definition_snapshots_are_detached_from_registry_state():
     definition = registry.register(
         "stable",
         "1.0",
-        schema={"type": "object", "properties": {"value": {"type": "string"}}},
+        params_schema={"type": "object", "properties": {"value": {"type": "string"}}},
     )
 
     # When: callers mutate both public definition views

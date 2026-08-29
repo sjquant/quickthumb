@@ -1,4 +1,9 @@
-"""Deterministic named plugin registrations for the canonical layer contract."""
+"""Deterministic named plugin registrations for the canonical layer contract.
+
+Parameter schemas use the ``quickthumb plugin-params v1`` subset documented in
+``docs/json-schema.md``.  The registry is the single public entry point for
+registration, lookup, validation, and schema generation.
+"""
 
 from __future__ import annotations
 
@@ -51,11 +56,6 @@ class PluginDefinition(quickthumbModel):
         _validate_schema_document(value)
         return deepcopy(value)
 
-    @property
-    def schema(self) -> dict[str, Any] | None:
-        """Return a defensive copy under the concise registry terminology."""
-        return None if self.params_schema is None else deepcopy(self.params_schema)
-
 
 class PluginRegistry:
     """An exact, version-aware registry of named plugin definitions.
@@ -63,6 +63,10 @@ class PluginRegistry:
     The registry stores metadata only.  Renderer execution and native exporter
     hooks intentionally remain D2/D3 work.  All outward collections are sorted
     by ``(renderer, version)`` so schema and inspection output is reproducible.
+
+    Most callers only need ``register``, ``validate``, and ``json_schema``.
+    Lifecycle and inspection methods are provided for application setup and
+    diagnostics.
     """
 
     def __init__(self) -> None:
@@ -74,7 +78,6 @@ class PluginRegistry:
         version: str | None = None,
         params_schema: Mapping[str, Any] | None = None,
         *,
-        schema: Mapping[str, Any] | None = None,
         replace: bool = False,
     ) -> PluginDefinition:
         """Register one renderer/version pair and return a detached definition."""
@@ -83,7 +86,6 @@ class PluginRegistry:
                 renderer,
                 version,
                 params_schema,
-                schema=schema,
             )
         except PydanticValidationError as error:
             raise ValidationError(
@@ -160,10 +162,6 @@ class PluginRegistry:
             self._copy_definition(self._definitions[key]) for key in sorted(self._definitions)
         )
 
-    def renderers(self) -> tuple[str, ...]:
-        """Return registered renderer names without duplicates, in sorted order."""
-        return tuple(sorted({definition.renderer for definition in self._definitions.values()}))
-
     def json_schema(self) -> dict[str, Any]:
         """Return the plugin layer schema with registered parameter extensions."""
         base = PluginLayer.model_json_schema(mode="validation")
@@ -198,40 +196,26 @@ class PluginRegistry:
             "discriminator": discriminator,
         }
 
-    def schema(self) -> dict[str, Any]:
-        """Alias for :meth:`json_schema` used by schema consumers."""
-        return self.json_schema()
-
-    def __contains__(self, key: object) -> bool:
-        if isinstance(key, tuple) and len(key) == 2:
-            return key in self._definitions
-        return False
-
     def _definition_from_arguments(
         self,
         renderer: str | PluginDefinition,
         version: str | None,
         params_schema: Mapping[str, Any] | None,
-        *,
-        schema: Mapping[str, Any] | None,
     ) -> PluginDefinition:
         if isinstance(renderer, PluginDefinition):
-            if version is not None or params_schema is not None or schema is not None:
+            if version is not None or params_schema is not None:
                 raise ValidationError(
                     "PluginDefinition cannot be combined with registration overrides."
                 )
             return renderer
         if version is None:
             raise ValidationError("Plugin registration requires an explicit version.")
-        if params_schema is not None and schema is not None:
-            raise ValidationError("Provide only one of params_schema or schema.")
-        selected_schema = params_schema if params_schema is not None else schema
-        if selected_schema is not None and not isinstance(selected_schema, Mapping):
+        if params_schema is not None and not isinstance(params_schema, Mapping):
             raise ValidationError("Plugin params schema must be a JSON object.")
-        if selected_schema is not None:
-            if not _schema_allows_object(selected_schema):
+        if params_schema is not None:
+            if not _schema_allows_object(params_schema):
                 raise ValidationError("Plugin params schema must allow a JSON object.")
-            normalized_schema = dict(deepcopy(selected_schema))
+            normalized_schema = dict(deepcopy(params_schema))
             normalized_schema["type"] = "object"
         else:
             normalized_schema = None
@@ -278,44 +262,6 @@ class PluginRegistry:
 
 
 plugin_registry = PluginRegistry()
-
-
-def register_plugin(
-    renderer: str | PluginDefinition,
-    version: str | None = None,
-    params_schema: Mapping[str, Any] | None = None,
-    *,
-    schema: Mapping[str, Any] | None = None,
-    replace: bool = False,
-) -> PluginDefinition:
-    """Register a plugin in the process-global registry."""
-    return plugin_registry.register(
-        renderer,
-        version,
-        params_schema,
-        schema=schema,
-        replace=replace,
-    )
-
-
-def unregister_plugin(renderer: str, version: str | None = None) -> None:
-    """Remove a plugin from the process-global registry."""
-    plugin_registry.unregister(renderer, version)
-
-
-def lookup_plugin(renderer: str, version: str | None = None) -> PluginDefinition | None:
-    """Look up a plugin in the process-global registry."""
-    return plugin_registry.lookup(renderer, version)
-
-
-def validate_plugin(layer: PluginLayer | Mapping[str, Any]) -> PluginLayer:
-    """Validate a layer against the process-global registry."""
-    return plugin_registry.validate(layer)
-
-
-def plugin_json_schema() -> dict[str, Any]:
-    """Return the process-global plugin layer JSON Schema."""
-    return plugin_registry.json_schema()
 
 
 def _validate_schema_document(schema: Mapping[str, Any]) -> None:
