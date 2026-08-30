@@ -6,9 +6,12 @@ import hashlib
 import json
 import math
 import os
+from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, Protocol, cast, runtime_checkable
 
+from quickthumb.asset_cache import ResolvedAsset
 from quickthumb.errors import RenderingError, ValidationError
 from quickthumb.models import (
     AssetManifestEntry,
@@ -35,6 +38,14 @@ if TYPE_CHECKING:
     from quickthumb.plugins import PluginRegistry
 
 DocumentKind = Literal["canvas", "deck"]
+
+
+@dataclass(frozen=True)
+class AssetPort:
+    """Explicit asset boundary supplied by a concrete document renderer."""
+
+    resolve: Callable[[], None]
+    record_for: Callable[[str, str], ResolvedAsset | None]
 
 
 def canonical_json(payload: object) -> str:
@@ -147,6 +158,7 @@ def build_export_result(
     *,
     format: str | None = None,
     animation: GifOptions | VideoOptions | None = None,
+    assets: AssetPort,
 ) -> ExportResult:
     """Build the shared result envelope after an existing exporter succeeds."""
     output_format = _output_format(output_path, format)
@@ -154,7 +166,7 @@ def build_export_result(
     capability_report = _capability_report(source, target, policy)
     timing = _timing_metrics(source, target, output_format, policy, animation)
     dimensions = _document_dimensions(source)
-    asset_manifest = _asset_manifest(source)
+    asset_manifest = _asset_manifest(source, assets.record_for)
     pixel_frame_count = _pixel_frame_count(source, target, output_format, written_paths, timing)
     if output_format == "gif" and written_paths:
         timing = timing.model_copy(update={"frame_count": pixel_frame_count})
@@ -219,10 +231,13 @@ def validation_report(source: Document, *, kind: DocumentKind) -> ValidationRepo
     return ValidationReport(valid=not errors, errors=errors)
 
 
-def resolved_document(source: Document, *, kind: DocumentKind) -> ResolvedDocument:
-    """Resolve/check asset references without changing the renderer's loading path."""
+def resolved_document(
+    source: Document, *, kind: DocumentKind, assets: AssetPort
+) -> ResolvedDocument:
+    """Resolve/check asset references and return one deterministic manifest."""
     _contract_validate_assets(source)
-    return ResolvedDocument(kind=kind, asset_manifest=_asset_manifest(source))
+    assets.resolve()
+    return ResolvedDocument(kind=kind, asset_manifest=_asset_manifest(source, assets.record_for))
 
 
 def _contract_kind(source: Document) -> DocumentKind:
@@ -373,26 +388,47 @@ def _document_dimensions(source: Document) -> tuple[int | None, int | None]:
     return canvases[0].width, canvases[0].height
 
 
-def _asset_manifest(source: Document) -> list[AssetManifestEntry]:
+def _asset_manifest(
+    source: Document, record_for: Callable[[str, str], ResolvedAsset | None]
+) -> list[AssetManifestEntry]:
     entries: list[AssetManifestEntry] = []
     seen: set[tuple[str, str]] = set()
+
     for layer in _contract_layers(source):
         for asset_type, value in _layer_asset_values(layer):
-            _append_asset_entry(entries, seen, asset_type, value)
+            _append_asset_entry(entries, seen, asset_type, value, record_for)
     for path in _contract_audio_paths(source):
         if path is not None:
-            _append_asset_entry(entries, seen, "audio", path)
+            _append_asset_entry(entries, seen, "audio", path, record_for)
     return entries
 
 
 def _layer_asset_values(layer: object):
+    layer_type = getattr(layer, "type", None)
     for field in ("path", "source"):
         value = getattr(layer, field, None)
         if isinstance(value, str):
-            yield field, value
+            asset_type = {
+                "image": "image",
+                "svg": "svg",
+                "video": "video",
+            }.get(str(layer_type), field)
+            yield asset_type, value
     image = getattr(layer, "image", None)
     if isinstance(image, str):
         yield "image", image
+    font = getattr(layer, "font", None)
+    font_source = getattr(layer, "font_source", None)
+    if isinstance(font, str) and (_is_url(font) or os.path.isfile(font) or font_source == "google"):
+        yield "font", font
+    captions = getattr(layer, "captions", None)
+    if isinstance(captions, list):
+        for caption in captions:
+            caption_font = getattr(caption, "font", None)
+            if isinstance(caption_font, str) and (
+                _is_url(caption_font) or os.path.isfile(caption_font)
+            ):
+                yield "font", caption_font
     fill = getattr(layer, "fill", None)
     fill_path = getattr(fill, "path", None)
     if isinstance(fill_path, str):
@@ -403,22 +439,50 @@ def _layer_asset_values(layer: object):
             part_fill_path = getattr(getattr(part, "fill", None), "path", None)
             if isinstance(part_fill_path, str):
                 yield "text-fill", part_fill_path
+            part_font = getattr(part, "font", None)
+            part_font_source = getattr(part, "font_source", None) or font_source
+            if isinstance(part_font, str) and (
+                _is_url(part_font) or os.path.isfile(part_font) or part_font_source == "google"
+            ):
+                yield "font", part_font
 
 
 def _append_asset_entry(
-    entries: list[AssetManifestEntry], seen: set[tuple[str, str]], asset_type: str, value: str
+    entries: list[AssetManifestEntry],
+    seen: set[tuple[str, str]],
+    asset_type: str,
+    value: str,
+    record_for: Callable[[str, str], ResolvedAsset | None],
 ) -> None:
     key = (asset_type, value)
     if key in seen:
         return
     seen.add(key)
-    entries.append(
-        AssetManifestEntry(
+    record = record_for(asset_type, value)
+    entries.append(_manifest_entry(value, asset_type, record))
+
+
+def _manifest_entry(
+    value: str, asset_type: str, record: ResolvedAsset | None
+) -> AssetManifestEntry:
+    if record is not None:
+        return AssetManifestEntry(
             source=value,
             asset_type=asset_type,
-            status="remote" if _is_url(value) else "local",
-            content_hash=_local_hash(value),
+            status=record.status,
+            source_key=record.source_key,
+            cache_key=record.cache_key,
+            cache_path=record.cache_path,
+            content_hash=record.content_hash,
         )
+    return AssetManifestEntry(
+        source=value,
+        asset_type=asset_type,
+        status="unresolved" if _is_url(value) else "local",
+        source_key=value if _is_url(value) else None,
+        cache_key=None,
+        cache_path=value if not _is_url(value) else None,
+        content_hash=_local_hash(value),
     )
 
 

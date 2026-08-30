@@ -197,7 +197,7 @@ class Canvas:
         self._platform = platform
 
         self._effects = EffectsEngine()
-        self._fonts = FontEngine()
+        self._fonts = FontEngine(self._ctx.asset_resolver)
         self._images = ImageEngine(self._ctx, self._effects)
         self._text = TextEngine(self._ctx, self._fonts, self._effects, self._images)
         self._shapes = ShapeEngine(self._ctx, self._effects, self._images)
@@ -340,6 +340,37 @@ class Canvas:
     def _contract_validate_assets(self) -> None:
         self._validate_image_paths()
 
+    def _contract_resolve_assets(self) -> None:
+        """Resolve remote image and font references before building a manifest."""
+        self._validate_image_paths()
+        for asset_type, source in self._remote_asset_references():
+            self._images.resolve_remote_reference(source, asset_type=asset_type)
+        self._fonts.resolve_remote_references(self._iter_layers_deep())
+
+    def _contract_asset_record(self, asset_type: str, source: str):
+        return self._ctx.asset_resolver.record_for(source, asset_type)
+
+    def _remote_asset_references(self):
+        for layer in self._iter_layers_deep():
+            if isinstance(layer, BackgroundLayer) and layer.image and is_url(layer.image):
+                yield "image", layer.image
+            elif isinstance(layer, ImageLayer) and is_url(layer.path):
+                yield "image", layer.path
+            elif isinstance(layer, SvgLayer) and is_url(layer.path):
+                yield "svg", layer.path
+
+            if isinstance(layer, TextLayer):
+                fills = []
+                if isinstance(layer.fill, TextFillImage):
+                    fills.append(layer.fill)
+                if isinstance(layer.content, list):
+                    for part in layer.content:
+                        if isinstance(part.fill, TextFillImage):
+                            fills.append(part.fill)
+                for fill in fills:
+                    if is_url(fill.path):
+                        yield "text-fill", fill.path
+
     def _contract_validate_structure(self) -> None:
         if not self.has_size:
             raise ValidationError("canvas has no size")
@@ -355,9 +386,16 @@ class Canvas:
 
     def resolve_assets(self) -> ResolvedDocument:
         """Check referenced assets and return their manifest metadata."""
-        from quickthumb._document import Document, resolved_document
+        from quickthumb._document import AssetPort, Document, resolved_document
 
-        return resolved_document(cast(Document, self), kind="canvas")
+        return resolved_document(
+            cast(Document, self),
+            kind="canvas",
+            assets=AssetPort(
+                resolve=self._contract_resolve_assets,
+                record_for=self._contract_asset_record,
+            ),
+        )
 
     def sample(self, time: float = 0.0) -> CanonicalFrame:
         """Return one canonical RGBA frame without exposing motion internals."""
@@ -1064,7 +1102,7 @@ class Canvas:
         animation: GifOptions | VideoOptions | None = None,
     ) -> ExportResult:
         """Export through the existing renderer and return the shared result envelope."""
-        from quickthumb._document import Document, build_export_result, preflight_export
+        from quickthumb._document import AssetPort, Document, build_export_result, preflight_export
 
         normalized_path = os.fspath(output_path)
         preflight_export(cast(Document, self), normalized_path, policy, format=format)
@@ -1083,6 +1121,10 @@ class Canvas:
             policy,
             format=format,
             animation=animation,
+            assets=AssetPort(
+                resolve=self._contract_resolve_assets,
+                record_for=self._contract_asset_record,
+            ),
         )
 
     def _render_document(
