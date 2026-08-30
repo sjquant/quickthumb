@@ -5,9 +5,30 @@ import json
 import pytest
 from jsonschema import ValidationError as JsonSchemaValidationError
 from jsonschema import validate
-from quickthumb import Canvas, Deck
+from quickthumb import (
+    Canvas,
+    Deck,
+    PluginLayer,
+    PluginRegistry,
+    canvas_json_schema,
+    plugin_registry,
+)
+from quickthumb._document import load_document
 from quickthumb.errors import ValidationError
-from quickthumb.schema import document_json_schema
+from quickthumb.schema import document_json_schema, plugin_layer_json_schema
+
+
+@pytest.fixture(autouse=True)
+def isolated_global_plugin_registry():
+    """Restore process-global plugin registrations after each behavioral spec."""
+    definitions = plugin_registry.definitions()
+    plugin_registry.clear()
+    try:
+        yield
+    finally:
+        plugin_registry.clear()
+        for definition in definitions:
+            plugin_registry.register(definition)
 
 
 def test_python_and_json_canvas_specs_normalize_to_one_rendered_document():
@@ -385,3 +406,478 @@ def test_non_standard_json_constants_are_rejected_at_the_boundary(constant):
 
     with pytest.raises(ValidationError, match="non-standard JSON constant"):
         Canvas.from_json(payload)
+
+
+def test_named_plugin_layer_round_trips_through_canonical_json_and_schema():
+    """Given a registered plugin, canonical JSON preserves its versioned params."""
+    # Given: a deterministic renderer registration and equivalent JSON payload
+    plugin_registry.register(
+        "brand_badge",
+        "1.0",
+        params_schema={
+            "type": "object",
+            "required": ["label", "accent"],
+            "properties": {
+                "label": {"type": "string"},
+                "accent": {"type": "string", "pattern": r"^#[0-9A-Fa-f]{6}$"},
+            },
+            "additionalProperties": False,
+        },
+    )
+    payload = {
+        "kind": "canvas",
+        "width": 120,
+        "height": 80,
+        "layers": [
+            {
+                "type": "plugin",
+                "renderer": "brand_badge",
+                "version": "1.0",
+                "params": {"accent": "#FF4D00", "label": "BETA"},
+            }
+        ],
+    }
+
+    # When: the payload crosses the public JSON boundary
+    parsed = Canvas.from_json(json.dumps(payload, indent=2))
+
+    # Then: canonical JSON is stable and the published schema accepts it
+    assert parsed.to_json() == (
+        '{"height":80,"kind":"canvas","layers":[{"params":{"accent":"#FF4D00",'
+        '"label":"BETA"},"renderer":"brand_badge","type":"plugin","version":"1.0"}],'
+        '"width":120}'
+    )
+    validate(json.loads(parsed.to_json()), canvas_json_schema())
+    definition = plugin_registry.lookup("brand_badge", "1.0")
+    assert definition is not None
+    assert definition.renderer == "brand_badge"
+
+
+def test_plugin_registry_lookup_and_schema_order_are_deterministic():
+    """Given registrations in arbitrary order, lookup and schema use stable ordering."""
+    # Given: registrations added in an intentionally unstable order
+    registry = PluginRegistry()
+    registry.register("zeta", "2.0")
+    registry.register("alpha", "1.0")
+    registry.register("zeta", "1.0")
+
+    # When: definitions and lookups are requested
+    assert [(item.renderer, item.version) for item in registry.definitions()] == [
+        ("alpha", "1.0"),
+        ("zeta", "1.0"),
+        ("zeta", "2.0"),
+    ]
+    with pytest.raises(ValidationError, match="multiple registered versions"):
+        registry.lookup("zeta")
+    definition = registry.lookup("zeta", "2.0")
+    assert definition is not None
+    assert definition.version == "2.0"
+    # Then: ordering and ambiguity behavior are deterministic
+    assert [
+        variant["properties"]["renderer"]["const"] for variant in registry.json_schema()["oneOf"]
+    ] == ["alpha", "zeta", "zeta"]
+
+
+def test_registered_plugin_schema_preserves_json_schema_defaults():
+    """Given an open params schema, runtime validation and exposed schema agree."""
+    # Given: a registration whose JSON Schema leaves additional properties open
+    registry = PluginRegistry()
+    registry.register(
+        "open_plugin",
+        "1.0",
+        params_schema={"type": "object", "properties": {"label": {"type": "string"}}},
+    )
+
+    # When: a layer uses both the declared and an extra parameter
+    layer = registry.validate(
+        {
+            "type": "plugin",
+            "renderer": "open_plugin",
+            "version": "1.0",
+            "params": {"label": "ok", "extra": True},
+        }
+    )
+
+    # Then: runtime and exposed schema preserve the same default semantics
+    assert layer.params["extra"] is True
+    params_schema = registry.json_schema()["oneOf"][0]["properties"]["params"]
+    assert "additionalProperties" not in params_schema
+
+
+def test_plugin_registry_lifecycle_rejects_duplicates_and_supports_replacement():
+    """Given a named registration, lifecycle operations remain explicit and deterministic."""
+    # Given: one registered renderer/version pair
+    registry = PluginRegistry()
+    registry.register("badge", "1.0", params_schema={"type": "object"})
+
+    # When: a duplicate is registered without an explicit replacement
+    with pytest.raises(ValidationError, match="already registered"):
+        registry.register("badge", "1.0", params_schema={"type": "object", "required": ["label"]})
+
+    # Then: replacement changes only the exact version and unregister is scoped
+    replacement = registry.register(
+        "badge",
+        "1.0",
+        params_schema={"type": "object", "required": ["label"]},
+        replace=True,
+    )
+    assert replacement.params_schema == {"type": "object", "required": ["label"]}
+    registry.register("badge", "2.0")
+    registry.unregister("badge", "1.0")
+    assert registry.lookup("badge", "1.0") is None
+    assert registry.lookup("badge", "2.0") is not None
+    registry.unregister("badge")
+    assert registry.definitions() == ()
+
+
+@pytest.mark.parametrize(
+    ("layer", "message"),
+    [
+        (
+            {
+                "type": "plugin",
+                "renderer": "missing_renderer",
+                "version": "1.0",
+                "params": {},
+            },
+            "not registered",
+        ),
+        (
+            {"type": "plugin", "renderer": "brand_badge", "params": {}},
+            "version",
+        ),
+        (
+            {
+                "type": "plugin",
+                "renderer": "brand_badge",
+                "version": "1.0",
+                "params": {"label": "BETA"},
+            },
+            "accent",
+        ),
+        (
+            {
+                "type": "plugin",
+                "renderer": "brand_badge",
+                "version": "1.0",
+                "params": {"label": "BETA", "accent": "#FF4D00", "extra": True},
+            },
+            "unknown field",
+        ),
+    ],
+)
+def test_plugin_layer_invalid_inputs_fail_at_the_json_boundary(layer, message):
+    """Given an unresolved or schema-invalid plugin, parsing reports the contract failure."""
+    # Given: one valid registration and an unresolved or invalid layer payload
+    plugin_registry.register(
+        "brand_badge",
+        "1.0",
+        params_schema={
+            "type": "object",
+            "required": ["label", "accent"],
+            "properties": {
+                "label": {"type": "string"},
+                "accent": {"type": "string"},
+            },
+            "additionalProperties": False,
+        },
+    )
+    # When / Then: parsing rejects the payload at the public boundary
+    payload = {"kind": "canvas", "width": 120, "height": 80, "layers": [layer]}
+    with pytest.raises(ValidationError, match=message):
+        Canvas.from_json(json.dumps(payload))
+
+
+def test_nested_plugin_layer_is_validated_at_the_json_boundary():
+    """Given a group child, registry validation reaches nested plugin layers."""
+    # Given: a group containing a renderer that is not registered
+    payload = {
+        "kind": "canvas",
+        "width": 120,
+        "height": 80,
+        "layers": [
+            {
+                "type": "group",
+                "children": [
+                    {
+                        "type": "plugin",
+                        "renderer": "missing_renderer",
+                        "version": "1.0",
+                        "params": {},
+                    }
+                ],
+            }
+        ],
+    }
+
+    # When / Then: the nested layer is rejected just like a top-level one
+    with pytest.raises(ValidationError, match="not registered"):
+        Canvas.from_json(json.dumps(payload))
+
+
+def test_plugin_layer_rejects_non_json_parameters_before_model_coercion():
+    """Given a Python-only parameter, the layer model rejects it instead of coercing it."""
+    # Given / When / Then: Python-only objects cannot cross the JSON layer contract
+    with pytest.raises(ValidationError, match="JSON-serializable"):
+        PluginLayer(
+            type="plugin",
+            renderer="brand_badge",
+            version="1.0",
+            params={"callback": object()},
+        )
+
+
+def test_empty_registry_schema_rejects_unregistered_plugin_layers():
+    """Given no registrations, the published schema matches the parser's rejection."""
+    # Given: a syntactically valid plugin with no registered renderer
+    payload = {
+        "kind": "canvas",
+        "width": 20,
+        "height": 20,
+        "layers": [{"type": "plugin", "renderer": "missing", "version": "1", "params": {}}],
+    }
+
+    # When / Then: both public boundaries reject the unresolved plugin
+    with pytest.raises(JsonSchemaValidationError):
+        validate(payload, canvas_json_schema())
+    with pytest.raises(ValidationError, match="not registered"):
+        Canvas.from_json(json.dumps(payload))
+
+
+def test_explicit_registry_is_used_by_canvas_deck_and_document_parsers():
+    """Given an isolated registry, all document parsers resolve its plugins."""
+    # Given: a registry that is intentionally different from the process-global one
+    registry = PluginRegistry()
+    registry.register("isolated", "1.0", params_schema={"type": "object"})
+    canvas_payload = {
+        "kind": "canvas",
+        "width": 20,
+        "height": 20,
+        "layers": [{"type": "plugin", "renderer": "isolated", "version": "1.0", "params": {}}],
+    }
+
+    # When: each public parser receives the isolated registry
+    canvas = Canvas.from_json(json.dumps(canvas_payload), registry=registry)
+    deck = Deck.from_json(
+        json.dumps({"kind": "deck", "slides": [canvas_payload]}), registry=registry
+    )
+    loaded_canvas = load_document(json.dumps(canvas_payload), registry=registry)
+    loaded_deck = load_document(
+        json.dumps({"kind": "deck", "slides": [canvas_payload]}), registry=registry
+    )
+
+    # Then: the parsed documents retain the registry for later structural validation
+    assert canvas.validate().valid
+    assert deck.validate().valid
+    assert isinstance(loaded_canvas, Canvas)
+    assert isinstance(loaded_deck, Deck)
+
+    # The same registry can drive the schemas used to validate those documents.
+    validate(canvas_payload, canvas_json_schema(registry=registry))
+    validate(
+        {"kind": "deck", "slides": [canvas_payload]},
+        document_json_schema(registry=registry),
+    )
+    assert (
+        plugin_layer_json_schema(registry=registry)["oneOf"][0]["properties"]["renderer"]["const"]
+        == "isolated"
+    )
+
+
+@pytest.mark.parametrize(
+    ("schema", "message"),
+    [
+        ({"type": "object", "allOf": []}, "unsupported"),
+        ({"type": "object", "not": {}}, "unsupported"),
+        ({"type": "object", "$ref": "#/$defs/Params"}, "unsupported"),
+        ({"type": "object", "properties": {"value": {"pattern": "["}}}, "invalid pattern"),
+        ({"type": "object", "minimum": "bad"}, "invalid minimum"),
+        ({"type": "object", "required": "value"}, "invalid required"),
+        ({"type": "object", "properties": []}, "invalid properties"),
+        ({"type": "string"}, "must allow a JSON object"),
+        ({"enum": ["not-an-object"]}, "must allow a JSON object"),
+        ({"oneOf": [{"type": "string"}, {"type": "integer"}]}, "must allow a JSON object"),
+    ],
+)
+def test_plugin_registration_rejects_unsupported_or_malformed_schemas(schema, message):
+    """Given an invalid schema document, registration fails with a stable error."""
+    with pytest.raises(ValidationError, match=message):
+        PluginRegistry().register("invalid", "1.0", params_schema=schema)
+
+
+@pytest.mark.parametrize(
+    ("schema", "params"),
+    [
+        (
+            {"type": "object", "properties": {"value": {"const": "yes"}}},
+            {"value": "no"},
+        ),
+        (
+            {"type": "object", "properties": {"value": {"enum": ["yes", "ok"]}}},
+            {"value": "no"},
+        ),
+        (
+            {
+                "type": "object",
+                "properties": {"value": {"oneOf": [{"type": "string"}, {"type": "integer"}]}},
+            },
+            {"value": True},
+        ),
+        (
+            {
+                "type": "object",
+                "properties": {
+                    "value": {
+                        "anyOf": [
+                            {"type": "string", "minLength": 3},
+                            {"type": "integer", "minimum": 2},
+                        ]
+                    }
+                },
+            },
+            {"value": 1},
+        ),
+        ({"type": "object", "required": ["value"]}, {}),
+        ({"type": "object", "properties": {"value": {"type": "integer"}}}, {"value": "1"}),
+        ({"type": "object", "additionalProperties": False}, {"extra": True}),
+        ({"type": "object", "additionalProperties": {"type": "string"}}, {"extra": 1}),
+        (
+            {
+                "type": "object",
+                "properties": {"values": {"type": "array", "items": {"type": "integer"}}},
+            },
+            {"values": ["1"]},
+        ),
+        (
+            {"type": "object", "properties": {"value": {"type": "string", "pattern": "^ok$"}}},
+            {"value": "no"},
+        ),
+        ({"type": "object", "minProperties": 2}, {"value": 1}),
+        ({"type": "object", "maxProperties": 1}, {"one": 1, "two": 2}),
+        (
+            {"type": "object", "properties": {"values": {"type": "array", "minItems": 2}}},
+            {"values": [1]},
+        ),
+        (
+            {"type": "object", "properties": {"value": {"type": "string", "minLength": 2}}},
+            {"value": "a"},
+        ),
+        (
+            {"type": "object", "properties": {"value": {"type": "number", "minimum": 2}}},
+            {"value": 1},
+        ),
+        (
+            {"type": "object", "properties": {"value": {"type": "number", "maximum": 2}}},
+            {"value": 3},
+        ),
+        (
+            {
+                "type": "object",
+                "properties": {"value": {"type": "number", "exclusiveMinimum": 2}},
+            },
+            {"value": 2},
+        ),
+        (
+            {
+                "type": "object",
+                "properties": {"value": {"type": "number", "exclusiveMaximum": 2}},
+            },
+            {"value": 2},
+        ),
+    ],
+)
+def test_plugin_runtime_rejects_supported_schema_constraint_violations(schema, params):
+    """Given a supported parameter constraint, invalid values fail validation."""
+    registry = PluginRegistry()
+    registry.register("constrained", "1.0", params_schema=schema)
+
+    with pytest.raises(ValidationError, match="Plugin params"):
+        registry.validate(
+            {"type": "plugin", "renderer": "constrained", "version": "1.0", "params": params}
+        )
+
+
+def test_plugin_definition_snapshots_are_detached_from_registry_state():
+    """Given a returned definition, nested mutation cannot change registry behavior."""
+    registry = PluginRegistry()
+    definition = registry.register(
+        "stable",
+        "1.0",
+        params_schema={"type": "object", "properties": {"value": {"type": "string"}}},
+    )
+
+    # When: callers mutate both public definition views
+    assert definition.params_schema is not None
+    definition.params_schema["properties"]["value"]["type"] = "integer"
+    listed = registry.definitions()[0]
+    assert listed.params_schema is not None
+    listed.params_schema["properties"]["value"]["type"] = "boolean"
+
+    # Then: lookup and schema still reflect the registered snapshot
+    stored = registry.lookup("stable", "1.0")
+    assert stored is not None
+    assert stored.params_schema is not None
+    assert stored.params_schema["properties"]["value"]["type"] == "string"
+
+
+def test_duplicate_renderer_versions_omit_ambiguous_discriminator_mapping():
+    """Given multiple versions, the schema does not map one renderer to one version."""
+    registry = PluginRegistry()
+    registry.register("versioned", "1.0")
+    registry.register("versioned", "2.0")
+
+    assert "mapping" not in registry.json_schema()["discriminator"]
+
+
+def test_registry_unregistration_requires_a_version_when_renderer_is_ambiguous():
+    """Given multiple versions, omission of version cannot delete them all accidentally."""
+    registry = PluginRegistry()
+    registry.register("badge", "1.0")
+    registry.register("badge", "2.0")
+
+    with pytest.raises(ValidationError, match="specify version"):
+        registry.unregister("badge")
+    assert registry.lookup("badge", "1.0") is not None
+    assert registry.lookup("badge", "2.0") is not None
+    registry.unregister("badge", "1.0")
+    registry.unregister("badge")
+    assert registry.definitions() == ()
+
+
+def test_registry_validation_requires_the_plugin_discriminator():
+    """Given mapping input without type, registry validation rejects the contract violation."""
+    registry = PluginRegistry()
+    registry.register("typed", "1.0")
+
+    with pytest.raises(ValidationError, match="type 'plugin'"):
+        registry.validate({"renderer": "typed", "version": "1.0", "params": {}})
+
+
+def test_python_authored_canvas_validation_resolves_plugin_registry_entries():
+    """Given an unresolved Python-authored plugin, Canvas.validate reports the error."""
+    canvas = Canvas(
+        20,
+        20,
+        layers=[PluginLayer(type="plugin", renderer="missing", version="1.0", params={})],
+    )
+
+    report = canvas.validate()
+
+    assert not report.valid
+    assert report.errors[0].code == "invalid_document"
+    assert "not registered" in report.errors[0].message
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        {"value": float("nan")},
+        {"value": float("inf")},
+        {1: "non-string key"},
+        {"value": object()},
+    ],
+)
+def test_plugin_layer_rejects_non_finite_or_non_json_nested_values(params):
+    """Given nested Python-only values, PluginLayer enforces the shared JSON grammar."""
+    with pytest.raises(ValidationError):
+        PluginLayer(type="plugin", renderer="values", version="1.0", params=params)

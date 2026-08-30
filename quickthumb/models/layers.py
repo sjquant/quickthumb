@@ -19,7 +19,10 @@ from pydantic import (
     field_validator,
     model_validator,
 )
+from typing_extensions import TypeAliasType
 
+from quickthumb._json_values import validate_json_value
+from quickthumb._plugin_contract import PLUGIN_NAME_PATTERN, PLUGIN_VERSION_PATTERN
 from quickthumb.errors import ValidationError
 
 from .common import *  # noqa: F401,F403
@@ -27,6 +30,12 @@ from .common import _validate_required_position
 from .effects import *  # noqa: F401,F403
 from .motion import AnimationInput
 from .visualizations import ChartLayer, QRCodeLayer
+
+JsonValue = TypeAliasType(
+    "JsonValue",
+    None | bool | int | float | str | list["JsonValue"] | dict[str, "JsonValue"],
+)
+JsonObject = TypeAliasType("JsonObject", dict[str, JsonValue])
 
 
 class AnimatedTextValue(quickthumbModel):
@@ -105,6 +114,51 @@ class AnimatedTextValue(quickthumbModel):
             grouped[-1] = grouped[-1].zfill(self.minimum_integer_digits)
             number = sign + ",".join(grouped)
         return number
+
+
+class PluginLayer(LayerIdentityModel):
+    """A named renderer invocation carried by the canonical JSON contract.
+
+    Plugin execution deliberately lives outside this model.  D1 owns the
+    deterministic identity and parameter boundary; the RGBA runtime is added
+    by D2.  Parameters are restricted to JSON values so the layer can always
+    make a lossless Python/JSON round trip.
+    """
+
+    type: Literal["plugin"]
+    renderer: str
+    version: str
+    params: JsonObject
+
+    model_config = ConfigDict(validate_assignment=True, extra="forbid")
+
+    @field_validator("renderer", "version")
+    @classmethod
+    def validate_identity_part(cls, value: str, info) -> str:
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError(f"plugin {info.field_name} must be a non-empty string")
+        if value != value.strip():
+            raise ValueError(
+                f"plugin {info.field_name} must not contain leading or trailing whitespace"
+            )
+        if info.field_name == "renderer" and not PLUGIN_NAME_PATTERN.fullmatch(value):
+            raise ValueError(
+                "plugin renderer must start with a letter and contain only letters, "
+                "numbers, '.', '_', ':', or '-'"
+            )
+        if info.field_name == "version" and not PLUGIN_VERSION_PATTERN.fullmatch(value):
+            raise ValueError(
+                f"plugin {info.field_name} must not contain leading or trailing whitespace"
+            )
+        return value
+
+    @field_validator("params", mode="before")
+    @classmethod
+    def validate_params(cls, value: JsonObject) -> JsonObject:
+        if not isinstance(value, dict):
+            raise ValueError("plugin params must be a JSON object")
+        validate_json_value(value, "/params", context="plugin params value")
+        return value
 
 
 class TextPart(quickthumbModel):
@@ -695,7 +749,14 @@ class GroupLayer(LayerIdentityModel):
 
 
 GroupChild = Annotated[
-    TextLayer | ImageLayer | ShapeLayer | SvgLayer | ChartLayer | QRCodeLayer | GroupLayer,
+    TextLayer
+    | ImageLayer
+    | ShapeLayer
+    | SvgLayer
+    | ChartLayer
+    | QRCodeLayer
+    | PluginLayer
+    | GroupLayer,
     Discriminator("type"),
 ]
 

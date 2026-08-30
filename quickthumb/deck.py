@@ -34,6 +34,7 @@ from quickthumb.models import (
     coerce_audio_track,
     quickthumbModel,
 )
+from quickthumb.plugins import PluginRegistry
 from quickthumb.transitions import Transition, coerce_transition
 
 if TYPE_CHECKING:
@@ -868,7 +869,7 @@ class Deck:
         return canonical_json(payload)
 
     @classmethod
-    def from_json(cls, data: str) -> Self:
+    def from_json(cls, data: str, *, registry: PluginRegistry | None = None) -> Self:
         from quickthumb._document import canonical_json, decode_json_object, require_document_kind
 
         raw = decode_json_object(data)
@@ -943,7 +944,7 @@ class Deck:
             ):
                 slide = {**slide, "width": deck._width, "height": deck._height}
             deck.slide(
-                Canvas.from_json(canonical_json(slide)),
+                Canvas.from_json(canonical_json(slide), registry=registry),
                 transition=override,
                 audio=audio,
                 duration=duration,

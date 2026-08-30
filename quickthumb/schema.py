@@ -6,6 +6,8 @@ from typing import Any, cast
 from pydantic import TypeAdapter
 
 from quickthumb._diagnostic_rules import PLATFORM_SAFE_MARGIN_PRESETS
+from quickthumb._plugin_contract import PLUGIN_NAME_PATTERN, PLUGIN_VERSION_PATTERN
+from quickthumb.errors import ValidationError
 from quickthumb.models import (
     CanvasSpecModel,
     ExportDiagnostic,
@@ -22,6 +24,7 @@ from quickthumb.models import (
     MotionTrackInspection,
     ReducedMotionInspection,
 )
+from quickthumb.plugins import PluginRegistry, plugin_registry
 from quickthumb.transitions import Transition
 
 JSON_SCHEMA_DRAFT = "https://json-schema.org/draft/2020-12/schema"
@@ -32,8 +35,11 @@ _TRANSITION_SCHEMA: dict[str, Any] = _TRANSITION_ADAPTER.json_schema(
 )
 
 
-def canvas_json_schema() -> dict[str, Any]:
+def canvas_json_schema(*, registry: PluginRegistry | None = None) -> dict[str, Any]:
     """Return the JSON Schema for quickthumb canvas specs."""
+    active_registry = plugin_registry if registry is None else registry
+    if not isinstance(active_registry, PluginRegistry):
+        raise ValidationError("registry must be a PluginRegistry instance")
     schema = CanvasSpecModel.model_json_schema(mode="validation")
     platform_name_schema = {"enum": sorted(PLATFORM_SAFE_MARGIN_PRESETS), "type": "string"}
     platform_schema = {
@@ -111,6 +117,16 @@ def canvas_json_schema() -> dict[str, Any]:
         ReducedMotionInspection,
     ):
         schema.setdefault("$defs", {})[model.__name__] = model.model_json_schema()
+    plugin_model_schema = schema.get("$defs", {}).get("PluginLayer")
+    if isinstance(plugin_model_schema, dict):
+        plugin_properties = plugin_model_schema.get("properties")
+        if isinstance(plugin_properties, dict):
+            renderer_schema = plugin_properties.get("renderer")
+            if isinstance(renderer_schema, dict):
+                renderer_schema.update({"minLength": 1, "pattern": PLUGIN_NAME_PATTERN.pattern})
+            version_schema = plugin_properties.get("version")
+            if isinstance(version_schema, dict):
+                version_schema.update({"minLength": 1, "pattern": PLUGIN_VERSION_PATTERN.pattern})
     schema["anyOf"] = [
         {
             "properties": {
@@ -126,7 +142,21 @@ def canvas_json_schema() -> dict[str, Any]:
         },
     ]
     _close_model_object_schemas(schema)
+    # Registry-provided parameter schemas are caller-owned JSON Schema and
+    # must retain their default ``additionalProperties`` semantics. Add the
+    # dynamic plugin definition after closing generated model schemas so the
+    # generic strictness pass cannot rewrite those arbitrary schemas.
+    plugin_schema = active_registry.json_schema()
+    schema.setdefault("$defs", {})["PluginLayer"] = plugin_schema
     return schema
+
+
+def plugin_layer_json_schema(*, registry: PluginRegistry | None = None) -> dict[str, Any]:
+    """Return the current registry-aware schema for a plugin layer."""
+    active_registry = plugin_registry if registry is None else registry
+    if not isinstance(active_registry, PluginRegistry):
+        raise ValidationError("registry must be a PluginRegistry instance")
+    return active_registry.json_schema()
 
 
 def _close_model_object_schemas(value: object) -> None:
@@ -144,9 +174,9 @@ def _close_model_object_schemas(value: object) -> None:
         _close_model_object_schemas(item)
 
 
-def document_json_schema() -> dict[str, Any]:
+def document_json_schema(*, registry: PluginRegistry | None = None) -> dict[str, Any]:
     """Return a discriminated JSON Schema for Canvas and Deck documents."""
-    canvas = canvas_json_schema()
+    canvas = canvas_json_schema(registry=registry)
     canvas_defs = canvas.pop("$defs", {})
     canvas_document = {key: value for key, value in canvas.items() if key not in {"$schema", "$id"}}
     sized_deck_slide_document = deepcopy(canvas_document)

@@ -120,6 +120,7 @@ class TestCLISchema:
             "group",
             "image",
             "outline",
+            "plugin",
             "qr_code",
             "shape",
             "svg",

@@ -77,6 +77,49 @@ The same schemas are available from Python as `canvas_json_schema()` and
 
 The command writes deterministic JSON only, so it can be checked into a repo, piped into an editor, or passed directly to a constrained-generation API. The Canvas schema includes the current canvas fields, built-in layer discriminators, effects, animations, supported platform presets, and the optional top-level `theme` block. The `--document` schema adds the Deck root and maps both document kinds through `kind`.
 
+## Plugin layers
+
+Plugin registrations are kept in one explicit `PluginRegistry`. The registry is
+metadata only: D1 does not run renderer code or export native files.
+
+```python
+from quickthumb import Canvas, PluginRegistry, canvas_json_schema
+
+registry = PluginRegistry()
+registry.register(
+    "brand_badge",
+    "1.0",
+    params_schema={
+        "type": "object",
+        "required": ["label"],
+        "properties": {"label": {"type": "string"}},
+        "additionalProperties": False,
+    },
+)
+
+canvas = Canvas.from_json(text, registry=registry)
+schema = canvas_json_schema(registry=registry)
+```
+
+Use `params_schema` as the only registration schema argument. A plugin layer
+must contain `type: "plugin"`, a valid `renderer`, a `version`, and an object-valued
+`params` field. The same registry should be passed to document parsers and Schema
+helpers when using an isolated registry.
+
+### Plugin params Schema v1
+
+`params_schema` accepts the documented `quickthumb plugin-params v1` subset. It
+supports the JSON types `object`, `array`, `string`, `number`, `integer`,
+`boolean`, and `null`; `required`, `properties`, `additionalProperties`,
+`items`; `const`, `enum`, `oneOf`, `anyOf`; string patterns and size limits; and
+numeric minimum/maximum limits. Unsupported keywords such as `$ref`, `allOf`,
+and `not` are rejected during registration so the published Schema and runtime
+validation stay in agreement.
+
+The process-global `plugin_registry` remains available for applications that
+want a shared default. For tests, services, and libraries, prefer an explicit
+`PluginRegistry` so registrations stay isolated and reproducible.
+
 For constrained generation, prefer concrete resolved values in typed fields:
 
 ```text

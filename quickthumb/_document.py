@@ -32,6 +32,7 @@ if TYPE_CHECKING:
     from quickthumb.canvas import Canvas
     from quickthumb.deck import Deck
     from quickthumb.models import CanvasInspection, DeckInspection
+    from quickthumb.plugins import PluginRegistry
 
 DocumentKind = Literal["canvas", "deck"]
 
@@ -126,7 +127,7 @@ def require_document_kind(raw: object, *, expected: DocumentKind | None = None) 
     return cast(DocumentKind, kind)
 
 
-def load_document(text: str) -> Canvas | Deck:
+def load_document(text: str, *, registry: PluginRegistry | None = None) -> Canvas | Deck:
     """Parse a discriminated Canvas or Deck JSON document."""
     from quickthumb.canvas import Canvas
     from quickthumb.deck import Deck
@@ -134,8 +135,8 @@ def load_document(text: str) -> Canvas | Deck:
     raw = decode_json_object(text)
     kind = require_document_kind(raw)
     if kind == "deck":
-        return Deck.from_json(text)
-    return Canvas.from_json(text)
+        return Deck.from_json(text, registry=registry)
+    return Canvas.from_json(text, registry=registry)
 
 
 def build_export_result(
