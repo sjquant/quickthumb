@@ -7,6 +7,7 @@ import json
 import math
 import os
 from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, Protocol, cast, runtime_checkable
 
@@ -36,6 +37,14 @@ if TYPE_CHECKING:
     from quickthumb.models import CanvasInspection, DeckInspection
 
 DocumentKind = Literal["canvas", "deck"]
+
+
+@dataclass(frozen=True)
+class AssetPort:
+    """Explicit asset boundary supplied by a concrete document renderer."""
+
+    resolve: Callable[[], None]
+    record_for: Callable[[str, str], ResolvedAsset | None]
 
 
 def canonical_json(payload: object) -> str:
@@ -148,6 +157,7 @@ def build_export_result(
     *,
     format: str | None = None,
     animation: GifOptions | VideoOptions | None = None,
+    assets: AssetPort,
 ) -> ExportResult:
     """Build the shared result envelope after an existing exporter succeeds."""
     output_format = _output_format(output_path, format)
@@ -155,7 +165,7 @@ def build_export_result(
     capability_report = _capability_report(source, target, policy)
     timing = _timing_metrics(source, target, output_format, policy, animation)
     dimensions = _document_dimensions(source)
-    asset_manifest = _asset_manifest(source)
+    asset_manifest = _asset_manifest(source, assets.record_for)
     pixel_frame_count = _pixel_frame_count(source, target, output_format, written_paths, timing)
     if output_format == "gif" and written_paths:
         timing = timing.model_copy(update={"frame_count": pixel_frame_count})
@@ -220,11 +230,13 @@ def validation_report(source: Document, *, kind: DocumentKind) -> ValidationRepo
     return ValidationReport(valid=not errors, errors=errors)
 
 
-def resolved_document(source: Document, *, kind: DocumentKind) -> ResolvedDocument:
+def resolved_document(
+    source: Document, *, kind: DocumentKind, assets: AssetPort
+) -> ResolvedDocument:
     """Resolve/check asset references and return one deterministic manifest."""
     _contract_validate_assets(source)
-    _contract_resolve_assets(source)
-    return ResolvedDocument(kind=kind, asset_manifest=_asset_manifest(source))
+    assets.resolve()
+    return ResolvedDocument(kind=kind, asset_manifest=_asset_manifest(source, assets.record_for))
 
 
 def _contract_kind(source: Document) -> DocumentKind:
@@ -245,17 +257,6 @@ def _contract_audio_paths(source: Document) -> tuple[str | None, ...]:
 
 def _contract_validate_assets(source: Document) -> None:
     cast(Any, source)._contract_validate_assets()
-
-
-def _contract_resolve_assets(source: Document) -> None:
-    resolver = getattr(cast(Any, source), "_contract_resolve_assets", None)
-    if resolver is not None:
-        resolver()
-
-
-def _contract_asset_record(source: Document, asset_type: str, value: str) -> ResolvedAsset | None:
-    lookup = getattr(cast(Any, source), "_contract_asset_record", None)
-    return lookup(asset_type, value) if lookup is not None else None
 
 
 def _contract_validate_structure(source: Document) -> None:
@@ -386,12 +387,11 @@ def _document_dimensions(source: Document) -> tuple[int | None, int | None]:
     return canvases[0].width, canvases[0].height
 
 
-def _asset_manifest(source: Document) -> list[AssetManifestEntry]:
+def _asset_manifest(
+    source: Document, record_for: Callable[[str, str], ResolvedAsset | None]
+) -> list[AssetManifestEntry]:
     entries: list[AssetManifestEntry] = []
     seen: set[tuple[str, str]] = set()
-
-    def record_for(kind: str, reference: str) -> ResolvedAsset | None:
-        return _contract_asset_record(source, kind, reference)
 
     for layer in _contract_layers(source):
         for asset_type, value in _layer_asset_values(layer):

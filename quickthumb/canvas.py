@@ -377,9 +377,16 @@ class Canvas:
 
     def resolve_assets(self) -> ResolvedDocument:
         """Check referenced assets and return their manifest metadata."""
-        from quickthumb._document import Document, resolved_document
+        from quickthumb._document import AssetPort, Document, resolved_document
 
-        return resolved_document(cast(Document, self), kind="canvas")
+        return resolved_document(
+            cast(Document, self),
+            kind="canvas",
+            assets=AssetPort(
+                resolve=self._contract_resolve_assets,
+                record_for=self._contract_asset_record,
+            ),
+        )
 
     def sample(self, time: float = 0.0) -> CanonicalFrame:
         """Return one canonical RGBA frame without exposing motion internals."""
@@ -1086,7 +1093,7 @@ class Canvas:
         animation: GifOptions | VideoOptions | None = None,
     ) -> ExportResult:
         """Export through the existing renderer and return the shared result envelope."""
-        from quickthumb._document import Document, build_export_result, preflight_export
+        from quickthumb._document import AssetPort, Document, build_export_result, preflight_export
 
         normalized_path = os.fspath(output_path)
         preflight_export(cast(Document, self), normalized_path, policy, format=format)
@@ -1105,6 +1112,10 @@ class Canvas:
             policy,
             format=format,
             animation=animation,
+            assets=AssetPort(
+                resolve=self._contract_resolve_assets,
+                record_for=self._contract_asset_record,
+            ),
         )
 
     def _render_document(
