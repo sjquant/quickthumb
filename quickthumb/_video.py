@@ -18,7 +18,7 @@ from PIL import Image, ImageColor, ImageDraw, ImageFont
 
 from quickthumb._base import FontType, parse_coordinate
 from quickthumb._images import ImageEngine
-from quickthumb.errors import RenderingError, ValidationError
+from quickthumb.errors import MissingAssetError, RenderingError, ValidationError
 from quickthumb.models import VideoCaption, VideoLayer
 
 
@@ -149,14 +149,18 @@ def _tool(name: str, setting: str) -> str:
     configured = os.environ.get(setting)
     path = configured or shutil.which(name)
     if path is None:
-        raise RenderingError(f"Video layers require {name}. Install FFmpeg or set {setting}.")
+        raise RenderingError(
+            f"Video layers require {name}.",
+            code="missing_dependency",
+            suggestion=f"install FFmpeg or set {setting}",
+        )
     return path
 
 
 def probe_video(source: str) -> VideoInfo:
     """Probe the first video stream and convert codec failures to a safe error."""
     if not source.startswith(("http://", "https://")) and not os.path.exists(source):
-        raise FileNotFoundError(source)
+        raise MissingAssetError(source, label="Video file")
     ffprobe = _tool("ffprobe", "QUICKTHUMB_FFPROBE")
     result = subprocess.run(
         [

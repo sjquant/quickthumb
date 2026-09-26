@@ -12,7 +12,13 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, Protocol, cast, runtime_checkable
 
 from quickthumb.asset_cache import ResolvedAsset
-from quickthumb.errors import RenderingError, ValidationError
+from quickthumb.errors import (
+    ErrorDetail,
+    MissingAssetError,
+    QuickthumbError,
+    RenderingError,
+    ValidationError,
+)
 from quickthumb.models import (
     AssetManifestEntry,
     DiagnosticReport,
@@ -25,7 +31,6 @@ from quickthumb.models import (
     PixelMetrics,
     ResolvedDocument,
     TimingMetrics,
-    ValidationIssue,
     ValidationReport,
     VideoOptions,
 )
@@ -80,10 +85,12 @@ def decode_json_object(data: str) -> dict[str, Any]:
         raw = json.loads(data, parse_constant=reject_constant)
     except json.JSONDecodeError as error:
         raise ValidationError(
-            f"Invalid JSON document: {error.msg} at position {error.pos}."
+            f"Invalid JSON document: {error.msg} at line {error.lineno} column {error.colno}.",
+            code="invalid_json",
+            suggestion="fix the JSON syntax before validating the document",
         ) from error
     except ValueError as error:
-        raise ValidationError(f"Invalid JSON document: {error}.") from error
+        raise ValidationError(f"Invalid JSON document: {error}.", code="invalid_json") from error
     if not isinstance(raw, dict):
         raise ValidationError("JSON document must be an object.")
     return cast(dict[str, Any], raw)
@@ -132,16 +139,35 @@ def require_document_kind(raw: object, *, expected: DocumentKind | None = None) 
 
     document = cast(dict[str, object], raw)
     if "kind" not in document:
-        raise ValidationError("JSON document must contain a 'kind' discriminator.")
+        raise ValidationError(
+            "JSON document must contain a 'kind' discriminator.",
+            code="missing_field",
+            path="/kind",
+            suggestion='add "kind": "canvas" or "kind": "deck"',
+        )
     kind = document["kind"]
     if kind not in ("canvas", "deck"):
-        raise ValidationError("JSON document 'kind' must be either 'canvas' or 'deck'.")
+        raise ValidationError(
+            "JSON document 'kind' must be either 'canvas' or 'deck'.",
+            code="invalid_field",
+            path="/kind",
+        )
     if expected is not None and kind != expected:
-        raise ValidationError(f"JSON document 'kind' must be '{expected}'.")
+        raise ValidationError(
+            f"JSON document 'kind' must be '{expected}'.", code="invalid_field", path="/kind"
+        )
     if kind == "canvas" and "slides" in raw:
-        raise ValidationError("Canvas JSON must not contain a top-level 'slides' field.")
+        raise ValidationError(
+            "Canvas JSON must not contain a top-level 'slides' field.",
+            code="unknown_field",
+            path="/slides",
+        )
     if kind == "deck" and "layers" in raw:
-        raise ValidationError("Deck JSON must not contain a top-level 'layers' field.")
+        raise ValidationError(
+            "Deck JSON must not contain a top-level 'layers' field.",
+            code="unknown_field",
+            path="/layers",
+        )
     return cast(DocumentKind, kind)
 
 
@@ -208,7 +234,7 @@ def preflight_export(
 
 def validation_report(source: Document, *, kind: DocumentKind) -> ValidationReport:
     """Run the shared validation checks and capture failures as report issues."""
-    errors: list[ValidationIssue] = []
+    errors: list[ErrorDetail] = []
     try:
         if kind == "canvas":
             _contract_validate_structure(source)
@@ -220,21 +246,21 @@ def validation_report(source: Document, *, kind: DocumentKind) -> ValidationRepo
             for index, slide in enumerate(slides):
                 report = slide.validate()
                 errors.extend(
-                    issue.model_copy(update={"path": f"/slides/{index}{issue.path or ''}"})
-                    for issue in report.errors
+                    detail.model_copy(update={"path": f"/slides/{index}{detail.path or ''}"})
+                    for detail in report.errors
                 )
                 audio_paths = _contract_audio_paths(source)
                 audio_path = audio_paths[index] if index < len(audio_paths) else None
                 if audio_path is not None and not _is_local_asset(audio_path):
-                    errors.append(
-                        ValidationIssue(
-                            code="asset_missing",
-                            message=audio_path,
+                    errors.extend(
+                        MissingAssetError(
+                            audio_path,
+                            label="Audio file",
                             path=f"/slides/{index}/audio",
-                        )
+                        ).details
                     )
     except Exception as error:
-        errors.append(_validation_issue(error))
+        errors.extend(_error_details(error))
     return ValidationReport(valid=not errors, errors=errors)
 
 
@@ -521,6 +547,9 @@ def _local_hash(value: str) -> str | None:
     return digest.hexdigest()
 
 
-def _validation_issue(error: Exception) -> ValidationIssue:
-    code = "asset_missing" if isinstance(error, FileNotFoundError) else "invalid_document"
-    return ValidationIssue(code=code, message=str(error))
+def _error_details(error: Exception) -> tuple[ErrorDetail, ...]:
+    if isinstance(error, QuickthumbError):
+        return error.details
+    if isinstance(error, FileNotFoundError):
+        return MissingAssetError(str(error.filename or error)).details
+    return ValidationError(str(error)).details

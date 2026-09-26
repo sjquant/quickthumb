@@ -311,4 +311,4 @@ except ValidationError as e:
     print(e)
 ```
 
-Rendering errors (bad file paths, failed downloads, unsupported formats) raise `RenderingError` when `.render()`, `.to_base64()`, or `.to_data_url()` is called.
+Rendering errors (failed downloads, unsupported formats) raise `RenderingError` when `.render()`, `.to_base64()`, or `.to_data_url()` is called; missing local files raise `MissingAssetError`. Every error exposes structured `details` — see [Structured Errors](errors.md).

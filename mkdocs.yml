@@ -89,6 +89,7 @@ nav:
   - JSON & AI:
       - JSON Schema & AI Workflow: json-schema.md
       - Diagnostics & CLI: diagnostics.md
+      - Structured Errors: errors.md
   - Cookbook:
       - Gallery: cookbook/index.md
       - YouTube Thumbnails: cookbook/youtube-thumbnail.md

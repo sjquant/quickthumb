@@ -13,14 +13,14 @@ import math
 import os
 import tempfile
 from collections.abc import Sequence
-from typing import TYPE_CHECKING, Literal, cast
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 from typing_extensions import Self
 
 from quickthumb._base import FileFormat, aspect_ratio_dimensions
 from quickthumb._validation import validate_dimensions
 from quickthumb.canvas import Canvas
-from quickthumb.errors import RenderingError, ValidationError
+from quickthumb.errors import MissingAssetError, RenderingError, ValidationError, json_pointer
 from quickthumb.models import (
     AudioTrack,
     DeckInspection,
@@ -187,17 +187,29 @@ class Deck:
         """
         # Validate the transition before mutating state so a bad value can't
         # leave a half-added slide behind.
-        override = self._coerce_transition(transition)
+        try:
+            override = self._coerce_transition(transition)
+        except ValidationError as error:
+            error.at("/transition", transition)
+            raise
         if duration is not None and (
             not isinstance(duration, (int, float))
             or isinstance(duration, bool)
             or not math.isfinite(duration)
             or duration <= 0
         ):
-            raise ValidationError("duration must be a finite value > 0")
+            raise ValidationError(
+                "duration must be a finite value > 0", code="invalid_field", path="/duration"
+            )
         if notes is not None and not isinstance(notes, str):
-            raise ValidationError("Slide notes must be a string or None.")
-        normalized_audio = coerce_audio_track(audio)
+            raise ValidationError(
+                "Slide notes must be a string or None.", code="invalid_field", path="/notes"
+            )
+        try:
+            normalized_audio = coerce_audio_track(audio)
+        except ValidationError as error:
+            error.at("/audio", audio)
+            raise
         self._append_slide(canvas)
         if override is not None:
             self._slide_transitions[-1] = override
@@ -228,8 +240,10 @@ class Deck:
         return [override or self._transition for override in self._slide_transitions]
 
     def _require_slides(self) -> None:
+        """Fail before rendering when the deck is empty or a slide asset is missing."""
         if not self._slides:
             raise RenderingError("Deck has no slides to render.")
+        self._validate_slide_assets()
 
     def validate(self) -> ValidationReport:
         """Return a structured validation report for this document."""
@@ -251,15 +265,22 @@ class Deck:
         return tuple(audio.path if audio is not None else None for audio in self._slide_audio)
 
     def _contract_validate_assets(self) -> None:
-        for canvas in self._slides:
-            canvas._validate_image_paths()
-        for path in self._contract_audio_paths():
+        self._validate_slide_assets()
+        for index, path in enumerate(self._contract_audio_paths()):
             if (
                 path is not None
                 and not path.startswith(("http://", "https://"))
                 and not os.path.isfile(path)
             ):
-                raise FileNotFoundError(path)
+                raise _missing_audio(index, path)
+
+    def _validate_slide_assets(self) -> None:
+        for index, canvas in enumerate(self._slides):
+            try:
+                canvas._validate_image_paths()
+            except MissingAssetError as error:
+                error.at(json_pointer("slides", index))
+                raise
 
     def _contract_resolve_assets(self) -> None:
         for canvas in self._slides:
@@ -289,6 +310,7 @@ class Deck:
 
     def inspect(self) -> DeckInspection:
         """Return deterministic layout reports for every slide."""
+        self._validate_slide_assets()
         first = self._slides[0] if self._slides else None
         return DeckInspection(
             width=self._width if self._width is not None else (first.width if first else None),
@@ -501,9 +523,9 @@ class Deck:
         """Resolve visual overrides and finite durations for the audio mixer."""
         from quickthumb._export_deck_mp4 import ffprobe_binary, resolve_audio_duration
 
-        for audio in self._slide_audio:
+        for index, audio in enumerate(self._slide_audio):
             if audio is not None and not os.path.isfile(audio.path):
-                raise ValidationError(f"Audio file not found: {audio.path!r}")
+                raise _missing_audio(index, audio.path)
         ffprobe = (
             ffprobe_binary()
             if any(
@@ -554,12 +576,6 @@ class Deck:
         quality: int | None,
         policy: ExportPolicy | None = None,
     ) -> list[str]:
-        # Validate every slide's assets up front so a missing image fails before
-        # any file is written, leaving no partial sequence on disk (matching the
-        # all-or-nothing behaviour of the PDF/PPTX paths).
-        for canvas in self._slides:
-            canvas._validate_image_paths()
-
         stem, extension = os.path.splitext(output_path)
         pad = max(2, len(str(len(self._slides))))
         written: list[str] = []
@@ -812,6 +828,7 @@ class Deck:
         single ``mixed-slide-size`` warning is prepended, since PPTX uses one
         page size for the whole deck and viewers may letterbox the rest.
         """
+        self._validate_slide_assets()
         findings: list[DeckDiagnostic] = []
 
         # Every slide is guaranteed sized: _append_slide is the only way into
@@ -917,12 +934,14 @@ class Deck:
 
     @classmethod
     def from_json(cls, data: str, *, registry: PluginRegistry | None = None) -> Self:
-        from quickthumb._document import canonical_json, decode_json_object, require_document_kind
+        from quickthumb._document import decode_json_object, require_document_kind
 
         raw = decode_json_object(data)
         require_document_kind(raw, expected="deck")
         if "slides" not in raw:
-            raise ValidationError("Deck JSON must contain a 'slides' list.")
+            raise ValidationError(
+                "Deck JSON must contain a 'slides' list.", code="missing_field", path="/slides"
+            )
         raw = dict(raw)
         unknown = sorted(
             set(raw)
@@ -936,18 +955,28 @@ class Deck:
             }
         )
         if unknown:
-            raise ValidationError(f"Deck JSON contains unknown field(s): {', '.join(unknown)}")
+            raise ValidationError.unknown_fields(unknown, owner="Deck JSON")
         slides_raw = raw["slides"]
         if not isinstance(slides_raw, list):
-            raise ValidationError("Deck 'slides' must be a list of canvas specs.")
+            raise ValidationError(
+                "Deck 'slides' must be a list of canvas specs.",
+                code="invalid_field",
+                path="/slides",
+            )
 
         theme = raw.get("theme", {})
         if not isinstance(theme, dict):
-            raise ValidationError("Deck 'theme' must be an object of token groups.")
+            raise ValidationError(
+                "Deck 'theme' must be an object of token groups.",
+                code="invalid_field",
+                path="/theme",
+            )
 
         transition = raw.get("transition")
         if transition is not None and not isinstance(transition, dict):
-            raise ValidationError("Deck 'transition' must be a JSON object.")
+            raise ValidationError(
+                "Deck 'transition' must be a JSON object.", code="invalid_field", path="/transition"
+            )
         deck = cls(
             width=raw.get("width"),
             height=raw.get("height"),
@@ -955,46 +984,66 @@ class Deck:
             transition=transition,
         )
         for index, slide in enumerate(slides_raw):
-            override = None
-            audio = None
-            duration = None
-            notes = None
-            if not isinstance(slide, dict):
-                raise ValidationError(f"Deck slide at index {index} must be a JSON object.")
-            if slide.get("kind") != "canvas":
-                raise ValidationError(f"Deck slide at index {index} must have kind 'canvas'.")
-            # Lift the per-slide metadata off the spec before it reaches
-            # Canvas.from_json, which does not understand deck concerns.
-            override = slide.get("transition")
-            audio = slide.get("audio")
-            duration = slide.get("duration")
-            notes = slide.get("notes")
-            if notes is not None and not isinstance(notes, str):
-                raise ValidationError("Deck slide 'notes' must be a string.")
-            slide_theme = slide.get("theme", {})
-            if not isinstance(slide_theme, dict):
-                raise ValidationError("Deck slide 'theme' must be an object of token groups.")
-            slide = {
-                key: value
-                for key, value in slide.items()
-                if key not in {"transition", "audio", "duration", "notes"}
-            }
-            # Share the deck-level theme so $theme.* tokens resolve; a slide's
-            # own theme block takes precedence.
-            if theme or "theme" in slide:
-                slide = {**slide, "theme": {**theme, **slide_theme}}
-            if (
-                deck._width is not None
-                and "width" not in slide
-                and "height" not in slide
-                and "platform" not in slide
-            ):
-                slide = {**slide, "width": deck._width, "height": deck._height}
-            deck.slide(
-                Canvas.from_json(canonical_json(slide), registry=registry),
-                transition=override,
-                audio=audio,
-                duration=duration,
-                notes=notes,
-            )
+            try:
+                cls._append_json_slide(deck, slide, theme, registry)
+            except ValidationError as error:
+                error.at(json_pointer("slides", index), slide)
+                raise
         return deck
+
+    @staticmethod
+    def _append_json_slide(
+        deck: Deck, slide: Any, theme: dict, registry: PluginRegistry | None
+    ) -> None:
+        from quickthumb._document import canonical_json
+
+        if not isinstance(slide, dict):
+            raise ValidationError("Deck slide must be a JSON object.", code="invalid_field")
+        if slide.get("kind") != "canvas":
+            raise ValidationError(
+                "Deck slide must have kind 'canvas'.", code="invalid_field", path="/kind"
+            )
+        # Lift the per-slide metadata off the spec before it reaches
+        # Canvas.from_json, which does not understand deck concerns.
+        override = slide.get("transition")
+        audio = slide.get("audio")
+        duration = slide.get("duration")
+        notes = slide.get("notes")
+        if notes is not None and not isinstance(notes, str):
+            raise ValidationError(
+                "Deck slide 'notes' must be a string.", code="invalid_field", path="/notes"
+            )
+        slide_theme = slide.get("theme", {})
+        if not isinstance(slide_theme, dict):
+            raise ValidationError(
+                "Deck slide 'theme' must be an object of token groups.",
+                code="invalid_field",
+                path="/theme",
+            )
+        slide = {
+            key: value
+            for key, value in slide.items()
+            if key not in {"transition", "audio", "duration", "notes"}
+        }
+        # Share the deck-level theme so $theme.* tokens resolve; a slide's
+        # own theme block takes precedence.
+        if theme or "theme" in slide:
+            slide = {**slide, "theme": {**theme, **slide_theme}}
+        if (
+            deck._width is not None
+            and "width" not in slide
+            and "height" not in slide
+            and "platform" not in slide
+        ):
+            slide = {**slide, "width": deck._width, "height": deck._height}
+        deck.slide(
+            Canvas.from_json(canonical_json(slide), registry=registry),
+            transition=override,
+            audio=audio,
+            duration=duration,
+            notes=notes,
+        )
+
+
+def _missing_audio(index: int, path: str) -> MissingAssetError:
+    return MissingAssetError(path, label="Audio file", path=json_pointer("slides", index, "audio"))

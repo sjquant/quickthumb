@@ -139,7 +139,12 @@ class PluginRegistry:
         definition = self.lookup(renderer, version)
         if definition is None:
             suffix = "" if version is None else f" version '{version}'"
-            raise ValidationError(f"Plugin renderer '{renderer}'{suffix} is not registered.")
+            raise ValidationError(
+                f"Plugin renderer '{renderer}'{suffix} is not registered.",
+                code="unknown_plugin",
+                path="/renderer",
+                suggestion="register the renderer in the plugin registry before loading",
+            )
         return definition
 
     def lookup(self, renderer: str, version: str | None = None) -> PluginDefinition | None:

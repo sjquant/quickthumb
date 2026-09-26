@@ -9,7 +9,14 @@ from quickthumb._diff import (
 from quickthumb._document import Document
 from quickthumb.canvas import Canvas
 from quickthumb.deck import Deck, DeckDiagnostic
-from quickthumb.errors import QuickthumbError, RenderingError, ValidationError
+from quickthumb.errors import (
+    ErrorDetail,
+    InputError,
+    MissingAssetError,
+    QuickthumbError,
+    RenderingError,
+    ValidationError,
+)
 from quickthumb.models import (
     Align,
     AnimatedTextValue,
@@ -106,7 +113,6 @@ from quickthumb.models import (
     TimingMetrics,
     TimingSpec,
     TrackSpec,
-    ValidationIssue,
     ValidationReport,
     VideoOptions,
     VisualizationLayerBase,
@@ -132,6 +138,9 @@ __all__ = [
     "DeckDiagnostic",
     "DiagnosticReport",
     "Document",
+    "ErrorDetail",
+    "InputError",
+    "MissingAssetError",
     "QuickthumbError",
     "RenderingError",
     "ValidationError",
@@ -173,7 +182,6 @@ __all__ = [
     "PixelMetrics",
     "TimingMetrics",
     "ResolvedDocument",
-    "ValidationIssue",
     "ValidationReport",
     "GifOptions",
     "Appear",

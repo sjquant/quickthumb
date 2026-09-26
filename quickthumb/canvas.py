@@ -30,7 +30,7 @@ from quickthumb._video import (
     render_video_layer,
 )
 from quickthumb._visualizations import VisualizationEngine
-from quickthumb.errors import RenderingError, ValidationError
+from quickthumb.errors import MissingAssetError, RenderingError, ValidationError, json_pointer
 from quickthumb.models import (
     Align,
     AnimatedTextValue,
@@ -93,6 +93,19 @@ class CustomLayer:
 RenderableLayer = LayerType | CustomLayer
 TextContentInput = str | list[TextPart | dict[str, Any]]
 
+_SUPPORTED_OUTPUT_EXTENSIONS = (
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".webp",
+    ".svg",
+    ".pdf",
+    ".pptx",
+    ".html",
+    ".gif",
+    ".mp4",
+    ".webm",
+)
 _THEME_REF_RE = re.compile(r"\$theme\.([A-Za-z0-9_]+(?:\.[A-Za-z0-9_]+)*)")
 _VAR_RE = re.compile(r"\$\{(\w+)\}|\$(\w+)")
 _LAYER_ADAPTER: TypeAdapter[LayerType] = TypeAdapter(LayerType)
@@ -378,8 +391,12 @@ class Canvas:
         if not self.has_size:
             raise ValidationError("canvas has no size")
         self._validate_layer_identities()
-        for layer in self._layers:
-            self._validate_plugin_layer_tree(layer, self._plugin_registry)
+        for index, layer in enumerate(self._layers):
+            try:
+                self._validate_plugin_layer_tree(layer, self._plugin_registry)
+            except ValidationError as error:
+                error.at(json_pointer("layers", index))
+                raise
 
     def _contract_motion_report(self, target: str, policy, fps: float):
         return self.inspect_motion(target=target, policy=policy, fps=fps)
@@ -1113,6 +1130,8 @@ class Canvas:
             raise RenderingError(
                 "animation options require an animated output extension (.gif, .mp4, or .webm)."
             )
+        if format is None:
+            self._detect_format(output_path)
         self._validate_image_paths()
         image = self._render_to_image(debug=debug)
         self._save_to_file(image, output_path, quality, format=format)
@@ -1397,14 +1416,7 @@ class Canvas:
 
     @classmethod
     def from_json(cls, data: str, *, registry: PluginRegistry | None = None) -> Self:
-        try:
-            return cls._from_json(data, registry=registry)
-        except PydanticValidationError as error:
-            messages = []
-            for detail in error.errors():
-                field = " -> ".join(map(str, detail["loc"]))
-                messages.append(f"Field '{field}': {detail['msg']}")
-            raise ValidationError(" | ".join(messages), original_error=error) from error
+        return cls._from_json(data, registry=registry)
 
     @classmethod
     def _from_json(cls, data: str, *, registry: PluginRegistry | None = None) -> Self:
@@ -1421,19 +1433,23 @@ class Canvas:
 
         theme = raw.pop("theme", {})
         if not isinstance(theme, dict):
-            raise ValidationError("'theme' must be a JSON object of token groups")
+            raise ValidationError(
+                "'theme' must be a JSON object of token groups", code="invalid_field", path="/theme"
+            )
         unknown = sorted(set(raw) - {"width", "height", "platform", "layers"})
         if unknown:
-            raise ValidationError(f"Canvas JSON contains unknown field(s): {', '.join(unknown)}")
+            raise ValidationError.unknown_fields(unknown, owner="Canvas JSON")
         if "layers" not in raw:
-            raise ValidationError("Canvas JSON must contain a 'layers' list.")
+            raise ValidationError(
+                "Canvas JSON must contain a 'layers' list.", code="missing_field", path="/layers"
+            )
         raw = _resolve_theme_tokens(raw, theme)
         raw = cast(dict[str, Any], raw)
 
         layers_raw = raw["layers"]
 
         if not isinstance(layers_raw, list):
-            CanvasModel.model_validate_json(data)  # raises ValidationError with good message
+            CanvasModel.model_validate(raw)  # raises ValidationError with good message
 
         layer_defs = cast(dict[str, dict[str, Any]], _LAYER_SCHEMA.get("$defs", {}))
 
@@ -1521,9 +1537,7 @@ class Canvas:
                 return
             unknown = sorted(str(key) for key in set(value) - set(properties))
             if unknown:
-                raise ValidationError(
-                    f"JSON object at {path} contains unknown field(s): {', '.join(unknown)}"
-                )
+                raise ValidationError.unknown_fields(unknown, base=path)
             for key, child in value.items():
                 child_schema = properties.get(key)
                 if isinstance(child_schema, dict):
@@ -1540,9 +1554,8 @@ class Canvas:
             if isinstance(layer_dict, dict) and layer_dict.get("type") == "custom":
                 unknown = sorted(set(layer_dict) - {"type", "name", "kwargs"})
                 if unknown:
-                    raise ValidationError(
-                        f"Custom layer at /layers/{layer_index} contains unknown field(s): "
-                        f"{', '.join(unknown)}"
+                    raise ValidationError.unknown_fields(
+                        unknown, owner="Custom layer", base=json_pointer("layers", layer_index)
                     )
                 name = layer_dict.get("name")
                 if not isinstance(name, str):
@@ -1558,9 +1571,18 @@ class Canvas:
                     raise ValidationError(f"Custom layer '{name}' kwargs must be a JSON object.")
                 renderable_layers.append(CustomLayer(fn=fn, name=name, kwargs=kwargs))
             else:
-                reject_unknown_json_fields(layer_dict, _LAYER_SCHEMA, f"/layers/{layer_index}")
-                parsed_layer = _LAYER_ADAPTER.validate_python(layer_dict)
-                cls._validate_plugin_layer_tree(parsed_layer, parser_registry)
+                layer_path = json_pointer("layers", layer_index)
+                try:
+                    reject_unknown_json_fields(layer_dict, _LAYER_SCHEMA, "")
+                    parsed_layer = _LAYER_ADAPTER.validate_python(layer_dict)
+                    cls._validate_plugin_layer_tree(parsed_layer, parser_registry)
+                except PydanticValidationError as error:
+                    raise ValidationError.from_pydantic(error, layer_dict).at(
+                        layer_path, layer_dict
+                    ) from error
+                except ValidationError as error:
+                    error.at(layer_path, layer_dict)
+                    raise
                 renderable_layers.append(parsed_layer)
 
         platform = raw.get("platform")
@@ -1600,8 +1622,12 @@ class Canvas:
             registry.validate(layer)
             return
         if isinstance(layer, GroupLayer):
-            for child in layer.children:
-                cls._validate_plugin_layer_tree(child, registry)
+            for index, child in enumerate(layer.children):
+                try:
+                    cls._validate_plugin_layer_tree(child, registry)
+                except ValidationError as error:
+                    error.at(json_pointer("children", index))
+                    raise
 
     @classmethod
     def _read_template_file(cls, path: str) -> str:
@@ -1974,37 +2000,40 @@ class Canvas:
         yield from walk(self._layers)
 
     def _validate_image_paths(self):
-        for layer in self._iter_layers_deep():
-            if (
-                isinstance(layer, BackgroundLayer)
-                and layer.image
-                and not is_url(layer.image)
-                and not os.path.exists(layer.image)
-            ):
-                raise FileNotFoundError(f"{layer.image}")
-            elif (
-                isinstance(layer, (ImageLayer, SvgLayer))
-                and not is_url(layer.path)
-                and not os.path.exists(layer.path)
-            ):
-                raise FileNotFoundError(f"{layer.path}")
-            elif (
-                isinstance(layer, VideoLayer)
-                and not is_url(layer.source)
-                and not os.path.exists(layer.source)
-            ):
-                raise FileNotFoundError(f"{layer.source}")
-            elif isinstance(layer, TextLayer):
-                fills_to_check: list[TextFillImage] = []
-                if isinstance(layer.fill, TextFillImage):
-                    fills_to_check.append(layer.fill)
-                if isinstance(layer.content, list):
-                    for part in layer.content:
-                        if isinstance(part.fill, TextFillImage):
-                            fills_to_check.append(part.fill)
-                for fill in fills_to_check:
-                    if not is_url(fill.path) and not os.path.exists(fill.path):
-                        raise FileNotFoundError(f"{fill.path}")
+        for pointer, layer in self._iter_layer_pointers():
+            layer_id = getattr(layer, "id", None)
+            for suffix, source in self._local_asset_fields(layer):
+                if not is_url(source) and not os.path.exists(source):
+                    raise MissingAssetError(source, path=pointer + suffix, layer_id=layer_id)
+
+    def _iter_layer_pointers(self):
+        """Yield each layer depth-first with its JSON Pointer in the canonical document."""
+
+        def walk(layers, base: str):
+            for index, layer in enumerate(layers):
+                pointer = f"{base}/{index}"
+                yield pointer, layer
+                if isinstance(layer, GroupLayer):
+                    yield from walk(layer.children, f"{pointer}/children")
+
+        yield from walk(self._layers, "/layers")
+
+    @staticmethod
+    def _local_asset_fields(layer):
+        """Yield ``(relative JSON Pointer, source)`` for file assets a layer reads."""
+        if isinstance(layer, BackgroundLayer) and layer.image:
+            yield "/image", layer.image
+        elif isinstance(layer, (ImageLayer, SvgLayer)):
+            yield "/path", layer.path
+        elif isinstance(layer, VideoLayer):
+            yield "/source", layer.source
+        elif isinstance(layer, TextLayer):
+            if isinstance(layer.fill, TextFillImage):
+                yield "/fill/path", layer.fill.path
+            if isinstance(layer.content, list):
+                for index, part in enumerate(layer.content):
+                    if isinstance(part.fill, TextFillImage):
+                        yield f"/content/{index}/fill/path", part.fill.path
 
     def _detect_format(self, output_path: str) -> FileFormat:
         extension = os.path.splitext(output_path)[1].lower()
@@ -2018,7 +2047,9 @@ class Canvas:
             return format_map[extension]
         except KeyError:
             raise RenderingError(
-                f"Unsupported file format: {extension}.\nSupported formats: {format_map.keys()}."
+                f"Unsupported file format: {extension or '(none)'}.",
+                code="unsupported_format",
+                suggestion=f"use one of {', '.join(_SUPPORTED_OUTPUT_EXTENSIONS)}",
             ) from None
 
     def _convert_for_format(self, image: Image.Image, file_format: FileFormat) -> Image.Image:

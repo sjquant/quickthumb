@@ -87,13 +87,14 @@ except ValidationError as e:
     print(f"Invalid spec: {e}")
 ```
 
-`ValidationError` messages are field-specific:
+`ValidationError` messages name the JSON Pointer and layer id of the failing field:
 
 ```
-Field 'layers -> 2 -> effects -> 0 -> width': Input should be greater than 0
+/layers/2/effects/0/width (layer 'headline'): Input should be greater than 0
 ```
 
-This makes it easy to feed the error back to the model with a targeted correction prompt.
+For programmatic retries, read `e.details`: each entry has a stable `code`, `path`,
+`layer_id`, and optional `suggestion`. See [Structured Errors](../errors.md).
 
 ## Step 3 — Render
 

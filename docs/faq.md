@@ -211,4 +211,7 @@ Your canvas contains a `.custom(fn)` layer. Custom layers cannot be serialized b
 ### What's the difference between `ValidationError` and `RenderingError`?
 
 - `ValidationError` — raised immediately when you pass invalid arguments to a layer builder (wrong types, out-of-range values, conflicting options).
-- `RenderingError` — raised when `.render()`, `.to_base64()`, or `.to_data_url()` is called and something fails at render time (bad file path, failed download, unsupported format).
+- `RenderingError` — raised when `.render()`, `.to_base64()`, or `.to_data_url()` is called and something fails at render time (failed download, unsupported format).
+- `MissingAssetError` — raised when a referenced local file does not exist.
+
+Every quickthumb error exposes `details` with a stable code, JSON Pointer path, and layer id. See [Structured Errors](errors.md).

@@ -205,12 +205,12 @@ def test_document_schema_matches_sparse_decks_and_strict_nested_metadata():
         (
             Deck.from_json,
             '{"kind":"deck","slides":[],"zeta":1,"alpha":2}',
-            "alpha, zeta",
+            "alpha.*zeta",
         ),
         (
             Canvas.from_json,
             '{"kind":"canvas","width":10,"height":10,"layers":[],"zeta":1,"alpha":2}',
-            "alpha, zeta",
+            "alpha.*zeta",
         ),
         (Canvas.from_json, '{"kind":"canvas","width":10,"height":10,"layers":', "Invalid JSON"),
         (Canvas.from_json, "[]", "object"),
@@ -864,7 +864,8 @@ def test_python_authored_canvas_validation_resolves_plugin_registry_entries():
     report = canvas.validate()
 
     assert not report.valid
-    assert report.errors[0].code == "invalid_document"
+    assert report.errors[0].code == "unknown_plugin"
+    assert report.errors[0].path == "/layers/0/renderer"
     assert "not registered" in report.errors[0].message
 
 

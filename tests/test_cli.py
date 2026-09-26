@@ -724,30 +724,27 @@ class TestCLIWatch:
         assert "thumb.webp" in result.output
 
     def test_should_keep_watching_when_initial_render_spec_is_invalid(self, spec_file, monkeypatch):
-        """watch keeps running when the initial spec load exits with a validation error"""
-        # Given: a watch run where loading the spec fails and the watcher is then interrupted
+        """watch reports an invalid initial spec as a structured error and keeps watching"""
+        # Given: a spec missing its layers list and a watcher that is then interrupted
         import sys
         import types
 
         import quickthumb.cli as cli
-        import typer
-
-        def fake_load_canvas(spec, variables):
-            raise typer.Exit(1)
 
         def fake_watch(spec):
             raise KeyboardInterrupt
             yield
 
-        monkeypatch.setattr(cli, "_load_canvas", fake_load_canvas)
         monkeypatch.setitem(sys.modules, "watchfiles", types.SimpleNamespace(watch=fake_watch))
+        Path(spec_file).write_text('{"kind": "canvas", "width": 100, "height": 100}')
 
-        # When: the user starts watching the spec
+        # When: the user starts watching the invalid spec
         result = CliRunner().invoke(cli.app, ["watch", spec_file])
 
-        # Then: watch handles the load failure and exits cleanly on interrupt
+        # Then: watch reports the load failure and exits cleanly on interrupt
         assert result.exit_code == 0
         assert "Watching" in result.output
+        assert "error[missing_field] /layers" in result.output
 
     def test_should_render_again_when_watch_reports_a_change(self, spec_file, monkeypatch):
         """watch renders once at startup and again for filesystem changes"""
@@ -1506,7 +1503,7 @@ class TestCLILint:
 
         # then
         assert result.exit_code == 1
-        assert "Invalid lint format 'xml'. Must be one of: text, json" in result.output
+        assert "Invalid --format 'xml'. Must be one of: text, json" in result.output
 
     def test_should_exit_1_for_invalid_spec(self):
         """lint exits 1 for specs that fail validation"""
@@ -1541,8 +1538,9 @@ class TestCLILint:
         assert result.exit_code == 1
         assert "Traceback" not in result.output
         payload = json.loads(result.output)
-        assert payload["error"]["code"] == "invalid-spec"
-        assert "unknown" in payload["error"]["message"]
+        assert payload["errors"][0]["code"] == "invalid_field"
+        assert payload["errors"][0]["path"] == "/layers/0/type"
+        assert "unknown" in payload["errors"][0]["message"]
 
     def test_should_reject_an_ambiguous_canvas_document(self):
         """lint rejects a Canvas document that also claims to contain Deck slides."""
@@ -1565,11 +1563,11 @@ class TestCLILint:
         finally:
             os.unlink(spec_path)
 
-        # then: the structured invalid-spec contract is preserved
+        # then: the ambiguous field is reported at its JSON Pointer
         assert result.exit_code == 1
         payload = json.loads(result.output)
-        assert payload["error"]["code"] == "invalid-spec"
-        assert "slides" in payload["error"]["message"]
+        assert payload["errors"][0]["code"] == "unknown_field"
+        assert payload["errors"][0]["path"] == "/slides"
 
     def test_should_require_a_top_level_document_kind(self):
         """lint rejects JSON documents without an explicit Canvas or Deck discriminator."""
@@ -1586,11 +1584,11 @@ class TestCLILint:
         finally:
             os.unlink(spec_path)
 
-        # then: the missing discriminator is a structured invalid-spec error
+        # then: the missing discriminator is a structured missing-field error
         assert result.exit_code == 1
         payload = json.loads(result.output)
-        assert payload["error"]["code"] == "invalid-spec"
-        assert "kind" in payload["error"]["message"]
+        assert payload["errors"][0]["code"] == "missing_field"
+        assert payload["errors"][0]["path"] == "/kind"
 
     @pytest.mark.parametrize("width", ["100", 100.5, True])
     def test_should_reject_non_integer_deck_dimensions(self, width):
@@ -1610,8 +1608,8 @@ class TestCLILint:
         assert result.exit_code == 1
         assert "Traceback" not in result.output
         payload = json.loads(result.output)
-        assert payload["error"]["code"] == "invalid-spec"
-        assert "integer" in payload["error"]["message"]
+        assert payload["errors"][0]["code"] == "invalid_field"
+        assert payload["errors"][0]["path"] == "/width"
 
     def test_should_reject_non_mapping_deck_slide_theme(self):
         """lint rejects a non-object slide theme instead of leaking a merge TypeError."""
@@ -1640,12 +1638,12 @@ class TestCLILint:
         finally:
             os.unlink(spec_path)
 
-        # then: the public invalid-spec response is structured and traceback-free
+        # then: the structured response points at the slide theme without a traceback
         assert result.exit_code == 1
         assert "Traceback" not in result.output
         payload = json.loads(result.output)
-        assert payload["error"]["code"] == "invalid-spec"
-        assert "theme" in payload["error"]["message"]
+        assert payload["errors"][0]["code"] == "invalid_field"
+        assert payload["errors"][0]["path"] == "/slides/0/theme"
 
     @pytest.mark.parametrize(
         ("spec", "message"),
@@ -1674,11 +1672,11 @@ class TestCLILint:
         finally:
             os.unlink(spec_path)
 
-        # then: the CLI emits a structured invalid-spec response
+        # then: the CLI emits a structured validation response
         assert result.exit_code == 1
         payload = json.loads(result.output)
-        assert payload["error"]["code"] == "invalid-spec"
-        assert message in payload["error"]["message"]
+        assert payload["errors"][0]["category"] == "validation"
+        assert message in payload["errors"][0]["message"]
 
     def test_should_support_deck_specs_and_preserve_slide_diagnostic_fields(self):
         """lint accepts deck JSON and includes slide and layer diagnostic context"""
@@ -1775,12 +1773,11 @@ class TestCLILint:
 
         # then
         assert result.exit_code == 1
-        assert json.loads(result.output) == {
-            "error": {
-                "code": "invalid-options",
-                "message": "Unknown diagnostic code(s): not-a-rule",
-            }
-        }
+        error = json.loads(result.output)["errors"][0]
+        assert error["code"] == "invalid_option"
+        assert error["category"] == "input"
+        assert error["message"] == "Unknown diagnostic code(s): not-a-rule"
+        assert "off-canvas" in error["suggestion"]
 
     def test_should_exit_1_when_lint_variable_substitution_leaves_placeholder(self):
         """lint exits 1 when variable substitution leaves unresolved placeholders"""
@@ -1804,24 +1801,6 @@ class TestCLILint:
         # then
         assert result.exit_code == 1
         assert "missing_color" in result.output
-
-    def test_should_exit_1_when_lint_diagnose_reports_missing_referenced_file(self, monkeypatch):
-        """lint exits 1 when diagnostics discover a missing referenced file"""
-        # given: a loaded canvas whose diagnose step raises FileNotFoundError
-        import quickthumb.cli as cli
-
-        class MissingFileCanvas:
-            def diagnose(self):
-                raise FileNotFoundError("asset.png")
-
-        monkeypatch.setattr(cli, "_load_canvas", lambda spec, variables: MissingFileCanvas())
-
-        # when
-        result = CliRunner().invoke(cli.app, ["lint", "spec.json"])
-
-        # then
-        assert result.exit_code == 1
-        assert "Referenced file not found" in result.output
 
     def test_should_exit_2_when_lint_diagnose_reports_rendering_error(self, monkeypatch):
         """lint exits 2 when diagnostics fail during rendering-style analysis"""

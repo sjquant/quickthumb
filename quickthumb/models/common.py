@@ -2,6 +2,7 @@
 
 import math
 import re
+from contextvars import ContextVar
 from enum import Enum
 from typing import Annotated, Any, Literal, TypeAlias, TypeVar
 
@@ -186,27 +187,25 @@ AlignWithHVTuple = Annotated[
 ]
 
 
+_MODEL_DEPTH: ContextVar[int] = ContextVar("quickthumb_model_depth", default=0)
+
+
 class quickthumbModel(BaseModel):  # noqa: N801
     @model_validator(mode="wrap")
     @classmethod
     def handle_pydantic_error(cls, data: Any, handler):
+        depth = _MODEL_DEPTH.set(_MODEL_DEPTH.get() + 1)
         try:
             return handler(data)
         except PydanticValidationError as e:
-            # Let union validation try its remaining branches for values that
-            # cannot possibly be instances of this mapping model. Converting a
-            # list or scalar here would abort legacy animation unions before
-            # their list/string-compatible branch gets a chance to validate.
-            if not isinstance(data, (dict, cls)):
+            # Nested models re-raise so the outermost model sees each failure's
+            # full location. Values that cannot be instances of this mapping
+            # model also re-raise so union validation can try other branches.
+            if _MODEL_DEPTH.get() > 1 or not isinstance(data, (dict, cls)):
                 raise
-            error_messages = []
-            for err in e.errors():
-                field = " -> ".join(map(str, err["loc"]))
-                msg = err["msg"]
-                error_messages.append(f"Field '{field}': {msg}")
-
-            formatted_msg = " | ".join(error_messages)
-            raise ValidationError(formatted_msg, original_error=e) from e
+            raise ValidationError.from_pydantic(e, data) from e
+        finally:
+            _MODEL_DEPTH.reset(depth)
 
 
 QuickThumbModel = quickthumbModel

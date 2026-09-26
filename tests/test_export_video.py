@@ -34,7 +34,7 @@ from quickthumb import (
     Wipe,
 )
 from quickthumb import transitions as tr
-from quickthumb.errors import RenderingError, ValidationError
+from quickthumb.errors import MissingAssetError, RenderingError, ValidationError
 
 RED = (255, 45, 85)
 BLUE = (17, 49, 170)
@@ -1417,7 +1417,7 @@ class TestVideoErrors:
         deck = Deck(160, 90).slide(Canvas().background(color="#1131AA"), audio=str(missing_audio))
 
         # when / then
-        with pytest.raises(ValidationError, match="Audio file not found"):
+        with pytest.raises(MissingAssetError, match="Audio file not found"):
             deck.to_webm(slide_duration=0.1)
 
     def test_should_report_the_documented_animated_narration_limit(self, tmp_path):

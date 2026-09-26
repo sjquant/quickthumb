@@ -162,7 +162,7 @@ Exit codes make it easy to gate CI or agent pipelines:
 | Exit code | Meaning |
 | --- | --- |
 | `0` | No issues found |
-| `1` | Invalid spec (bad JSON, validation error, missing file) |
+| `1` | Invalid spec (bad JSON, validation error, missing asset, invalid option) |
 | `2` | Rendering failure |
 | `3` | Findings reported |
 
@@ -176,8 +176,8 @@ quickthumb lint spec.json --ignore edge-crowding --ignore missing-glyph
 `--fail-on warning` (the default) exits 3 for any remaining finding. `--fail-on error`
 allows warnings while still failing on errors, and `--fail-on never` always exits 0 after
 printing the findings. `--ignore` removes matching diagnostic codes from both the output and
-the exit-status calculation. Invalid specs with `--format json` emit an `error` object rather
-than a traceback.
+the exit-status calculation. Invalid specs with `--format json` emit an `errors` list of
+[structured error details](errors.md) rather than a traceback.
 
 JSON inputs must declare a top-level `kind` discriminator (`canvas` or `deck`). Deck findings
 include `slide_index` and retain
@@ -200,6 +200,10 @@ quickthumb render spec.json -o debug.png --debug
 | `--quality` | Quality 1–95, JPEG/WEBP only |
 | `--debug` | Overlay public layer-id bounding boxes on raster output |
 | `--var KEY=VALUE` | Substitute `$KEY` placeholders in the spec (repeatable) |
+| `--error-format` | `text` (default) or `json`; see [Structured Errors](errors.md) |
+
+`render` exits `1` for invalid specs, missing assets, and invalid options, and `2` for
+export failures such as an unsupported output format.
 
 ### `quickthumb watch`
 
@@ -209,7 +213,8 @@ Re-renders the spec every time the file changes — useful while hand-tuning a l
 quickthumb watch spec.json -o preview.png
 ```
 
-`watch` takes the same options as `render`.
+`watch` takes the same options as `render` except `--error-format`; failures are printed as
+text and watching continues.
 
 ### `quickthumb serve`
 
