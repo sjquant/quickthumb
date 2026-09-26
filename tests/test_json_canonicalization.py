@@ -77,7 +77,7 @@ def test_python_and_json_canvas_specs_normalize_to_one_rendered_document():
 
     # Then: canonical JSON and public rendering behavior converge
     assert json_canvas.to_json() == python_canvas.to_json()
-    assert json_canvas.sample().to_bytes() == python_canvas.sample().to_bytes()
+    assert json_canvas.sample().frames[0].sha256 == python_canvas.sample().frames[0].sha256
 
 
 def test_python_and_json_deck_specs_normalize_metadata_and_samples():

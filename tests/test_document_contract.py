@@ -8,14 +8,12 @@ from PIL import Image
 from quickthumb import (
     AnimationSpec,
     BlurTrack,
-    CanonicalFrame,
     Canvas,
     Deck,
     DeckInspection,
     DiagnosticReport,
     ExportPolicy,
     ExportResult,
-    FrameSequence,
     GifOptions,
     KeyframeSpec,
     ResolvedDocument,
@@ -279,20 +277,19 @@ def test_diagnostic_serialization_honors_exclude_none():
     assert "slide_index" in expanded["findings"][0]
 
 
-def test_sample_returns_canonical_rgba_payloads_without_timeline_objects():
-    """Given static documents, sample exposes pixels through the canonical frame models."""
-    # Given: a canvas and a one-slide deck with a known color
-    canvas = Canvas(4, 3).background(color="#112233")
+def test_sample_payloads_exclude_motion_compiler_state():
+    """Samples of an animated canvas and deck serialize frames and timing only,
+    never the motion compiler's events or tracks."""
+    # Given: an animated canvas and a deck containing it
+    canvas = (
+        Canvas(4, 3)
+        .background(color="#112233")
+        .shape("rectangle", (0, 0), 2, 2, "#FFFFFF", animation=AnimationSpec.fade(duration=0.5))
+    )
     deck = Deck(slides=[canvas])
 
-    # When: canonical samples are requested
-    canvas_sample = canvas.sample()
-    deck_sample = deck.sample()
+    # When: timeline samples are serialized as JSON
+    payloads = [document.sample(fps=4).model_dump_json() for document in (canvas, deck)]
 
-    # Then: samples contain deterministic RGBA bytes and no compiler state
-    assert isinstance(canvas_sample, CanonicalFrame)
-    assert isinstance(deck_sample, FrameSequence)
-    assert canvas_sample.mode == "RGBA"
-    assert len(canvas_sample.to_bytes()) == 4 * 3 * 4
-    assert deck_sample.frames[0].to_bytes() == canvas_sample.to_bytes()
-    assert "events" not in canvas_sample.model_dump(mode="json")
+    # Then: no compiler vocabulary leaks into the observation contract
+    assert all('"events"' not in payload and '"tracks"' not in payload for payload in payloads)

@@ -4,6 +4,7 @@
 # ruff: noqa: F405
 
 import base64 as _base64
+import hashlib as _hashlib
 from typing import Annotated, Any, Literal
 
 from pydantic import (
@@ -12,6 +13,7 @@ from pydantic import (
     Field,
     NonNegativeInt,
     PositiveInt,
+    model_validator,
 )
 
 from .common import *  # noqa: F401,F403
@@ -119,27 +121,34 @@ class ResolvedDocument(quickthumbModel):
 
 
 class CanonicalFrame(quickthumbModel):
-    """A JSON-safe canonical RGBA raster frame."""
+    """One canonical RGBA raster observation.
+
+    ``data`` is base64 of the raw pixel buffer: ``width * height`` pixels in
+    row-major order from the top-left corner, four 8-bit channels per pixel
+    in R, G, B, A order, sRGB-encoded with straight (non-premultiplied) alpha.
+    ``sha256`` is the hex digest of that decoded buffer, so two frames drew
+    identical pixels exactly when their digests match.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
-    version: Literal["1"] = "1"
-    time: float = 0.0
+    index: NonNegativeInt
+    slide: NonNegativeInt = 0
+    time: float | None = None
     width: PositiveInt
     height: PositiveInt
     mode: Literal["RGBA"] = "RGBA"
+    sha256: str
     data: str
 
-    @classmethod
-    def from_image(cls, image, *, time: float = 0.0) -> "CanonicalFrame":
-        """Encode a PIL image as the canonical RGBA payload."""
-        rgba = image.convert("RGBA")
-        return cls(
-            time=time,
-            width=rgba.width,
-            height=rgba.height,
-            data=_base64.b64encode(_rgba_bytes(rgba)).decode("ascii"),
-        )
+    @model_validator(mode="after")
+    def _payload_matches_digest(self) -> "CanonicalFrame":
+        raw = self.to_bytes()
+        if len(raw) != self.width * self.height * 4:
+            raise ValueError("data must hold width * height RGBA pixels")
+        if _hashlib.sha256(raw).hexdigest() != self.sha256:
+            raise ValueError("sha256 must be the digest of the decoded data")
+        return self
 
     def to_bytes(self) -> bytes:
         """Decode the frame's raw RGBA bytes."""
@@ -152,14 +161,71 @@ class CanonicalFrame(quickthumbModel):
         return Image.frombytes(self.mode, (self.width, self.height), self.to_bytes())
 
 
+class RenderEnvironment(quickthumbModel):
+    """Rendering-environment facts that can change canonical pixels.
+
+    Identical documents sampled under identical environments produce
+    identical frame digests. ``ffmpeg_version`` is set only for documents
+    with video layers, whose pixels FFmpeg decodes. Font and image inputs are
+    described by the document's asset manifest rather than here.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    renderer: Literal["quickthumb"] = "quickthumb"
+    quickthumb_version: str
+    pillow_version: str
+    freetype_version: str | None = None
+    text_layout: Literal["basic", "raqm"]
+    ffmpeg_version: str | None = None
+
+
+class TimelineSegment(quickthumbModel):
+    """Where one slide sits on the normalized document timeline.
+
+    All values are absolute seconds from the start of the document timeline.
+    The slide is on screen over ``[start, end)``: its incoming transition
+    plays over ``[start, transition_end)``, its layer animations settle at
+    ``animation_end``, and its settled state holds until ``end``.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    slide: NonNegativeInt
+    start: float
+    transition_end: float
+    animation_end: float
+    end: float
+
+
 class FrameSequence(quickthumbModel):
-    """A JSON-safe ordered sequence of canonical frames."""
+    """An ordered, JSON-safe set of canonical frames and their sampling context.
+
+    A ``still`` capture holds one settled frame per page (one for a Canvas,
+    one per Deck slide), each at that page's own size and with transparency
+    preserved; its ``duration`` is 0, ``timeline`` is empty, and frame
+    ``time`` is ``None``.
+
+    A ``timeline`` capture observes instants of the normalized document
+    timeline that animated exports play. Every frame has the document's first
+    page size and is composited onto the opaque ``matte`` color, and frames
+    are ordered by ascending ``time``. ``duration`` is the full timeline
+    length in seconds; ``fps`` is the uniform sampling rate when the capture
+    used one, else ``None``.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
     version: Literal["1"] = "1"
+    kind: Literal["canvas", "deck"]
+    capture: Literal["still", "timeline"]
+    color_space: Literal["srgb"] = "srgb"
+    alpha: Literal["straight"] = "straight"
+    matte: str | None = None
     fps: float | None = None
     duration: float = 0.0
+    timeline: list[TimelineSegment] = Field(default_factory=list)
+    environment: RenderEnvironment
     frames: list[CanonicalFrame] = Field(default_factory=list)
 
 
@@ -212,8 +278,3 @@ class ExportResult(quickthumbModel):
     pixel_metrics: PixelMetrics = Field(default_factory=PixelMetrics)
     timing_metrics: TimingMetrics = Field(default_factory=TimingMetrics)
     asset_manifest: list[AssetManifestEntry] = Field(default_factory=list)
-
-
-def _rgba_bytes(image) -> bytes:
-    """Return raw bytes without leaking a PIL object into public models."""
-    return image.tobytes()

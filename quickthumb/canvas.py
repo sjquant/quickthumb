@@ -1,10 +1,10 @@
 import math
 import os
 import re
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from io import BytesIO
-from typing import Any, Literal, cast
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 from PIL import Image, ImageDraw, ImageFont
 from pydantic import TypeAdapter
@@ -40,7 +40,6 @@ from quickthumb.models import (
     BackgroundEffect,
     BackgroundLayer,
     BlendMode,
-    CanonicalFrame,
     CanvasInspection,
     ChartLayer,
     ChartSpec,
@@ -49,6 +48,7 @@ from quickthumb.models import (
     ExportResult,
     FaceRegion,
     FitMode,
+    FrameSequence,
     GifOptions,
     Grain,
     GroupLayer,
@@ -78,6 +78,9 @@ from quickthumb.models import (
     VideoOptions,
 )
 from quickthumb.plugins import PluginRegistry, plugin_registry
+
+if TYPE_CHECKING:
+    from quickthumb._document import TimelineInputs
 
 
 @dataclass
@@ -384,6 +387,11 @@ class Canvas:
     def _contract_static_timing(self) -> None:
         return None
 
+    def _contract_timeline_inputs(self, hold: float) -> "TimelineInputs":
+        # A canvas is one slide with no incoming transition; ``hold`` alone
+        # sets its settled time, so it needs no per-slide duration.
+        return [self], [None], None
+
     def resolve_assets(self) -> ResolvedDocument:
         """Check referenced assets and return their manifest metadata."""
         from quickthumb._document import AssetPort, Document, resolved_document
@@ -397,10 +405,27 @@ class Canvas:
             ),
         )
 
-    def sample(self, time: float = 0.0) -> CanonicalFrame:
-        """Return one canonical RGBA frame without exposing motion internals."""
-        self._validate_image_paths()
-        return CanonicalFrame.from_image(self.render_frame(time), time=float(time))
+    def sample(
+        self,
+        time: float | Sequence[float] | None = None,
+        *,
+        fps: float | None = None,
+        hold: float = 3.0,
+        matte: str = "#000000",
+    ) -> FrameSequence:
+        """Capture canonical RGBA frames without exposing motion internals.
+
+        With no arguments, returns the settled still frame that raster exports
+        draw. ``time`` (seconds, one value or an ascending sequence) or ``fps``
+        (a uniform grid over the whole timeline) instead observe the animated
+        timeline that GIF/MP4/WebM play, where the settled composition holds
+        for ``hold`` seconds after the animations finish and frames are
+        composited onto ``matte``.
+        """
+        from quickthumb._document import Document
+        from quickthumb._sampling import sample_document
+
+        return sample_document(cast(Document, self), time, fps=fps, hold=hold, matte=matte)
 
     def diagnose(self) -> DiagnosticReport:
         """Check layers for layout and legibility issues without producing an output file.
