@@ -123,10 +123,10 @@ class ResolvedDocument(quickthumbModel):
 class CanonicalFrame(quickthumbModel):
     """One canonical RGBA raster observation.
 
-    ``data`` is base64 of the raw pixel buffer: ``width * height`` pixels in
+    `data` is base64 of the raw pixel buffer: `width * height` pixels in
     row-major order from the top-left corner, four 8-bit channels per pixel
     in R, G, B, A order, sRGB-encoded with straight (non-premultiplied) alpha.
-    ``sha256`` is the hex digest of that decoded buffer, so two frames drew
+    `sha256` is the hex digest of that decoded buffer, so two frames drew
     identical pixels exactly when their digests match.
     """
 
@@ -165,7 +165,7 @@ class RenderEnvironment(quickthumbModel):
     """Rendering-environment facts that can change canonical pixels.
 
     Identical documents sampled under identical environments produce
-    identical frame digests. ``ffmpeg_version`` is set only for documents
+    identical frame digests. `ffmpeg_version` is set only for documents
     with video layers, whose pixels FFmpeg decodes. Font and image inputs are
     described by the document's asset manifest rather than here.
     """
@@ -184,9 +184,9 @@ class TimelineSegment(quickthumbModel):
     """Where one slide sits on the normalized document timeline.
 
     All values are absolute seconds from the start of the document timeline.
-    The slide is on screen over ``[start, end)``: its incoming transition
-    plays over ``[start, transition_end)``, its layer animations settle at
-    ``animation_end``, and its settled state holds until ``end``.
+    The slide is on screen over `[start, end)`: its incoming transition
+    plays over `[start, transition_end)`, its layer animations settle at
+    `animation_end`, and its settled state holds until `end`.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -201,17 +201,17 @@ class TimelineSegment(quickthumbModel):
 class FrameSequence(quickthumbModel):
     """An ordered, JSON-safe set of canonical frames and their sampling context.
 
-    A ``still`` capture holds one settled frame per page (one for a Canvas,
+    A `still` capture holds one settled frame per page (one for a Canvas,
     one per Deck slide), each at that page's own size and with transparency
-    preserved; its ``duration`` is 0, ``timeline`` is empty, and frame
-    ``time`` is ``None``.
+    preserved; its `duration` is 0, `timeline` is empty, and frame
+    `time` is `None`.
 
-    A ``timeline`` capture observes instants of the normalized document
+    A `timeline` capture observes instants of the normalized document
     timeline that animated exports play. Every frame has the document's first
-    page size and is composited onto the opaque ``matte`` color, and frames
-    are ordered by ascending ``time``. ``duration`` is the full timeline
-    length in seconds; ``fps`` is the uniform sampling rate when the capture
-    used one, else ``None``.
+    page size and is composited onto the opaque `matte` color, and frames
+    are ordered by ascending `time`. `duration` is the full timeline
+    length in seconds; `fps` is the uniform sampling rate when the capture
+    used one, else `None`.
     """
 
     model_config = ConfigDict(extra="forbid")

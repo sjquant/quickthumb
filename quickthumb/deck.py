@@ -320,12 +320,12 @@ class Deck:
         """Capture canonical RGBA frames without exposing motion internals.
 
         With no arguments, returns one settled still frame per slide, as
-        raster, PDF, and PPTX exports draw them. ``time`` (seconds, one value
-        or an ascending sequence) or ``fps`` (a uniform grid over the whole
+        raster, PDF, and PPTX exports draw them. `time` (seconds, one value
+        or an ascending sequence) or `fps` (a uniform grid over the whole
         timeline) instead observe the animated deck timeline, including
         transitions and narration-driven slide durations; a slide without an
-        explicit duration holds for ``hold`` seconds after its animations,
-        and frames are composited onto ``matte``.
+        explicit duration holds for `hold` seconds after its animations,
+        and frames are composited onto `matte`.
         """
         self._require_slides()
         from quickthumb._document import Document

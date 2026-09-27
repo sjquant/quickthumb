@@ -388,7 +388,7 @@ class Canvas:
         return None
 
     def _contract_timeline_inputs(self, hold: float) -> "TimelineInputs":
-        # A canvas is one slide with no incoming transition; ``hold`` alone
+        # A canvas is one slide with no incoming transition; `hold` alone
         # sets its settled time, so it needs no per-slide duration.
         return [self], [None], None
 
@@ -416,11 +416,11 @@ class Canvas:
         """Capture canonical RGBA frames without exposing motion internals.
 
         With no arguments, returns the settled still frame that raster exports
-        draw. ``time`` (seconds, one value or an ascending sequence) or ``fps``
+        draw. `time` (seconds, one value or an ascending sequence) or `fps`
         (a uniform grid over the whole timeline) instead observe the animated
         timeline that GIF/MP4/WebM play, where the settled composition holds
-        for ``hold`` seconds after the animations finish and frames are
-        composited onto ``matte``.
+        for `hold` seconds after the animations finish and frames are
+        composited onto `matte`.
         """
         from quickthumb._document import Document
         from quickthumb._sampling import sample_document

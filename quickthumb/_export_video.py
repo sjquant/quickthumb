@@ -532,7 +532,7 @@ class TimelineSampler:
     """Render any instant of the animated timeline that GIF/MP4/WebM play.
 
     The sampler and the exporters share one plan and one in-motion frame rule
-    (``_slide_frame``). They differ only in encoding choices that belong to
+    (`_slide_frame`). They differ only in encoding choices that belong to
     exports: exporters sample each span on their own frame grid, stretch a
     slide shorter than one frame to a full frame, and may keep the last motion
     frame for a sub-frame hold. The sampler observes the exact timeline, so
@@ -576,7 +576,7 @@ class TimelineSampler:
         ]
 
     def frame_at(self, time: float) -> tuple[int, Image.Image]:
-        """Return the slide index and opaque frame on screen at ``time`` seconds."""
+        """Return the slide index and opaque frame on screen at `time` seconds."""
         index = self._slide_at(time)
         transition, duration_in, animation_end, exit_time = self._plan.timings[index]
         local = min(max(0.0, time - self._plan.offsets[index]), exit_time)
@@ -771,7 +771,7 @@ def _slide_motion_shots(
 def _morph_source(
     transition: Transition | None, previous: Canvas | None, incoming: Canvas
 ) -> Canvas | None:
-    """Return the outgoing canvas when a keyed Morph can play into ``incoming``."""
+    """Return the outgoing canvas when a keyed Morph can play into `incoming`."""
     if (
         transition is not None
         and transition.effect == "morph"
@@ -794,7 +794,7 @@ def _slide_frame(
     size: tuple[int, int],
     matte_rgb: tuple[int, int, int],
 ) -> Image.Image:
-    """Composite the opaque frame shown ``local`` seconds into an unsettled slide."""
+    """Composite the opaque frame shown `local` seconds into an unsettled slide."""
     incoming = _conform(animator.frame_at(local), size, matte_rgb)
     if local >= duration_in:
         return incoming
