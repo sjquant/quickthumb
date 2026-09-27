@@ -2028,7 +2028,7 @@ class Canvas:
 
     @staticmethod
     def _local_asset_fields(layer):
-        """Yield ``(relative JSON Pointer, source)`` for file assets a layer reads."""
+        """Yield `(relative JSON Pointer, source)` for file assets a layer reads."""
         if isinstance(layer, BackgroundLayer) and layer.image:
             yield "/image", layer.image
         elif isinstance(layer, (ImageLayer, SvgLayer)):

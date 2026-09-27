@@ -1,10 +1,10 @@
 """Structured error vocabulary shared by the Python API and the CLI.
 
 Every quickthumb exception carries one or more :class:`ErrorDetail` records.
-A detail is the machine-readable contract: a stable ``code``, the failure
-``category``, a human-readable ``message``, an RFC 6901 JSON Pointer ``path``
-into the input document, the affected ``layer_id``, and a ``suggestion`` when
-a concrete remedy is known. ``str(error)`` renders the same details for people.
+A detail is the machine-readable contract: a stable `code`, the failure
+`category`, a human-readable `message`, an RFC 6901 JSON Pointer `path`
+into the input document, the affected `layer_id`, and a `suggestion` when
+a concrete remedy is known. `str(error)` renders the same details for people.
 """
 
 from __future__ import annotations
@@ -83,9 +83,9 @@ class QuickthumbError(Exception):
         return self._details[0].code
 
     def at(self, prefix: str, value: object = None) -> QuickthumbError:
-        """Re-anchor detail paths under ``prefix`` in an enclosing document.
+        """Re-anchor detail paths under `prefix` in an enclosing document.
 
-        ``value`` is the input found at ``prefix``; when given, details without
+        `value` is the input found at `prefix`; when given, details without
         a layer id adopt the id of the innermost layer object on their path.
         """
         self._details = [
@@ -135,7 +135,7 @@ class ValidationError(QuickthumbError):
 
     @classmethod
     def from_pydantic(cls, error: PydanticValidationError, data: object) -> ValidationError:
-        """Translate pydantic failures into details anchored at ``data``."""
+        """Translate pydantic failures into details anchored at `data`."""
         details = _dedupe(_pydantic_detail(item, data) for item in error.errors())
         return cls(details[0].message, original_error=error, details=details)
 
@@ -196,7 +196,7 @@ def _input_path(data: object, loc: Sequence[str | int]) -> list[str | int]:
     for position, segment in enumerate(loc):
         last = position == len(loc) - 1
         if not last and _is_discriminator_tag(current, segment):
-            # A tagged-union branch such as ``shape`` can share its name with a
+            # A tagged-union branch such as `shape` can share its name with a
             # real field; the tag precedes the fields of the selected branch.
             continue
         if _has_child(current, segment):

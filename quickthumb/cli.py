@@ -554,7 +554,7 @@ def watch(
 
 
 def _fail(error: Exception, output_format: str = "text") -> typer.Exit:
-    """Report ``error`` in the requested format and return the matching exit."""
+    """Report `error` in the requested format and return the matching exit."""
     structured = _structured_error(error)
     if output_format == "json":
         payload = {"errors": [detail.model_dump(mode="json") for detail in structured.details]}

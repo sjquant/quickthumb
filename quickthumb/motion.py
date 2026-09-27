@@ -1500,7 +1500,7 @@ def validate_export(
 def _iter_export_layer_locations(
     source: Canvas | Deck,
 ) -> Iterable[tuple[str, str, object]]:
-    """Yield ``(layer id, JSON Pointer, layer)`` for every layer, depth-first."""
+    """Yield `(layer id, JSON Pointer, layer)` for every layer, depth-first."""
 
     def walk(layer: object, index: int, path: tuple[int, ...], pointer: str):
         yield layer_id_for(layer, index, path), pointer, layer
