@@ -21,7 +21,12 @@ from quickthumb._diff import (
 from quickthumb._document import load_document
 from quickthumb.canvas import _VAR_RE, Canvas, _is_theme_reference
 from quickthumb.deck import Deck, DeckDiagnostic
-from quickthumb.errors import RenderingError, ValidationError
+from quickthumb.errors import (
+    ErrorDetail,
+    InputError,
+    QuickthumbError,
+    RenderingError,
+)
 from quickthumb.schema import canvas_json_schema, document_json_schema
 
 _VALID_FORMATS = {"PNG", "JPEG", "WEBP"}
@@ -38,6 +43,7 @@ _DIAGNOSTIC_CODES = {
     "mixed-slide-size",
 }
 _FAIL_ON_VALUES = {"warning", "error", "never"}
+_OUTPUT_FORMATS = ("text", "json")
 Diagnosable: TypeAlias = Canvas | Deck
 
 
@@ -57,11 +63,12 @@ app = typer.Typer(help="quickthumb — programmatic thumbnail generation")
 
 def _validate_render_options(fmt: str | None, quality: int | None) -> None:
     if fmt is not None and fmt.upper() not in _VALID_FORMATS:
-        typer.echo(f"Invalid format '{fmt}'. Must be one of: PNG, JPEG, WEBP", err=True)
-        raise typer.Exit(1)
+        raise InputError(
+            f"Invalid format '{fmt}'. Must be one of: PNG, JPEG, WEBP",
+            suggestion="omit --format to infer the format from the output extension",
+        )
     if quality is not None and not (1 <= quality <= 95):
-        typer.echo(f"Invalid quality {quality}. Must be between 1 and 95.", err=True)
-        raise typer.Exit(1)
+        raise InputError(f"Invalid quality {quality}. Must be between 1 and 95.")
 
 
 def _parse_var_options(var: list[str] | None) -> dict[str, str]:
@@ -69,14 +76,19 @@ def _parse_var_options(var: list[str] | None) -> dict[str, str]:
     for item in var or []:
         key, sep, value = item.partition("=")
         if not sep:
-            raise ValidationError(f"Invalid --var '{item}': expected KEY=VALUE format.")
+            raise InputError(f"Invalid --var '{item}': expected KEY=VALUE format.")
         variables[key] = value
     return variables
 
 
 def _load_canvas(spec: Path, variables: dict[str, str]) -> Diagnosable:
     """Read, substitute, and parse a Canvas or Deck JSON source."""
-    text = spec.read_text()
+    try:
+        text = spec.read_text()
+    except (OSError, UnicodeError) as error:
+        raise InputError(
+            f"Cannot read spec file '{spec}': {error}", code="input_unreadable"
+        ) from error
 
     if variables:
         text = _substitute_vars(text, variables)
@@ -84,38 +96,26 @@ def _load_canvas(spec: Path, variables: dict[str, str]) -> Diagnosable:
     return load_document(text)
 
 
-def _echo_input_error(
-    error: Exception, output_format: str = "text", code: str = "invalid-spec"
-) -> None:
-    if output_format == "json":
-        typer.echo(json.dumps({"error": {"code": code, "message": str(error)}}))
-    else:
-        typer.echo(str(error), err=True)
-
-
 def _validate_diagnostic_options(
     fail_on: str, ignored_codes: list[str] | None, output_format: str
 ) -> tuple[str, set[str]]:
     normalized_fail_on = fail_on.lower()
     if normalized_fail_on not in _FAIL_ON_VALUES:
-        _echo_input_error(
-            ValidationError(
-                f"Invalid --fail-on '{fail_on}'. Must be one of: warning, error, never"
-            ),
+        raise _fail(
+            InputError(f"Invalid --fail-on '{fail_on}'. Must be one of: warning, error, never"),
             output_format,
-            code="invalid-options",
         )
-        raise typer.Exit(1) from None
 
     ignored = {code.lower() for code in ignored_codes or []}
     unknown = sorted(ignored - _DIAGNOSTIC_CODES)
     if unknown:
-        _echo_input_error(
-            ValidationError(f"Unknown diagnostic code(s): {', '.join(unknown)}"),
+        raise _fail(
+            InputError(
+                f"Unknown diagnostic code(s): {', '.join(unknown)}",
+                suggestion=f"use one of {', '.join(sorted(_DIAGNOSTIC_CODES))}",
+            ),
             output_format,
-            code="invalid-options",
         )
-        raise typer.Exit(1) from None
     return normalized_fail_on, ignored
 
 
@@ -160,34 +160,16 @@ def _run_lint(
     fail_on: str,
     ignored_codes: list[str] | None,
 ) -> None:
-    lint_format = output_format.lower()
-    if lint_format not in ("text", "json"):
-        typer.echo(
-            f"Invalid lint format '{output_format}'. Must be one of: text, json",
-            err=True,
-        )
-        raise typer.Exit(1)
+    lint_format = _require_output_format(output_format)
     normalized_fail_on, ignored = _validate_diagnostic_options(fail_on, ignored_codes, lint_format)
 
     try:
         source = _load_canvas(spec, _parse_var_options(var))
-    except (OSError, UnicodeError, json.JSONDecodeError, ValidationError) as error:
-        _echo_input_error(error, lint_format)
-        raise typer.Exit(1) from None
-
-    try:
         diagnostics = _filter_diagnostics(
             cast(Iterable[_DiagnosticLike], source.diagnose().findings), ignored
         )
-    except FileNotFoundError as error:
-        _echo_input_error(FileNotFoundError(f"Referenced file not found: {error}"), lint_format)
-        raise typer.Exit(1) from None
-    except (RenderingError, OSError) as error:
-        if lint_format == "json":
-            typer.echo(json.dumps({"error": {"code": "rendering-failure", "message": str(error)}}))
-        else:
-            typer.echo(str(error), err=True)
-        raise typer.Exit(2) from None
+    except (QuickthumbError, OSError) as error:
+        raise _fail(error, lint_format) from None
 
     if lint_format == "json":
         error_count = sum(1 for finding in diagnostics if finding.severity == "error")
@@ -280,42 +262,50 @@ def render(
         list[str] | None,
         typer.Option("--var", help="Variable substitution as KEY=VALUE"),
     ] = None,
+    error_format: Annotated[
+        str,
+        typer.Option("--error-format", help="Error report format: text or json"),
+    ] = "text",
 ) -> None:
     """Render a JSON spec file to an image, to SVG/PPTX/PDF/HTML, or to an
-    animated GIF/MP4/WebM that plays the spec's layer animations, by extension."""
-    _validate_render_options(fmt, quality)
-    try:
-        source = _load_canvas(spec, _parse_var_options(var))
-    except (OSError, UnicodeError, json.JSONDecodeError, ValidationError) as error:
-        typer.echo(str(error), err=True)
-        raise typer.Exit(1) from None
+    animated GIF/MP4/WebM that plays the spec's layer animations, by extension.
 
+    Exit codes: 0 rendered, 1 invalid input/spec or missing asset, 2 export failure.
+    """
+    report_format = _require_output_format(error_format, "--error-format")
     try:
-        if isinstance(source, Deck):
-            if debug:
-                typer.echo("--debug is only supported for Canvas specs.", err=True)
-                raise typer.Exit(1)
-            written = source.render(
-                str(output),
-                format=fmt.upper() if fmt else None,  # type: ignore[arg-type]
-                quality=quality,
-            )
-            for path in written:
-                typer.echo(path)
-            return
-        source.render(
+        _render_spec(spec, output, fmt, quality, debug, var)
+    except (QuickthumbError, OSError) as error:
+        raise _fail(error, report_format) from None
+
+
+def _render_spec(
+    spec: Path,
+    output: Path,
+    fmt: str | None,
+    quality: int | None,
+    debug: bool,
+    var: list[str] | None,
+) -> None:
+    _validate_render_options(fmt, quality)
+    source = _load_canvas(spec, _parse_var_options(var))
+    if isinstance(source, Deck):
+        if debug:
+            raise InputError("--debug is only supported for Canvas specs.")
+        written = source.render(
             str(output),
             format=fmt.upper() if fmt else None,  # type: ignore[arg-type]
             quality=quality,
-            debug=debug,
         )
-    except ValidationError as e:
-        typer.echo(str(e), err=True)
-        raise typer.Exit(1) from e
-    except (RenderingError, OSError) as e:
-        typer.echo(str(e), err=True)
-        raise typer.Exit(2) from e
-
+        for path in written:
+            typer.echo(path)
+        return
+    source.render(
+        str(output),
+        format=fmt.upper() if fmt else None,  # type: ignore[arg-type]
+        quality=quality,
+        debug=debug,
+    )
     typer.echo(str(output))
 
 
@@ -453,7 +443,11 @@ def _substitute_vars(text: str, variables: dict[str, str]) -> str:
         if not _is_theme_reference(match)
     ]
     if unresolved:
-        raise ValidationError(f"Unresolved placeholder(s): {', '.join(unresolved)}")
+        raise InputError(
+            f"Unresolved placeholder(s): {', '.join(unresolved)}",
+            code="unresolved_variable",
+            suggestion="pass --var KEY=VALUE for each placeholder",
+        )
 
     return result
 
@@ -493,10 +487,9 @@ def serve(
             open_browser=open_browser,
             variables=variables,
         )
-    except RenderingError as error:
-        typer.echo(str(error), err=True)
-        raise typer.Exit(2) from error
-    except (json.JSONDecodeError, OSError, ValidationError) as error:
+    except QuickthumbError as error:
+        raise _fail(error) from error
+    except (json.JSONDecodeError, OSError) as error:
         typer.echo(str(error), err=True)
         raise typer.Exit(1) from error
     except Exception as error:
@@ -538,43 +531,17 @@ def watch(
         )
         raise typer.Exit(1) from None
 
-    _validate_render_options(fmt, quality)
     try:
-        variables = _parse_var_options(var)
-    except ValidationError as error:
-        typer.echo(str(error), err=True)
-        raise typer.Exit(1) from None
+        _validate_render_options(fmt, quality)
+        _parse_var_options(var)
+    except InputError as error:
+        raise _fail(error) from None
 
     def _render_once() -> None:
         try:
-            canvas = _load_canvas(spec, variables)
-        except typer.Exit:
-            return  # error already echoed; keep watching for the next change
-        except (OSError, UnicodeError, json.JSONDecodeError, ValidationError) as error:
-            typer.echo(str(error), err=True)
-            return
-
-        try:
-            if isinstance(canvas, Deck):
-                if debug:
-                    typer.echo("--debug is only supported for Canvas specs.", err=True)
-                    return
-                for path in canvas.render(
-                    str(output),
-                    format=fmt.upper() if fmt else None,  # type: ignore[arg-type]
-                    quality=quality,
-                ):
-                    typer.echo(path)
-                return
-            canvas.render(
-                str(output),
-                format=fmt.upper() if fmt else None,  # type: ignore[arg-type]
-                quality=quality,
-                debug=debug,
-            )
-            typer.echo(str(output))
-        except (ValidationError, RenderingError, OSError) as e:
-            typer.echo(str(e), err=True)
+            _render_spec(spec, output, fmt, quality, debug, var)
+        except (QuickthumbError, OSError) as error:
+            _fail(error)  # keep watching for the next change
 
     typer.echo(f"Watching {spec} … (Ctrl+C to stop)")
     _render_once()
@@ -584,6 +551,37 @@ def watch(
             _render_once()
     except KeyboardInterrupt:
         pass
+
+
+def _fail(error: Exception, output_format: str = "text") -> typer.Exit:
+    """Report `error` in the requested format and return the matching exit."""
+    structured = _structured_error(error)
+    if output_format == "json":
+        payload = {"errors": [detail.model_dump(mode="json") for detail in structured.details]}
+        typer.echo(json.dumps(payload, indent=2))
+    else:
+        for detail in structured.details:
+            typer.echo(_format_error(detail), err=True)
+    return typer.Exit(2 if structured.category == "export" else 1)
+
+
+def _structured_error(error: Exception) -> QuickthumbError:
+    if isinstance(error, QuickthumbError):
+        return error
+    # Document assets raise MissingAssetError; any other OS failure happened
+    # while producing output, such as writing into a missing directory.
+    return RenderingError(str(error), code="export_failed")
+
+
+def _format_error(detail: ErrorDetail) -> str:
+    return f"error[{detail.code}] {detail.format()}"
+
+
+def _require_output_format(output_format: str, option: str = "--format") -> str:
+    normalized = output_format.lower()
+    if normalized not in _OUTPUT_FORMATS:
+        raise _fail(InputError(f"Invalid {option} '{output_format}'. Must be one of: text, json"))
+    return normalized
 
 
 if __name__ == "__main__":

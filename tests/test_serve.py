@@ -424,7 +424,9 @@ class TestCLIServe:
 
         # then: the CLI keeps the validation output concise
         assert result.exit_code == 1
-        assert result.output == "Invalid --var 'BROKEN': expected KEY=VALUE format.\n"
+        assert result.output == (
+            "error[invalid_option] Invalid --var 'BROKEN': expected KEY=VALUE format.\n"
+        )
 
     def test_should_run_the_public_serve_entrypoint_against_a_real_http_server(
         self, tmp_path: Path

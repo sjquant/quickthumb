@@ -1368,15 +1368,8 @@ def _capability_features_for(animation: object) -> tuple[CapabilityFeature, ...]
 
 
 def _iter_export_layers(source: Canvas | Deck) -> Iterable[tuple[str, object]]:
-    def walk(layer: object, index: int, path: tuple[int, ...]):
-        yield layer_id_for(layer, index, path), layer
-        for child_index, child in enumerate(getattr(layer, "children", ())):
-            yield from walk(child, child_index, (*path, child_index))
-
-    canvases = cast(Iterable[Any], source.slides if hasattr(source, "slides") else [source])
-    for canvas in canvases:
-        for layer_index, layer in enumerate(canvas.layers):
-            yield from walk(layer, layer_index, (layer_index,))
+    for layer_id, _, layer in _iter_export_layer_locations(source):
+        yield layer_id, layer
 
 
 def validate_export(
@@ -1389,7 +1382,7 @@ def validate_export(
     resolved_policy = policy or ExportPolicy()
     row = capabilities_for(normalized)
     diagnostics: list[ExportDiagnostic] = []
-    for layer_id, layer in _iter_export_layers(source):
+    for layer_id, pointer, layer in _iter_export_layer_locations(source):
         value = getattr(layer, "value", None)
         if isinstance(value, AnimatedTextValue) and normalized in ("html", "pptx"):
             diagnostics.append(
@@ -1435,9 +1428,11 @@ def validate_export(
                     action = resolved_policy.unsupported_motion
                 fallback = declared_fallback
                 if action == "native" and declared_support not in ("full", "native"):
-                    raise RenderingError(
+                    raise _unsupported_motion(
                         f"{feature} motion on layer {layer_id} cannot use native handling "
-                        f"for {normalized}"
+                        f"for {normalized}",
+                        pointer,
+                        layer_id,
                     )
                 if declared_support in ("full", "native"):
                     action = "native"
@@ -1457,7 +1452,12 @@ def validate_export(
                     )
                 )
                 if action == "error" and declared_support not in ("full", "native"):
-                    raise RenderingError(message)
+                    raise _unsupported_motion(
+                        f"{feature} motion on layer {layer_id} is {declared_support} "
+                        f"for {normalized} and the export policy is 'error'",
+                        pointer,
+                        layer_id,
+                    )
                 diagnostic_support = declared_support
                 if action != "native" and declared_support not in ("full", "native"):
                     diagnostic_support = "fallback"
@@ -1495,6 +1495,39 @@ def validate_export(
                     )
                 )
     return diagnostics
+
+
+def _iter_export_layer_locations(
+    source: Canvas | Deck,
+) -> Iterable[tuple[str, str, object]]:
+    """Yield `(layer id, JSON Pointer, layer)` for every layer, depth-first."""
+
+    def walk(layer: object, index: int, path: tuple[int, ...], pointer: str):
+        yield layer_id_for(layer, index, path), pointer, layer
+        for child_index, child in enumerate(getattr(layer, "children", ())):
+            yield from walk(
+                child, child_index, (*path, child_index), f"{pointer}/children/{child_index}"
+            )
+
+    slides = getattr(source, "slides", None)
+    canvases = cast(Iterable[Any], slides if slides is not None else [source])
+    for slide_index, canvas in enumerate(canvases):
+        base = "" if slides is None else f"/slides/{slide_index}"
+        for layer_index, layer in enumerate(canvas.layers):
+            yield from walk(layer, layer_index, (layer_index,), f"{base}/layers/{layer_index}")
+
+
+def _unsupported_motion(message: str, pointer: str, layer_id: str) -> RenderingError:
+    return RenderingError(
+        message,
+        code="unsupported_capability",
+        path=f"{pointer}/animation",
+        layer_id=layer_id,
+        suggestion=(
+            "set ExportPolicy.unsupported_motion to 'rasterize', 'static', or 'warn', "
+            "or export to a target that supports this motion"
+        ),
+    )
 
 
 def _canvas_has_video_captions(canvas: Canvas) -> bool:

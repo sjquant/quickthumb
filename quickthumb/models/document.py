@@ -16,6 +16,8 @@ from pydantic import (
     model_validator,
 )
 
+from quickthumb.errors import ErrorDetail
+
 from .common import *  # noqa: F401,F403
 from .layers import (
     BackgroundLayer,
@@ -64,15 +66,6 @@ class CanvasSpecModel(quickthumbModel):
     layers: list[LayerType]
 
 
-class ValidationIssue(quickthumbModel):
-    """One actionable document validation issue."""
-
-    code: str
-    message: str
-    path: str | None = None
-    suggestion: str | None = None
-
-
 class ValidationReport(quickthumbModel):
     """Stable result of a document-level validation pass."""
 
@@ -80,8 +73,8 @@ class ValidationReport(quickthumbModel):
 
     version: Literal["1"] = "1"
     valid: bool
-    errors: list[ValidationIssue] = Field(default_factory=list)
-    warnings: list[ValidationIssue] = Field(default_factory=list)
+    errors: list[ErrorDetail] = Field(default_factory=list)
+    warnings: list[ErrorDetail] = Field(default_factory=list)
 
     @property
     def ok(self) -> bool:
