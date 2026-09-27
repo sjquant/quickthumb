@@ -1,8 +1,10 @@
 """Fidelity policy and comparison results for canonical-sample checks."""
 
-from typing import Annotated, Literal, cast
+from typing import Annotated, Literal, cast, get_args
 
 from pydantic import ConfigDict, Field, NonNegativeInt
+
+from quickthumb.errors import InputError
 
 from .common import quickthumbModel
 
@@ -49,17 +51,29 @@ class FidelityPolicy(quickthumbModel):
     formats: dict[FidelityFormat, FidelityTolerance] = Field(default_factory=dict)
 
     def tolerance_for(self, output_format: str | None = None) -> FidelityTolerance:
-        """Return the tolerance that applies to `output_format`."""
+        """Return the tolerance that applies to `output_format`.
+
+        Raises `InputError` for a format the policy cannot describe, so a
+        misspelled format never falls back to the default tolerance silently.
+        """
         if output_format is None:
             return self.default
         key = _normalize_output_format(output_format)
-        return self.formats.get(cast(FidelityFormat, key), self.default)
+        return self.formats.get(key, self.default)
 
 
-def _normalize_output_format(output_format: str) -> str:
+def _normalize_output_format(output_format: str) -> FidelityFormat:
     """Normalize a format name or file suffix such as `.JPEG` to `jpg`."""
     key = output_format.strip().lower().lstrip(".")
-    return _FORMAT_ALIASES.get(key, key)
+    key = _FORMAT_ALIASES.get(key, key)
+    supported = get_args(FidelityFormat)
+    if key not in supported:
+        raise InputError(
+            f"unsupported output format '{output_format}' for fidelity comparison",
+            code="unsupported_output_format",
+            suggestion=f"use one of: {', '.join(supported)}",
+        )
+    return cast(FidelityFormat, key)
 
 
 class FidelityMeasurements(quickthumbModel):

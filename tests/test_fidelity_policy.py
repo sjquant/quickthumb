@@ -197,6 +197,27 @@ def test_jpeg_output_uses_the_jpg_tolerance():
     assert policy.tolerance_for("png") == policy.default
 
 
+@pytest.mark.parametrize("output_format", ["jepg", "tiff", "image/jpeg", ""])
+def test_unknown_output_format_is_rejected_instead_of_using_the_default(output_format):
+    """A misspelled or unsupported format fails instead of silently using the default."""
+    # given: a policy whose JPG tolerance is stricter than its default
+    policy = FidelityPolicy(
+        default=FidelityTolerance(max_different_pixel_ratio=1.0, min_hash_similarity=0.0),
+        formats={"jpg": FidelityTolerance()},
+    )
+    frame = card().sample().frames[0]
+
+    # when: the output is judged under a format the policy cannot describe
+    with pytest.raises(InputError) as error:
+        compare_fidelity(frame, frame, output_format=output_format, policy=policy)
+
+    # then: the error names the problem and lists the supported formats
+    detail = error.value.details[0]
+    assert detail.code == "unsupported_output_format"
+    assert detail.suggestion is not None
+    assert "jpg" in detail.suggestion
+
+
 def test_hidden_color_is_ignored_but_alpha_changes_count():
     """Transparent pixels compare as transparent, while visible alpha changes count."""
     # given: a transparent sample, a copy with different hidden color, and an opaque copy
