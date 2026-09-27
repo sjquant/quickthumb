@@ -12,6 +12,7 @@ import contextlib
 import math
 import os
 import tempfile
+from collections.abc import Sequence
 from typing import TYPE_CHECKING, Literal, cast
 
 from typing_extensions import Self
@@ -38,6 +39,7 @@ from quickthumb.plugins import PluginRegistry
 from quickthumb.transitions import Transition, coerce_transition
 
 if TYPE_CHECKING:
+    from quickthumb._document import TimelineInputs
     from quickthumb._export_video import AnimationFormat
 
 _DOCUMENT_EXTENSIONS = {".pdf", ".pptx", ".html", ".htm"}
@@ -281,6 +283,10 @@ class Deck:
         _, durations = self._animation_audio_schedule()
         return sum(durations), 30.0
 
+    def _contract_timeline_inputs(self, hold: float) -> TimelineInputs:
+        slide_durations, _ = self._animation_audio_schedule(hold)
+        return list(self._slides), self._resolved_transitions(), slide_durations
+
     def inspect(self) -> DeckInspection:
         """Return deterministic layout reports for every slide."""
         first = self._slides[0] if self._slides else None
@@ -303,10 +309,29 @@ class Deck:
             ),
         )
 
-    def sample(self, time: float = 0.0) -> FrameSequence:
-        """Return one canonical RGBA frame for each slide at ``time``."""
+    def sample(
+        self,
+        time: float | Sequence[float] | None = None,
+        *,
+        fps: float | None = None,
+        hold: float = 3.0,
+        matte: str = "#000000",
+    ) -> FrameSequence:
+        """Capture canonical RGBA frames without exposing motion internals.
+
+        With no arguments, returns one settled still frame per slide, as
+        raster, PDF, and PPTX exports draw them. `time` (seconds, one value
+        or an ascending sequence) or `fps` (a uniform grid over the whole
+        timeline) instead observe the animated deck timeline, including
+        transitions and narration-driven slide durations; a slide without an
+        explicit duration holds for `hold` seconds after its animations,
+        and frames are composited onto `matte`.
+        """
         self._require_slides()
-        return FrameSequence(frames=[slide.sample(time) for slide in self._slides])
+        from quickthumb._document import Document
+        from quickthumb._sampling import sample_document
+
+        return sample_document(cast(Document, self), time, fps=fps, hold=hold, matte=matte)
 
     def render(
         self,

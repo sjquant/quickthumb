@@ -47,6 +47,7 @@ audio.
 
 from __future__ import annotations
 
+import bisect
 import contextlib
 import itertools
 import math
@@ -215,7 +216,7 @@ def write_animation(
     plan = _deck_plan(
         canvases,
         transitions,
-        fps,
+        1.0 / fps,
         slide_duration,
         slide_durations,
         reduced_motion=reduced_motion,
@@ -313,7 +314,7 @@ def export_animation_bytes(
     plan = _deck_plan(
         canvases,
         transitions,
-        fps,
+        1.0 / fps,
         slide_duration,
         slide_durations,
         reduced_motion=reduced_motion,
@@ -473,10 +474,7 @@ def _validated_settings(
         raise ValidationError("MP4/WebM export requires canvas dimensions of at least 2x2 pixels")
     if format == "gif" and loop > 65535:
         raise ValidationError("loop must be <= 65535 for GIF output")
-    try:
-        matte_rgb = ImageColor.getrgb(matte)[:3]
-    except (TypeError, ValueError):
-        raise ValidationError(f"Invalid matte color: {matte!r}") from None
+    matte_rgb = matte_color(matte)
     # Validate every slide's assets up front so a missing image fails before
     # any frame is rendered or an encoder is started, leaving no partial
     # output behind (matching the all-or-nothing raster-sequence behaviour).
@@ -530,10 +528,105 @@ class _DeckPlan:
     duration: float
 
 
+class TimelineSampler:
+    """Render any instant of the animated timeline that GIF/MP4/WebM play.
+
+    The sampler and the exporters share one plan and one in-motion frame rule
+    (`_slide_frame`). They differ only in encoding choices that belong to
+    exports: exporters sample each span on their own frame grid, stretch a
+    slide shorter than one frame to a full frame, and may keep the last motion
+    frame for a sub-frame hold. The sampler observes the exact timeline, so
+    its duration does not depend on any frame rate.
+    """
+
+    def __init__(
+        self,
+        canvases: list[Canvas],
+        transitions: list[Transition | None],
+        *,
+        slide_duration: float,
+        slide_durations: list[float | None] | None,
+        matte: str,
+    ):
+        self._matte_rgb = matte_color(matte)
+        for canvas in canvases:
+            canvas._validate_image_paths()
+        self._canvases = canvases
+        self._transitions = transitions
+        self._size = (canvases[0].width, canvases[0].height)
+        try:
+            self._plan = _deck_plan(canvases, transitions, 0.0, slide_duration, slide_durations)
+        except BaseException:
+            # Animators for earlier slides may already hold video decoders.
+            _close_video_decoders(canvases)
+            raise
+        self._settled: dict[int, Image.Image] = {}
+
+    @property
+    def duration(self) -> float:
+        return self._plan.duration
+
+    def segments(self) -> list[tuple[float, float, float, float]]:
+        """Return each slide's absolute (start, transition end, animation end, end)."""
+        return [
+            (offset, offset + duration_in, offset + animation_end, offset + exit_time)
+            for offset, (_, duration_in, animation_end, exit_time) in zip(
+                self._plan.offsets, self._plan.timings, strict=True
+            )
+        ]
+
+    def frame_at(self, time: float) -> tuple[int, Image.Image]:
+        """Return the slide index and opaque frame on screen at `time` seconds."""
+        index = self._slide_at(time)
+        transition, duration_in, animation_end, exit_time = self._plan.timings[index]
+        local = min(max(0.0, time - self._plan.offsets[index]), exit_time)
+        if local >= max(animation_end, duration_in):
+            return index, self._settled_frame(index)
+        previous_canvas = self._canvases[index - 1] if index > 0 else None
+        previous = (
+            self._settled_frame(index - 1)
+            if index > 0
+            else Image.new("RGB", self._size, self._matte_rgb)
+        )
+        return index, _slide_frame(
+            self._plan.animators[index],
+            transition,
+            duration_in,
+            local,
+            previous,
+            _morph_source(transition, previous_canvas, self._canvases[index]),
+            self._canvases[index],
+            self._size,
+            self._matte_rgb,
+        )
+
+    def close(self) -> None:
+        _close_video_decoders(self._canvases)
+
+    def _slide_at(self, time: float) -> int:
+        # Offsets are float sums; an instant within epsilon of a boundary
+        # belongs to the incoming slide, as the half-open windows promise.
+        return max(0, bisect.bisect_right(self._plan.offsets, time + _TIME_EPSILON) - 1)
+
+    def _settled_frame(self, index: int) -> Image.Image:
+        if index not in self._settled:
+            final = self._plan.animators[index].final_export_frame()
+            self._settled[index] = _conform(final, self._size, self._matte_rgb)
+        return self._settled[index]
+
+
+def matte_color(matte: str) -> tuple[int, int, int]:
+    """Parse an animation matte color into the opaque RGB it composites onto."""
+    try:
+        return ImageColor.getrgb(matte)[:3]
+    except (TypeError, ValueError):
+        raise ValidationError(f"Invalid matte color: {matte!r}") from None
+
+
 def _deck_plan(
     canvases: list[Canvas],
     transitions: list[Transition | None],
-    fps: float,
+    minimum_duration: float,
     slide_duration: float,
     slide_durations: list[float | None] | None,
     reduced_motion: bool = False,
@@ -550,7 +643,7 @@ def _deck_plan(
         slide_duration,
         animation_durations=[animator.duration for animator in animators],
         slide_durations=slide_durations,
-        minimum_duration=1.0 / fps,
+        minimum_duration=minimum_duration,
     )
     offsets: list[float] = []
     duration = 0.0
@@ -572,7 +665,7 @@ def _deck_shots(
     """Yield the deck's full frame timeline as variable-duration shots."""
     size = (canvases[0].width, canvases[0].height)
     previous_final = Image.new("RGB", size, matte_rgb)
-    plan = plan or _deck_plan(canvases, transitions, fps, slide_duration, slide_durations)
+    plan = plan or _deck_plan(canvases, transitions, 1.0 / fps, slide_duration, slide_durations)
 
     previous_canvas = None
     for animator, canvas, timing in zip(
@@ -643,43 +736,73 @@ def _slide_motion_shots(
 ) -> Iterator[_Shot]:
     """Yield transition and layer-animation shots before the settled hold."""
     # Whether a morph is safe depends only on the pair of canvases, so decide once.
-    morph_from = (
-        previous_canvas
-        if (
-            transition is not None
-            and transition.effect == "morph"
-            and previous_canvas is not None
-            and not _canvas_has_video_captions(previous_canvas)
-            and not _canvas_has_video_captions(incoming_canvas)
+    morph_from = _morph_source(transition, previous_canvas, incoming_canvas)
+
+    def frame(time: float) -> Image.Image:
+        return _slide_frame(
+            animator,
+            transition,
+            duration_in,
+            time,
+            previous_final,
+            morph_from,
+            incoming_canvas,
+            size,
+            matte_rgb,
         )
-        else None
-    )
+
     for time, duration in _sample_span(0.0, duration_in, fps):
-        incoming = _conform(animator.frame_at(time), size, matte_rgb)
-        progress = _ease(time / duration_in)
-        if morph_from is not None:
-            frame = _morph_frame(morph_from, incoming_canvas, progress, duration_in)
-        else:
-            frame = _transition_frame(transition, previous_final, incoming, progress)
-        yield _Shot(frame, duration, animator._has_active_caption(time))
+        yield _Shot(frame(time), duration, animator._has_active_caption(time))
     # Between effect windows every unit's state is constant, so gaps (a
     # trailing `delay`, a pause between chained effects) collapse into one
     # held frame instead of resampling identical frames at fps.
     for seg_start, seg_end, animating in animator.segments(duration_in, animation_end):
         if animating:
             for time, duration in _sample_span(seg_start, seg_end, fps):
-                yield _Shot(
-                    _conform(animator.frame_at(time), size, matte_rgb),
-                    duration,
-                    animator._has_active_caption(time),
-                )
+                yield _Shot(frame(time), duration, animator._has_active_caption(time))
         else:
-            frame = _conform(animator.frame_at(seg_start), size, matte_rgb)
             yield _Shot(
-                frame,
+                frame(seg_start),
                 seg_end - seg_start,
                 animator._has_active_caption(seg_start),
             )
+
+
+def _morph_source(
+    transition: Transition | None, previous: Canvas | None, incoming: Canvas
+) -> Canvas | None:
+    """Return the outgoing canvas when a keyed Morph can play into `incoming`."""
+    if (
+        transition is not None
+        and transition.effect == "morph"
+        and previous is not None
+        and not _canvas_has_video_captions(previous)
+        and not _canvas_has_video_captions(incoming)
+    ):
+        return previous
+    return None
+
+
+def _slide_frame(
+    animator: _SlideAnimator,
+    transition: Transition | None,
+    duration_in: float,
+    local: float,
+    previous_final: Image.Image,
+    morph_from: Canvas | None,
+    incoming_canvas: Canvas,
+    size: tuple[int, int],
+    matte_rgb: tuple[int, int, int],
+) -> Image.Image:
+    """Composite the opaque frame shown `local` seconds into an unsettled slide."""
+    incoming = _conform(animator.frame_at(local), size, matte_rgb)
+    if local >= duration_in:
+        return incoming
+    progress = _ease(local / duration_in)
+    if morph_from is not None:
+        morph = _morph_frame(morph_from, incoming_canvas, progress, duration_in)
+        return _conform(morph, size, matte_rgb)
+    return _transition_frame(transition, previous_final, incoming, progress)
 
 
 def animation_timeline(
@@ -690,7 +813,7 @@ def animation_timeline(
     fps: float = _DEFAULT_FPS["mp4"],
 ) -> tuple[list[float], float]:
     """Return the shared visual start offsets and total duration for a Deck."""
-    plan = _deck_plan(canvases, transitions, fps, slide_duration, slide_durations)
+    plan = _deck_plan(canvases, transitions, 1.0 / fps, slide_duration, slide_durations)
     return plan.offsets, plan.duration
 
 

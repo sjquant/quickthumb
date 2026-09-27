@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import functools
 import json
 import math
 import os
@@ -123,6 +124,25 @@ class VideoDecoder:
             )
         except OSError as error:
             raise RenderingError(f"Could not start FFmpeg for {self.source!r}") from error
+
+
+def ffmpeg_version() -> str:
+    """Return the version of the FFmpeg binary that decodes video-layer frames."""
+    return _binary_version(_tool("ffmpeg", "QUICKTHUMB_FFMPEG"))
+
+
+@functools.cache
+def _binary_version(binary: str) -> str:
+    try:
+        result = subprocess.run(
+            [binary, "-version"], capture_output=True, text=True, timeout=10, check=True
+        )
+    except (OSError, subprocess.SubprocessError) as error:
+        raise RenderingError(f"Could not run FFmpeg at {binary!r} to read its version") from error
+    words = result.stdout.split()
+    if len(words) < 3 or words[:2] != ["ffmpeg", "version"]:
+        raise RenderingError(f"Could not read the FFmpeg version reported by {binary!r}")
+    return words[2]
 
 
 def _tool(name: str, setting: str) -> str:

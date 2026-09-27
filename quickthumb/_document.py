@@ -6,7 +6,7 @@ import hashlib
 import json
 import math
 import os
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, Protocol, cast, runtime_checkable
@@ -15,7 +15,6 @@ from quickthumb.asset_cache import ResolvedAsset
 from quickthumb.errors import RenderingError, ValidationError
 from quickthumb.models import (
     AssetManifestEntry,
-    CanonicalFrame,
     DiagnosticReport,
     ExportDiagnostic,
     ExportPolicy,
@@ -36,6 +35,7 @@ if TYPE_CHECKING:
     from quickthumb.deck import Deck
     from quickthumb.models import CanvasInspection, DeckInspection
     from quickthumb.plugins import PluginRegistry
+    from quickthumb.transitions import Transition
 
 DocumentKind = Literal["canvas", "deck"]
 
@@ -105,7 +105,14 @@ class Document(Protocol):
 
     def resolve_assets(self) -> ResolvedDocument: ...
 
-    def sample(self, time: float = 0.0) -> CanonicalFrame | FrameSequence: ...
+    def sample(
+        self,
+        time: float | Sequence[float] | None = None,
+        *,
+        fps: float | None = None,
+        hold: float = 3.0,
+        matte: str = "#000000",
+    ) -> FrameSequence: ...
 
     def export(
         self,
@@ -270,6 +277,13 @@ def _contract_motion_report(source: Document, target: str, policy, fps: float):
 
 def _contract_static_timing(source: Document) -> tuple[float, float] | None:
     return cast(Any, source)._contract_static_timing()
+
+
+TimelineInputs = tuple["list[Canvas]", "list[Transition | None]", "list[float | None] | None"]
+
+
+def _contract_timeline_inputs(source: Document, hold: float) -> TimelineInputs:
+    return cast(Any, source)._contract_timeline_inputs(hold)
 
 
 def _output_format(output_path: str, format: str | None = None) -> str:

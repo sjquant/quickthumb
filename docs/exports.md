@@ -197,6 +197,24 @@ The audio is always trimmed to the video length. For an `AudioTrack`, `loop=True
 !!! note "Format limits"
     None of these formats carry transparency: frames are composited onto the opaque `matte` color (default black). Mixed-size slides are scaled to fit and centered on the first slide's size. H.264/VP9 4:2:0 output needs even dimensions, so odd-sized canvases lose their last pixel row/column in MP4/WebM output. GIF encoding keeps frames in memory and rejects timelines that exceed its frame budget; reduce FPS or duration, or use MP4/WebM for long, high-resolution animations. Animated Deck MP4/WebM accepts at most 64 slides with narration because each narration is decoded as a concurrent FFmpeg input; split larger narrated decks into multiple exports. Silent slides do not count toward this limit.
 
+## Canonical samples
+
+`sample()` returns the renderer-independent reference that exports are compared against, as a JSON-serializable `FrameSequence`. Canvas and Deck share the same contract, and a canvas produces the same observations as a one-slide deck containing it.
+
+```python
+still = canvas.sample()                         # settled frame(s), as PNG/PDF/PPTX draw them
+timed = deck.sample(fps=10)                     # uniform grid over the whole animated timeline
+probe = deck.sample([0.0, 1.25, 4.0], hold=2.0) # explicit instants, ascending
+```
+
+- **Frames.** Each `CanonicalFrame` holds `width * height` pixels as raw 8-bit RGBA (row-major from the top-left, sRGB, straight alpha), base64-encoded in `data`, plus the `sha256` of those bytes. `index` is the frame's position in the sequence and `slide` the page it shows. A frame whose digest or dimensions do not match its data is rejected when it is loaded.
+- **Still captures** (`capture="still"`) hold one frame per page in slide order, at each page's own size, with transparency preserved. `time` is `None`, `duration` is `0`, and `timeline` is empty.
+- **Timeline captures** (`capture="timeline"`) observe the timeline that animated WebM/MP4 exports play: transitions, Morph, layer animations, narration-driven slide durations, and a settled hold of `hold` seconds (default 3) for pages without an explicit duration. Frames are ordered by ascending `time` in seconds, share the first slide's size, and are composited onto the opaque `matte` (default black), which is reported as `#RRGGBB`. Deck GIF export currently ignores explicit and narration slide durations, so it matches this timeline only for decks without them.
+- **Sampling.** `fps=N` (at most 120) observes every instant `k / N` before `duration`; explicit times must be ascending, and times at or past `duration` show the final settled frame. One capture observes at most 100,000 instants; a larger explicit list or fps grid is rejected with a `ValidationError` before any frame renders. This grid is an observation schedule, not an exporter's frame schedule: exporters sample each span on their own frame grid, and stretch a slide shorter than one frame to a full frame.
+- **Timing.** `duration` is the exact timeline length and never depends on `fps` or on the requested instants. Each `TimelineSegment` gives a slide's absolute `start`, `transition_end`, `animation_end`, and `end`, rounded to nanoseconds; a slide is on screen over `[start, end)`, so a boundary instant belongs to the incoming slide.
+- **Memory.** A capture whose distinct frames would exceed 768 MiB of raw RGBA is rejected with a `ValidationError`, before any frame renders when every page of a still capture, or one frame of a timeline capture, already exceeds it; request fewer instants, a lower `fps`, a shorter `hold`, or a smaller document.
+- **Environment.** `environment` records the facts that can change pixels for an identical document: quickthumb, Pillow, and FreeType versions, the text layout engine (`basic` or `raqm`), and, for documents with video layers, the version of the FFmpeg that decodes them (`QUICKTHUMB_FFMPEG` or `ffmpeg` on `PATH`). Sampling a video document without a working FFmpeg raises `RenderingError` before any frame renders. Identical documents sampled in identical environments produce identical digests; fonts and images are described by `resolve_assets()`.
+
 ## Decks (multiple images and slides)
 
 A `Deck` is an ordered collection of canvases. Each slide is a full `Canvas` and renders exactly as it would on its own, so a deck is just a multi-output container on top of the same pipeline. See the [Deck API reference](api/deck.md) for the full method list.

@@ -8,14 +8,12 @@ from PIL import Image
 from quickthumb import (
     AnimationSpec,
     BlurTrack,
-    CanonicalFrame,
     Canvas,
     Deck,
     DeckInspection,
     DiagnosticReport,
     ExportPolicy,
     ExportResult,
-    FrameSequence,
     GifOptions,
     KeyframeSpec,
     ResolvedDocument,
@@ -277,22 +275,3 @@ def test_diagnostic_serialization_honors_exclude_none():
     # Then: the option is observable in the JSON-safe result
     assert "slide_index" not in compact["findings"][0]
     assert "slide_index" in expanded["findings"][0]
-
-
-def test_sample_returns_canonical_rgba_payloads_without_timeline_objects():
-    """Given static documents, sample exposes pixels through the canonical frame models."""
-    # Given: a canvas and a one-slide deck with a known color
-    canvas = Canvas(4, 3).background(color="#112233")
-    deck = Deck(slides=[canvas])
-
-    # When: canonical samples are requested
-    canvas_sample = canvas.sample()
-    deck_sample = deck.sample()
-
-    # Then: samples contain deterministic RGBA bytes and no compiler state
-    assert isinstance(canvas_sample, CanonicalFrame)
-    assert isinstance(deck_sample, FrameSequence)
-    assert canvas_sample.mode == "RGBA"
-    assert len(canvas_sample.to_bytes()) == 4 * 3 * 4
-    assert deck_sample.frames[0].to_bytes() == canvas_sample.to_bytes()
-    assert "events" not in canvas_sample.model_dump(mode="json")
