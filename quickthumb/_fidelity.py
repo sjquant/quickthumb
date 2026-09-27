@@ -1,13 +1,15 @@
 from __future__ import annotations
 
-from pathlib import Path
+from functools import reduce
 from typing import TypeAlias
 
-from PIL import Image, ImageChops, UnidentifiedImageError
+from PIL import Image, ImageChops
 
 from quickthumb._diff import (
     DEFAULT_HASH_SIZE,
+    ImageSource,
     _hamming_distance,
+    _load_image,
     _perceptual_hash_image,
     _validate_hash_size,
 )
@@ -20,9 +22,8 @@ from quickthumb.models import (
     FidelityTolerance,
     FidelityViolation,
 )
-from quickthumb.models.fidelity import _normalize_output_format
 
-FidelitySource: TypeAlias = str | Path | Image.Image | CanonicalFrame
+FidelitySource: TypeAlias = ImageSource | CanonicalFrame
 
 
 def compare_fidelity(
@@ -51,6 +52,11 @@ def compare_fidelity(
     expected_hash = _perceptual_hash_image(expected_image, hash_size)
     actual_hash = _perceptual_hash_image(actual_image, hash_size)
     hash_distance = _hamming_distance(expected_hash, actual_hash)
+    pixels = (
+        _pixel_measurements(expected_image, actual_image, tolerance.pixel_tolerance)
+        if expected_image.size == actual_image.size
+        else {}
+    )
     measurements = FidelityMeasurements(
         expected_size=expected_image.size,
         actual_size=actual_image.size,
@@ -58,11 +64,8 @@ def compare_fidelity(
         actual_hash=actual_hash,
         hash_distance=hash_distance,
         hash_similarity=1.0 - hash_distance / (hash_size * hash_size),
+        **pixels,
     )
-    if expected_image.size == actual_image.size:
-        measurements = measurements.model_copy(
-            update=_pixel_measurements(expected_image, actual_image, tolerance.pixel_tolerance)
-        )
 
     violations = _violations(measurements, tolerance)
     if violations:
@@ -72,7 +75,8 @@ def compare_fidelity(
     else:
         verdict = "tolerated"
     return FidelityComparison(
-        output_format=None if output_format is None else _normalize_output_format(output_format),
+        # The model spells the format canonically; tolerance_for() already rejected unknown ones.
+        output_format=output_format,  # ty: ignore[invalid-argument-type]
         verdict=verdict,
         tolerance=tolerance,
         measurements=measurements,
@@ -83,14 +87,11 @@ def compare_fidelity(
 def _load(source: FidelitySource, name: str) -> Image.Image:
     if isinstance(source, CanonicalFrame):
         return source.to_image()
-    if isinstance(source, Image.Image):
-        return source.convert("RGBA")
     try:
-        with Image.open(source) as image:
-            return image.convert("RGBA")
-    except (OSError, UnidentifiedImageError) as error:
+        return _load_image(source)
+    except ValueError as error:
         raise InputError(
-            f"unable to read {name} image '{source}': {error}",
+            f"{name} image: {error}",
             code="unreadable_image",
             suggestion="pass a readable raster image path, PIL image, or CanonicalFrame",
         ) from error
@@ -98,32 +99,28 @@ def _load(source: FidelitySource, name: str) -> Image.Image:
 
 def _visible_rgba(image: Image.Image) -> Image.Image:
     """Clear the hidden color of fully transparent pixels."""
-    opaque_mask = image.getchannel("A").point(lambda alpha: 255 if alpha else 0)
-    return Image.composite(image, Image.new("RGBA", image.size, (0, 0, 0, 0)), opaque_mask)
+    alpha = image.getchannel("A")
+    if alpha.histogram()[0] == 0:
+        return image
+    visible = Image.new("RGBA", image.size)
+    visible.paste(image, mask=alpha.point([0] + [255] * 255))
+    return visible
 
 
-def _pixel_measurements(
-    expected: Image.Image, actual: Image.Image, pixel_tolerance: int
-) -> dict[str, object]:
+def _pixel_measurements(expected: Image.Image, actual: Image.Image, pixel_tolerance: int) -> dict:
     difference = ImageChops.difference(expected, actual)
-    bands = difference.split()
-    max_channel_delta = max(band.getextrema()[1] for band in bands)
-    total_delta = sum(
-        delta * count for band in bands for delta, count in enumerate(band.histogram())
-    )
-    changed = bands[0].point(lambda delta: 255 if delta > pixel_tolerance else 0)
-    for band in bands[1:]:
-        changed = ImageChops.lighter(
-            changed, band.point(lambda delta: 255 if delta > pixel_tolerance else 0)
-        )
+    # Per-pixel largest channel delta: a pixel differs when any channel exceeds the tolerance.
+    peak = reduce(ImageChops.lighter, difference.split())
+    # The RGBA histogram holds 256 bins per band, so a bin's delta is its index mod 256.
+    total_delta = sum((index % 256) * count for index, count in enumerate(difference.histogram()))
     pixel_count = expected.width * expected.height
-    different_pixels = changed.histogram()[255]
+    different_pixels = sum(peak.histogram()[pixel_tolerance + 1 :])
     return {
         "pixel_count": pixel_count,
         "different_pixels": different_pixels,
         "different_pixel_ratio": different_pixels / pixel_count,
         "mean_absolute_error": total_delta / (pixel_count * 4 * 255),
-        "max_channel_delta": max_channel_delta,
+        "max_channel_delta": peak.getextrema()[1],
     }
 
 

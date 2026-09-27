@@ -2,22 +2,32 @@
 
 from typing import Annotated, Literal, cast, get_args
 
-from pydantic import ConfigDict, Field, NonNegativeInt
+from pydantic import Field, NonNegativeInt, field_validator
 
+from quickthumb._diff import (
+    DEFAULT_HASH_THRESHOLD,
+    DEFAULT_MAX_DIFFERENT_PIXEL_RATIO,
+    DEFAULT_PIXEL_TOLERANCE,
+)
 from quickthumb.errors import InputError
 
-from .common import quickthumbModel
+from .common import NormalizedUnitFloat, _MotionModel
 
 FidelityFormat = Literal["png", "jpg", "webp", "svg", "pdf", "html", "pptx", "gif", "mp4", "webm"]
 FidelityCriterion = Literal[
     "dimensions", "different_pixel_ratio", "mean_absolute_error", "hash_similarity"
 ]
-_UnitFloat = Annotated[float, Field(ge=0.0, le=1.0, allow_inf_nan=False)]
 
-_FORMAT_ALIASES = {"jpeg": "jpg"}
+_FORMAT_ALIASES = {"jpeg": "jpg", "htm": "html"}
 
 
-class FidelityTolerance(quickthumbModel):
+def _canonical_format(output_format: str) -> str:
+    """Spell a format name or file suffix such as `.JPEG` canonically (`jpg`)."""
+    key = output_format.strip().lower().lstrip(".")
+    return _FORMAT_ALIASES.get(key, key)
+
+
+class FidelityTolerance(_MotionModel):
     """Limits an output may reach and still count as a faithful rendering.
 
     A pixel counts as different when any of its R, G, B, or A channels differs
@@ -28,15 +38,13 @@ class FidelityTolerance(quickthumbModel):
     at most `max_mean_absolute_error`.
     """
 
-    model_config = ConfigDict(extra="forbid")
-
-    pixel_tolerance: Annotated[int, Field(ge=0, le=255)] = 2
-    max_different_pixel_ratio: _UnitFloat = 0.0
-    min_hash_similarity: _UnitFloat = 0.95
-    max_mean_absolute_error: _UnitFloat | None = None
+    pixel_tolerance: Annotated[int, Field(ge=0, le=255)] = DEFAULT_PIXEL_TOLERANCE
+    max_different_pixel_ratio: NormalizedUnitFloat = DEFAULT_MAX_DIFFERENT_PIXEL_RATIO
+    min_hash_similarity: NormalizedUnitFloat = DEFAULT_HASH_THRESHOLD
+    max_mean_absolute_error: NormalizedUnitFloat | None = None
 
 
-class FidelityPolicy(quickthumbModel):
+class FidelityPolicy(_MotionModel):
     """Format-aware fidelity expectations, independent of the sample format.
 
     `default` applies to every output; `formats` overrides it for specific
@@ -44,11 +52,19 @@ class FidelityPolicy(quickthumbModel):
     lossy JPEG) without changing the canonical sample being compared against.
     """
 
-    model_config = ConfigDict(extra="forbid")
-
     version: Literal["1"] = "1"
     default: FidelityTolerance = Field(default_factory=FidelityTolerance)
     formats: dict[FidelityFormat, FidelityTolerance] = Field(default_factory=dict)
+
+    @field_validator("formats", mode="before")
+    @classmethod
+    def _canonical_format_keys(cls, value: object) -> object:
+        if isinstance(value, dict):
+            return {
+                _canonical_format(key) if isinstance(key, str) else key: tolerance
+                for key, tolerance in value.items()
+            }
+        return value
 
     def tolerance_for(self, output_format: str | None = None) -> FidelityTolerance:
         """Return the tolerance that applies to `output_format`.
@@ -58,25 +74,18 @@ class FidelityPolicy(quickthumbModel):
         """
         if output_format is None:
             return self.default
-        key = _normalize_output_format(output_format)
-        return self.formats.get(key, self.default)
+        key = _canonical_format(output_format)
+        supported = get_args(FidelityFormat)
+        if key not in supported:
+            raise InputError(
+                f"unsupported output format '{output_format}' for fidelity comparison",
+                code="unsupported_output_format",
+                suggestion=f"use one of: {', '.join(supported)}",
+            )
+        return self.formats.get(cast(FidelityFormat, key), self.default)
 
 
-def _normalize_output_format(output_format: str) -> FidelityFormat:
-    """Normalize a format name or file suffix such as `.JPEG` to `jpg`."""
-    key = output_format.strip().lower().lstrip(".")
-    key = _FORMAT_ALIASES.get(key, key)
-    supported = get_args(FidelityFormat)
-    if key not in supported:
-        raise InputError(
-            f"unsupported output format '{output_format}' for fidelity comparison",
-            code="unsupported_output_format",
-            suggestion=f"use one of: {', '.join(supported)}",
-        )
-    return cast(FidelityFormat, key)
-
-
-class FidelityMeasurements(quickthumbModel):
+class FidelityMeasurements(_MotionModel):
     """Pixel and perceptual measurements of an output against its sample.
 
     Pixel measurements compare straight RGBA channels, treating every fully
@@ -86,8 +95,6 @@ class FidelityMeasurements(quickthumbModel):
     image composited onto white, and `hash_similarity` is the share of
     matching hash bits.
     """
-
-    model_config = ConfigDict(extra="forbid")
 
     expected_size: tuple[int, int]
     actual_size: tuple[int, int]
@@ -102,10 +109,8 @@ class FidelityMeasurements(quickthumbModel):
     hash_similarity: float
 
 
-class FidelityViolation(quickthumbModel):
+class FidelityViolation(_MotionModel):
     """One policy criterion that the output failed."""
-
-    model_config = ConfigDict(extra="forbid")
 
     criterion: FidelityCriterion
     measured: float | tuple[int, int]
@@ -113,7 +118,7 @@ class FidelityViolation(quickthumbModel):
     message: str
 
 
-class FidelityComparison(quickthumbModel):
+class FidelityComparison(_MotionModel):
     """Verdict of comparing an output against a canonical sample under a policy.
 
     `verdict` is `exact` when every visible RGBA channel matches, `tolerated`
@@ -121,14 +126,17 @@ class FidelityComparison(quickthumbModel):
     when any criterion in `violations` fails.
     """
 
-    model_config = ConfigDict(extra="forbid")
-
     version: Literal["1"] = "1"
-    output_format: str | None = None
+    output_format: FidelityFormat | None = None
     verdict: Literal["exact", "tolerated", "out_of_policy"]
     tolerance: FidelityTolerance
     measurements: FidelityMeasurements
     violations: list[FidelityViolation] = Field(default_factory=list)
+
+    @field_validator("output_format", mode="before")
+    @classmethod
+    def _canonical_output_format(cls, value: object) -> object:
+        return _canonical_format(value) if isinstance(value, str) else value
 
     @property
     def within_policy(self) -> bool:

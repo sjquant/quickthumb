@@ -197,6 +197,19 @@ def test_jpeg_output_uses_the_jpg_tolerance():
     assert policy.tolerance_for("png") == policy.default
 
 
+def test_policy_format_keys_accept_the_same_spellings_as_lookups():
+    """Policy keys are spelled canonically, so aliases and suffixes work as keys too."""
+    # when: a policy is written with alias and suffix spellings
+    policy = FidelityPolicy.model_validate(
+        {"formats": {"jpeg": {"pixel_tolerance": 12}, ".SVG": {}, "htm": {}}}
+    )
+
+    # then: the keys are stored canonically and resolve from any spelling
+    assert set(policy.formats) == {"jpg", "svg", "html"}
+    assert policy.tolerance_for(".jpg").pixel_tolerance == 12
+    assert policy.tolerance_for("htm") == policy.formats["html"]
+
+
 @pytest.mark.parametrize("output_format", ["jepg", "tiff", "image/jpeg", ""])
 def test_unknown_output_format_is_rejected_instead_of_using_the_default(output_format):
     """A misspelled or unsupported format fails instead of silently using the default."""
