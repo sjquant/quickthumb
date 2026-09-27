@@ -1605,7 +1605,15 @@ class Canvas:
 
         if not isinstance(width, int) or not isinstance(height, int):
             CanvasModel.model_validate(raw)  # raises ValidationError with good message
-            raise ValidationError("'width' and 'height' must be integers.")
+            name = "width" if not isinstance(width, int) else "height"
+            missing = raw.get(name) is None
+            raise ValidationError(
+                f"'{name}' is required when the other dimension is set."
+                if missing
+                else f"'{name}' must be an integer.",
+                code="missing_field" if missing else "invalid_field",
+                path=json_pointer(name),
+            )
 
         return cls(
             width=width,

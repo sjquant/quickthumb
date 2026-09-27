@@ -1432,9 +1432,10 @@ class TestCLILint:
         finally:
             os.unlink(spec_path)
 
-        # then
+        # then: the omitted dimension is reported as a missing field
         assert result.exit_code == 1
-        assert "'width' and 'height' must be integers" in result.output
+        error = json.loads(result.output)["errors"][0]
+        assert (error["code"], error["path"]) == ("missing_field", "/height")
 
     def test_should_emit_worst_tile_contrast_json_for_busy_background(self):
         """lint --format json reports the tile that drives low-contrast text"""
@@ -1646,20 +1647,29 @@ class TestCLILint:
         assert payload["errors"][0]["path"] == "/slides/0/theme"
 
     @pytest.mark.parametrize(
-        ("spec", "message"),
+        ("spec", "code", "path"),
         [
-            ({"kind": "canvas", "width": 100, "height": 100}, "layers"),
-            (
-                {"kind": "canvas", "width": 100, "height": 100, "layerz": []},
-                "unknown field",
+            pytest.param(
+                {"kind": "canvas", "width": 100, "height": 100},
+                "missing_field",
+                "/layers",
+                id="missing-layers",
             ),
-            (
+            pytest.param(
+                {"kind": "canvas", "width": 100, "height": 100, "layerz": []},
+                "unknown_field",
+                "/layerz",
+                id="misspelled-layers",
+            ),
+            pytest.param(
                 {"kind": "canvas", "width": True, "height": 100, "layers": []},
-                "integer",
+                "invalid_field",
+                "/width",
+                id="boolean-width",
             ),
         ],
     )
-    def test_should_reject_malformed_canvas_envelopes(self, spec, message):
+    def test_should_reject_malformed_canvas_envelopes(self, spec, code, path):
         """lint rejects missing, misspelled, and boolean Canvas envelope fields."""
         from quickthumb.cli import app
 
@@ -1672,11 +1682,10 @@ class TestCLILint:
         finally:
             os.unlink(spec_path)
 
-        # then: the CLI emits a structured validation response
+        # then: the CLI emits the failing field's code and JSON Pointer
         assert result.exit_code == 1
-        payload = json.loads(result.output)
-        assert payload["errors"][0]["category"] == "validation"
-        assert message in payload["errors"][0]["message"]
+        error = json.loads(result.output)["errors"][0]
+        assert (error["category"], error["code"], error["path"]) == ("validation", code, path)
 
     def test_should_support_deck_specs_and_preserve_slide_diagnostic_fields(self):
         """lint accepts deck JSON and includes slide and layer diagnostic context"""
@@ -1798,8 +1807,9 @@ class TestCLILint:
         finally:
             os.unlink(spec_path)
 
-        # then
+        # then: the placeholder is named under its stable error code
         assert result.exit_code == 1
+        assert "error[unresolved_variable]" in result.output
         assert "missing_color" in result.output
 
     def test_should_exit_2_when_lint_diagnose_reports_rendering_error(self, monkeypatch):

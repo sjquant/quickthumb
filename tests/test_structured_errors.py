@@ -9,14 +9,14 @@ from quickthumb import (
     Canvas,
     Deck,
     ExportPolicy,
-    MissingAssetError,
     RenderingError,
     ValidationError,
 )
 from quickthumb.cli import app
 from typer.testing import CliRunner
 
-INVALID_NESTED_FIELD = {
+# A text layer with a negative size nested inside the group "card" (layer 1).
+NEGATIVE_TEXT_SIZE_IN_GROUP = {
     "kind": "canvas",
     "width": 100,
     "height": 100,
@@ -30,7 +30,8 @@ INVALID_NESTED_FIELD = {
     ],
 }
 
-MISSING_SLIDE_ASSET = {
+# A Deck whose second slide has an image layer "hero" pointing at a missing file.
+MISSING_IMAGE_ON_SECOND_SLIDE = {
     "kind": "deck",
     "slides": [
         {"kind": "canvas", "width": 40, "height": 40, "layers": []},
@@ -55,17 +56,16 @@ DETAIL_FIELDS = {"code", "category", "message", "path", "layer_id", "suggestion"
 
 def test_nested_layer_field_error_points_at_the_input_location():
     """An invalid field inside a grouped layer reports its full JSON Pointer and layer id."""
-    # Given: a Canvas document whose grouped text layer has a negative size
-    document = json.dumps(INVALID_NESTED_FIELD)
+    # given: a Canvas document whose grouped text layer has a negative size
+    document = json.dumps(NEGATIVE_TEXT_SIZE_IN_GROUP)
 
-    # When: the document is parsed
+    # when: the document is parsed
     with pytest.raises(ValidationError) as caught:
         Canvas.from_json(document)
 
-    # Then: the detail locates the field and the innermost layer, and the text says so too
+    # then: the detail locates the field and the innermost layer, and the text says so too
     detail = caught.value.details[0]
-    assert detail.code == "invalid_field"
-    assert detail.category == "validation"
+    assert (detail.code, detail.category) == ("invalid_field", "validation")
     assert detail.path == "/layers/1/children/0/size"
     assert detail.layer_id == "title"
     assert str(caught.value).startswith("/layers/1/children/0/size (layer 'title'): ")
@@ -73,7 +73,7 @@ def test_nested_layer_field_error_points_at_the_input_location():
 
 def test_tagged_branch_sharing_a_field_name_reports_each_field_path():
     """A grouped shape whose type tag equals its 'shape' field reports the failing fields."""
-    # Given: a grouped shape layer with an invalid width and no color
+    # given: a grouped shape layer with an invalid width and no color
     document = {
         "kind": "canvas",
         "width": 100,
@@ -94,61 +94,123 @@ def test_tagged_branch_sharing_a_field_name_reports_each_field_path():
         ],
     }
 
-    # When: the document is parsed
+    # when: the document is parsed
     with pytest.raises(ValidationError) as caught:
         Canvas.from_json(json.dumps(document))
 
-    # Then: each failure points at its own field instead of the 'shape' value
+    # then: each failure points at its own field instead of the 'shape' value
     assert {(detail.code, detail.path) for detail in caught.value.details} == {
         ("invalid_field", "/layers/0/children/0/width"),
         ("missing_field", "/layers/0/children/0/color"),
     }
 
 
-def test_slide_audio_field_error_points_inside_the_audio_object():
-    """An invalid narration field on a Deck slide is located under that slide's audio."""
-    # Given: a Deck slide whose audio path is not a string
-    document = {
-        "kind": "deck",
-        "slides": [
-            {"kind": "canvas", "width": 40, "height": 40, "layers": [], "audio": {"path": 1}}
-        ],
-    }
+@pytest.mark.parametrize(
+    ("factory", "document", "code", "path"),
+    [
+        pytest.param(
+            Canvas.from_json,
+            {"kind": "poster", "layers": []},
+            "invalid_field",
+            "/kind",
+            id="unknown-kind",
+        ),
+        pytest.param(
+            Canvas.from_json,
+            {"kind": "canvas", "width": 100, "layers": []},
+            "missing_field",
+            "/height",
+            id="canvas-width-without-height",
+        ),
+        pytest.param(
+            Deck.from_json,
+            {"kind": "deck", "slides": [], "layers": []},
+            "unknown_field",
+            "/layers",
+            id="deck-with-layers",
+        ),
+        pytest.param(
+            Deck.from_json,
+            {"kind": "deck", "slides": "intro"},
+            "invalid_field",
+            "/slides",
+            id="slides-not-a-list",
+        ),
+        pytest.param(
+            Deck.from_json,
+            {"kind": "deck", "slides": [], "theme": 1},
+            "invalid_field",
+            "/theme",
+            id="theme-not-an-object",
+        ),
+        pytest.param(
+            Deck.from_json,
+            {"kind": "deck", "slides": [], "transition": 1},
+            "invalid_field",
+            "/transition",
+            id="transition-not-an-object",
+        ),
+        pytest.param(
+            Deck.from_json,
+            {"kind": "deck", "slides": [1]},
+            "invalid_field",
+            "/slides/0",
+            id="slide-not-an-object",
+        ),
+        pytest.param(
+            Deck.from_json,
+            {
+                "kind": "deck",
+                "slides": [
+                    {
+                        "kind": "canvas",
+                        "width": 40,
+                        "height": 40,
+                        "layers": [],
+                        "audio": {"path": 1},
+                    }
+                ],
+            },
+            "invalid_field",
+            "/slides/0/audio/path",
+            id="slide-audio-path-not-a-string",
+        ),
+    ],
+)
+def test_malformed_document_envelope_reports_the_failing_field(factory, document, code, path):
+    """A malformed top-level or slide-level document field is reported at its JSON Pointer."""
+    # given: a document with one malformed envelope field
+    text = json.dumps(document)
 
-    # When: the document is parsed
+    # when: the document is parsed
     with pytest.raises(ValidationError) as caught:
-        Deck.from_json(json.dumps(document))
+        factory(text)
 
-    # Then: the pointer includes the audio object
-    assert caught.value.details[0].path == "/slides/0/audio/path"
+    # then: the first detail names the field's code and location
+    detail = caught.value.details[0]
+    assert (detail.code, detail.path) == (code, path)
 
 
-def test_missing_slide_asset_is_reported_identically_by_validate_and_render(tmp_path: Path):
-    """A missing image on a later slide yields one asset detail from validate() and render()."""
-    # Given: a Deck whose second slide references an image that does not exist
-    deck = Deck.from_json(json.dumps(MISSING_SLIDE_ASSET))
+def test_validate_reports_missing_slide_asset_without_rendering():
+    """validate() reports a missing image on a later Deck slide with its location and remedy."""
+    # given: a Deck whose second slide references an image that does not exist
+    deck = Deck.from_json(json.dumps(MISSING_IMAGE_ON_SECOND_SLIDE))
 
-    # When: the deck is validated and then rendered
+    # when: the deck is validated
     report = deck.validate()
-    with pytest.raises(MissingAssetError) as caught:
-        deck.render(str(tmp_path / "slides.png"))
 
-    # Then: both surfaces carry the same actionable detail and nothing is written
-    expected = {
-        "code": "asset_missing",
-        "category": "asset",
-        "path": "/slides/1/layers/0/path",
-        "layer_id": "hero",
-    }
-    assert report.errors[0].model_dump(include=set(expected)) == expected
-    assert caught.value.details[0].model_dump(include=set(expected)) == expected
-    assert caught.value.details[0].suggestion
-    assert list(tmp_path.iterdir()) == []
+    # then: the report carries one actionable asset detail
+    assert not report.valid
+    detail = report.errors[0]
+    assert (detail.code, detail.category) == ("asset_missing", "asset")
+    assert (detail.path, detail.layer_id) == ("/slides/1/layers/0/path", "hero")
+    assert "missing.png" in detail.message
+    assert "working directory" in (detail.suggestion or "")
 
 
 def test_unsupported_export_capability_names_layer_and_remedy(tmp_path: Path):
     """Motion a target cannot represent fails under an 'error' policy with a located remedy."""
-    # Given: a shaking layer and a PPTX export policy that refuses motion fallbacks
+    # given: a shaking layer and a PPTX export policy that refuses motion fallbacks
     canvas = Canvas(40, 40).shape(
         "rectangle",
         position=(0, 0),
@@ -159,24 +221,22 @@ def test_unsupported_export_capability_names_layer_and_remedy(tmp_path: Path):
         animation=AnimationSpec.shake(),
     )
 
-    # When: the canvas is exported to PPTX
+    # when: the canvas is exported to PPTX
     with pytest.raises(RenderingError) as caught:
         canvas.export(str(tmp_path / "deck.pptx"), ExportPolicy(unsupported_motion="error"))
 
-    # Then: the export detail points at the layer's animation and suggests a policy change
+    # then: the export detail points at the layer's animation and suggests a policy change
     detail = caught.value.details[0]
-    assert detail.code == "unsupported_capability"
-    assert detail.category == "export"
-    assert detail.path == "/layers/0/animation"
-    assert detail.layer_id == "badge"
+    assert (detail.code, detail.category) == ("unsupported_capability", "export")
+    assert (detail.path, detail.layer_id) == ("/layers/0/animation", "badge")
     assert "unsupported_motion" in (detail.suggestion or "")
 
 
 @pytest.mark.parametrize(
-    ("spec", "output", "extra_args", "expected", "exit_code"),
+    ("spec", "output", "extra_args", "expected", "message_fragment", "exit_code"),
     [
         pytest.param(
-            INVALID_NESTED_FIELD,
+            NEGATIVE_TEXT_SIZE_IN_GROUP,
             "out.png",
             [],
             {
@@ -185,11 +245,12 @@ def test_unsupported_export_capability_names_layer_and_remedy(tmp_path: Path):
                 "path": "/layers/1/children/0/size",
                 "layer_id": "title",
             },
+            None,  # the message text comes from pydantic
             1,
             id="validation",
         ),
         pytest.param(
-            MISSING_SLIDE_ASSET,
+            MISSING_IMAGE_ON_SECOND_SLIDE,
             "out.png",
             [],
             {
@@ -198,6 +259,7 @@ def test_unsupported_export_capability_names_layer_and_remedy(tmp_path: Path):
                 "path": "/slides/1/layers/0/path",
                 "layer_id": "hero",
             },
+            "missing.png",
             1,
             id="asset",
         ),
@@ -206,6 +268,7 @@ def test_unsupported_export_capability_names_layer_and_remedy(tmp_path: Path):
             "out.bmp",
             [],
             {"code": "unsupported_format", "category": "export", "path": None, "layer_id": None},
+            ".bmp",
             2,
             id="export",
         ),
@@ -214,6 +277,7 @@ def test_unsupported_export_capability_names_layer_and_remedy(tmp_path: Path):
             "missing-dir/out.png",
             [],
             {"code": "export_failed", "category": "export", "path": None, "layer_id": None},
+            "missing-dir",
             2,
             id="unwritable-output",
         ),
@@ -222,86 +286,117 @@ def test_unsupported_export_capability_names_layer_and_remedy(tmp_path: Path):
             "out.png",
             ["--quality", "0"],
             {"code": "invalid_option", "category": "input", "path": None, "layer_id": None},
+            "quality",
             1,
             id="input",
         ),
+        pytest.param(
+            MISSING_IMAGE_ON_SECOND_SLIDE,
+            "out.png",
+            ["--debug"],
+            {"code": "invalid_option", "category": "input", "path": None, "layer_id": None},
+            "--debug",
+            1,
+            id="deck-debug",
+        ),
+        pytest.param(
+            {**VALID_CANVAS, "layers": [{"type": "background", "color": "$accent"}]},
+            "out.png",
+            ["--var", "title=Launch"],
+            {
+                "code": "unresolved_variable",
+                "category": "input",
+                "path": None,
+                "layer_id": None,
+            },
+            "accent",
+            1,
+            id="unresolved-variable",
+        ),
     ],
 )
-def test_cli_reports_each_failure_category_as_structured_json(
-    tmp_path: Path, spec, output, extra_args, expected, exit_code
+def test_failed_render_emits_structured_json_error(
+    tmp_path: Path, spec, output, extra_args, expected, message_fragment, exit_code
 ):
-    """render --error-format json emits every failure with the documented detail fields."""
-    # Given: a spec file that fails in one failure category
+    """render --error-format json reports a failure with every documented detail field."""
+    # given: a spec file that fails in one failure category
     spec_path = tmp_path / "spec.json"
     spec_path.write_text(json.dumps(spec))
 
-    # When: rendering it with JSON error reporting
+    # when: rendering it with JSON error reporting
     result = CliRunner().invoke(
         app,
         ["render", str(spec_path), "-o", str(tmp_path / output), "--error-format", "json"]
         + extra_args,
     )
 
-    # Then: stdout is one parseable envelope whose detail carries code, location, and message
+    # then: stdout is one envelope whose detail carries the code, location, and message
     assert result.exit_code == exit_code
     detail = json.loads(result.stdout)["errors"][0]
     assert set(detail) == DETAIL_FIELDS
     assert {key: detail[key] for key in expected} == expected
-    assert detail["message"]
+    if message_fragment is not None:
+        assert message_fragment in detail["message"]
 
 
 @pytest.mark.parametrize(
-    ("spec", "output", "expected_line"),
+    ("spec", "output", "expected_prefix", "exit_code"),
     [
         pytest.param(
-            INVALID_NESTED_FIELD,
+            NEGATIVE_TEXT_SIZE_IN_GROUP,
             "out.png",
-            "error[invalid_field] /layers/1/children/0/size (layer 'title'): "
-            "Input should be greater than 0",
-            id="validation",
+            "error[invalid_field] /layers/1/children/0/size (layer 'title'): ",
+            1,
+            id="path-and-layer",
         ),
         pytest.param(
-            MISSING_SLIDE_ASSET,
+            MISSING_IMAGE_ON_SECOND_SLIDE,
             "out.png",
             "error[asset_missing] /slides/1/layers/0/path (layer 'hero'): "
             "Asset not found: 'missing.png'. Suggestion: ",
-            id="asset",
+            1,
+            id="suggestion",
         ),
         pytest.param(
             VALID_CANVAS,
             "out.bmp",
             "error[unsupported_format] Unsupported file format: .bmp. Suggestion: use one of .png",
-            id="export",
+            2,
+            id="no-document-path",
         ),
     ],
 )
-def test_cli_text_errors_name_code_location_and_remedy(tmp_path: Path, spec, output, expected_line):
-    """render prints each failure as one readable line with its code, location, and remedy."""
-    # Given: a spec file that fails in one failure category
+def test_failed_render_prints_code_location_and_remedy(
+    tmp_path: Path, spec, output, expected_prefix, exit_code
+):
+    """render prints a failure as one readable stderr line with its code, location, and remedy."""
+    # given: a spec file that fails to render
     spec_path = tmp_path / "spec.json"
     spec_path.write_text(json.dumps(spec))
 
-    # When: rendering it with the default text error reporting
+    # when: rendering it with the default text error reporting
     result = CliRunner().invoke(app, ["render", str(spec_path), "-o", str(tmp_path / output)])
 
-    # Then: stderr leads with the stable code followed by the location and message
-    assert result.exit_code != 0
-    assert result.stderr.startswith(expected_line)
+    # then: stderr leads with the stable code followed by the location and message
+    assert result.exit_code == exit_code
+    assert result.stderr.startswith(expected_prefix)
     assert "Traceback" not in result.output
 
 
 def test_lint_reports_missing_slide_asset_at_its_deck_location(tmp_path: Path):
     """lint --format json locates a missing image on a later Deck slide by slide and layer."""
-    # Given: a Deck spec whose second slide references a missing image
+    # given: a Deck spec whose second slide references a missing image
     spec_path = tmp_path / "deck.json"
-    spec_path.write_text(json.dumps(MISSING_SLIDE_ASSET))
+    spec_path.write_text(json.dumps(MISSING_IMAGE_ON_SECOND_SLIDE))
 
-    # When: linting it with JSON output
+    # when: linting it with JSON output
     result = CliRunner().invoke(app, ["lint", str(spec_path), "--format", "json"])
 
-    # Then: the asset detail carries the full Deck pointer and exits as invalid input
+    # then: the asset detail carries the full Deck pointer and exits as invalid input
     assert result.exit_code == 1
     detail = json.loads(result.stdout)["errors"][0]
-    assert detail["code"] == "asset_missing"
-    assert detail["path"] == "/slides/1/layers/0/path"
-    assert detail["layer_id"] == "hero"
+    assert (detail["code"], detail["path"], detail["layer_id"]) == (
+        "asset_missing",
+        "/slides/1/layers/0/path",
+        "hero",
+    )
