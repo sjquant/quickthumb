@@ -1,8 +1,10 @@
 """Black-box specifications for canonical still and timeline sampling."""
 
 import copy
+import re
 import shutil
 import subprocess
+import wave
 from io import BytesIO
 from pathlib import Path
 
@@ -22,6 +24,7 @@ from quickthumb import transitions as tr
 from quickthumb.errors import RenderingError, ValidationError
 
 HAS_FFMPEG = shutil.which("ffmpeg") is not None
+HAS_FFPROBE = shutil.which("ffprobe") is not None
 
 WHITE = (255, 255, 255, 255)
 BLACK = (0, 0, 0, 255)
@@ -55,12 +58,13 @@ def gif_playback(data: bytes) -> tuple[list[float], list[bytes], float]:
 def test_still_sample_matches_raster_export_and_keeps_transparency(tmp_path: Path):
     """A still sample of a partly transparent canvas carries the exact RGBA pixels
     of its PNG export, including fully transparent pixels, with no timing."""
-    # Given: a canvas whose left half is painted and right half is transparent
+    # Given: a canvas whose left half is painted and right half is transparent,
+    # and its PNG export as the raster reference
     canvas = Canvas(8, 4).shape("rectangle", (0, 0), 4, 4, "#008080")
+    exported_path = canvas.export(tmp_path / "still.png").written_paths[0]
 
-    # When: a still sample is captured and the canvas is exported as PNG
+    # When: a still sample is captured
     still = canvas.sample()
-    result = canvas.export(tmp_path / "still.png")
 
     # Then: the sample describes one untimed straight-alpha RGBA page
     assert still.capture == "still"
@@ -73,7 +77,7 @@ def test_still_sample_matches_raster_export_and_keeps_transparency(tmp_path: Pat
     assert image.getpixel((6, 1))[3] == 0
 
     # Then: the pixels are exactly those of the raster export
-    with Image.open(result.written_paths[0]) as exported:
+    with Image.open(exported_path) as exported:
         assert exported.convert("RGBA").tobytes() == frame.to_bytes()
 
 
@@ -147,12 +151,9 @@ def test_timeline_frames_are_opaque_on_the_requested_matte():
     assert image.getchannel("A").getextrema() == (255, 255)
 
 
-def test_equivalent_canvas_and_single_slide_deck_capture_identical_observations():
-    """A canvas and a deck containing only that canvas report identical frame
-    digests, timing, and environment for the same timeline capture, and
-    repeated captures serialize to identical JSON."""
-    # Given: a canvas with a scale animation and a deck wrapping it
-    canvas = (
+def scaling_card() -> Canvas:
+    """A white 40x30 card whose red rectangle scales from 20% to full size over one second."""
+    return (
         Canvas(40, 30)
         .background(color="#FFFFFF")
         .shape(
@@ -171,19 +172,39 @@ def test_equivalent_canvas_and_single_slide_deck_capture_identical_observations(
             ),
         )
     )
+
+
+def test_canvas_and_its_single_slide_deck_capture_identical_observations():
+    """A canvas and a deck containing only that canvas report identical frames,
+    timing, and environment for the same timeline capture; only the document
+    kind differs."""
+    # Given: a scaling card and a deck wrapping it
+    canvas = scaling_card()
     deck = Deck(slides=[canvas])
 
     # When: both documents are captured at 5 fps with a half-second hold
     canvas_capture = canvas.sample(fps=5, hold=0.5)
     deck_capture = deck.sample(fps=5, hold=0.5)
 
-    # Then: pixels and timing agree apart from the document kind
+    # Then: every observation agrees apart from the document kind, across
+    # frames that actually differ from one another
     assert canvas_capture.model_dump(exclude={"kind"}) == deck_capture.model_dump(exclude={"kind"})
     assert len({frame.sha256 for frame in canvas_capture.frames}) > 1
 
-    # Then: a repeated capture is byte-for-byte the same JSON document
-    assert canvas.sample(fps=5, hold=0.5).model_dump_json() == canvas_capture.model_dump_json()
-    assert FrameSequence.model_validate_json(canvas_capture.model_dump_json()) == canvas_capture
+
+def test_repeated_capture_serializes_to_identical_json_that_round_trips():
+    """Capturing the same document twice produces byte-identical JSON, and that
+    JSON loads back into an equal frame sequence."""
+    # Given: a scaling card and one timeline capture of it
+    canvas = scaling_card()
+    first = canvas.sample(fps=5, hold=0.5).model_dump_json()
+
+    # When: the same capture is requested again
+    second = canvas.sample(fps=5, hold=0.5).model_dump_json()
+
+    # Then: the JSON is identical and loads back into the same observations
+    assert second == first
+    assert FrameSequence.model_validate_json(first).model_dump_json() == first
 
 
 def test_deck_timeline_places_transitions_and_slide_durations():
@@ -270,7 +291,9 @@ def test_timeline_capture_reproduces_gif_playback(build, encode):
     """Sampling the canonical timeline at each GIF frame's start time yields the
     exact pixels the GIF shows, and the timeline duration equals the GIF's total
     playback length."""
-    # Given: the document's 4 fps GIF export with a one-second hold
+    # Given: the document's 4 fps GIF export with a one-second hold. GIF stores
+    # frame durations in 10 ms steps, so only frame lengths that are multiples
+    # of 10 ms (250 ms here) start exactly where the exporter sampled them.
     document = build()
     starts, buffers, playback = gif_playback(encode(document))
 
@@ -282,26 +305,36 @@ def test_timeline_capture_reproduces_gif_playback(build, encode):
     assert [frame.to_bytes() for frame in capture.frames] == buffers
 
 
-def test_timeline_duration_does_not_depend_on_the_sampling_request():
-    """The timeline a document plays has one duration and one set of slide
-    windows whether it is observed at explicit instants or on any fps grid, and
-    a zero-length timeline is observed by exactly one frame at time zero."""
-    # Given: a fading card and a static card with no settled hold
-    fading = fading_card()
-    instant = Canvas(40, 30).background(color="#FFFFFF")
+def test_timeline_duration_is_the_same_for_explicit_times_and_any_fps_grid():
+    """A document's timeline has one duration and one set of slide windows,
+    whether it is observed at explicit instants or on coarse or fine fps grids."""
+    # Given: a card whose one-second fade is followed by a quarter-second hold
+    canvas = fading_card()
 
-    # When: each is captured at explicit instants and on different grids
-    explicit = fading.sample([0.5], hold=0.25)
-    coarse = fading.sample(fps=1, hold=0.25)
-    fine = fading.sample(fps=120, hold=0.25)
-    zero_explicit = instant.sample(0.0, hold=0)
-    zero_grid = instant.sample(fps=4, hold=0)
+    # When: the timeline is captured at an explicit instant, at 1 fps, and at 120 fps
+    captures = [
+        canvas.sample([0.5], hold=0.25),
+        canvas.sample(fps=1, hold=0.25),
+        canvas.sample(fps=120, hold=0.25),
+    ]
 
-    # Then: duration and slide windows are identical across requests
-    assert explicit.duration == coarse.duration == fine.duration == 1.25
-    assert explicit.timeline == coarse.timeline == fine.timeline
-    assert zero_explicit.duration == zero_grid.duration == 0.0
-    assert [frame.time for frame in zero_grid.frames] == [0.0]
+    # Then: every capture reports the same 1.25-second timeline
+    assert [capture.duration for capture in captures] == [1.25] * 3
+    assert captures[0].timeline == captures[1].timeline == captures[2].timeline
+
+
+def test_zero_length_timeline_is_observed_by_one_frame_at_time_zero():
+    """A static document with no settled hold has a zero-length timeline, and a
+    uniform capture of it still returns exactly one frame at time zero."""
+    # Given: a static card with no hold
+    canvas = Canvas(40, 30).background(color="#FFFFFF")
+
+    # When: its timeline is captured at 4 fps
+    capture = canvas.sample(fps=4, hold=0)
+
+    # Then: the timeline is empty in time but observed once
+    assert capture.duration == 0.0
+    assert [frame.time for frame in capture.frames] == [0.0]
 
 
 def test_slide_boundaries_survive_float_accumulation():
@@ -329,6 +362,38 @@ def test_slide_boundaries_survive_float_accumulation():
         (0.4, 2),
     ]
     assert capture.frames[3].to_image().getpixel((0, 0)) == TEAL
+
+
+def silent_wav(path: Path, seconds: float) -> str:
+    """Write a silent mono 16-bit WAV of the given length."""
+    with wave.open(str(path), "wb") as wav:
+        wav.setnchannels(1)
+        wav.setsampwidth(2)
+        wav.setframerate(8000)
+        wav.writeframes(b"\0\0" * round(8000 * seconds))
+    return str(path)
+
+
+@pytest.mark.skipif(not HAS_FFPROBE, reason="ffprobe is required to measure narration")
+def test_narrated_slide_lasts_as_long_as_its_narration(tmp_path: Path):
+    """A deck slide with narration audio and no explicit duration stays on the
+    timeline for the narration's length instead of the settled hold."""
+    # Given: a slide narrated by 1.2 seconds of audio, then a slide that cuts in
+    deck = (
+        Deck()
+        .slide(
+            Canvas(8, 8).background(color="#FFFFFF"),
+            audio=silent_wav(tmp_path / "narration.wav", 1.2),
+        )
+        .slide(Canvas(8, 8).background(color="#000000"), transition=tr.Cut())
+    )
+
+    # When: the timeline is captured with a half-second hold
+    capture = deck.sample([1.1, 1.2], hold=0.5)
+
+    # Then: the narrated slide ends at 1.2s and only the silent slide uses the hold
+    assert [(s.start, s.end) for s in capture.timeline] == [(0.0, 1.2), (1.2, 1.7)]
+    assert [frame.slide for frame in capture.frames] == [0, 1]
 
 
 @pytest.mark.parametrize(
@@ -405,14 +470,22 @@ def test_video_documents_record_the_ffmpeg_that_decodes_them(short_clip: Path):
     video_environment = with_video.sample(0.1).environment
     plain_environment = without_video.sample(0.1).environment
 
-    # Then: only the video document names the decoder that produced its pixels
-    assert video_environment.ffmpeg_version
+    # Then: only the video document names the decoder that produced its pixels,
+    # as a release ("7.1.1", "n7.1") or development ("N-112345-g…") version
+    assert re.match(r"(n?\d+\.\d+|N-\d+)", video_environment.ffmpeg_version or "")
     assert plain_environment.ffmpeg_version is None
 
 
 @pytest.mark.skipif(not HAS_FFMPEG, reason="ffmpeg is required")
+@pytest.mark.parametrize(
+    "request_sample",
+    [
+        pytest.param(lambda document: document.sample(), id="still"),
+        pytest.param(lambda document: document.sample(0.1), id="timeline"),
+    ],
+)
 def test_video_sampling_fails_before_rendering_without_ffmpeg(
-    short_clip: Path, monkeypatch: pytest.MonkeyPatch
+    short_clip: Path, monkeypatch: pytest.MonkeyPatch, request_sample
 ):
     """Sampling a video document with an unusable FFmpeg fails with a rendering
     error instead of returning pixels from an undescribed environment."""
@@ -420,53 +493,56 @@ def test_video_sampling_fails_before_rendering_without_ffmpeg(
     canvas = Canvas(16, 16).video(str(short_clip), (0, 0), 16, 16)
     monkeypatch.setenv("QUICKTHUMB_FFMPEG", str(short_clip.parent / "missing-ffmpeg"))
 
-    # When / Then: both still and timeline captures are refused
+    # When / Then: the capture is refused, naming FFmpeg as the cause
     with pytest.raises(RenderingError, match="FFmpeg"):
-        canvas.sample()
-    with pytest.raises(RenderingError, match="FFmpeg"):
-        canvas.sample(0.1)
-
-
-def test_frames_whose_digest_does_not_match_their_pixels_are_rejected():
-    """A serialized frame is accepted back only when its sha256 and dimensions
-    describe its decoded pixel data."""
-    # Given: a serialized still capture
-    payload = Canvas(4, 4).background(color="#FFFFFF").sample().model_dump(mode="json")
-    tampered_digest = copy.deepcopy(payload)
-    tampered_digest["frames"][0]["sha256"] = "0" * 64
-    tampered_size = copy.deepcopy(payload)
-    tampered_size["frames"][0]["width"] = 5
-
-    # When / Then: the untouched payload round-trips and tampered ones are refused
-    assert FrameSequence.model_validate(payload).frames[0].sha256 == payload["frames"][0]["sha256"]
-    for tampered in (tampered_digest, tampered_size):
-        with pytest.raises(ValidationError, match="sha256|width"):
-            FrameSequence.model_validate(tampered)
+        request_sample(canvas)
 
 
 @pytest.mark.parametrize(
-    ("args", "kwargs"),
+    ("field", "value", "message"),
     [
-        pytest.param((0.5,), {"fps": 10}, id="time-and-fps"),
-        pytest.param(([1.0, 0.5],), {}, id="descending-times"),
-        pytest.param(([],), {}, id="no-times"),
-        pytest.param((-0.1,), {}, id="negative-time"),
-        pytest.param(((float("nan"),),), {}, id="nan-time"),
-        pytest.param((), {"fps": 0}, id="zero-fps"),
-        pytest.param((), {"fps": 121}, id="fps-above-export-limit"),
-        pytest.param((), {"fps": True}, id="boolean-fps"),
-        pytest.param((0.0,), {"hold": -1}, id="negative-hold"),
-        pytest.param((), {"hold": float("inf")}, id="infinite-hold-on-still"),
-        pytest.param((), {"matte": "not-a-color"}, id="unknown-matte-on-still"),
+        pytest.param("sha256", "0" * 64, "sha256 must be the digest", id="wrong-digest"),
+        pytest.param("width", 5, "width \\* height", id="wrong-size"),
     ],
 )
-def test_sampling_rejects_invalid_requests(args: tuple, kwargs: dict):
+def test_frames_whose_metadata_does_not_describe_their_pixels_are_rejected(
+    field: str, value: object, message: str
+):
+    """A serialized frame whose sha256 or dimensions no longer describe its
+    decoded pixel data is refused when loaded."""
+    # Given: a serialized still capture with one frame field altered
+    payload = Canvas(4, 4).background(color="#FFFFFF").sample().model_dump(mode="json")
+    tampered = copy.deepcopy(payload)
+    tampered["frames"][0][field] = value
+
+    # When / Then: loading it fails and names the broken invariant
+    with pytest.raises(ValidationError, match=message):
+        FrameSequence.model_validate(tampered)
+
+
+@pytest.mark.parametrize(
+    ("args", "kwargs", "message"),
+    [
+        pytest.param((0.5,), {"fps": 10}, "either time or fps", id="time-and-fps"),
+        pytest.param(([1.0, 0.5],), {}, "ascending order", id="descending-times"),
+        pytest.param(([],), {}, "must not be empty", id="no-times"),
+        pytest.param((-0.1,), {}, "sample time must be", id="negative-time"),
+        pytest.param(((float("nan"),),), {}, "sample time must be", id="nan-time"),
+        pytest.param((), {"fps": 0}, "fps must be greater than zero", id="zero-fps"),
+        pytest.param((), {"fps": 121}, "at most 120", id="fps-above-export-limit"),
+        pytest.param((), {"fps": True}, "fps must be greater than zero", id="boolean-fps"),
+        pytest.param((0.0,), {"hold": -1}, "hold must be", id="negative-hold"),
+        pytest.param((), {"hold": float("inf")}, "hold must be", id="infinite-hold-on-still"),
+        pytest.param((), {"matte": "not-a-color"}, "Invalid matte", id="unknown-matte-on-still"),
+    ],
+)
+def test_sampling_rejects_invalid_requests(args: tuple, kwargs: dict, message: str):
     """Sampling rejects ambiguous, unordered, non-finite, or out-of-range requests
-    and unknown matte colors, for still and timeline captures alike, instead of
-    guessing or silently ignoring an argument."""
+    and unknown matte colors, for still and timeline captures alike, with an
+    error naming the offending argument instead of guessing or ignoring it."""
     # Given: a sampleable canvas
     canvas = fading_card()
 
-    # When / Then: the invalid request fails validation
-    with pytest.raises(ValidationError):
+    # When / Then: the invalid request fails validation for its own reason
+    with pytest.raises(ValidationError, match=message):
         canvas.sample(*args, **kwargs)

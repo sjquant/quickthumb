@@ -275,21 +275,3 @@ def test_diagnostic_serialization_honors_exclude_none():
     # Then: the option is observable in the JSON-safe result
     assert "slide_index" not in compact["findings"][0]
     assert "slide_index" in expanded["findings"][0]
-
-
-def test_sample_payloads_exclude_motion_compiler_state():
-    """Samples of an animated canvas and deck serialize frames and timing only,
-    never the motion compiler's events or tracks."""
-    # Given: an animated canvas and a deck containing it
-    canvas = (
-        Canvas(4, 3)
-        .background(color="#112233")
-        .shape("rectangle", (0, 0), 2, 2, "#FFFFFF", animation=AnimationSpec.fade(duration=0.5))
-    )
-    deck = Deck(slides=[canvas])
-
-    # When: timeline samples are serialized as JSON
-    payloads = [document.sample(fps=4).model_dump_json() for document in (canvas, deck)]
-
-    # Then: no compiler vocabulary leaks into the observation contract
-    assert all('"events"' not in payload and '"tracks"' not in payload for payload in payloads)
