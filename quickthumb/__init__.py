@@ -7,6 +7,7 @@ from quickthumb._diff import (
     perceptual_hash,
 )
 from quickthumb._document import Document
+from quickthumb._fidelity import compare_fidelity
 from quickthumb.canvas import Canvas
 from quickthumb.deck import Deck, DeckDiagnostic
 from quickthumb.errors import (
@@ -57,6 +58,11 @@ from quickthumb.models import (
     FaceRegion,
     Fade,
     FallbackDiagnostic,
+    FidelityComparison,
+    FidelityMeasurements,
+    FidelityPolicy,
+    FidelityTolerance,
+    FidelityViolation,
     Filter,
     FitMode,
     FrameSequence,
@@ -134,6 +140,12 @@ __all__ = [
     "compare_images",
     "create_diff_image",
     "perceptual_hash",
+    "compare_fidelity",
+    "FidelityComparison",
+    "FidelityMeasurements",
+    "FidelityPolicy",
+    "FidelityTolerance",
+    "FidelityViolation",
     "Deck",
     "DeckDiagnostic",
     "DiagnosticReport",

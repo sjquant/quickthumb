@@ -3,6 +3,7 @@
 from .common import *  # noqa: F401,F403
 from .document import *  # noqa: F401,F403
 from .effects import *  # noqa: F401,F403
+from .fidelity import *  # noqa: F401,F403
 from .inspection import *  # noqa: F401,F403
 from .layers import *  # noqa: F401,F403
 from .motion import *  # noqa: F401,F403

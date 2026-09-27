@@ -215,6 +215,39 @@ probe = deck.sample([0.0, 1.25, 4.0], hold=2.0) # explicit instants, ascending
 - **Memory.** A capture whose distinct frames would exceed 768 MiB of raw RGBA is rejected with a `ValidationError`, before any frame renders when every page of a still capture, or one frame of a timeline capture, already exceeds it; request fewer instants, a lower `fps`, a shorter `hold`, or a smaller document.
 - **Environment.** `environment` records the facts that can change pixels for an identical document: quickthumb, Pillow, and FreeType versions, the text layout engine (`basic` or `raqm`), and, for documents with video layers, the version of the FFmpeg that decodes them (`QUICKTHUMB_FFMPEG` or `ffmpeg` on `PATH`). Sampling a video document without a working FFmpeg raises `RenderingError` before any frame renders. Identical documents sampled in identical environments produce identical digests; fonts and images are described by `resolve_assets()`.
 
+## Fidelity policy
+
+`compare_fidelity()` judges an export against its canonical sample and says whether a difference is expected. It returns a JSON-serializable `FidelityComparison` with one of three verdicts:
+
+| Verdict | Meaning |
+| --- | --- |
+| `exact` | Every visible RGBA channel matches the sample |
+| `tolerated` | The output differs, but every criterion of the applied tolerance holds |
+| `out_of_policy` | At least one criterion failed; each one is listed in `violations` |
+
+```python
+from quickthumb import FidelityPolicy, FidelityTolerance, compare_fidelity
+
+policy = FidelityPolicy(
+    formats={
+        "svg": FidelityTolerance(pixel_tolerance=8, max_different_pixel_ratio=0.02),
+        "jpg": FidelityTolerance(pixel_tolerance=12, max_mean_absolute_error=0.01),
+    },
+)
+frame = canvas.sample().frames[0]
+comparison = compare_fidelity(frame, "rendered-svg.png", output_format="svg", policy=policy)
+if not comparison.within_policy:
+    for violation in comparison.violations:
+        print(violation.criterion, violation.measured, violation.limit)
+```
+
+- **Inputs.** `expected` and `actual` can each be a `CanonicalFrame`, a PIL image, or an image path. Rasterize vector or document outputs such as SVG, PDF, or PPTX before comparing them. An unreadable image raises `InputError` with code `unreadable_image`.
+- **Tolerance.** A `FidelityTolerance` holds the criteria. A pixel counts as different when any R, G, B, or A channel differs from the sample by more than `pixel_tolerance` (default `2`). The output fails when the share of different pixels exceeds `max_different_pixel_ratio` (default `0`), when perceptual `hash_similarity` falls below `min_hash_similarity` (default `0.95`), or, when `max_mean_absolute_error` is set, when the mean channel error exceeds it. It also fails whenever its dimensions differ from the sample; pixel measurements are then `None`.
+- **Formats.** `FidelityPolicy.default` applies to every output. `formats` overrides it for `png`, `jpg`, `webp`, `svg`, `pdf`, `html`, `pptx`, `gif`, `mp4`, or `webm`. `output_format` accepts suffixes such as `.JPEG`, and `jpeg` resolves to `jpg`. The canonical sample stays the same whichever tolerance applies, and `comparison.tolerance` records the tolerance that was used. Policies load from JSON with `FidelityPolicy.model_validate_json()`; unknown formats and out-of-range limits raise `ValidationError`.
+- **Measurements.** Pixel measurements compare straight RGBA and treat every fully transparent pixel as transparent black, so hidden color never counts, while a transparent sample exported as opaque does. `mean_absolute_error` is the mean channel delta divided by 255. The perceptual hash is an average hash of each image composited onto white, and `hash_similarity` is the share of matching hash bits.
+
+`compare_images()` and `quickthumb diff` remain the golden-image tools for comparing two rendered files. They composite both images onto white before measuring pixels.
+
 ## Decks (multiple images and slides)
 
 A `Deck` is an ordered collection of canvases. Each slide is a full `Canvas` and renders exactly as it would on its own, so a deck is just a multi-output container on top of the same pipeline. See the [Deck API reference](api/deck.md) for the full method list.
