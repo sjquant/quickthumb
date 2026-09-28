@@ -21,21 +21,26 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal
 
+from quickthumb._base import is_url
+from quickthumb.asset_cache import _CACHE_DIR_ENV, _OFFLINE_ENV, _OFFLINE_VALUES
+
 Status = Literal["ok", "warning", "error"]
 
 WORKFLOWS = ("png", "jpeg", "webp", "gif", "svg", "html", "pdf", "pptx", "mp4", "webm")
-_FFMPEG_TOOLS = (("ffmpeg", "QUICKTHUMB_FFMPEG"), ("ffprobe", "QUICKTHUMB_FFPROBE"))
-_PACKAGES: dict[str, tuple[tuple[str, str], ...]] = {
-    "pdf": (("reportlab", "pdf"), ("fontTools", "pdf")),
-    "pptx": (("pptx", "pptx"),),
+_VIDEO_WORKFLOWS = ("mp4", "webm")
+_FONT_SUFFIXES = (".ttf", ".otf", ".ttc", ".woff", ".woff2")
+# module -> (name shown to the user, pip extra that installs it)
+_MODULES = {
+    "reportlab": ("reportlab", "pdf"),
+    "fontTools": ("fonttools", "pdf"),
+    "pptx": ("python-pptx", "pptx"),
+    "cairosvg": ("cairosvg", "svg"),
+    "rembg": ("rembg", "rembg"),
 }
-_MODULE_EXTRAS = {
-    "reportlab": "reportlab",
-    "fontTools": "fonttools",
-    "pptx": "python-pptx",
-    "cairosvg": "cairosvg",
-    "rembg": "rembg",
-}
+_WORKFLOW_MODULES = {"pdf": ("reportlab", "fontTools"), "pptx": ("pptx",)}
+_FFMPEG_INSTALL = (
+    "install FFmpeg (macOS: brew install ffmpeg; Debian/Ubuntu: sudo apt install ffmpeg)"
+)
 
 
 @dataclass(frozen=True)
@@ -101,86 +106,108 @@ class EnvironmentReport:
         return "\n".join(lines)
 
 
+@dataclass(frozen=True)
+class Requirements:
+    """What a document adds to a workflow's requirements."""
+
+    plugins: frozenset[str] = frozenset()
+    fonts: frozenset[str] = frozenset()
+    svg_layers: bool = False
+    video_layers: bool = False
+    background_removal: bool = False
+    remote_assets: bool = False
+
+
+def _has_module(name: str) -> bool:
+    return importlib.util.find_spec(name) is not None
+
+
+def _find_font(family: str) -> str | None:
+    from quickthumb.font_cache import FontCache
+
+    return FontCache.get_instance().find_font(family)
+
+
+def _registered_plugins() -> Iterable[str]:
+    from quickthumb.plugins import plugin_registry
+
+    return (definition.renderer for definition in plugin_registry.definitions())
+
+
 @dataclass
 class Environment:
     """The machine state the probes read; replace any field to fake it."""
 
     environ: Mapping[str, str] = field(default_factory=lambda: os.environ)
     which: Callable[[str], str | None] = shutil.which
-    has_module: Callable[[str], bool] = lambda name: importlib.util.find_spec(name) is not None
-    find_font: Callable[[str], str | None] | None = None
-    registered_plugins: Callable[[], Iterable[str]] | None = None
-
-    def font_lookup(self) -> Callable[[str], str | None]:
-        if self.find_font is not None:
-            return self.find_font
-        from quickthumb.font_cache import FontCache
-
-        return FontCache.get_instance().find_font
-
-    def plugin_names(self) -> set[str]:
-        if self.registered_plugins is not None:
-            return set(self.registered_plugins())
-        from quickthumb.plugins import plugin_registry
-
-        return {definition.renderer for definition in plugin_registry.definitions()}
+    has_module: Callable[[str], bool] = _has_module
+    find_font: Callable[[str], str | None] = _find_font
+    registered_plugins: Callable[[], Iterable[str]] = _registered_plugins
 
 
 def check_environment(
     workflow: str,
+    requirements: Requirements | None = None,
     *,
     output: str | os.PathLike[str] | None = None,
-    plugins: Iterable[str] = (),
-    fonts: Iterable[str] = (),
-    svg_layers: bool = False,
-    video_layers: bool = False,
-    background_removal: bool = False,
-    remote_assets: bool = False,
     env: Environment | None = None,
 ) -> EnvironmentReport:
     """Check that the environment can run `workflow` and return every finding.
 
-    `workflow` is an output format from `WORKFLOWS`. The keyword flags add the
-    requirements of the document being exported (`plugins` and `fonts` list the
-    renderer names and font families it uses). `output` is the file that will be
-    written; `env` overrides the machine probes.
+    `workflow` is an output format from `WORKFLOWS`. `requirements` adds what the
+    document being exported needs. `output` is the file that will be written;
+    `env` overrides the machine probes.
     """
     workflow = workflow.lower()
     if workflow not in WORKFLOWS:
         raise ValueError(f"Unknown workflow '{workflow}'. Must be one of: {', '.join(WORKFLOWS)}")
+    requirements = requirements or Requirements()
     env = env or Environment()
     findings: list[Finding] = []
 
-    for module, extra in _PACKAGES.get(workflow, ()):
-        findings.append(_package(env, module, extra, required=True, feature=f"{workflow} export"))
-    if svg_layers:
-        findings.append(_package(env, "cairosvg", "svg", required=True, feature="SVG layers"))
-    if background_removal:
+    modules = dict.fromkeys(_WORKFLOW_MODULES.get(workflow, ()), f"{workflow} export")
+    if requirements.svg_layers:
+        modules["cairosvg"] = "SVG layers"
+    if requirements.background_removal:
+        modules["rembg"] = "background removal"
+    findings.extend(_package(env, module, feature) for module, feature in modules.items())
+
+    is_video = workflow in _VIDEO_WORKFLOWS
+    if is_video or requirements.video_layers or workflow == "gif":
+        # GIF and plain canvas video need ffmpeg only for video layers/output; ffprobe is
+        # needed for video layers, audio duration inference, and Deck MP4.
+        feature = workflow if is_video else "video layers"
         findings.append(
-            _package(env, "rembg", "rembg", required=True, feature="background removal")
-        )
-    if workflow in {"mp4", "webm"} or video_layers:
-        findings.extend(
-            _ffmpeg(
+            _media_tool(
                 env,
-                workflow if workflow in {"mp4", "webm"} else "video layers",
-                probe_required=video_layers,
+                "ffmpeg",
+                "QUICKTHUMB_FFMPEG",
+                required=is_video or requirements.video_layers,
+                feature=feature,
             )
         )
-    elif workflow == "gif":
-        findings.append(_ffmpeg_optional(env))
+        if is_video or requirements.video_layers:
+            findings.append(
+                _media_tool(
+                    env,
+                    "ffprobe",
+                    "QUICKTHUMB_FFPROBE",
+                    required=requirements.video_layers,
+                    feature=feature,
+                )
+            )
 
-    findings.extend(_fonts(env, fonts))
-    findings.extend(_plugins(env, plugins))
-    if remote_assets:
+    findings.extend(_fonts(env, requirements.fonts))
+    findings.extend(_plugins(env, requirements.plugins))
+    if requirements.remote_assets:
         findings.append(_asset_cache(env))
     if output is not None:
         findings.append(_output(output))
     return EnvironmentReport(workflow=workflow, findings=tuple(findings))
 
 
-def _package(env: Environment, module: str, extra: str, *, required: bool, feature: str) -> Finding:
-    name = _MODULE_EXTRAS.get(module, module)
+def _package(env: Environment, module: str, feature: str) -> Finding:
+    name, extra = _MODULES[module]
     check = f"python:{name}"
     try:
         available = env.has_module(module)
@@ -191,115 +218,74 @@ def _package(env: Environment, module: str, extra: str, *, required: bool, featu
     return Finding(
         check,
         "dependency",
-        "error" if required else "warning",
+        "error",
         f"{name} is not installed but {feature} requires it",
         f"pip install 'quickthumb[{extra}]'",
     )
 
 
-def _tool(env: Environment, name: str, setting: str) -> str | None:
+def _media_tool(
+    env: Environment, name: str, setting: str, *, required: bool, feature: str
+) -> Finding:
     configured = env.environ.get(setting)
-    return env.which(configured or name)
-
-
-def _ffmpeg(env: Environment, feature: str, *, probe_required: bool) -> list[Finding]:
-    findings = []
-    for name, setting in _FFMPEG_TOOLS:
-        path = _tool(env, name, setting)
-        check = f"tool:{name}"
-        if path:
-            findings.append(Finding(check, "media-tool", "ok", f"{name} found at {path}"))
-        else:
-            configured = env.environ.get(setting)
-            where = (
-                f"{setting}={configured!r} is not executable"
-                if configured
-                else f"{name} not on PATH"
-            )
-            required = name == "ffmpeg" or probe_required
-            findings.append(
-                Finding(
-                    check,
-                    "media-tool",
-                    "error" if required else "warning",
-                    f"{where}, but {feature} requires it"
-                    if required
-                    else f"{where}; it is only needed for video layers, audio duration "
-                    "inference, and Deck MP4",
-                    f"install FFmpeg (macOS: brew install ffmpeg; Debian/Ubuntu: "
-                    f"sudo apt install ffmpeg) or set {setting} to the {name} executable",
-                )
-            )
-    return findings
-
-
-def _ffmpeg_optional(env: Environment) -> Finding:
-    if _tool(env, "ffmpeg", "QUICKTHUMB_FFMPEG"):
-        return Finding("tool:ffmpeg", "media-tool", "ok", "ffmpeg is available")
+    path = env.which(configured or name)
+    check = f"tool:{name}"
+    if path:
+        return Finding(check, "media-tool", "ok", f"{name} found at {path}")
+    where = f"{setting}={configured!r} is not executable" if configured else f"{name} not on PATH"
     return Finding(
-        "tool:ffmpeg",
+        check,
         "media-tool",
-        "warning",
-        "ffmpeg is not available; GIF export still works, but video layers and MP4/WebM do not",
-        "install FFmpeg or set QUICKTHUMB_FFMPEG if you need video output or video layers",
+        "error" if required else "warning",
+        f"{where}, but {feature} requires it"
+        if required
+        else f"{where}; it is only needed for video output and video layers, "
+        "audio duration inference, and Deck MP4",
+        f"{_FFMPEG_INSTALL} or set {setting} to the {name} executable",
     )
 
 
 def _fonts(env: Environment, families: Iterable[str]) -> list[Finding]:
-    findings = []
-    find = env.font_lookup()
-    for family in sorted(set(families)):
-        if find(family):
-            findings.append(
-                Finding(f"font:{family}", "font", "ok", f"font '{family}' is installed")
-            )
-            continue
-        findings.append(
-            Finding(
-                f"font:{family}",
-                "font",
-                "warning",
-                f"font '{family}' was not found; text will fall back to a default font",
-                "install the font, point QUICKTHUMB_FONT_DIR at a directory containing it, "
-                "or reference the font by file path or URL",
-            )
+    return [
+        Finding(f"font:{family}", "font", "ok", f"font '{family}' is installed")
+        if env.find_font(family)
+        else Finding(
+            f"font:{family}",
+            "font",
+            "warning",
+            f"font '{family}' was not found; text will fall back to a default font",
+            "install the font, point QUICKTHUMB_FONT_DIR at a directory containing it, "
+            "or reference the font by file path or URL",
         )
-    return findings
+        for family in sorted(families)
+    ]
 
 
 def _plugins(env: Environment, renderers: Iterable[str]) -> list[Finding]:
-    wanted = sorted(set(renderers))
-    if not wanted:
-        return []
-    registered = env.plugin_names()
-    findings = []
-    for renderer in wanted:
-        if renderer in registered:
-            findings.append(
-                Finding(f"plugin:{renderer}", "plugin", "ok", f"plugin '{renderer}' is registered")
-            )
-        else:
-            findings.append(
-                Finding(
-                    f"plugin:{renderer}",
-                    "plugin",
-                    "error",
-                    f"plugin renderer '{renderer}' is not registered",
-                    "call quickthumb.plugin_registry.register(...) for it before loading "
-                    "or exporting the document",
-                )
-            )
-    return findings
+    registered = set(env.registered_plugins()) if renderers else set()
+    return [
+        Finding(f"plugin:{renderer}", "plugin", "ok", f"plugin '{renderer}' is registered")
+        if renderer in registered
+        else Finding(
+            f"plugin:{renderer}",
+            "plugin",
+            "error",
+            f"plugin renderer '{renderer}' is not registered",
+            "call quickthumb.plugin_registry.register(...) for it before loading "
+            "or exporting the document",
+        )
+        for renderer in sorted(renderers)
+    ]
 
 
 def _asset_cache(env: Environment) -> Finding:
     check = "asset-cache"
     directory = Path(
-        env.environ.get("QUICKTHUMB_ASSET_CACHE_DIR")
+        env.environ.get(_CACHE_DIR_ENV)
         or env.environ.get("QUICKTHUMB_FONT_CACHE_DIR")
         or tempfile.gettempdir()
     ).expanduser()
-    problem = _cannot_write_under(directory)
+    problem, _ = _cannot_write_under(directory)
     if problem is not None:
         return Finding(
             check,
@@ -307,11 +293,25 @@ def _asset_cache(env: Environment) -> Finding:
             "warning",
             f"asset cache directory '{directory}' is not usable: {problem}; "
             "remote assets cannot be cached or reused offline",
-            "set QUICKTHUMB_ASSET_CACHE_DIR to a writable directory",
+            f"set {_CACHE_DIR_ENV} to a writable directory",
         )
-    offline = env.environ.get("QUICKTHUMB_ASSET_OFFLINE", "").lower() in {"1", "true", "yes", "on"}
-    suffix = "; offline mode is on, so only already-cached assets resolve" if offline else ""
-    return Finding(check, "asset-cache", "ok", f"asset cache '{directory}' is writable{suffix}")
+    offline = env.environ.get(_OFFLINE_ENV, "").strip().lower()
+    if offline not in _OFFLINE_VALUES:
+        allowed = ", ".join(sorted(repr(key) for key in _OFFLINE_VALUES))
+        return Finding(
+            check,
+            "asset-cache",
+            "warning",
+            f"{_OFFLINE_ENV}={offline!r} is not a valid setting; asset resolution will fail",
+            f"set {_OFFLINE_ENV} to one of {allowed}, or unset it",
+        )
+    suffix = "; offline mode is on, so only already-cached assets resolve"
+    return Finding(
+        check,
+        "asset-cache",
+        "ok",
+        f"asset cache '{directory}' is writable{suffix if _OFFLINE_VALUES[offline] else ''}",
+    )
 
 
 def _output(output: str | os.PathLike[str]) -> Finding:
@@ -325,7 +325,7 @@ def _output(output: str | os.PathLike[str]) -> Finding:
             f"output path '{path}' is a directory",
             "choose a file path, for example --output out/thumbnail.png",
         )
-    problem = _cannot_write_under(path.parent)
+    problem, existing = _cannot_write_under(path.parent)
     if problem is not None:
         return Finding(
             check,
@@ -334,62 +334,59 @@ def _output(output: str | os.PathLike[str]) -> Finding:
             f"cannot write to '{path}': {problem}",
             "choose a writable location or fix the directory permissions",
         )
-    note = "" if path.parent.exists() else " (its directory will be created)"
+    note = "" if existing == path.parent else " (its directory will be created)"
     return Finding(check, "output", "ok", f"output '{path}' is writable{note}")
 
 
-def _cannot_write_under(directory: Path) -> str | None:
-    """Return why files cannot be created in `directory`, or None when they can.
+def _cannot_write_under(directory: Path) -> tuple[str | None, Path]:
+    """Return why files cannot be created in `directory` (None when they can).
 
-    A directory that does not exist yet is judged by its nearest existing ancestor.
-    Nothing is created; a scratch file is opened and removed to test real access.
+    A directory that does not exist yet is judged by its nearest existing ancestor,
+    which is returned too. Nothing is created; a scratch file is opened and removed
+    to test real access.
     """
     existing = directory
     while not existing.exists() and existing != existing.parent:
         existing = existing.parent
     try:
         if not existing.is_dir():
-            return f"'{existing}' is not a directory"
+            return f"'{existing}' is not a directory", existing
         with tempfile.TemporaryFile(dir=existing):
             pass
     except OSError as error:
-        return error.strerror or str(error)
-    return None
+        return error.strerror or str(error), existing
+    return None, existing
 
 
-def requirements_from_document(payload: object) -> dict[str, Any]:
+def requirements_from_document(payload: object) -> Requirements:
     """Scan document JSON for the layers that add requirements to an export."""
-    found: dict[str, Any] = {
-        "plugins": set(),
-        "fonts": set(),
-        "svg_layers": False,
-        "video_layers": False,
-        "background_removal": False,
-        "remote_assets": False,
-    }
+    plugins: set[str] = set()
+    fonts: set[str] = set()
+    flags = {"svg_layers": False, "video_layers": False, "background_removal": False}
+    remote = False
 
     def walk(node: Any) -> None:
+        nonlocal remote
         if isinstance(node, dict):
             kind = node.get("type")
             if kind == "plugin" and isinstance(node.get("renderer"), str):
-                found["plugins"].add(node["renderer"])
-            elif kind == "svg":
-                found["svg_layers"] = True
-            elif kind == "video":
-                found["video_layers"] = True
+                plugins.add(node["renderer"])
+            elif kind in {"svg", "video"}:
+                flags[f"{kind}_layers"] = True
             if node.get("remove_background") is True:
-                found["background_removal"] = True
+                flags["background_removal"] = True
             font = node.get("font")
-            if isinstance(font, str) and font:
-                if font.startswith(("http://", "https://")):
-                    found["remote_assets"] = True
-                elif not any(sep in font for sep in "/\\") and not font.lower().endswith(
-                    (".ttf", ".otf", ".ttc", ".woff", ".woff2")
-                ):
-                    found["fonts"].add(font)
+            if (
+                isinstance(font, str)
+                and font
+                and not is_url(font)
+                and not any(sep in font for sep in "/\\")
+                and not font.lower().endswith(_FONT_SUFFIXES)
+            ):
+                fonts.add(font)
             for value in node.values():
-                if isinstance(value, str) and value.startswith(("http://", "https://")):
-                    found["remote_assets"] = True
+                if isinstance(value, str) and is_url(value):
+                    remote = True
                 else:
                     walk(value)
         elif isinstance(node, list):
@@ -397,4 +394,6 @@ def requirements_from_document(payload: object) -> dict[str, Any]:
                 walk(item)
 
     walk(payload)
-    return found
+    return Requirements(
+        plugins=frozenset(plugins), fonts=frozenset(fonts), remote_assets=remote, **flags
+    )

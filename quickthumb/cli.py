@@ -18,7 +18,12 @@ from quickthumb._diff import (
     compare_images,
     create_diff_image,
 )
-from quickthumb._doctor import WORKFLOWS, check_environment, requirements_from_document
+from quickthumb._doctor import (
+    WORKFLOWS,
+    Requirements,
+    check_environment,
+    requirements_from_document,
+)
 from quickthumb._document import load_document
 from quickthumb.canvas import _VAR_RE, Canvas, _is_theme_reference
 from quickthumb.deck import Deck, DeckDiagnostic
@@ -478,7 +483,7 @@ def doctor(
     reported) and 1 when a required check fails.
     """
     output_format = _require_output_format(output_format)
-    requirements: dict = {}
+    requirements = Requirements()
     if spec is not None:
         try:
             requirements = requirements_from_document(json.loads(spec.read_text()))
@@ -488,7 +493,7 @@ def doctor(
                 output_format,
             ) from error
     try:
-        report = check_environment(workflow, output=output, **requirements)
+        report = check_environment(workflow, requirements, output=output)
     except ValueError as error:
         raise _fail(InputError(str(error)), output_format) from error
 

@@ -3,7 +3,13 @@
 import json
 
 import pytest
-from quickthumb._doctor import WORKFLOWS, Environment, check_environment, requirements_from_document
+from quickthumb._doctor import (
+    WORKFLOWS,
+    Environment,
+    Requirements,
+    check_environment,
+    requirements_from_document,
+)
 from quickthumb.cli import app
 from typer.testing import CliRunner
 
@@ -34,11 +40,13 @@ def test_healthy_environment_has_no_findings_to_fix(tmp_path):
     )
     report = check_environment(
         "pdf",
+        Requirements(
+            plugins=frozenset({"chart"}),
+            fonts=frozenset({"Inter"}),
+            svg_layers=True,
+            remote_assets=True,
+        ),
         output=tmp_path / "out" / "thumb.pdf",
-        plugins=["chart"],
-        fonts=["Inter"],
-        svg_layers=True,
-        remote_assets=True,
         env=env,
     )
 
@@ -51,10 +59,10 @@ def test_incomplete_environment_separates_required_from_optional(tmp_path):
     (tmp_path / "blocked").write_text("a file, not a directory")
     report = check_environment(
         "pdf",
+        Requirements(
+            plugins=frozenset({"chart"}), fonts=frozenset({"Missing Sans"}), svg_layers=True
+        ),
         output=tmp_path / "blocked" / "thumb.pdf",
-        plugins=["chart"],
-        fonts=["Missing Sans"],
-        svg_layers=True,
         env=_env(),
     )
 
@@ -75,7 +83,9 @@ def test_video_tools_are_required_for_mp4_and_ffprobe_only_for_video_layers():
     assert _by_check(without_tools)["tool:ffmpeg"].status == "error"
     assert _by_check(without_tools)["tool:ffprobe"].status == "warning"
 
-    with_layers = check_environment("mp4", video_layers=True, env=_env(tools={"ffmpeg"}))
+    with_layers = check_environment(
+        "mp4", Requirements(video_layers=True), env=_env(tools={"ffmpeg"})
+    )
     assert _by_check(with_layers)["tool:ffmpeg"].status == "ok"
     assert _by_check(with_layers)["tool:ffprobe"].status == "error"
 
@@ -107,7 +117,9 @@ def test_unusable_asset_cache_is_a_warning(tmp_path):
     (tmp_path / "file").write_text("x")
     env = _env(environ={"QUICKTHUMB_ASSET_CACHE_DIR": str(tmp_path / "file" / "cache")})
 
-    finding = _by_check(check_environment("png", remote_assets=True, env=env))["asset-cache"]
+    finding = _by_check(check_environment("png", Requirements(remote_assets=True), env=env))[
+        "asset-cache"
+    ]
 
     assert finding.status == "warning"
     assert "QUICKTHUMB_ASSET_CACHE_DIR" in (finding.remedy or "")
@@ -121,9 +133,24 @@ def test_offline_mode_is_mentioned_for_a_healthy_cache(tmp_path):
         }
     )
 
-    finding = _by_check(check_environment("png", remote_assets=True, env=env))["asset-cache"]
+    finding = _by_check(check_environment("png", Requirements(remote_assets=True), env=env))[
+        "asset-cache"
+    ]
 
     assert finding.status == "ok" and "offline" in finding.message
+
+
+def test_invalid_offline_setting_is_reported(tmp_path):
+    env = _env(
+        environ={"QUICKTHUMB_ASSET_CACHE_DIR": str(tmp_path), "QUICKTHUMB_ASSET_OFFLINE": "maybe"}
+    )
+
+    finding = _by_check(check_environment("png", Requirements(remote_assets=True), env=env))[
+        "asset-cache"
+    ]
+
+    assert finding.status == "warning"
+    assert "QUICKTHUMB_ASSET_OFFLINE" in finding.message
 
 
 def test_output_directory_is_rejected(tmp_path):
@@ -165,14 +192,14 @@ def test_requirements_are_read_from_document_json():
 
     found = requirements_from_document(payload)
 
-    assert found == {
-        "plugins": {"chart"},
-        "fonts": {"Inter"},
-        "svg_layers": True,
-        "video_layers": True,
-        "background_removal": True,
-        "remote_assets": True,
-    }
+    assert found == Requirements(
+        plugins=frozenset({"chart"}),
+        fonts=frozenset({"Inter"}),
+        svg_layers=True,
+        video_layers=True,
+        background_removal=True,
+        remote_assets=True,
+    )
 
 
 def test_report_serialises_to_json_and_text():
