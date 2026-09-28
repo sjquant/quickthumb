@@ -18,6 +18,7 @@ from quickthumb._diff import (
     compare_images,
     create_diff_image,
 )
+from quickthumb._doctor import WORKFLOWS, check_environment, requirements_from_document
 from quickthumb._document import load_document
 from quickthumb.canvas import _VAR_RE, Canvas, _is_theme_reference
 from quickthumb.deck import Deck, DeckDiagnostic
@@ -450,6 +451,53 @@ def _substitute_vars(text: str, variables: dict[str, str]) -> str:
         )
 
     return result
+
+
+@app.command()
+def doctor(
+    workflow: Annotated[
+        str,
+        typer.Argument(help="Export workflow to check: " + ", ".join(WORKFLOWS)),
+    ] = "png",
+    spec: Annotated[
+        Path | None,
+        typer.Option("--spec", help="JSON spec whose plugins, fonts, and layers add requirements"),
+    ] = None,
+    output: Annotated[
+        Path | None,
+        typer.Option("-o", "--output", help="Output file path to check for write access"),
+    ] = None,
+    output_format: Annotated[
+        str,
+        typer.Option("--format", help="Report format: text or json"),
+    ] = "text",
+) -> None:
+    """Check that this environment can run an export workflow.
+
+    Exits 0 when every required check passes (optional limitations are only
+    reported) and 1 when a required check fails.
+    """
+    output_format = _require_output_format(output_format)
+    requirements: dict = {}
+    if spec is not None:
+        try:
+            requirements = requirements_from_document(json.loads(spec.read_text()))
+        except (OSError, UnicodeError, ValueError) as error:
+            raise _fail(
+                InputError(f"Cannot read spec file '{spec}': {error}", code="input_unreadable"),
+                output_format,
+            ) from error
+    try:
+        report = check_environment(workflow, output=output, **requirements)
+    except ValueError as error:
+        raise _fail(InputError(str(error)), output_format) from error
+
+    if output_format == "json":
+        typer.echo(json.dumps(report.to_dict(), indent=2))
+    else:
+        typer.echo(report.format())
+    if not report.ok:
+        raise typer.Exit(1)
 
 
 @app.command()
