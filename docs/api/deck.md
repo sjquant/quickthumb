@@ -192,6 +192,13 @@ for finding in deck.diagnose().findings:
 
 A `mixed-slide-size` warning is added when slides do not all share the same dimensions. The PDF path sizes each page to its slide, but PPTX export uses the first slide's size for the whole deck, so larger later slides are clipped by PowerPoint — keep slides a uniform size when targeting `.pptx`.
 
+## `.prefetch_assets()` (optional)
+
+Downloads every slide's remote assets up front and returns one deck-level
+`asset_manifest`, like [`Canvas.prefetch_assets()`](canvas.md#prefetch_assets-optional).
+Rendering and exporting fetch assets themselves, so call it only to surface
+network failures or stale cache entries before a long export.
+
 ## JSON
 
 ### `.to_json()` / `Deck.from_json(json_str)`
