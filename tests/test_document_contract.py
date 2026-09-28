@@ -16,7 +16,7 @@ from quickthumb import (
     ExportResult,
     GifOptions,
     KeyframeSpec,
-    ResolvedDocument,
+    PrefetchResult,
     TextFillImage,
     TextPart,
     ValidationReport,
@@ -180,18 +180,18 @@ def test_validation_inspection_and_asset_resolution_are_document_level_results(t
     # When: validation, inspection, and resolution are requested
     canvas_validation = canvas.validate()
     deck_validation = deck.validate()
-    canvas_resolution = canvas.prefetch_assets()
-    deck_resolution = deck.prefetch_assets()
+    canvas_prefetch = canvas.prefetch_assets()
+    deck_prefetch = deck.prefetch_assets()
 
     # Then: both documents report valid state and serializable asset metadata
     assert isinstance(canvas_validation, ValidationReport)
     assert isinstance(deck_validation, ValidationReport)
     assert canvas_validation.valid and deck_validation.valid
     assert isinstance(deck.inspect(), DeckInspection)
-    assert isinstance(canvas_resolution, ResolvedDocument)
-    assert canvas_resolution.asset_manifest[0].content_hash
-    assert deck_resolution.asset_manifest == canvas_resolution.asset_manifest
-    json.dumps(deck_resolution.model_dump(mode="json"))
+    assert isinstance(canvas_prefetch, PrefetchResult)
+    assert canvas_prefetch.asset_manifest[0].content_hash
+    assert deck_prefetch.asset_manifest == canvas_prefetch.asset_manifest
+    json.dumps(deck_prefetch.model_dump(mode="json"))
 
 
 def test_invalid_documents_and_audio_assets_are_reported_at_document_level(tmp_path: Path):

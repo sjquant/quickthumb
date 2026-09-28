@@ -30,7 +30,7 @@ from quickthumb.models import (
     FrameSequence,
     GifOptions,
     PixelMetrics,
-    ResolvedDocument,
+    PrefetchResult,
     TimingMetrics,
     ValidationReport,
     VideoOptions,
@@ -111,7 +111,7 @@ class Document(Protocol):
 
     def diagnose(self) -> DiagnosticReport: ...
 
-    def prefetch_assets(self) -> ResolvedDocument: ...
+    def prefetch_assets(self) -> PrefetchResult: ...
 
     def sample(
         self,
@@ -265,13 +265,11 @@ def validation_report(source: Document, *, kind: DocumentKind) -> ValidationRepo
     return ValidationReport(valid=not errors, errors=errors)
 
 
-def resolved_document(
-    source: Document, *, kind: DocumentKind, assets: AssetPort
-) -> ResolvedDocument:
-    """Resolve/check asset references and return one deterministic manifest."""
+def prefetch_result(source: Document, *, kind: DocumentKind, assets: AssetPort) -> PrefetchResult:
+    """Download asset references up front and return one deterministic manifest."""
     _contract_validate_assets(source)
     assets.resolve()
-    return ResolvedDocument(kind=kind, asset_manifest=_asset_manifest(source, assets.record_for))
+    return PrefetchResult(kind=kind, asset_manifest=_asset_manifest(source, assets.record_for))
 
 
 def _contract_kind(source: Document) -> DocumentKind:

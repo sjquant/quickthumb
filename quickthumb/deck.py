@@ -29,7 +29,7 @@ from quickthumb.models import (
     ExportResult,
     FrameSequence,
     GifOptions,
-    ResolvedDocument,
+    PrefetchResult,
     ValidationReport,
     VideoOptions,
     coerce_audio_track,
@@ -318,15 +318,15 @@ class Deck:
             slides=[slide.inspect() for slide in self._slides],
         )
 
-    def prefetch_assets(self) -> ResolvedDocument:
+    def prefetch_assets(self) -> PrefetchResult:
         """Download every slide's remote assets now and return one deck manifest.
 
         Optional, like ``Canvas.prefetch_assets()``: rendering and exporting
         fetch assets themselves.
         """
-        from quickthumb._document import AssetPort, Document, resolved_document
+        from quickthumb._document import AssetPort, Document, prefetch_result
 
-        return resolved_document(
+        return prefetch_result(
             cast(Document, self),
             kind="deck",
             assets=AssetPort(

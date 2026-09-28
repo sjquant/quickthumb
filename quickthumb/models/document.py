@@ -141,8 +141,8 @@ class AssetManifestEntry(quickthumbModel):
     stale_reason: str | None = None
 
 
-class ResolvedDocument(quickthumbModel):
-    """Asset-resolution metadata returned without exposing renderer internals."""
+class PrefetchResult(quickthumbModel):
+    """Stable, JSON-serializable result returned by ``Document.prefetch_assets()``."""
 
     model_config = ConfigDict(extra="forbid")
 

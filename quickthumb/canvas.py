@@ -62,9 +62,9 @@ from quickthumb.models import (
     LinearGradient,
     OutlineLayer,
     PluginLayer,
+    PrefetchResult,
     QRCodeLayer,
     RadialGradient,
-    ResolvedDocument,
     ShapeEffect,
     ShapeLayer,
     SvgLayer,
@@ -409,7 +409,7 @@ class Canvas:
         # sets its settled time, so it needs no per-slide duration.
         return [self], [None], None
 
-    def prefetch_assets(self) -> ResolvedDocument:
+    def prefetch_assets(self) -> PrefetchResult:
         """Download remote assets now and return their manifest.
 
         Optional: ``render()`` and ``export()`` fetch assets themselves, and
@@ -417,9 +417,9 @@ class Canvas:
         failures or stale cache entries before a long export, or to warm the
         cache for later offline renders.
         """
-        from quickthumb._document import AssetPort, Document, resolved_document
+        from quickthumb._document import AssetPort, Document, prefetch_result
 
-        return resolved_document(
+        return prefetch_result(
             cast(Document, self),
             kind="canvas",
             assets=AssetPort(
