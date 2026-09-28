@@ -179,7 +179,7 @@ class TestCheckEnvironment:
         assert "offline" in finding.message
 
     def test_should_report_invalid_offline_setting(self, tmp_path):
-        """an unparseable QUICKTHUMB_ASSET_OFFLINE is surfaced instead of ignored"""
+        """an invalid QUICKTHUMB_ASSET_OFFLINE is surfaced instead of ignored"""
         # given: a writable cache with an invalid offline value
         from quickthumb._doctor import Requirements, check_environment
 
