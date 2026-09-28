@@ -1,10 +1,18 @@
 """Behavioral specifications for the production-style VideoLayer example."""
 
 import json
+import shutil
 
+import pytest
 from quickthumb.models import VideoLayer
 
+HAS_FFPROBE = shutil.which("ffprobe") is not None
+requires_ffprobe = pytest.mark.skipif(
+    not HAS_FFPROBE, reason="ffprobe is required to measure the example's clips"
+)
 
+
+@requires_ffprobe
 def test_ordinary_moments_tells_a_sixty_second_story_in_nine_scenes():
     """Given the public example, when serialized, then its story contract is preserved."""
     # Given: the public, locally reproducible example deck
@@ -134,6 +142,7 @@ def test_ordinary_moments_keeps_caption_treatment_and_fallback_contracts_public(
     )
 
 
+@requires_ffprobe
 def test_ordinary_moments_reads_at_a_pace_a_viewer_can_follow():
     """Given the film, when diagnosed, then no cue or clip is flagged as unreadable."""
     # Given: a film whose caption timing and clip speeds were tuned by hand
