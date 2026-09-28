@@ -216,6 +216,27 @@ quickthumb watch spec.json -o preview.png
 `watch` takes the same options as `render` except `--error-format`; failures are printed as
 text and watching continues.
 
+### `quickthumb doctor`
+
+Checks that this machine can run an export workflow *before* you attempt it:
+
+```bash
+quickthumb doctor pdf -o out/thumbnail.pdf
+quickthumb doctor mp4 --spec spec.json --format json
+```
+
+The workflow is one of `png`, `jpeg`, `webp`, `gif`, `svg`, `html`, `pdf`, `pptx`, `mp4`, or
+`webm`. With `--spec`, the spec's plugin renderers, fonts, SVG/video layers, background removal,
+and remote assets add their own requirements. `-o` checks that the output location is writable
+(nothing is created).
+
+Each finding is `ok`, `warning` (an optional limitation, such as a missing font or an
+unusable asset cache), or `error` (a required failure, such as a missing `quickthumb[pdf]` extra,
+ffmpeg, an unregistered plugin, or an unwritable output). Every warning and error includes a
+`fix`/`remedy`. Plugins are checked against the registry of the CLI process, which only has plugins registered
+at import time, so a spec that uses code-registered plugins will report them as unregistered.
+Exit code is `0` when no required check failed and `1` otherwise.
+
 ### `quickthumb serve`
 
 Runs a local HTML slideshow server with live reload. With no source argument it
