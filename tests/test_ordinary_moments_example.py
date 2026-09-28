@@ -1,15 +1,10 @@
 """Behavioral specifications for the production-style VideoLayer example."""
 
 import json
-import shutil
 
-import pytest
 from quickthumb.models import VideoLayer
 
-HAS_FFPROBE = shutil.which("ffprobe") is not None
-requires_ffprobe = pytest.mark.skipif(
-    not HAS_FFPROBE, reason="ffprobe is required to measure the example's clips"
-)
+from tests._optional import requires_ffprobe
 
 
 @requires_ffprobe

@@ -19,3 +19,20 @@ def require_pypdfium2():
         return importlib.import_module("pypdfium2")
     except (ImportError, OSError) as e:
         pytest.skip(f"pypdfium2 is unavailable: {e}")
+
+
+def _has_video_tool(name: str, setting: str) -> bool:
+    from quickthumb._video import _tool
+    from quickthumb.errors import RenderingError
+
+    try:
+        _tool(name, setting)
+    except RenderingError:
+        return False
+    return True
+
+
+requires_ffprobe = pytest.mark.skipif(
+    not _has_video_tool("ffprobe", "QUICKTHUMB_FFPROBE"),
+    reason="ffprobe is required (install FFmpeg or set QUICKTHUMB_FFPROBE)",
+)

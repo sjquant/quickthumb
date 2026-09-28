@@ -1,16 +1,7 @@
 """Deterministic resolution and caching for remote document assets.
 
-Every resolution ends in exactly one observable status:
-
-- ``local``: read from a local file.
-- ``network``: downloaded now and written to the cache.
-- ``fresh``: read from a cache entry no older than ``max_age``.
-- ``stale``: read from a cache entry older than ``max_age`` (or reused while
-  offline) because a refresh was not possible; ``stale_reason`` says why.
-
-When neither a usable cache entry nor a network response exists, resolution
-raises :class:`~quickthumb.errors.RenderingError` naming the source, the cause,
-and the cache directory that was searched.
+Resolution statuses are documented on
+:class:`quickthumb.models.AssetManifestEntry`.
 """
 
 from __future__ import annotations
@@ -37,12 +28,22 @@ from quickthumb.errors import RenderingError
 
 _DEFAULT_TIMEOUT = 15
 _DEFAULT_MAX_BYTES = 64 * 1024 * 1024
+_CACHE_DIR_ENV = "QUICKTHUMB_ASSET_CACHE_DIR"
 _MAX_AGE_ENV = "QUICKTHUMB_ASSET_MAX_AGE"
 _OFFLINE_ENV = "QUICKTHUMB_ASSET_OFFLINE"
-_TRUE_VALUES = {"1", "true", "yes", "on"}
-_FALSE_VALUES = {"", "0", "false", "no", "off"}
-_CACHE_LOCK_GUARD = Lock()
+_OFFLINE_VALUES = {
+    "": False,
+    "0": False,
+    "false": False,
+    "no": False,
+    "off": False,
+    "1": True,
+    "true": True,
+    "yes": True,
+    "on": True,
+}
 ResolvedStatus = Literal["local", "network", "fresh", "stale"]
+_CACHE_LOCK_GUARD = Lock()
 _CACHE_LOCKS: dict[str, Lock] = {}
 _FONT_MAGIC = (
     b"\x00\x01\x00\x00",
@@ -66,7 +67,7 @@ class ResolvedAsset:
     content_hash: str
     status: ResolvedStatus
     data: bytes = field(repr=False)
-    fetched_at: str | None = None
+    fetched_at: float | None = None
     stale_reason: str | None = None
 
 
@@ -92,7 +93,7 @@ class AssetResolver:
     ) -> None:
         if not isinstance(max_bytes, int) or isinstance(max_bytes, bool) or max_bytes <= 0:
             raise ValueError("max_bytes must be a positive integer")
-        selected_dir = cache_dir or os.environ.get("QUICKTHUMB_ASSET_CACHE_DIR")
+        selected_dir = cache_dir or os.environ.get(_CACHE_DIR_ENV)
         if selected_dir is None:
             selected_dir = os.environ.get("QUICKTHUMB_FONT_CACHE_DIR", tempfile.gettempdir())
         self.cache_dir = Path(selected_dir).expanduser()
@@ -151,7 +152,12 @@ class AssetResolver:
         invalid_message: str | None = None,
         fetcher: Callable[..., object] | None = None,
     ) -> ResolvedAsset:
-        """Resolve one source, preferring a fresh cache entry before network access."""
+        """Resolve one source, preferring a fresh cache entry before network access.
+
+        A resolver keeps its first result per source, so repeated renders and
+        exports of one document report the same status without re-reading the
+        cache or retrying a failed refresh.
+        """
         if not _is_url(source):
             return self._resolve_local(source, asset_type, validator)
 
@@ -159,75 +165,78 @@ class AssetResolver:
             source_key = self.source_key(source)
         except ValueError as error:
             raise RenderingError(f"Invalid remote asset URL '{source}'.") from error
+        record_key = (asset_type, source_key)
+        record = self._records.get(record_key)
+        if record is not None:
+            return record
         cache_key = self.cache_key(source_key)
         path = self._cache_path(source_key, asset_type, extension, cache_filename)
-        record_key = (asset_type, source_key)
         with self._lock_for(path):
-            cached = self._read_cached(
+            result = self._resolve_remote(
                 source,
                 source_key,
                 asset_type,
                 cache_key,
                 path,
                 validator,
+                invalid_message,
+                fetcher,
             )
-            if cached is not None and not self._is_stale(cached):
-                self._records[record_key] = cached
-                return cached
-
-            previous = self._records.get(record_key)
-            if (
-                cached is not None
-                and previous is not None
-                and previous.status == "stale"
-                and previous.content_hash == cached.content_hash
-            ):
-                # One failed refresh per resolver: repeated use reports the
-                # same stale value instead of waiting on the network again.
-                return previous
-
-            if self.offline:
-                if cached is None:
-                    raise RenderingError(
-                        f"Remote {asset_type} '{source}' is not cached in "
-                        f"'{self.cache_dir}' and offline mode is enabled "
-                        f"({_OFFLINE_ENV}). Resolve it once with network access "
-                        "or point QUICKTHUMB_ASSET_CACHE_DIR at a cache that holds it."
-                    )
-                return self._use_stale(cached, "offline mode is enabled")
-
-            try:
-                downloaded = self._download(
-                    source,
-                    asset_type,
-                    fetcher=fetcher,
-                )
-                if validator is not None and not validator(downloaded):
-                    raise RenderingError(invalid_message or f"Downloaded {asset_type} is invalid.")
-            except RenderingError as error:
-                if cached is None:
-                    raise RenderingError(
-                        f"{error} No usable cached copy exists in '{self.cache_dir}'; "
-                        "check the URL and network access, or point "
-                        "QUICKTHUMB_ASSET_CACHE_DIR at a cache that holds it."
-                    ) from error
-                return self._use_stale(cached, f"refresh failed: {error}")
-            content_hash = _content_hash(downloaded)
-            self._persist(path, downloaded)
-            result = ResolvedAsset(
-                source=source,
-                asset_type=asset_type,
-                source_key=source_key,
-                cache_key=cache_key,
-                cache_path=str(path),
-                content_hash=content_hash,
-                status="network",
-                data=downloaded,
-                fetched_at=_timestamp(time.time()),
-            )
-            self._persist_metadata(path, result)
             self._records[record_key] = result
             return result
+
+    def _resolve_remote(
+        self,
+        source: str,
+        source_key: str,
+        asset_type: str,
+        cache_key: str,
+        path: Path,
+        validator: Callable[[bytes], bool] | None,
+        invalid_message: str | None,
+        fetcher: Callable[..., object] | None,
+    ) -> ResolvedAsset:
+        cached = self._read_cached(source, source_key, asset_type, cache_key, path, validator)
+        if cached is not None and not self._is_stale(cached):
+            return cached
+        if self.offline:
+            if cached is None:
+                raise self._uncached_error(
+                    f"Remote {asset_type} '{source}' is not cached and offline mode is "
+                    f"enabled ({_OFFLINE_ENV})."
+                )
+            return self._mark_stale(cached, "offline mode is enabled")
+
+        try:
+            downloaded = self._download(source, asset_type, fetcher=fetcher)
+            if validator is not None and not validator(downloaded):
+                raise RenderingError(invalid_message or f"Downloaded {asset_type} is invalid.")
+        except RenderingError as error:
+            if cached is None:
+                raise self._uncached_error(str(error)) from error
+            return self._mark_stale(cached, f"refresh failed: {error}")
+        content_hash = _content_hash(downloaded)
+        if cached is None or cached.content_hash != content_hash:
+            self._persist(path, downloaded)
+        result = ResolvedAsset(
+            source=source,
+            asset_type=asset_type,
+            source_key=source_key,
+            cache_key=cache_key,
+            cache_path=str(path),
+            content_hash=content_hash,
+            status="network",
+            data=downloaded,
+            fetched_at=float(int(time.time())),
+        )
+        self._persist_metadata(path, result)
+        return result
+
+    def _uncached_error(self, message: str) -> RenderingError:
+        return RenderingError(
+            f"{message} No usable cached copy exists in '{self.cache_dir}'; check the URL "
+            f"and network access, or point {_CACHE_DIR_ENV} at a cache that holds it."
+        )
 
     def describe(self, source: str, asset_type: str = "asset") -> ResolvedAsset | None:
         """Return metadata for a valid cached URL without making a network request."""
@@ -241,7 +250,7 @@ class AssetResolver:
         path = self._cache_path(source_key, asset_type, None, None)
         result = self._read_cached(source, source_key, asset_type, cache_key, path, None)
         if result is not None and self._is_stale(result):
-            return replace(result, status="stale", stale_reason=self._age_reason(result))
+            return self._mark_stale(result)
         return result
 
     def invalidate(
@@ -390,7 +399,7 @@ class AssetResolver:
         if metadata is not None and metadata.get("source_key") != source_key:
             return None
         content_hash = _content_hash(data)
-        fetched_at = None
+        fetched_at: float | None = None
         if metadata is not None:
             if metadata.get("asset_type") not in (None, asset_type):
                 return None
@@ -412,27 +421,25 @@ class AssetResolver:
             content_hash=content_hash,
             status="fresh",
             data=data,
-            fetched_at=None if fetched_at is None else _timestamp(fetched_at),
+            fetched_at=fetched_at,
         )
 
     def _is_stale(self, asset: ResolvedAsset) -> bool:
         if self.max_age is None:
             return False
-        fetched_at = _parse_timestamp(asset.fetched_at)
-        return fetched_at is None or time.time() - fetched_at > self.max_age
+        return asset.fetched_at is None or time.time() - asset.fetched_at > self.max_age
 
-    def _age_reason(self, asset: ResolvedAsset) -> str:
-        if asset.fetched_at is None:
-            return f"cache entry has no fetch time and max_age is {self.max_age:g}s"
-        return f"cache entry fetched at {asset.fetched_at} is older than max_age {self.max_age:g}s"
-
-    def _use_stale(self, cached: ResolvedAsset, cause: str) -> ResolvedAsset:
-        reasons = [cause]
-        if self._is_stale(cached):
-            reasons.insert(0, self._age_reason(cached))
-        stale = replace(cached, status="stale", stale_reason="; ".join(reasons))
-        self._records[(stale.asset_type, stale.source_key)] = stale
-        return stale
+    def _mark_stale(self, cached: ResolvedAsset, cause: str | None = None) -> ResolvedAsset:
+        """Report an expired (or offline) cache entry, with why it was not refreshed."""
+        if cached.fetched_at is None:
+            reason = "cache entry has no fetch time"
+        else:
+            reason = f"cache entry fetched at {format_timestamp(cached.fetched_at)}"
+        if self.max_age is not None:
+            reason += f" is older than max_age {self.max_age:g}s"
+        if cause is not None:
+            reason += f"; {cause}"
+        return replace(cached, status="stale", stale_reason=reason)
 
     def _download(
         self,
@@ -470,7 +477,7 @@ class AssetResolver:
             "asset_type": asset.asset_type,
             "cache_key": asset.cache_key,
             "content_hash": asset.content_hash,
-            "fetched_at": asset.fetched_at,
+            "fetched_at": format_timestamp(asset.fetched_at),
             "source": asset.source,
             "source_key": asset.source_key,
         }
@@ -538,8 +545,10 @@ def _content_hash(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-def _timestamp(seconds: float) -> str:
+def format_timestamp(seconds: float | None) -> str | None:
     """Format epoch seconds as a UTC ISO-8601 instant with second precision."""
+    if seconds is None:
+        return None
     return datetime.fromtimestamp(int(seconds), timezone.utc).isoformat()
 
 
@@ -573,11 +582,10 @@ def _offline_setting(value: bool | None) -> bool:
     if value is not None:
         return bool(value)
     raw = os.environ.get(_OFFLINE_ENV, "").strip().lower()
-    if raw in _TRUE_VALUES:
-        return True
-    if raw in _FALSE_VALUES:
-        return False
-    raise ValueError(f"{_OFFLINE_ENV} must be one of 1/0, true/false, yes/no, on/off; got {raw!r}")
+    if raw not in _OFFLINE_VALUES:
+        allowed = ", ".join(sorted(repr(key) for key in _OFFLINE_VALUES))
+        raise ValueError(f"{_OFFLINE_ENV} must be one of {allowed}; got {raw!r}")
+    return _OFFLINE_VALUES[raw]
 
 
 def _url_extension(source: str) -> str:

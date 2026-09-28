@@ -266,25 +266,31 @@ def _age_cache_entries(cache_dir: Path, fetched_at: str = "2000-01-01T00:00:00+0
         sidecar.write_text(json.dumps(metadata), encoding="utf-8")
 
 
-def _prime_cache(base_url: str, tmp_path: Path) -> AssetManifestEntry:
+@pytest.fixture
+def asset_cache_dir(tmp_path, monkeypatch) -> Path:
+    cache_dir = tmp_path / "assets"
+    monkeypatch.setenv("QUICKTHUMB_ASSET_CACHE_DIR", str(cache_dir))
+    return cache_dir
+
+
+def _prime_cache(base_url: str, cache_dir: Path) -> AssetManifestEntry:
+    """Resolve the test image once, then make its cache entry look long expired."""
     canvas = Canvas(4, 4).background(image=f"{base_url}/asset.png")
     entry = canvas.resolve_assets().asset_manifest[0]
-    _age_cache_entries(tmp_path / "assets")
+    _age_cache_entries(cache_dir)
     return entry
 
 
 def test_cache_entries_record_fetch_time_and_stay_fresh_without_max_age(
-    tmp_path, monkeypatch, local_assets
+    asset_cache_dir, local_assets
 ):
     """Given no max_age, an old cache entry is fresh and reports when it was fetched."""
     base_url, requests, _server, _payloads = local_assets
-    monkeypatch.setenv("QUICKTHUMB_ASSET_CACHE_DIR", str(tmp_path / "assets"))
-    first = Canvas(4, 4).background(image=f"{base_url}/asset.png").resolve_assets()
-    _age_cache_entries(tmp_path / "assets")
+    first = _prime_cache(base_url, asset_cache_dir)
 
     second = Canvas(4, 4).background(image=f"{base_url}/asset.png").resolve_assets()
 
-    assert first.asset_manifest[0].fetched_at is not None
+    assert first.fetched_at is not None
     entry = second.asset_manifest[0]
     assert (entry.status, entry.fetched_at, entry.stale_reason) == (
         "fresh",
@@ -294,11 +300,12 @@ def test_cache_entries_record_fetch_time_and_stay_fresh_without_max_age(
     assert requests == ["/asset.png"]
 
 
-def test_expired_cache_entry_is_refreshed_from_the_network(tmp_path, monkeypatch, local_assets):
+def test_expired_cache_entry_is_refreshed_from_the_network(
+    asset_cache_dir, monkeypatch, local_assets
+):
     """Given max_age and an expired entry, resolution downloads a fresh copy."""
     base_url, requests, _server, _payloads = local_assets
-    monkeypatch.setenv("QUICKTHUMB_ASSET_CACHE_DIR", str(tmp_path / "assets"))
-    _prime_cache(base_url, tmp_path)
+    _prime_cache(base_url, asset_cache_dir)
     monkeypatch.setenv("QUICKTHUMB_ASSET_MAX_AGE", "3600")
 
     entry = Canvas(4, 4).background(image=f"{base_url}/asset.png").resolve_assets()
@@ -311,12 +318,11 @@ def test_expired_cache_entry_is_refreshed_from_the_network(tmp_path, monkeypatch
 
 
 def test_expired_cache_entry_is_used_as_stale_when_the_network_fails(
-    tmp_path, monkeypatch, local_assets
+    tmp_path, asset_cache_dir, monkeypatch, local_assets
 ):
     """Given an expired entry and a failing refresh, Canvas and Deck report a stale value."""
     base_url, requests, _server, payloads = local_assets
-    monkeypatch.setenv("QUICKTHUMB_ASSET_CACHE_DIR", str(tmp_path / "assets"))
-    primed = _prime_cache(base_url, tmp_path)
+    primed = _prime_cache(base_url, asset_cache_dir)
     monkeypatch.setenv("QUICKTHUMB_ASSET_MAX_AGE", "60")
     del payloads["/asset.png"]
     source = f"{base_url}/asset.png"
@@ -337,11 +343,12 @@ def test_expired_cache_entry_is_used_as_stale_when_the_network_fails(
     assert requests == ["/asset.png", "/asset.png", "/asset.png"]
 
 
-def test_offline_mode_uses_the_cache_without_network_requests(tmp_path, monkeypatch, local_assets):
+def test_offline_mode_uses_the_cache_without_network_requests(
+    asset_cache_dir, monkeypatch, local_assets
+):
     """Given offline mode, cached entries resolve without requests and misses fail clearly."""
     base_url, requests, _server, _payloads = local_assets
-    monkeypatch.setenv("QUICKTHUMB_ASSET_CACHE_DIR", str(tmp_path / "assets"))
-    _prime_cache(base_url, tmp_path)
+    _prime_cache(base_url, asset_cache_dir)
     monkeypatch.setenv("QUICKTHUMB_ASSET_OFFLINE", "1")
     source = f"{base_url}/asset.png"
 

@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, Protocol, cast, runtime_checkable
 
-from quickthumb.asset_cache import ResolvedAsset
+from quickthumb.asset_cache import ResolvedAsset, format_timestamp
 from quickthumb.errors import (
     ErrorDetail,
     MissingAssetError,
@@ -514,21 +514,22 @@ def _manifest_entry(
             cache_key=record.cache_key,
             cache_path=record.cache_path,
             content_hash=record.content_hash,
-            fetched_at=record.fetched_at,
+            fetched_at=format_timestamp(record.fetched_at),
             stale_reason=record.stale_reason,
         )
     if _is_url(value):
         return AssetManifestEntry(
             source=value, asset_type=asset_type, status="unresolved", source_key=value
         )
-    if not os.path.isfile(value):
+    content_hash = _local_hash(value)
+    if content_hash is None:
         return AssetManifestEntry(source=value, asset_type=asset_type, status="missing")
     return AssetManifestEntry(
         source=value,
         asset_type=asset_type,
         status="local",
         cache_path=value,
-        content_hash=_local_hash(value),
+        content_hash=content_hash,
     )
 
 
@@ -541,8 +542,7 @@ def _is_local_asset(value: str) -> bool:
 
 
 def _local_hash(value: str) -> str | None:
-    if _is_url(value) or not os.path.isfile(value):
-        return None
+    """Hash a local file, or return None when it cannot be read."""
     digest = hashlib.sha256()
     try:
         with open(value, "rb") as stream:
