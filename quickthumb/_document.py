@@ -21,6 +21,7 @@ from quickthumb.errors import (
 )
 from quickthumb.models import (
     AssetManifestEntry,
+    AssetStatus,
     DiagnosticReport,
     ExportDiagnostic,
     ExportPolicy,
@@ -519,15 +520,15 @@ def _manifest_entry(
         )
     if _is_url(value):
         return AssetManifestEntry(
-            source=value, asset_type=asset_type, status="unresolved", source_key=value
+            source=value, asset_type=asset_type, status=AssetStatus.UNRESOLVED, source_key=value
         )
     content_hash = _local_hash(value)
     if content_hash is None:
-        return AssetManifestEntry(source=value, asset_type=asset_type, status="missing")
+        return AssetManifestEntry(source=value, asset_type=asset_type, status=AssetStatus.MISSING)
     return AssetManifestEntry(
         source=value,
         asset_type=asset_type,
-        status="local",
+        status=AssetStatus.LOCAL,
         cache_path=value,
         content_hash=content_hash,
     )

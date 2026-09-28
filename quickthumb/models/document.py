@@ -5,6 +5,7 @@
 
 import base64 as _base64
 import hashlib as _hashlib
+from enum import Enum
 from typing import Annotated, Any, Literal
 
 from pydantic import (
@@ -91,7 +92,28 @@ class DiagnosticReport(quickthumbModel):
     findings: list[Any] = Field(default_factory=list)
 
 
-AssetStatus = Literal["local", "missing", "network", "fresh", "stale", "unresolved"]
+class AssetStatus(str, Enum):
+    """Resolution outcome of one asset reference; compares equal to its string value.
+
+    - `LOCAL`: an existing local file; `content_hash` is its SHA-256.
+    - `MISSING`: a local path that does not exist.
+    - `NETWORK`: downloaded during this resolution and written to the cache.
+    - `FRESH`: served from a cache entry within the configured `max_age`.
+    - `STALE`: served from an expired cache entry (or while offline) because
+      a refresh was not possible; see `stale_reason` and `fetched_at`.
+    - `UNRESOLVED`: a remote reference that has not been resolved yet.
+    """
+
+    # A str mixin rather than enum.StrEnum, which needs Python 3.11.
+    LOCAL = "local"
+    MISSING = "missing"
+    NETWORK = "network"
+    FRESH = "fresh"
+    STALE = "stale"
+    UNRESOLVED = "unresolved"
+
+    def __str__(self) -> str:
+        return self.value
 
 
 class AssetManifestEntry(quickthumbModel):
@@ -99,16 +121,9 @@ class AssetManifestEntry(quickthumbModel):
 
     `source` is the reference as written in the document and `asset_type` its
     semantic role (`image`, `svg`, `font`, `text-fill`, `video`, `audio`).
-    `status` is the resolution outcome:
-
-    - `local`: an existing local file; `content_hash` is its SHA-256.
-    - `missing`: a local path that does not exist.
-    - `network`: downloaded during this resolution and written to the cache.
-    - `fresh`: served from a cache entry within the configured `max_age`.
-    - `stale`: served from an expired cache entry (or while offline) because
-      a refresh was not possible; `stale_reason` says why and `fetched_at`
-      says how old the value is, so callers can decide whether to proceed.
-    - `unresolved`: a remote reference that has not been resolved yet.
+    `status` is the resolution outcome (see `AssetStatus`); for a `stale`
+    value, `stale_reason` says why it was not refreshed and `fetched_at` how
+    old it is, so callers can decide whether to proceed.
 
     `source_key` is the canonical URL, `cache_key`/`cache_path` identify the
     cache entry, `content_hash` is the SHA-256 of the bytes used, and

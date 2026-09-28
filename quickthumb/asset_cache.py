@@ -1,7 +1,6 @@
 """Deterministic resolution and caching for remote document assets.
 
-Resolution statuses are documented on
-:class:`quickthumb.models.AssetManifestEntry`.
+Resolution statuses are documented on :class:`quickthumb.models.AssetStatus`.
 """
 
 from __future__ import annotations
@@ -18,13 +17,14 @@ from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from pathlib import Path
 from threading import Lock
-from typing import Any, Literal
+from typing import Any
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from urllib.request import Request, urlopen
 
 from PIL import Image
 
 from quickthumb.errors import RenderingError
+from quickthumb.models.document import AssetStatus
 
 _DEFAULT_TIMEOUT = 15
 _DEFAULT_MAX_BYTES = 64 * 1024 * 1024
@@ -42,7 +42,6 @@ _OFFLINE_VALUES = {
     "yes": True,
     "on": True,
 }
-ResolvedStatus = Literal["local", "network", "fresh", "stale"]
 _CACHE_LOCK_GUARD = Lock()
 _CACHE_LOCKS: dict[str, Lock] = {}
 _FONT_MAGIC = (
@@ -65,7 +64,7 @@ class ResolvedAsset:
     cache_key: str | None
     cache_path: str | None
     content_hash: str
-    status: ResolvedStatus
+    status: AssetStatus
     data: bytes = field(repr=False)
     fetched_at: float | None = None
     stale_reason: str | None = None
@@ -225,7 +224,7 @@ class AssetResolver:
             cache_key=cache_key,
             cache_path=str(path),
             content_hash=content_hash,
-            status="network",
+            status=AssetStatus.NETWORK,
             data=downloaded,
             fetched_at=float(int(time.time())),
         )
@@ -358,7 +357,7 @@ class AssetResolver:
             cache_key=None,
             cache_path=str(path),
             content_hash=_content_hash(data),
-            status="local",
+            status=AssetStatus.LOCAL,
             data=data,
         )
         self._records[(asset_type, source)] = result
@@ -419,7 +418,7 @@ class AssetResolver:
             cache_key=cache_key,
             cache_path=str(path),
             content_hash=content_hash,
-            status="fresh",
+            status=AssetStatus.FRESH,
             data=data,
             fetched_at=fetched_at,
         )
@@ -439,7 +438,7 @@ class AssetResolver:
             reason += f" is older than max_age {self.max_age:g}s"
         if cause is not None:
             reason += f"; {cause}"
-        return replace(cached, status="stale", stale_reason=reason)
+        return replace(cached, status=AssetStatus.STALE, stale_reason=reason)
 
     def _download(
         self,
