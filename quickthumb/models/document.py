@@ -91,16 +91,39 @@ class DiagnosticReport(quickthumbModel):
     findings: list[Any] = Field(default_factory=list)
 
 
+AssetStatus = Literal["local", "missing", "network", "fresh", "stale", "unresolved"]
+
+
 class AssetManifestEntry(quickthumbModel):
-    """A deterministic description of one document asset reference."""
+    """A deterministic description of one document asset reference.
+
+    `source` is the reference as written in the document and `asset_type` its
+    semantic role (`image`, `svg`, `font`, `text-fill`, `video`, `audio`).
+    `status` is the resolution outcome:
+
+    - `local`: an existing local file; `content_hash` is its SHA-256.
+    - `missing`: a local path that does not exist.
+    - `network`: downloaded during this resolution and written to the cache.
+    - `fresh`: served from a cache entry within the configured `max_age`.
+    - `stale`: served from an expired cache entry (or while offline) because
+      a refresh was not possible; `stale_reason` says why and `fetched_at`
+      says how old the value is, so callers can decide whether to proceed.
+    - `unresolved`: a remote reference that has not been resolved yet.
+
+    `source_key` is the canonical URL, `cache_key`/`cache_path` identify the
+    cache entry, `content_hash` is the SHA-256 of the bytes used, and
+    `fetched_at` is the UTC ISO-8601 time the remote bytes were downloaded.
+    """
 
     source: str
     asset_type: str = "asset"
-    status: str
+    status: AssetStatus
     source_key: str | None = None
     cache_key: str | None = None
     cache_path: str | None = None
     content_hash: str | None = None
+    fetched_at: str | None = None
+    stale_reason: str | None = None
 
 
 class ResolvedDocument(quickthumbModel):

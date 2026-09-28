@@ -137,7 +137,7 @@ quickthumb downloads and caches the font file. Note: when using a webfont URL, `
 
 ### Can I use remote images?
 
-Yes, both `canvas.background(image=...)` and `canvas.image(path=...)` accept `http://` and `https://` URLs. quickthumb downloads and caches them during rendering.
+Yes, both `canvas.background(image=...)` and `canvas.image(path=...)` accept `http://` and `https://` URLs. quickthumb downloads and caches them during rendering. Set `QUICKTHUMB_ASSET_MAX_AGE` to refresh old cache entries, or `QUICKTHUMB_ASSET_OFFLINE=1` to render only from the cache; see [Remote assets and caching](exports.md#remote-assets-and-caching).
 
 ### My image has a white background I want to remove. How?
 

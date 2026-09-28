@@ -215,6 +215,34 @@ probe = deck.sample([0.0, 1.25, 4.0], hold=2.0) # explicit instants, ascending
 - **Memory.** A capture whose distinct frames would exceed 768 MiB of raw RGBA is rejected with a `ValidationError`, before any frame renders when every page of a still capture, or one frame of a timeline capture, already exceeds it; request fewer instants, a lower `fps`, a shorter `hold`, or a smaller document.
 - **Environment.** `environment` records the facts that can change pixels for an identical document: quickthumb, Pillow, and FreeType versions, the text layout engine (`basic` or `raqm`), and, for documents with video layers, the version of the FFmpeg that decodes them (`QUICKTHUMB_FFMPEG` or `ffmpeg` on `PATH`). Sampling a video document without a working FFmpeg raises `RenderingError` before any frame renders. Identical documents sampled in identical environments produce identical digests; fonts and images are described by `resolve_assets()`.
 
+## Remote assets and caching
+
+`resolve_assets()` downloads remote images, SVGs, text fills, and fonts into a shared cache and returns an `asset_manifest`; `export()` returns the same manifest. Each `AssetManifestEntry` has the `source` as written, its semantic `asset_type`, a `status`, and whatever identity it has: `source_key` (canonical URL), `cache_key` and `cache_path`, `content_hash` (SHA-256 of the bytes used), and `fetched_at` (UTC time of the download).
+
+| `status` | Meaning |
+| --- | --- |
+| `local` | An existing local file. |
+| `missing` | A local path that does not exist. |
+| `network` | Downloaded now and written to the cache. |
+| `fresh` | Read from a cache entry within `max_age` (always, when no `max_age` is set). |
+| `stale` | Read from an expired cache entry, or while offline, because it could not be refreshed. `stale_reason` explains why. |
+| `unresolved` | A remote reference that has not been resolved yet. |
+
+The cache is controlled by environment variables:
+
+- `QUICKTHUMB_ASSET_CACHE_DIR`: cache directory (default: the system temp directory).
+- `QUICKTHUMB_ASSET_MAX_AGE`: seconds after which a cached entry is refreshed from the network. When the refresh fails, the old bytes are used and reported as `stale`. Unset means cached entries never expire.
+- `QUICKTHUMB_ASSET_OFFLINE=1`: never make network requests. Cached entries are used, and expired ones are reported as `stale`.
+
+Each canvas (including each deck slide) tries to refresh an expired asset at most once; later renders and exports of it reuse the same `stale` result. When neither a usable cache entry nor a network response exists, resolution raises `RenderingError` naming the source, the cause, and the cache directory it searched. To refuse stale inputs, check the manifest before rendering:
+
+```python
+resolved = canvas.resolve_assets()
+stale = [entry for entry in resolved.asset_manifest if entry.status == "stale"]
+if stale:
+    raise SystemExit(f"stale assets: {[(e.source, e.stale_reason) for e in stale]}")
+```
+
 ## Decks (multiple images and slides)
 
 A `Deck` is an ordered collection of canvases. Each slide is a full `Canvas` and renders exactly as it would on its own, so a deck is just a multi-output container on top of the same pipeline. See the [Deck API reference](api/deck.md) for the full method list.

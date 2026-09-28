@@ -514,14 +514,20 @@ def _manifest_entry(
             cache_key=record.cache_key,
             cache_path=record.cache_path,
             content_hash=record.content_hash,
+            fetched_at=record.fetched_at,
+            stale_reason=record.stale_reason,
         )
+    if _is_url(value):
+        return AssetManifestEntry(
+            source=value, asset_type=asset_type, status="unresolved", source_key=value
+        )
+    if not os.path.isfile(value):
+        return AssetManifestEntry(source=value, asset_type=asset_type, status="missing")
     return AssetManifestEntry(
         source=value,
         asset_type=asset_type,
-        status="unresolved" if _is_url(value) else "local",
-        source_key=value if _is_url(value) else None,
-        cache_key=None,
-        cache_path=value if not _is_url(value) else None,
+        status="local",
+        cache_path=value,
         content_hash=_local_hash(value),
     )
 
