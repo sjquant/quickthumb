@@ -67,7 +67,7 @@ EASING_NAMES = frozenset(get_args(MotionEasingName))
 class ResolvedMotionTarget:
     """One deterministic member of a semantic animation target collection.
 
-    ``value`` is deliberately opaque.  Text and group renderers can retain
+    `value` is deliberately opaque.  Text and group renderers can retain
     their public layout/placement objects without making the normalized motion
     model depend on renderer-specific types.
     """
@@ -139,7 +139,7 @@ def resolve_text_targets(
 ) -> tuple[ResolvedMotionTarget, ...]:
     """Resolve semantic text members without changing the text layout.
 
-    ``lines`` should be supplied by the renderer when wrapping is enabled.  If
+    `lines` should be supplied by the renderer when wrapping is enabled.  If
     omitted, explicit newline boundaries are used.  Word splitting preserves
     whitespace in each returned member so the original text can be reconstructed
     exactly and whitespace still advances layout.
@@ -193,7 +193,7 @@ def resolve_staggered_timelines(
 
     Stagger metadata remains untouched in the serialized source timeline.  The
     returned timelines are runtime views with the target offset folded into the
-    event start, so every renderer samples the shared ``Timeline``/``LayerState``
+    event start, so every renderer samples the shared `Timeline`/`LayerState`
     pipeline consistently.
     """
     if not isinstance(timeline, Timeline):
@@ -474,9 +474,9 @@ def _identity_index(canvas: Canvas) -> tuple[dict[str, tuple[str, object]], set[
 
 
 def match_scene_layers(source: Canvas, target: Canvas) -> tuple[tuple[str, str, str], ...]:
-    """Match unique ``motion_key`` values across two canvases.
+    """Match unique `motion_key` values across two canvases.
 
-    ``id`` remains scene-local. Duplicate keys, missing keys, and keys that
+    `id` remains scene-local. Duplicate keys, missing keys, and keys that
     cannot identify exactly one layer on both sides are deliberately ignored.
     This makes malformed authored identity data degrade to ordinary transitions.
     """
@@ -492,11 +492,11 @@ def match_scene_layers(source: Canvas, target: Canvas) -> tuple[tuple[str, str, 
 def sample_scene_morph(
     source: Canvas, target: Canvas, progress: float, duration: float = 1.0
 ) -> tuple[MorphLayerState, ...]:
-    """Sample matched, entering, and exiting layer states at ``progress``.
+    """Sample matched, entering, and exiting layer states at `progress`.
 
     Position, rotation, and opacity use the same interpolation rules as the
     regular timeline. Charts and other incompatible visualizations are marked
-    ``crossfade`` so exporters can safely composite them as whole layers.
+    `crossfade` so exporters can safely composite them as whole layers.
     """
     if (
         not isinstance(progress, (int, float))
@@ -650,9 +650,9 @@ def _interpolate_layer_states(
 def transform_matrix(state: LayerState) -> tuple[tuple[float, float, float], ...]:
     """Return the affine matrix for scale, then rotation, then translation.
 
-    The matrix follows the renderer-independent convention ``T · R · S``.
+    The matrix follows the renderer-independent convention `T · R · S`.
     Consequently a local point is scaled first, rotated around the origin, and
-    translated by ``state.position``. A missing position is treated as zero.
+    translated by `state.position`. A missing position is treated as zero.
     """
     x, y = state.position or (0.0, 0.0)
     angle = math.radians(state.rotation)
@@ -666,7 +666,7 @@ def transform_matrix(state: LayerState) -> tuple[tuple[float, float, float], ...
 
 
 def apply_transform(point: tuple[float, float], state: LayerState) -> tuple[float, float]:
-    """Apply the documented ``T · R · S`` transform to a local point."""
+    """Apply the documented `T · R · S` transform to a local point."""
     if (
         not isinstance(point, (tuple, list))
         or len(point) != 2
@@ -694,7 +694,7 @@ class Timeline(BaseModel):
         return max((event.end for event in self.events), default=0.0)
 
     def sample(self, time: float, base: LayerState | None = None) -> LayerState:
-        """Sample the timeline at ``time`` seconds into a deterministic state."""
+        """Sample the timeline at `time` seconds into a deterministic state."""
         if not math.isfinite(time):
             raise ValidationError("sample time must be finite")
         if base is not None and not isinstance(base, LayerState):
@@ -720,8 +720,8 @@ def compile_timeline(
     """Compile canonical animation specs into one deterministic composition.
 
     The input order is the composition order.  A spec starts a new sequence
-    group by default (including ``on_click`` and ``after_previous``), while
-    ``with_previous`` joins the current group.  Absolute ``start`` values are
+    group by default (including `on_click` and `after_previous`), while
+    `with_previous` joins the current group.  Absolute `start` values are
     anchors, not cursor assignments: a later relative event still follows the
     latest settled event.  Stagger metadata is retained for layer-aware
     consumers because target cardinality is not part of an AnimationSpec.
@@ -742,9 +742,9 @@ def compile_timeline(
 
 
 def sample_canonical_state(layer: object, time: float | None) -> LayerState | None:
-    """Sample a layer's canonical motion at ``time``, or None when it has none.
+    """Sample a layer's canonical motion at `time`, or None when it has none.
 
-    Returns None for layers with no ``AnimationSpec`` and for the untimed render
+    Returns None for layers with no `AnimationSpec` and for the untimed render
     pass, so callers can skip the isolated-surface work entirely.
     """
     if time is None:
@@ -767,7 +767,7 @@ def sample_canonical_targets(
     Each target runs the same timeline offset by its own stagger delay, so the
     caller can move, fade, and reveal every line independently instead of
     averaging them into one reveal. A target whose turn has not come yet samples
-    to ``None``: it is waiting off screen rather than sitting in its settled
+    to `None`: it is waiting off screen rather than sitting in its settled
     place, which is what makes a stagger read as a sequence.
     """
     if time is None or target_count < 2:
@@ -1795,8 +1795,8 @@ def inspect_motion(
 ) -> MotionInspection:
     """Return a deterministic, serializable report of resolved motion.
 
-    The report is renderer-independent and does not write files.  ``target``
-    accepts one exporter family, an iterable of families, or ``None`` for GIF,
+    The report is renderer-independent and does not write files.  `target`
+    accepts one exporter family, an iterable of families, or `None` for GIF,
     HTML, PPTX, and video capability rows.
     """
     if (

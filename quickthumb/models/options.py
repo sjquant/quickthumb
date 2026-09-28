@@ -1,6 +1,6 @@
 """Render, export, audio, and motion policy options."""
 
-# Option fields use the shared model vocabulary re-exported by ``common``.
+# Option fields use the shared model vocabulary re-exported by `common`.
 # ruff: noqa: F405
 
 from typing import Annotated, Literal

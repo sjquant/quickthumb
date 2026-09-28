@@ -1,6 +1,6 @@
 """Public motion contract models."""
 
-# Motion fields use the shared model vocabulary re-exported by ``common``.
+# Motion fields use the shared model vocabulary re-exported by `common`.
 # ruff: noqa: F405
 
 import math
@@ -33,25 +33,25 @@ AnimationTrigger = Literal["on_click", "with_previous", "after_previous"]
 class _AnimationBase(quickthumbModel):
     """Shared timing fields for every animation effect.
 
-    Each concrete effect (``Fade``, ``Wipe``, ``Box``, …) is its own class so it
+    Each concrete effect (`Fade`, `Wipe`, `Box`, …) is its own class so it
     only exposes the options that effect actually supports — directional effects
-    add a ``direction``/``orientation``, ``Wheel`` adds ``spokes``, and the rest
-    add nothing. Attach one (or a list) to a ``text``/``shape``/``image``/
-    ``svg``/``chart``/``qr_code``/``group`` layer via ``animation=``. Honoured by
+    add a `direction`/`orientation`, `Wheel` adds `spokes`, and the rest
+    add nothing. Attach one (or a list) to a `text`/`shape`/`image`/
+    `svg`/`chart`/`qr_code`/`group` layer via `animation=`. Honoured by
     the PPTX, HTML, and animated GIF/MP4/WebM exporters; the layer renders normally
     in every other
-    format. ``trigger`` controls how the effect starts relative to the previous
+    format. `trigger` controls how the effect starts relative to the previous
     animation on the slide (in video output, where there is nothing to click,
-    ``on_click`` plays automatically like ``after_previous``).
+    `on_click` plays automatically like `after_previous`).
     """
 
     animate: Literal["entrance", "exit"] = "entrance"
     duration: PositiveFloat = 0.5
     delay: NonNegativeFloat = 0.0
     trigger: AnimationTrigger = "on_click"
-    # ``easing`` shapes the reveal over ``duration``; "linear" is what a bar
+    # `easing` shapes the reveal over `duration`; "linear" is what a bar
     # measuring elapsed time needs, since the default eased curve would make it
-    # misreport its own progress. ``start`` pins the effect to an absolute time
+    # misreport its own progress. `start` pins the effect to an absolute time
     # on the slide instead of chaining it to whatever ran before.
     easing: "MotionEasingName" = "ease"
     start: FiniteNonNegativeFloat | None = None
@@ -116,14 +116,14 @@ class Dissolve(_AnimationBase):
 
 
 class Wheel(_AnimationBase):
-    """Sweep the layer in or out like a clock hand, using ``spokes`` arms."""
+    """Sweep the layer in or out like a clock hand, using `spokes` arms."""
 
     effect: Literal["wheel"] = "wheel"
     spokes: Annotated[PositiveInt, Field(le=64)] = 1
 
 
 # Discriminated union of every effect: validates a dict (e.g. from JSON) into the
-# right class by its ``effect`` tag, so layers accept one animation or a list.
+# right class by its `effect` tag, so layers accept one animation or a list.
 Animation = Annotated[
     Appear | Fade | Wipe | Box | Blinds | Checkerboard | Circle | Diamond | Dissolve | Wheel,
     Discriminator("effect"),
@@ -378,7 +378,7 @@ class StaggerSpec(_MotionModel):
 
 
 class AnimationEffect(_MotionModel):
-    """Validated semantic preset options used by ``AnimationSpec``."""
+    """Validated semantic preset options used by `AnimationSpec`."""
 
     type: MotionPresetName
     from_: Literal["top", "bottom", "left", "right", "center"] | None = Field(

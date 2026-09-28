@@ -1,6 +1,6 @@
 """Inspection and diagnostic result models."""
 
-# Inspection fields use the shared model vocabulary re-exported by ``common``.
+# Inspection fields use the shared model vocabulary re-exported by `common`.
 # ruff: noqa: F405
 
 from typing import Any, Literal

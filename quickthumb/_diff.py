@@ -128,9 +128,9 @@ def compare_images(
 ) -> ImageDiff:
     """Compare two raster images with pixel metrics and a perceptual hash.
 
-    ``threshold`` is the minimum average-hash similarity. ``pixel_tolerance``
+    `threshold` is the minimum average-hash similarity. `pixel_tolerance`
     ignores per-channel differences up to that value when counting changed
-    pixels. ``max_different_pixel_ratio`` limits the fraction of pixels that
+    pixels. `max_different_pixel_ratio` limits the fraction of pixels that
     may exceed that tolerance.
     """
     _validate_options(threshold, pixel_tolerance, max_different_pixel_ratio, hash_size)

@@ -114,7 +114,7 @@ class DiagnosticsEngine:
         """Check layers for layout and legibility issues without producing an output file.
 
         Returns structured findings that an agent or human can act on before
-        rendering. ``Diagnostic.code`` enumerates every rule this can report.
+        rendering. `Diagnostic.code` enumerates every rule this can report.
         """
         with warnings.catch_warnings():
             warnings.filterwarnings(
@@ -1174,7 +1174,7 @@ class DiagnosticsEngine:
     def _with_text_backing(self, running: Image.Image, layer: TextLayer) -> Image.Image:
         """Return the composite the glyphs actually sit on.
 
-        A ``Background`` effect is painted by the text layer itself, so it never
+        A `Background` effect is painted by the text layer itself, so it never
         appears in the layers below. Measuring contrast without it compares the
         glyphs against whatever is behind their chip, which reads as no contrast
         at all for ink-on-accent copy.

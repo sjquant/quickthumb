@@ -217,7 +217,7 @@ _IDENTITY_PATTERN = re.compile(r"^[A-Za-z][A-Za-z0-9_.:-]*$")
 class LayerIdentityModel(quickthumbModel):
     """Identity fields shared by every renderable layer.
 
-    ``id`` identifies a layer within a scene. ``motion_key`` is the opt-in
+    `id` identifies a layer within a scene. `motion_key` is the opt-in
     cross-scene identity used by Morph transitions.
     """
 

@@ -143,7 +143,7 @@ def canvas_json_schema(*, registry: PluginRegistry | None = None) -> dict[str, A
     ]
     _close_model_object_schemas(schema)
     # Registry-provided parameter schemas are caller-owned JSON Schema and
-    # must retain their default ``additionalProperties`` semantics. Add the
+    # must retain their default `additionalProperties` semantics. Add the
     # dynamic plugin definition after closing generated model schemas so the
     # generic strictness pass cannot rewrite those arbitrary schemas.
     plugin_schema = active_registry.json_schema()

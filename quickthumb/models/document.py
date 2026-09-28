@@ -1,6 +1,6 @@
 """Document-level discriminated unions and stable result models."""
 
-# Shared model primitives are intentionally re-exported by ``common``.
+# Shared model primitives are intentionally re-exported by `common`.
 # ruff: noqa: F405
 
 import base64 as _base64
@@ -142,7 +142,7 @@ class AssetManifestEntry(quickthumbModel):
 
 
 class PrefetchResult(quickthumbModel):
-    """Stable, JSON-serializable result returned by ``Document.prefetch_assets()``."""
+    """Stable, JSON-serializable result returned by `Document.prefetch_assets()`."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -295,7 +295,7 @@ class FallbackDiagnostic(quickthumbModel):
 
 
 class ExportResult(quickthumbModel):
-    """Stable, JSON-serializable result returned by ``Document.export()``."""
+    """Stable, JSON-serializable result returned by `Document.export()`."""
 
     model_config = ConfigDict(extra="forbid")
 

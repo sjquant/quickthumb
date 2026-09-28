@@ -73,11 +73,11 @@ class ResolvedAsset:
 class AssetResolver:
     """Resolve local or remote bytes through one deterministic cache boundary.
 
-    ``max_age`` (seconds, default: no expiry) marks older cache entries stale so
+    `max_age` (seconds, default: no expiry) marks older cache entries stale so
     they are refreshed from the network; if the refresh fails, the stale entry
-    is used and reported with ``status="stale"``. ``offline=True`` never makes
-    network requests. Both default to the ``QUICKTHUMB_ASSET_MAX_AGE`` and
-    ``QUICKTHUMB_ASSET_OFFLINE`` environment variables.
+    is used and reported with `status="stale"`. `offline=True` never makes
+    network requests. Both default to the `QUICKTHUMB_ASSET_MAX_AGE` and
+    `QUICKTHUMB_ASSET_OFFLINE` environment variables.
     """
 
     def __init__(

@@ -1,15 +1,15 @@
 """Animated GIF / WebM / MP4 exporter.
 
-Renders the deck's slide transitions (``quickthumb.transitions``) and per-layer
-entrance/exit animations (``quickthumb.Fade`` and friends) into an actual video
+Renders the deck's slide transitions (`quickthumb.transitions`) and per-layer
+entrance/exit animations (`quickthumb.Fade` and friends) into an actual video
 timeline, sampled at a fixed frame rate through the regular PIL pipeline -- so
 every frame is pixel-identical to the raster renderer, unlike the HTML/PPTX
 exporters which approximate effects in CSS/PowerPoint.
 
 The timing model mirrors the HTML slideshow runtime (timeline.js /
 deck_runtime.js), with the one difference a non-interactive medium forces:
-there are no clicks, so ``on_click`` animations chain automatically exactly
-like ``after_previous`` (the same thing PowerPoint's own video export does).
+there are no clicks, so `on_click` animations chain automatically exactly
+like `after_previous` (the same thing PowerPoint's own video export does).
 Concretely, per slide:
 
 - The slide's transition animates the change into it, playing over the
@@ -17,30 +17,30 @@ Concretely, per slide:
   when slide 0 sets none it starts instantly, and later slides fall back to
   the HTML default 0.5s cross-fade).
 - The slide's animation timeline starts when the transition starts, exactly
-  like the HTML runtime: leading ``after_previous`` chains overlap the
-  transition. ``with_previous`` effects run concurrently with the previous
-  effect; everything else runs after it; ``delay`` holds the effect's hidden
+  like the HTML runtime: leading `after_previous` chains overlap the
+  transition. `with_previous` effects run concurrently with the previous
+  effect; everything else runs after it; `delay` holds the effect's hidden
   (entrance) or shown (exit) state before it plays.
 - After the animations finish, the slide's final state holds for
-  ``advance_after`` seconds when its transition sets one (counted from the
+  `advance_after` seconds when its transition sets one (counted from the
   end of the transition, like the HTML auto-advance timer), else for the
-  exporter's ``slide_duration``.
+  exporter's `slide_duration`.
 
-Frames are eased with the CSS ``ease`` curve the HTML export uses, so both
+Frames are eased with the CSS `ease` curve the HTML export uses, so both
 animated formats move the same way. GIF is encoded by Pillow with per-frame
-durations (holds cost one frame, not ``fps`` copies); MP4 (H.264) and WebM
-(VP9) give each distinct shot and its duration to the ``ffmpeg`` binary, which
-must be on PATH (or named via the ``QUICKTHUMB_FFMPEG`` environment variable).
+durations (holds cost one frame, not `fps` copies); MP4 (H.264) and WebM
+(VP9) give each distinct shot and its duration to the `ffmpeg` binary, which
+must be on PATH (or named via the `QUICKTHUMB_FFMPEG` environment variable).
 H.264/VP9 4:2:0 output needs even dimensions, so odd-sized canvases lose their
 last pixel row/column in MP4/WebM output.
 
 Alpha does not survive into these formats: every frame is composited onto an
-opaque ``matte`` color first. Slides that differ from the first slide's size
+opaque `matte` color first. Slides that differ from the first slide's size
 are scaled to fit and centered on the matte (PPTX-viewer letterboxing).
 
-MP4/WebM output can carry a ``soundtrack`` audio file (any format ffmpeg
+MP4/WebM output can carry a `soundtrack` audio file (any format ffmpeg
 decodes: MP3, WAV, AAC, OGG, ...), encoded as AAC in MP4 and Opus in WebM.
-The audio is trimmed to the video length; when ``loop_audio`` is set (the
+The audio is trimmed to the video length; when `loop_audio` is set (the
 default) a track shorter than the video repeats seamlessly. GIF cannot carry
 audio.
 """
@@ -151,7 +151,7 @@ def write_animation(
     animation: GifOptions | VideoOptions | None = None,
     reduced_motion: bool = False,
 ) -> None:
-    """Render slides to an animated file, dispatching on ``format``."""
+    """Render slides to an animated file, dispatching on `format`."""
     if isinstance(animation, VideoOptions):
         if format == "gif":
             raise ValidationError("VideoOptions are only supported for MP4 or WebM output")
@@ -501,7 +501,7 @@ def _resolve_loop_audio(
 
 @dataclass
 class _Shot:
-    """One output frame held on screen for ``duration`` seconds."""
+    """One output frame held on screen for `duration` seconds."""
 
     frame: Image.Image  # RGB at the deck size
     duration: float
@@ -887,7 +887,7 @@ def _conform(
 
 
 def _ease(progress: float) -> float:
-    """CSS ``ease`` -- cubic-bezier(0.25, 0.1, 0.25, 1.0) -- matching the HTML export."""
+    """CSS `ease` -- cubic-bezier(0.25, 0.1, 0.25, 1.0) -- matching the HTML export."""
     if progress <= 0:
         return 0.0
     if progress >= 1:
@@ -924,7 +924,7 @@ class _UnitState:
 
     A unit is either off screen, drawn as it stands, part way through a legacy
     entrance reveal, or carrying sampled canonical motion. Naming the four cases
-    keeps every reader of ``_unit_state`` from having to know which shape of
+    keeps every reader of `_unit_state` from having to know which shape of
     tuple or sentinel means what.
     """
 
@@ -987,7 +987,7 @@ class _SlideAnimator:
         self._final: Image.Image | None = None
 
     def frame_at(self, time: float, *, include_captions: bool = True) -> Image.Image:
-        """Render the slide's full RGBA frame at ``time`` seconds."""
+        """Render the slide's full RGBA frame at `time` seconds."""
         frame = Image.new("RGBA", (self._canvas.width, self._canvas.height), (0, 0, 0, 0))
         visible_video_layers: list[VideoLayer] = []
         for unit in self._units:
@@ -1079,7 +1079,7 @@ class _SlideAnimator:
     def segments(self, start: float, end: float) -> list[tuple[float, float, bool]]:
         """Split [start, end) into (seg_start, seg_end, animating) runs.
 
-        A segment is ``animating`` when some effect window overlaps it; outside
+        A segment is `animating` when some effect window overlaps it; outside
         every window each unit's state is constant, so a non-animating segment
         renders identically at any point within it and one frame can hold for
         the whole gap.
@@ -1373,10 +1373,10 @@ def _render_unit_image(
 def _schedule_units(units: list[_Unit]) -> float:
     """Assign start times to every effect, mirroring the HTML timeline runtime.
 
-    ``with_previous`` effects start together with the previous effect; every
-    other trigger (``on_click`` has no click to wait for in a video, so it
-    behaves like ``after_previous``) starts a new group after the previous
-    group's longest effect ends. An effect with an explicit ``start`` is
+    `with_previous` effects start together with the previous effect; every
+    other trigger (`on_click` has no click to wait for in a video, so it
+    behaves like `after_previous`) starts a new group after the previous
+    group's longest effect ends. An effect with an explicit `start` is
     anchored to that time on the slide instead, without moving the cursor the
     relative effects around it are chained from. Returns the time the last
     effect settles.
@@ -1518,12 +1518,12 @@ def _qr_module_count(layer: QRCodeLayer) -> int:
 
 
 def _unit_state(unit: _Unit, time: float) -> _UnitState:
-    """Resolve how a unit is drawn at ``time``.
+    """Resolve how a unit is drawn at `time`.
 
     The unit starts hidden when its first effect is an entrance (the HTML
-    exporter's ``visibility:hidden`` priming); each node then leaves it shown
+    exporter's `visibility:hidden` priming); each node then leaves it shown
     (entrance) or hidden (exit) once its window has passed. During a window
-    the reveal fraction runs 0..1 for entrances and 1..0 for exits; ``appear``
+    the reveal fraction runs 0..1 for entrances and 1..0 for exits; `appear`
     snaps instead of interpolating.
     """
     if unit.timeline is not None:
@@ -1640,7 +1640,7 @@ def _canonical_render(
 def _animation_reveal(
     image: Image.Image, effect: Animation, reveal: float, seed: int
 ) -> Image.Image | None:
-    """Apply a layer effect at reveal fraction ``reveal`` to a unit image."""
+    """Apply a layer effect at reveal fraction `reveal` to a unit image."""
     if reveal <= 0:
         return None
     if reveal >= 1:
@@ -1781,7 +1781,7 @@ def _transition_frame(
 ) -> Image.Image:
     """Composite one transition frame from the outgoing and incoming slides.
 
-    ``random`` maps to a cross-fade like the HTML export (there is no viewer to
+    `random` maps to a cross-fade like the HTML export (there is no viewer to
     randomize per playback), and unknown effects fall back to the same.
     """
     if progress >= 1:

@@ -1,6 +1,6 @@
 """Data-driven visualization and QR-code models."""
 
-# Visualization fields use the shared model vocabulary re-exported by ``common``.
+# Visualization fields use the shared model vocabulary re-exported by `common`.
 # ruff: noqa: F405
 
 import math
