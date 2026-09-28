@@ -29,7 +29,7 @@ from quickthumb.models import (
     ExportResult,
     FrameSequence,
     GifOptions,
-    ResolvedDocument,
+    PrefetchResult,
     ValidationReport,
     VideoOptions,
     coerce_audio_track,
@@ -51,8 +51,8 @@ class DeckDiagnostic(quickthumbModel):
     """A single deck-level finding.
 
     Slide findings mirror Canvas.diagnose() entries but carry the originating
-    ``slide_index``; deck-wide findings (such as mixed slide sizes) use a
-    ``slide_index`` of None and a ``layer_index`` of None.
+    `slide_index`; deck-wide findings (such as mixed slide sizes) use a
+    `slide_index` of None and a `layer_index` of None.
     """
 
     code: str
@@ -72,7 +72,7 @@ class Deck:
     """An ordered collection of Canvas slides with multi-output export.
 
     A deck can carry a default slide size. Unsized canvases added to it inherit
-    that size, so slides can be written as bare ``Canvas()`` without repeating the
+    that size, so slides can be written as bare `Canvas()` without repeating the
     dimensions; an explicitly sized canvas keeps its own size.
     """
 
@@ -92,7 +92,7 @@ class Deck:
         self._height = height
         self._theme = theme or {}
         # Slide transitions are a deck concern: a deck-wide default
-        # plus an optional per-slide override kept parallel to ``_slides``. The
+        # plus an optional per-slide override kept parallel to `_slides`. The
         # Canvas itself stays unaware of transitions.
         self._transition = self._coerce_transition(transition)
         self._slides: list[Canvas] = []
@@ -136,9 +136,9 @@ class Deck:
     def transition(self, transition: Transition | dict | str) -> Self:
         """Set the default slide transition for slides that don't set their own.
 
-        Pass a transition effect object (e.g. ``Fade()`` or ``Push(direction="left")``
-        from ``quickthumb.transitions``), a dict, or an effect string. A slide that
-        sets its own transition (via ``Deck.slide(..., transition=...)``) overrides
+        Pass a transition effect object (e.g. `Fade()` or `Push(direction="left")`
+        from `quickthumb.transitions`), a dict, or an effect string. A slide that
+        sets its own transition (via `Deck.slide(..., transition=...)`) overrides
         this default. Honoured by PPTX and HTML export.
         """
         self._transition = self._coerce_transition(transition)
@@ -150,7 +150,7 @@ class Deck:
         return self._transition
 
     def match_layers(self, source: int, target: int) -> tuple[tuple[str, str, str], ...]:
-        """Return unique cross-scene layer matches by ``motion_key``."""
+        """Return unique cross-scene layer matches by `motion_key`."""
         from quickthumb.motion import match_scene_layers
 
         try:
@@ -180,10 +180,10 @@ class Deck:
     ) -> Self:
         """Append a single Canvas as the next slide (chainable).
 
-        Pass ``transition`` to set this slide's transition inline; it overrides
-        the deck default for this slide only. ``audio`` supplies this slide's
-        MP4 narration, while ``duration`` trims or pads it to an exact length.
-        ``notes`` are shown only in the HTML slideshow's presenter view.
+        Pass `transition` to set this slide's transition inline; it overrides
+        the deck default for this slide only. `audio` supplies this slide's
+        MP4 narration, while `duration` trims or pads it to an exact length.
+        `notes` are shown only in the HTML slideshow's presenter view.
         """
         # Validate the transition before mutating state so a bad value can't
         # leave a half-added slide behind.
@@ -318,11 +318,15 @@ class Deck:
             slides=[slide.inspect() for slide in self._slides],
         )
 
-    def resolve_assets(self) -> ResolvedDocument:
-        """Check slide assets and return one deck-level manifest."""
-        from quickthumb._document import AssetPort, Document, resolved_document
+    def prefetch_assets(self) -> PrefetchResult:
+        """Download every slide's remote assets now and return one deck manifest.
 
-        return resolved_document(
+        Optional, like `Canvas.prefetch_assets()`: rendering and exporting
+        fetch assets themselves.
+        """
+        from quickthumb._document import AssetPort, Document, prefetch_result
+
+        return prefetch_result(
             cast(Document, self),
             kind="deck",
             assets=AssetPort(
@@ -365,18 +369,18 @@ class Deck:
     ) -> list[str]:
         """Render the deck, dispatching on the output extension.
 
-        ``.pdf`` and ``.pptx`` produce a single multi-page/multi-slide document.
-        ``.gif`` and ``.webm`` produce one animation that plays each slide's
-        layer animations and transitions. ``.mp4`` renders static slides with
-        per-slide narration unless ``animation=VideoOptions(...)`` is supplied,
+        `.pdf` and `.pptx` produce a single multi-page/multi-slide document.
+        `.gif` and `.webm` produce one animation that plays each slide's
+        layer animations and transitions. `.mp4` renders static slides with
+        per-slide narration unless `animation=VideoOptions(...)` is supplied,
         in which case it uses the animated timeline. Raster
-        extensions (``.png``, ``.jpg``, ``.jpeg``, ``.webp``) write one file per
+        extensions (`.png`, `.jpg`, `.jpeg`, `.webp`) write one file per
         slide as a zero-padded
-        numbered sequence derived from ``output_path`` (e.g. ``slides.png`` ->
-        ``slides_01.png``, ``slides_02.png``). Pass ``GifOptions`` for GIF or
-        ``VideoOptions`` for MP4/WebM to tune animated output. Returns the list
+        numbered sequence derived from `output_path` (e.g. `slides.png` ->
+        `slides_01.png`, `slides_02.png`). Pass `GifOptions` for GIF or
+        `VideoOptions` for MP4/WebM to tune animated output. Returns the list
         of written file paths (unlike
-        ``Canvas.render``, which returns None).
+        `Canvas.render`, which returns None).
         """
         self._require_slides()
         extension = os.path.splitext(output_path)[1].lower()
@@ -618,11 +622,11 @@ class Deck:
         Each slide becomes a fixed-size stage; the runtime shows one at a time
         and advances on click (running that slide's per-layer animations first,
         then moving to the next slide) or with the arrow keys. Each slide's
-        ``transition`` animates the change into it (the incoming slide), with
+        `transition` animates the change into it (the incoming slide), with
         slides that set none falling back to a cross-fade. With
-        ``responsive=True`` (default) the active stage is scaled to fill the
-        viewport. ``embed_fonts`` defaults to ``True`` so the slideshow carries
-        its fonts and renders identically on any machine; pass ``False`` for a
+        `responsive=True` (default) the active stage is scaled to fill the
+        viewport. `embed_fonts` defaults to `True` so the slideshow carries
+        its fonts and renders identically on any machine; pass `False` for a
         smaller file that relies on the viewer's system fonts. This is the one
         *interactive* format where transitions and animations play; the
         animated GIF/WebM exports play them too, on a fixed timeline.
@@ -662,11 +666,11 @@ class Deck:
         Each slide plays its layer animations, holds its settled state, then
         its transition animates the change into the next slide (a slide with
         no transition set cross-fades in over 0.5s; slide 0 with none starts
-        instantly). ``on_click`` animations play automatically in sequence --
+        instantly). `on_click` animations play automatically in sequence --
         there are no clicks in a video. A slide holds for its transition's
-        ``advance_after`` when set, else for ``slide_duration`` seconds after
-        its animations finish. ``loop`` is the GIF repeat count (0 = forever).
-        Frames are composited onto the opaque ``matte`` color, and mixed-size
+        `advance_after` when set, else for `slide_duration` seconds after
+        its animations finish. `loop` is the GIF repeat count (0 = forever).
+        Frames are composited onto the opaque `matte` color, and mixed-size
         slides are letterboxed onto the first slide's size.
         """
         self._require_slides()
@@ -692,9 +696,9 @@ class Deck:
     ) -> bytes:
         """Return a static, narrated Deck MP4 as bytes.
 
-        Every slide becomes a still frame. Its optional ``audio`` is used as
-        narration; its ``duration`` overrides that audio's length, and silent
-        slides use ``slide_duration``. Layer animations and transitions are
+        Every slide becomes a still frame. Its optional `audio` is used as
+        narration; its `duration` overrides that audio's length, and silent
+        slides use `slide_duration`. Layer animations and transitions are
         not played by this Deck-specific MP4 export.
         """
         self._require_slides()
@@ -720,8 +724,8 @@ class Deck:
     ) -> bytes:
         """Render the Deck's animated timeline to MP4 bytes.
 
-        Unlike ``to_mp4()``, this path plays layer animations and slide
-        transitions. Per-slide narration and the optional ``soundtrack`` are
+        Unlike `to_mp4()`, this path plays layer animations and slide
+        transitions. Per-slide narration and the optional `soundtrack` are
         mixed into the complete timeline; a narration without an explicit
         duration holds its slide for the source audio length.
         """
@@ -771,7 +775,7 @@ class Deck:
     ) -> None:
         """Render static slides and their per-slide AAC audio into an MP4 file.
 
-        Requires ``ffmpeg`` and ``ffprobe``. The first slide defines the video
+        Requires `ffmpeg` and `ffprobe`. The first slide defines the video
         dimensions (rounded down to even yuv420p dimensions); other slides are
         letterboxed. Every output includes an AAC audio stream, including for
         silent slides. This initial MP4 path intentionally does not play deck
@@ -799,14 +803,14 @@ class Deck:
         *,
         policy: ExportPolicy | None = None,
     ) -> bytes:
-        """Render the deck to WebM (VP9) bytes; timing model as in ``to_gif``.
+        """Render the deck to WebM (VP9) bytes; timing model as in `to_gif`.
 
-        Requires the ``ffmpeg`` binary on PATH (or ``QUICKTHUMB_FFMPEG``).
+        Requires the `ffmpeg` binary on PATH (or `QUICKTHUMB_FFMPEG`).
         Odd-sized canvases lose their last pixel row/column (VP9 4:2:0 output
-        needs even dimensions). Per-slide narration and ``soundtrack`` are
+        needs even dimensions). Per-slide narration and `soundtrack` are
         mixed as Opus and trimmed to the video length; a narration without an
         explicit duration holds its slide for the source audio length.
-        ``loop_audio`` overrides `AudioTrack.loop`, while legacy string paths
+        `loop_audio` overrides `AudioTrack.loop`, while legacy string paths
         continue to loop by default.
         """
         self._require_slides()
@@ -824,8 +828,8 @@ class Deck:
         """Collect per-slide diagnostics plus deck-wide layout warnings.
 
         Each slide's Canvas.diagnose() findings are returned tagged with their
-        ``slide_index``. When slides do not all share the same dimensions a
-        single ``mixed-slide-size`` warning is prepended, since PPTX uses one
+        `slide_index`. When slides do not all share the same dimensions a
+        single `mixed-slide-size` warning is prepended, since PPTX uses one
         page size for the whole deck and viewers may letterbox the rest.
         """
         self._validate_slide_assets()

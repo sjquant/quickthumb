@@ -1,20 +1,20 @@
 """HTML document exporter.
 
-The canvas becomes a fixed-size *stage* (a ``<div>`` at the canvas pixel
+The canvas becomes a fixed-size *stage* (a `<div>` at the canvas pixel
 dimensions) whose children are absolutely positioned with the same geometry
 math as the raster renderer, so the layout is a faithful, deterministic twin of
 the PNG/SVG/PDF/PPTX output -- it never reflows. To adapt to the viewport the
-whole stage is scaled as one unit (``transform: scale()`` via a small
+whole stage is scaled as one unit (`transform: scale()` via a small
 ResizeObserver), preserving the composition exactly while letting it fill any
-screen. Set ``responsive=False`` to emit the bare fixed-size stage instead.
+screen. Set `responsive=False` to emit the bare fixed-size stage instead.
 
 Backgrounds, outlines, shapes, and text are emitted as native HTML/CSS;
 raster images, image glyph fills, blend modes, and custom callbacks are
 embedded as pixel-exact PNG fragments rendered through the regular pipeline.
 
-Per-layer ``Animation`` effects map to CSS keyframes driven by a tiny JS
-timeline runtime that honours the same ``on_click``/``with_previous``/
-``after_previous`` sequencing PowerPoint uses. Browsers hint and rasterize
+Per-layer `Animation` effects map to CSS keyframes driven by a tiny JS
+timeline runtime that honours the same `on_click`/`with_previous`/
+`after_previous` sequencing PowerPoint uses. Browsers hint and rasterize
 fonts differently from PIL, so text placement is a close approximation rather
 than pixel-identical (like the PPTX exporter), and a handful of exotic effects
 (blinds, checkerboard, wheel, dissolve) fall back to a close CSS analogue.
@@ -246,7 +246,7 @@ def _remap_linear_stops(
     projected extent), centred on the block, then crops -- so a box shows only
     the middle slice of the ramp, never the full colour range. This reproduces
     that exact mapping for one element (e.g. a line-span): a stop at fraction
-    ``q`` sits ``(q-0.5)*diagonal`` from the block centre along the gradient
+    `q` sits `(q-0.5)*diagonal` from the block centre along the gradient
     direction, which is then converted to a fraction of the element's own
     gradient line (its projected extent, centred on the element). Results can
     fall outside [0, 1]; CSS handles that, which is how each line shows just its
@@ -269,10 +269,10 @@ def _css_gradient(
 ) -> str:
     """Build a CSS gradient over a box, approximating EffectsEngine geometry.
 
-    The raster renderer maps a gradient across the whole ``box`` (e.g. a
+    The raster renderer maps a gradient across the whole `box` (e.g. a
     multi-line text block). A CSS gradient, though, is relative to the element
-    it paints on -- one line-span at a time -- so passing ``element_box`` (that
-    span's box) remaps a linear gradient's stops to the slice of ``box`` the
+    it paints on -- one line-span at a time -- so passing `element_box` (that
+    span's box) remaps a linear gradient's stops to the slice of `box` the
     element actually covers, keeping the colours continuous across lines instead
     of restarting on each one.
     """
@@ -360,9 +360,9 @@ class HtmlExporter:
         )
 
     def _effect_filter_css(self, effects, width: float, height: float, *, is_text: bool) -> str:
-        """Return a CSS ``filter:url(#id)`` reproducing the Glow/Shadow (and, for
+        """Return a CSS `filter:url(#id)` reproducing the Glow/Shadow (and, for
         non-text shapes, Stroke) effects exactly as the raster engine draws them,
-        registering the shared SVG ``<filter>``. Empty string if none apply.
+        registering the shared SVG `<filter>`. Empty string if none apply.
 
         The raster engine derives each effect from the layer's alpha silhouette
         and composites it behind the layer: Shadow = Gaussian-blurred (sigma =
@@ -488,7 +488,7 @@ class HtmlExporter:
     def _register_animation(self, layer: RenderableLayer, element_id: str) -> str:
         """Record a layer's animation as timeline node(s) keyed to its element.
 
-        Returns the extra inline style for the element -- ``visibility:hidden;``
+        Returns the extra inline style for the element -- `visibility:hidden;`
         when an entrance effect must play before the layer is first shown, else
         an empty string.
         """
@@ -566,7 +566,7 @@ class HtmlExporter:
                     "d": duration,
                     "delay": event.start + event.delay,
                     # A canonical event already carries its absolute place on the
-                    # slide in ``delay``, so it runs alongside the rest rather
+                    # slide in `delay`, so it runs alongside the rest rather
                     # than queueing behind it. Emitting no trigger at all stalls
                     # the runtime: it neither joins the open group nor continues
                     # the chain, so every canonical layer became a click of its
@@ -1003,8 +1003,8 @@ _DIR_OUT = {
 def _transition_states(transition) -> tuple[str, str]:
     """Return (from-state, to-state) CSS for a transition's incoming stage.
 
-    Only reached from ``_transition_plan`` for non-directional reveals -- cut,
-    push and uncover are handled there -- so ``cover`` is the one directional
+    Only reached from `_transition_plan` for non-directional reveals -- cut,
+    push and uncover are handled there -- so `cover` is the one directional
     case that arrives here (the new slide sliding in over a static old one).
     """
     effect = transition.effect
@@ -1048,11 +1048,11 @@ def _transition_states(transition) -> tuple[str, str]:
 
 
 def _transition_plan(transition) -> tuple[tuple | None, tuple | None, str]:
-    """Plan a slide change as ``(enter, exit, z)``.
+    """Plan a slide change as `(enter, exit, z)`.
 
-    ``enter``/``exit`` are ``(from, to)`` CSS state tuples for the incoming and
-    outgoing stages (``None`` = that stage doesn't animate), and ``z`` is
-    ``"over"`` or ``"under"`` -- whether the incoming slide sits above the
+    `enter`/`exit` are `(from, to)` CSS state tuples for the incoming and
+    outgoing stages (`None` = that stage doesn't animate), and `z` is
+    `"over"` or `"under"` -- whether the incoming slide sits above the
     outgoing one during the change. Keeping the outgoing slide on screen
     (static beneath, or sliding out for push/uncover) is what stops the
     previous slide from blanking before the new one arrives.

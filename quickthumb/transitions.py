@@ -5,19 +5,19 @@ animate the change into each slide (the incoming stage), with effects that need
 to move the stage composed with the responsive fit-to-viewport scale. A few
 exotic effects (wheel, wedge, checker, comb, dissolve) fall back to the closest
 CSS analogue there. Animated GIF/MP4/WebM export renders every effect as real
-raster frames (``random`` plays as a cross-fade -- there is no viewer to
+raster frames (`random` plays as a cross-fade -- there is no viewer to
 randomize per playback). Still renderers (raster, SVG, PDF) ignore transitions.
 
 Each transition effect is its own class so it only exposes the options that
-effect actually supports — directional effects (``Push``, ``Wipe``, ``Cover``,
-``Uncover``, ``Zoom``) take a ``direction``; ``Split`` and the blind-style
-effects take an ``orientation``; ``Wheel`` takes ``spokes``; the rest take
-nothing. Every effect shares the timing fields ``duration``,
-``advance_on_click``, and ``advance_after``.
+effect actually supports — directional effects (`Push`, `Wipe`, `Cover`,
+`Uncover`, `Zoom`) take a `direction`; `Split` and the blind-style
+effects take an `orientation`; `Wheel` takes `spokes`; the rest take
+nothing. Every effect shares the timing fields `duration`,
+`advance_on_click`, and `advance_after`.
 
-Transitions live in this namespace (``quickthumb.transitions``) because several
-effect names — ``Fade``, ``Wipe``, ``Wheel``, … — also exist as layer
-animations (``quickthumb.Fade`` and friends), which are a different thing.
+Transitions live in this namespace (`quickthumb.transitions`) because several
+effect names — `Fade`, `Wipe`, `Wheel`, … — also exist as layer
+animations (`quickthumb.Fade` and friends), which are a different thing.
 
     from quickthumb import Deck
     from quickthumb.transitions import Fade, Push
@@ -109,7 +109,7 @@ class Random(_TransitionBase):
 
 
 class Wheel(_TransitionBase):
-    """Sweep the slide in like a clock hand, using ``spokes`` arms."""
+    """Sweep the slide in like a clock hand, using `spokes` arms."""
 
     effect: Literal["wheel"] = "wheel"
     spokes: Annotated[PositiveInt, Field(le=64)] = 1
@@ -180,7 +180,7 @@ class Comb(_TransitionBase):
 
 
 # Discriminated union of every transition: validates a dict (e.g. from JSON) into
-# the right class by its ``effect`` tag.
+# the right class by its `effect` tag.
 Transition = Annotated[
     Cut
     | Fade

@@ -1,6 +1,8 @@
 version: 2
 updates:
-  - package-ecosystem: "pip"
+  # The uv ecosystem updates pyproject.toml and uv.lock together, so a merged
+  # update is what `uv sync --locked` installs in CI.
+  - package-ecosystem: "uv"
     directory: "/"
     schedule:
       interval: "weekly"

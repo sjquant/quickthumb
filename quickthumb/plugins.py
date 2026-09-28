@@ -1,7 +1,7 @@
 """Deterministic named plugin registrations for the canonical layer contract.
 
-Parameter schemas use the ``quickthumb plugin-params v1`` subset documented in
-``docs/json-schema.md``.  The registry is the single public entry point for
+Parameter schemas use the `quickthumb plugin-params v1` subset documented in
+`docs/json-schema.md`.  The registry is the single public entry point for
 registration, lookup, validation, and schema generation.
 """
 
@@ -62,9 +62,9 @@ class PluginRegistry:
 
     The registry stores metadata only.  Renderer execution and native exporter
     hooks intentionally remain D2/D3 work.  All outward collections are sorted
-    by ``(renderer, version)`` so schema and inspection output is reproducible.
+    by `(renderer, version)` so schema and inspection output is reproducible.
 
-    Most callers only need ``register``, ``validate``, and ``json_schema``.
+    Most callers only need `register`, `validate`, and `json_schema`.
     Lifecycle and inspection methods are provided for application setup and
     diagnostics.
     """

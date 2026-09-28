@@ -14,6 +14,8 @@ from quickthumb._serve import SlideSource, resolve_source, serve_slides, slide_r
 from quickthumb.errors import RenderingError, ValidationError
 from typer.testing import CliRunner
 
+from tests._filesystem import isolated_filesystem
+
 
 class TestSlideServer:
     """The server renders supported sources behind an HTTP boundary."""
@@ -477,7 +479,7 @@ class TestCLIServe:
         from quickthumb.cli import app
 
         # when: the user runs quickthumb serve without a source
-        with CliRunner().isolated_filesystem():
+        with isolated_filesystem():
             result = CliRunner().invoke(app, ["serve", "--no-open"])
 
         # then: the command fails before binding and lists the supported defaults

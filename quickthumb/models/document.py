@@ -1,10 +1,11 @@
 """Document-level discriminated unions and stable result models."""
 
-# Shared model primitives are intentionally re-exported by ``common``.
+# Shared model primitives are intentionally re-exported by `common`.
 # ruff: noqa: F405
 
 import base64 as _base64
 import hashlib as _hashlib
+from enum import Enum
 from typing import Annotated, Any, Literal
 
 from pydantic import (
@@ -91,20 +92,57 @@ class DiagnosticReport(quickthumbModel):
     findings: list[Any] = Field(default_factory=list)
 
 
+class AssetStatus(str, Enum):
+    """Resolution outcome of one asset reference; compares equal to its string value.
+
+    - `LOCAL`: an existing local file; `content_hash` is its SHA-256.
+    - `MISSING`: a local path that does not exist.
+    - `NETWORK`: downloaded during this resolution and written to the cache.
+    - `FRESH`: served from a cache entry within the configured `max_age`.
+    - `STALE`: served from an expired cache entry (or while offline) because
+      a refresh was not possible; see `stale_reason` and `fetched_at`.
+    - `UNRESOLVED`: a remote reference that has not been resolved yet.
+    """
+
+    # A str mixin rather than enum.StrEnum, which needs Python 3.11.
+    LOCAL = "local"
+    MISSING = "missing"
+    NETWORK = "network"
+    FRESH = "fresh"
+    STALE = "stale"
+    UNRESOLVED = "unresolved"
+
+    def __str__(self) -> str:
+        return self.value
+
+
 class AssetManifestEntry(quickthumbModel):
-    """A deterministic description of one document asset reference."""
+    """A deterministic description of one document asset reference.
+
+    `source` is the reference as written in the document and `asset_type` its
+    semantic role (`image`, `svg`, `font`, `text-fill`, `video`, `audio`).
+    `status` is the resolution outcome (see `AssetStatus`); for a `stale`
+    value, `stale_reason` says why it was not refreshed and `fetched_at` how
+    old it is, so callers can decide whether to proceed.
+
+    `source_key` is the canonical URL, `cache_key`/`cache_path` identify the
+    cache entry, `content_hash` is the SHA-256 of the bytes used, and
+    `fetched_at` is the UTC ISO-8601 time the remote bytes were downloaded.
+    """
 
     source: str
     asset_type: str = "asset"
-    status: str
+    status: AssetStatus
     source_key: str | None = None
     cache_key: str | None = None
     cache_path: str | None = None
     content_hash: str | None = None
+    fetched_at: str | None = None
+    stale_reason: str | None = None
 
 
-class ResolvedDocument(quickthumbModel):
-    """Asset-resolution metadata returned without exposing renderer internals."""
+class PrefetchResult(quickthumbModel):
+    """Stable, JSON-serializable result returned by `Document.prefetch_assets()`."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -257,7 +295,7 @@ class FallbackDiagnostic(quickthumbModel):
 
 
 class ExportResult(quickthumbModel):
-    """Stable, JSON-serializable result returned by ``Document.export()``."""
+    """Stable, JSON-serializable result returned by `Document.export()`."""
 
     model_config = ConfigDict(extra="forbid")
 

@@ -72,6 +72,23 @@ Finding codes: `off-canvas`, `tiny-text`, `text-overflow`, `text-clipped`, `miss
 [Diagnostics & CLI](../diagnostics.md) for details and the `quickthumb lint` (or
 `quickthumb diagnose`) equivalent.
 
+## `.prefetch_assets()` (optional)
+
+You never need to call this: `render()` and `export()` download remote images,
+SVGs, text fills, and fonts themselves, and `export()` returns the resulting
+`asset_manifest`. Call it only to do those downloads up front — to catch a
+network failure or a stale cache entry before a long export, or to warm the
+cache for later offline renders. It returns the manifest without rendering:
+
+```python
+manifest = canvas.prefetch_assets().asset_manifest
+if any(entry.status == "stale" for entry in manifest):
+    ...  # decide whether to proceed with cached bytes
+```
+
+See [Remote assets and caching](../exports.md#remote-assets-and-caching) for
+statuses, `QUICKTHUMB_ASSET_MAX_AGE`, and offline mode.
+
 ## Export methods
 
 ### `.render(path, format=None, quality=None, debug=False, animation=None)`

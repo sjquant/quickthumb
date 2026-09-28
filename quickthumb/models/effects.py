@@ -1,6 +1,6 @@
 """Paint, filter, fill, and layer-effect models."""
 
-# Effect fields use the shared model vocabulary re-exported by ``common``.
+# Effect fields use the shared model vocabulary re-exported by `common`.
 # ruff: noqa: F405
 
 from typing import Annotated, Literal

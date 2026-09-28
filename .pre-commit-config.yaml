@@ -9,11 +9,21 @@ repos:
       - id: check-merge-conflict
       - id: detect-private-key
 
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.14.9
+  # Ruff runs from uv.lock so the hook, CI, and editors share one version.
+  - repo: local
     hooks:
       - id: ruff-format
+        name: ruff format
+        entry: uv run --locked ruff format --force-exclude
+        language: system
+        types_or: [python, pyi]
+        require_serial: true
       - id: ruff
+        name: ruff check
+        entry: uv run --locked ruff check --force-exclude
+        language: system
+        types_or: [python, pyi]
+        require_serial: true
 
   - repo: https://github.com/gitleaks/gitleaks
     rev: v8.30.0

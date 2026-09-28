@@ -73,7 +73,7 @@ def flatten_layers(canvas: Canvas) -> list[RenderableLayer]:
 def validate_legacy_animation_export(canvas: Canvas) -> None:
     """Validate animation inputs accepted by the legacy exporter paths.
 
-    Canonical ``AnimationSpec`` values are handled by the normalized timeline
+    Canonical `AnimationSpec` values are handled by the normalized timeline
     adapters in the raster/video and HTML exporters; legacy effects continue to
     use their existing exporter-specific compilers.
     """
@@ -269,7 +269,7 @@ def apply_canonical_alpha(
 ) -> Image.Image | None:
     """Apply a sampled layer's opacity and left-to-right reveal to its pixels.
 
-    ``clip_progress`` defaults to the sampled state's own value; pass 1.0 for
+    `clip_progress` defaults to the sampled state's own value; pass 1.0 for
     layers whose renderer already reveals itself from the same track.
 
     Returns None when nothing of the layer is visible yet, so callers can skip
@@ -305,13 +305,13 @@ def apply_canonical_geometry(
 ) -> tuple[Image.Image, tuple[int, int]]:
     """Scale, rotate, and blur a rendered layer about its centre, then move it.
 
-    This is the ``T · R · S`` convention ``quickthumb.motion.transform_matrix``
+    This is the `T · R · S` convention `quickthumb.motion.transform_matrix`
     documents: a layer is scaled, rotated about its own centre, and finally
-    translated by ``state.position``. Scale, rotation, and blur all change the
+    translated by `state.position`. Scale, rotation, and blur all change the
     image's size, so the position it should be composited at comes back with it.
 
-    ``include_scale`` is off for image layers, whose renderer already folds
-    ``scale`` into the source crop so the frame stays put while its content
+    `include_scale` is off for image layers, whose renderer already folds
+    `scale` into the source crop so the frame stays put while its content
     zooms.
     """
     centre_x = pos[0] + image.width / 2
@@ -410,8 +410,8 @@ def resolve_font_face(run: TextRunLayout) -> tuple[str, str, str, str | None]:
     """Resolve (family, css weight, css style, embeddable font path) for a run.
 
     Shared by the SVG and HTML exporters so a run maps to the same font face
-    rules in every vector export. ``path`` is the local font file to pass to
-    ``font_face_declarations`` for embedding, or ``None`` when Pillow has no
+    rules in every vector export. `path` is the local font file to pass to
+    `font_face_declarations` for embedding, or `None` when Pillow has no
     file to embed for this run's font (e.g. the built-in bitmap default).
     """
     font = run.font
@@ -436,10 +436,10 @@ def resolve_font_face(run: TextRunLayout) -> tuple[str, str, str, str | None]:
 
 
 def font_face_declarations(font_faces: dict[str, tuple[str, str, str]]) -> str:
-    """Build ``@font-face`` rules embedding each font file as a base64 data URL.
+    """Build `@font-face` rules embedding each font file as a base64 data URL.
 
     Shared by the SVG and HTML exporters; each wraps the result for its own
-    document (SVG in a ``<style>`` element, HTML inline in its own stylesheet).
+    document (SVG in a `<style>` element, HTML inline in its own stylesheet).
     """
     faces = []
     for path, (family, weight, style) in font_faces.items():

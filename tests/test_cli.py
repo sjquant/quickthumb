@@ -8,6 +8,8 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
+from tests._filesystem import isolated_filesystem
+
 SIMPLE_SPEC = json.dumps(
     {
         "kind": "canvas",
@@ -210,7 +212,7 @@ class TestCLISchema:
         runner = CliRunner()
 
         # when: the user writes the schema to a file
-        with runner.isolated_filesystem():
+        with isolated_filesystem():
             result = runner.invoke(app, ["schema", "--output", "schema.json"])
 
             # then: the command prints the path and writes parseable schema JSON
@@ -228,7 +230,7 @@ class TestCLISchema:
         runner = CliRunner()
 
         # when: the user asks schema to write to a directory
-        with runner.isolated_filesystem():
+        with isolated_filesystem():
             os.mkdir("schema-dir")
             result = runner.invoke(app, ["schema", "--output", "schema-dir"])
 
@@ -246,7 +248,7 @@ class TestCLIRender:
         runner = CliRunner()
 
         # When: User runs `quickthumb render spec.json`
-        with runner.isolated_filesystem():
+        with isolated_filesystem():
             result = runner.invoke(app, ["render", spec_file])
 
             # Then: output.png is created and the command exits successfully
@@ -261,7 +263,7 @@ class TestCLIRender:
         runner = CliRunner()
 
         # When: User runs `quickthumb render spec.json -o thumb.png`
-        with runner.isolated_filesystem():
+        with isolated_filesystem():
             result = runner.invoke(app, ["render", spec_file, "-o", "thumb.png"])
 
             # Then: thumb.png is created and the command exits successfully
@@ -277,7 +279,7 @@ class TestCLIRender:
         runner = CliRunner()
 
         # When: User runs `quickthumb render spec.json -o thumb.webp`
-        with runner.isolated_filesystem():
+        with isolated_filesystem():
             result = runner.invoke(app, ["render", spec_file, "-o", "thumb.webp"])
 
             # Then: The output file is a WEBP image
@@ -294,7 +296,7 @@ class TestCLIRender:
         runner = CliRunner()
 
         # When: User runs `quickthumb render spec.json -o thumb.png --format JPEG`
-        with runner.isolated_filesystem():
+        with isolated_filesystem():
             result = runner.invoke(
                 app, ["render", spec_file, "-o", "thumb.png", "--format", "JPEG"]
             )
@@ -312,7 +314,7 @@ class TestCLIRender:
         runner = CliRunner()
 
         # When: User runs `quickthumb render spec.json -o thumb.jpg --quality 80`
-        with runner.isolated_filesystem():
+        with isolated_filesystem():
             result = runner.invoke(app, ["render", spec_file, "-o", "thumb.jpg", "--quality", "80"])
 
             # Then: thumb.jpg is created and the command exits successfully
@@ -325,7 +327,7 @@ class TestCLIRender:
         from quickthumb.cli import app
 
         # When: User runs `quickthumb render spec.json --debug`
-        with CliRunner().isolated_filesystem():
+        with isolated_filesystem():
             normal = CliRunner().invoke(app, ["render", spec_file, "-o", "normal.png"])
             result = CliRunner().invoke(app, ["render", spec_file, "-o", "debug.png", "--debug"])
 
@@ -356,7 +358,7 @@ class TestCLIRender:
         runner = CliRunner()
 
         # When: User runs `quickthumb render spec.json -o thumb.png`
-        with runner.isolated_filesystem():
+        with isolated_filesystem():
             result = runner.invoke(app, ["render", spec_file, "-o", "thumb.png"])
 
             # Then: The output path is printed to stdout
@@ -374,7 +376,7 @@ class TestCLIRender:
 
         # When: User runs `quickthumb render` with the invalid spec
         try:
-            with runner.isolated_filesystem():
+            with isolated_filesystem():
                 result = runner.invoke(app, ["render", bad_spec])
 
             # Then: Exit code is 1 (ValidationError)
@@ -408,7 +410,7 @@ class TestCLIRender:
 
         # When: User runs `quickthumb render` with the unreachable image spec
         try:
-            with runner.isolated_filesystem():
+            with isolated_filesystem():
                 result = runner.invoke(app, ["render", bad_spec])
 
             # Then: Exit code is 2 (RenderingError)
@@ -470,7 +472,7 @@ class TestCLIRender:
 
         # When: User runs `quickthumb render template.json --var bg_color=#00FF00`
         try:
-            with runner.isolated_filesystem():
+            with isolated_filesystem():
                 result = runner.invoke(app, ["render", spec_path, "--var", "bg_color=#00FF00"])
 
                 # Then: The placeholder is replaced and the image renders successfully
@@ -487,7 +489,7 @@ class TestCLIRender:
         runner = CliRunner()
 
         # When: User runs `quickthumb render` with a missing file
-        with runner.isolated_filesystem():
+        with isolated_filesystem():
             result = runner.invoke(app, ["render", "does_not_exist.json"])
 
         # Then: Exit code is 1 with a clear error message
@@ -506,7 +508,7 @@ class TestCLIRender:
 
         # When: User runs `quickthumb render` with the malformed spec
         try:
-            with runner.isolated_filesystem():
+            with isolated_filesystem():
                 result = runner.invoke(app, ["render", bad_spec])
 
             # Then: Exit code is 1
@@ -534,7 +536,7 @@ class TestCLIRender:
 
         # When: User runs render without providing the required variable
         try:
-            with runner.isolated_filesystem():
+            with isolated_filesystem():
                 result = runner.invoke(app, ["render", spec_path])
 
             # Then: Exit code is 1 with a message about the unresolved placeholder
@@ -551,7 +553,7 @@ class TestCLIRender:
         runner = CliRunner()
 
         # When: User runs `quickthumb render spec.json --var keyonly`
-        with runner.isolated_filesystem():
+        with isolated_filesystem():
             result = runner.invoke(app, ["render", spec_file, "--var", "keyonly"])
 
         # Then: Exit code is 1 with a clear error message
@@ -566,7 +568,7 @@ class TestCLIRender:
         runner = CliRunner()
 
         # When: User runs `quickthumb render spec.json --format BMP`
-        with runner.isolated_filesystem():
+        with isolated_filesystem():
             result = runner.invoke(app, ["render", spec_file, "--format", "BMP"])
 
         # Then: Exit code is 1 with a clear error message
@@ -581,7 +583,7 @@ class TestCLIRender:
         runner = CliRunner()
 
         # When: User runs `quickthumb render spec.json --quality 200`
-        with runner.isolated_filesystem():
+        with isolated_filesystem():
             result = runner.invoke(app, ["render", spec_file, "--quality", "200"])
 
         # Then: Exit code is 1 with a clear error message
@@ -607,7 +609,7 @@ class TestCLIRender:
 
         # When: User runs `quickthumb render template.json --var bg=#FF0000`
         try:
-            with runner.isolated_filesystem():
+            with isolated_filesystem():
                 result = runner.invoke(app, ["render", spec_path, "--var", "bg=#FF0000"])
 
                 # Then: The placeholder is replaced and the image renders successfully
@@ -636,7 +638,7 @@ class TestCLIRender:
 
         # When: the user renders the themed spec with an unrelated --var present
         try:
-            with runner.isolated_filesystem():
+            with isolated_filesystem():
                 result = runner.invoke(app, ["render", spec_path, "--var", "unused=1"])
 
                 # Then: the theme resolves and the image renders successfully

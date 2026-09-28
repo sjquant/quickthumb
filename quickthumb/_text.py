@@ -486,7 +486,7 @@ class TextEngine:
         return top + self._text_ink_bottom(font, "0")
 
     def _position_on_baseline(self, layer: TextLayer, x: int, baseline: int) -> tuple[int, int]:
-        """Return a top-left position whose font box shares ``baseline``."""
+        """Return a top-left position whose font box shares `baseline`."""
         content = layer.content if isinstance(layer.content, str) else ""
         if not content:
             return x, baseline

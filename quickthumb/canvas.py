@@ -62,9 +62,9 @@ from quickthumb.models import (
     LinearGradient,
     OutlineLayer,
     PluginLayer,
+    PrefetchResult,
     QRCodeLayer,
     RadialGradient,
-    ResolvedDocument,
     ShapeEffect,
     ShapeLayer,
     SvgLayer,
@@ -409,11 +409,17 @@ class Canvas:
         # sets its settled time, so it needs no per-slide duration.
         return [self], [None], None
 
-    def resolve_assets(self) -> ResolvedDocument:
-        """Check referenced assets and return their manifest metadata."""
-        from quickthumb._document import AssetPort, Document, resolved_document
+    def prefetch_assets(self) -> PrefetchResult:
+        """Download remote assets now and return their manifest.
 
-        return resolved_document(
+        Optional: `render()` and `export()` fetch assets themselves, and
+        `export()` returns the same manifest. Call this to surface network
+        failures or stale cache entries before a long export, or to warm the
+        cache for later offline renders.
+        """
+        from quickthumb._document import AssetPort, Document, prefetch_result
+
+        return prefetch_result(
             cast(Document, self),
             kind="canvas",
             assets=AssetPort(
@@ -1079,7 +1085,7 @@ class Canvas:
         WEBP render through the raster pipeline; .svg, .pptx, and .pdf produce
         vector/document output (see to_svg, to_pptx, and to_pdf); .gif, .mp4,
         and .webm produce an animation that plays the canvas's layer
-        ``animation`` effects. Pass ``GifOptions`` for GIF or ``VideoOptions``
+        `animation` effects. Pass `GifOptions` for GIF or `VideoOptions`
         for MP4/WebM to tune animated output.
         Set debug=True for raster output annotated with public layer-id bboxes.
         """
@@ -1220,16 +1226,16 @@ class Canvas:
         Backgrounds, gradients, outlines, shapes, and text become native
         HTML/CSS positioned with the same layout math as the raster renderer;
         raster images, blend modes, image glyph fills, and custom layers are
-        embedded as pixel-exact PNG fragments. Per-layer ``animation`` effects
+        embedded as pixel-exact PNG fragments. Per-layer `animation` effects
         play via a small inline JS runtime (click to advance), so unlike the
         other formats HTML actually animates.
 
         The composition is a fixed-size stage that never reflows, keeping it a
-        faithful twin of the PNG/SVG/PDF/PPTX output. With ``responsive=True``
+        faithful twin of the PNG/SVG/PDF/PPTX output. With `responsive=True`
         (default) the whole stage is scaled as one unit to fill the viewport;
-        pass ``responsive=False`` to emit the bare fixed-size stage. ``embed_fonts``
-        defaults to ``True`` so the used fonts are inlined as ``@font-face`` data
-        URLs and text renders identically everywhere; pass ``False`` to drop them
+        pass `responsive=False` to emit the bare fixed-size stage. `embed_fonts`
+        defaults to `True` so the used fonts are inlined as `@font-face` data
+        URLs and text renders identically everywhere; pass `False` to drop them
         and rely on the viewer's system fonts for a smaller file.
         """
         from quickthumb._export_html import HtmlExporter
@@ -1280,11 +1286,11 @@ class Canvas:
     ) -> bytes:
         """Render the canvas to animated GIF bytes that play its layer animations.
 
-        Layer ``animation`` effects play in sequence (``on_click`` effects run
+        Layer `animation` effects play in sequence (`on_click` effects run
         automatically -- there are no clicks in a video), then the settled
-        composition holds for ``hold`` seconds. A canvas with no animations
-        yields a single-frame GIF. ``loop`` is the GIF repeat count (0 =
-        forever). Frames are composited onto the opaque ``matte`` color since
+        composition holds for `hold` seconds. A canvas with no animations
+        yields a single-frame GIF. `loop` is the GIF repeat count (0 =
+        forever). Frames are composited onto the opaque `matte` color since
         GIF cannot carry the canvas's alpha.
         """
         from quickthumb._export_video import export_animation_bytes
@@ -1310,13 +1316,13 @@ class Canvas:
         *,
         policy: ExportPolicy | None = None,
     ) -> bytes:
-        """Render the canvas to MP4 (H.264) bytes; timing model as in ``to_gif``.
+        """Render the canvas to MP4 (H.264) bytes; timing model as in `to_gif`.
 
-        Requires the ``ffmpeg`` binary on PATH (or ``QUICKTHUMB_FFMPEG``).
+        Requires the `ffmpeg` binary on PATH (or `QUICKTHUMB_FFMPEG`).
         An odd-sized canvas loses its last pixel row/column (H.264 4:2:0
-        output needs even dimensions). ``soundtrack`` muxes an audio file
+        output needs even dimensions). `soundtrack` muxes an audio file
         (any format ffmpeg decodes) as AAC, trimmed to the video length;
-        ``loop_audio`` overrides `AudioTrack.loop`; legacy path strings loop by default.
+        `loop_audio` overrides `AudioTrack.loop`; legacy path strings loop by default.
         """
         from quickthumb._export_video import export_animation_bytes
 
@@ -1342,13 +1348,13 @@ class Canvas:
         *,
         policy: ExportPolicy | None = None,
     ) -> bytes:
-        """Render the canvas to WebM (VP9) bytes; timing model as in ``to_gif``.
+        """Render the canvas to WebM (VP9) bytes; timing model as in `to_gif`.
 
-        Requires the ``ffmpeg`` binary on PATH (or ``QUICKTHUMB_FFMPEG``).
+        Requires the `ffmpeg` binary on PATH (or `QUICKTHUMB_FFMPEG`).
         An odd-sized canvas loses its last pixel row/column (VP9 4:2:0 output
-        needs even dimensions). ``soundtrack`` muxes an audio file (any
+        needs even dimensions). `soundtrack` muxes an audio file (any
         format ffmpeg decodes) as Opus, trimmed to the video length;
-        ``loop_audio`` overrides `AudioTrack.loop`; legacy path strings loop by default.
+        `loop_audio` overrides `AudioTrack.loop`; legacy path strings loop by default.
         """
         from quickthumb._export_video import export_animation_bytes
 

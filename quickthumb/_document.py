@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, Protocol, cast, runtime_checkable
 
-from quickthumb.asset_cache import ResolvedAsset
+from quickthumb.asset_cache import ResolvedAsset, format_timestamp
 from quickthumb.errors import (
     ErrorDetail,
     MissingAssetError,
@@ -21,6 +21,7 @@ from quickthumb.errors import (
 )
 from quickthumb.models import (
     AssetManifestEntry,
+    AssetStatus,
     DiagnosticReport,
     ExportDiagnostic,
     ExportPolicy,
@@ -29,7 +30,7 @@ from quickthumb.models import (
     FrameSequence,
     GifOptions,
     PixelMetrics,
-    ResolvedDocument,
+    PrefetchResult,
     TimingMetrics,
     ValidationReport,
     VideoOptions,
@@ -110,7 +111,7 @@ class Document(Protocol):
 
     def diagnose(self) -> DiagnosticReport: ...
 
-    def resolve_assets(self) -> ResolvedDocument: ...
+    def prefetch_assets(self) -> PrefetchResult: ...
 
     def sample(
         self,
@@ -264,13 +265,11 @@ def validation_report(source: Document, *, kind: DocumentKind) -> ValidationRepo
     return ValidationReport(valid=not errors, errors=errors)
 
 
-def resolved_document(
-    source: Document, *, kind: DocumentKind, assets: AssetPort
-) -> ResolvedDocument:
-    """Resolve/check asset references and return one deterministic manifest."""
+def prefetch_result(source: Document, *, kind: DocumentKind, assets: AssetPort) -> PrefetchResult:
+    """Download asset references up front and return one deterministic manifest."""
     _contract_validate_assets(source)
     assets.resolve()
-    return ResolvedDocument(kind=kind, asset_manifest=_asset_manifest(source, assets.record_for))
+    return PrefetchResult(kind=kind, asset_manifest=_asset_manifest(source, assets.record_for))
 
 
 def _contract_kind(source: Document) -> DocumentKind:
@@ -514,15 +513,22 @@ def _manifest_entry(
             cache_key=record.cache_key,
             cache_path=record.cache_path,
             content_hash=record.content_hash,
+            fetched_at=format_timestamp(record.fetched_at),
+            stale_reason=record.stale_reason,
         )
+    if _is_url(value):
+        return AssetManifestEntry(
+            source=value, asset_type=asset_type, status=AssetStatus.UNRESOLVED, source_key=value
+        )
+    content_hash = _local_hash(value)
+    if content_hash is None:
+        return AssetManifestEntry(source=value, asset_type=asset_type, status=AssetStatus.MISSING)
     return AssetManifestEntry(
         source=value,
         asset_type=asset_type,
-        status="unresolved" if _is_url(value) else "local",
-        source_key=value if _is_url(value) else None,
-        cache_key=None,
-        cache_path=value if not _is_url(value) else None,
-        content_hash=_local_hash(value),
+        status=AssetStatus.LOCAL,
+        cache_path=value,
+        content_hash=content_hash,
     )
 
 
@@ -535,8 +541,7 @@ def _is_local_asset(value: str) -> bool:
 
 
 def _local_hash(value: str) -> str | None:
-    if _is_url(value) or not os.path.isfile(value):
-        return None
+    """Hash a local file, or return None when it cannot be read."""
     digest = hashlib.sha256()
     try:
         with open(value, "rb") as stream:

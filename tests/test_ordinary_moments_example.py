@@ -4,7 +4,10 @@ import json
 
 from quickthumb.models import VideoLayer
 
+from tests._optional import requires_ffprobe
 
+
+@requires_ffprobe
 def test_ordinary_moments_tells_a_sixty_second_story_in_nine_scenes():
     """Given the public example, when serialized, then its story contract is preserved."""
     # Given: the public, locally reproducible example deck
@@ -134,6 +137,7 @@ def test_ordinary_moments_keeps_caption_treatment_and_fallback_contracts_public(
     )
 
 
+@requires_ffprobe
 def test_ordinary_moments_reads_at_a_pace_a_viewer_can_follow():
     """Given the film, when diagnosed, then no cue or clip is flagged as unreadable."""
     # Given: a film whose caption timing and clip speeds were tuned by hand

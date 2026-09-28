@@ -319,7 +319,7 @@ def render_video_captions(
 ) -> None:
     """Render active video captions in the composition foreground pass.
 
-    Captions remain owned by their ``VideoLayer`` for serialization and timing,
+    Captions remain owned by their `VideoLayer` for serialization and timing,
     but are deliberately rendered after the regular layer stack. This keeps a
     later shade, panel, or text layer from accidentally obscuring timed media
     copy. The caption pass does not decode frames itself; it only probes a

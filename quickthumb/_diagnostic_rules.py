@@ -235,7 +235,7 @@ def measure_caption_reading(caption: VideoCaption, clip_seconds: float | None) -
     """Measure a cue over the time it is really on screen.
 
     A cue is only drawn while its clip is live, so one that runs past the end of
-    its clip is seen for less time than it declares. ``clip_seconds`` is the
+    its clip is seen for less time than it declares. `clip_seconds` is the
     clip's own on-screen length; None when it could not be resolved.
     """
     declared = caption.end - caption.start

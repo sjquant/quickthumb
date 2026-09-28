@@ -976,8 +976,8 @@ class PptxExporter:
     ) -> list[list[tuple[Animation, list[int]]]]:
         """Split animations into click groups.
 
-        ``after_previous`` and ``with_previous`` continue the open click chain;
-        only ``on_click`` starts a new one after the first group exists.
+        `after_previous` and `with_previous` continue the open click chain;
+        only `on_click` starts a new one after the first group exists.
         """
         groups: list[list[tuple[Animation, list[int]]]] = []
         for anim, ids in animations:
