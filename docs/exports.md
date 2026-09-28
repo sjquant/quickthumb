@@ -213,11 +213,11 @@ probe = deck.sample([0.0, 1.25, 4.0], hold=2.0) # explicit instants, ascending
 - **Sampling.** `fps=N` (at most 120) observes every instant `k / N` before `duration`; explicit times must be ascending, and times at or past `duration` show the final settled frame. One capture observes at most 100,000 instants; a larger explicit list or fps grid is rejected with a `ValidationError` before any frame renders. This grid is an observation schedule, not an exporter's frame schedule: exporters sample each span on their own frame grid, and stretch a slide shorter than one frame to a full frame.
 - **Timing.** `duration` is the exact timeline length and never depends on `fps` or on the requested instants. Each `TimelineSegment` gives a slide's absolute `start`, `transition_end`, `animation_end`, and `end`, rounded to nanoseconds; a slide is on screen over `[start, end)`, so a boundary instant belongs to the incoming slide.
 - **Memory.** A capture whose distinct frames would exceed 768 MiB of raw RGBA is rejected with a `ValidationError`, before any frame renders when every page of a still capture, or one frame of a timeline capture, already exceeds it; request fewer instants, a lower `fps`, a shorter `hold`, or a smaller document.
-- **Environment.** `environment` records the facts that can change pixels for an identical document: quickthumb, Pillow, and FreeType versions, the text layout engine (`basic` or `raqm`), and, for documents with video layers, the version of the FFmpeg that decodes them (`QUICKTHUMB_FFMPEG` or `ffmpeg` on `PATH`). Sampling a video document without a working FFmpeg raises `RenderingError` before any frame renders. Identical documents sampled in identical environments produce identical digests; fonts and images are described by `resolve_assets()`.
+- **Environment.** `environment` records the facts that can change pixels for an identical document: quickthumb, Pillow, and FreeType versions, the text layout engine (`basic` or `raqm`), and, for documents with video layers, the version of the FFmpeg that decodes them (`QUICKTHUMB_FFMPEG` or `ffmpeg` on `PATH`). Sampling a video document without a working FFmpeg raises `RenderingError` before any frame renders. Identical documents sampled in identical environments produce identical digests; fonts and images are described by the asset manifest (see below).
 
 ## Remote assets and caching
 
-`resolve_assets()` downloads remote images, SVGs, text fills, and fonts into a shared cache and returns an `asset_manifest`; `export()` returns the same manifest. Each `AssetManifestEntry` has the `source` as written, its semantic `asset_type`, a `status`, and whatever identity it has: `source_key` (canonical URL), `cache_key` and `cache_path`, `content_hash` (SHA-256 of the bytes used), and `fetched_at` (UTC time of the download).
+`render()` and `export()` download remote images, SVGs, text fills, and fonts into a shared cache, and `export()` returns an `asset_manifest` describing every asset it used. `prefetch_assets()` is optional: it does the same downloads up front and returns the manifest without rendering, so you can catch network failures or stale entries before a long export, or warm the cache for offline renders. Each `AssetManifestEntry` has the `source` as written, its semantic `asset_type`, a `status`, and whatever identity it has: `source_key` (canonical URL), `cache_key` and `cache_path`, `content_hash` (SHA-256 of the bytes used), and `fetched_at` (UTC time of the download).
 
 | `status` | Meaning |
 | --- | --- |
@@ -237,8 +237,8 @@ The cache is controlled by environment variables:
 Each canvas (including each deck slide) tries to refresh an expired asset at most once; later renders and exports of it reuse the same `stale` result. When neither a usable cache entry nor a network response exists, resolution raises `RenderingError` naming the source, the cause, and the cache directory it searched. To refuse stale inputs, check the manifest before rendering:
 
 ```python
-resolved = canvas.resolve_assets()
-stale = [entry for entry in resolved.asset_manifest if entry.status == "stale"]
+prefetched = canvas.prefetch_assets()
+stale = [entry for entry in prefetched.asset_manifest if entry.status == "stale"]
 if stale:
     raise SystemExit(f"stale assets: {[(e.source, e.stale_reason) for e in stale]}")
 ```

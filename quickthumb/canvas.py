@@ -409,8 +409,14 @@ class Canvas:
         # sets its settled time, so it needs no per-slide duration.
         return [self], [None], None
 
-    def resolve_assets(self) -> ResolvedDocument:
-        """Check referenced assets and return their manifest metadata."""
+    def prefetch_assets(self) -> ResolvedDocument:
+        """Download remote assets now and return their manifest.
+
+        Optional: ``render()`` and ``export()`` fetch assets themselves, and
+        ``export()`` returns the same manifest. Call this to surface network
+        failures or stale cache entries before a long export, or to warm the
+        cache for later offline renders.
+        """
         from quickthumb._document import AssetPort, Document, resolved_document
 
         return resolved_document(

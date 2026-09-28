@@ -318,8 +318,12 @@ class Deck:
             slides=[slide.inspect() for slide in self._slides],
         )
 
-    def resolve_assets(self) -> ResolvedDocument:
-        """Check slide assets and return one deck-level manifest."""
+    def prefetch_assets(self) -> ResolvedDocument:
+        """Download every slide's remote assets now and return one deck manifest.
+
+        Optional, like ``Canvas.prefetch_assets()``: rendering and exporting
+        fetch assets themselves.
+        """
         from quickthumb._document import AssetPort, Document, resolved_document
 
         return resolved_document(

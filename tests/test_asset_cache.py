@@ -67,12 +67,12 @@ def test_remote_image_manifest_persists_network_result_and_reuses_fresh_cache(
     equivalent_url = f"{base_url}/asset.png?a=1&b=2"
 
     first = Canvas(4, 4).background(image=first_url)
-    first_manifest = first.resolve_assets().asset_manifest[0]
+    first_manifest = first.prefetch_assets().asset_manifest[0]
     first.render(tmp_path / "first.png")
 
     # When: the same source is requested with its query parameters reordered
     second = Canvas(4, 4).background(image=equivalent_url)
-    second_manifest = second.resolve_assets().asset_manifest[0]
+    second_manifest = second.prefetch_assets().asset_manifest[0]
     server.shutdown()
     server.server_close()
     second.render(tmp_path / "second.png")
@@ -101,13 +101,13 @@ def test_remote_font_render_uses_the_shared_cache_after_network_becomes_unavaila
     font_url = f"{base_url}/font.ttf"
 
     first = Canvas(160, 80).text("cached", font=font_url, size=24, position=(0, 0))
-    first_manifest = first.resolve_assets().asset_manifest[0]
+    first_manifest = first.prefetch_assets().asset_manifest[0]
     first.render(tmp_path / "first.png")
 
     server.shutdown()
     server.server_close()
     second = Canvas(160, 80).text("cached", font=font_url, size=24, position=(0, 0))
-    second_manifest = second.resolve_assets().asset_manifest[0]
+    second_manifest = second.prefetch_assets().asset_manifest[0]
     second.render(tmp_path / "second.png")
 
     assert len(requests) == 1
@@ -133,7 +133,7 @@ def test_remote_text_fill_reuses_the_image_cache_after_resolution(
         position=(0, 0),
     )
 
-    manifest = canvas.resolve_assets().asset_manifest[0]
+    manifest = canvas.prefetch_assets().asset_manifest[0]
     server.shutdown()
     server.server_close()
     canvas.render(tmp_path / "text-fill.png")
@@ -164,7 +164,7 @@ def test_google_font_reference_is_resolved_in_the_manifest(tmp_path, monkeypatch
     canvas = Canvas(160, 80).text(
         "cached", font="Roboto", font_source="google", size=24, position=(0, 0)
     )
-    manifest = canvas.resolve_assets().asset_manifest
+    manifest = canvas.prefetch_assets().asset_manifest
 
     assert len(manifest) == 1
     assert manifest[0].source == "Roboto"
@@ -182,10 +182,10 @@ def test_remote_invalid_payload_is_rejected_without_persisting_cache(
     monkeypatch.setenv("QUICKTHUMB_ASSET_CACHE_DIR", str(tmp_path / "assets"))
 
     with pytest.raises(RenderingError, match="not a valid image"):
-        Canvas(4, 4).background(image=f"{base_url}/font.ttf").resolve_assets()
+        Canvas(4, 4).background(image=f"{base_url}/font.ttf").prefetch_assets()
 
     with pytest.raises(RenderingError, match="not a valid font"):
-        Canvas(80, 40).text("invalid", font=f"{base_url}/asset.png").resolve_assets()
+        Canvas(80, 40).text("invalid", font=f"{base_url}/asset.png").prefetch_assets()
 
     server.shutdown()
     server.server_close()
@@ -205,7 +205,7 @@ def test_invalid_cached_image_is_replaced_by_a_valid_network_result(
     cache_dir.mkdir()
     cache_path.write_bytes(b"not an image")
 
-    manifest = Canvas(4, 4).background(image=source).resolve_assets().asset_manifest[0]
+    manifest = Canvas(4, 4).background(image=source).prefetch_assets().asset_manifest[0]
 
     server.shutdown()
     server.server_close()
@@ -219,7 +219,7 @@ def test_invalid_remote_port_is_rejected_before_cache_lookup(tmp_path, monkeypat
     monkeypatch.setenv("QUICKTHUMB_ASSET_CACHE_DIR", str(tmp_path / "assets"))
 
     with pytest.raises(RenderingError, match="Invalid remote asset URL"):
-        Canvas(4, 4).background(image="http://example.com:bad/asset.png").resolve_assets()
+        Canvas(4, 4).background(image="http://example.com:bad/asset.png").prefetch_assets()
 
 
 def test_asset_resolver_enforces_a_response_size_limit(tmp_path):
@@ -248,7 +248,7 @@ def test_remote_asset_without_cache_surfaces_network_failure(tmp_path, monkeypat
     monkeypatch.setenv("QUICKTHUMB_ASSET_CACHE_DIR", str(tmp_path / "assets"))
 
     with pytest.raises(RenderingError, match="Failed to fetch remote") as raised:
-        Canvas(4, 4).background(image=f"{base_url}/missing.png").resolve_assets()
+        Canvas(4, 4).background(image=f"{base_url}/missing.png").prefetch_assets()
 
     server.shutdown()
     server.server_close()
@@ -276,7 +276,7 @@ def asset_cache_dir(tmp_path, monkeypatch) -> Path:
 def _prime_cache(base_url: str, cache_dir: Path) -> AssetManifestEntry:
     """Resolve the test image once, then make its cache entry look long expired."""
     canvas = Canvas(4, 4).background(image=f"{base_url}/asset.png")
-    entry = canvas.resolve_assets().asset_manifest[0]
+    entry = canvas.prefetch_assets().asset_manifest[0]
     _age_cache_entries(cache_dir)
     return entry
 
@@ -288,7 +288,7 @@ def test_cache_entries_record_fetch_time_and_stay_fresh_without_max_age(
     base_url, requests, _server, _payloads = local_assets
     first = _prime_cache(base_url, asset_cache_dir)
 
-    second = Canvas(4, 4).background(image=f"{base_url}/asset.png").resolve_assets()
+    second = Canvas(4, 4).background(image=f"{base_url}/asset.png").prefetch_assets()
 
     assert first.fetched_at is not None
     entry = second.asset_manifest[0]
@@ -308,7 +308,7 @@ def test_expired_cache_entry_is_refreshed_from_the_network(
     _prime_cache(base_url, asset_cache_dir)
     monkeypatch.setenv("QUICKTHUMB_ASSET_MAX_AGE", "3600")
 
-    entry = Canvas(4, 4).background(image=f"{base_url}/asset.png").resolve_assets()
+    entry = Canvas(4, 4).background(image=f"{base_url}/asset.png").prefetch_assets()
     refreshed = entry.asset_manifest[0]
 
     assert refreshed.status == "network"
@@ -328,9 +328,9 @@ def test_expired_cache_entry_is_used_as_stale_when_the_network_fails(
     source = f"{base_url}/asset.png"
 
     canvas = Canvas(4, 4).background(image=source)
-    canvas_entry = canvas.resolve_assets().asset_manifest[0]
+    canvas_entry = canvas.prefetch_assets().asset_manifest[0]
     export = canvas.export(tmp_path / "stale.png")
-    deck_entry = Deck(slides=[Canvas(4, 4).background(image=source)]).resolve_assets()
+    deck_entry = Deck(slides=[Canvas(4, 4).background(image=source)]).prefetch_assets()
 
     for entry in (canvas_entry, export.asset_manifest[0], deck_entry.asset_manifest[0]):
         assert entry.status == "stale"
@@ -352,11 +352,11 @@ def test_offline_mode_uses_the_cache_without_network_requests(
     monkeypatch.setenv("QUICKTHUMB_ASSET_OFFLINE", "1")
     source = f"{base_url}/asset.png"
 
-    fresh = Canvas(4, 4).background(image=source).resolve_assets().asset_manifest[0]
+    fresh = Canvas(4, 4).background(image=source).prefetch_assets().asset_manifest[0]
     monkeypatch.setenv("QUICKTHUMB_ASSET_MAX_AGE", "60")
-    stale = Deck(slides=[Canvas(4, 4).background(image=source)]).resolve_assets()
+    stale = Deck(slides=[Canvas(4, 4).background(image=source)]).prefetch_assets()
     with pytest.raises(RenderingError, match="not cached .* offline mode is enabled"):
-        Canvas(4, 4).image(f"{base_url}/other.png", position=(0, 0)).resolve_assets()
+        Canvas(4, 4).image(f"{base_url}/other.png", position=(0, 0)).prefetch_assets()
 
     assert fresh.status == "fresh"
     assert stale.asset_manifest[0].status == "stale"
