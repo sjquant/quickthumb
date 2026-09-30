@@ -102,6 +102,8 @@ class MotionKeyframeInspection(quickthumbModel):
 
     time: float
     value: Any
+    easing: Any = Field(default=None, exclude_if=lambda value: value is None)
+    hold: bool = Field(default=False, exclude_if=lambda value: value is False)
 
 
 class MotionTrackInspection(quickthumbModel):

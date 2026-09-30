@@ -27,10 +27,11 @@ import hashlib
 import json
 import math
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
 from html import escape
 from importlib.resources import files
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from PIL import ImageFont
 
@@ -179,8 +180,11 @@ _CSS_EASINGS = {
 }
 
 
-def css_easing(name: str | None) -> str:
-    """Return the CSS timing function for a shared easing name."""
+def css_easing(name: str | Mapping[str, Any] | None) -> str:
+    """Return the CSS timing function for a shared easing name or custom bezier."""
+    if isinstance(name, Mapping):
+        x1, y1, x2, y2 = name["points"]
+        return f"cubic-bezier({_fmt(x1)},{_fmt(y1)},{_fmt(x2)},{_fmt(y2)})"
     return _CSS_EASINGS.get(name or "ease", "ease")
 
 
@@ -559,27 +563,30 @@ class HtmlExporter:
             duration = event.duration
             if event.stagger is not None:
                 duration += float(event.stagger.get("delay", 0.0)) * max(0, target_count - 1)
-            nodes.append(
-                {
-                    "t": [element_id],
-                    "k": kf,
-                    "d": duration,
-                    "delay": event.start + event.delay,
-                    # A canonical event already carries its absolute place on the
-                    # slide in `delay`, so it runs alongside the rest rather
-                    # than queueing behind it. Emitting no trigger at all stalls
-                    # the runtime: it neither joins the open group nor continues
-                    # the chain, so every canonical layer became a click of its
-                    # own and a scene took as many clicks as it had animations.
-                    "tr": event.trigger
-                    or ("after_previous" if not self._timeline else "with_previous"),
-                    "a": "entrance",
-                    # An absolute start names a place on the slide clock, but the
-                    # runtime counts a delay from the group a node joins, so the
-                    # two have to be reconciled once the groups are known.
-                    "abs": event.trigger is None and event.start > 0,
-                }
-            )
+            node = {
+                "t": [element_id],
+                "k": kf,
+                "d": duration,
+                "delay": event.start + event.delay,
+                # A canonical event already carries its absolute place on the
+                # slide in `delay`, so it runs alongside the rest rather
+                # than queueing behind it. Emitting no trigger at all stalls
+                # the runtime: it neither joins the open group nor continues
+                # the chain, so every canonical layer became a click of its
+                # own and a scene took as many clicks as it had animations.
+                "tr": event.trigger
+                or ("after_previous" if not self._timeline else "with_previous"),
+                "a": "entrance",
+                # An absolute start names a place on the slide clock, but the
+                # runtime counts a delay from the group a node joins, so the
+                # two have to be reconciled once the groups are known.
+                "abs": event.trigger is None and event.start > 0,
+            }
+            # Named easings keep the runtime's default curve; only a custom
+            # bezier is passed through, since CSS can express it exactly.
+            if isinstance(event.options.get("easing"), Mapping):
+                node["e"] = css_easing(event.options["easing"])
+            nodes.append(node)
         self._timeline.extend(nodes)
         self._prev_anim_key = id(animation)
         self._prev_nodes = nodes
