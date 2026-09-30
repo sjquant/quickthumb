@@ -91,6 +91,27 @@ statuses, `QUICKTHUMB_ASSET_MAX_AGE`, and offline mode.
 
 ## Export methods
 
+### `.export(path, policy=None, *, format=None, quality=None, animation=None)`
+
+The shared document export entry point returns an `ExportResult`, with
+`kind="canvas"`, `written_paths`, the effective output format, capability and
+fallback diagnostics, pixel/timing metadata, and the asset manifest. The result lists the single written file.
+The path may be a string or `pathlib.Path`.
+
+```python
+result = canvas.export("card.png")
+print(result.written_paths)
+print(result.model_dump_json())
+```
+
+`format` overrides the raster format; `quality` is for JPEG/WEBP. Use
+`GifOptions` for GIF or `VideoOptions` for MP4/WebM through `animation`.
+`policy` controls the shared capability preflight and supported renderer
+policies. See the [shared contract and support policy](../exports.md#shared-export-contract-and-specialist-controls)
+for the boundary, lifecycle, and format-specific differences. The specialist
+methods below remain supported and are not deprecated; they retain their own
+return types and options rather than returning `ExportResult`.
+
 ### `.render(path, format=None, quality=None, debug=False, animation=None)`
 
 Renders the canvas and writes the result to a file. The format is detected from the file extension; `.svg`, `.pptx`, and `.pdf` produce vector/document output, and `.gif`/`.mp4`/`.webm` produce an animation playing the canvas's layer `animation` effects (see [Exporting to SVG, PPTX, PDF & video](../exports.md)).

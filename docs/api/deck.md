@@ -60,6 +60,27 @@ A deck is also a sequence: `len(deck)`, `deck[i]`, and iteration over slides all
 
 ## Export methods
 
+### `.export(path, policy=None, *, format=None, quality=None, animation=None)`
+
+The shared document export entry point returns an `ExportResult`, with
+`kind="deck"`, `written_paths`, the effective output format, capability and
+fallback diagnostics, pixel/timing metadata, and the asset manifest. Raster output lists numbered slide files; PDF, PPTX, and HTML list one document.
+The path may be a string or `pathlib.Path`.
+
+```python
+result = deck.export("slides.png")
+print(result.written_paths)
+print(result.model_dump_json())
+```
+
+`format` overrides the raster format; `quality` is for JPEG/WEBP. Use
+`GifOptions` for GIF or `VideoOptions` for MP4/WebM through `animation`.
+`policy` controls the shared capability preflight and supported renderer
+policies. See the [shared contract and support policy](../exports.md#shared-export-contract-and-specialist-controls)
+for the boundary, lifecycle, and format-specific differences. The specialist
+methods below remain supported and are not deprecated; they retain their own
+return types and options rather than returning `ExportResult`.
+
 ### `.render(path, format=None, quality=None, animation=None)`
 
 Renders the deck, dispatching on the output extension. Returns the list of written file paths.
