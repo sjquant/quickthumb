@@ -188,13 +188,16 @@ class CubicBezierEasing(_MotionModel):
     """
 
     type: Literal["cubic_bezier"] = "cubic_bezier"
-    points: tuple[float, float, float, float]
+    points: tuple[
+        Annotated[float, Field(allow_inf_nan=False)],
+        Annotated[float, Field(allow_inf_nan=False)],
+        Annotated[float, Field(allow_inf_nan=False)],
+        Annotated[float, Field(allow_inf_nan=False)],
+    ]
 
     @field_validator("points")
     @classmethod
     def validate_points(cls, points: tuple[float, float, float, float]):
-        if not all(math.isfinite(point) for point in points):
-            raise ValueError("cubic_bezier points must be finite numbers")
         if not (0.0 <= points[0] <= 1.0 and 0.0 <= points[2] <= 1.0):
             raise ValueError("cubic_bezier x1 and x2 must be between 0.0 and 1.0")
         return points

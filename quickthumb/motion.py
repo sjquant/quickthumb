@@ -227,6 +227,21 @@ def resolve_staggered_timelines(
 EasingValue = str | Mapping[str, Any] | CubicBezierEasing
 
 
+def _bezier_points(easing: CubicBezierEasing | Mapping[str, Any]) -> tuple[float, ...]:
+    """Return validated control points for a custom cubic-bezier easing."""
+    if isinstance(easing, CubicBezierEasing):
+        return easing.points
+    try:
+        return CubicBezierEasing.model_validate(easing).points
+    except PydanticValidationError as error:
+        raise ValidationError(f"invalid cubic_bezier easing: {error.errors()[0]['msg']}") from error
+
+
+def _dump_easing(easing: MotionEasing | None) -> Any:
+    """Return an easing as a JSON-stable name or mapping."""
+    return easing.model_dump(mode="json") if isinstance(easing, CubicBezierEasing) else easing
+
+
 def validate_easing_name(name: EasingValue | None) -> str:
     """Validate a supported deterministic easing name (or custom bezier).
 
@@ -235,31 +250,25 @@ def validate_easing_name(name: EasingValue | None) -> str:
     """
     if name is None:
         return "linear"
-    if isinstance(name, (CubicBezierEasing, Mapping)):
-        _bezier_points(cast(Any, name))
+    if not isinstance(name, str):
+        _bezier_points(name)
         return "cubic_bezier"
-    if not isinstance(name, str) or name not in EASING_NAMES:
+    if name not in EASING_NAMES:
         supported = ", ".join(sorted(EASING_NAMES))
         raise ValidationError(f"unknown easing {name!r}; expected one of: {supported}")
     return name
 
 
-def _bezier_points(easing: CubicBezierEasing | Mapping[str, Any]) -> tuple[float, ...]:
-    """Return validated control points for a custom cubic-bezier easing."""
-    try:
-        return CubicBezierEasing.model_validate(easing).points
-    except PydanticValidationError as error:
-        raise ValidationError(f"invalid cubic_bezier easing: {error.errors()[0]['msg']}") from error
-
-
 def easing_value(name: EasingValue | None, progress: float) -> float:
     """Return an eased progress for a finite normalized input."""
-    easing = validate_easing_name(name)
     if not math.isfinite(progress):
         raise ValidationError("easing progress must be finite")
     t = min(1.0, max(0.0, progress))
-    if easing == "cubic_bezier":
-        return _cubic_bezier(t, *_bezier_points(cast(Any, name)))
+    if name is not None and not isinstance(name, str):
+        # Validate once here rather than via `validate_easing_name` as well: this
+        # runs for every sampled frame of every track.
+        return _cubic_bezier(t, *_bezier_points(name))
+    easing = validate_easing_name(name)
     if easing == "linear":
         return t
     if easing == "ease":
@@ -1822,11 +1831,6 @@ def _resolve_reduced_motion(
             )
         )
     return resolved
-
-
-def _dump_easing(easing: MotionEasing | None) -> Any:
-    """Return an easing as a JSON-stable name or mapping for inspection."""
-    return easing.model_dump(mode="json") if isinstance(easing, CubicBezierEasing) else easing
 
 
 def inspect_motion(
