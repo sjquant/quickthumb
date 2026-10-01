@@ -61,7 +61,7 @@ from collections.abc import Callable, Generator, Iterable, Iterator
 from dataclasses import dataclass, field
 from io import BytesIO
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from PIL import Image, ImageChops, ImageColor, ImageDraw
 
@@ -79,6 +79,14 @@ from quickthumb._export_base import (
     validate_legacy_animation_export,
 )
 from quickthumb._gif import write_gif_frames
+from quickthumb._parent_render import (
+    IDENTITY,
+    ParentRenderPlan,
+    _composite_fragment,
+    affine_state,
+    multiply,
+    translate,
+)
 from quickthumb._video import (
     VideoInfo,
     effective_duration,
@@ -1080,12 +1088,16 @@ def _morph_source(
     transition: Transition | None, previous: Canvas | None, incoming: Canvas
 ) -> Canvas | None:
     """Return the outgoing canvas when a keyed Morph can play into `incoming`."""
+    from quickthumb._parenting import has_parent_links
+
     if (
         transition is not None
         and transition.effect == "morph"
         and previous is not None
         and not _canvas_has_video_captions(previous)
         and not _canvas_has_video_captions(incoming)
+        and not has_parent_links(previous)
+        and not has_parent_links(incoming)
     ):
         return previous
     return None
@@ -1296,6 +1308,7 @@ class _Unit:
     # each line can be moved on its own beat.
     target_images: tuple[tuple[Image.Image, tuple[int, int]], ...] = ()
     color_motion: bool = False
+    parent_node: Any = None
 
 
 def _unit_is_dynamic(unit: _Unit) -> bool:
@@ -1305,7 +1318,8 @@ def _unit_is_dynamic(unit: _Unit) -> bool:
     their captions are still sampled separately at each requested time.
     """
     return bool(
-        unit.effects
+        unit.parent_node is not None
+        or unit.effects
         or unit.nodes
         or unit.timeline is not None
         or unit.target_timelines
@@ -1315,135 +1329,8 @@ def _unit_is_dynamic(unit: _Unit) -> bool:
     )
 
 
-def _composite_frame(
-    canvas: Canvas,
-    units: Iterable[_Unit],
-    time: float,
-    *,
-    background: Image.Image | None = None,
-    include_captions: bool = True,
-    render_scale: float = 1,
-    downsample: bool = True,
-) -> Image.Image:
-    """Render ordered units onto a fresh full-canvas RGBA frame.
-
-    This is the internal frame-compositing boundary: units carry prepared
-    imagery and motion, and the optional background is the already-composited
-    prefix. Input images are read-only; the returned image is owned by the caller.
-    Timeline planning, transitions, and encoding stay outside this boundary.
-
-    `render_scale=2` draws native sources directly into a doubled surface.
-    Background-plate preparation and reduced timeline previews disable the
-    final downsample. Export frames return native dimensions before captions;
-    preview plans keep captioned slides native and reduce the finished frame.
-    """
-    frame = (
-        background.copy()
-        if background is not None
-        else Image.new(
-            "RGBA",
-            (
-                max(1, round(canvas.width * render_scale)),
-                max(1, round(canvas.height * render_scale)),
-            ),
-            (0, 0, 0, 0),
-        )
-    )
-    visible_video_layers: list[VideoLayer] = []
-    for unit in units:
-        if unit.image is None and not (unit.color_motion or unit.animates_layers):
-            continue
-        state = _unit_state(unit, time)
-        if state.hidden:
-            continue
-        visible_video_layers.extend(iter_video_layers(unit.layers))
-        if unit.target_images and state.canonical is not None:
-            # Each staggered target carries its own state, so they arrive one
-            # after another instead of sharing one averaged reveal.
-            target_states = _sample_target_timelines(
-                unit.target_timelines,
-                time,
-                LayerState(anchor=getattr(unit.layers[0], "anchor", (0.5, 0.5))),
-            )
-            targets = unit.target_images
-            if unit.color_motion:
-                targets = color_motion_targets(
-                    targets,
-                    target_states,
-                    lambda color, layers=unit.layers: _render_unit_surface(
-                        canvas, layers, time, color=color
-                    ),
-                )
-            composite_motion_targets(
-                frame,
-                targets,
-                target_states,
-                subpixel=tuple(
-                    _geometry_in_motion(target, time, state=sample)
-                    for target, sample in zip(unit.target_timelines, target_states, strict=True)
-                ),
-                render_scale=render_scale,
-            )
-            continue
-        color = state.canonical.layer.color if state.canonical is not None else None
-        if unit.component_duration > 0 or color is not None and unit.color_motion:
-            image, pos = _render_unit_image(
-                canvas, unit.layers, time, animate_layers=unit.animates_layers, color=color
-            )
-        else:
-            pos = unit.pos
-            image = unit.image
-        if image is None:
-            continue
-        if state.canonical is not None:
-            # Canonical motion applies to component units (video, animated
-            # text values) too, so a clip can move while it plays.
-            rendered = _canonical_render(
-                image,
-                state.canonical.layer,
-                state.canonical.alpha_scale,
-                pos,
-                clip_scale=state.canonical.clip_scale,
-                include_scale=not any(isinstance(item, ImageLayer) for item in unit.layers),
-                subpixel=state.canonical.subpixel,
-                render_scale=render_scale,
-            )
-            if rendered is None:
-                continue
-            image, pos = rendered
-        elif state.reveal is not None:
-            # Component units (clips, animated counters) take the same
-            # entrance reveals as anything else on the slide.
-            effect, reveal = state.reveal
-            revealed = _animation_reveal(image, effect, reveal, unit.seed)
-            if revealed is None:
-                continue
-            image = revealed
-        if render_scale != 1 and state.canonical is None:
-            if pos == (0, 0) and image.size == (canvas.width, canvas.height):
-                # Fixed canvas-covering imagery must not fade at its outer
-                # edge. Moving fragments always keep transparent filter support.
-                image = image.resize(frame.size, Image.Resampling.BICUBIC)
-            else:
-                image, pos = apply_canonical_geometry(
-                    image, LayerState(), pos, render_scale=render_scale
-                )
-        frame.alpha_composite(image, pos)
-    if render_scale != 1 and downsample:
-        frame = frame.resize((canvas.width, canvas.height), Image.Resampling.LANCZOS)
-    if include_captions:
-        render_video_captions(
-            frame,
-            visible_video_layers,
-            time,
-            canvas._ctx.video_info_cache,
-            canvas._fonts.load_font_variant,
-        )
-    return frame
-
-
 class _SlideAnimator:
-    """Composites one slide's layer-animation state at any point in time."""
+    """Prepare and schedule one complete scene, owning every sampled observation."""
 
     def __init__(
         self,
@@ -1457,8 +1344,15 @@ class _SlideAnimator:
         self._canvas = canvas
         self._preview = preview_scale < 1
         self._render_scale = preview_scale if self._preview else (2 if quality == "high" else 1)
-        self._units = _build_units(canvas, probe_cache, reduced_motion=reduced_motion)
+        self._units, self._parent_plan = _build_units(
+            canvas, probe_cache, reduced_motion=reduced_motion
+        )
         self.duration = max(_schedule_units(self._units), _schedule_timelines(self._units))
+        # The complete scene owns scheduled state. Prepared parent sources never
+        # refer back to units or the scene, even weakly.
+        self._parent_units = {
+            id(unit.parent_node): unit for unit in self._units if unit.parent_node is not None
+        }
         # Only the leading static run is safe to cache. Static units above or
         # between moving units must retain their original compositing order;
         # regrouping even translucent static images changes alpha rounding.
@@ -1467,8 +1361,7 @@ class _SlideAnimator:
             len(self._units),
         )
         self._static_plate = (
-            _composite_frame(
-                canvas,
+            self._composite_frame(
                 self._units[:prefix_end],
                 0.0,
                 include_captions=False,
@@ -1490,8 +1383,7 @@ class _SlideAnimator:
         if self._color_motion:
             self._canvas._ctx.measure_cache = {}
         try:
-            return _composite_frame(
-                self._canvas,
+            return self._composite_frame(
                 self._frame_units,
                 time,
                 background=self._static_plate,
@@ -1502,6 +1394,228 @@ class _SlideAnimator:
         finally:
             if self._color_motion:
                 self._canvas._ctx.measure_cache = measurements
+
+    def _composite_frame(
+        self,
+        units: Iterable[_Unit],
+        time: float,
+        *,
+        background: Image.Image | None = None,
+        include_captions: bool = True,
+        render_scale: float = 1,
+        downsample: bool = True,
+    ) -> Image.Image:
+        """Render ordered units onto a fresh full-canvas RGBA frame.
+
+        This is the internal frame-compositing boundary: units carry prepared
+        imagery and motion, and the optional background is the already-composited
+        prefix. Input images are read-only; the returned image is owned by the caller.
+        Timeline planning, transitions, and encoding stay outside this boundary.
+
+        `render_scale=2` draws native sources directly into a doubled surface.
+        Background-plate preparation and reduced timeline previews disable the
+        final downsample. Export frames return native dimensions before captions;
+        preview plans keep captioned slides native and reduce the finished frame.
+        """
+        canvas = self._canvas
+        frame = (
+            background.copy()
+            if background is not None
+            else Image.new(
+                "RGBA",
+                (
+                    max(1, round(canvas.width * render_scale)),
+                    max(1, round(canvas.height * render_scale)),
+                ),
+                (0, 0, 0, 0),
+            )
+        )
+        visible_video_layers: list[VideoLayer] = []
+        parent_samples = None
+        for unit in units:
+            if unit.parent_node is not None:
+                node = unit.parent_node
+                if parent_samples is None:
+                    parent_samples = self._sample_parents(time)
+                if not parent_samples[id(node)][2].hidden:
+                    visible_video_layers.extend(iter_video_layers(unit.layers))
+                self._composite_parent(unit, frame, time, parent_samples, render_scale)
+                continue
+            if unit.image is None and not (unit.color_motion or unit.animates_layers):
+                continue
+            state = _unit_state(unit, time)
+            if state.hidden:
+                continue
+            visible_video_layers.extend(iter_video_layers(unit.layers))
+            if unit.target_images and state.canonical is not None:
+                # Each staggered target carries its own state, so they arrive one
+                # after another instead of sharing one averaged reveal.
+                target_states = _sample_target_timelines(
+                    unit.target_timelines,
+                    time,
+                    LayerState(anchor=getattr(unit.layers[0], "anchor", (0.5, 0.5))),
+                )
+                targets = unit.target_images
+                if unit.color_motion:
+                    targets = color_motion_targets(
+                        targets,
+                        target_states,
+                        lambda color, layers=unit.layers: _render_unit_surface(
+                            canvas, layers, time, color=color
+                        ),
+                    )
+                composite_motion_targets(
+                    frame,
+                    targets,
+                    target_states,
+                    subpixel=tuple(
+                        _geometry_in_motion(target, time, state=sample)
+                        for target, sample in zip(unit.target_timelines, target_states, strict=True)
+                    ),
+                    render_scale=render_scale,
+                )
+                continue
+            color = state.canonical.layer.color if state.canonical is not None else None
+            if unit.component_duration > 0 or color is not None and unit.color_motion:
+                image, pos = _render_unit_image(
+                    canvas, unit.layers, time, animate_layers=unit.animates_layers, color=color
+                )
+            else:
+                pos = unit.pos
+                image = unit.image
+            if image is None:
+                continue
+            if state.canonical is not None:
+                # Canonical motion applies to component units (video, animated
+                # text values) too, so a clip can move while it plays.
+                rendered = _canonical_render(
+                    image,
+                    state.canonical.layer,
+                    state.canonical.alpha_scale,
+                    pos,
+                    clip_scale=state.canonical.clip_scale,
+                    include_scale=not any(isinstance(item, ImageLayer) for item in unit.layers),
+                    subpixel=state.canonical.subpixel,
+                    render_scale=render_scale,
+                )
+                if rendered is None:
+                    continue
+                image, pos = rendered
+            elif state.reveal is not None:
+                # Component units (clips, animated counters) take the same
+                # entrance reveals as anything else on the slide.
+                effect, reveal = state.reveal
+                revealed = _animation_reveal(image, effect, reveal, unit.seed)
+                if revealed is None:
+                    continue
+                image = revealed
+            if render_scale != 1 and state.canonical is None:
+                if pos == (0, 0) and image.size == (canvas.width, canvas.height):
+                    # Fixed canvas-covering imagery must not fade at its outer
+                    # edge. Moving fragments always keep transparent filter support.
+                    image = image.resize(frame.size, Image.Resampling.BICUBIC)
+                else:
+                    image, pos = apply_canonical_geometry(
+                        image, LayerState(), pos, render_scale=render_scale
+                    )
+            frame.alpha_composite(image, pos)
+        if render_scale != 1 and downsample:
+            frame = frame.resize((canvas.width, canvas.height), Image.Resampling.LANCZOS)
+        if include_captions:
+            render_video_captions(
+                frame,
+                visible_video_layers,
+                time,
+                canvas._ctx.video_info_cache,
+                canvas._fonts.load_font_variant,
+            )
+        return frame
+
+    def _sample_parents(self, time: float):
+        """Evaluate parent geometry against this scene's complete schedule."""
+        result = {}
+        if self._parent_plan is None:
+            return result
+        for node in self._parent_plan.order:
+            state = _unit_state(self._parent_units[id(node)], time)
+            motion = (
+                state.canonical.layer if state.canonical else LayerState(anchor=node.layer.anchor)
+            )
+            uniform = (
+                motion.scale if not isinstance(node.layer, ImageLayer) and motion.scale > 0 else 1.0
+            )
+            left, top, width, height = node.pivot_box
+            delta = multiply(
+                translate(left, top),
+                multiply(
+                    affine_state(motion.with_values(scale=uniform), (width, height)),
+                    translate(-left, -top),
+                ),
+            )
+            parent_world = result[id(node.parent)][1] if node.parent else IDENTITY
+            paint = multiply(parent_world, multiply(translate(*node.origin), delta))
+            world = multiply(paint, node.body_to_baked)
+            collapsed = (
+                (result[id(node.parent)][3] if node.parent else False)
+                or motion.scale_x == 0
+                or motion.scale_y == 0
+            )
+            result[id(node)] = (paint, world, state, collapsed)
+        return result
+
+    def _composite_parent(
+        self, unit: _Unit, frame: Image.Image, time: float, samples, render_scale: float
+    ):
+        node = unit.parent_node
+        assert node is not None
+
+        paint, _, state, collapsed = samples[id(node)]
+        if state.hidden or collapsed or isinstance(node.layer, NullLayer):
+            return
+        motion = state.canonical.layer if state.canonical else LayerState()
+        image = (
+            node.render_source(time, motion.color)
+            if unit.component_duration > 0 or unit.color_motion and motion.color is not None
+            else node.image
+        )
+        if image is None:
+            return
+        if state.canonical:
+            image = apply_canonical_alpha(
+                image,
+                motion.with_values(
+                    opacity=motion.opacity * state.canonical.alpha_scale,
+                    clip_progress=1.0,
+                ),
+            )
+            progress = (
+                1.0
+                if isinstance(node.layer, (ChartLayer, QRCodeLayer))
+                else min(motion.clip_progress, state.canonical.clip_scale)
+            )
+            if image is not None and progress < 1:
+                width = round(node.pivot_box[2] * max(0, progress))
+                if width <= 0:
+                    return
+                cutoff = round(node.pivot_box[0] + node.padding) + width + 1
+                alpha = image.getchannel("A")
+                alpha.paste(0, (max(0, min(image.width, cutoff)), 0, image.width, image.height))
+                image = image.copy()
+                image.putalpha(alpha)
+        elif state.reveal:
+            effect, progress = state.reveal
+            bounds = image.getbbox()
+            if bounds is None:
+                return
+            revealed = _animation_reveal(image.crop(bounds), effect, progress, unit.seed)
+            if revealed is None:
+                return
+            image = Image.new("RGBA", node.source_size)
+            image.paste(revealed, bounds[:2])
+        if image is None:
+            return
+        matrix = multiply(paint, translate(-node.padding, -node.padding))
+        _composite_fragment(frame, image, matrix, motion.blur, render_scale)
 
     def final_frame(self) -> Image.Image:
         """The settled frame after every animation has played (cached)."""
@@ -1598,14 +1712,21 @@ def _build_units(
     canvas: Canvas,
     probe_cache: dict[str, VideoInfo],
     reduced_motion: bool = False,
-) -> list[_Unit]:
-    """Flatten the canvas into animation units rendered through the PIL pipeline."""
-    if not reduced_motion:
+) -> tuple[list[_Unit], ParentRenderPlan | None]:
+    """Prepare all scene units and optional parent sources before scheduling."""
+    from quickthumb._parenting import has_parent_links
+
+    linked = has_parent_links(canvas)
+    if not reduced_motion and not linked:
         validate_legacy_animation_export(canvas)
+    if linked:
+        canvas._validate_layer_identities()
     canvas._validate_image_paths()
     canvas._ctx.begin_render_pass()
+    parent_plan = ParentRenderPlan(canvas) if linked else None
+    parent_nodes = frozenset(parent_plan.nodes) if parent_plan else None
     group_target_counts = _canonical_group_target_counts(canvas)
-    prefix, rest = split_backdrop_prefix(flatten_layers(canvas))
+    prefix, rest = split_backdrop_prefix(flatten_layers(canvas, parent_nodes=parent_nodes))
     if not reduced_motion and any(
         _has_animated_descendant_in_composed_group(layer) for layer in (*prefix, *rest)
     ):
@@ -1640,7 +1761,11 @@ def _build_units(
     for layer in rest:
         animation = None if reduced_motion else getattr(layer, "animation", None)
         key = id(animation) if animation is not None else None
-        if isinstance(layer, NullLayer) or _has_transform_extensions(layer):
+        if (
+            isinstance(layer, NullLayer)
+            or _has_transform_extensions(layer)
+            or id(layer) in (parent_nodes or ())
+        ):
             # Nulls carry clocks only and must never become another layer's target.
             # Independent layers must keep independent pivots even when sharing a spec.
             key = (key, id(layer))
@@ -1666,8 +1791,11 @@ def _build_units(
                 "animated export. Use a legacy effect for layer-level motion."
             )
         effects = [effect for effect in raw_effects if not isinstance(effect, AnimationSpec)]
+        parent_node = parent_plan.nodes.get(id(layers[0])) if parent_plan else None
         image, pos = (
-            (None, (0, 0))
+            (parent_node.image, (0, 0))
+            if parent_node is not None
+            else (None, (0, 0))
             if len(layers) == 1 and isinstance(layers[0], NullLayer)
             else _render_unit_image(canvas, layers)
         )
@@ -1717,7 +1845,14 @@ def _build_units(
             0.0
             if reduced_motion
             else max(
-                (_component_animation_duration(layer, probe_cache) for layer in layers),
+                (
+                    _component_animation_duration(
+                        layer,
+                        probe_cache,
+                        include_group=parent_node is not None and isinstance(layer, GroupLayer),
+                    )
+                    for layer in layers
+                ),
                 default=0.0,
             )
         )
@@ -1740,9 +1875,10 @@ def _build_units(
                 target_timelines=target_timelines,
                 target_images=target_images,
                 color_motion=color_motion,
+                parent_node=parent_node,
             )
         )
-    return units
+    return units, parent_plan
 
 
 def _canonical_animation(

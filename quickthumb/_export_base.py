@@ -65,15 +65,19 @@ def _fmt(value: float) -> str:
     return f"{value:.2f}"
 
 
-def flatten_layers(canvas: Canvas) -> list[RenderableLayer]:
+def flatten_layers(
+    canvas: Canvas, *, parent_nodes: frozenset[int] | None = None
+) -> list[RenderableLayer]:
     """Resolve group layers into placed children so exporters see a flat list."""
     from quickthumb._parenting import require_parent_rendering
 
-    require_parent_rendering(canvas)
+    if parent_nodes is None:
+        require_parent_rendering(canvas)
     flat: list[RenderableLayer] = []
     for layer in canvas.layers:
         if (
             isinstance(layer, GroupLayer)
+            and id(layer) not in (parent_nodes or ())
             and not has_layer_composition(layer)
             and not _has_transform_extensions(layer)
             and not (_has_color_track(layer) and color_group_has_backdrop(layer))
