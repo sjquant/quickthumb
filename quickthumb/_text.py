@@ -87,7 +87,14 @@ class TextEngine:
         self._effects = effects
         self._images = images
 
-    def render_text_layer(self, image: Image.Image, layer: TextLayer, time: float | None = None):
+    def render_text_layer(
+        self,
+        image: Image.Image,
+        layer: TextLayer,
+        time: float | None = None,
+        *,
+        staging_reference: TextLayer | None = None,
+    ):
         if layer.value is not None:
             if layer.value.style in {"odometer", "flip"} and time is not None:
                 self._render_odometer(image, layer, time)
@@ -101,12 +108,17 @@ class TextEngine:
             )
         if layer.opacity < 1.0:
             temp = Image.new("RGBA", image.size, (0, 0, 0, 0))
-            if isinstance(layer.content, list):
-                self._render_rich_text(temp, layer)
-            else:
-                self._render_simple_text(temp, layer)
+            self._render_text_content(temp, layer, staging_reference)
             self._effects.apply_opacity(temp, layer.opacity)
             image.alpha_composite(temp)
+        else:
+            self._render_text_content(image, layer, staging_reference)
+
+    def _render_text_content(
+        self, image: Image.Image, layer: TextLayer, staging_reference: TextLayer | None
+    ) -> None:
+        if staging_reference is not None and staging_reference.rotation:
+            self._render_rotated_text_stage(image, layer, self.effective_layer(staging_reference))
         elif isinstance(layer.content, list):
             self._render_rich_text(image, layer)
         else:
@@ -1630,25 +1642,7 @@ class TextEngine:
         then compositing the result onto the main canvas. This approach preserves
         all text effects during rotation.
         """
-        stroke_effects = self._get_stroke_effects(layer.effects)
-        shadow_effects = self._get_shadow_effects(layer.effects)
-        glow_effects = self._get_glow_effects(layer.effects)
-
-        text_width, text_height = self.measure_text_size(layer)
-        padding = self._calculate_text_effects_padding(stroke_effects, shadow_effects, glow_effects)
-        temp_image, _ = self._create_temp_image_for_text(text_width, text_height, padding)
-
-        # Re-render through the one dispatcher, unrotated, anchored inside the padding.
-        temp_layer = layer.model_copy(
-            update={
-                "position": (padding, padding),
-                "align": None,
-                "rotation": 0.0,
-                "auto_scale": False,
-            }
-        )
-        self._render_simple_text(temp_image, temp_layer)
-        self._rotate_and_composite_text(image, temp_image, layer)
+        self._render_rotated_text_stage(image, layer, layer)
 
     def measure_text_size(self, layer: TextLayer) -> tuple[int, int]:
         """Calculate rendered text bounding box size accounting for wrapping."""
@@ -1686,12 +1680,28 @@ class TextEngine:
         if not isinstance(layer.content, list):
             return
 
-        text_width, text_height = self.measure_text_size(layer)
-        padding = self._calculate_rich_text_effects_padding(layer)
-        temp_image, _ = self._create_temp_image_for_text(text_width, text_height, padding)
+        self._render_rotated_text_stage(image, layer, layer)
 
-        # Re-render through the one dispatcher, unrotated, anchored inside the padding.
-        temp_layer = layer.model_copy(
+    def _render_rotated_text_stage(
+        self, image: Image.Image, variant: TextLayer, reference: TextLayer
+    ) -> None:
+        """Keep diagnostic style variants in the original rotation stage.
+
+        Removing effects must not shrink the temporary surface, clip italic ink,
+        or change Pillow's rotation framing. Opacity remains in the outer wrapper.
+        """
+        text_width, text_height = self.measure_text_size(reference)
+        padding = (
+            self._calculate_rich_text_effects_padding(reference)
+            if isinstance(reference.content, list)
+            else self._calculate_text_effects_padding(
+                self._get_stroke_effects(reference.effects),
+                self._get_shadow_effects(reference.effects),
+                self._get_glow_effects(reference.effects),
+            )
+        )
+        temp_image, _ = self._create_temp_image_for_text(text_width, text_height, padding)
+        temp_layer = variant.model_copy(
             update={
                 "position": (padding, padding),
                 "align": None,
@@ -1699,8 +1709,11 @@ class TextEngine:
                 "auto_scale": False,
             }
         )
-        self._render_rich_text(temp_image, temp_layer)
-        self._rotate_and_composite_text(image, temp_image, layer)
+        if isinstance(temp_layer.content, list):
+            self._render_rich_text(temp_image, temp_layer)
+        else:
+            self._render_simple_text(temp_image, temp_layer)
+        self._rotate_and_composite_text(image, temp_image, reference)
 
     def _calculate_rich_text_effects_padding(self, layer: TextLayer) -> int:
         """Calculate padding for rich text effects from both layer and part-level effects."""
