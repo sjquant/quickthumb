@@ -117,12 +117,13 @@ def validate_parallel_canvases(canvases: list[Canvas]) -> None:
 class _FrameRenderer:
     """Rebuild at most the current slide and its outgoing transition source."""
 
-    def __init__(self, specs, timings, size, matte, reduced_motion):
+    def __init__(self, specs, timings, size, matte, reduced_motion, quality="standard"):
         self.specs: list[_CanvasSpec] = specs
         self.timings: list[tuple[Transition | None, float, float, float]] = timings
         self.size: tuple[int, int] = size
         self.matte: tuple[int, int, int] = matte
         self.reduced_motion: bool = reduced_motion
+        self.quality = quality
         self.index = -1
         self.canvas: Canvas | None = None
         self.previous: Canvas | None = None
@@ -161,7 +162,7 @@ class _FrameRenderer:
                 if self.previous is None:
                     self.previous = self.specs[index - 1].build()
                     previous_animator = _SlideAnimator(
-                        self.previous, {}, reduced_motion=self.reduced_motion
+                        self.previous, {}, reduced_motion=self.reduced_motion, quality=self.quality
                     )
                 assert previous_animator is not None
                 self.previous_final = _conform(
@@ -174,7 +175,9 @@ class _FrameRenderer:
             else:
                 self.previous_final = Image.new("RGB", self.size, self.matte)
             self.canvas = self.specs[index].build()
-            self.animator = _SlideAnimator(self.canvas, {}, reduced_motion=self.reduced_motion)
+            self.animator = _SlideAnimator(
+                self.canvas, {}, reduced_motion=self.reduced_motion, quality=self.quality
+            )
         except BaseException:
             self.close()
             raise
@@ -212,11 +215,11 @@ def _close_worker() -> None:
         _worker_renderer.close()
 
 
-def _initialize_worker(specs, timings, size, matte, reduced_motion) -> None:
+def _initialize_worker(specs, timings, size, matte, reduced_motion, quality="standard") -> None:
     global _worker_renderer
     # No rendering in the initializer: failures belong to Futures, not a
     # respawning worker initializer. multiprocessing runs this finalizer on exit.
-    _worker_renderer = _FrameRenderer(specs, timings, size, matte, reduced_motion)
+    _worker_renderer = _FrameRenderer(specs, timings, size, matte, reduced_motion, quality)
     Finalize(None, _close_worker, exitpriority=10)
 
 
@@ -228,7 +231,9 @@ def _render_frame_job(index: int, time: float) -> tuple[tuple[int, int], bytes]:
 class ParallelFrames:
     """One export owns a lazily started executor and at most workers outstanding frames."""
 
-    def __init__(self, canvases, timings, matte, reduced_motion, workers: int):
+    def __init__(
+        self, canvases, timings, matte, reduced_motion, workers: int, *, quality="standard"
+    ):
         validate_parallel_canvases(canvases)
         self.specs = [_CanvasSpec.capture(canvas) for canvas in canvases]
         self.timings = timings
@@ -236,6 +241,7 @@ class ParallelFrames:
         self.matte = matte
         self.reduced_motion = reduced_motion
         self.workers = workers
+        self.quality = quality
         self.executor: ProcessPoolExecutor | None = None
 
     def __enter__(self) -> ParallelFrames:
@@ -262,7 +268,14 @@ class ParallelFrames:
                     max_workers=self.workers,
                     mp_context=multiprocessing.get_context("spawn"),
                     initializer=_initialize_worker,
-                    initargs=(self.specs, self.timings, self.size, self.matte, self.reduced_motion),
+                    initargs=(
+                        self.specs,
+                        self.timings,
+                        self.size,
+                        self.matte,
+                        self.reduced_motion,
+                        self.quality,
+                    ),
                 )
             future = self.executor.submit(_render_frame_job, index, time)
             pending.append((time, duration, future))

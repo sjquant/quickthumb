@@ -57,7 +57,7 @@ import shutil
 import subprocess
 import tempfile
 import threading
-from collections.abc import Generator, Iterable, Iterator
+from collections.abc import Callable, Generator, Iterable, Iterator
 from dataclasses import dataclass, field
 from io import BytesIO
 from pathlib import Path
@@ -117,6 +117,7 @@ if TYPE_CHECKING:
     from quickthumb.transitions import Transition
 
 AnimationFormat = Literal["gif", "mp4", "webm"]
+AnimationQuality = Literal["standard", "high"]
 
 # HTML deck parity: a slide with no transition set cross-fades in over 0.5s.
 _DEFAULT_TRANSITION_DURATION = 0.5
@@ -155,55 +156,31 @@ def write_animation(
     audio_timeline_duration: float | None = None,
     animation: GifOptions | VideoOptions | None = None,
     reduced_motion: bool = False,
+    *,
+    audio_schedule: _AnimationAudioSchedule | None = None,
 ) -> _AnimationFacts:
     """Render slides to an animated file and retain facts from its encoder."""
-    workers = animation.workers if animation is not None else 1
-    if isinstance(animation, VideoOptions):
-        if format == "gif":
-            raise ValidationError("VideoOptions are only supported for MP4 or WebM output")
-        if soundtrack is not None and animation.soundtrack is not None:
-            raise ValidationError("specify the video soundtrack only once")
-        soundtrack = animation.soundtrack if animation.soundtrack is not None else soundtrack
-        loop_audio = animation.loop_audio if animation.loop_audio is not None else loop_audio
-        fps = animation.fps
-        matte = animation.matte
-        loop = 0
-        max_size = None
-        colors = None
-    elif animation is not None:
-        if format != "gif":
-            raise ValidationError("GifOptions are only supported for GIF output")
-        fps = animation.fps
-        loop = animation.loop
-        matte = animation.matte
-        max_size = animation.max_size
-        colors = animation.colors
-    else:
-        max_size = None
-        colors = None
-    loop_audio = _resolve_loop_audio(soundtrack, loop_audio)
-    soundtrack = coerce_audio_track(soundtrack)
     # GIF file output has never consumed a Deck narration schedule.
-    if format == "gif":
+    if format == "gif" and audio_schedule is None:
         slide_audio = slide_durations = audio_offsets = audio_durations = None
         audio_timeline_duration = None
-    prepared = _prepare_animation(
+    prepared, settings = _setup_animation(
         canvases,
         transitions,
         format,
-        fps,
-        slide_duration,
-        loop,
-        matte,
-        soundtrack,
-        slide_audio,
-        slide_durations,
-        audio_offsets,
-        audio_durations,
-        audio_timeline_duration,
-        max_size,
-        colors,
-        workers,
+        fps=fps,
+        slide_duration=slide_duration,
+        loop=loop,
+        matte=matte,
+        soundtrack=soundtrack,
+        loop_audio=loop_audio,
+        slide_audio=slide_audio,
+        slide_durations=slide_durations,
+        audio_offsets=audio_offsets,
+        audio_durations=audio_durations,
+        audio_timeline_duration=audio_timeline_duration,
+        animation=animation,
+        audio_schedule=audio_schedule,
         reduced_motion=reduced_motion,
     )
     temp_path: str | None = None
@@ -211,7 +188,11 @@ def write_animation(
         with prepared:
             if format == "gif":
                 data, facts = _encode_gif(
-                    prepared.shots(), loop, max_size=max_size, colors=colors, fps=prepared.fps
+                    prepared.shots(),
+                    settings.loop,
+                    max_size=settings.max_size,
+                    colors=settings.colors,
+                    fps=prepared.fps,
                 )
             else:
                 descriptor, temp_path = _temporary_output_path(output_path, suffix=f".{format}")
@@ -220,12 +201,12 @@ def write_animation(
                     prepared,
                     format,
                     temp_path,
-                    soundtrack,
-                    loop_audio,
-                    slide_audio,
-                    audio_offsets,
-                    audio_durations,
-                    audio_timeline_duration,
+                    settings.soundtrack,
+                    settings.loop_audio,
+                    settings.slide_audio,
+                    settings.audio_offsets,
+                    settings.audio_durations,
+                    settings.audio_timeline_duration,
                 )
         # Closing render resources is part of producing a successful export.
         if format == "gif":
@@ -277,27 +258,31 @@ def export_animation_bytes(
     colors: int | None = None,
     reduced_motion: bool = False,
     workers: int = 1,
+    quality: AnimationQuality = "standard",
+    *,
+    audio_schedule: _AnimationAudioSchedule | None = None,
 ) -> bytes:
     """Render slides to animated GIF/MP4/WebM bytes."""
-    loop_audio = _resolve_loop_audio(soundtrack, loop_audio)
-    soundtrack = coerce_audio_track(soundtrack)
-    prepared = _prepare_animation(
+    prepared, settings = _setup_animation(
         canvases,
         transitions,
         format,
-        fps,
-        slide_duration,
-        loop,
-        matte,
-        soundtrack,
-        slide_audio,
-        slide_durations,
-        audio_offsets,
-        audio_durations,
-        audio_timeline_duration,
-        max_size,
-        colors,
-        workers,
+        fps=fps,
+        slide_duration=slide_duration,
+        loop=loop,
+        matte=matte,
+        soundtrack=soundtrack,
+        loop_audio=loop_audio,
+        slide_audio=slide_audio,
+        slide_durations=slide_durations,
+        audio_offsets=audio_offsets,
+        audio_durations=audio_durations,
+        audio_timeline_duration=audio_timeline_duration,
+        max_size=max_size,
+        colors=colors,
+        workers=workers,
+        quality=quality,
+        audio_schedule=audio_schedule,
         reduced_motion=reduced_motion,
     )
     temp_path: str | None = None
@@ -305,7 +290,11 @@ def export_animation_bytes(
         with prepared:
             if format == "gif":
                 data, _ = _encode_gif(
-                    prepared.shots(), loop, max_size=max_size, colors=colors, fps=prepared.fps
+                    prepared.shots(),
+                    settings.loop,
+                    max_size=settings.max_size,
+                    colors=settings.colors,
+                    fps=prepared.fps,
                 )
             else:
                 # MP4 muxing needs a seekable output, so bytes use a temp file.
@@ -315,12 +304,12 @@ def export_animation_bytes(
                     prepared,
                     format,
                     temp_path,
-                    soundtrack,
-                    loop_audio,
-                    slide_audio,
-                    audio_offsets,
-                    audio_durations,
-                    audio_timeline_duration,
+                    settings.soundtrack,
+                    settings.loop_audio,
+                    settings.slide_audio,
+                    settings.audio_offsets,
+                    settings.audio_durations,
+                    settings.audio_timeline_duration,
                 )
                 with open(temp_path, "rb") as video_file:
                     data = video_file.read()
@@ -328,6 +317,116 @@ def export_animation_bytes(
     finally:
         if temp_path is not None:
             _remove_quietly(temp_path)
+
+
+_AnimationAudioSchedule = Callable[[float], tuple[list[float | None], list[float]]]
+
+
+@dataclass(frozen=True)
+class _AnimationSettings:
+    """Resolved encoder inputs; render settings belong to the prepared owner."""
+
+    loop: int
+    max_size: tuple[int, int] | None
+    colors: int | None
+    soundtrack: AudioTrack | None
+    loop_audio: bool
+    slide_audio: list[AudioTrack | None] | None
+    audio_offsets: list[float] | None
+    audio_durations: list[float] | None
+    audio_timeline_duration: float | None
+
+
+def _setup_animation(
+    canvases: list[Canvas],
+    transitions: list[Transition | None],
+    format: AnimationFormat,
+    *,
+    fps: float | None = None,
+    slide_duration: float = 3.0,
+    loop: int = 0,
+    matte: str = "#000000",
+    soundtrack: AudioTrack | str | dict | None = None,
+    loop_audio: bool | None = None,
+    slide_audio: list[AudioTrack | None] | None = None,
+    slide_durations: list[float | None] | None = None,
+    audio_offsets: list[float] | None = None,
+    audio_durations: list[float] | None = None,
+    audio_timeline_duration: float | None = None,
+    max_size: tuple[int, int] | None = None,
+    colors: int | None = None,
+    workers: int = 1,
+    quality: AnimationQuality = "standard",
+    animation: GifOptions | VideoOptions | None = None,
+    audio_schedule: _AnimationAudioSchedule | None = None,
+    reduced_motion: bool = False,
+) -> tuple[_PreparedAnimation, _AnimationSettings]:
+    """Normalize either input surface, then consume Deck timing exactly once.
+
+    Raw scalars deliberately bypass Pydantic: its option models coerce some
+    fields that the byte API has always validated strictly. Read model fields
+    directly so subclasses work and constructed/copied invalid values still
+    reach the same renderer and codec validation as raw scalars.
+    """
+    if isinstance(animation, VideoOptions):
+        if format == "gif":
+            raise ValidationError("VideoOptions are only supported for MP4 or WebM output")
+        if soundtrack is not None and animation.soundtrack is not None:
+            raise ValidationError("specify the video soundtrack only once")
+        soundtrack = animation.soundtrack if animation.soundtrack is not None else soundtrack
+        loop_audio = animation.loop_audio if animation.loop_audio is not None else loop_audio
+        loop, max_size, colors = 0, None, None
+    elif isinstance(animation, GifOptions):
+        if format != "gif":
+            raise ValidationError("GifOptions are only supported for GIF output")
+        loop, max_size, colors = animation.loop, animation.max_size, animation.colors
+    elif animation is not None:
+        raise ValidationError("animation must be GifOptions or VideoOptions")
+    if animation is not None:
+        fps, slide_duration, matte = animation.fps, animation.hold, animation.matte
+        workers, quality = animation.workers, animation.quality
+    if audio_schedule is not None:
+        if any(
+            value is not None
+            for value in (slide_durations, audio_offsets, audio_durations, audio_timeline_duration)
+        ):
+            raise ValidationError("audio_schedule cannot be combined with precomputed timing")
+        if format in _DEFAULT_FPS and format != "gif":
+            slide_durations, audio_durations = audio_schedule(slide_duration)
+    # Resolve legacy path-string looping before losing the original input type.
+    resolved_loop_audio = _resolve_loop_audio(soundtrack, loop_audio)
+    resolved_soundtrack = coerce_audio_track(soundtrack)
+    prepared = _prepare_animation(
+        canvases,
+        transitions,
+        format,
+        fps,
+        slide_duration,
+        loop,
+        matte,
+        resolved_soundtrack,
+        slide_audio,
+        slide_durations,
+        audio_offsets,
+        audio_durations,
+        audio_timeline_duration,
+        max_size,
+        colors,
+        workers,
+        quality,
+        reduced_motion=reduced_motion,
+    )
+    return prepared, _AnimationSettings(
+        loop=loop,
+        max_size=max_size,
+        colors=colors,
+        soundtrack=resolved_soundtrack,
+        loop_audio=resolved_loop_audio,
+        slide_audio=slide_audio,
+        audio_offsets=audio_offsets,
+        audio_durations=audio_durations,
+        audio_timeline_duration=audio_timeline_duration,
+    )
 
 
 def _prepare_animation(
@@ -347,6 +446,7 @@ def _prepare_animation(
     max_size: tuple[int, int] | None = None,
     colors: int | None = None,
     workers: int = 1,
+    quality: AnimationQuality = "standard",
     *,
     reduced_motion: bool = False,
 ) -> _PreparedAnimation:
@@ -434,6 +534,7 @@ def _prepare_animation(
         slide_durations=slide_durations,
         matte=matte,
         workers=workers,
+        quality=quality,
         reduced_motion=reduced_motion,
     )
     max_fps = 100 if format == "gif" else 120
@@ -515,10 +616,13 @@ class _PreparedAnimation:
         slide_durations: list[float | None] | None = None,
         matte: str = "#000000",
         workers: int = 1,
+        quality: AnimationQuality = "standard",
         reduced_motion: bool = False,
     ):
         # These are rendering settings. Codec limits and audio belong to callers
         # at the encoding boundary.
+        if quality not in ("standard", "high"):
+            raise ValidationError("quality must be standard or high")
         if type(workers) is not int or not 1 <= workers <= 8:
             raise ValidationError("workers must be an integer between 1 and 8")
         if workers > 1:
@@ -549,6 +653,7 @@ class _PreparedAnimation:
         self._slide_durations = slide_durations
         self._matte = matte_color(matte)
         self._workers = workers
+        self._quality = quality
         self._reduced_motion = reduced_motion
         self._probe_cache: dict[str, VideoInfo] = {}
         self._plan: _DeckPlan | None = None
@@ -574,6 +679,7 @@ class _PreparedAnimation:
                 self._slide_durations,
                 reduced_motion=self._reduced_motion,
                 probe_cache=self._probe_cache,
+                quality=self._quality,
             )
             if self._workers > 1:
                 from quickthumb._render_workers import ParallelFrames
@@ -584,6 +690,7 @@ class _PreparedAnimation:
                     self._matte,
                     self._reduced_motion,
                     self._workers,
+                    quality=self._quality,
                 )
                 self._renderer.__enter__()
             self._shots = _ordered_deck_shots(
@@ -781,11 +888,13 @@ def _deck_plan(
     slide_durations: list[float | None] | None,
     reduced_motion: bool = False,
     probe_cache: dict[str, VideoInfo] | None = None,
+    quality: AnimationQuality = "standard",
 ) -> _DeckPlan:
     """Build animation state once for both visuals and scheduled narration."""
     cache = probe_cache if probe_cache is not None else {}
     animators = [
-        _SlideAnimator(canvas, cache, reduced_motion=reduced_motion) for canvas in canvases
+        _SlideAnimator(canvas, cache, reduced_motion=reduced_motion, quality=quality)
+        for canvas in canvases
     ]
     timings = _deck_timing(
         canvases,
@@ -1169,6 +1278,8 @@ def _composite_frame(
     *,
     background: Image.Image | None = None,
     include_captions: bool = True,
+    render_scale: int = 1,
+    downsample: bool = True,
 ) -> Image.Image:
     """Render ordered units onto a fresh full-canvas RGBA frame.
 
@@ -1176,11 +1287,17 @@ def _composite_frame(
     imagery and motion, and the optional background is the already-composited
     prefix. Input images are read-only; the returned image is owned by the caller.
     Timeline planning, transitions, and encoding stay outside this boundary.
+
+    `render_scale=2` draws native sources directly into a doubled surface.
+    Only background-plate preparation disables the final downsample; ordinary
+    frames return native dimensions before captions are rendered.
     """
     frame = (
         background.copy()
         if background is not None
-        else Image.new("RGBA", (canvas.width, canvas.height), (0, 0, 0, 0))
+        else Image.new(
+            "RGBA", (canvas.width * render_scale, canvas.height * render_scale), (0, 0, 0, 0)
+        )
     )
     visible_video_layers: list[VideoLayer] = []
     for unit in units:
@@ -1211,6 +1328,7 @@ def _composite_frame(
                     _geometry_in_motion(target, time, state=sample)
                     for target, sample in zip(unit.target_timelines, target_states, strict=True)
                 ),
+                render_scale=render_scale,
             )
             continue
         if state.canonical is not None:
@@ -1224,6 +1342,7 @@ def _composite_frame(
                 clip_scale=state.canonical.clip_scale,
                 include_scale=not any(isinstance(item, ImageLayer) for item in unit.layers),
                 subpixel=state.canonical.subpixel,
+                render_scale=render_scale,
             )
             if rendered is None:
                 continue
@@ -1236,7 +1355,18 @@ def _composite_frame(
             if revealed is None:
                 continue
             image = revealed
+        if render_scale != 1 and state.canonical is None:
+            if pos == (0, 0) and image.size == (canvas.width, canvas.height):
+                # Fixed canvas-covering imagery must not fade at its outer
+                # edge. Moving fragments always keep transparent filter support.
+                image = image.resize(frame.size, Image.Resampling.BICUBIC)
+            else:
+                image, pos = apply_canonical_geometry(
+                    image, LayerState(), pos, render_scale=render_scale
+                )
         frame.alpha_composite(image, pos)
+    if render_scale != 1 and downsample:
+        frame = frame.resize((canvas.width, canvas.height), Image.Resampling.LANCZOS)
     if include_captions:
         render_video_captions(
             frame,
@@ -1256,8 +1386,10 @@ class _SlideAnimator:
         canvas: Canvas,
         probe_cache: dict[str, VideoInfo],
         reduced_motion: bool = False,
+        quality: AnimationQuality = "standard",
     ):
         self._canvas = canvas
+        self._render_scale = 2 if quality == "high" else 1
         self._units = _build_units(canvas, probe_cache, reduced_motion=reduced_motion)
         self.duration = max(_schedule_units(self._units), _schedule_timelines(self._units))
         # Only the leading static run is safe to cache. Static units above or
@@ -1268,7 +1400,14 @@ class _SlideAnimator:
             len(self._units),
         )
         self._static_plate = (
-            _composite_frame(canvas, self._units[:prefix_end], 0.0, include_captions=False)
+            _composite_frame(
+                canvas,
+                self._units[:prefix_end],
+                0.0,
+                include_captions=False,
+                render_scale=self._render_scale,
+                downsample=False,
+            )
             if prefix_end
             else None
         )
@@ -1283,6 +1422,7 @@ class _SlideAnimator:
             time,
             background=self._static_plate,
             include_captions=include_captions,
+            render_scale=self._render_scale,
         )
 
     def final_frame(self) -> Image.Image:
@@ -1848,6 +1988,7 @@ def _canonical_render(
     clip_scale: float = 1.0,
     include_scale: bool = True,
     subpixel: bool = False,
+    render_scale: int = 1,
 ) -> tuple[Image.Image, tuple[int, int]] | None:
     """Apply renderer-independent opacity, reveal, and geometry to a frame.
 
@@ -1860,14 +2001,19 @@ def _canonical_render(
     output = image
     opacity = min(1.0, max(0.0, state.opacity)) * alpha_scale
     progress = min(clip_scale, state.clip_progress)
-    if subpixel:
+    if subpixel or render_scale != 1:
         output = apply_canonical_alpha(
             output, state.with_values(opacity=opacity, clip_progress=progress)
         )
         if output is None:
             return None
         return apply_canonical_geometry(
-            output, state, pos, include_scale=include_scale, subpixel=True
+            output,
+            state,
+            pos,
+            include_scale=include_scale,
+            subpixel=subpixel,
+            render_scale=render_scale,
         )
     if opacity < 1.0:
         output = _scaled_alpha(output, opacity)

@@ -496,27 +496,13 @@ class Deck:
         """Render an animated Deck, mixing scheduled narration when requested."""
         from quickthumb._export_video import write_animation
 
-        if format == "gif":
-            write_animation(
-                self._slides,
-                self._resolved_transitions(),
-                output_path,
-                format=format,
-                animation=animation,
-                reduced_motion=bool(policy and policy.reduced_motion),
-            )
-            return
-        if isinstance(animation, GifOptions):
-            raise ValidationError("GifOptions are only supported for GIF output")
-        slide_durations, audio_durations = self._animation_audio_schedule()
         write_animation(
             self._slides,
             self._resolved_transitions(),
             output_path,
             format=format,
-            slide_audio=self._slide_audio,
-            slide_durations=slide_durations,
-            audio_durations=audio_durations,
+            slide_audio=self._slide_audio if format != "gif" else None,
+            audio_schedule=self._animation_audio_schedule if format != "gif" else None,
             animation=animation,
             reduced_motion=bool(policy and policy.reduced_motion),
         )
@@ -660,6 +646,10 @@ class Deck:
         matte: str = "#000000",
         *,
         policy: ExportPolicy | None = None,
+        max_size: tuple[int, int] | None = None,
+        colors: int | None = None,
+        workers: int = 1,
+        quality: Literal["standard", "high"] = "standard",
     ) -> bytes:
         """Render the deck to animated GIF bytes.
 
@@ -684,6 +674,10 @@ class Deck:
             slide_duration=slide_duration,
             loop=loop,
             matte=matte,
+            max_size=max_size,
+            colors=colors,
+            workers=workers,
+            quality=quality,
             reduced_motion=bool(policy and policy.reduced_motion),
         )
 
@@ -721,6 +715,8 @@ class Deck:
         loop_audio: bool | None = None,
         *,
         policy: ExportPolicy | None = None,
+        workers: int = 1,
+        quality: Literal["standard", "high"] = "standard",
     ) -> bytes:
         """Render the Deck's animated timeline to MP4 bytes.
 
@@ -737,6 +733,8 @@ class Deck:
             matte=matte,
             soundtrack=soundtrack,
             loop_audio=loop_audio,
+            workers=workers,
+            quality=quality,
             reduced_motion=bool(policy and policy.reduced_motion),
         )
 
@@ -749,12 +747,13 @@ class Deck:
         matte: str,
         soundtrack: AudioTrack | str | dict | None,
         loop_audio: bool | None,
+        workers: int = 1,
+        quality: Literal["standard", "high"] = "standard",
         reduced_motion: bool = False,
     ) -> bytes:
         """Export animated MP4/WebM bytes with the Deck's narration schedule."""
         from quickthumb._export_video import export_animation_bytes
 
-        slide_durations, audio_durations = self._animation_audio_schedule(slide_duration)
         return export_animation_bytes(
             self._slides,
             self._resolved_transitions(),
@@ -765,8 +764,9 @@ class Deck:
             soundtrack=soundtrack,
             loop_audio=loop_audio,
             slide_audio=self._slide_audio,
-            slide_durations=slide_durations,
-            audio_durations=audio_durations,
+            audio_schedule=self._animation_audio_schedule,
+            workers=workers,
+            quality=quality,
             reduced_motion=reduced_motion,
         )
 
@@ -802,6 +802,8 @@ class Deck:
         loop_audio: bool | None = None,
         *,
         policy: ExportPolicy | None = None,
+        workers: int = 1,
+        quality: Literal["standard", "high"] = "standard",
     ) -> bytes:
         """Render the deck to WebM (VP9) bytes; timing model as in `to_gif`.
 
@@ -821,6 +823,8 @@ class Deck:
             matte=matte,
             soundtrack=soundtrack,
             loop_audio=loop_audio,
+            workers=workers,
+            quality=quality,
             reduced_motion=bool(policy and policy.reduced_motion),
         )
 

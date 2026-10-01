@@ -161,16 +161,68 @@ character targets have no separable band; those fall back to moving the layer as
 a whole.
 
 `Canvas.render()` and `Deck.render()` accept a format-specific options object for
-animated file output. Use `GifOptions` for GIF (`fps`, `matte`, `loop`,
+animated file output. Use `GifOptions` for GIF (`fps`, `hold`, `matte`, `loop`,
 `max_size=(width, height)`, and `colors`) and `VideoOptions` for MP4/WebM
-(`fps`, `matte`, `soundtrack=AudioTrack(...)`, and `loop_audio`). GIF sizing and palette controls
+(`fps`, `hold`, `matte`, `soundtrack=AudioTrack(...)`, and `loop_audio`). Both
+accept `workers=1` and `quality="standard"`. GIF sizing and palette controls
 are rejected for video output, and video options are rejected for GIF output.
-The generic `quality` option remains reserved for JPEG and WebP raster output.
+The generic `render(..., quality=...)` option remains reserved for JPEG and
+WebP raster output.
+
+Both option models use `hold=3.0` for the settled-state hold, matching `hold`
+on Canvas byte methods and `slide_duration` on Deck byte methods. It must be
+a finite nonnegative number; booleans and strings are rejected. A default hold
+is omitted from serialized options and restored when loaded; an explicit zero
+is retained. Narration and explicit Deck slide durations still determine the
+video schedule, while Deck GIF continues to ignore those per-slide durations.
+Deck animated video retains its existing restriction: `hold=0` (or byte
+`slide_duration=0`) fails when any slide has neither narration nor an explicit
+positive duration, because its audio schedule requires a positive silent bed.
+Use a positive hold for those slides. Canvas and Deck GIF continue to permit
+a zero hold.
+
+The byte methods accept the same rendering controls as keyword-only scalars:
+`workers=1` and `quality="standard"` on Canvas GIF/MP4/WebM and Deck
+GIF/animated MP4/WebM, plus `max_size=None` and `colors=None` on GIF.
+Their existing timing names and positional arguments are unchanged; these
+methods do not accept options objects. Static `Deck.to_mp4()` and
+`Deck.render_mp4()` retain their separate narration API.
+
+### High-quality animated compositing
+
+`GifOptions(quality="high")` and `VideoOptions(quality="high")` opt into a 2×
+layer-compositing surface followed by one LANCZOS downsample. The default is
+`quality="standard"`, which preserves existing output. This namespaced option
+is separate from `render(..., quality=...)` for JPEG/WebP. Animated byte
+methods also accept the keyword-only `quality="high"` argument.
+
+```python
+canvas.render("smooth.mp4", animation=VideoOptions(fps=30, quality="high"))
+deck.render("smooth.gif", animation=GifOptions(fps=12, colors=64, quality="high"))
+```
+
+High mode filters prepared layers and staggered targets directly into the
+larger surface without retaining enlarged copies of every source image. It
+improves integration of rotated/downscaled edges; dimensions, timing, audio,
+GIF palette/size controls and `workers` keep their existing meanings. Frames
+and cached background plates contain four times as many pixels, so high mode
+costs more rendering time and memory. Each worker adds its own buffers, so
+aggregate memory can increase with worker count.
+
+This is supersampled **layer compositing**, not higher-resolution source layout:
+fonts/assets and backdrop-dependent source surfaces are still prepared at their
+native size. Authored static rotation is already baked into those sources.
+Captions retain native rendering after the downsample, while slide transitions
+and keyed Morph keep their existing native-resolution paths. High mode cannot
+restore details absent from a prepared source and may soften very small text.
+See the [benchmark guide](https://github.com/sjquant/quickthumb/tree/main/benchmarks)
+for matched cost measurements and before/after text crops.
 
 ### Parallel animated rendering
 
 `GifOptions(workers=2)` and `VideoOptions(workers=2)` opt into process-based
-frame rendering. `workers` is a strict integer from 1 to 8; the default remains
+frame rendering. The same keyword-only `workers` argument is available on
+animated byte methods. `workers` is a strict integer from 1 to 8; the default remains
 1, with no automatic CPU scaling. Small/static exports may be faster with one
 worker because starting processes, preparing slides, and copying frames cost
 time. Encoding and audio mixing still run in the parent export path.
