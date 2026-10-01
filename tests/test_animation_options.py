@@ -166,7 +166,7 @@ def _scene():
 
 @pytest.mark.parametrize("kind", ["canvas", "deck"])
 @pytest.mark.parametrize("quality,workers", [("standard", 1), ("high", 2)])
-def test_gif_file_and_byte_controls_match_encoded_pixels_and_timing(
+def test_gif_file_and_byte_controls_match_encoded_pixels_timing_and_receipt(
     kind, quality, workers, tmp_path
 ):
     canvas = _scene()
@@ -182,7 +182,7 @@ def test_gif_file_and_byte_controls_match_encoded_pixels_and_timing(
         workers=workers,
     )
     destination = tmp_path / "file.gif"
-    source.render(str(destination), animation=options)
+    receipt = source.export(destination, animation=options)
     hold_kwargs: dict[str, Any] = {("hold" if kind == "canvas" else "slide_duration"): options.hold}
     data = source.to_gif(
         **hold_kwargs,
@@ -201,8 +201,8 @@ def test_gif_file_and_byte_controls_match_encoded_pixels_and_timing(
         frames = [frame.copy() for frame in ImageSequence.Iterator(encoded)]
         duration = sum(frame.info["duration"] for frame in frames) / 1000
         assert len(encoded.getcolors(256) or []) <= 4
-        assert duration == 0.4
-        assert len(frames) > 1
+        assert receipt.timing_metrics.duration == duration == 0.4
+        assert receipt.timing_metrics.frame_count == len(frames)
 
 
 @pytest.mark.parametrize("surface", ["file", "bytes"])
@@ -249,9 +249,10 @@ def test_deck_schedule_is_synchronous_once_and_used_before_prepared_entry(
     monkeypatch.setattr(video._PreparedAnimation, "__enter__", enter)
     monkeypatch.setattr(video, "_encode_prepared_video", encode)
     if surface == "file":
-        path = tmp_path / f"file.{format}"
-        deck.render(str(path), animation=VideoOptions(fps=10, hold=0.15))
-        assert path.read_bytes() == b"encoded"
+        receipt = deck.export(
+            tmp_path / f"file.{format}", animation=VideoOptions(fps=10, hold=0.15)
+        )
+        assert receipt.timing_metrics.duration == 0.5
     else:
         method = "to_animated_mp4" if format == "mp4" else f"to_{format}"
         assert getattr(deck, method)(fps=10, slide_duration=0.15) == b"encoded"
@@ -358,7 +359,8 @@ def test_deck_gif_ignores_narration_and_explicit_durations(surface, monkeypatch,
     monkeypatch.setattr(deck, "_animation_audio_schedule", scheduler)
     if surface == "file":
         path = tmp_path / "file.gif"
-        deck.render(str(path), animation=GifOptions(hold=0.2))
+        result = deck.export(path, animation=GifOptions(hold=0.2))
+        assert result.timing_metrics.duration == 0.2
         data = path.read_bytes()
     else:
         data = deck.to_gif(slide_duration=0.2)
@@ -373,7 +375,7 @@ def test_deck_video_preserves_zero_hold_default_audio_bed_rejection(surface, for
     deck = Deck().slide(Canvas(4, 4), transition=tr.Cut())
     with pytest.raises(ValidationError, match="Deck audio duration must be finite and > 0"):
         if surface == "file":
-            deck.render(str(tmp_path / f"file.{format}"), animation=VideoOptions(hold=0))
+            deck.export(tmp_path / f"file.{format}", animation=VideoOptions(hold=0))
         else:
             method = "to_animated_mp4" if format == "mp4" else f"to_{format}"
             getattr(deck, method)(slide_duration=0)
@@ -467,7 +469,7 @@ def test_video_file_and_byte_quality_workers_and_hold_match_actual_output(kind, 
     source = canvas if kind == "canvas" else Deck().slide(canvas, transition=tr.Cut())
     options = VideoOptions(fps=10, hold=0.2, quality="high", workers=2)
     file_path = tmp_path / f"file.{format}"
-    source.render(str(file_path), animation=options)
+    receipt = source.export(file_path, animation=options)
     kwargs = {
         ("hold" if kind == "canvas" else "slide_duration"): 0.2,
         "fps": 10,
@@ -522,9 +524,10 @@ def test_video_file_and_byte_quality_workers_and_hold_match_actual_output(kind, 
                 timeout=30,
             ).stdout
         )
-        assert int(probe["streams"][0]["nb_read_frames"]) == 4
+        assert int(probe["streams"][0]["nb_read_frames"]) == receipt.timing_metrics.frame_count
     assert decoded[0] == decoded[1]
-    assert len(decoded[0]) == 4 * 16 * 12 * 4
+    assert receipt.timing_metrics.duration == 0.4
+    assert receipt.timing_metrics.frame_count == 4
 
 
 @pytest.mark.parametrize("surface", ["file", "bytes"])
@@ -629,10 +632,11 @@ def test_deck_video_nondefault_hold_keeps_inferred_and_explicit_narration_timing
     if hold:
         deck.slide(Canvas(4, 4).background(color="#456789"), transition=tr.Cut())
     file_path = tmp_path / "file.mp4"
-    deck.render(str(file_path), animation=VideoOptions(fps=20, hold=hold))
+    receipt = deck.export(file_path, animation=VideoOptions(fps=20, hold=hold))
     byte_path = tmp_path / "bytes.mp4"
     byte_path.write_bytes(deck.to_animated_mp4(fps=20, slide_duration=hold))
-    expected_frames = round((0.5 + hold) * 20)
+    assert receipt.timing_metrics.duration == pytest.approx(0.5 + hold)
+    assert receipt.timing_metrics.frame_count == round((0.5 + hold) * 20)
     outputs = []
     for path in (file_path, byte_path):
         outputs.append(
@@ -679,4 +683,4 @@ def test_deck_video_nondefault_hold_keeps_inferred_and_explicit_narration_timing
         ).stdout
         assert len(audio) >= round((0.5 + hold) * 8000) * 2
     assert outputs[0] == outputs[1]
-    assert len(outputs[0]) == expected_frames * 4 * 4 * 3
+    assert len(outputs[0]) == receipt.timing_metrics.frame_count * 4 * 4 * 3
