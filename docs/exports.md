@@ -238,6 +238,11 @@ mp4 = canvas.to_mp4(soundtrack="jingle.wav", loop_audio=False) # plays once, the
 The audio is always trimmed to the video length. For an `AudioTrack`, `loop=True` repeats a shorter track and `loop=False` plays it once before silence; `loop_audio` is an explicit override. Legacy string paths keep the previous looping default. GIF exports do not accept a soundtrack.
 
 !!! note "Format limits"
+    Canonical layer translation, rotation and scaling use subpixel bicubic affine
+    sampling while geometry is moving. Still images, held geometry and settled
+    endpoints retain their existing pixels, including nonidentity final transforms.
+    Image viewport zoom/pan keeps its separate image-renderer behavior.
+
     None of these formats carry transparency: frames are composited onto the opaque `matte` color (default black). Mixed-size slides are scaled to fit and centered on the first slide's size. H.264/VP9 4:2:0 output needs even dimensions, so odd-sized canvases lose their last pixel row/column in MP4/WebM output. GIF encoding streams quantized frames through Pillow, keeping only a bounded number of uncompressed frames instead of imposing a timeline frame-memory budget. The final compressed GIF is still buffered in memory, including for file exports; large canvases, documents and encoded files can still exhaust available memory. `max_size` and `colors` remain useful for reducing output size. GIF dimensions and each coalesced frame duration must still fit the format’s 16-bit fields (65,535 pixels and 655.35 seconds). Animated Deck MP4/WebM accepts at most 64 slides with narration because each narration is decoded as a concurrent FFmpeg input; split larger narrated decks into multiple exports. Silent slides do not count toward this limit.
 
 ## Canonical samples
