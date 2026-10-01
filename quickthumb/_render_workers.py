@@ -141,23 +141,40 @@ class _FrameRenderer:
     def _prepare(self, index: int) -> None:
         from quickthumb._export_video import _conform, _SlideAnimator
 
-        self.close()
+        duration_in = self.timings[index][1]
+        reuse_previous = index == self.index + 1 and index > 0 and duration_in > 0
+        previous = self.canvas if reuse_previous else None
+        previous_animator = self.animator if reuse_previous else None
+        # Adjacent slides normally share the outgoing source. Reusing its
+        # already prepared units avoids rasterizing that slide a second time.
+        if self.previous is not None:
+            self.previous._ctx.close_video_decoders()
+        if self.canvas is not None and previous is None:
+            self.canvas._ctx.close_video_decoders()
+        self.canvas = None
+        self.previous = previous
+        self.animator = None
+        self.previous_final = None
         self.index = index
         try:
-            self.canvas = self.specs[index].build()
-            self.animator = _SlideAnimator(self.canvas, {}, reduced_motion=self.reduced_motion)
-            duration_in = self.timings[index][1]
             if index > 0 and duration_in > 0:
-                self.previous = self.specs[index - 1].build()
-                previous_animator = _SlideAnimator(
-                    self.previous, {}, reduced_motion=self.reduced_motion
-                )
+                if self.previous is None:
+                    self.previous = self.specs[index - 1].build()
+                    previous_animator = _SlideAnimator(
+                        self.previous, {}, reduced_motion=self.reduced_motion
+                    )
+                assert previous_animator is not None
                 self.previous_final = _conform(
                     previous_animator.final_export_frame(), self.size, self.matte
                 )
                 self.previous._ctx.close_video_decoders()
+                # Keep only the outgoing Canvas for possible Morph rendering,
+                # not its unit images/plate, while building the incoming slide.
+                previous_animator = None
             else:
                 self.previous_final = Image.new("RGB", self.size, self.matte)
+            self.canvas = self.specs[index].build()
+            self.animator = _SlideAnimator(self.canvas, {}, reduced_motion=self.reduced_motion)
         except BaseException:
             self.close()
             raise

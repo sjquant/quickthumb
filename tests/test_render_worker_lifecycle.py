@@ -1,11 +1,13 @@
 """Lifecycle, payload isolation, and bounded scheduling for spawned renderers."""
 
+import gc
 import os
 import pickle
 import shutil
 import subprocess
 import sys
 import textwrap
+import weakref
 from concurrent.futures import Future, ThreadPoolExecutor
 from concurrent.futures.process import BrokenProcessPool
 from io import BytesIO
@@ -384,16 +386,20 @@ def test_partial_slide_preparation_closes_every_opened_decoder(monkeypatch, fail
 
     class Animator:
         def __init__(self, canvas, cache, **kwargs):
+            self.canvas = canvas
             index = len(opened)
             opened.append(canvas)
             canvas._ctx.video_decoder_cache["test"] = Decoder(index)
-            if (failure == "incoming" and index == 0) or (failure == "outgoing" and index == 1):
+            role = "outgoing" if canvas.width == 8 else "incoming"
+            if failure == role:
                 raise RenderingError("prepare failed")
 
         def final_export_frame(self):
-            raise RenderingError("prepare failed")
+            if failure == "final":
+                raise RenderingError("prepare failed")
+            return Image.new("RGBA", (self.canvas.width, self.canvas.height), "#203040")
 
-    specs = [workers._CanvasSpec.capture(Canvas(8, 8)) for _ in range(2)]
+    specs = [workers._CanvasSpec.capture(Canvas(8 + index, 8)) for index in range(2)]
     renderer = workers._FrameRenderer(
         specs, [(None, 0.0, 0.5, 1.0), (None, 0.5, 0.5, 1.0)], (8, 8), (0, 0, 0), False
     )
@@ -404,6 +410,8 @@ def test_partial_slide_preparation_closes_every_opened_decoder(monkeypatch, fail
     assert all(not canvas._ctx.video_decoder_cache for canvas in opened)
     assert renderer.canvas is renderer.previous is renderer.animator is None
     assert renderer.previous_final is None
+    assert renderer.index == -1
+    assert [canvas.width for canvas in opened] == ([8, 9] if failure == "incoming" else [8])
     renderer.close()
     assert len(closed) == len(opened)
 
@@ -455,13 +463,113 @@ def test_switching_slides_retains_at_most_two_decoder_contexts(monkeypatch):
     for index in range(1, 4):
         renderer._prepare(index)
         assert len(active) == 1
-        assert all(not canvas._ctx.video_decoder_cache for canvas in opened[:-2])
+        assert len(opened) == index + 1
+        assert all(
+            not canvas._ctx.video_decoder_cache
+            for canvas in opened
+            if canvas is not renderer.canvas
+        )
         assert renderer.previous is not None
         assert not renderer.previous._ctx.video_decoder_cache
     renderer.close()
     assert not active
-    assert max(counts) == 2
+    assert max(counts) == 1
     assert all(not canvas._ctx.video_decoder_cache for canvas in opened)
+
+
+def test_adjacent_slide_reuses_preparation_but_skipped_slide_rebuilds(monkeypatch):
+    built = []
+    settled = []
+    animator_refs = []
+    image_refs = []
+
+    class Animator:
+        def __init__(self, canvas, cache, **kwargs):
+            # Outgoing unit images must be gone before allocating incoming ones.
+            gc.collect()
+            assert all(reference() is None for reference in animator_refs)
+            assert all(reference() is None for reference in image_refs)
+            self.canvas = canvas
+            self.unit_image = Image.new("RGBA", (canvas.width, canvas.height))
+            built.append(canvas.width)
+            animator_refs.append(weakref.ref(self))
+            image_refs.append(weakref.ref(self.unit_image))
+
+        def final_export_frame(self):
+            settled.append(self.canvas.width)
+            return Image.new("RGBA", (self.canvas.width, self.canvas.height), "#203040")
+
+    monkeypatch.setattr(video, "_SlideAnimator", Animator)
+    specs = [workers._CanvasSpec.capture(Canvas(8 + index, 8)) for index in range(5)]
+    renderer = workers._FrameRenderer(specs, [(None, 0.5, 0.5, 1.0)] * 5, (8, 8), (0, 0, 0), False)
+    renderer._prepare(0)
+    first_canvas = renderer.canvas
+    assert built == [8]
+    renderer._prepare(1)
+    assert renderer.previous is first_canvas
+    assert built == [8, 9]
+    assert settled == [8]
+    second_canvas = renderer.canvas
+    renderer._prepare(4)
+    assert renderer.previous is not second_canvas
+    assert renderer.previous is not None and renderer.previous.width == 11
+    assert renderer.canvas is not None and renderer.canvas.width == 12
+    assert built == [8, 9, 11, 12]
+    assert settled == [8, 11]
+    renderer.close()
+    gc.collect()
+    assert all(reference() is None for reference in animator_refs)
+    assert all(reference() is None for reference in image_refs)
+
+
+@pytest.mark.parametrize("failure", ["outgoing_final", "incoming_build", "incoming_prepare"])
+def test_adjacent_reuse_failure_closes_reused_and_new_decoders(monkeypatch, failure):
+    opened = []
+    closed = []
+    built = []
+    original_build = workers._CanvasSpec.build
+
+    class Decoder:
+        def __init__(self, width):
+            self.width = width
+
+        def close(self):
+            closed.append(self.width)
+
+    class Animator:
+        def __init__(self, canvas, cache, **kwargs):
+            self.canvas = canvas
+            opened.append(canvas)
+            canvas._ctx.video_decoder_cache["test"] = Decoder(canvas.width)
+            if canvas.width == 9 and failure == "incoming_prepare":
+                raise RenderingError("reused preparation failed")
+
+        def final_export_frame(self):
+            if failure == "outgoing_final":
+                raise RenderingError("reused preparation failed")
+            return Image.new("RGBA", (self.canvas.width, self.canvas.height), "#203040")
+
+    def build(spec):
+        built.append(spec.width)
+        if spec.width == 9 and failure == "incoming_build":
+            raise RenderingError("reused preparation failed")
+        return original_build(spec)
+
+    monkeypatch.setattr(video, "_SlideAnimator", Animator)
+    monkeypatch.setattr(workers._CanvasSpec, "build", build)
+    specs = [workers._CanvasSpec.capture(Canvas(8 + index, 8)) for index in range(2)]
+    renderer = workers._FrameRenderer(specs, [(None, 0.5, 0.5, 1.0)] * 2, (8, 8), (0, 0, 0), False)
+    renderer._prepare(0)
+    with pytest.raises(RenderingError, match="reused preparation failed"):
+        renderer._prepare(1)
+    assert built == ([8] if failure == "outgoing_final" else [8, 9])
+    assert closed == ([8, 9] if failure == "incoming_prepare" else [8])
+    assert all(not canvas._ctx.video_decoder_cache for canvas in opened)
+    assert renderer.canvas is renderer.previous is renderer.animator is None
+    assert renderer.previous_final is None
+    assert renderer.index == -1
+    renderer.close()
+    assert closed == ([8, 9] if failure == "incoming_prepare" else [8])
 
 
 @pytest.mark.parametrize("entrypoint", ["file", "bytes"])
