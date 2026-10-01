@@ -7,6 +7,7 @@ from quickthumb import (
     Background,
     BarChartSpec,
     Canvas,
+    GroupLayer,
     KeyframeSpec,
     LayerClip,
     LinearGradient,
@@ -324,7 +325,14 @@ def test_inherited_rotation_disables_near_alignment():
 
 def test_unsupported_combination_stays_guarded_and_failure_cleans_context(monkeypatch):
     canvas = rectangle_scene()
-    canvas.layers[-1].clip = LayerClip(position=(0, 0), width=4, height=4)
+    layers = canvas.layers
+    layers[-1] = GroupLayer(
+        type="group",
+        parent="root",
+        children=[canvas.layers[-1].model_copy(update={"parent": None, "position": (0, 0)})],
+        clip=LayerClip(position=(0, 0), width=4, height=4),
+    )
+    canvas.layers = layers
     closed = []
     monkeypatch.setattr(canvas._ctx, "close_video_decoders", lambda: closed.append(True))
     with pytest.raises(RenderingError) as error:
