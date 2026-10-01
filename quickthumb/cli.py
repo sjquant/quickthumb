@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import re
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
 from pathlib import Path
 from typing import Annotated, Protocol, TypeAlias, cast
 
@@ -33,6 +33,8 @@ from quickthumb.errors import (
     QuickthumbError,
     RenderingError,
 )
+from quickthumb.inspection import inspect_document
+from quickthumb.models import DocumentInspection, ExportPolicy, LayerInspection
 from quickthumb.schema import canvas_json_schema, document_json_schema
 
 _VALID_FORMATS = {"PNG", "JPEG", "WEBP"}
@@ -239,6 +241,100 @@ def schema(
         typer.echo(str(e), err=True)
         raise typer.Exit(1) from e
     typer.echo(str(output))
+
+
+def _format_inspection_layers(layers: list[LayerInspection], indent: str = "  ") -> Iterator[str]:
+    for layer in layers:
+        box = layer.bbox
+        bounds = (
+            "no measured bounds" if box is None else f"({box.x}, {box.y}) {box.width}x{box.height}"
+        )
+        visibility = "visible" if layer.visible else "hidden"
+        yield f"{indent}{layer.id}: {layer.type}, {visibility}, {bounds}"
+        yield from _format_inspection_layers(layer.children, indent + "  ")
+
+
+def _print_inspection(report: DocumentInspection) -> None:
+    typer.echo(
+        f"{report.kind}: {report.width}x{report.height}, {len(report.pages)} page(s) "
+        f"(inspection v{report.version})"
+    )
+    typer.echo(
+        f"Motion: {report.motion.duration:g}s at {report.motion.fps:g} fps "
+        "(motion inspection, not encoded playback duration)"
+    )
+    for index, page in enumerate(report.pages):
+        typer.echo(
+            f"Page {index}: {page.width}x{page.height}, {len(page.layers)} top-level layer(s)"
+        )
+        for line in _format_inspection_layers(page.layers):
+            typer.echo(line)
+        for layer in report.motion.slides[index].layers:
+            if layer.events:
+                typer.echo(
+                    f"  Motion {layer.layer_id}: {layer.duration:g}s, {len(layer.events)} event(s)"
+                )
+    typer.echo(f"Capabilities: {len(report.motion.capabilities)} used feature/target row(s)")
+    for row in report.motion.capabilities:
+        fallback = f", fallback={row.fallback}" if row.fallback else ""
+        typer.echo(f"  {row.target}/{row.feature}: {row.support}{fallback}")
+    for finding in report.motion.diagnostics:
+        typer.echo(f"  {finding.target}/{finding.layer_id or 'document'}: {finding.message}")
+    typer.echo(f"Assets: {len(report.asset_manifest)} observed reference(s)")
+    for asset in report.asset_manifest:
+        typer.echo(f"  {asset.asset_type}: {asset.source} [{asset.status}]")
+        if asset.stale_reason:
+            typer.echo(f"    {asset.stale_reason}")
+    typer.echo(f"Diagnostics: {len(report.diagnostics.findings)} finding(s)")
+    for diagnostic in report.diagnostics.findings:
+        typer.echo("  " + _format_finding(diagnostic))
+
+
+@app.command("inspect")
+def inspect_spec(
+    spec: Annotated[Path, typer.Argument(help="Path to a Canvas or Deck JSON spec")],
+    output_format: Annotated[
+        str, typer.Option("--format", help="Report format: text or json")
+    ] = "text",
+    target: Annotated[
+        str | None,
+        typer.Option(
+            "--target", help="Capability family: raster, html, pptx, or video; default: all"
+        ),
+    ] = None,
+    fps: Annotated[float, typer.Option("--fps", help="Motion inspection sampling rate")] = 30.0,
+    max_samples: Annotated[
+        int, typer.Option("--max-samples", help="Maximum motion property samples (at least 2)")
+    ] = 10_000,
+    reduced_motion: Annotated[
+        bool, typer.Option("--reduced-motion", help="Inspect the reduced-motion policy")
+    ] = False,
+    var: Annotated[
+        list[str] | None, typer.Option("--var", help="Variable substitution as KEY=VALUE")
+    ] = None,
+) -> None:
+    """Inspect layout, motion, capabilities, assets, and diagnostics without exporting.
+
+    JSON is the same DocumentInspection envelope as Python inspect_document().
+    Findings are informational; use lint --fail-on for diagnostic gating.
+    """
+    output_format = _require_output_format(output_format)
+    try:
+        source = _load_canvas(spec, _parse_var_options(var))
+        report = inspect_document(
+            source,
+            target=target,
+            policy=ExportPolicy(reduced_motion=reduced_motion),
+            fps=fps,
+            max_samples=max_samples,
+        )
+    except (QuickthumbError, OSError) as error:
+        raise _fail(error, output_format) from None
+
+    if output_format == "json":
+        typer.echo(report.model_dump_json(indent=2))
+    else:
+        _print_inspection(report)
 
 
 @app.command()
