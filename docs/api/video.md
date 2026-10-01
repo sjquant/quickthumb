@@ -487,19 +487,25 @@ band carries its clipped/masked pixels. These are source boundaries, not masks
 fixed to the output viewport. See
 [`examples/parent_composition.py`](https://github.com/sjquant/quickthumb/blob/main/examples/parent_composition.py).
 
-Top-level participating groups can also carry their own clip, mask or both when
-their complete source layout is static. Static nested groups remain part of that
-one source: the group boundary applies to the laid-out composite once, before
+Top-level participating groups can also carry their own clip, mask or both,
+including groups containing `plain`, `odometer` or `flip` counters. Nested
+uncomposed groups remain part of that one source: the group boundary applies to
+the complete sampled, laid-out composite once, before
 canonical group/ancestor motion. The boundary uses the group's parent-local
 plane, with the same percentage, alignment, alpha and inversion rules as other
 drawables. It does not change the full group body frame or clip separately linked
 children. A group animation still overrides descendant `AnimationSpec` motion.
-Own group composition with intrinsic counter/video content or group stagger is
-unsupported, as is any descendant clip/mask; the uncomposed group adapters retain
-their existing counter and stagger support. See
+Counter slots, static siblings, pivot and canonical reveal cutoffs use the settled layout;
+changing-width counter paint can extend beyond that body and remains visible
+where the boundary allows it, even if the settled source is fully clipped away.
+Each counter keeps its own delay and duration after group/ancestor motion ends.
+Group-own composition with stagger remains unsupported, as does any descendant
+clip/mask. Groups without their own boundary retain existing stagger support. See
 [`examples/parent_group_composition.py`](https://github.com/sjquant/quickthumb/blob/main/examples/parent_group_composition.py),
-which writes GIF, PNG and HTML outputs to a temporary directory by default and
-accepts `--output-dir` to choose another destination.
+and [`examples/parent_group_counters.py`](https://github.com/sjquant/quickthumb/blob/main/examples/parent_group_counters.py).
+Both write GIF, PNG and HTML outputs to a temporary directory by default and
+accept `--output-dir` to choose another destination. Counter-group HTML, SVG,
+PDF and PPTX exports use the whole-scene authored-static fallback described below.
 
 Static parent-linked leaf text and top-level groups can use the existing partial
 raster stagger adapter. Each separable horizontal ink band gets its own clock,
