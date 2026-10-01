@@ -99,3 +99,5 @@ if __name__ == "__main__":
         str(output / "parent_transforms.gif"), animation=GifOptions(fps=24, quality="high")
     )
     scene.render_frame(1).save(output / "parent_transforms.png")
+
+    scene.render(str(output / "parent_transforms.html"))

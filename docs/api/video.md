@@ -467,14 +467,37 @@ values that still need a stable local-source layout adapter. These combinations
 are reported as unsupported and raise rather than dropping part of the motion.
 Keyed Morph involving a parent-linked slide uses a declared fade fallback.
 
-HTML, PPTX, SVG and PDF emit a parent-linked scene as one authored-static PNG
+PPTX, SVG and PDF emit a parent-linked scene as one authored-static PNG
 fragment. This preserves the composed geometry and paint order, including shear,
 but freezes **all** motion on that scene (also unrelated animated layers). Text and
-shapes in that scene are not editable document objects. HTML has no layer timeline
-for the baked scene; HTML/PPTX Morph involving it uses fade. Unlinked scenes retain
-their native/vector export paths. Strict export policies reject these fallbacks
+shapes in that scene are not editable document objects. HTML/PPTX Morph involving
+parent geometry uses fade. Unlinked scenes retain their native/vector export paths. Strict export policies reject these fallbacks
 before opening files; `export()` also reports the static fallback for SVG/PDF even
-though their shared export target is `raster`. Animated HTML is a later adapter.
+though their shared export target is `raster`.
+
+HTML animates eligible hierarchies with six registered numeric affine coefficients
+per drawable source and one shared clock. Sibling images retain scene paint order;
+opacity belongs to each source, never its parent. This is a **sampled approximation**,
+not native transform decomposition: authored stops and interior detail are retained,
+with a nominal 120 Hz grid and rotation-aware refinement to prevent full-turn aliasing.
+There are at most 4097 common stops, 32768 source/sample rows, and 1048576
+graph-node evaluations (including invisible nulls). Between samples,
+curves and composed motion can differ from the canonical raster evaluator.
+
+The bounded HTML adapter requires one automatic, zero-start canonical track spec
+per node, one track per property, geometry/opacity tracks, and static local sources.
+Explicit triggers, delays, composed specs, presets, auto-orientation, unrelated animated layers,
+animated chart/QR sources, videos, nonpositive uniform scale, uniform scale with
+back easing, image viewport zoom and oversized sampling plans use a declared
+whole-scene authored-static fallback. Static top-level groups are atomic sources.
+Stable negative axis scale preserves reflections; ordinary positive uniform
+scale is supported. Zero/sign-crossing axes and back-eased axis tracks use the
+static fallback: floating-point singular matrices cannot guarantee the raster
+adapter's exact collapse flag in every browser.
+`ExportPolicy(unsupported_motion="error")` rejects sampled approximation;
+`static`, `rasterize` and reduced-motion policies emit the authored-static scene.
+The exported animation requires browser support for registered CSS numeric
+properties (`@property`).
 World-layout `inspect()` and `diagnose()` remain guarded; `validate()` checks
 the graph and assets and warns that world-layout checks are unavailable.
 `inspect_motion()` reports parent links and local track samples; those local

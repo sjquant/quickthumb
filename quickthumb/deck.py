@@ -692,6 +692,7 @@ class Deck:
             transitions=self._resolved_transitions(),
             notes=self._slide_notes,
             reduced_motion=bool(policy and policy.reduced_motion),
+            parent_static=bool(policy and policy.unsupported_motion in {"static", "rasterize"}),
         )
 
     def to_pptx(self, *, policy: ExportPolicy | None = None) -> bytes:

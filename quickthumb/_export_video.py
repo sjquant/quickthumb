@@ -1617,6 +1617,48 @@ class _SlideAnimator:
         matrix = multiply(paint, translate(-node.padding, -node.padding))
         _composite_fragment(frame, image, matrix, motion.blur, render_scale)
 
+    def parent_observations(
+        self, times: tuple[float, ...]
+    ) -> tuple[
+        frozenset[int],
+        dict[int, tuple[bytes, tuple[int, int], tuple[tuple[float, ...], ...]]],
+    ]:
+        """Detach local RGBA sources and affine-opacity rows for a batch of times.
+
+        Observations include every authored parent identity, including invisible
+        clocks. Visible sources contain only bytes, dimensions and numeric rows;
+        no prepared objects or deferred work outlive this complete scene. These
+        source-space observations describe geometry and opacity, not raster
+        effects; adapters validate their supported source/motion subset first.
+        """
+        if self._parent_plan is None:
+            return frozenset(), {}
+        visible = {
+            key: node for key, node in self._parent_plan.nodes.items() if node.image is not None
+        }
+        rows: dict[int, list[tuple[float, ...]]] = {key: [] for key in visible}
+        for time in times:
+            samples = self._sample_parents(time)
+            for key, node in visible.items():
+                paint, _, state, _ = samples[id(node)]
+                matrix = multiply(paint, translate(-node.padding, -node.padding))
+                opacity = (
+                    0.0
+                    if state.hidden
+                    else (
+                        max(0.0, min(1.0, state.canonical.layer.opacity))
+                        * state.canonical.alpha_scale
+                        if state.canonical
+                        else 1.0
+                    )
+                )
+                rows[key].append((*matrix, opacity))
+        sources = {}
+        for key, node in visible.items():
+            assert node.image is not None
+            sources[key] = (node.image.tobytes(), node.image.size, tuple(rows[key]))
+        return frozenset(self._parent_plan.nodes), sources
+
     def final_frame(self) -> Image.Image:
         """The settled frame after every animation has played (cached)."""
         if self._final is None:
