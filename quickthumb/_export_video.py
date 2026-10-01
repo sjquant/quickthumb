@@ -1568,6 +1568,9 @@ class _SlideAnimator:
     ):
         node = unit.parent_node
         assert node is not None
+        if unit.target_images:
+            self._composite_parent_targets(unit, frame, time, samples, render_scale)
+            return
         paint, _, state, collapsed = samples[id(node)]
         if state.hidden or collapsed or isinstance(node.layer, NullLayer):
             return
@@ -1618,6 +1621,47 @@ class _SlideAnimator:
             paint, translate(source_offset[0] - node.padding, source_offset[1] - node.padding)
         )
         _composite_fragment(frame, image, matrix, motion.blur, render_scale)
+
+    def _composite_parent_targets(self, unit: _Unit, frame, time, samples, render_scale):
+        """Give each separated leaf its own local transform and visibility."""
+        node = unit.parent_node
+        assert node is not None
+        parent = samples[id(node.parent)] if node.parent else None
+        if parent is not None and parent[3]:
+            return
+        ancestor = parent[1] if parent is not None else IDENTITY
+        origin = multiply(ancestor, translate(*node.origin))
+        states = _sample_target_timelines(
+            unit.target_timelines, time, LayerState(anchor=node.layer.anchor)
+        )
+        targets = unit.target_images
+        if unit.color_motion:
+            targets = color_motion_targets(
+                targets, states, lambda color: node.render_source(color=color)
+            )
+        for (image, offset), motion in zip(targets, states, strict=True):
+            if motion is None or motion.scale_x == 0 or motion.scale_y == 0:
+                continue
+            size = image.size
+            image = apply_canonical_alpha(image, motion)
+            if image is None:
+                continue
+            # Target pixels already include authored static rotation. Their
+            # anchor belongs to the crop, not the enclosing aggregate pivot.
+            matrix = multiply(origin, translate(offset[0] - node.padding, offset[1] - node.padding))
+            matrix = multiply(
+                matrix,
+                affine_state(
+                    motion.with_values(scale=motion.scale if motion.scale > 0 else 1), size
+                ),
+            )
+            # Band crops are tight. Give bicubic interpolation transparent
+            # support beyond their edges without changing the target anchor.
+            padded = Image.new("RGBA", (image.width + 4, image.height + 4))
+            padded.paste(image, (2, 2))
+            image = padded
+            matrix = multiply(matrix, translate(-2, -2))
+            _composite_fragment(frame, image, matrix, motion.blur, render_scale)
 
     def parent_observations(
         self, times: tuple[float, ...]
@@ -1892,11 +1936,12 @@ def _build_units(
                     target_count = group_target_counts.get(id(specs[0]), 1)
             target_timelines = resolve_staggered_timelines(timeline, target_count)
             if target_count > 1:
-                reference, reference_pos = (
-                    _render_unit_image(canvas, layers, color="#FFFFFF")
-                    if color_motion
-                    else (image, pos)
-                )
+                if color_motion and parent_node is not None:
+                    reference, reference_pos = parent_node.render_source(reference=True), (0, 0)
+                elif color_motion:
+                    reference, reference_pos = _render_unit_image(canvas, layers, color="#FFFFFF")
+                else:
+                    reference, reference_pos = image, pos
                 bands = split_into_bands(reference, target_count) if reference is not None else None
                 if bands is not None:
                     target_images = tuple(
