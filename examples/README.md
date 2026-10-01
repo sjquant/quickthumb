@@ -76,3 +76,27 @@ clips (their sources are listed in a manifest in `assets/video`). It shows:
 
 Outputs `ordinary_moments.mp4`, `ordinary_moments.webm`, and a short
 `ordinary_moments_preview.gif`. All three need `ffmpeg`.
+
+### `motion_paths.py`
+
+Output: `output/motion_paths.gif`, `output/motion_paths.png`, and
+`output/motion_paths.html`
+
+Builds a four-second infographic with an arrow moving from collection through
+refinement to delivery:
+
+- Two cubic Bézier segments authored with relative `in_tangent` and
+  `out_tangent` handles on `PositionKeyframeSpec`
+- `easing="linear"` for approximately constant arc-distance speed within each
+  keyframe interval, with `auto_orient=True` following the tangent
+- Position values remain offsets from the arrow's authored position
+- Animated shape colors in the GIF and sampled PNG, using `ColorTrack`
+- A separate geometry-only HTML scene that animates with bounded sampled
+  transform stops; color stays fixed because HTML color tracks cause a static
+  fallback for the whole animation
+- Static route dots drawn from the same control points as the moving arrow
+- A bundled font and no network or FFmpeg requirement
+
+Use it when you want a directional marker to follow a curved route. Edit
+`path_keyframes()` to reshape the route, or `build_scene(animate_color=False)`
+to keep the animation compatible with the approximate HTML path mapping.

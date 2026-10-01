@@ -45,6 +45,7 @@ class Diagnostic(quickthumbModel):
         "near-alignment",
         "layer-hidden",
         "edge-crowding",
+        "motion-path-unused-handle",
     ]
     severity: Literal["warning", "error"]
     layer_index: int
@@ -105,6 +106,12 @@ class MotionKeyframeInspection(quickthumbModel):
 
     time: float
     value: Any
+    in_tangent: tuple[float, float] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    out_tangent: tuple[float, float] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     easing: MotionEasing | None = Field(default=None, exclude_if=lambda value: value is None)
     hold: bool = Field(default=False, exclude_if=lambda value: value is False)
 
@@ -114,6 +121,7 @@ class MotionTrackInspection(quickthumbModel):
 
     type: str
     keyframes: list[MotionKeyframeInspection]
+    auto_orient: bool = Field(default=False, exclude_if=lambda value: not value)
 
 
 class MotionEventInspection(quickthumbModel):

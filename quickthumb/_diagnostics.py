@@ -53,12 +53,14 @@ from quickthumb.errors import ValidationError
 if TYPE_CHECKING:
     from quickthumb.canvas import Canvas
 from quickthumb.models import (
+    AnimationSpec,
     Background,
     BackgroundLayer,
     Diagnostic,
     DiagnosticBBox,
     GroupLayer,
     ImageLayer,
+    PositionTrack,
     ShapeLayer,
     SvgLayer,
     TextLayer,
@@ -142,6 +144,7 @@ class DiagnosticsEngine:
         measurements = measure_layers(self._canvas)
         running = self._canvas._create_canvas()
         for measured in measurements:
+            diagnostics.extend(self._diagnose_motion_paths(measured))
             if measured.visible:
                 layer = measured.raw_layer
                 if isinstance(layer, TextLayer):
@@ -173,6 +176,50 @@ class DiagnosticsEngine:
         )
 
         return diagnostics
+
+    def _diagnose_motion_paths(self, measured: LayerMeasurement) -> list[Diagnostic]:
+        """Point out endpoint handles that cannot participate in any segment."""
+        findings = []
+        animation = getattr(measured.raw_layer, "animation", None)
+        items = animation if isinstance(animation, list) else [animation]
+        for animation_index, item in enumerate(items):
+            if not isinstance(item, AnimationSpec):
+                continue
+            for track_index, track in enumerate(item.tracks or ()):
+                if not isinstance(track, PositionTrack):
+                    continue
+                unused = [
+                    name
+                    for name, key in (
+                        ("in_tangent", track.keyframes[0]),
+                        ("out_tangent", track.keyframes[-1]),
+                    )
+                    if getattr(key, name, None) is not None
+                ]
+                if unused:
+                    findings.append(
+                        Diagnostic(
+                            code="motion-path-unused-handle",
+                            severity="warning",
+                            layer_index=measured.index,
+                            message=(
+                                "The first incoming and last outgoing path handles "
+                                "have no adjacent segment"
+                            ),
+                            measured={
+                                "animation_index": animation_index,
+                                "track_index": track_index,
+                                "unused_handles": unused,
+                            },
+                            suggestion=(
+                                "Remove the unused endpoint handles or add an adjacent keyframe"
+                            ),
+                            **diagnostic_context(measured),
+                        )
+                    )
+        for child in measured.children:
+            findings.extend(self._diagnose_motion_paths(child))
+        return findings
 
     def _diagnose_caption_reading_time(
         self, measured: LayerMeasurement, index: int, caption: VideoCaption, layer: VideoLayer

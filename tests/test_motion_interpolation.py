@@ -4,9 +4,11 @@ from typing import Any, cast
 import pytest
 from quickthumb import (
     AnimationSpec,
+    Canvas,
     ColorTrack,
     CubicBezierEasing,
     KeyframeSpec,
+    PositionTrack,
     ScaleTrack,
     TimingSpec,
 )
@@ -246,6 +248,26 @@ class TestCustomEasingAndKeyframeTiming:
         # then: the curve is symmetric and survives the round trip
         assert compile_timeline(restored).sample(0.5).scale == pytest.approx(0.5)
         assert compile_timeline(restored).sample(0.25).scale < 0.25
+
+        # A custom position clock must also reach raster sampling without hash errors.
+        canvas = Canvas(60, 40).shape(
+            "rectangle",
+            (5, 5),
+            10,
+            10,
+            "#FFFFFF",
+            animation=AnimationSpec.timeline(
+                PositionTrack(
+                    keyframes=[
+                        KeyframeSpec(time=0, value=(0, 0)),
+                        KeyframeSpec(time=1, value=(20, 0)),
+                    ]
+                ),
+                easing=CubicBezierEasing(points=(0.5, 0, 0.5, 1)),
+                timing=TimingSpec(duration=1),
+            ),
+        )
+        assert canvas.render_frame(0.5).getbbox() == (15, 5, 25, 15)
 
     def test_should_ease_each_segment_with_its_own_keyframe_easing(self):
         """A keyframe easing shapes the segment leaving it; others use the default."""
