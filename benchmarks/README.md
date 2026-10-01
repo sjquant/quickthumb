@@ -92,3 +92,22 @@ or codec fidelity; those require their existing export tests. Use `--fps 30`
 
 Baseline results and subsequent speedups belong in the discussion for
 [performance issue #144](https://github.com/sjquant/quickthumb/issues/144).
+
+## Loaded-font reuse (#148)
+
+The font optimization reuses up to 128 resolved faces across canvases in a
+process. Size, normalized variation settings and weight are part of the cache
+key; file identity and modification metadata distinguish replaced fonts. Remote
+font resolution still checks the document's asset policy before consulting the
+loaded-face cache. Existing canvases keep their existing per-canvas reuse
+semantics; a file change is observed when a new font resolution is performed.
+
+Shared faces serialize mask rendering and metrics, including color-font
+foreground-palette changes. Variable axes are configured before sharing a face.
+Fallback resolution, warnings, cloning and export compatibility are covered by
+regressions. No public cache-control API or new dependency is introduced.
+
+Fresh-process benchmark runs deliberately measure cold process caches. Repeated
+exports in a long-lived process can reuse more faces, but those warm timings are
+not interchangeable with the baseline. See the results discussion in #144 for
+same-workload font-load counts, byte-identity checks and measured timing changes.
