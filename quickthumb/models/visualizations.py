@@ -18,6 +18,7 @@ from pydantic import (
 )
 
 from .common import *  # noqa: F401,F403
+from .common import _AnimatableLayerModel
 from .motion import AnimationInput
 
 
@@ -46,7 +47,7 @@ class ChartData(quickthumbModel):
         return normalized
 
 
-class VisualizationLayerBase(LayerIdentityModel):
+class VisualizationLayerBase(_AnimatableLayerModel):
     """Common positioning and composition contract for visualization layers."""
 
     position: Position = (0, 0)

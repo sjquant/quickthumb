@@ -67,6 +67,7 @@ from PIL import Image, ImageChops, ImageColor, ImageDraw
 
 from quickthumb._composition import has_layer_composition
 from quickthumb._export_base import (
+    _extended_geometry,
     apply_canonical_alpha,
     apply_canonical_geometry,
     composite_motion_targets,
@@ -104,6 +105,7 @@ from quickthumb.motion import (
     LayerState,
     Timeline,
     _geometry_in_motion,
+    _has_transform_extensions,
     _sample_target_timelines,
     compile_timeline,
     easing_value,
@@ -1138,7 +1140,11 @@ def _composite_frame(
         if unit.target_images and state.canonical is not None:
             # Each staggered target carries its own state, so they arrive one
             # after another instead of sharing one averaged reveal.
-            target_states = _sample_target_timelines(unit.target_timelines, time)
+            target_states = _sample_target_timelines(
+                unit.target_timelines,
+                time,
+                LayerState(anchor=getattr(unit.layers[0], "anchor", (0.5, 0.5))),
+            )
             composite_motion_targets(
                 frame,
                 unit.target_images,
@@ -1370,6 +1376,9 @@ def _build_units(
     for layer in rest:
         animation = None if reduced_motion else getattr(layer, "animation", None)
         key = id(animation) if animation is not None else None
+        if _has_transform_extensions(layer):
+            # Independent layers must keep independent pivots even when sharing a spec.
+            key = (key, id(layer))
         if groups and groups[-1][0] == key:
             groups[-1][1].append(layer)
         else:
@@ -1529,6 +1538,10 @@ def _has_animated_descendant_in_composed_group(layer: RenderableLayer) -> bool:
     """Return whether a clipped or masked group contains an independently animated child."""
     if not isinstance(layer, GroupLayer):
         return False
+    if _has_transform_extensions(layer):
+        # This retained parent supplies the only canonical transform; descendant
+        # specs are overridden before their source pixels are rendered.
+        return False
     if (
         layer.animation is None
         and has_layer_composition(layer)
@@ -1624,9 +1637,17 @@ def _canonical_layer_duration(layer: RenderableLayer) -> float:
 
 
 def _component_animation_duration(
-    layer: RenderableLayer, probe_cache: dict[str, VideoInfo]
+    layer: RenderableLayer, probe_cache: dict[str, VideoInfo], *, include_group: bool = False
 ) -> float:
-    """Return the settled duration of a canonical chart/QR motion preset."""
+    """Return intrinsic dynamic-source duration, including retained transform groups."""
+    if isinstance(layer, GroupLayer) and (include_group or _has_transform_extensions(layer)):
+        return max(
+            (
+                _component_animation_duration(child, probe_cache, include_group=True)
+                for child in layer.children
+            ),
+            default=0.0,
+        )
     if isinstance(layer, VideoLayer):
         info = probe_cache.get(layer.source)
         if info is None:
@@ -1636,6 +1657,10 @@ def _component_animation_duration(
     value = getattr(layer, "value", None)
     if isinstance(value, AnimatedTextValue):
         return value.delay + value.duration
+    if include_group:
+        # A retained animated group overrides descendant AnimationSpec values;
+        # counters above remain intrinsic source animation.
+        return 0.0
     if isinstance(layer, ImageLayer):
         # An image layer reads scale as a viewport zoom and pans inside its own
         # frame, so it has to be re-rendered per frame rather than transformed
@@ -1761,7 +1786,10 @@ def _canonical_state(unit: _Unit, time: float):
     if timeline is None:
         return _SHOWN
     timelines = unit.target_timelines or (timeline,)
-    states = [timeline.sample(time, LayerState()) for timeline in timelines]
+    base = LayerState(
+        anchor=getattr(unit.layers[0], "anchor", (0.5, 0.5)) if unit.layers else (0.5, 0.5)
+    )
+    states = [timeline.sample(time, base) for timeline in timelines]
     event = timeline.events[0] if timeline.events else None
     alpha_scale = 1.0
     clip_scale = 1.0
@@ -1820,7 +1848,7 @@ def _canonical_render(
     output = image
     opacity = min(1.0, max(0.0, state.opacity)) * alpha_scale
     progress = min(clip_scale, state.clip_progress)
-    if subpixel or render_scale != 1:
+    if subpixel or render_scale != 1 or _extended_geometry(state):
         output = apply_canonical_alpha(
             output, state.with_values(opacity=opacity, clip_progress=progress)
         )

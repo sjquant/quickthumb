@@ -645,6 +645,7 @@ class Canvas:
         *,
         id: str | None = None,
         motion_key: str | None = None,
+        anchor: tuple[float, float] = (0.5, 0.5),
     ) -> Self:
         if content is None:
             raise ValidationError("content is required")
@@ -680,6 +681,7 @@ class Canvas:
             animation=animation,
             id=id,
             motion_key=motion_key,
+            anchor=anchor,
         )
         self._append_layer(layer)
         return self
@@ -728,6 +730,7 @@ class Canvas:
         *,
         id: str | None = None,
         motion_key: str | None = None,
+        anchor: tuple[float, float] = (0.5, 0.5),
     ) -> Self:
         layer = ShapeLayer(
             type="shape",
@@ -750,6 +753,7 @@ class Canvas:
             animation=animation,
             id=id,
             motion_key=motion_key,
+            anchor=anchor,
         )
         self._append_layer(layer)
         return self
@@ -776,6 +780,7 @@ class Canvas:
         *,
         id: str | None = None,
         motion_key: str | None = None,
+        anchor: tuple[float, float] = (0.5, 0.5),
     ) -> Self:
         """Add an image overlay layer to the canvas.
 
@@ -819,6 +824,7 @@ class Canvas:
             animation=animation,
             id=id,
             motion_key=motion_key,
+            anchor=anchor,
         )
         self._append_layer(layer)
         return self
@@ -849,6 +855,7 @@ class Canvas:
         *,
         id: str | None = None,
         motion_key: str | None = None,
+        anchor: tuple[float, float] = (0.5, 0.5),
     ) -> Self:
         """Add a constrained video clip layer for GIF, MP4, and WebM export."""
         layer = VideoLayer(
@@ -876,6 +883,7 @@ class Canvas:
             animation=animation,
             id=id,
             motion_key=motion_key,
+            anchor=anchor,
         )
         self._append_layer(layer)
         return self
@@ -897,6 +905,7 @@ class Canvas:
         *,
         id: str | None = None,
         motion_key: str | None = None,
+        anchor: tuple[float, float] = (0.5, 0.5),
     ) -> Self:
         """Add an SVG overlay layer, rasterized at render time (requires quickthumb[svg]).
 
@@ -929,6 +938,7 @@ class Canvas:
             animation=animation,
             id=id,
             motion_key=motion_key,
+            anchor=anchor,
         )
         self._append_layer(layer)
         return self
@@ -947,6 +957,7 @@ class Canvas:
         *,
         id: str | None = None,
         motion_key: str | None = None,
+        anchor: tuple[float, float] = (0.5, 0.5),
     ) -> Self:
         """Add a chart layer using a validated bar or line specification."""
         layer = ChartLayer(
@@ -961,6 +972,7 @@ class Canvas:
             spec=spec,
             id=id,
             motion_key=motion_key,
+            anchor=anchor,
         )
         self._append_layer(layer)
         return self
@@ -982,6 +994,7 @@ class Canvas:
         *,
         id: str | None = None,
         motion_key: str | None = None,
+        anchor: tuple[float, float] = (0.5, 0.5),
     ) -> Self:
         """Add a square QR code layer."""
         layer = QRCodeLayer(
@@ -999,6 +1012,7 @@ class Canvas:
             mask=cast(Any, mask),
             id=id,
             motion_key=motion_key,
+            anchor=anchor,
         )
         self._append_layer(layer)
         return self
@@ -1020,6 +1034,7 @@ class Canvas:
         *,
         id: str | None = None,
         motion_key: str | None = None,
+        anchor: tuple[float, float] = (0.5, 0.5),
     ) -> Self:
         """Add an auto-layout group that stacks child layers along a row or column.
 
@@ -1053,6 +1068,7 @@ class Canvas:
             children=children,
             id=id,
             motion_key=motion_key,
+            anchor=anchor,
         )
         self._append_layer(layer)
         return self
@@ -1838,6 +1854,7 @@ class Canvas:
             split_into_bands,
         )
         from quickthumb.motion import (
+            LayerState,
             _canonical_target_timelines,
             _geometry_in_motion,
             _sample_target_timelines,
@@ -1848,7 +1865,9 @@ class Canvas:
         if timelines is None:
             return False
         assert time is not None
-        states = _sample_target_timelines(timelines, time)
+        states = _sample_target_timelines(
+            timelines, time, LayerState(anchor=getattr(layer, "anchor", (0.5, 0.5)))
+        )
         fragments = split_into_bands(surface, count)
         if fragments is None:
             return False
@@ -1873,50 +1892,23 @@ class Canvas:
         pass transforms; the exporters render layers untimed and apply the same
         geometry once per animation unit.
         """
-        from quickthumb._export_base import (
-            apply_canonical_alpha,
-            apply_canonical_geometry,
-        )
-        from quickthumb.motion import _canonical_timeline, _geometry_in_motion
+        from quickthumb._export_base import composite_canonical_layer
+        from quickthumb.motion import LayerState, _canonical_timeline, _geometry_in_motion
 
         timeline = _canonical_timeline(layer) if time is not None else None
         if timeline is None:
             self._render_layer(image, layer, time)
             return
         assert time is not None
-        state = timeline.sample(time)
+        state = timeline.sample(time, LayerState(anchor=getattr(layer, "anchor", (0.5, 0.5))))
         surface = Image.new("RGBA", image.size, (0, 0, 0, 0))
         self._render_layer(surface, layer, time)
         if self._render_staggered_targets(image, surface, layer, time):
             return
-        bounds = surface.getbbox()
-        if bounds is None:
-            return
         moving = _geometry_in_motion(
             timeline, time, include_scale=not isinstance(layer, ImageLayer), state=state
         )
-        fragment = surface.crop(bounds)
-        # Charts and QR codes already reveal themselves from this track.
-        clip = 1.0 if isinstance(layer, (ChartLayer, QRCodeLayer)) else state.clip_progress
-        if moving:
-            # Clip/opacity belong to source pixels, before the padded affine
-            # filter, matching the animation-unit compositor.
-            fragment = apply_canonical_alpha(fragment, state, clip_progress=clip)
-            if fragment is None:
-                return
-        fragment, position = apply_canonical_geometry(
-            fragment,
-            state,
-            (bounds[0], bounds[1]),
-            # Image layers fold scale into their source crop already.
-            include_scale=not isinstance(layer, ImageLayer),
-            subpixel=moving,
-        )
-        if not moving:
-            fragment = apply_canonical_alpha(fragment, state, clip_progress=clip)
-        if fragment is None:
-            return
-        image.alpha_composite(fragment, position)
+        composite_canonical_layer(image, surface, layer, state, subpixel=moving)
 
     def _render_layer(self, image: Image.Image, layer: RenderableLayer, time: float | None = None):
         if has_layer_composition(layer):
