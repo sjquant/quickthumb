@@ -177,11 +177,12 @@ def test_null_rotation_is_finite(rotation):
         NullLayer(type="null", rotation=rotation)
 
 
-@pytest.mark.parametrize("method", ["diagnose"])
-def test_layout_observations_do_not_silently_ignore_parent_links(method):
-    with pytest.raises(RenderingError) as error:
-        getattr(scene(), method)()
-    assert error.value.code == "unsupported_parent_rendering"
+def test_diagnostics_observe_parent_world_bounds():
+    canvas = scene()
+    canvas.layers[0].position = (-100, 6)
+    finding = next(item for item in canvas.diagnose().findings if item.code == "off-canvas")
+    assert finding.bbox.x == -98
+    assert finding.measured["position_space"] == "parent_local"
 
 
 def test_null_layout_inspection_reports_nonrendering_node():
