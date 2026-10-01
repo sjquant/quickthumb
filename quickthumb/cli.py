@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import re
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
 from pathlib import Path
 from typing import Annotated, Protocol, TypeAlias, cast
 
@@ -243,17 +243,15 @@ def schema(
     typer.echo(str(output))
 
 
-def _format_inspection_layers(layers: list[LayerInspection], indent: str = "  ") -> list[str]:
-    lines = []
+def _format_inspection_layers(layers: list[LayerInspection], indent: str = "  ") -> Iterator[str]:
     for layer in layers:
         box = layer.bbox
         bounds = (
             "no measured bounds" if box is None else f"({box.x}, {box.y}) {box.width}x{box.height}"
         )
         visibility = "visible" if layer.visible else "hidden"
-        lines.append(f"{indent}{layer.id}: {layer.type}, {visibility}, {bounds}")
-        lines.extend(_format_inspection_layers(layer.children, indent + "  "))
-    return lines
+        yield f"{indent}{layer.id}: {layer.type}, {visibility}, {bounds}"
+        yield from _format_inspection_layers(layer.children, indent + "  ")
 
 
 def _print_inspection(report: DocumentInspection) -> None:
