@@ -109,6 +109,7 @@ from quickthumb.motion import (
 )
 
 if TYPE_CHECKING:
+    from quickthumb._render_workers import ParallelFrames
     from quickthumb.canvas import Canvas, RenderableLayer
     from quickthumb.transitions import Transition
 
@@ -716,33 +717,24 @@ def _deck_shots(
         reduced_motion=reduced_motion,
     )
     if workers == 1:
-        yield from _ordered_deck_shots(
-            canvases, transitions, fps, slide_duration, matte_rgb, slide_durations, plan
-        )
+        yield from _ordered_deck_shots(canvases, fps, matte_rgb, plan)
         return
     from quickthumb._render_workers import ParallelFrames
 
     with ParallelFrames(canvases, plan.timings, matte_rgb, reduced_motion, workers) as renderer:
-        yield from _ordered_deck_shots(
-            canvases, transitions, fps, slide_duration, matte_rgb, slide_durations, plan, renderer
-        )
+        yield from _ordered_deck_shots(canvases, fps, matte_rgb, plan, renderer)
 
 
 def _ordered_deck_shots(
     canvases: list[Canvas],
-    transitions: list[Transition | None],
     fps: float,
-    slide_duration: float,
     matte_rgb: tuple[int, int, int],
-    slide_durations: list[float | None] | None = None,
-    plan: _DeckPlan | None = None,
-    renderer=None,
+    plan: _DeckPlan,
+    renderer: ParallelFrames | None = None,
 ) -> Iterator[_Shot]:
     """Yield the deck's full frame timeline as variable-duration shots."""
     size = (canvases[0].width, canvases[0].height)
     previous_final = Image.new("RGB", size, matte_rgb)
-    plan = plan or _deck_plan(canvases, transitions, 1.0 / fps, slide_duration, slide_durations)
-
     previous_canvas = None
     for index, (animator, canvas, timing) in enumerate(
         zip(
@@ -814,15 +806,21 @@ def _slide_motion_shots(
     previous_canvas: Canvas | None,
     incoming_canvas: Canvas,
     *,
-    renderer=None,
+    renderer: ParallelFrames | None = None,
     slide_index: int = 0,
 ) -> Iterator[_Shot]:
     """Yield transition and layer-animation shots before the settled hold."""
-    # Whether a morph is safe depends only on the pair of canvases, so decide once.
-    morph_from = _morph_source(transition, previous_canvas, incoming_canvas)
+    samples = _slide_samples(animator, duration_in, animation_end, fps)
+    if renderer is not None:
+        for time, duration, image in renderer.frames(slide_index, samples):
+            yield _Shot(image, duration, animator._has_active_caption(time))
+        return
 
-    def frame(time: float) -> Image.Image:
-        return _slide_frame(
+    # Serial-only planning stays out of the parallel path; each worker owns
+    # its own outgoing canvas and determines whether Morph is safe there.
+    morph_from = _morph_source(transition, previous_canvas, incoming_canvas)
+    for time, duration in samples:
+        image = _slide_frame(
             animator,
             transition,
             duration_in,
@@ -833,14 +831,7 @@ def _slide_motion_shots(
             size,
             matte_rgb,
         )
-
-    samples = _slide_samples(animator, duration_in, animation_end, fps)
-    if renderer is not None:
-        for time, duration, image in renderer.frames(slide_index, samples):
-            yield _Shot(image, duration, animator._has_active_caption(time))
-    else:
-        for time, duration in samples:
-            yield _Shot(frame(time), duration, animator._has_active_caption(time))
+        yield _Shot(image, duration, animator._has_active_caption(time))
 
 
 def _slide_samples(

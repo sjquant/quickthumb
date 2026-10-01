@@ -4,6 +4,7 @@ import hashlib
 import json
 import shutil
 import subprocess
+from typing import cast
 
 import pytest
 from quickthumb import (
@@ -18,6 +19,7 @@ from quickthumb import (
 )
 from quickthumb import _export_video as video
 from quickthumb import transitions as tr
+from quickthumb._render_workers import ParallelFrames
 from quickthumb.errors import ValidationError
 
 HAS_FFMPEG = shutil.which("ffmpeg") is not None and shutil.which("ffprobe") is not None
@@ -329,3 +331,38 @@ def test_static_deck_mp4_route_does_not_create_parallel_renderer(tmp_path, monke
     )
     Deck(16, 16).slide(Canvas().background(color="#112233")).render(str(tmp_path / "static.mp4"))
     assert calls == [True]
+
+
+def test_parallel_motion_path_skips_parent_serial_morph_planning(monkeypatch):
+    from PIL import Image
+
+    canvas = Canvas(8, 8).background(color="#112233")
+    animator = video._SlideAnimator(canvas, {})
+    frame = Image.new("RGB", (8, 8), (20, 30, 40))
+
+    class Renderer:
+        def frames(self, index, samples):
+            assert index == 3
+            for time, duration in samples:
+                yield time, duration, frame
+
+    monkeypatch.setattr(video, "_morph_source", lambda *args: pytest.fail("serial planning ran"))
+    shots = list(
+        video._slide_motion_shots(
+            animator,
+            None,
+            0.1,
+            0.1,
+            frame,
+            (8, 8),
+            (0, 0, 0),
+            10,
+            None,
+            canvas,
+            renderer=cast(ParallelFrames, Renderer()),
+            slide_index=3,
+        )
+    )
+    assert len(shots) == 1
+    assert shots[0].frame is frame
+    assert shots[0].duration == 0.1
