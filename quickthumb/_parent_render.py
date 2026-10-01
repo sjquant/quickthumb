@@ -101,6 +101,7 @@ def _animated_descendant(layer) -> bool:
 def parent_rendering_problem(canvas: Canvas) -> str | None:
     """Describe unsupported source/composition boundaries without rendering assets."""
     nodes = participating_layers(canvas)
+    parents = {getattr(layer, "parent", None) for layer in canvas.layers}
     last_backdrop = max(
         (
             index
@@ -124,8 +125,22 @@ def parent_rendering_problem(canvas: Canvas) -> str | None:
         animation = getattr(layer, "animation", None)
         items = animation if isinstance(animation, list) else [animation]
         if any(isinstance(item, AnimationSpec) and item.stagger is not None for item in items):
-            return "Parent-linked stagger has multiple local transforms and is unsupported"
+            layer_id = getattr(layer, "id", None)
+            if layer_id is not None and layer_id in parents:
+                return "A staggered layer cannot be a parent because its targets move separately"
+            if not isinstance(layer, (TextLayer, GroupLayer)) or not _static_stagger_source(layer):
+                return "Parent-linked stagger requires a static text or group source"
     return None
+
+
+def _static_stagger_source(layer) -> bool:
+    # Group motion suppresses descendant AnimationSpec motion, but counters
+    # and videos keep their intrinsic clocks and cannot use cached target crops.
+    return (
+        not isinstance(layer, VideoLayer)
+        and getattr(layer, "value", None) is None
+        and all(_static_stagger_source(child) for child in getattr(layer, "children", ()))
+    )
 
 
 def validate_parent_raster(canvas: Canvas) -> None:
@@ -343,6 +358,11 @@ class ParentNode:
         if reference and isinstance(source, VideoLayer):
             time = source.start
         previous = canvas._ctx.motion_time
+        measurements = canvas._ctx.measure_cache
+        if color is not None:
+            # Recolored group copies live for this paint only. Do not retain
+            # every frame's temporary children in the shared layout cache.
+            canvas._ctx.measure_cache = {}
         canvas._ctx.motion_time = time
         try:
             if isinstance(source, GroupLayer):
@@ -351,6 +371,7 @@ class ParentNode:
                 canvas._render_layer(surface, source, time)
         finally:
             canvas._ctx.motion_time = previous
+            canvas._ctx.measure_cache = measurements
         return surface
 
     def render_sample(self, time: float, color: str | None):
