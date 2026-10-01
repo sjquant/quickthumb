@@ -1,0 +1,162 @@
+name: Release gate
+
+on:
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    uses: ./.github/workflows/quality-test.yml
+
+  security:
+    uses: ./.github/workflows/security.yml
+    permissions:
+      contents: read
+      security-events: write
+
+  install:
+    name: Locked wheel / ${{ matrix.os }} / Python ${{ matrix.python }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2022, macos-14]
+        python: ["3.10", "3.11", "3.12"]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          enable-cache: false
+          python-version: ${{ matrix.python }}
+      - name: Build source and wheel distributions
+        run: uv build --no-sources
+      - name: Install wheel in a clean locked core environment
+        run: |
+          uv export --locked --no-dev --no-emit-project --no-editable --output-file core-requirements.txt
+          uv venv "$RUNNER_TEMP/release-env"
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            python="$RUNNER_TEMP/release-env/Scripts/python.exe"
+          else
+            python="$RUNNER_TEMP/release-env/bin/python"
+          fi
+          uv pip sync --python "$python" core-requirements.txt
+          uv pip install --python "$python" --no-deps dist/*.whl
+          echo "RELEASE_PYTHON=$python" >> "$GITHUB_ENV"
+      - name: Exercise the installed wheel outside the checkout
+        run: |
+          script="$GITHUB_WORKSPACE/scripts/release_smoke.py"
+          cd "$RUNNER_TEMP"
+          "$RELEASE_PYTHON" "$script" --profile core --output "$RUNNER_TEMP/core-smoke"
+      - name: Core smoke report
+        if: always()
+        run: |
+          if [[ -f "$RUNNER_TEMP/core-smoke/report.json" ]]; then
+            cat "$RUNNER_TEMP/core-smoke/report.json" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  full:
+    name: Full exporters / Ubuntu / Python ${{ matrix.python }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          enable-cache: false
+          python-version: ${{ matrix.python }}
+      - name: Install native rendering tools
+        run: sudo apt-get update && sudo apt-get install --yes ffmpeg libcairo2
+      - name: Build wheel from source distribution
+        run: |
+          uv build --sdist --no-sources
+          mkdir "$RUNNER_TEMP/source"
+          tar -xzf dist/*.tar.gz -C "$RUNNER_TEMP/source" --strip-components=1
+          uv build --wheel --no-sources "$RUNNER_TEMP/source" --out-dir dist
+      - name: Check distribution metadata
+        run: uvx --from twine==7.0.0 twine check --strict dist/*
+      - name: Install full profile with the same lockfile
+        run: |
+          uv export --locked --no-dev --no-emit-project --no-editable \
+            --extra cli --extra svg --extra pdf --extra pptx --output-file full-requirements.txt
+          uv venv "$RUNNER_TEMP/release-env"
+          uv pip sync --python "$RUNNER_TEMP/release-env/bin/python" full-requirements.txt
+          uv pip install --python "$RUNNER_TEMP/release-env/bin/python" --no-deps dist/*.whl
+      - name: Exercise installed sdist-built wheel outside the checkout
+        run: |
+          script="$GITHUB_WORKSPACE/scripts/release_smoke.py"
+          cd "$RUNNER_TEMP"
+          "$RUNNER_TEMP/release-env/bin/python" "$script" --profile full --output "$RUNNER_TEMP/full-smoke"
+      - name: Full smoke report
+        if: always()
+        run: |
+          if [[ -f "$RUNNER_TEMP/full-smoke/report.json" ]]; then
+            cat "$RUNNER_TEMP/full-smoke/report.json" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  docs:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          enable-cache: false
+          python-version: "3.10"
+      - run: uv sync --locked --group docs
+      - run: uv run --locked --group docs mkdocs build --strict
+
+  result:
+    name: Release validation result
+    if: always()
+    needs: [quality, security, install, full, docs]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          enable-cache: false
+          python-version: "3.10"
+      - name: Require every verification job to succeed
+        env:
+          JOB_RESULTS: ${{ toJSON(needs) }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+
+          results = json.loads(os.environ["JOB_RESULTS"])
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as summary:
+              summary.write("## Release verification\n\n")
+              summary.write(f"Commit: {os.environ['GITHUB_SHA']}\n\n")
+              for name, job in results.items():
+                  summary.write(f"- {name}: {job['result']}\n")
+          failures = [name for name, job in results.items() if job["result"] != "success"]
+          if failures:
+              raise SystemExit("Release verification failed or skipped: " + ", ".join(failures))
+          PY
+      - name: Record v1 decision and prevent premature stable publication
+        if: always()
+        run: |
+          python scripts/release_readiness.py release-readiness.json > readiness-result.json
+          cat readiness-result.json >> "$GITHUB_STEP_SUMMARY"
+          version="$(uv version --short)"
+          if [[ "$version" != 0.* ]]; then
+            python scripts/release_readiness.py release-readiness.json --require-ready
+          fi

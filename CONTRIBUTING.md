@@ -1,5 +1,12 @@
 # Contributing
 
+## Release verification
+
+The [release gate](docs/releasing.md) runs the quality, regression, security,
+documentation and clean-install packaging checks together. Its proposed support
+matrix and explicit v1 decision record distinguish verified smoke coverage from
+unfinished conformance work. The automated publish job requires this gate.
+
 ## Local checks
 
 CI installs exactly what `uv.lock` records. Run the same commands locally
@@ -9,7 +16,7 @@ CI installs exactly what `uv.lock` records. Run the same commands locally
 uv sync --locked --extra cli --extra svg --extra pptx --extra pdf --dev
 uv run --locked ruff format --check .
 uv run --locked ruff check .
-uv run --locked ty check quickthumb tests --output-format concise
+uv run --locked ty check quickthumb tests scripts --output-format concise
 uv run --locked pre-commit run --all-files
 uv run --locked pytest tests/ --ignore=tests/test_rendering.py
 ```
