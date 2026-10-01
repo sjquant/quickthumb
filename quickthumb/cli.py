@@ -523,12 +523,18 @@ def serve(
         bool,
         typer.Option("--open/--no-open", help="Open the slideshow in a browser"),
     ] = True,
+    timeline: Annotated[
+        bool,
+        typer.Option(
+            "--timeline", help="Open the raster timeline scrubber instead of the slideshow"
+        ),
+    ] = False,
     var: Annotated[
         list[str] | None,
         typer.Option("--var", help="Variable substitution for JSON sources as KEY=VALUE"),
     ] = None,
 ) -> None:
-    """Serve HTML slides with live reload and a ?presenter view."""
+    """Serve live-reloading slides, presenter mode, and a /timeline scrubber."""
     from quickthumb._serve import serve_slides
 
     try:
@@ -539,6 +545,7 @@ def serve(
             port=port,
             open_browser=open_browser,
             variables=variables,
+            timeline=timeline,
         )
     except QuickthumbError as error:
         raise _fail(error) from error

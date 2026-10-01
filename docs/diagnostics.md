@@ -269,6 +269,56 @@ are broadcast to audience tabs opened from the same server and restored on
 reload. Audience-only navigation remains local. Add notes in Python with
 `.slide(canvas, notes="...")` or as a `notes` string on a JSON slide.
 
+### Timeline scrubber
+
+Open the raster timeline while authoring Python or JSON documents:
+
+```bash
+quickthumb serve examples/timeline_preview.py --timeline
+quickthumb serve deck.json --timeline --no-open
+```
+
+The timeline is also available at `http://localhost:3030/timeline` alongside
+an ordinary `serve` session. The default audience and presenter views are unchanged.
+Standalone HTML has no source document to sample; use its Python or JSON source
+for the timeline instead.
+
+- Drag the time slider, enter seconds, or click a slide/transition/motion boundary
+- **Proxy** limits the output's longest edge to 640 pixels (1080×1920 becomes
+  360×640), preparing reusable layer imagery and compositing ordinary motion on
+  reduced surfaces. Later mixed-size slides fit that same output rectangle
+- **Full** shows native first-slide dimensions, using the same standard-quality
+  canonical timeline sampler as `Canvas.sample(time=...)` / `Deck.sample(time=...)`
+- Source saves reload the timeline, preserving the selected resolution and time
+  in the URL fragment and clamping the time if the new timeline is shorter
+- Only one browser frame request runs at a time; rapid seeks replace pending work
+  with the latest choice. The displayed-frame label continues to identify the
+  old frame until the requested frame is ready. Broken edits show an error and
+  recover after the next save
+
+The preview uses the export defaults: a black opaque matte and three-second
+settled hold unless the Deck supplies its own slide durations or advance timing.
+Transitions, color tracks, motion paths, and other supported raster effects use
+canonical timing, independently of HTML's capability fallbacks. No authored
+models, JSON schema fields, inspection results, or export capabilities change.
+Full frames match canonical **standard-quality** pixels at the requested instant;
+GIF palette quantization, lossy video encoding, export frame grids, odd-dimension
+video cropping, and optional high-quality/reduced-motion export settings can
+produce different encoded playback pixels. Audio is not played.
+
+Proxy pixels are an approximation for motion review. Initial source preparation
+still renders native layer images. Video decoding, changing color/component
+sources, backdrop-dependent layers, and other source rendering can retain native
+costs. Slides with video captions and keyed Morph transitions render natively
+before reduction to preserve their layout. The page reports these latter
+fallbacks; exceptionally complex documents can still be slow. Each source keeps
+at most one proxy plan and one full plan, created lazily and released on reload
+or server shutdown; total memory still depends on the document's layers/slides.
+
+As with slideshow serving, Python sources execute local code. Serve trusted files
+and keep the default loopback host unless you intend to expose the preview to
+your network. The server is a local authoring tool, not a production web service.
+
 ### Variable substitution
 
 The JSON-based commands accept `--var` to fill `$KEY` (or `${KEY}`) placeholders before parsing:

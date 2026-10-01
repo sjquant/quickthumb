@@ -390,3 +390,13 @@ clipped/masked group descendants still apply to their respective exporters.
 
 See [the runnable color example](https://github.com/sjquant/quickthumb/blob/main/examples/color_tracks.py)
 for text, a moving pill, and an initially transparent caption.
+
+## Live timeline preview
+
+Use `quickthumb serve scene.py --timeline` to scrub the canonical raster timeline
+without encoding a video. The `/timeline` view offers a reduced 640-pixel proxy,
+full-resolution standard-quality frames, segment boundaries, and live reload.
+See [Timeline scrubber](../diagnostics.md#timeline-scrubber) for timing defaults,
+proxy approximations, and the difference between canonical samples and encoded
+playback. The [portrait storyboard example](https://github.com/sjquant/quickthumb/blob/main/examples/timeline_preview.py)
+includes a curved color-changing path and a slide transition.

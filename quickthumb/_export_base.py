@@ -372,7 +372,12 @@ def composite_color_targets(image, layer, time, count, render_color) -> bool:
 
 
 def composite_motion_targets(
-    image: Image.Image, fragments, states, *, subpixel: tuple[bool, ...] = (), render_scale: int = 1
+    image: Image.Image,
+    fragments,
+    states,
+    *,
+    subpixel: tuple[bool, ...] = (),
+    render_scale: float = 1,
 ) -> None:
     """Place each staggered target using its own sampled state.
 
@@ -507,7 +512,7 @@ def apply_canonical_geometry(
     *,
     include_scale: bool = True,
     subpixel: bool = False,
-    render_scale: int = 1,
+    render_scale: float = 1,
 ) -> tuple[Image.Image, tuple[int, int]]:
     """Scale and rotate about the normalized rendered-bounds anchor, then move.
 
@@ -520,7 +525,8 @@ def apply_canonical_geometry(
     Callers keep it off at settled endpoints and holds so their original
     resize/rotate filters and integer placement stay pixel-identical.
     `render_scale=2` instead places the native source in a doubled composition
-    space; the caller downsamples the completed frame once.
+    space; the caller downsamples the completed frame once. A scale below one
+    instead composes a reduced authoring preview without changing source layout.
 
     `include_scale` is off for image layers, whose renderer already folds
     `scale` into the source crop so the frame stays put while its content
@@ -593,7 +599,7 @@ def _affine_geometry(
     offset_x: float,
     offset_y: float,
     *,
-    render_scale: int = 1,
+    render_scale: float = 1,
     scale_y: float | None = None,
     anchor: tuple[float, float] = (0.5, 0.5),
 ) -> tuple[Image.Image, tuple[int, int]]:
