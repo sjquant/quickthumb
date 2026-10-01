@@ -124,8 +124,6 @@ def parent_rendering_problem(canvas: Canvas) -> str | None:
         animation = getattr(layer, "animation", None)
         items = animation if isinstance(animation, list) else [animation]
         if any(isinstance(item, AnimationSpec) and item.stagger is not None for item in items):
-            if isinstance(layer, GroupLayer) and has_layer_composition(layer):
-                return "Parent-linked composed group stagger is unsupported"
             layer_id = getattr(layer, "id", None)
             if layer_id is not None and layer_id in parents:
                 return "A staggered layer cannot be a parent because its targets move separately"
