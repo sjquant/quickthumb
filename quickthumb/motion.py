@@ -1632,11 +1632,11 @@ _CAPABILITIES["html"] = {
     else MotionCapability(feature, "html", "full")
     for feature in _CAPABILITY_FEATURES
 }
-_CAPABILITIES["html"]["parent"] = MotionCapability("parent", "html", "unsupported")
+_CAPABILITIES["html"]["parent"] = MotionCapability("parent", "html", "fallback", "static")
 _CAPABILITIES["html"]["color"] = MotionCapability("color", "html", "unsupported", "static")
 _CAPABILITIES["html"]["motion_path"] = MotionCapability("motion_path", "html", "partial")
 _PPTX_FALLBACKS: dict[CapabilityFeature, tuple[SupportLevel, Fallback | None]] = {
-    "parent": ("unsupported", None),
+    "parent": ("fallback", "static"),
     "position": ("native", None),
     "image_pan": ("fallback", "rasterize"),
     "anchor": ("unsupported", "static"),
@@ -1727,8 +1727,22 @@ def validate_export(
     target: ExportTarget | str,
     policy: ExportPolicy | None = None,
 ) -> list[ExportDiagnostic]:
-    """Validate motion against a target without invoking any exporter."""
-    return _validate_export(source, target, policy)
+    """Validate a concrete export format or motion family without rendering."""
+    concrete_format = str(target).lower()
+    family = {
+        "jpg": "raster",
+        "jpeg": "raster",
+        "webp": "raster",
+        "svg": "raster",
+        "pdf": "raster",
+        "htm": "html",
+    }.get(concrete_format, target)
+    return _validate_export(
+        source,
+        family,
+        policy,
+        parent_document_format="html" if concrete_format == "htm" else concrete_format,
+    )
 
 
 def _validate_export(
@@ -1736,6 +1750,7 @@ def _validate_export(
     target: ExportTarget | str,
     policy: ExportPolicy | None,
     *,
+    parent_document_format: str | None = None,
     uses_authored_transitions: bool = True,
 ) -> list[ExportDiagnostic]:
     normalized = _normalize_target(target)
@@ -1760,6 +1775,8 @@ def _validate_export(
             )
             html_backdrop_ids.update(id(layer) for _, layer in layers[: last + 1])
     parent_problems = {}
+    parent_static_paths: set[str] = set()
+    document_format = parent_document_format or normalized
     for index, canvas in enumerate(getattr(source, "slides", (source,))):
         try:
             cast("Canvas", canvas)._validate_layer_identities()
@@ -1767,16 +1784,53 @@ def _validate_export(
             if hasattr(source, "slides"):
                 error.at(f"/slides/{index}")
             raise
-        if normalized in {"raster", "video"}:
-            from quickthumb._parent_render import parent_rendering_problem
-            from quickthumb._parenting import has_parent_links
+        from quickthumb._parent_render import parent_rendering_problem
+        from quickthumb._parenting import has_parent_links
 
-            if has_parent_links(canvas):
-                problem = parent_rendering_problem(canvas)
-                parent_problems.update((id(item), problem) for item in canvas.layers)
+        if has_parent_links(canvas):
+            problem = parent_rendering_problem(canvas)
+            base = f"/slides/{index}" if hasattr(source, "slides") else ""
+            paths = [base + path for _, path, _ in _iter_export_layer_locations(canvas)]
+            parent_problems.update((path, problem) for path in paths)
+            if document_format in {"html", "pptx", "svg", "pdf"} and problem is None:
+                parent_static_paths.update(paths)
     for layer_id, pointer, layer in _iter_export_layer_locations(source):
+        if pointer in parent_static_paths:
+            features = ["parent"] if getattr(layer, "parent", None) is not None else []
+            animations = getattr(layer, "animation", None)
+            for animation in animations if isinstance(animations, list) else [animations]:
+                if animation is not None:
+                    features.extend(_capability_features_for(animation))
+            if isinstance(getattr(layer, "value", None), AnimatedTextValue):
+                features.append("animated_text_value")
+            if isinstance(layer, VideoLayer):
+                features.append("video_layer")
+            action = resolved_policy.pptx.get(layer_id) if normalized == "pptx" else None
+            if features and (action or resolved_policy.unsupported_motion) in {"error", "native"}:
+                raise _unsupported_motion(
+                    f"Parent-linked {document_format} scenes require "
+                    "authored-static raster fallback",
+                    pointer + ("/parent" if getattr(layer, "parent", None) is not None else ""),
+                    layer_id,
+                )
+            diagnostics.extend(
+                ExportDiagnostic(
+                    layer_id=layer_id,
+                    feature=feature,
+                    target=normalized,
+                    support="fallback",
+                    fallback="static",
+                    message=(
+                        f"Parent-linked {document_format} scene is one "
+                        "authored-static raster image; "
+                        "all layer motion is frozen and document elements are not editable"
+                    ),
+                )
+                for feature in dict.fromkeys(features)
+            )
+            continue
         if getattr(layer, "parent", None) is not None:
-            problem = parent_problems.get(id(layer))
+            problem = parent_problems.get(pointer)
             supported = normalized in {"raster", "video"} and problem is None
             action = resolved_policy.pptx.get(layer_id) if normalized == "pptx" else None
             if not supported and (action or resolved_policy.unsupported_motion) in {
@@ -1955,7 +2009,11 @@ def _validate_export(
                 )
     # A Deck is duck-typed here because deck.py imports this module.
     slides = getattr(source, "slides", None)
-    if uses_authored_transitions and normalized in {"raster", "video"} and slides is not None:
+    if (
+        uses_authored_transitions
+        and slides is not None
+        and parent_document_format not in {"svg", "pdf"}
+    ):
         from quickthumb._parenting import has_parent_links
 
         canvases = tuple(slides)

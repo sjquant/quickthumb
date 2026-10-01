@@ -119,6 +119,7 @@ class PdfExporter:
         # canvas is the single-canvas convenience target; the multi-page paths
         # take their canvases explicitly and leave this None.
         self._canvas = canvas
+        self._parent_fragments: dict[int, RasterFragment] = {}
         self._font_characters: dict[FontKey, set[str]] = {}
         self._font_info: dict[FontKey, FontFaceInfo | None] = {}
         self._prepared_font_names: dict[FontKey, str | None] = {}
@@ -138,17 +139,25 @@ class PdfExporter:
 
     def save_canvases(self, canvases: list[Canvas], path_or_stream) -> None:
         """Write one or more canvases to a multi-page PDF (one page per canvas)."""
-        from quickthumb._parenting import require_parent_rendering
+        from quickthumb._parent_export import static_parent_fragment
+        from quickthumb._parenting import has_parent_links
 
-        for canvas in canvases:
-            require_parent_rendering(canvas)
+        # Prepare all parent pages before opening a destination. Reuse these
+        # fragments only for this export, including font collection and drawing.
         if not canvases:
             raise RenderingError("Cannot export a PDF with no pages.")
-        if hasattr(path_or_stream, "write"):
-            self._build(canvases, path_or_stream)
-        else:
-            with open(path_or_stream, "wb") as f:
-                self._build(canvases, f)
+        self._parent_fragments = {}
+        try:
+            for canvas in canvases:
+                if id(canvas) not in self._parent_fragments and has_parent_links(canvas):
+                    self._parent_fragments[id(canvas)] = static_parent_fragment(canvas)
+            if hasattr(path_or_stream, "write"):
+                self._build(canvases, path_or_stream)
+            else:
+                with open(path_or_stream, "wb") as f:
+                    self._build(canvases, f)
+        finally:
+            self._parent_fragments.clear()
 
     def export_bytes_canvases(self, canvases: list[Canvas]) -> bytes:
         buffer = BytesIO()
@@ -181,6 +190,8 @@ class PdfExporter:
     def _collect_font_texts(self, canvases: list[Canvas]) -> None:
         """Collect text per font face so converted subsets are document-scoped."""
         for canvas in canvases:
+            if id(canvas) in self._parent_fragments:
+                continue
             canvas._ctx.begin_render_pass()
             for layer in flatten_layers(canvas):
                 if not isinstance(layer, TextLayer):
@@ -244,6 +255,11 @@ class PdfExporter:
         # showPage() resets the CTM, so each page re-establishes the flip.
         pdf.translate(0, canvas.height)
         pdf.scale(1, -1)
+
+        if (parent_fragment := self._parent_fragments.get(id(canvas))) is not None:
+            self._draw_fragment(parent_fragment)
+            pdf.showPage()
+            return
 
         prefix, rest = split_backdrop_prefix(flatten_layers(canvas))
         if prefix:

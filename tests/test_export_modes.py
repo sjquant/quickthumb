@@ -1,11 +1,21 @@
 """Effective file execution and declared motion queries have distinct contracts."""
 
+import json
+import shutil
+import subprocess
 from pathlib import Path
 from typing import Any, cast
 from unittest.mock import Mock
 
 import pytest
-from quickthumb import Canvas, Deck, ExportPolicy, GifOptions, Morph, VideoOptions
+from quickthumb import (
+    Canvas,
+    Deck,
+    ExportPolicy,
+    GifOptions,
+    Morph,
+    VideoOptions,
+)
 from quickthumb.errors import RenderingError, ValidationError
 
 
@@ -86,6 +96,50 @@ def test_animated_export_reports_only_transitions_that_execute(tmp_path, monkeyp
         deck.validate_export(
             "mp4", ExportPolicy(unsupported_motion="error", reduced_motion=reduced)
         )
+
+
+@pytest.mark.parametrize("kind", ["pdf", "svg"])
+def test_concrete_static_query_matches_export_diagnostics(tmp_path, kind):
+    canvas = parent_canvas()
+    query = canvas.validate_export(kind.upper())
+    result = canvas.export(tmp_path / f"canvas.{kind}")
+    assert query == result.capability_report
+    assert all(item.target == "raster" and item.fallback == "static" for item in query)
+    path = tmp_path / f"existing.{kind}"
+    path.write_bytes(b"existing")
+    for method in (canvas.render, canvas.export):
+        with pytest.raises(RenderingError, match="authored-static"):
+            method(str(path), policy=ExportPolicy(unsupported_motion="error"))
+        assert path.read_bytes() == b"existing"
+
+
+@pytest.mark.parametrize("kind", ["canvas", "deck"])
+@pytest.mark.parametrize("method", ["render", "export"])
+@pytest.mark.parametrize("extension", ["pdf", "svg", "pptx", "html"])
+def test_parent_document_strict_policy_precedes_invalid_quality(tmp_path, kind, method, extension):
+    canvas = parent_canvas()
+    source = canvas if kind == "canvas" else Deck().slide(canvas)
+    path = tmp_path / f"existing.{extension}"
+    path.write_bytes(b"existing")
+    message = "authored-static"
+    with pytest.raises(RenderingError, match=message):
+        getattr(source, method)(
+            str(path), quality=90, policy=ExportPolicy(unsupported_motion="error")
+        )
+    assert path.read_bytes() == b"existing"
+
+
+@pytest.mark.parametrize("kind", ["canvas", "deck"])
+@pytest.mark.parametrize("method", ["render", "export"])
+def test_early_parent_document_preflight_is_reused(tmp_path, monkeypatch, kind, method):
+    from quickthumb import _document
+
+    canvas = parent_canvas()
+    source = canvas if kind == "canvas" else Deck().slide(canvas)
+    preflight = Mock(wraps=_document.preflight_export)
+    monkeypatch.setattr(_document, "preflight_export", preflight)
+    getattr(source, method)(str(tmp_path / "scene.pdf"), policy=ExportPolicy())
+    preflight.assert_called_once()
 
 
 def test_reduced_motion_byte_and_png_execution_skip_unused_parent_morph(tmp_path, monkeypatch):
@@ -179,12 +233,65 @@ def test_invalid_export_options_preserve_existing_output(
     assert path.read_bytes() == b"existing"
 
 
+@pytest.mark.parametrize("method", ["render", "export"])
+def test_canvas_raster_override_and_deck_document_rejection_remain_distinct(tmp_path, method):
+    canvas = parent_canvas()
+    path = tmp_path / "output.svg"
+    getattr(canvas, method)(
+        str(path), format="PNG", policy=ExportPolicy(unsupported_motion="error")
+    )
+    assert path.read_bytes().startswith(b"\x89PNG")
+    with pytest.raises(RenderingError, match="single .svg"):
+        getattr(Deck().slide(canvas), method)(str(path))
+    assert path.read_bytes().startswith(b"\x89PNG")
+    with pytest.raises(RenderingError, match="format override"):
+        getattr(Deck().slide(canvas), method)(str(tmp_path / "output.pdf"), format="PNG")
+
+
+@pytest.mark.parametrize(
+    "alias,family",
+    [
+        ("GIF", "raster"),
+        ("PNG", "raster"),
+        ("JPEG", "raster"),
+        ("WEBP", "raster"),
+        ("MP4", "video"),
+        ("WEBM", "video"),
+        ("HTM", "html"),
+        ("HTML", "html"),
+        ("PPTX", "pptx"),
+    ],
+)
+def test_declared_aliases_preserve_capability_families(alias, family):
+    assert parent_canvas().validate_export(alias) == parent_canvas().validate_export(family)
+
+
+@pytest.mark.parametrize("target", ["JPG", "JPEG", "WEBP", "SVG", "PDF", "HTM"])
+def test_new_concrete_formats_do_not_expand_motion_family_queries(target):
+    from quickthumb.motion import capabilities_for
+
+    assert parent_canvas().validate_export(target)
+    with pytest.raises(ValidationError, match="target must be"):
+        capabilities_for(target)
+    with pytest.raises(ValidationError, match="target must be"):
+        parent_canvas().inspect_motion(target=target)
+
+
 @pytest.mark.parametrize("target", ["GIF", "PNG", "MP4", "WEBM"])
 def test_existing_motion_family_aliases_remain_accepted(target):
     from quickthumb.motion import capabilities_for
 
     assert capabilities_for(target)
     assert parent_canvas().inspect_motion(target=target).diagnostics
+
+
+def test_unlinked_concrete_static_queries_keep_native_geometry(tmp_path):
+    canvas = Canvas(16, 16).shape("rectangle", (1, 1), 8, 8, "#FF0000")
+    policy = ExportPolicy(unsupported_motion="error")
+    for extension in ("svg", "pdf"):
+        assert canvas.validate_export(extension, policy) == []
+        result = canvas.export(tmp_path / f"native.{extension}", policy=policy)
+        assert not result.fallback_diagnostics
 
 
 def test_deck_sequence_preserves_inner_canvas_render_override(tmp_path, monkeypatch):
@@ -202,4 +309,48 @@ def test_static_raster_sequence_omits_unused_morph_and_keeps_native_policy_check
         tmp_path / "slides.png", policy=ExportPolicy(unsupported_motion="error")
     )
     assert len(result.written_paths) == 2
+    assert not any(item.feature == "parent_morph" for item in result.capability_report)
+    with pytest.raises(RenderingError, match="authored-static"):
+        parent_canvas().export(
+            tmp_path / "native.pptx", policy=ExportPolicy(pptx={"layer:1": "native"})
+        )
+    assert not (tmp_path / "native.pptx").exists()
+
+
+@pytest.mark.skipif(not (shutil.which("ffmpeg") and shutil.which("ffprobe")), reason="media tools")
+def test_reduced_parent_morph_receipt_matches_encoded_duration_and_count(tmp_path):
+    deck = (
+        Deck()
+        .slide(parent_canvas(), duration=1)
+        .slide(Canvas(16, 16).background(color="#0000FF"), duration=1, transition=Morph(duration=2))
+    )
+    path = tmp_path / "reduced.mp4"
+    result = deck.export(
+        path,
+        animation=VideoOptions(fps=10),
+        policy=ExportPolicy(unsupported_motion="error", reduced_motion=True),
+    )
+    stream = json.loads(
+        subprocess.run(
+            [
+                "ffprobe",
+                "-v",
+                "error",
+                "-select_streams",
+                "v:0",
+                "-count_frames",
+                "-show_entries",
+                "stream=duration,nb_read_frames",
+                "-of",
+                "json",
+                str(path),
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout
+    )["streams"][0]
+    assert float(stream["duration"]) == result.timing_metrics.duration == 2
+    assert int(stream["nb_read_frames"]) == result.pixel_metrics.frame_count == 20
+    assert result.timing_metrics.frame_count == 20
     assert not any(item.feature == "parent_morph" for item in result.capability_report)

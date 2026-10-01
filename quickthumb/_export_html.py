@@ -444,7 +444,9 @@ class HtmlExporter:
         reduced_motion: bool = False,
     ):
         self._canvas = canvas
-        if not reduced_motion:
+        from quickthumb._parenting import has_parent_links
+
+        if not reduced_motion and not has_parent_links(canvas):
             validate_legacy_animation_export(canvas)
         self._embed_fonts = embed_fonts
         self._responsive = responsive
@@ -572,6 +574,20 @@ class HtmlExporter:
         canvas = self._canvas
         canvas._validate_image_paths()
         canvas._ctx.begin_render_pass()
+
+        from quickthumb._parent_export import static_parent_fragment
+        from quickthumb._parenting import has_parent_links
+
+        if has_parent_links(canvas):
+            self._emit_fragment(static_parent_fragment(canvas))
+            return Stage(
+                width=canvas.width,
+                height=canvas.height,
+                body="\n".join(self._body),
+                keyframes=[],
+                timeline=[],
+                parent_geometry=True,
+            )
 
         prefix, rest = split_backdrop_prefix(flatten_layers(canvas))
         if not self._reduced_motion and any(
@@ -1142,6 +1158,7 @@ class Stage:
     body: str
     keyframes: list[str]
     timeline: list[dict]
+    parent_geometry: bool = False
     # Slide-transition wiring, filled in by _document for decks. transition_anim
     # animates the incoming stage, transition_exit the outgoing one; transition_z
     # ("over"/"under") sets their stacking; transition_dur drives the cleanup timer.
@@ -1342,7 +1359,12 @@ def _document(
                 else _fmt(transition.advance_after)
             )
             stage.transition_morph = (
-                "1" if transition is not None and transition.effect == "morph" else ""
+                "1"
+                if transition is not None
+                and transition.effect == "morph"
+                and not stage.parent_geometry
+                and (index == 0 or not stages[index - 1].parent_geometry)
+                else ""
             )
             timing = f"{_fmt(duration)}s ease both"
             if enter is not None:
