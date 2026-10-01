@@ -169,14 +169,21 @@ def test_unsupported_parent_sources_preserve_destinations(tmp_path, kind, deck):
     layers[-2] = GroupLayer(
         type="group",
         parent="middle",
-        children=[canvas.layers[-2].model_copy(update={"parent": None, "position": (0, 0)})],
-        clip=LayerClip(position=(0, 0), width=10, height=10),
+        children=[
+            canvas.layers[-2].model_copy(
+                update={
+                    "parent": None,
+                    "position": (0, 0),
+                    "clip": LayerClip(position=(0, 0), width=10, height=10),
+                }
+            )
+        ],
     )
     canvas.layers = layers
     source = Deck(140, 130).slide(Canvas(140, 130)).slide(canvas) if deck else canvas
     path = tmp_path / ("existing." + kind)
     path.write_bytes(b"existing")
-    with pytest.raises(RenderingError, match="clip and mask"):
+    with pytest.raises(RenderingError, match="clipped or masked descendants"):
         source.render(str(path))
     assert path.read_bytes() == b"existing"
     assert not (tmp_path / ("existing_01." + kind)).exists()
@@ -288,14 +295,21 @@ def test_pdf_preparation_failure_releases_prepared_fragments(tmp_path):
     layers[-2] = GroupLayer(
         type="group",
         parent="middle",
-        children=[invalid.layers[-2].model_copy(update={"parent": None, "position": (0, 0)})],
-        clip=LayerClip(position=(0, 0), width=10, height=10),
+        children=[
+            invalid.layers[-2].model_copy(
+                update={
+                    "parent": None,
+                    "position": (0, 0),
+                    "clip": LayerClip(position=(0, 0), width=10, height=10),
+                }
+            )
+        ],
     )
     invalid.layers = layers
     exporter = PdfExporter()
     path = tmp_path / "existing.pdf"
     path.write_bytes(b"existing")
-    with pytest.raises(RenderingError, match="clip and mask"):
+    with pytest.raises(RenderingError, match="clipped or masked descendants"):
         exporter.save_canvases([scene(), invalid], path)
     assert not exporter._parent_fragments
     assert path.read_bytes() == b"existing"
