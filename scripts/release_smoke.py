@@ -69,6 +69,15 @@ def assert_pixels(image, center=RED, background=BLUE, tolerance=0):
         )
 
 
+def assert_svg(path):
+    require(path.is_file() and path.stat().st_size > 0, f"Missing SVG output: {path}")
+    root = ET.fromstring(path.read_text(encoding="utf-8"))
+    require(root.tag == "{http://www.w3.org/2000/svg}svg", "Invalid SVG root")
+    require(len(root) > 0, "Empty SVG")
+    require(root.attrib.get("width") == str(SIZE[0]), "SVG width")
+    require(root.attrib.get("height") == str(SIZE[1]), "SVG height")
+
+
 def check_documents(output):
     from PIL import Image
     from quickthumb import GifOptions
@@ -90,7 +99,10 @@ def check_documents(output):
                     )
                 }
                 for index, slide in enumerate(document.slides):
-                    slide.export(output / f"deck-slide-{index}.svg")
+                    result = slide.export(output / f"deck-slide-{index}.svg")
+                    paths = [Path(path) for path in result.written_paths]
+                    require(len(paths) == 1, "SVG page count")
+                    assert_svg(paths[0])
                 continue
             result = document.export(
                 output / f"{name}.{extension}",
@@ -104,18 +116,21 @@ def check_documents(output):
             details[f"{name}.{extension}"] = result.model_dump(mode="json")
             if extension == "png":
                 require(len(paths) == count, "Raster page count")
-                with Image.open(paths[0]) as image:
-                    assert_pixels(image)
-                    require(
-                        image.convert("RGBA").tobytes() == still.frames[0].to_bytes(),
-                        "PNG differs from canonical settled sample",
-                    )
+                for index, path in enumerate(paths):
+                    with Image.open(path) as image:
+                        assert_pixels(
+                            image,
+                            RED if index == 0 else BLUE,
+                            BLUE if index == 0 else (0, 255, 0),
+                        )
+                        require(
+                            image.convert("RGBA").tobytes() == still.frames[index].to_bytes(),
+                            "PNG differs from canonical settled sample",
+                        )
             elif extension == "svg":
                 require(len(paths) == count, "SVG page count")
                 for path in paths:
-                    root = ET.fromstring(path.read_text(encoding="utf-8"))
-                    require(root.tag.endswith("svg") and len(root) > 0, "Empty SVG")
-                    require(root.attrib.get("width") == "128", "SVG width")
+                    assert_svg(path)
             elif extension == "html":
                 html = paths[0].read_text(encoding="utf-8")
                 require("<!doctype html>" in html.lower(), "Missing packaged HTML template")

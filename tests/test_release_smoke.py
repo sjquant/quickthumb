@@ -2,10 +2,12 @@
 
 import importlib.util
 import json
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 import pytest
-from PIL import Image
+from PIL import Image, UnidentifiedImageError
+from quickthumb import Canvas, Deck
 
 _SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "release_smoke.py"
 _SPEC = importlib.util.spec_from_file_location("release_smoke", _SCRIPT)
@@ -20,6 +22,56 @@ def test_canonical_exports_and_timing(tmp_path):
     assert "Render slides individually" in details["deck.svg"]["unsupported_guidance"]
     assert (tmp_path / "canvas-sample.json").is_file()
     assert (tmp_path / "deck-slide-1.svg").is_file()
+
+
+@pytest.mark.parametrize("corruption", ["invalid", "duplicate"])
+def test_canonical_exports_reject_corrupt_second_deck_png(tmp_path, monkeypatch, corruption):
+    original = Deck.export
+
+    def export(self, output, *args, **kwargs):
+        result = original(self, output, *args, **kwargs)
+        if Path(output).suffix == ".png":
+            first, second = (Path(path) for path in result.written_paths)
+            second.write_bytes(b"not a PNG" if corruption == "invalid" else first.read_bytes())
+        return result
+
+    monkeypatch.setattr(Deck, "export", export)
+    error = UnidentifiedImageError if corruption == "invalid" else AssertionError
+    message = "cannot identify image file" if corruption == "invalid" else "Wrong pixels"
+    with pytest.raises(error, match=message):
+        smoke.check_documents(tmp_path)
+
+
+@pytest.mark.parametrize("corruption", ["missing", "invalid", "wrong_size", "wrong_root"])
+def test_canonical_exports_reject_broken_deck_svg(tmp_path, monkeypatch, corruption):
+    original = Canvas.export
+
+    def export(self, output, *args, **kwargs):
+        result = original(self, output, *args, **kwargs)
+        path = Path(output)
+        if path.name == "deck-slide-1.svg":
+            if corruption == "missing":
+                path.unlink()
+            elif corruption == "invalid":
+                path.write_text("not SVG", encoding="utf-8")
+            elif corruption == "wrong_root":
+                path.write_text('<notsvg width="128" height="96"><x/></notsvg>', encoding="utf-8")
+            else:
+                root = ET.fromstring(path.read_text(encoding="utf-8"))
+                root.set("height", "1")
+                path.write_text(ET.tostring(root, encoding="unicode"), encoding="utf-8")
+        return result
+
+    monkeypatch.setattr(Canvas, "export", export)
+    error = ET.ParseError if corruption == "invalid" else AssertionError
+    message = {
+        "missing": "Missing SVG output",
+        "invalid": "syntax error",
+        "wrong_size": "SVG height",
+        "wrong_root": "Invalid SVG root",
+    }[corruption]
+    with pytest.raises(error, match=message):
+        smoke.check_documents(tmp_path)
 
 
 def test_pixel_check_rejects_blank_output():
