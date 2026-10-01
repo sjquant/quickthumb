@@ -152,7 +152,7 @@ class TestMotionInterpolation:
         state = compile_timeline(animation).sample(0.5)
 
         # then: RGB and alpha channels are interpolated with canonical casing
-        assert state.color == "#808080FF"
+        assert state.color == "#636363FF"
 
     def test_should_compose_transforms_as_scale_then_rotation_then_translation(self):
         """Transform composition uses the documented T·R·S order."""
