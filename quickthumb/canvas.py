@@ -1138,18 +1138,21 @@ class Canvas:
         for MP4/WebM to tune animated output.
         Set debug=True for raster output annotated with public layer-id bboxes.
         """
-        from quickthumb._parenting import has_parent_links, require_parent_rendering
+        from quickthumb._parenting import has_parent_links
 
         extension = os.path.splitext(output_path)[1].lower()
-        if has_parent_links(self) and (
-            format is not None
-            or extension in (".png", ".jpg", ".jpeg", ".webp", ".gif", ".mp4", ".webm")
-        ):
+        if has_parent_links(self):
             from quickthumb._parent_render import validate_parent_raster
 
             validate_parent_raster(self)
-        else:
-            require_parent_rendering(self)
+            if (
+                policy is not None
+                and format is None
+                and extension in (".svg", ".pdf", ".pptx", ".html", ".htm")
+            ):
+                from quickthumb._document import Document, preflight_export
+
+                preflight_export(cast(Document, self), output_path, policy, format=format)
         if format is not None and extension in (".gif", ".mp4", ".webm"):
             raise RenderingError(
                 "format override is only supported for raster output, not animated output."
@@ -1241,13 +1244,15 @@ class Canvas:
         self, output_path: str, extension: str, policy: ExportPolicy | None = None
     ):
         if extension == ".svg":
+            document = self.to_svg()
             with open(output_path, "w", encoding="utf-8") as f:
-                f.write(self.to_svg())
+                f.write(document)
             return
 
         if extension in (".html", ".htm"):
+            document = self.to_html(policy=policy)
             with open(output_path, "w", encoding="utf-8") as f:
-                f.write(self.to_html(policy=policy))
+                f.write(document)
             return
 
         if extension == ".pdf":
@@ -1298,6 +1303,10 @@ class Canvas:
         URLs and text renders identically everywhere; pass `False` to drop them
         and rely on the viewer's system fonts for a smaller file.
         """
+        from quickthumb._parenting import has_parent_links
+
+        if policy is not None and has_parent_links(self):
+            self.validate_export("html", policy)
         from quickthumb._export_html import HtmlExporter
 
         return HtmlExporter(
@@ -1313,6 +1322,10 @@ class Canvas:
         The canvas becomes a single slide: text stays editable text boxes,
         shapes become autoshapes, and everything else is embedded as pictures.
         """
+        from quickthumb._parenting import has_parent_links
+
+        if policy is not None and has_parent_links(self):
+            self.validate_export("pptx", policy)
         from quickthumb._export_pptx import PptxExporter
 
         return PptxExporter(

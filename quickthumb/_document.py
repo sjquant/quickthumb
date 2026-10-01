@@ -197,7 +197,7 @@ def build_export_result(
     """Build the shared result envelope after an existing exporter succeeds."""
     output_format = _output_format(output_path, format)
     target = _export_target(output_format)
-    capability_report = _capability_report(source, target, policy)
+    capability_report = _capability_report(source, target, policy, output_format=output_format)
     timing = _timing_metrics(source, target, output_format, policy, animation)
     dimensions = _document_dimensions(source)
     asset_manifest = _asset_manifest(source, assets.record_for)
@@ -230,7 +230,7 @@ def preflight_export(
 ) -> None:
     """Validate target capabilities before an exporter writes any files."""
     output_format = _output_format(output_path, format)
-    _capability_report(source, _export_target(output_format), policy)
+    _capability_report(source, _export_target(output_format), policy, output_format=output_format)
 
 
 def validation_report(source: Document, *, kind: DocumentKind) -> ValidationReport:
@@ -344,13 +344,13 @@ def _export_target(output_format: str) -> str:
 
 
 def _capability_report(
-    source: Document, target: str, policy: ExportPolicy | None
+    source: Document, target: str, policy: ExportPolicy | None, *, output_format: str
 ) -> list[ExportDiagnostic]:
-    from quickthumb.motion import validate_export
+    from quickthumb.motion import _validate_export
 
     if target not in {"raster", "video", "html", "pptx"}:
         return []
-    return validate_export(cast(Any, source), target, policy)
+    return _validate_export(cast(Any, source), target, policy, parent_document_format=output_format)
 
 
 def _fallback_diagnostics(capability_report: list) -> list[FallbackDiagnostic]:

@@ -382,20 +382,23 @@ class Deck:
         of written file paths (unlike
         `Canvas.render`, which returns None).
         """
-        from quickthumb._parenting import has_parent_links, require_parent_rendering
+        from quickthumb._parenting import has_parent_links
 
         self._require_slides()
         extension = os.path.splitext(output_path)[1].lower()
         for canvas in self._slides:
-            if has_parent_links(canvas) and (
-                format is not None
-                or extension in (".png", ".jpg", ".jpeg", ".webp", ".gif", ".mp4", ".webm")
-            ):
+            if has_parent_links(canvas):
                 from quickthumb._parent_render import validate_parent_raster
 
                 validate_parent_raster(canvas)
-            else:
-                require_parent_rendering(canvas)
+        if (
+            policy is not None
+            and extension in (*_DOCUMENT_EXTENSIONS, ".svg")
+            and any(has_parent_links(canvas) for canvas in self._slides)
+        ):
+            from quickthumb._document import Document, preflight_export
+
+            preflight_export(cast(Document, self), output_path, policy, format=format)
 
         if animation is not None and extension not in (*_ANIMATION_EXTENSIONS, ".mp4"):
             raise RenderingError(
@@ -583,8 +586,9 @@ class Deck:
             return
 
         if extension in (".html", ".htm"):
+            document = self.to_html(policy=policy)
             with open(output_path, "w", encoding="utf-8") as f:
-                f.write(self.to_html(policy=policy))
+                f.write(document)
             return
 
         from quickthumb._export_pptx import PptxExporter
@@ -652,6 +656,7 @@ class Deck:
         animated GIF/WebM exports play them too, on a fixed timeline.
         """
         self._require_slides()
+        self._validate_parent_motion_policy("html", policy)
         from quickthumb._export_html import export_deck
 
         return export_deck(
@@ -666,6 +671,7 @@ class Deck:
     def to_pptx(self, *, policy: ExportPolicy | None = None) -> bytes:
         """Render the deck to a multi-slide PPTX as bytes (requires quickthumb[pptx])."""
         self._require_slides()
+        self._validate_parent_motion_policy("pptx", policy)
         from quickthumb._export_pptx import PptxExporter
 
         return PptxExporter(
