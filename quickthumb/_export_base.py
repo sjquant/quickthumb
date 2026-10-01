@@ -16,7 +16,7 @@ import re
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from io import BytesIO
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypeVar
 
 from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont
 
@@ -33,11 +33,13 @@ from quickthumb.errors import RenderingError
 from quickthumb.models import (
     Align,
     AnimationSpec,
+    BackdropBlur,
     Background,
     ChartLayer,
     Glow,
     GroupLayer,
     ImageLayer,
+    InnerShadow,
     LinearGradient,
     QRCodeLayer,
     RadialGradient,
@@ -48,7 +50,7 @@ from quickthumb.models import (
     TextFillImage,
     TextLayer,
 )
-from quickthumb.motion import _has_transform_extensions
+from quickthumb.motion import _has_color_track, _has_transform_extensions
 
 if TYPE_CHECKING:
     from quickthumb.canvas import Canvas, RenderableLayer
@@ -71,6 +73,7 @@ def flatten_layers(canvas: Canvas) -> list[RenderableLayer]:
             isinstance(layer, GroupLayer)
             and not has_layer_composition(layer)
             and not _has_transform_extensions(layer)
+            and not (_has_color_track(layer) and color_group_has_backdrop(layer))
         ):
             flat.extend(_flatten_group(canvas, layer))
         else:
@@ -109,7 +112,12 @@ def _flatten_group(
     for child, position, size in placements:
         if isinstance(child, GroupLayer):
             if has_layer_composition(child) or (
-                animation is None and _has_transform_extensions(child)
+                animation is None
+                and (
+                    _has_transform_extensions(child)
+                    or _has_color_track(child)
+                    and color_group_has_backdrop(child)
+                )
             ):
                 placed.append(
                     _with_group_animation(
@@ -165,7 +173,38 @@ def is_backdrop_dependent(layer: RenderableLayer) -> bool:
         return True
     if layer_depends_on_backdrop(layer):
         return True
+    if isinstance(layer, GroupLayer) and _has_color_track(layer):
+        return color_group_has_backdrop(layer)
     return getattr(layer, "blend_mode", None) is not None
+
+
+def color_group_has_backdrop(layer) -> bool:
+    """Find backdrop sampling inside a color-bearing group's retained source."""
+    return any(
+        layer_depends_on_backdrop(child)
+        or getattr(child, "blend_mode", None) is not None
+        or color_group_has_backdrop(child)
+        for child in getattr(layer, "children", ())
+    )
+
+
+def color_group_backdrop_supported(timeline) -> bool:
+    """Whole-group color can repaint a backdrop; moving that backdrop is separate."""
+    return all(
+        event.effect is None
+        and event.stagger is None
+        and all(track.property == "color" for track in event.tracks)
+        for event in timeline.events
+    )
+
+
+def require_color_group_backdrop(timeline):
+    if not color_group_backdrop_supported(timeline):
+        raise RenderingError(
+            "Color animation on a group with backdrop-dependent descendants cannot be "
+            "combined with other parent motion or stagger. Animate the shape directly, "
+            "or separate its backdrop-dependent effects from the moving group."
+        )
 
 
 def split_backdrop_prefix(
@@ -262,6 +301,76 @@ def split_into_bands(
     return tuple(fragments)
 
 
+_ColorLayer = TypeVar("_ColorLayer", bound="RenderableLayer")
+
+
+def _with_motion_color(layer: _ColorLayer, color: str | None) -> _ColorLayer:
+    """Replace text/shape fills, leaving source models and effect colors intact."""
+    if color is None:
+        return layer
+    if isinstance(layer, GroupLayer):
+        return layer.model_copy(
+            update={"children": [_with_motion_color(child, color) for child in layer.children]}
+        )
+    if isinstance(layer, (TextLayer, ShapeLayer)):
+        updates = {"color": color, "fill": None}
+        if isinstance(layer, TextLayer) and isinstance(layer.content, list):
+            updates["content"] = [
+                part.model_copy(update={"color": color, "fill": None}) for part in layer.content
+            ]
+        return layer.model_copy(update=updates)
+    return layer
+
+
+def color_motion_targets(fragments, states, render_color):
+    """Paint each target from its own color state within stable opaque bounds.
+
+    Only a single full-size source exists at once. Re-rendering the source keeps
+    gradients, text layout, alpha, strokes and shadows under their usual rules.
+    """
+    output = []
+    surface = None
+    previous_color = None
+    for (fragment, (x, y)), state in zip(fragments, states, strict=True):
+        if state is not None:
+            if surface is None or state.color != previous_color:
+                surface = render_color(state.color)
+                previous_color = state.color
+            fragment = surface.crop((x, y, x + fragment.width, y + fragment.height))
+        output.append((fragment, (x, y)))
+    return tuple(output)
+
+
+def composite_color_targets(image, layer, time, count, render_color) -> bool:
+    """Render separable color-stagger targets from stable source-layout bounds."""
+    from quickthumb.motion import (
+        LayerState,
+        _canonical_target_timelines,
+        _geometry_in_motion,
+        _sample_target_timelines,
+    )
+
+    timelines = _canonical_target_timelines(layer, count)
+    if timelines is None:
+        return False
+    fragments = split_into_bands(render_color("#FFFFFF"), count)
+    if fragments is None:
+        return False
+    states = _sample_target_timelines(
+        timelines, time, LayerState(anchor=getattr(layer, "anchor", (0.5, 0.5)))
+    )
+    composite_motion_targets(
+        image,
+        color_motion_targets(fragments, states, render_color),
+        states,
+        subpixel=tuple(
+            _geometry_in_motion(timeline, time, state=state)
+            for timeline, state in zip(timelines, states, strict=True)
+        ),
+    )
+    return True
+
+
 def composite_motion_targets(
     image: Image.Image, fragments, states, *, subpixel: tuple[bool, ...] = (), render_scale: int = 1
 ) -> None:
@@ -319,9 +428,9 @@ def apply_canonical_alpha(
     return output
 
 
-def composite_canonical_layer(image, surface, layer, state, *, subpixel: bool) -> None:
+def composite_canonical_layer(image, surface, layer, state, *, subpixel: bool, bounds=None) -> None:
     """Apply one canonical state to an isolated Canvas or placed group child."""
-    bounds = surface.getbbox()
+    bounds = surface.getbbox() if bounds is None else bounds
     if bounds is None:
         return
     fragment = surface.crop(bounds)
@@ -342,6 +451,48 @@ def composite_canonical_layer(image, surface, layer, state, *, subpixel: bool) -
         fragment = apply_canonical_alpha(fragment, state, clip_progress=clip)
     if fragment is not None:
         image.alpha_composite(fragment, position)
+
+
+def composite_color_backdrop(image, layer, state, render_source, images, *, subpixel: bool):
+    """Sample a colored shape's backdrop at its visible transformed boundary."""
+    from quickthumb.motion import LayerState
+
+    painted = _with_motion_color(layer, state.color)
+    neutral = state.with_values(color=None, anchor=(0.5, 0.5), position=None)
+    if state.position in (None, (0, 0)) and neutral == LayerState():
+        render_source(image, painted)
+        return
+    effects = painted.effects
+    foreground = painted.model_copy(
+        update={"effects": [effect for effect in effects if not isinstance(effect, BackdropBlur)]}
+    )
+    surface = Image.new("RGBA", image.size)
+    render_source(surface, foreground)
+    bounds = surface.getbbox()
+    if bounds is None:
+        return
+    # Unclipped shapes sample through their body before exterior effects;
+    # clipped/masked shapes use the complete composed boundary, as usual.
+    mask_source = surface
+    if not has_layer_composition(layer):
+        mask_source = Image.new("RGBA", image.size)
+        render_source(
+            mask_source,
+            painted.model_copy(
+                update={
+                    "effects": [effect for effect in effects if isinstance(effect, InnerShadow)]
+                }
+            ),
+        )
+    mask = Image.new("RGBA", image.size)
+    composite_canonical_layer(mask, mask_source, layer, state, subpixel=subpixel, bounds=bounds)
+    mask_bounds = mask.getbbox()
+    if mask_bounds is not None:
+        patch = mask.crop(mask_bounds)
+        for effect in effects:
+            if isinstance(effect, BackdropBlur):
+                images.apply_backdrop_blur(image, patch, mask_bounds[0], mask_bounds[1], effect)
+    composite_canonical_layer(image, surface, layer, state, subpixel=subpixel, bounds=bounds)
 
 
 def _extended_geometry(state) -> bool:
