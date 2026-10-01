@@ -68,8 +68,10 @@ from PIL import Image, ImageChops, ImageColor, ImageDraw
 from quickthumb._composition import has_layer_composition
 from quickthumb._export_base import (
     _extended_geometry,
+    _with_motion_color,
     apply_canonical_alpha,
     apply_canonical_geometry,
+    color_motion_targets,
     composite_motion_targets,
     flatten_layers,
     split_backdrop_prefix,
@@ -105,8 +107,10 @@ from quickthumb.motion import (
     LayerState,
     Timeline,
     _geometry_in_motion,
+    _has_color_track,
     _has_transform_extensions,
     _sample_target_timelines,
+    _supports_color_motion,
     compile_timeline,
     easing_value,
     resolve_staggered_timelines,
@@ -1254,6 +1258,7 @@ class _Unit:
     # One fragment per staggered target, sliced from this unit's own render so
     # each line can be moved on its own beat.
     target_images: tuple[tuple[Image.Image, tuple[int, int]], ...] = ()
+    color_motion: bool = False
 
 
 def _unit_is_dynamic(unit: _Unit) -> bool:
@@ -1303,21 +1308,12 @@ def _composite_frame(
     )
     visible_video_layers: list[VideoLayer] = []
     for unit in units:
-        if unit.image is None:
+        if unit.image is None and not (unit.color_motion or unit.animates_layers):
             continue
         state = _unit_state(unit, time)
         if state.hidden:
             continue
         visible_video_layers.extend(iter_video_layers(unit.layers))
-        if unit.component_duration > 0:
-            image, pos = _render_unit_image(
-                canvas, unit.layers, time, animate_layers=unit.animates_layers
-            )
-            if image is None:
-                continue
-        else:
-            pos = unit.pos
-            image = unit.image
         if unit.target_images and state.canonical is not None:
             # Each staggered target carries its own state, so they arrive one
             # after another instead of sharing one averaged reveal.
@@ -1326,9 +1322,18 @@ def _composite_frame(
                 time,
                 LayerState(anchor=getattr(unit.layers[0], "anchor", (0.5, 0.5))),
             )
+            targets = unit.target_images
+            if unit.color_motion:
+                targets = color_motion_targets(
+                    targets,
+                    target_states,
+                    lambda color, layers=unit.layers: _render_unit_surface(
+                        canvas, layers, time, color=color
+                    ),
+                )
             composite_motion_targets(
                 frame,
-                unit.target_images,
+                targets,
                 target_states,
                 subpixel=tuple(
                     _geometry_in_motion(target, time, state=sample)
@@ -1336,6 +1341,16 @@ def _composite_frame(
                 ),
                 render_scale=render_scale,
             )
+            continue
+        color = state.canonical.layer.color if state.canonical is not None else None
+        if unit.component_duration > 0 or color is not None and unit.color_motion:
+            image, pos = _render_unit_image(
+                canvas, unit.layers, time, animate_layers=unit.animates_layers, color=color
+            )
+        else:
+            pos = unit.pos
+            image = unit.image
+        if image is None:
             continue
         if state.canonical is not None:
             # Canonical motion applies to component units (video, animated
@@ -1418,18 +1433,28 @@ class _SlideAnimator:
             else None
         )
         self._frame_units = self._units[prefix_end:]
+        self._color_motion = any(unit.color_motion for unit in self._units)
         self._final: Image.Image | None = None
 
     def frame_at(self, time: float, *, include_captions: bool = True) -> Image.Image:
         """Render the slide's full RGBA frame at `time` seconds."""
-        return _composite_frame(
-            self._canvas,
-            self._frame_units,
-            time,
-            background=self._static_plate,
-            include_captions=include_captions,
-            render_scale=self._render_scale,
-        )
+        # Painted group clones are transient, while ordinary authored-source
+        # measurements, image caches and video decoders remain reusable.
+        measurements = self._canvas._ctx.measure_cache
+        if self._color_motion:
+            self._canvas._ctx.measure_cache = {}
+        try:
+            return _composite_frame(
+                self._canvas,
+                self._frame_units,
+                time,
+                background=self._static_plate,
+                include_captions=include_captions,
+                render_scale=self._render_scale,
+            )
+        finally:
+            if self._color_motion:
+                self._canvas._ctx.measure_cache = measurements
 
     def final_frame(self) -> Image.Image:
         """The settled frame after every animation has played (cached)."""
@@ -1474,6 +1499,12 @@ class _SlideAnimator:
         windows: list[tuple[float, float]] = []
         boundaries = {start, end}
         for unit in self._units:
+            if unit.color_motion and unit.component_duration > start:
+                # Color-bearing backdrop prefixes and retained counters are
+                # painted sources, even without a unit-level motion timeline.
+                source_end = min(end, unit.component_duration)
+                boundaries.add(source_end)
+                windows.append((start, source_end))
             if any(isinstance(layer, VideoLayer) for layer in unit.layers):
                 boundaries.update((start, end))
                 windows.append((start, end))
@@ -1583,9 +1614,17 @@ def _build_units(
             )
         effects = [effect for effect in raw_effects if not isinstance(effect, AnimationSpec)]
         image, pos = _render_unit_image(canvas, layers)
-        canonical = _canonical_animation(animation, effects)
+        is_prefix = bool(prefix) and index == 0
+        # A color-bearing backdrop prefix samples each layer separately. Its
+        # first layer's color must not be applied again to the entire composite.
+        color_prefix = is_prefix and any(_has_color_track(layer) for layer in layers)
+        canonical = None if color_prefix else _canonical_animation(animation, effects)
         target_timelines: tuple[Timeline, ...] = ()
         target_images: tuple[tuple[Image.Image, tuple[int, int]], ...] = ()
+        color_motion = color_prefix or (
+            canonical is not None
+            and any(_has_color_track(layer) and _supports_color_motion(layer) for layer in layers)
+        )
         if canonical is not None:
             timeline = compile_timeline(canonical)
             target_count = 1
@@ -1605,11 +1644,16 @@ def _build_units(
                 elif stagger.target == "children":
                     target_count = group_target_counts.get(id(specs[0]), 1)
             target_timelines = resolve_staggered_timelines(timeline, target_count)
-            if image is not None and target_count > 1:
-                bands = split_into_bands(image, target_count)
+            if target_count > 1:
+                reference, reference_pos = (
+                    _render_unit_image(canvas, layers, color="#FFFFFF")
+                    if color_motion
+                    else (image, pos)
+                )
+                bands = split_into_bands(reference, target_count) if reference is not None else None
                 if bands is not None:
                     target_images = tuple(
-                        (fragment, (pos[0] + offset[0], pos[1] + offset[1]))
+                        (fragment, (reference_pos[0] + offset[0], reference_pos[1] + offset[1]))
                         for fragment, offset in bands
                     )
         component_duration = (
@@ -1624,7 +1668,6 @@ def _build_units(
         # inside it cannot be applied to a finished unit image. Re-render it per
         # frame instead, which lets a frosted panel and everything beneath it
         # move together.
-        is_prefix = bool(prefix) and index == 0
         if is_prefix:
             component_duration = max(component_duration, prefix_motion)
         units.append(
@@ -1639,6 +1682,7 @@ def _build_units(
                 timeline=compile_timeline(canonical) if canonical is not None else None,
                 target_timelines=target_timelines,
                 target_images=target_images,
+                color_motion=color_motion,
             )
         )
     return units
@@ -1736,16 +1780,28 @@ def _has_animated_descendant_in_composed_group(layer: RenderableLayer) -> bool:
     return any(_has_animated_descendant_in_composed_group(child) for child in layer.children)
 
 
+def _render_unit_surface(
+    canvas: Canvas,
+    layers: list[RenderableLayer],
+    time: float | None = None,
+    animate_layers: bool = False,
+    color: str | None = None,
+) -> Image.Image:
+    image = Image.new("RGBA", (canvas.width, canvas.height), (0, 0, 0, 0))
+    draw = canvas._render_moving_layer if animate_layers else canvas._render_layer
+    for layer in layers:
+        draw(image, _with_motion_color(layer, color), time)
+    return image
+
+
 def _render_unit_image(
     canvas: Canvas,
     layers: list[RenderableLayer],
     time: float | None = None,
     animate_layers: bool = False,
+    color: str | None = None,
 ) -> tuple[Image.Image | None, tuple[int, int]]:
-    image = Image.new("RGBA", (canvas.width, canvas.height), (0, 0, 0, 0))
-    draw = canvas._render_moving_layer if animate_layers else canvas._render_layer
-    for layer in layers:
-        draw(image, layer, time)
+    image = _render_unit_surface(canvas, layers, time, animate_layers, color)
     bbox = image.getbbox()
     if bbox is None and time is None:
         video_start = max(
@@ -1821,7 +1877,9 @@ def _component_animation_duration(
     layer: RenderableLayer, probe_cache: dict[str, VideoInfo], *, include_group: bool = False
 ) -> float:
     """Return intrinsic dynamic-source duration, including retained transform groups."""
-    if isinstance(layer, GroupLayer) and (include_group or _has_transform_extensions(layer)):
+    if isinstance(layer, GroupLayer) and (
+        include_group or _has_transform_extensions(layer) or _has_color_track(layer)
+    ):
         return max(
             (
                 _component_animation_duration(child, probe_cache, include_group=True)

@@ -81,7 +81,7 @@ from quickthumb.models import (
     TextLayer,
     VideoLayer,
 )
-from quickthumb.motion import _has_transform_extensions, compile_timeline
+from quickthumb.motion import _has_color_track, _has_transform_extensions, compile_timeline
 
 if TYPE_CHECKING:
     from quickthumb.canvas import Canvas, RenderableLayer
@@ -580,6 +580,12 @@ class HtmlExporter:
             effects = [animation]
         if not effects:
             self._prev_anim_key = None
+            return ""
+
+        if _has_color_track(layer):
+            # Canonical color tracks have an authored-static fallback in HTML.
+            self._prev_anim_key = None
+            self._prev_nodes = []
             return ""
 
         if _has_transform_extensions(layer):

@@ -220,9 +220,9 @@ class TestCanonicalMotionDeclarations:
         assert declared == "full"
         assert [(item.support, item.fallback) for item in reported] == [("full", None)]
 
-    def test_should_still_declare_a_fallback_for_motion_it_cannot_render(self):
-        """Given a colour track, when validated, then the unrendered feature is declared."""
-        # Given: a colour track, which no pixel pipeline consumes
+    def test_should_declare_rendered_color_tracks(self):
+        """Given a color track, both capability interfaces declare its rendered support."""
+        # Given: a color track supported by the text/shape pixel pipeline
         from quickthumb import ColorTrack
 
         canvas = marked_canvas(
@@ -241,5 +241,5 @@ class TestCanonicalMotionDeclarations:
         reported = [item for item in canvas.validate_export("video") if item.feature == "color"]
 
         # Then: the honest answer is the same from both
-        assert (declared.support, declared.fallback) == ("unsupported", "static")
-        assert [(item.support, item.fallback) for item in reported] == [("fallback", "static")]
+        assert (declared.support, declared.fallback) == ("full", None)
+        assert [(item.support, item.fallback) for item in reported] == [("full", None)]
