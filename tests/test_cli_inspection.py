@@ -1,12 +1,12 @@
 """CLI inspection emits the same generic envelope as the Python API."""
 
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
 
 import pytest
-from click import unstyle
 from PIL import Image
 from quickthumb import (
     AnimationSpec,
@@ -20,6 +20,11 @@ from quickthumb import (
 )
 from quickthumb.cli import app
 from typer.testing import CliRunner
+
+
+def _unstyled(value: str) -> str:
+    """Ignore terminal SGR styling without depending on optional CLI libraries."""
+    return re.sub(r"\x1b\[[0-9;]*m", "", value)
 
 
 def _canvas() -> Canvas:
@@ -217,7 +222,7 @@ def test_inspect_invalid_format_and_help_are_actionable(tmp_path: Path, color: b
         app, ["inspect", "--help"], color=color, env={"FORCE_COLOR": "1" if color else "0"}
     )
     assert help_result.exit_code == 0
-    assert "--max-samples" in unstyle(help_result.stdout)
+    assert "--max-samples" in _unstyled(help_result.stdout)
 
 
 @pytest.mark.parametrize("color", [False, True])
@@ -230,7 +235,7 @@ def test_argument_parsing_keeps_standard_cli_errors(tmp_path: Path, color: bool)
     )
     assert result.exit_code == 2
     assert result.stdout == ""
-    assert "--fps" in unstyle(result.stderr)
+    assert "--fps" in _unstyled(result.stderr)
 
 
 def test_module_entrypoint_exposes_inspect(tmp_path: Path):
