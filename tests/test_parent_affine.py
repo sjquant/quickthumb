@@ -8,6 +8,7 @@ from PIL import Image
 from quickthumb import (
     AnimationSpec,
     Canvas,
+    GroupLayer,
     KeyframeSpec,
     NullLayer,
     OpacityTrack,
@@ -401,9 +402,14 @@ def test_raster_parent_capability_matches_supported_or_rejected_combinations(tar
         == "full"
     )
     assert canvas.validate_export(target, ExportPolicy(unsupported_motion="error"))
-    child = canvas.layers[1]
-    assert isinstance(child, ShapeLayer)
-    child.clip = LayerClip(position=(0, 0), width=10, height=10)
+    layers = canvas.layers
+    layers[1] = GroupLayer(
+        type="group",
+        parent="root",
+        children=[shape(position=(0, 0), parent=None)],
+        clip=LayerClip(position=(0, 0), width=10, height=10),
+    )
+    canvas.layers = layers
     assert (
         next(item for item in canvas.validate_export(target) if item.feature == "parent").support
         == "unsupported"
@@ -421,7 +427,12 @@ def test_unsupported_parent_combination_does_not_overwrite_earlier_deck_outputs(
         80,
         layers=[
             NullLayer(type="null", id="root"),
-            shape(clip=LayerClip(position=(0, 0), width=10, height=10)),
+            GroupLayer(
+                type="group",
+                parent="root",
+                children=[shape(position=(0, 0), parent=None)],
+                clip=LayerClip(position=(0, 0), width=10, height=10),
+            ),
         ],
     )
     deck = Deck(100, 80).slide(Canvas(100, 80)).slide(canvas)
@@ -520,7 +531,8 @@ def test_parent_affine_visual_snapshot():
     assert strip.size == expected.size and strip.tobytes() == expected.tobytes()
 
 
-def test_parented_real_video_reverse_seeks_static_rotation_and_captions(tmp_path):
+@pytest.mark.parametrize("composition", [False, True])
+def test_parented_real_video_reverse_seeks_static_rotation_and_captions(tmp_path, composition):
     import shutil
     import subprocess
 
@@ -565,6 +577,20 @@ def test_parented_real_video_reverse_seeks_static_rotation_and_captions(tmp_path
         .null((30, 10), id="root")
         .video(str(path), (20, 30), 48, 36, rotation=31, captions=captions, parent="root")
     )
+    if composition:
+        from quickthumb import LayerClip, LayerMask
+
+        for layer, offset in ((base.layers[0], (30, 10)), (linked.layers[1], (0, 0))):
+            cast(Any, layer).clip = LayerClip(
+                position=(25 + offset[0], 35 + offset[1]), width=35, height=30, border_radius=6
+            )
+            cast(Any, layer).mask = LayerMask(
+                shape="ellipse",
+                position=(20 + offset[0], 30 + offset[1]),
+                width=45,
+                height=40,
+                opacity=0.6,
+            )
     animator = _SlideAnimator(linked, {})
     try:
         for instant in (0.75, 0.25, 0, 1, 1.25):
@@ -616,7 +642,12 @@ def test_unsupported_local_source_boundaries_are_explicit(kind):
     elif kind == "mask":
         canvas.layers = [
             *canvas.layers,
-            shape(mask=LayerMask(shape="ellipse", position=(0, 0), width=20, height=20)),
+            GroupLayer(
+                type="group",
+                parent="root",
+                children=[shape(position=(0, 0), parent=None)],
+                mask=LayerMask(shape="ellipse", position=(0, 0), width=20, height=20),
+            ),
         ]
     else:
         canvas.layers = [*canvas.layers, shape()]

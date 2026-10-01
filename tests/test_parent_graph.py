@@ -298,8 +298,16 @@ def test_direct_pdf_rejection_preserves_existing_destination(tmp_path):
     from quickthumb import LayerClip
 
     invalid = scene()
-    invalid.layers[1].clip = LayerClip(position=(0, 0), width=2, height=2)
-    with pytest.raises(RenderingError, match="clip and mask"):
+    invalid.layers = [
+        invalid.layers[0],
+        GroupLayer(
+            type="group",
+            parent="root",
+            children=[invalid.layers[1].model_copy(update={"parent": None, "position": (0, 0)})],
+            clip=LayerClip(position=(0, 0), width=2, height=2),
+        ),
+    ]
+    with pytest.raises(RenderingError, match="group clip and mask"):
         PdfExporter().save_canvases([Canvas(140, 130), invalid], destination)
     assert destination.read_bytes() == b"EXISTING PDF"
 
