@@ -67,6 +67,7 @@ from PIL import Image, ImageChops, ImageColor, ImageDraw
 
 from quickthumb._composition import has_layer_composition
 from quickthumb._export_base import (
+    apply_canonical_alpha,
     apply_canonical_geometry,
     composite_motion_targets,
     flatten_layers,
@@ -102,6 +103,8 @@ from quickthumb.models import (
 from quickthumb.motion import (
     LayerState,
     Timeline,
+    _geometry_in_motion,
+    _sample_target_timelines,
     compile_timeline,
     easing_value,
     resolve_staggered_timelines,
@@ -994,6 +997,7 @@ class _CanonicalState:
     layer: LayerState
     alpha_scale: float
     clip_scale: float
+    subpixel: bool = False
 
 
 @dataclass(frozen=True)
@@ -1107,8 +1111,15 @@ def _composite_frame(
         if unit.target_images and state.canonical is not None:
             # Each staggered target carries its own state, so they arrive one
             # after another instead of sharing one averaged reveal.
+            target_states = _sample_target_timelines(unit.target_timelines, time)
             composite_motion_targets(
-                frame, unit.target_images, _canonical_target_states(unit, time)
+                frame,
+                unit.target_images,
+                target_states,
+                subpixel=tuple(
+                    _geometry_in_motion(target, time, state=sample)
+                    for target, sample in zip(unit.target_timelines, target_states, strict=True)
+                ),
             )
             continue
         if state.canonical is not None:
@@ -1121,6 +1132,7 @@ def _composite_frame(
                 pos,
                 clip_scale=state.canonical.clip_scale,
                 include_scale=not any(isinstance(item, ImageLayer) for item in unit.layers),
+                subpixel=state.canonical.subpixel,
             )
             if rendered is None:
                 continue
@@ -1686,15 +1698,6 @@ def _unit_state(unit: _Unit, time: float) -> _UnitState:
     return state
 
 
-def _canonical_target_states(unit: _Unit, time: float) -> tuple[LayerState | None, ...]:
-    """Sample each staggered target, leaving the ones whose turn has not come."""
-    states: list[LayerState | None] = []
-    for timeline in unit.target_timelines:
-        start = min((event.active_start for event in timeline.events), default=0.0)
-        states.append(None if time < start else timeline.sample(time, LayerState()))
-    return tuple(states)
-
-
 def _canonical_state(unit: _Unit, time: float):
     """Sample canonical motion as a state plus its alpha and clip multipliers.
 
@@ -1735,6 +1738,12 @@ def _canonical_state(unit: _Unit, time: float):
             layer=states[-1],
             alpha_scale=min(1.0, max(0.0, alpha_scale)),
             clip_scale=min(1.0, max(0.0, clip_scale)),
+            subpixel=_geometry_in_motion(
+                timelines[-1],
+                time,
+                include_scale=not any(isinstance(layer, ImageLayer) for layer in unit.layers),
+                state=states[-1],
+            ),
         )
     )
 
@@ -1747,6 +1756,7 @@ def _canonical_render(
     *,
     clip_scale: float = 1.0,
     include_scale: bool = True,
+    subpixel: bool = False,
 ) -> tuple[Image.Image, tuple[int, int]] | None:
     """Apply renderer-independent opacity, reveal, and geometry to a frame.
 
@@ -1758,9 +1768,18 @@ def _canonical_render(
         return None
     output = image
     opacity = min(1.0, max(0.0, state.opacity)) * alpha_scale
+    progress = min(clip_scale, state.clip_progress)
+    if subpixel:
+        output = apply_canonical_alpha(
+            output, state.with_values(opacity=opacity, clip_progress=progress)
+        )
+        if output is None:
+            return None
+        return apply_canonical_geometry(
+            output, state, pos, include_scale=include_scale, subpixel=True
+        )
     if opacity < 1.0:
         output = _scaled_alpha(output, opacity)
-    progress = min(clip_scale, state.clip_progress)
     if progress < 1.0:
         # Either signal can drive the clip: a staggered group reports how much of
         # it has arrived, a clip_progress track reports its own reveal. Taking the
