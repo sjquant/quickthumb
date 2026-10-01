@@ -382,12 +382,20 @@ class Deck:
         of written file paths (unlike
         `Canvas.render`, which returns None).
         """
-        from quickthumb._parenting import require_parent_rendering
+        from quickthumb._parenting import has_parent_links, require_parent_rendering
 
-        for canvas in self._slides:
-            require_parent_rendering(canvas)
         self._require_slides()
         extension = os.path.splitext(output_path)[1].lower()
+        for canvas in self._slides:
+            if has_parent_links(canvas) and (
+                format is not None
+                or extension in (".png", ".jpg", ".jpeg", ".webp", ".gif", ".mp4", ".webm")
+            ):
+                from quickthumb._parent_render import validate_parent_raster
+
+                validate_parent_raster(canvas)
+            else:
+                require_parent_rendering(canvas)
 
         if animation is not None and extension not in (*_ANIMATION_EXTENSIONS, ".mp4"):
             raise RenderingError(
@@ -490,6 +498,13 @@ class Deck:
             ),
         )
 
+    def _validate_parent_motion_policy(self, target: str, policy: ExportPolicy | None) -> None:
+        """Honor strict parent/Morph validation on the convenience animation paths."""
+        from quickthumb._parenting import has_parent_links
+
+        if policy is not None and any(has_parent_links(canvas) for canvas in self._slides):
+            self.validate_export(target, policy)
+
     def _render_animated_file(
         self,
         output_path: str,
@@ -500,6 +515,7 @@ class Deck:
         """Render an animated Deck, mixing scheduled narration when requested."""
         from quickthumb._export_video import write_animation
 
+        self._validate_parent_motion_policy("raster" if format == "gif" else "video", policy)
         if format == "gif":
             write_animation(
                 self._slides,
@@ -678,6 +694,7 @@ class Deck:
         slides are letterboxed onto the first slide's size.
         """
         self._require_slides()
+        self._validate_parent_motion_policy("raster", policy)
         from quickthumb._export_video import export_animation_bytes
 
         return export_animation_bytes(
@@ -734,6 +751,7 @@ class Deck:
         duration holds its slide for the source audio length.
         """
         self._require_slides()
+        self._validate_parent_motion_policy("video", policy)
         return self._export_animated_video_bytes(
             format="mp4",
             fps=fps,
@@ -818,6 +836,7 @@ class Deck:
         continue to loop by default.
         """
         self._require_slides()
+        self._validate_parent_motion_policy("video", policy)
         return self._export_animated_video_bytes(
             format="webm",
             fps=fps,

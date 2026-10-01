@@ -1590,7 +1590,6 @@ _FULL_CAPABILITIES: dict[CapabilityFeature, tuple[SupportLevel, Fallback | None]
 # Stagger falls back to a shared reveal when semantic targets cannot be split.
 _RASTER_OVERRIDES: dict[CapabilityFeature, tuple[SupportLevel, Fallback | None]] = {
     "stagger": ("partial", None),
-    "parent": ("unsupported", None),
 }
 _CAPABILITIES: dict[ExportTarget, dict[CapabilityFeature, MotionCapability]] = {}
 for _target in ("raster", "video"):
@@ -1750,6 +1749,7 @@ def validate_export(
                 default=-1,
             )
             html_backdrop_ids.update(id(layer) for _, layer in layers[: last + 1])
+    parent_problems = {}
     for index, canvas in enumerate(getattr(source, "slides", (source,))):
         try:
             cast("Canvas", canvas)._validate_layer_identities()
@@ -1757,12 +1757,28 @@ def validate_export(
             if hasattr(source, "slides"):
                 error.at(f"/slides/{index}")
             raise
+        if normalized in {"raster", "video"}:
+            from quickthumb._parent_render import parent_rendering_problem
+            from quickthumb._parenting import has_parent_links
+
+            if has_parent_links(canvas):
+                problem = parent_rendering_problem(canvas)
+                parent_problems.update((id(item), problem) for item in canvas.layers)
     for layer_id, pointer, layer in _iter_export_layer_locations(source):
         if getattr(layer, "parent", None) is not None:
+            problem = parent_problems.get(id(layer))
+            supported = normalized in {"raster", "video"} and problem is None
             action = resolved_policy.pptx.get(layer_id) if normalized == "pptx" else None
-            if (action or resolved_policy.unsupported_motion) in {"error", "native"}:
+            if not supported and (action or resolved_policy.unsupported_motion) in {
+                "error",
+                "native",
+            }:
                 raise _unsupported_motion(
-                    f"parent transforms on layer {layer_id} are not implemented for {normalized}",
+                    problem
+                    or (
+                        f"parent transforms on layer {layer_id} "
+                        f"are not implemented for {normalized}"
+                    ),
                     pointer + "/parent",
                     layer_id,
                 )
@@ -1771,9 +1787,16 @@ def validate_export(
                     layer_id=layer_id,
                     feature="parent",
                     target=normalized,
-                    support="unsupported",
-                    message="Parent transforms require the renderer layer of the parenting stack; "
-                    "export raises instead of silently ignoring the link.",
+                    support="full" if supported else "unsupported",
+                    message=(
+                        "Parent transforms use complete world affine matrices"
+                        if supported
+                        else problem
+                        or (
+                            "Parent transforms require a document-format adapter; "
+                            "export raises instead of ignoring links."
+                        )
+                    ),
                 )
             )
         value = getattr(layer, "value", None)
@@ -1922,6 +1945,31 @@ def validate_export(
                 )
     # A Deck is duck-typed here because deck.py imports this module.
     slides = getattr(source, "slides", None)
+    if normalized in {"raster", "video"} and slides is not None:
+        from quickthumb._parenting import has_parent_links
+
+        canvases = tuple(slides)
+        for index, transition in enumerate(cast(Any, source)._resolved_transitions()):
+            if (
+                index > 0
+                and getattr(transition, "effect", None) == "morph"
+                and (has_parent_links(canvases[index - 1]) or has_parent_links(canvases[index]))
+            ):
+                if resolved_policy.unsupported_motion in {"error", "native"}:
+                    raise _unsupported_motion(
+                        "Parent-linked Morph requires fade fallback",
+                        f"/slides/{index}/transition",
+                        None,
+                    )
+                diagnostics.append(
+                    ExportDiagnostic(
+                        feature="parent_morph",
+                        target=normalized,
+                        support="fallback",
+                        fallback="fade",
+                        message=f"Morph before slide {index} uses fade for parent-linked geometry",
+                    )
+                )
     if normalized == "video" and slides is not None:
         canvases = tuple(slides)
         transitions = tuple(source._resolved_transitions())
@@ -1966,7 +2014,7 @@ def _iter_export_layer_locations(
             yield from walk(layer, layer_index, (layer_index,), f"{base}/layers/{layer_index}")
 
 
-def _unsupported_motion(message: str, pointer: str, layer_id: str) -> RenderingError:
+def _unsupported_motion(message: str, pointer: str, layer_id: str | None) -> RenderingError:
     return RenderingError(
         message,
         code="unsupported_capability",

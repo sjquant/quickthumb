@@ -1138,10 +1138,18 @@ class Canvas:
         for MP4/WebM to tune animated output.
         Set debug=True for raster output annotated with public layer-id bboxes.
         """
-        from quickthumb._parenting import require_parent_rendering
+        from quickthumb._parenting import has_parent_links, require_parent_rendering
 
-        require_parent_rendering(self)
         extension = os.path.splitext(output_path)[1].lower()
+        if has_parent_links(self) and (
+            format is not None
+            or extension in (".png", ".jpg", ".jpeg", ".webp", ".gif", ".mp4", ".webm")
+        ):
+            from quickthumb._parent_render import validate_parent_raster
+
+            validate_parent_raster(self)
+        else:
+            require_parent_rendering(self)
         if format is not None and extension in (".gif", ".mp4", ".webm"):
             raise RenderingError(
                 "format override is only supported for raster output, not animated output."
@@ -1784,9 +1792,21 @@ class Canvas:
         return self._render_to_image(time=float(time))
 
     def _render_to_image(self, debug: bool = False, time: float | None = None) -> Image.Image:
-        from quickthumb._parenting import require_parent_rendering
+        from quickthumb._parenting import has_parent_links, require_parent_rendering
 
-        require_parent_rendering(self)
+        if has_parent_links(self):
+            from quickthumb._export_video import _SlideAnimator
+
+            if debug:
+                require_parent_rendering(self)
+            try:
+                animator = _SlideAnimator(
+                    self, self._ctx.video_info_cache, reduced_motion=time is None
+                )
+                return animator.frame_at(0 if time is None else time)
+            finally:
+                self._ctx.motion_time = None
+                self._ctx.close_video_decoders()
         self._ctx.begin_render_pass()
         self._ctx.motion_time = time
         try:

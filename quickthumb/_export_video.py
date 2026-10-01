@@ -61,7 +61,7 @@ from collections.abc import Generator, Iterable, Iterator
 from dataclasses import dataclass, field
 from io import BytesIO
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from PIL import Image, ImageChops, ImageColor, ImageDraw
 
@@ -915,12 +915,16 @@ def _morph_source(
     transition: Transition | None, previous: Canvas | None, incoming: Canvas
 ) -> Canvas | None:
     """Return the outgoing canvas when a keyed Morph can play into `incoming`."""
+    from quickthumb._parenting import has_parent_links
+
     if (
         transition is not None
         and transition.effect == "morph"
         and previous is not None
         and not _canvas_has_video_captions(previous)
         and not _canvas_has_video_captions(incoming)
+        and not has_parent_links(previous)
+        and not has_parent_links(incoming)
     ):
         return previous
     return None
@@ -1115,6 +1119,8 @@ class _Unit:
     # each line can be moved on its own beat.
     target_images: tuple[tuple[Image.Image, tuple[int, int]], ...] = ()
     color_motion: bool = False
+    parent_node: Any = None
+    parent_plan: Any = None
 
 
 def _unit_is_dynamic(unit: _Unit) -> bool:
@@ -1124,7 +1130,8 @@ def _unit_is_dynamic(unit: _Unit) -> bool:
     their captions are still sampled separately at each requested time.
     """
     return bool(
-        unit.effects
+        unit.parent_node is not None
+        or unit.effects
         or unit.nodes
         or unit.timeline is not None
         or unit.target_timelines
@@ -1169,7 +1176,16 @@ def _composite_frame(
         )
     )
     visible_video_layers: list[VideoLayer] = []
+    parent_samples = None
     for unit in units:
+        if unit.parent_node is not None:
+            node = unit.parent_node
+            if parent_samples is None:
+                parent_samples = node.plan.sample(time)
+            if not parent_samples[id(node)][2].hidden:
+                visible_video_layers.extend(iter_video_layers(unit.layers))
+            node.plan.composite(node, frame, time, parent_samples, render_scale)
+            continue
         if unit.image is None and not (unit.color_motion or unit.animates_layers):
             continue
         state = _unit_state(unit, time)
@@ -1419,12 +1435,20 @@ def _build_units(
     reduced_motion: bool = False,
 ) -> list[_Unit]:
     """Flatten the canvas into animation units rendered through the PIL pipeline."""
-    if not reduced_motion:
+    from quickthumb._parent_render import ParentRenderPlan
+    from quickthumb._parenting import has_parent_links
+
+    linked = has_parent_links(canvas)
+    if not reduced_motion and not linked:
         validate_legacy_animation_export(canvas)
+    if linked:
+        canvas._validate_layer_identities()
     canvas._validate_image_paths()
     canvas._ctx.begin_render_pass()
+    parent_plan = ParentRenderPlan(canvas) if linked else None
+    parent_nodes = frozenset(parent_plan.nodes) if parent_plan else None
     group_target_counts = _canonical_group_target_counts(canvas)
-    prefix, rest = split_backdrop_prefix(flatten_layers(canvas))
+    prefix, rest = split_backdrop_prefix(flatten_layers(canvas, parent_nodes=parent_nodes))
     if not reduced_motion and any(
         _has_animated_descendant_in_composed_group(layer) for layer in (*prefix, *rest)
     ):
@@ -1459,7 +1483,11 @@ def _build_units(
     for layer in rest:
         animation = None if reduced_motion else getattr(layer, "animation", None)
         key = id(animation) if animation is not None else None
-        if isinstance(layer, NullLayer) or _has_transform_extensions(layer):
+        if (
+            isinstance(layer, NullLayer)
+            or _has_transform_extensions(layer)
+            or id(layer) in (parent_nodes or ())
+        ):
             # Nulls carry clocks only and must never become another layer's target.
             # Independent layers must keep independent pivots even when sharing a spec.
             key = (key, id(layer))
@@ -1485,8 +1513,11 @@ def _build_units(
                 "animated export. Use a legacy effect for layer-level motion."
             )
         effects = [effect for effect in raw_effects if not isinstance(effect, AnimationSpec)]
+        parent_node = parent_plan.nodes.get(id(layers[0])) if parent_plan else None
         image, pos = (
-            (None, (0, 0))
+            (parent_node.image, (0, 0))
+            if parent_node is not None
+            else (None, (0, 0))
             if len(layers) == 1 and isinstance(layers[0], NullLayer)
             else _render_unit_image(canvas, layers)
         )
@@ -1536,7 +1567,14 @@ def _build_units(
             0.0
             if reduced_motion
             else max(
-                (_component_animation_duration(layer, probe_cache) for layer in layers),
+                (
+                    _component_animation_duration(
+                        layer,
+                        probe_cache,
+                        include_group=parent_node is not None and isinstance(layer, GroupLayer),
+                    )
+                    for layer in layers
+                ),
                 default=0.0,
             )
         )
@@ -1559,8 +1597,14 @@ def _build_units(
                 target_timelines=target_timelines,
                 target_images=target_images,
                 color_motion=color_motion,
+                parent_node=parent_node,
+                parent_plan=parent_plan if parent_node is not None else None,
             )
         )
+        if parent_node is not None:
+            from weakref import proxy
+
+            parent_node.unit = proxy(units[-1])
     return units
 
 
