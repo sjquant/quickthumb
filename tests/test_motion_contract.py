@@ -18,6 +18,7 @@ from quickthumb import (
     OpacityTrack,
     PositionTrack,
     ScaleTrack,
+    TimingSpec,
     ValidationError,
     canvas_json_schema,
 )
@@ -26,6 +27,41 @@ from quickthumb.motion import compile_timeline
 
 class TestMotionContract:
     """Black-box coverage for the public motion contract."""
+
+    @pytest.mark.parametrize("start", [0, 1.25])
+    def test_should_round_trip_absolute_timing_with_serialized_defaults(self, start):
+        """Neutral relative defaults do not conflict with an absolute start."""
+        timing = TimingSpec(start=start, duration=1)
+        payload = {"duration": 1.0, "trigger": None, "delay": 0.0, "start": start}
+        assert timing.model_dump() == payload
+        assert TimingSpec.model_validate(payload) == timing
+        assert TimingSpec.model_validate_json(timing.model_dump_json()) == timing
+
+        canvas = Canvas(100, 100).shape(
+            "rectangle",
+            position=(0, 0),
+            width=20,
+            height=20,
+            color="#FF0000",
+            animation=AnimationSpec.timeline(
+                OpacityTrack(
+                    keyframes=[KeyframeSpec(time=0, value=0), KeyframeSpec(time=1, value=1)]
+                ),
+                timing=timing,
+            ),
+        )
+        validate(json.loads(canvas.to_json()), canvas_json_schema())
+        restored = Canvas.from_json(canvas.to_json())
+        assert restored.to_json() == canvas.to_json()
+        for time in (0, start, start + 0.5, start + 1):
+            assert restored.render_frame(time).tobytes() == canvas.render_frame(time).tobytes()
+
+    @pytest.mark.parametrize(
+        "relative", [{"delay": 0.1}, {"trigger": "after_previous"}, {"trigger": "on_click"}]
+    )
+    def test_should_still_reject_non_neutral_relative_timing_with_absolute_start(self, relative):
+        with pytest.raises(ValidationError, match="relative trigger/delay or absolute start"):
+            TimingSpec(start=0, **relative)
 
     def test_should_build_and_serialize_a_preset_animation(self):
         """A semantic preset serializes with the canonical animation discriminator."""
