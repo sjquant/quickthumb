@@ -79,7 +79,14 @@ from quickthumb.models import (
     TextLayer,
     VideoLayer,
 )
-from quickthumb.motion import _has_color_track, _has_transform_extensions, compile_timeline
+from quickthumb.motion import (
+    Timeline,
+    TimelineEvent,
+    _has_color_track,
+    _has_motion_path,
+    _has_transform_extensions,
+    compile_timeline,
+)
 
 if TYPE_CHECKING:
     from quickthumb.canvas import Canvas, RenderableLayer
@@ -273,6 +280,8 @@ def _supports_transform_extensions_html(layer: object) -> bool:
         return False
     if any(track.type not in _TRANSFORM_PROPERTIES for track in spec.tracks):
         return False
+    if _has_motion_path(layer) and len(_motion_knots(compile_timeline(spec).events[0])) > 4097:
+        return False
     scale_tracks = [track for track in spec.tracks if track.type == "scale"]
     # Image uniform scale is an internal viewport zoom in the raster renderer.
     # Nonpositive uniform scale is historically ignored there, unlike axis
@@ -300,6 +309,50 @@ def _supports_transform_extensions_html(layer: object) -> bool:
 def _motion_number(value: float) -> str:
     """Preserve authored motion precision, unlike pixel-layout rounding."""
     return str(int(value)) if float(value).is_integer() else repr(float(value))
+
+
+def _motion_knots(event: TimelineEvent) -> set[float]:
+    return {0.0, event.duration} | {key.time for track in event.tracks for key in track.keyframes}
+
+
+def _baked_motion_stops(event: TimelineEvent) -> tuple[dict[float, dict[str, str]], dict[str, str]]:
+    """Bake at up to 120 Hz, retaining all knots within a 4097-stop bound.
+
+    Sampling already applies easing. CSS interpolates linearly between these
+    observations; cusps, corners and sub-sample detail remain approximations.
+    """
+    times = _motion_knots(event)
+    available = 4097 - len(times)
+    intervals = min(available + 1, max(1, math.ceil(min(event.duration, 4096 / 120) * 120)))
+    times.update(event.duration * (index / intervals) for index in range(1, intervals))
+    timeline = Timeline(events=(event.model_copy(update={"start": 0.0, "delay": 0.0}),))
+    auto_heading = False
+    for track in event.tracks:
+        if track.property == "rotation":
+            auto_heading = False
+        elif track.auto_orient and track.has_direction:
+            auto_heading = True
+    stops: dict[float, dict[str, str]] = {}
+    previous_angle = None
+    final = dict(_TRANSFORM_DEFAULTS)
+    for time in sorted(times):
+        state = timeline.sample(time)
+        values = {prop: getattr(state, prop) for prop in _TRANSFORM_PROPERTIES}
+        values["position"] = state.position or (0.0, 0.0)
+        if auto_heading and previous_angle is not None:
+            values["rotation"] = (
+                previous_angle + (state.rotation - previous_angle + 180) % 360 - 180
+            )
+        previous_angle = values["rotation"]
+        final = {
+            name: _motion_number(number)
+            for prop, names in _TRANSFORM_PROPERTIES.items()
+            for name, number in zip(
+                names, values[prop] if prop == "position" else (values[prop],), strict=True
+            )
+        }
+        stops[(time / event.duration) * 100 if event.duration else 100] = final
+    return stops, final
 
 
 def _remap_linear_stops(
@@ -683,29 +736,33 @@ class HtmlExporter:
         event = compile_timeline(animation).events[0]
         kf = f"{self._keyframe_prefix}{self._next_kf}"
         self._next_kf += 1
-        stops: dict[float, dict[str, str]] = {}
-        final = dict(_TRANSFORM_DEFAULTS)
-        # Duplicate replace tracks obey canonical last-track precedence, even
-        # when their keyframe times differ; earlier stops must not leak through.
-        tracks = {track.property: track for track in event.tracks}
-        for prop, track in tracks.items():
-            keys = track.keyframes
-            samples = [(key.time, key.value) for key in keys]
-            if keys[0].time > 0:
-                samples.insert(0, (0.0, keys[0].value))
-            if keys[-1].time < event.duration:
-                samples.append((event.duration, keys[-1].value))
-            if event.duration == 0:
-                samples = [(0.0, keys[-1].value), (1.0, keys[-1].value)]
-            for time, value in samples:
-                percent = 100 * time / event.duration if event.duration else 100 * time
-                values = value if isinstance(value, tuple) else (value,)
-                declarations = {
-                    name: _motion_number(float(number))
-                    for name, number in zip(_TRANSFORM_PROPERTIES[prop], values, strict=True)
-                }
-                stops.setdefault(percent, {}).update(declarations)
-            final.update(declarations)
+        path = _has_motion_path(layer)
+        if path:
+            stops, final = _baked_motion_stops(event)
+        else:
+            stops: dict[float, dict[str, str]] = {}
+            final = dict(_TRANSFORM_DEFAULTS)
+            # Duplicate replace tracks obey canonical last-track precedence, even
+            # when their keyframe times differ; earlier stops must not leak through.
+            tracks = {track.property: track for track in event.tracks}
+            for prop, track in tracks.items():
+                keys = track.keyframes
+                samples = [(key.time, key.value) for key in keys]
+                if keys[0].time > 0:
+                    samples.insert(0, (0.0, keys[0].value))
+                if keys[-1].time < event.duration:
+                    samples.append((event.duration, keys[-1].value))
+                if event.duration == 0:
+                    samples = [(0.0, keys[-1].value), (1.0, keys[-1].value)]
+                for time, value in samples:
+                    percent = 100 * time / event.duration if event.duration else 100 * time
+                    values = value if isinstance(value, tuple) else (value,)
+                    declarations = {
+                        name: _motion_number(float(number))
+                        for name, number in zip(_TRANSFORM_PROPERTIES[prop], values, strict=True)
+                    }
+                    stops.setdefault(percent, {}).update(declarations)
+                final.update(declarations)
         self._keyframes.append(
             "@keyframes "
             + kf
@@ -728,7 +785,7 @@ class HtmlExporter:
                 "tr": event.trigger
                 or ("after_previous" if not self._timeline else "with_previous"),
                 "a": "transform",
-                "e": css_easing(animation.easing or "linear"),
+                "e": "linear" if path else css_easing(animation.easing or "linear"),
                 "abs": event.trigger is None and event.start > 0,
                 "initial": dict(_TRANSFORM_DEFAULTS),
                 "final": final,

@@ -4,8 +4,11 @@ from __future__ import annotations
 
 import math
 import re
+from bisect import bisect_left
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
+from functools import cached_property
+from itertools import chain
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, Literal, cast, get_args
 
@@ -15,6 +18,7 @@ from pydantic import ValidationError as PydanticValidationError
 from quickthumb._base import parse_coordinate
 from quickthumb._color_motion import interpolate_color
 from quickthumb._measurements import layer_id_for
+from quickthumb._motion_path import sample_segment
 from quickthumb.errors import RenderingError, ValidationError
 from quickthumb.models import (
     AnchorPoint,
@@ -323,6 +327,12 @@ class NormalizedKeyframe(BaseModel):
 
     time: float = Field(ge=0.0, allow_inf_nan=False)
     value: MotionValue
+    in_tangent: tuple[float, float] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    out_tangent: tuple[float, float] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
 
 class NormalizedTrack(BaseModel):
@@ -333,6 +343,7 @@ class NormalizedTrack(BaseModel):
     property: MotionProperty
     keyframes: tuple[NormalizedKeyframe, ...]
     blend: TrackBlend = "replace"
+    auto_orient: bool = Field(default=False, exclude_if=lambda value: not value)
 
     @model_validator(mode="after")
     def validate_keyframes(self) -> NormalizedTrack:
@@ -343,6 +354,20 @@ class NormalizedTrack(BaseModel):
             raise ValidationError("normalized keyframe times must be strictly increasing")
         for keyframe in self.keyframes:
             _validate_property_value(self.property, keyframe.value)
+            for tangent in (keyframe.in_tangent, keyframe.out_tangent):
+                if tangent is not None and (
+                    self.property != "position"
+                    or not all(math.isfinite(item) for item in tangent)
+                    or not all(
+                        math.isfinite(position + offset)
+                        for position, offset in zip(
+                            cast(tuple[float, float], keyframe.value), tangent, strict=True
+                        )
+                    )
+                ):
+                    raise ValidationError("tangents require finite position control points")
+        if self.auto_orient and self.property != "position":
+            raise ValidationError("auto_orient is only supported for position tracks")
         if self.blend == "add" and self.property not in {"position", "image_pan"}:
             raise ValidationError("additive tracks are only supported for position and image_pan")
         if self.blend == "multiply" and self.property not in {
@@ -362,6 +387,38 @@ class NormalizedTrack(BaseModel):
     def duration(self) -> float:
         """Return the local time of the final keyframe."""
         return self.keyframes[-1].time
+
+    @cached_property
+    def is_path(self) -> bool:
+        return self.auto_orient or any(
+            key.in_tangent is not None or key.out_tangent is not None for key in self.keyframes
+        )
+
+    @cached_property
+    def has_direction(self) -> bool:
+        return any(
+            _segment_has_motion(a, b)
+            for a, b in zip(self.keyframes, self.keyframes[1:], strict=False)
+        )
+
+    @cached_property
+    def path_times(self) -> tuple[float, ...]:
+        return tuple(key.time for key in self.keyframes)
+
+    def model_copy(
+        self, *, update: Mapping[str, Any] | None = None, deep: bool = False
+    ) -> NormalizedTrack:
+        copied = super().model_copy(update=update, deep=deep)
+        if update and {"keyframes", "auto_orient"} & update.keys():
+            for name in ("is_path", "has_direction", "path_times"):
+                copied.__dict__.pop(name, None)
+        return copied
+
+
+def _segment_has_motion(left: NormalizedKeyframe, right: NormalizedKeyframe) -> bool:
+    return left.value != right.value or any(
+        value != 0 for tangent in (left.out_tangent, right.in_tangent) for value in tangent or ()
+    )
 
 
 class TimelineEvent(BaseModel):
@@ -775,15 +832,41 @@ def _canonical_timeline(layer: object) -> Timeline | None:
 
 
 def _has_transform_extensions(layer: object) -> bool:
-    """Whether canonical motion opts into an anchor or independent axis scale."""
+    """Whether motion needs the shared anchor, axis-scale or path source adapter."""
     animation = getattr(layer, "animation", None)
     items = animation if isinstance(animation, list) else [animation]
     specs = [item for item in items if isinstance(item, AnimationSpec)]
     return bool(specs) and (
         getattr(layer, "anchor", (0.5, 0.5)) != (0.5, 0.5)
         or any(
-            track.type in {"scale_x", "scale_y"} for spec in specs for track in spec.tracks or ()
+            track.type in {"scale_x", "scale_y"} or _is_path_track(track)
+            for spec in specs
+            for track in spec.tracks or ()
         )
+    )
+
+
+def _is_path_track(track: object) -> bool:
+    """Recognize opt-in paths without changing the legacy position contract."""
+    if isinstance(track, NormalizedTrack):
+        return track.property == "position" and track.is_path
+    if getattr(track, "type", None) != "position":
+        return False
+    return bool(getattr(track, "auto_orient", False)) or any(
+        getattr(key, "in_tangent", None) is not None
+        or getattr(key, "out_tangent", None) is not None
+        for key in getattr(track, "keyframes", ())
+    )
+
+
+def _has_motion_path(layer: object) -> bool:
+    animation = getattr(layer, "animation", None)
+    items = animation if isinstance(animation, list) else [animation]
+    return any(
+        _is_path_track(track)
+        for item in items
+        if isinstance(item, AnimationSpec)
+        for track in item.tracks or ()
     )
 
 
@@ -889,6 +972,7 @@ def _geometry_in_motion(
         properties.add("scale")
     moving: dict[str, bool] = {}
     position_changes: dict[tuple[float, float, str], tuple[float, float]] = {}
+    path_position_moving = False
     for event in timeline.events:
         if time < event.active_start:
             continue
@@ -903,21 +987,41 @@ def _geometry_in_motion(
             )
             active = False
             segment = None
+            path = track.property == "position" and _is_path_track(track)
             if 1e-9 < local < event.duration - 1e-9:
                 for index, (left, right) in enumerate(
                     zip(track.keyframes, track.keyframes[1:], strict=False)
                 ):
-                    if left.time <= sample_time < right.time and left.value != right.value:
+                    changes = (
+                        _segment_has_motion(left, right) if path else left.value != right.value
+                    )
+                    if left.time <= sample_time < right.time and changes:
                         # At an interior knot stay affine if motion continues
                         # from the preceding interval, but preserve hold edges.
                         active = sample_time > left.time or (
-                            index > 0 and track.keyframes[index - 1].value != left.value
+                            index > 0
+                            and (
+                                _segment_has_motion(track.keyframes[index - 1], left)
+                                if path
+                                else track.keyframes[index - 1].value != left.value
+                            )
                         )
+                        if path and active:
+                            ratio = (sample_time - left.time) / (right.time - left.time)
+                            distance = easing_value(event.options.get("easing"), max(1e-7, ratio))
+                            active = 0 < distance < 1
                         segment = (left, right)
                         break
             if track.property == "position":
                 if track.blend == "replace":
                     position_changes.clear()
+                    path_position_moving = False
+                if path:
+                    path_position_moving = path_position_moving or active
+                    if track.auto_orient and track.has_direction:
+                        # Auto-orient writes rotation at this track's ordered slot.
+                        moving["rotation"] = active
+                    continue
                 if active and segment is not None:
                     left, right = segment
                     assert isinstance(left.value, tuple) and isinstance(right.value, tuple)
@@ -941,8 +1045,10 @@ def _geometry_in_motion(
         moving["scale"] = False
     # Opposite additive tracks sharing one interpolation clock cancel exactly.
     # Do not resample a held rotation just because a cancelled move is scheduled.
-    return any(moving.values()) or any(
-        abs(x) > 1e-12 or abs(y) > 1e-12 for x, y in position_changes.values()
+    return (
+        path_position_moving
+        or any(moving.values())
+        or any(abs(x) > 1e-12 or abs(y) > 1e-12 for x, y in position_changes.values())
     )
 
 
@@ -1165,9 +1271,15 @@ def _normalize_track(track: TrackSpec) -> NormalizedTrack:
     return NormalizedTrack(
         property=track.type,
         keyframes=tuple(
-            NormalizedKeyframe(time=keyframe.time, value=_normalize_value(keyframe))
+            NormalizedKeyframe(
+                time=keyframe.time,
+                value=_normalize_value(keyframe),
+                in_tangent=getattr(keyframe, "in_tangent", None),
+                out_tangent=getattr(keyframe, "out_tangent", None),
+            )
             for keyframe in track.keyframes
         ),
+        auto_orient=getattr(track, "auto_orient", False),
     )
 
 
@@ -1228,6 +1340,14 @@ def _sample_event(event: TimelineEvent, time: float, state: LayerState) -> Layer
     )
     eased_progress = easing_value(event.options.get("easing"), progress)
     for track in event.tracks:
+        if track.property == "position" and _is_path_track(track):
+            value, heading = _sample_path_track(
+                track, progress * event.duration, event.options.get("easing")
+            )
+            state = _compose_track_value(state, track, value)
+            if track.auto_orient and heading is not None:
+                state = state.with_values(rotation=heading)
+            continue
         value = _sample_track(track, progress, event.duration, event.options.get("easing"))
         state = _compose_track_value(state, track, value)
     if event.effect == "ken_burns" and event.options.get("focal_point") is not None:
@@ -1262,6 +1382,8 @@ def _sample_track(
 ) -> MotionValue:
     """Sample a local track at normalized event progress."""
     local_time = progress * duration
+    if track.property == "position" and _is_path_track(track):
+        return _sample_path_track(track, local_time, easing)[0]
     if local_time <= track.keyframes[0].time:
         return track.keyframes[0].value
     if local_time >= track.keyframes[-1].time:
@@ -1276,6 +1398,54 @@ def _sample_track(
                 return interpolate_color(cast(str, left.value), cast(str, right.value), eased_ratio)
             return _interpolate(left.value, right.value, eased_ratio)
     return track.keyframes[-1].value
+
+
+def _sample_path_track(
+    track: NormalizedTrack, local_time: float, easing: str | None
+) -> tuple[tuple[float, float], float | None]:
+    """Sample each authored interval by distance, keeping exact knots and holds."""
+    keys = track.keyframes
+    if len(keys) == 1:
+        return cast(tuple[float, float], keys[0].value), None
+    boundary = bisect_left(track.path_times, local_time)
+    for knot in (max(0, boundary - 1), min(len(keys) - 1, boundary)):
+        adjacent = [
+            abs(keys[knot].time - keys[other].time)
+            for other in (knot - 1, knot + 1)
+            if 0 <= other < len(keys)
+        ]
+        # Match decimal timeline boundaries without swallowing very short intervals.
+        tolerance = min(1e-9, min(adjacent) * 1e-6)
+        if abs(local_time - keys[knot].time) <= tolerance:
+            local_time, boundary = keys[knot].time, knot
+            break
+    index = max(0, min(len(keys) - 2, boundary - 1))
+    left, right = keys[index : index + 2]
+    ratio = min(1.0, max(0.0, (local_time - left.time) / (right.time - left.time)))
+
+    def segment(i: int, progress: float):
+        a, b = keys[i : i + 2]
+        return sample_segment(
+            cast(tuple[float, float], a.value),
+            cast(tuple[float, float], b.value),
+            a.out_tangent,
+            b.in_tangent,
+            progress,
+        )
+
+    point, heading = segment(index, easing_value(easing, ratio))
+    if heading is None and track.auto_orient:
+        # Retain the last available arrival direction over stationary holds;
+        # at the beginning use the next departure direction. Seeking is pure.
+        candidates = chain(
+            ((i, 1.0) for i in range(index - 1, -1, -1)),
+            ((i, 0.0) for i in range(index + 1, len(keys) - 1)),
+        )
+        for i, progress in candidates:
+            heading = segment(i, progress)[1]
+            if heading is not None:
+                break
+    return point, heading
 
 
 def _interpolate(left: MotionValue, right: MotionValue, ratio: float) -> MotionValue:
@@ -1449,6 +1619,7 @@ _CANONICAL_RENDERED: dict[str, frozenset[str]] = {
             "image_pan",
             "image_zoom",
             "stagger",
+            "motion_path",
         }
     )
     for target in ("raster", "video")
@@ -1460,6 +1631,7 @@ _CAPABILITIES["html"] = {
     for feature in _CAPABILITY_FEATURES
 }
 _CAPABILITIES["html"]["color"] = MotionCapability("color", "html", "unsupported", "static")
+_CAPABILITIES["html"]["motion_path"] = MotionCapability("motion_path", "html", "partial")
 _PPTX_FALLBACKS: dict[CapabilityFeature, tuple[SupportLevel, Fallback | None]] = {
     "position": ("native", None),
     "image_pan": ("fallback", "rasterize"),
@@ -1475,7 +1647,7 @@ _PPTX_FALLBACKS: dict[CapabilityFeature, tuple[SupportLevel, Fallback | None]] =
     "color": ("partial", "static"),
     "easing": ("partial", "fade"),
     "stagger": ("native", None),
-    "motion_path": ("partial", "rasterize"),
+    "motion_path": ("unsupported", "static"),
     "morph": ("partial", "fade"),
     "chart_animation": ("fallback", "fade"),
     "audio_sync": ("unsupported", "static"),
@@ -1509,6 +1681,8 @@ def _capability_features_for(animation: object) -> tuple[CapabilityFeature, ...]
         features: list[CapabilityFeature] = []
         if animation.tracks:
             features.extend(track.type for track in animation.tracks)
+            if any(_is_path_track(track) for track in animation.tracks):
+                features.append("motion_path")
         if animation.effect:
             preset_features: dict[str, tuple[CapabilityFeature, ...]] = {
                 "fade": ("opacity",),
@@ -1555,6 +1729,7 @@ def validate_export(
     row = capabilities_for(normalized)
     diagnostics: list[ExportDiagnostic] = []
     animated_groups: list[str] = []
+    html_retained_groups: list[str] = []
     html_backdrop_ids: set[int] = set()
     if normalized == "html":
         from quickthumb._export_base import is_backdrop_dependent
@@ -1609,12 +1784,21 @@ def validate_export(
             animated_groups.append(pointer)
         items = animations if isinstance(animations, list) else [animations]
         html_transform = False
-        if normalized == "html" and _has_transform_extensions(layer):
+        html_overridden = normalized == "html" and any(
+            pointer.startswith(f"{parent}/children/") for parent in html_retained_groups
+        )
+        if normalized == "html" and _has_transform_extensions(layer) and not html_overridden:
             from quickthumb._export_html import _supports_transform_extensions_html
 
             html_transform = id(
                 layer
             ) not in html_backdrop_ids and _supports_transform_extensions_html(layer)
+        if (
+            normalized == "html"
+            and isinstance(layer, GroupLayer)
+            and _has_transform_extensions(layer)
+        ):
+            html_retained_groups.append(pointer)
         for animation in items:
             features: list[CapabilityFeature] = list(_capability_features_for(animation))
             if color_overridden:
@@ -1670,8 +1854,19 @@ def validate_export(
                         pointer,
                         layer_id,
                     )
+                if html_transform and feature == "motion_path" and action == "warn":
+                    # This is an implemented bounded approximation, not a fade.
+                    fallback = None
+                    message = (
+                        f"motion_path on layer {layer_id} uses bounded sampled HTML keyframes; "
+                        "curves and direction changes between samples are approximate"
+                    )
                 diagnostic_support = declared_support
-                if action != "native" and declared_support not in ("full", "native"):
+                if (
+                    fallback is not None
+                    and action != "native"
+                    and declared_support not in ("full", "native")
+                ):
                     diagnostic_support = "fallback"
                 if (
                     feature == "color"
@@ -1798,8 +1993,14 @@ def _inspection_event(
         tracks=[
             MotionTrackInspection(
                 type=track.property,
+                auto_orient=track.auto_orient,
                 keyframes=[
-                    MotionKeyframeInspection(time=keyframe.time, value=keyframe.value)
+                    MotionKeyframeInspection(
+                        time=keyframe.time,
+                        value=keyframe.value,
+                        in_tangent=keyframe.in_tangent,
+                        out_tangent=keyframe.out_tangent,
+                    )
                     for keyframe in track.keyframes
                 ],
             )
@@ -1968,6 +2169,7 @@ def _inspection_reduced_motion(duration: float, policy: ExportPolicy) -> Reduced
         resolved_duration=0.0,
         removed_features=[
             "position",
+            "motion_path",
             "anchor",
             "scale",
             "scale_x",

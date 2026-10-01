@@ -139,6 +139,115 @@ canvas.video(
 - `diagnose()` reports captions that leave the canvas, enter the safe-area
   edge, outlast their layer, or overlap each other.
 
+## Curved motion paths
+
+`PositionTrack` accepts `PositionKeyframeSpec` with optional `in_tangent` and
+`out_tangent` handles. Like ordinary position keyframes, `value=(x, y)` is a
+pixel translation from the layer's authored, rendered position, not an absolute
+canvas coordinate. Handles are finite `(dx, dy)` pixel vectors relative to
+their own keyframe value, not absolute control points or velocity values.
+The same track works on any layer that accepts canonical `AnimationSpec`
+motion, including shapes, text, images, video and groups.
+
+```python
+from quickthumb import AnimationSpec, Canvas, PositionKeyframeSpec, PositionTrack, TimingSpec
+
+canvas = Canvas(640, 360).shape(
+    "pill", (60, 230), 48, 24, "#42CEB7",
+    animation=AnimationSpec.timeline(
+        PositionTrack(
+            keyframes=[
+                PositionKeyframeSpec(time=0, value=(0, 0), out_tangent=(120, -200)),
+                PositionKeyframeSpec(time=4, value=(480, 0), in_tangent=(-120, -200)),
+            ],
+            auto_orient=True,
+        ),
+        timing=TimingSpec(start=0, duration=4),
+        easing="linear",
+    ),
+)
+canvas.render_frame(2).save("curved_path.png")
+```
+
+### Handles and speed
+
+Each pair of keyframes defines a cubic Bézier segment with these four control
+points, in order:
+
+1. The left keyframe's `value`
+2. The left `value + out_tangent`
+3. The right `value + in_tangent`
+4. The right keyframe's `value`
+
+A missing handle is a zero vector. A segment with neither handle is straight.
+Give an interior keyframe both handles to join two curves; smoothness depends
+on the directions you author. Equal endpoint values can still describe a loop
+when the handles are nonzero.
+
+With `easing="linear"`, curved paths travel at approximately constant distance
+per second **within each keyframe interval**. A cached, bounded adaptive
+arc-length lookup maps distance back to the curve parameter. Different segment
+lengths or durations can produce different speeds across a knot; there is no
+whole-path retiming. Named timeline easing acts on each segment's distance
+progress, clamped to `[0, 1]`, so even back easing cannot travel beyond the
+segment endpoints. Authored keyframe times and positions are preserved.
+
+Existing `KeyframeSpec` values remain accepted. With no handles anywhere and
+`auto_orient=False` (the default), the track retains its previous linear
+interpolation and easing behavior. Providing handles or enabling `auto_orient`
+opts the track into path sampling. This does not add per-keyframe easing.
+
+### Following the tangent
+
+`auto_orient=True` rotates the rendered layer to the path tangent: right is
+`0°`, down is `90°`, and positive rotation is clockwise. Author directional
+artwork facing right. Rotation uses the layer's existing transform anchor.
+
+Track order decides precedence. An auto-oriented position track replaces the
+animated rotation accumulated before it; a `RotationTrack` after it replaces
+the tangent heading. A layer's authored static `rotation` is already baked
+into its source pixels and remains part of that artwork. Auto-orientation does
+not add the heading to an earlier animated rotation.
+
+An exact interior knot uses the incoming segment's heading. Stationary holds
+reuse the nearest earlier available direction, or the next direction if the
+path has not moved yet. A wholly stationary path preserves the incoming
+rotation. These choices are deterministic when seeking or rendering frames
+out of order.
+
+The JSON form uses `"type": "position"`, optional `"auto_orient": true`, and
+keyframes with `"in_tangent": [dx, dy]` / `"out_tangent": [dx, dy]`. The public
+models, generated schema and `inspect_motion()` preserve this metadata.
+Omitted handles and the default `auto_orient=False` are not serialized.
+
+### Export support
+
+- Raster frames, GIF, MP4 and WebM share the same path sampler, including
+  `quality="high"` and spawn workers. Paths can be combined with `ColorTrack`
+  on eligible text, shapes and groups
+- HTML animates one geometry-only canonical timeline on a static rendered
+  source, without stagger or composed animations. It bakes sampled transform
+  stops at up to 120 Hz, bounded to 4097 stops, retaining every authored knot
+  within that bound. The interpolation is approximate. Tangent headings are
+  unwrapped across angle boundaries; authored multi-turn rotation is retained
+- HTML reports `motion_path` as `partial` with no fallback for that supported
+  sampled mapping. Strict `unsupported_motion="error"` validation rejects it.
+  Unsupported combinations, including color tracks, dynamic sources or more
+  authored knots than the bound permits, use authored-static fallback.
+  Existing backdrop-dependent motion restrictions still apply
+- PPTX uses a static fallback and does not emit animated path timing
+- `validate_export()` reports the actual support or fallback for the
+  composition. Use it before export to check the selected target
+
+See [the runnable motion-path infographic](https://github.com/sjquant/quickthumb/blob/main/examples/motion_paths.py)
+for a two-segment curve, tangent-following arrow and raster color changes. It
+also exports a separate geometry-only HTML version so the path can animate
+without requesting unsupported HTML color animation.
+
+`diagnose()` warns with `motion-path-unused-handle` when a first incoming or
+last outgoing handle has no adjacent segment. The generated schema includes a
+complete curved-position example.
+
 ## Transform anchors and independent scale
 
 Animatable text, image, SVG, video, shape, chart, QR-code, and group layers

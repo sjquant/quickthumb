@@ -5,6 +5,7 @@ from quickthumb import (
     Canvas,
     Deck,
     KeyframeSpec,
+    PositionKeyframeSpec,
     PositionTrack,
     RotationTrack,
     ScaleTrack,
@@ -33,6 +34,14 @@ def build_scene(name: str) -> Deck:
     elif name == "scale":
         track = ScaleTrack(
             keyframes=[KeyframeSpec(time=0, value=1), KeyframeSpec(time=2, value=1.15)]
+        )
+    elif name == "motion_path":
+        track = PositionTrack(
+            auto_orient=True,
+            keyframes=[
+                PositionKeyframeSpec(time=0, value=(0, 0), out_tangent=(0, 50)),
+                PositionKeyframeSpec(time=2, value=(90, 0), in_tangent=(0, 50)),
+            ],
         )
     else:
         raise ValueError(f"unknown benchmark scene: {name}")
