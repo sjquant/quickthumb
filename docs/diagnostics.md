@@ -70,6 +70,42 @@ The CLI requires the `cli` extra:
 pip install "quickthumb[cli]"
 ```
 
+### `quickthumb inspect`
+
+Inspect a Canvas or Deck JSON spec without writing an export:
+
+```bash
+quickthumb inspect spec.json
+quickthumb inspect deck.json --format json
+quickthumb inspect deck.json --target video --fps 24 --max-samples 100
+quickthumb inspect spec.json --reduced-motion --var title="Hello"
+```
+
+Text output includes ordered page/layer bounds, per-layer motion durations and event counts,
+capability/fallback rows, observed assets, and layout diagnostics.
+`--format json` emits exactly the Python
+[`inspect_document()` result envelope](api/inspection.md), including `version`
+and document `kind`. It has the same page ordering and common fields for both
+document kinds, so scripts can consume it without guessing the input type.
+
+`--target` selects a capability family (`raster`, `html`, `pptx`, or `video`);
+omitting it reports all four. `--fps` and `--max-samples` control bounded motion
+property observations, not image-frame generation. `--reduced-motion` inspects
+the accessible static policy. `--var KEY=VALUE` follows the other spec commands.
+
+Inspection can resolve fonts/assets or decode media for measurement. It reports
+observed asset states and does not perform a separate prefetch or readiness
+check. Motion-inspection duration is not an encoded-video duration; use the
+Python `sample()` timeline for canonical frame and playback timing.
+
+Findings are informational: successful inspection exits `0` even with warnings.
+Input, validation, and missing-asset errors exit `1`; rendering/export-category
+errors (including an empty Deck's motion inspection) exit `2`. With JSON output,
+these errors use the existing `{"errors": [...]}` structured envelope. Use
+`lint --fail-on` to gate on diagnostics and `doctor` to check environment readiness.
+Argument-parsing errors, such as `--fps abc`, still use Typer's standard text
+on stderr and exit `2`; the JSON error envelope applies after argument parsing.
+
 ### `quickthumb lint`
 
 Checks a JSON spec for the same findings as `diagnose()`:
