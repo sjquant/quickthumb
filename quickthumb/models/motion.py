@@ -338,7 +338,7 @@ class BlurTrack(ScalarTrack):
 
 
 class ColorTrack(_TrackBase):
-    """A hexadecimal color track."""
+    """A text/shape fill track interpolated in premultiplied Oklab and linear alpha."""
 
     type: Literal["color"] = "color"
 
