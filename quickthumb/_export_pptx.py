@@ -65,7 +65,7 @@ from quickthumb.models import (
     AnimationSpec as MotionSpec,
 )
 from quickthumb.models import Box as BoxAnimation  # avoid clash with _export_base.Box
-from quickthumb.motion import match_scene_layers
+from quickthumb.motion import _has_transform_extensions, match_scene_layers
 from quickthumb.transitions import Transition
 
 if TYPE_CHECKING:
@@ -277,7 +277,7 @@ class PptxExporter:
         (e.g. a text box plus its background fills), and the animation is
         applied to all of them together.
         """
-        animation = getattr(layer, "animation", None)
+        animation = None if _has_transform_extensions(layer) else getattr(layer, "animation", None)
         start = len(self._slide.shapes)
         if animation is None:
             self._emit_layer(layer)

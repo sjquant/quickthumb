@@ -34,9 +34,12 @@ from quickthumb.models import (
     Align,
     AnimationSpec,
     Background,
+    ChartLayer,
     Glow,
     GroupLayer,
+    ImageLayer,
     LinearGradient,
+    QRCodeLayer,
     RadialGradient,
     Shadow,
     ShapeLayer,
@@ -45,6 +48,7 @@ from quickthumb.models import (
     TextFillImage,
     TextLayer,
 )
+from quickthumb.motion import _has_transform_extensions
 
 if TYPE_CHECKING:
     from quickthumb.canvas import Canvas, RenderableLayer
@@ -63,7 +67,11 @@ def flatten_layers(canvas: Canvas) -> list[RenderableLayer]:
     """Resolve group layers into placed children so exporters see a flat list."""
     flat: list[RenderableLayer] = []
     for layer in canvas.layers:
-        if isinstance(layer, GroupLayer) and not has_layer_composition(layer):
+        if (
+            isinstance(layer, GroupLayer)
+            and not has_layer_composition(layer)
+            and not _has_transform_extensions(layer)
+        ):
             flat.extend(_flatten_group(canvas, layer))
         else:
             flat.append(layer)
@@ -100,7 +108,9 @@ def _flatten_group(
     placed: list[RenderableLayer] = []
     for child, position, size in placements:
         if isinstance(child, GroupLayer):
-            if has_layer_composition(child):
+            if has_layer_composition(child) or (
+                animation is None and _has_transform_extensions(child)
+            ):
                 placed.append(
                     _with_group_animation(
                         child.model_copy(update={"position": position, "align": None}),
@@ -142,7 +152,9 @@ def _with_group_animation(layer, animation):
     """
     if animation is None:
         return layer
-    return layer.model_copy(update={"animation": animation})
+    # A child's own pivot belongs to its own animation, which the parent
+    # overrides. Extended parent transforms stay as one unflattened group.
+    return layer.model_copy(update={"animation": animation, "anchor": (0.5, 0.5)})
 
 
 def is_backdrop_dependent(layer: RenderableLayer) -> bool:
@@ -261,7 +273,7 @@ def composite_motion_targets(
         if state is None:
             continue
         moving = bool(subpixel and subpixel[index])
-        source_alpha = moving or render_scale != 1
+        source_alpha = moving or render_scale != 1 or _extended_geometry(state)
         if source_alpha:
             fragment = apply_canonical_alpha(fragment, state)
             if fragment is None:
@@ -307,6 +319,36 @@ def apply_canonical_alpha(
     return output
 
 
+def composite_canonical_layer(image, surface, layer, state, *, subpixel: bool) -> None:
+    """Apply one canonical state to an isolated Canvas or placed group child."""
+    bounds = surface.getbbox()
+    if bounds is None:
+        return
+    fragment = surface.crop(bounds)
+    clip = 1.0 if isinstance(layer, (ChartLayer, QRCodeLayer)) else state.clip_progress
+    source_alpha = subpixel or _extended_geometry(state)
+    if source_alpha:
+        fragment = apply_canonical_alpha(fragment, state, clip_progress=clip)
+        if fragment is None:
+            return
+    fragment, position = apply_canonical_geometry(
+        fragment,
+        state,
+        (bounds[0], bounds[1]),
+        include_scale=not isinstance(layer, ImageLayer),
+        subpixel=subpixel,
+    )
+    if not source_alpha:
+        fragment = apply_canonical_alpha(fragment, state, clip_progress=clip)
+    if fragment is not None:
+        image.alpha_composite(fragment, position)
+
+
+def _extended_geometry(state) -> bool:
+    """Keep original documents on their byte-identical geometry/alpha paths."""
+    return state.anchor != (0.5, 0.5) or state.scale_x != 1.0 or state.scale_y != 1.0
+
+
 def apply_canonical_geometry(
     image: Image.Image,
     state,
@@ -316,10 +358,10 @@ def apply_canonical_geometry(
     subpixel: bool = False,
     render_scale: int = 1,
 ) -> tuple[Image.Image, tuple[int, int]]:
-    """Scale, rotate, and blur a rendered layer about its centre, then move it.
+    """Scale and rotate about the normalized rendered-bounds anchor, then move.
 
     This is the `T · R · S` convention `quickthumb.motion.transform_matrix`
-    documents: a layer is scaled, rotated about its own centre, and finally
+    documents: a layer is scaled, rotated about its own anchor, and finally
     translated by `state.position`. Scale, rotation, and blur all change the
     image's size, so the position it should be composited at comes back with it.
 
@@ -336,17 +378,29 @@ def apply_canonical_geometry(
     scale = state.scale if include_scale and state.scale > 0 else 1.0
     offset_x, offset_y = state.position or (0.0, 0.0)
     angle = state.rotation % 360
-    if render_scale != 1 or (
-        subpixel
-        and not (
-            scale == 1.0
-            and angle == 0.0
-            and float(offset_x).is_integer()
-            and float(offset_y).is_integer()
+    if (
+        _extended_geometry(state)
+        or render_scale != 1
+        or (
+            subpixel
+            and not (
+                scale == 1.0
+                and angle == 0.0
+                and float(offset_x).is_integer()
+                and float(offset_y).is_integer()
+            )
         )
     ):
         image, placed = _affine_geometry(
-            image, pos, scale, angle, offset_x, offset_y, render_scale=render_scale
+            image,
+            pos,
+            scale * state.scale_x,
+            angle,
+            offset_x,
+            offset_y,
+            scale_y=scale * state.scale_y,
+            anchor=state.anchor,
+            render_scale=render_scale,
         )
         image, margin = _blur_geometry(image, state.blur * render_scale)
         return image, (placed[0] - margin, placed[1] - margin)
@@ -389,8 +443,13 @@ def _affine_geometry(
     offset_y: float,
     *,
     render_scale: int = 1,
+    scale_y: float | None = None,
+    anchor: tuple[float, float] = (0.5, 0.5),
 ) -> tuple[Image.Image, tuple[int, int]]:
     """Resample T · R · S once, keeping the fractional offset in the inverse map."""
+    scale_y = scale if scale_y is None else scale_y
+    if scale == 0 or scale_y == 0:
+        return Image.new("RGBA", (1, 1)), (0, 0)
     cosine = round(math.cos(math.radians(angle)), 15)
     sine = round(math.sin(math.radians(angle)), 15)
     # A tight opaque crop needs transparent filter support around its border;
@@ -399,12 +458,23 @@ def _affine_geometry(
     padded.paste(image, (2, 2))
     centre_x = (pos[0] + image.width / 2 + offset_x) * render_scale
     centre_y = (pos[1] + image.height / 2 + offset_y) * render_scale
+    # Translate the transformed centre so the authored pivot stays fixed.
+    if anchor != (0.5, 0.5):
+        dx, dy = (anchor[0] - 0.5) * image.width, (anchor[1] - 0.5) * image.height
+        centre_x += (dx - cosine * scale * dx + sine * scale_y * dy) * render_scale
+        centre_y += (dy - sine * scale * dx - cosine * scale_y * dy) * render_scale
     scale *= render_scale
-    half_width = (abs(cosine) * padded.width + abs(sine) * padded.height) * scale / 2
-    half_height = (abs(sine) * padded.width + abs(cosine) * padded.height) * scale / 2
+    scale_y *= render_scale
+    if scale == scale_y and scale > 0:
+        # Preserve the exact original arithmetic for default-anchor documents.
+        half_width = (abs(cosine) * padded.width + abs(sine) * padded.height) * scale / 2
+        half_height = (abs(sine) * padded.width + abs(cosine) * padded.height) * scale / 2
+    else:
+        half_width = (abs(cosine * scale) * padded.width + abs(sine * scale_y) * padded.height) / 2
+        half_height = (abs(sine * scale) * padded.width + abs(cosine * scale_y) * padded.height) / 2
     left, top = math.floor(centre_x - half_width), math.floor(centre_y - half_height)
     right, bottom = math.ceil(centre_x + half_width), math.ceil(centre_y + half_height)
-    a, b, d, e = cosine / scale, sine / scale, -sine / scale, cosine / scale
+    a, b, d, e = cosine / scale, sine / scale, -sine / scale_y, cosine / scale_y
     inverse = (
         a,
         b,

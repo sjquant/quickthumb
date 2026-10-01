@@ -75,10 +75,38 @@ class GroupEngine:
         layer: GroupLayer,
         origin: tuple[int, int] | None = None,
         time: float | None = None,
+        *,
+        animate_children: bool = True,
+        sample_values: bool = False,
     ):
+        from quickthumb.motion import _has_transform_extensions
+
+        sample_values = sample_values or _has_transform_extensions(layer)
         placements, _ = self.layout_group(layer, origin)
         for child, position, size in placements:
-            self._render_group_child(image, child, position, size, time)
+            if sample_values and layer.animation is not None:
+                child = self._without_child_animation(child)
+            self._render_group_child(
+                image,
+                child,
+                position,
+                size,
+                time,
+                apply_motion=animate_children and layer.animation is None,
+                sample_values=sample_values,
+            )
+
+    @staticmethod
+    def _without_child_animation(child: GroupChildLayer) -> GroupChildLayer:
+        """An animated group overrides descendant motion, but not intrinsic values."""
+        updates = {}
+        if getattr(child, "animation", None) is not None:
+            updates["animation"] = None
+        if isinstance(child, GroupLayer):
+            updates["children"] = [
+                GroupEngine._without_child_animation(item) for item in child.children
+            ]
+        return child.model_copy(update=updates) if updates else child
 
     def resolve_animation_targets(
         self,
@@ -100,20 +128,59 @@ class GroupEngine:
         position: tuple[int, int],
         size: tuple[int, int],
         time: float | None = None,
+        *,
+        apply_motion: bool = True,
+        sample_values: bool = False,
     ):
+        from quickthumb._export_base import composite_canonical_layer
+        from quickthumb.motion import (
+            LayerState,
+            _canonical_timeline,
+            _geometry_in_motion,
+            _has_transform_extensions,
+        )
+
+        if time is not None and apply_motion and _has_transform_extensions(child):
+            placed = self._place_group_child(child, position, size)
+            timeline = _canonical_timeline(child)
+            assert timeline is not None
+            state = timeline.sample(time, LayerState(anchor=getattr(child, "anchor", (0.5, 0.5))))
+            surface = Image.new("RGBA", image.size)
+            self._render_group_child(
+                surface, child, position, size, time, apply_motion=False, sample_values=True
+            )
+            composite_canonical_layer(
+                image,
+                surface,
+                placed,
+                state,
+                subpixel=_geometry_in_motion(
+                    timeline, time, include_scale=not isinstance(child, ImageLayer), state=state
+                ),
+            )
+            return
         if isinstance(child, GroupLayer):
             if has_layer_composition(child):
-                self._render_composed_group_child(image, child, origin=position, time=time)
+                self._render_composed_group_child(
+                    image, child, origin=position, time=time, sample_values=sample_values
+                )
             else:
-                self.render_group_layer(image, child, origin=position, time=time)
+                self.render_group_layer(
+                    image,
+                    child,
+                    origin=position,
+                    time=time,
+                    animate_children=apply_motion,
+                    sample_values=sample_values,
+                )
             return
 
         placed = self._place_group_child(child, position, size)
         if has_layer_composition(placed):
-            self._render_composed_group_child(image, placed, time=time)
+            self._render_composed_group_child(image, placed, time=time, sample_values=sample_values)
             return
 
-        self._render_group_child_direct(image, placed, time)
+        self._render_group_child_direct(image, placed, time, sample_values=sample_values)
 
     def _render_composed_group_child(
         self,
@@ -121,6 +188,8 @@ class GroupEngine:
         child: GroupChildLayer,
         origin: tuple[int, int] | None = None,
         time: float | None = None,
+        *,
+        sample_values: bool = False,
     ):
         isolated = self._child_without_boundary_blend(child)
         composite_layer_with_boundary(
@@ -129,7 +198,7 @@ class GroupEngine:
             image,
             child,
             lambda layer_surface: self._render_group_child_boundary(
-                layer_surface, isolated, origin, time
+                layer_surface, isolated, origin, time, sample_values=sample_values
             ),
         )
 
@@ -139,11 +208,15 @@ class GroupEngine:
         child: GroupChildLayer,
         origin: tuple[int, int] | None = None,
         time: float | None = None,
+        *,
+        sample_values: bool = False,
     ):
         if isinstance(child, GroupLayer):
-            self.render_group_layer(image, child, origin=origin, time=time)
+            self.render_group_layer(
+                image, child, origin=origin, time=time, sample_values=sample_values
+            )
             return
-        self._render_group_child_direct(image, child, time)
+        self._render_group_child_direct(image, child, time, sample_values=sample_values)
 
     @staticmethod
     def _child_without_boundary_blend(child: GroupChildLayer) -> GroupChildLayer:
@@ -160,10 +233,15 @@ class GroupEngine:
         return child
 
     def _render_group_child_direct(
-        self, image: Image.Image, child: GroupChildLayer, time: float | None = None
+        self,
+        image: Image.Image,
+        child: GroupChildLayer,
+        time: float | None = None,
+        *,
+        sample_values: bool = False,
     ):
         if isinstance(child, TextLayer):
-            self._text.render_text_layer(image, child)
+            self._text.render_text_layer(image, child, time if sample_values else None)
         elif isinstance(child, ImageLayer):
             self._images.render_image_layer(image, child, time)
         elif isinstance(child, SvgLayer):

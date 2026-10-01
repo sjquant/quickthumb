@@ -30,7 +30,7 @@ import re
 from dataclasses import dataclass
 from html import escape
 from importlib.resources import files
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from PIL import ImageFont
 
@@ -53,6 +53,7 @@ from quickthumb._export_base import (
     flatten_layers,
     font_face_declarations,
     font_variation_settings,
+    is_backdrop_dependent,
     rasterize_layers,
     read_svg_layer_bytes_and_size,
     resolve_font_face,
@@ -76,8 +77,9 @@ from quickthumb.models import (
     Stroke,
     SvgLayer,
     TextLayer,
+    VideoLayer,
 )
-from quickthumb.motion import compile_timeline
+from quickthumb.motion import _has_transform_extensions, compile_timeline
 
 if TYPE_CHECKING:
     from quickthumb.canvas import Canvas, RenderableLayer
@@ -237,6 +239,69 @@ def _canonical_target_count(layer: RenderableLayer, animation: AnimationSpec) ->
     return 1
 
 
+_TRANSFORM_PROPERTIES = {
+    "position": ("--qt-motion-x", "--qt-motion-y"),
+    "scale": ("--qt-motion-scale",),
+    "scale_x": ("--qt-motion-scale-x",),
+    "scale_y": ("--qt-motion-scale-y",),
+    "rotation": ("--qt-motion-rotation",),
+    "opacity": ("--qt-motion-opacity",),
+}
+_TRANSFORM_DEFAULTS = {
+    name: "0" if prop in {"position", "rotation"} else "1"
+    for prop, names in _TRANSFORM_PROPERTIES.items()
+    for name in names
+}
+
+
+def _supports_transform_extensions_html(layer: object) -> bool:
+    """Whether the opt-in anchor/axis adapter can represent the whole animation.
+
+    One geometry-only track spec is supported. Presets, stagger, composition,
+    and time-varying source content deliberately remain authored static images
+    rather than receiving an unrelated entrance effect. Existing centered,
+    uniform-only animations continue through the established HTML adapter.
+    """
+    if not _has_transform_extensions(layer):
+        return False
+    animation = getattr(layer, "animation", None)
+    specs = animation if isinstance(animation, list) else [animation]
+    if len(specs) != 1 or not isinstance(specs[0], AnimationSpec):
+        return False
+    spec = specs[0]
+    if spec.tracks is None or spec.stagger is not None:
+        return False
+    if any(track.type not in _TRANSFORM_PROPERTIES for track in spec.tracks):
+        return False
+    scale_tracks = [track for track in spec.tracks if track.type == "scale"]
+    # Image uniform scale is an internal viewport zoom in the raster renderer.
+    # Nonpositive uniform scale is historically ignored there, unlike axis
+    # scale's intentional reflection/collapse. Back easing may cross zero.
+    if scale_tracks and (
+        getattr(layer, "type", None) == "image"
+        or (spec.easing or "").endswith("_back")
+        or any(key.value <= 0 for track in scale_tracks for key in track.keyframes)
+    ):
+        return False
+
+    def static_source(item: object, *, root: bool = False) -> bool:
+        return (
+            getattr(item, "type", None)
+            in {"shape", "text", "svg", "image", "group", "chart", "qr_code"}
+            and getattr(item, "value", None) is None
+            and not is_backdrop_dependent(cast("RenderableLayer", item))
+            and (root or getattr(item, "animation", None) is None)
+            and all(static_source(child) for child in getattr(item, "children", ()))
+        )
+
+    return static_source(layer, root=True)
+
+
+def _motion_number(value: float) -> str:
+    """Preserve authored motion precision, unlike pixel-layout rounding."""
+    return str(int(value)) if float(value).is_integer() else repr(float(value))
+
+
 def _remap_linear_stops(
     positions: list[float], block: Box, element: Box, dx: float, dy: float
 ) -> list[float]:
@@ -341,6 +406,7 @@ class HtmlExporter:
         self._svg_filters: dict[str, str] = {}
         self._next_id = 1
         self._next_kf = 1
+        self._transform_properties_registered = False
         # Track group-animation identity so flattened group children sharing one
         # animation object animate together as a single timeline node.
         self._prev_anim_key: int | None = None
@@ -507,6 +573,13 @@ class HtmlExporter:
             self._prev_anim_key = None
             return ""
 
+        if _has_transform_extensions(layer):
+            self._prev_anim_key = None
+            self._prev_nodes = []
+            if _supports_transform_extensions_html(layer):
+                return self._register_transform_animation(effects[0], element_id, layer)
+            return ""
+
         if isinstance(effects[0], AnimationSpec):
             return self._register_canonical_animation(effects[0], element_id, layer)
 
@@ -585,10 +658,92 @@ class HtmlExporter:
         self._prev_nodes = nodes
         return "visibility:hidden;" if nodes else ""
 
+    def _register_transform_animation(
+        self, animation: AnimationSpec, element_id: str, layer: RenderableLayer
+    ) -> str:
+        """Animate independent numeric properties over the baked raster bounds.
+
+        CSS ignores a keyframe for a property not declared at that keyframe,
+        so each track retains its own authored interpolation intervals. In
+        particular uniform and axis scales multiply continuously in the final
+        transform instead of approximating their product at a union of stops.
+        """
+        if not self._transform_properties_registered:
+            self._keyframes.extend(
+                f'@property {name}{{syntax:"<number>";inherits:false;initial-value:{value}}}'
+                for name, value in _TRANSFORM_DEFAULTS.items()
+            )
+            self._transform_properties_registered = True
+        event = compile_timeline(animation).events[0]
+        kf = f"{self._keyframe_prefix}{self._next_kf}"
+        self._next_kf += 1
+        stops: dict[float, dict[str, str]] = {}
+        final = dict(_TRANSFORM_DEFAULTS)
+        # Duplicate replace tracks obey canonical last-track precedence, even
+        # when their keyframe times differ; earlier stops must not leak through.
+        tracks = {track.property: track for track in event.tracks}
+        for prop, track in tracks.items():
+            keys = track.keyframes
+            samples = [(key.time, key.value) for key in keys]
+            if keys[0].time > 0:
+                samples.insert(0, (0.0, keys[0].value))
+            if keys[-1].time < event.duration:
+                samples.append((event.duration, keys[-1].value))
+            if event.duration == 0:
+                samples = [(0.0, keys[-1].value), (1.0, keys[-1].value)]
+            for time, value in samples:
+                percent = 100 * time / event.duration if event.duration else 100 * time
+                values = value if isinstance(value, tuple) else (value,)
+                declarations = {
+                    name: _motion_number(float(number))
+                    for name, number in zip(_TRANSFORM_PROPERTIES[prop], values, strict=True)
+                }
+                stops.setdefault(percent, {}).update(declarations)
+            final.update(declarations)
+        self._keyframes.append(
+            "@keyframes "
+            + kf
+            + "{"
+            + "".join(
+                _motion_number(percent)
+                + "%{"
+                + ";".join(f"{name}:{value}" for name, value in declarations.items())
+                + "}"
+                for percent, declarations in sorted(stops.items())
+            )
+            + "}"
+        )
+        self._timeline.append(
+            {
+                "t": [element_id],
+                "k": kf,
+                "d": event.duration,
+                "delay": event.active_start,
+                "tr": event.trigger
+                or ("after_previous" if not self._timeline else "with_previous"),
+                "a": "transform",
+                "e": css_easing(animation.easing or "linear"),
+                "abs": event.trigger is None and event.start > 0,
+                "initial": dict(_TRANSFORM_DEFAULTS),
+                "final": final,
+            }
+        )
+        ax, ay = getattr(layer, "anchor", (0.5, 0.5))
+        return (
+            ";".join(f"{name}:{value}" for name, value in _TRANSFORM_DEFAULTS.items())
+            + ";"
+            + f"transform-origin:{_motion_number(ax * 100)}% {_motion_number(ay * 100)}%;"
+            + "transform:translate(calc(var(--qt-motion-x)*1px),calc(var(--qt-motion-y)*1px)) "
+            + "rotate(calc(var(--qt-motion-rotation)*1deg)) "
+            + "scale(calc(var(--qt-motion-scale)*var(--qt-motion-scale-x)),"
+            + "calc(var(--qt-motion-scale)*var(--qt-motion-scale-y)));"
+            + "opacity:var(--qt-motion-opacity);"
+        )
+
     # ------------------------------------------------------------------ layers
 
     def _emit_layer(self, layer: RenderableLayer):
-        if has_layer_composition(layer):
+        if has_layer_composition(layer) or _has_transform_extensions(layer):
             self._emit_raster_fallback(layer)
             return
 
@@ -622,7 +777,15 @@ class HtmlExporter:
         return "" if key is None else f' data-qt-motion-key="{_attr(key)}"'
 
     def _emit_raster_fallback(self, layer: RenderableLayer):
-        fragment = rasterize_layers(self._canvas, [layer])
+        # Video fragment capture uses a source timestamp; strip the opt-in
+        # animation so an unsupported combination stays authored static even
+        # when that timestamp would otherwise sample its canonical tracks.
+        source = (
+            layer.model_copy(update={"animation": None})
+            if isinstance(layer, VideoLayer) and _has_transform_extensions(layer)
+            else layer
+        )
+        fragment = rasterize_layers(self._canvas, [source])
         if fragment:
             self._emit_fragment(fragment, layer)
 
