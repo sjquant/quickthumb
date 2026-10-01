@@ -60,6 +60,27 @@ A deck is also a sequence: `len(deck)`, `deck[i]`, and iteration over slides all
 
 ## Export methods
 
+### `.export(path, policy=None, *, format=None, quality=None, animation=None)`
+
+The shared document export entry point returns an `ExportResult`, with
+`kind="deck"`, `written_paths`, the effective output format, capability and
+fallback diagnostics, pixel/timing metadata, and the asset manifest. Raster output lists numbered slide files; PDF, PPTX, and HTML list one document.
+The path may be a string or `pathlib.Path`.
+
+```python
+result = deck.export("slides.png")
+print(result.written_paths)
+print(result.model_dump_json())
+```
+
+`format` overrides the raster format; `quality` is for JPEG/WEBP. Use
+`GifOptions` for GIF or `VideoOptions` for MP4/WebM through `animation`.
+`policy` controls the shared capability preflight and supported renderer
+policies. See the [shared contract and support policy](../exports.md#shared-export-contract-and-specialist-controls)
+for the boundary, lifecycle, and format-specific differences. The specialist
+methods below remain supported and are not deprecated; they retain their own
+return types and options rather than returning `ExportResult`.
+
 ### `.render(path, format=None, quality=None, animation=None)`
 
 Renders the deck, dispatching on the output extension. Returns the list of written file paths.
@@ -131,7 +152,7 @@ pptx_bytes = deck.to_pptx()  # requires quickthumb[pptx]
 
 ### `.to_gif(...)` / `.to_webm(...)`
 
-Return the deck as an animation: each slide plays its layer animations, holds its settled state, and its transition animates the change into it (see [Animated GIF & video](../exports.md#animated-gif-video-mp4webm) for the timing model). `.to_webm()` requires the `ffmpeg` binary on `PATH` (or named by `QUICKTHUMB_FFMPEG`).
+Return the deck as an animation: each slide plays its layer animations, holds its settled state, and its transition animates the change into it (see [Animated GIF & video](../exports.md#animated-gif-video-canvas-mp4webm-deck-gifwebm) for the timing model). `.to_webm()` requires the `ffmpeg` binary on `PATH` (or named by `QUICKTHUMB_FFMPEG`).
 
 ```python
 gif_bytes = deck.to_gif(fps=20, slide_duration=3.0, loop=0, matte="#000000")
