@@ -197,6 +197,28 @@ url = canvas.to_data_url(format="JPEG", quality=90)
 | `format` | `str` | `"PNG"` | Output format: `"PNG"`, `"JPEG"`, or `"WEBP"` |
 | `quality` | `int \| None` | `None` | Compression quality. Only valid for `JPEG` and `WEBP`. |
 
+### `.inspect()`
+
+Returns a deterministic `CanvasInspection` containing layer identities, order,
+visibility, bounding boxes and authored text-layout metadata. No output file is
+written. Existing font/image assets may be read for sizing, but parent-layer
+drawing is not invoked.
+
+```python
+report = canvas.inspect()
+for layer in report.layers:
+    print(layer.id, layer.bbox)
+```
+
+For supported parent-linked scenes, bounds describe the **authored-static** world
+layout, not the state at animation time zero. They conservatively enclose each
+existing measured local body after its ancestor transforms and can extend outside
+the canvas. Transparent corners can make these boxes looser than painted pixels.
+Text sizes/wrapping remain authored-local; nulls have no visible body or bbox.
+`canvas.render("debug.png", debug=True)` overlays the same authored-static boxes.
+World-aware `diagnose()` is a separate adapter and remains explicitly guarded for
+parent-linked scenes.
+
 ### `.to_json()`
 
 Serializes the canvas to a JSON string.

@@ -101,3 +101,7 @@ if __name__ == "__main__":
     scene.render_frame(1).save(output / "parent_transforms.png")
 
     scene.render(str(output / "parent_transforms.html"))
+    (output / "parent_transforms.inspection.json").write_text(
+        scene.inspect().model_dump_json(indent=2), encoding="utf-8"
+    )
+    scene.render(str(output / "parent_transforms.debug.png"), debug=True)

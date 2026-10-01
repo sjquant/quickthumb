@@ -23,7 +23,7 @@ from quickthumb._export_base import (
     color_group_has_backdrop,
     is_backdrop_dependent,
 )
-from quickthumb._measurements import LayerMeasurementEngine
+from quickthumb._measurements import LayerMeasurement, LayerMeasurementEngine
 from quickthumb._parenting import validate_parent_graph
 from quickthumb.errors import RenderingError
 from quickthumb.models import (
@@ -216,6 +216,75 @@ def _opaque_reference(layer):
     return layer.model_copy(update=updates) if updates else layer
 
 
+@dataclass(frozen=True)
+class ParentGeometry:
+    """Authored static source frame, independent of its pixel preparation."""
+
+    layer: Any
+    origin: tuple[int, int]
+    body_size: tuple[int, int]
+    body_to_baked: Affine
+
+
+def parent_geometry(
+    canvas: Canvas, layer, measured: LayerMeasurement | None = None
+) -> ParentGeometry:
+    if isinstance(layer, NullLayer):
+        origin = (
+            parse_coordinate(layer.position[0], canvas.width),
+            parse_coordinate(layer.position[1], canvas.height),
+        )
+        return ParentGeometry(
+            layer, origin, (0, 0), affine_state(LayerState(rotation=layer.rotation))
+        )
+    measure = LayerMeasurementEngine(canvas._ctx, canvas._groups, canvas._text)
+    if measured is None:
+        measured = measure.measure_layer(layer, index=0, order=0, path=(0,))
+    box = measured.metadata.get("layout_bbox", measured.bbox)
+    assert box is not None
+    body_size = (box.width, box.height)
+    origin = (box.x, box.y)
+    if isinstance(layer, VideoLayer):
+        body_size = expanded_rotation_size((layer.width, layer.height), layer.rotation)
+        origin = (
+            parse_coordinate(layer.position[0], canvas.width),
+            parse_coordinate(layer.position[1], canvas.height),
+        )
+        if layer.align:
+            origin = apply_alignment(*origin, body_size, layer.align)
+    if isinstance(layer, TextLayer):
+        layer = canvas._text.effective_layer(layer)
+    if not getattr(layer, "rotation", 0):
+        return ParentGeometry(layer, origin, body_size, IDENTITY)
+    unrotated = layer.model_copy(update={"rotation": 0.0})
+    unrotated_box = measure.measure_layer(unrotated, index=0, order=0, path=(0,)).bbox
+    assert unrotated_box is not None
+    rotation = affine_state(LayerState(rotation=layer.rotation))
+    body_to_baked = multiply(
+        translate(body_size[0] / 2, body_size[1] / 2),
+        multiply(rotation, translate(-unrotated_box.width / 2, -unrotated_box.height / 2)),
+    )
+    return ParentGeometry(layer, origin, body_size, body_to_baked)
+
+
+def parent_order(layers: dict[int, Any]) -> list[int]:
+    """Return parent-first keys for an already validated top-level graph."""
+    names = {layer.id: key for key, layer in layers.items() if layer.id}
+    result = []
+    visited = set()
+    for key in layers:
+        pending = []
+        while key not in visited:
+            pending.append(key)
+            visited.add(key)
+            parent = layers[key].parent
+            if parent is None:
+                break
+            key = names[parent]
+        result.extend(reversed(pending))
+    return result
+
+
 @dataclass
 class ParentNode:
     plan: ParentRenderPlan
@@ -267,57 +336,16 @@ class ParentRenderPlan:
         names = {node.layer.id: node for node in self.nodes.values() if node.layer.id}
         for node in self.nodes.values():
             node.parent = names.get(node.layer.parent)
-        self.order: list[ParentNode] = []
-        visited: set[int] = set()
-        for node in self.nodes.values():
-            pending = []
-            current = node
-            while current is not None and id(current) not in visited:
-                pending.append(current)
-                visited.add(id(current))
-                current = current.parent
-            self.order.extend(reversed(pending))
+        self.order = [self.nodes[key] for key in parent_order(layers)]
 
     def _prepare(self, layer) -> ParentNode:
         canvas = self.canvas
+        geometry = parent_geometry(canvas, layer)
+        layer = geometry.layer
+        origin, body_size = geometry.origin, geometry.body_size
+        body_to_baked = geometry.body_to_baked
         if isinstance(layer, NullLayer):
-            origin = (
-                parse_coordinate(layer.position[0], canvas.width),
-                parse_coordinate(layer.position[1], canvas.height),
-            )
-            return ParentNode(
-                proxy(self), layer, origin, affine_state(LayerState(rotation=layer.rotation))
-            )
-        measure = LayerMeasurementEngine(canvas._ctx, canvas._groups, canvas._text)
-        measured = measure.measure_layer(layer, index=0, order=0, path=(0,))
-        box = measured.metadata.get("layout_bbox", measured.bbox)
-        assert box is not None
-        body_size = (box.width, box.height)
-        origin = (box.x, box.y)
-        if isinstance(layer, VideoLayer):
-            body_size = expanded_rotation_size((layer.width, layer.height), layer.rotation)
-            origin = (
-                parse_coordinate(layer.position[0], canvas.width),
-                parse_coordinate(layer.position[1], canvas.height),
-            )
-            if layer.align:
-                origin = apply_alignment(*origin, body_size, layer.align)
-        if isinstance(layer, TextLayer):
-            layer = canvas._text.effective_layer(layer)
-        unrotated = (
-            layer.model_copy(update={"rotation": 0.0}) if hasattr(layer, "rotation") else layer
-        )
-        unrotated_box = measure.measure_layer(unrotated, index=0, order=0, path=(0,)).bbox
-        assert unrotated_box is not None
-        rotation = affine_state(LayerState(rotation=getattr(layer, "rotation", 0.0)))
-        body_to_baked = (
-            multiply(
-                translate(body_size[0] / 2, body_size[1] / 2),
-                multiply(rotation, translate(-unrotated_box.width / 2, -unrotated_box.height / 2)),
-            )
-            if getattr(layer, "rotation", 0)
-            else IDENTITY
-        )
+            return ParentNode(proxy(self), layer, origin, body_to_baked)
         padding = _padding(canvas, layer)
         # Source placement is local, but the existing render context continues
         # to resolve percentages and text wrapping against the authored canvas.
