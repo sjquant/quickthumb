@@ -13,9 +13,11 @@ from quickthumb._parent_render import (
     Affine,
     ParentNode,
     ParentRenderPlan,
+    _has_counter,
     affine_fragment,
     authored_parent_frames,
     multiply,
+    settled_text_reference,
     translate,
 )
 from quickthumb._text import TextEngine
@@ -122,12 +124,12 @@ class ParentDiagnosticSources:
             occurrence = _Occurrence(
                 root,
                 top=True,
-                animated=animated,
+                animated=animated or _has_counter(node.layer),
                 inherited_rotation=_rotated(ancestors[key]),
                 parent=node.layer.parent,
             )
             if isinstance(node.source, TextLayer):
-                occurrence.text = node.source
+                occurrence.text = settled_text_reference(canvas, node.source)
             self.occurrences[measured.layer_id] = occurrence
             if isinstance(node.source, GroupLayer):
                 self._group(measured, node.source, root, animated, False)
@@ -139,20 +141,21 @@ class ParentDiagnosticSources:
             measured.children, placements, strict=True
         ):
             active = self.canvas._groups._without_child_animation(child) if suppress else child
+            child_motion = animated or bool(getattr(active, "animation", None))
             occurrence = _Occurrence(
                 root,
                 start=len(root.operations),
                 structural=True,
                 overridden=suppress,
-                animated=animated or bool(getattr(active, "animation", None)),
+                animated=child_motion or _has_counter(active),
                 inherited_rotation=self.occurrences[measured.layer_id].inherited_rotation,
             )
             self.occurrences[child_measured.layer_id] = occurrence
             if isinstance(active, GroupLayer):
-                self._group(child_measured, active, root, occurrence.animated, suppress, position)
+                self._group(child_measured, active, root, child_motion, suppress, position)
             else:
                 if isinstance(active, TextLayer):
-                    effective = self.canvas._text.effective_layer(active)
+                    effective = settled_text_reference(self.canvas, active)
                     occurrence.text = self.canvas._groups.place_text_child(
                         effective, position, size
                     )

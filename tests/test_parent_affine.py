@@ -598,19 +598,13 @@ def test_unlinked_runs_keep_grouping_and_parent_sources_are_reused(monkeypatch):
     assert calls == [0, 0.25, 0.75, 1]
 
 
-@pytest.mark.parametrize("kind", ["counter", "stagger", "independent_group", "mask", "backdrop"])
+@pytest.mark.parametrize("kind", ["stagger", "independent_group", "mask", "backdrop"])
 def test_unsupported_local_source_boundaries_are_explicit(kind):
-    from quickthumb import AnimatedTextValue, BackdropBlur, LayerMask
+    from quickthumb import BackdropBlur, LayerMask
     from quickthumb.errors import RenderingError
 
     canvas = Canvas(160, 120).null(id="root")
-    if kind == "counter":
-        canvas.text(
-            "0",
-            value=AnimatedTextValue.model_validate({"from": 0, "to": 100, "duration": 1}),
-            parent="root",
-        )
-    elif kind == "stagger":
+    if kind == "stagger":
         canvas.layers = [
             *canvas.layers,
             shape(animation=AnimationSpec.rise(stagger=0.1, target="characters")),

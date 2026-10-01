@@ -15,6 +15,7 @@ from quickthumb._parent_render import (
     parent_geometry,
     parent_rendering_problem,
     participating_layers,
+    settled_content,
 )
 from quickthumb.errors import RenderingError
 from quickthumb.models import VideoLayer
@@ -79,8 +80,11 @@ def measure_parent_layers(canvas: Canvas) -> list[LayerMeasurement]:
         raise RenderingError(problem, code="unsupported_parent_rendering")
     layers = participating_layers(canvas)
     measured = LayerMeasurementEngine(canvas._ctx, canvas._groups, canvas._text).measure_layers(
-        canvas.layers
+        [settled_content(layer) if id(layer) in layers else layer for layer in canvas.layers]
     )
+    measured = [
+        replace(item, raw_layer=layer) for item, layer in zip(measured, canvas.layers, strict=True)
+    ]
     by_identity = {id(item.raw_layer): item for item in measured}
     geometry = {
         key: parent_geometry(canvas, layer, by_identity[key]) for key, layer in layers.items()

@@ -1568,15 +1568,14 @@ class _SlideAnimator:
     ):
         node = unit.parent_node
         assert node is not None
-
         paint, _, state, collapsed = samples[id(node)]
         if state.hidden or collapsed or isinstance(node.layer, NullLayer):
             return
         motion = state.canonical.layer if state.canonical else LayerState()
-        image = (
-            node.render_source(time, motion.color)
+        image, source_offset = (
+            node.render_sample(time, motion.color)
             if unit.component_duration > 0 or unit.color_motion and motion.color is not None
-            else node.image
+            else (node.image, (0, 0))
         )
         if image is None:
             return
@@ -1597,7 +1596,7 @@ class _SlideAnimator:
                 width = round(node.pivot_box[2] * max(0, progress))
                 if width <= 0:
                     return
-                cutoff = round(node.pivot_box[0] + node.padding) + width + 1
+                cutoff = round(node.pivot_box[0] + node.padding - source_offset[0]) + width + 1
                 alpha = image.getchannel("A")
                 alpha.paste(0, (max(0, min(image.width, cutoff)), 0, image.width, image.height))
                 image = image.copy()
@@ -1610,11 +1609,14 @@ class _SlideAnimator:
             revealed = _animation_reveal(image.crop(bounds), effect, progress, unit.seed)
             if revealed is None:
                 return
-            image = Image.new("RGBA", node.source_size)
+            source_size = image.size
+            image = Image.new("RGBA", source_size)
             image.paste(revealed, bounds[:2])
         if image is None:
             return
-        matrix = multiply(paint, translate(-node.padding, -node.padding))
+        matrix = multiply(
+            paint, translate(source_offset[0] - node.padding, source_offset[1] - node.padding)
+        )
         _composite_fragment(frame, image, matrix, motion.blur, render_scale)
 
     def parent_observations(
@@ -1712,8 +1714,26 @@ class _SlideAnimator:
                 boundaries.update((start, end))
                 windows.append((start, end))
             if any(getattr(layer, "value", None) is not None for layer in unit.layers):
+                # Preserve the ordinary top-level counter sampling grid.
                 boundaries.update((start, end))
                 windows.append((start, end))
+            # Retained parent groups keep intrinsic clocks after ancestor motion
+            # ends. Leave all ordinary scene export sampling grids unchanged.
+            pending = (
+                [child for layer in unit.layers for child in getattr(layer, "children", ())]
+                if unit.parent_node is not None
+                else []
+            )
+            while pending:
+                layer = pending.pop()
+                pending.extend(getattr(layer, "children", ()))
+                value = getattr(layer, "value", None)
+                if value is not None:
+                    window_start = max(start, value.delay)
+                    window_end = min(end, value.delay + value.duration)
+                    if window_end > window_start:
+                        boundaries.update((window_start, window_end))
+                        windows.append((window_start, window_end))
             for node in unit.nodes:
                 active_start = node.start + node.effect.delay
                 window_start = max(active_start, start)
