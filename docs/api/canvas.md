@@ -224,12 +224,13 @@ Parent opacity is not inherited. Geometry animation on an ancestor prevents a
 static footprint from being reported as permanently hiding another layer.
 Repair suggestions describe parent-local positions or containing group layout;
 world coordinates must not be copied directly into those local fields.
-A static top-level group's own clip/mask restricts its painted source.
+A top-level group's own clip/mask restricts its complete painted source,
+including sampled counters in settled group slots.
 Inspection reports the boundary-intersected group box and keeps conservative
 laid-out child boxes. Child transforms still use the full authored group body;
-the boundary does not clip independently linked children. Descendant composition
-and group-own composition with intrinsic counter/video content or stagger remain
-guarded; see
+the boundary does not clip independently linked children. Counter observations
+use settled text, including glyph backgrounds and preceding group content.
+Descendant composition and group-own composition with stagger remain guarded; see
 [parent adapter boundaries](video.md#current-adapters-and-boundaries).
 
 ### `.to_json()`

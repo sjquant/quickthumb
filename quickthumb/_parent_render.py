@@ -124,8 +124,6 @@ def parent_rendering_problem(canvas: Canvas) -> str | None:
         if isinstance(layer, GroupLayer):
             if any(_has_composition(child) for child in layer.children):
                 return "Parent-linked groups with clipped or masked descendants are unsupported"
-            if has_layer_composition(layer) and not _static_content(layer):
-                return "Parent-linked composed groups require static content"
             if layer.animation is None and _animated_descendant(layer):
                 return "Parent-linked groups with independent descendant animations are unsupported"
         animation = getattr(layer, "animation", None)
@@ -143,8 +141,8 @@ def parent_rendering_problem(canvas: Canvas) -> str | None:
 
 def _static_content(layer) -> bool:
     # Group motion suppresses descendant AnimationSpec motion, but counters
-    # and videos keep their intrinsic clocks, unlike static composed groups
-    # and the cached target crops used by stagger.
+    # and videos keep their intrinsic clocks, unlike the cached target crops
+    # used by stagger.
     return (
         not isinstance(layer, VideoLayer)
         and getattr(layer, "value", None) is None
