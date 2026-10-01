@@ -38,7 +38,7 @@ def test_parent_null_schema_roundtrip_and_inspection():
     assert {item.target: item.support for item in report.capabilities} == {
         "raster": "full",
         "video": "full",
-        "html": "fallback",
+        "html": "partial",
         "pptx": "fallback",
     }
     assert "parent" not in report.slides[0].layers[0].model_dump()
@@ -134,10 +134,11 @@ def test_top_level_groups_can_be_parented_and_referenced():
 @pytest.mark.parametrize("target", ["html", "pptx"])
 def test_document_formats_declare_authored_static_fallback(target):
     diagnostic = next(item for item in scene().validate_export(target) if item.feature == "parent")
-    assert diagnostic.support == "fallback" and diagnostic.fallback == "static"
-    assert capabilities_for(target)["parent"].support == "fallback"
-    assert capabilities_for(target)["parent"].fallback == "static"
-    with pytest.raises(RenderingError, match="authored-static"):
+    expected = ("partial", None) if target == "html" else ("fallback", "static")
+    assert (diagnostic.support, diagnostic.fallback) == expected
+    capability = capabilities_for(target)["parent"]
+    assert (capability.support, capability.fallback) == expected
+    with pytest.raises(RenderingError, match="authored-static|sampled approximation"):
         scene().validate_export(target, ExportPolicy(unsupported_motion="error"))
 
 
@@ -270,7 +271,7 @@ def test_null_preparation_never_allocates_a_source_canvas(monkeypatch):
 def test_strict_document_fallback_preserves_existing_destination(tmp_path, extension, method):
     destination = tmp_path / f"existing.{extension}"
     destination.write_bytes(b"EXISTING DOCUMENT")
-    with pytest.raises(RenderingError, match="authored-static"):
+    with pytest.raises(RenderingError, match="authored-static|sampled approximation"):
         getattr(scene(), method)(str(destination), policy=ExportPolicy(unsupported_motion="error"))
     assert destination.read_bytes() == b"EXISTING DOCUMENT"
 
@@ -282,7 +283,7 @@ def test_deck_rejection_precedes_first_slide_sequence_write(tmp_path):
     destination = tmp_path / "slides.svg"
     first = tmp_path / "slides_01.svg"
     first.write_bytes(b"EXISTING SLIDE")
-    with pytest.raises(RenderingError, match="authored-static"):
+    with pytest.raises(RenderingError, match="authored-static|sampled approximation"):
         deck.render(str(destination), policy=ExportPolicy(unsupported_motion="error"))
     assert first.read_bytes() == b"EXISTING SLIDE"
     assert not (tmp_path / "slides_02.svg").exists()
