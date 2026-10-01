@@ -410,38 +410,50 @@ def test_clipped_away_group_does_not_overlap_lower_layer():
     )
 
 
-@pytest.mark.parametrize("kind", ["counter", "stagger", "independent", "descendant", "backdrop"])
+@pytest.mark.parametrize(
+    "kind", ["stagger", "independent", "descendant", "nested_mask", "backdrop"]
+)
 def test_composed_group_unsupported_combinations_are_guarded_without_rendering(monkeypatch, kind):
     from quickthumb import AnimatedTextValue, AnimationSpec, BackdropBlur, ExportPolicy
     from quickthumb.errors import RenderingError
 
-    child = TextLayer(type="text", content="12", font=FONT, size=20)
+    child = TextLayer(
+        type="text",
+        content="12",
+        font=FONT,
+        size=20,
+        value=AnimatedTextValue.model_validate({"from": 1, "to": 12, "duration": 1}),
+    )
     animation = None
     expected = (
-        "static content"
-        if kind == "counter"
-        else "stagger"
+        "stagger"
         if kind == "stagger"
         else "independent"
         if kind == "independent"
         else "descendants"
-        if kind == "descendant"
+        if kind in {"descendant", "nested_mask"}
         else "backdrop"
     )
-    if kind == "counter":
-        child.value = AnimatedTextValue.model_validate({"from": 1, "to": 12, "duration": 1})
-        animation = motion(track(RotationTrack, 0, 30))
-    elif kind == "stagger":
+    if kind == "stagger":
         animation = AnimationSpec.rise(stagger=0.2, target="children")
     elif kind == "independent":
         child.animation = motion(track(RotationTrack, 0, 30))
     elif kind == "descendant":
         child.clip = LayerClip(position=(0, 0), width=20, height=20)
+    children = (
+        [
+            GroupLayer(
+                type="group", children=[child], mask=LayerMask(position=(0, 0), width=80, height=40)
+            )
+        ]
+        if kind == "nested_mask"
+        else [child]
+    )
     canvas = (
         Canvas(180, 120)
         .null(id="root")
         .group(
-            [child],
+            children,
             parent="root",
             clip=LayerClip(position=(0, 0), width=100, height=80),
             animation=animation,
@@ -455,7 +467,10 @@ def test_composed_group_unsupported_combinations_are_guarded_without_rendering(m
             canvas.validate_export(target, ExportPolicy(unsupported_motion="error"))
 
 
-def test_composed_group_animation_still_overrides_nested_descendant_animation():
+@pytest.mark.parametrize("counter", [False, True])
+def test_composed_group_animation_still_overrides_nested_descendant_animation(counter):
+    from quickthumb import AnimatedTextValue
+
     child = TextLayer(
         type="text",
         content="STILL",
@@ -463,6 +478,9 @@ def test_composed_group_animation_still_overrides_nested_descendant_animation():
         size=30,
         color="#FFFFFF",
         animation=motion(track(RotationTrack, 0, 180)),
+        value=AnimatedTextValue.model_validate({"from": -100, "to": 12, "duration": 1})
+        if counter
+        else None,
     )
     canvas = (
         Canvas(220, 150)
