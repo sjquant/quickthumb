@@ -57,7 +57,7 @@ import shutil
 import subprocess
 import tempfile
 import threading
-from collections.abc import Iterable, Iterator
+from collections.abc import Generator, Iterable, Iterator
 from dataclasses import dataclass, field
 from io import BytesIO
 from pathlib import Path
@@ -153,6 +153,7 @@ def write_animation(
     reduced_motion: bool = False,
 ) -> None:
     """Render slides to an animated file, dispatching on `format`."""
+    workers = animation.workers if animation is not None else 1
     if isinstance(animation, VideoOptions):
         if format == "gif":
             raise ValidationError("VideoOptions are only supported for MP4 or WebM output")
@@ -191,6 +192,7 @@ def write_animation(
             max_size=max_size,
             colors=colors,
             reduced_motion=reduced_motion,
+            workers=workers,
         )
         _write_bytes_atomically(output_path, data, suffix=".gif")
         return
@@ -210,29 +212,41 @@ def write_animation(
         audio_timeline_duration,
         max_size,
         colors,
+        workers,
     )
-    probe_cache: dict[str, VideoInfo] = {}
-    if reduced_motion:
-        transitions = [None] * len(canvases)
-    plan = _deck_plan(
-        canvases,
-        transitions,
-        1.0 / fps,
-        slide_duration,
-        slide_durations,
-        reduced_motion=reduced_motion,
-        probe_cache=probe_cache,
-    )
-    if slide_audio is not None and audio_offsets is None:
-        audio_offsets = plan.offsets
-        audio_timeline_duration = plan.duration
-    shots = _deck_shots(canvases, transitions, fps, slide_duration, matte_rgb, plan=plan)
-    video_audio = _video_audio_schedule(canvases, plan.offsets, probe_cache)
-    if video_audio and audio_timeline_duration is None:
-        audio_timeline_duration = plan.duration
-    descriptor, temp_path = _temporary_output_path(output_path, suffix=f".{format}")
-    os.close(descriptor)
+    shots: Generator[_Shot, None, None] | None = None
+    temp_path: str | None = None
     try:
+        probe_cache: dict[str, VideoInfo] = {}
+        if reduced_motion:
+            transitions = [None] * len(canvases)
+        plan = _deck_plan(
+            canvases,
+            transitions,
+            1.0 / fps,
+            slide_duration,
+            slide_durations,
+            reduced_motion=reduced_motion,
+            probe_cache=probe_cache,
+        )
+        if slide_audio is not None and audio_offsets is None:
+            audio_offsets = plan.offsets
+            audio_timeline_duration = plan.duration
+        shots = _deck_shots(
+            canvases,
+            transitions,
+            fps,
+            slide_duration,
+            matte_rgb,
+            plan=plan,
+            workers=workers,
+            reduced_motion=reduced_motion,
+        )
+        video_audio = _video_audio_schedule(canvases, plan.offsets, probe_cache)
+        if video_audio and audio_timeline_duration is None:
+            audio_timeline_duration = plan.duration
+        descriptor, temp_path = _temporary_output_path(output_path, suffix=f".{format}")
+        os.close(descriptor)
         _encode_video_file(
             shots,
             fps,
@@ -248,8 +262,9 @@ def write_animation(
         )
         os.replace(temp_path, output_path)
     finally:
-        _remove_quietly(temp_path)
-        _close_video_decoders(canvases)
+        if temp_path is not None:
+            _remove_quietly(temp_path)
+        _close_animation_resources(canvases, shots)
 
 
 def _write_bytes_atomically(output_path: str, data: bytes, suffix: str) -> None:
@@ -289,6 +304,7 @@ def export_animation_bytes(
     max_size: tuple[int, int] | None = None,
     colors: int | None = None,
     reduced_motion: bool = False,
+    workers: int = 1,
 ) -> bytes:
     """Render slides to animated GIF/MP4/WebM bytes."""
     loop_audio = _resolve_loop_audio(soundtrack, loop_audio)
@@ -308,38 +324,44 @@ def export_animation_bytes(
         audio_timeline_duration,
         max_size,
         colors,
+        workers,
     )
-    probe_cache: dict[str, VideoInfo] = {}
-    if reduced_motion:
-        transitions = [None] * len(canvases)
-    plan = _deck_plan(
-        canvases,
-        transitions,
-        1.0 / fps,
-        slide_duration,
-        slide_durations,
-        reduced_motion=reduced_motion,
-        probe_cache=probe_cache,
-    )
-    if slide_audio is not None and audio_offsets is None:
-        audio_offsets = plan.offsets
-        audio_timeline_duration = plan.duration
-    shots = _deck_shots(canvases, transitions, fps, slide_duration, matte_rgb, plan=plan)
-    video_audio = _video_audio_schedule(canvases, plan.offsets, probe_cache)
-    if video_audio and audio_timeline_duration is None:
-        audio_timeline_duration = plan.duration
-
-    if format == "gif":
-        try:
-            return _encode_gif(shots, loop, max_size=max_size, colors=colors)
-        finally:
-            _close_video_decoders(canvases)
-
-    # ffmpeg needs a real, seekable output file (MP4 faststart rewrites the
-    # header), so bytes go through a temporary file.
-    descriptor, temp_path = tempfile.mkstemp(suffix=f".{format}")
-    os.close(descriptor)
+    shots: Generator[_Shot, None, None] | None = None
+    temp_path: str | None = None
     try:
+        probe_cache: dict[str, VideoInfo] = {}
+        if reduced_motion:
+            transitions = [None] * len(canvases)
+        plan = _deck_plan(
+            canvases,
+            transitions,
+            1.0 / fps,
+            slide_duration,
+            slide_durations,
+            reduced_motion=reduced_motion,
+            probe_cache=probe_cache,
+        )
+        if slide_audio is not None and audio_offsets is None:
+            audio_offsets = plan.offsets
+            audio_timeline_duration = plan.duration
+        shots = _deck_shots(
+            canvases,
+            transitions,
+            fps,
+            slide_duration,
+            matte_rgb,
+            plan=plan,
+            workers=workers,
+            reduced_motion=reduced_motion,
+        )
+        video_audio = _video_audio_schedule(canvases, plan.offsets, probe_cache)
+        if video_audio and audio_timeline_duration is None:
+            audio_timeline_duration = plan.duration
+        if format == "gif":
+            return _encode_gif(shots, loop, max_size=max_size, colors=colors)
+        # MP4 faststart needs a real seekable output, so bytes use a temp file.
+        descriptor, temp_path = tempfile.mkstemp(suffix=f".{format}")
+        os.close(descriptor)
         _encode_video_file(
             shots,
             fps,
@@ -356,8 +378,19 @@ def export_animation_bytes(
         with open(temp_path, "rb") as video_file:
             return video_file.read()
     finally:
-        # The encoder already removes the file when it fails.
-        _remove_quietly(temp_path)
+        if temp_path is not None:
+            _remove_quietly(temp_path)
+        _close_animation_resources(canvases, shots)
+
+
+def _close_animation_resources(
+    canvases: list[Canvas], shots: Generator[_Shot, None, None] | None
+) -> None:
+    """Close parent decoders even when worker/producer shutdown itself fails."""
+    try:
+        if shots is not None:
+            shots.close()
+    finally:
         _close_video_decoders(canvases)
 
 
@@ -376,8 +409,15 @@ def _validated_settings(
     audio_timeline_duration: float | None = None,
     max_size: tuple[int, int] | None = None,
     colors: int | None = None,
+    workers: int = 1,
 ) -> tuple[float, tuple[int, int, int]]:
     """Validate the shared export knobs and resolve fps and matte defaults."""
+    if type(workers) is not int or not 1 <= workers <= 8:
+        raise ValidationError("workers must be an integer between 1 and 8")
+    if workers > 1:
+        from quickthumb._render_workers import validate_parallel_canvases
+
+        validate_parallel_canvases(canvases)
     if format not in _DEFAULT_FPS:
         raise ValidationError(f"Unsupported animation format: {format!r}. Use gif, mp4, or webm.")
     if format != "gif" and max_size is not None:
@@ -662,6 +702,41 @@ def _deck_shots(
     matte_rgb: tuple[int, int, int],
     slide_durations: list[float | None] | None = None,
     plan: _DeckPlan | None = None,
+    *,
+    workers: int = 1,
+    reduced_motion: bool = False,
+) -> Generator[_Shot, None, None]:
+    """Own an optional process renderer around the unchanged ordered shot assembly."""
+    plan = plan or _deck_plan(
+        canvases,
+        transitions,
+        1.0 / fps,
+        slide_duration,
+        slide_durations,
+        reduced_motion=reduced_motion,
+    )
+    if workers == 1:
+        yield from _ordered_deck_shots(
+            canvases, transitions, fps, slide_duration, matte_rgb, slide_durations, plan
+        )
+        return
+    from quickthumb._render_workers import ParallelFrames
+
+    with ParallelFrames(canvases, plan.timings, matte_rgb, reduced_motion, workers) as renderer:
+        yield from _ordered_deck_shots(
+            canvases, transitions, fps, slide_duration, matte_rgb, slide_durations, plan, renderer
+        )
+
+
+def _ordered_deck_shots(
+    canvases: list[Canvas],
+    transitions: list[Transition | None],
+    fps: float,
+    slide_duration: float,
+    matte_rgb: tuple[int, int, int],
+    slide_durations: list[float | None] | None = None,
+    plan: _DeckPlan | None = None,
+    renderer=None,
 ) -> Iterator[_Shot]:
     """Yield the deck's full frame timeline as variable-duration shots."""
     size = (canvases[0].width, canvases[0].height)
@@ -669,11 +744,13 @@ def _deck_shots(
     plan = plan or _deck_plan(canvases, transitions, 1.0 / fps, slide_duration, slide_durations)
 
     previous_canvas = None
-    for animator, canvas, timing in zip(
-        plan.animators,
-        canvases,
-        plan.timings,
-        strict=True,
+    for index, (animator, canvas, timing) in enumerate(
+        zip(
+            plan.animators,
+            canvases,
+            plan.timings,
+            strict=True,
+        )
     ):
         transition, duration_in, animation_end, exit_time = timing
         pending: _Shot | None = None
@@ -688,6 +765,8 @@ def _deck_shots(
             fps,
             previous_canvas,
             canvas,
+            renderer=renderer,
+            slide_index=index,
         ):
             if pending is not None:
                 yield pending
@@ -734,6 +813,9 @@ def _slide_motion_shots(
     fps: float,
     previous_canvas: Canvas | None,
     incoming_canvas: Canvas,
+    *,
+    renderer=None,
+    slide_index: int = 0,
 ) -> Iterator[_Shot]:
     """Yield transition and layer-animation shots before the settled hold."""
     # Whether a morph is safe depends only on the pair of canvases, so decide once.
@@ -752,21 +834,25 @@ def _slide_motion_shots(
             matte_rgb,
         )
 
-    for time, duration in _sample_span(0.0, duration_in, fps):
-        yield _Shot(frame(time), duration, animator._has_active_caption(time))
-    # Between effect windows every unit's state is constant, so gaps (a
-    # trailing `delay`, a pause between chained effects) collapse into one
-    # held frame instead of resampling identical frames at fps.
+    samples = _slide_samples(animator, duration_in, animation_end, fps)
+    if renderer is not None:
+        for time, duration, image in renderer.frames(slide_index, samples):
+            yield _Shot(image, duration, animator._has_active_caption(time))
+    else:
+        for time, duration in samples:
+            yield _Shot(frame(time), duration, animator._has_active_caption(time))
+
+
+def _slide_samples(
+    animator: _SlideAnimator, duration_in: float, animation_end: float, fps: float
+) -> Iterator[tuple[float, float]]:
+    """Preserve transition samples and collapsed gaps without retaining images."""
+    yield from _sample_span(0.0, duration_in, fps)
     for seg_start, seg_end, animating in animator.segments(duration_in, animation_end):
         if animating:
-            for time, duration in _sample_span(seg_start, seg_end, fps):
-                yield _Shot(frame(time), duration, animator._has_active_caption(time))
+            yield from _sample_span(seg_start, seg_end, fps)
         else:
-            yield _Shot(
-                frame(seg_start),
-                seg_end - seg_start,
-                animator._has_active_caption(seg_start),
-            )
+            yield seg_start, seg_end - seg_start
 
 
 def _morph_source(

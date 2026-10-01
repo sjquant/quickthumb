@@ -194,3 +194,43 @@ canonical RGBA gate alone does not establish encoded-byte identity. The usual
 benchmark command deliberately retains its original 432×768 / 64-color GIF
 workload so before/after timing and RSS remain comparable. A full-size export
 is a separate capability/memory check, not a like-for-like speedup claim.
+
+## Parallel frame rendering (#151)
+
+The default `workers=1` path preserves sequential rendering. Explicit worker
+counts use a spawn-context process executor with at most `workers` submitted
+but not consumed results. Frame jobs keep the original variable-duration
+sampling and ordered final-shot/caption logic; workers rebuild prepared state
+from a layer-model graph so shared animation identity survives serialization.
+
+Use this separate worker-count benchmark on Linux:
+
+```bash
+uv run --locked python -m benchmarks.parallel_export --json /tmp/parallel.json
+```
+
+Defaults are workers 1/2/4, three fresh processes each, and the same complete
+12 fps reel/GIF options as the main benchmark. `--scenes`, `--formats`,
+`--workers` and `--repetitions` support targeted smoke runs. Worker order rotates
+between repetitions. Do not run timings alongside tests or other heavy work.
+
+Export wall time includes scene construction and public rendering, excluding
+interpreter startup and output hashing. A separate subprocess duration includes
+those costs. Linux `/proc` sampling every 50 ms records concurrent Python-tree,
+FFmpeg, other-child and total-tree RSS peaks; the supervisor is excluded.
+Sum-of-RSS double-counts shared pages, is not PSS, and can miss short-lived
+processes or between-sample peaks. Category peaks need not coincide, so do not
+add them. Parent-only lifetime RSS is retained but cannot represent worker cost.
+
+JSON retains every raw run, memory-sampling gaps, output size and SHA-256.
+GIF/MP4 hash equality is reported across worker counts and repetitions. WebM
+container metadata can vary even at workers=1, so its hash is informational;
+decoded video/audio, frame counts, durations and ordered raw-shot digests are
+the corresponding regression gates. The benchmark reports identity observations
+without using them as an exit gate; inspect them alongside the tests.
+
+A prerequisite decoder fix retains timestamps with ffprobe CSV side-data
+suffixes, including the first H.264 SEI frame. Dropping frame zero previously
+shifted decoder indices and made the final video frame depend on seek history.
+The regression now checks direct, sequential and backward-seek paths against
+the same frame bytes, as required for independent rendering workers.
