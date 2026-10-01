@@ -204,7 +204,7 @@ class ParentDiagnosticSources:
         surface = Image.new("RGBA", occurrence.root.node.source_size)
         for operation in occurrence.root.operations[occurrence.start : occurrence.end]:
             self._paint_operation(surface, operation)
-        return surface
+        return occurrence.root.node.compose_source(surface)
 
     def _composite_surface(self, image, surface, root):
         if surface is None:
@@ -247,7 +247,7 @@ class ParentDiagnosticSources:
 
     def composed_text(self, measured) -> bool:
         occurrence = self.occurrences[measured.layer_id]
-        return occurrence.top and has_layer_composition(occurrence.root.node.source)
+        return has_layer_composition(occurrence.root.node.source)
 
     def _text_coverage(self, layer, source, occurrence):
         """Separate opacity-free glyph coverage from boundary antialiasing."""
@@ -261,7 +261,8 @@ class ParentDiagnosticSources:
         core = Image.new("L", size, 255)
         # Sample either side of a partial inverted mask, retaining its real
         # attenuation. A zero-opacity inverted mask has no visible boundary.
-        for boundary, painter in ((source.clip, _clip_alpha), (source.mask, _mask_alpha)):
+        owner = occurrence.root.node.source
+        for boundary, painter in ((owner.clip, _clip_alpha), (owner.mask, _mask_alpha)):
             if boundary is None:
                 continue
             if painter is _mask_alpha and boundary.invert and boundary.opacity == 0:
@@ -284,19 +285,25 @@ class ParentDiagnosticSources:
         self._composite_surface(world, local, occurrence.root)
         return coverage, world.getchannel("A")
 
-    def _visible_text_treatment(self, running, foreground, coverage, boundary):
+    def _visible_text_treatment(self, backing, combined, foreground, coverage, boundary):
         """Remove glyph AA coverage, preserving owner/mask/color attenuation.
 
         Glyph alpha is normalized against a separate opaque reference, so thin
         affine text retains evidence without treating its fringes as faint ink.
-        At solid glyph pixels this is the owner's actual paint over the scene;
-        the separately composed own Background remains the contrast backing.
+        Compare two complete owner surfaces over the external scene, with and
+        without text. Composing glyphs over an already masked prefix would apply
+        the owner's partial mask twice. At solid glyph pixels, keep the actual
+        paint, including translucent glyph colors and their own Background.
         """
-        visible = Image.new("RGBA", running.size, "white")
-        visible.alpha_composite(running)
+        visible = Image.new("RGBA", backing.size, "white")
+        visible.alpha_composite(combined)
+        base = Image.new("RGBA", backing.size, "white")
+        base.alpha_composite(backing)
         pixels, ink = visible.load(), foreground.load()
+        background = base.load()
         geometry, edges = coverage.load(), boundary.load()
-        assert pixels is not None and ink is not None and geometry is not None and edges is not None
+        assert pixels is not None and ink is not None and background is not None
+        assert geometry is not None and edges is not None
         marker = Image.new("L", visible.size)
         samples = marker.load()
         assert samples is not None
@@ -307,10 +314,19 @@ class ParentDiagnosticSources:
                 for x in range(bounds[0], bounds[2]):
                     if geometry[x, y] < floor or edges[x, y] < 243 or not ink[x, y][3]:
                         continue
-                    opacity = min(1.0, ink[x, y][3] / geometry[x, y])
-                    backdrop = cast(tuple[int, int, int, int], pixels[x, y])
+                    backdrop = cast(tuple[int, int, int, int], background[x, y])
+                    painted = cast(tuple[int, int, int, int], pixels[x, y])
                     pixels[x, y] = tuple(
-                        round(ink[x, y][channel] * opacity + backdrop[channel] * (1 - opacity))
+                        max(
+                            0,
+                            min(
+                                255,
+                                round(
+                                    backdrop[channel]
+                                    + (painted[channel] - backdrop[channel]) * 255 / geometry[x, y]
+                                ),
+                            ),
+                        )
                         for channel in range(3)
                     ) + (255,)
                     samples[x, y] = 255
@@ -340,6 +356,33 @@ class ParentDiagnosticSources:
         part_background = isinstance(source.content, list) and any(
             isinstance(effect, Background) for part in source.content for effect in part.effects
         )
+        combined = None
+        if sampling is not None:
+            content = source.content
+            if isinstance(content, list):
+                content = [
+                    part.model_copy(
+                        update={
+                            "effects": [
+                                effect for effect in part.effects if isinstance(effect, Background)
+                            ]
+                        }
+                    )
+                    for part in content
+                ]
+            treatment = source.model_copy(
+                update={"content": content, "effects": effects, "auto_scale": False}
+            )
+            local_paint = (
+                local_backing.copy()
+                if local_backing is not None
+                else Image.new("RGBA", occurrence.root.node.source_size)
+            )
+            self.canvas._text.render_text_layer(local_paint, treatment, staging_reference=source)
+            combined = running.copy()
+            self._composite_surface(
+                combined, occurrence.root.node.compose_source(local_paint), occurrence.root
+            )
         if effects or part_background:
             content = source.content
             if isinstance(content, list):
@@ -376,7 +419,8 @@ class ParentDiagnosticSources:
                 local_backing = occurrence.root.node.compose_source(local_backing)
             self._composite_surface(backing, local_backing, occurrence.root)
         if sampling is not None:
-            foreground = self._visible_text_treatment(running, foreground, *sampling)
+            assert combined is not None
+            foreground = self._visible_text_treatment(backing, combined, foreground, *sampling)
         return backing, foreground
 
     def repair_context(self, finding):
