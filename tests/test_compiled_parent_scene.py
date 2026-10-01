@@ -5,10 +5,14 @@ import weakref
 from io import BytesIO
 from typing import Any, cast
 
+import pytest
 from PIL import Image
 from quickthumb import Canvas, Dissolve, Fade
 from quickthumb import _export_video as video
+from quickthumb._measurements import measure_layers
+from quickthumb._parent_diagnostics import ParentDiagnosticSources
 from quickthumb._parent_export import bake_parent_html
+from quickthumb._parent_render import ParentRenderPlan
 
 from tests.test_parent_html import RotationTrack, motion, scene, track
 
@@ -109,3 +113,19 @@ def test_parent_observation_batch_outlives_scene_without_retaining_sources():
     finally:
         if was_enabled:
             gc.enable()
+
+
+def test_static_parent_sources_and_diagnostics_do_not_prepare_a_scene(monkeypatch):
+    canvas = scene(motion(track(RotationTrack, 0, 30)))
+    expected = canvas._render_to_image().tobytes()
+    monkeypatch.setattr(
+        video, "_SlideAnimator", lambda *args, **kwargs: pytest.fail("animated scene prepared")
+    )
+    plan = ParentRenderPlan(canvas)
+    assert plan.nodes[id(canvas.layers[-1])].image is not None
+    measured = measure_layers(canvas)
+    sources = ParentDiagnosticSources(canvas, measured)
+    frame = canvas._create_canvas()
+    for item in sources.decorate(measured):
+        sources.composite(frame, item)
+    assert frame.tobytes() == expected

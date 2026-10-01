@@ -11,12 +11,10 @@ from quickthumb._measurements import BBox, LayerMeasurement, LayerMeasurementEng
 from quickthumb._parent_render import (
     IDENTITY,
     Affine,
-    multiply,
+    authored_parent_frames,
     parent_geometry,
-    parent_order,
     parent_rendering_problem,
     participating_layers,
-    translate,
 )
 from quickthumb.errors import RenderingError
 from quickthumb.models import VideoLayer
@@ -84,20 +82,15 @@ def measure_parent_layers(canvas: Canvas) -> list[LayerMeasurement]:
         canvas.layers
     )
     by_identity = {id(item.raw_layer): item for item in measured}
-    names = {layer.id: key for key, layer in layers.items() if layer.id}
-    worlds: dict[int, Affine] = {}
-    ancestors: dict[int, Affine] = {}
-    video_bodies: dict[int, BBox] = {}
-    for key in parent_order(layers):
-        layer = layers[key]
-        geometry = parent_geometry(canvas, layer, by_identity[key])
-        ancestor = worlds[names[layer.parent]] if layer.parent else IDENTITY
-        ancestors[key] = ancestor
-        worlds[key] = multiply(
-            ancestor, multiply(translate(*geometry.origin), geometry.body_to_baked)
-        )
-        if isinstance(layer, VideoLayer):
-            video_bodies[key] = BBox(*geometry.origin, *geometry.body_size)
+    geometry = {
+        key: parent_geometry(canvas, layer, by_identity[key]) for key, layer in layers.items()
+    }
+    ancestors, _ = authored_parent_frames(geometry)
+    video_bodies = {
+        key: BBox(*item.origin, *item.body_size)
+        for key, item in geometry.items()
+        if isinstance(item.layer, VideoLayer)
+    }
     result = []
     for item in measured:
         key = id(item.raw_layer)

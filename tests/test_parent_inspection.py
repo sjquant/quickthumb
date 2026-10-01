@@ -224,8 +224,9 @@ def test_unsupported_observation_keeps_validation_warning_not_model_error():
     assert deck_report.ok and deck_report.warnings[0].path == "/slides/1"
 
 
-def test_diagnostics_remain_guarded_before_any_local_paint(monkeypatch):
+def test_unsupported_diagnostics_remain_guarded_before_any_local_paint(monkeypatch):
     canvas = scene()
+    canvas.layers[-1].clip = LayerClip(position=(0, 0), width=4, height=4)
     monkeypatch.setattr(canvas, "_render_layer", lambda *_args: pytest.fail("local paint"))
     with pytest.raises(RenderingError) as error:
         canvas.diagnose()

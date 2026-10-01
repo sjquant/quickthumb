@@ -223,8 +223,13 @@ existing measured local body after its ancestor transforms and can extend outsid
 the canvas. Transparent corners can make these boxes looser than painted pixels.
 Text sizes/wrapping remain authored-local; nulls have no visible body or bbox.
 `canvas.render("debug.png", debug=True)` overlays the same authored-static boxes.
-World-aware `diagnose()` is a separate adapter and remains explicitly guarded for
-parent-linked scenes.
+`diagnose()` uses the same authored-static world layout, with transformed painted
+alpha for overlap/occlusion and transformed glyph/background pixels for contrast.
+Parent opacity is not inherited. Geometry animation on an ancestor prevents a
+static footprint from being reported as permanently hiding another layer.
+Repair suggestions describe parent-local positions or containing group layout;
+world coordinates must not be copied directly into those local fields.
+The same unsupported parent source/composition combinations remain guarded.
 
 ### `.to_json()`
 

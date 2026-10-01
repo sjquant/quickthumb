@@ -504,7 +504,12 @@ bodies, not tight painted-alpha footprints; they are not clipped to the canvas.
 Group descendants are mapped once from their already placed local coordinates.
 Text wrapping/font metadata stays authored-local. `render(..., debug=True)` draws
 these authored-static boxes; time-sampled inspection/debug is not implemented.
-`diagnose()` remains guarded until its alpha/contrast sources are world-aware.
+`diagnose()` checks this authored-static layout using transformed alpha and text
+contrast pixels. Group text includes preceding siblings and its own background
+effects; geometry animation on ancestors is accounted for by occlusion checks.
+Position repair suggestions use parent-local or containing-group editing context.
+It does not sample animated world layouts, and unsupported raster combinations
+remain guarded.
 `validate()` checks supported world bounds, and preserves a warning (rather than
 an invalid-model error) for unsupported observation combinations.
 `inspect_motion()` reports parent links and local track samples; those local
