@@ -285,6 +285,20 @@ def parent_order(layers: dict[int, Any]) -> list[int]:
     return result
 
 
+def authored_parent_frames(geometry) -> tuple[dict[int, Affine], dict[int, Affine]]:
+    """Compose static ancestor and child frames without evaluating animation."""
+    layers = {key: item.layer for key, item in geometry.items()}
+    names = {layer.id: key for key, layer in layers.items() if layer.id}
+    ancestors: dict[int, Affine] = {}
+    worlds: dict[int, Affine] = {}
+    for key in parent_order(layers):
+        item = geometry[key]
+        ancestor = worlds[names[item.layer.parent]] if item.layer.parent else IDENTITY
+        ancestors[key] = ancestor
+        worlds[key] = multiply(multiply(ancestor, translate(*item.origin)), item.body_to_baked)
+    return ancestors, worlds
+
+
 @dataclass
 class ParentNode:
     plan: ParentRenderPlan
