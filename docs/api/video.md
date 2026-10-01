@@ -400,3 +400,50 @@ See [Timeline scrubber](../diagnostics.md#timeline-scrubber) for timing defaults
 proxy approximations, and the difference between canonical samples and encoded
 playback. The [portrait storyboard example](https://github.com/sjquant/quickthumb/blob/main/examples/timeline_preview.py)
 includes a curved color-changing path and a slide transition.
+
+## Parent links and null controllers
+
+The parent-link model foundation introduces `parent="layer-id"` on animatable
+layers and `Canvas.null(...)` / `NullLayer(type="null", ...)` for invisible
+point controllers. Parent IDs are scene-local and refer to explicit `id` values,
+not generated inspection IDs. Complete JSON documents and `Canvas(layers=...)`
+allow forward references. Fluent calls require a parent to exist before a child
+is added; an invalid call leaves the canvas unchanged.
+
+```python
+from quickthumb import Canvas
+
+scene = (
+    Canvas(320, 240)
+    .null(position=(100, 50), id="controller")
+    .shape("rectangle", (10, 20), 40, 20, "#42CEB7", parent="controller")
+)
+assert scene.validate().ok
+```
+
+The transform contract is parent-local: the example's child starts at
+`(110, 70)` once the renderer adapter is present. A position track remains an
+offset from the layer's own authored local position. World transforms compose
+complete affine matrices along the parent chain, including shear from rotated
+non-uniform scale. There is no automatic keep-world adjustment when assigning a
+parent. Only geometry is inherited: parent opacity, color, reveal, blur, masks,
+clips and blend modes do not change a child's appearance. Drawing order stays
+in document order, independently of parent order.
+
+A null is a zero-size point with a position, rotation and animation. It draws
+nothing; its normalized anchor has no extent to act on. Top-level groups can
+participate as whole visual units. Their auto-layout descendants cannot be
+parent-link sources or targets, and nulls are not auto-layout group children.
+Missing parents, non-animatable parents and cycles are validation errors with a
+`/parent` pointer. The same validation catches later model mutations before
+rendering.
+
+This initial model layer deliberately rejects parent-linked rendering in every
+exporter until the next renderer layer is applied. Layout inspection and
+diagnostics also reject links rather than reporting untransformed bounds. `validate_export()` reports
+`parent` as unsupported with no claimed fallback, and strict policies reject it.
+Canvas `inspect_motion()` reports each link and the null type; Deck timeline
+inspection also requires the renderer layer. Existing documents that omit
+`parent` keep their previous JSON and render path. The model foundation is not
+a claim of full parent-transform rendering support. `validate()` checks the
+graph and assets and includes a warning that world-layout checks are unavailable.

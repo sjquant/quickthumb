@@ -67,6 +67,9 @@ def _fmt(value: float) -> str:
 
 def flatten_layers(canvas: Canvas) -> list[RenderableLayer]:
     """Resolve group layers into placed children so exporters see a flat list."""
+    from quickthumb._parenting import require_parent_rendering
+
+    require_parent_rendering(canvas)
     flat: list[RenderableLayer] = []
     for layer in canvas.layers:
         if (

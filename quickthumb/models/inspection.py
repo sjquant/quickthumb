@@ -150,6 +150,7 @@ class MotionLayerInspection(quickthumbModel):
 
     layer_id: str
     layer_type: str
+    parent: str | None = Field(default=None, exclude_if=lambda value: value is None)
     events: list[MotionEventInspection] = Field(default_factory=list)
     duration: float = 0.0
     targets: list[MotionTargetInspection] = Field(default_factory=list)

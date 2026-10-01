@@ -259,7 +259,14 @@ class LayerIdentityModel(quickthumbModel):
 
 
 class _AnimatableLayerModel(LayerIdentityModel):
-    """Canonical-motion pivot within the rendered layer bounds."""
+    """Canonical-motion pivot and optional scene-local transform parent."""
+
+    parent: Annotated[str, Field(pattern=_IDENTITY_PATTERN.pattern)] | None = Field(
+        default=None,
+        exclude_if=lambda value: value is None,
+        description="ID of a top-level animatable transform parent in this scene.",
+        examples=["controller"],
+    )
 
     anchor: AnchorPoint = Field(
         default=(0.5, 0.5),

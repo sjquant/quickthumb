@@ -1529,6 +1529,7 @@ def sample_frames(timeline: Timeline, fps: float) -> tuple[tuple[float, LayerSta
 
 ExportTarget = Literal["raster", "video", "html", "pptx"]
 CapabilityFeature = Literal[
+    "parent",
     "anchor",
     "position",
     "image_pan",
@@ -1563,6 +1564,7 @@ class MotionCapability:
 
 
 _CAPABILITY_FEATURES: tuple[CapabilityFeature, ...] = (
+    "parent",
     "anchor",
     "position",
     "image_pan",
@@ -1588,6 +1590,7 @@ _FULL_CAPABILITIES: dict[CapabilityFeature, tuple[SupportLevel, Fallback | None]
 # Stagger falls back to a shared reveal when semantic targets cannot be split.
 _RASTER_OVERRIDES: dict[CapabilityFeature, tuple[SupportLevel, Fallback | None]] = {
     "stagger": ("partial", None),
+    "parent": ("unsupported", None),
 }
 _CAPABILITIES: dict[ExportTarget, dict[CapabilityFeature, MotionCapability]] = {}
 for _target in ("raster", "video"):
@@ -1630,9 +1633,11 @@ _CAPABILITIES["html"] = {
     else MotionCapability(feature, "html", "full")
     for feature in _CAPABILITY_FEATURES
 }
+_CAPABILITIES["html"]["parent"] = MotionCapability("parent", "html", "unsupported")
 _CAPABILITIES["html"]["color"] = MotionCapability("color", "html", "unsupported", "static")
 _CAPABILITIES["html"]["motion_path"] = MotionCapability("motion_path", "html", "partial")
 _PPTX_FALLBACKS: dict[CapabilityFeature, tuple[SupportLevel, Fallback | None]] = {
+    "parent": ("unsupported", None),
     "position": ("native", None),
     "image_pan": ("fallback", "rasterize"),
     "anchor": ("unsupported", "static"),
@@ -1745,7 +1750,32 @@ def validate_export(
                 default=-1,
             )
             html_backdrop_ids.update(id(layer) for _, layer in layers[: last + 1])
+    for index, canvas in enumerate(getattr(source, "slides", (source,))):
+        try:
+            cast("Canvas", canvas)._validate_layer_identities()
+        except ValidationError as error:
+            if hasattr(source, "slides"):
+                error.at(f"/slides/{index}")
+            raise
     for layer_id, pointer, layer in _iter_export_layer_locations(source):
+        if getattr(layer, "parent", None) is not None:
+            action = resolved_policy.pptx.get(layer_id) if normalized == "pptx" else None
+            if (action or resolved_policy.unsupported_motion) in {"error", "native"}:
+                raise _unsupported_motion(
+                    f"parent transforms on layer {layer_id} are not implemented for {normalized}",
+                    pointer + "/parent",
+                    layer_id,
+                )
+            diagnostics.append(
+                ExportDiagnostic(
+                    layer_id=layer_id,
+                    feature="parent",
+                    target=normalized,
+                    support="unsupported",
+                    message="Parent transforms require the renderer layer of the parenting stack; "
+                    "export raises instead of silently ignoring the link.",
+                )
+            )
         value = getattr(layer, "value", None)
         if isinstance(value, AnimatedTextValue) and normalized in ("html", "pptx"):
             diagnostics.append(
@@ -2119,6 +2149,7 @@ def _inspection_layer(
     return MotionLayerInspection(
         layer_id=layer_id,
         layer_type=str(getattr(layer, "type", type(layer).__name__)),
+        parent=getattr(layer, "parent", None),
         events=[_inspection_event(event, sample_times) for event in timeline.events],
         duration=duration,
         targets=targets,
@@ -2278,6 +2309,8 @@ def inspect_motion(
         ]
         motion_duration = max((layer.duration for layer in layers), default=0.0)
         for _, layer in _iter_export_layers(canvas):
+            if getattr(layer, "parent", None) is not None:
+                source_features.add("parent")
             animation = getattr(layer, "animation", None)
             items = animation if isinstance(animation, list) else [animation]
             if animation is not None and getattr(layer, "anchor", (0.5, 0.5)) != (0.5, 0.5):

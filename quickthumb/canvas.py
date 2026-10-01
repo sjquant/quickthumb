@@ -60,6 +60,7 @@ from quickthumb.models import (
     LayerMask,
     LayerType,
     LinearGradient,
+    NullLayer,
     OutlineLayer,
     PluginLayer,
     PrefetchResult,
@@ -321,19 +322,9 @@ class Canvas:
             raise
 
     def _validate_layer_identities(self) -> None:
-        seen: set[str] = set()
+        from quickthumb._parenting import validate_parent_graph
 
-        def visit(layer: object) -> None:
-            layer_id = getattr(layer, "id", None)
-            if layer_id is not None:
-                if layer_id in seen:
-                    raise ValidationError(f"duplicate layer id: {layer_id}")
-                seen.add(layer_id)
-            for child in getattr(layer, "children", ()):
-                visit(child)
-
-        for layer in self._layers:
-            visit(layer)
+        validate_parent_graph(self._layers)
 
     def validate(self) -> ValidationReport:
         """Return a structured validation report for this document."""
@@ -646,6 +637,7 @@ class Canvas:
         id: str | None = None,
         motion_key: str | None = None,
         anchor: tuple[float, float] = (0.5, 0.5),
+        parent: str | None = None,
     ) -> Self:
         if content is None:
             raise ValidationError("content is required")
@@ -682,6 +674,7 @@ class Canvas:
             id=id,
             motion_key=motion_key,
             anchor=anchor,
+            parent=parent,
         )
         self._append_layer(layer)
         return self
@@ -731,6 +724,7 @@ class Canvas:
         id: str | None = None,
         motion_key: str | None = None,
         anchor: tuple[float, float] = (0.5, 0.5),
+        parent: str | None = None,
     ) -> Self:
         layer = ShapeLayer(
             type="shape",
@@ -754,6 +748,7 @@ class Canvas:
             id=id,
             motion_key=motion_key,
             anchor=anchor,
+            parent=parent,
         )
         self._append_layer(layer)
         return self
@@ -781,6 +776,7 @@ class Canvas:
         id: str | None = None,
         motion_key: str | None = None,
         anchor: tuple[float, float] = (0.5, 0.5),
+        parent: str | None = None,
     ) -> Self:
         """Add an image overlay layer to the canvas.
 
@@ -825,6 +821,7 @@ class Canvas:
             id=id,
             motion_key=motion_key,
             anchor=anchor,
+            parent=parent,
         )
         self._append_layer(layer)
         return self
@@ -856,6 +853,7 @@ class Canvas:
         id: str | None = None,
         motion_key: str | None = None,
         anchor: tuple[float, float] = (0.5, 0.5),
+        parent: str | None = None,
     ) -> Self:
         """Add a constrained video clip layer for GIF, MP4, and WebM export."""
         layer = VideoLayer(
@@ -884,6 +882,7 @@ class Canvas:
             id=id,
             motion_key=motion_key,
             anchor=anchor,
+            parent=parent,
         )
         self._append_layer(layer)
         return self
@@ -906,6 +905,7 @@ class Canvas:
         id: str | None = None,
         motion_key: str | None = None,
         anchor: tuple[float, float] = (0.5, 0.5),
+        parent: str | None = None,
     ) -> Self:
         """Add an SVG overlay layer, rasterized at render time (requires quickthumb[svg]).
 
@@ -939,6 +939,7 @@ class Canvas:
             id=id,
             motion_key=motion_key,
             anchor=anchor,
+            parent=parent,
         )
         self._append_layer(layer)
         return self
@@ -958,6 +959,7 @@ class Canvas:
         id: str | None = None,
         motion_key: str | None = None,
         anchor: tuple[float, float] = (0.5, 0.5),
+        parent: str | None = None,
     ) -> Self:
         """Add a chart layer using a validated bar or line specification."""
         layer = ChartLayer(
@@ -973,6 +975,7 @@ class Canvas:
             id=id,
             motion_key=motion_key,
             anchor=anchor,
+            parent=parent,
         )
         self._append_layer(layer)
         return self
@@ -995,6 +998,7 @@ class Canvas:
         id: str | None = None,
         motion_key: str | None = None,
         anchor: tuple[float, float] = (0.5, 0.5),
+        parent: str | None = None,
     ) -> Self:
         """Add a square QR code layer."""
         layer = QRCodeLayer(
@@ -1013,6 +1017,7 @@ class Canvas:
             id=id,
             motion_key=motion_key,
             anchor=anchor,
+            parent=parent,
         )
         self._append_layer(layer)
         return self
@@ -1035,6 +1040,7 @@ class Canvas:
         id: str | None = None,
         motion_key: str | None = None,
         anchor: tuple[float, float] = (0.5, 0.5),
+        parent: str | None = None,
     ) -> Self:
         """Add an auto-layout group that stacks child layers along a row or column.
 
@@ -1069,8 +1075,35 @@ class Canvas:
             id=id,
             motion_key=motion_key,
             anchor=anchor,
+            parent=parent,
         )
         self._append_layer(layer)
+        return self
+
+    def null(
+        self,
+        position: tuple = (0, 0),
+        rotation: float = 0.0,
+        animation: AnimationInput | None = None,
+        *,
+        id: str | None = None,
+        motion_key: str | None = None,
+        anchor: tuple[float, float] = (0.5, 0.5),
+        parent: str | None = None,
+    ) -> Self:
+        """Add a non-rendering point controller for explicit transform parenting."""
+        self._append_layer(
+            NullLayer(
+                type="null",
+                position=position,
+                rotation=rotation,
+                animation=animation,
+                id=id,
+                motion_key=motion_key,
+                anchor=anchor,
+                parent=parent,
+            )
+        )
         return self
 
     def custom(
@@ -1105,6 +1138,9 @@ class Canvas:
         for MP4/WebM to tune animated output.
         Set debug=True for raster output annotated with public layer-id bboxes.
         """
+        from quickthumb._parenting import require_parent_rendering
+
+        require_parent_rendering(self)
         extension = os.path.splitext(output_path)[1].lower()
         if format is not None and extension in (".gif", ".mp4", ".webm"):
             raise RenderingError(
@@ -1764,6 +1800,9 @@ class Canvas:
         return self._render_to_image(time=float(time))
 
     def _render_to_image(self, debug: bool = False, time: float | None = None) -> Image.Image:
+        from quickthumb._parenting import require_parent_rendering
+
+        require_parent_rendering(self)
         self._ctx.begin_render_pass()
         self._ctx.motion_time = time
         try:
@@ -2043,6 +2082,8 @@ class Canvas:
                 self._fonts.load_font_variant,
                 self._images,
             )
+        elif isinstance(layer, NullLayer):
+            return
         elif isinstance(layer, PluginLayer):
             raise RenderingError("Plugin layer rendering is not available until the D2 runtime.")
         elif isinstance(layer, CustomLayer):
