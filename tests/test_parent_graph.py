@@ -35,7 +35,12 @@ def test_parent_null_schema_roundtrip_and_inspection():
     assert report.slides[0].layers[0].layer_type == "null"
     assert report.slides[0].layers[1].parent == "root"
     assert {item.feature for item in report.capabilities} == {"parent"}
-    assert all(item.support == "unsupported" for item in report.capabilities)
+    assert {item.target: item.support for item in report.capabilities} == {
+        "raster": "full",
+        "video": "full",
+        "html": "unsupported",
+        "pptx": "unsupported",
+    }
     assert "parent" not in report.slides[0].layers[0].model_dump()
     assert restored.validate().ok
 
@@ -126,8 +131,8 @@ def test_top_level_groups_can_be_parented_and_referenced():
     assert canvas.validate().ok
 
 
-@pytest.mark.parametrize("target", ["raster", "video", "html", "pptx"])
-def test_model_only_layer_declares_unsupported_without_claiming_a_fallback(target):
+@pytest.mark.parametrize("target", ["html", "pptx"])
+def test_document_formats_declare_unsupported_without_claiming_a_fallback(target):
     diagnostics = scene().validate_export(target)
     diagnostic = next(item for item in diagnostics if item.feature == "parent")
     assert diagnostic.support == "unsupported" and diagnostic.fallback is None
@@ -137,9 +142,7 @@ def test_model_only_layer_declares_unsupported_without_claiming_a_fallback(targe
         scene().validate_export(target, ExportPolicy(unsupported_motion="error"))
 
 
-@pytest.mark.parametrize(
-    "method", ["render_frame", "to_html", "to_svg", "to_pptx", "to_pdf", "to_gif"]
-)
+@pytest.mark.parametrize("method", ["to_html", "to_svg", "to_pptx", "to_pdf"])
 def test_model_only_exports_fail_instead_of_silently_ignoring_links(method):
     with pytest.raises(RenderingError) as error:
         getattr(scene(), method)()
@@ -270,7 +273,7 @@ def test_null_preparation_never_allocates_a_source_canvas(monkeypatch):
     assert animator.frame_at(0).getbbox() is None
 
 
-@pytest.mark.parametrize("extension", ["png", "svg", "html", "pdf", "pptx", "gif"])
+@pytest.mark.parametrize("extension", ["svg", "html", "pdf", "pptx"])
 @pytest.mark.parametrize("method", ["render", "export"])
 def test_model_only_rejection_preserves_existing_destination(tmp_path, extension, method):
     destination = tmp_path / f"existing.{extension}"
@@ -284,13 +287,13 @@ def test_deck_rejection_precedes_first_slide_sequence_write(tmp_path):
     from quickthumb import Deck
 
     deck = Deck(140, 130).slide(Canvas(140, 130)).slide(scene())
-    destination = tmp_path / "slides.png"
-    first = tmp_path / "slides_01.png"
+    destination = tmp_path / "slides.svg"
+    first = tmp_path / "slides_01.svg"
     first.write_bytes(b"EXISTING SLIDE")
     with pytest.raises(RenderingError, match="Parent-linked rendering"):
         deck.render(str(destination))
     assert first.read_bytes() == b"EXISTING SLIDE"
-    assert not (tmp_path / "slides_02.png").exists()
+    assert not (tmp_path / "slides_02.svg").exists()
 
 
 def test_direct_pdf_rejection_preserves_existing_destination(tmp_path):
