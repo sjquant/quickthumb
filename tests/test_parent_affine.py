@@ -406,15 +406,18 @@ def test_raster_parent_capability_matches_supported_or_rejected_combinations(tar
     layers[1] = GroupLayer(
         type="group",
         parent="root",
-        children=[shape(position=(0, 0), parent=None)],
-        clip=LayerClip(position=(0, 0), width=10, height=10),
+        children=[
+            shape(position=(0, 0), parent=None).model_copy(
+                update={"clip": LayerClip(position=(0, 0), width=10, height=10)}
+            )
+        ],
     )
     canvas.layers = layers
     assert (
         next(item for item in canvas.validate_export(target) if item.feature == "parent").support
         == "unsupported"
     )
-    with pytest.raises(RenderingError, match="clip and mask"):
+    with pytest.raises(RenderingError, match="clipped or masked descendants"):
         canvas.validate_export(target, ExportPolicy(unsupported_motion="error"))
 
 
@@ -430,8 +433,11 @@ def test_unsupported_parent_combination_does_not_overwrite_earlier_deck_outputs(
             GroupLayer(
                 type="group",
                 parent="root",
-                children=[shape(position=(0, 0), parent=None)],
-                clip=LayerClip(position=(0, 0), width=10, height=10),
+                children=[
+                    shape(position=(0, 0), parent=None).model_copy(
+                        update={"clip": LayerClip(position=(0, 0), width=10, height=10)}
+                    )
+                ],
             ),
         ],
     )
@@ -439,7 +445,7 @@ def test_unsupported_parent_combination_does_not_overwrite_earlier_deck_outputs(
     destination = tmp_path / "slides.png"
     first = tmp_path / "slides_01.png"
     first.write_bytes(b"EXISTING")
-    with pytest.raises(RenderingError, match="clip and mask"):
+    with pytest.raises(RenderingError, match="clipped or masked descendants"):
         deck.render(str(destination))
     assert first.read_bytes() == b"EXISTING"
 
@@ -645,8 +651,13 @@ def test_unsupported_local_source_boundaries_are_explicit(kind):
             GroupLayer(
                 type="group",
                 parent="root",
-                children=[shape(position=(0, 0), parent=None)],
-                mask=LayerMask(shape="ellipse", position=(0, 0), width=20, height=20),
+                children=[
+                    shape(position=(0, 0), parent=None).model_copy(
+                        update={
+                            "mask": LayerMask(shape="ellipse", position=(0, 0), width=20, height=20)
+                        }
+                    )
+                ],
             ),
         ]
     else:

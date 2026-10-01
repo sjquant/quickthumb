@@ -117,30 +117,33 @@ def parent_rendering_problem(canvas: Canvas) -> str | None:
         if not isinstance(layer, NullLayer) and index <= last_backdrop:
             return "Parent-linked imagery on or below backdrop-dependent layers is unsupported"
         if isinstance(layer, GroupLayer):
-            if has_layer_composition(layer):
-                return "Parent-linked group clip and mask composition is unsupported"
             if any(_has_composition(child) for child in layer.children):
                 return "Parent-linked groups with clipped or masked descendants are unsupported"
+            if has_layer_composition(layer) and not _static_content(layer):
+                return "Parent-linked composed groups require static content"
             if layer.animation is None and _animated_descendant(layer):
                 return "Parent-linked groups with independent descendant animations are unsupported"
         animation = getattr(layer, "animation", None)
         items = animation if isinstance(animation, list) else [animation]
         if any(isinstance(item, AnimationSpec) and item.stagger is not None for item in items):
+            if isinstance(layer, GroupLayer) and has_layer_composition(layer):
+                return "Parent-linked composed group stagger is unsupported"
             layer_id = getattr(layer, "id", None)
             if layer_id is not None and layer_id in parents:
                 return "A staggered layer cannot be a parent because its targets move separately"
-            if not isinstance(layer, (TextLayer, GroupLayer)) or not _static_stagger_source(layer):
+            if not isinstance(layer, (TextLayer, GroupLayer)) or not _static_content(layer):
                 return "Parent-linked stagger requires a static text or group source"
     return None
 
 
-def _static_stagger_source(layer) -> bool:
+def _static_content(layer) -> bool:
     # Group motion suppresses descendant AnimationSpec motion, but counters
-    # and videos keep their intrinsic clocks and cannot use cached target crops.
+    # and videos keep their intrinsic clocks, unlike static composed groups
+    # and the cached target crops used by stagger.
     return (
         not isinstance(layer, VideoLayer)
         and getattr(layer, "value", None) is None
-        and all(_static_stagger_source(child) for child in getattr(layer, "children", ()))
+        and all(_static_content(child) for child in getattr(layer, "children", ()))
     )
 
 
@@ -395,6 +398,7 @@ class ParentNode:
         try:
             if isinstance(source, GroupLayer):
                 canvas._groups.render_group_layer(surface, source, time=time, sample_values=True)
+                surface = self.compose_source(surface)
             else:
                 canvas._render_layer(surface, source, time)
         finally:
