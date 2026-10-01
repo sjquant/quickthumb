@@ -117,6 +117,7 @@ if TYPE_CHECKING:
     from quickthumb.transitions import Transition
 
 AnimationFormat = Literal["gif", "mp4", "webm"]
+AnimationQuality = Literal["standard", "high"]
 
 # HTML deck parity: a slide with no transition set cross-fades in over 0.5s.
 _DEFAULT_TRANSITION_DURATION = 0.5
@@ -158,6 +159,7 @@ def write_animation(
 ) -> None:
     """Render slides to an animated file, dispatching on `format`."""
     workers = animation.workers if animation is not None else 1
+    quality = animation.quality if animation is not None else "standard"
     if isinstance(animation, VideoOptions):
         if format == "gif":
             raise ValidationError("VideoOptions are only supported for MP4 or WebM output")
@@ -197,6 +199,7 @@ def write_animation(
             colors=colors,
             reduced_motion=reduced_motion,
             workers=workers,
+            quality=quality,
         )
         _write_bytes_atomically(output_path, data, suffix=".gif")
         return
@@ -217,6 +220,7 @@ def write_animation(
         max_size,
         colors,
         workers,
+        quality,
     )
     shots: Generator[_Shot, None, None] | None = None
     temp_path: str | None = None
@@ -232,6 +236,7 @@ def write_animation(
             slide_durations,
             reduced_motion=reduced_motion,
             probe_cache=probe_cache,
+            quality=quality,
         )
         if slide_audio is not None and audio_offsets is None:
             audio_offsets = plan.offsets
@@ -244,6 +249,7 @@ def write_animation(
             matte_rgb,
             plan=plan,
             workers=workers,
+            quality=quality,
             reduced_motion=reduced_motion,
         )
         video_audio = _video_audio_schedule(canvases, plan.offsets, probe_cache)
@@ -309,6 +315,7 @@ def export_animation_bytes(
     colors: int | None = None,
     reduced_motion: bool = False,
     workers: int = 1,
+    quality: AnimationQuality = "standard",
 ) -> bytes:
     """Render slides to animated GIF/MP4/WebM bytes."""
     loop_audio = _resolve_loop_audio(soundtrack, loop_audio)
@@ -329,6 +336,7 @@ def export_animation_bytes(
         max_size,
         colors,
         workers,
+        quality,
     )
     shots: Generator[_Shot, None, None] | None = None
     temp_path: str | None = None
@@ -344,6 +352,7 @@ def export_animation_bytes(
             slide_durations,
             reduced_motion=reduced_motion,
             probe_cache=probe_cache,
+            quality=quality,
         )
         if slide_audio is not None and audio_offsets is None:
             audio_offsets = plan.offsets
@@ -356,6 +365,7 @@ def export_animation_bytes(
             matte_rgb,
             plan=plan,
             workers=workers,
+            quality=quality,
             reduced_motion=reduced_motion,
         )
         video_audio = _video_audio_schedule(canvases, plan.offsets, probe_cache)
@@ -414,8 +424,11 @@ def _validated_settings(
     max_size: tuple[int, int] | None = None,
     colors: int | None = None,
     workers: int = 1,
+    quality: AnimationQuality = "standard",
 ) -> tuple[float, tuple[int, int, int]]:
     """Validate the shared export knobs and resolve fps and matte defaults."""
+    if quality not in ("standard", "high"):
+        raise ValidationError("quality must be standard or high")
     if type(workers) is not int or not 1 <= workers <= 8:
         raise ValidationError("workers must be an integer between 1 and 8")
     if workers > 1:
@@ -676,11 +689,13 @@ def _deck_plan(
     slide_durations: list[float | None] | None,
     reduced_motion: bool = False,
     probe_cache: dict[str, VideoInfo] | None = None,
+    quality: AnimationQuality = "standard",
 ) -> _DeckPlan:
     """Build animation state once for both visuals and scheduled narration."""
     cache = probe_cache if probe_cache is not None else {}
     animators = [
-        _SlideAnimator(canvas, cache, reduced_motion=reduced_motion) for canvas in canvases
+        _SlideAnimator(canvas, cache, reduced_motion=reduced_motion, quality=quality)
+        for canvas in canvases
     ]
     timings = _deck_timing(
         canvases,
@@ -709,6 +724,7 @@ def _deck_shots(
     *,
     workers: int = 1,
     reduced_motion: bool = False,
+    quality: AnimationQuality = "standard",
 ) -> Generator[_Shot, None, None]:
     """Own an optional process renderer around the unchanged ordered shot assembly."""
     plan = plan or _deck_plan(
@@ -718,13 +734,16 @@ def _deck_shots(
         slide_duration,
         slide_durations,
         reduced_motion=reduced_motion,
+        quality=quality,
     )
     if workers == 1:
         yield from _ordered_deck_shots(canvases, fps, matte_rgb, plan)
         return
     from quickthumb._render_workers import ParallelFrames
 
-    with ParallelFrames(canvases, plan.timings, matte_rgb, reduced_motion, workers) as renderer:
+    with ParallelFrames(
+        canvases, plan.timings, matte_rgb, reduced_motion, workers, quality=quality
+    ) as renderer:
         yield from _ordered_deck_shots(canvases, fps, matte_rgb, plan, renderer)
 
 
@@ -1078,6 +1097,8 @@ def _composite_frame(
     *,
     background: Image.Image | None = None,
     include_captions: bool = True,
+    render_scale: int = 1,
+    downsample: bool = True,
 ) -> Image.Image:
     """Render ordered units onto a fresh full-canvas RGBA frame.
 
@@ -1085,11 +1106,17 @@ def _composite_frame(
     imagery and motion, and the optional background is the already-composited
     prefix. Input images are read-only; the returned image is owned by the caller.
     Timeline planning, transitions, and encoding stay outside this boundary.
+
+    `render_scale=2` draws native sources directly into a doubled surface.
+    Only background-plate preparation disables the final downsample; ordinary
+    frames return native dimensions before captions are rendered.
     """
     frame = (
         background.copy()
         if background is not None
-        else Image.new("RGBA", (canvas.width, canvas.height), (0, 0, 0, 0))
+        else Image.new(
+            "RGBA", (canvas.width * render_scale, canvas.height * render_scale), (0, 0, 0, 0)
+        )
     )
     visible_video_layers: list[VideoLayer] = []
     for unit in units:
@@ -1120,6 +1147,7 @@ def _composite_frame(
                     _geometry_in_motion(target, time, state=sample)
                     for target, sample in zip(unit.target_timelines, target_states, strict=True)
                 ),
+                render_scale=render_scale,
             )
             continue
         if state.canonical is not None:
@@ -1133,6 +1161,7 @@ def _composite_frame(
                 clip_scale=state.canonical.clip_scale,
                 include_scale=not any(isinstance(item, ImageLayer) for item in unit.layers),
                 subpixel=state.canonical.subpixel,
+                render_scale=render_scale,
             )
             if rendered is None:
                 continue
@@ -1145,7 +1174,18 @@ def _composite_frame(
             if revealed is None:
                 continue
             image = revealed
+        if render_scale != 1 and state.canonical is None:
+            if pos == (0, 0) and image.size == (canvas.width, canvas.height):
+                # Fixed canvas-covering imagery must not fade at its outer
+                # edge. Moving fragments always keep transparent filter support.
+                image = image.resize(frame.size, Image.Resampling.BICUBIC)
+            else:
+                image, pos = apply_canonical_geometry(
+                    image, LayerState(), pos, render_scale=render_scale
+                )
         frame.alpha_composite(image, pos)
+    if render_scale != 1 and downsample:
+        frame = frame.resize((canvas.width, canvas.height), Image.Resampling.LANCZOS)
     if include_captions:
         render_video_captions(
             frame,
@@ -1165,8 +1205,10 @@ class _SlideAnimator:
         canvas: Canvas,
         probe_cache: dict[str, VideoInfo],
         reduced_motion: bool = False,
+        quality: AnimationQuality = "standard",
     ):
         self._canvas = canvas
+        self._render_scale = 2 if quality == "high" else 1
         self._units = _build_units(canvas, probe_cache, reduced_motion=reduced_motion)
         self.duration = max(_schedule_units(self._units), _schedule_timelines(self._units))
         # Only the leading static run is safe to cache. Static units above or
@@ -1177,7 +1219,14 @@ class _SlideAnimator:
             len(self._units),
         )
         self._static_plate = (
-            _composite_frame(canvas, self._units[:prefix_end], 0.0, include_captions=False)
+            _composite_frame(
+                canvas,
+                self._units[:prefix_end],
+                0.0,
+                include_captions=False,
+                render_scale=self._render_scale,
+                downsample=False,
+            )
             if prefix_end
             else None
         )
@@ -1192,6 +1241,7 @@ class _SlideAnimator:
             time,
             background=self._static_plate,
             include_captions=include_captions,
+            render_scale=self._render_scale,
         )
 
     def final_frame(self) -> Image.Image:
@@ -1757,6 +1807,7 @@ def _canonical_render(
     clip_scale: float = 1.0,
     include_scale: bool = True,
     subpixel: bool = False,
+    render_scale: int = 1,
 ) -> tuple[Image.Image, tuple[int, int]] | None:
     """Apply renderer-independent opacity, reveal, and geometry to a frame.
 
@@ -1769,14 +1820,19 @@ def _canonical_render(
     output = image
     opacity = min(1.0, max(0.0, state.opacity)) * alpha_scale
     progress = min(clip_scale, state.clip_progress)
-    if subpixel:
+    if subpixel or render_scale != 1:
         output = apply_canonical_alpha(
             output, state.with_values(opacity=opacity, clip_progress=progress)
         )
         if output is None:
             return None
         return apply_canonical_geometry(
-            output, state, pos, include_scale=include_scale, subpixel=True
+            output,
+            state,
+            pos,
+            include_scale=include_scale,
+            subpixel=subpixel,
+            render_scale=render_scale,
         )
     if opacity < 1.0:
         output = _scaled_alpha(output, opacity)

@@ -251,7 +251,7 @@ def split_into_bands(
 
 
 def composite_motion_targets(
-    image: Image.Image, fragments, states, *, subpixel: tuple[bool, ...] = ()
+    image: Image.Image, fragments, states, *, subpixel: tuple[bool, ...] = (), render_scale: int = 1
 ) -> None:
     """Place each staggered target using its own sampled state.
 
@@ -261,12 +261,15 @@ def composite_motion_targets(
         if state is None:
             continue
         moving = bool(subpixel and subpixel[index])
-        if moving:
+        source_alpha = moving or render_scale != 1
+        if source_alpha:
             fragment = apply_canonical_alpha(fragment, state)
             if fragment is None:
                 continue
-        moved, placed = apply_canonical_geometry(fragment, state, position, subpixel=moving)
-        if not moving:
+        moved, placed = apply_canonical_geometry(
+            fragment, state, position, subpixel=moving, render_scale=render_scale
+        )
+        if not source_alpha:
             moved = apply_canonical_alpha(moved, state)
         if moved is not None:
             image.alpha_composite(moved, placed)
@@ -311,6 +314,7 @@ def apply_canonical_geometry(
     *,
     include_scale: bool = True,
     subpixel: bool = False,
+    render_scale: int = 1,
 ) -> tuple[Image.Image, tuple[int, int]]:
     """Scale, rotate, and blur a rendered layer about its centre, then move it.
 
@@ -322,6 +326,8 @@ def apply_canonical_geometry(
     `subpixel` selects one bicubic affine resampling during geometry motion.
     Callers keep it off at settled endpoints and holds so their original
     resize/rotate filters and integer placement stay pixel-identical.
+    `render_scale=2` instead places the native source in a doubled composition
+    space; the caller downsamples the completed frame once.
 
     `include_scale` is off for image layers, whose renderer already folds
     `scale` into the source crop so the frame stays put while its content
@@ -330,14 +336,19 @@ def apply_canonical_geometry(
     scale = state.scale if include_scale and state.scale > 0 else 1.0
     offset_x, offset_y = state.position or (0.0, 0.0)
     angle = state.rotation % 360
-    if subpixel and not (
-        scale == 1.0
-        and angle == 0.0
-        and float(offset_x).is_integer()
-        and float(offset_y).is_integer()
+    if render_scale != 1 or (
+        subpixel
+        and not (
+            scale == 1.0
+            and angle == 0.0
+            and float(offset_x).is_integer()
+            and float(offset_y).is_integer()
+        )
     ):
-        image, placed = _affine_geometry(image, pos, scale, angle, offset_x, offset_y)
-        image, margin = _blur_geometry(image, state.blur)
+        image, placed = _affine_geometry(
+            image, pos, scale, angle, offset_x, offset_y, render_scale=render_scale
+        )
+        image, margin = _blur_geometry(image, state.blur * render_scale)
         return image, (placed[0] - margin, placed[1] - margin)
 
     # Settled states deliberately retain the established filters and rounding,
@@ -376,6 +387,8 @@ def _affine_geometry(
     angle: float,
     offset_x: float,
     offset_y: float,
+    *,
+    render_scale: int = 1,
 ) -> tuple[Image.Image, tuple[int, int]]:
     """Resample T · R · S once, keeping the fractional offset in the inverse map."""
     cosine = round(math.cos(math.radians(angle)), 15)
@@ -384,8 +397,9 @@ def _affine_geometry(
     # otherwise Pillow clips interpolation there and the edge still steps.
     padded = Image.new("RGBA", (image.width + 4, image.height + 4))
     padded.paste(image, (2, 2))
-    centre_x = pos[0] + image.width / 2 + offset_x
-    centre_y = pos[1] + image.height / 2 + offset_y
+    centre_x = (pos[0] + image.width / 2 + offset_x) * render_scale
+    centre_y = (pos[1] + image.height / 2 + offset_y) * render_scale
+    scale *= render_scale
     half_width = (abs(cosine) * padded.width + abs(sine) * padded.height) * scale / 2
     half_height = (abs(sine) * padded.width + abs(cosine) * padded.height) * scale / 2
     left, top = math.floor(centre_x - half_width), math.floor(centre_y - half_height)

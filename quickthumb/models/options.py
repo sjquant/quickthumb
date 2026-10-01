@@ -43,6 +43,7 @@ class GifOptions(quickthumbModel):
     max_size: tuple[PositiveInt, PositiveInt] | None = None
     colors: int | None = None
     workers: Annotated[int, Field(strict=True, ge=1, le=8)] = 1
+    quality: Literal["standard", "high"] = "standard"
 
     @field_validator("loop")
     @classmethod
@@ -69,6 +70,7 @@ class VideoOptions(quickthumbModel):
     soundtrack: AudioTrack | None = None
     loop_audio: bool | None = None
     workers: Annotated[int, Field(strict=True, ge=1, le=8)] = 1
+    quality: Literal["standard", "high"] = "standard"
 
 
 def coerce_audio_track(value: AudioTrack | str | dict | None) -> AudioTrack | None:

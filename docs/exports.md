@@ -167,6 +167,35 @@ animated file output. Use `GifOptions` for GIF (`fps`, `matte`, `loop`,
 are rejected for video output, and video options are rejected for GIF output.
 The generic `quality` option remains reserved for JPEG and WebP raster output.
 
+### High-quality animated compositing
+
+`GifOptions(quality="high")` and `VideoOptions(quality="high")` opt into a 2×
+layer-compositing surface followed by one LANCZOS downsample. The default is
+`quality="standard"`, which preserves existing output. This namespaced option
+is separate from `render(..., quality=...)` for JPEG/WebP.
+
+```python
+canvas.render("smooth.mp4", animation=VideoOptions(fps=30, quality="high"))
+deck.render("smooth.gif", animation=GifOptions(fps=12, colors=64, quality="high"))
+```
+
+High mode filters prepared layers and staggered targets directly into the
+larger surface without retaining enlarged copies of every source image. It
+improves integration of rotated/downscaled edges; dimensions, timing, audio,
+GIF palette/size controls and `workers` keep their existing meanings. Frames
+and cached background plates contain four times as many pixels, so high mode
+costs more rendering time and memory. Each worker adds its own buffers, so
+aggregate memory can increase with worker count.
+
+This is supersampled **layer compositing**, not higher-resolution source layout:
+fonts/assets and backdrop-dependent source surfaces are still prepared at their
+native size. Authored static rotation is already baked into those sources.
+Captions retain native rendering after the downsample, while slide transitions
+and keyed Morph keep their existing native-resolution paths. High mode cannot
+restore details absent from a prepared source and may soften very small text.
+See the [benchmark guide](https://github.com/sjquant/quickthumb/tree/main/benchmarks)
+for matched cost measurements and before/after text crops.
+
 ### Parallel animated rendering
 
 `GifOptions(workers=2)` and `VideoOptions(workers=2)` opt into process-based
