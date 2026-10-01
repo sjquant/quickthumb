@@ -329,7 +329,7 @@ def test_raster_video_paths_keep_geometry_color_and_spawn_parity(quality, tmp_pa
         else:
             assert (
                 actual.tobytes()
-                == video._composite_frame(canvas, animator._units, time, render_scale=2).tobytes()
+                == animator._composite_frame(animator._units, time, render_scale=2).tobytes()
             )
     outputs = [tmp_path / f"path-{workers}.gif" for workers in (1, 2)]
     for workers, output in zip((1, 2), outputs, strict=True):

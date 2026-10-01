@@ -188,6 +188,16 @@ Their existing timing names and positional arguments are unchanged; these
 methods do not accept options objects. Static `Deck.to_mp4()` and
 `Deck.render_mp4()` retain their separate narration API.
 
+File execution resolves the concrete format and animation mode before checking
+export policy. In particular, `Deck.render("slides.mp4")` and
+`Deck.export("slides.mp4")` both use narrated still slides; pass `VideoOptions()`
+to play the animated timeline. Canvas MP4 always uses the animated path.
+Unused authored Morph transitions do not produce fallback errors or receipt
+diagnostics for narrated stills, static files, or reduced-motion execution.
+Reduced animation retains the encoder's holds and default transitions between
+slides. Result timing remains a nominal schedule, not a guarantee of encoded
+frame counts for every format and sampling boundary.
+
 ### High-quality animated compositing
 
 `GifOptions(quality="high")` and `VideoOptions(quality="high")` opt into a 2×

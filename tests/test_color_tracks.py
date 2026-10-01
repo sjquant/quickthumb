@@ -151,7 +151,7 @@ def test_color_composes_with_geometry_alpha_effects_and_clip(kind, quality):
         else:
             assert (
                 actual.tobytes()
-                == video._composite_frame(canvas, animator._units, time, render_scale=2).tobytes()
+                == animator._composite_frame(animator._units, time, render_scale=2).tobytes()
             )
 
 

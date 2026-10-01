@@ -34,7 +34,7 @@ def _unit(seed: int, *, moving: bool = False) -> video._Unit:
 
 def _uncached_frame(animator: video._SlideAnimator, time: float, **options) -> Image.Image:
     """Run the original full ordered stack without a pre-composited background."""
-    return video._composite_frame(animator._canvas, animator._units, time, **options)
+    return animator._composite_frame(animator._units, time, **options)
 
 
 @pytest.mark.parametrize(
@@ -52,7 +52,7 @@ def test_static_plate_preserves_exact_pixels_order_and_sample_independence(
 ):
     """Prefix reuse matches the uncached stack even after a caller mutates a frame."""
     units = [_unit(index, moving=dynamic) for index, dynamic in enumerate(moving)]
-    monkeypatch.setattr(video, "_build_units", lambda *args, **kwargs: units)
+    monkeypatch.setattr(video, "_build_units", lambda *args, **kwargs: (units, None))
     animator = video._SlideAnimator(Canvas(12, 10), {})
     assert animator._frame_units == units[prefix_length:]
     assert (animator._static_plate is not None) == (prefix_length > 0)
@@ -81,7 +81,7 @@ def test_static_plate_reduces_alpha_composites_including_one_time_preparation(
 ):
     """The prefix is paid for once; every remaining unit keeps its per-frame call."""
     units = [_unit(index, moving=dynamic) for index, dynamic in enumerate(moving)]
-    monkeypatch.setattr(video, "_build_units", lambda *args, **kwargs: units)
+    monkeypatch.setattr(video, "_build_units", lambda *args, **kwargs: (units, None))
     calls = 0
     composite = Image.alpha_composite
 
@@ -137,7 +137,7 @@ def test_video_without_motion_metadata_still_prevents_static_caching(nested):
 def test_invisible_static_units_do_not_change_the_prefix_boundary(monkeypatch):
     """Empty images remain no-ops both before and after the first moving unit."""
     units = [replace(_unit(0), image=None), _unit(1), _unit(2, moving=True)]
-    monkeypatch.setattr(video, "_build_units", lambda *args, **kwargs: units)
+    monkeypatch.setattr(video, "_build_units", lambda *args, **kwargs: (units, None))
     animator = video._SlideAnimator(Canvas(12, 10), {})
     assert animator._frame_units == units[2:]
     for time in SAMPLE_TIMES:
