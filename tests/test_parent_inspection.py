@@ -231,8 +231,15 @@ def test_unsupported_observation_keeps_validation_warning_not_model_error():
     layers[-1] = GroupLayer(
         type="group",
         parent="root",
-        children=[canvas.layers[-1].model_copy(update={"parent": None, "position": (0, 0)})],
-        clip=LayerClip(position=(0, 0), width=4, height=4),
+        children=[
+            canvas.layers[-1].model_copy(
+                update={
+                    "parent": None,
+                    "position": (0, 0),
+                    "clip": LayerClip(position=(0, 0), width=4, height=4),
+                }
+            )
+        ],
     )
     canvas.layers = layers
     with pytest.raises(RenderingError) as error:
@@ -250,8 +257,15 @@ def test_unsupported_diagnostics_remain_guarded_before_any_local_paint(monkeypat
     layers[-1] = GroupLayer(
         type="group",
         parent="root",
-        children=[canvas.layers[-1].model_copy(update={"parent": None, "position": (0, 0)})],
-        clip=LayerClip(position=(0, 0), width=4, height=4),
+        children=[
+            canvas.layers[-1].model_copy(
+                update={
+                    "parent": None,
+                    "position": (0, 0),
+                    "clip": LayerClip(position=(0, 0), width=4, height=4),
+                }
+            )
+        ],
     )
     canvas.layers = layers
     monkeypatch.setattr(canvas, "_render_layer", lambda *_args: pytest.fail("local paint"))
