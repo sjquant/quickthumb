@@ -462,9 +462,20 @@ Later model mutations are revalidated when a new render is prepared.
 
 Raster, GIF, MP4 and WebM render supported parent chains. This bounded adapter
 rejects linked imagery on or below backdrop-dependent layers; linked clips,
-masks and stagger; independently animated group descendants; and animated text
-values that still need a stable local-source layout adapter. These combinations
-are reported as unsupported and raise rather than dropping part of the motion.
+masks and stagger; and independently animated group descendants. These
+combinations are reported as unsupported and raise rather than dropping part of
+the motion.
+
+Parent-linked `AnimatedTextValue` supports `plain`, `odometer` and `flip`, including
+counters inside an atomic top-level group. The settled formatted value defines
+an immutable local frame, group slot and motion pivot, even when authored
+`content` is stale. Sampled glyphs keep their existing alignment, wrapping,
+auto-sizing, effects and per-fragment rotation; their temporary paint bounds may
+grow without moving explicit children or group siblings. A group animation still
+suppresses descendant `AnimationSpec` motion while intrinsic counters continue
+through their own delays and durations. An untimed still uses ordinary settled
+text; a timed odometer endpoint retains its digit-slot appearance. See
+[`examples/parent_counters.py`](https://github.com/sjquant/quickthumb/blob/main/examples/parent_counters.py).
 Keyed Morph involving a parent-linked slide uses a declared fade fallback.
 
 PPTX, SVG and PDF emit a parent-linked scene as one authored-static PNG
@@ -487,7 +498,7 @@ curves and composed motion can differ from the canonical raster evaluator.
 The bounded HTML adapter requires one automatic, zero-start canonical track spec
 per node, one track per property, geometry/opacity tracks, and static local sources.
 Explicit triggers, delays, composed specs, presets, auto-orientation, unrelated animated layers,
-animated chart/QR sources, videos, nonpositive uniform scale, uniform scale with
+animated chart/QR sources, counters (including group descendants), videos, nonpositive uniform scale, uniform scale with
 back easing, image viewport zoom and oversized sampling plans use a declared
 whole-scene authored-static fallback. Static top-level groups are atomic sources.
 Stable negative axis scale preserves reflections; ordinary positive uniform
