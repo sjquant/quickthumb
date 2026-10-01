@@ -214,7 +214,9 @@ For supported parent-linked scenes, bounds describe the **authored-static** worl
 layout, not the state at animation time zero. They conservatively enclose each
 existing measured local body after its ancestor transforms and can extend outside
 the canvas. Transparent corners can make these boxes looser than painted pixels.
-Text sizes/wrapping remain authored-local; nulls have no visible body or bbox.
+Text sizes/wrapping remain authored-local; intrinsic counters use their settled
+formatted text for these measurements, without sampling the timeline. Nulls have
+no visible body or bbox.
 `canvas.render("debug.png", debug=True)` overlays the same authored-static boxes.
 `diagnose()` uses the same authored-static world layout, with transformed painted
 alpha for overlap/occlusion and transformed glyph/background pixels for contrast.

@@ -1391,8 +1391,26 @@ class _SlideAnimator:
                 boundaries.update((start, end))
                 windows.append((start, end))
             if any(getattr(layer, "value", None) is not None for layer in unit.layers):
+                # Preserve the ordinary top-level counter sampling grid.
                 boundaries.update((start, end))
                 windows.append((start, end))
+            # Retained parent groups keep intrinsic clocks after ancestor motion
+            # ends. Leave all ordinary scene export sampling grids unchanged.
+            pending = (
+                [child for layer in unit.layers for child in getattr(layer, "children", ())]
+                if unit.parent_node is not None
+                else []
+            )
+            while pending:
+                layer = pending.pop()
+                pending.extend(getattr(layer, "children", ()))
+                value = getattr(layer, "value", None)
+                if value is not None:
+                    window_start = max(start, value.delay)
+                    window_end = min(end, value.delay + value.duration)
+                    if window_end > window_start:
+                        boundaries.update((window_start, window_end))
+                        windows.append((window_start, window_end))
             for node in unit.nodes:
                 active_start = node.start + node.effect.delay
                 window_start = max(active_start, start)

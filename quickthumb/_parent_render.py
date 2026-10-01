@@ -120,8 +120,6 @@ def parent_rendering_problem(canvas: Canvas) -> str | None:
             return "Parent-linked imagery on or below backdrop-dependent layers is unsupported"
         if getattr(layer, "clip", None) is not None or getattr(layer, "mask", None) is not None:
             return "Parent-linked clip and mask coordinate spaces are not supported yet"
-        if _has_counter(layer):
-            return "Parent-linked animated text values need a stable source-layout adapter"
         if isinstance(layer, GroupLayer):
             if any(_has_composition(child) for child in layer.children):
                 return "Parent-linked groups with clipped or masked descendants are unsupported"
@@ -146,6 +144,26 @@ def _has_counter(layer) -> bool:
         and layer.value is not None
         or any(_has_counter(child) for child in getattr(layer, "children", ()))
     )
+
+
+def settled_content(layer):
+    """Copy intrinsic counter content for authored layout, retaining its clock."""
+    if isinstance(layer, TextLayer) and layer.value is not None:
+        return layer.model_copy(update={"content": layer.value.settled_text()})
+    if isinstance(layer, GroupLayer):
+        children = [settled_content(child) for child in layer.children]
+        if any(
+            child is not original for child, original in zip(children, layer.children, strict=True)
+        ):
+            return layer.model_copy(update={"children": children})
+    return layer
+
+
+def settled_text_reference(canvas: Canvas, layer: TextLayer) -> TextLayer:
+    """Freeze the settled glyphs and font used by static observations."""
+    if layer.value is not None:
+        layer = layer.model_copy(update={"content": layer.value.settled_text(), "value": None})
+    return canvas._text.effective_layer(layer)
 
 
 def _has_composition(layer) -> bool:
@@ -188,7 +206,7 @@ def _padding(canvas: Canvas, layer) -> int:
         # horizontally and alignment can place ascenders/descenders beyond it.
         # Bound that extra ink separately from effect spread, including rich runs.
         ink_margin = 0
-        for text, font, _ in canvas._text.iter_text_runs(layer):
+        for text, font, _ in canvas._text.iter_text_runs(canvas._text.effective_layer(layer)):
             for line in text.split("\n"):
                 bounds = font.getbbox(line)
                 if bounds:
@@ -237,6 +255,7 @@ def parent_geometry(
         return ParentGeometry(
             layer, origin, (0, 0), affine_state(LayerState(rotation=layer.rotation))
         )
+    layer = settled_content(layer)
     measure = LayerMeasurementEngine(canvas._ctx, canvas._groups, canvas._text)
     if measured is None:
         measured = measure.measure_layer(layer, index=0, order=0, path=(0,))
@@ -252,11 +271,12 @@ def parent_geometry(
         )
         if layer.align:
             origin = apply_alignment(*origin, body_size, layer.align)
-    if isinstance(layer, TextLayer):
+    if isinstance(layer, TextLayer) and layer.value is None:
         layer = canvas._text.effective_layer(layer)
     if not getattr(layer, "rotation", 0):
         return ParentGeometry(layer, origin, body_size, IDENTITY)
-    unrotated = layer.model_copy(update={"rotation": 0.0})
+    reference = settled_text_reference(canvas, layer) if isinstance(layer, TextLayer) else layer
+    unrotated = reference.model_copy(update={"rotation": 0.0})
     unrotated_box = measure.measure_layer(unrotated, index=0, order=0, path=(0,)).bbox
     assert unrotated_box is not None
     rotation = affine_state(LayerState(rotation=layer.rotation))
@@ -337,6 +357,79 @@ class ParentNode:
         finally:
             canvas._ctx.motion_time = previous
         return surface
+
+    def render_sample(self, time: float, color: str | None):
+        """Paint sampled leaves in their own bounds without changing the parent frame."""
+        if not _has_counter(self.layer):
+            return self.render_source(time, color), (0, 0)
+        canvas = self.plan.canvas
+        source = _with_motion_color(self.source, color)
+        if (
+            isinstance(source, TextLayer)
+            and self.layer.position is None
+            and source.value is not None
+        ):
+            # The ordinary top-level renderer samples unpositioned counters as
+            # plain text; group children already have explicit layout anchors.
+            source = source.model_copy(
+                update={"content": source.value.text_at(time), "value": None}
+            )
+        leaves = []
+
+        def visit(layer, origin=None):
+            if isinstance(layer, GroupLayer):
+                placements, _ = canvas._groups.layout_group(layer, origin)
+                for child, position, size in placements:
+                    if layer.animation is not None:
+                        child = canvas._groups._without_child_animation(child)
+                    if isinstance(child, GroupLayer):
+                        visit(child, position)
+                    else:
+                        visit(canvas._groups._place_group_child(child, position, size))
+            elif isinstance(layer, TextLayer):
+                leaves.extend(canvas._text.counter_paint_layers(layer, time))
+            else:
+                leaves.append(layer)
+
+        measurements = canvas._ctx.measure_cache
+        previous = canvas._ctx.motion_time
+        canvas._ctx.measure_cache = {}
+        canvas._ctx.motion_time = time
+        try:
+            visit(source)
+            measure = LayerMeasurementEngine(canvas._ctx, canvas._groups, canvas._text)
+            bounds = []
+            for leaf in leaves:
+                box = measure.measure_layer(leaf, index=0, order=0, path=(0,)).bbox
+                if box is not None:
+                    padding = _padding(canvas, leaf)
+                    bounds.append(
+                        (
+                            box.x - padding,
+                            box.y - padding,
+                            box.right + padding,
+                            box.bottom + padding,
+                        )
+                    )
+            if not bounds:
+                return None, (0, 0)
+            left, top = min(box[0] for box in bounds), min(box[1] for box in bounds)
+            right, bottom = max(box[2] for box in bounds), max(box[3] for box in bounds)
+            surface = Image.new("RGBA", (max(1, right - left), max(1, bottom - top)))
+            for leaf in leaves:
+                if isinstance(leaf, TextLayer):
+                    x, y = canvas._text.get_text_base_position(leaf)
+                else:
+                    x, y = (
+                        parse_coordinate(leaf.position[0], canvas.width),
+                        parse_coordinate(leaf.position[1], canvas.height),
+                    )
+                placed = leaf.model_copy(update={"position": (x - left, y - top)})
+                canvas._render_layer(surface, placed, time)
+            return surface, (left, top)
+        finally:
+            canvas._ctx.measure_cache = measurements
+            canvas._ctx.motion_time = previous
 
 
 class ParentRenderPlan:
@@ -433,12 +526,12 @@ class ParentRenderPlan:
         if state.hidden or collapsed or isinstance(node.layer, NullLayer):
             return
         motion = state.canonical.layer if state.canonical else LayerState()
-        image = (
-            node.render_source(time, motion.color)
+        image, source_offset = (
+            node.render_sample(time, motion.color)
             if node.unit.component_duration > 0
             or node.unit.color_motion
             and motion.color is not None
-            else node.image
+            else (node.image, (0, 0))
         )
         if image is None:
             return
@@ -459,7 +552,7 @@ class ParentRenderPlan:
                 width = round(node.pivot_box[2] * max(0, progress))
                 if width <= 0:
                     return
-                cutoff = round(node.pivot_box[0] + node.padding) + width + 1
+                cutoff = round(node.pivot_box[0] + node.padding - source_offset[0]) + width + 1
                 alpha = image.getchannel("A")
                 alpha.paste(0, (max(0, min(image.width, cutoff)), 0, image.width, image.height))
                 image = image.copy()
@@ -472,11 +565,14 @@ class ParentRenderPlan:
             revealed = _animation_reveal(image.crop(bounds), effect, progress, node.unit.seed)
             if revealed is None:
                 return
-            image = Image.new("RGBA", node.source_size)
+            source_size = image.size
+            image = Image.new("RGBA", source_size)
             image.paste(revealed, bounds[:2])
         if image is None:
             return
-        matrix = multiply(paint, translate(-node.padding, -node.padding))
+        matrix = multiply(
+            paint, translate(source_offset[0] - node.padding, source_offset[1] - node.padding)
+        )
         margin = math.ceil(3 * motion.blur * render_scale)
         rendered = affine_fragment(
             image, matrix, frame.size, render_scale=render_scale, margin=margin
