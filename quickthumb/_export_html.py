@@ -48,6 +48,7 @@ from quickthumb._export_base import (
     TextRunLayout,
     _css_string,
     _fmt,
+    _motion_number,
     color_to_rgba,
     compute_text_layout,
     flatten_layers,
@@ -306,11 +307,6 @@ def _supports_transform_extensions_html(layer: object) -> bool:
     return static_source(layer, root=True)
 
 
-def _motion_number(value: float) -> str:
-    """Preserve authored motion precision, unlike pixel-layout rounding."""
-    return str(int(value)) if float(value).is_integer() else repr(float(value))
-
-
 def _motion_knots(event: TimelineEvent) -> set[float]:
     return {0.0, event.duration} | {key.time for track in event.tracks for key in track.keyframes}
 
@@ -442,6 +438,7 @@ class HtmlExporter:
         responsive: bool = True,
         keyframe_prefix: str = "qt-k",
         reduced_motion: bool = False,
+        parent_static: bool = False,
     ):
         self._canvas = canvas
         from quickthumb._parenting import has_parent_links
@@ -451,6 +448,7 @@ class HtmlExporter:
         self._embed_fonts = embed_fonts
         self._responsive = responsive
         self._reduced_motion = reduced_motion
+        self._parent_static = parent_static
         self._keyframe_prefix = keyframe_prefix
         self._body: list[str] = []
         self._keyframes: list[str] = []
@@ -575,43 +573,68 @@ class HtmlExporter:
         canvas._validate_image_paths()
         canvas._ctx.begin_render_pass()
 
-        from quickthumb._parent_export import static_parent_fragment
+        from quickthumb._parent_export import (
+            ParentHtmlAdapter,
+            parent_html_sampling,
+            static_parent_fragment,
+        )
         from quickthumb._parenting import has_parent_links
+        from quickthumb.models import NullLayer
 
-        if has_parent_links(canvas):
-            self._emit_fragment(static_parent_fragment(canvas))
+        parent = has_parent_links(canvas)
+        try:
+            sampling = parent_html_sampling(canvas) if parent else None
+            if sampling and (self._reduced_motion or self._parent_static or sampling.problem):
+                self._emit_fragment(static_parent_fragment(canvas))
+                return Stage(
+                    width=canvas.width,
+                    height=canvas.height,
+                    body="\n".join(self._body),
+                    keyframes=[],
+                    timeline=[],
+                    parent_geometry=True,
+                )
+            adapter = ParentHtmlAdapter(canvas, sampling.times) if sampling else None
+            prefix, rest = split_backdrop_prefix(
+                flatten_layers(
+                    canvas, parent_nodes=frozenset(adapter.plan.nodes) if adapter else None
+                )
+            )
+            if adapter:
+                # Null controllers keep their clocks in the plan, never in a
+                # backdrop-dependent visual prefix or its animation guard.
+                prefix = [layer for layer in prefix if not isinstance(layer, NullLayer)]
+            if not self._reduced_motion and any(
+                getattr(layer, "animation", None) is not None for layer in prefix
+            ):
+                raise RenderingError(
+                    "HTML export cannot animate layers that must be rasterized together for "
+                    "blend-mode or custom-layer backdrop compositing. Move animated layers "
+                    "after those backdrop-dependent layers, or remove the blend/custom layer."
+                )
+            if prefix:
+                fragment = rasterize_layers(canvas, prefix)
+                if fragment:
+                    self._emit_fragment(fragment)
+            for layer in rest:
+                if adapter and id(layer) in adapter.plan.nodes:
+                    adapter.emit(self, layer)
+                else:
+                    self._emit_layer(layer)
+            if adapter:
+                adapter.emit_clock(self)
             return Stage(
                 width=canvas.width,
                 height=canvas.height,
                 body="\n".join(self._body),
-                keyframes=[],
-                timeline=[],
-                parent_geometry=True,
+                keyframes=list(self._keyframes),
+                timeline=_rebase_absolute_delays(self._timeline),
+                parent_geometry=parent,
             )
-
-        prefix, rest = split_backdrop_prefix(flatten_layers(canvas))
-        if not self._reduced_motion and any(
-            getattr(layer, "animation", None) is not None for layer in prefix
-        ):
-            raise RenderingError(
-                "HTML export cannot animate layers that must be rasterized together for "
-                "blend-mode or custom-layer backdrop compositing. Move animated layers "
-                "after those backdrop-dependent layers, or remove the blend/custom layer."
-            )
-        if prefix:
-            fragment = rasterize_layers(canvas, prefix)
-            if fragment:
-                self._emit_fragment(fragment)
-        for layer in rest:
-            self._emit_layer(layer)
-
-        return Stage(
-            width=canvas.width,
-            height=canvas.height,
-            body="\n".join(self._body),
-            keyframes=list(self._keyframes),
-            timeline=_rebase_absolute_delays(self._timeline),
-        )
+        finally:
+            if parent:
+                canvas._ctx.motion_time = None
+                canvas._ctx.close_video_decoders()
 
     def _make_id(self) -> str:
         element_id = f"qt-l{self._next_id}"
@@ -1475,6 +1498,7 @@ def export_deck(
     transitions: list | None = None,
     notes: list[str | None] | None = None,
     reduced_motion: bool = False,
+    parent_static: bool = False,
 ) -> str:
     stages: list[Stage] = []
     font_faces: dict[str, tuple[str, str, str]] = {}
@@ -1486,6 +1510,7 @@ def export_deck(
             responsive=responsive,
             keyframe_prefix=f"qt-s{index}-k",
             reduced_motion=reduced_motion,
+            parent_static=parent_static,
         )
         stages.append(exporter.render_stage())
         font_faces.update(exporter._font_faces)

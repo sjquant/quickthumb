@@ -1314,6 +1314,7 @@ class Canvas:
             embed_fonts=embed_fonts,
             responsive=responsive,
             reduced_motion=bool(policy and policy.reduced_motion),
+            parent_static=bool(policy and policy.unsupported_motion in {"static", "rasterize"}),
         ).export()
 
     def to_pptx(self, *, policy: ExportPolicy | None = None) -> bytes:
