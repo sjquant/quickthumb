@@ -97,6 +97,7 @@ from quickthumb.models import (
     GifOptions,
     GroupLayer,
     ImageLayer,
+    NullLayer,
     QRCodeLayer,
     TextLayer,
     VideoLayer,
@@ -1623,9 +1624,14 @@ def _build_units(
     # Group layers into units: the backdrop prefix is one static unit, layers
     # sharing one animation object (a flattened group) form one animated unit,
     # and runs of non-animated layers collapse into single static units.
+    # Controllers never belong to a visual backdrop source. Keep their clocks
+    # as separate invisible units so a leading null cannot transform the prefix.
+    prefix_nulls = [layer for layer in prefix if isinstance(layer, NullLayer)]
+    prefix = [layer for layer in prefix if not isinstance(layer, NullLayer)]
     groups: list[tuple[object | None, list[RenderableLayer]]] = []
     if prefix:
         groups.append((None, list(prefix)))
+    groups.extend((("null", id(layer)), [layer]) for layer in prefix_nulls)
     prefix_motion = (
         0.0
         if reduced_motion
@@ -1634,7 +1640,8 @@ def _build_units(
     for layer in rest:
         animation = None if reduced_motion else getattr(layer, "animation", None)
         key = id(animation) if animation is not None else None
-        if _has_transform_extensions(layer):
+        if isinstance(layer, NullLayer) or _has_transform_extensions(layer):
+            # Nulls carry clocks only and must never become another layer's target.
             # Independent layers must keep independent pivots even when sharing a spec.
             key = (key, id(layer))
         if groups and groups[-1][0] == key:
@@ -1659,7 +1666,11 @@ def _build_units(
                 "animated export. Use a legacy effect for layer-level motion."
             )
         effects = [effect for effect in raw_effects if not isinstance(effect, AnimationSpec)]
-        image, pos = _render_unit_image(canvas, layers)
+        image, pos = (
+            (None, (0, 0))
+            if len(layers) == 1 and isinstance(layers[0], NullLayer)
+            else _render_unit_image(canvas, layers)
+        )
         is_prefix = bool(prefix) and index == 0
         # A color-bearing backdrop prefix samples each layer separately. Its
         # first layer's color must not be applied again to the entire composite.
