@@ -1570,11 +1570,12 @@ def _build_units(
                     target_count = group_target_counts.get(id(specs[0]), 1)
             target_timelines = resolve_staggered_timelines(timeline, target_count)
             if target_count > 1:
-                reference, reference_pos = (
-                    _render_unit_image(canvas, layers, color="#FFFFFF")
-                    if color_motion
-                    else (image, pos)
-                )
+                if color_motion and parent_node is not None:
+                    reference, reference_pos = parent_node.render_source(reference=True), (0, 0)
+                elif color_motion:
+                    reference, reference_pos = _render_unit_image(canvas, layers, color="#FFFFFF")
+                else:
+                    reference, reference_pos = image, pos
                 bands = split_into_bands(reference, target_count) if reference is not None else None
                 if bands is not None:
                     target_images = tuple(

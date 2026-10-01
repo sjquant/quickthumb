@@ -21,6 +21,7 @@ from quickthumb._export_base import (
     _with_motion_color,
     apply_canonical_alpha,
     color_group_has_backdrop,
+    color_motion_targets,
     is_backdrop_dependent,
 )
 from quickthumb._measurements import LayerMeasurement, LayerMeasurementEngine
@@ -40,7 +41,7 @@ from quickthumb.models import (
     TextLayer,
     VideoLayer,
 )
-from quickthumb.motion import LayerState, transform_matrix
+from quickthumb.motion import LayerState, _sample_target_timelines, transform_matrix
 
 if TYPE_CHECKING:
     from quickthumb.canvas import Canvas
@@ -105,6 +106,7 @@ def _animated_descendant(layer) -> bool:
 def parent_rendering_problem(canvas: Canvas) -> str | None:
     """Describe unsupported source/composition boundaries without rendering assets."""
     nodes = participating_layers(canvas)
+    parents = {getattr(layer, "parent", None) for layer in canvas.layers}
     last_backdrop = max(
         (
             index
@@ -128,8 +130,22 @@ def parent_rendering_problem(canvas: Canvas) -> str | None:
         animation = getattr(layer, "animation", None)
         items = animation if isinstance(animation, list) else [animation]
         if any(isinstance(item, AnimationSpec) and item.stagger is not None for item in items):
-            return "Parent-linked stagger has multiple local transforms and is unsupported"
+            layer_id = getattr(layer, "id", None)
+            if layer_id is not None and layer_id in parents:
+                return "A staggered layer cannot be a parent because its targets move separately"
+            if not isinstance(layer, (TextLayer, GroupLayer)) or not _static_stagger_source(layer):
+                return "Parent-linked stagger requires a static text or group source"
     return None
+
+
+def _static_stagger_source(layer) -> bool:
+    # Group motion suppresses descendant AnimationSpec motion, but counters
+    # and videos keep their intrinsic clocks and cannot use cached target crops.
+    return (
+        not isinstance(layer, VideoLayer)
+        and getattr(layer, "value", None) is None
+        and all(_static_stagger_source(child) for child in getattr(layer, "children", ()))
+    )
 
 
 def validate_parent_raster(canvas: Canvas) -> None:
@@ -348,6 +364,11 @@ class ParentNode:
         if reference and isinstance(source, VideoLayer):
             time = source.start
         previous = canvas._ctx.motion_time
+        measurements = canvas._ctx.measure_cache
+        if color is not None:
+            # Recolored group copies live for this paint only. Do not retain
+            # every frame's temporary children in the shared layout cache.
+            canvas._ctx.measure_cache = {}
         canvas._ctx.motion_time = time
         try:
             if isinstance(source, GroupLayer):
@@ -356,6 +377,7 @@ class ParentNode:
                 canvas._render_layer(surface, source, time)
         finally:
             canvas._ctx.motion_time = previous
+            canvas._ctx.measure_cache = measurements
         return surface
 
     def render_sample(self, time: float, color: str | None):
@@ -522,6 +544,9 @@ class ParentRenderPlan:
     ):
         from quickthumb._export_video import _animation_reveal
 
+        if node.unit.target_images:
+            self._composite_targets(node, frame, time, samples, render_scale)
+            return
         paint, _, state, collapsed = samples[id(node)]
         if state.hidden or collapsed or isinstance(node.layer, NullLayer):
             return
@@ -573,14 +598,54 @@ class ParentRenderPlan:
         matrix = multiply(
             paint, translate(source_offset[0] - node.padding, source_offset[1] - node.padding)
         )
-        margin = math.ceil(3 * motion.blur * render_scale)
-        rendered = affine_fragment(
-            image, matrix, frame.size, render_scale=render_scale, margin=margin
-        )
-        if rendered is None:
+        _composite_fragment(frame, image, matrix, motion.blur, render_scale)
+
+    def _composite_targets(self, node, frame, time, samples, render_scale):
+        """Give each separated leaf its own local transform and visibility."""
+        parent = samples[id(node.parent)] if node.parent else None
+        if parent is not None and parent[3]:
             return
+        ancestor = parent[1] if parent is not None else IDENTITY
+        origin = multiply(ancestor, translate(*node.origin))
+        states = _sample_target_timelines(
+            node.unit.target_timelines, time, LayerState(anchor=node.layer.anchor)
+        )
+        targets = node.unit.target_images
+        if node.unit.color_motion:
+            targets = color_motion_targets(
+                targets, states, lambda color: node.render_source(color=color)
+            )
+        for (image, offset), motion in zip(targets, states, strict=True):
+            if motion is None or motion.scale_x == 0 or motion.scale_y == 0:
+                continue
+            size = image.size
+            image = apply_canonical_alpha(image, motion)
+            if image is None:
+                continue
+            # Target pixels already include authored static rotation. Their
+            # anchor belongs to the crop, not the enclosing aggregate pivot.
+            matrix = multiply(origin, translate(offset[0] - node.padding, offset[1] - node.padding))
+            matrix = multiply(
+                matrix,
+                affine_state(
+                    motion.with_values(scale=motion.scale if motion.scale > 0 else 1), size
+                ),
+            )
+            # Band crops are tight. Give bicubic interpolation transparent
+            # support beyond their edges without changing the target anchor.
+            padded = Image.new("RGBA", (image.width + 4, image.height + 4))
+            padded.paste(image, (2, 2))
+            image = padded
+            matrix = multiply(matrix, translate(-2, -2))
+            _composite_fragment(frame, image, matrix, motion.blur, render_scale)
+
+
+def _composite_fragment(frame, image, matrix, blur, render_scale):
+    margin = math.ceil(3 * blur * render_scale)
+    rendered = affine_fragment(image, matrix, frame.size, render_scale=render_scale, margin=margin)
+    if rendered is not None:
         image, pos = rendered
-        image, spread = _blur_geometry(image, motion.blur * render_scale)
+        image, spread = _blur_geometry(image, blur * render_scale)
         frame.alpha_composite(image, (pos[0] - spread, pos[1] - spread))
 
 

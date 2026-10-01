@@ -160,6 +160,14 @@ Lines set tight enough to touch cannot be told apart in the render, and word and
 character targets have no separable band; those fall back to moving the layer as
 a whole.
 
+Static text and top-level groups may also stagger as leaves of an explicit
+parent chain. Separated bands inherit the ancestor's full affine transform and
+keep their own anchors and appearance tracks. This uses the same partial band
+adapter and whole-block fallback described above; a staggered layer cannot itself
+be another layer's parent. Counter-plus-stagger and dynamic sources remain
+guarded. See the [parent transform boundaries](api/video.md#current-adapters-and-boundaries)
+and runnable `examples/parent_stagger.py` example.
+
 `Canvas.render()` and `Deck.render()` accept a format-specific options object for
 animated file output. Use `GifOptions` for GIF (`fps`, `matte`, `loop`,
 `max_size=(width, height)`, and `colors`) and `VideoOptions` for MP4/WebM
