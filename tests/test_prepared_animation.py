@@ -8,6 +8,7 @@ from types import GeneratorType
 import pytest
 from PIL import Image, ImageSequence
 from quickthumb import Canvas, Fade, GifOptions
+from quickthumb import _document as document
 from quickthumb import _export_video as video
 from quickthumb import _render_workers as workers
 from quickthumb.errors import ValidationError
@@ -347,20 +348,28 @@ def test_opaque_scalar_none_matte_keeps_legacy_validation(format, matte):
         getattr(Canvas(4, 4), f"to_{format}")(matte=matte)
 
 
-def test_gif_encoder_facts_describe_resized_output(tmp_path):
+def test_gif_receipt_uses_encoded_facts_and_preserves_canonical_dimensions(monkeypatch, tmp_path):
     canvas = Canvas(37, 23).shape(
         "rectangle", (2, 2), 20, 10, "#CC0011", animation=Fade(duration=0.17)
     )
+    options = GifOptions(fps=7, max_size=(17, 17), colors=2)
     path = tmp_path / "resized.gif"
-    facts = video.write_animation(
-        [canvas], [None], str(path), "gif", animation=GifOptions(fps=7, max_size=(17, 17), colors=2)
+    monkeypatch.setattr(
+        document, "_contract_motion_report", lambda *args: pytest.fail("receipt reopened rendering")
     )
+    result = canvas.export(path, animation=options)
     with Image.open(path) as encoded:
         count = getattr(encoded, "n_frames", 1)
         duration = (
             sum(frame.info.get("duration", 0) for frame in ImageSequence.Iterator(encoded)) / 1000
         )
         assert encoded.size == (17, 11)
+    assert (result.pixel_metrics.width, result.pixel_metrics.height) == (37, 23)
+    assert result.pixel_metrics.frame_count == result.timing_metrics.frame_count == count
+    assert result.timing_metrics.duration == duration
+    assert result.timing_metrics.fps == 7
+    private_path = tmp_path / "private.gif"
+    facts = video.write_animation([canvas], [None], str(private_path), "gif", animation=options)
     assert (facts.width, facts.height, facts.frame_count, facts.duration, facts.fps) == (
         17,
         11,
@@ -368,4 +377,4 @@ def test_gif_encoder_facts_describe_resized_output(tmp_path):
         duration,
         7,
     )
-    assert (canvas.width, canvas.height) == (37, 23)
+    assert private_path.read_bytes() == path.read_bytes()

@@ -38,8 +38,8 @@ def test_parent_null_schema_roundtrip_and_inspection():
     assert {item.target: item.support for item in report.capabilities} == {
         "raster": "full",
         "video": "full",
-        "html": "unsupported",
-        "pptx": "unsupported",
+        "html": "fallback",
+        "pptx": "fallback",
     }
     assert "parent" not in report.slides[0].layers[0].model_dump()
     assert restored.validate().ok
@@ -132,21 +132,13 @@ def test_top_level_groups_can_be_parented_and_referenced():
 
 
 @pytest.mark.parametrize("target", ["html", "pptx"])
-def test_document_formats_declare_unsupported_without_claiming_a_fallback(target):
-    diagnostics = scene().validate_export(target)
-    diagnostic = next(item for item in diagnostics if item.feature == "parent")
-    assert diagnostic.support == "unsupported" and diagnostic.fallback is None
-    assert capabilities_for(target)["parent"].support == "unsupported"
-    assert capabilities_for(target)["parent"].fallback is None
-    with pytest.raises(RenderingError, match="parent transforms"):
+def test_document_formats_declare_authored_static_fallback(target):
+    diagnostic = next(item for item in scene().validate_export(target) if item.feature == "parent")
+    assert diagnostic.support == "fallback" and diagnostic.fallback == "static"
+    assert capabilities_for(target)["parent"].support == "fallback"
+    assert capabilities_for(target)["parent"].fallback == "static"
+    with pytest.raises(RenderingError, match="authored-static"):
         scene().validate_export(target, ExportPolicy(unsupported_motion="error"))
-
-
-@pytest.mark.parametrize("method", ["to_html", "to_svg", "to_pptx", "to_pdf"])
-def test_model_only_exports_fail_instead_of_silently_ignoring_links(method):
-    with pytest.raises(RenderingError) as error:
-        getattr(scene(), method)()
-    assert error.value.code == "unsupported_parent_rendering"
 
 
 def test_model_mutation_is_revalidated_before_drawing():
@@ -275,11 +267,11 @@ def test_null_preparation_never_allocates_a_source_canvas(monkeypatch):
 
 @pytest.mark.parametrize("extension", ["svg", "html", "pdf", "pptx"])
 @pytest.mark.parametrize("method", ["render", "export"])
-def test_model_only_rejection_preserves_existing_destination(tmp_path, extension, method):
+def test_strict_document_fallback_preserves_existing_destination(tmp_path, extension, method):
     destination = tmp_path / f"existing.{extension}"
     destination.write_bytes(b"EXISTING DOCUMENT")
-    with pytest.raises(RenderingError, match="Parent-linked rendering"):
-        getattr(scene(), method)(str(destination))
+    with pytest.raises(RenderingError, match="authored-static"):
+        getattr(scene(), method)(str(destination), policy=ExportPolicy(unsupported_motion="error"))
     assert destination.read_bytes() == b"EXISTING DOCUMENT"
 
 
@@ -290,8 +282,8 @@ def test_deck_rejection_precedes_first_slide_sequence_write(tmp_path):
     destination = tmp_path / "slides.svg"
     first = tmp_path / "slides_01.svg"
     first.write_bytes(b"EXISTING SLIDE")
-    with pytest.raises(RenderingError, match="Parent-linked rendering"):
-        deck.render(str(destination))
+    with pytest.raises(RenderingError, match="authored-static"):
+        deck.render(str(destination), policy=ExportPolicy(unsupported_motion="error"))
     assert first.read_bytes() == b"EXISTING SLIDE"
     assert not (tmp_path / "slides_02.svg").exists()
 
@@ -301,8 +293,12 @@ def test_direct_pdf_rejection_preserves_existing_destination(tmp_path):
 
     destination = tmp_path / "existing.pdf"
     destination.write_bytes(b"EXISTING PDF")
-    with pytest.raises(RenderingError, match="Parent-linked rendering"):
-        PdfExporter().save_canvases([Canvas(140, 130), scene()], destination)
+    from quickthumb import LayerClip
+
+    invalid = scene()
+    invalid.layers[1].clip = LayerClip(position=(0, 0), width=2, height=2)
+    with pytest.raises(RenderingError, match="clip and mask"):
+        PdfExporter().save_canvases([Canvas(140, 130), invalid], destination)
     assert destination.read_bytes() == b"EXISTING PDF"
 
 
