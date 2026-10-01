@@ -12,6 +12,7 @@ from quickthumb.models import (
     ChartLayer,
     GroupLayer,
     ImageLayer,
+    NullLayer,
     QRCodeLayer,
     ShapeLayer,
     SvgLayer,
@@ -38,6 +39,9 @@ MEASURABLE_LAYER_TYPES = frozenset(
 
 def measure_layers(canvas: "Canvas") -> list["LayerMeasurement"]:
     """Measure a canvas's renderable layers into the stable internal contract."""
+    from quickthumb._parenting import require_parent_rendering
+
+    require_parent_rendering(canvas)
     engine = LayerMeasurementEngine(canvas._ctx, canvas._groups, canvas._text)
     return engine.measure_layers(canvas.layers)
 
@@ -465,7 +469,7 @@ class LayerMeasurementEngine:
 
     @staticmethod
     def _visible(layer: object) -> bool:
-        return float(getattr(layer, "opacity", 1.0)) > 0.0
+        return not isinstance(layer, NullLayer) and float(getattr(layer, "opacity", 1.0)) > 0.0
 
     @staticmethod
     def _layer_type(layer: object) -> str:

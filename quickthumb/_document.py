@@ -236,11 +236,19 @@ def preflight_export(
 def validation_report(source: Document, *, kind: DocumentKind) -> ValidationReport:
     """Run the shared validation checks and capture failures as report issues."""
     errors: list[ErrorDetail] = []
+    warnings: list[ErrorDetail] = []
     try:
         if kind == "canvas":
             _contract_validate_structure(source)
             _contract_validate_assets(source)
-            source.inspect()
+            try:
+                source.inspect()
+            except RenderingError as error:
+                if error.code != "unsupported_parent_rendering":
+                    raise
+                # The model foundation can validate the graph and assets while
+                # clearly reporting that world-layout checks need its renderer.
+                warnings.extend(error.details)
         else:
             slides = _contract_canvases(source)
             _contract_validate_structure(source)
@@ -249,6 +257,10 @@ def validation_report(source: Document, *, kind: DocumentKind) -> ValidationRepo
                 errors.extend(
                     detail.model_copy(update={"path": f"/slides/{index}{detail.path or ''}"})
                     for detail in report.errors
+                )
+                warnings.extend(
+                    detail.model_copy(update={"path": f"/slides/{index}{detail.path or ''}"})
+                    for detail in report.warnings
                 )
                 audio_paths = _contract_audio_paths(source)
                 audio_path = audio_paths[index] if index < len(audio_paths) else None
@@ -262,7 +274,7 @@ def validation_report(source: Document, *, kind: DocumentKind) -> ValidationRepo
                     )
     except Exception as error:
         errors.extend(_error_details(error))
-    return ValidationReport(valid=not errors, errors=errors)
+    return ValidationReport(valid=not errors, errors=errors, warnings=warnings)
 
 
 def prefetch_result(source: Document, *, kind: DocumentKind, assets: AssetPort) -> PrefetchResult:

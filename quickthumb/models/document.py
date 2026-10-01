@@ -24,6 +24,7 @@ from .layers import (
     BackgroundLayer,
     GroupLayer,
     ImageLayer,
+    NullLayer,
     OutlineLayer,
     PluginLayer,
     ShapeLayer,
@@ -45,6 +46,7 @@ LayerType = Annotated[
     | QRCodeLayer
     | VideoLayer
     | PluginLayer
+    | NullLayer
     | GroupLayer,
     Discriminator("type"),
 ]
@@ -57,6 +59,13 @@ class CanvasModel(quickthumbModel):
     platform: str | None = None
     layers: list[LayerType]
 
+    @model_validator(mode="after")
+    def validate_parent_graph(self):
+        from quickthumb._parenting import validate_parent_graph
+
+        validate_parent_graph(self.layers)
+        return self
+
 
 class CanvasSpecModel(quickthumbModel):
     kind: Literal["canvas"] = "canvas"
@@ -65,6 +74,13 @@ class CanvasSpecModel(quickthumbModel):
     platform: str | None = None
     theme: dict[str, Any] = Field(default_factory=dict)
     layers: list[LayerType]
+
+    @model_validator(mode="after")
+    def validate_parent_graph(self):
+        from quickthumb._parenting import validate_parent_graph
+
+        validate_parent_graph(self.layers)
+        return self
 
 
 class ValidationReport(quickthumbModel):
