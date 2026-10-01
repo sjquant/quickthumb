@@ -499,8 +499,9 @@ Counter slots, static siblings, pivot and canonical reveal cutoffs use the settl
 changing-width counter paint can extend beyond that body and remains visible
 where the boundary allows it, even if the settled source is fully clipped away.
 Each counter keeps its own delay and duration after group/ancestor motion ends.
-Group-own composition with stagger remains unsupported, as does any descendant
-clip/mask. Groups without their own boundary retain existing stagger support. See
+Static graph-leaf groups can combine their own boundary with the partial stagger
+adapter described below. Counter-group stagger and any descendant clip/mask remain
+unsupported. See
 [`examples/parent_group_composition.py`](https://github.com/sjquant/quickthumb/blob/main/examples/parent_group_composition.py),
 and [`examples/parent_group_counters.py`](https://github.com/sjquant/quickthumb/blob/main/examples/parent_group_counters.py).
 Both write GIF, PNG and HTML outputs to a temporary directory by default and
@@ -508,13 +509,20 @@ accept `--output-dir` to choose another destination. Counter-group HTML, SVG,
 PDF and PPTX exports use the whole-scene authored-static fallback described below.
 
 Static parent-linked leaf text and top-level groups can use the existing partial
-raster stagger adapter. Each separable horizontal ink band gets its own clock,
-anchor, full ancestor transform, opacity, reveal, color and output-space blur.
+raster stagger adapter, including groups with their own clip, mask or both. The
+complete static group is laid out and composed once before splitting; recolored
+sources and opaque color-reference crops use that same boundary. Each separable
+horizontal ink band gets its own clock, anchor, full ancestor transform, opacity,
+reveal, color and output-space blur.
 Wrapped lines and vertical group rows can separate; words, characters, touching
 lines, blank lines, horizontal groups and effects that join bands may retain the
-whole-block approximation. That fallback uses the final target's geometry and
-averaged arrival alpha/reveal. Existing target order and composition limits are
-unchanged: bands paint top-to-bottom, and composed group specs retain whole-block
+whole-block approximation. Splitting requires exactly the declared target count
+of visible alpha bands. A boundary that removes a row, or otherwise changes that
+count, keeps the existing whole-source fallback; it does not redefine the targets.
+The fallback uses the final target's geometry and averaged arrival alpha/reveal.
+Each separated band carries its already-clipped/masked source pixels through
+motion, rather than moving behind a fixed viewport mask. Existing target order
+and composition limits are unchanged: bands paint top-to-bottom, and composed group specs retain whole-block
 cardinality rather than expanding child targets. Composed events keep their
 original overlap; later specs do not wait for every delayed target to finish.
 Raster/video stagger capability remains `partial`.
@@ -535,7 +543,12 @@ or independently animated visualization/image viewports remains unsupported.
 Group motion still overrides descendant `AnimationSpec` motion. Untimed stills,
 reduced motion, inspection, debug overlays and diagnostics use the whole authored
 source. HTML, SVG, PDF and PPTX keep the whole-scene authored-static fallback.
-See [`examples/parent_stagger.py`](https://github.com/sjquant/quickthumb/blob/main/examples/parent_stagger.py).
+See [`examples/parent_stagger.py`](https://github.com/sjquant/quickthumb/blob/main/examples/parent_stagger.py)
+and [`examples/parent_group_stagger.py`](https://github.com/sjquant/quickthumb/blob/main/examples/parent_group_stagger.py).
+The group example contrasts separated clipped rows, a partial mask and a mask
+that removes one band and therefore retains the whole-source fallback. Run it
+with `--output-dir /tmp/parent-group-stagger` to write GIF, PNG, HTML and JSON
+outputs. Its parent motion finishes before the delayed rows finish arriving.
 
 Parent-linked `AnimatedTextValue` supports `plain`, `odometer` and `flip`, including
 counters inside an atomic top-level group. The settled formatted value defines
