@@ -19,9 +19,11 @@ uv run python examples/launch_announcement.py
 uv run python examples/investor_deck.py
 uv run python examples/product_hype_reel.py
 uv run python examples/ordinary_moments.py
+uv run python examples/motion_paths.py
 ```
 
-All examples write their rendered image back into this directory.
+Examples write their rendered files into this directory or the `output/`
+subdirectory noted below.
 
 ## Included Examples
 
@@ -214,6 +216,30 @@ Builds a 60-second horizontal product film that argues one case — when the cop
 - MP4/WebM exports of the full 60-second composition plus a silent GIF preview of the delivery scene
 
 Use it when you want a production-style reference for combining footage, captions, audio, and editorial motion in a reproducible 16:9 composition.
+
+### `motion_paths.py`
+
+Output: `output/motion_paths.gif`, `output/motion_paths.png`, and
+`output/motion_paths.html`
+
+Builds a four-second infographic with an arrow moving from collection through
+refinement to delivery:
+
+- Two cubic Bézier segments authored with relative `in_tangent` and
+  `out_tangent` handles on `PositionKeyframeSpec`
+- `easing="linear"` for approximately constant arc-distance speed within each
+  keyframe interval, with `auto_orient=True` following the tangent
+- Position values remain offsets from the arrow's authored position
+- Animated shape colors in the GIF and sampled PNG, using `ColorTrack`
+- A separate geometry-only HTML scene that animates with bounded sampled
+  transform stops; color stays fixed because HTML color tracks cause a static
+  fallback for the whole animation
+- Static route dots drawn from the same control points as the moving arrow
+- A bundled font and no network or FFmpeg requirement
+
+Use it when you want a directional marker to follow a curved route. Edit
+`path_keyframes()` to reshape the route, or `build_scene(animate_color=False)`
+to keep the animation compatible with the approximate HTML path mapping.
 
 ## Assets and Fonts
 

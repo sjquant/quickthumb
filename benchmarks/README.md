@@ -299,3 +299,20 @@ limit; canonical rotation/downscale rows exercise the new composition filter.
 Default-mode bytes, high-mode worker parity, dimensions/timing/audio, captions,
 palette controls, blur, negative placement and source immutability are covered
 by `tests/test_high_quality_animation.py`.
+
+## Curved motion paths (#158)
+
+The optional `motion_path` scene animates the asymmetric marker along one cubic
+with tangent orientation. It uses the same median-three fresh-process timer:
+
+```bash
+uv run --locked python -m benchmarks.animated_export --scenes motion_path --formats gif mp4 --json /tmp/motion-path.json
+```
+
+The default four scenes and 504-observation identity workload are unchanged.
+The path scene leaves the straight-motion centroid jitter metric `n/a`: changing
+heading moves the asymmetric marker's centroid independently of path distance.
+Its constant arc-distance clock is tested against an independent dense cubic
+reference. Curve tables are cached by immutable control points, bounded to
+64 entries and 4097 parameter samples per curve; cold setup is included in
+export timings. HTML additionally bakes at up to 120 Hz with at most 4097 stops.

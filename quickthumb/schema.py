@@ -87,6 +87,7 @@ def canvas_json_schema(*, registry: PluginRegistry | None = None) -> dict[str, A
         "AnimationEffect",
         "AnimationSpec",
         "KeyframeSpec",
+        "PositionKeyframeSpec",
         "PositionTrack",
         "ScaleTrack",
         "ScaleXTrack",

@@ -23,6 +23,8 @@ from quickthumb import GifOptions, VideoOptions
 
 from benchmarks.scenes import DURATION, SCENES, build_scene
 
+MEASURABLE_SCENES = (*SCENES, "motion_path")
+
 ROOT = Path(__file__).resolve().parents[1]
 FORMATS = ("gif", "mp4", "webm")
 RUNS = 3
@@ -88,7 +90,7 @@ def displacement_jitter(points: list[tuple[float, float]]) -> float:
 
 
 def measure_jitter(scene: str) -> float | None:
-    if scene == "product_hype_reel":
+    if scene in {"product_hype_reel", "motion_path"}:
         return None
     # Independent fixed 30 fps probe; do not contaminate export timing/cache/RSS.
     frames = build_scene(scene).sample(time=[i / 30 for i in range(round(DURATION * 30))])
@@ -268,7 +270,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--fps", type=positive_fps, default=12.0)
     parser.add_argument("--quality", choices=("standard", "high"), default="standard")
-    parser.add_argument("--scenes", nargs="+", choices=SCENES, default=list(SCENES))
+    parser.add_argument("--scenes", nargs="+", choices=MEASURABLE_SCENES, default=list(SCENES))
     parser.add_argument("--formats", nargs="+", choices=FORMATS, default=list(FORMATS))
     parser.add_argument("--json", type=Path, help="also save raw runs and medians")
     parser.add_argument("--worker", nargs=2, metavar=("SCENE", "FORMAT"), help=argparse.SUPPRESS)
@@ -276,7 +278,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.worker:
             scene, format = args.worker
-            if scene not in SCENES or format not in (*FORMATS, "jitter"):
+            if scene not in MEASURABLE_SCENES or format not in (*FORMATS, "jitter"):
                 raise ValueError("unknown worker scene or format")
             result = (
                 {"jitter": measure_jitter(scene)}

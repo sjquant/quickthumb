@@ -23,7 +23,7 @@ Each `Diagnostic` has stable human-readable fields and optional structured field
 
 | Field | Type | Description |
 | --- | --- | --- |
-| `code` | `str` | One of `"off-canvas"`, `"tiny-text"`, `"text-overflow"`, `"text-clipped"`, `"missing-glyph"`, `"low-contrast"`, `"layer-overlap"`, `"layer-hidden"`, `"edge-crowding"`, `"near-alignment"`, `"caption-safe-area"`, `"caption-timing"`, `"caption-overlap"`, `"caption-reading-time"`, or `"clip-stretch"` |
+| `code` | `str` | One of `"off-canvas"`, `"tiny-text"`, `"text-overflow"`, `"text-clipped"`, `"missing-glyph"`, `"low-contrast"`, `"layer-overlap"`, `"layer-hidden"`, `"edge-crowding"`, `"near-alignment"`, `"caption-safe-area"`, `"caption-timing"`, `"caption-overlap"`, `"caption-reading-time"`, `"clip-stretch"`, or `"motion-path-unused-handle"` |
 | `severity` | `str` | `"warning"` or `"error"` |
 | `layer_index` | `int` | Index of the offending layer in `canvas.layers` |
 | `message` | `str` | Human-readable explanation with the measured values |
@@ -39,6 +39,7 @@ Each `Diagnostic` has stable human-readable fields and optional structured field
 | Code | Trigger |
 | --- | --- |
 | `off-canvas` | A layer's bounding box falls partly or fully outside the canvas |
+| `motion-path-unused-handle` | An incoming handle on the first position keyframe or outgoing handle on the last has no adjacent segment |
 | `tiny-text` | Text smaller than 2.5% of the canvas height — likely illegible at thumbnail display sizes |
 | `text-overflow` | A single word is wider than the layer's `max_width` and cannot be wrapped |
 | `text-clipped` | Wrapped text extends past the canvas or its declared text box |
