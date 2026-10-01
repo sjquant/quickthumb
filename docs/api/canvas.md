@@ -127,7 +127,9 @@ canvas.render("preview.mp4", animation=VideoOptions(fps=30))
 `GifOptions` and `VideoOptions` are available from `quickthumb`. `GifOptions`
 accepts `fps`, `matte`, `loop`, `max_size=(width, height)`, and `colors`.
 `VideoOptions` accepts `fps`, `matte`, `soundtrack=AudioTrack(...)`, and `loop_audio`.
-GIF sizing and palette controls are rejected for MP4/WebM output.
+Both accept `workers` (an integer from 1 to 8, default 1) for opt-in parallel
+frame rendering. See [parallel animated rendering](../exports.md#parallel-animated-rendering)
+for spawn setup and supported inputs. GIF sizing and palette controls are rejected for MP4/WebM output.
 
 ### `.to_svg(embed_fonts=False)`
 
