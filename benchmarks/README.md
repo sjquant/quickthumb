@@ -137,3 +137,26 @@ writes. Benchmark those separately from the animated reel before generalizing
 the measured encode-stage speedup. The existing timer excludes lazy rendering;
 FFmpeg may now perform some encoding concurrently with that rendering, so total
 wall time is also important when comparing results.
+
+## Static slide-prefix plate (#149)
+
+Each slide pre-composites the leading static units once, in their original
+order, onto a transparent RGBA plate. Frames start from a copy of that plate.
+Static units above or between animated units remain in the per-frame stack;
+regrouping translucent units there would change layer order or alpha rounding.
+The internal frame compositor accepts an ordered unit sequence and an optional
+prepared background, and returns a caller-owned full-canvas RGBA image.
+
+Legacy effects, canonical and staggered timelines, animated components and
+backdrop-dependent motion all stop the cached prefix. Video descendants stop
+it even in reduced-motion mode, since foreground captions still sample time.
+The optimization adds no public API or dependency.
+
+`tests/test_static_slide_prefix.py` compares exact bytes against the uncached
+ordered stack, including non-monotonic samples and returned-frame mutation.
+It also counts `PIL.Image.alpha_composite` calls, including plate preparation:
+for five samples of five units with a two-unit static prefix, calls fall from
+25 to 17. An all-static three-unit stack falls from 15 to 3; a stack starting
+with motion has the same call count. The complete workload's count and clean
+median-of-three export timings belong in the #144 results discussion. Timing
+and RSS must include slide preparation and the retained full-size plates.
