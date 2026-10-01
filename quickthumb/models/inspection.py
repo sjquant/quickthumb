@@ -6,12 +6,14 @@
 from typing import Any, Literal
 
 from pydantic import (
+    ConfigDict,
     Field,
     NonNegativeInt,
     PositiveInt,
 )
 
 from .common import *  # noqa: F401,F403
+from .document import AssetManifestEntry, DiagnosticReport
 from .options import ExportDiagnostic
 
 
@@ -206,3 +208,28 @@ class MotionInspection(quickthumbModel):
     capabilities: list[MotionCapabilityInspection] = Field(default_factory=list)
     diagnostics: list[ExportDiagnostic] = Field(default_factory=list)
     reduced_motion: ReducedMotionInspection = Field(default_factory=ReducedMotionInspection)
+
+
+class DocumentInspection(quickthumbModel):
+    """Common, JSON-safe inspection envelope for a Canvas or Deck.
+
+    `pages` always follows document order: one Canvas report or every Deck
+    slide report. Its zero-based indexes match `CanonicalFrame.slide` and
+    `TimelineSegment.slide` in a sample result. Page dimensions are retained
+    even for mixed-size decks; `width` and `height` describe the first page.
+
+    `motion` retains the existing motion-inspection timing semantics, which
+    are not a promise of encoded playback duration. Canonical capture timing
+    (including holds and narration) is available from `Document.sample()`.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    version: Literal["1"] = "1"
+    kind: Literal["canvas", "deck"]
+    width: PositiveInt
+    height: PositiveInt
+    pages: list[CanvasInspection]
+    motion: MotionInspection
+    diagnostics: DiagnosticReport
+    asset_manifest: list[AssetManifestEntry] = Field(default_factory=list)

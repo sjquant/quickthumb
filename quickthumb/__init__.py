@@ -17,6 +17,7 @@ from quickthumb.errors import (
     RenderingError,
     ValidationError,
 )
+from quickthumb.inspection import inspect_document
 from quickthumb.models import (
     Align,
     AnimatedTextValue,
@@ -51,6 +52,7 @@ from quickthumb.models import (
     DiagnosticReport,
     Diamond,
     Dissolve,
+    DocumentInspection,
     Duotone,
     ExportDiagnostic,
     ExportPolicy,
@@ -139,6 +141,8 @@ __all__ = [
     "DeckDiagnostic",
     "DiagnosticReport",
     "Document",
+    "DocumentInspection",
+    "inspect_document",
     "ErrorDetail",
     "InputError",
     "MissingAssetError",
