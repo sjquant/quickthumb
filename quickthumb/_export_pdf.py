@@ -138,6 +138,10 @@ class PdfExporter:
 
     def save_canvases(self, canvases: list[Canvas], path_or_stream) -> None:
         """Write one or more canvases to a multi-page PDF (one page per canvas)."""
+        from quickthumb._parenting import require_parent_rendering
+
+        for canvas in canvases:
+            require_parent_rendering(canvas)
         if not canvases:
             raise RenderingError("Cannot export a PDF with no pages.")
         if hasattr(path_or_stream, "write"):

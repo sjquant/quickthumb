@@ -382,6 +382,10 @@ class Deck:
         of written file paths (unlike
         `Canvas.render`, which returns None).
         """
+        from quickthumb._parenting import require_parent_rendering
+
+        for canvas in self._slides:
+            require_parent_rendering(canvas)
         self._require_slides()
         extension = os.path.splitext(output_path)[1].lower()
 

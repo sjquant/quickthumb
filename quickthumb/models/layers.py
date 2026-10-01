@@ -660,6 +660,22 @@ class VideoLayer(_AnimatableLayerModel):
         return self
 
 
+class NullLayer(_AnimatableLayerModel):
+    """An invisible, zero-size transform controller; it never contributes pixels."""
+
+    type: Literal["null"]
+    position: Position = (0, 0)
+    rotation: float = Field(default=0.0, allow_inf_nan=False)
+    animation: AnimationInput | None = None
+
+    model_config = ConfigDict(validate_assignment=True, extra="forbid")
+
+    @field_validator("position", mode="before")
+    @classmethod
+    def validate_position(cls, value: tuple | list) -> Position:
+        return _validate_required_position(value)
+
+
 class GroupLayer(_AnimatableLayerModel):
     type: Literal["group"]
     direction: Literal["row", "column"] = "column"
