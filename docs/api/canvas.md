@@ -125,10 +125,12 @@ canvas.render("preview.mp4", animation=VideoOptions(fps=30))
     Passing `quality` with `format="PNG"` raises `RenderingError`. Passing `debug=True` for document or animated output (`.svg`, `.pptx`, `.pdf`, `.html`, `.gif`, `.mp4`, or `.webm`) raises `RenderingError`.
 
 `GifOptions` and `VideoOptions` are available from `quickthumb`. `GifOptions`
-accepts `fps`, `matte`, `loop`, `max_size=(width, height)`, and `colors`.
-`VideoOptions` accepts `fps`, `matte`, `soundtrack=AudioTrack(...)`, and `loop_audio`.
-Both accept `workers` (an integer from 1 to 8, default 1) for opt-in parallel
-frame rendering. See [parallel animated rendering](../exports.md#parallel-animated-rendering)
+accepts `fps`, `hold`, `matte`, `loop`, `max_size=(width, height)`, and `colors`.
+`VideoOptions` accepts `fps`, `hold`, `matte`, `soundtrack=AudioTrack(...)`, and `loop_audio`.
+Both use a strict finite nonnegative `hold` (default 3 seconds), omitted from
+serialized options when equal to its default. Both accept `workers` (a strict
+integer from 1 to 8, default 1) and `quality="standard"` or `"high"` for rendering.
+See [parallel animated rendering](../exports.md#parallel-animated-rendering)
 for spawn setup and supported inputs. GIF sizing and palette controls are rejected for MP4/WebM output.
 
 ### `.to_svg(embed_fonts=False)`
@@ -168,6 +170,11 @@ webm_bytes = canvas.to_webm(fps=30, hold=2.0)
 ```
 
 `.to_mp4()`/`.to_webm()` also accept `soundtrack` (an audio file muxed into the video, trimmed to the video length) and `loop_audio` (an explicit override). `AudioTrack(..., loop=True)` repeats a shorter configured track; legacy string paths keep the previous default of looping. GIF cannot carry audio. See the [Deck API](deck.md) for the full parameter table.
+
+All animated byte methods accept keyword-only `workers=1` and
+`quality="standard"` (`"high"` enables supersampling). `.to_gif()` also accepts
+`max_size=None` for proportional resizing and `colors=None` for the palette
+size (2–256 when supplied). Existing positional parameters remain unchanged.
 
 ### `.to_base64(format="PNG", quality=None)`
 
