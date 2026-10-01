@@ -26,7 +26,7 @@ from quickthumb._plugin_contract import PLUGIN_NAME_PATTERN, PLUGIN_VERSION_PATT
 from quickthumb.errors import ValidationError
 
 from .common import *  # noqa: F401,F403
-from .common import _validate_required_position
+from .common import _AnimatableLayerModel, _validate_required_position
 from .effects import *  # noqa: F401,F403
 from .motion import AnimationInput
 from .visualizations import ChartLayer, QRCodeLayer
@@ -235,7 +235,7 @@ class BackgroundLayer(LayerIdentityModel):
         return "#" + "".join(f"{c:02X}" for c in v)
 
 
-class TextLayer(LayerIdentityModel):
+class TextLayer(_AnimatableLayerModel):
     type: Literal["text"]
     content: str | list[TextPart]
     value: AnimatedTextValue | None = None
@@ -386,7 +386,7 @@ class OutlineLayer(LayerIdentityModel):
     opacity: OpacityField = 1.0
 
 
-class ImageLayer(LayerIdentityModel):
+class ImageLayer(_AnimatableLayerModel):
     type: Literal["image"]
     path: str
     position: Position
@@ -434,7 +434,7 @@ class ImageLayer(LayerIdentityModel):
         return align.value
 
 
-class ShapeLayer(LayerIdentityModel):
+class ShapeLayer(_AnimatableLayerModel):
     type: Literal["shape"]
     shape: Literal["rectangle", "ellipse", "pill", "triangle", "star", "polygon"]
     position: Position
@@ -518,7 +518,7 @@ class ShapeLayer(LayerIdentityModel):
         return align.value
 
 
-class SvgLayer(LayerIdentityModel):
+class SvgLayer(_AnimatableLayerModel):
     type: Literal["svg"]
     path: str
     position: Position
@@ -608,7 +608,7 @@ class VideoCaption(quickthumbModel):
         return self
 
 
-class VideoLayer(LayerIdentityModel):
+class VideoLayer(_AnimatableLayerModel):
     """A constrained single-clip video layer for animated export."""
 
     type: Literal["video"]
@@ -660,7 +660,7 @@ class VideoLayer(LayerIdentityModel):
         return self
 
 
-class GroupLayer(LayerIdentityModel):
+class GroupLayer(_AnimatableLayerModel):
     type: Literal["group"]
     direction: Literal["row", "column"] = "column"
     gap: NonNegativeInt = 0
