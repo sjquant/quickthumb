@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ source_name }} · quickthumb timeline</title>
+  <style>
+    :root { color-scheme: dark; font: 15px/1.5 system-ui, sans-serif; background: #0c111a; color: #edf2fa; }
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+    main { max-width: 1180px; margin: auto; padding: 24px; }
+    header, .controls, .summary { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+    header { justify-content: space-between; margin-bottom: 20px; }
+    h1 { font-size: 22px; margin: 0; }
+    a { color: #8ec8ff; }
+    .eyebrow { color: #94a7bf; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; }
+    .stage { height: min(60vh, 620px); min-height: 210px; display: grid; place-items: center; background: #05080e; border: 1px solid #283448; border-radius: 14px; padding: 12px; }
+    .stage img { max-width: 100%; max-height: 100%; object-fit: contain; min-height: 0; }
+    .stage img:not([src]) { display: none; }
+    .summary { justify-content: space-between; font-size: 13px; color: #b8c6d8; margin: 10px 0 18px; }
+    .panel { background: #151e2d; border: 1px solid #283448; padding: 18px; border-radius: 14px; }
+    fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+    label { display: inline-flex; gap: 8px; align-items: center; }
+    input, select, button { font: inherit; color: inherit; background: #0c111a; border: 1px solid #52627b; border-radius: 6px; padding: 6px 9px; }
+    button { cursor: pointer; }
+    button:hover { border-color: #8ec8ff; }
+    :focus-visible { outline: 2px solid #7cc4ff; outline-offset: 3px; }
+    input[type=number] { width: 115px; }
+    input[type=range] { width: 100%; margin: 18px 0 6px; padding: 0; accent-color: #78b9ff; }
+    .legend { display: flex; gap: 18px; margin: 14px 0 8px; font-size: 12px; color: #b8c6d8; }
+    .legend span::before { content: ''; display: inline-block; width: 9px; height: 9px; background: var(--color); border-radius: 2px; margin-right: 6px; }
+    .segments { display: flex; min-height: 30px; width: 100%; }
+    .segment { position: relative; min-width: 2px; overflow: hidden; border-radius: 0; padding: 4px; border: 1px solid #172235; background: #31415a; font-size: 12px; isolation: isolate; }
+    .segment span { position: absolute; height: 100%; top: 0; left: 0; z-index: -1; opacity: .9; }
+    .marks { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 12px; }
+    .marks button { font-size: 12px; padding: 4px 8px; }
+    .notes { color: #94a7bf; font-size: 12px; padding-left: 18px; margin: 16px 0 0; }
+    #qt-status[data-error=true] { color: #ffb6aa; }
+    @media (max-width: 600px) { main { padding: 14px; } .stage { height: 49vh; } h1 { font-size: 18px; } .panel { padding: 12px; } }
+  </style>
+</head>
+<body>
+<main>
+  <header><div><div class="eyebrow">quickthumb / timeline preview</div><h1>{{ source_name }}</h1></div><a href="/">Open slideshow</a></header>
+  <div class="stage" aria-busy="true" id="qt-stage"><img id="qt-frame" alt="Sampled timeline frame"></div>
+  <div class="summary"><span id="qt-displayed">No frame displayed yet</span><span id="qt-status" role="status" aria-live="polite">Loading timeline…</span></div>
+  <section class="panel" aria-label="Timeline controls">
+    <fieldset id="qt-controls" disabled>
+      <div class="controls">
+        <label>Time (seconds) <input id="qt-time" type="number" min="0" step="0.001" value="0"></label>
+        <label>Resolution <select id="qt-resolution"><option value="proxy">Proxy · 640px max edge</option><option value="full">Full · native pixels</option></select></label>
+        <output id="qt-duration"></output>
+      </div>
+      <input id="qt-seek" type="range" min="0" max="0" step="0.001" value="0" aria-label="Timeline time in seconds">
+      <div class="legend"><span style="--color:#8869cd">Transition</span><span style="--color:#2878b2">Motion</span><span style="--color:#31415a">Hold</span></div>
+      <div id="qt-segments" class="segments" aria-label="Slide segments"></div>
+      <div id="qt-marks" class="marks" aria-label="Timeline boundaries"></div>
+    </fieldset>
+    <ul id="qt-notes" class="notes"></ul>
+  </section>
+</main>
+<script id="qt-config" type="application/json">{{ {'metadata_url': metadata_url, 'frame_url': frame_url}|tojson }}</script>
+<script>{{ runtime|safe }}</script>
+</body>
+</html>
