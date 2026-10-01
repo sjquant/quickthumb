@@ -12,6 +12,7 @@ from quickthumb import (
     Canvas,
     Deck,
     ExportPolicy,
+    GroupLayer,
     KeyframeSpec,
     LayerClip,
     Morph,
@@ -63,10 +64,17 @@ def test_embedded_pixels_are_authored_still_not_time_zero_or_final(kind):
     assert canvas._ctx.motion_time is None
 
 
-def test_pdf_parent_page_matches_authored_raster():
+@pytest.mark.parametrize("composition", [False, True])
+def test_pdf_parent_page_matches_authored_raster(composition):
     import pypdfium2
 
     canvas = scene()
+    if composition:
+        from quickthumb import ShapeLayer
+
+        child = canvas.layers[-2]
+        assert isinstance(child, ShapeLayer)
+        child.clip = LayerClip(position=(10, 12), width=15, height=12, border_radius=4)
     expected = canvas._render_to_image().convert("RGB")
     with pypdfium2.PdfDocument(canvas.to_pdf()) as document:
         page = document[0]
@@ -157,7 +165,14 @@ def test_parent_deck_morph_fades_with_no_pptx_timing_or_html_layer_clock(first_p
 @pytest.mark.parametrize("deck", [False, True])
 def test_unsupported_parent_sources_preserve_destinations(tmp_path, kind, deck):
     canvas = scene()
-    canvas.layers[-2].clip = LayerClip(position=(0, 0), width=10, height=10)
+    layers = canvas.layers
+    layers[-2] = GroupLayer(
+        type="group",
+        parent="middle",
+        children=[canvas.layers[-2].model_copy(update={"parent": None, "position": (0, 0)})],
+        clip=LayerClip(position=(0, 0), width=10, height=10),
+    )
+    canvas.layers = layers
     source = Deck(140, 130).slide(Canvas(140, 130)).slide(canvas) if deck else canvas
     path = tmp_path / ("existing." + kind)
     path.write_bytes(b"existing")
@@ -269,7 +284,14 @@ def test_pdf_preparation_failure_releases_prepared_fragments(tmp_path):
     from quickthumb._export_pdf import PdfExporter
 
     invalid = scene()
-    invalid.layers[-2].clip = LayerClip(position=(0, 0), width=10, height=10)
+    layers = invalid.layers
+    layers[-2] = GroupLayer(
+        type="group",
+        parent="middle",
+        children=[invalid.layers[-2].model_copy(update={"parent": None, "position": (0, 0)})],
+        clip=LayerClip(position=(0, 0), width=10, height=10),
+    )
+    invalid.layers = layers
     exporter = PdfExporter()
     path = tmp_path / "existing.pdf"
     path.write_bytes(b"existing")

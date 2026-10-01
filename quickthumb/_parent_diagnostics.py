@@ -4,10 +4,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
-from PIL import Image
+from PIL import Image, ImageChops
 
+from quickthumb._composition import _clip_alpha, _mask_alpha, has_layer_composition
+from quickthumb._export_base import _with_motion_color
 from quickthumb._measurements import LayerMeasurement
 from quickthumb._parent_render import (
     Affine,
@@ -243,6 +245,78 @@ class ParentDiagnosticSources:
             root.prefix_index += 1
         return root.prefix
 
+    def composed_text(self, measured) -> bool:
+        occurrence = self.occurrences[measured.layer_id]
+        return occurrence.top and has_layer_composition(occurrence.root.node.source)
+
+    def _text_coverage(self, layer, source, occurrence):
+        """Separate opacity-free glyph coverage from boundary antialiasing."""
+        size = occurrence.root.node.source_size
+        glyphs = Image.new("RGBA", size)
+        geometric = _with_motion_color(layer, "#FFFFFF").model_copy(update={"opacity": 1.0})
+        self.canvas._text.render_text_layer(glyphs, geometric, staging_reference=source)
+        world = self.canvas._create_canvas()
+        self._composite_surface(world, glyphs, occurrence.root)
+        coverage = world.getchannel("A")
+        core = Image.new("L", size, 255)
+        # Sample either side of a partial inverted mask, retaining its real
+        # attenuation. A zero-opacity inverted mask has no visible boundary.
+        for boundary, painter in ((source.clip, _clip_alpha), (source.mask, _mask_alpha)):
+            if boundary is None:
+                continue
+            if painter is _mask_alpha and boundary.invert and boundary.opacity == 0:
+                continue
+            allow_empty = painter is _mask_alpha and boundary.invert and boundary.opacity < 1
+            if painter is _mask_alpha:
+                boundary = boundary.model_copy(update={"opacity": 1.0})
+            edge = painter(self.canvas._ctx, size, boundary)
+            core = ImageChops.multiply(
+                core,
+                edge.point(
+                    lambda value, allow_empty=allow_empty: 255
+                    if value >= 243 or allow_empty and value <= 12
+                    else 0
+                ),
+            )
+        local = Image.new("RGBA", size, "white")
+        local.putalpha(core)
+        world = self.canvas._create_canvas()
+        self._composite_surface(world, local, occurrence.root)
+        return coverage, world.getchannel("A")
+
+    def _visible_text_treatment(self, running, foreground, coverage, boundary):
+        """Remove glyph AA coverage, preserving owner/mask/color attenuation.
+
+        Glyph alpha is normalized against a separate opaque reference, so thin
+        affine text retains evidence without treating its fringes as faint ink.
+        At solid glyph pixels this is the owner's actual paint over the scene;
+        the separately composed own Background remains the contrast backing.
+        """
+        visible = Image.new("RGBA", running.size, "white")
+        visible.alpha_composite(running)
+        pixels, ink = visible.load(), foreground.load()
+        geometry, edges = coverage.load(), boundary.load()
+        assert pixels is not None and ink is not None and geometry is not None and edges is not None
+        marker = Image.new("L", visible.size)
+        samples = marker.load()
+        assert samples is not None
+        bounds = foreground.getbbox()
+        if bounds is not None:
+            floor = 64 if coverage.getextrema()[1] >= 64 else 1
+            for y in range(bounds[1], bounds[3]):
+                for x in range(bounds[0], bounds[2]):
+                    if geometry[x, y] < floor or edges[x, y] < 243 or not ink[x, y][3]:
+                        continue
+                    opacity = min(1.0, ink[x, y][3] / geometry[x, y])
+                    backdrop = cast(tuple[int, int, int, int], pixels[x, y])
+                    pixels[x, y] = tuple(
+                        round(ink[x, y][channel] * opacity + backdrop[channel] * (1 - opacity))
+                        for channel in range(3)
+                    ) + (255,)
+                    samples[x, y] = 255
+        visible.putalpha(marker)
+        return visible
+
     def text_images(self, running, measured):
         occurrence = self.occurrences[measured.layer_id]
         source = occurrence.text
@@ -256,6 +330,10 @@ class ParentDiagnosticSources:
         foreground = self.canvas._create_canvas()
         local = Image.new("RGBA", occurrence.root.node.source_size)
         self.canvas._text.render_text_layer(local, foreground_layer, staging_reference=source)
+        sampling = None
+        if self.composed_text(measured):
+            sampling = self._text_coverage(foreground_layer, source, occurrence)
+            local = occurrence.root.node.compose_source(local)
         self._composite_surface(foreground, local, occurrence.root)
         local_backing = self._prefix(occurrence) if occurrence.structural else None
         effects = [effect for effect in source.effects if isinstance(effect, Background)]
@@ -294,7 +372,11 @@ class ParentDiagnosticSources:
         backing = running
         if local_backing is not None:
             backing = running.copy()
+            if self.composed_text(measured):
+                local_backing = occurrence.root.node.compose_source(local_backing)
             self._composite_surface(backing, local_backing, occurrence.root)
+        if sampling is not None:
+            foreground = self._visible_text_treatment(running, foreground, *sampling)
         return backing, foreground
 
     def repair_context(self, finding):

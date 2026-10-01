@@ -7,6 +7,7 @@ from quickthumb import (
     AnimationSpec,
     Canvas,
     Deck,
+    GroupLayer,
     InspectionBBox,
     KeyframeSpec,
     LayerClip,
@@ -20,6 +21,7 @@ from quickthumb._measurements import BBox, LayerMeasurementEngine
 from quickthumb._parent_inspection import transform_bbox
 from quickthumb._parent_render import IDENTITY, ParentNode
 from quickthumb.errors import RenderingError, ValidationError
+from quickthumb.models import VideoLayer
 
 
 def scene():
@@ -86,7 +88,8 @@ def test_static_inspection_ignores_motion_samples_and_invisible_parent_opacity()
     assert canvas.render_frame(0).getbbox() == (210, 70, 230, 80)
 
 
-def test_aligned_rotated_video_uses_renderers_expanded_body(tmp_path, monkeypatch):
+@pytest.mark.parametrize("composition", [False, True])
+def test_aligned_rotated_video_uses_renderers_expanded_body(tmp_path, monkeypatch, composition):
     source = tmp_path / "clip.mp4"
     source.write_bytes(b"geometry needs no decoder")
     canvas = (
@@ -95,12 +98,20 @@ def test_aligned_rotated_video_uses_renderers_expanded_body(tmp_path, monkeypatc
         .video(str(source), (50, 40), 20, 10, rotation=90, align="center", parent="root", id="clip")
         .shape("rectangle", (0, 0), 4, 4, "#FF0000", parent="clip")
     )
+    if composition:
+        video = canvas.layers[1]
+        assert isinstance(video, VideoLayer)
+        video.clip = LayerClip(position=(48, 35), width=5, height=10)
     monkeypatch.setattr(
         ParentNode, "render_source", lambda *_args, **_kwargs: pytest.fail("video decode")
     )
     report = canvas.inspect()
     # Video expanded body10x20, centred at(50,40), hence local(45,30,10,20).
-    assert report.layers[1].bbox == InspectionBBox(x=-20, y=65, width=20, height=10)
+    assert report.layers[1].bbox == (
+        InspectionBBox(x=-15, y=68, width=10, height=5)
+        if composition
+        else InspectionBBox(x=-20, y=65, width=20, height=10)
+    )
     # The explicit child uses the video's full frame, including its own rotation.
     assert report.layers[2].bbox == InspectionBBox(x=-4, y=71, width=4, height=4)
 
@@ -122,7 +133,9 @@ def test_rich_text_retains_authored_auto_scale_metadata():
     )
     original = canvas.layers[1]
     assert isinstance(original, TextLayer)
-    plain = Canvas(400, 300, layers=[original.model_copy(update={"parent": None})])
+    plain = Canvas(
+        400, 300, layers=[original.model_copy(update={"parent": None, "position": (0, 0)})]
+    )
     text = canvas.inspect().layers[1].text
     assert text is not None
     assert text == plain.inspect().layers[0].text
@@ -214,7 +227,14 @@ def test_conservative_body_bounds_are_not_claimed_alpha_tight():
 
 def test_unsupported_observation_keeps_validation_warning_not_model_error():
     canvas = scene()
-    canvas.layers[1].clip = LayerClip(position=(0, 0), width=2, height=2)
+    layers = canvas.layers
+    layers[-1] = GroupLayer(
+        type="group",
+        parent="root",
+        children=[canvas.layers[-1].model_copy(update={"parent": None, "position": (0, 0)})],
+        clip=LayerClip(position=(0, 0), width=4, height=4),
+    )
+    canvas.layers = layers
     with pytest.raises(RenderingError) as error:
         canvas.inspect()
     assert error.value.code == "unsupported_parent_rendering"
@@ -226,7 +246,14 @@ def test_unsupported_observation_keeps_validation_warning_not_model_error():
 
 def test_unsupported_diagnostics_remain_guarded_before_any_local_paint(monkeypatch):
     canvas = scene()
-    canvas.layers[-1].clip = LayerClip(position=(0, 0), width=4, height=4)
+    layers = canvas.layers
+    layers[-1] = GroupLayer(
+        type="group",
+        parent="root",
+        children=[canvas.layers[-1].model_copy(update={"parent": None, "position": (0, 0)})],
+        clip=LayerClip(position=(0, 0), width=4, height=4),
+    )
+    canvas.layers = layers
     monkeypatch.setattr(canvas, "_render_layer", lambda *_args: pytest.fail("local paint"))
     with pytest.raises(RenderingError) as error:
         canvas.diagnose()

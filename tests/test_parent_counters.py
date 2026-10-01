@@ -410,8 +410,19 @@ def test_documents_freeze_settled_counters_and_report_both_capabilities(tmp_path
 
 @pytest.mark.parametrize("style", ["plain", "odometer", "flip"])
 @pytest.mark.parametrize("legacy", [False, True])
-def test_reveal_color_opacity_and_blur_ignore_extra_sample_buffer(style, legacy, monkeypatch):
-    from quickthumb import BlurTrack, ClipProgressTrack, ColorTrack, OpacityTrack, Wipe
+@pytest.mark.parametrize("composition", [False, True])
+def test_reveal_color_opacity_and_blur_ignore_extra_sample_buffer(
+    style, legacy, composition, monkeypatch
+):
+    from quickthumb import (
+        BlurTrack,
+        ClipProgressTrack,
+        ColorTrack,
+        LayerClip,
+        LayerMask,
+        OpacityTrack,
+        Wipe,
+    )
 
     _, canvas = linked_counter(style, align="center", rotation=17)
     layer = cast(Any, canvas.layers[1])
@@ -427,6 +438,11 @@ def test_reveal_color_opacity_and_blur_ignore_extra_sample_buffer(style, legacy,
             track(RotationTrack, 0, 20),
         )
     )
+    if composition:
+        layer.clip = LayerClip(position=(180, 90), width=120, height=100, border_radius=12)
+        layer.mask = LayerMask(
+            shape="ellipse", position=(175, 85), width=120, height=110, opacity=0.6
+        )
     animator = _SlideAnimator(canvas, {})
     node = animator._units[-1].parent_node
     original = node.render_sample
@@ -443,6 +459,7 @@ def test_reveal_color_opacity_and_blur_ignore_extra_sample_buffer(style, legacy,
     monkeypatch.setattr(node, "render_sample", padded)
     assert [animator.frame_at(instant).tobytes() for instant in times] == expected
     assert len(set(expected)) == len(times)
+    assert animator.frame_at(times[0]).tobytes() == expected[0]
 
 
 def test_nested_group_suppresses_image_and_qr_motion_but_keeps_counter(tmp_path):
