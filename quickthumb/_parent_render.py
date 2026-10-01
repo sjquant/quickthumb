@@ -16,6 +16,7 @@ from weakref import proxy
 from PIL import Image
 
 from quickthumb._base import apply_alignment, expanded_rotation_size, parse_coordinate
+from quickthumb._composition import apply_layer_composition, has_layer_composition
 from quickthumb._export_base import (
     _blur_geometry,
     _with_motion_color,
@@ -120,9 +121,9 @@ def parent_rendering_problem(canvas: Canvas) -> str | None:
             continue
         if not isinstance(layer, NullLayer) and index <= last_backdrop:
             return "Parent-linked imagery on or below backdrop-dependent layers is unsupported"
-        if getattr(layer, "clip", None) is not None or getattr(layer, "mask", None) is not None:
-            return "Parent-linked clip and mask coordinate spaces are not supported yet"
         if isinstance(layer, GroupLayer):
+            if has_layer_composition(layer):
+                return "Parent-linked group clip and mask composition is unsupported"
             if any(_has_composition(child) for child in layer.children):
                 return "Parent-linked groups with clipped or masked descendants are unsupported"
             if layer.animation is None and _animated_descendant(layer):
@@ -188,6 +189,32 @@ def _has_composition(layer) -> bool:
         or getattr(layer, "mask", None) is not None
         or any(_has_composition(child) for child in getattr(layer, "children", ()))
     )
+
+
+def _without_own_composition(layer):
+    """Keep the authored body independent of its own paint boundary."""
+    return (
+        layer.model_copy(update={"clip": None, "mask": None})
+        if has_layer_composition(layer)
+        else layer
+    )
+
+
+def _rebase_composition(canvas: Canvas, layer, offset: tuple[int, int]):
+    """Move resolved authored boundaries into a source buffer without rotating them."""
+    updates = {}
+    for name in ("clip", "mask"):
+        boundary = getattr(layer, name, None)
+        if boundary is not None:
+            updates[name] = boundary.model_copy(
+                update={
+                    "position": (
+                        parse_coordinate(boundary.position[0], canvas.width) + offset[0],
+                        parse_coordinate(boundary.position[1], canvas.height) + offset[1],
+                    )
+                }
+            )
+    return layer.model_copy(update=updates) if updates else layer
 
 
 def _padding(canvas: Canvas, layer) -> int:
@@ -273,8 +300,9 @@ def parent_geometry(
         )
     layer = settled_content(layer)
     measure = LayerMeasurementEngine(canvas._ctx, canvas._groups, canvas._text)
-    if measured is None:
-        measured = measure.measure_layer(layer, index=0, order=0, path=(0,))
+    body = _without_own_composition(layer)
+    if measured is None or body is not layer:
+        measured = measure.measure_layer(body, index=0, order=0, path=(0,))
     box = measured.metadata.get("layout_bbox", measured.bbox)
     assert box is not None
     body_size = (box.width, box.height)
@@ -291,7 +319,7 @@ def parent_geometry(
         layer = canvas._text.effective_layer(layer)
     if not getattr(layer, "rotation", 0):
         return ParentGeometry(layer, origin, body_size, IDENTITY)
-    reference = settled_text_reference(canvas, layer) if isinstance(layer, TextLayer) else layer
+    reference = settled_text_reference(canvas, body) if isinstance(body, TextLayer) else body
     unrotated = reference.model_copy(update={"rotation": 0.0})
     unrotated_box = measure.measure_layer(unrotated, index=0, order=0, path=(0,)).bbox
     assert unrotated_box is not None
@@ -380,12 +408,23 @@ class ParentNode:
             canvas._ctx.measure_cache = measurements
         return surface
 
+    def compose_source(self, surface: Image.Image, offset: tuple[int, int] = (0, 0)):
+        """Apply the owner boundary once to pixels in a possibly shifted buffer."""
+        if not has_layer_composition(self.source):
+            return surface
+        layer = _rebase_composition(self.plan.canvas, self.source, (-offset[0], -offset[1]))
+        patch = apply_layer_composition(self.plan.canvas._ctx, surface, layer)
+        result = Image.new("RGBA", surface.size)
+        if patch is not None:
+            result.alpha_composite(patch.image, patch.offset)
+        return result
+
     def render_sample(self, time: float, color: str | None):
         """Paint sampled leaves in their own bounds without changing the parent frame."""
         if not _has_counter(self.layer):
             return self.render_source(time, color), (0, 0)
         canvas = self.plan.canvas
-        source = _with_motion_color(self.source, color)
+        source = _without_own_composition(_with_motion_color(self.source, color))
         if (
             isinstance(source, TextLayer)
             and self.layer.position is None
@@ -448,7 +487,7 @@ class ParentNode:
                     )
                 placed = leaf.model_copy(update={"position": (x - left, y - top)})
                 canvas._render_layer(surface, placed, time)
-            return surface, (left, top)
+            return self.compose_source(surface, (left, top)), (left, top)
         finally:
             canvas._ctx.measure_cache = measurements
             canvas._ctx.motion_time = previous
@@ -482,6 +521,7 @@ class ParentRenderPlan:
             source = canvas._groups.place_text_child(layer, (padding, padding), body_size)
         else:
             source = layer.model_copy(update={"position": (padding, padding), "align": None})
+        source = _rebase_composition(canvas, source, (padding - origin[0], padding - origin[1]))
         node = ParentNode(
             proxy(self),
             layer,
