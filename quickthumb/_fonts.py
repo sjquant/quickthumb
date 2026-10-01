@@ -2,8 +2,12 @@ import contextlib
 import hashlib
 import os
 import re
+import sys
 import warnings
+from collections import OrderedDict
 from collections.abc import Iterable
+from dataclasses import dataclass
+from threading import Lock, RLock
 from typing import Any, cast
 from urllib.parse import quote_plus, urlparse
 from urllib.request import urlopen
@@ -15,6 +19,83 @@ from quickthumb.asset_cache import AssetResolver, ResolvedAsset
 from quickthumb.errors import RenderingError
 from quickthumb.font_cache import FontCache
 from quickthumb.models import TextLayer, VideoLayer
+
+
+@dataclass(frozen=True)
+class _LoadedFont:
+    font: ImageFont.FreeTypeFont | ImageFont.ImageFont
+    warnings: tuple[str, ...]
+
+
+# Canvases have separate FontEngines, including each slide of a video. Keep the
+# expensive FreeType faces across engines, but bound retained faces/file handles.
+_MAX_LOADED_FONTS = 128
+_LOADED_FONTS: OrderedDict[tuple, _LoadedFont] = OrderedDict()
+_LOADED_FONTS_LOCK = Lock()
+
+
+class _CachedFreeTypeFont(ImageFont.FreeTypeFont):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._render_lock = RLock()
+
+    def __setstate__(self, state):
+        # Pillow restores a face by calling its base initializer directly.
+        super().__setstate__(state)
+        self._render_lock = RLock()
+
+    @classmethod
+    def _from_loaded(cls, font: ImageFont.FreeTypeFont) -> "_CachedFreeTypeFont":
+        # Preserve Pillow's embedded default face without loading it a second
+        # time. FreeTypeFont keeps its face and constructor state in __dict__.
+        wrapped = cls.__new__(cls)
+        wrapped.__dict__.update(font.__dict__)
+        wrapped._render_lock = RLock()
+        return wrapped
+
+    def getmask2(self, *args, **kwargs):
+        # Color fonts store the foreground palette on their FreeType face.
+        # Pillow calls Python to allocate the mask between setting that palette
+        # and drawing glyphs, so even GIL builds can interleave two renders.
+        # getmask delegates here too; protect the complete mask operation.
+        with self._render_lock:
+            return super().getmask2(*args, **kwargs)
+
+    def getbbox(self, *args, **kwargs):
+        with self._render_lock:
+            return super().getbbox(*args, **kwargs)
+
+    def getlength(self, *args, **kwargs):
+        with self._render_lock:
+            return super().getlength(*args, **kwargs)
+
+    def getmetrics(self):
+        with self._render_lock:
+            return super().getmetrics()
+
+    def getname(self):
+        with self._render_lock:
+            return super().getname()
+
+    def get_variation_axes(self):
+        with self._render_lock:
+            return super().get_variation_axes()
+
+    def get_variation_names(self):
+        with self._render_lock:
+            return super().get_variation_names()
+
+    def set_variation_by_axes(self, axes):
+        with self._render_lock:
+            return super().set_variation_by_axes(axes)
+
+    def set_variation_by_name(self, name):
+        with self._render_lock:
+            return super().set_variation_by_name(name)
+
+    def font_variant(self, *args, **kwargs):
+        with self._render_lock:
+            return self._from_loaded(super().font_variant(*args, **kwargs))
 
 
 class FontEngine:
@@ -128,8 +209,7 @@ class FontEngine:
                         stacklevel=3,
                     )
                 font_path = self._download_and_cache_font(font_name)
-                font = ImageFont.truetype(font_path, size)
-                return self._apply_font_variations(font, font_variations, weight)
+                return self._load_cached_font(font_path, size, font_variations, weight)
 
             if font_name and font_source == "google":
                 requested_variations = {
@@ -142,33 +222,139 @@ class FontEngine:
                     weight,
                     requested_variations,
                 )
-                font = ImageFont.truetype(font_path, size)
-                return self._apply_font_variations(font, font_variations, weight)
+                return self._load_cached_font(font_path, size, font_variations, weight)
 
             if font_name:
-                with contextlib.suppress(OSError):
-                    font = ImageFont.truetype(font_name, size)
-                    return self._apply_font_variations(font, font_variations, weight)
+                # Pillow probes a name with FreeType before searching its font
+                # directories. Resolve that filename first: family names such as
+                # "Roboto" otherwise incur a failed getfont call on every slide.
+                direct_path = (
+                    font_name if os.path.isfile(font_name) else self._find_pillow_font(font_name)
+                )
+                if direct_path:
+                    with contextlib.suppress(OSError):
+                        return self._load_cached_font(direct_path, size, font_variations, weight)
 
                 font_path = FontCache.get_instance().find_font(
                     font_name, bold or False, italic or False, weight=weight
                 )
 
                 if font_path:
-                    font = ImageFont.truetype(font_path, size)
-                    return self._apply_font_variations(font, font_variations, weight)
+                    return self._load_cached_font(font_path, size, font_variations, weight)
 
             default_font_path = FontCache.get_instance().default_font()
 
-            font = (
-                ImageFont.truetype(default_font_path, size)
-                if default_font_path
-                else ImageFont.load_default(size)
-            )
-            return self._apply_font_variations(font, font_variations, weight)
+            return self._load_cached_font(default_font_path, size, font_variations, weight)
 
         except OSError as e:
             raise RenderingError(f"Could not load font '{font_name}'.") from e
+
+    def _load_cached_font(
+        self,
+        path: str | None,
+        size: int,
+        font_variations: dict[str, float],
+        weight: int | str | None,
+    ) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
+        try:
+            return self._load_cached_face(path, size, font_variations, weight)
+        except OSError:
+            if path is None:
+                raise
+            fallback = self._find_pillow_font(path)
+            if fallback is None:
+                raise
+            # Pillow tries only the first filename match. Load it strictly too,
+            # rather than recursively following aliases of unreadable files.
+            return self._load_cached_face(fallback, size, font_variations, weight)
+
+    def _load_cached_face(
+        self,
+        path: str | None,
+        size: int,
+        font_variations: dict[str, float],
+        weight: int | str | None,
+    ) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
+        if path is None:
+            identity = None
+        else:
+            path = os.path.realpath(path)
+            stat = os.stat(path)
+            # Refreshes of downloaded files and replacements of local files must
+            # not reuse an old face. ctime also detects in-place edits with a
+            # preserved mtime; the inode detects atomic replacement.
+            identity = (
+                path,
+                stat.st_dev,
+                stat.st_ino,
+                stat.st_size,
+                stat.st_mtime_ns,
+                stat.st_ctime_ns,
+            )
+        normalized_weight = self._normalize_weight(weight, False) if weight is not None else None
+        key = (identity, size, tuple(sorted(font_variations.items())), normalized_weight)
+        with _LOADED_FONTS_LOCK:
+            loaded = _LOADED_FONTS.get(key)
+            if loaded is None:
+                # Load the resolved path strictly, so a corrupt file cannot hide
+                # a different Pillow fallback behind the wrong cache identity.
+                font = _CachedFreeTypeFont(path, size) if path else ImageFont.load_default(size)
+                if isinstance(font, ImageFont.FreeTypeFont) and not isinstance(
+                    font, _CachedFreeTypeFont
+                ):
+                    font = _CachedFreeTypeFont._from_loaded(font)
+                warning_messages: list[str] = []
+                # Variable font axes mutate the face. Configure it exactly once
+                # before sharing; never apply axes to a cached object.
+                font = self._apply_font_variations(
+                    font, font_variations, weight, warning_messages=warning_messages
+                )
+                loaded = _LoadedFont(font, tuple(warning_messages))
+                _LOADED_FONTS[key] = loaded
+                if len(_LOADED_FONTS) > _MAX_LOADED_FONTS:
+                    _LOADED_FONTS.popitem(last=False)
+            _LOADED_FONTS.move_to_end(key)
+        # A warm process cache must not hide warnings on a new canvas.
+        for message in loaded.warnings:
+            warnings.warn(message, UserWarning, stacklevel=4)
+        return loaded.font
+
+    @staticmethod
+    def _find_pillow_font(font_name: str) -> str | None:
+        """Resolve Pillow's filename fallback without loading a failed face."""
+        directories: list[str] = []
+        if sys.platform == "win32":
+            windir = os.environ.get("WINDIR")
+            if windir:
+                directories.append(os.path.join(windir, "fonts"))
+        elif sys.platform in {"linux", "linux2"}:
+            data_home = os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share")
+            data_dirs = os.environ.get("XDG_DATA_DIRS") or "/usr/local/share:/usr/share"
+            directories = [
+                os.path.join(directory, "fonts") for directory in [data_home, *data_dirs.split(":")]
+            ]
+        elif sys.platform == "darwin":
+            directories = [
+                "/Library/Fonts",
+                "/System/Library/Fonts",
+                os.path.expanduser("~/Library/Fonts"),
+            ]
+
+        filename = os.path.basename(font_name)
+        extension = os.path.splitext(filename)[1]
+        first_other_extension = None
+        for directory in directories:
+            for root, _, filenames in os.walk(directory):
+                for candidate in filenames:
+                    if extension and candidate == filename:
+                        return os.path.join(root, candidate)
+                    if not extension and os.path.splitext(candidate)[0] == filename:
+                        path = os.path.join(root, candidate)
+                        if os.path.splitext(candidate)[1] == ".ttf":
+                            return path
+                        if first_other_extension is None:
+                            first_other_extension = path
+        return first_other_extension
 
     def _download_and_cache_google_font(
         self,
@@ -440,6 +626,8 @@ class FontEngine:
         font: ImageFont.FreeTypeFont | ImageFont.ImageFont,
         requested_variations: dict[str, float],
         weight: int | str | None,
+        *,
+        warning_messages: list[str],
     ) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
         if not isinstance(font, ImageFont.FreeTypeFont):
             return font
@@ -454,19 +642,15 @@ class FontEngine:
             axes = font.get_variation_axes()
         except (AttributeError, OSError):
             if requested_variations:
-                warnings.warn(
-                    "font_variations were ignored because the selected font is not variable.",
-                    UserWarning,
-                    stacklevel=3,
+                warning_messages.append(
+                    "font_variations were ignored because the selected font is not variable."
                 )
             return font
 
         if not axes:
             if requested_variations:
-                warnings.warn(
-                    "font_variations were ignored because the selected font has no variable axes.",
-                    UserWarning,
-                    stacklevel=3,
+                warning_messages.append(
+                    "font_variations were ignored because the selected font has no variable axes."
                 )
             return font
 
@@ -488,21 +672,17 @@ class FontEngine:
 
         ignored = sorted(set(variations) - used_axes)
         if ignored and requested_variations:
-            warnings.warn(
+            warning_messages.append(
                 "font_variations axes were ignored because the font does not expose them: "
-                + ", ".join(ignored),
-                UserWarning,
-                stacklevel=3,
+                + ", ".join(ignored)
             )
 
         try:
             font.set_variation_by_axes(resolved_values)
         except (AttributeError, OSError, ValueError):
             if requested_variations:
-                warnings.warn(
-                    "font_variations were ignored because Pillow could not apply them.",
-                    UserWarning,
-                    stacklevel=3,
+                warning_messages.append(
+                    "font_variations were ignored because Pillow could not apply them."
                 )
         return font
 
