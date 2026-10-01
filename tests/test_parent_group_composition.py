@@ -411,7 +411,7 @@ def test_clipped_away_group_does_not_overlap_lower_layer():
 
 
 @pytest.mark.parametrize(
-    "kind", ["stagger", "independent", "descendant", "nested_mask", "backdrop"]
+    "kind", ["counter_stagger", "independent", "descendant", "nested_mask", "backdrop"]
 )
 def test_composed_group_unsupported_combinations_are_guarded_without_rendering(monkeypatch, kind):
     from quickthumb import AnimatedTextValue, AnimationSpec, BackdropBlur, ExportPolicy
@@ -426,15 +426,15 @@ def test_composed_group_unsupported_combinations_are_guarded_without_rendering(m
     )
     animation = None
     expected = (
-        "stagger"
-        if kind == "stagger"
+        "static text or group"
+        if kind == "counter_stagger"
         else "independent"
         if kind == "independent"
         else "descendants"
         if kind in {"descendant", "nested_mask"}
         else "backdrop"
     )
-    if kind == "stagger":
+    if kind == "counter_stagger":
         animation = AnimationSpec.rise(stagger=0.2, target="children")
     elif kind == "independent":
         child.animation = motion(track(RotationTrack, 0, 30))

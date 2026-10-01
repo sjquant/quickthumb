@@ -230,7 +230,8 @@ Inspection reports the boundary-intersected group box and keeps conservative
 laid-out child boxes. Child transforms still use the full authored group body;
 the boundary does not clip independently linked children. Counter observations
 use settled text, including glyph backgrounds and preceding group content.
-Descendant composition and group-own composition with stagger remain guarded; see
+Descendant composition and counter-group stagger remain guarded. Static leaf groups
+with their own clip/mask use the existing partial stagger adapter; see
 [parent adapter boundaries](video.md#current-adapters-and-boundaries).
 
 ### `.to_json()`
