@@ -136,6 +136,11 @@ class DiagnosticsEngine:
             self._ctx.close_video_decoders()
 
     def _collect_diagnostics(self) -> list[Diagnostic]:
+        from quickthumb._parenting import require_parent_rendering
+
+        # Bounds alone are insufficient: running pixels, alpha and contrast
+        # still use local layers until the world-aware diagnostics adapter.
+        require_parent_rendering(self._canvas)
         self._alpha_cache.clear()
         self._canvas._validate_image_paths()
         self._ctx.begin_render_pass()

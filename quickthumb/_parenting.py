@@ -89,13 +89,13 @@ def has_parent_links(canvas: Canvas) -> bool:
 
 
 def require_parent_rendering(canvas: Canvas) -> None:
-    """Reject layout inspection until its world-geometry adapter is available."""
+    """Reject paths still needing world-aware compositing or sampled layout."""
     # The unlinked path remains unchanged, including its grouping and pixels.
     if not has_parent_links(canvas):
         return
     validate_parent_graph(canvas.layers)
     raise RenderingError(
-        "World-layout inspection does not yet support parent transforms; "
-        "raster/video rendering and authored-static document fallbacks are available.",
+        "This diagnostics/compositing or sampled-layout path does not yet support parent "
+        "transforms; authored-static inspection and raster/video rendering are available.",
         code="unsupported_parent_rendering",
     )
