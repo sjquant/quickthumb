@@ -74,6 +74,7 @@ from quickthumb._export_base import (
     split_into_bands,
     validate_legacy_animation_export,
 )
+from quickthumb._gif import write_gif_frames
 from quickthumb._video import (
     VideoInfo,
     effective_duration,
@@ -125,7 +126,6 @@ _UNIT_DISSOLVE_SEED = 31
 _DISSOLVE_BLOCK = 8
 _BLINDS_STRIPS = 6
 _COMB_STRIPS = 8
-_MAX_GIF_FRAME_MEMORY_BYTES = 768 * 1024 * 1024
 _MAX_SCHEDULED_AUDIO_TRACKS = 64
 _MAX_SHOTS_PER_VIDEO_BATCH = 64
 _VISUALIZATION_PRESETS = frozenset(
@@ -2194,17 +2194,25 @@ def _encode_gif(
     max_size: tuple[int, int] | None = None,
     colors: int | None = None,
 ) -> bytes:
-    """Encode shots as an animated GIF with per-frame durations via Pillow.
+    """Encode shots with bounded frame storage, retaining only compressed bytes."""
+    buffer = BytesIO()
+    write_gif_frames(_gif_palette_frames(shots, max_size=max_size, colors=colors), buffer, loop)
+    return buffer.getvalue()
+
+
+def _gif_palette_frames(
+    shots: Iterable[_Shot],
+    *,
+    max_size: tuple[int, int] | None,
+    colors: int | None,
+) -> Iterator[tuple[Image.Image, int]]:
+    """Quantize each shot lazily, preserving the cumulative centisecond clock.
 
     GIF stores durations in centiseconds, so per-frame rounding would drift
     the playback clock (33.33ms frames at 30fps stored as 30ms play ~10%
     fast); instead each duration is the cumulative clock's centisecond delta,
-    the same drift-free scheme the ffmpeg path uses. Frames are quantized to
-    their GIF palette as they arrive, so the pending frame list holds one
-    byte per pixel instead of full RGB.
+    the same drift-free scheme the ffmpeg path uses.
     """
-    frames: list[Image.Image] = []
-    durations: list[int] = []
     clock = 0.0
     emitted_cs = 0
     target_size: tuple[int, int] | None = None
@@ -2214,28 +2222,10 @@ def _encode_gif(
         frame = shot.frame
         if frame.size != target_size:
             frame = frame.resize(target_size, Image.Resampling.LANCZOS)
-        estimated_memory = (len(frames) + 1) * frame.width * frame.height * 4
-        if estimated_memory > _MAX_GIF_FRAME_MEMORY_BYTES:
-            raise RenderingError(
-                "GIF export exceeds the in-memory frame budget. Reduce fps or duration, "
-                "or use MP4/WebM export."
-            )
         clock += shot.duration
         duration_cs = max(1, round(clock * 100) - emitted_cs)
         emitted_cs += duration_cs
-        frames.append(frame.quantize(colors=colors or 256))
-        durations.append(duration_cs * 10)
-    buffer = BytesIO()
-    frames[0].save(
-        buffer,
-        format="GIF",
-        save_all=True,
-        append_images=frames[1:],
-        duration=durations if len(durations) > 1 else durations[0],
-        loop=loop,
-        optimize=True,
-    )
-    return buffer.getvalue()
+        yield frame.quantize(colors=colors or 256), duration_cs * 10
 
 
 def _gif_target_size(
