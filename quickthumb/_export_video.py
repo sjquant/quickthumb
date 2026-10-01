@@ -809,15 +809,37 @@ class TimelineSampler:
         slide_duration: float,
         slide_durations: list[float | None] | None,
         matte: str,
+        preview_max_edge: int | None = None,
     ):
+        if preview_max_edge is not None and (
+            isinstance(preview_max_edge, bool)
+            or not isinstance(preview_max_edge, int)
+            or preview_max_edge < 1
+        ):
+            raise ValidationError("preview_max_edge must be a positive integer")
         self._matte_rgb = matte_color(matte)
         for canvas in canvases:
             canvas._validate_image_paths()
         self._canvases = canvases
         self._transitions = transitions
-        self._size = (canvases[0].width, canvases[0].height)
+        preview_scale = (
+            min(1.0, preview_max_edge / max(canvases[0].width, canvases[0].height))
+            if preview_max_edge is not None
+            else 1.0
+        )
+        self._size = (
+            max(1, round(canvases[0].width * preview_scale)),
+            max(1, round(canvases[0].height * preview_scale)),
+        )
         try:
-            self._plan = _deck_plan(canvases, transitions, 0.0, slide_duration, slide_durations)
+            self._plan = _deck_plan(
+                canvases,
+                transitions,
+                0.0,
+                slide_duration,
+                slide_durations,
+                preview_size=self._size if preview_max_edge is not None else None,
+            )
         except BaseException:
             # Animators for earlier slides may already hold video decoders.
             with contextlib.suppress(BaseException):
@@ -895,11 +917,25 @@ def _deck_plan(
     reduced_motion: bool = False,
     probe_cache: dict[str, VideoInfo] | None = None,
     quality: AnimationQuality = "standard",
+    *,
+    preview_size: tuple[int, int] | None = None,
 ) -> _DeckPlan:
     """Build animation state once for both visuals and scheduled narration."""
     cache = probe_cache if probe_cache is not None else {}
     animators = [
-        _SlideAnimator(canvas, cache, reduced_motion=reduced_motion, quality=quality)
+        _SlideAnimator(
+            canvas,
+            cache,
+            reduced_motion=reduced_motion,
+            quality=quality,
+            # Caption positions and font sizes are authored in native pixels.
+            # Keep that compositor intact; _conform reduces the finished frame.
+            preview_scale=(
+                min(1.0, preview_size[0] / canvas.width, preview_size[1] / canvas.height)
+                if preview_size is not None and not _canvas_has_video_captions(canvas)
+                else 1.0
+            ),
+        )
         for canvas in canvases
     ]
     timings = _deck_timing(
@@ -1285,7 +1321,7 @@ def _composite_frame(
     *,
     background: Image.Image | None = None,
     include_captions: bool = True,
-    render_scale: int = 1,
+    render_scale: float = 1,
     downsample: bool = True,
 ) -> Image.Image:
     """Render ordered units onto a fresh full-canvas RGBA frame.
@@ -1296,14 +1332,20 @@ def _composite_frame(
     Timeline planning, transitions, and encoding stay outside this boundary.
 
     `render_scale=2` draws native sources directly into a doubled surface.
-    Only background-plate preparation disables the final downsample; ordinary
-    frames return native dimensions before captions are rendered.
+    Background-plate preparation and reduced timeline previews disable the
+    final downsample. Export frames return native dimensions before captions;
+    preview plans keep captioned slides native and reduce the finished frame.
     """
     frame = (
         background.copy()
         if background is not None
         else Image.new(
-            "RGBA", (canvas.width * render_scale, canvas.height * render_scale), (0, 0, 0, 0)
+            "RGBA",
+            (
+                max(1, round(canvas.width * render_scale)),
+                max(1, round(canvas.height * render_scale)),
+            ),
+            (0, 0, 0, 0),
         )
     )
     visible_video_layers: list[VideoLayer] = []
@@ -1408,9 +1450,12 @@ class _SlideAnimator:
         probe_cache: dict[str, VideoInfo],
         reduced_motion: bool = False,
         quality: AnimationQuality = "standard",
+        *,
+        preview_scale: float = 1.0,
     ):
         self._canvas = canvas
-        self._render_scale = 2 if quality == "high" else 1
+        self._preview = preview_scale < 1
+        self._render_scale = preview_scale if self._preview else (2 if quality == "high" else 1)
         self._units = _build_units(canvas, probe_cache, reduced_motion=reduced_motion)
         self.duration = max(_schedule_units(self._units), _schedule_timelines(self._units))
         # Only the leading static run is safe to cache. Static units above or
@@ -1451,6 +1496,7 @@ class _SlideAnimator:
                 background=self._static_plate,
                 include_captions=include_captions,
                 render_scale=self._render_scale,
+                downsample=not self._preview,
             )
         finally:
             if self._color_motion:
@@ -2074,7 +2120,7 @@ def _canonical_render(
     clip_scale: float = 1.0,
     include_scale: bool = True,
     subpixel: bool = False,
-    render_scale: int = 1,
+    render_scale: float = 1,
 ) -> tuple[Image.Image, tuple[int, int]] | None:
     """Apply renderer-independent opacity, reveal, and geometry to a frame.
 
