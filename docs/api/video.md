@@ -498,8 +498,15 @@ adapter's exact collapse flag in every browser.
 `static`, `rasterize` and reduced-motion policies emit the authored-static scene.
 The exported animation requires browser support for registered CSS numeric
 properties (`@property`).
-World-layout `inspect()` and `diagnose()` remain guarded; `validate()` checks
-the graph and assets and warns that world-layout checks are unavailable.
+`inspect()` reports authored-static world-space bounds for supported parent scenes.
+These are conservative axis-aligned boxes around the existing measured local
+bodies, not tight painted-alpha footprints; they are not clipped to the canvas.
+Group descendants are mapped once from their already placed local coordinates.
+Text wrapping/font metadata stays authored-local. `render(..., debug=True)` draws
+these authored-static boxes; time-sampled inspection/debug is not implemented.
+`diagnose()` remains guarded until its alpha/contrast sources are world-aware.
+`validate()` checks supported world bounds, and preserves a warning (rather than
+an invalid-model error) for unsupported observation combinations.
 `inspect_motion()` reports parent links and local track samples; those local
 samples are not decomposed approximations of the world affine matrix.
 `validate_export()` reports support or the actual unsupported combination, and
