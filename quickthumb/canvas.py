@@ -1420,10 +1420,12 @@ class Canvas:
         soundtrack: AudioTrack | str | dict | None = None,
         loop_audio: bool | None = None,
         *,
+        transparent: bool = False,
         policy: ExportPolicy | None = None,
     ) -> bytes:
         """Render the canvas to WebM (VP9) bytes; timing model as in `to_gif`.
 
+        `transparent=True` skips the export matte and preserves authored alpha.
         Requires the `ffmpeg` binary on PATH (or `QUICKTHUMB_FFMPEG`).
         An odd-sized canvas loses its last pixel row/column (VP9 4:2:0 output
         needs even dimensions). `soundtrack` muxes an audio file (any
@@ -1439,6 +1441,7 @@ class Canvas:
             fps=fps,
             slide_duration=hold,
             matte=matte,
+            transparent=transparent,
             soundtrack=soundtrack,
             loop_audio=loop_audio,
             reduced_motion=bool(policy and policy.reduced_motion),

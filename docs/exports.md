@@ -171,9 +171,60 @@ and runnable `examples/parent_stagger.py` example.
 `Canvas.render()` and `Deck.render()` accept a format-specific options object for
 animated file output. Use `GifOptions` for GIF (`fps`, `matte`, `loop`,
 `max_size=(width, height)`, and `colors`) and `VideoOptions` for MP4/WebM
-(`fps`, `matte`, `soundtrack=AudioTrack(...)`, and `loop_audio`). GIF sizing and palette controls
+(`fps`, `matte`, `soundtrack=AudioTrack(...)`, `loop_audio`, and WebM-only
+`transparent=True`). GIF sizing and palette controls
 are rejected for video output, and video options are rejected for GIF output.
 The generic `quality` option remains reserved for JPEG and WebP raster output.
+
+### Transparent WebM
+
+VP9 WebM can preserve alpha through `VideoOptions(transparent=True)`, or the
+keyword-only `transparent=True` argument to `Canvas.to_webm()` and
+`Deck.to_webm()`. The default is `False`; existing opaque exports keep their
+matte and encoder settings. This is an export option, not a layer or motion
+property, so it is absent from Canvas/Deck JSON and `inspect_motion()`;
+`VideoOptions.model_validate_json()` and its model JSON schema expose the strict
+boolean option. `validate_export()` continues to describe document motion,
+while `render()` rejects transparent options on unsupported output formats.
+
+```python
+canvas.render("overlay.webm", animation=VideoOptions(transparent=True))
+deck.render("overlay.webm", animation=VideoOptions(transparent=True, quality="high", workers=2))
+webm_bytes = canvas.to_webm(transparent=True)
+options = VideoOptions.model_validate_json('{"transparent": true, "fps": 24}')
+```
+
+Only the export matte is skipped. Authored backgrounds remain visible, empty
+areas and mixed-size slide letterboxing stay transparent, and a transition on
+slide zero starts from transparency. Fade and mask transitions interpolate
+premultiplied colors; covering and scaled slides composite with source-over
+alpha. Keyed Morph normalizes mixed-size slides to the first slide's output
+space before interpolating positions, dimensions and translucent pixels. The
+existing parent/caption Morph fallback restrictions still apply.
+
+Both compositing quality modes, spawn workers, soundtracks and Deck narration
+work with transparent WebM. The encoder streams RGBA into VP9 `yuva420p` with
+lossless VP9 coding to protect the alpha plane. The RGBA-to-YUV conversion can
+change decoded alpha by one 8-bit level; RGB remains chroma-subsampled (4:2:0),
+so source color pixels are not lossless. Files can be larger than opaque WebM.
+The existing bounded frame batches and atomic destination replacement remain.
+Transparent transitions use temporary floating-point planes for accurate
+premultiplied blending; memory usage grows with frame size and worker count.
+MP4, GIF, and document/raster output reject this video option before writing
+the destination. ProRes 4444 and PNG image-sequence export are not implemented.
+
+Use a player or editor that supports VP9 WebM alpha. To inspect the actual
+alpha plane with FFmpeg, select the libvpx decoder **before** the input:
+
+```bash
+ffmpeg -c:v libvpx-vp9 -i overlay.webm -frames:v 1 -pix_fmt rgba frame.png
+```
+
+The native VP9 decoder may report/decode only color; `alpha_mode` metadata
+alone is not proof of preserved transparency. The regression tests decode RGBA
+with libvpx and compare transparent, translucent and opaque pixels. See
+`examples/transparent_lower_third.py` for an overlay with an authored translucent
+panel and transparent surroundings.
 
 ### High-quality animated compositing
 
@@ -280,7 +331,7 @@ The audio is always trimmed to the video length. For an `AudioTrack`, `loop=True
     endpoints retain their existing pixels, including nonidentity final transforms.
     Image viewport zoom/pan keeps its separate image-renderer behavior.
 
-    None of these formats carry transparency: frames are composited onto the opaque `matte` color (default black). Mixed-size slides are scaled to fit and centered on the first slide's size. H.264/VP9 4:2:0 output needs even dimensions, so odd-sized canvases lose their last pixel row/column in MP4/WebM output. GIF encoding streams quantized frames through Pillow, keeping only a bounded number of uncompressed frames instead of imposing a timeline frame-memory budget. The final compressed GIF is still buffered in memory, including for file exports; large canvases, documents and encoded files can still exhaust available memory. `max_size` and `colors` remain useful for reducing output size. GIF dimensions and each coalesced frame duration must still fit the format’s 16-bit fields (65,535 pixels and 655.35 seconds). Animated Deck MP4/WebM accepts at most 64 slides with narration because each narration is decoded as a concurrent FFmpeg input; split larger narrated decks into multiple exports. Silent slides do not count toward this limit.
+    By default, frames are composited onto the opaque `matte` color (default black). VP9 WebM supports opt-in alpha as described above; GIF and MP4 remain opaque. Mixed-size slides are scaled to fit and centered on the first slide's size. H.264/VP9 4:2:0 output needs even dimensions, so odd-sized canvases lose their last pixel row/column in MP4/WebM output. GIF encoding streams quantized frames through Pillow, keeping only a bounded number of uncompressed frames instead of imposing a timeline frame-memory budget. The final compressed GIF is still buffered in memory, including for file exports; large canvases, documents and encoded files can still exhaust available memory. `max_size` and `colors` remain useful for reducing output size. GIF dimensions and each coalesced frame duration must still fit the format’s 16-bit fields (65,535 pixels and 655.35 seconds). Animated Deck MP4/WebM accepts at most 64 slides with narration because each narration is decoded as a concurrent FFmpeg input; split larger narrated decks into multiple exports. Silent slides do not count toward this limit.
 
 ## Canonical samples
 

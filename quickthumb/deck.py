@@ -779,6 +779,7 @@ class Deck:
         soundtrack: AudioTrack | str | dict | None,
         loop_audio: bool | None,
         reduced_motion: bool = False,
+        transparent: bool = False,
     ) -> bytes:
         """Export animated MP4/WebM bytes with the Deck's narration schedule."""
         from quickthumb._export_video import export_animation_bytes
@@ -791,6 +792,7 @@ class Deck:
             fps=fps,
             slide_duration=slide_duration,
             matte=matte,
+            transparent=transparent,
             soundtrack=soundtrack,
             loop_audio=loop_audio,
             slide_audio=self._slide_audio,
@@ -830,10 +832,12 @@ class Deck:
         soundtrack: AudioTrack | str | dict | None = None,
         loop_audio: bool | None = None,
         *,
+        transparent: bool = False,
         policy: ExportPolicy | None = None,
     ) -> bytes:
         """Render the deck to WebM (VP9) bytes; timing model as in `to_gif`.
 
+        `transparent=True` skips the export matte and preserves authored alpha.
         Requires the `ffmpeg` binary on PATH (or `QUICKTHUMB_FFMPEG`).
         Odd-sized canvases lose their last pixel row/column (VP9 4:2:0 output
         needs even dimensions). Per-slide narration and `soundtrack` are
@@ -849,6 +853,7 @@ class Deck:
             fps=fps,
             slide_duration=slide_duration,
             matte=matte,
+            transparent=transparent,
             soundtrack=soundtrack,
             loop_audio=loop_audio,
             reduced_motion=bool(policy and policy.reduced_motion),

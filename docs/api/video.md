@@ -680,3 +680,12 @@ strict validation rejects unsupported adapters and Morph fallback.
 See [the runnable hierarchy example](https://github.com/sjquant/quickthumb/blob/main/examples/parent_transforms.py).
 Documents that omit `parent` keep their previous JSON and render path. These
 bounded adapters do not yet complete every part of #161.
+
+## Transparent video overlays
+
+Canvas and Deck WebM exports support `VideoOptions(transparent=True)` and
+`.to_webm(transparent=True)`. This output option preserves RGBA through both
+compositing quality modes and spawned workers. It does not change layer motion
+capabilities or canonical timeline samples, which retain their existing matte.
+See [transparent WebM](../exports.md#transparent-webm) for format limits, alpha
+composition, decoder verification and the runnable lower-third example.

@@ -102,6 +102,8 @@ deck.render("slides.jpg", quality=85)
 controls GIF frame rate, loop count, matte, proportional `max_size`, and palette
 `colors`; `VideoOptions` controls MP4/WebM frame rate, matte, soundtrack, and
 audio looping. Supply its soundtrack as `AudioTrack(path="music.mp3", loop=True)`.
+`VideoOptions(transparent=True)` preserves alpha in VP9 WebM only (strict
+boolean, default `False`); all other output targets reject this option.
 Both accept `workers` (an integer from 1 to 8, default 1) for opt-in parallel
 frame rendering. See [parallel animated rendering](../exports.md#parallel-animated-rendering)
 for spawn setup and supported inputs. Format-specific options are rejected when used with the other animated format.
@@ -138,7 +140,12 @@ Return the deck as an animation: each slide plays its layer animations, holds it
 ```python
 gif_bytes = deck.to_gif(fps=20, slide_duration=3.0, loop=0, matte="#000000")
 webm_bytes = deck.to_webm(fps=30, slide_duration=3.0)
+overlay_bytes = deck.to_webm(fps=30, slide_duration=3.0, transparent=True)
 ```
+
+The keyword-only `transparent` flag on `.to_webm()` skips only the export matte;
+authored backgrounds stay visible. See [transparent WebM](../exports.md#transparent-webm)
+for codec, alpha decoding and transition details.
 
 ### `.render_mp4(...)`
 
