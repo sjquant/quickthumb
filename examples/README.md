@@ -100,3 +100,11 @@ refinement to delivery:
 Use it when you want a directional marker to follow a curved route. Edit
 `path_keyframes()` to reshape the route, or `build_scene(animate_color=False)`
 to keep the animation compatible with the approximate HTML path mapping.
+
+### `png_sequence_overlay.py`
+
+`png_sequence_overlay.py` exports a transparent lower third as a silent PNG
+animation sequence. It needs no FFmpeg, uses the bundled font, and demonstrates
+`PngSequenceOptions`, exact RGBA8 alpha, and the compact manifest/result. Each
+run requires a fresh `examples/output/png_sequence_overlay` directory; existing
+outputs are never overwritten.
