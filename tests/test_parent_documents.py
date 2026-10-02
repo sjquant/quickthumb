@@ -175,6 +175,7 @@ def test_unsupported_parent_sources_preserve_destinations(tmp_path, kind, deck):
                     "parent": None,
                     "position": (0, 0),
                     "clip": LayerClip(position=(0, 0), width=10, height=10),
+                    "animation": AnimationSpec.fade(duration=1),
                 }
             )
         ],
@@ -183,7 +184,7 @@ def test_unsupported_parent_sources_preserve_destinations(tmp_path, kind, deck):
     source = Deck(140, 130).slide(Canvas(140, 130)).slide(canvas) if deck else canvas
     path = tmp_path / ("existing." + kind)
     path.write_bytes(b"existing")
-    with pytest.raises(RenderingError, match="clipped or masked descendants"):
+    with pytest.raises(RenderingError, match="descendant boundaries cannot animate descendants"):
         source.render(str(path))
     assert path.read_bytes() == b"existing"
     assert not (tmp_path / ("existing_01." + kind)).exists()
@@ -301,6 +302,7 @@ def test_pdf_preparation_failure_releases_prepared_fragments(tmp_path):
                     "parent": None,
                     "position": (0, 0),
                     "clip": LayerClip(position=(0, 0), width=10, height=10),
+                    "animation": AnimationSpec.fade(duration=1),
                 }
             )
         ],
@@ -309,7 +311,7 @@ def test_pdf_preparation_failure_releases_prepared_fragments(tmp_path):
     exporter = PdfExporter()
     path = tmp_path / "existing.pdf"
     path.write_bytes(b"existing")
-    with pytest.raises(RenderingError, match="clipped or masked descendants"):
+    with pytest.raises(RenderingError, match="descendant boundaries cannot animate descendants"):
         exporter.save_canvases([scene(), invalid], path)
     assert not exporter._parent_fragments
     assert path.read_bytes() == b"existing"

@@ -461,8 +461,7 @@ Later model mutations are revalidated when a new render is prepared.
 ### Current adapters and boundaries
 
 Raster, GIF, MP4 and WebM render supported parent chains. This bounded adapter
-rejects linked imagery on or below backdrop-dependent layers; clip/mask
-composition inside participating groups' auto-layout descendants; and
+rejects linked imagery on or below backdrop-dependent layers and
 independently animated group descendants without a group animation override.
 These combinations are reported as unsupported and raise rather than dropping
 part of the motion.
@@ -500,16 +499,44 @@ changing-width counter paint can extend beyond that body and remains visible
 where the boundary allows it, even if the settled source is fully clipped away.
 Each counter keeps its own delay and duration after group/ancestor motion ends.
 Static graph-leaf groups can combine their own boundary with the partial stagger
-adapter described below. Counter-group stagger and any descendant clip/mask remain
-unsupported. See
+adapter described below. Counter-group stagger remains unsupported. See
 [`examples/parent_group_composition.py`](https://github.com/sjquant/quickthumb/blob/main/examples/parent_group_composition.py),
 and [`examples/parent_group_counters.py`](https://github.com/sjquant/quickthumb/blob/main/examples/parent_group_counters.py).
 Both write GIF, PNG and HTML outputs to a temporary directory by default and
 accept `--output-dir` to choose another destination. Counter-group HTML, SVG,
 PDF and PPTX exports use the whole-scene authored-static fallback described below.
 
+Static auto-layout descendants can also carry clips and masks, including leaves,
+nested structural groups and boundaries at several depths. Each boundary is
+applied to its owner's isolated paint; enclosing group boundaries then compose
+the already-laid-out result. Descendant boundaries share the top-level group's
+parent-local placement plane, **not** a separate coordinate system for each
+nested group. Percentage positions resolve against the original canvas width
+and height before source-buffer rebasing. The usual boundary alignment, partial
+opacity, inversion and clip-times-mask alpha rules still apply. Text backgrounds,
+shadows and other source effects are composed with their owning text or shape.
+
+The complete static result moves as one source through the top-level group's and
+its ancestors' affine transforms. Boundaries do not relayout siblings, shrink the
+full group frame or clip separately linked children. The composed opaque settled
+source still defines the normalized-alpha pivot, with the full-body fallback
+when it is empty. Static inspection keeps conservative bounds for each owner;
+diagnostics use the composed paint at each boundary scope.
+
+This descendant-boundary adapter requires static content throughout the
+participating group: intrinsic dynamic sources, including counters, are
+unsupported anywhere in that group. Top-level group stagger and **any authored
+descendant animation** are also unsupported, even when a group animation would
+otherwise override that animation. These extra guards apply only when a group
+contains a descendant boundary; groups with only their own boundary retain the
+counter and stagger support described above. See
+[`examples/parent_nested_composition.py`](https://github.com/sjquant/quickthumb/blob/main/examples/parent_nested_composition.py)
+for nested partial and inverted masks, text backgrounds, affine motion and an
+independent linked marker. Run it with `--output-dir /tmp/parent-nested-composition`
+to write GIF, PNG, HTML and JSON outputs.
+
 Static parent-linked leaf text and top-level groups can use the existing partial
-raster stagger adapter, including groups with their own clip, mask or both. The
+raster stagger adapter, including groups with only their own clip, mask or both. The
 complete static group is laid out and composed once before splitting; recolored
 sources and opaque color-reference crops use that same boundary. Each separable
 horizontal ink band gets its own clock, anchor, full ancestor transform, opacity,
@@ -585,8 +612,10 @@ Explicit triggers, delays, composed specs, presets, auto-orientation, unrelated 
 animated chart/QR sources, counters (including group descendants), videos, nonpositive uniform scale, uniform scale with
 back easing, image viewport zoom and oversized sampling plans use a declared
 whole-scene authored-static fallback. Static top-level groups, including those
-with their own clip/mask, are atomic sources. Suppressed descendant animation
-specs still use the existing whole-scene HTML static fallback.
+with supported own and descendant clip/mask boundaries, are atomic sources.
+Suppressed descendant animation specs in groups without descendant boundaries
+still use the existing whole-scene HTML static fallback; the stricter
+descendant-boundary guards above apply to every adapter.
 Stable negative axis scale preserves reflections; ordinary positive uniform
 scale is supported. Zero/sign-crossing axes and back-eased axis tracks use the
 static fallback: floating-point singular matrices cannot guarantee the raster
@@ -601,11 +630,17 @@ bodies intersected with their own composition bounds, not tight painted-alpha
 footprints; they are not clipped to the canvas. Composed owner bounds are mapped
 through ancestors while child frames continue to use the unmasked body.
 Group descendants are mapped once from their already placed local coordinates.
+Each layer or group box intersects only its own finite composition bounds in the
+shared local plane before the world transform. Descendant inspection boxes remain
+conservative and are not cut by enclosing group boundaries. Inverted masks retain
+conservative bounds; inspection does not describe the holes in their painted alpha.
 Text wrapping/font metadata stays authored-local. `render(..., debug=True)` draws
 these authored-static boxes; time-sampled inspection/debug is not implemented.
 `diagnose()` checks this authored-static layout using transformed alpha and text
 contrast pixels. Group text includes preceding siblings and its own background
-effects; geometry animation on ancestors is accounted for by occlusion checks.
+effects, with descendant and enclosing boundaries applied to the corresponding
+alpha and contrast scopes. Geometry animation on ancestors is accounted for by
+occlusion checks.
 Position repair suggestions use parent-local or containing-group editing context.
 It does not sample animated world layouts, and unsupported raster combinations
 remain guarded.

@@ -295,7 +295,7 @@ def test_direct_pdf_rejection_preserves_existing_destination(tmp_path):
 
     destination = tmp_path / "existing.pdf"
     destination.write_bytes(b"EXISTING PDF")
-    from quickthumb import LayerClip
+    from quickthumb import AnimationSpec, LayerClip
 
     invalid = scene()
     invalid.layers = [
@@ -309,12 +309,13 @@ def test_direct_pdf_rejection_preserves_existing_destination(tmp_path):
                         "parent": None,
                         "position": (0, 0),
                         "clip": LayerClip(position=(0, 0), width=2, height=2),
+                        "animation": AnimationSpec.fade(duration=1),
                     }
                 )
             ],
         ),
     ]
-    with pytest.raises(RenderingError, match="clipped or masked descendants"):
+    with pytest.raises(RenderingError, match="descendant boundaries cannot animate descendants"):
         PdfExporter().save_canvases([Canvas(140, 130), invalid], destination)
     assert destination.read_bytes() == b"EXISTING PDF"
 
