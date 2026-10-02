@@ -93,7 +93,7 @@ statuses, `QUICKTHUMB_ASSET_MAX_AGE`, and offline mode.
 
 ### `.render(path, format=None, quality=None, debug=False, animation=None)`
 
-Renders the canvas and writes the result to a file. The format is detected from the file extension; `.svg`, `.pptx`, and `.pdf` produce vector/document output, and `.gif`/`.mp4`/`.webm` produce an animation playing the canvas's layer `animation` effects (see [Exporting to SVG, PPTX, PDF & video](../exports.md)).
+Renders the canvas and writes the result to a file. The format is detected from the file extension; `.svg`, `.pptx`, and `.pdf` produce vector/document output, and `.gif`/`.mp4`/`.webm`/`.mov` produce an animation playing the canvas's layer `animation` effects (see [Exporting to SVG, PPTX, PDF & video](../exports.md)).
 
 ```python
 from quickthumb import GifOptions, VideoOptions
@@ -105,7 +105,7 @@ canvas.render("debug.png", debug=True)  # raster output with public layer-id bbo
 canvas.render("output.svg")
 canvas.render("output.pptx")  # requires quickthumb[pptx]
 canvas.render("output.pdf")   # requires quickthumb[pdf]
-canvas.render("output.gif")   # animated; .mp4/.webm require the ffmpeg binary
+canvas.render("output.gif")   # animated; .mp4/.webm/.mov require the ffmpeg binary
 canvas.render(
     "preview.gif",
     animation=GifOptions(fps=8, max_size=(540, 960), colors=128),
@@ -119,19 +119,19 @@ canvas.render("preview.mp4", animation=VideoOptions(fps=30))
 | `format` | `str \| None` | `None` | Optional raster output format override: `"PNG"`, `"JPEG"`, or `"WEBP"` |
 | `quality` | `int \| None` | `None` | Compression quality (1–95). Only valid for `JPEG` and `WEBP`. |
 | `debug` | `bool` | `False` | Draw public layer-id bounding boxes on raster output for visual review. |
-| `animation` | `GifOptions \| VideoOptions \| None` | `None` | Format-specific options: `GifOptions` for GIF, `VideoOptions` for MP4/WebM. |
+| `animation` | `GifOptions \| VideoOptions \| None` | `None` | Format-specific options: `GifOptions` for GIF, `VideoOptions` for MP4/WebM/MOV. |
 
 !!! warning
-    Passing `quality` with `format="PNG"` raises `RenderingError`. Passing `debug=True` for document or animated output (`.svg`, `.pptx`, `.pdf`, `.html`, `.gif`, `.mp4`, or `.webm`) raises `RenderingError`.
+    Passing `quality` with `format="PNG"` raises `RenderingError`. Passing `debug=True` for document or animated output (`.svg`, `.pptx`, `.pdf`, `.html`, `.gif`, `.mp4`, `.webm`, or `.mov`) raises `RenderingError`.
 
 `GifOptions` and `VideoOptions` are available from `quickthumb`. `GifOptions`
 accepts `fps`, `matte`, `loop`, `max_size=(width, height)`, and `colors`.
 `VideoOptions` accepts `fps`, `matte`, `soundtrack=AudioTrack(...)`, and `loop_audio`.
-`VideoOptions(transparent=True)` preserves alpha in VP9 WebM only (strict
+`VideoOptions(transparent=True)` preserves alpha in VP9 WebM or ProRes 4444 MOV (strict
 boolean, default `False`); all other output targets reject this option.
 Both accept `workers` (an integer from 1 to 8, default 1) for opt-in parallel
 frame rendering. See [parallel animated rendering](../exports.md#parallel-animated-rendering)
-for spawn setup and supported inputs. GIF sizing and palette controls are rejected for MP4/WebM output.
+for spawn setup and supported inputs. GIF sizing and palette controls are rejected for MP4/WebM/MOV output.
 
 ### `.to_svg(embed_fonts=False)`
 
@@ -159,9 +159,9 @@ with open("card.pdf", "wb") as f:
     f.write(canvas.to_pdf())
 ```
 
-### `.to_gif(...)` / `.to_mp4(...)` / `.to_webm(...)`
+### `.to_gif(...)` / `.to_mp4(...)` / `.to_webm(...)` / `.to_mov(...)`
 
-Return the canvas as an animation that plays its layer `animation` effects in sequence, then holds the settled composition for `hold` seconds (see [Animated GIF & video](../exports.md#animated-gif-video-mp4webm)). A canvas with no animations yields a single-frame GIF. `.to_mp4()`/`.to_webm()` require the `ffmpeg` binary on `PATH` (or named by `QUICKTHUMB_FFMPEG`).
+Return the canvas as an animation that plays its layer `animation` effects in sequence, then holds the settled composition for `hold` seconds (see [Animated GIF & video](../exports.md#animated-gif-video-canvas-mp4webmmov-deck-gifwebmmov)). A canvas with no animations yields a single-frame GIF. `.to_mp4()`/`.to_webm()`/`.to_mov()` require the `ffmpeg` binary on `PATH` (or named by `QUICKTHUMB_FFMPEG`).
 
 ```python
 gif_bytes = canvas.to_gif(fps=20, hold=3.0, loop=0, matte="#000000")
@@ -170,11 +170,19 @@ webm_bytes = canvas.to_webm(fps=30, hold=2.0)
 overlay_bytes = canvas.to_webm(fps=30, hold=2.0, transparent=True)
 ```
 
-`.to_mp4()`/`.to_webm()` also accept `soundtrack` (an audio file muxed into the video, trimmed to the video length) and `loop_audio` (an explicit override). `AudioTrack(..., loop=True)` repeats a shorter configured track; legacy string paths keep the previous default of looping. GIF cannot carry audio. See the [Deck API](deck.md) for the full parameter table.
+`.to_mp4()`/`.to_webm()`/`.to_mov()` also accept `soundtrack` (an audio file muxed into the video, trimmed to the video length) and `loop_audio` (an explicit override). `AudioTrack(..., loop=True)` repeats a shorter configured track; legacy string paths keep the previous default of looping. GIF cannot carry audio. See the [Deck API](deck.md) for the full parameter table.
 
-The keyword-only `transparent` flag on `.to_webm()` skips only the export matte;
+The keyword-only `transparent` flag on `.to_webm()` and `.to_mov()` skips only the export matte;
 authored backgrounds stay visible. See [transparent WebM](../exports.md#transparent-webm)
 for codec, alpha decoding and transition details.
+
+`.to_mov()` uses the same parameters and timing as `.to_webm()`, with fixed
+ProRes 4444 video and AAC audio. It retains odd and one-pixel dimensions.
+The RGBA source remains 8-bit; 16-bit alpha coding can decode with one-level
+8-bit alpha differences, and color is lossy 4:4:4 YUV. See
+[ProRes MOV](../exports.md#prores-4444-mov) for the measured conversion limits
+and encoder requirements. `render()` and `export()` accept `.mov` with
+`VideoOptions` for both opaque and transparent output.
 
 ### `.to_base64(format="PNG", quality=None)`
 

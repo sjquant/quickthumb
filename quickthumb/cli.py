@@ -249,7 +249,7 @@ def render(
         typer.Option(
             "-o",
             "--output",
-            help="Output file path (.png/.jpg/.webp/.svg/.pptx/.pdf/.html/.gif/.mp4/.webm)",
+            help="Output file path (.png/.jpg/.webp/.svg/.pptx/.pdf/.html/.gif/.mp4/.webm/.mov)",
         ),
     ] = Path("output.png"),
     fmt: Annotated[
@@ -274,7 +274,7 @@ def render(
     ] = "text",
 ) -> None:
     """Render a JSON spec file to an image, to SVG/PPTX/PDF/HTML, or to an
-    animated GIF/MP4/WebM that plays the spec's layer animations, by extension.
+    animated GIF/MP4/WebM/MOV that plays the spec's layer animations, by extension.
 
     Exit codes: 0 rendered, 1 invalid input/spec or missing asset, 2 export failure.
     """

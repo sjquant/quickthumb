@@ -83,7 +83,7 @@ deck.render("slides.jpg", quality=85)
 | --- | --- |
 | `.pdf` | Single multi-page PDF. Requires the `pdf` extra. |
 | `.pptx` | Single multi-slide PPTX. Requires the `pptx` extra. |
-| `.gif` / `.webm` | Single animation playing layer animations and slide transitions with default settings. WebM requires `ffmpeg`. |
+| `.gif` / `.webm` / `.mov` | Single animation playing layer animations and slide transitions with default settings. WebM and MOV require `ffmpeg` (MOV uses `prores_ks`). |
 | `.mp4` | Static slides with optional per-slide narration, or an animated timeline when `animation=VideoOptions(...)` is given; H.264/yuv420p video and AAC audio. Requires `ffmpeg` and `ffprobe`. |
 | `.html` / `.htm` | Single self-contained, animated HTML slideshow. |
 | `.png` / `.jpg` / `.jpeg` / `.webp` | One file per slide as a zero-padded numbered sequence. |
@@ -93,16 +93,16 @@ deck.render("slides.jpg", quality=85)
 | `path` | `str` | — | Output path; raster names become `<stem>_NN<ext>` |
 | `format` | `str \| None` | `None` | Raster format override (`"PNG"`, `"JPEG"`, `"WEBP"`) |
 | `quality` | `int \| None` | `None` | Compression quality. Only valid for raster sequences. |
-| `animation` | `GifOptions \| VideoOptions \| None` | `None` | Format-specific options: `GifOptions` for GIF, `VideoOptions` for MP4/WebM. |
+| `animation` | `GifOptions \| VideoOptions \| None` | `None` | Format-specific options: `GifOptions` for GIF, `VideoOptions` for MP4/WebM/MOV. |
 
 !!! warning
     Passing `quality` with `.pdf`, `.pptx`, or animated output raises `RenderingError`, as does rendering an empty deck.
 
 `GifOptions` and `VideoOptions` are available from `quickthumb`. `GifOptions`
 controls GIF frame rate, loop count, matte, proportional `max_size`, and palette
-`colors`; `VideoOptions` controls MP4/WebM frame rate, matte, soundtrack, and
+`colors`; `VideoOptions` controls MP4/WebM/MOV frame rate, matte, soundtrack, and
 audio looping. Supply its soundtrack as `AudioTrack(path="music.mp3", loop=True)`.
-`VideoOptions(transparent=True)` preserves alpha in VP9 WebM only (strict
+`VideoOptions(transparent=True)` preserves alpha in VP9 WebM or ProRes 4444 MOV (strict
 boolean, default `False`); all other output targets reject this option.
 Both accept `workers` (an integer from 1 to 8, default 1) for opt-in parallel
 frame rendering. See [parallel animated rendering](../exports.md#parallel-animated-rendering)
@@ -133,9 +133,9 @@ with open("deck.pdf", "wb") as f:
 pptx_bytes = deck.to_pptx()  # requires quickthumb[pptx]
 ```
 
-### `.to_gif(...)` / `.to_webm(...)`
+### `.to_gif(...)` / `.to_webm(...)` / `.to_mov(...)`
 
-Return the deck as an animation: each slide plays its layer animations, holds its settled state, and its transition animates the change into it (see [Animated GIF & video](../exports.md#animated-gif-video-mp4webm) for the timing model). `.to_webm()` requires the `ffmpeg` binary on `PATH` (or named by `QUICKTHUMB_FFMPEG`).
+Return the deck as an animation: each slide plays its layer animations, holds its settled state, and its transition animates the change into it (see [Animated GIF & video](../exports.md#animated-gif-video-canvas-mp4webmmov-deck-gifwebmmov) for the timing model). `.to_webm()` requires the `ffmpeg` binary on `PATH` (or named by `QUICKTHUMB_FFMPEG`).
 
 ```python
 gif_bytes = deck.to_gif(fps=20, slide_duration=3.0, loop=0, matte="#000000")
@@ -143,9 +143,17 @@ webm_bytes = deck.to_webm(fps=30, slide_duration=3.0)
 overlay_bytes = deck.to_webm(fps=30, slide_duration=3.0, transparent=True)
 ```
 
-The keyword-only `transparent` flag on `.to_webm()` skips only the export matte;
+The keyword-only `transparent` flag on `.to_webm()` and `.to_mov()` skips only the export matte;
 authored backgrounds stay visible. See [transparent WebM](../exports.md#transparent-webm)
 for codec, alpha decoding and transition details.
+
+`.to_mov()` uses the same parameters and timing as `.to_webm()`, with fixed
+ProRes 4444 video and AAC audio. It retains odd and one-pixel dimensions.
+The RGBA source remains 8-bit; 16-bit alpha coding can decode with one-level
+8-bit alpha differences, and color is lossy 4:4:4 YUV. See
+[ProRes MOV](../exports.md#prores-4444-mov) for the measured conversion limits
+and encoder requirements. `render()` and `export()` accept `.mov` with
+`VideoOptions` for both opaque and transparent output.
 
 ### `.render_mp4(...)`
 
@@ -162,7 +170,7 @@ its `slide_duration` argument supplies the silent-slide default.
 
 Return the same animated timeline as `.to_webm()` in an H.264 MP4 container,
 including scheduled per-slide narration and an optional mixed soundtrack.
-Animated MP4/WebM export supports at most 64 narrated slides per Deck; silent
+Animated MP4/WebM/MOV export supports at most 64 narrated slides per Deck; silent
 slides do not count toward that operational FFmpeg input limit.
 For a file export, use `deck.render("deck.mp4",
 animation=VideoOptions(soundtrack=AudioTrack(path="music.mp3", loop=True)))`.

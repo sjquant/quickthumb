@@ -340,7 +340,9 @@ def _export_target(output_format: str) -> str:
         "pdf": "raster",
         "html": "html",
         "pptx": "pptx",
-    }.get(output_format, "video" if output_format in {"gif", "mp4", "webm"} else output_format)
+    }.get(
+        output_format, "video" if output_format in {"gif", "mp4", "webm", "mov"} else output_format
+    )
 
 
 def _capability_report(

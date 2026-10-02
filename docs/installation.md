@@ -76,9 +76,11 @@ pip install "quickthumb[pdf]"
 uv pip install "quickthumb[pdf]"
 ```
 
-## Optional: MP4/WebM Export
+## Optional: MP4/WebM/MOV Export
 
-Animated GIF export (`canvas.to_gif()` / `deck.render("deck.gif")`) needs no extra dependencies. MP4 and WebM export additionally require the [ffmpeg](https://ffmpeg.org/) binary on `PATH` (or pointed to by the `QUICKTHUMB_FFMPEG` environment variable) — it is a system program, not a Python package:
+MOV requires an FFmpeg build with the `prores_ks` encoder.
+
+Animated GIF export (`canvas.to_gif()` / `deck.render("deck.gif")`) needs no extra dependencies. MP4, WebM, and ProRes 4444 MOV export additionally require the [ffmpeg](https://ffmpeg.org/) binary on `PATH` (or pointed to by the `QUICKTHUMB_FFMPEG` environment variable) — it is a system program, not a Python package:
 
 ```bash
 # macOS
@@ -114,7 +116,7 @@ quickthumb reads a few optional environment variables:
 | --- | --- |
 | `QUICKTHUMB_FONT_DIR` | Directory that contains custom font files |
 | `QUICKTHUMB_DEFAULT_FONT` | Font family/name to use when `font` is omitted |
-| `QUICKTHUMB_FFMPEG` | Path to the ffmpeg binary for MP4/WebM export (when not on `PATH`) |
+| `QUICKTHUMB_FFMPEG` | Path to the ffmpeg binary for MP4/WebM/MOV export (when not on `PATH`) |
 
 ```python
 import os

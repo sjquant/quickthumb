@@ -44,7 +44,7 @@ if TYPE_CHECKING:
 
 _DOCUMENT_EXTENSIONS = {".pdf", ".pptx", ".html", ".htm"}
 _RASTER_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp"}
-_ANIMATION_EXTENSIONS = {".gif", ".webm"}
+_ANIMATION_EXTENSIONS = {".gif", ".webm", ".mov"}
 
 
 class DeckDiagnostic(quickthumbModel):
@@ -370,7 +370,7 @@ class Deck:
         """Render the deck, dispatching on the output extension.
 
         `.pdf` and `.pptx` produce a single multi-page/multi-slide document.
-        `.gif` and `.webm` produce one animation that plays each slide's
+        `.gif`, `.webm`, and `.mov` produce one animation that plays each slide's
         layer animations and transitions. `.mp4` renders static slides with
         per-slide narration unless `animation=VideoOptions(...)` is supplied,
         in which case it uses the animated timeline. Raster
@@ -378,7 +378,7 @@ class Deck:
         slide as a zero-padded
         numbered sequence derived from `output_path` (e.g. `slides.png` ->
         `slides_01.png`, `slides_02.png`). Pass `GifOptions` for GIF or
-        `VideoOptions` for MP4/WebM to tune animated output. Returns the list
+        `VideoOptions` for MP4/WebM/MOV to tune animated output. Returns the list
         of written file paths (unlike
         `Canvas.render`, which returns None).
         """
@@ -402,7 +402,8 @@ class Deck:
 
         if animation is not None and extension not in (*_ANIMATION_EXTENSIONS, ".mp4"):
             raise RenderingError(
-                "animation options require an animated output extension (.gif, .mp4, or .webm)."
+                "animation options require an animated output extension "
+                "(.gif, .mp4, .webm, or .mov)."
             )
 
         if extension == ".mp4" and animation is None:
@@ -462,7 +463,7 @@ class Deck:
 
         raise RenderingError(
             f"Unsupported deck output format: {extension or output_path!r}.\n"
-            "Use .pdf, .pptx, .html, an animated extension (.gif, .webm), .mp4 for "
+            "Use .pdf, .pptx, .html, an animated extension (.gif, .webm, .mov), .mp4 for "
             "narrated slides, or a raster extension (.png, .jpg, .jpeg, .webp)."
         )
 
@@ -781,7 +782,7 @@ class Deck:
         reduced_motion: bool = False,
         transparent: bool = False,
     ) -> bytes:
-        """Export animated MP4/WebM bytes with the Deck's narration schedule."""
+        """Export animated MP4/WebM/MOV bytes with the Deck's narration schedule."""
         from quickthumb._export_video import export_animation_bytes
 
         slide_durations, audio_durations = self._animation_audio_schedule(slide_duration)
@@ -850,6 +851,40 @@ class Deck:
         self._validate_parent_motion_policy("video", policy)
         return self._export_animated_video_bytes(
             format="webm",
+            fps=fps,
+            slide_duration=slide_duration,
+            matte=matte,
+            transparent=transparent,
+            soundtrack=soundtrack,
+            loop_audio=loop_audio,
+            reduced_motion=bool(policy and policy.reduced_motion),
+        )
+
+    def to_mov(
+        self,
+        fps: float = 30.0,
+        slide_duration: float = 3.0,
+        matte: str = "#000000",
+        soundtrack: AudioTrack | str | dict | None = None,
+        loop_audio: bool | None = None,
+        *,
+        transparent: bool = False,
+        policy: ExportPolicy | None = None,
+    ) -> bytes:
+        """Render the deck to ProRes 4444 MOV bytes; timing as in `to_gif`.
+
+        Requires FFmpeg with `prores_ks`. Odd and one-pixel dimensions are
+        retained. `transparent=True` skips only the export matte and uses
+        16-bit alpha coding from 8-bit RGBA frames; decoded alpha can differ
+        by one 8-bit level. Color is lossy 4:4:4 YUV, not lossless RGB.
+        Audio is AAC; `loop_audio` overrides `AudioTrack.loop`, while legacy
+        soundtrack path strings loop by default.
+        Narration without an explicit slide duration uses the source audio length.
+        """
+        self._require_slides()
+        self._validate_parent_motion_policy("video", policy)
+        return self._export_animated_video_bytes(
+            format="mov",
             fps=fps,
             slide_duration=slide_duration,
             matte=matte,

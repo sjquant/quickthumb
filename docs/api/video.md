@@ -8,7 +8,7 @@ description: Reference for quickthumb video layers, including trimming, fit, spe
 trims, fits, and plays, and it also grades, rounds, masks, fades, and animates
 with the same vocabulary as an image layer.
 
-Video layers render in animated GIF/MP4/WebM output and in `render_frame(...)`.
+Video layers render in animated GIF/MP4/WebM/MOV output and in `render_frame(...)`.
 Document targets (PPTX, PDF, SVG, HTML) rasterize the clip as a static frame;
 `validate_export(...)` reports that fallback explicitly.
 
@@ -54,7 +54,7 @@ canvas.video(
 | `start` | `float` | `0.0` | When the clip starts on the slide's timeline, in seconds. |
 | `duration` | `float \| None` | `None` | How long the clip occupies the slide. Cannot exceed the trimmed source divided by `speed`. |
 | `speed` | `float` | `1.0` | Playback rate. Below `1.0` slows a short clip to fill a longer scene. |
-| `volume` | `float` | `1.0` | Clip volume in MP4/WebM output. GIF carries no audio. |
+| `volume` | `float` | `1.0` | Clip volume in MP4/WebM/MOV output. GIF carries no audio. |
 | `captions` | `list \| None` | `[]` | Timed caption cues burned into the frames. Rendered in the foreground pass, above every other layer. |
 | `border_radius` | `int` | `0` | Corner rounding in pixels. |
 | `opacity` | `float` | `1.0` | Layer opacity from `0.0` to `1.0`. |
