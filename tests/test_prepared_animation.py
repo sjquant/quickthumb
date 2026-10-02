@@ -74,7 +74,7 @@ def install_render(monkeypatch, *, stage=None, primary=None, close_errors=()):
     monkeypatch.setattr(video, "_ordered_deck_shots", shots)
     monkeypatch.setattr(workers, "ParallelFrames", Pool)
     prepared = video._PreparedAnimation(
-        canvases, [None, None], fps=10, slide_duration=0.1, matte="#000000", workers=2
+        canvases, [None, None], fps=10, slide_duration=0.1, matte=None, workers=2
     )
     return prepared, events, canvases, readers
 
@@ -255,6 +255,18 @@ def test_renderer_preserves_scalar_frame_rate_validation(fps):
         video._PreparedAnimation([Canvas(1, 1)], [None], fps=fps, slide_duration=0)
 
 
+def test_full_size_rgba_preparation_has_no_codec_or_audio_requirements(monkeypatch):
+    monkeypatch.setattr(video, "_ffmpeg_binary", lambda: pytest.fail("renderer looked up encoder"))
+    monkeypatch.setattr(
+        video, "_video_audio_schedule", lambda *args: pytest.fail("renderer scheduled audio")
+    )
+    with video._PreparedAnimation(
+        [Canvas(1, 3)], [None], fps=10, slide_duration=0, matte=None
+    ) as prepared:
+        [(frame, indices)] = list(prepared.frame_runs())
+    assert (frame.mode, frame.size, list(indices)) == ("RGBA", (1, 3), [0])
+
+
 def test_early_consumer_closes_a_suspended_worker_stream(monkeypatch):
     from concurrent.futures import Future
 
@@ -378,3 +390,13 @@ def test_frame_stream_is_single_use_and_session_cannot_be_reentered():
 def test_opaque_scalar_none_matte_keeps_legacy_validation(format, matte):
     with pytest.raises(ValidationError, match="Invalid matte color: None"):
         getattr(Canvas(4, 4), f"to_{format}")(matte=matte)
+
+
+@pytest.mark.parametrize("format", ["webm"])
+@pytest.mark.parametrize("matte", [None, "not-a-color"])
+def test_alpha_encoding_still_ignores_matte(format, matte):
+    with video._prepare_animation(
+        [Canvas(4, 4)], [None], format, 10, 0, 0, matte, transparent=True
+    ) as prepared:
+        [(frame, _)] = list(prepared.frame_runs())
+    assert frame.mode == "RGBA"
