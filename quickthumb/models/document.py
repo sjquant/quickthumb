@@ -325,3 +325,31 @@ class ExportResult(quickthumbModel):
     pixel_metrics: PixelMetrics = Field(default_factory=PixelMetrics)
     timing_metrics: TimingMetrics = Field(default_factory=TimingMetrics)
     asset_manifest: list[AssetManifestEntry] = Field(default_factory=list)
+
+
+class PngSequenceManifest(quickthumbModel):
+    """Compact description of emitted frames; no source paths or color-profile claim."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    version: Literal["1"] = "1"
+    kind: Literal["canvas", "deck"]
+    format: Literal["png_sequence"] = "png_sequence"
+    filename_pattern: Literal["%06d.png"] = "%06d.png"
+    start_index: Literal[0] = 0
+    frame_count: PositiveInt
+    fps: Annotated[float, Field(gt=0, le=120, allow_inf_nan=False)]
+    duration: Annotated[float, Field(gt=0, allow_inf_nan=False)]
+    width: PositiveInt
+    height: PositiveInt
+    mode: Literal["RGBA"] = "RGBA"
+    bit_depth: Literal[8] = 8
+    alpha: Literal["straight"] = "straight"
+
+
+class PngSequenceResult(PngSequenceManifest):
+    """The sequence manifest plus its published location and motion diagnostics."""
+
+    output_directory: str
+    manifest_path: str
+    capability_report: list[ExportDiagnostic] = Field(default_factory=list)

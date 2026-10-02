@@ -12,6 +12,7 @@ from quickthumb import (
     Deck,
     DeckInspection,
     DiagnosticReport,
+    Document,
     ExportPolicy,
     ExportResult,
     GifOptions,
@@ -36,6 +37,26 @@ def test_canvas_and_deck_expose_the_same_document_methods():
     # Then: both document types expose the same contract entry points
     assert all(callable(getattr(canvas, name)) for name in method_names)
     assert all(callable(getattr(deck, name)) for name in method_names)
+    assert isinstance(canvas, Document)
+    assert isinstance(deck, Document)
+
+
+def test_document_protocol_accepts_adapters_without_png_sequence_export():
+    """Given the original six-method adapter, Document remains structurally compatible."""
+
+    class DocumentAdapter:
+        def __init__(self, canvas: Canvas):
+            self.validate = canvas.validate
+            self.inspect = canvas.inspect
+            self.diagnose = canvas.diagnose
+            self.prefetch_assets = canvas.prefetch_assets
+            self.sample = canvas.sample
+            self.export = canvas.export
+
+    adapter = DocumentAdapter(Canvas(32, 24))
+
+    assert not hasattr(adapter, "export_png_sequence")
+    assert isinstance(adapter, Document)
 
 
 def test_stable_root_api_hides_timeline_compiler_internals():

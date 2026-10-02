@@ -17,6 +17,7 @@ from quickthumb import (
     GroupLayer,
     LayerClip,
     Morph,
+    PngSequenceOptions,
     VideoOptions,
 )
 from quickthumb.errors import RenderingError, ValidationError
@@ -154,6 +155,10 @@ def test_reduced_motion_byte_and_png_execution_skip_unused_parent_morph(tmp_path
     policy = ExportPolicy(unsupported_motion="error", reduced_motion=True)
     assert deck.to_animated_mp4(policy=policy) == b"reduced"
     assert encoder.call_args.kwargs["reduced_motion"] is True
+    result = deck.export_png_sequence(
+        tmp_path / "frames", options=PngSequenceOptions(fps=10), policy=policy
+    )
+    assert not any(item.feature == "parent_morph" for item in result.capability_report)
 
 
 @pytest.mark.parametrize("kind", ["canvas", "deck"])
@@ -210,7 +215,7 @@ def test_canvas_mp4_defaults_to_animated_writer(tmp_path, monkeypatch, method):
     assert writer.call_args.kwargs["reduced_motion"] is False
 
 
-@pytest.mark.parametrize("method", ["render", "export"])
+@pytest.mark.parametrize("method", ["render", "export", "png_sequence"])
 @pytest.mark.parametrize("reduced", [False, True])
 def test_static_and_reduced_execution_still_reject_unsupported_geometry(
     tmp_path, monkeypatch, method, reduced
@@ -240,9 +245,12 @@ def test_static_and_reduced_execution_still_reject_unsupported_geometry(
     path.write_bytes(b"existing")
     policy = ExportPolicy(unsupported_motion="error", reduced_motion=reduced)
     with pytest.raises(RenderingError, match="descendant boundaries cannot animate descendants"):
-        getattr(deck, method)(
-            str(path), animation=VideoOptions() if reduced else None, policy=policy
-        )
+        if method == "png_sequence":
+            deck.export_png_sequence(tmp_path / "frames", policy=policy)
+        else:
+            getattr(deck, method)(
+                str(path), animation=VideoOptions() if reduced else None, policy=policy
+            )
     writer.assert_not_called()
     assert path.read_bytes() == b"existing"
     assert not (tmp_path / "frames").exists()
@@ -299,6 +307,7 @@ def test_canvas_raster_override_and_deck_document_rejection_remain_distinct(tmp_
         ("MP4", "video"),
         ("MOV", "video"),
         ("WEBM", "video"),
+        ("PNG_SEQUENCE", "video"),
         ("HTM", "html"),
         ("HTML", "html"),
         ("PPTX", "pptx"),
@@ -319,7 +328,7 @@ def test_new_concrete_formats_do_not_expand_motion_family_queries(target):
         parent_canvas().inspect_motion(target=target)
 
 
-@pytest.mark.parametrize("target", ["GIF", "PNG", "MP4", "MOV", "WEBM"])
+@pytest.mark.parametrize("target", ["GIF", "PNG", "MP4", "MOV", "WEBM", "PNG_SEQUENCE"])
 def test_existing_motion_family_aliases_remain_accepted(target):
     from quickthumb.motion import capabilities_for
 

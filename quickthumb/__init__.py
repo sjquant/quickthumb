@@ -93,6 +93,9 @@ from quickthumb.models import (
     OutlineLayer,
     PixelMetrics,
     PluginLayer,
+    PngSequenceManifest,
+    PngSequenceOptions,
+    PngSequenceResult,
     PositionKeyframeSpec,
     PositionTrack,
     PrefetchResult,
@@ -133,6 +136,9 @@ from quickthumb.schema import canvas_json_schema, document_json_schema, plugin_l
 from quickthumb.transitions import Morph, Transition
 
 __all__ = [
+    "PngSequenceManifest",
+    "PngSequenceOptions",
+    "PngSequenceResult",
     "Canvas",
     "ImageDiff",
     "assert_image_similar",

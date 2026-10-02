@@ -153,8 +153,8 @@ These controls also apply to `.to_animated_mp4()`. Its static counterpart
 `.to_mp4()` retains its separate narration API. File options use `hold`, while
 these Deck byte methods use `slide_duration`. Animated video requires a positive
 default hold whenever a slide has neither narration nor an explicit duration;
-zero is still valid for Deck GIF. Deck GIF ignores per-slide narration and
-explicit durations.
+zero is still valid for Deck GIF and silent PNG sequences. Deck GIF ignores
+per-slide narration and explicit durations.
 
 The keyword-only `transparent` flag on `.to_webm()` and `.to_mov()` skips only the export matte;
 authored backgrounds stay visible. See [transparent WebM](../exports.md#transparent-webm)
@@ -167,6 +167,17 @@ The RGBA source remains 8-bit; 16-bit alpha coding can decode with one-level
 [ProRes MOV](../exports.md#prores-4444-mov) for the measured conversion limits
 and encoder requirements. `render()` and `export()` accept `.mov` with
 `VideoOptions` for both opaque and transparent output.
+
+### `.export_png_sequence(output_directory, *, options=None, policy=None)`
+
+Write the animated Deck timeline as silent RGBA8 straight-alpha PNG frames and
+`manifest.json`. The destination must be new and its parent must exist.
+`PngSequenceOptions(fps=30, hold=3, workers=1, quality="standard")` controls
+the export; explicit slide/narration timing, transitions, Morph, policies and
+worker restrictions retain their existing meaning. No audio is encoded.
+`PngSequenceResult` reports the actual frame count and `duration=frame_count/fps`,
+without listing every frame. See [PNG sequences](../exports.md#png-image-sequences)
+for exact pixels, metadata, and no-overwrite publication behavior.
 
 ### `.render_mp4(...)`
 

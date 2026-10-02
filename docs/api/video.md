@@ -689,3 +689,11 @@ compositing quality modes and spawned workers. It does not change layer motion
 capabilities or canonical timeline samples, which retain their existing matte.
 See [transparent WebM](../exports.md#transparent-webm) for format limits, alpha
 composition, decoder verification and the runnable lower-third example.
+
+`Canvas.export_png_sequence()` and `Deck.export_png_sequence()` also preserve
+straight-alpha RGBA8, writing exact renderer bytes into silent independent PNGs.
+`PngSequenceOptions` controls fps, hold, workers and quality; the result reports
+the actual emitted count and duration. `png_sequence` is a video capability
+alias for validation and motion inspection, preserving the existing parent,
+Morph and caption restrictions. See [PNG sequences](../exports.md#png-image-sequences)
+for timing, color-profile limits and exclusive fresh-directory publication.
