@@ -234,11 +234,21 @@ world coordinates must not be copied directly into those local fields.
 A top-level group's own clip/mask restricts its complete painted source,
 including sampled counters in settled group slots.
 Inspection reports the boundary-intersected group box and keeps conservative
-laid-out child boxes. Child transforms still use the full authored group body;
+laid-out child boxes. Each layer or group box intersects only its own finite
+boundary before applying world transforms; enclosing group boundaries do not
+cut descendant inspection boxes. Static leaves and nested
+structural groups can have their own clips and masks at several depths, using
+the top-level group's shared parent-local plane and original canvas dimensions
+for percentages. Inverted masks retain conservative boxes around their cutouts.
+Child transforms still use the full authored group body;
 the boundary does not clip independently linked children. Counter observations
 use settled text, including glyph backgrounds and preceding group content.
-Descendant composition and counter-group stagger remain guarded. Static leaf groups
-with their own clip/mask use the existing partial stagger adapter; see
+Groups with descendant boundaries require static content everywhere: intrinsic
+dynamic sources, including counters, top-level group stagger and any authored
+descendant animation remain guarded, even when a group animation would override
+descendant motion. Groups with only their own boundary retain counter support;
+counter-group stagger remains guarded. Static leaf groups with only their own
+clip/mask use the existing partial stagger adapter; see
 [parent adapter boundaries](video.md#current-adapters-and-boundaries).
 
 ### `.to_json()`

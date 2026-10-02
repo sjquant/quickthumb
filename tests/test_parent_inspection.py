@@ -237,6 +237,7 @@ def test_unsupported_observation_keeps_validation_warning_not_model_error():
                     "parent": None,
                     "position": (0, 0),
                     "clip": LayerClip(position=(0, 0), width=4, height=4),
+                    "animation": AnimationSpec.fade(duration=1),
                 }
             )
         ],
@@ -263,6 +264,7 @@ def test_unsupported_diagnostics_remain_guarded_before_any_local_paint(monkeypat
                     "parent": None,
                     "position": (0, 0),
                     "clip": LayerClip(position=(0, 0), width=4, height=4),
+                    "animation": AnimationSpec.fade(duration=1),
                 }
             )
         ],
