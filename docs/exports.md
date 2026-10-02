@@ -170,12 +170,32 @@ guarded. See the [parent transform boundaries](api/video.md#current-adapters-and
 and runnable `examples/parent_stagger.py` example.
 
 `Canvas.render()` and `Deck.render()` accept a format-specific options object for
-animated file output. Use `GifOptions` for GIF (`fps`, `matte`, `loop`,
+animated file output. Use `GifOptions` for GIF (`fps`, `hold`, `matte`, `loop`,
 `max_size=(width, height)`, and `colors`) and `VideoOptions` for MP4/WebM/MOV
-(`fps`, `matte`, `soundtrack=AudioTrack(...)`, `loop_audio`, and WebM/MOV
-`transparent=True`). GIF sizing and palette controls
-are rejected for video output, and video options are rejected for GIF output.
-The generic `quality` option remains reserved for JPEG and WebP raster output.
+(`fps`, `hold`, `matte`, `soundtrack=AudioTrack(...)`, `loop_audio`, and WebM/MOV
+`transparent=True`). Both accept `workers=1` and `quality="standard"`.
+GIF sizing and palette controls are rejected for video output, and video
+options are rejected for GIF output. The generic `render(..., quality=...)`
+option remains reserved for JPEG and WebP raster output.
+
+Both option models use `hold=3.0` for the settled-state hold, matching `hold`
+on Canvas byte methods and `slide_duration` on Deck byte methods. It must be
+a finite nonnegative number; booleans and strings are rejected. A default hold
+is omitted from serialized options and restored when loaded; an explicit zero
+is retained. Narration and explicit Deck slide durations still determine the
+video schedule, while Deck GIF continues to ignore those per-slide durations.
+Deck animated video retains its existing restriction: `hold=0` (or byte
+`slide_duration=0`) fails when any slide has neither narration nor an explicit
+positive duration, because its audio schedule requires a positive silent bed.
+Use a positive hold for those slides. Canvas, Deck GIF, and silent PNG sequences
+continue to permit a zero hold.
+
+The byte methods accept the same rendering controls as keyword-only scalars:
+`workers=1` and `quality="standard"` on Canvas GIF/MP4/WebM/MOV and Deck
+GIF/animated MP4/WebM/MOV, plus `max_size=None` and `colors=None` on GIF.
+Their existing timing names and positional arguments are unchanged; these
+methods do not accept options objects. Static `Deck.to_mp4()` and
+`Deck.render_mp4()` retain their separate narration API.
 
 File execution resolves the concrete format and animation mode before checking
 export policy. In particular, `Deck.render("slides.mp4")` and
@@ -387,7 +407,8 @@ FFmpeg dependency. Its output directory must be fresh on every run.
 `GifOptions(quality="high")` and `VideoOptions(quality="high")` opt into a 2×
 layer-compositing surface followed by one LANCZOS downsample. The default is
 `quality="standard"`, which preserves existing output. This namespaced option
-is separate from `render(..., quality=...)` for JPEG/WebP.
+is separate from `render(..., quality=...)` for JPEG/WebP. Animated byte
+methods also accept the keyword-only `quality="high"` argument.
 
 ```python
 canvas.render("smooth.mp4", animation=VideoOptions(fps=30, quality="high"))
@@ -414,7 +435,8 @@ for matched cost measurements and before/after text crops.
 ### Parallel animated rendering
 
 `GifOptions(workers=2)` and `VideoOptions(workers=2)` opt into process-based
-frame rendering. `workers` is a strict integer from 1 to 8; the default remains
+frame rendering. The same keyword-only `workers` argument is available on
+animated byte methods. `workers` is a strict integer from 1 to 8; the default remains
 1, with no automatic CPU scaling. Small/static exports may be faster with one
 worker because starting processes, preparing slides, and copying frames cost
 time. Encoding and audio mixing still run in the parent export path.

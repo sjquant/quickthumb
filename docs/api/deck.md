@@ -99,13 +99,14 @@ deck.render("slides.jpg", quality=85)
     Passing `quality` with `.pdf`, `.pptx`, or animated output raises `RenderingError`, as does rendering an empty deck.
 
 `GifOptions` and `VideoOptions` are available from `quickthumb`. `GifOptions`
-controls GIF frame rate, loop count, matte, proportional `max_size`, and palette
-`colors`; `VideoOptions` controls MP4/WebM/MOV frame rate, matte, soundtrack, and
+controls GIF frame rate, `hold`, loop count, matte, proportional `max_size`, and palette
+`colors`; `VideoOptions` controls MP4/WebM/MOV frame rate, `hold`, matte, soundtrack, and
 audio looping. Supply its soundtrack as `AudioTrack(path="music.mp3", loop=True)`.
 `VideoOptions(transparent=True)` preserves alpha in VP9 WebM or ProRes 4444 MOV (strict
 boolean, default `False`); all other output targets reject this option.
-Both accept `workers` (an integer from 1 to 8, default 1) for opt-in parallel
-frame rendering. See [parallel animated rendering](../exports.md#parallel-animated-rendering)
+Both use a strict finite nonnegative `hold` (default 3 seconds), omitted from
+serialized options when equal to its default. Both accept `workers` (a strict
+integer from 1 to 8, default 1) and `quality="standard"` or `"high"` for rendering. See [parallel animated rendering](../exports.md#parallel-animated-rendering)
 for spawn setup and supported inputs. Format-specific options are rejected when used with the other animated format.
 
 ### `.to_html()`
@@ -142,6 +143,18 @@ gif_bytes = deck.to_gif(fps=20, slide_duration=3.0, loop=0, matte="#000000")
 webm_bytes = deck.to_webm(fps=30, slide_duration=3.0)
 overlay_bytes = deck.to_webm(fps=30, slide_duration=3.0, transparent=True)
 ```
+
+All animated byte methods accept keyword-only `workers=1` and
+`quality="standard"` (`"high"` enables supersampling). `.to_gif()` also accepts
+`max_size=None` for proportional resizing and `colors=None` for the palette
+size (2–256 when supplied). Existing positional parameters remain unchanged.
+
+These controls also apply to `.to_animated_mp4()`. Its static counterpart
+`.to_mp4()` retains its separate narration API. File options use `hold`, while
+these Deck byte methods use `slide_duration`. Animated video requires a positive
+default hold whenever a slide has neither narration nor an explicit duration;
+zero is still valid for Deck GIF and silent PNG sequences. Deck GIF ignores
+per-slide narration and explicit durations.
 
 The keyword-only `transparent` flag on `.to_webm()` and `.to_mov()` skips only the export matte;
 authored backgrounds stay visible. See [transparent WebM](../exports.md#transparent-webm)

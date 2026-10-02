@@ -58,7 +58,7 @@ import shutil
 import subprocess
 import tempfile
 import threading
-from collections.abc import Generator, Iterable, Iterator
+from collections.abc import Callable, Generator, Iterable, Iterator
 from dataclasses import dataclass, field
 from io import BytesIO
 from pathlib import Path
@@ -164,59 +164,31 @@ def write_animation(
     audio_timeline_duration: float | None = None,
     animation: GifOptions | VideoOptions | None = None,
     reduced_motion: bool = False,
+    *,
+    audio_schedule: _AnimationAudioSchedule | None = None,
 ) -> _AnimationFacts:
     """Render slides to an animated file and retain facts from its encoder."""
-    workers = animation.workers if animation is not None else 1
-    quality = animation.quality if animation is not None else "standard"
-    transparent = isinstance(animation, VideoOptions) and animation.transparent
-    if isinstance(animation, VideoOptions):
-        if format == "gif":
-            raise ValidationError("VideoOptions are only supported for MP4, WebM, or MOV output")
-        if soundtrack is not None and animation.soundtrack is not None:
-            raise ValidationError("specify the video soundtrack only once")
-        soundtrack = animation.soundtrack if animation.soundtrack is not None else soundtrack
-        loop_audio = animation.loop_audio if animation.loop_audio is not None else loop_audio
-        fps = animation.fps
-        matte = animation.matte
-        loop = 0
-        max_size = None
-        colors = None
-    elif animation is not None:
-        if format != "gif":
-            raise ValidationError("GifOptions are only supported for GIF output")
-        fps = animation.fps
-        loop = animation.loop
-        matte = animation.matte
-        max_size = animation.max_size
-        colors = animation.colors
-    else:
-        max_size = None
-        colors = None
-    loop_audio = _resolve_loop_audio(soundtrack, loop_audio)
-    soundtrack = coerce_audio_track(soundtrack)
     # GIF file output has never consumed a Deck narration schedule.
-    if format == "gif":
+    if format == "gif" and audio_schedule is None:
         slide_audio = slide_durations = audio_offsets = audio_durations = None
         audio_timeline_duration = None
-    prepared = _prepare_animation(
+    prepared, settings = _setup_animation(
         canvases,
         transitions,
         format,
-        fps,
-        slide_duration,
-        loop,
-        matte,
-        soundtrack,
-        slide_audio,
-        slide_durations,
-        audio_offsets,
-        audio_durations,
-        audio_timeline_duration,
-        max_size,
-        colors,
-        workers,
-        quality,
-        transparent,
+        fps=fps,
+        slide_duration=slide_duration,
+        loop=loop,
+        matte=matte,
+        soundtrack=soundtrack,
+        loop_audio=loop_audio,
+        slide_audio=slide_audio,
+        slide_durations=slide_durations,
+        audio_offsets=audio_offsets,
+        audio_durations=audio_durations,
+        audio_timeline_duration=audio_timeline_duration,
+        animation=animation,
+        audio_schedule=audio_schedule,
         reduced_motion=reduced_motion,
     )
     temp_path: str | None = None
@@ -224,7 +196,11 @@ def write_animation(
         with prepared:
             if format == "gif":
                 data, facts = _encode_gif(
-                    prepared.shots(), loop, max_size=max_size, colors=colors, fps=prepared.fps
+                    prepared.shots(),
+                    settings.loop,
+                    max_size=settings.max_size,
+                    colors=settings.colors,
+                    fps=prepared.fps,
                 )
             else:
                 descriptor, temp_path = _temporary_output_path(output_path, suffix=f".{format}")
@@ -233,13 +209,13 @@ def write_animation(
                     prepared,
                     format,
                     temp_path,
-                    soundtrack,
-                    loop_audio,
-                    slide_audio,
-                    audio_offsets,
-                    audio_durations,
-                    audio_timeline_duration,
-                    transparent=transparent,
+                    settings.soundtrack,
+                    settings.loop_audio,
+                    settings.slide_audio,
+                    settings.audio_offsets,
+                    settings.audio_durations,
+                    settings.audio_timeline_duration,
+                    transparent=settings.transparent,
                 )
         # Closing render resources is part of producing a successful export.
         if format == "gif":
@@ -293,10 +269,148 @@ def export_animation_bytes(
     workers: int = 1,
     quality: AnimationQuality = "standard",
     transparent: bool = False,
+    *,
+    audio_schedule: _AnimationAudioSchedule | None = None,
 ) -> bytes:
     """Render slides to animated GIF/MP4/WebM/MOV bytes."""
-    loop_audio = _resolve_loop_audio(soundtrack, loop_audio)
-    soundtrack = coerce_audio_track(soundtrack)
+    prepared, settings = _setup_animation(
+        canvases,
+        transitions,
+        format,
+        fps=fps,
+        slide_duration=slide_duration,
+        loop=loop,
+        matte=matte,
+        soundtrack=soundtrack,
+        loop_audio=loop_audio,
+        slide_audio=slide_audio,
+        slide_durations=slide_durations,
+        audio_offsets=audio_offsets,
+        audio_durations=audio_durations,
+        audio_timeline_duration=audio_timeline_duration,
+        max_size=max_size,
+        colors=colors,
+        workers=workers,
+        quality=quality,
+        transparent=transparent,
+        audio_schedule=audio_schedule,
+        reduced_motion=reduced_motion,
+    )
+    temp_path: str | None = None
+    try:
+        with prepared:
+            if format == "gif":
+                data, _ = _encode_gif(
+                    prepared.shots(),
+                    settings.loop,
+                    max_size=settings.max_size,
+                    colors=settings.colors,
+                    fps=prepared.fps,
+                )
+            else:
+                # MP4/MOV muxing needs a seekable output, so bytes use a temp file.
+                descriptor, temp_path = tempfile.mkstemp(suffix=f".{format}")
+                os.close(descriptor)
+                _encode_prepared_video(
+                    prepared,
+                    format,
+                    temp_path,
+                    settings.soundtrack,
+                    settings.loop_audio,
+                    settings.slide_audio,
+                    settings.audio_offsets,
+                    settings.audio_durations,
+                    settings.audio_timeline_duration,
+                    transparent=settings.transparent,
+                )
+                with open(temp_path, "rb") as video_file:
+                    data = video_file.read()
+        return data
+    finally:
+        if temp_path is not None:
+            _remove_quietly(temp_path)
+
+
+_AnimationAudioSchedule = Callable[[float], tuple[list[float | None], list[float]]]
+
+
+@dataclass(frozen=True)
+class _AnimationSettings:
+    """Resolved encoder inputs; render settings belong to the prepared owner."""
+
+    loop: int
+    max_size: tuple[int, int] | None
+    colors: int | None
+    soundtrack: AudioTrack | None
+    loop_audio: bool
+    slide_audio: list[AudioTrack | None] | None
+    audio_offsets: list[float] | None
+    audio_durations: list[float] | None
+    audio_timeline_duration: float | None
+    transparent: bool
+
+
+def _setup_animation(
+    canvases: list[Canvas],
+    transitions: list[Transition | None],
+    format: AnimationFormat,
+    *,
+    fps: float | None = None,
+    slide_duration: float = 3.0,
+    loop: int = 0,
+    matte: str = "#000000",
+    soundtrack: AudioTrack | str | dict | None = None,
+    loop_audio: bool | None = None,
+    slide_audio: list[AudioTrack | None] | None = None,
+    slide_durations: list[float | None] | None = None,
+    audio_offsets: list[float] | None = None,
+    audio_durations: list[float] | None = None,
+    audio_timeline_duration: float | None = None,
+    max_size: tuple[int, int] | None = None,
+    colors: int | None = None,
+    workers: int = 1,
+    quality: AnimationQuality = "standard",
+    transparent: bool = False,
+    animation: GifOptions | VideoOptions | None = None,
+    audio_schedule: _AnimationAudioSchedule | None = None,
+    reduced_motion: bool = False,
+) -> tuple[_PreparedAnimation, _AnimationSettings]:
+    """Normalize either input surface, then consume Deck timing exactly once.
+
+    Raw scalars deliberately bypass Pydantic: its option models coerce some
+    fields that the byte API has always validated strictly. Read model fields
+    directly so subclasses work and constructed/copied invalid values still
+    reach the same renderer and codec validation as raw scalars.
+    """
+    if isinstance(animation, VideoOptions):
+        if format == "gif":
+            raise ValidationError("VideoOptions are only supported for MP4, WebM, or MOV output")
+        if soundtrack is not None and animation.soundtrack is not None:
+            raise ValidationError("specify the video soundtrack only once")
+        soundtrack = animation.soundtrack if animation.soundtrack is not None else soundtrack
+        loop_audio = animation.loop_audio if animation.loop_audio is not None else loop_audio
+        transparent = animation.transparent
+        loop, max_size, colors = 0, None, None
+    elif isinstance(animation, GifOptions):
+        if format != "gif":
+            raise ValidationError("GifOptions are only supported for GIF output")
+        loop, max_size, colors = animation.loop, animation.max_size, animation.colors
+    elif animation is not None:
+        raise ValidationError("animation must be GifOptions or VideoOptions")
+    if animation is not None:
+        fps, slide_duration, matte = animation.fps, animation.hold, animation.matte
+        workers, quality = animation.workers, animation.quality
+    if audio_schedule is not None:
+        if any(
+            value is not None
+            for value in (slide_durations, audio_offsets, audio_durations, audio_timeline_duration)
+        ):
+            raise ValidationError("audio_schedule cannot be combined with precomputed timing")
+        if format in _DEFAULT_FPS and format != "gif":
+            slide_durations, audio_durations = audio_schedule(slide_duration)
+    # Resolve legacy path-string looping before losing the original input type.
+    resolved_loop_audio = _resolve_loop_audio(soundtrack, loop_audio)
+    resolved_soundtrack = coerce_audio_track(soundtrack)
     prepared = _prepare_animation(
         canvases,
         transitions,
@@ -305,7 +419,7 @@ def export_animation_bytes(
         slide_duration,
         loop,
         matte,
-        soundtrack,
+        resolved_soundtrack,
         slide_audio,
         slide_durations,
         audio_offsets,
@@ -318,35 +432,18 @@ def export_animation_bytes(
         transparent,
         reduced_motion=reduced_motion,
     )
-    temp_path: str | None = None
-    try:
-        with prepared:
-            if format == "gif":
-                data, _ = _encode_gif(
-                    prepared.shots(), loop, max_size=max_size, colors=colors, fps=prepared.fps
-                )
-            else:
-                # MP4/MOV muxing needs a seekable output, so bytes use a temp file.
-                descriptor, temp_path = tempfile.mkstemp(suffix=f".{format}")
-                os.close(descriptor)
-                _encode_prepared_video(
-                    prepared,
-                    format,
-                    temp_path,
-                    soundtrack,
-                    loop_audio,
-                    slide_audio,
-                    audio_offsets,
-                    audio_durations,
-                    audio_timeline_duration,
-                    transparent=transparent,
-                )
-                with open(temp_path, "rb") as video_file:
-                    data = video_file.read()
-        return data
-    finally:
-        if temp_path is not None:
-            _remove_quietly(temp_path)
+    return prepared, _AnimationSettings(
+        loop=loop,
+        max_size=max_size,
+        colors=colors,
+        soundtrack=resolved_soundtrack,
+        loop_audio=resolved_loop_audio,
+        slide_audio=slide_audio,
+        audio_offsets=audio_offsets,
+        audio_durations=audio_durations,
+        audio_timeline_duration=audio_timeline_duration,
+        transparent=transparent,
+    )
 
 
 def _prepare_animation(

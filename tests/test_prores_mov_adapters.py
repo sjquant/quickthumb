@@ -54,6 +54,10 @@ def test_mov_bytes_signature_matches_existing_webm_convenience_api(kind):
 @pytest.mark.parametrize("transparent", [False, True])
 def test_mov_bytes_forward_timing_audio_transparency_and_policy(monkeypatch, kind, transparent):
     source = document(kind)
+    scheduler = None
+    if isinstance(source, Deck):
+        scheduler = Mock(wraps=source._animation_audio_schedule)
+        monkeypatch.setattr(source, "_animation_audio_schedule", scheduler)
     encoder = Mock(return_value=b"mock ProRes MOV")
     monkeypatch.setattr(video, "export_animation_bytes", encoder)
     soundtrack = AudioTrack(path="music.wav", volume=0.4, loop=True)
@@ -78,10 +82,16 @@ def test_mov_bytes_forward_timing_audio_transparency_and_policy(monkeypatch, kin
         "soundtrack": soundtrack,
         "loop_audio": False,
         "reduced_motion": True,
+        "workers": 1,
+        "quality": "standard",
     }
-    if kind == "deck":
-        expected.update(slide_audio=[None], slide_durations=[0.75], audio_durations=[0.75])
+    if scheduler is not None:
+        expected.update(slide_audio=[None], audio_schedule=scheduler)
     assert encoder.call_args.kwargs == expected
+    if scheduler is not None:
+        scheduler.assert_not_called()
+        assert encoder.call_args.kwargs["audio_schedule"](1.25) == ([0.75], [0.75])
+        scheduler.assert_called_once_with(1.25)
 
 
 @pytest.mark.parametrize("kind", ["canvas", "deck"])
@@ -100,6 +110,8 @@ def test_mov_bytes_default_to_opaque_thirty_fps_without_audio(monkeypatch, kind)
     assert options["soundtrack"] is None
     assert options["loop_audio"] is None
     assert options["reduced_motion"] is False
+    assert options["workers"] == 1
+    assert options["quality"] == "standard"
 
 
 def test_deck_mov_bytes_preserve_explicit_narration_and_transition_schedule(monkeypatch, tmp_path):
@@ -117,22 +129,35 @@ def test_deck_mov_bytes_preserve_explicit_narration_and_transition_schedule(monk
     )
     encoder = Mock(return_value=b"mov")
     monkeypatch.setattr(video, "export_animation_bytes", encoder)
+    scheduler = Mock(wraps=deck._animation_audio_schedule)
+    monkeypatch.setattr(deck, "_animation_audio_schedule", scheduler)
 
     assert deck.to_mov(slide_duration=2, transparent=True) == b"mov"
 
     assert encoder.call_args.args == ([first, second], [None, transition])
-    assert encoder.call_args.kwargs["slide_audio"] == [None, track]
-    assert encoder.call_args.kwargs["slide_durations"] == [0.5, 0.75]
-    assert encoder.call_args.kwargs["audio_durations"] == [0.5, 0.75]
+    forwarded = encoder.call_args.kwargs
+    assert forwarded["slide_audio"] == [None, track]
+    assert forwarded["audio_schedule"] is scheduler
+    assert "slide_durations" not in forwarded and "audio_durations" not in forwarded
+    scheduler.assert_not_called()
+    assert forwarded["audio_schedule"](forwarded["slide_duration"]) == (
+        [0.5, 0.75],
+        [0.5, 0.75],
+    )
+    scheduler.assert_called_once_with(2)
 
 
 @pytest.mark.parametrize("kind", ["canvas", "deck"])
 @pytest.mark.parametrize("extension", ["mov", "MOV"])
 @pytest.mark.parametrize("with_options", [False, True])
 def test_mov_render_uses_animated_writer_and_namespaced_options(
-    tmp_path, fake_writer, kind, extension, with_options
+    tmp_path, monkeypatch, fake_writer, kind, extension, with_options
 ):
     source = document(kind)
+    scheduler = None
+    if isinstance(source, Deck):
+        scheduler = Mock(wraps=source._animation_audio_schedule)
+        monkeypatch.setattr(source, "_animation_audio_schedule", scheduler)
     path = str(tmp_path / f"output.{extension}")
     options = (
         VideoOptions(
@@ -156,9 +181,15 @@ def test_mov_render_uses_animated_writer_and_namespaced_options(
     assert fake_writer.call_args.kwargs["format"] == "mov"
     assert fake_writer.call_args.kwargs["animation"] is options
     assert fake_writer.call_args.kwargs["reduced_motion"] is True
-    if kind == "deck":
-        assert fake_writer.call_args.kwargs["slide_durations"] == [0.75]
-        assert fake_writer.call_args.kwargs["audio_durations"] == [0.75]
+    if scheduler is not None:
+        forwarded = fake_writer.call_args.kwargs
+        assert forwarded["slide_audio"] == [None]
+        assert forwarded["audio_schedule"] is scheduler
+        assert "slide_durations" not in forwarded and "audio_durations" not in forwarded
+        scheduler.assert_not_called()
+        hold = options.hold if options is not None else 3.0
+        assert forwarded["audio_schedule"](hold) == ([0.75], [0.75])
+        scheduler.assert_called_once_with(hold)
 
 
 def test_deck_mp4_keeps_static_default_while_mov_defaults_to_animation(

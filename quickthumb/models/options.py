@@ -38,6 +38,9 @@ class GifOptions(quickthumbModel):
     model_config = ConfigDict(extra="forbid")
 
     fps: Annotated[float, Field(gt=0, allow_inf_nan=False)] | None = None
+    hold: Annotated[
+        float, Field(strict=True, ge=0, allow_inf_nan=False, exclude_if=lambda value: value == 3.0)
+    ] = 3.0
     loop: NonNegativeInt = 0
     matte: str = "#000000"
     max_size: tuple[PositiveInt, PositiveInt] | None = None
@@ -66,6 +69,9 @@ class VideoOptions(quickthumbModel):
     model_config = ConfigDict(extra="forbid")
 
     fps: Annotated[float, Field(gt=0, allow_inf_nan=False)] | None = None
+    hold: Annotated[
+        float, Field(strict=True, ge=0, allow_inf_nan=False, exclude_if=lambda value: value == 3.0)
+    ] = 3.0
     matte: str = "#000000"
     soundtrack: AudioTrack | None = None
     loop_audio: bool | None = None

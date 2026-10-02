@@ -1406,6 +1406,10 @@ class Canvas:
         matte: str = "#000000",
         *,
         policy: ExportPolicy | None = None,
+        max_size: tuple[int, int] | None = None,
+        colors: int | None = None,
+        workers: int = 1,
+        quality: Literal["standard", "high"] = "standard",
     ) -> bytes:
         """Render the canvas to animated GIF bytes that play its layer animations.
 
@@ -1426,6 +1430,10 @@ class Canvas:
             slide_duration=hold,
             loop=loop,
             matte=matte,
+            max_size=max_size,
+            colors=colors,
+            workers=workers,
+            quality=quality,
             reduced_motion=bool(policy and policy.reduced_motion),
         )
 
@@ -1438,6 +1446,8 @@ class Canvas:
         loop_audio: bool | None = None,
         *,
         policy: ExportPolicy | None = None,
+        workers: int = 1,
+        quality: Literal["standard", "high"] = "standard",
     ) -> bytes:
         """Render the canvas to MP4 (H.264) bytes; timing model as in `to_gif`.
 
@@ -1458,6 +1468,8 @@ class Canvas:
             matte=matte,
             soundtrack=soundtrack,
             loop_audio=loop_audio,
+            workers=workers,
+            quality=quality,
             reduced_motion=bool(policy and policy.reduced_motion),
         )
 
@@ -1471,6 +1483,8 @@ class Canvas:
         *,
         transparent: bool = False,
         policy: ExportPolicy | None = None,
+        workers: int = 1,
+        quality: Literal["standard", "high"] = "standard",
     ) -> bytes:
         """Render the canvas to WebM (VP9) bytes; timing model as in `to_gif`.
 
@@ -1493,6 +1507,8 @@ class Canvas:
             transparent=transparent,
             soundtrack=soundtrack,
             loop_audio=loop_audio,
+            workers=workers,
+            quality=quality,
             reduced_motion=bool(policy and policy.reduced_motion),
         )
 
@@ -1506,6 +1522,8 @@ class Canvas:
         *,
         transparent: bool = False,
         policy: ExportPolicy | None = None,
+        workers: int = 1,
+        quality: Literal["standard", "high"] = "standard",
     ) -> bytes:
         """Render the canvas to ProRes 4444 MOV bytes; timing as in `to_gif`.
 
@@ -1528,6 +1546,8 @@ class Canvas:
             transparent=transparent,
             soundtrack=soundtrack,
             loop_audio=loop_audio,
+            workers=workers,
+            quality=quality,
             reduced_motion=bool(policy and policy.reduced_motion),
         )
 

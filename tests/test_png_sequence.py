@@ -119,7 +119,7 @@ def test_options_schema_defaults_and_public_signatures():
             is inspect.Parameter.KEYWORD_ONLY
         )
     assert set(get_args(FileFormat)) == {"PNG", "JPEG", "WEBP"}
-    assert "hold" not in VideoOptions.model_fields
+    assert "hold" in VideoOptions.model_fields
     assert capabilities_for("PNG_SEQUENCE") == capabilities_for("video")
 
 
