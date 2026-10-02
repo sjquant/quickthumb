@@ -408,7 +408,10 @@ def test_raster_parent_capability_matches_supported_or_rejected_combinations(tar
         parent="root",
         children=[
             shape(position=(0, 0), parent=None).model_copy(
-                update={"clip": LayerClip(position=(0, 0), width=10, height=10)}
+                update={
+                    "clip": LayerClip(position=(0, 0), width=10, height=10),
+                    "animation": AnimationSpec.fade(duration=1),
+                }
             )
         ],
     )
@@ -417,7 +420,7 @@ def test_raster_parent_capability_matches_supported_or_rejected_combinations(tar
         next(item for item in canvas.validate_export(target) if item.feature == "parent").support
         == "unsupported"
     )
-    with pytest.raises(RenderingError, match="clipped or masked descendants"):
+    with pytest.raises(RenderingError, match="descendant boundaries cannot animate descendants"):
         canvas.validate_export(target, ExportPolicy(unsupported_motion="error"))
 
 
@@ -435,7 +438,10 @@ def test_unsupported_parent_combination_does_not_overwrite_earlier_deck_outputs(
                 parent="root",
                 children=[
                     shape(position=(0, 0), parent=None).model_copy(
-                        update={"clip": LayerClip(position=(0, 0), width=10, height=10)}
+                        update={
+                            "clip": LayerClip(position=(0, 0), width=10, height=10),
+                            "animation": AnimationSpec.fade(duration=1),
+                        }
                     )
                 ],
             ),
@@ -445,7 +451,7 @@ def test_unsupported_parent_combination_does_not_overwrite_earlier_deck_outputs(
     destination = tmp_path / "slides.png"
     first = tmp_path / "slides_01.png"
     first.write_bytes(b"EXISTING")
-    with pytest.raises(RenderingError, match="clipped or masked descendants"):
+    with pytest.raises(RenderingError, match="descendant boundaries cannot animate descendants"):
         deck.render(str(destination))
     assert first.read_bytes() == b"EXISTING"
 
@@ -653,7 +659,10 @@ def test_unsupported_local_source_boundaries_are_explicit(kind):
                 children=[
                     shape(position=(0, 0), parent=None).model_copy(
                         update={
-                            "mask": LayerMask(shape="ellipse", position=(0, 0), width=20, height=20)
+                            "mask": LayerMask(
+                                shape="ellipse", position=(0, 0), width=20, height=20
+                            ),
+                            "animation": AnimationSpec.fade(duration=1),
                         }
                     )
                 ],

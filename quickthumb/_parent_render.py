@@ -122,8 +122,22 @@ def parent_rendering_problem(canvas: Canvas) -> str | None:
         if not isinstance(layer, NullLayer) and index <= last_backdrop:
             return "Parent-linked imagery on or below backdrop-dependent layers is unsupported"
         if isinstance(layer, GroupLayer):
-            if any(_has_composition(child) for child in layer.children):
-                return "Parent-linked groups with clipped or masked descendants are unsupported"
+            descendant_composition = any(_has_composition(child) for child in layer.children)
+            if descendant_composition:
+                if not _static_content(layer):
+                    return "Parent-linked groups with descendant boundaries require static content"
+                if _animated_descendant(layer):
+                    return (
+                        "Parent-linked groups with descendant boundaries cannot animate descendants"
+                    )
+                animations = (
+                    layer.animation if isinstance(layer.animation, list) else [layer.animation]
+                )
+                if any(
+                    isinstance(item, AnimationSpec) and item.stagger is not None
+                    for item in animations
+                ):
+                    return "Parent-linked groups with descendant boundaries cannot use stagger"
             if layer.animation is None and _animated_descendant(layer):
                 return "Parent-linked groups with independent descendant animations are unsupported"
         animation = getattr(layer, "animation", None)
@@ -214,6 +228,18 @@ def _rebase_composition(canvas: Canvas, layer, offset: tuple[int, int]):
                 }
             )
     return layer.model_copy(update=updates) if updates else layer
+
+
+def _rebase_source_composition(canvas: Canvas, layer, offset: tuple[int, int]):
+    """Rebase every boundary in the group's common authored placement plane."""
+    layer = _rebase_composition(canvas, layer, offset)
+    if isinstance(layer, GroupLayer):
+        children = [_rebase_source_composition(canvas, child, offset) for child in layer.children]
+        if any(
+            child is not original for child, original in zip(children, layer.children, strict=True)
+        ):
+            layer = layer.model_copy(update={"children": children})
+    return layer
 
 
 def _padding(canvas: Canvas, layer) -> int:
@@ -521,7 +547,9 @@ class ParentRenderPlan:
             source = canvas._groups.place_text_child(layer, (padding, padding), body_size)
         else:
             source = layer.model_copy(update={"position": (padding, padding), "align": None})
-        source = _rebase_composition(canvas, source, (padding - origin[0], padding - origin[1]))
+        source = _rebase_source_composition(
+            canvas, source, (padding - origin[0], padding - origin[1])
+        )
         node = ParentNode(
             proxy(self),
             layer,
