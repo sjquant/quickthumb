@@ -39,7 +39,7 @@ def test_byte_signatures_preserve_existing_parameters_and_add_only_keyword_contr
             (p.name, p.default) for p in parameters.values() if p.kind == p.POSITIONAL_OR_KEYWORD
         ] == expected
         old_names = [name for name, _ in expected]
-        old_names += ["policy"]
+        old_names += ["transparent", "policy"] if method in ("to_webm") else ["policy"]
         assert list(parameters)[: len(old_names)] == old_names
         added = {"workers": 1, "quality": "standard"}
         if method == "to_gif":
@@ -47,7 +47,10 @@ def test_byte_signatures_preserve_existing_parameters_and_add_only_keyword_contr
         for name, default in added.items():
             assert parameters[name].kind is inspect.Parameter.KEYWORD_ONLY
             assert parameters[name].default == default
-        assert set(parameters) == {name for name, _ in expected} | set(added) | {"policy"}
+        assert set(parameters) == {name for name, _ in expected} | set(added) | {"policy"} | (
+            {"transparent"} if method in ("to_webm") else set()
+        )
+    assert inspect.signature(owner.to_webm).parameters["transparent"].default is False
     assert list(inspect.signature(Deck.to_mp4).parameters) == [
         "self",
         "fps",
@@ -156,6 +159,18 @@ def test_public_byte_render_controls_reject_invalid_values(kind, format, kwargs)
     method = "to_animated_mp4" if kind == "deck" and format == "mp4" else f"to_{format}"
     with pytest.raises(ValidationError):
         getattr(source, method)(**kwargs)
+
+
+@pytest.mark.parametrize("format", ["webm"])
+@pytest.mark.parametrize("transparent", [None, 0, 1, "true"])
+def test_transparent_remains_strict_for_constructed_models_and_bytes(format, transparent, tmp_path):
+    with pytest.raises(ValidationError, match="transparent"):
+        getattr(Canvas(4, 4), f"to_{format}")(transparent=transparent)
+    with pytest.raises(ValidationError, match="transparent"):
+        Canvas(4, 4).render(
+            tmp_path / f"invalid.{format}",
+            animation=VideoOptions.model_construct(transparent=transparent),
+        )
 
 
 def _scene():
@@ -464,10 +479,13 @@ def test_private_no_provider_preserves_precomputed_video_schedule_and_gif_distin
 )
 @pytest.mark.parametrize("kind", ["canvas", "deck"])
 @pytest.mark.parametrize("format", ["mp4", "webm"])
-def test_video_file_and_byte_quality_workers_and_hold_match_actual_output(kind, format, tmp_path):
+def test_video_file_and_byte_quality_workers_hold_and_alpha_match_actual_output(
+    kind, format, tmp_path
+):
     canvas = _scene()
     source = canvas if kind == "canvas" else Deck().slide(canvas, transition=tr.Cut())
-    options = VideoOptions(fps=10, hold=0.2, quality="high", workers=2)
+    transparent = format != "mp4"
+    options = VideoOptions(fps=10, hold=0.2, quality="high", workers=2, transparent=transparent)
     file_path = tmp_path / f"file.{format}"
     receipt = source.export(file_path, animation=options)
     kwargs = {
@@ -476,6 +494,8 @@ def test_video_file_and_byte_quality_workers_and_hold_match_actual_output(kind, 
         "quality": "high",
         "workers": 2,
     }
+    if transparent:
+        kwargs.update(transparent=True, matte="not-a-color")
     method = "to_animated_mp4" if kind == "deck" and format == "mp4" else f"to_{format}"
     byte_path = tmp_path / f"bytes.{format}"
     byte_path.write_bytes(getattr(source, method)(**kwargs))
@@ -528,6 +548,9 @@ def test_video_file_and_byte_quality_workers_and_hold_match_actual_output(kind, 
     assert decoded[0] == decoded[1]
     assert receipt.timing_metrics.duration == 0.4
     assert receipt.timing_metrics.frame_count == 4
+    if transparent:
+        assert min(decoded[0][3::4]) == 0
+        assert 0 < max(decoded[0][3::4]) < 255
 
 
 @pytest.mark.parametrize("surface", ["file", "bytes"])
@@ -592,7 +615,7 @@ def test_valid_option_subclasses_with_extra_fields_are_preserved(options, format
         [Canvas(4, 4)], [None], format, animation=CustomOptions(fps=10, hold=0.2)
     )
     assert prepared.fps == 10 and prepared._slide_duration == 0.2
-    assert settings.loop == 0
+    assert settings.transparent is False
 
 
 @pytest.mark.parametrize("format,fps", [("gif", 20), ("mp4", 30), ("webm", 30)])

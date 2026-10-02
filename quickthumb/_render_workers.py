@@ -121,7 +121,7 @@ class _FrameRenderer:
         self.specs: list[_CanvasSpec] = specs
         self.timings: list[tuple[Transition | None, float, float, float]] = timings
         self.size: tuple[int, int] = size
-        self.matte: tuple[int, int, int] = matte
+        self.matte: tuple[int, int, int] | None = matte
         self.reduced_motion: bool = reduced_motion
         self.quality = quality
         self.index = -1
@@ -140,7 +140,7 @@ class _FrameRenderer:
         self.previous_final = None
 
     def _prepare(self, index: int) -> None:
-        from quickthumb._export_video import _conform, _SlideAnimator
+        from quickthumb._export_video import _conform, _export_background, _SlideAnimator
 
         duration_in = self.timings[index][1]
         reuse_previous = index == self.index + 1 and index > 0 and duration_in > 0
@@ -173,7 +173,7 @@ class _FrameRenderer:
                 # not its unit images/plate, while building the incoming slide.
                 previous_animator = None
             else:
-                self.previous_final = Image.new("RGB", self.size, self.matte)
+                self.previous_final = _export_background(self.size, self.matte)
             self.canvas = self.specs[index].build()
             self.animator = _SlideAnimator(
                 self.canvas, {}, reduced_motion=self.reduced_motion, quality=self.quality
@@ -288,7 +288,7 @@ class ParallelFrames:
             while pending:
                 time, duration, future = pending.popleft()
                 size, raw = future.result()
-                frame = Image.frombytes("RGB", size, raw)
+                frame = Image.frombytes("RGBA" if self.matte is None else "RGB", size, raw)
                 # A Future retains its result, so release it and the raw buffer
                 # before yielding. Only the caller's PIL frame remains here.
                 del future, raw
