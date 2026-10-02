@@ -430,7 +430,7 @@ def test_composed_group_unsupported_combinations_are_guarded_without_rendering(m
         if kind == "counter_stagger"
         else "independent"
         if kind == "independent"
-        else "descendants"
+        else "descendant boundaries require static content"
         if kind in {"descendant", "nested_mask"}
         else "backdrop"
     )

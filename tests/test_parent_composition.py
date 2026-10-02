@@ -565,8 +565,8 @@ def test_partial_mask_contrast_keeps_real_treatment_inside_and_outside(inverted)
     assert any(item.code == "low-contrast" for item in canvas.diagnose().findings)
 
 
-def test_nested_group_descendant_composition_still_rejects_before_deck_output(tmp_path):
-    from quickthumb import Deck, ExportPolicy, GroupLayer, ShapeLayer
+def test_nested_group_animated_descendant_composition_rejects_before_deck_output(tmp_path):
+    from quickthumb import AnimationSpec, Deck, ExportPolicy, GroupLayer, ShapeLayer
     from quickthumb.errors import RenderingError
 
     leaf = ShapeLayer(
@@ -577,6 +577,7 @@ def test_nested_group_descendant_composition_still_rejects_before_deck_output(tm
         height=20,
         color="#FFFFFF",
         mask=LayerMask(position=(0, 0), width=20, height=15),
+        animation=AnimationSpec.fade(duration=1),
     )
     inner = GroupLayer(type="group", children=[leaf])
     canvas = Canvas(100, 80).null(id="root").group([inner], parent="root")

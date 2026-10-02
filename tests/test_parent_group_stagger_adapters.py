@@ -79,7 +79,7 @@ def test_unsupported_composed_group_combinations_fail_before_paint_or_output(
 ):
     canvas = group_scene()
     group = cast(GroupLayer, canvas.layers[-1])
-    expected = "descendants"
+    expected = "descendant boundaries cannot use stagger"
     if kind == "counter":
         group.children[0] = TextLayer(
             type="text",
