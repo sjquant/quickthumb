@@ -223,9 +223,6 @@ def test_nested_boundaries_preserve_body_pivot_and_explicit_child(empty):
 @pytest.mark.parametrize(
     "kind",
     [
-        "counter",
-        "sibling_counter",
-        "overridden_counter",
         "animation",
         "ancestor_animation",
         "inner_animation",
@@ -239,14 +236,7 @@ def test_descendant_boundary_guards_preflight_every_observation_and_export(
     canvas = linked(nested_scene())
     group = cast(GroupLayer, canvas.layers[-1])
     middle = cast(GroupLayer, group.children[0])
-    text = TextLayer(type="text", content="12", font=FONT, size=20)
-    if kind in {"counter", "sibling_counter", "overridden_counter"}:
-        text.value = AnimatedTextValue.model_validate({"from": 1, "to": 12, "duration": 1})
-        (group if kind == "sibling_counter" else middle).children.append(text)
-        if kind == "overridden_counter":
-            group.animation = motion(track(OpacityTrack, 0, 1))
-        expected = "require static content"
-    elif kind in {"animation", "ancestor_animation", "inner_animation"}:
+    if kind in {"animation", "ancestor_animation", "inner_animation"}:
         cast(ShapeLayer, middle.children[0]).animation = AnimationSpec.fade(duration=1)
         if kind == "ancestor_animation":
             canvas.layers[0].animation = motion(track(OpacityTrack, 0, 1))

@@ -25,10 +25,13 @@ from quickthumb._export_base import (
     color_motion_targets,
     is_backdrop_dependent,
 )
+from quickthumb._groups import GroupEngine
 from quickthumb._measurements import LayerMeasurement, LayerMeasurementEngine
 from quickthumb._parenting import validate_parent_graph
+from quickthumb._text import TextEngine
 from quickthumb.errors import RenderingError
 from quickthumb.models import (
+    AnimatedTextValue,
     AnimationSpec,
     Background,
     ChartLayer,
@@ -132,8 +135,11 @@ def parent_rendering_problem(canvas: Canvas) -> str | None:
         if isinstance(layer, GroupLayer):
             descendant_composition = any(_has_composition(child) for child in layer.children)
             if descendant_composition:
-                if not _static_content(layer):
-                    return "Parent-linked groups with descendant boundaries require static content"
+                if not _composed_counter_content(layer):
+                    return (
+                        "Parent-linked groups with descendant boundaries require static content "
+                        "or text counters"
+                    )
                 if any(_authored_stagger(child) for child in layer.children):
                     return (
                         "Parent-linked groups with descendant boundaries cannot use stagger "
@@ -164,6 +170,16 @@ def _static_content(layer) -> bool:
         not isinstance(layer, VideoLayer)
         and getattr(layer, "value", None) is None
         and all(_static_content(child) for child in getattr(layer, "children", ()))
+    )
+
+
+def _composed_counter_content(layer) -> bool:
+    """Admit only text value clocks beyond the existing static composed sources."""
+    value = getattr(layer, "value", None)
+    return (
+        not isinstance(layer, VideoLayer)
+        and (value is None or isinstance(layer, TextLayer) and isinstance(value, AnimatedTextValue))
+        and all(_composed_counter_content(child) for child in getattr(layer, "children", ()))
     )
 
 
@@ -393,6 +409,14 @@ def authored_parent_frames(geometry) -> tuple[dict[int, Affine], dict[int, Affin
     return ancestors, worlds
 
 
+class _ParentCounterTextEngine(TextEngine):
+    """Reuse group isolation while keeping counter ink outside a temporary viewport."""
+
+    def render_text_layer(self, image, layer, time=None, *, staging_reference=None):
+        for fragment in self.counter_paint_layers(layer, time):
+            super().render_text_layer(image, fragment, staging_reference=staging_reference)
+
+
 @dataclass
 class ParentNode:
     plan: ParentRenderPlan
@@ -454,6 +478,10 @@ class ParentNode:
         """Paint sampled leaves in their own bounds without changing the parent frame."""
         if not _has_counter(self.layer):
             return self.render_source(time, color), (0, 0)
+        if isinstance(self.layer, GroupLayer) and any(
+            _has_composition(child) for child in self.layer.children
+        ):
+            return self._render_nested_counter_sample(time, color)
         canvas = self.plan.canvas
         source = _without_own_composition(_with_motion_color(self.source, color))
         if (
@@ -518,6 +546,83 @@ class ParentNode:
                     )
                 placed = leaf.model_copy(update={"position": (x - left, y - top)})
                 canvas._render_layer(surface, placed, time)
+            return self.compose_source(surface, (left, top)), (left, top)
+        finally:
+            canvas._ctx.measure_cache = measurements
+            canvas._ctx.motion_time = previous
+
+    def _sampled_counter_leaves(self, layer, time: float, origin=None):
+        """Walk settled slots, retaining each counter's ordinary static fragments."""
+        canvas = self.plan.canvas
+        if isinstance(layer, GroupLayer):
+            placements, _ = canvas._groups.layout_group(layer, origin)
+            for child, position, size in placements:
+                if layer.animation is not None:
+                    child = canvas._groups._without_child_animation(child)
+                if isinstance(child, GroupLayer):
+                    yield from self._sampled_counter_leaves(child, time, position)
+                else:
+                    placed = canvas._groups._place_group_child(child, position, size)
+                    yield from self._sampled_counter_leaves(placed, time)
+        elif isinstance(layer, TextLayer):
+            yield from canvas._text.counter_paint_layers(layer, time)
+        else:
+            yield layer
+
+    def _render_nested_counter_sample(self, time: float, color: str | None):
+        """Replay dynamic ink through existing nested isolation in fixed group slots."""
+        canvas = self.plan.canvas
+        source = _without_own_composition(_with_motion_color(self.source, color))
+        measurements = canvas._ctx.measure_cache
+        previous = canvas._ctx.motion_time
+        canvas._ctx.measure_cache = {}
+        canvas._ctx.motion_time = time
+        try:
+            measure = LayerMeasurementEngine(canvas._ctx, canvas._groups, canvas._text)
+            bounds = []
+            for leaf in self._sampled_counter_leaves(source, time):
+                # Effects can reach a distant clip even when the logical body
+                # does not. Bound raw ink before any owner boundary is applied.
+                body = _without_own_composition(leaf)
+                box = measure.measure_layer(body, index=0, order=0, path=(0,)).bbox
+                if box is not None:
+                    padding = _padding(canvas, body)
+                    bounds.append(
+                        (
+                            box.x - padding,
+                            box.y - padding,
+                            box.right + padding,
+                            box.bottom + padding,
+                        )
+                    )
+            if not bounds:
+                return None, (0, 0)
+            left, top = min(box[0] for box in bounds), min(box[1] for box in bounds)
+            right, bottom = max(box[2] for box in bounds), max(box[3] for box in bounds)
+            surface = Image.new("RGBA", (max(1, right - left), max(1, bottom - top)))
+            source = _rebase_source_composition(canvas, source, (-left, -top))
+            text = _ParentCounterTextEngine(
+                canvas._ctx, canvas._fonts, canvas._effects, canvas._images
+            )
+            groups = GroupEngine(
+                canvas._ctx,
+                canvas._fonts,
+                canvas._effects,
+                canvas._images,
+                canvas._shapes,
+                text,
+                canvas._visualizations,
+            )
+            groups.render_group_layer(
+                surface,
+                source,
+                origin=(
+                    parse_coordinate(source.position[0], canvas.width) - left,
+                    parse_coordinate(source.position[1], canvas.height) - top,
+                ),
+                time=time,
+                sample_values=True,
+            )
             return self.compose_source(surface, (left, top)), (left, top)
         finally:
             canvas._ctx.measure_cache = measurements
