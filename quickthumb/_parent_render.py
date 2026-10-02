@@ -134,8 +134,11 @@ def parent_rendering_problem(canvas: Canvas) -> str | None:
             if descendant_composition:
                 if not _static_content(layer):
                     return "Parent-linked groups with descendant boundaries require static content"
-                if _authored_stagger(layer):
-                    return "Parent-linked groups with descendant boundaries cannot use stagger"
+                if any(_authored_stagger(child) for child in layer.children):
+                    return (
+                        "Parent-linked groups with descendant boundaries cannot use stagger "
+                        "on structural descendants"
+                    )
             if layer.animation is None and _animated_descendant(layer):
                 if descendant_composition:
                     return (
