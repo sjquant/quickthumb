@@ -1667,7 +1667,13 @@ CAPABILITY_MATRIX = MappingProxyType(
 
 
 def _normalize_target(target: ExportTarget | str) -> ExportTarget:
-    aliases = {"gif": "raster", "mp4": "video", "webm": "video", "png": "raster"}
+    aliases = {
+        "gif": "raster",
+        "mp4": "video",
+        "webm": "video",
+        "mov": "video",
+        "png": "raster",
+    }
     normalized = aliases.get(str(target).lower(), str(target).lower())
     if normalized not in _CAPABILITIES:
         raise ValidationError("target must be one of raster, video, html, or pptx")

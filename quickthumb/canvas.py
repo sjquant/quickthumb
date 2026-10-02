@@ -107,6 +107,7 @@ _SUPPORTED_OUTPUT_EXTENSIONS = (
     ".gif",
     ".mp4",
     ".webm",
+    ".mov",
 )
 _THEME_REF_RE = re.compile(r"\$theme\.([A-Za-z0-9_]+(?:\.[A-Za-z0-9_]+)*)")
 _VAR_RE = re.compile(r"\$\{(\w+)\}|\$(\w+)")
@@ -1134,9 +1135,9 @@ class Canvas:
         The output format is detected from the file extension: PNG, JPEG, and
         WEBP render through the raster pipeline; .svg, .pptx, and .pdf produce
         vector/document output (see to_svg, to_pptx, and to_pdf); .gif, .mp4,
-        and .webm produce an animation that plays the canvas's layer
+        .webm, and .mov produce an animation that plays the canvas's layer
         `animation` effects. Pass `GifOptions` for GIF or `VideoOptions`
-        for MP4/WebM to tune animated output.
+        for MP4/WebM/MOV to tune animated output.
         Set debug=True for raster output annotated with public layer-id bboxes.
         """
         from quickthumb._document import _resolve_export
@@ -1177,7 +1178,7 @@ class Canvas:
         if resolved.mode in {"document", "animated"}:
             if animation is not None and resolved.mode != "animated":
                 raise RenderingError(
-                    "animation options are only supported for GIF, MP4, and WebM output."
+                    "animation options are only supported for GIF, MP4, WebM, and MOV output."
                 )
             if debug:
                 raise RenderingError(
@@ -1208,7 +1209,8 @@ class Canvas:
 
         if animation is not None:
             raise RenderingError(
-                "animation options require an animated output extension (.gif, .mp4, or .webm)."
+                "animation options require an animated output extension "
+                "(.gif, .mp4, .webm, or .mov)."
             )
         if format is None:
             self._detect_format(output_path)
@@ -1478,6 +1480,45 @@ class Canvas:
             [self],
             [None],
             format="webm",
+            fps=fps,
+            slide_duration=hold,
+            matte=matte,
+            transparent=transparent,
+            soundtrack=soundtrack,
+            loop_audio=loop_audio,
+            workers=workers,
+            quality=quality,
+            reduced_motion=bool(policy and policy.reduced_motion),
+        )
+
+    def to_mov(
+        self,
+        fps: float = 30.0,
+        hold: float = 3.0,
+        matte: str = "#000000",
+        soundtrack: AudioTrack | str | dict | None = None,
+        loop_audio: bool | None = None,
+        *,
+        transparent: bool = False,
+        policy: ExportPolicy | None = None,
+        workers: int = 1,
+        quality: Literal["standard", "high"] = "standard",
+    ) -> bytes:
+        """Render the canvas to ProRes 4444 MOV bytes; timing as in `to_gif`.
+
+        Requires FFmpeg with `prores_ks`. Odd and one-pixel dimensions are
+        retained. `transparent=True` skips only the export matte and uses
+        16-bit alpha coding from 8-bit RGBA frames; decoded alpha can differ
+        by one 8-bit level. Color is lossy 4:4:4 YUV, not lossless RGB.
+        Audio is AAC; `loop_audio` overrides `AudioTrack.loop`, while legacy
+        soundtrack path strings loop by default.
+        """
+        from quickthumb._export_video import export_animation_bytes
+
+        return export_animation_bytes(
+            [self],
+            [None],
+            format="mov",
             fps=fps,
             slide_duration=hold,
             matte=matte,

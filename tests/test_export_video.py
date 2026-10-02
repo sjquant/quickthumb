@@ -1542,7 +1542,7 @@ class TestVideoErrors:
         canvas = Canvas(160, 90).background(color="#1131AA")
 
         # when / then
-        with pytest.raises(ValidationError, match="VideoOptions.*MP4 or WebM"):
+        with pytest.raises(ValidationError, match="VideoOptions.*MP4, WebM, or MOV"):
             canvas.render(str(tmp_path / "preview.gif"), animation=VideoOptions(fps=10))
 
     def test_should_reject_cross_format_options_at_construction(self):

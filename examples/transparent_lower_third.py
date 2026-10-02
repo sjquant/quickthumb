@@ -1,4 +1,4 @@
-"""A transparent lower third for compositing over footage in a VP9-alpha editor.
+"""A transparent lower third for compositing over footage in a WebM-alpha or ProRes editor.
 
 Run from the repository root:
     uv run python examples/transparent_lower_third.py
@@ -41,5 +41,10 @@ if __name__ == "__main__":
     output.mkdir(exist_ok=True)
     build_scene().render(
         str(output / "transparent_lower_third.webm"),
+        animation=VideoOptions(transparent=True, fps=24, quality="high", workers=2),
+    )
+
+    build_scene().render(
+        str(output / "transparent_lower_third.mov"),
         animation=VideoOptions(transparent=True, fps=24, quality="high", workers=2),
     )

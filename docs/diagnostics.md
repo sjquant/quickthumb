@@ -243,8 +243,8 @@ quickthumb doctor pdf -o out/thumbnail.pdf
 quickthumb doctor mp4 --spec spec.json --format json
 ```
 
-The workflow is one of `png`, `jpeg`, `webp`, `gif`, `svg`, `html`, `pdf`, `pptx`, `mp4`, or
-`webm`. With `--spec`, the spec's plugin renderers, fonts, SVG/video layers, background removal,
+The workflow is one of `png`, `jpeg`, `webp`, `gif`, `svg`, `html`, `pdf`, `pptx`, `mp4`,
+`webm`, or `mov`. With `--spec`, the spec's plugin renderers, fonts, SVG/video layers, background removal,
 and remote assets add their own requirements. `-o` checks that the output location is writable
 (nothing is created).
 

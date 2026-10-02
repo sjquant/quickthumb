@@ -26,8 +26,8 @@ from quickthumb.asset_cache import _CACHE_DIR_ENV, _OFFLINE_ENV, _OFFLINE_VALUES
 
 Status = Literal["ok", "warning", "error"]
 
-WORKFLOWS = ("png", "jpeg", "webp", "gif", "svg", "html", "pdf", "pptx", "mp4", "webm")
-_VIDEO_WORKFLOWS = ("mp4", "webm")
+WORKFLOWS = ("png", "jpeg", "webp", "gif", "svg", "html", "pdf", "pptx", "mp4", "webm", "mov")
+_VIDEO_WORKFLOWS = ("mp4", "webm", "mov")
 _FONT_SUFFIXES = (".ttf", ".otf", ".ttc", ".woff", ".woff2")
 # module -> (name shown to the user, pip extra that installs it)
 _MODULES = {

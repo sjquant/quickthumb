@@ -64,7 +64,7 @@ class GifOptions(quickthumbModel):
 
 
 class VideoOptions(quickthumbModel):
-    """Options specific to animated MP4 and WebM output."""
+    """Options specific to animated MP4, WebM, and MOV output."""
 
     model_config = ConfigDict(extra="forbid")
 
