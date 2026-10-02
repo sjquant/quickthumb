@@ -516,31 +516,36 @@ and height before source-buffer rebasing. The usual boundary alignment, partial
 opacity, inversion and clip-times-mask alpha rules still apply. Text backgrounds,
 shadows and other source effects are composed with their owning text or shape.
 
-The complete static result is prepared as one source before canonical motion;
-stagger may split it into bands as described below. Boundaries do not relayout
-siblings, shrink the
-full group frame or clip separately linked children. The composed opaque settled
+The complete settled result is prepared as one source before canonical motion;
+static-source stagger may split it into bands as described below. Boundaries do
+not relayout siblings, shrink the full group frame or clip separately linked
+children. The composed opaque settled
 source still defines the normalized-alpha pivot, with the full-body fallback
 when it is empty. Static inspection keeps conservative bounds for each owner;
 diagnostics use the composed paint at each boundary scope.
 
-This descendant-boundary adapter requires static content throughout the
-participating group: intrinsic dynamic sources, including counters, are
-unsupported anywhere in that group. The participating **top-level group's own
-animation** overrides authored animations on structural descendants, including
+This descendant-boundary adapter also supports `plain`, `odometer` and `flip`
+text counters. Their settled formatted text fixes all group slots and the parent
+frame. Sampled fragments keep their ordinary formatting, alignment, rotation
+and effects; they are combined before the counter's own clip or mask, then
+combined with siblings before each enclosing group boundary. Dynamic paint can
+extend outside the settled body and become visible even if the settled source
+is fully masked. Every counter retains its own delay and duration after ancestor
+motion ends. Other intrinsic dynamic sources remain unsupported.
+
+The participating **top-level group's own animation** overrides authored
+animations on structural descendants, including
 those inside clipped or masked groups. Raster frames and animated exports then
 use the same source as if those descendant animations were removed, retaining
-every boundary. Suppressed descendant delays and durations do not extend the
-renderer's timeline. Motion on an external ancestor or only on an inner group
-does not provide this override: without the top-level owner's animation,
+every boundary and intrinsic counter clock. Suppressed descendant animation
+delays and durations do not extend the renderer's timeline. Motion on an external
+ancestor or only on an inner group does not provide this override: without the top-level owner's animation,
 descendant animation remains unsupported.
 
 Authored stagger on any structural descendant remains unsupported, even when
-overridden. The top-level owner may use the existing partial stagger adapter
-when it is a graph leaf. These extra guards apply only when a group
-contains a descendant boundary; groups with only their own boundary retain the
-counter and stagger support described above. Explicit parent links to or from
-structural descendants remain unsupported. See
+overridden. A static top-level owner may use the existing partial stagger adapter
+when it is a graph leaf; counter-group stagger remains unsupported. Explicit
+parent links to or from structural descendants remain unsupported. See
 [`examples/parent_nested_composition.py`](https://github.com/sjquant/quickthumb/blob/main/examples/parent_nested_composition.py)
 for nested partial and inverted masks, text backgrounds, affine motion and an
 independent linked marker. Run it with `--output-dir /tmp/parent-nested-composition`

@@ -243,14 +243,17 @@ for percentages. Inverted masks retain conservative boxes around their cutouts.
 Child transforms still use the full authored group body;
 the boundary does not clip independently linked children. Counter observations
 use settled text, including glyph backgrounds and preceding group content.
-Groups with descendant boundaries require static content everywhere: intrinsic
-dynamic sources, including counters, and authored stagger on any structural
+Groups with descendant boundaries support `plain`, `odometer` and `flip` text
+counters in settled layout slots. Each counter's fragments are combined before
+its own boundary, and each nested group's children before that group's boundary;
+changing counter paint does not move siblings, pivots or independently linked
+children. Other intrinsic dynamic sources and authored stagger on any structural
 descendant remain guarded. The participating top-level group's own
 animation may override other authored descendant animations; an external
 ancestor's animation or only an inner group's animation does not qualify.
 Static inspection and diagnostics retain the authored layout and composition;
 HTML, SVG, PDF and PPTX retain whole-scene authored-static fallback for overridden
-descendant motion. Groups with only their own boundary retain counter support;
+descendant motion. Intrinsic counter clocks continue through that override;
 counter-group stagger remains guarded. Static graph-leaf groups with their own
 or descendant clip/mask boundaries can use root stagger through the existing
 partial horizontal-band adapter; it does not establish which child owns a band. See
