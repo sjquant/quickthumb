@@ -1734,8 +1734,22 @@ def validate_export(
     target: ExportTarget | str,
     policy: ExportPolicy | None = None,
 ) -> list[ExportDiagnostic]:
-    """Validate motion against a target without invoking any exporter."""
-    return _validate_export(source, target, policy)
+    """Validate a concrete export format or motion family without rendering."""
+    concrete_format = str(target).lower()
+    family = {
+        "jpg": "raster",
+        "jpeg": "raster",
+        "webp": "raster",
+        "svg": "raster",
+        "pdf": "raster",
+        "htm": "html",
+    }.get(concrete_format, target)
+    return _validate_export(
+        source,
+        family,
+        policy,
+        parent_document_format="html" if concrete_format == "htm" else concrete_format,
+    )
 
 
 def _validate_export(
@@ -1744,6 +1758,7 @@ def _validate_export(
     policy: ExportPolicy | None,
     *,
     parent_document_format: str | None = None,
+    uses_authored_transitions: bool = True,
 ) -> list[ExportDiagnostic]:
     normalized = _normalize_target(target)
     resolved_policy = policy or ExportPolicy()
@@ -2031,7 +2046,11 @@ def _validate_export(
                 )
     # A Deck is duck-typed here because deck.py imports this module.
     slides = getattr(source, "slides", None)
-    if slides is not None and parent_document_format not in {"svg", "pdf"}:
+    if (
+        uses_authored_transitions
+        and slides is not None
+        and parent_document_format not in {"svg", "pdf"}
+    ):
         from quickthumb._parenting import has_parent_links
 
         canvases = tuple(slides)
@@ -2056,9 +2075,9 @@ def _validate_export(
                         message=f"Morph before slide {index} uses fade for parent-linked geometry",
                     )
                 )
-    if normalized == "video" and slides is not None:
+    if uses_authored_transitions and normalized == "video" and slides is not None:
         canvases = tuple(slides)
-        transitions = tuple(source._resolved_transitions())
+        transitions = tuple(cast(Any, source)._resolved_transitions())
         for index, transition in enumerate(transitions):
             if getattr(transition, "effect", None) != "morph" or index == 0:
                 continue

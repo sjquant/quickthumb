@@ -177,6 +177,25 @@ animated file output. Use `GifOptions` for GIF (`fps`, `matte`, `loop`,
 are rejected for video output, and video options are rejected for GIF output.
 The generic `quality` option remains reserved for JPEG and WebP raster output.
 
+File execution resolves the concrete format and animation mode before checking
+export policy. In particular, `Deck.render("slides.mp4")` and
+`Deck.export("slides.mp4")` both use narrated still slides; pass `VideoOptions()`
+to play the animated timeline. Canvas MP4 always uses the animated path.
+Unused authored Morph transitions do not produce fallback errors or receipt
+diagnostics for narrated stills, static files, or reduced-motion execution.
+Reduced animation retains the encoder's holds and default transitions between
+slides. Result timing remains a nominal schedule, not a guarantee of encoded
+frame counts for every format and sampling boundary.
+
+`validate_export(target)` is a declared motion-capability query, independent of
+file execution options. For example, `validate_export("mp4")` still queries
+animated video, even with a reduced-motion policy. Concrete `svg` and `pdf`
+queries describe their static document fallback with the existing `raster`
+family label. Targets are case-insensitive; `jpg`, `jpeg`, `webp`, `png`, `gif`,
+`mp4`, `webm`, `mov`, `htm`, and `png_sequence` are accepted as corresponding family
+aliases. The GIF query uses `raster`, while a GIF `ExportResult.target` remains
+`video` for compatibility.
+
 ### Transparent WebM
 
 VP9 WebM can preserve alpha through `VideoOptions(transparent=True)`, or the

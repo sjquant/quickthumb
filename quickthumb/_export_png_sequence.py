@@ -61,7 +61,13 @@ def export_png_sequence(
     try:
         try:
             _contract_validate_structure(source)
-            diagnostics = _capability_report(source, "video", policy, output_format="png_sequence")
+            diagnostics = _capability_report(
+                source,
+                "video",
+                policy,
+                output_format="png_sequence",
+                uses_authored_transitions=not bool(policy and policy.reduced_motion),
+            )
             canvases, transitions, durations = _contract_timeline_inputs(source, settings.hold)
             # MOV shares full-size transparent frame validation with this path.
             # No audio schedules or encoding are requested here: narration only
