@@ -30,8 +30,6 @@ from quickthumb.models import (
     FrameSequence,
     GifOptions,
     PixelMetrics,
-    PngSequenceOptions,
-    PngSequenceResult,
     PrefetchResult,
     TimingMetrics,
     ValidationReport,
@@ -133,14 +131,6 @@ class Document(Protocol):
         quality: int | None = None,
         animation: GifOptions | VideoOptions | None = None,
     ) -> ExportResult: ...
-
-    def export_png_sequence(
-        self,
-        output_directory: str | os.PathLike[str],
-        *,
-        options: PngSequenceOptions | None = None,
-        policy: ExportPolicy | None = None,
-    ) -> PngSequenceResult: ...
 
 
 def require_document_kind(raw: object, *, expected: DocumentKind | None = None) -> DocumentKind:
