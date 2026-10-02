@@ -81,7 +81,9 @@ def test_explicit_animated_mp4_strict_policy_preserves_existing_output(
 def test_animated_export_reports_only_transitions_that_execute(tmp_path, monkeypatch, reduced):
     from quickthumb import _export_video
 
-    writer = Mock(side_effect=lambda _, __, path, **kw: Path(path).write_bytes(b"animated"))
+    writer = Mock(
+        side_effect=lambda _, __, path, **kw: (Path(path).write_bytes(b"animated"), None)[1]
+    )
     monkeypatch.setattr(_export_video, "write_animation", writer)
     policy = ExportPolicy(unsupported_motion="error" if reduced else "warn", reduced_motion=reduced)
     deck = parent_deck()
@@ -202,7 +204,9 @@ def test_export_keeps_render_override_dispatch_once(tmp_path, monkeypatch, kind,
 def test_canvas_mp4_defaults_to_animated_writer(tmp_path, monkeypatch, method):
     from quickthumb import _export_video
 
-    writer = Mock(side_effect=lambda _, __, path, **kw: Path(path).write_bytes(b"animated"))
+    writer = Mock(
+        side_effect=lambda _, __, path, **kw: (Path(path).write_bytes(b"animated"), None)[1]
+    )
     monkeypatch.setattr(_export_video, "write_animation", writer)
     getattr(parent_canvas(), method)(str(tmp_path / "canvas.mp4"))
     writer.assert_called_once()

@@ -55,7 +55,7 @@ def patterned_frame(index, size=(37, 29)):
 @pytest.mark.parametrize("size", [(15, 14), (37, 29), (512, 512)])
 def test_single_and_duplicate_frames_match_legacy_bytes(indices, size):
     shots = [video._Shot(patterned_frame(i, size), 1 / 12) for i in indices]
-    assert video._encode_gif(iter(shots), 3) == legacy_encode(shots, 3)
+    assert video._encode_gif(iter(shots), 3)[0] == legacy_encode(shots, 3)
 
 
 @pytest.mark.parametrize("colors", [None, 2, 3, 16, 64, 255, 256])
@@ -66,7 +66,7 @@ def test_palette_resize_and_loop_options_match_legacy_bytes(colors, max_size):
     images.append(patterned_frame(3, (43, 19)))
     shots = [video._Shot(image, 0.037) for image in images]
     kwargs = {"max_size": max_size, "colors": colors}
-    actual = video._encode_gif(iter(shots), 65535, **kwargs)
+    actual, _ = video._encode_gif(iter(shots), 65535, **kwargs)
     assert actual == legacy_encode(shots, 65535, **kwargs)
     with Image.open(BytesIO(actual)) as image:
         assert image.info["loop"] == 65535
@@ -122,7 +122,7 @@ def test_palette_delta_branches_match_pillow(scenario):
 def test_centisecond_clock_and_fractional_holds_match_legacy(fps):
     durations = [1 / fps] * 61 + [0.004, 0.011, 1.234]
     shots = [video._Shot(patterned_frame(i), duration) for i, duration in enumerate(durations)]
-    actual = video._encode_gif(iter(shots), 0)
+    actual, _ = video._encode_gif(iter(shots), 0)
     assert actual == legacy_encode(shots)
     with Image.open(BytesIO(actual)) as image:
         encoded_ms = sum(frame.info["duration"] for frame in ImageSequence.Iterator(image))
@@ -168,7 +168,7 @@ def test_uncompressed_frame_retention_is_bounded(monkeypatch):
             yield video._Shot(patterned_frame(i), 0.01)
 
     monkeypatch.setattr(Image.Image, "_new", track)
-    result = video._encode_gif(shots(), 0)
+    result, _ = video._encode_gif(shots(), 0)
     assert result.startswith(b"GIF89a")
     assert max(counts) < 16
     assert max(counts[1:]) - min(counts[1:]) < 4
@@ -181,6 +181,14 @@ def test_empty_input_has_actionable_error():
 
 @pytest.mark.parametrize("reduced_motion", [False, True])
 def test_public_deck_bytes_match_legacy(monkeypatch, reduced_motion):
+    def legacy_with_facts(shots, *args, **kwargs):
+        fps = kwargs.pop("fps", 20)
+        data = legacy_encode(list(shots), *args, **kwargs)
+        with Image.open(BytesIO(data)) as image:
+            durations = [frame.info.get("duration", 0) for frame in ImageSequence.Iterator(image)]
+            facts = video._AnimationFacts(*image.size, len(durations), sum(durations) / 1000, fps)
+        return data, facts
+
     deck = (
         Deck(93, 51)
         .slide(
@@ -192,7 +200,7 @@ def test_public_deck_bytes_match_legacy(monkeypatch, reduced_motion):
     )
     policy = ExportPolicy(reduced_motion=reduced_motion)
     actual = deck.to_gif(fps=12, slide_duration=0.15, loop=2, policy=policy)
-    monkeypatch.setattr(video, "_encode_gif", legacy_encode)
+    monkeypatch.setattr(video, "_encode_gif", legacy_with_facts)
     assert actual == deck.to_gif(fps=12, slide_duration=0.15, loop=2, policy=policy)
 
 
@@ -213,7 +221,7 @@ def test_failed_producer_preserves_destination_and_closes_decoders(monkeypatch, 
         yield video._Shot(patterned_frame(1), 0.1)
         raise RuntimeError("producer failed")
 
-    monkeypatch.setattr(video, "_deck_shots", fail)
+    monkeypatch.setattr(video, "_ordered_deck_shots", fail)
     monkeypatch.setattr(video, "_close_video_decoders", lambda canvases: closed.extend(canvases))
     output = tmp_path / "result.gif"
     output.write_bytes(b"previous gif")

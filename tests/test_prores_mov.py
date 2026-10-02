@@ -83,7 +83,13 @@ def test_all_256_rgba8_alpha_levels_survive_fixed_16_bit_coding(tmp_path):
     expected = Image.new("RGBA", (256, 3), (190, 80, 30, 255))
     expected.putalpha(Image.frombytes("L", expected.size, bytes(range(256)) * 3))
     path = tmp_path / "ramp.mov"
-    video._encode_video_file([video._Shot(expected, 0.1)], 10, "mov", str(path), transparent=True)
+    video._encode_video_file(
+        video._counted_video_shots([video._Shot(expected, 0.1)], 10),
+        10,
+        "mov",
+        str(path),
+        transparent=True,
+    )
     actual = decode(path, expected.size)[0]
     # Alpha itself must stay within one RGBA8 level across all 256 codes.
     assert_alpha(actual, expected)
@@ -109,7 +115,11 @@ def test_odd_and_tiny_dimensions_retain_last_row_and_column(tmp_path, size, tran
     )
     path = tmp_path / "edges.mov"
     video._encode_video_file(
-        [video._Shot(expected, 0.1)], 10, "mov", str(path), transparent=transparent
+        video._counted_video_shots([video._Shot(expected, 0.1)], 10),
+        10,
+        "mov",
+        str(path),
+        transparent=transparent,
     )
     stream = probe(path)["streams"][0]
     assert (stream["width"], stream["height"]) == size
@@ -191,7 +201,11 @@ def test_transition_families_and_keyed_mixed_size_morph_decode_composites(tmp_pa
     expected.append(video._morph_frame(old, new, 0.5, 1, output_size=(33, 25)))
     path = tmp_path / "transitions.mov"
     video._encode_video_file(
-        (video._Shot(f, 0.1) for f in expected), 10, "mov", str(path), transparent=True
+        video._counted_video_shots((video._Shot(f, 0.1) for f in expected), 10),
+        10,
+        "mov",
+        str(path),
+        transparent=True,
     )
     actual = decode(path, (33, 25))
     assert len(actual) == len(expected)
@@ -217,7 +231,9 @@ def test_fractional_counting_real_segment_boundary_and_final_frame(tmp_path, fps
         shots.append(video._Shot(frame, duration))
     assert len(list(video._counted_video_shots(shots, fps))) > 64
     path = tmp_path / "boundaries.mov"
-    video._encode_video_file(iter(shots), fps, "mov", str(path), transparent=True)
+    video._encode_video_file(
+        video._counted_video_shots(iter(shots), fps), fps, "mov", str(path), transparent=True
+    )
     actual = [cast(int, frame.getchannel("A").getpixel((16, 2))) for frame in decode(path, (17, 3))]
     assert len(actual) == len(expected)
     assert all(abs(a - e) <= 1 for a, e in zip(actual, expected, strict=True))
@@ -338,7 +354,7 @@ def test_failures_close_resources_remove_temps_and_preserve_destination(
         Path(output_path).write_bytes(b"partial mux")
         raise RenderingError("injected mux")
 
-    monkeypatch.setattr(video, "_deck_shots", shots)
+    monkeypatch.setattr(video, "_ordered_deck_shots", shots)
     monkeypatch.setattr(video, "_stream_video_ffmpeg", stream)
     monkeypatch.setattr(video, "_run_video_ffmpeg", mux)
     canvas = Canvas(3, 3)

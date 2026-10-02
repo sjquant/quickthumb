@@ -609,7 +609,7 @@ def test_export_failures_close_parent_decoders(monkeypatch, tmp_path, entrypoint
 
     monkeypatch.setattr(video, "_deck_plan", plan)
     monkeypatch.setattr(video, "_video_audio_schedule", audio)
-    monkeypatch.setattr(video, "_deck_shots", shots)
+    monkeypatch.setattr(video, "_ordered_deck_shots", shots)
     monkeypatch.setattr(video, "_encode_video_file", encode)
     if failure == "temp":
         monkeypatch.setattr(video, "_temporary_output_path", temp)
@@ -645,9 +645,13 @@ def test_shot_cleanup_failure_still_closes_parent_decoders(monkeypatch):
         return video._DeckPlan([], [], [0.0], 1.0)
 
     monkeypatch.setattr(video, "_deck_plan", plan)
-    monkeypatch.setattr(video, "_deck_shots", lambda *args, **kwargs: Shots())
+    monkeypatch.setattr(video, "_ordered_deck_shots", lambda *args, **kwargs: Shots())
     monkeypatch.setattr(video, "_video_audio_schedule", lambda *args: [])
-    monkeypatch.setattr(video, "_encode_gif", lambda *args, **kwargs: b"gif")
+    monkeypatch.setattr(
+        video,
+        "_encode_gif",
+        lambda *args, **kwargs: (b"gif", video._AnimationFacts(8, 8, 1, 0.1, 10)),
+    )
     with pytest.raises(RuntimeError, match="worker shutdown failed"):
         video.export_animation_bytes([canvas], [None], "gif")
     assert closed == [True]

@@ -37,6 +37,7 @@ from quickthumb.models import (
 )
 
 if TYPE_CHECKING:
+    from quickthumb._export_video import _AnimationFacts
     from quickthumb.canvas import Canvas
     from quickthumb.deck import Deck
     from quickthumb.models import CanvasInspection, DeckInspection
@@ -59,10 +60,11 @@ class _ResolvedExport:
 
 @dataclass(frozen=True)
 class _ExportReceipt:
-    """Paths and preflight findings from one file execution, not encoded metrics."""
+    """One file execution, with encoded visual facts when the backend provides them."""
 
     paths: list[str]
     diagnostics: list[ExportDiagnostic]
+    animation: _AnimationFacts | None = None
 
 
 @dataclass(frozen=True)
@@ -217,10 +219,25 @@ def build_export_result(
     target = resolved.target
     written_paths = receipt.paths
     capability_report = receipt.diagnostics
-    timing = _timing_metrics(source, resolved, policy, animation)
+    facts = receipt.animation
+    timing = (
+        TimingMetrics(
+            duration=facts.duration,
+            fps=facts.fps,
+            frame_count=facts.frame_count,
+        )
+        if facts is not None
+        else _timing_metrics(source, resolved, policy, animation)
+    )
     dimensions = _document_dimensions(source)
     asset_manifest = _asset_manifest(source, assets.record_for)
-    pixel_frame_count = _pixel_frame_count(source, target, output_format, written_paths, timing)
+    # Public pixel dimensions remain canonical raster dimensions. Encoders
+    # retain their crop/resize dimensions privately without redefining this model.
+    pixel_frame_count = (
+        facts.frame_count
+        if facts is not None
+        else _pixel_frame_count(source, target, output_format, written_paths, timing)
+    )
     if output_format == "gif" and written_paths:
         timing = timing.model_copy(update={"frame_count": pixel_frame_count})
     return ExportResult(

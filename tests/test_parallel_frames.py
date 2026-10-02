@@ -68,10 +68,15 @@ def _scene(kind):
 
 
 def _shots(canvases, transitions, workers, *, hold=0.0, reduced=False, fps=12):
-    source = video._deck_shots(
-        canvases, transitions, fps, hold, (9, 11, 13), workers=workers, reduced_motion=reduced
-    )
-    try:
+    with video._PreparedAnimation(
+        canvases,
+        transitions,
+        fps=fps,
+        slide_duration=hold,
+        matte="#090B0D",
+        workers=workers,
+        reduced_motion=reduced,
+    ) as prepared:
         return [
             (
                 shot.frame.size,
@@ -79,11 +84,8 @@ def _shots(canvases, transitions, workers, *, hold=0.0, reduced=False, fps=12):
                 shot.duration,
                 shot.caption_active,
             )
-            for shot in source
+            for shot in prepared.shots()
         ]
-    finally:
-        source.close()
-        video._close_video_decoders(canvases)
 
 
 @pytest.mark.parametrize("kind", ["shared", "stagger", "counter", "grain", "morph", "gaps"])

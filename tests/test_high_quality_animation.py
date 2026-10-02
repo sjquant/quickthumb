@@ -87,8 +87,8 @@ def test_invalid_quality_is_rejected_by_options(options, quality):
     with pytest.raises(ValidationError, match="quality"):
         options.model_validate({"quality": quality})
     with pytest.raises(ValidationError, match="quality"):
-        video._validated_settings(
-            [Canvas(8, 8)], "gif", 10, 0.1, 0, "#000000", quality=cast(Any, quality)
+        video._prepare_animation(
+            [Canvas(8, 8)], [None], "gif", 10, 0.1, 0, "#000000", quality=cast(Any, quality)
         )
 
 
@@ -247,17 +247,14 @@ def test_mixed_size_and_morph_boundaries_keep_native_dimensions_and_timing(trans
     assert plans[0].timings == plans[1].timings
     assert plans[0].offsets == plans[1].offsets
     for quality, plan in zip(QUALITIES, plans, strict=True):
-        shots = list(
-            video._deck_shots(
-                [first, second],
-                [None, transition],
-                10,
-                0.2,
-                (0, 0, 0),
-                plan=plan,
-                quality=quality,
-            )
-        )
+        with video._PreparedAnimation(
+            [first, second],
+            [None, transition],
+            fps=10,
+            slide_duration=0.2,
+            quality=quality,
+        ) as prepared:
+            shots = list(prepared.shots())
         assert all(shot.frame.size == (151, 91) for shot in shots)
         assert sum(shot.duration for shot in shots) == pytest.approx(plan.duration)
 

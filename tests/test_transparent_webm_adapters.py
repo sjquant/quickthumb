@@ -191,7 +191,7 @@ def test_transparent_failures_remove_temporary_files_and_preserve_destination(
         for frame in frames:
             assert len(frame) == SIZE[0] * SIZE[1] * 4
 
-    monkeypatch.setattr(video, "_deck_shots", shots)
+    monkeypatch.setattr(video, "_ordered_deck_shots", shots)
     monkeypatch.setattr(video, "_stream_video_ffmpeg", stream)
     source = document(kind)
     with pytest.raises((RenderingError, RuntimeError), match=f"injected alpha {failure} failure"):

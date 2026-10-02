@@ -53,9 +53,16 @@ def reference(source, fps=10, hold=0.1, quality="standard", reduced=False) -> li
     canvases, transitions, durations = _contract_timeline_inputs(source, hold)
     if reduced:
         transitions = [None] * len(canvases)
-    shots = video._deck_shots(
-        canvases, transitions, fps, hold, None, durations, quality=quality, reduced_motion=reduced
+    plan = video._deck_plan(
+        canvases,
+        transitions,
+        1 / fps,
+        hold,
+        durations,
+        quality=quality,
+        reduced_motion=reduced,
     )
+    shots = video._ordered_deck_shots(canvases, fps, None, plan)
     try:
         return [
             frame.tobytes()
@@ -63,7 +70,8 @@ def reference(source, fps=10, hold=0.1, quality="standard", reduced=False) -> li
             for _ in range(count)
         ]
     finally:
-        video._close_animation_resources(canvases, shots)
+        shots.close()
+        video._close_video_decoders(canvases)
 
 
 def animated_canvas() -> Canvas:
@@ -162,7 +170,7 @@ def test_exact_all_alpha_codes_hidden_rgb_metadata_and_independent_repeats(tmp_p
         icc_profile=b"un-normalized profile", srgb=0, exif=b"metadata", transparency=0
     )
     monkeypatch.setattr(
-        sequence, "_deck_shots", lambda *a, **k: (s for s in [video._Shot(expected, 0.3)])
+        video, "_ordered_deck_shots", lambda *a, **k: (s for s in [video._Shot(expected, 0.3)])
     )
     path = tmp_path / "exact"
     result = Canvas(256, 3).export_png_sequence(path, options=PngSequenceOptions(fps=10, hold=0.3))
@@ -375,17 +383,17 @@ def test_failure_cleans_owned_staging_and_closes_resources_before_publication(
     stage, tmp_path, monkeypatch
 ):
     original = RuntimeError(f"original {stage} failure")
-    closed = Mock(wraps=sequence._close_animation_resources)
-    monkeypatch.setattr(sequence, "_close_animation_resources", closed)
+    closed = Mock(wraps=video._PreparedAnimation.close)
+    monkeypatch.setattr(video._PreparedAnimation, "close", lambda prepared: closed(prepared))
     if stage == "plan":
-        monkeypatch.setattr(sequence, "_deck_plan", Mock(side_effect=original))
+        monkeypatch.setattr(video, "_deck_plan", Mock(side_effect=original))
     elif stage == "producer":
 
         def broken(*args, **kwargs):
             yield video._Shot(Image.new("RGBA", (1, 1)), 0.1)
             raise original
 
-        monkeypatch.setattr(sequence, "_deck_shots", broken)
+        monkeypatch.setattr(video, "_ordered_deck_shots", broken)
     elif stage == "png":
         monkeypatch.setattr(sequence, "_encode_png_frame", Mock(side_effect=original))
     elif stage == "png_write":
@@ -425,10 +433,8 @@ def test_producer_error_wins_over_shutdown_and_cleanup_errors(tmp_path, monkeypa
         yield video._Shot(Image.new("RGBA", (1, 1)), 0.1)
         raise original
 
-    monkeypatch.setattr(sequence, "_deck_shots", broken)
-    monkeypatch.setattr(
-        sequence, "_close_animation_resources", Mock(side_effect=RuntimeError("close"))
-    )
+    monkeypatch.setattr(video, "_ordered_deck_shots", broken)
+    monkeypatch.setattr(video._PreparedAnimation, "close", Mock(side_effect=RuntimeError("close")))
     monkeypatch.setattr(shutil, "rmtree", Mock(side_effect=OSError("cleanup")))
     with pytest.raises(RuntimeError) as error:
         Canvas(1, 1).export_png_sequence(
@@ -459,7 +465,7 @@ def test_closed_producer_and_decoders_precede_commit(tmp_path, monkeypatch):
         assert (staging / "manifest.json").is_file()
         original(staging, destination)
 
-    monkeypatch.setattr(sequence, "_deck_shots", frames)
+    monkeypatch.setattr(video, "_ordered_deck_shots", frames)
     monkeypatch.setattr(sequence, "rename_exclusive", commit)
     canvas.export_png_sequence(tmp_path / "closed", options=PngSequenceOptions(fps=10, hold=0.1))
 
@@ -475,7 +481,7 @@ def test_bounded_live_frame_retention(tmp_path, monkeypatch):
             assert sum(item() is not None for item in references) <= 3
             yield video._Shot(frame, 0.2)
 
-    monkeypatch.setattr(sequence, "_deck_shots", frames)
+    monkeypatch.setattr(video, "_ordered_deck_shots", frames)
     result = Canvas(3, 3).export_png_sequence(
         tmp_path / "bounded", options=PngSequenceOptions(fps=10)
     )
@@ -572,16 +578,16 @@ def test_ambiguous_commit_error_never_deletes_published_directory(tmp_path, monk
 
 
 def test_staging_replacement_is_preserved_and_not_published(tmp_path, monkeypatch):
-    original = sequence._close_animation_resources
+    original = video._PreparedAnimation.close
 
-    def replace(*args):
-        original(*args)
+    def replace(prepared):
+        original(prepared)
         staging = next(tmp_path.glob(".quickthumb-png-*"))
         staging.rename(tmp_path / "owned-moved")
         staging.mkdir()
         (staging / "foreign").write_bytes(b"competitor")
 
-    monkeypatch.setattr(sequence, "_close_animation_resources", replace)
+    monkeypatch.setattr(video._PreparedAnimation, "close", replace)
     with pytest.raises(RenderingError, match="staging directory changed"):
         Canvas(1, 1).export_png_sequence(
             tmp_path / "destination", options=PngSequenceOptions(hold=0)

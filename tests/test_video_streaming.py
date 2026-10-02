@@ -117,10 +117,13 @@ def test_batches_are_lazy_and_bounded(monkeypatch, tmp_path):
         return directory / f"segment-{index}.mp4", count
 
     monkeypatch.setattr(video, "_encode_shot_batch", encode)
-    segments, duration = video._encode_shot_batches("ffmpeg", shots(), 10, "mp4", tmp_path)
+    segments, facts = video._encode_shot_batches(
+        "ffmpeg", video._counted_video_shots(shots(), 10), 10, "mp4", tmp_path
+    )
     assert sizes == [64, 64, 1]
     assert len(segments) == 3
-    assert duration == 12.9
+    assert facts.duration == 12.9
+    assert facts.frame_count == 129
     assert events == [event for i in range(129) for event in (("produce", i), ("write", i))]
     with pytest.raises(RenderingError, match="no frames"):
         video._encode_shot_batches("ffmpeg", [], 10, "mp4", tmp_path)
@@ -165,8 +168,10 @@ def test_decoded_pixels_match_legacy_png_path(tmp_path, fps, container):
 @pytest.mark.parametrize("fps", [29.97, 30.0, 60.0, 120.0])
 def test_high_fps_keeps_every_counted_frame_across_batches(tmp_path, fps, container):
     output = tmp_path / f"counted.{container}"
-    video._encode_video_file(
-        (video._Shot(_numbered_frame(index), 1 / fps) for index in range(129)),
+    facts = video._encode_video_file(
+        video._counted_video_shots(
+            (video._Shot(_numbered_frame(index), 1 / fps) for index in range(129)), fps
+        ),
         fps,
         container,
         str(output),
@@ -174,7 +179,10 @@ def test_high_fps_keeps_every_counted_frame_across_batches(tmp_path, fps, contai
     probe = _probe(output)
     stream = probe["streams"][0]
     assert (stream["width"], stream["height"]) == (128, 18)
-    assert int(stream["nb_read_frames"]) == 129
+    assert int(stream["nb_read_frames"]) == facts.frame_count == 129
+    assert (facts.width, facts.height) == (128, 18)
+    assert facts.duration == 129 / fps
+    assert facts.fps == fps
     assert float(probe["format"]["duration"]) == pytest.approx(129 / fps, abs=0.04)
     raw = _decode(output)
     frame_size = 128 * 18 * 3

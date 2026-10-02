@@ -26,8 +26,8 @@ from quickthumb.errors import RenderingError
 
 def write_gif_frames(
     frames: Iterable[tuple[Image.Image, int]], output: IO[bytes], loop: int
-) -> None:
-    """Write quantized frames and millisecond durations without retaining a list."""
+) -> tuple[int, int]:
+    """Write bounded quantized frames; return encoded frame count and duration in ms."""
     iterator = iter(frames)
     try:
         first, duration = next(iterator)
@@ -39,6 +39,8 @@ def write_gif_frames(
     previous = pending
     offset = (0, 0)
     multiple = False
+    frame_count = 0
+    duration_ms = 0
     for image, duration in iterator:
         next_info = {"duration": duration, "loop": loop, "optimize": True}
         current = GifImagePlugin._normalize_palette(image.copy(), None, next_info)
@@ -54,6 +56,9 @@ def write_gif_frames(
             first = None
             multiple = True
         GifImagePlugin._write_frame_data(output, pending, offset, info)
+        frame_count += 1
+        # Pillow truncates to centiseconds after identical frames are merged.
+        duration_ms += int(info["duration"] / 10) * 10
 
         pending = _delta_frame(current, delta, next_info)
         if bounds != (0, 0) + current.size:
@@ -70,6 +75,7 @@ def write_gif_frames(
         GifImagePlugin._write_frame_data(output, pending, offset, info)
         output.write(b";")
         output.flush()
+    return frame_count + 1, duration_ms + int(info["duration"] / 10) * 10
 
 
 def _delta_frame(image: Image.Image, delta: Image.Image, info: dict[str, int]) -> Image.Image:

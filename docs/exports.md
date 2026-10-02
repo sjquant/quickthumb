@@ -184,8 +184,16 @@ to play the animated timeline. Canvas MP4 always uses the animated path.
 Unused authored Morph transitions do not produce fallback errors or receipt
 diagnostics for narrated stills, static files, or reduced-motion execution.
 Reduced animation retains the encoder's holds and default transitions between
-slides. Result timing remains a nominal schedule, not a guarantee of encoded
-frame counts for every format and sampling boundary.
+slides. Built-in animated GIF and MP4/WebM/MOV exports report the encoded visual
+frame count and duration. GIF counts include palette-equivalent frame merging,
+and duration follows its centisecond delays; its reported FPS remains the
+configured sampling rate. Video duration is the encoded frame count divided by
+that rate, excluding container audio padding. Narrated still-slide MP4 and
+custom render overrides retain their nominal timing estimates.
+
+`ExportResult.pixel_metrics.width` and `height` remain the canonical first-canvas
+raster dimensions. They do not describe GIF resizing or MP4/WebM cropping. PNG
+sequence results separately report their full-size output dimensions.
 
 `validate_export(target)` is a declared motion-capability query, independent of
 file execution options. For example, `validate_export("mp4")` still queries

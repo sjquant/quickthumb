@@ -1193,10 +1193,11 @@ class Canvas:
                 )
             if diagnostics is None:
                 diagnostics = preflight_export(cast(Document, self), resolved, policy)
+            facts = None
             if resolved.mode == "animated":
                 from quickthumb._export_video import write_animation
 
-                write_animation(
+                facts = write_animation(
                     [self],
                     [None],
                     output_path,
@@ -1206,7 +1207,7 @@ class Canvas:
                 )
             else:
                 self._render_document(output_path, extension, policy=policy)
-            return _ExportReceipt([output_path], diagnostics)
+            return _ExportReceipt([output_path], diagnostics, facts)
 
         if animation is not None:
             raise RenderingError(

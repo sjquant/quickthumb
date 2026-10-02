@@ -197,16 +197,19 @@ def _scenes():
 def test_all_transition_families_serial_spawn_parity_and_reverse_sampling(quality):
     canvases, transitions = _scenes()
     plan = video._deck_plan(canvases, transitions, 0.1, 0.1, None, quality=quality)
-    serial = [
-        (s.duration, s.frame.tobytes())
-        for s in video._deck_shots(canvases, transitions, 10, 0.1, None, plan=plan, quality=quality)
-    ]
-    parallel = [
-        (s.duration, s.frame.tobytes())
-        for s in video._deck_shots(
-            canvases, transitions, 10, 0.1, None, plan=plan, workers=2, quality=quality
-        )
-    ]
+    results = []
+    for workers in (1, 2):
+        with video._PreparedAnimation(
+            canvases,
+            transitions,
+            fps=10,
+            slide_duration=0.1,
+            matte=None,
+            workers=workers,
+            quality=quality,
+        ) as prepared:
+            results.append([(s.duration, s.frame.tobytes()) for s in prepared.shots()])
+    serial, parallel = results
     assert serial == parallel
     assert set(serial[0][1][3::4]) == {0}  # Slide zero starts in transparency.
     renderer = _FrameRenderer(
@@ -236,7 +239,11 @@ def test_every_transition_decodes_alpha_and_color_planes(tmp_path):
     frames = [video._transition_frame(t, previous, incoming, 0.5) for t in TRANSITIONS]
     path = tmp_path / "transitions.webm"
     video._encode_video_file(
-        (video._Shot(f, 0.1) for f in frames), 10, "webm", str(path), transparent=True
+        video._counted_video_shots((video._Shot(f, 0.1) for f in frames), 10),
+        10,
+        "webm",
+        str(path),
+        transparent=True,
     )
     decoded = decode(path, (64, 48))
     assert len(decoded) == len(frames)
@@ -295,7 +302,9 @@ def test_alpha_survives_real_64_shot_batch_boundary_with_cumulative_counts(tmp_p
     path = tmp_path / "boundaries.webm"
     # More than 64 emitted distinct shots forces real segment concatenation.
     assert len(list(video._counted_video_shots(frames, 10))) > 64
-    video._encode_video_file(iter(frames), 10, "webm", str(path), transparent=True)
+    video._encode_video_file(
+        video._counted_video_shots(iter(frames), 10), 10, "webm", str(path), transparent=True
+    )
     decoded = decode(path, (128, 32))
     actual = [
         sum((pixel(frame, (16 * bit + 8, 16))[3] > 160) << bit for bit in range(8))
@@ -335,7 +344,13 @@ def test_lossless_alpha_ramp_decodes_every_8_bit_level(tmp_path):
     frame = Image.new("RGBA", (256, 16), (190, 80, 30, 255))
     frame.putalpha(Image.frombytes("L", frame.size, bytes(range(256)) * 16))
     path = tmp_path / "alpha-ramp.webm"
-    video._encode_video_file([video._Shot(frame, 0.1)], 10, "webm", str(path), transparent=True)
+    video._encode_video_file(
+        video._counted_video_shots([video._Shot(frame, 0.1)], 10),
+        10,
+        "webm",
+        str(path),
+        transparent=True,
+    )
     actual = decode(path, frame.size)[0]
     difference = ImageChops.difference(actual.getchannel("A"), frame.getchannel("A"))
     assert cast(int, difference.getextrema()[1]) <= 1

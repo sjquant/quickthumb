@@ -43,7 +43,7 @@ from quickthumb.transitions import Transition, coerce_transition
 
 if TYPE_CHECKING:
     from quickthumb._document import TimelineInputs, _ExportReceipt, _ResolvedExport
-    from quickthumb._export_video import AnimationFormat
+    from quickthumb._export_video import AnimationFormat, _AnimationFacts
 
 
 class DeckDiagnostic(quickthumbModel):
@@ -454,13 +454,13 @@ class Deck:
                 )
             if diagnostics is None:
                 diagnostics = preflight_export(cast(Document, self), resolved, policy)
-            self._render_animated_file(
+            facts = self._render_animated_file(
                 output_path,
                 cast("AnimationFormat", resolved.output_format),
                 animation,
                 reduced_motion=not resolved.uses_authored_transitions,
             )
-            return _ExportReceipt([output_path], diagnostics)
+            return _ExportReceipt([output_path], diagnostics, facts)
 
         if resolved.mode == "document":
             if quality is not None:
@@ -577,12 +577,12 @@ class Deck:
         animation: GifOptions | VideoOptions | None = None,
         *,
         reduced_motion: bool = False,
-    ) -> None:
+    ) -> _AnimationFacts:
         """Render an animated Deck, mixing scheduled narration when requested."""
         from quickthumb._export_video import write_animation
 
         if format == "gif":
-            write_animation(
+            return write_animation(
                 self._slides,
                 self._resolved_transitions(),
                 output_path,
@@ -590,11 +590,10 @@ class Deck:
                 animation=animation,
                 reduced_motion=reduced_motion,
             )
-            return
         if isinstance(animation, GifOptions):
             raise ValidationError("GifOptions are only supported for GIF output")
         slide_durations, audio_durations = self._animation_audio_schedule()
-        write_animation(
+        return write_animation(
             self._slides,
             self._resolved_transitions(),
             output_path,
