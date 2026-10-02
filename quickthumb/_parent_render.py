@@ -104,6 +104,14 @@ def _animated_descendant(layer) -> bool:
     )
 
 
+def _authored_stagger(layer) -> bool:
+    animation = getattr(layer, "animation", None)
+    items = animation if isinstance(animation, list) else [animation]
+    return any(
+        isinstance(item, AnimationSpec) and item.stagger is not None for item in items
+    ) or any(_authored_stagger(child) for child in getattr(layer, "children", ()))
+
+
 def parent_rendering_problem(canvas: Canvas) -> str | None:
     """Describe unsupported source/composition boundaries without rendering assets."""
     nodes = participating_layers(canvas)
@@ -126,19 +134,13 @@ def parent_rendering_problem(canvas: Canvas) -> str | None:
             if descendant_composition:
                 if not _static_content(layer):
                     return "Parent-linked groups with descendant boundaries require static content"
-                if _animated_descendant(layer):
+                if _authored_stagger(layer):
+                    return "Parent-linked groups with descendant boundaries cannot use stagger"
+            if layer.animation is None and _animated_descendant(layer):
+                if descendant_composition:
                     return (
                         "Parent-linked groups with descendant boundaries cannot animate descendants"
                     )
-                animations = (
-                    layer.animation if isinstance(layer.animation, list) else [layer.animation]
-                )
-                if any(
-                    isinstance(item, AnimationSpec) and item.stagger is not None
-                    for item in animations
-                ):
-                    return "Parent-linked groups with descendant boundaries cannot use stagger"
-            if layer.animation is None and _animated_descendant(layer):
                 return "Parent-linked groups with independent descendant animations are unsupported"
         animation = getattr(layer, "animation", None)
         items = animation if isinstance(animation, list) else [animation]

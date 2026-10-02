@@ -221,7 +221,18 @@ def test_nested_boundaries_preserve_body_pivot_and_explicit_child(empty):
 
 
 @pytest.mark.parametrize(
-    "kind", ["counter", "sibling_counter", "animation", "overridden", "stagger"]
+    "kind",
+    [
+        "counter",
+        "sibling_counter",
+        "overridden_counter",
+        "animation",
+        "ancestor_animation",
+        "inner_animation",
+        "stagger",
+        "descendant_stagger",
+        "deep_stagger",
+    ],
 )
 def test_descendant_boundary_guards_preflight_every_observation_and_export(
     monkeypatch, tmp_path, kind
@@ -230,17 +241,32 @@ def test_descendant_boundary_guards_preflight_every_observation_and_export(
     group = cast(GroupLayer, canvas.layers[-1])
     middle = cast(GroupLayer, group.children[0])
     text = TextLayer(type="text", content="12", font=FONT, size=20)
-    if kind in {"counter", "sibling_counter"}:
+    if kind in {"counter", "sibling_counter", "overridden_counter"}:
         text.value = AnimatedTextValue.model_validate({"from": 1, "to": 12, "duration": 1})
-        (middle if kind == "counter" else group).children.append(text)
-        expected = "require static content"
-    elif kind in {"animation", "overridden"}:
-        cast(ShapeLayer, middle.children[0]).animation = AnimationSpec.fade(duration=1)
-        if kind == "overridden":
+        (group if kind == "sibling_counter" else middle).children.append(text)
+        if kind == "overridden_counter":
             group.animation = motion(track(OpacityTrack, 0, 1))
+        expected = "require static content"
+    elif kind in {"animation", "ancestor_animation", "inner_animation"}:
+        cast(ShapeLayer, middle.children[0]).animation = AnimationSpec.fade(duration=1)
+        if kind == "ancestor_animation":
+            canvas.layers[0].animation = motion(track(OpacityTrack, 0, 1))
+        elif kind == "inner_animation":
+            middle.animation = motion(track(OpacityTrack, 0, 1))
         expected = "cannot animate descendants"
     else:
-        group.animation = AnimationSpec.rise(stagger=0, target="children")
+        group.animation = motion(track(OpacityTrack, 0, 1))
+        if kind == "stagger":
+            group.animation = AnimationSpec.rise(stagger=0, target="children")
+        elif kind == "descendant_stagger":
+            middle.animation = [AnimationSpec.rise(stagger=0, target="children")]
+        else:
+            inner = cast(GroupLayer, middle.children[1])
+            wrapper = cast(GroupLayer, inner.children[0])
+            cast(TextLayer, wrapper.children[0]).animation = [
+                AnimationSpec.fade(duration=1),
+                AnimationSpec.rise(stagger=0.1, target="characters"),
+            ]
         expected = "cannot use stagger"
     monkeypatch.setattr(canvas, "_render_layer", lambda *_a, **_k: pytest.fail("preflight painted"))
     monkeypatch.setattr(
@@ -255,7 +281,14 @@ def test_descendant_boundary_guards_preflight_every_observation_and_export(
         with pytest.raises(RenderingError, match=expected):
             observe()
     for target in ("raster", "video", "html", "pptx"):
-        with pytest.raises(RenderingError, match=expected):
+        diagnostic = next(
+            item for item in canvas.validate_export(target) if item.feature == "parent"
+        )
+        assert expected in diagnostic.message
+        assert diagnostic.support == "unsupported"
+        # A separately animated ancestor may trigger its own strict capability
+        # error first; the parent row still reports the exact source guard.
+        with pytest.raises(RenderingError):
             canvas.validate_export(target, ExportPolicy(unsupported_motion="error"))
     for kind in ("png", "gif", "html", "svg", "pdf", "pptx"):
         path = tmp_path / ("existing." + kind)
