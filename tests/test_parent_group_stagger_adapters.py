@@ -138,7 +138,7 @@ def test_unsupported_composed_group_combinations_fail_before_paint_or_output(
             deep.animation = AnimationSpec.fade(duration=1)
         else:
             group.children.append(counter)
-        expected = "require static content"
+        expected = "Parent-linked stagger requires a static text or group source"
     elif "stagger" in kind and kind != "stagger_parent":
         target = (
             group.children[0]
