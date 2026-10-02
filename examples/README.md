@@ -243,6 +243,12 @@ to keep the animation compatible with the approximate HTML path mapping.
 
 ## Assets and Fonts
 
+`png_sequence_overlay.py` exports a transparent lower third as a silent PNG
+animation sequence. It needs no FFmpeg, uses the bundled font, and demonstrates
+`PngSequenceOptions`, exact RGBA8 alpha, and the compact manifest/result. Each
+run requires a fresh `examples/output/png_sequence_overlay` directory; existing
+outputs are never overwritten.
+
 The example scripts set:
 
 - `QUICKTHUMB_FONT_DIR` to `assets/fonts`

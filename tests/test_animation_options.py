@@ -13,7 +13,7 @@ from unittest.mock import Mock
 
 import pytest
 from PIL import Image, ImageSequence
-from quickthumb import AudioTrack, Canvas, Deck, Fade, GifOptions, VideoOptions
+from quickthumb import AudioTrack, Canvas, Deck, Fade, GifOptions, PngSequenceOptions, VideoOptions
 from quickthumb import _export_video as video
 from quickthumb import transitions as tr
 from quickthumb.errors import ValidationError
@@ -86,6 +86,7 @@ def test_hold_roundtrips_omit_only_the_default(options):
     }
     with pytest.raises(ValidationError, match="slide_duration"):
         options.model_validate({"slide_duration": 1})
+    assert set(PngSequenceOptions.model_fields) == {"fps", "hold", "workers", "quality"}
 
 
 @pytest.mark.parametrize("options", [GifOptions, VideoOptions])
