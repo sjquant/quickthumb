@@ -20,8 +20,11 @@ from quickthumb import (
     ScaleYTrack,
     TimingSpec,
 )
+from quickthumb._export_base import _motion_number
 from quickthumb._export_html import HtmlExporter
-from quickthumb._parent_export import ParentHtmlAdapter, parent_html_sampling
+from quickthumb._export_video import _SlideAnimator
+from quickthumb._parent_export import bake_parent_html, parent_html_sampling
+from quickthumb._parent_render import multiply, translate
 from quickthumb.errors import RenderingError
 
 
@@ -49,22 +52,46 @@ def scene(animation=None):
     )
 
 
-def adapter(canvas):
+def bake(canvas):
     sampling = parent_html_sampling(canvas)
     assert sampling.problem is None
-    return ParentHtmlAdapter(canvas, sampling.times)
+    return bake_parent_html(canvas, sampling.times)
+
+
+def css_row(row):
+    return {
+        f"--qt-parent-{name}": _motion_number(value)
+        for name, value in zip(("a", "b", "c", "d", "e", "f", "opacity"), row, strict=True)
+    }
+
+
+def source_image(source):
+    return Image.open(BytesIO(source.png)).convert("RGBA")
+
+
+def reference_row(node, sample):
+    paint, _, state, _ = sample
+    matrix = multiply(paint, translate(-node.padding, -node.padding))
+    opacity = 1.0
+    if state.hidden:
+        opacity = 0.0
+    elif state.canonical:
+        opacity = min(1.0, max(0.0, state.canonical.layer.opacity)) * state.canonical.alpha_scale
+    return (*matrix, opacity)
 
 
 def test_three_level_shear_and_css_order_match_independent_corner_math():
     canvas = scene(motion(track(RotationTrack, 45), track(ScaleXTrack, 2), track(ScaleYTrack, 0.5)))
-    baked = adapter(canvas)
-    node = baked.plan.nodes[id(canvas.layers[-1])]
-    values = list(baked.values[id(node)][0].values())[:7]
+    baked = bake(canvas)
+    source = baked.sources[id(canvas.layers[-1])]
+    values = list(css_row(source.rows[0]).values())
     a, b, c, d, e, f, opacity = map(float, values)
     x = 20 + 10 * math.cos(math.pi / 6) - 5 * math.sin(math.pi / 6)
     y = -15 + 10 * math.sin(math.pi / 6) + 5 * math.cos(math.pi / 6)
     expected = (100 + (2 * x - 0.5 * y) / math.sqrt(2), 80 + (2 * x + 0.5 * y) / math.sqrt(2))
-    actual = (a * node.padding + b * node.padding + c, d * node.padding + e * node.padding + f)
+    # Locate the authored 20-by-10 rectangle inside its padded source image.
+    px, py = (source.width - 20) / 2, (source.height - 10) / 2
+    actual = (a * px + b * py + c, d * px + e * py + f)
     assert actual == pytest.approx(expected)
     assert a * b + d * e != pytest.approx(0)  # nonorthogonal columns retain shear
     assert opacity == 1
@@ -73,14 +100,13 @@ def test_three_level_shear_and_css_order_match_independent_corner_math():
     assert "transform-origin:0 0" in stage.body
     assert sum(item.startswith("@property") for item in stage.keyframes) == 7
     assert stage.timeline[0]["initial"]["--qt-parent-a"] == values[0]
-    assert stage.timeline[0]["final"] == baked.values[id(node)][-1]
+    assert stage.timeline[0]["final"] == css_row(source.rows[-1])
 
 
 def test_stable_reflection_does_not_fade_opacity():
     canvas = scene(motion(track(ScaleXTrack, -1, -2)))
-    baked = adapter(canvas)
-    node = baked.plan.nodes[id(canvas.layers[-1])]
-    rows = baked.values[id(node)]
+    baked = bake(canvas)
+    rows = [css_row(row) for row in baked.sources[id(canvas.layers[-1])].rows]
     assert {row["--qt-parent-opacity"] for row in rows} == {"1"}
     assert float(rows[0]["--qt-parent-a"]) < 0
     assert float(rows[-1]["--qt-parent-a"]) == 2 * float(rows[0]["--qt-parent-a"])
@@ -159,9 +185,9 @@ def test_short_full_rotation_cannot_alias_to_identical_endpoints(easing):
     animation = motion(track(RotationTrack, 0, 360, duration=0.001), duration=0.001)
     animation.easing = easing
     canvas = scene(animation)
-    baked = adapter(canvas)
+    baked = bake(canvas)
     assert len(baked.times) >= 121
-    rows = baked.values[id(baked.plan.nodes[id(canvas.layers[-1])])]
+    rows = [css_row(row) for row in baked.sources[id(canvas.layers[-1])].rows]
     assert min(float(row["--qt-parent-a"]) for row in rows) < 0
     assert max(float(row["--qt-parent-a"]) for row in rows) > 0
 
@@ -373,15 +399,16 @@ async function drain(){for(const timer of timers.splice(0))timer.fn();await Prom
 
 def test_sampled_css_matches_graph_at_every_shared_observation():
     from examples.parent_transforms import build_scene
-    from quickthumb._parent_export import parent_css_values
 
     canvas = build_scene()
-    baked = adapter(canvas)
+    baked = bake(canvas)
+    animator = _SlideAnimator(canvas, {})
+    plan = next(unit.parent_plan for unit in animator._units if unit.parent_plan is not None)
     for index, time in enumerate(baked.times):
-        sampled = baked.plan.sample(time)
-        for node in baked.plan.nodes.values():
-            if node.image is not None:
-                assert baked.values[id(node)][index] == parent_css_values(node, sampled[id(node)])
+        sampled = plan.sample(time)
+        for layer_id, source in baked.sources.items():
+            node = plan.nodes[layer_id]
+            assert source.rows[index] == reference_row(node, sampled[id(node)])
     assert len(baked.times) <= 4097
 
 
@@ -405,22 +432,23 @@ def test_nulls_cannot_bypass_graph_evaluation_budget(monkeypatch):
 
 def test_example_numeric_css_interpolation_has_small_midpoint_error():
     from examples.parent_transforms import build_scene
-    from quickthumb._parent_export import PARENT_PROPERTIES, parent_css_values
 
-    baked = adapter(build_scene())
+    canvas = build_scene()
+    baked = bake(canvas)
+    animator = _SlideAnimator(canvas, {})
+    plan = next(unit.parent_plan for unit in animator._units if unit.parent_plan is not None)
     maximum = 0
     for index, (left, right) in enumerate(zip(baked.times, baked.times[1:], strict=False)):
-        sample = baked.plan.sample((left + right) / 2)
-        for node in baked.plan.nodes.values():
-            if node.image is None:
-                continue
-            first = [float(baked.values[id(node)][index][key]) for key in PARENT_PROPERTIES][:6]
-            last = [float(baked.values[id(node)][index + 1][key]) for key in PARENT_PROPERTIES][:6]
+        sample = plan.sample((left + right) / 2)
+        for layer_id, source in baked.sources.items():
+            node = plan.nodes[layer_id]
+            first = [float(value) for value in css_row(source.rows[index]).values()][:6]
+            last = [float(value) for value in css_row(source.rows[index + 1]).values()][:6]
             css = [(a + b) / 2 for a, b in zip(first, last, strict=True)]
             exact = [
-                float(parent_css_values(node, sample[id(node)])[key]) for key in PARENT_PROPERTIES
+                float(value) for value in css_row(reference_row(node, sample[id(node)])).values()
             ][:6]
-            for x, y in [(0, 0), node.image.size]:
+            for x, y in [(0, 0), (source.width, source.height)]:
                 maximum = max(
                     maximum,
                     math.hypot(
@@ -430,3 +458,194 @@ def test_example_numeric_css_interpolation_has_small_midpoint_error():
                 )
     # A numerical fixture regression, not a general browser/screen-space guarantee.
     assert maximum < 0.01
+
+
+def test_baked_values_release_graph_and_remain_usable_without_sampling(monkeypatch):
+    import gc
+    import pickle
+    import weakref
+
+    from quickthumb import _export_video
+
+    canvas = scene(motion(track(RotationTrack, 0, 30)))
+    canvas.shape("rectangle", (0, 0), 10, 10, "#000000", parent="root", opacity=0)
+    expected = HtmlExporter(canvas).render_stage()
+    references = []
+
+    def prepare(*args, **kwargs):
+        animator = _SlideAnimator(*args, **kwargs)
+        plan = next(unit.parent_plan for unit in animator._units if unit.parent_plan is not None)
+        references.extend(weakref.ref(item) for item in (animator, plan, *animator._units))
+        for node in plan.nodes.values():
+            references.append(weakref.ref(node))
+            if node.image is not None:
+                references.append(weakref.ref(node.image))
+            if node.source is not None:
+                references.append(weakref.ref(node.source))
+        return animator
+
+    monkeypatch.setattr(_export_video, "_SlideAnimator", prepare)
+    was_enabled = gc.isenabled()
+    gc.disable()
+    try:
+        baked = bake(canvas)
+        assert references and all(reference() is None for reference in references)
+    finally:
+        if was_enabled:
+            gc.enable()
+    assert baked.layer_ids == frozenset(id(layer) for layer in canvas.layers)
+    assert set(baked.sources) == {id(canvas.layers[2])}
+    source = baked.sources[id(canvas.layers[2])]
+    assert source_image(source).size == (source.width, source.height)
+    assert len(source.rows) == len(baked.times)
+    assert all(len(row) == 7 for row in source.rows)
+    # A serialization round-trip cannot retain callbacks, iterators or graph objects.
+    restored = pickle.loads(pickle.dumps(baked))
+    assert restored == baked
+    monkeypatch.setattr(
+        _export_video, "_SlideAnimator", lambda *_: pytest.fail("emission reopened the graph")
+    )
+    exporter = HtmlExporter(Canvas(canvas.width, canvas.height))
+    for layer in canvas.layers:
+        if source := restored.sources.get(id(layer)):
+            exporter._emit_parent_source(source, restored.times)
+    exporter._emit_parent_clock(restored.times[-1])
+    assert "\n".join(exporter._body) == expected.body
+    assert exporter._keyframes == expected.keyframes
+    assert exporter._timeline == expected.timeline
+
+
+def test_parent_registration_occurs_at_first_visible_source_and_survives_exporter_reuse():
+    canvas = scene(motion(track(RotationTrack, 0, 30)))
+    canvas.shape("ellipse", (5, 5), 8, 8, "#00FF00", parent="root")
+    exporter = HtmlExporter(canvas)
+    exporter._keyframes.append("/* existing keyframe position */")
+    first = exporter.render_stage()
+    second = exporter.render_stage()
+    assert first.keyframes[0] == second.keyframes[0] == "/* existing keyframe position */"
+    assert all(item.startswith("@property") for item in first.keyframes[1:8])
+    assert sum(item.startswith("@property") for item in second.keyframes) == 7
+    assert second.keyframes[: len(first.keyframes)] == first.keyframes
+    assert len(second.keyframes) == len(first.keyframes) + 2
+    assert second.body.startswith(first.body + "\n")
+    assert re.findall(r'id="([^"]+)"', second.body) == ["qt-l1", "qt-l2", "qt-l3", "qt-l4"]
+    assert [item["k"] for item in second.timeline] == ["qt-k1", "qt-k2", "qt-k3", "qt-k4"]
+    assert second.timeline[:2] == first.timeline
+    assert [item["tr"] for item in second.timeline[2:]] == ["with_previous", "with_previous"]
+
+
+def test_two_parent_slides_keep_stage_ids_keyframes_registration_and_morph_exclusion():
+    from quickthumb import Deck, Morph
+
+    from tests.test_export_html import timelines
+
+    first = scene(motion(track(RotationTrack, 0, 30)))
+    second = scene(motion(track(RotationTrack, 30, 60)))
+    for canvas in (first, second):
+        canvas.layers[2].motion_key = "matching-child"
+        canvas.shape("ellipse", (5, 5), 8, 8, "#00FF00", parent="root")
+    deck = Deck(220, 160).slide(first).slide(second, transition=Morph())
+    html = deck.to_html()
+    nodes = timelines(html)
+    assert len(nodes) == 2
+    names = re.findall(r"@keyframes ([^\{]+)\{", html)
+    for index, stage_nodes in enumerate(nodes):
+        assert [node["t"] for node in stage_nodes] == [["qt-l1"], ["qt-l2"]]
+        assert [node["k"] for node in stage_nodes] == [f"qt-s{index}-k1", f"qt-s{index}-k2"]
+        assert all(names.count(node["k"]) == 1 for node in stage_nodes)
+        assert [node["tr"] for node in stage_nodes] == ["after_previous", "with_previous"]
+    for prop in ("a", "b", "c", "d", "e", "f", "opacity"):
+        assert html.count(f"@property --qt-parent-{prop}{{") == 2
+    assert 'data-qt-morph="1"' not in html
+    assert 'data-qt-motion-key="matching-child"' not in html
+    assert "@keyframes qt-t1{from{opacity:0}to{opacity:1}}" in html
+    assert all(
+        item.fallback == "fade"
+        for item in deck.validate_export("html")
+        if item.feature == "parent_morph"
+    )
+
+
+class _Cancelled(BaseException):
+    pass
+
+
+class _Reader:
+    def __init__(self, error=None):
+        self.error = error
+        self.calls = 0
+
+    def close(self):
+        self.calls += 1
+        if self.error is not None:
+            raise self.error
+
+
+@pytest.mark.parametrize("phase", ["preparation", "sampling", "emission", "static"])
+@pytest.mark.parametrize("error_type", [RenderingError, _Cancelled])
+@pytest.mark.parametrize("cleanup_error_type", [RuntimeError, _Cancelled])
+def test_stage_preserves_primary_error_and_retries_failed_readers(
+    monkeypatch, phase, error_type, cleanup_error_type
+):
+    from quickthumb import _export_video, _parent_export
+    from quickthumb._parent_render import ParentRenderPlan
+
+    canvas = scene(motion(track(RotationTrack, 0, 30)))
+    original = error_type("primary stage failure")
+    readers = [_Reader(cleanup_error_type("first cleanup")), _Reader(), _Reader(RuntimeError())]
+
+    def fail(*args, **kwargs):
+        canvas._ctx.video_decoder_cache.update(
+            zip(("first", "second", "third"), readers, strict=True)
+        )
+        canvas._ctx.motion_time = 0.5
+        raise original
+
+    if phase == "preparation":
+        monkeypatch.setattr(_export_video, "_SlideAnimator", fail)
+    elif phase == "sampling":
+        monkeypatch.setattr(ParentRenderPlan, "sample", fail)
+    elif phase == "emission":
+        monkeypatch.setattr(HtmlExporter, "_emit_parent_source", fail)
+    else:
+        # Exercise errors reaching this boundary; nested raster cleanup has its own lifecycle.
+        monkeypatch.setattr(_parent_export, "static_parent_fragment", fail)
+    with pytest.raises(error_type) as raised:
+        HtmlExporter(canvas, parent_static=phase == "static").render_stage()
+    assert raised.value is original
+    assert canvas._ctx.motion_time is None
+    assert [reader.calls for reader in readers] == [1, 1, 1]
+    assert canvas._ctx.video_decoder_cache == {"first": readers[0], "third": readers[2]}
+    readers[0].error = readers[2].error = None
+    canvas._ctx.close_video_decoders()
+    assert [reader.calls for reader in readers] == [2, 1, 2]
+    assert not canvas._ctx.video_decoder_cache
+
+
+@pytest.mark.parametrize("cleanup_error_type", [RuntimeError, _Cancelled])
+def test_successful_stage_surfaces_cleanup_failure_and_retries_failed_readers(
+    monkeypatch, cleanup_error_type
+):
+    canvas = scene(motion(track(RotationTrack, 0, 30)))
+    original = cleanup_error_type("cleanup after successful emission")
+    readers = [_Reader(original), _Reader(), _Reader(RuntimeError())]
+    emit = HtmlExporter._emit_parent_source
+
+    def emit_with_readers(exporter, *args):
+        emit(exporter, *args)
+        canvas._ctx.video_decoder_cache.update(
+            zip(("first", "second", "third"), readers, strict=True)
+        )
+        canvas._ctx.motion_time = 0.5
+
+    monkeypatch.setattr(HtmlExporter, "_emit_parent_source", emit_with_readers)
+    with pytest.raises(cleanup_error_type) as raised:
+        HtmlExporter(canvas).render_stage()
+    assert raised.value is original
+    assert canvas._ctx.motion_time is None
+    assert [reader.calls for reader in readers] == [1, 1, 1]
+    assert canvas._ctx.video_decoder_cache == {"first": readers[0], "third": readers[2]}
+    readers[0].error = readers[2].error = None
+    canvas._ctx.close_video_decoders()
+    assert [reader.calls for reader in readers] == [2, 1, 2]
+    assert not canvas._ctx.video_decoder_cache

@@ -90,6 +90,7 @@ from quickthumb.motion import (
 )
 
 if TYPE_CHECKING:
+    from quickthumb._parent_export import ParentHtmlSource
     from quickthumb.canvas import Canvas, RenderableLayer
 
 
@@ -110,6 +111,10 @@ _WIPE_INSETS = {
     "right": "inset(0 100% 0 0)",
 }
 _SHOWN_OPACITY = "var(--qt-opacity,1)"
+_PARENT_PROPERTIES = {
+    f"--qt-parent-{name}": "1" if name in {"a", "e", "opacity"} else "0"
+    for name in ("a", "b", "c", "d", "e", "f", "opacity")
+}
 
 
 # --- animation effect -> (entrance from-state, to-state) CSS property blocks ----
@@ -460,6 +465,7 @@ class HtmlExporter:
         self._next_id = 1
         self._next_kf = 1
         self._transform_properties_registered = False
+        self._parent_properties_registered = False
         # Track group-animation identity so flattened group children sharing one
         # animation object animate together as a single timeline node.
         self._prev_anim_key: int | None = None
@@ -574,7 +580,7 @@ class HtmlExporter:
         canvas._ctx.begin_render_pass()
 
         from quickthumb._parent_export import (
-            ParentHtmlAdapter,
+            bake_parent_html,
             parent_html_sampling,
             static_parent_fragment,
         )
@@ -582,6 +588,7 @@ class HtmlExporter:
         from quickthumb.models import NullLayer
 
         parent = has_parent_links(canvas)
+        stage_failed = False
         try:
             sampling = parent_html_sampling(canvas) if parent else None
             if sampling and (self._reduced_motion or self._parent_static or sampling.problem):
@@ -594,13 +601,11 @@ class HtmlExporter:
                     timeline=[],
                     parent_geometry=True,
                 )
-            adapter = ParentHtmlAdapter(canvas, sampling.times) if sampling else None
+            baked = bake_parent_html(canvas, sampling.times) if sampling else None
             prefix, rest = split_backdrop_prefix(
-                flatten_layers(
-                    canvas, parent_nodes=frozenset(adapter.plan.nodes) if adapter else None
-                )
+                flatten_layers(canvas, parent_nodes=baked.layer_ids if baked else None)
             )
-            if adapter:
+            if baked:
                 # Null controllers keep their clocks in the plan, never in a
                 # backdrop-dependent visual prefix or its animation guard.
                 prefix = [layer for layer in prefix if not isinstance(layer, NullLayer)]
@@ -617,12 +622,13 @@ class HtmlExporter:
                 if fragment:
                     self._emit_fragment(fragment)
             for layer in rest:
-                if adapter and id(layer) in adapter.plan.nodes:
-                    adapter.emit(self, layer)
+                if baked and id(layer) in baked.layer_ids:
+                    if source := baked.sources.get(id(layer)):
+                        self._emit_parent_source(source, baked.times)
                 else:
                     self._emit_layer(layer)
-            if adapter:
-                adapter.emit_clock(self)
+            if baked:
+                self._emit_parent_clock(baked.times[-1])
             return Stage(
                 width=canvas.width,
                 height=canvas.height,
@@ -631,10 +637,105 @@ class HtmlExporter:
                 timeline=_rebase_absolute_delays(self._timeline),
                 parent_geometry=parent,
             )
+        except BaseException:
+            stage_failed = True
+            raise
         finally:
             if parent:
                 canvas._ctx.motion_time = None
-                canvas._ctx.close_video_decoders()
+                try:
+                    canvas._ctx.close_video_decoders()
+                except BaseException:
+                    if not stage_failed:
+                        raise
+
+    def _emit_parent_source(self, source: ParentHtmlSource, times: tuple[float, ...]) -> None:
+        """Emit independent coefficients without CSS matrix decomposition."""
+        if not self._parent_properties_registered:
+            self._keyframes.extend(
+                f'@property {name}{{syntax:"<number>";inherits:false;initial-value:{value}}}'
+                for name, value in _PARENT_PROPERTIES.items()
+            )
+            self._parent_properties_registered = True
+        values = [
+            {
+                name: _motion_number(value)
+                for name, value in zip(_PARENT_PROPERTIES, row, strict=True)
+            }
+            for row in source.rows
+        ]
+        element_id = self._make_id()
+        duration = times[-1]
+        if duration > 0:
+            keyframe = f"{self._keyframe_prefix}{self._next_kf}"
+            self._next_kf += 1
+            self._keyframes.append(
+                "@keyframes "
+                + keyframe
+                + "{"
+                + "".join(
+                    _motion_number((time / duration) * 100)
+                    + "%{"
+                    + ";".join(f"{name}:{value}" for name, value in stop.items())
+                    + "}"
+                    for time, stop in zip(times, values, strict=True)
+                )
+                + "}"
+            )
+            self._timeline.append(
+                {
+                    "t": [element_id],
+                    "k": keyframe,
+                    "d": duration,
+                    "delay": 0,
+                    "tr": "with_previous" if self._timeline else "after_previous",
+                    "a": "transform",
+                    "e": "linear",
+                    "initial": values[0],
+                    "final": values[-1],
+                }
+            )
+        encoded = base64.b64encode(source.png).decode("ascii")
+        style = (
+            f"position:absolute;left:0;top:0;width:{source.width}px;height:{source.height}px;"
+            + ";".join(f"{name}:{value}" for name, value in values[0].items())
+            + ";"
+            "transform-origin:0 0;transform:matrix(var(--qt-parent-a),var(--qt-parent-d),"
+            "var(--qt-parent-b),var(--qt-parent-e),var(--qt-parent-c),var(--qt-parent-f));"
+            "opacity:var(--qt-parent-opacity);"
+        )
+        # Whole-stage Morph is disabled for parent scenes; do not expose keys
+        # that could otherwise invite the runtime to replace this matrix.
+        self._body.append(
+            f'<img id="{element_id}" data-qt-parent-node="1" style="{style}" '
+            f'src="data:image/png;base64,{encoded}" alt="">'
+        )
+
+    def _emit_parent_clock(self, duration: float) -> None:
+        """Retain timing even when every graph source is null or transparent."""
+        if self._timeline or duration == 0:
+            return
+        element_id = self._make_id()
+        keyframe = f"{self._keyframe_prefix}{self._next_kf}"
+        self._next_kf += 1
+        self._keyframes.append(f"@keyframes {keyframe}" + "{from{opacity:0}to{opacity:0}}")
+        self._timeline.append(
+            {
+                "t": [element_id],
+                "k": keyframe,
+                "d": duration,
+                "delay": 0,
+                "tr": "after_previous",
+                "a": "transform",
+                "e": "linear",
+                "initial": {},
+                "final": {},
+            }
+        )
+        self._body.append(
+            f'<span id="{element_id}" data-qt-parent-clock="1" aria-hidden="true" '
+            'style="position:absolute;width:0;height:0;opacity:0;pointer-events:none"></span>'
+        )
 
     def _make_id(self) -> str:
         element_id = f"qt-l{self._next_id}"

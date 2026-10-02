@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-import base64
 import math
 from dataclasses import dataclass
 from io import BytesIO
 from typing import TYPE_CHECKING
 
-from quickthumb._export_base import RasterFragment, _motion_number
+from quickthumb._export_base import RasterFragment
 from quickthumb._parent_render import (
     multiply,
     parent_rendering_problem,
@@ -28,10 +27,6 @@ from quickthumb.motion import TimelineEvent, compile_timeline
 if TYPE_CHECKING:
     from quickthumb.canvas import Canvas
 
-PARENT_PROPERTIES = {
-    f"--qt-parent-{name}": "1" if name in {"a", "e", "opacity"} else "0"
-    for name in ("a", "b", "c", "d", "e", "f", "opacity")
-}
 _GEOMETRY_TRACKS = {"position", "rotation", "scale", "scale_x", "scale_y", "opacity"}
 MAX_PARENT_STOPS = 4097
 
@@ -200,7 +195,23 @@ def _parent_sample_times(events: list[TimelineEvent]) -> tuple[float, ...] | Non
     return tuple(sorted(times))
 
 
-def parent_css_values(node, sample) -> dict[str, str]:
+@dataclass(frozen=True)
+class ParentHtmlSource:
+    png: bytes
+    width: int
+    height: int
+    # Each row is (a, b, c, d, e, f, opacity) in shared-clock order.
+    rows: tuple[tuple[float, ...], ...]
+
+
+@dataclass(frozen=True)
+class BakedParentHtml:
+    times: tuple[float, ...]
+    layer_ids: frozenset[int]
+    sources: dict[int, ParentHtmlSource]
+
+
+def _parent_row(node, sample) -> tuple[float, ...]:
     paint, _, state, _ = sample
     matrix = multiply(paint, translate(-node.padding, -node.padding))
     opacity = (
@@ -212,114 +223,28 @@ def parent_css_values(node, sample) -> dict[str, str]:
             else 1.0
         )
     )
-    values = {
-        name: _motion_number(value)
-        for name, value in zip(PARENT_PROPERTIES, (*matrix, opacity), strict=True)
-    }
-    return values
+    return (*matrix, opacity)
 
 
-class ParentHtmlAdapter:
-    """Bake independent numeric coefficients; CSS must not decompose matrices."""
+def bake_parent_html(canvas: Canvas, times: tuple[float, ...]) -> BakedParentHtml:
+    """Bake detached source pixels and affine rows keyed by authored layer identity."""
+    from quickthumb._export_video import _SlideAnimator
 
-    def __init__(self, canvas: Canvas, times: tuple[float, ...]):
-        from quickthumb._export_video import _SlideAnimator
-
-        self.animator = _SlideAnimator(canvas, {})
-        self.plan = next(
-            unit.parent_plan for unit in self.animator._units if unit.parent_plan is not None
-        )
-        self.times = times
-        visible = [node for node in self.plan.nodes.values() if node.image is not None]
-        self.values = {id(node): [] for node in visible}
-        for time in times:
-            sample = self.plan.sample(time)
-            for node in visible:
-                self.values[id(node)].append(parent_css_values(node, sample[id(node)]))
-        self.registered = False
-
-    def emit(self, exporter, layer) -> None:
-        node = self.plan.nodes[id(layer)]
-        if isinstance(layer, NullLayer) or node.image is None:
-            return
-        if not self.registered:
-            exporter._keyframes.extend(
-                f'@property {name}{{syntax:"<number>";inherits:false;initial-value:{value}}}'
-                for name, value in PARENT_PROPERTIES.items()
-            )
-            self.registered = True
-        values = self.values[id(node)]
-        element_id = exporter._make_id()
-        duration = self.times[-1]
-        if duration > 0:
-            keyframe = f"{exporter._keyframe_prefix}{exporter._next_kf}"
-            exporter._next_kf += 1
-            exporter._keyframes.append(
-                "@keyframes "
-                + keyframe
-                + "{"
-                + "".join(
-                    _motion_number((time / duration) * 100)
-                    + "%{"
-                    + ";".join(f"{name}:{value}" for name, value in stop.items())
-                    + "}"
-                    for time, stop in zip(self.times, values, strict=True)
-                )
-                + "}"
-            )
-            exporter._timeline.append(
-                {
-                    "t": [element_id],
-                    "k": keyframe,
-                    "d": duration,
-                    "delay": 0,
-                    "tr": "with_previous" if exporter._timeline else "after_previous",
-                    "a": "transform",
-                    "e": "linear",
-                    "initial": values[0],
-                    "final": values[-1],
-                }
-            )
+    # Nodes weakly reference their animation units, so keep the animator alive
+    # until every sample has been collected. No graph objects escape the bake.
+    animator = _SlideAnimator(canvas, {})
+    plan = next(unit.parent_plan for unit in animator._units if unit.parent_plan is not None)
+    visible = {layer_id: node for layer_id, node in plan.nodes.items() if node.image is not None}
+    rows: dict[int, list[tuple[float, ...]]] = {layer_id: [] for layer_id in visible}
+    for time in times:
+        sample = plan.sample(time)
+        for layer_id, node in visible.items():
+            rows[layer_id].append(_parent_row(node, sample[id(node)]))
+    sources = {}
+    for layer_id, node in visible.items():
         buffer = BytesIO()
         node.image.save(buffer, format="PNG")
-        encoded = base64.b64encode(buffer.getvalue()).decode("ascii")
-        style = (
-            f"position:absolute;left:0;top:0;width:{node.image.width}px;height:{node.image.height}px;"
-            + ";".join(f"{name}:{value}" for name, value in values[0].items())
-            + ";"
-            "transform-origin:0 0;transform:matrix(var(--qt-parent-a),var(--qt-parent-d),"
-            "var(--qt-parent-b),var(--qt-parent-e),var(--qt-parent-c),var(--qt-parent-f));"
-            "opacity:var(--qt-parent-opacity);"
+        sources[layer_id] = ParentHtmlSource(
+            buffer.getvalue(), node.image.width, node.image.height, tuple(rows[layer_id])
         )
-        # Whole-stage Morph is disabled for parent scenes; do not expose keys
-        # that could otherwise invite the runtime to replace this matrix.
-        exporter._body.append(
-            f'<img id="{element_id}" data-qt-parent-node="1" style="{style}" '
-            f'src="data:image/png;base64,{encoded}" alt="">'
-        )
-
-    def emit_clock(self, exporter) -> None:
-        """Retain timing even when every graph source is null or transparent."""
-        if exporter._timeline or self.times[-1] == 0:
-            return
-        element_id = exporter._make_id()
-        keyframe = f"{exporter._keyframe_prefix}{exporter._next_kf}"
-        exporter._next_kf += 1
-        exporter._keyframes.append(f"@keyframes {keyframe}" + "{from{opacity:0}to{opacity:0}}")
-        exporter._timeline.append(
-            {
-                "t": [element_id],
-                "k": keyframe,
-                "d": self.times[-1],
-                "delay": 0,
-                "tr": "after_previous",
-                "a": "transform",
-                "e": "linear",
-                "initial": {},
-                "final": {},
-            }
-        )
-        exporter._body.append(
-            f'<span id="{element_id}" data-qt-parent-clock="1" aria-hidden="true" '
-            'style="position:absolute;width:0;height:0;opacity:0;pointer-events:none"></span>'
-        )
+    return BakedParentHtml(times, frozenset(plan.nodes), sources)

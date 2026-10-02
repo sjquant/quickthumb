@@ -468,7 +468,7 @@ def test_parent_composition_visual_snapshot():
 def test_html_samples_affine_css_around_composed_static_source():
     from quickthumb._export_html import HtmlExporter
 
-    from tests.test_parent_html import adapter
+    from tests.test_parent_html import bake, css_row, source_image
 
     canvas = (
         Canvas(200, 140)
@@ -488,13 +488,13 @@ def test_html_samples_affine_css_around_composed_static_source():
             mask=LayerMask(shape="ellipse", position=(10, 5), width=60, height=35, opacity=0.4),
         )
     )
-    baked = adapter(canvas)
-    node = baked.plan.nodes[id(canvas.layers[-1])]
+    baked = bake(canvas)
+    node = baked.sources[id(canvas.layers[-1])]
     stage = HtmlExporter(canvas).render_stage()
     assert stage.timeline
-    assert embedded_png(stage.body, "html").tobytes() == node.image.tobytes()
-    assert stage.timeline[0]["initial"] == baked.values[id(node)][0]
-    assert stage.timeline[0]["final"] == baked.values[id(node)][-1]
+    assert embedded_png(stage.body, "html").tobytes() == source_image(node).tobytes()
+    assert stage.timeline[0]["initial"] == css_row(node.rows[0])
+    assert stage.timeline[0]["final"] == css_row(node.rows[-1])
     assert (
         next(item for item in canvas.validate_export("video") if item.feature == "parent").support
         == "full"

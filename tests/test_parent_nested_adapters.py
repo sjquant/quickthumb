@@ -23,7 +23,7 @@ from quickthumb._export_html import HtmlExporter
 from quickthumb.errors import RenderingError
 
 from tests.test_parent_documents import embedded_png
-from tests.test_parent_html import adapter, motion, track
+from tests.test_parent_html import bake, css_row, motion, source_image, track
 
 
 def nested_scene(invert=False):
@@ -97,26 +97,28 @@ def remove_boundaries(layer):
 def test_nested_html_embeds_one_composed_source_and_independent_linked_child(invert):
     canvas = nested_scene(invert)
     original = canvas.to_json()
-    baked = adapter(canvas)
-    nodes = [baked.plan.nodes[id(layer)] for layer in canvas.layers[1:]]
+    baked = bake(canvas)
+    nodes = [baked.sources[id(layer)] for layer in canvas.layers[1:]]
     stage = HtmlExporter(canvas).render_stage()
     payloads = re.findall(r"data:image/png;base64,([A-Za-z0-9+/=]+)", stage.body)
     assert len(payloads) == len(stage.timeline) == 2
     for payload, node, event in zip(payloads, nodes, stage.timeline, strict=True):
         actual = Image.open(BytesIO(base64.b64decode(payload))).convert("RGBA")
-        assert node.image is not None
-        assert (actual.size, actual.tobytes()) == (node.image.size, node.image.tobytes())
-        assert event["initial"] == baked.values[id(node)][0]
-        assert event["final"] == baked.values[id(node)][-1]
+        assert (actual.size, actual.tobytes()) == (
+            (node.width, node.height),
+            source_image(node).tobytes(),
+        )
+        assert event["initial"] == css_row(node.rows[0])
+        assert event["final"] == css_row(node.rows[-1])
     bare = Canvas.from_json(original)
     group = bare.layers[1]
     assert isinstance(group, GroupLayer)
     for child in group.children:
         remove_boundaries(child)
-    uncomposed = adapter(bare)
-    bare_nodes = [uncomposed.plan.nodes[id(layer)] for layer in bare.layers[1:]]
-    assert nodes[0].image.tobytes() != bare_nodes[0].image.tobytes()
-    assert nodes[1].image.tobytes() == bare_nodes[1].image.tobytes()
+    uncomposed = bake(bare)
+    bare_nodes = [uncomposed.sources[id(layer)] for layer in bare.layers[1:]]
+    assert source_image(nodes[0]).tobytes() != source_image(bare_nodes[0]).tobytes()
+    assert source_image(nodes[1]).tobytes() == source_image(bare_nodes[1]).tobytes()
     assert all(
         item.support == "partial" and item.fallback is None
         for item in canvas.validate_export("html")

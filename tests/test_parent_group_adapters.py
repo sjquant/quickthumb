@@ -25,7 +25,7 @@ from quickthumb._export_html import HtmlExporter
 from quickthumb.errors import RenderingError
 
 from tests.test_parent_documents import embedded_png
-from tests.test_parent_html import adapter, motion, track
+from tests.test_parent_html import bake, css_row, motion, source_image, track
 
 
 def group_scene(boundary="both"):
@@ -83,9 +83,9 @@ def group_scene(boundary="both"):
 def test_eligible_html_embeds_composed_group_source_and_separate_explicit_child(boundary):
     canvas = group_scene(boundary)
     original = canvas.to_json()
-    baked = adapter(canvas)
-    group_node = baked.plan.nodes[id(canvas.layers[1])]
-    marker_node = baked.plan.nodes[id(canvas.layers[2])]
+    baked = bake(canvas)
+    group_node = baked.sources[id(canvas.layers[1])]
+    marker_node = baked.sources[id(canvas.layers[2])]
     stage = HtmlExporter(canvas).render_stage()
     payloads = re.findall(r"data:image/png;base64,([A-Za-z0-9+/=]+)", stage.body)
     assert len(payloads) == len(stage.timeline) == 2
@@ -93,18 +93,20 @@ def test_eligible_html_embeds_composed_group_source_and_separate_explicit_child(
         payloads, (group_node, marker_node), stage.timeline, strict=True
     ):
         actual = Image.open(BytesIO(base64.b64decode(payload))).convert("RGBA")
-        assert node.image is not None
-        assert (actual.size, actual.tobytes()) == (node.image.size, node.image.tobytes())
-        assert event["initial"] == baked.values[id(node)][0]
-        assert event["final"] == baked.values[id(node)][-1]
+        assert (actual.size, actual.tobytes()) == (
+            (node.width, node.height),
+            source_image(node).tobytes(),
+        )
+        assert event["initial"] == css_row(node.rows[0])
+        assert event["final"] == css_row(node.rows[-1])
     bare = Canvas.from_json(original)
     group = cast(GroupLayer, bare.layers[1])
     group.clip = group.mask = None
-    bare_adapter = adapter(bare)
-    bare_group = bare_adapter.plan.nodes[id(bare.layers[1])]
-    bare_marker = bare_adapter.plan.nodes[id(bare.layers[2])]
-    assert group_node.image.tobytes() != bare_group.image.tobytes()
-    assert marker_node.image.tobytes() == bare_marker.image.tobytes()
+    bare_baked = bake(bare)
+    bare_group = bare_baked.sources[id(bare.layers[1])]
+    bare_marker = bare_baked.sources[id(bare.layers[2])]
+    assert source_image(group_node).tobytes() != source_image(bare_group).tobytes()
+    assert source_image(marker_node).tobytes() == source_image(bare_marker).tobytes()
     assert all(
         item.support == "partial" and item.fallback is None
         for item in canvas.validate_export("html")
