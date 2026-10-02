@@ -92,7 +92,7 @@ def test_three_levels_compose_full_affine_with_shear(time):
     canvas.layers = [*canvas.layers, shape((0, 0), "c")]
     animator = _SlideAnimator(canvas, {})
     leaf = animator._units[-1].parent_node
-    world = leaf.plan.sample(time)[id(leaf)][1]
+    world = animator._sample_parents(time)[id(leaf)][1]
     t = min(time, 1)
     for point in [(0, 0), (20, 0), (0, 10), (20, 10)]:
         expected = step(
@@ -293,7 +293,7 @@ def test_prepared_parent_sources_are_released_without_waiting_for_cycle_collecti
     animator = _SlideAnimator(
         Canvas(100, 80, layers=[NullLayer(type="null", id="root"), shape()]), {}
     )
-    plan = weakref.ref(animator._units[0].parent_plan)
+    plan = weakref.ref(animator._parent_plan)
     del animator
     assert plan() is None
 
@@ -623,10 +623,11 @@ def test_unlinked_runs_keep_grouping_and_parent_sources_are_reused(monkeypatch):
     animator = _SlideAnimator(canvas, {})
     assert [len(unit.layers) for unit in animator._units] == [3, 1, 1, 2]
     assert [unit.parent_node is not None for unit in animator._units] == [False, True, True, False]
-    plan = animator._units[1].parent_plan
-    original = plan.sample
+    original = animator._sample_parents
     calls = []
-    monkeypatch.setattr(plan, "sample", lambda time: (calls.append(time), original(time))[1])
+    monkeypatch.setattr(
+        animator, "_sample_parents", lambda time: (calls.append(time), original(time))[1]
+    )
     monkeypatch.setattr(
         canvas, "_render_layer", lambda *args: pytest.fail("static source repainted")
     )

@@ -209,7 +209,7 @@ def test_nested_boundaries_preserve_body_pivot_and_explicit_child(empty):
         assert owner.image is None and pivot == (0, 0, *geometry.body_size)
     for time in (0.7, 0.2, 1, 0.7):
         expected = Image.new("RGBA", (canvas.width, canvas.height))
-        paint = node.plan.sample(time)[id(node)][0]
+        paint = animator._sample_parents(time)[id(node)][0]
         fragment = affine_fragment(
             node.image, multiply(paint, (1, 0, -node.padding, 0, 1, -node.padding)), expected.size
         )

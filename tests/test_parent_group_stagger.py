@@ -193,8 +193,8 @@ def test_band_crops_are_cut_from_complete_composed_static_group(boundary, nested
     animator = _SlideAnimator(canvas, {})
     node = animator._units[-1].parent_node
     expected = static_source(canvas)
-    assert len(node.unit.target_images) == 3
-    for index, (source, offset) in enumerate(node.unit.target_images):
+    assert len(animator._parent_units[id(node)].target_images) == 3
+    for index, (source, offset) in enumerate(animator._parent_units[id(node)].target_images):
         # Authored shapes occupy known layout rows, independently of the adapter.
         strip = expected.crop((0, 14 + index * 32, canvas.width, 26 + index * 32))
         bounds = strip.getbbox()
@@ -216,8 +216,10 @@ def test_nested_bands_match_independent_ordinary_rows_and_preserve_body(own, inv
     node = animator._units[-1].parent_node
     expected = static_source(canvas)
     assert node.origin == (20, 18) and node.padding > 2
-    assert len(node.unit.target_images) == 3
-    for (top, bottom), (source, offset) in zip(NESTED_ROWS, node.unit.target_images, strict=True):
+    assert len(animator._parent_units[id(node)].target_images) == 3
+    for (top, bottom), (source, offset) in zip(
+        NESTED_ROWS, animator._parent_units[id(node)].target_images, strict=True
+    ):
         strip = expected.crop((0, top, canvas.width, bottom))
         bounds = strip.getbbox()
         assert bounds is not None
@@ -260,7 +262,9 @@ def test_nested_color_clocks_use_independent_reference_crops_and_output_effects(
     node = animator._units[-1].parent_node
     reference = static_source(canvas, reference=True)
     crops = []
-    for (top, bottom), (prepared, offset) in zip(NESTED_ROWS, node.unit.target_images, strict=True):
+    for (top, bottom), (prepared, offset) in zip(
+        NESTED_ROWS, animator._parent_units[id(node)].target_images, strict=True
+    ):
         strip = reference.crop((0, top, canvas.width, bottom))
         box = strip.getbbox()
         assert box is not None
@@ -268,7 +272,10 @@ def test_nested_color_clocks_use_independent_reference_crops_and_output_effects(
         assert prepared.tobytes() == strip.crop(box).tobytes()
         assert offset == (box[0] - 20 + node.padding, top + box[1] - 18 + node.padding)
     assert len(crops) == 3
-    stable = [(image.tobytes(), offset) for image, offset in node.unit.target_images]
+    stable = [
+        (image.tobytes(), offset)
+        for image, offset in animator._parent_units[id(node)].target_images
+    ]
     cache, pivot = canvas._ctx.measure_cache, node.pivot_box
     measurements = dict(cache)
     for instant in (0, 0.6, 1.8, 0.2, 1, 0.6):
@@ -317,7 +324,10 @@ def test_nested_color_clocks_use_independent_reference_crops_and_output_effects(
         if scale == 2:
             expected = expected.resize((canvas.width, canvas.height), Image.Resampling.LANCZOS)
         assert animator.frame_at(instant).tobytes() == expected.tobytes()
-    assert stable == [(image.tobytes(), offset) for image, offset in node.unit.target_images]
+    assert stable == [
+        (image.tobytes(), offset)
+        for image, offset in animator._parent_units[id(node)].target_images
+    ]
     assert node.pivot_box == pivot and canvas._ctx.measure_cache is cache and cache == measurements
     assert canvas.to_json() == before
 
@@ -385,11 +395,11 @@ def test_whole_source_fallback_keeps_last_geometry_and_averaged_arrival_alpha_re
     group.mask = LayerMask(position=(0, 0), width=200, height=80, opacity=0.6)
     animator = _SlideAnimator(canvas, {})
     node = animator._units[-1].parent_node
-    assert not node.unit.target_images
+    assert not animator._parent_units[id(node)].target_images
     for instant in (0.2, 0.6, 1.0, 1.8, 0.6):
         latest = max(0, min(1, instant - 0.8))
         arrival = sum(max(0, min(1, instant - index * 0.4)) for index in range(3)) / 3
-        sample = node.plan.sample(instant)[id(node)]
+        sample = animator._sample_parents(instant)[id(node)]
         state = sample[2].canonical
         assert (state.layer.position or (0, 0)) == pytest.approx((30 * latest, 0))
         opacity = 1 if instant < 0.8 or latest == 1 else 0.4 + 0.6 * latest
@@ -446,7 +456,10 @@ def test_nested_cardinality_fallback_uses_independent_whole_source_arithmetic(ca
     before = canvas.to_json()
     animator = _SlideAnimator(canvas, {})
     node = animator._units[-1].parent_node
-    assert len(node.unit.target_timelines) == 3 and not node.unit.target_images
+    assert (
+        len(animator._parent_units[id(node)].target_timelines) == 3
+        and not animator._parent_units[id(node)].target_images
+    )
     source = static_source(canvas)
     occupied = [
         source.getchannel("A").crop((0, y, canvas.width, y + 1)).getbbox() is not None
@@ -463,7 +476,7 @@ def test_nested_cardinality_fallback_uses_independent_whole_source_arithmetic(ca
         latest = min(1, max(0, instant - 0.8))
         arrival = sum(min(1, max(0, instant - index * 0.4)) for index in range(3)) / 3
         opacity = 1 if instant < 0.8 or latest == 1 else 0.4 + 0.6 * latest
-        state = node.plan.sample(instant)[id(node)][2].canonical
+        state = animator._sample_parents(instant)[id(node)][2].canonical
         assert (state.layer.position or (0, 0)) == pytest.approx((30 * latest, 0))
         assert state.layer.opacity == pytest.approx(opacity)
         assert (state.alpha_scale, state.clip_scale) == pytest.approx((arrival, arrival))
@@ -547,8 +560,11 @@ def test_recoloring_uses_stable_composed_reference_crops_with_per_target_appeara
     animator = _SlideAnimator(canvas, {}, quality=quality)
     node = animator._units[-1].parent_node
     assert (node.image is None) is transparent
-    assert len(node.unit.target_images) == 3
-    before = [(source.tobytes(), offset, source.size) for source, offset in node.unit.target_images]
+    assert len(animator._parent_units[id(node)].target_images) == 3
+    before = [
+        (source.tobytes(), offset, source.size)
+        for source, offset in animator._parent_units[id(node)].target_images
+    ]
     source = static_source(canvas, color="#FF0000")
     cache = canvas._ctx.measure_cache
     measurements = dict(cache)
@@ -605,7 +621,8 @@ def test_recoloring_uses_stable_composed_reference_crops_with_per_target_appeara
             expected = expected.resize(source.size, Image.Resampling.LANCZOS)
         assert animator.frame_at(instant).tobytes() == expected.tobytes()
     assert before == [
-        (image.tobytes(), offset, image.size) for image, offset in node.unit.target_images
+        (image.tobytes(), offset, image.size)
+        for image, offset in animator._parent_units[id(node)].target_images
     ]
     assert canvas._ctx.measure_cache is cache and cache == measurements
 
@@ -671,7 +688,7 @@ def test_each_composed_crop_inherits_three_analytic_ancestor_frames(scene, optio
         assert len(calls) == len(visible)
         parent_t = min(1, instant)
         for index, (padded_size, matrix) in zip(visible, calls, strict=True):
-            image, offset = node.unit.target_images[index]
+            image, offset = animator._parent_units[id(node)].target_images[index]
             assert padded_size == (image.width + 4, image.height + 4)
             elapsed = min(1, instant - 0.4 * index)
             anchor = (image.width * 0.2, image.height * 0.8)
@@ -709,7 +726,7 @@ def test_early_composed_targets_survive_last_target_collapse_but_not_ancestor_co
     canvas = scene(animation=motion(track(ScaleXTrack, 0, 1), stagger=0.4))
     animator = _SlideAnimator(canvas, {}, quality=quality)
     node = animator._units[-1].parent_node
-    assert node.plan.sample(0.8)[id(node)][3]
+    assert animator._sample_parents(0.8)[id(node)][3]
     assert animator.frame_at(0).getbbox() is None
     for instant in (0.2, 0.6, 0.8):
         assert animator.frame_at(instant).getbbox() is not None
@@ -801,12 +818,16 @@ def test_root_stagger_suppresses_nested_specs_without_changing_source_or_schedul
     assert actual.segments(0, 2) == expected.segments(0, 2)
     assert actual.segments(0, 2)[-1] == (1.8, 2, False)
     assert animation_timeline([canvas], [None], 0.2) == ([0.0], 2)
-    crops = [(image.tobytes(), offset) for image, offset in node.unit.target_images]
+    crops = [
+        (image.tobytes(), offset) for image, offset in actual._parent_units[id(node)].target_images
+    ]
     assert len(crops) == 3
     cache, measurements = canvas._ctx.measure_cache, dict(canvas._ctx.measure_cache)
     for instant in (0.9, 0.2, 1.5, 1.8, 0, 0.9):
         assert actual.frame_at(instant).tobytes() == expected.frame_at(instant).tobytes()
-    assert crops == [(image.tobytes(), offset) for image, offset in node.unit.target_images]
+    assert crops == [
+        (image.tobytes(), offset) for image, offset in actual._parent_units[id(node)].target_images
+    ]
     assert canvas._ctx.measure_cache is cache and cache == measurements
     assert canvas.inspect() == reference.inspect()
     assert canvas.diagnose() == reference.diagnose()

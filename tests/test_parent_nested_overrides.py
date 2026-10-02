@@ -117,7 +117,7 @@ def test_retained_owner_matches_independently_stripped_source_across_seeks(kind,
         frames.append(frame)
     assert len(set(frames)) >= (1 if kind == "empty" else 3)
     if kind == "affine":
-        matrix = node.plan.sample(0.3)[id(node)][0]
+        matrix = actual._sample_parents(0.3)[id(node)][0]
         assert matrix[0] * matrix[4] - matrix[1] * matrix[3] < 0
         assert abs(matrix[0] * matrix[1] + matrix[3] * matrix[4]) > 0.01
     assert canvas.to_json() == before

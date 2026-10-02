@@ -7,12 +7,12 @@ from dataclasses import dataclass
 from io import BytesIO
 from typing import TYPE_CHECKING
 
+from PIL import Image
+
 from quickthumb._export_base import RasterFragment
 from quickthumb._parent_render import (
-    multiply,
     parent_rendering_problem,
     participating_layers,
-    translate,
 )
 from quickthumb.models import (
     AnimationSpec,
@@ -211,40 +211,14 @@ class BakedParentHtml:
     sources: dict[int, ParentHtmlSource]
 
 
-def _parent_row(node, sample) -> tuple[float, ...]:
-    paint, _, state, _ = sample
-    matrix = multiply(paint, translate(-node.padding, -node.padding))
-    opacity = (
-        0.0
-        if state.hidden
-        else (
-            max(0.0, min(1.0, state.canonical.layer.opacity)) * state.canonical.alpha_scale
-            if state.canonical
-            else 1.0
-        )
-    )
-    return (*matrix, opacity)
-
-
 def bake_parent_html(canvas: Canvas, times: tuple[float, ...]) -> BakedParentHtml:
-    """Bake detached source pixels and affine rows keyed by authored layer identity."""
+    """Package detached scene observations as PNG sources and numeric rows."""
     from quickthumb._export_video import _SlideAnimator
 
-    # Nodes weakly reference their animation units, so keep the animator alive
-    # until every sample has been collected. No graph objects escape the bake.
-    animator = _SlideAnimator(canvas, {})
-    plan = next(unit.parent_plan for unit in animator._units if unit.parent_plan is not None)
-    visible = {layer_id: node for layer_id, node in plan.nodes.items() if node.image is not None}
-    rows: dict[int, list[tuple[float, ...]]] = {layer_id: [] for layer_id in visible}
-    for time in times:
-        sample = plan.sample(time)
-        for layer_id, node in visible.items():
-            rows[layer_id].append(_parent_row(node, sample[id(node)]))
+    layer_ids, observations = _SlideAnimator(canvas, {}).parent_observations(times)
     sources = {}
-    for layer_id, node in visible.items():
+    for layer_id, (pixels, size, rows) in observations.items():
         buffer = BytesIO()
-        node.image.save(buffer, format="PNG")
-        sources[layer_id] = ParentHtmlSource(
-            buffer.getvalue(), node.image.width, node.image.height, tuple(rows[layer_id])
-        )
-    return BakedParentHtml(times, frozenset(plan.nodes), sources)
+        Image.frombytes("RGBA", size, pixels).save(buffer, format="PNG")
+        sources[layer_id] = ParentHtmlSource(buffer.getvalue(), *size, rows)
+    return BakedParentHtml(times, layer_ids, sources)

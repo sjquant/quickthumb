@@ -248,7 +248,7 @@ def test_offcanvas_boundary_survives_ancestor_placement_and_shear():
     assert node.image is not None and node.image.getbbox()
     for time in (0.1, 0.8, 1, 0.1):
         expected = Image.new("RGBA", (320, 220))
-        paint = node.plan.sample(time)[id(node)][0]
+        paint = animator._sample_parents(time)[id(node)][0]
         fragment = affine_fragment(
             node.image, multiply(paint, translate(-node.padding, -node.padding)), expected.size
         )

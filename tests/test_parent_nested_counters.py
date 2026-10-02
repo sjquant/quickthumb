@@ -220,7 +220,7 @@ def test_dynamic_ink_survives_empty_settled_scope_with_fixed_child_frame(style):
     assert node.pivot_box == (0, 0, width, height)
     placed = counter.model_copy(update={"position": (180 + width, 65 + height), "content": "1"})
     child = animator._units[-1].parent_node
-    initial = node.plan.sample(0)[id(child)][0]
+    initial = animator._sample_parents(0)[id(child)][0]
     for time in (0, 0.1, 1, 0):
         paint = canvas._create_canvas()
         for fragment in canvas._text.counter_paint_layers(placed, time):
@@ -233,7 +233,7 @@ def test_dynamic_ink_survives_empty_settled_scope_with_fixed_child_frame(style):
             ),
         )
         assert animator.frame_at(time).tobytes() == expected.tobytes()
-        assert node.plan.sample(time)[id(child)][0] == initial
+        assert animator._sample_parents(time)[id(child)][0] == initial
     assert animator.frame_at(0).tobytes() != animator.frame_at(1).tobytes()
 
 

@@ -134,7 +134,7 @@ def test_each_target_composes_three_ancestors_with_analytic_shear(time, monkeypa
     cast(Any, canvas.layers[1]).parent = "inner"
     animator = _SlideAnimator(canvas, {})
     node = animator._units[1].parent_node
-    assert len(node.unit.target_images) == 3
+    assert len(animator._parent_units[id(node)].target_images) == 3
     calls = []
     original = parent.affine_fragment
 
@@ -148,7 +148,7 @@ def test_each_target_composes_three_ancestors_with_analytic_shear(time, monkeypa
     assert len(calls) == len(visible)
     ancestor_t = min(1, time)
     for index, (padded_size, matrix) in zip(visible, calls, strict=True):
-        source, offset = node.unit.target_images[index]
+        source, offset = animator._parent_units[id(node)].target_images[index]
         size = source.size
         assert padded_size == (size[0] + 4, size[1] + 4)
         t = min(1, time - 0.4 * index)
@@ -183,11 +183,11 @@ def test_waiting_or_collapsed_last_target_does_not_hide_earlier_targets(quality)
     canvas = group_scene(animation=motion(track(ScaleXTrack, 0, 1), stagger=0.4))
     animator = _SlideAnimator(canvas, {}, quality=quality)
     node = animator._units[-1].parent_node
-    assert len(node.unit.target_images) == 3
+    assert len(animator._parent_units[id(node)].target_images) == 3
     # Aggregate motion takes the final target, whose X axis is still zero.
     for instant in (0.2, 0.6, 0.8):
         assert animator.frame_at(instant).getbbox() is not None
-    assert node.plan.sample(0.8)[id(node)][3]
+    assert animator._sample_parents(0.8)[id(node)][3]
     assert animator.frame_at(0).getbbox() is None
 
 

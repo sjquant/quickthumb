@@ -285,13 +285,11 @@ def test_eligible_support_is_partial_and_strict_export_preserves_destination(tmp
 
 
 def test_sampling_failure_always_cleans_up_render_context(monkeypatch):
-    from quickthumb._parent_render import ParentRenderPlan
-
     canvas = scene(motion(track(RotationTrack, 0, 30)))
     closed = []
     monkeypatch.setattr(canvas._ctx, "close_video_decoders", lambda: closed.append(True))
     monkeypatch.setattr(
-        ParentRenderPlan, "sample", lambda *_: (_ for _ in ()).throw(ValueError("sample"))
+        _SlideAnimator, "_sample_parents", lambda *_: (_ for _ in ()).throw(ValueError("sample"))
     )
     with pytest.raises(ValueError, match="sample"):
         HtmlExporter(canvas).render_stage()
@@ -403,9 +401,10 @@ def test_sampled_css_matches_graph_at_every_shared_observation():
     canvas = build_scene()
     baked = bake(canvas)
     animator = _SlideAnimator(canvas, {})
-    plan = next(unit.parent_plan for unit in animator._units if unit.parent_plan is not None)
+    plan = animator._parent_plan
+    assert plan is not None
     for index, time in enumerate(baked.times):
-        sampled = plan.sample(time)
+        sampled = animator._sample_parents(time)
         for layer_id, source in baked.sources.items():
             node = plan.nodes[layer_id]
             assert source.rows[index] == reference_row(node, sampled[id(node)])
@@ -436,10 +435,11 @@ def test_example_numeric_css_interpolation_has_small_midpoint_error():
     canvas = build_scene()
     baked = bake(canvas)
     animator = _SlideAnimator(canvas, {})
-    plan = next(unit.parent_plan for unit in animator._units if unit.parent_plan is not None)
+    plan = animator._parent_plan
+    assert plan is not None
     maximum = 0
     for index, (left, right) in enumerate(zip(baked.times, baked.times[1:], strict=False)):
-        sample = plan.sample((left + right) / 2)
+        sample = animator._sample_parents((left + right) / 2)
         for layer_id, source in baked.sources.items():
             node = plan.nodes[layer_id]
             first = [float(value) for value in css_row(source.rows[index]).values()][:6]
@@ -474,7 +474,8 @@ def test_baked_values_release_graph_and_remain_usable_without_sampling(monkeypat
 
     def prepare(*args, **kwargs):
         animator = _SlideAnimator(*args, **kwargs)
-        plan = next(unit.parent_plan for unit in animator._units if unit.parent_plan is not None)
+        plan = animator._parent_plan
+        assert plan is not None
         references.extend(weakref.ref(item) for item in (animator, plan, *animator._units))
         for node in plan.nodes.values():
             references.append(weakref.ref(node))
@@ -588,7 +589,6 @@ def test_stage_preserves_primary_error_and_retries_failed_readers(
     monkeypatch, phase, error_type, cleanup_error_type
 ):
     from quickthumb import _export_video, _parent_export
-    from quickthumb._parent_render import ParentRenderPlan
 
     canvas = scene(motion(track(RotationTrack, 0, 30)))
     original = error_type("primary stage failure")
@@ -604,7 +604,7 @@ def test_stage_preserves_primary_error_and_retries_failed_readers(
     if phase == "preparation":
         monkeypatch.setattr(_export_video, "_SlideAnimator", fail)
     elif phase == "sampling":
-        monkeypatch.setattr(ParentRenderPlan, "sample", fail)
+        monkeypatch.setattr(_SlideAnimator, "_sample_parents", fail)
     elif phase == "emission":
         monkeypatch.setattr(HtmlExporter, "_emit_parent_source", fail)
     else:

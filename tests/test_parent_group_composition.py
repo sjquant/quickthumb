@@ -139,7 +139,7 @@ def test_group_boundary_keeps_full_parent_frame_and_external_child(empty):
     animator = _SlideAnimator(canvas, {})
     node = animator._units[-1].parent_node
     expected = Image.new("RGBA", (300, 240))
-    paint = node.plan.sample(0.5)[id(node)][0]
+    paint = animator._sample_parents(0.5)[id(node)][0]
     fragment = affine_fragment(
         node.image, multiply(paint, translate(-node.padding, -node.padding)), expected.size
     )
@@ -183,7 +183,7 @@ def test_composed_group_under_three_levels_retains_shear_and_reflection(quality)
     node = animator._units[-1].parent_node
     original = canvas.to_json()
     for time in (0.8, 0.2, 1, 0, 0.8):
-        samples = node.plan.sample(time)
+        samples = animator._sample_parents(time)
         matrix = samples[id(node)][0]
         assert matrix[0] * matrix[4] - matrix[1] * matrix[3] < 0
         if time:

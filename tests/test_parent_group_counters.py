@@ -215,7 +215,7 @@ def test_counter_outside_settled_body_survives_empty_prepared_source(style):
     animator = _SlideAnimator(canvas, {})
     node = animator._units[-1].parent_node
     assert node.image is None
-    assert node.unit.component_duration == 1
+    assert animator._parent_units[id(node)].component_duration == 1
     assert node.pivot_box == (0, 0, width, height)
     image, offset = node.render_sample(0, None)
     assert image is not None and image.getbbox() is not None
@@ -245,7 +245,7 @@ def test_static_sibling_and_external_child_ignore_counter_width_and_boundary(sty
     for instant in (0, 0.6, 0.9, 1, 0.6):
         assert animator.frame_at(instant).tobytes() == reference.render_frame(instant).tobytes()
         assert animator.frame_at(instant).getpixel((300, 135)) == (34, 238, 136, 255)
-        assert marker.plan.sample(instant)[id(marker)][1] == (1, 0, 295, 0, 1, 130)
+        assert animator._sample_parents(instant)[id(marker)][1] == (1, 0, 295, 0, 1, 130)
 
 
 @pytest.mark.parametrize("quality", ["standard", "high"])
@@ -300,7 +300,7 @@ def test_group_effects_under_three_ancestors_match_independent_affine_and_revers
         )
         matrix = _oracle_product(ancestor, own)
         expected_paint = _oracle_product(matrix, _oracle_matrix(75, 55, 0, 1, 1))
-        assert node.plan.sample(instant)[id(node)][0] == pytest.approx(expected_paint)
+        assert animator._sample_parents(instant)[id(node)][0] == pytest.approx(expected_paint)
         a, b, c, d, e, f = (value * scale for value in matrix)
         determinant = a * e - b * d
         assert determinant < 0 and abs(a * b + d * e) > 0.01

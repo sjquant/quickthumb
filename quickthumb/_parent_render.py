@@ -20,9 +20,7 @@ from quickthumb._composition import apply_layer_composition, has_layer_compositi
 from quickthumb._export_base import (
     _blur_geometry,
     _with_motion_color,
-    apply_canonical_alpha,
     color_group_has_backdrop,
-    color_motion_targets,
     is_backdrop_dependent,
 )
 from quickthumb._groups import GroupEngine
@@ -34,18 +32,15 @@ from quickthumb.models import (
     AnimatedTextValue,
     AnimationSpec,
     Background,
-    ChartLayer,
     Glow,
     GroupLayer,
-    ImageLayer,
     NullLayer,
-    QRCodeLayer,
     Shadow,
     Stroke,
     TextLayer,
     VideoLayer,
 )
-from quickthumb.motion import LayerState, _sample_target_timelines, transform_matrix
+from quickthumb.motion import LayerState, transform_matrix
 
 if TYPE_CHECKING:
     from quickthumb.canvas import Canvas
@@ -429,7 +424,6 @@ class ParentNode:
     pivot_box: tuple[float, float, float, float] = (0, 0, 0, 0)
     image: Image.Image | None = None
     parent: ParentNode | None = None
-    unit: Any = None
 
     def render_source(
         self, time: float | None = None, color: str | None = None, *, reference=False
@@ -630,7 +624,7 @@ class ParentNode:
 
 
 class ParentRenderPlan:
-    """Prepared local sources and topologically ordered parent frames for one scene."""
+    """Prepared local sources and authored parent topology, independent of scheduling."""
 
     def __init__(self, canvas: Canvas):
         self.canvas = canvas
@@ -685,137 +679,6 @@ class ParentRenderPlan:
         if node.image is not None and node.image.getbbox() is None:
             node.image = None
         return node
-
-    def sample(self, time: float):
-        from quickthumb._export_video import _unit_state
-
-        result = {}
-        for node in self.order:
-            state = _unit_state(node.unit, time)
-            motion = (
-                state.canonical.layer if state.canonical else LayerState(anchor=node.layer.anchor)
-            )
-            uniform = (
-                motion.scale if not isinstance(node.layer, ImageLayer) and motion.scale > 0 else 1.0
-            )
-            left, top, width, height = node.pivot_box
-            delta = multiply(
-                translate(left, top),
-                multiply(
-                    affine_state(motion.with_values(scale=uniform), (width, height)),
-                    translate(-left, -top),
-                ),
-            )
-            parent_world = result[id(node.parent)][1] if node.parent else IDENTITY
-            paint = multiply(parent_world, multiply(translate(*node.origin), delta))
-            world = multiply(paint, node.body_to_baked)
-            collapsed = (
-                (result[id(node.parent)][3] if node.parent else False)
-                or motion.scale_x == 0
-                or motion.scale_y == 0
-            )
-            result[id(node)] = (paint, world, state, collapsed)
-        return result
-
-    def composite(
-        self, node: ParentNode, frame: Image.Image, time: float, samples, render_scale: float
-    ):
-        from quickthumb._export_video import _animation_reveal
-
-        if node.unit.target_images:
-            self._composite_targets(node, frame, time, samples, render_scale)
-            return
-        paint, _, state, collapsed = samples[id(node)]
-        if state.hidden or collapsed or isinstance(node.layer, NullLayer):
-            return
-        motion = state.canonical.layer if state.canonical else LayerState()
-        image, source_offset = (
-            node.render_sample(time, motion.color)
-            if node.unit.component_duration > 0
-            or node.unit.color_motion
-            and motion.color is not None
-            else (node.image, (0, 0))
-        )
-        if image is None:
-            return
-        if state.canonical:
-            image = apply_canonical_alpha(
-                image,
-                motion.with_values(
-                    opacity=motion.opacity * state.canonical.alpha_scale,
-                    clip_progress=1.0,
-                ),
-            )
-            progress = (
-                1.0
-                if isinstance(node.layer, (ChartLayer, QRCodeLayer))
-                else min(motion.clip_progress, state.canonical.clip_scale)
-            )
-            if image is not None and progress < 1:
-                width = round(node.pivot_box[2] * max(0, progress))
-                if width <= 0:
-                    return
-                cutoff = round(node.pivot_box[0] + node.padding - source_offset[0]) + width + 1
-                alpha = image.getchannel("A")
-                alpha.paste(0, (max(0, min(image.width, cutoff)), 0, image.width, image.height))
-                image = image.copy()
-                image.putalpha(alpha)
-        elif state.reveal:
-            effect, progress = state.reveal
-            bounds = image.getbbox()
-            if bounds is None:
-                return
-            revealed = _animation_reveal(image.crop(bounds), effect, progress, node.unit.seed)
-            if revealed is None:
-                return
-            source_size = image.size
-            image = Image.new("RGBA", source_size)
-            image.paste(revealed, bounds[:2])
-        if image is None:
-            return
-        matrix = multiply(
-            paint, translate(source_offset[0] - node.padding, source_offset[1] - node.padding)
-        )
-        _composite_fragment(frame, image, matrix, motion.blur, render_scale)
-
-    def _composite_targets(self, node, frame, time, samples, render_scale):
-        """Give each separated leaf its own local transform and visibility."""
-        parent = samples[id(node.parent)] if node.parent else None
-        if parent is not None and parent[3]:
-            return
-        ancestor = parent[1] if parent is not None else IDENTITY
-        origin = multiply(ancestor, translate(*node.origin))
-        states = _sample_target_timelines(
-            node.unit.target_timelines, time, LayerState(anchor=node.layer.anchor)
-        )
-        targets = node.unit.target_images
-        if node.unit.color_motion:
-            targets = color_motion_targets(
-                targets, states, lambda color: node.render_source(color=color)
-            )
-        for (image, offset), motion in zip(targets, states, strict=True):
-            if motion is None or motion.scale_x == 0 or motion.scale_y == 0:
-                continue
-            size = image.size
-            image = apply_canonical_alpha(image, motion)
-            if image is None:
-                continue
-            # Target pixels already include authored static rotation. Their
-            # anchor belongs to the crop, not the enclosing aggregate pivot.
-            matrix = multiply(origin, translate(offset[0] - node.padding, offset[1] - node.padding))
-            matrix = multiply(
-                matrix,
-                affine_state(
-                    motion.with_values(scale=motion.scale if motion.scale > 0 else 1), size
-                ),
-            )
-            # Band crops are tight. Give bicubic interpolation transparent
-            # support beyond their edges without changing the target anchor.
-            padded = Image.new("RGBA", (image.width + 4, image.height + 4))
-            padded.paste(image, (2, 2))
-            image = padded
-            matrix = multiply(matrix, translate(-2, -2))
-            _composite_fragment(frame, image, matrix, motion.blur, render_scale)
 
 
 def _composite_fragment(frame, image, matrix, blur, render_scale):
