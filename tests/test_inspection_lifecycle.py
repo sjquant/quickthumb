@@ -207,6 +207,33 @@ def test_aggregate_cleanup_attempts_all_canvases_and_preserves_first_error(error
     assert all(not canvas._ctx.video_decoder_cache for canvas in canvases)
 
 
+@pytest.mark.parametrize("error_type", [RenderingError, _Cancelled])
+@pytest.mark.parametrize("cleanup_error_type", [RuntimeError, _Cancelled])
+def test_timeline_sample_preserves_preparation_error_when_cleanup_fails(
+    monkeypatch, error_type, cleanup_error_type
+):
+    canvases = [Canvas(16, 16), Canvas(16, 16)]
+    deck = Deck(slides=canvases)
+    original = error_type("second animator failed after opening a reader")
+    readers = [_Reader(cleanup_error_type("cleanup failed")), _Reader()]
+
+    def prepare(canvas, *args, **kwargs):
+        index = canvases.index(canvas)
+        canvas._ctx.video_decoder_cache["clip"] = readers[index]
+        if index == 1:
+            raise original
+        return SimpleNamespace(duration=1.0)
+
+    monkeypatch.setattr(video, "_SlideAnimator", prepare)
+    with pytest.raises(BaseException) as raised:
+        deck.sample(0.0)
+
+    assert raised.value is original
+    assert [reader.calls for reader in readers] == [1, 1]
+    assert canvases[0]._ctx.video_decoder_cache == {"clip": readers[0]}
+    assert not canvases[1]._ctx.video_decoder_cache
+
+
 @pytest.mark.parametrize("route", ["inspect", "timing"])
 @pytest.mark.parametrize("error_type", [RenderingError, _Cancelled])
 @pytest.mark.parametrize("cleanup_fails", [False, True])

@@ -766,7 +766,8 @@ class TimelineSampler:
             )
         except BaseException:
             # Animators for earlier slides may already hold video decoders.
-            _close_video_decoders(canvases)
+            with contextlib.suppress(BaseException):
+                _close_video_decoders(canvases)
             raise
         self._settled: dict[int, Image.Image] = {}
 
