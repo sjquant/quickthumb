@@ -229,7 +229,6 @@ def test_nested_boundaries_preserve_body_pivot_and_explicit_child(empty):
         "animation",
         "ancestor_animation",
         "inner_animation",
-        "stagger",
         "descendant_stagger",
         "deep_stagger",
     ],
@@ -256,9 +255,7 @@ def test_descendant_boundary_guards_preflight_every_observation_and_export(
         expected = "cannot animate descendants"
     else:
         group.animation = motion(track(OpacityTrack, 0, 1))
-        if kind == "stagger":
-            group.animation = AnimationSpec.rise(stagger=0, target="children")
-        elif kind == "descendant_stagger":
+        if kind == "descendant_stagger":
             middle.animation = [AnimationSpec.rise(stagger=0, target="children")]
         else:
             inner = cast(GroupLayer, middle.children[1])
@@ -267,7 +264,7 @@ def test_descendant_boundary_guards_preflight_every_observation_and_export(
                 AnimationSpec.fade(duration=1),
                 AnimationSpec.rise(stagger=0.1, target="characters"),
             ]
-        expected = "cannot use stagger"
+        expected = "cannot use stagger on structural descendants"
     monkeypatch.setattr(canvas, "_render_layer", lambda *_a, **_k: pytest.fail("preflight painted"))
     monkeypatch.setattr(
         canvas._groups, "render_group_layer", lambda *_a, **_k: pytest.fail("preflight painted")
