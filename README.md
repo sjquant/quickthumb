@@ -114,7 +114,7 @@ canvas.render("creative.mp4")
 ```
 
 Multi-slide `Deck` compositions can also render to numbered images, PDF, PPTX,
-HTML slideshows, GIF, WebM, and narrated MP4.
+HTML slideshows, GIF, WebM, ProRes 4444 MOV, and narrated MP4.
 
 Some formats use optional dependencies. See
 [Installation](https://sjquant.github.io/quickthumb/installation/) and
