@@ -1,5 +1,5 @@
 ---
-description: Export quickthumb canvases and decks to PNG, JPEG, WebP, SVG, HTML, PDF, editable PowerPoint, GIF, MP4, and WebM.
+description: Export quickthumb canvases and decks to PNG, JPEG, WebP, SVG, HTML, PDF, editable PowerPoint, GIF, MP4, WebM, and MOV.
 ---
 
 # Exporting to SVG, PPTX, PDF & video
@@ -15,6 +15,7 @@ canvas.render("thumbnail.pptx")  # editable PowerPoint slide
 canvas.render("thumbnail.pdf")   # single-page PDF
 canvas.render("thumbnail.gif")   # animated GIF playing the layer animations
 canvas.render("thumbnail.mp4")   # H.264 video (requires ffmpeg); .webm for VP9
+canvas.render("thumbnail.mov")   # ProRes 4444 video (requires ffmpeg with prores_ks)
 ```
 
 Each format also has a direct method when you want the content in memory:
@@ -25,7 +26,7 @@ html = canvas.to_html()
 pptx_bytes = canvas.to_pptx()
 pdf_bytes = canvas.to_pdf()
 gif_bytes = canvas.to_gif()
-mp4_bytes = canvas.to_mp4()      # and canvas.to_webm()
+mp4_bytes = canvas.to_mp4()      # and canvas.to_webm() / canvas.to_mov()
 ```
 
 ## Shared export contract and specialist controls
@@ -190,7 +191,7 @@ with open("promo.pdf", "wb") as f:
 
 ## Animated GIF & video { #animated-gif-video }
 
-Animated export renders per-layer `animation` effects and deck slide `transition`s as real raster frames, sampled through the same pixel pipeline as PNG output. Canvas GIF/MP4/WebM and Deck GIF/WebM play this animated timeline. `deck.render("deck.mp4", animation=VideoOptions(...))` also uses it; Deck MP4 without `VideoOptions` is the separate static narration workflow below.
+Animated export renders per-layer `animation` effects and deck slide `transition`s as real raster frames, sampled through the same pixel pipeline as PNG output. Canvas GIF/MP4/WebM/MOV and Deck GIF/WebM/MOV play this animated timeline. `deck.render("deck.mp4", animation=VideoOptions(...))` also uses it; Deck MP4 without `VideoOptions` is the separate static narration workflow below.
 
 ```python
 from quickthumb import AudioTrack, Canvas, Deck, Fade, GifOptions, VideoOptions
@@ -266,13 +267,12 @@ and runnable `examples/parent_stagger.py` example.
 
 `Canvas.render()` and `Deck.render()` accept a format-specific options object for
 animated file output. Use `GifOptions` for GIF (`fps`, `hold`, `matte`, `loop`,
-`max_size=(width, height)`, and `colors`) and `VideoOptions` for MP4/WebM
-(`fps`, `hold`, `matte`, `soundtrack=AudioTrack(...)`, `loop_audio`, and WebM-only
+`max_size=(width, height)`, and `colors`) and `VideoOptions` for MP4/WebM/MOV
+(`fps`, `hold`, `matte`, `soundtrack=AudioTrack(...)`, `loop_audio`, and WebM/MOV
 `transparent=True`). Both accept `workers=1` and `quality="standard"`.
-GIF sizing and palette controls
-are rejected for video output, and video options are rejected for GIF output.
-The generic `render(..., quality=...)` option remains reserved for JPEG and
-WebP raster output.
+GIF sizing and palette controls are rejected for video output, and video
+options are rejected for GIF output. The generic `render(..., quality=...)`
+option remains reserved for JPEG and WebP raster output.
 
 Both option models use `hold=3.0` for the settled-state hold, matching `hold`
 on Canvas byte methods and `slide_duration` on Deck byte methods. It must be
@@ -287,8 +287,8 @@ Use a positive hold for those slides. Canvas and Deck GIF continue to permit
 a zero hold.
 
 The byte methods accept the same rendering controls as keyword-only scalars:
-`workers=1` and `quality="standard"` on Canvas GIF/MP4/WebM and Deck
-GIF/animated MP4/WebM, plus `max_size=None` and `colors=None` on GIF.
+`workers=1` and `quality="standard"` on Canvas GIF/MP4/WebM/MOV and Deck
+GIF/animated MP4/WebM/MOV, plus `max_size=None` and `colors=None` on GIF.
 Their existing timing names and positional arguments are unchanged; these
 methods do not accept options objects. Static `Deck.to_mp4()` and
 `Deck.render_mp4()` retain their separate narration API.
@@ -300,7 +300,7 @@ to play the animated timeline. Canvas MP4 always uses the animated path.
 Unused authored Morph transitions do not produce fallback errors or receipt
 diagnostics for narrated stills, static files, or reduced-motion execution.
 Reduced animation retains the encoder's holds and default transitions between
-slides. Built-in animated GIF and MP4/WebM exports report the encoded visual
+slides. Built-in animated GIF and MP4/WebM/MOV exports report the encoded visual
 frame count and duration. GIF counts include palette-equivalent frame merging,
 and duration follows its centisecond delays; its reported FPS remains the
 configured sampling rate. Video duration is the encoded frame count divided by
@@ -315,7 +315,7 @@ file execution options. For example, `validate_export("mp4")` still queries
 animated video, even with a reduced-motion policy. Concrete `svg` and `pdf`
 queries describe their static document fallback with the existing `raster`
 family label. Targets are case-insensitive; `jpg`, `jpeg`, `webp`, `png`, `gif`,
-`mp4`, `webm`, and `htm` are accepted as corresponding family
+`mp4`, `webm`, `mov`, and `htm` are accepted as corresponding family
 aliases. The GIF query uses `raster`, while a GIF `ExportResult.target` remains
 `video` for compatibility.
 
@@ -354,7 +354,7 @@ The existing bounded frame batches and atomic destination replacement remain.
 Transparent transitions use temporary floating-point planes for accurate
 premultiplied blending; memory usage grows with frame size and worker count.
 MP4, GIF, and document/raster output reject this video option before writing
-the destination. ProRes 4444 and PNG image-sequence export are not implemented.
+the destination.
 
 Use a player or editor that supports VP9 WebM alpha. To inspect the actual
 alpha plane with FFmpeg, select the libvpx decoder **before** the input:
@@ -368,6 +368,52 @@ alone is not proof of preserved transparency. The regression tests decode RGBA
 with libvpx and compare transparent, translucent and opaque pixels. See
 `examples/transparent_lower_third.py` for an overlay with an authored translucent
 panel and transparent surroundings.
+
+### ProRes 4444 MOV
+
+Canvas and Deck can export `.mov` with the fixed ProRes 4444 profile, using
+FFmpeg's `prores_ks` encoder. MOV always plays the animated timeline, including
+Deck transitions and narration. `transparent` is the same strict boolean option
+as WebM and defaults to `False`: ordinary MOV composites onto the matte; opt-in
+alpha skips only that matte. Authored backgrounds, letterboxing, transitions,
+quality modes and workers follow the transparent WebM behavior above.
+
+```python
+canvas.render("overlay.mov", animation=VideoOptions(transparent=True, fps=24))
+deck.export("overlay.mov", animation=VideoOptions(transparent=True, quality="high", workers=2))
+mov_bytes = canvas.to_mov(hold=2.0, transparent=True)
+mov_bytes = deck.to_mov(slide_duration=2.0, transparent=True, soundtrack="music.wav")
+```
+
+MOV retains odd dimensions and even 1-pixel-wide or 1-pixel-high frames; it does
+not crop the final row or column. It uses full-resolution 4:4:4 chroma with
+`yuv444p10le` encoder input for opaque output and `yuva444p10le` with 16-bit
+alpha coding for transparent output. The renderer still supplies **8-bit RGBA**;
+16-bit alpha coding does not create additional source precision. Decoding all
+256 source alpha levels with FFmpeg 7.1.5 measured a maximum error of one 8-bit
+level with 16-bit alpha coding, compared with two levels for 8-bit coding.
+Transparent and opaque endpoints are retained. This conversion is not guaranteed
+to reproduce source alpha exactly, and ProRes color compression plus RGB/YUV
+conversion is lossy despite 4:4:4 chroma. The codec's lossless alpha coding claim
+does not imply lossless RGBA conversion. See the
+[FFmpeg ProRes options](https://www.ffmpeg.org/ffmpeg-codecs.html#ProRes) and
+[Apple ProRes white paper](https://www.apple.com/final-cut-pro/docs/Apple_ProRes.pdf).
+
+Soundtracks, per-slide narration and embedded video audio are encoded as AAC,
+using the same scheduling, looping, padding and trimming rules as animated MP4.
+A Canvas MOV with no audio inputs contains only video. Deck MOV retains the
+existing narration workflow’s silent AAC bed even when no slides have narration.
+The fixed codec/profile and audio choices have no selection API. ProRes files can be substantially larger than
+WebM/MP4, and require a ProRes-capable player or editor. Encoded segments stay
+bounded and destinations are replaced only after the full encode and mux succeed.
+A missing `prores_ks` encoder raises a rendering error and preserves any existing
+destination. Decode pixels, rather than relying on profile metadata, to check alpha:
+
+```bash
+ffmpeg -i overlay.mov -frames:v 1 -pix_fmt rgba frame.png
+```
+
+`examples/transparent_lower_third.py` writes both WebM and ProRes MOV overlays.
 
 ### High-quality animated compositing
 
@@ -458,7 +504,7 @@ A deck can be exported as a video with a voice-over per slide:
   `animation=VideoOptions(...)`. A background music track can be added with
   `soundtrack=AudioTrack(path="music.mp3", volume=0.16, loop=True)`, and
   quickthumb mixes it with the slide narration for you. `deck.to_animated_mp4()`
-  and `deck.to_webm()` do the same and return bytes.
+  `deck.to_webm()`, and `deck.to_mov()` do the same and return bytes.
 
 ### Timing
 
@@ -468,11 +514,11 @@ click: `on_click` animations play automatically, one after another, like
 plays its transition over the previous slide's last frame, runs its
 animations (starting with the transition, as in HTML), then holds its settled
 state for the transition's `advance_after` if set, otherwise for
-`slide_duration` (`hold` on `Canvas`). In narrated MP4/WebM output, the inferred or explicit narration duration (or the silent-slide default) extends the visual slide when it is longer than `advance_after`. A slide with no transition cross-fades in over 0.5s (slide 0 with none starts instantly); set a transition on slide 0 to animate in from the matte, which also makes looping GIFs wrap smoothly.
+`slide_duration` (`hold` on `Canvas`). In narrated MP4/WebM/MOV output, the inferred or explicit narration duration (or the silent-slide default) extends the visual slide when it is longer than `advance_after`. A slide with no transition cross-fades in over 0.5s (slide 0 with none starts instantly); set a transition on slide 0 to animate in from the matte, which also makes looping GIFs wrap smoothly.
 
-GIF is encoded by Pillow with per-frame durations, so no extra dependency is needed. MP4 (H.264) and WebM (VP9) require the `ffmpeg` binary on `PATH` (or pointed to by the `QUICKTHUMB_FFMPEG` environment variable).
+GIF is encoded by Pillow with per-frame durations, so no extra dependency is needed. MP4 (H.264), WebM (VP9), and MOV (ProRes 4444) require the `ffmpeg` binary on `PATH` (or pointed to by the `QUICKTHUMB_FFMPEG` environment variable).
 
-Canvas MP4 and WebM output can carry a soundtrack: any audio file ffmpeg can decode (MP3, WAV, AAC, OGG, ...), encoded as AAC in MP4 and Opus in WebM:
+Canvas MP4, WebM, and MOV output can carry a soundtrack: any audio file ffmpeg decodes (MP3, WAV, AAC, OGG, ...), encoded as AAC in MP4/MOV and Opus in WebM:
 
 ```python
 mp4 = canvas.to_mp4(soundtrack="music.mp3")                    # loops to fill the video
@@ -487,7 +533,7 @@ The audio is always trimmed to the video length. For an `AudioTrack`, `loop=True
     endpoints retain their existing pixels, including nonidentity final transforms.
     Image viewport zoom/pan keeps its separate image-renderer behavior.
 
-    By default, frames are composited onto the opaque `matte` color (default black). VP9 WebM supports opt-in alpha as described above; GIF and MP4 remain opaque. Mixed-size slides are scaled to fit and centered on the first slide's size. H.264/VP9 4:2:0 output needs even dimensions, so odd-sized canvases lose their last pixel row/column in MP4/WebM output. GIF encoding streams quantized frames through Pillow, keeping only a bounded number of uncompressed frames instead of imposing a timeline frame-memory budget. The final compressed GIF is still buffered in memory, including for file exports; large canvases, documents and encoded files can still exhaust available memory. `max_size` and `colors` remain useful for reducing output size. GIF dimensions and each coalesced frame duration must still fit the format’s 16-bit fields (65,535 pixels and 655.35 seconds). Animated Deck MP4/WebM accepts at most 64 slides with narration because each narration is decoded as a concurrent FFmpeg input; split larger narrated decks into multiple exports. Silent slides do not count toward this limit.
+    By default, frames are composited onto the opaque `matte` color (default black). VP9 WebM and ProRes MOV support opt-in alpha as described above; GIF and MP4 remain opaque. Mixed-size slides are scaled to fit and centered on the first slide's size. H.264/VP9 4:2:0 output needs even dimensions, so odd-sized canvases lose their last pixel row/column in MP4/WebM output. GIF encoding streams quantized frames through Pillow, keeping only a bounded number of uncompressed frames instead of imposing a timeline frame-memory budget. The final compressed GIF is still buffered in memory, including for file exports; large canvases, documents and encoded files can still exhaust available memory. `max_size` and `colors` remain useful for reducing output size. GIF dimensions and each coalesced frame duration must still fit the format’s 16-bit fields (65,535 pixels and 655.35 seconds). Animated Deck MP4/WebM/MOV accepts at most 64 slides with narration because each narration is decoded as a concurrent FFmpeg input; split larger narrated decks into multiple exports. Silent slides do not count toward this limit.
 
 ## Canonical samples
 
@@ -569,7 +615,7 @@ webm_bytes = deck.to_webm()
 mp4_bytes = deck.to_mp4()   # static slides with per-slide narration
 ```
 
-`render()` dispatches on the output extension: `.pdf` and `.pptx` produce a single document; `.gif` and `.webm` produce an animation; `.mp4` produces static slides with per-slide narration unless `animation=VideoOptions(...)` selects the animated path; and raster extensions have no native multi-page container, so the deck writes one file per slide as a zero-padded numbered sequence and returns the written paths.
+`render()` dispatches on the output extension: `.pdf` and `.pptx` produce a single document; `.gif`, `.webm`, and `.mov` produce an animation; `.mp4` produces static slides with per-slide narration unless `animation=VideoOptions(...)` selects the animated path; and raster extensions have no native multi-page container, so the deck writes one file per slide as a zero-padded numbered sequence and returns the written paths.
 
 Slides may have different dimensions. `deck.diagnose()` aggregates each slide's [diagnostics](diagnostics.md) (each tagged with its `slide_index`) and adds a `mixed-slide-size` warning when they differ. The PDF path sizes each page to its slide, but PPTX has a single presentation size taken from the first slide, so slides larger than the first are clipped by PowerPoint. Keep slides the same size when targeting `.pptx`. Decks round-trip through JSON with `deck.to_json()` / `Deck.from_json(...)`, reusing the per-canvas serialization.
 

@@ -297,6 +297,7 @@ def test_canvas_raster_override_and_deck_document_rejection_remain_distinct(tmp_
         ("JPEG", "raster"),
         ("WEBP", "raster"),
         ("MP4", "video"),
+        ("MOV", "video"),
         ("WEBM", "video"),
         ("HTM", "html"),
         ("HTML", "html"),
@@ -318,7 +319,7 @@ def test_new_concrete_formats_do_not_expand_motion_family_queries(target):
         parent_canvas().inspect_motion(target=target)
 
 
-@pytest.mark.parametrize("target", ["GIF", "PNG", "MP4", "WEBM"])
+@pytest.mark.parametrize("target", ["GIF", "PNG", "MP4", "MOV", "WEBM"])
 def test_existing_motion_family_aliases_remain_accepted(target):
     from quickthumb.motion import capabilities_for
 

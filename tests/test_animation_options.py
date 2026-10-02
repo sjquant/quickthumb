@@ -22,7 +22,7 @@ from quickthumb.errors import ValidationError
 @pytest.mark.parametrize("owner", [Canvas, Deck])
 def test_byte_signatures_preserve_existing_parameters_and_add_only_keyword_controls(owner):
     hold = "hold" if owner is Canvas else "slide_duration"
-    methods = ["to_gif", "to_mp4" if owner is Canvas else "to_animated_mp4", "to_webm"]
+    methods = ["to_gif", "to_mp4" if owner is Canvas else "to_animated_mp4", "to_webm", "to_mov"]
     for method in methods:
         parameters = inspect.signature(getattr(owner, method)).parameters
         expected = [
@@ -39,7 +39,7 @@ def test_byte_signatures_preserve_existing_parameters_and_add_only_keyword_contr
             (p.name, p.default) for p in parameters.values() if p.kind == p.POSITIONAL_OR_KEYWORD
         ] == expected
         old_names = [name for name, _ in expected]
-        old_names += ["transparent", "policy"] if method in ("to_webm") else ["policy"]
+        old_names += ["transparent", "policy"] if method in ("to_webm", "to_mov") else ["policy"]
         assert list(parameters)[: len(old_names)] == old_names
         added = {"workers": 1, "quality": "standard"}
         if method == "to_gif":
@@ -48,8 +48,11 @@ def test_byte_signatures_preserve_existing_parameters_and_add_only_keyword_contr
             assert parameters[name].kind is inspect.Parameter.KEYWORD_ONLY
             assert parameters[name].default == default
         assert set(parameters) == {name for name, _ in expected} | set(added) | {"policy"} | (
-            {"transparent"} if method in ("to_webm") else set()
+            {"transparent"} if method in ("to_webm", "to_mov") else set()
         )
+    assert inspect.signature(owner.to_webm, eval_str=True) == inspect.signature(
+        owner.to_mov, eval_str=True
+    )
     assert inspect.signature(owner.to_webm).parameters["transparent"].default is False
     assert list(inspect.signature(Deck.to_mp4).parameters) == [
         "self",
@@ -141,7 +144,7 @@ def test_invalid_constructed_model_values_are_not_recoerced(
 
 
 @pytest.mark.parametrize("kind", ["canvas", "deck"])
-@pytest.mark.parametrize("format", ["gif", "mp4", "webm"])
+@pytest.mark.parametrize("format", ["gif", "mp4", "webm", "mov"])
 @pytest.mark.parametrize(
     "kwargs",
     [
@@ -161,7 +164,7 @@ def test_public_byte_render_controls_reject_invalid_values(kind, format, kwargs)
         getattr(source, method)(**kwargs)
 
 
-@pytest.mark.parametrize("format", ["webm"])
+@pytest.mark.parametrize("format", ["webm", "mov"])
 @pytest.mark.parametrize("transparent", [None, 0, 1, "true"])
 def test_transparent_remains_strict_for_constructed_models_and_bytes(format, transparent, tmp_path):
     with pytest.raises(ValidationError, match="transparent"):
@@ -221,7 +224,7 @@ def test_gif_file_and_byte_controls_match_encoded_pixels_timing_and_receipt(
 
 
 @pytest.mark.parametrize("surface", ["file", "bytes"])
-@pytest.mark.parametrize("format", ["mp4", "webm"])
+@pytest.mark.parametrize("format", ["mp4", "webm", "mov"])
 def test_deck_schedule_is_synchronous_once_and_used_before_prepared_entry(
     surface, format, tmp_path, monkeypatch
 ):
@@ -276,7 +279,7 @@ def test_deck_schedule_is_synchronous_once_and_used_before_prepared_entry(
 
 @pytest.mark.parametrize(
     "options,format",
-    [(GifOptions, "mp4"), (GifOptions, "webm"), (VideoOptions, "gif")],
+    [(GifOptions, "mp4"), (GifOptions, "webm"), (GifOptions, "mov"), (VideoOptions, "gif")],
 )
 def test_wrong_option_family_and_subclasses_reject_before_narration_probe(
     options, format, tmp_path, monkeypatch
@@ -385,7 +388,7 @@ def test_deck_gif_ignores_narration_and_explicit_durations(surface, monkeypatch,
 
 
 @pytest.mark.parametrize("surface", ["file", "bytes"])
-@pytest.mark.parametrize("format", ["mp4", "webm"])
+@pytest.mark.parametrize("format", ["mp4", "webm", "mov"])
 def test_deck_video_preserves_zero_hold_default_audio_bed_rejection(surface, format, tmp_path):
     deck = Deck().slide(Canvas(4, 4), transition=tr.Cut())
     with pytest.raises(ValidationError, match="Deck audio duration must be finite and > 0"):
@@ -478,7 +481,7 @@ def test_private_no_provider_preserves_precomputed_video_schedule_and_gif_distin
     not shutil.which("ffmpeg") or not shutil.which("ffprobe"), reason="requires FFmpeg"
 )
 @pytest.mark.parametrize("kind", ["canvas", "deck"])
-@pytest.mark.parametrize("format", ["mp4", "webm"])
+@pytest.mark.parametrize("format", ["mp4", "webm", "mov"])
 def test_video_file_and_byte_quality_workers_hold_and_alpha_match_actual_output(
     kind, format, tmp_path
 ):
@@ -606,7 +609,7 @@ def test_private_gif_callback_is_never_invoked(surface, tmp_path):
     scheduler.assert_not_called()
 
 
-@pytest.mark.parametrize("options,format", [(GifOptions, "gif"), (VideoOptions, "webm")])
+@pytest.mark.parametrize("options,format", [(GifOptions, "gif"), (VideoOptions, "mov")])
 def test_valid_option_subclasses_with_extra_fields_are_preserved(options, format):
     class CustomOptions(options):
         tag: str = "subclass"
@@ -618,7 +621,7 @@ def test_valid_option_subclasses_with_extra_fields_are_preserved(options, format
     assert settings.transparent is False
 
 
-@pytest.mark.parametrize("format,fps", [("gif", 20), ("mp4", 30), ("webm", 30)])
+@pytest.mark.parametrize("format,fps", [("gif", 20), ("mp4", 30), ("webm", 30), ("mov", 30)])
 def test_none_frame_rate_uses_format_default_without_hiding_zero(format, fps):
     prepared, settings = video._setup_animation(
         [Canvas(4, 4)], [None], format, fps=None, slide_duration=0, loop=0, loop_audio=False

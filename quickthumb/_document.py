@@ -382,7 +382,7 @@ def _resolve_export(
     mode: Literal["raster", "document", "animated", "narrated", "unsupported"]
     if extension == ".mp4" and kind == "deck" and animation is None:
         mode = "narrated"
-    elif extension in {".gif", ".mp4", ".webm"}:
+    elif extension in {".gif", ".mp4", ".webm", ".mov"}:
         mode = "animated"
     elif kind == "canvas" and format is not None:
         mode = "raster"
@@ -414,7 +414,9 @@ def _export_target(output_format: str) -> str:
         "pdf": "raster",
         "html": "html",
         "pptx": "pptx",
-    }.get(output_format, "video" if output_format in {"gif", "mp4", "webm"} else output_format)
+    }.get(
+        output_format, "video" if output_format in {"gif", "mp4", "webm", "mov"} else output_format
+    )
 
 
 def _capability_report(
