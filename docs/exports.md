@@ -212,7 +212,8 @@ The existing bounded frame batches and atomic destination replacement remain.
 Transparent transitions use temporary floating-point planes for accurate
 premultiplied blending; memory usage grows with frame size and worker count.
 MP4, GIF, and document/raster output reject this video option before writing
-the destination. PNG image-sequence animation export is not implemented.
+the destination. PNG animation sequences use the separate
+[`export_png_sequence()` API](#png-image-sequences).
 
 Use a player or editor that supports VP9 WebM alpha. To inspect the actual
 alpha plane with FFmpeg, select the libvpx decoder **before** the input:
@@ -272,6 +273,87 @@ ffmpeg -i overlay.mov -frames:v 1 -pix_fmt rgba frame.png
 ```
 
 `examples/transparent_lower_third.py` writes both WebM and ProRes MOV overlays.
+
+### PNG image sequences
+
+`Canvas.export_png_sequence(output_directory, *, options=None, policy=None)` and
+the matching Deck method export the actual animated timeline as independent,
+lossless PNG files. Every frame contains the renderer's exact **8-bit RGBA bytes
+with straight alpha**, including hidden RGB where the rendered frame supplies
+it. The export adds no matte; authored backgrounds remain visible. Odd sizes
+and one-pixel dimensions retain every row and column. Imported images are not
+ICC-normalized, so the PNGs and manifest make no sRGB/color-profile claim and
+carry no inherited ICC or sRGB metadata.
+Every frame uses the first canvas's full dimensions; differently sized slides
+are scaled proportionally and centered with transparent padding.
+
+```python
+from quickthumb import PngSequenceOptions
+
+# The parent must already exist; this destination must be new.
+result = canvas.export_png_sequence(
+    "overlay_frames",
+    options=PngSequenceOptions(fps=24, hold=2, quality="high", workers=2),
+)
+print(result.frame_count, result.duration, result.manifest_path)
+```
+
+`PngSequenceOptions` has only four fields:
+
+| Field | Default | Allowed values |
+| --- | --- | --- |
+| `fps` | `30` | Finite numeric rate greater than zero and at most 120 |
+| `hold` | `3` | Finite nonnegative seconds held after animation |
+| `workers` | `1` | Strict integer from 1 through 8 |
+| `quality` | `"standard"` | `"standard"` or `"high"` |
+
+The models and JSON schemas are public: `PngSequenceOptions`,
+`PngSequenceManifest`, and `PngSequenceResult` support `model_dump_json()`,
+`model_validate_json()`, and `model_json_schema()`. They describe this Python
+export API; they add no Canvas/Deck document fields or raster format enum values.
+Existing still `.png` rendering and animation bytes methods keep their behavior.
+
+The directory contains `000000.png`, `000001.png`, and so on, plus one compact
+`manifest.json`. Its fixed relative `filename_pattern` is `%06d.png` (at least
+six digits), with `start_index: 0`. It records `version: "1"`, document `kind`,
+`format: "png_sequence"`, actual `frame_count`, `fps`, `duration`, `width`,
+`height`, `mode: "RGBA"`, `bit_depth: 8`, and `alpha: "straight"`. There is no
+growing list of frames, asset paths, or timestamps. The result contains the same
+fields plus absolute `output_directory`, `manifest_path`, and
+`capability_report` diagnostics. Repeated frames are separate editable files,
+not hardlinks. Frame memory stays bounded as the sequence grows; the existing
+scene preparation and per-worker buffers still consume memory.
+
+Timing follows animated exports, including explicit slide durations,
+`advance_after`, narration-derived visual timing, transitions, and Morph.
+Cumulative frame allocation avoids drift across fractional holds; short or
+zero-hold still slides receive at least one frame. The reported duration is
+exactly `frame_count / fps`, measured from the files actually written. This
+can differ from the independent timeline sampler's duration or sample count.
+`validate_export("png_sequence")` and `inspect_motion(target="png_sequence")`
+use video motion capabilities. Existing strict/reduced-motion policies and
+parent, Morph, caption, and worker restrictions apply.
+
+Sequences are silent: no audio encoding, mux, soundtrack, or audio sidecars.
+Narration retains its existing file validation and duration inference, without
+the encoder's 64-audio-input limit. PNG-only scenes need no FFmpeg; inferred
+narration lengths still require ffprobe, and video layers retain their normal
+probe/decode requirements.
+
+All frames and the manifest are prepared in a private sibling staging directory;
+render resources close before publication. A single exclusive rename publishes
+the complete directory, refusing files, directories, and live or dangling
+symlinks, including destinations created by a competing exporter. This requires
+Linux `renameat2(RENAME_NOREPLACE)`, macOS `renamex_np(RENAME_EXCL)`, or Windows
+same-volume rename support. Unsupported systems/filesystems fail clearly with
+no ordinary Unix rename or copying fallback. Failures clean only verified owned
+staging and never delete the destination, even if a commit error has an ambiguous
+outcome. This is atomic visibility and no-overwrite publication, not an fsync
+crash-durability guarantee or protection from hostile same-user replacement of
+the parent directory.
+
+Run `examples/png_sequence_overlay.py` for a transparent lower third with no
+FFmpeg dependency. Its output directory must be fresh on every run.
 
 ### High-quality animated compositing
 

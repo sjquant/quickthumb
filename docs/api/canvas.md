@@ -184,6 +184,18 @@ The RGBA source remains 8-bit; 16-bit alpha coding can decode with one-level
 and encoder requirements. `render()` and `export()` accept `.mov` with
 `VideoOptions` for both opaque and transparent output.
 
+### `.export_png_sequence(output_directory, *, options=None, policy=None)`
+
+Write silent animation frames and `manifest.json` to a new directory whose
+parent already exists. `PngSequenceOptions(fps=30, hold=3, workers=1,
+quality="standard")` controls timing and rendering. Every independent PNG holds
+the renderer's exact RGBA8 straight-alpha bytes, with no export matte or color
+profile claim. `PngSequenceResult` reports actual `frame_count`,
+`duration=frame_count/fps`, dimensions, the numeric filename pattern, published
+paths, and motion diagnostics. Files, directories and symlinks at the destination
+are never replaced. See [PNG sequences](../exports.md#png-image-sequences) for
+the full schema, timing, resource, and atomic-publication contract.
+
 ### `.to_base64(format="PNG", quality=None)`
 
 Returns the rendered image as a base64-encoded string.

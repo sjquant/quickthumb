@@ -63,6 +63,8 @@ from quickthumb.models import (
     NullLayer,
     OutlineLayer,
     PluginLayer,
+    PngSequenceOptions,
+    PngSequenceResult,
     PrefetchResult,
     QRCodeLayer,
     RadialGradient,
@@ -1241,6 +1243,25 @@ class Canvas:
                 resolve=self._contract_resolve_assets,
                 record_for=self._contract_asset_record,
             ),
+        )
+
+    def export_png_sequence(
+        self,
+        output_directory: str | os.PathLike[str],
+        *,
+        options: PngSequenceOptions | None = None,
+        policy: ExportPolicy | None = None,
+    ) -> PngSequenceResult:
+        """Export silent straight-alpha RGBA8 animation to a fresh directory.
+
+        The existing parent receives all numbered PNGs and manifest.json in
+        one exclusive publication. Existing destinations are never replaced.
+        """
+        from quickthumb._document import Document
+        from quickthumb._export_png_sequence import export_png_sequence
+
+        return export_png_sequence(
+            cast(Document, self), output_directory, options=options, policy=policy
         )
 
     def _render_document(

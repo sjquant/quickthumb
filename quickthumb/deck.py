@@ -29,6 +29,8 @@ from quickthumb.models import (
     ExportResult,
     FrameSequence,
     GifOptions,
+    PngSequenceOptions,
+    PngSequenceResult,
     PrefetchResult,
     ValidationReport,
     VideoOptions,
@@ -500,6 +502,25 @@ class Deck:
                 resolve=self._contract_resolve_assets,
                 record_for=self._contract_asset_record,
             ),
+        )
+
+    def export_png_sequence(
+        self,
+        output_directory: str | os.PathLike[str],
+        *,
+        options: PngSequenceOptions | None = None,
+        policy: ExportPolicy | None = None,
+    ) -> PngSequenceResult:
+        """Export silent RGBA8 animation, retaining slide and narration timing.
+
+        Writes numbered independent PNGs and manifest.json into a fresh
+        directory under an existing parent, without replacing any destination.
+        """
+        from quickthumb._document import Document
+        from quickthumb._export_png_sequence import export_png_sequence
+
+        return export_png_sequence(
+            cast(Document, self), output_directory, options=options, policy=policy
         )
 
     def _validate_parent_motion_policy(self, target: str, policy: ExportPolicy | None) -> None:

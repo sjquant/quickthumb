@@ -155,6 +155,17 @@ The RGBA source remains 8-bit; 16-bit alpha coding can decode with one-level
 and encoder requirements. `render()` and `export()` accept `.mov` with
 `VideoOptions` for both opaque and transparent output.
 
+### `.export_png_sequence(output_directory, *, options=None, policy=None)`
+
+Write the animated Deck timeline as silent RGBA8 straight-alpha PNG frames and
+`manifest.json`. The destination must be new and its parent must exist.
+`PngSequenceOptions(fps=30, hold=3, workers=1, quality="standard")` controls
+the export; explicit slide/narration timing, transitions, Morph, policies and
+worker restrictions retain their existing meaning. No audio is encoded.
+`PngSequenceResult` reports the actual frame count and `duration=frame_count/fps`,
+without listing every frame. See [PNG sequences](../exports.md#png-image-sequences)
+for exact pixels, metadata, and no-overwrite publication behavior.
+
 ### `.render_mp4(...)`
 
 Render a static, narrated MP4 directly to a path. Add narration to a slide with
