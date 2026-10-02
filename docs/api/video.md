@@ -525,11 +525,20 @@ diagnostics use the composed paint at each boundary scope.
 
 This descendant-boundary adapter requires static content throughout the
 participating group: intrinsic dynamic sources, including counters, are
-unsupported anywhere in that group. Top-level group stagger and **any authored
-descendant animation** are also unsupported, even when a group animation would
-otherwise override that animation. These extra guards apply only when a group
+unsupported anywhere in that group. The participating **top-level group's own
+animation** overrides authored animations on structural descendants, including
+those inside clipped or masked groups. Raster frames and animated exports then
+use the same source as if those descendant animations were removed, retaining
+every boundary. Suppressed descendant delays and durations do not extend the
+renderer's timeline. Motion on an external ancestor or only on an inner group
+does not provide this override: without the top-level owner's animation,
+descendant animation remains unsupported.
+
+Authored stagger on the top-level owner or any structural descendant remains
+unsupported, even when overridden. These extra guards apply only when a group
 contains a descendant boundary; groups with only their own boundary retain the
-counter and stagger support described above. See
+counter and stagger support described above. Explicit parent links to or from
+structural descendants remain unsupported. See
 [`examples/parent_nested_composition.py`](https://github.com/sjquant/quickthumb/blob/main/examples/parent_nested_composition.py)
 for nested partial and inverted masks, text backgrounds, affine motion and an
 independent linked marker. Run it with `--output-dir /tmp/parent-nested-composition`
@@ -613,9 +622,10 @@ animated chart/QR sources, counters (including group descendants), videos, nonpo
 back easing, image viewport zoom and oversized sampling plans use a declared
 whole-scene authored-static fallback. Static top-level groups, including those
 with supported own and descendant clip/mask boundaries, are atomic sources.
-Suppressed descendant animation specs in groups without descendant boundaries
-still use the existing whole-scene HTML static fallback; the stricter
-descendant-boundary guards above apply to every adapter.
+Suppressed descendant animation specs still use the existing whole-scene HTML
+static fallback, including groups with descendant boundaries. The raster
+override does not make these authored sources eligible for sampled HTML.
+The intrinsic-content and authored-stagger guards above apply to every adapter.
 Stable negative axis scale preserves reflections; ordinary positive uniform
 scale is supported. Zero/sign-crossing axes and back-eased axis tracks use the
 static fallback: floating-point singular matrices cannot guarantee the raster
@@ -648,6 +658,9 @@ remain guarded.
 an invalid-model error) for unsupported observation combinations.
 `inspect_motion()` reports parent links and local track samples; those local
 samples are not decomposed approximations of the world affine matrix.
+It also compiles authored descendant animation specs even when a group overrides
+them, so its reported timeline can be longer than the actual raster/video
+timeline. It is not an effective-motion schedule for these overrides.
 `validate_export()` reports support or the actual unsupported combination, and
 strict validation rejects unsupported adapters and Morph fallback.
 
