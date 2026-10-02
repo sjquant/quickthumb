@@ -982,7 +982,14 @@ def animation_timeline(
     fps: float = _DEFAULT_FPS["mp4"],
 ) -> tuple[list[float], float]:
     """Return the shared visual start offsets and total duration for a Deck."""
-    plan = _deck_plan(canvases, transitions, 1.0 / fps, slide_duration, slide_durations)
+    try:
+        plan = _deck_plan(canvases, transitions, 1.0 / fps, slide_duration, slide_durations)
+    except BaseException:
+        # Earlier slides can already own readers when later preparation fails.
+        with contextlib.suppress(BaseException):
+            _close_video_decoders(canvases)
+        raise
+    _close_video_decoders(canvases)
     return plan.offsets, plan.duration
 
 
@@ -995,33 +1002,42 @@ def _deck_timing(
     minimum_duration: float = 0.0,
 ) -> list[tuple[Transition | None, float, float, float]]:
     """Resolve each slide's transition, animation, and exit timing once."""
-    if animation_durations is None:
-        animation_durations = [_SlideAnimator(canvas, {}).duration for canvas in canvases]
-    if slide_durations is not None and len(slide_durations) != len(canvases):
-        raise RenderingError("Deck slide durations are out of sync.")
-    timings = []
-    for index, animation_end in enumerate(animation_durations):
-        transition = transitions[index] if index < len(transitions) else None
-        if transition is None:
-            duration_in = 0.0 if index == 0 else _DEFAULT_TRANSITION_DURATION
-        elif transition.effect == "cut":
-            duration_in = 0.0
-        else:
-            duration_in = transition.duration
-        duration = slide_durations[index] if slide_durations is not None else None
-        if transition is not None and transition.advance_after is not None:
-            exit_time = max(
-                duration_in + transition.advance_after,
-                animation_end,
-                duration_in,
-                duration or 0.0,
-            )
-        elif duration is not None:
-            exit_time = max(animation_end, duration_in, duration)
-        else:
-            exit_time = max(animation_end, duration_in) + slide_duration
-        exit_time = max(exit_time, minimum_duration)
-        timings.append((transition, duration_in, animation_end, exit_time))
+    owns_decoders = animation_durations is None
+    try:
+        if animation_durations is None:
+            animation_durations = [_SlideAnimator(canvas, {}).duration for canvas in canvases]
+        if slide_durations is not None and len(slide_durations) != len(canvases):
+            raise RenderingError("Deck slide durations are out of sync.")
+        timings = []
+        for index, animation_end in enumerate(animation_durations):
+            transition = transitions[index] if index < len(transitions) else None
+            if transition is None:
+                duration_in = 0.0 if index == 0 else _DEFAULT_TRANSITION_DURATION
+            elif transition.effect == "cut":
+                duration_in = 0.0
+            else:
+                duration_in = transition.duration
+            duration = slide_durations[index] if slide_durations is not None else None
+            if transition is not None and transition.advance_after is not None:
+                exit_time = max(
+                    duration_in + transition.advance_after,
+                    animation_end,
+                    duration_in,
+                    duration or 0.0,
+                )
+            elif duration is not None:
+                exit_time = max(animation_end, duration_in, duration)
+            else:
+                exit_time = max(animation_end, duration_in) + slide_duration
+            exit_time = max(exit_time, minimum_duration)
+            timings.append((transition, duration_in, animation_end, exit_time))
+    except BaseException:
+        if owns_decoders:
+            with contextlib.suppress(BaseException):
+                _close_video_decoders(canvases)
+        raise
+    if owns_decoders:
+        _close_video_decoders(canvases)
     return timings
 
 
@@ -3174,8 +3190,15 @@ def _video_audio_schedule(
 
 
 def _close_video_decoders(canvases: list[Canvas]) -> None:
+    first_error: BaseException | None = None
     for canvas in canvases:
-        canvas._ctx.close_video_decoders()
+        try:
+            canvas._ctx.close_video_decoders()
+        except BaseException as error:
+            if first_error is None:
+                first_error = error
+    if first_error is not None:
+        raise first_error
 
 
 def _remove_quietly(path: str) -> None:
