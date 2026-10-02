@@ -516,8 +516,9 @@ and height before source-buffer rebasing. The usual boundary alignment, partial
 opacity, inversion and clip-times-mask alpha rules still apply. Text backgrounds,
 shadows and other source effects are composed with their owning text or shape.
 
-The complete static result moves as one source through the top-level group's and
-its ancestors' affine transforms. Boundaries do not relayout siblings, shrink the
+The complete static result is prepared as one source before canonical motion;
+stagger may split it into bands as described below. Boundaries do not relayout
+siblings, shrink the
 full group frame or clip separately linked children. The composed opaque settled
 source still defines the normalized-alpha pivot, with the full-body fallback
 when it is empty. Static inspection keeps conservative bounds for each owner;
@@ -534,8 +535,9 @@ renderer's timeline. Motion on an external ancestor or only on an inner group
 does not provide this override: without the top-level owner's animation,
 descendant animation remains unsupported.
 
-Authored stagger on the top-level owner or any structural descendant remains
-unsupported, even when overridden. These extra guards apply only when a group
+Authored stagger on any structural descendant remains unsupported, even when
+overridden. The top-level owner may use the existing partial stagger adapter
+when it is a graph leaf. These extra guards apply only when a group
 contains a descendant boundary; groups with only their own boundary retain the
 counter and stagger support described above. Explicit parent links to or from
 structural descendants remain unsupported. See
@@ -545,7 +547,8 @@ independent linked marker. Run it with `--output-dir /tmp/parent-nested-composit
 to write GIF, PNG, HTML and JSON outputs.
 
 Static parent-linked leaf text and top-level groups can use the existing partial
-raster stagger adapter, including groups with only their own clip, mask or both. The
+raster stagger adapter, including groups with their own or structural descendant
+clip/mask boundaries at several depths. The
 complete static group is laid out and composed once before splitting; recolored
 sources and opaque color-reference crops use that same boundary. Each separable
 horizontal ink band gets its own clock, anchor, full ancestor transform, opacity,
@@ -555,6 +558,11 @@ lines, blank lines, horizontal groups and effects that join bands may retain the
 whole-block approximation. Splitting requires exactly the declared target count
 of visible alpha bands. A boundary that removes a row, or otherwise changes that
 count, keeps the existing whole-source fallback; it does not redefine the targets.
+For a group's single `target="children"` animation spec, the declared count comes
+from its immediate children. The splitter checks only the total number of
+horizontal alpha bands, not child
+ownership. If one nested child supplies two bands while another disappears, an
+accidentally matching count still uses the partial band approximation.
 The fallback uses the final target's geometry and averaged arrival alpha/reveal.
 Each separated band carries its already-clipped/masked source pixels through
 motion, rather than moving behind a fixed viewport mask. Existing target order
@@ -581,7 +589,7 @@ reduced motion, inspection, debug overlays and diagnostics use the whole authore
 source. HTML, SVG, PDF and PPTX keep the whole-scene authored-static fallback.
 See [`examples/parent_stagger.py`](https://github.com/sjquant/quickthumb/blob/main/examples/parent_stagger.py)
 and [`examples/parent_group_stagger.py`](https://github.com/sjquant/quickthumb/blob/main/examples/parent_group_stagger.py).
-The group example contrasts separated clipped rows, a partial mask and a mask
+The group example contrasts separated clipped rows, nested partial masks and a mask
 that removes one band and therefore retains the whole-source fallback. Run it
 with `--output-dir /tmp/parent-group-stagger` to write GIF, PNG, HTML and JSON
 outputs. Its parent motion finishes before the delayed rows finish arriving.

@@ -3,18 +3,19 @@
 from typing import Any, cast
 
 import pytest
-from quickthumb import AnimationSpec, Canvas, ExportPolicy, GroupLayer, StaggerSpec, TextLayer
+from quickthumb import AnimationSpec, Canvas, Deck, ExportPolicy, GroupLayer, StaggerSpec, TextLayer
 from quickthumb._export_video import _SlideAnimator
 from quickthumb._parent_render import ParentNode
 from quickthumb.errors import RenderingError
 from quickthumb.motion import capabilities_for
 
 from tests.test_parent_group_stagger import group_scene as composed_group_scene
+from tests.test_parent_group_stagger import nested_scene
 from tests.test_parent_stagger import FONT, group_scene, text_scene
 
 
 @pytest.mark.parametrize("target", ["raster", "video"])
-@pytest.mark.parametrize("scene", [text_scene, group_scene, composed_group_scene])
+@pytest.mark.parametrize("scene", [text_scene, group_scene, composed_group_scene, nested_scene])
 def test_supported_parent_stagger_keeps_partial_stagger_report(target, scene):
     canvas = scene()
     report = canvas.validate_export(target)
@@ -23,11 +24,15 @@ def test_supported_parent_stagger_keeps_partial_stagger_report(target, scene):
     assert next(item for item in report if item.feature == "stagger").support == "fallback"
 
 
-@pytest.mark.parametrize("composed", [False, True])
-def test_authored_static_inspection_does_not_paint_or_split(monkeypatch, composed):
+@pytest.mark.parametrize(
+    "scene,position",
+    [(text_scene, [15, 24]), (composed_group_scene, [10, 30]), (nested_scene, [20, 38])],
+)
+def test_authored_static_inspection_does_not_paint_or_split(monkeypatch, scene, position):
     from quickthumb import _export_video as video
 
-    canvas = composed_group_scene() if composed else text_scene(rotation=7, align="center")
+    canvas = scene() if scene is not text_scene else text_scene(rotation=7, align="center")
+    composed = isinstance(canvas.layers[-1], GroupLayer)
     original = canvas.to_json()
     fixed = Canvas.from_json(original)
     cast(Any, fixed.layers[-1]).animation = None
@@ -51,14 +56,14 @@ def test_authored_static_inspection_does_not_paint_or_split(monkeypatch, compose
     }
     # Inspection remains a local canonical timeline, without invented target/world samples.
     assert motion.duration == 0.5
-    assert motion.initial_state["position"] == ([10, 30] if composed else [15, 24])
+    assert motion.initial_state["position"] == position
 
 
-@pytest.mark.parametrize("composed", [False, True])
-def test_reduced_motion_debug_and_diagnostic_pixels_use_whole_authored_source(composed):
+@pytest.mark.parametrize("scene", [text_scene, composed_group_scene, nested_scene])
+def test_reduced_motion_debug_and_diagnostic_pixels_use_whole_authored_source(scene):
     from tests.test_parent_diagnostics import composite, setup
 
-    canvas = composed_group_scene() if composed else text_scene(rotation=7, align="center")
+    canvas = scene() if scene is not text_scene else text_scene(rotation=7, align="center")
     fixed = Canvas.from_json(canvas.to_json())
     cast(Any, fixed.layers[-1]).animation = None
     expected = fixed._render_to_image()
@@ -74,18 +79,24 @@ def test_reduced_motion_debug_and_diagnostic_pixels_use_whole_authored_source(co
     sources, measured = setup(canvas)
     assert composite(canvas, sources, measured).tobytes() == expected.tobytes()
     assert sources.occurrences["leaf"].animated
-    canvas.diagnose()
+    assert canvas.diagnose() == fixed.diagnose()
 
 
 @pytest.mark.parametrize("kind", ["html", "svg", "pptx", "pdf"])
-@pytest.mark.parametrize("composed", [False, True])
-def test_document_fallback_pixels_and_strict_destination_protection(tmp_path, kind, composed):
+@pytest.mark.parametrize("scene", [text_scene, composed_group_scene, nested_scene])
+def test_document_fallback_pixels_and_strict_destination_protection(tmp_path, kind, scene):
     from tests.test_parent_documents import embedded_png
 
-    canvas = composed_group_scene() if composed else text_scene(color="#203040")
-    if composed:
-        for child in cast(GroupLayer, canvas.layers[-1]).children:
-            cast(Any, child).color = "#203040"
+    canvas = scene()
+
+    def recolor(layer):
+        if isinstance(layer, GroupLayer):
+            for child in layer.children:
+                recolor(child)
+        else:
+            layer.color = "#203040"
+
+    recolor(canvas.layers[-1])
     canvas.layers = [
         *Canvas(canvas.width, canvas.height).background(color="#FFFFFF").layers,
         *canvas.layers,
@@ -108,9 +119,13 @@ def test_document_fallback_pixels_and_strict_destination_protection(tmp_path, ki
     result = canvas.export(path)
     assert {"parent", "stagger"} <= {item.feature for item in result.capability_report}
     assert all(item.fallback == "static" for item in result.capability_report)
-    path.write_bytes(b"existing")
+    for exporter in (canvas, Deck(canvas.width, canvas.height).slide(canvas)):
+        path.write_bytes(b"existing")
+        with pytest.raises(RenderingError):
+            exporter.export(path, policy=ExportPolicy(unsupported_motion="error"))
+        assert path.read_bytes() == b"existing"
     with pytest.raises(RenderingError):
-        canvas.export(path, policy=ExportPolicy(unsupported_motion="error"))
+        canvas.render(str(path), policy=ExportPolicy(unsupported_motion="error"))
     assert path.read_bytes() == b"existing"
 
 
@@ -199,7 +214,7 @@ def test_dynamic_leaf_source_kinds_remain_guarded_before_paint(tmp_path, monkeyp
         canvas.render_frame(0.5)
 
 
-@pytest.mark.parametrize("scene", [group_scene, composed_group_scene])
+@pytest.mark.parametrize("scene", [group_scene, composed_group_scene, nested_scene])
 def test_gif_export_keeps_existing_policy_labels_without_replacing_partial_motion(tmp_path, scene):
     from quickthumb import GifOptions
 

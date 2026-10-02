@@ -44,13 +44,13 @@ def build_scene() -> Canvas:
         "GROUP BOUNDARIES + STAGGER", position=(24, 22), font=FONT, size=26, color="#FFFFFF"
     )
     canvas.text(
-        "Clipped source pieces travel through a shared parent transform",
+        "Clips and nested masks travel through a shared parent transform",
         position=(24, 60),
         font=FONT,
         size=16,
         color="#A5BCC7",
     )
-    for index, label in enumerate(("ROUNDED CLIP", "CLIP + PARTIAL MASK", "ONE BAND REMOVED")):
+    for index, label in enumerate(("ROUNDED CLIP", "NESTED PARTIAL MASKS", "ONE BAND REMOVED")):
         center = 125 + index * 250
         canvas.shape("rectangle", (16 + index * 250, 101), 218, 178, "#182833", border_radius=18)
         canvas.null(
@@ -88,8 +88,13 @@ def build_scene() -> Canvas:
                     ),
                     TextLayer(type="text", content=text, font=FONT, size=22, color="#FFFFFF"),
                 ],
+                mask=LayerMask(
+                    position=(-65, -42), width=125, height=117, opacity=(0.85, 0.6, 0.4)[row]
+                )
+                if index == 1
+                else None,
             )
-            for text in ("SOURCE", "PIECES", "TRAVEL")
+            for row, text in enumerate(("SOURCE", "PIECES", "TRAVEL"))
         ]
         canvas.group(
             children,
