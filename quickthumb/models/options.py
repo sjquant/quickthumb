@@ -80,6 +80,17 @@ class VideoOptions(quickthumbModel):
     transparent: Annotated[bool, Field(strict=True)] = False
 
 
+class PngSequenceOptions(quickthumbModel):
+    """Silent RGBA8 animation export, with one independent PNG per frame."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    fps: Annotated[float, Field(strict=True, gt=0, le=120, allow_inf_nan=False)] = 30.0
+    hold: Annotated[float, Field(strict=True, ge=0, allow_inf_nan=False)] = 3.0
+    workers: Annotated[int, Field(strict=True, ge=1, le=8)] = 1
+    quality: Literal["standard", "high"] = "standard"
+
+
 def coerce_audio_track(value: AudioTrack | str | dict | None) -> AudioTrack | None:
     """Normalize legacy path strings and mapping specs into an audio track."""
     if value is None:

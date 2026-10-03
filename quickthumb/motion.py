@@ -1673,6 +1673,7 @@ def _normalize_target(target: ExportTarget | str) -> ExportTarget:
         "webm": "video",
         "mov": "video",
         "png": "raster",
+        "png_sequence": "video",
     }
     normalized = aliases.get(str(target).lower(), str(target).lower())
     if normalized not in _CAPABILITIES:
