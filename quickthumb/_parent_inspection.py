@@ -79,7 +79,8 @@ def measure_parent_layers(canvas: Canvas) -> list[LayerMeasurement]:
     if problem := parent_rendering_problem(canvas):
         raise RenderingError(problem, code="unsupported_parent_rendering")
     layers = participating_layers(canvas)
-    measured = LayerMeasurementEngine(canvas._ctx, canvas._groups, canvas._text).measure_layers(
+    measure = LayerMeasurementEngine(canvas._ctx, canvas._groups, canvas._text)
+    measured = measure.measure_layers(
         [settled_content(layer) if id(layer) in layers else layer for layer in canvas.layers]
     )
     measured = [
@@ -99,6 +100,8 @@ def measure_parent_layers(canvas: Canvas) -> list[LayerMeasurement]:
     for item in measured:
         key = id(item.raw_layer)
         if key in video_bodies:
-            item = replace(item, bbox=video_bodies[key])
+            item = replace(
+                item, bbox=measure._apply_composition_bounds(item.raw_layer, video_bodies[key])
+            )
         result.append(_world_measurement(item, ancestors[key]) if key in ancestors else item)
     return result
