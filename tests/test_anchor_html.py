@@ -16,6 +16,7 @@ from quickthumb import (
     Canvas,
     KeyframeSpec,
     OpacityTrack,
+    PositionKeyframeSpec,
     PositionTrack,
     RotationTrack,
     ScaleTrack,
@@ -335,7 +336,8 @@ def test_reduced_motion_keeps_authored_static_appearance_without_track_css():
     assert "@keyframes qt-k" not in html
 
 
-def test_runtime_settles_seeks_resets_replays_and_ignores_stale_callbacks():
+@pytest.mark.parametrize("motion_path", [False, True])
+def test_runtime_settles_seeks_resets_replays_and_ignores_stale_callbacks(motion_path):
     animation = AnimationSpec.timeline(
         _track(ScaleTrack, (0, 1), (2, 3)),
         _track(ScaleXTrack, (0, 1), (2, -2)),
@@ -344,6 +346,15 @@ def test_runtime_settles_seeks_resets_replays_and_ignores_stale_callbacks():
         _track(OpacityTrack, (0, 0.2), (2, 0.7)),
         timing=TimingSpec(duration=2, delay=0.25, trigger="on_click"),
     )
+    if motion_path:
+        assert animation.tracks is not None
+        animation.tracks[2] = PositionTrack(
+            auto_orient=True,
+            keyframes=[
+                PositionKeyframeSpec(time=0, value=(0, 0), out_tangent=(0, 30)),
+                PositionKeyframeSpec(time=2, value=(13, 21), in_tangent=(30, 0)),
+            ],
+        )
     node = _nodes(_canvas(animation, anchor=(0, 1)).to_html())[0]
     script = r"""
 const assert=require('node:assert/strict');
