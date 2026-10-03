@@ -244,15 +244,16 @@ Child transforms still use the full authored group body;
 the boundary does not clip independently linked children. Counter observations
 use settled text, including glyph backgrounds and preceding group content.
 Groups with descendant boundaries require static content everywhere: intrinsic
-dynamic sources, including counters, and authored stagger on the owner or any
-structural descendant remain guarded. The participating top-level group's own
+dynamic sources, including counters, and authored stagger on any structural
+descendant remain guarded. The participating top-level group's own
 animation may override other authored descendant animations; an external
 ancestor's animation or only an inner group's animation does not qualify.
 Static inspection and diagnostics retain the authored layout and composition;
 HTML, SVG, PDF and PPTX retain whole-scene authored-static fallback for overridden
 descendant motion. Groups with only their own boundary retain counter support;
-counter-group stagger remains guarded. Static leaf groups with only their own
-clip/mask use the existing partial stagger adapter; see
+counter-group stagger remains guarded. Static graph-leaf groups with their own
+or descendant clip/mask boundaries can use root stagger through the existing
+partial horizontal-band adapter; it does not establish which child owns a band. See
 [parent adapter boundaries](video.md#current-adapters-and-boundaries).
 
 ### `.to_json()`
