@@ -28,19 +28,19 @@ Concretely, per slide:
 
 Frames are eased with the CSS `ease` curve the HTML export uses, so both
 animated formats move the same way. GIF is encoded by Pillow with per-frame
-durations (holds cost one frame, not `fps` copies); MP4 (H.264) and WebM
-(VP9) give each distinct shot and its duration to the `ffmpeg` binary, which
+durations (holds cost one frame, not `fps` copies); MP4 (H.264), WebM
+(VP9), and MOV (ProRes 4444) give each distinct shot and its duration to the `ffmpeg` binary, which
 must be on PATH (or named via the `QUICKTHUMB_FFMPEG` environment variable).
 H.264/VP9 4:2:0 output needs even dimensions, so odd-sized canvases lose their
-last pixel row/column in MP4/WebM output.
+last pixel row/column in MP4/WebM output. MOV retains the full dimensions.
 
-Frames default to an opaque `matte`. Opt-in transparent VP9 WebM skips only
-this export matte, preserving authored backgrounds and alpha end to end.
+Frames default to an opaque `matte`. Transparent VP9 WebM or ProRes 4444 MOV
+skips only this export matte, preserving authored backgrounds and alpha end to end.
 Slides that differ from the first slide's size are scaled to fit and centered
 (PPTX-viewer letterboxing), with transparent padding in alpha exports.
 
-MP4/WebM output can carry a `soundtrack` audio file (any format ffmpeg
-decodes: MP3, WAV, AAC, OGG, ...), encoded as AAC in MP4 and Opus in WebM.
+MP4/WebM/MOV output can carry a `soundtrack` audio file (any format ffmpeg
+decodes: MP3, WAV, AAC, OGG, ...), encoded as AAC in MP4/MOV and Opus in WebM.
 The audio is trimmed to the video length; when `loop_audio` is set (the
 default) a track shorter than the video repeats seamlessly. GIF cannot carry
 audio.
@@ -132,12 +132,12 @@ if TYPE_CHECKING:
     from quickthumb.canvas import Canvas, RenderableLayer
     from quickthumb.transitions import Transition
 
-AnimationFormat = Literal["gif", "mp4", "webm"]
+AnimationFormat = Literal["gif", "mp4", "webm", "mov"]
 AnimationQuality = Literal["standard", "high"]
 
 # HTML deck parity: a slide with no transition set cross-fades in over 0.5s.
 _DEFAULT_TRANSITION_DURATION = 0.5
-_DEFAULT_FPS = {"gif": 20.0, "mp4": 30.0, "webm": 30.0}
+_DEFAULT_FPS = {"gif": 20.0, "mp4": 30.0, "webm": 30.0, "mov": 30.0}
 # Tolerance for float noise in timeline arithmetic (seconds); boundaries
 # closer than this are the same instant, far below any representable frame.
 _TIME_EPSILON = 1e-9
@@ -280,7 +280,7 @@ def export_animation_bytes(
     *,
     audio_schedule: _AnimationAudioSchedule | None = None,
 ) -> bytes:
-    """Render slides to animated GIF/MP4/WebM bytes."""
+    """Render slides to animated GIF/MP4/WebM/MOV bytes."""
     prepared, settings = _setup_animation(
         canvases,
         transitions,
@@ -316,7 +316,7 @@ def export_animation_bytes(
                     fps=prepared.fps,
                 )
             else:
-                # MP4 muxing needs a seekable output, so bytes use a temp file.
+                # MP4/MOV muxing needs a seekable output, so bytes use a temp file.
                 descriptor, temp_path = tempfile.mkstemp(suffix=f".{format}")
                 os.close(descriptor)
                 _encode_prepared_video(
@@ -392,7 +392,7 @@ def _setup_animation(
     """
     if isinstance(animation, VideoOptions):
         if format == "gif":
-            raise ValidationError("VideoOptions are only supported for MP4 or WebM output")
+            raise ValidationError("VideoOptions are only supported for MP4, WebM, or MOV output")
         if soundtrack is not None and animation.soundtrack is not None:
             raise ValidationError("specify the video soundtrack only once")
         soundtrack = animation.soundtrack if animation.soundtrack is not None else soundtrack
@@ -479,10 +479,14 @@ def _prepare_animation(
     """Validate codec/audio options before entering the rendering owner."""
     if type(transparent) is not bool:
         raise ValidationError("transparent must be a boolean")
-    if transparent and format != "webm":
-        raise ValidationError("transparent output is only supported for VP9 WebM")
+    if transparent and format not in ("webm", "mov"):
+        raise ValidationError(
+            "transparent output is only supported for VP9 WebM or ProRes 4444 MOV"
+        )
     if format not in _DEFAULT_FPS:
-        raise ValidationError(f"Unsupported animation format: {format!r}. Use gif, mp4, or webm.")
+        raise ValidationError(
+            f"Unsupported animation format: {format!r}. Use gif, mp4, webm, or mov."
+        )
     if format != "gif" and max_size is not None:
         raise ValidationError("max_size is only supported for GIF output")
     if format != "gif" and colors is not None:
@@ -506,7 +510,7 @@ def _prepare_animation(
         raise ValidationError("colors must be between 2 and 256")
     if soundtrack is not None:
         if format == "gif":
-            raise ValidationError("GIF cannot carry audio; use mp4 or webm for a soundtrack.")
+            raise ValidationError("GIF cannot carry audio; use mp4, webm, or mov for a soundtrack.")
         if not os.path.isfile(soundtrack.path):
             raise ValidationError(f"Soundtrack file not found: {soundtrack.path!r}")
     if slide_audio is not None:
@@ -598,7 +602,7 @@ def _resolve_loop_audio(
 class _Shot:
     """One output frame held on screen for `duration` seconds."""
 
-    frame: Image.Image  # RGB, or straight RGBA for transparent WebM, at the deck size
+    frame: Image.Image  # RGB, or straight RGBA for alpha video, at the deck size
     duration: float
     caption_active: bool = False
 
@@ -3111,17 +3115,31 @@ _CODEC_ARGS = {
         "-c:v", "libvpx-vp9", "-pix_fmt", "yuv420p",
         "-b:v", "0", "-crf", "32", "-row-mt", "1",
     ],
+    "mov": [
+        "-c:v", "prores_ks", "-profile:v", "4444", "-pix_fmt", "yuv444p10le",
+        "-alpha_bits", "0",
+    ],
 }  # fmt: skip
-# Lossless coding protects the separate alpha plane. RGB still undergoes
-# YUV 4:2:0 conversion; this does not promise lossless source color pixels.
-_ALPHA_CODEC_ARGS = [
-    "-c:v", "libvpx-vp9", "-pix_fmt", "yuva420p",
-    "-b:v", "0", "-lossless", "1", "-row-mt", "1", "-auto-alt-ref", "0",
-]  # fmt: skip
-# WebM containers only allow Opus/Vorbis audio; MP4 uses the universal AAC.
+_ALPHA_CODEC_ARGS = {
+    # VP9 lossless coding protects alpha; RGB still undergoes YUV 4:2:0
+    # conversion, so this does not promise lossless source color pixels.
+    "webm": [
+        "-c:v", "libvpx-vp9", "-pix_fmt", "yuva420p",
+        "-b:v", "0", "-lossless", "1", "-row-mt", "1", "-auto-alt-ref", "0",
+    ],
+    # 16-bit alpha coding limits the measured RGBA8 conversion error to one
+    # level (8-bit coding loses up to two). Source precision remains 8-bit;
+    # ProRes color is lossy even with full-resolution 4:4:4 chroma.
+    "mov": [
+        "-c:v", "prores_ks", "-profile:v", "4444", "-pix_fmt", "yuva444p10le",
+        "-alpha_bits", "16",
+    ],
+}  # fmt: skip
+# WebM containers only allow Opus/Vorbis audio; MP4 and MOV use AAC.
 _AUDIO_ARGS = {
     "mp4": ["-c:a", "aac", "-b:a", "192k"],
     "webm": ["-c:a", "libopus", "-b:a", "128k"],
+    "mov": ["-c:a", "aac", "-b:a", "192k"],
 }
 
 
@@ -3304,7 +3322,8 @@ def _encode_shot_batches(
     if not segments:
         raise RenderingError("Animation produced no frames.")
     width, height = size
-    width, height = width - width % 2, height - height % 2
+    if format != "mov":
+        width, height = width - width % 2, height - height % 2
     return segments, _AnimationFacts(width, height, emitted, emitted / fps, fps)
 
 
@@ -3353,9 +3372,9 @@ def _encode_shot_batch(
             str(fps),
             "-i",
             "pipe:0",
-            "-vf",
-            "crop=trunc(iw/2)*2:trunc(ih/2)*2",
-            *(_ALPHA_CODEC_ARGS if transparent else _CODEC_ARGS[format]),
+            # ProRes 4:4:4 accepts odd and one-pixel dimensions unchanged.
+            *([] if format == "mov" else ["-vf", "crop=trunc(iw/2)*2:trunc(ih/2)*2"]),
+            *(_ALPHA_CODEC_ARGS[format] if transparent else _CODEC_ARGS[format]),
             str(output_path),
         ],
         frames(),
@@ -3376,7 +3395,7 @@ def _stream_video_ffmpeg(
     except OSError as error:
         _remove_quietly(output_path)
         raise RenderingError(
-            "MP4/WebM export could not start ffmpeg. Install FFmpeg "
+            "MP4/WebM/MOV export could not start ffmpeg. Install FFmpeg "
             "(e.g. 'brew install ffmpeg' or 'apt install ffmpeg'), or set "
             "QUICKTHUMB_FFMPEG to its executable path."
         ) from error
@@ -3450,7 +3469,7 @@ def _run_video_ffmpeg(command: list[str], format: str, output_path: str) -> None
     except OSError as error:
         _remove_quietly(output_path)
         raise RenderingError(
-            "MP4/WebM export could not start ffmpeg. Install FFmpeg "
+            "MP4/WebM/MOV export could not start ffmpeg. Install FFmpeg "
             "(e.g. 'brew install ffmpeg' or 'apt install ffmpeg'), or set "
             "QUICKTHUMB_FFMPEG to its executable path."
         ) from error
@@ -3593,14 +3612,14 @@ def _ffmpeg_binary() -> str:
         if binary:
             return binary
         raise RenderingError(
-            "MP4/WebM export requires a working ffmpeg binary. Install ffmpeg "
+            "MP4/WebM/MOV export requires a working ffmpeg binary. Install ffmpeg "
             "(e.g. 'brew install ffmpeg' or 'apt install ffmpeg'), or set "
             "QUICKTHUMB_FFMPEG to its executable path."
         )
     binary = shutil.which("ffmpeg")
     if binary is None:
         raise RenderingError(
-            "MP4/WebM export requires the ffmpeg binary, which was not found on PATH. "
+            "MP4/WebM/MOV export requires the ffmpeg binary, which was not found on PATH. "
             "Install ffmpeg (e.g. 'brew install ffmpeg' or 'apt install ffmpeg'), or set "
             "the QUICKTHUMB_FFMPEG environment variable to its location. "
             "Animated GIF export works without ffmpeg."

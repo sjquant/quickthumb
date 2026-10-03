@@ -385,14 +385,14 @@ def test_frame_stream_is_single_use_and_session_cannot_be_reentered():
         pytest.fail("closed session was reentered")
 
 
-@pytest.mark.parametrize("format", ["gif", "mp4", "webm"])
+@pytest.mark.parametrize("format", ["gif", "mp4", "webm", "mov"])
 @pytest.mark.parametrize("matte", [None])
 def test_opaque_scalar_none_matte_keeps_legacy_validation(format, matte):
     with pytest.raises(ValidationError, match="Invalid matte color: None"):
         getattr(Canvas(4, 4), f"to_{format}")(matte=matte)
 
 
-@pytest.mark.parametrize("format", ["webm"])
+@pytest.mark.parametrize("format", ["webm", "mov"])
 @pytest.mark.parametrize("matte", [None, "not-a-color"])
 def test_alpha_encoding_still_ignores_matte(format, matte):
     with video._prepare_animation(
