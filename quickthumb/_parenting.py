@@ -84,14 +84,18 @@ def validate_parent_graph(layers: Sequence[object]) -> None:
         complete.update(path)
 
 
+def has_parent_links(canvas: Canvas) -> bool:
+    return any(getattr(layer, "parent", None) is not None for layer in canvas._iter_layers_deep())
+
+
 def require_parent_rendering(canvas: Canvas) -> None:
-    """Fail explicitly until the next stack layer supplies graph-aware rendering."""
+    """Reject document/layout paths until their graph-aware adapter is available."""
     # The unlinked path remains unchanged, including its grouping and pixels.
-    if not any(getattr(layer, "parent", None) is not None for layer in canvas._iter_layers_deep()):
+    if not has_parent_links(canvas):
         return
     validate_parent_graph(canvas.layers)
     raise RenderingError(
-        "Parent-linked rendering requires the renderer layer of the parenting stack; "
-        "this model-only layer does not silently ignore parent transforms.",
+        "Parent-linked rendering is available for raster/video only; document-format "
+        "and world-layout adapters do not yet support parent transforms.",
         code="unsupported_parent_rendering",
     )

@@ -130,14 +130,14 @@ def test_portrait_proxy_composites_on_reduced_surfaces_and_preserves_full_mode(
 ):
     source = write_source(tmp_path, moving_card(1080, 1920))
     sizes = []
-    original = video._composite_frame
+    original = video._SlideAnimator._composite_frame
 
-    def record(*args, **kwargs):
-        frame = original(*args, **kwargs)
+    def record(self, *args, **kwargs):
+        frame = original(self, *args, **kwargs)
         sizes.append(frame.size)
         return frame
 
-    monkeypatch.setattr(video, "_composite_frame", record)
+    monkeypatch.setattr(video._SlideAnimator, "_composite_frame", record)
     with running(source) as base:
         metadata = get_json(base)
         assert (metadata["width"], metadata["height"]) == (1080, 1920)
@@ -160,14 +160,14 @@ def test_proxy_bounds_larger_later_slides_and_keeps_letterboxing(tmp_path, monke
         ]
     )
     sizes = []
-    original = video._composite_frame
+    original = video._SlideAnimator._composite_frame
 
-    def record(*args, **kwargs):
-        image = original(*args, **kwargs)
+    def record(self, *args, **kwargs):
+        image = original(self, *args, **kwargs)
         sizes.append(image.size)
         return image
 
-    monkeypatch.setattr(video, "_composite_frame", record)
+    monkeypatch.setattr(video._SlideAnimator, "_composite_frame", record)
     source = write_source(tmp_path, deck)
     try:
         metadata = source.timeline_metadata()
