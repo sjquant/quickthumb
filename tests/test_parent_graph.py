@@ -177,7 +177,7 @@ def test_null_rotation_is_finite(rotation):
         NullLayer(type="null", rotation=rotation)
 
 
-@pytest.mark.parametrize("method", ["inspect", "diagnose"])
+@pytest.mark.parametrize("method", ["diagnose"])
 def test_layout_observations_do_not_silently_ignore_parent_links(method):
     with pytest.raises(RenderingError) as error:
         getattr(scene(), method)()
@@ -241,14 +241,14 @@ def test_all_animatable_builders_preserve_parent_keyword(method, args, kwargs):
     assert Canvas.from_json(canvas.to_json()).to_json() == canvas.to_json()
 
 
-def test_validation_reports_deferred_layout_as_warning_on_canvas_and_deck():
+def test_validation_checks_supported_world_layout_on_canvas_and_deck():
     from quickthumb import Deck
 
     report = scene().validate()
-    assert report.ok and report.warnings[0].code == "unsupported_parent_rendering"
+    assert report.ok and not report.warnings
     deck = Deck(140, 130).slide(Canvas(140, 130)).slide(scene())
     report = deck.validate()
-    assert report.ok and report.warnings[0].path == "/slides/1"
+    assert report.ok and not report.warnings
     child = deck.slides[1].layers[1]
     assert isinstance(child, ShapeLayer)
     child.parent = "missing"

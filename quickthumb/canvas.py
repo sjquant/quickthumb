@@ -1853,13 +1853,16 @@ class Canvas:
         if has_parent_links(self):
             from quickthumb._export_video import _SlideAnimator
 
-            if debug:
+            if debug and time is not None:
                 require_parent_rendering(self)
             try:
                 animator = _SlideAnimator(
                     self, self._ctx.video_info_cache, reduced_motion=time is None
                 )
-                return animator.frame_at(0 if time is None else time)
+                image = animator.frame_at(0 if time is None else time)
+                if debug:
+                    self._draw_debug_overlay(image)
+                return image
             finally:
                 self._ctx.motion_time = None
                 self._ctx.close_video_decoders()
