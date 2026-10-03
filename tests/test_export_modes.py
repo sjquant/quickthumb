@@ -121,7 +121,7 @@ def test_parent_document_strict_policy_precedes_invalid_quality(tmp_path, kind, 
     source = canvas if kind == "canvas" else Deck().slide(canvas)
     path = tmp_path / f"existing.{extension}"
     path.write_bytes(b"existing")
-    message = "authored-static"
+    message = "sampled approximation" if extension == "html" else "authored-static"
     with pytest.raises(RenderingError, match=message):
         getattr(source, method)(
             str(path), quality=90, policy=ExportPolicy(unsupported_motion="error")
