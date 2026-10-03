@@ -127,10 +127,11 @@ canvas.render("preview.mp4", animation=VideoOptions(fps=30))
 `GifOptions` and `VideoOptions` are available from `quickthumb`. `GifOptions`
 accepts `fps`, `hold`, `matte`, `loop`, `max_size=(width, height)`, and `colors`.
 `VideoOptions` accepts `fps`, `hold`, `matte`, `soundtrack=AudioTrack(...)`, and `loop_audio`.
+`VideoOptions(transparent=True)` preserves alpha in VP9 WebM only (strict
+boolean, default `False`); all other output targets reject this option.
 Both use a strict finite nonnegative `hold` (default 3 seconds), omitted from
 serialized options when equal to its default. Both accept `workers` (a strict
-integer from 1 to 8, default 1) and `quality="standard"` or `"high"` for rendering.
-See [parallel animated rendering](../exports.md#parallel-animated-rendering)
+integer from 1 to 8, default 1) and `quality="standard"` or `"high"` for rendering. See [parallel animated rendering](../exports.md#parallel-animated-rendering)
 for spawn setup and supported inputs. GIF sizing and palette controls are rejected for MP4/WebM output.
 
 ### `.to_svg(embed_fonts=False)`
@@ -167,6 +168,7 @@ Return the canvas as an animation that plays its layer `animation` effects in se
 gif_bytes = canvas.to_gif(fps=20, hold=3.0, loop=0, matte="#000000")
 mp4_bytes = canvas.to_mp4(fps=30, hold=2.0, soundtrack="music.mp3")
 webm_bytes = canvas.to_webm(fps=30, hold=2.0)
+overlay_bytes = canvas.to_webm(fps=30, hold=2.0, transparent=True)
 ```
 
 `.to_mp4()`/`.to_webm()` also accept `soundtrack` (an audio file muxed into the video, trimmed to the video length) and `loop_audio` (an explicit override). `AudioTrack(..., loop=True)` repeats a shorter configured track; legacy string paths keep the previous default of looping. GIF cannot carry audio. See the [Deck API](deck.md) for the full parameter table.
@@ -175,6 +177,10 @@ All animated byte methods accept keyword-only `workers=1` and
 `quality="standard"` (`"high"` enables supersampling). `.to_gif()` also accepts
 `max_size=None` for proportional resizing and `colors=None` for the palette
 size (2–256 when supplied). Existing positional parameters remain unchanged.
+
+The keyword-only `transparent` flag on `.to_webm()` skips only the export matte;
+authored backgrounds stay visible. See [transparent WebM](../exports.md#transparent-webm)
+for codec, alpha decoding and transition details.
 
 ### `.to_base64(format="PNG", quality=None)`
 

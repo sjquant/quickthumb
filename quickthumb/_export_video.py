@@ -34,9 +34,10 @@ must be on PATH (or named via the `QUICKTHUMB_FFMPEG` environment variable).
 H.264/VP9 4:2:0 output needs even dimensions, so odd-sized canvases lose their
 last pixel row/column in MP4/WebM output.
 
-Alpha does not survive into these formats: every frame is composited onto an
-opaque `matte` color first. Slides that differ from the first slide's size
-are scaled to fit and centered on the matte (PPTX-viewer letterboxing).
+Frames default to an opaque `matte`. Opt-in transparent VP9 WebM skips only
+this export matte, preserving authored backgrounds and alpha end to end.
+Slides that differ from the first slide's size are scaled to fit and centered
+(PPTX-viewer letterboxing), with transparent padding in alpha exports.
 
 MP4/WebM output can carry a `soundtrack` audio file (any format ffmpeg
 decodes: MP3, WAV, AAC, OGG, ...), encoded as AAC in MP4 and Opus in WebM.
@@ -63,7 +64,7 @@ from io import BytesIO
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
-from PIL import Image, ImageChops, ImageColor, ImageDraw
+from PIL import Image, ImageChops, ImageColor, ImageDraw, ImageMath
 
 from quickthumb._composition import has_layer_composition
 from quickthumb._export_base import (
@@ -222,6 +223,7 @@ def write_animation(
                     settings.audio_offsets,
                     settings.audio_durations,
                     settings.audio_timeline_duration,
+                    transparent=settings.transparent,
                 )
         # Closing render resources is part of producing a successful export.
         if format == "gif":
@@ -274,6 +276,7 @@ def export_animation_bytes(
     reduced_motion: bool = False,
     workers: int = 1,
     quality: AnimationQuality = "standard",
+    transparent: bool = False,
     *,
     audio_schedule: _AnimationAudioSchedule | None = None,
 ) -> bytes:
@@ -297,6 +300,7 @@ def export_animation_bytes(
         colors=colors,
         workers=workers,
         quality=quality,
+        transparent=transparent,
         audio_schedule=audio_schedule,
         reduced_motion=reduced_motion,
     )
@@ -325,6 +329,7 @@ def export_animation_bytes(
                     settings.audio_offsets,
                     settings.audio_durations,
                     settings.audio_timeline_duration,
+                    transparent=settings.transparent,
                 )
                 with open(temp_path, "rb") as video_file:
                     data = video_file.read()
@@ -350,6 +355,7 @@ class _AnimationSettings:
     audio_offsets: list[float] | None
     audio_durations: list[float] | None
     audio_timeline_duration: float | None
+    transparent: bool
 
 
 def _setup_animation(
@@ -372,6 +378,7 @@ def _setup_animation(
     colors: int | None = None,
     workers: int = 1,
     quality: AnimationQuality = "standard",
+    transparent: bool = False,
     animation: GifOptions | VideoOptions | None = None,
     audio_schedule: _AnimationAudioSchedule | None = None,
     reduced_motion: bool = False,
@@ -390,6 +397,7 @@ def _setup_animation(
             raise ValidationError("specify the video soundtrack only once")
         soundtrack = animation.soundtrack if animation.soundtrack is not None else soundtrack
         loop_audio = animation.loop_audio if animation.loop_audio is not None else loop_audio
+        transparent = animation.transparent
         loop, max_size, colors = 0, None, None
     elif isinstance(animation, GifOptions):
         if format != "gif":
@@ -429,6 +437,7 @@ def _setup_animation(
         colors,
         workers,
         quality,
+        transparent,
         reduced_motion=reduced_motion,
     )
     return prepared, _AnimationSettings(
@@ -441,6 +450,7 @@ def _setup_animation(
         audio_offsets=audio_offsets,
         audio_durations=audio_durations,
         audio_timeline_duration=audio_timeline_duration,
+        transparent=transparent,
     )
 
 
@@ -462,10 +472,15 @@ def _prepare_animation(
     colors: int | None = None,
     workers: int = 1,
     quality: AnimationQuality = "standard",
+    transparent: bool = False,
     *,
     reduced_motion: bool = False,
 ) -> _PreparedAnimation:
     """Validate codec/audio options before entering the rendering owner."""
+    if type(transparent) is not bool:
+        raise ValidationError("transparent must be a boolean")
+    if transparent and format != "webm":
+        raise ValidationError("transparent output is only supported for VP9 WebM")
     if format not in _DEFAULT_FPS:
         raise ValidationError(f"Unsupported animation format: {format!r}. Use gif, mp4, or webm.")
     if format != "gif" and max_size is not None:
@@ -539,7 +554,8 @@ def _prepare_animation(
                 or duration <= 0
             ):
                 raise ValidationError("Deck slide duration must be finite and > 0")
-    if matte is None:
+    # None is the renderer's explicit RGBA request, never an opaque scalar color.
+    if not transparent and matte is None:
         raise ValidationError("Invalid matte color: None")
     prepared = _PreparedAnimation(
         canvases,
@@ -547,7 +563,7 @@ def _prepare_animation(
         fps=_DEFAULT_FPS[format] if fps is None else fps,
         slide_duration=slide_duration,
         slide_durations=slide_durations,
-        matte=matte,
+        matte=None if transparent else matte,
         workers=workers,
         quality=quality,
         reduced_motion=reduced_motion,
@@ -582,7 +598,7 @@ def _resolve_loop_audio(
 class _Shot:
     """One output frame held on screen for `duration` seconds."""
 
-    frame: Image.Image  # RGB at the deck size
+    frame: Image.Image  # RGB, or straight RGBA for transparent WebM, at the deck size
     duration: float
     caption_active: bool = False
 
@@ -629,13 +645,13 @@ class _PreparedAnimation:
         fps: float,
         slide_duration: float,
         slide_durations: list[float | None] | None = None,
-        matte: str = "#000000",
+        matte: str | None = "#000000",
         workers: int = 1,
         quality: AnimationQuality = "standard",
         reduced_motion: bool = False,
     ):
         # These are rendering settings. Codec limits and audio belong to callers
-        # at the encoding boundary.
+        # at the encoding boundary; None requests native-size straight RGBA.
         if quality not in ("standard", "high"):
             raise ValidationError("quality must be standard or high")
         if type(workers) is not int or not 1 <= workers <= 8:
@@ -666,7 +682,7 @@ class _PreparedAnimation:
         self._transitions = [None] * len(canvases) if reduced_motion else transitions
         self._slide_duration = slide_duration
         self._slide_durations = slide_durations
-        self._matte = matte_color(matte)
+        self._matte = None if matte is None else matte_color(matte)
         self._workers = workers
         self._quality = quality
         self._reduced_motion = reduced_motion
@@ -966,13 +982,13 @@ def _deck_plan(
 def _ordered_deck_shots(
     canvases: list[Canvas],
     fps: float,
-    matte_rgb: tuple[int, int, int],
+    matte_rgb: tuple[int, int, int] | None,
     plan: _DeckPlan,
     renderer: ParallelFrames | None = None,
 ) -> Generator[_Shot, None, None]:
     """Yield the deck's full frame timeline as variable-duration shots."""
     size = (canvases[0].width, canvases[0].height)
-    previous_final = Image.new("RGB", size, matte_rgb)
+    previous_final = _export_background(size, matte_rgb)
     previous_canvas = None
     for index, (animator, canvas, timing) in enumerate(
         zip(
@@ -1039,7 +1055,7 @@ def _slide_motion_shots(
     animation_end: float,
     previous_final: Image.Image,
     size: tuple[int, int],
-    matte_rgb: tuple[int, int, int],
+    matte_rgb: tuple[int, int, int] | None,
     fps: float,
     previous_canvas: Canvas | None,
     incoming_canvas: Canvas,
@@ -1112,15 +1128,21 @@ def _slide_frame(
     morph_from: Canvas | None,
     incoming_canvas: Canvas,
     size: tuple[int, int],
-    matte_rgb: tuple[int, int, int],
+    matte_rgb: tuple[int, int, int] | None,
 ) -> Image.Image:
-    """Composite the opaque frame shown `local` seconds into an unsettled slide."""
+    """Composite the frame shown `local` seconds into an unsettled slide."""
     incoming = _conform(animator.frame_at(local), size, matte_rgb)
     if local >= duration_in:
         return incoming
     progress = _ease(local / duration_in)
     if morph_from is not None:
-        morph = _morph_frame(morph_from, incoming_canvas, progress, duration_in)
+        morph = _morph_frame(
+            morph_from,
+            incoming_canvas,
+            progress,
+            duration_in,
+            output_size=size if matte_rgb is None else None,
+        )
         return _conform(morph, size, matte_rgb)
     return _transition_frame(transition, previous_final, incoming, progress)
 
@@ -1203,22 +1225,35 @@ def _sample_span(start: float, end: float, fps: float) -> Iterator[tuple[float, 
         yield start + frame_index * step, step
 
 
-def _conform(
-    frame: Image.Image, size: tuple[int, int], matte_rgb: tuple[int, int, int]
+def _export_background(
+    size: tuple[int, int], matte_rgb: tuple[int, int, int] | None
 ) -> Image.Image:
-    """Composite an RGBA slide frame onto the matte at the deck size.
+    """Use no export matte when alpha was explicitly requested."""
+    if matte_rgb is None:
+        return Image.new("RGBA", size, (0, 0, 0, 0))
+    return Image.new("RGB", size, matte_rgb)
+
+
+def _conform(
+    frame: Image.Image, size: tuple[int, int], matte_rgb: tuple[int, int, int] | None
+) -> Image.Image:
+    """Fit a slide at the deck size, preserving RGBA when no matte is requested.
 
     Slides that differ from the deck size are scaled to fit and centered,
     matching how PPTX viewers letterbox mixed-size decks.
     """
-    base = Image.new("RGB", size, matte_rgb)
+    base = _export_background(size, matte_rgb)
     if frame.size == size:
-        base.paste(frame, (0, 0), frame)
+        base.paste(frame, (0, 0), frame if matte_rgb is not None else None)
         return base
     scale = min(size[0] / frame.width, size[1] / frame.height)
     fitted = (max(1, round(frame.width * scale)), max(1, round(frame.height * scale)))
     resized = frame.resize(fitted, Image.Resampling.LANCZOS)
-    base.paste(resized, ((size[0] - fitted[0]) // 2, (size[1] - fitted[1]) // 2), resized)
+    base.paste(
+        resized,
+        ((size[0] - fitted[0]) // 2, (size[1] - fitted[1]) // 2),
+        resized if matte_rgb is not None else None,
+    )
     return base
 
 
@@ -2484,28 +2519,53 @@ def _canvas_has_video_captions(canvas: Canvas) -> bool:
     return any(layer.captions for layer in iter_video_layers(canvas.layers))
 
 
-def _morph_frame(source: Canvas, target: Canvas, progress: float, duration: float) -> Image.Image:
+def _morph_frame(
+    source: Canvas,
+    target: Canvas,
+    progress: float,
+    duration: float,
+    *,
+    output_size: tuple[int, int] | None = None,
+) -> Image.Image:
     """Render a keyed shared-element Morph frame for raster/video output."""
+    blend = _blend_rgba if output_size is not None else Image.blend
+
+    def render_base(canvas: Canvas, layers=None) -> Image.Image:
+        frame = _render_canvas_frame(canvas, layers)
+        return _conform(frame, output_size, None) if output_size is not None else frame
+
     source_layers = _morph_layer_index(source)
     target_layers = _morph_layer_index(target)
     matched_keys = sorted(source_layers.keys() & target_layers.keys())
     if not matched_keys:
-        return Image.blend(_render_canvas_frame(source), _render_canvas_frame(target), progress)
-    source_base = _render_canvas_frame(
+        return blend(render_base(source), render_base(target), progress)
+    source_base = render_base(
         source,
-        [layer for key, layer in source_layers.items() if key not in matched_keys],
+        [
+            layer
+            for layer in flatten_layers(source)
+            if getattr(layer, "motion_key", None) not in matched_keys
+        ]
+        if output_size is not None
+        else [layer for key, layer in source_layers.items() if key not in matched_keys],
     )
-    target_base = _render_canvas_frame(
+    target_base = render_base(
         target,
-        [layer for key, layer in target_layers.items() if key not in matched_keys],
+        [
+            layer
+            for layer in flatten_layers(target)
+            if getattr(layer, "motion_key", None) not in matched_keys
+        ]
+        if output_size is not None
+        else [layer for key, layer in target_layers.items() if key not in matched_keys],
     )
-    frame = Image.blend(source_base, target_base, progress)
+    frame = blend(source_base, target_base, progress)
     sampled = {
         item.motion_key: item for item in sample_scene_morph(source, target, progress, duration)
     }
     for key in matched_keys:
-        source_image, source_box = _render_isolated_layer(source, source_layers[key])
-        target_image, target_box = _render_isolated_layer(target, target_layers[key])
+        source_image, source_box = _render_isolated_layer(source, source_layers[key], output_size)
+        target_image, target_box = _render_isolated_layer(target, target_layers[key], output_size)
         state = sampled[key]
         if state.behavior == "crossfade":
             width = max(source_image.width, target_image.width)
@@ -2514,12 +2574,29 @@ def _morph_frame(source: Canvas, target: Canvas, progress: float, duration: floa
             target_image = _pad_image(target_image, (width, height))
             x = round(source_box[0] + (target_box[0] - source_box[0]) * progress)
             y = round(source_box[1] + (target_box[1] - source_box[1]) * progress)
-            frame.alpha_composite(Image.blend(source_image, target_image, progress), dest=(x, y))
+            frame.alpha_composite(blend(source_image, target_image, progress), dest=(x, y))
             continue
         width = max(1, round(source_box[2] + (target_box[2] - source_box[2]) * progress))
         height = max(1, round(source_box[3] + (target_box[3] - source_box[3]) * progress))
         x = round(source_box[0] + (target_box[0] - source_box[0]) * progress)
         y = round(source_box[1] + (target_box[1] - source_box[1]) * progress)
+        if output_size is not None:
+            # Conformed crops already carry authored opacity. Interpolate their
+            # extents and premultiplied pixels, rather than applying opacity twice.
+            width = max(
+                1, round(source_image.width + (target_image.width - source_image.width) * progress)
+            )
+            height = max(
+                1,
+                round(source_image.height + (target_image.height - source_image.height) * progress),
+            )
+            image = _blend_rgba(
+                source_image.resize((width, height), Image.Resampling.BICUBIC),
+                target_image.resize((width, height), Image.Resampling.BICUBIC),
+                progress,
+            )
+            frame.alpha_composite(image, dest=(x, y))
+            continue
         image = source_image.resize((width, height), Image.Resampling.BICUBIC)
         frame.alpha_composite(_scaled_alpha(image, state.state.opacity), dest=(x, y))
     return frame
@@ -2544,8 +2621,12 @@ def _render_canvas_frame(canvas: Canvas, layers=None, time: float = 0.0) -> Imag
     return image
 
 
-def _render_isolated_layer(canvas: Canvas, layer) -> tuple[Image.Image, tuple[int, int, int, int]]:
+def _render_isolated_layer(
+    canvas: Canvas, layer, output_size: tuple[int, int] | None = None
+) -> tuple[Image.Image, tuple[int, int, int, int]]:
     image = _render_canvas_frame(canvas, [layer])
+    if output_size is not None:
+        image = _conform(image, output_size, None)
     box = image.getbbox()
     if box is None:
         return Image.new("RGBA", (1, 1), (0, 0, 0, 0)), (0, 0, 1, 1)
@@ -2556,6 +2637,42 @@ def _pad_image(image: Image.Image, size: tuple[int, int]) -> Image.Image:
     padded = Image.new("RGBA", size, (0, 0, 0, 0))
     padded.alpha_composite(image)
     return padded
+
+
+def _blend_rgba(
+    previous: Image.Image, incoming: Image.Image, progress: float | Image.Image
+) -> Image.Image:
+    """Interpolate premultiplied colors, returning straight RGBA without 8-bit premultiply loss."""
+    weight = (
+        progress.convert("F").point(lambda value: value / 255)
+        if isinstance(progress, Image.Image)
+        else Image.new("F", previous.size, progress)
+    )
+    old_alpha = ImageMath.lambda_eval(
+        lambda a: a["alpha"] * (1 - a["weight"]),
+        alpha=previous.getchannel("A").convert("F"),
+        weight=weight,
+    )
+    new_alpha = ImageMath.lambda_eval(
+        lambda a: a["alpha"] * a["weight"],
+        alpha=incoming.getchannel("A").convert("F"),
+        weight=weight,
+    )
+    alpha = ImageMath.lambda_eval(lambda a: a["old"] + a["new"], old=old_alpha, new=new_alpha)
+    channels = [
+        ImageMath.lambda_eval(
+            lambda a: (a["old"] * a["old_alpha"] + a["new"] * a["new_alpha"])
+            / (a["alpha"] + (a["alpha"] == 0))
+            + 0.5,
+            old=previous.getchannel(channel).convert("F"),
+            new=incoming.getchannel(channel).convert("F"),
+            old_alpha=old_alpha,
+            new_alpha=new_alpha,
+            alpha=alpha,
+        ).convert("L")
+        for channel in "RGB"
+    ]
+    return Image.merge("RGBA", [*channels, alpha.point(lambda value: value + 0.5).convert("L")])
 
 
 def _transition_frame(
@@ -2575,13 +2692,14 @@ def _transition_frame(
         if transition is not None and transition.effect == "cut":
             return incoming
         return previous
+    blend = _blend_rgba if previous.mode == "RGBA" else Image.blend
     if transition is None:
-        return Image.blend(previous, incoming, progress)
+        return blend(previous, incoming, progress)
     effect = transition.effect
     if effect == "cut":
         return incoming
     if effect in ("fade", "random", "morph"):
-        return Image.blend(previous, incoming, progress)
+        return blend(previous, incoming, progress)
     if effect == "push":
         return _push_frame(previous, incoming, progress, getattr(transition, "direction", "left"))
     if effect == "cover":
@@ -2596,7 +2714,9 @@ def _transition_frame(
         return _newsflash_frame(previous, incoming, progress)
     mask = _transition_mask(transition, incoming.size, progress)
     if mask is None:
-        return Image.blend(previous, incoming, progress)
+        return blend(previous, incoming, progress)
+    if previous.mode == "RGBA":
+        return _blend_rgba(previous, incoming, mask)
     return Image.composite(incoming, previous, mask)
 
 
@@ -2645,7 +2765,7 @@ def _push_frame(
     # frame apart; rounding them independently could leave a 1px seam between.
     shift_x = round(out_dx * width * progress)
     shift_y = round(out_dy * height * progress)
-    frame = Image.new("RGB", incoming.size)
+    frame = Image.new(incoming.mode, incoming.size)
     frame.paste(previous, (shift_x, shift_y))
     frame.paste(incoming, (shift_x - out_dx * width, shift_y - out_dy * height))
     return frame
@@ -2657,10 +2777,11 @@ def _cover_frame(
     width, height = incoming.size
     in_dx, in_dy = _SLIDE_IN[direction]
     frame = previous.copy()
-    frame.paste(
-        incoming,
-        (round(in_dx * width * (1 - progress)), round(in_dy * height * (1 - progress))),
-    )
+    offset = (round(in_dx * width * (1 - progress)), round(in_dy * height * (1 - progress)))
+    if frame.mode == "RGBA":
+        frame.alpha_composite(incoming, dest=offset)
+    else:
+        frame.paste(incoming, offset)
     return frame
 
 
@@ -2670,7 +2791,11 @@ def _uncover_frame(
     width, height = incoming.size
     out_dx, out_dy = _SLIDE_OUT[direction]
     frame = incoming.copy()
-    frame.paste(previous, (round(out_dx * width * progress), round(out_dy * height * progress)))
+    offset = (round(out_dx * width * progress), round(out_dy * height * progress))
+    if frame.mode == "RGBA":
+        frame.alpha_composite(previous, dest=offset)
+    else:
+        frame.paste(previous, offset)
     return frame
 
 
@@ -2707,13 +2832,13 @@ def _overlay_scaled(
     overlay.paste(
         overlay_content,
         ((width - overlay_content.width) // 2, (height - overlay_content.height) // 2),
-        overlay_content,
+        overlay_content if previous.mode != "RGBA" else None,
     )
     if opacity < 1:
         overlay = _scaled_alpha(overlay, opacity)
     frame = previous.convert("RGBA")
     frame.alpha_composite(overlay)
-    return frame.convert("RGB")
+    return frame if previous.mode == "RGBA" else frame.convert("RGB")
 
 
 # ------------------------------------------------------------------ masks
@@ -2987,6 +3112,12 @@ _CODEC_ARGS = {
         "-b:v", "0", "-crf", "32", "-row-mt", "1",
     ],
 }  # fmt: skip
+# Lossless coding protects the separate alpha plane. RGB still undergoes
+# YUV 4:2:0 conversion; this does not promise lossless source color pixels.
+_ALPHA_CODEC_ARGS = [
+    "-c:v", "libvpx-vp9", "-pix_fmt", "yuva420p",
+    "-b:v", "0", "-lossless", "1", "-row-mt", "1", "-auto-alt-ref", "0",
+]  # fmt: skip
 # WebM containers only allow Opus/Vorbis audio; MP4 uses the universal AAC.
 _AUDIO_ARGS = {
     "mp4": ["-c:a", "aac", "-b:a", "192k"],
@@ -3004,6 +3135,8 @@ def _encode_prepared_video(
     audio_offsets: list[float] | None,
     audio_durations: list[float] | None,
     audio_timeline_duration: float | None,
+    *,
+    transparent: bool,
 ) -> _AnimationFacts:
     offsets, duration, video_audio = prepared.video_audio()
     if slide_audio is not None and audio_offsets is None:
@@ -3023,6 +3156,7 @@ def _encode_prepared_video(
         audio_durations,
         audio_timeline_duration,
         video_audio,
+        transparent=transparent,
     )
 
 
@@ -3038,6 +3172,8 @@ def _encode_video_file(
     audio_durations: list[float] | None = None,
     audio_timeline_duration: float | None = None,
     video_audio: list[_VideoAudio] | None = None,
+    *,
+    transparent: bool = False,
 ) -> _AnimationFacts:
     """Encode prepared frame allocations with ffmpeg at a constant frame rate.
 
@@ -3061,6 +3197,7 @@ def _encode_video_file(
             fps,
             format,
             directory,
+            transparent=transparent,
         )
         duration = facts.duration
         if slide_audio is not None or video_audio:
@@ -3146,6 +3283,8 @@ def _encode_shot_batches(
     fps: float,
     format: str,
     directory: Path,
+    *,
+    transparent: bool = False,
 ) -> tuple[list[Path], _AnimationFacts]:
     """Stream bounded groups of distinct shots and return their total duration."""
     segments: list[Path] = []
@@ -3157,7 +3296,9 @@ def _encode_shot_batches(
         # Do not materialize this batch: rendering and writing stay interleaved,
         # so 64 full-resolution images never accumulate in Python memory.
         batch = itertools.chain((first,), itertools.islice(counted, _MAX_SHOTS_PER_VIDEO_BATCH - 1))
-        segment, count = _encode_shot_batch(binary, batch, fps, format, directory, len(segments))
+        segment, count = _encode_shot_batch(
+            binary, batch, fps, format, directory, len(segments), transparent=transparent
+        )
         segments.append(segment)
         emitted += count
     if not segments:
@@ -3174,8 +3315,11 @@ def _encode_shot_batch(
     format: str,
     output_directory: Path,
     index: int,
+    *,
+    transparent: bool = False,
 ) -> tuple[Path, int]:
-    """Encode one lazy shot batch with exact-count raw RGB input."""
+    """Encode one lazy shot batch with exact-count raw RGB or RGBA input."""
+    mode = "RGBA" if transparent else "RGB"
     iterator = iter(entries)
     first = next(iterator)
     size = first[0].size
@@ -3186,7 +3330,7 @@ def _encode_shot_batch(
         for frame, repeats in itertools.chain((first,), iterator):
             if frame.size != size:
                 raise RenderingError("Video frames must have matching dimensions.")
-            raw = frame.convert("RGB").tobytes() if frame.mode != "RGB" else frame.tobytes()
+            raw = frame.convert(mode).tobytes() if frame.mode != mode else frame.tobytes()
             for _ in range(repeats):
                 yield raw
             count += repeats
@@ -3202,7 +3346,7 @@ def _encode_shot_batch(
             "-f",
             "rawvideo",
             "-pixel_format",
-            "rgb24",
+            "rgba" if transparent else "rgb24",
             "-video_size",
             f"{size[0]}x{size[1]}",
             "-framerate",
@@ -3211,7 +3355,7 @@ def _encode_shot_batch(
             "pipe:0",
             "-vf",
             "crop=trunc(iw/2)*2:trunc(ih/2)*2",
-            *_CODEC_ARGS[format],
+            *(_ALPHA_CODEC_ARGS if transparent else _CODEC_ARGS[format]),
             str(output_path),
         ],
         frames(),
