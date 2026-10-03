@@ -49,10 +49,18 @@ class RenderContext:
         self.video_frame_cache.clear()
 
     def close_video_decoders(self):
-        """Close persistent FFmpeg readers owned by this render context."""
-        for decoder in self.video_decoder_cache.values():
-            decoder.close()
-        self.video_decoder_cache.clear()
+        """Close all readers, retaining failed ones so shutdown can be retried."""
+        first_error: BaseException | None = None
+        for source, decoder in list(self.video_decoder_cache.items()):
+            try:
+                decoder.close()
+            except BaseException as error:
+                if first_error is None:
+                    first_error = error
+            else:
+                del self.video_decoder_cache[source]
+        if first_error is not None:
+            raise first_error
 
 
 def parse_coordinate(value: int | str, dimension: int) -> int:
