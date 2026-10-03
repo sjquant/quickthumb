@@ -42,6 +42,7 @@ class GifOptions(quickthumbModel):
     matte: str = "#000000"
     max_size: tuple[PositiveInt, PositiveInt] | None = None
     colors: int | None = None
+    workers: Annotated[int, Field(strict=True, ge=1, le=8)] = 1
 
     @field_validator("loop")
     @classmethod
@@ -67,6 +68,7 @@ class VideoOptions(quickthumbModel):
     matte: str = "#000000"
     soundtrack: AudioTrack | None = None
     loop_audio: bool | None = None
+    workers: Annotated[int, Field(strict=True, ge=1, le=8)] = 1
 
 
 def coerce_audio_track(value: AudioTrack | str | dict | None) -> AudioTrack | None:

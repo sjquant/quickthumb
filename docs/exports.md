@@ -167,6 +167,49 @@ animated file output. Use `GifOptions` for GIF (`fps`, `matte`, `loop`,
 are rejected for video output, and video options are rejected for GIF output.
 The generic `quality` option remains reserved for JPEG and WebP raster output.
 
+### Parallel animated rendering
+
+`GifOptions(workers=2)` and `VideoOptions(workers=2)` opt into process-based
+frame rendering. `workers` is a strict integer from 1 to 8; the default remains
+1, with no automatic CPU scaling. Small/static exports may be faster with one
+worker because starting processes, preparing slides, and copying frames cost
+time. Encoding and audio mixing still run in the parent export path.
+
+Use an importable script and Python's main guard: workers always use `spawn`,
+including on Linux, without changing the application's global start method.
+Interactive environments that cannot import the main module should use
+`workers=1`.
+
+```python
+from quickthumb import Canvas, Fade, VideoOptions
+
+def main():
+    canvas = Canvas(640, 360).background(color="#123456")
+    canvas.shape("rectangle", (40, 40), 200, 160, "#FF3355",
+                 animation=Fade(duration=2))
+    canvas.render("parallel.mp4", animation=VideoOptions(fps=30, workers=2))
+
+if __name__ == "__main__":
+    main()
+```
+
+Workers rebuild built-in canvases with separate fonts and video decoders.
+Only a bounded, ordered window of frame jobs is outstanding, preserving the
+existing shot durations, collapsed holds, caption boundaries, and transition
+order. Local video layers, captions, seeded grain and built-in motion work in
+parallel. Custom/plugin layers, Canvas subclasses, remote video sources and
+unseeded nonzero grain require `workers=1`. Remote images/fonts resolved by
+slide preparation are pinned for workers; keep local assets and font-cache
+files unchanged during export. A source or worker failure fails the export
+and preserves a pre-existing destination.
+
+More workers require more memory: each has a Python runtime, fonts, prepared
+slide images and decoder caches, in addition to its in-flight RGB frame.
+Normal completion and errors wait for running jobs to finish and close their
+decoders. Pending jobs are canceled on failure; abruptly terminated workers
+are reported as rendering errors. An OS-level kill cannot run normal cleanup.
+Deck MP4 without `VideoOptions` remains the separate static narration workflow.
+
 Deck MP4 and WebM exports support per-slide narration. Pass `audio=` to `Deck.slide()`;
 without `duration=`, Quickthumb uses the file's ffprobe duration. An explicit
 duration trims audio or pads it with silence, while a slide without audio holds

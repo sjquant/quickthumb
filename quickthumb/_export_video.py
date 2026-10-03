@@ -57,7 +57,7 @@ import shutil
 import subprocess
 import tempfile
 import threading
-from collections.abc import Iterable, Iterator
+from collections.abc import Generator, Iterable, Iterator
 from dataclasses import dataclass, field
 from io import BytesIO
 from pathlib import Path
@@ -109,6 +109,7 @@ from quickthumb.motion import (
 )
 
 if TYPE_CHECKING:
+    from quickthumb._render_workers import ParallelFrames
     from quickthumb.canvas import Canvas, RenderableLayer
     from quickthumb.transitions import Transition
 
@@ -151,8 +152,9 @@ def write_animation(
     audio_timeline_duration: float | None = None,
     animation: GifOptions | VideoOptions | None = None,
     reduced_motion: bool = False,
-) -> None:
-    """Render slides to an animated file, dispatching on `format`."""
+) -> _AnimationFacts:
+    """Render slides to an animated file and retain facts from its encoder."""
+    workers = animation.workers if animation is not None else 1
     if isinstance(animation, VideoOptions):
         if format == "gif":
             raise ValidationError("VideoOptions are only supported for MP4 or WebM output")
@@ -178,25 +180,13 @@ def write_animation(
         colors = None
     loop_audio = _resolve_loop_audio(soundtrack, loop_audio)
     soundtrack = coerce_audio_track(soundtrack)
+    # GIF file output has never consumed a Deck narration schedule.
     if format == "gif":
-        data = export_animation_bytes(
-            canvases,
-            transitions,
-            format="gif",
-            fps=fps,
-            slide_duration=slide_duration,
-            loop=loop,
-            matte=matte,
-            soundtrack=soundtrack,
-            max_size=max_size,
-            colors=colors,
-            reduced_motion=reduced_motion,
-        )
-        _write_bytes_atomically(output_path, data, suffix=".gif")
-        return
-
-    fps, matte_rgb = _validated_settings(
+        slide_audio = slide_durations = audio_offsets = audio_durations = None
+        audio_timeline_duration = None
+    prepared = _prepare_animation(
         canvases,
+        transitions,
         format,
         fps,
         slide_duration,
@@ -210,46 +200,40 @@ def write_animation(
         audio_timeline_duration,
         max_size,
         colors,
-    )
-    probe_cache: dict[str, VideoInfo] = {}
-    if reduced_motion:
-        transitions = [None] * len(canvases)
-    plan = _deck_plan(
-        canvases,
-        transitions,
-        1.0 / fps,
-        slide_duration,
-        slide_durations,
+        workers,
         reduced_motion=reduced_motion,
-        probe_cache=probe_cache,
     )
-    if slide_audio is not None and audio_offsets is None:
-        audio_offsets = plan.offsets
-        audio_timeline_duration = plan.duration
-    shots = _deck_shots(canvases, transitions, fps, slide_duration, matte_rgb, plan=plan)
-    video_audio = _video_audio_schedule(canvases, plan.offsets, probe_cache)
-    if video_audio and audio_timeline_duration is None:
-        audio_timeline_duration = plan.duration
-    descriptor, temp_path = _temporary_output_path(output_path, suffix=f".{format}")
-    os.close(descriptor)
+    temp_path: str | None = None
     try:
-        _encode_video_file(
-            shots,
-            fps,
-            format,
-            temp_path,
-            soundtrack,
-            loop_audio,
-            slide_audio,
-            audio_offsets,
-            audio_durations,
-            audio_timeline_duration,
-            video_audio,
-        )
-        os.replace(temp_path, output_path)
+        with prepared:
+            if format == "gif":
+                data, facts = _encode_gif(
+                    prepared.shots(), loop, max_size=max_size, colors=colors, fps=prepared.fps
+                )
+            else:
+                descriptor, temp_path = _temporary_output_path(output_path, suffix=f".{format}")
+                os.close(descriptor)
+                facts = _encode_prepared_video(
+                    prepared,
+                    format,
+                    temp_path,
+                    soundtrack,
+                    loop_audio,
+                    slide_audio,
+                    audio_offsets,
+                    audio_durations,
+                    audio_timeline_duration,
+                )
+        # Closing render resources is part of producing a successful export.
+        if format == "gif":
+            _write_bytes_atomically(output_path, data, suffix=".gif")
+        else:
+            assert temp_path is not None
+            os.replace(temp_path, output_path)
+        return facts
     finally:
-        _remove_quietly(temp_path)
-        _close_video_decoders(canvases)
+        if temp_path is not None:
+            _remove_quietly(temp_path)
 
 
 def _write_bytes_atomically(output_path: str, data: bytes, suffix: str) -> None:
@@ -289,12 +273,14 @@ def export_animation_bytes(
     max_size: tuple[int, int] | None = None,
     colors: int | None = None,
     reduced_motion: bool = False,
+    workers: int = 1,
 ) -> bytes:
     """Render slides to animated GIF/MP4/WebM bytes."""
     loop_audio = _resolve_loop_audio(soundtrack, loop_audio)
     soundtrack = coerce_audio_track(soundtrack)
-    fps, matte_rgb = _validated_settings(
+    prepared = _prepare_animation(
         canvases,
+        transitions,
         format,
         fps,
         slide_duration,
@@ -308,61 +294,42 @@ def export_animation_bytes(
         audio_timeline_duration,
         max_size,
         colors,
-    )
-    probe_cache: dict[str, VideoInfo] = {}
-    if reduced_motion:
-        transitions = [None] * len(canvases)
-    plan = _deck_plan(
-        canvases,
-        transitions,
-        1.0 / fps,
-        slide_duration,
-        slide_durations,
+        workers,
         reduced_motion=reduced_motion,
-        probe_cache=probe_cache,
     )
-    if slide_audio is not None and audio_offsets is None:
-        audio_offsets = plan.offsets
-        audio_timeline_duration = plan.duration
-    shots = _deck_shots(canvases, transitions, fps, slide_duration, matte_rgb, plan=plan)
-    video_audio = _video_audio_schedule(canvases, plan.offsets, probe_cache)
-    if video_audio and audio_timeline_duration is None:
-        audio_timeline_duration = plan.duration
-
-    if format == "gif":
-        try:
-            return _encode_gif(shots, loop, max_size=max_size, colors=colors, fps=fps)[0]
-        finally:
-            _close_video_decoders(canvases)
-
-    # ffmpeg needs a real, seekable output file (MP4 faststart rewrites the
-    # header), so bytes go through a temporary file.
-    descriptor, temp_path = tempfile.mkstemp(suffix=f".{format}")
-    os.close(descriptor)
+    temp_path: str | None = None
     try:
-        _encode_video_file(
-            shots,
-            fps,
-            format,
-            temp_path,
-            soundtrack,
-            loop_audio,
-            slide_audio,
-            audio_offsets,
-            audio_durations,
-            audio_timeline_duration,
-            video_audio,
-        )
-        with open(temp_path, "rb") as video_file:
-            return video_file.read()
+        with prepared:
+            if format == "gif":
+                data, _ = _encode_gif(
+                    prepared.shots(), loop, max_size=max_size, colors=colors, fps=prepared.fps
+                )
+            else:
+                # MP4 muxing needs a seekable output, so bytes use a temp file.
+                descriptor, temp_path = tempfile.mkstemp(suffix=f".{format}")
+                os.close(descriptor)
+                _encode_prepared_video(
+                    prepared,
+                    format,
+                    temp_path,
+                    soundtrack,
+                    loop_audio,
+                    slide_audio,
+                    audio_offsets,
+                    audio_durations,
+                    audio_timeline_duration,
+                )
+                with open(temp_path, "rb") as video_file:
+                    data = video_file.read()
+        return data
     finally:
-        # The encoder already removes the file when it fails.
-        _remove_quietly(temp_path)
-        _close_video_decoders(canvases)
+        if temp_path is not None:
+            _remove_quietly(temp_path)
 
 
-def _validated_settings(
+def _prepare_animation(
     canvases: list[Canvas],
+    transitions: list[Transition | None],
     format: AnimationFormat,
     fps: float | None,
     slide_duration: float,
@@ -376,8 +343,11 @@ def _validated_settings(
     audio_timeline_duration: float | None = None,
     max_size: tuple[int, int] | None = None,
     colors: int | None = None,
-) -> tuple[float, tuple[int, int, int]]:
-    """Validate the shared export knobs and resolve fps and matte defaults."""
+    workers: int = 1,
+    *,
+    reduced_motion: bool = False,
+) -> _PreparedAnimation:
+    """Validate codec/audio options before entering the rendering owner."""
     if format not in _DEFAULT_FPS:
         raise ValidationError(f"Unsupported animation format: {format!r}. Use gif, mp4, or webm.")
     if format != "gif" and max_size is not None:
@@ -401,8 +371,6 @@ def _validated_settings(
         isinstance(colors, bool) or not isinstance(colors, int) or not 2 <= colors <= 256
     ):
         raise ValidationError("colors must be between 2 and 256")
-    if not canvases:
-        raise RenderingError("No slides to animate.")
     if soundtrack is not None:
         if format == "gif":
             raise ValidationError("GIF cannot carry audio; use mp4 or webm for a soundtrack.")
@@ -453,35 +421,26 @@ def _validated_settings(
                 or duration <= 0
             ):
                 raise ValidationError("Deck slide duration must be finite and > 0")
-    if fps is None:
-        fps = _DEFAULT_FPS[format]
-    if (
-        isinstance(fps, bool)
-        or not isinstance(fps, (int, float))
-        or not math.isfinite(fps)
-        or fps <= 0
-    ):
-        raise ValidationError("fps must be > 0")
+    if matte is None:
+        raise ValidationError("Invalid matte color: None")
+    prepared = _PreparedAnimation(
+        canvases,
+        transitions,
+        fps=_DEFAULT_FPS[format] if fps is None else fps,
+        slide_duration=slide_duration,
+        slide_durations=slide_durations,
+        matte=matte,
+        workers=workers,
+        reduced_motion=reduced_motion,
+    )
     max_fps = 100 if format == "gif" else 120
-    if fps > max_fps:
+    if prepared.fps > max_fps:
         raise ValidationError(f"fps must be <= {max_fps} for {format} output")
-    if isinstance(slide_duration, bool) or not isinstance(slide_duration, (int, float)):
-        raise ValidationError("slide_duration must be finite")
-    if not math.isfinite(slide_duration):
-        raise ValidationError("slide_duration must be finite")
-    if slide_duration < 0:
-        raise ValidationError("slide_duration must be >= 0")
     if format in ("mp4", "webm") and (canvases[0].width < 2 or canvases[0].height < 2):
         raise ValidationError("MP4/WebM export requires canvas dimensions of at least 2x2 pixels")
     if format == "gif" and loop > 65535:
         raise ValidationError("loop must be <= 65535 for GIF output")
-    matte_rgb = matte_color(matte)
-    # Validate every slide's assets up front so a missing image fails before
-    # any frame is rendered or an encoder is started, leaving no partial
-    # output behind (matching the all-or-nothing raster-sequence behaviour).
-    for canvas in canvases:
-        canvas._validate_image_paths()
-    return fps, matte_rgb
+    return prepared
 
 
 def _resolve_loop_audio(
@@ -540,6 +499,181 @@ class _AnimationFacts:
     fps: float
 
 
+class _PreparedAnimation:
+    """One render lifetime, including partial preparation and an early consumer exit."""
+
+    def __init__(
+        self,
+        canvases: list[Canvas],
+        transitions: list[Transition | None],
+        *,
+        fps: float,
+        slide_duration: float,
+        slide_durations: list[float | None] | None = None,
+        matte: str = "#000000",
+        workers: int = 1,
+        reduced_motion: bool = False,
+    ):
+        # These are rendering settings. Codec limits and audio belong to callers
+        # at the encoding boundary.
+        if type(workers) is not int or not 1 <= workers <= 8:
+            raise ValidationError("workers must be an integer between 1 and 8")
+        if workers > 1:
+            from quickthumb._render_workers import validate_parallel_canvases
+
+            validate_parallel_canvases(canvases)
+        if not canvases:
+            raise RenderingError("No slides to animate.")
+        if (
+            isinstance(fps, bool)
+            or not isinstance(fps, (int, float))
+            or not math.isfinite(fps)
+            or fps <= 0
+        ):
+            raise ValidationError("fps must be > 0")
+        if isinstance(slide_duration, bool) or not isinstance(slide_duration, (int, float)):
+            raise ValidationError("slide_duration must be finite")
+        if not math.isfinite(slide_duration):
+            raise ValidationError("slide_duration must be finite")
+        if slide_duration < 0:
+            raise ValidationError("slide_duration must be >= 0")
+        self.fps = fps
+        self._size = (canvases[0].width, canvases[0].height)
+        self._entered = False
+        self._canvases = canvases
+        self._transitions = [None] * len(canvases) if reduced_motion else transitions
+        self._slide_duration = slide_duration
+        self._slide_durations = slide_durations
+        self._matte = matte_color(matte)
+        self._workers = workers
+        self._reduced_motion = reduced_motion
+        self._probe_cache: dict[str, VideoInfo] = {}
+        self._plan: _DeckPlan | None = None
+        self._renderer: ParallelFrames | None = None
+        self._shots: Generator[_Shot, None, None] | None = None
+        self._runs: Generator[tuple[Image.Image, range], None, None] | None = None
+        self._consumed = False
+        self._frame_count = 0
+        self._complete = False
+
+    def __enter__(self) -> _PreparedAnimation:
+        if self._entered:
+            raise RuntimeError("Prepared animation cannot be entered more than once")
+        self._entered = True
+        try:
+            for canvas in self._canvases:
+                canvas._validate_image_paths()
+            self._plan = _deck_plan(
+                self._canvases,
+                self._transitions,
+                1.0 / self.fps,
+                self._slide_duration,
+                self._slide_durations,
+                reduced_motion=self._reduced_motion,
+                probe_cache=self._probe_cache,
+            )
+            if self._workers > 1:
+                from quickthumb._render_workers import ParallelFrames
+
+                self._renderer = ParallelFrames(
+                    self._canvases,
+                    self._plan.timings,
+                    self._matte,
+                    self._reduced_motion,
+                    self._workers,
+                )
+                self._renderer.__enter__()
+            self._shots = _ordered_deck_shots(
+                self._canvases, self.fps, self._matte, self._plan, self._renderer
+            )
+        except BaseException:
+            with contextlib.suppress(BaseException):
+                self.close()
+            raise
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback) -> None:
+        if exc_type is not None:
+            # The producer/encoder's exception has precedence over all cleanup.
+            with contextlib.suppress(BaseException):
+                self.close()
+        else:
+            self.close()
+
+    def close(self) -> None:
+        """Attempt every owned release, preserving the first cleanup failure."""
+        first_error: BaseException | None = None
+        for iterator in (self._runs, self._shots):
+            if iterator is not None:
+                try:
+                    iterator.close()
+                except BaseException as error:
+                    if first_error is None:
+                        first_error = error
+        if self._renderer is not None:
+            try:
+                self._renderer.__exit__(None, None, None)
+            except BaseException as error:
+                if first_error is None:
+                    first_error = error
+            else:
+                self._renderer = None
+        try:
+            _close_video_decoders(self._canvases)
+        except BaseException as error:
+            if first_error is None:
+                first_error = error
+        self._plan = None
+        if first_error is not None:
+            raise first_error
+        self._runs = self._shots = None
+        self._canvases = []
+        self._transitions = []
+        self._probe_cache.clear()
+
+    def shots(self) -> Generator[_Shot, None, None]:
+        """Claim the single variable-duration stream for a GIF encoder."""
+        if self._shots is None or self._consumed:
+            raise RuntimeError("Prepared animation frames may be consumed only once")
+        self._consumed = True
+        return self._shots
+
+    def frame_runs(self) -> Generator[tuple[Image.Image, range], None, None]:
+        """Claim cumulative frame runs with their actual output indices."""
+        shots = self.shots()
+
+        def runs() -> Generator[tuple[Image.Image, range], None, None]:
+            for frame, count in _counted_video_shots(shots, self.fps):
+                start = self._frame_count
+                self._frame_count += count
+                yield frame, range(start, self._frame_count)
+            self._complete = True
+
+        self._runs = runs()
+        return self._runs
+
+    @property
+    def frame_facts(self) -> _AnimationFacts:
+        if not self._complete:
+            raise RuntimeError("Prepared animation frames have not completed")
+        return _AnimationFacts(
+            self._size[0],
+            self._size[1],
+            self._frame_count,
+            self._frame_count / self.fps,
+            self.fps,
+        )
+
+    def video_audio(self) -> tuple[list[float], float, list[_VideoAudio]]:
+        """Reuse preparation probes and timing when an encoder requests audio."""
+        assert self._plan is not None
+        return (
+            self._plan.offsets,
+            self._plan.duration,
+            _video_audio_schedule(self._canvases, self._plan.offsets, self._probe_cache),
+        )
+
+
 class TimelineSampler:
     """Render any instant of the animated timeline that GIF/MP4/WebM play.
 
@@ -570,7 +704,8 @@ class TimelineSampler:
             self._plan = _deck_plan(canvases, transitions, 0.0, slide_duration, slide_durations)
         except BaseException:
             # Animators for earlier slides may already hold video decoders.
-            _close_video_decoders(canvases)
+            with contextlib.suppress(BaseException):
+                _close_video_decoders(canvases)
             raise
         self._settled: dict[int, Image.Image] = {}
 
@@ -665,26 +800,24 @@ def _deck_plan(
     return _DeckPlan(animators, timings, offsets, duration)
 
 
-def _deck_shots(
+def _ordered_deck_shots(
     canvases: list[Canvas],
-    transitions: list[Transition | None],
     fps: float,
-    slide_duration: float,
     matte_rgb: tuple[int, int, int],
-    slide_durations: list[float | None] | None = None,
-    plan: _DeckPlan | None = None,
-) -> Iterator[_Shot]:
+    plan: _DeckPlan,
+    renderer: ParallelFrames | None = None,
+) -> Generator[_Shot, None, None]:
     """Yield the deck's full frame timeline as variable-duration shots."""
     size = (canvases[0].width, canvases[0].height)
     previous_final = Image.new("RGB", size, matte_rgb)
-    plan = plan or _deck_plan(canvases, transitions, 1.0 / fps, slide_duration, slide_durations)
-
     previous_canvas = None
-    for animator, canvas, timing in zip(
-        plan.animators,
-        canvases,
-        plan.timings,
-        strict=True,
+    for index, (animator, canvas, timing) in enumerate(
+        zip(
+            plan.animators,
+            canvases,
+            plan.timings,
+            strict=True,
+        )
     ):
         transition, duration_in, animation_end, exit_time = timing
         pending: _Shot | None = None
@@ -699,6 +832,8 @@ def _deck_shots(
             fps,
             previous_canvas,
             canvas,
+            renderer=renderer,
+            slide_index=index,
         ):
             if pending is not None:
                 yield pending
@@ -745,13 +880,22 @@ def _slide_motion_shots(
     fps: float,
     previous_canvas: Canvas | None,
     incoming_canvas: Canvas,
+    *,
+    renderer: ParallelFrames | None = None,
+    slide_index: int = 0,
 ) -> Iterator[_Shot]:
     """Yield transition and layer-animation shots before the settled hold."""
-    # Whether a morph is safe depends only on the pair of canvases, so decide once.
-    morph_from = _morph_source(transition, previous_canvas, incoming_canvas)
+    samples = _slide_samples(animator, duration_in, animation_end, fps)
+    if renderer is not None:
+        for time, duration, image in renderer.frames(slide_index, samples):
+            yield _Shot(image, duration, animator._has_active_caption(time))
+        return
 
-    def frame(time: float) -> Image.Image:
-        return _slide_frame(
+    # Serial-only planning stays out of the parallel path; each worker owns
+    # its own outgoing canvas and determines whether Morph is safe there.
+    morph_from = _morph_source(transition, previous_canvas, incoming_canvas)
+    for time, duration in samples:
+        image = _slide_frame(
             animator,
             transition,
             duration_in,
@@ -762,22 +906,19 @@ def _slide_motion_shots(
             size,
             matte_rgb,
         )
+        yield _Shot(image, duration, animator._has_active_caption(time))
 
-    for time, duration in _sample_span(0.0, duration_in, fps):
-        yield _Shot(frame(time), duration, animator._has_active_caption(time))
-    # Between effect windows every unit's state is constant, so gaps (a
-    # trailing `delay`, a pause between chained effects) collapse into one
-    # held frame instead of resampling identical frames at fps.
+
+def _slide_samples(
+    animator: _SlideAnimator, duration_in: float, animation_end: float, fps: float
+) -> Iterator[tuple[float, float]]:
+    """Preserve transition samples and collapsed gaps without retaining images."""
+    yield from _sample_span(0.0, duration_in, fps)
     for seg_start, seg_end, animating in animator.segments(duration_in, animation_end):
         if animating:
-            for time, duration in _sample_span(seg_start, seg_end, fps):
-                yield _Shot(frame(time), duration, animator._has_active_caption(time))
+            yield from _sample_span(seg_start, seg_end, fps)
         else:
-            yield _Shot(
-                frame(seg_start),
-                seg_end - seg_start,
-                animator._has_active_caption(seg_start),
-            )
+            yield seg_start, seg_end - seg_start
 
 
 def _morph_source(
@@ -825,7 +966,14 @@ def animation_timeline(
     fps: float = _DEFAULT_FPS["mp4"],
 ) -> tuple[list[float], float]:
     """Return the shared visual start offsets and total duration for a Deck."""
-    plan = _deck_plan(canvases, transitions, 1.0 / fps, slide_duration, slide_durations)
+    try:
+        plan = _deck_plan(canvases, transitions, 1.0 / fps, slide_duration, slide_durations)
+    except BaseException:
+        # Earlier slides can already own readers when later preparation fails.
+        with contextlib.suppress(BaseException):
+            _close_video_decoders(canvases)
+        raise
+    _close_video_decoders(canvases)
     return plan.offsets, plan.duration
 
 
@@ -838,33 +986,42 @@ def _deck_timing(
     minimum_duration: float = 0.0,
 ) -> list[tuple[Transition | None, float, float, float]]:
     """Resolve each slide's transition, animation, and exit timing once."""
-    if animation_durations is None:
-        animation_durations = [_SlideAnimator(canvas, {}).duration for canvas in canvases]
-    if slide_durations is not None and len(slide_durations) != len(canvases):
-        raise RenderingError("Deck slide durations are out of sync.")
-    timings = []
-    for index, animation_end in enumerate(animation_durations):
-        transition = transitions[index] if index < len(transitions) else None
-        if transition is None:
-            duration_in = 0.0 if index == 0 else _DEFAULT_TRANSITION_DURATION
-        elif transition.effect == "cut":
-            duration_in = 0.0
-        else:
-            duration_in = transition.duration
-        duration = slide_durations[index] if slide_durations is not None else None
-        if transition is not None and transition.advance_after is not None:
-            exit_time = max(
-                duration_in + transition.advance_after,
-                animation_end,
-                duration_in,
-                duration or 0.0,
-            )
-        elif duration is not None:
-            exit_time = max(animation_end, duration_in, duration)
-        else:
-            exit_time = max(animation_end, duration_in) + slide_duration
-        exit_time = max(exit_time, minimum_duration)
-        timings.append((transition, duration_in, animation_end, exit_time))
+    owns_decoders = animation_durations is None
+    try:
+        if animation_durations is None:
+            animation_durations = [_SlideAnimator(canvas, {}).duration for canvas in canvases]
+        if slide_durations is not None and len(slide_durations) != len(canvases):
+            raise RenderingError("Deck slide durations are out of sync.")
+        timings = []
+        for index, animation_end in enumerate(animation_durations):
+            transition = transitions[index] if index < len(transitions) else None
+            if transition is None:
+                duration_in = 0.0 if index == 0 else _DEFAULT_TRANSITION_DURATION
+            elif transition.effect == "cut":
+                duration_in = 0.0
+            else:
+                duration_in = transition.duration
+            duration = slide_durations[index] if slide_durations is not None else None
+            if transition is not None and transition.advance_after is not None:
+                exit_time = max(
+                    duration_in + transition.advance_after,
+                    animation_end,
+                    duration_in,
+                    duration or 0.0,
+                )
+            elif duration is not None:
+                exit_time = max(animation_end, duration_in, duration)
+            else:
+                exit_time = max(animation_end, duration_in) + slide_duration
+            exit_time = max(exit_time, minimum_duration)
+            timings.append((transition, duration_in, animation_end, exit_time))
+    except BaseException:
+        if owns_decoders:
+            with contextlib.suppress(BaseException):
+                _close_video_decoders(canvases)
+        raise
+    if owns_decoders:
+        _close_video_decoders(canvases)
     return timings
 
 
@@ -2279,8 +2436,40 @@ _AUDIO_ARGS = {
 }
 
 
+def _encode_prepared_video(
+    prepared: _PreparedAnimation,
+    format: str,
+    output_path: str,
+    soundtrack: AudioTrack | None,
+    loop_audio: bool,
+    slide_audio: list[AudioTrack | None] | None,
+    audio_offsets: list[float] | None,
+    audio_durations: list[float] | None,
+    audio_timeline_duration: float | None,
+) -> _AnimationFacts:
+    offsets, duration, video_audio = prepared.video_audio()
+    if slide_audio is not None and audio_offsets is None:
+        audio_offsets = offsets
+        audio_timeline_duration = duration
+    if video_audio and audio_timeline_duration is None:
+        audio_timeline_duration = duration
+    return _encode_video_file(
+        ((frame, len(indices)) for frame, indices in prepared.frame_runs()),
+        prepared.fps,
+        format,
+        output_path,
+        soundtrack,
+        loop_audio,
+        slide_audio,
+        audio_offsets,
+        audio_durations,
+        audio_timeline_duration,
+        video_audio,
+    )
+
+
 def _encode_video_file(
-    shots: Iterable[_Shot],
+    frames: Iterable[tuple[Image.Image, int]],
     fps: float,
     format: str,
     output_path: str,
@@ -2291,8 +2480,8 @@ def _encode_video_file(
     audio_durations: list[float] | None = None,
     audio_timeline_duration: float | None = None,
     video_audio: list[_VideoAudio] | None = None,
-) -> None:
-    """Encode timestamped shot images with ffmpeg at a constant output frame rate.
+) -> _AnimationFacts:
+    """Encode prepared frame allocations with ffmpeg at a constant frame rate.
 
     Frame counts follow the cumulative clock (floor(clock*fps + 0.5) - emitted),
     so rounding never drifts the timing across long decks. Half-up rounding
@@ -2301,20 +2490,21 @@ def _encode_video_file(
     round-half-even can swallow a full-frame shot that lands on an exact .5
     boundary, dropping the deck's final settled frame.
 
-    Stream counted RGB frames directly to ffmpeg, retaining bounded encoded
+    Stream counted RGB/RGBA frames directly to ffmpeg, retaining bounded encoded
     segments for the existing audio mux. Only one shot buffer is retained while
     writing repeated frames; no PNG compression or image-file spool is needed.
     """
     binary = _ffmpeg_binary()
     with tempfile.TemporaryDirectory() as video_dir:
         directory = Path(video_dir)
-        segments, duration = _encode_shot_batches(
+        segments, facts = _encode_shot_batches(
             binary,
-            shots,
+            frames,
             fps,
             format,
             directory,
         )
+        duration = facts.duration
         if slide_audio is not None or video_audio:
             audio_input, audio_output = _scheduled_audio_args(
                 format,
@@ -2373,6 +2563,7 @@ def _encode_video_file(
             output_path,
         ]
         _run_video_ffmpeg(command, format, output_path)
+        return facts
 
 
 def _counted_video_shots(shots: Iterable[_Shot], fps: float) -> Iterator[tuple[Image.Image, int]]:
@@ -2393,16 +2584,18 @@ def _counted_video_shots(shots: Iterable[_Shot], fps: float) -> Iterator[tuple[I
 
 def _encode_shot_batches(
     binary: str,
-    shots: Iterable[_Shot],
+    frames: Iterable[tuple[Image.Image, int]],
     fps: float,
     format: str,
     directory: Path,
-) -> tuple[list[Path], float]:
+) -> tuple[list[Path], _AnimationFacts]:
     """Stream bounded groups of distinct shots and return their total duration."""
     segments: list[Path] = []
     emitted = 0
-    counted = _counted_video_shots(shots, fps)
+    counted = iter(frames)
+    size = (0, 0)
     for first in counted:
+        size = first[0].size
         # Do not materialize this batch: rendering and writing stay interleaved,
         # so 64 full-resolution images never accumulate in Python memory.
         batch = itertools.chain((first,), itertools.islice(counted, _MAX_SHOTS_PER_VIDEO_BATCH - 1))
@@ -2411,7 +2604,9 @@ def _encode_shot_batches(
         emitted += count
     if not segments:
         raise RenderingError("Animation produced no frames.")
-    return segments, emitted / fps
+    width, height = size
+    width, height = width - width % 2, height - height % 2
+    return segments, _AnimationFacts(width, height, emitted, emitted / fps, fps)
 
 
 def _encode_shot_batch(
@@ -2673,8 +2868,15 @@ def _video_audio_schedule(
 
 
 def _close_video_decoders(canvases: list[Canvas]) -> None:
+    first_error: BaseException | None = None
     for canvas in canvases:
-        canvas._ctx.close_video_decoders()
+        try:
+            canvas._ctx.close_video_decoders()
+        except BaseException as error:
+            if first_error is None:
+                first_error = error
+    if first_error is not None:
+        raise first_error
 
 
 def _remove_quietly(path: str) -> None:

@@ -221,7 +221,7 @@ def test_failed_producer_preserves_destination_and_closes_decoders(monkeypatch, 
         yield video._Shot(patterned_frame(1), 0.1)
         raise RuntimeError("producer failed")
 
-    monkeypatch.setattr(video, "_deck_shots", fail)
+    monkeypatch.setattr(video, "_ordered_deck_shots", fail)
     monkeypatch.setattr(video, "_close_video_decoders", lambda canvases: closed.extend(canvases))
     output = tmp_path / "result.gif"
     output.write_bytes(b"previous gif")
