@@ -38,11 +38,15 @@ class GifOptions(quickthumbModel):
     model_config = ConfigDict(extra="forbid")
 
     fps: Annotated[float, Field(gt=0, allow_inf_nan=False)] | None = None
+    hold: Annotated[
+        float, Field(strict=True, ge=0, allow_inf_nan=False, exclude_if=lambda value: value == 3.0)
+    ] = 3.0
     loop: NonNegativeInt = 0
     matte: str = "#000000"
     max_size: tuple[PositiveInt, PositiveInt] | None = None
     colors: int | None = None
     workers: Annotated[int, Field(strict=True, ge=1, le=8)] = 1
+    quality: Literal["standard", "high"] = "standard"
 
     @field_validator("loop")
     @classmethod
@@ -65,10 +69,14 @@ class VideoOptions(quickthumbModel):
     model_config = ConfigDict(extra="forbid")
 
     fps: Annotated[float, Field(gt=0, allow_inf_nan=False)] | None = None
+    hold: Annotated[
+        float, Field(strict=True, ge=0, allow_inf_nan=False, exclude_if=lambda value: value == 3.0)
+    ] = 3.0
     matte: str = "#000000"
     soundtrack: AudioTrack | None = None
     loop_audio: bool | None = None
     workers: Annotated[int, Field(strict=True, ge=1, le=8)] = 1
+    quality: Literal["standard", "high"] = "standard"
 
 
 def coerce_audio_track(value: AudioTrack | str | dict | None) -> AudioTrack | None:
