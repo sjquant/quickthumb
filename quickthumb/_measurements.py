@@ -39,9 +39,12 @@ MEASURABLE_LAYER_TYPES = frozenset(
 
 def measure_layers(canvas: "Canvas") -> list["LayerMeasurement"]:
     """Measure a canvas's renderable layers into the stable internal contract."""
-    from quickthumb._parenting import require_parent_rendering
+    from quickthumb._parenting import has_parent_links
 
-    require_parent_rendering(canvas)
+    if has_parent_links(canvas):
+        from quickthumb._parent_inspection import measure_parent_layers
+
+        return measure_parent_layers(canvas)
     engine = LayerMeasurementEngine(canvas._ctx, canvas._groups, canvas._text)
     return engine.measure_layers(canvas.layers)
 
