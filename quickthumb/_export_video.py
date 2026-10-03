@@ -1834,7 +1834,14 @@ def _build_units(
     group_target_counts = _canonical_group_target_counts(canvas)
     prefix, rest = split_backdrop_prefix(flatten_layers(canvas, parent_nodes=parent_nodes))
     if not reduced_motion and any(
-        _has_animated_descendant_in_composed_group(layer) for layer in (*prefix, *rest)
+        _has_animated_descendant_in_composed_group(layer)
+        for layer in (*prefix, *rest)
+        # Validated retained owners suppress all structural descendant motion.
+        if not (
+            isinstance(layer, GroupLayer)
+            and id(layer) in (parent_nodes or ())
+            and layer.animation is not None
+        )
     ):
         raise RenderingError(
             "Animated export cannot animate descendants of a clipped or masked group. "
