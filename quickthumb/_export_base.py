@@ -65,6 +65,11 @@ def _fmt(value: float) -> str:
     return f"{value:.2f}"
 
 
+def _motion_number(value: float) -> str:
+    """Preserve authored motion precision, unlike pixel-layout rounding."""
+    return str(int(value)) if float(value).is_integer() else repr(float(value))
+
+
 def flatten_layers(
     canvas: Canvas, *, parent_nodes: frozenset[int] | None = None
 ) -> list[RenderableLayer]:

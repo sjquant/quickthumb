@@ -1632,7 +1632,7 @@ _CAPABILITIES["html"] = {
     else MotionCapability(feature, "html", "full")
     for feature in _CAPABILITY_FEATURES
 }
-_CAPABILITIES["html"]["parent"] = MotionCapability("parent", "html", "fallback", "static")
+_CAPABILITIES["html"]["parent"] = MotionCapability("parent", "html", "partial")
 _CAPABILITIES["html"]["color"] = MotionCapability("color", "html", "unsupported", "static")
 _CAPABILITIES["html"]["motion_path"] = MotionCapability("motion_path", "html", "partial")
 _PPTX_FALLBACKS: dict[CapabilityFeature, tuple[SupportLevel, Fallback | None]] = {
@@ -1776,6 +1776,8 @@ def _validate_export(
             html_backdrop_ids.update(id(layer) for _, layer in layers[: last + 1])
     parent_problems = {}
     parent_static_paths: set[str] = set()
+    parent_html_paths: set[str] = set()
+    parent_html_problems: dict[str, str] = {}
     document_format = parent_document_format or normalized
     for index, canvas in enumerate(getattr(source, "slides", (source,))):
         try:
@@ -1793,9 +1795,39 @@ def _validate_export(
             paths = [base + path for _, path, _ in _iter_export_layer_locations(canvas)]
             parent_problems.update((path, problem) for path in paths)
             if document_format in {"html", "pptx", "svg", "pdf"} and problem is None:
+                html_problem = None
+                if document_format == "html":
+                    from quickthumb._parent_export import parent_html_sampling
+                    from quickthumb._parent_render import participating_layers
+
+                    html_problem = parent_html_sampling(canvas).problem
+                    if (
+                        html_problem is None
+                        and not resolved_policy.reduced_motion
+                        and resolved_policy.unsupported_motion not in {"static", "rasterize"}
+                    ):
+                        nodes = participating_layers(canvas)
+                        parent_html_paths.update(
+                            base + path
+                            for _, path, item in _iter_export_layer_locations(canvas)
+                            if id(item) in nodes
+                        )
+                        continue
                 parent_static_paths.update(paths)
+                if html_problem:
+                    parent_html_problems.update((path, html_problem) for path in paths)
     for layer_id, pointer, layer in _iter_export_layer_locations(source):
-        if pointer in parent_static_paths:
+        if pointer in parent_static_paths or pointer in parent_html_paths:
+            partial = pointer in parent_html_paths
+            message = (
+                "Parent geometry uses bounded sampled affine HTML coefficients; "
+                "curves and composed motion between samples are approximate"
+                if partial
+                else f"Parent-linked {document_format} scene is one authored-static raster image; "
+                "all layer motion is frozen and document elements are not editable"
+            )
+            if pointer in parent_html_problems:
+                message += ". " + parent_html_problems[pointer]
             features = ["parent"] if getattr(layer, "parent", None) is not None else []
             animations = getattr(layer, "animation", None)
             for animation in animations if isinstance(animations, list) else [animations]:
@@ -1808,7 +1840,9 @@ def _validate_export(
             action = resolved_policy.pptx.get(layer_id) if normalized == "pptx" else None
             if features and (action or resolved_policy.unsupported_motion) in {"error", "native"}:
                 raise _unsupported_motion(
-                    f"Parent-linked {document_format} scenes require "
+                    "Parent-linked HTML requires sampled approximation"
+                    if partial
+                    else f"Parent-linked {document_format} scenes require "
                     "authored-static raster fallback",
                     pointer + ("/parent" if getattr(layer, "parent", None) is not None else ""),
                     layer_id,
@@ -1818,13 +1852,9 @@ def _validate_export(
                     layer_id=layer_id,
                     feature=feature,
                     target=normalized,
-                    support="fallback",
-                    fallback="static",
-                    message=(
-                        f"Parent-linked {document_format} scene is one "
-                        "authored-static raster image; "
-                        "all layer motion is frozen and document elements are not editable"
-                    ),
+                    support="partial" if partial else "fallback",
+                    fallback=None if partial else "static",
+                    message=message,
                 )
                 for feature in dict.fromkeys(features)
             )

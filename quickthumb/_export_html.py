@@ -48,6 +48,7 @@ from quickthumb._export_base import (
     TextRunLayout,
     _css_string,
     _fmt,
+    _motion_number,
     color_to_rgba,
     compute_text_layout,
     flatten_layers,
@@ -89,6 +90,7 @@ from quickthumb.motion import (
 )
 
 if TYPE_CHECKING:
+    from quickthumb._parent_export import ParentHtmlSource
     from quickthumb.canvas import Canvas, RenderableLayer
 
 
@@ -109,6 +111,10 @@ _WIPE_INSETS = {
     "right": "inset(0 100% 0 0)",
 }
 _SHOWN_OPACITY = "var(--qt-opacity,1)"
+_PARENT_PROPERTIES = {
+    f"--qt-parent-{name}": "1" if name in {"a", "e", "opacity"} else "0"
+    for name in ("a", "b", "c", "d", "e", "f", "opacity")
+}
 
 
 # --- animation effect -> (entrance from-state, to-state) CSS property blocks ----
@@ -306,11 +312,6 @@ def _supports_transform_extensions_html(layer: object) -> bool:
     return static_source(layer, root=True)
 
 
-def _motion_number(value: float) -> str:
-    """Preserve authored motion precision, unlike pixel-layout rounding."""
-    return str(int(value)) if float(value).is_integer() else repr(float(value))
-
-
 def _motion_knots(event: TimelineEvent) -> set[float]:
     return {0.0, event.duration} | {key.time for track in event.tracks for key in track.keyframes}
 
@@ -442,6 +443,7 @@ class HtmlExporter:
         responsive: bool = True,
         keyframe_prefix: str = "qt-k",
         reduced_motion: bool = False,
+        parent_static: bool = False,
     ):
         self._canvas = canvas
         from quickthumb._parenting import has_parent_links
@@ -451,6 +453,7 @@ class HtmlExporter:
         self._embed_fonts = embed_fonts
         self._responsive = responsive
         self._reduced_motion = reduced_motion
+        self._parent_static = parent_static
         self._keyframe_prefix = keyframe_prefix
         self._body: list[str] = []
         self._keyframes: list[str] = []
@@ -462,6 +465,7 @@ class HtmlExporter:
         self._next_id = 1
         self._next_kf = 1
         self._transform_properties_registered = False
+        self._parent_properties_registered = False
         # Track group-animation identity so flattened group children sharing one
         # animation object animate together as a single timeline node.
         self._prev_anim_key: int | None = None
@@ -575,42 +579,162 @@ class HtmlExporter:
         canvas._validate_image_paths()
         canvas._ctx.begin_render_pass()
 
-        from quickthumb._parent_export import static_parent_fragment
+        from quickthumb._parent_export import (
+            bake_parent_html,
+            parent_html_sampling,
+            static_parent_fragment,
+        )
         from quickthumb._parenting import has_parent_links
+        from quickthumb.models import NullLayer
 
-        if has_parent_links(canvas):
-            self._emit_fragment(static_parent_fragment(canvas))
+        parent = has_parent_links(canvas)
+        stage_failed = False
+        try:
+            sampling = parent_html_sampling(canvas) if parent else None
+            if sampling and (self._reduced_motion or self._parent_static or sampling.problem):
+                self._emit_fragment(static_parent_fragment(canvas))
+                return Stage(
+                    width=canvas.width,
+                    height=canvas.height,
+                    body="\n".join(self._body),
+                    keyframes=[],
+                    timeline=[],
+                    parent_geometry=True,
+                )
+            baked = bake_parent_html(canvas, sampling.times) if sampling else None
+            prefix, rest = split_backdrop_prefix(
+                flatten_layers(canvas, parent_nodes=baked.layer_ids if baked else None)
+            )
+            if baked:
+                # Null controllers keep their clocks in the plan, never in a
+                # backdrop-dependent visual prefix or its animation guard.
+                prefix = [layer for layer in prefix if not isinstance(layer, NullLayer)]
+            if not self._reduced_motion and any(
+                getattr(layer, "animation", None) is not None for layer in prefix
+            ):
+                raise RenderingError(
+                    "HTML export cannot animate layers that must be rasterized together for "
+                    "blend-mode or custom-layer backdrop compositing. Move animated layers "
+                    "after those backdrop-dependent layers, or remove the blend/custom layer."
+                )
+            if prefix:
+                fragment = rasterize_layers(canvas, prefix)
+                if fragment:
+                    self._emit_fragment(fragment)
+            for layer in rest:
+                if baked and id(layer) in baked.layer_ids:
+                    if source := baked.sources.get(id(layer)):
+                        self._emit_parent_source(source, baked.times)
+                else:
+                    self._emit_layer(layer)
+            if baked:
+                self._emit_parent_clock(baked.times[-1])
             return Stage(
                 width=canvas.width,
                 height=canvas.height,
                 body="\n".join(self._body),
-                keyframes=[],
-                timeline=[],
-                parent_geometry=True,
+                keyframes=list(self._keyframes),
+                timeline=_rebase_absolute_delays(self._timeline),
+                parent_geometry=parent,
             )
+        except BaseException:
+            stage_failed = True
+            raise
+        finally:
+            if parent:
+                canvas._ctx.motion_time = None
+                try:
+                    canvas._ctx.close_video_decoders()
+                except BaseException:
+                    if not stage_failed:
+                        raise
 
-        prefix, rest = split_backdrop_prefix(flatten_layers(canvas))
-        if not self._reduced_motion and any(
-            getattr(layer, "animation", None) is not None for layer in prefix
-        ):
-            raise RenderingError(
-                "HTML export cannot animate layers that must be rasterized together for "
-                "blend-mode or custom-layer backdrop compositing. Move animated layers "
-                "after those backdrop-dependent layers, or remove the blend/custom layer."
+    def _emit_parent_source(self, source: ParentHtmlSource, times: tuple[float, ...]) -> None:
+        """Emit independent coefficients without CSS matrix decomposition."""
+        if not self._parent_properties_registered:
+            self._keyframes.extend(
+                f'@property {name}{{syntax:"<number>";inherits:false;initial-value:{value}}}'
+                for name, value in _PARENT_PROPERTIES.items()
             )
-        if prefix:
-            fragment = rasterize_layers(canvas, prefix)
-            if fragment:
-                self._emit_fragment(fragment)
-        for layer in rest:
-            self._emit_layer(layer)
+            self._parent_properties_registered = True
+        values = [
+            {
+                name: _motion_number(value)
+                for name, value in zip(_PARENT_PROPERTIES, row, strict=True)
+            }
+            for row in source.rows
+        ]
+        element_id = self._make_id()
+        duration = times[-1]
+        if duration > 0:
+            keyframe = f"{self._keyframe_prefix}{self._next_kf}"
+            self._next_kf += 1
+            self._keyframes.append(
+                "@keyframes "
+                + keyframe
+                + "{"
+                + "".join(
+                    _motion_number((time / duration) * 100)
+                    + "%{"
+                    + ";".join(f"{name}:{value}" for name, value in stop.items())
+                    + "}"
+                    for time, stop in zip(times, values, strict=True)
+                )
+                + "}"
+            )
+            self._timeline.append(
+                {
+                    "t": [element_id],
+                    "k": keyframe,
+                    "d": duration,
+                    "delay": 0,
+                    "tr": "with_previous" if self._timeline else "after_previous",
+                    "a": "transform",
+                    "e": "linear",
+                    "initial": values[0],
+                    "final": values[-1],
+                }
+            )
+        encoded = base64.b64encode(source.png).decode("ascii")
+        style = (
+            f"position:absolute;left:0;top:0;width:{source.width}px;height:{source.height}px;"
+            + ";".join(f"{name}:{value}" for name, value in values[0].items())
+            + ";"
+            "transform-origin:0 0;transform:matrix(var(--qt-parent-a),var(--qt-parent-d),"
+            "var(--qt-parent-b),var(--qt-parent-e),var(--qt-parent-c),var(--qt-parent-f));"
+            "opacity:var(--qt-parent-opacity);"
+        )
+        # Whole-stage Morph is disabled for parent scenes; do not expose keys
+        # that could otherwise invite the runtime to replace this matrix.
+        self._body.append(
+            f'<img id="{element_id}" data-qt-parent-node="1" style="{style}" '
+            f'src="data:image/png;base64,{encoded}" alt="">'
+        )
 
-        return Stage(
-            width=canvas.width,
-            height=canvas.height,
-            body="\n".join(self._body),
-            keyframes=list(self._keyframes),
-            timeline=_rebase_absolute_delays(self._timeline),
+    def _emit_parent_clock(self, duration: float) -> None:
+        """Retain timing even when every graph source is null or transparent."""
+        if self._timeline or duration == 0:
+            return
+        element_id = self._make_id()
+        keyframe = f"{self._keyframe_prefix}{self._next_kf}"
+        self._next_kf += 1
+        self._keyframes.append(f"@keyframes {keyframe}" + "{from{opacity:0}to{opacity:0}}")
+        self._timeline.append(
+            {
+                "t": [element_id],
+                "k": keyframe,
+                "d": duration,
+                "delay": 0,
+                "tr": "after_previous",
+                "a": "transform",
+                "e": "linear",
+                "initial": {},
+                "final": {},
+            }
+        )
+        self._body.append(
+            f'<span id="{element_id}" data-qt-parent-clock="1" aria-hidden="true" '
+            'style="position:absolute;width:0;height:0;opacity:0;pointer-events:none"></span>'
         )
 
     def _make_id(self) -> str:
@@ -1475,6 +1599,7 @@ def export_deck(
     transitions: list | None = None,
     notes: list[str | None] | None = None,
     reduced_motion: bool = False,
+    parent_static: bool = False,
 ) -> str:
     stages: list[Stage] = []
     font_faces: dict[str, tuple[str, str, str]] = {}
@@ -1486,6 +1611,7 @@ def export_deck(
             responsive=responsive,
             keyframe_prefix=f"qt-s{index}-k",
             reduced_motion=reduced_motion,
+            parent_static=parent_static,
         )
         stages.append(exporter.render_stage())
         font_faces.update(exporter._font_faces)
