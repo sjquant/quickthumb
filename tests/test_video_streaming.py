@@ -107,7 +107,8 @@ def test_batches_are_lazy_and_bounded(monkeypatch, tmp_path):
             events.append(("produce", index))
             yield video._Shot(Image.new("RGB", (2, 2), (index, 0, 0)), 0.1)
 
-    def encode(binary, entries, fps, container, directory, index):
+    def encode(binary, entries, fps, container, directory, index, *, transparent=False):
+        assert transparent is False
         count = 0
         for image, repeats in entries:
             events.append(("write", image.getpixel((0, 0))[0]))
