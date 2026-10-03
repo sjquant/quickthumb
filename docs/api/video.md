@@ -403,12 +403,11 @@ includes a curved color-changing path and a slide transition.
 
 ## Parent links and null controllers
 
-The parent-link model foundation introduces `parent="layer-id"` on animatable
-layers and `Canvas.null(...)` / `NullLayer(type="null", ...)` for invisible
-point controllers. Parent IDs are scene-local and refer to explicit `id` values,
-not generated inspection IDs. Complete JSON documents and `Canvas(layers=...)`
-allow forward references. Fluent calls require a parent to exist before a child
-is added; an invalid call leaves the canvas unchanged.
+Animatable layers accept `parent="layer-id"`. `Canvas.null(...)` and
+`NullLayer(type="null", ...)` create invisible point controllers. IDs are
+scene-local explicit `id` values, not generated inspection IDs. Complete JSON
+and `Canvas(layers=...)` allow forward references. Fluent calls require a parent
+to exist before adding a child; invalid calls leave the canvas unchanged.
 
 ```python
 from quickthumb import Canvas
@@ -418,32 +417,65 @@ scene = (
     .null(position=(100, 50), id="controller")
     .shape("rectangle", (10, 20), 40, 20, "#42CEB7", parent="controller")
 )
-assert scene.validate().ok
+scene.render_frame(0).save("parented.png")  # Child starts at (110, 70).
 ```
 
-The transform contract is parent-local: the example's child starts at
-`(110, 70)` once the renderer adapter is present. A position track remains an
-offset from the layer's own authored local position. World transforms compose
-complete affine matrices along the parent chain, including shear from rotated
-non-uniform scale. There is no automatic keep-world adjustment when assigning a
-parent. Only geometry is inherited: parent opacity, color, reveal, blur, masks,
-clips and blend modes do not change a child's appearance. Drawing order stays
-in document order, independently of parent order.
+### Geometry contract
 
-A null is a zero-size point with a position, rotation and animation. It draws
-nothing; its normalized anchor has no extent to act on. Top-level groups can
-participate as whole visual units. Their auto-layout descendants cannot be
-parent-link sources or targets, and nulls are not auto-layout group children.
-Missing parents, non-animatable parents and cycles are validation errors with a
-`/parent` pointer. The same validation catches later model mutations before
-rendering.
+- Authored child placement is parent-local. Position tracks remain offsets
+  from that local placement. Percentage values still resolve against the
+  original canvas dimensions before entering the parent coordinate space
+- World transforms multiply full affine matrices along the chain. Rotated
+  non-uniform scales retain their shear; signed axis scales reflect, and a zero
+  axis collapses the child and its descendants
+- Assigning `parent` does not perform an implicit keep-world adjustment
+- Only geometry is inherited. Parent opacity, color, reveal, blur, clips, masks
+  and blend modes do not alter an explicitly linked child's appearance
+- A null has zero extent, so its normalized anchor has no effect. Position,
+  rotation and scale tracks still drive descendants
+- Static authored rotation keeps the source engine's existing framing. Its
+  rotation is inherited by children without rotating the parent's already-baked
+  source pixels twice
+- Canonical anchors use a stable authored-source reference, before sampled
+  opacity and reveal. Shape/text fill colors and layer opacity are neutralized
+  for this reference, so invisible drawable parents remain useful controllers.
+  Asset transparency can define the source silhouette; an empty source uses its
+  measured body as a geometric fallback
+- Image uniform `scale` remains viewport zoom. It changes the image contents,
+  not the outer transform inherited by children; axis tracks scale that frame
+- Paint order remains document order. Topological order only evaluates matrices
 
-This initial model layer deliberately rejects parent-linked rendering in every
-exporter until the next renderer layer is applied. Layout inspection and
-diagnostics also reject links rather than reporting untransformed bounds. `validate_export()` reports
-`parent` as unsupported with no claimed fallback, and strict policies reject it.
-Canvas `inspect_motion()` reports each link and the null type; Deck timeline
-inspection also requires the renderer layer. Existing documents that omit
-`parent` keep their previous JSON and render path. The model foundation is not
-a claim of full parent-transform rendering support. `validate()` checks the
-graph and assets and includes a warning that world-layout checks are unavailable.
+Linked nodes and their ancestors are independent rendering units. Unrelated
+layers retain the existing grouping and static-plate path. Full local sources
+are prepared before final canvas clipping, so an initially off-canvas child can
+move onscreen. Standard/high-quality export, spawn workers and timeline sampling
+share this geometry. Video captions retain their existing screen-space overlay
+positions and do not inherit their video's transform.
+
+Top-level groups participate as whole visual units, preserving their layout and
+existing animation-override rules. Explicit links from or to their auto-layout
+descendants are rejected; nulls are not group-layout children. Missing parents,
+non-animatable targets and cycles are validation errors with a `/parent` pointer.
+Later model mutations are revalidated when a new render is prepared.
+
+### Current adapters and boundaries
+
+Raster, GIF, MP4 and WebM render supported parent chains. This bounded adapter
+rejects linked imagery on or below backdrop-dependent layers; linked clips,
+masks and stagger; independently animated group descendants; and animated text
+values that still need a stable local-source layout adapter. These combinations
+are reported as unsupported and raise rather than dropping part of the motion.
+Keyed Morph involving a parent-linked slide uses a declared fade fallback.
+
+HTML, PPTX, SVG and PDF still require the following document-format adapter.
+Their exports reject parent-linked scenes before opening output files.
+World-layout `inspect()` and `diagnose()` remain guarded; `validate()` checks
+the graph and assets and warns that world-layout checks are unavailable.
+`inspect_motion()` reports parent links and local track samples; those local
+samples are not decomposed approximations of the world affine matrix.
+`validate_export()` reports support or the actual unsupported combination, and
+strict validation rejects unsupported adapters and Morph fallback.
+
+See [the runnable hierarchy example](https://github.com/sjquant/quickthumb/blob/main/examples/parent_transforms.py).
+Documents that omit `parent` keep their previous JSON and render path. These
+bounded adapters do not yet complete every part of #161.

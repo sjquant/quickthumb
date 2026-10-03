@@ -210,7 +210,6 @@ def test_captions_keep_native_dimensions_and_visible_layer_filter(monkeypatch):
     unit = video._Unit(
         Image.new("RGBA", (8, 8), "red"), (2, 2), [Fade(delay=0.5, duration=0.5)], 0, layers=[layer]
     )
-    video._schedule_units([unit])
     calls = []
 
     def captions(frame, layers, time, *args):
@@ -218,12 +217,12 @@ def test_captions_keep_native_dimensions_and_visible_layer_filter(monkeypatch):
 
     monkeypatch.setattr(video, "render_video_captions", captions)
     canvas = Canvas(31, 21)
-    video._composite_frame(canvas, [unit], 0.25, render_scale=2)
-    video._composite_frame(canvas, [unit], 0.75, render_scale=2)
-    assert calls[:2] == [((31, 21), [], 0.25), ((31, 21), [layer], 0.75)]
     canvas._layers = [layer]
-    monkeypatch.setattr(video, "_build_units", lambda *args, **kwargs: [unit])
+    monkeypatch.setattr(video, "_build_units", lambda *args, **kwargs: ([unit], None))
     animator = video._SlideAnimator(canvas, {}, quality="high")
+    animator._composite_frame(animator._units, 0.25, render_scale=2)
+    animator._composite_frame(animator._units, 0.75, render_scale=2)
+    assert calls[:2] == [((31, 21), [], 0.25), ((31, 21), [layer], 0.75)]
     animator.final_export_frame()
     assert calls[-1][0:2] == ((31, 21), [layer])
     assert calls[-1][2] == pytest.approx(1.0 - video._TIME_EPSILON)

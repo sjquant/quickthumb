@@ -44,6 +44,7 @@ from quickthumb.models import (
     ChartLayer,
     ChartSpec,
     DiagnosticReport,
+    ExportDiagnostic,
     ExportPolicy,
     ExportResult,
     FaceRegion,
@@ -81,7 +82,7 @@ from quickthumb.models import (
 from quickthumb.plugins import PluginRegistry, plugin_registry
 
 if TYPE_CHECKING:
-    from quickthumb._document import TimelineInputs
+    from quickthumb._document import TimelineInputs, _ExportReceipt, _ResolvedExport
 
 
 @dataclass
@@ -1138,25 +1139,44 @@ class Canvas:
         for MP4/WebM to tune animated output.
         Set debug=True for raster output annotated with public layer-id bboxes.
         """
-        from quickthumb._parenting import require_parent_rendering
+        from quickthumb._document import _resolve_export
 
-        require_parent_rendering(self)
-        extension = os.path.splitext(output_path)[1].lower()
-        if format is not None and extension in (".gif", ".mp4", ".webm"):
+        resolved = _resolve_export("canvas", output_path, format, animation, policy)
+        self._render_resolved(output_path, resolved, format, quality, debug, animation, policy)
+
+    # Keep export's historical dispatch through a replaced public render hook.
+    _original_render = render
+
+    def _render_resolved(
+        self,
+        output_path: str,
+        resolved: "_ResolvedExport",
+        format: FileFormat | None,
+        quality: int | None,
+        debug: bool,
+        animation: GifOptions | VideoOptions | None,
+        policy: ExportPolicy | None,
+    ) -> "_ExportReceipt":
+        from quickthumb._document import Document, _ExportReceipt, preflight_export
+        from quickthumb._parenting import has_parent_links, require_parent_rendering
+
+        extension = resolved.extension
+        diagnostics: list[ExportDiagnostic] | None = None
+        if has_parent_links(self) and (
+            format is not None
+            or extension in (".png", ".jpg", ".jpeg", ".webp", ".gif", ".mp4", ".webm")
+        ):
+            from quickthumb._parent_render import validate_parent_raster
+
+            validate_parent_raster(self)
+        else:
+            require_parent_rendering(self)
+        if format is not None and resolved.mode == "animated":
             raise RenderingError(
                 "format override is only supported for raster output, not animated output."
             )
-        if format is None and extension in (
-            ".svg",
-            ".pptx",
-            ".pdf",
-            ".html",
-            ".htm",
-            ".gif",
-            ".mp4",
-            ".webm",
-        ):
-            if animation is not None and extension not in (".gif", ".mp4", ".webm"):
+        if resolved.mode in {"document", "animated"}:
+            if animation is not None and resolved.mode != "animated":
                 raise RenderingError(
                     "animation options are only supported for GIF, MP4, and WebM output."
                 )
@@ -1169,20 +1189,22 @@ class Canvas:
                     "Quality parameter is only supported for JPEG and WEBP formats, "
                     f"not {extension} output."
                 )
-            if extension in (".gif", ".mp4", ".webm"):
+            if diagnostics is None:
+                diagnostics = preflight_export(cast(Document, self), resolved, policy)
+            if resolved.mode == "animated":
                 from quickthumb._export_video import write_animation
 
                 write_animation(
                     [self],
                     [None],
                     output_path,
-                    format=extension[1:],  # type: ignore[arg-type]
+                    format=resolved.output_format,  # type: ignore[arg-type]
                     animation=animation,
-                    reduced_motion=bool(policy and policy.reduced_motion),
+                    reduced_motion=not resolved.uses_authored_transitions,
                 )
-                return
-            self._render_document(output_path, extension, policy=policy)
-            return
+            else:
+                self._render_document(output_path, extension, policy=policy)
+            return _ExportReceipt([output_path], diagnostics)
 
         if animation is not None:
             raise RenderingError(
@@ -1190,9 +1212,12 @@ class Canvas:
             )
         if format is None:
             self._detect_format(output_path)
+        if diagnostics is None:
+            diagnostics = preflight_export(cast(Document, self), resolved, policy)
         self._validate_image_paths()
         image = self._render_to_image(debug=debug)
         self._save_to_file(image, output_path, quality, format=format)
+        return _ExportReceipt([output_path], diagnostics)
 
     def export(
         self,
@@ -1204,24 +1229,36 @@ class Canvas:
         animation: GifOptions | VideoOptions | None = None,
     ) -> ExportResult:
         """Export through the existing renderer and return the shared result envelope."""
-        from quickthumb._document import AssetPort, Document, build_export_result, preflight_export
+        from quickthumb._document import (
+            AssetPort,
+            Document,
+            _ExportReceipt,
+            _resolve_export,
+            build_export_result,
+            preflight_export,
+        )
 
         normalized_path = os.fspath(output_path)
-        preflight_export(cast(Document, self), normalized_path, policy, format=format)
-        written = self.render(
-            normalized_path,
-            format=format,
-            quality=quality,
-            animation=animation,
-            policy=policy,
-        )
-        paths = [normalized_path] if written is None else [os.fspath(path) for path in written]
+        resolved = _resolve_export("canvas", normalized_path, format, animation, policy)
+        render = self.render
+        if getattr(render, "__func__", None) is Canvas._original_render:
+            receipt = self._render_resolved(
+                normalized_path, resolved, format, quality, False, animation, policy
+            )
+        else:
+            # An override may delegate to super().render; invoke it exactly once,
+            # without passing private options or installing mutable context.
+            diagnostics = preflight_export(cast(Document, self), resolved, policy)
+            written = render(
+                normalized_path, format=format, quality=quality, animation=animation, policy=policy
+            )
+            paths = [normalized_path] if written is None else [os.fspath(path) for path in written]
+            receipt = _ExportReceipt(paths, diagnostics)
         return build_export_result(
             cast(Document, self),
-            normalized_path,
-            paths,
+            resolved,
+            receipt,
             policy,
-            format=format,
             animation=animation,
             assets=AssetPort(
                 resolve=self._contract_resolve_assets,
@@ -1800,9 +1837,21 @@ class Canvas:
         return self._render_to_image(time=float(time))
 
     def _render_to_image(self, debug: bool = False, time: float | None = None) -> Image.Image:
-        from quickthumb._parenting import require_parent_rendering
+        from quickthumb._parenting import has_parent_links, require_parent_rendering
 
-        require_parent_rendering(self)
+        if has_parent_links(self):
+            from quickthumb._export_video import _SlideAnimator
+
+            if debug:
+                require_parent_rendering(self)
+            try:
+                animator = _SlideAnimator(
+                    self, self._ctx.video_info_cache, reduced_motion=time is None
+                )
+                return animator.frame_at(0 if time is None else time)
+            finally:
+                self._ctx.motion_time = None
+                self._ctx.close_video_decoders()
         self._ctx.begin_render_pass()
         self._ctx.motion_time = time
         try:
