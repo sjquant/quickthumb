@@ -335,6 +335,7 @@ def test_unsupported_combination_stays_guarded_and_failure_cleans_context(monkey
                     "parent": None,
                     "position": (0, 0),
                     "clip": LayerClip(position=(0, 0), width=4, height=4),
+                    "animation": AnimationSpec.fade(duration=1),
                 }
             )
         ],
