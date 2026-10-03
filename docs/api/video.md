@@ -461,10 +461,31 @@ Later model mutations are revalidated when a new render is prepared.
 ### Current adapters and boundaries
 
 Raster, GIF, MP4 and WebM render supported parent chains. This bounded adapter
-rejects linked imagery on or below backdrop-dependent layers; linked clips
-and masks; and independently animated group descendants. These
+rejects linked imagery on or below backdrop-dependent layers; clip/mask
+composition on participating groups or anywhere in their descendants; and
+independently animated group descendants. These
 combinations are reported as unsupported and raise rather than dropping part of
 the motion.
+
+Top-level non-group drawables can carry their own `LayerClip` and `LayerMask`,
+including counter text and drawable layers that parent other explicit layers.
+The boundary is authored in the same parent-local plane as the source position;
+percentage coordinates still resolve against the original canvas dimensions.
+It applies after static source rotation and effects, then travels with canonical
+motion and reveal. Boundary alignment moves its own box; polygon points remain
+normalized within that box. Clip alpha multiplies mask alpha. An inverted mask
+inverts the complete opacity-weighted mask, so zero opacity makes no cutout.
+Rounded edges retain the existing antialiasing; there is no feathering option.
+
+Composition does not shrink or shift the owner's authored body frame, and never
+clips its explicit children. The owner's composed, opaque settled source defines
+its normalized-alpha motion pivot, with the full body as the empty-source fallback.
+Counters assemble their sampled fragments before applying the owner boundary once;
+their settled frame, pivot and reveal crop remain stable across seeks. Static text
+stagger splits the already-composed source and color references, so each moving
+band carries its clipped/masked pixels. These are source boundaries, not masks
+fixed to the output viewport. See
+[`examples/parent_composition.py`](https://github.com/sjquant/quickthumb/blob/main/examples/parent_composition.py).
 
 Static parent-linked leaf text and top-level groups can use the existing partial
 raster stagger adapter. Each separable horizontal ink band gets its own clock,
@@ -541,7 +562,9 @@ The exported animation requires browser support for registered CSS numeric
 properties (`@property`).
 `inspect()` reports authored-static world-space bounds for supported parent scenes.
 These are conservative axis-aligned boxes around the existing measured local
-bodies, not tight painted-alpha footprints; they are not clipped to the canvas.
+bodies intersected with their own composition bounds, not tight painted-alpha
+footprints; they are not clipped to the canvas. Composed owner bounds are mapped
+through ancestors while child frames continue to use the unmasked body.
 Group descendants are mapped once from their already placed local coordinates.
 Text wrapping/font metadata stays authored-local. `render(..., debug=True)` draws
 these authored-static boxes; time-sampled inspection/debug is not implemented.
