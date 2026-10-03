@@ -109,6 +109,25 @@ FiniteNonNegativeFloat = Annotated[float, Field(ge=0.0, allow_inf_nan=False)]
 FinitePositiveFloat = Annotated[float, Field(gt=0.0, allow_inf_nan=False)]
 
 
+def _validate_anchor(value):
+    if (
+        not isinstance(value, (tuple, list))
+        or len(value) != 2
+        or any(isinstance(item, bool) or not isinstance(item, (int, float)) for item in value)
+    ):
+        raise ValueError("anchor must contain two normalized numbers")
+    return value
+
+
+AnchorPoint = Annotated[
+    tuple[
+        Annotated[float, Field(ge=0.0, le=1.0, allow_inf_nan=False)],
+        Annotated[float, Field(ge=0.0, le=1.0, allow_inf_nan=False)],
+    ],
+    BeforeValidator(_validate_anchor),
+]
+
+
 class Align(Enum):
     """Text alignment enum supporting all 9 combinations of horizontal and vertical alignment."""
 
@@ -237,6 +256,16 @@ class LayerIdentityModel(quickthumbModel):
                 "numbers, '.', '_', ':', or '-'"
             )
         return value
+
+
+class _AnimatableLayerModel(LayerIdentityModel):
+    """Canonical-motion pivot within the rendered layer bounds."""
+
+    anchor: AnchorPoint = Field(
+        default=(0.5, 0.5),
+        exclude_if=lambda value: value == (0.5, 0.5),
+        examples=[(0.0, 0.0), (0.5, 0.5), (1.0, 1.0)],
+    )
 
 
 class _MotionModel(quickthumbModel):
