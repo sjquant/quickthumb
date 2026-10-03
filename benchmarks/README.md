@@ -234,3 +234,36 @@ suffixes, including the first H.264 SEI frame. Dropping frame zero previously
 shifted decoder indices and made the final video frame depend on seek history.
 The regression now checks direct, sequential and backward-seek paths against
 the same frame bytes, as required for independent rendering workers.
+
+## Subpixel geometry (#147)
+
+During canonical position, rotation or scale interpolation, a single bicubic
+inverse-affine pass keeps fractional offsets and unrounded scale. The transform
+operates on a cropped layer/target with transparent filter support, rather than
+allocating a full-canvas image per layer. RGBA filtering uses Pillow's
+premultiplied-alpha path. Source opacity/reveal precede the affine pass, shared
+by timed Canvas rendering, animation units and staggered targets.
+
+Integral translation with identity scale/rotation retains the original fast
+path. Untimed renders and settled geometry retain the original filters and
+rounding, including final nonidentity transforms such as 12° rotation and 1.15×
+scale. Activity follows per-target keyframe intervals, delays, holds, authored
+replace precedence and cancelling additive tracks; viewport-only image scaling
+keeps its existing image-renderer semantics.
+
+The lossless frame comparator is intentionally expected to report changes for
+this quality step. Classify changed timeline observations against geometry
+motion windows; stills and non-moving observations must remain unchanged.
+`tests/test_subpixel_geometry.py` freezes the old geometry algorithm for exact
+landing comparisons, checks the fixed 30 fps centroid metric, and verifies
+Canvas/video and spawn-worker parity. Compare the same 12 fps GIF workload with
+`python -m benchmarks.animated_export --formats gif`; changing pixels can also
+change encoder work and output size.
+
+![Before and after crops of translation, rotation and scale](comparisons/subpixel-motion.png)
+
+These are 4× nearest-neighbor crops from identical public sample times and
+source scenes. Moving pixels intentionally change; no still-image snapshots
+are replaced. The centroid metric diagnoses stepping rather than promising
+zero rasterization error. The final settled frame uses the legacy filter so
+its pixels remain exact, even when its transform is nonidentity.
