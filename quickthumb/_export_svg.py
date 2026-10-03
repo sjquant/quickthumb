@@ -84,6 +84,13 @@ class SvgExporter:
         canvas._validate_image_paths()
         canvas._ctx.begin_render_pass()
 
+        from quickthumb._parent_export import static_parent_fragment
+        from quickthumb._parenting import has_parent_links
+
+        if has_parent_links(canvas):
+            self._emit_fragment(static_parent_fragment(canvas))
+            return self._assemble()
+
         prefix, rest = split_backdrop_prefix(flatten_layers(canvas))
         if prefix:
             fragment = rasterize_layers(canvas, prefix)

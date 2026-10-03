@@ -1158,19 +1158,18 @@ class Canvas:
         policy: ExportPolicy | None,
     ) -> "_ExportReceipt":
         from quickthumb._document import Document, _ExportReceipt, preflight_export
-        from quickthumb._parenting import has_parent_links, require_parent_rendering
+        from quickthumb._parenting import has_parent_links
 
         extension = resolved.extension
         diagnostics: list[ExportDiagnostic] | None = None
-        if has_parent_links(self) and (
-            format is not None
-            or extension in (".png", ".jpg", ".jpeg", ".webp", ".gif", ".mp4", ".webm")
-        ):
+        if has_parent_links(self):
             from quickthumb._parent_render import validate_parent_raster
 
             validate_parent_raster(self)
-        else:
-            require_parent_rendering(self)
+            if policy is not None and resolved.mode == "document":
+                # Preserve the parent-document policy error before invalid
+                # options, then reuse these findings at the writer boundary.
+                diagnostics = preflight_export(cast(Document, self), resolved, policy)
         if format is not None and resolved.mode == "animated":
             raise RenderingError(
                 "format override is only supported for raster output, not animated output."
@@ -1191,10 +1190,11 @@ class Canvas:
                 )
             if diagnostics is None:
                 diagnostics = preflight_export(cast(Document, self), resolved, policy)
+            facts = None
             if resolved.mode == "animated":
                 from quickthumb._export_video import write_animation
 
-                write_animation(
+                facts = write_animation(
                     [self],
                     [None],
                     output_path,
@@ -1204,7 +1204,7 @@ class Canvas:
                 )
             else:
                 self._render_document(output_path, extension, policy=policy)
-            return _ExportReceipt([output_path], diagnostics)
+            return _ExportReceipt([output_path], diagnostics, facts)
 
         if animation is not None:
             raise RenderingError(
@@ -1270,13 +1270,15 @@ class Canvas:
         self, output_path: str, extension: str, policy: ExportPolicy | None = None
     ):
         if extension == ".svg":
+            document = self.to_svg()
             with open(output_path, "w", encoding="utf-8") as f:
-                f.write(self.to_svg())
+                f.write(document)
             return
 
         if extension in (".html", ".htm"):
+            document = self.to_html(policy=policy)
             with open(output_path, "w", encoding="utf-8") as f:
-                f.write(self.to_html(policy=policy))
+                f.write(document)
             return
 
         if extension == ".pdf":
@@ -1327,6 +1329,10 @@ class Canvas:
         URLs and text renders identically everywhere; pass `False` to drop them
         and rely on the viewer's system fonts for a smaller file.
         """
+        from quickthumb._parenting import has_parent_links
+
+        if policy is not None and has_parent_links(self):
+            self.validate_export("html", policy)
         from quickthumb._export_html import HtmlExporter
 
         return HtmlExporter(
@@ -1342,6 +1348,10 @@ class Canvas:
         The canvas becomes a single slide: text stays editable text boxes,
         shapes become autoshapes, and everything else is embedded as pictures.
         """
+        from quickthumb._parenting import has_parent_links
+
+        if policy is not None and has_parent_links(self):
+            self.validate_export("pptx", policy)
         from quickthumb._export_pptx import PptxExporter
 
         return PptxExporter(

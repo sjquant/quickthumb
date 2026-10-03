@@ -41,7 +41,7 @@ from quickthumb.transitions import Transition, coerce_transition
 
 if TYPE_CHECKING:
     from quickthumb._document import TimelineInputs, _ExportReceipt, _ResolvedExport
-    from quickthumb._export_video import AnimationFormat
+    from quickthumb._export_video import AnimationFormat, _AnimationFacts
 
 
 class DeckDiagnostic(quickthumbModel):
@@ -398,22 +398,26 @@ class Deck:
         policy: ExportPolicy | None,
     ) -> _ExportReceipt:
         from quickthumb._document import Document, _ExportReceipt, preflight_export
-        from quickthumb._parenting import has_parent_links, require_parent_rendering
+        from quickthumb._parenting import has_parent_links
 
         self._require_slides()
         extension = resolved.extension
         diagnostics: list[ExportDiagnostic] | None = None
+        parent_linked = False
         for canvas in self._slides:
-            if has_parent_links(canvas) and (
-                format is not None
-                or extension in (".png", ".jpg", ".jpeg", ".webp", ".gif", ".mp4", ".webm")
-            ):
+            if has_parent_links(canvas):
+                parent_linked = True
                 from quickthumb._parent_render import validate_parent_raster
 
                 validate_parent_raster(canvas)
-            else:
-                require_parent_rendering(canvas)
-
+        if (
+            policy is not None
+            and parent_linked
+            and (resolved.mode == "document" or extension == ".svg")
+        ):
+            # Keep the legacy parent-document policy error ahead of option
+            # and Deck-SVG errors without repeating preflight before writing.
+            diagnostics = preflight_export(cast(Document, self), resolved, policy)
         if animation is not None and resolved.mode != "animated":
             raise RenderingError(
                 "animation options require an animated output extension (.gif, .mp4, or .webm)."
@@ -447,13 +451,13 @@ class Deck:
                 )
             if diagnostics is None:
                 diagnostics = preflight_export(cast(Document, self), resolved, policy)
-            self._render_animated_file(
+            facts = self._render_animated_file(
                 output_path,
                 cast("AnimationFormat", resolved.output_format),
                 animation,
                 reduced_motion=not resolved.uses_authored_transitions,
             )
-            return _ExportReceipt([output_path], diagnostics)
+            return _ExportReceipt([output_path], diagnostics, facts)
 
         if resolved.mode == "document":
             if quality is not None:
@@ -551,11 +555,11 @@ class Deck:
         animation: GifOptions | VideoOptions | None = None,
         *,
         reduced_motion: bool = False,
-    ) -> None:
+    ) -> _AnimationFacts:
         """Render an animated Deck, mixing scheduled narration when requested."""
         from quickthumb._export_video import write_animation
 
-        write_animation(
+        return write_animation(
             self._slides,
             self._resolved_transitions(),
             output_path,
@@ -608,8 +612,9 @@ class Deck:
             return
 
         if extension in (".html", ".htm"):
+            document = self.to_html(policy=policy)
             with open(output_path, "w", encoding="utf-8") as f:
-                f.write(self.to_html(policy=policy))
+                f.write(document)
             return
 
         from quickthumb._export_pptx import PptxExporter
@@ -677,6 +682,7 @@ class Deck:
         animated GIF/WebM exports play them too, on a fixed timeline.
         """
         self._require_slides()
+        self._validate_parent_motion_policy("html", policy)
         from quickthumb._export_html import export_deck
 
         return export_deck(
@@ -691,6 +697,7 @@ class Deck:
     def to_pptx(self, *, policy: ExportPolicy | None = None) -> bytes:
         """Render the deck to a multi-slide PPTX as bytes (requires quickthumb[pptx])."""
         self._require_slides()
+        self._validate_parent_motion_policy("pptx", policy)
         from quickthumb._export_pptx import PptxExporter
 
         return PptxExporter(
