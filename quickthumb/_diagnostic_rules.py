@@ -396,7 +396,7 @@ def _can_check_near_alignment(measured: LayerMeasurement) -> bool:
     """Exclude geometry whose measured bbox is not a stable layout anchor."""
     if not measured.visible or measured.bbox is None or measured.bbox.is_empty:
         return False
-    if has_layer_composition(measured.raw_layer):
+    if has_layer_composition(measured.raw_layer) or measured.metadata.get("inherited_rotation"):
         return False
 
     layer = measured.effective_text_layer or measured.raw_layer

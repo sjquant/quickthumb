@@ -60,6 +60,15 @@ Each `Diagnostic` has stable human-readable fields and optional structured field
 
 Near-alignment findings compare final measured starts, rather than raw declared positions. The rule only compares layers that share a perpendicular span, ignores exact matches, intentional text-on-backdrop overlap, and layers with rotation or clip/mask composition, and reports the measured delta plus a coordinate repair suggestion.
 
+Parent-linked scenes use authored-static world bounds and transformed painted
+pixels. Rotation inherited through a parent also excludes near-alignment checks.
+Group text contrast includes earlier siblings in their original layout and its
+own background effects. Position suggestions identify parent-local fields or
+the containing group's layout instead of assigning world coordinates to them.
+Ancestor geometry animation prevents a static cover from being called permanent;
+opacity is not inherited. Time-sampled diagnostics and unsupported parent raster
+combinations are not supported yet.
+
 !!! note
     The contrast check compares text against everything it is drawn on, including a `Background` effect the text layer carries itself, so dark text on its own bright pill is measured against that pill. It samples the settled composition, so a caption or headline over footage is judged against the clip's first frame rather than its brightest one.
 
