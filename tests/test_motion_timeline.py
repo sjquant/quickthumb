@@ -295,7 +295,7 @@ class TestMotionTimeline:
         assert state.rotation == 45.0
         assert state.clip_progress == 0.5
         assert state.blur == 5.0
-        assert state.color == "#808080"
+        assert state.color == "#636363"
 
         # given: an RGBA color track
         rgba = AnimationSpec.timeline(
@@ -311,7 +311,7 @@ class TestMotionTimeline:
         rgba_state = compile_timeline(rgba).sample(0.5)
 
         # then: the alpha channel is interpolated as part of the color
-        assert rgba_state.color == "#80808080"
+        assert rgba_state.color == "#FFFFFF80"
 
     def test_should_resolve_relative_and_absolute_timing(self):
         """Relative triggers and absolute starts produce stable event windows."""

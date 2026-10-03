@@ -1854,9 +1854,11 @@ class Canvas:
     def _render_staggered_targets(
         self,
         image: Image.Image,
-        surface: Image.Image,
+        surface: Image.Image | None,
         layer: RenderableLayer,
         time: float | None,
+        *,
+        color_motion: bool = False,
     ) -> bool:
         """Move each staggered target on its own, returning whether it applied.
 
@@ -1866,6 +1868,8 @@ class Canvas:
         back to moving the layer as a whole.
         """
         from quickthumb._export_base import (
+            _with_motion_color,
+            composite_color_targets,
             composite_motion_targets,
             split_into_bands,
         )
@@ -1877,6 +1881,14 @@ class Canvas:
         )
 
         count = self._staggered_target_count(layer)
+        if time is not None and color_motion:
+
+            def render_color(color):
+                source = Image.new("RGBA", image.size)
+                self._render_layer(source, _with_motion_color(layer, color), time)
+                return source
+
+            return composite_color_targets(image, layer, time, count, render_color)
         timelines = _canonical_target_timelines(layer, count) if time is not None else None
         if timelines is None:
             return False
@@ -1884,6 +1896,7 @@ class Canvas:
         states = _sample_target_timelines(
             timelines, time, LayerState(anchor=getattr(layer, "anchor", (0.5, 0.5)))
         )
+        assert surface is not None
         fragments = split_into_bands(surface, count)
         if fragments is None:
             return False
@@ -1908,8 +1921,19 @@ class Canvas:
         pass transforms; the exporters render layers untimed and apply the same
         geometry once per animation unit.
         """
-        from quickthumb._export_base import composite_canonical_layer
-        from quickthumb.motion import LayerState, _canonical_timeline, _geometry_in_motion
+        from quickthumb._export_base import (
+            _with_motion_color,
+            color_group_has_backdrop,
+            composite_canonical_layer,
+            composite_color_backdrop,
+            require_color_group_backdrop,
+        )
+        from quickthumb.motion import (
+            LayerState,
+            _canonical_timeline,
+            _geometry_in_motion,
+            _has_color_track,
+        )
 
         timeline = _canonical_timeline(layer) if time is not None else None
         if timeline is None:
@@ -1917,10 +1941,34 @@ class Canvas:
             return
         assert time is not None
         state = timeline.sample(time, LayerState(anchor=getattr(layer, "anchor", (0.5, 0.5))))
-        surface = Image.new("RGBA", image.size, (0, 0, 0, 0))
-        self._render_layer(surface, layer, time)
-        if self._render_staggered_targets(image, surface, layer, time):
+        color_motion = _has_color_track(layer)
+        if isinstance(layer, GroupLayer) and color_motion and color_group_has_backdrop(layer):
+            require_color_group_backdrop(timeline)
+            self._render_layer(image, _with_motion_color(layer, state.color), time)
             return
+        if (
+            isinstance(layer, ShapeLayer)
+            and any(isinstance(effect, BackdropBlur) for effect in layer.effects)
+            and color_motion
+        ):
+            composite_color_backdrop(
+                image,
+                layer,
+                state,
+                lambda target, source: self._render_layer(target, source, time),
+                self._images,
+                subpixel=_geometry_in_motion(timeline, time, state=state),
+            )
+            return
+        surface = None
+        if not color_motion:
+            surface = Image.new("RGBA", image.size, (0, 0, 0, 0))
+            self._render_layer(surface, layer, time)
+        if self._render_staggered_targets(image, surface, layer, time, color_motion=color_motion):
+            return
+        if surface is None:
+            surface = Image.new("RGBA", image.size, (0, 0, 0, 0))
+            self._render_layer(surface, _with_motion_color(layer, state.color), time)
         moving = _geometry_in_motion(
             timeline, time, include_scale=not isinstance(layer, ImageLayer), state=state
         )

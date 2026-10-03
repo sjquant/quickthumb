@@ -79,9 +79,9 @@ class GroupEngine:
         animate_children: bool = True,
         sample_values: bool = False,
     ):
-        from quickthumb.motion import _has_transform_extensions
+        from quickthumb.motion import _has_color_track, _has_transform_extensions
 
-        sample_values = sample_values or _has_transform_extensions(layer)
+        sample_values = sample_values or _has_transform_extensions(layer) or _has_color_track(layer)
         placements, _ = self.layout_group(layer, origin)
         for child, position, size in placements:
             if sample_values and layer.animation is not None:
@@ -132,22 +132,98 @@ class GroupEngine:
         apply_motion: bool = True,
         sample_values: bool = False,
     ):
-        from quickthumb._export_base import composite_canonical_layer
+        from quickthumb._export_base import (
+            _with_motion_color,
+            color_group_has_backdrop,
+            composite_canonical_layer,
+            composite_color_backdrop,
+            composite_color_targets,
+            require_color_group_backdrop,
+        )
         from quickthumb.motion import (
             LayerState,
             _canonical_timeline,
             _geometry_in_motion,
+            _has_color_track,
             _has_transform_extensions,
         )
 
-        if time is not None and apply_motion and _has_transform_extensions(child):
+        if (
+            time is not None
+            and apply_motion
+            and (_has_transform_extensions(child) or _has_color_track(child))
+        ):
             placed = self._place_group_child(child, position, size)
             timeline = _canonical_timeline(child)
             assert timeline is not None
             state = timeline.sample(time, LayerState(anchor=getattr(child, "anchor", (0.5, 0.5))))
+            if (
+                isinstance(child, GroupLayer)
+                and _has_color_track(child)
+                and color_group_has_backdrop(child)
+            ):
+                require_color_group_backdrop(timeline)
+                self._render_group_child(
+                    image,
+                    _with_motion_color(child, state.color),
+                    position,
+                    size,
+                    time,
+                    apply_motion=False,
+                    sample_values=True,
+                )
+                return
+            if (
+                isinstance(child, ShapeLayer)
+                and any(isinstance(effect, BackdropBlur) for effect in child.effects)
+                and _has_color_track(child)
+            ):
+                composite_color_backdrop(
+                    image,
+                    placed,
+                    state,
+                    lambda target, source: self._render_group_child(
+                        target,
+                        source,
+                        position,
+                        size,
+                        time,
+                        apply_motion=False,
+                        sample_values=True,
+                    ),
+                    self._images,
+                    subpixel=_geometry_in_motion(timeline, time, state=state),
+                )
+                return
+            if isinstance(child, TextLayer) and _has_color_track(child):
+                stagger = next((event.stagger for event in timeline.events if event.stagger), None)
+                if stagger and stagger["target"] in {"characters", "words", "lines"}:
+                    count = len(self._text.resolve_animation_targets(child, stagger["target"]))
+
+                    def render_color(color):
+                        surface = Image.new("RGBA", image.size)
+                        self._render_group_child(
+                            surface,
+                            _with_motion_color(child, color),
+                            position,
+                            size,
+                            time,
+                            apply_motion=False,
+                            sample_values=True,
+                        )
+                        return surface
+
+                    if composite_color_targets(image, placed, time, count, render_color):
+                        return
             surface = Image.new("RGBA", image.size)
             self._render_group_child(
-                surface, child, position, size, time, apply_motion=False, sample_values=True
+                surface,
+                _with_motion_color(child, state.color),
+                position,
+                size,
+                time,
+                apply_motion=False,
+                sample_values=True,
             )
             composite_canonical_layer(
                 image,
