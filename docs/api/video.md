@@ -462,10 +462,10 @@ Later model mutations are revalidated when a new render is prepared.
 
 Raster, GIF, MP4 and WebM render supported parent chains. This bounded adapter
 rejects linked imagery on or below backdrop-dependent layers; clip/mask
-composition on participating groups or anywhere in their descendants; and
-independently animated group descendants. These
-combinations are reported as unsupported and raise rather than dropping part of
-the motion.
+composition inside participating groups' auto-layout descendants; and
+independently animated group descendants without a group animation override.
+These combinations are reported as unsupported and raise rather than dropping
+part of the motion.
 
 Top-level non-group drawables can carry their own `LayerClip` and `LayerMask`,
 including counter text and drawable layers that parent other explicit layers.
@@ -486,6 +486,20 @@ stagger splits the already-composed source and color references, so each moving
 band carries its clipped/masked pixels. These are source boundaries, not masks
 fixed to the output viewport. See
 [`examples/parent_composition.py`](https://github.com/sjquant/quickthumb/blob/main/examples/parent_composition.py).
+
+Top-level participating groups can also carry their own clip, mask or both when
+their complete source layout is static. Static nested groups remain part of that
+one source: the group boundary applies to the laid-out composite once, before
+canonical group/ancestor motion. The boundary uses the group's parent-local
+plane, with the same percentage, alignment, alpha and inversion rules as other
+drawables. It does not change the full group body frame or clip separately linked
+children. A group animation still overrides descendant `AnimationSpec` motion.
+Own group composition with intrinsic counter/video content or group stagger is
+unsupported, as is any descendant clip/mask; the uncomposed group adapters retain
+their existing counter and stagger support. See
+[`examples/parent_group_composition.py`](https://github.com/sjquant/quickthumb/blob/main/examples/parent_group_composition.py),
+which writes GIF, PNG and HTML outputs to a temporary directory by default and
+accepts `--output-dir` to choose another destination.
 
 Static parent-linked leaf text and top-level groups can use the existing partial
 raster stagger adapter. Each separable horizontal ink band gets its own clock,
@@ -551,7 +565,9 @@ per node, one track per property, geometry/opacity tracks, and static local sour
 Explicit triggers, delays, composed specs, presets, auto-orientation, unrelated animated layers,
 animated chart/QR sources, counters (including group descendants), videos, nonpositive uniform scale, uniform scale with
 back easing, image viewport zoom and oversized sampling plans use a declared
-whole-scene authored-static fallback. Static top-level groups are atomic sources.
+whole-scene authored-static fallback. Static top-level groups, including those
+with their own clip/mask, are atomic sources. Suppressed descendant animation
+specs still use the existing whole-scene HTML static fallback.
 Stable negative axis scale preserves reflections; ordinary positive uniform
 scale is supported. Zero/sign-crossing axes and back-eased axis tracks use the
 static fallback: floating-point singular matrices cannot guarantee the raster
