@@ -14,7 +14,7 @@ import tempfile
 import time
 from collections.abc import Callable, Iterable, Iterator
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 from unittest.mock import patch
 
 import PIL
@@ -138,7 +138,9 @@ def peak_rss_mib() -> float:
     return usage / (1024 * 1024 if sys.platform == "darwin" else 1024)
 
 
-def measure_export(scene: str, format: str, fps: float) -> dict[str, Any]:
+def measure_export(
+    scene: str, format: str, fps: float, quality: Literal["standard", "high"] = "standard"
+) -> dict[str, Any]:
     """Measure the real public export; no frames are pre-rendered or held here."""
     from quickthumb import _export_video
 
@@ -169,9 +171,9 @@ def measure_export(scene: str, format: str, fps: float) -> dict[str, Any]:
             start = time.perf_counter()
             deck = build_scene(scene)
             options = (
-                GifOptions(fps=fps, max_size=(432, 768), colors=64)
+                GifOptions(fps=fps, max_size=(432, 768), colors=64, quality=quality)
                 if format == "gif"
-                else VideoOptions(fps=fps)
+                else VideoOptions(fps=fps, quality=quality)
             )
             deck.render(str(output), animation=options)
             total = time.perf_counter() - start
@@ -180,6 +182,7 @@ def measure_export(scene: str, format: str, fps: float) -> dict[str, Any]:
         return {
             "scene": scene,
             "format": format,
+            "quality": quality,
             "shots": timer.shots,
             "render_ms_per_shot": (total - timer.encode_seconds) * 1000 / timer.shots,
             "render_seconds": total - timer.encode_seconds,
@@ -195,16 +198,27 @@ def measure_export(scene: str, format: str, fps: float) -> dict[str, Any]:
 def summarize(runs: list[dict[str, Any]]) -> dict[str, Any]:
     if len(runs) != RUNS:
         raise ValueError("each measurement requires exactly three runs")
-    if len({(run["scene"], run["format"], run["shots"]) for run in runs}) != 1:
-        raise ValueError("repeated runs disagree on scene, format, or shot count")
+    if (
+        len(
+            {
+                (run["scene"], run["format"], run["shots"], run.get("quality", "standard"))
+                for run in runs
+            }
+        )
+        != 1
+    ):
+        raise ValueError("repeated runs disagree on scene, format, quality, or shot count")
     result = {key: runs[0][key] for key in ("scene", "format")}
+    result["quality"] = runs[0].get("quality", "standard")
     for key, value in runs[0].items():
         if isinstance(value, (int, float)):
             result[key] = statistics.median(run[key] for run in runs)
     return result
 
 
-def run_worker(scene: str, format: str, fps: float) -> dict[str, Any]:
+def run_worker(
+    scene: str, format: str, fps: float, quality: Literal["standard", "high"] = "standard"
+) -> dict[str, Any]:
     process = subprocess.run(
         [
             sys.executable,
@@ -215,6 +229,8 @@ def run_worker(scene: str, format: str, fps: float) -> dict[str, Any]:
             format,
             "--fps",
             str(fps),
+            "--quality",
+            quality,
         ],
         cwd=ROOT,
         capture_output=True,
@@ -228,7 +244,11 @@ def run_worker(scene: str, format: str, fps: float) -> dict[str, Any]:
 
 def print_table(report: dict[str, Any]) -> None:
     print("Environment: " + json.dumps(report["environment"], sort_keys=True))
-    print(f"Median of 3 fresh processes; export fps={report['fps']}; jitter probe=30 fps")
+    print(
+        f"Median of 3 fresh processes; export fps={report['fps']}; "
+        f"quality={report.get('quality', 'standard')}"
+    )
+    print("Jitter: 30 fps standard canonical sample; not measured for high quality")
     print(
         "Scene             Format  Shots  Render ms/shot  Encode s  Total s  Python RSS MiB  "
         "Font loads  Font s  Jitter px/frame"
@@ -247,6 +267,7 @@ def print_table(report: dict[str, Any]) -> None:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--fps", type=positive_fps, default=12.0)
+    parser.add_argument("--quality", choices=("standard", "high"), default="standard")
     parser.add_argument("--scenes", nargs="+", choices=SCENES, default=list(SCENES))
     parser.add_argument("--formats", nargs="+", choices=FORMATS, default=list(FORMATS))
     parser.add_argument("--json", type=Path, help="also save raw runs and medians")
@@ -260,7 +281,7 @@ def main(argv: list[str] | None = None) -> int:
             result = (
                 {"jitter": measure_jitter(scene)}
                 if format == "jitter"
-                else measure_export(scene, format, args.fps)
+                else measure_export(scene, format, args.fps, args.quality)
             )
             print(json.dumps(result))
             return 0
@@ -268,15 +289,20 @@ def main(argv: list[str] | None = None) -> int:
             "version": 1,
             "environment": environment(),
             "fps": args.fps,
+            "quality": args.quality,
             "runs_per_measurement": RUNS,
             "results": [],
             "raw_runs": [],
         }
         for scene in dict.fromkeys(args.scenes):
-            jitters = [run_worker(scene, "jitter", args.fps)["jitter"] for _ in range(RUNS)]
+            jitters = (
+                [run_worker(scene, "jitter", args.fps)["jitter"] for _ in range(RUNS)]
+                if args.quality == "standard"
+                else [None] * RUNS
+            )
             for format in dict.fromkeys(args.formats):
                 print(f"Measuring {scene}/{format} (3 fresh processes)...", file=sys.stderr)
-                runs = [run_worker(scene, format, args.fps) for _ in range(RUNS)]
+                runs = [run_worker(scene, format, args.fps, args.quality) for _ in range(RUNS)]
                 row = summarize(runs)
                 row["jitter_px_per_frame"] = (
                     None if jitters[0] is None else statistics.median(jitters)

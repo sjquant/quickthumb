@@ -184,3 +184,38 @@ def test_identity_gate_rejects_identically_malformed_manifests(manifest, corrupt
         scene["frames"][0]["width"] = 1.5
     with pytest.raises((ValueError, KeyError)):
         identity.compare(manifest, copy.deepcopy(manifest))
+
+
+def test_high_quality_benchmark_labels_all_runs_and_omits_standard_jitter(tmp_path):
+    output = tmp_path / "high.json"
+    assert (
+        benchmark.main(
+            [
+                "--quality",
+                "high",
+                "--scenes",
+                "translation",
+                "--formats",
+                "gif",
+                "--fps",
+                "4",
+                "--json",
+                str(output),
+            ]
+        )
+        == 0
+    )
+    report = json.loads(output.read_text())
+    assert report["quality"] == "high"
+    assert report["results"][0]["quality"] == "high"
+    assert report["results"][0]["jitter_px_per_frame"] is None
+    assert all(run["quality"] == "high" for run in report["raw_runs"][0]["exports"])
+
+
+def test_benchmark_refuses_to_mix_quality_modes():
+    runs = [
+        {"scene": "translation", "format": "gif", "shots": 24, "quality": quality}
+        for quality in ["standard", "high", "standard"]
+    ]
+    with pytest.raises(ValueError, match="disagree"):
+        benchmark.summarize(runs)

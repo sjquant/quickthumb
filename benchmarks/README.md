@@ -267,3 +267,35 @@ source scenes. Moving pixels intentionally change; no still-image snapshots
 are replaced. The centroid metric diagnoses stepping rather than promising
 zero rasterization error. The final settled frame uses the legacy filter so
 its pixels remain exact, even when its transform is nonidentity.
+
+## Opt-in 2× compositing (#152)
+
+Compare matched workloads using the same harness and three fresh processes:
+
+```bash
+uv run --locked python -m benchmarks.animated_export --quality standard --formats gif --json /tmp/standard.json
+uv run --locked python -m benchmarks.animated_export --quality high --formats gif --json /tmp/high.json
+```
+
+Quality is recorded in every run, summary and report, and mixed-quality samples
+are rejected. The fixed canonical `Deck.sample()` jitter probe describes the
+standard renderer; high-quality runs leave that column `n/a` instead of
+presenting the standard probe as a high-mode measurement. Compare raw text crops
+and export cost separately. The default 432×768 / 64-color GIF workload remains
+unchanged, and parent-process RSS includes high-resolution plates/frame buffers.
+
+High mode draws native prepared layers/targets directly into a 2× destination,
+then downsamples once. It avoids 4× copies of all source caches; the compositing
+surface and cached background plates still grow 4×. Source typography/assets,
+backdrop preparation, authored static rotation, native captions, slide
+transitions and keyed Morph retain their existing preparation boundaries.
+This adds no source detail and is not a guarantee of sharper text at every size.
+
+![Standard and high-quality rotated-text crops](comparisons/high-quality-text.png)
+
+The crops use matched scenes, timestamps and crop bounds, taken from raw
+pre-encoding RGBA frames and enlarged 2× with nearest-neighbor. The authored-rotation row illustrates the native-source
+limit; canonical rotation/downscale rows exercise the new composition filter.
+Default-mode bytes, high-mode worker parity, dimensions/timing/audio, captions,
+palette controls, blur, negative placement and source immutability are covered
+by `tests/test_high_quality_animation.py`.
