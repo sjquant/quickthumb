@@ -13,6 +13,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from pydantic import ValidationError as PydanticValidationError
 
 from quickthumb._base import parse_coordinate
+from quickthumb._color_motion import interpolate_color
 from quickthumb._measurements import layer_id_for
 from quickthumb.errors import RenderingError, ValidationError
 from quickthumb.models import (
@@ -21,6 +22,7 @@ from quickthumb.models import (
     AnimationSpec,
     ExportDiagnostic,
     ExportPolicy,
+    GroupLayer,
     HexColor,
     KeyframeSpec,
     MotionCapabilityInspection,
@@ -34,6 +36,8 @@ from quickthumb.models import (
     MotionTargetInspection,
     MotionTrackInspection,
     ReducedMotionInspection,
+    ShapeLayer,
+    TextLayer,
     TimingSpec,
     TrackSpec,
     VideoLayer,
@@ -783,6 +787,42 @@ def _has_transform_extensions(layer: object) -> bool:
     )
 
 
+def _has_color_track(layer: object) -> bool:
+    """Whether the layer's canonical animation authors a fill color."""
+    animation = getattr(layer, "animation", None)
+    items = animation if isinstance(animation, list) else [animation]
+    return any(
+        track.type == "color"
+        for item in items
+        if isinstance(item, AnimationSpec)
+        for track in item.tracks or ()
+    )
+
+
+def _color_group_backdrop_conflict(layer: object) -> bool:
+    """Report a parent transform whose descendant backdrop cannot move as a unit."""
+    if isinstance(layer, GroupLayer) and _has_color_track(layer):
+        from quickthumb._export_base import color_group_backdrop_supported, color_group_has_backdrop
+
+        if color_group_has_backdrop(layer):
+            timeline = _canonical_timeline(layer)
+            if timeline is not None and not color_group_backdrop_supported(timeline):
+                return True
+    return False
+
+
+def _has_color_fill(layer: object) -> bool:
+    """Parent color overrides eligible descendants regardless of their own motion."""
+    return isinstance(layer, (TextLayer, ShapeLayer)) or (
+        isinstance(layer, GroupLayer) and any(_has_color_fill(child) for child in layer.children)
+    )
+
+
+def _supports_color_motion(layer: object) -> bool:
+    """Color replaces text/shape fills, including eligible group descendants."""
+    return _has_color_fill(layer) and not _color_group_backdrop_conflict(layer)
+
+
 def _canonical_target_timelines(layer: object, target_count: int) -> tuple[Timeline, ...] | None:
     if target_count < 2:
         return None
@@ -1232,6 +1272,8 @@ def _sample_track(
             eased_ratio = easing_value(easing, ratio)
             if track.property in {"opacity", "clip_progress", "color", "image_pan", "image_zoom"}:
                 eased_ratio = min(1.0, max(0.0, eased_ratio))
+            if track.property == "color":
+                return interpolate_color(cast(str, left.value), cast(str, right.value), eased_ratio)
             return _interpolate(left.value, right.value, eased_ratio)
     return track.keyframes[-1].value
 
@@ -1373,12 +1415,8 @@ _CAPABILITY_FEATURES: tuple[CapabilityFeature, ...] = (
 _FULL_CAPABILITIES: dict[CapabilityFeature, tuple[SupportLevel, Fallback | None]] = dict.fromkeys(
     _CAPABILITY_FEATURES, ("full", None)
 )
-# The pixel pipelines compile every geometry property, but a colour track has no
-# consumer and stagger is approximated by a shared reveal rather than per-target
-# geometry. Declaring that here keeps `capabilities_for` and `validate_export`
-# telling callers the same story.
+# Stagger falls back to a shared reveal when semantic targets cannot be split.
 _RASTER_OVERRIDES: dict[CapabilityFeature, tuple[SupportLevel, Fallback | None]] = {
-    "color": ("unsupported", "static"),
     "stagger": ("partial", None),
 }
 _CAPABILITIES: dict[ExportTarget, dict[CapabilityFeature, MotionCapability]] = {}
@@ -1406,6 +1444,7 @@ _CANONICAL_RENDERED: dict[str, frozenset[str]] = {
             "opacity",
             "clip_progress",
             "blur",
+            "color",
             "easing",
             "image_pan",
             "image_zoom",
@@ -1420,6 +1459,7 @@ _CAPABILITIES["html"] = {
     else MotionCapability(feature, "html", "full")
     for feature in _CAPABILITY_FEATURES
 }
+_CAPABILITIES["html"]["color"] = MotionCapability("color", "html", "unsupported", "static")
 _PPTX_FALLBACKS: dict[CapabilityFeature, tuple[SupportLevel, Fallback | None]] = {
     "position": ("native", None),
     "image_pan": ("fallback", "rasterize"),
@@ -1514,6 +1554,7 @@ def validate_export(
     resolved_policy = policy or ExportPolicy()
     row = capabilities_for(normalized)
     diagnostics: list[ExportDiagnostic] = []
+    animated_groups: list[str] = []
     html_backdrop_ids: set[int] = set()
     if normalized == "html":
         from quickthumb._export_base import is_backdrop_dependent
@@ -1561,6 +1602,11 @@ def validate_export(
         animations = getattr(layer, "animation", None)
         if animations is None:
             continue
+        color_overridden = normalized in {"raster", "video"} and any(
+            pointer.startswith(f"{parent}/children/") for parent in animated_groups
+        )
+        if isinstance(layer, GroupLayer):
+            animated_groups.append(pointer)
         items = animations if isinstance(animations, list) else [animations]
         html_transform = False
         if normalized == "html" and _has_transform_extensions(layer):
@@ -1571,6 +1617,8 @@ def validate_export(
             ) not in html_backdrop_ids and _supports_transform_extensions_html(layer)
         for animation in items:
             features: list[CapabilityFeature] = list(_capability_features_for(animation))
+            if color_overridden:
+                features = [feature for feature in features if feature != "color"]
             if isinstance(animation, AnimationSpec) and getattr(layer, "anchor", (0.5, 0.5)) != (
                 0.5,
                 0.5,
@@ -1583,6 +1631,8 @@ def validate_export(
                     and not html_transform
                     and feature not in _CANONICAL_RENDERED.get(normalized, frozenset())
                 )
+                if feature == "color" and normalized in {"raster", "video"}:
+                    canonical_unimplemented = not _supports_color_motion(layer)
                 declared_support = "unsupported" if canonical_unimplemented else capability.support
                 declared_fallback = "static" if canonical_unimplemented else capability.fallback
                 action = resolved_policy.pptx.get(layer_id) if normalized == "pptx" else None
@@ -1623,6 +1673,18 @@ def validate_export(
                 diagnostic_support = declared_support
                 if action != "native" and declared_support not in ("full", "native"):
                     diagnostic_support = "fallback"
+                if (
+                    feature == "color"
+                    and normalized in {"raster", "video"}
+                    and _color_group_backdrop_conflict(layer)
+                ):
+                    diagnostic_support = "unsupported"
+                    fallback = None
+                    message = (
+                        f"color on layer {layer_id} cannot combine parent motion/stagger with "
+                        "backdrop-dependent descendants; animate the shape directly or "
+                        "separate its backdrop effects"
+                    )
                 diagnostics.append(
                     ExportDiagnostic(
                         layer_id=layer_id,

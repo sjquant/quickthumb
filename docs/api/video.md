@@ -218,3 +218,66 @@ point API.
 
 See [the runnable pivot comparison](https://github.com/sjquant/quickthumb/blob/main/examples/transform_anchors.py) for
 three identical cards rotating and stretching around different fixed pivots.
+
+## Animated text and shape colors
+
+`ColorTrack` replaces text color and shape fill in sampled raster frames, GIF,
+MP4 and WebM. It also applies to eligible descendants of an animated group.
+Layers without a color track keep their prepared source images; color animation
+re-renders only the affected source unit before the usual geometry, opacity,
+clip, effects and compositing steps. Both quality modes and spawn workers use
+this path.
+
+```python
+from quickthumb import AnimationSpec, ColorTrack, KeyframeSpec, TimingSpec
+
+canvas.text(
+    "Color in motion", position=(40, 40), size=48, color="#FF0000",
+    animation=AnimationSpec.timeline(
+        ColorTrack(keyframes=[
+            KeyframeSpec(time=0, value="#FF0000"),
+            KeyframeSpec(time=2, value="#0000FF80"),
+        ]),
+        timing=TimingSpec(start=0, duration=2),
+        easing="linear",
+    ),
+)
+```
+
+Colors accept `#RRGGBB` and `#RRGGBBAA`. RGB is interpolated in
+[Oklab](https://bottosson.github.io/posts/oklab/), with premultiplied color
+coordinates and linear alpha. This avoids invisible endpoint colors darkening
+an appearance or disappearance. Out-of-gamut RGB channels are clipped to sRGB.
+Authored endpoints remain exact; intermediate colors differ from the previous
+encoded-RGB sampling contract. For example, opaque red to blue passes through
+`#8C53A2`, and black to white passes through `#636363` at halfway. Existing
+non-color motion and Morph color interpolation are unchanged.
+
+An active color track overrides gradient/image fills and all rich-text part
+colors; it leaves stroke, shadow, glow and other effect colors unchanged.
+Before its start, and in untimed or reduced-motion stills, the authored fill
+is preserved. A group's animation continues to override descendant animations;
+intrinsic counter values still update. Separately rendered stagger lines sample
+their own colors. Targets that cannot be split keep the existing approximate
+whole-layer stagger fallback; full glyph/range animation is separate work.
+
+Groups containing backdrop-dependent descendants support pure parent color
+tracks. Combining those tracks with other parent motion or stagger is reported
+as unsupported and raises a rendering error: animate the shape directly, or
+separate its backdrop effects from the moving group. No static fallback is
+claimed for this combination.
+
+The existing `ColorTrack` model, generated JSON schema and `inspect_motion()`
+include the track and its final color. `validate_export()` declares full
+raster/video color support for text, shapes and eligible groups. Image, SVG,
+chart and QR layer color tracks have a static fallback. Embedded multicolor
+emoji retain their font-provided colors.
+
+HTML declares an authored-static fallback for animation compositions containing
+color tracks; it does not substitute an unrelated fade. PPTX declares a static
+color fallback. `validate_export()` surfaces these limitations, and strict
+policies reject them. Existing restrictions on animated backdrop prefixes and
+clipped/masked group descendants still apply to their respective exporters.
+
+See [the runnable color example](https://github.com/sjquant/quickthumb/blob/main/examples/color_tracks.py)
+for text, a moving pill, and an initially transparent caption.
