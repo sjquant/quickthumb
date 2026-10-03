@@ -63,8 +63,16 @@ Near-alignment findings compare final measured starts, rather than raw declared 
 Parent-linked scenes use authored-static world bounds and transformed painted
 pixels. Rotation inherited through a parent also excludes near-alignment checks.
 Group text contrast includes earlier siblings in their original layout and its
-own background effects. Position suggestions identify parent-local fields or
-the containing group's layout instead of assigning world coordinates to them.
+own background effects. Supported static descendant clips and masks apply to
+their owner's paint and to the corresponding contrast samples; enclosing group
+boundaries apply again at their own scope. These boundaries share the top-level
+group's parent-local placement plane, with percentages resolved against the
+original canvas. Inspection intersects each layer or group box with only its own
+finite boundary before mapping it to world space. Descendant boxes remain
+conservative and are not cut by enclosing group boundaries; inverted-mask holes
+also retain conservative bounds while painted-alpha checks use the actual cutout.
+Position suggestions identify parent-local fields or the containing group's
+layout instead of assigning world coordinates to them.
 Ancestor geometry animation prevents a static cover from being called permanent;
 opacity is not inherited. Time-sampled diagnostics and unsupported parent raster
 combinations are not supported yet.

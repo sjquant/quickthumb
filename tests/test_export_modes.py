@@ -9,10 +9,13 @@ from unittest.mock import Mock
 
 import pytest
 from quickthumb import (
+    AnimationSpec,
     Canvas,
     Deck,
     ExportPolicy,
     GifOptions,
+    GroupLayer,
+    LayerClip,
     Morph,
     VideoOptions,
 )
@@ -205,6 +208,44 @@ def test_canvas_mp4_defaults_to_animated_writer(tmp_path, monkeypatch, method):
     assert writer.call_args.kwargs["format"] == "mp4"
     assert writer.call_args.kwargs["animation"] is None
     assert writer.call_args.kwargs["reduced_motion"] is False
+
+
+@pytest.mark.parametrize("method", ["render", "export"])
+@pytest.mark.parametrize("reduced", [False, True])
+def test_static_and_reduced_execution_still_reject_unsupported_geometry(
+    tmp_path, monkeypatch, method, reduced
+):
+    canvas = parent_canvas()
+    canvas.layers = [
+        canvas.layers[0],
+        GroupLayer(
+            type="group",
+            parent="root",
+            children=[
+                canvas.layers[1].model_copy(
+                    update={
+                        "parent": None,
+                        "position": (0, 0),
+                        "clip": LayerClip(position=(0, 0), width=4, height=4),
+                        "animation": AnimationSpec.fade(),
+                    }
+                )
+            ],
+        ),
+    ]
+    deck = Deck().slide(canvas)
+    writer = Mock()
+    monkeypatch.setattr(deck, "render_mp4", writer)
+    path = tmp_path / "existing.mp4"
+    path.write_bytes(b"existing")
+    policy = ExportPolicy(unsupported_motion="error", reduced_motion=reduced)
+    with pytest.raises(RenderingError, match="descendant boundaries cannot animate descendants"):
+        getattr(deck, method)(
+            str(path), animation=VideoOptions() if reduced else None, policy=policy
+        )
+    writer.assert_not_called()
+    assert path.read_bytes() == b"existing"
+    assert not (tmp_path / "frames").exists()
 
 
 @pytest.mark.parametrize("kind", ["canvas", "deck"])
