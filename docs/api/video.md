@@ -461,10 +461,40 @@ Later model mutations are revalidated when a new render is prepared.
 ### Current adapters and boundaries
 
 Raster, GIF, MP4 and WebM render supported parent chains. This bounded adapter
-rejects linked imagery on or below backdrop-dependent layers; linked clips,
-masks and stagger; and independently animated group descendants. These
+rejects linked imagery on or below backdrop-dependent layers; linked clips
+and masks; and independently animated group descendants. These
 combinations are reported as unsupported and raise rather than dropping part of
 the motion.
+
+Static parent-linked leaf text and top-level groups can use the existing partial
+raster stagger adapter. Each separable horizontal ink band gets its own clock,
+anchor, full ancestor transform, opacity, reveal, color and output-space blur.
+Wrapped lines and vertical group rows can separate; words, characters, touching
+lines, blank lines, horizontal groups and effects that join bands may retain the
+whole-block approximation. That fallback uses the final target's geometry and
+averaged arrival alpha/reveal. Existing target order and composition limits are
+unchanged: bands paint top-to-bottom, and composed group specs retain whole-block
+cardinality rather than expanding child targets. Composed events keep their
+original overlap; later specs do not wait for every delayed target to finish.
+Raster/video stagger capability remains `partial`.
+
+The existing default `warn` policy labels stagger diagnostics as a `fade`
+fallback; raster/video still render the partial adapter above. Explicit
+`static`/`rasterize` policy labels likewise do not replace that raster/video
+timeline. Use `reduced_motion=True` to freeze it, or `Canvas.export`/`Deck.export`
+with `ExportPolicy(unsupported_motion="error")` to reject partial support before
+writing the destination. Animated `render`/`to_*` convenience methods retain
+their existing reduced-motion-only policy handling; use `export` for strict
+raster/video preflight.
+
+A staggered node cannot be referenced as another explicit layer's parent, even
+with zero delay or only one current target: independently moving targets do not
+define one enclosing animated frame. Stagger on intrinsic counter/video sources
+or independently animated visualization/image viewports remains unsupported.
+Group motion still overrides descendant `AnimationSpec` motion. Untimed stills,
+reduced motion, inspection, debug overlays and diagnostics use the whole authored
+source. HTML, SVG, PDF and PPTX keep the whole-scene authored-static fallback.
+See [`examples/parent_stagger.py`](https://github.com/sjquant/quickthumb/blob/main/examples/parent_stagger.py).
 
 Parent-linked `AnimatedTextValue` supports `plain`, `odometer` and `flip`, including
 counters inside an atomic top-level group. The settled formatted value defines
