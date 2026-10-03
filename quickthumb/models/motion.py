@@ -376,7 +376,7 @@ class TimingSpec(_MotionModel):
 
     @model_validator(mode="after")
     def validate_mode(self):
-        if self.start is not None and {"trigger", "delay"} & self.model_fields_set:
+        if self.start is not None and (self.trigger is not None or self.delay != 0):
             raise ValidationError(
                 "timing must use either relative trigger/delay or absolute start, not both"
             )
