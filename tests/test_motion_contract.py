@@ -206,6 +206,8 @@ class TestMotionContract:
             "position",
             "image_pan",
             "scale",
+            "scale_x",
+            "scale_y",
             "image_zoom",
             "rotation",
             "opacity",

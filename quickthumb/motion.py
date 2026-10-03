@@ -16,6 +16,7 @@ from quickthumb._base import parse_coordinate
 from quickthumb._measurements import layer_id_for
 from quickthumb.errors import RenderingError, ValidationError
 from quickthumb.models import (
+    AnchorPoint,
     AnimatedTextValue,
     AnimationSpec,
     ExportDiagnostic,
@@ -51,6 +52,8 @@ MotionProperty = Literal[
     "position",
     "image_pan",
     "scale",
+    "scale_x",
+    "scale_y",
     "image_zoom",
     "rotation",
     "opacity",
@@ -340,6 +343,8 @@ class NormalizedTrack(BaseModel):
             raise ValidationError("additive tracks are only supported for position and image_pan")
         if self.blend == "multiply" and self.property not in {
             "scale",
+            "scale_x",
+            "scale_y",
             "image_zoom",
             "opacity",
             "clip_progress",
@@ -395,7 +400,10 @@ class LayerState(BaseModel):
     position: tuple[float, float] | None = None
     image_pan: tuple[float, float] = (0.0, 0.0)
     image_focal_point: tuple[float, float] | None = None
+    anchor: AnchorPoint = Field(default=(0.5, 0.5), exclude_if=lambda value: value == (0.5, 0.5))
     scale: float = Field(default=1.0, allow_inf_nan=False)
+    scale_x: float = Field(default=1.0, allow_inf_nan=False, exclude_if=lambda value: value == 1.0)
+    scale_y: float = Field(default=1.0, allow_inf_nan=False, exclude_if=lambda value: value == 1.0)
     image_zoom: float = Field(default=1.0, ge=1.0, allow_inf_nan=False)
     rotation: float = Field(default=0.0, allow_inf_nan=False)
     opacity: float = Field(default=1.0, ge=0.0, le=1.0, allow_inf_nan=False)
@@ -616,6 +624,7 @@ def _layer_base_state(layer: object, canvas: Canvas) -> LayerState:
             position = None
     state = LayerState(
         position=position,
+        anchor=getattr(layer, "anchor", (0.5, 0.5)),
         opacity=float(getattr(layer, "opacity", 1.0)),
         rotation=float(getattr(layer, "rotation", 0.0)),
         color=getattr(layer, "color", None),
@@ -647,25 +656,37 @@ def _interpolate_layer_states(
     )
 
 
-def transform_matrix(state: LayerState) -> tuple[tuple[float, float, float], ...]:
+def transform_matrix(
+    state: LayerState, size: tuple[float, float] = (0.0, 0.0)
+) -> tuple[tuple[float, float, float], ...]:
     """Return the affine matrix for scale, then rotation, then translation.
 
-    The matrix follows the renderer-independent convention `T · R · S`.
-    Consequently a local point is scaled first, rotated around the origin, and
-    translated by `state.position`. A missing position is treated as zero.
+    With rendered bounds `size`, use `T(position) · T(anchor) · R · S · T(-anchor)`.
+    The normalized anchor resolves within those bounds; uniform and axis scales
+    multiply. Omitting size preserves the original origin-based point API.
     """
     x, y = state.position or (0.0, 0.0)
     angle = math.radians(state.rotation)
     cosine, sine = math.cos(angle), math.sin(angle)
-    scale = state.scale
+    if (
+        not isinstance(size, (tuple, list))
+        or len(size) != 2
+        or any(isinstance(value, bool) or not isinstance(value, (int, float)) for value in size)
+        or not all(math.isfinite(value) and value >= 0 for value in size)
+    ):
+        raise ValidationError("transform size must contain two finite non-negative numbers")
+    sx, sy = state.scale * state.scale_x, state.scale * state.scale_y
+    ax, ay = state.anchor[0] * size[0], state.anchor[1] * size[1]
     return (
-        (scale * cosine, -scale * sine, x),
-        (scale * sine, scale * cosine, y),
+        (sx * cosine, -sy * sine, x + ax - sx * cosine * ax + sy * sine * ay),
+        (sx * sine, sy * cosine, y + ay - sx * sine * ax - sy * cosine * ay),
         (0.0, 0.0, 1.0),
     )
 
 
-def apply_transform(point: tuple[float, float], state: LayerState) -> tuple[float, float]:
+def apply_transform(
+    point: tuple[float, float], state: LayerState, size: tuple[float, float] = (0.0, 0.0)
+) -> tuple[float, float]:
     """Apply the documented `T · R · S` transform to a local point."""
     if (
         not isinstance(point, (tuple, list))
@@ -674,7 +695,7 @@ def apply_transform(point: tuple[float, float], state: LayerState) -> tuple[floa
         or not all(math.isfinite(value) for value in point)
     ):
         raise ValidationError("transform points must contain two finite numbers")
-    matrix = transform_matrix(state)
+    matrix = transform_matrix(state, size)
     return (
         matrix[0][0] * point[0] + matrix[0][1] * point[1] + matrix[0][2],
         matrix[1][0] * point[0] + matrix[1][1] * point[1] + matrix[1][2],
@@ -749,6 +770,19 @@ def _canonical_timeline(layer: object) -> Timeline | None:
     return compile_timeline(specs) if specs else None
 
 
+def _has_transform_extensions(layer: object) -> bool:
+    """Whether canonical motion opts into an anchor or independent axis scale."""
+    animation = getattr(layer, "animation", None)
+    items = animation if isinstance(animation, list) else [animation]
+    specs = [item for item in items if isinstance(item, AnimationSpec)]
+    return bool(specs) and (
+        getattr(layer, "anchor", (0.5, 0.5)) != (0.5, 0.5)
+        or any(
+            track.type in {"scale_x", "scale_y"} for spec in specs for track in spec.tracks or ()
+        )
+    )
+
+
 def _canonical_target_timelines(layer: object, target_count: int) -> tuple[Timeline, ...] | None:
     if target_count < 2:
         return None
@@ -759,13 +793,13 @@ def _canonical_target_timelines(layer: object, target_count: int) -> tuple[Timel
 
 
 def _sample_target_timelines(
-    timelines: tuple[Timeline, ...], time: float
+    timelines: tuple[Timeline, ...], time: float, base: LayerState | None = None
 ) -> tuple[LayerState | None, ...]:
     """Keep staggered targets hidden until their individual start time."""
     return tuple(
         None
         if time < min((event.active_start for event in timeline.events), default=0.0)
-        else timeline.sample(time, LayerState())
+        else timeline.sample(time, base)
         for timeline in timelines
     )
 
@@ -779,7 +813,11 @@ def sample_canonical_state(layer: object, time: float | None) -> LayerState | No
     if time is None:
         return None
     timeline = _canonical_timeline(layer)
-    return timeline.sample(float(time), LayerState()) if timeline is not None else None
+    return (
+        timeline.sample(float(time), LayerState(anchor=getattr(layer, "anchor", (0.5, 0.5))))
+        if timeline is not None
+        else None
+    )
 
 
 def sample_canonical_targets(
@@ -789,7 +827,13 @@ def sample_canonical_targets(
     if time is None:
         return None
     timelines = _canonical_target_timelines(layer, target_count)
-    return _sample_target_timelines(timelines, float(time)) if timelines is not None else None
+    return (
+        _sample_target_timelines(
+            timelines, float(time), LayerState(anchor=getattr(layer, "anchor", (0.5, 0.5)))
+        )
+        if timelines is not None
+        else None
+    )
 
 
 def _geometry_in_motion(
@@ -800,7 +844,9 @@ def _geometry_in_motion(
     state: LayerState | None = None,
 ) -> bool:
     """Detect geometry interpolation while preserving settled and overridden tracks."""
-    properties = {"position", "rotation", "scale"} if include_scale else {"position", "rotation"}
+    properties = {"position", "rotation", "scale_x", "scale_y"}
+    if include_scale:
+        properties.add("scale")
     moving: dict[str, bool] = {}
     position_changes: dict[tuple[float, float, str], tuple[float, float]] = {}
     for event in timeline.events:
@@ -1271,9 +1317,12 @@ def sample_frames(timeline: Timeline, fps: float) -> tuple[tuple[float, LayerSta
 
 ExportTarget = Literal["raster", "video", "html", "pptx"]
 CapabilityFeature = Literal[
+    "anchor",
     "position",
     "image_pan",
     "scale",
+    "scale_x",
+    "scale_y",
     "image_zoom",
     "rotation",
     "opacity",
@@ -1302,9 +1351,12 @@ class MotionCapability:
 
 
 _CAPABILITY_FEATURES: tuple[CapabilityFeature, ...] = (
+    "anchor",
     "position",
     "image_pan",
     "scale",
+    "scale_x",
+    "scale_y",
     "image_zoom",
     "rotation",
     "opacity",
@@ -1346,7 +1398,10 @@ _CANONICAL_RENDERED: dict[str, frozenset[str]] = {
     target: frozenset(
         {
             "position",
+            "anchor",
             "scale",
+            "scale_x",
+            "scale_y",
             "rotation",
             "opacity",
             "clip_progress",
@@ -1368,7 +1423,10 @@ _CAPABILITIES["html"] = {
 _PPTX_FALLBACKS: dict[CapabilityFeature, tuple[SupportLevel, Fallback | None]] = {
     "position": ("native", None),
     "image_pan": ("fallback", "rasterize"),
+    "anchor": ("unsupported", "static"),
     "scale": ("native", None),
+    "scale_x": ("unsupported", "static"),
+    "scale_y": ("unsupported", "static"),
     "image_zoom": ("fallback", "rasterize"),
     "rotation": ("native", None),
     "opacity": ("native", None),
@@ -1456,6 +1514,21 @@ def validate_export(
     resolved_policy = policy or ExportPolicy()
     row = capabilities_for(normalized)
     diagnostics: list[ExportDiagnostic] = []
+    html_backdrop_ids: set[int] = set()
+    if normalized == "html":
+        from quickthumb._export_base import is_backdrop_dependent
+
+        for canvas in getattr(source, "slides", (source,)):
+            layers = list(_iter_export_layers(canvas))
+            last = max(
+                (
+                    index
+                    for index, (_, layer) in enumerate(layers)
+                    if is_backdrop_dependent(cast(Any, layer))
+                ),
+                default=-1,
+            )
+            html_backdrop_ids.update(id(layer) for _, layer in layers[: last + 1])
     for layer_id, pointer, layer in _iter_export_layer_locations(source):
         value = getattr(layer, "value", None)
         if isinstance(value, AnimatedTextValue) and normalized in ("html", "pptx"):
@@ -1489,12 +1562,27 @@ def validate_export(
         if animations is None:
             continue
         items = animations if isinstance(animations, list) else [animations]
+        html_transform = False
+        if normalized == "html" and _has_transform_extensions(layer):
+            from quickthumb._export_html import _supports_transform_extensions_html
+
+            html_transform = id(
+                layer
+            ) not in html_backdrop_ids and _supports_transform_extensions_html(layer)
         for animation in items:
-            for feature in _capability_features_for(animation):
+            features: list[CapabilityFeature] = list(_capability_features_for(animation))
+            if isinstance(animation, AnimationSpec) and getattr(layer, "anchor", (0.5, 0.5)) != (
+                0.5,
+                0.5,
+            ):
+                features.append("anchor")
+            for feature in features:
                 capability = row[feature]
-                canonical_unimplemented = isinstance(
-                    animation, AnimationSpec
-                ) and feature not in _CANONICAL_RENDERED.get(normalized, frozenset())
+                canonical_unimplemented = (
+                    isinstance(animation, AnimationSpec)
+                    and not html_transform
+                    and feature not in _CANONICAL_RENDERED.get(normalized, frozenset())
+                )
                 declared_support = "unsupported" if canonical_unimplemented else capability.support
                 declared_fallback = "static" if canonical_unimplemented else capability.fallback
                 action = resolved_policy.pptx.get(layer_id) if normalized == "pptx" else None
@@ -1818,7 +1906,10 @@ def _inspection_reduced_motion(duration: float, policy: ExportPolicy) -> Reduced
         resolved_duration=0.0,
         removed_features=[
             "position",
+            "anchor",
             "scale",
+            "scale_x",
+            "scale_y",
             "rotation",
             "opacity",
             "clip_progress",
@@ -1925,6 +2016,8 @@ def inspect_motion(
         for _, layer in _iter_export_layers(canvas):
             animation = getattr(layer, "animation", None)
             items = animation if isinstance(animation, list) else [animation]
+            if animation is not None and getattr(layer, "anchor", (0.5, 0.5)) != (0.5, 0.5):
+                source_features.add("anchor")
             source_features.update(
                 feature
                 for item in items

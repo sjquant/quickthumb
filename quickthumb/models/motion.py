@@ -263,6 +263,18 @@ class ScaleTrack(ScalarTrack):
     type: Literal["scale"] = "scale"
 
 
+class ScaleXTrack(ScalarTrack):
+    """Horizontal layer scale, multiplied by the uniform scale."""
+
+    type: Literal["scale_x"] = "scale_x"
+
+
+class ScaleYTrack(ScalarTrack):
+    """Vertical layer scale, multiplied by the uniform scale."""
+
+    type: Literal["scale_y"] = "scale_y"
+
+
 class ImageZoomTrack(ScalarTrack):
     """A positive source-viewport zoom track for image layers."""
 
@@ -342,6 +354,8 @@ TrackSpec = Annotated[
     PositionTrack
     | ImagePanTrack
     | ScaleTrack
+    | ScaleXTrack
+    | ScaleYTrack
     | ImageZoomTrack
     | RotationTrack
     | OpacityTrack
