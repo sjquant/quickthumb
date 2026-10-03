@@ -741,6 +741,35 @@ def compile_timeline(
     return Timeline(events=tuple(events))
 
 
+def _canonical_timeline(layer: object) -> Timeline | None:
+    """Compile a layer's canonical specs without changing its sampled-state API."""
+    animation = getattr(layer, "animation", None)
+    animations = animation if isinstance(animation, list) else [animation]
+    specs = [item for item in animations if isinstance(item, AnimationSpec)]
+    return compile_timeline(specs) if specs else None
+
+
+def _canonical_target_timelines(layer: object, target_count: int) -> tuple[Timeline, ...] | None:
+    if target_count < 2:
+        return None
+    timeline = _canonical_timeline(layer)
+    if timeline is None or not any(event.stagger is not None for event in timeline.events):
+        return None
+    return resolve_staggered_timelines(timeline, target_count)
+
+
+def _sample_target_timelines(
+    timelines: tuple[Timeline, ...], time: float
+) -> tuple[LayerState | None, ...]:
+    """Keep staggered targets hidden until their individual start time."""
+    return tuple(
+        None
+        if time < min((event.active_start for event in timeline.events), default=0.0)
+        else timeline.sample(time, LayerState())
+        for timeline in timelines
+    )
+
+
 def sample_canonical_state(layer: object, time: float | None) -> LayerState | None:
     """Sample a layer's canonical motion at `time`, or None when it has none.
 
@@ -749,41 +778,86 @@ def sample_canonical_state(layer: object, time: float | None) -> LayerState | No
     """
     if time is None:
         return None
-    animation = getattr(layer, "animation", None)
-    if animation is None:
-        return None
-    animations = animation if isinstance(animation, list) else [animation]
-    specs = [item for item in animations if isinstance(item, AnimationSpec)]
-    if not specs:
-        return None
-    return compile_timeline(specs).sample(float(time), LayerState())
+    timeline = _canonical_timeline(layer)
+    return timeline.sample(float(time), LayerState()) if timeline is not None else None
 
 
 def sample_canonical_targets(
     layer: object, time: float | None, target_count: int
 ) -> tuple[LayerState | None, ...] | None:
-    """Sample one state per staggered target, or None when the layer has none.
+    """Sample staggered target clocks, leaving targets before their turn hidden."""
+    if time is None:
+        return None
+    timelines = _canonical_target_timelines(layer, target_count)
+    return _sample_target_timelines(timelines, float(time)) if timelines is not None else None
 
-    Each target runs the same timeline offset by its own stagger delay, so the
-    caller can move, fade, and reveal every line independently instead of
-    averaging them into one reveal. A target whose turn has not come yet samples
-    to `None`: it is waiting off screen rather than sitting in its settled
-    place, which is what makes a stagger read as a sequence.
-    """
-    if time is None or target_count < 2:
-        return None
-    animation = getattr(layer, "animation", None)
-    if animation is None:
-        return None
-    animations = animation if isinstance(animation, list) else [animation]
-    specs = [item for item in animations if isinstance(item, AnimationSpec)]
-    if not specs or not any(item.stagger is not None for item in specs):
-        return None
-    sampled: list[LayerState | None] = []
-    for timeline in resolve_staggered_timelines(compile_timeline(specs), target_count):
-        start = min((event.active_start for event in timeline.events), default=0.0)
-        sampled.append(None if time < start else timeline.sample(float(time), LayerState()))
-    return tuple(sampled)
+
+def _geometry_in_motion(
+    timeline: Timeline,
+    time: float,
+    *,
+    include_scale: bool = True,
+    state: LayerState | None = None,
+) -> bool:
+    """Detect geometry interpolation while preserving settled and overridden tracks."""
+    properties = {"position", "rotation", "scale"} if include_scale else {"position", "rotation"}
+    moving: dict[str, bool] = {}
+    position_changes: dict[tuple[float, float, str], tuple[float, float]] = {}
+    for event in timeline.events:
+        if time < event.active_start:
+            continue
+        local = time - event.active_start
+        for track in event.tracks:
+            if track.property not in properties:
+                continue
+            # Match the exporter's nanosecond boundary tolerance: decimal
+            # start/duration sums must not turn an endpoint into a motion frame.
+            sample_time = next(
+                (key.time for key in track.keyframes if abs(local - key.time) <= 1e-9), local
+            )
+            active = False
+            segment = None
+            if 1e-9 < local < event.duration - 1e-9:
+                for index, (left, right) in enumerate(
+                    zip(track.keyframes, track.keyframes[1:], strict=False)
+                ):
+                    if left.time <= sample_time < right.time and left.value != right.value:
+                        # At an interior knot stay affine if motion continues
+                        # from the preceding interval, but preserve hold edges.
+                        active = sample_time > left.time or (
+                            index > 0 and track.keyframes[index - 1].value != left.value
+                        )
+                        segment = (left, right)
+                        break
+            if track.property == "position":
+                if track.blend == "replace":
+                    position_changes.clear()
+                if active and segment is not None:
+                    left, right = segment
+                    assert isinstance(left.value, tuple) and isinstance(right.value, tuple)
+                    basis = (
+                        round(event.active_start + left.time, 9),
+                        round(event.active_start + right.time, 9),
+                        event.options.get("easing") or "linear",
+                    )
+                    x, y = position_changes.get(basis, (0.0, 0.0))
+                    position_changes[basis] = (
+                        x + right.value[0] - left.value[0],
+                        y + right.value[1] - left.value[1],
+                    )
+                continue
+            moving[track.property] = (
+                active if track.blend == "replace" else moving.get(track.property, False) or active
+            )
+    # The established renderer ignores nonpositive scale rather than reflecting
+    # or collapsing the image. Reuse the caller's state instead of sampling twice.
+    if moving.get("scale") and (state if state is not None else timeline.sample(time)).scale <= 0:
+        moving["scale"] = False
+    # Opposite additive tracks sharing one interpolation clock cancel exactly.
+    # Do not resample a held rotation just because a cancelled move is scheduled.
+    return any(moving.values()) or any(
+        abs(x) > 1e-12 or abs(y) > 1e-12 for x, y in position_changes.values()
+    )
 
 
 def compile_transition_timeline(

@@ -250,16 +250,24 @@ def split_into_bands(
     return tuple(fragments)
 
 
-def composite_motion_targets(image: Image.Image, fragments, states) -> None:
+def composite_motion_targets(
+    image: Image.Image, fragments, states, *, subpixel: tuple[bool, ...] = ()
+) -> None:
     """Place each staggered target using its own sampled state.
 
     A target whose turn has not come samples to None and is simply not drawn.
     """
-    for (fragment, position), state in zip(fragments, states, strict=True):
+    for index, ((fragment, position), state) in enumerate(zip(fragments, states, strict=True)):
         if state is None:
             continue
-        moved, placed = apply_canonical_geometry(fragment, state, position)
-        moved = apply_canonical_alpha(moved, state)
+        moving = bool(subpixel and subpixel[index])
+        if moving:
+            fragment = apply_canonical_alpha(fragment, state)
+            if fragment is None:
+                continue
+        moved, placed = apply_canonical_geometry(fragment, state, position, subpixel=moving)
+        if not moving:
+            moved = apply_canonical_alpha(moved, state)
         if moved is not None:
             image.alpha_composite(moved, placed)
 
@@ -302,6 +310,7 @@ def apply_canonical_geometry(
     pos: tuple[int, int],
     *,
     include_scale: bool = True,
+    subpixel: bool = False,
 ) -> tuple[Image.Image, tuple[int, int]]:
     """Scale, rotate, and blur a rendered layer about its centre, then move it.
 
@@ -310,10 +319,29 @@ def apply_canonical_geometry(
     translated by `state.position`. Scale, rotation, and blur all change the
     image's size, so the position it should be composited at comes back with it.
 
+    `subpixel` selects one bicubic affine resampling during geometry motion.
+    Callers keep it off at settled endpoints and holds so their original
+    resize/rotate filters and integer placement stay pixel-identical.
+
     `include_scale` is off for image layers, whose renderer already folds
     `scale` into the source crop so the frame stays put while its content
     zooms.
     """
+    scale = state.scale if include_scale and state.scale > 0 else 1.0
+    offset_x, offset_y = state.position or (0.0, 0.0)
+    angle = state.rotation % 360
+    if subpixel and not (
+        scale == 1.0
+        and angle == 0.0
+        and float(offset_x).is_integer()
+        and float(offset_y).is_integer()
+    ):
+        image, placed = _affine_geometry(image, pos, scale, angle, offset_x, offset_y)
+        image, margin = _blur_geometry(image, state.blur)
+        return image, (placed[0] - margin, placed[1] - margin)
+
+    # Settled states deliberately retain the established filters and rounding,
+    # even when their final rotation or scale is not the identity transform.
     centre_x = pos[0] + image.width / 2
     centre_y = pos[1] + image.height / 2
     if include_scale and state.scale > 0 and state.scale != 1.0:
@@ -323,17 +351,62 @@ def apply_canonical_geometry(
         )
     if state.rotation:
         image = image.rotate(-state.rotation, expand=True, resample=Image.Resampling.BICUBIC)
-    if state.blur > 0:
-        # Pad by the kernel's usable reach so the blur fades out instead of
-        # being cut off at the layer's own edge.
-        margin = max(1, math.ceil(state.blur * 3))
-        padded = Image.new("RGBA", (image.width + margin * 2, image.height + margin * 2))
-        padded.alpha_composite(image.convert("RGBA"), (margin, margin))
-        image = padded.filter(ImageFilter.GaussianBlur(state.blur))
-    offset_x, offset_y = state.position or (0.0, 0.0)
+    image, _ = _blur_geometry(image, state.blur)
     return image, (
         round(centre_x - image.width / 2 + offset_x),
         round(centre_y - image.height / 2 + offset_y),
+    )
+
+
+def _blur_geometry(image: Image.Image, blur: float) -> tuple[Image.Image, int]:
+    if blur > 0:
+        # Pad by the kernel's usable reach so the blur fades out instead of
+        # being cut off at the layer's own edge.
+        margin = max(1, math.ceil(blur * 3))
+        padded = Image.new("RGBA", (image.width + margin * 2, image.height + margin * 2))
+        padded.alpha_composite(image.convert("RGBA"), (margin, margin))
+        return padded.filter(ImageFilter.GaussianBlur(blur)), margin
+    return image, 0
+
+
+def _affine_geometry(
+    image: Image.Image,
+    pos: tuple[int, int],
+    scale: float,
+    angle: float,
+    offset_x: float,
+    offset_y: float,
+) -> tuple[Image.Image, tuple[int, int]]:
+    """Resample T · R · S once, keeping the fractional offset in the inverse map."""
+    cosine = round(math.cos(math.radians(angle)), 15)
+    sine = round(math.sin(math.radians(angle)), 15)
+    # A tight opaque crop needs transparent filter support around its border;
+    # otherwise Pillow clips interpolation there and the edge still steps.
+    padded = Image.new("RGBA", (image.width + 4, image.height + 4))
+    padded.paste(image, (2, 2))
+    centre_x = pos[0] + image.width / 2 + offset_x
+    centre_y = pos[1] + image.height / 2 + offset_y
+    half_width = (abs(cosine) * padded.width + abs(sine) * padded.height) * scale / 2
+    half_height = (abs(sine) * padded.width + abs(cosine) * padded.height) * scale / 2
+    left, top = math.floor(centre_x - half_width), math.floor(centre_y - half_height)
+    right, bottom = math.ceil(centre_x + half_width), math.ceil(centre_y + half_height)
+    a, b, d, e = cosine / scale, sine / scale, -sine / scale, cosine / scale
+    inverse = (
+        a,
+        b,
+        padded.width / 2 + a * (left - centre_x) + b * (top - centre_y),
+        d,
+        e,
+        padded.height / 2 + d * (left - centre_x) + e * (top - centre_y),
+    )
+    return (
+        padded.transform(
+            (max(1, right - left), max(1, bottom - top)),
+            Image.Transform.AFFINE,
+            inverse,
+            resample=Image.Resampling.BICUBIC,
+        ),
+        (left, top),
     )
 
 

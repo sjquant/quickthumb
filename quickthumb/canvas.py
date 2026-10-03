@@ -1833,17 +1833,34 @@ class Canvas:
         set tight enough to touch, or a target kind with no visual band — fall
         back to moving the layer as a whole.
         """
-        from quickthumb._export_base import composite_motion_targets, split_into_bands
-        from quickthumb.motion import sample_canonical_targets
+        from quickthumb._export_base import (
+            composite_motion_targets,
+            split_into_bands,
+        )
+        from quickthumb.motion import (
+            _canonical_target_timelines,
+            _geometry_in_motion,
+            _sample_target_timelines,
+        )
 
         count = self._staggered_target_count(layer)
-        states = sample_canonical_targets(layer, time, count)
-        if states is None:
+        timelines = _canonical_target_timelines(layer, count) if time is not None else None
+        if timelines is None:
             return False
+        assert time is not None
+        states = _sample_target_timelines(timelines, time)
         fragments = split_into_bands(surface, count)
         if fragments is None:
             return False
-        composite_motion_targets(image, fragments, states)
+        composite_motion_targets(
+            image,
+            fragments,
+            states,
+            subpixel=tuple(
+                _geometry_in_motion(target, time, state=sample)
+                for target, sample in zip(timelines, states, strict=True)
+            ),
+        )
         return True
 
     def _render_moving_layer(
@@ -1856,13 +1873,18 @@ class Canvas:
         pass transforms; the exporters render layers untimed and apply the same
         geometry once per animation unit.
         """
-        from quickthumb._export_base import apply_canonical_alpha, apply_canonical_geometry
-        from quickthumb.motion import sample_canonical_state
+        from quickthumb._export_base import (
+            apply_canonical_alpha,
+            apply_canonical_geometry,
+        )
+        from quickthumb.motion import _canonical_timeline, _geometry_in_motion
 
-        state = sample_canonical_state(layer, time)
-        if state is None:
+        timeline = _canonical_timeline(layer) if time is not None else None
+        if timeline is None:
             self._render_layer(image, layer, time)
             return
+        assert time is not None
+        state = timeline.sample(time)
         surface = Image.new("RGBA", image.size, (0, 0, 0, 0))
         self._render_layer(surface, layer, time)
         if self._render_staggered_targets(image, surface, layer, time):
@@ -1870,19 +1892,28 @@ class Canvas:
         bounds = surface.getbbox()
         if bounds is None:
             return
+        moving = _geometry_in_motion(
+            timeline, time, include_scale=not isinstance(layer, ImageLayer), state=state
+        )
+        fragment = surface.crop(bounds)
+        # Charts and QR codes already reveal themselves from this track.
+        clip = 1.0 if isinstance(layer, (ChartLayer, QRCodeLayer)) else state.clip_progress
+        if moving:
+            # Clip/opacity belong to source pixels, before the padded affine
+            # filter, matching the animation-unit compositor.
+            fragment = apply_canonical_alpha(fragment, state, clip_progress=clip)
+            if fragment is None:
+                return
         fragment, position = apply_canonical_geometry(
-            surface.crop(bounds),
+            fragment,
             state,
             (bounds[0], bounds[1]),
             # Image layers fold scale into their source crop already.
             include_scale=not isinstance(layer, ImageLayer),
+            subpixel=moving,
         )
-        # Charts and QR codes reveal their own bars, points, and modules from the
-        # same track, so a second generic clip on top would reveal twice.
-        self_revealing = isinstance(layer, (ChartLayer, QRCodeLayer))
-        fragment = apply_canonical_alpha(
-            fragment, state, clip_progress=1.0 if self_revealing else state.clip_progress
-        )
+        if not moving:
+            fragment = apply_canonical_alpha(fragment, state, clip_progress=clip)
         if fragment is None:
             return
         image.alpha_composite(fragment, position)
