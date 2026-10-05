@@ -79,8 +79,10 @@ The command writes deterministic JSON only, so it can be checked into a repo, pi
 
 ## Plugin layers
 
-Plugin registrations are kept in one explicit `PluginRegistry`. The registry is
-metadata only: D1 does not run renderer code or export native files.
+Plugin registrations are kept in one explicit `PluginRegistry`. A registration
+describes a layer type and its parameters; it does not supply drawing code.
+quickthumb can load, validate, and publish a schema for plugin layers, but
+rendering a canvas that contains one raises `RenderingError` for now.
 
 ```python
 from quickthumb import Canvas, PluginRegistry, canvas_json_schema
@@ -508,6 +510,7 @@ A full YouTube-style thumbnail spec:
 
 ```json
 {
+  "kind": "canvas",
   "width": 1280,
   "height": 720,
   "layers": [

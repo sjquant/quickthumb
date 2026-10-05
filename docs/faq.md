@@ -60,7 +60,7 @@ Auto-layout groups assign positions themselves — that's the point. Remove `pos
 
 ```python
 canvas.group(
-    children=[{"type": "text", "content": "TITLE", "size": 96, "color": "#fff"}],
+    children=[{"type": "text", "content": "TITLE", "size": 96, "color": "#FFFFFF"}],
     position=("8%", "50%"),
     align=("left", "middle"),
 )
@@ -81,7 +81,7 @@ Call `canvas.diagnose()` (or run `quickthumb lint spec.json` / `quickthumb diagn
 Use `max_width` to enable wrapping:
 
 ```python
-canvas.text(content="Long title here", size=72, color="#fff", max_width="60%")
+canvas.text(content="Long title here", size=72, color="#FFFFFF", max_width="60%")
 ```
 
 Or use `auto_scale=True` with `max_width` and/or `max_height` to shrink the text until it fits the declared bounds.
@@ -192,7 +192,7 @@ No — it expects a JSON **string**. Use `json.dumps()` first if you have a dict
 import json
 from quickthumb import Canvas
 
-data = {"width": 1280, "height": 720, "layers": [...]}
+data = {"kind": "canvas", "width": 1280, "height": 720, "layers": []}
 canvas = Canvas.from_json(json.dumps(data))
 ```
 

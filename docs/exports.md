@@ -92,7 +92,7 @@ with open("promo.pdf", "wb") as f:
 !!! note "Fidelity"
     PDF shadings cannot express transparency, so translucent gradients (and gradients with translucent stops) are embedded as pictures. Blur effects (shadow, glow), strokes on shapes, and gradient/image glyph fills have no faithful PDF vector form and are likewise embedded as pixel-exact PNG fragments.
 
-## Animated GIF & video (Canvas MP4/WebM, Deck GIF/WebM)
+## Animated GIF & video { #animated-gif-video }
 
 Animated export renders per-layer `animation` effects and deck slide `transition`s as real raster frames, sampled through the same pixel pipeline as PNG output. Canvas GIF/MP4/WebM and Deck GIF/WebM play this animated timeline. `deck.render("deck.mp4", animation=VideoOptions(...))` also uses it; Deck MP4 without `VideoOptions` is the separate static narration workflow below.
 
@@ -254,8 +254,8 @@ from quickthumb import Canvas, Deck
 
 deck = (
     Deck(1280, 720)   # default slide size; Deck.from_aspect_ratio("16:9", 1280) also works
-    .slide(Canvas().background(color="#101820").text(content="Cover", ...))
-    .slide(Canvas().background(color="#1A1A2E").text(content="Body", ...))
+    .slide(Canvas().background(color="#101820").text(content="Cover", size=96, color="#FFFFFF"))
+    .slide(Canvas().background(color="#1A1A2E").text(content="Body", size=64, color="#FFFFFF"))
 )
 # pre-built canvases work too: Deck(slides=[cover, body])
 

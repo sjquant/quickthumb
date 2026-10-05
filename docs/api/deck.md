@@ -45,12 +45,12 @@ Pass initial slides to the constructor (`Deck(slides=[...])`) and/or append them
 deck = (
     Deck(1280, 720)
     .slide(
-        Canvas().background(color="#101820").text(content="Cover", ...),
+        Canvas().background(color="#101820").text(content="Cover", size=96, color="#FFFFFF"),
         audio="voice.wav",
         duration=2.5,
         notes="Introduce the central thesis.",
     )
-    .slide(Canvas().background(color="#1A1A2E").text(content="Body", ...))
+    .slide(Canvas().background(color="#1A1A2E").text(content="Body", size=64, color="#FFFFFF"))
 )
 ```
 
@@ -131,7 +131,7 @@ pptx_bytes = deck.to_pptx()  # requires quickthumb[pptx]
 
 ### `.to_gif(...)` / `.to_webm(...)`
 
-Return the deck as an animation: each slide plays its layer animations, holds its settled state, and its transition animates the change into it (see [Animated GIF & video](../exports.md#animated-gif-video-mp4webm) for the timing model). `.to_webm()` requires the `ffmpeg` binary on `PATH` (or named by `QUICKTHUMB_FFMPEG`).
+Return the deck as an animation: each slide plays its layer animations, holds its settled state, and its transition animates the change into it (see [Animated GIF & video](../exports.md#animated-gif-video) for the timing model). `.to_webm()` requires the `ffmpeg` binary on `PATH` (or named by `QUICKTHUMB_FFMPEG`).
 
 ```python
 gif_bytes = deck.to_gif(fps=20, slide_duration=3.0, loop=0, matte="#000000")

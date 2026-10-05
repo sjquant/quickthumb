@@ -157,7 +157,7 @@ with open("card.pdf", "wb") as f:
 
 ### `.to_gif(...)` / `.to_mp4(...)` / `.to_webm(...)`
 
-Return the canvas as an animation that plays its layer `animation` effects in sequence, then holds the settled composition for `hold` seconds (see [Animated GIF & video](../exports.md#animated-gif-video-mp4webm)). A canvas with no animations yields a single-frame GIF. `.to_mp4()`/`.to_webm()` require the `ffmpeg` binary on `PATH` (or named by `QUICKTHUMB_FFMPEG`).
+Return the canvas as an animation that plays its layer `animation` effects in sequence, then holds the settled composition for `hold` seconds (see [Animated GIF & video](../exports.md#animated-gif-video)). A canvas with no animations yields a single-frame GIF. `.to_mp4()`/`.to_webm()` require the `ffmpeg` binary on `PATH` (or named by `QUICKTHUMB_FFMPEG`).
 
 ```python
 gif_bytes = canvas.to_gif(fps=20, hold=3.0, loop=0, matte="#000000")

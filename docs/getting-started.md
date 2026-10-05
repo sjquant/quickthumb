@@ -34,6 +34,8 @@ canvas = (
                 effects=[Shadow(offset_x=2, offset_y=2, color="#000000", blur_radius=4)],
             ),
         ],
+        font="Inter",
+        font_source="google",
         size=112,
         position=("8%", "50%"),
         align=("left", "middle"),

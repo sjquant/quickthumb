@@ -66,7 +66,7 @@ canvas.shape(shape="rectangle", position=(64, 64), width=200, height=80, color="
 canvas.image(path="portrait.png", position=("75%", "55%"), width=420, height=520)
 
 # Mix
-canvas.text(content="Hello", size=72, color="#fff", position=("8%", 360))
+canvas.text(content="Hello", size=72, color="#FFFFFF", position=("8%", 360))
 ```
 
 The `align` parameter controls which point of the layer the position refers to:
@@ -306,7 +306,7 @@ quickthumb validates all inputs at construction time using Pydantic. Invalid val
 from quickthumb import ValidationError
 
 try:
-    canvas.text(content="", size=64, color="#fff")  # empty content
+    canvas.text(content="", size=64, color="#FFFFFF")  # empty content
 except ValidationError as e:
     print(e)
 ```
