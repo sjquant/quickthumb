@@ -1,11 +1,10 @@
 """
 YouTube Tutorial / Explainer Thumbnail
 
-Focused curriculum layout built from a single headline and a structured step list:
-- Near-black background with one system-blue accent
-- Large two-tone headline as the only hero element
-- Three steps separated by rules instead of cards or badges
-- Compact metadata aligned to a consistent grid
+- Black background with a blue panel on the right; no photos
+- Two-tone headline built from TextParts
+- A code snippet on the panel, "highlighted" by giving each TextPart
+  its own color and weight
 """
 
 import os

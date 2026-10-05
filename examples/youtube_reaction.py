@@ -1,11 +1,11 @@
 """
 YouTube Reaction / Commentary Thumbnail
 
-High-energy reaction format built entirely from text and shape layers:
-- Dark base with a subtle image texture overlay at low opacity
-- Giant reaction word with glow and stroke effects
-- Stacked text hierarchy: "REACTING TO" badge, big word, secondary line
-- Oversized decorative punctuation as a right-side graphic element
+- Dark base with a dim red radial glow behind the subject
+- Cut-out portrait (remove_background=True, needs quickthumb[rembg]),
+  almost fully desaturated
+- A huge "#1" at low opacity behind everything
+- "VIRAL" headline and a view-count line built from TextParts
 """
 
 import os

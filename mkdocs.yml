@@ -60,6 +60,11 @@ markdown_extensions:
   - pymdownx.highlight:
       anchor_linenums: true
   - pymdownx.inlinehilite
+  # Recipes embed the example scripts directly, so the code shown is the code
+  # that rendered the pictured image. check_paths fails the build on a bad path.
+  - pymdownx.snippets:
+      base_path: ["."]
+      check_paths: true
   - tables
   - attr_list
   - md_in_html

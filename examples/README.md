@@ -1,243 +1,77 @@
-# quickthumb Examples
+# quickthumb examples
 
-This directory contains runnable end-to-end compositions that match the current quickthumb API.
+Runnable scripts that use the current quickthumb API. Each one writes its
+output next to itself in this folder. The [cookbook](https://quickthumb.solaqua.dev/cookbook/)
+shows the thumbnail examples with their images.
 
-## Run an Example
-
-From the repository root:
+Run them from the repository root:
 
 ```bash
 uv run python examples/youtube_thumbnail_01.py
-uv run python examples/youtube_thumbnail_02.py
-uv run python examples/youtube_talking_head.py
-uv run python examples/youtube_reaction.py
-uv run python examples/youtube_tutorial_explainer.py
-uv run python examples/instagram_news_card.py
-uv run python examples/podcast_interview_promo.py
-uv run python examples/shorts_cover_agent.py
-uv run python examples/launch_announcement.py
-uv run python examples/investor_deck.py
-uv run python examples/product_hype_reel.py
-uv run python examples/ordinary_moments.py
 ```
 
-All examples write their rendered image back into this directory.
+The scripts set `QUICKTHUMB_FONT_DIR` to `assets/fonts` and
+`QUICKTHUMB_DEFAULT_FONT` to `Roboto`, and load photos from `assets/images`, so
+they need nothing from the network unless noted below.
 
-## Included Examples
+## Thumbnails and social images
 
-### `youtube_thumbnail_01.py`
+| Script | Output | What it shows | Needs |
+| --- | --- | --- | --- |
+| `youtube_thumbnail_01.py` | 1280×720 PNG | Photo with a side gradient, a three-size `TextPart` headline, two rotated cards | |
+| `youtube_thumbnail_02.py` | 1280×720 PNG | One large question over a desaturated photo; each line its own layer | |
+| `youtube_talking_head.py` | 1280×720 PNG | Headline beside a cut-out portrait pinned to the bottom-right corner | `rembg` extra, network |
+| `youtube_reaction.py` | 1280×720 PNG | Big word and number, a cut-out portrait, a radial glow, a faint `#1` | `rembg` extra |
+| `youtube_tutorial_explainer.py` | 1280×720 PNG | No photos; a code snippet "highlighted" with `TextPart` colors | |
+| `instagram_news_card.py` | 1080×1080 PNG | Label from a text `Background` effect, serif headline, percentage positions | |
+| `podcast_interview_promo.py` | 1280×720 PNG | Full-bleed portrait, a gradient that makes room for text, a webfont URL | network (first run) |
+| `shorts_cover_agent.py` | 1080×1920 PNG | The whole design in `shorts_cover_agent.json`, rendered with `Canvas.from_json()` | |
+| `launch_announcement.py` | 1280×720 PNG | Auto-layout groups, theme tokens, and `diagnose()` before rendering, from `launch_announcement.json` | `svg` extra |
 
-Output: `youtube_thumbnail_01.png`
+Extras install with `uv run --extra <name> python examples/<script>.py`. The
+`rembg` extra requires Python 3.11 or later.
 
-Shows:
-
-- 16:9 canvas via `Canvas.from_aspect_ratio("16:9", 1280)`
-- Background image with brightness adjustment using `Filter`
-- Dark overlay background for readability
-- Rich text via `TextPart`
-- Thick text strokes and outer border for classic YouTube-thumbnail styling
-
-Use it when you want a bright, punchy thumbnail with large stacked headline text.
-
-### `youtube_thumbnail_02.py`
-
-Output: `youtube_thumbnail_02.png`
-
-Shows:
-
-- Full manual layout on a `1280x720` canvas
-- Background image with `FitMode.COVER`
-- Gradient overlay for contrast
-- Heavy-weight typography using CSS-style numeric font weights
-- `Shadow`, `Stroke`, and text `Background` effects together
-
-Use it when you want a more editorial thumbnail with strong hierarchy and multiple text blocks.
-
-### `youtube_talking_head.py`
-
-Output: `youtube_talking_head.png`
-
-Shows:
-
-- Split left/right layout: headline text on the left, subject portrait on the right
-- Left-to-right `LinearGradient` overlay that fades to transparent, keeping the portrait visible
-- Remote image URL for the subject portrait (swap for a local path)
-- Topic badge built from a `shape` + `text` layer pair
-- Rich text with a two-tone headline using `TextPart`
-
-Use it when you want the classic YouTube talking-head format with a presenter or guest alongside the topic.
-
-### `youtube_reaction.py`
-
-Output: `youtube_reaction.png`
-
-Shows:
-
-- Programmatic layout with no background photo — uses solid color + blended texture overlay
-- Oversized decorative text element (`?!`) as a right-side graphic at low opacity
-- `Glow` effect on both a shape badge and the main headline word
-- `blend_mode` overlay on a background image layer at very low opacity for subtle texture
-
-Use it when you want a high-energy reaction or commentary thumbnail driven entirely by typography and shape layers.
-
-### `youtube_tutorial_explainer.py`
-
-Output: `youtube_tutorial_explainer.png`
-
-Shows:
-
-- Pure gradient background (no photo dependency) using a diagonal `LinearGradient`
-- Reusable `add_step()` helper that composes an ellipse badge + two text layers per step
-- Two-tone headline via `TextPart` segments
-- Thin rectangle used as a visual divider between the headline area and the steps column
-
-Use it when you want a clean numbered-steps or how-to layout for tutorial and explainer videos.
-
-### `instagram_news_card.py`
-
-Output: `instagram_news_card.png`
-
-Shows:
-
-- Square `1080x1080` social card layout
-- Cover-fit background image with darkening filter
-- Vertical gradient overlay for headline legibility
-- Badge-style label using text background effects
-- Multiline headline, supporting copy, and rich-text metadata row
-
-Use it when you want a reusable template for Instagram posts, X cards, or social news promos.
-
-### `podcast_interview_promo.py`
-
-Output: `podcast_interview_promo.png`
-
-Shows:
-
-- A local, full-bleed editorial portrait composed directly into the dark stage
-- A webfont loaded from a URL for the show-title treatment
-- A tonal gradient that protects copy contrast without boxing in the subject
-- Restrained editorial typography and a single semantic accent
-
-Use it when you want a podcast or interview promo that integrates photography without visible cutout edges or a disconnected image panel.
-
-### `shorts_cover_agent.py`
-
-Output: `shorts_cover_agent.png`
-
-Spec: `shorts_cover_agent.json`
-
-Shows:
-
-- JSON-first rendering with `Canvas.from_json(...)` instead of hand-authored layer calls
-- Vertical `1080x1920` Shorts / Reels / cover layout
-- Repo-checked JSON spec that an AI agent could emit directly
-- Shape, rich text, `auto_scale`, gradient overlays, and outline layers in one spec
-
-Use it when you want to generate a vertical promo cover from an LLM-produced JSON layout and keep the rendering step deterministic.
-
-### `launch_announcement.py`
-
-Output: `launch_announcement.png`
-
-Spec: `launch_announcement.json`
-
-Shows the quickthumb 0.5 feature set in a single themed JSON spec:
-
-- Top-level `theme` block with `$theme.*` token references for every color and font size
-- Auto-layout `group` layers for the headline column and feature row, with zero hand-placed coordinates inside either text group
-- An abstract alignment field that communicates reflow without imitating a dashboard UI
-- A `star` primitive and decorative `svg` accent (requires `quickthumb[svg]`)
-- Rich-text headline coloring through themed `TextPart` values
-- `Grain` effect with a fixed seed for deterministic texture
-- `canvas.diagnose()` before rendering, mirroring `quickthumb lint`
-
-Use it when you want a brandable announcement-card template whose layout survives copy changes, or as a reference spec for LLM-generated layouts.
+## Decks and video
 
 ### `investor_deck.py`
 
-Output: `investor_deck.html` and `investor_deck.pptx`
+A 10-slide Series A pitch deck exported to `investor_deck.html` and
+`investor_deck.pptx` from the same code. The HTML plays the slide transitions
+and has a presenter view with speaker notes:
 
-Builds a restrained, evidence-led 10-slide Series A narrative:
+```bash
+quickthumb serve examples/investor_deck.py   # open /?presenter for notes
+```
 
-- HTML export for browser playback of slide transitions and layer animations
-- `quickthumb serve examples/investor_deck.py` for live reload and `?presenter` mode
-- Per-slide speaker notes visible only in the presenter dashboard
-- A complete investment arc: thesis, problem, why now, workflow, product proof, traction, business model, market and GTM, defensibility, and team plus ask
-- Explicit periods, definitions, and `Illustrative` provenance notes for every sample company claim
-- One dark product-proof surface inside an otherwise neutral editorial system with a single semantic blue accent
-- PPTX export for editable presentation handoff
-- Shared composition code that keeps the browser and PowerPoint outputs aligned
-
-Use it when you want a realistic investor narrative that exercises HTML, presenter notes, and editable PPTX output from the same source.
+All company figures in the deck are marked as illustrative. The PPTX export
+needs the `pptx` extra.
 
 ### `product_hype_reel.py`
 
-Output: `product_hype_reel.gif`, `product_hype_reel.mp4`, `product_hype_reel.webm`,
-`product_hype_reel.html`, and `product_hype_reel.pptx`
+A 35-second vertical (1080×1920) product video in eight scenes, exported to
+GIF, MP4, WebM, HTML, and PPTX. It shows:
 
-Builds a restrained vertical (1080x1920) 8-scene product film — hook → pain point → solution → three features → proof → CTA — and exports it as a 34.69-second narration-led animation:
+- `AnimationSpec` motion: staggered headlines, growing bars, a playhead that
+  moves along a timeline
+- `Canvas.counter(...)` for animated numbers
+- `Cut`, `Fade`, and `Wipe` transitions between scenes
+- Eight bundled voiceovers mixed over a looping soundtrack with
+  `VideoOptions(soundtrack=AudioTrack(...))`
+- `deck.diagnose()` before exporting
 
-- One visual idea per scene rather than one card template repeated eight times: a live trace, a timeline whose playhead runs past the days it lit, three signals converging into one score, a full-width instrument, a plan that shortens as you watch, an accumulating streak field, an eight-week distance chart, and one clear action
-- Every claim the film makes about a number is drawn to scale: the adjusted session and the planned one share one pixels-per-minute rule, and the proof chart rises in all eight columns. The outcome scene charts eight weeks and labels the figures as illustrative rather than quoting an invented user
-- `Canvas.counter(...)` for each scene's headline reading, in the digit style that suits it — `odometer` where every digit fills its slot, `plain` where the typeface's narrow `1` would open a gap
-- `AnimationSpec` motion tied to meaning: line-staggered headlines, `bar_grow` on horizontal comparisons, a `PositionTrack` playhead crossing the timeline at the scene's own rate, and per-element delays that make traces and fields arrive rather than appear
-- Motion that fills its scene instead of finishing in the first second and holding a still frame for the rest, with the two heart-rate scenes reading continuously because they are labelled `LIVE`, and every stagger kept above one frame at the exporter's 30fps
-- Every scene's first animation triggers on arrival rather than on the default click, so the HTML slideshow plays a scene when it reaches it
-- A `RadialGradient` stage light per act instead of flat black, warming from steel to product blue as the film turns from problem to answer
-- English copy set in locally bundled Pretendard, with every supporting label at least 48px for phone-scale legibility, separated by weight, colour and tracking rather than by size alone
-- One semantic blue accent on neutral stages, without glow, elevated cards, progress chrome, or per-scene rainbow colors
-- A content column derived from the Reels action-rail position, so no text block is measured under the platform's own UI
-- Per-scene durations of 8–10 beats derived from the actual 3.41–4.29-second voiceovers, preserving every narration ending while reducing the original timeline
-- Semantic `Cut`, `Fade`, and `Wipe` transitions that support the story instead of adding arbitrary motion variety
-- `deck.diagnose()` before export, returning nothing to report: contrast, overflow, overlap, alignment, canvas bounds, and Reels safe-area placement all clear before encoding
-- The file-rendering animation API with GIF-specific `GifOptions`, plus the video-specific `VideoOptions` and bytes-returning `.to_mp4(...)` / `.to_webm(...)` variants
-- Eight bundled voiceovers mixed above a quieter looping soundtrack via `VideoOptions(soundtrack=AudioTrack(...))`
-- Graceful per-format fallback when an optional renderer is unavailable; one failed export does not suppress the remaining formats
-
-Use it when you want a shareable, self-playing GIF or video clip (Reels/TikTok/Stories) instead of a static thumbnail, or as a reference for the animated export API, beat-synced editing via `advance_after`, and MP4/WebM audio.
+MP4 and WebM need the `ffmpeg` binary on `PATH`; the other formats render
+without it. Fonts, voiceovers, and music are bundled.
 
 ### `ordinary_moments.py`
 
-Output: `ordinary_moments.mp4`, `ordinary_moments.webm`, and `ordinary_moments_preview.gif`
+A 60-second 16:9 product video in nine scenes, built from five bundled stock
+clips (their sources are listed in a manifest in `assets/video`). It shows:
 
-Builds a 60-second horizontal product film that argues one case — when the copy changes, re-exporting every asset by hand is the expensive part — across nine scenes: hook, cost, turn, three proofs, delivery payoff, resolution, and close.
+- One clip placed in 16:9, 1:1, and 9:16 frames at once, to show what `fit`
+  does
+- Timed captions
+- A `BackdropBlur` panel
+- A soundtrack that fades out at the end
 
-- The film is its own evidence: the payoff scene names the file, scene count, and single command that produced what the viewer is watching, and the closing card points back at this script
-- Five locally bundled Pexels clips with a checked-in provenance manifest, each reused only as a deliberate callback in a different frame
-- One proof scene places the same second of one source in 16:9, 1:1, and 9:16 frames simultaneously, so `fit` and placement are demonstrated rather than described
-- Timed caption cues that prove their own timing: a cue strip and a playhead cross each block at the moment its caption appears
-- `AnimationSpec` motion tied to meaning — line-staggered entrances for repeated work, position-track playheads for timeline scenes, `Canvas.counter(...)` for cost and render progress
-- A frosted `BackdropBlur` readout panel printing the film's real `speed`, `volume`, and `fade_out` values
-- Pretendard for the film's voice and Roboto for every functional readout, on a shared margin and type scale
-- An accent colour introduced at the narrative turn and held back from the opening act
-- Purposeful `Cut`, `Fade`, and `Wipe` transitions over a restrained Mixkit soundtrack loop that fades out on the close
-- MP4/WebM exports of the full 60-second composition plus a silent GIF preview of the delivery scene
-
-Use it when you want a production-style reference for combining footage, captions, audio, and editorial motion in a reproducible 16:9 composition.
-
-## Assets and Fonts
-
-The example scripts set:
-
-- `QUICKTHUMB_FONT_DIR` to `assets/fonts`
-- `QUICKTHUMB_DEFAULT_FONT` to `Roboto`
-
-They also use bundled example images from `assets/images`.
-
-The JSON-first examples use repo-relative asset paths inside their checked-in JSON specs. The companion Python scripts change into the repo root before rendering so the examples stay runnable from any working directory.
-
-The launch announcement example renders SVG layers, so install `quickthumb[svg]` (cairosvg) to run it locally.
-
-The podcast promo example uses a bundled editorial portrait and requires network access only for its display webfont.
-
-The product hype reel example needs the `ffmpeg` binary on `PATH` for the MP4/WebM outputs (the GIF still renders without it). Its Pretendard fonts, voiceovers, and soundtrack are bundled with the repo, so rendering it needs no network access.
-
-## Extending These Examples
-
-Common edits that are safe to make:
-
-- Replace the background image path or URL
-- Swap headline copy and highlight colors
-- Change the canvas size or aspect ratio
-- Add `canvas.image(...)` for logos, cutouts, or subject overlays
-- Export as JPEG or WebP instead of PNG
+Outputs `ordinary_moments.mp4`, `ordinary_moments.webm`, and a short
+`ordinary_moments_preview.gif`. All three need `ffmpeg`.
