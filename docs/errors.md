@@ -4,8 +4,8 @@ description: Handle quickthumb validation, missing-asset, export, and CLI failur
 
 # Structured Errors
 
-Every quickthumb failure — an invalid field, a missing asset, an export a
-target cannot perform, or a bad command-line option — carries the same
+Every quickthumb failure (an invalid field, a missing asset, an export a
+target cannot perform, or a bad command-line option) carries the same
 machine-readable detail. Agents can locate the offending input and choose a
 remedy without parsing prose; people still get a clear one-line message.
 

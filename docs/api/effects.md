@@ -1,12 +1,13 @@
 ---
-description: Reference for quickthumb effects, including filters, shadows, strokes, blend modes, opacity, and layer compatibility.
+description: Reference for quickthumb effects (stroke, shadow, glow, filter, text background, grain, duotone, inner shadow, backdrop blur) and which layers accept them.
 ---
 
 # Effects
 
-Effects are modifiers applied to layers. Each layer type accepts a specific set.
+Effects change how a single layer is drawn. Each layer type accepts its own
+set, and passing one it doesn't accept raises `ValidationError`.
 
-| Effect | Text | Image | Shape | Background |
+| Effect | Text | Image, SVG, video | Shape | Background |
 | --- | :---: | :---: | :---: | :---: |
 | `Stroke` | ✓ | ✓ | ✓ | — |
 | `Shadow` | ✓ | ✓ | ✓ | — |
@@ -14,6 +15,9 @@ Effects are modifiers applied to layers. Each layer type accepts a specific set.
 | `Filter` | — | ✓ | — | ✓ |
 | `Background` | ✓ | — | — | — |
 | `Grain` | — | ✓ | — | ✓ |
+| `Duotone` | — | ✓ | — | — |
+| `InnerShadow` | — | ✓ | ✓ | — |
+| `BackdropBlur` | — | ✓ | ✓ | — |
 
 Pass effects as a list to the `effects` parameter of any layer:
 
@@ -146,7 +150,7 @@ Filter(blur=4, brightness=0.75, contrast=1.1, saturation=0.9)
 | `contrast` | `float` | `1.0` | Contrast multiplier. Positive float. `1.0` = no change. |
 | `saturation` | `float` | `1.0` | Saturation multiplier. Non-negative float. `0.0` = grayscale, `1.0` = no change. |
 
-All parameters default to neutral — only set the ones you want to change.
+All parameters default to neutral, so only set the ones you want to change.
 
 ### Example
 
@@ -219,7 +223,7 @@ Grain(intensity=0.12, monochrome=True, blend_mode="overlay", opacity=1.0)
 | `opacity` | `float` | `1.0` | Overall grain strength from `0.0` (invisible) to `1.0` (full). |
 | `seed` | `int \| None` | `None` | RNG seed for deterministic output. `None` = random each render. |
 
-`intensity=0.0` is a no-op — no noise is generated.
+`intensity=0.0` adds no noise.
 
 ### Example
 
@@ -244,4 +248,75 @@ canvas = (
 ```
 
 !!! note
-    `Grain` is valid only on **background** and **image** layers. It is not available on text or shape layers.
+    `Grain` works on background, image, SVG, and video layers, but not on text or shapes.
+
+---
+
+## Duotone
+
+Maps the layer to two colors by brightness: dark areas take the `shadows`
+color and light areas the `highlights` color, with a smooth blend between.
+Useful for putting photos into brand colors.
+
+```python
+from quickthumb import Duotone
+
+Duotone(shadows="#0A1730", highlights="#7FADFF", opacity=1.0)
+```
+
+| Parameter | Type | Default | Description |
+| --- | --- | --- | --- |
+| `shadows` | `str` | **required** | Color for the darkest parts of the image. |
+| `highlights` | `str` | **required** | Color for the lightest parts of the image. |
+| `opacity` | `float` | `1.0` | How strongly the effect replaces the original colors, from `0.0` to `1.0`. |
+
+---
+
+## InnerShadow
+
+A shadow drawn inside the layer's edges, which makes it look pressed in.
+
+```python
+from quickthumb import InnerShadow
+
+InnerShadow(offset_x=0, offset_y=6, color="#00000080", blur_radius=12)
+```
+
+| Parameter | Type | Default | Description |
+| --- | --- | --- | --- |
+| `color` | `str` | **required** | Shadow color; alpha in the color is respected. |
+| `offset_x` | `int` | `0` | Horizontal offset in pixels. |
+| `offset_y` | `int` | `0` | Vertical offset in pixels. |
+| `blur_radius` | `int` | `0` | Blur radius in pixels. |
+| `opacity` | `float` | `1.0` | Overall strength, from `0.0` to `1.0`. |
+
+---
+
+## BackdropBlur
+
+Blurs whatever is already drawn behind the layer, within the layer's shape,
+like frosted glass. Combine it with a translucent fill so the layer still
+reads as a panel:
+
+```python
+from quickthumb import BackdropBlur, Canvas
+
+canvas = (
+    Canvas(1280, 720)
+    .background(image="photo.jpg", fit="cover")
+    .shape(
+        shape="rectangle",
+        position=(80, 440),
+        width=640,
+        height=200,
+        color="#FFFFFF33",
+        border_radius=24,
+        effects=[BackdropBlur(radius=24)],
+    )
+)
+```
+
+| Parameter | Type | Default | Description |
+| --- | --- | --- | --- |
+| `radius` | `int` | **required** | Blur radius in pixels. |
+| `opacity` | `float` | `1.0` | How strongly the blurred backdrop shows, from `0.0` to `1.0`. |

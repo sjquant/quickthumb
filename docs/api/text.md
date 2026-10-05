@@ -167,7 +167,7 @@ canvas.text(
 ```
 
 !!! note "Webfont URLs"
-    When `font` is a URL, `bold`, `italic`, and `weight` are ignored — the URL already points to a specific variant. Download separate URLs for bold/italic versions.
+    When `font` is a URL, `bold`, `italic`, and `weight` are ignored, because the URL already points at one specific file. Use a separate URL for each style, or set `font_source="google"` with a family name to have `weight` and `italic` pick the file for you.
 
 ### Gradient and image fills
 

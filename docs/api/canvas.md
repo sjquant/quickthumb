@@ -21,7 +21,7 @@ canvas = Canvas(1280, 720)
 | `width` | `int \| None` | Canvas width in pixels. Must be a positive integer. |
 | `height` | `int \| None` | Canvas height in pixels. Must be a positive integer. |
 
-Width and height must be given together or both omitted. A canvas built **without** a size (`Canvas()`) is *unsized*: it accepts layer builders but cannot be rendered, diagnosed, or serialized until it gets a size — either directly or by being added to a sized [`Deck`](deck.md), which injects its default size. Check `canvas.has_size` to tell the difference.
+Width and height must be given together or both omitted. A canvas built **without** a size (`Canvas()`) is *unsized*: it accepts layer builders but cannot be rendered, diagnosed, or serialized until it gets a size, either directly or by being added to a sized [`Deck`](deck.md), which gives it the deck's default size. Check `canvas.has_size` to tell the difference.
 
 ### `Canvas.from_aspect_ratio(ratio, base_width)`
 
@@ -76,7 +76,7 @@ Finding codes: `off-canvas`, `tiny-text`, `text-overflow`, `text-clipped`, `miss
 
 You never need to call this: `render()` and `export()` download remote images,
 SVGs, text fills, and fonts themselves, and `export()` returns the resulting
-`asset_manifest`. Call it only to do those downloads up front — to catch a
+`asset_manifest`. Call it only to do those downloads up front, to catch a
 network failure or a stale cache entry before a long export, or to warm the
 cache for later offline renders. It returns the manifest without rendering:
 
@@ -139,7 +139,7 @@ svg = canvas.to_svg(embed_fonts=True)
 
 ### `.to_pptx()`
 
-Returns the canvas as PowerPoint file bytes — a single slide with editable text boxes and autoshapes. Requires the `pptx` extra.
+Returns the canvas as PowerPoint file bytes: a single slide with editable text boxes and autoshapes. Requires the `pptx` extra.
 
 ```python
 with open("deck.pptx", "wb") as f:
@@ -148,7 +148,7 @@ with open("deck.pptx", "wb") as f:
 
 ### `.to_pdf()`
 
-Returns the canvas as PDF file bytes — a single page with native vector backgrounds, shapes, and selectable text when its font can be safely embedded and the text does not require complex shaping. Unsupported text is embedded as a pixel-exact image fragment. Requires the `pdf` extra.
+Returns the canvas as PDF file bytes: a single page with native vector backgrounds, shapes, and selectable text when its font can be safely embedded and the text does not require complex shaping. Unsupported text is embedded as a pixel-exact image fragment. Requires the `pdf` extra.
 
 ```python
 with open("card.pdf", "wb") as f:

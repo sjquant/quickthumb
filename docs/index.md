@@ -1,5 +1,5 @@
 ---
-title: quickthumb — thumbnails from code
+title: quickthumb · thumbnails from code
 description: quickthumb is a Python library that renders thumbnails and social images from layers you describe in code or JSON. Same input, same pixels, every time.
 template: home.html
 hide:
@@ -12,7 +12,8 @@ hide:
 # Thumbnails, from code
 
 quickthumb is a Python library that renders thumbnails and social images from
-layers you describe in code or JSON. Same input, same pixels — every time.
+layers you describe in code or JSON. The same input gives the same pixels,
+every time.
 
 ```bash
 pip install quickthumb

@@ -1,5 +1,5 @@
 ---
-description: Reference for quickthumb Deck — collecting canvases into multi-page PDFs, multi-slide PPTX, and numbered image sequences.
+description: Reference for quickthumb Deck, which collects canvases into multi-page PDFs, PPTX decks, HTML slideshows, videos, and numbered image sequences.
 ---
 
 # Deck
@@ -190,7 +190,7 @@ for finding in deck.diagnose().findings:
 | `measured` | `dict` | Rule-specific measured values |
 | `suggestion` | `str \| None` | Repair hint when available |
 
-A `mixed-slide-size` warning is added when slides do not all share the same dimensions. The PDF path sizes each page to its slide, but PPTX export uses the first slide's size for the whole deck, so larger later slides are clipped by PowerPoint — keep slides a uniform size when targeting `.pptx`.
+A `mixed-slide-size` warning is added when slides do not all share the same dimensions. The PDF path sizes each page to its slide, but PPTX export uses the first slide's size for the whole deck, so larger later slides are clipped by PowerPoint. Keep slides the same size when targeting `.pptx`.
 
 ## `.prefetch_assets()` (optional)
 

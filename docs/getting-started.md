@@ -95,7 +95,7 @@ canvas = (
 )
 ```
 
-Layers stack in call order — the first `.background()` is drawn first (backmost).
+Layers stack in call order: the first `.background()` is drawn first, at the back.
 
 ### 3. Add text
 
@@ -165,7 +165,7 @@ canvas.shape(
 
 ### 6. Check your work
 
-`diagnose()` flags common problems — off-canvas layers, illegibly small text, words that can't wrap, low text contrast — before you render:
+`diagnose()` flags common problems before you render, such as layers off the canvas, text too small to read, words that can't wrap, and low contrast:
 
 ```python
 for finding in canvas.diagnose().findings:
@@ -226,8 +226,8 @@ This is particularly useful for AI-generated specs. See [JSON Schema & AI Workfl
 
 ## Next steps
 
-- [Core Concepts](concepts.md) — understand how layers, effects, and positioning work
-- [Group (Auto Layout)](api/group.md) — stack layers in rows and columns without hand-placed coordinates
-- [API Reference](api/index.md) — full parameter reference for every layer type
-- [Diagnostics & CLI](diagnostics.md) — lint specs and render from the terminal
-- [Cookbook](cookbook/index.md) — complete real-world examples
+- [Core Concepts](concepts.md): how layers, effects, and positioning work
+- [Group (Auto Layout)](api/group.md): stack layers in rows and columns without placing each one
+- [API Reference](api/index.md): every parameter of every layer type
+- [Diagnostics & CLI](diagnostics.md): lint specs and render from the terminal
+- [Cookbook](cookbook/index.md): complete examples with the images they produce
