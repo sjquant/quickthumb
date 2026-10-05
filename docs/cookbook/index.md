@@ -8,17 +8,44 @@ Ready-to-run examples for common thumbnail and social card formats. Each recipe 
 
 ## Gallery
 
-| YouTube Thumbnail | Burnout Theme | Instagram News Card |
-| :---: | :---: | :---: |
-| [![YouTube Thumbnail](../assets/examples/youtube_thumbnail_01.png)](youtube-thumbnail.md) | [![Burnout Theme](../assets/examples/youtube_thumbnail_02.png)](youtube-thumbnail.md) | [![Instagram News Card](../assets/examples/instagram_news_card.png)](instagram-card.md) |
-
-| Talking Head | Reaction / Commentary | Tutorial / Explainer |
-| :---: | :---: | :---: |
-| [![Talking Head](../assets/examples/youtube_talking_head.png)](youtube-thumbnail.md) | [![Reaction](../assets/examples/youtube_reaction.png)](youtube-thumbnail.md) | [![Tutorial](../assets/examples/youtube_tutorial_explainer.png)](youtube-thumbnail.md) |
-
-| Podcast Promo | Shorts / Vertical Cover | Launch Announcement |
-| :---: | :---: | :---: |
-| [![Podcast Promo](../assets/examples/podcast_interview_promo.png)](podcast-promo.md) | [![Shorts Cover](../assets/examples/shorts_cover_agent.png)](shorts-cover.md) | [![Launch Announcement](../assets/examples/launch_announcement.png)](launch-announcement.md) |
+<div class="qt-gallery qt-gallery--cookbook" markdown>
+<figure markdown="span">
+[![YouTube thumbnail](../assets/examples/youtube_thumbnail_01.png)](youtube-thumbnail.md)
+<figcaption>YouTube thumbnail</figcaption>
+</figure>
+<figure markdown="span">
+[![Burnout theme](../assets/examples/youtube_thumbnail_02.png)](youtube-thumbnail.md)
+<figcaption>Burnout theme</figcaption>
+</figure>
+<figure markdown="span">
+[![Instagram news card](../assets/examples/instagram_news_card.png)](instagram-card.md)
+<figcaption>Instagram news card</figcaption>
+</figure>
+<figure markdown="span">
+[![Talking head](../assets/examples/youtube_talking_head.png)](youtube-thumbnail.md)
+<figcaption>Talking head</figcaption>
+</figure>
+<figure markdown="span">
+[![Reaction / commentary](../assets/examples/youtube_reaction.png)](youtube-thumbnail.md)
+<figcaption>Reaction / commentary</figcaption>
+</figure>
+<figure markdown="span">
+[![Tutorial / explainer](../assets/examples/youtube_tutorial_explainer.png)](youtube-thumbnail.md)
+<figcaption>Tutorial / explainer</figcaption>
+</figure>
+<figure markdown="span">
+[![Podcast promo](../assets/examples/podcast_interview_promo.png)](podcast-promo.md)
+<figcaption>Podcast promo</figcaption>
+</figure>
+<figure markdown="span">
+[![Shorts / vertical cover](../assets/examples/shorts_cover_agent.png)](shorts-cover.md)
+<figcaption>Shorts / vertical cover</figcaption>
+</figure>
+<figure markdown="span">
+[![Launch announcement](../assets/examples/launch_announcement.png)](launch-announcement.md)
+<figcaption>Launch announcement</figcaption>
+</figure>
+</div>
 
 ## Recipes
 

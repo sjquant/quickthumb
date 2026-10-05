@@ -42,19 +42,9 @@
     --md-code-bg-color: #eef4ff;
 
     --qt-drawer-title-fg: rgba(255, 255, 255, 0.96);
-    --qt-drawer-title-bg: linear-gradient(
-        145deg,
-        #1b4b97 0%,
-        #245fc6 54%,
-        #2f6fe8 100%
-    );
+    --qt-drawer-title-bg: var(--qt-blue-700);
     --qt-drawer-source-fg: rgba(255, 255, 255, 0.94);
-    --qt-drawer-source-bg: linear-gradient(
-        145deg,
-        #14346f 0%,
-        #184896 52%,
-        #1f56b8 100%
-    );
+    --qt-drawer-source-bg: var(--qt-blue-800);
     --qt-drawer-edge: rgba(255, 255, 255, 0.14);
     --qt-drawer-list-shadow: rgba(31, 86, 184, 0.14);
 }
@@ -84,74 +74,31 @@
     --md-code-bg-color: #101b33;
 
     --qt-drawer-title-fg: rgba(232, 240, 255, 0.94);
-    --qt-drawer-title-bg: linear-gradient(
-        145deg,
-        #14346f 0%,
-        #1b4b97 52%,
-        #225ab1 100%
-    );
+    --qt-drawer-title-bg: #14346f;
     --qt-drawer-source-fg: rgba(232, 240, 255, 0.94);
-    --qt-drawer-source-bg: linear-gradient(
-        145deg,
-        #102b5d 0%,
-        #163f82 52%,
-        #1b4c96 100%
-    );
+    --qt-drawer-source-bg: #102b5d;
     --qt-drawer-edge: rgba(127, 195, 255, 0.16);
     --qt-drawer-list-shadow: rgba(127, 195, 255, 0.16);
 }
 
 /* ─── Header and tabs ─────────────────────────────────────────────────────── */
 .md-header {
-    background:
-        radial-gradient(
-            circle at 18% -14%,
-            rgba(255, 255, 255, 0.1),
-            rgba(255, 255, 255, 0) 24%
-        ),
-        radial-gradient(
-            circle at 72% 0%,
-            rgba(143, 216, 255, 0.14),
-            rgba(143, 216, 255, 0) 24%
-        ),
-        linear-gradient(118deg, #2258bc 0%, #2b6fd4 46%, #277dca 100%);
+    background: var(--qt-blue-700);
+    box-shadow: none;
 }
 
 .md-tabs {
-    background:
-        linear-gradient(
-            90deg,
-            rgba(143, 216, 255, 0.06),
-            rgba(143, 216, 255, 0) 24%
-        ),
-        linear-gradient(118deg, #245fbf 0%, #2b6fd4 48%, #2a7bc9 100%);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    background: var(--qt-blue-700);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
 
 [data-md-color-scheme="slate"] .md-header {
-    background:
-        radial-gradient(
-            circle at 20% -16%,
-            rgba(127, 195, 255, 0.12),
-            rgba(127, 195, 255, 0) 24%
-        ),
-        radial-gradient(
-            circle at 78% 0%,
-            rgba(78, 151, 255, 0.14),
-            rgba(78, 151, 255, 0) 24%
-        ),
-        linear-gradient(118deg, #14346f 0%, #1b4b97 48%, #225ab1 100%);
+    background: #14346f;
 }
 
 [data-md-color-scheme="slate"] .md-tabs {
-    background:
-        linear-gradient(
-            90deg,
-            rgba(127, 195, 255, 0.08),
-            rgba(127, 195, 255, 0) 22%
-        ),
-        linear-gradient(118deg, #163877 0%, #1c4b97 48%, #1d58a5 100%);
-    box-shadow: inset 0 1px 0 rgba(127, 195, 255, 0.1);
+    background: #14346f;
+    box-shadow: inset 0 1px 0 rgba(127, 195, 255, 0.12);
 }
 
 .md-header__title {
@@ -337,13 +284,7 @@
 
     .md-nav--primary > .md-nav__title,
     .md-nav--primary > .md-nav__source {
-        background:
-            radial-gradient(
-                circle at 84% 0%,
-                rgba(255, 255, 255, 0.05),
-                rgba(255, 255, 255, 0) 24%
-            ),
-            var(--qt-drawer-title-bg);
+        background: var(--qt-drawer-title-bg);
         color: var(--qt-drawer-title-fg);
     }
 
@@ -422,6 +363,7 @@
 
 /* ─── Typography ──────────────────────────────────────────────────────────── */
 .md-typeset h1 {
+    color: var(--md-default-fg-color);
     font-weight: 800;
     letter-spacing: 0;
 }
@@ -578,6 +520,30 @@
     opacity: 0.85;
 }
 
+.md-typeset .qt-gallery--cookbook {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.md-typeset .qt-gallery figure {
+    margin: 0;
+    max-width: none;
+}
+
+.md-typeset .qt-gallery--cookbook img {
+    aspect-ratio: 16 / 9;
+    background: var(--md-default-fg-color--lightest);
+    object-fit: contain;
+}
+
+.md-typeset .qt-gallery figcaption {
+    color: var(--md-default-fg-color--light);
+    font-size: 0.65rem;
+    font-style: normal;
+    margin: 0.4rem 0 0;
+    max-width: none;
+    text-align: left;
+}
+
 .md-typeset .qt-more {
     font-weight: 700;
 }
@@ -636,5 +602,9 @@
     .qt-end .highlight {
         display: block;
         min-width: 0;
+    }
+
+    .md-typeset .qt-gallery--cookbook {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
