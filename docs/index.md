@@ -9,7 +9,7 @@ hide:
 
 <section class="qt-hero" markdown>
 
-# Thumbnails, from code.
+# Thumbnails, from code
 
 quickthumb is a Python library that renders thumbnails and social images from
 layers you describe in code or JSON. Same input, same pixels — every time.
@@ -25,7 +25,7 @@ pip install quickthumb
 
 <section class="qt-block" markdown>
 
-## This code makes this image.
+## This code makes this image
 
 === "Python"
 
@@ -87,7 +87,7 @@ pixels, so a template engine or an LLM can write the layout instead of you.
 
 <section class="qt-block" markdown>
 
-## Made with quickthumb.
+## Made with quickthumb
 
 Every image here is a runnable recipe in the cookbook.
 
@@ -104,7 +104,7 @@ Every image here is a runnable recipe in the cookbook.
 
 <section class="qt-block" markdown>
 
-## Also included.
+## Also included
 
 <dl class="qt-list" markdown>
 <div markdown>
@@ -133,7 +133,7 @@ Every image here is a runnable recipe in the cookbook.
 
 <section class="qt-block qt-end" markdown>
 
-## Your first thumbnail takes five minutes.
+## Your first thumbnail takes five minutes
 
 ```bash
 pip install quickthumb
