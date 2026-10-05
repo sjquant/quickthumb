@@ -9,13 +9,15 @@ This guide walks through the core workflow: create a canvas, add layers, and exp
 ## Your first thumbnail
 
 ```python
-from quickthumb import Canvas, Filter, Shadow, Stroke, TextPart
+from quickthumb import Canvas, LinearGradient, Shadow, Stroke, TextPart
 
 canvas = (
     Canvas.from_aspect_ratio("16:9", base_width=1280)
     .background(
-        image="https://images.unsplash.com/photo-1516321318423-f06f85e504b3",
-        effects=[Filter(brightness=0.65)],
+        gradient=LinearGradient(
+            angle=135,
+            stops=[("#0A1730", 0.0), ("#1F56C5", 1.0)],
+        ),
     )
     .background(color="#000000", opacity=0.45)
     .text(
@@ -42,6 +44,11 @@ canvas = (
 
 canvas.render("thumbnail.png")
 ```
+
+<figure class="qt-output" markdown="span">
+![The thumbnail rendered by the code above: lime "BUILD THUMBNAILS FAST" on a navy gradient with a lime outline](assets/getting-started/first-thumbnail.png)
+<figcaption>thumbnail.png · 1280 × 720</figcaption>
+</figure>
 
 ## Step by step
 
