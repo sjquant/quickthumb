@@ -11,11 +11,11 @@
 </p>
 
 <p align="center">
-  <a href="https://sjquant.github.io/quickthumb/getting-started/">Get started</a>
+  <a href="https://quickthumb.solaqua.dev/getting-started/">Get started</a>
   ·
-  <a href="https://sjquant.github.io/quickthumb/cookbook/">Browse recipes</a>
+  <a href="https://quickthumb.solaqua.dev/cookbook/">Browse recipes</a>
   ·
-  <a href="https://sjquant.github.io/quickthumb/api/">API reference</a>
+  <a href="https://quickthumb.solaqua.dev/api/">API reference</a>
 </p>
 
 ![Launch announcement created with quickthumb](examples/launch_announcement.png)
@@ -61,7 +61,7 @@ The core workflow stays small:
 2. Add backgrounds, text, images, shapes, SVG, or auto-layout groups.
 3. Call `render()`.
 
-[Follow the five-minute guide →](https://sjquant.github.io/quickthumb/getting-started/)
+[Follow the five-minute guide →](https://quickthumb.solaqua.dev/getting-started/)
 
 ## Built for creative automation
 
@@ -117,19 +117,19 @@ Multi-slide `Deck` compositions can also render to numbered images, PDF, PPTX,
 HTML slideshows, GIF, WebM, and narrated MP4.
 
 Some formats use optional dependencies. See
-[Installation](https://sjquant.github.io/quickthumb/installation/) and
-[Exporting](https://sjquant.github.io/quickthumb/exports/) for the exact setup and format behavior.
+[Installation](https://quickthumb.solaqua.dev/installation/) and
+[Exporting](https://quickthumb.solaqua.dev/exports/) for the exact setup and format behavior.
 
 ## Pick a path
 
 | I want to… | Start here |
 | --- | --- |
-| Make my first graphic | [Getting Started](https://sjquant.github.io/quickthumb/getting-started/) |
-| Build a proven layout | [Cookbook](https://sjquant.github.io/quickthumb/cookbook/) |
-| Generate visuals with JSON or AI | [JSON & AI Workflow](https://sjquant.github.io/quickthumb/json-schema/) |
-| Build a multi-slide deck | [Deck guide](https://sjquant.github.io/quickthumb/api/deck/) |
-| Validate a composition | [Diagnostics & CLI](https://sjquant.github.io/quickthumb/diagnostics/) |
-| Look up a class or option | [API Reference](https://sjquant.github.io/quickthumb/api/) |
+| Make my first graphic | [Getting Started](https://quickthumb.solaqua.dev/getting-started/) |
+| Build a proven layout | [Cookbook](https://quickthumb.solaqua.dev/cookbook/) |
+| Generate visuals with JSON or AI | [JSON & AI Workflow](https://quickthumb.solaqua.dev/json-schema/) |
+| Build a multi-slide deck | [Deck guide](https://quickthumb.solaqua.dev/api/deck/) |
+| Validate a composition | [Diagnostics & CLI](https://quickthumb.solaqua.dev/diagnostics/) |
+| Look up a class or option | [API Reference](https://quickthumb.solaqua.dev/api/) |
 
 ## License
 
