@@ -28,7 +28,7 @@ from quickthumb.plugins import PluginRegistry, plugin_registry
 from quickthumb.transitions import Transition
 
 JSON_SCHEMA_DRAFT = "https://json-schema.org/draft/2020-12/schema"
-QUICKTHUMB_SCHEMA_ID = "https://sjquant.github.io/quickthumb/schema.json"
+QUICKTHUMB_SCHEMA_ID = "https://quickthumb.solaqua.dev/schema.json"
 _TRANSITION_ADAPTER: TypeAdapter[Transition] = TypeAdapter(Transition)
 _TRANSITION_SCHEMA: dict[str, Any] = _TRANSITION_ADAPTER.json_schema(
     ref_template="#/$defs/Transition_{model}"
