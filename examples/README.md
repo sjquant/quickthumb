@@ -27,6 +27,7 @@ they need nothing from the network unless noted below.
 | `podcast_interview_promo.py` | 1280×720 PNG | Full-bleed portrait, a gradient that makes room for text, a webfont URL | network (first run) |
 | `shorts_cover_agent.py` | 1080×1920 PNG | The whole design in `shorts_cover_agent.json`, rendered with `Canvas.from_json()` | |
 | `launch_announcement.py` | 1280×720 PNG | Auto-layout groups, theme tokens, and `diagnose()` before rendering, from `launch_announcement.json` | `svg` extra |
+| `social_preview.py` | 1200×630 PNG | The docs site's link preview card, written to `docs/assets/brand/social-preview.png` | |
 
 Extras install with `uv run --extra <name> python examples/<script>.py`. The
 `rembg` extra requires Python 3.11 or later.
