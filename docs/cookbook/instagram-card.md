@@ -23,11 +23,12 @@ uv run python examples/instagram_news_card.py
   loads the serif from the bundled font folder; every other layer uses the
   default Roboto.
 - **The red bar is a 9px-wide rectangle.** It is a separate shape, so its
-  height (336px) is set by hand to match the two headline lines.
+  position and height (176px) are set by hand to match the two headline lines.
 - **The source line is one text layer.** Two `TextPart`s give "WORLD NEWS" and
   the date different colors and weights.
-- **Positions are percentages**, such as `("8%", "92%")`, so the same layout
-  works if you change the canvas size.
+- **Most positions are percentages**, such as `("8%", "92%")`, so they scale
+  with the canvas. The red bar is the exception: it uses pixels so it lines up
+  exactly with the headline.
 
 ## Code
 
