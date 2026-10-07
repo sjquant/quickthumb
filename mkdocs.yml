@@ -45,6 +45,13 @@ theme:
   icon:
     repo: fontawesome/brands/github
 
+hooks:
+  - docs/hooks/schema.py
+
+# The hook lives next to the docs but is build code, not a page.
+exclude_docs: |
+  hooks/
+
 extra_css:
   - stylesheets/extra.css
 

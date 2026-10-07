@@ -54,7 +54,31 @@ quickthumb schema --document --output quickthumb.document-schema.json
 ```
 
 The same schemas are available from Python as `canvas_json_schema()` and
-`document_json_schema()`.
+`document_json_schema()`, and hosted with these docs:
+
+- <https://quickthumb.solaqua.dev/schema.json> (Canvas)
+- <https://quickthumb.solaqua.dev/document-schema.json> (Canvas or Deck)
+
+To get completion and validation while editing specs in VS Code, map your
+spec files to the hosted schema in `.vscode/settings.json`:
+
+```json
+{
+  "json.schemas": [
+    {
+      "fileMatch": ["*.thumb.json"],
+      "url": "https://quickthumb.solaqua.dev/schema.json"
+    }
+  ]
+}
+```
+
+Use a file mapping like this rather than a `"$schema"` key inside the spec:
+`Canvas.from_json()` rejects unknown top-level fields, including `$schema`.
+
+The hosted files are regenerated on every docs deploy, which follows the `main`
+branch. Run `quickthumb schema` to get the schema for the version you have
+installed.
 
 !!! note "Schema scope"
     `quickthumb schema` describes concrete Canvas specs for external tooling and
