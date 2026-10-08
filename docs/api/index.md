@@ -4,7 +4,7 @@ description: Explore the quickthumb API reference for Canvas, layers, background
 
 # API Reference
 
-Complete reference for every class, method, and parameter in quickthumb.
+Every class, method, and parameter in quickthumb, one page per layer type.
 
 ## Public imports
 
@@ -37,17 +37,18 @@ from quickthumb import (
 
 | Page | What it covers |
 | --- | --- |
-| [Canvas](canvas.md) | `Canvas` creation, layer builders, diagnostics, and export methods |
-| [Deck](deck.md) | `Deck` — multiple slides to PDF, PPTX, and image sequences |
-| [Background](background.md) | `.background()` — solid colors, gradients, and images |
-| [Text](text.md) | `.text()` and `TextPart` — text layers and rich text |
-| [Image](image.md) | `.image()` — overlay images and cutouts |
-| [Shape](shape.md) | `.shape()` — rectangles, ellipses, pills, triangles, stars, polygons |
-| [SVG](svg.md) | `.svg()` — vector icons and logos rasterized at render time |
-| [Group](group.md) | `.group()` — auto-layout rows and columns |
-| [Outline](outline.md) | `.outline()` — canvas border |
+| [Canvas](canvas.md) | Creating a canvas, every layer method, checks, and export methods |
+| [Deck](deck.md) | Several canvases as one PDF, PPTX, HTML slideshow, video, or image sequence |
+| [Background](background.md) | `.background()`: colors, gradients, and images |
+| [Text](text.md) | `.text()` and `TextPart`: text and rich text |
+| [Image](image.md) | `.image()`: placed images and cut-outs |
+| [Shape](shape.md) | `.shape()`: rectangles, ellipses, pills, triangles, stars, polygons |
+| [SVG](svg.md) | `.svg()`: icons and logos from SVG files |
+| [Video](video.md) | `.video()`: video clips, captions, and audio |
+| [Group](group.md) | `.group()`: auto-layout rows and columns |
+| [Outline](outline.md) | `.outline()`: a border around the canvas |
 | [Data visualizations](data-visualizations.md) | `.chart()` and `.qr_code()` |
-| [Effects](effects.md) | `Stroke`, `Shadow`, `Glow`, `Filter`, `Background`, `Grain` |
+| [Effects](effects.md) | `Stroke`, `Shadow`, `Glow`, `Filter`, `Background`, `Grain`, `Duotone`, `InnerShadow`, `BackdropBlur` |
 | [Enums & Gradients](enums.md) | `Align`, `BlendMode`, `FitMode`, `LinearGradient`, `RadialGradient`, `TextFillImage` |
 
 ## Error types

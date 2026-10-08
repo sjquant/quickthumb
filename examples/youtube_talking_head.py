@@ -2,10 +2,10 @@
 YouTube Talking-Head Thumbnail
 
 Classic split layout with subject on the right and headline on the left:
-- Background image with darkened filter and left-to-right gradient
-- Subject portrait positioned bottom-right (remote URL, swap for your own)
-- Topic badge using shape and text layers
-- Bold left-aligned headline with rich text accents
+- Black background with a blue panel on the right
+- Portrait from a URL, cut out with remove_background=True (needs quickthumb[rembg])
+  and pinned to the bottom-right corner
+- Two-tone headline built from TextParts, wrapped with max_width
 """
 
 import os

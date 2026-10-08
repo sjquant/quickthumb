@@ -4,8 +4,8 @@ description: Handle quickthumb validation, missing-asset, export, and CLI failur
 
 # Structured Errors
 
-Every quickthumb failure — an invalid field, a missing asset, an export a
-target cannot perform, or a bad command-line option — carries the same
+Every quickthumb failure (an invalid field, a missing asset, an export a
+target cannot perform, or a bad command-line option) carries the same
 machine-readable detail. Agents can locate the offending input and choose a
 remedy without parsing prose; people still get a clear one-line message.
 
@@ -98,7 +98,7 @@ Exit codes follow the category: `export` failures exit `2`; `validation`,
 | `unknown_plugin` | `validation` | A plugin layer names a renderer that is not registered |
 | `asset_missing` | `asset` | A referenced local file does not exist |
 | `unsupported_format` | `export` | The output extension is not an export format |
-| `unsupported_capability` | `export` | The export policy forbids a fallback the target needs (for example, `ExportPolicy(unsupported_motion="error")`) |
+| `unsupported_capability` | `export` | The target can't do what the document asks: a plugin layer is rendered (quickthumb can validate plugin layers but not draw them yet), or the export policy forbids a fallback the target needs (for example, `ExportPolicy(unsupported_motion="error")`) |
 | `missing_dependency` | `export` | An external tool such as FFmpeg is unavailable |
 | `export_failed` | `export` | Any other export or rendering failure, including an output path that cannot be written |
 | `invalid_option` | `input` | A command-line option value is invalid |

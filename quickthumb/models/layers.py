@@ -119,10 +119,10 @@ class AnimatedTextValue(quickthumbModel):
 class PluginLayer(LayerIdentityModel):
     """A named renderer invocation carried by the canonical JSON contract.
 
-    Plugin execution deliberately lives outside this model.  D1 owns the
-    deterministic identity and parameter boundary; the RGBA runtime is added
-    by D2.  Parameters are restricted to JSON values so the layer can always
-    make a lossless Python/JSON round trip.
+    The layer carries a renderer name, version, and parameters; quickthumb can
+    validate and serialize it but cannot draw it yet.  Parameters are
+    restricted to JSON values so the layer can always make a lossless
+    Python/JSON round trip.
     """
 
     type: Literal["plugin"]

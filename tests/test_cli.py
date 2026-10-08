@@ -58,7 +58,7 @@ class TestCLISchema:
         assert first.output == second.output
         payload = json.loads(first.output)
         assert payload["$schema"] == "https://json-schema.org/draft/2020-12/schema"
-        assert payload["$id"] == "https://sjquant.github.io/quickthumb/schema.json"
+        assert payload["$id"] == "https://quickthumb.solaqua.dev/schema.json"
         assert payload["title"] == "quickthumb Canvas JSON Spec"
 
     def test_should_include_canvas_theme_platform_and_layer_contracts(self):

@@ -1,5 +1,5 @@
 ---
-description: Reference for quickthumb SVG layers — rasterize icons and logos at render time with sizing, alignment, blend modes, and effects.
+description: Reference for quickthumb SVG layers, which rasterize icons and logos at render time with sizing, alignment, blend modes, and effects.
 ---
 
 # SVG
@@ -45,7 +45,7 @@ canvas.svg(
 | `effects` | `list \| None` | `[]` | Same effects as image layers: `Stroke`, `Shadow`, `Glow`, `Filter`. |
 | `blend_mode` | `str \| BlendMode \| None` | `None` | Blend mode for compositing onto prior layers. |
 
-The SVG is rasterized at the requested size — not scaled from a fixed-size bitmap — so logos stay sharp even when rendered large.
+The SVG is rasterized at the requested size rather than scaled from a fixed-size bitmap, so logos stay sharp even when rendered large.
 
 ## Examples
 

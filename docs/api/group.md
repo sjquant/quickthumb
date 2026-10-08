@@ -1,10 +1,10 @@
 ---
-description: Reference for quickthumb group layers — auto-layout rows and columns with gap, padding, item alignment, and nesting.
+description: Reference for quickthumb group layers: auto-layout rows and columns with gap, padding, item alignment, and nesting.
 ---
 
 # Group (Auto Layout)
 
-`.group()` adds an auto-layout container that measures its children and stacks them along a row or column — no hand-placed coordinates. Because the group recomputes positions from each child's natural size, the same spec keeps working when headline copy gets longer or a badge is added, which makes groups especially reliable for LLM-generated layouts.
+`.group()` adds an auto-layout container that measures its children and stacks them along a row or column, so you don't place each child by hand. Because the group recomputes positions from each child's natural size, the same spec keeps working when the headline gets longer or a badge is added. That also makes groups a good fit for LLM-generated layouts.
 
 ## Signature
 
@@ -33,7 +33,7 @@ canvas.group(
 | `item_align` | `str` | `"start"` | Cross-axis placement of each child: `"start"`, `"center"`, or `"end"`. |
 
 !!! warning "Children must not set `position`"
-    The group assigns positions. A child that sets its own `position` raises `ValidationError`, and a child's `align` is ignored — use `item_align` on the group instead.
+    The group assigns positions. A child that sets its own `position` raises `ValidationError`, and a child's `align` is ignored; use `item_align` on the group instead.
 
 ## Examples
 

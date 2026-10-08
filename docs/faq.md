@@ -1,5 +1,5 @@
 ---
-description: Answers to common quickthumb questions about installation, fonts, images, rendering behavior, JSON specs, and supported Python versions.
+description: Answers to common quickthumb questions about installation, text, fonts, images, output formats, JSON specs, and errors.
 ---
 
 # FAQ
@@ -8,210 +8,151 @@ description: Answers to common quickthumb questions about installation, fonts, i
 
 ### Which Python versions are supported?
 
-Python 3.10, 3.11, and 3.12.
+Python 3.10 or later. The package is classified for 3.10, 3.11, and 3.12, and
+CI runs on 3.10. Background removal (the `rembg` extra) needs 3.11 or later.
 
-### Do I need to install anything else for background removal?
+### The `quickthumb` command isn't found
 
-Yes. On Python 3.11 or later, install the `rembg` extra:
+The command line tool is an optional extra: `pip install "quickthumb[cli]"`.
+[Installation](installation.md) lists every extra.
 
-```bash
-pip install "quickthumb[rembg]"
-```
+### Why does my SVG layer raise `RenderingError`?
 
-The core quickthumb package supports Python 3.10, but patched `rembg` releases require Python 3.11 or later.
-
-The first call to `remove_background=True` will download the ONNX model (~170 MB) and cache it locally.
-
-### Why does my `svg` layer raise `RenderingError`?
-
-SVG layers need the `svg` extra (cairosvg):
-
-```bash
-pip install "quickthumb[svg]"
-```
-
-### The `quickthumb` command isn't found. How do I install the CLI?
-
-The CLI is an optional extra:
-
-```bash
-pip install "quickthumb[cli]"
-```
-
----
+Drawing SVG files needs the `svg` extra: `pip install "quickthumb[svg]"`.
+Exporting a canvas *to* SVG doesn't.
 
 ## Canvas and layers
 
-### What order are layers drawn in?
+### What happens if I render a canvas with no layers?
 
-Layers render in the order you call them. The first layer added is drawn at the back; each subsequent layer is drawn on top.
+You get a fully transparent image of the canvas size. It isn't an error.
 
-### Can I reuse a canvas?
+### Why does a group child raise "group children must not set position"?
 
-Each builder method returns `self`, so you can chain calls on one canvas object. There is no built-in "clone" method — just create a new canvas if you need a separate composition.
-
-### What happens if I call `.render()` on a canvas with no layers?
-
-It produces a transparent PNG of the specified dimensions. No error is raised.
-
-### Why does my group child raise "group children must not set position"?
-
-Auto-layout groups assign positions themselves — that's the point. Remove `position` from the child and anchor the whole group instead:
+A group positions its children itself. Remove `position` from the child and
+place the group instead:
 
 ```python
 canvas.group(
-    children=[{"type": "text", "content": "TITLE", "size": 96, "color": "#fff"}],
+    children=[{"type": "text", "content": "TITLE", "size": 96, "color": "#FFFFFF"}],
     position=("8%", "50%"),
     align=("left", "middle"),
 )
 ```
 
-A child's `align` is also ignored; use the group's `item_align` for cross-axis placement.
+A child's `align` is ignored too. Use the group's `item_align` to line
+children up across the group.
 
-### How do I check a composition for problems before rendering?
+### How do I check a design for problems before rendering?
 
-Call `canvas.diagnose()` (or run `quickthumb lint spec.json` / `quickthumb diagnose spec.json`). It reports off-canvas layers, tiny or clipped text, unwrappable words, missing glyphs, hidden or overlapping layers, safe-area crowding, and low text contrast. See [Diagnostics & CLI](diagnostics.md).
+Call `canvas.diagnose()`, or run `quickthumb lint spec.json` on a JSON spec.
+It reports text that is too small or off the canvas, low contrast, hidden
+layers, and more. See [Diagnostics & CLI](diagnostics.md).
 
----
+## Text and fonts
 
-## Text
+### My text runs off the canvas
 
-### Why is my text getting cut off?
-
-Use `max_width` to enable wrapping:
-
-```python
-canvas.text(content="Long title here", size=72, color="#fff", max_width="60%")
-```
-
-Or use `auto_scale=True` with `max_width` and/or `max_height` to shrink the text until it fits the declared bounds.
-
-### Can I mix fonts and colors in a single text block?
-
-Yes — use `TextPart` for per-segment control:
+Set `max_width` so it wraps:
 
 ```python
-from quickthumb import TextPart
-
-canvas.text(
-    content=[
-        TextPart(text="HOT ", color="#FF3B30", weight=900),
-        TextPart(text="TAKE", color="#FFFFFF", weight=900),
-    ],
-    size=80,
-    position=("8%", "50%"),
-    align=("left", "middle"),
-)
+canvas.text(content="A longer title that needs two lines", size=72, color="#FFFFFF", max_width="60%")
 ```
 
-### I set `bold=True` and `weight=900` and got an error. Why?
+Add `auto_scale=True` (with `max_width`, `max_height`, or both) to shrink the
+text until it fits instead.
 
-`bold` and `weight` are mutually exclusive. Use one or the other:
+### I set `bold=True` and `weight=900` and got an error
+
+They set the same thing, so use one. `weight` is more precise:
+`TextPart(text="STRONG", weight=900)`.
+
+### How do I use a Google Font?
+
+Name it and set `font_source="google"`. It is downloaded once and cached, and
+`weight` picks the matching file:
 
 ```python
-# Preferred
-TextPart(text="STRONG", weight=900)
-
-# Also valid
-TextPart(text="STRONG", bold=True)
+canvas.text(content="Hello", font="Inter", font_source="google", weight=800, size=72, color="#FFFFFF")
 ```
 
-### How do I use a Google Font or custom web font?
-
-Pass a URL directly as the `font` parameter:
-
-```python
-canvas.text(
-    content="Hello",
-    font="https://fonts.gstatic.com/s/inter/v13/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuLyfAZ9hiA.woff2",
-    size=72,
-    color="#FFFFFF",
-)
-```
-
-quickthumb downloads and caches the font file. Note: when using a webfont URL, `bold`, `italic`, and `weight` are ignored — download separate URLs for bold/italic variants.
-
----
+You can also pass the URL of a font file, or point `QUICKTHUMB_FONT_DIR` at a
+folder of fonts. See [Webfonts & Background Removal](cookbook/webfonts-rembg.md).
 
 ## Images
 
-### Can I use remote images?
+### Can I use images from a URL?
 
-Yes, both `canvas.background(image=...)` and `canvas.image(path=...)` accept `http://` and `https://` URLs. quickthumb downloads and caches them during rendering. Set `QUICKTHUMB_ASSET_MAX_AGE` to refresh old cache entries, or `QUICKTHUMB_ASSET_OFFLINE=1` to render only from the cache; see [Remote assets and caching](exports.md#remote-assets-and-caching).
+Yes. `background(image=...)` and `image(path=...)` accept `http(s)` URLs. They
+are downloaded and cached while rendering. To control the cache, see
+[Remote assets and caching](exports.md#remote-assets-and-caching).
 
-### My image has a white background I want to remove. How?
+### How do I remove the background behind a person?
 
-Use `remove_background=True` on an image layer (requires the `rembg` extra):
+Set `remove_background=True` on the image layer. It needs the `rembg` extra:
 
 ```python
-canvas.image(
-    path="portrait.jpg",
-    position=("75%", "55%"),
-    width=420,
-    height=520,
-    remove_background=True,
-)
+canvas.image(path="portrait.jpg", position=("75%", "55%"), width=420, height=520, remove_background=True)
 ```
 
 ### What's the difference between `cover`, `contain`, and `fill`?
 
-| Mode | Behavior |
-| --- | --- |
-| `cover` | Fills the box, cropping if needed |
-| `contain` | Fits entirely inside the box with letterboxing |
-| `fill` | Stretches to fill exactly, ignoring aspect ratio |
+`cover` fills the box and crops what doesn't fit. `contain` fits the whole
+image inside the box and leaves empty space. `fill` stretches the image to the
+box, ignoring its proportions.
 
----
+## Output
 
-## Export
+### Which formats can I export?
 
-### Which output formats are supported?
+The format comes from the file extension you pass to `render()`:
 
-`PNG`, `JPEG`, and `WEBP`.
+| Kind | Formats | Needs |
+| --- | --- | --- |
+| Images | PNG, JPEG, WebP | |
+| Vector and documents | SVG, PDF, PPTX | `pdf` / `pptx` extras for PDF and PPTX |
+| Web | HTML | |
+| Animation | GIF, MP4, WebM | `ffmpeg` for MP4 and WebM |
 
-### Can I use `quality` with PNG?
+See [Exporting](exports.md) for what each format keeps and loses.
 
-No — `quality` is only valid for `JPEG` and `WEBP`. Passing it with `PNG` raises `RenderingError`.
+### Can I set `quality` for a PNG?
 
-### How do I get the image as a base64 string or data URL?
+No. `quality` only applies to JPEG and WebP; passing it for PNG raises
+`RenderingError`.
+
+### How do I get the image without writing a file?
 
 ```python
-b64  = canvas.to_base64(format="PNG")
-url  = canvas.to_data_url(format="JPEG", quality=90)
+png_base64 = canvas.to_base64(format="PNG")
+jpeg_data_url = canvas.to_data_url(format="JPEG", quality=90)
 ```
-
----
 
 ## JSON
 
-### Does `Canvas.from_json()` accept a dict?
+### Can I pass a dict to `Canvas.from_json()`?
 
-No — it expects a JSON **string**. Use `json.dumps()` first if you have a dict:
+No, it takes a JSON string. Convert first with `json.dumps(data)`.
 
-```python
-import json
-from quickthumb import Canvas
+### Why does `to_json()` raise `ValidationError`?
 
-data = {"width": 1280, "height": 720, "layers": [...]}
-canvas = Canvas.from_json(json.dumps(data))
-```
+The canvas has a `.custom(fn)` layer. A Python function can't be written to
+JSON, so remove that layer first.
 
-### Why does `canvas.to_json()` raise a `ValidationError`?
+### My `theme` block disappeared after `to_json()`
 
-Your canvas contains a `.custom(fn)` layer. Custom layers cannot be serialized because they hold arbitrary Python callables. Remove or replace it before calling `to_json()`.
-
-### Where did my `theme` block go after `to_json()`?
-
-`$theme.*` tokens are resolved when the spec is parsed. `to_json()` emits the resolved values, so the round-tripped spec has no `theme` block. Keep the original spec file if you want to keep editing tokens.
-
----
+Theme tokens are replaced with their values when the spec is loaded, so
+`to_json()` writes the values and no `theme` block. Keep your original spec
+file if you want to keep editing the tokens.
 
 ## Errors
 
-### What's the difference between `ValidationError` and `RenderingError`?
+### What do the different errors mean?
 
-- `ValidationError` — raised immediately when you pass invalid arguments to a layer builder (wrong types, out-of-range values, conflicting options).
-- `RenderingError` — raised when `.render()`, `.to_base64()`, or `.to_data_url()` is called and something fails at render time (failed download, unsupported format).
-- `MissingAssetError` — raised when a referenced local file does not exist.
+- `ValidationError`: an argument or spec field is invalid. Raised as soon as
+  you add the layer or load the spec.
+- `RenderingError`: something failed while drawing, such as a download.
+- `MissingAssetError`: a local file the spec refers to doesn't exist.
 
-Every quickthumb error exposes `details` with a stable code, JSON Pointer path, and layer id. See [Structured Errors](errors.md).
+Every error has `details` with a stable code, the JSON Pointer of the field,
+and the layer id. See [Structured Errors](errors.md).

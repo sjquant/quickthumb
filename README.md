@@ -5,25 +5,25 @@
 <h1 align="center">quickthumb</h1>
 
 <p align="center">
-  <strong>Design thumbnails, social graphics, and presentation visuals in Python.</strong>
+  <strong>Thumbnails, social images, and slides from Python or JSON.</strong>
   <br />
-  One layered API. Deterministic output. Ready for automation.
+  Describe the image as layers. The same input gives the same pixels every time.
 </p>
 
 <p align="center">
-  <a href="https://sjquant.github.io/quickthumb/getting-started/">Get started</a>
+  <a href="https://quickthumb.solaqua.dev/getting-started/">Get started</a>
   ·
-  <a href="https://sjquant.github.io/quickthumb/cookbook/">Browse recipes</a>
+  <a href="https://quickthumb.solaqua.dev/cookbook/">Browse recipes</a>
   ·
-  <a href="https://sjquant.github.io/quickthumb/api/">API reference</a>
+  <a href="https://quickthumb.solaqua.dev/api/">API reference</a>
 </p>
 
 ![Launch announcement created with quickthumb](examples/launch_announcement.png)
 
-## Create the image. Keep the system
+## Quick start
 
-quickthumb turns a visual composition into reusable Python or JSON. Build it once,
-change the content or assets, and render consistent creative at any scale.
+Write a design once as code or JSON, then change the text, images, or colors and
+render it again as many times as you need.
 
 ```bash
 pip install quickthumb
@@ -61,14 +61,14 @@ The core workflow stays small:
 2. Add backgrounds, text, images, shapes, SVG, or auto-layout groups.
 3. Call `render()`.
 
-[Follow the five-minute guide →](https://sjquant.github.io/quickthumb/getting-started/)
+[Follow the five-minute guide →](https://quickthumb.solaqua.dev/getting-started/)
 
-## Built for creative automation
+## What it does
 
-- **Layered by default** — compose visuals in the same order people think about them.
-- **Python or JSON** — author directly, generate specs with AI, or template content at scale.
-- **One source, many formats** — render images, animated media, documents, and slide decks.
-- **Designed to be checked** — diagnostics catch common layout and legibility problems before export.
+- Layers are drawn in the order you add them, the same order you'd describe the image in.
+- Every design can be written in Python or as a JSON spec, so a template or an LLM can produce it.
+- One canvas exports to PNG, JPEG, WebP, SVG, HTML, PDF, PPTX, GIF, MP4, and WebM.
+- `diagnose()` finds text that is too small, runs off the canvas, or has too little contrast, before you export.
 
 ## Gallery
 
@@ -101,7 +101,7 @@ The core workflow stays small:
 
 [Explore the examples and source files →](examples/README.md)
 
-## Render wherever the work goes
+## Output formats
 
 ```python
 canvas.render("creative.png")
@@ -117,19 +117,19 @@ Multi-slide `Deck` compositions can also render to numbered images, PDF, PPTX,
 HTML slideshows, GIF, WebM, and narrated MP4.
 
 Some formats use optional dependencies. See
-[Installation](https://sjquant.github.io/quickthumb/installation/) and
-[Exporting](https://sjquant.github.io/quickthumb/exports/) for the exact setup and format behavior.
+[Installation](https://quickthumb.solaqua.dev/installation/) and
+[Exporting](https://quickthumb.solaqua.dev/exports/) for the exact setup and format behavior.
 
-## Pick a path
+## Where to go next
 
 | I want to… | Start here |
 | --- | --- |
-| Make my first graphic | [Getting Started](https://sjquant.github.io/quickthumb/getting-started/) |
-| Build a proven layout | [Cookbook](https://sjquant.github.io/quickthumb/cookbook/) |
-| Generate visuals with JSON or AI | [JSON & AI Workflow](https://sjquant.github.io/quickthumb/json-schema/) |
-| Build a multi-slide deck | [Deck guide](https://sjquant.github.io/quickthumb/api/deck/) |
-| Validate a composition | [Diagnostics & CLI](https://sjquant.github.io/quickthumb/diagnostics/) |
-| Look up a class or option | [API Reference](https://sjquant.github.io/quickthumb/api/) |
+| Make my first graphic | [Getting Started](https://quickthumb.solaqua.dev/getting-started/) |
+| Build a proven layout | [Cookbook](https://quickthumb.solaqua.dev/cookbook/) |
+| Generate visuals with JSON or AI | [JSON & AI Workflow](https://quickthumb.solaqua.dev/json-schema/) |
+| Build a multi-slide deck | [Deck guide](https://quickthumb.solaqua.dev/api/deck/) |
+| Validate a composition | [Diagnostics & CLI](https://quickthumb.solaqua.dev/diagnostics/) |
+| Look up a class or option | [API Reference](https://quickthumb.solaqua.dev/api/) |
 
 ## License
 
