@@ -31,7 +31,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from html import escape
 from importlib.resources import files
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from PIL import ImageFont
 
@@ -67,6 +67,7 @@ from quickthumb.models import (
     Align,
     AnimationSpec,
     BackgroundLayer,
+    CubicBezierEasing,
     Glow,
     GroupLayer,
     LinearGradient,
@@ -180,10 +181,10 @@ _CSS_EASINGS = {
 }
 
 
-def css_easing(name: str | Mapping[str, Any] | None) -> str:
+def css_easing(name: str | CubicBezierEasing | Mapping[str, object] | None) -> str:
     """Return the CSS timing function for a shared easing name or custom bezier."""
-    if isinstance(name, Mapping):
-        x1, y1, x2, y2 = name["points"]
+    if name is not None and not isinstance(name, str):
+        x1, y1, x2, y2 = CubicBezierEasing.model_validate(name).points
         return f"cubic-bezier({_fmt(x1)},{_fmt(y1)},{_fmt(x2)},{_fmt(y2)})"
     return _CSS_EASINGS.get(name or "ease", "ease")
 

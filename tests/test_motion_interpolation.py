@@ -5,8 +5,10 @@ import pytest
 from quickthumb import (
     AnimationSpec,
     ColorTrack,
+    CubicBezierEasing,
     KeyframeSpec,
     ScaleTrack,
+    TimingSpec,
 )
 from quickthumb.errors import ValidationError
 from quickthumb.motion import (
@@ -235,7 +237,7 @@ class TestCustomEasingAndKeyframeTiming:
         # given: a timeline eased by a custom curve
         animation = AnimationSpec.timeline(
             ScaleTrack(keyframes=[KeyframeSpec(time=0, value=0), KeyframeSpec(time=1, value=1)]),
-            easing=cast(Any, {"type": "cubic_bezier", "points": [0.5, 0, 0.5, 1]}),
+            easing=CubicBezierEasing(points=(0.5, 0, 0.5, 1)),
         )
 
         # when: it is sampled and re-parsed from JSON
@@ -254,7 +256,7 @@ class TestCustomEasingAndKeyframeTiming:
                 KeyframeSpec(time=1, value=1),
                 KeyframeSpec(time=2, value=2),
             ],
-            timing=cast(Any, {"duration": 2}),
+            timing=TimingSpec(duration=2),
             easing="linear",
         )
 
@@ -271,7 +273,7 @@ class TestCustomEasingAndKeyframeTiming:
                 KeyframeSpec(time=1, value=1),
                 KeyframeSpec(time=2, value=2),
             ],
-            timing=cast(Any, {"duration": 2}),
+            timing=TimingSpec(duration=2),
         )
 
         # when/then: nothing moves until t=1, where it steps, then interpolates

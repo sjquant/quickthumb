@@ -224,10 +224,13 @@ def resolve_staggered_timelines(
     return tuple(expanded)
 
 
-EasingValue = str | Mapping[str, Any] | CubicBezierEasing
+# A named easing, a `CubicBezierEasing`, or its JSON mapping form. Names are typed
+# `str` rather than `MotionEasingName` so unknown names reach the validator.
+EasingValue = str | CubicBezierEasing | Mapping[str, object]
+BezierPoints = tuple[float, float, float, float]
 
 
-def _bezier_points(easing: CubicBezierEasing | Mapping[str, Any]) -> tuple[float, ...]:
+def _bezier_points(easing: CubicBezierEasing | Mapping[str, object]) -> BezierPoints:
     """Return validated control points for a custom cubic-bezier easing."""
     if isinstance(easing, CubicBezierEasing):
         return easing.points
@@ -237,7 +240,7 @@ def _bezier_points(easing: CubicBezierEasing | Mapping[str, Any]) -> tuple[float
         raise ValidationError(f"invalid cubic_bezier easing: {error.errors()[0]['msg']}") from error
 
 
-def _dump_easing(easing: MotionEasing | None) -> Any:
+def _dump_easing(easing: MotionEasing | None) -> str | dict[str, object] | None:
     """Return an easing as a JSON-stable name or mapping."""
     return easing.model_dump(mode="json") if isinstance(easing, CubicBezierEasing) else easing
 
@@ -1136,7 +1139,7 @@ def _compose_track_value(
 
 
 def _sample_track(
-    track: NormalizedTrack, progress: float, duration: float, easing: str | None = None
+    track: NormalizedTrack, progress: float, duration: float, easing: EasingValue | None = None
 ) -> MotionValue:
     """Sample a local track at normalized event progress."""
     local_time = progress * duration
@@ -1620,7 +1623,7 @@ def _inspection_event(
                     MotionKeyframeInspection(
                         time=keyframe.time,
                         value=keyframe.value,
-                        easing=_dump_easing(keyframe.easing),
+                        easing=keyframe.easing,
                         hold=keyframe.hold,
                     )
                     for keyframe in track.keyframes
