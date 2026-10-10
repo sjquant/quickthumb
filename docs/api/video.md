@@ -129,6 +129,29 @@ canvas.video(
 )
 ```
 
+Easing can be set per animation, per keyframe, or as a custom curve. A
+keyframe's `easing` shapes the segment that *leaves* it and falls back to the
+animation's `easing`; `hold=True` keeps the value until the next keyframe, then
+steps. A custom curve is `{"type": "cubic_bezier", "points": [x1, y1, x2, y2]}`
+(x1 and x2 within 0 to 1, y may overshoot) wherever an easing is accepted:
+
+```python
+from quickthumb import CubicBezierEasing, KeyframeSpec, ScaleTrack
+
+ScaleTrack(
+    keyframes=[
+        KeyframeSpec(time=0.0, value=0.0, easing=CubicBezierEasing(points=(0.34, 1.56, 0.64, 1))),
+        KeyframeSpec(time=0.6, value=1.0, hold=True),
+        KeyframeSpec(time=1.5, value=0.0),
+    ]
+)
+```
+
+HTML passes an animation-level custom curve straight to CSS. Per-keyframe easing
+and holds are rendered by the raster and video pipelines; HTML animates canonical
+motion between its start and settled states, and PPTX falls back to its preset
+effects.
+
 ## Notes
 
 - A scene longer than its clip needs `speed` below `1.0`; asking for more
