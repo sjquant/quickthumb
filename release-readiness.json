@@ -1,0 +1,40 @@
+{
+  "target": "1.0.0",
+  "requirements": [
+    {
+      "id": "static-conformance",
+      "status": "pending",
+      "evidence": "#129: agree format-specific fidelity, capability and fallback conformance; structural smoke exports alone are insufficient."
+    },
+    {
+      "id": "motion-conformance",
+      "status": "pending",
+      "evidence": "#130: verify motion, transitions, narration, audio, captions and reduced motion against canonical timing."
+    },
+    {
+      "id": "asset-plugin-regressions",
+      "status": "pending",
+      "evidence": "#131: deterministic public-API asset, font and plugin lifecycle fixtures."
+    },
+    {
+      "id": "api-format-documentation",
+      "status": "pending",
+      "evidence": "#132: finalize the stable v1 API, JSON and format support documentation."
+    },
+    {
+      "id": "dependency-baseline",
+      "status": "accepted",
+      "evidence": "https://github.com/sjquant/quickthumb/issues/134 completed 2026-09-28; exact candidate still requires the locked install and security jobs."
+    },
+    {
+      "id": "support-decisions",
+      "status": "pending",
+      "evidence": "Maintainer approval required for the proposed platform/Python profiles and exclusions in docs/releasing.md."
+    },
+    {
+      "id": "changelog",
+      "status": "pending",
+      "evidence": "Write reviewed v1 release notes including compatibility changes, fallback behavior and remaining limitations."
+    }
+  ]
+}

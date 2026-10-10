@@ -112,4 +112,5 @@ nav:
       - AI Workflow: cookbook/ai-workflow.md
       - Webfonts & Background Removal: cookbook/webfonts-rembg.md
   - FAQ: faq.md
+  - Release gate: releasing.md
   - Changelog: changelog.md
