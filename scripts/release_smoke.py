@@ -174,23 +174,6 @@ def check_documents(output):
     return details
 
 
-def core_guidance(output, svg):
-    """Each optional export without its extra must fail with the install hint."""
-    from quickthumb import Canvas
-
-    canvas, _ = fixtures()
-    messages = {}
-    for extra in ("pdf", "pptx"):
-        messages[extra] = expect_guidance(
-            lambda extra=extra: canvas.export(output / f"missing.{extra}"),
-            f"quickthumb[{extra}]",
-        )
-    messages["svg"] = expect_guidance(
-        lambda: Canvas(*SIZE).svg(str(svg), (0, 0)).sample(), "quickthumb[svg]"
-    )
-    return messages
-
-
 def check_profile(profile, output):
     availability = {
         extra: importlib.util.find_spec(module) is not None for extra, module in OPTIONAL.items()
@@ -199,6 +182,7 @@ def check_profile(profile, output):
         all(value == (profile == "full") for value in availability.values()),
         f"{profile} needs {'present' if profile == 'full' else 'absent'} extras: {availability}",
     )
+    canvas, _ = fixtures()
     svg = output / "input.svg"
     svg.write_text(
         '<svg xmlns="http://www.w3.org/2000/svg" width="128" height="96">'
@@ -212,7 +196,15 @@ def check_profile(profile, output):
     )
     require(entrypoint.is_file(), "Installed quickthumb console entry point is missing")
     if profile == "core":
-        messages = core_guidance(output, svg)
+        messages = {}
+        for extra in ("pdf", "pptx"):
+            messages[extra] = expect_guidance(
+                lambda extra=extra: canvas.export(output / f"missing.{extra}"),
+                f"quickthumb[{extra}]",
+            )
+        messages["svg"] = expect_guidance(
+            lambda: Canvas(*SIZE).svg(str(svg), (0, 0)).sample(), "quickthumb[svg]"
+        )
         cli = subprocess.run(
             [str(entrypoint)],
             capture_output=True,

@@ -12,6 +12,7 @@ import zipfile
 from pathlib import Path
 
 import pytest
+import quickthumb
 from PIL import Image, ImageSequence, UnidentifiedImageError
 from quickthumb import Canvas, Deck
 
@@ -21,19 +22,448 @@ assert _SPEC is not None and _SPEC.loader is not None
 smoke = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(smoke)
 
+FULL_EXTRAS = ("reportlab", "pptx", "cairosvg", "typer")
+requires_full = pytest.mark.skipif(
+    not all(importlib.util.find_spec(module) for module in FULL_EXTRAS)
+    or shutil.which("ffmpeg") is None
+    or shutil.which("ffprobe") is None,
+    reason="full profile needs the release extras, ffmpeg, and ffprobe",
+)
+
+
+def test_canonical_exports_write_every_format(tmp_path):
+    """Canonical document exports write every format and the per-slide SVG guidance.
+
+    Given the canvas and deck fixtures
+    When the canonical document checks run
+    Then the GIF is written, deck SVG points to per-slide export, and samples are saved
+    """
+    details = smoke.check_documents(tmp_path)
+    assert "deck.gif" in details
+    assert "Render slides individually" in details["deck.svg"]["unsupported_guidance"]
+    assert (tmp_path / "canvas-sample.json").is_file()
+    assert (tmp_path / "deck-slide-1.svg").is_file()
+
+
+@pytest.mark.parametrize(
+    ("replace_page", "error", "message"),
+    [
+        pytest.param(
+            lambda path: path.write_bytes(b"not a PNG"),
+            UnidentifiedImageError,
+            None,
+            id="not-an-image",
+        ),
+        pytest.param(
+            lambda path: path.write_bytes(path.with_name("deck_01.png").read_bytes()),
+            AssertionError,
+            "Wrong pixels",
+            id="repeats-page-one",
+        ),
+    ],
+)
+def test_deck_png_page_two_that_is_corrupt_fails_export(
+    tmp_path, monkeypatch, replace_page, error, message
+):
+    """A deck PNG export fails when its second page is not a distinct valid image.
+
+    Given the second deck PNG page is replaced after the real export writes it
+    When the canonical document checks run
+    Then the check fails on that page
+    """
+    mutate_export(monkeypatch, "deck_02.png", replace_page)
+    with pytest.raises(error, match=message):
+        smoke.check_documents(tmp_path)
+
+
+@pytest.mark.parametrize(
+    ("corrupt", "error", "message"),
+    [
+        pytest.param(
+            lambda path: path.unlink(), AssertionError, "Missing SVG output", id="missing"
+        ),
+        pytest.param(
+            lambda path: path.write_text("not SVG", encoding="utf-8"),
+            ET.ParseError,
+            None,
+            id="invalid-xml",
+        ),
+        pytest.param(
+            lambda path: _set_svg_height(path, "1"),
+            AssertionError,
+            "SVG height",
+            id="wrong-size",
+        ),
+        pytest.param(
+            lambda path: path.write_text(
+                '<notsvg width="128" height="96"><x/></notsvg>', encoding="utf-8"
+            ),
+            AssertionError,
+            "Invalid SVG root",
+            id="wrong-root",
+        ),
+    ],
+)
+def test_deck_svg_slide_that_is_corrupt_fails_export(
+    tmp_path, monkeypatch, corrupt, error, message
+):
+    """A per-slide deck SVG export fails when the slide file is missing or malformed.
+
+    Given the second slide's SVG is removed or rewritten after the real export
+    When the canonical document checks run
+    Then the check fails on that slide file
+    """
+    mutate_export(monkeypatch, "deck-slide-1.svg", corrupt)
+    with pytest.raises(error, match=message):
+        smoke.check_documents(tmp_path)
+
+
+@pytest.mark.parametrize(
+    ("filename", "mutate", "message"),
+    [
+        pytest.param(
+            "canvas.html",
+            lambda path: _edit_text(path, lambda text: text + "{{ title }}"),
+            "Unexpanded HTML template",
+            id="html-template",
+        ),
+        pytest.param(
+            "canvas.html",
+            lambda path: _edit_text(
+                path, lambda text: text.replace('class="qt-stage"', 'class="qt-other"')
+            ),
+            "HTML stage count",
+            id="html-stage-count",
+        ),
+        pytest.param(
+            "canvas.html",
+            lambda path: _edit_text(
+                path, lambda text: text.replace(_resource("base.css").strip(), "")
+            ),
+            "Missing embedded base.css",
+            id="html-base-css",
+        ),
+        pytest.param(
+            "canvas.html",
+            lambda path: _edit_text(
+                path, lambda text: text.replace(_runtime("canvas_runtime.js"), "")
+            ),
+            "Missing embedded canvas_runtime.js",
+            id="html-runtime",
+        ),
+        pytest.param(
+            "deck.gif",
+            lambda path: _rewrite_gif(path, duration=150),
+            "GIF timing",
+            id="deck-gif-timing",
+        ),
+        pytest.param(
+            "canvas.gif",
+            lambda path: _rewrite_gif(path, duration=200),
+            "GIF timing",
+            id="canvas-gif-timing",
+        ),
+        pytest.param(
+            "deck.gif",
+            lambda path: _rewrite_gif(path, duration=800, keep=1),
+            "Deck GIF lost slide change",
+            id="deck-gif-slide-change",
+        ),
+        pytest.param(
+            "canvas.png",
+            lambda path: _touch_unsampled_pixel(path),
+            "PNG differs from canonical settled sample",
+            id="png-bytes",
+        ),
+    ],
+)
+def test_canonical_document_output_mutations_fail_export(
+    tmp_path, monkeypatch, filename, mutate, message
+):
+    """A canonical document export fails when its HTML, GIF, or PNG output is wrong.
+
+    Given one exported document is altered after the real export writes it
+    When the canonical document checks run
+    Then the check fails with the message for that alteration
+    """
+    mutate_export(monkeypatch, filename, mutate)
+    with pytest.raises(AssertionError, match=message):
+        smoke.check_documents(tmp_path)
+
+
+def test_blank_frame_fails_pixel_check():
+    """The pixel check rejects a blank frame that lacks the expected colours.
+
+    Given an all-white image at the output size
+    When the pixel check runs
+    Then it fails reporting wrong pixels
+    """
+    with pytest.raises(AssertionError, match="Wrong pixels"):
+        smoke.assert_pixels(Image.new("RGB", smoke.SIZE, "white"))
+
+
+def test_guidance_check_rejects_unhelpful_or_missing_errors():
+    """The guidance check fails both when an error lacks the hint and when no error occurs.
+
+    Given an action that raises an error without the install hint
+    And an action that raises no error
+    When each is checked for the hint
+    Then each fails with its own message
+    """
+
+    def broken():
+        raise RuntimeError("module missing")
+
+    with pytest.raises(AssertionError, match="Unhelpful error"):
+        smoke.expect_guidance(broken, "quickthumb[pdf]")
+    with pytest.raises(AssertionError, match="Expected failure"):
+        smoke.expect_guidance(lambda: None, "quickthumb[pdf]")
+
+
+def test_core_profile_reports_install_hints_without_extras(tmp_path, monkeypatch):
+    """The core profile passes when the optional extras and the typer CLI are absent.
+
+    Given the optional modules cannot be imported and the console script cannot import typer
+    When the core profile runs
+    Then each optional export and the CLI report their install hint
+    """
+    # A None entry in sys.modules makes an import fail the same way a missing extra does.
+    for module in FULL_EXTRAS:
+        monkeypatch.setitem(sys.modules, module, None)
+    # The console script runs in a child process, so it only sees a file on PYTHONPATH.
+    blocked = tmp_path / "blocked"
+    blocked.mkdir()
+    (blocked / "typer.py").write_text(
+        'raise ImportError("typer is blocked for this test")\n', encoding="utf-8"
+    )
+    monkeypatch.setenv("PYTHONPATH", str(blocked))
+
+    result = smoke.check_profile("core", tmp_path)
+
+    assert set(result["guidance"]) == {"pdf", "pptx", "svg", "cli"}
+
+
+def test_core_profile_rejects_installed_extras(tmp_path, monkeypatch):
+    """The core profile refuses to run when any optional extra is installed.
+
+    Given every optional module reports as installed
+    When the core profile runs
+    Then it fails before exporting, naming the absent-extras requirement
+    """
+    monkeypatch.setattr(smoke.importlib.util, "find_spec", lambda name: object())
+    with pytest.raises(AssertionError, match="core needs absent extras"):
+        smoke.check_profile("core", tmp_path)
+
+
+def test_full_profile_rejects_missing_extras(tmp_path, monkeypatch):
+    """The full profile refuses to run when an optional extra is missing.
+
+    Given no optional module reports as installed
+    When the full profile runs
+    Then it fails before exporting, naming the present-extras requirement
+    """
+    monkeypatch.setattr(smoke.importlib.util, "find_spec", lambda name: None)
+    with pytest.raises(AssertionError, match="full needs present extras"):
+        smoke.check_profile("full", tmp_path)
+
+
+def test_full_profile_rejects_missing_ffmpeg(tmp_path, monkeypatch):
+    """The full profile stops before exporting when ffmpeg or ffprobe is not on PATH.
+
+    Given no executable can be found on PATH
+    When the full export checks run
+    Then they fail naming ffmpeg and ffprobe
+    """
+    monkeypatch.setattr(smoke.shutil, "which", lambda name: None)
+    with pytest.raises(AssertionError, match="requires ffmpeg and ffprobe"):
+        smoke.check_full(tmp_path)
+
+
+@requires_full
+def test_full_profile_passes_on_real_outputs(tmp_path):
+    """Every full-profile export passes its format checks on real output.
+
+    Given the release extras and ffmpeg are installed
+    When the full export checks run
+    Then the PDF, PPTX, MP4, and WebM outputs are all reported
+    """
+    results = smoke.check_full(tmp_path)
+    assert {"canvas.pdf", "deck.pdf", "deck.pptx", "deck.mp4", "deck.webm"} <= set(results)
+
+
+@requires_full
+@pytest.mark.parametrize(
+    ("filename", "mutate", "message"),
+    [
+        pytest.param(
+            "deck.pdf",
+            lambda path: path.write_bytes(b"BAD" + path.read_bytes()[3:]),
+            "Invalid PDF envelope",
+            id="pdf-signature",
+        ),
+        pytest.param(
+            "deck.pdf",
+            lambda path: path.write_bytes(path.read_bytes().replace(b"%%EOF", b"")),
+            "Invalid PDF envelope",
+            id="pdf-eof",
+        ),
+        pytest.param(
+            "deck.pdf",
+            lambda path: _drop_pdf_page(path),
+            "PDF page count",
+            id="pdf-pages",
+        ),
+        pytest.param(
+            "deck.pptx",
+            lambda path: _drop_pptx_slide(path),
+            "PPTX slide count",
+            id="pptx-slides",
+        ),
+        pytest.param(
+            "deck.pptx",
+            lambda path: _strip_pptx_shapes(path),
+            "PPTX lost native geometry",
+            id="pptx-geometry",
+        ),
+        pytest.param(
+            "deck.mp4",
+            lambda path: _reencode(path, "-t", "0.3", "-c", "copy"),
+            "Video duration",
+            id="mp4-duration",
+        ),
+        pytest.param(
+            "deck.webm",
+            lambda path: _reencode(path, "-t", "0.3", "-c", "copy"),
+            "Video duration",
+            id="webm-duration",
+        ),
+        pytest.param(
+            "deck.mp4",
+            lambda path: _reencode(path, "-vf", "scale=64:48", "-c:v", "libx264"),
+            "Video dimensions",
+            id="mp4-dimensions",
+        ),
+        pytest.param(
+            "deck.mp4",
+            lambda path: _reencode(path, "-c:v", "mpeg4"),
+            "Video codec",
+            id="mp4-codec",
+        ),
+        pytest.param(
+            "deck.mp4",
+            lambda path: _reencode(path, "-r", "20", "-c:v", "libx264"),
+            "Video frame count",
+            id="mp4-frame-count",
+        ),
+        pytest.param(
+            "deck.mp4",
+            lambda path: _reencode(
+                path,
+                "-vf",
+                "drawbox=w=iw:h=ih:color=black:t=fill:enable='eq(n,0)'",
+                "-c:v",
+                "libx264",
+            ),
+            "Wrong pixels",
+            id="mp4-first-frame-pixels",
+        ),
+    ],
+)
+def test_full_output_mutations_fail_export(tmp_path, monkeypatch, filename, mutate, message):
+    """A full-profile export fails when its PDF, PPTX, or video output is malformed.
+
+    Given one exported file is altered after the real export writes it
+    When the full export checks run
+    Then the check fails with the message for that alteration
+    """
+    mutate_export(monkeypatch, filename, mutate)
+    with pytest.raises(AssertionError, match=message):
+        smoke.check_full(tmp_path)
+
+
+def test_profile_rejects_missing_console_entrypoint(tmp_path, monkeypatch):
+    """The full profile fails when the installed quickthumb console script is absent.
+
+    Given every optional module reports as installed
+    And the interpreter's directory has no quickthumb script
+    When the full profile runs
+    Then it fails naming the missing console entry point
+    """
+    monkeypatch.setattr(smoke.importlib.util, "find_spec", lambda name: object())
+    monkeypatch.setattr(smoke.sys, "executable", str(tmp_path / "python"))
+    with pytest.raises(AssertionError, match="console entry point is missing"):
+        smoke.check_profile("full", tmp_path)
+
+
+def test_missing_ffmpeg_ignores_inherited_override(tmp_path, monkeypatch):
+    """The missing-ffmpeg check reports ffmpeg as missing even when a parent override exists.
+
+    Given the parent environment points QUICKTHUMB_FFMPEG at another executable
+    When the isolated missing-ffmpeg check runs
+    Then the child process still reports ffmpeg as missing with install guidance
+    """
+    # If the child inherited the override, quickthumb would run it and the export would
+    # not fail with install guidance, so the isolation check would fail.
+    monkeypatch.setenv("QUICKTHUMB_FFMPEG", sys.executable)
+    assert smoke.check_missing_ffmpeg(tmp_path)["isolated_process"]
+
+
+def test_main_reports_passed_when_every_check_passes(tmp_path, monkeypatch):
+    """main exits 0 and marks the run passed when every check completes.
+
+    Given each check returns without raising
+    When main runs the core profile
+    Then it returns 0 and the report marks every check and the run as passed
+    """
+    for check in ("check_profile", "check_documents", "check_missing_ffmpeg"):
+        monkeypatch.setattr(smoke, check, lambda *args: {"ran": True})
+
+    assert smoke.main(["--profile", "core", "--output", str(tmp_path)]) == 0
+    report = json.loads((tmp_path / "report.json").read_text(encoding="utf-8"))
+    assert report["status"] == "passed"
+    assert [check["status"] for check in report["checks"]] == ["passed", "passed", "passed"]
+
+
+def test_main_reports_failure_when_a_check_raises(tmp_path, monkeypatch):
+    """main exits 1 and records the error when one check raises.
+
+    Given check_profile raises an error
+    When main runs the core profile
+    Then it returns 1, records the error, and still records the checks that passed
+    """
+
+    def broken(*args):
+        raise RuntimeError("broken wheel")
+
+    monkeypatch.setattr(smoke, "check_profile", broken)
+    monkeypatch.setattr(smoke, "check_documents", lambda *args: {"ran": True})
+    monkeypatch.setattr(smoke, "check_missing_ffmpeg", lambda *args: {"ran": True})
+
+    assert smoke.main(["--profile", "core", "--output", str(tmp_path)]) == 1
+    report = json.loads((tmp_path / "report.json").read_text(encoding="utf-8"))
+    assert report["status"] == "failed"
+    assert report["checks"][0]["error"] == "RuntimeError: broken wheel"
+    assert report["checks"][1]["status"] == "passed"
+    assert Path(report["package_path"]) == Path(quickthumb.__file__).resolve()
+
 
 def mutate_export(monkeypatch, filename, mutate):
-    """Run `mutate(path)` on the named output right after the real export writes it."""
+    """Run `mutate(path)` on each written output named `filename` right after its export."""
     for owner in (Canvas, Deck):
         original = owner.export
 
         def export(self, output, *args, _original=original, **kwargs):
             result = _original(self, output, *args, **kwargs)
-            if Path(output).name == filename:
-                mutate(Path(output))
+            for written in result.written_paths:
+                if Path(written).name == filename:
+                    mutate(Path(written))
             return result
 
         monkeypatch.setattr(owner, "export", export)
+
+
+def _edit_text(path, edit):
+    path.write_text(edit(path.read_text(encoding="utf-8")), encoding="utf-8")
 
 
 def _resource(name):
@@ -43,10 +473,6 @@ def _resource(name):
 def _runtime(name):
     # Mirrors how the smoke check embeds the runtime script into the HTML.
     return _resource(name).replace("{{ responsive }}", "true").strip()
-
-
-def _html(edit):
-    return lambda path: path.write_text(edit(path.read_text(encoding="utf-8")), encoding="utf-8")
 
 
 def _rewrite_gif(path, duration, keep=None):
@@ -64,18 +490,29 @@ def _touch_unsampled_pixel(path):
     rgba.save(path)
 
 
+def _set_svg_height(path, height):
+    root = ET.fromstring(path.read_text(encoding="utf-8"))
+    root.set("height", height)
+    path.write_text(ET.tostring(root, encoding="unicode"), encoding="utf-8")
+
+
+def _reencode(path, *options):
+    reencoded = path.with_name(f"reencoded-{path.name}")
+    subprocess.run(
+        ["ffmpeg", "-v", "error", "-y", "-i", str(path), *options, str(reencoded)],
+        check=True,
+        capture_output=True,
+        timeout=60,
+    )
+    reencoded.replace(path)
+
+
 def _drop_pdf_page(path):
     path.write_bytes(re.sub(rb"/Type\s*/Page\b", b"/Type /Pagx", path.read_bytes(), count=1))
 
 
-def _rewrite_zip(path, edit):
-    with zipfile.ZipFile(path) as archive:
-        entries = [(info.filename, archive.read(info.filename)) for info in archive.infolist()]
-    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as archive:
-        for name, data in entries:
-            edited = edit(name, data)
-            if edited is not None:
-                archive.writestr(name, edited)
+def _drop_pptx_slide(path):
+    _rewrite_zip(path, lambda name, data: None if name == "ppt/slides/slide2.xml" else data)
 
 
 EMPTY_SLIDE = (
@@ -83,10 +520,6 @@ EMPTY_SLIDE = (
     b'<p:sld xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">'
     b"<p:cSld><p:spTree/></p:cSld></p:sld>"
 )
-
-
-def _drop_pptx_slide(path):
-    _rewrite_zip(path, lambda name, data: None if name == "ppt/slides/slide2.xml" else data)
 
 
 def _strip_pptx_shapes(path):
@@ -98,271 +531,11 @@ def _strip_pptx_shapes(path):
     )
 
 
-def _trim_video(path, seconds):
-    trimmed = path.with_name(f"trimmed-{path.name}")
-    subprocess.run(
-        [
-            "ffmpeg",
-            "-v",
-            "error",
-            "-y",
-            "-i",
-            str(path),
-            "-t",
-            str(seconds),
-            "-c",
-            "copy",
-            str(trimmed),
-        ],
-        check=True,
-        capture_output=True,
-        timeout=60,
-    )
-    trimmed.replace(path)
-
-
-def test_canonical_exports_and_timing(tmp_path):
-    details = smoke.check_documents(tmp_path)
-    assert "deck.gif" in details
-    assert "Render slides individually" in details["deck.svg"]["unsupported_guidance"]
-    assert (tmp_path / "canvas-sample.json").is_file()
-    assert (tmp_path / "deck-slide-1.svg").is_file()
-
-
-@pytest.mark.parametrize(
-    ("corruption", "error", "message"),
-    [("invalid", UnidentifiedImageError, None), ("duplicate", AssertionError, "Wrong pixels")],
-)
-def test_canonical_exports_reject_corrupt_second_deck_png(
-    tmp_path, monkeypatch, corruption, error, message
-):
-    original = Deck.export
-
-    def export(self, output, *args, **kwargs):
-        result = original(self, output, *args, **kwargs)
-        if Path(output).suffix == ".png":
-            first, second = (Path(path) for path in result.written_paths)
-            second.write_bytes(b"not a PNG" if corruption == "invalid" else first.read_bytes())
-        return result
-
-    monkeypatch.setattr(Deck, "export", export)
-    with pytest.raises(error, match=message):
-        smoke.check_documents(tmp_path)
-
-
-@pytest.mark.parametrize(
-    ("corruption", "error", "message"),
-    [
-        ("missing", AssertionError, "Missing SVG output"),
-        ("invalid", ET.ParseError, None),
-        ("wrong_size", AssertionError, "SVG height"),
-        ("wrong_root", AssertionError, "Invalid SVG root"),
-    ],
-)
-def test_canonical_exports_reject_broken_deck_svg(
-    tmp_path, monkeypatch, corruption, error, message
-):
-    original = Canvas.export
-
-    def export(self, output, *args, **kwargs):
-        result = original(self, output, *args, **kwargs)
-        path = Path(output)
-        if path.name == "deck-slide-1.svg":
-            if corruption == "missing":
-                path.unlink()
-            elif corruption == "invalid":
-                path.write_text("not SVG", encoding="utf-8")
-            elif corruption == "wrong_root":
-                path.write_text('<notsvg width="128" height="96"><x/></notsvg>', encoding="utf-8")
-            else:
-                root = ET.fromstring(path.read_text(encoding="utf-8"))
-                root.set("height", "1")
-                path.write_text(ET.tostring(root, encoding="unicode"), encoding="utf-8")
-        return result
-
-    monkeypatch.setattr(Canvas, "export", export)
-    with pytest.raises(error, match=message):
-        smoke.check_documents(tmp_path)
-
-
-DOCUMENT_MUTATIONS = [
-    pytest.param(
-        "canvas.html",
-        _html(lambda text: text + "{{ title }}"),
-        "Unexpanded HTML template",
-        id="html-template",
-    ),
-    pytest.param(
-        "canvas.html",
-        _html(lambda text: text.replace('class="qt-stage"', 'class="qt-other"')),
-        "HTML stage count",
-        id="html-stage-count",
-    ),
-    pytest.param(
-        "canvas.html",
-        _html(lambda text: text.replace(_resource("base.css").strip(), "")),
-        "Missing embedded base.css",
-        id="html-base-css",
-    ),
-    pytest.param(
-        "canvas.html",
-        _html(lambda text: text.replace(_runtime("canvas_runtime.js"), "")),
-        "Missing embedded canvas_runtime.js",
-        id="html-runtime",
-    ),
-    pytest.param(
-        "deck.gif",
-        lambda path: _rewrite_gif(path, duration=150),
-        "GIF timing",
-        id="deck-gif-timing",
-    ),
-    pytest.param(
-        "canvas.gif",
-        lambda path: _rewrite_gif(path, duration=200),
-        "GIF timing",
-        id="canvas-gif-timing",
-    ),
-    pytest.param(
-        "deck.gif",
-        lambda path: _rewrite_gif(path, duration=800, keep=1),
-        "Deck GIF lost slide change",
-        id="deck-gif-slide-change",
-    ),
-    pytest.param(
-        "canvas.png",
-        _touch_unsampled_pixel,
-        "PNG differs from canonical settled sample",
-        id="png-bytes",
-    ),
-]
-
-
-@pytest.mark.parametrize(("filename", "mutate", "message"), DOCUMENT_MUTATIONS)
-def test_canonical_exports_reject_broken_document_output(
-    tmp_path, monkeypatch, filename, mutate, message
-):
-    mutate_export(monkeypatch, filename, mutate)
-    with pytest.raises(AssertionError, match=message):
-        smoke.check_documents(tmp_path)
-
-
-def test_pixel_check_rejects_blank_output():
-    with pytest.raises(AssertionError, match="Wrong pixels"):
-        smoke.assert_pixels(Image.new("RGB", smoke.SIZE, "white"))
-
-
-def test_guidance_must_be_actionable():
-    def broken():
-        raise RuntimeError("module missing")
-
-    with pytest.raises(AssertionError, match="Unhelpful error"):
-        smoke.expect_guidance(broken, "quickthumb[pdf]")
-    with pytest.raises(AssertionError, match="Expected failure"):
-        smoke.expect_guidance(lambda: None, "quickthumb[pdf]")
-
-
-def test_core_guidance_names_each_missing_extra(tmp_path, monkeypatch):
-    # A None entry in sys.modules makes the import fail the way a missing extra does.
-    for module in ("reportlab", "pptx", "cairosvg"):
-        monkeypatch.setitem(sys.modules, module, None)
-    svg = tmp_path / "input.svg"
-    svg.write_text(
-        '<svg xmlns="http://www.w3.org/2000/svg" width="128" height="96"/>', encoding="utf-8"
-    )
-    assert set(smoke.core_guidance(tmp_path, svg)) == {"pdf", "pptx", "svg"}
-
-
-def test_core_rejects_installed_extras(tmp_path, monkeypatch):
-    # Test the guard, not simulated missing-dependency behavior. The CLI guidance is
-    # exercised only in the fresh core wheel environment.
-    monkeypatch.setattr(smoke.importlib.util, "find_spec", lambda name: object())
-    with pytest.raises(AssertionError, match="core needs absent extras"):
-        smoke.check_profile("core", tmp_path)
-
-
-def test_full_rejects_missing_extras(tmp_path, monkeypatch):
-    monkeypatch.setattr(smoke.importlib.util, "find_spec", lambda name: None)
-    with pytest.raises(AssertionError, match="full needs present extras"):
-        smoke.check_profile("full", tmp_path)
-
-
-def test_full_rejects_missing_ffmpeg(tmp_path, monkeypatch):
-    monkeypatch.setattr(smoke.shutil, "which", lambda name: None)
-    with pytest.raises(AssertionError, match="requires ffmpeg and ffprobe"):
-        smoke.check_full(tmp_path)
-
-
-FULL_EXTRAS = ("reportlab", "pptx", "cairosvg", "typer")
-requires_full = pytest.mark.skipif(
-    not all(importlib.util.find_spec(module) for module in FULL_EXTRAS)
-    or shutil.which("ffmpeg") is None
-    or shutil.which("ffprobe") is None,
-    reason="full profile needs the release extras, ffmpeg, and ffprobe",
-)
-
-FULL_MUTATIONS = [
-    pytest.param(
-        "deck.pdf",
-        lambda path: path.write_bytes(b"BAD" + path.read_bytes()[3:]),
-        "Invalid PDF envelope",
-        id="pdf-signature",
-    ),
-    pytest.param(
-        "deck.pdf",
-        lambda path: path.write_bytes(path.read_bytes().replace(b"%%EOF", b"")),
-        "Invalid PDF envelope",
-        id="pdf-eof",
-    ),
-    pytest.param("deck.pdf", _drop_pdf_page, "PDF page count", id="pdf-pages"),
-    pytest.param("deck.pptx", _drop_pptx_slide, "PPTX slide count", id="pptx-slides"),
-    pytest.param("deck.pptx", _strip_pptx_shapes, "PPTX lost native geometry", id="pptx-geometry"),
-    pytest.param(
-        "deck.mp4", lambda path: _trim_video(path, 0.3), "Video duration", id="mp4-duration"
-    ),
-    pytest.param(
-        "deck.webm", lambda path: _trim_video(path, 0.3), "Video duration", id="webm-duration"
-    ),
-]
-
-
-@requires_full
-def test_full_exports_pass_on_real_outputs(tmp_path):
-    results = smoke.check_full(tmp_path)
-    assert {"canvas.pdf", "deck.pdf", "deck.pptx", "deck.mp4", "deck.webm"} <= set(results)
-
-
-@requires_full
-@pytest.mark.parametrize(("filename", "mutate", "message"), FULL_MUTATIONS)
-def test_full_exports_reject_broken_output(tmp_path, monkeypatch, filename, mutate, message):
-    mutate_export(monkeypatch, filename, mutate)
-    with pytest.raises(AssertionError, match=message):
-        smoke.check_full(tmp_path)
-
-
-def test_profile_rejects_missing_console_entrypoint(tmp_path, monkeypatch):
-    monkeypatch.setattr(smoke.importlib.util, "find_spec", lambda name: object())
-    monkeypatch.setattr(smoke.sys, "executable", str(tmp_path / "python"))
-    with pytest.raises(AssertionError, match="console entry point is missing"):
-        smoke.check_profile("full", tmp_path)
-
-
-def test_missing_ffmpeg_ignores_inherited_override(tmp_path, monkeypatch):
-    # If the child inherited this override, quickthumb would use it and the export
-    # would not report ffmpeg as missing, so the isolation check would fail.
-    monkeypatch.setenv("QUICKTHUMB_FFMPEG", sys.executable)
-    assert smoke.check_missing_ffmpeg(tmp_path)["isolated_process"]
-
-
-def test_failed_check_writes_report_and_returns_nonzero(tmp_path, monkeypatch):
-    def broken(*args):
-        raise RuntimeError("broken wheel")
-
-    monkeypatch.setattr(smoke, "check_profile", broken)
-    monkeypatch.setattr(smoke, "check_documents", lambda *args: {"ran": True})
-    monkeypatch.setattr(smoke, "check_missing_ffmpeg", lambda *args: {"ran": True})
-    assert smoke.main(["--profile", "core", "--output", str(tmp_path)]) == 1
-    report = json.loads((tmp_path / "report.json").read_text(encoding="utf-8"))
-    assert report["status"] == "failed"
-    assert report["checks"][0]["error"] == "RuntimeError: broken wheel"
-    assert report["checks"][1]["status"] == "passed"
-    assert report["package_path"]
+def _rewrite_zip(path, edit):
+    with zipfile.ZipFile(path) as archive:
+        entries = [(info.filename, archive.read(info.filename)) for info in archive.infolist()]
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as archive:
+        for name, data in entries:
+            edited = edit(name, data)
+            if edited is not None:
+                archive.writestr(name, edited)
