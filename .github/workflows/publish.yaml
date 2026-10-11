@@ -51,12 +51,20 @@ jobs:
             echo "version_changed=false" >> "${GITHUB_OUTPUT}"
           fi
 
-      - name: Create Release
+      - name: Build package
         if: steps.version_check.outputs.version_changed == 'true'
-        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
-        with:
-          tag_name: ${{ steps.version_check.outputs.new_version }}
-          generate_release_notes: True
+        run: uv build
+
+      - name: Check installed wheel
+        if: steps.version_check.outputs.version_changed == 'true'
+        run: |
+          # Install only the built wheel into a clean Python 3.10 environment, with no extras.
+          venv="${RUNNER_TEMP}/wheel-check"
+          uv venv --python 3.10 "${venv}"
+          uv pip install --python "${venv}/bin/python" dist/*.whl
+
+          # -I ignores PYTHONPATH and user site-packages, so only the installed wheel can be imported.
+          "${venv}/bin/python" -I "${GITHUB_WORKSPACE}/scripts/check_installed_wheel.py"
 
       - name: mint API token
         id: mint-token
@@ -76,10 +84,17 @@ jobs:
           # see the next step in the workflow for an example of using this step output
           echo "api-token=${api_token}" >> "${GITHUB_OUTPUT}"
 
-      - name: Build and publish to PyPI
+      - name: Publish to PyPI
         if: steps.version_check.outputs.version_changed == 'true'
         env:
           UV_PUBLISH_TOKEN: ${{ steps.mint-token.outputs.api-token }}
-        run: |
-          uv build
-          uv publish --token "$UV_PUBLISH_TOKEN"
+        run: uv publish --token "$UV_PUBLISH_TOKEN"
+
+      # Create the release only after the upload succeeds. If the check or the upload fails,
+      # no tag is created, so the next run still sees a version change and publishes.
+      - name: Create Release
+        if: steps.version_check.outputs.version_changed == 'true'
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+        with:
+          tag_name: ${{ steps.version_check.outputs.new_version }}
+          generate_release_notes: True
