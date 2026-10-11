@@ -18,11 +18,13 @@ from quickthumb.errors import RenderingError, ValidationError
 from quickthumb.models import (
     AnimatedTextValue,
     AnimationSpec,
+    CubicBezierEasing,
     ExportDiagnostic,
     ExportPolicy,
     HexColor,
     KeyframeSpec,
     MotionCapabilityInspection,
+    MotionEasing,
     MotionEasingName,
     MotionEventInspection,
     MotionInspection,
@@ -222,22 +224,54 @@ def resolve_staggered_timelines(
     return tuple(expanded)
 
 
-def validate_easing_name(name: str | None) -> str:
-    """Validate and canonicalize a supported deterministic easing name."""
+# A named easing, a `CubicBezierEasing`, or its JSON mapping form. Names are typed
+# `str` rather than `MotionEasingName` so unknown names reach the validator.
+EasingValue = str | CubicBezierEasing | Mapping[str, object]
+BezierPoints = tuple[float, float, float, float]
+
+
+def _bezier_points(easing: CubicBezierEasing | Mapping[str, object]) -> BezierPoints:
+    """Return validated control points for a custom cubic-bezier easing."""
+    if isinstance(easing, CubicBezierEasing):
+        return easing.points
+    try:
+        return CubicBezierEasing.model_validate(easing).points
+    except PydanticValidationError as error:
+        raise ValidationError(f"invalid cubic_bezier easing: {error.errors()[0]['msg']}") from error
+
+
+def _dump_easing(easing: MotionEasing | None) -> str | dict[str, object] | None:
+    """Return an easing as a JSON-stable name or mapping."""
+    return easing.model_dump(mode="json") if isinstance(easing, CubicBezierEasing) else easing
+
+
+def validate_easing_name(name: EasingValue | None) -> str:
+    """Validate a supported deterministic easing name (or custom bezier).
+
+    Named easings are returned as-is; a custom `cubic_bezier` is validated and
+    reported as its type name. Use `easing_value` to evaluate either form.
+    """
     if name is None:
         return "linear"
-    if not isinstance(name, str) or name not in EASING_NAMES:
+    if not isinstance(name, str):
+        _bezier_points(name)
+        return "cubic_bezier"
+    if name not in EASING_NAMES:
         supported = ", ".join(sorted(EASING_NAMES))
         raise ValidationError(f"unknown easing {name!r}; expected one of: {supported}")
     return name
 
 
-def easing_value(name: str | None, progress: float) -> float:
+def easing_value(name: EasingValue | None, progress: float) -> float:
     """Return an eased progress for a finite normalized input."""
-    easing = validate_easing_name(name)
     if not math.isfinite(progress):
         raise ValidationError("easing progress must be finite")
     t = min(1.0, max(0.0, progress))
+    if name is not None and not isinstance(name, str):
+        # Validate once here rather than via `validate_easing_name` as well: this
+        # runs for every sampled frame of every track.
+        return _cubic_bezier(t, *_bezier_points(name))
+    easing = validate_easing_name(name)
     if easing == "linear":
         return t
     if easing == "ease":
@@ -316,6 +350,8 @@ class NormalizedKeyframe(BaseModel):
 
     time: float = Field(ge=0.0, allow_inf_nan=False)
     value: MotionValue
+    easing: MotionEasing | None = None
+    hold: bool = False
 
 
 class NormalizedTrack(BaseModel):
@@ -859,7 +895,7 @@ def _compile_spec(spec: AnimationSpec, composition: _CompositionCursor) -> Timel
     if effect is not None:
         tracks = _compile_preset_tracks(effect.type, options, duration)
     if spec.easing is not None:
-        options["easing"] = spec.easing
+        options["easing"] = _dump_easing(spec.easing)
     elif effect is not None:
         options["easing"] = _preset_easing(options)
     validate_easing_name(options.get("easing"))
@@ -1005,7 +1041,12 @@ def _normalize_track(track: TrackSpec) -> NormalizedTrack:
     return NormalizedTrack(
         property=track.type,
         keyframes=tuple(
-            NormalizedKeyframe(time=keyframe.time, value=_normalize_value(keyframe))
+            NormalizedKeyframe(
+                time=keyframe.time,
+                value=_normalize_value(keyframe),
+                easing=keyframe.easing,
+                hold=keyframe.hold,
+            )
             for keyframe in track.keyframes
         ),
     )
@@ -1098,7 +1139,7 @@ def _compose_track_value(
 
 
 def _sample_track(
-    track: NormalizedTrack, progress: float, duration: float, easing: str | None = None
+    track: NormalizedTrack, progress: float, duration: float, easing: EasingValue | None = None
 ) -> MotionValue:
     """Sample a local track at normalized event progress."""
     local_time = progress * duration
@@ -1108,8 +1149,12 @@ def _sample_track(
         return track.keyframes[-1].value
     for left, right in zip(track.keyframes, track.keyframes[1:], strict=True):
         if local_time <= right.time:
+            if left.hold:
+                # A hold steps to the next value only once the next keyframe is
+                # reached, so the boundary itself already shows the new value.
+                return right.value if local_time == right.time else left.value
             ratio = (local_time - left.time) / (right.time - left.time)
-            eased_ratio = easing_value(easing, ratio)
+            eased_ratio = easing_value(left.easing if left.easing is not None else easing, ratio)
             if track.property in {"opacity", "clip_progress", "color", "image_pan", "image_zoom"}:
                 eased_ratio = min(1.0, max(0.0, eased_ratio))
             return _interpolate(left.value, right.value, eased_ratio)
@@ -1575,7 +1620,12 @@ def _inspection_event(
             MotionTrackInspection(
                 type=track.property,
                 keyframes=[
-                    MotionKeyframeInspection(time=keyframe.time, value=keyframe.value)
+                    MotionKeyframeInspection(
+                        time=keyframe.time,
+                        value=keyframe.value,
+                        easing=keyframe.easing,
+                        hold=keyframe.hold,
+                    )
                     for keyframe in track.keyframes
                 ],
             )

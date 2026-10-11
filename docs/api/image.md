@@ -109,10 +109,10 @@ canvas.image(
 ### Preserve aspect ratio
 
 ```python
-# Only set width — height is calculated to preserve ratio
+# Only width: height keeps the image's proportions
 canvas.image(path="logo.png", position=(40, 40), width=200)
 
-# Only set height — width is calculated to preserve ratio
+# Only height: width keeps the image's proportions
 canvas.image(path="logo.png", position=(40, 40), height=80)
 ```
 

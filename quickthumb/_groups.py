@@ -175,7 +175,9 @@ class GroupEngine:
         elif isinstance(child, QRCodeLayer):
             self._visualizations.render_qr_code(image, child, time)
         elif isinstance(child, PluginLayer):
-            raise RenderingError("Plugin layer rendering is not available until the D2 runtime.")
+            raise RenderingError.plugin_layer_unsupported(
+                child.renderer, child.version, layer_id=child.id
+            )
 
     def _place_group_child(
         self,
@@ -303,7 +305,9 @@ class GroupEngine:
 
     def _measure_group_child_uncached(self, child: GroupChildLayer) -> tuple[int, int]:
         if isinstance(child, PluginLayer):
-            raise RenderingError("Plugin layer measurement is not available until the D2 runtime.")
+            raise RenderingError.plugin_layer_unsupported(
+                child.renderer, child.version, layer_id=child.id
+            )
         if isinstance(child, TextLayer):
             return self._text.measure_text_rendered_size(child)
         if isinstance(child, ImageLayer):

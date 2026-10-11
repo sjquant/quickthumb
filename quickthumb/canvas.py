@@ -1957,7 +1957,9 @@ class Canvas:
                 self._images,
             )
         elif isinstance(layer, PluginLayer):
-            raise RenderingError("Plugin layer rendering is not available until the D2 runtime.")
+            raise RenderingError.plugin_layer_unsupported(
+                layer.renderer, layer.version, layer_id=layer.id
+            )
         elif isinstance(layer, CustomLayer):
             self._render_custom_layer(image, layer)
 

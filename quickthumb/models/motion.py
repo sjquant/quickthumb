@@ -180,12 +180,45 @@ MotionEasingName = Literal[
 ]
 
 
+class CubicBezierEasing(_MotionModel):
+    """A custom CSS-style cubic-bezier easing curve.
+
+    `points` are the two control points `[x1, y1, x2, y2]`. The x coordinates
+    must stay within `[0, 1]` so time remains monotonic; y may overshoot.
+    """
+
+    type: Literal["cubic_bezier"] = "cubic_bezier"
+    points: tuple[
+        Annotated[float, Field(allow_inf_nan=False)],
+        Annotated[float, Field(allow_inf_nan=False)],
+        Annotated[float, Field(allow_inf_nan=False)],
+        Annotated[float, Field(allow_inf_nan=False)],
+    ]
+
+    @field_validator("points")
+    @classmethod
+    def validate_points(cls, points: tuple[float, float, float, float]):
+        if not (0.0 <= points[0] <= 1.0 and 0.0 <= points[2] <= 1.0):
+            raise ValueError("cubic_bezier x1 and x2 must be between 0.0 and 1.0")
+        return points
+
+
+MotionEasing = MotionEasingName | CubicBezierEasing
+
+
 class KeyframeSpec(_MotionModel):
-    """A property value at a non-negative point on an animation timeline."""
+    """A property value at a non-negative point on an animation timeline.
+
+    `easing` shapes the segment *leaving* this keyframe and falls back to the
+    animation's easing when omitted. `hold` keeps this value until the next
+    keyframe, then steps to it; a hold takes precedence over `easing`.
+    """
 
     type: Literal["keyframe"] = "keyframe"
     time: FiniteNonNegativeFloat
     value: Any
+    easing: MotionEasing | None = Field(default=None, exclude_if=lambda value: value is None)
+    hold: bool = Field(default=False, exclude_if=lambda value: value is False)
 
 
 class _TrackBase(_MotionModel):
@@ -390,7 +423,7 @@ class AnimationEffect(_MotionModel):
     )
     focal_point: FocalPoint | None = Field(default=None, exclude_if=lambda value: value is None)
     feel: Literal["gentle", "soft", "snappy", "dramatic", "minimal"] | None = None
-    easing: MotionEasingName | None = None
+    easing: MotionEasing | None = None
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -405,7 +438,7 @@ class AnimationSpec(_MotionModel):
     type: Literal["animation"] = "animation"
     effect: AnimationEffect | None = None
     tracks: list[TrackSpec] | None = None
-    easing: MotionEasingName | None = None
+    easing: MotionEasing | None = None
     timing: TimingSpec | None = None
     stagger: StaggerSpec | None = None
 
@@ -448,7 +481,7 @@ class AnimationSpec(_MotionModel):
         cls,
         *tracks: TrackSpec,
         timing: TimingSpec | None = None,
-        easing: MotionEasingName | None = None,
+        easing: MotionEasing | None = None,
     ) -> "AnimationSpec":
         """Build an advanced animation from typed property tracks."""
         return cls(tracks=list(tracks), timing=timing, easing=easing)

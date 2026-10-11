@@ -1,113 +1,78 @@
 ---
-description: Learn quickthumb's core model for canvases, ordered layers, coordinates, alignment, effects, fonts, rendering, and JSON specs.
+description: How quickthumb works: a canvas of ordered layers, positions and alignment, effects, rich text, auto layout, JSON specs, and validation.
 ---
 
 # Core Concepts
 
-## The canvas
+## A canvas is a list of layers
 
-A `Canvas` is the root object. It holds a width, height, and an ordered list of layers.
+A `Canvas` has a size and an ordered list of layers. Each layer method adds one
+layer and returns the canvas, so calls chain:
 
 ```python
 from quickthumb import Canvas
 
-canvas = Canvas(1280, 720)
-```
-
-All layer builder methods mutate the canvas and return `self`, so calls chain together naturally:
-
-```python
 canvas = (
     Canvas(1280, 720)
     .background(color="#0F172A")
     .text(content="Hello", size=64, color="#FFFFFF", align="center")
-    .outline(width=8, color="#22d3ee")
+    .outline(width=8, color="#22D3EE")
 )
+canvas.render("hello.png")
 ```
 
-## Layer order
-
-Layers render in call order. The first layer added is drawn at the back; each subsequent layer is drawn on top.
-
-```
-canvas.background(...)   ← backmost
-canvas.shape(...)
-canvas.image(...)
-canvas.text(...)
-canvas.outline(...)      ← frontmost
-```
-
-This is intentional — you build up the composition the same way you would describe it: background first, foreground last.
+Layers are drawn in the order you add them. The first one is at the back and
+the last one is on top, so you describe an image the way you would paint it:
+background first, details last.
 
 ## Layer types
 
-| Method | What it adds |
-| --- | --- |
-| `.background(...)` | Full-canvas background: solid color, gradient, or image |
-| `.text(...)` | Text with optional rich-text parts and effects |
-| `.image(...)` | Positioned overlay image or cutout |
-| `.shape(...)` | Positioned primitive: rectangle, ellipse, pill, triangle, star, or polygon |
-| `.svg(...)` | SVG icon or logo, rasterized at render time (requires `quickthumb[svg]`) |
-| `.group(...)` | Auto-layout container that stacks children along a row or column |
-| `.outline(...)` | Border drawn around the full canvas edge |
-| `.custom(fn)` | Callback that receives and returns a Pillow `Image` |
+| Method | Adds | Reference |
+| --- | --- | --- |
+| `.background()` | A full-canvas color, gradient, or image | [Background](api/background.md) |
+| `.text()` | Text, plain or as styled `TextPart`s | [Text](api/text.md) |
+| `.image()` | A placed image, optionally cut out of its background | [Image](api/image.md) |
+| `.shape()` | A rectangle, ellipse, pill, triangle, star, or polygon | [Shape](api/shape.md) |
+| `.svg()` | An SVG file such as an icon or logo (needs the `svg` extra) | [SVG](api/svg.md) |
+| `.video()` | A video clip, for animated exports | [Video](api/video.md) |
+| `.chart()`, `.qr_code()` | A bar or line chart, or a QR code | [Data visualizations](api/data-visualizations.md) |
+| `.counter()` | A number that counts from one value to another | [Canvas](api/canvas.md) |
+| `.group()` | A row or column that positions its children for you | [Group](api/group.md) |
+| `.outline()` | A border around the edge of the canvas | [Outline](api/outline.md) |
+| `.custom(fn)` | Your own function that draws on the Pillow image | [Canvas](api/canvas.md) |
 
-## Positioning
+## Position and alignment
 
-Image and shape layers require a `position` argument — a 2-tuple of `(x, y)`.
-
-Values can be integers (pixels) or percentage strings:
+`position` is an `(x, y)` pair. Each value is pixels or a percentage of the
+canvas, and you can mix them:
 
 ```python
-# Pixels
 canvas.shape(shape="rectangle", position=(64, 64), width=200, height=80, color="#CC0000")
-
-# Percentages
-canvas.image(path="portrait.png", position=("75%", "55%"), width=420, height=520)
-
-# Mix
-canvas.text(content="Hello", size=72, color="#fff", position=("8%", 360))
+canvas.text(content="Hello", size=72, color="#FFFFFF", position=("8%", 360))
 ```
 
-The `align` parameter controls which point of the layer the position refers to:
+`align` says which point of the layer sits at that position. By default it is
+the top-left corner. `align=("center", "middle")` puts the layer's center
+there instead, and `align=("right", "bottom")` with `position=(1280, 720)`
+pins a layer to the bottom-right corner of a 1280×720 canvas whatever its
+size.
+
+`align` accepts several spellings of the same thing:
 
 ```python
-# Position refers to the top-left corner of the element
-canvas.shape(..., position=(64, 64), align=("left", "top"))
-
-# Position refers to the center of the element
-canvas.image(..., position=("75%", "55%"), align=("center", "middle"))
+align=("center", "middle")      # (horizontal, vertical)
+align="center"                  # same as ("center", "middle")
+align="bottom-right"
+align=Align.BOTTOM_RIGHT
 ```
 
-## Alignment
-
-`align` accepts several forms:
-
-```python
-align="center"                  # shorthand string
-align="top-left"                # compound string
-align=("center", "middle")      # (horizontal, vertical) tuple
-align=Align.BOTTOM_RIGHT        # enum value
-```
-
-Horizontal values: `left`, `center`, `right`
-Vertical values: `top`, `middle`, `bottom`
-
-For text, `align` without a `position` centers the text on the canvas.
+Horizontal values are `left`, `center`, and `right`; vertical values are
+`top`, `middle`, and `bottom`. A text layer with `align` but no `position` is
+placed on the canvas by its alignment, so `align="center"` centers it.
 
 ## Effects
 
-Effects are modifiers applied to a layer. Each layer type accepts a specific set:
-
-| Layer | Available effects |
-| --- | --- |
-| Background | `Filter`, `Grain` |
-| Text | `Stroke`, `Shadow`, `Glow`, `Background` |
-| Image | `Stroke`, `Shadow`, `Glow`, `Filter`, `Grain` |
-| Shape | `Stroke`, `Shadow`, `Glow` |
-| SVG | `Stroke`, `Shadow`, `Glow`, `Filter` |
-
-Pass effects as a list:
+Effects change how one layer is drawn. Pass them as a list:
 
 ```python
 from quickthumb import Shadow, Stroke
@@ -123,138 +88,75 @@ canvas.text(
 )
 ```
 
-### Stroke
+Not every effect makes sense on every layer:
 
-Draws an outline around text, images, or shapes.
+| Layer | Effects |
+| --- | --- |
+| Background | `Filter`, `Grain` |
+| Text | `Stroke`, `Shadow`, `Glow`, `Background` (a box behind the text) |
+| Shape | `Stroke`, `Shadow`, `Glow`, `InnerShadow`, `BackdropBlur` |
+| Image, SVG, video | `Stroke`, `Shadow`, `Glow`, `Filter`, `Grain`, `Duotone`, `InnerShadow`, `BackdropBlur` |
 
-```python
-Stroke(width=4, color="#000000")
-```
-
-### Shadow
-
-Adds a drop shadow.
-
-```python
-Shadow(offset_x=4, offset_y=8, color="#000000", blur_radius=12)
-```
-
-### Glow
-
-Adds a colored halo effect.
-
-```python
-Glow(color="#B8FF00", radius=16, opacity=0.35)
-```
-
-### Filter
-
-Applies image processing to backgrounds or image layers.
-
-```python
-Filter(blur=4, brightness=0.75, contrast=1.1, saturation=0.9)
-```
-
-All `Filter` parameters default to neutral (no effect) — only set what you want to adjust.
-
-### Grain
-
-Adds film-grain noise to a background or image layer.
-
-```python
-Grain(intensity=0.08, monochrome=True, seed=7)
-```
-
-Pass a `seed` for deterministic output. See the [Effects reference](api/effects.md#grain) for all parameters.
-
-### Background (text effect)
-
-Draws a filled rectangle behind a text block.
-
-```python
-from quickthumb import Background
-
-canvas.text(
-    content="BREAKING",
-    size=64,
-    color="#FFFFFF",
-    effects=[Background(color="#CC000099", padding=(12, 20), border_radius=8)],
-)
-```
+Passing an effect a layer doesn't support raises `ValidationError`. The
+[Effects reference](api/effects.md) lists every parameter.
 
 ## Rich text
 
-Plain strings work fine for uniform text. Use `TextPart` for per-segment styling:
+A plain string is enough when all the text looks the same. To style parts of
+it differently, pass a list of `TextPart`s:
 
 ```python
 from quickthumb import TextPart
 
 canvas.text(
     content=[
-        TextPart(text="5 ", color="#FBBF24", weight=900),
-        TextPart(text="WAYS TO WIN", color="#FFFFFF", weight=900),
+        TextPart(text="5 ", color="#FBBF24"),
+        TextPart(text="WAYS TO WIN", color="#FFFFFF"),
     ],
     size=80,
+    weight=900,
     position=("8%", "55%"),
     align=("left", "middle"),
 )
 ```
 
-Each `TextPart` can override `color`, `size`, `font`, `weight`, `bold`, `italic`, `letter_spacing`, `line_height`, and `effects`.
+Settings on the layer (`size`, `weight` here) apply to every part unless the
+part sets its own. A part can override `color`, `size`, `font`, `weight`,
+`bold`, `italic`, `letter_spacing`, `line_height`, and `effects`.
 
-## Blend modes
+## Gradients, blend modes, and fit
 
-Background and image layers support blend modes for compositing:
-
-```python
-canvas.background(
-    image="texture.jpg",
-    blend_mode="multiply",   # or: overlay, screen, darken, lighten, normal
-)
-```
-
-The blend is applied when compositing this layer over the layers drawn before it.
-
-## Gradients
+Backgrounds take a `gradient` as well as a color or an image:
 
 ```python
 from quickthumb import LinearGradient, RadialGradient
 
-# Linear: angle in degrees, stops as (color, position) tuples
-LinearGradient(
-    angle=135,
-    stops=[("#FF5733", 0.0), ("#3333FF", 1.0)],
-)
-
-# Radial: center as (x, y) fractions (0.0–1.0)
-RadialGradient(
-    stops=[("#FF5733", 0.0), ("#3333FF", 1.0)],
-    center=(0.5, 0.5),
-)
+canvas.background(gradient=LinearGradient(angle=135, stops=[("#FF5733", 0.0), ("#3333FF", 1.0)]))
+canvas.background(gradient=RadialGradient(center=(0.5, 0.5), stops=[("#FF5733", 0.0), ("#3333FF", 1.0)]))
 ```
 
-Pass a gradient to `.background(gradient=...)`.
+Colors in stops can include alpha (`"#00000080"`), which is how you darken
+part of a photo behind text.
 
-## Fit modes
+`blend_mode` on a background or image layer sets how it combines with what is
+underneath: `normal`, `multiply`, `screen`, `overlay`, `darken`, or `lighten`.
 
-When an image or background image has explicit width and height dimensions set, `fit` controls how the image is scaled into that box:
+`fit` sets how an image fills its box: `cover` fills it and crops the excess
+(the default for backgrounds), `contain` fits the whole image inside, and
+`fill` stretches it.
 
-| Value | Behavior |
-| --- | --- |
-| `cover` | Fill the box, cropping if needed (default for backgrounds) |
-| `contain` | Fit entirely inside the box, leaving empty space |
-| `fill` | Stretch to fill exactly, ignoring aspect ratio |
+## Auto layout
 
-## Auto layout with groups
-
-Hand-placed coordinates break when copy changes. A `group` layer measures its children and stacks them along a row or column — you anchor the whole group once with `position` + `align`, and the group assigns every child's position:
+Text that is placed by hand breaks when the copy gets longer. A `group`
+measures its children and stacks them in a row or column; you place the group
+once and it places the children:
 
 ```python
 canvas.group(
     children=[
         {"type": "shape", "shape": "pill", "width": 120, "height": 36, "color": "#E94560"},
         {"type": "text", "content": "AUTO LAYOUT", "size": 96, "color": "#FFFFFF", "weight": 900},
-        {"type": "text", "content": "No coordinates were harmed", "size": 40, "color": "#A2A8D3"},
+        {"type": "text", "content": "Longer copy pushes the rest down", "size": 40, "color": "#A2A8D3"},
     ],
     direction="column",
     gap=24,
@@ -263,11 +165,24 @@ canvas.group(
 )
 ```
 
-Children must not set their own `position`, and groups can nest (a column containing a row, etc.). See the [Group reference](api/group.md).
+Children don't set a `position`, and groups can contain groups. See
+[Group](api/group.md).
 
-## Theme tokens (JSON specs)
+## JSON specs
 
-JSON specs can define brand tokens once in a top-level `theme` block and reference them anywhere with `$theme.path`:
+Everything above can be written as JSON instead of Python, and a canvas
+converts both ways:
+
+```python
+spec = canvas.to_json()
+same_canvas = Canvas.from_json(spec)
+```
+
+The only exception is `.custom(fn)`, because a Python function can't be stored
+as JSON.
+
+JSON specs can also define colors and sizes once in a `theme` block and refer
+to them as `$theme.<path>`:
 
 ```json
 {
@@ -281,34 +196,27 @@ JSON specs can define brand tokens once in a top-level `theme` block and referen
 }
 ```
 
-Tokens are resolved at parse time; unknown tokens raise `ValidationError`. See [Theme tokens](json-schema.md#theme-tokens).
+See [JSON Schema & AI Workflow](json-schema.md).
 
-## Diagnostics
+## Errors and checks
 
-`canvas.diagnose()` checks a composition for common problems — layers outside the canvas, illegibly small text, unwrappable or clipped text, missing glyphs, hidden or overlapping layers, safe-area crowding, and low text contrast — without writing a file. The CLI equivalents are `quickthumb lint spec.json` and `quickthumb diagnose spec.json`. See [Diagnostics & CLI](diagnostics.md).
-
-## JSON round-trip
-
-Any canvas that uses only built-in layer types can be serialized and deserialized:
-
-```python
-json_str = canvas.to_json()
-canvas2  = Canvas.from_json(json_str)
-```
-
-`canvas.custom(fn)` layers are intentionally excluded — callbacks cannot be represented in JSON.
-
-## Validation
-
-quickthumb validates all inputs at construction time using Pydantic. Invalid values raise `ValidationError` immediately, before any rendering occurs.
+Arguments are validated when you add a layer, before anything is drawn:
 
 ```python
 from quickthumb import ValidationError
 
 try:
-    canvas.text(content="", size=64, color="#fff")  # empty content
-except ValidationError as e:
-    print(e)
+    canvas.text(content="Hello", size=64, color="#FFF")
+except ValidationError as error:
+    print(error)  # /color: invalid hex color: #FFF
 ```
 
-Rendering errors (failed downloads, unsupported formats) raise `RenderingError` when `.render()`, `.to_base64()`, or `.to_data_url()` is called; missing local files raise `MissingAssetError`. Every error exposes structured `details` — see [Structured Errors](errors.md).
+Problems that only show up while drawing, such as a failed download, raise
+`RenderingError`, and a local file that doesn't exist raises
+`MissingAssetError`. Every error carries structured `details`; see
+[Structured Errors](errors.md).
+
+A canvas can be valid and still look wrong. `canvas.diagnose()` looks for
+text that is too small or runs off the canvas, low contrast, layers hidden by
+other layers, and similar problems, without rendering a file. See
+[Diagnostics & CLI](diagnostics.md).

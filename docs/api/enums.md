@@ -56,7 +56,7 @@ from quickthumb import BlendMode
 
 | Enum | String alias | Effect |
 | --- | --- | --- |
-| `BlendMode.NORMAL` | `"normal"` | No blending — layer drawn on top |
+| `BlendMode.NORMAL` | `"normal"` | No blending; the layer is drawn on top |
 | `BlendMode.MULTIPLY` | `"multiply"` | Darkens by multiplying color values |
 | `BlendMode.OVERLAY` | `"overlay"` | Combines multiply and screen |
 | `BlendMode.SCREEN` | `"screen"` | Lightens by inverting, multiplying, and inverting again |

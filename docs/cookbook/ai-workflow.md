@@ -1,187 +1,145 @@
 ---
-description: Generate reliable quickthumb JSON specs with LLMs, validate them, render images, and iterate on AI-assisted thumbnail workflows.
+description: Have an LLM write quickthumb JSON specs, validate and lint them, feed errors back, and render the result.
 ---
 
 # AI Workflow
 
-quickthumb is designed to be a reliable target for LLM-generated image specs. This recipe walks through a full end-to-end workflow: writing a prompt, getting output, rendering it, and iterating.
+An LLM is good at writing a layout as JSON and bad at guessing field names.
+quickthumb fits this well: the spec has a published JSON Schema, a bad spec
+fails with errors that point at the exact field, and a valid spec can be
+checked for layout problems before you render it.
 
-## Why quickthumb works well with AI
+The loop looks like this:
 
-- The schema is flat and typed — no nested ambiguity
-- Every layer has a required `type` discriminator
-- `ValidationError` gives specific field-level messages before any rendering
-- The same spec can be round-tripped from JSON to Python and back
-- Output is deterministic — the same spec always produces the same image
+1. Give the model the schema and describe the image you want.
+2. Load its answer with `Canvas.from_json()`. If it fails, send the errors back.
+3. Run `diagnose()`. If it finds problems, send those back too.
+4. Render.
 
-## Workflow overview
+## 1. Give the model the schema
 
+Export the schema once:
+
+```bash
+quickthumb schema --output quickthumb.schema.json
 ```
-1. Write a prompt describing the layout
-2. Model outputs quickthumb JSON or Python
-3. Validate locally (ValidationError catches bad specs immediately)
-4. Render to a PNG file
-5. Review and iterate with targeted instructions
-```
 
-## Step 1 — Write a prompt
+or from Python with `canvas_json_schema()`. It is large (about 100 KB), so the
+best use is as the response schema in your provider's structured-output or
+tool-calling feature, which stops the model from inventing fields at all. If
+you put it in the prompt instead, the `layers` and `effects` definitions are
+the parts that matter.
 
-### For JSON output
+A prompt along these lines works:
 
 ```text
-Generate a quickthumb JSON config for a 1280×720 YouTube thumbnail.
+Write a quickthumb canvas spec as JSON, following the attached schema.
 
-Schema rules:
-- Top-level fields: "kind": "canvas", "width", "height", "layers"
-- Every layer must have a "type": "background" | "text" | "image" | "shape" | "outline"
-- Every effect must have a "type": "stroke" | "shadow" | "glow" | "filter" | "background"
-- Positions are [x, y] JSON arrays — values can be integers (px) or percentage strings ("50%")
-- Colors are hex strings: "#RRGGBB" or "#RRGGBBAA"
-- Layers render bottom-to-top in array order
+Canvas: 1280×720 YouTube thumbnail.
+- Dark navy background (#0F172A).
+- Left-aligned two-line headline: "AI-GENERATED" in cyan (#22D3EE),
+  "THUMBNAILS" in white, 96px, weight 900.
+- Cyan outline around the canvas, 12px.
 
-Layout:
-- Dark background photo with a semi-transparent black overlay
-- Bold left-aligned white headline with stroke and shadow effects
-- Subject photo on the right (use a placeholder path "portrait.png")
-- Cyan (#22d3ee) outline border, width 12
-
-Return only the JSON object. No explanation, no markdown fencing.
+Use percentage strings like "8%" for positions. Return only the JSON.
 ```
 
-### For Python output
-
-```text
-Generate quickthumb Python code for a 1280×720 YouTube thumbnail.
-
-Available imports:
-  from quickthumb import (
-      Canvas, Filter, LinearGradient, RadialGradient,
-      Background, Shadow, Stroke, Glow, TextPart,
-      Align, BlendMode, FitMode,
-  )
-
-Rules:
-- Use Canvas.from_aspect_ratio("16:9", base_width=1280)
-- Chain all layer calls on one canvas object
-- Text on the left at position ("8%", "50%"), align=("left", "middle")
-- Subject image on the right at position ("74%", "54%"), align=("center", "middle")
-- Use high-contrast typography: Stroke + Shadow on all text
-- End with canvas.render("thumbnail.png")
-
-Return only the Python code block.
-```
-
-## Step 2 — Validate before rendering
-
-For JSON specs, parse and validate before rendering to catch errors early:
-
-```python
-from quickthumb import Canvas, ValidationError
-
-spec = """{ "width": 1280, ... }"""
-
-try:
-    canvas = Canvas.from_json(spec)
-    print("Spec is valid")
-except ValidationError as e:
-    print(f"Invalid spec: {e}")
-```
-
-`ValidationError` messages name the JSON Pointer and layer id of the failing field:
-
-```
-/layers/2/effects/0/width (layer 'headline'): Input should be greater than 0
-```
-
-For programmatic retries, read `e.details`: each entry has a stable `code`, `path`,
-`layer_id`, and optional `suggestion`. See [Structured Errors](../errors.md).
-
-## Step 3 — Render
-
-```python
-canvas.render("preview.png")
-```
-
-For quick iteration, render to a data URL and display in a Jupyter notebook:
-
-```python
-from IPython.display import Image
-import base64
-
-data_url = canvas.to_data_url(format="PNG")
-b64 = data_url.split(",", 1)[1]
-Image(data=base64.b64decode(b64))
-```
-
-## Step 4 — Iterate
-
-Instead of regenerating the whole spec, give the model the current spec and a specific change:
-
-```text
-Here is my current quickthumb JSON spec:
-
-<paste spec>
-
-Change the outline color from "#22d3ee" to "#B8FF00" and increase the headline font
-size from 88 to 104. Return only the updated JSON.
-```
-
-Or for layout changes:
-
-```text
-Move the subject image from position ["74%", "54%"] to ["78%", "52%"] and increase
-its height from 520 to 580. Keep everything else identical. Return only the JSON.
-```
-
-## Full example: JSON round-trip
+## 2. Load it, and send back errors
 
 ```python
 import json
 from quickthumb import Canvas, ValidationError
 
-# Spec from an AI agent (or written by hand)
-spec = {
-    "width": 1280,
-    "height": 720,
-    "layers": [
-        {"type": "background", "color": "#0F172A"},
-        {"type": "background", "color": "#000000", "opacity": 0.4},
-        {
-            "type": "text",
-            "content": [
-                {"text": "AI-GENERATED\n", "color": "#22d3ee", "weight": 900, "effects": []},
-                {"text": "THUMBNAILS", "color": "#FFFFFF", "weight": 900, "effects": []}
-            ],
-            "size": 96,
-            "position": ["8%", "50%"],
-            "align": "left",
-            "effects": [
-                {"type": "stroke", "width": 4, "color": "#000000"},
-                {"type": "shadow", "offset_x": 4, "offset_y": 4, "color": "#000000", "blur_radius": 8}
-            ]
-        },
-        {"type": "outline", "width": 12, "color": "#22d3ee"}
-    ]
+spec = """
+{
+  "kind": "canvas",
+  "width": 1280,
+  "height": 720,
+  "layers": [
+    {"type": "background", "color": "#0F172A"},
+    {
+      "type": "text",
+      "id": "headline",
+      "content": [
+        {"text": "AI-GENERATED\\n", "color": "#22D3EE"},
+        {"text": "THUMBNAILS", "color": "#FFFFFF"}
+      ],
+      "font": "Inter",
+      "font_source": "google",
+      "size": 96,
+      "weight": 900,
+      "position": ["8%", "50%"],
+      "align": ["left", "middle"]
+    },
+    {"type": "outline", "width": 12, "color": "#22D3EE"}
+  ]
 }
+"""
 
 try:
-    canvas = Canvas.from_json(json.dumps(spec))
-    canvas.render("ai_thumbnail.png")
-    print("Rendered successfully")
-except ValidationError as e:
-    print(f"Fix this and retry: {e}")
+    canvas = Canvas.from_json(spec)
+except ValidationError as error:
+    feedback = [
+        f"{detail.path}: {detail.message}" + (f" ({detail.suggestion})" if detail.suggestion else "")
+        for detail in error.details
+    ]
+    # Send `feedback` back to the model and ask for a corrected spec.
+    raise
 ```
 
-## Tips for reliable AI output
+Each entry in `error.details` has the JSON Pointer of the field (`path`), the
+layer's `id` if it has one, a stable `code`, and sometimes a `suggestion`.
+Giving each layer an `id` makes the messages easier for the model to act on:
 
-**Provide the layer schema explicitly.** Models hallucinate field names when working from memory. Including the layer types and effect types in the prompt reduces errors significantly.
+```text
+/layers/1/size (layer 'headline'): Input should be greater than 0
+```
 
-**Use JSON over Python for agent workflows.** JSON is easier to validate, diff, and store. Python code requires a safe execution environment.
+See [Structured Errors](../errors.md) for the full list of codes.
 
-**One change at a time.** Rather than asking the model to redesign the whole layout, ask for one specific change. The spec stays mostly stable; only the target field changes.
+## 3. Check the layout
 
-**Validate before rendering.** Always call `Canvas.from_json()` before rendering. It's fast, catches all schema errors, and returns a specific error message you can forward back to the model.
+A spec can be valid and still look wrong: text too small to read, a word that
+runs off the edge, white text on a light photo. `diagnose()` catches these:
 
-**Use percentage positions.** Percentage strings like `"50%"` are more portable and easier for models to reason about than pixel coordinates that depend on knowing the canvas size.
+```python
+findings = canvas.diagnose().findings
+for finding in findings:
+    print(finding.severity, finding.code, finding.message)
+```
 
-**Keep specs in files.** Store each version of a spec as a `.json` file. This lets you roll back, diff between versions, and reuse specs across projects.
+```text
+warning low-contrast text worst-tile contrast ratio 1.04 against the layers below it is under 2.0; the text may be hard to read
+```
+
+Send the findings back the same way as validation errors. See
+[Diagnostics & CLI](../diagnostics.md) for every check.
+
+## 4. Render
+
+```python
+canvas.render("thumbnail.png")
+```
+
+## Asking for changes
+
+Once you have a spec you like, ask for edits instead of a new design. Send the
+current spec and one specific change:
+
+```text
+Here is the current spec:
+
+<spec>
+
+Change the outline color to #B8FF00 and the headline size to 104.
+Keep everything else the same. Return only the JSON.
+```
+
+Small edits keep the rest of the layout stable, and a diff of the two JSON
+files shows exactly what the model changed.
+
+## Why JSON rather than Python
+
+Models can write quickthumb Python too, but you then have to run generated
+code. A JSON spec is data: you can validate it, store it, diff it, and render
+it without executing anything the model wrote.

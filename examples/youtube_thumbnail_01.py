@@ -1,10 +1,9 @@
 """
-YouTube Thumbnail Example
+YouTube thumbnail: before / after cards.
 
-Creates an eye-catching YouTube-style thumbnail with:
-- Background image (rainy/bokeh effect)
-- Bold headline with rich text (brand name highlighted)
-- Bright neon green border
+- Photo background, darkened on the left by a horizontal gradient
+- Three-line headline built from TextParts with different sizes and colors
+- Two rotated cards (rectangle + stroke, plus a shadow on the front one)
 """
 
 import os
@@ -20,14 +19,11 @@ os.environ["QUICKTHUMB_DEFAULT_FONT"] = "Roboto"
 # Create 16:9 YouTube thumbnail (1280x720) with method chaining
 (
     Canvas.from_aspect_ratio("16:9", 1280)
-    # Add background image (placeholder - you'll add your own image here)
-    # For now, using a dark background as placeholder
     .background(
         image=os.path.join(ASSETS_DIR, "images", "c-g-JgDUVGAXsso-unsplash.jpg"),
         effects=[Filter(brightness=0.76, contrast=1.08, saturation=0.5)],
     )
-    # Add a semi-transparent overlay to darken the background
-    # This helps text stand out better
+    # Darken the left side so the headline reads over the photo
     .background(
         gradient=LinearGradient(
             angle=90,

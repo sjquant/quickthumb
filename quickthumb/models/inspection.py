@@ -12,6 +12,7 @@ from pydantic import (
 )
 
 from .common import *  # noqa: F401,F403
+from .motion import MotionEasing
 from .options import ExportDiagnostic
 
 
@@ -102,6 +103,8 @@ class MotionKeyframeInspection(quickthumbModel):
 
     time: float
     value: Any
+    easing: MotionEasing | None = Field(default=None, exclude_if=lambda value: value is None)
+    hold: bool = Field(default=False, exclude_if=lambda value: value is False)
 
 
 class MotionTrackInspection(quickthumbModel):
