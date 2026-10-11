@@ -87,39 +87,10 @@ jobs:
           uv venv --python 3.10 "${RUNNER_TEMP}/wheel-check"
           uv pip install --python "${RUNNER_TEMP}/wheel-check/bin/python" dist/*.whl
 
-          # Run from outside the checkout so the source tree cannot shadow the installed package.
+          # Run from outside the checkout; the script path is resolved before the directory change.
+          check_script="${PWD}/scripts/check_installed_wheel.py"
           cd "${RUNNER_TEMP}"
-          "${RUNNER_TEMP}/wheel-check/bin/python" - <<'PY'
-          import tempfile
-          from pathlib import Path
-
-          import quickthumb
-          from quickthumb import Canvas
-          from quickthumb.errors import RenderingError
-
-          assert "wheel-check" in quickthumb.__file__, quickthumb.__file__
-
-          with tempfile.TemporaryDirectory() as directory:
-              output = Path(directory)
-              canvas = Canvas(128, 96).background(color="#ff0000")
-              canvas.export(output / "wheel.png")
-              assert (output / "wheel.png").stat().st_size > 0
-
-              # HTML export reads the packaged templates and assets, so a wheel missing them fails here.
-              canvas.export(output / "wheel.html")
-              html = (output / "wheel.html").read_text(encoding="utf-8")
-              assert "qt-stage" in html and "{{" not in html, "HTML export lost packaged assets"
-
-              # Without the pdf extra, export must fail with the install hint.
-              try:
-                  canvas.export(output / "wheel.pdf")
-              except RenderingError as error:
-                  assert "quickthumb[pdf]" in str(error), str(error)
-              else:
-                  raise SystemExit("PDF export succeeded without the pdf extra")
-
-          print("installed wheel: PNG and HTML export work and missing extras report their install hint")
-          PY
+          "${RUNNER_TEMP}/wheel-check/bin/python" "${check_script}"
 
       - name: Publish to PyPI
         if: steps.version_check.outputs.version_changed == 'true'
