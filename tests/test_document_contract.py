@@ -1,10 +1,12 @@
 """Black-box specifications for the shared document contract."""
 
 import json
+from io import BytesIO
 from pathlib import Path
 
 import pytest
 from PIL import Image
+from PIL.GifImagePlugin import GifImageFile
 from quickthumb import (
     AnimationSpec,
     BlurTrack,
@@ -146,6 +148,97 @@ def test_export_uses_html_aliases_and_explicit_raster_format(tmp_path: Path):
     assert raster_result.output_format == "png"
 
 
+@pytest.fixture(params=["canvas", "deck"])
+def static_document(request):
+    canvas = Canvas(32, 24).background(color="#123456")
+    if request.param == "canvas":
+        return canvas
+    return Deck(slides=[canvas, Canvas(32, 24).background(color="#654321")])
+
+
+def test_canvas_export_writes_the_same_pixels_as_render(tmp_path: Path):
+    """Given a static canvas, export() writes the pixels render() writes for the same format."""
+    # Given: a static canvas
+    canvas = Canvas(32, 24).background(color="#123456")
+
+    # When: it is written through both entry points
+    rendered = canvas.render(str(tmp_path / "specialist.png"))
+    result = canvas.export(tmp_path / "shared.png")
+
+    # Then: render() returns nothing and export() reports one identical image
+    assert rendered is None
+    assert result.written_paths == [str(tmp_path / "shared.png")]
+    assert_same_pixels(str(tmp_path / "specialist.png"), result.written_paths[0])
+
+
+def test_deck_export_writes_the_same_numbered_slides_as_render(tmp_path: Path):
+    """Given a two-slide deck, export() writes numbered slides matching render() output."""
+    # Given: a deck whose slides differ in color
+    deck = Deck(
+        slides=[
+            Canvas(32, 24).background(color="#123456"),
+            Canvas(32, 24).background(color="#654321"),
+        ]
+    )
+
+    # When: it is written through both entry points
+    rendered = deck.render(str(tmp_path / "specialist.png"))
+    result = deck.export(tmp_path / "shared.png")
+
+    # Then: both list numbered files, and each slide pair has identical pixels
+    assert rendered == [str(tmp_path / f"specialist_{index:02}.png") for index in (1, 2)]
+    assert result.written_paths == [str(tmp_path / f"shared_{index:02}.png") for index in (1, 2)]
+    for specialist, shared in zip(rendered, result.written_paths, strict=True):
+        assert_same_pixels(specialist, shared)
+
+
+def test_html_export_writes_the_markup_from_to_html(static_document, tmp_path: Path):
+    """Given a canvas or deck, an .html export writes exactly the markup to_html() returns."""
+    # Given: the in-memory HTML for the document
+    markup = static_document.to_html()
+
+    # When: the document is exported to an HTML file
+    result = static_document.export(tmp_path / "shared.html")
+
+    # Then: the written file holds the same markup
+    assert result.written_paths == [str(tmp_path / "shared.html")]
+    assert Path(result.written_paths[0]).read_text(encoding="utf-8") == markup
+
+
+def test_gif_export_matches_to_gif_frames_and_timing(static_document, tmp_path: Path):
+    """Given a canvas or deck, a .gif export has the frames, durations, and loop of to_gif()."""
+    # Given: the in-memory GIF for the document
+    payload = static_document.to_gif()
+
+    # When: the document is exported to a GIF file
+    result = static_document.export(tmp_path / "shared.gif")
+
+    # Then: every frame, its duration, and the loop count match, as does the reported count
+    with Image.open(BytesIO(payload)) as expected, Image.open(result.written_paths[0]) as actual:
+        assert isinstance(expected, GifImageFile)
+        assert isinstance(actual, GifImageFile)
+        assert expected.n_frames == actual.n_frames == result.pixel_metrics.frame_count
+        for index in range(expected.n_frames):
+            expected.seek(index)
+            actual.seek(index)
+            assert expected.convert("RGBA").tobytes() == actual.convert("RGBA").tobytes()
+            assert expected.info.get("duration") == actual.info.get("duration")
+        assert expected.info.get("loop") == actual.info.get("loop")
+
+
+def test_canvas_svg_export_writes_the_markup_from_to_svg(tmp_path: Path):
+    """Given a canvas, an .svg export writes exactly the markup to_svg() returns."""
+    # Given: a static canvas
+    canvas = Canvas(32, 24).background(color="#123456")
+
+    # When: it is exported to an SVG file
+    result = canvas.export(tmp_path / "card.svg")
+
+    # Then: the written file holds the same markup
+    assert result.output_format == "svg"
+    assert Path(result.written_paths[0]).read_text(encoding="utf-8") == canvas.to_svg()
+
+
 def test_policy_errors_fail_before_writing_output(tmp_path: Path):
     """Given an error export policy, unsupported motion fails before an output exists."""
     # Given: motion that PPTX cannot represent natively
@@ -275,3 +368,9 @@ def test_diagnostic_serialization_honors_exclude_none():
     # Then: the option is observable in the JSON-safe result
     assert "slide_index" not in compact["findings"][0]
     assert "slide_index" in expanded["findings"][0]
+
+
+def assert_same_pixels(expected_path: str, actual_path: str) -> None:
+    with Image.open(expected_path) as expected, Image.open(actual_path) as actual:
+        assert expected.size == actual.size
+        assert expected.convert("RGBA").tobytes() == actual.convert("RGBA").tobytes()
