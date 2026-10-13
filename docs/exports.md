@@ -77,13 +77,15 @@ support boundary.
 | `to_pdf(...)`, `to_pptx(...)`, `to_gif(...)`, `to_mp4(...)`, `to_webm(...)` | `bytes` | `bytes` | You manage the destination and need format-specific controls |
 | `to_svg(embed_fonts=...)` | SVG `str` | Not available | You need one SVG per canvas, optionally with embedded fonts |
 
-Specialist methods do not return the shared result envelope and do not all run
-the same preflight or accept the same policy/options. Use `validate_export()`
-to inspect motion capabilities before a specialist export; use `export()` when
-you need the shared preflight and reporting. Neither path promises pixel
-identity across different formats, viewers, fonts, or rendering environments.
-Currently `pixel_metrics` reports dimensions and frame count, not a fidelity
-score; absent difference measurements are not proof of a match.
+Specialist methods do not return the shared result envelope. `render()` and
+several `to_*()` methods accept `policy=` and apply it to their renderer (for
+example `reduced_motion`), but only `export()` enforces capability rules such as
+`unsupported_motion="error"`, failing before any file is written. Use
+`validate_export()` to inspect motion capabilities before a specialist export.
+Neither path promises pixel identity across different formats, viewers, fonts,
+or rendering environments. Currently `pixel_metrics` reports dimensions and
+frame count, not a fidelity score; absent difference measurements are not proof
+of a match.
 
 The shared entry point preserves renderer-specific behavior:
 

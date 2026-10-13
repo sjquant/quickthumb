@@ -93,26 +93,21 @@ statuses, `QUICKTHUMB_ASSET_MAX_AGE`, and offline mode.
 
 ### `.export(path, policy=None, *, format=None, quality=None, animation=None)`
 
-The shared document export entry point returns an `ExportResult`, with
-`kind="canvas"`, `written_paths`, the effective output format, capability and
-fallback diagnostics, pixel/timing metadata, and the asset manifest. The result lists the single written file.
-The path may be a string or `pathlib.Path`.
+Writes the canvas like `render()` and returns an `ExportResult` whose
+`written_paths` lists the single written file. The path may be a string or
+`pathlib.Path`; `format`, `quality`, `animation`, and `policy` mean the same as
+in `render()`.
 
 ```python
 result = canvas.export("card.png")
 print(result.written_paths)
-print(result.model_dump_json())
 ```
 
-`format` overrides the raster format; `quality` is for JPEG/WEBP. Use
-`GifOptions` for GIF or `VideoOptions` for MP4/WebM through `animation`.
-`policy` controls the shared capability preflight and supported renderer
-policies. See the [shared contract and support policy](../exports.md#shared-export-contract-and-specialist-controls)
-for the boundary, lifecycle, and format-specific differences. The specialist
-methods below remain supported and are not deprecated; they retain their own
-return types and options rather than returning `ExportResult`.
+See [Shared export contract and specialist controls](../exports.md#shared-export-contract-and-specialist-controls)
+for the result fields, the capability preflight, and how `export()` relates to
+the methods below.
 
-### `.render(path, format=None, quality=None, debug=False, animation=None)`
+### `.render(path, format=None, quality=None, debug=False, animation=None, policy=None)`
 
 Renders the canvas and writes the result to a file. The format is detected from the file extension; `.svg`, `.pptx`, and `.pdf` produce vector/document output, and `.gif`/`.mp4`/`.webm` produce an animation playing the canvas's layer `animation` effects (see [Exporting to SVG, PPTX, PDF & video](../exports.md)).
 
@@ -141,6 +136,7 @@ canvas.render("preview.mp4", animation=VideoOptions(fps=30))
 | `quality` | `int \| None` | `None` | Compression quality (1–95). Only valid for `JPEG` and `WEBP`. |
 | `debug` | `bool` | `False` | Draw public layer-id bounding boxes on raster output for visual review. |
 | `animation` | `GifOptions \| VideoOptions \| None` | `None` | Format-specific options: `GifOptions` for GIF, `VideoOptions` for MP4/WebM. |
+| `policy` | `ExportPolicy \| None` | `None` | Renderer policy, such as `reduced_motion` for animated, HTML, and PPTX output. `unsupported_motion` is enforced only by `export()`. |
 
 !!! warning
     Passing `quality` with `format="PNG"` raises `RenderingError`. Passing `debug=True` for document or animated output (`.svg`, `.pptx`, `.pdf`, `.html`, `.gif`, `.mp4`, or `.webm`) raises `RenderingError`.

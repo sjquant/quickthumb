@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 from PIL import Image
 from PIL.GifImagePlugin import GifImageFile
-from quickthumb import Canvas, Deck, ExportResult
+from quickthumb import Canvas, Deck
 
 
 @pytest.fixture(params=["canvas", "deck"])
@@ -17,50 +17,81 @@ def document(request):
     return Deck(slides=[canvas, Canvas(32, 24).background(color="#654321")])
 
 
-def test_shared_export_preserves_specialist_raster_output(document, tmp_path: Path):
-    """Both document kinds keep their render returns and produce the same pixels."""
-    specialist_path = tmp_path / "specialist.png"
-    rendered = document.render(str(specialist_path))
-    result = document.export(tmp_path / "shared.png")
+def test_canvas_png_export_matches_render(tmp_path: Path):
+    """
+    A canvas exported to PNG through export() reports the one written file, and that
+    file has the same pixels as the canvas's render() output, which returns None.
+    """
+    # Given
+    canvas = Canvas(32, 24).background(color="#123456")
 
-    assert isinstance(result, ExportResult)
-    assert ExportResult.model_validate_json(result.model_dump_json()) == result
-    if isinstance(document, Canvas):
-        assert rendered is None
-        paths = [str(specialist_path)]
-        assert result.kind == "canvas"
-        assert result.written_paths == [str(tmp_path / "shared.png")]
-    else:
-        assert rendered == [str(tmp_path / f"specialist_{index:02}.png") for index in (1, 2)]
-        paths = rendered
-        assert result.kind == "deck"
-        assert result.written_paths == [
-            str(tmp_path / f"shared_{index:02}.png") for index in (1, 2)
+    # When
+    rendered = canvas.render(str(tmp_path / "specialist.png"))
+    result = canvas.export(tmp_path / "shared.png")
+
+    # Then
+    assert rendered is None
+    assert result.kind == "canvas"
+    assert result.written_paths == [str(tmp_path / "shared.png")]
+    assert result.pixel_metrics.frame_count == 1
+    assert_same_pixels(str(tmp_path / "specialist.png"), result.written_paths[0])
+
+
+def test_deck_png_export_matches_render(tmp_path: Path):
+    """
+    A two-slide deck exported to PNG through export() reports two numbered slide
+    files, each with the same pixels as the matching file listed by render().
+    """
+    # Given
+    deck = Deck(
+        slides=[
+            Canvas(32, 24).background(color="#123456"),
+            Canvas(32, 24).background(color="#654321"),
         ]
-    assert result.pixel_metrics.frame_count == len(paths)
-    for specialist, shared in zip(paths, result.written_paths, strict=True):
-        with Image.open(specialist) as expected, Image.open(shared) as actual:
-            assert expected.size == actual.size == (32, 24)
-            assert expected.convert("RGBA").tobytes() == actual.convert("RGBA").tobytes()
+    )
+
+    # When
+    rendered = deck.render(str(tmp_path / "specialist.png"))
+    result = deck.export(tmp_path / "shared.png")
+
+    # Then
+    assert rendered == [str(tmp_path / f"specialist_{index:02}.png") for index in (1, 2)]
+    assert result.kind == "deck"
+    assert result.written_paths == [str(tmp_path / f"shared_{index:02}.png") for index in (1, 2)]
+    assert result.pixel_metrics.frame_count == 2
+    for specialist, shared in zip(rendered, result.written_paths, strict=True):
+        assert_same_pixels(specialist, shared)
 
 
-def test_shared_html_preserves_in_memory_specialist_output(document, tmp_path: Path):
-    """The shared writer preserves HTML while the specialist returns markup."""
+def test_html_export_writes_to_html_markup(document, tmp_path: Path):
+    """
+    Exporting a canvas or deck to an .html path writes exactly the markup that
+    to_html() returns in memory.
+    """
+    # Given
     markup = document.to_html()
+
+    # When
     result = document.export(tmp_path / "shared.html")
 
-    assert isinstance(markup, str)
+    # Then
     assert result.output_format == "html"
     assert result.written_paths == [str(tmp_path / "shared.html")]
     assert Path(result.written_paths[0]).read_text(encoding="utf-8") == markup
 
 
-def test_shared_gif_preserves_in_memory_specialist_output(document, tmp_path: Path):
-    """GIF bytes retain frame pixels and timing through the shared entry point."""
+def test_gif_export_matches_to_gif_frames_and_timing(document, tmp_path: Path):
+    """
+    Exporting a canvas or deck to a .gif path writes the same frames, frame
+    durations, and loop count as to_gif(), and reports that frame count.
+    """
+    # Given
     payload = document.to_gif()
+
+    # When
     result = document.export(tmp_path / "shared.gif")
 
-    assert isinstance(payload, bytes)
+    # Then
     assert result.output_format == "gif"
     with Image.open(BytesIO(payload)) as expected, Image.open(result.written_paths[0]) as actual:
         assert isinstance(expected, GifImageFile)
@@ -74,9 +105,23 @@ def test_shared_gif_preserves_in_memory_specialist_output(document, tmp_path: Pa
         assert expected.info.get("loop") == actual.info.get("loop")
 
 
-def test_specialist_svg_remains_available_for_individual_deck_slides(tmp_path: Path):
-    """Deck consumers can explicitly export each canvas through the SVG control."""
-    deck = Deck(slides=[Canvas(32, 24).background(color="#123456")])
-    for index, canvas in enumerate(deck):
-        result = canvas.export(tmp_path / f"slide-{index}.svg")
-        assert Path(result.written_paths[0]).read_text(encoding="utf-8") == canvas.to_svg()
+def test_canvas_svg_export_writes_to_svg_markup(tmp_path: Path):
+    """
+    Exporting a canvas to an .svg path writes exactly the markup that to_svg()
+    returns in memory.
+    """
+    # Given
+    canvas = Canvas(32, 24).background(color="#123456")
+
+    # When
+    result = canvas.export(tmp_path / "card.svg")
+
+    # Then
+    assert result.output_format == "svg"
+    assert Path(result.written_paths[0]).read_text(encoding="utf-8") == canvas.to_svg()
+
+
+def assert_same_pixels(expected_path: str, actual_path: str) -> None:
+    with Image.open(expected_path) as expected, Image.open(actual_path) as actual:
+        assert expected.size == actual.size
+        assert expected.convert("RGBA").tobytes() == actual.convert("RGBA").tobytes()
