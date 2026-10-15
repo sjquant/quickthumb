@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block extrahead %}
+  {{ super() }}
+  {% set page_title = config.site_name %}
+  {% if page and not page.is_homepage %}
+    {% set page_title = (page.meta.title if page.meta and page.meta.title else page.title | striptags) ~ " - " ~ config.site_name %}
+  {% elif page and page.meta and page.meta.title %}
+    {% set page_title = page.meta.title %}
+  {% endif %}
+  {% set page_description = config.site_description %}
+  {% if page and page.meta and page.meta.description %}
+    {% set page_description = page.meta.description %}
+  {% endif %}
+  {% set social_image = config.extra.social_image_url %}
+  {% if page and page.meta and page.meta.image %}
+    {% set social_image = page.meta.image %}
+  {% endif %}
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="{{ config.site_name | e }}">
+  <meta property="og:title" content="{{ page_title | e }}">
+  <meta property="og:description" content="{{ page_description | e }}">
+  {% if page and page.canonical_url %}
+  <meta property="og:url" content="{{ page.canonical_url | e }}">
+  {% endif %}
+  <meta property="og:image" content="{{ social_image | e }}">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="{{ page_title | e }}">
+  <meta name="twitter:description" content="{{ page_description | e }}">
+  <meta name="twitter:image" content="{{ social_image | e }}">
+{% endblock %}
