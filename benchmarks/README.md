@@ -160,3 +160,37 @@ for five samples of five units with a two-unit static prefix, calls fall from
 with motion has the same call count. The complete workload's count and clean
 median-of-three export timings belong in the #144 results discussion. Timing
 and RSS must include slide preparation and the retained full-size plates.
+
+## Incremental GIF encoding (#153)
+
+GIF quantization and drift-free centisecond allocation are unchanged. A bounded
+Pillow adapter retains the previous normalized image and one pending encoded
+frame; identical images extend the pending duration. It uses Pillow's existing
+palette, delta-bound and frame encoders, and preserves the different
+single-frame/interlaced fallback. The supported Pillow range remains
+`>=12.2,<13`; byte comparisons against ordinary `save_all` guard the adapter's
+private Pillow calls when dependencies change.
+
+`tests/test_gif_streaming.py` checks exact encoded bytes, including palette
+changes, a fully occupied 256-color palette, reduced palettes, cropped deltas,
+repeated frames, resize options, loops and fractional timing. It also checks
+that output begins before input is exhausted and that live uncompressed image
+count stays bounded across a long generated stream. The final compressed GIF
+is still held by the bytes-returning path and file exporter. Rendering state
+and output bytes are not constant-memory, so peak RSS is still measured.
+
+The old `768 MiB` estimated frame-list ceiling is removed. To check the complete
+example at its original 1080×1920 size, without the benchmark's usual resize:
+
+```python
+from examples.product_hype_reel import build_deck
+from quickthumb import GifOptions
+
+build_deck().render("full-size.gif", animation=GifOptions(fps=12, colors=64))
+```
+
+Compare encoded GIF hashes on the same Pillow version and environment. The
+canonical RGBA gate alone does not establish encoded-byte identity. The usual
+benchmark command deliberately retains its original 432×768 / 64-color GIF
+workload so before/after timing and RSS remain comparable. A full-size export
+is a separate capability/memory check, not a like-for-like speedup claim.
