@@ -111,3 +111,29 @@ Fresh-process benchmark runs deliberately measure cold process caches. Repeated
 exports in a long-lived process can reuse more faces, but those warm timings are
 not interchangeable with the baseline. See the results discussion in #144 for
 same-workload font-load counts, byte-identity checks and measured timing changes.
+
+## Raw video streaming (#150)
+
+MP4/WebM send RGB24 frames directly to FFmpeg, allocating repeats on the same
+cumulative half-up clock. Each shot is converted to bytes once and written for
+its allocated frame count. Batches still contain at most 64 distinct emitted
+shots, and the encoded segments use the existing audio mux. There is no PNG
+image spool, and shot generation remains lazy. Stderr is drained concurrently
+into a bounded diagnostic tail; failed producers and encoders are reaped.
+
+Decoded-byte comparisons against the former PNG/concat path pass at 10 and
+25 fps. The former path was not an exact-count reference at all rates: PNG
+input used a 25 Hz time base, and its half-frame end trim could remove a counted
+frame. A 129-frame numbered sequence spanning three batches lost two frames
+at 12, 24, 29.97, 30, 60 and 120 fps in the old encoder. Streaming preserves all
+129 frames in order. Tests check decoded frame identity/order, ffprobe counts,
+durations and even-dimension cropping. Container bytes are not an identity
+gate, and this timing correction intentionally differs from the old output.
+Audio scheduling, codecs, and the 504-observation canonical RGBA gate remain
+unchanged.
+
+Long static holds trade the old compressed-image reuse for repeated raw pipe
+writes. Benchmark those separately from the animated reel before generalizing
+the measured encode-stage speedup. The existing timer excludes lazy rendering;
+FFmpeg may now perform some encoding concurrently with that rendering, so total
+wall time is also important when comparing results.

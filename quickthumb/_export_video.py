@@ -56,6 +56,7 @@ import random
 import shutil
 import subprocess
 import tempfile
+import threading
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass, field
 from io import BytesIO
@@ -2233,9 +2234,9 @@ def _encode_video_file(
     round-half-even can swallow a full-frame shot that lands on an exact .5
     boundary, dropping the deck's final settled frame.
 
-    Each distinct shot is written once with its duration in an ffconcat manifest;
-    ffmpeg performs constant-frame-rate duplication internally, avoiding repeated
-    full-resolution RGB writes through Python for long static holds.
+    Stream counted RGB frames directly to ffmpeg, retaining bounded encoded
+    segments for the existing audio mux. Only one shot buffer is retained while
+    writing repeated frames; no PNG compression or image-file spool is needed.
     """
     binary = _ffmpeg_binary()
     with tempfile.TemporaryDirectory() as video_dir:
@@ -2307,6 +2308,22 @@ def _encode_video_file(
         _run_video_ffmpeg(command, format, output_path)
 
 
+def _counted_video_shots(shots: Iterable[_Shot], fps: float) -> Iterator[tuple[Image.Image, int]]:
+    """Allocate frames on one cumulative clock, including across segment boundaries."""
+    clock = 0.0
+    emitted = 0
+    last_frame: Image.Image | None = None
+    for shot in shots:
+        clock += shot.duration
+        last_frame = shot.frame
+        count = math.floor(clock * fps + 0.5) - emitted
+        if count > 0:
+            emitted += count
+            yield shot.frame, count
+    if emitted == 0 and last_frame is not None:
+        yield last_frame, 1
+
+
 def _encode_shot_batches(
     binary: str,
     shots: Iterable[_Shot],
@@ -2314,65 +2331,17 @@ def _encode_shot_batches(
     format: str,
     directory: Path,
 ) -> tuple[list[Path], float]:
-    """Encode bounded groups of distinct shots and return their total duration."""
+    """Stream bounded groups of distinct shots and return their total duration."""
     segments: list[Path] = []
-    entries: list[tuple[str, float]] = []
-    batch_directory = directory / "frames-000"
-    batch_directory.mkdir()
-    clock = 0.0
     emitted = 0
-    batch_duration = 0.0
-    last_frame: Image.Image | None = None
-    for shot in shots:
-        clock += shot.duration
-        last_frame = shot.frame
-        count = math.floor(clock * fps + 0.5) - emitted
-        if count <= 0:
-            continue
-        name = f"shot-{len(entries):03d}.png"
-        shot.frame.save(batch_directory / name, format="PNG")
-        duration = count / fps
-        entries.append((name, duration))
-        batch_duration += duration
+    counted = _counted_video_shots(shots, fps)
+    for first in counted:
+        # Do not materialize this batch: rendering and writing stay interleaved,
+        # so 64 full-resolution images never accumulate in Python memory.
+        batch = itertools.chain((first,), itertools.islice(counted, _MAX_SHOTS_PER_VIDEO_BATCH - 1))
+        segment, count = _encode_shot_batch(binary, batch, fps, format, directory, len(segments))
+        segments.append(segment)
         emitted += count
-        if len(entries) == _MAX_SHOTS_PER_VIDEO_BATCH:
-            segments.append(
-                _encode_shot_batch(
-                    binary,
-                    batch_directory,
-                    entries,
-                    batch_duration,
-                    fps,
-                    format,
-                    directory,
-                    len(segments),
-                )
-            )
-            shutil.rmtree(batch_directory)
-            entries = []
-            batch_duration = 0.0
-            batch_directory = directory / f"frames-{len(segments):03d}"
-            batch_directory.mkdir()
-    if emitted == 0 and last_frame is not None:
-        name = "shot-000.png"
-        last_frame.save(batch_directory / name, format="PNG")
-        entries.append((name, 1.0 / fps))
-        batch_duration = 1.0 / fps
-        emitted = 1
-    if entries:
-        segments.append(
-            _encode_shot_batch(
-                binary,
-                batch_directory,
-                entries,
-                batch_duration,
-                fps,
-                format,
-                directory,
-                len(segments),
-            )
-        )
-    shutil.rmtree(batch_directory)
     if not segments:
         raise RenderingError("Animation produced no frames.")
     return segments, emitted / fps
@@ -2380,26 +2349,30 @@ def _encode_shot_batches(
 
 def _encode_shot_batch(
     binary: str,
-    frame_directory: Path,
-    entries: list[tuple[str, float]],
-    duration: float,
+    entries: Iterable[tuple[Image.Image, int]],
     fps: float,
     format: str,
     output_directory: Path,
     index: int,
-) -> Path:
-    """Encode one bounded shot manifest into a normalized video segment."""
-    manifest_path = frame_directory / "frames.ffconcat"
-    manifest_path.write_text(
-        "ffconcat version 1.0\n"
-        + "".join(
-            f"file '{name}'\nduration {shot_duration:.12f}\n" for name, shot_duration in entries
-        )
-        + f"file '{entries[-1][0]}'\n",
-        encoding="utf-8",
-    )
+) -> tuple[Path, int]:
+    """Encode one lazy shot batch with exact-count raw RGB input."""
+    iterator = iter(entries)
+    first = next(iterator)
+    size = first[0].size
+    count = 0
+
+    def frames() -> Iterator[bytes]:
+        nonlocal count
+        for frame, repeats in itertools.chain((first,), iterator):
+            if frame.size != size:
+                raise RenderingError("Video frames must have matching dimensions.")
+            raw = frame.convert("RGB").tobytes() if frame.mode != "RGB" else frame.tobytes()
+            for _ in range(repeats):
+                yield raw
+            count += repeats
+
     output_path = output_directory / f"segment-{index:03d}.{format}"
-    _run_video_ffmpeg(
+    _stream_video_ffmpeg(
         [
             binary,
             "-hide_banner",
@@ -2407,22 +2380,93 @@ def _encode_shot_batch(
             "error",
             "-y",
             "-f",
-            "concat",
-            "-safe",
-            "0",
+            "rawvideo",
+            "-pixel_format",
+            "rgb24",
+            "-video_size",
+            f"{size[0]}x{size[1]}",
+            "-framerate",
+            str(fps),
             "-i",
-            str(manifest_path),
-            "-t",
-            f"{max(duration - 0.5 / fps, 0.5 / fps):.9f}",
+            "pipe:0",
             "-vf",
-            f"fps={fps:g},crop=trunc(iw/2)*2:trunc(ih/2)*2",
+            "crop=trunc(iw/2)*2:trunc(ih/2)*2",
             *_CODEC_ARGS[format],
             str(output_path),
         ],
+        frames(),
         format,
         str(output_path),
     )
-    return output_path
+    return output_path, count
+
+
+def _stream_video_ffmpeg(
+    command: list[str], frames: Iterable[bytes], format: str, output_path: str
+) -> None:
+    """Feed raw frames while draining a bounded diagnostic tail on another thread."""
+    try:
+        process = subprocess.Popen(
+            command, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE
+        )
+    except OSError as error:
+        _remove_quietly(output_path)
+        raise RenderingError(
+            "MP4/WebM export could not start ffmpeg. Install FFmpeg "
+            "(e.g. 'brew install ffmpeg' or 'apt install ffmpeg'), or set "
+            "QUICKTHUMB_FFMPEG to its executable path."
+        ) from error
+    assert process.stdin is not None and process.stderr is not None
+    tail = bytearray()
+
+    def drain() -> None:
+        assert process.stderr is not None
+        while chunk := process.stderr.read(8192):
+            tail.extend(chunk)
+            del tail[:-2000]
+
+    reader: threading.Thread | None = None
+    pipe_error: OSError | None = None
+    try:
+        reader = threading.Thread(target=drain, name="quickthumb-ffmpeg-stderr")
+        reader.start()
+        for frame in frames:
+            try:
+                process.stdin.write(frame)
+            except OSError as error:
+                pipe_error = error
+                break
+        try:
+            process.stdin.close()
+        except OSError as error:
+            pipe_error = error
+        if pipe_error is not None:
+            # A closed input is a failure even when an early-exiting child says
+            # success. Give it time to finish its diagnostic before killing it.
+            try:
+                process.wait(timeout=2)
+            except subprocess.TimeoutExpired:
+                process.kill()
+        returncode = process.wait()
+    except BaseException:
+        # Stop the consumer before closing buffered stdin, whose flush could
+        # otherwise block or mask a producer exception with BrokenPipeError.
+        process.kill()
+        process.wait()
+        _remove_quietly(output_path)
+        raise
+    finally:
+        with contextlib.suppress(OSError):
+            process.stdin.close()
+        if reader is not None and reader.ident is not None:
+            reader.join()
+        process.stderr.close()
+    if pipe_error is not None or returncode != 0:
+        _remove_quietly(output_path)
+        detail = tail.decode("utf-8", errors="replace").strip()
+        raise RenderingError(
+            f"ffmpeg failed while encoding {format} output" + (f":\n{detail}" if detail else ".")
+        ) from pipe_error
 
 
 def _write_video_segment_manifest(segments: list[Path], directory: Path) -> Path:
