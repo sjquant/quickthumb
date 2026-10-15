@@ -28,6 +28,77 @@ gif_bytes = canvas.to_gif()
 mp4_bytes = canvas.to_mp4()      # and canvas.to_webm()
 ```
 
+## Shared export contract and specialist controls
+
+Use `export()` when building a workflow that accepts either a `Canvas` or a
+`Deck`. Both accept a string or `Path` and return an `ExportResult`, including
+the document `kind`, effective `output_format`, `written_paths`, capability and
+fallback diagnostics, pixel/timing metadata, and the asset manifest:
+
+```python
+from quickthumb import Canvas, Deck
+
+canvas = Canvas(320, 180).background(color="#112233")
+deck = Deck(slides=[canvas, Canvas(320, 180).background(color="#445566")])
+
+for document, path in [(canvas, "card.png"), (deck, "slides.png")]:
+    result = document.export(path)
+    print(result.kind, result.written_paths)
+    print(result.model_dump_json())
+```
+
+The canvas writes `card.png`; the deck writes `slides_01.png` and
+`slides_02.png`. Always use `written_paths` rather than reconstructing names.
+`export(path, policy=None, *, format=None, quality=None, animation=None)` runs
+the shared capability-policy preflight before calling the existing renderer.
+`format` is a raster format override; `quality` applies to JPEG/WEBP;
+`animation` accepts `GifOptions` for GIF or `VideoOptions` for MP4/WebM.
+See the [Canvas](api/canvas.md)
+and [Deck](api/deck.md)
+references for examples.
+
+### Support and lifecycle
+
+The shared document methods and result envelope are the integration boundary
+for generic consumers. The documented `render()` and `to_*()` methods remain
+supported specialist controls: they are not deprecated, renamed, or scheduled
+for removal. Existing users do not need to migrate. Any future removal or
+incompatible change to these documented controls requires an announced
+deprecation and migration guidance first. New generic examples should prefer
+`export()`; format-specific examples can continue using specialist methods.
+Private underscore-prefixed modules and renderer internals are outside this
+support boundary.
+
+| Entry point | Canvas result | Deck result | Use when |
+| --- | --- | --- | --- |
+| `export(path, ...)` | `ExportResult` | `ExportResult` | You need shared reporting and capability-policy preflight |
+| `render(path, ...)` | `None` | `list[str]` of written paths | You need existing file-rendering controls, such as Canvas `debug=True` |
+| `to_html(...)` | HTML `str` | HTML `str` | You need an in-memory document or HTML-specific options |
+| `to_pdf(...)`, `to_pptx(...)`, `to_gif(...)`, `to_mp4(...)`, `to_webm(...)` | `bytes` | `bytes` | You manage the destination and need format-specific controls |
+| `to_svg(embed_fonts=...)` | SVG `str` | Not available | You need one SVG per canvas, optionally with embedded fonts |
+
+Specialist methods do not return the shared result envelope. `render()` and
+several `to_*()` methods accept `policy=` and apply it to their renderer (for
+example `reduced_motion`), but only `export()` enforces capability rules such as
+`unsupported_motion="error"`, failing before any file is written. Use
+`validate_export()` to inspect motion capabilities before a specialist export.
+Neither path promises pixel identity across different formats, viewers, fonts,
+or rendering environments. Currently `pixel_metrics` reports dimensions and
+frame count, not a fidelity score; absent difference measurements are not proof
+of a match.
+
+The shared entry point preserves renderer-specific behavior:
+
+- A Deck writes one multi-page PDF, multi-slide PPTX, or HTML slideshow, but
+  numbered files for raster output. It cannot export a single SVG; export each
+  canvas separately instead.
+- Canvas MP4 plays layer animation. Deck MP4 without `animation` uses static
+  narrated slides. Pass `animation=VideoOptions(...)` to `deck.export()` or
+  `deck.render()` for the animated timeline, or use `deck.to_animated_mp4()`.
+  `deck.to_mp4()` retains its static narrated-slide behavior.
+- `Canvas.render(..., debug=True)` and `Canvas.to_svg(embed_fonts=True)` are
+  specialist controls, not arguments to the shared `export()` method.
+
 ## How export works
 
 Exporters keep layers **native** wherever the target format can express them, and embed **pixel-exact PNG fragments** (rendered by the regular pipeline) everywhere else. Positions, wrapping, and alignment are computed with the same layout math as the raster renderer, so output matches the PNG render closely.

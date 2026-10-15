@@ -60,7 +60,23 @@ A deck is also a sequence: `len(deck)`, `deck[i]`, and iteration over slides all
 
 ## Export methods
 
-### `.render(path, format=None, quality=None, animation=None)`
+### `.export(path, policy=None, *, format=None, quality=None, animation=None)`
+
+Writes the deck like `render()` and returns an `ExportResult` whose
+`written_paths` lists numbered slide files for raster output, or one PDF, PPTX,
+HTML, or animation file. The path may be a string or `pathlib.Path`; `format`,
+`quality`, `animation`, and `policy` mean the same as in `render()`.
+
+```python
+result = deck.export("slides.png")
+print(result.written_paths)
+```
+
+See [Shared export contract and specialist controls](../exports.md#shared-export-contract-and-specialist-controls)
+for the result fields, the capability preflight, and how `export()` relates to
+the methods below.
+
+### `.render(path, format=None, quality=None, animation=None, policy=None)`
 
 Renders the deck, dispatching on the output extension. Returns the list of written file paths.
 
@@ -94,6 +110,7 @@ deck.render("slides.jpg", quality=85)
 | `format` | `str \| None` | `None` | Raster format override (`"PNG"`, `"JPEG"`, `"WEBP"`) |
 | `quality` | `int \| None` | `None` | Compression quality. Only valid for raster sequences. |
 | `animation` | `GifOptions \| VideoOptions \| None` | `None` | Format-specific options: `GifOptions` for GIF, `VideoOptions` for MP4/WebM. |
+| `policy` | `ExportPolicy \| None` | `None` | Renderer policy, such as `reduced_motion` for animated, HTML, and PPTX output. `unsupported_motion` is enforced only by `export()`. |
 
 !!! warning
     Passing `quality` with `.pdf`, `.pptx`, or animated output raises `RenderingError`, as does rendering an empty deck.
