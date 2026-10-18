@@ -88,7 +88,7 @@ class AssetResolver:
         max_bytes: int = _DEFAULT_MAX_BYTES,
         max_age: float | None = None,
         offline: bool | None = None,
-        fetcher: Callable[..., object] | None = None,
+        fetcher: Callable[..., contextlib.AbstractContextManager[Any]] | None = None,
     ) -> None:
         if not isinstance(max_bytes, int) or isinstance(max_bytes, bool) or max_bytes <= 0:
             raise ValueError("max_bytes must be a positive integer")
@@ -108,7 +108,7 @@ class AssetResolver:
         source: str,
         *,
         asset_type: str = "image",
-        fetcher: Callable[..., object] | None = None,
+        fetcher: Callable[..., contextlib.AbstractContextManager[Any]] | None = None,
     ) -> ResolvedAsset:
         """Resolve an image and reject cached or downloaded non-image bytes."""
         return self.resolve(
@@ -125,7 +125,7 @@ class AssetResolver:
         *,
         extension: str | None = None,
         cache_filename: str | None = None,
-        fetcher: Callable[..., object] | None = None,
+        fetcher: Callable[..., contextlib.AbstractContextManager[Any]] | None = None,
     ) -> ResolvedAsset:
         """Resolve a font and reject cached or downloaded non-font bytes."""
         return self.resolve(
@@ -149,7 +149,7 @@ class AssetResolver:
         cache_filename: str | None = None,
         validator: Callable[[bytes], bool] | None = None,
         invalid_message: str | None = None,
-        fetcher: Callable[..., object] | None = None,
+        fetcher: Callable[..., contextlib.AbstractContextManager[Any]] | None = None,
     ) -> ResolvedAsset:
         """Resolve one source, preferring a fresh cache entry before network access.
 
@@ -193,7 +193,7 @@ class AssetResolver:
         path: Path,
         validator: Callable[[bytes], bool] | None,
         invalid_message: str | None,
-        fetcher: Callable[..., object] | None,
+        fetcher: Callable[..., contextlib.AbstractContextManager[Any]] | None,
     ) -> ResolvedAsset:
         cached = self._read_cached(source, source_key, asset_type, cache_key, path, validator)
         if cached is not None and not self._is_stale(cached):
@@ -445,7 +445,7 @@ class AssetResolver:
         source: str,
         asset_type: str,
         *,
-        fetcher: Callable[..., object] | None,
+        fetcher: Callable[..., contextlib.AbstractContextManager[Any]] | None,
     ) -> bytes:
         request = Request(source, headers={"User-Agent": "quickthumb/1.0"})
         try:

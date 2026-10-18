@@ -419,7 +419,13 @@ class TestCanvas:
         from quickthumb import Canvas
         from quickthumb.errors import RenderingError
 
-        canvas = Canvas(100, 100).background(color="#FFFFFF").custom(lambda _image: "not-image")
+        canvas = (
+            Canvas(100, 100)
+            .background(color="#FFFFFF")
+            .custom(
+                lambda _image: "not-image"  # ty: ignore[invalid-argument-type]
+            )
+        )
 
         with tempfile.TemporaryDirectory() as tmpdir:
             output_path = os.path.join(tmpdir, "output.png")

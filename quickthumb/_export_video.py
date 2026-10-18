@@ -1490,8 +1490,8 @@ def _canonical_viewport_duration(layer: ImageLayer) -> float:
 def _qr_module_count(layer: QRCodeLayer) -> int:
     """Return the deterministic QR matrix cell count used by module stagger."""
     try:
-        import qrcode  # ty: ignore[unresolved-import]
-        from qrcode.constants import (  # ty: ignore[unresolved-import]
+        import qrcode
+        from qrcode.constants import (
             ERROR_CORRECT_H,
             ERROR_CORRECT_L,
             ERROR_CORRECT_M,

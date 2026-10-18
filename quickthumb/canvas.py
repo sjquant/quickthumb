@@ -91,7 +91,7 @@ class CustomLayer:
 
 
 RenderableLayer = LayerType | CustomLayer
-TextContentInput = str | list[TextPart | dict[str, Any]]
+TextContentInput = str | list[TextPart] | list[dict[str, Any]] | list[TextPart | dict[str, Any]]
 
 _SUPPORTED_OUTPUT_EXTENSIONS = (
     ".png",
@@ -565,8 +565,8 @@ class Canvas:
             gradient=gradient,
             image=image,
             opacity=opacity,
-            blend_mode=blend_mode,  # type: ignore
-            fit=fit,  # type: ignore
+            blend_mode=blend_mode,
+            fit=fit,
             focal_point=focal_point,
             faces=faces or [],  # type: ignore[arg-type]
             effects=effects or [],
