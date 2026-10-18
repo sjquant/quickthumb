@@ -93,15 +93,6 @@ def test_invalid_frame_rates_are_rejected(value):
 
 
 def test_real_gif_measurement_and_three_process_command(tmp_path, capsys):
-    measured = benchmark.measure_export("translation", "gif", 4)
-    assert measured["shots"] == 8
-    assert measured["output_bytes"] > 0
-    assert measured["render_seconds"] > 0
-    assert measured["encode_seconds"] > 0
-    assert measured["total_seconds"] == pytest.approx(
-        measured["render_seconds"] + measured["encode_seconds"]
-    )
-    assert measured["python_peak_rss_mib"] > 0
     output = tmp_path / "results.json"
     assert (
         benchmark.main(
@@ -112,6 +103,15 @@ def test_real_gif_measurement_and_three_process_command(tmp_path, capsys):
     report = json.loads(output.read_text())
     assert report["runs_per_measurement"] == 3
     assert len(report["raw_runs"][0]["exports"]) == 3
+    for measured in report["raw_runs"][0]["exports"]:
+        assert measured["shots"] == 8
+        assert measured["output_bytes"] > 0
+        assert measured["render_seconds"] > 0
+        assert measured["encode_seconds"] > 0
+        assert measured["total_seconds"] == pytest.approx(
+            measured["render_seconds"] + measured["encode_seconds"]
+        )
+        assert measured["python_peak_rss_mib"] > 0
     assert "Median of 3" in capsys.readouterr().out
     assert report["environment"]["cpu"]
     assert report["environment"]["pillow"]
