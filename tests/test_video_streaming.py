@@ -1,7 +1,6 @@
 """Exact frame allocation and decoded-output regressions for raw video streaming."""
 
 import json
-import math
 import shutil
 import subprocess
 from pathlib import Path
@@ -64,10 +63,12 @@ def _legacy_batch(entries, fps: float, container: str, directory: Path) -> Path:
     return output
 
 
-@pytest.mark.parametrize("fps", [10.0, 12.0, 29.97, 120.0])
+@pytest.mark.parametrize("fps", [8.0, 10.0, 12.0, 29.97, 120.0])
 def test_cumulative_counts_do_not_drift(fps):
-    durations = [0.5 / fps, 1 / fps, 0.2 / fps, 0.3 / fps, 0.037] * 30
-    frames = [_numbered_frame(index % 256) for index in range(len(durations))]
+    # Cumulative endpoints straddle half-frame boundaries: .49, .51, 1.49,
+    # 1.51, 3.51. Rounded endpoints are 0, 1, 1, 2, 4, independently of fps.
+    durations = [fraction / fps for fraction in (0.49, 0.02, 0.98, 0.02, 2.0)]
+    frames = [_numbered_frame(index) for index in range(len(durations))]
     actual = list(
         video._counted_video_shots(
             (
@@ -77,17 +78,15 @@ def test_cumulative_counts_do_not_drift(fps):
             fps,
         )
     )
-    clock = 0.0
-    allocated = 0
-    expected = []
-    for frame, duration in zip(frames, durations, strict=True):
-        clock += duration
-        endpoint = math.floor(clock * fps + 0.5)
-        if endpoint > allocated:
-            expected.append((frame, endpoint - allocated))
-        allocated = endpoint
-    assert actual == expected
-    assert sum(count for _, count in actual) == math.floor(sum(durations) * fps + 0.5)
+    assert actual == [(frames[1], 1), (frames[3], 1), (frames[4], 2)]
+
+
+def test_exact_half_frame_endpoints_round_up_without_drift():
+    # Binary-exact durations make the half-frame policy unambiguous over
+    # many individually sub-frame shots: frames 3, 11, ..., 75 each get one.
+    frames = [_numbered_frame(index) for index in range(80)]
+    actual = list(video._counted_video_shots((video._Shot(frame, 1 / 64) for frame in frames), 8))
+    assert actual == [(frames[index], 1) for index in range(3, 80, 8)]
 
 
 def test_sub_frame_fallback_uses_last_frame():
