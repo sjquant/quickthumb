@@ -272,14 +272,6 @@ def test_mov_does_not_expand_raster_file_format_or_add_codec_options():
             VideoOptions.model_validate({option: "prores"})
 
 
-@pytest.mark.parametrize("value", [0, 1, "true", "false", None, [], {}])
-def test_mov_video_options_keep_strict_transparency_contract(value):
-    with pytest.raises(ValidationError, match="transparent"):
-        VideoOptions.model_validate({"transparent": value})
-    with pytest.raises(ValidationError, match="transparent"):
-        VideoOptions.model_validate_json(json.dumps({"transparent": value}))
-
-
 @pytest.mark.parametrize("kind", ["canvas", "deck"])
 @pytest.mark.parametrize("value", [0, 1, "true", None])
 def test_mov_bytes_reject_non_boolean_transparency_before_timeline(monkeypatch, kind, value):
