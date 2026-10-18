@@ -327,6 +327,48 @@ class TestPdfDocument:
         assert fonts._tt2ps_map == tt2ps_before
         assert fonts._ps2tt_map == ps2tt_before
 
+    @pytest.mark.parametrize("fail_registration", [False, True])
+    def test_should_restore_existing_font_mappings_after_export(
+        self, tmp_path, monkeypatch, fail_registration
+    ):
+        """Successful and failed font embedding preserve another user's family mappings."""
+        from quickthumb._export_pdf import PdfExporter
+        from reportlab.lib import fonts
+        from reportlab.pdfbase import pdfmetrics
+
+        font_path = create_ttf_fixture(tmp_path / "fixture.ttf", "AB")
+        name = "qt-existing-family"
+        monkeypatch.setattr(PdfExporter, "_reportlab_font_name", lambda *_args: name)
+        for bold, italic in ((0, 0), (0, 1), (1, 0), (1, 1)):
+            monkeypatch.setitem(fonts._tt2ps_map, (name, bold, italic), "Helvetica")
+        monkeypatch.setitem(fonts._ps2tt_map, name, ("existing-family", 1, 0))
+        tt2ps_before = dict(fonts._tt2ps_map)
+        ps2tt_before = dict(fonts._ps2tt_map)
+        register_font = pdfmetrics.registerFont
+        registrations = []
+
+        def register_then_fail(font):
+            register_font(font)
+            if font.fontName == name:
+                registrations.append(name)
+                if fail_registration:
+                    raise ValueError("font registration interrupted")
+
+        monkeypatch.setattr(pdfmetrics, "registerFont", register_then_fail)
+        canvas = Canvas(300, 100).text(
+            "AB", font=str(font_path), size=30, color="#000000", position=(10, 20)
+        )
+
+        data = canvas.to_pdf()
+
+        assert data.startswith(b"%PDF-")
+        assert (b"FontFile" in data) is not fail_registration
+        assert registrations
+        assert fonts._tt2ps_map == tt2ps_before
+        assert fonts._ps2tt_map == ps2tt_before
+        assert name not in pdfmetrics._fonts
+        assert name.encode("ascii") not in pdfmetrics._dynFaceNames
+
     def test_should_complete_concurrent_exports_with_the_same_font(self, tmp_path):
         """Parallel PDF exports do not release a font another export is using"""
         # given
