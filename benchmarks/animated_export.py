@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
 import os
@@ -177,30 +178,57 @@ def measure_export(scene: str, format: str, fps: float) -> dict[str, Any]:
             total = time.perf_counter() - start
         if timer.shots == 0 or not output.is_file() or output.stat().st_size == 0:
             raise RuntimeError("export produced no measured shots or output")
+        # Fingerprinting is correctness evidence, outside timing and the RSS sample.
+        rss = peak_rss_mib()
+        digest = hashlib.sha256()
+        with output.open("rb") as stream:
+            for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                digest.update(chunk)
         return {
             "scene": scene,
             "format": format,
+            "fps": fps,
+            "options": options.model_dump(mode="json"),
             "shots": timer.shots,
             "render_ms_per_shot": (total - timer.encode_seconds) * 1000 / timer.shots,
             "render_seconds": total - timer.encode_seconds,
             "encode_seconds": timer.encode_seconds,
             "total_seconds": total,
-            "python_peak_rss_mib": peak_rss_mib(),
+            "python_peak_rss_mib": rss,
             "font_loads": font_loads,
             "font_seconds": font_seconds,
             "output_bytes": output.stat().st_size,
+            "output_sha256": digest.hexdigest(),
         }
 
 
 def summarize(runs: list[dict[str, Any]]) -> dict[str, Any]:
     if len(runs) != RUNS:
         raise ValueError("each measurement requires exactly three runs")
-    if len({(run["scene"], run["format"], run["shots"]) for run in runs}) != 1:
-        raise ValueError("repeated runs disagree on scene, format, or shot count")
+    if (
+        len(
+            {
+                (
+                    run["scene"],
+                    run["format"],
+                    run["shots"],
+                    run.get("fps"),
+                    json.dumps(run.get("options"), sort_keys=True),
+                )
+                for run in runs
+            }
+        )
+        != 1
+    ):
+        raise ValueError("repeated runs disagree on scene, format, fps, options, or shot count")
     result = {key: runs[0][key] for key in ("scene", "format")}
+    if "options" in runs[0]:
+        result["options"] = runs[0]["options"]
     for key, value in runs[0].items():
         if isinstance(value, (int, float)):
             result[key] = statistics.median(run[key] for run in runs)
+    result["total_seconds_min"] = min(run["total_seconds"] for run in runs)
+    result["total_seconds_max"] = max(run["total_seconds"] for run in runs)
     return result
 
 
@@ -228,10 +256,11 @@ def run_worker(scene: str, format: str, fps: float) -> dict[str, Any]:
 
 def print_table(report: dict[str, Any]) -> None:
     print("Environment: " + json.dumps(report["environment"], sort_keys=True))
+    print("Instrumented export profile; verify speed claims with uninstrumented end-to-end timing")
     print(f"Median of 3 fresh processes; export fps={report['fps']}; jitter probe=30 fps")
     print(
-        "Scene             Format  Shots  Render ms/shot  Encode s  Total s  Python RSS MiB  "
-        "Font loads  Font s  Jitter px/frame"
+        "Scene             Format  Shots  Render ms/shot  Encode s  Total s  Total range s  "
+        "Python RSS MiB  Font loads  Font s  Jitter px/frame"
     )
     for row in report["results"]:
         jitter = row["jitter_px_per_frame"]
@@ -239,7 +268,9 @@ def print_table(report: dict[str, Any]) -> None:
         print(
             f"{row['scene']:17} {row['format']:6} {row['shots']:5g} "
             f"{row['render_ms_per_shot']:15.3f} {row['encode_seconds']:9.3f} "
-            f"{row['total_seconds']:8.3f} {row['python_peak_rss_mib']:15.1f} "
+            f"{row['total_seconds']:8.3f} "
+            f"{row['total_seconds_min']:.3f}–{row['total_seconds_max']:.3f} "
+            f"{row['python_peak_rss_mib']:15.1f} "
             f"{row['font_loads']:11g} {row['font_seconds']:7.3f} {jitter_text:>15}"
         )
 
@@ -266,6 +297,7 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         report: dict[str, Any] = {
             "version": 1,
+            "measurement": "instrumented export profile",
             "environment": environment(),
             "fps": args.fps,
             "runs_per_measurement": RUNS,

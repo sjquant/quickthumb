@@ -62,15 +62,29 @@ def test_encoder_timer_excludes_lazy_render_work(monkeypatch):
 
 def test_summary_requires_three_compatible_runs_and_takes_medians():
     runs = [
-        {"scene": "translation", "format": "gif", "shots": 24, "total_seconds": value}
+        {
+            "scene": "translation",
+            "format": "gif",
+            "shots": 24,
+            "total_seconds": value,
+            "fps": 12,
+            "options": {"fps": 12, "colors": 64},
+        }
         for value in [10, 1, 3]
     ]
-    assert benchmark.summarize(runs)["total_seconds"] == 3
+    summary = benchmark.summarize(runs)
+    assert summary["total_seconds"] == 3
+    assert summary["total_seconds_min"] == 1
+    assert summary["total_seconds_max"] == 10
+    assert summary["fps"] == 12
+    assert summary["options"] == runs[0]["options"]
     with pytest.raises(ValueError, match="three"):
         benchmark.summarize(runs[:2])
-    runs[2]["shots"] = 25
-    with pytest.raises(ValueError, match="disagree"):
-        benchmark.summarize(runs)
+    for key, value in [("shots", 25), ("fps", 24), ("options", {"fps": 12, "colors": 32})]:
+        changed = copy.deepcopy(runs)
+        changed[2][key] = value
+        with pytest.raises(ValueError, match="disagree"):
+            benchmark.summarize(changed)
 
 
 def test_worker_failures_are_not_silently_skipped(monkeypatch):
@@ -101,18 +115,31 @@ def test_real_gif_measurement_and_three_process_command(tmp_path, capsys):
         == 0
     )
     report = json.loads(output.read_text())
+    assert report["measurement"] == "instrumented export profile"
     assert report["runs_per_measurement"] == 3
     assert len(report["raw_runs"][0]["exports"]) == 3
     for measured in report["raw_runs"][0]["exports"]:
         assert measured["shots"] == 8
         assert measured["output_bytes"] > 0
+        assert measured["fps"] == 4
+        assert measured["options"]["max_size"] == [432, 768]
+        assert measured["options"]["colors"] == 64
+        assert len(measured["output_sha256"]) == 64
+        assert all(character in "0123456789abcdef" for character in measured["output_sha256"])
         assert measured["render_seconds"] > 0
         assert measured["encode_seconds"] > 0
         assert measured["total_seconds"] == pytest.approx(
             measured["render_seconds"] + measured["encode_seconds"]
         )
         assert measured["python_peak_rss_mib"] > 0
-    assert "Median of 3" in capsys.readouterr().out
+    runs = report["raw_runs"][0]["exports"]
+    assert len({run["output_sha256"] for run in runs}) == 1
+    assert report["results"][0]["total_seconds_min"] == min(run["total_seconds"] for run in runs)
+    assert report["results"][0]["total_seconds_max"] == max(run["total_seconds"] for run in runs)
+    printed = capsys.readouterr().out
+    assert "Median of 3" in printed
+    assert "Total range s" in printed
+    assert "Instrumented export profile" in printed
     assert report["environment"]["cpu"]
     assert report["environment"]["pillow"]
 
