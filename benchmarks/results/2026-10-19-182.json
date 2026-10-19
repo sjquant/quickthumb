@@ -1,0 +1,364 @@
+{
+  "date": "2026-10-19",
+  "pr": 182,
+  "measured_pr_head": "d1edf64d2f6e18c9b86d212f28c31011e868852a",
+  "protocol": {
+    "scope": "Uninstrumented public document construction plus completed Deck.render export; interpreter/imports, option validation, output hashing/decoding/probing outside timer.",
+    "repetitions": "Three per condition; static_hold uses six balanced pairs to examine the initial noisy result. Raw groups retain their actual run count.",
+    "order": "GIF revisions/worker/quality variants rotate once per repetition; 10-fps MP4 before/after order alternates AB, BA, AB.",
+    "workload": "Complete checked-in 8-scene 1080x1920 product_hype_reel; GIF 12fps, 432x768 max, 64 colors. MP4 comparison 10fps at native size with existing narration; static_hold is a distinct 20-second 1080x1920 single-color deck. Motion_path is a distinct 2-second 256x192 optional scene.",
+    "cache": "Fresh Python process per sample, shared fixed virtualenv and dependencies; process-local font caches cold, filesystem caches not flushed.",
+    "control": "No concurrent tests, profiles or other agent-initiated heavy workloads. Host scheduling/frequency/load are not controlled; substantial wall-time spread is retained without exclusions or retries.",
+    "rss": "Timing-run RSS is isolated Python lifetime peak sampled before hashing/decoding. It excludes child workers/FFmpeg; no total-memory claim uses it. Separate *diagnostic profiles are single observations, not replicated timing comparisons.",
+    "correctness": "Retain encoded hashes, GIF decoded pixels/count/duration, and video stream probes. Video decoded stream checks are recorded separately. Quality steps intentionally change pixels and cannot establish lossless speedups.",
+    "dependencies": "Every measured revision uses the same uv.lock and installed Python/Pillow/FreeType/FFmpeg environment; exact versions and commit are recorded per run.",
+    "interpretation": "Report median and min-max. Overlapping/noisy observations are inconclusive, not a speedup. Parent-RSS ranges and verified output equivalence support only the specific measured workload.",
+    "failures": "No failed timing attempts, retries or dropped successful samples in this run."
+  },
+  "summaries": [
+    {
+      "pr": 181,
+      "scene": "product_hype_reel",
+      "format": "gif",
+      "fps": 12,
+      "workers": 1,
+      "quality": "standard",
+      "runs": 3,
+      "total_seconds": {
+        "median": 51.912255251001625,
+        "min": 51.383224478995544,
+        "max": 56.72975747700548
+      },
+      "python_peak_rss_mib": {
+        "median": 466.7578125,
+        "min": 466.734375,
+        "max": 467.37890625
+      },
+      "output_sha256": [
+        "acef40f4445b769588bda4c7bf6fc9777b18d0761be4a15a82fd0e5da94d6632"
+      ],
+      "output_bytes": [
+        4083651
+      ],
+      "encoded_frames": [
+        318
+      ],
+      "encoded_duration_ms": [
+        34690
+      ],
+      "decoded_rgba_sha256": [
+        "828e785393bd1b8b1d68d5e808cc8b165b1dedee52a1129c8984175965062044"
+      ]
+    },
+    {
+      "pr": 182,
+      "scene": "product_hype_reel",
+      "format": "gif",
+      "fps": 12,
+      "workers": 1,
+      "quality": "standard",
+      "runs": 3,
+      "total_seconds": {
+        "median": 48.63881273900188,
+        "min": 37.08584777700162,
+        "max": 53.10566919499979
+      },
+      "python_peak_rss_mib": {
+        "median": 531.57421875,
+        "min": 528.89453125,
+        "max": 533.1796875
+      },
+      "output_sha256": [
+        "acef40f4445b769588bda4c7bf6fc9777b18d0761be4a15a82fd0e5da94d6632"
+      ],
+      "output_bytes": [
+        4083651
+      ],
+      "encoded_frames": [
+        318
+      ],
+      "encoded_duration_ms": [
+        34690
+      ],
+      "decoded_rgba_sha256": [
+        "828e785393bd1b8b1d68d5e808cc8b165b1dedee52a1129c8984175965062044"
+      ]
+    }
+  ],
+  "raw_runs": {
+    "181-gif-w1-standard-r1": {
+      "pr": 181,
+      "format": "gif",
+      "fps": 12,
+      "repetition": 1,
+      "output": "181-gif-w1-standard-r1.gif",
+      "environment": {
+        "cpu": "INTEL(R) XEON(R) PLATINUM 8573C",
+        "logical_cpus": 9,
+        "platform": "Linux-6.18.55-x86_64-with-glibc2.41",
+        "python": "3.12.14",
+        "pillow": "12.3.0",
+        "freetype": "2.14.3",
+        "text_layout": "raqm",
+        "ffmpeg": "ffmpeg version 7.1.5-0+deb13u1 Copyright (c) 2000-2026 the FFmpeg developers",
+        "commit": "b8c93f1f6b54f415904f5ef10ddf01d86f9dce55"
+      },
+      "total_seconds": 51.383224478995544,
+      "python_peak_rss_mib": 467.37890625,
+      "load_before": [
+        1.0751953125,
+        1.0126953125,
+        0.5615234375
+      ],
+      "load_after": [
+        1.02783203125,
+        1.00732421875,
+        0.58837890625
+      ],
+      "output_bytes": 4083651,
+      "output_sha256": "acef40f4445b769588bda4c7bf6fc9777b18d0761be4a15a82fd0e5da94d6632",
+      "encoded_frames": 318,
+      "encoded_duration_ms": 34690,
+      "dimensions": [
+        432,
+        768
+      ],
+      "decoded_rgba_sha256": "828e785393bd1b8b1d68d5e808cc8b165b1dedee52a1129c8984175965062044",
+      "whole_subprocess_seconds": 56.19588392999867
+    },
+    "181-gif-w1-standard-r2": {
+      "pr": 181,
+      "format": "gif",
+      "fps": 12,
+      "repetition": 2,
+      "output": "181-gif-w1-standard-r2.gif",
+      "environment": {
+        "cpu": "INTEL(R) XEON(R) PLATINUM 8573C",
+        "logical_cpus": 9,
+        "platform": "Linux-6.18.55-x86_64-with-glibc2.41",
+        "python": "3.12.14",
+        "pillow": "12.3.0",
+        "freetype": "2.14.3",
+        "text_layout": "raqm",
+        "ffmpeg": "ffmpeg version 7.1.5-0+deb13u1 Copyright (c) 2000-2026 the FFmpeg developers",
+        "commit": "b8c93f1f6b54f415904f5ef10ddf01d86f9dce55"
+      },
+      "total_seconds": 56.72975747700548,
+      "python_peak_rss_mib": 466.734375,
+      "load_before": [
+        1.26806640625,
+        1.15185546875,
+        0.9443359375
+      ],
+      "load_after": [
+        1.4365234375,
+        1.203125,
+        0.97705078125
+      ],
+      "output_bytes": 4083651,
+      "output_sha256": "acef40f4445b769588bda4c7bf6fc9777b18d0761be4a15a82fd0e5da94d6632",
+      "encoded_frames": 318,
+      "encoded_duration_ms": 34690,
+      "dimensions": [
+        432,
+        768
+      ],
+      "decoded_rgba_sha256": "828e785393bd1b8b1d68d5e808cc8b165b1dedee52a1129c8984175965062044",
+      "whole_subprocess_seconds": 59.7849754609997
+    },
+    "181-gif-w1-standard-r3": {
+      "pr": 181,
+      "format": "gif",
+      "fps": 12,
+      "repetition": 3,
+      "output": "181-gif-w1-standard-r3.gif",
+      "environment": {
+        "cpu": "INTEL(R) XEON(R) PLATINUM 8573C",
+        "logical_cpus": 9,
+        "platform": "Linux-6.18.55-x86_64-with-glibc2.41",
+        "python": "3.12.14",
+        "pillow": "12.3.0",
+        "freetype": "2.14.3",
+        "text_layout": "raqm",
+        "ffmpeg": "ffmpeg version 7.1.5-0+deb13u1 Copyright (c) 2000-2026 the FFmpeg developers",
+        "commit": "b8c93f1f6b54f415904f5ef10ddf01d86f9dce55"
+      },
+      "total_seconds": 51.912255251001625,
+      "python_peak_rss_mib": 466.7578125,
+      "load_before": [
+        1.05126953125,
+        1.1298828125,
+        1.06884765625
+      ],
+      "load_after": [
+        1.0654296875,
+        1.12255859375,
+        1.06982421875
+      ],
+      "output_bytes": 4083651,
+      "output_sha256": "acef40f4445b769588bda4c7bf6fc9777b18d0761be4a15a82fd0e5da94d6632",
+      "encoded_frames": 318,
+      "encoded_duration_ms": 34690,
+      "dimensions": [
+        432,
+        768
+      ],
+      "decoded_rgba_sha256": "828e785393bd1b8b1d68d5e808cc8b165b1dedee52a1129c8984175965062044",
+      "whole_subprocess_seconds": 54.88556500200502
+    },
+    "181-instrumented-gif-diagnostic": {
+      "scene": "product_hype_reel",
+      "format": "gif",
+      "shots": 330,
+      "render_ms_per_shot": 192.66716313046123,
+      "render_seconds": 63.58016383305221,
+      "encode_seconds": 46.6291481469525,
+      "total_seconds": 110.20931198000471,
+      "python_peak_rss_mib": 465.0703125,
+      "font_loads": 28,
+      "font_seconds": 2.307213567997678,
+      "output_bytes": 4083651
+    },
+    "182-gif-w1-standard-r1": {
+      "pr": 182,
+      "format": "gif",
+      "fps": 12,
+      "repetition": 1,
+      "output": "182-gif-w1-standard-r1.gif",
+      "environment": {
+        "cpu": "INTEL(R) XEON(R) PLATINUM 8573C",
+        "logical_cpus": 9,
+        "platform": "Linux-6.18.55-x86_64-with-glibc2.41",
+        "python": "3.12.14",
+        "pillow": "12.3.0",
+        "freetype": "2.14.3",
+        "text_layout": "raqm",
+        "ffmpeg": "ffmpeg version 7.1.5-0+deb13u1 Copyright (c) 2000-2026 the FFmpeg developers",
+        "commit": "d1edf64d2f6e18c9b86d212f28c31011e868852a"
+      },
+      "total_seconds": 37.08584777700162,
+      "python_peak_rss_mib": 531.57421875,
+      "load_before": [
+        1.02783203125,
+        1.00732421875,
+        0.58837890625
+      ],
+      "load_after": [
+        1.14892578125,
+        1.0361328125,
+        0.61865234375
+      ],
+      "output_bytes": 4083651,
+      "output_sha256": "acef40f4445b769588bda4c7bf6fc9777b18d0761be4a15a82fd0e5da94d6632",
+      "encoded_frames": 318,
+      "encoded_duration_ms": 34690,
+      "dimensions": [
+        432,
+        768
+      ],
+      "decoded_rgba_sha256": "828e785393bd1b8b1d68d5e808cc8b165b1dedee52a1129c8984175965062044",
+      "whole_subprocess_seconds": 41.63539983300143
+    },
+    "182-gif-w1-standard-r2": {
+      "pr": 182,
+      "format": "gif",
+      "fps": 12,
+      "repetition": 2,
+      "output": "182-gif-w1-standard-r2.gif",
+      "environment": {
+        "cpu": "INTEL(R) XEON(R) PLATINUM 8573C",
+        "logical_cpus": 9,
+        "platform": "Linux-6.18.55-x86_64-with-glibc2.41",
+        "python": "3.12.14",
+        "pillow": "12.3.0",
+        "freetype": "2.14.3",
+        "text_layout": "raqm",
+        "ffmpeg": "ffmpeg version 7.1.5-0+deb13u1 Copyright (c) 2000-2026 the FFmpeg developers",
+        "commit": "d1edf64d2f6e18c9b86d212f28c31011e868852a"
+      },
+      "total_seconds": 48.63881273900188,
+      "python_peak_rss_mib": 533.1796875,
+      "load_before": [
+        1.4365234375,
+        1.203125,
+        0.97705078125
+      ],
+      "load_after": [
+        1.1875,
+        1.169921875,
+        0.98193359375
+      ],
+      "output_bytes": 4083651,
+      "output_sha256": "acef40f4445b769588bda4c7bf6fc9777b18d0761be4a15a82fd0e5da94d6632",
+      "encoded_frames": 318,
+      "encoded_duration_ms": 34690,
+      "dimensions": [
+        432,
+        768
+      ],
+      "decoded_rgba_sha256": "828e785393bd1b8b1d68d5e808cc8b165b1dedee52a1129c8984175965062044",
+      "whole_subprocess_seconds": 51.32028091500251
+    },
+    "182-gif-w1-standard-r3": {
+      "pr": 182,
+      "format": "gif",
+      "fps": 12,
+      "repetition": 3,
+      "output": "182-gif-w1-standard-r3.gif",
+      "environment": {
+        "cpu": "INTEL(R) XEON(R) PLATINUM 8573C",
+        "logical_cpus": 9,
+        "platform": "Linux-6.18.55-x86_64-with-glibc2.41",
+        "python": "3.12.14",
+        "pillow": "12.3.0",
+        "freetype": "2.14.3",
+        "text_layout": "raqm",
+        "ffmpeg": "ffmpeg version 7.1.5-0+deb13u1 Copyright (c) 2000-2026 the FFmpeg developers",
+        "commit": "d1edf64d2f6e18c9b86d212f28c31011e868852a"
+      },
+      "total_seconds": 53.10566919499979,
+      "python_peak_rss_mib": 528.89453125,
+      "load_before": [
+        1.06005859375,
+        1.1201171875,
+        1.0693359375
+      ],
+      "load_after": [
+        1.0244140625,
+        1.099609375,
+        1.064453125
+      ],
+      "output_bytes": 4083651,
+      "output_sha256": "acef40f4445b769588bda4c7bf6fc9777b18d0761be4a15a82fd0e5da94d6632",
+      "encoded_frames": 318,
+      "encoded_duration_ms": 34690,
+      "dimensions": [
+        432,
+        768
+      ],
+      "decoded_rgba_sha256": "828e785393bd1b8b1d68d5e808cc8b165b1dedee52a1129c8984175965062044",
+      "whole_subprocess_seconds": 56.914132524005254
+    },
+    "182-instrumented-gif-diagnostic": {
+      "scene": "product_hype_reel",
+      "format": "gif",
+      "shots": 330,
+      "render_ms_per_shot": 63.36327401222661,
+      "render_seconds": 20.90988042403478,
+      "encode_seconds": 24.473258683967288,
+      "total_seconds": 45.38313910800207,
+      "python_peak_rss_mib": 530.05859375,
+      "font_loads": 28,
+      "font_seconds": 2.2776508709866903,
+      "output_bytes": 4083651
+    }
+  },
+  "measurement_script_ref": "2026-10-19-178.json:measurement_script",
+  "source_uv_lock_blob": "410f744d6058eeea39bf318c3e436d1e17c38664",
+  "workload_tree_sha256": "1d403c6368b5dd917e1b00dff61bdf601ffb88ff3651faf40f639a95420399bf",
+  "verdict": "inconclusive",
+  "interpretation": [
+    "End-to-end speed verdict: inconclusive. Identical GIF bytes; median wall time 51.912 to 48.639 seconds with overlapping ranges.",
+    "Python-only peak RSS increases from median 466.8 to 531.6 MiB. The static plates intentionally exchange retained full-resolution memory for fewer alpha composites; encoder work remains and caps the end-to-end benefit. Existing independent tests count composites including plate preparation."
+  ]
+}
