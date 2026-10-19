@@ -7,8 +7,9 @@ uv run --locked python -m benchmarks.animated_export --json /tmp/baseline.json
 ```
 
 The command prints one table, including CPU, Python, Pillow, FreeType, text
-layout, FFmpeg, platform, and source commit. Every numeric cell is the median
-of **three fresh subprocesses**. Linux and macOS are supported; the memory
+layout, FFmpeg, platform, and source commit. Numeric metrics are medians
+of **three fresh subprocesses**, with the total-time minimum–maximum range
+reported alongside the median. Linux and macOS are supported; the memory
 measurement uses `resource.getrusage`. FFmpeg and ffprobe must be available for
 MP4/WebM. A failed export fails the command rather than becoming a skipped row.
 No extra Python dependencies are needed.
@@ -38,9 +39,13 @@ No extra Python dependencies are needed.
   trace, and the three-run median is not the worst observed peak
 - `Font loads` counts successful native FreeType `getfont` calls; failed family
   probes are excluded. `Font s` includes time in successful and failed calls
-- The JSON file retains every raw run as well as the medians. Medians for
-  different columns may come from different runs; do not add medians to derive
-  another median
+- The JSON file retains every raw run, its fps/options and output SHA-256, as
+  well as medians and the total-time range. Hashing runs after the timer and
+  RSS sample. A nonempty file and matching shot count do not establish correct
+  encoded frames, duration or audio: use the identity and codec regression
+  gates as well. WebM metadata can vary, so its container hash is diagnostic
+- Medians for different columns may come from different runs; do not add
+  medians to derive another median
 
 Use `--scenes translation rotation scale` or `--formats gif` for development
 smoke runs. `--fps` selects another rate explicitly. Compare only matching
@@ -48,6 +53,21 @@ scene/format/options and environments; partial or lower-rate runs are not the
 full baseline. Run timings without concurrent tests or other heavy workloads.
 Fresh processes reset process-local font caches, but filesystem caches are not
 flushed. Results are local measurements, not universal performance guarantees.
+
+This command is an **instrumented export profile**: font calls and lazy-iterator
+pulls are timed inside the overall measurement. Use it to locate likely costs,
+then separately time the same public construction/export without these wrappers
+to support an end-to-end speed claim. FFmpeg can overlap lazy rendering, so
+subtracting iterator time does not measure independent encoder CPU work.
+
+For before/after comparisons, interleave at least three fresh runs per revision
+(for example, before/after, after/before, before/after), keeping scenes, options,
+dependencies, cache policy and concurrency comparable. Report seconds with the
+median and observed range; do not infer a speedup from medians alone. Verify
+equivalent correct output/work, and retain failures rather than dropping or
+retrying them into successful samples. Classify the result as faster, slower,
+no measurable difference, or inconclusive; use inconclusive when correctness,
+tuning or measurement validity prevents a fair comparison.
 
 ## Jitter metric
 
