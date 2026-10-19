@@ -97,7 +97,7 @@ def measure_jitter(scene: str) -> float | None:
 
 
 class EncoderTimer:
-    """Subtract lazy shot production from the existing encoder's wall time."""
+    """Time consumed encoder inputs; video allocations can exclude zero-frame shots."""
 
     def __init__(self) -> None:
         self.shots = 0
@@ -259,7 +259,7 @@ def print_table(report: dict[str, Any]) -> None:
     print("Instrumented export profile; verify speed claims with uninstrumented end-to-end timing")
     print(f"Median of 3 fresh processes; export fps={report['fps']}; jitter probe=30 fps")
     print(
-        "Scene             Format  Shots  Render ms/shot  Encode s  Total s  Total range s  "
+        "Scene             Format Inputs Render ms/input  Encode s  Total s  Total range s  "
         "Python RSS MiB  Font loads  Font s  Jitter px/frame"
     )
     for row in report["results"]:

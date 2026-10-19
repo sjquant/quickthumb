@@ -25,10 +25,14 @@ No extra Python dependencies are needed.
   and narration. No extra soundtrack is added
 - Each run measures the public `Deck.render(..., animation=...)` path, including
   document construction, preflight, rendering, and final output writes
-- `Render ms/shot` amortizes all work outside the encoder over produced shots.
-  A *shot* is one generated image plus its duration, not a duplicated playback
-  frame. Static holds can span many playback frames. This is deliberately
-  different from dividing by duration × fps
+- `Render ms/input` amortizes all work outside the encoder over consumed
+  encoder input items. GIF inputs are generated image/duration shots; video
+  inputs are nonempty frame allocations after cumulative rounding. A generated
+  sub-frame shot assigned zero playback frames is absent from the video count,
+  while a static hold with many playback frames still counts once. The JSON
+  keys `shots` and `render_ms_per_shot` retain their historical names. Before
+  the prepared-animation/worker change, video counted all generated shots:
+  those per-item metrics are not comparable when rounding drops an input
 - `Encode s` is wall time inside the existing GIF/video encoder, **minus time
   spent pulling its lazy shot iterator**. It includes quantization, resizing,
   PNG intermediates, FFmpeg and audio encoding/muxing as applicable. These
