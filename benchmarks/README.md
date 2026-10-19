@@ -154,6 +154,6 @@ unchanged.
 
 Long static holds trade the old compressed-image reuse for repeated raw pipe
 writes. Benchmark those separately from the animated reel before generalizing
-the measured encode-stage speedup. The existing timer excludes lazy rendering;
+any encode-stage timing difference. The existing timer excludes lazy rendering;
 FFmpeg may now perform some encoding concurrently with that rendering, so total
 wall time is also important when comparing results.

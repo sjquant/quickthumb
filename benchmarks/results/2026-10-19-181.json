@@ -1,0 +1,1211 @@
+{
+  "date": "2026-10-19",
+  "pr": 181,
+  "measured_pr_head": "b8c93f1f6b54f415904f5ef10ddf01d86f9dce55",
+  "protocol": {
+    "scope": "Uninstrumented public document construction plus completed Deck.render export; interpreter/imports, option validation, output hashing/decoding/probing outside timer.",
+    "repetitions": "Three per condition; static_hold uses six balanced pairs to examine the initial noisy result. Raw groups retain their actual run count.",
+    "order": "GIF revisions/worker/quality variants rotate once per repetition; 10-fps MP4 before/after order alternates AB, BA, AB.",
+    "workload": "Complete checked-in 8-scene 1080x1920 product_hype_reel; GIF 12fps, 432x768 max, 64 colors. MP4 comparison 10fps at native size with existing narration; static_hold is a distinct 20-second 1080x1920 single-color deck. Motion_path is a distinct 2-second 256x192 optional scene.",
+    "cache": "Fresh Python process per sample, shared fixed virtualenv and dependencies; process-local font caches cold, filesystem caches not flushed.",
+    "control": "No concurrent tests, profiles or other agent-initiated heavy workloads. Host scheduling/frequency/load are not controlled; substantial wall-time spread is retained without exclusions or retries.",
+    "rss": "Timing-run RSS is isolated Python lifetime peak sampled before hashing/decoding. It excludes child workers/FFmpeg; no total-memory claim uses it. Separate *diagnostic profiles are single observations, not replicated timing comparisons.",
+    "correctness": "Retain encoded hashes, GIF decoded pixels/count/duration, and video stream probes. Video decoded stream checks are recorded separately. Quality steps intentionally change pixels and cannot establish lossless speedups.",
+    "dependencies": "Every measured revision uses the same uv.lock and installed Python/Pillow/FreeType/FFmpeg environment; exact versions and commit are recorded per run.",
+    "interpretation": "Report median and min-max. Overlapping/noisy observations are inconclusive, not a speedup. Parent-RSS ranges and verified output equivalence support only the specific measured workload.",
+    "failures": "No failed timing attempts, retries or dropped successful samples in this run."
+  },
+  "summaries": [
+    {
+      "pr": 179,
+      "scene": "product_hype_reel",
+      "format": "mp4",
+      "fps": 10,
+      "workers": 1,
+      "quality": "standard",
+      "runs": 3,
+      "total_seconds": {
+        "median": 55.97709785599727,
+        "min": 52.35898283899587,
+        "max": 56.75171212600253
+      },
+      "python_peak_rss_mib": {
+        "median": 341.0234375,
+        "min": 341.01171875,
+        "max": 342.83984375
+      },
+      "output_sha256": [
+        "cde1d36bb36abd4a0d5c3b95b4f958a950172268f9ad72dbaaa2765c086e8f52"
+      ],
+      "output_bytes": [
+        1885092
+      ],
+      "decoded_video_rgb24_sha256": [
+        "0be20dfbeff502e191ec88bbea699ad23c341ace15fe8a3a9e16bc80d992810c"
+      ],
+      "decoded_audio_pcm_s16le_sha256": [
+        "7089f28b7f5a1106db904fd17016e7d74b7311bf0f554bf2e67f726c62c7fbbf"
+      ]
+    },
+    {
+      "pr": 179,
+      "scene": "static_hold",
+      "format": "mp4",
+      "fps": 10,
+      "workers": 1,
+      "quality": "standard",
+      "runs": 6,
+      "total_seconds": {
+        "median": 3.4329635590002,
+        "min": 2.7294718559933244,
+        "max": 4.217035706999013
+      },
+      "python_peak_rss_mib": {
+        "median": 85.201171875,
+        "min": 85.05859375,
+        "max": 85.546875
+      },
+      "output_sha256": [
+        "ef00d2d139cebe1184336c3c351eacbe6792556554864a4ce38333347e3c1522"
+      ],
+      "output_bytes": [
+        31642
+      ],
+      "decoded_video_rgb24_sha256": [
+        "c4a2298099d85633ae70b557ec2d312fde5baed107afa7627eb866d97fadd99e"
+      ],
+      "decoded_audio_pcm_s16le_sha256": [
+        "9d5966402da37b3aa123709a1dd693322b63225b7c040fa63f3a90c332184d65"
+      ]
+    },
+    {
+      "pr": 181,
+      "scene": "product_hype_reel",
+      "format": "mp4",
+      "fps": 10,
+      "workers": 1,
+      "quality": "standard",
+      "runs": 3,
+      "total_seconds": {
+        "median": 45.82379963600397,
+        "min": 37.03943465800694,
+        "max": 69.57653739200032
+      },
+      "python_peak_rss_mib": {
+        "median": 363.96484375,
+        "min": 362.0859375,
+        "max": 366.67578125
+      },
+      "output_sha256": [
+        "cde1d36bb36abd4a0d5c3b95b4f958a950172268f9ad72dbaaa2765c086e8f52"
+      ],
+      "output_bytes": [
+        1885092
+      ],
+      "decoded_video_rgb24_sha256": [
+        "0be20dfbeff502e191ec88bbea699ad23c341ace15fe8a3a9e16bc80d992810c"
+      ],
+      "decoded_audio_pcm_s16le_sha256": [
+        "7089f28b7f5a1106db904fd17016e7d74b7311bf0f554bf2e67f726c62c7fbbf"
+      ]
+    },
+    {
+      "pr": 181,
+      "scene": "static_hold",
+      "format": "mp4",
+      "fps": 10,
+      "workers": 1,
+      "quality": "standard",
+      "runs": 6,
+      "total_seconds": {
+        "median": 5.390265019999788,
+        "min": 3.6610136609961046,
+        "max": 7.591078454999661
+      },
+      "python_peak_rss_mib": {
+        "median": 95.09375,
+        "min": 94.7734375,
+        "max": 95.26953125
+      },
+      "output_sha256": [
+        "ef00d2d139cebe1184336c3c351eacbe6792556554864a4ce38333347e3c1522"
+      ],
+      "output_bytes": [
+        31642
+      ],
+      "decoded_video_rgb24_sha256": [
+        "c4a2298099d85633ae70b557ec2d312fde5baed107afa7627eb866d97fadd99e"
+      ],
+      "decoded_audio_pcm_s16le_sha256": [
+        "9d5966402da37b3aa123709a1dd693322b63225b7c040fa63f3a90c332184d65"
+      ]
+    }
+  ],
+  "raw_runs": {
+    "179-mp4-10fps-r1": {
+      "pr": 179,
+      "format": "mp4",
+      "fps": 10,
+      "repetition": 1,
+      "output": "179-mp4-10fps-r1.mp4",
+      "environment": {
+        "cpu": "INTEL(R) XEON(R) PLATINUM 8573C",
+        "logical_cpus": 9,
+        "platform": "Linux-6.18.55-x86_64-with-glibc2.41",
+        "python": "3.12.14",
+        "pillow": "12.3.0",
+        "freetype": "2.14.3",
+        "text_layout": "raqm",
+        "ffmpeg": "ffmpeg version 7.1.5-0+deb13u1 Copyright (c) 2000-2026 the FFmpeg developers",
+        "commit": "09392f830bde2fe810bb18e8e17bc95257a4d160"
+      },
+      "total_seconds": 52.35898283899587,
+      "python_peak_rss_mib": 342.83984375,
+      "load_before": [
+        1.13427734375,
+        1.16796875,
+        1.12939453125
+      ],
+      "load_after": [
+        1.109375,
+        1.15576171875,
+        1.12548828125
+      ],
+      "output_bytes": 1885092,
+      "output_sha256": "cde1d36bb36abd4a0d5c3b95b4f958a950172268f9ad72dbaaa2765c086e8f52",
+      "probe": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "codec_name": "h264",
+            "codec_type": "video",
+            "width": 1080,
+            "height": 1920,
+            "r_frame_rate": "10/1",
+            "duration": "34.700000",
+            "nb_read_frames": "347"
+          },
+          {
+            "codec_name": "aac",
+            "codec_type": "audio",
+            "sample_rate": "48000",
+            "channels": 2,
+            "r_frame_rate": "0/0",
+            "duration": "34.687000",
+            "nb_read_frames": "1626"
+          }
+        ]
+      },
+      "decoded_video_rgb24_sha256": "0be20dfbeff502e191ec88bbea699ad23c341ace15fe8a3a9e16bc80d992810c",
+      "decoded_audio_pcm_s16le_sha256": "7089f28b7f5a1106db904fd17016e7d74b7311bf0f554bf2e67f726c62c7fbbf"
+    },
+    "179-mp4-10fps-r2": {
+      "pr": 179,
+      "format": "mp4",
+      "fps": 10,
+      "repetition": 2,
+      "output": "179-mp4-10fps-r2.mp4",
+      "environment": {
+        "cpu": "INTEL(R) XEON(R) PLATINUM 8573C",
+        "logical_cpus": 9,
+        "platform": "Linux-6.18.55-x86_64-with-glibc2.41",
+        "python": "3.12.14",
+        "pillow": "12.3.0",
+        "freetype": "2.14.3",
+        "text_layout": "raqm",
+        "ffmpeg": "ffmpeg version 7.1.5-0+deb13u1 Copyright (c) 2000-2026 the FFmpeg developers",
+        "commit": "09392f830bde2fe810bb18e8e17bc95257a4d160"
+      },
+      "total_seconds": 56.75171212600253,
+      "python_peak_rss_mib": 341.0234375,
+      "load_before": [
+        2.00048828125,
+        1.39892578125,
+        1.21044921875
+      ],
+      "load_after": [
+        2.109375,
+        1.517578125,
+        1.259765625
+      ],
+      "output_bytes": 1885092,
+      "output_sha256": "cde1d36bb36abd4a0d5c3b95b4f958a950172268f9ad72dbaaa2765c086e8f52",
+      "probe": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "codec_name": "h264",
+            "codec_type": "video",
+            "width": 1080,
+            "height": 1920,
+            "r_frame_rate": "10/1",
+            "duration": "34.700000",
+            "nb_read_frames": "347"
+          },
+          {
+            "codec_name": "aac",
+            "codec_type": "audio",
+            "sample_rate": "48000",
+            "channels": 2,
+            "r_frame_rate": "0/0",
+            "duration": "34.687000",
+            "nb_read_frames": "1626"
+          }
+        ]
+      },
+      "decoded_video_rgb24_sha256": "0be20dfbeff502e191ec88bbea699ad23c341ace15fe8a3a9e16bc80d992810c",
+      "decoded_audio_pcm_s16le_sha256": "7089f28b7f5a1106db904fd17016e7d74b7311bf0f554bf2e67f726c62c7fbbf"
+    },
+    "179-mp4-10fps-r3": {
+      "pr": 179,
+      "format": "mp4",
+      "fps": 10,
+      "repetition": 3,
+      "output": "179-mp4-10fps-r3.mp4",
+      "environment": {
+        "cpu": "INTEL(R) XEON(R) PLATINUM 8573C",
+        "logical_cpus": 9,
+        "platform": "Linux-6.18.55-x86_64-with-glibc2.41",
+        "python": "3.12.14",
+        "pillow": "12.3.0",
+        "freetype": "2.14.3",
+        "text_layout": "raqm",
+        "ffmpeg": "ffmpeg version 7.1.5-0+deb13u1 Copyright (c) 2000-2026 the FFmpeg developers",
+        "commit": "09392f830bde2fe810bb18e8e17bc95257a4d160"
+      },
+      "total_seconds": 55.97709785599727,
+      "python_peak_rss_mib": 341.01171875,
+      "load_before": [
+        2.0205078125,
+        1.5087890625,
+        1.25830078125
+      ],
+      "load_after": [
+        2.41796875,
+        1.6865234375,
+        1.33154296875
+      ],
+      "output_bytes": 1885092,
+      "output_sha256": "cde1d36bb36abd4a0d5c3b95b4f958a950172268f9ad72dbaaa2765c086e8f52",
+      "probe": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "codec_name": "h264",
+            "codec_type": "video",
+            "width": 1080,
+            "height": 1920,
+            "r_frame_rate": "10/1",
+            "duration": "34.700000",
+            "nb_read_frames": "347"
+          },
+          {
+            "codec_name": "aac",
+            "codec_type": "audio",
+            "sample_rate": "48000",
+            "channels": 2,
+            "r_frame_rate": "0/0",
+            "duration": "34.687000",
+            "nb_read_frames": "1626"
+          }
+        ]
+      },
+      "decoded_video_rgb24_sha256": "0be20dfbeff502e191ec88bbea699ad23c341ace15fe8a3a9e16bc80d992810c",
+      "decoded_audio_pcm_s16le_sha256": "7089f28b7f5a1106db904fd17016e7d74b7311bf0f554bf2e67f726c62c7fbbf"
+    },
+    "179-static-hold-mp4-10fps-r1": {
+      "pr": 179,
+      "scene": "static_hold",
+      "format": "mp4",
+      "fps": 10,
+      "repetition": 1,
+      "output": "179-static-hold-mp4-10fps-r1.mp4",
+      "environment": {
+        "cpu": "INTEL(R) XEON(R) PLATINUM 8573C",
+        "logical_cpus": 9,
+        "platform": "Linux-6.18.55-x86_64-with-glibc2.41",
+        "python": "3.12.14",
+        "pillow": "12.3.0",
+        "freetype": "2.14.3",
+        "text_layout": "raqm",
+        "ffmpeg": "ffmpeg version 7.1.5-0+deb13u1 Copyright (c) 2000-2026 the FFmpeg developers",
+        "commit": "09392f830bde2fe810bb18e8e17bc95257a4d160"
+      },
+      "total_seconds": 3.4342267350002658,
+      "python_peak_rss_mib": 85.140625,
+      "load_before": [
+        1.4521484375,
+        1.55126953125,
+        1.30517578125
+      ],
+      "load_after": [
+        1.41552734375,
+        1.5419921875,
+        1.30322265625
+      ],
+      "output_bytes": 31642,
+      "output_sha256": "ef00d2d139cebe1184336c3c351eacbe6792556554864a4ce38333347e3c1522",
+      "probe": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "codec_name": "h264",
+            "codec_type": "video",
+            "width": 1080,
+            "height": 1920,
+            "r_frame_rate": "10/1",
+            "duration": "20.000000",
+            "nb_read_frames": "200"
+          },
+          {
+            "codec_name": "aac",
+            "codec_type": "audio",
+            "sample_rate": "48000",
+            "channels": 2,
+            "r_frame_rate": "0/0",
+            "duration": "20.000000",
+            "nb_read_frames": "938"
+          }
+        ]
+      },
+      "decoded_video_rgb24_sha256": "c4a2298099d85633ae70b557ec2d312fde5baed107afa7627eb866d97fadd99e",
+      "decoded_audio_pcm_s16le_sha256": "9d5966402da37b3aa123709a1dd693322b63225b7c040fa63f3a90c332184d65"
+    },
+    "179-static-hold-mp4-10fps-r2": {
+      "pr": 179,
+      "scene": "static_hold",
+      "format": "mp4",
+      "fps": 10,
+      "repetition": 2,
+      "output": "179-static-hold-mp4-10fps-r2.mp4",
+      "environment": {
+        "cpu": "INTEL(R) XEON(R) PLATINUM 8573C",
+        "logical_cpus": 9,
+        "platform": "Linux-6.18.55-x86_64-with-glibc2.41",
+        "python": "3.12.14",
+        "pillow": "12.3.0",
+        "freetype": "2.14.3",
+        "text_layout": "raqm",
+        "ffmpeg": "ffmpeg version 7.1.5-0+deb13u1 Copyright (c) 2000-2026 the FFmpeg developers",
+        "commit": "09392f830bde2fe810bb18e8e17bc95257a4d160"
+      },
+      "total_seconds": 3.722984465995978,
+      "python_peak_rss_mib": 85.26171875,
+      "load_before": [
+        1.6923828125,
+        1.58935546875,
+        1.3232421875
+      ],
+      "load_after": [
+        1.79736328125,
+        1.61279296875,
+        1.33251953125
+      ],
+      "output_bytes": 31642,
+      "output_sha256": "ef00d2d139cebe1184336c3c351eacbe6792556554864a4ce38333347e3c1522",
+      "probe": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "codec_name": "h264",
+            "codec_type": "video",
+            "width": 1080,
+            "height": 1920,
+            "r_frame_rate": "10/1",
+            "duration": "20.000000",
+            "nb_read_frames": "200"
+          },
+          {
+            "codec_name": "aac",
+            "codec_type": "audio",
+            "sample_rate": "48000",
+            "channels": 2,
+            "r_frame_rate": "0/0",
+            "duration": "20.000000",
+            "nb_read_frames": "938"
+          }
+        ]
+      },
+      "decoded_video_rgb24_sha256": "c4a2298099d85633ae70b557ec2d312fde5baed107afa7627eb866d97fadd99e",
+      "decoded_audio_pcm_s16le_sha256": "9d5966402da37b3aa123709a1dd693322b63225b7c040fa63f3a90c332184d65"
+    },
+    "179-static-hold-mp4-10fps-r3": {
+      "pr": 179,
+      "scene": "static_hold",
+      "format": "mp4",
+      "fps": 10,
+      "repetition": 3,
+      "output": "179-static-hold-mp4-10fps-r3.mp4",
+      "environment": {
+        "cpu": "INTEL(R) XEON(R) PLATINUM 8573C",
+        "logical_cpus": 9,
+        "platform": "Linux-6.18.55-x86_64-with-glibc2.41",
+        "python": "3.12.14",
+        "pillow": "12.3.0",
+        "freetype": "2.14.3",
+        "text_layout": "raqm",
+        "ffmpeg": "ffmpeg version 7.1.5-0+deb13u1 Copyright (c) 2000-2026 the FFmpeg developers",
+        "commit": "09392f830bde2fe810bb18e8e17bc95257a4d160"
+      },
+      "total_seconds": 2.7294718559933244,
+      "python_peak_rss_mib": 85.125,
+      "load_before": [
+        1.7333984375,
+        1.6025390625,
+        1.33056640625
+      ],
+      "load_after": [
+        1.7333984375,
+        1.6025390625,
+        1.33056640625
+      ],
+      "output_bytes": 31642,
+      "output_sha256": "ef00d2d139cebe1184336c3c351eacbe6792556554864a4ce38333347e3c1522",
+      "probe": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "codec_name": "h264",
+            "codec_type": "video",
+            "width": 1080,
+            "height": 1920,
+            "r_frame_rate": "10/1",
+            "duration": "20.000000",
+            "nb_read_frames": "200"
+          },
+          {
+            "codec_name": "aac",
+            "codec_type": "audio",
+            "sample_rate": "48000",
+            "channels": 2,
+            "r_frame_rate": "0/0",
+            "duration": "20.000000",
+            "nb_read_frames": "938"
+          }
+        ]
+      },
+      "decoded_video_rgb24_sha256": "c4a2298099d85633ae70b557ec2d312fde5baed107afa7627eb866d97fadd99e",
+      "decoded_audio_pcm_s16le_sha256": "9d5966402da37b3aa123709a1dd693322b63225b7c040fa63f3a90c332184d65"
+    },
+    "179-static-hold-mp4-10fps-r4": {
+      "pr": 179,
+      "scene": "static_hold",
+      "format": "mp4",
+      "fps": 10,
+      "repetition": 4,
+      "output": "179-static-hold-mp4-10fps-r4.mp4",
+      "environment": {
+        "cpu": "INTEL(R) XEON(R) PLATINUM 8573C",
+        "logical_cpus": 9,
+        "platform": "Linux-6.18.55-x86_64-with-glibc2.41",
+        "python": "3.12.14",
+        "pillow": "12.3.0",
+        "freetype": "2.14.3",
+        "text_layout": "raqm",
+        "ffmpeg": "ffmpeg version 7.1.5-0+deb13u1 Copyright (c) 2000-2026 the FFmpeg developers",
+        "commit": "09392f830bde2fe810bb18e8e17bc95257a4d160"
+      },
+      "total_seconds": 3.431700383000134,
+      "python_peak_rss_mib": 85.40234375,
+      "load_before": [
+        1.4921875,
+        1.7275390625,
+        1.53759765625
+      ],
+      "load_after": [
+        2.57421875,
+        1.9482421875,
+        1.6103515625
+      ],
+      "output_bytes": 31642,
+      "output_sha256": "ef00d2d139cebe1184336c3c351eacbe6792556554864a4ce38333347e3c1522",
+      "probe": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "codec_name": "h264",
+            "codec_type": "video",
+            "width": 1080,
+            "height": 1920,
+            "r_frame_rate": "10/1",
+            "duration": "20.000000",
+            "nb_read_frames": "200"
+          },
+          {
+            "codec_name": "aac",
+            "codec_type": "audio",
+            "sample_rate": "48000",
+            "channels": 2,
+            "r_frame_rate": "0/0",
+            "duration": "20.000000",
+            "nb_read_frames": "938"
+          }
+        ]
+      },
+      "decoded_video_rgb24_sha256": "c4a2298099d85633ae70b557ec2d312fde5baed107afa7627eb866d97fadd99e",
+      "decoded_audio_pcm_s16le_sha256": "9d5966402da37b3aa123709a1dd693322b63225b7c040fa63f3a90c332184d65"
+    },
+    "179-static-hold-mp4-10fps-r5": {
+      "pr": 179,
+      "scene": "static_hold",
+      "format": "mp4",
+      "fps": 10,
+      "repetition": 5,
+      "output": "179-static-hold-mp4-10fps-r5.mp4",
+      "environment": {
+        "cpu": "INTEL(R) XEON(R) PLATINUM 8573C",
+        "logical_cpus": 9,
+        "platform": "Linux-6.18.55-x86_64-with-glibc2.41",
+        "python": "3.12.14",
+        "pillow": "12.3.0",
+        "freetype": "2.14.3",
+        "text_layout": "raqm",
+        "ffmpeg": "ffmpeg version 7.1.5-0+deb13u1 Copyright (c) 2000-2026 the FFmpeg developers",
+        "commit": "09392f830bde2fe810bb18e8e17bc95257a4d160"
+      },
+      "total_seconds": 4.217035706999013,
+      "python_peak_rss_mib": 85.05859375,
+      "load_before": [
+        2.57421875,
+        1.9482421875,
+        1.6103515625
+      ],
+      "load_after": [
+        2.6083984375,
+        1.9658203125,
+        1.6181640625
+      ],
+      "output_bytes": 31642,
+      "output_sha256": "ef00d2d139cebe1184336c3c351eacbe6792556554864a4ce38333347e3c1522",
+      "probe": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "codec_name": "h264",
+            "codec_type": "video",
+            "width": 1080,
+            "height": 1920,
+            "r_frame_rate": "10/1",
+            "duration": "20.000000",
+            "nb_read_frames": "200"
+          },
+          {
+            "codec_name": "aac",
+            "codec_type": "audio",
+            "sample_rate": "48000",
+            "channels": 2,
+            "r_frame_rate": "0/0",
+            "duration": "20.000000",
+            "nb_read_frames": "938"
+          }
+        ]
+      },
+      "decoded_video_rgb24_sha256": "c4a2298099d85633ae70b557ec2d312fde5baed107afa7627eb866d97fadd99e",
+      "decoded_audio_pcm_s16le_sha256": "9d5966402da37b3aa123709a1dd693322b63225b7c040fa63f3a90c332184d65"
+    },
+    "179-static-hold-mp4-10fps-r6": {
+      "pr": 179,
+      "scene": "static_hold",
+      "format": "mp4",
+      "fps": 10,
+      "repetition": 6,
+      "output": "179-static-hold-mp4-10fps-r6.mp4",
+      "environment": {
+        "cpu": "INTEL(R) XEON(R) PLATINUM 8573C",
+        "logical_cpus": 9,
+        "platform": "Linux-6.18.55-x86_64-with-glibc2.41",
+        "python": "3.12.14",
+        "pillow": "12.3.0",
+        "freetype": "2.14.3",
+        "text_layout": "raqm",
+        "ffmpeg": "ffmpeg version 7.1.5-0+deb13u1 Copyright (c) 2000-2026 the FFmpeg developers",
+        "commit": "09392f830bde2fe810bb18e8e17bc95257a4d160"
+      },
+      "total_seconds": 3.279806712002028,
+      "python_peak_rss_mib": 85.546875,
+      "load_before": [
+        2.29248046875,
+        1.935546875,
+        1.6162109375
+      ],
+      "load_after": [
+        2.29248046875,
+        1.935546875,
+        1.6162109375
+      ],
+      "output_bytes": 31642,
+      "output_sha256": "ef00d2d139cebe1184336c3c351eacbe6792556554864a4ce38333347e3c1522",
+      "probe": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "codec_name": "h264",
+            "codec_type": "video",
+            "width": 1080,
+            "height": 1920,
+            "r_frame_rate": "10/1",
+            "duration": "20.000000",
+            "nb_read_frames": "200"
+          },
+          {
+            "codec_name": "aac",
+            "codec_type": "audio",
+            "sample_rate": "48000",
+            "channels": 2,
+            "r_frame_rate": "0/0",
+            "duration": "20.000000",
+            "nb_read_frames": "938"
+          }
+        ]
+      },
+      "decoded_video_rgb24_sha256": "c4a2298099d85633ae70b557ec2d312fde5baed107afa7627eb866d97fadd99e",
+      "decoded_audio_pcm_s16le_sha256": "9d5966402da37b3aa123709a1dd693322b63225b7c040fa63f3a90c332184d65"
+    },
+    "181-mp4-10fps-r1": {
+      "pr": 181,
+      "format": "mp4",
+      "fps": 10,
+      "repetition": 1,
+      "output": "181-mp4-10fps-r1.mp4",
+      "environment": {
+        "cpu": "INTEL(R) XEON(R) PLATINUM 8573C",
+        "logical_cpus": 9,
+        "platform": "Linux-6.18.55-x86_64-with-glibc2.41",
+        "python": "3.12.14",
+        "pillow": "12.3.0",
+        "freetype": "2.14.3",
+        "text_layout": "raqm",
+        "ffmpeg": "ffmpeg version 7.1.5-0+deb13u1 Copyright (c) 2000-2026 the FFmpeg developers",
+        "commit": "b8c93f1f6b54f415904f5ef10ddf01d86f9dce55"
+      },
+      "total_seconds": 45.82379963600397,
+      "python_peak_rss_mib": 363.96484375,
+      "load_before": [
+        1.1005859375,
+        1.15283203125,
+        1.12451171875
+      ],
+      "load_after": [
+        1.1201171875,
+        1.146484375,
+        1.12158203125
+      ],
+      "output_bytes": 1885092,
+      "output_sha256": "cde1d36bb36abd4a0d5c3b95b4f958a950172268f9ad72dbaaa2765c086e8f52",
+      "probe": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "codec_name": "h264",
+            "codec_type": "video",
+            "width": 1080,
+            "height": 1920,
+            "r_frame_rate": "10/1",
+            "duration": "34.700000",
+            "nb_read_frames": "347"
+          },
+          {
+            "codec_name": "aac",
+            "codec_type": "audio",
+            "sample_rate": "48000",
+            "channels": 2,
+            "r_frame_rate": "0/0",
+            "duration": "34.687000",
+            "nb_read_frames": "1626"
+          }
+        ]
+      },
+      "decoded_video_rgb24_sha256": "0be20dfbeff502e191ec88bbea699ad23c341ace15fe8a3a9e16bc80d992810c",
+      "decoded_audio_pcm_s16le_sha256": "7089f28b7f5a1106db904fd17016e7d74b7311bf0f554bf2e67f726c62c7fbbf"
+    },
+    "181-mp4-10fps-r2": {
+      "pr": 181,
+      "format": "mp4",
+      "fps": 10,
+      "repetition": 2,
+      "output": "181-mp4-10fps-r2.mp4",
+      "environment": {
+        "cpu": "INTEL(R) XEON(R) PLATINUM 8573C",
+        "logical_cpus": 9,
+        "platform": "Linux-6.18.55-x86_64-with-glibc2.41",
+        "python": "3.12.14",
+        "pillow": "12.3.0",
+        "freetype": "2.14.3",
+        "text_layout": "raqm",
+        "ffmpeg": "ffmpeg version 7.1.5-0+deb13u1 Copyright (c) 2000-2026 the FFmpeg developers",
+        "commit": "b8c93f1f6b54f415904f5ef10ddf01d86f9dce55"
+      },
+      "total_seconds": 69.57653739200032,
+      "python_peak_rss_mib": 366.67578125,
+      "load_before": [
+        1.1201171875,
+        1.146484375,
+        1.12158203125
+      ],
+      "load_after": [
+        2.087890625,
+        1.40576171875,
+        1.2119140625
+      ],
+      "output_bytes": 1885092,
+      "output_sha256": "cde1d36bb36abd4a0d5c3b95b4f958a950172268f9ad72dbaaa2765c086e8f52",
+      "probe": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "codec_name": "h264",
+            "codec_type": "video",
+            "width": 1080,
+            "height": 1920,
+            "r_frame_rate": "10/1",
+            "duration": "34.700000",
+            "nb_read_frames": "347"
+          },
+          {
+            "codec_name": "aac",
+            "codec_type": "audio",
+            "sample_rate": "48000",
+            "channels": 2,
+            "r_frame_rate": "0/0",
+            "duration": "34.687000",
+            "nb_read_frames": "1626"
+          }
+        ]
+      },
+      "decoded_video_rgb24_sha256": "0be20dfbeff502e191ec88bbea699ad23c341ace15fe8a3a9e16bc80d992810c",
+      "decoded_audio_pcm_s16le_sha256": "7089f28b7f5a1106db904fd17016e7d74b7311bf0f554bf2e67f726c62c7fbbf"
+    },
+    "181-mp4-10fps-r3": {
+      "pr": 181,
+      "format": "mp4",
+      "fps": 10,
+      "repetition": 3,
+      "output": "181-mp4-10fps-r3.mp4",
+      "environment": {
+        "cpu": "INTEL(R) XEON(R) PLATINUM 8573C",
+        "logical_cpus": 9,
+        "platform": "Linux-6.18.55-x86_64-with-glibc2.41",
+        "python": "3.12.14",
+        "pillow": "12.3.0",
+        "freetype": "2.14.3",
+        "text_layout": "raqm",
+        "ffmpeg": "ffmpeg version 7.1.5-0+deb13u1 Copyright (c) 2000-2026 the FFmpeg developers",
+        "commit": "b8c93f1f6b54f415904f5ef10ddf01d86f9dce55"
+      },
+      "total_seconds": 37.03943465800694,
+      "python_peak_rss_mib": 362.0859375,
+      "load_before": [
+        2.30419921875,
+        1.6748046875,
+        1.32958984375
+      ],
+      "load_after": [
+        1.71630859375,
+        1.6044921875,
+        1.31982421875
+      ],
+      "output_bytes": 1885092,
+      "output_sha256": "cde1d36bb36abd4a0d5c3b95b4f958a950172268f9ad72dbaaa2765c086e8f52",
+      "probe": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "codec_name": "h264",
+            "codec_type": "video",
+            "width": 1080,
+            "height": 1920,
+            "r_frame_rate": "10/1",
+            "duration": "34.700000",
+            "nb_read_frames": "347"
+          },
+          {
+            "codec_name": "aac",
+            "codec_type": "audio",
+            "sample_rate": "48000",
+            "channels": 2,
+            "r_frame_rate": "0/0",
+            "duration": "34.687000",
+            "nb_read_frames": "1626"
+          }
+        ]
+      },
+      "decoded_video_rgb24_sha256": "0be20dfbeff502e191ec88bbea699ad23c341ace15fe8a3a9e16bc80d992810c",
+      "decoded_audio_pcm_s16le_sha256": "7089f28b7f5a1106db904fd17016e7d74b7311bf0f554bf2e67f726c62c7fbbf"
+    },
+    "181-static-hold-mp4-10fps-r1": {
+      "pr": 181,
+      "scene": "static_hold",
+      "format": "mp4",
+      "fps": 10,
+      "repetition": 1,
+      "output": "181-static-hold-mp4-10fps-r1.mp4",
+      "environment": {
+        "cpu": "INTEL(R) XEON(R) PLATINUM 8573C",
+        "logical_cpus": 9,
+        "platform": "Linux-6.18.55-x86_64-with-glibc2.41",
+        "python": "3.12.14",
+        "pillow": "12.3.0",
+        "freetype": "2.14.3",
+        "text_layout": "raqm",
+        "ffmpeg": "ffmpeg version 7.1.5-0+deb13u1 Copyright (c) 2000-2026 the FFmpeg developers",
+        "commit": "b8c93f1f6b54f415904f5ef10ddf01d86f9dce55"
+      },
+      "total_seconds": 5.540707797998039,
+      "python_peak_rss_mib": 95.26953125,
+      "load_before": [
+        1.3818359375,
+        1.53271484375,
+        1.30126953125
+      ],
+      "load_after": [
+        1.431640625,
+        1.54052734375,
+        1.30517578125
+      ],
+      "output_bytes": 31642,
+      "output_sha256": "ef00d2d139cebe1184336c3c351eacbe6792556554864a4ce38333347e3c1522",
+      "probe": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "codec_name": "h264",
+            "codec_type": "video",
+            "width": 1080,
+            "height": 1920,
+            "r_frame_rate": "10/1",
+            "duration": "20.000000",
+            "nb_read_frames": "200"
+          },
+          {
+            "codec_name": "aac",
+            "codec_type": "audio",
+            "sample_rate": "48000",
+            "channels": 2,
+            "r_frame_rate": "0/0",
+            "duration": "20.000000",
+            "nb_read_frames": "938"
+          }
+        ]
+      },
+      "decoded_video_rgb24_sha256": "c4a2298099d85633ae70b557ec2d312fde5baed107afa7627eb866d97fadd99e",
+      "decoded_audio_pcm_s16le_sha256": "9d5966402da37b3aa123709a1dd693322b63225b7c040fa63f3a90c332184d65"
+    },
+    "181-static-hold-mp4-10fps-r2": {
+      "pr": 181,
+      "scene": "static_hold",
+      "format": "mp4",
+      "fps": 10,
+      "repetition": 2,
+      "output": "181-static-hold-mp4-10fps-r2.mp4",
+      "environment": {
+        "cpu": "INTEL(R) XEON(R) PLATINUM 8573C",
+        "logical_cpus": 9,
+        "platform": "Linux-6.18.55-x86_64-with-glibc2.41",
+        "python": "3.12.14",
+        "pillow": "12.3.0",
+        "freetype": "2.14.3",
+        "text_layout": "raqm",
+        "ffmpeg": "ffmpeg version 7.1.5-0+deb13u1 Copyright (c) 2000-2026 the FFmpeg developers",
+        "commit": "b8c93f1f6b54f415904f5ef10ddf01d86f9dce55"
+      },
+      "total_seconds": 6.180466917998274,
+      "python_peak_rss_mib": 94.7734375,
+      "load_before": [
+        1.31689453125,
+        1.5146484375,
+        1.2978515625
+      ],
+      "load_after": [
+        1.6923828125,
+        1.58935546875,
+        1.3232421875
+      ],
+      "output_bytes": 31642,
+      "output_sha256": "ef00d2d139cebe1184336c3c351eacbe6792556554864a4ce38333347e3c1522",
+      "probe": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "codec_name": "h264",
+            "codec_type": "video",
+            "width": 1080,
+            "height": 1920,
+            "r_frame_rate": "10/1",
+            "duration": "20.000000",
+            "nb_read_frames": "200"
+          },
+          {
+            "codec_name": "aac",
+            "codec_type": "audio",
+            "sample_rate": "48000",
+            "channels": 2,
+            "r_frame_rate": "0/0",
+            "duration": "20.000000",
+            "nb_read_frames": "938"
+          }
+        ]
+      },
+      "decoded_video_rgb24_sha256": "c4a2298099d85633ae70b557ec2d312fde5baed107afa7627eb866d97fadd99e",
+      "decoded_audio_pcm_s16le_sha256": "9d5966402da37b3aa123709a1dd693322b63225b7c040fa63f3a90c332184d65"
+    },
+    "181-static-hold-mp4-10fps-r3": {
+      "pr": 181,
+      "scene": "static_hold",
+      "format": "mp4",
+      "fps": 10,
+      "repetition": 3,
+      "output": "181-static-hold-mp4-10fps-r3.mp4",
+      "environment": {
+        "cpu": "INTEL(R) XEON(R) PLATINUM 8573C",
+        "logical_cpus": 9,
+        "platform": "Linux-6.18.55-x86_64-with-glibc2.41",
+        "python": "3.12.14",
+        "pillow": "12.3.0",
+        "freetype": "2.14.3",
+        "text_layout": "raqm",
+        "ffmpeg": "ffmpeg version 7.1.5-0+deb13u1 Copyright (c) 2000-2026 the FFmpeg developers",
+        "commit": "b8c93f1f6b54f415904f5ef10ddf01d86f9dce55"
+      },
+      "total_seconds": 3.7751140920008766,
+      "python_peak_rss_mib": 95.2265625,
+      "load_before": [
+        1.7333984375,
+        1.6025390625,
+        1.33056640625
+      ],
+      "load_after": [
+        1.7548828125,
+        1.609375,
+        1.33447265625
+      ],
+      "output_bytes": 31642,
+      "output_sha256": "ef00d2d139cebe1184336c3c351eacbe6792556554864a4ce38333347e3c1522",
+      "probe": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "codec_name": "h264",
+            "codec_type": "video",
+            "width": 1080,
+            "height": 1920,
+            "r_frame_rate": "10/1",
+            "duration": "20.000000",
+            "nb_read_frames": "200"
+          },
+          {
+            "codec_name": "aac",
+            "codec_type": "audio",
+            "sample_rate": "48000",
+            "channels": 2,
+            "r_frame_rate": "0/0",
+            "duration": "20.000000",
+            "nb_read_frames": "938"
+          }
+        ]
+      },
+      "decoded_video_rgb24_sha256": "c4a2298099d85633ae70b557ec2d312fde5baed107afa7627eb866d97fadd99e",
+      "decoded_audio_pcm_s16le_sha256": "9d5966402da37b3aa123709a1dd693322b63225b7c040fa63f3a90c332184d65"
+    },
+    "181-static-hold-mp4-10fps-r4": {
+      "pr": 181,
+      "scene": "static_hold",
+      "format": "mp4",
+      "fps": 10,
+      "repetition": 4,
+      "output": "181-static-hold-mp4-10fps-r4.mp4",
+      "environment": {
+        "cpu": "INTEL(R) XEON(R) PLATINUM 8573C",
+        "logical_cpus": 9,
+        "platform": "Linux-6.18.55-x86_64-with-glibc2.41",
+        "python": "3.12.14",
+        "pillow": "12.3.0",
+        "freetype": "2.14.3",
+        "text_layout": "raqm",
+        "ffmpeg": "ffmpeg version 7.1.5-0+deb13u1 Copyright (c) 2000-2026 the FFmpeg developers",
+        "commit": "b8c93f1f6b54f415904f5ef10ddf01d86f9dce55"
+      },
+      "total_seconds": 7.591078454999661,
+      "python_peak_rss_mib": 95.078125,
+      "load_before": [
+        1.3203125,
+        1.70166015625,
+        1.52685546875
+      ],
+      "load_after": [
+        1.53515625,
+        1.740234375,
+        1.54052734375
+      ],
+      "output_bytes": 31642,
+      "output_sha256": "ef00d2d139cebe1184336c3c351eacbe6792556554864a4ce38333347e3c1522",
+      "probe": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "codec_name": "h264",
+            "codec_type": "video",
+            "width": 1080,
+            "height": 1920,
+            "r_frame_rate": "10/1",
+            "duration": "20.000000",
+            "nb_read_frames": "200"
+          },
+          {
+            "codec_name": "aac",
+            "codec_type": "audio",
+            "sample_rate": "48000",
+            "channels": 2,
+            "r_frame_rate": "0/0",
+            "duration": "20.000000",
+            "nb_read_frames": "938"
+          }
+        ]
+      },
+      "decoded_video_rgb24_sha256": "c4a2298099d85633ae70b557ec2d312fde5baed107afa7627eb866d97fadd99e",
+      "decoded_audio_pcm_s16le_sha256": "9d5966402da37b3aa123709a1dd693322b63225b7c040fa63f3a90c332184d65"
+    },
+    "181-static-hold-mp4-10fps-r5": {
+      "pr": 181,
+      "scene": "static_hold",
+      "format": "mp4",
+      "fps": 10,
+      "repetition": 5,
+      "output": "181-static-hold-mp4-10fps-r5.mp4",
+      "environment": {
+        "cpu": "INTEL(R) XEON(R) PLATINUM 8573C",
+        "logical_cpus": 9,
+        "platform": "Linux-6.18.55-x86_64-with-glibc2.41",
+        "python": "3.12.14",
+        "pillow": "12.3.0",
+        "freetype": "2.14.3",
+        "text_layout": "raqm",
+        "ffmpeg": "ffmpeg version 7.1.5-0+deb13u1 Copyright (c) 2000-2026 the FFmpeg developers",
+        "commit": "b8c93f1f6b54f415904f5ef10ddf01d86f9dce55"
+      },
+      "total_seconds": 5.239822242001537,
+      "python_peak_rss_mib": 95.078125,
+      "load_before": [
+        2.4794921875,
+        1.94970703125,
+        1.61474609375
+      ],
+      "load_after": [
+        2.44091796875,
+        1.95068359375,
+        1.6171875
+      ],
+      "output_bytes": 31642,
+      "output_sha256": "ef00d2d139cebe1184336c3c351eacbe6792556554864a4ce38333347e3c1522",
+      "probe": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "codec_name": "h264",
+            "codec_type": "video",
+            "width": 1080,
+            "height": 1920,
+            "r_frame_rate": "10/1",
+            "duration": "20.000000",
+            "nb_read_frames": "200"
+          },
+          {
+            "codec_name": "aac",
+            "codec_type": "audio",
+            "sample_rate": "48000",
+            "channels": 2,
+            "r_frame_rate": "0/0",
+            "duration": "20.000000",
+            "nb_read_frames": "938"
+          }
+        ]
+      },
+      "decoded_video_rgb24_sha256": "c4a2298099d85633ae70b557ec2d312fde5baed107afa7627eb866d97fadd99e",
+      "decoded_audio_pcm_s16le_sha256": "9d5966402da37b3aa123709a1dd693322b63225b7c040fa63f3a90c332184d65"
+    },
+    "181-static-hold-mp4-10fps-r6": {
+      "pr": 181,
+      "scene": "static_hold",
+      "format": "mp4",
+      "fps": 10,
+      "repetition": 6,
+      "output": "181-static-hold-mp4-10fps-r6.mp4",
+      "environment": {
+        "cpu": "INTEL(R) XEON(R) PLATINUM 8573C",
+        "logical_cpus": 9,
+        "platform": "Linux-6.18.55-x86_64-with-glibc2.41",
+        "python": "3.12.14",
+        "pillow": "12.3.0",
+        "freetype": "2.14.3",
+        "text_layout": "raqm",
+        "ffmpeg": "ffmpeg version 7.1.5-0+deb13u1 Copyright (c) 2000-2026 the FFmpeg developers",
+        "commit": "b8c93f1f6b54f415904f5ef10ddf01d86f9dce55"
+      },
+      "total_seconds": 3.6610136609961046,
+      "python_peak_rss_mib": 95.109375,
+      "load_before": [
+        2.44091796875,
+        1.95068359375,
+        1.6171875
+      ],
+      "load_after": [
+        2.4052734375,
+        1.95166015625,
+        1.61962890625
+      ],
+      "output_bytes": 31642,
+      "output_sha256": "ef00d2d139cebe1184336c3c351eacbe6792556554864a4ce38333347e3c1522",
+      "probe": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "codec_name": "h264",
+            "codec_type": "video",
+            "width": 1080,
+            "height": 1920,
+            "r_frame_rate": "10/1",
+            "duration": "20.000000",
+            "nb_read_frames": "200"
+          },
+          {
+            "codec_name": "aac",
+            "codec_type": "audio",
+            "sample_rate": "48000",
+            "channels": 2,
+            "r_frame_rate": "0/0",
+            "duration": "20.000000",
+            "nb_read_frames": "938"
+          }
+        ]
+      },
+      "decoded_video_rgb24_sha256": "c4a2298099d85633ae70b557ec2d312fde5baed107afa7627eb866d97fadd99e",
+      "decoded_audio_pcm_s16le_sha256": "9d5966402da37b3aa123709a1dd693322b63225b7c040fa63f3a90c332184d65"
+    }
+  },
+  "measurement_script_ref": "2026-10-19-178.json:measurement_script",
+  "source_uv_lock_blob": "410f744d6058eeea39bf318c3e436d1e17c38664",
+  "workload_tree_sha256": "1d403c6368b5dd917e1b00dff61bdf601ffb88ff3651faf40f639a95420399bf",
+  "verdict": "inconclusive",
+  "interpretation": [
+    "End-to-end speed verdict: inconclusive for both reel and static hold; observed wall-time ranges overlap. Ten-fps reel output has identical decoded RGB24 and PCM audio hashes, 347 video frames / 34.700 s and matching narration. Static hold has identical decoded output and 200 video frames / 20.000 s.",
+    "The reel median is 55.977 to 45.824 seconds (3 each). A separate six-pair static-hold comparison is 3.433 to 5.390 seconds, illustrating why lower median reel time cannot be generalized to static content. Raw streaming repeats full-resolution buffers; the prior PNG path reuses compressed images.",
+    "Default 12-fps legacy output is not an equal-work reference because it drops counted frames. Encoder-only profiling can overlap lazy rendering and is not isolated encoder CPU time."
+  ]
+}
