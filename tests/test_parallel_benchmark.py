@@ -107,11 +107,15 @@ def test_summary_keeps_hashes_and_medians_without_requiring_three_runs():
     runs = [make_run(seconds=value) for value in (9.0, 1.0, 2.0)]
     summary = benchmark.summarize(runs)
     assert summary["total_seconds"] == 2
+    assert summary["total_seconds_min"] == 1
+    assert summary["total_seconds_max"] == 9
     assert summary["process_tree_peak_rss_mib"] == 2
     assert summary["output_sha256_values"] == ["a" * 64]
     assert summary["output_byte_identical"] is True
     assert summary["repetitions"] == 3
-    assert benchmark.summarize(runs[:1])["repetitions"] == 1
+    single = benchmark.summarize(runs[:1])
+    assert single["repetitions"] == 1
+    assert single["total_seconds_min"] == single["total_seconds_max"] == 9
     with pytest.raises(ValueError, match="at least one"):
         benchmark.summarize([])
     runs[2]["workers"] = 2
@@ -134,7 +138,7 @@ def test_output_identity_compares_worker_counts_and_does_not_require_webm_equali
     assert benchmark.output_identity(runs)[0]["byte_identity_expected"] is False
 
 
-def test_default_protocol_and_rotating_run_order(monkeypatch, tmp_path):
+def test_default_protocol_and_rotating_run_order(monkeypatch, tmp_path, capsys):
     calls = []
 
     def worker(scene, format, fps, workers, sample_interval):
@@ -151,6 +155,10 @@ def test_default_protocol_and_rotating_run_order(monkeypatch, tmp_path):
     report = json.loads(output.read_text())
     assert len(report["raw_runs"]) == 27
     assert len(report["results"]) == 9
+    assert all(
+        row["total_seconds_min"] == row["total_seconds_max"] == 1 for row in report["results"]
+    )
+    assert "Total range s" in capsys.readouterr().out
     assert report["runs_per_measurement"] == 3
     assert report["rss_sample_interval_seconds"] == 0.05
     assert "shared pages" in report["protocol"]["rss_method"]

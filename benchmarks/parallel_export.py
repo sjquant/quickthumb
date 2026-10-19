@@ -9,6 +9,7 @@ Run on a quiet machine. Process-local caches start cold; filesystem caches are
 not flushed. Worker order rotates between repetitions to reduce order effects.
 Export wall time includes scene construction and public Deck.render(), but not
 interpreter startup or output hashing. Subprocess wall time includes both.
+Summaries report median export time and the observed minimum–maximum range.
 
 RSS is sampled from /proc throughout each subprocess's lifetime, nominally every
 50 ms. Each observation sums concurrent RSS, including native Pillow memory.
@@ -20,6 +21,9 @@ Category peaks need not coincide and must not be added to obtain the total peak.
 The maximum observed Python process count is recorded alongside sampled RSS.
 The separate parent_lifetime_peak_rss_mib diagnostic excludes descendants and may
 retain an inherited pre-exec high-water mark; do not compare it with sampled RSS.
+
+The historical `shots` field counts consumed encoder inputs: generated GIF
+shots or nonempty video frame allocations, not duplicated playback frames.
 
 SHA-256 and output size are retained for every run. Byte equality is reported
 within and across worker counts. WebM metadata can vary, so its container hash
@@ -271,7 +275,7 @@ def run_worker(
 
 
 def summarize(runs: list[dict[str, Any]]) -> dict[str, Any]:
-    """Report independent medians; output hashes are never numerically summarized."""
+    """Report medians and total-time spread; keep output hashes separately."""
     identity = ("scene", "format", "fps", "workers", "shots", "rss_sample_interval_seconds")
     if not runs:
         raise ValueError("a summary requires at least one run")
@@ -283,6 +287,8 @@ def summarize(runs: list[dict[str, Any]]) -> dict[str, Any]:
             result[key] = statistics.median(run[key] for run in runs)
     hashes = sorted({run["output_sha256"] for run in runs})
     result.update(
+        total_seconds_min=min(run["total_seconds"] for run in runs),
+        total_seconds_max=max(run["total_seconds"] for run in runs),
         repetitions=len(runs),
         output_sha256_values=hashes,
         output_byte_identical=len(hashes) == 1,
@@ -317,11 +323,16 @@ def print_table(report: dict[str, Any]) -> None:
         f"RSS sampled every {report['rss_sample_interval_seconds']:g}s (sum of RSS, "
         "shared pages counted per process)"
     )
-    print("Scene             Format Workers Total s Python MiB FFmpeg MiB Other MiB Tree MiB")
+    print(
+        "Scene             Format Workers Total s Total range s "
+        "Python MiB FFmpeg MiB Other MiB Tree MiB"
+    )
     for row in report["results"]:
         print(
             f"{row['scene']:17} {row['format']:6} {row['workers']:7d} "
-            f"{row['total_seconds']:7.3f} {row['python_tree_peak_rss_mib']:10.1f} "
+            f"{row['total_seconds']:7.3f} "
+            f"{row['total_seconds_min']:.3f}–{row['total_seconds_max']:.3f} "
+            f"{row['python_tree_peak_rss_mib']:10.1f} "
             f"{row['ffmpeg_peak_rss_mib']:10.1f} {row['other_children_peak_rss_mib']:9.1f} "
             f"{row['process_tree_peak_rss_mib']:8.1f}"
         )
