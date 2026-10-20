@@ -39,6 +39,7 @@ from quickthumb import (
 | --- | --- |
 | [Canvas](canvas.md) | Creating a canvas, every layer method, checks, and export methods |
 | [Deck](deck.md) | Several canvases as one PDF, PPTX, HTML slideshow, video, or image sequence |
+| [Document inspection](inspection.md) | `inspect_document()` and generic Canvas/Deck sampling consumers |
 | [Background](background.md) | `.background()`: colors, gradients, and images |
 | [Text](text.md) | `.text()` and `TextPart`: text and rich text |
 | [Image](image.md) | `.image()`: placed images and cut-outs |
