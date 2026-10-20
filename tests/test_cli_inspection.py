@@ -18,7 +18,8 @@ from quickthumb import (
     KeyframeSpec,
     inspect_document,
 )
-from quickthumb.cli import app
+from quickthumb.cli import _format_inspection_layers, app
+from quickthumb.models import InspectionBBox, LayerInspection
 from typer.testing import CliRunner
 
 
@@ -31,6 +32,37 @@ def _canvas() -> Canvas:
     return Canvas(48, 32).shape(
         shape="rectangle", position=(-4, 5), width=8, height=6, color="#FF0000"
     )
+
+
+def test_inspection_layer_lines_stream_in_nested_order():
+    child = LayerInspection(
+        id="layer:0:0",
+        index=0,
+        order=0,
+        z_order=0,
+        type="shape",
+        visible=False,
+    )
+    group = child.model_copy(
+        update={"id": "layer:0", "type": "group", "visible": True, "children": [child]}
+    )
+    sibling = child.model_copy(
+        update={
+            "id": "layer:1",
+            "visible": True,
+            "bbox": InspectionBBox(x=-4, y=5, width=8, height=6),
+        }
+    )
+
+    lines = _format_inspection_layers([group, sibling])
+
+    assert iter(lines) is lines
+    assert next(lines) == "  layer:0: group, visible, no measured bounds"
+    assert list(lines) == [
+        "    layer:0:0: shape, hidden, no measured bounds",
+        "  layer:1: shape, visible, (-4, 5) 8x6",
+    ]
+    assert list(_format_inspection_layers([])) == []
 
 
 @pytest.mark.parametrize("kind", ["canvas", "deck"])
