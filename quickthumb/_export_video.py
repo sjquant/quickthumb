@@ -973,6 +973,101 @@ class _Unit:
     target_images: tuple[tuple[Image.Image, tuple[int, int]], ...] = ()
 
 
+def _unit_is_dynamic(unit: _Unit) -> bool:
+    """Keep every possible time-dependent unit out of the static plate.
+
+    Video units stay dynamic even when reduced motion freezes their pixels:
+    their captions are still sampled separately at each requested time.
+    """
+    return bool(
+        unit.effects
+        or unit.nodes
+        or unit.timeline is not None
+        or unit.target_timelines
+        or unit.component_duration > 0
+        or unit.animates_layers
+        or any(iter_video_layers(unit.layers))
+    )
+
+
+def _composite_frame(
+    canvas: Canvas,
+    units: Iterable[_Unit],
+    time: float,
+    *,
+    background: Image.Image | None = None,
+    include_captions: bool = True,
+) -> Image.Image:
+    """Render ordered units onto a fresh full-canvas RGBA frame.
+
+    This is the internal frame-compositing boundary: units carry prepared
+    imagery and motion, and the optional background is the already-composited
+    prefix. Input images are read-only; the returned image is owned by the caller.
+    Timeline planning, transitions, and encoding stay outside this boundary.
+    """
+    frame = (
+        background.copy()
+        if background is not None
+        else Image.new("RGBA", (canvas.width, canvas.height), (0, 0, 0, 0))
+    )
+    visible_video_layers: list[VideoLayer] = []
+    for unit in units:
+        if unit.image is None:
+            continue
+        state = _unit_state(unit, time)
+        if state.hidden:
+            continue
+        visible_video_layers.extend(iter_video_layers(unit.layers))
+        if unit.component_duration > 0:
+            image, pos = _render_unit_image(
+                canvas, unit.layers, time, animate_layers=unit.animates_layers
+            )
+            if image is None:
+                continue
+        else:
+            pos = unit.pos
+            image = unit.image
+        if unit.target_images and state.canonical is not None:
+            # Each staggered target carries its own state, so they arrive one
+            # after another instead of sharing one averaged reveal.
+            composite_motion_targets(
+                frame, unit.target_images, _canonical_target_states(unit, time)
+            )
+            continue
+        if state.canonical is not None:
+            # Canonical motion applies to component units (video, animated
+            # text values) too, so a clip can move while it plays.
+            rendered = _canonical_render(
+                image,
+                state.canonical.layer,
+                state.canonical.alpha_scale,
+                pos,
+                clip_scale=state.canonical.clip_scale,
+                include_scale=not any(isinstance(item, ImageLayer) for item in unit.layers),
+            )
+            if rendered is None:
+                continue
+            image, pos = rendered
+        elif state.reveal is not None:
+            # Component units (clips, animated counters) take the same
+            # entrance reveals as anything else on the slide.
+            effect, reveal = state.reveal
+            revealed = _animation_reveal(image, effect, reveal, unit.seed)
+            if revealed is None:
+                continue
+            image = revealed
+        frame.alpha_composite(image, pos)
+    if include_captions:
+        render_video_captions(
+            frame,
+            visible_video_layers,
+            time,
+            canvas._ctx.video_info_cache,
+            canvas._fonts.load_font_variant,
+        )
+    return frame
+
+
 class _SlideAnimator:
     """Composites one slide's layer-animation state at any point in time."""
 
@@ -985,67 +1080,30 @@ class _SlideAnimator:
         self._canvas = canvas
         self._units = _build_units(canvas, probe_cache, reduced_motion=reduced_motion)
         self.duration = max(_schedule_units(self._units), _schedule_timelines(self._units))
+        # Only the leading static run is safe to cache. Static units above or
+        # between moving units must retain their original compositing order;
+        # regrouping even translucent static images changes alpha rounding.
+        prefix_end = next(
+            (index for index, unit in enumerate(self._units) if _unit_is_dynamic(unit)),
+            len(self._units),
+        )
+        self._static_plate = (
+            _composite_frame(canvas, self._units[:prefix_end], 0.0, include_captions=False)
+            if prefix_end
+            else None
+        )
+        self._frame_units = self._units[prefix_end:]
         self._final: Image.Image | None = None
 
     def frame_at(self, time: float, *, include_captions: bool = True) -> Image.Image:
         """Render the slide's full RGBA frame at `time` seconds."""
-        frame = Image.new("RGBA", (self._canvas.width, self._canvas.height), (0, 0, 0, 0))
-        visible_video_layers: list[VideoLayer] = []
-        for unit in self._units:
-            if unit.image is None:
-                continue
-            state = _unit_state(unit, time)
-            if state.hidden:
-                continue
-            visible_video_layers.extend(iter_video_layers(unit.layers))
-            if unit.component_duration > 0:
-                image, pos = _render_unit_image(
-                    self._canvas, unit.layers, time, animate_layers=unit.animates_layers
-                )
-                if image is None:
-                    continue
-            else:
-                pos = unit.pos
-                image = unit.image
-            if unit.target_images and state.canonical is not None:
-                # Each staggered target carries its own state, so they arrive one
-                # after another instead of sharing one averaged reveal.
-                composite_motion_targets(
-                    frame, unit.target_images, _canonical_target_states(unit, time)
-                )
-                continue
-            if state.canonical is not None:
-                # Canonical motion applies to component units (video, animated
-                # text values) too, so a clip can move while it plays.
-                rendered = _canonical_render(
-                    image,
-                    state.canonical.layer,
-                    state.canonical.alpha_scale,
-                    pos,
-                    clip_scale=state.canonical.clip_scale,
-                    include_scale=not any(isinstance(item, ImageLayer) for item in unit.layers),
-                )
-                if rendered is None:
-                    continue
-                image, pos = rendered
-            elif state.reveal is not None:
-                # Component units (clips, animated counters) take the same
-                # entrance reveals as anything else on the slide.
-                effect, reveal = state.reveal
-                revealed = _animation_reveal(image, effect, reveal, unit.seed)
-                if revealed is None:
-                    continue
-                image = revealed
-            frame.alpha_composite(image, pos)
-        if include_captions:
-            render_video_captions(
-                frame,
-                visible_video_layers,
-                time,
-                self._canvas._ctx.video_info_cache,
-                self._canvas._fonts.load_font_variant,
-            )
-        return frame
+        return _composite_frame(
+            self._canvas,
+            self._frame_units,
+            time,
+            background=self._static_plate,
+            include_captions=include_captions,
+        )
 
     def final_frame(self) -> Image.Image:
         """The settled frame after every animation has played (cached)."""
