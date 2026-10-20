@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from click import unstyle
 from PIL import Image
 from quickthumb import (
     AnimationSpec,
@@ -207,22 +208,29 @@ def test_inspect_empty_deck_uses_existing_render_error_exit(tmp_path: Path):
     assert "empty deck" in json.loads(result.stdout)["errors"][0]["message"]
 
 
-def test_inspect_invalid_format_and_help_are_actionable(tmp_path: Path):
+@pytest.mark.parametrize("color", [False, True])
+def test_inspect_invalid_format_and_help_are_actionable(tmp_path: Path, color: bool):
     result = CliRunner().invoke(app, ["inspect", str(tmp_path / "none"), "--format", "yaml"])
     assert result.exit_code == 1
     assert "Must be one of: text, json" in result.output
-    help_result = CliRunner().invoke(app, ["inspect", "--help"])
+    help_result = CliRunner().invoke(
+        app, ["inspect", "--help"], color=color, env={"FORCE_COLOR": "1" if color else "0"}
+    )
     assert help_result.exit_code == 0
-    assert "--max-samples" in help_result.stdout
+    assert "--max-samples" in unstyle(help_result.stdout)
 
 
-def test_argument_parsing_keeps_standard_cli_errors(tmp_path: Path):
+@pytest.mark.parametrize("color", [False, True])
+def test_argument_parsing_keeps_standard_cli_errors(tmp_path: Path, color: bool):
     result = CliRunner().invoke(
-        app, ["inspect", str(tmp_path / "none"), "--format", "json", "--fps", "abc"]
+        app,
+        ["inspect", str(tmp_path / "none"), "--format", "json", "--fps", "abc"],
+        color=color,
+        env={"FORCE_COLOR": "1" if color else "0"},
     )
     assert result.exit_code == 2
     assert result.stdout == ""
-    assert "--fps" in result.stderr
+    assert "--fps" in unstyle(result.stderr)
 
 
 def test_module_entrypoint_exposes_inspect(tmp_path: Path):
