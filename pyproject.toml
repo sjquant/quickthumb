@@ -98,9 +98,10 @@ artifacts = [
 ]
 
 [tool.uv]
-required-version = ">=0.10.12"
+required-version = ">=0.13.4"
 add-bounds = "major"
 exclude-newer = "P14D"
+exclude-newer-package = { certifi = "P0D" }
 
 [tool.ruff]
 line-length = 100
