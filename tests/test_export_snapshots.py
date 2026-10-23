@@ -236,7 +236,7 @@ def build_text_styles_canvas() -> Canvas:
     )
 
 
-def build_rich_text_canvas() -> Canvas:
+def build_rich_text_canvas(*, rotation: float = -20) -> Canvas:
     return (
         Canvas(480, 270)
         .background(color="#1A1033")
@@ -264,7 +264,7 @@ def build_rich_text_canvas() -> Canvas:
             color="#FFFFFF",
             position=(370, 190),
             align="center",
-            rotation=-20,
+            rotation=rotation,
             effects=[Background(color="#0EA5E9", padding=8, border_radius=6)],
         )
     )
@@ -340,9 +340,27 @@ class TestSvgVisualSnapshots:
 
     def test_snapshot_svg_rich_text(self):
         """Rich parts, gradient glyph fill, and rotated badge text"""
-        canvas = build_rich_text_canvas()
+        # At -20 degrees Cairo's first glyph falls on a subpixel rounding
+        # boundary: a 1e-14-degree change changes 52 pixels across platforms.
+        # Keep exact pixel comparison, but exercise rotation away from that
+        # boundary (and retain the existing angle for the PDF fixture).
+        canvas = build_rich_text_canvas(rotation=-21)
         strip = comparison_strip(render_reference(canvas), rasterize_svg(canvas))
         assert strip == external_file("snapshots/export_svg_rich_text.png")
+
+    @pytest.mark.parametrize("delta", [-1e-10, -1e-14, 1e-14, 1e-10])
+    def test_rich_text_rotation_fixture_is_stable_at_machine_precision(self, delta):
+        """Do not choose a snapshot angle on Cairo's glyph rounding boundary."""
+        canvas = build_rich_text_canvas(rotation=-21)
+        svg = canvas.to_svg()
+        rotation = "rotate(-21 "
+        assert rotation in svg
+        perturbed = svg.replace(rotation, f"rotate({-21 + delta:.16f} ")
+        png = require_cairosvg().svg2png(bytestring=perturbed.encode())
+        actual = Image.open(BytesIO(png)).convert("RGB")
+        expected = rasterize_svg(canvas)
+        assert actual.size == expected.size
+        assert actual.tobytes() == expected.tobytes()
 
     def test_snapshot_svg_group_layout(self):
         """Auto-layout group children exported natively at their positions"""

@@ -21,7 +21,7 @@ jobs:
         uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           enable-cache: false
-          python-version: "3.10"
+          python-version: "3.11"
 
       - name: Install dependencies
         run: uv sync --locked --extra cli --extra svg --extra pptx --extra pdf --dev
@@ -58,9 +58,9 @@ jobs:
       - name: Check installed wheel
         if: steps.version_check.outputs.version_changed == 'true'
         run: |
-          # Install only the built wheel into a clean Python 3.10 environment, with no extras.
+          # Install only the built wheel into a clean Python 3.11 environment, with no extras.
           venv="${RUNNER_TEMP}/wheel-check"
-          uv venv --python 3.10 "${venv}"
+          uv venv --python 3.11 "${venv}"
           uv pip install --python "${venv}/bin/python" dist/*.whl
 
           # -I ignores PYTHONPATH and user site-packages, so only the installed wheel can be imported.

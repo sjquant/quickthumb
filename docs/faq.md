@@ -8,8 +8,8 @@ description: Answers to common quickthumb questions about installation, text, fo
 
 ### Which Python versions are supported?
 
-Python 3.10 or later. The package is classified for 3.10, 3.11, and 3.12, and
-CI runs on 3.10. Background removal (the `rembg` extra) needs 3.11 or later.
+Python 3.11 or later. The package is classified for 3.11 and 3.12, and
+CI runs on 3.11. This includes background removal (the `rembg` extra).
 
 ### The `quickthumb` command isn't found
 

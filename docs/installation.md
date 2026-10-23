@@ -4,7 +4,7 @@ description: Install quickthumb, add the optional extras for SVG, PDF, PPTX, vid
 
 # Installation
 
-quickthumb needs Python 3.10 or later.
+quickthumb needs Python 3.11 or later.
 
 ```bash
 pip install quickthumb
