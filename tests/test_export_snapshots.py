@@ -10,6 +10,7 @@ pinned in conftest.py). PDF output is rasterized with pypdfium2. PPTX output is
 rasterized with LibreOffice when it is installed and skipped otherwise.
 """
 
+import base64
 import os
 import shutil
 import subprocess
@@ -342,6 +343,7 @@ class TestSvgVisualSnapshots:
         """Rich parts, gradient glyph fill, and rotated badge text"""
         canvas = build_rich_text_canvas()
         strip = comparison_strip(render_reference(canvas), rasterize_svg(canvas))
+        print("SVG_RICH_TEXT_ACTUAL_PNG_BASE64=" + base64.b64encode(strip).decode("ascii"))
         assert strip == external_file("snapshots/export_svg_rich_text.png")
 
     def test_snapshot_svg_group_layout(self):

@@ -101,7 +101,9 @@ artifacts = [
 required-version = ">=0.13.4"
 add-bounds = "major"
 exclude-newer = "P14D"
-exclude-newer-package = { certifi = "P0D" }
+# Security fixes must not wait for the general dependency cooldown.
+exclude-newer-package = { certifi = "P0D", virtualenv = "P0D" }
+constraint-dependencies = ["virtualenv>=21.14.9"]
 
 [tool.ruff]
 line-length = 100
