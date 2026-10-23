@@ -14,7 +14,7 @@ import tempfile
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field, replace
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from threading import Lock
 from typing import Any
@@ -548,7 +548,7 @@ def format_timestamp(seconds: float | None) -> str | None:
     """Format epoch seconds as a UTC ISO-8601 instant with second precision."""
     if seconds is None:
         return None
-    return datetime.fromtimestamp(int(seconds), timezone.utc).isoformat()
+    return datetime.fromtimestamp(int(seconds), UTC).isoformat()
 
 
 def _parse_timestamp(value: object) -> float | None:
@@ -559,7 +559,7 @@ def _parse_timestamp(value: object) -> float | None:
     except ValueError:
         return None
     if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
+        parsed = parsed.replace(tzinfo=UTC)
     return parsed.timestamp()
 
 

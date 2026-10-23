@@ -3,7 +3,7 @@
 ## Local checks
 
 CI installs exactly what `uv.lock` records. Run the same commands locally
-(uv 0.13.4 or newer, Python 3.10+):
+(uv 0.13.4 or newer, Python 3.11+):
 
 ```bash
 uv sync --locked --extra cli --extra svg --extra pptx --extra pdf --dev

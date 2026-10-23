@@ -13,9 +13,7 @@ import math
 import os
 import tempfile
 from collections.abc import Sequence
-from typing import TYPE_CHECKING, Any, Literal, cast
-
-from typing_extensions import Self
+from typing import TYPE_CHECKING, Any, Literal, Self, cast
 
 from quickthumb._base import FileFormat, aspect_ratio_dimensions
 from quickthumb._validation import validate_dimensions
