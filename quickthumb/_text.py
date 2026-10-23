@@ -115,7 +115,8 @@ class TextEngine:
     def _render_odometer(self, image: Image.Image, layer: TextLayer, time: float) -> None:
         """Roll the current and next formatted values through a clipped text window."""
         value = layer.value
-        if not isinstance(value, AnimatedTextValue) or layer.position is None:
+        assert isinstance(value, AnimatedTextValue)
+        if layer.position is None:
             self.render_text_layer(
                 image,
                 layer.model_copy(update={"content": value.text_at(time), "value": None}),
@@ -996,7 +997,8 @@ class TextEngine:
         return lines
 
     def _prepare_wrapped_rich_text_lines(self, layer: TextLayer) -> list[list[TextPartData]]:
-        max_width_px = parse_coordinate(layer.max_width, self._ctx.width)  # type: ignore[arg-type]
+        assert layer.max_width is not None
+        max_width_px = parse_coordinate(layer.max_width, self._ctx.width)
         lines: list[list[TextPartData]] = [[]]
         current_width = 0
 

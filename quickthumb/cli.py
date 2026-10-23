@@ -9,6 +9,7 @@ from typing import Annotated, Protocol, TypeAlias, cast
 import typer
 from PIL import Image
 
+from quickthumb._base import FileFormat
 from quickthumb._diff import (
     DEFAULT_HASH_SIZE,
     DEFAULT_HASH_THRESHOLD,
@@ -390,13 +391,14 @@ def _render_spec(
     var: list[str] | None,
 ) -> None:
     _validate_render_options(fmt, quality)
+    image_format = cast(FileFormat | None, fmt.upper() if fmt else None)
     source = _load_canvas(spec, _parse_var_options(var))
     if isinstance(source, Deck):
         if debug:
             raise InputError("--debug is only supported for Canvas specs.")
         written = source.render(
             str(output),
-            format=fmt.upper() if fmt else None,  # type: ignore[arg-type]
+            format=image_format,
             quality=quality,
         )
         for path in written:
@@ -404,7 +406,7 @@ def _render_spec(
         return
     source.render(
         str(output),
-        format=fmt.upper() if fmt else None,  # type: ignore[arg-type]
+        format=image_format,
         quality=quality,
         debug=debug,
     )

@@ -10,6 +10,7 @@ from typing import Any, cast
 import pytest
 from PIL import Image, ImageChops
 from quickthumb import (
+    AnimationEffect,
     AnimationSpec,
     BarChartSpec,
     BarChartStyle,
@@ -417,7 +418,7 @@ class TestVisualizationRendering:
         """Given QR reveal motion, when sampled partway through, then only the leading
         row-major module prefix is visible."""
         # given
-        import qrcode  # ty: ignore[unresolved-import]
+        import qrcode
 
         animation = AnimationSpec.qr_reveal(duration=1.0)
         canvas = Canvas(120, 120).qr_code(
@@ -716,6 +717,14 @@ class TestVisualizationSerialization:
         reloaded = Canvas.from_json(canvas.to_json())
 
         # then
+        assert isinstance(reloaded.layers[0], ChartLayer)
+        assert isinstance(reloaded.layers[1], QRCodeLayer)
+        assert isinstance(reloaded.layers[0].animation, AnimationSpec)
+        assert isinstance(reloaded.layers[1].animation, AnimationSpec)
+        assert isinstance(reloaded.layers[0].animation.effect, AnimationEffect)
+        assert isinstance(reloaded.layers[1].animation.effect, AnimationEffect)
+        assert reloaded.layers[0].animation.stagger is not None
+        assert reloaded.layers[1].animation.timing is not None
         assert reloaded.layers[0].animation.effect.type == "bar_grow"
         assert reloaded.layers[0].animation.stagger.delay == 0.1
         assert reloaded.layers[1].animation.effect.type == "qr_reveal"

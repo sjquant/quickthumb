@@ -1,6 +1,6 @@
 import math
 from collections import OrderedDict
-from typing import TYPE_CHECKING, Any, Literal, TypeAlias, cast
+from typing import TYPE_CHECKING, Any, Literal, TypeAlias
 
 from PIL import ImageFont
 
@@ -114,9 +114,9 @@ def parse_padding(
     if isinstance(padding, int):
         return (padding, padding, padding, padding)
     if isinstance(padding, tuple) and len(padding) == 2:
-        vertical, horizontal = cast(tuple[int, int], padding)
+        vertical, horizontal = padding
         return (vertical, horizontal, vertical, horizontal)
-    return cast(tuple[int, int, int, int], padding)
+    return padding
 
 
 def expanded_rotation_size(
