@@ -308,7 +308,6 @@ Deck MP4 without `VideoOptions` remains the separate static narration workflow.
 
 ### Narrated deck video
 
-
 A deck can be exported as a video with a voice-over per slide:
 
 - Pass `audio=` to `Deck.slide()`. Without `duration=`, the slide lasts as long
