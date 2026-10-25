@@ -11,6 +11,7 @@ from quickthumb import (
     AnimationSpec,
     Canvas,
     GifOptions,
+    ImageZoomTrack,
     KeyframeSpec,
     PositionTrack,
     RotationTrack,
@@ -147,7 +148,6 @@ def test_axes_sample_independently_and_compose_with_uniform_scale():
     assert (state.scale, state.scale_x, state.scale_y) == (1.5, 2, 0)
     assert apply_transform((1, 1), state) == (3, 0)
     assert Timeline.model_validate_json(timeline.model_dump_json()) == timeline
-    assert _geometry_in_motion(timeline, 0.5, include_scale=False)
     assert not _geometry_in_motion(timeline, 1)
 
 
@@ -258,9 +258,13 @@ def test_shared_animation_objects_do_not_combine_independent_layer_pivots():
     assert canvas.render_frame(0.5).tobytes() == animator.frame_at(0.5).tobytes()
 
 
-def test_image_axis_scale_moves_outer_frame_while_uniform_scale_remains_viewport_zoom():
+@pytest.mark.parametrize(
+    "kind,bounds", [(ScaleTrack, (48, 36, 102, 60)), (ImageZoomTrack, (48, 36, 84, 52))]
+)
+def test_image_object_scale_and_viewport_zoom_have_distinct_boundaries(kind, bounds):
+    """Image scale changes outer bounds; viewport zoom retains the fitted frame."""
     path = "tests/fixtures/sample_image.jpg"
-    motion = animation(track(ScaleTrack, 1, 1.5), track(ScaleXTrack, 1, 1.5))
+    motion = animation(track(kind, 1, 1.5), track(ScaleXTrack, 1, 1.5))
     canvas = Canvas(128, 96).image(
         path, (48, 36), 24, 16, fit="cover", anchor=(0, 0), animation=motion
     )
@@ -268,7 +272,15 @@ def test_image_axis_scale_moves_outer_frame_while_uniform_scale_remains_viewport
     for time in (0, 0.5, 1):
         assert canvas.render_frame(time).tobytes() == animator.frame_at(time).tobytes()
     alpha = animator.frame_at(1).getchannel("A").point(lambda value: 255 if value > 127 else 0)
-    assert alpha.getbbox() == (48, 36, 84, 52)
+    assert alpha.getbbox() == bounds
+
+    # Group layout must retain the same object motion with the default center pivot.
+    child = canvas.layers[0].model_copy(
+        update={"anchor": (0.5, 0.5), "position": None, "animation": animation(track(kind, 1, 1.5))}
+    )
+    grouped = Canvas(128, 96).group([child], position=(48, 36))
+    grouped_animator = video._SlideAnimator(grouped, {})
+    assert grouped.render_frame(0.5).tobytes() == grouped_animator.frame_at(0.5).tobytes()
 
 
 def test_staggered_target_clocks_preserve_anchor_and_axis_state():

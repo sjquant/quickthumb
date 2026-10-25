@@ -2135,9 +2135,7 @@ class Canvas:
         if surface is None:
             surface = Image.new("RGBA", image.size, (0, 0, 0, 0))
             self._render_layer(surface, _with_motion_color(layer, state.color), time)
-        moving = _geometry_in_motion(
-            timeline, time, include_scale=not isinstance(layer, ImageLayer), state=state
-        )
+        moving = _geometry_in_motion(timeline, time, state=state)
         composite_canonical_layer(image, surface, layer, state, subpixel=moving)
 
     def _render_layer(self, image: Image.Image, layer: RenderableLayer, time: float | None = None):

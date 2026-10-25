@@ -298,12 +298,10 @@ def _supports_transform_extensions_html(layer: object) -> bool:
     ):
         return False
     scale_tracks = [track for track in spec.tracks if track.type == "scale"]
-    # Image uniform scale is an internal viewport zoom in the raster renderer.
-    # Nonpositive uniform scale is historically ignored there, unlike axis
+    # Nonpositive uniform scale is ignored in raster output, unlike axis
     # scale's intentional reflection/collapse. Back easing may cross zero.
     if scale_tracks and (
-        getattr(layer, "type", None) == "image"
-        or (spec.easing or "").endswith("_back")
+        (spec.easing or "").endswith("_back")
         or any(key.value <= 0 for track in scale_tracks for key in track.keyframes)
     ):
         return False
@@ -336,24 +334,30 @@ def _baked_motion_stops(event: TimelineEvent) -> tuple[dict[float, dict[str, str
     intervals = min(available + 1, max(1, math.ceil(min(event.duration, 4096 / 120) * 120)))
     times.update(event.duration * (index / intervals) for index in range(1, intervals))
     timeline = Timeline(events=(event.model_copy(update={"start": 0.0, "delay": 0.0}),))
-    auto_heading = False
-    for track in event.tracks:
-        if track.property == "rotation":
-            auto_heading = False
-        elif track.auto_orient and track.has_direction:
-            auto_heading = True
+    auto_heading = any(track.auto_orient and track.has_direction for track in event.tracks)
+    rotation_timeline = Timeline(
+        events=(
+            timeline.events[0].model_copy(
+                update={
+                    "tracks": tuple(track for track in event.tracks if track.property == "rotation")
+                }
+            ),
+        )
+    )
     stops: dict[float, dict[str, str]] = {}
-    previous_angle = None
+    previous_heading = None
     final = dict(_TRANSFORM_DEFAULTS)
     for time in sorted(times):
         state = timeline.sample(time)
         values = {prop: getattr(state, prop) for prop in _TRANSFORM_PROPERTIES}
         values["position"] = state.position or (0.0, 0.0)
-        if auto_heading and previous_angle is not None:
-            values["rotation"] = (
-                previous_angle + (state.rotation - previous_angle + 180) % 360 - 180
-            )
-        previous_angle = values["rotation"]
+        if auto_heading:
+            offset = rotation_timeline.sample(time).rotation
+            heading = state.rotation - offset
+            if previous_heading is not None:
+                heading = previous_heading + (heading - previous_heading + 180) % 360 - 180
+            values["rotation"] = heading + offset
+            previous_heading = heading
         final = {
             name: _motion_number(number)
             for prop, names in _TRANSFORM_PROPERTIES.items()
