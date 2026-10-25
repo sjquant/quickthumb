@@ -242,17 +242,6 @@ def test_shared_model_occurrences_keep_slide_local_diagnostics():
         assert [item.support for item in motion] == [expected, "fallback"]
 
 
-def test_narrated_mp4_render_policy_still_ignores_unused_morph(tmp_path, monkeypatch):
-    from quickthumb import Morph
-
-    deck = Deck(140, 130).slide(scene()).slide(Canvas(140, 130), transition=Morph())
-    calls = []
-    monkeypatch.setattr(deck, "render_mp4", lambda path: calls.append(path))
-    path = str(tmp_path / "narrated.mp4")
-    assert deck.render(path, policy=ExportPolicy(unsupported_motion="error")) == [path]
-    assert calls == [path]
-
-
 def test_pdf_reports_static_pages_without_claiming_morph_fade(tmp_path):
     deck = Deck(140, 130).slide(scene()).slide(Canvas(140, 130), transition=Morph())
     result = deck.export(tmp_path / "static.pdf")

@@ -407,7 +407,7 @@ def _setup_animation(
         raise ValidationError("animation must be GifOptions or VideoOptions")
     if animation is not None:
         fps, slide_duration, matte = animation.fps, animation.hold, animation.matte
-        workers, quality = animation.workers, animation.quality
+        workers, quality = animation.workers, animation.render_quality
     if audio_schedule is not None:
         if any(
             value is not None
@@ -657,7 +657,7 @@ class _PreparedAnimation:
         # These are rendering settings. Codec limits and audio belong to callers
         # at the encoding boundary; None requests native-size straight RGBA.
         if quality not in ("standard", "high"):
-            raise ValidationError("quality must be standard or high")
+            raise ValidationError("render_quality must be standard or high")
         if type(workers) is not int or not 1 <= workers <= 8:
             raise ValidationError("workers must be an integer between 1 and 8")
         if workers > 1:
@@ -674,11 +674,11 @@ class _PreparedAnimation:
         ):
             raise ValidationError("fps must be > 0")
         if isinstance(slide_duration, bool) or not isinstance(slide_duration, (int, float)):
-            raise ValidationError("slide_duration must be finite")
+            raise ValidationError("hold must be finite")
         if not math.isfinite(slide_duration):
-            raise ValidationError("slide_duration must be finite")
+            raise ValidationError("hold must be finite")
         if slide_duration < 0:
-            raise ValidationError("slide_duration must be >= 0")
+            raise ValidationError("hold must be >= 0")
         self.fps = fps
         self._size = (canvases[0].width, canvases[0].height)
         self._entered = False

@@ -103,7 +103,7 @@ result = canvas.export("card.png")
 print(result.written_paths)
 ```
 
-See [Shared export contract and specialist controls](../exports.md#shared-export-contract-and-specialist-controls)
+See [Recommended output API](../exports.md#recommended-output-api)
 for the result fields, the capability preflight, and how `export()` relates to
 the methods below.
 
@@ -148,7 +148,7 @@ accepts `fps`, `hold`, `matte`, `loop`, `max_size=(width, height)`, and `colors`
 boolean, default `False`); all other output targets reject this option.
 Both use a strict finite nonnegative `hold` (default 3 seconds), omitted from
 serialized options when equal to its default. Both accept `workers` (a strict
-integer from 1 to 8, default 1) and `quality="standard"` or `"high"` for rendering. See [parallel animated rendering](../exports.md#parallel-animated-rendering)
+integer from 1 to 8, default 1) and `render_quality="standard"` or `"high"` for rendering. See [parallel animated rendering](../exports.md#parallel-animated-rendering)
 for spawn setup and supported inputs. GIF sizing and palette controls are rejected for MP4/WebM/MOV output.
 
 ### `.to_svg(embed_fonts=False)`
@@ -191,7 +191,7 @@ overlay_bytes = canvas.to_webm(fps=30, hold=2.0, transparent=True)
 `.to_mp4()`/`.to_webm()`/`.to_mov()` also accept `soundtrack` (an audio file muxed into the video, trimmed to the video length) and `loop_audio` (an explicit override). `AudioTrack(..., loop=True)` repeats a shorter configured track; legacy string paths keep the previous default of looping. GIF cannot carry audio. See the [Deck API](deck.md) for the full parameter table.
 
 All animated byte methods accept keyword-only `workers=1` and
-`quality="standard"` (`"high"` enables supersampling). `.to_gif()` also accepts
+`render_quality="standard"` (`"high"` enables supersampling). `.to_gif()` also accepts
 `max_size=None` for proportional resizing and `colors=None` for the palette
 size (2–256 when supplied). Existing positional parameters remain unchanged.
 
@@ -211,7 +211,7 @@ and encoder requirements. `render()` and `export()` accept `.mov` with
 
 Write silent animation frames and `manifest.json` to a new directory whose
 parent already exists. `PngSequenceOptions(fps=30, hold=3, workers=1,
-quality="standard")` controls timing and rendering. Every independent PNG holds
+render_quality="standard")` controls timing and rendering. Every independent PNG holds
 the renderer's exact RGBA8 straight-alpha bytes, with no export matte or color
 profile claim. `PngSequenceResult` reports actual `frame_count`,
 `duration=frame_count/fps`, dimensions, the numeric filename pattern, published

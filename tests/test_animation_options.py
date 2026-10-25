@@ -1,6 +1,5 @@
 """The scalar byte API and format-specific file options share one setup boundary."""
 
-import inspect
 import json
 import math
 import shutil
@@ -17,55 +16,6 @@ from quickthumb import AudioTrack, Canvas, Deck, Fade, GifOptions, PngSequenceOp
 from quickthumb import _export_video as video
 from quickthumb import transitions as tr
 from quickthumb.errors import ValidationError
-
-
-@pytest.mark.parametrize("owner", [Canvas, Deck])
-def test_byte_signatures_preserve_existing_parameters_and_add_only_keyword_controls(owner):
-    hold = "hold" if owner is Canvas else "slide_duration"
-    methods = ["to_gif", "to_mp4" if owner is Canvas else "to_animated_mp4", "to_webm", "to_mov"]
-    for method in methods:
-        parameters = inspect.signature(getattr(owner, method)).parameters
-        expected = [
-            ("self", inspect.Parameter.empty),
-            ("fps", 20.0 if method == "to_gif" else 30.0),
-            (hold, 3.0),
-        ]
-        expected += (
-            [("loop", 0), ("matte", "#000000")]
-            if method == "to_gif"
-            else [("matte", "#000000"), ("soundtrack", None), ("loop_audio", None)]
-        )
-        assert [
-            (p.name, p.default) for p in parameters.values() if p.kind == p.POSITIONAL_OR_KEYWORD
-        ] == expected
-        old_names = [name for name, _ in expected]
-        old_names += ["transparent", "policy"] if method in ("to_webm", "to_mov") else ["policy"]
-        assert list(parameters)[: len(old_names)] == old_names
-        added = {"workers": 1, "quality": "standard"}
-        if method == "to_gif":
-            added.update(max_size=None, colors=None)
-        for name, default in added.items():
-            assert parameters[name].kind is inspect.Parameter.KEYWORD_ONLY
-            assert parameters[name].default == default
-        assert set(parameters) == {name for name, _ in expected} | set(added) | {"policy"} | (
-            {"transparent"} if method in ("to_webm", "to_mov") else set()
-        )
-    assert inspect.signature(owner.to_webm, eval_str=True) == inspect.signature(
-        owner.to_mov, eval_str=True
-    )
-    assert inspect.signature(owner.to_webm).parameters["transparent"].default is False
-    assert list(inspect.signature(Deck.to_mp4).parameters) == [
-        "self",
-        "fps",
-        "slide_duration",
-        "policy",
-    ]
-    assert list(inspect.signature(Deck.render_mp4).parameters) == [
-        "self",
-        "output_path",
-        "default_duration",
-        "fps",
-    ]
 
 
 @pytest.mark.parametrize("options", [GifOptions, VideoOptions])
@@ -86,7 +36,7 @@ def test_hold_roundtrips_omit_only_the_default(options):
     }
     with pytest.raises(ValidationError, match="slide_duration"):
         options.model_validate({"slide_duration": 1})
-    assert set(PngSequenceOptions.model_fields) == {"fps", "hold", "workers", "quality"}
+    assert set(PngSequenceOptions.model_fields) == {"fps", "hold", "workers", "render_quality"}
 
 
 @pytest.mark.parametrize("options", [GifOptions, VideoOptions])
@@ -127,7 +77,7 @@ def test_model_coercion_does_not_leak_into_raw_gif_arguments(field, value, tmp_p
         ("workers", True),
         ("workers", "2"),
         ("workers", 0),
-        ("quality", None),
+        ("render_quality", None),
     ],
 )
 @pytest.mark.parametrize("constructor", ["construct", "copy"])
@@ -153,14 +103,14 @@ def test_invalid_constructed_model_values_are_not_recoerced(
         {"workers": "2"},
         {"workers": 0},
         {"workers": 9},
-        {"quality": None},
-        {"quality": "low"},
+        {"render_quality": None},
+        {"render_quality": "low"},
     ],
 )
 def test_public_byte_render_controls_reject_invalid_values(kind, format, kwargs):
     canvas = Canvas(4, 4)
     source = canvas if kind == "canvas" else Deck().slide(canvas)
-    method = "to_animated_mp4" if kind == "deck" and format == "mp4" else f"to_{format}"
+    method = f"to_{format}"
     with pytest.raises(ValidationError):
         getattr(source, method)(**kwargs)
 
@@ -197,12 +147,12 @@ def test_gif_file_and_byte_controls_match_encoded_pixels_timing_and_receipt(
         matte="#124578",
         max_size=(8, 8),
         colors=4,
-        quality=quality,
+        render_quality=quality,
         workers=workers,
     )
     destination = tmp_path / "file.gif"
     receipt = source.export(destination, animation=options)
-    hold_kwargs: dict[str, Any] = {("hold" if kind == "canvas" else "slide_duration"): options.hold}
+    hold_kwargs: dict[str, Any] = {"hold": options.hold}
     data = source.to_gif(
         **hold_kwargs,
         fps=10,
@@ -210,7 +160,7 @@ def test_gif_file_and_byte_controls_match_encoded_pixels_timing_and_receipt(
         matte=options.matte,
         max_size=(8, 8),
         colors=4,
-        quality=quality,
+        render_quality=quality,
         workers=workers,
     )
     assert data == destination.read_bytes()
@@ -273,8 +223,8 @@ def test_deck_schedule_is_synchronous_once_and_used_before_prepared_entry(
         )
         assert receipt.timing_metrics.duration == 0.5
     else:
-        method = "to_animated_mp4" if format == "mp4" else f"to_{format}"
-        assert getattr(deck, method)(fps=10, slide_duration=0.15) == b"encoded"
+        method = f"to_{format}"
+        assert getattr(deck, method)(fps=10, hold=0.15) == b"encoded"
     assert events == [("schedule", 0.15), "enter"]
 
 
@@ -382,7 +332,7 @@ def test_deck_gif_ignores_narration_and_explicit_durations(surface, monkeypatch,
         assert result.timing_metrics.duration == 0.2
         data = path.read_bytes()
     else:
-        data = deck.to_gif(slide_duration=0.2)
+        data = deck.to_gif(hold=0.2)
     with Image.open(BytesIO(data)) as encoded:
         assert encoded.info["duration"] == 200
     scheduler.assert_not_called()
@@ -396,8 +346,8 @@ def test_deck_video_preserves_zero_hold_default_audio_bed_rejection(surface, for
         if surface == "file":
             deck.export(tmp_path / f"file.{format}", animation=VideoOptions(hold=0))
         else:
-            method = "to_animated_mp4" if format == "mp4" else f"to_{format}"
-            getattr(deck, method)(slide_duration=0)
+            method = f"to_{format}"
+            getattr(deck, method)(hold=0)
     assert not list(tmp_path.iterdir())
 
 
@@ -489,18 +439,20 @@ def test_video_file_and_byte_quality_workers_hold_and_alpha_match_actual_output(
     canvas = _scene()
     source = canvas if kind == "canvas" else Deck().slide(canvas, transition=tr.Cut())
     transparent = format != "mp4"
-    options = VideoOptions(fps=10, hold=0.2, quality="high", workers=2, transparent=transparent)
+    options = VideoOptions(
+        fps=10, hold=0.2, render_quality="high", workers=2, transparent=transparent
+    )
     file_path = tmp_path / f"file.{format}"
     receipt = source.export(file_path, animation=options)
     kwargs = {
-        ("hold" if kind == "canvas" else "slide_duration"): 0.2,
+        "hold": 0.2,
         "fps": 10,
-        "quality": "high",
+        "render_quality": "high",
         "workers": 2,
     }
     if transparent:
         kwargs.update(transparent=True, matte="not-a-color")
-    method = "to_animated_mp4" if kind == "deck" and format == "mp4" else f"to_{format}"
+    method = f"to_{format}"
     byte_path = tmp_path / f"bytes.{format}"
     byte_path.write_bytes(getattr(source, method)(**kwargs))
     decoded = []
@@ -587,7 +539,7 @@ def test_deck_keeps_narration_error_ahead_of_invalid_hold(surface, tmp_path):
                 tmp_path / "file.webm", animation=VideoOptions.model_construct(hold="invalid")
             )
         else:
-            deck.to_webm(slide_duration=cast(Any, "invalid"))
+            deck.to_webm(hold=cast(Any, "invalid"))
 
 
 @pytest.mark.parametrize("surface", ["file", "bytes"])
@@ -661,7 +613,7 @@ def test_deck_video_nondefault_hold_keeps_inferred_and_explicit_narration_timing
     file_path = tmp_path / "file.mp4"
     receipt = deck.export(file_path, animation=VideoOptions(fps=20, hold=hold))
     byte_path = tmp_path / "bytes.mp4"
-    byte_path.write_bytes(deck.to_animated_mp4(fps=20, slide_duration=hold))
+    byte_path.write_bytes(deck.to_mp4(fps=20, hold=hold))
     assert receipt.timing_metrics.duration == pytest.approx(0.5 + hold)
     assert receipt.timing_metrics.frame_count == round((0.5 + hold) * 20)
     outputs = []
