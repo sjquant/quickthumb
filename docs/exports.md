@@ -1,5 +1,5 @@
 ---
-description: Export quickthumb canvases to SVG, editable PowerPoint (PPTX), PDF documents, and animated GIF/MP4/WebM/MOV alongside PNG/JPEG/WEBP.
+description: Export quickthumb canvases and decks to PNG, JPEG, WebP, SVG, HTML, PDF, editable PowerPoint, GIF, MP4, WebM, and MOV.
 ---
 
 # Exporting to SVG, PPTX, PDF & video
@@ -387,7 +387,7 @@ ffmpeg -i overlay.mov -frames:v 1 -pix_fmt rgba frame.png
 
 `examples/transparent_lower_third.py` writes both WebM and ProRes MOV overlays.
 
-### Image sequences { #image-sequences }
+### Image sequences
 
 `Canvas.export_image_sequence()` and the matching Deck method write the actual
 animated timeline as independent PNG, JPEG, or WebP files plus one manifest.
@@ -556,26 +556,42 @@ slide images and decoder caches, in addition to its in-flight RGB frame.
 Normal completion and errors wait for running jobs to finish and close their
 decoders. Pending jobs are canceled on failure; abruptly terminated workers
 are reported as rendering errors. An OS-level kill cannot run normal cleanup.
-Static narrated MP4 uses `render_narrated_mp4()` or `to_narrated_mp4()`.
 
-Deck MP4, WebM, and MOV exports support per-slide narration. Pass `audio=` to `Deck.slide()`;
-without `duration=`, Quickthumb uses the file's ffprobe duration. An explicit
-duration trims audio or pads it with silence, while a slide without audio holds
-silently for `hold` (3 seconds). `deck.render_narrated_mp4("deck.mp4")` produces
-H.264/yuv420p video with an AAC track and still slides. `deck.export("deck.mp4")`
-plays layer animations and transitions with narration by default. Pass
-`animation=VideoOptions(soundtrack=AudioTrack(path="music.mp3", volume=0.16, loop=True))`
-to `deck.render()` for animated MP4/WebM/MOV.
-Quickthumb mixes that bed and the
-scheduled `Deck.slide(audio=...)` narration during rendering; `deck.to_mp4()`
-and `deck.to_webm()` do the same for byte exports. Callers do not
-need to pre-mix audio themselves.
+### Narrated deck video
 
-The timing model mirrors the HTML slideshow, with one difference a non-interactive medium forces: there is nothing to click, so `on_click` animations play automatically in sequence, exactly like `after_previous` (the same choice PowerPoint's own video export makes). Each slide plays its transition (over the previous slide's final frame), runs its animation timeline (starting when the transition starts, like the HTML runtime), then holds its settled state — for the transition's `advance_after` when set, else for `hold`. In narrated MP4/WebM/MOV output, the inferred or explicit narration duration (or the silent-slide default) extends the visual slide when it is longer than `advance_after`. A slide with no transition cross-fades in over 0.5s (slide 0 with none starts instantly); set a transition on slide 0 to animate in from the matte, which also makes looping GIFs wrap smoothly.
+A deck can be exported as a video with a voice-over per slide:
+
+- Pass `audio=` to `Deck.slide()`. Without `duration=`, the narration duration
+  is measured with `ffprobe`. An explicit `duration=` trims the audio or pads
+  it with silence. A slide with no audio holds silently for `hold` (3 seconds).
+- `deck.export("deck.mp4")` and `deck.render("deck.mp4")` play layer animations
+  and transitions with narration by default. `deck.to_mp4()`, `deck.to_webm()`,
+  and `deck.to_mov()` return animated video bytes.
+- To show static slides with narration, use
+  `deck.render_narrated_mp4("deck.mp4")` or `deck.to_narrated_mp4()`.
+  The output is H.264/yuv420p video with an AAC track.
+- Add background music with
+  `animation=VideoOptions(soundtrack=AudioTrack(path="music.mp3", volume=0.16, loop=True))`
+  on `deck.export()` or `deck.render()`. Quickthumb mixes it with the slide
+  narration; callers do not need to pre-mix audio themselves.
+
+### Timing
+
+Video and GIF follow the HTML slideshow's timing, except that nobody can
+click: `on_click` animations play automatically, one after another, like
+`after_previous` (PowerPoint's own video export does the same). Each slide
+plays its transition over the previous slide's last frame, runs its
+animations (starting with the transition, as in HTML), then holds its settled
+state for the transition's `advance_after` if set, otherwise for `hold`.
+In narrated MP4/WebM/MOV output, the inferred or explicit narration duration
+(or the silent-slide default) extends the visual slide when it is longer
+than `advance_after`. A slide with no transition cross-fades in over 0.5s
+(slide 0 with none starts instantly); set a transition on slide 0 to animate
+in from the matte, which also makes looping GIFs wrap smoothly.
 
 GIF is encoded by Pillow with per-frame durations, so no extra dependency is needed. MP4 (H.264), WebM (VP9), and MOV (ProRes 4444) require the `ffmpeg` binary on `PATH` (or pointed to by the `QUICKTHUMB_FFMPEG` environment variable).
 
-Canvas MP4, WebM, and MOV output can carry a soundtrack — any audio file ffmpeg decodes (MP3, WAV, AAC, OGG, ...), encoded as AAC in MP4/MOV and Opus in WebM:
+Canvas MP4, WebM, and MOV output can carry a soundtrack: any audio file ffmpeg decodes (MP3, WAV, AAC, OGG, ...), encoded as AAC in MP4/MOV and Opus in WebM:
 
 ```python
 mp4 = canvas.to_mp4(soundtrack="music.mp3")                    # loops to fill the video

@@ -100,7 +100,7 @@ deck.render("slides.jpg", quality=85)
 | `.pdf` | Single multi-page PDF. Requires the `pdf` extra. |
 | `.pptx` | Single multi-slide PPTX. Requires the `pptx` extra. |
 | `.gif` / `.webm` / `.mov` | Single animation playing layer animations and slide transitions with default settings. WebM and MOV require `ffmpeg` (MOV uses `prores_ks`). |
-| `.mp4` | Static slides with optional per-slide narration, or an animated timeline when `animation=VideoOptions(...)` is given; H.264/yuv420p video and AAC audio. Requires `ffmpeg` and `ffprobe`. |
+| `.mp4` | Animated timeline with optional per-slide narration; H.264/yuv420p video and AAC audio. Requires `ffmpeg` (and `ffprobe` for narration). Use `.render_narrated_mp4()` for static slides. |
 | `.html` / `.htm` | Single self-contained, animated HTML slideshow. |
 | `.png` / `.jpg` / `.jpeg` / `.webp` | One file per slide as a zero-padded numbered sequence. |
 
@@ -153,7 +153,7 @@ pptx_bytes = deck.to_pptx()  # requires quickthumb[pptx]
 
 ### `.to_gif(...)` / `.to_webm(...)` / `.to_mov(...)`
 
-Return the deck as an animation: each slide plays its layer animations, holds its settled state, and its transition animates the change into it (see [Animated GIF & video](../exports.md#animated-gif-video) for the timing model). `.to_webm()` requires the `ffmpeg` binary on `PATH` (or named by `QUICKTHUMB_FFMPEG`).
+Return the deck as an animation: each slide plays its layer animations, holds its settled state, and its transition animates the change into it (see [Animated GIF & video](../exports.md#animated-gif-video) for the timing model). `.to_webm()`/`.to_mov()` require the `ffmpeg` binary on `PATH` (or named by `QUICKTHUMB_FFMPEG`).
 
 ```python
 gif_bytes = deck.to_gif(fps=20, hold=3.0, loop=0, matte="#000000")
