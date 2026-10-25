@@ -278,6 +278,10 @@ def _supports_transform_extensions_html(layer: object) -> bool:
         return False
     if any(track.type not in _TRANSFORM_PROPERTIES for track in spec.tracks):
         return False
+    if (spec.easing is not None and not isinstance(spec.easing, str)) or any(
+        key.easing is not None or key.hold for track in spec.tracks for key in track.keyframes
+    ):
+        return False
     scale_tracks = [track for track in spec.tracks if track.type == "scale"]
     # Image uniform scale is an internal viewport zoom in the raster renderer.
     # Nonpositive uniform scale is historically ignored there, unlike axis
