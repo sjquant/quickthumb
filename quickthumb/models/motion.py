@@ -10,6 +10,7 @@ from pydantic import (
     ConfigDict,
     Discriminator,
     Field,
+    FiniteFloat,
     NonNegativeFloat,
     PositiveFloat,
     PositiveInt,
@@ -233,13 +234,39 @@ class _TrackBase(_MotionModel):
         times = [keyframe.time for keyframe in self.keyframes]
         if times != sorted(times) or len(times) != len(set(times)):
             raise ValidationError("keyframe times must be strictly increasing")
+        if getattr(self, "type", None) != "position" and any(
+            getattr(key, "in_tangent", None) is not None
+            or getattr(key, "out_tangent", None) is not None
+            for key in self.keyframes
+        ):
+            raise ValidationError("tangents are only supported for position tracks")
         return self
 
 
-class PositionTrack(_TrackBase):
-    """A two-dimensional position track."""
+class PositionKeyframeSpec(KeyframeSpec):
+    """A position with optional relative incoming/outgoing cubic control handles."""
 
-    type: Literal["position"] = "position"
+    in_tangent: tuple[FiniteFloat, FiniteFloat] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    out_tangent: tuple[FiniteFloat, FiniteFloat] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+
+    @field_validator("in_tangent", "out_tangent", mode="before")
+    @classmethod
+    def validate_tangent(cls, value):
+        if value is not None and (
+            not isinstance(value, (tuple, list))
+            or len(value) != 2
+            or any(not isinstance(item, (int, float)) or isinstance(item, bool) for item in value)
+        ):
+            raise ValueError("position tangents must contain exactly two finite numbers")
+        return value
+
+
+class _VectorTrack(_TrackBase):
+    """Shared validation for position and source-viewport vectors."""
 
     @field_validator("keyframes")
     @classmethod
@@ -258,7 +285,48 @@ class PositionTrack(_TrackBase):
         return keyframes
 
 
-class ImagePanTrack(PositionTrack):
+class PositionTrack(_VectorTrack):
+    """Pixel translations; optional handles use constant arc-length progress."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "type": "position",
+                    "auto_orient": True,
+                    "keyframes": [
+                        {"type": "keyframe", "time": 0, "value": [0, 0], "out_tangent": [0, 80]},
+                        {"type": "keyframe", "time": 1, "value": [100, 0], "in_tangent": [0, 80]},
+                    ],
+                }
+            ],
+        }
+    )
+
+    type: Literal["position"] = "position"
+    keyframes: list[PositionKeyframeSpec | KeyframeSpec]
+    auto_orient: bool = Field(default=False, exclude_if=lambda value: not value)
+
+    @field_validator("keyframes", mode="before")
+    @classmethod
+    def coerce_position_keyframes(cls, keyframes):
+        if isinstance(keyframes, (list, tuple)):
+            return [key.model_dump() if isinstance(key, KeyframeSpec) else key for key in keyframes]
+        return keyframes
+
+    @model_validator(mode="after")
+    def validate_control_points(self):
+        for key in self.keyframes:
+            for tangent in (getattr(key, "in_tangent", None), getattr(key, "out_tangent", None)):
+                if tangent is not None and not all(
+                    math.isfinite(position + offset)
+                    for position, offset in zip(key.value, tangent, strict=True)
+                ):
+                    raise ValueError("position plus tangent must form finite control points")
+        return self
+
+
+class ImagePanTrack(_VectorTrack):
     """A normalized source-viewport pan track for image layers."""
 
     type: Literal["image_pan"] = "image_pan"
@@ -294,6 +362,18 @@ class ScaleTrack(ScalarTrack):
     """A uniform scale track."""
 
     type: Literal["scale"] = "scale"
+
+
+class ScaleXTrack(ScalarTrack):
+    """Horizontal layer scale, multiplied by the uniform scale."""
+
+    type: Literal["scale_x"] = "scale_x"
+
+
+class ScaleYTrack(ScalarTrack):
+    """Vertical layer scale, multiplied by the uniform scale."""
+
+    type: Literal["scale_y"] = "scale_y"
 
 
 class ImageZoomTrack(ScalarTrack):
@@ -359,7 +439,7 @@ class BlurTrack(ScalarTrack):
 
 
 class ColorTrack(_TrackBase):
-    """A hexadecimal color track."""
+    """A text/shape fill track interpolated in premultiplied Oklab and linear alpha."""
 
     type: Literal["color"] = "color"
 
@@ -375,6 +455,8 @@ TrackSpec = Annotated[
     PositionTrack
     | ImagePanTrack
     | ScaleTrack
+    | ScaleXTrack
+    | ScaleYTrack
     | ImageZoomTrack
     | RotationTrack
     | OpacityTrack
@@ -395,7 +477,7 @@ class TimingSpec(_MotionModel):
 
     @model_validator(mode="after")
     def validate_mode(self):
-        if self.start is not None and {"trigger", "delay"} & self.model_fields_set:
+        if self.start is not None and (self.trigger is not None or self.delay != 0):
             raise ValidationError(
                 "timing must use either relative trigger/delay or absolute start, not both"
             )

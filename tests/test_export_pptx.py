@@ -626,6 +626,31 @@ class TestPptxElementAnimations:
             "wipe(right)",
         ]
 
+    def test_custom_easing_preset_exports_with_a_named_powerpoint_fallback(self):
+        """A custom-eased fade remains a PowerPoint fade with a declared easing fallback."""
+        from quickthumb import CubicBezierEasing
+
+        # Given: a fade whose custom clock has no native PowerPoint representation.
+        canvas = Canvas(160, 120).shape(
+            "rectangle",
+            (10, 10),
+            20,
+            20,
+            "#FFFFFF",
+            animation=AnimationSpec.fade(easing=CubicBezierEasing(points=(0.5, 0, 0.5, 1))),
+        )
+
+        # When: PowerPoint export lowers the preset.
+        document = open_pptx(canvas)
+
+        # Then: the shape and timing survive and capability inspection explains the approximation.
+        assert len(document.slides[0].shapes) == 1
+        assert document.slides[0]._element.find(qn("p:timing")) is not None
+        assert any(
+            item.feature == "easing" and item.fallback is not None
+            for item in canvas.validate_export("pptx")
+        )
+
     def test_should_export_canonical_motion_powerpoint_cannot_express_as_a_still_layer(self):
         """Given a keyframed timeline, when exported, then the layer ships unanimated."""
         # Given: a playhead driven by a position track, which has no PPTX preset

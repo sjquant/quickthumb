@@ -23,10 +23,13 @@ from quickthumb.models import (
     AudioTrack,
     DeckInspection,
     DiagnosticReport,
+    ExportDiagnostic,
     ExportPolicy,
     ExportResult,
     FrameSequence,
     GifOptions,
+    PngSequenceOptions,
+    PngSequenceResult,
     PrefetchResult,
     ValidationReport,
     VideoOptions,
@@ -37,12 +40,8 @@ from quickthumb.plugins import PluginRegistry
 from quickthumb.transitions import Transition, coerce_transition
 
 if TYPE_CHECKING:
-    from quickthumb._document import TimelineInputs
-    from quickthumb._export_video import AnimationFormat
-
-_DOCUMENT_EXTENSIONS = {".pdf", ".pptx", ".html", ".htm"}
-_RASTER_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp"}
-_ANIMATION_EXTENSIONS = {".gif", ".webm"}
+    from quickthumb._document import TimelineInputs, _ExportReceipt, _ResolvedExport
+    from quickthumb._export_video import AnimationFormat, _AnimationFacts
 
 
 class DeckDiagnostic(quickthumbModel):
@@ -368,7 +367,7 @@ class Deck:
         """Render the deck, dispatching on the output extension.
 
         `.pdf` and `.pptx` produce a single multi-page/multi-slide document.
-        `.gif` and `.webm` produce one animation that plays each slide's
+        `.gif`, `.webm`, and `.mov` produce one animation that plays each slide's
         layer animations and transitions. `.mp4` renders static slides with
         per-slide narration unless `animation=VideoOptions(...)` is supplied,
         in which case it uses the animated timeline. Raster
@@ -376,19 +375,56 @@ class Deck:
         slide as a zero-padded
         numbered sequence derived from `output_path` (e.g. `slides.png` ->
         `slides_01.png`, `slides_02.png`). Pass `GifOptions` for GIF or
-        `VideoOptions` for MP4/WebM to tune animated output. Returns the list
+        `VideoOptions` for MP4/WebM/MOV to tune animated output. Returns the list
         of written file paths (unlike
         `Canvas.render`, which returns None).
         """
-        self._require_slides()
-        extension = os.path.splitext(output_path)[1].lower()
+        from quickthumb._document import _resolve_export
 
-        if animation is not None and extension not in (*_ANIMATION_EXTENSIONS, ".mp4"):
+        resolved = _resolve_export("deck", output_path, format, animation, policy)
+        return self._render_resolved(
+            output_path, resolved, format, quality, animation, policy
+        ).paths
+
+    _original_render = render
+
+    def _render_resolved(
+        self,
+        output_path: str,
+        resolved: _ResolvedExport,
+        format: FileFormat | None,
+        quality: int | None,
+        animation: GifOptions | VideoOptions | None,
+        policy: ExportPolicy | None,
+    ) -> _ExportReceipt:
+        from quickthumb._document import Document, _ExportReceipt, preflight_export
+        from quickthumb._parenting import has_parent_links
+
+        self._require_slides()
+        extension = resolved.extension
+        diagnostics: list[ExportDiagnostic] | None = None
+        parent_linked = False
+        for canvas in self._slides:
+            if has_parent_links(canvas):
+                parent_linked = True
+                from quickthumb._parent_render import validate_parent_raster
+
+                validate_parent_raster(canvas)
+        if (
+            policy is not None
+            and parent_linked
+            and (resolved.mode == "document" or extension == ".svg")
+        ):
+            # Keep the legacy parent-document policy error ahead of option
+            # and Deck-SVG errors without repeating preflight before writing.
+            diagnostics = preflight_export(cast(Document, self), resolved, policy)
+        if animation is not None and resolved.mode != "animated":
             raise RenderingError(
-                "animation options require an animated output extension (.gif, .mp4, or .webm)."
+                "animation options require an animated output extension "
+                "(.gif, .mp4, .webm, or .mov)."
             )
 
-        if extension == ".mp4" and animation is None:
+        if resolved.mode == "narrated":
             if quality is not None:
                 raise RenderingError(
                     "Quality parameter is only supported for JPEG and WEBP formats, "
@@ -398,10 +434,12 @@ class Deck:
                 raise RenderingError(
                     "format override is only supported for raster output, not .mp4 output."
                 )
+            if diagnostics is None:
+                diagnostics = preflight_export(cast(Document, self), resolved, policy)
             self.render_mp4(output_path)
-            return [output_path]
+            return _ExportReceipt([output_path], diagnostics)
 
-        if extension in (*_ANIMATION_EXTENSIONS, ".mp4"):
+        if resolved.mode == "animated":
             if quality is not None:
                 raise RenderingError(
                     "Quality parameter is only supported for JPEG and WEBP formats, "
@@ -412,15 +450,17 @@ class Deck:
                     "format override is only supported for raster output, "
                     f"not {extension} animations."
                 )
-            self._render_animated_file(
+            if diagnostics is None:
+                diagnostics = preflight_export(cast(Document, self), resolved, policy)
+            facts = self._render_animated_file(
                 output_path,
-                cast("AnimationFormat", extension[1:]),
+                cast("AnimationFormat", resolved.output_format),
                 animation,
-                policy=policy,
+                reduced_motion=not resolved.uses_authored_transitions,
             )
-            return [output_path]
+            return _ExportReceipt([output_path], diagnostics, facts)
 
-        if extension in _DOCUMENT_EXTENSIONS:
+        if resolved.mode == "document":
             if quality is not None:
                 raise RenderingError(
                     "Quality parameter is only supported for JPEG and WEBP formats, "
@@ -431,11 +471,16 @@ class Deck:
                     "format override is only supported for raster output, "
                     f"not {extension} documents."
                 )
+            if diagnostics is None:
+                diagnostics = preflight_export(cast(Document, self), resolved, policy)
             self._render_document(output_path, extension, policy=policy)
-            return [output_path]
+            return _ExportReceipt([output_path], diagnostics)
 
-        if extension in _RASTER_EXTENSIONS:
-            return self._render_sequence(output_path, format, quality, policy=policy)
+        if resolved.mode == "raster":
+            if diagnostics is None:
+                diagnostics = preflight_export(cast(Document, self), resolved, policy)
+            paths = self._render_sequence(output_path, format, quality, policy=policy)
+            return _ExportReceipt(paths, diagnostics)
 
         if extension == ".svg":
             raise RenderingError(
@@ -445,7 +490,7 @@ class Deck:
 
         raise RenderingError(
             f"Unsupported deck output format: {extension or output_path!r}.\n"
-            "Use .pdf, .pptx, .html, an animated extension (.gif, .webm), .mp4 for "
+            "Use .pdf, .pptx, .html, an animated extension (.gif, .webm, .mov), .mp4 for "
             "narrated slides, or a raster extension (.png, .jpg, .jpeg, .webp)."
         )
 
@@ -459,24 +504,33 @@ class Deck:
         animation: GifOptions | VideoOptions | None = None,
     ) -> ExportResult:
         """Export through the existing renderer and return the shared result envelope."""
-        from quickthumb._document import AssetPort, Document, build_export_result, preflight_export
+        from quickthumb._document import (
+            AssetPort,
+            Document,
+            _ExportReceipt,
+            _resolve_export,
+            build_export_result,
+            preflight_export,
+        )
 
         normalized_path = os.fspath(output_path)
-        preflight_export(cast(Document, self), normalized_path, policy, format=format)
-        written = self.render(
-            normalized_path,
-            format=format,
-            quality=quality,
-            animation=animation,
-            policy=policy,
-        )
-        paths = [os.fspath(path) for path in written]
+        resolved = _resolve_export("deck", normalized_path, format, animation, policy)
+        render = self.render
+        if getattr(render, "__func__", None) is Deck._original_render:
+            receipt = self._render_resolved(
+                normalized_path, resolved, format, quality, animation, policy
+            )
+        else:
+            diagnostics = preflight_export(cast(Document, self), resolved, policy)
+            written = render(
+                normalized_path, format=format, quality=quality, animation=animation, policy=policy
+            )
+            receipt = _ExportReceipt([os.fspath(path) for path in written], diagnostics)
         return build_export_result(
             cast(Document, self),
-            normalized_path,
-            paths,
+            resolved,
+            receipt,
             policy,
-            format=format,
             animation=animation,
             assets=AssetPort(
                 resolve=self._contract_resolve_assets,
@@ -484,39 +538,56 @@ class Deck:
             ),
         )
 
+    def export_png_sequence(
+        self,
+        output_directory: str | os.PathLike[str],
+        *,
+        options: PngSequenceOptions | None = None,
+        policy: ExportPolicy | None = None,
+    ) -> PngSequenceResult:
+        """Export silent RGBA8 animation, retaining slide and narration timing.
+
+        Writes numbered independent PNGs and manifest.json into a fresh
+        directory under an existing parent, without replacing any destination.
+        """
+        from quickthumb._document import Document
+        from quickthumb._export_png_sequence import export_png_sequence
+
+        return export_png_sequence(
+            cast(Document, self), output_directory, options=options, policy=policy
+        )
+
+    def _validate_parent_motion_policy(self, target: str, policy: ExportPolicy | None) -> None:
+        """Honor strict parent/Morph validation on the convenience animation paths."""
+        from quickthumb._parenting import has_parent_links
+
+        if policy is not None and any(has_parent_links(canvas) for canvas in self._slides):
+            from quickthumb.motion import _validate_export
+
+            _validate_export(
+                self, target, policy, uses_authored_transitions=not policy.reduced_motion
+            )
+
     def _render_animated_file(
         self,
         output_path: str,
         format: AnimationFormat,
         animation: GifOptions | VideoOptions | None = None,
-        policy: ExportPolicy | None = None,
-    ) -> None:
+        *,
+        reduced_motion: bool = False,
+    ) -> _AnimationFacts:
         """Render an animated Deck, mixing scheduled narration when requested."""
         from quickthumb._export_video import write_animation
 
-        if format == "gif":
-            write_animation(
-                self._slides,
-                self._resolved_transitions(),
-                output_path,
-                format=format,
-                animation=animation,
-                reduced_motion=bool(policy and policy.reduced_motion),
-            )
-            return
-        if isinstance(animation, GifOptions):
-            raise ValidationError("GifOptions are only supported for GIF output")
-        slide_durations, audio_durations = self._animation_audio_schedule()
-        write_animation(
+        return write_animation(
             self._slides,
             self._resolved_transitions(),
             output_path,
             format=format,
-            slide_audio=self._slide_audio,
-            slide_durations=slide_durations,
-            audio_durations=audio_durations,
+            slide_audio=self._slide_audio if format != "gif" else None,
+            audio_schedule=self._animation_audio_schedule if format != "gif" else None,
             animation=animation,
-            reduced_motion=bool(policy and policy.reduced_motion),
+            reduced_motion=reduced_motion,
         )
 
     def _animation_audio_schedule(
@@ -561,8 +632,9 @@ class Deck:
             return
 
         if extension in (".html", ".htm"):
+            document = self.to_html(policy=policy)
             with open(output_path, "w", encoding="utf-8") as f:
-                f.write(self.to_html(policy=policy))
+                f.write(document)
             return
 
         from quickthumb._export_pptx import PptxExporter
@@ -630,6 +702,7 @@ class Deck:
         animated GIF/WebM exports play them too, on a fixed timeline.
         """
         self._require_slides()
+        self._validate_parent_motion_policy("html", policy)
         from quickthumb._export_html import export_deck
 
         return export_deck(
@@ -639,11 +712,13 @@ class Deck:
             transitions=self._resolved_transitions(),
             notes=self._slide_notes,
             reduced_motion=bool(policy and policy.reduced_motion),
+            parent_static=bool(policy and policy.unsupported_motion in {"static", "rasterize"}),
         )
 
     def to_pptx(self, *, policy: ExportPolicy | None = None) -> bytes:
         """Render the deck to a multi-slide PPTX as bytes (requires quickthumb[pptx])."""
         self._require_slides()
+        self._validate_parent_motion_policy("pptx", policy)
         from quickthumb._export_pptx import PptxExporter
 
         return PptxExporter(
@@ -658,6 +733,10 @@ class Deck:
         matte: str = "#000000",
         *,
         policy: ExportPolicy | None = None,
+        max_size: tuple[int, int] | None = None,
+        colors: int | None = None,
+        workers: int = 1,
+        quality: Literal["standard", "high"] = "standard",
     ) -> bytes:
         """Render the deck to animated GIF bytes.
 
@@ -672,6 +751,7 @@ class Deck:
         slides are letterboxed onto the first slide's size.
         """
         self._require_slides()
+        self._validate_parent_motion_policy("raster", policy)
         from quickthumb._export_video import export_animation_bytes
 
         return export_animation_bytes(
@@ -682,6 +762,10 @@ class Deck:
             slide_duration=slide_duration,
             loop=loop,
             matte=matte,
+            max_size=max_size,
+            colors=colors,
+            workers=workers,
+            quality=quality,
             reduced_motion=bool(policy and policy.reduced_motion),
         )
 
@@ -719,6 +803,8 @@ class Deck:
         loop_audio: bool | None = None,
         *,
         policy: ExportPolicy | None = None,
+        workers: int = 1,
+        quality: Literal["standard", "high"] = "standard",
     ) -> bytes:
         """Render the Deck's animated timeline to MP4 bytes.
 
@@ -728,6 +814,7 @@ class Deck:
         duration holds its slide for the source audio length.
         """
         self._require_slides()
+        self._validate_parent_motion_policy("video", policy)
         return self._export_animated_video_bytes(
             format="mp4",
             fps=fps,
@@ -735,6 +822,8 @@ class Deck:
             matte=matte,
             soundtrack=soundtrack,
             loop_audio=loop_audio,
+            workers=workers,
+            quality=quality,
             reduced_motion=bool(policy and policy.reduced_motion),
         )
 
@@ -747,12 +836,14 @@ class Deck:
         matte: str,
         soundtrack: AudioTrack | str | dict | None,
         loop_audio: bool | None,
+        workers: int = 1,
+        quality: Literal["standard", "high"] = "standard",
         reduced_motion: bool = False,
+        transparent: bool = False,
     ) -> bytes:
-        """Export animated MP4/WebM bytes with the Deck's narration schedule."""
+        """Export animated MP4/WebM/MOV bytes with the Deck's narration schedule."""
         from quickthumb._export_video import export_animation_bytes
 
-        slide_durations, audio_durations = self._animation_audio_schedule(slide_duration)
         return export_animation_bytes(
             self._slides,
             self._resolved_transitions(),
@@ -760,11 +851,13 @@ class Deck:
             fps=fps,
             slide_duration=slide_duration,
             matte=matte,
+            transparent=transparent,
             soundtrack=soundtrack,
             loop_audio=loop_audio,
             slide_audio=self._slide_audio,
-            slide_durations=slide_durations,
-            audio_durations=audio_durations,
+            audio_schedule=self._animation_audio_schedule,
+            workers=workers,
+            quality=quality,
             reduced_motion=reduced_motion,
         )
 
@@ -799,10 +892,14 @@ class Deck:
         soundtrack: AudioTrack | str | dict | None = None,
         loop_audio: bool | None = None,
         *,
+        transparent: bool = False,
         policy: ExportPolicy | None = None,
+        workers: int = 1,
+        quality: Literal["standard", "high"] = "standard",
     ) -> bytes:
         """Render the deck to WebM (VP9) bytes; timing model as in `to_gif`.
 
+        `transparent=True` skips the export matte and preserves authored alpha.
         Requires the `ffmpeg` binary on PATH (or `QUICKTHUMB_FFMPEG`).
         Odd-sized canvases lose their last pixel row/column (VP9 4:2:0 output
         needs even dimensions). Per-slide narration and `soundtrack` are
@@ -812,13 +909,55 @@ class Deck:
         continue to loop by default.
         """
         self._require_slides()
+        self._validate_parent_motion_policy("video", policy)
         return self._export_animated_video_bytes(
             format="webm",
             fps=fps,
             slide_duration=slide_duration,
             matte=matte,
+            transparent=transparent,
             soundtrack=soundtrack,
             loop_audio=loop_audio,
+            workers=workers,
+            quality=quality,
+            reduced_motion=bool(policy and policy.reduced_motion),
+        )
+
+    def to_mov(
+        self,
+        fps: float = 30.0,
+        slide_duration: float = 3.0,
+        matte: str = "#000000",
+        soundtrack: AudioTrack | str | dict | None = None,
+        loop_audio: bool | None = None,
+        *,
+        transparent: bool = False,
+        policy: ExportPolicy | None = None,
+        workers: int = 1,
+        quality: Literal["standard", "high"] = "standard",
+    ) -> bytes:
+        """Render the deck to ProRes 4444 MOV bytes; timing as in `to_gif`.
+
+        Requires FFmpeg with `prores_ks`. Odd and one-pixel dimensions are
+        retained. `transparent=True` skips only the export matte and uses
+        16-bit alpha coding from 8-bit RGBA frames; decoded alpha can differ
+        by one 8-bit level. Color is lossy 4:4:4 YUV, not lossless RGB.
+        Audio is AAC; `loop_audio` overrides `AudioTrack.loop`, while legacy
+        soundtrack path strings loop by default.
+        Narration without an explicit slide duration uses the source audio length.
+        """
+        self._require_slides()
+        self._validate_parent_motion_policy("video", policy)
+        return self._export_animated_video_bytes(
+            format="mov",
+            fps=fps,
+            slide_duration=slide_duration,
+            matte=matte,
+            transparent=transparent,
+            soundtrack=soundtrack,
+            loop_audio=loop_audio,
+            workers=workers,
+            quality=quality,
             reduced_motion=bool(policy and policy.reduced_motion),
         )
 

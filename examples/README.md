@@ -1,7 +1,7 @@
 # quickthumb examples
 
-Runnable scripts that use the current quickthumb API. Each one writes its
-output next to itself in this folder. The [cookbook](https://quickthumb.solaqua.dev/cookbook/)
+Runnable scripts that use the current quickthumb API. Outputs are written in
+this folder or the `output/` subdirectory noted below. The [cookbook](https://quickthumb.solaqua.dev/cookbook/)
 shows the thumbnail examples with their images.
 
 Run them from the repository root:
@@ -76,3 +76,35 @@ clips (their sources are listed in a manifest in `assets/video`). It shows:
 
 Outputs `ordinary_moments.mp4`, `ordinary_moments.webm`, and a short
 `ordinary_moments_preview.gif`. All three need `ffmpeg`.
+
+### `motion_paths.py`
+
+Output: `output/motion_paths.gif`, `output/motion_paths.png`, and
+`output/motion_paths.html`
+
+Builds a four-second infographic with an arrow moving from collection through
+refinement to delivery:
+
+- Two cubic Bézier segments authored with relative `in_tangent` and
+  `out_tangent` handles on `PositionKeyframeSpec`
+- `easing="linear"` for approximately constant arc-distance speed within each
+  keyframe interval, with `auto_orient=True` following the tangent
+- Position values remain offsets from the arrow's authored position
+- Animated shape colors in the GIF and sampled PNG, using `ColorTrack`
+- A separate geometry-only HTML scene that animates with bounded sampled
+  transform stops; color stays fixed because HTML color tracks cause a static
+  fallback for the whole animation
+- Static route dots drawn from the same control points as the moving arrow
+- A bundled font and no network or FFmpeg requirement
+
+Use it when you want a directional marker to follow a curved route. Edit
+`path_keyframes()` to reshape the route, or `build_scene(animate_color=False)`
+to keep the animation compatible with the approximate HTML path mapping.
+
+### `png_sequence_overlay.py`
+
+`png_sequence_overlay.py` exports a transparent lower third as a silent PNG
+animation sequence. It needs no FFmpeg, uses the bundled font, and demonstrates
+`PngSequenceOptions`, exact RGBA8 alpha, and the compact manifest/result. Each
+run requires a fresh `examples/output/png_sequence_overlay` directory; existing
+outputs are never overwritten.

@@ -65,7 +65,7 @@ from quickthumb.models import (
     AnimationSpec as MotionSpec,
 )
 from quickthumb.models import Box as BoxAnimation  # avoid clash with _export_base.Box
-from quickthumb.motion import match_scene_layers
+from quickthumb.motion import _has_transform_extensions, match_scene_layers
 from quickthumb.transitions import Transition
 
 if TYPE_CHECKING:
@@ -128,7 +128,10 @@ def _lower_canonical(spec: MotionSpec) -> Animation | None:
     if effect is None:
         return None
     timing = spec.timing or TimingSpec()
-    shared: dict = {"duration": timing.duration, "easing": effect.easing or "ease"}
+    shared: dict = {
+        "duration": timing.duration,
+        "easing": effect.easing if isinstance(effect.easing, str) else "ease",
+    }
     if timing.start is not None:
         shared["start"] = timing.start
     else:
@@ -196,6 +199,9 @@ class PptxExporter:
         from pptx import Presentation
         from pptx.util import Emu
 
+        from quickthumb._parent_export import static_parent_fragment
+        from quickthumb._parenting import has_parent_links
+
         if not canvases:
             raise RenderingError("Cannot export a presentation with no slides.")
 
@@ -210,7 +216,8 @@ class PptxExporter:
         presentation.slide_height = Emu(_emu(first.height))
 
         for index, canvas in enumerate(canvases):
-            if not self._reduced_motion:
+            parent = has_parent_links(canvas)
+            if not self._reduced_motion and not parent:
                 validate_legacy_animation_export(canvas)
             canvas._validate_image_paths()
             canvas._ctx.begin_render_pass()
@@ -221,13 +228,16 @@ class PptxExporter:
             # (animation-or-list, [shape_id, ...]) records collected per layer.
             self._anim_records: list[tuple[LayerAnimation, list[int]]] = []
 
-            prefix, rest = split_backdrop_prefix(flatten_layers(canvas))
-            if prefix:
-                fragment = rasterize_layers(canvas, prefix)
-                if fragment:
-                    self._add_fragment(fragment)
-            for layer in rest:
-                self._emit_tracked_layer(layer)
+            if parent:
+                self._add_fragment(static_parent_fragment(canvas))
+            else:
+                prefix, rest = split_backdrop_prefix(flatten_layers(canvas))
+                if prefix:
+                    fragment = rasterize_layers(canvas, prefix)
+                    if fragment:
+                        self._add_fragment(fragment)
+                for layer in rest:
+                    self._emit_tracked_layer(layer)
 
             transition = transitions[index] if transitions else None
             if transition is not None and not self._reduced_motion:
@@ -277,7 +287,7 @@ class PptxExporter:
         (e.g. a text box plus its background fills), and the animation is
         applied to all of them together.
         """
-        animation = getattr(layer, "animation", None)
+        animation = None if _has_transform_extensions(layer) else getattr(layer, "animation", None)
         start = len(self._slide.shapes)
         if animation is None:
             self._emit_layer(layer)
@@ -300,6 +310,10 @@ class PptxExporter:
     @staticmethod
     def _supports_native_morph(source: Canvas, target: Canvas) -> bool:
         """Return whether both slides expose at least one top-level match."""
+        from quickthumb._parenting import has_parent_links
+
+        if has_parent_links(source) or has_parent_links(target):
+            return False
         source_layers = {
             layer_id_for(layer, index, (index,)): layer for index, layer in enumerate(source.layers)
         }

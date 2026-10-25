@@ -4,8 +4,11 @@ from __future__ import annotations
 
 import math
 import re
+from bisect import bisect_left
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
+from functools import cached_property
+from itertools import chain
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, Literal, cast, get_args
 
@@ -13,14 +16,18 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from pydantic import ValidationError as PydanticValidationError
 
 from quickthumb._base import parse_coordinate
+from quickthumb._color_motion import interpolate_color
 from quickthumb._measurements import layer_id_for
+from quickthumb._motion_path import sample_segment
 from quickthumb.errors import RenderingError, ValidationError
 from quickthumb.models import (
+    AnchorPoint,
     AnimatedTextValue,
     AnimationSpec,
     CubicBezierEasing,
     ExportDiagnostic,
     ExportPolicy,
+    GroupLayer,
     HexColor,
     KeyframeSpec,
     MotionCapabilityInspection,
@@ -35,6 +42,8 @@ from quickthumb.models import (
     MotionTargetInspection,
     MotionTrackInspection,
     ReducedMotionInspection,
+    ShapeLayer,
+    TextLayer,
     TimingSpec,
     TrackSpec,
     VideoLayer,
@@ -53,6 +62,8 @@ MotionProperty = Literal[
     "position",
     "image_pan",
     "scale",
+    "scale_x",
+    "scale_y",
     "image_zoom",
     "rotation",
     "opacity",
@@ -350,8 +361,14 @@ class NormalizedKeyframe(BaseModel):
 
     time: float = Field(ge=0.0, allow_inf_nan=False)
     value: MotionValue
-    easing: MotionEasing | None = None
-    hold: bool = False
+    in_tangent: tuple[float, float] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    out_tangent: tuple[float, float] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    easing: MotionEasing | None = Field(default=None, exclude_if=lambda value: value is None)
+    hold: bool = Field(default=False, exclude_if=lambda value: not value)
 
 
 class NormalizedTrack(BaseModel):
@@ -362,6 +379,7 @@ class NormalizedTrack(BaseModel):
     property: MotionProperty
     keyframes: tuple[NormalizedKeyframe, ...]
     blend: TrackBlend = "replace"
+    auto_orient: bool = Field(default=False, exclude_if=lambda value: not value)
 
     @model_validator(mode="after")
     def validate_keyframes(self) -> NormalizedTrack:
@@ -372,10 +390,26 @@ class NormalizedTrack(BaseModel):
             raise ValidationError("normalized keyframe times must be strictly increasing")
         for keyframe in self.keyframes:
             _validate_property_value(self.property, keyframe.value)
+            for tangent in (keyframe.in_tangent, keyframe.out_tangent):
+                if tangent is not None and (
+                    self.property != "position"
+                    or not all(math.isfinite(item) for item in tangent)
+                    or not all(
+                        math.isfinite(position + offset)
+                        for position, offset in zip(
+                            cast(tuple[float, float], keyframe.value), tangent, strict=True
+                        )
+                    )
+                ):
+                    raise ValidationError("tangents require finite position control points")
+        if self.auto_orient and self.property != "position":
+            raise ValidationError("auto_orient is only supported for position tracks")
         if self.blend == "add" and self.property not in {"position", "image_pan"}:
             raise ValidationError("additive tracks are only supported for position and image_pan")
         if self.blend == "multiply" and self.property not in {
             "scale",
+            "scale_x",
+            "scale_y",
             "image_zoom",
             "opacity",
             "clip_progress",
@@ -389,6 +423,38 @@ class NormalizedTrack(BaseModel):
     def duration(self) -> float:
         """Return the local time of the final keyframe."""
         return self.keyframes[-1].time
+
+    @cached_property
+    def is_path(self) -> bool:
+        return self.auto_orient or any(
+            key.in_tangent is not None or key.out_tangent is not None for key in self.keyframes
+        )
+
+    @cached_property
+    def has_direction(self) -> bool:
+        return any(
+            _segment_has_motion(a, b)
+            for a, b in zip(self.keyframes, self.keyframes[1:], strict=False)
+        )
+
+    @cached_property
+    def path_times(self) -> tuple[float, ...]:
+        return tuple(key.time for key in self.keyframes)
+
+    def model_copy(
+        self, *, update: Mapping[str, Any] | None = None, deep: bool = False
+    ) -> NormalizedTrack:
+        copied = super().model_copy(update=update, deep=deep)
+        if update and {"keyframes", "auto_orient"} & update.keys():
+            for name in ("is_path", "has_direction", "path_times"):
+                copied.__dict__.pop(name, None)
+        return copied
+
+
+def _segment_has_motion(left: NormalizedKeyframe, right: NormalizedKeyframe) -> bool:
+    return left.value != right.value or any(
+        value != 0 for tangent in (left.out_tangent, right.in_tangent) for value in tangent or ()
+    )
 
 
 class TimelineEvent(BaseModel):
@@ -431,7 +497,10 @@ class LayerState(BaseModel):
     position: tuple[float, float] | None = None
     image_pan: tuple[float, float] = (0.0, 0.0)
     image_focal_point: tuple[float, float] | None = None
+    anchor: AnchorPoint = Field(default=(0.5, 0.5), exclude_if=lambda value: value == (0.5, 0.5))
     scale: float = Field(default=1.0, allow_inf_nan=False)
+    scale_x: float = Field(default=1.0, allow_inf_nan=False, exclude_if=lambda value: value == 1.0)
+    scale_y: float = Field(default=1.0, allow_inf_nan=False, exclude_if=lambda value: value == 1.0)
     image_zoom: float = Field(default=1.0, ge=1.0, allow_inf_nan=False)
     rotation: float = Field(default=0.0, allow_inf_nan=False)
     opacity: float = Field(default=1.0, ge=0.0, le=1.0, allow_inf_nan=False)
@@ -652,6 +721,7 @@ def _layer_base_state(layer: object, canvas: Canvas) -> LayerState:
             position = None
     state = LayerState(
         position=position,
+        anchor=getattr(layer, "anchor", (0.5, 0.5)),
         opacity=float(getattr(layer, "opacity", 1.0)),
         rotation=float(getattr(layer, "rotation", 0.0)),
         color=getattr(layer, "color", None),
@@ -683,25 +753,37 @@ def _interpolate_layer_states(
     )
 
 
-def transform_matrix(state: LayerState) -> tuple[tuple[float, float, float], ...]:
+def transform_matrix(
+    state: LayerState, size: tuple[float, float] = (0.0, 0.0)
+) -> tuple[tuple[float, float, float], ...]:
     """Return the affine matrix for scale, then rotation, then translation.
 
-    The matrix follows the renderer-independent convention `T · R · S`.
-    Consequently a local point is scaled first, rotated around the origin, and
-    translated by `state.position`. A missing position is treated as zero.
+    With rendered bounds `size`, use `T(position) · T(anchor) · R · S · T(-anchor)`.
+    The normalized anchor resolves within those bounds; uniform and axis scales
+    multiply. Omitting size preserves the original origin-based point API.
     """
     x, y = state.position or (0.0, 0.0)
     angle = math.radians(state.rotation)
     cosine, sine = math.cos(angle), math.sin(angle)
-    scale = state.scale
+    if (
+        not isinstance(size, (tuple, list))
+        or len(size) != 2
+        or any(isinstance(value, bool) or not isinstance(value, (int, float)) for value in size)
+        or not all(math.isfinite(value) and value >= 0 for value in size)
+    ):
+        raise ValidationError("transform size must contain two finite non-negative numbers")
+    sx, sy = state.scale * state.scale_x, state.scale * state.scale_y
+    ax, ay = state.anchor[0] * size[0], state.anchor[1] * size[1]
     return (
-        (scale * cosine, -scale * sine, x),
-        (scale * sine, scale * cosine, y),
+        (sx * cosine, -sy * sine, x + ax - sx * cosine * ax + sy * sine * ay),
+        (sx * sine, sy * cosine, y + ay - sx * sine * ax - sy * cosine * ay),
         (0.0, 0.0, 1.0),
     )
 
 
-def apply_transform(point: tuple[float, float], state: LayerState) -> tuple[float, float]:
+def apply_transform(
+    point: tuple[float, float], state: LayerState, size: tuple[float, float] = (0.0, 0.0)
+) -> tuple[float, float]:
     """Apply the documented `T · R · S` transform to a local point."""
     if (
         not isinstance(point, (tuple, list))
@@ -710,7 +792,7 @@ def apply_transform(point: tuple[float, float], state: LayerState) -> tuple[floa
         or not all(math.isfinite(value) for value in point)
     ):
         raise ValidationError("transform points must contain two finite numbers")
-    matrix = transform_matrix(state)
+    matrix = transform_matrix(state, size)
     return (
         matrix[0][0] * point[0] + matrix[0][1] * point[1] + matrix[0][2],
         matrix[1][0] * point[0] + matrix[1][1] * point[1] + matrix[1][2],
@@ -777,6 +859,110 @@ def compile_timeline(
     return Timeline(events=tuple(events))
 
 
+def _canonical_timeline(layer: object) -> Timeline | None:
+    """Compile a layer's canonical specs without changing its sampled-state API."""
+    animation = getattr(layer, "animation", None)
+    animations = animation if isinstance(animation, list) else [animation]
+    specs = [item for item in animations if isinstance(item, AnimationSpec)]
+    return compile_timeline(specs) if specs else None
+
+
+def _has_transform_extensions(layer: object) -> bool:
+    """Whether motion needs the shared anchor, axis-scale or path source adapter."""
+    animation = getattr(layer, "animation", None)
+    items = animation if isinstance(animation, list) else [animation]
+    specs = [item for item in items if isinstance(item, AnimationSpec)]
+    return bool(specs) and (
+        getattr(layer, "anchor", (0.5, 0.5)) != (0.5, 0.5)
+        or any(
+            track.type in {"scale_x", "scale_y"} or _is_path_track(track)
+            for spec in specs
+            for track in spec.tracks or ()
+        )
+    )
+
+
+def _is_path_track(track: object) -> bool:
+    """Recognize opt-in paths without changing the legacy position contract."""
+    if isinstance(track, NormalizedTrack):
+        return track.property == "position" and track.is_path
+    if getattr(track, "type", None) != "position":
+        return False
+    return bool(getattr(track, "auto_orient", False)) or any(
+        getattr(key, "in_tangent", None) is not None
+        or getattr(key, "out_tangent", None) is not None
+        for key in getattr(track, "keyframes", ())
+    )
+
+
+def _has_motion_path(layer: object) -> bool:
+    animation = getattr(layer, "animation", None)
+    items = animation if isinstance(animation, list) else [animation]
+    return any(
+        _is_path_track(track)
+        for item in items
+        if isinstance(item, AnimationSpec)
+        for track in item.tracks or ()
+    )
+
+
+def _has_color_track(layer: object) -> bool:
+    """Whether the layer's canonical animation authors a fill color."""
+    animation = getattr(layer, "animation", None)
+    items = animation if isinstance(animation, list) else [animation]
+    return any(
+        track.type == "color"
+        for item in items
+        if isinstance(item, AnimationSpec)
+        for track in item.tracks or ()
+    )
+
+
+def _color_group_backdrop_conflict(layer: object) -> bool:
+    """Report a parent transform whose descendant backdrop cannot move as a unit."""
+    if isinstance(layer, GroupLayer) and _has_color_track(layer):
+        from quickthumb._export_base import color_group_backdrop_supported, color_group_has_backdrop
+
+        if color_group_has_backdrop(layer):
+            timeline = _canonical_timeline(layer)
+            if timeline is not None and not color_group_backdrop_supported(timeline):
+                return True
+    return False
+
+
+def _has_color_fill(layer: object) -> bool:
+    """Parent color overrides eligible descendants regardless of their own motion."""
+    return isinstance(layer, (TextLayer, ShapeLayer)) or (
+        isinstance(layer, GroupLayer) and any(_has_color_fill(child) for child in layer.children)
+    )
+
+
+def _supports_color_motion(layer: object) -> bool:
+    """Color replaces text/shape fills, including eligible group descendants."""
+    return _has_color_fill(layer) and not _color_group_backdrop_conflict(layer)
+
+
+def _canonical_target_timelines(layer: object, target_count: int) -> tuple[Timeline, ...] | None:
+    if target_count < 2:
+        return None
+    timeline = _canonical_timeline(layer)
+    if timeline is None or not any(event.stagger is not None for event in timeline.events):
+        return None
+    return resolve_staggered_timelines(timeline, target_count)
+
+
+def _sample_target_timelines(
+    timelines: tuple[Timeline, ...], time: float, base: LayerState | None = None
+) -> tuple[LayerState | None, ...]:
+    """Keep staggered targets hidden until their individual start time."""
+    return tuple(
+        None
+        if time < min((event.active_start for event in timeline.events), default=0.0)
+        else timeline.sample(time, base)
+        for timeline in timelines
+    )
+
+
 def sample_canonical_state(layer: object, time: float | None) -> LayerState | None:
     """Sample a layer's canonical motion at `time`, or None when it has none.
 
@@ -785,41 +971,132 @@ def sample_canonical_state(layer: object, time: float | None) -> LayerState | No
     """
     if time is None:
         return None
-    animation = getattr(layer, "animation", None)
-    if animation is None:
-        return None
-    animations = animation if isinstance(animation, list) else [animation]
-    specs = [item for item in animations if isinstance(item, AnimationSpec)]
-    if not specs:
-        return None
-    return compile_timeline(specs).sample(float(time), LayerState())
+    timeline = _canonical_timeline(layer)
+    return (
+        timeline.sample(float(time), LayerState(anchor=getattr(layer, "anchor", (0.5, 0.5))))
+        if timeline is not None
+        else None
+    )
 
 
 def sample_canonical_targets(
     layer: object, time: float | None, target_count: int
 ) -> tuple[LayerState | None, ...] | None:
-    """Sample one state per staggered target, or None when the layer has none.
+    """Sample staggered target clocks, leaving targets before their turn hidden."""
+    if time is None:
+        return None
+    timelines = _canonical_target_timelines(layer, target_count)
+    return (
+        _sample_target_timelines(
+            timelines, float(time), LayerState(anchor=getattr(layer, "anchor", (0.5, 0.5)))
+        )
+        if timelines is not None
+        else None
+    )
 
-    Each target runs the same timeline offset by its own stagger delay, so the
-    caller can move, fade, and reveal every line independently instead of
-    averaging them into one reveal. A target whose turn has not come yet samples
-    to `None`: it is waiting off screen rather than sitting in its settled
-    place, which is what makes a stagger read as a sequence.
-    """
-    if time is None or target_count < 2:
-        return None
-    animation = getattr(layer, "animation", None)
-    if animation is None:
-        return None
-    animations = animation if isinstance(animation, list) else [animation]
-    specs = [item for item in animations if isinstance(item, AnimationSpec)]
-    if not specs or not any(item.stagger is not None for item in specs):
-        return None
-    sampled: list[LayerState | None] = []
-    for timeline in resolve_staggered_timelines(compile_timeline(specs), target_count):
-        start = min((event.active_start for event in timeline.events), default=0.0)
-        sampled.append(None if time < start else timeline.sample(float(time), LayerState()))
-    return tuple(sampled)
+
+def _geometry_in_motion(
+    timeline: Timeline,
+    time: float,
+    *,
+    include_scale: bool = True,
+    state: LayerState | None = None,
+) -> bool:
+    """Detect geometry interpolation while preserving settled and overridden tracks."""
+    properties = {"position", "rotation", "scale_x", "scale_y"}
+    if include_scale:
+        properties.add("scale")
+    moving: dict[str, bool] = {}
+    position_changes: dict[tuple[float, float, object], tuple[float, float]] = {}
+    path_position_moving = False
+    for event in timeline.events:
+        if time < event.active_start:
+            continue
+        local = time - event.active_start
+        for track in event.tracks:
+            if track.property not in properties:
+                continue
+            # Match the exporter's nanosecond boundary tolerance: decimal
+            # start/duration sums must not turn an endpoint into a motion frame.
+            sample_time = next(
+                (key.time for key in track.keyframes if abs(local - key.time) <= 1e-9), local
+            )
+            active = False
+            segment = None
+            path = track.property == "position" and _is_path_track(track)
+            if 1e-9 < local < event.duration - 1e-9:
+                for index, (left, right) in enumerate(
+                    zip(track.keyframes, track.keyframes[1:], strict=False)
+                ):
+                    changes = (
+                        _segment_has_motion(left, right) if path else left.value != right.value
+                    )
+                    if left.time <= sample_time < right.time and changes and not left.hold:
+                        # At an interior knot stay affine if motion continues
+                        # from the preceding interval, but preserve hold edges.
+                        active = sample_time > left.time or (
+                            index > 0
+                            and not track.keyframes[index - 1].hold
+                            and (
+                                _segment_has_motion(track.keyframes[index - 1], left)
+                                if path
+                                else track.keyframes[index - 1].value != left.value
+                            )
+                        )
+                        if path and active:
+                            ratio = (sample_time - left.time) / (right.time - left.time)
+                            distance = easing_value(
+                                left.easing
+                                if left.easing is not None
+                                else event.options.get("easing"),
+                                max(1e-7, ratio),
+                            )
+                            active = 0 < distance < 1
+                        segment = (left, right)
+                        break
+            if track.property == "position":
+                if track.blend == "replace":
+                    position_changes.clear()
+                    path_position_moving = False
+                if path:
+                    path_position_moving = path_position_moving or active
+                    if track.auto_orient and track.has_direction:
+                        # Auto-orient writes rotation at this track's ordered slot.
+                        moving["rotation"] = active
+                    continue
+                if active and segment is not None:
+                    left, right = segment
+                    assert isinstance(left.value, tuple) and isinstance(right.value, tuple)
+                    clock_easing = (
+                        left.easing if left.easing is not None else event.options.get("easing")
+                    )
+                    basis = (
+                        round(event.active_start + left.time, 9),
+                        round(event.active_start + right.time, 9),
+                        (clock_easing or "linear")
+                        if isinstance(clock_easing, (str, type(None)))
+                        else _bezier_points(clock_easing),
+                    )
+                    x, y = position_changes.get(basis, (0.0, 0.0))
+                    position_changes[basis] = (
+                        x + right.value[0] - left.value[0],
+                        y + right.value[1] - left.value[1],
+                    )
+                continue
+            moving[track.property] = (
+                active if track.blend == "replace" else moving.get(track.property, False) or active
+            )
+    # The established renderer ignores nonpositive scale rather than reflecting
+    # or collapsing the image. Reuse the caller's state instead of sampling twice.
+    if moving.get("scale") and (state if state is not None else timeline.sample(time)).scale <= 0:
+        moving["scale"] = False
+    # Opposite additive tracks sharing one interpolation clock cancel exactly.
+    # Do not resample a held rotation just because a cancelled move is scheduled.
+    return (
+        path_position_moving
+        or any(moving.values())
+        or any(abs(x) > 1e-12 or abs(y) > 1e-12 for x, y in position_changes.values())
+    )
 
 
 def compile_transition_timeline(
@@ -1044,11 +1321,14 @@ def _normalize_track(track: TrackSpec) -> NormalizedTrack:
             NormalizedKeyframe(
                 time=keyframe.time,
                 value=_normalize_value(keyframe),
+                in_tangent=getattr(keyframe, "in_tangent", None),
+                out_tangent=getattr(keyframe, "out_tangent", None),
                 easing=keyframe.easing,
                 hold=keyframe.hold,
             )
             for keyframe in track.keyframes
         ),
+        auto_orient=getattr(track, "auto_orient", False),
     )
 
 
@@ -1109,6 +1389,14 @@ def _sample_event(event: TimelineEvent, time: float, state: LayerState) -> Layer
     )
     eased_progress = easing_value(event.options.get("easing"), progress)
     for track in event.tracks:
+        if track.property == "position" and _is_path_track(track):
+            value, heading = _sample_path_track(
+                track, progress * event.duration, event.options.get("easing")
+            )
+            state = _compose_track_value(state, track, value)
+            if track.auto_orient and heading is not None:
+                state = state.with_values(rotation=heading)
+            continue
         value = _sample_track(track, progress, event.duration, event.options.get("easing"))
         state = _compose_track_value(state, track, value)
     if event.effect == "ken_burns" and event.options.get("focal_point") is not None:
@@ -1143,6 +1431,8 @@ def _sample_track(
 ) -> MotionValue:
     """Sample a local track at normalized event progress."""
     local_time = progress * duration
+    if track.property == "position" and _is_path_track(track):
+        return _sample_path_track(track, local_time, easing)[0]
     if local_time <= track.keyframes[0].time:
         return track.keyframes[0].value
     if local_time >= track.keyframes[-1].time:
@@ -1157,8 +1447,63 @@ def _sample_track(
             eased_ratio = easing_value(left.easing if left.easing is not None else easing, ratio)
             if track.property in {"opacity", "clip_progress", "color", "image_pan", "image_zoom"}:
                 eased_ratio = min(1.0, max(0.0, eased_ratio))
+            if track.property == "color":
+                return interpolate_color(cast(str, left.value), cast(str, right.value), eased_ratio)
             return _interpolate(left.value, right.value, eased_ratio)
     return track.keyframes[-1].value
+
+
+def _sample_path_track(
+    track: NormalizedTrack, local_time: float, easing: EasingValue | None
+) -> tuple[tuple[float, float], float | None]:
+    """Sample each authored interval by distance, keeping exact knots and holds."""
+    keys = track.keyframes
+    if len(keys) == 1:
+        return cast(tuple[float, float], keys[0].value), None
+    boundary = bisect_left(track.path_times, local_time)
+    for knot in (max(0, boundary - 1), min(len(keys) - 1, boundary)):
+        adjacent = [
+            abs(keys[knot].time - keys[other].time)
+            for other in (knot - 1, knot + 1)
+            if 0 <= other < len(keys)
+        ]
+        # Match decimal timeline boundaries without swallowing very short intervals.
+        tolerance = min(1e-9, min(adjacent) * 1e-6)
+        if abs(local_time - keys[knot].time) <= tolerance:
+            local_time, boundary = keys[knot].time, knot
+            break
+    index = max(0, min(len(keys) - 2, boundary - 1))
+    left, right = keys[index : index + 2]
+    ratio = min(1.0, max(0.0, (local_time - left.time) / (right.time - left.time)))
+
+    def segment(i: int, progress: float):
+        a, b = keys[i : i + 2]
+        return sample_segment(
+            cast(tuple[float, float], a.value),
+            cast(tuple[float, float], b.value),
+            a.out_tangent,
+            b.in_tangent,
+            progress,
+        )
+
+    distance = (
+        (1.0 if ratio == 1.0 else 0.0)
+        if left.hold
+        else easing_value(left.easing if left.easing is not None else easing, ratio)
+    )
+    point, heading = segment(index, distance)
+    if heading is None and track.auto_orient:
+        # Retain the last available arrival direction over stationary holds;
+        # at the beginning use the next departure direction. Seeking is pure.
+        candidates = chain(
+            ((i, 1.0) for i in range(index - 1, -1, -1)),
+            ((i, 0.0) for i in range(index + 1, len(keys) - 1)),
+        )
+        for i, progress in candidates:
+            heading = segment(i, progress)[1]
+            if heading is not None:
+                break
+    return point, heading
 
 
 def _interpolate(left: MotionValue, right: MotionValue, ratio: float) -> MotionValue:
@@ -1242,9 +1587,13 @@ def sample_frames(timeline: Timeline, fps: float) -> tuple[tuple[float, LayerSta
 
 ExportTarget = Literal["raster", "video", "html", "pptx"]
 CapabilityFeature = Literal[
+    "parent",
+    "anchor",
     "position",
     "image_pan",
     "scale",
+    "scale_x",
+    "scale_y",
     "image_zoom",
     "rotation",
     "opacity",
@@ -1273,9 +1622,13 @@ class MotionCapability:
 
 
 _CAPABILITY_FEATURES: tuple[CapabilityFeature, ...] = (
+    "parent",
+    "anchor",
     "position",
     "image_pan",
     "scale",
+    "scale_x",
+    "scale_y",
     "image_zoom",
     "rotation",
     "opacity",
@@ -1292,12 +1645,8 @@ _CAPABILITY_FEATURES: tuple[CapabilityFeature, ...] = (
 _FULL_CAPABILITIES: dict[CapabilityFeature, tuple[SupportLevel, Fallback | None]] = dict.fromkeys(
     _CAPABILITY_FEATURES, ("full", None)
 )
-# The pixel pipelines compile every geometry property, but a colour track has no
-# consumer and stagger is approximated by a shared reveal rather than per-target
-# geometry. Declaring that here keeps `capabilities_for` and `validate_export`
-# telling callers the same story.
+# Stagger falls back to a shared reveal when semantic targets cannot be split.
 _RASTER_OVERRIDES: dict[CapabilityFeature, tuple[SupportLevel, Fallback | None]] = {
-    "color": ("unsupported", "static"),
     "stagger": ("partial", None),
 }
 _CAPABILITIES: dict[ExportTarget, dict[CapabilityFeature, MotionCapability]] = {}
@@ -1317,15 +1666,20 @@ _CANONICAL_RENDERED: dict[str, frozenset[str]] = {
     target: frozenset(
         {
             "position",
+            "anchor",
             "scale",
+            "scale_x",
+            "scale_y",
             "rotation",
             "opacity",
             "clip_progress",
             "blur",
+            "color",
             "easing",
             "image_pan",
             "image_zoom",
             "stagger",
+            "motion_path",
         }
     )
     for target in ("raster", "video")
@@ -1336,10 +1690,17 @@ _CAPABILITIES["html"] = {
     else MotionCapability(feature, "html", "full")
     for feature in _CAPABILITY_FEATURES
 }
+_CAPABILITIES["html"]["parent"] = MotionCapability("parent", "html", "partial")
+_CAPABILITIES["html"]["color"] = MotionCapability("color", "html", "unsupported", "static")
+_CAPABILITIES["html"]["motion_path"] = MotionCapability("motion_path", "html", "partial")
 _PPTX_FALLBACKS: dict[CapabilityFeature, tuple[SupportLevel, Fallback | None]] = {
+    "parent": ("fallback", "static"),
     "position": ("native", None),
     "image_pan": ("fallback", "rasterize"),
+    "anchor": ("unsupported", "static"),
     "scale": ("native", None),
+    "scale_x": ("unsupported", "static"),
+    "scale_y": ("unsupported", "static"),
     "image_zoom": ("fallback", "rasterize"),
     "rotation": ("native", None),
     "opacity": ("native", None),
@@ -1348,7 +1709,7 @@ _PPTX_FALLBACKS: dict[CapabilityFeature, tuple[SupportLevel, Fallback | None]] =
     "color": ("partial", "static"),
     "easing": ("partial", "fade"),
     "stagger": ("native", None),
-    "motion_path": ("partial", "rasterize"),
+    "motion_path": ("unsupported", "static"),
     "morph": ("partial", "fade"),
     "chart_animation": ("fallback", "fade"),
     "audio_sync": ("unsupported", "static"),
@@ -1364,7 +1725,14 @@ CAPABILITY_MATRIX = MappingProxyType(
 
 
 def _normalize_target(target: ExportTarget | str) -> ExportTarget:
-    aliases = {"gif": "raster", "mp4": "video", "webm": "video", "png": "raster"}
+    aliases = {
+        "gif": "raster",
+        "mp4": "video",
+        "webm": "video",
+        "mov": "video",
+        "png": "raster",
+        "png_sequence": "video",
+    }
     normalized = aliases.get(str(target).lower(), str(target).lower())
     if normalized not in _CAPABILITIES:
         raise ValidationError("target must be one of raster, video, html, or pptx")
@@ -1382,6 +1750,8 @@ def _capability_features_for(animation: object) -> tuple[CapabilityFeature, ...]
         features: list[CapabilityFeature] = []
         if animation.tracks:
             features.extend(track.type for track in animation.tracks)
+            if any(_is_path_track(track) for track in animation.tracks):
+                features.append("motion_path")
         if animation.effect:
             preset_features: dict[str, tuple[CapabilityFeature, ...]] = {
                 "fade": ("opacity",),
@@ -1422,12 +1792,172 @@ def validate_export(
     target: ExportTarget | str,
     policy: ExportPolicy | None = None,
 ) -> list[ExportDiagnostic]:
-    """Validate motion against a target without invoking any exporter."""
+    """Validate a concrete export format or motion family without rendering."""
+    concrete_format = str(target).lower()
+    family = {
+        "jpg": "raster",
+        "jpeg": "raster",
+        "webp": "raster",
+        "svg": "raster",
+        "pdf": "raster",
+        "htm": "html",
+    }.get(concrete_format, target)
+    return _validate_export(
+        source,
+        family,
+        policy,
+        parent_document_format="html" if concrete_format == "htm" else concrete_format,
+    )
+
+
+def _validate_export(
+    source: Canvas | Deck,
+    target: ExportTarget | str,
+    policy: ExportPolicy | None,
+    *,
+    parent_document_format: str | None = None,
+    uses_authored_transitions: bool = True,
+) -> list[ExportDiagnostic]:
     normalized = _normalize_target(target)
     resolved_policy = policy or ExportPolicy()
     row = capabilities_for(normalized)
     diagnostics: list[ExportDiagnostic] = []
+    animated_groups: list[str] = []
+    html_retained_groups: list[str] = []
+    html_backdrop_ids: set[int] = set()
+    if normalized == "html":
+        from quickthumb._export_base import is_backdrop_dependent
+
+        for canvas in getattr(source, "slides", (source,)):
+            layers = list(_iter_export_layers(canvas))
+            last = max(
+                (
+                    index
+                    for index, (_, layer) in enumerate(layers)
+                    if is_backdrop_dependent(cast(Any, layer))
+                ),
+                default=-1,
+            )
+            html_backdrop_ids.update(id(layer) for _, layer in layers[: last + 1])
+    parent_problems = {}
+    parent_static_paths: set[str] = set()
+    parent_html_paths: set[str] = set()
+    parent_html_problems: dict[str, str] = {}
+    document_format = parent_document_format or normalized
+    for index, canvas in enumerate(getattr(source, "slides", (source,))):
+        try:
+            cast("Canvas", canvas)._validate_layer_identities()
+        except ValidationError as error:
+            if hasattr(source, "slides"):
+                error.at(f"/slides/{index}")
+            raise
+        from quickthumb._parent_render import parent_rendering_problem
+        from quickthumb._parenting import has_parent_links
+
+        if has_parent_links(canvas):
+            problem = parent_rendering_problem(canvas)
+            base = f"/slides/{index}" if hasattr(source, "slides") else ""
+            paths = [base + path for _, path, _ in _iter_export_layer_locations(canvas)]
+            parent_problems.update((path, problem) for path in paths)
+            if document_format in {"html", "pptx", "svg", "pdf"} and problem is None:
+                html_problem = None
+                if document_format == "html":
+                    from quickthumb._parent_export import parent_html_sampling
+                    from quickthumb._parent_render import participating_layers
+
+                    html_problem = parent_html_sampling(canvas).problem
+                    if (
+                        html_problem is None
+                        and not resolved_policy.reduced_motion
+                        and resolved_policy.unsupported_motion not in {"static", "rasterize"}
+                    ):
+                        nodes = participating_layers(canvas)
+                        parent_html_paths.update(
+                            base + path
+                            for _, path, item in _iter_export_layer_locations(canvas)
+                            if id(item) in nodes
+                        )
+                        continue
+                parent_static_paths.update(paths)
+                if html_problem:
+                    parent_html_problems.update((path, html_problem) for path in paths)
     for layer_id, pointer, layer in _iter_export_layer_locations(source):
+        if pointer in parent_static_paths or pointer in parent_html_paths:
+            partial = pointer in parent_html_paths
+            message = (
+                "Parent geometry uses bounded sampled affine HTML coefficients; "
+                "curves and composed motion between samples are approximate"
+                if partial
+                else f"Parent-linked {document_format} scene is one authored-static raster image; "
+                "all layer motion is frozen and document elements are not editable"
+            )
+            if pointer in parent_html_problems:
+                message += ". " + parent_html_problems[pointer]
+            features = ["parent"] if getattr(layer, "parent", None) is not None else []
+            animations = getattr(layer, "animation", None)
+            for animation in animations if isinstance(animations, list) else [animations]:
+                if animation is not None:
+                    features.extend(_capability_features_for(animation))
+            if isinstance(getattr(layer, "value", None), AnimatedTextValue):
+                features.append("animated_text_value")
+            if isinstance(layer, VideoLayer):
+                features.append("video_layer")
+            action = resolved_policy.pptx.get(layer_id) if normalized == "pptx" else None
+            if features and (action or resolved_policy.unsupported_motion) in {"error", "native"}:
+                raise _unsupported_motion(
+                    "Parent-linked HTML requires sampled approximation"
+                    if partial
+                    else f"Parent-linked {document_format} scenes require "
+                    "authored-static raster fallback",
+                    pointer + ("/parent" if getattr(layer, "parent", None) is not None else ""),
+                    layer_id,
+                )
+            diagnostics.extend(
+                ExportDiagnostic(
+                    layer_id=layer_id,
+                    feature=feature,
+                    target=normalized,
+                    support="partial" if partial else "fallback",
+                    fallback=None if partial else "static",
+                    message=message,
+                )
+                for feature in dict.fromkeys(features)
+            )
+            continue
+        if getattr(layer, "parent", None) is not None:
+            problem = parent_problems.get(pointer)
+            supported = normalized in {"raster", "video"} and problem is None
+            action = resolved_policy.pptx.get(layer_id) if normalized == "pptx" else None
+            if not supported and (action or resolved_policy.unsupported_motion) in {
+                "error",
+                "native",
+            }:
+                raise _unsupported_motion(
+                    problem
+                    or (
+                        f"parent transforms on layer {layer_id} "
+                        f"are not implemented for {normalized}"
+                    ),
+                    pointer + "/parent",
+                    layer_id,
+                )
+            diagnostics.append(
+                ExportDiagnostic(
+                    layer_id=layer_id,
+                    feature="parent",
+                    target=normalized,
+                    support="full" if supported else "unsupported",
+                    message=(
+                        "Parent transforms use complete world affine matrices"
+                        if supported
+                        else problem
+                        or (
+                            "Parent transforms require a document-format adapter; "
+                            "export raises instead of ignoring links."
+                        )
+                    ),
+                )
+            )
         value = getattr(layer, "value", None)
         if isinstance(value, AnimatedTextValue) and normalized in ("html", "pptx"):
             diagnostics.append(
@@ -1459,13 +1989,46 @@ def validate_export(
         animations = getattr(layer, "animation", None)
         if animations is None:
             continue
+        color_overridden = normalized in {"raster", "video"} and any(
+            pointer.startswith(f"{parent}/children/") for parent in animated_groups
+        )
+        if isinstance(layer, GroupLayer):
+            animated_groups.append(pointer)
         items = animations if isinstance(animations, list) else [animations]
+        html_transform = False
+        html_overridden = normalized == "html" and any(
+            pointer.startswith(f"{parent}/children/") for parent in html_retained_groups
+        )
+        if normalized == "html" and _has_transform_extensions(layer) and not html_overridden:
+            from quickthumb._export_html import _supports_transform_extensions_html
+
+            html_transform = id(
+                layer
+            ) not in html_backdrop_ids and _supports_transform_extensions_html(layer)
+        if (
+            normalized == "html"
+            and isinstance(layer, GroupLayer)
+            and _has_transform_extensions(layer)
+        ):
+            html_retained_groups.append(pointer)
         for animation in items:
-            for feature in _capability_features_for(animation):
+            features: list[CapabilityFeature] = list(_capability_features_for(animation))
+            if color_overridden:
+                features = [feature for feature in features if feature != "color"]
+            if isinstance(animation, AnimationSpec) and getattr(layer, "anchor", (0.5, 0.5)) != (
+                0.5,
+                0.5,
+            ):
+                features.append("anchor")
+            for feature in features:
                 capability = row[feature]
-                canonical_unimplemented = isinstance(
-                    animation, AnimationSpec
-                ) and feature not in _CANONICAL_RENDERED.get(normalized, frozenset())
+                canonical_unimplemented = (
+                    isinstance(animation, AnimationSpec)
+                    and not html_transform
+                    and feature not in _CANONICAL_RENDERED.get(normalized, frozenset())
+                )
+                if feature == "color" and normalized in {"raster", "video"}:
+                    canonical_unimplemented = not _supports_color_motion(layer)
                 declared_support = "unsupported" if canonical_unimplemented else capability.support
                 declared_fallback = "static" if canonical_unimplemented else capability.fallback
                 action = resolved_policy.pptx.get(layer_id) if normalized == "pptx" else None
@@ -1503,9 +2066,32 @@ def validate_export(
                         pointer,
                         layer_id,
                     )
+                if html_transform and feature == "motion_path" and action == "warn":
+                    # This is an implemented bounded approximation, not a fade.
+                    fallback = None
+                    message = (
+                        f"motion_path on layer {layer_id} uses bounded sampled HTML keyframes; "
+                        "curves and direction changes between samples are approximate"
+                    )
                 diagnostic_support = declared_support
-                if action != "native" and declared_support not in ("full", "native"):
+                if (
+                    fallback is not None
+                    and action != "native"
+                    and declared_support not in ("full", "native")
+                ):
                     diagnostic_support = "fallback"
+                if (
+                    feature == "color"
+                    and normalized in {"raster", "video"}
+                    and _color_group_backdrop_conflict(layer)
+                ):
+                    diagnostic_support = "unsupported"
+                    fallback = None
+                    message = (
+                        f"color on layer {layer_id} cannot combine parent motion/stagger with "
+                        "backdrop-dependent descendants; animate the shape directly or "
+                        "separate its backdrop effects"
+                    )
                 diagnostics.append(
                     ExportDiagnostic(
                         layer_id=layer_id,
@@ -1518,9 +2104,38 @@ def validate_export(
                 )
     # A Deck is duck-typed here because deck.py imports this module.
     slides = getattr(source, "slides", None)
-    if normalized == "video" and slides is not None:
+    if (
+        uses_authored_transitions
+        and slides is not None
+        and parent_document_format not in {"svg", "pdf"}
+    ):
+        from quickthumb._parenting import has_parent_links
+
         canvases = tuple(slides)
-        transitions = tuple(source._resolved_transitions())
+        for index, transition in enumerate(cast(Any, source)._resolved_transitions()):
+            if (
+                index > 0
+                and getattr(transition, "effect", None) == "morph"
+                and (has_parent_links(canvases[index - 1]) or has_parent_links(canvases[index]))
+            ):
+                if resolved_policy.unsupported_motion in {"error", "native"}:
+                    raise _unsupported_motion(
+                        "Parent-linked Morph requires fade fallback",
+                        f"/slides/{index}/transition",
+                        None,
+                    )
+                diagnostics.append(
+                    ExportDiagnostic(
+                        feature="parent_morph",
+                        target=normalized,
+                        support="fallback",
+                        fallback="fade",
+                        message=f"Morph before slide {index} uses fade for parent-linked geometry",
+                    )
+                )
+    if uses_authored_transitions and normalized == "video" and slides is not None:
+        canvases = tuple(slides)
+        transitions = tuple(cast(Any, source)._resolved_transitions())
         for index, transition in enumerate(transitions):
             if getattr(transition, "effect", None) != "morph" or index == 0:
                 continue
@@ -1562,7 +2177,7 @@ def _iter_export_layer_locations(
             yield from walk(layer, layer_index, (layer_index,), f"{base}/layers/{layer_index}")
 
 
-def _unsupported_motion(message: str, pointer: str, layer_id: str) -> RenderingError:
+def _unsupported_motion(message: str, pointer: str, layer_id: str | None) -> RenderingError:
     return RenderingError(
         message,
         code="unsupported_capability",
@@ -1619,10 +2234,13 @@ def _inspection_event(
         tracks=[
             MotionTrackInspection(
                 type=track.property,
+                auto_orient=track.auto_orient,
                 keyframes=[
                     MotionKeyframeInspection(
                         time=keyframe.time,
                         value=keyframe.value,
+                        in_tangent=keyframe.in_tangent,
+                        out_tangent=keyframe.out_tangent,
                         easing=keyframe.easing,
                         hold=keyframe.hold,
                     )
@@ -1744,6 +2362,7 @@ def _inspection_layer(
     return MotionLayerInspection(
         layer_id=layer_id,
         layer_type=str(getattr(layer, "type", type(layer).__name__)),
+        parent=getattr(layer, "parent", None),
         events=[_inspection_event(event, sample_times) for event in timeline.events],
         duration=duration,
         targets=targets,
@@ -1794,7 +2413,11 @@ def _inspection_reduced_motion(duration: float, policy: ExportPolicy) -> Reduced
         resolved_duration=0.0,
         removed_features=[
             "position",
+            "motion_path",
+            "anchor",
             "scale",
+            "scale_x",
+            "scale_y",
             "rotation",
             "opacity",
             "clip_progress",
@@ -1899,8 +2522,12 @@ def inspect_motion(
         ]
         motion_duration = max((layer.duration for layer in layers), default=0.0)
         for _, layer in _iter_export_layers(canvas):
+            if getattr(layer, "parent", None) is not None:
+                source_features.add("parent")
             animation = getattr(layer, "animation", None)
             items = animation if isinstance(animation, list) else [animation]
+            if animation is not None and getattr(layer, "anchor", (0.5, 0.5)) != (0.5, 0.5):
+                source_features.add("anchor")
             source_features.update(
                 feature
                 for item in items

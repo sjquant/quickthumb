@@ -413,6 +413,7 @@ class TestCLIServe:
                 "port": 4040,
                 "open_browser": False,
                 "variables": {"ACCENT": "#B8FF00"},
+                "timeline": False,
             }
         ]
 

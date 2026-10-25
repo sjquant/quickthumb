@@ -43,6 +43,7 @@ from quickthumb.models import (
     ChartLayer,
     ChartSpec,
     DiagnosticReport,
+    ExportDiagnostic,
     ExportPolicy,
     ExportResult,
     FaceRegion,
@@ -59,8 +60,11 @@ from quickthumb.models import (
     LayerMask,
     LayerType,
     LinearGradient,
+    NullLayer,
     OutlineLayer,
     PluginLayer,
+    PngSequenceOptions,
+    PngSequenceResult,
     PrefetchResult,
     QRCodeLayer,
     RadialGradient,
@@ -79,7 +83,7 @@ from quickthumb.models import (
 from quickthumb.plugins import PluginRegistry, plugin_registry
 
 if TYPE_CHECKING:
-    from quickthumb._document import TimelineInputs
+    from quickthumb._document import TimelineInputs, _ExportReceipt, _ResolvedExport
 
 
 @dataclass
@@ -104,6 +108,7 @@ _SUPPORTED_OUTPUT_EXTENSIONS = (
     ".gif",
     ".mp4",
     ".webm",
+    ".mov",
 )
 _THEME_REF_RE = re.compile(r"\$theme\.([A-Za-z0-9_]+(?:\.[A-Za-z0-9_]+)*)")
 _VAR_RE = re.compile(r"\$\{(\w+)\}|\$(\w+)")
@@ -320,19 +325,9 @@ class Canvas:
             raise
 
     def _validate_layer_identities(self) -> None:
-        seen: set[str] = set()
+        from quickthumb._parenting import validate_parent_graph
 
-        def visit(layer: object) -> None:
-            layer_id = getattr(layer, "id", None)
-            if layer_id is not None:
-                if layer_id in seen:
-                    raise ValidationError(f"duplicate layer id: {layer_id}")
-                seen.add(layer_id)
-            for child in getattr(layer, "children", ()):
-                visit(child)
-
-        for layer in self._layers:
-            visit(layer)
+        validate_parent_graph(self._layers)
 
     def validate(self) -> ValidationReport:
         """Return a structured validation report for this document."""
@@ -644,6 +639,8 @@ class Canvas:
         *,
         id: str | None = None,
         motion_key: str | None = None,
+        anchor: tuple[float, float] = (0.5, 0.5),
+        parent: str | None = None,
     ) -> Self:
         if content is None:
             raise ValidationError("content is required")
@@ -679,6 +676,8 @@ class Canvas:
             animation=animation,
             id=id,
             motion_key=motion_key,
+            anchor=anchor,
+            parent=parent,
         )
         self._append_layer(layer)
         return self
@@ -727,6 +726,8 @@ class Canvas:
         *,
         id: str | None = None,
         motion_key: str | None = None,
+        anchor: tuple[float, float] = (0.5, 0.5),
+        parent: str | None = None,
     ) -> Self:
         layer = ShapeLayer(
             type="shape",
@@ -749,6 +750,8 @@ class Canvas:
             animation=animation,
             id=id,
             motion_key=motion_key,
+            anchor=anchor,
+            parent=parent,
         )
         self._append_layer(layer)
         return self
@@ -775,6 +778,8 @@ class Canvas:
         *,
         id: str | None = None,
         motion_key: str | None = None,
+        anchor: tuple[float, float] = (0.5, 0.5),
+        parent: str | None = None,
     ) -> Self:
         """Add an image overlay layer to the canvas.
 
@@ -818,6 +823,8 @@ class Canvas:
             animation=animation,
             id=id,
             motion_key=motion_key,
+            anchor=anchor,
+            parent=parent,
         )
         self._append_layer(layer)
         return self
@@ -848,6 +855,8 @@ class Canvas:
         *,
         id: str | None = None,
         motion_key: str | None = None,
+        anchor: tuple[float, float] = (0.5, 0.5),
+        parent: str | None = None,
     ) -> Self:
         """Add a constrained video clip layer for GIF, MP4, and WebM export."""
         layer = VideoLayer(
@@ -875,6 +884,8 @@ class Canvas:
             animation=animation,
             id=id,
             motion_key=motion_key,
+            anchor=anchor,
+            parent=parent,
         )
         self._append_layer(layer)
         return self
@@ -896,6 +907,8 @@ class Canvas:
         *,
         id: str | None = None,
         motion_key: str | None = None,
+        anchor: tuple[float, float] = (0.5, 0.5),
+        parent: str | None = None,
     ) -> Self:
         """Add an SVG overlay layer, rasterized at render time (requires quickthumb[svg]).
 
@@ -928,6 +941,8 @@ class Canvas:
             animation=animation,
             id=id,
             motion_key=motion_key,
+            anchor=anchor,
+            parent=parent,
         )
         self._append_layer(layer)
         return self
@@ -946,6 +961,8 @@ class Canvas:
         *,
         id: str | None = None,
         motion_key: str | None = None,
+        anchor: tuple[float, float] = (0.5, 0.5),
+        parent: str | None = None,
     ) -> Self:
         """Add a chart layer using a validated bar or line specification."""
         layer = ChartLayer(
@@ -960,6 +977,8 @@ class Canvas:
             spec=spec,
             id=id,
             motion_key=motion_key,
+            anchor=anchor,
+            parent=parent,
         )
         self._append_layer(layer)
         return self
@@ -981,6 +1000,8 @@ class Canvas:
         *,
         id: str | None = None,
         motion_key: str | None = None,
+        anchor: tuple[float, float] = (0.5, 0.5),
+        parent: str | None = None,
     ) -> Self:
         """Add a square QR code layer."""
         layer = QRCodeLayer(
@@ -998,6 +1019,8 @@ class Canvas:
             mask=cast(Any, mask),
             id=id,
             motion_key=motion_key,
+            anchor=anchor,
+            parent=parent,
         )
         self._append_layer(layer)
         return self
@@ -1019,6 +1042,8 @@ class Canvas:
         *,
         id: str | None = None,
         motion_key: str | None = None,
+        anchor: tuple[float, float] = (0.5, 0.5),
+        parent: str | None = None,
     ) -> Self:
         """Add an auto-layout group that stacks child layers along a row or column.
 
@@ -1052,8 +1077,36 @@ class Canvas:
             children=children,
             id=id,
             motion_key=motion_key,
+            anchor=anchor,
+            parent=parent,
         )
         self._append_layer(layer)
+        return self
+
+    def null(
+        self,
+        position: tuple = (0, 0),
+        rotation: float = 0.0,
+        animation: AnimationInput | None = None,
+        *,
+        id: str | None = None,
+        motion_key: str | None = None,
+        anchor: tuple[float, float] = (0.5, 0.5),
+        parent: str | None = None,
+    ) -> Self:
+        """Add a non-rendering point controller for explicit transform parenting."""
+        self._append_layer(
+            NullLayer(
+                type="null",
+                position=position,
+                rotation=rotation,
+                animation=animation,
+                id=id,
+                motion_key=motion_key,
+                anchor=anchor,
+                parent=parent,
+            )
+        )
         return self
 
     def custom(
@@ -1083,29 +1136,50 @@ class Canvas:
         The output format is detected from the file extension: PNG, JPEG, and
         WEBP render through the raster pipeline; .svg, .pptx, and .pdf produce
         vector/document output (see to_svg, to_pptx, and to_pdf); .gif, .mp4,
-        and .webm produce an animation that plays the canvas's layer
+        .webm, and .mov produce an animation that plays the canvas's layer
         `animation` effects. Pass `GifOptions` for GIF or `VideoOptions`
-        for MP4/WebM to tune animated output.
+        for MP4/WebM/MOV to tune animated output.
         Set debug=True for raster output annotated with public layer-id bboxes.
         """
-        extension = os.path.splitext(output_path)[1].lower()
-        if format is not None and extension in (".gif", ".mp4", ".webm"):
+        from quickthumb._document import _resolve_export
+
+        resolved = _resolve_export("canvas", output_path, format, animation, policy)
+        self._render_resolved(output_path, resolved, format, quality, debug, animation, policy)
+
+    # Keep export's historical dispatch through a replaced public render hook.
+    _original_render = render
+
+    def _render_resolved(
+        self,
+        output_path: str,
+        resolved: "_ResolvedExport",
+        format: FileFormat | None,
+        quality: int | None,
+        debug: bool,
+        animation: GifOptions | VideoOptions | None,
+        policy: ExportPolicy | None,
+    ) -> "_ExportReceipt":
+        from quickthumb._document import Document, _ExportReceipt, preflight_export
+        from quickthumb._parenting import has_parent_links
+
+        extension = resolved.extension
+        diagnostics: list[ExportDiagnostic] | None = None
+        if has_parent_links(self):
+            from quickthumb._parent_render import validate_parent_raster
+
+            validate_parent_raster(self)
+            if policy is not None and resolved.mode == "document":
+                # Preserve the parent-document policy error before invalid
+                # options, then reuse these findings at the writer boundary.
+                diagnostics = preflight_export(cast(Document, self), resolved, policy)
+        if format is not None and resolved.mode == "animated":
             raise RenderingError(
                 "format override is only supported for raster output, not animated output."
             )
-        if format is None and extension in (
-            ".svg",
-            ".pptx",
-            ".pdf",
-            ".html",
-            ".htm",
-            ".gif",
-            ".mp4",
-            ".webm",
-        ):
-            if animation is not None and extension not in (".gif", ".mp4", ".webm"):
+        if resolved.mode in {"document", "animated"}:
+            if animation is not None and resolved.mode != "animated":
                 raise RenderingError(
-                    "animation options are only supported for GIF, MP4, and WebM output."
+                    "animation options are only supported for GIF, MP4, WebM, and MOV output."
                 )
             if debug:
                 raise RenderingError(
@@ -1116,30 +1190,37 @@ class Canvas:
                     "Quality parameter is only supported for JPEG and WEBP formats, "
                     f"not {extension} output."
                 )
-            if extension in (".gif", ".mp4", ".webm"):
+            if diagnostics is None:
+                diagnostics = preflight_export(cast(Document, self), resolved, policy)
+            facts = None
+            if resolved.mode == "animated":
                 from quickthumb._export_video import write_animation
 
-                write_animation(
+                facts = write_animation(
                     [self],
                     [None],
                     output_path,
-                    format=extension[1:],  # type: ignore[arg-type]
+                    format=resolved.output_format,  # type: ignore[arg-type]
                     animation=animation,
-                    reduced_motion=bool(policy and policy.reduced_motion),
+                    reduced_motion=not resolved.uses_authored_transitions,
                 )
-                return
-            self._render_document(output_path, extension, policy=policy)
-            return
+            else:
+                self._render_document(output_path, extension, policy=policy)
+            return _ExportReceipt([output_path], diagnostics, facts)
 
         if animation is not None:
             raise RenderingError(
-                "animation options require an animated output extension (.gif, .mp4, or .webm)."
+                "animation options require an animated output extension "
+                "(.gif, .mp4, .webm, or .mov)."
             )
         if format is None:
             self._detect_format(output_path)
+        if diagnostics is None:
+            diagnostics = preflight_export(cast(Document, self), resolved, policy)
         self._validate_image_paths()
         image = self._render_to_image(debug=debug)
         self._save_to_file(image, output_path, quality, format=format)
+        return _ExportReceipt([output_path], diagnostics)
 
     def export(
         self,
@@ -1151,24 +1232,36 @@ class Canvas:
         animation: GifOptions | VideoOptions | None = None,
     ) -> ExportResult:
         """Export through the existing renderer and return the shared result envelope."""
-        from quickthumb._document import AssetPort, Document, build_export_result, preflight_export
+        from quickthumb._document import (
+            AssetPort,
+            Document,
+            _ExportReceipt,
+            _resolve_export,
+            build_export_result,
+            preflight_export,
+        )
 
         normalized_path = os.fspath(output_path)
-        preflight_export(cast(Document, self), normalized_path, policy, format=format)
-        written = self.render(
-            normalized_path,
-            format=format,
-            quality=quality,
-            animation=animation,
-            policy=policy,
-        )
-        paths = [normalized_path] if written is None else [os.fspath(path) for path in written]
+        resolved = _resolve_export("canvas", normalized_path, format, animation, policy)
+        render = self.render
+        if getattr(render, "__func__", None) is Canvas._original_render:
+            receipt = self._render_resolved(
+                normalized_path, resolved, format, quality, False, animation, policy
+            )
+        else:
+            # An override may delegate to super().render; invoke it exactly once,
+            # without passing private options or installing mutable context.
+            diagnostics = preflight_export(cast(Document, self), resolved, policy)
+            written = render(
+                normalized_path, format=format, quality=quality, animation=animation, policy=policy
+            )
+            paths = [normalized_path] if written is None else [os.fspath(path) for path in written]
+            receipt = _ExportReceipt(paths, diagnostics)
         return build_export_result(
             cast(Document, self),
-            normalized_path,
-            paths,
+            resolved,
+            receipt,
             policy,
-            format=format,
             animation=animation,
             assets=AssetPort(
                 resolve=self._contract_resolve_assets,
@@ -1176,17 +1269,38 @@ class Canvas:
             ),
         )
 
+    def export_png_sequence(
+        self,
+        output_directory: str | os.PathLike[str],
+        *,
+        options: PngSequenceOptions | None = None,
+        policy: ExportPolicy | None = None,
+    ) -> PngSequenceResult:
+        """Export silent straight-alpha RGBA8 animation to a fresh directory.
+
+        The existing parent receives all numbered PNGs and manifest.json in
+        one exclusive publication. Existing destinations are never replaced.
+        """
+        from quickthumb._document import Document
+        from quickthumb._export_png_sequence import export_png_sequence
+
+        return export_png_sequence(
+            cast(Document, self), output_directory, options=options, policy=policy
+        )
+
     def _render_document(
         self, output_path: str, extension: str, policy: ExportPolicy | None = None
     ):
         if extension == ".svg":
+            document = self.to_svg()
             with open(output_path, "w", encoding="utf-8") as f:
-                f.write(self.to_svg())
+                f.write(document)
             return
 
         if extension in (".html", ".htm"):
+            document = self.to_html(policy=policy)
             with open(output_path, "w", encoding="utf-8") as f:
-                f.write(self.to_html(policy=policy))
+                f.write(document)
             return
 
         if extension == ".pdf":
@@ -1237,6 +1351,10 @@ class Canvas:
         URLs and text renders identically everywhere; pass `False` to drop them
         and rely on the viewer's system fonts for a smaller file.
         """
+        from quickthumb._parenting import has_parent_links
+
+        if policy is not None and has_parent_links(self):
+            self.validate_export("html", policy)
         from quickthumb._export_html import HtmlExporter
 
         return HtmlExporter(
@@ -1244,6 +1362,7 @@ class Canvas:
             embed_fonts=embed_fonts,
             responsive=responsive,
             reduced_motion=bool(policy and policy.reduced_motion),
+            parent_static=bool(policy and policy.unsupported_motion in {"static", "rasterize"}),
         ).export()
 
     def to_pptx(self, *, policy: ExportPolicy | None = None) -> bytes:
@@ -1252,6 +1371,10 @@ class Canvas:
         The canvas becomes a single slide: text stays editable text boxes,
         shapes become autoshapes, and everything else is embedded as pictures.
         """
+        from quickthumb._parenting import has_parent_links
+
+        if policy is not None and has_parent_links(self):
+            self.validate_export("pptx", policy)
         from quickthumb._export_pptx import PptxExporter
 
         return PptxExporter(
@@ -1282,6 +1405,10 @@ class Canvas:
         matte: str = "#000000",
         *,
         policy: ExportPolicy | None = None,
+        max_size: tuple[int, int] | None = None,
+        colors: int | None = None,
+        workers: int = 1,
+        quality: Literal["standard", "high"] = "standard",
     ) -> bytes:
         """Render the canvas to animated GIF bytes that play its layer animations.
 
@@ -1302,6 +1429,10 @@ class Canvas:
             slide_duration=hold,
             loop=loop,
             matte=matte,
+            max_size=max_size,
+            colors=colors,
+            workers=workers,
+            quality=quality,
             reduced_motion=bool(policy and policy.reduced_motion),
         )
 
@@ -1314,6 +1445,8 @@ class Canvas:
         loop_audio: bool | None = None,
         *,
         policy: ExportPolicy | None = None,
+        workers: int = 1,
+        quality: Literal["standard", "high"] = "standard",
     ) -> bytes:
         """Render the canvas to MP4 (H.264) bytes; timing model as in `to_gif`.
 
@@ -1334,6 +1467,8 @@ class Canvas:
             matte=matte,
             soundtrack=soundtrack,
             loop_audio=loop_audio,
+            workers=workers,
+            quality=quality,
             reduced_motion=bool(policy and policy.reduced_motion),
         )
 
@@ -1345,10 +1480,14 @@ class Canvas:
         soundtrack: AudioTrack | str | dict | None = None,
         loop_audio: bool | None = None,
         *,
+        transparent: bool = False,
         policy: ExportPolicy | None = None,
+        workers: int = 1,
+        quality: Literal["standard", "high"] = "standard",
     ) -> bytes:
         """Render the canvas to WebM (VP9) bytes; timing model as in `to_gif`.
 
+        `transparent=True` skips the export matte and preserves authored alpha.
         Requires the `ffmpeg` binary on PATH (or `QUICKTHUMB_FFMPEG`).
         An odd-sized canvas loses its last pixel row/column (VP9 4:2:0 output
         needs even dimensions). `soundtrack` muxes an audio file (any
@@ -1364,8 +1503,50 @@ class Canvas:
             fps=fps,
             slide_duration=hold,
             matte=matte,
+            transparent=transparent,
             soundtrack=soundtrack,
             loop_audio=loop_audio,
+            workers=workers,
+            quality=quality,
+            reduced_motion=bool(policy and policy.reduced_motion),
+        )
+
+    def to_mov(
+        self,
+        fps: float = 30.0,
+        hold: float = 3.0,
+        matte: str = "#000000",
+        soundtrack: AudioTrack | str | dict | None = None,
+        loop_audio: bool | None = None,
+        *,
+        transparent: bool = False,
+        policy: ExportPolicy | None = None,
+        workers: int = 1,
+        quality: Literal["standard", "high"] = "standard",
+    ) -> bytes:
+        """Render the canvas to ProRes 4444 MOV bytes; timing as in `to_gif`.
+
+        Requires FFmpeg with `prores_ks`. Odd and one-pixel dimensions are
+        retained. `transparent=True` skips only the export matte and uses
+        16-bit alpha coding from 8-bit RGBA frames; decoded alpha can differ
+        by one 8-bit level. Color is lossy 4:4:4 YUV, not lossless RGB.
+        Audio is AAC; `loop_audio` overrides `AudioTrack.loop`, while legacy
+        soundtrack path strings loop by default.
+        """
+        from quickthumb._export_video import export_animation_bytes
+
+        return export_animation_bytes(
+            [self],
+            [None],
+            format="mov",
+            fps=fps,
+            slide_duration=hold,
+            matte=matte,
+            transparent=transparent,
+            soundtrack=soundtrack,
+            loop_audio=loop_audio,
+            workers=workers,
+            quality=quality,
             reduced_motion=bool(policy and policy.reduced_motion),
         )
 
@@ -1731,6 +1912,24 @@ class Canvas:
         return self._render_to_image(time=float(time))
 
     def _render_to_image(self, debug: bool = False, time: float | None = None) -> Image.Image:
+        from quickthumb._parenting import has_parent_links, require_parent_rendering
+
+        if has_parent_links(self):
+            from quickthumb._export_video import _SlideAnimator
+
+            if debug and time is not None:
+                require_parent_rendering(self)
+            try:
+                animator = _SlideAnimator(
+                    self, self._ctx.video_info_cache, reduced_motion=time is None
+                )
+                image = animator.frame_at(0 if time is None else time)
+                if debug:
+                    self._draw_debug_overlay(image)
+                return image
+            finally:
+                self._ctx.motion_time = None
+                self._ctx.close_video_decoders()
         self._ctx.begin_render_pass()
         self._ctx.motion_time = time
         try:
@@ -1821,9 +2020,11 @@ class Canvas:
     def _render_staggered_targets(
         self,
         image: Image.Image,
-        surface: Image.Image,
+        surface: Image.Image | None,
         layer: RenderableLayer,
         time: float | None,
+        *,
+        color_motion: bool = False,
     ) -> bool:
         """Move each staggered target on its own, returning whether it applied.
 
@@ -1832,17 +2033,48 @@ class Canvas:
         set tight enough to touch, or a target kind with no visual band — fall
         back to moving the layer as a whole.
         """
-        from quickthumb._export_base import composite_motion_targets, split_into_bands
-        from quickthumb.motion import sample_canonical_targets
+        from quickthumb._export_base import (
+            _with_motion_color,
+            composite_color_targets,
+            composite_motion_targets,
+            split_into_bands,
+        )
+        from quickthumb.motion import (
+            LayerState,
+            _canonical_target_timelines,
+            _geometry_in_motion,
+            _sample_target_timelines,
+        )
 
         count = self._staggered_target_count(layer)
-        states = sample_canonical_targets(layer, time, count)
-        if states is None:
+        if time is not None and color_motion:
+
+            def render_color(color):
+                source = Image.new("RGBA", image.size)
+                self._render_layer(source, _with_motion_color(layer, color), time)
+                return source
+
+            return composite_color_targets(image, layer, time, count, render_color)
+        timelines = _canonical_target_timelines(layer, count) if time is not None else None
+        if timelines is None:
             return False
+        assert time is not None
+        states = _sample_target_timelines(
+            timelines, time, LayerState(anchor=getattr(layer, "anchor", (0.5, 0.5)))
+        )
+        assert surface is not None
         fragments = split_into_bands(surface, count)
         if fragments is None:
             return False
-        composite_motion_targets(image, fragments, states)
+        composite_motion_targets(
+            image,
+            fragments,
+            states,
+            subpixel=tuple(
+                _geometry_in_motion(target, time, state=sample)
+                for target, sample in zip(timelines, states, strict=True)
+            ),
+        )
         return True
 
     def _render_moving_layer(
@@ -1855,36 +2087,58 @@ class Canvas:
         pass transforms; the exporters render layers untimed and apply the same
         geometry once per animation unit.
         """
-        from quickthumb._export_base import apply_canonical_alpha, apply_canonical_geometry
-        from quickthumb.motion import sample_canonical_state
+        from quickthumb._export_base import (
+            _with_motion_color,
+            color_group_has_backdrop,
+            composite_canonical_layer,
+            composite_color_backdrop,
+            require_color_group_backdrop,
+        )
+        from quickthumb.motion import (
+            LayerState,
+            _canonical_timeline,
+            _geometry_in_motion,
+            _has_color_track,
+        )
 
-        state = sample_canonical_state(layer, time)
-        if state is None:
+        timeline = _canonical_timeline(layer) if time is not None else None
+        if timeline is None:
             self._render_layer(image, layer, time)
             return
-        surface = Image.new("RGBA", image.size, (0, 0, 0, 0))
-        self._render_layer(surface, layer, time)
-        if self._render_staggered_targets(image, surface, layer, time):
+        assert time is not None
+        state = timeline.sample(time, LayerState(anchor=getattr(layer, "anchor", (0.5, 0.5))))
+        color_motion = _has_color_track(layer)
+        if isinstance(layer, GroupLayer) and color_motion and color_group_has_backdrop(layer):
+            require_color_group_backdrop(timeline)
+            self._render_layer(image, _with_motion_color(layer, state.color), time)
             return
-        bounds = surface.getbbox()
-        if bounds is None:
+        if (
+            isinstance(layer, ShapeLayer)
+            and any(isinstance(effect, BackdropBlur) for effect in layer.effects)
+            and color_motion
+        ):
+            composite_color_backdrop(
+                image,
+                layer,
+                state,
+                lambda target, source: self._render_layer(target, source, time),
+                self._images,
+                subpixel=_geometry_in_motion(timeline, time, state=state),
+            )
             return
-        fragment, position = apply_canonical_geometry(
-            surface.crop(bounds),
-            state,
-            (bounds[0], bounds[1]),
-            # Image layers fold scale into their source crop already.
-            include_scale=not isinstance(layer, ImageLayer),
+        surface = None
+        if not color_motion:
+            surface = Image.new("RGBA", image.size, (0, 0, 0, 0))
+            self._render_layer(surface, layer, time)
+        if self._render_staggered_targets(image, surface, layer, time, color_motion=color_motion):
+            return
+        if surface is None:
+            surface = Image.new("RGBA", image.size, (0, 0, 0, 0))
+            self._render_layer(surface, _with_motion_color(layer, state.color), time)
+        moving = _geometry_in_motion(
+            timeline, time, include_scale=not isinstance(layer, ImageLayer), state=state
         )
-        # Charts and QR codes reveal their own bars, points, and modules from the
-        # same track, so a second generic clip on top would reveal twice.
-        self_revealing = isinstance(layer, (ChartLayer, QRCodeLayer))
-        fragment = apply_canonical_alpha(
-            fragment, state, clip_progress=1.0 if self_revealing else state.clip_progress
-        )
-        if fragment is None:
-            return
-        image.alpha_composite(fragment, position)
+        composite_canonical_layer(image, surface, layer, state, subpixel=moving)
 
     def _render_layer(self, image: Image.Image, layer: RenderableLayer, time: float | None = None):
         if has_layer_composition(layer):
@@ -1955,6 +2209,8 @@ class Canvas:
                 self._fonts.load_font_variant,
                 self._images,
             )
+        elif isinstance(layer, NullLayer):
+            return
         elif isinstance(layer, PluginLayer):
             raise RenderingError.plugin_layer_unsupported(
                 layer.renderer, layer.version, layer_id=layer.id

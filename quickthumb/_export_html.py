@@ -31,7 +31,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from html import escape
 from importlib.resources import files
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from PIL import ImageFont
 
@@ -49,11 +49,13 @@ from quickthumb._export_base import (
     TextRunLayout,
     _css_string,
     _fmt,
+    _motion_number,
     color_to_rgba,
     compute_text_layout,
     flatten_layers,
     font_face_declarations,
     font_variation_settings,
+    is_backdrop_dependent,
     rasterize_layers,
     read_svg_layer_bytes_and_size,
     resolve_font_face,
@@ -78,10 +80,19 @@ from quickthumb.models import (
     Stroke,
     SvgLayer,
     TextLayer,
+    VideoLayer,
 )
-from quickthumb.motion import compile_timeline
+from quickthumb.motion import (
+    Timeline,
+    TimelineEvent,
+    _has_color_track,
+    _has_motion_path,
+    _has_transform_extensions,
+    compile_timeline,
+)
 
 if TYPE_CHECKING:
+    from quickthumb._parent_export import ParentHtmlSource
     from quickthumb.canvas import Canvas, RenderableLayer
 
 
@@ -102,6 +113,10 @@ _WIPE_INSETS = {
     "right": "inset(0 100% 0 0)",
 }
 _SHOWN_OPACITY = "var(--qt-opacity,1)"
+_PARENT_PROPERTIES = {
+    f"--qt-parent-{name}": "1" if name in {"a", "e", "opacity"} else "0"
+    for name in ("a", "b", "c", "d", "e", "f", "opacity")
+}
 
 
 # --- animation effect -> (entrance from-state, to-state) CSS property blocks ----
@@ -242,6 +257,114 @@ def _canonical_target_count(layer: RenderableLayer, animation: AnimationSpec) ->
     return 1
 
 
+_TRANSFORM_PROPERTIES = {
+    "position": ("--qt-motion-x", "--qt-motion-y"),
+    "scale": ("--qt-motion-scale",),
+    "scale_x": ("--qt-motion-scale-x",),
+    "scale_y": ("--qt-motion-scale-y",),
+    "rotation": ("--qt-motion-rotation",),
+    "opacity": ("--qt-motion-opacity",),
+}
+_TRANSFORM_DEFAULTS = {
+    name: "0" if prop in {"position", "rotation"} else "1"
+    for prop, names in _TRANSFORM_PROPERTIES.items()
+    for name in names
+}
+
+
+def _supports_transform_extensions_html(layer: object) -> bool:
+    """Whether the opt-in anchor/axis adapter can represent the whole animation.
+
+    One geometry-only track spec is supported. Presets, stagger, composition,
+    and time-varying source content deliberately remain authored static images
+    rather than receiving an unrelated entrance effect. Existing centered,
+    uniform-only animations continue through the established HTML adapter.
+    """
+    if not _has_transform_extensions(layer):
+        return False
+    animation = getattr(layer, "animation", None)
+    specs = animation if isinstance(animation, list) else [animation]
+    if len(specs) != 1 or not isinstance(specs[0], AnimationSpec):
+        return False
+    spec = specs[0]
+    if spec.tracks is None or spec.stagger is not None:
+        return False
+    if any(track.type not in _TRANSFORM_PROPERTIES for track in spec.tracks):
+        return False
+    if _has_motion_path(layer) and len(_motion_knots(compile_timeline(spec).events[0])) > 4097:
+        return False
+    if (spec.easing is not None and not isinstance(spec.easing, str)) or any(
+        key.easing is not None or key.hold for track in spec.tracks for key in track.keyframes
+    ):
+        return False
+    scale_tracks = [track for track in spec.tracks if track.type == "scale"]
+    # Image uniform scale is an internal viewport zoom in the raster renderer.
+    # Nonpositive uniform scale is historically ignored there, unlike axis
+    # scale's intentional reflection/collapse. Back easing may cross zero.
+    if scale_tracks and (
+        getattr(layer, "type", None) == "image"
+        or (spec.easing or "").endswith("_back")
+        or any(key.value <= 0 for track in scale_tracks for key in track.keyframes)
+    ):
+        return False
+
+    def static_source(item: object, *, root: bool = False) -> bool:
+        return (
+            getattr(item, "type", None)
+            in {"shape", "text", "svg", "image", "group", "chart", "qr_code"}
+            and getattr(item, "value", None) is None
+            and not is_backdrop_dependent(cast("RenderableLayer", item))
+            and (root or getattr(item, "animation", None) is None)
+            and all(static_source(child) for child in getattr(item, "children", ()))
+        )
+
+    return static_source(layer, root=True)
+
+
+def _motion_knots(event: TimelineEvent) -> set[float]:
+    return {0.0, event.duration} | {key.time for track in event.tracks for key in track.keyframes}
+
+
+def _baked_motion_stops(event: TimelineEvent) -> tuple[dict[float, dict[str, str]], dict[str, str]]:
+    """Bake at up to 120 Hz, retaining all knots within a 4097-stop bound.
+
+    Sampling already applies easing. CSS interpolates linearly between these
+    observations; cusps, corners and sub-sample detail remain approximations.
+    """
+    times = _motion_knots(event)
+    available = 4097 - len(times)
+    intervals = min(available + 1, max(1, math.ceil(min(event.duration, 4096 / 120) * 120)))
+    times.update(event.duration * (index / intervals) for index in range(1, intervals))
+    timeline = Timeline(events=(event.model_copy(update={"start": 0.0, "delay": 0.0}),))
+    auto_heading = False
+    for track in event.tracks:
+        if track.property == "rotation":
+            auto_heading = False
+        elif track.auto_orient and track.has_direction:
+            auto_heading = True
+    stops: dict[float, dict[str, str]] = {}
+    previous_angle = None
+    final = dict(_TRANSFORM_DEFAULTS)
+    for time in sorted(times):
+        state = timeline.sample(time)
+        values = {prop: getattr(state, prop) for prop in _TRANSFORM_PROPERTIES}
+        values["position"] = state.position or (0.0, 0.0)
+        if auto_heading and previous_angle is not None:
+            values["rotation"] = (
+                previous_angle + (state.rotation - previous_angle + 180) % 360 - 180
+            )
+        previous_angle = values["rotation"]
+        final = {
+            name: _motion_number(number)
+            for prop, names in _TRANSFORM_PROPERTIES.items()
+            for name, number in zip(
+                names, values[prop] if prop == "position" else (values[prop],), strict=True
+            )
+        }
+        stops[(time / event.duration) * 100 if event.duration else 100] = final
+    return stops, final
+
+
 def _remap_linear_stops(
     positions: list[float], block: Box, element: Box, dx: float, dy: float
 ) -> list[float]:
@@ -329,13 +452,17 @@ class HtmlExporter:
         responsive: bool = True,
         keyframe_prefix: str = "qt-k",
         reduced_motion: bool = False,
+        parent_static: bool = False,
     ):
         self._canvas = canvas
-        if not reduced_motion:
+        from quickthumb._parenting import has_parent_links
+
+        if not reduced_motion and not has_parent_links(canvas):
             validate_legacy_animation_export(canvas)
         self._embed_fonts = embed_fonts
         self._responsive = responsive
         self._reduced_motion = reduced_motion
+        self._parent_static = parent_static
         self._keyframe_prefix = keyframe_prefix
         self._body: list[str] = []
         self._keyframes: list[str] = []
@@ -346,6 +473,8 @@ class HtmlExporter:
         self._svg_filters: dict[str, str] = {}
         self._next_id = 1
         self._next_kf = 1
+        self._transform_properties_registered = False
+        self._parent_properties_registered = False
         # Track group-animation identity so flattened group children sharing one
         # animation object animate together as a single timeline node.
         self._prev_anim_key: int | None = None
@@ -459,28 +588,162 @@ class HtmlExporter:
         canvas._validate_image_paths()
         canvas._ctx.begin_render_pass()
 
-        prefix, rest = split_backdrop_prefix(flatten_layers(canvas))
-        if not self._reduced_motion and any(
-            getattr(layer, "animation", None) is not None for layer in prefix
-        ):
-            raise RenderingError(
-                "HTML export cannot animate layers that must be rasterized together for "
-                "blend-mode or custom-layer backdrop compositing. Move animated layers "
-                "after those backdrop-dependent layers, or remove the blend/custom layer."
-            )
-        if prefix:
-            fragment = rasterize_layers(canvas, prefix)
-            if fragment:
-                self._emit_fragment(fragment)
-        for layer in rest:
-            self._emit_layer(layer)
+        from quickthumb._parent_export import (
+            bake_parent_html,
+            parent_html_sampling,
+            static_parent_fragment,
+        )
+        from quickthumb._parenting import has_parent_links
+        from quickthumb.models import NullLayer
 
-        return Stage(
-            width=canvas.width,
-            height=canvas.height,
-            body="\n".join(self._body),
-            keyframes=list(self._keyframes),
-            timeline=_rebase_absolute_delays(self._timeline),
+        parent = has_parent_links(canvas)
+        stage_failed = False
+        try:
+            sampling = parent_html_sampling(canvas) if parent else None
+            if sampling and (self._reduced_motion or self._parent_static or sampling.problem):
+                self._emit_fragment(static_parent_fragment(canvas))
+                return Stage(
+                    width=canvas.width,
+                    height=canvas.height,
+                    body="\n".join(self._body),
+                    keyframes=[],
+                    timeline=[],
+                    parent_geometry=True,
+                )
+            baked = bake_parent_html(canvas, sampling.times) if sampling else None
+            prefix, rest = split_backdrop_prefix(
+                flatten_layers(canvas, parent_nodes=baked.layer_ids if baked else None)
+            )
+            if baked:
+                # Null controllers keep their clocks in the plan, never in a
+                # backdrop-dependent visual prefix or its animation guard.
+                prefix = [layer for layer in prefix if not isinstance(layer, NullLayer)]
+            if not self._reduced_motion and any(
+                getattr(layer, "animation", None) is not None for layer in prefix
+            ):
+                raise RenderingError(
+                    "HTML export cannot animate layers that must be rasterized together for "
+                    "blend-mode or custom-layer backdrop compositing. Move animated layers "
+                    "after those backdrop-dependent layers, or remove the blend/custom layer."
+                )
+            if prefix:
+                fragment = rasterize_layers(canvas, prefix)
+                if fragment:
+                    self._emit_fragment(fragment)
+            for layer in rest:
+                if baked and id(layer) in baked.layer_ids:
+                    if source := baked.sources.get(id(layer)):
+                        self._emit_parent_source(source, baked.times)
+                else:
+                    self._emit_layer(layer)
+            if baked:
+                self._emit_parent_clock(baked.times[-1])
+            return Stage(
+                width=canvas.width,
+                height=canvas.height,
+                body="\n".join(self._body),
+                keyframes=list(self._keyframes),
+                timeline=_rebase_absolute_delays(self._timeline),
+                parent_geometry=parent,
+            )
+        except BaseException:
+            stage_failed = True
+            raise
+        finally:
+            if parent:
+                canvas._ctx.motion_time = None
+                try:
+                    canvas._ctx.close_video_decoders()
+                except BaseException:
+                    if not stage_failed:
+                        raise
+
+    def _emit_parent_source(self, source: ParentHtmlSource, times: tuple[float, ...]) -> None:
+        """Emit independent coefficients without CSS matrix decomposition."""
+        if not self._parent_properties_registered:
+            self._keyframes.extend(
+                f'@property {name}{{syntax:"<number>";inherits:false;initial-value:{value}}}'
+                for name, value in _PARENT_PROPERTIES.items()
+            )
+            self._parent_properties_registered = True
+        values = [
+            {
+                name: _motion_number(value)
+                for name, value in zip(_PARENT_PROPERTIES, row, strict=True)
+            }
+            for row in source.rows
+        ]
+        element_id = self._make_id()
+        duration = times[-1]
+        if duration > 0:
+            keyframe = f"{self._keyframe_prefix}{self._next_kf}"
+            self._next_kf += 1
+            self._keyframes.append(
+                "@keyframes "
+                + keyframe
+                + "{"
+                + "".join(
+                    _motion_number((time / duration) * 100)
+                    + "%{"
+                    + ";".join(f"{name}:{value}" for name, value in stop.items())
+                    + "}"
+                    for time, stop in zip(times, values, strict=True)
+                )
+                + "}"
+            )
+            self._timeline.append(
+                {
+                    "t": [element_id],
+                    "k": keyframe,
+                    "d": duration,
+                    "delay": 0,
+                    "tr": "with_previous" if self._timeline else "after_previous",
+                    "a": "transform",
+                    "e": "linear",
+                    "initial": values[0],
+                    "final": values[-1],
+                }
+            )
+        encoded = base64.b64encode(source.png).decode("ascii")
+        style = (
+            f"position:absolute;left:0;top:0;width:{source.width}px;height:{source.height}px;"
+            + ";".join(f"{name}:{value}" for name, value in values[0].items())
+            + ";"
+            "transform-origin:0 0;transform:matrix(var(--qt-parent-a),var(--qt-parent-d),"
+            "var(--qt-parent-b),var(--qt-parent-e),var(--qt-parent-c),var(--qt-parent-f));"
+            "opacity:var(--qt-parent-opacity);"
+        )
+        # Whole-stage Morph is disabled for parent scenes; do not expose keys
+        # that could otherwise invite the runtime to replace this matrix.
+        self._body.append(
+            f'<img id="{element_id}" data-qt-parent-node="1" style="{style}" '
+            f'src="data:image/png;base64,{encoded}" alt="">'
+        )
+
+    def _emit_parent_clock(self, duration: float) -> None:
+        """Retain timing even when every graph source is null or transparent."""
+        if self._timeline or duration == 0:
+            return
+        element_id = self._make_id()
+        keyframe = f"{self._keyframe_prefix}{self._next_kf}"
+        self._next_kf += 1
+        self._keyframes.append(f"@keyframes {keyframe}" + "{from{opacity:0}to{opacity:0}}")
+        self._timeline.append(
+            {
+                "t": [element_id],
+                "k": keyframe,
+                "d": duration,
+                "delay": 0,
+                "tr": "after_previous",
+                "a": "transform",
+                "e": "linear",
+                "initial": {},
+                "final": {},
+            }
+        )
+        self._body.append(
+            f'<span id="{element_id}" data-qt-parent-clock="1" aria-hidden="true" '
+            'style="position:absolute;width:0;height:0;opacity:0;pointer-events:none"></span>'
         )
 
     def _make_id(self) -> str:
@@ -510,6 +773,19 @@ class HtmlExporter:
             effects = [animation]
         if not effects:
             self._prev_anim_key = None
+            return ""
+
+        if _has_color_track(layer):
+            # Canonical color tracks have an authored-static fallback in HTML.
+            self._prev_anim_key = None
+            self._prev_nodes = []
+            return ""
+
+        if _has_transform_extensions(layer):
+            self._prev_anim_key = None
+            self._prev_nodes = []
+            if _supports_transform_extensions_html(layer):
+                return self._register_transform_animation(effects[0], element_id, layer)
             return ""
 
         if isinstance(effects[0], AnimationSpec):
@@ -593,10 +869,96 @@ class HtmlExporter:
         self._prev_nodes = nodes
         return "visibility:hidden;" if nodes else ""
 
+    def _register_transform_animation(
+        self, animation: AnimationSpec, element_id: str, layer: RenderableLayer
+    ) -> str:
+        """Animate independent numeric properties over the baked raster bounds.
+
+        CSS ignores a keyframe for a property not declared at that keyframe,
+        so each track retains its own authored interpolation intervals. In
+        particular uniform and axis scales multiply continuously in the final
+        transform instead of approximating their product at a union of stops.
+        """
+        if not self._transform_properties_registered:
+            self._keyframes.extend(
+                f'@property {name}{{syntax:"<number>";inherits:false;initial-value:{value}}}'
+                for name, value in _TRANSFORM_DEFAULTS.items()
+            )
+            self._transform_properties_registered = True
+        event = compile_timeline(animation).events[0]
+        kf = f"{self._keyframe_prefix}{self._next_kf}"
+        self._next_kf += 1
+        path = _has_motion_path(layer)
+        if path:
+            stops, final = _baked_motion_stops(event)
+        else:
+            stops: dict[float, dict[str, str]] = {}
+            final = dict(_TRANSFORM_DEFAULTS)
+            # Duplicate replace tracks obey canonical last-track precedence, even
+            # when their keyframe times differ; earlier stops must not leak through.
+            tracks = {track.property: track for track in event.tracks}
+            for prop, track in tracks.items():
+                keys = track.keyframes
+                samples = [(key.time, key.value) for key in keys]
+                if keys[0].time > 0:
+                    samples.insert(0, (0.0, keys[0].value))
+                if keys[-1].time < event.duration:
+                    samples.append((event.duration, keys[-1].value))
+                if event.duration == 0:
+                    samples = [(0.0, keys[-1].value), (1.0, keys[-1].value)]
+                for time, value in samples:
+                    percent = 100 * time / event.duration if event.duration else 100 * time
+                    values = value if isinstance(value, tuple) else (value,)
+                    declarations = {
+                        name: _motion_number(float(number))
+                        for name, number in zip(_TRANSFORM_PROPERTIES[prop], values, strict=True)
+                    }
+                    stops.setdefault(percent, {}).update(declarations)
+                final.update(declarations)
+        self._keyframes.append(
+            "@keyframes "
+            + kf
+            + "{"
+            + "".join(
+                _motion_number(percent)
+                + "%{"
+                + ";".join(f"{name}:{value}" for name, value in declarations.items())
+                + "}"
+                for percent, declarations in sorted(stops.items())
+            )
+            + "}"
+        )
+        self._timeline.append(
+            {
+                "t": [element_id],
+                "k": kf,
+                "d": event.duration,
+                "delay": event.active_start,
+                "tr": event.trigger
+                or ("after_previous" if not self._timeline else "with_previous"),
+                "a": "transform",
+                "e": "linear" if path else css_easing(animation.easing or "linear"),
+                "abs": event.trigger is None and event.start > 0,
+                "initial": dict(_TRANSFORM_DEFAULTS),
+                "final": final,
+            }
+        )
+        ax, ay = getattr(layer, "anchor", (0.5, 0.5))
+        return (
+            ";".join(f"{name}:{value}" for name, value in _TRANSFORM_DEFAULTS.items())
+            + ";"
+            + f"transform-origin:{_motion_number(ax * 100)}% {_motion_number(ay * 100)}%;"
+            + "transform:translate(calc(var(--qt-motion-x)*1px),calc(var(--qt-motion-y)*1px)) "
+            + "rotate(calc(var(--qt-motion-rotation)*1deg)) "
+            + "scale(calc(var(--qt-motion-scale)*var(--qt-motion-scale-x)),"
+            + "calc(var(--qt-motion-scale)*var(--qt-motion-scale-y)));"
+            + "opacity:var(--qt-motion-opacity);"
+        )
+
     # ------------------------------------------------------------------ layers
 
     def _emit_layer(self, layer: RenderableLayer):
-        if has_layer_composition(layer):
+        if has_layer_composition(layer) or _has_transform_extensions(layer):
             self._emit_raster_fallback(layer)
             return
 
@@ -630,7 +992,15 @@ class HtmlExporter:
         return "" if key is None else f' data-qt-motion-key="{_attr(key)}"'
 
     def _emit_raster_fallback(self, layer: RenderableLayer):
-        fragment = rasterize_layers(self._canvas, [layer])
+        # Video fragment capture uses a source timestamp; strip the opt-in
+        # animation so an unsupported combination stays authored static even
+        # when that timestamp would otherwise sample its canonical tracks.
+        source = (
+            layer.model_copy(update={"animation": None})
+            if isinstance(layer, VideoLayer) and _has_transform_extensions(layer)
+            else layer
+        )
+        fragment = rasterize_layers(self._canvas, [source])
         if fragment:
             self._emit_fragment(fragment, layer)
 
@@ -924,6 +1294,7 @@ class Stage:
     body: str
     keyframes: list[str]
     timeline: list[dict]
+    parent_geometry: bool = False
     # Slide-transition wiring, filled in by _document for decks. transition_anim
     # animates the incoming stage, transition_exit the outgoing one; transition_z
     # ("over"/"under") sets their stacking; transition_dur drives the cleanup timer.
@@ -1124,7 +1495,12 @@ def _document(
                 else _fmt(transition.advance_after)
             )
             stage.transition_morph = (
-                "1" if transition is not None and transition.effect == "morph" else ""
+                "1"
+                if transition is not None
+                and transition.effect == "morph"
+                and not stage.parent_geometry
+                and (index == 0 or not stages[index - 1].parent_geometry)
+                else ""
             )
             timing = f"{_fmt(duration)}s ease both"
             if enter is not None:
@@ -1235,6 +1611,7 @@ def export_deck(
     transitions: list | None = None,
     notes: list[str | None] | None = None,
     reduced_motion: bool = False,
+    parent_static: bool = False,
 ) -> str:
     stages: list[Stage] = []
     font_faces: dict[str, tuple[str, str, str]] = {}
@@ -1246,6 +1623,7 @@ def export_deck(
             responsive=responsive,
             keyframe_prefix=f"qt-s{index}-k",
             reduced_motion=reduced_motion,
+            parent_static=parent_static,
         )
         stages.append(exporter.render_stage())
         font_faces.update(exporter._font_faces)

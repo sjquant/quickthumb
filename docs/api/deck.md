@@ -99,7 +99,7 @@ deck.render("slides.jpg", quality=85)
 | --- | --- |
 | `.pdf` | Single multi-page PDF. Requires the `pdf` extra. |
 | `.pptx` | Single multi-slide PPTX. Requires the `pptx` extra. |
-| `.gif` / `.webm` | Single animation playing layer animations and slide transitions with default settings. WebM requires `ffmpeg`. |
+| `.gif` / `.webm` / `.mov` | Single animation playing layer animations and slide transitions with default settings. WebM and MOV require `ffmpeg` (MOV uses `prores_ks`). |
 | `.mp4` | Static slides with optional per-slide narration, or an animated timeline when `animation=VideoOptions(...)` is given; H.264/yuv420p video and AAC audio. Requires `ffmpeg` and `ffprobe`. |
 | `.html` / `.htm` | Single self-contained, animated HTML slideshow. |
 | `.png` / `.jpg` / `.jpeg` / `.webp` | One file per slide as a zero-padded numbered sequence. |
@@ -109,17 +109,22 @@ deck.render("slides.jpg", quality=85)
 | `path` | `str` | — | Output path; raster names become `<stem>_NN<ext>` |
 | `format` | `str \| None` | `None` | Raster format override (`"PNG"`, `"JPEG"`, `"WEBP"`) |
 | `quality` | `int \| None` | `None` | Compression quality. Only valid for raster sequences. |
-| `animation` | `GifOptions \| VideoOptions \| None` | `None` | Format-specific options: `GifOptions` for GIF, `VideoOptions` for MP4/WebM. |
+| `animation` | `GifOptions \| VideoOptions \| None` | `None` | Format-specific options: `GifOptions` for GIF, `VideoOptions` for MP4/WebM/MOV. |
 | `policy` | `ExportPolicy \| None` | `None` | Renderer policy, such as `reduced_motion` for animated, HTML, and PPTX output. `unsupported_motion` is enforced only by `export()`. |
 
 !!! warning
     Passing `quality` with `.pdf`, `.pptx`, or animated output raises `RenderingError`, as does rendering an empty deck.
 
 `GifOptions` and `VideoOptions` are available from `quickthumb`. `GifOptions`
-controls GIF frame rate, loop count, matte, proportional `max_size`, and palette
-`colors`; `VideoOptions` controls MP4/WebM frame rate, matte, soundtrack, and
+controls GIF frame rate, `hold`, loop count, matte, proportional `max_size`, and palette
+`colors`; `VideoOptions` controls MP4/WebM/MOV frame rate, `hold`, matte, soundtrack, and
 audio looping. Supply its soundtrack as `AudioTrack(path="music.mp3", loop=True)`.
-Format-specific options are rejected when used with the other animated format.
+`VideoOptions(transparent=True)` preserves alpha in VP9 WebM or ProRes 4444 MOV (strict
+boolean, default `False`); all other output targets reject this option.
+Both use a strict finite nonnegative `hold` (default 3 seconds), omitted from
+serialized options when equal to its default. Both accept `workers` (a strict
+integer from 1 to 8, default 1) and `quality="standard"` or `"high"` for rendering. See [parallel animated rendering](../exports.md#parallel-animated-rendering)
+for spawn setup and supported inputs. Format-specific options are rejected when used with the other animated format.
 
 ### `.to_html()`
 
@@ -146,14 +151,50 @@ with open("deck.pdf", "wb") as f:
 pptx_bytes = deck.to_pptx()  # requires quickthumb[pptx]
 ```
 
-### `.to_gif(...)` / `.to_webm(...)`
+### `.to_gif(...)` / `.to_webm(...)` / `.to_mov(...)`
 
-Return the deck as an animation: each slide plays its layer animations, holds its settled state, and its transition animates the change into it (see [Animated GIF & video](../exports.md#animated-gif-video) for the timing model). `.to_webm()` requires the `ffmpeg` binary on `PATH` (or named by `QUICKTHUMB_FFMPEG`).
+Return the deck as an animation: each slide plays its layer animations, holds its settled state, and its transition animates the change into it (see [Animated GIF & video](../exports.md#animated-gif-video) for the timing model). `.to_webm()`/`.to_mov()` require the `ffmpeg` binary on `PATH` (or named by `QUICKTHUMB_FFMPEG`).
 
 ```python
 gif_bytes = deck.to_gif(fps=20, slide_duration=3.0, loop=0, matte="#000000")
 webm_bytes = deck.to_webm(fps=30, slide_duration=3.0)
+overlay_bytes = deck.to_webm(fps=30, slide_duration=3.0, transparent=True)
 ```
+
+All animated byte methods accept keyword-only `workers=1` and
+`quality="standard"` (`"high"` enables supersampling). `.to_gif()` also accepts
+`max_size=None` for proportional resizing and `colors=None` for the palette
+size (2–256 when supplied). Existing positional parameters remain unchanged.
+
+These controls also apply to `.to_animated_mp4()`. Its static counterpart
+`.to_mp4()` retains its separate narration API. File options use `hold`, while
+these Deck byte methods use `slide_duration`. Animated video requires a positive
+default hold whenever a slide has neither narration nor an explicit duration;
+zero is still valid for Deck GIF and silent PNG sequences. Deck GIF ignores
+per-slide narration and explicit durations.
+
+The keyword-only `transparent` flag on `.to_webm()` and `.to_mov()` skips only the export matte;
+authored backgrounds stay visible. See [transparent WebM](../exports.md#transparent-webm)
+for codec, alpha decoding and transition details.
+
+`.to_mov()` uses the same parameters and timing as `.to_webm()`, with fixed
+ProRes 4444 video and AAC audio. It retains odd and one-pixel dimensions.
+The RGBA source remains 8-bit; 16-bit alpha coding can decode with one-level
+8-bit alpha differences, and color is lossy 4:4:4 YUV. See
+[ProRes MOV](../exports.md#prores-4444-mov) for the measured conversion limits
+and encoder requirements. `render()` and `export()` accept `.mov` with
+`VideoOptions` for both opaque and transparent output.
+
+### `.export_png_sequence(output_directory, *, options=None, policy=None)`
+
+Write the animated Deck timeline as silent RGBA8 straight-alpha PNG frames and
+`manifest.json`. The destination must be new and its parent must exist.
+`PngSequenceOptions(fps=30, hold=3, workers=1, quality="standard")` controls
+the export; explicit slide/narration timing, transitions, Morph, policies and
+worker restrictions retain their existing meaning. No audio is encoded.
+`PngSequenceResult` reports the actual frame count and `duration=frame_count/fps`,
+without listing every frame. See [PNG sequences](../exports.md#png-image-sequences)
+for exact pixels, metadata, and no-overwrite publication behavior.
 
 ### `.render_mp4(...)`
 
@@ -170,7 +211,7 @@ its `slide_duration` argument supplies the silent-slide default.
 
 Return the same animated timeline as `.to_webm()` in an H.264 MP4 container,
 including scheduled per-slide narration and an optional mixed soundtrack.
-Animated MP4/WebM export supports at most 64 narrated slides per Deck; silent
+Animated MP4/WebM/MOV export supports at most 64 narrated slides per Deck; silent
 slides do not count toward that operational FFmpeg input limit.
 For a file export, use `deck.render("deck.mp4",
 animation=VideoOptions(soundtrack=AudioTrack(path="music.mp3", loop=True)))`.

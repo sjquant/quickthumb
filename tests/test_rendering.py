@@ -3725,3 +3725,21 @@ class TestGroupLayerRendering:
             # then: the pixels match the maintained visual snapshot
             with open(output_path, "rb") as f:
                 assert f.read() == external_file("snapshots/composition_effects.png")
+
+
+def test_png_sequence_overlay_snapshot(tmp_path):
+    from examples.png_sequence_overlay import build_scene
+    from quickthumb import PngSequenceOptions
+
+    destination = tmp_path / "overlay"
+    result = build_scene().export_png_sequence(
+        destination, options=PngSequenceOptions(fps=10, hold=0.2)
+    )
+    assert result.frame_count == 6
+    strip = Image.new("RGBA", (240, 270))
+    for row, index in enumerate((0, 2, 5)):
+        with Image.open(destination / f"{index:06d}.png") as frame:
+            strip.paste(frame, (0, row * 90))
+    output = tmp_path / "snapshot.png"
+    strip.save(output)
+    assert output.read_bytes() == external_file("snapshots/png_sequence_overlay.png")

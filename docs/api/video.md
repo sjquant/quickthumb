@@ -8,7 +8,7 @@ description: Reference for quickthumb video layers, including trimming, fit, spe
 trims, fits, and plays, and it also grades, rounds, masks, fades, and animates
 with the same vocabulary as an image layer.
 
-Video layers render in animated GIF/MP4/WebM output and in `render_frame(...)`.
+Video layers render in animated GIF/MP4/WebM/MOV output and in `render_frame(...)`.
 Document targets (PPTX, PDF, SVG, HTML) rasterize the clip as a static frame;
 `validate_export(...)` reports that fallback explicitly.
 
@@ -54,7 +54,7 @@ canvas.video(
 | `start` | `float` | `0.0` | When the clip starts on the slide's timeline, in seconds. |
 | `duration` | `float \| None` | `None` | How long the clip occupies the slide. Cannot exceed the trimmed source divided by `speed`. |
 | `speed` | `float` | `1.0` | Playback rate. Below `1.0` slows a short clip to fill a longer scene. |
-| `volume` | `float` | `1.0` | Clip volume in MP4/WebM output. GIF carries no audio. |
+| `volume` | `float` | `1.0` | Clip volume in MP4/WebM/MOV output. GIF carries no audio. |
 | `captions` | `list \| None` | `[]` | Timed caption cues burned into the frames. Rendered in the foreground pass, above every other layer. |
 | `border_radius` | `int` | `0` | Corner rounding in pixels. |
 | `opacity` | `float` | `1.0` | Layer opacity from `0.0` to `1.0`. |
@@ -147,10 +147,14 @@ ScaleTrack(
 )
 ```
 
-HTML passes an animation-level custom curve straight to CSS. Per-keyframe easing
+Ordinary HTML presets pass an animation-level custom curve to CSS. Per-keyframe easing
 and holds are rendered by the raster and video pipelines; HTML animates canonical
 motion between its start and settled states, and PPTX falls back to its preset
 effects.
+
+The bounded HTML adapters for anchors, axis scaling, paths and parent chains
+use static fallback with custom Bézier easing, per-keyframe easing or keyframe
+holds. Raster animation preserves these clocks.
 
 ## Notes
 
@@ -161,3 +165,563 @@ effects.
   after the whole layer stack, so a later panel cannot cover them.
 - `diagnose()` reports captions that leave the canvas, enter the safe-area
   edge, outlast their layer, or overlap each other.
+
+## Curved motion paths
+
+`PositionTrack` accepts `PositionKeyframeSpec` with optional `in_tangent` and
+`out_tangent` handles. Like ordinary position keyframes, `value=(x, y)` is a
+pixel translation from the layer's authored, rendered position, not an absolute
+canvas coordinate. Handles are finite `(dx, dy)` pixel vectors relative to
+their own keyframe value, not absolute control points or velocity values.
+The same track works on any layer that accepts canonical `AnimationSpec`
+motion, including shapes, text, images, video and groups.
+
+```python
+from quickthumb import AnimationSpec, Canvas, PositionKeyframeSpec, PositionTrack, TimingSpec
+
+canvas = Canvas(640, 360).shape(
+    "pill", (60, 230), 48, 24, "#42CEB7",
+    animation=AnimationSpec.timeline(
+        PositionTrack(
+            keyframes=[
+                PositionKeyframeSpec(time=0, value=(0, 0), out_tangent=(120, -200)),
+                PositionKeyframeSpec(time=4, value=(480, 0), in_tangent=(-120, -200)),
+            ],
+            auto_orient=True,
+        ),
+        timing=TimingSpec(start=0, duration=4),
+        easing="linear",
+    ),
+)
+canvas.render_frame(2).save("curved_path.png")
+```
+
+### Handles and speed
+
+Each pair of keyframes defines a cubic Bézier segment with these four control
+points, in order:
+
+1. The left keyframe's `value`
+2. The left `value + out_tangent`
+3. The right `value + in_tangent`
+4. The right keyframe's `value`
+
+A missing handle is a zero vector. A segment with neither handle is straight.
+Give an interior keyframe both handles to join two curves; smoothness depends
+on the directions you author. Equal endpoint values can still describe a loop
+when the handles are nonzero.
+
+With `easing="linear"`, curved paths travel at approximately constant distance
+per second **within each keyframe interval**. A cached, bounded adaptive
+arc-length lookup maps distance back to the curve parameter. Different segment
+lengths or durations can produce different speeds across a knot; there is no
+whole-path retiming. Timeline easing acts on each segment's distance
+progress, clamped to `[0, 1]`, so even back easing cannot travel beyond the
+segment endpoints. Authored keyframe times and positions are preserved.
+
+Existing `KeyframeSpec` values remain accepted. With no handles anywhere and
+`auto_orient=False` (the default), the track retains its previous linear
+interpolation and easing behavior. Providing handles or enabling `auto_orient`
+opts the track into path sampling. Per-keyframe easing overrides timeline easing
+for that interval; `hold=True` retains the prior position until the next keyframe.
+
+### Following the tangent
+
+`auto_orient=True` rotates the rendered layer to the path tangent: right is
+`0°`, down is `90°`, and positive rotation is clockwise. Author directional
+artwork facing right. Rotation uses the layer's existing transform anchor.
+
+Track order decides precedence. An auto-oriented position track replaces the
+animated rotation accumulated before it; a `RotationTrack` after it replaces
+the tangent heading. A layer's authored static `rotation` is already baked
+into its source pixels and remains part of that artwork. Auto-orientation does
+not add the heading to an earlier animated rotation.
+
+An exact interior knot uses the incoming segment's heading. Stationary holds
+reuse the nearest earlier available direction, or the next direction if the
+path has not moved yet. A wholly stationary path preserves the incoming
+rotation. These choices are deterministic when seeking or rendering frames
+out of order.
+
+The JSON form uses `"type": "position"`, optional `"auto_orient": true`, and
+keyframes with `"in_tangent": [dx, dy]` / `"out_tangent": [dx, dy]`. The public
+models, generated schema and `inspect_motion()` preserve this metadata.
+Omitted handles and the default `auto_orient=False` are not serialized.
+
+### Export support
+
+- Raster frames, GIF, MP4 and WebM share the same path sampler, including
+  `quality="high"` and spawn workers. Paths can be combined with `ColorTrack`
+  on eligible text, shapes and groups
+- HTML animates one geometry-only canonical timeline on a static rendered
+  source, without stagger or composed animations. It bakes sampled transform
+  stops at up to 120 Hz, bounded to 4097 stops, retaining every authored knot
+  within that bound. The interpolation is approximate. Tangent headings are
+  unwrapped across angle boundaries; authored multi-turn rotation is retained
+- HTML reports `motion_path` as `partial` with no fallback for that supported
+  sampled mapping. Strict `unsupported_motion="error"` validation rejects it.
+  Unsupported combinations, including color tracks, dynamic sources or more
+  authored knots than the bound permits, use authored-static fallback.
+  Existing backdrop-dependent motion restrictions still apply
+- PPTX uses a static fallback and does not emit animated path timing
+- `validate_export()` reports the actual support or fallback for the
+  composition. Use it before export to check the selected target
+
+See [the runnable motion-path infographic](https://github.com/sjquant/quickthumb/blob/main/examples/motion_paths.py)
+for a two-segment curve, tangent-following arrow and raster color changes. It
+also exports a separate geometry-only HTML version so the path can animate
+without requesting unsupported HTML color animation.
+
+`diagnose()` warns with `motion-path-unused-handle` when a first incoming or
+last outgoing handle has no adjacent segment. The generated schema includes a
+complete curved-position example.
+
+## Transform anchors and independent scale
+
+Animatable text, image, SVG, video, shape, chart, QR-code, and group layers
+accept `anchor=(x, y)`. Each coordinate is a finite number from `0` to `1`:
+`(0, 0)` is the top-left of the rendered bounds, `(1, 1)` the bottom-right,
+and the default `(0.5, 0.5)` preserves the existing centre pivot. It does not
+change layout `position` or `align`.
+
+```python
+from quickthumb import (
+    AnimationSpec, Canvas, KeyframeSpec, RotationTrack, ScaleXTrack,
+    ScaleYTrack, TimingSpec,
+)
+
+canvas = Canvas(320, 240).shape(
+    "rectangle", (100, 100), 80, 40, "#42CEB7",
+    anchor=(0, 1),
+    animation=AnimationSpec.timeline(
+        ScaleXTrack(keyframes=[
+            KeyframeSpec(time=0, value=1), KeyframeSpec(time=2, value=1.5),
+        ]),
+        ScaleYTrack(keyframes=[
+            KeyframeSpec(time=0, value=1), KeyframeSpec(time=2, value=0.6),
+        ]),
+        RotationTrack(keyframes=[
+            KeyframeSpec(time=0, value=0), KeyframeSpec(time=2, value=30),
+        ]),
+        timing=TimingSpec(duration=2),
+        easing="linear",
+    ),
+)
+canvas.render_frame(1).save("anchored.png")
+```
+
+`ScaleXTrack` and `ScaleYTrack` default to `1`. Their sampled values multiply
+the existing uniform `ScaleTrack`: effective scales are `scale * scale_x` and
+`scale * scale_y`. Axis values may be negative to reflect the layer; zero on
+either axis collapses it to no visible pixels. The existing uniform scale's
+non-positive raster behaviour remains unchanged. Image layers keep their
+existing uniform-scale viewport zoom; the new axis tracks scale the outer image
+frame instead.
+
+The single affine transform subtracts the pivot, scales independently, rotates,
+restores the pivot, then applies the motion translation. The pivot is measured
+on the rendered visible bounds, after authored static rotation/effects, before
+canonical opacity/reveal and motion blur. It applies to canonical
+`AnimationSpec` motion; untimed still rendering and authored static `rotation`
+retain their established behaviour. A group is one rendered unit; supported
+stagger targets use their own bounds. Parent/child transform inheritance is
+not introduced by this option.
+
+The JSON equivalents are a layer's `"anchor": [0, 1]` and track types
+`"scale_x"` / `"scale_y"`. The models, generated schema and `inspect_motion()`
+include the new values. Default values are omitted from serialization so old
+documents keep the same JSON and pixels. `transform_matrix(state, size=(w, h))`
+and `apply_transform(point, state, size=(w, h))` resolve the normalized pivot
+against explicit rendered bounds; omitting `size` preserves the origin-based
+point API.
+
+### Export support
+
+- Raster, GIF, MP4 and WebM apply the same pivot and independent scales,
+  including `quality="high"` and spawn workers
+- HTML maps the new transform to `transform-origin` and `scale(x, y)` using
+  registered CSS custom properties. One geometry-only canonical timeline is
+  supported, with independent authored keyframe times and named easing.
+  It embeds the authored layer pixels to keep the pivot bounds consistent
+- HTML falls back to authored static pixels for composed animation lists,
+  presets, stagger, unsupported property tracks, dynamic source content,
+  image viewport scale, or non-positive uniform scale. Browsers must support
+  CSS `@property` for interpolation. Existing backdrop-prefix restrictions
+  still apply: HTML rejects motion on or underneath backdrop-dependent layers
+- PPTX declares a static fallback for anchors and independent axis tracks;
+  it does not silently claim native pivot animation
+- `validate_export()` reports the actual mapping or fallback. Strict export
+  policies reject unsupported combinations
+
+See [the runnable pivot comparison](https://github.com/sjquant/quickthumb/blob/main/examples/transform_anchors.py) for
+three identical cards rotating and stretching around different fixed pivots.
+
+## Animated text and shape colors
+
+`ColorTrack` replaces text color and shape fill in sampled raster frames, GIF,
+MP4 and WebM. It also applies to eligible descendants of an animated group.
+Layers without a color track keep their prepared source images; color animation
+re-renders only the affected source unit before the usual geometry, opacity,
+clip, effects and compositing steps. Both quality modes and spawn workers use
+this path.
+
+```python
+from quickthumb import AnimationSpec, ColorTrack, KeyframeSpec, TimingSpec
+
+canvas.text(
+    "Color in motion", position=(40, 40), size=48, color="#FF0000",
+    animation=AnimationSpec.timeline(
+        ColorTrack(keyframes=[
+            KeyframeSpec(time=0, value="#FF0000"),
+            KeyframeSpec(time=2, value="#0000FF80"),
+        ]),
+        timing=TimingSpec(start=0, duration=2),
+        easing="linear",
+    ),
+)
+```
+
+Colors accept `#RRGGBB` and `#RRGGBBAA`. RGB is interpolated in
+[Oklab](https://bottosson.github.io/posts/oklab/), with premultiplied color
+coordinates and linear alpha. This avoids invisible endpoint colors darkening
+an appearance or disappearance. Out-of-gamut RGB channels are clipped to sRGB.
+Authored endpoints remain exact; intermediate colors differ from the previous
+encoded-RGB sampling contract. For example, opaque red to blue passes through
+`#8C53A2`, and black to white passes through `#636363` at halfway. Existing
+non-color motion and Morph color interpolation are unchanged.
+
+An active color track overrides gradient/image fills and all rich-text part
+colors; it leaves stroke, shadow, glow and other effect colors unchanged.
+Before its start, and in untimed or reduced-motion stills, the authored fill
+is preserved. A group's animation continues to override descendant animations;
+intrinsic counter values still update. Separately rendered stagger lines sample
+their own colors. Targets that cannot be split keep the existing approximate
+whole-layer stagger fallback; full glyph/range animation is separate work.
+
+Groups containing backdrop-dependent descendants support pure parent color
+tracks. Combining those tracks with other parent motion or stagger is reported
+as unsupported and raises a rendering error: animate the shape directly, or
+separate its backdrop effects from the moving group. No static fallback is
+claimed for this combination.
+
+The existing `ColorTrack` model, generated JSON schema and `inspect_motion()`
+include the track and its final color. `validate_export()` declares full
+raster/video color support for text, shapes and eligible groups. Image, SVG,
+chart and QR layer color tracks have a static fallback. Embedded multicolor
+emoji retain their font-provided colors.
+
+HTML declares an authored-static fallback for animation compositions containing
+color tracks; it does not substitute an unrelated fade. PPTX declares a static
+color fallback. `validate_export()` surfaces these limitations, and strict
+policies reject them. Existing restrictions on animated backdrop prefixes and
+clipped/masked group descendants still apply to their respective exporters.
+
+See [the runnable color example](https://github.com/sjquant/quickthumb/blob/main/examples/color_tracks.py)
+for text, a moving pill, and an initially transparent caption.
+
+## Live timeline preview
+
+Use `quickthumb serve scene.py --timeline` to scrub the canonical raster timeline
+without encoding a video. The `/timeline` view offers a reduced 640-pixel proxy,
+full-resolution standard-quality frames, segment boundaries, and live reload.
+See [Timeline scrubber](../diagnostics.md#timeline-scrubber) for timing defaults,
+proxy approximations, and the difference between canonical samples and encoded
+playback. The [portrait storyboard example](https://github.com/sjquant/quickthumb/blob/main/examples/timeline_preview.py)
+includes a curved color-changing path and a slide transition.
+
+## Parent links and null controllers
+
+Animatable layers accept `parent="layer-id"`. `Canvas.null(...)` and
+`NullLayer(type="null", ...)` create invisible point controllers. IDs are
+scene-local explicit `id` values, not generated inspection IDs. Complete JSON
+and `Canvas(layers=...)` allow forward references. Fluent calls require a parent
+to exist before adding a child; invalid calls leave the canvas unchanged.
+
+```python
+from quickthumb import Canvas
+
+scene = (
+    Canvas(320, 240)
+    .null(position=(100, 50), id="controller")
+    .shape("rectangle", (10, 20), 40, 20, "#42CEB7", parent="controller")
+)
+scene.render_frame(0).save("parented.png")  # Child starts at (110, 70).
+```
+
+### Geometry contract
+
+- Authored child placement is parent-local. Position tracks remain offsets
+  from that local placement. Percentage values still resolve against the
+  original canvas dimensions before entering the parent coordinate space
+- World transforms multiply full affine matrices along the chain. Rotated
+  non-uniform scales retain their shear; signed axis scales reflect, and a zero
+  axis collapses the child and its descendants
+- Assigning `parent` does not perform an implicit keep-world adjustment
+- Only geometry is inherited. Parent opacity, color, reveal, blur, clips, masks
+  and blend modes do not alter an explicitly linked child's appearance
+- A null has zero extent, so its normalized anchor has no effect. Position,
+  rotation and scale tracks still drive descendants
+- Static authored rotation keeps the source engine's existing framing. Its
+  rotation is inherited by children without rotating the parent's already-baked
+  source pixels twice
+- Canonical anchors use a stable authored-source reference, before sampled
+  opacity and reveal. Shape/text fill colors and layer opacity are neutralized
+  for this reference, so invisible drawable parents remain useful controllers.
+  Asset transparency can define the source silhouette; an empty source uses its
+  measured body as a geometric fallback
+- Image uniform `scale` remains viewport zoom. It changes the image contents,
+  not the outer transform inherited by children; axis tracks scale that frame
+- Paint order remains document order. Topological order only evaluates matrices
+
+Linked nodes and their ancestors are independent rendering units. Unrelated
+layers retain the existing grouping and static-plate path. Full local sources
+are prepared before final canvas clipping, so an initially off-canvas child can
+move onscreen. Standard/high-quality export, spawn workers and timeline sampling
+share this geometry. Video captions retain their existing screen-space overlay
+positions and do not inherit their video's transform.
+
+Top-level groups participate as whole visual units, preserving their layout and
+existing animation-override rules. Explicit links from or to their auto-layout
+descendants are rejected; nulls are not group-layout children. Missing parents,
+non-animatable targets and cycles are validation errors with a `/parent` pointer.
+Later model mutations are revalidated when a new render is prepared.
+
+### Current adapters and boundaries
+
+Raster, GIF, MP4 and WebM render supported parent chains. This bounded adapter
+rejects linked imagery on or below backdrop-dependent layers and
+independently animated group descendants without a group animation override.
+These combinations are reported as unsupported and raise rather than dropping
+part of the motion.
+
+Top-level non-group drawables can carry their own `LayerClip` and `LayerMask`,
+including counter text and drawable layers that parent other explicit layers.
+The boundary is authored in the same parent-local plane as the source position;
+percentage coordinates still resolve against the original canvas dimensions.
+It applies after static source rotation and effects, then travels with canonical
+motion and reveal. Boundary alignment moves its own box; polygon points remain
+normalized within that box. Clip alpha multiplies mask alpha. An inverted mask
+inverts the complete opacity-weighted mask, so zero opacity makes no cutout.
+Rounded edges retain the existing antialiasing; there is no feathering option.
+
+Composition does not shrink or shift the owner's authored body frame, and never
+clips its explicit children. The owner's composed, opaque settled source defines
+its normalized-alpha motion pivot, with the full body as the empty-source fallback.
+Counters assemble their sampled fragments before applying the owner boundary once;
+their settled frame, pivot and reveal crop remain stable across seeks. Static text
+stagger splits the already-composed source and color references, so each moving
+band carries its clipped/masked pixels. These are source boundaries, not masks
+fixed to the output viewport. See
+[`examples/parent_composition.py`](https://github.com/sjquant/quickthumb/blob/main/examples/parent_composition.py).
+
+Top-level participating groups can also carry their own clip, mask or both,
+including groups containing `plain`, `odometer` or `flip` counters. Nested
+uncomposed groups remain part of that one source: the group boundary applies to
+the complete sampled, laid-out composite once, before
+canonical group/ancestor motion. The boundary uses the group's parent-local
+plane, with the same percentage, alignment, alpha and inversion rules as other
+drawables. It does not change the full group body frame or clip separately linked
+children. A group animation still overrides descendant `AnimationSpec` motion.
+Counter slots, static siblings, pivot and canonical reveal cutoffs use the settled layout;
+changing-width counter paint can extend beyond that body and remains visible
+where the boundary allows it, even if the settled source is fully clipped away.
+Each counter keeps its own delay and duration after group/ancestor motion ends.
+Static graph-leaf groups can combine their own boundary with the partial stagger
+adapter described below. Counter-group stagger remains unsupported. See
+[`examples/parent_group_composition.py`](https://github.com/sjquant/quickthumb/blob/main/examples/parent_group_composition.py),
+and [`examples/parent_group_counters.py`](https://github.com/sjquant/quickthumb/blob/main/examples/parent_group_counters.py).
+Both write GIF, PNG and HTML outputs to a temporary directory by default and
+accept `--output-dir` to choose another destination. Counter-group HTML, SVG,
+PDF and PPTX exports use the whole-scene authored-static fallback described below.
+
+Static auto-layout descendants can also carry clips and masks, including leaves,
+nested structural groups and boundaries at several depths. Each boundary is
+applied to its owner's isolated paint; enclosing group boundaries then compose
+the already-laid-out result. Descendant boundaries share the top-level group's
+parent-local placement plane, **not** a separate coordinate system for each
+nested group. Percentage positions resolve against the original canvas width
+and height before source-buffer rebasing. The usual boundary alignment, partial
+opacity, inversion and clip-times-mask alpha rules still apply. Text backgrounds,
+shadows and other source effects are composed with their owning text or shape.
+
+The complete settled result is prepared as one source before canonical motion;
+static-source stagger may split it into bands as described below. Boundaries do
+not relayout siblings, shrink the full group frame or clip separately linked
+children. The composed opaque settled
+source still defines the normalized-alpha pivot, with the full-body fallback
+when it is empty. Static inspection keeps conservative bounds for each owner;
+diagnostics use the composed paint at each boundary scope.
+
+This descendant-boundary adapter also supports `plain`, `odometer` and `flip`
+text counters. Their settled formatted text fixes all group slots and the parent
+frame. Sampled fragments keep their ordinary formatting, alignment, rotation
+and effects; they are combined before the counter's own clip or mask, then
+combined with siblings before each enclosing group boundary. Dynamic paint can
+extend outside the settled body and become visible even if the settled source
+is fully masked. Every counter retains its own delay and duration after ancestor
+motion ends. Other intrinsic dynamic sources remain unsupported.
+
+The participating **top-level group's own animation** overrides authored
+animations on structural descendants, including
+those inside clipped or masked groups. Raster frames and animated exports then
+use the same source as if those descendant animations were removed, retaining
+every boundary and intrinsic counter clock. Suppressed descendant animation
+delays and durations do not extend the renderer's timeline. Motion on an external
+ancestor or only on an inner group does not provide this override: without the top-level owner's animation,
+descendant animation remains unsupported.
+
+Authored stagger on any structural descendant remains unsupported, even when
+overridden. A static top-level owner may use the existing partial stagger adapter
+when it is a graph leaf; counter-group stagger remains unsupported. Explicit
+parent links to or from structural descendants remain unsupported. See
+[`examples/parent_nested_composition.py`](https://github.com/sjquant/quickthumb/blob/main/examples/parent_nested_composition.py)
+for nested partial and inverted masks, text backgrounds, affine motion and an
+independent linked marker. Run it with `--output-dir /tmp/parent-nested-composition`
+to write GIF, PNG, HTML and JSON outputs.
+
+Static parent-linked leaf text and top-level groups can use the existing partial
+raster stagger adapter, including groups with their own or structural descendant
+clip/mask boundaries at several depths. The
+complete static group is laid out and composed once before splitting; recolored
+sources and opaque color-reference crops use that same boundary. Each separable
+horizontal ink band gets its own clock, anchor, full ancestor transform, opacity,
+reveal, color and output-space blur.
+Wrapped lines and vertical group rows can separate; words, characters, touching
+lines, blank lines, horizontal groups and effects that join bands may retain the
+whole-block approximation. Splitting requires exactly the declared target count
+of visible alpha bands. A boundary that removes a row, or otherwise changes that
+count, keeps the existing whole-source fallback; it does not redefine the targets.
+For a group's single `target="children"` animation spec, the declared count comes
+from its immediate children. The splitter checks only the total number of
+horizontal alpha bands, not child
+ownership. If one nested child supplies two bands while another disappears, an
+accidentally matching count still uses the partial band approximation.
+The fallback uses the final target's geometry and averaged arrival alpha/reveal.
+Each separated band carries its already-clipped/masked source pixels through
+motion, rather than moving behind a fixed viewport mask. Existing target order
+and composition limits are unchanged: bands paint top-to-bottom, and composed group specs retain whole-block
+cardinality rather than expanding child targets. Composed events keep their
+original overlap; later specs do not wait for every delayed target to finish.
+Raster/video stagger capability remains `partial`.
+
+The existing default `warn` policy labels stagger diagnostics as a `fade`
+fallback; raster/video still render the partial adapter above. Explicit
+`static`/`rasterize` policy labels likewise do not replace that raster/video
+timeline. Use `reduced_motion=True` to freeze it, or `Canvas.export`/`Deck.export`
+with `ExportPolicy(unsupported_motion="error")` to reject partial support before
+writing the destination. Animated `render`/`to_*` convenience methods retain
+their existing reduced-motion-only policy handling; use `export` for strict
+raster/video preflight.
+
+A staggered node cannot be referenced as another explicit layer's parent, even
+with zero delay or only one current target: independently moving targets do not
+define one enclosing animated frame. Stagger on intrinsic counter/video sources
+or independently animated visualization/image viewports remains unsupported.
+Group motion still overrides descendant `AnimationSpec` motion. Untimed stills,
+reduced motion, inspection, debug overlays and diagnostics use the whole authored
+source. HTML, SVG, PDF and PPTX keep the whole-scene authored-static fallback.
+See [`examples/parent_stagger.py`](https://github.com/sjquant/quickthumb/blob/main/examples/parent_stagger.py)
+and [`examples/parent_group_stagger.py`](https://github.com/sjquant/quickthumb/blob/main/examples/parent_group_stagger.py).
+The group example contrasts separated clipped rows, nested partial masks and a mask
+that removes one band and therefore retains the whole-source fallback. Run it
+with `--output-dir /tmp/parent-group-stagger` to write GIF, PNG, HTML and JSON
+outputs. Its parent motion finishes before the delayed rows finish arriving.
+
+Parent-linked `AnimatedTextValue` supports `plain`, `odometer` and `flip`, including
+counters inside an atomic top-level group. The settled formatted value defines
+an immutable local frame, group slot and motion pivot, even when authored
+`content` is stale. Sampled glyphs keep their existing alignment, wrapping,
+auto-sizing, effects and per-fragment rotation; their temporary paint bounds may
+grow without moving explicit children or group siblings. A group animation still
+suppresses descendant `AnimationSpec` motion while intrinsic counters continue
+through their own delays and durations. An untimed still uses ordinary settled
+text; a timed odometer endpoint retains its digit-slot appearance. See
+[`examples/parent_counters.py`](https://github.com/sjquant/quickthumb/blob/main/examples/parent_counters.py).
+Keyed Morph involving a parent-linked slide uses a declared fade fallback.
+
+PPTX, SVG and PDF emit a parent-linked scene as one authored-static PNG
+fragment. This preserves the composed geometry and paint order, including shear,
+but freezes **all** motion on that scene (also unrelated animated layers). Text and
+shapes in that scene are not editable document objects. HTML/PPTX Morph involving
+parent geometry uses fade. Unlinked scenes retain their native/vector export paths. Strict export policies reject these fallbacks
+before opening files; `export()` also reports the static fallback for SVG/PDF even
+though their shared export target is `raster`.
+
+HTML animates eligible hierarchies with six registered numeric affine coefficients
+per drawable source and one shared clock. Sibling images retain scene paint order;
+opacity belongs to each source, never its parent. This is a **sampled approximation**,
+not native transform decomposition: authored stops and interior detail are retained,
+with a nominal 120 Hz grid and rotation-aware refinement to prevent full-turn aliasing.
+There are at most 4097 common stops, 32768 source/sample rows, and 1048576
+graph-node evaluations (including invisible nulls). Between samples,
+curves and composed motion can differ from the canonical raster evaluator.
+
+The bounded HTML adapter requires one automatic, zero-start canonical track spec
+per node, one track per property, geometry/opacity tracks, and static local sources.
+Explicit triggers, delays, composed specs, presets, auto-orientation, unrelated animated layers,
+animated chart/QR sources, counters (including group descendants), videos, nonpositive uniform scale, uniform scale with
+back easing, image viewport zoom and oversized sampling plans use a declared
+whole-scene authored-static fallback. Static top-level groups, including those
+with supported own and descendant clip/mask boundaries, are atomic sources.
+Suppressed descendant animation specs still use the existing whole-scene HTML
+static fallback, including groups with descendant boundaries. The raster
+override does not make these authored sources eligible for sampled HTML.
+The intrinsic-content and authored-stagger guards above apply to every adapter.
+Stable negative axis scale preserves reflections; ordinary positive uniform
+scale is supported. Zero/sign-crossing axes and back-eased axis tracks use the
+static fallback: floating-point singular matrices cannot guarantee the raster
+adapter's exact collapse flag in every browser.
+`ExportPolicy(unsupported_motion="error")` rejects sampled approximation;
+`static`, `rasterize` and reduced-motion policies emit the authored-static scene.
+The exported animation requires browser support for registered CSS numeric
+properties (`@property`).
+`inspect()` reports authored-static world-space bounds for supported parent scenes.
+These are conservative axis-aligned boxes around the existing measured local
+bodies intersected with their own composition bounds, not tight painted-alpha
+footprints; they are not clipped to the canvas. Composed owner bounds are mapped
+through ancestors while child frames continue to use the unmasked body.
+Group descendants are mapped once from their already placed local coordinates.
+Each layer or group box intersects only its own finite composition bounds in the
+shared local plane before the world transform. Descendant inspection boxes remain
+conservative and are not cut by enclosing group boundaries. Inverted masks retain
+conservative bounds; inspection does not describe the holes in their painted alpha.
+Text wrapping/font metadata stays authored-local. `render(..., debug=True)` draws
+these authored-static boxes; time-sampled inspection/debug is not implemented.
+`diagnose()` checks this authored-static layout using transformed alpha and text
+contrast pixels. Group text includes preceding siblings and its own background
+effects, with descendant and enclosing boundaries applied to the corresponding
+alpha and contrast scopes. Geometry animation on ancestors is accounted for by
+occlusion checks.
+Position repair suggestions use parent-local or containing-group editing context.
+It does not sample animated world layouts, and unsupported raster combinations
+remain guarded.
+`validate()` checks supported world bounds, and preserves a warning (rather than
+an invalid-model error) for unsupported observation combinations.
+`inspect_motion()` reports parent links and local track samples; those local
+samples are not decomposed approximations of the world affine matrix.
+It also compiles authored descendant animation specs even when a group overrides
+them, so its reported timeline can be longer than the actual raster/video
+timeline. It is not an effective-motion schedule for these overrides.
+`validate_export()` reports support or the actual unsupported combination, and
+strict validation rejects unsupported adapters and Morph fallback.
+
+See [the runnable hierarchy example](https://github.com/sjquant/quickthumb/blob/main/examples/parent_transforms.py).
+Documents that omit `parent` keep their previous JSON and render path. These
+bounded adapters do not yet complete every part of #161.
+
+## Transparent video overlays
+
+Canvas and Deck WebM exports support `VideoOptions(transparent=True)` and
+`.to_webm(transparent=True)`. This output option preserves RGBA through both
+compositing quality modes and spawned workers. It does not change layer motion
+capabilities or canonical timeline samples, which retain their existing matte.
+See [transparent WebM](../exports.md#transparent-webm) for format limits, alpha
+composition, decoder verification and the runnable lower-third example.
+
+`Canvas.export_png_sequence()` and `Deck.export_png_sequence()` also preserve
+straight-alpha RGBA8, writing exact renderer bytes into silent independent PNGs.
+`PngSequenceOptions` controls fps, hold, workers and quality; the result reports
+the actual emitted count and duration. `png_sequence` is a video capability
+alias for validation and motion inspection, preserving the existing parent,
+Morph and caption restrictions. See [PNG sequences](../exports.md#png-image-sequences)
+for timing, color-profile limits and exclusive fresh-directory publication.

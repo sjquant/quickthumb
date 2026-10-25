@@ -1,0 +1,342 @@
+# Animated export benchmarks
+
+Run from the repository root after the locked setup in `CONTRIBUTING.md`:
+
+```bash
+uv run --locked python -m benchmarks.animated_export --json /tmp/baseline.json
+```
+
+The command prints one table, including CPU, Python, Pillow, FreeType, text
+layout, FFmpeg, platform, and source commit. Numeric metrics are medians
+of **three fresh subprocesses**, with the total-time minimum–maximum range
+reported alongside the median. Linux and macOS are supported; the memory
+measurement uses `resource.getrusage`. FFmpeg and ffprobe must be available for
+MP4/WebM. A failed export fails the command rather than becoming a skipped row.
+No extra Python dependencies are needed.
+
+## Fixed workload and measurement boundaries
+
+- The complete eight-scene `examples/product_hype_reel.py` composition is used
+  at its original 1080×1920 size, with its checked-in fonts and narration
+- Three 256×192 synthetic scenes slowly translate, rotate, and scale an
+  asymmetric white marker on black over two seconds
+- The default export rate is 12 fps. GIF uses the example's bounded 432×768
+  maximum size and 64 colors; MP4/WebM retain the original canvas dimensions
+  and narration. No extra soundtrack is added
+- Each run measures the public `Deck.render(..., animation=...)` path, including
+  document construction, preflight, rendering, and final output writes
+- `Render ms/input` amortizes all work outside the encoder over consumed
+  encoder input items. GIF inputs are generated image/duration shots; video
+  inputs are nonempty frame allocations after cumulative rounding. A generated
+  sub-frame shot assigned zero playback frames is absent from the video count,
+  while a static hold with many playback frames still counts once. The JSON
+  keys `shots` and `render_ms_per_shot` retain their historical names. Before
+  the prepared-animation/worker change, video counted all generated shots:
+  those per-item metrics are not comparable when rounding drops an input
+- `Encode s` is wall time inside the existing GIF/video encoder, **minus time
+  spent pulling its lazy shot iterator**. It includes quantization, resizing,
+  PNG intermediates, FFmpeg and audio encoding/muxing as applicable. These
+  developer-only wrappers do not replace rendering or encoding algorithms
+- `Python RSS MiB` is the isolated Python process's lifetime peak resident
+  memory, including native Pillow allocations and imports. It excludes child
+  FFmpeg processes. It is not total machine memory or a Python allocation-only
+  trace, and the three-run median is not the worst observed peak
+- `Font loads` counts successful native FreeType `getfont` calls; failed family
+  probes are excluded. `Font s` includes time in successful and failed calls
+- The JSON file retains every raw run, its fps/options and output SHA-256, as
+  well as medians and the total-time range. Hashing runs after the timer and
+  RSS sample. A nonempty file and matching shot count do not establish correct
+  encoded frames, duration or audio: use the identity and codec regression
+  gates as well. WebM metadata can vary, so its container hash is diagnostic
+- Medians for different columns may come from different runs; do not add
+  medians to derive another median
+
+Use `--scenes translation rotation scale` or `--formats gif` for development
+smoke runs. `--fps` selects another rate explicitly. Compare only matching
+scene/format/options and environments; partial or lower-rate runs are not the
+full baseline. Run timings without concurrent tests or other heavy workloads.
+Fresh processes reset process-local font caches, but filesystem caches are not
+flushed. Results are local measurements, not universal performance guarantees.
+
+This command is an **instrumented export profile**: font calls and lazy-iterator
+pulls are timed inside the overall measurement. Use it to locate likely costs,
+then separately time the same public construction/export without these wrappers
+to support an end-to-end speed claim. FFmpeg can overlap lazy rendering, so
+subtracting iterator time does not measure independent encoder CPU work.
+
+For before/after comparisons, interleave at least three fresh runs per revision
+(for example, before/after, after/before, before/after), keeping scenes, options,
+dependencies, cache policy and concurrency comparable. Report seconds with the
+median and observed range; do not infer a speedup from medians alone. Verify
+equivalent correct output/work, and retain failures rather than dropping or
+retrying them into successful samples. Classify the result as faster, slower,
+no measurable difference, or inconclusive; use inconclusive when correctness,
+tuning or measurement validity prevents a fair comparison.
+
+## Jitter metric
+
+A separate fixed **30 fps** public `Deck.sample()` capture tracks the
+intensity-weighted centroid of the white marker. The metric is the population
+standard deviation of consecutive Euclidean centroid displacements, in pixels
+per frame. Translation at 0.2 pixels/frame exposes the current 0/1-pixel
+staircase. The off-centre centroid also moves under rotation/scale, avoiding a
+misleading zero from a symmetric marker. The product reel has no isolated
+marker, so its jitter cell is `n/a`.
+
+The probe is run three times in separate processes before export measurements,
+so it cannot warm the export's caches or inflate its RSS. This is a diagnostic
+metric, not a complete perceptual quality score or a fixed acceptance threshold.
+Rotation/scale rasterization and centroid measurement can contribute variation.
+
+## Lossless frame-identity gate
+
+Capture before and after a change in the same environment:
+
+```bash
+uv run --locked python -m benchmarks.frame_identity capture /tmp/before.json
+# Apply the candidate change, without changing benchmark scenes or dependencies.
+uv run --locked python -m benchmarks.frame_identity capture /tmp/after.json
+uv run --locked python -m benchmarks.frame_identity compare /tmp/before.json /tmp/after.json
+```
+
+The default capture checks **every 12 fps canonical timeline sample**, the exact
+final instant, and each settled slide from the public `Deck.sample()` API.
+Full-resolution reel frames are captured in bounded batches; manifests contain
+only digests and metadata, never base64 pixels. This costs extra timeline setup
+work and is not used for performance measurements.
+
+Comparison exits nonzero for any changed digest, missing frame, changed sample
+instant, dimensions, slide, timeline, document specification, selection, rate,
+or rendering environment. Source commit and CPU may differ. Paths under the
+checkout root are normalized so equivalent worktrees can be compared. Identical
+SHA-256 digests mean identical canonical raw RGBA bytes at the sampled instants.
+The script does not certify unsampled instants, encoder container bytes, audio,
+or codec fidelity; those require their existing export tests. Use `--fps 30`
+(or another matching rate) to strengthen a particular lossless change's gate.
+
+Baseline results and subsequent speedups belong in the discussion for
+[performance issue #144](https://github.com/sjquant/quickthumb/issues/144).
+
+## Loaded-font reuse (#148)
+
+The font optimization reuses up to 128 resolved faces across canvases in a
+process. Size, normalized variation settings and weight are part of the cache
+key; file identity and modification metadata distinguish replaced fonts. Remote
+font resolution still checks the document's asset policy before consulting the
+loaded-face cache. Existing canvases keep their existing per-canvas reuse
+semantics; a file change is observed when a new font resolution is performed.
+
+Shared faces serialize mask rendering and metrics, including color-font
+foreground-palette changes. Variable axes are configured before sharing a face.
+Fallback resolution, warnings, cloning and export compatibility are covered by
+regressions. No public cache-control API or new dependency is introduced.
+
+Fresh-process benchmark runs deliberately measure cold process caches. Repeated
+exports in a long-lived process can reuse more faces, but those warm timings are
+not interchangeable with the baseline. See the results discussion in #144 for
+same-workload font-load counts, byte-identity checks and measured timing changes.
+
+## Raw video streaming (#150)
+
+MP4/WebM send RGB24 frames directly to FFmpeg, allocating repeats on the same
+cumulative half-up clock. Each shot is converted to bytes once and written for
+its allocated frame count. Batches still contain at most 64 distinct emitted
+shots, and the encoded segments use the existing audio mux. There is no PNG
+image spool, and shot generation remains lazy. Stderr is drained concurrently
+into a bounded diagnostic tail; failed producers and encoders are reaped.
+
+Decoded-byte comparisons against the former PNG/concat path pass at 10 and
+25 fps. The former path was not an exact-count reference at all rates: PNG
+input used a 25 Hz time base, and its half-frame end trim could remove a counted
+frame. A 129-frame numbered sequence spanning three batches lost two frames
+at 12, 24, 29.97, 30, 60 and 120 fps in the old encoder. Streaming preserves all
+129 frames in order. Tests check decoded frame identity/order, ffprobe counts,
+durations and even-dimension cropping. Container bytes are not an identity
+gate, and this timing correction intentionally differs from the old output.
+Audio scheduling, codecs, and the 504-observation canonical RGBA gate remain
+unchanged.
+
+Long static holds trade the old compressed-image reuse for repeated raw pipe
+writes. Benchmark those separately from the animated reel before generalizing
+any encode-stage timing difference. The existing timer excludes lazy rendering;
+FFmpeg may now perform some encoding concurrently with that rendering, so total
+wall time is also important when comparing results.
+
+## Static slide-prefix plate (#149)
+
+Each slide pre-composites the leading static units once, in their original
+order, onto a transparent RGBA plate. Frames start from a copy of that plate.
+Static units above or between animated units remain in the per-frame stack;
+regrouping translucent units there would change layer order or alpha rounding.
+The internal frame compositor accepts an ordered unit sequence and an optional
+prepared background, and returns a caller-owned full-canvas RGBA image.
+
+Legacy effects, canonical and staggered timelines, animated components and
+backdrop-dependent motion all stop the cached prefix. Video descendants stop
+it even in reduced-motion mode, since foreground captions still sample time.
+The optimization adds no public API or dependency.
+
+`tests/test_static_slide_prefix.py` compares exact bytes against the uncached
+ordered stack, including non-monotonic samples and returned-frame mutation.
+It also counts `PIL.Image.alpha_composite` calls, including plate preparation:
+for five samples of five units with a two-unit static prefix, calls fall from
+25 to 17. An all-static three-unit stack falls from 15 to 3; a stack starting
+with motion has the same call count. The complete workload's count and clean
+median-of-three export timings belong in the #144 results discussion. Timing
+and RSS must include slide preparation and the retained full-size plates.
+
+## Incremental GIF encoding (#153)
+
+GIF quantization and drift-free centisecond allocation are unchanged. A bounded
+Pillow adapter retains the previous normalized image and one pending encoded
+frame; identical images extend the pending duration. It uses Pillow's existing
+palette, delta-bound and frame encoders, and preserves the different
+single-frame/interlaced fallback. The supported Pillow range remains
+`>=12.2,<13`; byte comparisons against ordinary `save_all` guard the adapter's
+private Pillow calls when dependencies change.
+
+`tests/test_gif_streaming.py` checks exact encoded bytes, including palette
+changes, a fully occupied 256-color palette, reduced palettes, cropped deltas,
+repeated frames, resize options, loops and fractional timing. It also checks
+that output begins before input is exhausted and that live uncompressed image
+count stays bounded across a long generated stream. The final compressed GIF
+is still held by the bytes-returning path and file exporter. Rendering state
+and output bytes are not constant-memory, so peak RSS is still measured.
+
+The old `768 MiB` estimated frame-list ceiling is removed. To check the complete
+example at its original 1080×1920 size, without the benchmark's usual resize:
+
+```python
+from examples.product_hype_reel import build_deck
+from quickthumb import GifOptions
+
+build_deck().render("full-size.gif", animation=GifOptions(fps=12, colors=64))
+```
+
+Compare encoded GIF hashes on the same Pillow version and environment. The
+canonical RGBA gate alone does not establish encoded-byte identity. The usual
+benchmark command deliberately retains its original 432×768 / 64-color GIF
+workload so before/after timing and RSS remain comparable. A full-size export
+is a separate capability/memory check, not a like-for-like speedup claim.
+
+## Parallel frame rendering (#151)
+
+The default `workers=1` path preserves sequential rendering. Explicit worker
+counts use a spawn-context process executor with at most `workers` submitted
+but not consumed results. Frame jobs keep the original variable-duration
+sampling and ordered final-shot/caption logic; workers rebuild prepared state
+from a layer-model graph so shared animation identity survives serialization.
+
+Use this separate worker-count benchmark on Linux:
+
+```bash
+uv run --locked python -m benchmarks.parallel_export --json /tmp/parallel.json
+```
+
+Defaults are workers 1/2/4, three fresh processes each, and the same complete
+12 fps reel/GIF options as the main benchmark. `--scenes`, `--formats`,
+`--workers` and `--repetitions` support targeted smoke runs. Worker order rotates
+between repetitions. Do not run timings alongside tests or other heavy work.
+
+Export wall time includes scene construction and public rendering, excluding
+interpreter startup and output hashing. A separate subprocess duration includes
+those costs. Linux `/proc` sampling every 50 ms records concurrent Python-tree,
+FFmpeg, other-child and total-tree RSS peaks; the supervisor is excluded.
+Sum-of-RSS double-counts shared pages, is not PSS, and can miss short-lived
+processes or between-sample peaks. Category peaks need not coincide, so do not
+add them. Parent-only lifetime RSS is retained but cannot represent worker cost.
+
+JSON retains every raw run, memory-sampling gaps, output size and SHA-256.
+GIF/MP4 hash equality is reported across worker counts and repetitions. WebM
+container metadata can vary even at workers=1, so its hash is informational;
+decoded video/audio, frame counts, durations and ordered raw-shot digests are
+the corresponding regression gates. The benchmark reports identity observations
+without using them as an exit gate; inspect them alongside the tests.
+
+A prerequisite decoder fix retains timestamps with ffprobe CSV side-data
+suffixes, including the first H.264 SEI frame. Dropping frame zero previously
+shifted decoder indices and made the final video frame depend on seek history.
+The regression now checks direct, sequential and backward-seek paths against
+the same frame bytes, as required for independent rendering workers.
+
+## Subpixel geometry (#147)
+
+During canonical position, rotation or scale interpolation, a single bicubic
+inverse-affine pass keeps fractional offsets and unrounded scale. The transform
+operates on a cropped layer/target with transparent filter support, rather than
+allocating a full-canvas image per layer. RGBA filtering uses Pillow's
+premultiplied-alpha path. Source opacity/reveal precede the affine pass, shared
+by timed Canvas rendering, animation units and staggered targets.
+
+Integral translation with identity scale/rotation retains the original fast
+path. Untimed renders and settled geometry retain the original filters and
+rounding, including final nonidentity transforms such as 12° rotation and 1.15×
+scale. Activity follows per-target keyframe intervals, delays, holds, authored
+replace precedence and cancelling additive tracks; viewport-only image scaling
+keeps its existing image-renderer semantics.
+
+The lossless frame comparator is intentionally expected to report changes for
+this quality step. Classify changed timeline observations against geometry
+motion windows; stills and non-moving observations must remain unchanged.
+`tests/test_subpixel_geometry.py` freezes the old geometry algorithm for exact
+landing comparisons, checks the fixed 30 fps centroid metric, and verifies
+Canvas/video and spawn-worker parity. Compare the same 12 fps GIF workload with
+`python -m benchmarks.animated_export --formats gif`; changing pixels can also
+change encoder work and output size.
+
+![Before and after crops of translation, rotation and scale](comparisons/subpixel-motion.png)
+
+These are 4× nearest-neighbor crops from identical public sample times and
+source scenes. Moving pixels intentionally change; no still-image snapshots
+are replaced. The centroid metric diagnoses stepping rather than promising
+zero rasterization error. The final settled frame uses the legacy filter so
+its pixels remain exact, even when its transform is nonidentity.
+
+## Opt-in 2× compositing (#152)
+
+Compare matched workloads using the same harness and three fresh processes:
+
+```bash
+uv run --locked python -m benchmarks.animated_export --quality standard --formats gif --json /tmp/standard.json
+uv run --locked python -m benchmarks.animated_export --quality high --formats gif --json /tmp/high.json
+```
+
+Quality is recorded in every run, summary and report, and mixed-quality samples
+are rejected. The fixed canonical `Deck.sample()` jitter probe describes the
+standard renderer; high-quality runs leave that column `n/a` instead of
+presenting the standard probe as a high-mode measurement. Compare raw text crops
+and export cost separately. The default 432×768 / 64-color GIF workload remains
+unchanged, and parent-process RSS includes high-resolution plates/frame buffers.
+
+High mode draws native prepared layers/targets directly into a 2× destination,
+then downsamples once. It avoids 4× copies of all source caches; the compositing
+surface and cached background plates still grow 4×. Source typography/assets,
+backdrop preparation, authored static rotation, native captions, slide
+transitions and keyed Morph retain their existing preparation boundaries.
+This adds no source detail and is not a guarantee of sharper text at every size.
+
+![Standard and high-quality rotated-text crops](comparisons/high-quality-text.png)
+
+The crops use matched scenes, timestamps and crop bounds, taken from raw
+pre-encoding RGBA frames and enlarged 2× with nearest-neighbor. The authored-rotation row illustrates the native-source
+limit; canonical rotation/downscale rows exercise the new composition filter.
+Default-mode bytes, high-mode worker parity, dimensions/timing/audio, captions,
+palette controls, blur, negative placement and source immutability are covered
+by `tests/test_high_quality_animation.py`.
+
+## Curved motion paths (#158)
+
+The optional `motion_path` scene animates the asymmetric marker along one cubic
+with tangent orientation. It uses the same median-three fresh-process timer:
+
+```bash
+uv run --locked python -m benchmarks.animated_export --scenes motion_path --formats gif mp4 --json /tmp/motion-path.json
+```
+
+The default four scenes and 504-observation identity workload are unchanged.
+The path scene leaves the straight-motion centroid jitter metric `n/a`: changing
+heading moves the asymmetric marker's centroid independently of path distance.
+Its constant arc-distance clock is tested against an independent dense cubic
+reference. Curve tables are cached by immutable control points, bounded to
+64 entries and 4097 parameter samples per curve; cold setup is included in
+export timings. HTML additionally bakes at up to 120 Hz with at most 4097 stops.
