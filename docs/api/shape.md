@@ -99,7 +99,7 @@ canvas.shape(
 
 ### Pill
 
-A capsule shape — a rectangle with fully rounded ends. No `border_radius` needed.
+A capsule: a rectangle with fully rounded ends. No `border_radius` needed.
 
 ```python
 canvas.shape(

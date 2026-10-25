@@ -105,6 +105,15 @@ def parent_html_sampling(canvas: Canvas) -> ParentHtmlSampling:
                 return ParentHtmlSampling(
                     problem="HTML parent baking supports one track per property"
                 )
+            if (spec.easing is not None and not isinstance(spec.easing, str)) or any(
+                key.easing is not None or key.hold
+                for track in spec.tracks
+                for key in track.keyframes
+            ):
+                return ParentHtmlSampling(
+                    problem="HTML parent baking requires named easing "
+                    "without keyframe easing or holds"
+                )
             axes = [track for track in spec.tracks if track.type in {"scale_x", "scale_y"}]
             if axes and (
                 (spec.easing or "").endswith("_back")

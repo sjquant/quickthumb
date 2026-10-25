@@ -68,9 +68,9 @@ SIZE = 1080
     )
     .shape(
         shape="rectangle",
-        position=("8%", "34%"),
+        position=("8%", 464),
         width=9,
-        height=336,
+        height=176,
         color="#E11D2E",
         border_radius=4,
     )
@@ -78,7 +78,7 @@ SIZE = 1080
     .text(
         content="Wildfires Spread\nAcross 18,000 Acres",
         font="NotoSerif",
-        size=92,
+        size=84,
         color="#FFFFFF",
         weight=900,
         position=("11%", "52%"),

@@ -1,10 +1,10 @@
 ---
-description: Catch layout and legibility problems with canvas.diagnose() and the quickthumb CLI — lint, render, and watch JSON specs from the terminal.
+description: Find layout and legibility problems with canvas.diagnose(), and lint, render, watch, compare, and serve specs with the quickthumb CLI.
 ---
 
 # Diagnostics & CLI
 
-quickthumb can check a composition for common layout and legibility problems **without writing a file** — from Python with `canvas.diagnose()`, or from the terminal with `quickthumb lint`. This closes the loop for agent workflows: generate a spec, lint it, fix the findings, render.
+quickthumb can check a design for common layout and legibility problems without rendering a file: from Python with `canvas.diagnose()`, or from the terminal with `quickthumb lint`.
 
 ## `canvas.diagnose()`
 
@@ -13,7 +13,8 @@ Returns a `DiagnosticReport` whose `findings` list contains `Diagnostic` entries
 ```python
 from quickthumb import Canvas
 
-canvas = Canvas.from_json(spec)
+with open("spec.json", encoding="utf-8") as f:
+    canvas = Canvas.from_json(f.read())
 
 for finding in canvas.diagnose().findings:
     print(finding.severity, finding.code, finding.message)
@@ -55,8 +56,8 @@ Each `Diagnostic` has stable human-readable fields and optional structured field
 | `caption-reading-time` | A cue is on screen under 0.8s, or runs past 20 display columns a second, leaving too little time to read it. Wide scripts such as Korean and Japanese count two columns per character while joiners and combining marks count none, and a cue that outlives its clip is measured over the part of it that is actually seen |
 | `clip-stretch` | A clip plays slower than 0.5x or faster than 2x of its own rate. Usually it is being stretched to fit a scene, but a deliberate slow-motion or timelapse beat is reported the same way |
 
-!!! tip "Agent loop"
-    `diagnose()` is designed for render → diagnose → fix iteration: have an LLM emit a spec, run `diagnose()`, and feed the findings back as targeted edit instructions instead of re-prompting from scratch.
+!!! tip "With an LLM"
+    Send the findings back to the model as specific edits to make, rather than asking for a new design. See [AI Workflow](cookbook/ai-workflow.md).
 
 Near-alignment findings compare final measured starts, rather than raw declared positions. The rule only compares layers that share a perpendicular span, ignores exact matches, intentional text-on-backdrop overlap, and layers with rotation or clip/mask composition, and reports the measured delta plus a coordinate repair suggestion.
 
@@ -88,6 +89,42 @@ The CLI requires the `cli` extra:
 pip install "quickthumb[cli]"
 ```
 
+### `quickthumb inspect`
+
+Inspect a Canvas or Deck JSON spec without writing an export:
+
+```bash
+quickthumb inspect spec.json
+quickthumb inspect deck.json --format json
+quickthumb inspect deck.json --target video --fps 24 --max-samples 100
+quickthumb inspect spec.json --reduced-motion --var title="Hello"
+```
+
+Text output includes ordered page/layer bounds, per-layer motion durations and event counts,
+capability/fallback rows, observed assets, and layout diagnostics.
+`--format json` emits exactly the Python
+[`inspect_document()` result envelope](api/inspection.md), including `version`
+and document `kind`. It has the same page ordering and common fields for both
+document kinds, so scripts can consume it without guessing the input type.
+
+`--target` selects a capability family (`raster`, `html`, `pptx`, or `video`);
+omitting it reports all four. `--fps` and `--max-samples` control bounded motion
+property observations, not image-frame generation. `--reduced-motion` inspects
+the accessible static policy. `--var KEY=VALUE` follows the other spec commands.
+
+Inspection can resolve fonts/assets or decode media for measurement. It reports
+observed asset states and does not perform a separate prefetch or readiness
+check. Motion-inspection duration is not an encoded-video duration; use the
+Python `sample()` timeline for canonical frame and playback timing.
+
+Findings are informational: successful inspection exits `0` even with warnings.
+Input, validation, and missing-asset errors exit `1`; rendering/export-category
+errors (including an empty Deck's motion inspection) exit `2`. With JSON output,
+these errors use the existing `{"errors": [...]}` structured envelope. Use
+`lint --fail-on` to gate on diagnostics and `doctor` to check environment readiness.
+Argument-parsing errors, such as `--fps abc`, still use Typer's standard text
+on stderr and exit `2`; the JSON error envelope applies after argument parsing.
+
 ### `quickthumb lint`
 
 Checks a JSON spec for the same findings as `diagnose()`:
@@ -99,8 +136,8 @@ quickthumb diagnose spec.json --format json
 ```
 
 ```text
-[warning] layer 3: tiny-text — text size 14px is below 18px (2.5% of canvas height) ...
-[warning] layer 4: low-contrast — text contrast ratio 1.47 against the layers below it ...
+[warning] layer 3: tiny-text: text size 14px is below 18px (2.5% of canvas height) ...
+[warning] layer 4: low-contrast: text contrast ratio 1.47 against the layers below it ...
 ```
 
 With `--format json`, lint prints a machine-readable payload:
@@ -128,12 +165,38 @@ With `--format json`, lint prints a machine-readable payload:
 }
 ```
 
+`lint` exits with a status that CI can act on:
+
+| Exit code | Meaning |
+| --- | --- |
+| `0` | No issues found |
+| `1` | Invalid spec (bad JSON, validation error, missing asset, invalid option) |
+| `2` | Rendering failure |
+| `3` | Findings reported |
+
+`diagnose` is an alias for `lint`. Both commands accept the same automation options:
+
+```bash
+quickthumb lint spec.json --fail-on error
+quickthumb lint spec.json --ignore edge-crowding --ignore missing-glyph
+```
+
+`--fail-on warning` (the default) exits 3 for any remaining finding. `--fail-on error`
+allows warnings while still failing on errors, and `--fail-on never` always exits 0 after
+printing the findings. `--ignore` removes matching diagnostic codes from both the output and
+the exit-status calculation. Invalid specs with `--format json` emit an `errors` list of
+[structured error details](errors.md) rather than a traceback.
+
+JSON inputs must declare a top-level `kind` discriminator (`canvas` or `deck`). Deck findings
+include `slide_index` and retain
+the originating layer id, bounding box, measurements, related layers, and suggestion.
+
 ### `quickthumb diff`
 
 Compare a rendered image with a golden image before accepting a visual change:
 
 ```bash
-quickthumb diff tests/snapshots/solid_background.png output.png
+quickthumb diff golden.png output.png
 quickthumb diff golden.png output.png --format json --output diff.png
 ```
 
@@ -165,7 +228,7 @@ The same comparison is available as a Python assertion:
 from quickthumb import assert_image_similar
 
 assert_image_similar(
-    "tests/snapshots/solid_background.png",
+    "golden.png",
     "output.png",
     threshold=0.95,
 )
@@ -174,32 +237,6 @@ assert_image_similar(
 The assertion returns an `ImageDiff` with image sizes, changed-pixel counts,
 normalized mean error, perceptual hashes, and similarity metrics when callers
 need to report more detail.
-
-Exit codes make it easy to gate CI or agent pipelines:
-
-| Exit code | Meaning |
-| --- | --- |
-| `0` | No issues found |
-| `1` | Invalid spec (bad JSON, validation error, missing asset, invalid option) |
-| `2` | Rendering failure |
-| `3` | Findings reported |
-
-`diagnose` is an alias for `lint`. Both commands accept the same automation options:
-
-```bash
-quickthumb lint spec.json --fail-on error
-quickthumb lint spec.json --ignore edge-crowding --ignore missing-glyph
-```
-
-`--fail-on warning` (the default) exits 3 for any remaining finding. `--fail-on error`
-allows warnings while still failing on errors, and `--fail-on never` always exits 0 after
-printing the findings. `--ignore` removes matching diagnostic codes from both the output and
-the exit-status calculation. Invalid specs with `--format json` emit an `errors` list of
-[structured error details](errors.md) rather than a traceback.
-
-JSON inputs must declare a top-level `kind` discriminator (`canvas` or `deck`). Deck findings
-include `slide_index` and retain
-the originating layer id, bounding box, measurements, related layers, and suggestion.
 
 ### `quickthumb render`
 
@@ -225,7 +262,7 @@ export failures such as an unsupported output format.
 
 ### `quickthumb watch`
 
-Re-renders the spec every time the file changes — useful while hand-tuning a layout:
+Re-renders the spec every time the file changes, which is handy while adjusting a layout by hand:
 
 ```bash
 quickthumb watch spec.json -o preview.png
@@ -346,4 +383,4 @@ quickthumb render template.json -o ep42.png \
   --var ACCENT="#B8FF00"
 ```
 
-Unresolved placeholders cause exit code `1`. `$theme.*` references are not variables — they are resolved by the [theme block](json-schema.md#theme-tokens) inside the spec itself.
+Unresolved placeholders cause exit code `1`. `$theme.*` references are not variables; they are resolved by the [theme block](json-schema.md#theme-tokens) inside the spec itself.

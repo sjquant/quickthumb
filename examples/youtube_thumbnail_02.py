@@ -1,11 +1,9 @@
 """
-YouTube Thumbnail Example - Burnout Theme (Redesigned)
+YouTube thumbnail: one large question.
 
-Professional thumbnail with:
-- High contrast typography (Roboto Black)
-- Drop shadows using the Shadow effect
-- Gradient overlay for depth
-- Strong visual hierarchy
+- Desaturated photo background with an angled gradient for contrast
+- Each headline line is its own text layer at a fixed position
+- A 1px translucent rule above the hook line
 """
 
 import os

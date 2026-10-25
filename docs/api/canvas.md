@@ -21,7 +21,7 @@ canvas = Canvas(1280, 720)
 | `width` | `int \| None` | Canvas width in pixels. Must be a positive integer. |
 | `height` | `int \| None` | Canvas height in pixels. Must be a positive integer. |
 
-Width and height must be given together or both omitted. A canvas built **without** a size (`Canvas()`) is *unsized*: it accepts layer builders but cannot be rendered, diagnosed, or serialized until it gets a size — either directly or by being added to a sized [`Deck`](deck.md), which injects its default size. Check `canvas.has_size` to tell the difference.
+Width and height must be given together or both omitted. A canvas built **without** a size (`Canvas()`) is *unsized*: it accepts layer builders but cannot be rendered, diagnosed, or serialized until it gets a size, either directly or by being added to a sized [`Deck`](deck.md), which gives it the deck's default size. Check `canvas.has_size` to tell the difference.
 
 ### `Canvas.from_aspect_ratio(ratio, base_width)`
 
@@ -76,7 +76,7 @@ Finding codes: `off-canvas`, `tiny-text`, `text-overflow`, `text-clipped`, `miss
 
 You never need to call this: `render()` and `export()` download remote images,
 SVGs, text fills, and fonts themselves, and `export()` returns the resulting
-`asset_manifest`. Call it only to do those downloads up front — to catch a
+`asset_manifest`. Call it only to do those downloads up front, to catch a
 network failure or a stale cache entry before a long export, or to warm the
 cache for later offline renders. It returns the manifest without rendering:
 
@@ -91,7 +91,23 @@ statuses, `QUICKTHUMB_ASSET_MAX_AGE`, and offline mode.
 
 ## Export methods
 
-### `.render(path, format=None, quality=None, debug=False, animation=None)`
+### `.export(path, policy=None, *, format=None, quality=None, animation=None)`
+
+Writes the canvas like `render()` and returns an `ExportResult` whose
+`written_paths` lists the single written file. The path may be a string or
+`pathlib.Path`; `format`, `quality`, `animation`, and `policy` mean the same as
+in `render()`.
+
+```python
+result = canvas.export("card.png")
+print(result.written_paths)
+```
+
+See [Shared export contract and specialist controls](../exports.md#shared-export-contract-and-specialist-controls)
+for the result fields, the capability preflight, and how `export()` relates to
+the methods below.
+
+### `.render(path, format=None, quality=None, debug=False, animation=None, policy=None)`
 
 Renders the canvas and writes the result to a file. The format is detected from the file extension; `.svg`, `.pptx`, and `.pdf` produce vector/document output, and `.gif`/`.mp4`/`.webm`/`.mov` produce an animation playing the canvas's layer `animation` effects (see [Exporting to SVG, PPTX, PDF & video](../exports.md)).
 
@@ -120,6 +136,7 @@ canvas.render("preview.mp4", animation=VideoOptions(fps=30))
 | `quality` | `int \| None` | `None` | Compression quality (1–95). Only valid for `JPEG` and `WEBP`. |
 | `debug` | `bool` | `False` | Draw public layer-id bounding boxes on raster output for visual review. |
 | `animation` | `GifOptions \| VideoOptions \| None` | `None` | Format-specific options: `GifOptions` for GIF, `VideoOptions` for MP4/WebM/MOV. |
+| `policy` | `ExportPolicy \| None` | `None` | Renderer policy, such as `reduced_motion` for animated, HTML, and PPTX output. `unsupported_motion` is enforced only by `export()`. |
 
 !!! warning
     Passing `quality` with `format="PNG"` raises `RenderingError`. Passing `debug=True` for document or animated output (`.svg`, `.pptx`, `.pdf`, `.html`, `.gif`, `.mp4`, `.webm`, or `.mov`) raises `RenderingError`.
@@ -144,7 +161,7 @@ svg = canvas.to_svg(embed_fonts=True)
 
 ### `.to_pptx()`
 
-Returns the canvas as PowerPoint file bytes — a single slide with editable text boxes and autoshapes. Requires the `pptx` extra.
+Returns the canvas as PowerPoint file bytes: a single slide with editable text boxes and autoshapes. Requires the `pptx` extra.
 
 ```python
 with open("deck.pptx", "wb") as f:
@@ -153,7 +170,7 @@ with open("deck.pptx", "wb") as f:
 
 ### `.to_pdf()`
 
-Returns the canvas as PDF file bytes — a single page with native vector backgrounds, shapes, and selectable text when its font can be safely embedded and the text does not require complex shaping. Unsupported text is embedded as a pixel-exact image fragment. Requires the `pdf` extra.
+Returns the canvas as PDF file bytes: a single page with native vector backgrounds, shapes, and selectable text when its font can be safely embedded and the text does not require complex shaping. Unsupported text is embedded as a pixel-exact image fragment. Requires the `pdf` extra.
 
 ```python
 with open("card.pdf", "wb") as f:
@@ -162,7 +179,7 @@ with open("card.pdf", "wb") as f:
 
 ### `.to_gif(...)` / `.to_mp4(...)` / `.to_webm(...)` / `.to_mov(...)`
 
-Return the canvas as an animation that plays its layer `animation` effects in sequence, then holds the settled composition for `hold` seconds (see [Animated GIF & video](../exports.md#animated-gif-video-canvas-mp4webmmov-deck-gifwebmmov)). A canvas with no animations yields a single-frame GIF. `.to_mp4()`/`.to_webm()`/`.to_mov()` require the `ffmpeg` binary on `PATH` (or named by `QUICKTHUMB_FFMPEG`).
+Return the canvas as an animation that plays its layer `animation` effects in sequence, then holds the settled composition for `hold` seconds (see [Animated GIF & video](../exports.md#animated-gif-video)). A canvas with no animations yields a single-frame GIF. `.to_mp4()`/`.to_webm()`/`.to_mov()` require the `ffmpeg` binary on `PATH` (or named by `QUICKTHUMB_FFMPEG`).
 
 ```python
 gif_bytes = canvas.to_gif(fps=20, hold=3.0, loop=0, matte="#000000")

@@ -14,7 +14,7 @@ from quickthumb import (
     plugin_registry,
 )
 from quickthumb._document import load_document
-from quickthumb.errors import ValidationError
+from quickthumb.errors import RenderingError, ValidationError
 from quickthumb.schema import document_json_schema, plugin_layer_json_schema
 
 
@@ -882,3 +882,33 @@ def test_plugin_layer_rejects_non_finite_or_non_json_nested_values(params):
     """Given nested Python-only values, PluginLayer enforces the shared JSON grammar."""
     with pytest.raises(ValidationError):
         PluginLayer(type="plugin", renderer="values", version="1.0", params=params)
+
+
+@pytest.mark.parametrize("nested", [False, True], ids=["top-level", "group-child"])
+def test_rendering_a_plugin_layer_explains_that_plugins_cannot_be_drawn(nested):
+    """Given a valid plugin layer, rendering fails with an actionable structured error."""
+    # Given: a registered plugin layer, either on the canvas or inside a group
+    plugin_registry.register("brand_badge", "1.0")
+    plugin = {
+        "type": "plugin",
+        "id": "badge",
+        "renderer": "brand_badge",
+        "version": "1.0",
+        "params": {},
+    }
+    layer = {"type": "group", "children": [plugin]} if nested else plugin
+    canvas = Canvas.from_json(
+        json.dumps({"kind": "canvas", "width": 120, "height": 80, "layers": [layer]})
+    )
+
+    # When: the canvas is rendered
+    with pytest.raises(RenderingError) as caught:
+        canvas.to_base64()
+
+    # Then: the error names the plugin, uses a stable code, and says what to do
+    detail = caught.value.details[0]
+    assert detail.code == "unsupported_capability"
+    assert detail.layer_id == "badge"
+    assert "brand_badge" in detail.message
+    assert detail.suggestion
+    assert "D2" not in str(caught.value)

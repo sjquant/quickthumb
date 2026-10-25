@@ -1,5 +1,5 @@
 ---
-description: Reference for quickthumb Deck — collecting canvases into multi-page PDFs, multi-slide PPTX, and numbered image sequences.
+description: Reference for quickthumb Deck, which collects canvases into multi-page PDFs, PPTX decks, HTML slideshows, videos, and numbered image sequences.
 ---
 
 # Deck
@@ -45,12 +45,12 @@ Pass initial slides to the constructor (`Deck(slides=[...])`) and/or append them
 deck = (
     Deck(1280, 720)
     .slide(
-        Canvas().background(color="#101820").text(content="Cover", ...),
+        Canvas().background(color="#101820").text(content="Cover", size=96, color="#FFFFFF"),
         audio="voice.wav",
         duration=2.5,
         notes="Introduce the central thesis.",
     )
-    .slide(Canvas().background(color="#1A1A2E").text(content="Body", ...))
+    .slide(Canvas().background(color="#1A1A2E").text(content="Body", size=64, color="#FFFFFF"))
 )
 ```
 
@@ -60,7 +60,23 @@ A deck is also a sequence: `len(deck)`, `deck[i]`, and iteration over slides all
 
 ## Export methods
 
-### `.render(path, format=None, quality=None, animation=None)`
+### `.export(path, policy=None, *, format=None, quality=None, animation=None)`
+
+Writes the deck like `render()` and returns an `ExportResult` whose
+`written_paths` lists numbered slide files for raster output, or one PDF, PPTX,
+HTML, or animation file. The path may be a string or `pathlib.Path`; `format`,
+`quality`, `animation`, and `policy` mean the same as in `render()`.
+
+```python
+result = deck.export("slides.png")
+print(result.written_paths)
+```
+
+See [Shared export contract and specialist controls](../exports.md#shared-export-contract-and-specialist-controls)
+for the result fields, the capability preflight, and how `export()` relates to
+the methods below.
+
+### `.render(path, format=None, quality=None, animation=None, policy=None)`
 
 Renders the deck, dispatching on the output extension. Returns the list of written file paths.
 
@@ -94,6 +110,7 @@ deck.render("slides.jpg", quality=85)
 | `format` | `str \| None` | `None` | Raster format override (`"PNG"`, `"JPEG"`, `"WEBP"`) |
 | `quality` | `int \| None` | `None` | Compression quality. Only valid for raster sequences. |
 | `animation` | `GifOptions \| VideoOptions \| None` | `None` | Format-specific options: `GifOptions` for GIF, `VideoOptions` for MP4/WebM/MOV. |
+| `policy` | `ExportPolicy \| None` | `None` | Renderer policy, such as `reduced_motion` for animated, HTML, and PPTX output. `unsupported_motion` is enforced only by `export()`. |
 
 !!! warning
     Passing `quality` with `.pdf`, `.pptx`, or animated output raises `RenderingError`, as does rendering an empty deck.
@@ -136,7 +153,7 @@ pptx_bytes = deck.to_pptx()  # requires quickthumb[pptx]
 
 ### `.to_gif(...)` / `.to_webm(...)` / `.to_mov(...)`
 
-Return the deck as an animation: each slide plays its layer animations, holds its settled state, and its transition animates the change into it (see [Animated GIF & video](../exports.md#animated-gif-video-canvas-mp4webmmov-deck-gifwebmmov) for the timing model). `.to_webm()` requires the `ffmpeg` binary on `PATH` (or named by `QUICKTHUMB_FFMPEG`).
+Return the deck as an animation: each slide plays its layer animations, holds its settled state, and its transition animates the change into it (see [Animated GIF & video](../exports.md#animated-gif-video) for the timing model). `.to_webm()` requires the `ffmpeg` binary on `PATH` (or named by `QUICKTHUMB_FFMPEG`).
 
 ```python
 gif_bytes = deck.to_gif(fps=20, slide_duration=3.0, loop=0, matte="#000000")
@@ -231,7 +248,7 @@ for finding in deck.diagnose().findings:
 | `measured` | `dict` | Rule-specific measured values |
 | `suggestion` | `str \| None` | Repair hint when available |
 
-A `mixed-slide-size` warning is added when slides do not all share the same dimensions. The PDF path sizes each page to its slide, but PPTX export uses the first slide's size for the whole deck, so larger later slides are clipped by PowerPoint — keep slides a uniform size when targeting `.pptx`.
+A `mixed-slide-size` warning is added when slides do not all share the same dimensions. The PDF path sizes each page to its slide, but PPTX export uses the first slide's size for the whole deck, so larger later slides are clipped by PowerPoint. Keep slides the same size when targeting `.pptx`.
 
 ## `.prefetch_assets()` (optional)
 

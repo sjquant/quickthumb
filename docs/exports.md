@@ -4,11 +4,13 @@ description: Export quickthumb canvases to SVG, editable PowerPoint (PPTX), PDF 
 
 # Exporting to SVG, PPTX, PDF & video
 
-Beyond raster images, a canvas can render to vector, document, and animated formats. The output format is detected from the file extension:
+A canvas renders to raster, vector, document, web, and animated formats. The
+format comes from the file extension:
 
 ```python
 canvas.render("thumbnail.png")   # raster (PNG/JPEG/WEBP)
 canvas.render("thumbnail.svg")   # vector SVG
+canvas.render("thumbnail.html")  # self-contained web page that plays animations
 canvas.render("thumbnail.pptx")  # editable PowerPoint slide
 canvas.render("thumbnail.pdf")   # single-page PDF
 canvas.render("thumbnail.gif")   # animated GIF playing the layer animations
@@ -20,15 +22,89 @@ Each format also has a direct method when you want the content in memory:
 
 ```python
 svg_markup = canvas.to_svg()
+html = canvas.to_html()
 pptx_bytes = canvas.to_pptx()
 pdf_bytes = canvas.to_pdf()
 gif_bytes = canvas.to_gif()
 mp4_bytes = canvas.to_mp4()      # and canvas.to_webm() / canvas.to_mov()
 ```
 
+## Shared export contract and specialist controls
+
+Use `export()` when building a workflow that accepts either a `Canvas` or a
+`Deck`. Both accept a string or `Path` and return an `ExportResult`, including
+the document `kind`, effective `output_format`, `written_paths`, capability and
+fallback diagnostics, pixel/timing metadata, and the asset manifest:
+
+```python
+from quickthumb import Canvas, Deck
+
+canvas = Canvas(320, 180).background(color="#112233")
+deck = Deck(slides=[canvas, Canvas(320, 180).background(color="#445566")])
+
+for document, path in [(canvas, "card.png"), (deck, "slides.png")]:
+    result = document.export(path)
+    print(result.kind, result.written_paths)
+    print(result.model_dump_json())
+```
+
+The canvas writes `card.png`; the deck writes `slides_01.png` and
+`slides_02.png`. Always use `written_paths` rather than reconstructing names.
+`export(path, policy=None, *, format=None, quality=None, animation=None)` runs
+the shared capability-policy preflight before calling the existing renderer.
+`format` is a raster format override; `quality` applies to JPEG/WEBP;
+`animation` accepts `GifOptions` for GIF or `VideoOptions` for MP4/WebM.
+See the [Canvas](api/canvas.md)
+and [Deck](api/deck.md)
+references for examples.
+
+### Support and lifecycle
+
+The shared document methods and result envelope are the integration boundary
+for generic consumers. The documented `render()` and `to_*()` methods remain
+supported specialist controls: they are not deprecated, renamed, or scheduled
+for removal. Existing users do not need to migrate. Any future removal or
+incompatible change to these documented controls requires an announced
+deprecation and migration guidance first. New generic examples should prefer
+`export()`; format-specific examples can continue using specialist methods.
+Private underscore-prefixed modules and renderer internals are outside this
+support boundary.
+
+| Entry point | Canvas result | Deck result | Use when |
+| --- | --- | --- | --- |
+| `export(path, ...)` | `ExportResult` | `ExportResult` | You need shared reporting and capability-policy preflight |
+| `render(path, ...)` | `None` | `list[str]` of written paths | You need existing file-rendering controls, such as Canvas `debug=True` |
+| `to_html(...)` | HTML `str` | HTML `str` | You need an in-memory document or HTML-specific options |
+| `to_pdf(...)`, `to_pptx(...)`, `to_gif(...)`, `to_mp4(...)`, `to_webm(...)` | `bytes` | `bytes` | You manage the destination and need format-specific controls |
+| `to_svg(embed_fonts=...)` | SVG `str` | Not available | You need one SVG per canvas, optionally with embedded fonts |
+
+Specialist methods do not return the shared result envelope. `render()` and
+several `to_*()` methods accept `policy=` and apply it to their renderer (for
+example `reduced_motion`), but only `export()` enforces capability rules such as
+`unsupported_motion="error"`, failing before any file is written. Use
+`validate_export()` to inspect motion capabilities before a specialist export.
+Neither path promises pixel identity across different formats, viewers, fonts,
+or rendering environments. Currently `pixel_metrics` reports dimensions and
+frame count, not a fidelity score; absent difference measurements are not proof
+of a match.
+
+The shared entry point preserves renderer-specific behavior:
+
+- A Deck writes one multi-page PDF, multi-slide PPTX, or HTML slideshow, but
+  numbered files for raster output. It cannot export a single SVG; export each
+  canvas separately instead.
+- Canvas MP4 plays layer animation. Deck MP4 without `animation` uses static
+  narrated slides. Pass `animation=VideoOptions(...)` to `deck.export()` or
+  `deck.render()` for the animated timeline, or use `deck.to_animated_mp4()`.
+  `deck.to_mp4()` retains its static narrated-slide behavior.
+- `Canvas.render(..., debug=True)` and `Canvas.to_svg(embed_fonts=True)` are
+  specialist controls, not arguments to the shared `export()` method.
+
 ## How export works
 
 Exporters keep layers **native** wherever the target format can express them, and embed **pixel-exact PNG fragments** (rendered by the regular pipeline) everywhere else. Positions, wrapping, and alignment are computed with the same layout math as the raster renderer, so output matches the PNG render closely.
+
+HTML export works the same way; see [HTML](#html) below.
 
 | Layer | SVG | PPTX | PDF |
 | --- | --- | --- | --- |
@@ -53,15 +129,35 @@ By default the SVG references fonts by family name (`font-family="Roboto"`), whi
 !!! note "Viewer support"
     Shadow and glow effects use SVG filters (`feGaussianBlur`). Browsers render them faithfully; some minimal SVG rasterizers apply filters only partially.
 
-## PPTX
+## HTML
 
-PPTX export requires the optional dependency:
-
-```bash
-uv pip install "quickthumb[pptx]"
+```python
+html = canvas.to_html()
+canvas.render("card.html")
 ```
 
-The canvas becomes a single slide sized to the canvas pixels (at 96 dpi). Text stays fully editable — font family, size, weight, color, alignment, and line wrapping are carried over run by run, and stroke/shadow/glow effects map to PowerPoint text outline and effect properties.
+The result is one self-contained HTML file. Backgrounds, shapes, outlines, and
+text become HTML and CSS; images and anything else without a CSS equivalent
+are embedded as PNG fragments. Unlike SVG, PDF, and PPTX, the page plays layer
+`animation` effects, advancing on click.
+
+The design is a fixed-size stage that never reflows. By default
+(`responsive=True`) the whole stage scales to fit the browser window; pass
+`responsive=False` to get it at its exact pixel size. Fonts are embedded by
+default (`embed_fonts=True`), so the page looks the same on any machine.
+
+A deck exports to an HTML slideshow the same way, with a presenter view; see
+[Deck](api/deck.md).
+
+## PPTX
+
+PPTX export needs the `pptx` extra:
+
+```bash
+pip install "quickthumb[pptx]"
+```
+
+The canvas becomes a single slide sized to the canvas pixels (at 96 dpi). Text stays editable: font family, size, weight, color, alignment, and line wrapping carry over run by run, and stroke, shadow, and glow map to PowerPoint's text outline and effect settings.
 
 ```python
 canvas.render("promo.pptx")
@@ -75,10 +171,10 @@ with open("promo.pptx", "wb") as f:
 
 ## PDF
 
-PDF export requires the optional dependency:
+PDF export needs the `pdf` extra:
 
 ```bash
-uv pip install "quickthumb[pdf]"
+pip install "quickthumb[pdf]"
 ```
 
 The canvas becomes a single PDF page sized to the canvas pixels (one point per pixel). Backgrounds, outlines, shapes, and eligible text are drawn as native PDF vector primitives using the same layout math as the raster renderer. Fonts that can be safely embedded are subset when their text does not need complex shaping; unsupported text is embedded as a pixel-exact PNG fragment so its visual result remains faithful.
@@ -93,7 +189,7 @@ with open("promo.pdf", "wb") as f:
 !!! note "Fidelity"
     PDF shadings cannot express transparency, so translucent gradients (and gradients with translucent stops) are embedded as pictures. Blur effects (shadow, glow), strokes on shapes, and gradient/image glyph fills have no faithful PDF vector form and are likewise embedded as pixel-exact PNG fragments.
 
-## Animated GIF & video (Canvas MP4/WebM/MOV, Deck GIF/WebM/MOV)
+## Animated GIF & video { #animated-gif-video }
 
 Animated export renders per-layer `animation` effects and deck slide `transition`s as real raster frames, sampled through the same pixel pipeline as PNG output. Canvas GIF/MP4/WebM/MOV and Deck GIF/WebM/MOV play this animated timeline. `deck.render("deck.mp4", animation=VideoOptions(...))` also uses it; Deck MP4 without `VideoOptions` is the separate static narration workflow below.
 
@@ -559,17 +655,17 @@ if stale:
 
 ## Decks (multiple images and slides)
 
-A `Deck` is an ordered collection of canvases. Each slide is a full `Canvas` and renders exactly as it would on its own, so a deck is just a multi-output container on top of the same pipeline. See the [Deck API reference](api/deck.md) for the full method list.
+A `Deck` is an ordered list of canvases. Each slide is a full `Canvas` and renders exactly as it would on its own. See the [Deck API reference](api/deck.md) for the full method list.
 
 Give the deck a size once and each slide can be a bare `Canvas()` that inherits it:
 
 ```python
-from quickthumb import Canvas, Deck
+from quickthumb import AudioTrack, Canvas, Deck, VideoOptions
 
 deck = (
     Deck(1280, 720)   # default slide size; Deck.from_aspect_ratio("16:9", 1280) also works
-    .slide(Canvas().background(color="#101820").text(content="Cover", ...))
-    .slide(Canvas().background(color="#1A1A2E").text(content="Body", ...))
+    .slide(Canvas().background(color="#101820").text(content="Cover", size=96, color="#FFFFFF"))
+    .slide(Canvas().background(color="#1A1A2E").text(content="Body", size=64, color="#FFFFFF"))
 )
 # pre-built canvases work too: Deck(slides=[cover, body])
 
@@ -593,7 +689,7 @@ mp4_bytes = deck.to_mp4()   # static slides with per-slide narration
 
 `render()` dispatches on the output extension: `.pdf` and `.pptx` produce a single document; `.gif`, `.webm`, and `.mov` produce an animation; `.mp4` produces static slides with per-slide narration unless `animation=VideoOptions(...)` selects the animated path; and raster extensions have no native multi-page container, so the deck writes one file per slide as a zero-padded numbered sequence and returns the written paths.
 
-Slides may have different dimensions. `deck.diagnose()` aggregates each slide's [diagnostics](diagnostics.md) (each tagged with its `slide_index`) and adds a `mixed-slide-size` warning when they differ. The PDF path sizes each page to its slide, but PPTX has a single presentation size taken from the first slide, so slides larger than the first are clipped by PowerPoint — keep slides a uniform size when targeting `.pptx`. Decks round-trip through JSON with `deck.to_json()` / `Deck.from_json(...)`, reusing the per-canvas serialization.
+Slides may have different dimensions. `deck.diagnose()` aggregates each slide's [diagnostics](diagnostics.md) (each tagged with its `slide_index`) and adds a `mixed-slide-size` warning when they differ. The PDF path sizes each page to its slide, but PPTX has a single presentation size taken from the first slide, so slides larger than the first are clipped by PowerPoint. Keep slides the same size when targeting `.pptx`. Decks round-trip through JSON with `deck.to_json()` / `Deck.from_json(...)`, reusing the per-canvas serialization.
 
 ## CLI
 

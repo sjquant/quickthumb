@@ -60,8 +60,8 @@ class PluginDefinition(quickthumbModel):
 class PluginRegistry:
     """An exact, version-aware registry of named plugin definitions.
 
-    The registry stores metadata only.  Renderer execution and native exporter
-    hooks intentionally remain D2/D3 work.  All outward collections are sorted
+    The registry stores metadata only: it does not supply drawing code, so
+    rendering a plugin layer raises `RenderingError`.  All outward collections are sorted
     by `(renderer, version)` so schema and inspection output is reproducible.
 
     Most callers only need `register`, `validate`, and `json_schema`.

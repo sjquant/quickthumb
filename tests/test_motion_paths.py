@@ -676,3 +676,28 @@ def test_normalized_track_copy_invalidates_derived_path_metadata():
     changed = original.model_copy(update={"auto_orient": True, "keyframes": keys})
     assert changed.is_path and changed.has_direction and changed.path_times == (0, 1)
     assert not original.is_path and original.path_times == (0,)
+
+
+@pytest.mark.parametrize("hold", [False, True])
+def test_path_keyframe_clock_survives_document_roundtrip(hold):
+    """A curved path uses its departing keyframe's easing or holds until the next knot."""
+    # Given: a curve with a segment clock that overrides the animation clock.
+    track = path(auto_orient=False)
+    track.keyframes[0].easing = "ease_in_quad"
+    track.keyframes[0].hold = hold
+    original = scene(animation(track))
+    restored = Canvas.from_json(original.to_json())
+
+    # When: the document is inspected and sampled through both raster entrypoints.
+    layer = restored.layers[0]
+    assert isinstance(layer, ShapeLayer) and isinstance(layer.animation, AnimationSpec)
+    timeline = compile_timeline(layer.animation)
+    expected, _ = sample_segment((0, 0), (100, 0), (0, 80), (0, 80), 0 if hold else 0.25)
+
+    # Then: the path follows the segment clock, preserving the exact arrival knot.
+    assert timeline.sample(0.5).position == pytest.approx(expected)
+    assert timeline.sample(1).position == (100, 0)
+    assert (
+        restored.render_frame(0.5).tobytes()
+        == video._SlideAnimator(restored, {}).frame_at(0.5).tobytes()
+    )

@@ -4,7 +4,7 @@ description: Reference for quickthumb background layers, including colors, gradi
 
 # Background
 
-`.background()` adds a full-canvas background layer. Multiple background calls stack in render order — first call is backmost.
+`.background()` adds a full-canvas background layer. Multiple background calls stack in render order; the first call is at the back.
 
 ## Signature
 

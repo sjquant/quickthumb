@@ -5,7 +5,7 @@
 
 import base64 as _base64
 import hashlib as _hashlib
-from enum import Enum
+from enum import StrEnum
 from typing import Annotated, Any, Literal
 
 from pydantic import (
@@ -108,7 +108,7 @@ class DiagnosticReport(quickthumbModel):
     findings: list[Any] = Field(default_factory=list)
 
 
-class AssetStatus(str, Enum):
+class AssetStatus(StrEnum):
     """Resolution outcome of one asset reference; compares equal to its string value.
 
     - `LOCAL`: an existing local file; `content_hash` is its SHA-256.
@@ -120,16 +120,12 @@ class AssetStatus(str, Enum):
     - `UNRESOLVED`: a remote reference that has not been resolved yet.
     """
 
-    # A str mixin rather than enum.StrEnum, which needs Python 3.11.
     LOCAL = "local"
     MISSING = "missing"
     NETWORK = "network"
     FRESH = "fresh"
     STALE = "stale"
     UNRESOLVED = "unresolved"
-
-    def __str__(self) -> str:
-        return self.value
 
 
 class AssetManifestEntry(quickthumbModel):

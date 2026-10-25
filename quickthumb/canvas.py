@@ -4,12 +4,11 @@ import re
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from io import BytesIO
-from typing import TYPE_CHECKING, Any, Literal, cast
+from typing import TYPE_CHECKING, Any, Literal, Self, cast
 
 from PIL import Image, ImageDraw, ImageFont
 from pydantic import TypeAdapter
 from pydantic import ValidationError as PydanticValidationError
-from typing_extensions import Self
 
 from quickthumb._base import FileFormat, RenderContext, aspect_ratio_dimensions, is_url
 from quickthumb._composition import composite_layer_with_boundary, has_layer_composition
@@ -2213,7 +2212,9 @@ class Canvas:
         elif isinstance(layer, NullLayer):
             return
         elif isinstance(layer, PluginLayer):
-            raise RenderingError("Plugin layer rendering is not available until the D2 runtime.")
+            raise RenderingError.plugin_layer_unsupported(
+                layer.renderer, layer.version, layer_id=layer.id
+            )
         elif isinstance(layer, CustomLayer):
             self._render_custom_layer(image, layer)
 

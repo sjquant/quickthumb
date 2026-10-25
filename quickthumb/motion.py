@@ -24,12 +24,14 @@ from quickthumb.models import (
     AnchorPoint,
     AnimatedTextValue,
     AnimationSpec,
+    CubicBezierEasing,
     ExportDiagnostic,
     ExportPolicy,
     GroupLayer,
     HexColor,
     KeyframeSpec,
     MotionCapabilityInspection,
+    MotionEasing,
     MotionEasingName,
     MotionEventInspection,
     MotionInspection,
@@ -233,22 +235,54 @@ def resolve_staggered_timelines(
     return tuple(expanded)
 
 
-def validate_easing_name(name: str | None) -> str:
-    """Validate and canonicalize a supported deterministic easing name."""
+# A named easing, a `CubicBezierEasing`, or its JSON mapping form. Names are typed
+# `str` rather than `MotionEasingName` so unknown names reach the validator.
+EasingValue = str | CubicBezierEasing | Mapping[str, object]
+BezierPoints = tuple[float, float, float, float]
+
+
+def _bezier_points(easing: CubicBezierEasing | Mapping[str, object]) -> BezierPoints:
+    """Return validated control points for a custom cubic-bezier easing."""
+    if isinstance(easing, CubicBezierEasing):
+        return easing.points
+    try:
+        return CubicBezierEasing.model_validate(easing).points
+    except PydanticValidationError as error:
+        raise ValidationError(f"invalid cubic_bezier easing: {error.errors()[0]['msg']}") from error
+
+
+def _dump_easing(easing: MotionEasing | None) -> str | dict[str, object] | None:
+    """Return an easing as a JSON-stable name or mapping."""
+    return easing.model_dump(mode="json") if isinstance(easing, CubicBezierEasing) else easing
+
+
+def validate_easing_name(name: EasingValue | None) -> str:
+    """Validate a supported deterministic easing name (or custom bezier).
+
+    Named easings are returned as-is; a custom `cubic_bezier` is validated and
+    reported as its type name. Use `easing_value` to evaluate either form.
+    """
     if name is None:
         return "linear"
-    if not isinstance(name, str) or name not in EASING_NAMES:
+    if not isinstance(name, str):
+        _bezier_points(name)
+        return "cubic_bezier"
+    if name not in EASING_NAMES:
         supported = ", ".join(sorted(EASING_NAMES))
         raise ValidationError(f"unknown easing {name!r}; expected one of: {supported}")
     return name
 
 
-def easing_value(name: str | None, progress: float) -> float:
+def easing_value(name: EasingValue | None, progress: float) -> float:
     """Return an eased progress for a finite normalized input."""
-    easing = validate_easing_name(name)
     if not math.isfinite(progress):
         raise ValidationError("easing progress must be finite")
     t = min(1.0, max(0.0, progress))
+    if name is not None and not isinstance(name, str):
+        # Validate once here rather than via `validate_easing_name` as well: this
+        # runs for every sampled frame of every track.
+        return _cubic_bezier(t, *_bezier_points(name))
+    easing = validate_easing_name(name)
     if easing == "linear":
         return t
     if easing == "ease":
@@ -333,6 +367,8 @@ class NormalizedKeyframe(BaseModel):
     out_tangent: tuple[float, float] | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
+    easing: MotionEasing | None = Field(default=None, exclude_if=lambda value: value is None)
+    hold: bool = Field(default=False, exclude_if=lambda value: not value)
 
 
 class NormalizedTrack(BaseModel):
@@ -971,7 +1007,7 @@ def _geometry_in_motion(
     if include_scale:
         properties.add("scale")
     moving: dict[str, bool] = {}
-    position_changes: dict[tuple[float, float, str], tuple[float, float]] = {}
+    position_changes: dict[tuple[float, float, object], tuple[float, float]] = {}
     path_position_moving = False
     for event in timeline.events:
         if time < event.active_start:
@@ -995,11 +1031,12 @@ def _geometry_in_motion(
                     changes = (
                         _segment_has_motion(left, right) if path else left.value != right.value
                     )
-                    if left.time <= sample_time < right.time and changes:
+                    if left.time <= sample_time < right.time and changes and not left.hold:
                         # At an interior knot stay affine if motion continues
                         # from the preceding interval, but preserve hold edges.
                         active = sample_time > left.time or (
                             index > 0
+                            and not track.keyframes[index - 1].hold
                             and (
                                 _segment_has_motion(track.keyframes[index - 1], left)
                                 if path
@@ -1008,7 +1045,12 @@ def _geometry_in_motion(
                         )
                         if path and active:
                             ratio = (sample_time - left.time) / (right.time - left.time)
-                            distance = easing_value(event.options.get("easing"), max(1e-7, ratio))
+                            distance = easing_value(
+                                left.easing
+                                if left.easing is not None
+                                else event.options.get("easing"),
+                                max(1e-7, ratio),
+                            )
                             active = 0 < distance < 1
                         segment = (left, right)
                         break
@@ -1025,10 +1067,15 @@ def _geometry_in_motion(
                 if active and segment is not None:
                     left, right = segment
                     assert isinstance(left.value, tuple) and isinstance(right.value, tuple)
+                    clock_easing = (
+                        left.easing if left.easing is not None else event.options.get("easing")
+                    )
                     basis = (
                         round(event.active_start + left.time, 9),
                         round(event.active_start + right.time, 9),
-                        event.options.get("easing") or "linear",
+                        (clock_easing or "linear")
+                        if isinstance(clock_easing, (str, type(None)))
+                        else _bezier_points(clock_easing),
                     )
                     x, y = position_changes.get(basis, (0.0, 0.0))
                     position_changes[basis] = (
@@ -1125,7 +1172,7 @@ def _compile_spec(spec: AnimationSpec, composition: _CompositionCursor) -> Timel
     if effect is not None:
         tracks = _compile_preset_tracks(effect.type, options, duration)
     if spec.easing is not None:
-        options["easing"] = spec.easing
+        options["easing"] = _dump_easing(spec.easing)
     elif effect is not None:
         options["easing"] = _preset_easing(options)
     validate_easing_name(options.get("easing"))
@@ -1276,6 +1323,8 @@ def _normalize_track(track: TrackSpec) -> NormalizedTrack:
                 value=_normalize_value(keyframe),
                 in_tangent=getattr(keyframe, "in_tangent", None),
                 out_tangent=getattr(keyframe, "out_tangent", None),
+                easing=keyframe.easing,
+                hold=keyframe.hold,
             )
             for keyframe in track.keyframes
         ),
@@ -1378,7 +1427,7 @@ def _compose_track_value(
 
 
 def _sample_track(
-    track: NormalizedTrack, progress: float, duration: float, easing: str | None = None
+    track: NormalizedTrack, progress: float, duration: float, easing: EasingValue | None = None
 ) -> MotionValue:
     """Sample a local track at normalized event progress."""
     local_time = progress * duration
@@ -1390,8 +1439,12 @@ def _sample_track(
         return track.keyframes[-1].value
     for left, right in zip(track.keyframes, track.keyframes[1:], strict=True):
         if local_time <= right.time:
+            if left.hold:
+                # A hold steps to the next value only once the next keyframe is
+                # reached, so the boundary itself already shows the new value.
+                return right.value if local_time == right.time else left.value
             ratio = (local_time - left.time) / (right.time - left.time)
-            eased_ratio = easing_value(easing, ratio)
+            eased_ratio = easing_value(left.easing if left.easing is not None else easing, ratio)
             if track.property in {"opacity", "clip_progress", "color", "image_pan", "image_zoom"}:
                 eased_ratio = min(1.0, max(0.0, eased_ratio))
             if track.property == "color":
@@ -1401,7 +1454,7 @@ def _sample_track(
 
 
 def _sample_path_track(
-    track: NormalizedTrack, local_time: float, easing: str | None
+    track: NormalizedTrack, local_time: float, easing: EasingValue | None
 ) -> tuple[tuple[float, float], float | None]:
     """Sample each authored interval by distance, keeping exact knots and holds."""
     keys = track.keyframes
@@ -1433,7 +1486,12 @@ def _sample_path_track(
             progress,
         )
 
-    point, heading = segment(index, easing_value(easing, ratio))
+    distance = (
+        (1.0 if ratio == 1.0 else 0.0)
+        if left.hold
+        else easing_value(left.easing if left.easing is not None else easing, ratio)
+    )
+    point, heading = segment(index, distance)
     if heading is None and track.auto_orient:
         # Retain the last available arrival direction over stationary holds;
         # at the beginning use the next departure direction. Seeking is pure.
@@ -2183,6 +2241,8 @@ def _inspection_event(
                         value=keyframe.value,
                         in_tangent=keyframe.in_tangent,
                         out_tangent=keyframe.out_tangent,
+                        easing=keyframe.easing,
+                        hold=keyframe.hold,
                     )
                     for keyframe in track.keyframes
                 ],
