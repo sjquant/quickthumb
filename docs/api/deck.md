@@ -169,7 +169,7 @@ size (2–256 when supplied). Existing positional parameters remain unchanged.
 These controls also apply to `.to_mp4()`. Use `.to_narrated_mp4()` for static
 narrated slides. File options and byte methods both use `hold`. Animated video requires a positive
 default hold whenever a slide has neither narration nor an explicit duration;
-zero is still valid for Deck GIF and silent PNG sequences. Deck GIF ignores
+zero is still valid for Deck GIF and silent image sequences. Deck GIF ignores
 per-slide narration and explicit durations.
 
 The keyword-only `transparent` flag on `.to_webm()` and `.to_mov()` skips only the export matte;
@@ -184,16 +184,19 @@ The RGBA source remains 8-bit; 16-bit alpha coding can decode with one-level
 and encoder requirements. `render()` and `export()` accept `.mov` with
 `VideoOptions` for both opaque and transparent output.
 
-### `.export_png_sequence(output_directory, *, options=None, policy=None)`
+### `.export_image_sequence(output_directory, *, format="png", quality=None, matte=None, lossless=None, options=None, policy=None)`
 
-Write the animated Deck timeline as silent RGBA8 straight-alpha PNG frames and
-`manifest.json`. The destination must be new and its parent must exist.
-`PngSequenceOptions(fps=30, hold=3, workers=1, render_quality="standard")` controls
-the export; explicit slide/narration timing, transitions, Morph, policies and
-worker restrictions retain their existing meaning. No audio is encoded.
-`PngSequenceResult` reports the actual frame count and `duration=frame_count/fps`,
-without listing every frame. See [PNG sequences](../exports.md#png-image-sequences)
-for exact pixels, metadata, and no-overwrite publication behavior.
+Write the animated timeline as independent PNG (default), JPEG or WebP files
+plus `manifest.json` into a new directory under an existing parent.
+`ImageSequenceOptions(fps=30, hold=3, workers=1, render_quality="standard")`
+controls timing/compositing; method keywords select image encoding. JPEG
+uses RGB on an opaque matte (white by default), with `quality=1..95`.
+WebP preserves alpha and accepts `lossless=True`; lossy WebP accepts quality.
+PNG and lossless WebP preserve the renderer's exact RGBA8 pixels. Opaque WebP
+files may decode as RGB; manifest mode describes logical RGBA decoding.
+The receipt reports actual frame count, timing, encoding and destination.
+See [image sequences](../exports.md#image-sequences) for validation, per-format
+metadata and atomic no-overwrite publication.
 
 ### `.render_narrated_mp4(...)`
 

@@ -124,11 +124,11 @@ to keep the animation compatible with the approximate HTML path mapping.
 
 ## Assets and Fonts
 
-`png_sequence_overlay.py` exports a transparent lower third as a silent PNG
-animation sequence. It needs no FFmpeg, uses the bundled font, and demonstrates
-`PngSequenceOptions`, exact RGBA8 alpha, and the compact manifest/result. Each
-run requires a fresh `examples/output/png_sequence_overlay` directory; existing
-outputs are never overwritten.
+`image_sequence_overlay.py` exports a lower third as silent PNG, white-matted
+JPEG and lossless WebP image sequences using `ImageSequenceOptions`. It needs
+no FFmpeg and uses the bundled font. Each format gets a fresh
+`examples/output/image_sequence_overlay_<format>` directory containing
+independent frames and a manifest; existing outputs are never overwritten.
 
 The example scripts set:
 
