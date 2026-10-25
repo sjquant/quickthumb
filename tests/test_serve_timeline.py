@@ -116,13 +116,26 @@ def test_full_timeline_http_matches_canonical_sampling_in_reverse_order(tmp_path
         # The served presentation exposes authoring views and static-motion notes.
         with urlopen(base + "/", timeout=10) as response:
             presentation = response.read().decode()
-        assert 'href="/timeline"' in presentation and 'href="/?presenter"' in presentation
-        assert "color motion" in presentation and "(static)" in presentation
-        assert "qt-preview-tools" not in document.to_html()
+        assert 'id="qt-mode-inspect"' in presentation and 'href="/?presenter"' in presentation
+        assert '"static_motion": true' in presentation
+        assert "Color tracks use a still layer" in presentation
+        assert 'id="qt-presentation"' not in document.to_html()
+        with urlopen(base + "/?__quickthumb_embed=1", timeout=10) as response:
+            embedded = response.read().decode()
+        assert '<body data-qt-serve-preview="true"' in embedded
+        with urlopen(
+            base
+            + "/__quickthumb_thumbnail?"
+            + urlencode({"slide": 0, "version": source.version()}),
+            timeout=10,
+        ) as response:
+            thumbnail = Image.open(BytesIO(response.read())).convert("RGBA")
+        assert thumbnail.size == (first.width, first.height)
+        assert thumbnail.getpixel((0, 0)) == (17, 34, 51, 255)
         with urlopen(base + "/timeline", timeout=10) as response:
             inspector = response.read().decode()
-        assert "no playback, audio or editing" in inspector
-        assert "does not move the presentation" in inspector
+        assert "no playback, audio or editing" in inspector.lower()
+        assert "independent of presenter" in inspector
         metadata = get_json(base)
         assert metadata["segments"] == [part.model_dump() for part in expected.timeline]
         assert metadata["duration"] == expected.duration

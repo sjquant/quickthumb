@@ -335,14 +335,16 @@ quickthumb serve deck.json --timeline --no-open
 The timeline is also available at `http://localhost:3030/timeline` alongside
 an ordinary `serve` session. The default remains the HTML presentation, including
 slide navigation, click-triggered animations and synchronized presenter controls.
-The local preview menu links Presentation, Presenter and Motion inspection.
-Motion notes show the conservative HTML export capability report; unsupported
-motion may be static, rasterized or approximated. These notes and navigation are
-local authoring controls and are not added to exported HTML.
+Presentation and Inspect motion share the same slide selection and thumbnail
+navigation. Presentation keeps the slide central at its original aspect ratio;
+Inspect motion opens a frame-scrubbing panel below it. Presenter opens the
+synchronized speaker view, while Present opens the HTML slide fullscreen.
+Motion notes explain when HTML output is static or approximated. These controls
+are local authoring tools and are not added to exported HTML.
 Standalone HTML has no source document to sample; use its Python or JSON source
 for the timeline instead.
 
-The inspection page shows raster frames without playback, audio or editing.
+Inspection shows export-renderer frames without playback, audio or editing.
 Its seek position is independent of presenter/audience synchronization.
 
 - Drag the time slider, enter seconds, or click a slide/transition/motion boundary
