@@ -1,7 +1,7 @@
 # quickthumb examples
 
-Runnable scripts that use the current quickthumb API. Each one writes its
-output next to itself in this folder. The [cookbook](https://quickthumb.solaqua.dev/cookbook/)
+Runnable scripts that use the current quickthumb API. Outputs are written in
+this folder or the `output/` subdirectory noted below. The [cookbook](https://quickthumb.solaqua.dev/cookbook/)
 shows the thumbnail examples with their images.
 
 Run them from the repository root:

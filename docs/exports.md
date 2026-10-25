@@ -570,7 +570,6 @@ slide images and decoder caches, in addition to its in-flight RGB frame.
 Normal completion and errors wait for running jobs to finish and close their
 decoders. Pending jobs are canceled on failure; abruptly terminated workers
 are reported as rendering errors. An OS-level kill cannot run normal cleanup.
-Deck MP4 without `VideoOptions` remains the separate static narration workflow.
 
 ### Narrated deck video
 
@@ -586,7 +585,7 @@ A deck can be exported as a video with a voice-over per slide:
 - To play animations and transitions as well, pass
   `animation=VideoOptions(...)`. A background music track can be added with
   `soundtrack=AudioTrack(path="music.mp3", volume=0.16, loop=True)`, and
-  quickthumb mixes it with the slide narration for you. `deck.to_animated_mp4()`
+  quickthumb mixes it with the slide narration for you. `deck.to_animated_mp4()`,
   `deck.to_webm()`, and `deck.to_mov()` do the same and return bytes.
 
 ### Timing
