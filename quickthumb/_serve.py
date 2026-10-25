@@ -11,6 +11,7 @@ import threading
 import webbrowser
 from dataclasses import dataclass
 from functools import cache
+from html import escape
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from importlib import invalidate_caches
 from importlib.resources import files
@@ -229,6 +230,13 @@ class SlideSource:
                     self._cached_html = html
                 if not presenter:
                     html = _without_speaker_notes(html)
+                elif isinstance(self._cached_source, Deck):
+                    html = re.sub(
+                        r"<body(?=[\s>])",
+                        lambda _: f'<body data-qt-source-name="{escape(self.path.name)}"',
+                        html,
+                        count=1,
+                    )
                 if embedded:
                     html = re.sub(
                         r"<body(?=[\s>])", '<body data-qt-serve-preview="true"', html, count=1
@@ -311,7 +319,10 @@ class SlideSource:
                 html = _serve_template("serve_preview.html").render(
                     source_name=self.path.name,
                     config=config,
-                    css=files("quickthumb.html").joinpath("serve_preview.css").read_text(),
+                    css="\n".join(
+                        files("quickthumb.html").joinpath(name).read_text()
+                        for name in ("authoring_theme.css", "serve_preview.css")
+                    ),
                     runtime=files("quickthumb.html").joinpath("serve_preview.js").read_text(),
                 )
                 return RenderedSource(html=html, version=version)

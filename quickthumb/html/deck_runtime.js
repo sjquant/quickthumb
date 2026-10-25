@@ -75,12 +75,25 @@
     var shell=document.createElement('main');shell.className='qt-presenter-shell';
     shell.setAttribute('aria-label','Presenter view');
     shell.innerHTML=
-      '<section class="qt-presenter-main">'+
-        '<div class="qt-presenter-status">'+
-          '<div class="qt-presenter-status-meta">'+
-            '<span class="qt-presenter-status-kicker">Presentation</span>'+
-            '<span data-qt-progress></span>'+
-          '</div>'+
+      '<header class="qt-presenter-topbar">'+
+        '<span class="qt-presenter-brand"><span aria-hidden="true">Q</span>Quickthumb</span>'+
+        '<span class="qt-presenter-document"></span><span class="qt-presenter-mode">Presenter view</span>'+
+        '<a class="qt-presenter-audience" target="_blank" rel="noopener" '+
+          'data-qt-audience data-qt-presenter-control>Open audience view ↗</a>'+
+      '</header>'+
+      '<section class="qt-presenter-main" aria-label="Current slide and notes">'+
+        '<h1 class="qt-presenter-heading">Current slide</h1>'+
+        '<div class="qt-presenter-current"></div>'+
+        '<h2 class="qt-presenter-heading qt-presenter-notes-label">Speaker notes</h2>'+
+        '<div class="qt-presenter-notes" aria-live="polite"></div>'+
+      '</section>'+
+      '<aside class="qt-presenter-sidebar">'+
+        '<section class="qt-presenter-up-next" aria-label="Next slide">'+
+          '<h2 class="qt-presenter-heading"><span>Next slide</span><span data-qt-next></span></h2>'+
+          '<div class="qt-presenter-next"></div>'+
+        '</section>'+
+        '<section class="qt-presenter-clock" aria-label="Elapsed time">'+
+          '<h2 class="qt-presenter-heading">Elapsed</h2>'+
           '<div class="qt-presenter-timer-group">'+
             '<button class="qt-presenter-timer" type="button" data-qt-timer-toggle '+
             'data-qt-presenter-control aria-pressed="true" data-running="true">'+
@@ -95,23 +108,16 @@
               '<path d="M20 11a8 8 0 0 0-14.9-4L3 9m0 0V4m0 5h5M4 13a8 8 0 0 0 14.9 4L21 15m0 0v5m0-5h-5"/>'+
               '</svg></button>'+
           '</div>'+
-        '</div>'+
-        '<div class="qt-presenter-current"></div>'+
-      '</section>'+
-      '<aside class="qt-presenter-sidebar">'+
-        '<header class="qt-presenter-heading qt-presenter-next-label"><span>Next slide</span><span data-qt-next></span></header>'+
-        '<div class="qt-presenter-next"></div>'+
-        '<div class="qt-presenter-heading qt-presenter-notes-label"><span>Speaker notes</span></div>'+
-        '<div class="qt-presenter-notes" aria-live="polite"></div>'+
-        '<nav class="qt-presenter-controls" aria-label="Slide controls">'+
-            '<button class="qt-presenter-control" type="button" data-qt-previous '+
-            'data-qt-presenter-control>Previous</button>'+
-            '<button class="qt-presenter-control" type="button" data-qt-forward '+
-            'data-qt-presenter-control>Next</button>'+
-            '<a class="qt-presenter-audience" target="_blank" rel="noopener" '+
-            'data-qt-audience data-qt-presenter-control>Open audience view</a>'+
-        '</nav>'+
-      '</aside>';
+        '</section>'+
+      '</aside>'+
+      '<nav class="qt-presenter-controls" aria-label="Slide controls">'+
+        '<button class="qt-presenter-control" type="button" data-qt-previous '+
+          'data-qt-presenter-control>← Previous</button><span data-qt-progress></span>'+
+        '<button class="qt-presenter-control qt-presenter-forward" type="button" data-qt-forward '+
+          'data-qt-presenter-control>Next →</button>'+
+      '</nav>';
+    shell.querySelector('.qt-presenter-document').textContent=
+      document.body.getAttribute('data-qt-source-name')||'';
     document.body.appendChild(shell);
     shell.querySelector('.qt-presenter-current').appendChild(frame);
     var ui={

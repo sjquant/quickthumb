@@ -317,8 +317,9 @@ The audience view is `/`. Presenter mode is selected by the `?presenter` query:
 http://localhost:3030/?presenter
 ```
 
-Presenter mode shows the current slide, next-slide preview, speaker notes,
-and a pause/resume/reset presentation timer. Its navigation and per-slide animation progress
+Presenter mode uses the same light theme as the preview: current slide and notes
+on the left, next slide and pause/resume/reset timer on the right, and simple
+navigation below. Slide previews retain their original proportions. Its navigation and per-slide animation progress
 are broadcast to audience tabs opened from the same server and restored on
 reload. Audience-only navigation remains local. Add notes in Python with
 `.slide(canvas, notes="...")` or as a `notes` string on a JSON slide.

@@ -1521,7 +1521,7 @@ def _document(
                 stage.transition_exit = f"{name} {timing}"
     css = _html_resource(_base_css_resource(responsive, deck))
     if deck:
-        css += _html_resource("presenter.css")
+        css += _html_resource("authoring_theme.css") + _html_resource("presenter.css")
     css += font_face_declarations(font_faces) + "".join(keyframes)
     runtime = _runtime_js(responsive=responsive, deck=deck)
     filters = "".join((svg_filters or {}).values())
