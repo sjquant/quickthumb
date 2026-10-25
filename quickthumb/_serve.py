@@ -72,7 +72,9 @@ def serve_slides(
 
     print(f"Serving {slide_source.path} at {url}", flush=True)
     print(f"Presenter mode: {url}/?presenter", flush=True)
-    print(f"Timeline preview: {url}{_TIMELINE_PATH}", flush=True)
+    print(
+        f"Motion inspection (raster frames, no playback/audio): {url}{_TIMELINE_PATH}", flush=True
+    )
     if open_browser:
         browser_url = url + _TIMELINE_PATH if timeline else url
         threading.Timer(0.05, webbrowser.open, args=(browser_url,)).start()
@@ -205,7 +207,9 @@ class SlideSource:
         """Render the latest source contents to a standalone HTML document."""
         return self.render_with_version(presenter=presenter).html
 
-    def render_with_version(self, *, presenter: bool = True) -> RenderedSource:
+    def render_with_version(
+        self, *, presenter: bool = True, preview_tools: bool = False
+    ) -> RenderedSource:
         """Render source HTML and return the matching source version atomically."""
         with self._render_lock:
             while True:
@@ -221,6 +225,28 @@ class SlideSource:
                     self._cached_html = html
                 if not presenter:
                     html = _without_speaker_notes(html)
+                if preview_tools:
+                    document = self._cached_source
+                    notes = (
+                        [
+                            item
+                            for item in document.validate_export("html")
+                            if item.fallback is not None or item.support not in {"full", "native"}
+                        ]
+                        if isinstance(document, (Canvas, Deck))
+                        else []
+                    )
+                    notes = list({item.message: item for item in notes}.values())
+                    tools = _serve_template("serve_tools.html").render(
+                        presenter=presenter,
+                        timeline_available=isinstance(document, (Canvas, Deck)),
+                        notes=notes,
+                    )
+                    html = (
+                        html.replace("</body>", tools + "\n</body>", 1)
+                        if "</body>" in html
+                        else html + tools
+                    )
                 return RenderedSource(html=html, version=version)
 
     def invalidate(self) -> None:
@@ -439,7 +465,7 @@ def slide_request_handler(source: SlideSource) -> type[BaseHTTPRequestHandler]:
                     source.render_timeline()
                     if path == _TIMELINE_PATH
                     else source.render_with_version(
-                        presenter=_is_presenter_request(path, request.query)
+                        presenter=_is_presenter_request(path, request.query), preview_tools=True
                     )
                 )
                 html = _with_live_reload(rendered.html, rendered.version)

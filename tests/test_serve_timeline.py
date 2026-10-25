@@ -113,6 +113,16 @@ def test_full_timeline_http_matches_canonical_sampling_in_reverse_order(tmp_path
     times = [0, 0.25, 0.5, 1, 1.25, 1.5, 1.75, 2.75, 9]
     expected = document.sample(times)
     with running(source) as base:
+        # The served presentation exposes authoring views and static-motion notes.
+        with urlopen(base + "/", timeout=10) as response:
+            presentation = response.read().decode()
+        assert 'href="/timeline"' in presentation and 'href="/?presenter"' in presentation
+        assert "color motion" in presentation and "(static)" in presentation
+        assert "qt-preview-tools" not in document.to_html()
+        with urlopen(base + "/timeline", timeout=10) as response:
+            inspector = response.read().decode()
+        assert "no playback, audio or editing" in inspector
+        assert "does not move the presentation" in inspector
         metadata = get_json(base)
         assert metadata["segments"] == [part.model_dump() for part in expected.timeline]
         assert metadata["duration"] == expected.duration
@@ -587,5 +597,8 @@ def test_timeline_launch_opens_its_route_without_html_and_closes_source(
     monkeypatch.setattr(module.webbrowser, "open", opened.append)
     serve_slides(source.path, "127.0.0.1", 0, True, timeline=True)
     assert opened == ["http://localhost:43161/timeline"]
-    assert "Timeline preview: http://localhost:43161/timeline" in capsys.readouterr().out
+    assert (
+        "Motion inspection (raster frames, no playback/audio): http://localhost:43161/timeline"
+        in capsys.readouterr().out
+    )
     assert source._closed and source._timeline is None

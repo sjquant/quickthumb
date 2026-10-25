@@ -41,7 +41,8 @@
 </head>
 <body>
 <main>
-  <header><div><div class="eyebrow">quickthumb / timeline preview</div><h1>{{ source_name }}</h1></div><a href="/">Open slideshow</a></header>
+  <header><div><div class="eyebrow">quickthumb / motion inspection</div><h1>{{ source_name }}</h1></div><nav aria-label="Preview views"><a href="/">Presentation</a> · <a href="/?presenter">Presenter</a></nav></header>
+  <p>Raster frame inspection only: no playback, audio or editing. Seeking here does not move the presentation or presenter view. HTML presentation may simplify motion.</p>
   <div class="stage" aria-busy="true" id="qt-stage"><img id="qt-frame" alt="Sampled timeline frame"></div>
   <div class="summary"><span id="qt-displayed">No frame displayed yet</span><span id="qt-status" role="status" aria-live="polite">Loading timeline…</span></div>
   <section class="panel" aria-label="Timeline controls">

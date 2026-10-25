@@ -333,9 +333,17 @@ quickthumb serve deck.json --timeline --no-open
 ```
 
 The timeline is also available at `http://localhost:3030/timeline` alongside
-an ordinary `serve` session. The default audience and presenter views are unchanged.
+an ordinary `serve` session. The default remains the HTML presentation, including
+slide navigation, click-triggered animations and synchronized presenter controls.
+The local preview menu links Presentation, Presenter and Motion inspection.
+Motion notes show the conservative HTML export capability report; unsupported
+motion may be static, rasterized or approximated. These notes and navigation are
+local authoring controls and are not added to exported HTML.
 Standalone HTML has no source document to sample; use its Python or JSON source
 for the timeline instead.
+
+The inspection page shows raster frames without playback, audio or editing.
+Its seek position is independent of presenter/audience synchronization.
 
 - Drag the time slider, enter seconds, or click a slide/transition/motion boundary
 - **Proxy** limits the output's longest edge to 640 pixels (1080×1920 becomes
