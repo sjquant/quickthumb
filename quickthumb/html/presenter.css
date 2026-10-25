@@ -3,7 +3,6 @@ body.qt-presenter{background:var(--qt-ui-background);color:var(--qt-ui-text);ove
 .qt-presenter-shell>*,.qt-presenter-current,.qt-presenter-next,.qt-presenter-notes,.qt-presenter-clock,.qt-presenter-control,.qt-presenter-audience,.qt-presenter-timer-reset{box-sizing:border-box}
 .qt-presenter-topbar{grid-column:1/-1;display:flex;align-items:center;gap:18px;padding:12px 22px;border-bottom:1px solid var(--qt-ui-line);background:var(--qt-ui-surface);min-width:0}
 .qt-presenter-brand{display:flex;align-items:center;gap:9px;font-weight:650;white-space:nowrap}
-.qt-presenter-brand>span{display:grid;place-items:center;width:24px;height:24px;border-radius:5px;background:#1d292d;color:#92e3dc;font-weight:750}
 .qt-presenter-document{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:240px;padding-left:18px;border-left:1px solid var(--qt-ui-line)}
 .qt-presenter-document:empty{display:none}
 .qt-presenter-mode{padding:6px 12px;border-radius:5px;background:var(--qt-ui-selected);color:#005e59;font-size:12px;white-space:nowrap}

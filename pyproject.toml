@@ -94,6 +94,7 @@ artifacts = [
     "quickthumb/html/*.css",
     "quickthumb/html/*.html",
     "quickthumb/html/*.js",
+    "quickthumb/html/*.png",
 ]
 
 [tool.uv]

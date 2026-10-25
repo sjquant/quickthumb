@@ -10,7 +10,6 @@ a { color:inherit; text-decoration:none; }
 :focus-visible { outline:2px solid var(--qt-ui-accent); outline-offset:3px; }
 .topbar { display:flex; align-items:center; gap:18px; min-height:68px; padding:12px 22px; border-bottom:1px solid var(--qt-ui-line); background:var(--qt-ui-surface); flex-shrink:0; }
 .brand { display:flex; align-items:center; gap:9px; font-weight:650; }
-.brand-mark { background:#1d292d; color:#92e3dc; width:24px; height:24px; display:grid; place-items:center; border-radius:5px; font-weight:750; }
 .document-name { padding-left:18px; border-left:1px solid var(--qt-ui-line); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:210px; }
 .live-state { display:flex; align-items:center; gap:7px; white-space:nowrap; font-size:12px; }
 .live-state i { width:7px; height:7px; border-radius:50%; background:#26b67a; }

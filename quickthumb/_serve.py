@@ -286,6 +286,8 @@ class SlideSource:
 
     def render_preview(self, *, inspect_motion: bool = False) -> RenderedSource:
         """Render the shared authoring shell without preparing animation frames."""
+        from quickthumb._export_html import _authoring_css
+
         with self._render_lock:
             while True:
                 version = self.version()
@@ -319,10 +321,8 @@ class SlideSource:
                 html = _serve_template("serve_preview.html").render(
                     source_name=self.path.name,
                     config=config,
-                    css="\n".join(
-                        files("quickthumb.html").joinpath(name).read_text()
-                        for name in ("authoring_theme.css", "serve_preview.css")
-                    ),
+                    css=_authoring_css()
+                    + files("quickthumb.html").joinpath("serve_preview.css").read_text(),
                     runtime=files("quickthumb.html").joinpath("serve_preview.js").read_text(),
                 )
                 return RenderedSource(html=html, version=version)

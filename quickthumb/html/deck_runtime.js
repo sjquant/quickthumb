@@ -76,7 +76,7 @@
     shell.setAttribute('aria-label','Presenter view');
     shell.innerHTML=
       '<header class="qt-presenter-topbar">'+
-        '<span class="qt-presenter-brand"><span aria-hidden="true">Q</span>Quickthumb</span>'+
+        '<span class="qt-presenter-brand"><span class="qt-ui-logo" aria-hidden="true"></span>Quickthumb</span>'+
         '<span class="qt-presenter-document"></span><span class="qt-presenter-mode">Presenter view</span>'+
         '<a class="qt-presenter-audience" target="_blank" rel="noopener" '+
           'data-qt-audience data-qt-presenter-control>Open audience view ↗</a>'+
