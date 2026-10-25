@@ -128,7 +128,10 @@ def _lower_canonical(spec: MotionSpec) -> Animation | None:
     if effect is None:
         return None
     timing = spec.timing or TimingSpec()
-    shared: dict = {"duration": timing.duration, "easing": effect.easing or "ease"}
+    shared: dict = {
+        "duration": timing.duration,
+        "easing": effect.easing if isinstance(effect.easing, str) else "ease",
+    }
     if timing.start is not None:
         shared["start"] = timing.start
     else:
