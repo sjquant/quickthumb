@@ -7,6 +7,7 @@ import hashlib
 import io
 import json
 import threading
+import time
 import xml.etree.ElementTree as ET
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -645,3 +646,177 @@ def test_prefetched_font_and_private_plugin_keep_shared_export_evidence(
     assert actual.size == (4, 4)
     assert actual.tobytes() == reference.frames[0].to_image().crop((100, 40, 104, 44)).tobytes()
     assert sorted(requests) == ["/asset.png", "/font.ttf"]
+
+
+@pytest.mark.parametrize("kind", ["canvas", "deck"])
+def test_combined_resources_refresh_only_for_new_expired_documents(
+    tmp_path, monkeypatch, local_assets, resource_clock, kind
+):
+    """Existing font/plugin bytes stay pinned while new documents observe cache refreshes."""
+    # Given: a controlled resource server and sixty-second public cache policy
+    base_url, requests, _server, payloads = local_assets
+    monkeypatch.setenv("QUICKTHUMB_ASSET_CACHE_DIR", str(tmp_path / "assets"))
+    monkeypatch.setenv("QUICKTHUMB_ASSET_MAX_AGE", "60")
+    original = combined_resources(base_url, kind)
+    first = original.prefetch_assets().asset_manifest
+    before = original.sample()
+    assert {row.status for row in first} == {"network"}
+
+    # When: another document uses fresh cache, then expiry admits changed font and texture bytes
+    fresh = combined_resources(base_url, kind)
+    cached = fresh.prefetch_assets().asset_manifest
+    assert {row.status for row in cached} == {"fresh"}
+    assert [row.content_hash for row in cached] == [row.content_hash for row in first]
+    assert fresh.sample().frames[0].sha256 == before.frames[0].sha256
+    assert sorted(requests) == ["/asset.png", "/font.ttf"]
+    payloads["/font.ttf"] = Path("assets/fonts/Roboto-Bold.ttf").read_bytes()
+    buffer = io.BytesIO()
+    Image.new("RGBA", (4, 4), (210, 60, 90, 255)).save(buffer, format="PNG")
+    payloads["/asset.png"] = buffer.getvalue()
+    resource_clock[0] += 61
+    refreshed = combined_resources(base_url, kind)
+    updated = refreshed.prefetch_assets().asset_manifest
+    after = refreshed.sample()
+    result = refreshed.export(tmp_path / "refreshed.png")
+    retained = original.export(tmp_path / "retained.png")
+
+    # Then: actual pixels, font identities and manifests track their own resolution lifetime
+    assert {row.status for row in updated} == {"network"}
+    assert all(row.stale_reason is None for row in updated)
+    assert all(new.fetched_at > old.fetched_at for old, new in zip(first, updated, strict=True))
+    assert [(row.asset_type, row.content_hash) for row in updated] == [
+        ("font", hashlib.sha256(payloads["/font.ttf"]).hexdigest()),
+        ("plugin", hashlib.sha256(payloads["/asset.png"]).hexdigest()),
+    ]
+    assert after.frames[0].sha256 != before.frames[0].sha256
+    assert after.frames[0].to_image().getpixel((100, 40)) == (210, 60, 90, 255)
+    assert result.environment.fonts == after.environment.fonts
+    assert [row.sha256 for row in result.environment.fonts] == [updated[0].content_hash]
+    assert [row.sha256 for row in retained.environment.fonts] == [first[0].content_hash]
+    assert result.asset_manifest == updated and retained.asset_manifest == first
+    assert (
+        Image.open(result.written_paths[0]).convert("RGBA").tobytes() == after.frames[0].to_bytes()
+    )
+    assert (
+        Image.open(retained.written_paths[0]).convert("RGBA").tobytes()
+        == before.frames[0].to_bytes()
+    )
+    assert sorted(requests) == ["/asset.png", "/asset.png", "/font.ttf", "/font.ttf"]
+
+
+@pytest.mark.parametrize("kind", ["canvas", "deck"])
+def test_combined_offline_stale_evidence_precedes_optional_rendering(
+    tmp_path, monkeypatch, local_assets, resource_clock, kind
+):
+    """Stale resources are reported before output and offline rendering reuses exact bytes."""
+    # Given: cached font and texture bytes expire while the document is offline
+    base_url, requests, _server, payloads = local_assets
+    cache = tmp_path / "assets"
+    monkeypatch.setenv("QUICKTHUMB_ASSET_CACHE_DIR", str(cache))
+    monkeypatch.setenv("QUICKTHUMB_ASSET_MAX_AGE", "60")
+    seed = combined_resources(base_url, kind)
+    primed = seed.prefetch_assets().asset_manifest
+    reference = seed.sample()
+    resource_clock[0] += 61
+    monkeypatch.setenv("QUICKTHUMB_ASSET_OFFLINE", "1")
+    payloads.clear()
+    calls = []
+    document = combined_resources(base_url, kind, calls=calls)
+    destination = tmp_path / ("offline.png" if kind == "canvas" else "offline_01.png")
+    destination.write_bytes(b"existing")
+
+    # When: prefetch exposes stale entries without invoking the plugin or writing output
+    entries = document.prefetch_assets().asset_manifest
+    assert calls == [] and destination.read_bytes() == b"existing"
+    assert {row.status for row in entries} == {"stale"}
+    assert [(row.asset_type, row.source) for row in entries] == [
+        ("font", f"{base_url}/font.ttf"),
+        ("plugin", f"{base_url}/asset.png"),
+    ]
+    assert [row.content_hash for row in entries] == [row.content_hash for row in primed]
+    assert [row.fetched_at for row in entries] == [row.fetched_at for row in primed]
+    assert all(
+        "older than max_age 60s" in (row.stale_reason or "")
+        and "offline mode" in (row.stale_reason or "")
+        for row in entries
+    )
+
+    # Then: a caller choosing to proceed gets the original pixels and actual font hash
+    capture = document.sample()
+    result = document.export(tmp_path / "offline.png")
+    assert calls and result.asset_manifest == entries
+    assert capture.frames[0].sha256 == reference.frames[0].sha256
+    assert Image.open(destination).convert("RGBA").tobytes() == reference.frames[0].to_bytes()
+    assert result.environment.fonts == capture.environment.fonts == reference.environment.fonts
+    assert [row.sha256 for row in result.environment.fonts] == [primed[0].content_hash]
+    assert sorted(requests) == ["/asset.png", "/font.ttf"]
+
+
+@pytest.mark.parametrize("resource", ["font", "texture"])
+def test_combined_cold_offline_failure_identifies_later_slide_resource(
+    tmp_path, monkeypatch, local_assets, resource
+):
+    """A cold offline font or plugin dependency identifies its Deck path before output changes."""
+    # Given: a later slide needs an uncached URL and no network request is allowed
+    base_url, requests, _server, _payloads = local_assets
+    cache = tmp_path / "empty-cache"
+    monkeypatch.setenv("QUICKTHUMB_ASSET_CACHE_DIR", str(cache))
+    monkeypatch.setenv("QUICKTHUMB_ASSET_OFFLINE", "1")
+    calls = []
+    canvas = combined_resources(
+        base_url,
+        "canvas",
+        font="assets/fonts/Roboto-Regular.ttf" if resource == "texture" else None,
+        calls=calls,
+    )
+    document = Deck(slides=[Canvas(160, 80), canvas])
+    destination = tmp_path / "cold_01.png"
+    destination.write_bytes(b"existing")
+
+    # When: public prefetch checks the later slide before the caller starts an export
+    with pytest.raises(RenderingError, match="offline mode") as caught:
+        document.prefetch_assets()
+
+    # Then: diagnostics identify the exact resource and keep the caller's first file intact
+    [detail] = caught.value.details
+    expected = "/slides/1" if resource == "font" else "/slides/1/layers/1/assets/texture"
+    assert detail.path == expected
+    assert detail.layer_id == (None if resource == "font" else "plugin")
+    assert f"{base_url}/{'font.ttf' if resource == 'font' else 'asset.png'}" in str(caught.value)
+    assert str(cache) in str(caught.value)
+    assert destination.read_bytes() == b"existing" and not (tmp_path / "cold_02.png").exists()
+    assert not calls and not requests
+
+
+def combined_resources(base_url, kind, *, font=None, calls=None):
+    registry = PluginRegistry()
+
+    def pixels(params, context):
+        if calls is not None:
+            calls.append(context.size)
+        with Image.open(io.BytesIO(context.read_asset("texture"))) as image:
+            return image.convert("RGBA").tobytes()
+
+    registry.register("texture", "1", raster=pixels)
+    canvas = (
+        Canvas(160, 80, registry=registry)
+        .text("Pinned", font=font or f"{base_url}/font.ttf", size=24, position=(0, 0), id="text")
+        .plugin(
+            "texture",
+            version="1",
+            params={},
+            position=(100, 40),
+            width=4,
+            height=4,
+            assets={"texture": f"{base_url}/asset.png"},
+            id="plugin",
+        )
+    )
+    return canvas if kind == "canvas" else Deck(slides=[canvas])
+
+
+@pytest.fixture
+def resource_clock(monkeypatch):
+    clock = [1_700_000_000.0]
+    monkeypatch.setattr(time, "time", lambda: clock[0])
+    return clock

@@ -860,6 +860,39 @@ if stale:
     raise SystemExit(f"stale assets: {[(e.source, e.stale_reason) for e in stale]}")
 ```
 
+### Asset and plugin lifecycle fixtures
+
+The shared font/texture scenarios in `tests/test_asset_cache.py` use a private
+plugin registry, a repository TTF and generated image bytes served by a temporary
+localhost HTTP server. They exercise public Canvas/Deck operations and cache
+environment settings. A controlled standard clock advances expiry without
+sleeping or editing cache files or metadata. No public network service or
+platform-specific pixel snapshot is required.
+
+| Scenario | Observable evidence | Regression check |
+| --- | --- | --- |
+| Network → fresh new document → expired refresh | Resolution status, fetched time, changed content hashes, actual font identity and decoded PNG pixels; original documents retain their resolved bytes | `test_combined_resources_refresh_only_for_new_expired_documents` (`canvas`, `deck`) |
+| Expired cache while offline | Both resources report `stale` with source, hash, fetch time and offline/max-age reason before plugin execution or output; a caller proceeding gets the original RGBA/font bytes without requests | `test_combined_offline_stale_evidence_precedes_optional_rendering` (`canvas`, `deck`) |
+| Cold offline font or plugin texture | Public prefetch identifies the later slide, source URL and cache directory; plugin texture errors also identify the layer/asset path. No callback or file write occurs | `test_combined_cold_offline_failure_identifies_later_slide_resource` (`font`, `texture`) |
+| Prefetched resources across raster and native document output | Canvas/Deck raster agreement, actual font SHA, asset manifest, native SVG text and exact plugin PNG fallback | `test_prefetched_font_and_private_plugin_keep_shared_export_evidence` |
+| Missing declared plugin dependency | Escaped JSON Pointer, layer identity and prewrite failure | `test_plugin_declared_missing_assets_fail_before_output_or_callback` |
+| Plugin native match, tolerated difference, mismatch or unsupported target | Actual local SVG comparison and adopted native/PNG representation; explained fallback and strict rejection | `tests/test_plugin_svg.py`, `test_plugin_document_fallback_reports_and_preserves_output` in `tests/test_plugin_runtime.py` |
+| Default, family, file and variable fonts | Actual selected face hashes and applied coordinates in sample/export environments | Font identity cases in `tests/test_canonical_sampling.py` |
+
+Stale refusal is a caller decision using the returned manifest, as shown above;
+there is no automatic refuse-stale export flag. The offline fixture verifies
+that evidence is available before any plugin callback or destination change,
+then separately verifies the caller's choice to render with those stale bytes.
+Cold misses fail rather than substituting a font or empty plugin texture.
+
+Run `uv run --locked pytest tests/test_asset_cache.py tests/test_plugin_runtime.py
+tests/test_plugin_svg.py tests/test_canonical_sampling.py --no-cov -q`.
+These files are included in the existing automated `pytest tests/` quality job.
+Named scenarios and parameter IDs identify the resource/document failure;
+expected hashes are computed from the controlled source bytes and rendered
+samples are compared in the same recorded font/render environment. This does
+not promise identical font pixels across machines or native viewers.
+
 ## Decks (multiple images and slides)
 
 A `Deck` is an ordered list of canvases. Each slide is a full `Canvas` and renders exactly as it would on its own. See the [Deck API reference](api/deck.md) for the full method list.
