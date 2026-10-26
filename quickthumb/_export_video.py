@@ -692,13 +692,10 @@ class _PreparedAnimation:
             MotionBlur.model_validate(motion_blur.model_dump()) if motion_blur is not None else None
         )
         self._variable_frame_rate = variable_frame_rate
-        if self._motion_blur is not None:
-            if len(canvases) != 1 or workers != 1:
-                raise ValidationError(
-                    "motion_blur currently requires a single Canvas and workers=1"
-                )
-            if not math.isfinite(self._motion_blur.shutter_angle / 360 / fps):
-                raise ValidationError("motion_blur shutter duration must be finite")
+        if self._motion_blur is not None and not math.isfinite(
+            self._motion_blur.shutter_angle / 360 / fps
+        ):
+            raise ValidationError("motion_blur shutter duration must be finite")
         self.fps = fps
         self._size = (canvases[0].width, canvases[0].height)
         self._entered = False
@@ -742,7 +739,7 @@ class _PreparedAnimation:
                 self._renderer = ParallelFrames(
                     self._canvases,
                     self._plan.timings,
-                    self._matte,
+                    None if self._motion_blur is not None else self._matte,
                     self._reduced_motion,
                     self._workers,
                     quality=self._quality,
@@ -754,12 +751,13 @@ class _PreparedAnimation:
                 )
             else:
                 self._shots = _motion_blur_shots(
-                    self._plan.animators[0],
-                    self._plan.duration,
+                    self._canvases,
+                    self._plan,
                     self.fps,
                     self._matte,
                     self._motion_blur,
                     variable_frame_rate=self._variable_frame_rate,
+                    renderer=self._renderer,
                 )
         except BaseException:
             with contextlib.suppress(BaseException):
@@ -850,46 +848,106 @@ class _PreparedAnimation:
 
 
 def _motion_blur_shots(
-    animator: _SlideAnimator,
-    duration: float,
+    canvases: list[Canvas],
+    plan: _DeckPlan,
     fps: float,
     matte: tuple[int, int, int] | None,
     blur: MotionBlur,
     *,
     variable_frame_rate: bool = False,
+    renderer: ParallelFrames | None = None,
 ) -> Generator[_Shot, None, None]:
-    """Expose every allocated frame without collapsing shutter shoulders into holds."""
-    if not math.isfinite(duration * fps):
+    """Expose allocated frames on the existing Deck plan and encoder clocks."""
+    if not math.isfinite(plan.duration * fps):
         raise ValidationError("motion_blur frame count must be finite")
-    count = max(1, math.floor(duration * fps + 0.5))
-    size = (animator._canvas.width, animator._canvas.height)
-    window = blur.shutter_angle / 360 / fps
-    start = 0.0
-    for index in range(count):
-        end = duration * ((index + 1) / count)
-        center = start if variable_frame_rate else index / fps
-        with _exposure_frame(animator, center, duration, window, blur.samples, size) as frame:
-            image = _conform(frame, size, matte)
-        yield _Shot(image, end - start)
-        start = end
+    count = max(1, math.floor(plan.duration * fps + 0.5))
+    size = (canvases[0].width, canvases[0].height)
+
+    def samples():
+        start = 0.0
+        for index in range(count):
+            end = plan.duration * ((index + 1) / count)
+            yield (start if variable_frame_rate else index / fps), end - start
+            start = end
+
+    def frame_at(time: float) -> Image.Image:
+        index, local = _deck_sample(plan.offsets, plan.timings, time)
+        previous_canvas = canvases[index - 1] if index else None
+        previous = (
+            _conform(plan.animators[index - 1].final_frame(), size, None)
+            if index
+            else _export_background(size, None)
+        )
+        with previous:
+            transition, duration_in, _, _ = plan.timings[index]
+            return _slide_frame(
+                plan.animators[index],
+                transition,
+                duration_in,
+                local,
+                previous,
+                _morph_source(transition, previous_canvas, canvases[index]),
+                canvases[index],
+                size,
+                None,
+            )
+
+    if renderer is not None:
+        for _, duration, frame in renderer.frames(-1, samples(), motion_blur=blur, fps=fps):
+            with frame:
+                yield _Shot(_conform(frame, size, matte), duration)
+    else:
+        for center, duration in samples():
+            with _deck_exposure(
+                frame_at, center, plan.offsets, plan.timings, plan.duration, fps, blur, size
+            ) as frame:
+                yield _Shot(_conform(frame, size, matte), duration)
+
+
+def _deck_sample(offsets, timings, time: float) -> tuple[int, float]:
+    index = max(0, bisect.bisect_right(offsets, time + _TIME_EPSILON) - 1)
+    return index, min(timings[index][3], max(0.0, time - offsets[index]))
+
+
+def _deck_exposure(frame_at, center, offsets, timings, duration, fps, blur, size):
+    """A hard cut bounds exposure; smooth transitions remain part of the timeline."""
+    cuts = [
+        offset
+        for offset, timing in zip(offsets, timings, strict=True)
+        if offset > 0 and timing[1] == 0
+    ]
+    side = bisect.bisect_right(cuts, center + _TIME_EPSILON)
+    lower = cuts[side - 1] if side else 0.0
+    upper = cuts[side] - 2 * _TIME_EPSILON if side < len(cuts) else duration
+    return _exposure_frame(
+        frame_at,
+        center,
+        upper,
+        blur.shutter_angle / 360 / fps,
+        blur.samples,
+        size,
+        lower=lower,
+    )
 
 
 def _exposure_frame(
-    animator: _SlideAnimator,
+    frame_at: Callable[[float], Image.Image],
     center: float,
     duration: float,
     window: float,
     samples: int,
     size: tuple[int, int],
+    *,
+    lower: float = 0.0,
 ) -> Image.Image:
     """Average encoded-sRGB premultiplied channels, quantizing only the final result."""
     totals = [Image.new("F", size, 0) for _ in range(4)]
     try:
         for index in range(samples):
             time = center + ((index + 0.5) / samples - 0.5) * window
-            time = round(min(duration, max(0.0, time)), 9)
+            time = round(min(duration, max(lower, time)), 9)
             with (
-                animator.frame_at(time).convert("RGBA") as frame,
+                frame_at(time).convert("RGBA") as frame,
                 frame.getchannel("A").convert("F") as alpha,
             ):
                 for channel, name in enumerate("RGB"):

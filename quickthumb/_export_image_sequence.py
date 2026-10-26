@@ -51,8 +51,6 @@ def export_image_sequence(
         raise ValidationError("options must be ImageSequenceOptions")
     # Revalidate even model_construct/model_copy inputs before touching output.
     settings = ImageSequenceOptions.model_validate(options.model_dump() if options else {})
-    if settings.motion_blur is not None and _contract_kind(source) != "canvas":
-        raise ValidationError("motion_blur currently requires a single Canvas and workers=1")
     encoding, quality, matte, lossless = _validate_encoding(format, quality, matte, lossless)
     extension = {"png": "png", "jpeg": "jpg", "webp": "webp"}[encoding]
     destination = normalize_destination(output_directory)
