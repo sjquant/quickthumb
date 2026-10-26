@@ -324,6 +324,12 @@ are broadcast to audience tabs opened from the same server and restored on
 reload. Audience-only navigation remains local. Add notes in Python with
 `.slide(canvas, notes="...")` or as a `notes` string on a JSON slide.
 
+After the final cue, **Finish** shows the audience a quiet end screen; ← returns
+to the last slide. The presenter keeps that slide visible and freezes elapsed
+time, including on reload. The same footer offers **Last slide** and **Restart**;
+restart resets the timer and cues for both presenter and audience. In `serve`,
+**Back to slides** opens the authoring preview; standalone exports omit that link.
+
 ### Timeline scrubber
 
 Open the raster timeline while authoring Python or JSON documents:
