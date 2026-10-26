@@ -84,6 +84,34 @@ numbered Deck filenames. A Deck cannot be written as a single SVG; export its
 Canvas slides individually. See [image sequences](#image-sequences) for their
 separate new-directory and encoding-option contract.
 
+### Canvas HTML layer routing
+
+`canvas.export("scene.html")` reports executed layer routes in
+`result.capability_report` with `feature="layer_representation"`. Native HTML/CSS
+or original embedded SVG has `support="native"`; emitted PNG fragments have
+`support="fallback"` and `fallback="rasterize"`. These are representation
+observations, not browser pixel-fidelity measurements.
+
+`result.fallback_diagnostics` identifies the affected inspection `layer_id` and
+reason. A retained group includes its descendant IDs in `layer_ids`; a shared
+backdrop-dependent prefix has no single `layer_id` and lists all contributing
+sources in `layer_ids`. Such composites are reported together because their
+appearance depends on the combined pixels. Flattened auto-layout children keep
+their original inspection IDs. Empty raster fragments and empty text produce no
+element and no representation observation.
+
+For these executed routes, `native_attempt=True` means native content was
+emitted; `False` means the exporter selected raster capture before native
+generation. Capability-only diagnostics can leave this fact unknown (`None`).
+Parent scenes report either their static composite or PNG sources with baked
+affine CSS motion. Existing motion capability diagnostics remain separate.
+
+For example, `ExportPolicy(unsupported_motion="error")` does not reject a static
+masked shape: this HTML route preserves its mask using a PNG fragment and
+reports that decision. No layer-selection policy is added. This executed routing
+report currently covers Canvas HTML; other exporters and Deck results do not yet
+collect these observations.
+
 ### Optional static SVG fidelity report
 
 Request a CairoSVG comparison through `ExportPolicy` when the current job has
