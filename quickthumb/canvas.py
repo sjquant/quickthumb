@@ -1988,10 +1988,12 @@ class Canvas:
         """
         from quickthumb._export_base import (
             _with_motion_color,
+            color_motion_targets,
             composite_color_targets,
             composite_motion_targets,
             split_into_bands,
         )
+        from quickthumb._text_targets import text_target_fragments
         from quickthumb.motion import (
             LayerState,
             _canonical_target_timelines,
@@ -2000,25 +2002,31 @@ class Canvas:
         )
 
         count = self._staggered_target_count(layer)
-        if time is not None and color_motion:
+        timelines = _canonical_target_timelines(layer, count) if time is not None else None
+        if timelines is None:
+            return False
+        render_color = None
+        if color_motion:
 
             def render_color(color):
                 source = Image.new("RGBA", image.size)
                 self._render_layer(source, _with_motion_color(layer, color), time)
                 return source
 
-            return composite_color_targets(image, layer, time, count, render_color)
-        timelines = _canonical_target_timelines(layer, count) if time is not None else None
-        if timelines is None:
+            surface = render_color("#FFFFFF")
+        assert time is not None and surface is not None
+        fragments = text_target_fragments(self, layer, surface)
+        if fragments is None:
+            if render_color is not None:
+                return composite_color_targets(image, layer, time, count, render_color)
+            fragments = split_into_bands(surface, count)
+        if fragments is None:
             return False
-        assert time is not None
         states = _sample_target_timelines(
             timelines, time, LayerState(anchor=getattr(layer, "anchor", (0.5, 0.5)))
         )
-        assert surface is not None
-        fragments = split_into_bands(surface, count)
-        if fragments is None:
-            return False
+        if render_color is not None:
+            fragments = color_motion_targets(fragments, states, render_color)
         composite_motion_targets(
             image,
             fragments,

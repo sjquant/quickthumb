@@ -582,6 +582,17 @@ for nested partial and inverted masks, text backgrounds, affine motion and an
 independent linked marker. Run it with `--output-dir /tmp/parent-nested-composition`
 to write GIF, PNG, HTML and JSON outputs.
 
+Top-level plain text with `target="words"` or `target="lines"` uses the already
+placed text runs to separate targets. Words remain at their original positions
+instead of reflowing as shorter strings. Wrapped lines, reverse target order and
+blank-line delays use the same static layout in frame sampling and video output.
+The route is selected only when the target crops reproduce the original source
+pixels exactly. Rich text, effects, fills, rotation, letter spacing,
+bidirectional text, words split across wrapped lines, and parent-linked sources
+retain the partial adapter below.
+Character/glyph and range-selector animation remains separate work; raster/video
+stagger capability stays `partial`.
+
 Static parent-linked leaf text and top-level groups can use the existing partial
 raster stagger adapter, including groups with their own or structural descendant
 clip/mask boundaries at several depths. The
