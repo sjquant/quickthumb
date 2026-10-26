@@ -92,6 +92,7 @@ nav:
       - Text: api/text.md
       - Image: api/image.md
       - Shape: api/shape.md
+      - Path: api/path.md
       - SVG: api/svg.md
       - Video: api/video.md
       - Group (Auto Layout): api/group.md

@@ -26,6 +26,7 @@ from .layers import (
     ImageLayer,
     NullLayer,
     OutlineLayer,
+    PathLayer,
     PluginLayer,
     ShapeLayer,
     SvgLayer,
@@ -41,6 +42,7 @@ LayerType = Annotated[
     | OutlineLayer
     | ImageLayer
     | ShapeLayer
+    | PathLayer
     | SvgLayer
     | ChartLayer
     | QRCodeLayer

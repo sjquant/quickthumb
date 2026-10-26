@@ -62,6 +62,7 @@ from quickthumb.models import (
     LinearGradient,
     NullLayer,
     OutlineLayer,
+    PathLayer,
     PluginLayer,
     PngSequenceOptions,
     PngSequenceResult,
@@ -702,6 +703,34 @@ class Canvas:
             motion_key=motion_key,
         )
         self._append_layer(layer)
+        return self
+
+    def path(
+        self,
+        d: str,
+        position: tuple,
+        width: int,
+        height: int,
+        color: str | None = "#000000",
+        *,
+        view_box: tuple[float, float, float, float] | None = None,
+        id: str | None = None,
+        motion_key: str | None = None,
+    ) -> Self:
+        """Add an even-odd filled M/L/H/V/Z path in a clipped local viewport."""
+        self._append_layer(
+            PathLayer(
+                type="path",
+                d=d,
+                position=position,
+                width=width,
+                height=height,
+                color=color,
+                view_box=view_box,
+                id=id,
+                motion_key=motion_key,
+            )
+        )
         return self
 
     def shape(
@@ -2186,6 +2215,10 @@ class Canvas:
             self._images.render_image_layer(image, layer, time)
         elif isinstance(layer, ShapeLayer):
             self._shapes.render_shape_layer(image, layer)
+        elif isinstance(layer, PathLayer):
+            from quickthumb._paths import render_path
+
+            render_path(image, layer, self._ctx)
         elif isinstance(layer, SvgLayer):
             self._images.render_svg_layer(image, layer)
         elif isinstance(layer, ChartLayer):
