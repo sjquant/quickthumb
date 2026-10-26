@@ -113,3 +113,17 @@ static fallback in HTML, so their playback/caption timing is not reproduced.
 Check `validate_export()` and the returned fallback diagnostics for the target.
 GIF/video option families, unsupported transparency and codec rate limits fail
 with actionable errors rather than silently selecting another format.
+
+## Verify playback
+
+The three-slide integration scene in `tests/test_video_layers.py` checks actual
+GIF, MP4 and WebM output: selected pixels against canonical samples, incoming
+transitions, caption start/end windows, encoded timing, and decoded soundtrack
+and narration frequencies. Reduced-motion cases check frozen clip imagery and timed captions. Run it with FFmpeg and ffprobe installed:
+
+```bash
+uv run --locked pytest tests/test_video_layers.py -k motion_package --no-cov
+```
+
+Existing HTML timeline tests execute the JavaScript in Node stage fixtures;
+target-specific browser fidelity remains a separate check.

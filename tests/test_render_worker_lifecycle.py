@@ -394,7 +394,7 @@ def test_partial_slide_preparation_closes_every_opened_decoder(monkeypatch, fail
             if failure == role:
                 raise RenderingError("prepare failed")
 
-        def final_export_frame(self):
+        def final_frame(self):
             if failure == "final":
                 raise RenderingError("prepare failed")
             return Image.new("RGBA", (self.canvas.width, self.canvas.height), "#203040")
@@ -454,7 +454,7 @@ def test_switching_slides_retains_at_most_two_decoder_contexts(monkeypatch):
             opened.append(canvas)
             canvas._ctx.video_decoder_cache["test"] = Decoder(index)
 
-        def final_export_frame(self):
+        def final_frame(self):
             return Image.new("RGBA", (8, 8), "#203040")
 
     monkeypatch.setattr(video, "_SlideAnimator", Animator)
@@ -495,7 +495,7 @@ def test_adjacent_slide_reuses_preparation_but_skipped_slide_rebuilds(monkeypatc
             animator_refs.append(weakref.ref(self))
             image_refs.append(weakref.ref(self.unit_image))
 
-        def final_export_frame(self):
+        def final_frame(self):
             settled.append(self.canvas.width)
             return Image.new("RGBA", (self.canvas.width, self.canvas.height), "#203040")
 
@@ -544,7 +544,7 @@ def test_adjacent_reuse_failure_closes_reused_and_new_decoders(monkeypatch, fail
             if canvas.width == 9 and failure == "incoming_prepare":
                 raise RenderingError("reused preparation failed")
 
-        def final_export_frame(self):
+        def final_frame(self):
             if failure == "outgoing_final":
                 raise RenderingError("reused preparation failed")
             return Image.new("RGBA", (self.canvas.width, self.canvas.height), "#203040")
