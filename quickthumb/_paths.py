@@ -7,14 +7,17 @@ from typing import cast
 from PIL import Image, ImageChops, ImageColor, ImageDraw
 
 from quickthumb._base import RenderContext, parse_coordinate
+from quickthumb._effects import EffectsEngine
 from quickthumb._path_dashes import dash_contours
 from quickthumb._path_geometry import _Contour, flatten_path
 from quickthumb.errors import RenderingError
-from quickthumb.models import PathLayer
+from quickthumb.models import LinearGradient, PathLayer
 
 
-def render_path(image: Image.Image, layer: PathLayer, context: RenderContext) -> None:
-    if layer.color is None and layer.stroke is None:
+def render_path(
+    image: Image.Image, layer: PathLayer, context: RenderContext, effects: EffectsEngine
+) -> None:
+    if layer.color is None and layer.fill is None and layer.stroke is None:
         return
     x = parse_coordinate(layer.position[0], context.width)
     y = parse_coordinate(layer.position[1], context.height)
@@ -28,15 +31,21 @@ def render_path(image: Image.Image, layer: PathLayer, context: RenderContext) ->
     pad_x, pad_y = padding * scale[0], padding * scale[1]
     if not all(math.isfinite(value) for value in (pad_x, pad_y)):
         raise _stroke_limit()
-    left = math.floor(max(0, -x, min(px for px, _ in points) - pad_x))
-    top = math.floor(max(0, -y, min(py for _, py in points) - pad_y))
-    right = math.ceil(min(layer.width, image.width - x, max(px for px, _ in points) + pad_x))
-    bottom = math.ceil(min(layer.height, image.height - y, max(py for _, py in points) + pad_y))
+    # Include the downsampling kernel around a clipped gradient, then composite only visible pixels.
+    halo = 3 if layer.fill is not None else 0
+    left = math.floor(max(0, -x - halo, min(px for px, _ in points) - pad_x - halo))
+    top = math.floor(max(0, -y - halo, min(py for _, py in points) - pad_y - halo))
+    right = math.ceil(
+        min(layer.width, image.width - x + halo, max(px for px, _ in points) + pad_x + halo)
+    )
+    bottom = math.ceil(
+        min(layer.height, image.height - y + halo, max(py for _, py in points) + pad_y + halo)
+    )
     if right <= left or bottom <= top:
         return
     bounds = (left, top, right, bottom)
     size = ((right - left) * 4, (bottom - top) * 4)
-    if layer.color is not None:
+    if layer.color is not None or layer.fill is not None:
         mask = Image.new("1", size)
         for contour in contours:
             if len(contour.points) < 3:
@@ -49,7 +58,23 @@ def render_path(image: Image.Image, layer: PathLayer, context: RenderContext) ->
                 [((px - left) * 4, (py - top) * 4) for px, py in clipped], fill=1
             )
             mask = ImageChops.logical_xor(mask, part)
-        _paint_mask(image, mask, layer.color, (x + left, y + top))
+        if layer.fill is not None:
+            gradient_size = (layer.width * 4, layer.height * 4)
+            region = (left * 4, top * 4, right * 4, bottom * 4)
+            fill = layer.fill
+            if isinstance(fill, LinearGradient):
+                painted = effects.create_linear_gradient(
+                    gradient_size, fill.angle, fill.stops, region=region
+                )
+            else:
+                painted = effects.create_radial_gradient(
+                    gradient_size, fill.stops, fill.center, region=region
+                )
+            painted.putalpha(ImageChops.multiply(painted.getchannel("A"), mask.convert("L")))
+            painted = painted.resize((right - left, bottom - top), Image.Resampling.LANCZOS)
+            image.alpha_composite(painted, (x + left, y + top))
+        elif layer.color is not None:
+            _paint_mask(image, mask, layer.color, (x + left, y + top))
     if layer.stroke is not None:
         mask = Image.new("1", size)
         strokes = dash_contours(contours, layer.dash_array, layer.dash_offset, scale)

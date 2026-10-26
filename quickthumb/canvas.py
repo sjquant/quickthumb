@@ -714,6 +714,7 @@ class Canvas:
         color: str | None = "#000000",
         *,
         view_box: tuple[float, float, float, float] | None = None,
+        fill: "LinearGradient | RadialGradient | None" = None,
         stroke: str | None = None,
         stroke_width: float = 1.0,
         line_cap: Literal["butt", "round", "square"] = "butt",
@@ -734,6 +735,7 @@ class Canvas:
                 height=height,
                 color=color,
                 view_box=view_box,
+                fill=fill,
                 stroke=stroke,
                 stroke_width=stroke_width,
                 line_cap=line_cap,
@@ -2232,7 +2234,7 @@ class Canvas:
         elif isinstance(layer, PathLayer):
             from quickthumb._paths import render_path
 
-            render_path(image, layer, self._ctx)
+            render_path(image, layer, self._ctx, self._effects)
         elif isinstance(layer, SvgLayer):
             self._images.render_svg_layer(image, layer)
         elif isinstance(layer, ChartLayer):
