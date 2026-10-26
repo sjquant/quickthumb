@@ -162,13 +162,52 @@ Plugin code remains trusted Python: the helper is not a filesystem or process
 sandbox.
 
 Canvas/Deck still and timed sampling, animation output and groups share the
-canonical renderer. SVG, HTML, PDF and PPTX embed plugin pixels as PNG fragments;
-capability and export reports identify the renderer/version and raster fallback.
+canonical renderer. By default SVG, HTML, PDF and PPTX embed plugin pixels as PNG
+fragments. Capability and export reports identify the renderer/version and fallback.
 `ExportPolicy(unsupported_motion="error")` rejects that fallback before writing;
 PPTX can also require native output per layer with `pptx={"badge": "native"}`.
 No time argument or animation callback is provided: the callback supplies static
 content, while group motion and slide transitions animate its composition.
 `workers>1` rejects plugins because process-local callables are not serialized.
+
+### Optional native SVG
+
+Register `svg=` alongside the required `raster=` callback. Both receive detached
+params and the same `PluginRenderContext`; SVG returns a complete static SVG
+string. `registry.capabilities("badge", "1")` discovers registered implementations
+without executing callbacks. Replacing/unregistering a registration removes its
+old callbacks. Callbacks remain trusted Python and are never serialized.
+
+```python
+from quickthumb import ExportPolicy
+
+def badge_svg(params, context):
+    width, height = context.size
+    return (
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}">'
+        f'<rect width="{width}" height="{height}" fill="{params["color"]}"/></svg>'
+    )
+
+registry.register("badge", "1", replace=True, raster=badge, svg=badge_svg)
+result = canvas.export("badge.svg", policy=ExportPolicy(fidelity={"svg": {
+    "pixel_tolerance": 0, "max_different_pixel_ratio": 0, "min_hash_similarity": 1,
+}}))
+```
+
+Explicit limits enable a Cairo comparison of the plugin's local RGBA region,
+including opacity. Only an exact/tolerated candidate becomes an isolated
+`data:image/svg+xml` image. Local measurements and reasons belong to executed
+plugin/representation diagnostics; `pixel_metrics.fidelity` separately measures
+the final whole SVG. This observes Cairo, not every SVG viewer. Validation alone
+reports an unmeasured candidate.
+
+Absent limits/callbacks, rejected candidates and atomic clip/mask/parent
+composites retain canonical PNG pixels with a reason. Strict unsupported-motion
+policy fails before replacing output when a fallback is needed. The existing
+explicit fidelity policy requires Cairo even if the selected route is PNG.
+Only internal `#` references are accepted: external/data URI resources, imports,
+scripts, foreign HTML and SVG animation are rejected. Derive geometry/paint from
+declared `read_asset()` bytes instead. HTML/PDF/PPTX have no native plugin hook.
 
 `prefetch_assets()` resolves every declared plugin asset without running the
 callback. Shared exports resolve them before writing, including declarations the

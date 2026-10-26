@@ -10,17 +10,18 @@ from quickthumb.models import PluginLayer
 from quickthumb.plugins import PluginRegistry, PluginRenderContext
 
 
-def render_plugin_layer(
-    image: Image.Image, layer: PluginLayer, ctx: RenderContext, registry: PluginRegistry
-) -> None:
-    callback = registry._raster_callback(layer)
-
+def plugin_context(layer: PluginLayer, ctx: RenderContext) -> PluginRenderContext:
     def read_asset(name: str) -> bytes:
         if name not in layer.assets:
             raise RenderingError(f"Plugin asset '{name}' is not declared in assets.")
         return ctx.asset_resolver.resolve(layer.assets[name], "plugin").data
 
-    context = PluginRenderContext((layer.width, layer.height), read_asset)
+    return PluginRenderContext((layer.width, layer.height), read_asset)
+
+
+def plugin_image(layer: PluginLayer, context: PluginRenderContext, registry: PluginRegistry):
+    """Capture canonical local RGBA with authored opacity, before placement."""
+    callback = registry._raster_callback(layer)
     try:
         raw = callback(deepcopy(layer.params), context)
     except Exception as error:
@@ -37,11 +38,19 @@ def render_plugin_layer(
             code="plugin_invalid_rgba",
             layer_id=layer.id,
         )
+    patch = Image.frombytes("RGBA", context.size, raw)
+    if layer.opacity != 1:
+        patch.putalpha(patch.getchannel("A").point(lambda alpha: int(alpha * layer.opacity)))
+    return patch
+
+
+def render_plugin_layer(
+    image: Image.Image, layer: PluginLayer, ctx: RenderContext, registry: PluginRegistry
+) -> None:
+    context = plugin_context(layer, ctx)
     x = parse_coordinate(layer.position[0], ctx.width)
     y = parse_coordinate(layer.position[1], ctx.height)
     if layer.align is not None:
         x, y = apply_alignment(x, y, context.size, layer.align)
-    with Image.frombytes("RGBA", context.size, raw) as patch:
-        if layer.opacity != 1:
-            patch.putalpha(patch.getchannel("A").point(lambda alpha: int(alpha * layer.opacity)))
+    with plugin_image(layer, context, registry) as patch:
         image.alpha_composite(patch, (x, y))

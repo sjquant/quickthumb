@@ -1310,8 +1310,16 @@ class Canvas:
         if extension == ".svg":
             from quickthumb._export_svg import SvgExporter
 
-            exporter = SvgExporter(self)
+            exporter = SvgExporter(self, policy=policy)
             document = exporter.export()
+            executed_plugin_ids = {
+                row.layer_id for row in exporter.diagnostics if row.feature == "plugin"
+            }
+            diagnostics[:] = [
+                row
+                for row in diagnostics
+                if row.feature != "plugin" or row.layer_id not in executed_plugin_ids
+            ]
             diagnostics.extend(exporter.diagnostics)
             fidelity = None
             if policy is not None and "svg" in policy.fidelity:

@@ -101,9 +101,11 @@ appearance depends on the combined pixels. Flattened auto-layout children keep
 their original inspection IDs. Empty raster fragments and empty text produce no
 element and no representation observation.
 
-For these executed routes, `native_attempt=True` means native content was
-emitted; `False` means the exporter selected raster capture before native
-generation. Capability-only diagnostics can leave this fact unknown (`None`).
+For these executed routes, `native_attempt=True` includes native content emission
+or execution/verification of a native candidate that falls back to raster.
+Read `support` and `fallback` to identify the representation actually adopted.
+`False` means raster capture was selected before native generation or verification.
+Capability-only diagnostics can leave this fact unknown (`None`).
 Parent scenes report their static composite in SVG/PDF; HTML can also report PNG
 sources with baked affine CSS motion. Existing motion capability diagnostics
 remain separate. SVG/PDF observations describe authored-static output. PDF text
