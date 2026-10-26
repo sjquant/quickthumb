@@ -34,7 +34,8 @@ mp4_bytes = canvas.to_mp4()      # and canvas.to_webm() / canvas.to_mov()
 Use `export()` when building a workflow that accepts either a `Canvas` or a
 `Deck`. Both accept a string or `Path` and return an `ExportResult`, including
 the document `kind`, effective `output_format`, `written_paths`, capability and
-fallback diagnostics, pixel/timing metadata, and the asset manifest:
+fallback diagnostics, pixel/timing metadata, the asset manifest, and rendering
+environment:
 
 ```python
 from quickthumb import Canvas, Deck
@@ -633,7 +634,39 @@ probe = deck.sample([0.0, 1.25, 4.0], hold=2.0) # explicit instants, ascending
 - **Sampling.** `fps=N` (at most 120) observes every instant `k / N` before `duration`; explicit times must be ascending, and times at or past `duration` show the final settled frame. One capture observes at most 100,000 instants; a larger explicit list or fps grid is rejected with a `ValidationError` before any frame renders. This grid is an observation schedule, not an exporter's frame schedule: exporters sample each span on their own frame grid, and stretch a slide shorter than one frame to a full frame.
 - **Timing.** `duration` is the exact timeline length and never depends on `fps` or on the requested instants. Each `TimelineSegment` gives a slide's absolute `start`, `transition_end`, `animation_end`, and `end`, rounded to nanoseconds; a slide is on screen over `[start, end)`, so a boundary instant belongs to the incoming slide.
 - **Memory.** A capture whose distinct frames would exceed 768 MiB of raw RGBA is rejected with a `ValidationError`, before any frame renders when every page of a still capture, or one frame of a timeline capture, already exceeds it; request fewer instants, a lower `fps`, a shorter `hold`, or a smaller document.
-- **Environment.** `environment` records the facts that can change pixels for an identical document: quickthumb, Pillow, and FreeType versions, the text layout engine (`basic` or `raqm`), and, for documents with video layers, the version of the FFmpeg that decodes them (`QUICKTHUMB_FFMPEG` or `ffmpeg` on `PATH`). Sampling a video document without a working FFmpeg raises `RenderingError` before any frame renders. Identical documents sampled in identical environments produce identical digests; fonts and images are described by the asset manifest (see below).
+- **Environment.** `sample()` and `export()` report quickthumb, Pillow and FreeType versions, the text layout engine (`basic` or `raqm`), available RAQM/HarfBuzz/FriBidi versions, and the FFmpeg version for documents with video layers. Sampling video without a working FFmpeg raises `RenderingError` before any frame renders. `environment.fonts` reports the actual font face bytes selected by that operation; the asset manifest separately describes authored references.
+
+### Render reproducibility
+
+Font family names and `QUICKTHUMB_DEFAULT_FONT` depend on the machine's font
+search path. Inspect the selected faces rather than treating those names as
+portable identifiers:
+
+```python
+capture = canvas.sample()
+for font in capture.environment.fonts:
+    print(font.source, font.sha256, font.variations)
+```
+
+Each face has its resolved file path (or `pillow:default`), SHA-256 and applied
+variable coordinates keyed by the font's axis names. The hash identifies the
+font bytes. Pillow's embedded
+face reports no hash if its bytes are unavailable. Paths are diagnostic: compare
+hashes and coordinates across machines. Only faces loaded for the current
+operation are reported; unused named fonts and faces from earlier operations
+are excluded.
+
+Remote and Google fonts load from content-addressed copies of their resolved
+bytes, so another document refreshing the original URL does not change a
+prefetched face. These copies live in the asset cache and follow its caller-owned
+cleanup lifecycle. Keep local input files unchanged during an operation.
+
+For repeatable canonical raster output, use identical document data, input asset
+bytes, selected fonts and variable coordinates, rendering options and environment;
+seed procedural effects where supported. Different font, shaping or rasterizer
+versions can change layout and edge pixels. This report explains those inputs;
+it does not promise exact pixels across platforms or native-output viewers.
+Use format-specific fidelity tolerances when comparing such outputs.
 
 ## Remote assets and caching
 
