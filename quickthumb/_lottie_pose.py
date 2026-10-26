@@ -126,6 +126,14 @@ def layer_pose(canvas, layer, shapes, timeline, fps, boundaries, geometry=None):
     transformed = [] if isinstance(layer, NullLayer) else [{"ty": "gr", "it": [*shapes, static]}]
     times = _times(timeline, fps, boundaries) if timeline is not None else [0.0]
     rows = []
+    trim_rows = []
+    trim = None
+    if isinstance(layer, PathLayer) and layer.stroke:
+        from quickthumb._lottie_trim import needs_trim, trim_length_bound, trim_properties
+
+        if needs_trim(layer):
+            trim = shapes[0]["it"][-2]
+            length_bound = trim_length_bound(layer)
     for time in times:
         state = (
             timeline.sample(time, LayerState(anchor=layer.anchor))
@@ -165,6 +173,15 @@ def layer_pose(canvas, layer, shapes, timeline, fps, boundaries, geometry=None):
                 "Lottie pose exceeds native coordinate precision", path="/animation"
             )
         rows.append(values)
+        if trim is not None:
+            trim_rows.append(trim_properties(layer, state, length_bound))
+    if trim is not None:
+        trim.update(_sampled_properties(times, trim_rows, fps))
+    return transformed, _sampled_properties(times, rows, fps), len(times) if timeline else 0
+
+
+def _sampled_properties(times, rows, fps):
+    """Serialize constant or held sampled vector properties on the shared clock."""
     keys = {}
     for name in rows[0]:
         values = [row[name] for row in rows]
@@ -178,4 +195,4 @@ def layer_pose(canvas, layer, shapes, timeline, fps, boundaries, geometry=None):
                     for time, value in zip(times, values, strict=True)
                 ],
             }
-    return transformed, keys, len(times) if timeline is not None else 0
+    return keys

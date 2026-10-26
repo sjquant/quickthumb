@@ -1825,6 +1825,9 @@ _CAPABILITIES["lottie"] = {
             "scale_y",
             "rotation",
             "opacity",
+            "trim_start",
+            "trim_end",
+            "trim_offset",
             "easing",
         }
         else "unsupported",

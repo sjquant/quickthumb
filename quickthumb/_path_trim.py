@@ -7,6 +7,18 @@ from quickthumb._path_geometry import _Contour
 from quickthumb.errors import RenderingError
 
 
+def trim_window(start: float, end: float, offset: float) -> tuple[float, float] | None:
+    """Normalize the canonical cyclic window; None is full, equal endpoints are empty."""
+    if start == 0 and end == 1:
+        return None
+    if start == end or (start == 1 and end == 0):
+        return (0.0, 0.0)
+    first, last = ((value + offset % 1) % 1 for value in (start, end))
+    if first == last:
+        raise _trim_limit()
+    return first, last
+
+
 def trim_contours(
     contours: tuple[_Contour, ...],
     start: float,
@@ -15,9 +27,10 @@ def trim_contours(
     scale: tuple[float, float],
 ) -> tuple[_Contour, ...]:
     """Slice a cyclic global distance window without connecting separate contours."""
-    if start == 0 and end == 1:
+    window = trim_window(start, end, offset)
+    if window is None:
         return contours
-    if start == end or (start == 1 and end == 0):
+    if window[0] == window[1]:
         return ()
     edges = []
     lengths = []
@@ -36,9 +49,7 @@ def trim_contours(
         raise _trim_limit()
     if total == 0:
         return ()
-    first, last = ((value + offset % 1) % 1 for value in (start, end))
-    if first == last:
-        raise _trim_limit()
+    first, last = window
     windows = sorted(
         [(first * total, last * total)]
         if first < last

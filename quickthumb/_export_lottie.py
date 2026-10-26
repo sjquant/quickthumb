@@ -51,6 +51,9 @@ def _layer_problem(layer, reduced_motion: bool, canvas, linked: bool) -> tuple[s
         from quickthumb.motion import _is_path_track
 
         specs = animation if isinstance(animation, list) else [animation]
+        supported = {"position", "scale", "scale_x", "scale_y", "rotation", "opacity"}
+        if isinstance(layer, PathLayer):
+            supported.update(("trim_start", "trim_end", "trim_offset"))
         for spec in specs:
             if (
                 not isinstance(spec, AnimationSpec)
@@ -62,13 +65,11 @@ def _layer_problem(layer, reduced_motion: bool, canvas, linked: bool) -> tuple[s
                     "Lottie pose motion requires canonical timelines without presets or stagger",
                 )
             if any(
-                track.type not in {"position", "scale", "scale_x", "scale_y", "rotation", "opacity"}
-                or _is_path_track(track)
-                for track in spec.tracks or ()
+                track.type not in supported or _is_path_track(track) for track in spec.tracks or ()
             ):
                 return (
                     "animation",
-                    "Lottie pose motion supports only position, scale, rotation and opacity tracks",
+                    "Lottie supports position, scale, rotation, opacity and Path trim tracks",
                 )
             if isinstance(layer, (ShapeLayer, NullLayer)) and any(
                 track.type == "scale" and any(key.value <= 0 for key in track.keyframes)
@@ -89,15 +90,20 @@ def _layer_problem(layer, reduced_motion: bool, canvas, linked: bool) -> tuple[s
                 "Animated Shape source must fit inside the canvas; use an unclipped source",
             )
     if isinstance(layer, PathLayer):
-        if (
-            layer.dash_array
-            or layer.dash_offset
-            or (layer.trim_start, layer.trim_end, layer.trim_offset) != (0, 1, 0)
-        ):
-            return "d", "Path dashes and trimming require a later Lottie geometry layer"
+        if layer.dash_array or layer.dash_offset:
+            return "d", "Path dashes are not supported by native Lottie"
         # Lottie retains layer opacity natively; reuse the shared native numeric admission.
         if problem := native_path_problem(
-            layer.model_copy(update={"opacity": 1.0, "rotation": 0.0, "animation": None})
+            layer.model_copy(
+                update={
+                    "opacity": 1.0,
+                    "rotation": 0.0,
+                    "animation": None,
+                    "trim_start": 0.0,
+                    "trim_end": 1.0,
+                    "trim_offset": 0.0,
+                }
+            )
         ):
             return "d", problem.replace("native SVG", "native Lottie")
         try:
@@ -114,6 +120,14 @@ def _layer_problem(layer, reduced_motion: bool, canvas, linked: bool) -> tuple[s
                     contours[-1].add(point)
             if any(len(points) < 2 for points in contours):
                 return "d", "Degenerate stroked contours are not supported by static Lottie"
+        if layer.stroke and (not animation or reduced_motion):
+            from quickthumb._lottie_trim import trim_length_bound, trim_properties
+            from quickthumb.motion import LayerState
+
+            try:
+                trim_properties(layer, LayerState(), trim_length_bound(layer))
+            except RenderingError as error:
+                return "trim_start", str(error)
         vx, vy, vw, vh = layer.view_box or (0, 0, layer.width, layer.height)
         if layer.stroke and layer.width / vw != layer.height / vh:
             return "stroke", "Lottie strokes currently require uniform view-box scaling"
@@ -195,7 +209,7 @@ def validate_lottie(
             else "native",
             layer_id=layer_id,
             message=(
-                "Native vectors with held canonical pose samples at LottieOptions.fps"
+                "Native vectors with held canonical property samples at LottieOptions.fps"
                 if getattr(layer, "animation", None) and not (policy and policy.reduced_motion)
                 else "Authored-static native vectors under reduced-motion policy"
                 if policy and policy.reduced_motion
@@ -290,6 +304,22 @@ def _shapes(layer, width, height):
     paints = ([_paint(layer.stroke, layer)] if layer.stroke else []) + (
         [_paint(layer.color)] if layer.color else []
     )
+    from quickthumb._lottie_trim import needs_trim
+
+    if layer.stroke and needs_trim(layer):
+        transform = {
+            "ty": "tr",
+            "p": _property([0, 0]),
+            "a": _property([0, 0]),
+            "s": _property([100, 100]),
+            "r": _property(0),
+            "o": _property(100),
+        }
+        stroke = {"ty": "gr", "it": [*contours, paints[0], {"ty": "tm", "m": 2}, transform]}
+        # Native groups, like styles, paint in reverse order. Fill remains untrimmed.
+        return [stroke] + (
+            [{"ty": "gr", "it": [*contours, paints[-1], transform]}] if layer.color else []
+        )
     return contours + paints
 
 
