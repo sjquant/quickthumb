@@ -148,15 +148,13 @@ class RenderingError(QuickthumbError):
     def plugin_layer_unsupported(
         cls, renderer: str, version: str, *, layer_id: str | None = None
     ) -> RenderingError:
-        """Plugin layers validate and serialize, but quickthumb cannot draw them yet."""
+        """Group composition does not support plugin children yet."""
         return cls(
             f"plugin layer '{renderer}' (version {version}) can be loaded and validated, "
-            "but quickthumb cannot render plugin layers yet",
+            "but plugin layers inside groups cannot render yet",
             code="unsupported_capability",
             layer_id=layer_id,
-            suggestion=(
-                "remove the plugin layer or replace it with built-in layers before rendering"
-            ),
+            suggestion=("place the plugin at the top level or use built-in group children"),
         )
 
 

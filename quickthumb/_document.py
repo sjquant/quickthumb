@@ -263,13 +263,21 @@ def preflight_export(
     policy: ExportPolicy | None = None,
 ) -> list[ExportDiagnostic]:
     """Validate target capabilities before an exporter writes any files."""
-    return _capability_report(
+    diagnostics = _capability_report(
         source,
         resolved.target,
         policy,
         output_format=resolved.output_format,
         uses_authored_transitions=resolved.uses_authored_transitions,
     )
+    for diagnostic in diagnostics:
+        if diagnostic.feature == "plugin" and diagnostic.support == "unsupported":
+            raise RenderingError(
+                diagnostic.message,
+                code="unsupported_capability",
+                layer_id=diagnostic.layer_id,
+            )
+    return diagnostics
 
 
 def validation_report(source: Document, *, kind: DocumentKind) -> ValidationReport:

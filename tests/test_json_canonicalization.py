@@ -431,6 +431,8 @@ def test_named_plugin_layer_round_trips_through_canonical_json_and_schema():
         "layers": [
             {
                 "type": "plugin",
+                "width": 10,
+                "height": 8,
                 "renderer": "brand_badge",
                 "version": "1.0",
                 "params": {"accent": "#FF4D00", "label": "BETA"},
@@ -443,9 +445,10 @@ def test_named_plugin_layer_round_trips_through_canonical_json_and_schema():
 
     # Then: canonical JSON is stable and the published schema accepts it
     assert parsed.to_json() == (
-        '{"height":80,"kind":"canvas","layers":[{"params":{"accent":"#FF4D00",'
-        '"label":"BETA"},"renderer":"brand_badge","type":"plugin","version":"1.0"}],'
-        '"width":120}'
+        '{"height":80,"kind":"canvas","layers":[{"align":"top-left","assets":{},'
+        '"height":8,"opacity":1.0,"params":{"accent":"#FF4D00","label":"BETA"},'
+        '"position":[0,0],"renderer":"brand_badge","type":"plugin","version":"1.0",'
+        '"width":10}],"width":120}'
     )
     validate(json.loads(parsed.to_json()), canvas_json_schema())
     definition = plugin_registry.lookup("brand_badge", "1.0")
@@ -492,6 +495,8 @@ def test_registered_plugin_schema_preserves_json_schema_defaults():
     layer = registry.validate(
         {
             "type": "plugin",
+            "width": 10,
+            "height": 8,
             "renderer": "open_plugin",
             "version": "1.0",
             "params": {"label": "ok", "extra": True},
@@ -536,6 +541,8 @@ def test_plugin_registry_lifecycle_rejects_duplicates_and_supports_replacement()
         (
             {
                 "type": "plugin",
+                "width": 10,
+                "height": 8,
                 "renderer": "missing_renderer",
                 "version": "1.0",
                 "params": {},
@@ -543,12 +550,14 @@ def test_plugin_registry_lifecycle_rejects_duplicates_and_supports_replacement()
             "not registered",
         ),
         (
-            {"type": "plugin", "renderer": "brand_badge", "params": {}},
+            {"type": "plugin", "width": 10, "height": 8, "renderer": "brand_badge", "params": {}},
             "version",
         ),
         (
             {
                 "type": "plugin",
+                "width": 10,
+                "height": 8,
                 "renderer": "brand_badge",
                 "version": "1.0",
                 "params": {"label": "BETA"},
@@ -558,6 +567,8 @@ def test_plugin_registry_lifecycle_rejects_duplicates_and_supports_replacement()
         (
             {
                 "type": "plugin",
+                "width": 10,
+                "height": 8,
                 "renderer": "brand_badge",
                 "version": "1.0",
                 "params": {"label": "BETA", "accent": "#FF4D00", "extra": True},
@@ -601,6 +612,8 @@ def test_nested_plugin_layer_is_validated_at_the_json_boundary():
                 "children": [
                     {
                         "type": "plugin",
+                        "width": 10,
+                        "height": 8,
                         "renderer": "missing_renderer",
                         "version": "1.0",
                         "params": {},
@@ -621,6 +634,8 @@ def test_plugin_layer_rejects_non_json_parameters_before_model_coercion():
     with pytest.raises(ValidationError, match="JSON-serializable"):
         PluginLayer(
             type="plugin",
+            width=10,
+            height=8,
             renderer="brand_badge",
             version="1.0",
             params={"callback": object()},
@@ -634,7 +649,16 @@ def test_empty_registry_schema_rejects_unregistered_plugin_layers():
         "kind": "canvas",
         "width": 20,
         "height": 20,
-        "layers": [{"type": "plugin", "renderer": "missing", "version": "1", "params": {}}],
+        "layers": [
+            {
+                "type": "plugin",
+                "width": 10,
+                "height": 8,
+                "renderer": "missing",
+                "version": "1",
+                "params": {},
+            }
+        ],
     }
 
     # When / Then: both public boundaries reject the unresolved plugin
@@ -653,7 +677,16 @@ def test_explicit_registry_is_used_by_canvas_deck_and_document_parsers():
         "kind": "canvas",
         "width": 20,
         "height": 20,
-        "layers": [{"type": "plugin", "renderer": "isolated", "version": "1.0", "params": {}}],
+        "layers": [
+            {
+                "type": "plugin",
+                "width": 10,
+                "height": 8,
+                "renderer": "isolated",
+                "version": "1.0",
+                "params": {},
+            }
+        ],
     }
 
     # When: each public parser receives the isolated registry
@@ -793,7 +826,14 @@ def test_plugin_runtime_rejects_supported_schema_constraint_violations(schema, p
 
     with pytest.raises(ValidationError, match="Plugin params"):
         registry.validate(
-            {"type": "plugin", "renderer": "constrained", "version": "1.0", "params": params}
+            {
+                "type": "plugin",
+                "width": 10,
+                "height": 8,
+                "renderer": "constrained",
+                "version": "1.0",
+                "params": params,
+            }
         )
 
 
@@ -858,7 +898,11 @@ def test_python_authored_canvas_validation_resolves_plugin_registry_entries():
     canvas = Canvas(
         20,
         20,
-        layers=[PluginLayer(type="plugin", renderer="missing", version="1.0", params={})],
+        layers=[
+            PluginLayer(
+                type="plugin", width=10, height=8, renderer="missing", version="1.0", params={}
+            )
+        ],
     )
 
     report = canvas.validate()
@@ -881,7 +925,9 @@ def test_python_authored_canvas_validation_resolves_plugin_registry_entries():
 def test_plugin_layer_rejects_non_finite_or_non_json_nested_values(params):
     """Given nested Python-only values, PluginLayer enforces the shared JSON grammar."""
     with pytest.raises(ValidationError):
-        PluginLayer(type="plugin", renderer="values", version="1.0", params=params)
+        PluginLayer(
+            type="plugin", width=10, height=8, renderer="values", version="1.0", params=params
+        )
 
 
 @pytest.mark.parametrize("nested", [False, True], ids=["top-level", "group-child"])
@@ -891,6 +937,8 @@ def test_rendering_a_plugin_layer_explains_that_plugins_cannot_be_drawn(nested):
     plugin_registry.register("brand_badge", "1.0")
     plugin = {
         "type": "plugin",
+        "width": 10,
+        "height": 8,
         "id": "badge",
         "renderer": "brand_badge",
         "version": "1.0",

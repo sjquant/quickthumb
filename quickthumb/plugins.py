@@ -9,8 +9,9 @@ from __future__ import annotations
 
 import math
 import re
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from copy import deepcopy
+from dataclasses import dataclass
 from typing import Any, cast
 
 from pydantic import ConfigDict, field_validator
@@ -21,6 +22,17 @@ from quickthumb._plugin_contract import PLUGIN_NAME_PATTERN, PLUGIN_VERSION_PATT
 from quickthumb.errors import ValidationError
 from quickthumb.models.common import quickthumbModel
 from quickthumb.models.layers import PluginLayer
+
+
+@dataclass(frozen=True)
+class PluginRenderContext:
+    """Local output size and declared byte assets for a synchronous raster callback."""
+
+    size: tuple[int, int]
+    read_asset: Callable[[str], bytes]
+
+
+_RasterCallback = Callable[[dict[str, Any], PluginRenderContext], bytes]
 
 
 class PluginDefinition(quickthumbModel):
@@ -60,9 +72,9 @@ class PluginDefinition(quickthumbModel):
 class PluginRegistry:
     """An exact, version-aware registry of named plugin definitions.
 
-    The registry stores metadata only: it does not supply drawing code, so
-    rendering a plugin layer raises `RenderingError`.  All outward collections are sorted
-    by `(renderer, version)` so schema and inspection output is reproducible.
+    JSON metadata is separate from trusted synchronous raster callbacks.
+    Outward definitions are sorted by `(renderer, version)` so schema and
+    inspection output is reproducible; they never contain executable code.
 
     Most callers only need `register`, `validate`, and `json_schema`.
     Lifecycle and inspection methods are provided for application setup and
@@ -71,6 +83,7 @@ class PluginRegistry:
 
     def __init__(self) -> None:
         self._definitions: dict[tuple[str, str], PluginDefinition] = {}
+        self._raster_callbacks: dict[tuple[str, str], _RasterCallback] = {}
 
     def register(
         self,
@@ -79,6 +92,7 @@ class PluginRegistry:
         params_schema: Mapping[str, Any] | None = None,
         *,
         replace: bool = False,
+        raster: _RasterCallback | None = None,
     ) -> PluginDefinition:
         """Register one renderer/version pair and return a detached definition."""
         try:
@@ -98,13 +112,33 @@ class PluginRegistry:
                 f"Plugin '{definition.renderer}' version '{definition.version}' "
                 "is already registered."
             )
+        if raster is not None and not callable(raster):
+            raise ValidationError("plugin raster must be callable")
         self._definitions[key] = definition
+        self._raster_callbacks.pop(key, None)
+        if raster is not None:
+            self._raster_callbacks[key] = raster
         return self._copy_definition(definition)
+
+    def _raster_callback(self, layer: PluginLayer) -> _RasterCallback:
+        self.validate(layer)
+        callback = self._raster_callbacks.get((layer.renderer, layer.version))
+        if callback is None:
+            from quickthumb.errors import RenderingError
+
+            raise RenderingError(
+                f"Plugin '{layer.renderer}' version '{layer.version}' has no raster callback.",
+                code="unsupported_capability",
+                layer_id=layer.id,
+                suggestion="register a trusted raster callback before rendering",
+            )
+        return callback
 
     def unregister(self, renderer: str, version: str | None = None) -> None:
         """Remove one version, or the sole version when no version is supplied."""
         if version is not None:
             self._definitions.pop((renderer, version), None)
+            self._raster_callbacks.pop((renderer, version), None)
             return
         matches = [key for key in self._definitions if key[0] == renderer]
         if len(matches) > 1:
@@ -113,10 +147,12 @@ class PluginRegistry:
             )
         for key in matches:
             self._definitions.pop(key, None)
+            self._raster_callbacks.pop(key, None)
 
     def clear(self) -> None:
         """Remove all definitions, primarily for isolated application lifecycles."""
         self._definitions.clear()
+        self._raster_callbacks.clear()
 
     def validate(self, layer: PluginLayer | Mapping[str, Any]) -> PluginLayer:
         """Validate a plugin layer against registration and its params schema."""
@@ -237,7 +273,16 @@ class PluginRegistry:
     ) -> dict[str, Any]:
         properties = {
             key: deepcopy(base_properties[key])
-            for key in ("id", "motion_key")
+            for key in (
+                "id",
+                "motion_key",
+                "position",
+                "width",
+                "height",
+                "align",
+                "opacity",
+                "assets",
+            )
             if key in base_properties
         }
         properties.update(
@@ -248,7 +293,7 @@ class PluginRegistry:
                 "params": deepcopy(definition.params_schema or {"type": "object"}),
             }
         )
-        required = ["type", "renderer", "version", "params"]
+        required = ["type", "renderer", "version", "params", "width", "height"]
         return {
             "type": "object",
             "properties": properties,

@@ -41,6 +41,7 @@ from quickthumb.models import (
     MotionSlideInspection,
     MotionTargetInspection,
     MotionTrackInspection,
+    PluginLayer,
     ReducedMotionInspection,
     ShapeLayer,
     TextLayer,
@@ -1882,6 +1883,28 @@ def _validate_export(
                 if html_problem:
                     parent_html_problems.update((path, html_problem) for path in paths)
     for layer_id, pointer, layer in _iter_export_layer_locations(source):
+        if isinstance(layer, PluginLayer):
+            supported = "/children/" not in pointer and document_format in {
+                "raster",
+                "png",
+                "jpg",
+                "jpeg",
+                "webp",
+            }
+            unsupported = (
+                "Plugin group children are not supported; place the plugin at the top level."
+                if "/children/" in pointer
+                else "Plugin layers currently support settled raster output only."
+            )
+            diagnostics.append(
+                ExportDiagnostic(
+                    layer_id=layer_id,
+                    feature="plugin",
+                    target=normalized,
+                    support="full" if supported else "unsupported",
+                    message="Static canonical RGBA plugin" if supported else unsupported,
+                )
+            )
         if pointer in parent_static_paths or pointer in parent_html_paths:
             partial = pointer in parent_html_paths
             message = (
