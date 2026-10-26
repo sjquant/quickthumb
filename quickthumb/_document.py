@@ -29,6 +29,7 @@ from quickthumb.models import (
     FallbackDiagnostic,
     FrameSequence,
     GifOptions,
+    MotionBlur,
     PixelMetrics,
     PrefetchResult,
     TimingMetrics,
@@ -218,8 +219,11 @@ def build_export_result(
     output_format = resolved.output_format
     target = resolved.target
     written_paths = receipt.paths
-    capability_report = receipt.diagnostics
     facts = receipt.animation
+    capability_report = [
+        *receipt.diagnostics,
+        *_motion_blur_report(facts.motion_blur if facts else None, target),
+    ]
     timing = (
         TimingMetrics(
             duration=facts.duration,
@@ -255,6 +259,22 @@ def build_export_result(
         timing_metrics=timing,
         asset_manifest=asset_manifest,
     )
+
+
+def _motion_blur_report(blur: MotionBlur | None, target: str) -> list[ExportDiagnostic]:
+    if blur is None:
+        return []
+    return [
+        ExportDiagnostic(
+            feature="motion_blur",
+            target=target,
+            support="full",
+            message=(
+                f"Temporal exposure uses {blur.samples} samples "
+                f"and a {blur.shutter_angle:g}° shutter"
+            ),
+        )
+    ]
 
 
 def preflight_export(
@@ -416,6 +436,8 @@ def _resolve_export(
             raise ValidationError(
                 f"{expected_options.__name__} are required for {output_format.upper()} output"
             )
+        if animation.motion_blur is not None and kind != "canvas":
+            raise ValidationError("motion_blur currently requires a single Canvas and workers=1")
         if isinstance(animation, VideoOptions) and animation.transparent and output_format == "mp4":
             raise ValidationError(
                 "transparent output is only supported for VP9 WebM or ProRes 4444 MOV"
