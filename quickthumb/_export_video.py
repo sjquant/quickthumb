@@ -1923,17 +1923,24 @@ def _build_units(
         if reduced_motion
         else max((_canonical_layer_duration(layer) for layer in prefix), default=0.0)
     )
-    for layer in rest:
+    for occurrence, layer in enumerate(rest):
         animation = None if reduced_motion else getattr(layer, "animation", None)
         key = id(animation) if animation is not None else None
         if (
             isinstance(layer, NullLayer)
+            or isinstance(layer, TextLayer)
+            and any(
+                isinstance(spec, AnimationSpec)
+                and spec.stagger is not None
+                and spec.stagger.target in {"characters", "words", "lines"}
+                for spec in (animation if isinstance(animation, list) else [animation])
+            )
             or _has_transform_extensions(layer)
             or id(layer) in (parent_nodes or ())
         ):
             # Nulls carry clocks only and must never become another layer's target.
             # Independent layers must keep independent pivots even when sharing a spec.
-            key = (key, id(layer))
+            key = (key, occurrence) if isinstance(layer, TextLayer) else (key, id(layer))
         if groups and groups[-1][0] == key:
             groups[-1][1].append(layer)
         else:
@@ -2006,13 +2013,23 @@ def _build_units(
                 or stagger is not None
                 and stagger.target == "characters"
             )
-            if target_count > 1 or selector is not None or character_targets:
+            text_targets = (
+                isinstance(layers[0], TextLayer)
+                and parent_node is None
+                and stagger is not None
+                and stagger.target in {"characters", "words", "lines"}
+                and target_count > 0
+            )
+            if target_count > 1 or selector is not None or character_targets or text_targets:
                 if color_motion and parent_node is not None:
                     reference, reference_pos = parent_node.render_source(reference=True), (0, 0)
                 elif color_motion:
                     reference, reference_pos = _render_unit_image(canvas, layers, color="#FFFFFF")
                 else:
                     reference, reference_pos = image, pos
+                if reference is None and text_targets:
+                    reference = Image.new("RGBA", (canvas.width, canvas.height))
+                    reference_pos = (0, 0)
                 if reference is not None:
                     from quickthumb._text_targets import text_target_fragments
 

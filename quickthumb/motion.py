@@ -1049,15 +1049,15 @@ def _supports_color_motion(layer: object) -> bool:
 def _canonical_target_timelines(layer: object, target_count: int) -> tuple[Timeline, ...] | None:
     selector = _text_selector(layer)
     timeline = _canonical_timeline(layer)
-    characters = (
+    text_stagger = (
         isinstance(layer, TextLayer)
         and timeline is not None
         and any(
-            event.stagger and event.stagger.get("target") == "characters"
+            event.stagger and event.stagger.get("target") in {"characters", "words", "lines"}
             for event in timeline.events
         )
     )
-    if target_count < (1 if selector or characters else 2):
+    if target_count < (1 if selector or text_stagger else 2):
         return None
     if timeline is None or not any(
         event.stagger is not None or event.selector for event in timeline.events
@@ -2237,7 +2237,7 @@ def _validate_export(
                     and (
                         animation.selector is not None
                         or animation.stagger is not None
-                        and animation.stagger.target == "characters"
+                        and animation.stagger.target in {"characters", "words", "lines"}
                     )
                 ):
                     # These routes prove exact ownership or raise; they never use band fallback.
