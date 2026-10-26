@@ -73,7 +73,7 @@ def test_matte_sources_are_reusable_forward_references_and_support_chains():
 
 def test_matte_and_target_motion_share_parent_world_coordinates():
     """A parented moving matte masks the sampled target after both world transforms."""
-    # Given: a controller moving a ten-pixel matte across a fixed red target
+    # Given: separate parents move the matte and place its fifteen-pixel red target
     canvas = Canvas(60, 20).null(
         id="controller",
         animation=AnimationSpec(
@@ -90,12 +90,23 @@ def test_matte_and_target_motion_share_parent_world_coordinates():
         ),
     )
     canvas.shape("rectangle", (0, 0), 10, 20, color="#FFFFFF", id="source", parent="controller")
-    canvas.shape("rectangle", (0, 0), 60, 20, color="#FF0000", mask=TrackMatte(layer="source"))
-    # When: sampling intermediate and settled canonical frames
-    middle, end = canvas.render_frame(0.5), canvas.render_frame(1)
-    # Then: matte pixels follow the inherited world translation at the same clock
-    assert middle.getpixel((15, 5)) == end.getpixel((25, 5)) == (255, 0, 0, 255)
-    assert middle.getpixel((5, 5)) == end.getpixel((15, 5)) == (0, 0, 0, 0)
+    canvas.null((5, 0), id="target-root")
+    canvas.shape(
+        "rectangle",
+        (0, 0),
+        15,
+        20,
+        color="#FF0000",
+        parent="target-root",
+        mask=TrackMatte(layer="source"),
+    )
+    # When: sampling initial, intermediate and settled canonical frames
+    start, middle, end = (canvas.render_frame(time) for time in (0, 0.5, 1))
+    # Then: only the intersection of both independent world-space surfaces receives red paint
+    assert start.getpixel((7, 5)) == middle.getpixel((15, 5)) == (255, 0, 0, 255)
+    assert (
+        start.getpixel((2, 5)) == middle.getpixel((7, 5)) == end.getpixel((25, 5)) == (0, 0, 0, 0)
+    )
 
 
 @pytest.mark.parametrize("kind", ["missing", "self", "cycle", "nested"])
