@@ -1,5 +1,5 @@
 ---
-description: Export quickthumb canvases and decks to PNG, JPEG, WebP, SVG, HTML, PDF, editable PowerPoint, GIF, MP4, WebM, and MOV.
+description: Export quickthumb documents to raster, web, document and video formats, plus bounded Canvas-only Lottie vectors.
 ---
 
 # Exporting to SVG, PPTX, PDF & video
@@ -16,9 +16,10 @@ canvas.export("thumbnail.pdf")   # single-page PDF
 canvas.export("thumbnail.gif")   # animated GIF playing the layer animations
 canvas.export("thumbnail.mp4")   # H.264 video (requires ffmpeg); .webm for VP9
 canvas.export("thumbnail.mov")   # ProRes 4444 video (requires ffmpeg with prores_ks)
+canvas.export("thumbnail.lot")   # bounded Canvas-only Lottie vectors
 ```
 
-Each format also has a direct method when you want the content in memory:
+For formats with in-memory methods, use the corresponding specialist method:
 
 ```python
 svg_markup = canvas.to_svg()
@@ -53,6 +54,7 @@ canvas.export("card.webp", quality=85)  # JPEG/WebP compression quality
 | Get bytes or an in-memory document | `to_mp4()`, `to_gif()`, `to_html()`, etc. |
 | Export static narrated Deck slides | `render_narrated_mp4(path, hold=3)` / `to_narrated_mp4(hold=3)` |
 | Write silent animation frames plus a manifest | `export_image_sequence(directory, options=...)` |
+| Write bounded Canvas-only Lottie vectors | `canvas.export("scene.lot", animation=LottieOptions(fps=30, hold=3))`; see [Lottie vectors](#lottie-vectors) |
 
 All animated byte methods and options use `hold` for settled-state seconds.
 `render_quality="standard"` or `"high"` controls animation compositing;
@@ -67,15 +69,16 @@ Image sequences keep a separate API because their destination is a new directory
 
 ### Format and option selection
 
-Canvas and Deck use the same selection rules:
+Canvas and Deck use the same selection rules except that `.lot` is Canvas-only;
+Deck rejects Lottie output.
 
 | Input | Result |
 | --- | --- |
 | File extension, with no `format` | Selects the output; `.jpg`/`.jpeg` report `output_format="jpeg"`, `.htm`/`.html` report `"html"`. |
 | `format="PNG"`, `"JPEG"` or `"WEBP"` (case-insensitive) | Selects raster encoding for a raster, unknown or extensionless filename. The requested filename is kept; it is not renamed to match the encoding. |
-| Raster `format` with a document or animated extension | Rejected rather than writing image bytes into an SVG, PDF, HTML, PPTX or video filename. |
+| Raster `format` with a document or animated extension | Rejected rather than writing image bytes into an SVG, PDF, HTML, PPTX, video or `.lot` filename. |
 | `quality` | JPEG integer 1–95 or WebP integer 1–100; rejected for other targets. |
-| `animation` | `GifOptions` for GIF; `VideoOptions` for MP4/WebM/MOV; rejected for static/document targets. |
+| `animation` | `GifOptions` for GIF; `VideoOptions` for MP4/WebM/MOV; `LottieOptions` for Canvas `.lot`. Rejected for other static/document targets. |
 
 Format selection, compression quality and animation option-family conflicts are
 rejected before asset reads or file writes. Codec-specific limits are validated
@@ -223,9 +226,13 @@ This observation does not establish PPTX or animation fidelity.
 
 ## How export works
 
-Exporters keep layers **native** wherever the target format can express them, and embed **pixel-exact PNG fragments** (rendered by the regular pipeline) everywhere else. Positions, wrapping, and alignment are computed with the same layout math as the raster renderer, so output matches the PNG render closely.
+SVG, PDF and PPTX exporters keep eligible layers **native** and use canonical
+PNG fragments where a native representation is unavailable. Positions, wrapping
+and alignment share the raster renderer's layout math. HTML uses the same
+native-or-raster approach; see [HTML](#html) below.
 
-HTML export works the same way; see [HTML](#html) below.
+[Lottie](#lottie-vectors) instead accepts a bounded native-vector subset and
+rejects unsupported content before writing. It never substitutes PNG frames.
 
 | Layer | SVG | PPTX | PDF |
 | --- | --- | --- | --- |
