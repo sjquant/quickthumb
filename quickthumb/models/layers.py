@@ -135,6 +135,9 @@ class PluginLayer(LayerIdentityModel):
     opacity: OpacityField = 1.0
     assets: dict[str, str] = Field(default_factory=dict)
 
+    clip: LayerClip | None = None
+    mask: LayerMask | None = None
+
     model_config = ConfigDict(validate_assignment=True, extra="forbid")
 
     @field_validator("renderer", "version")

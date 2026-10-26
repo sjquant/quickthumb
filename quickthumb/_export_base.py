@@ -77,13 +77,6 @@ def flatten_layers(
     """Resolve group layers into placed children so exporters see a flat list."""
     from quickthumb._parenting import require_parent_rendering
 
-    for layer in canvas._iter_layers_deep():
-        if isinstance(layer, PluginLayer):
-            raise RenderingError(
-                "Plugin layers currently support settled raster output only.",
-                code="unsupported_capability",
-                layer_id=layer.id,
-            )
     if parent_nodes is None:
         require_parent_rendering(canvas)
     flat: list[RenderableLayer] = []
@@ -92,6 +85,7 @@ def flatten_layers(
             isinstance(layer, GroupLayer)
             and id(layer) not in (parent_nodes or ())
             and not has_layer_composition(layer)
+            and not (layer.animation is not None and _group_has_plugin(layer))
             and not _has_transform_extensions(layer)
             and not (_has_color_track(layer) and color_group_has_backdrop(layer))
         ):
@@ -99,6 +93,13 @@ def flatten_layers(
         else:
             flat.append(layer)
     return flat
+
+
+def _group_has_plugin(group: GroupLayer) -> bool:
+    return any(
+        isinstance(child, PluginLayer) or isinstance(child, GroupLayer) and _group_has_plugin(child)
+        for child in group.children
+    )
 
 
 def validate_legacy_animation_export(canvas: Canvas) -> None:
@@ -131,12 +132,19 @@ def _flatten_group(
     placed: list[RenderableLayer] = []
     for child, position, size in placements:
         if isinstance(child, GroupLayer):
-            if has_layer_composition(child) or (
-                animation is None
-                and (
-                    _has_transform_extensions(child)
-                    or _has_color_track(child)
-                    and color_group_has_backdrop(child)
+            if (
+                has_layer_composition(child)
+                or (
+                    (animation is not None or child.animation is not None)
+                    and _group_has_plugin(child)
+                )
+                or (
+                    animation is None
+                    and (
+                        _has_transform_extensions(child)
+                        or _has_color_track(child)
+                        and color_group_has_backdrop(child)
+                    )
                 )
             ):
                 placed.append(

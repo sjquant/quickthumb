@@ -567,11 +567,15 @@ class Deck:
             cast(Document, self), output_directory, options=options, policy=policy
         )
 
-    def _validate_parent_motion_policy(self, target: str, policy: ExportPolicy | None) -> None:
-        """Honor strict parent/Morph validation on the convenience animation paths."""
+    def _validate_motion_policy(self, target: str, policy: ExportPolicy | None) -> None:
+        """Honor parent and plugin policy on convenience document/animation paths."""
         from quickthumb._parenting import has_parent_links
 
-        if policy is not None and any(has_parent_links(canvas) for canvas in self._slides):
+        if policy is not None and any(
+            has_parent_links(canvas)
+            or any(getattr(layer, "type", None) == "plugin" for layer in canvas._iter_layers_deep())
+            for canvas in self._slides
+        ):
             from quickthumb.motion import _validate_export
 
             _validate_export(
@@ -712,7 +716,7 @@ class Deck:
         animated GIF/WebM exports play them too, on a fixed timeline.
         """
         self._require_slides()
-        self._validate_parent_motion_policy("html", policy)
+        self._validate_motion_policy("html", policy)
         from quickthumb._export_html import export_deck
 
         return export_deck(
@@ -728,7 +732,7 @@ class Deck:
     def to_pptx(self, *, policy: ExportPolicy | None = None) -> bytes:
         """Render the deck to a multi-slide PPTX as bytes (requires quickthumb[pptx])."""
         self._require_slides()
-        self._validate_parent_motion_policy("pptx", policy)
+        self._validate_motion_policy("pptx", policy)
         from quickthumb._export_pptx import PptxExporter
 
         return PptxExporter(
@@ -761,7 +765,7 @@ class Deck:
         slides are letterboxed onto the first slide's size.
         """
         self._require_slides()
-        self._validate_parent_motion_policy("raster", policy)
+        self._validate_motion_policy("raster", policy)
         from quickthumb._export_video import export_animation_bytes
 
         return export_animation_bytes(
@@ -824,7 +828,7 @@ class Deck:
         duration holds its slide for the source audio length.
         """
         self._require_slides()
-        self._validate_parent_motion_policy("video", policy)
+        self._validate_motion_policy("video", policy)
         return self._export_animated_video_bytes(
             format="mp4",
             fps=fps,
@@ -919,7 +923,7 @@ class Deck:
         continue to loop by default.
         """
         self._require_slides()
-        self._validate_parent_motion_policy("video", policy)
+        self._validate_motion_policy("video", policy)
         return self._export_animated_video_bytes(
             format="webm",
             fps=fps,
@@ -957,7 +961,7 @@ class Deck:
         Narration without an explicit slide duration uses the source audio length.
         """
         self._require_slides()
-        self._validate_parent_motion_policy("video", policy)
+        self._validate_motion_policy("video", policy)
         return self._export_animated_video_bytes(
             format="mov",
             fps=fps,

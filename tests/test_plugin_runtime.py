@@ -6,13 +6,23 @@ import json
 import pytest
 from jsonschema import validate
 from PIL import Image
+from PIL.GifImagePlugin import GifImageFile
 from quickthumb import (
+    AnimatedTextValue,
+    BackdropBlur,
     Canvas,
     Deck,
+    ExportPolicy,
+    Fade,
+    GifOptions,
+    LayerClip,
+    LayerMask,
     PluginLayer,
     PluginRegistry,
+    TextLayer,
     canvas_json_schema,
     inspect_document,
+    plugin_layer_json_schema,
 )
 from quickthumb.errors import RenderingError, ValidationError
 
@@ -157,28 +167,198 @@ def test_replacing_registration_replaces_or_removes_its_callback():
         canvas.sample()
 
 
-@pytest.mark.parametrize(
-    ("target", "extension"),
-    [("svg", "svg"), ("html", "html"), ("pdf", "pdf"), ("pptx", "pptx"), ("video", "gif")],
-)
-def test_plugin_document_targets_fail_explicitly(tmp_path, target, extension):
-    """Capability queries report unsupported plugins; actual exports preserve existing output."""
-    # Given: a valid raster plugin and a document-format destination
+@pytest.mark.parametrize("target", ["svg", "html", "pdf", "pptx"])
+def test_plugin_document_fallback_reports_and_preserves_output(tmp_path, target):
+    """Native documents embed plugin RGBA pixels; strict policy rejects before replacement."""
+    from tests.test_parent_documents import embedded_png
+
+    # Given: only an explicit registry knows this callback
     registry = PluginRegistry()
-    registry.register("badge", "1", raster=lambda params, context: bytes([1, 2, 3, 255]))
+    calls = []
+
+    def badge(params, context):
+        calls.append(context.size)
+        return bytes([12, 34, 56, 255]) * (context.size[0] * context.size[1])
+
+    registry.register("badge", "1", raster=badge)
     canvas = Canvas(96, 96, registry=registry).plugin(
-        "badge", version="1", params={}, width=1, height=1, id="badge"
+        "badge", version="1", params={}, width=8, height=6, position=(20, 30), id="badge"
     )
-    destination = tmp_path / f"badge.{extension}"
+    destination = tmp_path / f"badge.{target}"
 
-    destination.write_bytes(b"existing")
-
-    # When: a caller asks about support without rendering or writing a file
+    # When: a capability query needs no executable callback or rendered pixels
     [diagnostic] = canvas.validate_export(target)
+    assert calls == []
+    assert diagnostic.feature == "plugin" and diagnostic.support == "fallback"
+    assert diagnostic.fallback == "rasterize" and diagnostic.layer_id == "badge"
+    assert "badge" in diagnostic.message and "1" in diagnostic.message
+    result = canvas.export(destination)
 
-    # Then: the query reports the limitation and actual export enforces it before writing
-    assert diagnostic.feature == "plugin" and diagnostic.support == "unsupported"
-    assert diagnostic.layer_id == "badge"
-    with pytest.raises(RenderingError, match="settled raster output only"):
+    # Then: every document contains the actual callback pixels with a reported fallback
+    assert result.fallback_diagnostics[0].layer_id == "badge"
+    if target == "pdf":
+        import pypdfium2
+
+        with pypdfium2.PdfDocument(destination) as document:
+            page = document[0]
+            bitmap = page.render(scale=1)
+            assert bitmap.to_pil().getpixel((22, 32))[:3] == (12, 34, 56)
+            bitmap.close()
+            page.close()
+    else:
+        output = destination.read_bytes() if target == "pptx" else destination.read_text()
+        with embedded_png(output, target) as patch:
+            assert patch.size == (8, 6)
+            assert patch.tobytes() == bytes([12, 34, 56, 255]) * 48
+    destination.write_bytes(b"existing")
+    calls.clear()
+    with pytest.raises(RenderingError, match="raster fallback"):
+        canvas.export(destination, policy=ExportPolicy(unsupported_motion="error"))
+    assert calls == []
+    assert destination.read_bytes() == b"existing"
+    if target in {"html", "pptx"}:
+        for document in (canvas, Deck(slides=[canvas])):
+            with pytest.raises(RenderingError, match="raster fallback"):
+                getattr(document, "to_" + target)(policy=ExportPolicy(unsupported_motion="error"))
+    if target == "pptx":
+        with pytest.raises(RenderingError, match="raster fallback"):
+            canvas.export(destination, policy=ExportPolicy(pptx={"badge": "native"}))
+    registry.register("badge", "1", replace=True)
+    assert canvas.validate_export(target)[0].support == "fallback"
+    with pytest.raises(RenderingError, match="no raster callback"):
         canvas.export(destination)
     assert destination.read_bytes() == b"existing"
+
+
+def test_group_plugin_composition_timed_plan_and_inspection(tmp_path):
+    """Group placement and clipping keep plugin pixels consistent through Deck timed output."""
+    # Given: an explicitly registered patch inside a composed animated nested group
+    registry = PluginRegistry()
+    registry.register("badge", "1", raster=lambda params, context: bytes([240, 20, 10, 255]) * 24)
+    child = PluginLayer(
+        type="plugin",
+        renderer="badge",
+        version="1",
+        params={},
+        width=6,
+        height=4,
+        clip=LayerClip(position=(12, 9), width=3, height=4),
+        mask=LayerMask(shape="rectangle", position=(12, 9), width=3, height=4, opacity=0.5),
+        id="badge",
+    )
+    canvas = Canvas(96, 96, registry=registry).group(
+        [child], position=(10, 7), padding=2, animation=Fade(duration=0.4), id="group"
+    )
+    validate(json.loads(canvas.to_json()), canvas_json_schema(registry=registry))
+    validate(child.model_dump(mode="json"), plugin_layer_json_schema(registry=registry))
+    deck = Deck.from_json(Deck(slides=[canvas]).to_json(), registry=registry)
+
+    # When: the shared timed plan settles the animated group and inspection builds that plan
+    frames = deck.sample(time=[0, 0.2, 0.4], hold=0).frames
+    report = inspect_document(deck)
+    destination = tmp_path / "badge.gif"
+    deck.export(destination, animation=GifOptions(fps=10, hold=0))
+
+    # Then: group placement and both composition boundaries apply before group animation
+    settled = frames[-1].to_image()
+    assert settled.getpixel((12, 9)) == (120, 10, 5, 255)
+    still = canvas.sample().frames[0].to_image()
+    assert still.getpixel((12, 9)) == (240, 20, 10, 128)
+    assert settled.getpixel((15, 9)) == (0, 0, 0, 255)
+    first = frames[0].to_image()
+    assert first.getpixel((12, 9)) == (0, 0, 0, 255)
+    assert report.kind == "deck"
+    assert any(
+        item.feature == "plugin" and item.support == "full"
+        for item in deck.validate_export("video")
+    )
+    with Image.open(destination) as encoded:
+        assert isinstance(encoded, GifImageFile)
+        encoded.seek(encoded.n_frames - 1)
+        assert encoded.convert("RGB").getpixel((12, 9)) == (120, 10, 5)
+    destination.write_bytes(b"existing")
+    with pytest.raises(ValidationError, match="workers=1"):
+        deck.export(destination, animation=GifOptions(fps=10, hold=0, workers=2))
+    assert destination.read_bytes() == b"existing"
+
+
+@pytest.mark.parametrize("target", ["svg", "html", "pdf", "pptx"])
+def test_plugin_group_backdrop_prefix_keeps_composition(tmp_path, target):
+    """A clipped plugin group stays atomic when a document rasterizes a backdrop prefix."""
+    from tests.test_parent_documents import embedded_png
+
+    # Given: a clipped group underneath an effect that reads the existing backdrop
+    registry = PluginRegistry()
+    registry.register("badge", "1", raster=lambda params, context: bytes([240, 20, 10, 255]) * 48)
+    child = PluginLayer(
+        type="plugin",
+        renderer="badge",
+        version="1",
+        params={},
+        width=8,
+        height=6,
+        id="badge",
+    )
+    canvas = (
+        Canvas(96, 96, registry=registry)
+        .background(color="#123456")
+        .group([child], position=(20, 30), clip=LayerClip(position=(20, 30), width=4, height=6))
+        .shape("rectangle", (21, 31), 4, 4, "#FFFFFF", effects=[BackdropBlur(radius=2)])
+    )
+    expected = canvas.sample().frames[0].to_image()
+    destination = tmp_path / f"composed.{target}"
+
+    # When: a native document captures the ordered prefix through its normal raster fallback
+    canvas.export(destination)
+
+    # Then: clipping and backdrop sampling match the canonical settled composition
+    if target == "pdf":
+        import pypdfium2
+
+        with pypdfium2.PdfDocument(destination) as document:
+            page = document[0]
+            bitmap = page.render(scale=1)
+            assert bitmap.to_pil().convert("RGB").tobytes() == expected.convert("RGB").tobytes()
+            bitmap.close()
+            page.close()
+    else:
+        output = destination.read_bytes() if target == "pptx" else destination.read_text()
+        with embedded_png(output, target) as image:
+            assert image.size == expected.size and image.tobytes() == expected.tobytes()
+
+
+def test_parent_counter_group_retains_explicit_plugin_registry():
+    """A parent-linked counter group renders its static plugin using the supplied registry."""
+    # Given: a dynamic counter forces a composed parent source to repaint its children
+    registry = PluginRegistry()
+    registry.register("badge", "1", raster=lambda params, context: bytes([240, 20, 10, 255]) * 24)
+    canvas = (
+        Canvas(96, 96, registry=registry)
+        .null(id="root")
+        .group(
+            [
+                PluginLayer(
+                    type="plugin", renderer="badge", version="1", params={}, width=6, height=4
+                ),
+                TextLayer(
+                    type="text",
+                    content="",
+                    size=12,
+                    value=AnimatedTextValue.model_validate(
+                        {"from": 0, "to": 10, "duration": 0.4, "style": "plain"}
+                    ),
+                ),
+            ],
+            parent="root",
+            position=(10, 7),
+            padding=2,
+            clip=LayerClip(position=(10, 7), width=40, height=40),
+        )
+    )
+
+    # When: the shared timed renderer repaints the counter and static sibling together
+    frame = canvas.sample(time=0.2, hold=0).frames[0]
+
+    # Then: no global registration is needed to preserve the plugin's placed pixels
+    with frame.to_image() as image:
+        assert image.getpixel((12, 9)) == (240, 20, 10, 255)

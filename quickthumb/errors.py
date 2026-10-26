@@ -144,19 +144,6 @@ class RenderingError(QuickthumbError):
     category = "export"
     default_code = "export_failed"
 
-    @classmethod
-    def plugin_layer_unsupported(
-        cls, renderer: str, version: str, *, layer_id: str | None = None
-    ) -> RenderingError:
-        """Group composition does not support plugin children yet."""
-        return cls(
-            f"plugin layer '{renderer}' (version {version}) can be loaded and validated, "
-            "but plugin layers inside groups cannot render yet",
-            code="unsupported_capability",
-            layer_id=layer_id,
-            suggestion=("place the plugin at the top level or use built-in group children"),
-        )
-
 
 class MissingAssetError(QuickthumbError, FileNotFoundError):
     """A local asset referenced by a document does not exist."""
