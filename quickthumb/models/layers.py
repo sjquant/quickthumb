@@ -29,7 +29,7 @@ from quickthumb.errors import ValidationError
 from .common import *  # noqa: F401,F403
 from .common import _AnimatableLayerModel, _validate_required_position
 from .effects import *  # noqa: F401,F403
-from .motion import AnimationInput
+from .motion import AnimationInput, AnimationSpec
 from .visualizations import ChartLayer, QRCodeLayer
 
 JsonValue = TypeAliasType(
@@ -435,14 +435,17 @@ class ImageLayer(_AnimatableLayerModel):
         return align.value
 
 
-class PathLayer(LayerIdentityModel):
-    """A static, filled or stroked SVG path inside a fixed local viewport."""
+class PathLayer(_AnimatableLayerModel):
+    """A filled or stroked SVG path, with motion anchored in its fixed viewport."""
 
     type: Literal["path"]
     d: str = Field(description="SVG path data: M/L/H/V/C/S/Q/T/A/Z, absolute or relative.")
     position: Position
     width: PositiveInt
     height: PositiveInt
+    rotation: FiniteFloat = 0.0
+    opacity: OpacityField = 1.0
+    animation: AnimationInput | None = None
     color: HexColor | None = "#000000"
     fill: Annotated[LinearGradient | RadialGradient, Discriminator("type")] | None = None
     stroke: HexColor | None = None
@@ -487,6 +490,24 @@ class PathLayer(LayerIdentityModel):
     def validate_geometry(self) -> "PathLayer":
         from quickthumb._path_geometry import parse_path
 
+        if self.parent is not None:
+            raise ValidationError("Path transform parenting is not supported yet", path="/parent")
+        animations = self.animation if isinstance(self.animation, list) else [self.animation]
+        for animation in animations:
+            if animation is not None and (
+                not isinstance(animation, AnimationSpec)
+                or animation.effect is not None
+                or animation.stagger is not None
+                or any(
+                    track.type
+                    not in {"position", "rotation", "scale", "scale_x", "scale_y", "opacity"}
+                    for track in animation.tracks or ()
+                )
+            ):
+                raise ValidationError(
+                    "Path motion requires position, rotation, scale or opacity timelines",
+                    path="/animation",
+                )
         segments = parse_path(self.d)
         vx, vy, vw, vh = self.view_box or (0, 0, self.width, self.height)
         points = [(x - vx, y - vy) for segment in segments for x, y in segment.points]

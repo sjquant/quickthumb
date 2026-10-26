@@ -724,6 +724,10 @@ class Canvas:
         dash_offset: float = 0.0,
         id: str | None = None,
         motion_key: str | None = None,
+        rotation: float = 0.0,
+        opacity: float = 1.0,
+        anchor: tuple[float, float] = (0.5, 0.5),
+        animation: AnimationInput | None = None,
     ) -> Self:
         """Add a filled or stroked SVG path in a clipped local viewport."""
         self._append_layer(
@@ -745,6 +749,10 @@ class Canvas:
                 dash_offset=dash_offset,
                 id=id,
                 motion_key=motion_key,
+                rotation=rotation,
+                opacity=opacity,
+                anchor=anchor,
+                animation=animation,
             )
         )
         return self
@@ -2132,6 +2140,11 @@ class Canvas:
         pass transforms; the exporters render layers untimed and apply the same
         geometry once per animation unit.
         """
+        if isinstance(layer, PathLayer):
+            from quickthumb._path_motion import render_path_frame
+
+            render_path_frame(image, layer, self._ctx, self._effects, time=time)
+            return
         from quickthumb._export_base import (
             _with_motion_color,
             color_group_has_backdrop,
@@ -2232,9 +2245,9 @@ class Canvas:
         elif isinstance(layer, ShapeLayer):
             self._shapes.render_shape_layer(image, layer)
         elif isinstance(layer, PathLayer):
-            from quickthumb._paths import render_path
+            from quickthumb._path_motion import render_path_frame
 
-            render_path(image, layer, self._ctx, self._effects)
+            render_path_frame(image, layer, self._ctx, self._effects)
         elif isinstance(layer, SvgLayer):
             self._images.render_svg_layer(image, layer)
         elif isinstance(layer, ChartLayer):

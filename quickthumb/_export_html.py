@@ -995,6 +995,8 @@ class HtmlExporter:
         return "" if key is None else f' data-qt-motion-key="{_attr(key)}"'
 
     def _emit_raster_fallback(self, layer: RenderableLayer):
+        if isinstance(layer, PathLayer):
+            layer = layer.model_copy(update={"animation": None})
         # Video fragment capture uses a source timestamp; strip the opt-in
         # animation so an unsupported combination stays authored static even
         # when that timestamp would otherwise sample its canonical tracks.

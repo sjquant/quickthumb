@@ -704,6 +704,16 @@ def _layer_motion_state(layer: object, canvas: Canvas, time: float = 0.0) -> Lay
     if isinstance(animation, AnimationSpec) or (
         isinstance(animation, list) and all(isinstance(item, AnimationSpec) for item in animation)
     ):
+        if isinstance(layer, PathLayer):
+            relative = compile_timeline(animation).sample(time, LayerState(anchor=layer.anchor))
+            x, y = state.position or (0, 0)
+            dx, dy = relative.position or (0, 0)
+            return relative.with_values(
+                position=(x + dx, y + dy),
+                rotation=layer.rotation + relative.rotation,
+                opacity=layer.opacity * relative.opacity,
+                color=layer.color,
+            )
         return compile_timeline(animation).sample(time, state)
     return state
 
@@ -2064,6 +2074,8 @@ def _validate_export(
                     and not html_transform
                     and feature not in _CANONICAL_RENDERED.get(normalized, frozenset())
                 )
+                if isinstance(layer, PathLayer) and normalized not in {"raster", "video"}:
+                    canonical_unimplemented = True
                 if feature == "color" and normalized in {"raster", "video"}:
                     canonical_unimplemented = not _supports_color_motion(layer)
                 declared_support = "unsupported" if canonical_unimplemented else capability.support
@@ -2388,8 +2400,16 @@ def _inspection_layer(
     value = getattr(layer, "value", None)
     value_duration = value.delay + value.duration if isinstance(value, AnimatedTextValue) else 0.0
     base = _layer_base_state(layer, canvas)
-    initial = timeline.sample(0.0, base)
-    final = timeline.sample(timeline.duration, base)
+
+    def sample_state(time):
+        return (
+            _layer_motion_state(layer, canvas, time)
+            if isinstance(layer, PathLayer)
+            else timeline.sample(time, base)
+        )
+
+    initial = sample_state(0.0)
+    final = sample_state(timeline.duration)
     targets: list[MotionTargetInspection] = []
     for spec in specs:
         targets.extend(_inspection_targets(layer, spec))
@@ -2405,8 +2425,7 @@ def _inspection_layer(
         targets=targets,
         sample_times=list(sample_times),
         samples=[
-            timeline.sample(time, base).model_dump(mode="json", exclude_none=True)
-            for time in sample_times
+            sample_state(time).model_dump(mode="json", exclude_none=True) for time in sample_times
         ],
         static_state=static_state,
         initial_state=initial.model_dump(mode="json", exclude_none=True),

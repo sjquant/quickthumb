@@ -2,7 +2,7 @@ import math
 from collections import OrderedDict
 from typing import TYPE_CHECKING, Any, Literal, TypeAlias, cast
 
-from PIL import ImageFont
+from PIL import Image, ImageFont
 
 from quickthumb.asset_cache import AssetResolver
 from quickthumb.errors import ValidationError
@@ -37,11 +37,13 @@ class RenderContext:
         self.video_frame_cache: OrderedDict[tuple[str, float], Any] = OrderedDict()
         self.video_decoder_cache: dict[str, Any] = {}
         self.motion_time: float | None = None
+        self.path_source: tuple[tuple, Image.Image] | None = None
         self.asset_resolver = AssetResolver()
 
     def begin_render_pass(self):
         """Drop per-pass caches so a new render or diagnose picks up asset changes."""
         self.svg_raster_cache.clear()
+        self.path_source = None
         self.measure_cache.clear()
         self.image_size_cache.clear()
         self.close_video_decoders()
