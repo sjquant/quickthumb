@@ -138,7 +138,7 @@ class MotionEventInspection(quickthumbModel):
     tracks: list[MotionTrackInspection] = Field(default_factory=list)
     stagger: dict[str, Any] | None = None
     selector: RangeSelector | None = None
-    selector_weights: list[float] = Field(default_factory=list)
+    selector_weights: list[list[float]] = Field(default_factory=list)
     progress: list[float] = Field(default_factory=list)
 
 
