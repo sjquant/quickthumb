@@ -326,6 +326,25 @@ class PositionTrack(_VectorTrack):
         return self
 
 
+class MaskPositionTrack(_VectorTrack):
+    """Local pixel translation relative to the authored shape mask position."""
+
+    type: Literal["mask_position"] = "mask_position"
+
+
+class MaskSizeTrack(_VectorTrack):
+    """Absolute positive local width and height of a shape mask."""
+
+    type: Literal["mask_size"] = "mask_size"
+
+    @field_validator("keyframes")
+    @classmethod
+    def validate_sizes(cls, keyframes):
+        if any(value <= 0 for key in keyframes for value in key.value):
+            raise ValueError("mask_size values must be positive")
+        return keyframes
+
+
 class ImagePanTrack(_VectorTrack):
     """A normalized source-viewport pan track for image layers."""
 
@@ -355,6 +374,19 @@ class ScalarTrack(_TrackBase):
                 raise ValueError(
                     f"{cls.model_fields['type'].default} keyframe values must be numbers"
                 )
+        return keyframes
+
+
+class MaskFeatherTrack(ScalarTrack):
+    """A nonnegative Gaussian feather radius in local pixels."""
+
+    type: Literal["mask_feather"] = "mask_feather"
+
+    @field_validator("keyframes")
+    @classmethod
+    def validate_feather(cls, keyframes):
+        if any(key.value < 0 for key in keyframes):
+            raise ValueError("mask_feather values must be nonnegative")
         return keyframes
 
 
@@ -453,6 +485,9 @@ class ColorTrack(_TrackBase):
 
 TrackSpec = Annotated[
     PositionTrack
+    | MaskPositionTrack
+    | MaskSizeTrack
+    | MaskFeatherTrack
     | ImagePanTrack
     | ScaleTrack
     | ScaleXTrack

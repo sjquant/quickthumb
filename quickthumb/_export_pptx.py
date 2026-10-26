@@ -200,6 +200,7 @@ class PptxExporter:
         from pptx import Presentation
         from pptx.util import Emu
 
+        from quickthumb._composition import has_animated_masks
         from quickthumb._parent_export import static_parent_fragment
         from quickthumb._parenting import has_parent_links
         from quickthumb._track_mattes import has_track_mattes
@@ -218,7 +219,9 @@ class PptxExporter:
         presentation.slide_height = Emu(_emu(first.height))
 
         for index, canvas in enumerate(canvases):
-            parent = has_parent_links(canvas) or has_track_mattes(canvas)
+            parent = (
+                has_parent_links(canvas) or has_track_mattes(canvas) or has_animated_masks(canvas)
+            )
             if not self._reduced_motion and not parent:
                 validate_legacy_animation_export(canvas)
             canvas._validate_image_paths()
@@ -316,6 +319,7 @@ class PptxExporter:
     @staticmethod
     def _supports_native_morph(source: Canvas, target: Canvas) -> bool:
         """Return whether both slides expose at least one top-level match."""
+        from quickthumb._composition import has_animated_masks
         from quickthumb._parenting import has_parent_links
         from quickthumb._track_mattes import has_track_mattes
 
@@ -324,6 +328,8 @@ class PptxExporter:
             or has_parent_links(target)
             or has_track_mattes(source)
             or has_track_mattes(target)
+            or has_animated_masks(source)
+            or has_animated_masks(target)
         ):
             return False
         source_layers = {

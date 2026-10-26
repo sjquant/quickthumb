@@ -330,6 +330,10 @@ class Canvas:
         from quickthumb._parenting import validate_parent_graph
 
         validate_parent_graph(self._layers)
+        from quickthumb._composition import validate_mask_animation
+
+        for layer in self._iter_layers_deep():
+            validate_mask_animation(layer)
         from quickthumb._track_mattes import validate_matte_graph
 
         validate_matte_graph(self._layers)
@@ -2171,6 +2175,26 @@ class Canvas:
         assert time is not None
         state = timeline.sample(time, LayerState(anchor=getattr(layer, "anchor", (0.5, 0.5))))
         color_motion = _has_color_track(layer)
+        from quickthumb._composition import has_mask_tracks, with_motion_mask, without_mask
+
+        if has_mask_tracks(layer):
+            reference = Image.new("RGBA", image.size)
+            self._render_layer(reference, _with_motion_color(without_mask(layer), "#FFFFFF"), time)
+            bounds = reference.getbbox()
+            if bounds is None:
+                return
+            surface = Image.new("RGBA", image.size)
+            painted = with_motion_mask(_with_motion_color(layer, state.color), state, self._ctx)
+            self._render_layer(surface, painted, time)
+            composite_canonical_layer(
+                image,
+                surface,
+                layer,
+                state,
+                bounds=bounds,
+                subpixel=_geometry_in_motion(timeline, time, state=state),
+            )
+            return
         if isinstance(layer, GroupLayer) and color_motion and color_group_has_backdrop(layer):
             require_color_group_backdrop(timeline)
             self._render_layer(image, _with_motion_color(layer, state.color), time)

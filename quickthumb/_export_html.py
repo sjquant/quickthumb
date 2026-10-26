@@ -456,10 +456,13 @@ class HtmlExporter:
         parent_static: bool = False,
     ):
         self._canvas = canvas
+        from quickthumb._composition import has_animated_masks
         from quickthumb._parenting import has_parent_links
         from quickthumb._track_mattes import has_track_mattes
 
-        if not reduced_motion and not (has_parent_links(canvas) or has_track_mattes(canvas)):
+        if not reduced_motion and not (
+            has_parent_links(canvas) or has_track_mattes(canvas) or has_animated_masks(canvas)
+        ):
             validate_legacy_animation_export(canvas)
         self._embed_fonts = embed_fonts
         self._responsive = responsive
@@ -590,6 +593,7 @@ class HtmlExporter:
         canvas._validate_image_paths()
         canvas._ctx.begin_render_pass()
 
+        from quickthumb._composition import has_animated_masks
         from quickthumb._parent_export import (
             bake_parent_html,
             parent_html_sampling,
@@ -599,7 +603,7 @@ class HtmlExporter:
         from quickthumb._track_mattes import has_track_mattes
         from quickthumb.models import NullLayer
 
-        parent = has_parent_links(canvas) or has_track_mattes(canvas)
+        parent = has_parent_links(canvas) or has_track_mattes(canvas) or has_animated_masks(canvas)
         stage_failed = False
         try:
             sampling = parent_html_sampling(canvas) if parent else None
@@ -608,6 +612,7 @@ class HtmlExporter:
                 or self._parent_static
                 or sampling.problem
                 or has_track_mattes(canvas)
+                or has_animated_masks(canvas)
             ):
                 self._emit_fragment(static_parent_fragment(canvas))
                 return Stage(

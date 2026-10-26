@@ -274,6 +274,13 @@ class _AnimatableLayerModel(LayerIdentityModel):
         examples=[(0.0, 0.0), (0.5, 0.5), (1.0, 1.0)],
     )
 
+    @model_validator(mode="after")
+    def validate_mask_animation(self):
+        from quickthumb._composition import validate_mask_animation
+
+        validate_mask_animation(self)
+        return self
+
 
 class _MotionModel(quickthumbModel):
     """Strict base for canonical motion and export policy models."""
@@ -358,6 +365,7 @@ class LayerMask(quickthumbModel):
     points: list[tuple[float, float]] | None = None
     invert: bool = False
     opacity: OpacityField = 1.0
+    feather: FiniteNonNegativeFloat = Field(default=0, exclude_if=lambda value: value == 0)
 
     @field_validator("position", mode="before")
     @classmethod

@@ -140,6 +140,7 @@ class PdfExporter:
 
     def save_canvases(self, canvases: list[Canvas], path_or_stream) -> None:
         """Write one or more canvases to a multi-page PDF (one page per canvas)."""
+        from quickthumb._composition import has_animated_masks
         from quickthumb._parent_export import static_parent_fragment
         from quickthumb._parenting import has_parent_links
         from quickthumb._track_mattes import has_track_mattes
@@ -152,7 +153,9 @@ class PdfExporter:
         try:
             for canvas in canvases:
                 if id(canvas) not in self._parent_fragments and (
-                    has_parent_links(canvas) or has_track_mattes(canvas)
+                    has_parent_links(canvas)
+                    or has_track_mattes(canvas)
+                    or has_animated_masks(canvas)
                 ):
                     self._parent_fragments[id(canvas)] = static_parent_fragment(canvas)
             if hasattr(path_or_stream, "write"):
