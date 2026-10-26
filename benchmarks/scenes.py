@@ -70,9 +70,9 @@ def build_text_selector_scene(name: str, *, rest: bool = False) -> Deck:
         Canvas(480, 240)
         .background(color="#102030")
         .text(
-            "MOVE WORDS\nKEEP THE\nLAYOUT STILL",
+            "ONE TWO\nONE TWO\nONE TWO",
             font=str(TEXT_FONT),
-            size=36,
+            size=40,
             line_height=1.3,
             color="#42CEB7",
             position=(24, 24),

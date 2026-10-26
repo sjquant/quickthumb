@@ -349,8 +349,11 @@ uv run --locked python -m benchmarks.text_selector_cost --json /tmp/text-selecto
 
 This optional workload leaves the default four benchmark scenes unchanged.
 The six selectable `text_{words,lines}_{baseline,static,animated}` scenes use the
-same offline Roboto file, 480×240 canvas, six words on three lines, and two-second
-position/rotation/scale/opacity/color tracks. Baseline uses ordinary target motion
+same offline Roboto file, 480×240 canvas and `ONE TWO` on three lines at size 40
+with line_height=1.3 (52 pixels), avoiding fractional row baselines. The exact
+target-layout guard remains enabled for every text layout engine.
+All six words share two-second position/rotation/scale/opacity/color tracks.
+Baseline uses ordinary target motion
 with zero stagger delay; static uses a ramp selector ending at 75%; animated adds
 keyed selector offset. All tracks settle to authored text. These cases produce
 **different pixels and rendering work**, so this records cost, not an optimization
@@ -386,16 +389,18 @@ FreeType 2.14.3, basic text layout. The parent paused other task-owned local
 builds/tests during timing; unrelated host activity and frequency were not
 controlled. All 24 export attempts succeeded; each consumed 24 inputs. Two
 fresh canonical probes and the three measured GIF hashes agreed per condition.
-Base commit and dirty benchmark source hashes are recorded in the JSON.
+The record uses the integer-line fixture above; its base commit and measured
+benchmark source hashes are recorded in the JSON. Earlier fixture measurements
+remain in Git history and are not comparable with this workload.
 
 | Target / selector | Render ms/input median [min–max] | Total s median [min–max] | Python RSS MiB median |
 | --- | --- | --- | --- |
-| Words / baseline | 3.416 [3.286–3.494] | 0.214 [0.209–0.219] | 78.4 |
-| Words / static | 7.132 [7.067–7.281] | 0.315 [0.309–0.319] | 78.1 |
-| Words / animated | 7.896 [7.793–8.220] | 0.338 [0.336–0.351] | 77.5 |
-| Lines / baseline | 2.978 [2.887–3.062] | 0.203 [0.199–0.208] | 74.9 |
-| Lines / static | 4.576 [4.571–4.738] | 0.248 [0.248–0.254] | 76.5 |
-| Lines / animated | 4.818 [4.739–4.860] | 0.257 [0.257–0.259] | 77.8 |
+| Words / baseline | 3.073 [3.069–3.701] | 0.203 [0.202–0.222] | 77.3 |
+| Words / static | 6.502 [6.276–7.094] | 0.296 [0.287–0.314] | 78.2 |
+| Words / animated | 6.787 [6.737–6.895] | 0.301 [0.300–0.305] | 76.4 |
+| Lines / baseline | 2.671 [2.579–2.693] | 0.195 [0.191–0.195] | 74.8 |
+| Lines / static | 4.341 [4.206–4.392] | 0.248 [0.246–0.255] | 78.7 |
+| Lines / animated | 4.203 [4.177–4.287] | 0.243 [0.242–0.249] | 77.4 |
 
 No optimization verdict is supported by these intentionally different workloads.
 This records the supported word/line cost portion of #165, not per-character
