@@ -131,6 +131,12 @@ def test_animated_mask_documents_report_authored_static_fallback(kind, tmp_path)
             keyframes=[KeyframeSpec(time=0, value=(0, 0)), KeyframeSpec(time=1, value=(20, 0))]
         )
     )
+    if kind == "html":
+        canvas = scene(
+            MaskFeatherTrack(
+                keyframes=[KeyframeSpec(time=0, value=0), KeyframeSpec(time=1, value=2)]
+            )
+        )
     if kind == "pptx":
         canvas.height = 100
     destination = tmp_path / f"mask.{kind}"

@@ -338,8 +338,8 @@ class TestHtmlShapes:
         # when / then
         assert "clip-path:polygon(" in canvas.to_html()
 
-    def test_should_fall_back_to_raster_for_masked_shape(self):
-        """Masked shapes become PNG fragments so HTML preserves the composition"""
+    def test_should_fall_back_to_raster_for_feathered_shape_mask(self):
+        """Feathered shape masks use PNG fragments with their actual alpha coverage"""
         # given
         canvas = Canvas(80, 80).shape(
             shape="rectangle",
@@ -347,7 +347,13 @@ class TestHtmlShapes:
             width=60,
             height=60,
             color="#FF0000",
-            mask={"shape": "ellipse", "position": (10, 10), "width": 60, "height": 60},
+            mask={
+                "shape": "ellipse",
+                "position": (10, 10),
+                "width": 60,
+                "height": 60,
+                "feather": 1,
+            },
         )
 
         # when

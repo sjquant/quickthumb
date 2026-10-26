@@ -799,7 +799,33 @@ transforms. The owner's unmasked rendered body defines a stable pivot, so moving
 or resizing the mask never moves that pivot. Tracks require a `LayerMask` shape
 mask; a `TrackMatte` uses its referenced source's animation instead. Stagger and
 counter sources and owner `BackdropBlur` are not supported with mask geometry
-tracks yet. Path-shaped
-masks and native HTML masks are separate work. The declared authored-static
-SVG/HTML/PDF/PPTX fallback and strict prewrite refusal also apply to these tracks.
+tracks yet. [Path-shaped masks](#path-shaped-mattes) use a PathLayer source.
+SVG/PDF/PPTX keep the declared authored-static fallback; HTML supports the bounded
+native route below and declares a static fallback outside it. Strict prewrite
+refusal applies whenever fallback is needed.
 See [`examples/animated_masks.py`](https://github.com/sjquant/quickthumb/blob/main/examples/animated_masks.py).
+
+### Native HTML shape masks
+
+HTML emits CSS clipping for hard-edged `LayerMask` rectangle, ellipse, pill and
+polygon masks on unrotated, top-left rectangle/ellipse/pill shape owners. Mask
+position and size tracks share the existing owner timeline, including independent
+keyframe intervals, ordinary transform/opacity tracks and the stable full-body
+pivot. The native route supports linear and `ease` interpolation; `validate_export("html")`
+and `inspect_motion(target="html")` report the actual route. Strict policy permits
+supported native masks.
+Authored and combined mask geometry must also fit the canonical raster range
+and the native 1/8-pixel CSS precision bound; otherwise the fallback reason is explicit.
+
+Feather, inversion, partial mask opacity, effects, gradients, separate clips,
+parent links, nested animated owners, composed timelines, keyframe holds/overrides
+sub-pixel size keyframes and other easing require a declared authored-static scene fallback. Layer mattes
+also retain their declared raster fallback. This does not introduce a new mask API.
+
+### Path-shaped mattes
+
+Use the existing `TrackMatte(layer="path-id")` with a `PathLayer` source for
+path-shaped masks. Curves, even-odd holes and path motion already participate in
+the canonical matte pipeline. The source stays hidden and can be reused by
+multiple targets. See
+[`examples/path_matte.py`](https://github.com/sjquant/quickthumb/blob/main/examples/path_matte.py).

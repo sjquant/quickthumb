@@ -30,6 +30,7 @@ from quickthumb.models import (
     GroupLayer,
     HexColor,
     KeyframeSpec,
+    LayerMask,
     MotionCapabilityInspection,
     MotionEasing,
     MotionEasingName,
@@ -1737,6 +1738,10 @@ for _mask_feature in ("mask_position", "mask_size", "mask_feather"):
     _CAPABILITIES["html"][_mask_feature] = MotionCapability(
         _mask_feature, "html", "fallback", "rasterize"
     )
+for _mask_feature in ("mask_position", "mask_size"):
+    _CAPABILITIES["html"][_mask_feature] = MotionCapability(
+        _mask_feature, "html", "partial", "rasterize"
+    )
 _CAPABILITIES["html"]["track_matte"] = MotionCapability(
     "track_matte", "html", "fallback", "rasterize"
 )
@@ -1896,6 +1901,8 @@ def _validate_export(
             )
             html_backdrop_ids.update(id(layer) for _, layer in layers[: last + 1])
     matte_paths = {}
+    mask_problems = {}
+    html_mask_admission = {}
     parent_problems = {}
     parent_static_paths: set[str] = set()
     parent_html_paths: set[str] = set()
@@ -1909,21 +1916,45 @@ def _validate_export(
                 error.at(f"/slides/{index}")
             raise
         from quickthumb._composition import has_animated_masks
+        from quickthumb._export_html import _html_mask_scene_problem, _mask_html_problem
         from quickthumb._parent_render import parent_rendering_problem
         from quickthumb._parenting import has_parent_links
         from quickthumb._track_mattes import has_track_mattes
 
-        if (has_track_mattes(canvas) or has_animated_masks(canvas)) and document_format in {
-            "html",
-            "pptx",
-            "svg",
-            "pdf",
-        }:
+        if normalized == "html":
             base = f"/slides/{index}" if hasattr(source, "slides") else ""
-            matte_paths.update(
-                (base + path, "track_matte" if has_track_mattes(canvas) else "mask_animation")
-                for _, path, _ in _iter_export_layer_locations(canvas)
+            html_mask_admission.update(
+                (base + path, _mask_html_problem(layer, canvas._ctx))
+                for _, path, layer in _iter_export_layer_locations(canvas)
+                if isinstance(getattr(layer, "mask", None), LayerMask)
             )
+        native_masks = (
+            document_format == "html"
+            and has_animated_masks(canvas)
+            and not has_parent_links(canvas)
+            and not has_track_mattes(canvas)
+            and _html_mask_scene_problem(canvas) is None
+        )
+        if (
+            not native_masks
+            and (has_track_mattes(canvas) or has_animated_masks(canvas))
+            and document_format
+            in {
+                "html",
+                "pptx",
+                "svg",
+                "pdf",
+            }
+        ):
+            base = f"/slides/{index}" if hasattr(source, "slides") else ""
+            problem = _html_mask_scene_problem(canvas) if document_format == "html" else None
+            for _, path, _ in _iter_export_layer_locations(canvas):
+                full_path = base + path
+                matte_paths[full_path] = (
+                    "track_matte" if has_track_mattes(canvas) else "mask_animation"
+                )
+                if problem:
+                    mask_problems[full_path] = problem
             continue
         if has_parent_links(canvas):
             problem = parent_rendering_problem(canvas)
@@ -1958,6 +1989,8 @@ def _validate_export(
                 f"Masked {document_format} scene uses one authored-static raster image; "
                 "all motion is frozen"
             )
+            if pointer in mask_problems:
+                message += ": " + mask_problems[pointer]
             if resolved_policy.unsupported_motion in {"error", "native"}:
                 raise RenderingError(
                     message,
@@ -1977,6 +2010,26 @@ def _validate_export(
             )
             continue
 
+        if normalized == "html" and isinstance(getattr(layer, "mask", None), LayerMask):
+            problem = html_mask_admission[pointer]
+            if problem and resolved_policy.unsupported_motion in {"error", "native"}:
+                raise RenderingError(
+                    problem,
+                    code="unsupported_capability",
+                    path=pointer + "/mask",
+                    layer_id=layer_id,
+                )
+            diagnostics.append(
+                ExportDiagnostic(
+                    layer_id=layer_id,
+                    feature="mask",
+                    target="html",
+                    support="fallback" if problem else "native",
+                    fallback="rasterize" if problem else None,
+                    message=problem
+                    or "Shape mask uses native CSS clipping on the existing owner timeline",
+                )
+            )
         if isinstance(getattr(layer, "mask", None), TrackMatte):
             diagnostics.append(
                 ExportDiagnostic(
@@ -2135,16 +2188,17 @@ def _validate_export(
         if isinstance(layer, GroupLayer):
             animated_groups.append(pointer)
         items = animations if isinstance(animations, list) else [animations]
-        html_transform = False
+        html_mask = pointer in html_mask_admission and html_mask_admission[pointer] is None
+        html_transform = html_mask
         html_overridden = normalized == "html" and any(
             pointer.startswith(f"{parent}/children/") for parent in html_retained_groups
         )
         if normalized == "html" and _has_transform_extensions(layer) and not html_overridden:
             from quickthumb._export_html import _supports_transform_extensions_html
 
-            html_transform = id(
-                layer
-            ) not in html_backdrop_ids and _supports_transform_extensions_html(layer)
+            html_transform = html_mask or (
+                id(layer) not in html_backdrop_ids and _supports_transform_extensions_html(layer)
+            )
         if (
             normalized == "html"
             and isinstance(layer, GroupLayer)
@@ -2172,6 +2226,8 @@ def _validate_export(
                 if feature == "color" and normalized in {"raster", "video"}:
                     canonical_unimplemented = not _supports_color_motion(layer)
                 declared_support = "unsupported" if canonical_unimplemented else capability.support
+                if html_mask:
+                    declared_support = "native"
                 declared_fallback = "static" if canonical_unimplemented else capability.fallback
                 action = resolved_policy.pptx.get(layer_id) if normalized == "pptx" else None
                 if action is None:
