@@ -71,8 +71,9 @@ strings, and each layer has a `type` discriminator.
 
 Not every layer accepts every field: backgrounds, outlines, nulls and drawable
 layers have different roles. Their reference pages and the [JSON schema](../json-schema.md#published-schema)
-are the field-level contract. Plugin registrations currently describe parameters;
-they do not yet supply a rendering runtime.
+are the field-level contract. [Plugin registrations](../json-schema.md#plugin-layers)
+declare parameters and can supply rendering callbacks through an explicit
+`PluginRegistry`; parsing JSON does not package or install those callbacks.
 
 ## Pages
 

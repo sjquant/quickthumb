@@ -252,7 +252,7 @@ quickthumb render spec.json -o debug.png --debug
 | --- | --- |
 | `-o, --output` | Output file path (default `output.png`) |
 | `--format` | `PNG`, `JPEG`, or `WEBP` |
-| `--quality` | Quality 1–95, JPEG/WEBP only |
+| `--quality` | Compression quality: JPEG 1–95, WebP 1–100; not a rendering-quality control |
 | `--debug` | Overlay public layer-id bounding boxes on raster output |
 | `--var KEY=VALUE` | Substitute `$KEY` placeholders in the spec (repeatable) |
 | `--error-format` | `text` (default) or `json`; see [Structured Errors](errors.md) |
@@ -273,7 +273,7 @@ text and watching continues.
 
 ### `quickthumb doctor`
 
-Checks that this machine can run an export workflow *before* you attempt it:
+Discovers packages, tools, source requirements and output permissions before an export:
 
 ```bash
 quickthumb doctor pdf -o out/thumbnail.pdf
@@ -291,6 +291,12 @@ ffmpeg, an unregistered plugin, or an unwritable output). Every warning and erro
 `fix`/`remedy`. Plugins are checked against the registry of the CLI process, which only has plugins registered
 at import time, so a spec that uses code-registered plugins will report them as unregistered.
 Exit code is `0` when no required check failed and `1` otherwise.
+
+A successful report is not an export or fidelity certificate. Package discovery
+does not prove that native Cairo can load, and finding FFmpeg does not prove
+that its build has the encoder your output needs. `doctor` does not render or
+compare output. Run the intended export and inspect its receipt and file; use
+an explicit fidelity policy or `quickthumb diff` when visual comparison matters.
 
 ### `quickthumb serve`
 
