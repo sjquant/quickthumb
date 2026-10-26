@@ -86,9 +86,10 @@ separate new-directory and encoding-option contract.
 
 ### Document layer routing
 
-Canvas and Deck `export("scene.html")`, and Canvas SVG/PDF exports, report
+Canvas and Deck HTML/PPTX exports, and Canvas SVG/PDF exports, report
 executed layer routes in `result.capability_report` with
-`feature="layer_representation"`. Native HTML/CSS, SVG/PDF primitives and original
+`feature="layer_representation"`. Native HTML/CSS, SVG/PDF primitives, editable
+PowerPoint objects and original
 embedded SVG have `support="native"`; emitted PNG fragments have
 `support="fallback"` and `fallback="rasterize"`. These are representation
 observations, not pixel-fidelity measurements.
@@ -104,7 +105,7 @@ element and no representation observation.
 For these executed routes, `native_attempt=True` means native content was
 emitted; `False` means the exporter selected raster capture before native
 generation. Capability-only diagnostics can leave this fact unknown (`None`).
-Parent scenes report their static composite in SVG/PDF; HTML can also report PNG
+Parent scenes report their static composite in SVG/PDF/PPTX; HTML can also report PNG
 sources with baked affine CSS motion. Existing motion capability diagnostics
 remain separate. SVG/PDF observations describe authored-static output. PDF text
 retains embedded fonts when supported; shaping, glyph coverage and font-embedding
@@ -119,11 +120,26 @@ records do not turn a click-driven slideshow into fixed-duration playback.
 For example, `ExportPolicy(unsupported_motion="error")` does not reject a static
 masked shape: this HTML route preserves its mask using a PNG fragment and
 reports that decision. No layer-selection policy is added. This executed routing
-report covers Canvas SVG/PDF and Canvas/Deck HTML; Deck PDF and PPTX do not yet
+report covers Canvas SVG/PDF and Canvas/Deck HTML/PPTX; Deck PDF does not yet
 collect these observations. Fidelity metrics describe the complete document and are
 not attributed to individual fallback layers. Rendering all slides precedes
 opening the HTML destination, so an
 unsupported later slide or strict motion rejection preserves an existing file.
+
+PPTX routes describe the actual OOXML representation: native text boxes and
+autoshapes remain editable objects; PNG fragments preserve their raster payload
+and placement but lose per-glyph/vector editing. Raster reasons include masks,
+backdrop compositing, image/radial text fills and unsupported font semantics.
+Canvas observations omit a slide index; Deck observations identify their slide.
+PPTX file exports build the complete presentation before opening the destination,
+so a later source-rendering failure preserves an existing file.
+
+These structural observations do not certify a PowerPoint or Keynote pixel
+match, font availability, animation timing or transparency in a particular viewer.
+There is no PPTX fidelity policy or automatic application renderer. PPTX geometry
+uses 9,525 EMU per source pixel (96 pixels per inch), or 0.75 PDF points per source
+pixel. A later PDF-based viewer comparison must derive scale from its actual page
+dimensions rather than assuming the PDF exporter's one-point-per-pixel mapping.
 
 ### Optional static SVG fidelity report
 
