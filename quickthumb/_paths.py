@@ -7,6 +7,7 @@ from typing import cast
 from PIL import Image, ImageChops, ImageColor, ImageDraw
 
 from quickthumb._base import RenderContext, parse_coordinate
+from quickthumb._path_dashes import dash_contours
 from quickthumb._path_geometry import _Contour, flatten_path
 from quickthumb.errors import RenderingError
 from quickthumb.models import PathLayer
@@ -51,7 +52,8 @@ def render_path(image: Image.Image, layer: PathLayer, context: RenderContext) ->
         _paint_mask(image, mask, layer.color, (x + left, y + top))
     if layer.stroke is not None:
         mask = Image.new("1", size)
-        _stroke_mask(mask, contours, layer, scale, bounds)
+        strokes = dash_contours(contours, layer.dash_array, layer.dash_offset, scale)
+        _stroke_mask(mask, strokes, layer, scale, bounds)
         _paint_mask(image, mask, layer.stroke, (x + left, y + top))
 
 
@@ -124,12 +126,17 @@ def _stroke_mask(
                 circle(points[0])
             elif layer.line_cap == "square":
                 cx, cy = points[0]
+                tx, ty = contour.tangent[0] / scale[0], contour.tangent[1] / scale[1]
+                length = math.hypot(tx, ty)
+                if not math.isfinite(length) or length == 0:
+                    raise _stroke_limit()
+                dx, dy = tx / length * radius, ty / length * radius
                 polygon(
                     [
-                        (cx - radius, cy - radius),
-                        (cx + radius, cy - radius),
-                        (cx + radius, cy + radius),
-                        (cx - radius, cy + radius),
+                        (cx - dx + dy, cy - dy - dx),
+                        (cx + dx + dy, cy + dy - dx),
+                        (cx + dx - dy, cy + dy + dx),
+                        (cx - dx - dy, cy - dy + dx),
                     ]
                 )
             continue

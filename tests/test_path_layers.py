@@ -622,3 +622,264 @@ def test_curved_stroke_is_composited_above_fill_without_a_seam():
     assert image.getpixel((20, 50)) == pytest.approx((255, 0, 0, 255), abs=2)
     assert image.getpixel((50, 50)) == (0, 0, 255, 255)
     assert image.getpixel((50, 12)) == (0, 0, 0, 0)
+
+
+@pytest.mark.parametrize("offset,x,alpha", [(0, 25, 255), (0, 45, 0), (10, 25, 0), (-10, 25, 0)])
+def test_dash_phase_roundtrips_and_resets_for_each_subpath(offset, x, alpha, tmp_path):
+    """Signed dash offsets round-trip through JSON and restart at each subpath."""
+    # Given: two lines with the same local dash pattern, scaled horizontally by two
+    canvas = Canvas(200, 80).path(
+        "M10 20H90M10 60H90",
+        (0, 0),
+        200,
+        80,
+        None,
+        view_box=(0, 0, 100, 80),
+        stroke="#42CEB7",
+        stroke_width=6,
+        dash_array=(10, 10),
+        dash_offset=offset,
+    )
+    encoded = canvas.to_json()
+    jsonschema.validate(json.loads(encoded), canvas_json_schema())
+
+    # When: restoring and exporting the dashed document
+    restored = Canvas.from_json(encoded)
+    destination = tmp_path / "dash.png"
+    restored.export(destination)
+    with Image.open(destination) as image:
+        coverage = image.getchannel("A")
+
+    # Then: both subpaths use the same phase and dash distances scale with the viewBox
+    assert coverage.getpixel((x, 20)) == coverage.getpixel((x, 60)) == alpha
+
+
+@pytest.mark.parametrize("pattern", [(12, 5, 3), (), (0, 0, 0)])
+def test_odd_and_zero_dash_patterns_have_explicit_geometry(pattern):
+    """Odd dash patterns repeat once, while empty and all-zero patterns draw the solid stroke."""
+    # Given: equivalent finite patterns on a path crossing a corner
+    expected = pattern * 2 if any(pattern) else None
+    canvas = Canvas(100, 100).path(
+        "M10 70H70V10",
+        (0, 0),
+        100,
+        100,
+        None,
+        stroke="#42CEB7",
+        stroke_width=8,
+        line_cap="round",
+        dash_array=pattern,
+    )
+    reference = Canvas(100, 100).path(
+        "M10 70H70V10",
+        (0, 0),
+        100,
+        100,
+        None,
+        stroke="#42CEB7",
+        stroke_width=8,
+        line_cap="round",
+        dash_array=expected,
+    )
+
+    # When: rendering the public path layers
+    actual = canvas.render_frame(0)
+    image = reference.render_frame(0)
+
+    # Then: pattern normalization preserves the complete intended raster geometry
+    assert actual.tobytes() == image.tobytes()
+
+
+@pytest.mark.parametrize("join,corner", [("miter", 255), ("bevel", 0), ("round", 0)])
+def test_dash_crossing_corner_preserves_join(join, corner):
+    """A dash spanning a path corner uses the chosen join instead of two endpoint caps."""
+    # Given: a long first dash crossing the right-angle bend before the following gap
+    canvas = Canvas(90, 90).path(
+        "M20 60H60V20",
+        (0, 0),
+        90,
+        90,
+        None,
+        stroke="#42CEB7",
+        stroke_width=20,
+        line_join=join,
+        line_cap="butt",
+        dash_array=(60, 20),
+    )
+
+    # When: rasterizing the single dash containing both segments
+    coverage = canvas.render_frame(0).getchannel("A")
+
+    # Then: its outer corner follows the join and the later gap stays empty
+    assert abs(cast(int, coverage.getpixel((68, 68))) - corner) <= 5
+    assert coverage.getpixel((60, 25)) == 0
+
+
+@pytest.mark.parametrize(
+    "pattern,offset,seam", [((30, 20), 10, 255), ((30, 20), 40, 0), ((1000, 10), 0, 255)]
+)
+def test_closed_dash_seam_joins_only_painted_runs(pattern, offset, seam):
+    """Closed contours join painted runs across their seam and preserve a gap at the seam."""
+    # Given: a closed square whose offset places the start in a dash or a gap
+    canvas = Canvas(80, 80).path(
+        "M20 20H60V60H20Z",
+        (0, 0),
+        80,
+        80,
+        None,
+        stroke="#42CEB7",
+        stroke_width=8,
+        dash_array=pattern,
+        dash_offset=offset,
+        line_join="miter",
+        line_cap="butt",
+    )
+
+    # When: rendering the start/closing vertex
+    coverage = canvas.render_frame(0).getchannel("A")
+
+    # Then: the painted seam has a miter while the gap leaves that corner clear
+    assert abs(cast(int, coverage.getpixel((17, 17))) - seam) <= 5
+
+
+@pytest.mark.parametrize("cap,dot", [("butt", 0), ("round", 255), ("square", 255)])
+def test_zero_dash_entries_paint_cap_dots_and_skip_zero_gaps(cap, dot):
+    """Zero-length on entries paint cap dots, and zero gaps advance to the next finite interval."""
+    # Given: isolated zero-length dashes separated by ten local units
+    canvas = Canvas(80, 40).path(
+        "M20 20H60",
+        (0, 0),
+        80,
+        40,
+        None,
+        stroke="#42CEB7",
+        stroke_width=6,
+        line_cap=cap,
+        dash_array=(0, 10, 0, 0),
+    )
+
+    # When: rendering the bounded sequence of zero entries and real gaps
+    coverage = canvas.render_frame(0).getchannel("A")
+
+    # Then: caps determine the dots while the intervening gap remains transparent
+    assert abs(cast(int, coverage.getpixel((20, 20))) - dot) <= 2
+    assert abs(cast(int, coverage.getpixel((30, 20))) - dot) <= 2
+    assert coverage.getpixel((25, 20)) == 0
+    assert coverage.getpixel((60, 20)) == 0
+
+
+@pytest.mark.parametrize("pattern,offset", [((10, 10), 10), ((0, 10), 0)])
+def test_dash_at_zero_length_path_retains_starting_cap(pattern, offset):
+    """An initial zero-length on interval paints its cap on an explicit zero-length line."""
+    # Given: a zero-length line at an on-dash boundary
+    canvas = Canvas(40, 40).path(
+        "M20 20L20 20",
+        (0, 0),
+        40,
+        40,
+        None,
+        stroke="#42CEB7",
+        stroke_width=6,
+        line_cap="round",
+        dash_array=pattern,
+        dash_offset=offset,
+    )
+
+    # When: rendering the phased dash
+    coverage = canvas.render_frame(0).getchannel("A")
+
+    # Then: the initial zero-length on interval retains its round cap
+    assert cast(int, coverage.getpixel((20, 20))) >= 253
+
+
+@pytest.mark.parametrize(
+    "options",
+    [
+        {"dash_array": (-1, 2)},
+        {"dash_array": (1, float("nan"))},
+        {"dash_array": (1e308,)},
+        {"dash_offset": float("inf")},
+    ],
+)
+def test_invalid_dash_geometry_does_not_enter_document(options):
+    """Negative, nonfinite or overflowing dash requests fail before document admission."""
+    # Given: an empty document and an invalid static dash contract
+    canvas = Canvas(40, 40)
+
+    # When: authoring a path with that invalid geometry
+    with pytest.raises(ValidationError):
+        canvas.path("M5 20H35", (0, 0), 40, 40, None, stroke="#42CEB7", **options)
+
+    # Then: no partial layer remains in the document
+    assert canvas.layers == []
+
+
+def test_tiny_dash_intervals_fail_with_a_bounded_plan(tmp_path):
+    """A tiny dash cycle cannot allocate unbounded geometry or replace an existing export."""
+    # Given: a finite dash cycle requesting far more intervals than the bounded renderer supports
+    canvas = Canvas(40, 40).path(
+        "M5 20H35",
+        (0, 0),
+        40,
+        40,
+        None,
+        stroke="#42CEB7",
+        dash_array=(1e-20, 1e-20),
+    )
+    destination = tmp_path / "dash.png"
+    destination.write_bytes(b"existing")
+
+    # When: exporting the excessive finite plan
+    with pytest.raises(RenderingError) as error:
+        canvas.export(destination)
+
+    # Then: an actionable failure preserves the previous output
+    assert error.value.code == "path_dash_limit"
+    assert "longer dash intervals" in str(error.value)
+    assert destination.read_bytes() == b"existing"
+
+
+def test_zero_length_square_dash_follows_the_diagonal_tangent():
+    """A zero-length square dash rotates with its diagonal path instead of the viewport axes."""
+    # Given: isolated square dots on a diagonal path
+    canvas = Canvas(100, 100).path(
+        "M30 30L70 70",
+        (0, 0),
+        100,
+        100,
+        None,
+        stroke="#42CEB7",
+        stroke_width=20,
+        line_cap="square",
+        dash_array=(0, 30),
+    )
+
+    # When: drawing the first zero-length dash
+    coverage = canvas.render_frame(0).getchannel("A")
+
+    # Then: the rotated square reaches along the axis but excludes its unrotated corner
+    assert cast(int, coverage.getpixel((42, 30))) >= 250
+    assert cast(int, coverage.getpixel((39, 39))) <= 5
+
+
+def test_closed_curve_dashes_follow_local_arc_distance():
+    """A dashed circle paints intervals by local curve distance rather than endpoint chords."""
+    # Given: a radius-40 circle with quarter-circumference on/off intervals
+    canvas = Canvas(120, 120).path(
+        "M20 60A40 40 0 0 1 100 60A40 40 0 0 1 20 60Z",
+        (0, 0),
+        120,
+        120,
+        None,
+        stroke="#42CEB7",
+        stroke_width=6,
+        dash_array=(62.8318530718, 62.8318530718),
+    )
+
+    # When: sampling the curved dashed stroke
+    coverage = canvas.sample().frames[0].to_image().getchannel("A")
+
+    # Then: alternate quadrant interiors are painted and the intervening quadrants are clear
+    assert cast(int, coverage.getpixel((32, 32))) >= 253
+    assert cast(int, coverage.getpixel((88, 88))) >= 253
+    assert coverage.getpixel((88, 32)) == coverage.getpixel((32, 88)) == 0

@@ -449,6 +449,8 @@ class PathLayer(LayerIdentityModel):
     line_cap: Literal["butt", "round", "square"] = "butt"
     line_join: Literal["miter", "bevel", "round"] = "miter"
     miter_limit: Annotated[FiniteFloat, Field(ge=1)] = 4.0
+    dash_array: tuple[FiniteNonNegativeFloat, ...] | None = Field(default=None, max_length=65_536)
+    dash_offset: FiniteFloat = 0.0
     view_box: tuple[FiniteFloat, FiniteFloat, FinitePositiveFloat, FinitePositiveFloat] | None = (
         None
     )
@@ -466,6 +468,18 @@ class PathLayer(LayerIdentityModel):
         from quickthumb._path_geometry import parse_path
 
         parse_path(value)
+        return value
+
+    @field_validator("dash_array")
+    @classmethod
+    def validate_dash_cycle(cls, value: tuple[float, ...] | None) -> tuple[float, ...] | None:
+        if value:
+            try:
+                total = math.fsum(value) * (2 if len(value) % 2 else 1)
+            except OverflowError as error:
+                raise ValueError("dash array cycle must be finite") from error
+            if not math.isfinite(total):
+                raise ValueError("dash array cycle must be finite")
         return value
 
     @model_validator(mode="after")

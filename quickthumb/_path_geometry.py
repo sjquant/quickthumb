@@ -26,6 +26,7 @@ class _Segment:
 class _Contour:
     points: tuple[_Point, ...]
     closed: bool
+    tangent: _Point = (1.0, 0.0)
 
 
 @lru_cache(maxsize=128)
