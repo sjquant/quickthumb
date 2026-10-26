@@ -289,7 +289,7 @@ def test_mov_rejects_gif_options_before_codec_or_output(monkeypatch, tmp_path, k
     path.write_bytes(b"previous export")
     monkeypatch.setattr(video, "_ffmpeg_binary", Mock(side_effect=AssertionError("no encoder")))
 
-    with pytest.raises(ValidationError, match="GifOptions.*GIF"):
+    with pytest.raises(ValidationError, match="VideoOptions are required for MOV output"):
         document(kind).render(str(path), animation=GifOptions(fps=12))
 
     assert path.read_bytes() == b"previous export"
