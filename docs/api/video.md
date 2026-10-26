@@ -799,7 +799,7 @@ transforms. The owner's unmasked rendered body defines a stable pivot, so moving
 or resizing the mask never moves that pivot. Tracks require a `LayerMask` shape
 mask; a `TrackMatte` uses its referenced source's animation instead. Stagger and
 counter sources and owner `BackdropBlur` are not supported with mask geometry
-tracks yet. [Path-shaped masks](#path-shaped-mattes) use a PathLayer source.
+tracks yet. [Owner-attached path masks](#owner-attached-path-masks) use the same tracks.
 SVG/PDF/PPTX keep the declared authored-static fallback; HTML supports the bounded
 native route below and declares a static fallback outside it. Strict prewrite
 refusal applies whenever fallback is needed.
@@ -822,10 +822,28 @@ parent links, nested animated owners, composed timelines, keyframe holds/overrid
 sub-pixel size keyframes and other easing require a declared authored-static scene fallback. Layer mattes
 also retain their declared raster fallback. This does not introduce a new mask API.
 
+### Owner-attached path masks
+
+`LayerMask(shape="path", d="M0 0 H40 V40 H0 Z", position=(10, 10), width=40, height=40)`
+uses SVG path syntax and even-odd filling, including curves and holes. The path's
+local coordinates map through `view_box=(x, y, width, height)` into the mask's fixed
+viewport; omitted `view_box` is `(0, 0, authored_width, authored_height)`. Geometry
+outside that viewport is clipped before feathering. `MaskSizeTrack` scales this
+same coordinate basis; position, feather, opacity and inversion work as for other
+shape masks. Stroke and painted gradients are not mask geometry.
+
+Mask `position` uses the owner's authoring plane (canvas coordinates, or parent-local
+coordinates for a parented owner), not an automatic offset from the owner's top-left.
+Masking happens before owner and ancestor motion, so the path travels with its owner
+and uses the unmasked body's stable pivot. No source layer or ID is needed.
+HTML, SVG, PDF and PPTX currently rasterize path masks; strict error policy
+rejects the fallback before writing. See `examples/path_mask.py`.
+
 ### Path-shaped mattes
 
 Use the existing `TrackMatte(layer="path-id")` with a `PathLayer` source for
-path-shaped masks. Curves, even-odd holes and path motion already participate in
+a world-space path-shaped matte. Unlike an owner-attached `LayerMask`, this source
+has its own placement and animation. Curves, even-odd holes and path motion participate in
 the canonical matte pipeline. The source stays hidden and can be reused by
 multiple targets. See
 [`examples/path_matte.py`](https://github.com/sjquant/quickthumb/blob/main/examples/path_matte.py).

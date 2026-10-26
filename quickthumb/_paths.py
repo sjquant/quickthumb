@@ -1,7 +1,6 @@
 """Filled and stroked SVG paths through a bounded, supersampled local viewport."""
 
 import math
-from collections.abc import Sequence
 from typing import cast
 
 from PIL import Image, ImageChops, ImageColor, ImageDraw
@@ -9,6 +8,7 @@ from PIL import Image, ImageChops, ImageColor, ImageDraw
 from quickthumb._base import RenderContext, parse_coordinate
 from quickthumb._effects import EffectsEngine
 from quickthumb._path_dashes import dash_contours
+from quickthumb._path_fill import _clip_polygon, fill_path_mask
 from quickthumb._path_geometry import _Contour, flatten_path
 from quickthumb.errors import RenderingError
 from quickthumb.models import LinearGradient, PathLayer
@@ -46,18 +46,7 @@ def render_path(
     bounds = (left, top, right, bottom)
     size = ((right - left) * 4, (bottom - top) * 4)
     if layer.color is not None or layer.fill is not None:
-        mask = Image.new("1", size)
-        for contour in contours:
-            if len(contour.points) < 3:
-                continue
-            clipped = _clip_polygon(contour.points, bounds)
-            if len(clipped) < 3:
-                continue
-            part = Image.new("1", size)
-            ImageDraw.Draw(part).polygon(
-                [((px - left) * 4, (py - top) * 4) for px, py in clipped], fill=1
-            )
-            mask = ImageChops.logical_xor(mask, part)
+        mask = fill_path_mask(contours, size, bounds)
         if layer.fill is not None:
             gradient_size = (layer.width * 4, layer.height * 4)
             region = (left * 4, top * 4, right * 4, bottom * 4)
@@ -233,32 +222,3 @@ def _stroke_limit() -> RenderingError:
         code="path_stroke_limit",
         path="/d",
     )
-
-
-def _clip_polygon(
-    points: Sequence[tuple[float, float]], bounds: tuple[int, int, int, int]
-) -> Sequence[tuple[float, float]]:
-    """Keep drawing coordinates bounded even when a path crosses a distant viewport."""
-    for axis, boundary, direction in (
-        (0, bounds[0], 1),
-        (0, bounds[2], -1),
-        (1, bounds[1], 1),
-        (1, bounds[3], -1),
-    ):
-        if not points:
-            break
-        output = []
-        previous = points[-1]
-        inside = direction * (previous[axis] - boundary) >= 0
-        for point in points:
-            next_inside = direction * (point[axis] - boundary) >= 0
-            if inside != next_inside:
-                t = (boundary - previous[axis]) / (point[axis] - previous[axis])
-                x = previous[0] + t * (point[0] - previous[0])
-                y = previous[1] + t * (point[1] - previous[1])
-                output.append((boundary, y) if axis == 0 else (x, boundary))
-            if next_inside:
-                output.append(point)
-            previous, inside = point, next_inside
-        points = output
-    return points

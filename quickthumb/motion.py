@@ -1624,6 +1624,7 @@ CapabilityFeature = Literal[
     "mask_position",
     "mask_size",
     "mask_feather",
+    "path_mask",
     "track_matte",
     "path",
     "parent",
@@ -1664,6 +1665,7 @@ _CAPABILITY_FEATURES: tuple[CapabilityFeature, ...] = (
     "mask_position",
     "mask_size",
     "mask_feather",
+    "path_mask",
     "track_matte",
     "path",
     "parent",
@@ -1734,7 +1736,7 @@ _CAPABILITIES["html"] = {
     else MotionCapability(feature, "html", "full")
     for feature in _CAPABILITY_FEATURES
 }
-for _mask_feature in ("mask_position", "mask_size", "mask_feather"):
+for _mask_feature in ("mask_position", "mask_size", "mask_feather", "path_mask"):
     _CAPABILITIES["html"][_mask_feature] = MotionCapability(
         _mask_feature, "html", "fallback", "rasterize"
     )
@@ -1753,6 +1755,7 @@ _PPTX_FALLBACKS: dict[CapabilityFeature, tuple[SupportLevel, Fallback | None]] =
     "mask_position": ("fallback", "rasterize"),
     "mask_size": ("fallback", "rasterize"),
     "mask_feather": ("fallback", "rasterize"),
+    "path_mask": ("fallback", "rasterize"),
     "track_matte": ("fallback", "rasterize"),
     "path": ("fallback", "rasterize"),
     "parent": ("fallback", "static"),
@@ -2010,13 +2013,40 @@ def _validate_export(
             )
             continue
 
+        mask = getattr(layer, "mask", None)
+        if isinstance(mask, LayerMask) and mask.shape == "path":
+            document = document_format in {"html", "svg", "pdf", "pptx"}
+            message = (
+                "Path-shaped LayerMask uses authored-static raster coverage in document output"
+                if document
+                else "Path-shaped LayerMask uses canonical owner-attached coverage"
+            )
+            if document and resolved_policy.unsupported_motion in {"error", "native"}:
+                raise RenderingError(
+                    message,
+                    code="unsupported_capability",
+                    path=pointer + "/mask",
+                    layer_id=layer_id,
+                )
+            diagnostics.append(
+                ExportDiagnostic(
+                    layer_id=layer_id,
+                    feature="path_mask",
+                    target=document_format or normalized,
+                    support="fallback" if document else "full",
+                    fallback="rasterize" if document else None,
+                    message=message,
+                )
+            )
+
         if (
             normalized == "html"
             and pointer not in parent_static_paths
             and not any(
                 pointer == path or pointer.startswith(path + "/") for path in parent_html_paths
             )
-            and isinstance(getattr(layer, "mask", None), LayerMask)
+            and isinstance(mask, LayerMask)
+            and mask.shape != "path"
         ):
             problem = html_mask_admission[pointer]
             if problem and resolved_policy.unsupported_motion in {"error", "native"}:
@@ -2600,6 +2630,9 @@ def _inspection_layer(
     duration = max(timeline.duration, value_duration)
     sample_times = _bounded_frame_times(duration, fps, max_samples)
     static_state = base.model_dump(mode="json", exclude_none=True)
+    mask = getattr(layer, "mask", None)
+    if isinstance(mask, LayerMask) and mask.shape == "path":
+        static_state["mask"] = mask.model_dump(mode="json", exclude_none=True)
     return MotionLayerInspection(
         layer_id=layer_id,
         layer_type=str(getattr(layer, "type", type(layer).__name__)),
@@ -2764,6 +2797,9 @@ def inspect_motion(
         for _, layer in _iter_export_layers(canvas):
             if isinstance(layer, PathLayer):
                 source_features.add("path")
+            mask = getattr(layer, "mask", None)
+            if isinstance(mask, LayerMask) and mask.shape == "path":
+                source_features.add("path_mask")
             if isinstance(getattr(layer, "mask", None), TrackMatte):
                 source_features.add("track_matte")
             if getattr(layer, "parent", None) is not None:
