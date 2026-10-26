@@ -13,3 +13,8 @@ extend-exclude = [
   "tests/snapshots/**",
   "uv.lock",
 ]
+
+# Preserve the official schema verbatim, including its upstream prose typos.
+[type.lottie-schema]
+extend-glob = ["schema-1.0.1.json"]
+check-file = false

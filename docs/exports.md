@@ -943,3 +943,32 @@ quickthumb render spec.json -o card.pdf
 # Live HTML slides; open /?presenter for the presenter dashboard
 quickthumb serve slides.py
 ```
+
+## Static Lottie vectors
+
+```python
+from quickthumb import Canvas, LottieOptions
+
+canvas = Canvas(240, 160).shape("ellipse", (20, 20), 80, 60, "#159A8C")
+result = canvas.export("scene.lot", animation=LottieOptions(fps=30, hold=3))
+```
+
+`.lot` contains ordinary Lottie JSON, not Quickthumb document JSON. This first
+slice supports a single static Canvas: one initial solid background, solid
+rectangle/rounded rectangle, ellipse, pill, triangle, star and polygon shapes,
+and straight `M/L/H/V/Z` Paths with even-odd solid fill or solid stroke. Shape
+alignment and percentage positions retain their authored layout. Path paint must
+fit inside its viewport (strokes reserve a conservative miter-limit margin); stroked Paths require uniform view-box scaling.
+
+`hold` is positive seconds; `fps` defaults to 30 and supports up to 120.
+Stroked degenerate contours are rejected rather than replaced with missing dots.
+The playback span rounds up to `ceil(fps * hold)` frames; the receipt reports
+that frame count and its duration divided by fps. Output has no audio or assets.
+See [the runnable static example](https://github.com/sjquant/quickthumb/blob/main/examples/lottie_static.py).
+
+`canvas.validate_export("lottie")` lists unsupported source IDs and JSON paths.
+Motion, parenting, gradients, effects, masks, clipping, rotation, curved Paths,
+trim/dashes, text, images, plugins and Deck output are not supported in this slice.
+Export rejects them before opening the destination, including when a policy asks
+for static or raster fallback. It never silently drops features or embeds rendered
+frames. No Lottie import, ZIP or editor API is provided.

@@ -62,6 +62,7 @@ from quickthumb.models import (
     LayerMask,
     LayerType,
     LinearGradient,
+    LottieOptions,
     NullLayer,
     OutlineLayer,
     PathLayer,
@@ -1226,7 +1227,7 @@ class Canvas:
         format: str | None = None,
         quality: int | None = None,
         debug: bool = False,
-        animation: GifOptions | VideoOptions | None = None,
+        animation: GifOptions | VideoOptions | LottieOptions | None = None,
         policy: ExportPolicy | None = None,
     ):
         """Render the canvas to a file.
@@ -1236,7 +1237,7 @@ class Canvas:
         vector/document output (see to_svg, to_pptx, and to_pdf); .gif, .mp4,
         .webm, and .mov produce an animation that plays the canvas's layer
         `animation` effects. Pass `GifOptions` for GIF or `VideoOptions`
-        for MP4/WebM/MOV to tune animated output.
+        for MP4/WebM/MOV to tune animated output. Static .lot output uses LottieOptions.
         Set debug=True for raster output annotated with public layer-id bboxes.
         """
         from quickthumb._document import _resolve_export
@@ -1252,11 +1253,16 @@ class Canvas:
         resolved: "_ResolvedExport",
         quality: int | None,
         debug: bool,
-        animation: GifOptions | VideoOptions | None,
+        animation: GifOptions | VideoOptions | LottieOptions | None,
         policy: ExportPolicy | None,
     ) -> "_ExportReceipt":
         from quickthumb._document import Document, _ExportReceipt, preflight_export
         from quickthumb._parenting import has_parent_links
+
+        if resolved.output_format == "lot":
+            from quickthumb._export_lottie import write_lottie
+
+            return write_lottie(self, output_path, animation)
 
         extension = resolved.extension
         if has_parent_links(self):
@@ -1275,7 +1281,7 @@ class Canvas:
                     [None],
                     output_path,
                     format=resolved.output_format,  # type: ignore[arg-type]
-                    animation=animation,
+                    animation=cast(GifOptions | VideoOptions | None, animation),
                     reduced_motion=not resolved.uses_authored_transitions,
                 )
             else:
@@ -1298,7 +1304,7 @@ class Canvas:
         *,
         format: str | None = None,
         quality: int | None = None,
-        animation: GifOptions | VideoOptions | None = None,
+        animation: GifOptions | VideoOptions | LottieOptions | None = None,
     ) -> ExportResult:
         """Export through the existing renderer and return the shared result envelope."""
         from quickthumb._document import (

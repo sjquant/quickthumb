@@ -1650,7 +1650,7 @@ def sample_frames(timeline: Timeline, fps: float) -> tuple[tuple[float, LayerSta
 
 # Export capability contract -------------------------------------------------
 
-ExportTarget = Literal["raster", "video", "html", "pptx"]
+ExportTarget = Literal["raster", "video", "html", "pptx", "lottie"]
 CapabilityFeature = Literal[
     "path",
     "parent",
@@ -1809,6 +1809,11 @@ _CAPABILITIES["pptx"] = {
     for feature in _CAPABILITY_FEATURES
 }
 
+_CAPABILITIES["lottie"] = {
+    feature: MotionCapability(feature, "lottie", "partial" if feature == "path" else "unsupported")
+    for feature in _CAPABILITY_FEATURES
+}
+
 CAPABILITY_MATRIX = MappingProxyType(
     {target: MappingProxyType(row) for target, row in _CAPABILITIES.items()}
 )
@@ -1825,7 +1830,7 @@ def _normalize_target(target: ExportTarget | str) -> ExportTarget:
     }
     normalized = aliases.get(str(target).lower(), str(target).lower())
     if normalized not in _CAPABILITIES:
-        raise ValidationError("target must be one of raster, video, html, or pptx")
+        raise ValidationError("target must be one of raster, video, html, pptx, or lottie")
     return normalized  # type: ignore[return-value]
 
 
@@ -1908,6 +1913,10 @@ def _validate_export(
     parent_document_format: str | None = None,
     uses_authored_transitions: bool = True,
 ) -> list[ExportDiagnostic]:
+    if str(target).lower() == "lottie":
+        from quickthumb._export_lottie import validate_lottie
+
+        return validate_lottie(source)
     normalized = _normalize_target(target)
     resolved_policy = policy or ExportPolicy()
     row = capabilities_for(normalized)
