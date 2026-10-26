@@ -95,7 +95,15 @@ canvas.path("M10 10H90V90H10Z", (20, 10), 120, 100, None,
 Layer animation, parent links, grouping and composition controls are
 not accepted yet. JSON uses `type="path"` and round-trips through `PathLayer`.
 
-PNG and canonical samples draw the path directly. SVG, HTML, PDF and PPTX currently
-embed a static raster image retaining the gradient; `validate_export()` and `ExportResult` report the
-fallback. A strict `ExportPolicy(unsupported_motion="error")` rejects that output
-before writing.
+PNG and canonical samples draw the path directly. SVG and HTML emit native SVG
+paths with even-odd fill, fixed viewport clipping, gradients and local stroke
+controls. HTML keeps each slide's gradient resources independent.
+
+Very large, tiny or poorly conditioned coordinates use a declared raster fallback
+when native numeric range or 1/8-pixel coordinate precision cannot be preserved.
+Gradient stops outside `0..1` also use raster output to retain their existing
+interpolation. `validate_export()` and `ExportResult` give the actual per-layer
+route and reason. `ExportPolicy(unsupported_motion="error")` permits native paths
+and rejects a required fallback before writing.
+
+PDF and PPTX currently embed static raster images retaining the gradient.

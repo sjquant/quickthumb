@@ -74,6 +74,7 @@ from quickthumb.models import (
     GroupLayer,
     LinearGradient,
     OutlineLayer,
+    PathLayer,
     RadialGradient,
     Shadow,
     ShapeLayer,
@@ -968,6 +969,8 @@ class HtmlExporter:
             self._emit_outline(layer)
         elif isinstance(layer, ShapeLayer):
             self._emit_shape(layer)
+        elif isinstance(layer, PathLayer):
+            self._emit_path(layer)
         elif isinstance(layer, TextLayer):
             self._emit_text(layer)
         elif isinstance(layer, SvgLayer):
@@ -1239,6 +1242,25 @@ class HtmlExporter:
         return family, weight, style
 
     # ------------------------------------------------------------- svg overlay
+
+    def _emit_path(self, layer: PathLayer) -> None:
+        from quickthumb._export_svg import SvgExporter
+        from quickthumb._path_svg import native_path_problem
+
+        if native_path_problem(layer):
+            self._emit_raster_fallback(layer)
+            return
+        element_id = self._make_id()
+        animation_style = self._register_animation(layer, element_id)
+        fragment = SvgExporter(self._canvas, id_prefix=f"{self._keyframe_prefix}{element_id}-")
+        x = parse_coordinate(layer.position[0], self._canvas.width)
+        y = parse_coordinate(layer.position[1], self._canvas.height)
+        identity = self._identity_attr(layer)
+        self._body.append(
+            f'<div id="{element_id}"{identity} style="position:absolute;left:{x}px;top:{y}px;'
+            f'width:{layer.width}px;height:{layer.height}px;{animation_style}">'
+            f"{fragment.path_fragment(layer)}</div>"
+        )
 
     def _emit_svg_layer(self, layer: SvgLayer):
         if layer.effects or is_url(layer.path):
