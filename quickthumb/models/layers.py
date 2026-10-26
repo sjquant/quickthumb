@@ -500,12 +500,21 @@ class PathLayer(_AnimatableLayerModel):
                 or animation.stagger is not None
                 or any(
                     track.type
-                    not in {"position", "rotation", "scale", "scale_x", "scale_y", "opacity"}
+                    not in {
+                        "position",
+                        "rotation",
+                        "scale",
+                        "scale_x",
+                        "scale_y",
+                        "opacity",
+                        "dash_offset",
+                    }
                     for track in animation.tracks or ()
                 )
             ):
                 raise ValidationError(
-                    "Path motion requires position, rotation, scale or opacity timelines",
+                    "Path motion requires position, rotation, scale, opacity "
+                    "or dash_offset timelines",
                     path="/animation",
                 )
         segments = parse_path(self.d)

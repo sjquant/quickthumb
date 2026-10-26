@@ -67,6 +67,7 @@ MotionProperty = Literal[
     "scale_y",
     "image_zoom",
     "rotation",
+    "dash_offset",
     "opacity",
     "clip_progress",
     "blur",
@@ -405,8 +406,8 @@ class NormalizedTrack(BaseModel):
                     raise ValidationError("tangents require finite position control points")
         if self.auto_orient and self.property != "position":
             raise ValidationError("auto_orient is only supported for position tracks")
-        if self.blend == "add" and self.property not in {"position", "image_pan"}:
-            raise ValidationError("additive tracks are only supported for position and image_pan")
+        if self.blend == "add" and self.property not in {"position", "image_pan", "dash_offset"}:
+            raise ValidationError("additive tracks require position, image_pan or dash_offset")
         if self.blend == "multiply" and self.property not in {
             "scale",
             "scale_x",
@@ -504,6 +505,9 @@ class LayerState(BaseModel):
     scale_y: float = Field(default=1.0, allow_inf_nan=False, exclude_if=lambda value: value == 1.0)
     image_zoom: float = Field(default=1.0, ge=1.0, allow_inf_nan=False)
     rotation: float = Field(default=0.0, allow_inf_nan=False)
+    dash_offset: float = Field(
+        default=0.0, allow_inf_nan=False, exclude_if=lambda value: value == 0
+    )
     opacity: float = Field(default=1.0, ge=0.0, le=1.0, allow_inf_nan=False)
     clip_progress: float = Field(default=1.0, ge=0.0, le=1.0, allow_inf_nan=False)
     blur: float = Field(default=0.0, ge=0.0, allow_inf_nan=False)
@@ -711,6 +715,7 @@ def _layer_motion_state(layer: object, canvas: Canvas, time: float = 0.0) -> Lay
             return relative.with_values(
                 position=(x + dx, y + dy),
                 rotation=layer.rotation + relative.rotation,
+                dash_offset=layer.dash_offset + relative.dash_offset,
                 opacity=layer.opacity * relative.opacity,
                 color=layer.color,
             )
@@ -735,6 +740,7 @@ def _layer_base_state(layer: object, canvas: Canvas) -> LayerState:
         anchor=getattr(layer, "anchor", (0.5, 0.5)),
         opacity=float(getattr(layer, "opacity", 1.0)),
         rotation=float(getattr(layer, "rotation", 0.0)),
+        dash_offset=float(getattr(layer, "dash_offset", 0.0)),
         color=getattr(layer, "color", None),
     )
     return state
@@ -1340,6 +1346,7 @@ def _normalize_track(track: TrackSpec) -> NormalizedTrack:
             for keyframe in track.keyframes
         ),
         auto_orient=getattr(track, "auto_orient", False),
+        blend=getattr(track, "blend", "replace"),
     )
 
 
@@ -1424,6 +1431,8 @@ def _compose_track_value(
     if track.blend == "replace":
         return state.with_values(**{track.property: value})
     if track.blend == "add":
+        if track.property == "dash_offset":
+            return state.with_values(dash_offset=state.dash_offset + cast(float, value))
         if not isinstance(value, tuple):
             return state
         if track.property == "image_pan":
@@ -1522,7 +1531,12 @@ def _interpolate(left: MotionValue, right: MotionValue, ratio: float) -> MotionV
     if isinstance(left, tuple) and isinstance(right, tuple):
         return tuple(a + (b - a) * ratio for a, b in zip(left, right, strict=True))
     if isinstance(left, (int, float)) and isinstance(right, (int, float)):
-        return left + (right - left) * ratio
+        difference = right - left
+        return (
+            left + difference * ratio
+            if math.isfinite(difference)
+            else left * (1 - ratio) + right * ratio
+        )
     if isinstance(left, str) and isinstance(right, str):
         return _interpolate_color(left, right, ratio)
     return left if ratio < 1.0 else right
@@ -1608,6 +1622,7 @@ CapabilityFeature = Literal[
     "scale_y",
     "image_zoom",
     "rotation",
+    "dash_offset",
     "opacity",
     "clip_progress",
     "blur",
@@ -1644,6 +1659,7 @@ _CAPABILITY_FEATURES: tuple[CapabilityFeature, ...] = (
     "scale_y",
     "image_zoom",
     "rotation",
+    "dash_offset",
     "opacity",
     "clip_progress",
     "blur",
@@ -1684,6 +1700,7 @@ _CANONICAL_RENDERED: dict[str, frozenset[str]] = {
             "scale_x",
             "scale_y",
             "rotation",
+            "dash_offset",
             "opacity",
             "clip_progress",
             "blur",
@@ -1705,6 +1722,9 @@ _CAPABILITIES["html"] = {
 }
 _CAPABILITIES["html"]["parent"] = MotionCapability("parent", "html", "partial")
 _CAPABILITIES["html"]["path"] = MotionCapability("path", "html", "partial", "rasterize")
+_CAPABILITIES["html"]["dash_offset"] = MotionCapability(
+    "dash_offset", "html", "unsupported", "static"
+)
 _CAPABILITIES["html"]["color"] = MotionCapability("color", "html", "unsupported", "static")
 _CAPABILITIES["html"]["motion_path"] = MotionCapability("motion_path", "html", "partial")
 _PPTX_FALLBACKS: dict[CapabilityFeature, tuple[SupportLevel, Fallback | None]] = {
@@ -1718,6 +1738,7 @@ _PPTX_FALLBACKS: dict[CapabilityFeature, tuple[SupportLevel, Fallback | None]] =
     "scale_y": ("unsupported", "static"),
     "image_zoom": ("fallback", "rasterize"),
     "rotation": ("native", None),
+    "dash_offset": ("unsupported", "static"),
     "opacity": ("native", None),
     "clip_progress": ("fallback", "fade"),
     "blur": ("unsupported", "rasterize"),
@@ -2418,7 +2439,14 @@ def _inspection_layer(
         targets.extend(_inspection_targets(layer, spec))
     duration = max(timeline.duration, value_duration)
     sample_times = _bounded_frame_times(duration, fps, max_samples)
-    static_state = base.model_dump(mode="json", exclude_none=True)
+
+    def state_values(state):
+        values = state.model_dump(mode="json", exclude_none=True)
+        if isinstance(layer, PathLayer):
+            values["dash_offset"] = state.dash_offset
+        return values
+
+    static_state = state_values(base)
     return MotionLayerInspection(
         layer_id=layer_id,
         layer_type=str(getattr(layer, "type", type(layer).__name__)),
@@ -2427,12 +2455,10 @@ def _inspection_layer(
         duration=duration,
         targets=targets,
         sample_times=list(sample_times),
-        samples=[
-            sample_state(time).model_dump(mode="json", exclude_none=True) for time in sample_times
-        ],
+        samples=[state_values(sample_state(time)) for time in sample_times],
         static_state=static_state,
-        initial_state=initial.model_dump(mode="json", exclude_none=True),
-        final_state=final.model_dump(mode="json", exclude_none=True),
+        initial_state=state_values(initial),
+        final_state=state_values(final),
     )
 
 
@@ -2478,6 +2504,7 @@ def _inspection_reduced_motion(duration: float, policy: ExportPolicy) -> Reduced
             "scale_x",
             "scale_y",
             "rotation",
+            "dash_offset",
             "opacity",
             "clip_progress",
             "blur",
