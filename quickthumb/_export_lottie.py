@@ -10,7 +10,8 @@ from PIL import ImageColor
 
 from quickthumb._base import apply_alignment, parse_coordinate
 from quickthumb._document import _ExportReceipt, canonical_json
-from quickthumb._path_geometry import parse_path
+from quickthumb._path_curves import cubic_path_commands
+from quickthumb._path_svg import _bounded_number, native_path_problem
 from quickthumb._shapes import TRIANGLE_POINTS, ShapeEngine
 from quickthumb.errors import ErrorDetail, RenderingError
 from quickthumb.models import (
@@ -53,16 +54,21 @@ def _layer_problem(layer) -> tuple[str, str] | None:
             or (layer.trim_start, layer.trim_end, layer.trim_offset) != (0, 1, 0)
         ):
             return "d", "Path dashes and trimming require a later Lottie geometry layer"
-        segments = parse_path(layer.d)
-        if any(segment.kind not in {"M", "L", "Z"} for segment in segments):
-            return "d", "Static Lottie paths currently require straight M/L/H/V/Z segments"
+        # Lottie retains layer opacity natively; reuse the shared native numeric admission.
+        if problem := native_path_problem(layer.model_copy(update={"opacity": 1.0})):
+            return "d", problem.replace("native SVG", "native Lottie")
+        try:
+            commands = cubic_path_commands(layer)
+            _path_contours(layer, commands)
+        except RenderingError as error:
+            return "d", str(error)
         if layer.stroke:
             contours = []
-            for segment in segments:
-                if segment.kind == "M":
+            for kind, points in commands:
+                if kind == "M":
                     contours.append(set())
-                if segment.points:
-                    contours[-1].add(segment.points[0])
+                for point in points:
+                    contours[-1].add(point)
             if any(len(points) < 2 for points in contours):
                 return "d", "Degenerate stroked contours are not supported by static Lottie"
         vx, vy, vw, vh = layer.view_box or (0, 0, layer.width, layer.height)
@@ -71,12 +77,12 @@ def _layer_problem(layer) -> tuple[str, str] | None:
         pad = layer.stroke_width * layer.miter_limit / 2 if layer.stroke else 0
         if any(
             not (vx + pad <= x <= vx + vw - pad and vy + pad <= y <= vy + vh - pad)
-            for segment in segments
-            for x, y in segment.points
+            for _, points in commands
+            for x, y in points
         ):
             return (
                 "d",
-                "Path paint must fit inside its viewport; "
+                "Path control hull and stroke margin must fit inside its viewport; "
                 "Lottie viewport clipping is not supported",
             )
     return None
@@ -220,26 +226,70 @@ def _shapes(layer, width, height):
             # PIL's fourfold source polygon spans [0, size*4-1].
             geometry = _contour([[x * (w - 0.25), y * (h - 0.25)] for x, y in points], True)
         return [geometry, _paint(layer.color)]
-    contours, points = [], []
-    for segment in parse_path(layer.d):
-        if segment.kind == "M":
-            if points:
-                contours.append(_contour(points, False))
-            points = [list(segment.points[0])]
-        elif segment.kind == "L":
-            if not points:
-                points = [contours[-1]["ks"]["k"]["v"][0]]
-            points.append(list(segment.points[0]))
-        else:
-            contours.append(_contour(points, True))
-            points = []
-    if points:
-        contours.append(_contour(points, False))
+    contours = _path_contours(layer)
     # Lottie paints shape styles in reverse order; canonical Path paints fill, then stroke.
     paints = ([_paint(layer.stroke, layer)] if layer.stroke else []) + (
         [_paint(layer.color)] if layer.color else []
     )
     return contours + paints
+
+
+def _path_contours(layer: PathLayer, commands=None) -> list[dict]:
+    """Convert canonical cubic commands into Lottie's relative tangent handles."""
+    contours, points, incoming, outgoing = [], [], [], []
+    current = start = (0.0, 0.0)
+
+    def finish(closed):
+        if not points:
+            return
+        if closed and len(points) > 1 and points[-1] == points[0]:
+            incoming[0] = incoming.pop()
+            points.pop()
+            outgoing.pop()
+        shape = _contour(points[:], closed)
+        shape["ks"]["k"].update(i=incoming[:], o=outgoing[:])
+        contours.append(shape)
+        points.clear()
+        incoming.clear()
+        outgoing.clear()
+
+    _, _, vw, vh = layer.view_box or (0, 0, layer.width, layer.height)
+    scale = layer.width / vw, layer.height / vh
+    for kind, controls in cubic_path_commands(layer) if commands is None else commands:
+        if kind == "M":
+            finish(False)
+            current = start = controls[0]
+        elif kind == "Z":
+            finish(True)
+            current = start
+            continue
+        if not points:
+            points.append(list(current))
+            incoming.append([0, 0])
+            outgoing.append([0, 0])
+        if kind in {"L", "C"}:
+            end = controls[-1]
+            before = (
+                [a - b for a, b in zip(controls[0], current, strict=True)]
+                if kind == "C"
+                else [0, 0]
+            )
+            after = (
+                [a - b for a, b in zip(controls[1], end, strict=True)] if kind == "C" else [0, 0]
+            )
+            if any(
+                not _bounded_number(value, axis_scale)
+                for handle in (before, after)
+                for value, axis_scale in zip(handle, scale, strict=True)
+            ):
+                raise RenderingError("Native Lottie tangent precision limit exceeded")
+            outgoing[-1] = before
+            points.append(list(end))
+            incoming.append(after)
+            outgoing.append([0, 0])
+            current = end
+    finish(False)
+    return contours
 
 
 def write_lottie(canvas: Canvas, output_path: str, animation) -> _ExportReceipt:

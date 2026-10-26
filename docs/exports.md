@@ -956,9 +956,9 @@ result = canvas.export("scene.lot", animation=LottieOptions(fps=30, hold=3))
 `.lot` contains ordinary Lottie JSON, not Quickthumb document JSON. This first
 slice supports a single static Canvas: one initial solid background, solid
 rectangle/rounded rectangle, ellipse, pill, triangle, star and polygon shapes,
-and straight `M/L/H/V/Z` Paths with even-odd solid fill or solid stroke. Shape
-alignment and percentage positions retain their authored layout. Path paint must
-fit inside its viewport (strokes reserve a conservative miter-limit margin); stroked Paths require uniform view-box scaling.
+and Paths (`M/L/H/V/C/S/Q/T/A/Z`) with even-odd solid fill or solid stroke. Shape
+alignment and percentage positions retain their authored layout. Path control hulls must
+fit inside the viewport (strokes reserve a conservative miter-limit margin); stroked Paths require uniform view-box scaling.
 
 `hold` is positive seconds; `fps` defaults to 30 and supports up to 120.
 Stroked degenerate contours are rejected rather than replaced with missing dots.
@@ -967,8 +967,18 @@ that frame count and its duration divided by fps. Output has no audio or assets.
 See [the runnable static example](https://github.com/sjquant/quickthumb/blob/main/examples/lottie_static.py).
 
 `canvas.validate_export("lottie")` lists unsupported source IDs and JSON paths.
-Motion, parenting, gradients, effects, masks, clipping, rotation, curved Paths,
+Motion, parenting, gradients, effects, masks, viewport clipping, rotation,
 trim/dashes, text, images, plugins and Deck output are not supported in this slice.
 Export rejects them before opening the destination, including when a policy asks
 for static or raster fallback. It never silently drops features or embeds rendered
 frames. No Lottie import, ZIP or editor API is provided.
+
+Quadratics convert exactly to cubic tangent handles. Elliptical arcs use the
+same bounded cubic conversion as native PDF paths (at most 1/8 device pixel
+approximation, with command and coordinate precision limits). No ReportLab or
+other document-renderer dependency is needed for Lottie. Closed contours retain
+their closing tangents and multiple contours share the even-odd fill rule.
+Admission uses the conservative control hull: some curves that visually fit
+are rejected when their controls exceed the fixed viewport. Rescale or reposition
+the path data inside its view box instead of expecting implicit cropping.
+See the [curved Path example](https://github.com/sjquant/quickthumb/blob/main/examples/lottie_paths.py).
