@@ -191,6 +191,46 @@ substituting a CSS or PowerPoint curve; strict export policy rejects it.
 [`examples/spring_motion.py`](https://github.com/sjquant/quickthumb/blob/main/examples/spring_motion.py)
 compares the three damping regimes and exports GIF, JSON and a midpoint PNG.
 
+### Wiggle track modifiers
+
+Attach `wiggle=Wiggle(frequency=2, amplitude=12, seed=156)` to a numeric or
+vector track to add deterministic noise after keyframe interpolation:
+
+```python
+from quickthumb import AnimationSpec, KeyframeSpec, PositionTrack, TimingSpec, Wiggle
+
+motion = AnimationSpec.timeline(
+    PositionTrack(
+        keyframes=[KeyframeSpec(time=0, value=(0, 0))],
+        wiggle=Wiggle(frequency=2, amplitude=12, seed=156),
+    ),
+    timing=TimingSpec(duration=2),
+)
+```
+
+`frequency` is the highest noise component in cycles per second. Four
+noncommensurate sinusoidal components use seed-derived phases, without a global
+random generator or simulation state. `amplitude` bounds the absolute offset
+per scalar or vector component, in that property's units; vector axes use
+independent phases. `seed` is a stored unsigned 32-bit integer. Color tracks do
+not accept wiggle.
+
+The modifier starts at zero offset on the animation event's local clock. It
+continues across keyframe holds and after a track's last keyframe until the
+event ends, then holds that final perturbed value. An explicit `TimingSpec`
+gives a one-keyframe constant track a duration; no additional clock or automatic
+fade is introduced. The same seed, parameters and event time produce the same
+offset when seeking, exporting sequentially or using render workers.
+
+Opacity and reveal remain within 0–1, image pan within -1–1, image zoom at least
+1, and blur nonnegative. These property clamps apply after the bounded noise;
+uniform/axis scale retains its ordinary renderer semantics. A path's position
+can be perturbed, but `auto_orient` continues to use the authored path heading.
+`inspect_motion()` includes the modifier and sampled states. HTML and PPTX use
+declared authored-static fallback, including parent-linked scenes.
+[`examples/wiggle_motion.py`](https://github.com/sjquant/quickthumb/blob/main/examples/wiggle_motion.py)
+compares three seeds on position and rotation tracks.
+
 ## Notes
 
 - A scene longer than its clip needs `speed` below `1.0`; asking for more

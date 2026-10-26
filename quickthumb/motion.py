@@ -48,8 +48,10 @@ from quickthumb.models import (
     TimingSpec,
     TrackSpec,
     VideoLayer,
+    Wiggle,
     validate_hex_color,
 )
+from quickthumb.models.motion import _validate_wiggle_values
 from quickthumb.transitions import Fade, Transition, coerce_transition
 
 if TYPE_CHECKING:
@@ -410,6 +412,7 @@ class NormalizedTrack(BaseModel):
     keyframes: tuple[NormalizedKeyframe, ...]
     blend: TrackBlend = "replace"
     auto_orient: bool = Field(default=False, exclude_if=lambda value: not value)
+    wiggle: Wiggle | None = Field(default=None, exclude_if=lambda value: value is None)
 
     @model_validator(mode="after")
     def validate_keyframes(self) -> NormalizedTrack:
@@ -432,6 +435,9 @@ class NormalizedTrack(BaseModel):
                     )
                 ):
                     raise ValidationError("tangents require finite position control points")
+        if self.wiggle is not None and self.property == "color":
+            raise ValidationError("wiggle requires a numeric or vector track")
+        _validate_wiggle_values((key.value for key in self.keyframes), self.wiggle)
         if self.auto_orient and self.property != "position":
             raise ValidationError("auto_orient is only supported for position tracks")
         if self.blend == "add" and self.property not in {"position", "image_pan"}:
@@ -1046,6 +1052,11 @@ def _geometry_in_motion(
         for track in event.tracks:
             if track.property not in properties:
                 continue
+            wiggle_active = (
+                track.wiggle is not None
+                and track.wiggle.amplitude > 0
+                and 0 < local < event.duration
+            )
             # Match the exporter's nanosecond boundary tolerance: decimal
             # start/duration sums must not turn an endpoint into a motion frame.
             sample_time = next(
@@ -1088,6 +1099,9 @@ def _geometry_in_motion(
                 if track.blend == "replace":
                     position_changes.clear()
                     path_position_moving = False
+                    moving["position"] = False
+                if wiggle_active:
+                    moving["position"] = True
                 if path:
                     path_position_moving = path_position_moving or active
                     if track.auto_orient and track.has_direction:
@@ -1113,6 +1127,7 @@ def _geometry_in_motion(
                         y + right.value[1] - left.value[1],
                     )
                 continue
+            active = active or wiggle_active
             moving[track.property] = (
                 active if track.blend == "replace" else moving.get(track.property, False) or active
             )
@@ -1359,6 +1374,7 @@ def _normalize_track(track: TrackSpec) -> NormalizedTrack:
             for keyframe in track.keyframes
         ),
         auto_orient=getattr(track, "auto_orient", False),
+        wiggle=track.wiggle,
     )
 
 
@@ -1419,21 +1435,59 @@ def _sample_event(event: TimelineEvent, time: float, state: LayerState) -> Layer
     )
     eased_progress = easing_value(event.options.get("easing"), progress)
     for track in event.tracks:
+        heading = None
         if track.property == "position" and _is_path_track(track):
             value, heading = _sample_path_track(
                 track, progress * event.duration, event.options.get("easing")
             )
-            state = _compose_track_value(state, track, value)
-            if track.auto_orient and heading is not None:
-                state = state.with_values(rotation=heading)
-            continue
-        value = _sample_track(track, progress, event.duration, event.options.get("easing"))
+        else:
+            value = _sample_track(track, progress, event.duration, event.options.get("easing"))
+        value = _wiggle_value(track, value, progress * event.duration)
         state = _compose_track_value(state, track, value)
+        if track.auto_orient and heading is not None:
+            state = state.with_values(rotation=heading)
     if event.effect == "ken_burns" and event.options.get("focal_point") is not None:
         state = state.with_values(image_focal_point=tuple(event.options["focal_point"]))
     if event.effect is not None and event.source == "legacy":
         state = _sample_effect(event, eased_progress, state)
     return state
+
+
+def _wiggle_value(track: NormalizedTrack, value: MotionValue, time: float) -> MotionValue:
+    """Add a bounded offset after interpolation, keeping property limits intact."""
+    wiggle = track.wiggle
+    if wiggle is None or wiggle.amplitude == 0:
+        return value
+    if isinstance(value, tuple):
+        x, y = (
+            component + _wiggle_noise(wiggle, time, axis) for axis, component in enumerate(value)
+        )
+        if track.property == "image_pan":
+            return min(1.0, max(-1.0, x)), min(1.0, max(-1.0, y))
+        return x, y
+    assert isinstance(value, (float, int))
+    result = value + _wiggle_noise(wiggle, time, 0)
+    if track.property in {"opacity", "clip_progress"}:
+        return min(1.0, max(0.0, result))
+    if track.property in {"blur", "image_zoom"}:
+        return max(1.0 if track.property == "image_zoom" else 0.0, result)
+    return result
+
+
+def _wiggle_noise(wiggle: Wiggle, time: float, axis: int) -> float:
+    """Sum four noncommensurate seeded tones, with no offset at time zero."""
+    result = 0.0
+    for index, rate in enumerate((math.sqrt(2) / 4, math.sqrt(3) / 3, math.sqrt(5) / 3, 1.0)):
+        bits = (wiggle.seed + 0x9E3779B9 * (4 * axis + index + 1)) & 0xFFFFFFFF
+        bits = ((bits ^ (bits >> 16)) * 0x85EBCA6B) & 0xFFFFFFFF
+        bits = ((bits ^ (bits >> 13)) * 0xC2B2AE35) & 0xFFFFFFFF
+        phase = ((bits ^ (bits >> 16)) / 2**32) * math.tau
+        frequency = wiggle.frequency * rate
+        cycles = time * frequency
+        if not math.isfinite(cycles):
+            cycles = (time % (1 / frequency)) * frequency
+        result += 0.5**index * (math.sin(math.tau * (cycles % 1) + phase) - math.sin(phase))
+    return wiggle.amplitude * (result / 3.75)
 
 
 def _compose_track_value(
@@ -1632,6 +1686,7 @@ CapabilityFeature = Literal[
     "color",
     "easing",
     "spring",
+    "wiggle",
     "stagger",
     "motion_path",
     "morph",
@@ -1668,6 +1723,7 @@ _CAPABILITY_FEATURES: tuple[CapabilityFeature, ...] = (
     "color",
     "easing",
     "spring",
+    "wiggle",
     "stagger",
     "motion_path",
     "morph",
@@ -1709,6 +1765,7 @@ _CANONICAL_RENDERED: dict[str, frozenset[str]] = {
             "color",
             "easing",
             "spring",
+            "wiggle",
             "image_pan",
             "image_zoom",
             "stagger",
@@ -1727,6 +1784,7 @@ _CAPABILITIES["html"]["parent"] = MotionCapability("parent", "html", "partial")
 _CAPABILITIES["html"]["color"] = MotionCapability("color", "html", "unsupported", "static")
 _CAPABILITIES["html"]["motion_path"] = MotionCapability("motion_path", "html", "partial")
 _CAPABILITIES["html"]["spring"] = MotionCapability("spring", "html", "fallback", "static")
+_CAPABILITIES["html"]["wiggle"] = MotionCapability("wiggle", "html", "fallback", "static")
 _PPTX_FALLBACKS: dict[CapabilityFeature, tuple[SupportLevel, Fallback | None]] = {
     "parent": ("fallback", "static"),
     "position": ("native", None),
@@ -1743,6 +1801,7 @@ _PPTX_FALLBACKS: dict[CapabilityFeature, tuple[SupportLevel, Fallback | None]] =
     "color": ("partial", "static"),
     "easing": ("partial", "fade"),
     "spring": ("fallback", "static"),
+    "wiggle": ("fallback", "static"),
     "stagger": ("native", None),
     "motion_path": ("unsupported", "static"),
     "morph": ("partial", "fade"),
@@ -1815,6 +1874,8 @@ def _capability_features_for(animation: object) -> tuple[CapabilityFeature, ...]
             features.append("stagger")
         if _has_spring_easing(animation):
             features.append("spring")
+        if _has_wiggle(animation):
+            features.append("wiggle")
         return tuple(dict.fromkeys(features))
     return ("opacity",)
 
@@ -1829,6 +1890,12 @@ def _has_spring_easing(animation: object) -> bool:
             (animation.easing, getattr(animation.effect, "easing", None)),
             (key.easing for track in animation.tracks or () for key in track.keyframes),
         )
+    )
+
+
+def _has_wiggle(animation: object) -> bool:
+    return isinstance(animation, AnimationSpec) and any(
+        track.wiggle is not None for track in animation.tracks or ()
     )
 
 
@@ -2285,6 +2352,7 @@ def _inspection_event(
             MotionTrackInspection(
                 type=track.property,
                 auto_orient=track.auto_orient,
+                wiggle=track.wiggle,
                 keyframes=[
                     MotionKeyframeInspection(
                         time=keyframe.time,

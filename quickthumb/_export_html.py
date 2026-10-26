@@ -91,6 +91,7 @@ from quickthumb.motion import (
     _has_motion_path,
     _has_spring_easing,
     _has_transform_extensions,
+    _has_wiggle,
     compile_timeline,
 )
 
@@ -294,6 +295,8 @@ def _supports_transform_extensions_html(layer: object) -> bool:
         return False
     spec = specs[0]
     if spec.tracks is None or spec.stagger is not None:
+        return False
+    if _has_wiggle(spec):
         return False
     if any(track.type not in _TRANSFORM_PROPERTIES for track in spec.tracks):
         return False
@@ -781,8 +784,10 @@ class HtmlExporter:
             self._prev_anim_key = None
             return ""
 
-        if _has_color_track(layer) or any(_has_spring_easing(effect) for effect in effects):
-            # Color tracks and spring clocks use the authored-static fallback.
+        if _has_color_track(layer) or any(
+            _has_spring_easing(effect) or _has_wiggle(effect) for effect in effects
+        ):
+            # Color tracks and procedural clocks use the authored-static fallback.
             self._prev_anim_key = None
             self._prev_nodes = []
             return ""

@@ -247,10 +247,29 @@ class KeyframeSpec(_MotionModel):
     hold: bool = Field(default=False, exclude_if=lambda value: value is False)
 
 
+class Wiggle(_MotionModel):
+    """Seeded band-limited offsets added to a numeric track on its event clock."""
+
+    frequency: FinitePositiveFloat = 2.0
+    amplitude: FiniteNonNegativeFloat = 1.0
+    seed: Annotated[int, Field(strict=True, ge=0, le=4294967295)] = 0
+
+
+def _validate_wiggle_values(values, wiggle: Wiggle | None) -> None:
+    if wiggle is not None:
+        for value in values:
+            components = value if isinstance(value, (tuple, list)) else (value,)
+            if any(
+                not math.isfinite(abs(component) + wiggle.amplitude) for component in components
+            ):
+                raise ValidationError("keyframe values plus wiggle amplitude must remain finite")
+
+
 class _TrackBase(_MotionModel):
     """Shared fields for a typed motion property track."""
 
     keyframes: list[KeyframeSpec]
+    wiggle: Wiggle | None = Field(default=None, exclude_if=lambda value: value is None)
 
     @model_validator(mode="after")
     def validate_keyframes(self):
@@ -265,6 +284,7 @@ class _TrackBase(_MotionModel):
             for key in self.keyframes
         ):
             raise ValidationError("tangents are only supported for position tracks")
+        _validate_wiggle_values((key.value for key in self.keyframes), self.wiggle)
         return self
 
 
@@ -467,6 +487,7 @@ class ColorTrack(_TrackBase):
     """A text/shape fill track interpolated in premultiplied Oklab and linear alpha."""
 
     type: Literal["color"] = "color"
+    wiggle: None = Field(default=None, exclude_if=lambda value: value is None)
 
     @field_validator("keyframes")
     @classmethod

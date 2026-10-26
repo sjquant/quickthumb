@@ -34,6 +34,12 @@ Extras install with `uv run --extra <name> python examples/<script>.py`. The
 
 ## Decks and video
 
+### `wiggle_motion.py`
+
+Three seeds drive position and rotation track modifiers without simulation
+state. Writes `output/wiggle_motion.gif`, canonical JSON and a sampled PNG;
+seeking and sequential export use the same stored seeds.
+
 ### `spring_motion.py`
 
 Three moving boxes compare under-, critically- and over-damped spring easing.
