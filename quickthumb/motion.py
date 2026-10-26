@@ -1817,6 +1817,7 @@ _CAPABILITIES["lottie"] = {
         if feature
         in {
             "path",
+            "parent",
             "position",
             "anchor",
             "scale",

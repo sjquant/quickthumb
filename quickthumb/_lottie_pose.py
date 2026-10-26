@@ -8,7 +8,7 @@ from quickthumb._base import apply_alignment, expanded_rotation_size, parse_coor
 from quickthumb._path_svg import _bounded_number
 from quickthumb._sampling import _MAX_CAPTURE_BYTES, _MAX_OBSERVATIONS
 from quickthumb.errors import RenderingError
-from quickthumb.models import BackgroundLayer, PathLayer, ShapeLayer
+from quickthumb.models import BackgroundLayer, NullLayer, PathLayer, ShapeLayer
 from quickthumb.motion import LayerState
 
 
@@ -54,7 +54,7 @@ def shape_source_box(canvas, layer):
     return x, y, width, height
 
 
-def layer_pose(canvas, layer, shapes, timeline, fps, boundaries):
+def layer_pose(canvas, layer, shapes, timeline, fps, boundaries, geometry=None):
     """Return native source geometry and one canonical animated object transform."""
     if isinstance(layer, BackgroundLayer):
         return (
@@ -70,7 +70,7 @@ def layer_pose(canvas, layer, shapes, timeline, fps, boundaries):
         )
     x = parse_coordinate(layer.position[0], canvas.width)
     y = parse_coordinate(layer.position[1], canvas.height)
-    width, height = layer.width, layer.height
+    width, height = getattr(layer, "width", 0), getattr(layer, "height", 0)
     anchor = [layer.anchor[0] * width, layer.anchor[1] * height, 0]
     static = {
         "ty": "tr",
@@ -80,7 +80,11 @@ def layer_pose(canvas, layer, shapes, timeline, fps, boundaries):
         "r": _property(0),
         "o": _property(100),
     }
-    if isinstance(layer, PathLayer):
+    if isinstance(layer, NullLayer):
+        if geometry is not None:
+            x, y = geometry.origin
+        anchor = [0, 0, 0]
+    elif isinstance(layer, PathLayer):
         vx, vy, vw, vh = layer.view_box or (0, 0, width, height)
         static.update(a=_property([vx, vy]), s=_property([width / vw * 100, height / vh * 100]))
     else:
@@ -91,6 +95,11 @@ def layer_pose(canvas, layer, shapes, timeline, fps, boundaries):
             p=_property([width / 2, height / 2]),
             r=_property(layer.rotation),
         )
+        if geometry is not None:
+            x, y = geometry.origin
+            width, height = geometry.body_size
+            _, _, tx, _, _, ty = geometry.body_to_baked
+            static.update(a=_property([0, 0]), p=_property([tx, ty]))
         if timeline is not None:
             if max(width * height, layer.width * layer.height) * 4 * 16 > _MAX_CAPTURE_BYTES:
                 raise RenderingError(
@@ -99,10 +108,13 @@ def layer_pose(canvas, layer, shapes, timeline, fps, boundaries):
                 )
             # Match the canonical whole-source pivot without serializing raster imagery.
             source = Image.new("RGBA", (width, height))
-            canvas._shapes.render_shape_layer(
-                source,
-                layer.model_copy(update={"position": (0, 0), "align": None, "animation": None}),
-            )
+            probe = layer.model_copy(update={"position": (0, 0), "align": None, "animation": None})
+            if geometry is not None:
+                from quickthumb._export_base import _with_motion_color
+                from quickthumb._parent_render import _opaque_reference
+
+                probe = _with_motion_color(_opaque_reference(probe), "#FFFFFF")
+            canvas._shapes.render_shape_layer(source, probe)
             left, top, right, bottom = source.getbbox() or (0, 0, width, height)
             anchor = [
                 left + layer.anchor[0] * (right - left),
@@ -111,7 +123,7 @@ def layer_pose(canvas, layer, shapes, timeline, fps, boundaries):
             ]
         else:
             anchor = [0, 0, 0]
-    transformed = [{"ty": "gr", "it": [*shapes, static]}]
+    transformed = [] if isinstance(layer, NullLayer) else [{"ty": "gr", "it": [*shapes, static]}]
     times = _times(timeline, fps, boundaries) if timeline is not None else [0.0]
     rows = []
     for time in times:
@@ -120,17 +132,21 @@ def layer_pose(canvas, layer, shapes, timeline, fps, boundaries):
             if timeline is not None
             else LayerState(anchor=layer.anchor)
         )
-        if isinstance(layer, ShapeLayer) and state.scale <= 0:
+        if isinstance(layer, (ShapeLayer, NullLayer)) and state.scale <= 0:
             raise RenderingError(
-                "Nonpositive uniform Shape scale is not supported by this canonical renderer",
+                "Nonpositive uniform Shape/Null scale is not supported by this canonical renderer",
                 path="/animation",
             )
         dx, dy = state.position or (0, 0)
-        rotation = state.rotation + (layer.rotation if isinstance(layer, PathLayer) else 0)
+        rotation = state.rotation + (
+            layer.rotation
+            if isinstance(layer, PathLayer) or isinstance(layer, NullLayer) and geometry is None
+            else 0
+        )
         position = [x + anchor[0] + dx, y + anchor[1] + dy, 0]
         sx, sy = state.scale * state.scale_x * 100, state.scale * state.scale_y * 100
         values = {
-            "o": layer.opacity * state.opacity * 100,
+            "o": getattr(layer, "opacity", 1.0) * state.opacity * 100,
             "r": rotation,
             "p": position,
             "a": anchor,
@@ -139,7 +155,7 @@ def layer_pose(canvas, layer, shapes, timeline, fps, boundaries):
         checks = [(v, 1) for v in position + anchor]
         checks.extend(
             (
-                (rotation, max(width, height) * math.pi / 180),
+                (rotation, max(1, width, height) * math.pi / 180),
                 (sx, width / 100),
                 (sy, height / 100),
             )

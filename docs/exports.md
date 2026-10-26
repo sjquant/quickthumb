@@ -969,7 +969,7 @@ a static zero-hold composition still occupies one frame. Output has no audio or 
 See [the runnable static example](https://github.com/sjquant/quickthumb/blob/main/examples/lottie_static.py).
 
 `canvas.validate_export("lottie")` lists unsupported source IDs and JSON paths.
-Parenting, gradients, effects/presets, stagger, masks, viewport clipping,
+Gradients, effects/presets, stagger, masks, viewport clipping,
 paint/trim/dash tracks, motion paths, text, images, plugins and Deck output are
 not supported in this slice.
 Export rejects them before opening the destination, including when a policy asks
@@ -993,7 +993,7 @@ pivot. Shapes use the same whole painted-source pivot as canonical sampling,
 including authored static rotation, alignment and irregular geometry. Preparing
 an animated Shape uses one bounded untimed source probe to determine that pivot;
 it does not embed pixels. Animated Shape sources must fit inside the Canvas.
-Nonpositive uniform Shape scale is explicitly unsupported by this renderer;
+Nonpositive uniform Shape/Null scale is explicitly unsupported by this renderer;
 axis scales and Path scales retain their canonical behavior.
 
 Pose properties are held vector samples at `LottieOptions.fps`, augmented with
@@ -1006,3 +1006,19 @@ layer-pose observations or native coordinate precision limits would be exceeded.
 exports the authored static pose for `hold` seconds, rather than the animation
 endpoint. Other unsupported features still fail before writing.
 See the [pose-motion example](https://github.com/sjquant/quickthumb/blob/main/examples/lottie_motion.py).
+
+Top-level Null and supported Shape layers can form transform hierarchies with
+`parent`. Parenting composes existing canonical local frames, including authored
+rotation, anchors and nonuniform axes; local poses do not bake ancestors again.
+Percent coordinates still resolve against Canvas dimensions, even on children.
+Opacity affects each painted source independently and does not propagate from
+an invisible parent to its children. Axis-zero collapse and axis reflections
+retain the canonical parent behavior. Source drawing order remains independent
+of the graph order, including a child listed before its parent.
+
+Linked Shape pivots retain the canonical opaque-reference footprint, even when
+the parent's own paint is transparent. Their local sources may begin outside the
+Canvas: ancestor transforms can bring them into view. Unlinked animated Shape
+sources keep the earlier unclipped-source requirement. Cycles, missing parents,
+unsupported groups/effects and Path parenting are rejected before writing.
+See the [parenting example](https://github.com/sjquant/quickthumb/blob/main/examples/lottie_parenting.py).

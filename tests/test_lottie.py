@@ -114,9 +114,17 @@ def test_static_lottie_receipt_roundtrip_and_native_geometry(tmp_path):
             "d",
         ),
         (
-            Canvas(32, 32)
-            .null(id="parent")
-            .shape("rectangle", (0, 0), 8, 8, "#000000", parent="parent"),
+            Canvas(32, 32).group(
+                [
+                    {
+                        "type": "shape",
+                        "shape": "rectangle",
+                        "width": 8,
+                        "height": 8,
+                        "color": "#000000",
+                    }
+                ]
+            ),
             "type",
         ),
     ],
@@ -261,3 +269,65 @@ def test_pose_plan_limit_and_clipped_source_preserve_existing_output(tmp_path):
         assert caught.value.details[0].path is not None
         assert caught.value.details[0].path.startswith("/layers/0/")
         assert output.read_text() == "existing"
+
+
+def test_parent_frames_keep_local_coordinates_order_and_independent_opacity(tmp_path):
+    from examples.lottie_parenting import build_canvas
+
+    canvas = Canvas.from_json(build_canvas().to_json())
+    output = tmp_path / "parenting.lot"
+    result = canvas.export(output, animation=LottieOptions(fps=20, hold=0.5))
+    payload = json.loads(output.read_text())
+    jsonschema.validate(
+        payload,
+        json.loads((Path(__file__).parent / "fixtures/lottie/schema-1.0.1.json").read_text()),
+    )
+    by_name = {layer["nm"]: layer for layer in payload["layers"]}
+    assert [layer["nm"] for layer in payload["layers"] if layer["ty"] == 4] == [
+        "percent",
+        "child",
+        "panel",
+    ]
+    assert by_name["child"]["parent"] == by_name["panel [body frame]"]["ind"]
+    assert by_name["middle"]["parent"] == by_name["root [body frame]"]["ind"]
+    assert by_name["root [body frame]"]["parent"] == by_name["root"]["ind"]
+    assert by_name["root"]["ty"] == 3 and "shapes" not in by_name["root"]
+    assert by_name["root"]["ks"]["p"]["k"] == [64, 48, 0]
+    assert by_name["percent"]["ks"]["p"]["k"] == [112, 84, 0]
+    assert by_name["root"]["ks"]["o"]["k"] == by_name["panel"]["ks"]["o"]["k"] == 0
+    assert by_name["child"]["ks"]["o"]["k"] == 75
+    assert payload["assets"] == result.asset_manifest == []
+    assert result.timing_metrics.frame_count == 30
+    inspection = canvas.inspect_motion(target="lottie")
+    child = next(layer for layer in inspection.slides[0].layers if layer.layer_id == "child")
+    assert child.parent == "panel"
+    assert (
+        next(row for row in inspection.capabilities if row.feature == "parent").support == "partial"
+    )
+
+
+def test_parent_graph_errors_reach_lottie_before_destination_write(tmp_path):
+    from quickthumb import NullLayer, ShapeLayer
+
+    canvas = (
+        Canvas(80, 60)
+        .null(id="root")
+        .shape("rectangle", (5, 5), 20, 10, "#FF0000", id="child", parent="root")
+    )
+    destination = tmp_path / "parenting.lot"
+    destination.write_text("existing")
+    root, child = canvas.layers
+    assert isinstance(root, NullLayer) and isinstance(child, ShapeLayer)
+    root.parent = "child"
+    with pytest.raises(ValidationError) as caught:
+        canvas.export(destination)
+    assert caught.value.code == "parent_cycle"
+    assert destination.read_text() == "existing"
+    root.parent = None
+    child.parent = "missing"
+    with pytest.raises(ValidationError) as caught:
+        canvas.export(destination)
+    assert caught.value.code == "missing_parent"
+    assert caught.value.details[0].path == "/layers/1/parent"
+    assert caught.value.details[0].layer_id == "child"
+    assert destination.read_text() == "existing"
