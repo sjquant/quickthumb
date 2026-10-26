@@ -439,7 +439,7 @@ class PathLayer(LayerIdentityModel):
     """A static, filled SVG path inside a fixed local viewport."""
 
     type: Literal["path"]
-    d: str = Field(description="SVG path data: M/L/H/V/C/S/Q/T/Z, absolute or relative.")
+    d: str = Field(description="SVG path data: M/L/H/V/C/S/Q/T/A/Z, absolute or relative.")
     position: Position
     width: PositiveInt
     height: PositiveInt

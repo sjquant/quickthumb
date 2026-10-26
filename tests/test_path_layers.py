@@ -12,7 +12,13 @@ from quickthumb.errors import RenderingError, ValidationError
 
 @pytest.mark.parametrize(
     "d",
-    ["M5 5H25V20H5Z", "m5,5 20,0v15h-20z", "M5 5L25 5 25 20 5 20", "M5 5C5 5 25 5 25 5V20H5Z"],
+    [
+        "M5 5H25V20H5Z",
+        "m5,5 20,0v15h-20z",
+        "M5 5L25 5 25 20 5 20",
+        "M5 5C5 5 25 5 25 5V20H5Z",
+        "M5 5A10 10 0 0125 5V20H5Z",
+    ],
 )
 def test_path_roundtrip_and_viewport(d, tmp_path):
     """A path retains its fixed viewport and pixels through schema, JSON, Deck and PNG."""
@@ -87,7 +93,10 @@ def test_viewport_clips_large_paths_and_off_canvas_frames(d, view_box, height):
     "d",
     [
         "M0 0C1 2 3 4",
-        "M0 0A1 1 0 0 0 3 4",
+        "M0 0A1 1 0 0 0 3",
+        "M0 0A1 1 0 2 0 3 4",
+        "M0 0A1 1 0 0 -1 3 4",
+        "M0 0A1 1 0 1.0 0 3 4",
         "M0 0Q1 2",
         "M0 0L",
         "M,,0 0",
@@ -155,6 +164,14 @@ def test_document_raster_fallback_is_reported_and_strict_policy_preserves_output
             "M0 50C5 0 10 0 20 50L30 50C30 50 70 0 100 50L100 100H0Z",
         ),
         ("M0 50C5 0 10 0 20 50T100 50L100 100H0Z", "M0 50C5 0 10 0 20 50Q20 50 100 50L100 100H0Z"),
+        (
+            "M0 50C0 0 10 0 20 50A10 10 0 0 1 40 50S80 0 100 50L100 100H0Z",
+            "M0 50C0 0 10 0 20 50A10 10 0 0 1 40 50C40 50 80 0 100 50L100 100H0Z",
+        ),
+        (
+            "M0 50Q10 0 20 50A10 10 0 0 1 40 50T100 50L100 100H0Z",
+            "M0 50Q10 0 20 50A10 10 0 0 1 40 50Q40 50 100 50L100 100H0Z",
+        ),
     ],
 )
 def test_smooth_curves_match_explicit_controls(d, explicit):
@@ -221,4 +238,161 @@ def test_excessive_curve_plan_preserves_existing_output(tmp_path):
     # Then: precision is not silently truncated and the existing output is untouched
     assert error.value.code == "path_subdivision_limit"
     assert "simplify d" in str(error.value)
+    assert destination.read_bytes() == b"existing"
+
+
+@pytest.mark.parametrize(
+    "large,sweep,inside,outside",
+    [
+        (0, 1, (50, 47), (50, 53)),
+        (0, 0, (50, 53), (50, 47)),
+        (1, 1, (50, 10), (50, 90)),
+        (1, 0, (50, 90), (50, 10)),
+    ],
+)
+def test_arc_flags_select_the_painted_segment(large, sweep, inside, outside):
+    """Large-arc and sweep flags select the four distinct filled circle segments."""
+    # Given: the same endpoints and radii with each SVG arc flag combination
+    canvas = Canvas(100, 100).path(f"M30 50A30 30 0 {large} {sweep} 70 50Z", (0, 0), 100, 100)
+
+    # When: rasterizing the selected segment
+    alpha = canvas.render_frame(0).getchannel("A")
+
+    # Then: the chosen side is filled and the opposite side is empty
+    assert alpha.getpixel(inside) == 255
+    assert alpha.getpixel(outside) == 0
+
+
+@pytest.mark.parametrize(
+    "d,explicit,view_box",
+    [
+        (
+            "M20 50a30 20 0 0140 0 30 20 0 01-40 0Z",
+            "M20 50A30 20 0 0 1 60 50A30 20 0 0 1 20 50Z",
+            None,
+        ),
+        ("M.5 0a.5.5 0 01-.5.5V0Z", "M.5 0A.5 .5 0 0 1 0 .5V0Z", (0, 0, 1, 1)),
+        ("M0 50A1 1 0 0 1 100 50Z", "M0 50A50 50 0 0 1 100 50Z", None),
+        ("M0 50A1e-308 1e-308 0 0 1 100 50Z", "M0 50A50 50 0 0 1 100 50Z", None),
+        ("M0 50A-50 -50 0 0 1 100 50Z", "M0 50A50 50 0 0 1 100 50Z", None),
+        ("M0 0A0 20 45 1 1 100 0V100Z", "M0 0L100 0V100Z", None),
+        ("M0 0A20 0 45 1 1 100 0V100Z", "M0 0L100 0V100Z", None),
+        ("M0 0A20 20 45 1 1 0 0H100V100Z", "M0 0H100V100Z", None),
+    ],
+)
+def test_arc_spelling_and_degeneracy_preserve_geometry(d, explicit, view_box):
+    """Compact relative arcs, corrected radii and degenerate arcs retain SVG geometry."""
+    # Given: equivalent SVG paths in a shared fixed local viewport
+    compact = Canvas(100, 100).path(d, (0, 0), 100, 100, view_box=view_box)
+    expanded = Canvas(100, 100).path(explicit, (0, 0), 100, 100, view_box=view_box)
+
+    # When: the public renderer draws both paths
+    image = compact.render_frame(0)
+    reference = expanded.render_frame(0)
+
+    # Then: equivalent arc notation and SVG degeneracies produce identical pixels
+    assert image.tobytes() == reference.tobytes()
+
+
+@pytest.mark.parametrize(
+    "d,inside,outside",
+    [
+        ("M50 20A30 10 90 0 1 50 80A30 10 90 0 1 50 20Z", (230, 100), (245, 100)),
+        (
+            "M28.7867965644 28.7867965644A30 10 45 0 1 71.2132034356 71.2132034356"
+            "A30 10 45 0 1 28.7867965644 28.7867965644Z",
+            (260, 130),
+            (240, 80),
+        ),
+    ],
+)
+def test_rotated_ellipse_is_flattened_in_its_mapped_frame(d, inside, outside):
+    """A rotated ellipse retains its analytic boundary after anisotropic viewport mapping."""
+    # Given: an ellipse from two rotated elliptical arcs
+    canvas = Canvas(400, 200).path(
+        d,
+        (0, 0),
+        400,
+        200,
+        view_box=(0, 0, 100, 100),
+    )
+
+    # When: mapping its axes into an anisotropically scaled frame
+    alpha = canvas.render_frame(0).getchannel("A")
+
+    # Then: the ellipse fills its center and major axis while excluding the minor-axis exterior
+    assert alpha.getpixel((200, 100)) == alpha.getpixel(inside) == 255
+    assert alpha.getpixel(outside) == 0
+
+
+@pytest.mark.parametrize("size,x,inside,outside", [(400, 100, 54, 47), (1600, 400, 205, 198)])
+def test_arc_precision_follows_mapped_frame_size(size, x, inside, outside):
+    """A circle's analytic boundary remains subpixel accurate at large static frame sizes."""
+    # Given: a radius-45 circle centered at (50, 50), enlarged through its viewBox
+    canvas = Canvas(size, size).path(
+        "M5 50A45 45 0 0 1 95 50A45 45 0 0 1 5 50Z",
+        (0, 0),
+        size,
+        size,
+        view_box=(0, 0, 100, 100),
+    )
+
+    # When: rendering the circle at each resolution
+    alpha = canvas.render_frame(0).getchannel("A")
+
+    # Then: pixels on either side of the analytic circle boundary retain their classification
+    assert cast(int, alpha.getpixel((x, inside))) >= 250
+    assert cast(int, alpha.getpixel((x, outside))) <= 5
+
+
+@pytest.mark.parametrize(
+    "origin,extent,radius,size,probe",
+    [(0, 1e308, 5e307, 20, (10, 10)), (10**14, 100, 45, 400, (200, 20))],
+)
+def test_large_finite_arc_coordinates_map_without_overflow(origin, extent, radius, size, probe):
+    """Large or translated local ellipses retain finite, correctly positioned viewport pixels."""
+    # Given: two semicircles with a large radius or a large translated origin
+    left, middle, right = (
+        origin + extent / 2 - radius,
+        origin + extent / 2,
+        origin + extent / 2 + radius,
+    )
+    canvas = Canvas(size, size).path(
+        f"M{left} {middle}A{radius} {radius} 0 0 1 {right} {middle}"
+        f"A{radius} {radius} 0 0 1 {left} {middle}Z",
+        (0, 0),
+        size,
+        size,
+        view_box=(origin, origin, extent, extent),
+    )
+
+    # When: drawing the normalized and mapped ellipse
+    alpha = canvas.render_frame(0).getchannel("A")
+
+    # Then: a known interior pixel is filled and the corner remains empty
+    assert alpha.getpixel(probe) == 255
+    assert alpha.getpixel((0, 0)) == 0
+
+
+@pytest.mark.parametrize(
+    "d,code,view_box",
+    [
+        ("M0 0A1e308 1e308 0 0 1 20 20Z", "path_arc_range_limit", None),
+        ("M0 0A1e308 1e308 0 1 1 20 20Z", "path_arc_range_limit", (0, 0, 1e308, 1e308)),
+        ("M0 0A1e10 1e10 0 1 1 20 20Z", "path_subdivision_limit", None),
+    ],
+)
+def test_unrepresentable_arc_preserves_existing_output(d, code, view_box, tmp_path):
+    """Numerically unrepresentable or over-budget arcs fail before replacing an output file."""
+    # Given: an arc whose geometry cannot be represented within the render plan
+    canvas = Canvas(20, 20).path(d, (0, 0), 20, 20, view_box=view_box)
+    destination = tmp_path / "arc.png"
+    destination.write_bytes(b"existing")
+
+    # When: exporting the unusable plan
+    with pytest.raises(RenderingError) as error:
+        canvas.export(destination)
+
+    # Then: a structured, actionable error preserves the existing file
+    assert error.value.code == code
     assert destination.read_bytes() == b"existing"
