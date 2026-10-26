@@ -1974,17 +1974,20 @@ def _validate_export(
                 )
             )
         if isinstance(layer, PathLayer) and document_format in {"html", "svg", "pdf", "pptx"}:
+            from quickthumb._path_pdf import native_pdf_path_problem
             from quickthumb._path_svg import native_path_problem
 
             problem = (
                 native_path_problem(layer)
                 if document_format in {"html", "svg"}
+                else native_pdf_path_problem(layer)
+                if document_format == "pdf"
                 else "native path adapter is not implemented"
             )
             message = (
                 f"path layer {layer_id} uses a static raster image for {document_format}: {problem}"
                 if problem
-                else f"path layer {layer_id} uses native SVG vectors for {document_format}"
+                else f"path layer {layer_id} uses native vectors for {document_format}"
             )
             action = resolved_policy.pptx.get(layer_id) if normalized == "pptx" else None
             if problem and (action or resolved_policy.unsupported_motion) in {"error", "native"}:

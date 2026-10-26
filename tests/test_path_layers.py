@@ -123,16 +123,12 @@ def test_invalid_path_does_not_enter_document(d):
     assert canvas.layers == []
 
 
-@pytest.mark.parametrize("format,dependency", [("pdf", "reportlab"), ("pptx", "pptx")])
-def test_document_raster_fallback_is_reported_and_strict_policy_preserves_output(
-    format, dependency, tmp_path
-):
-    """Document exports report a path raster fallback and reject strict requests before writing."""
-    if dependency:
-        pytest.importorskip(dependency)
+def test_pptx_raster_fallback_is_reported_and_strict_policy_preserves_output(tmp_path):
+    """PPTX reports a path raster fallback and rejects strict requests before writing."""
+    pytest.importorskip("pptx")
     # Given: a real filled path and its successful document export
     canvas = Canvas(100, 100).path("M0 0H20V20H0Z", (5, 5), 20, 20, "#FF0000", id="badge")
-    destination = tmp_path / f"path.{format}"
+    destination = tmp_path / "path.pptx"
     result = canvas.export(destination)
     original = destination.read_bytes()
 
@@ -145,7 +141,7 @@ def test_document_raster_fallback_is_reported_and_strict_policy_preserves_output
     assert error.value.code == "unsupported_capability"
     assert error.value.details[0].path == "/layers/0/d"
     assert [(item.feature, item.target, item.fallback) for item in result.capability_report] == [
-        ("path", format, "rasterize")
+        ("path", "pptx", "rasterize")
     ]
     assert result.fallback_diagnostics[0].layer_id == "badge"
 
