@@ -108,3 +108,11 @@ JPEG and lossless WebP image sequences using `ImageSequenceOptions`. It needs
 no FFmpeg and uses the bundled font. Each format gets a fresh
 `examples/output/image_sequence_overlay_<format>` directory containing
 independent frames and a manifest; existing outputs are never overwritten.
+
+## Audio onset anchors
+
+`uv run python examples/audio_onsets.py music.wav output-directory` analyzes
+source-clock transients, bakes the first onset into a color animation and writes
+an analysis sidecar, scene JSON and MP4. Requires FFmpeg and ffprobe. Detected
+onsets are not a musical beat grid; the stored numeric motion does not analyze
+audio again when restored or rendered.
