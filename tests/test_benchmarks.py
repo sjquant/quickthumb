@@ -11,6 +11,7 @@ from benchmarks import animated_export as benchmark
 from benchmarks import frame_identity as identity
 from benchmarks.scenes import SCENES, build_scene
 from PIL import Image
+from quickthumb import Canvas
 
 
 @pytest.mark.parametrize("scene", SCENES[:3])
@@ -34,6 +35,40 @@ def test_centroid_uses_intensity_weights_and_jitter_detects_staircase():
         benchmark.centroid(Image.new("RGB", (1, 1)))
     with pytest.raises(ValueError, match="three"):
         benchmark.displacement_jitter([(0, 0)])
+
+
+def test_path_trim_scene_reaches_independent_full_size_geometry():
+    """The Path cost scene changes visible geometry and settles at an independently sized curve."""
+    # Given: the measured scene and its fully drawn final viewport authored independently
+    scene = build_scene("path_trim")
+    reference = (
+        Canvas(600, 400)
+        .background(color="#101820")
+        .path(
+            "M4 30C4 4 40 4 40 20S76 36 76 10",
+            (60, 80),
+            480,
+            240,
+            None,
+            view_box=(0, 0, 80, 40),
+            stroke="#42CEB7",
+            stroke_width=2,
+            line_cap="round",
+            line_join="round",
+        )
+    )
+
+    # When: observing actual canonical frames across the complete two-second motion
+    frames = scene.sample(time=[0, 0.5, 1, 1.5, 2]).frames
+
+    # Then: geometry changes throughout and the final frame retains full-size curve pixels
+    assert len({frame.sha256 for frame in frames}) == 5
+    assert frames[-1].to_image().tobytes() == reference.render_frame().tobytes()
+    assert all((frame.width, frame.height) == (600, 400) for frame in frames)
+    assert benchmark.measure_jitter("path_trim") is None
+    captured = identity.capture(["path_trim"], 2)
+    identity.validate_manifest(captured)
+    assert captured["scenes"][0]["frames"][-1]["sha256"] == frames[-1].sha256
 
 
 def test_encoder_timer_excludes_lazy_render_work(monkeypatch):

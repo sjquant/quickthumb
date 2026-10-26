@@ -10,6 +10,7 @@ from quickthumb import (
     RotationTrack,
     ScaleTrack,
     TimingSpec,
+    TrimEndTrack,
 )
 from quickthumb.transitions import Cut
 
@@ -19,6 +20,38 @@ DURATION = 2.0
 
 def build_scene(name: str) -> Deck:
     """Use the complete example reel, or a high-contrast asymmetric marker."""
+    if name == "path_trim":
+        canvas = (
+            Canvas(600, 400)
+            .background(color="#101820")
+            .path(
+                "M4 30C4 4 40 4 40 20S76 36 76 10",
+                (60, 170),
+                120,
+                60,
+                None,
+                view_box=(0, 0, 80, 40),
+                stroke="#42CEB7",
+                stroke_width=2,
+                line_cap="round",
+                line_join="round",
+                anchor=(0, 0.5),
+                id="benchmark.path",
+                animation=AnimationSpec.timeline(
+                    TrimEndTrack(
+                        keyframes=[KeyframeSpec(time=0, value=0.05), KeyframeSpec(time=2, value=1)]
+                    ),
+                    ScaleTrack(
+                        keyframes=[KeyframeSpec(time=0, value=1), KeyframeSpec(time=2, value=4)]
+                    ),
+                    timing=TimingSpec(duration=DURATION),
+                    easing="linear",
+                ),
+            )
+        )
+        return Deck(600, 400).slide(
+            canvas, transition=Cut(advance_after=DURATION), duration=DURATION
+        )
     if name == "product_hype_reel":
         from examples.product_hype_reel import build_deck
 
