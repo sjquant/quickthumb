@@ -889,11 +889,8 @@ class HtmlExporter:
                 # runtime counts a delay from the group a node joins, so the
                 # two have to be reconciled once the groups are known.
                 "abs": event.trigger is None and event.start > 0,
+                "e": css_easing(event.options.get("easing")),
             }
-            # Named easings keep the runtime's default curve; only a custom
-            # bezier is passed through, since CSS can express it exactly.
-            if isinstance(event.options.get("easing"), Mapping):
-                node["e"] = css_easing(event.options["easing"])
             nodes.append(node)
         self._timeline.extend(nodes)
         self._prev_anim_key = id(animation)
