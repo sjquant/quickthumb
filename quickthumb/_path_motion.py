@@ -34,7 +34,17 @@ def render_path_frame(
     dash_offset = layer.dash_offset + state.dash_offset
     if not math.isfinite(dash_offset):
         raise RenderingError("sampled Path dash_offset must be finite", path="/dash_offset")
-    layer = layer.model_copy(update={"dash_offset": dash_offset})
+    trim_offset = layer.trim_offset + state.trim_offset
+    if not math.isfinite(trim_offset):
+        raise RenderingError("sampled Path trim_offset must be finite", path="/trim_offset")
+    layer = layer.model_copy(
+        update={
+            "dash_offset": dash_offset,
+            "trim_start": layer.trim_start if state.trim_start is None else state.trim_start,
+            "trim_end": layer.trim_end if state.trim_end is None else state.trim_end,
+            "trim_offset": trim_offset,
+        }
+    )
     opacity = layer.opacity * state.opacity
     if opacity <= 0 or state.scale * state.scale_x * state.scale_y == 0:
         return

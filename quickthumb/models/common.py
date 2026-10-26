@@ -275,18 +275,20 @@ class _AnimatableLayerModel(LayerIdentityModel):
     )
 
     @model_validator(mode="after")
-    def validate_dash_motion_target(self):
+    def validate_path_motion_target(self):
         from .motion import AnimationSpec
 
         animation = getattr(self, "animation", None)
         items = animation if isinstance(animation, list) else [animation]
         if getattr(self, "type", None) != "path" and any(
-            track.type == "dash_offset"
+            track.type in {"dash_offset", "trim_start", "trim_end", "trim_offset"}
             for item in items
             if isinstance(item, AnimationSpec)
             for track in item.tracks or ()
         ):
-            raise ValidationError("dash_offset tracks require a PathLayer", path="/animation")
+            raise ValidationError(
+                "dash_offset and trim tracks require a PathLayer", path="/animation"
+            )
         return self
 
 
