@@ -12,9 +12,16 @@ from urllib.parse import urlsplit
 
 import pytest
 from PIL import Image
-from quickthumb import AssetManifestEntry, Canvas, Deck
+from quickthumb import (
+    AssetManifestEntry,
+    Canvas,
+    Deck,
+    PluginLayer,
+    PluginRegistry,
+    inspect_document,
+)
 from quickthumb.asset_cache import AssetResolver
-from quickthumb.errors import RenderingError
+from quickthumb.errors import MissingAssetError, RenderingError
 from quickthumb.models import TextFillImage
 
 
@@ -390,3 +397,142 @@ def test_describe_reports_expired_cache_entries_as_stale(tmp_path, local_assets)
     assert described.status == "stale"
     assert described.stale_reason is not None and "older than max_age" in described.stale_reason
     assert requests == ["/asset.png"]
+
+
+def _plugin_with_image(source: str) -> Canvas:
+    registry = PluginRegistry()
+
+    def pixels(params, context):
+        with Image.open(io.BytesIO(context.read_asset("pixels"))) as image:
+            return image.convert("RGBA").tobytes()
+
+    registry.register("pixels", "1", raster=pixels)
+    return Canvas(4, 4, registry=registry).plugin(
+        "pixels",
+        version="1",
+        params={},
+        width=4,
+        height=4,
+        assets={"pixels": source},
+        id="plugin",
+    )
+
+
+@pytest.mark.parametrize("kind", ["canvas", "deck"])
+def test_plugin_remote_assets_reuse_resolution_and_report_actual_bytes(
+    tmp_path, monkeypatch, local_assets, kind
+):
+    """Plugin assets retain downloaded bytes across sample/export and reuse a persisted cache."""
+    # Given: an explicitly declared image read as opaque bytes by a plugin
+    base_url, requests, _server, payloads = local_assets
+    monkeypatch.setenv("QUICKTHUMB_ASSET_CACHE_DIR", str(tmp_path / "assets"))
+    source = f"{base_url}/asset.png?b=2&a=1"
+    canvas = _plugin_with_image(source)
+    document = canvas if kind == "canvas" else Deck(slides=[canvas])
+    prefetched = document.prefetch_assets()
+
+    # When: a remote refresh would provide different pixels, the current document reuses its bytes
+    payloads["/asset.png"] = b"changed after prefetch"
+    captured = document.sample()
+    exported = document.export(tmp_path / "plugin.png")
+    observed = inspect_document(canvas)
+    fresh = _plugin_with_image(f"{base_url}/asset.png?a=1&b=2").prefetch_assets()
+
+    # Then: canonical references, source hashes and resolution states agree without another request
+    [entry] = prefetched.asset_manifest
+    assert entry.asset_type == "plugin" and entry.status == "network"
+    assert entry.source == source
+    assert entry.source_key == f"{base_url}/asset.png?a=1&b=2"
+    assert entry.cache_path is not None
+    assert entry.content_hash == hashlib.sha256(Path(entry.cache_path).read_bytes()).hexdigest()
+    assert captured.frames[0].to_image().getpixel((0, 0)) == (12, 34, 56, 255)
+    assert exported.asset_manifest == observed.asset_manifest == [entry]
+    assert fresh.asset_manifest[0].status == "fresh"
+    assert fresh.asset_manifest[0].content_hash == entry.content_hash
+    assert requests == ["/asset.png?b=2&a=1"]
+
+
+@pytest.mark.parametrize("offline", [False, True])
+def test_plugin_stale_assets_remain_usable_without_repeated_refresh(
+    tmp_path, asset_cache_dir, monkeypatch, local_assets, offline
+):
+    """A plugin reuses stale bytes after failed refresh or in offline mode and reports the cause."""
+    # Given: an expired plugin cache entry
+    base_url, requests, _server, payloads = local_assets
+    source = f"{base_url}/asset.png"
+    primed = _plugin_with_image(source).prefetch_assets().asset_manifest[0]
+    _age_cache_entries(asset_cache_dir)
+    monkeypatch.setenv("QUICKTHUMB_ASSET_MAX_AGE", "60")
+    monkeypatch.setenv("QUICKTHUMB_ASSET_OFFLINE", "1" if offline else "0")
+    del payloads["/asset.png"]
+    document = Deck(slides=[_plugin_with_image(source)])
+
+    # When: the same document is prefetched, sampled and exported
+    [entry] = document.prefetch_assets().asset_manifest
+    captured = document.sample()
+    exported = document.export(tmp_path / "stale-plugin.png")
+
+    # Then: every operation uses the original bytes and a stable stale result
+    assert entry.status == "stale" and entry.content_hash == primed.content_hash
+    assert entry.stale_reason is not None
+    assert ("offline mode" if offline else "404") in entry.stale_reason
+    assert exported.asset_manifest == [entry]
+    assert captured.frames[0].to_image().getpixel((0, 0)) == (12, 34, 56, 255)
+    assert requests == (["/asset.png"] if offline else ["/asset.png", "/asset.png"])
+    with pytest.raises(RenderingError, match="No usable cached copy"):
+        _plugin_with_image(f"{base_url}/missing.png").prefetch_assets()
+
+
+def test_plugin_declared_missing_assets_fail_before_output_or_callback(tmp_path):
+    """Missing declared assets report an escaped JSON pointer and preserve existing output."""
+    # Given: a declared input whose name needs JSON Pointer escaping
+    missing = tmp_path / "absent.rgba"
+    registry = PluginRegistry()
+    registry.register("missing", "1", raster=lambda *_: pytest.fail("callback must not run"))
+    canvas = Canvas(1, 1, registry=registry).plugin(
+        "missing",
+        version="1",
+        params={},
+        width=1,
+        height=1,
+        assets={"texture/~raw": str(missing)},
+        id="plugin",
+    )
+    destination = tmp_path / "plugin.png"
+    destination.write_bytes(b"existing")
+
+    # When / Then: validation, prefetch and export identify the same missing dependency
+    [error] = canvas.validate().errors
+    assert error.code == "asset_missing" and error.layer_id == "plugin"
+    assert error.path == "/layers/0/assets/texture~1~0raw"
+    with pytest.raises(MissingAssetError):
+        canvas.prefetch_assets()
+    with pytest.raises(MissingAssetError):
+        canvas.export(destination)
+    assert destination.read_bytes() == b"existing"
+
+
+def test_unused_missing_plugin_dependency_is_resolved_before_any_deck_output(
+    tmp_path, monkeypatch, local_assets
+):
+    """Every declared dependency is resolved before a Deck can replace its first output."""
+    # Given: a later slide declares a remote dependency its callback does not read
+    base_url, _requests, _server, _payloads = local_assets
+    monkeypatch.setenv("QUICKTHUMB_ASSET_CACHE_DIR", str(tmp_path / "assets"))
+    canvas = _plugin_with_image(f"{base_url}/asset.png")
+    layer = canvas.layers[0]
+    assert isinstance(layer, PluginLayer)
+    layer.assets["unused"] = f"{base_url}/missing.png"
+    deck = Deck(slides=[Canvas(4, 4).background(color="#FFFFFF"), canvas])
+    first_output = tmp_path / "deck_01.png"
+    first_output.write_bytes(b"existing")
+
+    # When / Then: both public operations identify the later slide before any output is written
+    for resolve in (deck.prefetch_assets, lambda: deck.export(tmp_path / "deck.png")):
+        with pytest.raises(RenderingError, match="404") as caught:
+            resolve()
+        [detail] = caught.value.details
+        assert detail.path == "/slides/1/layers/0/assets/unused"
+        assert detail.layer_id == "plugin"
+    assert first_output.read_bytes() == b"existing"
+    assert not (tmp_path / "deck_02.png").exists()

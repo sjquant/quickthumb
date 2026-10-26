@@ -30,6 +30,7 @@ from quickthumb.models import (
     FrameSequence,
     GifOptions,
     PixelMetrics,
+    PluginLayer,
     PrefetchResult,
     TimingMetrics,
     ValidationReport,
@@ -280,13 +281,21 @@ def preflight_export(
     policy: ExportPolicy | None = None,
 ) -> list[ExportDiagnostic]:
     """Validate target capabilities before an exporter writes any files."""
-    return _capability_report(
+    diagnostics = _capability_report(
         source,
         resolved.target,
         policy,
         output_format=resolved.output_format,
         uses_authored_transitions=resolved.uses_authored_transitions,
     )
+    for index, canvas in enumerate(_contract_canvases(source)):
+        try:
+            canvas._resolve_plugin_assets()
+        except QuickthumbError as error:
+            if _contract_kind(source) == "deck":
+                error.at(f"/slides/{index}")
+            raise
+    return diagnostics
 
 
 def validation_report(source: Document, *, kind: DocumentKind) -> ValidationReport:
@@ -628,6 +637,9 @@ def _asset_manifest(
 
 def _layer_asset_values(layer: object):
     layer_type = getattr(layer, "type", None)
+    if isinstance(layer, PluginLayer):
+        for source in layer.assets.values():
+            yield "plugin", source
     for field in ("path", "source"):
         value = getattr(layer, field, None)
         if isinstance(value, str):

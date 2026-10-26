@@ -119,16 +119,24 @@ class AnimatedTextValue(quickthumbModel):
 class PluginLayer(LayerIdentityModel):
     """A named renderer invocation carried by the canonical JSON contract.
 
-    The layer carries a renderer name, version, and parameters; quickthumb can
-    validate and serialize it but cannot draw it yet.  Parameters are
-    restricted to JSON values so the layer can always make a lossless
-    Python/JSON round trip.
+    A registered raster callback supplies the local box's straight-alpha RGBA8
+    bytes. Parameters and declared asset references remain JSON data; executable
+    callbacks belong to the application's explicit registry.
     """
 
     type: Literal["plugin"]
     renderer: str
     version: str
     params: JsonObject
+    position: Position = (0, 0)
+    width: PositiveInt
+    height: PositiveInt
+    align: AlignWithHVTuple = Align.TOP_LEFT
+    opacity: OpacityField = 1.0
+    assets: dict[str, str] = Field(default_factory=dict)
+
+    clip: LayerClip | None = None
+    mask: LayerMask | None = None
 
     model_config = ConfigDict(validate_assignment=True, extra="forbid")
 

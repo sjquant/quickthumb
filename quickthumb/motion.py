@@ -41,6 +41,7 @@ from quickthumb.models import (
     MotionSlideInspection,
     MotionTargetInspection,
     MotionTrackInspection,
+    PluginLayer,
     ReducedMotionInspection,
     ShapeLayer,
     TextLayer,
@@ -1888,6 +1889,34 @@ def _validate_export(
                 if html_problem:
                     parent_html_problems.update((path, html_problem) for path in paths)
     for layer_id, pointer, layer in _iter_export_layer_locations(source):
+        if isinstance(layer, PluginLayer):
+            raster = document_format not in {"svg", "html", "pdf", "pptx"}
+            action = resolved_policy.pptx.get(layer_id) if normalized == "pptx" else None
+            if not raster and (action or resolved_policy.unsupported_motion) in {"error", "native"}:
+                raise RenderingError(
+                    f"Plugin '{layer.renderer}' version '{layer.version}' requires "
+                    f"RGBA raster fallback in {document_format}.",
+                    code="unsupported_capability",
+                    path=pointer,
+                    layer_id=layer_id,
+                )
+            diagnostics.append(
+                ExportDiagnostic(
+                    layer_id=layer_id,
+                    feature="plugin",
+                    target=normalized,
+                    support="full" if raster else "fallback",
+                    fallback=None if raster else "rasterize",
+                    message=(
+                        f"Plugin '{layer.renderer}' version '{layer.version}' uses static "
+                        + (
+                            "canonical RGBA pixels"
+                            if raster
+                            else f"RGBA raster fallback in {document_format}"
+                        )
+                    ),
+                )
+            )
         if pointer in parent_static_paths or pointer in parent_html_paths:
             partial = pointer in parent_html_paths
             message = (
