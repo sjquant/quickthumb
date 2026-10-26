@@ -1810,7 +1810,24 @@ _CAPABILITIES["pptx"] = {
 }
 
 _CAPABILITIES["lottie"] = {
-    feature: MotionCapability(feature, "lottie", "partial" if feature == "path" else "unsupported")
+    feature: MotionCapability(
+        feature,
+        "lottie",
+        "partial"
+        if feature
+        in {
+            "path",
+            "position",
+            "anchor",
+            "scale",
+            "scale_x",
+            "scale_y",
+            "rotation",
+            "opacity",
+            "easing",
+        }
+        else "unsupported",
+    )
     for feature in _CAPABILITY_FEATURES
 }
 
@@ -1916,7 +1933,7 @@ def _validate_export(
     if str(target).lower() == "lottie":
         from quickthumb._export_lottie import validate_lottie
 
-        return validate_lottie(source)
+        return validate_lottie(source, policy)
     normalized = _normalize_target(target)
     resolved_policy = policy or ExportPolicy()
     row = capabilities_for(normalized)

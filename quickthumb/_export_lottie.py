@@ -1,4 +1,4 @@
-"""Static native-vector Lottie subset; unsupported source features fail before writes."""
+"""Native-vector Lottie subset; unsupported source features fail before writes."""
 
 from __future__ import annotations
 
@@ -8,13 +8,13 @@ from typing import TYPE_CHECKING, cast
 
 from PIL import ImageColor
 
-from quickthumb._base import apply_alignment, parse_coordinate
 from quickthumb._document import _ExportReceipt, canonical_json
 from quickthumb._path_curves import cubic_path_commands
 from quickthumb._path_svg import _bounded_number, native_path_problem
 from quickthumb._shapes import TRIANGLE_POINTS, ShapeEngine
-from quickthumb.errors import ErrorDetail, RenderingError
+from quickthumb.errors import ErrorDetail, QuickthumbError, RenderingError
 from quickthumb.models import (
+    AnimationSpec,
     BackgroundLayer,
     ExportDiagnostic,
     LottieOptions,
@@ -25,16 +25,16 @@ from quickthumb.models import (
 if TYPE_CHECKING:
     from quickthumb.canvas import Canvas
     from quickthumb.deck import Deck
+    from quickthumb.models import ExportPolicy
 
 
-def _layer_problem(layer) -> tuple[str, str] | None:
+def _layer_problem(layer, reduced_motion: bool, canvas) -> tuple[str, str] | None:
     if not isinstance(layer, (BackgroundLayer, ShapeLayer, PathLayer)):
         return (
             "type",
             f"{getattr(layer, 'type', 'custom')} layers are not supported by static Lottie",
         )
     for field in (
-        "animation",
         "parent",
         "fill",
         "gradient",
@@ -43,10 +43,50 @@ def _layer_problem(layer) -> tuple[str, str] | None:
         "clip",
         "mask",
         "blend_mode",
-        "rotation",
     ):
         if getattr(layer, field, None):
             return field, f"{field} is not supported by static Lottie"
+    animation = getattr(layer, "animation", None)
+    if animation and not reduced_motion:
+        from quickthumb.motion import _is_path_track
+
+        specs = animation if isinstance(animation, list) else [animation]
+        for spec in specs:
+            if (
+                not isinstance(spec, AnimationSpec)
+                or spec.effect is not None
+                or spec.stagger is not None
+            ):
+                return (
+                    "animation",
+                    "Lottie pose motion requires canonical timelines without presets or stagger",
+                )
+            if any(
+                track.type not in {"position", "scale", "scale_x", "scale_y", "rotation", "opacity"}
+                or _is_path_track(track)
+                for track in spec.tracks or ()
+            ):
+                return (
+                    "animation",
+                    "Lottie pose motion supports only position, scale, rotation and opacity tracks",
+                )
+            if isinstance(layer, ShapeLayer) and any(
+                track.type == "scale" and any(key.value <= 0 for key in track.keyframes)
+                for track in spec.tracks or ()
+            ):
+                return (
+                    "animation",
+                    "Nonpositive uniform Shape scale is not supported by this canonical renderer",
+                )
+    if isinstance(layer, ShapeLayer) and animation and not reduced_motion:
+        from quickthumb._lottie_pose import shape_source_box
+
+        x, y, width, height = shape_source_box(canvas, layer)
+        if x < 0 or y < 0 or x + width > canvas.width or y + height > canvas.height:
+            return (
+                "position",
+                "Animated Shape source must fit inside the canvas; use an unclipped source",
+            )
     if isinstance(layer, PathLayer):
         if (
             layer.dash_array
@@ -55,7 +95,9 @@ def _layer_problem(layer) -> tuple[str, str] | None:
         ):
             return "d", "Path dashes and trimming require a later Lottie geometry layer"
         # Lottie retains layer opacity natively; reuse the shared native numeric admission.
-        if problem := native_path_problem(layer.model_copy(update={"opacity": 1.0})):
+        if problem := native_path_problem(
+            layer.model_copy(update={"opacity": 1.0, "rotation": 0.0, "animation": None})
+        ):
             return "d", problem.replace("native SVG", "native Lottie")
         try:
             commands = cubic_path_commands(layer)
@@ -88,7 +130,7 @@ def _layer_problem(layer) -> tuple[str, str] | None:
     return None
 
 
-def _problems(source: Canvas | Deck) -> list[ErrorDetail]:
+def _problems(source: Canvas | Deck, policy: ExportPolicy | None = None) -> list[ErrorDetail]:
     if hasattr(source, "slides"):
         return [
             ErrorDetail(
@@ -103,7 +145,7 @@ def _problems(source: Canvas | Deck) -> list[ErrorDetail]:
 
     errors = []
     for layer_id, pointer, layer in _iter_export_layer_locations(source):
-        problem = _layer_problem(layer)
+        problem = _layer_problem(layer, bool(policy and policy.reduced_motion), source)
         if isinstance(layer, BackgroundLayer) and pointer != "/layers/0":
             problem = "type", "A Lottie background must be the first layer"
         if problem:
@@ -121,9 +163,11 @@ def _problems(source: Canvas | Deck) -> list[ErrorDetail]:
     return errors
 
 
-def validate_lottie(source: Canvas | Deck) -> list[ExportDiagnostic]:
+def validate_lottie(
+    source: Canvas | Deck, policy: ExportPolicy | None = None
+) -> list[ExportDiagnostic]:
     """List unsupported source features without resolving assets or rendering."""
-    errors = _problems(source)
+    errors = _problems(source, policy)
     if errors:
         return [
             ExportDiagnostic(
@@ -141,11 +185,19 @@ def validate_lottie(source: Canvas | Deck) -> list[ExportDiagnostic]:
         ExportDiagnostic(
             target="lottie",
             feature="layer_representation",
-            support="native",
+            support="partial"
+            if getattr(layer, "animation", None) and not (policy and policy.reduced_motion)
+            else "native",
             layer_id=layer_id,
-            message="Static native Lottie vector",
+            message=(
+                "Native vectors with held canonical pose samples at LottieOptions.fps"
+                if getattr(layer, "animation", None) and not (policy and policy.reduced_motion)
+                else "Authored-static native vectors under reduced-motion policy"
+                if policy and policy.reduced_motion
+                else "Native Lottie vector"
+            ),
         )
-        for layer_id, _, _ in _iter_export_layer_locations(source)
+        for layer_id, _, layer in _iter_export_layer_locations(source)
     ]
 
 
@@ -292,33 +344,67 @@ def _path_contours(layer: PathLayer, commands=None) -> list[dict]:
     return contours
 
 
-def write_lottie(canvas: Canvas, output_path: str, animation) -> _ExportReceipt:
+def write_lottie(
+    canvas: Canvas, output_path: str, animation, policy: ExportPolicy | None = None
+) -> _ExportReceipt:
     """Compile completely before opening the destination; no assets or raster frames."""
-    problems = _problems(canvas)
+    problems = _problems(canvas, policy)
     if problems:
         raise RenderingError(details=problems)
     options = animation or LottieOptions()
-    if not math.isfinite(options.fps * options.hold):
+    from quickthumb._lottie_pose import layer_pose, pose_boundaries
+    from quickthumb._sampling import _MAX_OBSERVATIONS
+    from quickthumb.motion import _canonical_timeline
+
+    timelines = [
+        None if policy and policy.reduced_motion else _canonical_timeline(layer)
+        for layer in canvas.layers
+    ]
+    span = (
+        max((timeline.duration for timeline in timelines if timeline is not None), default=0)
+        + options.hold
+    )
+    if not math.isfinite(options.fps * span):
         raise RenderingError("Lottie frame span must be finite", path="/animation/hold")
-    frame_count = max(1, math.ceil(options.fps * options.hold))
+    frame_count = max(1, math.ceil(options.fps * span))
     duration = frame_count / options.fps
     if not math.isfinite(duration):
         raise RenderingError("Lottie playback duration must be finite", path="/animation/fps")
     layers = []
     from quickthumb.motion import _iter_export_layer_locations
 
-    for index, (layer_id, _, layer) in enumerate(_iter_export_layer_locations(canvas)):
+    boundaries = pose_boundaries(timelines)
+    pose_count = 0
+    for index, (layer_id, pointer, layer) in enumerate(_iter_export_layer_locations(canvas)):
         assert isinstance(layer, (BackgroundLayer, ShapeLayer, PathLayer))
-        position, anchor, scale = [0, 0, 0], [0, 0, 0], [100, 100, 100]
-        if not isinstance(layer, BackgroundLayer):
-            x = parse_coordinate(layer.position[0], canvas.width)
-            y = parse_coordinate(layer.position[1], canvas.height)
-            if isinstance(layer, ShapeLayer) and layer.align:
-                x, y = apply_alignment(x, y, (layer.width, layer.height), layer.align)
-            position = [x, y, 0]
-            if isinstance(layer, PathLayer):
-                vx, vy, vw, vh = layer.view_box or (0, 0, layer.width, layer.height)
-                anchor, scale = [vx, vy, 0], [layer.width / vw * 100, layer.height / vh * 100, 100]
+        try:
+            shapes, keys, count = layer_pose(
+                canvas,
+                layer,
+                _shapes(layer, canvas.width, canvas.height),
+                timelines[index],
+                options.fps,
+                boundaries,
+            )
+        except QuickthumbError as error:
+            raise RenderingError(
+                details=[
+                    detail.model_copy(
+                        update={
+                            "path": pointer + (detail.path or ""),
+                            "layer_id": detail.layer_id or layer_id,
+                        }
+                    )
+                    for detail in error.details
+                ]
+            ) from error
+        pose_count += count
+        if pose_count > _MAX_OBSERVATIONS:
+            raise RenderingError(
+                "Lottie exceeds 100000 total pose samples; lower fps or simplify motion",
+                path=pointer,
+                layer_id=layer_id,
+            )
         layers.append(
             {
                 "ty": 4,
@@ -326,14 +412,8 @@ def write_lottie(canvas: Canvas, output_path: str, animation) -> _ExportReceipt:
                 "nm": layer_id,
                 "ddd": 0,
                 "sr": 1,
-                "ks": {
-                    "o": _property(layer.opacity * 100),
-                    "r": _property(0),
-                    "p": _property(position),
-                    "a": _property(anchor),
-                    "s": _property(scale),
-                },
-                "shapes": _shapes(layer, canvas.width, canvas.height),
+                "ks": keys,
+                "shapes": shapes,
                 "ip": 0,
                 "op": frame_count,
                 "st": 0,
@@ -358,4 +438,4 @@ def write_lottie(canvas: Canvas, output_path: str, animation) -> _ExportReceipt:
     from quickthumb._export_video import _AnimationFacts
 
     facts = _AnimationFacts(canvas.width, canvas.height, frame_count, duration, options.fps)
-    return _ExportReceipt([output_path], validate_lottie(canvas), facts)
+    return _ExportReceipt([output_path], validate_lottie(canvas, policy), facts)

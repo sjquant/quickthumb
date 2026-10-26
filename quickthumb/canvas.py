@@ -1262,7 +1262,7 @@ class Canvas:
         if resolved.output_format == "lot":
             from quickthumb._export_lottie import write_lottie
 
-            return write_lottie(self, output_path, animation)
+            return write_lottie(self, output_path, animation, policy)
 
         extension = resolved.extension
         if has_parent_links(self):

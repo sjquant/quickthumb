@@ -944,7 +944,7 @@ quickthumb render spec.json -o card.pdf
 quickthumb serve slides.py
 ```
 
-## Static Lottie vectors
+## Lottie vectors
 
 ```python
 from quickthumb import Canvas, LottieOptions
@@ -953,22 +953,25 @@ canvas = Canvas(240, 160).shape("ellipse", (20, 20), 80, 60, "#159A8C")
 result = canvas.export("scene.lot", animation=LottieOptions(fps=30, hold=3))
 ```
 
-`.lot` contains ordinary Lottie JSON, not Quickthumb document JSON. This first
-slice supports a single static Canvas: one initial solid background, solid
+`.lot` contains ordinary Lottie JSON, not Quickthumb document JSON. The supported
+subset is a single Canvas: one initial solid background, solid
 rectangle/rounded rectangle, ellipse, pill, triangle, star and polygon shapes,
 and Paths (`M/L/H/V/C/S/Q/T/A/Z`) with even-odd solid fill or solid stroke. Shape
 alignment and percentage positions retain their authored layout. Path control hulls must
 fit inside the viewport (strokes reserve a conservative miter-limit margin); stroked Paths require uniform view-box scaling.
 
-`hold` is positive seconds; `fps` defaults to 30 and supports up to 120.
+`hold` is nonnegative seconds; `fps` defaults to 30 and supports up to 120.
 Stroked degenerate contours are rejected rather than replaced with missing dots.
-The playback span rounds up to `ceil(fps * hold)` frames; the receipt reports
-that frame count and its duration divided by fps. Output has no audio or assets.
+The playback span is the latest canonical motion end plus `hold`, rounded up
+to whole frames; the receipt reports
+that frame count and its duration divided by fps. Zero hold adds no final pause;
+a static zero-hold composition still occupies one frame. Output has no audio or assets.
 See [the runnable static example](https://github.com/sjquant/quickthumb/blob/main/examples/lottie_static.py).
 
 `canvas.validate_export("lottie")` lists unsupported source IDs and JSON paths.
-Motion, parenting, gradients, effects, masks, viewport clipping, rotation,
-trim/dashes, text, images, plugins and Deck output are not supported in this slice.
+Parenting, gradients, effects/presets, stagger, masks, viewport clipping,
+paint/trim/dash tracks, motion paths, text, images, plugins and Deck output are
+not supported in this slice.
 Export rejects them before opening the destination, including when a policy asks
 for static or raster fallback. It never silently drops features or embeds rendered
 frames. No Lottie import, ZIP or editor API is provided.
@@ -982,3 +985,24 @@ Admission uses the conservative control hull: some curves that visually fit
 are rejected when their controls exceed the fixed viewport. Rescale or reposition
 the path data inside its view box instead of expecting implicit cropping.
 See the [curved Path example](https://github.com/sjquant/quickthumb/blob/main/examples/lottie_paths.py).
+
+Canonical position, uniform/axis scale, rotation and opacity timelines retain
+ordered composition, easing, delays and held keys. Authored rotation is retained;
+track opacity multiplies authored layer opacity. Paths use their fixed viewport
+pivot. Shapes use the same whole painted-source pivot as canonical sampling,
+including authored static rotation, alignment and irregular geometry. Preparing
+an animated Shape uses one bounded untimed source probe to determine that pivot;
+it does not embed pixels. Animated Shape sources must fit inside the Canvas.
+Nonpositive uniform Shape scale is explicitly unsupported by this renderer;
+axis scales and Path scales retain their canonical behavior.
+
+Pose properties are held vector samples at `LottieOptions.fps`, augmented with
+exact event and authored-key boundaries shared across the Canvas. Between those instants the previous
+pose remains visible; output does not claim continuous native Lottie easing.
+Static properties remain native constants. Capability diagnostics report this
+sampling distinction. Export stops before writing if more than 100,000 total
+layer-pose observations or native coordinate precision limits would be exceeded.
+`ExportPolicy(reduced_motion=True)` intentionally removes the timelines and
+exports the authored static pose for `hold` seconds, rather than the animation
+endpoint. Other unsupported features still fail before writing.
+See the [pose-motion example](https://github.com/sjquant/quickthumb/blob/main/examples/lottie_motion.py).
