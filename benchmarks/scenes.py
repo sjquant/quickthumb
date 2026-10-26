@@ -20,20 +20,24 @@ from quickthumb import (
 from quickthumb.transitions import Cut
 
 SCENES = ("translation", "rotation", "scale", "product_hype_reel")
+TEXT_SELECTOR_TARGETS = ("words", "lines", "characters")
 TEXT_SELECTOR_SCENES = tuple(
     f"text_{target}_{mode}"
-    for target in ("words", "lines")
+    for target in TEXT_SELECTOR_TARGETS
     for mode in ("baseline", "static", "animated")
 )
 TEXT_FONT = Path(__file__).resolve().parents[1] / "assets/fonts/Roboto-Regular.ttf"
+TEXT_CONTENT = "ONE TWO\nONE TWO\nONE TWO"
 DURATION = 2.0
 
 
 def build_text_selector_scene(name: str, *, rest: bool = False) -> Deck:
-    """Same authored text and property tracks; only selector evaluation differs."""
+    """Same text; each target's three modes share property tracks and stagger timing."""
     if name not in TEXT_SELECTOR_SCENES:
         raise ValueError(f"unknown text-selector scene: {name}")
-    target = "words" if "_words_" in name else "lines"
+    target = "characters" if "_characters_" in name else "words" if "_words_" in name else "lines"
+    delay = 0.01 if target == "characters" else 0
+    duration = DURATION - delay * (len(TEXT_CONTENT) - 1)
     mode = name.rsplit("_", 1)[1]
     selector = None
     if mode != "baseline":
@@ -41,28 +45,35 @@ def build_text_selector_scene(name: str, *, rest: bool = False) -> Deck:
         if mode == "animated":
             selector.offset = [
                 KeyframeSpec(time=0, value=-25),
-                KeyframeSpec(time=1, value=25),
-                KeyframeSpec(time=2, value=0),
+                KeyframeSpec(time=duration / 2, value=25),
+                KeyframeSpec(time=duration, value=0),
             ]
     motion = AnimationSpec(
         tracks=[
             PositionTrack(
-                keyframes=[KeyframeSpec(time=0, value=(0, 16)), KeyframeSpec(time=2, value=(0, 0))]
+                keyframes=[
+                    KeyframeSpec(time=0, value=(0, 16)),
+                    KeyframeSpec(time=duration, value=(0, 0)),
+                ]
             ),
-            RotationTrack(keyframes=[KeyframeSpec(time=0, value=8), KeyframeSpec(time=2, value=0)]),
-            ScaleTrack(keyframes=[KeyframeSpec(time=0, value=0.9), KeyframeSpec(time=2, value=1)]),
+            RotationTrack(
+                keyframes=[KeyframeSpec(time=0, value=8), KeyframeSpec(time=duration, value=0)]
+            ),
+            ScaleTrack(
+                keyframes=[KeyframeSpec(time=0, value=0.9), KeyframeSpec(time=duration, value=1)]
+            ),
             OpacityTrack(
-                keyframes=[KeyframeSpec(time=0, value=0.3), KeyframeSpec(time=2, value=1)]
+                keyframes=[KeyframeSpec(time=0, value=0.3), KeyframeSpec(time=duration, value=1)]
             ),
             ColorTrack(
                 keyframes=[
                     KeyframeSpec(time=0, value="#FFD18A"),
-                    KeyframeSpec(time=2, value="#42CEB7"),
+                    KeyframeSpec(time=duration, value="#42CEB7"),
                 ]
             ),
         ],
-        timing=TimingSpec(duration=DURATION),
-        stagger=StaggerSpec(target=target, delay=0),
+        timing=TimingSpec(duration=duration),
+        stagger=StaggerSpec(target=target, delay=delay),
         selector=selector,
         easing="linear",
     )
@@ -70,7 +81,7 @@ def build_text_selector_scene(name: str, *, rest: bool = False) -> Deck:
         Canvas(480, 240)
         .background(color="#102030")
         .text(
-            "ONE TWO\nONE TWO\nONE TWO",
+            TEXT_CONTENT,
             font=str(TEXT_FONT),
             size=40,
             line_height=1.3,

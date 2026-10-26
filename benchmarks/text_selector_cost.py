@@ -1,4 +1,4 @@
-"""Record word/line selector cost using the existing instrumented export worker."""
+"""Record word/line/character cost using the existing instrumented export worker."""
 
 from __future__ import annotations
 
@@ -15,6 +15,7 @@ from benchmarks.scenes import (
     DURATION,
     TEXT_FONT,
     TEXT_SELECTOR_SCENES,
+    TEXT_SELECTOR_TARGETS,
     build_scene,
     build_text_selector_scene,
 )
@@ -25,7 +26,9 @@ FPS = 12
 def canonical_check(name: str) -> dict:
     """Untimed correctness probe, never run in a measured export process."""
     times = [index / FPS for index in range(round(DURATION * FPS))] + [DURATION]
-    sequence = build_scene(name).sample(time=times)
+    source = build_scene(name)
+    source_json = source.to_json()
+    sequence = source.sample(time=times)
     frames = sequence.frames
     rest = build_text_selector_scene(name, rest=True).sample(time=DURATION).frames[0]
     if len(frames) != len(times) or sequence.duration != DURATION:
@@ -37,8 +40,13 @@ def canonical_check(name: str) -> dict:
         raise RuntimeError(f"{name}: changed canonical extent or sample clock")
     if frames[-1].sha256 != rest.sha256 or frames[FPS].sha256 == rest.sha256:
         raise RuntimeError(f"{name}: missing motion or shifted settled layout")
+    layer = source.inspect_motion(target="video", fps=FPS).slides[0].layers[1]
     return {
         "scene": name,
+        "source": json.loads(source_json),
+        "source_sha256": hashlib.sha256(source_json.encode()).hexdigest(),
+        "target_count": len(layer.targets),
+        "motion_duration": layer.duration,
         "duration": sequence.duration,
         "frames": [{"time": frame.time, "sha256": frame.sha256} for frame in frames],
         "rest_sha256": rest.sha256,
@@ -74,7 +82,7 @@ def measure(report: dict, save) -> None:
             )
         checks[name] = observed[0]
     # These cases intentionally produce different motion. Never call this a speedup.
-    for target in ("words", "lines"):
+    for target in TEXT_SELECTOR_TARGETS:
         digests = {
             tuple(frame["sha256"] for frame in checks[f"text_{target}_{mode}"]["frames"])
             for mode in ("baseline", "static", "animated")
@@ -139,6 +147,11 @@ def main(argv: list[str] | None = None) -> int:
                 "benchmarks/text_selector_cost.py",
                 "quickthumb/motion.py",
                 "quickthumb/models/motion.py",
+                "quickthumb/_text_targets.py",
+                "quickthumb/_text.py",
+                "quickthumb/_fonts.py",
+                "quickthumb/_export_base.py",
+                "quickthumb/_export_video.py",
             )
         },
         "workload": {

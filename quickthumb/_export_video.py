@@ -2000,7 +2000,13 @@ def _build_units(
                     canvas._text.resolve_animation_targets(layers[0], selector.target)
                 )
             target_timelines = resolve_staggered_timelines(timeline, target_count)
-            if target_count > 1 or selector is not None:
+            character_targets = isinstance(layers[0], TextLayer) and (
+                selector is not None
+                and selector.target == "characters"
+                or stagger is not None
+                and stagger.target == "characters"
+            )
+            if target_count > 1 or selector is not None or character_targets:
                 if color_motion and parent_node is not None:
                     reference, reference_pos = parent_node.render_source(reference=True), (0, 0)
                 elif color_motion:
@@ -2013,6 +2019,10 @@ def _build_units(
                     if len(layers) == 1 and parent_node is None:
                         target_images = (
                             text_target_fragments(canvas, layers[0], reference, reference_pos) or ()
+                        )
+                    if not target_images and character_targets:
+                        raise RenderingError(
+                            "Character targets require one plain text layer without parents"
                         )
                     if not target_images and selector is not None:
                         raise RenderingError(

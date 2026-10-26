@@ -19,7 +19,7 @@ from typing import Any, Literal
 from unittest.mock import patch
 
 import PIL
-from PIL import Image, ImageFont, features
+from PIL import Image, ImageFont, ImageSequence, features
 from quickthumb import GifOptions, VideoOptions
 
 from benchmarks.scenes import DURATION, SCENES, TEXT_SELECTOR_SCENES, build_scene
@@ -188,6 +188,26 @@ def measure_export(
         with output.open("rb") as stream:
             for chunk in iter(lambda: stream.read(1024 * 1024), b""):
                 digest.update(chunk)
+        decoded = None
+        if format == "gif" and scene in TEXT_SELECTOR_SCENES:
+            # Consume the actual encoded animation after timing and RSS observation.
+            with Image.open(output) as gif:
+                durations = []
+                frame_hashes = set()
+                for frame in ImageSequence.Iterator(gif):
+                    if frame.size != (432, 216):
+                        raise RuntimeError("text export changed the configured output extent")
+                    durations.append(frame.info.get("duration", 0))
+                    frame_hashes.add(hashlib.sha256(frame.convert("RGB").tobytes()).hexdigest())
+                decoded = {
+                    "width": gif.width,
+                    "height": gif.height,
+                    "frames": len(durations),
+                    "duration": sum(durations) / 1000,
+                    "distinct_frames": len(frame_hashes),
+                }
+            if len(frame_hashes) < 2 or abs(decoded["duration"] - DURATION) > 0.02:
+                raise RuntimeError("text export lost motion or changed the playback duration")
         return {
             "scene": scene,
             "format": format,
@@ -204,6 +224,7 @@ def measure_export(
             "font_seconds": font_seconds,
             "output_bytes": output.stat().st_size,
             "output_sha256": digest.hexdigest(),
+            **({"decoded_output": decoded} if decoded is not None else {}),
         }
 
 

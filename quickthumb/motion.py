@@ -1048,9 +1048,17 @@ def _supports_color_motion(layer: object) -> bool:
 
 def _canonical_target_timelines(layer: object, target_count: int) -> tuple[Timeline, ...] | None:
     selector = _text_selector(layer)
-    if target_count < (1 if selector else 2):
-        return None
     timeline = _canonical_timeline(layer)
+    characters = (
+        isinstance(layer, TextLayer)
+        and timeline is not None
+        and any(
+            event.stagger and event.stagger.get("target") == "characters"
+            for event in timeline.events
+        )
+    )
+    if target_count < (1 if selector or characters else 2):
+        return None
     if timeline is None or not any(
         event.stagger is not None or event.selector for event in timeline.events
     ):
@@ -2563,9 +2571,15 @@ def _inspection_layer(
     target_spec = next((spec for spec in specs if spec.stagger), specs[0] if selector else None)
     resolved_targets = _inspection_targets(layer, target_spec, canvas) if target_spec else []
     timelines = resolve_staggered_timelines(timeline, len(resolved_targets))
+    character_stagger = (
+        isinstance(layer, TextLayer)
+        and target_spec is not None
+        and target_spec.stagger is not None
+        and target_spec.stagger.target == "characters"
+    )
     targets = (
         resolved_targets
-        if selector
+        if selector or character_stagger
         else [target for spec in specs for target in _inspection_targets(layer, spec, canvas)]
     )
     duration = max(
@@ -2573,11 +2587,13 @@ def _inspection_layer(
     )
     sample_times = _bounded_frame_times(duration, fps, max_samples)
     final = timeline.sample(duration, base)
-    if selector:
+    if selector or character_stagger:
         motion_base = _target_base_state(layer)
-        for target, resolved in zip(targets, timelines, strict=True):
+        states = [_sample_target_timelines(timelines, time, motion_base) for time in sample_times]
+        for index, target in enumerate(targets):
             target.samples = [
-                resolved.sample(time, motion_base).model_dump(mode="json") for time in sample_times
+                (row[index] or motion_base.with_values(opacity=0)).model_dump(mode="json")
+                for row in states
             ]
     static_state = base.model_dump(mode="json", exclude_none=True)
     return MotionLayerInspection(

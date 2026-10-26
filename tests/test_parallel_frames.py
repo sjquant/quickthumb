@@ -15,6 +15,9 @@ from quickthumb import (
     Fade,
     GifOptions,
     Grain,
+    KeyframeSpec,
+    PositionTrack,
+    RangeSelector,
     VideoOptions,
 )
 from quickthumb import _export_video as video
@@ -39,6 +42,22 @@ def _scene(kind):
             size=18,
             font=FONT,
             animation=AnimationSpec.typewriter(duration=0.3, target="lines", stagger=0.1),
+        )
+    elif kind == "characters":
+        first.text(
+            "HI HI",
+            position=(3, 3),
+            size=18,
+            font=FONT,
+            animation=AnimationSpec.timeline(
+                PositionTrack(
+                    keyframes=[
+                        KeyframeSpec(time=0, value=(0, 8)),
+                        KeyframeSpec(time=0.5, value=(0, 0)),
+                    ]
+                ),
+                selector=RangeSelector(target="characters", shape="ramp"),
+            ),
         )
     elif kind == "counter":
         first.counter(0, 10, 0.4, position=(3, 3), size=24, font=FONT)
@@ -88,7 +107,9 @@ def _shots(canvases, transitions, workers, *, hold=0.0, reduced=False, fps=12):
         ]
 
 
-@pytest.mark.parametrize("kind", ["shared", "stagger", "counter", "grain", "morph", "gaps"])
+@pytest.mark.parametrize(
+    "kind", ["shared", "stagger", "characters", "counter", "grain", "morph", "gaps"]
+)
 @pytest.mark.parametrize("workers", [2, 3])
 def test_spawned_shots_are_identical(kind, workers):
     canvases, transitions = _scene(kind)
