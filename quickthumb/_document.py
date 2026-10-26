@@ -30,6 +30,7 @@ from quickthumb.models import (
     FrameSequence,
     GifOptions,
     PixelMetrics,
+    PluginLayer,
     PrefetchResult,
     TimingMetrics,
     ValidationReport,
@@ -277,6 +278,13 @@ def preflight_export(
                 code="unsupported_capability",
                 layer_id=diagnostic.layer_id,
             )
+    for index, canvas in enumerate(_contract_canvases(source)):
+        try:
+            canvas._resolve_plugin_assets()
+        except QuickthumbError as error:
+            if _contract_kind(source) == "deck":
+                error.at(f"/slides/{index}")
+            raise
     return diagnostics
 
 
@@ -574,6 +582,9 @@ def _asset_manifest(
 
 def _layer_asset_values(layer: object):
     layer_type = getattr(layer, "type", None)
+    if isinstance(layer, PluginLayer):
+        for source in layer.assets.values():
+            yield "plugin", source
     for field in ("path", "source"):
         value = getattr(layer, field, None)
         if isinstance(value, str):

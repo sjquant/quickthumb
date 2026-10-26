@@ -1,11 +1,19 @@
 """Public pixels and failures of trusted synchronous RGBA plugins."""
 
+import hashlib
 import json
 
 import pytest
 from jsonschema import validate
 from PIL import Image
-from quickthumb import Canvas, Deck, PluginLayer, PluginRegistry, canvas_json_schema
+from quickthumb import (
+    Canvas,
+    Deck,
+    PluginLayer,
+    PluginRegistry,
+    canvas_json_schema,
+    inspect_document,
+)
 from quickthumb.errors import RenderingError, ValidationError
 
 
@@ -79,8 +87,16 @@ def test_plugin_reads_only_declared_byte_assets(tmp_path):
         id="asset",
     )
 
-    # When / Then: the declared source supplies exactly the callback's output pixels
+    # When: declared dependencies are prefetched before sampling and inspection
+    [entry] = canvas.prefetch_assets().asset_manifest
     assert canvas.sample().frames[0].to_bytes() == asset.read_bytes()
+    report = inspect_document(canvas)
+
+    # Then: the same public metadata describes the local bytes used by the callback
+    assert entry.asset_type == "plugin" and entry.status == "local"
+    assert entry.source == str(asset)
+    assert entry.content_hash == hashlib.sha256(asset.read_bytes()).hexdigest()
+    assert report.asset_manifest == [entry]
     layer = canvas.layers[0]
     assert isinstance(layer, PluginLayer)
     layer.params["key"] = "undeclared"

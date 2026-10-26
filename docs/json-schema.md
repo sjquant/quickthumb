@@ -154,12 +154,29 @@ receives the backdrop or an output file. Declare byte inputs as
 `context.read_asset("texture")`. Only declared names are accepted. Reads use the
 shared asset resolver's cache, offline policy and remote download limits.
 Plugin code remains trusted Python: the helper is not a filesystem or process
-sandbox. It owns any resources it creates.
+sandbox.
 
 Top-level Canvas/Deck sampling and PNG/JPEG/WebP output are supported.
 Timed sampling, animation output, groups, native document exports and `workers>1`
-fail explicitly. No time argument or animation callback is provided. Plugin asset
-prefetch and manifest integration are not supported.
+fail explicitly. No time argument or animation callback is provided.
+
+`prefetch_assets()` resolves every declared plugin asset without running the
+callback. Shared exports resolve them before writing, including declarations the
+callback does not read. Prefetch/export and observed inspection manifests report
+these references with `asset_type="plugin"`, the original source, cache identity,
+SHA-256 and normal local/network/fresh/stale status. Repeated remote reads on the
+same document use its first resolved bytes; new documents follow the shared
+cache's refresh/offline policy. Local files remain caller-owned and must stay
+unchanged through export. Multiple declared names for one source share one
+manifest entry; the names remain in the layer's JSON.
+
+Plugin assets are opaque bytes, not automatically validated images or selected
+font faces. Declaring a font file records its bytes, not any font selection or
+shaping a callback performs itself. The callback owns decoding and any resources
+it opens. Inspection reports observed state and may run the callback as part of
+normal diagnostics; it does not promise to prefetch unused references.
+`inspect_document(deck)` does not support plugin layers; inspect individual
+canvases for observed plugin assets.
 
 ### Plugin params Schema v1
 
