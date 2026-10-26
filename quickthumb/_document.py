@@ -257,6 +257,8 @@ def build_export_result(
     )
     if output_format == "gif" and written_paths:
         timing = timing.model_copy(update={"frame_count": pixel_frame_count})
+    from quickthumb._sampling import _render_environment
+
     return ExportResult(
         kind=_contract_kind(source),
         target=target,
@@ -272,6 +274,7 @@ def build_export_result(
         ),
         timing_metrics=timing,
         asset_manifest=asset_manifest,
+        environment=_render_environment(source),
     )
 
 
@@ -281,6 +284,9 @@ def preflight_export(
     policy: ExportPolicy | None = None,
 ) -> list[ExportDiagnostic]:
     """Validate target capabilities before an exporter writes any files."""
+    from quickthumb._sampling import _begin_font_observation
+
+    _begin_font_observation(source)
     diagnostics = _capability_report(
         source,
         resolved.target,
