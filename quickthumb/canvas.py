@@ -714,10 +714,15 @@ class Canvas:
         color: str | None = "#000000",
         *,
         view_box: tuple[float, float, float, float] | None = None,
+        stroke: str | None = None,
+        stroke_width: float = 1.0,
+        line_cap: Literal["butt", "round", "square"] = "butt",
+        line_join: Literal["miter", "bevel", "round"] = "miter",
+        miter_limit: float = 4.0,
         id: str | None = None,
         motion_key: str | None = None,
     ) -> Self:
-        """Add an even-odd filled SVG path in a clipped local viewport."""
+        """Add a filled or stroked SVG path in a clipped local viewport."""
         self._append_layer(
             PathLayer(
                 type="path",
@@ -727,6 +732,11 @@ class Canvas:
                 height=height,
                 color=color,
                 view_box=view_box,
+                stroke=stroke,
+                stroke_width=stroke_width,
+                line_cap=line_cap,
+                line_join=line_join,
+                miter_limit=miter_limit,
                 id=id,
                 motion_key=motion_key,
             )

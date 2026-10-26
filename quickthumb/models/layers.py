@@ -436,7 +436,7 @@ class ImageLayer(_AnimatableLayerModel):
 
 
 class PathLayer(LayerIdentityModel):
-    """A static, filled SVG path inside a fixed local viewport."""
+    """A static, filled or stroked SVG path inside a fixed local viewport."""
 
     type: Literal["path"]
     d: str = Field(description="SVG path data: M/L/H/V/C/S/Q/T/A/Z, absolute or relative.")
@@ -444,6 +444,11 @@ class PathLayer(LayerIdentityModel):
     width: PositiveInt
     height: PositiveInt
     color: HexColor | None = "#000000"
+    stroke: HexColor | None = None
+    stroke_width: FinitePositiveFloat = 1.0
+    line_cap: Literal["butt", "round", "square"] = "butt"
+    line_join: Literal["miter", "bevel", "round"] = "miter"
+    miter_limit: Annotated[FiniteFloat, Field(ge=1)] = 4.0
     view_box: tuple[FiniteFloat, FiniteFloat, FinitePositiveFloat, FinitePositiveFloat] | None = (
         None
     )

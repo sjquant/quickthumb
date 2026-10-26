@@ -22,6 +22,12 @@ class _Segment:
     arc: tuple[float, ...] = ()
 
 
+@dataclass(frozen=True)
+class _Contour:
+    points: tuple[_Point, ...]
+    closed: bool
+
+
 @lru_cache(maxsize=128)
 def parse_path(data: str) -> tuple[_Segment, ...]:
     """Compile absolute segments, resolving relative and smooth SVG commands."""
@@ -107,7 +113,7 @@ def parse_path(data: str) -> tuple[_Segment, ...]:
     return tuple(segments)
 
 
-def flatten_path(data: str, origin: _Point, scale: _Point) -> tuple[tuple[_Point, ...], ...]:
+def flatten_path(data: str, origin: _Point, scale: _Point) -> tuple[_Contour, ...]:
     """Flatten curves to 1/8 pixel chord tolerance after mapping to the local frame."""
     contours = []
     points: list[_Point] = []
@@ -120,12 +126,14 @@ def flatten_path(data: str, origin: _Point, scale: _Point) -> tuple[tuple[_Point
         )
         if segment.kind in {"M", "Z"}:
             if points:
-                contours.append(tuple(points))
+                contours.append(_Contour(tuple(points), segment.kind == "Z"))
                 points = []
             current = start if segment.kind == "Z" else mapped[0]
             local_current = local_start if segment.kind == "Z" else segment.points[0]
             if segment.kind == "M":
                 start, local_start = current, local_current
+            continue
+        if segment.kind == "A" and local_current == segment.points[0]:
             continue
         if not points:
             points.append(current)
@@ -145,7 +153,7 @@ def flatten_path(data: str, origin: _Point, scale: _Point) -> tuple[tuple[_Point
         if total > _MAX_POINTS:
             raise _subdivision_limit()
     if points:
-        contours.append(tuple(points))
+        contours.append(_Contour(tuple(points), False))
     return tuple(contours)
 
 
