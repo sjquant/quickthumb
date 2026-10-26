@@ -32,7 +32,7 @@ from .layers import (
     TextLayer,
     VideoLayer,
 )
-from .options import ExportDiagnostic, _SvgFidelityLimits
+from .options import ExportDiagnostic, _FidelityLimits
 from .visualizations import ChartLayer, QRCodeLayer
 
 LayerType = Annotated[
@@ -276,19 +276,25 @@ class FrameSequence(quickthumbModel):
     frames: list[CanonicalFrame] = Field(default_factory=list)
 
 
-class _SvgFidelityMetrics(quickthumbModel):
-    """A report-only CairoSVG observation of the authored-static SVG output."""
+class _FidelityMetrics(quickthumbModel):
+    """An explicitly requested renderer observation of authored-static output."""
 
     model_config = ConfigDict(extra="forbid")
 
-    renderer: Literal["cairosvg"] = "cairosvg"
+    renderer: Literal["cairosvg", "pdfium"]
     renderer_version: str
-    cairo_version: str
+    cairo_version: str | None = Field(default=None, exclude_if=lambda value: value is None)
+    binding_version: str | None = Field(default=None, exclude_if=lambda value: value is None)
+    page_count: PositiveInt | None = Field(default=None, exclude_if=lambda value: value is None)
+    page_size_points: tuple[float, float] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    render_scale: Literal[1] | None = Field(default=None, exclude_if=lambda value: value is None)
     scope: Literal["authored_static"] = "authored_static"
     hash_algorithm: Literal["average_hash_8x8"] = "average_hash_8x8"
     canonical_environment: RenderEnvironment
     verdict: Literal["exact", "tolerated", "out_of_policy"]
-    limits: _SvgFidelityLimits
+    limits: _FidelityLimits
     actual_width: PositiveInt
     actual_height: PositiveInt
     pixel_diff_ratio: float | None = None
@@ -304,9 +310,7 @@ class PixelMetrics(quickthumbModel):
     width: PositiveInt | None = None
     height: PositiveInt | None = None
     frame_count: NonNegativeInt = 0
-    fidelity: _SvgFidelityMetrics | None = Field(
-        default=None, exclude_if=lambda value: value is None
-    )
+    fidelity: _FidelityMetrics | None = Field(default=None, exclude_if=lambda value: value is None)
 
 
 class TimingMetrics(quickthumbModel):

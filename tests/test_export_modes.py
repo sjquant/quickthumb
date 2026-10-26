@@ -88,15 +88,10 @@ def test_concrete_static_query_matches_preflight_diagnostics(tmp_path, kind):
     assert query == [
         item for item in result.capability_report if item.feature != "layer_representation"
     ]
-    if kind == "svg":
-        (route,) = [
-            item for item in result.capability_report if item.feature == "layer_representation"
-        ]
-        assert (
-            route.target == kind and route.support == "fallback" and route.fallback == "rasterize"
-        )
-        assert route.layer_id is None and route.layer_ids == ["root", "layer:1"]
-        assert route.native_attempt is False
+    (route,) = [item for item in result.capability_report if item.feature == "layer_representation"]
+    assert route.target == kind and route.support == "fallback" and route.fallback == "rasterize"
+    assert route.layer_id is None and route.layer_ids == ["root", "layer:1"]
+    assert route.native_attempt is False
     assert all(item.target == "raster" and item.fallback == "static" for item in query)
 
 

@@ -41,7 +41,7 @@ if TYPE_CHECKING:
     from quickthumb.canvas import Canvas
     from quickthumb.deck import Deck
     from quickthumb.models import CanvasInspection, DeckInspection
-    from quickthumb.models.document import _SvgFidelityMetrics
+    from quickthumb.models.document import _FidelityMetrics
     from quickthumb.plugins import PluginRegistry
     from quickthumb.transitions import Transition
 
@@ -66,7 +66,7 @@ class _ExportReceipt:
     paths: list[str]
     diagnostics: list[ExportDiagnostic]
     animation: _AnimationFacts | None = None
-    fidelity: _SvgFidelityMetrics | None = None
+    fidelity: _FidelityMetrics | None = None
 
 
 @dataclass(frozen=True)
@@ -229,8 +229,9 @@ def build_export_result(
                 target=output_format,
                 support="partial" if comparison.verdict == "out_of_policy" else "full",
                 message=(
-                    f"CairoSVG {comparison.renderer_version} authored-static comparison: "
-                    f"{comparison.verdict}; the exported SVG representation is retained"
+                    f"{comparison.renderer} {comparison.renderer_version} "
+                    f"authored-static comparison: {comparison.verdict}; "
+                    f"the exported {output_format.upper()} representation is retained"
                 ),
             )
         )
@@ -422,6 +423,13 @@ def _resolve_export(
         )
 
     _raster_save_kwargs(output_format.upper(), quality)
+    if (
+        kind == "deck"
+        and output_format == "pdf"
+        and policy is not None
+        and "pdf" in policy.fidelity
+    ):
+        raise ValidationError("PDF fidelity comparison currently requires a single Canvas")
     if animation is not None:
         if mode != "animated":
             raise RenderingError(

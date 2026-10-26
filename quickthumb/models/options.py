@@ -115,8 +115,8 @@ class MotionProfile(_MotionModel):
 
 
 @with_config(ConfigDict(extra="forbid"))
-class _SvgFidelityLimits(TypedDict):
-    """Caller-selected acceptance limits for an optional static SVG comparison."""
+class _FidelityLimits(TypedDict):
+    """Caller-selected acceptance limits for an optional static comparison."""
 
     pixel_tolerance: Annotated[int, Field(strict=True, ge=0, le=255)]
     max_different_pixel_ratio: Annotated[float, Field(ge=0, le=1, allow_inf_nan=False)]
@@ -124,12 +124,12 @@ class _SvgFidelityLimits(TypedDict):
 
 
 class ExportPolicy(_MotionModel):
-    """Motion handling and opt-in, report-only static SVG fidelity checks."""
+    """Motion handling and opt-in, report-only static fidelity checks."""
 
     unsupported_motion: Literal["error", "warn", "rasterize", "static"] = "warn"
     pptx: dict[str, Literal["native", "rasterize", "static"]] = {}
     reduced_motion: bool = False
-    fidelity: dict[Literal["svg"], _SvgFidelityLimits] = Field(
+    fidelity: dict[Literal["svg", "pdf"], _FidelityLimits] = Field(
         default_factory=dict, exclude_if=lambda value: not value
     )
 
