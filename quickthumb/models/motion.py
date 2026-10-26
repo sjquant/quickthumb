@@ -396,6 +396,42 @@ class RotationTrack(ScalarTrack):
     type: Literal["rotation"] = "rotation"
 
 
+class DashOffsetTrack(ScalarTrack):
+    """Relative Path dash phase in local SVG/viewBox distance units."""
+
+    type: Literal["dash_offset"] = "dash_offset"
+    blend: Literal["replace", "add"] = "replace"
+
+
+class _TrimBoundaryTrack(ScalarTrack):
+    @field_validator("keyframes")
+    @classmethod
+    def validate_boundaries(cls, keyframes: list[KeyframeSpec]) -> list[KeyframeSpec]:
+        for keyframe in keyframes:
+            if not 0 <= keyframe.value <= 1:
+                raise ValueError("trim boundary keyframes must be between 0 and 1")
+        return keyframes
+
+
+class TrimStartTrack(_TrimBoundaryTrack):
+    """Absolute normalized stroke trim start along local SVG arc length."""
+
+    type: Literal["trim_start"] = "trim_start"
+
+
+class TrimEndTrack(_TrimBoundaryTrack):
+    """Absolute normalized stroke trim end along local SVG arc length."""
+
+    type: Literal["trim_end"] = "trim_end"
+
+
+class TrimOffsetTrack(ScalarTrack):
+    """Relative cyclic stroke trim offset, measured in normalized turns."""
+
+    type: Literal["trim_offset"] = "trim_offset"
+    blend: Literal["replace", "add"] = "replace"
+
+
 class OpacityTrack(ScalarTrack):
     """An opacity track constrained to the inclusive unit interval."""
 
@@ -459,6 +495,10 @@ TrackSpec = Annotated[
     | ScaleYTrack
     | ImageZoomTrack
     | RotationTrack
+    | DashOffsetTrack
+    | TrimStartTrack
+    | TrimEndTrack
+    | TrimOffsetTrack
     | OpacityTrack
     | ClipProgressTrack
     | BlurTrack

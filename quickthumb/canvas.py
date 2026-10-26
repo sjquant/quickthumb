@@ -64,6 +64,7 @@ from quickthumb.models import (
     LinearGradient,
     NullLayer,
     OutlineLayer,
+    PathLayer,
     PluginLayer,
     PrefetchResult,
     QRCodeLayer,
@@ -703,6 +704,64 @@ class Canvas:
             motion_key=motion_key,
         )
         self._append_layer(layer)
+        return self
+
+    def path(
+        self,
+        d: str,
+        position: tuple,
+        width: int,
+        height: int,
+        color: str | None = "#000000",
+        *,
+        view_box: tuple[float, float, float, float] | None = None,
+        fill: "LinearGradient | RadialGradient | None" = None,
+        stroke: str | None = None,
+        stroke_width: float = 1.0,
+        line_cap: Literal["butt", "round", "square"] = "butt",
+        line_join: Literal["miter", "bevel", "round"] = "miter",
+        miter_limit: float = 4.0,
+        dash_array: tuple[float, ...] | None = None,
+        dash_offset: float = 0.0,
+        trim_start: float = 0.0,
+        trim_end: float = 1.0,
+        trim_offset: float = 0.0,
+        id: str | None = None,
+        motion_key: str | None = None,
+        rotation: float = 0.0,
+        opacity: float = 1.0,
+        anchor: tuple[float, float] = (0.5, 0.5),
+        animation: AnimationInput | None = None,
+    ) -> Self:
+        """Add a filled or stroked SVG path in a clipped local viewport."""
+        self._append_layer(
+            PathLayer(
+                type="path",
+                d=d,
+                position=position,
+                width=width,
+                height=height,
+                color=color,
+                view_box=view_box,
+                fill=fill,
+                stroke=stroke,
+                stroke_width=stroke_width,
+                line_cap=line_cap,
+                line_join=line_join,
+                miter_limit=miter_limit,
+                dash_array=dash_array,
+                dash_offset=dash_offset,
+                trim_start=trim_start,
+                trim_end=trim_end,
+                trim_offset=trim_offset,
+                id=id,
+                motion_key=motion_key,
+                rotation=rotation,
+                opacity=opacity,
+                anchor=anchor,
+                animation=animation,
+            )
+        )
         return self
 
     def shape(
@@ -2144,6 +2203,11 @@ class Canvas:
         pass transforms; the exporters render layers untimed and apply the same
         geometry once per animation unit.
         """
+        if isinstance(layer, PathLayer):
+            from quickthumb._path_motion import render_path_frame
+
+            render_path_frame(image, layer, self._ctx, self._effects, time=time)
+            return
         from quickthumb._export_base import (
             _with_motion_color,
             color_group_has_backdrop,
@@ -2241,6 +2305,10 @@ class Canvas:
             self._images.render_image_layer(image, layer, time)
         elif isinstance(layer, ShapeLayer):
             self._shapes.render_shape_layer(image, layer)
+        elif isinstance(layer, PathLayer):
+            from quickthumb._path_motion import render_path_frame
+
+            render_path_frame(image, layer, self._ctx, self._effects)
         elif isinstance(layer, SvgLayer):
             self._images.render_svg_layer(image, layer)
         elif isinstance(layer, ChartLayer):
