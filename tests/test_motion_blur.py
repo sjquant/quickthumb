@@ -56,6 +56,7 @@ def test_exposure_preserves_red_in_transparent_motion_trails(tmp_path, workers):
         assert frame.getpixel((11, 3)) == (0, 0, 0, 0)
     assert (result.frame_count, result.duration) == (5, 1.25)
     assert any(row.feature == "motion_blur" for row in result.capability_report)
+    assert not any(row.feature == "motion_blur" for row in canvas.inspect_motion().capabilities)
 
 
 @pytest.mark.parametrize("format", ["gif", "mp4"])

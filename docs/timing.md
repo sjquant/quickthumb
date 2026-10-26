@@ -89,6 +89,28 @@ do not support this setting. `sample()` and `render_frame()` remain instantaneou
 observations. Export receipts identify the requested temporal exposure in their
 capability report; source inspection cannot infer an export-only setting.
 
+### Support and receipts
+
+`capabilities_for(target)["motion_blur"]` declares temporal-exposure support:
+
+| Target family | Support | Meaning |
+| --- | --- | --- |
+| `video` | full | Canvas/Deck MP4, WebM, MOV and image sequences integrate the exposure. |
+| `raster` | partial, static fallback | Animated GIF integrates it; static raster files have no exposure window. |
+| `html`, `pptx` | unsupported, static fallback | Exposure is ignored; the authored browser/PowerPoint motion remains unchanged. |
+
+`VideoOptions`/`GifOptions` belong to their animated output families; passing
+them to HTML/PPTX raises an option-family error. The capability table does not
+make those options silently accepted. `inspect_motion()` reports source-authored
+features and does not claim that export-only blur was enabled. After an actual
+export, find the `motion_blur` row in `result.capability_report` for the applied
+sample count and angle; `timing_metrics` retains the encoded playback facts.
+Image-sequence results carry the same applied row and their frame/duration facts.
+
+Run [the moving-marker example](https://github.com/sjquant/quickthumb/blob/main/examples/motion_blur.py)
+to write matching OFF/8-sample GIFs. Its scene also drives the controlled
+[sample-cost benchmark](https://github.com/sjquant/quickthumb/blob/main/benchmarks/README.md#temporal-exposure-cost).
+
 ## Slide duration and transitions
 
 Layer motion and the incoming transition start on the same slide clock. For

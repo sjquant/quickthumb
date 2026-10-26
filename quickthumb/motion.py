@@ -1605,6 +1605,7 @@ CapabilityFeature = Literal[
     "opacity",
     "clip_progress",
     "blur",
+    "motion_blur",
     "color",
     "easing",
     "stagger",
@@ -1640,6 +1641,7 @@ _CAPABILITY_FEATURES: tuple[CapabilityFeature, ...] = (
     "opacity",
     "clip_progress",
     "blur",
+    "motion_blur",
     "color",
     "easing",
     "stagger",
@@ -1660,6 +1662,7 @@ for _target in ("raster", "video"):
     _row = dict(_FULL_CAPABILITIES) | _RASTER_OVERRIDES
     if _target == "raster":
         _row["audio_sync"] = ("unsupported", "static")
+        _row["motion_blur"] = ("partial", "static")
     _CAPABILITIES[_target] = {
         feature: MotionCapability(feature, _target, support, fallback)
         for feature, (support, fallback) in _row.items()
@@ -1699,6 +1702,9 @@ _CAPABILITIES["html"] = {
 _CAPABILITIES["html"]["parent"] = MotionCapability("parent", "html", "partial")
 _CAPABILITIES["html"]["color"] = MotionCapability("color", "html", "unsupported", "static")
 _CAPABILITIES["html"]["motion_path"] = MotionCapability("motion_path", "html", "partial")
+_CAPABILITIES["html"]["motion_blur"] = MotionCapability(
+    "motion_blur", "html", "unsupported", "static"
+)
 _PPTX_FALLBACKS: dict[CapabilityFeature, tuple[SupportLevel, Fallback | None]] = {
     "parent": ("fallback", "static"),
     "position": ("native", None),
@@ -1712,6 +1718,7 @@ _PPTX_FALLBACKS: dict[CapabilityFeature, tuple[SupportLevel, Fallback | None]] =
     "opacity": ("native", None),
     "clip_progress": ("fallback", "fade"),
     "blur": ("unsupported", "rasterize"),
+    "motion_blur": ("unsupported", "static"),
     "color": ("partial", "static"),
     "easing": ("partial", "fade"),
     "stagger": ("native", None),
