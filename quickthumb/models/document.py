@@ -332,6 +332,7 @@ class FallbackDiagnostic(quickthumbModel):
     code: str = "export_fallback"
     target: str
     layer_id: str | None = None
+    slide_index: NonNegativeInt | None = Field(default=None, exclude_if=lambda value: value is None)
     layer_ids: list[str] = Field(default_factory=list, exclude_if=lambda value: not value)
     reason: str
     native_attempt: bool | None = None

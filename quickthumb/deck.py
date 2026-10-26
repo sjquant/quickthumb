@@ -23,6 +23,7 @@ from quickthumb.models import (
     AudioTrack,
     DeckInspection,
     DiagnosticReport,
+    ExportDiagnostic,
     ExportPolicy,
     ExportResult,
     FrameSequence,
@@ -410,7 +411,7 @@ class Deck:
             return _ExportReceipt([output_path], diagnostics, facts)
 
         if resolved.mode == "document":
-            self._render_document(output_path, extension, policy=policy)
+            self._render_document(output_path, extension, diagnostics=diagnostics, policy=policy)
             return _ExportReceipt([output_path], diagnostics)
 
         paths = self._render_sequence(output_path, resolved, quality, policy=policy)
@@ -547,7 +548,12 @@ class Deck:
         return visual_durations, durations
 
     def _render_document(
-        self, output_path: str, extension: str, policy: ExportPolicy | None = None
+        self,
+        output_path: str,
+        extension: str,
+        *,
+        diagnostics: list[ExportDiagnostic],
+        policy: ExportPolicy | None = None,
     ) -> None:
         if extension == ".pdf":
             from quickthumb._export_pdf import PdfExporter
@@ -556,7 +562,7 @@ class Deck:
             return
 
         if extension in (".html", ".htm"):
-            document = self.to_html(policy=policy)
+            document = self._html_document(True, True, policy, diagnostics=diagnostics)
             with open(output_path, "w", encoding="utf-8") as f:
                 f.write(document)
             return
@@ -625,6 +631,16 @@ class Deck:
         *interactive* format where transitions and animations play; the
         animated GIF/WebM exports play them too, on a fixed timeline.
         """
+        return self._html_document(responsive, embed_fonts, policy)
+
+    def _html_document(
+        self,
+        responsive: bool,
+        embed_fonts: bool,
+        policy: ExportPolicy | None,
+        *,
+        diagnostics: list[ExportDiagnostic] | None = None,
+    ) -> str:
         self._require_slides()
         self._validate_parent_motion_policy("html", policy)
         from quickthumb._export_html import export_deck
@@ -637,6 +653,7 @@ class Deck:
             notes=self._slide_notes,
             reduced_motion=bool(policy and policy.reduced_motion),
             parent_static=bool(policy and policy.unsupported_motion in {"static", "rasterize"}),
+            diagnostics=diagnostics,
         )
 
     def to_pptx(self, *, policy: ExportPolicy | None = None) -> bytes:
