@@ -6,6 +6,7 @@ from pathlib import Path
 from quickthumb import (
     AnimationSpec,
     Canvas,
+    ColorTrack,
     KeyframeSpec,
     PositionTrack,
     RangeSelector,
@@ -23,6 +24,12 @@ def main():
             keyframes=[KeyframeSpec(time=0, value=(0, 24)), KeyframeSpec(time=0.6, value=(0, 0))]
         ),
         RotationTrack(keyframes=[KeyframeSpec(time=0, value=15), KeyframeSpec(time=0.6, value=0)]),
+        ColorTrack(
+            keyframes=[
+                KeyframeSpec(time=0, value="#FCE38A80"),
+                KeyframeSpec(time=0.6, value="#42CEB7"),
+            ]
+        ),
         selector=RangeSelector(target=args.target, shape="ramp"),
         easing="linear",
     )

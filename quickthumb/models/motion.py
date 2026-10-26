@@ -551,12 +551,11 @@ class AnimationSpec(_MotionModel):
             raise ValidationError("timeline easing is only valid with tracks")
         if self.selector is not None:
             if self.tracks is None or any(
-                track.type not in {"position", "rotation", "scale", "opacity"}
+                track.type not in {"position", "rotation", "scale", "opacity", "color"}
                 for track in self.tracks
             ):
                 raise ValidationError(
-                    "selectors require position, rotation, scale or opacity tracks; "
-                    "color is not supported"
+                    "selectors require position, rotation, scale, opacity or color tracks"
                 )
             if any(
                 getattr(track, "auto_orient", False)

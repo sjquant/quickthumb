@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, Any, Literal, cast, get_args
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from pydantic import ValidationError as PydanticValidationError
 
-from quickthumb._base import parse_coordinate
+from quickthumb._base import DEFAULT_TEXT_COLOR, parse_coordinate
 from quickthumb._color_motion import interpolate_color
 from quickthumb._measurements import layer_id_for
 from quickthumb._motion_path import sample_segment
@@ -1025,6 +1025,14 @@ def _canonical_target_timelines(layer: object, target_count: int) -> tuple[Timel
     return resolve_staggered_timelines(timeline, target_count)
 
 
+def _target_base_state(layer: object) -> LayerState:
+    """Retain effective plain-text paint as the incoming color of selected targets."""
+    color = None
+    if isinstance(layer, TextLayer) and _text_selector(layer) and _has_color_track(layer):
+        color = layer.color or "#" + "".join(f"{channel:02X}" for channel in DEFAULT_TEXT_COLOR)
+    return LayerState(anchor=getattr(layer, "anchor", (0.5, 0.5)), color=color)
+
+
 def _sample_target_timelines(
     timelines: tuple[Timeline, ...], time: float, base: LayerState | None = None
 ) -> tuple[LayerState | None, ...]:
@@ -1062,9 +1070,7 @@ def sample_canonical_targets(
         return None
     timelines = _canonical_target_timelines(layer, target_count)
     return (
-        _sample_target_timelines(
-            timelines, float(time), LayerState(anchor=getattr(layer, "anchor", (0.5, 0.5)))
-        )
+        _sample_target_timelines(timelines, float(time), _target_base_state(layer))
         if timelines is not None
         else None
     )
@@ -1483,10 +1489,16 @@ def _sample_event(
             if weight == 1
             else state.with_values(
                 **{
-                    track.property: _interpolate(
-                        (0.0, 0.0) if before is None and track.property == "position" else before,
-                        after,
-                        weight,
+                    track.property: (
+                        interpolate_color(cast(str, before), cast(str, after), weight)
+                        if track.property == "color"
+                        else _interpolate(
+                            (0.0, 0.0)
+                            if before is None and track.property == "position"
+                            else before,
+                            after,
+                            weight,
+                        )
                     )
                 }
             )
@@ -2490,7 +2502,7 @@ def _inspection_layer(
     sample_times = _bounded_frame_times(duration, fps, max_samples)
     final = timeline.sample(duration, base)
     if selector:
-        motion_base = LayerState(anchor=getattr(layer, "anchor", (0.5, 0.5)))
+        motion_base = _target_base_state(layer)
         for target, resolved in zip(targets, timelines, strict=True):
             target.samples = [
                 resolved.sample(time, motion_base).model_dump(mode="json") for time in sample_times
