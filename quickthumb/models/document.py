@@ -32,7 +32,7 @@ from .layers import (
     TextLayer,
     VideoLayer,
 )
-from .options import ExportDiagnostic
+from .options import ExportDiagnostic, _SvgFidelityLimits
 from .visualizations import ChartLayer, QRCodeLayer
 
 LayerType = Annotated[
@@ -276,17 +276,37 @@ class FrameSequence(quickthumbModel):
     frames: list[CanonicalFrame] = Field(default_factory=list)
 
 
-class PixelMetrics(quickthumbModel):
-    """Pixel metadata captured at the export boundary.
+class _SvgFidelityMetrics(quickthumbModel):
+    """A report-only CairoSVG observation of the authored-static SVG output."""
 
-    Fidelity comparisons add measured diff fields in the later conformance
-    work; A1 fixes the JSON shape and canonical raster dimensions.
-    """
+    model_config = ConfigDict(extra="forbid")
+
+    renderer: Literal["cairosvg"] = "cairosvg"
+    renderer_version: str
+    cairo_version: str
+    scope: Literal["authored_static"] = "authored_static"
+    hash_algorithm: Literal["average_hash_8x8"] = "average_hash_8x8"
+    canonical_environment: RenderEnvironment
+    verdict: Literal["exact", "tolerated", "out_of_policy"]
+    limits: _SvgFidelityLimits
+    actual_width: PositiveInt
+    actual_height: PositiveInt
+    pixel_diff_ratio: float | None = None
+    hash_similarity: float
+    mean_absolute_error: float | None = None
+    max_channel_delta: int | None = None
+
+
+class PixelMetrics(quickthumbModel):
+    """Canonical pixel metadata and any explicitly requested fidelity observation."""
 
     mode: Literal["RGBA"] = "RGBA"
     width: PositiveInt | None = None
     height: PositiveInt | None = None
     frame_count: NonNegativeInt = 0
+    fidelity: _SvgFidelityMetrics | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
 
 class TimingMetrics(quickthumbModel):
