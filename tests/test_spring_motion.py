@@ -8,7 +8,7 @@ from zipfile import ZipFile
 
 import jsonschema
 import pytest
-from PIL import Image
+from PIL import Image, ImageChops
 from PIL.GifImagePlugin import GifImageFile
 from quickthumb import (
     AnimationSpec,
@@ -21,6 +21,7 @@ from quickthumb import (
     canvas_json_schema,
 )
 from quickthumb.errors import RenderingError, ValidationError
+from quickthumb.models import ImageLayer, TextLayer
 from quickthumb.motion import easing_value, inspect_motion, validate_export
 
 
@@ -144,3 +145,50 @@ def test_invalid_spring_response_is_rejected_before_compilation():
     # Given: finite inputs whose ratio overflows
     with pytest.raises(ValidationError, match="response rates"):
         SpringEasing(stiffness=1e308, mass=1e-308)
+
+
+def test_logo_wordmark_entrance_overshoots_then_holds_authored_layout():
+    """The application example moves real image/text ink and encodes its settled hold."""
+    from examples.spring_entrance import build_scene
+
+    scene = Canvas.from_json(build_scene().to_json())
+    background = Image.new("RGB", (640, 240), "#F8F7F3")
+    assert ImageChops.difference(scene.render_frame(0).convert("RGB"), background).getbbox() is None
+    authored = build_scene()
+    authored.layers = [
+        layer.model_copy(update={"animation": None})
+        if isinstance(layer, (ImageLayer, TextLayer))
+        else layer
+        for layer in authored.layers
+    ]
+    overshoot, settled = scene.render_frame(0.6), scene.render_frame(1.5)
+    assert (
+        settled.tobytes() == authored.render_frame(0).tobytes() == scene.render_frame(2).tobytes()
+    )
+
+    def ink_bounds(frame, box):
+        crop = frame.convert("RGB").crop(box)
+        mask = ImageChops.difference(crop, background.crop(box)).convert("L")
+        bounds = mask.point(lambda value: 255 if value > 8 else 0).getbbox()
+        assert bounds is not None
+        return bounds
+
+    regions = [(0, 0, 175, 240), (175, 0, 640, 240)]
+    for box in regions:
+        assert ink_bounds(overshoot, box)[0] > ink_bounds(settled, box)[0]
+
+    elapsed, decoded_overshoot = 0, None
+    with cast(GifImageFile, Image.open(BytesIO(scene.to_gif(fps=20, hold=0.5)))) as gif:
+        for index in range(gif.n_frames):
+            gif.seek(index)
+            delay = gif.info["duration"]
+            if elapsed <= 600 < elapsed + delay:
+                decoded_overshoot = gif.convert("RGBA")
+            elapsed += delay
+        final = gif.convert("RGBA")
+    assert elapsed == 2000 and decoded_overshoot is not None
+    for box in regions:
+        assert ink_bounds(decoded_overshoot, box) == pytest.approx(
+            ink_bounds(overshoot, box), abs=1
+        )
+        assert ink_bounds(final, box) == pytest.approx(ink_bounds(settled, box), abs=1)
