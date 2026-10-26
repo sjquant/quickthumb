@@ -71,6 +71,7 @@ MotionProperty = Literal[
     "trim_start",
     "trim_end",
     "trim_offset",
+    "path_morph",
     "opacity",
     "clip_progress",
     "blur",
@@ -407,6 +408,10 @@ class NormalizedTrack(BaseModel):
                     )
                 ):
                     raise ValidationError("tangents require finite position control points")
+        if self.property == "path_morph":
+            from quickthumb._path_morph import validate_morph_paths
+
+            validate_morph_paths([cast(str, key.value) for key in self.keyframes])
         if self.auto_orient and self.property != "position":
             raise ValidationError("auto_orient is only supported for position tracks")
         if self.blend == "add" and self.property not in {
@@ -526,6 +531,7 @@ class LayerState(BaseModel):
     opacity: float = Field(default=1.0, ge=0.0, le=1.0, allow_inf_nan=False)
     clip_progress: float = Field(default=1.0, ge=0.0, le=1.0, allow_inf_nan=False)
     blur: float = Field(default=0.0, ge=0.0, allow_inf_nan=False)
+    path_morph: str | None = None
     color: HexColor | None = None
 
     @field_validator("position")
@@ -734,6 +740,7 @@ def _layer_motion_state(layer: object, canvas: Canvas, time: float = 0.0) -> Lay
                 trim_start=layer.trim_start if relative.trim_start is None else relative.trim_start,
                 trim_end=layer.trim_end if relative.trim_end is None else relative.trim_end,
                 trim_offset=layer.trim_offset + relative.trim_offset,
+                path_morph=layer.d if relative.path_morph is None else relative.path_morph,
                 opacity=layer.opacity * relative.opacity,
                 color=layer.color,
             )
@@ -762,6 +769,7 @@ def _layer_base_state(layer: object, canvas: Canvas) -> LayerState:
         trim_start=getattr(layer, "trim_start", None),
         trim_end=getattr(layer, "trim_end", None),
         trim_offset=float(getattr(layer, "trim_offset", 0.0)),
+        path_morph=layer.d if isinstance(layer, PathLayer) else None,
         color=getattr(layer, "color", None),
     )
     return state
@@ -1401,6 +1409,13 @@ def _validate_property_value(property: MotionProperty, value: MotionValue) -> No
         ):
             raise ValidationError("image_pan keyframes must contain values between -1.0 and 1.0")
         return
+    if property == "path_morph":
+        from quickthumb._path_geometry import parse_path
+
+        if not isinstance(value, str):
+            raise ValidationError("path_morph keyframes must contain SVG d strings")
+        parse_path(value)
+        return
     if property == "color":
         if not isinstance(value, str):
             raise ValidationError("color keyframes must contain hexadecimal colors")
@@ -1498,8 +1513,13 @@ def _sample_track(
                 "image_zoom",
                 "trim_start",
                 "trim_end",
+                "path_morph",
             }:
                 eased_ratio = min(1.0, max(0.0, eased_ratio))
+            if track.property == "path_morph":
+                from quickthumb._path_morph import interpolate_path
+
+                return interpolate_path(cast(str, left.value), cast(str, right.value), eased_ratio)
             if track.property == "color":
                 return interpolate_color(cast(str, left.value), cast(str, right.value), eased_ratio)
             return _interpolate(left.value, right.value, eased_ratio)
@@ -1659,6 +1679,7 @@ CapabilityFeature = Literal[
     "trim_start",
     "trim_end",
     "trim_offset",
+    "path_morph",
     "opacity",
     "clip_progress",
     "blur",
@@ -1699,6 +1720,7 @@ _CAPABILITY_FEATURES: tuple[CapabilityFeature, ...] = (
     "trim_start",
     "trim_end",
     "trim_offset",
+    "path_morph",
     "opacity",
     "clip_progress",
     "blur",
@@ -1743,6 +1765,7 @@ _CANONICAL_RENDERED: dict[str, frozenset[str]] = {
             "trim_start",
             "trim_end",
             "trim_offset",
+            "path_morph",
             "opacity",
             "clip_progress",
             "blur",
@@ -1767,6 +1790,9 @@ _CAPABILITIES["html"]["path"] = MotionCapability("path", "html", "partial", "ras
 _CAPABILITIES["html"]["dash_offset"] = MotionCapability("dash_offset", "html", "partial", "static")
 for _feature in ("trim_start", "trim_end", "trim_offset"):
     _CAPABILITIES["html"][_feature] = MotionCapability(_feature, "html", "partial", "static")
+_CAPABILITIES["html"]["path_morph"] = MotionCapability(
+    "path_morph", "html", "unsupported", "static"
+)
 _CAPABILITIES["html"]["color"] = MotionCapability("color", "html", "unsupported", "static")
 _CAPABILITIES["html"]["motion_path"] = MotionCapability("motion_path", "html", "partial")
 _PPTX_FALLBACKS: dict[CapabilityFeature, tuple[SupportLevel, Fallback | None]] = {
@@ -1784,6 +1810,7 @@ _PPTX_FALLBACKS: dict[CapabilityFeature, tuple[SupportLevel, Fallback | None]] =
     "trim_start": ("unsupported", "static"),
     "trim_end": ("unsupported", "static"),
     "trim_offset": ("unsupported", "static"),
+    "path_morph": ("unsupported", "static"),
     "opacity": ("native", None),
     "clip_progress": ("fallback", "fade"),
     "blur": ("unsupported", "rasterize"),
@@ -2570,6 +2597,7 @@ def _inspection_reduced_motion(duration: float, policy: ExportPolicy) -> Reduced
             "trim_start",
             "trim_end",
             "trim_offset",
+            "path_morph",
             "opacity",
             "clip_progress",
             "blur",

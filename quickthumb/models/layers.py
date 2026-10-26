@@ -514,13 +514,14 @@ class PathLayer(_AnimatableLayerModel):
                         "trim_start",
                         "trim_end",
                         "trim_offset",
+                        "path_morph",
                     }
                     for track in animation.tracks or ()
                 )
             ):
                 raise ValidationError(
                     "Path motion requires position, rotation, scale, opacity, "
-                    "dash_offset or trim timelines",
+                    "dash_offset, trim or path_morph timelines",
                     path="/animation",
                 )
         segments = parse_path(self.d)

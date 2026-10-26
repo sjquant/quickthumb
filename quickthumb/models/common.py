@@ -281,13 +281,13 @@ class _AnimatableLayerModel(LayerIdentityModel):
         animation = getattr(self, "animation", None)
         items = animation if isinstance(animation, list) else [animation]
         if getattr(self, "type", None) != "path" and any(
-            track.type in {"dash_offset", "trim_start", "trim_end", "trim_offset"}
+            track.type in {"dash_offset", "trim_start", "trim_end", "trim_offset", "path_morph"}
             for item in items
             if isinstance(item, AnimationSpec)
             for track in item.tracks or ()
         ):
             raise ValidationError(
-                "dash_offset and trim tracks require a PathLayer", path="/animation"
+                "dash_offset, trim and path_morph tracks require a PathLayer", path="/animation"
             )
         return self
 
