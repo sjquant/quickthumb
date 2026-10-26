@@ -25,7 +25,8 @@
     var slide=Number(state.slide),timeline=Number(state.timeline);
     if(!Number.isInteger(slide)||slide<0||slide>stages.length||
       !Number.isInteger(timeline)||timeline<0)return null;
-    if(slide===stages.length)return timeline===0?{slide:slide,timeline:0}:null;
+    if(slide===stages.length)return timeline===0?{slide:slide,timeline:0,elapsed:
+      Number.isFinite(state.elapsed)&&state.elapsed>=0?state.elapsed:0}:null;
     return timeline<=timelines[slide].length()?{slide:slide,timeline:timeline}:null;
   }
   var presenter=presenterRequested();
@@ -33,7 +34,9 @@
   var current=savedState&&savedState.slide<stages.length?savedState.slide:0;
   var ended=false;
   function snapshot(){
-    return {slide:ended?stages.length:current,timeline:ended?0:timelines[current].position()};
+    var state={slide:ended?stages.length:current,timeline:ended?0:timelines[current].position()};
+    if(ended&&presenterUi)state.elapsed=presenterUi.elapsed();
+    return state;
   }
   function saveState(state){
     if(!presenter)return;
@@ -82,7 +85,7 @@
           'data-qt-audience data-qt-presenter-control>Open audience view ↗</a>'+
       '</header>'+
       '<section class="qt-presenter-main" aria-label="Current slide and notes">'+
-        '<h1 class="qt-presenter-heading">Current slide</h1>'+
+        '<h1 class="qt-presenter-heading" data-qt-current-heading>Current slide</h1>'+
         '<div class="qt-presenter-current"></div>'+
         '<h2 class="qt-presenter-heading qt-presenter-notes-label">Speaker notes</h2>'+
         '<div class="qt-presenter-notes" aria-live="polite"></div>'+
@@ -113,6 +116,7 @@
       '<nav class="qt-presenter-controls" aria-label="Slide controls">'+
         '<button class="qt-presenter-control" type="button" data-qt-previous '+
           'data-qt-presenter-control>← Previous</button><span data-qt-progress></span>'+
+        '<a class="qt-presenter-control" data-qt-slide-list data-qt-presenter-control hidden>Back to slides</a>'+
         '<button class="qt-presenter-control qt-presenter-forward" type="button" data-qt-forward '+
           'data-qt-presenter-control>Next →</button>'+
       '</nav>';
@@ -133,6 +137,9 @@
       resetTimer:shell.querySelector('[data-qt-reset-timer]'),
       previous:shell.querySelector('[data-qt-previous]'),
       forward:shell.querySelector('[data-qt-forward]'),
+      slideList:shell.querySelector('[data-qt-slide-list]'),
+      mode:shell.querySelector('.qt-presenter-mode'),
+      heading:shell.querySelector('[data-qt-current-heading]'),
       preview:null
     };
     ui.shell.querySelector('[data-qt-audience]').href=audienceUrl();
@@ -140,11 +147,13 @@
       e.stopPropagation();if(ended)leaveEnd();else if(current>0)go(current-1,true);
     });
     ui.forward.addEventListener('click',function(e){
-      e.stopPropagation();if(canClick())advance();
+      e.stopPropagation();if(ended)restart();else if(canClick())advance();
     });
-    var timerElapsed=0,timerStartedAt=Date.now(),timerRunning=true;
+    ui.slideList.href=audienceUrl();
+    var timerElapsed=savedState&&savedState.elapsed||0,timerStartedAt=Date.now();
+    var timerRunning=!(savedState&&savedState.slide===stages.length);
     function updateTimer(){
-      var elapsed=Math.floor((timerElapsed+(timerRunning?Date.now()-timerStartedAt:0))/1000);
+      var elapsed=Math.floor(ui.elapsed()/1000);
       var minutes=String(Math.floor(elapsed/60)).padStart(2,'0');
       var seconds=String(elapsed%60).padStart(2,'0');
       ui.timerValue.textContent=minutes+':'+seconds;
@@ -153,6 +162,9 @@
       ui.timerIcon.textContent=timerRunning?'Ⅱ':'▶';
       ui.timerLabel.textContent=timerRunning?'Pause':'Resume';
     }
+    ui.elapsed=function(){return timerElapsed+(timerRunning?Date.now()-timerStartedAt:0);};
+    ui.finishTimer=function(){timerElapsed=ui.elapsed();timerRunning=false;updateTimer();};
+    ui.resetClock=function(){timerElapsed=0;timerStartedAt=Date.now();timerRunning=true;updateTimer();};
     ui.timer.addEventListener('click',function(e){
       e.stopPropagation();
       if(timerRunning){timerElapsed+=Date.now()-timerStartedAt;timerRunning=false;}
@@ -160,7 +172,7 @@
       updateTimer();
     });
     ui.resetTimer.addEventListener('click',function(e){
-      e.stopPropagation();timerElapsed=0;timerStartedAt=Date.now();timerRunning=true;updateTimer();
+      e.stopPropagation();ui.resetClock();
     });
     setInterval(updateTimer,1000);
     return ui;
@@ -170,11 +182,13 @@
     screen.className='qt-presentation-end';
     screen.setAttribute('role','status');
     screen.innerHTML=
+      '<span class="qt-presentation-end-brand"><span class="qt-ui-logo" aria-hidden="true"></span>Quickthumb</span>'+
       '<div class="qt-presentation-end-card">'+
-        '<span class="qt-presentation-end-kicker">Presentation complete</span>'+
-        '<strong>End of presentation</strong>'+
-        '<span>Press ← to return to the last slide</span>'+
-      '</div>';
+        '<svg class="qt-presentation-end-mark" viewBox="0 0 48 48" aria-hidden="true">'+
+          '<circle cx="24" cy="24" r="21"/><path d="m14 24 7 7 14-15"/></svg>'+
+        '<h1>End of presentation</h1>'+
+        '<p>'+stages.length+' of '+stages.length+' '+(stages.length===1?'slide':'slides')+'</p>'+
+      '</div><p class="qt-presentation-end-hint">← Last slide</p>';
     screen.hidden=true;screen.style.display='none';frame.appendChild(screen);
     return screen;
   }
@@ -196,6 +210,7 @@
       applyingRemote=true;
       if(message.action==='advance')applyRemoteAdvance(message.state);
       else if(message.action==='state')applyRemoteState(message.state);
+      else if(message.action==='restart')restart();
       applyingRemote=false;
     });
     return channel;
@@ -209,21 +224,20 @@
   }
   function updatePresenter(){
     if(!presenterUi)return;
-    presenterUi.progress.textContent=ended?'Presentation ended':'Slide '+(current+1)+' of '+stages.length;
+    presenterUi.shell.setAttribute('data-ended',ended?'true':'false');
+    presenterUi.mode.textContent=ended?'Finished':'Presenter view';
+    presenterUi.heading.textContent=ended?'Last slide':'Current slide';
+    presenterUi.slideList.hidden=!ended||!document.body.getAttribute('data-qt-source-name');
+    presenterUi.timer.disabled=ended;presenterUi.resetTimer.hidden=ended;
+    presenterUi.progress.textContent='Slide '+(current+1)+' of '+stages.length;
     presenterUi.previous.disabled=!ended&&current===0;
-    presenterUi.forward.disabled=ended||!canClick()||(
-      current===stages.length-1&&!timelines[current].hasNext()
-    );
+    presenterUi.previous.textContent=ended?'← Last slide':'← Previous';
+    presenterUi.forward.disabled=!ended&&(!canClick()||transitioning||timelineBusy);
+    presenterUi.forward.textContent=ended?'Restart':
+      current===stages.length-1&&!timelines[current].hasNext()?'Finish':'Next →';
     presenterUi.nextFrame.replaceChildren();
     presenterUi.preview=null;
-    if(ended){
-      presenterUi.nextLabel.textContent='End';
-      presenterUi.notes.textContent='Presentation complete.';
-      presenterUi.notes.setAttribute('data-empty','false');
-      var end=document.createElement('div');end.className='qt-presenter-empty';
-      end.textContent='End of presentation';presenterUi.nextFrame.appendChild(end);
-      return;
-    }
+    if(ended)return;
     var notes=stages[current].getAttribute('data-qt-notes')||'';
     presenterUi.notes.textContent=notes||'No speaker notes for this slide.';
     presenterUi.notes.setAttribute('data-empty',notes?'false':'true');
@@ -419,11 +433,16 @@
   function showEnd(){
     if(ended)return;
     clearAuto();clearTimeout(hideTimer);transitioning=false;ended=true;
+    current=stages.length-1;timelines[current].finish();
     stages.forEach(function(stage){
       stage.style.animation='';stage.style.zIndex='';stage.style.willChange='';
       stage.style.display='none';stage.hidden=true;
     });
-    endScreen.hidden=false;endScreen.style.display='grid';
+    if(presenterUi){
+      presenterUi.finishTimer();
+      stages[current].hidden=false;stages[current].style.display='block';
+      if(fit)qtFit(stages[current]);
+    }else{endScreen.hidden=false;endScreen.style.display='grid';}
     updatePresenter();publishState();
   }
   function leaveEnd(){
@@ -433,6 +452,28 @@
     timelines[current].setPosition(timelines[current].length());
     if(fit)qtFit(stages[current]);
     updatePresenter();publishState();
+  }
+  function restart(){
+    clearAuto();clearTimeout(hideTimer);
+    pendingRemoteState=pendingRemoteAdvance=pendingPreviewSlide=null;
+    ended=false;timelineBusy=false;
+    endScreen.hidden=true;endScreen.style.display='none';
+    timelines.forEach(function(timeline){timeline.reset();});
+    if(presenterUi)presenterUi.resetClock();
+    sendSync({action:'restart'});startFirstSlide();
+  }
+  function startFirstSlide(){
+    current=0;
+    stages.forEach(function(stage,index){stage.hidden=index!==0;stage.style.display=index===0?'block':'none';});
+    if(fit)qtFit(stages[current]);
+    updatePresenter();transitioning=true;
+    stages[current].style.willChange='transform,opacity,clip-path';
+    stages[current].style.animation=stages[current].getAttribute('data-qt-transition')||'';
+    Promise.resolve(runTimeline(current)).then(function(){
+      if(current===0){updatePresenter();publishState();}
+    });
+    var duration=parseFloat(stages[current].getAttribute('data-qt-dur'))||0;
+    hideTimer=setTimeout(settle,duration*1000+60);
   }
   function selectPreviewSlide(slide){
     if(!Number.isInteger(slide)||slide<0||slide>=stages.length)return;
@@ -468,19 +509,5 @@
       timelines[current].setPosition(savedState.timeline);
       settle();
     }
-  }else{
-    if(fit)qtFit(stages[current]);
-    updatePresenter();
-    transitioning=true;
-    stages[current].hidden=false;
-    stages[current].style.display='block';
-    stages[current].style.willChange='transform,opacity,clip-path';
-    stages[current].style.animation=stages[current].getAttribute('data-qt-transition')||'';
-    var initialTimeline=runTimeline(current);
-    Promise.resolve(initialTimeline).then(function(){
-      if(current===0){updatePresenter();publishState();}
-    });
-    var d0=parseFloat(stages[current].getAttribute('data-qt-dur'))||0;
-    hideTimer=setTimeout(settle,d0*1000+60);
-  }
+  }else{startFirstSlide();}
 })();

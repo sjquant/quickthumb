@@ -1549,6 +1549,7 @@ function advanceClock(ms) {
       stages[0].children['qt-l1'].style.visibility === 'visible',
       'presenter reload restores the saved timeline cursor',
     );
+    advanceClock(2000);
     // given: the presenter is on the final slide after its timeline completes
     // when: it advances beyond the deck
     document.dispatch('keydown', { key: 'ArrowRight' });
@@ -1559,13 +1560,16 @@ function advanceClock(ms) {
     await wait(10);
     const presenterEndScreen = frame.appended[frame.appended.length - 1];
     assert(
-      presenterEndScreen.hidden === false,
-      'presenter shows the end screen after the final slide',
+      presenterEndScreen.hidden === true && stages[1].hidden === false,
+      'presenter keeps the real last slide visible after finishing',
     );
     assert(
-      storage[stateKey] === JSON.stringify({ slide: 2, timeline: 0 }),
+      storage[stateKey] === JSON.stringify({ slide: 2, timeline: 0, elapsed: 2000 }),
       `presenter persists the ended state (${storage[stateKey]})`,
     );
+    advanceClock(3000);
+    const activeTimer = body.appended[body.appended.length - 1].nodes['[data-qt-timer-value]'];
+    assert(activeTimer.textContent === '00:02', 'ending freezes actual elapsed time');
     // then: a presenter reload restores the ended state
     stages.forEach((stage) => {
       stage.hidden = true;
@@ -1575,7 +1579,32 @@ function advanceClock(ms) {
     vm.runInContext(scripts, context);
     await wait(10);
     const restoredEndScreen = frame.appended[frame.appended.length - 1];
-    assert(restoredEndScreen.hidden === false, 'presenter reload restores the end screen');
+    assert(restoredEndScreen.hidden === true && stages[1].hidden === false,
+      'presenter reload retains the actual last slide');
+    const restoredShell = body.appended[body.appended.length - 1];
+    assert(restoredShell.getAttribute('data-ended') === 'true',
+      'presenter reload restores finished mode');
+    const restoredTimer = restoredShell.nodes['[data-qt-timer-value]'];
+    advanceClock(1000);
+    assert(restoredTimer.textContent === '00:02', 'reload preserves frozen elapsed time');
+    restoredShell.nodes['[data-qt-previous]'].dispatch('click', {stopPropagation(){}});
+    assert(restoredShell.getAttribute('data-ended') === 'false',
+      'show last slide leaves finished mode');
+    assert(stages[1].hidden === false, 'show last slide does not navigate away');
+    restoredShell.nodes['[data-qt-forward]'].dispatch('click', {stopPropagation(){}});
+    assert(restoredShell.getAttribute('data-ended') === 'true',
+      'Finish returns naturally to finished mode');
+    restoredShell.nodes['[data-qt-forward]'].dispatch('click', {stopPropagation(){}});
+    await wait(90);
+    assert(stages[0].hidden === false && stages[1].hidden === true,
+      'Restart returns to the first slide');
+    assert(stages[0].children['qt-l1'].style.visibility === 'hidden',
+      'Restart resets the first click cue');
+    assert(restoredTimer.textContent === '00:00', 'Restart resets the elapsed timer');
+    assert(syncMessages.some(message => message.action === 'restart'),
+      'Restart broadcasts to the audience');
+    assert(restoredShell.nodes['[data-qt-slide-list]'].hidden === true,
+      'standalone exports do not promise a serve slide list');
     return;
   }
   assert(stages[0].hidden === false, 'first slide starts visible');
