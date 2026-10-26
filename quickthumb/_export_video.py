@@ -1110,6 +1110,7 @@ def _morph_source(
 ) -> Canvas | None:
     """Return the outgoing canvas when a keyed Morph can play into `incoming`."""
     from quickthumb._parenting import has_parent_links
+    from quickthumb._track_mattes import has_track_mattes
 
     if (
         transition is not None
@@ -1119,6 +1120,8 @@ def _morph_source(
         and not _canvas_has_video_captions(incoming)
         and not has_parent_links(previous)
         and not has_parent_links(incoming)
+        and not has_track_mattes(previous)
+        and not has_track_mattes(incoming)
     ):
         return previous
     return None
@@ -1396,9 +1399,16 @@ class _SlideAnimator:
         # Only the leading static run is safe to cache. Static units above or
         # between moving units must retain their original compositing order;
         # regrouping even translucent static images changes alpha rounding.
-        prefix_end = next(
-            (index for index, unit in enumerate(self._units) if _unit_is_dynamic(unit)),
-            len(self._units),
+        from quickthumb._track_mattes import has_track_mattes
+
+        self._track_mattes = has_track_mattes(canvas)
+        prefix_end = (
+            0
+            if self._track_mattes
+            else next(
+                (index for index, unit in enumerate(self._units) if _unit_is_dynamic(unit)),
+                len(self._units),
+            )
         )
         self._static_plate = (
             self._composite_frame(
@@ -1423,6 +1433,10 @@ class _SlideAnimator:
         if self._color_motion:
             self._canvas._ctx.measure_cache = {}
         try:
+            if self._track_mattes:
+                from quickthumb._track_mattes import render_matte_frame
+
+                return render_matte_frame(self, time, include_captions)
             return self._composite_frame(
                 self._frame_units,
                 time,
@@ -1873,8 +1887,12 @@ def _build_units(
 ) -> tuple[list[_Unit], ParentRenderPlan | None]:
     """Prepare all scene units and optional parent sources before scheduling."""
     from quickthumb._parenting import has_parent_links
+    from quickthumb._track_mattes import has_track_mattes
 
+    mattes = has_track_mattes(canvas)
     linked = has_parent_links(canvas)
+    if mattes:
+        canvas._validate_layer_identities()
     if not reduced_motion and not linked:
         validate_legacy_animation_export(canvas)
     if linked:
@@ -1883,6 +1901,20 @@ def _build_units(
     canvas._ctx.begin_render_pass()
     parent_plan = ParentRenderPlan(canvas) if linked else None
     parent_nodes = frozenset(parent_plan.nodes) if parent_plan else None
+    if mattes:
+        from quickthumb.models import TrackMatte
+
+        source_ids = {
+            mask.layer
+            for layer in canvas.layers
+            if isinstance(mask := getattr(layer, "mask", None), TrackMatte)
+        }
+        parent_nodes = frozenset(
+            id(layer)
+            for layer in canvas.layers
+            if getattr(layer, "id", None) in source_ids
+            or isinstance(getattr(layer, "mask", None), TrackMatte)
+        ) | (parent_nodes or frozenset())
     group_target_counts = _canonical_group_target_counts(canvas)
     prefix, rest = split_backdrop_prefix(flatten_layers(canvas, parent_nodes=parent_nodes))
     if not reduced_motion and any(
@@ -1923,17 +1955,18 @@ def _build_units(
         if reduced_motion
         else max((_canonical_layer_duration(layer) for layer in prefix), default=0.0)
     )
-    for layer in rest:
+    for occurrence, layer in enumerate(rest):
         animation = None if reduced_motion else getattr(layer, "animation", None)
         key = id(animation) if animation is not None else None
         if (
-            isinstance(layer, (NullLayer, PathLayer))
+            mattes
+            or isinstance(layer, (NullLayer, PathLayer))
             or _has_transform_extensions(layer)
             or id(layer) in (parent_nodes or ())
         ):
             # Nulls carry clocks only and must never become another layer's target.
             # Independent layers must keep independent pivots even when sharing a spec.
-            key = (key, id(layer))
+            key = (key, occurrence if mattes else id(layer))
         if groups and groups[-1][0] == key:
             groups[-1][1].append(layer)
         else:

@@ -457,8 +457,9 @@ class HtmlExporter:
     ):
         self._canvas = canvas
         from quickthumb._parenting import has_parent_links
+        from quickthumb._track_mattes import has_track_mattes
 
-        if not reduced_motion and not has_parent_links(canvas):
+        if not reduced_motion and not (has_parent_links(canvas) or has_track_mattes(canvas)):
             validate_legacy_animation_export(canvas)
         self._embed_fonts = embed_fonts
         self._responsive = responsive
@@ -595,13 +596,19 @@ class HtmlExporter:
             static_parent_fragment,
         )
         from quickthumb._parenting import has_parent_links
+        from quickthumb._track_mattes import has_track_mattes
         from quickthumb.models import NullLayer
 
-        parent = has_parent_links(canvas)
+        parent = has_parent_links(canvas) or has_track_mattes(canvas)
         stage_failed = False
         try:
             sampling = parent_html_sampling(canvas) if parent else None
-            if sampling and (self._reduced_motion or self._parent_static or sampling.problem):
+            if sampling and (
+                self._reduced_motion
+                or self._parent_static
+                or sampling.problem
+                or has_track_mattes(canvas)
+            ):
                 self._emit_fragment(static_parent_fragment(canvas))
                 return Stage(
                     width=canvas.width,

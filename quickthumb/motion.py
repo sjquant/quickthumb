@@ -46,6 +46,7 @@ from quickthumb.models import (
     ShapeLayer,
     TextLayer,
     TimingSpec,
+    TrackMatte,
     TrackSpec,
     VideoLayer,
     validate_hex_color,
@@ -1598,6 +1599,7 @@ def sample_frames(timeline: Timeline, fps: float) -> tuple[tuple[float, LayerSta
 
 ExportTarget = Literal["raster", "video", "html", "pptx"]
 CapabilityFeature = Literal[
+    "track_matte",
     "path",
     "parent",
     "anchor",
@@ -1634,6 +1636,7 @@ class MotionCapability:
 
 
 _CAPABILITY_FEATURES: tuple[CapabilityFeature, ...] = (
+    "track_matte",
     "path",
     "parent",
     "anchor",
@@ -1703,11 +1706,15 @@ _CAPABILITIES["html"] = {
     else MotionCapability(feature, "html", "full")
     for feature in _CAPABILITY_FEATURES
 }
+_CAPABILITIES["html"]["track_matte"] = MotionCapability(
+    "track_matte", "html", "fallback", "rasterize"
+)
 _CAPABILITIES["html"]["parent"] = MotionCapability("parent", "html", "partial")
 _CAPABILITIES["html"]["path"] = MotionCapability("path", "html", "partial", "rasterize")
 _CAPABILITIES["html"]["color"] = MotionCapability("color", "html", "unsupported", "static")
 _CAPABILITIES["html"]["motion_path"] = MotionCapability("motion_path", "html", "partial")
 _PPTX_FALLBACKS: dict[CapabilityFeature, tuple[SupportLevel, Fallback | None]] = {
+    "track_matte": ("fallback", "rasterize"),
     "path": ("fallback", "rasterize"),
     "parent": ("fallback", "static"),
     "position": ("native", None),
@@ -1854,6 +1861,7 @@ def _validate_export(
                 default=-1,
             )
             html_backdrop_ids.update(id(layer) for _, layer in layers[: last + 1])
+    matte_paths = set()
     parent_problems = {}
     parent_static_paths: set[str] = set()
     parent_html_paths: set[str] = set()
@@ -1868,7 +1876,12 @@ def _validate_export(
             raise
         from quickthumb._parent_render import parent_rendering_problem
         from quickthumb._parenting import has_parent_links
+        from quickthumb._track_mattes import has_track_mattes
 
+        if has_track_mattes(canvas) and document_format in {"html", "pptx", "svg", "pdf"}:
+            base = f"/slides/{index}" if hasattr(source, "slides") else ""
+            matte_paths.update(base + path for _, path, _ in _iter_export_layer_locations(canvas))
+            continue
         if has_parent_links(canvas):
             problem = parent_rendering_problem(canvas)
             base = f"/slides/{index}" if hasattr(source, "slides") else ""
@@ -1897,6 +1910,40 @@ def _validate_export(
                 if html_problem:
                     parent_html_problems.update((path, html_problem) for path in paths)
     for layer_id, pointer, layer in _iter_export_layer_locations(source):
+        if pointer in matte_paths:
+            message = (
+                f"Track matte {document_format} scene uses one authored-static raster image; "
+                "all motion is frozen"
+            )
+            if resolved_policy.unsupported_motion in {"error", "native"}:
+                raise RenderingError(
+                    message,
+                    code="unsupported_capability",
+                    path=pointer + "/mask",
+                    layer_id=layer_id,
+                )
+            diagnostics.append(
+                ExportDiagnostic(
+                    layer_id=layer_id,
+                    feature="track_matte",
+                    target=document_format,
+                    support="fallback",
+                    fallback="rasterize",
+                    message=message,
+                )
+            )
+            continue
+
+        if isinstance(getattr(layer, "mask", None), TrackMatte):
+            diagnostics.append(
+                ExportDiagnostic(
+                    layer_id=layer_id,
+                    feature="track_matte",
+                    target=normalized,
+                    support="full",
+                    message="Track matte uses the canonical sampled layer surface",
+                )
+            )
         if pointer in parent_static_paths or pointer in parent_html_paths:
             partial = pointer in parent_html_paths
             message = (
@@ -2162,9 +2209,31 @@ def _validate_export(
         and parent_document_format not in {"svg", "pdf"}
     ):
         from quickthumb._parenting import has_parent_links
+        from quickthumb._track_mattes import has_track_mattes
 
         canvases = tuple(slides)
         for index, transition in enumerate(cast(Any, source)._resolved_transitions()):
+            if (
+                index > 0
+                and getattr(transition, "effect", None) == "morph"
+                and (has_track_mattes(canvases[index - 1]) or has_track_mattes(canvases[index]))
+            ):
+                if resolved_policy.unsupported_motion in {"error", "native"}:
+                    raise _unsupported_motion(
+                        "Track matte Morph requires fade fallback",
+                        f"/slides/{index}/transition",
+                        None,
+                    )
+                diagnostics.append(
+                    ExportDiagnostic(
+                        feature="matte_morph",
+                        target=normalized,
+                        support="fallback",
+                        fallback="fade",
+                        message=f"Morph before slide {index} uses fade for track mattes",
+                    )
+                )
+                continue
             if (
                 index > 0
                 and getattr(transition, "effect", None) == "morph"
@@ -2583,6 +2652,8 @@ def inspect_motion(
         for _, layer in _iter_export_layers(canvas):
             if isinstance(layer, PathLayer):
                 source_features.add("path")
+            if isinstance(getattr(layer, "mask", None), TrackMatte):
+                source_features.add("track_matte")
             if getattr(layer, "parent", None) is not None:
                 source_features.add("parent")
             animation = getattr(layer, "animation", None)

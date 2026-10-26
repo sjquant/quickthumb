@@ -335,6 +335,17 @@ class LayerClip(quickthumbModel):
         return align.value
 
 
+class TrackMatte(quickthumbModel):
+    """Use a hidden, reusable top-level layer's sampled alpha or luminance as a mask."""
+
+    type: Literal["layer"] = "layer"
+    layer: str = Field(pattern=_IDENTITY_PATTERN.pattern)
+    mode: Literal["alpha", "luma"] = "alpha"
+    invert: bool = False
+
+    model_config = ConfigDict(extra="forbid")
+
+
 class LayerMask(quickthumbModel):
     """Canvas-space alpha mask applied to a layer after it is rendered."""
 

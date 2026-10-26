@@ -725,3 +725,44 @@ the actual emitted count and duration. `png_sequence` is a video capability
 alias for validation and motion inspection, preserving the existing parent,
 Morph and caption restrictions. See [PNG sequences](../exports.md#png-image-sequences)
 for timing, color-profile limits and exclusive fresh-directory publication.
+
+### Track mattes
+
+Use `mask=TrackMatte(layer="source-id", mode="alpha", invert=False)` on a
+text, image, shape, SVG, video, chart, QR-code or top-level group layer.
+`mode="luma"` uses the sampled source's RGB luminance (Pillow's encoded-RGB
+luma conversion) multiplied by its alpha. Inversion applies after that
+multiplication, across the complete canvas. Existing `LayerMask` shape masks
+keep their separate local-boundary meaning.
+
+```python
+from quickthumb import Canvas, TrackMatte
+
+canvas = Canvas(320, 180)
+canvas.shape("ellipse", (40, 20), 120, 120, color="#FFFFFF", id="reveal")
+canvas.shape("rectangle", (0, 0), 320, 180, color="#42CEB7",
+             mask=TrackMatte(layer="reveal"))
+canvas.export("reveal.png")
+```
+
+The reference identifies a top-level layer in the same scene. Sources are
+hidden from normal scene painting, remain available as transform parents, and
+can mask multiple targets or form acyclic matte chains. Duplicate a source if
+it should also be visible. JSON scenes may reference a later layer; fluent
+builders require the source to exist when adding a target. Missing references,
+cycles and nested matte owners are rejected before rendering.
+
+Each source is sampled at the complete scene's clock, including its motion,
+opacity, existing local mask and parent transforms. The matte then multiplies
+the target's alpha in output coordinates after the target's own transforms;
+it does not move the target's pivot. PNG, canonical samples and animated raster
+exports use this same composition. See
+[`examples/track_mattes.py`](https://github.com/sjquant/quickthumb/blob/main/examples/track_mattes.py).
+
+This first matte implementation rejects backdrop-dependent scenes and captioned
+video scenes. Matte source and target groups require static descendants; their
+own group motion remains supported. Animated mask position/size/feather and path-shaped masks are
+separate work. SVG, HTML, PDF and PPTX freeze the complete scene into one declared
+authored-static raster image; all motion is frozen. `validate_export()` reports
+that route and `ExportPolicy(unsupported_motion="error")` rejects it before
+writing. Deck Morph uses a declared fade fallback for matte scenes.
