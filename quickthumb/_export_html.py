@@ -1247,13 +1247,32 @@ class HtmlExporter:
 
     def _emit_path(self, layer: PathLayer) -> None:
         from quickthumb._export_svg import SvgExporter
+        from quickthumb._path_html import is_trim, path_html_problem, stroke_style
         from quickthumb._path_svg import native_path_problem
+        from quickthumb.motion import LayerState
 
-        if native_path_problem(layer):
+        native_motion = native_path_problem(layer) is not None
+        if native_motion and path_html_problem(layer):
             self._emit_raster_fallback(layer)
             return
         element_id = self._make_id()
-        animation_style = self._register_animation(layer, element_id)
+        stroke_attributes = None
+        if native_motion:
+            self._prev_anim_key = None
+            self._prev_nodes = []
+            stroke_id = element_id + "-stroke"
+            initial = stroke_style(layer, LayerState())
+            stroke_attributes = {
+                "id": stroke_id,
+                "style": ";".join(f"{k}:{v}" for k, v in initial.items()),
+            }
+            if is_trim(layer):
+                stroke_attributes["pathLength"] = "1"
+            if layer.animation is not None and not self._reduced_motion:
+                self._register_path_animation(layer, stroke_id, initial)
+            animation_style = ""
+        else:
+            animation_style = self._register_animation(layer, element_id)
         fragment = SvgExporter(self._canvas, id_prefix=f"{self._keyframe_prefix}{element_id}-")
         x = parse_coordinate(layer.position[0], self._canvas.width)
         y = parse_coordinate(layer.position[1], self._canvas.height)
@@ -1261,8 +1280,49 @@ class HtmlExporter:
         self._body.append(
             f'<div id="{element_id}"{identity} style="position:absolute;left:{x}px;top:{y}px;'
             f'width:{layer.width}px;height:{layer.height}px;{animation_style}">'
-            f"{fragment.path_fragment(layer)}</div>"
+            f"{fragment.path_fragment(layer, stroke_attributes=stroke_attributes)}</div>"
         )
+
+    def _register_path_animation(
+        self, layer: PathLayer, stroke_id: str, initial: dict[str, str]
+    ) -> None:
+        from quickthumb._path_html import path_html_stops
+
+        assert isinstance(layer.animation, AnimationSpec)
+        event = compile_timeline(layer.animation).events[0]
+        stops, final = path_html_stops(layer)
+        keyframe = f"{self._keyframe_prefix}{self._next_kf}"
+        self._next_kf += 1
+        self._keyframes.append(
+            "@keyframes "
+            + keyframe
+            + "{"
+            + "".join(
+                _motion_number(percent)
+                + "%{"
+                + ";".join(f"{k}:{v}" for k, v in values.items())
+                + "}"
+                for percent, values in stops.items()
+            )
+            + "}"
+        )
+        self._timeline.append(
+            {
+                "t": [stroke_id],
+                "k": keyframe,
+                "d": event.duration,
+                "delay": event.active_start,
+                "tr": event.trigger
+                or ("after_previous" if len(self._timeline) == 0 else "with_previous"),
+                "a": "transform",
+                "e": "linear",
+                "abs": event.trigger is None and event.start > 0,
+                "initial": initial,
+                "final": final,
+            }
+        )
+        self._prev_anim_key = None
+        self._prev_nodes = []
 
     def _emit_svg_layer(self, layer: SvgLayer):
         if layer.effects or is_url(layer.path):

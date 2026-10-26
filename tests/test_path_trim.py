@@ -252,11 +252,14 @@ def test_trim_canonical_gif_and_worker_sequences(tmp_path):
     assert len({pixels for pixels, _ in frames}) >= 4
     assert [duration for _, duration in frames[:4]] == [250] * 4
     assert video._SlideAnimator(canvas, {}).segments(0, 1) == [(0, 1, True)]
-    for target in ("html", "pptx"):
-        assert any(
-            row.feature == "trim_end" and row.fallback == "static"
-            for row in canvas.validate_export(target)
-        )
+    assert any(
+        row.feature == "trim_end" and row.support == "native"
+        for row in canvas.validate_export("html")
+    )
+    assert any(
+        row.feature == "trim_end" and row.fallback == "static"
+        for row in canvas.validate_export("pptx")
+    )
     path = tmp_path / "trim.svg"
     static = scene(trim_end=0.5)
     static.export(path)
