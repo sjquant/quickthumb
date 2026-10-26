@@ -1,4 +1,4 @@
-"""Static word/line range weights over ordinary kinetic-text tracks."""
+"""Animated character/word/line range weights over ordinary kinetic-text tracks."""
 
 import argparse
 from pathlib import Path
@@ -16,7 +16,7 @@ from quickthumb import (
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--target", choices=("words", "lines"), default="words")
+    parser.add_argument("--target", choices=("characters", "words", "lines"), default="words")
     parser.add_argument("--output", type=Path, default=Path("text-selector.gif"))
     args = parser.parse_args()
     motion = AnimationSpec.timeline(
@@ -45,7 +45,7 @@ def main():
         Canvas(480, 240)
         .background(color="#102030")
         .text(
-            "MOVE\nWORDS",
+            "HI\nHI" if args.target == "characters" else "MOVE\nWORDS",
             position=(40, 32),
             size=64,
             color="#42CEB7",
