@@ -1495,7 +1495,7 @@ class TestVideoErrors:
         canvas = Canvas(160, 90).background(color="#1131AA")
 
         # when / then
-        with pytest.raises(RenderingError, match="animated output extension"):
+        with pytest.raises(RenderingError, match="animation options"):
             canvas.render(
                 str(tmp_path / "preview.png"),
                 animation=GifOptions(fps=10),
@@ -1507,7 +1507,7 @@ class TestVideoErrors:
         deck = Deck(160, 90, slides=[Canvas().background(color="#1131AA")])
 
         # when / then
-        with pytest.raises(ValidationError, match="GifOptions.*GIF"):
+        with pytest.raises(ValidationError, match="VideoOptions.*WEBM"):
             deck.render(
                 str(tmp_path / "preview.webm"),
                 animation=GifOptions(max_size=(80, 80)),
@@ -1525,12 +1525,12 @@ class TestVideoErrors:
             """A user-defined GIF options subtype."""
 
         # when / then
-        with pytest.raises(ValidationError, match="GifOptions.*GIF"):
+        with pytest.raises(ValidationError, match="VideoOptions.*WEBM"):
             deck.render(
                 str(tmp_path / "preview.webm"),
                 animation=GifOptions(fps=10),
             )
-        with pytest.raises(ValidationError, match="GifOptions.*GIF"):
+        with pytest.raises(ValidationError, match="VideoOptions.*WEBM"):
             deck.render(
                 str(tmp_path / "custom-preview.webm"),
                 animation=CustomGifOptions(fps=10),
@@ -1542,7 +1542,7 @@ class TestVideoErrors:
         canvas = Canvas(160, 90).background(color="#1131AA")
 
         # when / then
-        with pytest.raises(ValidationError, match="VideoOptions.*MP4, WebM, or MOV"):
+        with pytest.raises(ValidationError, match="GifOptions.*GIF"):
             canvas.render(str(tmp_path / "preview.gif"), animation=VideoOptions(fps=10))
 
     def test_should_reject_cross_format_options_at_construction(self):

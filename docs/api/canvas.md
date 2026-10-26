@@ -134,11 +134,11 @@ canvas.render("preview.mp4", animation=VideoOptions(fps=30))
 | Parameter | Type | Default | Description |
 | --- | --- | --- | --- |
 | `path` | `str` | — | Output file path |
-| `format` | `str \| None` | `None` | Optional raster output format override: `"PNG"`, `"JPEG"`, or `"WEBP"` |
-| `quality` | `int \| None` | `None` | Compression quality (1–95). Only valid for `JPEG` and `WEBP`. |
+| `format` | `str \| None` | `None` | Case-insensitive raster encoding override: `"PNG"`, `"JPEG"`, or `"WEBP"`; rejected with document/animated extensions. |
+| `quality` | `int \| None` | `None` | Compression quality: JPEG 1–95, WebP 1–100; other targets reject it. |
 | `debug` | `bool` | `False` | Draw public layer-id bounding boxes on raster output for visual review. |
 | `animation` | `GifOptions \| VideoOptions \| None` | `None` | Format-specific options: `GifOptions` for GIF, `VideoOptions` for MP4/WebM/MOV. |
-| `policy` | `ExportPolicy \| None` | `None` | Renderer policy, such as `reduced_motion` for animated, HTML, and PPTX output. `unsupported_motion` is enforced only by `export()`. |
+| `policy` | `ExportPolicy \| None` | `None` | Renderer policy, such as `reduced_motion` for animated, HTML, and PPTX output. Both `render()` and `export()` enforce `unsupported_motion` before writing. |
 
 !!! warning
     Passing `quality` with `format="PNG"` raises `RenderingError`. Passing `debug=True` for document or animated output (`.svg`, `.pptx`, `.pdf`, `.html`, `.gif`, `.mp4`, `.webm`, or `.mov`) raises `RenderingError`.
@@ -235,7 +235,7 @@ b64 = canvas.to_base64(format="WEBP", quality=90)
 | Parameter | Type | Default | Description |
 | --- | --- | --- | --- |
 | `format` | `str` | `"PNG"` | Output format: `"PNG"`, `"JPEG"`, or `"WEBP"` |
-| `quality` | `int \| None` | `None` | Compression quality. Only valid for `JPEG` and `WEBP`. |
+| `quality` | `int \| None` | `None` | Compression quality: JPEG 1–95 or WebP 1–100. |
 
 ### `.to_data_url(format="PNG", quality=None)`
 
@@ -249,7 +249,7 @@ url = canvas.to_data_url(format="JPEG", quality=90)
 | Parameter | Type | Default | Description |
 | --- | --- | --- | --- |
 | `format` | `str` | `"PNG"` | Output format: `"PNG"`, `"JPEG"`, or `"WEBP"` |
-| `quality` | `int \| None` | `None` | Compression quality. Only valid for `JPEG` and `WEBP`. |
+| `quality` | `int \| None` | `None` | Compression quality: JPEG 1–95 or WebP 1–100. |
 
 ### `.inspect()`
 

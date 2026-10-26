@@ -250,7 +250,7 @@ def test_wrong_option_family_and_subclasses_reject_before_narration_probe(
     schedule = Mock(side_effect=AssertionError("must not probe"))
     monkeypatch.setattr(deck, "_animation_audio_schedule", schedule)
     for configured in (options(), CustomOptions()):
-        with pytest.raises(ValidationError, match="only supported"):
+        with pytest.raises(ValidationError, match="are required for"):
             deck.render(tmp_path / f"file.{format}", animation=configured)
     schedule.assert_not_called()
 

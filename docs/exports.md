@@ -55,12 +55,34 @@ canvas.export("card.webp", quality=85)  # JPEG/WebP compression quality
 
 All animated byte methods and options use `hold` for settled-state seconds.
 `render_quality="standard"` or `"high"` controls animation compositing;
-`quality=1..95` on `export()`/`render()` controls JPEG/WebP compression.
+`quality` on `export()`/`render()` controls compression: JPEG accepts integer
+values 1–95 and WebP accepts 1–100.
 Keep `workers=1` unless advanced spawn-based rendering is needed.
-Only `export()` enforces capability policies such as `unsupported_motion="error"`
-before writing; `render()` and byte methods are lower-level controls.
+Both `export()` and `render()` enforce file capability policies such as
+`unsupported_motion="error"` before writing; `export()` also returns the receipt.
+Byte methods expose target-specific controls without the shared file receipt.
 Use the returned `written_paths` for Deck raster sequences: they are numbered files.
 Image sequences keep a separate API because their destination is a new directory.
+
+### Format and option selection
+
+Canvas and Deck use the same selection rules:
+
+| Input | Result |
+| --- | --- |
+| File extension, with no `format` | Selects the output; `.jpg`/`.jpeg` report `output_format="jpeg"`, `.htm`/`.html` report `"html"`. |
+| `format="PNG"`, `"JPEG"` or `"WEBP"` (case-insensitive) | Selects raster encoding for a raster, unknown or extensionless filename. The requested filename is kept; it is not renamed to match the encoding. |
+| Raster `format` with a document or animated extension | Rejected rather than writing image bytes into an SVG, PDF, HTML, PPTX or video filename. |
+| `quality` | JPEG integer 1–95 or WebP integer 1–100; rejected for other targets. |
+| `animation` | `GifOptions` for GIF; `VideoOptions` for MP4/WebM/MOV; rejected for static/document targets. |
+
+Format selection, compression quality and animation option-family conflicts are
+rejected before asset reads or file writes. Codec-specific limits are validated
+during export preparation. Rendering or encoding failures can still occur later;
+ordinary file exports are not an atomic multi-file transaction. Inspect `written_paths` rather than guessing Canvas or
+numbered Deck filenames. A Deck cannot be written as a single SVG; export its
+Canvas slides individually. See [image sequences](#image-sequences) for their
+separate new-directory and encoding-option contract.
 
 ### Migrating output calls
 

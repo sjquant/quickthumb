@@ -108,10 +108,10 @@ deck.render("slides.jpg", quality=85)
 | Parameter | Type | Default | Description |
 | --- | --- | --- | --- |
 | `path` | `str` | — | Output path; raster names become `<stem>_NN<ext>` |
-| `format` | `str \| None` | `None` | Raster format override (`"PNG"`, `"JPEG"`, `"WEBP"`) |
-| `quality` | `int \| None` | `None` | Compression quality. Only valid for raster sequences. |
+| `format` | `str \| None` | `None` | Case-insensitive raster encoding override (`"PNG"`, `"JPEG"`, `"WEBP"`); rejected with document/animated extensions. |
+| `quality` | `int \| None` | `None` | Compression quality: JPEG 1–95, WebP 1–100; other targets reject it. |
 | `animation` | `GifOptions \| VideoOptions \| None` | `None` | Format-specific options: `GifOptions` for GIF, `VideoOptions` for MP4/WebM/MOV. |
-| `policy` | `ExportPolicy \| None` | `None` | Renderer policy, such as `reduced_motion` for animated, HTML, and PPTX output. `unsupported_motion` is enforced only by `export()`. |
+| `policy` | `ExportPolicy \| None` | `None` | Renderer policy, such as `reduced_motion` for animated, HTML, and PPTX output. Both `render()` and `export()` enforce `unsupported_motion` before writing. |
 
 !!! warning
     Passing `quality` with `.pdf`, `.pptx`, or animated output raises `RenderingError`, as does rendering an empty deck.

@@ -15,7 +15,7 @@ import tempfile
 from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any, Literal, Self, cast
 
-from quickthumb._base import FileFormat, aspect_ratio_dimensions
+from quickthumb._base import aspect_ratio_dimensions
 from quickthumb._validation import validate_dimensions
 from quickthumb.canvas import Canvas
 from quickthumb.errors import MissingAssetError, RenderingError, ValidationError, json_pointer
@@ -23,7 +23,6 @@ from quickthumb.models import (
     AudioTrack,
     DeckInspection,
     DiagnosticReport,
-    ExportDiagnostic,
     ExportPolicy,
     ExportResult,
     FrameSequence,
@@ -355,7 +354,7 @@ class Deck:
     def render(
         self,
         output_path: str,
-        format: FileFormat | None = None,
+        format: str | None = None,
         quality: int | None = None,
         animation: GifOptions | VideoOptions | None = None,
         policy: ExportPolicy | None = None,
@@ -377,18 +376,15 @@ class Deck:
         """
         from quickthumb._document import _resolve_export
 
-        resolved = _resolve_export("deck", output_path, format, policy)
-        return self._render_resolved(
-            output_path, resolved, format, quality, animation, policy
-        ).paths
-
-    _original_render = render
+        resolved = _resolve_export(
+            "deck", output_path, format, policy, quality=quality, animation=animation
+        )
+        return self._render_resolved(output_path, resolved, quality, animation, policy).paths
 
     def _render_resolved(
         self,
         output_path: str,
         resolved: _ResolvedExport,
-        format: FileFormat | None,
         quality: int | None,
         animation: GifOptions | VideoOptions | None,
         policy: ExportPolicy | None,
@@ -398,41 +394,13 @@ class Deck:
 
         self._require_slides()
         extension = resolved.extension
-        diagnostics: list[ExportDiagnostic] | None = None
-        parent_linked = False
         for canvas in self._slides:
             if has_parent_links(canvas):
-                parent_linked = True
                 from quickthumb._parent_render import validate_parent_raster
 
                 validate_parent_raster(canvas)
-        if (
-            policy is not None
-            and parent_linked
-            and (resolved.mode == "document" or extension == ".svg")
-        ):
-            # Keep the legacy parent-document policy error ahead of option
-            # and Deck-SVG errors without repeating preflight before writing.
-            diagnostics = preflight_export(cast(Document, self), resolved, policy)
-        if animation is not None and resolved.mode != "animated":
-            raise RenderingError(
-                "animation options require an animated output extension "
-                "(.gif, .mp4, .webm, or .mov)."
-            )
-
+        diagnostics = preflight_export(cast(Document, self), resolved, policy)
         if resolved.mode == "animated":
-            if quality is not None:
-                raise RenderingError(
-                    "Quality parameter is only supported for JPEG and WEBP formats, "
-                    f"not {extension} output."
-                )
-            if format is not None:
-                raise RenderingError(
-                    "format override is only supported for raster output, "
-                    f"not {extension} animations."
-                )
-            if diagnostics is None:
-                diagnostics = preflight_export(cast(Document, self), resolved, policy)
             facts = self._render_animated_file(
                 output_path,
                 cast("AnimationFormat", resolved.output_format),
@@ -442,45 +410,18 @@ class Deck:
             return _ExportReceipt([output_path], diagnostics, facts)
 
         if resolved.mode == "document":
-            if quality is not None:
-                raise RenderingError(
-                    "Quality parameter is only supported for JPEG and WEBP formats, "
-                    f"not {extension} output."
-                )
-            if format is not None:
-                raise RenderingError(
-                    "format override is only supported for raster output, "
-                    f"not {extension} documents."
-                )
-            if diagnostics is None:
-                diagnostics = preflight_export(cast(Document, self), resolved, policy)
             self._render_document(output_path, extension, policy=policy)
             return _ExportReceipt([output_path], diagnostics)
 
-        if resolved.mode == "raster":
-            if diagnostics is None:
-                diagnostics = preflight_export(cast(Document, self), resolved, policy)
-            paths = self._render_sequence(output_path, format, quality, policy=policy)
-            return _ExportReceipt(paths, diagnostics)
-
-        if extension == ".svg":
-            raise RenderingError(
-                "A deck cannot render to a single .svg file (SVG has no multi-page form). "
-                "Render slides individually with Canvas.to_svg(), or use .pdf, .pptx, or .html."
-            )
-
-        raise RenderingError(
-            f"Unsupported deck output format: {extension or output_path!r}.\n"
-            "Use .pdf, .pptx, .html, an animated extension (.gif, .mp4, .webm, .mov), "
-            "or a raster extension (.png, .jpg, .jpeg, .webp)."
-        )
+        paths = self._render_sequence(output_path, resolved, quality, policy=policy)
+        return _ExportReceipt(paths, diagnostics)
 
     def export(
         self,
         output_path: str | os.PathLike[str],
         policy: ExportPolicy | None = None,
         *,
-        format: FileFormat | None = None,
+        format: str | None = None,
         quality: int | None = None,
         animation: GifOptions | VideoOptions | None = None,
     ) -> ExportResult:
@@ -488,25 +429,15 @@ class Deck:
         from quickthumb._document import (
             AssetPort,
             Document,
-            _ExportReceipt,
             _resolve_export,
             build_export_result,
-            preflight_export,
         )
 
         normalized_path = os.fspath(output_path)
-        resolved = _resolve_export("deck", normalized_path, format, policy)
-        render = self.render
-        if getattr(render, "__func__", None) is Deck._original_render:
-            receipt = self._render_resolved(
-                normalized_path, resolved, format, quality, animation, policy
-            )
-        else:
-            diagnostics = preflight_export(cast(Document, self), resolved, policy)
-            written = render(
-                normalized_path, format=format, quality=quality, animation=animation, policy=policy
-            )
-            receipt = _ExportReceipt([os.fspath(path) for path in written], diagnostics)
+        resolved = _resolve_export(
+            "deck", normalized_path, format, policy, quality=quality, animation=animation
+        )
+        receipt = self._render_resolved(normalized_path, resolved, quality, animation, policy)
         return build_export_result(
             cast(Document, self),
             resolved,
@@ -639,7 +570,7 @@ class Deck:
     def _render_sequence(
         self,
         output_path: str,
-        format: FileFormat | None,
+        resolved: _ResolvedExport,
         quality: int | None,
         policy: ExportPolicy | None = None,
     ) -> list[str]:
@@ -648,7 +579,7 @@ class Deck:
         written: list[str] = []
         for index, canvas in enumerate(self._slides, start=1):
             slide_path = f"{stem}_{index:0{pad}d}{extension}"
-            canvas.render(slide_path, format=format, quality=quality, policy=policy)
+            canvas._render_resolved(slide_path, resolved, quality, False, None, policy)
             written.append(slide_path)
         return written
 
