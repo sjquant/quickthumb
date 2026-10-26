@@ -54,8 +54,10 @@ def test_authored_static_inspection_does_not_paint_or_split(monkeypatch, scene, 
         "target": "children" if composed else "lines",
         "order": "document",
     }
-    # Inspection remains a local canonical timeline, without invented target/world samples.
-    assert motion.duration == 0.5
+    # Inspection includes all three stagger windows without painting target/world samples.
+    assert motion.events[0].duration == 0.5
+    assert motion.duration == pytest.approx(1.3)
+    assert motion.sample_times[-1] == pytest.approx(1.3)
     assert motion.initial_state["position"] == position
 
 
