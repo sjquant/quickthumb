@@ -970,7 +970,7 @@ See [the runnable static example](https://github.com/sjquant/quickthumb/blob/mai
 
 `canvas.validate_export("lottie")` lists unsupported source IDs and JSON paths.
 Gradients, effects/presets, stagger, masks, viewport clipping,
-paint/dash tracks, motion paths, text, images, plugins and Deck output are
+paint/dash tracks, motion paths, images, plugins and Deck output are
 not supported in this slice.
 Export rejects them before opening the destination, including when a policy asks
 for static or raster fallback. It never silently drops features or embeds rendered
@@ -1040,3 +1040,28 @@ under the sampled scale; otherwise export rejects it before writing. The existin
 viewport, uniform stroke scaling and nondegenerate contour limits still apply.
 Dashes and dash-offset tracks remain unsupported; there is no trim-then-dash
 approximation. See the [stroke-trim example](https://github.com/sjquant/quickthumb/blob/main/examples/lottie_trim.py).
+
+### Lottie outlined text
+
+Static plain single-line printable ASCII text exports as self-contained native
+cubic glyph outlines. Install `quickthumb[lottie]` for the optional fonttools
+dependency; shape and Path output do not require it. The actual resolved local
+FreeType face, including Pillow's embedded default font, supplies the outlines.
+The file embeds neither font assets nor editable Lottie text. Canonical baseline,
+alignment and explicit letter spacing determine glyph positions; font contour
+winding preserves holes within each independently painted glyph, so overlapping
+glyphs cannot cancel each other. Opacity applies once to the whole text layer. Text paint itself
+must be opaque: the canonical direct-draw alpha-paint behavior on a backdrop is
+not equivalent to native Lottie compositing.
+
+Text must not use animation, parenting, rotation, wrapping/fitting, rich content,
+counters, effects, masks, gradients, variable/color fonts or remote font sources.
+Missing glyphs fail explicitly instead of becoming replacement boxes. Unspaced
+multi-character RAQM layout requires shaping and is rejected; use explicit
+nonzero `letter_spacing`. Unspaced BASIC text is admitted only when its measured
+advances are additive. This subset does not promise complex-script shaping.
+
+Each layer is bounded to 1024 characters, 65536 outline vertices and a 64 MiB
+font source, with native coordinate-precision checks. Unsupported text and missing
+fonttools produce source-specific diagnostics before opening the destination.
+See the [outlined-text example](https://github.com/sjquant/quickthumb/blob/main/examples/lottie_text.py).

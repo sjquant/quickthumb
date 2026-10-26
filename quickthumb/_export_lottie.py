@@ -21,6 +21,7 @@ from quickthumb.models import (
     NullLayer,
     PathLayer,
     ShapeLayer,
+    TextLayer,
 )
 
 if TYPE_CHECKING:
@@ -30,7 +31,7 @@ if TYPE_CHECKING:
 
 
 def _layer_problem(layer, reduced_motion: bool, canvas, linked: bool) -> tuple[str, str] | None:
-    if not isinstance(layer, (BackgroundLayer, ShapeLayer, PathLayer, NullLayer)):
+    if not isinstance(layer, (BackgroundLayer, ShapeLayer, PathLayer, NullLayer, TextLayer)):
         return (
             "type",
             f"{getattr(layer, 'type', 'custom')} layers are not supported by static Lottie",
@@ -46,6 +47,16 @@ def _layer_problem(layer, reduced_motion: bool, canvas, linked: bool) -> tuple[s
     ):
         if getattr(layer, field, None):
             return field, f"{field} is not supported by static Lottie"
+    if isinstance(layer, TextLayer):
+        from quickthumb._lottie_text import text_outlines, text_problem
+
+        if problem := text_problem(layer, linked):
+            return problem
+        try:
+            text_outlines(canvas, layer)
+        except QuickthumbError as error:
+            return (error.details[0].path or "/font").lstrip("/"), str(error)
+        return None
     animation = getattr(layer, "animation", None)
     if animation and not reduced_motion:
         from quickthumb.motion import _is_path_track
@@ -256,7 +267,23 @@ def _paint(color, stroke=None):
     return result
 
 
-def _shapes(layer, width, height):
+def _shapes(canvas, layer):
+    width, height = canvas.width, canvas.height
+    if isinstance(layer, TextLayer):
+        from quickthumb._lottie_text import text_outlines
+
+        glyphs, color = text_outlines(canvas, layer)
+        paint = _paint(color)
+        paint["r"] = 1  # Preserve holes within each glyph, never cancel overlapping glyphs.
+        transform = {
+            "ty": "tr",
+            "p": _property([0, 0]),
+            "a": _property([0, 0]),
+            "s": _property([100, 100]),
+            "r": _property(0),
+            "o": _property(100),
+        }
+        return [{"ty": "gr", "it": [*contours, paint, transform]} for contours in reversed(glyphs)]
     if isinstance(layer, NullLayer):
         return []
     if isinstance(layer, BackgroundLayer):
@@ -415,12 +442,12 @@ def write_lottie(
     boundaries = pose_boundaries(timelines)
     pose_count = 0
     for index, (layer_id, pointer, layer) in enumerate(_iter_export_layer_locations(canvas)):
-        assert isinstance(layer, (BackgroundLayer, ShapeLayer, PathLayer, NullLayer))
+        assert isinstance(layer, (BackgroundLayer, ShapeLayer, PathLayer, NullLayer, TextLayer))
         try:
             shapes, keys, count = layer_pose(
                 canvas,
                 layer,
-                _shapes(layer, canvas.width, canvas.height),
+                _shapes(canvas, layer),
                 timelines[index],
                 options.fps,
                 boundaries,
