@@ -590,8 +590,9 @@ The route is selected only when the target crops reproduce the original source
 pixels exactly. Rich text, effects, fills, rotation, letter spacing,
 bidirectional text, words split across wrapped lines, and parent-linked sources
 retain the partial adapter below.
-Character/glyph and range-selector animation remains separate work; raster/video
-stagger capability stays `partial`.
+Character/glyph ownership remains separate work; raster/video stagger capability
+stays `partial`. Static word/line range selectors use the same exact layout route
+described below.
 
 Static parent-linked leaf text and top-level groups can use the existing partial
 raster stagger adapter, including groups with their own or structural descendant
@@ -740,3 +741,43 @@ the actual emitted count and duration. `image_sequence` is a video capability
 alias for validation and motion inspection, preserving the existing parent,
 Morph and caption restrictions. See [image sequences](../exports.md#image-sequences)
 for timing, color-profile limits and exclusive fresh-directory publication.
+
+## Static word and line selectors
+
+`AnimationSpec.timeline(..., selector=RangeSelector(...))` weights position,
+rotation, scale and opacity tracks for top-level plain text. Import
+`RangeSelector` from `quickthumb`; color, presets, motion paths, characters,
+parent-linked text and mixed target bases are unsupported in this first layer.
+Each composed spec on a selected layer must declare the same words/lines basis.
+
+`target` is `"words"` (default) or `"lines"`; `start=0`, `end=100` are percentages
+with `0 <= start <= end <= 100`. Finite `offset=0` translates that interval without
+wrapping. A target at document index `i` among `N` is evaluated at its center
+`100*(i+0.5)/N`. Outside `[start+offset, end+offset)`, or for an empty range, its
+weight is zero. Within the interval, let `u` be the center's fractional position:
+
+| `shape` | Weight |
+| --- | --- |
+| `square` (default) | `1` |
+| `ramp` | `u` |
+| `triangle` | `1-abs(2*u-1)` |
+| `smooth` | `u*u*(3-2*u)` |
+
+Keyframes and easing are sampled first. Each property then blends from its
+incoming target state toward the requested value by that weight. Specs compose
+in document order; weight zero leaves the text unchanged. Selectors introduce no
+implicit hiding before a target's event. Compatible stagger delays its clock;
+reverse stagger changes execution rank without reversing selector percentages.
+Blank lines retain their semantic index. Wrapped targets use the actual layout.
+
+Targets must reconstruct the original pixels exactly. Unsupported styling or
+inseparable layout raises an actionable error during sampled rendering instead
+of silently using the partial band approximation. Untimed output stays authored
+static. HTML/PPTX keep authored-static text and report selector fallback;
+`inspect_motion()` exposes selector weights and per-target motion samples.
+Characters and animated selector parameters remain outside this interface.
+
+Run `uv run python examples/text_range_selector.py --target words --output /tmp/words.gif`
+(or `--target lines`) for weighted position/rotation that settles to the original
+text layout, plus portable scene JSON. This is partial #165 coverage, not a
+per-glyph backend or a full text-stagger capability claim.

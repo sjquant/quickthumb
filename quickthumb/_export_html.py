@@ -779,6 +779,13 @@ class HtmlExporter:
             self._prev_anim_key = None
             return ""
 
+        from quickthumb.motion import _text_selector
+
+        if _text_selector(layer) is not None:
+            self._prev_anim_key = None
+            self._prev_nodes = []
+            return ""
+
         if _has_color_track(layer):
             # Canonical color tracks have an authored-static fallback in HTML.
             self._prev_anim_key = None

@@ -41,6 +41,7 @@ from quickthumb.models import (
     MotionSlideInspection,
     MotionTargetInspection,
     MotionTrackInspection,
+    RangeSelector,
     ReducedMotionInspection,
     ShapeLayer,
     TextLayer,
@@ -202,7 +203,7 @@ def resolve_staggered_timelines(
     timeline: Timeline,
     target_count: int,
 ) -> tuple[Timeline, ...]:
-    """Expand a normalized timeline into one timeline per semantic target.
+    """Expand target clocks and static selector weights on the shared timeline.
 
     Stagger metadata remains untouched in the serialized source timeline.  The
     returned timelines are runtime views with the target offset folded into the
@@ -215,6 +216,9 @@ def resolve_staggered_timelines(
         raise ValidationError("target count must be a non-negative integer")
     if target_count == 0:
         return ()
+    reverse = any(
+        event.stagger and event.stagger.get("order") == "reverse" for event in timeline.events
+    )
     expanded: list[Timeline] = []
     for target_index in range(target_count):
         events = tuple(
@@ -227,12 +231,70 @@ def resolve_staggered_timelines(
                         else 0.0
                     ),
                     "stagger": None if event.stagger else event.stagger,
+                    "options": event.options
+                    | (
+                        {
+                            "_selector_weight": _range_weight(
+                                event.selector,
+                                target_count - 1 - target_index if reverse else target_index,
+                                target_count,
+                            )
+                        }
+                        if event.selector
+                        else {}
+                    ),
                 }
             )
             for event in timeline.events
         )
         expanded.append(Timeline(events=events))
     return tuple(expanded)
+
+
+def _range_weight(selector: RangeSelector, index: int, count: int) -> float:
+    start, end = selector.start + selector.offset, selector.end + selector.offset
+    point = 100 * (index + 0.5) / count
+    if end <= start or not start <= point < end:
+        return 0.0
+    progress = (point - start) / (end - start)
+    return {
+        "square": 1.0,
+        "ramp": progress,
+        "triangle": 1 - abs(2 * progress - 1),
+        "smooth": progress * progress * (3 - 2 * progress),
+    }[selector.shape]
+
+
+def _text_selector(layer: object) -> RangeSelector | None:
+    animation = getattr(layer, "animation", None)
+    specs = animation if isinstance(animation, list) else [animation]
+    selectors = [getattr(spec, "selector", None) for spec in specs]
+    selector = next((item for item in selectors if item is not None), None)
+    if selector is not None and (
+        not isinstance(layer, TextLayer)
+        or any(item is None or item.target != selector.target for item in selectors)
+        or len(
+            {
+                spec.stagger.order
+                for spec in specs
+                if isinstance(spec, AnimationSpec) and spec.stagger
+            }
+        )
+        > 1
+    ):
+        raise RenderingError(
+            "Range selectors require text with one consistent target and stagger order"
+        )
+    return selector
+
+
+def _validate_text_selectors(canvas: Canvas) -> None:
+    roots = {id(layer) for layer in canvas.layers}
+    for _, layer in _iter_export_layers(canvas):
+        if _text_selector(layer) is not None and (
+            id(layer) not in roots or getattr(layer, "parent", None) is not None
+        ):
+            raise RenderingError("Range selectors require top-level text without parent links")
 
 
 # A named easing, a `CubicBezierEasing`, or its JSON mapping form. Names are typed
@@ -471,6 +533,7 @@ class TimelineEvent(BaseModel):
     options: dict[str, Any] = Field(default_factory=dict)
     tracks: tuple[NormalizedTrack, ...] = ()
     stagger: dict[str, Any] | None = None
+    selector: RangeSelector | None = None
 
     @model_validator(mode="after")
     def validate_options(self) -> TimelineEvent:
@@ -951,10 +1014,13 @@ def _supports_color_motion(layer: object) -> bool:
 
 
 def _canonical_target_timelines(layer: object, target_count: int) -> tuple[Timeline, ...] | None:
-    if target_count < 2:
+    selector = _text_selector(layer)
+    if target_count < (1 if selector else 2):
         return None
     timeline = _canonical_timeline(layer)
-    if timeline is None or not any(event.stagger is not None for event in timeline.events):
+    if timeline is None or not any(
+        event.stagger is not None or event.selector for event in timeline.events
+    ):
         return None
     return resolve_staggered_timelines(timeline, target_count)
 
@@ -962,10 +1028,11 @@ def _canonical_target_timelines(layer: object, target_count: int) -> tuple[Timel
 def _sample_target_timelines(
     timelines: tuple[Timeline, ...], time: float, base: LayerState | None = None
 ) -> tuple[LayerState | None, ...]:
-    """Keep staggered targets hidden until their individual start time."""
+    """Hide waiting stagger targets; selectors leave their incoming paint visible."""
     return tuple(
         None
-        if time < min((event.active_start for event in timeline.events), default=0.0)
+        if not any(event.selector for event in timeline.events)
+        and time < min((event.active_start for event in timeline.events), default=0.0)
         else timeline.sample(time, base)
         for timeline in timelines
     )
@@ -990,7 +1057,7 @@ def sample_canonical_state(layer: object, time: float | None) -> LayerState | No
 def sample_canonical_targets(
     layer: object, time: float | None, target_count: int
 ) -> tuple[LayerState | None, ...] | None:
-    """Sample staggered target clocks, leaving targets before their turn hidden."""
+    """Sample semantic target clocks and their static selector weights."""
     if time is None:
         return None
     timelines = _canonical_target_timelines(layer, target_count)
@@ -1016,6 +1083,8 @@ def _geometry_in_motion(
     path_position_moving = False
     heading_moving = False
     for event in timeline.events:
+        if event.options.get("_selector_weight") == 0:
+            continue
         if time < event.active_start:
             continue
         local = time - event.active_start
@@ -1191,6 +1260,7 @@ def _compile_spec(spec: AnimationSpec, composition: _CompositionCursor) -> Timel
         effect=effect.type if effect else None,
         options=options,
         tracks=tracks,
+        selector=spec.selector,
         stagger=(
             spec.stagger.model_dump(mode="json", exclude_none=True)
             if spec.stagger is not None
@@ -1404,7 +1474,23 @@ def _sample_event(
                 heading = path_heading
             continue
         value = _sample_track(track, progress, event.duration, event.options.get("easing"))
-        state = _compose_track_value(state, track, value)
+        candidate = _compose_track_value(state, track, value)
+        weight = event.options.get("_selector_weight", 1.0)
+        before = getattr(state, track.property)
+        after = getattr(candidate, track.property)
+        state = (
+            candidate
+            if weight == 1
+            else state.with_values(
+                **{
+                    track.property: _interpolate(
+                        (0.0, 0.0) if before is None and track.property == "position" else before,
+                        after,
+                        weight,
+                    )
+                }
+            )
+        )
     if event.effect == "ken_burns" and event.options.get("focal_point") is not None:
         state = state.with_values(image_focal_point=tuple(event.options["focal_point"]))
     if event.effect is not None and event.source == "legacy":
@@ -1612,6 +1698,7 @@ CapabilityFeature = Literal[
     "morph",
     "chart_animation",
     "audio_sync",
+    "text_selector",
 ]
 SupportLevel = Literal["full", "native", "partial", "fallback", "unsupported"]
 Fallback = Literal["fade", "rasterize", "static"]
@@ -1647,6 +1734,7 @@ _CAPABILITY_FEATURES: tuple[CapabilityFeature, ...] = (
     "morph",
     "chart_animation",
     "audio_sync",
+    "text_selector",
 )
 _FULL_CAPABILITIES: dict[CapabilityFeature, tuple[SupportLevel, Fallback | None]] = dict.fromkeys(
     _CAPABILITY_FEATURES, ("full", None)
@@ -1654,6 +1742,7 @@ _FULL_CAPABILITIES: dict[CapabilityFeature, tuple[SupportLevel, Fallback | None]
 # Stagger falls back to a shared reveal when semantic targets cannot be split.
 _RASTER_OVERRIDES: dict[CapabilityFeature, tuple[SupportLevel, Fallback | None]] = {
     "stagger": ("partial", None),
+    "text_selector": ("partial", None),
 }
 _CAPABILITIES: dict[ExportTarget, dict[CapabilityFeature, MotionCapability]] = {}
 for _target in ("raster", "video"):
@@ -1686,6 +1775,7 @@ _CANONICAL_RENDERED: dict[str, frozenset[str]] = {
             "image_zoom",
             "stagger",
             "motion_path",
+            "text_selector",
         }
     )
     for target in ("raster", "video")
@@ -1719,11 +1809,16 @@ _PPTX_FALLBACKS: dict[CapabilityFeature, tuple[SupportLevel, Fallback | None]] =
     "morph": ("partial", "fade"),
     "chart_animation": ("fallback", "fade"),
     "audio_sync": ("unsupported", "static"),
+    "text_selector": ("unsupported", "static"),
 }
 _CAPABILITIES["pptx"] = {
     feature: MotionCapability(feature, "pptx", *_PPTX_FALLBACKS[feature])
     for feature in _CAPABILITY_FEATURES
 }
+
+_CAPABILITIES["html"]["text_selector"] = MotionCapability(
+    "text_selector", "html", "unsupported", "static"
+)
 
 CAPABILITY_MATRIX = MappingProxyType(
     {target: MappingProxyType(row) for target, row in _CAPABILITIES.items()}
@@ -1784,6 +1879,8 @@ def _capability_features_for(animation: object) -> tuple[CapabilityFeature, ...]
                 features.append("easing")
         if animation.stagger:
             features.append("stagger")
+        if animation.selector:
+            features.append("text_selector")
         return tuple(dict.fromkeys(features))
     return ("opacity",)
 
@@ -1851,6 +1948,7 @@ def _validate_export(
     parent_html_problems: dict[str, str] = {}
     document_format = parent_document_format or normalized
     for index, canvas in enumerate(getattr(source, "slides", (source,))):
+        _validate_text_selectors(canvas)
         try:
             cast("Canvas", canvas)._validate_layer_identities()
         except ValidationError as error:
@@ -2216,7 +2314,7 @@ def validate_motion_export(source: Canvas | Deck, target: ExportTarget | str, po
 
 
 def _inspection_event(
-    event: TimelineEvent, sample_times: tuple[float, ...] = ()
+    event: TimelineEvent, sample_times: tuple[float, ...] = (), target_count: int = 0
 ) -> MotionEventInspection:
     progress = [
         1.0
@@ -2256,18 +2354,33 @@ def _inspection_event(
             for track in event.tracks
         ],
         stagger=event.stagger,
+        selector=event.selector,
+        selector_weights=[
+            _range_weight(event.selector, index, target_count) for index in range(target_count)
+        ]
+        if event.selector
+        else [],
         progress=progress,
     )
 
 
-def _inspection_targets(layer: object, animation: object) -> list[MotionTargetInspection]:
+def _inspection_targets(
+    layer: object, animation: object, canvas: Canvas
+) -> list[MotionTargetInspection]:
     stagger = getattr(animation, "stagger", None)
-    if stagger is None:
+    selector = getattr(animation, "selector", None)
+    if stagger is None and selector is None:
         return []
-    target = stagger.target
+    if selector:
+        target = selector.target
+    else:
+        assert stagger is not None
+        target = stagger.target
+    order = getattr(stagger, "order", "document")
+    if selector:
+        assert isinstance(layer, TextLayer)
     if target == "children":
         values = tuple(getattr(layer, "children", ()))
-        order = stagger.order
         resolved = resolve_targets(values, order=order)
     elif target in {"characters", "words", "lines"}:
         content = getattr(layer, "content", "")
@@ -2275,14 +2388,18 @@ def _inspection_targets(layer: object, animation: object) -> list[MotionTargetIn
             content = "".join(getattr(part, "text", str(part)) for part in content)
         if not isinstance(content, str):
             return []
-        resolved = resolve_text_targets(
-            content, cast(Literal["characters", "words", "lines"], target), order=stagger.order
+        resolved = (
+            canvas._text.resolve_animation_targets(layer, target, order)
+            if isinstance(layer, TextLayer)
+            else resolve_text_targets(
+                content, cast(Literal["characters", "words", "lines"], target), order=order
+            )
         )
     else:
         return []
     return [
         MotionTargetInspection(
-            target=stagger.target,
+            target=target,
             index=item.index,
             source_range=item.source_range,
             position=item.position,
@@ -2358,18 +2475,32 @@ def _inspection_layer(
     value_duration = value.delay + value.duration if isinstance(value, AnimatedTextValue) else 0.0
     base = _layer_base_state(layer, canvas)
     initial = timeline.sample(0.0, base)
-    final = timeline.sample(timeline.duration, base)
-    targets: list[MotionTargetInspection] = []
-    for spec in specs:
-        targets.extend(_inspection_targets(layer, spec))
-    duration = max(timeline.duration, value_duration)
+    selector = _text_selector(layer)
+    target_spec = next((spec for spec in specs if spec.stagger), specs[0] if selector else None)
+    resolved_targets = _inspection_targets(layer, target_spec, canvas) if target_spec else []
+    timelines = resolve_staggered_timelines(timeline, len(resolved_targets))
+    targets = (
+        resolved_targets
+        if selector
+        else [target for spec in specs for target in _inspection_targets(layer, spec, canvas)]
+    )
+    duration = max(
+        timeline.duration, value_duration, max((item.duration for item in timelines), default=0)
+    )
     sample_times = _bounded_frame_times(duration, fps, max_samples)
+    final = timeline.sample(duration, base)
+    if selector:
+        motion_base = LayerState(anchor=getattr(layer, "anchor", (0.5, 0.5)))
+        for target, resolved in zip(targets, timelines, strict=True):
+            target.samples = [
+                resolved.sample(time, motion_base).model_dump(mode="json") for time in sample_times
+            ]
     static_state = base.model_dump(mode="json", exclude_none=True)
     return MotionLayerInspection(
         layer_id=layer_id,
         layer_type=str(getattr(layer, "type", type(layer).__name__)),
         parent=getattr(layer, "parent", None),
-        events=[_inspection_event(event, sample_times) for event in timeline.events],
+        events=[_inspection_event(event, sample_times, len(targets)) for event in timeline.events],
         duration=duration,
         targets=targets,
         sample_times=list(sample_times),

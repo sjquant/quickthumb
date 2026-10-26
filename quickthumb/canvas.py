@@ -1866,7 +1866,9 @@ class Canvas:
 
     def _render_to_image(self, debug: bool = False, time: float | None = None) -> Image.Image:
         from quickthumb._parenting import has_parent_links, require_parent_rendering
+        from quickthumb.motion import _validate_text_selectors
 
+        _validate_text_selectors(self)
         if has_parent_links(self):
             from quickthumb._export_video import _SlideAnimator
 
@@ -1951,13 +1953,19 @@ class Canvas:
         draw.text((label_left + 3, label_top + 2), label, fill=(255, 255, 255, 255), font=font)
 
     def _staggered_target_count(self, layer: RenderableLayer) -> int:
-        """Return how many semantic targets a layer's stagger addresses."""
+        """Return how many semantic targets a layer's stagger or selector addresses."""
         animation = getattr(layer, "animation", None)
         if animation is None:
             return 0
         from quickthumb.models import AnimationSpec
 
         animations = animation if isinstance(animation, list) else [animation]
+        from quickthumb.motion import _text_selector
+
+        selector = _text_selector(layer)
+        if selector is not None:
+            assert isinstance(layer, TextLayer)
+            return len(self._text.resolve_animation_targets(layer, selector.target))
         staggers = [
             item.stagger
             for item in animations
@@ -1999,6 +2007,7 @@ class Canvas:
             _canonical_target_timelines,
             _geometry_in_motion,
             _sample_target_timelines,
+            _text_selector,
         )
 
         count = self._staggered_target_count(layer)
@@ -2017,6 +2026,11 @@ class Canvas:
         assert time is not None and surface is not None
         fragments = text_target_fragments(self, layer, surface)
         if fragments is None:
+            if _text_selector(layer) is not None:
+                raise RenderingError(
+                    "Range selector targets cannot preserve this layout; "
+                    "use plain separable words/lines"
+                )
             if render_color is not None:
                 return composite_color_targets(image, layer, time, count, render_color)
             fragments = split_into_bands(surface, count)

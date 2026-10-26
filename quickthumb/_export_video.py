@@ -1870,7 +1870,9 @@ def _build_units(
 ) -> tuple[list[_Unit], ParentRenderPlan | None]:
     """Prepare all scene units and optional parent sources before scheduling."""
     from quickthumb._parenting import has_parent_links
+    from quickthumb.motion import _text_selector, _validate_text_selectors
 
+    _validate_text_selectors(canvas)
     linked = has_parent_links(canvas)
     if not reduced_motion and not linked:
         validate_legacy_animation_export(canvas)
@@ -1979,6 +1981,7 @@ def _build_units(
             # stagger declared is the one that can split it into targets.
             specs = canonical if isinstance(canonical, list) else [canonical]
             stagger = next((item.stagger for item in specs if item.stagger), None)
+            selector = _text_selector(layers[0])
             content = getattr(layers[0], "content", None)
             if stagger is not None:
                 if stagger.target == "characters" and isinstance(content, str):
@@ -1990,8 +1993,13 @@ def _build_units(
                         )
                 elif stagger.target == "children":
                     target_count = group_target_counts.get(id(specs[0]), 1)
+            if selector is not None:
+                assert isinstance(layers[0], TextLayer)
+                target_count = len(
+                    canvas._text.resolve_animation_targets(layers[0], selector.target)
+                )
             target_timelines = resolve_staggered_timelines(timeline, target_count)
-            if target_count > 1:
+            if target_count > 1 or selector is not None:
                 if color_motion and parent_node is not None:
                     reference, reference_pos = parent_node.render_source(reference=True), (0, 0)
                 elif color_motion:
@@ -2004,6 +2012,11 @@ def _build_units(
                     if len(layers) == 1 and parent_node is None:
                         target_images = (
                             text_target_fragments(canvas, layers[0], reference, reference_pos) or ()
+                        )
+                    if not target_images and selector is not None:
+                        raise RenderingError(
+                            "Range selector targets cannot preserve this layout; "
+                            "use plain separable words/lines"
                         )
                     if not target_images:
                         bands = split_into_bands(reference, target_count)

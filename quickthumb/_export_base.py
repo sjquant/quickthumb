@@ -538,6 +538,8 @@ def apply_canonical_geometry(
     instead composes a reduced authoring preview without changing source layout.
 
     """
+    if state.scale == 0:
+        return Image.new("RGBA", (1, 1)), pos
     scale = state.scale if state.scale > 0 else 1.0
     offset_x, offset_y = state.position or (0.0, 0.0)
     angle = state.rotation % 360

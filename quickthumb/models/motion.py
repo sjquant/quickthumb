@@ -514,6 +514,22 @@ class AnimationEffect(_MotionModel):
     )
 
 
+class RangeSelector(_MotionModel):
+    """Static percentage range over semantic word or line centers."""
+
+    target: Literal["words", "lines"] = "words"
+    start: Annotated[float, Field(ge=0, le=100, allow_inf_nan=False)] = 0
+    end: Annotated[float, Field(ge=0, le=100, allow_inf_nan=False)] = 100
+    offset: FiniteFloat = 0
+    shape: Literal["square", "ramp", "triangle", "smooth"] = "square"
+
+    @model_validator(mode="after")
+    def validate_range(self):
+        if self.start > self.end:
+            raise ValidationError("selector start must not exceed end")
+        return self
+
+
 class AnimationSpec(_MotionModel):
     """Canonical layer-motion contract for preset or advanced timeline animation."""
 
@@ -523,6 +539,7 @@ class AnimationSpec(_MotionModel):
     easing: MotionEasing | None = None
     timing: TimingSpec | None = None
     stagger: StaggerSpec | None = None
+    selector: RangeSelector | None = None
 
     @model_validator(mode="after")
     def validate_composition(self):
@@ -532,6 +549,33 @@ class AnimationSpec(_MotionModel):
             raise ValidationError("timeline animation must contain at least one track")
         if self.effect is not None and self.easing is not None:
             raise ValidationError("timeline easing is only valid with tracks")
+        if self.selector is not None:
+            if self.tracks is None or any(
+                track.type not in {"position", "rotation", "scale", "opacity"}
+                for track in self.tracks
+            ):
+                raise ValidationError(
+                    "selectors require position, rotation, scale or opacity tracks; "
+                    "color is not supported"
+                )
+            if any(
+                getattr(track, "auto_orient", False)
+                or any(
+                    getattr(key, "in_tangent", None) or getattr(key, "out_tangent", None)
+                    for key in track.keyframes
+                )
+                for track in self.tracks
+            ):
+                raise ValidationError(
+                    "selector motion paths are not supported; use position keyframes"
+                )
+            if self.stagger is not None and (
+                self.stagger.target != self.selector.target
+                or self.stagger.order not in {"document", "reverse"}
+            ):
+                raise ValidationError(
+                    "selector stagger must use the same target and document/reverse order"
+                )
         return self
 
     @classmethod
@@ -564,9 +608,10 @@ class AnimationSpec(_MotionModel):
         *tracks: TrackSpec,
         timing: TimingSpec | None = None,
         easing: MotionEasing | None = None,
+        selector: RangeSelector | None = None,
     ) -> "AnimationSpec":
         """Build an advanced animation from typed property tracks."""
-        return cls(tracks=list(tracks), timing=timing, easing=easing)
+        return cls(tracks=list(tracks), timing=timing, easing=easing, selector=selector)
 
     @classmethod
     def fade(cls, **kwargs) -> "AnimationSpec":
