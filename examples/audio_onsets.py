@@ -1,4 +1,4 @@
-"""Bake a source-audio onset into ordinary motion, keeping a reusable analysis sidecar.
+"""Bake source-audio onset and loudness into ordinary motion with an analysis sidecar.
 
 Run: uv run python examples/audio_onsets.py music.wav output-directory
 Requires FFmpeg for analysis and video export; no analysis dependency is added.
@@ -46,6 +46,14 @@ def main() -> None:
                 timing=TimingSpec(start=analysis.onsets[0], duration=0.2),
                 easing="linear",
             ),
+        )
+        .shape(
+            "ellipse",
+            (160, 84),
+            64,
+            48,
+            "#FCE38A",
+            animation=AnimationSpec.timeline(analysis.scale_track(min_scale=1, max_scale=1.4)),
         )
     )
     args.output.mkdir(parents=True, exist_ok=True)

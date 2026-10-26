@@ -1,4 +1,4 @@
-# Audio onset anchors
+# Audio-reactive authoring
 
 `quickthumb.audio.analyze_audio(path, cache_dir=None)` analyzes a local audio
 source ahead of authoring. It returns a validated `AudioAnalysis` record with
@@ -49,8 +49,40 @@ can be absent: check `onsets` before indexing.
 Export gain, soundtrack looping/fade-out, narration and other mixed audio do not
 change this source analysis. Deck timing is slide-local: authors must translate
 a soundtrack onset into the intended slide's clock. Nothing automatically
-repeats or relocates anchors when export options change. RMS-to-track helpers
-are outside this first onset-authoring interface.
+repeats or relocates anchors when export options change.
+
+## Loudness-driven scale
+
+`AudioAnalysis.scale_track(min_scale=1.0, max_scale=1.15)` returns an ordinary
+`ScaleTrack`. Attach it to `AnimationSpec.timeline()`; no soundtrack or analyzer
+is consulted while converting stored RMS into motion:
+
+```python
+pulse = AnimationSpec.timeline(
+    analysis.scale_track(min_scale=1.0, max_scale=1.4)
+)
+```
+
+The helper divides each RMS amplitude by the loudest window in this analysis,
+then maps that ratio into the requested scale range. Silence maps to
+`min_scale`, the peak maps to `max_scale`, and an entirely silent analysis stays
+at `min_scale`. This is source-relative normalization: a quiet recording can
+produce the same response as a louder copy, and export volume does not affect it.
+Both bounds must be finite positive numbers with `max_scale >= min_scale`.
+
+Each keyframe holds its value over its 20 ms window, including a shorter final
+window; there is no interpolation before an attack. At the exact source end an
+additional keyframe returns to `min_scale`, so settled holds and subsequent
+slides do not retain a loud final pulse. The inferred animation duration equals
+`analysis.duration`. An explicit `TimingSpec` must allow that full duration;
+setting `start` shifts the entire source clock rather than trimming it.
+
+The generated track is regular canonical JSON: `sample()`, `inspect_motion()`,
+workers and exporters consume it through the existing scale-track path.
+Reduced motion suppresses this track and keeps the authored static geometry.
+HTML/PPTX follow their declared scale support, but do not acquire live soundtrack playback or synchronization. The
+runnable example combines an onset-triggered color change and a loudness-driven
+scale pulse with source audio in MP4.
 
 ## Store and reuse
 
