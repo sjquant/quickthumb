@@ -48,7 +48,9 @@ from quickthumb._export_base import (
     RasterFragment,
     TextRunLayout,
     _css_string,
+    _distinct_layer_occurrences,
     _fmt,
+    _layer_routing,
     _motion_number,
     _source_layer_ids,
     color_to_rgba,
@@ -460,6 +462,7 @@ class HtmlExporter:
         reduced_motion: bool = False,
         parent_static: bool = False,
     ):
+        canvas = _distinct_layer_occurrences(canvas)
         self._canvas = canvas
         from quickthumb._parenting import has_parent_links
 
@@ -989,18 +992,8 @@ class HtmlExporter:
     # ------------------------------------------------------------------ layers
 
     def _record_routing(self, layers: list, reason: str, *, rasterized: bool) -> None:
-        members = [source_id for layer in layers for source_id in self._source_ids[id(layer)]]
         self.diagnostics.append(
-            ExportDiagnostic(
-                layer_id=members[0] if len(layers) == 1 else None,
-                layer_ids=members if len(members) > 1 else [],
-                feature="layer_representation",
-                target="html",
-                support="fallback" if rasterized else "native",
-                fallback="rasterize" if rasterized else None,
-                native_attempt=not rasterized,
-                message=reason,
-            )
+            _layer_routing(layers, self._source_ids, reason, target="html", rasterized=rasterized)
         )
 
     def _emit_layer(self, layer: RenderableLayer):

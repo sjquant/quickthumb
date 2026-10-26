@@ -84,13 +84,14 @@ numbered Deck filenames. A Deck cannot be written as a single SVG; export its
 Canvas slides individually. See [image sequences](#image-sequences) for their
 separate new-directory and encoding-option contract.
 
-### HTML layer routing
+### HTML and SVG layer routing
 
-Canvas and Deck `export("scene.html")` report executed layer routes in
-`result.capability_report` with `feature="layer_representation"`. Native HTML/CSS
-or original embedded SVG has `support="native"`; emitted PNG fragments have
+Canvas and Deck `export("scene.html")`, and Canvas `export("scene.svg")`, report
+executed layer routes in `result.capability_report` with
+`feature="layer_representation"`. Native HTML/CSS, SVG primitives and original
+embedded SVG have `support="native"`; emitted PNG fragments have
 `support="fallback"` and `fallback="rasterize"`. These are representation
-observations, not browser pixel-fidelity measurements.
+observations, not pixel-fidelity measurements.
 
 `result.fallback_diagnostics` identifies the affected inspection `layer_id` and
 reason. A retained group includes its descendant IDs in `layer_ids`; a shared
@@ -103,8 +104,9 @@ element and no representation observation.
 For these executed routes, `native_attempt=True` means native content was
 emitted; `False` means the exporter selected raster capture before native
 generation. Capability-only diagnostics can leave this fact unknown (`None`).
-Parent scenes report either their static composite or PNG sources with baked
-affine CSS motion. Existing motion capability diagnostics remain separate.
+Parent scenes report their static composite in SVG; HTML can also report PNG
+sources with baked affine CSS motion. Existing motion capability diagnostics
+remain separate. SVG observations describe authored-static output.
 
 Executed Deck observations also carry a zero-based `slide_index`. Layer IDs stay
 local to each slide, matching `deck.inspect().slides[index]`; use both fields to
@@ -115,8 +117,10 @@ records do not turn a click-driven slideshow into fixed-duration playback.
 For example, `ExportPolicy(unsupported_motion="error")` does not reject a static
 masked shape: this HTML route preserves its mask using a PNG fragment and
 reports that decision. No layer-selection policy is added. This executed routing
-report covers Canvas and Deck HTML; other exporters do not yet collect these
-observations. Rendering all slides precedes opening the HTML destination, so an
+report covers Canvas SVG and Canvas/Deck HTML; PDF and PPTX do not yet collect
+these observations. SVG fidelity metrics describe the complete document and are
+not attributed to individual fallback layers. Rendering all slides precedes
+opening the HTML destination, so an
 unsupported later slide or strict motion rejection preserves an existing file.
 
 ### Optional static SVG fidelity report
