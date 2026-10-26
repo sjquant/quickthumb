@@ -190,6 +190,30 @@ def test_static_and_animated_html_masks_keep_owner_specific_defaults():
     assert len(timelines(text)[0]) == 1 and "data:image/png" not in text
 
 
+def test_parent_source_keeps_independent_mask_fallback_visible(tmp_path):
+    """A baked parent source does not own a separate masked layer's fallback."""
+    canvas = (
+        Canvas(100, 100)
+        .null((0, 0), id="root")
+        .shape("rectangle", (0, 0), 30, 30, "#FF0000", parent="root", id="linked")
+        .shape(
+            "rectangle",
+            (40, 0),
+            30,
+            30,
+            "#00FF00",
+            id="unlinked",
+            mask=LayerMask(position=(40, 0), width=20, height=20, feather=1),
+        )
+    )
+    result = canvas.export(tmp_path / "mixed.html")
+    assert [(row.layer_id, row.feature, row.fallback) for row in result.capability_report] == [
+        ("linked", "parent", None),
+        ("unlinked", "mask", "rasterize"),
+    ]
+    assert [row.layer_id for row in result.fallback_diagnostics] == ["unlinked"]
+
+
 def test_path_layer_mattes_already_cover_curves_holes_motion_and_source_reuse():
     """A curved path with a hole moves as a reusable, hidden mask source."""
     # Given: an existing PathLayer ring reused as the alpha source of two colored targets

@@ -2010,7 +2010,14 @@ def _validate_export(
             )
             continue
 
-        if normalized == "html" and isinstance(getattr(layer, "mask", None), LayerMask):
+        if (
+            normalized == "html"
+            and pointer not in parent_static_paths
+            and not any(
+                pointer == path or pointer.startswith(path + "/") for path in parent_html_paths
+            )
+            and isinstance(getattr(layer, "mask", None), LayerMask)
+        ):
             problem = html_mask_admission[pointer]
             if problem and resolved_policy.unsupported_motion in {"error", "native"}:
                 raise RenderingError(
