@@ -8,7 +8,15 @@ from quickthumb import Canvas, ExportPolicy, PluginLayer, PluginRegistry, Render
 
 from tests._optional import require_cairosvg
 
-LIMITS = {"pixel_tolerance": 0, "max_different_pixel_ratio": 0.01, "min_hash_similarity": 0}
+LIMITS = ExportPolicy(
+    fidelity={
+        "svg": {
+            "pixel_tolerance": 0,
+            "max_different_pixel_ratio": 0.01,
+            "min_hash_similarity": 0,
+        }
+    }
+).fidelity["svg"]
 
 
 def svg(color):
@@ -56,7 +64,15 @@ def test_native_plugin_gate_uses_local_assets_pixels_and_executed_source_ids(
         assets={"pixels": str(asset)},
     )
     scene = Canvas(96, 96, layers=[layer, layer], registry=registry)
-    policy = ExportPolicy(fidelity={"svg": {**LIMITS, "pixel_tolerance": tolerance}})
+    policy = ExportPolicy(
+        fidelity={
+            "svg": {
+                "pixel_tolerance": tolerance,
+                "max_different_pixel_ratio": LIMITS["max_different_pixel_ratio"],
+                "min_hash_similarity": LIMITS["min_hash_similarity"],
+            }
+        }
+    )
     source_ids = [item.id for item in scene.inspect().layers]
     assert registry.capabilities("badge", "1") == ("raster", "svg")
     assert all(row.support == "partial" for row in scene.validate_export("svg", policy))
@@ -86,7 +102,8 @@ def test_native_plugin_gate_uses_local_assets_pixels_and_executed_source_ids(
         item.content_hash == hashlib.sha256(raw).hexdigest() for item in result.asset_manifest
     )
     # The separate document-wide observer measures the final emitted representation.
-    assert result.pixel_metrics.fidelity.verdict == verdict
+    comparison = result.pixel_metrics.fidelity
+    assert comparison is not None and comparison.verdict == verdict
     path.write_bytes(b"existing")
     strict = ExportPolicy(unsupported_motion="error", fidelity=policy.fidelity)
     if accepted:
