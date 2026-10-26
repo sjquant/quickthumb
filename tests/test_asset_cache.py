@@ -67,24 +67,31 @@ def local_assets():
 def test_remote_image_manifest_persists_network_result_and_reuses_fresh_cache(
     tmp_path, monkeypatch, local_assets
 ):
-    """Given a remote image, resolution fetches once and a later context uses fresh cache."""
+    """A prefetched image supports sampling and export without another network request."""
     base_url, requests, server, payloads = local_assets
     monkeypatch.setenv("QUICKTHUMB_ASSET_CACHE_DIR", str(tmp_path / "assets"))
     first_url = f"{base_url}/asset.png?b=2&a=1"
     equivalent_url = f"{base_url}/asset.png?a=1&b=2"
 
     first = Canvas(4, 4).background(image=first_url)
-    first_manifest = first.prefetch_assets().asset_manifest[0]
-    first.render(tmp_path / "first.png")
+    first_prefetch = first.prefetch_assets()
+    first_manifest = first_prefetch.asset_manifest[0]
+    first_capture = first.sample()
+    first_export = first.export(tmp_path / "first.png")
 
     # When: the same source is requested with its query parameters reordered
     second = Canvas(4, 4).background(image=equivalent_url)
     second_manifest = second.prefetch_assets().asset_manifest[0]
     server.shutdown()
     server.server_close()
-    second.render(tmp_path / "second.png")
+    second_capture = second.sample()
+    second_export = second.export(tmp_path / "second.png")
 
     # Then: the persisted entry is fresh, deterministic, and no second fetch occurred
+    assert first_capture.frames[0].sha256 == second_capture.frames[0].sha256
+    assert first_export.asset_manifest == first_prefetch.asset_manifest
+    assert second_export.asset_manifest == [second_manifest]
+    assert first_manifest.source == first_url
     assert len(requests) == 1
     assert first_manifest.status == "network"
     assert second_manifest.status == "fresh"
