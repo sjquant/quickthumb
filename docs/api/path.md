@@ -122,7 +122,7 @@ and mixed zero-length dash patterns also use raster output to preserve cap pixel
 Paths with static rotation/opacity or animation use the same authored-static PNG
 fallback in PDF as SVG/HTML. PPTX embeds an authored-static raster image.
 
-### Animated dash phase
+## Animated dash phase
 
 `DashOffsetTrack` (`type="dash_offset"` in JSON) animates stroke phase in local
 SVG/viewBox distance units. The sampled phase is added to authored `dash_offset`;
