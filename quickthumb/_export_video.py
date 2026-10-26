@@ -1547,7 +1547,7 @@ class _SlideAnimator:
             color = state.canonical.layer.color if state.canonical is not None else None
             from quickthumb._composition import has_mask_tracks, with_motion_mask
 
-            if has_mask_tracks(unit.layers[0]):
+            if unit.layers and has_mask_tracks(unit.layers[0]):
                 assert state.canonical is not None
                 painted = with_motion_mask(unit.layers[0], state.canonical.layer, canvas._ctx)
                 surface = _render_unit_surface(canvas, [painted], time, color=color)
