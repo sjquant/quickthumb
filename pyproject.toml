@@ -56,6 +56,9 @@ svg = [
 pptx = [
     "python-pptx>=1.0.2,<2.0",
 ]
+lottie = [
+    "fonttools>=4.0.0,<5.0.0",
+]
 pdf = [
     "fonttools>=4.0.0,<5.0.0",
     "pypdfium2>=5.10.1,<6.0.0",

@@ -8,6 +8,7 @@ import pytest
 from examples.lottie_static import build_canvas
 from quickthumb import AnimationSpec, Canvas, Deck, ExportPolicy, GifOptions, LottieOptions
 from quickthumb.errors import RenderingError, ValidationError
+from quickthumb.models import TextLayer
 
 
 def test_static_lottie_receipt_roundtrip_and_native_geometry(tmp_path):
@@ -76,8 +77,8 @@ def test_static_lottie_receipt_roundtrip_and_native_geometry(tmp_path):
             "type",
         ),
         (
-            Canvas(32, 32).text("unsupported", position=(0, 0), font="missing.ttf", id="text"),
-            "type",
+            Canvas(32, 32).text("한글", position=(0, 0), font="missing.ttf", id="text"),
+            "content",
         ),
         (
             Canvas(32, 32).shape(
@@ -404,3 +405,148 @@ def test_unrepresentable_trim_preserves_existing_destination(tmp_path):
     assert caught.value.details[0].layer_id == "too-thin"
     assert caught.value.details[0].path == "/layers/0/trim_start"
     assert output.read_text() == "existing"
+
+
+def test_static_text_is_self_contained_outline_geometry(tmp_path):
+    from examples.lottie_text import build_canvas
+
+    canvas = Canvas.from_json(build_canvas().to_json())
+    output = tmp_path / "text.lot"
+    receipt = canvas.export(output, animation=LottieOptions(fps=30, hold=0.1))
+    payload = json.loads(output.read_text())
+    schema = json.loads((Path(__file__).parent / "fixtures/lottie/schema-1.0.1.json").read_text())
+    jsonschema.validate(payload, schema)
+    assert payload["assets"] == [] and "fonts" not in payload and "chars" not in payload
+    assert [layer["nm"] for layer in payload["layers"]] == [
+        "descenders",
+        "spaced-holes",
+        "default-face",
+    ]
+    for layer in payload["layers"]:
+        assert layer["ty"] == 4 and layer["ks"]["p"]["k"] == [0, 0, 0]
+        for glyph in layer["shapes"]:
+            assert glyph["ty"] == "gr"
+            assert all(shape["ty"] == "sh" for shape in glyph["it"][:-2])
+            assert glyph["it"][-2]["r"] == 1  # Each glyph retains its own holes.
+    assert len(payload["layers"][-1]["shapes"][0]["it"]) == 4  # O's two contours, fill, transform.
+    assert receipt.timing_metrics.frame_count == 3
+    assert all(row.support == "native" for row in receipt.capability_report)
+    assert canvas.render_frame(0).getbbox() is not None
+
+    # Two coincident opaque glyphs with opposite outer winding must not cancel.
+    font_path = tmp_path / "opposite-winding.ttf"
+    _opposite_winding_font(font_path)
+    overlap = Canvas(80, 60).text(
+        "AB",
+        position=(20, 20),
+        size=40,
+        letter_spacing=-20,
+        font=str(font_path),
+        color="#FF0000",
+        opacity=0.5,
+    )
+    overlap.export(output)
+    native = json.loads(output.read_text())["layers"][0]
+    jsonschema.validate(json.loads(output.read_text()), schema)
+    assert len(native["shapes"]) == 2 and all(glyph["ty"] == "gr" for glyph in native["shapes"])
+    assert native["ks"]["o"] == {"a": 0, "k": 50}
+    assert all(glyph["it"][-2]["o"] == {"a": 0, "k": 100} for glyph in native["shapes"])
+    pixel = overlap.render_frame(0).getpixel((28, 30))
+    assert isinstance(pixel, tuple) and pixel[:3] == (255, 0, 0) and 127 <= pixel[3] <= 128
+
+
+def _opposite_winding_font(path):
+    """A real font whose A/B rectangles overlap but have opposite outer winding."""
+    from fontTools.fontBuilder import FontBuilder
+    from fontTools.pens.ttGlyphPen import TTGlyphPen
+
+    builder = FontBuilder(1000, isTTF=True)
+    builder.setupGlyphOrder([".notdef", "A", "B"])
+    glyphs = {}
+    points = [(0, 0), (500, 0), (500, 700), (0, 700)]
+    for name in (".notdef", "A", "B"):
+        pen = TTGlyphPen(None)
+        if name != ".notdef":
+            outline = points if name == "A" else list(reversed(points))
+            pen.moveTo(outline[0])
+            for point in outline[1:]:
+                pen.lineTo(point)
+            pen.closePath()
+        glyphs[name] = pen.glyph()
+    builder.setupCharacterMap({ord("A"): "A", ord("B"): "B"})
+    builder.setupGlyf(glyphs)
+    builder.setupHorizontalMetrics(dict.fromkeys(glyphs, (500, 0)))
+    builder.setupHorizontalHeader(ascent=800, descent=-200)
+    builder.setupOS2(sTypoAscender=800, sTypoDescender=-200, usWinAscent=800, usWinDescent=200)
+    builder.setupNameTable({"familyName": "Opposite", "styleName": "Regular"})
+    builder.setupPost()
+    builder.save(path)
+
+
+@pytest.mark.parametrize(
+    "options,field",
+    [
+        ({"content": "B\nO"}, "content"),
+        ({"rotation": 15}, "rotation"),
+        ({"color": "#159A8C80"}, "color"),
+        ({"animation": AnimationSpec.fade()}, "animation"),
+        ({"max_width": 50}, "max_width"),
+        ({"font": "assets/fonts/RobotoFlex-Variable.ttf"}, "font"),
+        ({"font": "https://invalid.example/font.ttf"}, "font"),
+    ],
+)
+def test_unsupported_text_layout_is_actionable_before_write(tmp_path, options, field):
+    canvas = Canvas(100, 60).text("BO", position=(5, 5), letter_spacing=1, id="label")
+    layer = canvas.layers[0]
+    assert isinstance(layer, TextLayer)
+    canvas.layers = [layer.model_copy(update=options)]
+    output = tmp_path / "text.lot"
+    output.write_text("existing")
+    rows = canvas.validate_export("lottie")
+    assert rows[0].support == "unsupported" and f"/layers/0/{field}" in rows[0].message
+    with pytest.raises(RenderingError) as caught:
+        canvas.export(output, policy=ExportPolicy(unsupported_motion="static", reduced_motion=True))
+    assert caught.value.details[0].layer_id == "label"
+    assert caught.value.details[0].path == f"/layers/0/{field}"
+    assert output.read_text() == "existing"
+
+
+def test_missing_outline_dependency_keeps_shape_exports_usable(tmp_path, monkeypatch):
+    import builtins
+
+    original_import = builtins.__import__
+
+    def unavailable(name, *args, **kwargs):
+        if name.startswith("fontTools"):
+            raise ImportError("fonttools unavailable")
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", unavailable)
+    output = tmp_path / "scene.lot"
+    shape = Canvas(40, 30).shape("ellipse", (5, 5), 20, 15, "#159A8C")
+    shape.export(output)
+    previous = output.read_bytes()
+    text = Canvas(40, 30).text("O", position=(5, 5), id="label")
+    with pytest.raises(RenderingError, match=r"quickthumb\[lottie\]") as caught:
+        text.export(output)
+    assert caught.value.details[0].path == "/layers/0/font"
+    assert caught.value.details[0].layer_id == "label"
+    assert output.read_bytes() == previous
+
+
+def test_missing_glyph_is_not_silently_replaced(tmp_path):
+    from fontTools.ttLib import TTFont
+
+    font_path = tmp_path / "missing-B.ttf"
+    with TTFont("assets/fonts/Roboto-Regular.ttf") as face:
+        for table in face["cmap"].tables:
+            if table.isUnicode():
+                table.cmap.pop(ord("B"), None)
+        face.save(font_path)
+    canvas = Canvas(80, 50).text("B", position=(5, 5), font=str(font_path), id="missing-glyph")
+    output = tmp_path / "text.lot"
+    with pytest.raises(RenderingError, match="no glyph") as caught:
+        canvas.export(output)
+    assert caught.value.details[0].path == "/layers/0/content"
+    assert caught.value.details[0].layer_id == "missing-glyph"
+    assert not output.exists()

@@ -8,7 +8,7 @@ from quickthumb._base import apply_alignment, expanded_rotation_size, parse_coor
 from quickthumb._path_svg import _bounded_number
 from quickthumb._sampling import _MAX_CAPTURE_BYTES, _MAX_OBSERVATIONS
 from quickthumb.errors import RenderingError
-from quickthumb.models import BackgroundLayer, NullLayer, PathLayer, ShapeLayer
+from quickthumb.models import BackgroundLayer, NullLayer, PathLayer, ShapeLayer, TextLayer
 from quickthumb.motion import LayerState
 
 
@@ -56,7 +56,7 @@ def shape_source_box(canvas, layer):
 
 def layer_pose(canvas, layer, shapes, timeline, fps, boundaries, geometry=None):
     """Return native source geometry and one canonical animated object transform."""
-    if isinstance(layer, BackgroundLayer):
+    if isinstance(layer, (BackgroundLayer, TextLayer)):
         return (
             shapes,
             {
