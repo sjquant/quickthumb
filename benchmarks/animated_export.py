@@ -19,12 +19,12 @@ from typing import Any, Literal
 from unittest.mock import patch
 
 import PIL
-from PIL import Image, ImageFont, ImageSequence, features
+from PIL import Image, ImageChops, ImageFont, ImageSequence, features
 from quickthumb import GifOptions, MotionBlur, VideoOptions
 
 from benchmarks.scenes import DURATION, SCENES, TEXT_SELECTOR_SCENES, build_scene
 
-MEASURABLE_SCENES = (*SCENES, "motion_path", "motion_blur", *TEXT_SELECTOR_SCENES)
+MEASURABLE_SCENES = (*SCENES, "motion_path", "motion_blur", "path_trim", *TEXT_SELECTOR_SCENES)
 
 ROOT = Path(__file__).resolve().parents[1]
 FORMATS = ("gif", "mp4", "webm")
@@ -91,7 +91,7 @@ def displacement_jitter(points: list[tuple[float, float]]) -> float:
 
 
 def measure_jitter(scene: str) -> float | None:
-    if scene in {"product_hype_reel", "motion_path", *TEXT_SELECTOR_SCENES}:
+    if scene in {"product_hype_reel", "motion_path", "path_trim", *TEXT_SELECTOR_SCENES}:
         return None
     # Independent fixed 30 fps probe; do not contaminate export timing/cache/RSS.
     frames = build_scene(scene).sample(time=[i / 30 for i in range(round(DURATION * 30))])
@@ -232,6 +232,43 @@ def measure_export(
             or abs(blur_decoded["duration"] - receipt.timing_metrics.duration) > 0.011
         ):
             raise RuntimeError("decoded playback disagrees with export receipt")
+        if scene == "path_trim" and format == "gif":
+            durations, frame_hashes, bounds = [], set(), []
+            with Image.open(output) as gif:
+                for frame in ImageSequence.Iterator(gif):
+                    rgb = frame.convert("RGB")
+                    ink = ImageChops.difference(
+                        rgb, Image.new("RGB", rgb.size, "#101820")
+                    ).getbbox()
+                    if (
+                        rgb.size != (432, 288)
+                        or ink is None
+                        or ink[0] <= 0
+                        or ink[1] <= 0
+                        or ink[2] >= rgb.width
+                        or ink[3] >= rgb.height
+                    ):
+                        raise RuntimeError(
+                            "Path GIF changed extent or lost its bounded visible ink"
+                        )
+                    bounds.append(ink)
+                    durations.append(frame.info.get("duration", 0))
+                    frame_hashes.add(hashlib.sha256(rgb.tobytes()).hexdigest())
+            selector_decoded = {
+                "width": 432,
+                "height": 288,
+                "frames": len(durations),
+                "distinct_frames": len(frame_hashes),
+                "duration": sum(durations) / 1000,
+                "first_ink_bounds": bounds[0],
+                "last_ink_bounds": bounds[-1],
+            }
+            if (
+                len(frame_hashes) < 2
+                or abs(selector_decoded["duration"] - DURATION) > 0.02
+                or font_loads
+            ):
+                raise RuntimeError("Path GIF lost motion, changed its clock or loaded a font")
         return {
             "scene": scene,
             "format": format,
