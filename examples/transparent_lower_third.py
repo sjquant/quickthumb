@@ -41,10 +41,10 @@ if __name__ == "__main__":
     output.mkdir(exist_ok=True)
     build_scene().render(
         str(output / "transparent_lower_third.webm"),
-        animation=VideoOptions(transparent=True, fps=24, quality="high", workers=2),
+        animation=VideoOptions(transparent=True, fps=24, render_quality="high", workers=2),
     )
 
     build_scene().render(
         str(output / "transparent_lower_third.mov"),
-        animation=VideoOptions(transparent=True, fps=24, quality="high", workers=2),
+        animation=VideoOptions(transparent=True, fps=24, render_quality="high", workers=2),
     )

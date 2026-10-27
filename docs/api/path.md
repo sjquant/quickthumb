@@ -104,8 +104,9 @@ the GIF plays the enlargement and the JSON preserves the complete source.
 
 PNG and canonical samples draw the path at its sampled transform. Untransformed
 paths in SVG and HTML use native SVG with even-odd fill, fixed viewport clipping,
-gradients and local stroke controls. Transformed or animated paths use a declared
-authored-static PNG fallback. HTML keeps each slide's gradient resources independent.
+gradients and local stroke controls. Transform timelines use a declared authored-static
+PNG fallback. Supported HTML stroke timelines use the native adapter described below.
+HTML keeps each slide's gradient resources independent.
 
 Very large, tiny or poorly conditioned coordinates use a declared raster fallback
 when native numeric range or 1/8-pixel coordinate precision cannot be preserved.
@@ -121,3 +122,153 @@ the bounded cubic conversion use a declared raster fallback. Degenerate strokes
 and mixed zero-length dash patterns also use raster output to preserve cap pixels.
 Paths with static rotation/opacity or animation use the same authored-static PNG
 fallback in PDF as SVG/HTML. PPTX embeds an authored-static raster image.
+
+## Animated dash phase
+
+`DashOffsetTrack` (`type="dash_offset"` in JSON) animates stroke phase in local
+SVG/viewBox distance units. The sampled phase is added to authored `dash_offset`;
+negative offsets and odd-length dash patterns retain the static painter's cycle
+rules. Keyframes use the shared easing, outgoing holds, and local timeline clock.
+Tracks replace the relative phase by default; `blend="add"` composes additional
+phase tracks in event order. Only Path layers accept this track.
+
+```python
+from quickthumb import AnimationSpec, DashOffsetTrack, KeyframeSpec, TimingSpec
+
+phase = AnimationSpec.timeline(
+    DashOffsetTrack(keyframes=[KeyframeSpec(time=0, value=0),
+                               KeyframeSpec(time=1, value=12)]),
+    timing=TimingSpec(duration=1), easing="linear",
+)
+canvas.path("M0 10H100", (10, 10), 100, 20, None,
+            stroke="#42CEB7", dash_array=(5, 3), dash_offset=2, animation=phase)
+```
+
+Canonical samples, raster frames, GIF, video, and PNG sequences use the effective
+phase; `inspect_motion()` reports it alongside the authored static phase. SVG,
+PDF, and PPTX retain their declared authored-static fallback for animated Paths.
+HTML supports the bounded native stroke adapter described below. Path morphing uses the raster contract below.
+
+## Stroke trim
+
+`trim_start` and `trim_end` select normalized `0..1` positions along the total
+local SVG/viewBox arc length, in contour order. Move commands add no distance and
+never connect contours. The default `0, 1` retains the entire stroke, regardless
+of offset; equal endpoints and `1, 0` retain no stroke. When start exceeds end,
+the interval wraps across the end of the complete path.
+
+`trim_offset` shifts both endpoints in normalized turns and wraps modulo one;
+negative and multiple-turn values are supported. A retained full closed contour
+keeps its closing join. A partial closed contour becomes open, with the authored
+caps at its cut endpoints; a wrapped selection through its closing seam keeps
+that seam as an interior join. Partial trims omit zero-length contours. Fill and
+gradient coverage remain authored and untrimmed. Dashes apply after trimming and
+restart with `dash_offset` at each retained run.
+
+Lengths use the existing adaptive curve subdivision with a 1/8-device-pixel chord
+tolerance. The 65,536-point geometry budget still applies; unrepresentable length
+or cuts raise `RenderingError` (`path_trim_limit`) rather than emitting cap dots.
+
+```python
+from quickthumb import TrimEndTrack
+
+reveal = AnimationSpec.timeline(
+    TrimEndTrack(keyframes=[KeyframeSpec(time=0, value=0),
+                            KeyframeSpec(time=1, value=1)]),
+    timing=TimingSpec(duration=1), easing="linear",
+)
+canvas.path("M0 10Q50 -10 100 10", (10, 10), 200, 40, None,
+            view_box=(0, -10, 100, 20), stroke="#42CEB7", animation=reveal)
+```
+
+`TrimStartTrack` and `TrimEndTrack` replace their authored normalized boundaries.
+`TrimOffsetTrack` adds its sampled relative turns to authored `trim_offset`; its
+tracks replace that relative offset by default, with `blend="add"` for ordered
+composition. JSON types are `trim_start`, `trim_end`, and `trim_offset`. Only Path
+layers accept these tracks. Shared easing, outgoing holds, and local clocks apply;
+boundary easing stays within `0..1`. Inspection reports effective trim values.
+
+Canonical samples, GIF/video and PNG sequences use sampled trim geometry through
+the adaptive Path source. Static trims in SVG/PDF and all PPTX paths use a declared
+raster fallback. HTML supports the bounded native stroke adapter below; other
+animated document paths retain authored trim values. Path morphing is described below.
+
+## Native HTML stroke motion
+
+HTML can animate one canonical stroke-property timeline on a single nondegenerate
+contour using native SVG `stroke-dasharray` and `stroke-dashoffset`. Dash-offset
+motion preserves the authored local dash pattern, including odd patterns and
+negative phases. Fill and gradient paint use a separate, untrimmed SVG path.
+
+Native trim requires an open contour with butt caps, no authored dash pattern,
+and an ordered, nonwrapping window throughout the animation. Trim start/end and
+relative offset tracks can combine within those bounds. Closed trim contours,
+wrapped windows, trim plus dash painting, transform tracks, lists of animation
+specs, and overshooting easing retain an explicit authored-static raster fallback.
+Static trim uses the same admission rules. PPTX keeps its static raster route.
+
+The existing HTML runtime drives native stroke CSS keyframes sampled from the
+canonical timeline at 120 Hz, retaining every authored knot and outgoing hold
+boundary. Delays and triggers use the existing timeline clock. Between samples,
+CSS interpolates linearly; this is a bounded approximation of easing and curve
+length, rather than an exact browser/raster pixel guarantee. The plan permits at
+most 4097 stops (about 34 seconds without additional knots). Exceeding that plan
+uses the declared static fallback.
+
+The generic HTML capability matrix reports partial support. Each admitted layer
+reports its actual native SVG/CSS route and sampled timing limit; rejected layers
+report the fallback reason. Strict export policy accepts admitted native routes
+and rejects combinations requiring raster fallback before writing output.
+
+## Path morphing
+
+`PathMorphTrack` (`type="path_morph"`) accepts SVG `d` strings in ordinary
+`KeyframeSpec` values. It replaces path geometry in the fixed authored viewport;
+paint, trim, dash phase, opacity and transforms keep their existing semantics.
+The canonical sampler applies the shared local clock, per-segment easing and
+outgoing holds. Easing progress is clamped to `0..1`. At authored keyframe
+boundaries it returns the original `d` string, retaining the original curves.
+Inspection exposes authored and effective geometry as `path_morph`.
+
+```python
+from quickthumb import PathMorphTrack
+
+change = AnimationSpec.timeline(
+    PathMorphTrack(keyframes=[
+        KeyframeSpec(time=0, value="M10 10H50V50H10Z"),
+        KeyframeSpec(time=1, value="M20 20H60V60H20Z"),
+    ]), timing=TimingSpec(duration=1), easing="linear",
+)
+canvas.path("M10 10H50V50H10Z", (10, 10), 100, 100, animation=change)
+```
+
+Correspondence uses the existing local SVG curve subdivision, then 256 equally
+spaced arc-length points per contour. Contours match in document order. Closed
+contours preserve winding and nesting; cyclic start alignment minimizes matched
+point distances, choosing the lowest shift when scores tie. Open contours retain
+authored direction and endpoints. Intermediate geometry is a polyline, with
+collinear interior points omitted, painted through the existing adaptive Path
+source and its single-entry cache.
+
+This bounded subset requires 1–16 nondegenerate, noncrossing contours with matching
+count, order, open/closed status, winding and nesting. Touching or self-crossing
+contours are refused. A contour may use at most 256 locally subdivided vertices;
+the correspondence plan permits at most 4096 total sampled points and one million
+edge-pair checks. Resampling must retain each subdivided vertex within ¼ local SVG
+unit of its corresponding arc interval; otherwise admission fails. These local
+limits do not promise subpixel accuracy after enlargement. Endpoint geometry stays
+exact; intermediate contour positions interpolate linearly after easing.
+
+Incompatible authored geometry raises `ValidationError` with code
+`path_morph_topology`. An intermediate sample that degenerates, intersects, touches,
+or changes winding/nesting raises `RenderingError` with that code before painting.
+The sampler does not silently reorder contours, reverse winding, crossfade, or
+substitute another topology. Endpoint geometry and correspondence plans use bounded
+caches; rendered frames still retain only the existing one-entry Path source.
+
+Morph timelines render in canonical samples, GIF/video, and serial/worker PNG
+sequences. HTML, SVG, PDF and PPTX retain explicit authored-static raster fallback
+for this feature. The runnable
+[path morph example](https://github.com/sjquant/quickthumb/blob/main/examples/path_morph.py)
+uses one logo geometry twice: trim reveals its outline, `OpacityTrack` fades in
+its fill, then both layers morph together into a circle.

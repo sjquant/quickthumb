@@ -113,7 +113,9 @@ if __name__ == "__main__":
     scene = build_scene()
     output = ROOT / "examples/output"
     output.mkdir(exist_ok=True)
-    scene.render(str(output / "parent_stagger.gif"), animation=GifOptions(fps=24, quality="high"))
+    scene.render(
+        str(output / "parent_stagger.gif"), animation=GifOptions(fps=24, render_quality="high")
+    )
     scene.render_frame(0.95).save(output / "parent_stagger.png")
     # Document adapters keep the complete authored scene as a static fallback.
     scene.render(str(output / "parent_stagger.html"))
