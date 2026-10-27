@@ -55,6 +55,7 @@ from quickthumb.models import (
     Glow,
     LinearGradient,
     OutlineLayer,
+    PathLayer,
     QRCodeLayer,
     RadialGradient,
     Shadow,
@@ -326,7 +327,11 @@ class PptxExporter:
         (e.g. a text box plus its background fills), and the animation is
         applied to all of them together.
         """
-        animation = None if _has_transform_extensions(layer) else getattr(layer, "animation", None)
+        animation = (
+            None
+            if isinstance(layer, PathLayer) or _has_transform_extensions(layer)
+            else getattr(layer, "animation", None)
+        )
         start = len(self._slide.shapes)
         if animation is None:
             self._emit_layer(layer)

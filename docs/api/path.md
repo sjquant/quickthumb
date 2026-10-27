@@ -92,12 +92,15 @@ canvas.path("M10 10H90V90H10Z", (20, 10), 120, 100, None,
             fill=LinearGradient(angle=30, stops=[("#42CEB780", 0), ("#315D8EFF", 1)]))
 ```
 
-Layer animation, parent links, grouping and composition controls are
-not accepted yet. JSON uses `type="path"` and round-trips through `PathLayer`.
+Track timelines, static `rotation`/`opacity` and normalized `anchor` are supported;
+see [Path motion](../concepts.md#path-motion) for transform and source limits.
+Parent links, grouping and composition controls are not accepted yet.
+JSON uses `type="path"` and round-trips through `PathLayer`.
 
-PNG and canonical samples draw the path directly. SVG and HTML emit native SVG
-paths with even-odd fill, fixed viewport clipping, gradients and local stroke
-controls. HTML keeps each slide's gradient resources independent.
+PNG and canonical samples draw the path at its sampled transform. Untransformed
+paths in SVG and HTML use native SVG with even-odd fill, fixed viewport clipping,
+gradients and local stroke controls. Transformed or animated paths use a declared
+authored-static PNG fallback. HTML keeps each slide's gradient resources independent.
 
 Very large, tiny or poorly conditioned coordinates use a declared raster fallback
 when native numeric range or 1/8-pixel coordinate precision cannot be preserved.

@@ -108,6 +108,7 @@ from quickthumb.models import (
     ImageLayer,
     MotionBlur,
     NullLayer,
+    PathLayer,
     QRCodeLayer,
     TextLayer,
     VideoLayer,
@@ -1654,10 +1655,22 @@ class _SlideAnimator:
                     visible_video_layers.extend(iter_video_layers(unit.layers))
                 self._composite_parent(unit, frame, time, parent_samples, render_scale)
                 continue
-            if unit.image is None and not (unit.color_motion or unit.animates_layers):
-                continue
             state = _unit_state(unit, time)
             if state.hidden:
+                continue
+            if len(unit.layers) == 1 and isinstance(unit.layers[0], PathLayer):
+                from quickthumb._path_motion import render_path_frame
+
+                render_path_frame(
+                    frame,
+                    unit.layers[0],
+                    canvas._ctx,
+                    canvas._effects,
+                    state=state.canonical.layer if state.canonical else None,
+                    render_scale=render_scale,
+                )
+                continue
+            if unit.image is None and not (unit.color_motion or unit.animates_layers):
                 continue
             visible_video_layers.extend(iter_video_layers(unit.layers))
             if unit.target_images and state.canonical is not None:
@@ -2087,7 +2100,7 @@ def _build_units(
         animation = None if reduced_motion else getattr(layer, "animation", None)
         key = id(animation) if animation is not None else None
         if (
-            isinstance(layer, NullLayer)
+            isinstance(layer, (NullLayer, PathLayer))
             or _has_transform_extensions(layer)
             or id(layer) in (parent_nodes or ())
         ):
@@ -2121,7 +2134,7 @@ def _build_units(
             (parent_node.image, (0, 0))
             if parent_node is not None
             else (None, (0, 0))
-            if len(layers) == 1 and isinstance(layers[0], NullLayer)
+            if len(layers) == 1 and isinstance(layers[0], (NullLayer, PathLayer))
             else _render_unit_image(canvas, layers)
         )
         is_prefix = bool(prefix) and index == 0

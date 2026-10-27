@@ -9,6 +9,8 @@ from quickthumb.models import LinearGradient, PathLayer
 
 def native_path_problem(layer: PathLayer) -> str | None:
     """Keep native coordinates within conservative float32 range and 1/8-pixel precision."""
+    if layer.rotation or layer.opacity != 1 or layer.animation is not None:
+        return "transformed paths use authored-static raster fallback in document exports"
     vx, vy, vw, vh = layer.view_box or (0, 0, layer.width, layer.height)
     sx, sy = layer.width / vw, layer.height / vh
     segments = parse_path(layer.d)

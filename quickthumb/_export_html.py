@@ -1060,7 +1060,9 @@ class HtmlExporter:
         # when that timestamp would otherwise sample its canonical tracks.
         source = (
             layer.model_copy(update={"animation": None})
-            if isinstance(layer, VideoLayer) and _has_transform_extensions(layer)
+            if isinstance(layer, PathLayer)
+            or isinstance(layer, VideoLayer)
+            and _has_transform_extensions(layer)
             else layer
         )
         fragment = rasterize_layers(self._canvas, [source])

@@ -837,6 +837,16 @@ def _layer_motion_state(layer: object, canvas: Canvas, time: float = 0.0) -> Lay
     if isinstance(animation, AnimationSpec) or (
         isinstance(animation, list) and all(isinstance(item, AnimationSpec) for item in animation)
     ):
+        if isinstance(layer, PathLayer):
+            relative = compile_timeline(animation).sample(time, LayerState(anchor=layer.anchor))
+            x, y = state.position or (0, 0)
+            dx, dy = relative.position or (0, 0)
+            return relative.with_values(
+                position=(x + dx, y + dy),
+                rotation=layer.rotation + relative.rotation,
+                opacity=layer.opacity * relative.opacity,
+                color=layer.color,
+            )
         return compile_timeline(animation).sample(time, state)
     return state
 
@@ -2425,6 +2435,8 @@ def _validate_export(
                     and not html_transform
                     and feature not in _CANONICAL_RENDERED.get(normalized, frozenset())
                 )
+                if isinstance(layer, PathLayer) and normalized not in {"raster", "video"}:
+                    canonical_unimplemented = True
                 if feature == "color" and normalized in {"raster", "video"}:
                     canonical_unimplemented = not _supports_color_motion(layer)
                 declared_support = "unsupported" if canonical_unimplemented else capability.support
@@ -2771,7 +2783,15 @@ def _inspection_layer(
     value = getattr(layer, "value", None)
     value_duration = value.delay + value.duration if isinstance(value, AnimatedTextValue) else 0.0
     base = _layer_base_state(layer, canvas)
-    initial = timeline.sample(0.0, base)
+
+    def sample_state(time):
+        return (
+            _layer_motion_state(layer, canvas, time)
+            if isinstance(layer, PathLayer)
+            else timeline.sample(time, base)
+        )
+
+    initial = sample_state(0.0)
     selector = _text_selector(layer)
     target_spec = next((spec for spec in specs if spec.stagger), specs[0] if selector else None)
     resolved_targets = _inspection_targets(layer, target_spec, canvas) if target_spec else []
@@ -2791,7 +2811,7 @@ def _inspection_layer(
         timeline.duration, value_duration, max((item.duration for item in timelines), default=0)
     )
     sample_times = _bounded_frame_times(duration, fps, max_samples)
-    final = timeline.sample(duration, base)
+    final = sample_state(duration)
     if selector or character_stagger:
         motion_base = _target_base_state(layer)
         states = [_sample_target_timelines(timelines, time, motion_base) for time in sample_times]
@@ -2813,8 +2833,7 @@ def _inspection_layer(
         targets=targets,
         sample_times=list(sample_times),
         samples=[
-            timeline.sample(time, base).model_dump(mode="json", exclude_none=True)
-            for time in sample_times
+            sample_state(time).model_dump(mode="json", exclude_none=True) for time in sample_times
         ],
         static_state=static_state,
         initial_state=initial.model_dump(mode="json", exclude_none=True),
