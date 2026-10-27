@@ -41,6 +41,7 @@ from quickthumb.models import (
     MotionSlideInspection,
     MotionTargetInspection,
     MotionTrackInspection,
+    PathLayer,
     PluginLayer,
     ReducedMotionInspection,
     ShapeLayer,
@@ -1677,6 +1678,7 @@ def sample_frames(timeline: Timeline, fps: float) -> tuple[tuple[float, LayerSta
 
 ExportTarget = Literal["raster", "video", "html", "pptx"]
 CapabilityFeature = Literal[
+    "path",
     "parent",
     "anchor",
     "position",
@@ -1714,6 +1716,7 @@ class MotionCapability:
 
 
 _CAPABILITY_FEATURES: tuple[CapabilityFeature, ...] = (
+    "path",
     "parent",
     "anchor",
     "position",
@@ -1787,11 +1790,13 @@ _CAPABILITIES["html"] = {
     for feature in _CAPABILITY_FEATURES
 }
 _CAPABILITIES["html"]["parent"] = MotionCapability("parent", "html", "partial")
+_CAPABILITIES["html"]["path"] = MotionCapability("path", "html", "fallback", "rasterize")
 _CAPABILITIES["html"]["color"] = MotionCapability("color", "html", "unsupported", "static")
 _CAPABILITIES["html"]["motion_path"] = MotionCapability("motion_path", "html", "partial")
 _CAPABILITIES["html"]["spring"] = MotionCapability("spring", "html", "fallback", "static")
 _CAPABILITIES["html"]["wiggle"] = MotionCapability("wiggle", "html", "fallback", "static")
 _PPTX_FALLBACKS: dict[CapabilityFeature, tuple[SupportLevel, Fallback | None]] = {
+    "path": ("fallback", "rasterize"),
     "parent": ("fallback", "static"),
     "position": ("native", None),
     "image_pan": ("fallback", "rasterize"),
@@ -2101,6 +2106,27 @@ def _validate_export(
                             "export raises instead of ignoring links."
                         )
                     ),
+                )
+            )
+        if isinstance(layer, PathLayer) and document_format in {"html", "svg", "pdf", "pptx"}:
+            message = f"path layer {layer_id} uses a static raster image for {document_format}"
+            action = resolved_policy.pptx.get(layer_id) if normalized == "pptx" else None
+            if (action or resolved_policy.unsupported_motion) in {"error", "native"}:
+                raise RenderingError(
+                    message,
+                    code="unsupported_capability",
+                    path=f"{pointer}/d",
+                    layer_id=layer_id,
+                    suggestion="allow raster fallback or export to PNG",
+                )
+            diagnostics.append(
+                ExportDiagnostic(
+                    layer_id=layer_id,
+                    feature="path",
+                    target=document_format,
+                    support="fallback",
+                    fallback="rasterize",
+                    message=message,
                 )
             )
         value = getattr(layer, "value", None)
@@ -2668,6 +2694,8 @@ def inspect_motion(
         ]
         motion_duration = max((layer.duration for layer in layers), default=0.0)
         for _, layer in _iter_export_layers(canvas):
+            if isinstance(layer, PathLayer):
+                source_features.add("path")
             if getattr(layer, "parent", None) is not None:
                 source_features.add("parent")
             animation = getattr(layer, "animation", None)
