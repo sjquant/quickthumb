@@ -125,11 +125,16 @@ class TestTransparentWebmValidation:
         with pytest.raises(ValidationError, match="transparent.*boolean"):
             document(kind).to_webm(transparent=cast(Any, value))
 
-    @pytest.mark.parametrize("kind", ["canvas", "deck"])
     @pytest.mark.parametrize(
-        "extension", ["mp4", "gif", "pdf", "pptx", "svg", "html", "png", "jpg", "webp"]
+        "kind,extension",
+        [
+            (kind, extension)
+            for kind in ("canvas", "deck")
+            for extension in ("pdf", "pptx", "svg", "html", "png", "jpg", "webp")
+            if (kind, extension) != ("deck", "svg")
+        ],
     )
-    def test_unsupported_targets_preserve_destination_before_work(
+    def test_static_targets_reject_animation_before_work(
         self, monkeypatch, tmp_path, kind, extension
     ):
         destination = tmp_path / f"existing.{extension}"
@@ -137,9 +142,7 @@ class TestTransparentWebmValidation:
         monkeypatch.setattr(video, "_deck_plan", lambda *a, **k: pytest.fail("built timeline"))
         monkeypatch.setattr(video, "_ffmpeg_binary", lambda: pytest.fail("looked up ffmpeg"))
         monkeypatch.setattr(video.tempfile, "mkstemp", lambda *a, **k: pytest.fail("tempfile"))
-        with pytest.raises(
-            (ValidationError, RenderingError), match="transparent|animation|VideoOptions"
-        ):
+        with pytest.raises(RenderingError, match="animation options"):
             document(kind).render(str(destination), animation=VideoOptions(transparent=True))
         assert destination.read_bytes() == b"previous export"
         assert list(tmp_path.iterdir()) == [destination]
@@ -221,7 +224,7 @@ class TestTransparentWebmPublicExports:
         elif isinstance(source, Canvas):
             destination.write_bytes(source.to_webm(fps=10, hold=0.3, transparent=True))
         else:
-            destination.write_bytes(source.to_webm(fps=10, slide_duration=0.3, transparent=True))
+            destination.write_bytes(source.to_webm(fps=10, hold=0.3, transparent=True))
         assert destination.read_bytes().startswith(b"\x1a\x45\xdf\xa3")
         assert_alpha_interiors(decode_rgba(destination))
         assert list(tmp_path.iterdir()) == [destination]
@@ -269,9 +272,7 @@ class TestTransparentWebmPublicExports:
         music = AudioTrack(path=tone_wav(tmp_path / "music.wav", 0.1), volume=0.1, loop=True)
         deck = Deck(*SIZE).slide(alpha_canvas(), audio=voice)
         destination = tmp_path / "mixed.webm"
-        destination.write_bytes(
-            deck.to_webm(fps=10, slide_duration=0.1, transparent=True, soundtrack=music)
-        )
+        destination.write_bytes(deck.to_webm(fps=10, hold=0.1, transparent=True, soundtrack=music))
         frames = decode_rgba(destination)
         samples = decode_audio(destination)
         assert len(frames) == 6

@@ -238,11 +238,12 @@ def test_color_backdrop_prefix_and_static_plate_order():
 
 
 @pytest.mark.parametrize("transparent", [False, True])
-def test_staggered_lines_use_independent_colors_and_stable_bounds(transparent):
+@pytest.mark.parametrize("target", ["lines", "words"])
+def test_staggered_text_uses_independent_colors_and_stable_bounds(transparent, target):
     motion = animation(track(ColorTrack, "#FF000000" if transparent else "#FF0000", "#0000FF"))
-    motion.stagger = StaggerSpec(delay=0.5, target="lines")
-    canvas = Canvas(180, 180).text(
-        "ONE\nTWO\nTHREE",
+    motion.stagger = StaggerSpec(delay=0.5, target=target)
+    canvas = Canvas(400, 180).text(
+        "ONE\nTWO\nTHREE" if target == "lines" else "ONE TWO THREE",
         position=(30, 20),
         font=FONT,
         size=25,
@@ -319,7 +320,9 @@ def test_color_gif_worker_bytes_and_timing(quality, tmp_path):
     canvas = scene(animation=animation(track(ColorTrack, "#FF000000", "#0000FFFF")))
     outputs = [tmp_path / f"{workers}.gif" for workers in (1, 2)]
     for workers, output in zip((1, 2), outputs, strict=True):
-        canvas.render(str(output), animation=GifOptions(fps=4, quality=quality, workers=workers))
+        canvas.render(
+            str(output), animation=GifOptions(fps=4, render_quality=quality, workers=workers)
+        )
     assert outputs[0].read_bytes() == outputs[1].read_bytes()
 
 

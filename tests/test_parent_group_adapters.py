@@ -184,7 +184,9 @@ def test_composed_group_serial_and_spawn_gif_bytes_match(tmp_path, quality):
     canvas = group_scene()
     serial, parallel = tmp_path / "serial.gif", tmp_path / "parallel.gif"
     for workers, path in ((1, serial), (2, parallel)):
-        canvas.render(str(path), animation=GifOptions(fps=4, quality=quality, workers=workers))
+        canvas.render(
+            str(path), animation=GifOptions(fps=4, render_quality=quality, workers=workers)
+        )
     assert serial.read_bytes() == parallel.read_bytes()
     with Image.open(serial) as gif:
         assert getattr(gif, "n_frames", 1) >= 4
