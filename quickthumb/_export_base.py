@@ -40,6 +40,7 @@ from quickthumb.models import (
     GroupLayer,
     InnerShadow,
     LinearGradient,
+    PluginLayer,
     QRCodeLayer,
     RadialGradient,
     Shadow,
@@ -75,6 +76,13 @@ def flatten_layers(
     """Resolve group layers into placed children so exporters see a flat list."""
     from quickthumb._parenting import require_parent_rendering
 
+    for layer in canvas._iter_layers_deep():
+        if isinstance(layer, PluginLayer):
+            raise RenderingError(
+                "Plugin layers currently support settled raster output only.",
+                code="unsupported_capability",
+                layer_id=layer.id,
+            )
     if parent_nodes is None:
         require_parent_rendering(canvas)
     flat: list[RenderableLayer] = []
