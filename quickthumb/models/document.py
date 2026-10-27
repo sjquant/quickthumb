@@ -66,6 +66,9 @@ class CanvasModel(quickthumbModel):
         from quickthumb._parenting import validate_parent_graph
 
         validate_parent_graph(self.layers)
+        from quickthumb._track_mattes import validate_matte_graph
+
+        validate_matte_graph(self.layers)
         return self
 
 
@@ -82,6 +85,9 @@ class CanvasSpecModel(quickthumbModel):
         from quickthumb._parenting import validate_parent_graph
 
         validate_parent_graph(self.layers)
+        from quickthumb._track_mattes import validate_matte_graph
+
+        validate_matte_graph(self.layers)
         return self
 
 

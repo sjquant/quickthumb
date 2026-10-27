@@ -1270,7 +1270,9 @@ def _morph_source(
     transition: Transition | None, previous: Canvas | None, incoming: Canvas
 ) -> Canvas | None:
     """Return the outgoing canvas when a keyed Morph can play into `incoming`."""
+    from quickthumb._composition import has_animated_masks
     from quickthumb._parenting import has_parent_links
+    from quickthumb._track_mattes import has_track_mattes
 
     if (
         transition is not None
@@ -1280,6 +1282,10 @@ def _morph_source(
         and not _canvas_has_video_captions(incoming)
         and not has_parent_links(previous)
         and not has_parent_links(incoming)
+        and not has_track_mattes(previous)
+        and not has_track_mattes(incoming)
+        and not has_animated_masks(previous)
+        and not has_animated_masks(incoming)
     ):
         return previous
     return None
@@ -1570,9 +1576,16 @@ class _SlideAnimator:
         # Only the leading static run is safe to cache. Static units above or
         # between moving units must retain their original compositing order;
         # regrouping even translucent static images changes alpha rounding.
-        prefix_end = next(
-            (index for index, unit in enumerate(self._units) if _unit_is_dynamic(unit)),
-            len(self._units),
+        from quickthumb._track_mattes import has_track_mattes
+
+        self._track_mattes = has_track_mattes(canvas)
+        prefix_end = (
+            0
+            if self._track_mattes
+            else next(
+                (index for index, unit in enumerate(self._units) if _unit_is_dynamic(unit)),
+                len(self._units),
+            )
         )
         self._static_plate = (
             self._composite_frame(
@@ -1597,6 +1610,10 @@ class _SlideAnimator:
         if self._color_motion:
             self._canvas._ctx.measure_cache = {}
         try:
+            if self._track_mattes:
+                from quickthumb._track_mattes import render_matte_frame
+
+                return render_matte_frame(self, time, include_captions)
             return self._composite_frame(
                 self._frame_units,
                 time,
@@ -1702,7 +1719,19 @@ class _SlideAnimator:
                 )
                 continue
             color = state.canonical.layer.color if state.canonical is not None else None
-            if unit.component_duration > 0 or color is not None and unit.color_motion:
+            from quickthumb._composition import has_mask_tracks, with_motion_mask
+
+            if unit.layers and has_mask_tracks(unit.layers[0]):
+                assert state.canonical is not None
+                painted = with_motion_mask(unit.layers[0], state.canonical.layer, canvas._ctx)
+                surface = _render_unit_surface(canvas, [painted], time, color=color)
+                pos = unit.pos
+                if unit.image is None:
+                    continue
+                image = surface.crop(
+                    (pos[0], pos[1], pos[0] + unit.image.width, pos[1] + unit.image.height)
+                )
+            elif unit.component_duration > 0 or color is not None and unit.color_motion:
                 image, pos = _render_unit_image(
                     canvas, unit.layers, time, animate_layers=unit.animates_layers, color=color
                 )
@@ -1798,8 +1827,12 @@ class _SlideAnimator:
         if state.hidden or collapsed or isinstance(node.layer, NullLayer):
             return
         motion = state.canonical.layer if state.canonical else LayerState()
+        from quickthumb._composition import has_mask_tracks
+
         image, source_offset = (
-            node.render_sample(time, motion.color)
+            (node.render_source(time, motion.color, mask_state=motion), (0, 0))
+            if has_mask_tracks(node.layer)
+            else node.render_sample(time, motion.color)
             if unit.component_duration > 0 or unit.color_motion and motion.color is not None
             else (node.image, (0, 0))
         )
@@ -2043,11 +2076,16 @@ def _build_units(
     reduced_motion: bool = False,
 ) -> tuple[list[_Unit], ParentRenderPlan | None]:
     """Prepare all scene units and optional parent sources before scheduling."""
+    from quickthumb._composition import has_mask_tracks, without_mask
     from quickthumb._parenting import has_parent_links
+    from quickthumb._track_mattes import has_track_mattes
     from quickthumb.motion import _text_selector, _validate_text_selectors
 
     _validate_text_selectors(canvas)
+    mattes = has_track_mattes(canvas)
     linked = has_parent_links(canvas)
+    if mattes:
+        canvas._validate_layer_identities()
     if not reduced_motion and not linked:
         validate_legacy_animation_export(canvas)
     if linked:
@@ -2056,6 +2094,20 @@ def _build_units(
     canvas._ctx.begin_render_pass()
     parent_plan = ParentRenderPlan(canvas) if linked else None
     parent_nodes = frozenset(parent_plan.nodes) if parent_plan else None
+    if mattes:
+        from quickthumb.models import TrackMatte
+
+        source_ids = {
+            mask.layer
+            for layer in canvas.layers
+            if isinstance(mask := getattr(layer, "mask", None), TrackMatte)
+        }
+        parent_nodes = frozenset(
+            id(layer)
+            for layer in canvas.layers
+            if getattr(layer, "id", None) in source_ids
+            or isinstance(getattr(layer, "mask", None), TrackMatte)
+        ) | (parent_nodes or frozenset())
     group_target_counts = _canonical_group_target_counts(canvas)
     prefix, rest = split_backdrop_prefix(flatten_layers(canvas, parent_nodes=parent_nodes))
     if not reduced_motion and any(
@@ -2096,17 +2148,19 @@ def _build_units(
         if reduced_motion
         else max((_canonical_layer_duration(layer) for layer in prefix), default=0.0)
     )
-    for layer in rest:
+    for occurrence, layer in enumerate(rest):
         animation = None if reduced_motion else getattr(layer, "animation", None)
         key = id(animation) if animation is not None else None
         if (
-            isinstance(layer, (NullLayer, PathLayer))
+            mattes
+            or has_mask_tracks(layer)
+            or isinstance(layer, (NullLayer, PathLayer))
             or _has_transform_extensions(layer)
             or id(layer) in (parent_nodes or ())
         ):
             # Nulls carry clocks only and must never become another layer's target.
             # Independent layers must keep independent pivots even when sharing a spec.
-            key = (key, id(layer))
+            key = (key, occurrence if mattes else id(layer))
         if groups and groups[-1][0] == key:
             groups[-1][1].append(layer)
         else:
@@ -2129,13 +2183,18 @@ def _build_units(
                 "animated export. Use a legacy effect for layer-level motion."
             )
         effects = [effect for effect in raw_effects if not isinstance(effect, AnimationSpec)]
+        mask_motion = any(has_mask_tracks(layer) for layer in layers)
         parent_node = parent_plan.nodes.get(id(layers[0])) if parent_plan else None
         image, pos = (
             (parent_node.image, (0, 0))
             if parent_node is not None
             else (None, (0, 0))
             if len(layers) == 1 and isinstance(layers[0], (NullLayer, PathLayer))
-            else _render_unit_image(canvas, layers)
+            else _render_unit_image(
+                canvas,
+                [without_mask(layer) for layer in layers] if mask_motion else layers,
+                color="#FFFFFF" if mask_motion else None,
+            )
         )
         is_prefix = bool(prefix) and index == 0
         # A color-bearing backdrop prefix samples each layer separately. Its
