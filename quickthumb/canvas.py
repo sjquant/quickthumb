@@ -1392,7 +1392,11 @@ class Canvas:
 
         from quickthumb._export_pptx import PptxExporter
 
-        PptxExporter(self, reduced_motion=bool(policy and policy.reduced_motion)).save(output_path)
+        exporter = PptxExporter(self, reduced_motion=bool(policy and policy.reduced_motion))
+        document_bytes = exporter.export_bytes()
+        diagnostics.extend(exporter.diagnostics)
+        with open(output_path, "wb") as output:
+            output.write(document_bytes)
 
     def to_svg(self, embed_fonts: bool = False) -> str:
         """Render the canvas to an SVG document string.

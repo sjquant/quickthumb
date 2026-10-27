@@ -30,6 +30,9 @@ from quickthumb._export_base import (
     RasterFragment,
     TextBlockLayout,
     TextRunLayout,
+    _distinct_layer_occurrences,
+    _layer_routing,
+    _source_layer_ids,
     color_to_rgba,
     compute_text_layout,
     flatten_layers,
@@ -47,6 +50,7 @@ from quickthumb.models import (
     Blinds,
     ChartLayer,
     Checkerboard,
+    ExportDiagnostic,
     Fade,
     Glow,
     LinearGradient,
@@ -168,6 +172,7 @@ class PptxExporter:
         # take their canvases explicitly and leave this None.
         self._canvas = canvas
         self._reduced_motion = reduced_motion
+        self.diagnostics: list[ExportDiagnostic] = []
 
     def export_bytes(self) -> bytes:
         buffer = BytesIO()
@@ -187,7 +192,7 @@ class PptxExporter:
         transitions: list[Transition | None] | None = None,
     ) -> None:
         """Write one or more canvases to a multi-slide presentation (one slide per canvas)."""
-        presentation = self._build(canvases, transitions=transitions)
+        presentation = self._build(canvases, transitions=transitions, deck=True)
         presentation.save(path_or_stream)
 
     def export_bytes_canvases(
@@ -197,7 +202,13 @@ class PptxExporter:
         self.save_canvases(canvases, buffer, transitions=transitions)
         return buffer.getvalue()
 
-    def _build(self, canvases: list[Canvas], transitions: list[Transition | None] | None = None):
+    def _build(
+        self,
+        canvases: list[Canvas],
+        transitions: list[Transition | None] | None = None,
+        *,
+        deck: bool = False,
+    ):
         from pptx import Presentation
         from pptx.util import Emu
 
@@ -206,6 +217,8 @@ class PptxExporter:
 
         if not canvases:
             raise RenderingError("Cannot export a presentation with no slides.")
+        canvases = [_distinct_layer_occurrences(canvas) for canvas in canvases]
+        self.diagnostics.clear()
 
         presentation = Presentation()
         # The presentation has a single page size; the first slide defines it.
@@ -218,6 +231,11 @@ class PptxExporter:
         presentation.slide_height = Emu(_emu(first.height))
 
         for index, canvas in enumerate(canvases):
+            self._slide_index = index if deck else None
+            self._source_ids = {
+                id(layer): _source_layer_ids(layer, layer_index, (layer_index,))
+                for layer_index, layer in enumerate(canvas.layers)
+            }
             parent = has_parent_links(canvas)
             if not self._reduced_motion and not parent:
                 validate_legacy_animation_export(canvas)
@@ -232,12 +250,25 @@ class PptxExporter:
 
             if parent:
                 self._add_fragment(static_parent_fragment(canvas))
+                self._record_routing(
+                    canvas.layers,
+                    "Parent scene captured as an authored-static composite",
+                    rasterized=True,
+                )
             else:
-                prefix, rest = split_backdrop_prefix(flatten_layers(canvas))
+                prefix, rest = split_backdrop_prefix(
+                    flatten_layers(canvas, source_ids=self._source_ids)
+                )
                 if prefix:
                     fragment = rasterize_layers(canvas, prefix)
                     if fragment:
                         self._add_fragment(fragment)
+                        self._record_routing(
+                            prefix,
+                            "Backdrop-dependent layers and the content beneath them are rasterized "
+                            "together to preserve compositing",
+                            rasterized=True,
+                        )
                 for layer in rest:
                     self._emit_tracked_layer(layer)
 
@@ -280,6 +311,12 @@ class PptxExporter:
         )
 
     # ------------------------------------------------------------------ layers
+
+    def _record_routing(self, layers: list, reason: str, *, rasterized: bool) -> None:
+        observation = _layer_routing(
+            layers, self._source_ids, reason, target="pptx", rasterized=rasterized
+        )
+        self.diagnostics.append(observation.model_copy(update={"slide_index": self._slide_index}))
 
     def _emit_tracked_layer(self, layer: RenderableLayer):
         """Emit a layer, recording the shape ids it produces if it is animated.
@@ -358,7 +395,7 @@ class PptxExporter:
 
     def _emit_layer(self, layer: RenderableLayer):
         if has_layer_composition(layer):
-            self._emit_raster_fallback(layer)
+            self._emit_raster_fallback(layer, "Layer clipping or masking requires a PNG fragment")
             return
 
         if isinstance(layer, BackgroundLayer):
@@ -370,12 +407,15 @@ class PptxExporter:
         elif isinstance(layer, TextLayer):
             self._emit_text(layer)
         else:
-            self._emit_raster_fallback(layer)
+            self._emit_raster_fallback(
+                layer, f"{type(layer).__name__} is captured through the canonical raster pipeline"
+            )
 
-    def _emit_raster_fallback(self, layer: RenderableLayer):
+    def _emit_raster_fallback(self, layer: RenderableLayer, reason: str):
         fragment = rasterize_layers(self._current_canvas(), [layer])
         if fragment:
             self._add_fragment(fragment)
+            self._record_routing([layer], reason, rasterized=True)
 
     def _add_fragment(self, fragment: RasterFragment):
         from pptx.util import Emu
@@ -392,7 +432,9 @@ class PptxExporter:
 
     def _emit_background(self, layer: BackgroundLayer):
         if layer.effects or layer.image or isinstance(layer.gradient, RadialGradient):
-            self._emit_raster_fallback(layer)
+            self._emit_raster_fallback(
+                layer, "Background images, effects or radial gradients require a PNG fragment"
+            )
             return
 
         from pptx.enum.shapes import MSO_SHAPE
@@ -415,6 +457,9 @@ class PptxExporter:
             self._set_gradient_fill_xml(
                 shape._element.spPr, stops, layer.gradient.angle, layer.opacity
             )
+        self._record_routing(
+            [layer], "Background retained as editable PowerPoint geometry", rasterized=False
+        )
 
     def _remap_linear_stops(
         self, stops: list[tuple[str, float]], angle: float, width: float, height: float
@@ -477,6 +522,9 @@ class PptxExporter:
         shape.shadow.inherit = False
         rgba = color_to_rgba(canvas, layer.color, layer.opacity)
         self._set_line(shape, rgba, layer.width)
+        self._record_routing(
+            [layer], "Outline retained as editable PowerPoint geometry", rasterized=False
+        )
 
     # ------------------------------------------------------------------ shapes
 
@@ -495,7 +543,9 @@ class PptxExporter:
 
         shape = self._add_autoshape(layer, left, top)
         if shape is None:
-            self._emit_raster_fallback(layer)
+            self._emit_raster_fallback(
+                layer, "Shape geometry cannot be represented by an autoshape or freeform"
+            )
             return
 
         shape.shadow.inherit = False
@@ -518,6 +568,9 @@ class PptxExporter:
         shadows = [e for e in layer.effects if isinstance(e, Shadow)]
         if glows or shadows:
             self._append_effects(shape._element.spPr, glows, shadows, opacity=layer.opacity)
+        self._record_routing(
+            [layer], "Shape retained as editable PowerPoint geometry", rasterized=False
+        )
 
     def _add_autoshape(self, layer: ShapeLayer, left: float, top: float):
         from pptx.enum.shapes import MSO_SHAPE
@@ -574,7 +627,7 @@ class PptxExporter:
 
     def _emit_text(self, layer: TextLayer):
         if uses_image_fill(layer) or uses_radial_fill(layer):
-            self._emit_raster_fallback(layer)
+            self._emit_raster_fallback(layer, "Image or radial text fills require a PNG fragment")
             return
 
         layout = compute_text_layout(self._current_canvas(), layer)
@@ -585,7 +638,9 @@ class PptxExporter:
             for line in layout.lines
             for run in line
         ):
-            self._emit_raster_fallback(layer)
+            self._emit_raster_fallback(
+                layer, "Variable font or color emoji semantics require a PNG fragment"
+            )
             return
 
         if layout.block_backgrounds and layout.block_bg_box:
@@ -598,6 +653,9 @@ class PptxExporter:
                         self._add_text_background(background, run.bg_box, layout)
 
         self._add_textbox(layer, layout)
+        self._record_routing(
+            [layer], "Text retained as an editable PowerPoint text box", rasterized=False
+        )
 
     def _add_text_background(self, background, content_box: Box, layout: TextBlockLayout):
         from pptx.enum.shapes import MSO_SHAPE
