@@ -362,3 +362,74 @@ def test_parent_counter_group_retains_explicit_plugin_registry():
     # Then: no global registration is needed to preserve the plugin's placed pixels
     with frame.to_image() as image:
         assert image.getpixel((12, 9)) == (240, 20, 10, 255)
+
+
+@pytest.mark.parametrize("target", ["svg", "pdf"])
+def test_plugin_assets_registry_and_source_ids_survive_measured_document_export(tmp_path, target):
+    """Private plugin pixels remain the reference for actual routes and prewrite comparison."""
+    from tests._optional import require_cairosvg, require_pypdfium2
+
+    if target == "svg":
+        require_cairosvg()
+    else:
+        require_pypdfium2()
+    # Given: two source occurrences use one private renderer and declared byte asset.
+    raw = bytes([12, 34, 56, 255]) * 24
+    asset = tmp_path / "pixels.rgba"
+    asset.write_bytes(raw)
+    registry = PluginRegistry()
+    calls = []
+    fail_reference = False
+
+    def badge(params, context):
+        calls.append(context.size)
+        if fail_reference and len(calls) > 2:
+            raise RuntimeError("reference callback failed after document rendering")
+        return context.read_asset("pixels")
+
+    registry.register("badge", "1", raster=badge)
+    layer = PluginLayer(
+        type="plugin",
+        renderer="badge",
+        version="1",
+        params={},
+        width=6,
+        height=4,
+        position=(4, 3),
+        assets={"pixels": str(asset)},
+    )
+    scene = Canvas(24, 16, layers=[layer, layer], registry=registry)
+    source_ids = [item.id for item in scene.inspect().layers]
+    limits = ExportPolicy(
+        fidelity={
+            target: {
+                "pixel_tolerance": 0,
+                "max_different_pixel_ratio": 0,
+                "min_hash_similarity": 1,
+            }
+        }
+    )
+    path = tmp_path / f"observed.{target}"
+
+    # When: the actual document and its canonical reference render through this registry.
+    result = scene.export(path, policy=limits)
+
+    # Then: both distinct occurrences are actual PNG routes, and measured pixels match.
+    routes = [row for row in result.capability_report if row.feature == "layer_representation"]
+    assert [row.layer_id for row in routes] == source_ids
+    assert len(set(source_ids)) == 2
+    assert all(row.fallback == "rasterize" and row.native_attempt is False for row in routes)
+    comparison = result.pixel_metrics.fidelity
+    assert comparison is not None and comparison.verdict == "exact"
+    [resolved] = [item for item in result.asset_manifest if item.asset_type == "plugin"]
+    assert resolved.content_hash == hashlib.sha256(raw).hexdigest()
+    assert scene.layers[0] is scene.layers[1] is layer
+
+    # A failure while capturing reference pixels occurs after document rendering, before writing.
+    path.write_bytes(b"existing")
+    calls.clear()
+    fail_reference = True
+    with pytest.raises(RenderingError, match="reference callback failed"):
+        scene.export(path, policy=limits)
+    assert len(calls) == 3
+    assert path.read_bytes() == b"existing"
