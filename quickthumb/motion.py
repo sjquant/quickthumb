@@ -43,6 +43,7 @@ from quickthumb.models import (
     MotionTrackInspection,
     ReducedMotionInspection,
     ShapeLayer,
+    SpringEasing,
     TextLayer,
     TimingSpec,
     TrackSpec,
@@ -235,38 +236,43 @@ def resolve_staggered_timelines(
     return tuple(expanded)
 
 
-# A named easing, a `CubicBezierEasing`, or its JSON mapping form. Names are typed
+# A named easing, a structured curve, or its JSON mapping form. Names are typed
 # `str` rather than `MotionEasingName` so unknown names reach the validator.
-EasingValue = str | CubicBezierEasing | Mapping[str, object]
-BezierPoints = tuple[float, float, float, float]
+EasingValue = str | CubicBezierEasing | SpringEasing | Mapping[str, object]
 
 
-def _bezier_points(easing: CubicBezierEasing | Mapping[str, object]) -> BezierPoints:
-    """Return validated control points for a custom cubic-bezier easing."""
-    if isinstance(easing, CubicBezierEasing):
-        return easing.points
+def _custom_easing(
+    easing: CubicBezierEasing | SpringEasing | Mapping[str, object],
+) -> CubicBezierEasing | SpringEasing:
+    """Validate the structured easing used by a compiled or public timeline."""
+    if isinstance(easing, (CubicBezierEasing, SpringEasing)):
+        return easing
     try:
-        return CubicBezierEasing.model_validate(easing).points
+        model = SpringEasing if easing.get("type") == "spring" else CubicBezierEasing
+        return model.model_validate(easing)
     except PydanticValidationError as error:
-        raise ValidationError(f"invalid cubic_bezier easing: {error.errors()[0]['msg']}") from error
+        raise ValidationError(f"invalid easing: {error.errors()[0]['msg']}") from error
 
 
 def _dump_easing(easing: MotionEasing | None) -> str | dict[str, object] | None:
     """Return an easing as a JSON-stable name or mapping."""
-    return easing.model_dump(mode="json") if isinstance(easing, CubicBezierEasing) else easing
+    return (
+        easing.model_dump(mode="json")
+        if isinstance(easing, (CubicBezierEasing, SpringEasing))
+        else easing
+    )
 
 
 def validate_easing_name(name: EasingValue | None) -> str:
-    """Validate a supported deterministic easing name (or custom bezier).
+    """Validate a deterministic easing name or structured curve.
 
-    Named easings are returned as-is; a custom `cubic_bezier` is validated and
-    reported as its type name. Use `easing_value` to evaluate either form.
+    Named easings are returned as-is; structured curves report their type name.
+    Use `easing_value` to evaluate either form.
     """
     if name is None:
         return "linear"
     if not isinstance(name, str):
-        _bezier_points(name)
-        return "cubic_bezier"
+        return _custom_easing(name).type
     if name not in EASING_NAMES:
         supported = ", ".join(sorted(EASING_NAMES))
         raise ValidationError(f"unknown easing {name!r}; expected one of: {supported}")
@@ -281,7 +287,12 @@ def easing_value(name: EasingValue | None, progress: float) -> float:
     if name is not None and not isinstance(name, str):
         # Validate once here rather than via `validate_easing_name` as well: this
         # runs for every sampled frame of every track.
-        return _cubic_bezier(t, *_bezier_points(name))
+        curve = _custom_easing(name)
+        return (
+            _spring_response(curve, t)
+            if isinstance(curve, SpringEasing)
+            else _cubic_bezier(t, *curve.points)
+        )
     easing = validate_easing_name(name)
     if easing == "linear":
         return t
@@ -303,6 +314,25 @@ def easing_value(name: EasingValue | None, progress: float) -> float:
     if easing.startswith("ease_in"):
         return t**power
     return 1.0 - (1.0 - t) ** power
+
+
+def _spring_response(curve: SpringEasing, time: float) -> float:
+    """Evaluate under-, critically- or over-damped unit step motion directly."""
+    if time in (0.0, 1.0):
+        return time
+    frequency = math.sqrt(curve.stiffness / curve.mass)
+    decay = curve.damping / curve.mass / 2
+    if math.isclose(decay, frequency, rel_tol=1e-8):
+        return 1 - (1 + decay * time) * math.exp(-decay * time)
+    if decay < frequency:
+        damped = math.sqrt(frequency - decay) * math.sqrt(frequency + decay)
+        return 1 - math.exp(-decay * time) * (
+            math.cos(damped * time) + decay / damped * math.sin(damped * time)
+        )
+    difference = math.sqrt(decay - frequency) * math.sqrt(decay + frequency)
+    slow = -(curve.stiffness / curve.mass) / (decay + difference)
+    fast = -decay - difference
+    return 1 - (fast * math.exp(slow * time) - slow * math.exp(fast * time)) / (fast - slow)
 
 
 def _ease_in_out(t: float, power: int) -> float:
@@ -1080,7 +1110,7 @@ def _geometry_in_motion(
                         round(event.active_start + right.time, 9),
                         (clock_easing or "linear")
                         if isinstance(clock_easing, (str, type(None)))
-                        else _bezier_points(clock_easing),
+                        else _custom_easing(clock_easing).model_dump_json(),
                     )
                     x, y = position_changes.get(basis, (0.0, 0.0))
                     position_changes[basis] = (
@@ -1607,6 +1637,7 @@ CapabilityFeature = Literal[
     "blur",
     "color",
     "easing",
+    "spring",
     "stagger",
     "motion_path",
     "morph",
@@ -1642,6 +1673,7 @@ _CAPABILITY_FEATURES: tuple[CapabilityFeature, ...] = (
     "blur",
     "color",
     "easing",
+    "spring",
     "stagger",
     "motion_path",
     "morph",
@@ -1682,6 +1714,7 @@ _CANONICAL_RENDERED: dict[str, frozenset[str]] = {
             "blur",
             "color",
             "easing",
+            "spring",
             "image_pan",
             "image_zoom",
             "stagger",
@@ -1699,6 +1732,7 @@ _CAPABILITIES["html"] = {
 _CAPABILITIES["html"]["parent"] = MotionCapability("parent", "html", "partial")
 _CAPABILITIES["html"]["color"] = MotionCapability("color", "html", "unsupported", "static")
 _CAPABILITIES["html"]["motion_path"] = MotionCapability("motion_path", "html", "partial")
+_CAPABILITIES["html"]["spring"] = MotionCapability("spring", "html", "fallback", "static")
 _PPTX_FALLBACKS: dict[CapabilityFeature, tuple[SupportLevel, Fallback | None]] = {
     "parent": ("fallback", "static"),
     "position": ("native", None),
@@ -1714,6 +1748,7 @@ _PPTX_FALLBACKS: dict[CapabilityFeature, tuple[SupportLevel, Fallback | None]] =
     "blur": ("unsupported", "rasterize"),
     "color": ("partial", "static"),
     "easing": ("partial", "fade"),
+    "spring": ("fallback", "static"),
     "stagger": ("native", None),
     "motion_path": ("unsupported", "static"),
     "morph": ("partial", "fade"),
@@ -1784,8 +1819,23 @@ def _capability_features_for(animation: object) -> tuple[CapabilityFeature, ...]
                 features.append("easing")
         if animation.stagger:
             features.append("stagger")
+        if _has_spring_easing(animation):
+            features.append("spring")
         return tuple(dict.fromkeys(features))
     return ("opacity",)
+
+
+def _has_spring_easing(animation: object) -> bool:
+    """Recognize spring clocks wherever an authored animation can carry easing."""
+    if not isinstance(animation, AnimationSpec):
+        return False
+    return any(
+        isinstance(easing, SpringEasing)
+        for easing in chain(
+            (animation.easing, getattr(animation.effect, "easing", None)),
+            (key.easing for track in animation.tracks or () for key in track.keyframes),
+        )
+    )
 
 
 def _iter_export_layers(source: Canvas | Deck) -> Iterable[tuple[str, object]]:

@@ -34,6 +34,12 @@ Extras install with `uv run --extra <name> python examples/<script>.py`. The
 
 ## Decks and video
 
+### `spring_motion.py`
+
+Three moving boxes compare under-, critically- and over-damped spring easing.
+Writes `output/spring_motion.gif`, canonical JSON and a midpoint PNG; no optional
+dependencies or network assets are needed.
+
 ### `investor_deck.py`
 
 A 10-slide Series A pitch deck exported to `investor_deck.html` and
