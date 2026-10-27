@@ -396,3 +396,92 @@ Its constant arc-distance clock is tested against an independent dense cubic
 reference. Curve tables are cached by immutable control points, bounded to
 64 entries and 4097 parameter samples per curve; cold setup is included in
 export timings. HTML additionally bakes at up to 120 Hz with at most 4097 stops.
+
+## Word/line/character selector cost (#165)
+
+```bash
+uv run --locked python -m benchmarks.text_selector_cost --json /tmp/text-selector-cost.json
+```
+
+This optional workload leaves the default four benchmark scenes unchanged.
+The nine selectable `text_{words,lines,characters}_{baseline,static,animated}` scenes use the
+same offline Roboto file, 480×240 canvas and `ONE TWO` on three lines at size 40
+with line_height=1.3 (52 pixels), avoiding fractional row baselines. The exact
+target-layout guard remains enabled for every text layout engine.
+Word/line conditions retain their original two-second position/rotation/scale/opacity/color
+tracks with zero stagger delay. Character conditions use the same text and font,
+with all 23 source codepoints (including spaces and newlines) receiving their own
+0.01-second stagger turn: 1.78-second tracks plus 22 delays retain the two-second
+timeline. Baseline uses ordinary target motion; static adds a ramp selector ending
+at 75%; animated adds keyed selector offset. All tracks settle to authored text.
+The exact character-ownership guard remains enabled; unsupported shaping fails
+instead of using band approximations. These cases produce
+**different pixels and rendering work**, so this records cost, not an optimization
+or an equal-output speed comparison.
+Character starts/ends split the export into more input shots than the zero-delay
+word/line cases; use each run's actual consumed-input count, not a presumed 24.
+
+Before timing, two fresh canonical probes per scene verify all 24 timeline
+instants plus the exact endpoint: fixed extent/clock, visible midpoint motion,
+settled authored-layout equality and repeatable raw RGBA digests/environment.
+The three variants per target must produce distinct timelines. Actual GIFs are
+decoded after timing and RSS observation to verify 432×216 extent, two-second
+playback (within GIF clock rounding) and visible motion. This is not a quantized
+GIF pixel-identity gate or a test of unsampled instants.
+
+Then one fresh-process warmup per condition is excluded from summaries but kept
+in JSON. Three measured rounds rotate condition order, starting at offsets
+1/2/3. Every export reuses the existing instrumented worker at 12 fps, workers=1,
+standard quality, GIF 64 colors and max_size=(432,768). Each process starts with
+cold process-local caches; filesystem caches are not flushed. The warmup does
+not warm the next process's loaded-font cache. Run without concurrent heavy jobs.
+
+JSON retains attempts (including failures), raw scene JSON, canonical probes,
+resolved target counts, font/renderer/source hashes,
+environment, output hashes, actual consumed inputs and median/range measurements.
+Failures stop the command rather than being retried or removed. Repeated encoded
+GIF hashes must agree within each condition. `Render ms/input` includes document
+construction/preflight and rendering outside the encoder; it is amortized wall
+cost, not isolated glyph CPU time. RSS is the Python process lifetime peak,
+including imports/native Pillow allocations. Read the common measurement limits
+above before comparing hosts or revisions.
+
+### Recorded local run, 2026-10-26
+
+The [earlier word/line report](results/2026-10-26-text-selectors.json) preserves
+all six conditions from the prior renderer, with its integer-line fixture,
+base commit and measured source hashes. Character costs use the extended run below.
+
+### Character extension run, 2026-10-26
+
+[Raw attempts, source JSON and environment](results/2026-10-26-text-characters.json)
+record nine conditions on the same macOS arm64/Python 3.12.8/Pillow 13.0.0/
+FreeType 2.14.3/basic-layout environment. The six word/line fixture JSON hashes
+remain unchanged. This run includes the exact-character renderer from the pending
+local merge of `459b501` into `651e7ee`; renderer file hashes identify the measured
+code, rather than the base commit alone. Other task-owned heavy rendering/build
+jobs were held during measurement. Light test overlap, unrelated host activity
+and CPU frequency were not instrumented or controlled.
+
+All 18 fresh canonical probes and 36 exports succeeded, including nine excluded
+warmups. Canonical RGBA and measured GIF byte hashes repeated per condition.
+All GIFs decode at 432×216 for exactly two seconds. Word/line runs consumed and
+decoded 24 frames; character runs consumed 63 shots. Character baseline GIFs
+contain 63 frames, and the static/animated selector GIFs contain 58. Decoding is
+outside timing/RSS observation; quantized output is not compared byte-for-byte
+with canonical RGBA.
+
+| Target / selector | Render ms/input median [min–max] | Total s median [min–max] | Python RSS MiB median |
+| --- | --- | --- | --- |
+| Words / baseline | 3.025 [2.991–3.117] | 0.201 [0.199–0.206] | 78.3 |
+| Words / static | 6.341 [6.153–6.375] | 0.290 [0.283–0.293] | 78.0 |
+| Words / animated | 6.842 [6.668–6.860] | 0.305 [0.299–0.305] | 77.6 |
+| Lines / baseline | 2.599 [2.587–2.629] | 0.191 [0.191–0.195] | 76.3 |
+| Lines / static | 4.325 [4.204–4.520] | 0.252 [0.245–0.262] | 79.4 |
+| Lines / animated | 4.066 [4.064–4.219] | 0.239 [0.238–0.244] | 76.2 |
+| Characters / baseline | 12.408 [12.343–12.508] | 1.133 [1.125–1.141] | 78.4 |
+| Characters / static | 11.826 [11.753–11.899] | 1.106 [1.101–1.113] | 77.7 |
+| Characters / animated | 11.619 [11.578–11.650] | 1.095 [1.094–1.099] | 78.3 |
+
+These are costs of different outputs and target schedules, not faster/slower
+implementations of an equivalent workload. No optimization winner is established.

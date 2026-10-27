@@ -399,7 +399,10 @@ Before its start, and in untimed or reduced-motion stills, the authored fill
 is preserved. A group's animation continues to override descendant animations;
 intrinsic counter values still update. Separately rendered stagger lines sample
 their own colors. Targets that cannot be split keep the existing approximate
-whole-layer stagger fallback; full glyph/range animation is separate work.
+whole-layer stagger fallback. Plain character targets instead require exact
+[codepoint ownership](#character-ownership); unprovable character layouts raise
+an error. [Range selectors](#text-range-selectors) support static or keyframed
+percentages. General shaping and grapheme-cluster animation remain unsupported.
 
 Groups containing backdrop-dependent descendants support pure parent color
 tracks. Combining those tracks with other parent motion or stagger is reported
@@ -582,6 +585,20 @@ for nested partial and inverted masks, text backgrounds, affine motion and an
 independent linked marker. Run it with `--output-dir /tmp/parent-nested-composition`
 to write GIF, PNG, HTML and JSON outputs.
 
+Top-level plain text with `target="words"` or `target="lines"` uses the already
+placed text runs to separate targets. Words remain at their original positions
+instead of reflowing as shorter strings. Wrapped lines, reverse target order and
+blank-line delays use the same static layout in frame sampling and video output.
+The route is selected only when the target crops reproduce the original source
+pixels exactly. Rich text, effects, fills, rotation, letter spacing,
+bidirectional text, words split across wrapped lines, and parent-linked sources
+retain the partial adapter below.
+Plain character targets use independently verified [codepoint masks](#character-ownership)
+and reject unprovable ownership instead of using the partial adapter.
+Raster/video stagger capability stays `partial`. [Text range selectors](#text-range-selectors)
+reuse the exact layout route with static or keyframed percentages; general
+shaping and grapheme-cluster ownership remain unsupported.
+
 Static parent-linked leaf text and top-level groups can use the existing partial
 raster stagger adapter, including groups with their own or structural descendant
 clip/mask boundaries at several depths. The
@@ -729,3 +746,95 @@ the actual emitted count and duration. `image_sequence` is a video capability
 alias for validation and motion inspection, preserving the existing parent,
 Morph and caption restrictions. See [image sequences](../exports.md#image-sequences)
 for timing, color-profile limits and exclusive fresh-directory publication.
+
+## Text range selectors
+
+`AnimationSpec.timeline(..., selector=RangeSelector(...))` weights position,
+rotation, scale, opacity and color tracks for top-level plain text. Import
+`RangeSelector` from `quickthumb`; presets, motion paths,
+parent-linked text and mixed target bases are unsupported in this first layer.
+Each composed spec on a selected layer must declare the same target basis.
+
+`target` is `"words"` (default), `"lines"` or `"characters"`; `start=0`, `end=100` are percentages
+with `0 <= start <= end <= 100` when both are static. Finite `offset=0` translates
+that interval without wrapping. Each of these three fields can instead contain a
+nonempty list of scalar `KeyframeSpec` values:
+
+```python
+RangeSelector(
+    end=50,
+    offset=[KeyframeSpec(time=0, value=-50), KeyframeSpec(time=1, value=100)],
+)
+```
+
+Selector keyframes use the same local seconds, outgoing `hold`, keyframe/spec
+easing and stagger delay as the property tracks. Their final key contributes to
+inferred duration; an explicit timing duration must cover all property and
+selector keys. Start/end keys must lie in 0..100; eased start/end values clamp to
+that interval. Offset remains finite and may overshoot without wrapping. If the
+sampled end is at or below the sampled start, the range is empty. Animated
+start/end may cross; static inverted bounds are rejected. After the event, the
+settled selector keeps its final values. A target at document index `i` among `N`
+is evaluated at its center
+`100*(i+0.5)/N`. Outside `[start+offset, end+offset)`, or for an empty range, its
+weight is zero. Within the interval, let `u` be the center's fractional position:
+
+| `shape` | Weight |
+| --- | --- |
+| `square` (default) | `1` |
+| `ramp` | `u` |
+| `triangle` | `1-abs(2*u-1)` |
+| `smooth` | `u*u*(3-2*u)` |
+
+Keyframes and easing are sampled first. Each property then blends from its
+incoming target state toward the requested value by that weight. For color,
+the incoming paint starts at the authored solid text color (default black when
+`color=None`). Blending uses the existing premultiplied Oklab interpolation and
+linear alpha. Zero weight and pre-start frames retain authored paint, including
+its alpha; full weight uses ordinary `ColorTrack` replacement. Specs compose in
+document order, blending from earlier results rather than restarting from the
+authored color. Transparent colors retain the full target layout. Gradients,
+image fills and rich text remain unsupported. Selectors introduce no implicit hiding before a target's event.
+Compatible stagger delays its clock;
+reverse stagger changes execution rank without reversing selector percentages.
+Blank lines retain their semantic index. Wrapped targets use the actual layout.
+
+Targets must reconstruct the original pixels exactly. Unsupported styling or
+inseparable layout raises an actionable error during sampled rendering instead
+of silently using the partial band approximation. Untimed output stays authored
+static. HTML/PPTX keep authored-static text and report selector fallback;
+`inspect_motion()` exposes selector weights and per-target motion samples.
+Each event's `selector_weights` is a matrix: rows align with the layer's
+`sample_times`, columns with its `targets` (including reverse execution order).
+Pre-start rows have zero influence. Selection percentages still refer to
+semantic document indices.
+
+### Character ownership
+
+`target="characters"` addresses **source Unicode codepoints**, not grapheme
+clusters. Spaces and newlines retain empty slots: they count toward selector
+percentages and stagger delays without painting. Supported non-ASCII codepoints
+use the same rules; this is not an ASCII-only route or a Unicode shaping engine.
+
+For sampled raster/video output, plain character targets use independently
+rendered glyph masks at the font's authored baseline and prefix advances.
+Preparation requires disjoint glyph ink, exact reconstruction of an opaque white
+reference, and rectangles containing only the owning glyph's paint. These checks
+also protect transparent authored colors and per-target `ColorTrack` output.
+The prepared fragments retain the full rest layout and are reused by the export
+frame generator, transforms, selectors and stagger clocks.
+
+Combining marks, control/format joined sequences, bidirectional shaping, glyphs
+crossing the canvas boundary, overlapping/inseparable ink, rich text, effects,
+fills, letter spacing and animated text values are unsupported. Wrapped text is
+accepted only when each rendered run maps back to source codepoints; normalized
+whitespace that makes that mapping ambiguous is rejected. A failing proof raises
+an actionable error before sampled output is written; it never uses horizontal
+bands as a substitute for glyphs. Fonts and shaping libraries can change which
+layouts pass, so raster/video selector and stagger support remains `partial`.
+Untimed output and document selector fallbacks keep authored-static text.
+
+Run `uv run python examples/text_range_selector.py --target words --output /tmp/words.gif`
+(or `--target lines` / `--target characters`) for weighted position/rotation that settles to the original
+text layout, plus portable scene JSON. This is partial #165 coverage, not a
+general-purpose shaping backend or a full text-stagger capability claim.

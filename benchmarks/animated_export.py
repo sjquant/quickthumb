@@ -19,12 +19,12 @@ from typing import Any, Literal
 from unittest.mock import patch
 
 import PIL
-from PIL import Image, ImageFont, features
+from PIL import Image, ImageFont, ImageSequence, features
 from quickthumb import GifOptions, MotionBlur, VideoOptions
 
-from benchmarks.scenes import DURATION, SCENES, build_scene
+from benchmarks.scenes import DURATION, SCENES, TEXT_SELECTOR_SCENES, build_scene
 
-MEASURABLE_SCENES = (*SCENES, "motion_path", "motion_blur")
+MEASURABLE_SCENES = (*SCENES, "motion_path", "motion_blur", *TEXT_SELECTOR_SCENES)
 
 ROOT = Path(__file__).resolve().parents[1]
 FORMATS = ("gif", "mp4", "webm")
@@ -91,7 +91,7 @@ def displacement_jitter(points: list[tuple[float, float]]) -> float:
 
 
 def measure_jitter(scene: str) -> float | None:
-    if scene in {"product_hype_reel", "motion_path"}:
+    if scene in {"product_hype_reel", "motion_path", *TEXT_SELECTOR_SCENES}:
         return None
     # Independent fixed 30 fps probe; do not contaminate export timing/cache/RSS.
     frames = build_scene(scene).sample(time=[i / 30 for i in range(round(DURATION * 30))])
@@ -206,12 +206,32 @@ def measure_export(
         with output.open("rb") as stream:
             for chunk in iter(lambda: stream.read(1024 * 1024), b""):
                 digest.update(chunk)
-        decoded = decoded_output(output, format) if scene == "motion_blur" else {}
-        if decoded and (
-            decoded["frame_count"] != receipt.timing_metrics.frame_count
-            or abs(decoded["duration"] - receipt.timing_metrics.duration) > 0.011
+        blur_decoded = decoded_output(output, format) if scene == "motion_blur" else {}
+        if blur_decoded and (
+            blur_decoded["frame_count"] != receipt.timing_metrics.frame_count
+            or abs(blur_decoded["duration"] - receipt.timing_metrics.duration) > 0.011
         ):
             raise RuntimeError("decoded playback disagrees with export receipt")
+        selector_decoded = None
+        if format == "gif" and scene in TEXT_SELECTOR_SCENES:
+            # Consume the actual encoded animation after timing and RSS observation.
+            with Image.open(output) as gif:
+                durations = []
+                frame_hashes = set()
+                for frame in ImageSequence.Iterator(gif):
+                    if frame.size != (432, 216):
+                        raise RuntimeError("text export changed the configured output extent")
+                    durations.append(frame.info.get("duration", 0))
+                    frame_hashes.add(hashlib.sha256(frame.convert("RGB").tobytes()).hexdigest())
+                selector_decoded = {
+                    "width": gif.width,
+                    "height": gif.height,
+                    "frames": len(durations),
+                    "duration": sum(durations) / 1000,
+                    "distinct_frames": len(frame_hashes),
+                }
+            if len(frame_hashes) < 2 or abs(selector_decoded["duration"] - DURATION) > 0.02:
+                raise RuntimeError("text export lost motion or changed the playback duration")
         return {
             "scene": scene,
             "format": format,
@@ -230,7 +250,8 @@ def measure_export(
             "output_bytes": output.stat().st_size,
             "output_sha256": digest.hexdigest(),
             "spec_sha256": hashlib.sha256(deck.to_json().encode()).hexdigest(),
-            **({"decoded": decoded} if decoded else {}),
+            **({"decoded": blur_decoded} if blur_decoded else {}),
+            **({"decoded_output": selector_decoded} if selector_decoded is not None else {}),
         }
 
 

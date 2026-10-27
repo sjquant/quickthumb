@@ -9,7 +9,7 @@ import subprocess
 import pytest
 from benchmarks import animated_export as benchmark
 from benchmarks import frame_identity as identity
-from benchmarks.scenes import SCENES, build_scene
+from benchmarks.scenes import SCENES, TEXT_SELECTOR_SCENES, build_scene
 from PIL import Image
 
 
@@ -300,3 +300,75 @@ def test_cost_sweep_retains_warmups_rotates_order_and_rejects_changed_playback(m
     monkeypatch.setattr(benchmark, "run_worker", corrupt)
     with pytest.raises(RuntimeError, match="playback changed"):
         benchmark.blur_cost_report(["gif"], 12, "standard")
+
+
+@pytest.mark.parametrize("scene", TEXT_SELECTOR_SCENES)
+def test_selector_cost_scenes_reconstruct_layout_and_keep_fixed_clock(scene):
+    from benchmarks.text_selector_cost import canonical_check
+
+    checked = canonical_check(scene)
+    assert checked["duration"] == 2
+    assert [frame["time"] for frame in checked["frames"]] == [i / 12 for i in range(24)] + [2]
+    assert checked["frames"][-1]["sha256"] == checked["rest_sha256"]
+    assert checked["frames"][12]["sha256"] != checked["rest_sha256"]
+    assert checked["motion_duration"] == 2
+    content = checked["source"]["slides"][0]["layers"][1]["content"]
+    if "characters" in scene:
+        assert checked["target_count"] == len(content) == 23
+    assert benchmark.measure_jitter(scene) is None
+
+
+def test_selector_cost_preserves_failure_and_does_not_retry(tmp_path, monkeypatch):
+    from benchmarks import text_selector_cost as cost
+
+    monkeypatch.setattr(cost, "run_check", cost.canonical_check)
+    calls = []
+
+    def export(scene, format, fps):
+        calls.append(scene)
+        if len(calls) == 2:
+            raise RuntimeError("actual export failed")
+        return {"output_sha256": "a" * 64}
+
+    monkeypatch.setattr(cost, "run_worker", export)
+    path = tmp_path / "failed.json"
+    assert cost.main(["--json", str(path)]) == 1
+    report = json.loads(path.read_text())
+    assert report["status"] == "incomplete" and report["results"] == []
+    assert len(calls) == len(report["attempts"]) == 2
+    assert "result" in report["attempts"][0]
+    assert report["attempts"][1]["error"] == "actual export failed"
+    assert report["error"] == "actual export failed"
+
+
+def test_selector_cost_rotates_fresh_runs_and_excludes_warmups(tmp_path, monkeypatch):
+    from benchmarks import text_selector_cost as cost
+
+    monkeypatch.setattr(cost, "run_check", cost.canonical_check)
+    calls = []
+
+    def export(scene, format, fps):
+        calls.append(scene)
+        return {
+            "scene": scene,
+            "format": format,
+            "fps": fps,
+            "shots": 24,
+            "total_seconds": 100 if len(calls) <= len(cost.TEXT_SELECTOR_SCENES) else 1,
+            "render_ms_per_shot": 1,
+            "encode_seconds": 0.1,
+            "python_peak_rss_mib": 10,
+            "output_sha256": "a" * 64,
+        }
+
+    monkeypatch.setattr(cost, "run_worker", export)
+    path = tmp_path / "cost.json"
+    assert cost.main(["--json", str(path)]) == 0
+    report = json.loads(path.read_text())
+    assert report["status"] == "complete"
+    scenes = list(cost.TEXT_SELECTOR_SCENES)
+    assert len(report["results"]) == len(scenes)
+    assert calls == sum((scenes[i:] + scenes[:i] for i in range(4)), [])
+    assert all(row["total_seconds"] == 1 for row in report["results"])
+    assert len(report["attempts"]) == 4 * len(scenes)
+

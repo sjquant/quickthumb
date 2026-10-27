@@ -832,7 +832,7 @@ def test_root_stagger_suppresses_nested_specs_without_changing_source_or_schedul
     assert canvas.inspect() == reference.inspect()
     assert canvas.diagnose() == reference.diagnose()
     assert canvas.inspect_motion(target="video", max_samples=2).duration > 100
-    assert reference.inspect_motion(target="video", max_samples=2).duration == 1
+    assert reference.inspect_motion(target="video", max_samples=2).duration == pytest.approx(1.8)
     payload = export_animation_bytes(
         [canvas], [None], "gif", fps=5, slide_duration=0.2, quality=quality
     )

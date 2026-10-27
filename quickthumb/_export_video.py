@@ -123,6 +123,7 @@ from quickthumb.motion import (
     _has_transform_extensions,
     _sample_target_timelines,
     _supports_color_motion,
+    _target_base_state,
     compile_timeline,
     easing_value,
     resolve_staggered_timelines,
@@ -1678,7 +1679,7 @@ class _SlideAnimator:
                 target_states = _sample_target_timelines(
                     unit.target_timelines,
                     time,
-                    LayerState(anchor=getattr(unit.layers[0], "anchor", (0.5, 0.5))),
+                    _target_base_state(unit.layers[0]),
                 )
                 targets = unit.target_images
                 if unit.color_motion:
@@ -2043,7 +2044,9 @@ def _build_units(
 ) -> tuple[list[_Unit], ParentRenderPlan | None]:
     """Prepare all scene units and optional parent sources before scheduling."""
     from quickthumb._parenting import has_parent_links
+    from quickthumb.motion import _text_selector, _validate_text_selectors
 
+    _validate_text_selectors(canvas)
     linked = has_parent_links(canvas)
     if not reduced_motion and not linked:
         validate_legacy_animation_export(canvas)
@@ -2152,6 +2155,7 @@ def _build_units(
             # stagger declared is the one that can split it into targets.
             specs = canonical if isinstance(canonical, list) else [canonical]
             stagger = next((item.stagger for item in specs if item.stagger), None)
+            selector = _text_selector(layers[0])
             content = getattr(layers[0], "content", None)
             if stagger is not None:
                 if stagger.target == "characters" and isinstance(content, str):
@@ -2163,20 +2167,51 @@ def _build_units(
                         )
                 elif stagger.target == "children":
                     target_count = group_target_counts.get(id(specs[0]), 1)
+            if selector is not None:
+                assert isinstance(layers[0], TextLayer)
+                target_count = len(
+                    canvas._text.resolve_animation_targets(layers[0], selector.target)
+                )
             target_timelines = resolve_staggered_timelines(timeline, target_count)
-            if target_count > 1:
+            character_targets = isinstance(layers[0], TextLayer) and (
+                selector is not None
+                and selector.target == "characters"
+                or stagger is not None
+                and stagger.target == "characters"
+            )
+            if target_count > 1 or selector is not None or character_targets:
                 if color_motion and parent_node is not None:
                     reference, reference_pos = parent_node.render_source(reference=True), (0, 0)
                 elif color_motion:
                     reference, reference_pos = _render_unit_image(canvas, layers, color="#FFFFFF")
                 else:
                     reference, reference_pos = image, pos
-                bands = split_into_bands(reference, target_count) if reference is not None else None
-                if bands is not None:
-                    target_images = tuple(
-                        (fragment, (reference_pos[0] + offset[0], reference_pos[1] + offset[1]))
-                        for fragment, offset in bands
-                    )
+                if reference is not None:
+                    from quickthumb._text_targets import text_target_fragments
+
+                    if len(layers) == 1 and parent_node is None:
+                        target_images = (
+                            text_target_fragments(canvas, layers[0], reference, reference_pos) or ()
+                        )
+                    if not target_images and character_targets:
+                        raise RenderingError(
+                            "Character targets require one plain text layer without parents"
+                        )
+                    if not target_images and selector is not None:
+                        raise RenderingError(
+                            "Range selector targets cannot preserve this layout; "
+                            "use plain separable words/lines"
+                        )
+                    if not target_images:
+                        bands = split_into_bands(reference, target_count)
+                        if bands is not None:
+                            target_images = tuple(
+                                (
+                                    fragment,
+                                    (reference_pos[0] + offset[0], reference_pos[1] + offset[1]),
+                                )
+                                for fragment, offset in bands
+                            )
         component_duration = (
             0.0
             if reduced_motion
@@ -2552,9 +2587,7 @@ def _canonical_state(unit: _Unit, time: float):
     if timeline is None:
         return _SHOWN
     timelines = unit.target_timelines or (timeline,)
-    base = LayerState(
-        anchor=getattr(unit.layers[0], "anchor", (0.5, 0.5)) if unit.layers else (0.5, 0.5)
-    )
+    base = _target_base_state(unit.layers[0]) if unit.layers else LayerState()
     states = [timeline.sample(time, base) for timeline in timelines]
     event = timeline.events[0] if timeline.events else None
     alpha_scale = 1.0

@@ -554,6 +554,50 @@ class AnimationEffect(_MotionModel):
     )
 
 
+class RangeSelector(_MotionModel):
+    """Keyframeable percentage range over source codepoint, word or line centers."""
+
+    target: Literal["characters", "words", "lines"] = "words"
+    start: (
+        Annotated[float, Field(ge=0, le=100, allow_inf_nan=False)]
+        | Annotated[list[KeyframeSpec], Field(min_length=1)]
+    ) = 0
+    end: (
+        Annotated[float, Field(ge=0, le=100, allow_inf_nan=False)]
+        | Annotated[list[KeyframeSpec], Field(min_length=1)]
+    ) = 100
+    offset: FiniteFloat | Annotated[list[KeyframeSpec], Field(min_length=1)] = 0
+    shape: Literal["square", "ramp", "triangle", "smooth"] = "square"
+
+    @field_validator("start", "end", "offset")
+    @classmethod
+    def validate_percent_keys(cls, value, info):
+        if isinstance(value, list):
+            _TrackBase(keyframes=value)
+            for key in value:
+                if (
+                    isinstance(key.value, bool)
+                    or not isinstance(key.value, (int, float))
+                    or not math.isfinite(key.value)
+                    or info.field_name != "offset"
+                    and not 0 <= key.value <= 100
+                ):
+                    raise ValueError(
+                        "selector keyframes require finite numbers; start/end must be 0..100"
+                    )
+        return value
+
+    @model_validator(mode="after")
+    def validate_range(self):
+        if (
+            not isinstance(self.start, list)
+            and not isinstance(self.end, list)
+            and self.start > self.end
+        ):
+            raise ValidationError("selector start must not exceed end")
+        return self
+
+
 class AnimationSpec(_MotionModel):
     """Canonical layer-motion contract for preset or advanced timeline animation."""
 
@@ -563,6 +607,7 @@ class AnimationSpec(_MotionModel):
     easing: MotionEasing | None = None
     timing: TimingSpec | None = None
     stagger: StaggerSpec | None = None
+    selector: RangeSelector | None = None
 
     @model_validator(mode="after")
     def validate_composition(self):
@@ -572,6 +617,32 @@ class AnimationSpec(_MotionModel):
             raise ValidationError("timeline animation must contain at least one track")
         if self.effect is not None and self.easing is not None:
             raise ValidationError("timeline easing is only valid with tracks")
+        if self.selector is not None:
+            if self.tracks is None or any(
+                track.type not in {"position", "rotation", "scale", "opacity", "color"}
+                for track in self.tracks
+            ):
+                raise ValidationError(
+                    "selectors require position, rotation, scale, opacity or color tracks"
+                )
+            if any(
+                getattr(track, "auto_orient", False)
+                or any(
+                    getattr(key, "in_tangent", None) or getattr(key, "out_tangent", None)
+                    for key in track.keyframes
+                )
+                for track in self.tracks
+            ):
+                raise ValidationError(
+                    "selector motion paths are not supported; use position keyframes"
+                )
+            if self.stagger is not None and (
+                self.stagger.target != self.selector.target
+                or self.stagger.order not in {"document", "reverse"}
+            ):
+                raise ValidationError(
+                    "selector stagger must use the same target and document/reverse order"
+                )
         return self
 
     @classmethod
@@ -604,9 +675,10 @@ class AnimationSpec(_MotionModel):
         *tracks: TrackSpec,
         timing: TimingSpec | None = None,
         easing: MotionEasing | None = None,
+        selector: RangeSelector | None = None,
     ) -> "AnimationSpec":
         """Build an advanced animation from typed property tracks."""
-        return cls(tracks=list(tracks), timing=timing, easing=easing)
+        return cls(tracks=list(tracks), timing=timing, easing=easing, selector=selector)
 
     @classmethod
     def fade(cls, **kwargs) -> "AnimationSpec":
