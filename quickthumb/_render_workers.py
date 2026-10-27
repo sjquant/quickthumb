@@ -167,7 +167,7 @@ class _FrameRenderer:
                     )
                 assert previous_animator is not None
                 self.previous_final = _conform(
-                    previous_animator.final_export_frame(), self.size, self.matte
+                    previous_animator.final_frame(), self.size, self.matte
                 )
                 self.previous._ctx.close_video_decoders()
                 # Keep only the outgoing Canvas for possible Morph rendering,
