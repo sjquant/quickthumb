@@ -452,6 +452,7 @@ class PathLayer(LayerIdentityModel):
     width: PositiveInt
     height: PositiveInt
     color: HexColor | None = "#000000"
+    fill: Annotated[LinearGradient | RadialGradient, Discriminator("type")] | None = None
     stroke: HexColor | None = None
     stroke_width: FinitePositiveFloat = 1.0
     line_cap: Literal["butt", "round", "square"] = "butt"

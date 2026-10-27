@@ -24,7 +24,8 @@ canvas.export("path.png")
 | `position` | Required frame position in canvas pixels or percentages. |
 | `width`, `height` | Required positive frame dimensions in pixels. |
 | `view_box` | Optional `(x, y, width, height)` local coordinate window; defaults to `(0, 0, width, height)`. Its width and height must be positive. |
-| `color` | Flat fill color, default black; `None` disables fill. |
+| `color` | Flat fill color, default black; `None` disables flat fill. |
+| `fill` | Existing `LinearGradient` or `RadialGradient`; when present it replaces `color`, including when `color=None`. |
 | `stroke`, `stroke_width` | Optional solid stroke color and positive width in local units; width defaults to `1`. |
 | `line_cap` | `"butt"` (default), `"round"` or `"square"` for open endpoints. |
 | `line_join` | `"miter"` (default), `"bevel"` or `"round"` for joined segments. |
@@ -76,10 +77,25 @@ Patterns are limited to 65,536 entries; excessive transitions or emitted geometr
 raise `RenderingError` (`path_dash_limit`) before writing output. Use longer dash
 intervals or simplify the path.
 
-Gradients, layer animation, parent links, grouping and composition controls are
+Gradient coordinates use the fixed frame, matching shape fills: linear angle `0`
+runs left-to-right and `90` top-to-bottom; radial `center` is normalized to the
+frame. `view_box` maps the path geometry into that field. Paint bounds and canvas
+clipping crop the field without stretching or restarting it. Existing gradient
+stops support alpha, which is multiplied by the path's even-odd coverage before
+compositing. Stroke remains a separate solid color.
+
+```python
+from quickthumb import LinearGradient
+
+canvas.path("M10 10H90V90H10Z", (20, 10), 120, 100, None,
+            view_box=(0, 0, 100, 100),
+            fill=LinearGradient(angle=30, stops=[("#42CEB780", 0), ("#315D8EFF", 1)]))
+```
+
+Layer animation, parent links, grouping and composition controls are
 not accepted yet. JSON uses `type="path"` and round-trips through `PathLayer`.
 
 PNG and canonical samples draw the path directly. SVG, HTML, PDF and PPTX currently
-embed a static raster image; `validate_export()` and `ExportResult` report the
+embed a static raster image retaining the gradient; `validate_export()` and `ExportResult` report the
 fallback. A strict `ExportPolicy(unsupported_motion="error")` rejects that output
 before writing.
