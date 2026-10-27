@@ -411,8 +411,8 @@ class PdfExporter:
     def _emit_path(self, layer: PathLayer) -> None:
         from quickthumb._path_pdf import native_pdf_path_problem, pdf_path_commands
 
-        if native_pdf_path_problem(layer):
-            self._emit_raster_fallback(layer)
+        if problem := native_pdf_path_problem(layer):
+            self._emit_raster_fallback(layer, f"Path requires a PNG fragment: {problem}")
             return
         commands = pdf_path_commands(layer)
         if not any(kind not in {"M", "Z"} for kind, _ in commands):
@@ -464,6 +464,7 @@ class PdfExporter:
                 pdf.setDash(pattern, layer.dash_offset % sum(pattern))
             pdf.drawPath(path, fill=0, stroke=1)
         pdf.restoreState()
+        self._record_routing([layer], "Path emitted as native PDF vectors", rasterized=False)
 
     # ------------------------------------------------------------------ shapes
 
