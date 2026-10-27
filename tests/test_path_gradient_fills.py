@@ -125,7 +125,8 @@ def test_svg_native_fill_preserves_gradient_stops(tmp_path):
         stop.get("stop-color") for stop in root.findall(".//{http://www.w3.org/2000/svg}stop")
     ] == ["#000000", "#FFFFFF"]
     assert [(item.feature, item.support) for item in result.capability_report] == [
-        ("path", "native")
+        ("path", "native"),
+        ("layer_representation", "native"),
     ]
 
 
