@@ -76,7 +76,9 @@ if __name__ == "__main__":
     scene = build_scene()
     output = ROOT / "examples/output"
     output.mkdir(exist_ok=True)
-    scene.render(str(output / "parent_counters.gif"), animation=GifOptions(fps=24, quality="high"))
+    scene.render(
+        str(output / "parent_counters.gif"), animation=GifOptions(fps=24, render_quality="high")
+    )
     scene.render_frame(0.49).save(output / "parent_counters.png")
     # Counter sources make HTML use the honest authored-static scene fallback.
     scene.render(str(output / "parent_counters.html"))

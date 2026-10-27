@@ -54,7 +54,7 @@ if __name__ == "__main__":
     output = Path("examples/output")
     output.mkdir(exist_ok=True)
     scene.render(
-        str(output / "transform_anchors.gif"), animation=GifOptions(fps=24, quality="high")
+        str(output / "transform_anchors.gif"), animation=GifOptions(fps=24, render_quality="high")
     )
     (output / "transform_anchors.html").write_text(scene.to_html(), encoding="utf-8")
     scene.render_frame(1).save(output / "transform_anchors.png")
