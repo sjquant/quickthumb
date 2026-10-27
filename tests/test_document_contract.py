@@ -3,9 +3,10 @@
 import json
 from io import BytesIO
 from pathlib import Path
+from typing import cast
 
 import pytest
-from PIL import Image
+from PIL import Image, ImageSequence
 from PIL.GifImagePlugin import GifImageFile
 from quickthumb import (
     AnimationSpec,
@@ -140,17 +141,35 @@ def test_animated_export_uses_the_existing_renderer_and_shared_result(tmp_path: 
 
 
 def test_export_reports_effective_format_and_animation_timing(tmp_path: Path):
-    """Given export options, the result describes the effective output format and timing."""
-    # Given: a canvas and an explicit GIF sampling rate
-    canvas = Canvas(16, 16).background(color="#FF0000")
+    """GIF receipts report requested fps and actual playback timing through a fractional hold."""
+    # Given: a fading red card and a hold that does not land on the fps grid
+    canvas = (
+        Canvas(16, 16)
+        .background(color="#000000")
+        .shape("rectangle", (0, 0), 16, 16, "#FF0000", animation=AnimationSpec.fade(duration=1))
+    )
+    output = tmp_path / "timed.gif"
 
-    # When: the canvas is exported with a non-default frame rate
-    result = canvas.export(tmp_path / "timed.gif", animation=GifOptions(fps=7))
+    # When: the canvas is exported at seven samples per second and decoded
+    result = canvas.export(output, animation=GifOptions(fps=7, hold=0.37))
+    with Image.open(output) as encoded:
+        frames = [
+            (
+                cast(tuple[int, int, int], frame.convert("RGB").getpixel((8, 8))),
+                frame.info["duration"],
+            )
+            for frame in ImageSequence.Iterator(encoded)
+        ]
 
-    # Then: timing metadata follows the actual option and the encoded frames
+    # Then: the receipt follows encoded delays/counts, not a nominal duration*fps count
     assert result.output_format == "gif"
     assert result.timing_metrics.fps == 7
-    assert result.timing_metrics.frame_count == result.pixel_metrics.frame_count == 1
+    assert result.timing_metrics.duration == sum(delay for _, delay in frames) / 1000 == 1.37
+    assert result.timing_metrics.frame_count == result.pixel_metrics.frame_count == len(frames)
+    assert len(frames) < len(canvas.sample(fps=7, hold=0.37).frames)
+    assert frames[0][0] == (0, 0, 0)
+    assert 0 < frames[len(frames) // 2][0][0] < 255
+    assert frames[-1][0] == (255, 0, 0)
 
 
 def test_export_uses_html_aliases_and_explicit_raster_format(tmp_path: Path):

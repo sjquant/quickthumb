@@ -266,17 +266,21 @@ class TimelineSegment(quickthumbModel):
 class FrameSequence(quickthumbModel):
     """An ordered, JSON-safe set of canonical frames and their sampling context.
 
-    A `still` capture holds one settled frame per page (one for a Canvas,
-    one per Deck slide), each at that page's own size and with transparency
-    preserved; its `duration` is 0, `timeline` is empty, and frame
-    `time` is `None`.
+    A `still` capture holds one authored-static frame per page (one for a
+    Canvas, one per Deck slide), matching the untimed raster renderer rather
+    than seeking the animation endpoint. Each frame keeps that page's own size
+    and transparency; `duration` is 0, `timeline` is empty, and frame `time`
+    is `None`.
 
     A `timeline` capture observes instants of the normalized document
     timeline that animated exports play. Every frame has the document's first
     page size and is composited onto the opaque `matte` color, and frames
     are ordered by ascending `time`. `duration` is the full timeline
     length in seconds; `fps` is the uniform sampling rate when the capture
-    used one, else `None`.
+    used one, else `None`. This observation grid is not an encoded frame index:
+    codecs can quantize timing and coalesce or repeat frames. Deck timeline
+    capture uses narration-aware video timing; GIF ignores slide narration
+    and explicit slide durations.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -308,11 +312,20 @@ class PixelMetrics(quickthumbModel):
 
 
 class TimingMetrics(quickthumbModel):
-    """Timing metadata captured at the export boundary."""
+    """Encoded visual timing; interactive HTML has no fixed playback duration."""
 
-    duration: float = 0.0
-    fps: float | None = None
-    frame_count: NonNegativeInt = 0
+    duration: float = Field(
+        default=0.0,
+        description="Encoded visual playback seconds, excluding audio container padding.",
+    )
+    fps: float | None = Field(
+        default=None,
+        description="Selected sampling rate; GIF stored frames can differ from duration times fps.",
+    )
+    frame_count: NonNegativeInt = Field(
+        default=0,
+        description="Actual encoded frames, after GIF coalescing or video hold repetition.",
+    )
 
 
 class FallbackDiagnostic(quickthumbModel):

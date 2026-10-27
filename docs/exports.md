@@ -191,6 +191,9 @@ with open("promo.pdf", "wb") as f:
 
 ## Animated GIF & video { #animated-gif-video }
 
+See [animation timing](timing.md) for canonical sampling versus encoded frame
+counts, slide/narration clocks, captions and interactive HTML behavior.
+
 Animated export renders per-layer `animation` effects and deck slide `transition`s as real raster frames, sampled through the same pixel pipeline as PNG output. Canvas and Deck GIF/MP4/WebM/MOV all play this animated timeline, including file exports with no explicit options.
 
 ```python
@@ -297,14 +300,11 @@ no options are supplied.
 Unused authored Morph transitions do not produce fallback errors or receipt
 diagnostics for static files or reduced-motion execution.
 Reduced animation retains the encoder's holds and default transitions between
-slides. Built-in animated GIF and MP4/WebM/MOV exports report the encoded visual
-frame count and duration. GIF counts include palette-equivalent frame merging,
-and duration follows its centisecond delays; its reported FPS remains the
-configured sampling rate. Video duration is the encoded frame count divided by
-that rate, excluding container audio padding. Custom render overrides retain their nominal timing estimates.
+slides. See [animation timing](timing.md) for sampling rates and encoded visual
+frame counts and durations.
 
 `ExportResult.pixel_metrics.width` and `height` remain the canonical first-canvas
-raster dimensions. They do not describe GIF resizing or MP4/WebM cropping. PNG
+raster dimensions. They do not describe GIF resizing or MP4/WebM cropping. Image
 sequence results separately report their full-size output dimensions.
 
 `validate_export(target)` is a declared motion-capability query, independent of

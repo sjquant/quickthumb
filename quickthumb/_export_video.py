@@ -6,11 +6,11 @@ timeline, sampled at a fixed frame rate through the regular PIL pipeline -- so
 every frame is pixel-identical to the raster renderer, unlike the HTML/PPTX
 exporters which approximate effects in CSS/PowerPoint.
 
-The timing model mirrors the HTML slideshow runtime (timeline.js /
-deck_runtime.js), with the one difference a non-interactive medium forces:
-there are no clicks, so `on_click` animations chain automatically exactly
-like `after_previous` (the same thing PowerPoint's own video export does).
-Concretely, per slide:
+The visual timing model shares authored layer and transition clocks with the
+HTML slideshow runtime (timeline.js / deck_runtime.js). In this non-interactive
+output there are no clicks, so `on_click` animations chain automatically like
+`after_previous`. Video narration can additionally determine slide windows;
+GIF stays silent and ignores those narration durations. Concretely, per slide:
 
 - The slide's transition animates the change into it, playing over the
   previous slide's final frame (slide 0 plays its transition from the matte;
@@ -21,10 +21,10 @@ Concretely, per slide:
   transition. `with_previous` effects run concurrently with the previous
   effect; everything else runs after it; `delay` holds the effect's hidden
   (entrance) or shown (exit) state before it plays.
-- After the animations finish, the slide's final state holds for
-  `advance_after` seconds when its transition sets one (counted from the
-  end of the transition, like the HTML auto-advance timer), else for the
-  exporter's `slide_duration`.
+- `advance_after` replaces the default hold and sets an exit boundary measured
+  from the end of the incoming transition. The slide still waits for unfinished
+  motion or a longer explicit/narrated duration. Without that boundary or a
+  duration override, the exporter's public `hold` follows the motion/transition.
 
 Frames are eased with the CSS `ease` curve the HTML export uses, so both
 animated formats move the same way. GIF is encoded by Pillow with per-frame
