@@ -14,7 +14,7 @@ from pydantic import (
 
 from .common import *  # noqa: F401,F403
 from .document import AssetManifestEntry, DiagnosticReport
-from .motion import MotionEasing
+from .motion import MotionEasing, Wiggle
 from .options import ExportDiagnostic
 
 
@@ -122,6 +122,7 @@ class MotionTrackInspection(quickthumbModel):
     type: str
     keyframes: list[MotionKeyframeInspection]
     auto_orient: bool = Field(default=False, exclude_if=lambda value: not value)
+    wiggle: Wiggle | None = Field(default=None, exclude_if=lambda value: value is None)
 
 
 class MotionEventInspection(quickthumbModel):

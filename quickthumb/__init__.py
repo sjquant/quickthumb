@@ -112,6 +112,7 @@ from quickthumb.models import (
     Shadow,
     ShapeEffect,
     ShapeLayer,
+    SpringEasing,
     StaggerSpec,
     Stroke,
     SvgLayer,
@@ -128,6 +129,7 @@ from quickthumb.models import (
     VideoOptions,
     VisualizationLayerBase,
     Wheel,
+    Wiggle,
     Wipe,
 )
 from quickthumb.plugins import (
@@ -166,6 +168,7 @@ __all__ = [
     "AnimationEffect",
     "AnimationSpec",
     "CubicBezierEasing",
+    "SpringEasing",
     "KeyframeSpec",
     "PositionKeyframeSpec",
     "PositionTrack",
@@ -219,6 +222,7 @@ __all__ = [
     "Fade",
     "Wheel",
     "Wipe",
+    "Wiggle",
     "FaceRegion",
     "CanvasInspection",
     "DeckInspection",
