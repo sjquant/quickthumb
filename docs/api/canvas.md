@@ -5,6 +5,8 @@ description: Reference for quickthumb Canvas creation, aspect ratios, layer comp
 # Canvas
 
 The `Canvas` is the root object. It holds dimensions and an ordered list of layers.
+Its authoring fields follow the [shared layer vocabulary](index.md#shared-layer-vocabulary),
+which also applies to Deck slides and canonical JSON.
 
 ## Creation
 

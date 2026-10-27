@@ -5,6 +5,7 @@ description: Reference for quickthumb Deck, which collects canvases into multi-p
 # Deck
 
 A `Deck` is an ordered collection of `Canvas` slides. Each slide renders exactly as it would on its own; the deck adds multi-output export on top of the same pipeline.
+Slides retain the Canvas [layer vocabulary and scene-local identities](index.md#shared-layer-vocabulary).
 
 ## Creation
 
