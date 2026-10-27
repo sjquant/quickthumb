@@ -138,7 +138,7 @@ canvas.render("preview.mp4", animation=VideoOptions(fps=30))
 | `quality` | `int \| None` | `None` | Compression quality: JPEG 1–95, WebP 1–100; other targets reject it. |
 | `debug` | `bool` | `False` | Draw public layer-id bounding boxes on raster output for visual review. |
 | `animation` | `GifOptions \| VideoOptions \| None` | `None` | Format-specific options: `GifOptions` for GIF, `VideoOptions` for MP4/WebM/MOV. |
-| `policy` | `ExportPolicy \| None` | `None` | Renderer policy, such as `reduced_motion` for animated, HTML, and PPTX output. Both `render()` and `export()` enforce `unsupported_motion` before writing. |
+| `policy` | `ExportPolicy \| None` | `None` | Renderer policy, such as `reduced_motion` for animated, HTML, and PPTX output. Both `render()` and `export()` enforce `unsupported_motion` before writing. `export()` reports an explicitly requested [static SVG fidelity check](../exports.md#optional-static-svg-fidelity-report). |
 
 !!! warning
     Passing `quality` with `format="PNG"` raises `RenderingError`. Passing `debug=True` for document or animated output (`.svg`, `.pptx`, `.pdf`, `.html`, `.gif`, `.mp4`, `.webm`, or `.mov`) raises `RenderingError`.

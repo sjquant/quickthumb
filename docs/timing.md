@@ -51,6 +51,44 @@ print(samples.duration, len(samples.frames))
 print(result.timing_metrics.model_dump())
 ```
 
+## Temporal exposure
+
+Opt into centered motion blur when exporting a Canvas or Deck:
+
+```python
+from quickthumb import MotionBlur, VideoOptions
+
+canvas.export(
+    "exposure.mp4",
+    animation=VideoOptions(fps=30, motion_blur=MotionBlur(samples=8, shutter_angle=180)),
+)
+```
+
+`GifOptions` and `ImageSequenceOptions` accept the same setting. `None` is the
+only off setting; `MotionBlur` accepts 2–64 samples and a positive shutter angle
+up to 360 degrees. The shutter spans `(angle / 360) / fps` seconds around each
+rendered frame. Instants outside the document timeline use its boundary state.
+Hard cuts bound the exposure to the slide on the center's side of the cut;
+an exact cut time belongs to the incoming slide. Smooth transitions participate
+in the exposure, including samples on either side of their start time.
+Video and image-sequence exposure centers follow the output grid `index / fps`;
+GIF centers follow its variable-duration shot clock.
+The encoded-sRGB premultiplied channels are averaged before returning straight
+RGBA, preserving saturated colors in transparent trails.
+
+Exposure also integrates timed captions and appearances. They can contribute
+within half a shutter window of a cue boundary. Authored cue times and playback
+length remain unchanged; GIF delays and video frame counts still follow their
+codec clocks. With zero hold, the last frame is an exposure of motion. Add a hold
+to show an entirely settled frame.
+
+This setting supports Canvas and Deck GIF/video exports and image sequences,
+including `workers`. Each worker computes a complete exposure with the same
+sample times and alpha accumulation as serial rendering. Direct byte helpers
+do not support this setting. `sample()` and `render_frame()` remain instantaneous canonical
+observations. Export receipts identify the requested temporal exposure in their
+capability report; source inspection cannot infer an export-only setting.
+
 ## Slide duration and transitions
 
 Layer motion and the incoming transition start on the same slide clock. For
