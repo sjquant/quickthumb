@@ -147,10 +147,14 @@ ScaleTrack(
 )
 ```
 
-HTML passes an animation-level custom curve straight to CSS. Per-keyframe easing
+Ordinary HTML presets pass an animation-level custom curve to CSS. Per-keyframe easing
 and holds are rendered by the raster and video pipelines; HTML animates canonical
 motion between its start and settled states, and PPTX falls back to its preset
 effects.
+
+The bounded HTML adapters for anchors, axis scaling, paths and parent chains
+use static fallback with custom Bézier easing, per-keyframe easing or keyframe
+holds. Raster animation preserves these clocks.
 
 ## Notes
 
@@ -211,14 +215,15 @@ With `easing="linear"`, curved paths travel at approximately constant distance
 per second **within each keyframe interval**. A cached, bounded adaptive
 arc-length lookup maps distance back to the curve parameter. Different segment
 lengths or durations can produce different speeds across a knot; there is no
-whole-path retiming. Named timeline easing acts on each segment's distance
+whole-path retiming. Timeline easing acts on each segment's distance
 progress, clamped to `[0, 1]`, so even back easing cannot travel beyond the
 segment endpoints. Authored keyframe times and positions are preserved.
 
 Existing `KeyframeSpec` values remain accepted. With no handles anywhere and
 `auto_orient=False` (the default), the track retains its previous linear
 interpolation and easing behavior. Providing handles or enabling `auto_orient`
-opts the track into path sampling. Each segment uses the departing keyframe’s easing/hold, or the animation easing.
+opts the track into path sampling. Per-keyframe easing overrides timeline easing
+for that interval; `hold=True` retains the prior position until the next keyframe.
 
 ### Following the tangent
 

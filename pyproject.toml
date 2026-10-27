@@ -102,7 +102,7 @@ required-version = ">=0.13.4"
 add-bounds = "major"
 exclude-newer = "P14D"
 # Security fixes must not wait for the general dependency cooldown.
-exclude-newer-package = { certifi = "P0D", pillow = "P0D", rembg = "P0D", virtualenv = "P0D" }
+exclude-newer-package = { certifi = "P0D", filelock = "P0D", pillow = "P0D", rembg = "P0D", virtualenv = "P0D" }
 constraint-dependencies = ["virtualenv>=21.14.9"]
 
 [tool.ruff]

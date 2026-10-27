@@ -41,7 +41,7 @@ Each `Diagnostic` has stable human-readable fields and optional structured field
 | --- | --- |
 | `off-canvas` | A layer's bounding box falls partly or fully outside the canvas |
 | `motion-path-unused-handle` | An incoming handle on the first position keyframe or outgoing handle on the last has no adjacent segment |
-| `tiny-text` | Text smaller than 2.5% of the canvas height — likely illegible at thumbnail display sizes |
+| `tiny-text` | Text smaller than 2.5% of the canvas height, likely unreadable at thumbnail size |
 | `text-overflow` | A single word is wider than the layer's `max_width` and cannot be wrapped |
 | `text-clipped` | Wrapped text extends past the canvas or its declared text box |
 | `missing-glyph` | The selected font renders one or more characters as a missing-glyph placeholder |
