@@ -109,9 +109,20 @@ def test_export_result_reports_actual_static_document_fallback(tmp_path, kind, d
     result = source.export(tmp_path / ("scene." + kind))
     assert result.output_format == kind
     assert result.fallback_diagnostics
-    assert all(item.fallback == "static" for item in result.capability_report)
-    assert all(item.support == "fallback" for item in result.capability_report)
-    assert all(kind in item.message for item in result.capability_report)
+    motion = [item for item in result.capability_report if item.feature != "layer_representation"]
+    assert motion
+    assert all(item.fallback == "static" for item in motion)
+    assert all(item.support == "fallback" for item in motion)
+    assert all(kind in item.message for item in motion)
+    if kind == "html" and not deck:
+        (route,) = [
+            item for item in result.capability_report if item.feature == "layer_representation"
+        ]
+        assert route.support == "fallback" and route.fallback == "rasterize"
+        assert route.native_attempt is False and route.layer_id is None
+        assert route.layer_ids == ["layer:0", "root", "middle", "child", "independent"]
+        actual = next(item for item in result.fallback_diagnostics if item.reason == route.message)
+        assert actual.native_attempt is False and actual.layer_ids == route.layer_ids
     assert source.validate_export("raster")[0].support == "full"
 
 
@@ -220,9 +231,16 @@ def test_pdf_parent_fragments_are_export_scoped_and_skip_vector_fonts(monkeypatc
 @pytest.mark.parametrize("kind", ["html", "svg"])
 def test_render_prepares_document_before_opening_destination(tmp_path, monkeypatch, kind):
     canvas = scene()
-    monkeypatch.setattr(
-        canvas, "to_" + kind, lambda **_: (_ for _ in ()).throw(ValueError("prepare"))
-    )
+
+    def fail_preparation(*args, **kwargs):
+        raise ValueError("prepare")
+
+    if kind == "html":
+        from quickthumb._export_html import HtmlExporter
+
+        monkeypatch.setattr(HtmlExporter, "export", fail_preparation)
+    else:
+        monkeypatch.setattr(canvas, "to_svg", fail_preparation)
     path = tmp_path / ("existing." + kind)
     path.write_bytes(b"existing")
     with pytest.raises(ValueError, match="prepare"):

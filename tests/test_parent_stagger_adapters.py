@@ -118,7 +118,11 @@ def test_document_fallback_pixels_and_strict_destination_protection(tmp_path, ki
     path = tmp_path / ("stagger." + kind)
     result = canvas.export(path)
     assert {"parent", "stagger"} <= {item.feature for item in result.capability_report}
-    assert all(item.fallback == "static" for item in result.capability_report)
+    assert all(
+        item.fallback == "static"
+        for item in result.capability_report
+        if item.feature != "layer_representation"
+    )
     for exporter in (canvas, Deck(canvas.width, canvas.height).slide(canvas)):
         path.write_bytes(b"existing")
         with pytest.raises(RenderingError):
