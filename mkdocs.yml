@@ -83,6 +83,7 @@ nav:
       - Getting Started: getting-started.md
       - Core Concepts: concepts.md
       - Exporting to SVG, PPTX, PDF & video: exports.md
+      - Animation Timing: timing.md
   - API Reference:
       - Overview: api/index.md
       - Canvas: api/canvas.md
@@ -95,6 +96,7 @@ nav:
       - Path: api/path.md
       - SVG: api/svg.md
       - Video: api/video.md
+      - Audio-reactive Authoring: api/audio.md
       - Group (Auto Layout): api/group.md
       - Outline: api/outline.md
       - Data visualizations: api/data-visualizations.md
