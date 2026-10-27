@@ -729,3 +729,8 @@ the actual emitted count and duration. `image_sequence` is a video capability
 alias for validation and motion inspection, preserving the existing parent,
 Morph and caption restrictions. See [image sequences](../exports.md#image-sequences)
 for timing, color-profile limits and exclusive fresh-directory publication.
+
+The bounded HTML adapters for anchors, axis scaling, paths and parent chains
+currently use static fallback when custom Bézier easing, per-keyframe easing,
+or keyframe holds are combined with them. Raster animation preserves those
+clocks; ordinary HTML presets and basic tracks retain their existing support.
