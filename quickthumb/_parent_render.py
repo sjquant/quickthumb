@@ -34,6 +34,8 @@ from quickthumb.models import (
     Background,
     Glow,
     GroupLayer,
+    LayerClip,
+    LayerMask,
     NullLayer,
     Shadow,
     Stroke,
@@ -234,7 +236,7 @@ def _rebase_composition(canvas: Canvas, layer, offset: tuple[int, int]):
     updates = {}
     for name in ("clip", "mask"):
         boundary = getattr(layer, name, None)
-        if boundary is not None:
+        if isinstance(boundary, (LayerClip, LayerMask)):
             updates[name] = boundary.model_copy(
                 update={
                     "position": (
@@ -426,7 +428,12 @@ class ParentNode:
     parent: ParentNode | None = None
 
     def render_source(
-        self, time: float | None = None, color: str | None = None, *, reference=False
+        self,
+        time: float | None = None,
+        color: str | None = None,
+        *,
+        reference=False,
+        mask_state=None,
     ):
         if isinstance(self.layer, NullLayer):
             return None
@@ -437,6 +444,14 @@ class ParentNode:
             else _with_motion_color(self.source, color)
         )
         canvas = self.plan.canvas
+        from quickthumb._composition import has_mask_tracks, without_mask
+
+        if reference and has_mask_tracks(source):
+            source = without_mask(source)
+        if mask_state is not None:
+            from quickthumb._composition import with_motion_mask
+
+            source = with_motion_mask(source, mask_state, canvas._ctx)
         if reference and isinstance(source, VideoLayer):
             time = source.start
         previous = canvas._ctx.motion_time
@@ -449,7 +464,7 @@ class ParentNode:
         try:
             if isinstance(source, GroupLayer):
                 canvas._groups.render_group_layer(surface, source, time=time, sample_values=True)
-                surface = self.compose_source(surface)
+                surface = self.compose_source(surface, source=source)
             else:
                 canvas._render_layer(surface, source, time)
         finally:
@@ -457,11 +472,12 @@ class ParentNode:
             canvas._ctx.measure_cache = measurements
         return surface
 
-    def compose_source(self, surface: Image.Image, offset: tuple[int, int] = (0, 0)):
+    def compose_source(self, surface: Image.Image, offset: tuple[int, int] = (0, 0), source=None):
         """Apply the owner boundary once to pixels in a possibly shifted buffer."""
-        if not has_layer_composition(self.source):
+        source = self.source if source is None else source
+        if not has_layer_composition(source):
             return surface
-        layer = _rebase_composition(self.plan.canvas, self.source, (-offset[0], -offset[1]))
+        layer = _rebase_composition(self.plan.canvas, source, (-offset[0], -offset[1]))
         patch = apply_layer_composition(self.plan.canvas._ctx, surface, layer)
         result = Image.new("RGBA", surface.size)
         if patch is not None:

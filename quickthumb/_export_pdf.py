@@ -149,8 +149,10 @@ class PdfExporter:
 
     def save_canvases(self, canvases: list[Canvas], path_or_stream) -> None:
         """Write one or more canvases to a multi-page PDF (one page per canvas)."""
+        from quickthumb._composition import has_animated_masks
         from quickthumb._parent_export import static_parent_fragment
         from quickthumb._parenting import has_parent_links
+        from quickthumb._track_mattes import has_track_mattes
 
         # Prepare all parent pages before opening a destination. Reuse these
         # fragments only for this export, including font collection and drawing.
@@ -161,7 +163,11 @@ class PdfExporter:
         self._parent_fragments = {}
         try:
             for canvas in canvases:
-                if id(canvas) not in self._parent_fragments and has_parent_links(canvas):
+                if id(canvas) not in self._parent_fragments and (
+                    has_parent_links(canvas)
+                    or has_track_mattes(canvas)
+                    or has_animated_masks(canvas)
+                ):
                     self._parent_fragments[id(canvas)] = static_parent_fragment(canvas)
             if hasattr(path_or_stream, "write"):
                 self._build(canvases, path_or_stream)
@@ -409,12 +415,13 @@ class PdfExporter:
         self._record_routing([layer], "Outline emitted as native PDF geometry", rasterized=False)
 
     def _emit_path(self, layer: PathLayer) -> None:
-        from quickthumb._path_pdf import native_pdf_path_problem, pdf_path_commands
+        from quickthumb._path_curves import cubic_path_commands
+        from quickthumb._path_pdf import native_pdf_path_problem
 
         if problem := native_pdf_path_problem(layer):
             self._emit_raster_fallback(layer, f"Path requires a PNG fragment: {problem}")
             return
-        commands = pdf_path_commands(layer)
+        commands = cubic_path_commands(layer)
         if not any(kind not in {"M", "Z"} for kind, _ in commands):
             return
         canvas, pdf = self._current_canvas(), self._pdf

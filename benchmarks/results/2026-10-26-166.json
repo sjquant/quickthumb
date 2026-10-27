@@ -1,0 +1,1162 @@
+{
+  "version": 1,
+  "measurement": "instrumented temporal exposure cost",
+  "environment": {
+    "cpu": "arm",
+    "logical_cpus": 10,
+    "platform": "macOS-26.5.2-arm64-arm-64bit",
+    "python": "3.12.8",
+    "pillow": "13.0.0",
+    "freetype": "2.14.3",
+    "text_layout": "basic",
+    "ffmpeg": "ffmpeg version 8.1 Copyright (c) 2000-2026 the FFmpeg developers",
+    "commit": "427a26063f7e7a3e6863424b379067a4a678d53a"
+  },
+  "fps": 12.0,
+  "quality": "standard",
+  "workers": 1,
+  "shutter_angle": 180,
+  "runs_per_measurement": 5,
+  "scene": "motion_blur",
+  "dimensions": [
+    512,
+    288
+  ],
+  "duration": 2,
+  "cache_policy": "fresh processes; filesystem caches not flushed",
+  "memory_scope": "isolated parent lifetime peak RSS before decoding; excludes FFmpeg",
+  "interpretation": "Different exposure quality: cost comparison, not a speedup claim",
+  "warmup_runs": [
+    {
+      "scene": "motion_blur",
+      "format": "mp4",
+      "fps": 12.0,
+      "options": {
+        "fps": 12.0,
+        "matte": "#000000",
+        "soundtrack": null,
+        "loop_audio": null,
+        "workers": 1,
+        "render_quality": "standard",
+        "transparent": false
+      },
+      "quality": "standard",
+      "shots": 24,
+      "source_frame_calls": 26,
+      "render_ms_per_shot": 0.6328870840661693,
+      "render_seconds": 0.015189290017588064,
+      "encode_seconds": 0.08659454398730304,
+      "total_seconds": 0.1017838340048911,
+      "python_peak_rss_mib": 75.84375,
+      "font_loads": 0,
+      "font_seconds": 0.0,
+      "output_bytes": 6005,
+      "output_sha256": "6c6c1650d5cc1d2a5b52695addb926c8eb4214441eb01be7d4e81ad0d4578cbb",
+      "spec_sha256": "38168f24bb4d5953feec3099856b75f49238cbf55b379faba8c4838ba9110d22",
+      "decoded": {
+        "frame_count": 24,
+        "duration": 2.0,
+        "size": [
+          512,
+          288
+        ],
+        "rgb_sha256": "86b309b93f16cc9a0b89d38a824e3831cdd5956aef0e2c4ecb8b09b2acac0a3a"
+      }
+    },
+    {
+      "scene": "motion_blur",
+      "format": "mp4",
+      "fps": 12.0,
+      "options": {
+        "fps": 12.0,
+        "matte": "#000000",
+        "soundtrack": null,
+        "loop_audio": null,
+        "workers": 1,
+        "render_quality": "standard",
+        "motion_blur": {
+          "samples": 2,
+          "shutter_angle": 180.0
+        },
+        "transparent": false
+      },
+      "quality": "standard",
+      "shots": 24,
+      "source_frame_calls": 48,
+      "render_ms_per_shot": 3.5649339160954696,
+      "render_seconds": 0.08555841398629127,
+      "encode_seconds": 0.07560858601209475,
+      "total_seconds": 0.16116699999838602,
+      "python_peak_rss_mib": 83.4375,
+      "font_loads": 0,
+      "font_seconds": 0.0,
+      "output_bytes": 6238,
+      "output_sha256": "e66d92a3d319a1d5fb01dd167d5a271a4bde24860bc8e758a66e09197187d172",
+      "spec_sha256": "38168f24bb4d5953feec3099856b75f49238cbf55b379faba8c4838ba9110d22",
+      "decoded": {
+        "frame_count": 24,
+        "duration": 2.0,
+        "size": [
+          512,
+          288
+        ],
+        "rgb_sha256": "7e0dbd9b1aaba18b821bec9e8e9979db758850ee188a0653beb284b8de990ad2"
+      }
+    },
+    {
+      "scene": "motion_blur",
+      "format": "mp4",
+      "fps": 12.0,
+      "options": {
+        "fps": 12.0,
+        "matte": "#000000",
+        "soundtrack": null,
+        "loop_audio": null,
+        "workers": 1,
+        "render_quality": "standard",
+        "motion_blur": {
+          "samples": 4,
+          "shutter_angle": 180.0
+        },
+        "transparent": false
+      },
+      "quality": "standard",
+      "shots": 24,
+      "source_frame_calls": 96,
+      "render_ms_per_shot": 5.359470457430386,
+      "render_seconds": 0.12862729097832926,
+      "encode_seconds": 0.07433708402095363,
+      "total_seconds": 0.20296437499928288,
+      "python_peak_rss_mib": 77.921875,
+      "font_loads": 0,
+      "font_seconds": 0.0,
+      "output_bytes": 6295,
+      "output_sha256": "d8f9af720a9a3f22b13013e16ebcea4290079d10ae5216c3fb05d5fd62f5f655",
+      "spec_sha256": "38168f24bb4d5953feec3099856b75f49238cbf55b379faba8c4838ba9110d22",
+      "decoded": {
+        "frame_count": 24,
+        "duration": 2.0,
+        "size": [
+          512,
+          288
+        ],
+        "rgb_sha256": "364a6a56bdc49c71f79beade303032b140d361d291a3ff3fc691a124881fd129"
+      }
+    },
+    {
+      "scene": "motion_blur",
+      "format": "mp4",
+      "fps": 12.0,
+      "options": {
+        "fps": 12.0,
+        "matte": "#000000",
+        "soundtrack": null,
+        "loop_audio": null,
+        "workers": 1,
+        "render_quality": "standard",
+        "motion_blur": {
+          "samples": 8,
+          "shutter_angle": 180.0
+        },
+        "transparent": false
+      },
+      "quality": "standard",
+      "shots": 24,
+      "source_frame_calls": 192,
+      "render_ms_per_shot": 9.24663033371568,
+      "render_seconds": 0.22191912800917635,
+      "encode_seconds": 0.0765067059910507,
+      "total_seconds": 0.29842583400022704,
+      "python_peak_rss_mib": 78.671875,
+      "font_loads": 0,
+      "font_seconds": 0.0,
+      "output_bytes": 5647,
+      "output_sha256": "0b41c96675e5f2f649080221c664d375ceeeb4d18ddb093f5f2c24630d270165",
+      "spec_sha256": "38168f24bb4d5953feec3099856b75f49238cbf55b379faba8c4838ba9110d22",
+      "decoded": {
+        "frame_count": 24,
+        "duration": 2.0,
+        "size": [
+          512,
+          288
+        ],
+        "rgb_sha256": "e71df0cf8a775bb0f2ed74de58e6c42132eb8323e87396bb7c4ba10802b411f6"
+      }
+    }
+  ],
+  "raw_runs": [
+    {
+      "repetition": 1,
+      "scene": "motion_blur",
+      "format": "mp4",
+      "fps": 12.0,
+      "options": {
+        "fps": 12.0,
+        "matte": "#000000",
+        "soundtrack": null,
+        "loop_audio": null,
+        "workers": 1,
+        "render_quality": "standard",
+        "transparent": false
+      },
+      "quality": "standard",
+      "shots": 24,
+      "source_frame_calls": 26,
+      "render_ms_per_shot": 0.590112958282892,
+      "render_seconds": 0.014162710998789407,
+      "encode_seconds": 0.07475678900664207,
+      "total_seconds": 0.08891950000543147,
+      "python_peak_rss_mib": 74.328125,
+      "font_loads": 0,
+      "font_seconds": 0.0,
+      "output_bytes": 6005,
+      "output_sha256": "6c6c1650d5cc1d2a5b52695addb926c8eb4214441eb01be7d4e81ad0d4578cbb",
+      "spec_sha256": "38168f24bb4d5953feec3099856b75f49238cbf55b379faba8c4838ba9110d22",
+      "decoded": {
+        "frame_count": 24,
+        "duration": 2.0,
+        "size": [
+          512,
+          288
+        ],
+        "rgb_sha256": "86b309b93f16cc9a0b89d38a824e3831cdd5956aef0e2c4ecb8b09b2acac0a3a"
+      }
+    },
+    {
+      "repetition": 1,
+      "scene": "motion_blur",
+      "format": "mp4",
+      "fps": 12.0,
+      "options": {
+        "fps": 12.0,
+        "matte": "#000000",
+        "soundtrack": null,
+        "loop_audio": null,
+        "workers": 1,
+        "render_quality": "standard",
+        "motion_blur": {
+          "samples": 2,
+          "shutter_angle": 180.0
+        },
+        "transparent": false
+      },
+      "quality": "standard",
+      "shots": 24,
+      "source_frame_calls": 48,
+      "render_ms_per_shot": 3.4568628749790755,
+      "render_seconds": 0.08296470899949782,
+      "encode_seconds": 0.07346233300631866,
+      "total_seconds": 0.15642704200581647,
+      "python_peak_rss_mib": 77.78125,
+      "font_loads": 0,
+      "font_seconds": 0.0,
+      "output_bytes": 6238,
+      "output_sha256": "e66d92a3d319a1d5fb01dd167d5a271a4bde24860bc8e758a66e09197187d172",
+      "spec_sha256": "38168f24bb4d5953feec3099856b75f49238cbf55b379faba8c4838ba9110d22",
+      "decoded": {
+        "frame_count": 24,
+        "duration": 2.0,
+        "size": [
+          512,
+          288
+        ],
+        "rgb_sha256": "7e0dbd9b1aaba18b821bec9e8e9979db758850ee188a0653beb284b8de990ad2"
+      }
+    },
+    {
+      "repetition": 1,
+      "scene": "motion_blur",
+      "format": "mp4",
+      "fps": 12.0,
+      "options": {
+        "fps": 12.0,
+        "matte": "#000000",
+        "soundtrack": null,
+        "loop_audio": null,
+        "workers": 1,
+        "render_quality": "standard",
+        "motion_blur": {
+          "samples": 4,
+          "shutter_angle": 180.0
+        },
+        "transparent": false
+      },
+      "quality": "standard",
+      "shots": 24,
+      "source_frame_calls": 96,
+      "render_ms_per_shot": 5.417216917218563,
+      "render_seconds": 0.1300132060132455,
+      "encode_seconds": 0.07536379398516146,
+      "total_seconds": 0.20537699999840697,
+      "python_peak_rss_mib": 83.4375,
+      "font_loads": 0,
+      "font_seconds": 0.0,
+      "output_bytes": 6295,
+      "output_sha256": "d8f9af720a9a3f22b13013e16ebcea4290079d10ae5216c3fb05d5fd62f5f655",
+      "spec_sha256": "38168f24bb4d5953feec3099856b75f49238cbf55b379faba8c4838ba9110d22",
+      "decoded": {
+        "frame_count": 24,
+        "duration": 2.0,
+        "size": [
+          512,
+          288
+        ],
+        "rgb_sha256": "364a6a56bdc49c71f79beade303032b140d361d291a3ff3fc691a124881fd129"
+      }
+    },
+    {
+      "repetition": 1,
+      "scene": "motion_blur",
+      "format": "mp4",
+      "fps": 12.0,
+      "options": {
+        "fps": 12.0,
+        "matte": "#000000",
+        "soundtrack": null,
+        "loop_audio": null,
+        "workers": 1,
+        "render_quality": "standard",
+        "motion_blur": {
+          "samples": 8,
+          "shutter_angle": 180.0
+        },
+        "transparent": false
+      },
+      "quality": "standard",
+      "shots": 24,
+      "source_frame_calls": 192,
+      "render_ms_per_shot": 9.412968667675159,
+      "render_seconds": 0.22591124802420381,
+      "encode_seconds": 0.07453804297983879,
+      "total_seconds": 0.3004492910040426,
+      "python_peak_rss_mib": 86.796875,
+      "font_loads": 0,
+      "font_seconds": 0.0,
+      "output_bytes": 5647,
+      "output_sha256": "0b41c96675e5f2f649080221c664d375ceeeb4d18ddb093f5f2c24630d270165",
+      "spec_sha256": "38168f24bb4d5953feec3099856b75f49238cbf55b379faba8c4838ba9110d22",
+      "decoded": {
+        "frame_count": 24,
+        "duration": 2.0,
+        "size": [
+          512,
+          288
+        ],
+        "rgb_sha256": "e71df0cf8a775bb0f2ed74de58e6c42132eb8323e87396bb7c4ba10802b411f6"
+      }
+    },
+    {
+      "repetition": 2,
+      "scene": "motion_blur",
+      "format": "mp4",
+      "fps": 12.0,
+      "options": {
+        "fps": 12.0,
+        "matte": "#000000",
+        "soundtrack": null,
+        "loop_audio": null,
+        "workers": 1,
+        "render_quality": "standard",
+        "motion_blur": {
+          "samples": 2,
+          "shutter_angle": 180.0
+        },
+        "transparent": false
+      },
+      "quality": "standard",
+      "shots": 24,
+      "source_frame_calls": 48,
+      "render_ms_per_shot": 3.569073000107892,
+      "render_seconds": 0.0856577520025894,
+      "encode_seconds": 0.0764216640018276,
+      "total_seconds": 0.162079416004417,
+      "python_peak_rss_mib": 77.796875,
+      "font_loads": 0,
+      "font_seconds": 0.0,
+      "output_bytes": 6238,
+      "output_sha256": "e66d92a3d319a1d5fb01dd167d5a271a4bde24860bc8e758a66e09197187d172",
+      "spec_sha256": "38168f24bb4d5953feec3099856b75f49238cbf55b379faba8c4838ba9110d22",
+      "decoded": {
+        "frame_count": 24,
+        "duration": 2.0,
+        "size": [
+          512,
+          288
+        ],
+        "rgb_sha256": "7e0dbd9b1aaba18b821bec9e8e9979db758850ee188a0653beb284b8de990ad2"
+      }
+    },
+    {
+      "repetition": 2,
+      "scene": "motion_blur",
+      "format": "mp4",
+      "fps": 12.0,
+      "options": {
+        "fps": 12.0,
+        "matte": "#000000",
+        "soundtrack": null,
+        "loop_audio": null,
+        "workers": 1,
+        "render_quality": "standard",
+        "motion_blur": {
+          "samples": 4,
+          "shutter_angle": 180.0
+        },
+        "transparent": false
+      },
+      "quality": "standard",
+      "shots": 24,
+      "source_frame_calls": 96,
+      "render_ms_per_shot": 5.433366291375326,
+      "render_seconds": 0.13040079099300783,
+      "encode_seconds": 0.07482304200675571,
+      "total_seconds": 0.20522383299976354,
+      "python_peak_rss_mib": 78.4375,
+      "font_loads": 0,
+      "font_seconds": 0.0,
+      "output_bytes": 6295,
+      "output_sha256": "d8f9af720a9a3f22b13013e16ebcea4290079d10ae5216c3fb05d5fd62f5f655",
+      "spec_sha256": "38168f24bb4d5953feec3099856b75f49238cbf55b379faba8c4838ba9110d22",
+      "decoded": {
+        "frame_count": 24,
+        "duration": 2.0,
+        "size": [
+          512,
+          288
+        ],
+        "rgb_sha256": "364a6a56bdc49c71f79beade303032b140d361d291a3ff3fc691a124881fd129"
+      }
+    },
+    {
+      "repetition": 2,
+      "scene": "motion_blur",
+      "format": "mp4",
+      "fps": 12.0,
+      "options": {
+        "fps": 12.0,
+        "matte": "#000000",
+        "soundtrack": null,
+        "loop_audio": null,
+        "workers": 1,
+        "render_quality": "standard",
+        "motion_blur": {
+          "samples": 8,
+          "shutter_angle": 180.0
+        },
+        "transparent": false
+      },
+      "quality": "standard",
+      "shots": 24,
+      "source_frame_calls": 192,
+      "render_ms_per_shot": 9.411368043402035,
+      "render_seconds": 0.22587283304164885,
+      "encode_seconds": 0.07496045796142425,
+      "total_seconds": 0.3008332910030731,
+      "python_peak_rss_mib": 84.046875,
+      "font_loads": 0,
+      "font_seconds": 0.0,
+      "output_bytes": 5647,
+      "output_sha256": "0b41c96675e5f2f649080221c664d375ceeeb4d18ddb093f5f2c24630d270165",
+      "spec_sha256": "38168f24bb4d5953feec3099856b75f49238cbf55b379faba8c4838ba9110d22",
+      "decoded": {
+        "frame_count": 24,
+        "duration": 2.0,
+        "size": [
+          512,
+          288
+        ],
+        "rgb_sha256": "e71df0cf8a775bb0f2ed74de58e6c42132eb8323e87396bb7c4ba10802b411f6"
+      }
+    },
+    {
+      "repetition": 2,
+      "scene": "motion_blur",
+      "format": "mp4",
+      "fps": 12.0,
+      "options": {
+        "fps": 12.0,
+        "matte": "#000000",
+        "soundtrack": null,
+        "loop_audio": null,
+        "workers": 1,
+        "render_quality": "standard",
+        "transparent": false
+      },
+      "quality": "standard",
+      "shots": 24,
+      "source_frame_calls": 26,
+      "render_ms_per_shot": 0.6006908342897077,
+      "render_seconds": 0.014416580022952985,
+      "encode_seconds": 0.0740013779795845,
+      "total_seconds": 0.08841795800253749,
+      "python_peak_rss_mib": 75.640625,
+      "font_loads": 0,
+      "font_seconds": 0.0,
+      "output_bytes": 6005,
+      "output_sha256": "6c6c1650d5cc1d2a5b52695addb926c8eb4214441eb01be7d4e81ad0d4578cbb",
+      "spec_sha256": "38168f24bb4d5953feec3099856b75f49238cbf55b379faba8c4838ba9110d22",
+      "decoded": {
+        "frame_count": 24,
+        "duration": 2.0,
+        "size": [
+          512,
+          288
+        ],
+        "rgb_sha256": "86b309b93f16cc9a0b89d38a824e3831cdd5956aef0e2c4ecb8b09b2acac0a3a"
+      }
+    },
+    {
+      "repetition": 3,
+      "scene": "motion_blur",
+      "format": "mp4",
+      "fps": 12.0,
+      "options": {
+        "fps": 12.0,
+        "matte": "#000000",
+        "soundtrack": null,
+        "loop_audio": null,
+        "workers": 1,
+        "render_quality": "standard",
+        "motion_blur": {
+          "samples": 4,
+          "shutter_angle": 180.0
+        },
+        "transparent": false
+      },
+      "quality": "standard",
+      "shots": 24,
+      "source_frame_calls": 96,
+      "render_ms_per_shot": 5.439744749310194,
+      "render_seconds": 0.13055387398344465,
+      "encode_seconds": 0.07531995901081245,
+      "total_seconds": 0.2058738329942571,
+      "python_peak_rss_mib": 83.484375,
+      "font_loads": 0,
+      "font_seconds": 0.0,
+      "output_bytes": 6295,
+      "output_sha256": "d8f9af720a9a3f22b13013e16ebcea4290079d10ae5216c3fb05d5fd62f5f655",
+      "spec_sha256": "38168f24bb4d5953feec3099856b75f49238cbf55b379faba8c4838ba9110d22",
+      "decoded": {
+        "frame_count": 24,
+        "duration": 2.0,
+        "size": [
+          512,
+          288
+        ],
+        "rgb_sha256": "364a6a56bdc49c71f79beade303032b140d361d291a3ff3fc691a124881fd129"
+      }
+    },
+    {
+      "repetition": 3,
+      "scene": "motion_blur",
+      "format": "mp4",
+      "fps": 12.0,
+      "options": {
+        "fps": 12.0,
+        "matte": "#000000",
+        "soundtrack": null,
+        "loop_audio": null,
+        "workers": 1,
+        "render_quality": "standard",
+        "motion_blur": {
+          "samples": 8,
+          "shutter_angle": 180.0
+        },
+        "transparent": false
+      },
+      "quality": "standard",
+      "shots": 24,
+      "source_frame_calls": 192,
+      "render_ms_per_shot": 9.415607749057623,
+      "render_seconds": 0.22597458597738296,
+      "encode_seconds": 0.07994853902346222,
+      "total_seconds": 0.3059231250008452,
+      "python_peak_rss_mib": 86.5,
+      "font_loads": 0,
+      "font_seconds": 0.0,
+      "output_bytes": 5647,
+      "output_sha256": "0b41c96675e5f2f649080221c664d375ceeeb4d18ddb093f5f2c24630d270165",
+      "spec_sha256": "38168f24bb4d5953feec3099856b75f49238cbf55b379faba8c4838ba9110d22",
+      "decoded": {
+        "frame_count": 24,
+        "duration": 2.0,
+        "size": [
+          512,
+          288
+        ],
+        "rgb_sha256": "e71df0cf8a775bb0f2ed74de58e6c42132eb8323e87396bb7c4ba10802b411f6"
+      }
+    },
+    {
+      "repetition": 3,
+      "scene": "motion_blur",
+      "format": "mp4",
+      "fps": 12.0,
+      "options": {
+        "fps": 12.0,
+        "matte": "#000000",
+        "soundtrack": null,
+        "loop_audio": null,
+        "workers": 1,
+        "render_quality": "standard",
+        "transparent": false
+      },
+      "quality": "standard",
+      "shots": 24,
+      "source_frame_calls": 26,
+      "render_ms_per_shot": 0.5903420827356362,
+      "render_seconds": 0.014168209985655267,
+      "encode_seconds": 0.07350633101304993,
+      "total_seconds": 0.0876745409987052,
+      "python_peak_rss_mib": 74.015625,
+      "font_loads": 0,
+      "font_seconds": 0.0,
+      "output_bytes": 6005,
+      "output_sha256": "6c6c1650d5cc1d2a5b52695addb926c8eb4214441eb01be7d4e81ad0d4578cbb",
+      "spec_sha256": "38168f24bb4d5953feec3099856b75f49238cbf55b379faba8c4838ba9110d22",
+      "decoded": {
+        "frame_count": 24,
+        "duration": 2.0,
+        "size": [
+          512,
+          288
+        ],
+        "rgb_sha256": "86b309b93f16cc9a0b89d38a824e3831cdd5956aef0e2c4ecb8b09b2acac0a3a"
+      }
+    },
+    {
+      "repetition": 3,
+      "scene": "motion_blur",
+      "format": "mp4",
+      "fps": 12.0,
+      "options": {
+        "fps": 12.0,
+        "matte": "#000000",
+        "soundtrack": null,
+        "loop_audio": null,
+        "workers": 1,
+        "render_quality": "standard",
+        "motion_blur": {
+          "samples": 2,
+          "shutter_angle": 180.0
+        },
+        "transparent": false
+      },
+      "quality": "standard",
+      "shots": 24,
+      "source_frame_calls": 48,
+      "render_ms_per_shot": 3.509430625854293,
+      "render_seconds": 0.08422633502050303,
+      "encode_seconds": 0.0741335819766391,
+      "total_seconds": 0.15835991699714214,
+      "python_peak_rss_mib": 83.921875,
+      "font_loads": 0,
+      "font_seconds": 0.0,
+      "output_bytes": 6238,
+      "output_sha256": "e66d92a3d319a1d5fb01dd167d5a271a4bde24860bc8e758a66e09197187d172",
+      "spec_sha256": "38168f24bb4d5953feec3099856b75f49238cbf55b379faba8c4838ba9110d22",
+      "decoded": {
+        "frame_count": 24,
+        "duration": 2.0,
+        "size": [
+          512,
+          288
+        ],
+        "rgb_sha256": "7e0dbd9b1aaba18b821bec9e8e9979db758850ee188a0653beb284b8de990ad2"
+      }
+    },
+    {
+      "repetition": 4,
+      "scene": "motion_blur",
+      "format": "mp4",
+      "fps": 12.0,
+      "options": {
+        "fps": 12.0,
+        "matte": "#000000",
+        "soundtrack": null,
+        "loop_audio": null,
+        "workers": 1,
+        "render_quality": "standard",
+        "motion_blur": {
+          "samples": 8,
+          "shutter_angle": 180.0
+        },
+        "transparent": false
+      },
+      "quality": "standard",
+      "shots": 24,
+      "source_frame_calls": 192,
+      "render_ms_per_shot": 9.208730790912037,
+      "render_seconds": 0.2210095389818889,
+      "encode_seconds": 0.07702625201636693,
+      "total_seconds": 0.29803579099825583,
+      "python_peak_rss_mib": 83.703125,
+      "font_loads": 0,
+      "font_seconds": 0.0,
+      "output_bytes": 5647,
+      "output_sha256": "0b41c96675e5f2f649080221c664d375ceeeb4d18ddb093f5f2c24630d270165",
+      "spec_sha256": "38168f24bb4d5953feec3099856b75f49238cbf55b379faba8c4838ba9110d22",
+      "decoded": {
+        "frame_count": 24,
+        "duration": 2.0,
+        "size": [
+          512,
+          288
+        ],
+        "rgb_sha256": "e71df0cf8a775bb0f2ed74de58e6c42132eb8323e87396bb7c4ba10802b411f6"
+      }
+    },
+    {
+      "repetition": 4,
+      "scene": "motion_blur",
+      "format": "mp4",
+      "fps": 12.0,
+      "options": {
+        "fps": 12.0,
+        "matte": "#000000",
+        "soundtrack": null,
+        "loop_audio": null,
+        "workers": 1,
+        "render_quality": "standard",
+        "transparent": false
+      },
+      "quality": "standard",
+      "shots": 24,
+      "source_frame_calls": 26,
+      "render_ms_per_shot": 0.593842124241443,
+      "render_seconds": 0.014252210981794633,
+      "encode_seconds": 0.07321762201172533,
+      "total_seconds": 0.08746983299351996,
+      "python_peak_rss_mib": 74.03125,
+      "font_loads": 0,
+      "font_seconds": 0.0,
+      "output_bytes": 6005,
+      "output_sha256": "6c6c1650d5cc1d2a5b52695addb926c8eb4214441eb01be7d4e81ad0d4578cbb",
+      "spec_sha256": "38168f24bb4d5953feec3099856b75f49238cbf55b379faba8c4838ba9110d22",
+      "decoded": {
+        "frame_count": 24,
+        "duration": 2.0,
+        "size": [
+          512,
+          288
+        ],
+        "rgb_sha256": "86b309b93f16cc9a0b89d38a824e3831cdd5956aef0e2c4ecb8b09b2acac0a3a"
+      }
+    },
+    {
+      "repetition": 4,
+      "scene": "motion_blur",
+      "format": "mp4",
+      "fps": 12.0,
+      "options": {
+        "fps": 12.0,
+        "matte": "#000000",
+        "soundtrack": null,
+        "loop_audio": null,
+        "workers": 1,
+        "render_quality": "standard",
+        "motion_blur": {
+          "samples": 2,
+          "shutter_angle": 180.0
+        },
+        "transparent": false
+      },
+      "quality": "standard",
+      "shots": 24,
+      "source_frame_calls": 48,
+      "render_ms_per_shot": 3.5951337919565654,
+      "render_seconds": 0.08628321100695757,
+      "encode_seconds": 0.07574099799239775,
+      "total_seconds": 0.16202420899935532,
+      "python_peak_rss_mib": 86.203125,
+      "font_loads": 0,
+      "font_seconds": 0.0,
+      "output_bytes": 6238,
+      "output_sha256": "e66d92a3d319a1d5fb01dd167d5a271a4bde24860bc8e758a66e09197187d172",
+      "spec_sha256": "38168f24bb4d5953feec3099856b75f49238cbf55b379faba8c4838ba9110d22",
+      "decoded": {
+        "frame_count": 24,
+        "duration": 2.0,
+        "size": [
+          512,
+          288
+        ],
+        "rgb_sha256": "7e0dbd9b1aaba18b821bec9e8e9979db758850ee188a0653beb284b8de990ad2"
+      }
+    },
+    {
+      "repetition": 4,
+      "scene": "motion_blur",
+      "format": "mp4",
+      "fps": 12.0,
+      "options": {
+        "fps": 12.0,
+        "matte": "#000000",
+        "soundtrack": null,
+        "loop_audio": null,
+        "workers": 1,
+        "render_quality": "standard",
+        "motion_blur": {
+          "samples": 4,
+          "shutter_angle": 180.0
+        },
+        "transparent": false
+      },
+      "quality": "standard",
+      "shots": 24,
+      "source_frame_calls": 96,
+      "render_ms_per_shot": 5.589375125055085,
+      "render_seconds": 0.13414500300132204,
+      "encode_seconds": 0.07571595599438297,
+      "total_seconds": 0.209860958995705,
+      "python_peak_rss_mib": 85.625,
+      "font_loads": 0,
+      "font_seconds": 0.0,
+      "output_bytes": 6295,
+      "output_sha256": "d8f9af720a9a3f22b13013e16ebcea4290079d10ae5216c3fb05d5fd62f5f655",
+      "spec_sha256": "38168f24bb4d5953feec3099856b75f49238cbf55b379faba8c4838ba9110d22",
+      "decoded": {
+        "frame_count": 24,
+        "duration": 2.0,
+        "size": [
+          512,
+          288
+        ],
+        "rgb_sha256": "364a6a56bdc49c71f79beade303032b140d361d291a3ff3fc691a124881fd129"
+      }
+    },
+    {
+      "repetition": 5,
+      "scene": "motion_blur",
+      "format": "mp4",
+      "fps": 12.0,
+      "options": {
+        "fps": 12.0,
+        "matte": "#000000",
+        "soundtrack": null,
+        "loop_audio": null,
+        "workers": 1,
+        "render_quality": "standard",
+        "transparent": false
+      },
+      "quality": "standard",
+      "shots": 24,
+      "source_frame_calls": 26,
+      "render_ms_per_shot": 0.5835886243706531,
+      "render_seconds": 0.014006126984895673,
+      "encode_seconds": 0.07416012301109731,
+      "total_seconds": 0.08816624999599298,
+      "python_peak_rss_mib": 74.828125,
+      "font_loads": 0,
+      "font_seconds": 0.0,
+      "output_bytes": 6005,
+      "output_sha256": "6c6c1650d5cc1d2a5b52695addb926c8eb4214441eb01be7d4e81ad0d4578cbb",
+      "spec_sha256": "38168f24bb4d5953feec3099856b75f49238cbf55b379faba8c4838ba9110d22",
+      "decoded": {
+        "frame_count": 24,
+        "duration": 2.0,
+        "size": [
+          512,
+          288
+        ],
+        "rgb_sha256": "86b309b93f16cc9a0b89d38a824e3831cdd5956aef0e2c4ecb8b09b2acac0a3a"
+      }
+    },
+    {
+      "repetition": 5,
+      "scene": "motion_blur",
+      "format": "mp4",
+      "fps": 12.0,
+      "options": {
+        "fps": 12.0,
+        "matte": "#000000",
+        "soundtrack": null,
+        "loop_audio": null,
+        "workers": 1,
+        "render_quality": "standard",
+        "motion_blur": {
+          "samples": 2,
+          "shutter_angle": 180.0
+        },
+        "transparent": false
+      },
+      "quality": "standard",
+      "shots": 24,
+      "source_frame_calls": 48,
+      "render_ms_per_shot": 3.4839930000695554,
+      "render_seconds": 0.08361583200166933,
+      "encode_seconds": 0.07542041799752042,
+      "total_seconds": 0.15903624999918975,
+      "python_peak_rss_mib": 77.71875,
+      "font_loads": 0,
+      "font_seconds": 0.0,
+      "output_bytes": 6238,
+      "output_sha256": "e66d92a3d319a1d5fb01dd167d5a271a4bde24860bc8e758a66e09197187d172",
+      "spec_sha256": "38168f24bb4d5953feec3099856b75f49238cbf55b379faba8c4838ba9110d22",
+      "decoded": {
+        "frame_count": 24,
+        "duration": 2.0,
+        "size": [
+          512,
+          288
+        ],
+        "rgb_sha256": "7e0dbd9b1aaba18b821bec9e8e9979db758850ee188a0653beb284b8de990ad2"
+      }
+    },
+    {
+      "repetition": 5,
+      "scene": "motion_blur",
+      "format": "mp4",
+      "fps": 12.0,
+      "options": {
+        "fps": 12.0,
+        "matte": "#000000",
+        "soundtrack": null,
+        "loop_audio": null,
+        "workers": 1,
+        "render_quality": "standard",
+        "motion_blur": {
+          "samples": 4,
+          "shutter_angle": 180.0
+        },
+        "transparent": false
+      },
+      "quality": "standard",
+      "shots": 24,
+      "source_frame_calls": 96,
+      "render_ms_per_shot": 5.478592041678591,
+      "render_seconds": 0.13148620900028618,
+      "encode_seconds": 0.07462091599882115,
+      "total_seconds": 0.20610712499910733,
+      "python_peak_rss_mib": 83.546875,
+      "font_loads": 0,
+      "font_seconds": 0.0,
+      "output_bytes": 6295,
+      "output_sha256": "d8f9af720a9a3f22b13013e16ebcea4290079d10ae5216c3fb05d5fd62f5f655",
+      "spec_sha256": "38168f24bb4d5953feec3099856b75f49238cbf55b379faba8c4838ba9110d22",
+      "decoded": {
+        "frame_count": 24,
+        "duration": 2.0,
+        "size": [
+          512,
+          288
+        ],
+        "rgb_sha256": "364a6a56bdc49c71f79beade303032b140d361d291a3ff3fc691a124881fd129"
+      }
+    },
+    {
+      "repetition": 5,
+      "scene": "motion_blur",
+      "format": "mp4",
+      "fps": 12.0,
+      "options": {
+        "fps": 12.0,
+        "matte": "#000000",
+        "soundtrack": null,
+        "loop_audio": null,
+        "workers": 1,
+        "render_quality": "standard",
+        "motion_blur": {
+          "samples": 8,
+          "shutter_angle": 180.0
+        },
+        "transparent": false
+      },
+      "quality": "standard",
+      "shots": 24,
+      "source_frame_calls": 192,
+      "render_ms_per_shot": 9.90081933377951,
+      "render_seconds": 0.23761966401070822,
+      "encode_seconds": 0.08327516898862086,
+      "total_seconds": 0.3208948329993291,
+      "python_peak_rss_mib": 85.875,
+      "font_loads": 0,
+      "font_seconds": 0.0,
+      "output_bytes": 5647,
+      "output_sha256": "0b41c96675e5f2f649080221c664d375ceeeb4d18ddb093f5f2c24630d270165",
+      "spec_sha256": "38168f24bb4d5953feec3099856b75f49238cbf55b379faba8c4838ba9110d22",
+      "decoded": {
+        "frame_count": 24,
+        "duration": 2.0,
+        "size": [
+          512,
+          288
+        ],
+        "rgb_sha256": "e71df0cf8a775bb0f2ed74de58e6c42132eb8323e87396bb7c4ba10802b411f6"
+      }
+    }
+  ],
+  "results": [
+    {
+      "scene": "motion_blur",
+      "format": "mp4",
+      "options": {
+        "fps": 12.0,
+        "matte": "#000000",
+        "soundtrack": null,
+        "loop_audio": null,
+        "workers": 1,
+        "render_quality": "standard",
+        "transparent": false
+      },
+      "quality": "standard",
+      "fps": 12.0,
+      "shots": 24,
+      "source_frame_calls": 26,
+      "render_ms_per_shot": 0.5903420827356362,
+      "render_seconds": 0.014168209985655267,
+      "encode_seconds": 0.0740013779795845,
+      "total_seconds": 0.08816624999599298,
+      "python_peak_rss_mib": 74.328125,
+      "font_loads": 0,
+      "font_seconds": 0.0,
+      "output_bytes": 6005,
+      "total_seconds_min": 0.08746983299351996,
+      "total_seconds_max": 0.08891950000543147,
+      "blur_samples": 0,
+      "decoded": {
+        "frame_count": 24,
+        "duration": 2.0,
+        "size": [
+          512,
+          288
+        ],
+        "rgb_sha256": "86b309b93f16cc9a0b89d38a824e3831cdd5956aef0e2c4ecb8b09b2acac0a3a"
+      },
+      "python_peak_rss_mib_min": 74.015625,
+      "python_peak_rss_mib_max": 75.640625
+    },
+    {
+      "scene": "motion_blur",
+      "format": "mp4",
+      "options": {
+        "fps": 12.0,
+        "matte": "#000000",
+        "soundtrack": null,
+        "loop_audio": null,
+        "workers": 1,
+        "render_quality": "standard",
+        "motion_blur": {
+          "samples": 2,
+          "shutter_angle": 180.0
+        },
+        "transparent": false
+      },
+      "quality": "standard",
+      "fps": 12.0,
+      "shots": 24,
+      "source_frame_calls": 48,
+      "render_ms_per_shot": 3.509430625854293,
+      "render_seconds": 0.08422633502050303,
+      "encode_seconds": 0.07542041799752042,
+      "total_seconds": 0.15903624999918975,
+      "python_peak_rss_mib": 77.796875,
+      "font_loads": 0,
+      "font_seconds": 0.0,
+      "output_bytes": 6238,
+      "total_seconds_min": 0.15642704200581647,
+      "total_seconds_max": 0.162079416004417,
+      "blur_samples": 2,
+      "decoded": {
+        "frame_count": 24,
+        "duration": 2.0,
+        "size": [
+          512,
+          288
+        ],
+        "rgb_sha256": "7e0dbd9b1aaba18b821bec9e8e9979db758850ee188a0653beb284b8de990ad2"
+      },
+      "python_peak_rss_mib_min": 77.71875,
+      "python_peak_rss_mib_max": 86.203125
+    },
+    {
+      "scene": "motion_blur",
+      "format": "mp4",
+      "options": {
+        "fps": 12.0,
+        "matte": "#000000",
+        "soundtrack": null,
+        "loop_audio": null,
+        "workers": 1,
+        "render_quality": "standard",
+        "motion_blur": {
+          "samples": 4,
+          "shutter_angle": 180.0
+        },
+        "transparent": false
+      },
+      "quality": "standard",
+      "fps": 12.0,
+      "shots": 24,
+      "source_frame_calls": 96,
+      "render_ms_per_shot": 5.439744749310194,
+      "render_seconds": 0.13055387398344465,
+      "encode_seconds": 0.07531995901081245,
+      "total_seconds": 0.2058738329942571,
+      "python_peak_rss_mib": 83.484375,
+      "font_loads": 0,
+      "font_seconds": 0.0,
+      "output_bytes": 6295,
+      "total_seconds_min": 0.20522383299976354,
+      "total_seconds_max": 0.209860958995705,
+      "blur_samples": 4,
+      "decoded": {
+        "frame_count": 24,
+        "duration": 2.0,
+        "size": [
+          512,
+          288
+        ],
+        "rgb_sha256": "364a6a56bdc49c71f79beade303032b140d361d291a3ff3fc691a124881fd129"
+      },
+      "python_peak_rss_mib_min": 78.4375,
+      "python_peak_rss_mib_max": 85.625
+    },
+    {
+      "scene": "motion_blur",
+      "format": "mp4",
+      "options": {
+        "fps": 12.0,
+        "matte": "#000000",
+        "soundtrack": null,
+        "loop_audio": null,
+        "workers": 1,
+        "render_quality": "standard",
+        "motion_blur": {
+          "samples": 8,
+          "shutter_angle": 180.0
+        },
+        "transparent": false
+      },
+      "quality": "standard",
+      "fps": 12.0,
+      "shots": 24,
+      "source_frame_calls": 192,
+      "render_ms_per_shot": 9.412968667675159,
+      "render_seconds": 0.22591124802420381,
+      "encode_seconds": 0.07702625201636693,
+      "total_seconds": 0.3008332910030731,
+      "python_peak_rss_mib": 85.875,
+      "font_loads": 0,
+      "font_seconds": 0.0,
+      "output_bytes": 5647,
+      "total_seconds_min": 0.29803579099825583,
+      "total_seconds_max": 0.3208948329993291,
+      "blur_samples": 8,
+      "decoded": {
+        "frame_count": 24,
+        "duration": 2.0,
+        "size": [
+          512,
+          288
+        ],
+        "rgb_sha256": "e71df0cf8a775bb0f2ed74de58e6c42132eb8323e87396bb7c4ba10802b411f6"
+      },
+      "python_peak_rss_mib_min": 83.703125,
+      "python_peak_rss_mib_max": 86.796875
+    }
+  ],
+  "host_activity": "Cooperating task agents paused heavy local checks during sweep; unrelated host processes not controlled.",
+  "source_state": "Runtime engine at recorded base commit; benchmark harness/example/capability declarations are local changes in this PR.",
+  "verdict": "More temporal samples cost additional render work; different exposure outputs are not an equal-quality speed comparison."
+}

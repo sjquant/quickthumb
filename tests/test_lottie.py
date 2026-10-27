@@ -69,8 +69,28 @@ def test_static_lottie_receipt_roundtrip_and_native_geometry(tmp_path):
             ),
             "animation",
         ),
-        (Canvas(32, 32).path("M0 0Q5 5 10 0", (0, 0), 20, 20, id="curve"), "d"),
+        (
+            Canvas(32, 32).path(
+                "M2 2L10 10", (0, 0), 20, 20, None, stroke="#000000", dash_array=(2, 2), id="dashed"
+            ),
+            "d",
+        ),
         (Canvas(32, 32).path("M-1 0H10V10Z", (0, 0), 20, 20, id="clipped"), "d"),
+        (
+            Canvas(32, 32).path("M2 20C-20 -30 30 -30 30 20", (0, 0), 32, 32, id="curve-clipped"),
+            "d",
+        ),
+        (
+            Canvas(32, 32).path(
+                "M100000000000010 100000000000010H100000000000090V100000000000090Z",
+                (0, 0),
+                32,
+                32,
+                view_box=(1e14, 1e14, 100, 100),
+                id="precision",
+            ),
+            "d",
+        ),
         (
             Canvas(32, 32).path(
                 "M10 10L10 10", (0, 0), 20, 20, None, stroke="#000000", line_cap="round", id="dot"
@@ -108,3 +128,29 @@ def test_lottie_route_rejects_wrong_options_and_deck_before_writes(tmp_path):
     with pytest.raises(RenderingError, match="single Canvas"):
         Deck().slide(canvas).export(output)
     assert not output.exists()
+
+
+def test_curved_paths_keep_relative_tangents_closed_seams_and_no_raster_assets(tmp_path):
+    from examples.lottie_paths import build_canvas
+
+    canvas = Canvas.from_json(build_canvas().to_json())
+    destination = tmp_path / "curves.lot"
+    result = canvas.export(destination)
+    payload = json.loads(destination.read_text())
+    schema = json.loads((Path(__file__).parent / "fixtures/lottie/schema-1.0.1.json").read_text())
+    jsonschema.validate(payload, schema)
+    by_id = {layer["nm"]: layer for layer in payload["layers"]}
+    quadratic = by_id["quadratic"]["shapes"][0]["ks"]["k"]
+    # Q(40,0) from (8,40) becomes exact relative cubic tangents.
+    assert quadratic["o"][0] == pytest.approx([64 / 3, -80 / 3])
+    assert quadratic["i"][1] == pytest.approx([-64 / 3, -80 / 3])
+    closed = by_id["closed"]["shapes"][0]["ks"]["k"]
+    assert closed["v"] == [[12, 32], [52, 32]]
+    assert closed["i"][0] == [0, 28]
+    assert closed["o"][0] == [0, -28]
+    assert closed["c"] is True
+    arc = by_id["arc-hole"]["shapes"][0]["ks"]["k"]
+    assert arc["v"][0] == [12, 40] and arc["c"] is True
+    assert any(handle != [0, 0] for handle in arc["o"])
+    assert payload["assets"] == result.asset_manifest == []
+    assert all(row.support == "native" for row in result.capability_report)
