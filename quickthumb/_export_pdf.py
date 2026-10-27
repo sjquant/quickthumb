@@ -415,12 +415,13 @@ class PdfExporter:
         self._record_routing([layer], "Outline emitted as native PDF geometry", rasterized=False)
 
     def _emit_path(self, layer: PathLayer) -> None:
-        from quickthumb._path_pdf import native_pdf_path_problem, pdf_path_commands
+        from quickthumb._path_curves import cubic_path_commands
+        from quickthumb._path_pdf import native_pdf_path_problem
 
         if problem := native_pdf_path_problem(layer):
             self._emit_raster_fallback(layer, f"Path requires a PNG fragment: {problem}")
             return
-        commands = pdf_path_commands(layer)
+        commands = cubic_path_commands(layer)
         if not any(kind not in {"M", "Z"} for kind, _ in commands):
             return
         canvas, pdf = self._current_canvas(), self._pdf
