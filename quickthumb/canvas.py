@@ -2162,10 +2162,8 @@ class Canvas:
     ) -> bool:
         """Move each staggered target on its own, returning whether it applied.
 
-        The layer is sliced out of its own finished render, so every target keeps
-        the layout it was drawn with. Targets that cannot be told apart — lines
-        set tight enough to touch, or a target kind with no visual band — fall
-        back to moving the layer as a whole.
+        Text targets must reconstruct their finished layout exactly or raise.
+        Group targets retain their separate partial band adapter.
         """
         from quickthumb._export_base import (
             _with_motion_color,

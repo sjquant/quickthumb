@@ -24,8 +24,8 @@ def text_target_fragments(
 ):
     """Keep separable text targets at their authored, fully laid-out positions.
 
-    A candidate layout is used only when its nonoverlapping crops reconstruct
-    the source pixels. Callers decide whether other layouts allow a partial route.
+    Semantic text targets require an exact reconstruction; unprovable layouts
+    raise instead of falling back to bands. Other layer kinds return None.
     """
     from quickthumb._export_base import compute_text_layout
     from quickthumb.motion import _canonical_timeline, _text_selector
@@ -47,7 +47,7 @@ def text_target_fragments(
     if not isinstance(content, str):
         if target == "characters":
             raise RenderingError("Character targets require plain text, not rich text")
-        return None
+        raise RenderingError("Text targets require plain separable words/lines, not rich text")
     if (
         effective.effects
         or effective.fill
@@ -61,15 +61,18 @@ def text_target_fragments(
                 "Character targets require plain, unrotated text without effects, fills, "
                 "letter spacing, animated values or bidirectional shaping"
             )
-        return None
+        raise RenderingError(
+            "Text targets require plain separable words/lines without effects, fills, rotation, "
+            "letter spacing, animated values or bidirectional shaping"
+        )
     layout = compute_text_layout(canvas, effective)
+    staggers = [event.stagger for event in timeline.events if event.stagger] if timeline else []
+    if (
+        any(item["target"] != target for item in staggers)
+        or len({item["order"] for item in staggers}) > 1
+    ):
+        raise RenderingError("Text targets require one consistent target basis and order")
     if target == "characters":
-        staggers = [event.stagger for event in timeline.events if event.stagger] if timeline else []
-        if (
-            any(item["target"] != "characters" for item in staggers)
-            or len({item["order"] for item in staggers}) > 1
-        ):
-            raise RenderingError("Character targets require one consistent target basis and order")
         fragments = _character_fragments(canvas, effective, layout, surface, offset)
         return (
             tuple(reversed(fragments)) if stagger and stagger["order"] == "reverse" else fragments
@@ -93,7 +96,7 @@ def text_target_fragments(
     if target == "words" and values != re.findall(r"\S+", content):
         # A word split across wrapped lines needs multiple placed runs, rather
         # than changing its semantic target cardinality.
-        return None
+        raise RenderingError("Text targets cannot preserve words split across wrapped lines")
     fragments = []
     reconstructed = Image.new("RGBA", surface.size)
     for box in boxes:
@@ -101,6 +104,10 @@ def text_target_fragments(
             fragments.append((Image.new("RGBA", (1, 1)), (0, 0)))
             continue
         left, top, right, bottom = box
+        if left < 0 or top < 0 or right > canvas.width or bottom > canvas.height:
+            raise RenderingError(
+                "Text targets require glyph ink inside the canvas; move the text inward"
+            )
         bounds = (
             math.floor(left) - offset[0],
             math.floor(top) - offset[1],
@@ -114,7 +121,9 @@ def text_target_fragments(
         reconstructed.alpha_composite(fragment, bounds[:2])
         fragments.append((fragment, (bounds[0] + offset[0], bounds[1] + offset[1])))
     if reconstructed.tobytes() != surface.tobytes():
-        return None
+        raise RenderingError(
+            "Text targets cannot preserve this layout as plain separable words/lines"
+        )
     if stagger and stagger["order"] == "reverse":
         fragments.reverse()
     return tuple(fragments)
