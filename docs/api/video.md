@@ -583,7 +583,8 @@ It applies after static source rotation and effects, then travels with canonical
 motion and reveal. Boundary alignment moves its own box; polygon points remain
 normalized within that box. Clip alpha multiplies mask alpha. An inverted mask
 inverts the complete opacity-weighted mask, so zero opacity makes no cutout.
-Rounded edges retain the existing antialiasing; there is no feathering option.
+Rounded edges retain the existing antialiasing. See
+[animated shape-mask geometry](#animated-shape-mask-geometry) for static and animated feather.
 
 Composition does not shrink or shift the owner's authored body frame, and never
 clips its explicit children. The owner's composed, opaque settled source defines
@@ -859,11 +860,47 @@ exports use this same composition. See
 
 This first matte implementation rejects backdrop-dependent scenes and captioned
 video scenes. Matte source and target groups require static descendants; their
-own group motion remains supported. Animated mask position/size/feather and path-shaped masks are
+own group motion remains supported. Position, size and feather are supported by
+[animated shape-mask geometry](#animated-shape-mask-geometry); path-shaped masks are
 separate work. SVG, HTML, PDF and PPTX freeze the complete scene into one declared
 authored-static raster image; all motion is frozen. `validate_export()` reports
 that route and `ExportPolicy(unsupported_motion="error")` rejects it before
 writing. Deck Morph uses a declared fade fallback for matte scenes.
+
+### Animated shape-mask geometry
+
+Attach mask tracks to the owner's ordinary `AnimationSpec.timeline(...)`.
+There is one owner clock, with the same delays, keyframe holds and easing as
+other tracks:
+
+```python
+from quickthumb import AnimationSpec, KeyframeSpec, MaskPositionTrack, TimingSpec
+
+motion = AnimationSpec.timeline(
+    MaskPositionTrack(keyframes=[KeyframeSpec(time=0, value=(0, 0)),
+                                 KeyframeSpec(time=1, value=(80, 0))]),
+    timing=TimingSpec(duration=1), easing="ease_in_out",
+)
+```
+
+`MaskPositionTrack` is a local pixel offset from the authored `LayerMask.position`.
+`MaskSizeTrack` sets absolute positive local `(width, height)` values.
+Alignment is resolved against the authored box before resizing, keeping its
+top-left fixed. `MaskFeatherTrack` sets a nonnegative local Gaussian radius;
+`LayerMask(feather=0)` supplies the static value. Feather is applied before
+opacity-weighted inversion and any separate sharp clip. Its padded 4× alpha
+surface is bounded to 64 million samples; an oversized surface raises
+`mask_surface_limit` before allocation. Size must remain positive during easing.
+
+The sampled mask is applied to the isolated source before owner and ancestor
+transforms. The owner's unmasked rendered body defines a stable pivot, so moving
+or resizing the mask never moves that pivot. Tracks require a `LayerMask` shape
+mask; a `TrackMatte` uses its referenced source's animation instead. Stagger and
+counter sources and owner `BackdropBlur` are not supported with mask geometry
+tracks yet. Path-shaped
+masks and native HTML masks are separate work. The declared authored-static
+SVG/HTML/PDF/PPTX fallback and strict prewrite refusal also apply to these tracks.
+See [`examples/animated_masks.py`](https://github.com/sjquant/quickthumb/blob/main/examples/animated_masks.py).
 
 ## Text range selectors
 

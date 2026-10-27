@@ -1270,6 +1270,7 @@ def _morph_source(
     transition: Transition | None, previous: Canvas | None, incoming: Canvas
 ) -> Canvas | None:
     """Return the outgoing canvas when a keyed Morph can play into `incoming`."""
+    from quickthumb._composition import has_animated_masks
     from quickthumb._parenting import has_parent_links
     from quickthumb._track_mattes import has_track_mattes
 
@@ -1283,6 +1284,8 @@ def _morph_source(
         and not has_parent_links(incoming)
         and not has_track_mattes(previous)
         and not has_track_mattes(incoming)
+        and not has_animated_masks(previous)
+        and not has_animated_masks(incoming)
     ):
         return previous
     return None
@@ -1716,7 +1719,19 @@ class _SlideAnimator:
                 )
                 continue
             color = state.canonical.layer.color if state.canonical is not None else None
-            if unit.component_duration > 0 or color is not None and unit.color_motion:
+            from quickthumb._composition import has_mask_tracks, with_motion_mask
+
+            if unit.layers and has_mask_tracks(unit.layers[0]):
+                assert state.canonical is not None
+                painted = with_motion_mask(unit.layers[0], state.canonical.layer, canvas._ctx)
+                surface = _render_unit_surface(canvas, [painted], time, color=color)
+                pos = unit.pos
+                if unit.image is None:
+                    continue
+                image = surface.crop(
+                    (pos[0], pos[1], pos[0] + unit.image.width, pos[1] + unit.image.height)
+                )
+            elif unit.component_duration > 0 or color is not None and unit.color_motion:
                 image, pos = _render_unit_image(
                     canvas, unit.layers, time, animate_layers=unit.animates_layers, color=color
                 )
@@ -1812,8 +1827,12 @@ class _SlideAnimator:
         if state.hidden or collapsed or isinstance(node.layer, NullLayer):
             return
         motion = state.canonical.layer if state.canonical else LayerState()
+        from quickthumb._composition import has_mask_tracks
+
         image, source_offset = (
-            node.render_sample(time, motion.color)
+            (node.render_source(time, motion.color, mask_state=motion), (0, 0))
+            if has_mask_tracks(node.layer)
+            else node.render_sample(time, motion.color)
             if unit.component_duration > 0 or unit.color_motion and motion.color is not None
             else (node.image, (0, 0))
         )
@@ -2057,6 +2076,7 @@ def _build_units(
     reduced_motion: bool = False,
 ) -> tuple[list[_Unit], ParentRenderPlan | None]:
     """Prepare all scene units and optional parent sources before scheduling."""
+    from quickthumb._composition import has_mask_tracks, without_mask
     from quickthumb._parenting import has_parent_links
     from quickthumb._track_mattes import has_track_mattes
     from quickthumb.motion import _text_selector, _validate_text_selectors
@@ -2133,6 +2153,7 @@ def _build_units(
         key = id(animation) if animation is not None else None
         if (
             mattes
+            or has_mask_tracks(layer)
             or isinstance(layer, (NullLayer, PathLayer))
             or isinstance(layer, TextLayer)
             and any(
@@ -2169,13 +2190,18 @@ def _build_units(
                 "animated export. Use a legacy effect for layer-level motion."
             )
         effects = [effect for effect in raw_effects if not isinstance(effect, AnimationSpec)]
+        mask_motion = any(has_mask_tracks(layer) for layer in layers)
         parent_node = parent_plan.nodes.get(id(layers[0])) if parent_plan else None
         image, pos = (
             (parent_node.image, (0, 0))
             if parent_node is not None
             else (None, (0, 0))
             if len(layers) == 1 and isinstance(layers[0], (NullLayer, PathLayer))
-            else _render_unit_image(canvas, layers)
+            else _render_unit_image(
+                canvas,
+                [without_mask(layer) for layer in layers] if mask_motion else layers,
+                color="#FFFFFF" if mask_motion else None,
+            )
         )
         is_prefix = bool(prefix) and index == 0
         # A color-bearing backdrop prefix samples each layer separately. Its

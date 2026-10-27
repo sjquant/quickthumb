@@ -66,6 +66,9 @@ MotionValue = tuple[float, float] | float | str
 MotionTargetName = Literal["characters", "words", "lines", "children"]
 TargetOrder = Literal["document", "top_to_bottom", "left_to_right", "reverse"]
 MotionProperty = Literal[
+    "mask_position",
+    "mask_size",
+    "mask_feather",
     "position",
     "image_pan",
     "scale",
@@ -646,6 +649,15 @@ class LayerState(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     position: tuple[float, float] | None = None
+    mask_position: tuple[float, float] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    mask_size: tuple[float, float] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    mask_feather: float | None = Field(
+        default=None, ge=0, allow_inf_nan=False, exclude_if=lambda value: value is None
+    )
     image_pan: tuple[float, float] = (0.0, 0.0)
     image_focal_point: tuple[float, float] | None = None
     anchor: AnchorPoint = Field(default=(0.5, 0.5), exclude_if=lambda value: value == (0.5, 0.5))
@@ -668,13 +680,20 @@ class LayerState(BaseModel):
     path_morph: str | None = None
     color: HexColor | None = None
 
-    @field_validator("position")
+    @field_validator("position", "mask_position", "mask_size")
     @classmethod
     def validate_position(cls, position: tuple[float, float] | None) -> tuple[float, float] | None:
         """Reject non-finite coordinates before they reach a renderer."""
         if position is not None and not all(math.isfinite(value) for value in position):
             raise ValueError("position coordinates must be finite")
         return position
+
+    @field_validator("mask_size")
+    @classmethod
+    def validate_mask_size(cls, value):
+        if value is not None and any(item <= 0 for item in value):
+            raise ValueError("mask_size values must be positive")
+        return value
 
     @field_validator("image_pan")
     @classmethod
@@ -1583,13 +1602,15 @@ def _normalize_value(keyframe: KeyframeSpec) -> MotionValue:
 
 def _validate_property_value(property: MotionProperty, value: MotionValue) -> None:
     """Validate a normalized value against the state property it updates."""
-    if property == "position":
+    if property in {"position", "mask_position", "mask_size"}:
         if (
             not isinstance(value, tuple)
             or len(value) != 2
             or not all(math.isfinite(item) for item in value)
         ):
-            raise ValidationError("position keyframes must contain two finite numbers")
+            raise ValidationError(f"{property} keyframes must contain two finite numbers")
+        if property == "mask_size" and any(item <= 0 for item in value):
+            raise ValidationError("mask_size keyframes must be positive")
         return
     if property == "image_pan":
         if (
@@ -1622,7 +1643,7 @@ def _validate_property_value(property: MotionProperty, value: MotionValue) -> No
         raise ValidationError("trim boundary keyframes must be between 0 and 1")
     if property == "image_zoom" and value < 1.0:
         raise ValidationError("image_zoom keyframes must be at least 1.0")
-    if property == "blur" and value < 0.0:
+    if property in {"blur", "mask_feather"} and value < 0.0:
         raise ValidationError("blur keyframes must be non-negative")
 
 
@@ -1923,6 +1944,9 @@ def sample_frames(timeline: Timeline, fps: float) -> tuple[tuple[float, LayerSta
 
 ExportTarget = Literal["raster", "video", "html", "pptx"]
 CapabilityFeature = Literal[
+    "mask_position",
+    "mask_size",
+    "mask_feather",
     "track_matte",
     "path",
     "parent",
@@ -1969,6 +1993,9 @@ class MotionCapability:
 
 
 _CAPABILITY_FEATURES: tuple[CapabilityFeature, ...] = (
+    "mask_position",
+    "mask_size",
+    "mask_feather",
     "track_matte",
     "path",
     "parent",
@@ -2057,6 +2084,10 @@ _CAPABILITIES["html"] = {
     else MotionCapability(feature, "html", "full")
     for feature in _CAPABILITY_FEATURES
 }
+for _mask_feature in ("mask_position", "mask_size", "mask_feather"):
+    _CAPABILITIES["html"][_mask_feature] = MotionCapability(
+        _mask_feature, "html", "fallback", "rasterize"
+    )
 _CAPABILITIES["html"]["track_matte"] = MotionCapability(
     "track_matte", "html", "fallback", "rasterize"
 )
@@ -2077,6 +2108,9 @@ _CAPABILITIES["html"]["motion_blur"] = MotionCapability(
 _CAPABILITIES["html"]["spring"] = MotionCapability("spring", "html", "fallback", "static")
 _CAPABILITIES["html"]["wiggle"] = MotionCapability("wiggle", "html", "fallback", "static")
 _PPTX_FALLBACKS: dict[CapabilityFeature, tuple[SupportLevel, Fallback | None]] = {
+    "mask_position": ("fallback", "rasterize"),
+    "mask_size": ("fallback", "rasterize"),
+    "mask_feather": ("fallback", "rasterize"),
     "track_matte": ("fallback", "rasterize"),
     "path": ("fallback", "rasterize"),
     "parent": ("fallback", "static"),
@@ -2262,7 +2296,7 @@ def _validate_export(
                 default=-1,
             )
             html_backdrop_ids.update(id(layer) for _, layer in layers[: last + 1])
-    matte_paths = set()
+    matte_paths = {}
     parent_problems = {}
     parent_static_paths: set[str] = set()
     parent_html_paths: set[str] = set()
@@ -2285,13 +2319,22 @@ def _validate_export(
             if hasattr(source, "slides"):
                 error.at(f"/slides/{index}")
             raise
+        from quickthumb._composition import has_animated_masks
         from quickthumb._parent_render import parent_rendering_problem, participating_layers
         from quickthumb._parenting import has_parent_links
         from quickthumb._track_mattes import has_track_mattes
 
-        if has_track_mattes(canvas) and document_format in {"html", "pptx", "svg", "pdf"}:
+        if (has_track_mattes(canvas) or has_animated_masks(canvas)) and document_format in {
+            "html",
+            "pptx",
+            "svg",
+            "pdf",
+        }:
             base = f"/slides/{index}" if hasattr(source, "slides") else ""
-            matte_paths.update(base + path for _, path, _ in _iter_export_layer_locations(canvas))
+            matte_paths.update(
+                (base + path, "track_matte" if has_track_mattes(canvas) else "mask_animation")
+                for _, path, _ in _iter_export_layer_locations(canvas)
+            )
             continue
         base = f"/slides/{index}" if hasattr(source, "slides") else ""
         parent_nodes = participating_layers(canvas)
@@ -2327,7 +2370,7 @@ def _validate_export(
     for layer_id, pointer, layer in _iter_export_layer_locations(source):
         if pointer in matte_paths:
             message = (
-                f"Track matte {document_format} scene uses one authored-static raster image; "
+                f"Masked {document_format} scene uses one authored-static raster image; "
                 "all motion is frozen"
             )
             if resolved_policy.unsupported_motion in {"error", "native"}:
@@ -2340,7 +2383,7 @@ def _validate_export(
             diagnostics.append(
                 ExportDiagnostic(
                     layer_id=layer_id,
-                    feature="track_matte",
+                    feature=matte_paths[pointer],
                     target=document_format,
                     support="fallback",
                     fallback="rasterize",
@@ -2687,6 +2730,7 @@ def _validate_export(
         and slides is not None
         and parent_document_format not in {"svg", "pdf"}
     ):
+        from quickthumb._composition import has_animated_masks
         from quickthumb._parenting import has_parent_links
         from quickthumb._track_mattes import has_track_mattes
 
@@ -2695,11 +2739,16 @@ def _validate_export(
             if (
                 index > 0
                 and getattr(transition, "effect", None) == "morph"
-                and (has_track_mattes(canvases[index - 1]) or has_track_mattes(canvases[index]))
+                and (
+                    has_track_mattes(canvases[index - 1])
+                    or has_track_mattes(canvases[index])
+                    or has_animated_masks(canvases[index - 1])
+                    or has_animated_masks(canvases[index])
+                )
             ):
                 if resolved_policy.unsupported_motion in {"error", "native"}:
                     raise _unsupported_motion(
-                        "Track matte Morph requires fade fallback",
+                        "Masked scene Morph requires fade fallback",
                         f"/slides/{index}/transition",
                         None,
                     )
@@ -2709,7 +2758,7 @@ def _validate_export(
                         target=normalized,
                         support="fallback",
                         fallback="fade",
-                        message=f"Morph before slide {index} uses fade for track mattes",
+                        message=f"Morph before slide {index} uses fade for masked geometry",
                     )
                 )
                 continue
