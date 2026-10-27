@@ -286,6 +286,23 @@ class _AnimatableLayerModel(LayerIdentityModel):
         examples=[(0.0, 0.0), (0.5, 0.5), (1.0, 1.0)],
     )
 
+    @model_validator(mode="after")
+    def validate_path_motion_target(self):
+        from .motion import AnimationSpec
+
+        animation = getattr(self, "animation", None)
+        items = animation if isinstance(animation, list) else [animation]
+        if getattr(self, "type", None) != "path" and any(
+            track.type in {"dash_offset", "trim_start", "trim_end", "trim_offset"}
+            for item in items
+            if isinstance(item, AnimationSpec)
+            for track in item.tracks or ()
+        ):
+            raise ValidationError(
+                "dash_offset and trim tracks require a PathLayer", path="/animation"
+            )
+        return self
+
 
 class _MotionModel(quickthumbModel):
     """Strict base for canonical motion and export policy models."""
@@ -345,6 +362,17 @@ class LayerClip(quickthumbModel):
         if align is None:
             return None
         return align.value
+
+
+class TrackMatte(quickthumbModel):
+    """Use a hidden, reusable top-level layer's sampled alpha or luminance as a mask."""
+
+    type: Literal["layer"] = "layer"
+    layer: str = Field(pattern=_IDENTITY_PATTERN.pattern)
+    mode: Literal["alpha", "luma"] = "alpha"
+    invert: bool = False
+
+    model_config = ConfigDict(extra="forbid")
 
 
 class LayerMask(quickthumbModel):

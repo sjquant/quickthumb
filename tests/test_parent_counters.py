@@ -400,7 +400,11 @@ def test_documents_freeze_settled_counters_and_report_both_capabilities(tmp_path
     report = canvas.export(path)
     features = {item.feature for item in report.capability_report}
     assert {"parent", "animated_text_value"} <= features
-    assert all(item.fallback == "static" for item in report.capability_report)
+    assert all(
+        item.fallback == "static"
+        for item in report.capability_report
+        if item.feature != "layer_representation"
+    )
     path.write_bytes(b"existing")
     with pytest.raises(RenderingError):
         canvas.export(path, policy=ExportPolicy(unsupported_motion="error"))

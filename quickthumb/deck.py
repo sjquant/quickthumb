@@ -18,11 +18,18 @@ from typing import TYPE_CHECKING, Any, Literal, Self, cast
 from quickthumb._base import aspect_ratio_dimensions
 from quickthumb._validation import validate_dimensions
 from quickthumb.canvas import Canvas
-from quickthumb.errors import MissingAssetError, RenderingError, ValidationError, json_pointer
+from quickthumb.errors import (
+    MissingAssetError,
+    QuickthumbError,
+    RenderingError,
+    ValidationError,
+    json_pointer,
+)
 from quickthumb.models import (
     AudioTrack,
     DeckInspection,
     DiagnosticReport,
+    ExportDiagnostic,
     ExportPolicy,
     ExportResult,
     FrameSequence,
@@ -279,8 +286,12 @@ class Deck:
                 raise
 
     def _contract_resolve_assets(self) -> None:
-        for canvas in self._slides:
-            canvas._contract_resolve_assets()
+        for index, canvas in enumerate(self._slides):
+            try:
+                canvas._contract_resolve_assets()
+            except QuickthumbError as error:
+                error.at(json_pointer("slides", index))
+                raise
 
     def _contract_asset_record(self, asset_type: str, source: str):
         for canvas in self._slides:
@@ -410,7 +421,7 @@ class Deck:
             return _ExportReceipt([output_path], diagnostics, facts)
 
         if resolved.mode == "document":
-            self._render_document(output_path, extension, policy=policy)
+            self._render_document(output_path, extension, diagnostics=diagnostics, policy=policy)
             return _ExportReceipt([output_path], diagnostics)
 
         paths = self._render_sequence(output_path, resolved, quality, policy=policy)
@@ -481,11 +492,15 @@ class Deck:
             policy=policy,
         )
 
-    def _validate_parent_motion_policy(self, target: str, policy: ExportPolicy | None) -> None:
-        """Honor strict parent/Morph validation on the convenience animation paths."""
+    def _validate_motion_policy(self, target: str, policy: ExportPolicy | None) -> None:
+        """Honor parent and plugin policy on convenience document/animation paths."""
         from quickthumb._parenting import has_parent_links
 
-        if policy is not None and any(has_parent_links(canvas) for canvas in self._slides):
+        if policy is not None and any(
+            has_parent_links(canvas)
+            or any(getattr(layer, "type", None) == "plugin" for layer in canvas._iter_layers_deep())
+            for canvas in self._slides
+        ):
             from quickthumb.motion import _validate_export
 
             _validate_export(
@@ -547,7 +562,12 @@ class Deck:
         return visual_durations, durations
 
     def _render_document(
-        self, output_path: str, extension: str, policy: ExportPolicy | None = None
+        self,
+        output_path: str,
+        extension: str,
+        *,
+        diagnostics: list[ExportDiagnostic],
+        policy: ExportPolicy | None = None,
     ) -> None:
         if extension == ".pdf":
             from quickthumb._export_pdf import PdfExporter
@@ -556,16 +576,20 @@ class Deck:
             return
 
         if extension in (".html", ".htm"):
-            document = self.to_html(policy=policy)
+            document = self._html_document(True, True, policy, diagnostics=diagnostics)
             with open(output_path, "w", encoding="utf-8") as f:
                 f.write(document)
             return
 
         from quickthumb._export_pptx import PptxExporter
 
-        PptxExporter(reduced_motion=bool(policy and policy.reduced_motion)).save_canvases(
-            self._slides, output_path, transitions=self._resolved_transitions()
+        exporter = PptxExporter(reduced_motion=bool(policy and policy.reduced_motion))
+        document = exporter.export_bytes_canvases(
+            self._slides, transitions=self._resolved_transitions()
         )
+        diagnostics.extend(exporter.diagnostics)
+        with open(output_path, "wb") as output:
+            output.write(document)
 
     def _render_sequence(
         self,
@@ -625,8 +649,18 @@ class Deck:
         *interactive* format where transitions and animations play; the
         animated GIF/WebM exports play them too, on a fixed timeline.
         """
+        return self._html_document(responsive, embed_fonts, policy)
+
+    def _html_document(
+        self,
+        responsive: bool,
+        embed_fonts: bool,
+        policy: ExportPolicy | None,
+        *,
+        diagnostics: list[ExportDiagnostic] | None = None,
+    ) -> str:
         self._require_slides()
-        self._validate_parent_motion_policy("html", policy)
+        self._validate_motion_policy("html", policy)
         from quickthumb._export_html import export_deck
 
         return export_deck(
@@ -637,12 +671,13 @@ class Deck:
             notes=self._slide_notes,
             reduced_motion=bool(policy and policy.reduced_motion),
             parent_static=bool(policy and policy.unsupported_motion in {"static", "rasterize"}),
+            diagnostics=diagnostics,
         )
 
     def to_pptx(self, *, policy: ExportPolicy | None = None) -> bytes:
         """Render the deck to a multi-slide PPTX as bytes (requires quickthumb[pptx])."""
         self._require_slides()
-        self._validate_parent_motion_policy("pptx", policy)
+        self._validate_motion_policy("pptx", policy)
         from quickthumb._export_pptx import PptxExporter
 
         return PptxExporter(
@@ -675,7 +710,7 @@ class Deck:
         slides are letterboxed onto the first slide's size.
         """
         self._require_slides()
-        self._validate_parent_motion_policy("raster", policy)
+        self._validate_motion_policy("raster", policy)
         from quickthumb._export_video import export_animation_bytes
 
         return export_animation_bytes(
@@ -736,7 +771,7 @@ class Deck:
         duration holds its slide for the source audio length.
         """
         self._require_slides()
-        self._validate_parent_motion_policy("video", policy)
+        self._validate_motion_policy("video", policy)
         return self._export_animated_video_bytes(
             format="mp4",
             fps=fps,
@@ -829,7 +864,7 @@ class Deck:
         continue to loop by default.
         """
         self._require_slides()
-        self._validate_parent_motion_policy("video", policy)
+        self._validate_motion_policy("video", policy)
         return self._export_animated_video_bytes(
             format="webm",
             fps=fps,
@@ -867,7 +902,7 @@ class Deck:
         Narration without an explicit slide duration uses the source audio length.
         """
         self._require_slides()
-        self._validate_parent_motion_policy("video", policy)
+        self._validate_motion_policy("video", policy)
         return self._export_animated_video_bytes(
             format="mov",
             fps=fps,

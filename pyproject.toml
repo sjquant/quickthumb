@@ -58,6 +58,7 @@ pptx = [
 ]
 pdf = [
     "fonttools>=4.0.0,<5.0.0",
+    "pypdfium2>=5.10.1,<6.0.0",
     "reportlab>=4.0.0,<6.0.0",
 ]
 

@@ -58,6 +58,8 @@ def validate_parent_graph(layers: Sequence[object]) -> None:
             message = f"parent layer '{parent}' is an auto-layout group descendant"
         elif not isinstance(target[0], _AnimatableLayerModel):
             message = f"parent layer '{parent}' must be an animatable layer"
+        elif getattr(target[0], "type", None) == "path":
+            message = "Path transform parenting is not supported yet"
         if message is not None:
             raise ValidationError(
                 message, code=code, path=pointer + "/parent", layer_id=getattr(layer, "id", None)
