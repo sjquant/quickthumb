@@ -153,9 +153,10 @@ def check_measurement(result, scene, renderer):
 def check_routes(result, scenes, *, deck):
     routes = [row for row in result.capability_report if row.feature == "layer_representation"]
     expected = []
+    raster_ids = {"image"} if result.output_format == "html" else {"image", "mask"}
     for index, scene in enumerate(scenes):
         for layer in scene.layers:
-            support = "fallback" if layer.id in {"image", "mask"} else "native"
+            support = "fallback" if layer.id in raster_ids else "native"
             expected.append((index if deck else None, layer.id, support))
     assert [(row.slide_index, row.layer_id, row.support) for row in routes] == expected
     assert all(row.native_attempt is (row.support == "native") for row in routes)
@@ -163,7 +164,7 @@ def check_routes(result, scenes, *, deck):
         (index if deck else None, layer.id)
         for index, scene in enumerate(scenes)
         for layer in scene.layers
-        if layer.id in {"image", "mask"}
+        if layer.id in raster_ids
     }
     assert all(row.reason for row in result.fallback_diagnostics)
 
@@ -247,10 +248,36 @@ def check_html(path, scenes):
     assert markup.count('class="qt-stage"') == len(scenes)
     assert "Matrix" in markup and "background:rgb(239,51,64)" in markup
     images = re.findall(r'<img[^>]*src="data:image/png;base64,([^"]+)"', markup)
-    assert len(images) == 2
-    actual = Image.open(BytesIO(base64.b64decode(images[1]))).convert("RGBA")
-    expected = mask_pixels(scenes[0])
+    assert len(images) == 1
+    actual = Image.open(BytesIO(base64.b64decode(images[0]))).convert("RGBA")
+    image_scene = Canvas(160, 120, layers=[scenes[0].layers[3]])
+    expected = image_scene.sample().frames[0].to_image().crop((50, 45, 70, 61))
     assert actual.size == expected.size and actual.tobytes() == expected.tobytes()
+    # The bounded ellipse is native CSS, so inspect its geometry and paint rather
+    # than treating a removed PNG as evidence of browser pixel rendering.
+    mask = re.search(
+        r'<div[^>]*data-qt-source-id="mask"[^>]*style="([^"]+)"[^>]*><div style="([^"]+)"',
+        markup,
+    )
+    assert mask is not None
+    outer = dict(item.split(":", 1) for item in mask[1].split(";") if item)
+    inner = dict(item.split(":", 1) for item in mask[2].split(";") if item)
+    assert {key: outer[key] for key in ("left", "top", "width", "height")} == {
+        "left": "100px",
+        "top": "45px",
+        "width": "24px",
+        "height": "20px",
+    }
+    assert {
+        key: outer[key]
+        for key in ("--qt-mask-x", "--qt-mask-y", "--qt-mask-width", "--qt-mask-height")
+    } == {"--qt-mask-x": "0", "--qt-mask-y": "0", "--qt-mask-width": "24", "--qt-mask-height": "20"}
+    assert outer["clip-path"] == (
+        "ellipse(calc(var(--qt-mask-width)*0.5px) calc(var(--qt-mask-height)*0.5px) "
+        "at calc((0 + var(--qt-mask-x) + var(--qt-mask-width)*0.5)*1px) "
+        "calc((0 + var(--qt-mask-y) + var(--qt-mask-height)*0.5)*1px))"
+    )
+    assert inner["background"] == "rgb(0,168,143)" and float(inner["opacity"]) == 1
 
 
 def mask_pixels(scene):
