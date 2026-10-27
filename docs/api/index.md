@@ -88,6 +88,7 @@ declare parameters and can supply rendering callbacks through an explicit
 | [Text](text.md) | `.text()` and `TextPart`: text and rich text |
 | [Image](image.md) | `.image()`: placed images and cut-outs |
 | [Shape](shape.md) | `.shape()`: rectangles, ellipses, pills, triangles, stars, polygons |
+| [Path](path.md) | `.path()`: filled/stroked SVG path data and bounded motion |
 | [SVG](svg.md) | `.svg()`: icons and logos from SVG files |
 | [Video](video.md) | `.video()`: video clips, captions, and audio |
 | [Group](group.md) | `.group()`: auto-layout rows and columns |
