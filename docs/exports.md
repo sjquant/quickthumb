@@ -571,9 +571,24 @@ Normal completion and errors wait for running jobs to finish and close their
 decoders. Pending jobs are canceled on failure; abruptly terminated workers
 are reported as rendering errors. An OS-level kill cannot run normal cleanup.
 
-### Narrated deck video
+Both option models use `hold=3.0` for the settled-state hold, matching `hold`
+on Canvas byte methods and `slide_duration` on Deck byte methods. It must be
+a finite nonnegative number; booleans and strings are rejected. A default hold
+is omitted from serialized options and restored when loaded; an explicit zero
+is retained. Narration and explicit Deck slide durations still determine the
+video schedule, while Deck GIF continues to ignore those per-slide durations.
+Deck animated video retains its existing restriction: `hold=0` (or byte
+`slide_duration=0`) fails when any slide has neither narration nor an explicit
+positive duration, because its audio schedule requires a positive silent bed.
+Use a positive hold for those slides. Canvas, Deck GIF, and silent PNG sequences
+continue to permit a zero hold.
 
-A deck can be exported as a video with a voice-over per slide:
+The byte methods accept the same rendering controls as keyword-only scalars:
+`workers=1` and `quality="standard"` on Canvas GIF/MP4/WebM/MOV and Deck
+GIF/animated MP4/WebM/MOV, plus `max_size=None` and `colors=None` on GIF.
+Their existing timing names and positional arguments are unchanged; these
+methods do not accept options objects. Static `Deck.to_mp4()` and
+`Deck.render_mp4()` retain their separate narration API.
 
 - Pass `audio=` to `Deck.slide()`. Without `duration=`, the slide lasts as long
   as its audio file (measured with `ffprobe`). An explicit `duration=` trims
@@ -588,7 +603,9 @@ A deck can be exported as a video with a voice-over per slide:
   quickthumb mixes it with the slide narration for you. `deck.to_animated_mp4()`,
   `deck.to_webm()`, and `deck.to_mov()` do the same and return bytes.
 
-### Timing
+`ExportResult.pixel_metrics.width` and `height` remain the canonical first-canvas
+raster dimensions. They do not describe GIF resizing or MP4/WebM cropping. PNG
+sequence results separately report their full-size output dimensions.
 
 Video and GIF follow the HTML slideshow's timing, except that nobody can
 click: `on_click` animations play automatically, one after another, like

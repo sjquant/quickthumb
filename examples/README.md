@@ -8,11 +8,22 @@ Run them from the repository root:
 
 ```bash
 uv run python examples/youtube_thumbnail_01.py
+uv run python examples/youtube_thumbnail_02.py
+uv run python examples/youtube_talking_head.py
+uv run python examples/youtube_reaction.py
+uv run python examples/youtube_tutorial_explainer.py
+uv run python examples/instagram_news_card.py
+uv run python examples/podcast_interview_promo.py
+uv run python examples/shorts_cover_agent.py
+uv run python examples/launch_announcement.py
+uv run python examples/investor_deck.py
+uv run python examples/product_hype_reel.py
+uv run python examples/ordinary_moments.py
+uv run python examples/motion_paths.py
 ```
 
-The scripts set `QUICKTHUMB_FONT_DIR` to `assets/fonts` and
-`QUICKTHUMB_DEFAULT_FONT` to `Roboto`, and load photos from `assets/images`, so
-they need nothing from the network unless noted below.
+Examples write their rendered files into this directory or the `output/`
+subdirectory noted below.
 
 ## Thumbnails and social images
 
