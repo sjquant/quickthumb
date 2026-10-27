@@ -80,18 +80,24 @@ def test_animated_export_reports_only_transitions_that_execute(tmp_path, monkeyp
 
 
 @pytest.mark.parametrize("kind", ["pdf", "svg"])
-def test_concrete_static_query_matches_export_diagnostics(tmp_path, kind):
+def test_concrete_static_query_matches_preflight_diagnostics(tmp_path, kind):
+    """Static queries describe motion policy; export also records executed routes."""
     canvas = parent_canvas()
     query = canvas.validate_export(kind.upper())
     result = canvas.export(tmp_path / f"canvas.{kind}")
-    assert query == result.capability_report
+    assert query == [
+        item for item in result.capability_report if item.feature != "layer_representation"
+    ]
+    if kind == "svg":
+        (route,) = [
+            item for item in result.capability_report if item.feature == "layer_representation"
+        ]
+        assert (
+            route.target == kind and route.support == "fallback" and route.fallback == "rasterize"
+        )
+        assert route.layer_id is None and route.layer_ids == ["root", "layer:1"]
+        assert route.native_attempt is False
     assert all(item.target == "raster" and item.fallback == "static" for item in query)
-    path = tmp_path / f"existing.{kind}"
-    path.write_bytes(b"existing")
-    for method in (canvas.render, canvas.export):
-        with pytest.raises(RenderingError, match="authored-static"):
-            method(str(path), policy=ExportPolicy(unsupported_motion="error"))
-        assert path.read_bytes() == b"existing"
 
 
 @pytest.mark.parametrize(

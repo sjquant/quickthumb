@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 from quickthumb import Canvas, ExportPolicy
+from quickthumb._export_svg import SvgExporter
 from quickthumb.errors import RenderingError
 
 from tests._optional import require_cairosvg
@@ -118,7 +119,7 @@ def test_svg_fidelity_detects_size_or_alpha_loss(tmp_path, monkeypatch, mutate, 
     # Given: an exporter regression changes the generated dimensions or transparent fill
     scene = Canvas(4, 4).background(color="#FFFFFF00")
     produced = mutate(scene.to_svg())
-    monkeypatch.setattr(scene, "to_svg", lambda: produced)
+    monkeypatch.setattr(SvgExporter, "export", lambda self: produced)
 
     # When: the real Cairo renderer rasterizes those SVG bytes
     result = scene.export(tmp_path / "changed.svg", policy=policy())
@@ -163,6 +164,15 @@ def test_svg_fidelity_reports_font_image_and_environment(tmp_path):
     assert comparison.mean_absolute_error is not None
     assert "<text" in native and "data:image/png;base64," in native
     assert (tmp_path / "content.svg").read_text() == native
+    routing = [item for item in result.capability_report if item.feature == "layer_representation"]
+    assert [(item.layer_id, item.support) for item in routing] == [
+        ("layer:0", "native"),
+        ("layer:1", "native"),
+        ("layer:2", "fallback"),
+    ]
+    (fallback,) = result.fallback_diagnostics
+    assert fallback.layer_id == "layer:2" and fallback.native_attempt is False
+    assert fallback.pixel_diff_ratio is None and fallback.hash_similarity is None
 
 
 def test_svg_fidelity_hash_limit_rejects_within_pixel_budget(tmp_path, monkeypatch):
@@ -181,7 +191,7 @@ def test_svg_fidelity_hash_limit_rejects_within_pixel_budget(tmp_path, monkeypat
         },
     )
     produced = ET.tostring(root, encoding="unicode")
-    monkeypatch.setattr(scene, "to_svg", lambda: produced)
+    monkeypatch.setattr(SvgExporter, "export", lambda self: produced)
 
     # When: the pixel budget accepts the change but hash similarity must be perfect
     result = scene.export(tmp_path / "hash.svg", policy=policy(ratio=1, similarity=1))

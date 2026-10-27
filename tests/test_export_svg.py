@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 from PIL import Image
-from quickthumb import BackdropBlur, Canvas, LinearGradient, RadialGradient, TextPart
+from quickthumb import BackdropBlur, Canvas, LinearGradient, RadialGradient, ShapeLayer, TextPart
 from quickthumb.errors import RenderingError
 from quickthumb.models import Background, Glow, Grain, Shadow, Stroke, TextFillImage
 
@@ -40,6 +40,137 @@ def png_image_from_svg_href(href: str) -> Image.Image:
     prefix = "data:image/png;base64,"
     assert href.startswith(prefix)
     return Image.open(BytesIO(base64.b64decode(href.removeprefix(prefix)))).convert("RGBA")
+
+
+def test_export_reports_svg_group_routes_with_original_ids(tmp_path):
+    """SVG results identify native placed children and one masked composite with its descendants."""
+    # Given: a retained masked group and an independently placed native child
+    scene = (
+        Canvas(60, 30)
+        .group(
+            children=[
+                {
+                    "type": "shape",
+                    "shape": "rectangle",
+                    "width": 10,
+                    "height": 20,
+                    "color": "#00FF00",
+                    "id": "left",
+                },
+                {
+                    "type": "shape",
+                    "shape": "rectangle",
+                    "width": 10,
+                    "height": 20,
+                    "color": "#00FF00",
+                },
+            ],
+            direction="row",
+            position=(0, 0),
+            id="masked",
+            mask={"shape": "ellipse", "position": (0, 0), "width": 20, "height": 20},
+        )
+        .group(
+            children=[
+                {
+                    "type": "shape",
+                    "shape": "rectangle",
+                    "width": 10,
+                    "height": 10,
+                    "color": "#FF0000",
+                }
+            ],
+            position=(30, 0),
+        )
+    )
+    inspected = scene.inspect()
+
+    # When: the SVG exporter executes native and PNG routes
+    path = tmp_path / "mixed.svg"
+    result = scene.export(path)
+    root = parse_svg(path.read_text())
+
+    # Then: diagnostics match real SVG geometry and decoded mask pixels without remapping IDs
+    assert [
+        (item.layer_id, item.support, item.native_attempt) for item in result.capability_report
+    ] == [
+        ("masked", "fallback", False),
+        (inspected.layers[1].children[0].id, "native", True),
+    ]
+    (fallback,) = result.fallback_diagnostics
+    assert fallback.target == "svg" and fallback.layer_id == "masked"
+    assert fallback.layer_ids == ["masked", "left", inspected.layers[0].children[1].id]
+    assert "mask" in fallback.reason
+    assert fallback.pixel_diff_ratio is None and fallback.hash_similarity is None
+    (image,) = find_all(root, "image")
+    pixels = png_image_from_svg_href(require_attr(image, f"{XLINK_NS}href"))
+    assert pixels.getpixel((10, 10)) == (0, 255, 0, 255)
+    assert pixel_channel(pixels, (0, 0), 3) == 0
+    (native,) = find_all(root, "rect")
+    assert native.get("fill") == "#FF0000" and native.get("x") == "30"
+
+
+@pytest.mark.parametrize("format", ["svg", "html"])
+def test_export_preserves_reused_anonymous_occurrence_ids(tmp_path, format):
+    """Repeated anonymous models keep distinct inspection IDs and unchanged authored objects."""
+    # Given: the same anonymous shape appears twice in the authored layer list
+    shared = ShapeLayer(
+        type="shape", shape="rectangle", position=(0, 0), width=10, height=10, color="#FF0000"
+    )
+    scene = Canvas(30, 20, layers=[shared, shared])
+    expected_ids = [layer.id for layer in scene.inspect().layers]
+
+    # When: each public document exporter records the two emitted occurrences
+    path = tmp_path / f"reused.{format}"
+    result = scene.export(path)
+    output = path.read_text()
+
+    # Then: both native elements have their own IDs and the source still shares the same model
+    routing = [item for item in result.capability_report if item.feature == "layer_representation"]
+    assert [item.layer_id for item in routing] == expected_ids == ["layer:0", "layer:1"]
+    assert all(item.support == "native" and item.native_attempt is True for item in routing)
+    assert (
+        len(find_all(parse_svg(output), "rect"))
+        if format == "svg"
+        else output.count("background:rgb(255,0,0)")
+    ) == 2
+    assert scene.layers[0] is scene.layers[1] is shared and shared.id is None
+
+
+@pytest.mark.parametrize("parent", [False, True], ids=["backdrop-prefix", "parent-scene"])
+def test_export_reports_svg_atomic_composites(tmp_path, parent):
+    """SVG names all sources in backdrop or parent composites and preserves independent geometry."""
+    # Given: either a parent-linked scene or a blur sampling its preceding backdrop
+    scene = Canvas(40, 30)
+    if parent:
+        scene.null(id="controller").shape(
+            "rectangle", (0, 0), 20, 20, "#FF0000", parent="controller", id="paint"
+        )
+    else:
+        scene.shape("rectangle", (0, 0), 20, 20, "#FF0000", id="paint").shape(
+            "rectangle", (0, 0), 20, 20, "#FFFFFF80", effects=[BackdropBlur(radius=2)], id="blur"
+        )
+    scene.shape("rectangle", (25, 0), 10, 10, "#00FF00", id="later")
+
+    # When: the exporter follows its existing composition boundary
+    path = tmp_path / "composite.svg"
+    result = scene.export(path)
+    root = parse_svg(path.read_text())
+
+    # Then: membership explains the actual shared PNG rather than blaming an individual layer
+    routing = [item for item in result.capability_report if item.feature == "layer_representation"]
+    fallback = next(
+        item for item in result.fallback_diagnostics if item.reason == routing[0].message
+    )
+    assert fallback.layer_id is None and fallback.native_attempt is False
+    assert fallback.layer_ids == (["controller", "paint", "later"] if parent else ["paint", "blur"])
+    assert ("authored-static" if parent else "compositing") in fallback.reason
+    (image,) = find_all(root, "image")
+    pixels = png_image_from_svg_href(require_attr(image, f"{XLINK_NS}href"))
+    canonical = scene.sample().frames[0].to_image()
+    assert pixels.tobytes() == (canonical if parent else canonical.crop((0, 0, 20, 20))).tobytes()
+    assert len(find_all(root, "rect")) == (0 if parent else 1)
+    assert len(routing) == (1 if parent else 2)
 
 
 class TestSvgDocument:

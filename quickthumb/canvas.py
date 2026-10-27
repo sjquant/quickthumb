@@ -1347,7 +1347,11 @@ class Canvas:
         policy: ExportPolicy | None = None,
     ) -> "_SvgFidelityMetrics | None":
         if extension == ".svg":
-            document = self.to_svg()
+            from quickthumb._export_svg import SvgExporter
+
+            exporter = SvgExporter(self)
+            document = exporter.export()
+            diagnostics.extend(exporter.diagnostics)
             fidelity = None
             if policy is not None and "svg" in policy.fidelity:
                 from quickthumb._svg_fidelity import measure_svg_fidelity

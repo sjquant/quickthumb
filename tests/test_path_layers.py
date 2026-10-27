@@ -147,7 +147,7 @@ def test_document_raster_fallback_is_reported_and_strict_policy_preserves_output
     assert error.value.code == "unsupported_capability"
     assert error.value.details[0].path == "/layers/0/d"
     expected = [("path", format, "rasterize")]
-    if format == "html":
+    if format in {"html", "svg"}:
         expected.append(("layer_representation", format, "rasterize"))
     assert [
         (item.feature, item.target, item.fallback) for item in result.capability_report
