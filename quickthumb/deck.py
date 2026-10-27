@@ -18,7 +18,13 @@ from typing import TYPE_CHECKING, Any, Literal, Self, cast
 from quickthumb._base import aspect_ratio_dimensions
 from quickthumb._validation import validate_dimensions
 from quickthumb.canvas import Canvas
-from quickthumb.errors import MissingAssetError, RenderingError, ValidationError, json_pointer
+from quickthumb.errors import (
+    MissingAssetError,
+    QuickthumbError,
+    RenderingError,
+    ValidationError,
+    json_pointer,
+)
 from quickthumb.models import (
     AudioTrack,
     DeckInspection,
@@ -279,8 +285,12 @@ class Deck:
                 raise
 
     def _contract_resolve_assets(self) -> None:
-        for canvas in self._slides:
-            canvas._contract_resolve_assets()
+        for index, canvas in enumerate(self._slides):
+            try:
+                canvas._contract_resolve_assets()
+            except QuickthumbError as error:
+                error.at(json_pointer("slides", index))
+                raise
 
     def _contract_asset_record(self, asset_type: str, source: str):
         for canvas in self._slides:

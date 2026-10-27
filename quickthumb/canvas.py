@@ -63,6 +63,7 @@ from quickthumb.models import (
     LinearGradient,
     NullLayer,
     OutlineLayer,
+    PathLayer,
     PluginLayer,
     PrefetchResult,
     QRCodeLayer,
@@ -342,6 +343,21 @@ class Canvas:
         for asset_type, source in self._remote_asset_references():
             self._images.resolve_remote_reference(source, asset_type=asset_type)
         self._fonts.resolve_remote_references(self._iter_layers_deep())
+        self._resolve_plugin_assets()
+
+    def _resolve_plugin_assets(self) -> None:
+        """Resolve declared byte dependencies before a callback or output can fail late."""
+        self._validate_image_paths()
+        for pointer, layer in self._iter_layer_pointers():
+            if isinstance(layer, PluginLayer):
+                for name, source in layer.assets.items():
+                    try:
+                        self._ctx.asset_resolver.resolve(source, "plugin")
+                    except RenderingError as error:
+                        error.at(json_pointer("assets", name)).at(
+                            pointer, layer.model_dump(mode="json")
+                        )
+                        raise
 
     def _contract_asset_record(self, asset_type: str, source: str):
         return self._ctx.asset_resolver.record_for(source, asset_type)
@@ -685,6 +701,34 @@ class Canvas:
             motion_key=motion_key,
         )
         self._append_layer(layer)
+        return self
+
+    def path(
+        self,
+        d: str,
+        position: tuple,
+        width: int,
+        height: int,
+        color: str | None = "#000000",
+        *,
+        view_box: tuple[float, float, float, float] | None = None,
+        id: str | None = None,
+        motion_key: str | None = None,
+    ) -> Self:
+        """Add an even-odd filled SVG path in a clipped local viewport."""
+        self._append_layer(
+            PathLayer(
+                type="path",
+                d=d,
+                position=position,
+                width=width,
+                height=height,
+                color=color,
+                view_box=view_box,
+                id=id,
+                motion_key=motion_key,
+            )
+        )
         return self
 
     def shape(
@@ -1090,6 +1134,40 @@ class Canvas:
                 parent=parent,
             )
         )
+        return self
+
+    def plugin(
+        self,
+        renderer: str,
+        *,
+        version: str,
+        params: dict,
+        width: int,
+        height: int,
+        position: tuple[int | str, int | str] = (0, 0),
+        align: Align | str | tuple | None = Align.TOP_LEFT,
+        opacity: float = 1.0,
+        assets: dict[str, str] | None = None,
+        id: str | None = None,
+        motion_key: str | None = None,
+    ) -> Self:
+        """Place a registered static RGBA plugin in a local output box."""
+        layer = PluginLayer(
+            type="plugin",
+            renderer=renderer,
+            version=version,
+            params=params,
+            position=position,
+            width=width,
+            height=height,
+            align=align,  # type: ignore[arg-type]  # Pydantic validator handles conversion
+            opacity=opacity,
+            assets=assets or {},
+            id=id,
+            motion_key=motion_key,
+        )
+        self._plugin_registry.validate(layer)
+        self._append_layer(layer)
         return self
 
     def custom(
@@ -2144,6 +2222,10 @@ class Canvas:
             self._images.render_image_layer(image, layer, time)
         elif isinstance(layer, ShapeLayer):
             self._shapes.render_shape_layer(image, layer)
+        elif isinstance(layer, PathLayer):
+            from quickthumb._paths import render_path
+
+            render_path(image, layer, self._ctx)
         elif isinstance(layer, SvgLayer):
             self._images.render_svg_layer(image, layer)
         elif isinstance(layer, ChartLayer):
@@ -2170,9 +2252,9 @@ class Canvas:
         elif isinstance(layer, NullLayer):
             return
         elif isinstance(layer, PluginLayer):
-            raise RenderingError.plugin_layer_unsupported(
-                layer.renderer, layer.version, layer_id=layer.id
-            )
+            from quickthumb._plugin_runtime import render_plugin_layer
+
+            render_plugin_layer(image, layer, self._ctx, self._plugin_registry)
         elif isinstance(layer, CustomLayer):
             self._render_custom_layer(image, layer)
 
@@ -2246,6 +2328,9 @@ class Canvas:
             yield "/path", layer.path
         elif isinstance(layer, VideoLayer):
             yield "/source", layer.source
+        elif isinstance(layer, PluginLayer):
+            for name, source in layer.assets.items():
+                yield json_pointer("assets", name), source
         elif isinstance(layer, TextLayer):
             if isinstance(layer.fill, TextFillImage):
                 yield "/fill/path", layer.fill.path
