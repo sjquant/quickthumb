@@ -94,12 +94,12 @@ class VideoOptions(quickthumbModel):
 
 
 class LottieOptions(quickthumbModel):
-    """Frame rate and positive playback hold for static Lottie output."""
+    """Vector pose sampling rate and nonnegative final playback hold for Lottie output."""
 
     model_config = ConfigDict(extra="forbid")
 
     fps: Annotated[float, Field(strict=True, gt=0, le=120, allow_inf_nan=False)] = 30.0
-    hold: Annotated[float, Field(strict=True, gt=0, allow_inf_nan=False)] = 3.0
+    hold: Annotated[float, Field(strict=True, ge=0, allow_inf_nan=False)] = 3.0
 
 
 class ImageSequenceOptions(quickthumbModel):
