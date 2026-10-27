@@ -1,7 +1,5 @@
 """Path gradients share shape paint semantics while keeping a fixed, clipped frame."""
 
-import base64
-import io
 import json
 import xml.etree.ElementTree as ET
 from typing import cast
@@ -103,8 +101,8 @@ def test_clipping_crops_gradient_without_restarting_its_field(fill):
     assert max(cast(int, band.getextrema()[1]) for band in difference.split()) <= 1
 
 
-def test_document_raster_fallback_keeps_gradient_pixels(tmp_path):
-    """A declared SVG raster fallback embeds gradient pixels instead of substituting flat color."""
+def test_svg_native_fill_preserves_gradient_stops(tmp_path):
+    """SVG emits a path gradient rather than substituting flat color or a raster image."""
     # Given: a gradient path with a visibly different flat color
     canvas = Canvas(80, 60).path(
         "M5 5H75V55H5Z",
@@ -115,24 +113,20 @@ def test_document_raster_fallback_keeps_gradient_pixels(tmp_path):
         fill=LinearGradient(angle=90, stops=[("#000000", 0), ("#FFFFFF", 1)]),
     )
 
-    # When: exporting the existing declared raster fallback
+    # When: exporting native SVG output
     destination = tmp_path / "path.svg"
     result = canvas.export(destination)
-    embedded = ET.parse(destination).find(".//{http://www.w3.org/2000/svg}image")
-    assert embedded is not None
-    href = embedded.attrib.get("href") or embedded.attrib["{http://www.w3.org/1999/xlink}href"]
-    with Image.open(io.BytesIO(base64.b64decode(href.split(",", 1)[1]))) as image:
-        pixels = image.convert("RGBA")
+    root = ET.parse(destination)
 
-    # Then: its pixels match direct rendering and the result reports rasterization
-    placed = Image.new("RGBA", (80, 60))
-    placed.alpha_composite(
-        pixels, (int(float(embedded.attrib["x"])), int(float(embedded.attrib["y"])))
-    )
-    assert placed.tobytes() == canvas.render_frame(0).tobytes()
-    assert [(item.feature, item.fallback) for item in result.capability_report] == [
-        ("path", "rasterize"),
-        ("layer_representation", "rasterize"),
+    # Then: the gradient and path remain vectors and the report declares native support
+    assert root.find(".//{http://www.w3.org/2000/svg}path") is not None
+    assert root.find(".//{http://www.w3.org/2000/svg}image") is None
+    assert [
+        stop.get("stop-color") for stop in root.findall(".//{http://www.w3.org/2000/svg}stop")
+    ] == ["#000000", "#FFFFFF"]
+    assert [(item.feature, item.support) for item in result.capability_report] == [
+        ("path", "native"),
+        ("layer_representation", "native"),
     ]
 
 

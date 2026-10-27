@@ -1961,7 +1961,7 @@ _CAPABILITIES["html"] = {
     for feature in _CAPABILITY_FEATURES
 }
 _CAPABILITIES["html"]["parent"] = MotionCapability("parent", "html", "partial")
-_CAPABILITIES["html"]["path"] = MotionCapability("path", "html", "fallback", "rasterize")
+_CAPABILITIES["html"]["path"] = MotionCapability("path", "html", "partial", "rasterize")
 _CAPABILITIES["html"]["color"] = MotionCapability("color", "html", "unsupported", "static")
 _CAPABILITIES["html"]["motion_path"] = MotionCapability("motion_path", "html", "partial")
 _CAPABILITIES["html"]["motion_blur"] = MotionCapability(
@@ -2314,9 +2314,20 @@ def _validate_export(
                 )
             )
         if isinstance(layer, PathLayer) and document_format in {"html", "svg", "pdf", "pptx"}:
-            message = f"path layer {layer_id} uses a static raster image for {document_format}"
+            from quickthumb._path_svg import native_path_problem
+
+            problem = (
+                native_path_problem(layer)
+                if document_format in {"html", "svg"}
+                else "native path adapter is not implemented"
+            )
+            message = (
+                f"path layer {layer_id} uses a static raster image for {document_format}: {problem}"
+                if problem
+                else f"path layer {layer_id} uses native SVG vectors for {document_format}"
+            )
             action = resolved_policy.pptx.get(layer_id) if normalized == "pptx" else None
-            if (action or resolved_policy.unsupported_motion) in {"error", "native"}:
+            if problem and (action or resolved_policy.unsupported_motion) in {"error", "native"}:
                 raise RenderingError(
                     message,
                     code="unsupported_capability",
@@ -2329,8 +2340,8 @@ def _validate_export(
                     layer_id=layer_id,
                     feature="path",
                     target=document_format,
-                    support="fallback",
-                    fallback="rasterize",
+                    support="fallback" if problem else "native",
+                    fallback="rasterize" if problem else None,
                     message=message,
                 )
             )

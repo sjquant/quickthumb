@@ -123,9 +123,7 @@ def test_invalid_path_does_not_enter_document(d):
     assert canvas.layers == []
 
 
-@pytest.mark.parametrize(
-    "format,dependency", [("svg", None), ("html", "jinja2"), ("pdf", "reportlab"), ("pptx", "pptx")]
-)
+@pytest.mark.parametrize("format,dependency", [("pdf", "reportlab"), ("pptx", "pptx")])
 def test_document_raster_fallback_is_reported_and_strict_policy_preserves_output(
     format, dependency, tmp_path
 ):
