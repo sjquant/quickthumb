@@ -665,10 +665,12 @@ Top-level plain text with `target="words"` or `target="lines"` uses the already
 placed text runs to separate targets. Words remain at their original positions
 instead of reflowing as shorter strings. Wrapped lines, reverse target order and
 blank-line delays use the same static layout in frame sampling and video output.
-The route is selected only when the target crops reproduce the original source
-pixels exactly. Rich text, effects, fills, rotation, letter spacing,
-bidirectional text, words split across wrapped lines, and parent-linked sources
-retain the partial adapter below.
+The targets must reproduce the original source pixels exactly, even when there
+is only one target. Rich text, effects, fills, rotation, letter spacing,
+bidirectional text, words split across wrapped lines, ink outside the canvas and other unprovable layouts
+raise an actionable error before sampled output is written; text is never split
+into approximate horizontal bands. Parent-linked sources retain the separate
+partial adapter below.
 Plain character targets use independently verified [codepoint masks](#character-ownership)
 and reject unprovable ownership instead of using the partial adapter.
 Raster/video stagger capability stays `partial`. [Text range selectors](#text-range-selectors)
@@ -907,13 +909,25 @@ accepted only when each rendered run maps back to source codepoints; normalized
 whitespace that makes that mapping ambiguous is rejected. A failing proof raises
 an actionable error before sampled output is written; it never uses horizontal
 bands as a substitute for glyphs. Fonts and shaping libraries can change which
-layouts pass, so raster/video selector and stagger support remains `partial`.
+layouts pass.
 Untimed output and document selector fallbacks keep authored-static text.
+
+Raster/video `text_selector` support is `full` within this exact-ownership
+contract: supported layouts animate per target, and unprovable layouts raise
+instead of substituting a fade. This is not a promise to shape every string.
+Validation also reports `full` stagger support for top-level text outside the
+transform-parent graph for character, word and line targets, with or without
+range selectors. Strict
+unsupported-motion policy permits these routes; layout preparation can still reject unsupported
+text before writing output. Validation does not paint text to certify a layout.
+The generic `stagger` capability remains `partial` because parent-linked text and group
+adapters can use a whole-source approximation. `inspect_motion().capabilities`
+shows this generic table; its per-layer diagnostics report the scene's handling.
 
 Run `uv run python examples/text_range_selector.py --target words --output /tmp/words.gif`
 (or `--target lines` / `--target characters`) for weighted position/rotation that settles to the original
 text layout, plus portable scene JSON. This is partial #165 coverage, not a
-general-purpose shaping backend or a full text-stagger capability claim.
+general-purpose shaping backend or full support for every stagger adapter.
 
 ### Track mattes
 

@@ -62,6 +62,17 @@ overshoot and settle at their authored positions. Run
 no optional dependencies or network assets. Spring intervals end at their exact
 targets; `hold` keeps the final frame.
 
+### `kinetic_lower_third.py`
+
+An offline character-by-character name entrance over a translucent lower third.
+Uses a bundled font, exact character targets and canonical position/opacity
+tracks; no background matte is added. It writes a silent VP9-alpha WebM by
+default, or ProRes 4444 MOV with `--output examples/output/kinetic_lower_third.mov`.
+Both need an existing FFmpeg with the corresponding encoder. Using your installed
+environment, run `python examples/kinetic_lower_third.py`; it uses one worker,
+20 fps and a half-second final hold. Composite the result over footage in an
+editor that supports the selected alpha codec.
+
 ### `investor_deck.py`
 
 A 10-slide Series A pitch deck exported to `investor_deck.html` and

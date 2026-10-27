@@ -12,6 +12,7 @@ from quickthumb import (
     AnimationSpec,
     Canvas,
     ColorTrack,
+    ExportPolicy,
     GifOptions,
     KeyframeSpec,
     OpacityTrack,
@@ -21,6 +22,7 @@ from quickthumb import (
     RotationTrack,
     ScaleTrack,
     StaggerSpec,
+    TextLayer,
     TimingSpec,
     canvas_json_schema,
 )
@@ -28,7 +30,7 @@ from quickthumb import (
 FONT = "assets/fonts/Roboto-Regular.ttf"
 
 
-def text_scene(content, motion=None, **options):
+def text_scene(content, motion=None, *, position=(10, 10), **options):
     return (
         Canvas(320, 180)
         .background(color="#000000")
@@ -37,7 +39,7 @@ def text_scene(content, motion=None, **options):
             font=FONT,
             size=40,
             color="#FFFFFF",
-            position=(10, 10),
+            position=position,
             animation=motion,
             **options,
         )
@@ -45,7 +47,7 @@ def text_scene(content, motion=None, **options):
 
 
 @pytest.mark.parametrize("order", ["document", "reverse"])
-def test_words_arrive_at_their_authored_positions(order):
+def test_words_arrive_at_their_authored_positions(order, tmp_path):
     """Each word arrives independently in the requested order without shifting its final layout."""
     # Given: a delayed word entrance and the matching unanimated text
     motion = AnimationSpec(
@@ -73,10 +75,16 @@ def test_words_arrive_at_their_authored_positions(order):
     assert frames[-1].tobytes() == static.tobytes()
     for time, frame in zip(times, frames, strict=True):
         assert scene.render_frame(time).tobytes() == frame.tobytes()
+    receipt = scene.export(
+        tmp_path / "words.gif",
+        animation=GifOptions(fps=10, hold=0.5),
+        policy=ExportPolicy(unsupported_motion="error"),
+    )
+    assert receipt.fallback_diagnostics == []
 
 
 @pytest.mark.parametrize("target", ["words", "lines"])
-def test_wrapped_targets_keep_full_layout_and_independent_motion(target):
+def test_wrapped_targets_keep_full_layout_and_independent_motion(target, tmp_path):
     """Wrapped word and line targets keep their measured row positions while moving separately."""
     # Given: two words wrapped to separate rows with per-target vertical motion
     motion = AnimationSpec(
@@ -106,6 +114,12 @@ def test_wrapped_targets_keep_full_layout_and_independent_motion(target):
     assert frames[-1].tobytes() == static.tobytes()
     for time, frame in zip(times, frames, strict=True):
         assert scene.render_frame(time).tobytes() == frame.tobytes()
+    receipt = scene.export(
+        tmp_path / f"{target}.gif",
+        animation=GifOptions(fps=10, hold=0.5),
+        policy=ExportPolicy(unsupported_motion="error"),
+    )
+    assert receipt.fallback_diagnostics == []
 
 
 def test_blank_line_keeps_its_turn_in_the_timeline():
@@ -130,6 +144,56 @@ def test_blank_line_keeps_its_turn_in_the_timeline():
     assert frames[0].crop((0, 0, 320, 50)).tobytes() == static.crop((0, 0, 320, 50)).tobytes()
     assert frames[1].tobytes() == static.tobytes()
     assert scene.render_frame(0.75).tobytes() == frames[0].tobytes()
+
+
+def test_shared_stagger_spec_keeps_single_word_sources_independent(tmp_path):
+    """Two text layers sharing one spec retain independent exact targets through strict export."""
+    # Given: one semantic target per layer and a shared stagger specification
+    motion = AnimationSpec(
+        tracks=[
+            OpacityTrack(keyframes=[KeyframeSpec(time=0, value=0), KeyframeSpec(time=0.2, value=1)])
+        ],
+        stagger=StaggerSpec(target="words", delay=0.5),
+        timing=TimingSpec(start=0.2, duration=0.2),
+    )
+    scene = text_scene("ONE", motion).text(
+        "TWO", font=FONT, size=40, color="#FFFFFF", position=(10, 70), animation=motion
+    )
+    static = Canvas.from_json(scene.to_json())
+    for layer in static.layers:
+        if isinstance(layer, TextLayer):
+            layer.animation = None
+    # When/Then: one-target clocks agree across still/video preparation and settle without reflow
+    for time in (0.1, 0.3, 0.5):
+        assert (
+            scene.render_frame(time).tobytes()
+            == scene.sample([time]).frames[0].to_image().tobytes()
+        )
+    assert scene.render_frame(0.5).tobytes() == static.render_frame().tobytes()
+    receipt = scene.export(
+        tmp_path / "shared.gif",
+        animation=GifOptions(fps=10, hold=0.1),
+        policy=ExportPolicy(unsupported_motion="error"),
+    )
+    assert receipt.fallback_diagnostics == []
+    # Repeated anonymous objects are occurrences, just like independent model copies.
+    shared = scene.layers[1]
+    aliased = Canvas(320, 180, layers=[scene.layers[0], shared, shared])
+    independent = Canvas(
+        320, 180, layers=[scene.layers[0], shared.model_copy(), shared.model_copy()]
+    )
+    for time in (0.3, 0.5):
+        expected = independent.render_frame(time).tobytes()
+        assert aliased.render_frame(time).tobytes() == expected
+        assert aliased.sample([time]).frames[0].to_image().tobytes() == expected
+    assert (
+        aliased.export(
+            tmp_path / "aliased.gif",
+            animation=GifOptions(fps=10, hold=0.1),
+            policy=ExportPolicy(unsupported_motion="error"),
+        ).fallback_diagnostics
+        == []
+    )
 
 
 @pytest.mark.parametrize(
@@ -160,7 +224,16 @@ def test_selector_shapes_survive_json_sampling_and_gif(shape, weights, tmp_path)
     sequence = restored.sample([0])
     assert sequence.frames[0].to_image().convert("RGB").tobytes() == frame.tobytes()
     output = tmp_path / "selector.gif"
-    restored.export(output, animation=GifOptions(fps=10, hold=0.1))
+    receipt = restored.export(
+        output,
+        animation=GifOptions(fps=10, hold=0.1),
+        policy=ExportPolicy(unsupported_motion="error"),
+    )
+    assert receipt.fallback_diagnostics == []
+    assert (
+        next(row for row in receipt.capability_report if row.feature == "text_selector").support
+        == "full"
+    )
     with Image.open(output) as image:
         decoded = image.convert("RGB")
 
@@ -171,7 +244,14 @@ def test_selector_shapes_survive_json_sampling_and_gif(shape, weights, tmp_path)
         assert decoded.crop(bounds).getchannel("R").getextrema()[1] == pytest.approx(
             expected, abs=2
         )
-    layer = restored.inspect_motion().slides[0].layers[1]
+    inspection = restored.inspect_motion(
+        target="video", policy=ExportPolicy(unsupported_motion="error")
+    )
+    assert (
+        next(row for row in inspection.capabilities if row.feature == "text_selector").support
+        == "full"
+    )
+    layer = inspection.slides[0].layers[1]
     assert layer.events[0].selector_weights == [weights]
     assert [target.source_range for target in layer.targets] == [(0, 3), (4, 7)]
     assert [target.samples[0]["opacity"] for target in layer.targets] == [1 - w for w in weights]
@@ -208,8 +288,17 @@ def test_selector_composition_keeps_document_indices_with_reverse_stagger(tmp_pa
     assert by_source == {(0, 3): 0.25, (4, 7): 1.0}
     assert inspected.duration == pytest.approx(0.9)
     assert inspected.sample_times[-1] == pytest.approx(0.9)
-    receipt = scene.export(tmp_path / "reverse.gif", animation=GifOptions(fps=10, hold=0.1))
+    receipt = scene.export(
+        tmp_path / "reverse.gif",
+        animation=GifOptions(fps=10, hold=0.1),
+        policy=ExportPolicy(unsupported_motion="error"),
+    )
     assert receipt.timing_metrics.duration == pytest.approx(inspected.duration + 0.1)
+    assert all(
+        row.support == "full" and row.fallback is None
+        for row in receipt.capability_report
+        if row.feature in {"stagger", "text_selector"}
+    )
 
     # A later full replacement also settles earlier selector-driven geometry.
     moving = AnimationSpec.timeline(
@@ -344,20 +433,37 @@ def test_selector_document_fallback_is_authored_static(format):
     assert diagnostic.fallback == "static"
 
 
-def test_unsupported_selector_paths_cannot_write_approximate_output(tmp_path):
-    """Unsupported target layouts fail before approximate output is written."""
-    # Given: an existing output and rotated text outside exact target ownership
+@pytest.mark.parametrize("target", ["words", "lines"])
+@pytest.mark.parametrize("selected", [False, True])
+@pytest.mark.parametrize("content", ["ONE", "ONE TWO"])
+@pytest.mark.parametrize(
+    "options,reason",
+    [
+        ({"rotation": 10}, "plain separable words/lines"),
+        ({"position": (-40, 10)}, "ink inside the canvas"),
+    ],
+)
+def test_unsupported_text_targets_cannot_write_approximate_output(
+    tmp_path, target, selected, content, options, reason
+):
+    """Unsupported single and multiple text targets fail before approximate output is written."""
+    # Given: an existing output and text whose rotation or clipped ink cannot preserve ownership
     output = tmp_path / "protected.gif"
     output.write_bytes(b"original")
-    motion = AnimationSpec.timeline(
-        OpacityTrack(keyframes=[KeyframeSpec(time=0, value=0)]),
-        selector=RangeSelector(),
+    motion = AnimationSpec(
+        tracks=[
+            PositionTrack(
+                keyframes=[KeyframeSpec(time=0, value=(0, 0)), KeyframeSpec(time=1, value=(80, 0))]
+            )
+        ],
+        selector=RangeSelector(target=target) if selected else None,
+        stagger=StaggerSpec(target=target, delay=0.1),
     )
-    scene = text_scene("ONE TWO", motion, rotation=10)
+    scene = text_scene(content, motion, **options)
     # When/Then: sampling and encoding reject the layout before replacing output
-    with pytest.raises(RenderingError, match="plain separable words/lines"):
+    with pytest.raises(RenderingError, match=reason):
         scene.render_frame(0)
-    with pytest.raises(RenderingError, match="plain separable words/lines"):
+    with pytest.raises(RenderingError, match=reason):
         scene.export(output, animation=GifOptions(fps=10, hold=0.1))
     assert output.read_bytes() == b"original"
 
@@ -675,7 +781,7 @@ def test_character_targets_preserve_source_slots_rest_and_fractional_gif(content
     assert sampled.frames[-1].to_image().tobytes() == restored.render_frame(1).tobytes()
 
 
-def test_character_stagger_preserves_blank_codepoint_turns_and_reverse_ownership():
+def test_character_stagger_preserves_blank_codepoint_turns_and_reverse_ownership(tmp_path):
     """Empty slots consume their own clock; reverse order keeps source identity."""
     scene = text_scene(
         "A V",
@@ -697,6 +803,20 @@ def test_character_stagger_preserves_blank_codepoint_turns_and_reverse_ownership
     assert frame.crop((0, 0, 40, 180)).getbbox() is None
     assert frame.crop((40, 0, 320, 180)).getchannel("R").getextrema()[1] == 255
     assert scene.render_frame(1.5).tobytes() == text_scene("A V").render_frame(0).tobytes()
+    # An unrelated parent graph must not downgrade this independent text's support.
+    scene.null(id="unrelated-root").shape(
+        "rectangle", (-80, -80), 10, 10, "#FFFFFF", parent="unrelated-root"
+    )
+    assert scene.render_frame(0.5).convert("RGB").tobytes() == frame.tobytes()
+    receipt = scene.export(
+        tmp_path / "characters.gif",
+        animation=GifOptions(fps=2, hold=0.5),
+        policy=ExportPolicy(unsupported_motion="error"),
+    )
+    assert receipt.fallback_diagnostics == []
+    assert (
+        next(row for row in receipt.capability_report if row.feature == "stagger").support == "full"
+    )
 
 
 @pytest.mark.parametrize(
@@ -724,7 +844,11 @@ def test_unprovable_character_ownership_rejects_before_output(tmp_path, content,
     with pytest.raises(RenderingError, match=reason):
         scene.render_frame(0)
     with pytest.raises(RenderingError, match=reason):
-        scene.export(output, animation=GifOptions(fps=4, hold=0.5))
+        scene.export(
+            output,
+            animation=GifOptions(fps=4, hold=0.5),
+            policy=ExportPolicy(unsupported_motion="error"),
+        )
     assert output.read_bytes() == b"original"
 
 

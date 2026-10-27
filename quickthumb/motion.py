@@ -1153,15 +1153,15 @@ def _supports_color_motion(layer: object) -> bool:
 def _canonical_target_timelines(layer: object, target_count: int) -> tuple[Timeline, ...] | None:
     selector = _text_selector(layer)
     timeline = _canonical_timeline(layer)
-    characters = (
+    text_stagger = (
         isinstance(layer, TextLayer)
         and timeline is not None
         and any(
-            event.stagger and event.stagger.get("target") == "characters"
+            event.stagger and event.stagger.get("target") in {"characters", "words", "lines"}
             for event in timeline.events
         )
     )
-    if target_count < (1 if selector or characters else 2):
+    if target_count < (1 if selector or text_stagger else 2):
         return None
     if timeline is None or not any(
         event.stagger is not None or event.selector for event in timeline.events
@@ -2038,7 +2038,6 @@ _FULL_CAPABILITIES: dict[CapabilityFeature, tuple[SupportLevel, Fallback | None]
 # Stagger falls back to a shared reveal when semantic targets cannot be split.
 _RASTER_OVERRIDES: dict[CapabilityFeature, tuple[SupportLevel, Fallback | None]] = {
     "stagger": ("partial", None),
-    "text_selector": ("partial", None),
 }
 _CAPABILITIES: dict[ExportTarget, dict[CapabilityFeature, MotionCapability]] = {}
 for _target in ("raster", "video"):
@@ -2343,6 +2342,7 @@ def _validate_export(
     parent_static_paths: set[str] = set()
     parent_html_paths: set[str] = set()
     parent_html_problems: dict[str, str] = {}
+    parentless_text_paths: set[str] = set()
     document_format = parent_document_format or normalized
     svg_candidates: set[int] = set()
     for index, canvas in enumerate(getattr(source, "slides", (source,))):
@@ -2362,7 +2362,7 @@ def _validate_export(
             raise
         from quickthumb._composition import has_animated_masks
         from quickthumb._export_html import _html_mask_scene_problem, _mask_html_problem
-        from quickthumb._parent_render import parent_rendering_problem
+        from quickthumb._parent_render import parent_rendering_problem, participating_layers
         from quickthumb._parenting import has_parent_links
         from quickthumb._track_mattes import has_track_mattes
 
@@ -2401,16 +2401,21 @@ def _validate_export(
                 if problem:
                     mask_problems[full_path] = problem
             continue
+        base = f"/slides/{index}" if hasattr(source, "slides") else ""
+        parent_nodes = participating_layers(canvas)
+        parentless_text_paths.update(
+            f"{base}/layers/{layer_index}"
+            for layer_index, layer in enumerate(canvas.layers)
+            if isinstance(layer, TextLayer) and id(layer) not in parent_nodes
+        )
         if has_parent_links(canvas):
             problem = parent_rendering_problem(canvas)
-            base = f"/slides/{index}" if hasattr(source, "slides") else ""
             paths = [base + path for _, path, _ in _iter_export_layer_locations(canvas)]
             parent_problems.update((path, problem) for path in paths)
             if document_format in {"html", "pptx", "svg", "pdf"} and problem is None:
                 html_problem = None
                 if document_format == "html":
                     from quickthumb._parent_export import parent_html_sampling
-                    from quickthumb._parent_render import participating_layers
 
                     html_problem = parent_html_sampling(canvas).problem
                     if (
@@ -2418,11 +2423,10 @@ def _validate_export(
                         and not resolved_policy.reduced_motion
                         and resolved_policy.unsupported_motion not in {"static", "rasterize"}
                     ):
-                        nodes = participating_layers(canvas)
                         parent_html_paths.update(
                             base + path
                             for _, path, item in _iter_export_layer_locations(canvas)
-                            if id(item) in nodes
+                            if id(item) in parent_nodes
                         )
                         continue
                 parent_static_paths.update(paths)
@@ -2754,6 +2758,19 @@ def _validate_export(
                 if html_mask:
                     declared_support = "native"
                 declared_fallback = "static" if canonical_unimplemented else capability.fallback
+                if (
+                    feature == "stagger"
+                    and normalized in {"raster", "video"}
+                    and pointer in parentless_text_paths
+                    and isinstance(animation, AnimationSpec)
+                    and (
+                        animation.selector is not None
+                        or animation.stagger is not None
+                        and animation.stagger.target in {"characters", "words", "lines"}
+                    )
+                ):
+                    # These routes prove exact ownership or raise; they never use band fallback.
+                    declared_support, declared_fallback = "full", None
                 action = resolved_policy.pptx.get(layer_id) if normalized == "pptx" else None
                 if action is None:
                     action = resolved_policy.unsupported_motion
