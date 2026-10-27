@@ -294,17 +294,41 @@ class EffectsEngine:
         return r_lut, g_lut, b_lut, a_lut
 
     def create_linear_gradient(
-        self, size: tuple[int, int], angle: float, stops: list[tuple[str, float]]
+        self,
+        size: tuple[int, int],
+        angle: float,
+        stops: list[tuple[str, float]],
+        *,
+        region: tuple[int, int, int, int] | None = None,
     ) -> Image.Image:
         return self._cached_gradient(
-            ("linear", size, angle, tuple(map(tuple, stops))),
-            lambda: self._build_linear_gradient(size, angle, stops),
+            ("linear", size, angle, tuple(map(tuple, stops)), region),
+            lambda: self._build_linear_gradient(size, angle, stops, region),
         )
 
     def _build_linear_gradient(
-        self, size: tuple[int, int], angle: float, stops: list[tuple[str, float]]
+        self,
+        size: tuple[int, int],
+        angle: float,
+        stops: list[tuple[str, float]],
+        region: tuple[int, int, int, int] | None = None,
     ) -> Image.Image:
         width, height = size
+        if region is not None:
+            diagonal = math.ceil(math.hypot(width, height))
+            theta = math.radians(angle % 360)
+            dx, dy = math.cos(theta), math.sin(theta)
+            left = (diagonal - width) // 2 + region[0]
+            top = (diagonal - height) // 2 + region[1]
+            factor = 256 / diagonal
+            offset = 128 + 256 * (dx * (left / diagonal - 0.5) + dy * (top / diagonal - 0.5))
+            gradient_mask = Image.linear_gradient("L").transform(
+                (region[2] - region[0], region[3] - region[1]),
+                Image.Transform.AFFINE,
+                (0, 0, 128, dx * factor, dy * factor, offset),
+                resample=Image.Resampling.BICUBIC,
+            )
+            return self._color_gradient(gradient_mask, stops)
 
         diagonal = int(math.ceil(math.sqrt(width**2 + height**2)))
 
@@ -320,24 +344,27 @@ class EffectsEngine:
         top = (diagonal - height) // 2
         gradient_mask = gradient_mask.crop((left, top, left + width, top + height))
 
-        r_lut, g_lut, b_lut, a_lut = self._create_gradient_lut(stops)
-        r = gradient_mask.point(r_lut)
-        g = gradient_mask.point(g_lut)
-        b = gradient_mask.point(b_lut)
-        a = gradient_mask.point(a_lut)
-
-        return Image.merge("RGBA", (r, g, b, a))
+        return self._color_gradient(gradient_mask, stops)
 
     def create_radial_gradient(
-        self, size: tuple[int, int], stops: list[tuple[str, float]], center: tuple[float, float]
+        self,
+        size: tuple[int, int],
+        stops: list[tuple[str, float]],
+        center: tuple[float, float],
+        *,
+        region: tuple[int, int, int, int] | None = None,
     ) -> Image.Image:
         return self._cached_gradient(
-            ("radial", size, tuple(map(tuple, stops)), center),
-            lambda: self._build_radial_gradient(size, stops, center),
+            ("radial", size, tuple(map(tuple, stops)), center, region),
+            lambda: self._build_radial_gradient(size, stops, center, region),
         )
 
     def _build_radial_gradient(
-        self, size: tuple[int, int], stops: list[tuple[str, float]], center: tuple[float, float]
+        self,
+        size: tuple[int, int],
+        stops: list[tuple[str, float]],
+        center: tuple[float, float],
+        region: tuple[int, int, int, int] | None = None,
     ) -> Image.Image:
         width, height = size
 
@@ -345,6 +372,23 @@ class EffectsEngine:
 
         center_x_px = width * cx
         center_y_px = height * cy
+
+        if region is not None:
+            max_dist_px = max(
+                math.hypot(x - center_x_px, y - center_y_px)
+                for x, y in ((0, 0), (width, 0), (0, height), (width, height))
+            )
+            grad_size = int(2 * max_dist_px)
+            factor = 256 / grad_size
+            left = grad_size // 2 - int(center_x_px) + region[0]
+            top = grad_size // 2 - int(center_y_px) + region[1]
+            gradient_mask = Image.radial_gradient("L").transform(
+                (region[2] - region[0], region[3] - region[1]),
+                Image.Transform.AFFINE,
+                (factor, 0, left * factor, 0, factor, top * factor),
+                resample=Image.Resampling.BICUBIC,
+            )
+            return self._color_gradient(gradient_mask, stops)
 
         dist_tl = math.sqrt(center_x_px**2 + center_y_px**2)
         dist_tr = math.sqrt((width - center_x_px) ** 2 + center_y_px**2)
@@ -362,6 +406,12 @@ class EffectsEngine:
 
         gradient_mask = gradient_mask.crop((left, top, left + width, top + height))
 
+        return self._color_gradient(gradient_mask, stops)
+
+    def _color_gradient(
+        self, gradient_mask: Image.Image, stops: list[tuple[str, float]]
+    ) -> Image.Image:
+        """Use the shared RGBA stop interpolation for full and cropped gradients."""
         r_lut, g_lut, b_lut, a_lut = self._create_gradient_lut(stops)
         r = gradient_mask.point(r_lut)
         g = gradient_mask.point(g_lut)
