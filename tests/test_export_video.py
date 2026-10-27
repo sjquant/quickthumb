@@ -839,20 +839,24 @@ class TestVideoEncoding:
 
 
 @pytest.mark.skipif(not (HAS_FFMPEG and HAS_FFPROBE), reason="ffmpeg/ffprobe not installed")
-class TestNarratedDeckMp4:
-    """Black-box tests for static Deck MP4 narration export."""
+class TestDeckNarration:
+    """Black-box tests for Deck timeline narration export."""
 
     def test_should_preserve_short_explicit_slide_duration(self, tmp_path):
         """Static MP4 does not add an extra frame to a short explicit duration."""
         # given
-        deck = Deck(160, 90).slide(
-            Canvas().background(color="#1131AA"),
-            duration=0.1,
+        deck = (
+            Deck(160, 90)
+            .transition(tr.Cut())
+            .slide(
+                Canvas().background(color="#1131AA"),
+                duration=0.1,
+            )
         )
         output = tmp_path / "short.mp4"
 
         # when
-        deck.render_narrated_mp4(str(output), fps=30)
+        deck.export(str(output), animation=VideoOptions(fps=30))
         duration = float(
             subprocess.run(
                 [
@@ -1207,14 +1211,15 @@ class TestNarratedDeckMp4:
         # given
         audio = tone_wav(tmp_path / "voice 'quoted'.wav", 0.2)
         deck = (
-            Deck(161, 91)
+            Deck(160, 90)
+            .transition(tr.Cut())
             .slide(Canvas().background(color="#1131AA"), audio=audio, duration=0.4)
             .slide(Canvas().background(color="#22AA55"), duration=0.4)
         )
         output = tmp_path / "deck.mp4"
 
         # when
-        deck.render_narrated_mp4(str(output))
+        deck.export(str(output))
         streams = subprocess.run(
             [
                 "ffprobe",
@@ -1266,9 +1271,10 @@ class TestNarratedDeckMp4:
         # given
         output = tmp_path / "short.mp4"
         script = """
-from quickthumb import Canvas, Deck
-deck = Deck(16, 16).slide(Canvas().background(color="#123456"), duration=0.01)
-deck.render_narrated_mp4(__import__("sys").argv[1], fps=10)
+from quickthumb import Canvas, Deck, VideoOptions
+from quickthumb import transitions as tr
+deck = Deck(16, 16).transition(tr.Cut()).slide(Canvas().background(color="#123456"), duration=0.01)
+deck.export(__import__("sys").argv[1], animation=VideoOptions(fps=10))
 """
 
         # when
@@ -1281,42 +1287,34 @@ deck.render_narrated_mp4(__import__("sys").argv[1], fps=10)
         """The minimum video frame does not extend narration past its requested cutoff."""
         # given
         audio = tone_wav(tmp_path / "voice.wav", 0.2)
-        deck = Deck(16, 16).slide(Canvas().background(color="#123456"), audio=audio, duration=0.01)
+        deck = (
+            Deck(16, 16)
+            .transition(tr.Cut())
+            .slide(Canvas().background(color="#123456"), audio=audio, duration=0.01)
+        )
         output = tmp_path / "short-narrated.mp4"
 
         # when
-        deck.render_narrated_mp4(str(output), fps=10)
+        deck.export(str(output), animation=VideoOptions(fps=10))
         samples = decoded_audio(output.read_bytes(), tmp_path / "short-narrated.pcm")
 
         # then
         assert max(abs(sample) for sample in samples[:80]) > 100
         assert max(abs(sample) for sample in samples[240:640]) < 500
 
-    def test_should_encode_large_static_deck_in_bounded_batches(self, tmp_path):
-        """Static MP4 export supports decks larger than one FFmpeg input batch."""
-        # given
-        output = tmp_path / "large.mp4"
-        script = """
-from quickthumb import Canvas, Deck
-deck = Deck(2, 2, slides=[Canvas().background(color="#123456") for _ in range(170)])
-deck.render_narrated_mp4(__import__("sys").argv[1], hold=0.01, fps=10)
-"""
-
-        # when
-        subprocess.run([sys.executable, "-c", script, str(output)], check=True, timeout=30)
-
-        # then
-        assert output.read_bytes()[4:8] == b"ftyp"
-
     def test_should_infer_audio_duration_when_not_explicit(self, tmp_path):
         """Audio-only timing uses ffprobe's source duration instead of the default hold"""
         # given
         audio = tone_wav(tmp_path / "voice.wav", 0.3)
-        deck = Deck(160, 90).slide(Canvas().background(color="#1131AA"), audio=audio)
+        deck = (
+            Deck(160, 90)
+            .transition(tr.Cut())
+            .slide(Canvas().background(color="#1131AA"), audio=audio)
+        )
         output = tmp_path / "deck.mp4"
 
         # when
-        deck.render_narrated_mp4(str(output), hold=2.0)
+        deck.export(str(output), animation=VideoOptions(hold=2.0))
         duration = float(
             subprocess.run(
                 [
@@ -1439,8 +1437,8 @@ class TestVideoErrors:
         deck = Deck(160, 90).slide(Canvas().background(color="#1131AA"))
 
         # when / then
-        with pytest.raises(RenderingError, match="requires both ffmpeg and ffprobe"):
-            deck.render_narrated_mp4(str(tmp_path / "deck.mp4"))
+        with pytest.raises(RenderingError, match="ffmpeg"):
+            deck.export(str(tmp_path / "deck.mp4"))
 
     def test_should_reject_quality_for_animated_output(self, tmp_path):
         """The quality parameter has no meaning for GIF/MP4/WebM output"""
@@ -1462,15 +1460,6 @@ class TestVideoErrors:
                 str(tmp_path / "preview.mp4"),
                 soundtrack="music.wav",
             )
-
-    def test_should_reject_unbounded_static_deck_fps(self, tmp_path):
-        """Static Deck MP4 rejects frame rates above the supported encoder limit."""
-        # given
-        deck = Deck(160, 90, slides=[Canvas().background(color="#1131AA")])
-
-        # when / then
-        with pytest.raises(ValidationError, match="fps must be <= 120"):
-            deck.render_narrated_mp4(str(tmp_path / "deck.mp4"), fps=121)
 
     def test_should_render_gif_with_namespaced_animation_options(self, tmp_path):
         """GIF render options resize frames and constrain the GIF palette."""

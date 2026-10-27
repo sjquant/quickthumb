@@ -194,15 +194,12 @@ def test_mov_render_uses_animated_writer_and_namespaced_options(
 
 def test_deck_mp4_and_mov_default_to_animation(monkeypatch, tmp_path, fake_writer):
     deck = document("deck")
-    static_writer = Mock()
-    monkeypatch.setattr(Deck, "render_narrated_mp4", static_writer)
 
     mp4_path = str(tmp_path / "slides.mp4")
     mov_path = str(tmp_path / "slides.mov")
     assert deck.render(mp4_path) == [mp4_path]
     assert deck.render(mov_path) == [mov_path]
 
-    static_writer.assert_not_called()
     assert fake_writer.call_count == 2
     assert fake_writer.call_args.kwargs["format"] == "mov"
 
