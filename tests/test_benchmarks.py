@@ -9,7 +9,7 @@ import subprocess
 import pytest
 from benchmarks import animated_export as benchmark
 from benchmarks import frame_identity as identity
-from benchmarks.scenes import SCENES, build_scene
+from benchmarks.scenes import SCENES, TEXT_SELECTOR_SCENES, build_scene
 from PIL import Image
 
 
@@ -246,6 +246,72 @@ def test_benchmark_refuses_to_mix_quality_modes():
     ]
     with pytest.raises(ValueError, match="disagree"):
         benchmark.summarize(runs)
+
+
+@pytest.mark.parametrize("scene", TEXT_SELECTOR_SCENES)
+def test_selector_cost_scenes_reconstruct_layout_and_keep_fixed_clock(scene):
+    from benchmarks.text_selector_cost import canonical_check
+
+    checked = canonical_check(scene)
+    assert checked["duration"] == 2
+    assert [frame["time"] for frame in checked["frames"]] == [i / 12 for i in range(24)] + [2]
+    assert checked["frames"][-1]["sha256"] == checked["rest_sha256"]
+    assert checked["frames"][12]["sha256"] != checked["rest_sha256"]
+    assert benchmark.measure_jitter(scene) is None
+
+
+def test_selector_cost_preserves_failure_and_does_not_retry(tmp_path, monkeypatch):
+    from benchmarks import text_selector_cost as cost
+
+    monkeypatch.setattr(cost, "run_check", cost.canonical_check)
+    calls = []
+
+    def export(scene, format, fps):
+        calls.append(scene)
+        if len(calls) == 2:
+            raise RuntimeError("actual export failed")
+        return {"output_sha256": "a" * 64}
+
+    monkeypatch.setattr(cost, "run_worker", export)
+    path = tmp_path / "failed.json"
+    assert cost.main(["--json", str(path)]) == 1
+    report = json.loads(path.read_text())
+    assert report["status"] == "incomplete" and report["results"] == []
+    assert len(calls) == len(report["attempts"]) == 2
+    assert "result" in report["attempts"][0]
+    assert report["attempts"][1]["error"] == "actual export failed"
+    assert report["error"] == "actual export failed"
+
+
+def test_selector_cost_rotates_fresh_runs_and_excludes_warmups(tmp_path, monkeypatch):
+    from benchmarks import text_selector_cost as cost
+
+    monkeypatch.setattr(cost, "run_check", cost.canonical_check)
+    calls = []
+
+    def export(scene, format, fps):
+        calls.append(scene)
+        return {
+            "scene": scene,
+            "format": format,
+            "fps": fps,
+            "shots": 24,
+            "total_seconds": 100 if len(calls) <= 6 else 1,
+            "render_ms_per_shot": 1,
+            "encode_seconds": 0.1,
+            "python_peak_rss_mib": 10,
+            "output_sha256": "a" * 64,
+        }
+
+    monkeypatch.setattr(cost, "run_worker", export)
+    path = tmp_path / "cost.json"
+    assert cost.main(["--json", str(path)]) == 0
+    report = json.loads(path.read_text())
+    assert report["status"] == "complete" and len(report["results"]) == 6
+    scenes = list(cost.TEXT_SELECTOR_SCENES)
+    assert calls == sum((scenes[i:] + scenes[:i] for i in range(4)), [])
+    assert all(row["total_seconds"] == 1 for row in report["results"])
+    assert len(report["attempts"]) == 24
 
 
 def test_motion_blur_measurement_decodes_real_consumed_frames():

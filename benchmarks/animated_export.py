@@ -22,9 +22,9 @@ import PIL
 from PIL import Image, ImageFont, features
 from quickthumb import GifOptions, MotionBlur, VideoOptions
 
-from benchmarks.scenes import DURATION, SCENES, build_scene
+from benchmarks.scenes import DURATION, SCENES, TEXT_SELECTOR_SCENES, build_scene
 
-MEASURABLE_SCENES = (*SCENES, "motion_path", "motion_blur")
+MEASURABLE_SCENES = (*SCENES, "motion_path", "motion_blur", *TEXT_SELECTOR_SCENES)
 
 ROOT = Path(__file__).resolve().parents[1]
 FORMATS = ("gif", "mp4", "webm")
@@ -91,7 +91,7 @@ def displacement_jitter(points: list[tuple[float, float]]) -> float:
 
 
 def measure_jitter(scene: str) -> float | None:
-    if scene in {"product_hype_reel", "motion_path"}:
+    if scene in {"product_hype_reel", "motion_path", *TEXT_SELECTOR_SCENES}:
         return None
     # Independent fixed 30 fps probe; do not contaminate export timing/cache/RSS.
     frames = build_scene(scene).sample(time=[i / 30 for i in range(round(DURATION * 30))])

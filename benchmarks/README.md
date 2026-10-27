@@ -396,3 +396,68 @@ Its constant arc-distance clock is tested against an independent dense cubic
 reference. Curve tables are cached by immutable control points, bounded to
 64 entries and 4097 parameter samples per curve; cold setup is included in
 export timings. HTML additionally bakes at up to 120 Hz with at most 4097 stops.
+
+## Word/line selector cost (#165)
+
+```bash
+uv run --locked python -m benchmarks.text_selector_cost --json /tmp/text-selector-cost.json
+```
+
+This optional workload leaves the default four benchmark scenes unchanged.
+The six selectable `text_{words,lines}_{baseline,static,animated}` scenes use the
+same offline Roboto file, 480×240 canvas and `ONE TWO` on three lines at size 40
+with line_height=1.3 (52 pixels), avoiding fractional row baselines. The exact
+target-layout guard remains enabled for every text layout engine.
+All six words share two-second position/rotation/scale/opacity/color tracks.
+Baseline uses ordinary target motion
+with zero stagger delay; static uses a ramp selector ending at 75%; animated adds
+keyed selector offset. All tracks settle to authored text. These cases produce
+**different pixels and rendering work**, so this records cost, not an optimization
+or an equal-output speed comparison. Characters remain outside this workload.
+
+Before timing, two fresh canonical probes per scene verify all 24 timeline
+instants plus the exact endpoint: fixed extent/clock, visible midpoint motion,
+settled authored-layout equality and repeatable raw RGBA digests/environment.
+The three variants must produce distinct timelines. This is not a decoded GIF
+fidelity gate or a test of unsampled instants.
+
+Then one fresh-process warmup per condition is excluded from summaries but kept
+in JSON. Three measured rounds rotate condition order, starting at offsets
+1/2/3. Every export reuses the existing instrumented worker at 12 fps, workers=1,
+standard quality, GIF 64 colors and max_size=(432,768). Each process starts with
+cold process-local caches; filesystem caches are not flushed. The warmup does
+not warm the next process's loaded-font cache. Run without concurrent heavy jobs.
+
+JSON retains attempts (including failures), canonical probes, font/source hashes,
+environment, output hashes, actual consumed inputs and median/range measurements.
+Failures stop the command rather than being retried or removed. Repeated encoded
+GIF hashes must agree within each condition. `Render ms/input` includes document
+construction/preflight and rendering outside the encoder; it is amortized wall
+cost, not isolated glyph CPU time. RSS is the Python process lifetime peak,
+including imports/native Pillow allocations. Read the common measurement limits
+above before comparing hosts or revisions.
+
+### Recorded local run, 2026-10-26
+
+[Raw attempts and environment](results/2026-10-26-text-selectors.json) were
+recorded on macOS arm64, 10 logical CPUs, Python 3.12.8, Pillow 13.0.0,
+FreeType 2.14.3, basic text layout. The parent paused other task-owned local
+builds/tests during timing; unrelated host activity and frequency were not
+controlled. All 24 export attempts succeeded; each consumed 24 inputs. Two
+fresh canonical probes and the three measured GIF hashes agreed per condition.
+The record uses the integer-line fixture above; its base commit and measured
+benchmark source hashes are recorded in the JSON. Earlier fixture measurements
+remain in Git history and are not comparable with this workload.
+
+| Target / selector | Render ms/input median [min–max] | Total s median [min–max] | Python RSS MiB median |
+| --- | --- | --- | --- |
+| Words / baseline | 3.073 [3.069–3.701] | 0.203 [0.202–0.222] | 77.3 |
+| Words / static | 6.502 [6.276–7.094] | 0.296 [0.287–0.314] | 78.2 |
+| Words / animated | 6.787 [6.737–6.895] | 0.301 [0.300–0.305] | 76.4 |
+| Lines / baseline | 2.671 [2.579–2.693] | 0.195 [0.191–0.195] | 74.8 |
+| Lines / static | 4.341 [4.206–4.392] | 0.248 [0.246–0.255] | 78.7 |
+| Lines / animated | 4.203 [4.177–4.287] | 0.243 [0.242–0.249] | 77.4 |
+
+No optimization verdict is supported by these intentionally different workloads.
+This records the supported word/line cost portion of #165, not per-character
+ownership or completion of that issue's remaining acceptance criteria.
