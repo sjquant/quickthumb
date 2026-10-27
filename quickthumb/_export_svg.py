@@ -208,10 +208,11 @@ class SvgExporter:
         elif isinstance(layer, ShapeLayer):
             self._emit_shape(layer)
         elif isinstance(layer, PathLayer):
-            from quickthumb._path_svg import native_path_problem
+            from quickthumb._path_geometry import parse_path
+            from quickthumb._path_svg import native_path_data, native_path_problem
 
-            if native_path_problem(layer):
-                self._emit_raster_fallback(layer)
+            if problem := native_path_problem(layer):
+                self._emit_raster_fallback(layer, f"Path requires a PNG fragment: {problem}")
             else:
                 x = parse_coordinate(layer.position[0], self._canvas.width)
                 y = parse_coordinate(layer.position[1], self._canvas.height)
@@ -219,6 +220,13 @@ class SvgExporter:
                 self._body.append(
                     f'<g transform="translate({x} {y})">{fragment.path_fragment(layer)}</g>'
                 )
+                if any(
+                    segment.kind not in {"M", "Z"}
+                    for segment in parse_path(native_path_data(layer))
+                ):
+                    self._record_routing(
+                        [layer], "Path emitted as native SVG vectors", rasterized=False
+                    )
         elif isinstance(layer, TextLayer):
             self._emit_text(layer)
         elif isinstance(layer, SvgLayer):
