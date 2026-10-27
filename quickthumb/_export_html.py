@@ -48,8 +48,11 @@ from quickthumb._export_base import (
     RasterFragment,
     TextRunLayout,
     _css_string,
+    _distinct_layer_occurrences,
     _fmt,
+    _layer_routing,
     _motion_number,
+    _source_layer_ids,
     color_to_rgba,
     compute_text_layout,
     flatten_layers,
@@ -70,6 +73,7 @@ from quickthumb.models import (
     AnimationSpec,
     BackgroundLayer,
     CubicBezierEasing,
+    ExportDiagnostic,
     Glow,
     GroupLayer,
     LinearGradient,
@@ -77,6 +81,7 @@ from quickthumb.models import (
     RadialGradient,
     Shadow,
     ShapeLayer,
+    SpringEasing,
     Stroke,
     SvgLayer,
     TextLayer,
@@ -85,9 +90,12 @@ from quickthumb.models import (
 from quickthumb.motion import (
     Timeline,
     TimelineEvent,
+    _custom_easing,
     _has_color_track,
     _has_motion_path,
+    _has_spring_easing,
     _has_transform_extensions,
+    _has_wiggle,
     compile_timeline,
 )
 
@@ -196,10 +204,13 @@ _CSS_EASINGS = {
 }
 
 
-def css_easing(name: str | CubicBezierEasing | Mapping[str, object] | None) -> str:
+def css_easing(name: str | CubicBezierEasing | SpringEasing | Mapping[str, object] | None) -> str:
     """Return the CSS timing function for a shared easing name or custom bezier."""
     if name is not None and not isinstance(name, str):
-        x1, y1, x2, y2 = CubicBezierEasing.model_validate(name).points
+        curve = _custom_easing(name)
+        if isinstance(curve, SpringEasing):
+            raise RenderingError("spring easing requires the declared static HTML fallback")
+        x1, y1, x2, y2 = curve.points
         return f"cubic-bezier({_fmt(x1)},{_fmt(y1)},{_fmt(x2)},{_fmt(y2)})"
     return _CSS_EASINGS.get(name or "ease", "ease")
 
@@ -288,6 +299,8 @@ def _supports_transform_extensions_html(layer: object) -> bool:
         return False
     spec = specs[0]
     if spec.tracks is None or spec.stagger is not None:
+        return False
+    if _has_wiggle(spec):
         return False
     if any(track.type not in _TRANSFORM_PROPERTIES for track in spec.tracks):
         return False
@@ -458,6 +471,7 @@ class HtmlExporter:
         reduced_motion: bool = False,
         parent_static: bool = False,
     ):
+        canvas = _distinct_layer_occurrences(canvas)
         self._canvas = canvas
         from quickthumb._parenting import has_parent_links
 
@@ -467,6 +481,11 @@ class HtmlExporter:
         self._responsive = responsive
         self._reduced_motion = reduced_motion
         self._parent_static = parent_static
+        self.diagnostics: list[ExportDiagnostic] = []
+        self._source_ids = {
+            id(layer): _source_layer_ids(layer, index, (index,))
+            for index, layer in enumerate(canvas.layers)
+        }
         self._keyframe_prefix = keyframe_prefix
         self._body: list[str] = []
         self._keyframes: list[str] = []
@@ -606,6 +625,11 @@ class HtmlExporter:
             sampling = parent_html_sampling(canvas) if parent else None
             if sampling and (self._reduced_motion or self._parent_static or sampling.problem):
                 self._emit_fragment(static_parent_fragment(canvas))
+                self._record_routing(
+                    canvas.layers,
+                    sampling.problem or "Parent scene captured as an authored-static composite",
+                    rasterized=True,
+                )
                 return Stage(
                     width=canvas.width,
                     height=canvas.height,
@@ -616,7 +640,11 @@ class HtmlExporter:
                 )
             baked = bake_parent_html(canvas, sampling.times) if sampling else None
             prefix, rest = split_backdrop_prefix(
-                flatten_layers(canvas, parent_nodes=baked.layer_ids if baked else None)
+                flatten_layers(
+                    canvas,
+                    parent_nodes=baked.layer_ids if baked else None,
+                    source_ids=self._source_ids,
+                )
             )
             if baked:
                 # Null controllers keep their clocks in the plan, never in a
@@ -634,10 +662,21 @@ class HtmlExporter:
                 fragment = rasterize_layers(canvas, prefix)
                 if fragment:
                     self._emit_fragment(fragment)
+                    self._record_routing(
+                        prefix,
+                        "Backdrop-dependent layers and the content beneath them are rasterized "
+                        "together to preserve compositing",
+                        rasterized=True,
+                    )
             for layer in rest:
                 if baked and id(layer) in baked.layer_ids:
                     if source := baked.sources.get(id(layer)):
                         self._emit_parent_source(source, baked.times)
+                        self._record_routing(
+                            [layer],
+                            "Parent source captured as PNG with baked affine CSS motion",
+                            rasterized=True,
+                        )
                 else:
                     self._emit_layer(layer)
             if baked:
@@ -786,8 +825,10 @@ class HtmlExporter:
             self._prev_nodes = []
             return ""
 
-        if _has_color_track(layer):
-            # Canonical color tracks have an authored-static fallback in HTML.
+        if _has_color_track(layer) or any(
+            _has_spring_easing(effect) or _has_wiggle(effect) for effect in effects
+        ):
+            # Color tracks and procedural clocks use the authored-static fallback.
             self._prev_anim_key = None
             self._prev_nodes = []
             return ""
@@ -869,11 +910,8 @@ class HtmlExporter:
                 # runtime counts a delay from the group a node joins, so the
                 # two have to be reconciled once the groups are known.
                 "abs": event.trigger is None and event.start > 0,
+                "e": css_easing(event.options.get("easing")),
             }
-            # Named easings keep the runtime's default curve; only a custom
-            # bezier is passed through, since CSS can express it exactly.
-            if isinstance(event.options.get("easing"), Mapping):
-                node["e"] = css_easing(event.options["easing"])
             nodes.append(node)
         self._timeline.extend(nodes)
         self._prev_anim_key = id(animation)
@@ -968,9 +1006,17 @@ class HtmlExporter:
 
     # ------------------------------------------------------------------ layers
 
+    def _record_routing(self, layers: list, reason: str, *, rasterized: bool) -> None:
+        self.diagnostics.append(
+            _layer_routing(layers, self._source_ids, reason, target="html", rasterized=rasterized)
+        )
+
     def _emit_layer(self, layer: RenderableLayer):
-        if has_layer_composition(layer) or _has_transform_extensions(layer):
-            self._emit_raster_fallback(layer)
+        if has_layer_composition(layer):
+            self._emit_raster_fallback(layer, "Layer clipping or masking requires a PNG fragment")
+            return
+        if _has_transform_extensions(layer):
+            self._emit_raster_fallback(layer, "Extended transforms require a PNG source")
             return
 
         if isinstance(layer, BackgroundLayer):
@@ -984,7 +1030,9 @@ class HtmlExporter:
         elif isinstance(layer, SvgLayer):
             self._emit_svg_layer(layer)
         else:  # ImageLayer or anything else the format cannot express natively
-            self._emit_raster_fallback(layer)
+            self._emit_raster_fallback(
+                layer, f"{type(layer).__name__} is captured through the canonical raster pipeline"
+            )
 
     def _append_element(
         self, layer: RenderableLayer, tag: str, style: str, inner: str = ""
@@ -996,13 +1044,14 @@ class HtmlExporter:
         self._body.append(
             f'<{tag} id="{element_id}"{identity} style="{style}{anim_style}">{inner}</{tag}>'
         )
+        self._record_routing([layer], "Layer emitted as native HTML/CSS", rasterized=False)
 
     @staticmethod
     def _identity_attr(layer: RenderableLayer) -> str:
         key = getattr(layer, "motion_key", None)
         return "" if key is None else f' data-qt-motion-key="{_attr(key)}"'
 
-    def _emit_raster_fallback(self, layer: RenderableLayer):
+    def _emit_raster_fallback(self, layer: RenderableLayer, reason: str):
         # Video fragment capture uses a source timestamp; strip the opt-in
         # animation so an unsupported combination stays authored static even
         # when that timestamp would otherwise sample its canonical tracks.
@@ -1014,6 +1063,7 @@ class HtmlExporter:
         fragment = rasterize_layers(self._canvas, [source])
         if fragment:
             self._emit_fragment(fragment, layer)
+            self._record_routing([layer], reason, rasterized=True)
 
     def _emit_fragment(self, fragment: RasterFragment, layer: RenderableLayer | None = None):
         encoded = base64.b64encode(fragment.png_bytes).decode("ascii")
@@ -1036,7 +1086,9 @@ class HtmlExporter:
 
     def _emit_background(self, layer: BackgroundLayer):
         if layer.effects or layer.image or (layer.color is None and layer.gradient is None):
-            self._emit_raster_fallback(layer)
+            self._emit_raster_fallback(
+                layer, "Background image, effects, or empty fill use a PNG fragment"
+            )
             return
 
         width, height = self._canvas.width, self._canvas.height
@@ -1118,7 +1170,7 @@ class HtmlExporter:
 
     def _emit_text(self, layer: TextLayer):
         if uses_image_fill(layer):
-            self._emit_raster_fallback(layer)
+            self._emit_raster_fallback(layer, "Image-filled glyphs require a PNG fragment")
             return
 
         layout = compute_text_layout(self._canvas, layer)
@@ -1253,7 +1305,9 @@ class HtmlExporter:
 
     def _emit_svg_layer(self, layer: SvgLayer):
         if layer.effects or is_url(layer.path):
-            self._emit_raster_fallback(layer)
+            self._emit_raster_fallback(
+                layer, "SVG effects or remote sources require a PNG fragment"
+            )
             return
 
         canvas = self._canvas
@@ -1282,6 +1336,9 @@ class HtmlExporter:
         self._body.append(
             f'<img id="{element_id}"{identity} style="{style}{anim_style}" '
             f'src="data:image/svg+xml;base64,{encoded}" alt="">'
+        )
+        self._record_routing(
+            [layer], "Original SVG bytes embedded without rasterization", rasterized=False
         )
 
 
@@ -1630,6 +1687,8 @@ def export_deck(
     notes: list[str | None] | None = None,
     reduced_motion: bool = False,
     parent_static: bool = False,
+    *,
+    diagnostics: list[ExportDiagnostic] | None = None,
 ) -> str:
     stages: list[Stage] = []
     font_faces: dict[str, tuple[str, str, str]] = {}
@@ -1644,6 +1703,10 @@ def export_deck(
             parent_static=parent_static,
         )
         stages.append(exporter.render_stage())
+        if diagnostics is not None:
+            diagnostics.extend(
+                item.model_copy(update={"slide_index": index}) for item in exporter.diagnostics
+            )
         font_faces.update(exporter._font_faces)
         svg_filters.update(exporter._svg_filters)
     return _document(

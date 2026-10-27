@@ -60,6 +60,7 @@ def sample_document(
     kind = _contract_kind(source)
     still = times is None and fps is None
     _require_capture_fits(source, still=still)
+    _begin_font_observation(source)
     if still:
         return _still_capture(source, kind)
     return _timeline_capture(
@@ -80,14 +81,15 @@ def _still_capture(source: Document, kind: Literal["canvas", "deck"]) -> FrameSe
         canvas._validate_image_paths()
     environment = _render_environment(source)
     encoder = _FrameEncoder()
+    frames = [
+        encoder.encode(canvas._render_to_image(), index=index, slide=index, time=None)
+        for index, canvas in enumerate(canvases)
+    ]
     return FrameSequence(
         kind=kind,
         capture="still",
-        environment=environment,
-        frames=[
-            encoder.encode(canvas._render_to_image(), index=index, slide=index, time=None)
-            for index, canvas in enumerate(canvases)
-        ],
+        environment=environment.model_copy(update={"fonts": _font_assets(source)}),
+        frames=frames,
     )
 
 
@@ -143,7 +145,7 @@ def _timeline_capture(
         fps=fps,
         duration=duration,
         timeline=segments,
-        environment=environment,
+        environment=environment.model_copy(update={"fonts": _font_assets(source)}),
         frames=frames,
     )
 
@@ -160,8 +162,28 @@ def _render_environment(source: Document) -> RenderEnvironment:
 
     has_video = any(isinstance(layer, VideoLayer) for layer in _contract_layers(source))
     return _static_environment().model_copy(
-        update={"ffmpeg_version": ffmpeg_version() if has_video else None}
+        update={
+            "ffmpeg_version": ffmpeg_version() if has_video else None,
+            "fonts": _font_assets(source),
+        }
     )
+
+
+def _begin_font_observation(source: Document) -> None:
+    from quickthumb._document import _contract_canvases
+
+    for canvas in _contract_canvases(source):
+        canvas._fonts.begin_observation()
+
+
+def _font_assets(source: Document):
+    from quickthumb._document import _contract_canvases
+
+    assets = {}
+    for canvas in _contract_canvases(source):
+        for asset in canvas._fonts.font_identities():
+            assets[(asset.source, asset.sha256, tuple(asset.variations.items()))] = asset
+    return list(assets.values())
 
 
 @functools.cache
@@ -174,6 +196,9 @@ def _static_environment() -> RenderEnvironment:
         pillow_version=PIL.__version__,
         freetype_version=features.version("freetype2"),
         text_layout="raqm" if features.check("raqm") else "basic",
+        raqm_version=features.version("raqm"),
+        harfbuzz_version=features.version("harfbuzz"),
+        fribidi_version=features.version("fribidi"),
     )
 
 
