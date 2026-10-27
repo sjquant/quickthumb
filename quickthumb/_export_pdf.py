@@ -17,9 +17,12 @@ from __future__ import annotations
 
 import hashlib
 import math
+import os
+import tempfile
 import unicodedata
 from dataclasses import dataclass
 from io import BytesIO
+from pathlib import Path
 from threading import RLock
 from typing import TYPE_CHECKING, Any, cast
 from uuid import uuid4
@@ -162,8 +165,17 @@ class PdfExporter:
             if hasattr(path_or_stream, "write"):
                 self._build(canvases, path_or_stream)
             else:
-                with open(path_or_stream, "wb") as f:
-                    self._build(canvases, f)
+                # A trusted callback can fail while painting any page. Complete
+                # the document before replacing the caller's destination.
+                descriptor, temporary_name = tempfile.mkstemp(
+                    dir=Path(path_or_stream).parent, suffix=".pdf"
+                )
+                try:
+                    with os.fdopen(descriptor, "wb") as stream:
+                        self._build(canvases, stream)
+                    os.replace(temporary_name, path_or_stream)
+                finally:
+                    Path(temporary_name).unlink(missing_ok=True)
         finally:
             self._parent_fragments.clear()
 

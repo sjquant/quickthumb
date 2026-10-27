@@ -64,6 +64,7 @@ from quickthumb.models import (
     LinearGradient,
     NullLayer,
     OutlineLayer,
+    PathLayer,
     PluginLayer,
     PrefetchResult,
     QRCodeLayer,
@@ -218,6 +219,7 @@ class Canvas:
             self._shapes,
             self._text,
             self._visualizations,
+            self._plugin_registry,
         )
         self._diagnostics = DiagnosticsEngine(
             self._ctx,
@@ -344,6 +346,21 @@ class Canvas:
         for asset_type, source in self._remote_asset_references():
             self._images.resolve_remote_reference(source, asset_type=asset_type)
         self._fonts.resolve_remote_references(self._iter_layers_deep())
+        self._resolve_plugin_assets()
+
+    def _resolve_plugin_assets(self) -> None:
+        """Resolve declared byte dependencies before a callback or output can fail late."""
+        self._validate_image_paths()
+        for pointer, layer in self._iter_layer_pointers():
+            if isinstance(layer, PluginLayer):
+                for name, source in layer.assets.items():
+                    try:
+                        self._ctx.asset_resolver.resolve(source, "plugin")
+                    except RenderingError as error:
+                        error.at(json_pointer("assets", name)).at(
+                            pointer, layer.model_dump(mode="json")
+                        )
+                        raise
 
     def _contract_asset_record(self, asset_type: str, source: str):
         return self._ctx.asset_resolver.record_for(source, asset_type)
@@ -687,6 +704,50 @@ class Canvas:
             motion_key=motion_key,
         )
         self._append_layer(layer)
+        return self
+
+    def path(
+        self,
+        d: str,
+        position: tuple,
+        width: int,
+        height: int,
+        color: str | None = "#000000",
+        *,
+        view_box: tuple[float, float, float, float] | None = None,
+        fill: "LinearGradient | RadialGradient | None" = None,
+        stroke: str | None = None,
+        stroke_width: float = 1.0,
+        line_cap: Literal["butt", "round", "square"] = "butt",
+        line_join: Literal["miter", "bevel", "round"] = "miter",
+        miter_limit: float = 4.0,
+        dash_array: tuple[float, ...] | None = None,
+        dash_offset: float = 0.0,
+        id: str | None = None,
+        motion_key: str | None = None,
+    ) -> Self:
+        """Add a filled or stroked SVG path in a clipped local viewport."""
+        self._append_layer(
+            PathLayer(
+                type="path",
+                d=d,
+                position=position,
+                width=width,
+                height=height,
+                color=color,
+                view_box=view_box,
+                fill=fill,
+                stroke=stroke,
+                stroke_width=stroke_width,
+                line_cap=line_cap,
+                line_join=line_join,
+                miter_limit=miter_limit,
+                dash_array=dash_array,
+                dash_offset=dash_offset,
+                id=id,
+                motion_key=motion_key,
+            )
+        )
         return self
 
     def shape(
@@ -1034,7 +1095,7 @@ class Canvas:
 
         Children are measured at their natural size and positioned by the group:
         they must not set their own position. Children may be dicts or layer models
-        of type text, image, shape, svg, chart, qr_code, or nested group.
+        of type text, image, shape, svg, chart, qr_code, plugin, or nested group.
 
         Args:
             children: Child layer dicts or models, in stacking order
@@ -1092,6 +1153,44 @@ class Canvas:
                 parent=parent,
             )
         )
+        return self
+
+    def plugin(
+        self,
+        renderer: str,
+        *,
+        version: str,
+        params: dict,
+        width: int,
+        height: int,
+        position: tuple[int | str, int | str] = (0, 0),
+        align: Align | str | tuple | None = Align.TOP_LEFT,
+        opacity: float = 1.0,
+        assets: dict[str, str] | None = None,
+        clip: LayerClip | dict | None = None,
+        mask: LayerMask | dict | None = None,
+        id: str | None = None,
+        motion_key: str | None = None,
+    ) -> Self:
+        """Place a registered static RGBA plugin in a local output box."""
+        layer = PluginLayer(
+            type="plugin",
+            renderer=renderer,
+            version=version,
+            params=params,
+            position=position,
+            width=width,
+            height=height,
+            align=align,  # type: ignore[arg-type]  # Pydantic validator handles conversion
+            opacity=opacity,
+            assets=assets or {},
+            clip=cast(Any, clip),
+            mask=cast(Any, mask),
+            id=id,
+            motion_key=motion_key,
+        )
+        self._plugin_registry.validate(layer)
+        self._append_layer(layer)
         return self
 
     def custom(
@@ -1344,7 +1443,10 @@ class Canvas:
     ) -> "HtmlExporter":
         from quickthumb._parenting import has_parent_links
 
-        if policy is not None and has_parent_links(self):
+        if policy is not None and (
+            has_parent_links(self)
+            or any(isinstance(layer, PluginLayer) for layer in self._iter_layers_deep())
+        ):
             self.validate_export("html", policy)
         from quickthumb._export_html import HtmlExporter
 
@@ -1364,7 +1466,10 @@ class Canvas:
         """
         from quickthumb._parenting import has_parent_links
 
-        if policy is not None and has_parent_links(self):
+        if policy is not None and (
+            has_parent_links(self)
+            or any(isinstance(layer, PluginLayer) for layer in self._iter_layers_deep())
+        ):
             self.validate_export("pptx", policy)
         from quickthumb._export_pptx import PptxExporter
 
@@ -1906,7 +2011,9 @@ class Canvas:
 
     def _render_to_image(self, debug: bool = False, time: float | None = None) -> Image.Image:
         from quickthumb._parenting import has_parent_links, require_parent_rendering
+        from quickthumb.motion import _validate_text_selectors
 
+        _validate_text_selectors(self)
         if has_parent_links(self):
             from quickthumb._export_video import _SlideAnimator
 
@@ -1991,13 +2098,19 @@ class Canvas:
         draw.text((label_left + 3, label_top + 2), label, fill=(255, 255, 255, 255), font=font)
 
     def _staggered_target_count(self, layer: RenderableLayer) -> int:
-        """Return how many semantic targets a layer's stagger addresses."""
+        """Return how many semantic targets a layer's stagger or selector addresses."""
         animation = getattr(layer, "animation", None)
         if animation is None:
             return 0
         from quickthumb.models import AnimationSpec
 
         animations = animation if isinstance(animation, list) else [animation]
+        from quickthumb.motion import _text_selector
+
+        selector = _text_selector(layer)
+        if selector is not None:
+            assert isinstance(layer, TextLayer)
+            return len(self._text.resolve_animation_targets(layer, selector.target))
         staggers = [
             item.stagger
             for item in animations
@@ -2028,37 +2141,49 @@ class Canvas:
         """
         from quickthumb._export_base import (
             _with_motion_color,
+            color_motion_targets,
             composite_color_targets,
             composite_motion_targets,
             split_into_bands,
         )
+        from quickthumb._text_targets import text_target_fragments
         from quickthumb.motion import (
-            LayerState,
             _canonical_target_timelines,
             _geometry_in_motion,
             _sample_target_timelines,
+            _target_base_state,
+            _text_selector,
         )
 
         count = self._staggered_target_count(layer)
-        if time is not None and color_motion:
+        timelines = _canonical_target_timelines(layer, count) if time is not None else None
+        if timelines is None:
+            return False
+        render_color = None
+        if color_motion:
 
             def render_color(color):
                 source = Image.new("RGBA", image.size)
                 self._render_layer(source, _with_motion_color(layer, color), time)
                 return source
 
-            return composite_color_targets(image, layer, time, count, render_color)
-        timelines = _canonical_target_timelines(layer, count) if time is not None else None
-        if timelines is None:
-            return False
-        assert time is not None
-        states = _sample_target_timelines(
-            timelines, time, LayerState(anchor=getattr(layer, "anchor", (0.5, 0.5)))
-        )
-        assert surface is not None
-        fragments = split_into_bands(surface, count)
+            surface = render_color("#FFFFFF")
+        assert time is not None and surface is not None
+        fragments = text_target_fragments(self, layer, surface)
+        if fragments is None:
+            if _text_selector(layer) is not None:
+                raise RenderingError(
+                    "Range selector targets cannot preserve this layout; "
+                    "use plain separable words/lines"
+                )
+            if render_color is not None:
+                return composite_color_targets(image, layer, time, count, render_color)
+            fragments = split_into_bands(surface, count)
         if fragments is None:
             return False
+        states = _sample_target_timelines(timelines, time, _target_base_state(layer))
+        if render_color is not None:
+            fragments = color_motion_targets(fragments, states, render_color)
         composite_motion_targets(
             image,
             fragments,
@@ -2177,6 +2302,10 @@ class Canvas:
             self._images.render_image_layer(image, layer, time)
         elif isinstance(layer, ShapeLayer):
             self._shapes.render_shape_layer(image, layer)
+        elif isinstance(layer, PathLayer):
+            from quickthumb._paths import render_path
+
+            render_path(image, layer, self._ctx, self._effects)
         elif isinstance(layer, SvgLayer):
             self._images.render_svg_layer(image, layer)
         elif isinstance(layer, ChartLayer):
@@ -2203,9 +2332,9 @@ class Canvas:
         elif isinstance(layer, NullLayer):
             return
         elif isinstance(layer, PluginLayer):
-            raise RenderingError.plugin_layer_unsupported(
-                layer.renderer, layer.version, layer_id=layer.id
-            )
+            from quickthumb._plugin_runtime import render_plugin_layer
+
+            render_plugin_layer(image, layer, self._ctx, self._plugin_registry)
         elif isinstance(layer, CustomLayer):
             self._render_custom_layer(image, layer)
 
@@ -2279,6 +2408,9 @@ class Canvas:
             yield "/path", layer.path
         elif isinstance(layer, VideoLayer):
             yield "/source", layer.source
+        elif isinstance(layer, PluginLayer):
+            for name, source in layer.assets.items():
+                yield json_pointer("assets", name), source
         elif isinstance(layer, TextLayer):
             if isinstance(layer.fill, TextFillImage):
                 yield "/fill/path", layer.fill.path
