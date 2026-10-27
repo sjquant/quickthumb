@@ -34,6 +34,13 @@ Extras install with `uv run --extra <name> python examples/<script>.py`. The
 
 ## Decks and video
 
+### `motion_blur.py`
+
+Exports the same fast moving marker at 12 fps with motion blur off and with
+eight centered shutter samples. GIFs go to `examples/output/`; their actual
+export receipts print to stdout. No external assets are needed.
+Run `uv run python examples/motion_blur.py` and compare the moving edges.
+
 ### `investor_deck.py`
 
 A 10-slide Series A pitch deck exported to `investor_deck.html` and
