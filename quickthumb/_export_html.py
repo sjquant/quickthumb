@@ -1323,6 +1323,13 @@ def _html_resource(name: str) -> str:
     return files(_HTML_RESOURCE_PACKAGE).joinpath(name).read_text(encoding="utf-8")
 
 
+def _authoring_css() -> str:
+    logo = files(_HTML_RESOURCE_PACKAGE).joinpath("quickthumb-icon.png").read_bytes()
+    return _html_resource("authoring_theme.css").replace(
+        "{{ logo }}", base64.b64encode(logo).decode("ascii")
+    )
+
+
 def _document_template_parts() -> tuple[str, str]:
     template = _html_resource("document.html")
     before_stage, stage_block = template.split(_STAGE_TEMPLATE_START, 1)
@@ -1521,7 +1528,7 @@ def _document(
                 stage.transition_exit = f"{name} {timing}"
     css = _html_resource(_base_css_resource(responsive, deck))
     if deck:
-        css += _html_resource("presenter.css")
+        css += _authoring_css() + _html_resource("presenter.css")
     css += font_face_declarations(font_faces) + "".join(keyframes)
     runtime = _runtime_js(responsive=responsive, deck=deck)
     filters = "".join((svg_filters or {}).values())
