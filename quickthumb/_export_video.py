@@ -925,7 +925,7 @@ class TimelineSampler:
 
     def _settled_frame(self, index: int) -> Image.Image:
         if index not in self._settled:
-            final = self._plan.animators[index].final_export_frame()
+            final = self._plan.animators[index].final_frame()
             self._settled[index] = _conform(final, self._size, self._matte_rgb)
         return self._settled[index]
 
@@ -1025,14 +1025,15 @@ def _ordered_deck_shots(
 
         # Keep one motion shot pending so a sub-frame or zero hold can replace
         # it with the settled state without extending the shared timeline.
-        final_image = animator.final_export_frame()
-        final = _conform(final_image, size, matte_rgb)
+        previous_final = _conform(animator.final_frame(), size, matte_rgb)
+        final = previous_final
         hold = exit_time - max(animation_end, duration_in)
         if hold + _TIME_EPSILON >= 1.0 / fps:
             if pending is not None:
                 yield pending
             yield _Shot(final, hold)
         elif pending is not None:
+            final = _conform(animator.final_export_frame(), size, matte_rgb)
             # A zero/sub-frame hold may end immediately after a transient
             # caption cue. Preserve that last sampled frame when the cue has
             # ended; otherwise a short export can silently drop the cue.
@@ -1049,7 +1050,6 @@ def _ordered_deck_shots(
                 yield pending
         else:
             yield _Shot(final, max(exit_time, 1.0 / fps))
-        previous_final = final
         previous_canvas = canvas
 
 
@@ -1227,7 +1227,9 @@ def _sample_span(start: float, end: float, fps: float) -> Iterator[tuple[float, 
     count = max(1, round(length * fps))
     step = length / count
     for frame_index in range(count):
-        yield start + frame_index * step, step
+        # Sampling sums can land just before an authored cue boundary. Match
+        # the existing nanosecond clock precision without changing frame spacing.
+        yield round(start + frame_index * step, 9), step
 
 
 def _export_background(
@@ -1388,6 +1390,17 @@ class _SlideAnimator:
             canvas, probe_cache, reduced_motion=reduced_motion
         )
         self.duration = max(_schedule_units(self._units), _schedule_timelines(self._units))
+        if reduced_motion:
+            # Frozen imagery still needs its clip clock for timed foreground captions.
+            # Retain the full clip so its settled frame does not hold an earlier cue.
+            for layer in iter_video_layers(canvas.layers):
+                if layer.captions:
+                    clip_end = _component_animation_duration(layer, probe_cache)
+                    if any(
+                        layer.start + caption.start < clip_end - _TIME_EPSILON
+                        for caption in layer.captions
+                    ):
+                        self.duration = max(self.duration, clip_end)
         # The complete scene owns scheduled state. Prepared parent sources never
         # refer back to units or the scene, even weakly.
         self._parent_units = {
