@@ -54,6 +54,8 @@ from quickthumb.models import (
     GroupLayer,
     ImageEffect,
     ImageLayer,
+    ImageSequenceOptions,
+    ImageSequenceResult,
     InspectionBBox,
     LayerClip,
     LayerInspection,
@@ -64,8 +66,6 @@ from quickthumb.models import (
     OutlineLayer,
     PathLayer,
     PluginLayer,
-    PngSequenceOptions,
-    PngSequenceResult,
     PrefetchResult,
     QRCodeLayer,
     RadialGradient,
@@ -85,6 +85,8 @@ from quickthumb.plugins import PluginRegistry, plugin_registry
 
 if TYPE_CHECKING:
     from quickthumb._document import TimelineInputs, _ExportReceipt, _ResolvedExport
+    from quickthumb._export_html import HtmlExporter
+    from quickthumb.models.document import _FidelityMetrics
 
 
 @dataclass
@@ -97,20 +99,6 @@ class CustomLayer:
 RenderableLayer = LayerType | CustomLayer
 TextContentInput = str | list[TextPart | dict[str, Any]]
 
-_SUPPORTED_OUTPUT_EXTENSIONS = (
-    ".png",
-    ".jpg",
-    ".jpeg",
-    ".webp",
-    ".svg",
-    ".pdf",
-    ".pptx",
-    ".html",
-    ".gif",
-    ".mp4",
-    ".webm",
-    ".mov",
-)
 _THEME_REF_RE = re.compile(r"\$theme\.([A-Za-z0-9_]+(?:\.[A-Za-z0-9_]+)*)")
 _VAR_RE = re.compile(r"\$\{(\w+)\}|\$(\w+)")
 _LAYER_ADAPTER: TypeAdapter[LayerType] = TypeAdapter(LayerType)
@@ -231,6 +219,7 @@ class Canvas:
             self._shapes,
             self._text,
             self._visualizations,
+            self._plugin_registry,
         )
         self._diagnostics = DiagnosticsEngine(
             self._ctx,
@@ -357,6 +346,21 @@ class Canvas:
         for asset_type, source in self._remote_asset_references():
             self._images.resolve_remote_reference(source, asset_type=asset_type)
         self._fonts.resolve_remote_references(self._iter_layers_deep())
+        self._resolve_plugin_assets()
+
+    def _resolve_plugin_assets(self) -> None:
+        """Resolve declared byte dependencies before a callback or output can fail late."""
+        self._validate_image_paths()
+        for pointer, layer in self._iter_layer_pointers():
+            if isinstance(layer, PluginLayer):
+                for name, source in layer.assets.items():
+                    try:
+                        self._ctx.asset_resolver.resolve(source, "plugin")
+                    except RenderingError as error:
+                        error.at(json_pointer("assets", name)).at(
+                            pointer, layer.model_dump(mode="json")
+                        )
+                        raise
 
     def _contract_asset_record(self, asset_type: str, source: str):
         return self._ctx.asset_resolver.record_for(source, asset_type)
@@ -395,9 +399,6 @@ class Canvas:
 
     def _contract_motion_report(self, target: str, policy, fps: float):
         return self.inspect_motion(target=target, policy=policy, fps=fps)
-
-    def _contract_static_timing(self) -> None:
-        return None
 
     def _contract_timeline_inputs(self, hold: float) -> "TimelineInputs":
         # A canvas is one slide with no incoming transition; `hold` alone
@@ -1094,7 +1095,7 @@ class Canvas:
 
         Children are measured at their natural size and positioned by the group:
         they must not set their own position. Children may be dicts or layer models
-        of type text, image, shape, svg, chart, qr_code, or nested group.
+        of type text, image, shape, svg, chart, qr_code, plugin, or nested group.
 
         Args:
             children: Child layer dicts or models, in stacking order
@@ -1154,6 +1155,44 @@ class Canvas:
         )
         return self
 
+    def plugin(
+        self,
+        renderer: str,
+        *,
+        version: str,
+        params: dict,
+        width: int,
+        height: int,
+        position: tuple[int | str, int | str] = (0, 0),
+        align: Align | str | tuple | None = Align.TOP_LEFT,
+        opacity: float = 1.0,
+        assets: dict[str, str] | None = None,
+        clip: LayerClip | dict | None = None,
+        mask: LayerMask | dict | None = None,
+        id: str | None = None,
+        motion_key: str | None = None,
+    ) -> Self:
+        """Place a registered static RGBA plugin in a local output box."""
+        layer = PluginLayer(
+            type="plugin",
+            renderer=renderer,
+            version=version,
+            params=params,
+            position=position,
+            width=width,
+            height=height,
+            align=align,  # type: ignore[arg-type]  # Pydantic validator handles conversion
+            opacity=opacity,
+            assets=assets or {},
+            clip=cast(Any, clip),
+            mask=cast(Any, mask),
+            id=id,
+            motion_key=motion_key,
+        )
+        self._plugin_registry.validate(layer)
+        self._append_layer(layer)
+        return self
+
     def custom(
         self,
         fn: Callable[..., Image.Image | None],
@@ -1170,7 +1209,7 @@ class Canvas:
     def render(
         self,
         output_path: str,
-        format: FileFormat | None = None,
+        format: str | None = None,
         quality: int | None = None,
         debug: bool = False,
         animation: GifOptions | VideoOptions | None = None,
@@ -1188,17 +1227,15 @@ class Canvas:
         """
         from quickthumb._document import _resolve_export
 
-        resolved = _resolve_export("canvas", output_path, format, animation, policy)
-        self._render_resolved(output_path, resolved, format, quality, debug, animation, policy)
-
-    # Keep export's historical dispatch through a replaced public render hook.
-    _original_render = render
+        resolved = _resolve_export(
+            "canvas", output_path, format, policy, quality=quality, animation=animation, debug=debug
+        )
+        self._render_resolved(output_path, resolved, quality, debug, animation, policy)
 
     def _render_resolved(
         self,
         output_path: str,
         resolved: "_ResolvedExport",
-        format: FileFormat | None,
         quality: int | None,
         debug: bool,
         animation: GifOptions | VideoOptions | None,
@@ -1208,36 +1245,14 @@ class Canvas:
         from quickthumb._parenting import has_parent_links
 
         extension = resolved.extension
-        diagnostics: list[ExportDiagnostic] | None = None
         if has_parent_links(self):
             from quickthumb._parent_render import validate_parent_raster
 
             validate_parent_raster(self)
-            if policy is not None and resolved.mode == "document":
-                # Preserve the parent-document policy error before invalid
-                # options, then reuse these findings at the writer boundary.
-                diagnostics = preflight_export(cast(Document, self), resolved, policy)
-        if format is not None and resolved.mode == "animated":
-            raise RenderingError(
-                "format override is only supported for raster output, not animated output."
-            )
+        diagnostics = preflight_export(cast(Document, self), resolved, policy)
         if resolved.mode in {"document", "animated"}:
-            if animation is not None and resolved.mode != "animated":
-                raise RenderingError(
-                    "animation options are only supported for GIF, MP4, WebM, and MOV output."
-                )
-            if debug:
-                raise RenderingError(
-                    "Debug render is only supported for PNG, JPEG, and WEBP output."
-                )
-            if quality is not None:
-                raise RenderingError(
-                    "Quality parameter is only supported for JPEG and WEBP formats, "
-                    f"not {extension} output."
-                )
-            if diagnostics is None:
-                diagnostics = preflight_export(cast(Document, self), resolved, policy)
             facts = None
+            fidelity = None
             if resolved.mode == "animated":
                 from quickthumb._export_video import write_animation
 
@@ -1250,21 +1265,16 @@ class Canvas:
                     reduced_motion=not resolved.uses_authored_transitions,
                 )
             else:
-                self._render_document(output_path, extension, policy=policy)
-            return _ExportReceipt([output_path], diagnostics, facts)
+                fidelity = self._render_document(
+                    output_path, extension, diagnostics=diagnostics, policy=policy
+                )
+            return _ExportReceipt([output_path], diagnostics, facts, fidelity)
 
-        if animation is not None:
-            raise RenderingError(
-                "animation options require an animated output extension "
-                "(.gif, .mp4, .webm, or .mov)."
-            )
-        if format is None:
-            self._detect_format(output_path)
-        if diagnostics is None:
-            diagnostics = preflight_export(cast(Document, self), resolved, policy)
         self._validate_image_paths()
         image = self._render_to_image(debug=debug)
-        self._save_to_file(image, output_path, quality, format=format)
+        self._save_to_file(
+            image, output_path, cast(FileFormat, resolved.output_format.upper()), quality
+        )
         return _ExportReceipt([output_path], diagnostics)
 
     def export(
@@ -1272,7 +1282,7 @@ class Canvas:
         output_path: str | os.PathLike[str],
         policy: ExportPolicy | None = None,
         *,
-        format: FileFormat | None = None,
+        format: str | None = None,
         quality: int | None = None,
         animation: GifOptions | VideoOptions | None = None,
     ) -> ExportResult:
@@ -1280,28 +1290,17 @@ class Canvas:
         from quickthumb._document import (
             AssetPort,
             Document,
-            _ExportReceipt,
             _resolve_export,
             build_export_result,
-            preflight_export,
         )
 
         normalized_path = os.fspath(output_path)
-        resolved = _resolve_export("canvas", normalized_path, format, animation, policy)
-        render = self.render
-        if getattr(render, "__func__", None) is Canvas._original_render:
-            receipt = self._render_resolved(
-                normalized_path, resolved, format, quality, False, animation, policy
-            )
-        else:
-            # An override may delegate to super().render; invoke it exactly once,
-            # without passing private options or installing mutable context.
-            diagnostics = preflight_export(cast(Document, self), resolved, policy)
-            written = render(
-                normalized_path, format=format, quality=quality, animation=animation, policy=policy
-            )
-            paths = [normalized_path] if written is None else [os.fspath(path) for path in written]
-            receipt = _ExportReceipt(paths, diagnostics)
+        resolved = _resolve_export(
+            "canvas", normalized_path, format, policy, quality=quality, animation=animation
+        )
+        receipt = self._render_resolved(
+            normalized_path, resolved, quality, False, animation, policy
+        )
         return build_export_result(
             cast(Document, self),
             resolved,
@@ -1314,36 +1313,64 @@ class Canvas:
             ),
         )
 
-    def export_png_sequence(
+    def export_image_sequence(
         self,
         output_directory: str | os.PathLike[str],
         *,
-        options: PngSequenceOptions | None = None,
+        format: str = "png",
+        quality: int | None = None,
+        matte: str | None = None,
+        lossless: bool | None = None,
+        options: ImageSequenceOptions | None = None,
         policy: ExportPolicy | None = None,
-    ) -> PngSequenceResult:
-        """Export silent straight-alpha RGBA8 animation to a fresh directory.
+    ) -> ImageSequenceResult:
+        """Export silent PNG, JPEG, or WebP frames into a fresh directory.
 
-        The existing parent receives all numbered PNGs and manifest.json in
-        one exclusive publication. Existing destinations are never replaced.
+        PNG preserves RGBA8; JPEG flattens alpha onto an opaque matte (white
+        by default). WebP retains alpha and supports opt-in lossless encoding.
+        The directory and manifest appear together; existing paths are never replaced.
         """
         from quickthumb._document import Document
-        from quickthumb._export_png_sequence import export_png_sequence
+        from quickthumb._export_image_sequence import export_image_sequence
 
-        return export_png_sequence(
-            cast(Document, self), output_directory, options=options, policy=policy
+        return export_image_sequence(
+            cast(Document, self),
+            output_directory,
+            format=format,
+            quality=quality,
+            matte=matte,
+            lossless=lossless,
+            options=options,
+            policy=policy,
         )
 
     def _render_document(
-        self, output_path: str, extension: str, policy: ExportPolicy | None = None
-    ):
+        self,
+        output_path: str,
+        extension: str,
+        *,
+        diagnostics: list[ExportDiagnostic],
+        policy: ExportPolicy | None = None,
+    ) -> "_FidelityMetrics | None":
         if extension == ".svg":
-            document = self.to_svg()
+            from quickthumb._export_svg import SvgExporter
+
+            exporter = SvgExporter(self)
+            document = exporter.export()
+            diagnostics.extend(exporter.diagnostics)
+            fidelity = None
+            if policy is not None and "svg" in policy.fidelity:
+                from quickthumb._svg_fidelity import measure_svg_fidelity
+
+                fidelity = measure_svg_fidelity(self, document, policy.fidelity["svg"])
             with open(output_path, "w", encoding="utf-8") as f:
                 f.write(document)
-            return
+            return fidelity
 
         if extension in (".html", ".htm"):
-            document = self.to_html(policy=policy)
+            exporter = self._html_exporter(True, True, policy)
+            document = exporter.export()
+            diagnostics.extend(exporter.diagnostics)
             with open(output_path, "w", encoding="utf-8") as f:
                 f.write(document)
             return
@@ -1351,8 +1378,17 @@ class Canvas:
         if extension == ".pdf":
             from quickthumb._export_pdf import PdfExporter
 
-            PdfExporter(self).save(output_path)
-            return
+            exporter = PdfExporter(self)
+            document_bytes = exporter.export_bytes()
+            diagnostics.extend(exporter.diagnostics)
+            fidelity = None
+            if policy is not None and "pdf" in policy.fidelity:
+                from quickthumb._pdf_fidelity import measure_pdf_fidelity
+
+                fidelity = measure_pdf_fidelity(self, document_bytes, policy.fidelity["pdf"])
+            with open(output_path, "wb") as output:
+                output.write(document_bytes)
+            return fidelity
 
         from quickthumb._export_pptx import PptxExporter
 
@@ -1396,9 +1432,17 @@ class Canvas:
         URLs and text renders identically everywhere; pass `False` to drop them
         and rely on the viewer's system fonts for a smaller file.
         """
+        return self._html_exporter(responsive, embed_fonts, policy).export()
+
+    def _html_exporter(
+        self, responsive: bool, embed_fonts: bool, policy: ExportPolicy | None
+    ) -> "HtmlExporter":
         from quickthumb._parenting import has_parent_links
 
-        if policy is not None and has_parent_links(self):
+        if policy is not None and (
+            has_parent_links(self)
+            or any(isinstance(layer, PluginLayer) for layer in self._iter_layers_deep())
+        ):
             self.validate_export("html", policy)
         from quickthumb._export_html import HtmlExporter
 
@@ -1408,7 +1452,7 @@ class Canvas:
             responsive=responsive,
             reduced_motion=bool(policy and policy.reduced_motion),
             parent_static=bool(policy and policy.unsupported_motion in {"static", "rasterize"}),
-        ).export()
+        )
 
     def to_pptx(self, *, policy: ExportPolicy | None = None) -> bytes:
         """Render the canvas to a PowerPoint file as bytes (requires quickthumb[pptx]).
@@ -1418,7 +1462,10 @@ class Canvas:
         """
         from quickthumb._parenting import has_parent_links
 
-        if policy is not None and has_parent_links(self):
+        if policy is not None and (
+            has_parent_links(self)
+            or any(isinstance(layer, PluginLayer) for layer in self._iter_layers_deep())
+        ):
             self.validate_export("pptx", policy)
         from quickthumb._export_pptx import PptxExporter
 
@@ -1453,7 +1500,7 @@ class Canvas:
         max_size: tuple[int, int] | None = None,
         colors: int | None = None,
         workers: int = 1,
-        quality: Literal["standard", "high"] = "standard",
+        render_quality: Literal["standard", "high"] = "standard",
     ) -> bytes:
         """Render the canvas to animated GIF bytes that play its layer animations.
 
@@ -1477,7 +1524,7 @@ class Canvas:
             max_size=max_size,
             colors=colors,
             workers=workers,
-            quality=quality,
+            quality=render_quality,
             reduced_motion=bool(policy and policy.reduced_motion),
         )
 
@@ -1491,7 +1538,7 @@ class Canvas:
         *,
         policy: ExportPolicy | None = None,
         workers: int = 1,
-        quality: Literal["standard", "high"] = "standard",
+        render_quality: Literal["standard", "high"] = "standard",
     ) -> bytes:
         """Render the canvas to MP4 (H.264) bytes; timing model as in `to_gif`.
 
@@ -1513,7 +1560,7 @@ class Canvas:
             soundtrack=soundtrack,
             loop_audio=loop_audio,
             workers=workers,
-            quality=quality,
+            quality=render_quality,
             reduced_motion=bool(policy and policy.reduced_motion),
         )
 
@@ -1528,7 +1575,7 @@ class Canvas:
         transparent: bool = False,
         policy: ExportPolicy | None = None,
         workers: int = 1,
-        quality: Literal["standard", "high"] = "standard",
+        render_quality: Literal["standard", "high"] = "standard",
     ) -> bytes:
         """Render the canvas to WebM (VP9) bytes; timing model as in `to_gif`.
 
@@ -1552,7 +1599,7 @@ class Canvas:
             soundtrack=soundtrack,
             loop_audio=loop_audio,
             workers=workers,
-            quality=quality,
+            quality=render_quality,
             reduced_motion=bool(policy and policy.reduced_motion),
         )
 
@@ -1567,7 +1614,7 @@ class Canvas:
         transparent: bool = False,
         policy: ExportPolicy | None = None,
         workers: int = 1,
-        quality: Literal["standard", "high"] = "standard",
+        render_quality: Literal["standard", "high"] = "standard",
     ) -> bytes:
         """Render the canvas to ProRes 4444 MOV bytes; timing as in `to_gif`.
 
@@ -1591,7 +1638,7 @@ class Canvas:
             soundtrack=soundtrack,
             loop_audio=loop_audio,
             workers=workers,
-            quality=quality,
+            quality=render_quality,
             reduced_motion=bool(policy and policy.reduced_motion),
         )
 
@@ -1925,9 +1972,11 @@ class Canvas:
         import base64
 
         self._validate_image_paths()
+        from quickthumb._document import _raster_save_kwargs
+
+        save_kwargs = _raster_save_kwargs(format, quality)
         image = self._render_to_image()
         converted_image = self._convert_for_format(image, format)
-        save_kwargs = self._build_save_kwargs(format, quality)
 
         buffer = BytesIO()
         converted_image.save(buffer, format=format, **save_kwargs)
@@ -1958,7 +2007,9 @@ class Canvas:
 
     def _render_to_image(self, debug: bool = False, time: float | None = None) -> Image.Image:
         from quickthumb._parenting import has_parent_links, require_parent_rendering
+        from quickthumb.motion import _validate_text_selectors
 
+        _validate_text_selectors(self)
         if has_parent_links(self):
             from quickthumb._export_video import _SlideAnimator
 
@@ -2043,13 +2094,19 @@ class Canvas:
         draw.text((label_left + 3, label_top + 2), label, fill=(255, 255, 255, 255), font=font)
 
     def _staggered_target_count(self, layer: RenderableLayer) -> int:
-        """Return how many semantic targets a layer's stagger addresses."""
+        """Return how many semantic targets a layer's stagger or selector addresses."""
         animation = getattr(layer, "animation", None)
         if animation is None:
             return 0
         from quickthumb.models import AnimationSpec
 
         animations = animation if isinstance(animation, list) else [animation]
+        from quickthumb.motion import _text_selector
+
+        selector = _text_selector(layer)
+        if selector is not None:
+            assert isinstance(layer, TextLayer)
+            return len(self._text.resolve_animation_targets(layer, selector.target))
         staggers = [
             item.stagger
             for item in animations
@@ -2080,37 +2137,51 @@ class Canvas:
         """
         from quickthumb._export_base import (
             _with_motion_color,
+            color_motion_targets,
             composite_color_targets,
             composite_motion_targets,
             split_into_bands,
         )
+        from quickthumb._text_targets import text_target_fragments
         from quickthumb.motion import (
             LayerState,
             _canonical_target_timelines,
             _geometry_in_motion,
             _sample_target_timelines,
+            _text_selector,
         )
 
         count = self._staggered_target_count(layer)
-        if time is not None and color_motion:
+        timelines = _canonical_target_timelines(layer, count) if time is not None else None
+        if timelines is None:
+            return False
+        render_color = None
+        if color_motion:
 
             def render_color(color):
                 source = Image.new("RGBA", image.size)
                 self._render_layer(source, _with_motion_color(layer, color), time)
                 return source
 
-            return composite_color_targets(image, layer, time, count, render_color)
-        timelines = _canonical_target_timelines(layer, count) if time is not None else None
-        if timelines is None:
+            surface = render_color("#FFFFFF")
+        assert time is not None and surface is not None
+        fragments = text_target_fragments(self, layer, surface)
+        if fragments is None:
+            if _text_selector(layer) is not None:
+                raise RenderingError(
+                    "Range selector targets cannot preserve this layout; "
+                    "use plain separable words/lines"
+                )
+            if render_color is not None:
+                return composite_color_targets(image, layer, time, count, render_color)
+            fragments = split_into_bands(surface, count)
+        if fragments is None:
             return False
-        assert time is not None
         states = _sample_target_timelines(
             timelines, time, LayerState(anchor=getattr(layer, "anchor", (0.5, 0.5)))
         )
-        assert surface is not None
-        fragments = split_into_bands(surface, count)
-        if fragments is None:
-            return False
+        if render_color is not None:
+            fragments = color_motion_targets(fragments, states, render_color)
         composite_motion_targets(
             image,
             fragments,
@@ -2180,9 +2251,7 @@ class Canvas:
         if surface is None:
             surface = Image.new("RGBA", image.size, (0, 0, 0, 0))
             self._render_layer(surface, _with_motion_color(layer, state.color), time)
-        moving = _geometry_in_motion(
-            timeline, time, include_scale=not isinstance(layer, ImageLayer), state=state
-        )
+        moving = _geometry_in_motion(timeline, time, state=state)
         composite_canonical_layer(image, surface, layer, state, subpixel=moving)
 
     def _render_layer(self, image: Image.Image, layer: RenderableLayer, time: float | None = None):
@@ -2261,9 +2330,9 @@ class Canvas:
         elif isinstance(layer, NullLayer):
             return
         elif isinstance(layer, PluginLayer):
-            raise RenderingError.plugin_layer_unsupported(
-                layer.renderer, layer.version, layer_id=layer.id
-            )
+            from quickthumb._plugin_runtime import render_plugin_layer
+
+            render_plugin_layer(image, layer, self._ctx, self._plugin_registry)
         elif isinstance(layer, CustomLayer):
             self._render_custom_layer(image, layer)
 
@@ -2288,25 +2357,15 @@ class Canvas:
         self,
         image: Image.Image,
         output_path: str,
+        file_format: FileFormat,
         quality: int | None = None,
-        format: FileFormat | None = None,
     ):
-        file_format = format or self._detect_format(output_path)
+        from quickthumb._document import _raster_save_kwargs
+
+        save_kwargs = _raster_save_kwargs(file_format, quality)
         converted_image = self._convert_for_format(image, file_format)
-        save_kwargs = self._build_save_kwargs(file_format, quality)
 
         converted_image.save(output_path, format=file_format, **save_kwargs)
-
-    def _build_save_kwargs(self, file_format: FileFormat, quality: int | None) -> dict:
-        if quality is None:
-            return {}
-
-        if file_format in ("JPEG", "WEBP"):
-            return {"quality": quality}
-
-        raise RenderingError(
-            f"Quality parameter is only supported for JPEG and WEBP formats, not {file_format}."
-        )
 
     def _iter_layers_deep(self):
         """Yield all layers including group children, depth-first."""
@@ -2347,6 +2406,9 @@ class Canvas:
             yield "/path", layer.path
         elif isinstance(layer, VideoLayer):
             yield "/source", layer.source
+        elif isinstance(layer, PluginLayer):
+            for name, source in layer.assets.items():
+                yield json_pointer("assets", name), source
         elif isinstance(layer, TextLayer):
             if isinstance(layer.fill, TextFillImage):
                 yield "/fill/path", layer.fill.path
@@ -2354,23 +2416,6 @@ class Canvas:
                 for index, part in enumerate(layer.content):
                     if isinstance(part.fill, TextFillImage):
                         yield f"/content/{index}/fill/path", part.fill.path
-
-    def _detect_format(self, output_path: str) -> FileFormat:
-        extension = os.path.splitext(output_path)[1].lower()
-        format_map: dict[str, FileFormat] = {
-            ".png": "PNG",
-            ".jpg": "JPEG",
-            ".jpeg": "JPEG",
-            ".webp": "WEBP",
-        }
-        try:
-            return format_map[extension]
-        except KeyError:
-            raise RenderingError(
-                f"Unsupported file format: {extension or '(none)'}.",
-                code="unsupported_format",
-                suggestion=f"use one of {', '.join(_SUPPORTED_OUTPUT_EXTENSIONS)}",
-            ) from None
 
     def _convert_for_format(self, image: Image.Image, file_format: FileFormat) -> Image.Image:
         if file_format == "JPEG":

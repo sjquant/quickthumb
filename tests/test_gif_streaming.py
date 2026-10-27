@@ -199,9 +199,9 @@ def test_public_deck_bytes_match_legacy(monkeypatch, reduced_motion):
         .slide(Canvas(71, 39).background(color="#89ABCD"), transition=CrossFade(duration=0.4))
     )
     policy = ExportPolicy(reduced_motion=reduced_motion)
-    actual = deck.to_gif(fps=12, slide_duration=0.15, loop=2, policy=policy)
+    actual = deck.to_gif(fps=12, hold=0.15, loop=2, policy=policy)
     monkeypatch.setattr(video, "_encode_gif", legacy_with_facts)
-    assert actual == deck.to_gif(fps=12, slide_duration=0.15, loop=2, policy=policy)
+    assert actual == deck.to_gif(fps=12, hold=0.15, loop=2, policy=policy)
 
 
 def test_file_output_matches_bytes_without_ffmpeg(monkeypatch, tmp_path):

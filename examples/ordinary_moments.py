@@ -122,7 +122,7 @@ def main() -> None:
         loop=True,
         fade_out=SOUNDTRACK_FADE_OUT,
     )
-    OUT_MP4.write_bytes(deck.to_animated_mp4(fps=FPS, soundtrack=soundtrack))
+    OUT_MP4.write_bytes(deck.to_mp4(fps=FPS, soundtrack=soundtrack))
     OUT_WEBM.write_bytes(deck.to_webm(fps=FPS, soundtrack=soundtrack))
     # The payoff scene carries its own timeline, so the preview needs no settled
     # hold — just a shorter cut of the same composition.
