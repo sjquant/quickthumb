@@ -966,7 +966,6 @@ Run `uv run python examples/text_range_selector.py --target words --output /tmp/
 text layout, plus portable scene JSON. This is partial #165 coverage, not a
 general-purpose shaping backend or full support for every stagger adapter.
 
-
 The bounded HTML adapters for anchors, axis scaling, paths and parent chains
 currently use static fallback when custom Bézier easing, per-keyframe easing,
 or keyframe holds are combined with them. Raster animation preserves those
