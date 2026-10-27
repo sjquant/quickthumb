@@ -817,7 +817,7 @@ alias for validation and motion inspection, preserving the existing parent,
 Morph and caption restrictions. See [image sequences](../exports.md#image-sequences)
 for timing, color-profile limits and exclusive fresh-directory publication.
 
-## Static word and line selectors
+## Word and line range selectors
 
 `AnimationSpec.timeline(..., selector=RangeSelector(...))` weights position,
 rotation, scale, opacity and color tracks for top-level plain text. Import
@@ -826,8 +826,26 @@ parent-linked text and mixed target bases are unsupported in this first layer.
 Each composed spec on a selected layer must declare the same words/lines basis.
 
 `target` is `"words"` (default) or `"lines"`; `start=0`, `end=100` are percentages
-with `0 <= start <= end <= 100`. Finite `offset=0` translates that interval without
-wrapping. A target at document index `i` among `N` is evaluated at its center
+with `0 <= start <= end <= 100` when both are static. Finite `offset=0` translates
+that interval without wrapping. Each of these three fields can instead contain a
+nonempty list of scalar `KeyframeSpec` values:
+
+```python
+RangeSelector(
+    end=50,
+    offset=[KeyframeSpec(time=0, value=-50), KeyframeSpec(time=1, value=100)],
+)
+```
+
+Selector keyframes use the same local seconds, outgoing `hold`, keyframe/spec
+easing and stagger delay as the property tracks. Their final key contributes to
+inferred duration; an explicit timing duration must cover all property and
+selector keys. Start/end keys must lie in 0..100; eased start/end values clamp to
+that interval. Offset remains finite and may overshoot without wrapping. If the
+sampled end is at or below the sampled start, the range is empty. Animated
+start/end may cross; static inverted bounds are rejected. After the event, the
+settled selector keeps its final values. A target at document index `i` among `N`
+is evaluated at its center
 `100*(i+0.5)/N`. Outside `[start+offset, end+offset)`, or for an empty range, its
 weight is zero. Within the interval, let `u` be the center's fractional position:
 
@@ -857,7 +875,10 @@ inseparable layout raises an actionable error during sampled rendering instead
 of silently using the partial band approximation. Untimed output stays authored
 static. HTML/PPTX keep authored-static text and report selector fallback;
 `inspect_motion()` exposes selector weights and per-target motion samples.
-Characters and animated selector parameters remain outside this interface.
+Each event's `selector_weights` is a matrix: rows align with the layer's
+`sample_times`, columns with its `targets` (including reverse execution order).
+Pre-start rows have zero influence. Selection percentages still refer to
+semantic document indices. Characters remain outside this interface.
 
 Run `uv run python examples/text_range_selector.py --target words --output /tmp/words.gif`
 (or `--target lines`) for weighted position/rotation that settles to the original

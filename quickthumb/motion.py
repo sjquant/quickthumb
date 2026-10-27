@@ -208,7 +208,7 @@ def resolve_staggered_timelines(
     timeline: Timeline,
     target_count: int,
 ) -> tuple[Timeline, ...]:
-    """Expand target clocks and static selector weights on the shared timeline.
+    """Expand target clocks and semantic selector indices on the shared timeline.
 
     Stagger metadata remains untouched in the serialized source timeline.  The
     returned timelines are runtime views with the target offset folded into the
@@ -239,11 +239,10 @@ def resolve_staggered_timelines(
                     "options": event.options
                     | (
                         {
-                            "_selector_weight": _range_weight(
-                                event.selector,
-                                target_count - 1 - target_index if reverse else target_index,
-                                target_count,
-                            )
+                            "_selector_index": target_count - 1 - target_index
+                            if reverse
+                            else target_index,
+                            "_selector_count": target_count,
                         }
                         if event.selector
                         else {}
@@ -256,8 +255,17 @@ def resolve_staggered_timelines(
     return tuple(expanded)
 
 
-def _range_weight(selector: RangeSelector, index: int, count: int) -> float:
-    start, end = selector.start + selector.offset, selector.end + selector.offset
+def _range_weight(
+    selector: RangeSelector, index: int, count: int, local: float = 0, easing=None
+) -> float:
+    values = {}
+    for name in ("start", "end", "offset"):
+        value = getattr(selector, name)
+        if isinstance(value, list):
+            value = _sample_keyframes(value, local, easing)
+        values[name] = float(cast(float, value))
+    start = min(100, max(0, values["start"])) + values["offset"]
+    end = min(100, max(0, values["end"])) + values["offset"]
     point = 100 * (index + 0.5) / count
     if end <= start or not start <= point < end:
         return 0.0
@@ -268,6 +276,31 @@ def _range_weight(selector: RangeSelector, index: int, count: int) -> float:
         "triangle": 1 - abs(2 * progress - 1),
         "smooth": progress * progress * (3 - 2 * progress),
     }[selector.shape]
+
+
+def _selector_weight(event: TimelineEvent, time: float) -> float:
+    if event.selector is None or "_selector_index" not in event.options:
+        return 1.0
+    if time < event.active_start:
+        return 0.0
+    return _range_weight(
+        event.selector,
+        event.options["_selector_index"],
+        event.options["_selector_count"],
+        min(event.duration, time - event.active_start),
+        event.options.get("easing"),
+    )
+
+
+def _selector_in_motion(selector: RangeSelector | None, local: float) -> bool:
+    if selector is None or selector.shape == "square":
+        return False
+    return any(
+        left.time <= local < right.time and not left.hold and left.value != right.value
+        for name in ("start", "end", "offset")
+        if isinstance(keys := getattr(selector, name), list)
+        for left, right in zip(keys, keys[1:], strict=False)
+    )
 
 
 def _text_selector(layer: object) -> RangeSelector | None:
@@ -1127,11 +1160,13 @@ def _geometry_in_motion(
     path_position_moving = False
     heading_moving = False
     for event in timeline.events:
-        if event.options.get("_selector_weight") == 0:
+        weight = _selector_weight(event, time)
+        if weight == 0:
             continue
         if time < event.active_start:
             continue
         local = time - event.active_start
+        selector_moving = _selector_in_motion(event.selector, local) and local < event.duration
         for track in event.tracks:
             if track.property not in properties:
                 continue
@@ -1178,11 +1213,19 @@ def _geometry_in_motion(
                             active = 0 < distance < 1
                         segment = (left, right)
                         break
+            active = active or selector_moving
             if track.property == "position":
                 if track.blend == "replace":
-                    position_changes.clear()
-                    path_position_moving = False
-                    moving["position"] = False
+                    if weight == 1:
+                        position_changes.clear()
+                        path_position_moving = False
+                        moving["position"] = False
+                    else:
+                        position_changes = {
+                            basis: (x * (1 - weight), y * (1 - weight))
+                            for basis, (x, y) in position_changes.items()
+                        }
+                path_position_moving = path_position_moving or selector_moving
                 if wiggle_active:
                     moving["position"] = True
                 if path:
@@ -1205,13 +1248,15 @@ def _geometry_in_motion(
                     )
                     x, y = position_changes.get(basis, (0.0, 0.0))
                     position_changes[basis] = (
-                        x + right.value[0] - left.value[0],
-                        y + right.value[1] - left.value[1],
+                        x + (right.value[0] - left.value[0]) * weight,
+                        y + (right.value[1] - left.value[1]) * weight,
                     )
                 continue
             active = active or wiggle_active
             moving[track.property] = (
-                active if track.blend == "replace" else moving.get(track.property, False) or active
+                active
+                if track.blend == "replace" and weight == 1
+                else moving.get(track.property, False) or active
             )
     # The established renderer ignores nonpositive scale rather than reflecting
     # or collapsing the image. Reuse the caller's state instead of sampling twice.
@@ -1282,7 +1327,17 @@ def _compile_spec(spec: AnimationSpec, composition: _CompositionCursor) -> Timel
     timing = spec.timing
     effect = spec.effect
     tracks = tuple(_normalize_track(track) for track in spec.tracks or ())
-    track_duration = max((track.duration for track in tracks), default=0.0)
+    track_duration = max(
+        max((track.duration for track in tracks), default=0.0),
+        max(
+            (
+                getattr(spec.selector, name)[-1].time
+                for name in ("start", "end", "offset")
+                if spec.selector and isinstance(getattr(spec.selector, name), list)
+            ),
+            default=0.0,
+        ),
+    )
     if timing is None:
         duration = track_duration if spec.tracks is not None else 0.5
         trigger = None
@@ -1517,6 +1572,7 @@ def _sample_event(
     local_time = min(time - event.active_start, event.duration)
     progress = 1.0 if event.duration == 0 else local_time / event.duration
     eased_progress = easing_value(event.options.get("easing"), progress)
+    weight = _selector_weight(event, time)
     for track in event.tracks:
         if track.property == "position" and _is_path_track(track):
             value, path_heading = _sample_path_track(track, local_time, event.options.get("easing"))
@@ -1526,7 +1582,6 @@ def _sample_event(
             value = _sample_track(track, local_time, event.options.get("easing"))
         value = _wiggle_value(track, value, local_time)
         candidate = _compose_track_value(state, track, value)
-        weight = event.options.get("_selector_weight", 1.0)
         before = getattr(state, track.property)
         after = getattr(candidate, track.property)
         state = (
@@ -1618,11 +1673,21 @@ def _sample_track(
     """Sample a track at elapsed event time without a normalized-clock round trip."""
     if track.property == "position" and _is_path_track(track):
         return _sample_path_track(track, local_time, easing)[0]
-    if local_time <= track.keyframes[0].time:
-        return track.keyframes[0].value
-    if local_time >= track.keyframes[-1].time:
-        return track.keyframes[-1].value
-    for left, right in zip(track.keyframes, track.keyframes[1:], strict=True):
+    return _sample_keyframes(track.keyframes, local_time, easing, track.property)
+
+
+def _sample_keyframes(
+    keyframes: Sequence[NormalizedKeyframe] | Sequence[KeyframeSpec],
+    local_time: float,
+    easing: EasingValue | None = None,
+    property: MotionProperty | None = None,
+) -> MotionValue:
+    """Sample shared local keyframe clocks, including outgoing holds and easing."""
+    if local_time <= keyframes[0].time:
+        return keyframes[0].value
+    if local_time >= keyframes[-1].time:
+        return keyframes[-1].value
+    for left, right in zip(keyframes, keyframes[1:], strict=True):
         if local_time <= right.time:
             if left.hold:
                 # A hold steps to the next value only once the next keyframe is
@@ -1630,12 +1695,12 @@ def _sample_track(
                 return right.value if local_time == right.time else left.value
             ratio = (local_time - left.time) / (right.time - left.time)
             eased_ratio = easing_value(left.easing if left.easing is not None else easing, ratio)
-            if track.property in {"opacity", "clip_progress", "color", "image_pan", "image_zoom"}:
+            if property in {"opacity", "clip_progress", "color", "image_pan", "image_zoom"}:
                 eased_ratio = min(1.0, max(0.0, eased_ratio))
-            if track.property == "color":
+            if property == "color":
                 return interpolate_color(cast(str, left.value), cast(str, right.value), eased_ratio)
             return _interpolate(left.value, right.value, eased_ratio)
-    return track.keyframes[-1].value
+    return keyframes[-1].value
 
 
 def _sample_path_track(
@@ -1696,7 +1761,12 @@ def _interpolate(left: MotionValue, right: MotionValue, ratio: float) -> MotionV
     if isinstance(left, tuple) and isinstance(right, tuple):
         return tuple(a + (b - a) * ratio for a, b in zip(left, right, strict=True))
     if isinstance(left, (int, float)) and isinstance(right, (int, float)):
-        return left + (right - left) * ratio
+        difference = right - left
+        return (
+            left + difference * ratio
+            if math.isfinite(difference)
+            else left * (1 - ratio) + right * ratio
+        )
     if isinstance(left, str) and isinstance(right, str):
         return _interpolate_color(left, right, ratio)
     return left if ratio < 1.0 else right
@@ -2516,7 +2586,9 @@ def validate_motion_export(source: Canvas | Deck, target: ExportTarget | str, po
 
 
 def _inspection_event(
-    event: TimelineEvent, sample_times: tuple[float, ...] = (), target_count: int = 0
+    event: TimelineEvent,
+    sample_times: tuple[float, ...] = (),
+    target_events: Sequence[TimelineEvent] = (),
 ) -> MotionEventInspection:
     progress = [
         1.0
@@ -2559,7 +2631,7 @@ def _inspection_event(
         stagger=event.stagger,
         selector=event.selector,
         selector_weights=[
-            _range_weight(event.selector, index, target_count) for index in range(target_count)
+            [_selector_weight(target, time) for target in target_events] for time in sample_times
         ]
         if event.selector
         else [],
@@ -2703,7 +2775,10 @@ def _inspection_layer(
         layer_id=layer_id,
         layer_type=str(getattr(layer, "type", type(layer).__name__)),
         parent=getattr(layer, "parent", None),
-        events=[_inspection_event(event, sample_times, len(targets)) for event in timeline.events],
+        events=[
+            _inspection_event(event, sample_times, [target.events[index] for target in timelines])
+            for index, event in enumerate(timeline.events)
+        ],
         duration=duration,
         targets=targets,
         sample_times=list(sample_times),

@@ -7,7 +7,7 @@ from zipfile import ZipFile
 
 import jsonschema
 import pytest
-from PIL import Image, ImageColor
+from PIL import Image, ImageChops, ImageColor
 from quickthumb import (
     AnimationSpec,
     Canvas,
@@ -172,7 +172,7 @@ def test_selector_shapes_survive_json_sampling_and_gif(shape, weights, tmp_path)
             expected, abs=2
         )
     layer = restored.inspect_motion().slides[0].layers[1]
-    assert layer.events[0].selector_weights == weights
+    assert layer.events[0].selector_weights == [weights]
     assert [target.source_range for target in layer.targets] == [(0, 3), (4, 7)]
     assert [target.samples[0]["opacity"] for target in layer.targets] == [1 - w for w in weights]
 
@@ -210,6 +210,54 @@ def test_selector_composition_keeps_document_indices_with_reverse_stagger(tmp_pa
     assert inspected.sample_times[-1] == pytest.approx(0.9)
     receipt = scene.export(tmp_path / "reverse.gif", animation=GifOptions(fps=10, hold=0.1))
     assert receipt.timing_metrics.duration == pytest.approx(inspected.duration + 0.1)
+
+    # A later full replacement also settles earlier selector-driven geometry.
+    moving = AnimationSpec.timeline(
+        RotationTrack(keyframes=[KeyframeSpec(time=0, value=30)]),
+        selector=RangeSelector(
+            shape="ramp",
+            offset=[KeyframeSpec(time=0, value=-20), KeyframeSpec(time=1, value=20)],
+        ),
+    )
+    replacement = AnimationSpec.timeline(
+        RotationTrack(keyframes=[KeyframeSpec(time=0, value=12)]),
+        selector=RangeSelector(),
+        timing=TimingSpec(start=0, duration=1),
+    )
+    replaced = text_scene("ONE TWO", [moving, replacement])
+    settled = text_scene("ONE TWO", replacement).render_frame(1)
+    for time in [0.1, 0.5, 0.9, 1]:
+        assert replaced.render_frame(time).tobytes() == settled.tobytes()
+    assert all(
+        sample["rotation"] == 12
+        for target in replaced.inspect_motion(fps=10).slides[0].layers[1].targets
+        for sample in target.samples
+    )
+
+    # Opposite raw deltas do not cancel after a partial replacement's weighting.
+    def translate(distance, selector):
+        return AnimationSpec.timeline(
+            PositionTrack(
+                keyframes=[
+                    KeyframeSpec(time=0, value=(0, 0)),
+                    KeyframeSpec(time=1, value=(distance, 0)),
+                ]
+            ),
+            selector=selector,
+            timing=TimingSpec(start=0, duration=1),
+            easing="linear",
+        )
+
+    weighted = text_scene(
+        "ONE TWO", [translate(20, RangeSelector()), translate(-20, RangeSelector(shape="ramp"))]
+    )
+    equivalent = text_scene(
+        "ONE TWO", [translate(10, RangeSelector(end=50)), translate(-10, RangeSelector(start=50))]
+    )
+    for time in [0.25, 0.3, 0.35]:
+        assert weighted.render_frame(time).tobytes() == equivalent.render_frame(time).tobytes()
+    targets = weighted.inspect_motion(fps=4).slides[0].layers[1].targets
+    assert [target.samples[1]["position"] for target in targets] == [[2.5, 0], [-2.5, 0]]
 
 
 @pytest.mark.parametrize("start,end,offset", [(0, 50, 50), (50, 50, 0), (0, 100, 100)])
@@ -421,3 +469,160 @@ def test_color_selectors_compose_from_the_incoming_color():
     frame = scene.render_frame(0)
     assert frame.crop((0, 0, 90, 180)).getchannel("A").getextrema()[1] == 112
     assert frame.crop((90, 0, 320, 180)).getchannel("A").getextrema()[1] == 239
+
+
+@pytest.mark.parametrize("target", ["words", "lines"])
+@pytest.mark.parametrize(
+    "field,values,initial,expected",
+    [
+        ("start", [100, 50, 0], {}, [[1, 1], [1, 0], [0, 0]]),
+        ("end", [0, 50, 100], {}, [[1, 1], [0, 1], [0, 0]]),
+        ("offset", [0, 50, 100], {"end": 50}, [[0, 1], [1, 0], [1, 1]]),
+    ],
+)
+def test_animated_selector_percentages_sample_inspect_and_encode(
+    target, field, values, initial, expected
+):
+    """Local selector keyframes drive exact targets through portable scenes and real GIF frames."""
+    keys = [
+        KeyframeSpec(time=time, value=value, hold=True)
+        for time, value in zip([0, 0.5, 1], values, strict=True)
+    ]
+    scene = text_scene(
+        "ONE TWO" if target == "words" else "ONE\nTWO",
+        AnimationSpec.timeline(
+            OpacityTrack(keyframes=[KeyframeSpec(time=0, value=0)]),
+            selector=RangeSelector(target=target, **initial, **{field: keys}),
+        ),
+    )
+    payload = json.loads(scene.to_json())
+    jsonschema.validate(payload, canvas_json_schema())
+    restored = Canvas.from_json(json.dumps(payload))
+    boxes = (
+        [(0, 0, 90, 180), (90, 0, 320, 180)]
+        if target == "words"
+        else [(0, 0, 320, 50), (0, 50, 320, 180)]
+    )
+    times = [0, 0.5, 1]
+    sampled = restored.sample(times)
+    with Image.open(BytesIO(restored.to_gif(fps=10, hold=0.2))) as image:
+        decoded = []
+        elapsed = 0
+        for index in range(getattr(image, "n_frames", 1)):
+            image.seek(index)
+            decoded.append((elapsed, image.convert("RGB")))
+            elapsed += image.info["duration"] / 1000
+    assert elapsed == pytest.approx(1.2)
+    for time, visible, frame in zip(times, expected, sampled.frames, strict=True):
+        direct = restored.render_frame(time).convert("RGB")
+        assert frame.to_image().convert("RGB").tobytes() == direct.tobytes()
+        encoded = next(frame for start, frame in reversed(decoded) if start <= time + 1e-9)
+        for box, shown in zip(boxes, visible, strict=True):
+            assert direct.crop(box).getchannel("R").getextrema()[1] == 255 * shown
+            assert encoded.crop(box).getchannel("R").getextrema()[1] == 255 * shown
+    layer = restored.inspect_motion(fps=2).slides[0].layers[1]
+    assert layer.duration == 1
+    assert layer.sample_times == times
+    assert layer.events[0].selector_weights == [[1 - v for v in row] for row in expected]
+    assert [
+        [target.samples[i]["opacity"] for target in layer.targets] for i in range(3)
+    ] == expected
+    assert restored.to_json() == scene.to_json()
+
+
+def test_animated_selector_easing_stagger_and_geometry_keep_semantic_targets():
+    """Moving ranges weight constant geometry while preserving target ownership and rest layout."""
+    selector = RangeSelector(
+        shape="ramp",
+        offset=[
+            KeyframeSpec(time=0, value=-50, easing="ease_in_quad"),
+            KeyframeSpec(time=1, value=0),
+        ],
+    )
+    motion = AnimationSpec.timeline(
+        PositionTrack(keyframes=[KeyframeSpec(time=0, value=(20, 0))]),
+        selector=selector,
+    ).model_copy(update={"stagger": StaggerSpec(target="words", order="reverse", delay=0.5)})
+    scene = text_scene("ONE TWO", motion)
+    layer = scene.inspect_motion(fps=2).slides[0].layers[1]
+    assert layer.duration == 1.5
+    assert [target.source_range for target in layer.targets] == [(4, 7), (0, 3)]
+    # At .5, ONE has just begun its delayed clock; TWO is halfway through its easing.
+    index = layer.sample_times.index(0.5)
+    assert layer.events[0].selector_weights[index] == [0, 0.75]
+    assert [target.samples[index]["position"] for target in layer.targets] == [[0, 0], [15, 0]]
+    # Fractional geometry from changing selector strength uses the same compositor in sample/export.
+    public = scene.render_frame(0.75)
+    assert scene.sample([0.75]).frames[0].to_image().tobytes() == public.tobytes()
+    assert public.tobytes() != scene.render_frame(0).tobytes()
+    with Image.open(BytesIO(scene.to_gif(fps=4, hold=0.5))) as image:
+        elapsed = 0
+        for frame_index in range(getattr(image, "n_frames", 1)):
+            image.seek(frame_index)
+            if elapsed <= 0.75:
+                encoded = image.convert("RGB")
+            elapsed += image.info["duration"] / 1000
+    difference = ImageChops.difference(encoded, public.convert("RGB"))
+    extrema = cast(tuple[tuple[int, int], ...], difference.getextrema())
+    assert max(channel[1] for channel in extrema) <= 2
+    assert scene.render_frame().tobytes() == text_scene("ONE TWO").render_frame().tobytes()
+
+
+def test_selector_keyframe_range_validation_and_duration_contract():
+    """Animated bounds are scalar, ordered clocks; crossed sampled ranges are empty."""
+    from quickthumb import ValidationError
+
+    with pytest.raises(ValidationError, match="shorter than the final keyframe"):
+        text_scene(
+            "ONE TWO",
+            AnimationSpec.timeline(
+                OpacityTrack(keyframes=[KeyframeSpec(time=0, value=0)]),
+                selector=RangeSelector(offset=[KeyframeSpec(time=1, value=20)]),
+                timing=TimingSpec(duration=0.5),
+            ),
+        ).render_frame(0)
+    for keys in ([KeyframeSpec(time=0, value=101)], [KeyframeSpec(time=0, value=(1, 2))]):
+        with pytest.raises(ValidationError):
+            RangeSelector(start=keys)
+    crossed = text_scene(
+        "ONE TWO",
+        AnimationSpec.timeline(
+            OpacityTrack(keyframes=[KeyframeSpec(time=0, value=0)]),
+            selector=RangeSelector(start=[KeyframeSpec(time=0, value=90)], end=10),
+        ),
+    )
+    assert crossed.render_frame(0).tobytes() == text_scene("ONE TWO").render_frame(0).tobytes()
+    # Easing may overshoot, but bounded range endpoints still stop at 100 percent.
+    overshoot = text_scene(
+        "ONE TWO",
+        AnimationSpec.timeline(
+            OpacityTrack(keyframes=[KeyframeSpec(time=0, value=0)]),
+            selector=RangeSelector(
+                end=[
+                    KeyframeSpec(time=0, value=0, easing="ease_out_back"),
+                    KeyframeSpec(time=1, value=100),
+                ],
+                shape="ramp",
+            ),
+        ),
+    )
+    layer = overshoot.inspect_motion(fps=2).slides[0].layers[1]
+    assert layer.events[0].selector_weights[1] == [0.25, 0.75]
+    assert [target.samples[1]["opacity"] for target in layer.targets] == [0.75, 0.25]
+
+
+def test_extreme_finite_selector_offsets_interpolate_without_losing_targets():
+    """Opposite finite offsets cross zero instead of overflowing to an empty range."""
+    scene = text_scene(
+        "ONE TWO",
+        AnimationSpec.timeline(
+            OpacityTrack(keyframes=[KeyframeSpec(time=0, value=0)]),
+            selector=RangeSelector(
+                offset=[KeyframeSpec(time=0, value=-1e308), KeyframeSpec(time=1, value=1e308)]
+            ),
+        ),
+    )
+    layer = scene.inspect_motion(fps=2).slides[0].layers[1]
+    assert layer.events[0].selector_weights == [[0, 0], [1, 1], [0, 0]]
+    assert [target.samples[1]["opacity"] for target in layer.targets] == [0, 0]
+    assert scene.render_frame(0.5).convert("RGB").getbbox() is None

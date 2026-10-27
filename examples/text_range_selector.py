@@ -30,7 +30,15 @@ def main():
                 KeyframeSpec(time=0.6, value="#42CEB7"),
             ]
         ),
-        selector=RangeSelector(target=args.target, shape="ramp"),
+        selector=RangeSelector(
+            target=args.target,
+            shape="ramp",
+            offset=[
+                KeyframeSpec(time=0, value=0),
+                KeyframeSpec(time=0.3, value=20),
+                KeyframeSpec(time=0.6, value=0),
+            ],
+        ),
         easing="linear",
     )
     scene = (
