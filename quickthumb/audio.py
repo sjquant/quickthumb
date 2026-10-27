@@ -14,7 +14,8 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from quickthumb._export_deck_mp4 import _configured_tool
-from quickthumb.errors import RenderingError
+from quickthumb.errors import RenderingError, ValidationError
+from quickthumb.models.motion import KeyframeSpec, ScaleTrack
 
 _SAMPLE_RATE = 8000
 _HOP = 160
@@ -65,6 +66,36 @@ class AudioAnalysis(BaseModel):
         if any(time >= self.duration for time in self.onsets):
             raise ValueError("onsets must be inside the source duration")
         return self
+
+    def scale_track(self, *, min_scale: float = 1.0, max_scale: float = 1.15) -> ScaleTrack:
+        """Bake peak-normalized RMS into a source-clock object-scale track.
+
+        Each 20ms source window holds its scale until the next window. Silence
+        maps to ``min_scale``; the loudest window maps to ``max_scale``. At the
+        exact source end the track returns to ``min_scale`` and stays there.
+        No audio source, decoder or renderer is consulted by this operation.
+        """
+        if any(
+            isinstance(value, bool)
+            or not isinstance(value, (int, float))
+            or not math.isfinite(value)
+            or value <= 0
+            for value in (min_scale, max_scale)
+        ):
+            raise ValidationError("scale bounds must be finite positive numbers")
+        if max_scale < min_scale:
+            raise ValidationError("max_scale must be greater than or equal to min_scale")
+        peak = max(self.rms)
+        keyframes = [
+            KeyframeSpec(
+                time=round(index * self.hop_samples / self.sample_rate, 9),
+                value=min_scale + (max_scale - min_scale) * (amplitude / peak if peak else 0),
+                hold=True,
+            )
+            for index, amplitude in enumerate(self.rms)
+        ]
+        keyframes.append(KeyframeSpec(time=self.duration, value=min_scale))
+        return ScaleTrack(keyframes=keyframes)
 
 
 def analyze_audio(

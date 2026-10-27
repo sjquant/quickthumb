@@ -19,7 +19,7 @@ being importable from another module does not make it a supported entry point.
 | Document operations | `validate()`, `inspect()`, `diagnose()`, `prefetch_assets()`, `sample()` and `export()` on either document kind; `inspect_document()` for generic consumers |
 | Results | Typed reports, `ExportResult`, `CanonicalFrame` / `FrameSequence`, and `ImageSequence*` results; serialize them with `model_dump_json()` |
 | JSON | `to_json()`, `Canvas.from_json()`, `Deck.from_json()`, `canvas_json_schema()` and `document_json_schema()` |
-| Audio authoring | [`quickthumb.audio.analyze_audio()` and `AudioAnalysis`](audio.md); bake source-clock onset times into numeric motion |
+| Audio authoring | [`quickthumb.audio.analyze_audio()` and `AudioAnalysis`](audio.md); bake source-clock onset times and RMS-driven scale into numeric motion |
 | Specialist output | Documented `render()`, `render_frame()`, `to_*()` and `export_image_sequence()` methods when their return type or controls fit the task |
 
 `export()` is the recommended file boundary: it preflights capability policy and

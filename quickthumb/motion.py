@@ -1438,20 +1438,17 @@ def _sample_event(
     if time < event.active_start:
         return state, None
     heading = None
-    progress = (
-        1.0 if event.duration == 0 else min(1.0, (time - event.active_start) / event.duration)
-    )
+    local_time = min(time - event.active_start, event.duration)
+    progress = 1.0 if event.duration == 0 else local_time / event.duration
     eased_progress = easing_value(event.options.get("easing"), progress)
     for track in event.tracks:
         if track.property == "position" and _is_path_track(track):
-            value, path_heading = _sample_path_track(
-                track, progress * event.duration, event.options.get("easing")
-            )
+            value, path_heading = _sample_path_track(track, local_time, event.options.get("easing"))
             if track.auto_orient and path_heading is not None:
                 heading = path_heading
         else:
-            value = _sample_track(track, progress, event.duration, event.options.get("easing"))
-        value = _wiggle_value(track, value, progress * event.duration)
+            value = _sample_track(track, local_time, event.options.get("easing"))
+        value = _wiggle_value(track, value, local_time)
         state = _compose_track_value(state, track, value)
     if event.effect == "ken_burns" and event.options.get("focal_point") is not None:
         state = state.with_values(image_focal_point=tuple(event.options["focal_point"]))
@@ -1518,10 +1515,9 @@ def _compose_track_value(
 
 
 def _sample_track(
-    track: NormalizedTrack, progress: float, duration: float, easing: EasingValue | None = None
+    track: NormalizedTrack, local_time: float, easing: EasingValue | None = None
 ) -> MotionValue:
-    """Sample a local track at normalized event progress."""
-    local_time = progress * duration
+    """Sample a track at elapsed event time without a normalized-clock round trip."""
     if track.property == "position" and _is_path_track(track):
         return _sample_path_track(track, local_time, easing)[0]
     if local_time <= track.keyframes[0].time:

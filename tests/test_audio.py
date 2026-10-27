@@ -20,6 +20,7 @@ from quickthumb import (
     KeyframeSpec,
     RenderingError,
     TimingSpec,
+    ValidationError,
 )
 from quickthumb.audio import AudioAnalysis, analyze_audio
 
@@ -141,9 +142,97 @@ def test_content_cache_and_silence(tmp_path, monkeypatch):
     silent = analyze_audio(source, cache_dir=cache)
     assert silent.source_sha256 != first.source_sha256
     assert silent.onsets == () and not any(silent.rms)
+    silent_scene = (
+        Canvas(32, 24)
+        .background(color="#000000")
+        .shape(
+            "rectangle",
+            (8, 6),
+            16,
+            12,
+            "#FF0000",
+            animation=AnimationSpec.timeline(silent.scale_track(min_scale=1, max_scale=2)),
+        )
+    )
+    assert [
+        frame.to_image().convert("RGB").getbbox()
+        for frame in silent_scene.sample([0, 0.5, 1.2]).frames
+    ] == [(8, 6, 24, 18)] * 3
     assert len(list(cache.glob("*.json"))) == 2
     for entry in cache.iterdir():
         assert AudioAnalysis.model_validate_json(entry.read_bytes()) in (first, silent)
+
+
+def test_stored_envelope_drives_scale_without_audio(tmp_path, monkeypatch):
+    """Stored RMS controls decoded scale windows and returns to baseline at the source end."""
+    # Given: an independently authored envelope with quiet, soft and peak windows
+    stored = AudioAnalysis(
+        source_sha256="a" * 64,
+        ffmpeg_version="stored decoder",
+        duration=1.2,
+        rms=(0, 0.25, 0.5, 0, 1) + (1, 0) * 27 + (1,),
+        onsets=(),
+    )
+    monkeypatch.setenv("QUICKTHUMB_FFMPEG", "missing-audio-analyzer")
+    canvas = (
+        Canvas(64, 48)
+        .background(color="#000000")
+        .shape(
+            "rectangle",
+            (24, 16),
+            16,
+            16,
+            "#FF0000",
+            animation=AnimationSpec.timeline(stored.scale_track(min_scale=1, max_scale=2)),
+        )
+    )
+
+    # When: ordinary canonical JSON is restored and exported as silent playback
+    baked = Canvas.from_json(canvas.to_json())
+    output = tmp_path / "envelope.gif"
+    baked.export(output, animation=GifOptions(fps=50, hold=0.04))
+    with Image.open(output) as image:
+        frames = []
+        durations = []
+        for index in range(int(getattr(image, "n_frames", 1))):
+            image.seek(index)
+            frames.append(image.convert("RGB"))
+            durations.append(image.info["duration"])
+    ends = list(accumulate(durations))
+    # The .9s boundary must not round backward through normalized progress / 1.2.
+    times = [0, 0.02, 0.04, 0.06, 0.079, 0.08, 0.099, 0.1, 0.12, 0.899, 0.9, 1.199, 1.2, 1.22]
+    widths = []
+    for time in times:
+        frame = frames[bisect_right(ends, round(time * 1000))]
+        bounds = frame.getbbox()
+        assert bounds is not None
+        widths.append(bounds[2] - bounds[0])
+
+    # Then: normalization, half-open windows and the settled hold are observable
+    assert widths == [16, 20, 24, 16, 16, 32, 32, 32, 16, 16, 32, 32, 16, 16]
+    exact = baked.render_frame(0.9).convert("RGB").getbbox()
+    assert exact is not None and exact[2] - exact[0] == 32
+    canonical = [frame.to_image().convert("RGB").getbbox() for frame in baked.sample(times).frames]
+    assert [bounds[2] - bounds[0] for bounds in canonical] == widths
+    event = baked.inspect_motion(target="video").slides[0].layers[1].events[0]
+    assert event.duration == stored.duration
+    assert event.tracks[0].type == "scale"
+
+
+@pytest.mark.parametrize("bounds", [(0, 2), (2, 1), (1, float("inf")), (True, 2)])
+def test_scale_bounds_reject_invalid_response(bounds):
+    """Invalid scale bounds fail before motion tracks are returned."""
+    # Given: a valid stored clock and invalid caller-specified scale bounds
+    stored = AudioAnalysis(
+        source_sha256="a" * 64,
+        ffmpeg_version="stored decoder",
+        duration=0.01,
+        rms=(0.5,),
+        onsets=(),
+    )
+    # When/Then: no malformed track is returned to the animation compiler
+    with pytest.raises(ValidationError, match="scale"):
+        stored.scale_track(min_scale=bounds[0], max_scale=bounds[1])
 
 
 @pytest.mark.skipif(not HAS_FFMPEG, reason="FFmpeg is required for source analysis")
