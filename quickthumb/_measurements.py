@@ -13,6 +13,8 @@ from quickthumb.models import (
     GroupLayer,
     ImageLayer,
     NullLayer,
+    PathLayer,
+    PluginLayer,
     QRCodeLayer,
     ShapeLayer,
     SvgLayer,
@@ -27,12 +29,14 @@ MEASURABLE_LAYER_TYPES = frozenset(
     {
         "text",
         "shape",
+        "path",
         "image",
         "svg",
         "group",
         "chart",
         "qr_code",
         "video",
+        "plugin",
     }
 )
 
@@ -200,9 +204,11 @@ class LayerMeasurementEngine:
                 ImageLayer,
                 SvgLayer,
                 ShapeLayer,
+                PathLayer,
                 ChartLayer,
                 QRCodeLayer,
                 VideoLayer,
+                PluginLayer,
             ),
         ):
             bbox = self._measure_positioned_layer(layer)

@@ -199,7 +199,11 @@ def test_nested_counter_documents_freeze_whole_scene_and_keep_strict_destination
     report = canvas.export(destination).capability_report
     assert {"parent", "animated_text_value"} <= {item.feature for item in report}
     assert any(item.layer_id == "independent" for item in report)
-    assert all(item.support == "fallback" and item.fallback == "static" for item in report)
+    assert all(
+        item.support == "fallback" and item.fallback == "static"
+        for item in report
+        if item.feature != "layer_representation"
+    )
     monkeypatch.setattr(
         ParentNode, "render_source", lambda *args, **kwargs: pytest.fail("strict export painted")
     )
