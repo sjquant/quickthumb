@@ -45,6 +45,34 @@ environment, run `python examples/kinetic_lower_third.py`; it uses one worker,
 20 fps and a half-second final hold. Composite the result over footage in an
 editor that supports the selected alpha codec.
 
+### `motion_blur.py`
+
+Exports the same fast moving marker at 12 fps with motion blur off and with
+eight centered shutter samples. GIFs go to `examples/output/`; their actual
+export receipts print to stdout. No external assets are needed.
+Run `uv run python examples/motion_blur.py` and compare the moving edges.
+
+### `wiggle_motion.py`
+
+Three seeds drive position and rotation track modifiers without simulation
+state. Writes `output/wiggle_motion.gif`, canonical JSON and a sampled PNG;
+seeking and sequential export use the same stored seeds.
+
+### `spring_motion.py`
+
+Three moving boxes compare under-, critically- and over-damped spring easing.
+Writes `output/spring_motion.gif`, canonical JSON and a midpoint PNG; no optional
+dependencies or network assets are needed.
+
+### `spring_entrance.py`
+
+The bundled Quickthumb logo and a local-font wordmark enter from off-canvas,
+overshoot and settle at their authored positions. Run
+`python -m examples.spring_entrance` from the repository root. Writes
+`examples/output/spring_entrance.gif`, canonical JSON, and overshoot/settled PNGs;
+no optional dependencies or network assets. Spring intervals end at their exact
+targets; `hold` keeps the final frame.
+
 ### `investor_deck.py`
 
 A 10-slide Series A pitch deck exported to `investor_deck.html` and
@@ -119,3 +147,12 @@ JPEG and lossless WebP image sequences using `ImageSequenceOptions`. It needs
 no FFmpeg and uses the bundled font. Each format gets a fresh
 `examples/output/image_sequence_overlay_<format>` directory containing
 independent frames and a manifest; existing outputs are never overwritten.
+
+## Audio onset anchors
+
+`uv run python examples/audio_onsets.py music.wav output-directory` analyzes
+source-clock transients, bakes the first onset into a color animation, adds an
+RMS-driven scale pulse and writes
+an analysis sidecar, scene JSON and MP4. Requires FFmpeg and ffprobe. Detected
+onsets are not a musical beat grid; the stored numeric motion does not analyze
+audio again when restored or rendered.

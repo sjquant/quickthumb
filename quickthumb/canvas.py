@@ -43,6 +43,7 @@ from quickthumb.models import (
     ChartLayer,
     ChartSpec,
     DiagnosticReport,
+    ExportDiagnostic,
     ExportPolicy,
     ExportResult,
     FaceRegion,
@@ -61,8 +62,10 @@ from quickthumb.models import (
     LayerMask,
     LayerType,
     LinearGradient,
+    LottieOptions,
     NullLayer,
     OutlineLayer,
+    PathLayer,
     PluginLayer,
     PrefetchResult,
     QRCodeLayer,
@@ -74,6 +77,7 @@ from quickthumb.models import (
     TextInspection,
     TextLayer,
     TextPart,
+    TrackMatte,
     ValidationReport,
     VideoCaption,
     VideoLayer,
@@ -83,6 +87,8 @@ from quickthumb.plugins import PluginRegistry, plugin_registry
 
 if TYPE_CHECKING:
     from quickthumb._document import TimelineInputs, _ExportReceipt, _ResolvedExport
+    from quickthumb._export_html import HtmlExporter
+    from quickthumb.models.document import _FidelityMetrics
 
 
 @dataclass
@@ -215,6 +221,7 @@ class Canvas:
             self._shapes,
             self._text,
             self._visualizations,
+            self._plugin_registry,
         )
         self._diagnostics = DiagnosticsEngine(
             self._ctx,
@@ -313,6 +320,13 @@ class Canvas:
         from quickthumb._parenting import validate_parent_graph
 
         validate_parent_graph(self._layers)
+        from quickthumb._composition import validate_mask_animation
+
+        for layer in self._iter_layers_deep():
+            validate_mask_animation(layer)
+        from quickthumb._track_mattes import validate_matte_graph
+
+        validate_matte_graph(self._layers)
 
     def validate(self) -> ValidationReport:
         """Return a structured validation report for this document."""
@@ -341,6 +355,21 @@ class Canvas:
         for asset_type, source in self._remote_asset_references():
             self._images.resolve_remote_reference(source, asset_type=asset_type)
         self._fonts.resolve_remote_references(self._iter_layers_deep())
+        self._resolve_plugin_assets()
+
+    def _resolve_plugin_assets(self) -> None:
+        """Resolve declared byte dependencies before a callback or output can fail late."""
+        self._validate_image_paths()
+        for pointer, layer in self._iter_layer_pointers():
+            if isinstance(layer, PluginLayer):
+                for name, source in layer.assets.items():
+                    try:
+                        self._ctx.asset_resolver.resolve(source, "plugin")
+                    except RenderingError as error:
+                        error.at(json_pointer("assets", name)).at(
+                            pointer, layer.model_dump(mode="json")
+                        )
+                        raise
 
     def _contract_asset_record(self, asset_type: str, source: str):
         return self._ctx.asset_resolver.record_for(source, asset_type)
@@ -615,7 +644,7 @@ class Canvas:
         rotation: float = 0,
         opacity: float = 1.0,
         clip: LayerClip | dict[str, Any] | None = None,
-        mask: LayerMask | dict[str, Any] | None = None,
+        mask: LayerMask | TrackMatte | dict[str, Any] | None = None,
         animation: AnimationInput | None = None,
         value: "AnimatedTextValue | dict[str, Any] | None" = None,
         *,
@@ -686,6 +715,64 @@ class Canvas:
         self._append_layer(layer)
         return self
 
+    def path(
+        self,
+        d: str,
+        position: tuple,
+        width: int,
+        height: int,
+        color: str | None = "#000000",
+        *,
+        view_box: tuple[float, float, float, float] | None = None,
+        fill: "LinearGradient | RadialGradient | None" = None,
+        stroke: str | None = None,
+        stroke_width: float = 1.0,
+        line_cap: Literal["butt", "round", "square"] = "butt",
+        line_join: Literal["miter", "bevel", "round"] = "miter",
+        miter_limit: float = 4.0,
+        dash_array: tuple[float, ...] | None = None,
+        dash_offset: float = 0.0,
+        trim_start: float = 0.0,
+        trim_end: float = 1.0,
+        trim_offset: float = 0.0,
+        id: str | None = None,
+        motion_key: str | None = None,
+        rotation: float = 0.0,
+        opacity: float = 1.0,
+        anchor: tuple[float, float] = (0.5, 0.5),
+        animation: AnimationInput | None = None,
+    ) -> Self:
+        """Add a filled or stroked SVG path in a clipped local viewport."""
+        self._append_layer(
+            PathLayer(
+                type="path",
+                d=d,
+                position=position,
+                width=width,
+                height=height,
+                color=color,
+                view_box=view_box,
+                fill=fill,
+                stroke=stroke,
+                stroke_width=stroke_width,
+                line_cap=line_cap,
+                line_join=line_join,
+                miter_limit=miter_limit,
+                dash_array=dash_array,
+                dash_offset=dash_offset,
+                trim_start=trim_start,
+                trim_end=trim_end,
+                trim_offset=trim_offset,
+                id=id,
+                motion_key=motion_key,
+                rotation=rotation,
+                opacity=opacity,
+                anchor=anchor,
+                animation=animation,
+            )
+        )
+        return self
+
     def shape(
         self,
         shape: Literal["rectangle", "ellipse", "pill", "triangle", "star", "polygon"],
@@ -703,7 +790,7 @@ class Canvas:
         inner_radius: float = 0.5,
         effects: list[ShapeEffect] | None = None,
         clip: LayerClip | dict[str, Any] | None = None,
-        mask: LayerMask | dict[str, Any] | None = None,
+        mask: LayerMask | TrackMatte | dict[str, Any] | None = None,
         animation: AnimationInput | None = None,
         *,
         id: str | None = None,
@@ -755,7 +842,7 @@ class Canvas:
         effects: list[ImageEffect] | None = None,
         blend_mode: BlendMode | str | None = None,
         clip: LayerClip | dict[str, Any] | None = None,
-        mask: LayerMask | dict[str, Any] | None = None,
+        mask: LayerMask | TrackMatte | dict[str, Any] | None = None,
         animation: AnimationInput | None = None,
         *,
         id: str | None = None,
@@ -832,7 +919,7 @@ class Canvas:
         blend_mode: BlendMode | str | None = None,
         effects: list[ImageEffect] | None = None,
         clip: LayerClip | dict[str, Any] | None = None,
-        mask: LayerMask | dict[str, Any] | None = None,
+        mask: LayerMask | TrackMatte | dict[str, Any] | None = None,
         animation: AnimationInput | None = None,
         *,
         id: str | None = None,
@@ -884,7 +971,7 @@ class Canvas:
         effects: list[ImageEffect] | None = None,
         blend_mode: BlendMode | str | None = None,
         clip: LayerClip | dict[str, Any] | None = None,
-        mask: LayerMask | dict[str, Any] | None = None,
+        mask: LayerMask | TrackMatte | dict[str, Any] | None = None,
         animation: AnimationInput | None = None,
         *,
         id: str | None = None,
@@ -938,7 +1025,7 @@ class Canvas:
         opacity: float = 1.0,
         align: Align | str | tuple[str, str] = Align.TOP_LEFT,
         clip: LayerClip | dict[str, Any] | None = None,
-        mask: LayerMask | dict[str, Any] | None = None,
+        mask: LayerMask | TrackMatte | dict[str, Any] | None = None,
         animation: AnimationInput | None = None,
         *,
         id: str | None = None,
@@ -977,7 +1064,7 @@ class Canvas:
         align: Align | str | tuple[str, str] = Align.TOP_LEFT,
         opacity: float = 1.0,
         clip: LayerClip | dict[str, Any] | None = None,
-        mask: LayerMask | dict[str, Any] | None = None,
+        mask: LayerMask | TrackMatte | dict[str, Any] | None = None,
         animation: AnimationInput | None = None,
         *,
         id: str | None = None,
@@ -1019,7 +1106,7 @@ class Canvas:
         align: Align | str | tuple[str, str] | None = None,
         item_align: Literal["start", "center", "end"] = "start",
         clip: LayerClip | dict[str, Any] | None = None,
-        mask: LayerMask | dict[str, Any] | None = None,
+        mask: LayerMask | TrackMatte | dict[str, Any] | None = None,
         animation: AnimationInput | None = None,
         *,
         id: str | None = None,
@@ -1031,7 +1118,7 @@ class Canvas:
 
         Children are measured at their natural size and positioned by the group:
         they must not set their own position. Children may be dicts or layer models
-        of type text, image, shape, svg, chart, qr_code, or nested group.
+        of type text, image, shape, svg, chart, qr_code, plugin, or nested group.
 
         Args:
             children: Child layer dicts or models, in stacking order
@@ -1091,6 +1178,44 @@ class Canvas:
         )
         return self
 
+    def plugin(
+        self,
+        renderer: str,
+        *,
+        version: str,
+        params: dict,
+        width: int,
+        height: int,
+        position: tuple[int | str, int | str] = (0, 0),
+        align: Align | str | tuple | None = Align.TOP_LEFT,
+        opacity: float = 1.0,
+        assets: dict[str, str] | None = None,
+        clip: LayerClip | dict | None = None,
+        mask: LayerMask | dict | None = None,
+        id: str | None = None,
+        motion_key: str | None = None,
+    ) -> Self:
+        """Place a registered static RGBA plugin in a local output box."""
+        layer = PluginLayer(
+            type="plugin",
+            renderer=renderer,
+            version=version,
+            params=params,
+            position=position,
+            width=width,
+            height=height,
+            align=align,  # type: ignore[arg-type]  # Pydantic validator handles conversion
+            opacity=opacity,
+            assets=assets or {},
+            clip=cast(Any, clip),
+            mask=cast(Any, mask),
+            id=id,
+            motion_key=motion_key,
+        )
+        self._plugin_registry.validate(layer)
+        self._append_layer(layer)
+        return self
+
     def custom(
         self,
         fn: Callable[..., Image.Image | None],
@@ -1110,7 +1235,7 @@ class Canvas:
         format: str | None = None,
         quality: int | None = None,
         debug: bool = False,
-        animation: GifOptions | VideoOptions | None = None,
+        animation: GifOptions | VideoOptions | LottieOptions | None = None,
         policy: ExportPolicy | None = None,
     ):
         """Render the canvas to a file.
@@ -1120,7 +1245,7 @@ class Canvas:
         vector/document output (see to_svg, to_pptx, and to_pdf); .gif, .mp4,
         .webm, and .mov produce an animation that plays the canvas's layer
         `animation` effects. Pass `GifOptions` for GIF or `VideoOptions`
-        for MP4/WebM/MOV to tune animated output.
+        for MP4/WebM/MOV to tune animated output. Static .lot output uses LottieOptions.
         Set debug=True for raster output annotated with public layer-id bboxes.
         """
         from quickthumb._document import _resolve_export
@@ -1136,11 +1261,16 @@ class Canvas:
         resolved: "_ResolvedExport",
         quality: int | None,
         debug: bool,
-        animation: GifOptions | VideoOptions | None,
+        animation: GifOptions | VideoOptions | LottieOptions | None,
         policy: ExportPolicy | None,
     ) -> "_ExportReceipt":
         from quickthumb._document import Document, _ExportReceipt, preflight_export
         from quickthumb._parenting import has_parent_links
+
+        if resolved.output_format == "lot":
+            from quickthumb._export_lottie import write_lottie
+
+            return write_lottie(self, output_path, animation, policy)
 
         extension = resolved.extension
         if has_parent_links(self):
@@ -1150,6 +1280,7 @@ class Canvas:
         diagnostics = preflight_export(cast(Document, self), resolved, policy)
         if resolved.mode in {"document", "animated"}:
             facts = None
+            fidelity = None
             if resolved.mode == "animated":
                 from quickthumb._export_video import write_animation
 
@@ -1158,12 +1289,14 @@ class Canvas:
                     [None],
                     output_path,
                     format=resolved.output_format,  # type: ignore[arg-type]
-                    animation=animation,
+                    animation=cast(GifOptions | VideoOptions | None, animation),
                     reduced_motion=not resolved.uses_authored_transitions,
                 )
             else:
-                self._render_document(output_path, extension, policy=policy)
-            return _ExportReceipt([output_path], diagnostics, facts)
+                fidelity = self._render_document(
+                    output_path, extension, diagnostics=diagnostics, policy=policy
+                )
+            return _ExportReceipt([output_path], diagnostics, facts, fidelity)
 
         self._validate_image_paths()
         image = self._render_to_image(debug=debug)
@@ -1179,7 +1312,7 @@ class Canvas:
         *,
         format: str | None = None,
         quality: int | None = None,
-        animation: GifOptions | VideoOptions | None = None,
+        animation: GifOptions | VideoOptions | LottieOptions | None = None,
     ) -> ExportResult:
         """Export through the existing renderer and return the shared result envelope."""
         from quickthumb._document import (
@@ -1240,16 +1373,40 @@ class Canvas:
         )
 
     def _render_document(
-        self, output_path: str, extension: str, policy: ExportPolicy | None = None
-    ):
+        self,
+        output_path: str,
+        extension: str,
+        *,
+        diagnostics: list[ExportDiagnostic],
+        policy: ExportPolicy | None = None,
+    ) -> "_FidelityMetrics | None":
         if extension == ".svg":
-            document = self.to_svg()
+            from quickthumb._export_svg import SvgExporter
+
+            exporter = SvgExporter(self, policy=policy)
+            document = exporter.export()
+            executed_plugin_ids = {
+                row.layer_id for row in exporter.diagnostics if row.feature == "plugin"
+            }
+            diagnostics[:] = [
+                row
+                for row in diagnostics
+                if row.feature != "plugin" or row.layer_id not in executed_plugin_ids
+            ]
+            diagnostics.extend(exporter.diagnostics)
+            fidelity = None
+            if policy is not None and "svg" in policy.fidelity:
+                from quickthumb._svg_fidelity import measure_svg_fidelity
+
+                fidelity = measure_svg_fidelity(self, document, policy.fidelity["svg"])
             with open(output_path, "w", encoding="utf-8") as f:
                 f.write(document)
-            return
+            return fidelity
 
         if extension in (".html", ".htm"):
-            document = self.to_html(policy=policy)
+            exporter = self._html_exporter(True, True, policy)
+            document = exporter.export()
+            diagnostics.extend(exporter.diagnostics)
             with open(output_path, "w", encoding="utf-8") as f:
                 f.write(document)
             return
@@ -1257,12 +1414,25 @@ class Canvas:
         if extension == ".pdf":
             from quickthumb._export_pdf import PdfExporter
 
-            PdfExporter(self).save(output_path)
-            return
+            exporter = PdfExporter(self)
+            document_bytes = exporter.export_bytes()
+            diagnostics.extend(exporter.diagnostics)
+            fidelity = None
+            if policy is not None and "pdf" in policy.fidelity:
+                from quickthumb._pdf_fidelity import measure_pdf_fidelity
+
+                fidelity = measure_pdf_fidelity(self, document_bytes, policy.fidelity["pdf"])
+            with open(output_path, "wb") as output:
+                output.write(document_bytes)
+            return fidelity
 
         from quickthumb._export_pptx import PptxExporter
 
-        PptxExporter(self, reduced_motion=bool(policy and policy.reduced_motion)).save(output_path)
+        exporter = PptxExporter(self, reduced_motion=bool(policy and policy.reduced_motion))
+        document_bytes = exporter.export_bytes()
+        diagnostics.extend(exporter.diagnostics)
+        with open(output_path, "wb") as output:
+            output.write(document_bytes)
 
     def to_svg(self, embed_fonts: bool = False) -> str:
         """Render the canvas to an SVG document string.
@@ -1302,9 +1472,17 @@ class Canvas:
         URLs and text renders identically everywhere; pass `False` to drop them
         and rely on the viewer's system fonts for a smaller file.
         """
+        return self._html_exporter(responsive, embed_fonts, policy).export()
+
+    def _html_exporter(
+        self, responsive: bool, embed_fonts: bool, policy: ExportPolicy | None
+    ) -> "HtmlExporter":
         from quickthumb._parenting import has_parent_links
 
-        if policy is not None and has_parent_links(self):
+        if policy is not None and (
+            has_parent_links(self)
+            or any(isinstance(layer, PluginLayer) for layer in self._iter_layers_deep())
+        ):
             self.validate_export("html", policy)
         from quickthumb._export_html import HtmlExporter
 
@@ -1314,7 +1492,7 @@ class Canvas:
             responsive=responsive,
             reduced_motion=bool(policy and policy.reduced_motion),
             parent_static=bool(policy and policy.unsupported_motion in {"static", "rasterize"}),
-        ).export()
+        )
 
     def to_pptx(self, *, policy: ExportPolicy | None = None) -> bytes:
         """Render the canvas to a PowerPoint file as bytes (requires quickthumb[pptx]).
@@ -1324,7 +1502,10 @@ class Canvas:
         """
         from quickthumb._parenting import has_parent_links
 
-        if policy is not None and has_parent_links(self):
+        if policy is not None and (
+            has_parent_links(self)
+            or any(isinstance(layer, PluginLayer) for layer in self._iter_layers_deep())
+        ):
             self.validate_export("pptx", policy)
         from quickthumb._export_pptx import PptxExporter
 
@@ -1869,7 +2050,9 @@ class Canvas:
         from quickthumb.motion import _validate_text_selectors
 
         _validate_text_selectors(self)
-        if has_parent_links(self):
+        from quickthumb._track_mattes import has_track_mattes
+
+        if has_parent_links(self) or has_track_mattes(self):
             from quickthumb._export_video import _SlideAnimator
 
             if debug and time is not None:
@@ -2058,6 +2241,11 @@ class Canvas:
         pass transforms; the exporters render layers untimed and apply the same
         geometry once per animation unit.
         """
+        if isinstance(layer, PathLayer):
+            from quickthumb._path_motion import render_path_frame
+
+            render_path_frame(image, layer, self._ctx, self._effects, time=time)
+            return
         from quickthumb._export_base import (
             _with_motion_color,
             color_group_has_backdrop,
@@ -2079,6 +2267,26 @@ class Canvas:
         assert time is not None
         state = timeline.sample(time, LayerState(anchor=getattr(layer, "anchor", (0.5, 0.5))))
         color_motion = _has_color_track(layer)
+        from quickthumb._composition import has_mask_tracks, with_motion_mask, without_mask
+
+        if has_mask_tracks(layer):
+            reference = Image.new("RGBA", image.size)
+            self._render_layer(reference, _with_motion_color(without_mask(layer), "#FFFFFF"), time)
+            bounds = reference.getbbox()
+            if bounds is None:
+                return
+            surface = Image.new("RGBA", image.size)
+            painted = with_motion_mask(_with_motion_color(layer, state.color), state, self._ctx)
+            self._render_layer(surface, painted, time)
+            composite_canonical_layer(
+                image,
+                surface,
+                layer,
+                state,
+                bounds=bounds,
+                subpixel=_geometry_in_motion(timeline, time, state=state),
+            )
+            return
         if isinstance(layer, GroupLayer) and color_motion and color_group_has_backdrop(layer):
             require_color_group_backdrop(timeline)
             self._render_layer(image, _with_motion_color(layer, state.color), time)
@@ -2155,6 +2363,10 @@ class Canvas:
             self._images.render_image_layer(image, layer, time)
         elif isinstance(layer, ShapeLayer):
             self._shapes.render_shape_layer(image, layer)
+        elif isinstance(layer, PathLayer):
+            from quickthumb._path_motion import render_path_frame
+
+            render_path_frame(image, layer, self._ctx, self._effects)
         elif isinstance(layer, SvgLayer):
             self._images.render_svg_layer(image, layer)
         elif isinstance(layer, ChartLayer):
@@ -2181,9 +2393,9 @@ class Canvas:
         elif isinstance(layer, NullLayer):
             return
         elif isinstance(layer, PluginLayer):
-            raise RenderingError.plugin_layer_unsupported(
-                layer.renderer, layer.version, layer_id=layer.id
-            )
+            from quickthumb._plugin_runtime import render_plugin_layer
+
+            render_plugin_layer(image, layer, self._ctx, self._plugin_registry)
         elif isinstance(layer, CustomLayer):
             self._render_custom_layer(image, layer)
 
@@ -2257,6 +2469,9 @@ class Canvas:
             yield "/path", layer.path
         elif isinstance(layer, VideoLayer):
             yield "/source", layer.source
+        elif isinstance(layer, PluginLayer):
+            for name, source in layer.assets.items():
+                yield json_pointer("assets", name), source
         elif isinstance(layer, TextLayer):
             if isinstance(layer.fill, TextFillImage):
                 yield "/fill/path", layer.fill.path

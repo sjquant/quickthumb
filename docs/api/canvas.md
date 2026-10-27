@@ -112,6 +112,9 @@ the methods below.
 ### `.render(path, format=None, quality=None, debug=False, animation=None, policy=None)`
 
 Renders the canvas and writes the result to a file. The format is detected from the file extension; `.svg`, `.pptx`, and `.pdf` produce vector/document output, and `.gif`/`.mp4`/`.webm`/`.mov` produce an animation playing the canvas's layer `animation` effects (see [Exporting to SVG, PPTX, PDF & video](../exports.md)).
+Canvas `.lot` output writes the bounded native-vector subset described in
+[Lottie vectors](../exports.md#lottie-vectors), using `LottieOptions` for fps and
+final hold. Unsupported content is rejected before writing, without PNG fallback.
 
 ```python
 from quickthumb import GifOptions, VideoOptions
@@ -137,13 +140,13 @@ canvas.render("preview.mp4", animation=VideoOptions(fps=30))
 | `format` | `str \| None` | `None` | Case-insensitive raster encoding override: `"PNG"`, `"JPEG"`, or `"WEBP"`; rejected with document/animated extensions. |
 | `quality` | `int \| None` | `None` | Compression quality: JPEG 1–95, WebP 1–100; other targets reject it. |
 | `debug` | `bool` | `False` | Draw public layer-id bounding boxes on raster output for visual review. |
-| `animation` | `GifOptions \| VideoOptions \| None` | `None` | Format-specific options: `GifOptions` for GIF, `VideoOptions` for MP4/WebM/MOV. |
-| `policy` | `ExportPolicy \| None` | `None` | Renderer policy, such as `reduced_motion` for animated, HTML, and PPTX output. Both `render()` and `export()` enforce `unsupported_motion` before writing. |
+| `animation` | `GifOptions \| VideoOptions \| LottieOptions \| None` | `None` | Format-specific options: `GifOptions` for GIF, `VideoOptions` for MP4/WebM/MOV, `LottieOptions` for `.lot`. |
+| `policy` | `ExportPolicy \| None` | `None` | Renderer policy, such as `reduced_motion` for animated, HTML, and PPTX output. Both `render()` and `export()` enforce `unsupported_motion` before writing. `export()` reports an explicitly requested [static SVG fidelity check](../exports.md#optional-static-svg-fidelity-report). |
 
 !!! warning
-    Passing `quality` with `format="PNG"` raises `RenderingError`. Passing `debug=True` for document or animated output (`.svg`, `.pptx`, `.pdf`, `.html`, `.gif`, `.mp4`, `.webm`, or `.mov`) raises `RenderingError`.
+    Passing `quality` with `format="PNG"` raises `RenderingError`. Passing `debug=True` for document or animated output (`.svg`, `.pptx`, `.pdf`, `.html`, `.gif`, `.mp4`, `.webm`, `.mov`, or `.lot`) raises `RenderingError`.
 
-`GifOptions` and `VideoOptions` are available from `quickthumb`. `GifOptions`
+`GifOptions`, `VideoOptions` and `LottieOptions` are available from `quickthumb`. `GifOptions`
 accepts `fps`, `hold`, `matte`, `loop`, `max_size=(width, height)`, and `colors`.
 `VideoOptions` accepts `fps`, `hold`, `matte`, `soundtrack=AudioTrack(...)`, and `loop_audio`.
 `VideoOptions(transparent=True)` preserves alpha in VP9 WebM or ProRes 4444 MOV (strict

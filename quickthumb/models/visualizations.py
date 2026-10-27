@@ -54,7 +54,7 @@ class VisualizationLayerBase(_AnimatableLayerModel):
     align: AlignWithHVTuple = Align.TOP_LEFT
     opacity: OpacityField = 1.0
     clip: LayerClip | None = None
-    mask: LayerMask | None = None
+    mask: LayerMask | TrackMatte | None = None
     animation: AnimationInput | None = None
 
     @field_serializer("align")

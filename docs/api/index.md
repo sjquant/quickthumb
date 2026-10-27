@@ -9,7 +9,8 @@ same document operations; individual layer pages describe their authoring fields
 
 ## Supported public surface
 
-Import documented authoring types and result models from `quickthumb`. A name
+Import documented authoring types and result models from `quickthumb`, and audio
+analysis from the documented `quickthumb.audio` module. A name
 being importable from another module does not make it a supported entry point.
 
 | Surface | Supported use |
@@ -18,6 +19,7 @@ being importable from another module does not make it a supported entry point.
 | Document operations | `validate()`, `inspect()`, `diagnose()`, `prefetch_assets()`, `sample()` and `export()` on either document kind; `inspect_document()` for generic consumers |
 | Results | Typed reports, `ExportResult`, `CanonicalFrame` / `FrameSequence`, and `ImageSequence*` results; serialize them with `model_dump_json()` |
 | JSON | `to_json()`, `Canvas.from_json()`, `Deck.from_json()`, `canvas_json_schema()` and `document_json_schema()` |
+| Audio authoring | [`quickthumb.audio.analyze_audio()` and `AudioAnalysis`](audio.md); bake source-clock onset times and RMS-driven scale into numeric motion |
 | Specialist output | Documented `render()`, `render_frame()`, `to_*()` and `export_image_sequence()` methods when their return type or controls fit the task |
 
 `export()` is the recommended file boundary: it preflights capability policy and
@@ -71,8 +73,9 @@ strings, and each layer has a `type` discriminator.
 
 Not every layer accepts every field: backgrounds, outlines, nulls and drawable
 layers have different roles. Their reference pages and the [JSON schema](../json-schema.md#published-schema)
-are the field-level contract. Plugin registrations currently describe parameters;
-they do not yet supply a rendering runtime.
+are the field-level contract. [Plugin registrations](../json-schema.md#plugin-layers)
+declare parameters and can supply rendering callbacks through an explicit
+`PluginRegistry`; parsing JSON does not package or install those callbacks.
 
 ## Pages
 
@@ -85,6 +88,7 @@ they do not yet supply a rendering runtime.
 | [Text](text.md) | `.text()` and `TextPart`: text and rich text |
 | [Image](image.md) | `.image()`: placed images and cut-outs |
 | [Shape](shape.md) | `.shape()`: rectangles, ellipses, pills, triangles, stars, polygons |
+| [Path](path.md) | `.path()`: filled/stroked SVG path data and bounded motion |
 | [SVG](svg.md) | `.svg()`: icons and logos from SVG files |
 | [Video](video.md) | `.video()`: video clips, captions, and audio |
 | [Group](group.md) | `.group()`: auto-layout rows and columns |

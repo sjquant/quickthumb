@@ -12,6 +12,7 @@ from pydantic import (
     BeforeValidator,
     ConfigDict,
     Field,
+    FiniteFloat,
     NonNegativeInt,
     PositiveInt,
     WithJsonSchema,
@@ -286,6 +287,30 @@ class _AnimatableLayerModel(LayerIdentityModel):
         examples=[(0.0, 0.0), (0.5, 0.5), (1.0, 1.0)],
     )
 
+    @model_validator(mode="after")
+    def validate_mask_animation(self):
+        from quickthumb._composition import validate_mask_animation
+
+        validate_mask_animation(self)
+        return self
+
+    @model_validator(mode="after")
+    def validate_path_motion_target(self):
+        from .motion import AnimationSpec
+
+        animation = getattr(self, "animation", None)
+        items = animation if isinstance(animation, list) else [animation]
+        if getattr(self, "type", None) != "path" and any(
+            track.type in {"dash_offset", "trim_start", "trim_end", "trim_offset", "path_morph"}
+            for item in items
+            if isinstance(item, AnimationSpec)
+            for track in item.tracks or ()
+        ):
+            raise ValidationError(
+                "dash_offset, trim and path_morph tracks require a PathLayer", path="/animation"
+            )
+        return self
+
 
 class _MotionModel(quickthumbModel):
     """Strict base for canonical motion and export policy models."""
@@ -347,18 +372,34 @@ class LayerClip(quickthumbModel):
         return align.value
 
 
+class TrackMatte(quickthumbModel):
+    """Use a hidden, reusable top-level layer's sampled alpha or luminance as a mask."""
+
+    type: Literal["layer"] = "layer"
+    layer: str = Field(pattern=_IDENTITY_PATTERN.pattern)
+    mode: Literal["alpha", "luma"] = "alpha"
+    invert: bool = False
+
+    model_config = ConfigDict(extra="forbid")
+
+
 class LayerMask(quickthumbModel):
     """Canvas-space alpha mask applied to a layer after it is rendered."""
 
     type: Literal["shape"] = "shape"
-    shape: Literal["rectangle", "ellipse", "pill", "polygon"] = "rectangle"
+    shape: Literal["rectangle", "ellipse", "pill", "polygon", "path"] = "rectangle"
     position: Position
     width: PositiveInt
     height: PositiveInt
     align: AlignWithHVTuple = Align.TOP_LEFT
     points: list[tuple[float, float]] | None = None
+    d: str | None = Field(default=None, exclude_if=lambda value: value is None)
+    view_box: tuple[FiniteFloat, FiniteFloat, FinitePositiveFloat, FinitePositiveFloat] | None = (
+        Field(default=None, exclude_if=lambda value: value is None)
+    )
     invert: bool = False
     opacity: OpacityField = 1.0
+    feather: FiniteNonNegativeFloat = Field(default=0, exclude_if=lambda value: value == 0)
 
     @field_validator("position", mode="before")
     @classmethod
@@ -381,6 +422,24 @@ class LayerMask(quickthumbModel):
 
     @model_validator(mode="after")
     def validate_points_match_shape(self) -> "LayerMask":
+        if self.shape == "path":
+            from quickthumb._path_geometry import parse_path
+
+            if self.d is None:
+                raise ValidationError("path masks require d", path="/d")
+            segments = parse_path(self.d)
+            vx, vy, vw, vh = self.view_box or (0, 0, self.width, self.height)
+            points = [(x - vx, y - vy) for segment in segments for x, y in segment.points]
+            for axis, scale in ((0, self.width / vw), (1, self.height / vh)):
+                values = [point[axis] * scale for point in points]
+                if not all(math.isfinite(value) for value in values) or not math.isfinite(
+                    max(values) - min(values)
+                ):
+                    raise ValidationError(
+                        "mapped path coordinates must have a finite span", path="/d"
+                    )
+        elif self.d is not None or self.view_box is not None:
+            raise ValidationError("d and view_box are only valid for path masks")
         if self.shape == "polygon" and self.points is None:
             raise ValidationError("polygon masks require points")
         if self.shape != "polygon" and self.points is not None:

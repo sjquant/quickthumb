@@ -1953,8 +1953,12 @@ cli = [
     { name = "typer" },
     { name = "watchfiles" },
 ]
+lottie = [
+    { name = "fonttools" },
+]
 pdf = [
     { name = "fonttools" },
+    { name = "pypdfium2" },
     { name = "reportlab" },
 ]
 pptx = [
@@ -1991,11 +1995,13 @@ docs = [
 [package.metadata]
 requires-dist = [
     { name = "cairosvg", marker = "extra == 'svg'", specifier = ">=2.7.0,<3.0.0" },
+    { name = "fonttools", marker = "extra == 'lottie'", specifier = ">=4.0.0,<5.0.0" },
     { name = "fonttools", marker = "extra == 'pdf'", specifier = ">=4.0.0,<5.0.0" },
     { name = "jinja2", marker = "extra == 'cli'", specifier = ">=3.1.0,<4.0.0" },
     { name = "onnxruntime", marker = "python_full_version >= '3.11' and extra == 'rembg'", specifier = ">=1.24.1,<2.0.0" },
     { name = "pillow", specifier = ">=13.0.0,<14.0.0" },
     { name = "pydantic", specifier = ">=2.12.5,<3.0.0" },
+    { name = "pypdfium2", marker = "extra == 'pdf'", specifier = ">=5.10.1,<6.0.0" },
     { name = "python-pptx", marker = "extra == 'pptx'", specifier = ">=1.0.2,<2.0" },
     { name = "qrcode", specifier = ">=8.2,<9.0" },
     { name = "rembg", marker = "python_full_version >= '3.11' and extra == 'rembg'", specifier = ">=2.0.86,<3.0.0" },
@@ -2004,7 +2010,7 @@ requires-dist = [
     { name = "typing-extensions", specifier = ">=4.15.0,<5.0.0" },
     { name = "watchfiles", marker = "extra == 'cli'", specifier = ">=1.0.0,<2.0.0" },
 ]
-provides-extras = ["rembg", "cli", "svg", "pptx", "pdf"]
+provides-extras = ["rembg", "cli", "svg", "pptx", "lottie", "pdf"]
 
 [package.metadata.requires-dev]
 dev = [

@@ -12,6 +12,7 @@ from pydantic import (
     ConfigDict,
     Discriminator,
     Field,
+    FiniteFloat,
     NonNegativeInt,
     PositiveFloat,
     PositiveInt,
@@ -28,7 +29,7 @@ from quickthumb.errors import ValidationError
 from .common import *  # noqa: F401,F403
 from .common import _AnimatableLayerModel, _validate_required_position
 from .effects import *  # noqa: F401,F403
-from .motion import AnimationInput
+from .motion import AnimationInput, AnimationSpec
 from .visualizations import ChartLayer, QRCodeLayer
 
 JsonValue = TypeAliasType(
@@ -119,16 +120,24 @@ class AnimatedTextValue(quickthumbModel):
 class PluginLayer(LayerIdentityModel):
     """A named renderer invocation carried by the canonical JSON contract.
 
-    The layer carries a renderer name, version, and parameters; quickthumb can
-    validate and serialize it but cannot draw it yet.  Parameters are
-    restricted to JSON values so the layer can always make a lossless
-    Python/JSON round trip.
+    A registered raster callback supplies the local box's straight-alpha RGBA8
+    bytes. Parameters and declared asset references remain JSON data; executable
+    callbacks belong to the application's explicit registry.
     """
 
     type: Literal["plugin"]
     renderer: str
     version: str
     params: JsonObject
+    position: Position = (0, 0)
+    width: PositiveInt
+    height: PositiveInt
+    align: AlignWithHVTuple = Align.TOP_LEFT
+    opacity: OpacityField = 1.0
+    assets: dict[str, str] = Field(default_factory=dict)
+
+    clip: LayerClip | None = None
+    mask: LayerMask | None = None
 
     model_config = ConfigDict(validate_assignment=True, extra="forbid")
 
@@ -262,7 +271,7 @@ class TextLayer(_AnimatableLayerModel):
     rotation: float = 0.0
     opacity: OpacityField = 1.0
     clip: LayerClip | None = None
-    mask: LayerMask | None = None
+    mask: LayerMask | TrackMatte | None = None
     animation: AnimationInput | None = None
 
     @field_validator("max_width")
@@ -406,7 +415,7 @@ class ImageLayer(_AnimatableLayerModel):
         BlendMode | None, AfterValidator(lambda v: enum_converter(BlendMode)(v) if v else None)
     ] = None
     clip: LayerClip | None = None
-    mask: LayerMask | None = None
+    mask: LayerMask | TrackMatte | None = None
     effects: list[ImageEffect] = []
     animation: AnimationInput | None = None
 
@@ -434,6 +443,107 @@ class ImageLayer(_AnimatableLayerModel):
         return align.value
 
 
+class PathLayer(_AnimatableLayerModel):
+    """A filled or stroked SVG path, with motion anchored in its fixed viewport."""
+
+    type: Literal["path"]
+    d: str = Field(description="SVG path data: M/L/H/V/C/S/Q/T/A/Z, absolute or relative.")
+    position: Position
+    width: PositiveInt
+    height: PositiveInt
+    rotation: FiniteFloat = 0.0
+    opacity: OpacityField = 1.0
+    animation: AnimationInput | None = None
+    color: HexColor | None = "#000000"
+    fill: Annotated[LinearGradient | RadialGradient, Discriminator("type")] | None = None
+    stroke: HexColor | None = None
+    stroke_width: FinitePositiveFloat = 1.0
+    line_cap: Literal["butt", "round", "square"] = "butt"
+    line_join: Literal["miter", "bevel", "round"] = "miter"
+    miter_limit: Annotated[FiniteFloat, Field(ge=1)] = 4.0
+    dash_array: tuple[FiniteNonNegativeFloat, ...] | None = Field(default=None, max_length=65_536)
+    dash_offset: FiniteFloat = 0.0
+    trim_start: Annotated[FiniteFloat, Field(ge=0, le=1)] = 0.0
+    trim_end: Annotated[FiniteFloat, Field(ge=0, le=1)] = 1.0
+    trim_offset: FiniteFloat = 0.0
+    view_box: tuple[FiniteFloat, FiniteFloat, FinitePositiveFloat, FinitePositiveFloat] | None = (
+        None
+    )
+
+    model_config = ConfigDict(validate_assignment=True, extra="forbid")
+
+    @field_validator("position", mode="before")
+    @classmethod
+    def validate_position(cls, value: tuple | list) -> Position:
+        return _validate_required_position(value)
+
+    @field_validator("d")
+    @classmethod
+    def validate_path_data(cls, value: str) -> str:
+        from quickthumb._path_geometry import parse_path
+
+        parse_path(value)
+        return value
+
+    @field_validator("dash_array")
+    @classmethod
+    def validate_dash_cycle(cls, value: tuple[float, ...] | None) -> tuple[float, ...] | None:
+        if value:
+            try:
+                total = math.fsum(value) * (2 if len(value) % 2 else 1)
+            except OverflowError as error:
+                raise ValueError("dash array cycle must be finite") from error
+            if not math.isfinite(total):
+                raise ValueError("dash array cycle must be finite")
+        return value
+
+    @model_validator(mode="after")
+    def validate_geometry(self) -> "PathLayer":
+        from quickthumb._path_geometry import parse_path
+
+        if self.parent is not None:
+            raise ValidationError("Path transform parenting is not supported yet", path="/parent")
+        animations = self.animation if isinstance(self.animation, list) else [self.animation]
+        for animation in animations:
+            if animation is not None and (
+                not isinstance(animation, AnimationSpec)
+                or animation.effect is not None
+                or animation.stagger is not None
+                or any(
+                    track.type
+                    not in {
+                        "position",
+                        "rotation",
+                        "scale",
+                        "scale_x",
+                        "scale_y",
+                        "opacity",
+                        "dash_offset",
+                        "trim_start",
+                        "trim_end",
+                        "trim_offset",
+                        "path_morph",
+                    }
+                    for track in animation.tracks or ()
+                )
+            ):
+                raise ValidationError(
+                    "Path motion requires position, rotation, scale, opacity, "
+                    "dash_offset, trim or path_morph timelines",
+                    path="/animation",
+                )
+        segments = parse_path(self.d)
+        vx, vy, vw, vh = self.view_box or (0, 0, self.width, self.height)
+        points = [(x - vx, y - vy) for segment in segments for x, y in segment.points]
+        for axis, scale in ((0, self.width / vw), (1, self.height / vh)):
+            values = [point[axis] * scale for point in points]
+            if not all(math.isfinite(value) for value in values) or not math.isfinite(
+                max(values) - min(values)
+            ):
+                raise ValidationError("mapped path coordinates must have a finite span", path="/d")
+        return self
+
+
 class ShapeLayer(_AnimatableLayerModel):
     type: Literal["shape"]
     shape: Literal["rectangle", "ellipse", "pill", "triangle", "star", "polygon"]
@@ -453,7 +563,7 @@ class ShapeLayer(_AnimatableLayerModel):
     star_points: int = 5
     inner_radius: float = 0.5
     clip: LayerClip | None = None
-    mask: LayerMask | None = None
+    mask: LayerMask | TrackMatte | None = None
     effects: list[ShapeEffect] = []
     animation: AnimationInput | None = None
 
@@ -531,7 +641,7 @@ class SvgLayer(_AnimatableLayerModel):
         BlendMode | None, AfterValidator(lambda v: enum_converter(BlendMode)(v) if v else None)
     ] = None
     clip: LayerClip | None = None
-    mask: LayerMask | None = None
+    mask: LayerMask | TrackMatte | None = None
     effects: list[ImageEffect] = []
     animation: AnimationInput | None = None
 
@@ -635,7 +745,7 @@ class VideoLayer(_AnimatableLayerModel):
     ] = None
     effects: list[ImageEffect] = []
     clip: LayerClip | None = None
-    mask: LayerMask | None = None
+    mask: LayerMask | TrackMatte | None = None
     animation: AnimationInput | None = None
 
     @field_validator("source")
@@ -685,7 +795,7 @@ class GroupLayer(_AnimatableLayerModel):
     align: AlignWithHVTuple = None
     item_align: Literal["start", "center", "end"] = "start"
     clip: LayerClip | None = None
-    mask: LayerMask | None = None
+    mask: LayerMask | TrackMatte | None = None
     animation: AnimationInput | None = None
     children: list["GroupChild"]
 

@@ -14,6 +14,7 @@ from PIL import Image
 from quickthumb import (
     AnimationSpec,
     Blinds,
+    BlurTrack,
     Box,
     Canvas,
     Checkerboard,
@@ -21,6 +22,7 @@ from quickthumb import (
     Deck,
     Diamond,
     Dissolve,
+    ExportPolicy,
     Fade,
     FitMode,
     KeyframeSpec,
@@ -60,6 +62,148 @@ def first_embedded_png(html: str) -> Image.Image:
     match = re.search(r"data:image/png;base64,([^\"']+)", html)
     assert match is not None
     return Image.open(BytesIO(base64.b64decode(match.group(1)))).convert("RGBA")
+
+
+def test_export_reports_native_and_masked_group_members(tmp_path):
+    """HTML receipts identify placed native children and an atomic masked group with its members."""
+    # Given: nested auto-layout children and a separate masked group
+    scene = (
+        Canvas(80, 50)
+        .group(
+            children=[
+                {
+                    "type": "shape",
+                    "shape": "rectangle",
+                    "width": 10,
+                    "height": 20,
+                    "color": "#00FF00",
+                    "id": "inside",
+                },
+                {
+                    "type": "shape",
+                    "shape": "rectangle",
+                    "width": 10,
+                    "height": 20,
+                    "color": "#00FF00",
+                },
+            ],
+            direction="row",
+            position=(20, 0),
+            id="pack",
+            mask={"shape": "ellipse", "position": (20, 0), "width": 20, "height": 20},
+        )
+        .group(
+            children=[
+                {
+                    "type": "group",
+                    "children": [
+                        {
+                            "type": "shape",
+                            "shape": "rectangle",
+                            "width": 10,
+                            "height": 10,
+                            "color": "#FF0000",
+                        },
+                    ],
+                }
+            ],
+            position=(0, 0),
+        )
+    )
+    inspected = scene.inspect()
+    native_id = inspected.layers[1].children[0].children[0].id
+    masked_child_id = inspected.layers[0].children[1].id
+
+    # When: the public exporter executes native children and declared mask fallback
+    path = tmp_path / "mixed.html"
+    with pytest.raises(RenderingError, match="native HTML masks require a shape owner"):
+        scene.export(path, policy=ExportPolicy(unsupported_motion="error"))
+    assert not path.exists()
+    result = scene.export(path)
+    html = path.read_text()
+
+    # Then: output keeps native CSS and masked pixels, with original inspection identities
+    routing = [item for item in result.capability_report if item.feature == "layer_representation"]
+    assert [(item.layer_id, item.support) for item in routing] == [
+        ("pack", "fallback"),
+        (native_id, "native"),
+    ]
+    assert routing[1].native_attempt is True
+    (fallback,) = [row for row in result.fallback_diagnostics if row.native_attempt is False]
+    assert fallback.layer_id == "pack"
+    assert fallback.layer_ids == ["pack", "inside", masked_child_id]
+    assert fallback.native_attempt is False
+    assert "mask" in fallback.reason
+    assert fallback.pixel_diff_ratio is None and fallback.hash_similarity is None
+    assert "background:rgb(255,0,0)" in html
+    assert html.count("data:image/png;base64,") == 1
+    image = first_embedded_png(html)
+    assert image.getpixel((image.width // 2, image.height // 2)) == (0, 255, 0, 255)
+    assert pixel_channel(image, (0, 0), 3) == 0
+
+
+def test_export_reports_backdrop_prefix_as_one_composite(tmp_path):
+    """HTML names every source in one composited prefix while retaining later native content."""
+    # Given: blur requiring its preceding red backdrop and an independent green shape
+    scene = (
+        Canvas(40, 30)
+        .shape("rectangle", (0, 0), 20, 20, "#FF0000", id="backdrop")
+        .shape(
+            "rectangle", (0, 0), 20, 20, "#FFFFFF80", effects=[BackdropBlur(radius=2)], id="blur"
+        )
+        .shape("rectangle", (25, 0), 10, 10, "#00FF00", id="native")
+    )
+
+    # When: the existing prefix splitter selects one shared raster fragment
+    path = tmp_path / "prefix.html"
+    result = scene.export(path)
+    html = path.read_text()
+
+    # Then: both contributing sources share a reason, rather than blaming only the blend layer
+    (fallback,) = result.fallback_diagnostics
+    assert fallback.layer_id is None
+    assert fallback.layer_ids == ["backdrop", "blur"]
+    assert "together" in fallback.reason and "compositing" in fallback.reason
+    assert fallback.native_attempt is False
+    assert html.count("data:image/png;base64,") == 1
+    image = first_embedded_png(html)
+    assert image.size == (20, 20)
+    assert image.tobytes() == scene.sample().frames[0].to_image().crop((0, 0, 20, 20)).tobytes()
+    assert "background:rgb(0,255,0)" in html
+    (native,) = [item for item in result.capability_report if item.support == "native"]
+    assert native.layer_id == "native"
+
+
+@pytest.mark.parametrize("static", [False, True], ids=["baked-source", "static-scene"])
+def test_export_reports_parent_source_representation(tmp_path, static):
+    """Parent-linked HTML reports PNG sources for baked affine CSS and static composites."""
+    # Given: a visible shape controlled by a nonvisual parent
+    scene = (
+        Canvas(40, 30)
+        .null(id="controller")
+        .shape("rectangle", (5, 5), 10, 10, "#123456", parent="controller", id="child")
+    )
+
+    # When: exporting with the default or explicitly static parent route
+    path = tmp_path / "parent.html"
+    result = scene.export(
+        path, policy=ExportPolicy(unsupported_motion="static") if static else None
+    )
+    html = path.read_text()
+
+    # Then: the recorded membership matches the real static composite or baked source
+    (routing,) = [
+        item for item in result.capability_report if item.feature == "layer_representation"
+    ]
+    fallback = next(item for item in result.fallback_diagnostics if item.reason == routing.message)
+    assert fallback.native_attempt is False
+    assert fallback.layer_ids == (["controller", "child"] if static else [])
+    assert fallback.layer_id == (None if static else "child")
+    assert ("authored-static" if static else "affine CSS") in fallback.reason
+    assert ("data-qt-parent-node" in html) is not static
+    image = first_embedded_png(html)
+    assert image.getbbox() is not None
+    assert image.crop(image.getbbox()).getpixel((5, 5)) == (18, 52, 86, 255)
 
 
 class TestHtmlDocument:
@@ -338,8 +482,8 @@ class TestHtmlShapes:
         # when / then
         assert "clip-path:polygon(" in canvas.to_html()
 
-    def test_should_fall_back_to_raster_for_masked_shape(self):
-        """Masked shapes become PNG fragments so HTML preserves the composition"""
+    def test_should_fall_back_to_raster_for_feathered_shape_mask(self):
+        """Feathered shape masks use PNG fragments with their actual alpha coverage"""
         # given
         canvas = Canvas(80, 80).shape(
             shape="rectangle",
@@ -347,7 +491,13 @@ class TestHtmlShapes:
             width=60,
             height=60,
             color="#FF0000",
-            mask={"shape": "ellipse", "position": (10, 10), "width": 60, "height": 60},
+            mask={
+                "shape": "ellipse",
+                "position": (10, 10),
+                "width": 60,
+                "height": 60,
+                "feather": 1,
+            },
         )
 
         # when
@@ -857,8 +1007,8 @@ class TestHtmlAnimations:
         # when / then
         assert timelines(canvas.to_html())[0] == []
 
-    def test_should_reject_animated_layers_that_would_be_flattened(self):
-        """Animated layers are rejected before blend-mode rasterization swallows them"""
+    def test_should_reject_animated_layers_that_would_be_flattened(self, tmp_path):
+        """Unsupported composite animation fails before replacing an existing HTML document."""
         # given
         canvas = (
             Canvas(400, 200)
@@ -866,13 +1016,111 @@ class TestHtmlAnimations:
             .image(SAMPLE_IMAGE, position=(0, 0), width=80, height=80, blend_mode="multiply")
         )
 
-        # when / then
+        # When/Then: rejection preserves the caller's existing destination
+        path = tmp_path / "preserved.html"
+        path.write_text("keep", encoding="utf-8")
         with pytest.raises(RenderingError, match="cannot animate layers"):
-            canvas.to_html()
+            canvas.export(path)
+        assert path.read_text() == "keep"
 
 
 class TestDeckHtml:
     """Test suite for deck slideshow export"""
+
+    def test_export_reports_slide_local_routes_and_preserves_manual_timing(self, tmp_path):
+        """Deck receipts disambiguate source IDs while preserving HTML pixels and manual cues."""
+        # Given: two slides sharing local IDs, with an isolated mask and a composite backdrop
+        first = (
+            Canvas(40, 30)
+            .shape(
+                "rectangle",
+                (0, 0),
+                10,
+                10,
+                "#FF0000",
+                id="shared",
+                animation=Fade(duration=0.25, trigger="on_click"),
+            )
+            .shape(
+                "rectangle",
+                (20, 0),
+                20,
+                20,
+                "#0000FF",
+                mask={"shape": "ellipse", "position": (20, 0), "width": 20, "height": 20},
+            )
+        )
+        second = (
+            Canvas(40, 30)
+            .shape("rectangle", (0, 0), 20, 20, "#FF0000", id="shared")
+            .shape("rectangle", (0, 0), 20, 20, "#FFFFFF80", effects=[BackdropBlur(radius=2)])
+            .shape("rectangle", (25, 0), 10, 10, "#00FF00")
+        )
+        deck = Deck(40, 30).slide(first, notes="First cue").slide(second, notes="Next cue")
+
+        # When: writing one interactive document with executed routing observations
+        path = tmp_path / "routes.html"
+        result = deck.export(path, policy=ExportPolicy(unsupported_motion="error"))
+        html = path.read_text()
+
+        # Then: repeated IDs remain local and composites identify only their own slide members
+        routing = [
+            item for item in result.capability_report if item.feature == "layer_representation"
+        ]
+        assert [(item.slide_index, item.layer_id, item.support) for item in routing] == [
+            (0, "shared", "native"),
+            (0, "layer:1", "native"),
+            (1, None, "fallback"),
+            (1, "layer:2", "native"),
+        ]
+        assert [
+            (item.slide_index, item.layer_id, item.layer_ids)
+            for item in result.fallback_diagnostics
+        ] == [
+            (1, None, ["shared", "layer:1"]),
+        ]
+        assert all(item.native_attempt is False for item in result.fallback_diagnostics)
+        images = [
+            Image.open(BytesIO(base64.b64decode(data))).convert("RGBA")
+            for data in re.findall(r'<img\b[^>]*\bsrc="data:image/png;base64,([^"]+)"', html)
+        ]
+        assert len(images) == 1
+        assert "clip-path:" in html and "background:rgb(0,0,255)" in html
+        assert (
+            images[0].tobytes()
+            == second.sample().frames[0].to_image().crop((0, 0, 20, 20)).tobytes()
+        )
+        assert "background:rgb(255,0,0)" in html and "background:rgb(0,255,0)" in html
+        assert 'data-qt-notes="First cue"' in html and 'data-qt-notes="Next cue"' in html
+        first_timeline, second_timeline = timelines(html)
+        assert first_timeline[0]["tr"] == "on_click" and first_timeline[0]["d"] == 0.25
+        assert second_timeline == []
+        assert result.timing_metrics.duration == 0 and result.timing_metrics.fps is None
+
+    @pytest.mark.parametrize("strict", [False, True], ids=["later-composite", "strict-motion"])
+    def test_export_failure_preserves_document(self, tmp_path, strict):
+        """Unsupported slides and strict motion rejection preserve existing Deck HTML files."""
+        # Given: a supported first slide and a second slide rejected at preflight or rendering
+        motion = (
+            AnimationSpec.timeline(
+                BlurTrack(keyframes=[KeyframeSpec(time=0, value=0), KeyframeSpec(time=1, value=4)])
+            )
+            if strict
+            else Fade()
+        )
+        rejected = Canvas(40, 30).shape("rectangle", (0, 0), 10, 10, "#FF0000", animation=motion)
+        if not strict:
+            rejected.shape(
+                "rectangle", (0, 0), 10, 10, "#FFFFFF80", effects=[BackdropBlur(radius=2)]
+            )
+        deck = Deck(40, 30).slide(Canvas(40, 30).background(color="#123456")).slide(rejected)
+        path = tmp_path / "preserved.html"
+        path.write_text("keep", encoding="utf-8")
+
+        # When/Then: the full document is prepared before its destination is opened
+        with pytest.raises(RenderingError):
+            deck.export(path, policy=ExportPolicy(unsupported_motion="error") if strict else None)
+        assert path.read_text() == "keep"
 
     def test_should_emit_one_stage_per_slide(self):
         """A deck becomes a document with a stage per slide"""

@@ -147,7 +147,7 @@ ScaleTrack(
 )
 ```
 
-Ordinary HTML presets pass an animation-level custom curve to CSS. Per-keyframe easing
+Ordinary HTML presets pass an animation-level custom Bézier curve to CSS. Per-keyframe easing
 and holds are rendered by the raster and video pipelines; HTML animates canonical
 motion between its start and settled states, and PPTX falls back to its preset
 effects.
@@ -155,6 +155,81 @@ effects.
 The bounded HTML adapters for anchors, axis scaling, paths and parent chains
 use static fallback with custom Bézier easing, per-keyframe easing or keyframe
 holds. Raster animation preserves these clocks.
+
+### Spring easing
+
+`SpringEasing(stiffness=100, damping=10, mass=1)` supplies a closed-form damped
+unit-step response wherever canonical easing is accepted, including individual
+keyframe intervals. Smaller damping permits overshoot; critical damping is
+`2 * sqrt(stiffness * mass)`, while larger damping approaches the target more
+slowly. Stiffness and mass must be positive; damping may be zero.
+
+```python
+from quickthumb import AnimationSpec, KeyframeSpec, PositionTrack, SpringEasing
+
+motion = AnimationSpec.timeline(
+    PositionTrack(keyframes=[
+        KeyframeSpec(time=0, value=(0, 0)),
+        KeyframeSpec(time=1, value=(180, 0)),
+    ]),
+    easing=SpringEasing(stiffness=100, damping=10, mass=1),
+)
+```
+
+The response uses one normalized second per keyframe interval; changing the
+interval length stretches that same curve. Each interval starts at its first
+value and ends exactly at the next keyframe, so a spring that has not naturally
+settled will snap to the target at that boundary. The final value holds after
+the animation. Opacity, colors and other bounded properties retain their normal
+clamping; path distance remains clamped to the authored path.
+
+Sampling is a pure function of time: seeking and sequential raster/video export
+use the same curve without simulation state. JSON stores `type: "spring"` and
+the three parameters. `inspect_motion()` reports the spring capability and its
+sampled states. HTML and PPTX use a declared authored-static fallback rather than
+substituting a CSS or PowerPoint curve; strict export policy rejects it.
+[`examples/spring_motion.py`](https://github.com/sjquant/quickthumb/blob/main/examples/spring_motion.py)
+compares the three damping regimes and exports GIF, JSON and a midpoint PNG.
+
+### Wiggle track modifiers
+
+Attach `wiggle=Wiggle(frequency=2, amplitude=12, seed=156)` to a numeric or
+vector track to add deterministic noise after keyframe interpolation:
+
+```python
+from quickthumb import AnimationSpec, KeyframeSpec, PositionTrack, TimingSpec, Wiggle
+
+motion = AnimationSpec.timeline(
+    PositionTrack(
+        keyframes=[KeyframeSpec(time=0, value=(0, 0))],
+        wiggle=Wiggle(frequency=2, amplitude=12, seed=156),
+    ),
+    timing=TimingSpec(duration=2),
+)
+```
+
+`frequency` is the highest noise component in cycles per second. Four
+noncommensurate sinusoidal components use seed-derived phases, without a global
+random generator or simulation state. `amplitude` bounds the absolute offset
+per scalar or vector component, in that property's units; vector axes use
+independent phases. `seed` is a stored unsigned 32-bit integer. Color tracks do
+not accept wiggle.
+
+The modifier starts at zero offset on the animation event's local clock. It
+continues across keyframe holds and after a track's last keyframe until the
+event ends, then holds that final perturbed value. An explicit `TimingSpec`
+gives a one-keyframe constant track a duration; no additional clock or automatic
+fade is introduced. The same seed, parameters and event time produce the same
+offset when seeking, exporting sequentially or using render workers.
+
+Opacity and reveal remain within 0–1, image pan within -1–1, image zoom at least
+1, and blur nonnegative. These property clamps apply after the bounded noise;
+uniform/axis scale retains its ordinary renderer semantics. A path's position
+can be perturbed, but `auto_orient` continues to use the authored path heading.
+`inspect_motion()` includes the modifier and sampled states. HTML and PPTX use
+declared authored-static fallback, including parent-linked scenes.
+[`examples/wiggle_motion.py`](https://github.com/sjquant/quickthumb/blob/main/examples/wiggle_motion.py)
+compares three seeds on position and rotation tracks.
 
 ## Notes
 
@@ -508,7 +583,8 @@ It applies after static source rotation and effects, then travels with canonical
 motion and reveal. Boundary alignment moves its own box; polygon points remain
 normalized within that box. Clip alpha multiplies mask alpha. An inverted mask
 inverts the complete opacity-weighted mask, so zero opacity makes no cutout.
-Rounded edges retain the existing antialiasing; there is no feathering option.
+Rounded edges retain the existing antialiasing. See
+[animated shape-mask geometry](#animated-shape-mask-geometry) for static and animated feather.
 
 Composition does not shrink or shift the owner's authored body frame, and never
 clips its explicit children. The owner's composed, opaque settled source defines
@@ -749,6 +825,127 @@ alias for validation and motion inspection, preserving the existing parent,
 Morph and caption restrictions. See [image sequences](../exports.md#image-sequences)
 for timing, color-profile limits and exclusive fresh-directory publication.
 
+### Track mattes
+
+Use `mask=TrackMatte(layer="source-id", mode="alpha", invert=False)` on a
+text, image, shape, SVG, video, chart, QR-code or top-level group layer.
+`mode="luma"` uses the sampled source's RGB luminance (Pillow's encoded-RGB
+luma conversion) multiplied by its alpha. Inversion applies after that
+multiplication, across the complete canvas. Existing `LayerMask` shape masks
+keep their separate local-boundary meaning.
+
+```python
+from quickthumb import Canvas, TrackMatte
+
+canvas = Canvas(320, 180)
+canvas.shape("ellipse", (40, 20), 120, 120, color="#FFFFFF", id="reveal")
+canvas.shape("rectangle", (0, 0), 320, 180, color="#42CEB7",
+             mask=TrackMatte(layer="reveal"))
+canvas.export("reveal.png")
+```
+
+The reference identifies a top-level layer in the same scene. Sources are
+hidden from normal scene painting, remain available as transform parents, and
+can mask multiple targets or form acyclic matte chains. Duplicate a source if
+it should also be visible. JSON scenes may reference a later layer; fluent
+builders require the source to exist when adding a target. Missing references,
+cycles and nested matte owners are rejected before rendering.
+
+Each source is sampled at the complete scene's clock, including its motion,
+opacity, existing local mask and parent transforms. The matte then multiplies
+the target's alpha in output coordinates after the target's own transforms;
+it does not move the target's pivot. PNG, canonical samples and animated raster
+exports use this same composition. See
+[`examples/track_mattes.py`](https://github.com/sjquant/quickthumb/blob/main/examples/track_mattes.py).
+
+This first matte implementation rejects backdrop-dependent scenes and captioned
+video scenes. Matte source and target groups require static descendants; their
+own group motion remains supported. Position, size and feather are supported by
+[animated shape-mask geometry](#animated-shape-mask-geometry); path-shaped masks are
+separate work. SVG, HTML, PDF and PPTX freeze the complete scene into one declared
+authored-static raster image; all motion is frozen. `validate_export()` reports
+that route and `ExportPolicy(unsupported_motion="error")` rejects it before
+writing. Deck Morph uses a declared fade fallback for matte scenes.
+
+### Animated shape-mask geometry
+
+Attach mask tracks to the owner's ordinary `AnimationSpec.timeline(...)`.
+There is one owner clock, with the same delays, keyframe holds and easing as
+other tracks:
+
+```python
+from quickthumb import AnimationSpec, KeyframeSpec, MaskPositionTrack, TimingSpec
+
+motion = AnimationSpec.timeline(
+    MaskPositionTrack(keyframes=[KeyframeSpec(time=0, value=(0, 0)),
+                                 KeyframeSpec(time=1, value=(80, 0))]),
+    timing=TimingSpec(duration=1), easing="ease_in_out",
+)
+```
+
+`MaskPositionTrack` is a local pixel offset from the authored `LayerMask.position`.
+`MaskSizeTrack` sets absolute positive local `(width, height)` values.
+Alignment is resolved against the authored box before resizing, keeping its
+top-left fixed. `MaskFeatherTrack` sets a nonnegative local Gaussian radius;
+`LayerMask(feather=0)` supplies the static value. Feather is applied before
+opacity-weighted inversion and any separate sharp clip. Its padded 4× alpha
+surface is bounded to 64 million samples; an oversized surface raises
+`mask_surface_limit` before allocation. Size must remain positive during easing.
+
+The sampled mask is applied to the isolated source before owner and ancestor
+transforms. The owner's unmasked rendered body defines a stable pivot, so moving
+or resizing the mask never moves that pivot. Tracks require a `LayerMask` shape
+mask; a `TrackMatte` uses its referenced source's animation instead. Stagger and
+counter sources and owner `BackdropBlur` are not supported with mask geometry
+tracks yet. [Owner-attached path masks](#owner-attached-path-masks) use the same tracks.
+SVG/PDF/PPTX keep the declared authored-static fallback; HTML supports the bounded
+native route below and declares a static fallback outside it. Strict prewrite
+refusal applies whenever fallback is needed.
+See [`examples/animated_masks.py`](https://github.com/sjquant/quickthumb/blob/main/examples/animated_masks.py).
+
+### Native HTML shape masks
+
+HTML emits CSS clipping for hard-edged `LayerMask` rectangle, ellipse, pill and
+polygon masks on unrotated, top-left rectangle/ellipse/pill shape owners. Mask
+position and size tracks share the existing owner timeline, including independent
+keyframe intervals, ordinary transform/opacity tracks and the stable full-body
+pivot. The native route supports linear and `ease` interpolation; `validate_export("html")`
+and `inspect_motion(target="html")` report the actual route. Strict policy permits
+supported native masks.
+Authored and combined mask geometry must also fit the canonical raster range
+and the native 1/8-pixel CSS precision bound; otherwise the fallback reason is explicit.
+
+Feather, inversion, partial mask opacity, effects, gradients, separate clips,
+parent links, nested animated owners, composed timelines, keyframe holds/overrides
+sub-pixel size keyframes and other easing require a declared authored-static scene fallback. Layer mattes
+also retain their declared raster fallback. This does not introduce a new mask API.
+
+### Owner-attached path masks
+
+`LayerMask(shape="path", d="M0 0 H40 V40 H0 Z", position=(10, 10), width=40, height=40)`
+uses SVG path syntax and even-odd filling, including curves and holes. The path's
+local coordinates map through `view_box=(x, y, width, height)` into the mask's fixed
+viewport; omitted `view_box` is `(0, 0, authored_width, authored_height)`. Geometry
+outside that viewport is clipped before feathering. `MaskSizeTrack` scales this
+same coordinate basis; position, feather, opacity and inversion work as for other
+shape masks. Stroke and painted gradients are not mask geometry.
+
+Mask `position` uses the owner's authoring plane (canvas coordinates, or parent-local
+coordinates for a parented owner), not an automatic offset from the owner's top-left.
+Masking happens before owner and ancestor motion, so the path travels with its owner
+and uses the unmasked body's stable pivot. No source layer or ID is needed.
+HTML, SVG, PDF and PPTX currently rasterize path masks; strict error policy
+rejects the fallback before writing. See `examples/path_mask.py`.
+
+### Path-shaped mattes
+
+Use the existing `TrackMatte(layer="path-id")` with a `PathLayer` source for
+a world-space path-shaped matte. Unlike an owner-attached `LayerMask`, this source
+has its own placement and animation. Curves, even-odd holes and path motion participate in
+the canonical matte pipeline. The source stays hidden and can be reused by
+multiple targets. See
+[`examples/path_matte.py`](https://github.com/sjquant/quickthumb/blob/main/examples/path_matte.py).
+
 ## Text range selectors
 
 `AnimationSpec.timeline(..., selector=RangeSelector(...))` weights position,
@@ -852,3 +1049,9 @@ Run `uv run python examples/text_range_selector.py --target words --output /tmp/
 (or `--target lines` / `--target characters`) for weighted position/rotation that settles to the original
 text layout, plus portable scene JSON. This is partial #165 coverage, not a
 general-purpose shaping backend or full support for every stagger adapter.
+
+
+The bounded HTML adapters for anchors, axis scaling, paths and parent chains
+currently use static fallback when custom Bézier easing, per-keyframe easing,
+or keyframe holds are combined with them. Raster animation preserves those
+clocks; ordinary HTML presets and basic tracks retain their existing support.
