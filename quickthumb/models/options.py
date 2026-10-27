@@ -150,6 +150,8 @@ class ExportDiagnostic(_MotionModel):
     """Structured explanation of exporter support or fallback behavior."""
 
     layer_id: str | None = None
+    layer_ids: list[str] = Field(default_factory=list, exclude_if=lambda value: not value)
+    native_attempt: bool | None = Field(default=None, exclude_if=lambda value: value is None)
     feature: str
     target: str
     support: Literal["full", "native", "partial", "fallback", "unsupported"]

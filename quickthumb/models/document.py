@@ -356,6 +356,7 @@ class FallbackDiagnostic(quickthumbModel):
     code: str = "export_fallback"
     target: str
     layer_id: str | None = None
+    layer_ids: list[str] = Field(default_factory=list, exclude_if=lambda value: not value)
     reason: str
     native_attempt: bool | None = None
     pixel_diff_ratio: float | None = None

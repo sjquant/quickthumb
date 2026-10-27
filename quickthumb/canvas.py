@@ -43,6 +43,7 @@ from quickthumb.models import (
     ChartLayer,
     ChartSpec,
     DiagnosticReport,
+    ExportDiagnostic,
     ExportPolicy,
     ExportResult,
     FaceRegion,
@@ -84,6 +85,7 @@ from quickthumb.plugins import PluginRegistry, plugin_registry
 
 if TYPE_CHECKING:
     from quickthumb._document import TimelineInputs, _ExportReceipt, _ResolvedExport
+    from quickthumb._export_html import HtmlExporter
     from quickthumb.models.document import _SvgFidelityMetrics
 
 
@@ -1247,7 +1249,9 @@ class Canvas:
                     reduced_motion=not resolved.uses_authored_transitions,
                 )
             else:
-                fidelity = self._render_document(output_path, extension, policy=policy)
+                fidelity = self._render_document(
+                    output_path, extension, diagnostics=diagnostics, policy=policy
+                )
             return _ExportReceipt([output_path], diagnostics, facts, fidelity)
 
         self._validate_image_paths()
@@ -1325,7 +1329,12 @@ class Canvas:
         )
 
     def _render_document(
-        self, output_path: str, extension: str, policy: ExportPolicy | None = None
+        self,
+        output_path: str,
+        extension: str,
+        *,
+        diagnostics: list[ExportDiagnostic],
+        policy: ExportPolicy | None = None,
     ) -> "_SvgFidelityMetrics | None":
         if extension == ".svg":
             document = self.to_svg()
@@ -1339,7 +1348,9 @@ class Canvas:
             return fidelity
 
         if extension in (".html", ".htm"):
-            document = self.to_html(policy=policy)
+            exporter = self._html_exporter(True, True, policy)
+            document = exporter.export()
+            diagnostics.extend(exporter.diagnostics)
             with open(output_path, "w", encoding="utf-8") as f:
                 f.write(document)
             return
@@ -1392,6 +1403,11 @@ class Canvas:
         URLs and text renders identically everywhere; pass `False` to drop them
         and rely on the viewer's system fonts for a smaller file.
         """
+        return self._html_exporter(responsive, embed_fonts, policy).export()
+
+    def _html_exporter(
+        self, responsive: bool, embed_fonts: bool, policy: ExportPolicy | None
+    ) -> "HtmlExporter":
         from quickthumb._parenting import has_parent_links
 
         if policy is not None and (
@@ -1407,7 +1423,7 @@ class Canvas:
             responsive=responsive,
             reduced_motion=bool(policy and policy.reduced_motion),
             parent_static=bool(policy and policy.unsupported_motion in {"static", "rasterize"}),
-        ).export()
+        )
 
     def to_pptx(self, *, policy: ExportPolicy | None = None) -> bytes:
         """Render the canvas to a PowerPoint file as bytes (requires quickthumb[pptx]).

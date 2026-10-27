@@ -50,6 +50,7 @@ from quickthumb._export_base import (
     _css_string,
     _fmt,
     _motion_number,
+    _source_layer_ids,
     color_to_rgba,
     compute_text_layout,
     flatten_layers,
@@ -70,6 +71,7 @@ from quickthumb.models import (
     AnimationSpec,
     BackgroundLayer,
     CubicBezierEasing,
+    ExportDiagnostic,
     Glow,
     GroupLayer,
     LinearGradient,
@@ -476,6 +478,11 @@ class HtmlExporter:
         self._responsive = responsive
         self._reduced_motion = reduced_motion
         self._parent_static = parent_static
+        self.diagnostics: list[ExportDiagnostic] = []
+        self._source_ids = {
+            id(layer): _source_layer_ids(layer, index, (index,))
+            for index, layer in enumerate(canvas.layers)
+        }
         self._keyframe_prefix = keyframe_prefix
         self._body: list[str] = []
         self._keyframes: list[str] = []
@@ -615,6 +622,11 @@ class HtmlExporter:
             sampling = parent_html_sampling(canvas) if parent else None
             if sampling and (self._reduced_motion or self._parent_static or sampling.problem):
                 self._emit_fragment(static_parent_fragment(canvas))
+                self._record_routing(
+                    canvas.layers,
+                    sampling.problem or "Parent scene captured as an authored-static composite",
+                    rasterized=True,
+                )
                 return Stage(
                     width=canvas.width,
                     height=canvas.height,
@@ -625,7 +637,11 @@ class HtmlExporter:
                 )
             baked = bake_parent_html(canvas, sampling.times) if sampling else None
             prefix, rest = split_backdrop_prefix(
-                flatten_layers(canvas, parent_nodes=baked.layer_ids if baked else None)
+                flatten_layers(
+                    canvas,
+                    parent_nodes=baked.layer_ids if baked else None,
+                    source_ids=self._source_ids,
+                )
             )
             if baked:
                 # Null controllers keep their clocks in the plan, never in a
@@ -643,10 +659,21 @@ class HtmlExporter:
                 fragment = rasterize_layers(canvas, prefix)
                 if fragment:
                     self._emit_fragment(fragment)
+                    self._record_routing(
+                        prefix,
+                        "Backdrop-dependent layers and the content beneath them are rasterized "
+                        "together to preserve compositing",
+                        rasterized=True,
+                    )
             for layer in rest:
                 if baked and id(layer) in baked.layer_ids:
                     if source := baked.sources.get(id(layer)):
                         self._emit_parent_source(source, baked.times)
+                        self._record_routing(
+                            [layer],
+                            "Parent source captured as PNG with baked affine CSS motion",
+                            rasterized=True,
+                        )
                 else:
                     self._emit_layer(layer)
             if baked:
@@ -972,9 +999,27 @@ class HtmlExporter:
 
     # ------------------------------------------------------------------ layers
 
+    def _record_routing(self, layers: list, reason: str, *, rasterized: bool) -> None:
+        members = [source_id for layer in layers for source_id in self._source_ids[id(layer)]]
+        self.diagnostics.append(
+            ExportDiagnostic(
+                layer_id=members[0] if len(layers) == 1 else None,
+                layer_ids=members if len(members) > 1 else [],
+                feature="layer_representation",
+                target="html",
+                support="fallback" if rasterized else "native",
+                fallback="rasterize" if rasterized else None,
+                native_attempt=not rasterized,
+                message=reason,
+            )
+        )
+
     def _emit_layer(self, layer: RenderableLayer):
-        if has_layer_composition(layer) or _has_transform_extensions(layer):
-            self._emit_raster_fallback(layer)
+        if has_layer_composition(layer):
+            self._emit_raster_fallback(layer, "Layer clipping or masking requires a PNG fragment")
+            return
+        if _has_transform_extensions(layer):
+            self._emit_raster_fallback(layer, "Extended transforms require a PNG source")
             return
 
         if isinstance(layer, BackgroundLayer):
@@ -988,7 +1033,9 @@ class HtmlExporter:
         elif isinstance(layer, SvgLayer):
             self._emit_svg_layer(layer)
         else:  # ImageLayer or anything else the format cannot express natively
-            self._emit_raster_fallback(layer)
+            self._emit_raster_fallback(
+                layer, f"{type(layer).__name__} is captured through the canonical raster pipeline"
+            )
 
     def _append_element(
         self, layer: RenderableLayer, tag: str, style: str, inner: str = ""
@@ -1000,13 +1047,14 @@ class HtmlExporter:
         self._body.append(
             f'<{tag} id="{element_id}"{identity} style="{style}{anim_style}">{inner}</{tag}>'
         )
+        self._record_routing([layer], "Layer emitted as native HTML/CSS", rasterized=False)
 
     @staticmethod
     def _identity_attr(layer: RenderableLayer) -> str:
         key = getattr(layer, "motion_key", None)
         return "" if key is None else f' data-qt-motion-key="{_attr(key)}"'
 
-    def _emit_raster_fallback(self, layer: RenderableLayer):
+    def _emit_raster_fallback(self, layer: RenderableLayer, reason: str):
         # Video fragment capture uses a source timestamp; strip the opt-in
         # animation so an unsupported combination stays authored static even
         # when that timestamp would otherwise sample its canonical tracks.
@@ -1018,6 +1066,7 @@ class HtmlExporter:
         fragment = rasterize_layers(self._canvas, [source])
         if fragment:
             self._emit_fragment(fragment, layer)
+            self._record_routing([layer], reason, rasterized=True)
 
     def _emit_fragment(self, fragment: RasterFragment, layer: RenderableLayer | None = None):
         encoded = base64.b64encode(fragment.png_bytes).decode("ascii")
@@ -1040,7 +1089,9 @@ class HtmlExporter:
 
     def _emit_background(self, layer: BackgroundLayer):
         if layer.effects or layer.image or (layer.color is None and layer.gradient is None):
-            self._emit_raster_fallback(layer)
+            self._emit_raster_fallback(
+                layer, "Background image, effects, or empty fill use a PNG fragment"
+            )
             return
 
         width, height = self._canvas.width, self._canvas.height
@@ -1122,7 +1173,7 @@ class HtmlExporter:
 
     def _emit_text(self, layer: TextLayer):
         if uses_image_fill(layer):
-            self._emit_raster_fallback(layer)
+            self._emit_raster_fallback(layer, "Image-filled glyphs require a PNG fragment")
             return
 
         layout = compute_text_layout(self._canvas, layer)
@@ -1257,7 +1308,9 @@ class HtmlExporter:
 
     def _emit_svg_layer(self, layer: SvgLayer):
         if layer.effects or is_url(layer.path):
-            self._emit_raster_fallback(layer)
+            self._emit_raster_fallback(
+                layer, "SVG effects or remote sources require a PNG fragment"
+            )
             return
 
         canvas = self._canvas
@@ -1286,6 +1339,9 @@ class HtmlExporter:
         self._body.append(
             f'<img id="{element_id}"{identity} style="{style}{anim_style}" '
             f'src="data:image/svg+xml;base64,{encoded}" alt="">'
+        )
+        self._record_routing(
+            [layer], "Original SVG bytes embedded without rasterization", rasterized=False
         )
 
 
