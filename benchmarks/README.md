@@ -485,3 +485,53 @@ with canonical RGBA.
 
 These are costs of different outputs and target schedules, not faster/slower
 implementations of an equivalent workload. No optimization winner is established.
+
+## Dynamic Path trim cost
+
+```bash
+uv run --locked python -m benchmarks.frame_identity capture /tmp/path-trim-frames.json --scenes path_trim
+uv run --locked python -m benchmarks.animated_export --scenes path_trim --formats gif --fps 12 --quality standard --json /tmp/path-trim-cost.json
+```
+
+The optional `path_trim` scene is a font-, asset- and network-free 600×400 curved
+stroke. Over two seconds its trimmed end moves from 5% to 100% while its fixed
+viewport scales from 1× to 4×. This repaints the supersampled Path geometry every
+frame; it is separate from the marker's position-track `motion_path` scene.
+The default scenes and identity workload remain unchanged. Straight-motion
+centroid jitter is not meaningful for a changing path and remains `n/a`.
+
+The cost workload uses standard quality, 12 fps, one rendering worker and the
+existing GIF 64-color/432×768 maximum-size options. The resulting 432×288 GIF is
+decoded after timing and RSS observation to require visible, unclipped ink and
+two-second playback. Capturing canonical frames also includes the exact endpoint;
+the focused quality gate compares it with an independently authored full-size curve.
+GIF quantization is not asserted to preserve exact canonical RGBA bytes.
+
+For a recorded cost run, retain one excluded fresh-process warmup and three
+fresh measured exports, raw canonical/source JSON, renderer hashes and host
+conditions. Process caches start fresh; filesystem caches are not flushed.
+Record actual consumed inputs, timing median/min–max and lifetime Python RSS
+under the common limits above. This measures one changing-output workload;
+it supplies no faster/slower verdict against a different static or quality case.
+
+### Recorded Path cost, 2026-10-26
+
+[Raw source, canonical captures and attempts](results/2026-10-26-path-trim.json)
+record one excluded warmup and three measured exports on macOS arm64, 10 logical
+CPUs, Python 3.12.8 and Pillow 13.0.0 at base `8febbb3`. Actual renderer hashes
+are recorded alongside the uncommitted benchmark source hashes. Other task-owned
+CPU jobs were paused; unrelated OS activity, CPU frequency and affinity were not
+controlled. The same process/cache limits above apply.
+
+| Workload | Render ms/input median [min–max] | Encode s median | Total s median [min–max] | Python RSS MiB median |
+| --- | --- | --- | --- | --- |
+| Path trim + 1×→4× scale | 6.558 [6.473–6.856] | 0.164 | 0.322 [0.318–0.331] | 88.25 |
+
+All four exports consumed 24 inputs and loaded zero fonts. Three measured GIF
+hashes agree; each decodes to 24 distinct 432×288 frames over exactly two seconds,
+with ink bounds strictly inside the frame. Both fresh canonical captures agree
+at all 25 instants including the endpoint; the endpoint equals the independently
+authored fourfold-size curve's RGBA. No attempts failed or were retried. Timing
+includes source preparation/rendering and completed encoding/writes; decoding,
+hashing and the independent reference check occur outside timing/RSS observation.
+This is a cost record for changing supersampled geometry, not an optimization claim.
