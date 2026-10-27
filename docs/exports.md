@@ -89,11 +89,11 @@ numbered Deck filenames. A Deck cannot be written as a single SVG; export its
 Canvas slides individually. See [image sequences](#image-sequences) for their
 separate new-directory and encoding-option contract.
 
-### HTML and SVG layer routing
+### Document layer routing
 
-Canvas and Deck `export("scene.html")`, and Canvas `export("scene.svg")`, report
+Canvas and Deck `export("scene.html")`, and Canvas SVG/PDF exports, report
 executed layer routes in `result.capability_report` with
-`feature="layer_representation"`. Native HTML/CSS, SVG primitives and original
+`feature="layer_representation"`. Native HTML/CSS, SVG/PDF primitives and original
 embedded SVG have `support="native"`; emitted PNG fragments have
 `support="fallback"` and `fallback="rasterize"`. These are representation
 observations, not pixel-fidelity measurements.
@@ -109,9 +109,11 @@ element and no representation observation.
 For these executed routes, `native_attempt=True` means native content was
 emitted; `False` means the exporter selected raster capture before native
 generation. Capability-only diagnostics can leave this fact unknown (`None`).
-Parent scenes report their static composite in SVG; HTML can also report PNG
+Parent scenes report their static composite in SVG/PDF; HTML can also report PNG
 sources with baked affine CSS motion. Existing motion capability diagnostics
-remain separate. SVG observations describe authored-static output.
+remain separate. SVG/PDF observations describe authored-static output. PDF text
+retains embedded fonts when supported; shaping, glyph coverage and font-embedding
+constraints can instead select an explained raster fragment.
 
 Executed Deck observations also carry a zero-based `slide_index`. Layer IDs stay
 local to each slide, matching `deck.inspect().slides[index]`; use both fields to
@@ -122,8 +124,8 @@ records do not turn a click-driven slideshow into fixed-duration playback.
 For example, `ExportPolicy(unsupported_motion="error")` does not reject a static
 masked shape: this HTML route preserves its mask using a PNG fragment and
 reports that decision. No layer-selection policy is added. This executed routing
-report covers Canvas SVG and Canvas/Deck HTML; PDF and PPTX do not yet collect
-these observations. SVG fidelity metrics describe the complete document and are
+report covers Canvas SVG/PDF and Canvas/Deck HTML; Deck PDF and PPTX do not yet
+collect these observations. Fidelity metrics describe the complete document and are
 not attributed to individual fallback layers. Rendering all slides precedes
 opening the HTML destination, so an
 unsupported later slide or strict motion rejection preserves an existing file.
@@ -173,6 +175,41 @@ same font environment must be available separately; see the
 [CairoSVG documentation](https://cairosvg.org/documentation/). It is not a browser,
 HTML, or animation fidelity guarantee. SVG keeps its existing authored-static
 motion behavior.
+
+### Optional static PDF fidelity report
+
+Canvas PDF exports accept the same three explicit limits under the `"pdf"` key:
+
+```python
+policy = ExportPolicy(fidelity={"pdf": {
+    "pixel_tolerance": 0,
+    "max_different_pixel_ratio": 0,
+    "min_hash_similarity": 1,
+}})
+result = Canvas(160, 90).background(color="#123456").export("checked.pdf", policy=policy)
+print(result.pixel_metrics.fidelity.verdict)
+```
+
+Install `quickthumb[pdf]` for ReportLab and the optional PDFium observer. Default
+PDF exports do not import PDFium. Requested comparison renders the actual PDF
+bytes on transparent RGBA at scale 1: this exporter uses one PDF point per
+canonical pixel, not a 96-DPI print-size conversion. The report records PDFium
+and binding versions, actual page size in points, page count, rendered dimensions
+and the canonical environment. Native PDFium document/render/cleanup calls are
+serialized across threads; canonical rendering and pixel comparison stay outside
+that lock. It requires exactly one page of the expected
+point dimensions; mismatches stay out of policy even under permissive pixel
+limits. No resizing or white-background flattening hides alpha or geometry loss.
+
+The same visible-RGBA/hash criteria and report-only behavior described above
+apply. For an unexpected multi-page Canvas result, metrics observe its first
+page and the reported page count makes the verdict out of policy. PDF generation
+and requested comparison finish before opening the destination; missing/failed
+observation preserves an existing file. Native text/vectors and explained raster
+fragments are retained regardless of the fidelity verdict. Native PDF text is
+searchable vector content; this does not promise PowerPoint-style editing.
+Deck PDF comparison is rejected explicitly; export its Canvas slides individually.
+This observation does not establish PPTX or animation fidelity.
 
 ### HTML browser validation harness
 

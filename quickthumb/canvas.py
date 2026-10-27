@@ -86,7 +86,7 @@ from quickthumb.plugins import PluginRegistry, plugin_registry
 if TYPE_CHECKING:
     from quickthumb._document import TimelineInputs, _ExportReceipt, _ResolvedExport
     from quickthumb._export_html import HtmlExporter
-    from quickthumb.models.document import _SvgFidelityMetrics
+    from quickthumb.models.document import _FidelityMetrics
 
 
 @dataclass
@@ -1349,7 +1349,7 @@ class Canvas:
         *,
         diagnostics: list[ExportDiagnostic],
         policy: ExportPolicy | None = None,
-    ) -> "_SvgFidelityMetrics | None":
+    ) -> "_FidelityMetrics | None":
         if extension == ".svg":
             from quickthumb._export_svg import SvgExporter
 
@@ -1376,8 +1376,17 @@ class Canvas:
         if extension == ".pdf":
             from quickthumb._export_pdf import PdfExporter
 
-            PdfExporter(self).save(output_path)
-            return
+            exporter = PdfExporter(self)
+            document_bytes = exporter.export_bytes()
+            diagnostics.extend(exporter.diagnostics)
+            fidelity = None
+            if policy is not None and "pdf" in policy.fidelity:
+                from quickthumb._pdf_fidelity import measure_pdf_fidelity
+
+                fidelity = measure_pdf_fidelity(self, document_bytes, policy.fidelity["pdf"])
+            with open(output_path, "wb") as output:
+                output.write(document_bytes)
+            return fidelity
 
         from quickthumb._export_pptx import PptxExporter
 
