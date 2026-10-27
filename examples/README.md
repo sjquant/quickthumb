@@ -34,6 +34,17 @@ Extras install with `uv run --extra <name> python examples/<script>.py`. The
 
 ## Decks and video
 
+### `kinetic_lower_third.py`
+
+An offline character-by-character name entrance over a translucent lower third.
+Uses a bundled font, exact character targets and canonical position/opacity
+tracks; no background matte is added. It writes a silent VP9-alpha WebM by
+default, or ProRes 4444 MOV with `--output examples/output/kinetic_lower_third.mov`.
+Both need an existing FFmpeg with the corresponding encoder. Using your installed
+environment, run `python examples/kinetic_lower_third.py`; it uses one worker,
+20 fps and a half-second final hold. Composite the result over footage in an
+editor that supports the selected alpha codec.
+
 ### `motion_blur.py`
 
 Exports the same fast moving marker at 12 fps with motion blur off and with

@@ -12,6 +12,7 @@ from quickthumb import Canvas, Fade, VideoOptions
 from quickthumb import _export_video as video
 from quickthumb import transitions as tr
 from quickthumb._render_workers import _CanvasSpec, _FrameRenderer
+from quickthumb.models import ShapeLayer, TextLayer
 
 HAS_FFMPEG = shutil.which("ffmpeg") is not None
 QUALITIES: tuple[video.AnimationQuality, ...] = ("standard", "high")
@@ -326,6 +327,66 @@ def test_lower_third_alpha_snapshot():
         expected.size,
         expected.tobytes(),
     )
+
+
+def test_kinetic_lower_third_enters_per_character_and_rests_without_matte():
+    """The name arrives one character at a time and settles on a translucent panel."""
+    from examples.kinetic_lower_third import build_scene
+
+    # Given: isolated authored sources composited in order as the independent rest reference.
+    scene = build_scene()
+    reference = Image.new("RGBA", (scene.width, scene.height))
+    for layer in scene.layers:
+        assert isinstance(layer, (ShapeLayer, TextLayer))
+        source = Canvas(
+            scene.width, scene.height, layers=[layer.model_copy(update={"animation": None})]
+        ).render_frame(0)
+        reference.alpha_composite(source)
+
+    # When: the first character has settled but the final character has not.
+    arriving, settled = scene.render_frame(0.6), scene.render_frame(1.1)
+
+    # Then: the first glyph matches rest while the last glyph is still entering.
+    assert scene.render_frame(0).getbbox() is None
+    assert arriving.crop((46, 99, 60, 124)).tobytes() == reference.crop((46, 99, 60, 124)).tobytes()
+    assert (
+        arriving.crop((190, 99, 205, 124)).tobytes()
+        != reference.crop((190, 99, 205, 124)).tobytes()
+    )
+    assert settled.tobytes() == reference.tobytes() == scene.render_frame(1.6).tobytes()
+    assert pixel(settled, (0, 0))[3] == 0
+    assert pixel(settled, (400, 140))[3] == 208
+    assert pixel(settled, (26, 100))[3] == 255
+
+
+@pytest.mark.skipif(not HAS_FFMPEG, reason="FFmpeg required")
+def test_kinetic_lower_third_webm_retains_alpha_and_final_hold(tmp_path):
+    """Decoded example frames preserve character progress and the half-second final hold."""
+    from examples.kinetic_lower_third import build_scene
+
+    # Given: the example's real transparent output settings, with one worker.
+    scene = build_scene()
+    path = tmp_path / "kinetic.webm"
+
+    # When: the public export is encoded and decoded with the alpha-capable VP9 decoder.
+    receipt = scene.export(
+        path,
+        animation=VideoOptions(transparent=True, fps=20, hold=0.5),
+    )
+    frames = decode(path, (480, 180))
+
+    # Then: encoded alpha follows the authored frames and remains settled through the hold.
+    assert receipt.timing_metrics.frame_count == len(frames) == 32
+    assert receipt.timing_metrics.duration == pytest.approx(1.6)
+    assert frames[0].getchannel("A").getbbox() is None
+    assert frames[12].getchannel("A").tobytes() != frames[22].getchannel("A").tobytes()
+    for index in (12, 22, 31):
+        expected = scene.render_frame(index / 20).getchannel("A")
+        error = ImageChops.difference(frames[index].getchannel("A"), expected)
+        assert cast(int, error.getextrema()[1]) <= 1
+        assert pixel(frames[index], (0, 0))[3] == 0
+        assert pixel(frames[index], (400, 140))[3] == pytest.approx(208, abs=1)
+    assert frames[22].getchannel("A").tobytes() == frames[-1].getchannel("A").tobytes()
 
 
 def test_morph_incompatible_layers_crossfade_premultiplied_pixels(tmp_path):
