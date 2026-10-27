@@ -5,6 +5,8 @@ description: Reference for quickthumb Canvas creation, aspect ratios, layer comp
 # Canvas
 
 The `Canvas` is the root object. It holds dimensions and an ordered list of layers.
+Its authoring fields follow the [shared layer vocabulary](index.md#shared-layer-vocabulary),
+which also applies to Deck slides and canonical JSON.
 
 ## Creation
 
@@ -103,13 +105,16 @@ result = canvas.export("card.png")
 print(result.written_paths)
 ```
 
-See [Shared export contract and specialist controls](../exports.md#shared-export-contract-and-specialist-controls)
+See [Recommended output API](../exports.md#recommended-output-api)
 for the result fields, the capability preflight, and how `export()` relates to
 the methods below.
 
 ### `.render(path, format=None, quality=None, debug=False, animation=None, policy=None)`
 
 Renders the canvas and writes the result to a file. The format is detected from the file extension; `.svg`, `.pptx`, and `.pdf` produce vector/document output, and `.gif`/`.mp4`/`.webm`/`.mov` produce an animation playing the canvas's layer `animation` effects (see [Exporting to SVG, PPTX, PDF & video](../exports.md)).
+Canvas `.lot` output writes the bounded native-vector subset described in
+[Lottie vectors](../exports.md#lottie-vectors), using `LottieOptions` for fps and
+final hold. Unsupported content is rejected before writing, without PNG fallback.
 
 ```python
 from quickthumb import GifOptions, VideoOptions
@@ -132,23 +137,23 @@ canvas.render("preview.mp4", animation=VideoOptions(fps=30))
 | Parameter | Type | Default | Description |
 | --- | --- | --- | --- |
 | `path` | `str` | — | Output file path |
-| `format` | `str \| None` | `None` | Optional raster output format override: `"PNG"`, `"JPEG"`, or `"WEBP"` |
-| `quality` | `int \| None` | `None` | Compression quality (1–95). Only valid for `JPEG` and `WEBP`. |
+| `format` | `str \| None` | `None` | Case-insensitive raster encoding override: `"PNG"`, `"JPEG"`, or `"WEBP"`; rejected with document/animated extensions. |
+| `quality` | `int \| None` | `None` | Compression quality: JPEG 1–95, WebP 1–100; other targets reject it. |
 | `debug` | `bool` | `False` | Draw public layer-id bounding boxes on raster output for visual review. |
-| `animation` | `GifOptions \| VideoOptions \| None` | `None` | Format-specific options: `GifOptions` for GIF, `VideoOptions` for MP4/WebM/MOV. |
-| `policy` | `ExportPolicy \| None` | `None` | Renderer policy, such as `reduced_motion` for animated, HTML, and PPTX output. `unsupported_motion` is enforced only by `export()`. |
+| `animation` | `GifOptions \| VideoOptions \| LottieOptions \| None` | `None` | Format-specific options: `GifOptions` for GIF, `VideoOptions` for MP4/WebM/MOV, `LottieOptions` for `.lot`. |
+| `policy` | `ExportPolicy \| None` | `None` | Renderer policy, such as `reduced_motion` for animated, HTML, and PPTX output. Both `render()` and `export()` enforce `unsupported_motion` before writing. `export()` reports an explicitly requested [static SVG fidelity check](../exports.md#optional-static-svg-fidelity-report). |
 
 !!! warning
-    Passing `quality` with `format="PNG"` raises `RenderingError`. Passing `debug=True` for document or animated output (`.svg`, `.pptx`, `.pdf`, `.html`, `.gif`, `.mp4`, `.webm`, or `.mov`) raises `RenderingError`.
+    Passing `quality` with `format="PNG"` raises `RenderingError`. Passing `debug=True` for document or animated output (`.svg`, `.pptx`, `.pdf`, `.html`, `.gif`, `.mp4`, `.webm`, `.mov`, or `.lot`) raises `RenderingError`.
 
-`GifOptions` and `VideoOptions` are available from `quickthumb`. `GifOptions`
+`GifOptions`, `VideoOptions` and `LottieOptions` are available from `quickthumb`. `GifOptions`
 accepts `fps`, `hold`, `matte`, `loop`, `max_size=(width, height)`, and `colors`.
 `VideoOptions` accepts `fps`, `hold`, `matte`, `soundtrack=AudioTrack(...)`, and `loop_audio`.
 `VideoOptions(transparent=True)` preserves alpha in VP9 WebM or ProRes 4444 MOV (strict
 boolean, default `False`); all other output targets reject this option.
 Both use a strict finite nonnegative `hold` (default 3 seconds), omitted from
 serialized options when equal to its default. Both accept `workers` (a strict
-integer from 1 to 8, default 1) and `quality="standard"` or `"high"` for rendering. See [parallel animated rendering](../exports.md#parallel-animated-rendering)
+integer from 1 to 8, default 1) and `render_quality="standard"` or `"high"` for rendering. See [parallel animated rendering](../exports.md#parallel-animated-rendering)
 for spawn setup and supported inputs. GIF sizing and palette controls are rejected for MP4/WebM/MOV output.
 
 ### `.to_svg(embed_fonts=False)`
@@ -191,7 +196,7 @@ overlay_bytes = canvas.to_webm(fps=30, hold=2.0, transparent=True)
 `.to_mp4()`/`.to_webm()`/`.to_mov()` also accept `soundtrack` (an audio file muxed into the video, trimmed to the video length) and `loop_audio` (an explicit override). `AudioTrack(..., loop=True)` repeats a shorter configured track; legacy string paths keep the previous default of looping. GIF cannot carry audio. See the [Deck API](deck.md) for the full parameter table.
 
 All animated byte methods accept keyword-only `workers=1` and
-`quality="standard"` (`"high"` enables supersampling). `.to_gif()` also accepts
+`render_quality="standard"` (`"high"` enables supersampling). `.to_gif()` also accepts
 `max_size=None` for proportional resizing and `colors=None` for the palette
 size (2–256 when supplied). Existing positional parameters remain unchanged.
 
@@ -207,17 +212,19 @@ The RGBA source remains 8-bit; 16-bit alpha coding can decode with one-level
 and encoder requirements. `render()` and `export()` accept `.mov` with
 `VideoOptions` for both opaque and transparent output.
 
-### `.export_png_sequence(output_directory, *, options=None, policy=None)`
+### `.export_image_sequence(output_directory, *, format="png", quality=None, matte=None, lossless=None, options=None, policy=None)`
 
-Write silent animation frames and `manifest.json` to a new directory whose
-parent already exists. `PngSequenceOptions(fps=30, hold=3, workers=1,
-quality="standard")` controls timing and rendering. Every independent PNG holds
-the renderer's exact RGBA8 straight-alpha bytes, with no export matte or color
-profile claim. `PngSequenceResult` reports actual `frame_count`,
-`duration=frame_count/fps`, dimensions, the numeric filename pattern, published
-paths, and motion diagnostics. Files, directories and symlinks at the destination
-are never replaced. See [PNG sequences](../exports.md#png-image-sequences) for
-the full schema, timing, resource, and atomic-publication contract.
+Write the animated timeline as independent PNG (default), JPEG or WebP files
+plus `manifest.json` into a new directory under an existing parent.
+`ImageSequenceOptions(fps=30, hold=3, workers=1, render_quality="standard")`
+controls timing/compositing; method keywords select image encoding. JPEG
+uses RGB on an opaque matte (white by default), with `quality=1..95`.
+WebP preserves alpha and accepts `lossless=True`; lossy WebP accepts quality.
+PNG and lossless WebP preserve the renderer's exact RGBA8 pixels. Opaque WebP
+files may decode as RGB; manifest mode describes logical RGBA decoding.
+The receipt reports actual frame count, timing, encoding and destination.
+See [image sequences](../exports.md#image-sequences) for validation, per-format
+metadata and atomic no-overwrite publication.
 
 ### `.to_base64(format="PNG", quality=None)`
 
@@ -231,7 +238,7 @@ b64 = canvas.to_base64(format="WEBP", quality=90)
 | Parameter | Type | Default | Description |
 | --- | --- | --- | --- |
 | `format` | `str` | `"PNG"` | Output format: `"PNG"`, `"JPEG"`, or `"WEBP"` |
-| `quality` | `int \| None` | `None` | Compression quality. Only valid for `JPEG` and `WEBP`. |
+| `quality` | `int \| None` | `None` | Compression quality: JPEG 1–95 or WebP 1–100. |
 
 ### `.to_data_url(format="PNG", quality=None)`
 
@@ -245,7 +252,7 @@ url = canvas.to_data_url(format="JPEG", quality=90)
 | Parameter | Type | Default | Description |
 | --- | --- | --- | --- |
 | `format` | `str` | `"PNG"` | Output format: `"PNG"`, `"JPEG"`, or `"WEBP"` |
-| `quality` | `int \| None` | `None` | Compression quality. Only valid for `JPEG` and `WEBP`. |
+| `quality` | `int \| None` | `None` | Compression quality: JPEG 1–95 or WebP 1–100. |
 
 ### `.inspect()`
 

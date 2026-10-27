@@ -1,5 +1,5 @@
 ---
-description: Export quickthumb canvases and decks to PNG, JPEG, WebP, SVG, HTML, PDF, editable PowerPoint, GIF, MP4, WebM, and MOV.
+description: Export quickthumb documents to raster, web, document and video formats, plus bounded Canvas-only Lottie vectors.
 ---
 
 # Exporting to SVG, PPTX, PDF & video
@@ -8,17 +8,18 @@ A canvas renders to raster, vector, document, web, and animated formats. The
 format comes from the file extension:
 
 ```python
-canvas.render("thumbnail.png")   # raster (PNG/JPEG/WEBP)
-canvas.render("thumbnail.svg")   # vector SVG
-canvas.render("thumbnail.html")  # self-contained web page that plays animations
-canvas.render("thumbnail.pptx")  # editable PowerPoint slide
-canvas.render("thumbnail.pdf")   # single-page PDF
-canvas.render("thumbnail.gif")   # animated GIF playing the layer animations
-canvas.render("thumbnail.mp4")   # H.264 video (requires ffmpeg); .webm for VP9
-canvas.render("thumbnail.mov")   # ProRes 4444 video (requires ffmpeg with prores_ks)
+canvas.export("thumbnail.png")   # raster (PNG/JPEG/WEBP)
+canvas.export("thumbnail.svg")   # vector SVG
+canvas.export("thumbnail.html")  # self-contained web page that plays animations
+canvas.export("thumbnail.pptx")  # editable PowerPoint slide
+canvas.export("thumbnail.pdf")   # single-page PDF
+canvas.export("thumbnail.gif")   # animated GIF playing the layer animations
+canvas.export("thumbnail.mp4")   # H.264 video (requires ffmpeg); .webm for VP9
+canvas.export("thumbnail.mov")   # ProRes 4444 video (requires ffmpeg with prores_ks)
+canvas.export("thumbnail.lot")   # bounded Canvas-only Lottie vectors
 ```
 
-Each format also has a direct method when you want the content in memory:
+For formats with in-memory methods, use the corresponding specialist method:
 
 ```python
 svg_markup = canvas.to_svg()
@@ -29,82 +30,211 @@ gif_bytes = canvas.to_gif()
 mp4_bytes = canvas.to_mp4()      # and canvas.to_webm() / canvas.to_mov()
 ```
 
-## Shared export contract and specialist controls
+## Recommended output API
 
-Use `export()` when building a workflow that accepts either a `Canvas` or a
-`Deck`. Both accept a string or `Path` and return an `ExportResult`, including
-the document `kind`, effective `output_format`, `written_paths`, capability and
-fallback diagnostics, pixel/timing metadata, and the asset manifest:
+Use `export()` to write a Canvas or Deck and receive an `ExportResult` with
+`written_paths`, capability/fallback diagnostics, pixel/timing metadata, assets
+and the observed rendering environment.
+The extension selects the format. MP4, WebM, MOV and GIF play the animated timeline.
+Deck video also mixes per-slide narration.
 
 ```python
-from quickthumb import Canvas, Deck
+from quickthumb import VideoOptions
 
-canvas = Canvas(320, 180).background(color="#112233")
-deck = Deck(slides=[canvas, Canvas(320, 180).background(color="#445566")])
-
-for document, path in [(canvas, "card.png"), (deck, "slides.png")]:
-    result = document.export(path)
-    print(result.kind, result.written_paths)
-    print(result.model_dump_json())
+result = deck.export("slides.mp4", animation=VideoOptions(hold=2, render_quality="high"))
+print(result.written_paths, result.fallback_diagnostics)
+deck.export("slides.html")  # interactive slideshow with click-triggered motion
+canvas.export("card.webp", quality=85)  # JPEG/WebP compression quality
 ```
 
-The canvas writes `card.png`; the deck writes `slides_01.png` and
-`slides_02.png`. Always use `written_paths` rather than reconstructing names.
-`export(path, policy=None, *, format=None, quality=None, animation=None)` runs
-the shared capability-policy preflight before calling the existing renderer.
-`format` is a raster format override; `quality` applies to JPEG/WEBP;
-`animation` accepts `GifOptions` for GIF or `VideoOptions` for MP4/WebM.
-See the [Canvas](api/canvas.md)
-and [Deck](api/deck.md)
-references for examples.
+| Need | Entry point |
+| --- | --- |
+| Write a file with capability policy and a result receipt | `export(path, ...)` |
+| Draw debug boxes or use the lower-level file renderer | `render(path, ...)` |
+| Get bytes or an in-memory document | `to_mp4()`, `to_gif()`, `to_html()`, etc. |
+| Export narrated Deck slides | `export(path, animation=VideoOptions(hold=3))` / `to_mp4(hold=3)` |
+| Write silent animation frames plus a manifest | `export_image_sequence(directory, options=...)` |
+| Write bounded Canvas-only Lottie vectors | `canvas.export("scene.lot", animation=LottieOptions(fps=30, hold=3))`; see [Lottie vectors](#lottie-vectors) |
 
-### Support and lifecycle
+All animated byte methods and options use `hold` for settled-state seconds.
+`render_quality="standard"` or `"high"` controls animation compositing;
+`quality` on `export()`/`render()` controls compression: JPEG accepts integer
+values 1–95 and WebP accepts 1–100.
+Keep `workers=1` unless advanced spawn-based rendering is needed.
+Both `export()` and `render()` enforce file capability policies such as
+`unsupported_motion="error"` before writing; `export()` also returns the receipt.
+Byte methods expose target-specific controls without the shared file receipt.
+Use the returned `written_paths` for Deck raster sequences: they are numbered files.
+Image sequences keep a separate API because their destination is a new directory.
 
-The shared document methods and result envelope are the integration boundary
-for generic consumers. The documented `render()` and `to_*()` methods remain
-supported specialist controls: they are not deprecated, renamed, or scheduled
-for removal. Existing users do not need to migrate. Any future removal or
-incompatible change to these documented controls requires an announced
-deprecation and migration guidance first. New generic examples should prefer
-`export()`; format-specific examples can continue using specialist methods.
-Private underscore-prefixed modules and renderer internals are outside this
-support boundary.
+### Format and option selection
 
-| Entry point | Canvas result | Deck result | Use when |
-| --- | --- | --- | --- |
-| `export(path, ...)` | `ExportResult` | `ExportResult` | You need shared reporting and capability-policy preflight |
-| `render(path, ...)` | `None` | `list[str]` of written paths | You need existing file-rendering controls, such as Canvas `debug=True` |
-| `to_html(...)` | HTML `str` | HTML `str` | You need an in-memory document or HTML-specific options |
-| `to_pdf(...)`, `to_pptx(...)`, `to_gif(...)`, `to_mp4(...)`, `to_webm(...)` | `bytes` | `bytes` | You manage the destination and need format-specific controls |
-| `to_svg(embed_fonts=...)` | SVG `str` | Not available | You need one SVG per canvas, optionally with embedded fonts |
+Canvas and Deck use the same selection rules except that `.lot` is Canvas-only;
+Deck rejects Lottie output.
 
-Specialist methods do not return the shared result envelope. `render()` and
-several `to_*()` methods accept `policy=` and apply it to their renderer (for
-example `reduced_motion`), but only `export()` enforces capability rules such as
-`unsupported_motion="error"`, failing before any file is written. Use
-`validate_export()` to inspect motion capabilities before a specialist export.
-Neither path promises pixel identity across different formats, viewers, fonts,
-or rendering environments. Currently `pixel_metrics` reports dimensions and
-frame count, not a fidelity score; absent difference measurements are not proof
-of a match.
+| Input | Result |
+| --- | --- |
+| File extension, with no `format` | Selects the output; `.jpg`/`.jpeg` report `output_format="jpeg"`, `.htm`/`.html` report `"html"`. |
+| `format="PNG"`, `"JPEG"` or `"WEBP"` (case-insensitive) | Selects raster encoding for a raster, unknown or extensionless filename. The requested filename is kept; it is not renamed to match the encoding. |
+| Raster `format` with a document or animated extension | Rejected rather than writing image bytes into an SVG, PDF, HTML, PPTX, video or `.lot` filename. |
+| `quality` | JPEG integer 1–95 or WebP integer 1–100; rejected for other targets. |
+| `animation` | `GifOptions` for GIF; `VideoOptions` for MP4/WebM/MOV; `LottieOptions` for Canvas `.lot`. Rejected for other static/document targets. |
 
-The shared entry point preserves renderer-specific behavior:
+Format selection, compression quality and animation option-family conflicts are
+rejected before asset reads or file writes. Codec-specific limits are validated
+during export preparation. Rendering or encoding failures can still occur later;
+ordinary file exports are not an atomic multi-file transaction. Inspect `written_paths` rather than guessing Canvas or
+numbered Deck filenames. A Deck cannot be written as a single SVG; export its
+Canvas slides individually. See [image sequences](#image-sequences) for their
+separate new-directory and encoding-option contract.
 
-- A Deck writes one multi-page PDF, multi-slide PPTX, or HTML slideshow, but
-  numbered files for raster output. It cannot export a single SVG; export each
-  canvas separately instead.
-- Canvas MP4 plays layer animation. Deck MP4 without `animation` uses static
-  narrated slides. Pass `animation=VideoOptions(...)` to `deck.export()` or
-  `deck.render()` for the animated timeline, or use `deck.to_animated_mp4()`.
-  `deck.to_mp4()` retains its static narrated-slide behavior.
-- `Canvas.render(..., debug=True)` and `Canvas.to_svg(embed_fonts=True)` are
-  specialist controls, not arguments to the shared `export()` method.
+### Document layer routing
+
+Canvas and Deck `export("scene.html")`, and Canvas SVG/PDF exports, report
+executed layer routes in `result.capability_report` with
+`feature="layer_representation"`. Native HTML/CSS, SVG/PDF primitives and original
+embedded SVG have `support="native"`; emitted PNG fragments have
+`support="fallback"` and `fallback="rasterize"`. These are representation
+observations, not pixel-fidelity measurements.
+
+`result.fallback_diagnostics` identifies the affected inspection `layer_id` and
+reason. A retained group includes its descendant IDs in `layer_ids`; a shared
+backdrop-dependent prefix has no single `layer_id` and lists all contributing
+sources in `layer_ids`. Such composites are reported together because their
+appearance depends on the combined pixels. Flattened auto-layout children keep
+their original inspection IDs. Empty raster fragments and empty text produce no
+element and no representation observation.
+
+For these executed routes, `native_attempt=True` includes native content emission
+or execution/verification of a native candidate that falls back to raster.
+Read `support` and `fallback` to identify the representation actually adopted.
+`False` means raster capture was selected before native generation or verification.
+Capability-only diagnostics can leave this fact unknown (`None`).
+Parent scenes report their static composite in SVG/PDF; HTML can also report PNG
+sources with baked affine CSS motion. Existing motion capability diagnostics
+remain separate. SVG/PDF observations describe authored-static output. PDF text
+retains embedded fonts when supported; shaping, glyph coverage and font-embedding
+constraints can instead select an explained raster fragment.
+
+Executed Deck observations also carry a zero-based `slide_index`. Layer IDs stay
+local to each slide, matching `deck.inspect().slides[index]`; use both fields to
+distinguish repeated IDs between slides. Canvas observations omit `slide_index`.
+Deck HTML keeps its interactive cues, transitions and notes; these representation
+records do not turn a click-driven slideshow into fixed-duration playback.
+
+For example, `ExportPolicy(unsupported_motion="error")` does not reject a static
+masked shape: this HTML route preserves its mask using a PNG fragment and
+reports that decision. No layer-selection policy is added. This executed routing
+report covers Canvas SVG/PDF and Canvas/Deck HTML; Deck PDF and PPTX do not yet
+collect these observations. Fidelity metrics describe the complete document and are
+not attributed to individual fallback layers. Rendering all slides precedes
+opening the HTML destination, so an
+unsupported later slide or strict motion rejection preserves an existing file.
+
+### Optional static SVG fidelity report
+
+Request a CairoSVG comparison through `ExportPolicy` when the current job has
+explicit acceptance limits. All three limits are required; there are no built-in
+format budgets. This example requests exact visible RGBA rather than an
+application-specific allowance for edge or font differences:
+
+```python
+from quickthumb import Canvas, ExportPolicy
+
+policy = ExportPolicy(fidelity={"svg": {
+    "pixel_tolerance": 0,
+    "max_different_pixel_ratio": 0,
+    "min_hash_similarity": 1,
+}})
+canvas = Canvas(160, 90).background(color="#123456")
+result = canvas.export("checked.svg", policy=policy)
+comparison = result.pixel_metrics.fidelity
+print(comparison.verdict, comparison.pixel_diff_ratio, comparison.hash_similarity)
+```
+
+The optional `quickthumb[svg]` extra and system Cairo are needed only when the
+selected SVG export requests this check. The report records CairoSVG/Cairo
+versions, the canonical render environment, applied limits and actual rasterized
+dimensions. It compares the authored-static `sample()` still, with no resize.
+`exact` means all visible RGBA channels match; `tolerated` satisfies the supplied
+pixel-ratio and average-hash limits; `out_of_policy` fails a limit or dimensions.
+Mean absolute error is normalized over four channels, and the maximum channel
+delta is also reported. Fully transparent pixels ignore hidden RGB, so this
+definition of exact is distinct from canonical raw-pixel SHA-256 equality.
+The 8×8 average hash composites onto white; RGBA measurements independently catch
+alpha loss even when that hash is identical.
+
+This is report-only: the original SVG representation is written even when the
+verdict is `out_of_policy`. A fidelity diagnostic describes the observation;
+no new raster fallback is selected. Missing/failed reference rendering raises
+before the destination is opened, preserving an existing file. Default exports
+and non-SVG targets do not perform this comparison.
+
+The observation applies to static Cairo rendering in the recorded environment.
+Cairo uses installed fonts and does not honor embedded CSS `@font-face`, so the
+same font environment must be available separately; see the
+[CairoSVG documentation](https://cairosvg.org/documentation/). It is not a browser,
+HTML, or animation fidelity guarantee. SVG keeps its existing authored-static
+motion behavior.
+
+### Optional static PDF fidelity report
+
+Canvas PDF exports accept the same three explicit limits under the `"pdf"` key:
+
+```python
+policy = ExportPolicy(fidelity={"pdf": {
+    "pixel_tolerance": 0,
+    "max_different_pixel_ratio": 0,
+    "min_hash_similarity": 1,
+}})
+result = Canvas(160, 90).background(color="#123456").export("checked.pdf", policy=policy)
+print(result.pixel_metrics.fidelity.verdict)
+```
+
+Install `quickthumb[pdf]` for ReportLab and the optional PDFium observer. Default
+PDF exports do not import PDFium. Requested comparison renders the actual PDF
+bytes on transparent RGBA at scale 1: this exporter uses one PDF point per
+canonical pixel, not a 96-DPI print-size conversion. The report records PDFium
+and binding versions, actual page size in points, page count, rendered dimensions
+and the canonical environment. Native PDFium document/render/cleanup calls are
+serialized across threads; canonical rendering and pixel comparison stay outside
+that lock. It requires exactly one page of the expected
+point dimensions; mismatches stay out of policy even under permissive pixel
+limits. No resizing or white-background flattening hides alpha or geometry loss.
+
+The same visible-RGBA/hash criteria and report-only behavior described above
+apply. For an unexpected multi-page Canvas result, metrics observe its first
+page and the reported page count makes the verdict out of policy. PDF generation
+and requested comparison finish before opening the destination; missing/failed
+observation preserves an existing file. Native text/vectors and explained raster
+fragments are retained regardless of the fidelity verdict. Native PDF text is
+searchable vector content; this does not promise PowerPoint-style editing.
+Deck PDF comparison is rejected explicitly; export its Canvas slides individually.
+This observation does not establish PPTX or animation fidelity.
+
+### Migrating output calls
+
+- `Deck.to_mp4()` now plays animation, matching Canvas and file exports.
+  Replace old `to_animated_mp4()` and `to_narrated_mp4()` calls with `to_mp4()`.
+- Replace `render_mp4()` and `render_narrated_mp4()` with `export("deck.mp4")`.
+  The separate still-slide encoder is removed, with no aliases. To retain still
+  scenes, author static canvases and use `Cut()`; this does not freeze an
+  already animated Deck or promise identical encoded output.
+- `export_image_sequence()` replaces `export_png_sequence()`; the public
+  options/manifest/result models are now `ImageSequence*`, with no obsolete aliases.
+- Replace animated Deck `slide_duration=` and narrated `default_duration=` with
+  `hold=`. Replace animation `quality=` with `render_quality=`, including saved
+  GifOptions, VideoOptions and ImageSequenceOptions JSON. There are no aliases.
 
 ## How export works
 
-Exporters keep layers **native** wherever the target format can express them, and embed **pixel-exact PNG fragments** (rendered by the regular pipeline) everywhere else. Positions, wrapping, and alignment are computed with the same layout math as the raster renderer, so output matches the PNG render closely.
+SVG, PDF and PPTX exporters keep eligible layers **native** and use canonical
+PNG fragments where a native representation is unavailable. Positions, wrapping
+and alignment share the raster renderer's layout math. HTML uses the same
+native-or-raster approach; see [HTML](#html) below.
 
-HTML export works the same way; see [HTML](#html) below.
+[Lottie](#lottie-vectors) instead accepts a bounded native-vector subset and
+rejects unsupported content before writing. It never substitutes PNG frames.
 
 | Layer | SVG | PPTX | PDF |
 | --- | --- | --- | --- |
@@ -191,7 +321,10 @@ with open("promo.pdf", "wb") as f:
 
 ## Animated GIF & video { #animated-gif-video }
 
-Animated export renders per-layer `animation` effects and deck slide `transition`s as real raster frames, sampled through the same pixel pipeline as PNG output. Canvas GIF/MP4/WebM/MOV and Deck GIF/WebM/MOV play this animated timeline. `deck.render("deck.mp4", animation=VideoOptions(...))` also uses it; Deck MP4 without `VideoOptions` is the separate static narration workflow below.
+See [animation timing](timing.md) for canonical sampling versus encoded frame
+counts, slide/narration clocks, captions and interactive HTML behavior.
+
+Animated export renders per-layer `animation` effects and deck slide `transition`s as real raster frames, sampled through the same pixel pipeline as PNG output. Canvas and Deck GIF/MP4/WebM/MOV all play this animated timeline, including file exports with no explicit options.
 
 ```python
 from quickthumb import AudioTrack, Canvas, Deck, Fade, GifOptions, VideoOptions
@@ -210,8 +343,8 @@ mp4 = canvas.to_mp4(fps=30, hold=2.0)          # tunable variants return bytes
 
 other = Canvas(1280, 720).background(color="#204060")
 deck = Deck(1280, 720).slide(canvas).slide(other, transition=Push(direction="left"))
-gif = deck.to_gif(fps=20, slide_duration=3.0, loop=0)
-webm = deck.to_webm(fps=30, slide_duration=3.0)
+gif = deck.to_gif(fps=20, hold=3.0, loop=0)
+webm = deck.to_webm(fps=30, hold=3.0)
 ```
 
 Every effect takes `duration`, `delay`, and `trigger`, plus two timing controls:
@@ -269,46 +402,39 @@ and runnable `examples/parent_stagger.py` example.
 animated file output. Use `GifOptions` for GIF (`fps`, `hold`, `matte`, `loop`,
 `max_size=(width, height)`, and `colors`) and `VideoOptions` for MP4/WebM/MOV
 (`fps`, `hold`, `matte`, `soundtrack=AudioTrack(...)`, `loop_audio`, and WebM/MOV
-`transparent=True`). Both accept `workers=1` and `quality="standard"`.
+`transparent=True`). Both accept `workers=1` and `render_quality="standard"`.
 GIF sizing and palette controls are rejected for video output, and video
 options are rejected for GIF output. The generic `render(..., quality=...)`
 option remains reserved for JPEG and WebP raster output.
 
 Both option models use `hold=3.0` for the settled-state hold, matching `hold`
-on Canvas byte methods and `slide_duration` on Deck byte methods. It must be
+on Canvas and Deck byte methods. It must be
 a finite nonnegative number; booleans and strings are rejected. A default hold
 is omitted from serialized options and restored when loaded; an explicit zero
 is retained. Narration and explicit Deck slide durations still determine the
 video schedule, while Deck GIF continues to ignore those per-slide durations.
-Deck animated video retains its existing restriction: `hold=0` (or byte
-`slide_duration=0`) fails when any slide has neither narration nor an explicit
+Deck animated video retains its existing restriction: `hold=0` fails when any slide has neither narration nor an explicit
 positive duration, because its audio schedule requires a positive silent bed.
-Use a positive hold for those slides. Canvas, Deck GIF, and silent PNG sequences
+Use a positive hold for those slides. Canvas, Deck GIF, and silent image sequences
 continue to permit a zero hold.
 
 The byte methods accept the same rendering controls as keyword-only scalars:
-`workers=1` and `quality="standard"` on Canvas GIF/MP4/WebM/MOV and Deck
+`workers=1` and `render_quality="standard"` on Canvas GIF/MP4/WebM/MOV and Deck
 GIF/animated MP4/WebM/MOV, plus `max_size=None` and `colors=None` on GIF.
-Their existing timing names and positional arguments are unchanged; these
-methods do not accept options objects. Static `Deck.to_mp4()` and
-`Deck.render_mp4()` retain their separate narration API.
+These methods use `hold` and do not accept options objects. Narration uses the
+same Deck MP4 timeline as other video output.
 
-File execution resolves the concrete format and animation mode before checking
-export policy. In particular, `Deck.render("slides.mp4")` and
-`Deck.export("slides.mp4")` both use narrated still slides; pass `VideoOptions()`
-to play the animated timeline. Canvas MP4 always uses the animated path.
+File execution resolves the format before checking export policy. Canvas and
+Deck MP4 always play the animated timeline, with default `VideoOptions()` when
+no options are supplied.
 Unused authored Morph transitions do not produce fallback errors or receipt
-diagnostics for narrated stills, static files, or reduced-motion execution.
+diagnostics for static files or reduced-motion execution.
 Reduced animation retains the encoder's holds and default transitions between
-slides. Built-in animated GIF and MP4/WebM/MOV exports report the encoded visual
-frame count and duration. GIF counts include palette-equivalent frame merging,
-and duration follows its centisecond delays; its reported FPS remains the
-configured sampling rate. Video duration is the encoded frame count divided by
-that rate, excluding container audio padding. Narrated still-slide MP4 and
-custom render overrides retain their nominal timing estimates.
+slides. See [animation timing](timing.md) for sampling rates and encoded visual
+frame counts and durations.
 
 `ExportResult.pixel_metrics.width` and `height` remain the canonical first-canvas
-raster dimensions. They do not describe GIF resizing or MP4/WebM cropping. PNG
+raster dimensions. They do not describe GIF resizing or MP4/WebM cropping. Image
 sequence results separately report their full-size output dimensions.
 
 `validate_export(target)` is a declared motion-capability query, independent of
@@ -316,7 +442,7 @@ file execution options. For example, `validate_export("mp4")` still queries
 animated video, even with a reduced-motion policy. Concrete `svg` and `pdf`
 queries describe their static document fallback with the existing `raster`
 family label. Targets are case-insensitive; `jpg`, `jpeg`, `webp`, `png`, `gif`,
-`mp4`, `webm`, `mov`, `htm`, and `png_sequence` are accepted as corresponding family
+`mp4`, `webm`, `mov`, `htm`, and `image_sequence` are accepted as corresponding family
 aliases. The GIF query uses `raster`, while a GIF `ExportResult.target` remains
 `video` for compatibility.
 
@@ -333,7 +459,7 @@ while `render()` rejects transparent options on unsupported output formats.
 
 ```python
 canvas.render("overlay.webm", animation=VideoOptions(transparent=True))
-deck.render("overlay.webm", animation=VideoOptions(transparent=True, quality="high", workers=2))
+deck.render("overlay.webm", animation=VideoOptions(transparent=True, render_quality="high", workers=2))
 webm_bytes = canvas.to_webm(transparent=True)
 options = VideoOptions.model_validate_json('{"transparent": true, "fps": 24}')
 ```
@@ -356,7 +482,7 @@ Transparent transitions use temporary floating-point planes for accurate
 premultiplied blending; memory usage grows with frame size and worker count.
 MP4, GIF, and document/raster output reject this video option before writing
 the destination. PNG animation sequences use the separate
-[`export_png_sequence()` API](#png-image-sequences).
+[`export_image_sequence()` API](#image-sequences).
 
 Use a player or editor that supports VP9 WebM alpha. To inspect the actual
 alpha plane with FFmpeg, select the libvpx decoder **before** the input:
@@ -382,9 +508,9 @@ quality modes and workers follow the transparent WebM behavior above.
 
 ```python
 canvas.render("overlay.mov", animation=VideoOptions(transparent=True, fps=24))
-deck.export("overlay.mov", animation=VideoOptions(transparent=True, quality="high", workers=2))
+deck.export("overlay.mov", animation=VideoOptions(transparent=True, render_quality="high", workers=2))
 mov_bytes = canvas.to_mov(hold=2.0, transparent=True)
-mov_bytes = deck.to_mov(slide_duration=2.0, transparent=True, soundtrack="music.wav")
+mov_bytes = deck.to_mov(hold=2.0, transparent=True, soundtrack="music.wav")
 ```
 
 MOV retains odd dimensions and even 1-pixel-wide or 1-pixel-high frames; it does
@@ -417,55 +543,70 @@ ffmpeg -i overlay.mov -frames:v 1 -pix_fmt rgba frame.png
 
 `examples/transparent_lower_third.py` writes both WebM and ProRes MOV overlays.
 
-### PNG image sequences
+### Image sequences
 
-`Canvas.export_png_sequence(output_directory, *, options=None, policy=None)` and
-the matching Deck method export the actual animated timeline as independent,
-lossless PNG files. Every frame contains the renderer's exact **8-bit RGBA bytes
-with straight alpha**, including hidden RGB where the rendered frame supplies
-it. The export adds no matte; authored backgrounds remain visible. Odd sizes
-and one-pixel dimensions retain every row and column. Imported images are not
-ICC-normalized, so the PNGs and manifest make no sRGB/color-profile claim and
-carry no inherited ICC or sRGB metadata.
-Every frame uses the first canvas's full dimensions; differently sized slides
-are scaled proportionally and centered with transparent padding.
+`Canvas.export_image_sequence()` and the matching Deck method write the actual
+animated timeline as independent PNG, JPEG, or WebP files plus one manifest.
+The destination must be new and its parent must exist. PNG is the default.
 
 ```python
-from quickthumb import PngSequenceOptions
+from quickthumb import ImageSequenceOptions
 
-# The parent must already exist; this destination must be new.
-result = canvas.export_png_sequence(
-    "overlay_frames",
-    options=PngSequenceOptions(fps=24, hold=2, quality="high", workers=2),
-)
+options = ImageSequenceOptions(fps=24, hold=2, render_quality="high", workers=2)
+result = canvas.export_image_sequence("overlay_frames", options=options)
+canvas.export_image_sequence("review_frames", format="jpeg", quality=85, matte="white", options=options)
+canvas.export_image_sequence("web_frames", format="webp", lossless=True, options=options)
 print(result.frame_count, result.duration, result.manifest_path)
 ```
 
-`PngSequenceOptions` has only four fields:
+Encoding controls are keyword arguments to the method, separate from timing
+and compositing in `ImageSequenceOptions(fps=30, hold=3, workers=1,
+render_quality="standard")`:
 
-| Field | Default | Allowed values |
-| --- | --- | --- |
-| `fps` | `30` | Finite numeric rate greater than zero and at most 120 |
-| `hold` | `3` | Finite nonnegative seconds held after animation |
-| `workers` | `1` | Strict integer from 1 through 8 |
-| `quality` | `"standard"` | `"standard"` or `"high"` |
+| Control | PNG | JPEG | WebP |
+| --- | --- | --- | --- |
+| `format` (case-insensitive) | `"png"` (default) | `"jpeg"` | `"webp"` |
+| `quality` | Rejected | Integer 1–95; default 90 | Integer 1–95 for lossy output; default 80 |
+| `matte` | Rejected | Opaque color string; default white | Rejected |
+| `lossless` | Rejected | Rejected | Boolean; default `False` |
 
-The models and JSON schemas are public: `PngSequenceOptions`,
-`PngSequenceManifest`, and `PngSequenceResult` support `model_dump_json()`,
-`model_validate_json()`, and `model_json_schema()`. They describe this Python
-export API; they add no Canvas/Deck document fields or raster format enum values.
-Existing still `.png` rendering and animation bytes methods keep their behavior.
+`lossless=True` and `quality` cannot be combined: quality names lossy
+compression, not lossless WebP encoder effort. Invalid types or incompatible
+options fail before creating output or staging. Options models contain only
+`fps` (finite, >0 and ≤120), `hold` (finite, nonnegative seconds), `workers`
+(strict integer 1–8), and `render_quality` (`"standard"` or `"high"`).
 
-The directory contains `000000.png`, `000001.png`, and so on, plus one compact
-`manifest.json`. Its fixed relative `filename_pattern` is `%06d.png` (at least
-six digits), with `start_index: 0`. It records `version: "1"`, document `kind`,
-`format: "png_sequence"`, actual `frame_count`, `fps`, `duration`, `width`,
-`height`, `mode: "RGBA"`, `bit_depth: 8`, and `alpha: "straight"`. There is no
-growing list of frames, asset paths, or timestamps. The result contains the same
-fields plus absolute `output_directory`, `manifest_path`, and
-`capability_report` diagnostics. Repeated frames are separate editable files,
-not hardlinks. Frame memory stays bounded as the sequence grows; the existing
-scene preparation and per-worker buffers still consume memory.
+PNG retains the renderer's exact **8-bit straight-alpha RGBA bytes**, including
+hidden RGB. Lossless WebP also preserves those pixels, including hidden RGB.
+JPEG flattens alpha onto the resolved matte and encodes RGB; JPEG and lossy
+WebP can change colors and do not promise exact canonical pixels. WebP retains
+alpha, but fully opaque files may omit the redundant alpha plane and open as
+RGB in image readers. Convert those files to RGBA when consuming the manifest's
+logical `mode: "RGBA"`. Authored backgrounds stay visible in every format.
+Odd and one-pixel dimensions retain every row and column. Differently sized
+slides fit the first canvas's full dimensions, with transparent padding before
+encoding (matte-colored padding for JPEG). Imported images are not
+ICC-normalized; output strips inherited profiles/metadata and makes no
+sRGB/color-profile claim.
+
+The directory contains `000000.png`, `.jpg`, or `.webp`, and so on, plus one
+compact `manifest.json`. It records `version: "1"`, `format: "image_sequence"`,
+document `kind`, `encoding: "png"|"jpeg"|"webp"`, relative `filename_pattern`
+(`%06d.png`, `%06d.jpg`, or `%06d.webp`), and `start_index: 0`. Actual
+`frame_count`, `fps`, `duration`, `width`, and `height` describe the written
+files. Pixel fields describe logical decoding: PNG/WebP use `mode: "RGBA"`
+and `alpha: "straight"`; JPEG uses `"RGB"` and `"none"`. `bit_depth` is 8.
+`lossless` reports the selected encoding; resolved `quality` and `matte` are
+recorded where applicable and otherwise `null`.
+
+`ImageSequenceResult` adds absolute `output_directory`, `manifest_path`, and
+`capability_report` diagnostics to `ImageSequenceManifest`. Both models and
+`ImageSequenceOptions` support JSON round trips and `model_json_schema()`.
+They add no Canvas/Deck document fields or raster format enum values. There
+is no growing list of frame paths or timestamps. Repeated frames are encoded
+once per canonical shot and written as independent editable files, not hardlinks.
+Frame memory stays bounded; existing scene preparation and worker buffers
+still consume memory.
 
 Timing follows animated exports, including explicit slide durations,
 `advance_after`, narration-derived visual timing, transitions, and Morph.
@@ -473,13 +614,13 @@ Cumulative frame allocation avoids drift across fractional holds; short or
 zero-hold still slides receive at least one frame. The reported duration is
 exactly `frame_count / fps`, measured from the files actually written. This
 can differ from the independent timeline sampler's duration or sample count.
-`validate_export("png_sequence")` and `inspect_motion(target="png_sequence")`
+`validate_export("image_sequence")` and `inspect_motion(target="image_sequence")`
 use video motion capabilities. Existing strict/reduced-motion policies and
 parent, Morph, caption, and worker restrictions apply.
 
 Sequences are silent: no audio encoding, mux, soundtrack, or audio sidecars.
 Narration retains its existing file validation and duration inference, without
-the encoder's 64-audio-input limit. PNG-only scenes need no FFmpeg; inferred
+the encoder's 64-audio-input limit. Image-only scenes need no FFmpeg; inferred
 narration lengths still require ffprobe, and video layers retain their normal
 probe/decode requirements.
 
@@ -495,20 +636,21 @@ outcome. This is atomic visibility and no-overwrite publication, not an fsync
 crash-durability guarantee or protection from hostile same-user replacement of
 the parent directory.
 
-Run `examples/png_sequence_overlay.py` for a transparent lower third with no
-FFmpeg dependency. Its output directory must be fresh on every run.
+Run `examples/image_sequence_overlay.py` for PNG, white-matted JPEG and
+lossless WebP lower-third sequences with no FFmpeg dependency. All three
+output directories must be fresh on every run.
 
 ### High-quality animated compositing
 
-`GifOptions(quality="high")` and `VideoOptions(quality="high")` opt into a 2×
+`GifOptions(render_quality="high")` and `VideoOptions(render_quality="high")` opt into a 2×
 layer-compositing surface followed by one LANCZOS downsample. The default is
-`quality="standard"`, which preserves existing output. This namespaced option
+`render_quality="standard"`, which preserves existing output. This namespaced option
 is separate from `render(..., quality=...)` for JPEG/WebP. Animated byte
-methods also accept the keyword-only `quality="high"` argument.
+methods also accept the keyword-only `render_quality="high"` argument.
 
 ```python
-canvas.render("smooth.mp4", animation=VideoOptions(fps=30, quality="high"))
-deck.render("smooth.gif", animation=GifOptions(fps=12, colors=64, quality="high"))
+canvas.render("smooth.mp4", animation=VideoOptions(fps=30, render_quality="high"))
+deck.render("smooth.gif", animation=GifOptions(fps=12, colors=64, render_quality="high"))
 ```
 
 High mode filters prepared layers and staggered targets directly into the
@@ -575,18 +717,33 @@ are reported as rendering errors. An OS-level kill cannot run normal cleanup.
 
 A deck can be exported as a video with a voice-over per slide:
 
-- Pass `audio=` to `Deck.slide()`. Without `duration=`, the slide lasts as long
-  as its audio file (measured with `ffprobe`). An explicit `duration=` trims
-  the audio or pads it with silence. A slide with no audio lasts
-  `default_duration` (3 seconds).
-- `deck.render("deck.mp4")` on its own makes a *static* narrated video: each
-  slide's settled frame is shown for its duration, without layer animations or
-  transitions. The output is H.264 video with an AAC audio track.
-- To play animations and transitions as well, pass
-  `animation=VideoOptions(...)`. A background music track can be added with
-  `soundtrack=AudioTrack(path="music.mp3", volume=0.16, loop=True)`, and
-  quickthumb mixes it with the slide narration for you. `deck.to_animated_mp4()`,
-  `deck.to_webm()`, and `deck.to_mov()` do the same and return bytes.
+- Pass `audio=` to `Deck.slide()`. Without `duration=`, the narration duration
+  is measured with `ffprobe`. An explicit `duration=` trims the audio or pads
+  it with silence. A slide with no audio holds silently for `hold` (3 seconds).
+- `deck.export("deck.mp4")` and `deck.render("deck.mp4")` play layer animations
+  and transitions with narration by default. `deck.to_mp4()`, `deck.to_webm()`,
+  and `deck.to_mov()` return animated video bytes.
+- To show still slides with narration, author static canvases and set an
+  explicit `Cut()` transition. The output is H.264/yuv420p with AAC when audio
+  is present. Omitting a transition uses the default fade, not a cut.
+  `reduced_motion=True` also selects default transitions; it is not a still-slide
+  export mode. Existing animated layers still play in the ordinary MP4 path.
+- Add background music with
+  `animation=VideoOptions(soundtrack=AudioTrack(path="music.mp3", volume=0.16, loop=True))`
+  on `deck.export()` or `deck.render()`. Quickthumb mixes it with the slide
+  narration; callers do not need to pre-mix audio themselves.
+
+```python
+from quickthumb import Canvas, Deck, VideoOptions
+from quickthumb.transitions import Cut
+
+deck = Deck(640, 360).transition(Cut())
+deck.slide(Canvas(640, 360).background(color="#123456"),
+           audio="voice.wav", duration=2.5)
+deck.slide(Canvas(640, 360).background(color="#456789"), duration=1.0)
+result = deck.export("narrated.mp4", animation=VideoOptions(fps=30))
+mp4_bytes = deck.to_mp4(fps=30)
+```
 
 ### Timing
 
@@ -595,8 +752,12 @@ click: `on_click` animations play automatically, one after another, like
 `after_previous` (PowerPoint's own video export does the same). Each slide
 plays its transition over the previous slide's last frame, runs its
 animations (starting with the transition, as in HTML), then holds its settled
-state for the transition's `advance_after` if set, otherwise for
-`slide_duration` (`hold` on `Canvas`). In narrated MP4/WebM/MOV output, the inferred or explicit narration duration (or the silent-slide default) extends the visual slide when it is longer than `advance_after`. A slide with no transition cross-fades in over 0.5s (slide 0 with none starts instantly); set a transition on slide 0 to animate in from the matte, which also makes looping GIFs wrap smoothly.
+state for the transition's `advance_after` if set, otherwise for `hold`.
+In narrated MP4/WebM/MOV output, the inferred or explicit narration duration
+(or the silent-slide default) extends the visual slide when it is longer
+than `advance_after`. A slide with no transition cross-fades in over 0.5s
+(slide 0 with none starts instantly); set a transition on slide 0 to animate
+in from the matte, which also makes looping GIFs wrap smoothly.
 
 GIF is encoded by Pillow with per-frame durations, so no extra dependency is needed. MP4 (H.264), WebM (VP9), and MOV (ProRes 4444) require the `ffmpeg` binary on `PATH` (or pointed to by the `QUICKTHUMB_FFMPEG` environment variable).
 
@@ -633,7 +794,39 @@ probe = deck.sample([0.0, 1.25, 4.0], hold=2.0) # explicit instants, ascending
 - **Sampling.** `fps=N` (at most 120) observes every instant `k / N` before `duration`; explicit times must be ascending, and times at or past `duration` show the final settled frame. One capture observes at most 100,000 instants; a larger explicit list or fps grid is rejected with a `ValidationError` before any frame renders. This grid is an observation schedule, not an exporter's frame schedule: exporters sample each span on their own frame grid, and stretch a slide shorter than one frame to a full frame.
 - **Timing.** `duration` is the exact timeline length and never depends on `fps` or on the requested instants. Each `TimelineSegment` gives a slide's absolute `start`, `transition_end`, `animation_end`, and `end`, rounded to nanoseconds; a slide is on screen over `[start, end)`, so a boundary instant belongs to the incoming slide.
 - **Memory.** A capture whose distinct frames would exceed 768 MiB of raw RGBA is rejected with a `ValidationError`, before any frame renders when every page of a still capture, or one frame of a timeline capture, already exceeds it; request fewer instants, a lower `fps`, a shorter `hold`, or a smaller document.
-- **Environment.** `environment` records the facts that can change pixels for an identical document: quickthumb, Pillow, and FreeType versions, the text layout engine (`basic` or `raqm`), and, for documents with video layers, the version of the FFmpeg that decodes them (`QUICKTHUMB_FFMPEG` or `ffmpeg` on `PATH`). Sampling a video document without a working FFmpeg raises `RenderingError` before any frame renders. Identical documents sampled in identical environments produce identical digests; fonts and images are described by the asset manifest (see below).
+- **Environment.** `sample()` and `export()` report quickthumb, Pillow and FreeType versions, the text layout engine (`basic` or `raqm`), available RAQM/HarfBuzz/FriBidi versions, and the FFmpeg version for documents with video layers. Sampling video without a working FFmpeg raises `RenderingError` before any frame renders. `environment.fonts` reports the actual font face bytes selected by that operation; the asset manifest separately describes authored references.
+
+### Render reproducibility
+
+Font family names and `QUICKTHUMB_DEFAULT_FONT` depend on the machine's font
+search path. Inspect the selected faces rather than treating those names as
+portable identifiers:
+
+```python
+capture = canvas.sample()
+for font in capture.environment.fonts:
+    print(font.source, font.sha256, font.variations)
+```
+
+Each face has its resolved file path (or `pillow:default`), SHA-256 and applied
+variable coordinates keyed by the font's axis names. The hash identifies the
+font bytes. Pillow's embedded
+face reports no hash if its bytes are unavailable. Paths are diagnostic: compare
+hashes and coordinates across machines. Only faces loaded for the current
+operation are reported; unused named fonts and faces from earlier operations
+are excluded.
+
+Remote and Google fonts load from content-addressed copies of their resolved
+bytes, so another document refreshing the original URL does not change a
+prefetched face. These copies live in the asset cache and follow its caller-owned
+cleanup lifecycle. Keep local input files unchanged during an operation.
+
+For repeatable canonical raster output, use identical document data, input asset
+bytes, selected fonts and variable coordinates, rendering options and environment;
+seed procedural effects where supported. Different font, shaping or rasterizer
+versions can change layout and edge pixels. This report explains those inputs;
+it does not promise exact pixels across platforms or native-output viewers.
+Use format-specific fidelity tolerances when comparing such outputs.
 
 ## Remote assets and caching
 
@@ -654,7 +847,34 @@ The cache is controlled by environment variables:
 - `QUICKTHUMB_ASSET_MAX_AGE`: seconds after which a cached entry is refreshed from the network. When the refresh fails, the old bytes are used and reported as `stale`. Unset means cached entries never expire.
 - `QUICKTHUMB_ASSET_OFFLINE=1`: never make network requests. Cached entries are used, and expired ones are reported as `stale`.
 
-Each canvas (including each deck slide) tries to refresh an expired asset at most once; later renders and exports of it reuse the same `stale` result. When neither a usable cache entry nor a network response exists, resolution raises `RenderingError` naming the source, the cause, and the cache directory it searched. To refuse stale inputs, check the manifest before rendering:
+### Ownership and reuse
+
+Keep the same `Canvas` or `Deck` to reuse resolution across `prefetch_assets()`,
+`sample()`, and exports. Each canvas retains its first remote resolution result
+and status; a deck uses its slides' results. Remote images, text fills, and SVGs
+render from these retained bytes. Remote fonts, including Google fonts, load
+from content-addressed copies of the resolved bytes, so another document's URL
+refresh does not change a prefetched face. Keep those cache files available
+through sampling and export. Construct a new document to resolve the same
+reference again under the current cache policy.
+
+`PrefetchResult` and `asset_manifest` are JSON-safe reports, not resource handles.
+Saving or loading their JSON does not transfer bytes or preload another document.
+A new document can reuse the persisted cache and reports `fresh` when its entry
+is usable. Local image, font, video, and audio paths remain caller-owned files:
+keep them available and unchanged through sampling or export; prefetch does not
+freeze or copy them. Video and audio sources are not downloaded by prefetch;
+remote video is read by FFmpeg when needed and is outside this cache contract.
+Generated content without a file/URL reference has no external asset entry.
+
+The caller owns the cache directory and its cleanup. Quickthumb atomically writes
+remote cache files and metadata but does not automatically evict them. Remove
+unused entries only when documents and export workers are no longer using that
+cache; existing manifests are observations, not guarantees that their
+`cache_path` still exists. No explicit document close is required for the
+in-memory remote results: they are released with the document.
+
+When neither a usable cache entry nor a network response exists, resolution raises `RenderingError` naming the source, the cause, and the cache directory it searched. To refuse stale inputs, check the manifest before rendering:
 
 ```python
 prefetched = canvas.prefetch_assets()
@@ -662,6 +882,39 @@ stale = [entry for entry in prefetched.asset_manifest if entry.status == "stale"
 if stale:
     raise SystemExit(f"stale assets: {[(e.source, e.stale_reason) for e in stale]}")
 ```
+
+### Asset and plugin lifecycle fixtures
+
+The shared font/texture scenarios in `tests/test_asset_cache.py` use a private
+plugin registry, a repository TTF and generated image bytes served by a temporary
+localhost HTTP server. They exercise public Canvas/Deck operations and cache
+environment settings. A controlled standard clock advances expiry without
+sleeping or editing cache files or metadata. No public network service or
+platform-specific pixel snapshot is required.
+
+| Scenario | Observable evidence | Regression check |
+| --- | --- | --- |
+| Network → fresh new document → expired refresh | Resolution status, fetched time, changed content hashes, actual font identity and decoded PNG pixels; original documents retain their resolved bytes | `test_combined_resources_refresh_only_for_new_expired_documents` (`canvas`, `deck`) |
+| Expired cache while offline | Both resources report `stale` with source, hash, fetch time and offline/max-age reason before plugin execution or output; a caller proceeding gets the original RGBA/font bytes without requests | `test_combined_offline_stale_evidence_precedes_optional_rendering` (`canvas`, `deck`) |
+| Cold offline font or plugin texture | Public prefetch identifies the later slide, source URL and cache directory; plugin texture errors also identify the layer/asset path. No callback or file write occurs | `test_combined_cold_offline_failure_identifies_later_slide_resource` (`font`, `texture`) |
+| Prefetched resources across raster and native document output | Canvas/Deck raster agreement, actual font SHA, asset manifest, native SVG text and exact plugin PNG fallback | `test_prefetched_font_and_private_plugin_keep_shared_export_evidence` |
+| Missing declared plugin dependency | Escaped JSON Pointer, layer identity and prewrite failure | `test_plugin_declared_missing_assets_fail_before_output_or_callback` |
+| Plugin native match, tolerated difference, mismatch or unsupported target | Actual local SVG comparison and adopted native/PNG representation; explained fallback and strict rejection | `tests/test_plugin_svg.py`, `test_plugin_document_fallback_reports_and_preserves_output` in `tests/test_plugin_runtime.py` |
+| Default, family, file and variable fonts | Actual selected face hashes and applied coordinates in sample/export environments | Font identity cases in `tests/test_canonical_sampling.py` |
+
+Stale refusal is a caller decision using the returned manifest, as shown above;
+there is no automatic refuse-stale export flag. The offline fixture verifies
+that evidence is available before any plugin callback or destination change,
+then separately verifies the caller's choice to render with those stale bytes.
+Cold misses fail rather than substituting a font or empty plugin texture.
+
+Run `uv run --locked pytest tests/test_asset_cache.py tests/test_plugin_runtime.py
+tests/test_plugin_svg.py tests/test_canonical_sampling.py --no-cov -q`.
+These files are included in the existing automated `pytest tests/` quality job.
+Named scenarios and parameter IDs identify the resource/document failure;
+expected hashes are computed from the controlled source bytes and rendered
+samples are compared in the same recorded font/render environment. This does
+not promise identical font pixels across machines or native viewers.
 
 ## Decks (multiple images and slides)
 
@@ -682,7 +935,7 @@ deck = (
 deck.render("deck.pdf")     # one multi-page PDF (a page per slide)
 deck.render("deck.pptx")    # one multi-slide PPTX (a slide per slide)
 deck.render("deck.gif")     # one animation playing transitions between slides
-deck.render("deck.mp4")     # static slides with per-slide narration
+deck.export("deck.mp4")     # animated slides with per-slide narration
 deck.render(
     "deck.mp4",
     animation=VideoOptions(soundtrack=AudioTrack(path="music.mp3", loop=True)),
@@ -694,10 +947,10 @@ pdf_bytes = deck.to_pdf()
 pptx_bytes = deck.to_pptx()
 gif_bytes = deck.to_gif()
 webm_bytes = deck.to_webm()
-mp4_bytes = deck.to_mp4()   # static slides with per-slide narration
+mp4_bytes = deck.to_mp4()   # timeline with per-slide narration
 ```
 
-`render()` dispatches on the output extension: `.pdf` and `.pptx` produce a single document; `.gif`, `.webm`, and `.mov` produce an animation; `.mp4` produces static slides with per-slide narration unless `animation=VideoOptions(...)` selects the animated path; and raster extensions have no native multi-page container, so the deck writes one file per slide as a zero-padded numbered sequence and returns the written paths.
+`render()` dispatches on the output extension: `.pdf` and `.pptx` produce a single document; `.gif`, `.mp4`, `.webm`, and `.mov` produce an animation; and raster extensions have no native multi-page container, so the deck writes one file per slide as a zero-padded numbered sequence and returns the written paths.
 
 Slides may have different dimensions. `deck.diagnose()` aggregates each slide's [diagnostics](diagnostics.md) (each tagged with its `slide_index`) and adds a `mixed-slide-size` warning when they differ. The PDF path sizes each page to its slide, but PPTX has a single presentation size taken from the first slide, so slides larger than the first are clipped by PowerPoint. Keep slides the same size when targeting `.pptx`. Decks round-trip through JSON with `deck.to_json()` / `Deck.from_json(...)`, reusing the per-canvas serialization.
 
@@ -713,3 +966,125 @@ quickthumb render spec.json -o card.pdf
 # Live HTML slides; open /?presenter for the presenter dashboard
 quickthumb serve slides.py
 ```
+
+## Lottie vectors
+
+```python
+from quickthumb import Canvas, LottieOptions
+
+canvas = Canvas(240, 160).shape("ellipse", (20, 20), 80, 60, "#159A8C")
+result = canvas.export("scene.lot", animation=LottieOptions(fps=30, hold=3))
+```
+
+`.lot` contains ordinary Lottie JSON, not Quickthumb document JSON. The supported
+subset is a single Canvas: one initial solid background, solid
+rectangle/rounded rectangle, ellipse, pill, triangle, star and polygon shapes,
+and Paths (`M/L/H/V/C/S/Q/T/A/Z`) with even-odd solid fill or solid stroke. Shape
+alignment and percentage positions retain their authored layout. Path control hulls must
+fit inside the viewport (strokes reserve a conservative miter-limit margin); stroked Paths require uniform view-box scaling.
+
+`hold` is nonnegative seconds; `fps` defaults to 30 and supports up to 120.
+Stroked degenerate contours are rejected rather than replaced with missing dots.
+The playback span is the latest canonical motion end plus `hold`, rounded up
+to whole frames; the receipt reports
+that frame count and its duration divided by fps. Zero hold adds no final pause;
+a static zero-hold composition still occupies one frame. Output has no audio or assets.
+See [the runnable static example](https://github.com/sjquant/quickthumb/blob/main/examples/lottie_static.py).
+
+`canvas.validate_export("lottie")` lists unsupported source IDs and JSON paths.
+Gradients, effects/presets, stagger, masks, viewport clipping,
+paint/dash tracks, motion paths, images, plugins and Deck output are
+not supported in this slice.
+Export rejects them before opening the destination, including when a policy asks
+for static or raster fallback. It never silently drops features or embeds rendered
+frames. No Lottie import, ZIP or editor API is provided.
+
+Quadratics convert exactly to cubic tangent handles. Elliptical arcs use the
+same bounded cubic conversion as native PDF paths (at most 1/8 device pixel
+approximation, with command and coordinate precision limits). No ReportLab or
+other document-renderer dependency is needed for Lottie. Closed contours retain
+their closing tangents and multiple contours share the even-odd fill rule.
+Admission uses the conservative control hull: some curves that visually fit
+are rejected when their controls exceed the fixed viewport. Rescale or reposition
+the path data inside its view box instead of expecting implicit cropping.
+See the [curved Path example](https://github.com/sjquant/quickthumb/blob/main/examples/lottie_paths.py).
+
+Canonical position, uniform/axis scale, rotation and opacity timelines retain
+ordered composition, easing, delays and held keys. Authored rotation is retained;
+track opacity multiplies authored layer opacity. Paths use their fixed viewport
+pivot. Shapes use the same whole painted-source pivot as canonical sampling,
+including authored static rotation, alignment and irregular geometry. Preparing
+an animated Shape uses one bounded untimed source probe to determine that pivot;
+it does not embed pixels. Animated Shape sources must fit inside the Canvas.
+Nonpositive uniform Shape/Null scale is explicitly unsupported by this renderer;
+axis scales and Path scales retain their canonical behavior.
+
+Pose properties are held vector samples at `LottieOptions.fps`, augmented with
+exact event and authored-key boundaries shared across the Canvas. Between those instants the previous
+pose remains visible; output does not claim continuous native Lottie easing.
+Static properties remain native constants. Capability diagnostics report this
+sampling distinction. Export stops before writing if more than 100,000 total
+layer-pose observations or native coordinate precision limits would be exceeded.
+`ExportPolicy(reduced_motion=True)` intentionally removes the timelines and
+exports the authored static pose for `hold` seconds, rather than the animation
+endpoint. Other unsupported features still fail before writing.
+See the [pose-motion example](https://github.com/sjquant/quickthumb/blob/main/examples/lottie_motion.py).
+
+Top-level Null and supported Shape layers can form transform hierarchies with
+`parent`. Parenting composes existing canonical local frames, including authored
+rotation, anchors and nonuniform axes; local poses do not bake ancestors again.
+Percent coordinates still resolve against Canvas dimensions, even on children.
+Opacity affects each painted source independently and does not propagate from
+an invisible parent to its children. Axis-zero collapse and axis reflections
+retain the canonical parent behavior. Source drawing order remains independent
+of the graph order, including a child listed before its parent.
+
+Linked Shape pivots retain the canonical opaque-reference footprint, even when
+the parent's own paint is transparent. Their local sources may begin outside the
+Canvas: ancestor transforms can bring them into view. Unlinked animated Shape
+sources keep the earlier unclipped-source requirement. Cycles, missing parents,
+unsupported groups/effects and Path parenting are rejected before writing.
+See the [parenting example](https://github.com/sjquant/quickthumb/blob/main/examples/lottie_parenting.py).
+
+### Lottie stroke trim
+
+Paths support authored `trim_start`, `trim_end`, `trim_offset` and their
+`TrimStartTrack`, `TrimEndTrack`, `TrimOffsetTrack` timelines. Trim uses one
+normalized local arc-length clock across all contours, including cyclic wrapped
+windows and negative or multi-turn offsets. Full 0→1 ignores offset; equal
+endpoints and 1→0 are empty. Fill remains complete underneath the trimmed stroke.
+Closed seams retain their joins; open cuts use the authored cap.
+
+Trim properties use the same held fps samples, authored boundaries, composition,
+easing and reduced-motion policy as pose properties above. They remain native
+vector trim modifiers, with no frame images. Native endpoint rounding must not
+collapse a nonempty interval or exceed a conservative 1/8-pixel endpoint bound
+under the sampled scale; otherwise export rejects it before writing. The existing
+viewport, uniform stroke scaling and nondegenerate contour limits still apply.
+Dashes and dash-offset tracks remain unsupported; there is no trim-then-dash
+approximation. See the [stroke-trim example](https://github.com/sjquant/quickthumb/blob/main/examples/lottie_trim.py).
+
+### Lottie outlined text
+
+Static plain single-line printable ASCII text exports as self-contained native
+cubic glyph outlines. Install `quickthumb[lottie]` for the optional fonttools
+dependency; shape and Path output do not require it. The actual resolved local
+FreeType face, including Pillow's embedded default font, supplies the outlines.
+The file embeds neither font assets nor editable Lottie text. Canonical baseline,
+alignment and explicit letter spacing determine glyph positions; font contour
+winding preserves holes within each independently painted glyph, so overlapping
+glyphs cannot cancel each other. Opacity applies once to the whole text layer. Text paint itself
+must be opaque: the canonical direct-draw alpha-paint behavior on a backdrop is
+not equivalent to native Lottie compositing.
+
+Text must not use animation, parenting, rotation, wrapping/fitting, rich content,
+counters, effects, masks, gradients, variable/color fonts or remote font sources.
+Missing glyphs fail explicitly instead of becoming replacement boxes. Unspaced
+multi-character RAQM layout requires shaping and is rejected; use explicit
+nonzero `letter_spacing`. Unspaced BASIC text is admitted only when its measured
+advances are additive. This subset does not promise complex-script shaping.
+
+Each layer is bounded to 1024 characters, 65536 outline vertices and a 64 MiB
+font source, with native coordinate-precision checks. Unsupported text and missing
+fonttools produce source-specific diagnostics before opening the destination.
+See the [outlined-text example](https://github.com/sjquant/quickthumb/blob/main/examples/lottie_text.py).

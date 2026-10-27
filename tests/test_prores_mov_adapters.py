@@ -132,7 +132,7 @@ def test_deck_mov_bytes_preserve_explicit_narration_and_transition_schedule(monk
     scheduler = Mock(wraps=deck._animation_audio_schedule)
     monkeypatch.setattr(deck, "_animation_audio_schedule", scheduler)
 
-    assert deck.to_mov(slide_duration=2, transparent=True) == b"mov"
+    assert deck.to_mov(hold=2, transparent=True) == b"mov"
 
     assert encoder.call_args.args == ([first, second], [None, transition])
     forwarded = encoder.call_args.kwargs
@@ -165,7 +165,7 @@ def test_mov_render_uses_animated_writer_and_namespaced_options(
             transparent=True,
             matte="#123456",
             workers=2,
-            quality="high",
+            render_quality="high",
             soundtrack=AudioTrack(path="music.wav"),
             loop_audio=False,
         )
@@ -192,20 +192,15 @@ def test_mov_render_uses_animated_writer_and_namespaced_options(
         scheduler.assert_called_once_with(hold)
 
 
-def test_deck_mp4_keeps_static_default_while_mov_defaults_to_animation(
-    monkeypatch, tmp_path, fake_writer
-):
+def test_deck_mp4_and_mov_default_to_animation(monkeypatch, tmp_path, fake_writer):
     deck = document("deck")
-    static_writer = Mock()
-    monkeypatch.setattr(Deck, "render_mp4", static_writer)
 
     mp4_path = str(tmp_path / "slides.mp4")
     mov_path = str(tmp_path / "slides.mov")
     assert deck.render(mp4_path) == [mp4_path]
     assert deck.render(mov_path) == [mov_path]
 
-    static_writer.assert_called_once_with(mp4_path)
-    fake_writer.assert_called_once()
+    assert fake_writer.call_count == 2
     assert fake_writer.call_args.kwargs["format"] == "mov"
 
 
@@ -291,7 +286,7 @@ def test_mov_rejects_gif_options_before_codec_or_output(monkeypatch, tmp_path, k
     path.write_bytes(b"previous export")
     monkeypatch.setattr(video, "_ffmpeg_binary", Mock(side_effect=AssertionError("no encoder")))
 
-    with pytest.raises(ValidationError, match="GifOptions.*GIF"):
+    with pytest.raises(ValidationError, match="VideoOptions are required for MOV output"):
         document(kind).render(str(path), animation=GifOptions(fps=12))
 
     assert path.read_bytes() == b"previous export"

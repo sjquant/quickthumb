@@ -242,8 +242,17 @@ class LayerIdentityModel(quickthumbModel):
 
     model_config = ConfigDict(validate_assignment=True)
 
-    id: str | None = None
-    motion_key: str | None = None
+    id: str | None = Field(
+        default=None,
+        description="Layer identifier unique within this Canvas scene, including group children.",
+        # JSON Schema searches instead of fullmatching, and $ permits a final newline.
+        json_schema_extra={"pattern": _IDENTITY_PATTERN.pattern + r"(?![\s\S])"},
+    )
+    motion_key: str | None = Field(
+        default=None,
+        description="Cross-scene matching key for Morph transitions; separate from scene-local id.",
+        json_schema_extra={"pattern": _IDENTITY_PATTERN.pattern + r"(?![\s\S])"},
+    )
 
     @field_validator("id", "motion_key")
     @classmethod
@@ -271,8 +280,28 @@ class _AnimatableLayerModel(LayerIdentityModel):
     anchor: AnchorPoint = Field(
         default=(0.5, 0.5),
         exclude_if=lambda value: value == (0.5, 0.5),
+        description=(
+            "Normalized 0–1 pivot for canonical motion; independent of layout position and align."
+        ),
         examples=[(0.0, 0.0), (0.5, 0.5), (1.0, 1.0)],
     )
+
+    @model_validator(mode="after")
+    def validate_path_motion_target(self):
+        from .motion import AnimationSpec
+
+        animation = getattr(self, "animation", None)
+        items = animation if isinstance(animation, list) else [animation]
+        if getattr(self, "type", None) != "path" and any(
+            track.type in {"dash_offset", "trim_start", "trim_end", "trim_offset"}
+            for item in items
+            if isinstance(item, AnimationSpec)
+            for track in item.tracks or ()
+        ):
+            raise ValidationError(
+                "dash_offset and trim tracks require a PathLayer", path="/animation"
+            )
+        return self
 
 
 class _MotionModel(quickthumbModel):

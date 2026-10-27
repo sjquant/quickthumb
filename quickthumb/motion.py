@@ -41,6 +41,8 @@ from quickthumb.models import (
     MotionSlideInspection,
     MotionTargetInspection,
     MotionTrackInspection,
+    PathLayer,
+    PluginLayer,
     ReducedMotionInspection,
     ShapeLayer,
     TextLayer,
@@ -66,6 +68,10 @@ MotionProperty = Literal[
     "scale_y",
     "image_zoom",
     "rotation",
+    "dash_offset",
+    "trim_start",
+    "trim_end",
+    "trim_offset",
     "opacity",
     "clip_progress",
     "blur",
@@ -404,8 +410,15 @@ class NormalizedTrack(BaseModel):
                     raise ValidationError("tangents require finite position control points")
         if self.auto_orient and self.property != "position":
             raise ValidationError("auto_orient is only supported for position tracks")
-        if self.blend == "add" and self.property not in {"position", "image_pan"}:
-            raise ValidationError("additive tracks are only supported for position and image_pan")
+        if self.blend == "add" and self.property not in {
+            "position",
+            "image_pan",
+            "dash_offset",
+            "trim_offset",
+        }:
+            raise ValidationError(
+                "additive tracks require position, image_pan, dash_offset or trim_offset"
+            )
         if self.blend == "multiply" and self.property not in {
             "scale",
             "scale_x",
@@ -503,6 +516,14 @@ class LayerState(BaseModel):
     scale_y: float = Field(default=1.0, allow_inf_nan=False, exclude_if=lambda value: value == 1.0)
     image_zoom: float = Field(default=1.0, ge=1.0, allow_inf_nan=False)
     rotation: float = Field(default=0.0, allow_inf_nan=False)
+    dash_offset: float = Field(
+        default=0.0, allow_inf_nan=False, exclude_if=lambda value: value == 0
+    )
+    trim_start: float | None = Field(default=None, ge=0, le=1, allow_inf_nan=False)
+    trim_end: float | None = Field(default=None, ge=0, le=1, allow_inf_nan=False)
+    trim_offset: float = Field(
+        default=0.0, allow_inf_nan=False, exclude_if=lambda value: value == 0
+    )
     opacity: float = Field(default=1.0, ge=0.0, le=1.0, allow_inf_nan=False)
     clip_progress: float = Field(default=1.0, ge=0.0, le=1.0, allow_inf_nan=False)
     blur: float = Field(default=0.0, ge=0.0, allow_inf_nan=False)
@@ -703,6 +724,20 @@ def _layer_motion_state(layer: object, canvas: Canvas, time: float = 0.0) -> Lay
     if isinstance(animation, AnimationSpec) or (
         isinstance(animation, list) and all(isinstance(item, AnimationSpec) for item in animation)
     ):
+        if isinstance(layer, PathLayer):
+            relative = compile_timeline(animation).sample(time, LayerState(anchor=layer.anchor))
+            x, y = state.position or (0, 0)
+            dx, dy = relative.position or (0, 0)
+            return relative.with_values(
+                position=(x + dx, y + dy),
+                rotation=layer.rotation + relative.rotation,
+                dash_offset=layer.dash_offset + relative.dash_offset,
+                trim_start=layer.trim_start if relative.trim_start is None else relative.trim_start,
+                trim_end=layer.trim_end if relative.trim_end is None else relative.trim_end,
+                trim_offset=layer.trim_offset + relative.trim_offset,
+                opacity=layer.opacity * relative.opacity,
+                color=layer.color,
+            )
         return compile_timeline(animation).sample(time, state)
     return state
 
@@ -724,6 +759,10 @@ def _layer_base_state(layer: object, canvas: Canvas) -> LayerState:
         anchor=getattr(layer, "anchor", (0.5, 0.5)),
         opacity=float(getattr(layer, "opacity", 1.0)),
         rotation=float(getattr(layer, "rotation", 0.0)),
+        dash_offset=float(getattr(layer, "dash_offset", 0.0)),
+        trim_start=getattr(layer, "trim_start", None),
+        trim_end=getattr(layer, "trim_end", None),
+        trim_offset=float(getattr(layer, "trim_offset", 0.0)),
         color=getattr(layer, "color", None),
     )
     return state
@@ -818,9 +857,14 @@ class Timeline(BaseModel):
         if base is not None and not isinstance(base, LayerState):
             raise ValidationError("sample base must be a LayerState")
         state = base if base is not None else LayerState()
+        authored_rotation = state.rotation
+        state = state.with_values(rotation=0.0)
+        heading = 0.0
         for event in self.events:
-            state = _sample_event(event, time, state)
-        return state
+            state, event_heading = _sample_event(event, time, state)
+            if event_heading is not None:
+                heading = event_heading
+        return state.with_values(rotation=authored_rotation + state.rotation + heading)
 
     def frame_times(self, fps: float) -> tuple[float, ...]:
         """Return deterministic frame timestamps from zero through the duration."""
@@ -875,7 +919,10 @@ def _has_transform_extensions(layer: object) -> bool:
     return bool(specs) and (
         getattr(layer, "anchor", (0.5, 0.5)) != (0.5, 0.5)
         or any(
-            track.type in {"scale_x", "scale_y"} or _is_path_track(track)
+            track.type in {"scale_x", "scale_y"}
+            or getattr(layer, "type", None) == "image"
+            and track.type == "scale"
+            or _is_path_track(track)
             for spec in specs
             for track in spec.tracks or ()
         )
@@ -999,16 +1046,14 @@ def _geometry_in_motion(
     timeline: Timeline,
     time: float,
     *,
-    include_scale: bool = True,
     state: LayerState | None = None,
 ) -> bool:
     """Detect geometry interpolation while preserving settled and overridden tracks."""
-    properties = {"position", "rotation", "scale_x", "scale_y"}
-    if include_scale:
-        properties.add("scale")
+    properties = {"position", "rotation", "scale", "scale_x", "scale_y"}
     moving: dict[str, bool] = {}
     position_changes: dict[tuple[float, float, object], tuple[float, float]] = {}
     path_position_moving = False
+    heading_moving = False
     for event in timeline.events:
         if time < event.active_start:
             continue
@@ -1061,8 +1106,7 @@ def _geometry_in_motion(
                 if path:
                     path_position_moving = path_position_moving or active
                     if track.auto_orient and track.has_direction:
-                        # Auto-orient writes rotation at this track's ordered slot.
-                        moving["rotation"] = active
+                        heading_moving = active
                     continue
                 if active and segment is not None:
                     left, right = segment
@@ -1094,6 +1138,7 @@ def _geometry_in_motion(
     # Do not resample a held rotation just because a cancelled move is scheduled.
     return (
         path_position_moving
+        or heading_moving
         or any(moving.values())
         or any(abs(x) > 1e-12 or abs(y) > 1e-12 for x, y in position_changes.values())
     )
@@ -1243,10 +1288,7 @@ def _compile_preset_tracks(
     if effect == "ken_burns":
         direction = options.get("direction") or "in"
         values = (1.0, 1.1) if direction == "in" else (1.1, 1.0)
-        # Keep the public preset on the established scale property. Image
-        # layers interpret it as viewport zoom; other layers retain the
-        # existing generic scale semantics.
-        return (track("scale", values, blend="multiply"),)
+        return (track("image_zoom", values, blend="multiply"),)
     if effect == "pan":
         origin = options.get("from") or "left"
         offsets = {
@@ -1329,6 +1371,7 @@ def _normalize_track(track: TrackSpec) -> NormalizedTrack:
             for keyframe in track.keyframes
         ),
         auto_orient=getattr(track, "auto_orient", False),
+        blend=getattr(track, "blend", "replace"),
     )
 
 
@@ -1374,28 +1417,33 @@ def _validate_property_value(property: MotionProperty, value: MotionValue) -> No
         raise ValidationError(f"{property} keyframes must contain finite numbers")
     if property in {"opacity", "clip_progress"} and not 0.0 <= value <= 1.0:
         raise ValidationError(f"{property} keyframes must be between 0.0 and 1.0")
+    if property in {"trim_start", "trim_end"} and not 0 <= value <= 1:
+        raise ValidationError("trim boundary keyframes must be between 0 and 1")
     if property == "image_zoom" and value < 1.0:
         raise ValidationError("image_zoom keyframes must be at least 1.0")
     if property == "blur" and value < 0.0:
         raise ValidationError("blur keyframes must be non-negative")
 
 
-def _sample_event(event: TimelineEvent, time: float, state: LayerState) -> LayerState:
+def _sample_event(
+    event: TimelineEvent, time: float, state: LayerState
+) -> tuple[LayerState, float | None]:
     """Apply one event to a state, preserving stable event-order precedence."""
     if time < event.active_start:
-        return state
+        return state, None
+    heading = None
     progress = (
         1.0 if event.duration == 0 else min(1.0, (time - event.active_start) / event.duration)
     )
     eased_progress = easing_value(event.options.get("easing"), progress)
     for track in event.tracks:
         if track.property == "position" and _is_path_track(track):
-            value, heading = _sample_path_track(
+            value, path_heading = _sample_path_track(
                 track, progress * event.duration, event.options.get("easing")
             )
             state = _compose_track_value(state, track, value)
-            if track.auto_orient and heading is not None:
-                state = state.with_values(rotation=heading)
+            if track.auto_orient and path_heading is not None:
+                heading = path_heading
             continue
         value = _sample_track(track, progress, event.duration, event.options.get("easing"))
         state = _compose_track_value(state, track, value)
@@ -1403,7 +1451,7 @@ def _sample_event(event: TimelineEvent, time: float, state: LayerState) -> Layer
         state = state.with_values(image_focal_point=tuple(event.options["focal_point"]))
     if event.effect is not None and event.source == "legacy":
         state = _sample_effect(event, eased_progress, state)
-    return state
+    return state, heading
 
 
 def _compose_track_value(
@@ -1413,6 +1461,10 @@ def _compose_track_value(
     if track.blend == "replace":
         return state.with_values(**{track.property: value})
     if track.blend == "add":
+        if track.property in {"dash_offset", "trim_offset"}:
+            return state.with_values(
+                **{track.property: getattr(state, track.property) + cast(float, value)}
+            )
         if not isinstance(value, tuple):
             return state
         if track.property == "image_pan":
@@ -1445,7 +1497,15 @@ def _sample_track(
                 return right.value if local_time == right.time else left.value
             ratio = (local_time - left.time) / (right.time - left.time)
             eased_ratio = easing_value(left.easing if left.easing is not None else easing, ratio)
-            if track.property in {"opacity", "clip_progress", "color", "image_pan", "image_zoom"}:
+            if track.property in {
+                "opacity",
+                "clip_progress",
+                "color",
+                "image_pan",
+                "image_zoom",
+                "trim_start",
+                "trim_end",
+            }:
                 eased_ratio = min(1.0, max(0.0, eased_ratio))
             if track.property == "color":
                 return interpolate_color(cast(str, left.value), cast(str, right.value), eased_ratio)
@@ -1511,7 +1571,12 @@ def _interpolate(left: MotionValue, right: MotionValue, ratio: float) -> MotionV
     if isinstance(left, tuple) and isinstance(right, tuple):
         return tuple(a + (b - a) * ratio for a, b in zip(left, right, strict=True))
     if isinstance(left, (int, float)) and isinstance(right, (int, float)):
-        return left + (right - left) * ratio
+        difference = right - left
+        return (
+            left + difference * ratio
+            if math.isfinite(difference)
+            else left * (1 - ratio) + right * ratio
+        )
     if isinstance(left, str) and isinstance(right, str):
         return _interpolate_color(left, right, ratio)
     return left if ratio < 1.0 else right
@@ -1549,7 +1614,7 @@ def _sample_effect(event: TimelineEvent, progress: float, state: LayerState) -> 
         progress = min(1.0, max(0.0, progress))
         return state.with_values(clip_progress=state.clip_progress * progress)
     if effect == "ken_burns":
-        return state.with_values(scale=state.scale * (1.0 + 0.1 * progress))
+        return state.with_values(image_zoom=state.image_zoom * (1.0 + 0.1 * progress))
     if effect in {"float", "pulse", "shake"}:
         distance = float(event.options.get("distance", 12.0) or 0.0)
         oscillation = math.sin(progress * math.tau)
@@ -1585,8 +1650,9 @@ def sample_frames(timeline: Timeline, fps: float) -> tuple[tuple[float, LayerSta
 
 # Export capability contract -------------------------------------------------
 
-ExportTarget = Literal["raster", "video", "html", "pptx"]
+ExportTarget = Literal["raster", "video", "html", "pptx", "lottie"]
 CapabilityFeature = Literal[
+    "path",
     "parent",
     "anchor",
     "position",
@@ -1596,6 +1662,10 @@ CapabilityFeature = Literal[
     "scale_y",
     "image_zoom",
     "rotation",
+    "dash_offset",
+    "trim_start",
+    "trim_end",
+    "trim_offset",
     "opacity",
     "clip_progress",
     "blur",
@@ -1622,6 +1692,7 @@ class MotionCapability:
 
 
 _CAPABILITY_FEATURES: tuple[CapabilityFeature, ...] = (
+    "path",
     "parent",
     "anchor",
     "position",
@@ -1631,6 +1702,10 @@ _CAPABILITY_FEATURES: tuple[CapabilityFeature, ...] = (
     "scale_y",
     "image_zoom",
     "rotation",
+    "dash_offset",
+    "trim_start",
+    "trim_end",
+    "trim_offset",
     "opacity",
     "clip_progress",
     "blur",
@@ -1671,6 +1746,10 @@ _CANONICAL_RENDERED: dict[str, frozenset[str]] = {
             "scale_x",
             "scale_y",
             "rotation",
+            "dash_offset",
+            "trim_start",
+            "trim_end",
+            "trim_offset",
             "opacity",
             "clip_progress",
             "blur",
@@ -1691,9 +1770,16 @@ _CAPABILITIES["html"] = {
     for feature in _CAPABILITY_FEATURES
 }
 _CAPABILITIES["html"]["parent"] = MotionCapability("parent", "html", "partial")
+_CAPABILITIES["html"]["path"] = MotionCapability("path", "html", "partial", "rasterize")
+_CAPABILITIES["html"]["dash_offset"] = MotionCapability(
+    "dash_offset", "html", "unsupported", "static"
+)
+for _feature in ("trim_start", "trim_end", "trim_offset"):
+    _CAPABILITIES["html"][_feature] = MotionCapability(_feature, "html", "unsupported", "static")
 _CAPABILITIES["html"]["color"] = MotionCapability("color", "html", "unsupported", "static")
 _CAPABILITIES["html"]["motion_path"] = MotionCapability("motion_path", "html", "partial")
 _PPTX_FALLBACKS: dict[CapabilityFeature, tuple[SupportLevel, Fallback | None]] = {
+    "path": ("fallback", "rasterize"),
     "parent": ("fallback", "static"),
     "position": ("native", None),
     "image_pan": ("fallback", "rasterize"),
@@ -1703,6 +1789,10 @@ _PPTX_FALLBACKS: dict[CapabilityFeature, tuple[SupportLevel, Fallback | None]] =
     "scale_y": ("unsupported", "static"),
     "image_zoom": ("fallback", "rasterize"),
     "rotation": ("native", None),
+    "dash_offset": ("unsupported", "static"),
+    "trim_start": ("unsupported", "static"),
+    "trim_end": ("unsupported", "static"),
+    "trim_offset": ("unsupported", "static"),
     "opacity": ("native", None),
     "clip_progress": ("fallback", "fade"),
     "blur": ("unsupported", "rasterize"),
@@ -1719,6 +1809,32 @@ _CAPABILITIES["pptx"] = {
     for feature in _CAPABILITY_FEATURES
 }
 
+_CAPABILITIES["lottie"] = {
+    feature: MotionCapability(
+        feature,
+        "lottie",
+        "partial"
+        if feature
+        in {
+            "path",
+            "parent",
+            "position",
+            "anchor",
+            "scale",
+            "scale_x",
+            "scale_y",
+            "rotation",
+            "opacity",
+            "trim_start",
+            "trim_end",
+            "trim_offset",
+            "easing",
+        }
+        else "unsupported",
+    )
+    for feature in _CAPABILITY_FEATURES
+}
+
 CAPABILITY_MATRIX = MappingProxyType(
     {target: MappingProxyType(row) for target, row in _CAPABILITIES.items()}
 )
@@ -1731,11 +1847,11 @@ def _normalize_target(target: ExportTarget | str) -> ExportTarget:
         "webm": "video",
         "mov": "video",
         "png": "raster",
-        "png_sequence": "video",
+        "image_sequence": "video",
     }
     normalized = aliases.get(str(target).lower(), str(target).lower())
     if normalized not in _CAPABILITIES:
-        raise ValidationError("target must be one of raster, video, html, or pptx")
+        raise ValidationError("target must be one of raster, video, html, pptx, or lottie")
     return normalized  # type: ignore[return-value]
 
 
@@ -1763,7 +1879,7 @@ def _capability_features_for(animation: object) -> tuple[CapabilityFeature, ...]
                 "float": ("position",),
                 "pulse": ("scale",),
                 "shake": ("rotation",),
-                "ken_burns": ("position", "scale"),
+                "ken_burns": ("image_zoom",),
                 "pan": ("image_pan",),
                 "typewriter": ("clip_progress",),
                 "bar_grow": ("clip_progress",),
@@ -1818,6 +1934,10 @@ def _validate_export(
     parent_document_format: str | None = None,
     uses_authored_transitions: bool = True,
 ) -> list[ExportDiagnostic]:
+    if str(target).lower() == "lottie":
+        from quickthumb._export_lottie import validate_lottie
+
+        return validate_lottie(source, policy)
     normalized = _normalize_target(target)
     resolved_policy = policy or ExportPolicy()
     row = capabilities_for(normalized)
@@ -1844,7 +1964,15 @@ def _validate_export(
     parent_html_paths: set[str] = set()
     parent_html_problems: dict[str, str] = {}
     document_format = parent_document_format or normalized
+    svg_candidates: set[int] = set()
     for index, canvas in enumerate(getattr(source, "slides", (source,))):
+        if document_format == "svg" and "svg" in resolved_policy.fidelity:
+            svg_candidates.update(
+                id(layer)
+                for _, layer in _iter_export_layers(canvas)
+                if isinstance(layer, PluginLayer)
+                and "svg" in canvas._plugin_registry.capabilities(layer.renderer, layer.version)
+            )
         try:
             cast("Canvas", canvas)._validate_layer_identities()
         except ValidationError as error:
@@ -1882,6 +2010,41 @@ def _validate_export(
                 if html_problem:
                     parent_html_problems.update((path, html_problem) for path in paths)
     for layer_id, pointer, layer in _iter_export_layer_locations(source):
+        if isinstance(layer, PluginLayer):
+            raster = document_format not in {"svg", "html", "pdf", "pptx"}
+            candidate = id(layer) in svg_candidates
+            action = resolved_policy.pptx.get(layer_id) if normalized == "pptx" else None
+            if (
+                not raster
+                and not candidate
+                and (action or resolved_policy.unsupported_motion) in {"error", "native"}
+            ):
+                raise RenderingError(
+                    f"Plugin '{layer.renderer}' version '{layer.version}' requires "
+                    f"RGBA raster fallback in {document_format}.",
+                    code="unsupported_capability",
+                    path=pointer,
+                    layer_id=layer_id,
+                )
+            diagnostics.append(
+                ExportDiagnostic(
+                    layer_id=layer_id,
+                    feature="plugin",
+                    target=normalized,
+                    support="full" if raster else "partial" if candidate else "fallback",
+                    fallback=None if raster or candidate else "rasterize",
+                    message=(
+                        "Plugin SVG callback registered; local comparison has not executed"
+                        if candidate
+                        else f"Plugin '{layer.renderer}' version '{layer.version}' uses static "
+                        + (
+                            "canonical RGBA pixels"
+                            if raster
+                            else f"RGBA raster fallback in {document_format}"
+                        )
+                    ),
+                )
+            )
         if pointer in parent_static_paths or pointer in parent_html_paths:
             partial = pointer in parent_html_paths
             message = (
@@ -1958,6 +2121,41 @@ def _validate_export(
                     ),
                 )
             )
+        if isinstance(layer, PathLayer) and document_format in {"html", "svg", "pdf", "pptx"}:
+            from quickthumb._path_pdf import native_pdf_path_problem
+            from quickthumb._path_svg import native_path_problem
+
+            problem = (
+                native_path_problem(layer)
+                if document_format in {"html", "svg"}
+                else native_pdf_path_problem(layer)
+                if document_format == "pdf"
+                else "native path adapter is not implemented"
+            )
+            message = (
+                f"path layer {layer_id} uses a static raster image for {document_format}: {problem}"
+                if problem
+                else f"path layer {layer_id} uses native vectors for {document_format}"
+            )
+            action = resolved_policy.pptx.get(layer_id) if normalized == "pptx" else None
+            if problem and (action or resolved_policy.unsupported_motion) in {"error", "native"}:
+                raise RenderingError(
+                    message,
+                    code="unsupported_capability",
+                    path=f"{pointer}/d",
+                    layer_id=layer_id,
+                    suggestion="allow raster fallback or export to PNG",
+                )
+            diagnostics.append(
+                ExportDiagnostic(
+                    layer_id=layer_id,
+                    feature="path",
+                    target=document_format,
+                    support="fallback" if problem else "native",
+                    fallback="rasterize" if problem else None,
+                    message=message,
+                )
+            )
         value = getattr(layer, "value", None)
         if isinstance(value, AnimatedTextValue) and normalized in ("html", "pptx"):
             diagnostics.append(
@@ -2027,6 +2225,8 @@ def _validate_export(
                     and not html_transform
                     and feature not in _CANONICAL_RENDERED.get(normalized, frozenset())
                 )
+                if isinstance(layer, PathLayer) and normalized not in {"raster", "video"}:
+                    canonical_unimplemented = True
                 if feature == "color" and normalized in {"raster", "video"}:
                     canonical_unimplemented = not _supports_color_motion(layer)
                 declared_support = "unsupported" if canonical_unimplemented else capability.support
@@ -2351,14 +2551,30 @@ def _inspection_layer(
     value = getattr(layer, "value", None)
     value_duration = value.delay + value.duration if isinstance(value, AnimatedTextValue) else 0.0
     base = _layer_base_state(layer, canvas)
-    initial = timeline.sample(0.0, base)
-    final = timeline.sample(timeline.duration, base)
+
+    def sample_state(time):
+        return (
+            _layer_motion_state(layer, canvas, time)
+            if isinstance(layer, PathLayer)
+            else timeline.sample(time, base)
+        )
+
+    initial = sample_state(0.0)
+    final = sample_state(timeline.duration)
     targets: list[MotionTargetInspection] = []
     for spec in specs:
         targets.extend(_inspection_targets(layer, spec))
     duration = max(timeline.duration, value_duration)
     sample_times = _bounded_frame_times(duration, fps, max_samples)
-    static_state = base.model_dump(mode="json", exclude_none=True)
+
+    def state_values(state):
+        values = state.model_dump(mode="json", exclude_none=True)
+        if isinstance(layer, PathLayer):
+            values["dash_offset"] = state.dash_offset
+            values["trim_offset"] = state.trim_offset
+        return values
+
+    static_state = state_values(base)
     return MotionLayerInspection(
         layer_id=layer_id,
         layer_type=str(getattr(layer, "type", type(layer).__name__)),
@@ -2367,13 +2583,10 @@ def _inspection_layer(
         duration=duration,
         targets=targets,
         sample_times=list(sample_times),
-        samples=[
-            timeline.sample(time, base).model_dump(mode="json", exclude_none=True)
-            for time in sample_times
-        ],
+        samples=[state_values(sample_state(time)) for time in sample_times],
         static_state=static_state,
-        initial_state=initial.model_dump(mode="json", exclude_none=True),
-        final_state=final.model_dump(mode="json", exclude_none=True),
+        initial_state=state_values(initial),
+        final_state=state_values(final),
     )
 
 
@@ -2419,6 +2632,10 @@ def _inspection_reduced_motion(duration: float, policy: ExportPolicy) -> Reduced
             "scale_x",
             "scale_y",
             "rotation",
+            "dash_offset",
+            "trim_start",
+            "trim_end",
+            "trim_offset",
             "opacity",
             "clip_progress",
             "blur",
@@ -2522,6 +2739,8 @@ def inspect_motion(
         ]
         motion_duration = max((layer.duration for layer in layers), default=0.0)
         for _, layer in _iter_export_layers(canvas):
+            if isinstance(layer, PathLayer):
+                source_features.add("path")
             if getattr(layer, "parent", None) is not None:
                 source_features.add("parent")
             animation = getattr(layer, "animation", None)

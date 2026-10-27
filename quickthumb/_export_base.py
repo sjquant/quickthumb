@@ -14,6 +14,7 @@ import base64
 import math
 import re
 import xml.etree.ElementTree as ET
+from copy import copy
 from dataclasses import dataclass, field
 from io import BytesIO
 from typing import TYPE_CHECKING, TypeVar
@@ -36,11 +37,12 @@ from quickthumb.models import (
     BackdropBlur,
     Background,
     ChartLayer,
+    ExportDiagnostic,
     Glow,
     GroupLayer,
-    ImageLayer,
     InnerShadow,
     LinearGradient,
+    PluginLayer,
     QRCodeLayer,
     RadialGradient,
     Shadow,
@@ -70,8 +72,20 @@ def _motion_number(value: float) -> str:
     return str(int(value)) if float(value).is_integer() else repr(float(value))
 
 
+def _distinct_layer_occurrences(canvas: Canvas) -> Canvas:
+    """Give repeated model occurrences distinct execution identities without changing the source."""
+    if len({id(layer) for layer in canvas.layers}) == len(canvas.layers):
+        return canvas
+    prepared = copy(canvas)
+    prepared.layers = [copy(layer) for layer in canvas.layers]
+    return prepared
+
+
 def flatten_layers(
-    canvas: Canvas, *, parent_nodes: frozenset[int] | None = None
+    canvas: Canvas,
+    *,
+    parent_nodes: frozenset[int] | None = None,
+    source_ids: dict[int, tuple[str, ...]] | None = None,
 ) -> list[RenderableLayer]:
     """Resolve group layers into placed children so exporters see a flat list."""
     from quickthumb._parenting import require_parent_rendering
@@ -79,18 +93,28 @@ def flatten_layers(
     if parent_nodes is None:
         require_parent_rendering(canvas)
     flat: list[RenderableLayer] = []
-    for layer in canvas.layers:
+    for index, layer in enumerate(canvas.layers):
         if (
             isinstance(layer, GroupLayer)
             and id(layer) not in (parent_nodes or ())
             and not has_layer_composition(layer)
+            and not (layer.animation is not None and _group_has_plugin(layer))
             and not _has_transform_extensions(layer)
             and not (_has_color_track(layer) and color_group_has_backdrop(layer))
         ):
-            flat.extend(_flatten_group(canvas, layer))
+            flat.extend(_flatten_group(canvas, layer, source_ids=source_ids, path=(index,)))
         else:
             flat.append(layer)
+            if source_ids is not None:
+                source_ids[id(layer)] = _source_layer_ids(layer, index, (index,))
     return flat
+
+
+def _group_has_plugin(group: GroupLayer) -> bool:
+    return any(
+        isinstance(child, PluginLayer) or isinstance(child, GroupLayer) and _group_has_plugin(child)
+        for child in group.children
+    )
 
 
 def validate_legacy_animation_export(canvas: Canvas) -> None:
@@ -113,6 +137,9 @@ def _flatten_group(
     group: GroupLayer,
     origin: tuple[int, int] | None = None,
     inherited_animation=None,
+    *,
+    source_ids: dict[int, tuple[str, ...]] | None = None,
+    path: tuple[int, ...] = (),
 ) -> list[RenderableLayer]:
     # An enclosing animated group wins over this group's own animation, so the
     # outermost animation drives everything beneath it. Every flattened child
@@ -121,14 +148,21 @@ def _flatten_group(
     animation = inherited_animation or group.animation
     placements, _ = canvas._groups.layout_group(group, origin)
     placed: list[RenderableLayer] = []
-    for child, position, size in placements:
+    for index, (child, position, size) in enumerate(placements):
         if isinstance(child, GroupLayer):
-            if has_layer_composition(child) or (
-                animation is None
-                and (
-                    _has_transform_extensions(child)
-                    or _has_color_track(child)
-                    and color_group_has_backdrop(child)
+            if (
+                has_layer_composition(child)
+                or (
+                    (animation is not None or child.animation is not None)
+                    and _group_has_plugin(child)
+                )
+                or (
+                    animation is None
+                    and (
+                        _has_transform_extensions(child)
+                        or _has_color_track(child)
+                        and color_group_has_backdrop(child)
+                    )
                 )
             ):
                 placed.append(
@@ -139,8 +173,16 @@ def _flatten_group(
                 )
             else:
                 placed.extend(
-                    _flatten_group(canvas, child, position, inherited_animation=animation)
+                    _flatten_group(
+                        canvas,
+                        child,
+                        position,
+                        inherited_animation=animation,
+                        source_ids=source_ids,
+                        path=(*path, index),
+                    )
                 )
+                continue
         elif isinstance(child, TextLayer):
             placed.append(
                 _with_group_animation(
@@ -160,7 +202,42 @@ def _flatten_group(
                     animation,
                 )
             )
+        if source_ids is not None:
+            source_ids[id(placed[-1])] = _source_layer_ids(child, path[0], (*path, index))
     return placed
+
+
+def _source_layer_ids(layer, root_index: int, path: tuple[int, ...]) -> tuple[str, ...]:
+    """Keep original inspection identities for retained composite groups and copies."""
+    from quickthumb._measurements import layer_id_for
+
+    return (layer_id_for(layer, root_index, path),) + tuple(
+        source_id
+        for child_index, child in enumerate(getattr(layer, "children", ()))
+        for source_id in _source_layer_ids(child, root_index, (*path, child_index))
+    )
+
+
+def _layer_routing(
+    layers: list,
+    source_ids: dict[int, tuple[str, ...]],
+    reason: str,
+    *,
+    target: str,
+    rasterized: bool,
+) -> ExportDiagnostic:
+    """Describe a representation actually emitted by a document exporter."""
+    members = [source_id for layer in layers for source_id in source_ids[id(layer)]]
+    return ExportDiagnostic(
+        layer_id=members[0] if len(layers) == 1 else None,
+        layer_ids=members if len(members) > 1 else [],
+        feature="layer_representation",
+        target=target,
+        support="fallback" if rasterized else "native",
+        fallback="rasterize" if rasterized else None,
+        native_attempt=not rasterized,
+        message=reason,
+    )
 
 
 def _with_group_animation(layer, animation):
@@ -461,7 +538,6 @@ def composite_canonical_layer(image, surface, layer, state, *, subpixel: bool, b
         fragment,
         state,
         (bounds[0], bounds[1]),
-        include_scale=not isinstance(layer, ImageLayer),
         subpixel=subpixel,
     )
     if not source_alpha:
@@ -522,7 +598,6 @@ def apply_canonical_geometry(
     state,
     pos: tuple[int, int],
     *,
-    include_scale: bool = True,
     subpixel: bool = False,
     render_scale: float = 1,
 ) -> tuple[Image.Image, tuple[int, int]]:
@@ -540,11 +615,8 @@ def apply_canonical_geometry(
     space; the caller downsamples the completed frame once. A scale below one
     instead composes a reduced authoring preview without changing source layout.
 
-    `include_scale` is off for image layers, whose renderer already folds
-    `scale` into the source crop so the frame stays put while its content
-    zooms.
     """
-    scale = state.scale if include_scale and state.scale > 0 else 1.0
+    scale = state.scale if state.scale > 0 else 1.0
     offset_x, offset_y = state.position or (0.0, 0.0)
     angle = state.rotation % 360
     if (
@@ -578,7 +650,7 @@ def apply_canonical_geometry(
     # even when their final rotation or scale is not the identity transform.
     centre_x = pos[0] + image.width / 2
     centre_y = pos[1] + image.height / 2
-    if include_scale and state.scale > 0 and state.scale != 1.0:
+    if state.scale > 0 and state.scale != 1.0:
         image = image.resize(
             (max(1, round(image.width * state.scale)), max(1, round(image.height * state.scale))),
             resample=Image.Resampling.LANCZOS,

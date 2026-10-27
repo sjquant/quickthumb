@@ -76,16 +76,22 @@ def decode(path, media="video"):
 
 @pytest.mark.parametrize("options", [GifOptions, VideoOptions])
 def test_quality_is_explicit_opt_in_and_roundtrips(options):
-    assert options().quality == "standard"
-    assert options.model_validate_json(options(quality="high").model_dump_json()).quality == "high"
-    assert options.model_json_schema()["properties"]["quality"]["enum"] == ["standard", "high"]
+    assert options().render_quality == "standard"
+    assert (
+        options.model_validate_json(options(render_quality="high").model_dump_json()).render_quality
+        == "high"
+    )
+    assert options.model_json_schema()["properties"]["render_quality"]["enum"] == [
+        "standard",
+        "high",
+    ]
 
 
 @pytest.mark.parametrize("options", [GifOptions, VideoOptions])
 @pytest.mark.parametrize("quality", [None, True, 2, "low", "normal", [], {}])
 def test_invalid_quality_is_rejected_by_options(options, quality):
     with pytest.raises(ValidationError, match="quality"):
-        options.model_validate({"quality": quality})
+        options.model_validate({"render_quality": quality})
     with pytest.raises(ValidationError, match="quality"):
         video._prepare_animation(
             [Canvas(8, 8)], [None], "gif", 10, 0.1, 0, "#000000", quality=cast(Any, quality)
@@ -274,9 +280,9 @@ def test_public_default_identity_and_high_spawn_parity(tmp_path, format):
     ]
     settings = [
         options(fps=10),
-        options(fps=10, quality="standard"),
-        options(fps=10, quality="high"),
-        options(fps=10, quality="high", workers=2),
+        options(fps=10, render_quality="standard"),
+        options(fps=10, render_quality="high"),
+        options(fps=10, render_quality="high", workers=2),
         options(fps=10),
     ]
     for path, setting in zip(paths, settings, strict=True):
@@ -302,7 +308,7 @@ def test_high_gif_palette_size_loop_and_centisecond_timing(tmp_path):
                 colors=16,
                 max_size=(83, 61),
                 loop=3,
-                quality=quality,
+                render_quality=quality,
             ),
         )
         with Image.open(path) as gif:
@@ -363,7 +369,7 @@ def test_high_video_keeps_audio_schedule_and_endpoint_captions(tmp_path):
         path = tmp_path / f"{quality}-{workers}.mp4"
         canvas.render(
             str(path),
-            animation=VideoOptions(fps=10, quality=quality, workers=workers),
+            animation=VideoOptions(fps=10, render_quality=quality, workers=workers),
         )
         metadata = json.loads(
             subprocess.run(
