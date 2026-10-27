@@ -720,6 +720,8 @@ class Canvas:
         line_cap: Literal["butt", "round", "square"] = "butt",
         line_join: Literal["miter", "bevel", "round"] = "miter",
         miter_limit: float = 4.0,
+        dash_array: tuple[float, ...] | None = None,
+        dash_offset: float = 0.0,
         id: str | None = None,
         motion_key: str | None = None,
     ) -> Self:
@@ -738,6 +740,8 @@ class Canvas:
                 line_cap=line_cap,
                 line_join=line_join,
                 miter_limit=miter_limit,
+                dash_array=dash_array,
+                dash_offset=dash_offset,
                 id=id,
                 motion_key=motion_key,
             )

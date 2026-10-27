@@ -29,6 +29,8 @@ canvas.export("path.png")
 | `line_cap` | `"butt"` (default), `"round"` or `"square"` for open endpoints. |
 | `line_join` | `"miter"` (default), `"bevel"` or `"round"` for joined segments. |
 | `miter_limit` | Maximum vertex-to-tip distance divided by half the stroke width; defaults to `4`, must be at least `1`. Longer miters become bevels. |
+| `dash_array` | Optional tuple of nonnegative finite dash/gap lengths in local units. Odd-length tuples repeat once; empty or all-zero tuples draw a solid stroke. |
+| `dash_offset` | Static distance into the repeated pattern, in local units; defaults to `0`. Signed values wrap modulo the pattern cycle. |
 | `id`, `motion_key` | Optional scene identity and cross-scene matching key, using the common layer identity rules. |
 
 The local window maps independently onto the frame's width and height and is
@@ -62,10 +64,19 @@ uses the same 1/8-pixel chord tolerance. Excessive stroke geometry raises
 ```python
 canvas.path("M10 50C30 0 70 100 90 50", (20, 10), 120, 100, None,
             stroke="#42CEB7", stroke_width=8, line_cap="round",
-            view_box=(0, 0, 100, 100))
+            view_box=(0, 0, 100, 100), dash_array=(12, 6), dash_offset=3)
 ```
 
-Dashes, gradients, layer animation, parent links, grouping and composition controls are
+Dash phase restarts at each subpath. A dash crossing a corner keeps its join;
+painted runs meeting across a closed seam join there. Dash endpoints use
+`line_cap`, including zero-length on entries, and zero-length gaps advance to the
+next entry. Square dots follow the path tangent. Negative or nonfinite lengths,
+nonfinite offsets and overflowing cycle totals are rejected before admission.
+Patterns are limited to 65,536 entries; excessive transitions or emitted geometry
+raise `RenderingError` (`path_dash_limit`) before writing output. Use longer dash
+intervals or simplify the path.
+
+Gradients, layer animation, parent links, grouping and composition controls are
 not accepted yet. JSON uses `type="path"` and round-trips through `PathLayer`.
 
 PNG and canonical samples draw the path directly. SVG, HTML, PDF and PPTX currently
