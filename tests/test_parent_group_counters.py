@@ -414,8 +414,8 @@ def test_multiple_counter_clocks_extend_active_windows_and_actual_gif():
 def test_masked_counter_group_serial_and_spawn_gif_match(tmp_path, quality):
     canvas = clock_scene()
     serial, spawn = tmp_path / "serial.gif", tmp_path / "spawn.gif"
-    canvas.render(str(serial), animation=GifOptions(fps=5, quality=quality))
-    canvas.render(str(spawn), animation=GifOptions(fps=5, quality=quality, workers=2))
+    canvas.render(str(serial), animation=GifOptions(fps=5, render_quality=quality))
+    canvas.render(str(spawn), animation=GifOptions(fps=5, render_quality=quality, workers=2))
     assert serial.read_bytes() == spawn.read_bytes()
 
 

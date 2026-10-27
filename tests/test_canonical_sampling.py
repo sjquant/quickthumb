@@ -279,12 +279,10 @@ def morph_deck() -> Deck:
         pytest.param(fading_card, lambda doc: doc.to_gif(fps=4, hold=1.0), id="canvas-motion"),
         pytest.param(
             crossfade_deck,
-            lambda doc: doc.to_gif(fps=4, slide_duration=1.0),
+            lambda doc: doc.to_gif(fps=4, hold=1.0),
             id="deck-crossfade",
         ),
-        pytest.param(
-            morph_deck, lambda doc: doc.to_gif(fps=4, slide_duration=1.0), id="deck-morph"
-        ),
+        pytest.param(morph_deck, lambda doc: doc.to_gif(fps=4, hold=1.0), id="deck-morph"),
     ],
 )
 def test_timeline_capture_reproduces_gif_playback(build, encode):

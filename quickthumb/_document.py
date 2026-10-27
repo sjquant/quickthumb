@@ -54,7 +54,7 @@ class _ResolvedExport:
     extension: str
     output_format: str
     target: str
-    mode: Literal["raster", "document", "animated", "narrated", "unsupported"]
+    mode: Literal["raster", "document", "animated", "unsupported"]
     uses_authored_transitions: bool
 
 
@@ -351,10 +351,6 @@ def _contract_motion_report(source: Document, target: str, policy, fps: float):
     return cast(Any, source)._contract_motion_report(target, policy, fps)
 
 
-def _contract_static_timing(source: Document) -> tuple[float, float] | None:
-    return cast(Any, source)._contract_static_timing()
-
-
 TimelineInputs = tuple["list[Canvas]", "list[Transition | None]", "list[float | None] | None"]
 
 
@@ -373,16 +369,13 @@ def _resolve_export(
     kind: DocumentKind,
     output_path: str,
     format: str | None,
-    animation: GifOptions | VideoOptions | None,
     policy: ExportPolicy | None,
 ) -> _ResolvedExport:
     """Resolve dispatch once; leave legacy option and geometry errors to execution."""
     extension = Path(output_path).suffix.lower()
     output_format = _output_format(output_path, format)
-    mode: Literal["raster", "document", "animated", "narrated", "unsupported"]
-    if extension == ".mp4" and kind == "deck" and animation is None:
-        mode = "narrated"
-    elif extension in {".gif", ".mp4", ".webm", ".mov"}:
+    mode: Literal["raster", "document", "animated", "unsupported"]
+    if extension in {".gif", ".mp4", ".webm", ".mov"}:
         mode = "animated"
     elif kind == "canvas" and format is not None:
         mode = "raster"
@@ -463,15 +456,6 @@ def _timing_metrics(
     if resolved.target != "video":
         return TimingMetrics()
     fps = _animation_fps(resolved.output_format, animation)
-    if resolved.mode == "narrated":
-        static_timing = _contract_static_timing(source)
-        assert static_timing is not None
-        duration, static_fps = static_timing
-        return TimingMetrics(
-            duration=duration,
-            fps=static_fps,
-            frame_count=max(1, math.ceil(duration * static_fps)),
-        )
     if not resolved.uses_authored_transitions:
         from quickthumb._export_video import _deck_timing
 

@@ -622,7 +622,7 @@ def serve(
     timeline: Annotated[
         bool,
         typer.Option(
-            "--timeline", help="Open the raster timeline scrubber instead of the slideshow"
+            "--timeline", help="Open motion inspection (raster frames; no playback or audio)"
         ),
     ] = False,
     var: Annotated[

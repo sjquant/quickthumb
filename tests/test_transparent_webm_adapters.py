@@ -221,7 +221,7 @@ class TestTransparentWebmPublicExports:
         elif isinstance(source, Canvas):
             destination.write_bytes(source.to_webm(fps=10, hold=0.3, transparent=True))
         else:
-            destination.write_bytes(source.to_webm(fps=10, slide_duration=0.3, transparent=True))
+            destination.write_bytes(source.to_webm(fps=10, hold=0.3, transparent=True))
         assert destination.read_bytes().startswith(b"\x1a\x45\xdf\xa3")
         assert_alpha_interiors(decode_rgba(destination))
         assert list(tmp_path.iterdir()) == [destination]
@@ -269,9 +269,7 @@ class TestTransparentWebmPublicExports:
         music = AudioTrack(path=tone_wav(tmp_path / "music.wav", 0.1), volume=0.1, loop=True)
         deck = Deck(*SIZE).slide(alpha_canvas(), audio=voice)
         destination = tmp_path / "mixed.webm"
-        destination.write_bytes(
-            deck.to_webm(fps=10, slide_duration=0.1, transparent=True, soundtrack=music)
-        )
+        destination.write_bytes(deck.to_webm(fps=10, hold=0.1, transparent=True, soundtrack=music))
         frames = decode_rgba(destination)
         samples = decode_audio(destination)
         assert len(frames) == 6

@@ -54,6 +54,8 @@ from quickthumb.models import (
     GroupLayer,
     ImageEffect,
     ImageLayer,
+    ImageSequenceOptions,
+    ImageSequenceResult,
     InspectionBBox,
     LayerClip,
     LayerInspection,
@@ -63,8 +65,6 @@ from quickthumb.models import (
     NullLayer,
     OutlineLayer,
     PluginLayer,
-    PngSequenceOptions,
-    PngSequenceResult,
     PrefetchResult,
     QRCodeLayer,
     RadialGradient,
@@ -394,9 +394,6 @@ class Canvas:
 
     def _contract_motion_report(self, target: str, policy, fps: float):
         return self.inspect_motion(target=target, policy=policy, fps=fps)
-
-    def _contract_static_timing(self) -> None:
-        return None
 
     def _contract_timeline_inputs(self, hold: float) -> "TimelineInputs":
         # A canvas is one slide with no incoming transition; `hold` alone
@@ -1143,7 +1140,7 @@ class Canvas:
         """
         from quickthumb._document import _resolve_export
 
-        resolved = _resolve_export("canvas", output_path, format, animation, policy)
+        resolved = _resolve_export("canvas", output_path, format, policy)
         self._render_resolved(output_path, resolved, format, quality, debug, animation, policy)
 
     # Keep export's historical dispatch through a replaced public render hook.
@@ -1242,7 +1239,7 @@ class Canvas:
         )
 
         normalized_path = os.fspath(output_path)
-        resolved = _resolve_export("canvas", normalized_path, format, animation, policy)
+        resolved = _resolve_export("canvas", normalized_path, format, policy)
         render = self.render
         if getattr(render, "__func__", None) is Canvas._original_render:
             receipt = self._render_resolved(
@@ -1269,23 +1266,35 @@ class Canvas:
             ),
         )
 
-    def export_png_sequence(
+    def export_image_sequence(
         self,
         output_directory: str | os.PathLike[str],
         *,
-        options: PngSequenceOptions | None = None,
+        format: str = "png",
+        quality: int | None = None,
+        matte: str | None = None,
+        lossless: bool | None = None,
+        options: ImageSequenceOptions | None = None,
         policy: ExportPolicy | None = None,
-    ) -> PngSequenceResult:
-        """Export silent straight-alpha RGBA8 animation to a fresh directory.
+    ) -> ImageSequenceResult:
+        """Export silent PNG, JPEG, or WebP frames into a fresh directory.
 
-        The existing parent receives all numbered PNGs and manifest.json in
-        one exclusive publication. Existing destinations are never replaced.
+        PNG preserves RGBA8; JPEG flattens alpha onto an opaque matte (white
+        by default). WebP retains alpha and supports opt-in lossless encoding.
+        The directory and manifest appear together; existing paths are never replaced.
         """
         from quickthumb._document import Document
-        from quickthumb._export_png_sequence import export_png_sequence
+        from quickthumb._export_image_sequence import export_image_sequence
 
-        return export_png_sequence(
-            cast(Document, self), output_directory, options=options, policy=policy
+        return export_image_sequence(
+            cast(Document, self),
+            output_directory,
+            format=format,
+            quality=quality,
+            matte=matte,
+            lossless=lossless,
+            options=options,
+            policy=policy,
         )
 
     def _render_document(
@@ -1408,7 +1417,7 @@ class Canvas:
         max_size: tuple[int, int] | None = None,
         colors: int | None = None,
         workers: int = 1,
-        quality: Literal["standard", "high"] = "standard",
+        render_quality: Literal["standard", "high"] = "standard",
     ) -> bytes:
         """Render the canvas to animated GIF bytes that play its layer animations.
 
@@ -1432,7 +1441,7 @@ class Canvas:
             max_size=max_size,
             colors=colors,
             workers=workers,
-            quality=quality,
+            quality=render_quality,
             reduced_motion=bool(policy and policy.reduced_motion),
         )
 
@@ -1446,7 +1455,7 @@ class Canvas:
         *,
         policy: ExportPolicy | None = None,
         workers: int = 1,
-        quality: Literal["standard", "high"] = "standard",
+        render_quality: Literal["standard", "high"] = "standard",
     ) -> bytes:
         """Render the canvas to MP4 (H.264) bytes; timing model as in `to_gif`.
 
@@ -1468,7 +1477,7 @@ class Canvas:
             soundtrack=soundtrack,
             loop_audio=loop_audio,
             workers=workers,
-            quality=quality,
+            quality=render_quality,
             reduced_motion=bool(policy and policy.reduced_motion),
         )
 
@@ -1483,7 +1492,7 @@ class Canvas:
         transparent: bool = False,
         policy: ExportPolicy | None = None,
         workers: int = 1,
-        quality: Literal["standard", "high"] = "standard",
+        render_quality: Literal["standard", "high"] = "standard",
     ) -> bytes:
         """Render the canvas to WebM (VP9) bytes; timing model as in `to_gif`.
 
@@ -1507,7 +1516,7 @@ class Canvas:
             soundtrack=soundtrack,
             loop_audio=loop_audio,
             workers=workers,
-            quality=quality,
+            quality=render_quality,
             reduced_motion=bool(policy and policy.reduced_motion),
         )
 
@@ -1522,7 +1531,7 @@ class Canvas:
         transparent: bool = False,
         policy: ExportPolicy | None = None,
         workers: int = 1,
-        quality: Literal["standard", "high"] = "standard",
+        render_quality: Literal["standard", "high"] = "standard",
     ) -> bytes:
         """Render the canvas to ProRes 4444 MOV bytes; timing as in `to_gif`.
 
@@ -1546,7 +1555,7 @@ class Canvas:
             soundtrack=soundtrack,
             loop_audio=loop_audio,
             workers=workers,
-            quality=quality,
+            quality=render_quality,
             reduced_motion=bool(policy and policy.reduced_motion),
         )
 
@@ -2135,9 +2144,7 @@ class Canvas:
         if surface is None:
             surface = Image.new("RGBA", image.size, (0, 0, 0, 0))
             self._render_layer(surface, _with_motion_color(layer, state.color), time)
-        moving = _geometry_in_motion(
-            timeline, time, include_scale=not isinstance(layer, ImageLayer), state=state
-        )
+        moving = _geometry_in_motion(timeline, time, state=state)
         composite_canonical_layer(image, surface, layer, state, subpixel=moving)
 
     def _render_layer(self, image: Image.Image, layer: RenderableLayer, time: float | None = None):
