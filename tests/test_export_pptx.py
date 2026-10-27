@@ -8,10 +8,12 @@ from PIL import Image
 from quickthumb import (
     AnimationSpec,
     Canvas,
+    Deck,
     Fade,
     KeyframeSpec,
     LinearGradient,
     PositionTrack,
+    ShapeLayer,
     TextPart,
     TimingSpec,
     Wipe,
@@ -44,6 +46,143 @@ def open_pptx(canvas: Canvas) -> PresentationDocument:
 
 def slide_of(canvas: Canvas):
     return open_pptx(canvas).slides[0]
+
+
+def test_export_preserves_editable_objects_and_exact_mask_payload(tmp_path):
+    """PPTX receipts match editable text and geometry plus an exact positioned PNG mask."""
+    # Given: an opaque document mixing text, an autoshape and a masked source
+    mask = {"shape": "ellipse", "position": (100, 30), "width": 20, "height": 20}
+    source = Canvas(160, 120).shape("rectangle", (100, 30), 20, 20, "#00FF00", mask=mask)
+    scene = (
+        Canvas(160, 120)
+        .background(color="#FFFFFF")
+        .text(
+            "Editable", position=(5, 5), size=16, font="assets/fonts/Roboto-Regular.ttf", id="text"
+        )
+        .shape("rectangle", (5, 50), 20, 20, "#FF0000", id="vector")
+        .shape("rectangle", (100, 30), 20, 20, "#00FF00", mask=mask, id="mask")
+    )
+    original = scene.to_json()
+
+    # When: reopening the actual file produced by the recommended export boundary
+    path = tmp_path / "mixed.pptx"
+    result = scene.export(path)
+    document = Presentation(path)
+    slide = document.slides[0]
+
+    # Then: native objects remain editable OOXML and the fragment retains canonical RGBA/geometry
+    (box,) = [shape for shape in slide.shapes if shape.shape_type == MSO_SHAPE_TYPE.TEXT_BOX]
+    assert box.text == "Editable"
+    assert (
+        len([shape for shape in slide.shapes if shape.shape_type == MSO_SHAPE_TYPE.AUTO_SHAPE]) == 2
+    )
+    (picture,) = [shape for shape in slide.shapes if shape.shape_type == MSO_SHAPE_TYPE.PICTURE]
+    expected = source.sample().frames[0].to_image().crop((100, 30, 120, 50))
+    encoded = BytesIO()
+    expected.save(encoded, format="PNG")
+    assert picture.image.blob == encoded.getvalue()
+    assert (picture.left, picture.top, picture.width, picture.height) == tuple(
+        value * EMU_PER_PX for value in (100, 30, 20, 20)
+    )
+    assert (document.slide_width, document.slide_height) == (160 * EMU_PER_PX, 120 * EMU_PER_PX)
+    routes = [item for item in result.capability_report if item.feature == "layer_representation"]
+    assert [(item.layer_id, item.support) for item in routes] == [
+        ("layer:0", "native"),
+        ("text", "native"),
+        ("vector", "native"),
+        ("mask", "fallback"),
+    ]
+    assert all(item.slide_index is None for item in routes)
+    (fallback,) = result.fallback_diagnostics
+    assert (
+        fallback.layer_id == "mask"
+        and fallback.native_attempt is False
+        and "mask" in fallback.reason
+    )
+    assert result.pixel_metrics.fidelity is None and scene.to_json() == original
+
+
+@pytest.mark.parametrize("composite", ["group", "prefix", "parent"])
+def test_deck_routes_keep_occurrences_and_atomic_membership(tmp_path, composite):
+    """Deck PPTX routes distinguish reused objects and identify atomic raster composites."""
+    # Given: repeated native occurrences followed by one grouped, backdrop or parent composite
+    shared = ShapeLayer(
+        type="shape", shape="rectangle", position=(0, 0), width=10, height=10, color="#FF0000"
+    )
+    first = Canvas(160, 120, layers=[shared, shared])
+    second = Canvas(160, 120)
+    if composite == "group":
+        second.group(
+            [
+                {
+                    "type": "shape",
+                    "shape": "rectangle",
+                    "width": 20,
+                    "height": 20,
+                    "color": "#00FF00",
+                }
+            ],
+            id="group",
+            position=(0, 0),
+            mask={"shape": "ellipse", "position": (0, 0), "width": 20, "height": 20},
+        )
+        members = ["group", "layer:0:0"]
+    elif composite == "prefix":
+        from quickthumb import BackdropBlur
+
+        second.shape("rectangle", (0, 0), 20, 20, "#FF0000", id="backdrop").shape(
+            "rectangle", (0, 0), 20, 20, "#FFFFFF80", effects=[BackdropBlur(radius=2)], id="blur"
+        )
+        members = ["backdrop", "blur"]
+    else:
+        second.null(id="controller").shape(
+            "rectangle", (0, 0), 20, 20, "#00FF00", parent="controller", id="child"
+        )
+        members = ["controller", "child"]
+
+    # When: exporting one presentation through the shared result contract
+    path = tmp_path / "composites.pptx"
+    result = Deck(160, 120).slide(first).slide(second).export(path)
+    document = Presentation(path)
+
+    # Then: source-local IDs and slide indices match real native objects and one PNG composite
+    routes = [item for item in result.capability_report if item.feature == "layer_representation"]
+    assert [(item.slide_index, item.layer_id, item.support) for item in routes[:2]] == [
+        (0, "layer:0", "native"),
+        (0, "layer:1", "native"),
+    ]
+    assert len(document.slides[0].shapes) == 2
+    assert len(routes) == 3 and routes[2].slide_index == 1
+    assert routes[2].layer_ids == members and routes[2].fallback == "rasterize"
+    assert routes[2].native_attempt is False
+    (picture,) = document.slides[1].shapes
+    assert picture.shape_type == MSO_SHAPE_TYPE.PICTURE
+    actual = Image.open(BytesIO(picture.image.blob)).convert("RGBA")
+    expected = second.sample().frames[0].to_image()
+    assert (
+        actual.tobytes()
+        == (expected if composite == "parent" else expected.crop(expected.getbbox())).tobytes()
+    )
+    assert first.layers[0] is first.layers[1] is shared and shared.id is None
+
+
+@pytest.mark.parametrize("deck", [False, True])
+def test_pptx_build_failure_preserves_file(tmp_path, deck):
+    """PPTX preparation failure cannot replace an existing Canvas or Deck file."""
+
+    # Given: an admitted custom layer fails during actual raster capture
+    def fail_capture(image):
+        raise RenderingError("task capture failed")
+
+    broken = Canvas(160, 120).custom(fail_capture)
+    source = Deck(160, 120).slide(Canvas(160, 120)).slide(broken) if deck else broken
+    path = tmp_path / "preserved.pptx"
+    path.write_bytes(b"keep")
+
+    # When/Then: the producer fails before opening the presentation destination
+    with pytest.raises(RenderingError, match="task capture failed"):
+        source.export(path)
+    assert path.read_bytes() == b"keep"
 
 
 class TestPptxDocument:
@@ -328,7 +467,7 @@ class TestPptxText:
         assert runs[1].font.italic is True
         assert str(runs[1].font.color.rgb) == "00FF00"
 
-    def test_should_rasterize_text_with_unsupported_font_semantics(self):
+    def test_should_rasterize_text_with_unsupported_font_semantics(self, tmp_path):
         """Variable-font and color-emoji runs fall back to a pixel-exact picture"""
         # given: text semantics that DrawingML cannot preserve
         canvas = Canvas(600, 200).text(
@@ -342,10 +481,14 @@ class TestPptxText:
         )
 
         # when: exporting to PPTX
-        shape = slide_of(canvas).shapes[0]
+        result = canvas.export(tmp_path / "font-semantics.pptx")
+        shape = Presentation(tmp_path / "font-semantics.pptx").slides[0].shapes[0]
 
         # then: the exporter uses the raster fallback for unsupported semantics
         assert shape.shape_type == MSO_SHAPE_TYPE.PICTURE
+        (fallback,) = result.fallback_diagnostics
+        assert fallback.layer_id == "layer:0" and fallback.native_attempt is False
+        assert "font" in fallback.reason
 
     def test_should_emit_valid_drawingml_for_gradient_plus_stroke_run(self):
         """A run with both a gradient fill and a stroke keeps valid rPr child order"""

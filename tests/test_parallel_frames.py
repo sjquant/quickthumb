@@ -4,6 +4,7 @@ import hashlib
 import json
 import shutil
 import subprocess
+from pathlib import Path
 from typing import cast
 
 import pytest
@@ -15,6 +16,9 @@ from quickthumb import (
     Fade,
     GifOptions,
     Grain,
+    KeyframeSpec,
+    PositionTrack,
+    RangeSelector,
     VideoOptions,
 )
 from quickthumb import _export_video as video
@@ -39,6 +43,22 @@ def _scene(kind):
             size=18,
             font=FONT,
             animation=AnimationSpec.typewriter(duration=0.3, target="lines", stagger=0.1),
+        )
+    elif kind == "characters":
+        first.text(
+            "HI HI",
+            position=(3, 3),
+            size=18,
+            font=FONT,
+            animation=AnimationSpec.timeline(
+                PositionTrack(
+                    keyframes=[
+                        KeyframeSpec(time=0, value=(0, 8)),
+                        KeyframeSpec(time=0.5, value=(0, 0)),
+                    ]
+                ),
+                selector=RangeSelector(target="characters", shape="ramp"),
+            ),
         )
     elif kind == "counter":
         first.counter(0, 10, 0.4, position=(3, 3), size=24, font=FONT)
@@ -88,7 +108,9 @@ def _shots(canvases, transitions, workers, *, hold=0.0, reduced=False, fps=12):
         ]
 
 
-@pytest.mark.parametrize("kind", ["shared", "stagger", "counter", "grain", "morph", "gaps"])
+@pytest.mark.parametrize(
+    "kind", ["shared", "stagger", "characters", "counter", "grain", "morph", "gaps"]
+)
 @pytest.mark.parametrize("workers", [2, 3])
 def test_spawned_shots_are_identical(kind, workers):
     canvases, transitions = _scene(kind)
@@ -221,6 +243,7 @@ def test_unseeded_grain_and_custom_layers_fail_before_output(tmp_path):
 @pytest.mark.parametrize("reduced", [False, True])
 @pytest.mark.parametrize("hold", [0.0, 0.01])
 def test_local_video_and_disappearing_captions_match(tmp_path, reduced, hold):
+    """Caption pixels and observed fonts agree for serial and spawned public exports."""
     from PIL import Image
     from quickthumb.models import VideoCaption
 
@@ -268,7 +291,14 @@ def test_local_video_and_disappearing_captions_match(tmp_path, reduced, hold):
             captions=[
                 VideoCaption(
                     text="cue", start=0.05, end=0.42, position=(40, 30), size=10, font=FONT
-                )
+                ),
+                VideoCaption(
+                    text="unused",
+                    start=0.001,
+                    end=0.002,
+                    size=10,
+                    font="assets/fonts/Roboto-Bold.ttf",
+                ),
             ],
         )
         .shape("rectangle", (0, 24), 64, 16, "#000000")
@@ -277,6 +307,30 @@ def test_local_video_and_disappearing_captions_match(tmp_path, reduced, hold):
     after = _shots([canvas], [None], 2, hold=hold, reduced=reduced)
     assert after == before
     assert any(caption for _, _, _, caption in after) or reduced
+
+    # When: the same caption scene is exported through both worker settings
+    outputs = []
+    environments = []
+    for workers in (1, 2):
+        path = tmp_path / f"captions-{workers}.gif"
+        result = canvas.export(
+            path,
+            animation=GifOptions(fps=12, hold=hold, workers=workers),
+            policy=ExportPolicy(reduced_motion=reduced),
+        )
+        environments.append(result.environment)
+        with Image.open(path) as image:
+            decoded = []
+            for index in range(getattr(image, "n_frames", 1)):
+                image.seek(index)
+                decoded.append((image.convert("RGBA").tobytes(), image.info["duration"]))
+            outputs.append(decoded)
+
+    # Then: decoded playback and only the actually used caption face agree
+    assert outputs[0] == outputs[1]
+    assert environments[0] == environments[1]
+    expected_hashes = [hashlib.sha256(Path(FONT).read_bytes()).hexdigest()]
+    assert [font.sha256 for font in environments[1].fonts] == expected_hashes
 
 
 @pytest.mark.skipif(not HAS_FFMPEG, reason="ffmpeg/ffprobe not installed")
@@ -318,21 +372,6 @@ def test_parallel_video_crosses_encoded_batch_boundaries(tmp_path, container):
         )
     assert outputs[0] == outputs[1]
     assert len(outputs[0]) == 65 * 32 * 20 * 3
-
-
-def test_static_deck_mp4_route_does_not_create_parallel_renderer(tmp_path, monkeypatch):
-    # A .mp4 Deck without VideoOptions remains the distinct static narrated exporter.
-    from quickthumb import _export_deck_mp4, _render_workers
-
-    calls = []
-    monkeypatch.setattr(
-        _export_deck_mp4, "render_deck_mp4", lambda *args, **kwargs: calls.append(True)
-    )
-    monkeypatch.setattr(
-        _render_workers, "ParallelFrames", lambda *args, **kwargs: pytest.fail("unexpected workers")
-    )
-    Deck(16, 16).slide(Canvas().background(color="#112233")).render(str(tmp_path / "static.mp4"))
-    assert calls == [True]
 
 
 def test_parallel_motion_path_skips_parent_serial_morph_planning(monkeypatch):

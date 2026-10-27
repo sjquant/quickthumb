@@ -271,7 +271,7 @@ def test_public_render_decodes_transparent_half_alpha_and_opaque_regions(
     path = tmp_path / "regions.webm"
     canvas.render(
         str(path),
-        animation=VideoOptions(transparent=True, fps=10, quality=quality, workers=workers),
+        animation=VideoOptions(transparent=True, fps=10, render_quality=quality, workers=workers),
     )
     frames = decode(path, (96, 48))
     assert len(frames) == 32

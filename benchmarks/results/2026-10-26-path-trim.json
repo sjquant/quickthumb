@@ -1,0 +1,868 @@
+{
+  "version": 1,
+  "measurement": "instrumented Path trim export cost; one workload, no speed comparison",
+  "environment": {
+    "cpu": "arm",
+    "logical_cpus": 10,
+    "platform": "macOS-26.5.2-arm64-arm-64bit",
+    "python": "3.12.8",
+    "pillow": "13.0.0",
+    "freetype": "2.14.3",
+    "text_layout": "basic",
+    "ffmpeg": "ffmpeg version 8.1 Copyright (c) 2000-2026 the FFmpeg developers",
+    "commit": "8febbb37cdea655e019e5569bc89fc2ead609c29"
+  },
+  "source": {
+    "height": 400,
+    "kind": "deck",
+    "slides": [
+      {
+        "duration": 2.0,
+        "height": 400,
+        "kind": "canvas",
+        "layers": [
+          {
+            "blend_mode": null,
+            "color": "#101820",
+            "effects": [],
+            "fit": null,
+            "gradient": null,
+            "image": null,
+            "opacity": 1.0,
+            "type": "background"
+          },
+          {
+            "anchor": [
+              0.0,
+              0.5
+            ],
+            "animation": {
+              "easing": "linear",
+              "effect": null,
+              "stagger": null,
+              "timing": {
+                "delay": 0.0,
+                "duration": 2.0,
+                "start": null,
+                "trigger": null
+              },
+              "tracks": [
+                {
+                  "keyframes": [
+                    {
+                      "time": 0.0,
+                      "type": "keyframe",
+                      "value": 0.05
+                    },
+                    {
+                      "time": 2.0,
+                      "type": "keyframe",
+                      "value": 1
+                    }
+                  ],
+                  "type": "trim_end"
+                },
+                {
+                  "keyframes": [
+                    {
+                      "time": 0.0,
+                      "type": "keyframe",
+                      "value": 1
+                    },
+                    {
+                      "time": 2.0,
+                      "type": "keyframe",
+                      "value": 4
+                    }
+                  ],
+                  "type": "scale"
+                }
+              ],
+              "type": "animation"
+            },
+            "color": null,
+            "d": "M4 30C4 4 40 4 40 20S76 36 76 10",
+            "dash_array": null,
+            "dash_offset": 0.0,
+            "fill": null,
+            "height": 60,
+            "id": "benchmark.path",
+            "line_cap": "round",
+            "line_join": "round",
+            "miter_limit": 4.0,
+            "opacity": 1.0,
+            "position": [
+              60,
+              170
+            ],
+            "rotation": 0.0,
+            "stroke": "#42CEB7",
+            "stroke_width": 2.0,
+            "trim_end": 1.0,
+            "trim_offset": 0.0,
+            "trim_start": 0.0,
+            "type": "path",
+            "view_box": [
+              0.0,
+              0.0,
+              80.0,
+              40.0
+            ],
+            "width": 120
+          }
+        ],
+        "transition": {
+          "advance_after": 2.0,
+          "advance_on_click": true,
+          "duration": 1.0,
+          "effect": "cut"
+        },
+        "width": 600
+      }
+    ],
+    "width": 600
+  },
+  "source_sha256": "20f1676ad2237848735a4cdadb2b5e5ba5accebb83dd7c37b441ac2ce25cc696",
+  "renderer_source_sha256": {
+    "benchmarks/scenes.py": "b93de31724b725386bf6281e4009338d0bbb42968fa6f40f6a7010a0e37b4281",
+    "benchmarks/animated_export.py": "c319853812ca268271e2626525093926e7f4707f863ba627224dce685dbde839",
+    "benchmarks/frame_identity.py": "120018671ae74176d92432c483342e611f89bdb004209225447868908a074d26",
+    "quickthumb/_export_video.py": "dfcfe661da0da896b7bd7961f5124ff3eec040f5964def92b5b6701ceaedf00a",
+    "quickthumb/_path_motion.py": "3eea4205bb5bcdc57658f7e07ac256fdf916a445a8fb582d5be666b1b6377bd8",
+    "quickthumb/_paths.py": "f3c2e75f75b29c410f410e54d38b52efbcfaf2b66a398beb7190eb84e935fe35",
+    "quickthumb/_path_geometry.py": "983ade112c89aa6e929c68ed5eba3bb591bd409c5266271a051259f5ec694e03",
+    "quickthumb/_path_trim.py": "128234d77c6c85249e28f6243c177a71ff284eed1b287f2813ee606b5ac5aeb8",
+    "quickthumb/_path_dashes.py": "59b02741e0c4a10812acbfb107a2fd1202a170fc28baf4d7736a785ea51e7de5",
+    "quickthumb/models/layers.py": "24bd33d54938e0450b227df12f739ca6427e8aaa7ad64a746781cbabca798b9f",
+    "quickthumb/models/motion.py": "5482b65f5578352c4aa0452e036e1036d9a4a7ff521a2628eedb18bbb9a328ab",
+    "quickthumb/motion.py": "c0a76717b8131de5e034172f3a1629d7e941bf99d530f73147f3b8f77fc6fa75",
+    "quickthumb/_gif.py": "fd4302f933bc33637ee44d12ed911c7f525f722b63244cf377e8d518476cb3b7"
+  },
+  "workload": {
+    "scene": "path_trim",
+    "width": 600,
+    "height": 400,
+    "duration": 2,
+    "fps": 12,
+    "workers": 1,
+    "quality": "standard",
+    "format": "gif",
+    "colors": 64,
+    "max_size": [
+      432,
+      768
+    ],
+    "font_assets": []
+  },
+  "warmups_per_condition": 1,
+  "runs_per_measurement": 3,
+  "cache_policy": "fresh process per run; one excluded fresh-process warmup retained; filesystem caches not flushed",
+  "host_limits": "Other task-owned CPU jobs were held during the window; unrelated OS processes, CPU frequency and affinity were not controlled.",
+  "status": "complete",
+  "canonical_checks": [
+    {
+      "version": 1,
+      "fps": 12.0,
+      "environment": {
+        "cpu": "arm",
+        "logical_cpus": 10,
+        "platform": "macOS-26.5.2-arm64-arm-64bit",
+        "python": "3.12.8",
+        "pillow": "13.0.0",
+        "freetype": "2.14.3",
+        "text_layout": "basic",
+        "ffmpeg": "ffmpeg version 8.1 Copyright (c) 2000-2026 the FFmpeg developers",
+        "commit": "8febbb37cdea655e019e5569bc89fc2ead609c29"
+      },
+      "scenes": [
+        {
+          "scene": "path_trim",
+          "spec_sha256": "20f1676ad2237848735a4cdadb2b5e5ba5accebb83dd7c37b441ac2ce25cc696",
+          "duration": 2.0,
+          "timeline": [
+            {
+              "slide": 0,
+              "start": 0.0,
+              "transition_end": 0.0,
+              "animation_end": 2.0,
+              "end": 2.0
+            }
+          ],
+          "frames": [
+            {
+              "time": 0.0,
+              "slide": 0,
+              "width": 600,
+              "height": 400,
+              "sha256": "6f28b9f9ec96508ec87ab531ece8ddf457343ef5475644424547b23472f319cf"
+            },
+            {
+              "time": 0.08333333333333333,
+              "slide": 0,
+              "width": 600,
+              "height": 400,
+              "sha256": "6b88e5739102ab43e37b40a900755b0ede36382f5da4e99c6c15efe5c8f616d7"
+            },
+            {
+              "time": 0.16666666666666666,
+              "slide": 0,
+              "width": 600,
+              "height": 400,
+              "sha256": "fa8e88b8fcf8eb0ffe108a72ccf2041b91e7a8b9e0653d8bbf0483b45270a62e"
+            },
+            {
+              "time": 0.25,
+              "slide": 0,
+              "width": 600,
+              "height": 400,
+              "sha256": "334f4681d1ce05ca8d412861af26fd1d8ba10348d32e390ddb9ac5d51e956fc6"
+            },
+            {
+              "time": 0.3333333333333333,
+              "slide": 0,
+              "width": 600,
+              "height": 400,
+              "sha256": "3d613228e4d193bcad40e535c36c3cacddbd1776969a50246919ced8bb601253"
+            },
+            {
+              "time": 0.4166666666666667,
+              "slide": 0,
+              "width": 600,
+              "height": 400,
+              "sha256": "8e152af601efd7ad5216fbc8cb48a1634a3546de2e7b05b0c1c2aceb5a542587"
+            },
+            {
+              "time": 0.5,
+              "slide": 0,
+              "width": 600,
+              "height": 400,
+              "sha256": "0e263d0995780029285d1f78de2879581062a3afd2e97ac631f92cd7801fcd9c"
+            },
+            {
+              "time": 0.5833333333333334,
+              "slide": 0,
+              "width": 600,
+              "height": 400,
+              "sha256": "6212f4ed486239a08b6ba798a362609adc09075ce1e2bf83e7d765f3bdd3e422"
+            },
+            {
+              "time": 0.6666666666666666,
+              "slide": 0,
+              "width": 600,
+              "height": 400,
+              "sha256": "d3e9ca21aa1eacc061dee7c20e99607ea731ffaaeb79729228642c220e892ab2"
+            },
+            {
+              "time": 0.75,
+              "slide": 0,
+              "width": 600,
+              "height": 400,
+              "sha256": "2aa619b557841dd1457844c5a649dfef2486e5c9e6d391c81ce4c853cc938a7c"
+            },
+            {
+              "time": 0.8333333333333334,
+              "slide": 0,
+              "width": 600,
+              "height": 400,
+              "sha256": "6fa68ca40f39750625d1b27ab5f03104e6672627c831bbd5e1d7ebe9e898efe5"
+            },
+            {
+              "time": 0.9166666666666666,
+              "slide": 0,
+              "width": 600,
+              "height": 400,
+              "sha256": "4c07b847868d146d44f086d239f5694ccd20a4470dd454c7d65b3df52ddba624"
+            },
+            {
+              "time": 1.0,
+              "slide": 0,
+              "width": 600,
+              "height": 400,
+              "sha256": "7d3cbd6ea0e24fbe60e78f78421f9891c8a8031a18a34f1ab7cdd9defbf06d1a"
+            },
+            {
+              "time": 1.0833333333333333,
+              "slide": 0,
+              "width": 600,
+              "height": 400,
+              "sha256": "61b9b91e4df8942eb2e44ceba887abdbcfb6d38a54809b97c4c90f60bb038966"
+            },
+            {
+              "time": 1.1666666666666667,
+              "slide": 0,
+              "width": 600,
+              "height": 400,
+              "sha256": "4ceafb4eda1738f82584c500ae3f4d316b01306bcc2196c951a735247b8c82c7"
+            },
+            {
+              "time": 1.25,
+              "slide": 0,
+              "width": 600,
+              "height": 400,
+              "sha256": "6bcd94ba22863f78bd5282ce8bcccd43211592991cc7ce0ed85d2b0b5a458b89"
+            },
+            {
+              "time": 1.3333333333333333,
+              "slide": 0,
+              "width": 600,
+              "height": 400,
+              "sha256": "d4d297c469973528770a634f9158f74f6e89d2ce2d5a82d51cbf992c3c62e510"
+            },
+            {
+              "time": 1.4166666666666667,
+              "slide": 0,
+              "width": 600,
+              "height": 400,
+              "sha256": "1471054e8136108db3d54a124133b104db5a1ac8a4f4abb9cfe5cb03b853216f"
+            },
+            {
+              "time": 1.5,
+              "slide": 0,
+              "width": 600,
+              "height": 400,
+              "sha256": "cd06b6bd6e07d30ebfb0ba8d5daef9088187aa04ccdc9d257079e99e9de18ae9"
+            },
+            {
+              "time": 1.5833333333333333,
+              "slide": 0,
+              "width": 600,
+              "height": 400,
+              "sha256": "13724423699676a257f0610cb24291acd7facc1cc2bee83c5094642bc2b46890"
+            },
+            {
+              "time": 1.6666666666666667,
+              "slide": 0,
+              "width": 600,
+              "height": 400,
+              "sha256": "d7eb10faa59c2b9a30ca12d0f0f8a64336d48636d07d473133473194df829eeb"
+            },
+            {
+              "time": 1.75,
+              "slide": 0,
+              "width": 600,
+              "height": 400,
+              "sha256": "2d89261fe15d9771450413e49ceb98f377e18375e8e9b7ac5c62f3cc90fe511d"
+            },
+            {
+              "time": 1.8333333333333333,
+              "slide": 0,
+              "width": 600,
+              "height": 400,
+              "sha256": "41e8f9ccd8dca44f7f3cf67e660b28221ef33d5eaf6d240c4658de82602ae41c"
+            },
+            {
+              "time": 1.9166666666666667,
+              "slide": 0,
+              "width": 600,
+              "height": 400,
+              "sha256": "b961c038ca368a167deb44e4f25a3eecdfd83717289d53bbb86ca5177e87240c"
+            },
+            {
+              "time": 2.0,
+              "slide": 0,
+              "width": 600,
+              "height": 400,
+              "sha256": "4929c68b73e262e3392758cc93d2442de2c5e6b34b25f3b3c68289c297bc2d95"
+            }
+          ],
+          "stills": [
+            {
+              "slide": 0,
+              "width": 600,
+              "height": 400,
+              "sha256": "ddbaf15b333749dc6a612a2345619ec3b7b074b0d374164374b7cc256214ba9a"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "version": 1,
+      "fps": 12.0,
+      "environment": {
+        "cpu": "arm",
+        "logical_cpus": 10,
+        "platform": "macOS-26.5.2-arm64-arm-64bit",
+        "python": "3.12.8",
+        "pillow": "13.0.0",
+        "freetype": "2.14.3",
+        "text_layout": "basic",
+        "ffmpeg": "ffmpeg version 8.1 Copyright (c) 2000-2026 the FFmpeg developers",
+        "commit": "8febbb37cdea655e019e5569bc89fc2ead609c29"
+      },
+      "scenes": [
+        {
+          "scene": "path_trim",
+          "spec_sha256": "20f1676ad2237848735a4cdadb2b5e5ba5accebb83dd7c37b441ac2ce25cc696",
+          "duration": 2.0,
+          "timeline": [
+            {
+              "slide": 0,
+              "start": 0.0,
+              "transition_end": 0.0,
+              "animation_end": 2.0,
+              "end": 2.0
+            }
+          ],
+          "frames": [
+            {
+              "time": 0.0,
+              "slide": 0,
+              "width": 600,
+              "height": 400,
+              "sha256": "6f28b9f9ec96508ec87ab531ece8ddf457343ef5475644424547b23472f319cf"
+            },
+            {
+              "time": 0.08333333333333333,
+              "slide": 0,
+              "width": 600,
+              "height": 400,
+              "sha256": "6b88e5739102ab43e37b40a900755b0ede36382f5da4e99c6c15efe5c8f616d7"
+            },
+            {
+              "time": 0.16666666666666666,
+              "slide": 0,
+              "width": 600,
+              "height": 400,
+              "sha256": "fa8e88b8fcf8eb0ffe108a72ccf2041b91e7a8b9e0653d8bbf0483b45270a62e"
+            },
+            {
+              "time": 0.25,
+              "slide": 0,
+              "width": 600,
+              "height": 400,
+              "sha256": "334f4681d1ce05ca8d412861af26fd1d8ba10348d32e390ddb9ac5d51e956fc6"
+            },
+            {
+              "time": 0.3333333333333333,
+              "slide": 0,
+              "width": 600,
+              "height": 400,
+              "sha256": "3d613228e4d193bcad40e535c36c3cacddbd1776969a50246919ced8bb601253"
+            },
+            {
+              "time": 0.4166666666666667,
+              "slide": 0,
+              "width": 600,
+              "height": 400,
+              "sha256": "8e152af601efd7ad5216fbc8cb48a1634a3546de2e7b05b0c1c2aceb5a542587"
+            },
+            {
+              "time": 0.5,
+              "slide": 0,
+              "width": 600,
+              "height": 400,
+              "sha256": "0e263d0995780029285d1f78de2879581062a3afd2e97ac631f92cd7801fcd9c"
+            },
+            {
+              "time": 0.5833333333333334,
+              "slide": 0,
+              "width": 600,
+              "height": 400,
+              "sha256": "6212f4ed486239a08b6ba798a362609adc09075ce1e2bf83e7d765f3bdd3e422"
+            },
+            {
+              "time": 0.6666666666666666,
+              "slide": 0,
+              "width": 600,
+              "height": 400,
+              "sha256": "d3e9ca21aa1eacc061dee7c20e99607ea731ffaaeb79729228642c220e892ab2"
+            },
+            {
+              "time": 0.75,
+              "slide": 0,
+              "width": 600,
+              "height": 400,
+              "sha256": "2aa619b557841dd1457844c5a649dfef2486e5c9e6d391c81ce4c853cc938a7c"
+            },
+            {
+              "time": 0.8333333333333334,
+              "slide": 0,
+              "width": 600,
+              "height": 400,
+              "sha256": "6fa68ca40f39750625d1b27ab5f03104e6672627c831bbd5e1d7ebe9e898efe5"
+            },
+            {
+              "time": 0.9166666666666666,
+              "slide": 0,
+              "width": 600,
+              "height": 400,
+              "sha256": "4c07b847868d146d44f086d239f5694ccd20a4470dd454c7d65b3df52ddba624"
+            },
+            {
+              "time": 1.0,
+              "slide": 0,
+              "width": 600,
+              "height": 400,
+              "sha256": "7d3cbd6ea0e24fbe60e78f78421f9891c8a8031a18a34f1ab7cdd9defbf06d1a"
+            },
+            {
+              "time": 1.0833333333333333,
+              "slide": 0,
+              "width": 600,
+              "height": 400,
+              "sha256": "61b9b91e4df8942eb2e44ceba887abdbcfb6d38a54809b97c4c90f60bb038966"
+            },
+            {
+              "time": 1.1666666666666667,
+              "slide": 0,
+              "width": 600,
+              "height": 400,
+              "sha256": "4ceafb4eda1738f82584c500ae3f4d316b01306bcc2196c951a735247b8c82c7"
+            },
+            {
+              "time": 1.25,
+              "slide": 0,
+              "width": 600,
+              "height": 400,
+              "sha256": "6bcd94ba22863f78bd5282ce8bcccd43211592991cc7ce0ed85d2b0b5a458b89"
+            },
+            {
+              "time": 1.3333333333333333,
+              "slide": 0,
+              "width": 600,
+              "height": 400,
+              "sha256": "d4d297c469973528770a634f9158f74f6e89d2ce2d5a82d51cbf992c3c62e510"
+            },
+            {
+              "time": 1.4166666666666667,
+              "slide": 0,
+              "width": 600,
+              "height": 400,
+              "sha256": "1471054e8136108db3d54a124133b104db5a1ac8a4f4abb9cfe5cb03b853216f"
+            },
+            {
+              "time": 1.5,
+              "slide": 0,
+              "width": 600,
+              "height": 400,
+              "sha256": "cd06b6bd6e07d30ebfb0ba8d5daef9088187aa04ccdc9d257079e99e9de18ae9"
+            },
+            {
+              "time": 1.5833333333333333,
+              "slide": 0,
+              "width": 600,
+              "height": 400,
+              "sha256": "13724423699676a257f0610cb24291acd7facc1cc2bee83c5094642bc2b46890"
+            },
+            {
+              "time": 1.6666666666666667,
+              "slide": 0,
+              "width": 600,
+              "height": 400,
+              "sha256": "d7eb10faa59c2b9a30ca12d0f0f8a64336d48636d07d473133473194df829eeb"
+            },
+            {
+              "time": 1.75,
+              "slide": 0,
+              "width": 600,
+              "height": 400,
+              "sha256": "2d89261fe15d9771450413e49ceb98f377e18375e8e9b7ac5c62f3cc90fe511d"
+            },
+            {
+              "time": 1.8333333333333333,
+              "slide": 0,
+              "width": 600,
+              "height": 400,
+              "sha256": "41e8f9ccd8dca44f7f3cf67e660b28221ef33d5eaf6d240c4658de82602ae41c"
+            },
+            {
+              "time": 1.9166666666666667,
+              "slide": 0,
+              "width": 600,
+              "height": 400,
+              "sha256": "b961c038ca368a167deb44e4f25a3eecdfd83717289d53bbb86ca5177e87240c"
+            },
+            {
+              "time": 2.0,
+              "slide": 0,
+              "width": 600,
+              "height": 400,
+              "sha256": "4929c68b73e262e3392758cc93d2442de2c5e6b34b25f3b3c68289c297bc2d95"
+            }
+          ],
+          "stills": [
+            {
+              "slide": 0,
+              "width": 600,
+              "height": 400,
+              "sha256": "ddbaf15b333749dc6a612a2345619ec3b7b074b0d374164374b7cc256214ba9a"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "attempts": [
+    {
+      "phase": "canonical",
+      "repetition": 0,
+      "returncode": 0,
+      "frames": 25
+    },
+    {
+      "phase": "canonical",
+      "repetition": 1,
+      "returncode": 0,
+      "frames": 25
+    },
+    {
+      "scene": "path_trim",
+      "phase": "warmup",
+      "repetition": 0,
+      "result": {
+        "scene": "path_trim",
+        "format": "gif",
+        "fps": 12.0,
+        "options": {
+          "fps": 12.0,
+          "loop": 0,
+          "matte": "#000000",
+          "max_size": [
+            432,
+            768
+          ],
+          "colors": 64,
+          "workers": 1,
+          "quality": "standard"
+        },
+        "quality": "standard",
+        "shots": 24,
+        "render_ms_per_shot": 6.195859249298034,
+        "render_seconds": 0.14870062198315281,
+        "encode_seconds": 0.15588325301359873,
+        "total_seconds": 0.30458387499675155,
+        "python_peak_rss_mib": 83.34375,
+        "font_loads": 0,
+        "font_seconds": 0.0,
+        "output_bytes": 54796,
+        "output_sha256": "9190140c1455c2e4aab39c6702e1ab6e36bc9dbcf2852d21e28ab92a970e4e99",
+        "decoded_output": {
+          "width": 432,
+          "height": 288,
+          "frames": 24,
+          "distinct_frames": 24,
+          "duration": 2.0,
+          "first_ink_bounds": [
+            44,
+            145,
+            52,
+            159
+          ],
+          "last_ink_bounds": [
+            54,
+            90,
+            379,
+            198
+          ]
+        }
+      }
+    },
+    {
+      "scene": "path_trim",
+      "phase": "measured",
+      "repetition": 1,
+      "result": {
+        "scene": "path_trim",
+        "format": "gif",
+        "fps": 12.0,
+        "options": {
+          "fps": 12.0,
+          "loop": 0,
+          "matte": "#000000",
+          "max_size": [
+            432,
+            768
+          ],
+          "colors": 64,
+          "workers": 1,
+          "quality": "standard"
+        },
+        "quality": "standard",
+        "shots": 24,
+        "render_ms_per_shot": 6.473378540249541,
+        "render_seconds": 0.155361084965989,
+        "encode_seconds": 0.16239145603321958,
+        "total_seconds": 0.3177525409992086,
+        "python_peak_rss_mib": 86.078125,
+        "font_loads": 0,
+        "font_seconds": 0.0,
+        "output_bytes": 54796,
+        "output_sha256": "9190140c1455c2e4aab39c6702e1ab6e36bc9dbcf2852d21e28ab92a970e4e99",
+        "decoded_output": {
+          "width": 432,
+          "height": 288,
+          "frames": 24,
+          "distinct_frames": 24,
+          "duration": 2.0,
+          "first_ink_bounds": [
+            44,
+            145,
+            52,
+            159
+          ],
+          "last_ink_bounds": [
+            54,
+            90,
+            379,
+            198
+          ]
+        }
+      }
+    },
+    {
+      "scene": "path_trim",
+      "phase": "measured",
+      "repetition": 2,
+      "result": {
+        "scene": "path_trim",
+        "format": "gif",
+        "fps": 12.0,
+        "options": {
+          "fps": 12.0,
+          "loop": 0,
+          "matte": "#000000",
+          "max_size": [
+            432,
+            768
+          ],
+          "colors": 64,
+          "workers": 1,
+          "quality": "standard"
+        },
+        "quality": "standard",
+        "shots": 24,
+        "render_ms_per_shot": 6.855908039142378,
+        "render_seconds": 0.16454179293941706,
+        "encode_seconds": 0.16688083206827287,
+        "total_seconds": 0.33142262500768993,
+        "python_peak_rss_mib": 88.8125,
+        "font_loads": 0,
+        "font_seconds": 0.0,
+        "output_bytes": 54796,
+        "output_sha256": "9190140c1455c2e4aab39c6702e1ab6e36bc9dbcf2852d21e28ab92a970e4e99",
+        "decoded_output": {
+          "width": 432,
+          "height": 288,
+          "frames": 24,
+          "distinct_frames": 24,
+          "duration": 2.0,
+          "first_ink_bounds": [
+            44,
+            145,
+            52,
+            159
+          ],
+          "last_ink_bounds": [
+            54,
+            90,
+            379,
+            198
+          ]
+        }
+      }
+    },
+    {
+      "scene": "path_trim",
+      "phase": "measured",
+      "repetition": 3,
+      "result": {
+        "scene": "path_trim",
+        "format": "gif",
+        "fps": 12.0,
+        "options": {
+          "fps": 12.0,
+          "loop": 0,
+          "matte": "#000000",
+          "max_size": [
+            432,
+            768
+          ],
+          "colors": 64,
+          "workers": 1,
+          "quality": "standard"
+        },
+        "quality": "standard",
+        "shots": 24,
+        "render_ms_per_shot": 6.558361041849518,
+        "render_seconds": 0.15740066500438843,
+        "encode_seconds": 0.16437341799610294,
+        "total_seconds": 0.3217740830004914,
+        "python_peak_rss_mib": 88.25,
+        "font_loads": 0,
+        "font_seconds": 0.0,
+        "output_bytes": 54796,
+        "output_sha256": "9190140c1455c2e4aab39c6702e1ab6e36bc9dbcf2852d21e28ab92a970e4e99",
+        "decoded_output": {
+          "width": 432,
+          "height": 288,
+          "frames": 24,
+          "distinct_frames": 24,
+          "duration": 2.0,
+          "first_ink_bounds": [
+            44,
+            145,
+            52,
+            159
+          ],
+          "last_ink_bounds": [
+            54,
+            90,
+            379,
+            198
+          ]
+        }
+      }
+    }
+  ],
+  "results": [
+    {
+      "scene": "path_trim",
+      "format": "gif",
+      "options": {
+        "fps": 12.0,
+        "loop": 0,
+        "matte": "#000000",
+        "max_size": [
+          432,
+          768
+        ],
+        "colors": 64,
+        "workers": 1,
+        "quality": "standard"
+      },
+      "quality": "standard",
+      "fps": 12.0,
+      "shots": 24,
+      "render_ms_per_shot": 6.558361041849518,
+      "render_seconds": 0.15740066500438843,
+      "encode_seconds": 0.16437341799610294,
+      "total_seconds": 0.3217740830004914,
+      "python_peak_rss_mib": 88.25,
+      "font_loads": 0,
+      "font_seconds": 0.0,
+      "output_bytes": 54796,
+      "total_seconds_min": 0.3177525409992086,
+      "total_seconds_max": 0.33142262500768993,
+      "render_ms_per_shot_min": 6.473378540249541,
+      "render_ms_per_shot_max": 6.855908039142378
+    }
+  ],
+  "density_proof": {
+    "independent_reference_viewport": [
+      480,
+      240
+    ],
+    "source_viewport": [
+      120,
+      60
+    ],
+    "scale": [
+      1,
+      4
+    ],
+    "canonical_endpoint_sha256": "4929c68b73e262e3392758cc93d2442de2c5e6b34b25f3b3c68289c297bc2d95",
+    "independent_reference_sha256": "4929c68b73e262e3392758cc93d2442de2c5e6b34b25f3b3c68289c297bc2d95",
+    "method": "actual canonical endpoint equals independently authored fourfold viewport RGBA; no smaller bitmap is used as reference"
+  }
+}

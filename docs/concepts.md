@@ -226,10 +226,12 @@ repaints geometry instead of enlarging a small prepared bitmap. Each renderer
 retains at most one 4 MiB painted source; an individual source exceeding the
 regional pixel budget raises `RenderingError` rather than degrading quality.
 
-Path animation currently requires track timelines: presets, stagger, trim/morph,
-Group children and transform parenting are unsupported. Transformed or animated
-paths use an explicitly reported authored-static PNG fallback in document
-exports; ordinary untransformed paths retain native SVG/HTML output.
+Path animation requires track timelines. Dash phase, stroke trim and bounded
+same-topology path morphing share the canonical sampler; see [Path API](api/path.md)
+for correspondence and export limits. Presets, stagger, Group children and transform
+parenting remain unsupported. Supported HTML stroke timelines use native SVG/CSS;
+other animated document paths retain an explicitly reported authored-static PNG
+fallback. Ordinary untransformed paths retain native SVG/HTML output.
 
 ## Errors and checks
 
