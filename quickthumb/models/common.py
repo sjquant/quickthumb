@@ -288,13 +288,6 @@ class _AnimatableLayerModel(LayerIdentityModel):
     )
 
     @model_validator(mode="after")
-    def validate_mask_animation(self):
-        from quickthumb._composition import validate_mask_animation
-
-        validate_mask_animation(self)
-        return self
-
-    @model_validator(mode="after")
     def validate_path_motion_target(self):
         from .motion import AnimationSpec
 
@@ -309,6 +302,13 @@ class _AnimatableLayerModel(LayerIdentityModel):
             raise ValidationError(
                 "dash_offset, trim and path_morph tracks require a PathLayer", path="/animation"
             )
+        return self
+
+    @model_validator(mode="after")
+    def validate_mask_animation(self):
+        from quickthumb._composition import validate_mask_animation
+
+        validate_mask_animation(self)
         return self
 
 

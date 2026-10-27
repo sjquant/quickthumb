@@ -151,9 +151,9 @@ MP4/WebM/MOV mix supported clip audio, Deck narration and an optional soundtrack
 Narration starts at its slide's absolute offset. The soundtrack is trimmed to the
 visual timeline and can loop; audio padding from the codec does not extend the
 reported visual duration. GIF and image sequences carry no audio. Use video when
-the soundtrack or narration must accompany the motion. Ordinary MP4 exports play
-animations; `to_narrated_mp4()` / `render_narrated_mp4()` are the separate
-static-slide narration path.
+the soundtrack or narration must accompany the motion. MP4 exports play layer animations
+and transitions while retaining per-slide narration. For still-slide narration,
+author static canvases and set `deck.transition(Cut())`.
 
 A video layer's `start` is slide-local. Its `trim_start`, `trim_end` and `speed`
 select source media time; caption `start`/`end` are relative to the placed clip,

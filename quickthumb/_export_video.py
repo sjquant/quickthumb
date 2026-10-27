@@ -2081,8 +2081,8 @@ def _build_units(
     from quickthumb._track_mattes import has_track_mattes
     from quickthumb.motion import _text_selector, _validate_text_selectors
 
-    mattes = has_track_mattes(canvas)
     _validate_text_selectors(canvas)
+    mattes = has_track_mattes(canvas)
     linked = has_parent_links(canvas)
     if mattes:
         canvas._validate_layer_identities()

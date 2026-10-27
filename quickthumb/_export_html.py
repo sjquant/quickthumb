@@ -995,13 +995,6 @@ class HtmlExporter:
             self._prev_anim_key = None
             return ""
 
-        from quickthumb.motion import _text_selector
-
-        if _text_selector(layer) is not None:
-            self._prev_anim_key = None
-            self._prev_nodes = []
-            return ""
-
         if _has_color_track(layer) or any(
             _has_spring_easing(effect) or _has_wiggle(effect) for effect in effects
         ):
@@ -1010,6 +1003,12 @@ class HtmlExporter:
             self._prev_nodes = []
             return ""
 
+        from quickthumb.motion import _text_selector
+
+        if _text_selector(layer) is not None:
+            self._prev_anim_key = None
+            self._prev_nodes = []
+            return ""
         if (
             isinstance(getattr(layer, "mask", None), LayerMask)
             and _mask_html_problem(layer, self._canvas._ctx) is None

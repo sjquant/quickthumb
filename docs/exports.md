@@ -52,7 +52,7 @@ canvas.export("card.webp", quality=85)  # JPEG/WebP compression quality
 | Write a file with capability policy and a result receipt | `export(path, ...)` |
 | Draw debug boxes or use the lower-level file renderer | `render(path, ...)` |
 | Get bytes or an in-memory document | `to_mp4()`, `to_gif()`, `to_html()`, etc. |
-| Export static narrated Deck slides | `render_narrated_mp4(path, hold=3)` / `to_narrated_mp4(hold=3)` |
+| Export narrated Deck slides | `export(path, animation=VideoOptions(hold=3))` / `to_mp4(hold=3)` |
 | Write silent animation frames plus a manifest | `export_image_sequence(directory, options=...)` |
 | Write bounded Canvas-only Lottie vectors | `canvas.export("scene.lot", animation=LottieOptions(fps=30, hold=3))`; see [Lottie vectors](#lottie-vectors) |
 
@@ -229,6 +229,44 @@ searchable vector content; this does not promise PowerPoint-style editing.
 Deck PDF comparison is rejected explicitly; export its Canvas slides individually.
 This observation does not establish PPTX or animation fidelity.
 
+### HTML browser validation harness
+
+The developer-only harness captures actual exported Canvas and two-slide Deck
+stages with an explicitly selected Chrome and Node's built-in WebSocket. It does
+not install a browser or change `ExportPolicy`:
+
+```bash
+PYTHONPATH=. python scripts/check_html_fidelity.py \
+  --chrome "/path/to/chrome" --output /tmp/quickthumb-html-observations
+```
+
+The output directory must be new. Chrome runs headless with a temporary profile
+and loopback CDP; the harness never attaches to an existing browser session.
+It waits for fonts, images and slide transitions, captures only the original-size
+stage at DPR 1, and seeks a real click-triggered CSS fade at 0, 5 and 10 seconds.
+The report records browser/Node versions, canonical environment, input asset
+hashes, executed route diagnostics, dimensions, seek points, explicit fixture
+limits, pixel/hash metrics and verdicts. Canonical/browser PNGs remain beside it.
+
+The mixed text/shape/image/mask fixtures allow a channel tolerance of 16, at most
+8% differing pixels, and average-hash similarity of at least 0.94. Every component
+must also satisfy its recorded region criteria: text allows 20% differing pixels
+and requires hash similarity 0.95; the native ellipse allows 2% and requires 0.98.
+The embedded image is exact; the masked fragment allows only one channel level
+of rounding. Text/ellipse channel tolerance is 16. These local criteria prevent
+small missing features from passing a whole-stage average. Negative controls
+remove each text/image/mask/ellipse element in both the wide Canvas and tall Deck
+and must fail that specific region, not merely another metric. All allowances
+are fixture-specific and are not general document budgets. The simple
+fade permits only one channel level of rounding; a deliberately wrong document
+must fail comparison. Unexpected verdicts fail the command while retaining its
+report. No automatic raster fallback or browser/CI installation is performed.
+
+This observes one Chrome/font/platform environment and one bounded CSS animation,
+not every browser, animation, cue, or Deck transition. CairoSVG cannot substitute
+for this browser observation. Existing Node runtime tests check scheduling and
+state behavior separately from browser pixels.
+
 ### Static cross-export checks
 
 `tests/test_static_export_matrix.py` sends the same authored content through the
@@ -276,50 +314,14 @@ harness and native presentation-viewer observations require their own execution
 and environment evidence. Structural success must not be reported as a rendered
 pixel-fidelity verdict.
 
-### HTML browser validation harness
-
-The developer-only harness captures actual exported Canvas and two-slide Deck
-stages with an explicitly selected Chrome and Node's built-in WebSocket. It does
-not install a browser or change `ExportPolicy`:
-
-```bash
-PYTHONPATH=. python scripts/check_html_fidelity.py \
-  --chrome "/path/to/chrome" --output /tmp/quickthumb-html-observations
-```
-
-The output directory must be new. Chrome runs headless with a temporary profile
-and loopback CDP; the harness never attaches to an existing browser session.
-It waits for fonts, images and slide transitions, captures only the original-size
-stage at DPR 1, and seeks a real click-triggered CSS fade at 0, 5 and 10 seconds.
-The report records browser/Node versions, canonical environment, input asset
-hashes, executed route diagnostics, dimensions, seek points, explicit fixture
-limits, pixel/hash metrics and verdicts. Canonical/browser PNGs remain beside it.
-
-The mixed text/shape/image/mask fixtures allow a channel tolerance of 16, at most
-8% differing pixels, and average-hash similarity of at least 0.94. Every component
-must also satisfy its recorded region criteria: text allows 20% differing pixels
-and requires hash similarity 0.95; the native ellipse allows 2% and requires 0.98.
-The embedded image is exact; the masked fragment allows only one channel level
-of rounding. Text/ellipse channel tolerance is 16. These local criteria prevent
-small missing features from passing a whole-stage average. Negative controls
-remove each text/image/mask/ellipse element in both the wide Canvas and tall Deck
-and must fail that specific region, not merely another metric. All allowances
-are fixture-specific and are not general document budgets. The simple
-fade permits only one channel level of rounding; a deliberately wrong document
-must fail comparison. Unexpected verdicts fail the command while retaining its
-report. No automatic raster fallback or browser/CI installation is performed.
-
-This observes one Chrome/font/platform environment and one bounded CSS animation,
-not every browser, animation, cue, or Deck transition. CairoSVG cannot substitute
-for this browser observation. Existing Node runtime tests check scheduling and
-state behavior separately from browser pixels.
-
 ### Migrating output calls
 
 - `Deck.to_mp4()` now plays animation, matching Canvas and file exports.
-  Replace old `to_animated_mp4()` calls with `to_mp4()`; use
-  `to_narrated_mp4()` for still-slide narration.
-- Replace `render_mp4()` with `render_narrated_mp4()` for still-slide files.
+  Replace old `to_animated_mp4()` and `to_narrated_mp4()` calls with `to_mp4()`.
+- Replace `render_mp4()` and `render_narrated_mp4()` with `export("deck.mp4")`.
+  The separate still-slide encoder is removed, with no aliases. To retain still
+  scenes, author static canvases and use `Cut()`; this does not freeze an
+  already animated Deck or promise identical encoded output.
 - `export_image_sequence()` replaces `export_png_sequence()`; the public
   options/manifest/result models are now `ImageSequence*`, with no obsolete aliases.
 - Replace animated Deck `slide_duration=` and narrated `default_duration=` with
@@ -525,8 +527,8 @@ continue to permit a zero hold.
 The byte methods accept the same rendering controls as keyword-only scalars:
 `workers=1` and `render_quality="standard"` on Canvas GIF/MP4/WebM/MOV and Deck
 GIF/animated MP4/WebM/MOV, plus `max_size=None` and `colors=None` on GIF.
-These methods use `hold` and do not accept options objects. Static narration
-uses `Deck.to_narrated_mp4()` / `Deck.render_narrated_mp4()`.
+These methods use `hold` and do not accept options objects. Narration uses the
+same Deck MP4 timeline as other video output.
 
 File execution resolves the format before checking export policy. Canvas and
 Deck MP4 always play the animated timeline, with default `VideoOptions()` when
@@ -817,8 +819,6 @@ Normal completion and errors wait for running jobs to finish and close their
 decoders. Pending jobs are canceled on failure; abruptly terminated workers
 are reported as rendering errors. An OS-level kill cannot run normal cleanup.
 
-Static narrated MP4 uses `render_narrated_mp4()` or `to_narrated_mp4()`.
-
 ### Narrated deck video
 
 A deck can be exported as a video with a voice-over per slide:
@@ -829,13 +829,27 @@ A deck can be exported as a video with a voice-over per slide:
 - `deck.export("deck.mp4")` and `deck.render("deck.mp4")` play layer animations
   and transitions with narration by default. `deck.to_mp4()`, `deck.to_webm()`,
   and `deck.to_mov()` return animated video bytes.
-- To show static slides with narration, use
-  `deck.render_narrated_mp4("deck.mp4")` or `deck.to_narrated_mp4()`.
-  The output is H.264/yuv420p video with an AAC track.
+- To show still slides with narration, author static canvases and set an
+  explicit `Cut()` transition. The output is H.264/yuv420p with AAC when audio
+  is present. Omitting a transition uses the default fade, not a cut.
+  `reduced_motion=True` also selects default transitions; it is not a still-slide
+  export mode. Existing animated layers still play in the ordinary MP4 path.
 - Add background music with
   `animation=VideoOptions(soundtrack=AudioTrack(path="music.mp3", volume=0.16, loop=True))`
   on `deck.export()` or `deck.render()`. Quickthumb mixes it with the slide
   narration; callers do not need to pre-mix audio themselves.
+
+```python
+from quickthumb import Canvas, Deck, VideoOptions
+from quickthumb.transitions import Cut
+
+deck = Deck(640, 360).transition(Cut())
+deck.slide(Canvas(640, 360).background(color="#123456"),
+           audio="voice.wav", duration=2.5)
+deck.slide(Canvas(640, 360).background(color="#456789"), duration=1.0)
+result = deck.export("narrated.mp4", animation=VideoOptions(fps=30))
+mp4_bytes = deck.to_mp4(fps=30)
+```
 
 ### Timing
 
@@ -1039,7 +1053,7 @@ pdf_bytes = deck.to_pdf()
 pptx_bytes = deck.to_pptx()
 gif_bytes = deck.to_gif()
 webm_bytes = deck.to_webm()
-mp4_bytes = deck.to_narrated_mp4()   # static slides with per-slide narration
+mp4_bytes = deck.to_mp4()   # timeline with per-slide narration
 ```
 
 `render()` dispatches on the output extension: `.pdf` and `.pptx` produce a single document; `.gif`, `.mp4`, `.webm`, and `.mov` produce an animation; and raster extensions have no native multi-page container, so the deck writes one file per slide as a zero-padded numbered sequence and returns the written paths.

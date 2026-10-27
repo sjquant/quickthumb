@@ -206,6 +206,12 @@ def measure_export(
         with output.open("rb") as stream:
             for chunk in iter(lambda: stream.read(1024 * 1024), b""):
                 digest.update(chunk)
+        blur_decoded = decoded_output(output, format) if scene == "motion_blur" else {}
+        if blur_decoded and (
+            blur_decoded["frame_count"] != receipt.timing_metrics.frame_count
+            or abs(blur_decoded["duration"] - receipt.timing_metrics.duration) > 0.011
+        ):
+            raise RuntimeError("decoded playback disagrees with export receipt")
         selector_decoded = None
         if format == "gif" and scene in TEXT_SELECTOR_SCENES:
             # Consume the actual encoded animation after timing and RSS observation.
@@ -226,12 +232,6 @@ def measure_export(
                 }
             if len(frame_hashes) < 2 or abs(selector_decoded["duration"] - DURATION) > 0.02:
                 raise RuntimeError("text export lost motion or changed the playback duration")
-        blur_decoded = decoded_output(output, format) if scene == "motion_blur" else {}
-        if blur_decoded and (
-            blur_decoded["frame_count"] != receipt.timing_metrics.frame_count
-            or abs(blur_decoded["duration"] - receipt.timing_metrics.duration) > 0.011
-        ):
-            raise RuntimeError("decoded playback disagrees with export receipt")
         if scene == "path_trim" and format == "gif":
             durations, frame_hashes, bounds = [], set(), []
             with Image.open(output) as gif:
@@ -286,9 +286,9 @@ def measure_export(
             "font_seconds": font_seconds,
             "output_bytes": output.stat().st_size,
             "output_sha256": digest.hexdigest(),
-            **({"decoded_output": selector_decoded} if selector_decoded is not None else {}),
             "spec_sha256": hashlib.sha256(deck.to_json().encode()).hexdigest(),
             **({"decoded": blur_decoded} if blur_decoded else {}),
+            **({"decoded_output": selector_decoded} if selector_decoded is not None else {}),
         }
 
 

@@ -1662,10 +1662,12 @@ def _sample_event(
     for track in event.tracks:
         if track.property == "position" and _is_path_track(track):
             value, path_heading = _sample_path_track(track, local_time, event.options.get("easing"))
+            value = _wiggle_value(track, value, local_time)
+            state = _compose_track_value(state, track, value)
             if track.auto_orient and path_heading is not None:
                 heading = path_heading
-        else:
-            value = _sample_track(track, local_time, event.options.get("easing"))
+            continue
+        value = _sample_track(track, local_time, event.options.get("easing"))
         value = _wiggle_value(track, value, local_time)
         candidate = _compose_track_value(state, track, value)
         before = getattr(state, track.property)
@@ -2111,7 +2113,6 @@ _CAPABILITIES["html"]["motion_path"] = MotionCapability("motion_path", "html", "
 _CAPABILITIES["html"]["motion_blur"] = MotionCapability(
     "motion_blur", "html", "unsupported", "static"
 )
-
 _CAPABILITIES["html"]["spring"] = MotionCapability("spring", "html", "fallback", "static")
 _CAPABILITIES["html"]["wiggle"] = MotionCapability("wiggle", "html", "fallback", "static")
 _PPTX_FALLBACKS: dict[CapabilityFeature, tuple[SupportLevel, Fallback | None]] = {

@@ -101,7 +101,7 @@ deck.render("slides.jpg", quality=85)
 | `.pdf` | Single multi-page PDF. Requires the `pdf` extra. |
 | `.pptx` | Single multi-slide PPTX. Requires the `pptx` extra. |
 | `.gif` / `.webm` / `.mov` | Single animation playing layer animations and slide transitions with default settings. WebM and MOV require `ffmpeg` (MOV uses `prores_ks`). |
-| `.mp4` | Animated timeline with optional per-slide narration; H.264/yuv420p video and AAC audio. Requires `ffmpeg` (and `ffprobe` for narration). Use `.render_narrated_mp4()` for static slides. |
+| `.mp4` | Animated timeline with optional per-slide narration; H.264/yuv420p video and AAC audio. Requires `ffmpeg` (and `ffprobe` for narration). For still slides, use static canvases and `Cut()` transitions. |
 | `.html` / `.htm` | Single self-contained, animated HTML slideshow. |
 | `.png` / `.jpg` / `.jpeg` / `.webp` | One file per slide as a zero-padded numbered sequence. |
 
@@ -167,9 +167,9 @@ All animated byte methods accept keyword-only `workers=1` and
 `max_size=None` for proportional resizing and `colors=None` for the palette
 size (2–256 when supplied). Existing positional parameters remain unchanged.
 
-These controls also apply to `.to_mp4()`. Use `.to_narrated_mp4()` for static
-narrated slides. File options and byte methods both use `hold`. Animated video requires a positive
-default hold whenever a slide has neither narration nor an explicit duration;
+These controls also apply to `.to_mp4()`. Use static canvases and `Cut()` for still
+narrated slides. File options and byte methods both use `hold`. Animated video
+requires a positive default hold whenever a slide has neither narration nor an explicit duration;
 zero is still valid for Deck GIF and silent image sequences. Deck GIF ignores
 per-slide narration and explicit durations.
 
@@ -199,30 +199,13 @@ The receipt reports actual frame count, timing, encoding and destination.
 See [image sequences](../exports.md#image-sequences) for validation, per-format
 metadata and atomic no-overwrite publication.
 
-### `.render_narrated_mp4(...)`
-
-Render a static, narrated MP4 directly to a path. Add narration to a slide with
-`deck.slide(canvas, audio="voice.wav", duration=2.5)`. If duration is omitted,
-ffprobe supplies the audio length; silent slides use `hold=3.0`.
-The output is H.264/yuv420p plus AAC and requires both `ffmpeg` and `ffprobe`.
-This path does not currently play layer animations or slide transitions.
-
-`deck.to_narrated_mp4(fps=30, hold=3.0)` returns the same static MP4 as bytes;
-its `hold` argument supplies the silent-slide default.
-
-| Parameter | Type | Default | Description |
-| --- | --- | --- | --- |
-| `output_path` | `str` | — | Final `.mp4` path for `render_narrated_mp4()` |
-| `hold` | `float` | `3.0` | Duration of a slide with neither audio nor duration |
-| `fps` | `float` | `30.0` | Static-video frame rate |
-
 ### `.to_mp4(...)`
 
 Return the same animated timeline as `.to_webm()` in an H.264 MP4 container,
 including scheduled per-slide narration and an optional mixed soundtrack.
 Animated MP4/WebM/MOV export supports at most 64 narrated slides per Deck; silent
 slides do not count toward that operational FFmpeg input limit.
-For a file export, use `deck.render("deck.mp4",
+For a file export, use `deck.export("deck.mp4",
 animation=VideoOptions(soundtrack=AudioTrack(path="music.mp3", loop=True)))`.
 It mixes the background track with each slide's `audio` narration during rendering.
 Without explicit options, `deck.export("deck.mp4")` uses the same animated

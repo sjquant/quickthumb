@@ -96,6 +96,13 @@ def build_text_selector_scene(name: str, *, rest: bool = False) -> Deck:
 
 def build_scene(name: str) -> Deck:
     """Use the complete example reel, or a high-contrast asymmetric marker."""
+    if name == "motion_blur":
+        from examples.motion_blur import build_deck
+
+        return build_deck()
+    if name in TEXT_SELECTOR_SCENES:
+        return build_text_selector_scene(name)
+
     if name == "path_trim":
         canvas = (
             Canvas(600, 400)
@@ -128,13 +135,6 @@ def build_scene(name: str) -> Deck:
         return Deck(600, 400).slide(
             canvas, transition=Cut(advance_after=DURATION), duration=DURATION
         )
-
-    if name in TEXT_SELECTOR_SCENES:
-        return build_text_selector_scene(name)
-    if name == "motion_blur":
-        from examples.motion_blur import build_deck
-
-        return build_deck()
     if name == "product_hype_reel":
         from examples.product_hype_reel import build_deck
 

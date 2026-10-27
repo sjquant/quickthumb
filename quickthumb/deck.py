@@ -8,10 +8,8 @@ so every slide looks identical to rendering that Canvas on its own.
 
 from __future__ import annotations
 
-import contextlib
 import math
 import os
-import tempfile
 from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any, Literal, Self, cast
 
@@ -373,10 +371,8 @@ class Deck:
         """Render the deck, dispatching on the output extension.
 
         `.pdf` and `.pptx` produce a single multi-page/multi-slide document.
-        `.gif`, `.webm`, and `.mov` produce one animation that plays each slide's
-        layer animations and transitions. `.mp4` renders static slides with
-        per-slide narration unless `animation=VideoOptions(...)` is supplied,
-        in which case it uses the animated timeline. Raster
+        `.gif`, `.mp4`, `.webm`, and `.mov` play each slide's layer animations
+        and transitions. Video formats mix optional per-slide narration. Raster
         extensions (`.png`, `.jpg`, `.jpeg`, `.webp`) write one file per
         slide as a zero-padded
         numbered sequence derived from `output_path` (e.g. `slides.png` ->
@@ -533,7 +529,7 @@ class Deck:
         self, default_duration: float = 3.0
     ) -> tuple[list[float | None], list[float]]:
         """Resolve visual overrides and finite durations for the audio mixer."""
-        from quickthumb._export_deck_mp4 import ffprobe_binary, resolve_audio_duration
+        from quickthumb._slide_audio import ffprobe_binary, resolve_audio_duration
 
         for index, audio in enumerate(self._slide_audio):
             if audio is not None and not os.path.isfile(audio.path):
@@ -728,29 +724,6 @@ class Deck:
             reduced_motion=bool(policy and policy.reduced_motion),
         )
 
-    def to_narrated_mp4(
-        self,
-        fps: float = 30.0,
-        hold: float = 3.0,
-    ) -> bytes:
-        """Return a static, narrated Deck MP4 as bytes.
-
-        Every slide becomes a still frame. Its optional `audio` is used as
-        narration; its `duration` overrides that audio's length, and silent
-        slides use `hold`. Layer animations and transitions are
-        not played by this Deck-specific MP4 export.
-        """
-        self._require_slides()
-        descriptor, output_path = tempfile.mkstemp(suffix=".mp4")
-        os.close(descriptor)
-        try:
-            self.render_narrated_mp4(output_path, hold=hold, fps=fps)
-            with open(output_path, "rb") as rendered:
-                return rendered.read()
-        finally:
-            with contextlib.suppress(FileNotFoundError):
-                os.remove(output_path)
-
     def to_mp4(
         self,
         fps: float = 30.0,
@@ -816,27 +789,6 @@ class Deck:
             workers=workers,
             quality=quality,
             reduced_motion=reduced_motion,
-        )
-
-    def render_narrated_mp4(self, output_path: str, hold: float = 3.0, fps: float = 30.0) -> None:
-        """Render static slides and their per-slide AAC audio into an MP4 file.
-
-        Requires `ffmpeg` and `ffprobe`. The first slide defines the video
-        dimensions (rounded down to even yuv420p dimensions); other slides are
-        letterboxed. Every output includes an AAC audio stream, including for
-        silent slides. This initial MP4 path intentionally does not play deck
-        transitions or layer animations.
-        """
-        self._require_slides()
-        from quickthumb._export_deck_mp4 import render_deck_mp4
-
-        render_deck_mp4(
-            self._slides,
-            self._slide_audio,
-            self._slide_durations,
-            output_path,
-            default_duration=hold,
-            fps=fps,
         )
 
     def to_webm(

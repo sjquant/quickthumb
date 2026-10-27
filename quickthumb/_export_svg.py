@@ -81,7 +81,7 @@ def _stroke_attr(rgba: tuple, opacity: float = 1.0) -> str:
 
 class SvgExporter:
     def __init__(
-        self, canvas: Canvas, embed_fonts: bool = False, *, id_prefix: str = "", policy=None
+        self, canvas: Canvas, embed_fonts: bool = False, *, policy=None, id_prefix: str = ""
     ):
         canvas = _distinct_layer_occurrences(canvas)
         self._canvas = canvas
