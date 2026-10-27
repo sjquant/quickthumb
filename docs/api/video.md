@@ -906,13 +906,24 @@ accepted only when each rendered run maps back to source codepoints; normalized
 whitespace that makes that mapping ambiguous is rejected. A failing proof raises
 an actionable error before sampled output is written; it never uses horizontal
 bands as a substitute for glyphs. Fonts and shaping libraries can change which
-layouts pass, so raster/video selector and stagger support remains `partial`.
+layouts pass.
 Untimed output and document selector fallbacks keep authored-static text.
+
+Raster/video `text_selector` support is `full` within this exact-ownership
+contract: supported layouts animate per target, and unprovable layouts raise
+instead of substituting a fade. This is not a promise to shape every string.
+Validation also reports `full` stagger support for top-level text outside the
+transform-parent graph when using character targets or range selectors. Strict
+unsupported-motion policy permits these routes; layout preparation can still reject unsupported
+text before writing output. Validation does not paint text to certify a layout.
+The generic `stagger` capability remains `partial` because other text and group
+adapters can use a whole-source approximation. `inspect_motion().capabilities`
+shows this generic table; its per-layer diagnostics report the scene's handling.
 
 Run `uv run python examples/text_range_selector.py --target words --output /tmp/words.gif`
 (or `--target lines` / `--target characters`) for weighted position/rotation that settles to the original
 text layout, plus portable scene JSON. This is partial #165 coverage, not a
-general-purpose shaping backend or a full text-stagger capability claim.
+general-purpose shaping backend or full support for every stagger adapter.
 
 The bounded HTML adapters for anchors, axis scaling, paths and parent chains
 currently use static fallback when custom Bézier easing, per-keyframe easing,

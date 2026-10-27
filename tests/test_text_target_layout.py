@@ -12,6 +12,7 @@ from quickthumb import (
     AnimationSpec,
     Canvas,
     ColorTrack,
+    ExportPolicy,
     GifOptions,
     KeyframeSpec,
     OpacityTrack,
@@ -160,7 +161,16 @@ def test_selector_shapes_survive_json_sampling_and_gif(shape, weights, tmp_path)
     sequence = restored.sample([0])
     assert sequence.frames[0].to_image().convert("RGB").tobytes() == frame.tobytes()
     output = tmp_path / "selector.gif"
-    restored.export(output, animation=GifOptions(fps=10, hold=0.1))
+    receipt = restored.export(
+        output,
+        animation=GifOptions(fps=10, hold=0.1),
+        policy=ExportPolicy(unsupported_motion="error"),
+    )
+    assert receipt.fallback_diagnostics == []
+    assert (
+        next(row for row in receipt.capability_report if row.feature == "text_selector").support
+        == "full"
+    )
     with Image.open(output) as image:
         decoded = image.convert("RGB")
 
@@ -171,7 +181,14 @@ def test_selector_shapes_survive_json_sampling_and_gif(shape, weights, tmp_path)
         assert decoded.crop(bounds).getchannel("R").getextrema()[1] == pytest.approx(
             expected, abs=2
         )
-    layer = restored.inspect_motion().slides[0].layers[1]
+    inspection = restored.inspect_motion(
+        target="video", policy=ExportPolicy(unsupported_motion="error")
+    )
+    assert (
+        next(row for row in inspection.capabilities if row.feature == "text_selector").support
+        == "full"
+    )
+    layer = inspection.slides[0].layers[1]
     assert layer.events[0].selector_weights == [weights]
     assert [target.source_range for target in layer.targets] == [(0, 3), (4, 7)]
     assert [target.samples[0]["opacity"] for target in layer.targets] == [1 - w for w in weights]
@@ -208,8 +225,17 @@ def test_selector_composition_keeps_document_indices_with_reverse_stagger(tmp_pa
     assert by_source == {(0, 3): 0.25, (4, 7): 1.0}
     assert inspected.duration == pytest.approx(0.9)
     assert inspected.sample_times[-1] == pytest.approx(0.9)
-    receipt = scene.export(tmp_path / "reverse.gif", animation=GifOptions(fps=10, hold=0.1))
+    receipt = scene.export(
+        tmp_path / "reverse.gif",
+        animation=GifOptions(fps=10, hold=0.1),
+        policy=ExportPolicy(unsupported_motion="error"),
+    )
     assert receipt.timing_metrics.duration == pytest.approx(inspected.duration + 0.1)
+    assert all(
+        row.support == "full" and row.fallback is None
+        for row in receipt.capability_report
+        if row.feature in {"stagger", "text_selector"}
+    )
 
     # A later full replacement also settles earlier selector-driven geometry.
     moving = AnimationSpec.timeline(
@@ -675,7 +701,7 @@ def test_character_targets_preserve_source_slots_rest_and_fractional_gif(content
     assert sampled.frames[-1].to_image().tobytes() == restored.render_frame(1).tobytes()
 
 
-def test_character_stagger_preserves_blank_codepoint_turns_and_reverse_ownership():
+def test_character_stagger_preserves_blank_codepoint_turns_and_reverse_ownership(tmp_path):
     """Empty slots consume their own clock; reverse order keeps source identity."""
     scene = text_scene(
         "A V",
@@ -697,6 +723,20 @@ def test_character_stagger_preserves_blank_codepoint_turns_and_reverse_ownership
     assert frame.crop((0, 0, 40, 180)).getbbox() is None
     assert frame.crop((40, 0, 320, 180)).getchannel("R").getextrema()[1] == 255
     assert scene.render_frame(1.5).tobytes() == text_scene("A V").render_frame(0).tobytes()
+    # An unrelated parent graph must not downgrade this independent text's support.
+    scene.null(id="unrelated-root").shape(
+        "rectangle", (-80, -80), 10, 10, "#FFFFFF", parent="unrelated-root"
+    )
+    assert scene.render_frame(0.5).convert("RGB").tobytes() == frame.tobytes()
+    receipt = scene.export(
+        tmp_path / "characters.gif",
+        animation=GifOptions(fps=2, hold=0.5),
+        policy=ExportPolicy(unsupported_motion="error"),
+    )
+    assert receipt.fallback_diagnostics == []
+    assert (
+        next(row for row in receipt.capability_report if row.feature == "stagger").support == "full"
+    )
 
 
 @pytest.mark.parametrize(
@@ -724,7 +764,11 @@ def test_unprovable_character_ownership_rejects_before_output(tmp_path, content,
     with pytest.raises(RenderingError, match=reason):
         scene.render_frame(0)
     with pytest.raises(RenderingError, match=reason):
-        scene.export(output, animation=GifOptions(fps=4, hold=0.5))
+        scene.export(
+            output,
+            animation=GifOptions(fps=4, hold=0.5),
+            policy=ExportPolicy(unsupported_motion="error"),
+        )
     assert output.read_bytes() == b"original"
 
 
