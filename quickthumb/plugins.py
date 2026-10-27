@@ -233,6 +233,7 @@ class PluginRegistry:
             discriminator["mapping"] = mapping
         return {
             "title": "quickthumb Plugin Layer JSON Spec",
+            "$defs": base.get("$defs", {}),
             "oneOf": variants,
             "discriminator": discriminator,
         }
@@ -282,6 +283,8 @@ class PluginRegistry:
                 "align",
                 "opacity",
                 "assets",
+                "clip",
+                "mask",
             )
             if key in base_properties
         }

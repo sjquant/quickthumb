@@ -293,13 +293,6 @@ def preflight_export(
         output_format=resolved.output_format,
         uses_authored_transitions=resolved.uses_authored_transitions,
     )
-    for diagnostic in diagnostics:
-        if diagnostic.feature == "plugin" and diagnostic.support == "unsupported":
-            raise RenderingError(
-                diagnostic.message,
-                code="unsupported_capability",
-                layer_id=diagnostic.layer_id,
-            )
     for index, canvas in enumerate(_contract_canvases(source)):
         try:
             canvas._resolve_plugin_assets()

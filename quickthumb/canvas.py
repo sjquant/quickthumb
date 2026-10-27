@@ -217,6 +217,7 @@ class Canvas:
             self._shapes,
             self._text,
             self._visualizations,
+            self._plugin_registry,
         )
         self._diagnostics = DiagnosticsEngine(
             self._ctx,
@@ -1076,7 +1077,7 @@ class Canvas:
 
         Children are measured at their natural size and positioned by the group:
         they must not set their own position. Children may be dicts or layer models
-        of type text, image, shape, svg, chart, qr_code, or nested group.
+        of type text, image, shape, svg, chart, qr_code, plugin, or nested group.
 
         Args:
             children: Child layer dicts or models, in stacking order
@@ -1148,6 +1149,8 @@ class Canvas:
         align: Align | str | tuple | None = Align.TOP_LEFT,
         opacity: float = 1.0,
         assets: dict[str, str] | None = None,
+        clip: LayerClip | dict | None = None,
+        mask: LayerMask | dict | None = None,
         id: str | None = None,
         motion_key: str | None = None,
     ) -> Self:
@@ -1163,6 +1166,8 @@ class Canvas:
             align=align,  # type: ignore[arg-type]  # Pydantic validator handles conversion
             opacity=opacity,
             assets=assets or {},
+            clip=cast(Any, clip),
+            mask=cast(Any, mask),
             id=id,
             motion_key=motion_key,
         )
@@ -1389,7 +1394,10 @@ class Canvas:
         """
         from quickthumb._parenting import has_parent_links
 
-        if policy is not None and has_parent_links(self):
+        if policy is not None and (
+            has_parent_links(self)
+            or any(isinstance(layer, PluginLayer) for layer in self._iter_layers_deep())
+        ):
             self.validate_export("html", policy)
         from quickthumb._export_html import HtmlExporter
 
@@ -1409,7 +1417,10 @@ class Canvas:
         """
         from quickthumb._parenting import has_parent_links
 
-        if policy is not None and has_parent_links(self):
+        if policy is not None and (
+            has_parent_links(self)
+            or any(isinstance(layer, PluginLayer) for layer in self._iter_layers_deep())
+        ):
             self.validate_export("pptx", policy)
         from quickthumb._export_pptx import PptxExporter
 

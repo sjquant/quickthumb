@@ -108,7 +108,7 @@ The command writes deterministic JSON only, so it can be checked into a repo, pi
 
 Plugin registrations are kept in one explicit `PluginRegistry`. A registration
 describes a layer type and its parameters. A separate trusted synchronous
-`raster` callback can render top-level plugin layers as canonical RGBA pixels.
+`raster` callback renders plugin layers as canonical RGBA pixels.
 Callbacks are application code, never serialized or imported from JSON.
 
 ```python
@@ -132,7 +132,9 @@ schema = canvas_json_schema(registry=registry)
 
 A plugin layer requires `type: "plugin"`, `renderer`, `version`, object-valued
 `params`, and positive integer `width`/`height`. `position` accepts the normal
-pixel/percentage coordinates; `align` and `opacity` affect its local box. The same
+pixel/percentage coordinates; `align` and `opacity` affect its local box. Standard
+`clip` and `mask` boundaries apply after rendering. A Group controls child
+placement and can animate the whole group, including static plugin pixels. The same
 explicit registry must be supplied to document parsers and Schema helpers.
 
 ```python
@@ -159,9 +161,14 @@ shared asset resolver's cache, offline policy and remote download limits.
 Plugin code remains trusted Python: the helper is not a filesystem or process
 sandbox.
 
-Top-level Canvas/Deck sampling and PNG/JPEG/WebP output are supported.
-Timed sampling, animation output, groups, native document exports and `workers>1`
-fail explicitly. No time argument or animation callback is provided.
+Canvas/Deck still and timed sampling, animation output and groups share the
+canonical renderer. SVG, HTML, PDF and PPTX embed plugin pixels as PNG fragments;
+capability and export reports identify the renderer/version and raster fallback.
+`ExportPolicy(unsupported_motion="error")` rejects that fallback before writing;
+PPTX can also require native output per layer with `pptx={"badge": "native"}`.
+No time argument or animation callback is provided: the callback supplies static
+content, while group motion and slide transitions animate its composition.
+`workers>1` rejects plugins because process-local callables are not serialized.
 
 `prefetch_assets()` resolves every declared plugin asset without running the
 callback. Shared exports resolve them before writing, including declarations the
@@ -178,8 +185,7 @@ font faces. Declaring a font file records its bytes, not any font selection or
 shaping a callback performs itself. The callback owns decoding and any resources
 it opens. Inspection reports observed state and may run the callback as part of
 normal diagnostics; it does not promise to prefetch unused references.
-`inspect_document(deck)` does not support plugin layers; inspect individual
-canvases for observed plugin assets.
+Both Canvas and Deck inspection use the same plugin rendering and asset records.
 
 ### Plugin params Schema v1
 
