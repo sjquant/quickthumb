@@ -246,3 +246,57 @@ def test_benchmark_refuses_to_mix_quality_modes():
     ]
     with pytest.raises(ValueError, match="disagree"):
         benchmark.summarize(runs)
+
+
+def test_motion_blur_measurement_decodes_real_consumed_frames():
+    measured = benchmark.measure_export("motion_blur", "gif", 12, blur_samples=2)
+    assert measured["source_frame_calls"] == 48
+    assert measured["shots"] == measured["decoded"]["frame_count"] == 24
+    assert measured["decoded"]["size"] == (512, 288)
+    assert measured["decoded"]["duration"] == pytest.approx(2)
+    assert measured["options"]["motion_blur"] == {"samples": 2, "shutter_angle": 180}
+
+
+def test_cost_sweep_retains_warmups_rotates_order_and_rejects_changed_playback(monkeypatch):
+    calls = []
+
+    def run(scene, format, fps, quality, samples):
+        calls.append(samples)
+        return {
+            "scene": scene,
+            "format": format,
+            "fps": fps,
+            "quality": quality,
+            "shots": 24,
+            "options": {"samples": samples},
+            "total_seconds": 1,
+            "python_peak_rss_mib": 100,
+            "spec_sha256": "same-document",
+            "decoded": {
+                "frame_count": 24,
+                "duration": 2,
+                "rgb_sha256": str(samples),
+                "size": [512, 288],
+            },
+        }
+
+    monkeypatch.setattr(benchmark, "run_worker", run)
+    report = benchmark.blur_cost_report(["gif"], 12, "standard")
+    assert len(report["warmup_runs"]) == 4
+    assert len(report["raw_runs"]) == 20
+    assert calls[:12] == [0, 2, 4, 8, 0, 2, 4, 8, 2, 4, 8, 0]
+    assert len(report["results"]) == 4
+    assert all(
+        row["total_seconds_min"] == row["total_seconds_max"] == 1 for row in report["results"]
+    )
+
+    original = benchmark.run_worker
+
+    def corrupt(*args):
+        row = original(*args)
+        row["decoded"]["frame_count"] = 23
+        return row
+
+    monkeypatch.setattr(benchmark, "run_worker", corrupt)
+    with pytest.raises(RuntimeError, match="playback changed"):
+        benchmark.blur_cost_report(["gif"], 12, "standard")
