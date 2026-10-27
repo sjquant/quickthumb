@@ -31,13 +31,15 @@ Some features need extra packages. Install them by name, for example
 | `rembg` | rembg, onnxruntime | `remove_background=True` on image layers. Requires Python 3.11+; downloads a model of about 170 MB on first use. |
 | `cli` | typer, watchfiles, jinja2 | The `quickthumb` command: `render`, `lint`, `watch`, `serve`, `doctor`, and more |
 
-MP4 and WebM export also need [ffmpeg](https://ffmpeg.org/), which is a system
+MP4, WebM, and MOV export also need [ffmpeg](https://ffmpeg.org/), which is a system
 program rather than a Python package:
 
 ```bash
 brew install ffmpeg      # macOS
 sudo apt install ffmpeg  # Debian / Ubuntu
 ```
+
+MOV requires an FFmpeg build with the `prores_ks` encoder.
 
 ## Check your environment
 
