@@ -10,6 +10,7 @@ from quickthumb._base import RenderContext, parse_coordinate
 from quickthumb._effects import EffectsEngine
 from quickthumb._path_dashes import dash_contours
 from quickthumb._path_geometry import _Contour, flatten_path
+from quickthumb._path_trim import trim_contours
 from quickthumb.errors import RenderingError
 from quickthumb.models import LinearGradient, PathLayer
 
@@ -24,10 +25,20 @@ def render_path(
     vx, vy, vw, vh = layer.view_box or (0, 0, layer.width, layer.height)
     scale = (layer.width / vw, layer.height / vh)
     contours = flatten_path(layer.d, (vx, vy), scale)
-    points = [point for contour in contours for point in contour.points]
+    trimmed = (
+        trim_contours(contours, layer.trim_start, layer.trim_end, layer.trim_offset, scale)
+        if layer.stroke is not None
+        else ()
+    )
+    paint_contours = contours if layer.color is not None or layer.fill is not None else trimmed
+    points = [point for contour in paint_contours for point in contour.points]
     if not points:
         return
-    padding = layer.stroke_width / 2 * max(layer.miter_limit, math.sqrt(2)) if layer.stroke else 0
+    padding = (
+        layer.stroke_width / 2 * max(layer.miter_limit, math.sqrt(2))
+        if layer.stroke and trimmed
+        else 0
+    )
     pad_x, pad_y = padding * scale[0], padding * scale[1]
     if not all(math.isfinite(value) for value in (pad_x, pad_y)):
         raise _stroke_limit()
@@ -77,7 +88,7 @@ def render_path(
             _paint_mask(image, mask, layer.color, (x + left, y + top))
     if layer.stroke is not None:
         mask = Image.new("1", size)
-        strokes = dash_contours(contours, layer.dash_array, layer.dash_offset, scale)
+        strokes = dash_contours(trimmed, layer.dash_array, layer.dash_offset, scale)
         _stroke_mask(mask, strokes, layer, scale, bounds)
         _paint_mask(image, mask, layer.stroke, (x + left, y + top))
 

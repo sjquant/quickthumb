@@ -73,6 +73,9 @@ MotionProperty = Literal[
     "image_zoom",
     "rotation",
     "dash_offset",
+    "trim_start",
+    "trim_end",
+    "trim_offset",
     "opacity",
     "clip_progress",
     "blur",
@@ -538,8 +541,15 @@ class NormalizedTrack(BaseModel):
         _validate_wiggle_values((key.value for key in self.keyframes), self.wiggle)
         if self.auto_orient and self.property != "position":
             raise ValidationError("auto_orient is only supported for position tracks")
-        if self.blend == "add" and self.property not in {"position", "image_pan", "dash_offset"}:
-            raise ValidationError("additive tracks require position, image_pan or dash_offset")
+        if self.blend == "add" and self.property not in {
+            "position",
+            "image_pan",
+            "dash_offset",
+            "trim_offset",
+        }:
+            raise ValidationError(
+                "additive tracks require position, image_pan, dash_offset or trim_offset"
+            )
         if self.blend == "multiply" and self.property not in {
             "scale",
             "scale_x",
@@ -639,6 +649,11 @@ class LayerState(BaseModel):
     image_zoom: float = Field(default=1.0, ge=1.0, allow_inf_nan=False)
     rotation: float = Field(default=0.0, allow_inf_nan=False)
     dash_offset: float = Field(
+        default=0.0, allow_inf_nan=False, exclude_if=lambda value: value == 0
+    )
+    trim_start: float | None = Field(default=None, ge=0, le=1, allow_inf_nan=False)
+    trim_end: float | None = Field(default=None, ge=0, le=1, allow_inf_nan=False)
+    trim_offset: float = Field(
         default=0.0, allow_inf_nan=False, exclude_if=lambda value: value == 0
     )
     opacity: float = Field(default=1.0, ge=0.0, le=1.0, allow_inf_nan=False)
@@ -849,6 +864,9 @@ def _layer_motion_state(layer: object, canvas: Canvas, time: float = 0.0) -> Lay
                 position=(x + dx, y + dy),
                 rotation=layer.rotation + relative.rotation,
                 dash_offset=layer.dash_offset + relative.dash_offset,
+                trim_start=layer.trim_start if relative.trim_start is None else relative.trim_start,
+                trim_end=layer.trim_end if relative.trim_end is None else relative.trim_end,
+                trim_offset=layer.trim_offset + relative.trim_offset,
                 opacity=layer.opacity * relative.opacity,
                 color=layer.color,
             )
@@ -874,6 +892,9 @@ def _layer_base_state(layer: object, canvas: Canvas) -> LayerState:
         opacity=float(getattr(layer, "opacity", 1.0)),
         rotation=float(getattr(layer, "rotation", 0.0)),
         dash_offset=float(getattr(layer, "dash_offset", 0.0)),
+        trim_start=getattr(layer, "trim_start", None),
+        trim_end=getattr(layer, "trim_end", None),
+        trim_offset=float(getattr(layer, "trim_offset", 0.0)),
         color=getattr(layer, "color", None),
     )
     return state
@@ -1581,6 +1602,8 @@ def _validate_property_value(property: MotionProperty, value: MotionValue) -> No
         raise ValidationError(f"{property} keyframes must contain finite numbers")
     if property in {"opacity", "clip_progress"} and not 0.0 <= value <= 1.0:
         raise ValidationError(f"{property} keyframes must be between 0.0 and 1.0")
+    if property in {"trim_start", "trim_end"} and not 0 <= value <= 1:
+        raise ValidationError("trim boundary keyframes must be between 0 and 1")
     if property == "image_zoom" and value < 1.0:
         raise ValidationError("image_zoom keyframes must be at least 1.0")
     if property == "blur" and value < 0.0:
@@ -1679,8 +1702,10 @@ def _compose_track_value(
     if track.blend == "replace":
         return state.with_values(**{track.property: value})
     if track.blend == "add":
-        if track.property == "dash_offset":
-            return state.with_values(dash_offset=state.dash_offset + cast(float, value))
+        if track.property in {"dash_offset", "trim_offset"}:
+            return state.with_values(
+                **{track.property: getattr(state, track.property) + cast(float, value)}
+            )
         if not isinstance(value, tuple):
             return state
         if track.property == "image_pan":
@@ -1722,7 +1747,15 @@ def _sample_keyframes(
                 return right.value if local_time == right.time else left.value
             ratio = (local_time - left.time) / (right.time - left.time)
             eased_ratio = easing_value(left.easing if left.easing is not None else easing, ratio)
-            if property in {"opacity", "clip_progress", "color", "image_pan", "image_zoom"}:
+            if property in {
+                "opacity",
+                "clip_progress",
+                "color",
+                "image_pan",
+                "image_zoom",
+                "trim_start",
+                "trim_end",
+            }:
                 eased_ratio = min(1.0, max(0.0, eased_ratio))
             if property == "color":
                 return interpolate_color(cast(str, left.value), cast(str, right.value), eased_ratio)
@@ -1880,6 +1913,9 @@ CapabilityFeature = Literal[
     "image_zoom",
     "rotation",
     "dash_offset",
+    "trim_start",
+    "trim_end",
+    "trim_offset",
     "opacity",
     "clip_progress",
     "blur",
@@ -1921,6 +1957,9 @@ _CAPABILITY_FEATURES: tuple[CapabilityFeature, ...] = (
     "image_zoom",
     "rotation",
     "dash_offset",
+    "trim_start",
+    "trim_end",
+    "trim_offset",
     "opacity",
     "clip_progress",
     "blur",
@@ -1968,6 +2007,9 @@ _CANONICAL_RENDERED: dict[str, frozenset[str]] = {
             "scale_y",
             "rotation",
             "dash_offset",
+            "trim_start",
+            "trim_end",
+            "trim_offset",
             "opacity",
             "clip_progress",
             "blur",
@@ -1995,6 +2037,8 @@ _CAPABILITIES["html"]["path"] = MotionCapability("path", "html", "partial", "ras
 _CAPABILITIES["html"]["dash_offset"] = MotionCapability(
     "dash_offset", "html", "unsupported", "static"
 )
+for _feature in ("trim_start", "trim_end", "trim_offset"):
+    _CAPABILITIES["html"][_feature] = MotionCapability(_feature, "html", "unsupported", "static")
 _CAPABILITIES["html"]["color"] = MotionCapability("color", "html", "unsupported", "static")
 _CAPABILITIES["html"]["motion_path"] = MotionCapability("motion_path", "html", "partial")
 _CAPABILITIES["html"]["motion_blur"] = MotionCapability(
@@ -2015,6 +2059,9 @@ _PPTX_FALLBACKS: dict[CapabilityFeature, tuple[SupportLevel, Fallback | None]] =
     "image_zoom": ("fallback", "rasterize"),
     "rotation": ("native", None),
     "dash_offset": ("unsupported", "static"),
+    "trim_start": ("unsupported", "static"),
+    "trim_end": ("unsupported", "static"),
+    "trim_offset": ("unsupported", "static"),
     "opacity": ("native", None),
     "clip_progress": ("fallback", "fade"),
     "blur": ("unsupported", "rasterize"),
@@ -2841,6 +2888,7 @@ def _inspection_layer(
         values = state.model_dump(mode="json", exclude_none=True)
         if isinstance(layer, PathLayer):
             values["dash_offset"] = state.dash_offset
+            values["trim_offset"] = state.trim_offset
         return values
 
     static_state = state_values(base)
@@ -2905,6 +2953,9 @@ def _inspection_reduced_motion(duration: float, policy: ExportPolicy) -> Reduced
             "scale_y",
             "rotation",
             "dash_offset",
+            "trim_start",
+            "trim_end",
+            "trim_offset",
             "opacity",
             "clip_progress",
             "blur",

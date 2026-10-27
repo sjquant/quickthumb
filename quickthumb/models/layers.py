@@ -463,6 +463,9 @@ class PathLayer(_AnimatableLayerModel):
     miter_limit: Annotated[FiniteFloat, Field(ge=1)] = 4.0
     dash_array: tuple[FiniteNonNegativeFloat, ...] | None = Field(default=None, max_length=65_536)
     dash_offset: FiniteFloat = 0.0
+    trim_start: Annotated[FiniteFloat, Field(ge=0, le=1)] = 0.0
+    trim_end: Annotated[FiniteFloat, Field(ge=0, le=1)] = 1.0
+    trim_offset: FiniteFloat = 0.0
     view_box: tuple[FiniteFloat, FiniteFloat, FinitePositiveFloat, FinitePositiveFloat] | None = (
         None
     )
@@ -516,13 +519,16 @@ class PathLayer(_AnimatableLayerModel):
                         "scale_y",
                         "opacity",
                         "dash_offset",
+                        "trim_start",
+                        "trim_end",
+                        "trim_offset",
                     }
                     for track in animation.tracks or ()
                 )
             ):
                 raise ValidationError(
-                    "Path motion requires position, rotation, scale, opacity "
-                    "or dash_offset timelines",
+                    "Path motion requires position, rotation, scale, opacity, "
+                    "dash_offset or trim timelines",
                     path="/animation",
                 )
         segments = parse_path(self.d)
