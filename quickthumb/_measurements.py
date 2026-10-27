@@ -13,6 +13,7 @@ from quickthumb.models import (
     GroupLayer,
     ImageLayer,
     NullLayer,
+    PathLayer,
     PluginLayer,
     QRCodeLayer,
     ShapeLayer,
@@ -28,6 +29,7 @@ MEASURABLE_LAYER_TYPES = frozenset(
     {
         "text",
         "shape",
+        "path",
         "image",
         "svg",
         "group",
@@ -202,6 +204,7 @@ class LayerMeasurementEngine:
                 ImageLayer,
                 SvgLayer,
                 ShapeLayer,
+                PathLayer,
                 ChartLayer,
                 QRCodeLayer,
                 VideoLayer,

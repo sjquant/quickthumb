@@ -204,7 +204,32 @@ class CubicBezierEasing(_MotionModel):
         return points
 
 
-MotionEasing = MotionEasingName | CubicBezierEasing
+class SpringEasing(_MotionModel):
+    """A unit step response of a damped spring, sampled without integration.
+
+    The response runs over one normalized second per keyframe interval. The
+    declared interval always ends at its target, even if the spring has not
+    settled naturally.
+    """
+
+    type: Literal["spring"] = "spring"
+    stiffness: FinitePositiveFloat = 100.0
+    damping: FiniteNonNegativeFloat = 10.0
+    mass: FinitePositiveFloat = 1.0
+
+    @model_validator(mode="after")
+    def validate_response(self):
+        frequency_squared = self.stiffness / self.mass
+        decay = self.damping / self.mass / 2
+        if not (
+            0 < frequency_squared < math.inf
+            and math.isfinite(2 * decay + math.sqrt(frequency_squared))
+        ):
+            raise ValidationError("spring parameters must produce finite positive response rates")
+        return self
+
+
+MotionEasing = MotionEasingName | CubicBezierEasing | SpringEasing
 
 
 class KeyframeSpec(_MotionModel):
@@ -222,10 +247,29 @@ class KeyframeSpec(_MotionModel):
     hold: bool = Field(default=False, exclude_if=lambda value: value is False)
 
 
+class Wiggle(_MotionModel):
+    """Seeded band-limited offsets added to a numeric track on its event clock."""
+
+    frequency: FinitePositiveFloat = 2.0
+    amplitude: FiniteNonNegativeFloat = 1.0
+    seed: Annotated[int, Field(strict=True, ge=0, le=4294967295)] = 0
+
+
+def _validate_wiggle_values(values, wiggle: Wiggle | None) -> None:
+    if wiggle is not None:
+        for value in values:
+            components = value if isinstance(value, (tuple, list)) else (value,)
+            if any(
+                not math.isfinite(abs(component) + wiggle.amplitude) for component in components
+            ):
+                raise ValidationError("keyframe values plus wiggle amplitude must remain finite")
+
+
 class _TrackBase(_MotionModel):
     """Shared fields for a typed motion property track."""
 
     keyframes: list[KeyframeSpec]
+    wiggle: Wiggle | None = Field(default=None, exclude_if=lambda value: value is None)
 
     @model_validator(mode="after")
     def validate_keyframes(self):
@@ -240,6 +284,7 @@ class _TrackBase(_MotionModel):
             for key in self.keyframes
         ):
             raise ValidationError("tangents are only supported for position tracks")
+        _validate_wiggle_values((key.value for key in self.keyframes), self.wiggle)
         return self
 
 
@@ -442,6 +487,7 @@ class ColorTrack(_TrackBase):
     """A text/shape fill track interpolated in premultiplied Oklab and linear alpha."""
 
     type: Literal["color"] = "color"
+    wiggle: None = Field(default=None, exclude_if=lambda value: value is None)
 
     @field_validator("keyframes")
     @classmethod
@@ -514,6 +560,50 @@ class AnimationEffect(_MotionModel):
     )
 
 
+class RangeSelector(_MotionModel):
+    """Percentage range over semantic word or line centers, with optional local keyframes."""
+
+    target: Literal["words", "lines"] = "words"
+    start: (
+        Annotated[float, Field(ge=0, le=100, allow_inf_nan=False)]
+        | Annotated[list[KeyframeSpec], Field(min_length=1)]
+    ) = 0
+    end: (
+        Annotated[float, Field(ge=0, le=100, allow_inf_nan=False)]
+        | Annotated[list[KeyframeSpec], Field(min_length=1)]
+    ) = 100
+    offset: FiniteFloat | Annotated[list[KeyframeSpec], Field(min_length=1)] = 0
+    shape: Literal["square", "ramp", "triangle", "smooth"] = "square"
+
+    @field_validator("start", "end", "offset")
+    @classmethod
+    def validate_percent_keys(cls, value, info):
+        if isinstance(value, list):
+            _TrackBase(keyframes=value)
+            for key in value:
+                if (
+                    isinstance(key.value, bool)
+                    or not isinstance(key.value, (int, float))
+                    or not math.isfinite(key.value)
+                    or info.field_name != "offset"
+                    and not 0 <= key.value <= 100
+                ):
+                    raise ValueError(
+                        "selector keyframes require finite numbers; start/end must be 0..100"
+                    )
+        return value
+
+    @model_validator(mode="after")
+    def validate_range(self):
+        if (
+            not isinstance(self.start, list)
+            and not isinstance(self.end, list)
+            and self.start > self.end
+        ):
+            raise ValidationError("selector start must not exceed end")
+        return self
+
+
 class AnimationSpec(_MotionModel):
     """Canonical layer-motion contract for preset or advanced timeline animation."""
 
@@ -523,6 +613,7 @@ class AnimationSpec(_MotionModel):
     easing: MotionEasing | None = None
     timing: TimingSpec | None = None
     stagger: StaggerSpec | None = None
+    selector: RangeSelector | None = None
 
     @model_validator(mode="after")
     def validate_composition(self):
@@ -532,6 +623,32 @@ class AnimationSpec(_MotionModel):
             raise ValidationError("timeline animation must contain at least one track")
         if self.effect is not None and self.easing is not None:
             raise ValidationError("timeline easing is only valid with tracks")
+        if self.selector is not None:
+            if self.tracks is None or any(
+                track.type not in {"position", "rotation", "scale", "opacity", "color"}
+                for track in self.tracks
+            ):
+                raise ValidationError(
+                    "selectors require position, rotation, scale, opacity or color tracks"
+                )
+            if any(
+                getattr(track, "auto_orient", False)
+                or any(
+                    getattr(key, "in_tangent", None) or getattr(key, "out_tangent", None)
+                    for key in track.keyframes
+                )
+                for track in self.tracks
+            ):
+                raise ValidationError(
+                    "selector motion paths are not supported; use position keyframes"
+                )
+            if self.stagger is not None and (
+                self.stagger.target != self.selector.target
+                or self.stagger.order not in {"document", "reverse"}
+            ):
+                raise ValidationError(
+                    "selector stagger must use the same target and document/reverse order"
+                )
         return self
 
     @classmethod
@@ -564,9 +681,10 @@ class AnimationSpec(_MotionModel):
         *tracks: TrackSpec,
         timing: TimingSpec | None = None,
         easing: MotionEasing | None = None,
+        selector: RangeSelector | None = None,
     ) -> "AnimationSpec":
         """Build an advanced animation from typed property tracks."""
-        return cls(tracks=list(tracks), timing=timing, easing=easing)
+        return cls(tracks=list(tracks), timing=timing, easing=easing, selector=selector)
 
     @classmethod
     def fade(cls, **kwargs) -> "AnimationSpec":

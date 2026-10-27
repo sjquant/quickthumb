@@ -1,5 +1,61 @@
 # Animated export benchmarks
 
+## Temporal exposure cost
+
+```bash
+uv run --locked python -m benchmarks.animated_export --blur-cost \
+  --formats mp4 --fps 12 --quality standard --json /tmp/motion-blur-cost.json
+```
+
+This explicit #146 workload uses `examples/motion_blur.py`: the same 512×288,
+two-second marker travels 340 pixels on black. Only exposure changes: OFF,
+2, 4 and 8 samples at a fixed 180° shutter; workers remain 1. It uses the
+existing instrumented export timer, including consumed lazy render work and
+final writes. Actual source-frame calls are recorded alongside encoder inputs.
+Render/encoder wall-time decomposition remains a profile, not independent CPU
+time or an uninstrumented speed claim.
+
+One fresh-process warmup per condition precedes **five rotated rounds**. Warmups
+are retained separately. Processes start with cold local caches; filesystem
+caches are not flushed. Run without concurrent tests/heavy workloads. Every
+measured output is decoded after timing/RSS collection to verify dimensions,
+frame count and duration against its export receipt and the fixed workload.
+Decoded RGB hashes must match across repetitions of each condition, and the
+document hash must match across all conditions. Different sample counts
+intentionally produce different pixels: this records quality cost, not a
+speedup between equivalent renders.
+
+JSON retains all runs, options, environment, hashes, medians and observed ranges.
+Python RSS is each fresh process's lifetime peak before output decoding; it
+includes imports/native Pillow and excludes FFmpeg. It does not prove a memory
+upper bound or constant total memory. Increasing samples retains a bounded
+accumulator and one current frame rather than every temporal sample; use the
+recorded RSS as a workload observation. No process-tree measurement is claimed
+on macOS.
+
+![Actual 12 fps GIF frame: exposure off versus eight samples](comparisons/motion-blur.png)
+
+The comparison decodes the frame at one second from the example's actual OFF
+and 8-sample GIFs. Labels are added outside the frames; the pixels are unscaled.
+
+Recorded on 2026-10-26 with 12 fps MP4, standard quality and workers=1:
+
+| Samples | Total seconds, median [min–max] | Profiled render seconds, median | Source-frame calls | Parent RSS MiB, median [min–max] |
+| --- | --- | --- | --- | --- |
+| OFF | 0.0882 [0.0875–0.0889] | 0.0142 | 26 | 74.33 [74.02–75.64] |
+| 2 | 0.1590 [0.1564–0.1621] | 0.0842 | 48 | 77.80 [77.72–86.20] |
+| 4 | 0.2059 [0.2052–0.2099] | 0.1306 | 96 | 83.48 [78.44–85.62] |
+| 8 | 0.3008 [0.2980–0.3209] | 0.2259 | 192 | 85.88 [83.70–86.80] |
+
+All conditions decoded to 24 frames/2 seconds at 512×288. Actual frame-call
+counts include preparation/settled observations, not just shutter samples.
+More samples cost additional rendering; this is not an equal-output speed
+comparison. Cooperating task agents paused heavy checks during measurement;
+unrelated host activity was not controlled. See the [raw report](results/2026-10-26-166.json)
+for all 20 measured runs, four warmups, hashes, exact options and environment.
+
+## General export profile
+
 Run from the repository root after the locked setup in `CONTRIBUTING.md`:
 
 ```bash
@@ -340,3 +396,68 @@ Its constant arc-distance clock is tested against an independent dense cubic
 reference. Curve tables are cached by immutable control points, bounded to
 64 entries and 4097 parameter samples per curve; cold setup is included in
 export timings. HTML additionally bakes at up to 120 Hz with at most 4097 stops.
+
+## Word/line selector cost (#165)
+
+```bash
+uv run --locked python -m benchmarks.text_selector_cost --json /tmp/text-selector-cost.json
+```
+
+This optional workload leaves the default four benchmark scenes unchanged.
+The six selectable `text_{words,lines}_{baseline,static,animated}` scenes use the
+same offline Roboto file, 480×240 canvas and `ONE TWO` on three lines at size 40
+with line_height=1.3 (52 pixels), avoiding fractional row baselines. The exact
+target-layout guard remains enabled for every text layout engine.
+All six words share two-second position/rotation/scale/opacity/color tracks.
+Baseline uses ordinary target motion
+with zero stagger delay; static uses a ramp selector ending at 75%; animated adds
+keyed selector offset. All tracks settle to authored text. These cases produce
+**different pixels and rendering work**, so this records cost, not an optimization
+or an equal-output speed comparison. Characters remain outside this workload.
+
+Before timing, two fresh canonical probes per scene verify all 24 timeline
+instants plus the exact endpoint: fixed extent/clock, visible midpoint motion,
+settled authored-layout equality and repeatable raw RGBA digests/environment.
+The three variants must produce distinct timelines. This is not a decoded GIF
+fidelity gate or a test of unsampled instants.
+
+Then one fresh-process warmup per condition is excluded from summaries but kept
+in JSON. Three measured rounds rotate condition order, starting at offsets
+1/2/3. Every export reuses the existing instrumented worker at 12 fps, workers=1,
+standard quality, GIF 64 colors and max_size=(432,768). Each process starts with
+cold process-local caches; filesystem caches are not flushed. The warmup does
+not warm the next process's loaded-font cache. Run without concurrent heavy jobs.
+
+JSON retains attempts (including failures), canonical probes, font/source hashes,
+environment, output hashes, actual consumed inputs and median/range measurements.
+Failures stop the command rather than being retried or removed. Repeated encoded
+GIF hashes must agree within each condition. `Render ms/input` includes document
+construction/preflight and rendering outside the encoder; it is amortized wall
+cost, not isolated glyph CPU time. RSS is the Python process lifetime peak,
+including imports/native Pillow allocations. Read the common measurement limits
+above before comparing hosts or revisions.
+
+### Recorded local run, 2026-10-26
+
+[Raw attempts and environment](results/2026-10-26-text-selectors.json) were
+recorded on macOS arm64, 10 logical CPUs, Python 3.12.8, Pillow 13.0.0,
+FreeType 2.14.3, basic text layout. The parent paused other task-owned local
+builds/tests during timing; unrelated host activity and frequency were not
+controlled. All 24 export attempts succeeded; each consumed 24 inputs. Two
+fresh canonical probes and the three measured GIF hashes agreed per condition.
+The record uses the integer-line fixture above; its base commit and measured
+benchmark source hashes are recorded in the JSON. Earlier fixture measurements
+remain in Git history and are not comparable with this workload.
+
+| Target / selector | Render ms/input median [min–max] | Total s median [min–max] | Python RSS MiB median |
+| --- | --- | --- | --- |
+| Words / baseline | 3.073 [3.069–3.701] | 0.203 [0.202–0.222] | 77.3 |
+| Words / static | 6.502 [6.276–7.094] | 0.296 [0.287–0.314] | 78.2 |
+| Words / animated | 6.787 [6.737–6.895] | 0.301 [0.300–0.305] | 76.4 |
+| Lines / baseline | 2.671 [2.579–2.693] | 0.195 [0.191–0.195] | 74.8 |
+| Lines / static | 4.341 [4.206–4.392] | 0.248 [0.246–0.255] | 78.7 |
+| Lines / animated | 4.203 [4.177–4.287] | 0.243 [0.242–0.249] | 77.4 |
+
+No optimization verdict is supported by these intentionally different workloads.
+This records the supported word/line cost portion of #165, not per-character
+ownership or completion of that issue's remaining acceptance criteria.
