@@ -11,11 +11,11 @@ from quickthumb import (
     AnimationSpec,
     Canvas,
     ExportPolicy,
+    ImageSequenceOptions,
     KeyframeSpec,
     LinearGradient,
     OpacityTrack,
     PathLayer,
-    PngSequenceOptions,
     PositionTrack,
     RotationTrack,
     ScaleTrack,
@@ -145,9 +145,9 @@ def test_sequence_and_spawn_preserve_sampled_path_pixels(tmp_path):
 
     # When: actual files are rendered by independent serial and spawned preparations
     for workers in (1, 2):
-        result = canvas.export_png_sequence(
+        result = canvas.export_image_sequence(
             tmp_path / f"frames-{workers}",
-            options=PngSequenceOptions(fps=4, hold=0.25, workers=workers),
+            options=ImageSequenceOptions(fps=4, hold=0.25, workers=workers),
         )
         paths = sorted(Path(result.output_directory).glob("*.png"))
         decoded = []
