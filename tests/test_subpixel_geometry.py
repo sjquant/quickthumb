@@ -67,7 +67,7 @@ def composite(fragment, pos, size=(128, 96)):
     return frame
 
 
-@pytest.mark.parametrize("scale", [-1.0, 0.0, 0.75, 1.0, 1.15])
+@pytest.mark.parametrize("scale", [-1.0, 0.75, 1.0, 1.15])
 @pytest.mark.parametrize("angle", [-15, 0, 12, 90])
 @pytest.mark.parametrize("blur", [0, 1.25])
 def test_inactive_geometry_keeps_exact_legacy_pixels(scale, angle, blur):

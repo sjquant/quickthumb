@@ -287,19 +287,26 @@ class _AnimatableLayerModel(LayerIdentityModel):
     )
 
     @model_validator(mode="after")
+    def validate_mask_animation(self):
+        from quickthumb._composition import validate_mask_animation
+
+        validate_mask_animation(self)
+        return self
+
+    @model_validator(mode="after")
     def validate_path_motion_target(self):
         from .motion import AnimationSpec
 
         animation = getattr(self, "animation", None)
         items = animation if isinstance(animation, list) else [animation]
         if getattr(self, "type", None) != "path" and any(
-            track.type in {"dash_offset", "trim_start", "trim_end", "trim_offset"}
+            track.type in {"dash_offset", "trim_start", "trim_end", "trim_offset", "path_morph"}
             for item in items
             if isinstance(item, AnimationSpec)
             for track in item.tracks or ()
         ):
             raise ValidationError(
-                "dash_offset and trim tracks require a PathLayer", path="/animation"
+                "dash_offset, trim and path_morph tracks require a PathLayer", path="/animation"
             )
         return self
 
@@ -364,6 +371,17 @@ class LayerClip(quickthumbModel):
         return align.value
 
 
+class TrackMatte(quickthumbModel):
+    """Use a hidden, reusable top-level layer's sampled alpha or luminance as a mask."""
+
+    type: Literal["layer"] = "layer"
+    layer: str = Field(pattern=_IDENTITY_PATTERN.pattern)
+    mode: Literal["alpha", "luma"] = "alpha"
+    invert: bool = False
+
+    model_config = ConfigDict(extra="forbid")
+
+
 class LayerMask(quickthumbModel):
     """Canvas-space alpha mask applied to a layer after it is rendered."""
 
@@ -376,6 +394,7 @@ class LayerMask(quickthumbModel):
     points: list[tuple[float, float]] | None = None
     invert: bool = False
     opacity: OpacityField = 1.0
+    feather: FiniteNonNegativeFloat = Field(default=0, exclude_if=lambda value: value == 0)
 
     @field_validator("position", mode="before")
     @classmethod

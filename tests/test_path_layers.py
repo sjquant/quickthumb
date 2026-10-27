@@ -141,7 +141,8 @@ def test_pptx_raster_fallback_is_reported_and_strict_policy_preserves_output(tmp
     assert error.value.code == "unsupported_capability"
     assert error.value.details[0].path == "/layers/0/d"
     assert [(item.feature, item.target, item.fallback) for item in result.capability_report] == [
-        ("path", "pptx", "rasterize")
+        ("path", "pptx", "rasterize"),
+        ("layer_representation", "pptx", "rasterize"),
     ]
     assert result.fallback_diagnostics[0].layer_id == "badge"
 

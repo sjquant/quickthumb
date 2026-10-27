@@ -18,7 +18,7 @@ uv run --locked python /tmp/export_once.py \
 
 Match the recorded scene, worker count and quality when those options are present.
 Rotate revisions/worker counts between repetitions; do not run tests or profiling
-alongside timings. Retain every attempt. The reports include three observations
+alongside timings. Retain every attempt. The October 19 reports include three observations
 per condition, with six balanced pairs for the separate static-hold workload.
 Decoded video/audio hashes use FFmpeg's SHA-256 hash muxer with RGB24 video and
 PCM S16LE audio, after timing; frame counts and durations come from ffprobe.

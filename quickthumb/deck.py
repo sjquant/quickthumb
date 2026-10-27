@@ -583,9 +583,13 @@ class Deck:
 
         from quickthumb._export_pptx import PptxExporter
 
-        PptxExporter(reduced_motion=bool(policy and policy.reduced_motion)).save_canvases(
-            self._slides, output_path, transitions=self._resolved_transitions()
+        exporter = PptxExporter(reduced_motion=bool(policy and policy.reduced_motion))
+        document = exporter.export_bytes_canvases(
+            self._slides, transitions=self._resolved_transitions()
         )
+        diagnostics.extend(exporter.diagnostics)
+        with open(output_path, "wb") as output:
+            output.write(document)
 
     def _render_sequence(
         self,
