@@ -14,6 +14,7 @@ from PIL import Image
 from quickthumb import (
     AnimationSpec,
     Blinds,
+    BlurTrack,
     Box,
     Canvas,
     Checkerboard,
@@ -1016,6 +1017,103 @@ class TestHtmlAnimations:
 
 class TestDeckHtml:
     """Test suite for deck slideshow export"""
+
+    def test_export_reports_slide_local_routes_and_preserves_manual_timing(self, tmp_path):
+        """Deck receipts disambiguate source IDs while preserving HTML pixels and manual cues."""
+        # Given: two slides sharing local IDs, with an isolated mask and a composite backdrop
+        first = (
+            Canvas(40, 30)
+            .shape(
+                "rectangle",
+                (0, 0),
+                10,
+                10,
+                "#FF0000",
+                id="shared",
+                animation=Fade(duration=0.25, trigger="on_click"),
+            )
+            .shape(
+                "rectangle",
+                (20, 0),
+                20,
+                20,
+                "#0000FF",
+                mask={"shape": "ellipse", "position": (20, 0), "width": 20, "height": 20},
+            )
+        )
+        second = (
+            Canvas(40, 30)
+            .shape("rectangle", (0, 0), 20, 20, "#FF0000", id="shared")
+            .shape("rectangle", (0, 0), 20, 20, "#FFFFFF80", effects=[BackdropBlur(radius=2)])
+            .shape("rectangle", (25, 0), 10, 10, "#00FF00")
+        )
+        deck = Deck(40, 30).slide(first, notes="First cue").slide(second, notes="Next cue")
+
+        # When: writing one interactive document with executed routing observations
+        path = tmp_path / "routes.html"
+        result = deck.export(path, policy=ExportPolicy(unsupported_motion="error"))
+        html = path.read_text()
+
+        # Then: repeated IDs remain local and composites identify only their own slide members
+        routing = [
+            item for item in result.capability_report if item.feature == "layer_representation"
+        ]
+        assert [(item.slide_index, item.layer_id, item.support) for item in routing] == [
+            (0, "shared", "native"),
+            (0, "layer:1", "fallback"),
+            (1, None, "fallback"),
+            (1, "layer:2", "native"),
+        ]
+        assert [
+            (item.slide_index, item.layer_id, item.layer_ids)
+            for item in result.fallback_diagnostics
+        ] == [
+            (0, "layer:1", []),
+            (1, None, ["shared", "layer:1"]),
+        ]
+        assert all(item.native_attempt is False for item in result.fallback_diagnostics)
+        images = [
+            Image.open(BytesIO(base64.b64decode(data))).convert("RGBA")
+            for data in re.findall(r'<img\b[^>]*\bsrc="data:image/png;base64,([^"]+)"', html)
+        ]
+        assert len(images) == 2
+        assert images[0].getpixel((10, 10)) == (0, 0, 255, 255)
+        assert pixel_channel(images[0], (0, 0), 3) == 0
+        assert (
+            images[1].tobytes()
+            == second.sample().frames[0].to_image().crop((0, 0, 20, 20)).tobytes()
+        )
+        assert "background:rgb(255,0,0)" in html and "background:rgb(0,255,0)" in html
+        assert 'data-qt-notes="First cue"' in html and 'data-qt-notes="Next cue"' in html
+        first_timeline, second_timeline = timelines(html)
+        assert first_timeline[0]["tr"] == "on_click" and first_timeline[0]["d"] == 0.25
+        assert second_timeline == []
+        assert result.timing_metrics.duration == 0 and result.timing_metrics.fps is None
+
+    @pytest.mark.parametrize("strict", [False, True], ids=["later-composite", "strict-motion"])
+    def test_export_failure_preserves_document(self, tmp_path, strict):
+        """Unsupported slides and strict motion rejection preserve existing Deck HTML files."""
+        # Given: a supported first slide and a second slide rejected at preflight or rendering
+        motion = (
+            AnimationSpec.timeline(
+                BlurTrack(keyframes=[KeyframeSpec(time=0, value=0), KeyframeSpec(time=1, value=4)])
+            )
+            if strict
+            else Fade()
+        )
+        rejected = Canvas(40, 30).shape("rectangle", (0, 0), 10, 10, "#FF0000", animation=motion)
+        if not strict:
+            rejected.shape(
+                "rectangle", (0, 0), 10, 10, "#FFFFFF80", effects=[BackdropBlur(radius=2)]
+            )
+        deck = Deck(40, 30).slide(Canvas(40, 30).background(color="#123456")).slide(rejected)
+        path = tmp_path / "preserved.html"
+        path.write_text("keep", encoding="utf-8")
+
+        # When/Then: the full document is prepared before its destination is opened
+        with pytest.raises(RenderingError):
+            deck.export(path, policy=ExportPolicy(unsupported_motion="error") if strict else None)
+        assert path.read_text() == "keep"
 
     def test_should_emit_one_stage_per_slide(self):
         """A deck becomes a document with a stage per slide"""

@@ -31,8 +31,12 @@ mp4_bytes = canvas.to_mp4()      # and canvas.to_webm() / canvas.to_mov()
 
 ## Recommended output API
 
-Use `export()` to write a Canvas or Deck and receive an `ExportResult` with
-`written_paths`, capability/fallback diagnostics, pixel/timing metadata and assets.
+Use `export()` when building a workflow that accepts either a `Canvas` or a
+`Deck`. Both accept a string or `Path` and return an `ExportResult`, including
+the document `kind`, effective `output_format`, `written_paths`, capability and
+fallback diagnostics, pixel/timing metadata, the asset manifest, and rendering
+environment.
+
 The extension selects the format. MP4, WebM, MOV and GIF play the animated timeline.
 Deck video also mixes per-slide narration.
 
@@ -58,6 +62,7 @@ All animated byte methods and options use `hold` for settled-state seconds.
 `quality` on `export()`/`render()` controls compression: JPEG accepts integer
 values 1–95 and WebP accepts 1–100.
 Keep `workers=1` unless advanced spawn-based rendering is needed.
+Optional [temporal exposure](timing.md#temporal-exposure) adds motion blur to Canvas exports.
 Both `export()` and `render()` enforce file capability policies such as
 `unsupported_motion="error"` before writing; `export()` also returns the receipt.
 Byte methods expose target-specific controls without the shared file receipt.
@@ -84,9 +89,9 @@ numbered Deck filenames. A Deck cannot be written as a single SVG; export its
 Canvas slides individually. See [image sequences](#image-sequences) for their
 separate new-directory and encoding-option contract.
 
-### Canvas HTML layer routing
+### HTML layer routing
 
-`canvas.export("scene.html")` reports executed layer routes in
+Canvas and Deck `export("scene.html")` report executed layer routes in
 `result.capability_report` with `feature="layer_representation"`. Native HTML/CSS
 or original embedded SVG has `support="native"`; emitted PNG fragments have
 `support="fallback"` and `fallback="rasterize"`. These are representation
@@ -106,11 +111,18 @@ generation. Capability-only diagnostics can leave this fact unknown (`None`).
 Parent scenes report either their static composite or PNG sources with baked
 affine CSS motion. Existing motion capability diagnostics remain separate.
 
+Executed Deck observations also carry a zero-based `slide_index`. Layer IDs stay
+local to each slide, matching `deck.inspect().slides[index]`; use both fields to
+distinguish repeated IDs between slides. Canvas observations omit `slide_index`.
+Deck HTML keeps its interactive cues, transitions and notes; these representation
+records do not turn a click-driven slideshow into fixed-duration playback.
+
 For example, `ExportPolicy(unsupported_motion="error")` does not reject a static
 masked shape: this HTML route preserves its mask using a PNG fragment and
 reports that decision. No layer-selection policy is added. This executed routing
-report currently covers Canvas HTML; other exporters and Deck results do not yet
-collect these observations.
+report covers Canvas and Deck HTML; other exporters do not yet collect these
+observations. Rendering all slides precedes opening the HTML destination, so an
+unsupported later slide or strict motion rejection preserves an existing file.
 
 ### Optional static SVG fidelity report
 
@@ -657,6 +669,8 @@ Normal completion and errors wait for running jobs to finish and close their
 decoders. Pending jobs are canceled on failure; abruptly terminated workers
 are reported as rendering errors. An OS-level kill cannot run normal cleanup.
 
+Static narrated MP4 uses `render_narrated_mp4()` or `to_narrated_mp4()`.
+
 ### Narrated deck video
 
 A deck can be exported as a video with a voice-over per slide:
@@ -724,7 +738,39 @@ probe = deck.sample([0.0, 1.25, 4.0], hold=2.0) # explicit instants, ascending
 - **Sampling.** `fps=N` (at most 120) observes every instant `k / N` before `duration`; explicit times must be ascending, and times at or past `duration` show the final settled frame. One capture observes at most 100,000 instants; a larger explicit list or fps grid is rejected with a `ValidationError` before any frame renders. This grid is an observation schedule, not an exporter's frame schedule: exporters sample each span on their own frame grid, and stretch a slide shorter than one frame to a full frame.
 - **Timing.** `duration` is the exact timeline length and never depends on `fps` or on the requested instants. Each `TimelineSegment` gives a slide's absolute `start`, `transition_end`, `animation_end`, and `end`, rounded to nanoseconds; a slide is on screen over `[start, end)`, so a boundary instant belongs to the incoming slide.
 - **Memory.** A capture whose distinct frames would exceed 768 MiB of raw RGBA is rejected with a `ValidationError`, before any frame renders when every page of a still capture, or one frame of a timeline capture, already exceeds it; request fewer instants, a lower `fps`, a shorter `hold`, or a smaller document.
-- **Environment.** `environment` records the facts that can change pixels for an identical document: quickthumb, Pillow, and FreeType versions, the text layout engine (`basic` or `raqm`), and, for documents with video layers, the version of the FFmpeg that decodes them (`QUICKTHUMB_FFMPEG` or `ffmpeg` on `PATH`). Sampling a video document without a working FFmpeg raises `RenderingError` before any frame renders. Identical documents sampled in identical environments produce identical digests; fonts and images are described by the asset manifest (see below).
+- **Environment.** `sample()` and `export()` report quickthumb, Pillow and FreeType versions, the text layout engine (`basic` or `raqm`), available RAQM/HarfBuzz/FriBidi versions, and the FFmpeg version for documents with video layers. Sampling video without a working FFmpeg raises `RenderingError` before any frame renders. `environment.fonts` reports the actual font face bytes selected by that operation; the asset manifest separately describes authored references.
+
+### Render reproducibility
+
+Font family names and `QUICKTHUMB_DEFAULT_FONT` depend on the machine's font
+search path. Inspect the selected faces rather than treating those names as
+portable identifiers:
+
+```python
+capture = canvas.sample()
+for font in capture.environment.fonts:
+    print(font.source, font.sha256, font.variations)
+```
+
+Each face has its resolved file path (or `pillow:default`), SHA-256 and applied
+variable coordinates keyed by the font's axis names. The hash identifies the
+font bytes. Pillow's embedded
+face reports no hash if its bytes are unavailable. Paths are diagnostic: compare
+hashes and coordinates across machines. Only faces loaded for the current
+operation are reported; unused named fonts and faces from earlier operations
+are excluded.
+
+Remote and Google fonts load from content-addressed copies of their resolved
+bytes, so another document refreshing the original URL does not change a
+prefetched face. These copies live in the asset cache and follow its caller-owned
+cleanup lifecycle. Keep local input files unchanged during an operation.
+
+For repeatable canonical raster output, use identical document data, input asset
+bytes, selected fonts and variable coordinates, rendering options and environment;
+seed procedural effects where supported. Different font, shaping or rasterizer
+versions can change layout and edge pixels. This report explains those inputs;
+it does not promise exact pixels across platforms or native-output viewers.
+Use format-specific fidelity tolerances when comparing such outputs.
 
 ## Remote assets and caching
 
@@ -745,7 +791,35 @@ The cache is controlled by environment variables:
 - `QUICKTHUMB_ASSET_MAX_AGE`: seconds after which a cached entry is refreshed from the network. When the refresh fails, the old bytes are used and reported as `stale`. Unset means cached entries never expire.
 - `QUICKTHUMB_ASSET_OFFLINE=1`: never make network requests. Cached entries are used, and expired ones are reported as `stale`.
 
-Each canvas (including each deck slide) tries to refresh an expired asset at most once; later renders and exports of it reuse the same `stale` result. When neither a usable cache entry nor a network response exists, resolution raises `RenderingError` naming the source, the cause, and the cache directory it searched. To refuse stale inputs, check the manifest before rendering:
+### Ownership and reuse
+
+Keep the same `Canvas` or `Deck` to reuse resolution across `prefetch_assets()`,
+`sample()`, and exports. Each canvas retains its first remote resolution result
+and status; a deck uses its slides' results. Remote images, text fills, and SVGs
+render from these retained bytes. Remote fonts, including Google fonts, load
+from shared cache files instead: another document's refresh can replace that
+file before a font face is loaded, while the earlier manifest still describes
+the original resolution. Keep the font cache unchanged through export when
+reproducible font bytes matter. Construct a new document to resolve the same
+reference again under the current cache policy.
+
+`PrefetchResult` and `asset_manifest` are JSON-safe reports, not resource handles.
+Saving or loading their JSON does not transfer bytes or preload another document.
+A new document can reuse the persisted cache and reports `fresh` when its entry
+is usable. Local image, font, video, and audio paths remain caller-owned files:
+keep them available and unchanged through sampling or export; prefetch does not
+freeze or copy them. Video and audio sources are not downloaded by prefetch;
+remote video is read by FFmpeg when needed and is outside this cache contract.
+Generated content without a file/URL reference has no external asset entry.
+
+The caller owns the cache directory and its cleanup. Quickthumb atomically writes
+remote cache files and metadata but does not automatically evict them. Remove
+unused entries only when documents and export workers are no longer using that
+cache; existing manifests are observations, not guarantees that their
+`cache_path` still exists. No explicit document close is required for the
+in-memory remote results: they are released with the document.
+
+When neither a usable cache entry nor a network response exists, resolution raises `RenderingError` naming the source, the cause, and the cache directory it searched. To refuse stale inputs, check the manifest before rendering:
 
 ```python
 prefetched = canvas.prefetch_assets()
