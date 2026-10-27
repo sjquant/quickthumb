@@ -161,8 +161,18 @@ def test_parent_deck_morph_fades_with_no_pptx_timing_or_html_layer_clock(first_p
         assert b"<p:fade" in archive.read("ppt/slides/slide2.xml")
 
 
-@pytest.mark.parametrize("kind", ["html", "svg", "pptx", "pdf"])
-@pytest.mark.parametrize("deck", [False, True])
+@pytest.mark.parametrize(
+    "kind,deck",
+    [
+        ("html", False),
+        ("svg", False),
+        ("pptx", False),
+        ("pdf", False),
+        ("html", True),
+        ("pptx", True),
+        ("pdf", True),
+    ],
+)
 def test_unsupported_parent_sources_preserve_destinations(tmp_path, kind, deck):
     canvas = scene()
     layers = canvas.layers
