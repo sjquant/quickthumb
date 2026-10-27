@@ -10,10 +10,12 @@ from quickthumb import (
     DashOffsetTrack,
     ExportPolicy,
     KeyframeSpec,
+    SpringEasing,
     TimingSpec,
     TrimEndTrack,
     TrimOffsetTrack,
     TrimStartTrack,
+    Wiggle,
 )
 from quickthumb.errors import RenderingError
 
@@ -136,6 +138,21 @@ def test_start_and_offset_motion_keep_ordered_window():
                 ),
             ),
             "phase exceeds numeric precision",
+        ),
+        (
+            {},
+            motion(track(DashOffsetTrack, 0, 1)).model_copy(update={"easing": SpringEasing()}),
+            "procedural",
+        ),
+        (
+            {},
+            motion(
+                DashOffsetTrack(
+                    keyframes=[KeyframeSpec(time=0, value=0), KeyframeSpec(time=1, value=1)],
+                    wiggle=Wiggle(),
+                )
+            ),
+            "procedural",
         ),
         ({"trim_start": 0.75, "trim_end": 0.25}, None, "nonwrapping"),
         (

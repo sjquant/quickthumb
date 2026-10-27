@@ -64,7 +64,10 @@ def test_native_paths_keep_frame_gradient_alpha_and_holes(format, fill, tmp_path
         b = cast(tuple[int, ...], expected.getpixel(point))
         assert max(abs(x - y) for x, y in zip(a, b, strict=True)) <= 5
     assert actual.getpixel((100, 50)) == (0, 0, 0, 0)
-    assert [(d.support, d.fallback) for d in result.capability_report] == [("native", None)]
+    assert [(d.feature, d.layer_id, d.support, d.fallback) for d in result.capability_report] == [
+        ("path", "ring.source", "native", None),
+        ("layer_representation", "ring.source", "native", None),
+    ]
     assert not result.fallback_diagnostics
 
 

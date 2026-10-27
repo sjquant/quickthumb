@@ -60,6 +60,8 @@ than relying on a Python finding class after a JSON round trip.
 ## Join canonical samples to layout
 
 Both document kinds already return the same `FrameSequence` from `sample()`.
+Its uniform sample grid is an observation clock, not an encoded frame index;
+see [animation timing](../timing.md) for GIF/video quantization and narration differences.
 Page indexes are zero-based and match `frames[].slide` and `timeline[].slide`:
 
 ```python
@@ -75,7 +77,7 @@ for frame in samples.frames:
 No document-kind branch is needed for this loop. `kind` still identifies the
 source, and all per-page and per-frame details remain available.
 
-- `sample()` captures one settled RGBA frame per page with its own dimensions
+- `sample()` captures one authored-static RGBA frame per page with its own dimensions
   and transparency; `time` is `None`, `duration` is zero, and `timeline` is empty
 - `sample(time=[0, 0.5])` or `sample(fps=24)` captures the animated timeline,
   with frames in time order, first-page stage dimensions, and an opaque matte
