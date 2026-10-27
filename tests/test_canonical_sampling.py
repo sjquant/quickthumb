@@ -1,6 +1,7 @@
 """Black-box specifications for canonical still and timeline sampling."""
 
 import copy
+import hashlib
 import re
 import shutil
 import subprocess
@@ -544,3 +545,72 @@ def test_sampling_rejects_invalid_requests(args: tuple, kwargs: dict, message: s
     # When / Then: the invalid request fails validation for its own reason
     with pytest.raises(ValidationError, match=message):
         canvas.sample(*args, **kwargs)
+
+
+@pytest.mark.parametrize("kind", ["canvas", "deck"])
+@pytest.mark.parametrize("reference", [None, "Roboto", "assets/fonts/Roboto-Bold.ttf"])
+def test_actual_font_identity_matches_sample_and_export(kind, reference, tmp_path, monkeypatch):
+    """Default, family, and file references report the selected bold face in both results."""
+    # Given: styled text whose family may come from the rendering environment
+    monkeypatch.setenv("QUICKTHUMB_DEFAULT_FONT", "Roboto")
+    canvas = Canvas(100, 40).text("Face", font=reference, weight=700, size=24, position=(0, 0))
+    document = canvas if kind == "canvas" else Deck(slides=[canvas])
+    expected_path = Path("assets/fonts/Roboto-Bold.ttf").resolve()
+
+    # When: the document is sampled and exported through its public contract
+    capture = document.sample()
+    exported = document.export(tmp_path / "face.png")
+
+    # Then: both describe the actual selected bytes, including implicit defaults
+    [identity] = capture.environment.fonts
+    assert identity.source == str(expected_path)
+    assert identity.sha256 == hashlib.sha256(expected_path.read_bytes()).hexdigest()
+    assert exported.environment == capture.environment
+
+
+def test_font_observations_drop_removed_text_and_recover_cached_faces():
+    """Sampling reports faces used by that operation even after text layers are replaced."""
+    # Given: a document whose face is already loaded and observed
+    canvas = Canvas(100, 40).text("Face", font="Roboto", size=24, position=(0, 0))
+    text_layers = canvas.layers
+    first = canvas.sample()
+
+    # When: text is removed, then restored using the same warmed renderer
+    canvas.layers = []
+    blank = canvas.sample()
+    canvas.layers = text_layers
+    restored = canvas.sample()
+
+    # Then: historical faces are absent from blank output and cached use is observable
+    assert first.environment.fonts
+    assert blank.environment.fonts == []
+    assert restored.environment.fonts == first.environment.fonts
+    assert restored.frames[0].sha256 == first.frames[0].sha256
+
+
+def test_font_identity_reports_applied_variable_coordinates():
+    """Variable font identities report clamped coordinates of the faces that drew the text."""
+
+    # Given: one variable font with distinct requested width coordinates
+    def capture(width):
+        return (
+            Canvas(180, 60)
+            .text(
+                "Variable",
+                font="assets/fonts/RobotoFlex-Variable.ttf",
+                size=24,
+                font_variations={"wdth": width},
+                position=(0, 0),
+            )
+            .sample()
+        )
+
+    # When: a below-range width and a wide width are rendered
+    narrow, wide = capture(0), capture(151)
+
+    # Then: the shared source bytes have distinct effective coordinates and pixels
+    [narrow_face], [wide_face] = narrow.environment.fonts, wide.environment.fonts
+    assert narrow_face.sha256 == wide_face.sha256
+    assert narrow_face.variations["width"] == 25
+    assert wide_face.variations["width"] == 151
+    assert narrow.frames[0].sha256 != wide.frames[0].sha256
