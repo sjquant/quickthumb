@@ -7,6 +7,7 @@ import warnings
 from collections import OrderedDict
 from collections.abc import Iterable
 from dataclasses import dataclass
+from pathlib import Path
 from threading import Lock, RLock
 from typing import Any, cast
 from urllib.parse import quote_plus, urlparse
@@ -19,12 +20,14 @@ from quickthumb.asset_cache import AssetResolver, ResolvedAsset
 from quickthumb.errors import RenderingError
 from quickthumb.font_cache import FontCache
 from quickthumb.models import TextLayer, VideoLayer
+from quickthumb.models.document import FontIdentity
 
 
 @dataclass(frozen=True)
 class _LoadedFont:
     font: ImageFont.FreeTypeFont | ImageFont.ImageFont
     warnings: tuple[str, ...]
+    identity: FontIdentity
 
 
 # Canvases have separate FontEngines, including each slide of a video. Keep the
@@ -104,6 +107,23 @@ class FontEngine:
     def __init__(self, asset_resolver: AssetResolver | None = None):
         self._variant_cache: dict[tuple, ImageFont.FreeTypeFont | ImageFont.ImageFont] = {}
         self._asset_resolver = asset_resolver or AssetResolver()
+        self._font_identities: dict[int, FontIdentity] = {}
+        self._observed_fonts: dict[tuple, FontIdentity] = {}
+
+    def begin_observation(self) -> None:
+        """Start collecting the actual faces used by one sample or export."""
+        self._observed_fonts.clear()
+
+    def font_identities(self) -> list[FontIdentity]:
+        """Return observed face identities without exposing loaded renderer objects."""
+        return [identity.model_copy(deep=True) for identity in self._observed_fonts.values()]
+
+    def _observe_font(self, font: ImageFont.FreeTypeFont | ImageFont.ImageFont) -> None:
+        self._observe_identity(self._font_identities[id(font)])
+
+    def _observe_identity(self, identity: FontIdentity) -> None:
+        key = (identity.source, identity.sha256, tuple(identity.variations.items()))
+        self._observed_fonts[key] = identity
 
     def resolve_remote_references(self, layers: Iterable[object]) -> None:
         """Resolve all remote font references found in document layers."""
@@ -175,6 +195,7 @@ class FontEngine:
         key = (font_name, size, bold, italic, weight, font_source, normalized_variations)
         cached = self._variant_cache.get(key)
         if cached is not None:
+            self._observe_font(cached)
             return cached
 
         font = self._load_font_variant_uncached(
@@ -242,7 +263,9 @@ class FontEngine:
                 if font_path:
                     return self._load_cached_font(font_path, size, font_variations, weight)
 
-            default_font_path = FontCache.get_instance().default_font()
+            default_font_path = FontCache.get_instance().default_font(
+                bold=bold or False, italic=italic or False, weight=weight
+            )
 
             return self._load_cached_font(default_font_path, size, font_variations, weight)
 
@@ -306,14 +329,22 @@ class FontEngine:
                 warning_messages: list[str] = []
                 # Variable font axes mutate the face. Configure it exactly once
                 # before sharing; never apply axes to a cached object.
-                font = self._apply_font_variations(
+                font, variations = self._apply_font_variations(
                     font, font_variations, weight, warning_messages=warning_messages
                 )
-                loaded = _LoadedFont(font, tuple(warning_messages))
+                data = Path(path).read_bytes() if path else getattr(font, "font_bytes", None)
+                identity = FontIdentity(
+                    source=path or "pillow:default",
+                    sha256=hashlib.sha256(data).hexdigest() if isinstance(data, bytes) else None,
+                    variations=variations,
+                )
+                loaded = _LoadedFont(font, tuple(warning_messages), identity)
                 _LOADED_FONTS[key] = loaded
                 if len(_LOADED_FONTS) > _MAX_LOADED_FONTS:
                     _LOADED_FONTS.popitem(last=False)
             _LOADED_FONTS.move_to_end(key)
+        self._font_identities[id(loaded.font)] = loaded.identity
+        self._observe_font(loaded.font)
         # A warm process cache must not hide warnings on a new canvas.
         for message in loaded.warnings:
             warnings.warn(message, UserWarning, stacklevel=4)
@@ -372,7 +403,7 @@ class FontEngine:
             font_variations,
         )
         self._remember_reference(family, asset)
-        return asset.cache_path or os.path.join(str(self._asset_resolver.cache_dir), family)
+        return self._font_snapshot(asset)
 
     def _resolve_google_font_asset(
         self,
@@ -558,7 +589,19 @@ class FontEngine:
             cache_filename=cache_filename,
             fetcher=self._fetch,
         )
-        return asset.cache_path or cache_filename
+        return self._font_snapshot(asset)
+
+    def _font_snapshot(self, asset: ResolvedAsset) -> str:
+        """Keep the resolved font bytes stable when another document refreshes its URL."""
+        extension = Path(asset.cache_path or asset.source).suffix or ".ttf"
+        path = self._asset_resolver.cache_dir / f"quickthumb_face_{asset.content_hash}{extension}"
+        try:
+            cached_hash = hashlib.sha256(path.read_bytes()).hexdigest()
+        except FileNotFoundError:
+            cached_hash = None
+        if cached_hash != asset.content_hash:
+            self._asset_resolver._persist(path, asset.data)
+        return str(path)
 
     def _remember_reference(self, reference: str, asset: ResolvedAsset) -> None:
         self._asset_resolver.remember_reference(reference, "font", asset)
@@ -628,15 +671,15 @@ class FontEngine:
         weight: int | str | None,
         *,
         warning_messages: list[str],
-    ) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
+    ) -> tuple[ImageFont.FreeTypeFont | ImageFont.ImageFont, dict[str, float]]:
         if not isinstance(font, ImageFont.FreeTypeFont):
-            return font
+            return font, {}
 
         variations = {axis.lower(): value for axis, value in requested_variations.items()}
         if weight is not None and "wght" not in variations:
             variations["wght"] = float(self._normalize_weight(weight, bold=False))
         if not variations:
-            return font
+            return font, {}
 
         try:
             axes = font.get_variation_axes()
@@ -645,16 +688,17 @@ class FontEngine:
                 warning_messages.append(
                     "font_variations were ignored because the selected font is not variable."
                 )
-            return font
+            return font, {}
 
         if not axes:
             if requested_variations:
                 warning_messages.append(
                     "font_variations were ignored because the selected font has no variable axes."
                 )
-            return font
+            return font, {}
 
         resolved_values = []
+        applied_variations = {}
         used_axes: set[str] = set()
         for axis in axes:
             axis_data = cast(Any, axis)
@@ -668,6 +712,7 @@ class FontEngine:
             maximum = self._axis_number(axis_data, "maximum", value)
             value = min(max(float(value), minimum), maximum)
             resolved_values.append(value)
+            applied_variations[axis_name] = value
             used_axes.add(axis_tag)
 
         ignored = sorted(set(variations) - used_axes)
@@ -679,12 +724,13 @@ class FontEngine:
 
         try:
             font.set_variation_by_axes(resolved_values)
+            return font, applied_variations
         except (AttributeError, OSError, ValueError):
             if requested_variations:
                 warning_messages.append(
                     "font_variations were ignored because Pillow could not apply them."
                 )
-        return font
+        return font, {}
 
     def _variation_axis_name(self, axis: dict) -> str:
         name = axis.get("name", "")
