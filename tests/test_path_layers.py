@@ -1,4 +1,4 @@
-"""Filled SVG paths share static raster, JSON, and document inspection contracts."""
+"""Filled and stroked SVG paths share raster, JSON, and document inspection contracts."""
 
 import json
 from typing import cast
@@ -69,15 +69,21 @@ def test_even_odd_fill_and_antialiasing(d):
 
 
 @pytest.mark.parametrize(
-    "d,view_box,height",
+    "d,view_box,height,paint",
     [
-        ("M-1e9 -1e9H1e9V1e9H-1e9Z", None, 10),
-        ("M0 0H1e308V1e308H0Z", (0, 0, 1e308, 1e308), 20),
-        ("M-5e307 -5e307H5e307V5e307H-5e307Z", (-5e307, -5e307, 1e308, 1e308), 20),
+        ("M-1e9 -1e9H1e9V1e9H-1e9Z", None, 10, (255, 0, 0, 255)),
+        ("M0 0H1e308V1e308H0Z", (0, 0, 1e308, 1e308), 20, (255, 0, 0, 255)),
+        (
+            "M-5e307 -5e307H5e307V5e307H-5e307Z",
+            (-5e307, -5e307, 1e308, 1e308),
+            20,
+            (255, 0, 0, 255),
+        ),
+        ("M-10 -10L30 30", None, 20, (0, 0, 0, 0)),
     ],
 )
-def test_viewport_clips_large_paths_and_off_canvas_frames(d, view_box, height):
-    """Large SVG coordinates paint only the viewport's visible canvas intersection."""
+def test_viewport_clips_large_paths_and_off_canvas_frames(d, view_box, height, paint):
+    """Viewport clipping bounds real fills without turning a two-point path into filled ink."""
     # Given: large SVG coordinates and a partly off-canvas viewport
     canvas = Canvas(40, 30).path(d, (-5, 4), 20, height, "#FF0000", view_box=view_box)
 
@@ -85,7 +91,7 @@ def test_viewport_clips_large_paths_and_off_canvas_frames(d, view_box, height):
     image = canvas.render_frame(0)
 
     # Then: only the intersection of the viewport and canvas is painted
-    assert image.getpixel((0, 4)) == image.getpixel((14, 3 + height)) == (255, 0, 0, 255)
+    assert image.getpixel((0, 4)) == image.getpixel((14, 3 + height)) == paint
     assert image.getpixel((15, 8)) == image.getpixel((5, 4 + height)) == (0, 0, 0, 0)
 
 
@@ -399,3 +405,223 @@ def test_unrepresentable_arc_preserves_existing_output(d, code, view_box, tmp_pa
     # Then: a structured, actionable error preserves the existing file
     assert error.value.code == code
     assert destination.read_bytes() == b"existing"
+
+
+@pytest.mark.parametrize(
+    "cap,axis,corner", [("butt", 0, 0), ("round", 255, 0), ("square", 255, 255)]
+)
+def test_stroke_caps_roundtrip_and_paint_both_endpoints(cap, axis, corner, tmp_path):
+    """Butt, round and square stroke caps retain their endpoint geometry through JSON and PNG."""
+    # Given: a stroke-only open line with explicit local width and cap
+    canvas = Canvas(80, 60).path(
+        "M20 30H60", (0, 0), 80, 60, None, stroke="#42CEB7", stroke_width=20, line_cap=cap
+    )
+    encoded = canvas.to_json()
+    jsonschema.validate(json.loads(encoded), canvas_json_schema())
+
+    # When: loading the document and exporting its real rendered pixels
+    restored = Canvas.from_json(encoded)
+    destination = tmp_path / "stroke.png"
+    restored.export(destination)
+    with Image.open(destination) as image:
+        alpha = image.getchannel("A")
+
+    # Then: both cap ends have the chosen shape while the line's width stays fixed
+    assert abs(cast(int, alpha.getpixel((12, 30))) - axis) <= 5
+    assert abs(cast(int, alpha.getpixel((68, 30))) - axis) <= 5
+    assert abs(cast(int, alpha.getpixel((11, 21))) - corner) <= 5
+    assert abs(cast(int, alpha.getpixel((69, 21))) - corner) <= 5
+    assert alpha.getpixel((40, 30)) == 255
+    assert alpha.getpixel((40, 18)) == 0
+
+
+@pytest.mark.parametrize(
+    "join,limit,near,far",
+    [
+        ("miter", 4, 255, 255),
+        ("bevel", 4, 0, 0),
+        ("round", 4, 255, 0),
+        ("miter", 1.4, 0, 0),
+        ("miter", 1.5, 255, 255),
+    ],
+)
+def test_stroke_joins_and_miter_limit_choose_outer_corner(join, limit, near, far):
+    """Stroke joins paint distinct corners and bevel miters beyond the half-width ratio limit."""
+    # Given: a right-angle bend with a ten-unit stroke radius
+    canvas = Canvas(90, 90).path(
+        "M20 60H60V20",
+        (0, 0),
+        90,
+        90,
+        None,
+        stroke="#42CEB7",
+        stroke_width=20,
+        line_join=join,
+        miter_limit=limit,
+    )
+
+    # When: drawing the stroke as a single union of its segments and joins
+    alpha = canvas.render_frame(0).getchannel("A")
+
+    # Then: the corner distinguishes bevel, round and the allowed square miter
+    assert abs(cast(int, alpha.getpixel((66, 66))) - near) <= 5
+    assert abs(cast(int, alpha.getpixel((68, 68))) - far) <= 5
+    assert alpha.getpixel((40, 60)) == 255
+    assert alpha.getpixel((74, 60)) == 0
+
+
+@pytest.mark.parametrize("closing,corner", [("Z", 255), ("V20", 0)])
+def test_stroke_closure_joins_instead_of_capping(closing, corner):
+    """An explicit closepath joins the start vertex while coincident open endpoints retain caps."""
+    # Given: the same square outline closed with Z or with an ordinary line
+    canvas = Canvas(80, 80).path(
+        f"M20 20H60V60H20{closing}",
+        (0, 0),
+        80,
+        80,
+        None,
+        stroke="#42CEB7",
+        stroke_width=8,
+        line_join="miter",
+        line_cap="butt",
+    )
+
+    # When: rasterizing the seam at the starting point
+    alpha = canvas.render_frame(0).getchannel("A")
+
+    # Then: only the closed contour paints the outer miter at that seam
+    assert abs(cast(int, alpha.getpixel((17, 17))) - corner) <= 5
+    assert alpha.getpixel((20, 40)) == 255
+
+
+@pytest.mark.parametrize(
+    "d,inside,outside",
+    [("M50 20V80", (108, 50), (112, 50)), ("M20 50H80", (100, 53), (100, 57))],
+)
+def test_stroke_width_uses_local_units_under_viewbox_scaling(d, inside, outside):
+    """Local stroke width stretches independently with each viewBox axis."""
+    # Given: a ten-unit stroke in a frame stretched twice as far horizontally
+    canvas = Canvas(200, 100).path(
+        d,
+        (0, 0),
+        200,
+        100,
+        None,
+        stroke="#42CEB7",
+        stroke_width=10,
+        view_box=(0, 0, 100, 100),
+    )
+
+    # When: rendering the mapped stroke
+    alpha = canvas.render_frame(0).getchannel("A")
+
+    # Then: horizontal and vertical widths reflect their independent viewport scales
+    assert cast(int, alpha.getpixel(inside)) >= 250
+    assert cast(int, alpha.getpixel(outside)) <= 5
+
+
+def test_translucent_stroke_crossings_do_not_accumulate_alpha():
+    """Crossing subpaths and round joins paint a translucent stroke only once per pixel."""
+    # Given: overlapping stroke segments in one path layer
+    canvas = Canvas(80, 80).path(
+        "M20 20L60 60M20 60L60 20",
+        (0, 0),
+        80,
+        80,
+        None,
+        stroke="#FF000080",
+        stroke_width=16,
+        line_cap="round",
+        line_join="round",
+    )
+
+    # When: composing the union of stroke coverage onto the transparent canvas
+    image = canvas.render_frame(0)
+
+    # Then: the crossing is no darker than a single segment
+    assert image.getpixel((40, 40)) == image.getpixel((27, 27)) == (255, 0, 0, 128)
+
+
+@pytest.mark.parametrize(
+    "segment,cap,center",
+    [
+        ("L20 20", "butt", 0),
+        ("L20 20", "round", 255),
+        ("L20 20", "square", 255),
+        ("A5 5 0 0 0 20 20", "round", 0),
+        ("A5 5 0 0 0 20 20", "square", 0),
+        ("", "round", 0),
+    ],
+)
+def test_degenerate_stroke_distinguishes_zero_length_segments_from_omitted_arcs(
+    segment, cap, center
+):
+    """Zero-length lines use their cap, while omitted arcs and empty movetos paint no dot."""
+    # Given: an explicit zero-length segment, an omitted arc or an empty moveto
+    canvas = Canvas(40, 40).path(
+        f"M20 20{segment}",
+        (0, 0),
+        40,
+        40,
+        None,
+        stroke="#42CEB7",
+        stroke_width=10,
+        line_cap=cap,
+    )
+
+    # When: rendering its degenerate endpoints
+    alpha = canvas.render_frame(0).getchannel("A")
+
+    # Then: the chosen cap determines whether a dot is painted
+    assert alpha.getpixel((20, 20)) == center
+    assert alpha.getpixel((10, 10)) == 0
+
+
+@pytest.mark.parametrize("width", [1e308, 1e10])
+def test_excessive_stroke_plan_preserves_existing_output(width, tmp_path):
+    """Unrepresentable or over-budget round strokes fail before replacing an existing PNG."""
+    # Given: a finite stroke request whose geometry exceeds the bounded render plan
+    canvas = Canvas(20, 20).path(
+        "M5 10H15",
+        (0, 0),
+        20,
+        20,
+        None,
+        stroke="#42CEB7",
+        stroke_width=width,
+        line_cap="round",
+    )
+    destination = tmp_path / "stroke.png"
+    destination.write_bytes(b"existing")
+
+    # When: exporting beyond the supported geometry budget
+    with pytest.raises(RenderingError) as error:
+        canvas.export(destination)
+
+    # Then: precision is not silently reduced and the previous output is untouched
+    assert error.value.code == "path_stroke_limit"
+    assert destination.read_bytes() == b"existing"
+
+
+def test_curved_stroke_is_composited_above_fill_without_a_seam():
+    """A closed curved path paints its stroke above its fill with a continuous closing seam."""
+    # Given: a filled circle drawn from two arcs with a contrasting solid stroke
+    canvas = Canvas(100, 100).path(
+        "M20 50A30 30 0 0 1 80 50A30 30 0 0 1 20 50Z",
+        (0, 0),
+        100,
+        100,
+        "#0000FF",
+        stroke="#FF0000",
+        stroke_width=6,
+        line_join="round",
+    )
+
+    # When: sampling the canonical public renderer
+    image = canvas.sample().frames[0].to_image()
+
+    # Then: both curve and seam are stroked, the center keeps its fill, and exterior stays empty
+    assert image.getpixel((50, 20)) == pytest.approx((255, 0, 0, 255), abs=2)
+    assert image.getpixel((20, 50)) == pytest.approx((255, 0, 0, 255), abs=2)
+    assert image.getpixel((50, 50)) == (0, 0, 255, 255)
+    assert image.getpixel((50, 12)) == (0, 0, 0, 0)

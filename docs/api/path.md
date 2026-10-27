@@ -1,10 +1,10 @@
 ---
-description: Draw filled SVG paths with a fixed local viewport and explicit document-format fallbacks.
+description: Draw filled and stroked SVG paths with a fixed local viewport and explicit document-format fallbacks.
 ---
 
 # Path
 
-`Canvas.path()` draws static, filled SVG path data without an SVG
+`Canvas.path()` draws static, filled or stroked SVG path data without an SVG
 file or an optional rendering dependency:
 
 ```python
@@ -24,7 +24,11 @@ canvas.export("path.png")
 | `position` | Required frame position in canvas pixels or percentages. |
 | `width`, `height` | Required positive frame dimensions in pixels. |
 | `view_box` | Optional `(x, y, width, height)` local coordinate window; defaults to `(0, 0, width, height)`. Its width and height must be positive. |
-| `color` | Flat fill color, default black; `None` paints nothing. |
+| `color` | Flat fill color, default black; `None` disables fill. |
+| `stroke`, `stroke_width` | Optional solid stroke color and positive width in local units; width defaults to `1`. |
+| `line_cap` | `"butt"` (default), `"round"` or `"square"` for open endpoints. |
+| `line_join` | `"miter"` (default), `"bevel"` or `"round"` for joined segments. |
+| `miter_limit` | Maximum vertex-to-tip distance divided by half the stroke width; defaults to `4`, must be at least `1`. Longer miters become bevels. |
 | `id`, `motion_key` | Optional scene identity and cross-scene matching key, using the common layer identity rules. |
 
 The local window maps independently onto the frame's width and height and is
@@ -47,7 +51,21 @@ arc. Large-arc and sweep flags must each be `0` or `1`. Arc subdivision uses the
 same mapped chord tolerance and work limits. Unrepresentable numerical geometry
 raises `RenderingError` (`path_arc_range_limit`) rather than producing invalid pixels.
 
-Strokes, gradients, layer animation, parent links, grouping and composition controls are
+Strokes are centered on the path and scale with the viewBox, including independent
+horizontal and vertical scaling. `Z` joins the closing seam; returning to the
+start with a line leaves two capped endpoints. Stroke coverage is unioned before
+color is applied, so translucent intersections do not darken. Fill is painted
+first and stroke above it, both clipped to the fixed viewport. Round geometry
+uses the same 1/8-pixel chord tolerance. Excessive stroke geometry raises
+`RenderingError` (`path_stroke_limit`) before output is written.
+
+```python
+canvas.path("M10 50C30 0 70 100 90 50", (20, 10), 120, 100, None,
+            stroke="#42CEB7", stroke_width=8, line_cap="round",
+            view_box=(0, 0, 100, 100))
+```
+
+Dashes, gradients, layer animation, parent links, grouping and composition controls are
 not accepted yet. JSON uses `type="path"` and round-trips through `PathLayer`.
 
 PNG and canonical samples draw the path directly. SVG, HTML, PDF and PPTX currently
