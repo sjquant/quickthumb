@@ -129,6 +129,7 @@ from quickthumb.models import (
     VideoOptions,
     VisualizationLayerBase,
     Wheel,
+    Wiggle,
     Wipe,
 )
 from quickthumb.plugins import (
@@ -221,6 +222,7 @@ __all__ = [
     "Fade",
     "Wheel",
     "Wipe",
+    "Wiggle",
     "FaceRegion",
     "CanvasInspection",
     "DeckInspection",
