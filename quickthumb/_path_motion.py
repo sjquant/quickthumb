@@ -39,6 +39,7 @@ def render_path_frame(
         raise RenderingError("sampled Path trim_offset must be finite", path="/trim_offset")
     layer = layer.model_copy(
         update={
+            "d": layer.d if state.path_morph is None else state.path_morph,
             "dash_offset": dash_offset,
             "trim_start": layer.trim_start if state.trim_start is None else state.trim_start,
             "trim_end": layer.trim_end if state.trim_end is None else state.trim_end,

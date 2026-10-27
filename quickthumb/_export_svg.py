@@ -386,7 +386,9 @@ class SvgExporter:
             )
         return gradient_id
 
-    def path_fragment(self, layer: PathLayer) -> str:
+    def path_fragment(
+        self, layer: PathLayer, *, stroke_attributes: dict[str, str] | None = None
+    ) -> str:
         """Emit one isolated native path viewport, also consumed by HTML export."""
         from quickthumb._path_svg import native_path_data
 
@@ -405,6 +407,12 @@ class SvgExporter:
             attrs.append(f'fill="{rgb_hex(rgba)}" fill-opacity="{number(rgba[3] / 255)}"')
         else:
             attrs.append('fill="none"')
+        fill_path = ""
+        if stroke_attributes is not None:
+            if layer.color is not None or layer.fill is not None:
+                fill_path = "<path " + " ".join(attrs) + "/>"
+            attrs = attrs[:2] + ['fill="none"']
+            attrs.extend(f"{name}={quoteattr(value)}" for name, value in stroke_attributes.items())
         if layer.stroke is not None:
             rgba = color_to_rgba(self._canvas, layer.stroke)
             attrs.extend(
@@ -433,7 +441,9 @@ class SvgExporter:
             f'preserveAspectRatio="none" overflow="hidden"{source}>'
             + "<defs>"
             + "".join(self._defs)
-            + "</defs><path "
+            + "</defs>"
+            + fill_path
+            + "<path "
             + " ".join(attrs)
             + "/></svg>"
         )

@@ -73,6 +73,7 @@ MotionProperty = Literal[
     "trim_start",
     "trim_end",
     "trim_offset",
+    "path_morph",
     "opacity",
     "clip_progress",
     "blur",
@@ -503,6 +504,10 @@ class NormalizedTrack(BaseModel):
                     )
                 ):
                     raise ValidationError("tangents require finite position control points")
+        if self.property == "path_morph":
+            from quickthumb._path_morph import validate_morph_paths
+
+            validate_morph_paths([cast(str, key.value) for key in self.keyframes])
         if self.auto_orient and self.property != "position":
             raise ValidationError("auto_orient is only supported for position tracks")
         if self.blend == "add" and self.property not in {
@@ -623,6 +628,7 @@ class LayerState(BaseModel):
     opacity: float = Field(default=1.0, ge=0.0, le=1.0, allow_inf_nan=False)
     clip_progress: float = Field(default=1.0, ge=0.0, le=1.0, allow_inf_nan=False)
     blur: float = Field(default=0.0, ge=0.0, allow_inf_nan=False)
+    path_morph: str | None = None
     color: HexColor | None = None
 
     @field_validator("position")
@@ -831,6 +837,7 @@ def _layer_motion_state(layer: object, canvas: Canvas, time: float = 0.0) -> Lay
                 trim_start=layer.trim_start if relative.trim_start is None else relative.trim_start,
                 trim_end=layer.trim_end if relative.trim_end is None else relative.trim_end,
                 trim_offset=layer.trim_offset + relative.trim_offset,
+                path_morph=layer.d if relative.path_morph is None else relative.path_morph,
                 opacity=layer.opacity * relative.opacity,
                 color=layer.color,
             )
@@ -859,6 +866,7 @@ def _layer_base_state(layer: object, canvas: Canvas) -> LayerState:
         trim_start=getattr(layer, "trim_start", None),
         trim_end=getattr(layer, "trim_end", None),
         trim_offset=float(getattr(layer, "trim_offset", 0.0)),
+        path_morph=layer.d if isinstance(layer, PathLayer) else None,
         color=getattr(layer, "color", None),
     )
     return state
@@ -1544,6 +1552,13 @@ def _validate_property_value(property: MotionProperty, value: MotionValue) -> No
         ):
             raise ValidationError("image_pan keyframes must contain values between -1.0 and 1.0")
         return
+    if property == "path_morph":
+        from quickthumb._path_geometry import parse_path
+
+        if not isinstance(value, str):
+            raise ValidationError("path_morph keyframes must contain SVG d strings")
+        parse_path(value)
+        return
     if property == "color":
         if not isinstance(value, str):
             raise ValidationError("color keyframes must contain hexadecimal colors")
@@ -1672,8 +1687,13 @@ def _sample_keyframes(
                 "image_zoom",
                 "trim_start",
                 "trim_end",
+                "path_morph",
             }:
                 eased_ratio = min(1.0, max(0.0, eased_ratio))
+            if property == "path_morph":
+                from quickthumb._path_morph import interpolate_path
+
+                return interpolate_path(cast(str, left.value), cast(str, right.value), eased_ratio)
             if property == "color":
                 return interpolate_color(cast(str, left.value), cast(str, right.value), eased_ratio)
             return _interpolate(left.value, right.value, eased_ratio)
@@ -1833,6 +1853,7 @@ CapabilityFeature = Literal[
     "trim_start",
     "trim_end",
     "trim_offset",
+    "path_morph",
     "opacity",
     "clip_progress",
     "blur",
@@ -1875,6 +1896,7 @@ _CAPABILITY_FEATURES: tuple[CapabilityFeature, ...] = (
     "trim_start",
     "trim_end",
     "trim_offset",
+    "path_morph",
     "opacity",
     "clip_progress",
     "blur",
@@ -1923,6 +1945,7 @@ _CANONICAL_RENDERED: dict[str, frozenset[str]] = {
             "trim_start",
             "trim_end",
             "trim_offset",
+            "path_morph",
             "opacity",
             "clip_progress",
             "blur",
@@ -1945,11 +1968,12 @@ _CAPABILITIES["html"] = {
 }
 _CAPABILITIES["html"]["parent"] = MotionCapability("parent", "html", "partial")
 _CAPABILITIES["html"]["path"] = MotionCapability("path", "html", "partial", "rasterize")
-_CAPABILITIES["html"]["dash_offset"] = MotionCapability(
-    "dash_offset", "html", "unsupported", "static"
-)
+_CAPABILITIES["html"]["dash_offset"] = MotionCapability("dash_offset", "html", "partial", "static")
 for _feature in ("trim_start", "trim_end", "trim_offset"):
-    _CAPABILITIES["html"][_feature] = MotionCapability(_feature, "html", "unsupported", "static")
+    _CAPABILITIES["html"][_feature] = MotionCapability(_feature, "html", "partial", "static")
+_CAPABILITIES["html"]["path_morph"] = MotionCapability(
+    "path_morph", "html", "unsupported", "static"
+)
 _CAPABILITIES["html"]["color"] = MotionCapability("color", "html", "unsupported", "static")
 _CAPABILITIES["html"]["motion_path"] = MotionCapability("motion_path", "html", "partial")
 _CAPABILITIES["html"]["motion_blur"] = MotionCapability(
@@ -1970,6 +1994,7 @@ _PPTX_FALLBACKS: dict[CapabilityFeature, tuple[SupportLevel, Fallback | None]] =
     "trim_start": ("unsupported", "static"),
     "trim_end": ("unsupported", "static"),
     "trim_offset": ("unsupported", "static"),
+    "path_morph": ("unsupported", "static"),
     "opacity": ("native", None),
     "clip_progress": ("fallback", "fade"),
     "blur": ("unsupported", "rasterize"),
@@ -2318,6 +2343,10 @@ def _validate_export(
                 if document_format == "pdf"
                 else "native path adapter is not implemented"
             )
+            if document_format == "html" and problem:
+                from quickthumb._path_html import path_html_problem
+
+                problem = path_html_problem(layer)
             message = (
                 f"path layer {layer_id} uses a static raster image for {document_format}: {problem}"
                 if problem
@@ -2395,6 +2424,11 @@ def _validate_export(
             and _has_transform_extensions(layer)
         ):
             html_retained_groups.append(pointer)
+        html_path = False
+        if normalized == "html" and isinstance(layer, PathLayer):
+            from quickthumb._path_html import path_html_problem
+
+            html_path = path_html_problem(layer) is None
         for animation in items:
             features: list[CapabilityFeature] = list(_capability_features_for(animation))
             if color_overridden:
@@ -2412,7 +2446,9 @@ def _validate_export(
                     and feature not in _CANONICAL_RENDERED.get(normalized, frozenset())
                 )
                 if isinstance(layer, PathLayer) and normalized not in {"raster", "video"}:
-                    canonical_unimplemented = True
+                    canonical_unimplemented = not html_path
+                if html_path:
+                    capability = MotionCapability(feature, "html", "native")
                 if feature == "color" and normalized in {"raster", "video"}:
                     canonical_unimplemented = not _supports_color_motion(layer)
                 declared_support = "unsupported" if canonical_unimplemented else capability.support
@@ -2445,6 +2481,11 @@ def _validate_export(
                         f"for {normalized}"
                     )
                 )
+                if html_path:
+                    message += (
+                        "; native SVG/CSS uses bounded 120 Hz sampled timing/easing, "
+                        "retaining authored knots and outgoing hold boundaries (4097-stop limit)"
+                    )
                 if action == "error" and declared_support not in ("full", "native"):
                     raise _unsupported_motion(
                         f"{feature} motion on layer {layer_id} is {declared_support} "
@@ -2868,6 +2909,7 @@ def _inspection_reduced_motion(duration: float, policy: ExportPolicy) -> Reduced
             "trim_start",
             "trim_end",
             "trim_offset",
+            "path_morph",
             "opacity",
             "clip_progress",
             "blur",
