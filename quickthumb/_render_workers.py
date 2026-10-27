@@ -20,6 +20,7 @@ from quickthumb._base import is_url
 from quickthumb.asset_cache import ResolvedAsset
 from quickthumb.errors import RenderingError, ValidationError
 from quickthumb.models import Grain, PluginLayer, VideoLayer
+from quickthumb.models.options import MotionBlur
 
 if TYPE_CHECKING:
     from quickthumb._export_video import _SlideAnimator
@@ -121,6 +122,11 @@ class _FrameRenderer:
     def __init__(self, specs, timings, size, matte, reduced_motion, quality="standard"):
         self.specs: list[_CanvasSpec] = specs
         self.timings: list[tuple[Transition | None, float, float, float]] = timings
+        self.offsets: list[float] = []
+        self.duration = 0.0
+        for _, _, _, exit_time in timings:
+            self.offsets.append(self.duration)
+            self.duration += exit_time
         self.size: tuple[int, int] = size
         self.matte: tuple[int, int, int] | None = matte
         self.reduced_motion: bool = reduced_motion
@@ -184,6 +190,10 @@ class _FrameRenderer:
             raise
 
     def render(self, index: int, time: float) -> tuple[tuple[int, int], bytes]:
+        with self.frame(index, time) as frame:
+            return frame.size, frame.tobytes()
+
+    def frame(self, index: int, time: float) -> Image.Image:
         from quickthumb._export_video import _morph_source, _slide_frame
 
         if index != self.index:
@@ -194,7 +204,7 @@ class _FrameRenderer:
             and self.previous_final is not None
         )
         transition, duration_in, _, _ = self.timings[index]
-        frame = _slide_frame(
+        return _slide_frame(
             self.animator,
             transition,
             duration_in,
@@ -205,7 +215,6 @@ class _FrameRenderer:
             self.size,
             self.matte,
         )
-        return frame.size, frame.tobytes()
 
 
 _worker_renderer: _FrameRenderer | None = None
@@ -239,6 +248,34 @@ def _render_frame_job(
     return size, raw, fonts
 
 
+def _render_exposure_job(time: float, blur: MotionBlur, fps: float):
+    from quickthumb._export_video import _deck_exposure, _deck_sample
+
+    assert _worker_renderer is not None
+    renderer = _worker_renderer
+    fonts = []
+
+    def frame_at(sample: float) -> Image.Image:
+        index, local = _deck_sample(renderer.offsets, renderer.timings, sample)
+        frame = renderer.frame(index, local)
+        for slide, canvas in ((index, renderer.canvas), (index - 1, renderer.previous)):
+            if canvas is not None:
+                fonts.append((slide, canvas._fonts.font_identities()))
+        return frame
+
+    with _deck_exposure(
+        frame_at,
+        time,
+        renderer.offsets,
+        renderer.timings,
+        renderer.duration,
+        fps,
+        blur,
+        renderer.size,
+    ) as frame:
+        return frame.size, frame.tobytes(), fonts
+
+
 class ParallelFrames:
     """One export owns a lazily started executor and at most workers outstanding frames."""
 
@@ -265,7 +302,12 @@ class ParallelFrames:
             self.executor = None
 
     def frames(
-        self, index: int, samples: Iterable[tuple[float, float]]
+        self,
+        index: int,
+        samples: Iterable[tuple[float, float]],
+        *,
+        motion_blur: MotionBlur | None = None,
+        fps: float = 30,
     ) -> Generator[tuple[float, float, Image.Image], None, None]:
         iterator = iter(samples)
         pending: deque[tuple[float, float, Future]] = deque()
@@ -289,7 +331,11 @@ class ParallelFrames:
                         self.quality,
                     ),
                 )
-            future = self.executor.submit(_render_frame_job, index, time)
+            future = (
+                self.executor.submit(_render_frame_job, index, time)
+                if motion_blur is None
+                else self.executor.submit(_render_exposure_job, time, motion_blur, fps)
+            )
             pending.append((time, duration, future))
             return True
 

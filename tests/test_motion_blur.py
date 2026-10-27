@@ -19,7 +19,8 @@ from quickthumb import (
 )
 
 
-def test_exposure_preserves_red_in_transparent_motion_trails(tmp_path):
+@pytest.mark.parametrize("workers", [1, 2])
+def test_exposure_preserves_red_in_transparent_motion_trails(tmp_path, workers):
     """A moving red patch has half-alpha edges and saturated color across its exposure."""
     # Given: a four-pixel red patch travels sixteen pixels in one second.
     canvas = Canvas(24, 8).shape(
@@ -42,7 +43,7 @@ def test_exposure_preserves_red_in_transparent_motion_trails(tmp_path):
     result = canvas.export_image_sequence(
         tmp_path / "frames",
         options=ImageSequenceOptions(
-            fps=4, hold=0.25, motion_blur=MotionBlur(samples=2, shutter_angle=360)
+            fps=4, hold=0.25, workers=workers, motion_blur=MotionBlur(samples=2, shutter_angle=360)
         ),
     )
 
@@ -136,3 +137,119 @@ def test_fractional_exposure_reports_actual_encoded_playback(tmp_path, format):
         )
         with Image.open(Path(sequence.output_directory) / "000002.png") as frame:
             assert frame.getpixel((8, 8)) == (255, 0, 0, 255)
+
+
+@pytest.mark.parametrize("hard_cut", [False, True])
+def test_deck_exposure_matches_spawned_rgba_and_respects_cuts(tmp_path, hard_cut):
+    """Smooth transitions expose both sides, while hard cuts never blend slides."""
+    from quickthumb import Deck
+    from quickthumb.transitions import Cut, Fade
+
+    first = Canvas(16, 8).shape("rectangle", (2, 2), 4, 4, "#FF0000")
+    second = Canvas(16, 8).shape("rectangle", (2, 2), 4, 4, "#0000FF")
+    deck = (
+        Deck()
+        .slide(first, duration=0.2)
+        .slide(second, duration=0.2, transition=Cut() if hard_cut else Fade(duration=0.1))
+    )
+    rendered = []
+    for workers in (1, 2):
+        result = deck.export_image_sequence(
+            tmp_path / f"workers-{workers}",
+            options=ImageSequenceOptions(
+                fps=10, workers=workers, motion_blur=MotionBlur(samples=2, shutter_angle=360)
+            ),
+        )
+        frames = []
+        for path in sorted(Path(result.output_directory).glob("*.png")):
+            with Image.open(path) as frame:
+                frames.append(frame.copy())
+        rendered.append((result.duration, [frame.tobytes() for frame in frames]))
+        assert frames[2].getpixel((15, 7)) == (0, 0, 0, 0)
+        boundary = frames[2].getpixel((3, 3))
+        if hard_cut:
+            assert boundary == (0, 0, 255, 255)
+            assert frames[3].getpixel((3, 3)) == (0, 0, 255, 255)
+        else:
+            assert boundary[0] > 0 and boundary[2] > 0 and boundary[3] == 255
+            assert frames[3].getpixel((3, 3)) == (5, 0, 250, 255)
+        for frame in frames:
+            frame.close()
+    assert rendered[0] == rendered[1]
+
+
+def test_exposure_before_fractional_cut_stays_on_outgoing_slide(tmp_path):
+    """A shutter extending past a .22-second cut cannot introduce its next slide."""
+    from quickthumb import Deck
+    from quickthumb.transitions import Cut
+
+    deck = (
+        Deck()
+        .slide(Canvas(8, 8).background(color="#FF0000"), duration=0.22)
+        .slide(Canvas(8, 8).background(color="#0000FF"), duration=0.2, transition=Cut())
+    )
+    result = deck.export_image_sequence(
+        tmp_path / "fractional-cut",
+        options=ImageSequenceOptions(fps=10, motion_blur=MotionBlur(samples=2, shutter_angle=360)),
+    )
+    with Image.open(Path(result.output_directory) / "000002.png") as frame:
+        assert frame.getpixel((4, 4)) == (255, 0, 0, 255)
+
+
+@pytest.mark.skipif(not shutil.which("ffmpeg"), reason="ffmpeg is required")
+def test_deck_caption_exposure_is_identical_with_spawned_workers(tmp_path):
+    """A cue inside a shutter window contributes through the existing caption compositor."""
+    from quickthumb import Deck
+    from quickthumb.transitions import Cut
+
+    source = tmp_path / "black.mp4"
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-v",
+            "error",
+            "-f",
+            "lavfi",
+            "-i",
+            "color=c=black:s=64x32:r=20:d=0.4",
+            "-pix_fmt",
+            "yuv420p",
+            str(source),
+        ],
+        check=True,
+    )
+    captioned = Canvas(64, 32).video(
+        str(source),
+        (0, 0),
+        64,
+        32,
+        captions=[
+            {
+                "text": "cue",
+                "start": 0.1,
+                "end": 0.2,
+                "size": 12,
+                "font": "assets/fonts/Roboto-Medium.ttf",
+            }
+        ],
+    )
+    deck = (
+        Deck().slide(Canvas(64, 32), duration=0.2).slide(captioned, duration=0.4, transition=Cut())
+    )
+    outputs = []
+    for workers in (1, 2):
+        result = deck.export_image_sequence(
+            tmp_path / f"caption-{workers}",
+            options=ImageSequenceOptions(
+                fps=10, workers=workers, motion_blur=MotionBlur(samples=2, shutter_angle=360)
+            ),
+        )
+        frames = []
+        for path in sorted(Path(result.output_directory).glob("*.png")):
+            with Image.open(path) as frame:
+                frames.append(frame.tobytes())
+        outputs.append(frames)
+        assert frames[2] != frames[3]  # Cue begins inside the exposure centered at .3.
+        with Image.open(Path(result.output_directory) / "000003.png") as exposure:
+            assert exposure.getchannel("R").getextrema()[1] == 128
+    assert outputs[0] == outputs[1]

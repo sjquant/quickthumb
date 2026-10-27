@@ -465,8 +465,6 @@ def _resolve_export(
             raise ValidationError(
                 f"{expected_options.__name__} are required for {output_format.upper()} output"
             )
-        if animation.motion_blur is not None and kind != "canvas":
-            raise ValidationError("motion_blur currently requires a single Canvas and workers=1")
         if isinstance(animation, VideoOptions) and animation.transparent and output_format == "mp4":
             raise ValidationError(
                 "transparent output is only supported for VP9 WebM or ProRes 4444 MOV"
