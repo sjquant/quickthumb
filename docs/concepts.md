@@ -198,6 +198,41 @@ to them as `$theme.<path>`:
 
 See [JSON Schema & AI Workflow](json-schema.md).
 
+## Path motion
+
+`Canvas.path()` supports SVG path data, fills (including gradients), and dashed
+strokes. A path's fixed `width`/`height` viewport clips its local drawing and
+defines its normalized `anchor`, including during rotation and scaling:
+
+```python
+from quickthumb import AnimationSpec, Canvas, KeyframeSpec, ScaleTrack, TimingSpec
+
+canvas = Canvas(320, 240).path(
+    "M2 20C2 2 38 2 38 20C38 38 2 38 2 20Z", (100, 80), 40, 40,
+    "#38B6A080", anchor=(0.5, 0.5),
+    animation=AnimationSpec.timeline(
+        ScaleTrack(keyframes=[KeyframeSpec(time=0, value=1), KeyframeSpec(time=1, value=4)]),
+        timing=TimingSpec(duration=1), easing="linear",
+    ),
+)
+frame = canvas.render_frame(0.75)
+```
+
+Position, rotation, uniform/axis scale and opacity timelines use the same
+sampler as GIF, video and PNG sequence export. Static `rotation` adds to the
+animated angle; static `opacity` multiplies animated opacity. Curve subdivision
+and 4× regional supersampling follow the sampled device scale, so enlargement
+repaints geometry instead of enlarging a small prepared bitmap. Each renderer
+retains at most one 4 MiB painted source; an individual source exceeding the
+regional pixel budget raises `RenderingError` rather than degrading quality.
+
+Path animation requires track timelines. Dash phase, stroke trim and bounded
+same-topology path morphing share the canonical sampler; see [Path API](api/path.md)
+for correspondence and export limits. Presets, stagger, Group children and transform
+parenting remain unsupported. Supported HTML stroke timelines use native SVG/CSS;
+other animated document paths retain an explicitly reported authored-static PNG
+fallback. Ordinary untransformed paths retain native SVG/HTML output.
+
 ## Errors and checks
 
 Arguments are validated when you add a layer, before anything is drawn:

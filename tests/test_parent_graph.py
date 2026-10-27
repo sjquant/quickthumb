@@ -278,16 +278,23 @@ def test_strict_document_fallback_preserves_existing_destination(tmp_path, exten
 
 
 def test_deck_rejection_precedes_first_slide_sequence_write(tmp_path):
-    from quickthumb import Deck
+    """An unsupported later slide leaves the first numbered raster destination untouched."""
+    from quickthumb import BackdropBlur, Deck
 
-    deck = Deck(140, 130).slide(Canvas(140, 130)).slide(scene())
-    destination = tmp_path / "slides.svg"
-    first = tmp_path / "slides_01.svg"
+    # Given: a supported first slide and parent-linked imagery below a backdrop
+    unsupported = scene().shape(
+        "rectangle", (0, 0), 140, 130, "#FFFFFF", effects=[BackdropBlur(radius=3)]
+    )
+    deck = Deck(140, 130).slide(Canvas(140, 130)).slide(unsupported)
+    destination = tmp_path / "slides.png"
+    first = tmp_path / "slides_01.png"
     first.write_bytes(b"EXISTING SLIDE")
-    with pytest.raises(RenderingError, match="authored-static|sampled approximation"):
-        deck.render(str(destination), policy=ExportPolicy(unsupported_motion="error"))
+
+    # When / Then: scene admission fails before the raster sequence starts
+    with pytest.raises(RenderingError, match="backdrop-dependent"):
+        deck.render(str(destination))
     assert first.read_bytes() == b"EXISTING SLIDE"
-    assert not (tmp_path / "slides_02.svg").exists()
+    assert not (tmp_path / "slides_02.png").exists()
 
 
 def test_direct_pdf_rejection_preserves_existing_destination(tmp_path):

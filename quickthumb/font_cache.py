@@ -49,11 +49,16 @@ class FontCache:
             cls._instance = cls()
         return cls._instance
 
-    def default_font(self) -> str | None:
+    def default_font(
+        self,
+        bold: bool = False,
+        italic: bool = False,
+        weight: int | str | None = None,
+    ) -> str | None:
         font_name = os.environ.get("QUICKTHUMB_DEFAULT_FONT")
         if not font_name:
             return None
-        return self.find_font(font_name, bold=False, italic=False)
+        return self.find_font(font_name, bold=bold, italic=italic, weight=weight)
 
     def find_font(
         self,

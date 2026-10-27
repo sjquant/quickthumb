@@ -6,11 +6,11 @@ timeline, sampled at a fixed frame rate through the regular PIL pipeline -- so
 every frame is pixel-identical to the raster renderer, unlike the HTML/PPTX
 exporters which approximate effects in CSS/PowerPoint.
 
-The timing model mirrors the HTML slideshow runtime (timeline.js /
-deck_runtime.js), with the one difference a non-interactive medium forces:
-there are no clicks, so `on_click` animations chain automatically exactly
-like `after_previous` (the same thing PowerPoint's own video export does).
-Concretely, per slide:
+The visual timing model shares authored layer and transition clocks with the
+HTML slideshow runtime (timeline.js / deck_runtime.js). In this non-interactive
+output there are no clicks, so `on_click` animations chain automatically like
+`after_previous`. Video narration can additionally determine slide windows;
+GIF stays silent and ignores those narration durations. Concretely, per slide:
 
 - The slide's transition animates the change into it, playing over the
   previous slide's final frame (slide 0 plays its transition from the matte;
@@ -21,10 +21,10 @@ Concretely, per slide:
   transition. `with_previous` effects run concurrently with the previous
   effect; everything else runs after it; `delay` holds the effect's hidden
   (entrance) or shown (exit) state before it plays.
-- After the animations finish, the slide's final state holds for
-  `advance_after` seconds when its transition sets one (counted from the
-  end of the transition, like the HTML auto-advance timer), else for the
-  exporter's `slide_duration`.
+- `advance_after` replaces the default hold and sets an exit boundary measured
+  from the end of the incoming transition. The slide still waits for unfinished
+  motion or a longer explicit/narrated duration. Without that boundary or a
+  duration override, the exporter's public `hold` follows the motion/transition.
 
 Frames are eased with the CSS `ease` curve the HTML export uses, so both
 animated formats move the same way. GIF is encoded by Pillow with per-frame
@@ -59,7 +59,7 @@ import subprocess
 import tempfile
 import threading
 from collections.abc import Callable, Generator, Iterable, Iterator
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from io import BytesIO
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
@@ -106,7 +106,9 @@ from quickthumb.models import (
     GifOptions,
     GroupLayer,
     ImageLayer,
+    MotionBlur,
     NullLayer,
+    PathLayer,
     QRCodeLayer,
     TextLayer,
     VideoLayer,
@@ -121,6 +123,7 @@ from quickthumb.motion import (
     _has_transform_extensions,
     _sample_target_timelines,
     _supports_color_motion,
+    _target_base_state,
     compile_timeline,
     easing_value,
     resolve_staggered_timelines,
@@ -231,7 +234,7 @@ def write_animation(
         else:
             assert temp_path is not None
             os.replace(temp_path, output_path)
-        return facts
+        return replace(facts, motion_blur=prepared._motion_blur)
     finally:
         if temp_path is not None:
             _remove_quietly(temp_path)
@@ -405,9 +408,10 @@ def _setup_animation(
         loop, max_size, colors = animation.loop, animation.max_size, animation.colors
     elif animation is not None:
         raise ValidationError("animation must be GifOptions or VideoOptions")
+    motion_blur = animation.motion_blur if animation is not None else None
     if animation is not None:
         fps, slide_duration, matte = animation.fps, animation.hold, animation.matte
-        workers, quality = animation.workers, animation.quality
+        workers, quality = animation.workers, animation.render_quality
     if audio_schedule is not None:
         if any(
             value is not None
@@ -439,6 +443,7 @@ def _setup_animation(
         quality,
         transparent,
         reduced_motion=reduced_motion,
+        motion_blur=motion_blur,
     )
     return prepared, _AnimationSettings(
         loop=loop,
@@ -475,6 +480,7 @@ def _prepare_animation(
     transparent: bool = False,
     *,
     reduced_motion: bool = False,
+    motion_blur: MotionBlur | None = None,
 ) -> _PreparedAnimation:
     """Validate codec/audio options before entering the rendering owner."""
     if type(transparent) is not bool:
@@ -571,6 +577,8 @@ def _prepare_animation(
         workers=workers,
         quality=quality,
         reduced_motion=reduced_motion,
+        motion_blur=motion_blur,
+        variable_frame_rate=format == "gif",
     )
     max_fps = 100 if format == "gif" else 120
     if prepared.fps > max_fps:
@@ -636,6 +644,7 @@ class _AnimationFacts:
     frame_count: int
     duration: float
     fps: float
+    motion_blur: MotionBlur | None = None
 
 
 class _PreparedAnimation:
@@ -653,11 +662,13 @@ class _PreparedAnimation:
         workers: int = 1,
         quality: AnimationQuality = "standard",
         reduced_motion: bool = False,
+        motion_blur: MotionBlur | None = None,
+        variable_frame_rate: bool = False,
     ):
         # These are rendering settings. Codec limits and audio belong to callers
         # at the encoding boundary; None requests native-size straight RGBA.
         if quality not in ("standard", "high"):
-            raise ValidationError("quality must be standard or high")
+            raise ValidationError("render_quality must be standard or high")
         if type(workers) is not int or not 1 <= workers <= 8:
             raise ValidationError("workers must be an integer between 1 and 8")
         if workers > 1:
@@ -674,11 +685,19 @@ class _PreparedAnimation:
         ):
             raise ValidationError("fps must be > 0")
         if isinstance(slide_duration, bool) or not isinstance(slide_duration, (int, float)):
-            raise ValidationError("slide_duration must be finite")
+            raise ValidationError("hold must be finite")
         if not math.isfinite(slide_duration):
-            raise ValidationError("slide_duration must be finite")
+            raise ValidationError("hold must be finite")
         if slide_duration < 0:
-            raise ValidationError("slide_duration must be >= 0")
+            raise ValidationError("hold must be >= 0")
+        self._motion_blur = (
+            MotionBlur.model_validate(motion_blur.model_dump()) if motion_blur is not None else None
+        )
+        self._variable_frame_rate = variable_frame_rate
+        if self._motion_blur is not None and not math.isfinite(
+            self._motion_blur.shutter_angle / 360 / fps
+        ):
+            raise ValidationError("motion_blur shutter duration must be finite")
         self.fps = fps
         self._size = (canvases[0].width, canvases[0].height)
         self._entered = False
@@ -722,15 +741,26 @@ class _PreparedAnimation:
                 self._renderer = ParallelFrames(
                     self._canvases,
                     self._plan.timings,
-                    self._matte,
+                    None if self._motion_blur is not None else self._matte,
                     self._reduced_motion,
                     self._workers,
                     quality=self._quality,
                 )
                 self._renderer.__enter__()
-            self._shots = _ordered_deck_shots(
-                self._canvases, self.fps, self._matte, self._plan, self._renderer
-            )
+            if self._motion_blur is None:
+                self._shots = _ordered_deck_shots(
+                    self._canvases, self.fps, self._matte, self._plan, self._renderer
+                )
+            else:
+                self._shots = _motion_blur_shots(
+                    self._canvases,
+                    self._plan,
+                    self.fps,
+                    self._matte,
+                    self._motion_blur,
+                    variable_frame_rate=self._variable_frame_rate,
+                    renderer=self._renderer,
+                )
         except BaseException:
             with contextlib.suppress(BaseException):
                 self.close()
@@ -817,6 +847,138 @@ class _PreparedAnimation:
             self._plan.duration,
             _video_audio_schedule(self._canvases, self._plan.offsets, self._probe_cache),
         )
+
+
+def _motion_blur_shots(
+    canvases: list[Canvas],
+    plan: _DeckPlan,
+    fps: float,
+    matte: tuple[int, int, int] | None,
+    blur: MotionBlur,
+    *,
+    variable_frame_rate: bool = False,
+    renderer: ParallelFrames | None = None,
+) -> Generator[_Shot, None, None]:
+    """Expose allocated frames on the existing Deck plan and encoder clocks."""
+    if not math.isfinite(plan.duration * fps):
+        raise ValidationError("motion_blur frame count must be finite")
+    count = max(1, math.floor(plan.duration * fps + 0.5))
+    size = (canvases[0].width, canvases[0].height)
+
+    def samples():
+        start = 0.0
+        for index in range(count):
+            end = plan.duration * ((index + 1) / count)
+            yield (start if variable_frame_rate else index / fps), end - start
+            start = end
+
+    def frame_at(time: float) -> Image.Image:
+        index, local = _deck_sample(plan.offsets, plan.timings, time)
+        previous_canvas = canvases[index - 1] if index else None
+        previous = (
+            _conform(plan.animators[index - 1].final_frame(), size, None)
+            if index
+            else _export_background(size, None)
+        )
+        with previous:
+            transition, duration_in, _, _ = plan.timings[index]
+            return _slide_frame(
+                plan.animators[index],
+                transition,
+                duration_in,
+                local,
+                previous,
+                _morph_source(transition, previous_canvas, canvases[index]),
+                canvases[index],
+                size,
+                None,
+            )
+
+    if renderer is not None:
+        for _, duration, frame in renderer.frames(-1, samples(), motion_blur=blur, fps=fps):
+            with frame:
+                yield _Shot(_conform(frame, size, matte), duration)
+    else:
+        for center, duration in samples():
+            with _deck_exposure(
+                frame_at, center, plan.offsets, plan.timings, plan.duration, fps, blur, size
+            ) as frame:
+                yield _Shot(_conform(frame, size, matte), duration)
+
+
+def _deck_sample(offsets, timings, time: float) -> tuple[int, float]:
+    index = max(0, bisect.bisect_right(offsets, time + _TIME_EPSILON) - 1)
+    return index, min(timings[index][3], max(0.0, time - offsets[index]))
+
+
+def _deck_exposure(frame_at, center, offsets, timings, duration, fps, blur, size):
+    """A hard cut bounds exposure; smooth transitions remain part of the timeline."""
+    cuts = [
+        offset
+        for offset, timing in zip(offsets, timings, strict=True)
+        if offset > 0 and timing[1] == 0
+    ]
+    side = bisect.bisect_right(cuts, center + _TIME_EPSILON)
+    lower = cuts[side - 1] if side else 0.0
+    upper = cuts[side] - 2 * _TIME_EPSILON if side < len(cuts) else duration
+    return _exposure_frame(
+        frame_at,
+        center,
+        upper,
+        blur.shutter_angle / 360 / fps,
+        blur.samples,
+        size,
+        lower=lower,
+    )
+
+
+def _exposure_frame(
+    frame_at: Callable[[float], Image.Image],
+    center: float,
+    duration: float,
+    window: float,
+    samples: int,
+    size: tuple[int, int],
+    *,
+    lower: float = 0.0,
+) -> Image.Image:
+    """Average encoded-sRGB premultiplied channels, quantizing only the final result."""
+    totals = [Image.new("F", size, 0) for _ in range(4)]
+    try:
+        for index in range(samples):
+            time = center + ((index + 0.5) / samples - 0.5) * window
+            time = round(min(duration, max(lower, time)), 9)
+            with (
+                frame_at(time).convert("RGBA") as frame,
+                frame.getchannel("A").convert("F") as alpha,
+            ):
+                for channel, name in enumerate("RGB"):
+                    previous = totals[channel]
+                    totals[channel] = ImageMath.lambda_eval(
+                        lambda args: args["total"] + args["color"] * args["alpha"],
+                        total=previous,
+                        color=frame.getchannel(name),
+                        alpha=alpha,
+                    )
+                    previous.close()
+                previous = totals[3]
+                totals[3] = ImageMath.lambda_eval(
+                    lambda args: args["total"] + args["alpha"], total=previous, alpha=alpha
+                )
+                previous.close()
+        colors = [
+            ImageMath.lambda_eval(
+                lambda args: args["total"] / (args["alpha"] + (args["alpha"] == 0)) + 0.5,
+                total=total,
+                alpha=totals[3],
+            ).convert("L")
+            for total in totals[:3]
+        ]
+        alpha = totals[3].point(lambda value: value / samples + 0.5).convert("L")
+        return Image.merge("RGBA", [*colors, alpha])
+    finally:
+        for total in totals:
+            total.close()
 
 
 class TimelineSampler:
@@ -924,7 +1086,7 @@ class TimelineSampler:
 
     def _settled_frame(self, index: int) -> Image.Image:
         if index not in self._settled:
-            final = self._plan.animators[index].final_export_frame()
+            final = self._plan.animators[index].final_frame()
             self._settled[index] = _conform(final, self._size, self._matte_rgb)
         return self._settled[index]
 
@@ -1024,14 +1186,15 @@ def _ordered_deck_shots(
 
         # Keep one motion shot pending so a sub-frame or zero hold can replace
         # it with the settled state without extending the shared timeline.
-        final_image = animator.final_export_frame()
-        final = _conform(final_image, size, matte_rgb)
+        previous_final = _conform(animator.final_frame(), size, matte_rgb)
+        final = previous_final
         hold = exit_time - max(animation_end, duration_in)
         if hold + _TIME_EPSILON >= 1.0 / fps:
             if pending is not None:
                 yield pending
             yield _Shot(final, hold)
         elif pending is not None:
+            final = _conform(animator.final_export_frame(), size, matte_rgb)
             # A zero/sub-frame hold may end immediately after a transient
             # caption cue. Preserve that last sampled frame when the cue has
             # ended; otherwise a short export can silently drop the cue.
@@ -1048,7 +1211,6 @@ def _ordered_deck_shots(
                 yield pending
         else:
             yield _Shot(final, max(exit_time, 1.0 / fps))
-        previous_final = final
         previous_canvas = canvas
 
 
@@ -1108,7 +1270,9 @@ def _morph_source(
     transition: Transition | None, previous: Canvas | None, incoming: Canvas
 ) -> Canvas | None:
     """Return the outgoing canvas when a keyed Morph can play into `incoming`."""
+    from quickthumb._composition import has_animated_masks
     from quickthumb._parenting import has_parent_links
+    from quickthumb._track_mattes import has_track_mattes
 
     if (
         transition is not None
@@ -1118,6 +1282,10 @@ def _morph_source(
         and not _canvas_has_video_captions(incoming)
         and not has_parent_links(previous)
         and not has_parent_links(incoming)
+        and not has_track_mattes(previous)
+        and not has_track_mattes(incoming)
+        and not has_animated_masks(previous)
+        and not has_animated_masks(incoming)
     ):
         return previous
     return None
@@ -1226,7 +1394,9 @@ def _sample_span(start: float, end: float, fps: float) -> Iterator[tuple[float, 
     count = max(1, round(length * fps))
     step = length / count
     for frame_index in range(count):
-        yield start + frame_index * step, step
+        # Sampling sums can land just before an authored cue boundary. Match
+        # the existing nanosecond clock precision without changing frame spacing.
+        yield round(start + frame_index * step, 9), step
 
 
 def _export_background(
@@ -1387,6 +1557,17 @@ class _SlideAnimator:
             canvas, probe_cache, reduced_motion=reduced_motion
         )
         self.duration = max(_schedule_units(self._units), _schedule_timelines(self._units))
+        if reduced_motion:
+            # Frozen imagery still needs its clip clock for timed foreground captions.
+            # Retain the full clip so its settled frame does not hold an earlier cue.
+            for layer in iter_video_layers(canvas.layers):
+                if layer.captions:
+                    clip_end = _component_animation_duration(layer, probe_cache)
+                    if any(
+                        layer.start + caption.start < clip_end - _TIME_EPSILON
+                        for caption in layer.captions
+                    ):
+                        self.duration = max(self.duration, clip_end)
         # The complete scene owns scheduled state. Prepared parent sources never
         # refer back to units or the scene, even weakly.
         self._parent_units = {
@@ -1395,9 +1576,16 @@ class _SlideAnimator:
         # Only the leading static run is safe to cache. Static units above or
         # between moving units must retain their original compositing order;
         # regrouping even translucent static images changes alpha rounding.
-        prefix_end = next(
-            (index for index, unit in enumerate(self._units) if _unit_is_dynamic(unit)),
-            len(self._units),
+        from quickthumb._track_mattes import has_track_mattes
+
+        self._track_mattes = has_track_mattes(canvas)
+        prefix_end = (
+            0
+            if self._track_mattes
+            else next(
+                (index for index, unit in enumerate(self._units) if _unit_is_dynamic(unit)),
+                len(self._units),
+            )
         )
         self._static_plate = (
             self._composite_frame(
@@ -1422,6 +1610,10 @@ class _SlideAnimator:
         if self._color_motion:
             self._canvas._ctx.measure_cache = {}
         try:
+            if self._track_mattes:
+                from quickthumb._track_mattes import render_matte_frame
+
+                return render_matte_frame(self, time, include_captions)
             return self._composite_frame(
                 self._frame_units,
                 time,
@@ -1480,10 +1672,22 @@ class _SlideAnimator:
                     visible_video_layers.extend(iter_video_layers(unit.layers))
                 self._composite_parent(unit, frame, time, parent_samples, render_scale)
                 continue
-            if unit.image is None and not (unit.color_motion or unit.animates_layers):
-                continue
             state = _unit_state(unit, time)
             if state.hidden:
+                continue
+            if len(unit.layers) == 1 and isinstance(unit.layers[0], PathLayer):
+                from quickthumb._path_motion import render_path_frame
+
+                render_path_frame(
+                    frame,
+                    unit.layers[0],
+                    canvas._ctx,
+                    canvas._effects,
+                    state=state.canonical.layer if state.canonical else None,
+                    render_scale=render_scale,
+                )
+                continue
+            if unit.image is None and not (unit.color_motion or unit.animates_layers):
                 continue
             visible_video_layers.extend(iter_video_layers(unit.layers))
             if unit.target_images and state.canonical is not None:
@@ -1492,7 +1696,7 @@ class _SlideAnimator:
                 target_states = _sample_target_timelines(
                     unit.target_timelines,
                     time,
-                    LayerState(anchor=getattr(unit.layers[0], "anchor", (0.5, 0.5))),
+                    _target_base_state(unit.layers[0]),
                 )
                 targets = unit.target_images
                 if unit.color_motion:
@@ -1515,7 +1719,19 @@ class _SlideAnimator:
                 )
                 continue
             color = state.canonical.layer.color if state.canonical is not None else None
-            if unit.component_duration > 0 or color is not None and unit.color_motion:
+            from quickthumb._composition import has_mask_tracks, with_motion_mask
+
+            if unit.layers and has_mask_tracks(unit.layers[0]):
+                assert state.canonical is not None
+                painted = with_motion_mask(unit.layers[0], state.canonical.layer, canvas._ctx)
+                surface = _render_unit_surface(canvas, [painted], time, color=color)
+                pos = unit.pos
+                if unit.image is None:
+                    continue
+                image = surface.crop(
+                    (pos[0], pos[1], pos[0] + unit.image.width, pos[1] + unit.image.height)
+                )
+            elif unit.component_duration > 0 or color is not None and unit.color_motion:
                 image, pos = _render_unit_image(
                     canvas, unit.layers, time, animate_layers=unit.animates_layers, color=color
                 )
@@ -1533,7 +1749,6 @@ class _SlideAnimator:
                     state.canonical.alpha_scale,
                     pos,
                     clip_scale=state.canonical.clip_scale,
-                    include_scale=not any(isinstance(item, ImageLayer) for item in unit.layers),
                     subpixel=state.canonical.subpixel,
                     render_scale=render_scale,
                 )
@@ -1580,9 +1795,7 @@ class _SlideAnimator:
             motion = (
                 state.canonical.layer if state.canonical else LayerState(anchor=node.layer.anchor)
             )
-            uniform = (
-                motion.scale if not isinstance(node.layer, ImageLayer) and motion.scale > 0 else 1.0
-            )
+            uniform = motion.scale if motion.scale > 0 else 1.0
             left, top, width, height = node.pivot_box
             delta = multiply(
                 translate(left, top),
@@ -1614,8 +1827,12 @@ class _SlideAnimator:
         if state.hidden or collapsed or isinstance(node.layer, NullLayer):
             return
         motion = state.canonical.layer if state.canonical else LayerState()
+        from quickthumb._composition import has_mask_tracks
+
         image, source_offset = (
-            node.render_sample(time, motion.color)
+            (node.render_source(time, motion.color, mask_state=motion), (0, 0))
+            if has_mask_tracks(node.layer)
+            else node.render_sample(time, motion.color)
             if unit.component_duration > 0 or unit.color_motion and motion.color is not None
             else (node.image, (0, 0))
         )
@@ -1859,9 +2076,16 @@ def _build_units(
     reduced_motion: bool = False,
 ) -> tuple[list[_Unit], ParentRenderPlan | None]:
     """Prepare all scene units and optional parent sources before scheduling."""
+    from quickthumb._composition import has_mask_tracks, without_mask
     from quickthumb._parenting import has_parent_links
+    from quickthumb._track_mattes import has_track_mattes
+    from quickthumb.motion import _text_selector, _validate_text_selectors
 
+    mattes = has_track_mattes(canvas)
+    _validate_text_selectors(canvas)
     linked = has_parent_links(canvas)
+    if mattes:
+        canvas._validate_layer_identities()
     if not reduced_motion and not linked:
         validate_legacy_animation_export(canvas)
     if linked:
@@ -1870,6 +2094,20 @@ def _build_units(
     canvas._ctx.begin_render_pass()
     parent_plan = ParentRenderPlan(canvas) if linked else None
     parent_nodes = frozenset(parent_plan.nodes) if parent_plan else None
+    if mattes:
+        from quickthumb.models import TrackMatte
+
+        source_ids = {
+            mask.layer
+            for layer in canvas.layers
+            if isinstance(mask := getattr(layer, "mask", None), TrackMatte)
+        }
+        parent_nodes = frozenset(
+            id(layer)
+            for layer in canvas.layers
+            if getattr(layer, "id", None) in source_ids
+            or isinstance(getattr(layer, "mask", None), TrackMatte)
+        ) | (parent_nodes or frozenset())
     group_target_counts = _canonical_group_target_counts(canvas)
     prefix, rest = split_backdrop_prefix(flatten_layers(canvas, parent_nodes=parent_nodes))
     if not reduced_motion and any(
@@ -1910,17 +2148,26 @@ def _build_units(
         if reduced_motion
         else max((_canonical_layer_duration(layer) for layer in prefix), default=0.0)
     )
-    for layer in rest:
+    for occurrence, layer in enumerate(rest):
         animation = None if reduced_motion else getattr(layer, "animation", None)
         key = id(animation) if animation is not None else None
         if (
-            isinstance(layer, NullLayer)
+            mattes
+            or has_mask_tracks(layer)
+            or isinstance(layer, (NullLayer, PathLayer))
+            or isinstance(layer, TextLayer)
+            and any(
+                isinstance(spec, AnimationSpec)
+                and spec.stagger is not None
+                and spec.stagger.target in {"characters", "words", "lines"}
+                for spec in (animation if isinstance(animation, list) else [animation])
+            )
             or _has_transform_extensions(layer)
             or id(layer) in (parent_nodes or ())
         ):
             # Nulls carry clocks only and must never become another layer's target.
             # Independent layers must keep independent pivots even when sharing a spec.
-            key = (key, id(layer))
+            key = (key, occurrence if mattes or isinstance(layer, TextLayer) else id(layer))
         if groups and groups[-1][0] == key:
             groups[-1][1].append(layer)
         else:
@@ -1943,13 +2190,18 @@ def _build_units(
                 "animated export. Use a legacy effect for layer-level motion."
             )
         effects = [effect for effect in raw_effects if not isinstance(effect, AnimationSpec)]
+        mask_motion = any(has_mask_tracks(layer) for layer in layers)
         parent_node = parent_plan.nodes.get(id(layers[0])) if parent_plan else None
         image, pos = (
             (parent_node.image, (0, 0))
             if parent_node is not None
             else (None, (0, 0))
-            if len(layers) == 1 and isinstance(layers[0], NullLayer)
-            else _render_unit_image(canvas, layers)
+            if len(layers) == 1 and isinstance(layers[0], (NullLayer, PathLayer))
+            else _render_unit_image(
+                canvas,
+                [without_mask(layer) for layer in layers] if mask_motion else layers,
+                color="#FFFFFF" if mask_motion else None,
+            )
         )
         is_prefix = bool(prefix) and index == 0
         # A color-bearing backdrop prefix samples each layer separately. Its
@@ -1969,6 +2221,7 @@ def _build_units(
             # stagger declared is the one that can split it into targets.
             specs = canonical if isinstance(canonical, list) else [canonical]
             stagger = next((item.stagger for item in specs if item.stagger), None)
+            selector = _text_selector(layers[0])
             content = getattr(layers[0], "content", None)
             if stagger is not None:
                 if stagger.target == "characters" and isinstance(content, str):
@@ -1980,20 +2233,61 @@ def _build_units(
                         )
                 elif stagger.target == "children":
                     target_count = group_target_counts.get(id(specs[0]), 1)
+            if selector is not None:
+                assert isinstance(layers[0], TextLayer)
+                target_count = len(
+                    canvas._text.resolve_animation_targets(layers[0], selector.target)
+                )
             target_timelines = resolve_staggered_timelines(timeline, target_count)
-            if target_count > 1:
+            character_targets = isinstance(layers[0], TextLayer) and (
+                selector is not None
+                and selector.target == "characters"
+                or stagger is not None
+                and stagger.target == "characters"
+            )
+            text_targets = (
+                isinstance(layers[0], TextLayer)
+                and parent_node is None
+                and stagger is not None
+                and stagger.target in {"characters", "words", "lines"}
+                and target_count > 0
+            )
+            if target_count > 1 or selector is not None or character_targets or text_targets:
                 if color_motion and parent_node is not None:
                     reference, reference_pos = parent_node.render_source(reference=True), (0, 0)
                 elif color_motion:
                     reference, reference_pos = _render_unit_image(canvas, layers, color="#FFFFFF")
                 else:
                     reference, reference_pos = image, pos
-                bands = split_into_bands(reference, target_count) if reference is not None else None
-                if bands is not None:
-                    target_images = tuple(
-                        (fragment, (reference_pos[0] + offset[0], reference_pos[1] + offset[1]))
-                        for fragment, offset in bands
-                    )
+                if reference is None and text_targets:
+                    reference = Image.new("RGBA", (canvas.width, canvas.height))
+                    reference_pos = (0, 0)
+                if reference is not None:
+                    from quickthumb._text_targets import text_target_fragments
+
+                    if len(layers) == 1 and parent_node is None:
+                        target_images = (
+                            text_target_fragments(canvas, layers[0], reference, reference_pos) or ()
+                        )
+                    if not target_images and character_targets:
+                        raise RenderingError(
+                            "Character targets require one plain text layer without parents"
+                        )
+                    if not target_images and selector is not None:
+                        raise RenderingError(
+                            "Range selector targets cannot preserve this layout; "
+                            "use plain separable words/lines"
+                        )
+                    if not target_images:
+                        bands = split_into_bands(reference, target_count)
+                        if bands is not None:
+                            target_images = tuple(
+                                (
+                                    fragment,
+                                    (reference_pos[0] + offset[0], reference_pos[1] + offset[1]),
+                                )
+                                for fragment, offset in bands
+                            )
         component_duration = (
             0.0
             if reduced_motion
@@ -2247,9 +2541,7 @@ def _component_animation_duration(
         # counters above remain intrinsic source animation.
         return 0.0
     if isinstance(layer, ImageLayer):
-        # An image layer reads scale as a viewport zoom and pans inside its own
-        # frame, so it has to be re-rendered per frame rather than transformed
-        # as a finished picture.
+        # Viewport zoom and pan change source content inside the fitted frame.
         return _canonical_viewport_duration(layer)
     if not isinstance(layer, (ChartLayer, QRCodeLayer)):
         return 0.0
@@ -2289,7 +2581,7 @@ def _canonical_viewport_duration(layer: ImageLayer) -> float:
     if not specs:
         return 0.0
     timeline = compile_timeline(specs)
-    viewport = {"image_pan", "image_zoom", "scale"}
+    viewport = {"image_pan", "image_zoom"}
     if not any(track.property in viewport for event in timeline.events for track in event.tracks):
         return 0.0
     return timeline.duration
@@ -2371,9 +2663,7 @@ def _canonical_state(unit: _Unit, time: float):
     if timeline is None:
         return _SHOWN
     timelines = unit.target_timelines or (timeline,)
-    base = LayerState(
-        anchor=getattr(unit.layers[0], "anchor", (0.5, 0.5)) if unit.layers else (0.5, 0.5)
-    )
+    base = _target_base_state(unit.layers[0]) if unit.layers else LayerState()
     states = [timeline.sample(time, base) for timeline in timelines]
     event = timeline.events[0] if timeline.events else None
     alpha_scale = 1.0
@@ -2404,7 +2694,6 @@ def _canonical_state(unit: _Unit, time: float):
             subpixel=_geometry_in_motion(
                 timelines[-1],
                 time,
-                include_scale=not any(isinstance(layer, ImageLayer) for layer in unit.layers),
                 state=states[-1],
             ),
         )
@@ -2418,7 +2707,6 @@ def _canonical_render(
     pos: tuple[int, int],
     *,
     clip_scale: float = 1.0,
-    include_scale: bool = True,
     subpixel: bool = False,
     render_scale: float = 1,
 ) -> tuple[Image.Image, tuple[int, int]] | None:
@@ -2443,7 +2731,6 @@ def _canonical_render(
             output,
             state,
             pos,
-            include_scale=include_scale,
             subpixel=subpixel,
             render_scale=render_scale,
         )
@@ -2458,7 +2745,7 @@ def _canonical_render(
         mask = Image.new("L", output.size, 0)
         ImageDraw.Draw(mask).rectangle((0, 0, width, output.height), fill=255)
         output = _masked_alpha(output, mask)
-    return apply_canonical_geometry(output, state, pos, include_scale=include_scale)
+    return apply_canonical_geometry(output, state, pos)
 
 
 def _animation_reveal(

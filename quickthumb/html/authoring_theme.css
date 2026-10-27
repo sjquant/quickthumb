@@ -1,0 +1,3 @@
+:root{--qt-ui-background:#f6f7f4;--qt-ui-surface:#fcfcfa;--qt-ui-stage:#eff1ec;--qt-ui-text:#20282c;--qt-ui-muted:#74807f;--qt-ui-line:#dfe3df;--qt-ui-accent:#008b86;--qt-ui-selected:#d5efeb;--qt-ui-font:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+
+.qt-ui-logo{display:inline-block;width:32px;height:32px;flex-shrink:0;background:center/contain no-repeat url("data:image/png;base64,{{ logo }}")}
