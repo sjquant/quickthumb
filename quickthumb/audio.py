@@ -13,7 +13,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from quickthumb._export_deck_mp4 import _configured_tool
+from quickthumb._slide_audio import _configured_tool
 from quickthumb.errors import RenderingError, ValidationError
 from quickthumb.models.motion import KeyframeSpec, ScaleTrack
 
