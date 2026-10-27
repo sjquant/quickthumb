@@ -29,6 +29,7 @@ from quickthumb.models import (
     FallbackDiagnostic,
     FrameSequence,
     GifOptions,
+    LottieOptions,
     MotionBlur,
     PixelMetrics,
     PluginLayer,
@@ -154,7 +155,7 @@ class Document(Protocol):
         *,
         format: str | None = None,
         quality: int | None = None,
-        animation: GifOptions | VideoOptions | None = None,
+        animation: GifOptions | VideoOptions | LottieOptions | None = None,
     ) -> ExportResult: ...
 
 
@@ -215,7 +216,7 @@ def build_export_result(
     receipt: _ExportReceipt,
     policy: ExportPolicy | None = None,
     *,
-    animation: GifOptions | VideoOptions | None = None,
+    animation: GifOptions | VideoOptions | LottieOptions | None = None,
     assets: AssetPort,
 ) -> ExportResult:
     """Build the shared result envelope after an existing exporter succeeds."""
@@ -415,7 +416,7 @@ def _resolve_export(
     policy: ExportPolicy | None,
     *,
     quality: int | None = None,
-    animation: GifOptions | VideoOptions | None = None,
+    animation: GifOptions | VideoOptions | LottieOptions | None = None,
     debug: bool = False,
 ) -> _ResolvedExport:
     """Resolve one shared file route and reject invalid options before rendering."""
@@ -425,7 +426,7 @@ def _resolve_export(
     if format is not None:
         if not isinstance(format, str) or format.upper() not in {"PNG", "JPEG", "WEBP"}:
             raise RenderingError("format must be PNG, JPEG, or WEBP", code="unsupported_format")
-        if extension_format in {"svg", "pdf", "pptx", "html", "gif", "mp4", "webm", "mov"}:
+        if extension_format in {"svg", "pdf", "pptx", "html", "gif", "mp4", "webm", "mov", "lot"}:
             raise RenderingError(
                 "format override is only supported for raster output, "
                 "not document or animated output."
@@ -433,7 +434,13 @@ def _resolve_export(
         output_format = format.lower()
 
     mode: Literal["raster", "document", "animated"]
-    if output_format in {"gif", "mp4", "webm", "mov"}:
+    if output_format == "lot":
+        if kind != "canvas":
+            raise RenderingError(
+                "Lottie currently requires a single Canvas", code="unsupported_format"
+            )
+        mode = "document"
+    elif output_format in {"gif", "mp4", "webm", "mov"}:
         mode = "animated"
     elif output_format in {"pdf", "pptx", "html"} or (kind == "canvas" and output_format == "svg"):
         mode = "document"
@@ -451,7 +458,7 @@ def _resolve_export(
             code="unsupported_format",
             suggestion=(
                 "use one of .png, .jpg, .jpeg, .webp, .pdf, .pptx, .html, .htm, "
-                ".gif, .mp4, .webm, .mov" + (", .svg" if kind == "canvas" else "")
+                ".gif, .mp4, .webm, .mov" + (", .svg, .lot" if kind == "canvas" else "")
             ),
         )
 
@@ -464,11 +471,17 @@ def _resolve_export(
     ):
         raise ValidationError("PDF fidelity comparison currently requires a single Canvas")
     if animation is not None:
-        if mode != "animated":
+        if mode != "animated" and output_format != "lot":
             raise RenderingError(
-                "animation options are only supported for GIF, MP4, WebM, and MOV output."
+                "animation options are only supported for GIF, MP4, WebM, MOV, and LOT output."
             )
-        expected_options = GifOptions if output_format == "gif" else VideoOptions
+        expected_options = (
+            LottieOptions
+            if output_format == "lot"
+            else GifOptions
+            if output_format == "gif"
+            else VideoOptions
+        )
         if not isinstance(animation, expected_options):
             raise ValidationError(
                 f"{expected_options.__name__} are required for {output_format.upper()} output"
@@ -516,6 +529,7 @@ def _export_target(output_format: str) -> str:
         "pdf": "raster",
         "html": "html",
         "pptx": "pptx",
+        "lot": "lottie",
     }.get(
         output_format, "video" if output_format in {"gif", "mp4", "webm", "mov"} else output_format
     )
@@ -531,7 +545,7 @@ def _capability_report(
 ) -> list[ExportDiagnostic]:
     from quickthumb.motion import _validate_export
 
-    if target not in {"raster", "video", "html", "pptx"}:
+    if target not in {"raster", "video", "html", "pptx", "lottie"}:
         return []
     return _validate_export(
         cast(Any, source),
@@ -562,7 +576,7 @@ def _timing_metrics(
     source: Document,
     resolved: _ResolvedExport,
     policy: ExportPolicy | None,
-    animation: GifOptions | VideoOptions | None,
+    animation: GifOptions | VideoOptions | LottieOptions | None,
 ) -> TimingMetrics:
     if resolved.target != "video":
         return TimingMetrics()
@@ -605,7 +619,9 @@ def _timing_metrics(
     )
 
 
-def _animation_fps(output_format: str, animation: GifOptions | VideoOptions | None) -> float:
+def _animation_fps(
+    output_format: str, animation: GifOptions | VideoOptions | LottieOptions | None
+) -> float:
     if animation is not None and animation.fps is not None:
         return float(animation.fps)
     return 20.0 if output_format == "gif" else 30.0

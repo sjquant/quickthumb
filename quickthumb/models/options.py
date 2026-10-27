@@ -93,6 +93,15 @@ class VideoOptions(quickthumbModel):
     transparent: Annotated[bool, Field(strict=True)] = False
 
 
+class LottieOptions(quickthumbModel):
+    """Frame rate and positive playback hold for static Lottie output."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    fps: Annotated[float, Field(strict=True, gt=0, le=120, allow_inf_nan=False)] = 30.0
+    hold: Annotated[float, Field(strict=True, gt=0, allow_inf_nan=False)] = 3.0
+
+
 class ImageSequenceOptions(quickthumbModel):
     """Timing and compositing for silent PNG, JPEG, or WebP animation frames."""
 
