@@ -1310,10 +1310,11 @@ class HtmlExporter:
 
     def _emit_path(self, layer: PathLayer) -> None:
         from quickthumb._export_svg import SvgExporter
-        from quickthumb._path_svg import native_path_problem
+        from quickthumb._path_geometry import parse_path
+        from quickthumb._path_svg import native_path_data, native_path_problem
 
-        if native_path_problem(layer):
-            self._emit_raster_fallback(layer)
+        if problem := native_path_problem(layer):
+            self._emit_raster_fallback(layer, f"Path requires a PNG fragment: {problem}")
             return
         element_id = self._make_id()
         animation_style = self._register_animation(layer, element_id)
@@ -1326,6 +1327,10 @@ class HtmlExporter:
             f'width:{layer.width}px;height:{layer.height}px;{animation_style}">'
             f"{fragment.path_fragment(layer)}</div>"
         )
+        if any(segment.kind not in {"M", "Z"} for segment in parse_path(native_path_data(layer))):
+            self._record_routing(
+                [layer], "Path emitted as native SVG inside HTML", rasterized=False
+            )
 
     def _emit_svg_layer(self, layer: SvgLayer):
         if layer.effects or is_url(layer.path):
