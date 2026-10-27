@@ -56,6 +56,7 @@ from quickthumb.models import (
     ExportDiagnostic,
     LinearGradient,
     OutlineLayer,
+    PathLayer,
     RadialGradient,
     ShapeLayer,
     TextLayer,
@@ -327,6 +328,8 @@ class PdfExporter:
             self._emit_background(layer)
         elif isinstance(layer, OutlineLayer):
             self._emit_outline(layer)
+        elif isinstance(layer, PathLayer):
+            self._emit_path(layer)
         elif isinstance(layer, ShapeLayer):
             self._emit_shape(layer)
         elif isinstance(layer, TextLayer):
@@ -404,6 +407,63 @@ class PdfExporter:
         pdf.rect(inset, inset, width, height, fill=0, stroke=1)
         pdf.restoreState()
         self._record_routing([layer], "Outline emitted as native PDF geometry", rasterized=False)
+
+    def _emit_path(self, layer: PathLayer) -> None:
+        from quickthumb._path_pdf import native_pdf_path_problem, pdf_path_commands
+
+        if native_pdf_path_problem(layer):
+            self._emit_raster_fallback(layer)
+            return
+        commands = pdf_path_commands(layer)
+        if not any(kind not in {"M", "Z"} for kind, _ in commands):
+            return
+        canvas, pdf = self._current_canvas(), self._pdf
+        x = parse_coordinate(layer.position[0], canvas.width)
+        y = parse_coordinate(layer.position[1], canvas.height)
+        vx, vy, vw, vh = layer.view_box or (0, 0, layer.width, layer.height)
+        pdf.saveState()
+        pdf.translate(x, y)
+        frame = pdf.beginPath()
+        frame.rect(0, 0, layer.width, layer.height)
+        pdf.clipPath(frame, fill=0, stroke=0)
+        pdf.saveState()
+        pdf.scale(layer.width / vw, layer.height / vh)
+        pdf.translate(-vx, -vy)
+        path = pdf.beginPath()
+        for kind, points in commands:
+            values = [value for point in points for value in point]
+            if kind == "M":
+                path.moveTo(*values)
+            elif kind == "L":
+                path.lineTo(*values)
+            elif kind == "C":
+                path.curveTo(*values)
+            else:
+                path.close()
+        if layer.fill is not None:
+            pdf.clipPath(path, fill=0, stroke=0, fillMode=0)
+            # Undo only the local viewBox mapping: gradients reference the fixed frame.
+            pdf.translate(vx, vy)
+            pdf.scale(vw / layer.width, vh / layer.height)
+            self._fill_gradient(layer.fill, (0, 0, layer.width, layer.height))
+        elif layer.color is not None:
+            self._set_fill(color_to_rgba(canvas, layer.color))
+            pdf.drawPath(path, fill=1, stroke=0, fillMode=0)
+        pdf.restoreState()
+        if layer.stroke is not None and layer.stroke_width:
+            pdf.scale(layer.width / vw, layer.height / vh)
+            pdf.translate(-vx, -vy)
+            self._set_stroke(color_to_rgba(canvas, layer.stroke), layer.stroke_width)
+            pdf.setLineCap({"butt": 0, "round": 1, "square": 2}[layer.line_cap])
+            pdf.setLineJoin({"miter": 0, "round": 1, "bevel": 2}[layer.line_join])
+            pdf.setMiterLimit(layer.miter_limit)
+            pattern = layer.dash_array or ()
+            if len(pattern) % 2:
+                pattern = (*pattern, *pattern)
+            if any(pattern):
+                pdf.setDash(pattern, layer.dash_offset % sum(pattern))
+            pdf.drawPath(path, fill=0, stroke=1)
+        pdf.restoreState()
 
     # ------------------------------------------------------------------ shapes
 

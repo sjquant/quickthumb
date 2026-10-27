@@ -64,6 +64,7 @@ from quickthumb.models import (
     LinearGradient,
     NullLayer,
     OutlineLayer,
+    PathLayer,
     PluginLayer,
     PrefetchResult,
     QRCodeLayer,
@@ -703,6 +704,58 @@ class Canvas:
             motion_key=motion_key,
         )
         self._append_layer(layer)
+        return self
+
+    def path(
+        self,
+        d: str,
+        position: tuple,
+        width: int,
+        height: int,
+        color: str | None = "#000000",
+        *,
+        view_box: tuple[float, float, float, float] | None = None,
+        fill: "LinearGradient | RadialGradient | None" = None,
+        stroke: str | None = None,
+        stroke_width: float = 1.0,
+        line_cap: Literal["butt", "round", "square"] = "butt",
+        line_join: Literal["miter", "bevel", "round"] = "miter",
+        miter_limit: float = 4.0,
+        dash_array: tuple[float, ...] | None = None,
+        dash_offset: float = 0.0,
+        id: str | None = None,
+        motion_key: str | None = None,
+        rotation: float = 0.0,
+        opacity: float = 1.0,
+        anchor: tuple[float, float] = (0.5, 0.5),
+        animation: AnimationInput | None = None,
+    ) -> Self:
+        """Add a filled or stroked SVG path in a clipped local viewport."""
+        self._append_layer(
+            PathLayer(
+                type="path",
+                d=d,
+                position=position,
+                width=width,
+                height=height,
+                color=color,
+                view_box=view_box,
+                fill=fill,
+                stroke=stroke,
+                stroke_width=stroke_width,
+                line_cap=line_cap,
+                line_join=line_join,
+                miter_limit=miter_limit,
+                dash_array=dash_array,
+                dash_offset=dash_offset,
+                id=id,
+                motion_key=motion_key,
+                rotation=rotation,
+                opacity=opacity,
+                anchor=anchor,
+                animation=animation,
+            )
+        )
         return self
 
     def shape(
@@ -1355,7 +1408,11 @@ class Canvas:
 
         from quickthumb._export_pptx import PptxExporter
 
-        PptxExporter(self, reduced_motion=bool(policy and policy.reduced_motion)).save(output_path)
+        exporter = PptxExporter(self, reduced_motion=bool(policy and policy.reduced_motion))
+        document_bytes = exporter.export_bytes()
+        diagnostics.extend(exporter.diagnostics)
+        with open(output_path, "wb") as output:
+            output.write(document_bytes)
 
     def to_svg(self, embed_fonts: bool = False) -> str:
         """Render the canvas to an SVG document string.
@@ -1970,7 +2027,9 @@ class Canvas:
 
     def _render_to_image(self, debug: bool = False, time: float | None = None) -> Image.Image:
         from quickthumb._parenting import has_parent_links, require_parent_rendering
+        from quickthumb.motion import _validate_text_selectors
 
+        _validate_text_selectors(self)
         if has_parent_links(self):
             from quickthumb._export_video import _SlideAnimator
 
@@ -2055,13 +2114,19 @@ class Canvas:
         draw.text((label_left + 3, label_top + 2), label, fill=(255, 255, 255, 255), font=font)
 
     def _staggered_target_count(self, layer: RenderableLayer) -> int:
-        """Return how many semantic targets a layer's stagger addresses."""
+        """Return how many semantic targets a layer's stagger or selector addresses."""
         animation = getattr(layer, "animation", None)
         if animation is None:
             return 0
         from quickthumb.models import AnimationSpec
 
         animations = animation if isinstance(animation, list) else [animation]
+        from quickthumb.motion import _text_selector
+
+        selector = _text_selector(layer)
+        if selector is not None:
+            assert isinstance(layer, TextLayer)
+            return len(self._text.resolve_animation_targets(layer, selector.target))
         staggers = [
             item.stagger
             for item in animations
@@ -2092,37 +2157,49 @@ class Canvas:
         """
         from quickthumb._export_base import (
             _with_motion_color,
+            color_motion_targets,
             composite_color_targets,
             composite_motion_targets,
             split_into_bands,
         )
+        from quickthumb._text_targets import text_target_fragments
         from quickthumb.motion import (
-            LayerState,
             _canonical_target_timelines,
             _geometry_in_motion,
             _sample_target_timelines,
+            _target_base_state,
+            _text_selector,
         )
 
         count = self._staggered_target_count(layer)
-        if time is not None and color_motion:
+        timelines = _canonical_target_timelines(layer, count) if time is not None else None
+        if timelines is None:
+            return False
+        render_color = None
+        if color_motion:
 
             def render_color(color):
                 source = Image.new("RGBA", image.size)
                 self._render_layer(source, _with_motion_color(layer, color), time)
                 return source
 
-            return composite_color_targets(image, layer, time, count, render_color)
-        timelines = _canonical_target_timelines(layer, count) if time is not None else None
-        if timelines is None:
-            return False
-        assert time is not None
-        states = _sample_target_timelines(
-            timelines, time, LayerState(anchor=getattr(layer, "anchor", (0.5, 0.5)))
-        )
-        assert surface is not None
-        fragments = split_into_bands(surface, count)
+            surface = render_color("#FFFFFF")
+        assert time is not None and surface is not None
+        fragments = text_target_fragments(self, layer, surface)
+        if fragments is None:
+            if _text_selector(layer) is not None:
+                raise RenderingError(
+                    "Range selector targets cannot preserve this layout; "
+                    "use plain separable words/lines"
+                )
+            if render_color is not None:
+                return composite_color_targets(image, layer, time, count, render_color)
+            fragments = split_into_bands(surface, count)
         if fragments is None:
             return False
+        states = _sample_target_timelines(timelines, time, _target_base_state(layer))
+        if render_color is not None:
+            fragments = color_motion_targets(fragments, states, render_color)
         composite_motion_targets(
             image,
             fragments,
@@ -2144,6 +2221,11 @@ class Canvas:
         pass transforms; the exporters render layers untimed and apply the same
         geometry once per animation unit.
         """
+        if isinstance(layer, PathLayer):
+            from quickthumb._path_motion import render_path_frame
+
+            render_path_frame(image, layer, self._ctx, self._effects, time=time)
+            return
         from quickthumb._export_base import (
             _with_motion_color,
             color_group_has_backdrop,
@@ -2241,6 +2323,10 @@ class Canvas:
             self._images.render_image_layer(image, layer, time)
         elif isinstance(layer, ShapeLayer):
             self._shapes.render_shape_layer(image, layer)
+        elif isinstance(layer, PathLayer):
+            from quickthumb._path_motion import render_path_frame
+
+            render_path_frame(image, layer, self._ctx, self._effects)
         elif isinstance(layer, SvgLayer):
             self._images.render_svg_layer(image, layer)
         elif isinstance(layer, ChartLayer):

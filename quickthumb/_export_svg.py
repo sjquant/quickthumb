@@ -31,6 +31,7 @@ from quickthumb._export_base import (
     _distinct_layer_occurrences,
     _fmt,
     _layer_routing,
+    _motion_number,
     _source_layer_ids,
     color_to_rgba,
     compute_text_layout,
@@ -51,6 +52,7 @@ from quickthumb.models import (
     Glow,
     LinearGradient,
     OutlineLayer,
+    PathLayer,
     PluginLayer,
     RadialGradient,
     Shadow,
@@ -78,7 +80,9 @@ def _stroke_attr(rgba: tuple, opacity: float = 1.0) -> str:
 
 
 class SvgExporter:
-    def __init__(self, canvas: Canvas, embed_fonts: bool = False, *, policy=None):
+    def __init__(
+        self, canvas: Canvas, embed_fonts: bool = False, *, id_prefix: str = "", policy=None
+    ):
         canvas = _distinct_layer_occurrences(canvas)
         self._canvas = canvas
         self._embed_fonts = embed_fonts
@@ -99,6 +103,7 @@ class SvgExporter:
         self._body: list[str] = []
         self._font_faces: dict[str, tuple[str, str, str]] = {}  # path -> (family, weight, style)
         self._next_id = 1
+        self._id_prefix = id_prefix
 
     def export(self) -> str:
         canvas = self._canvas
@@ -152,7 +157,7 @@ class SvgExporter:
         return "\n".join(parts)
 
     def _make_id(self, prefix: str) -> str:
-        made = f"{prefix}{self._next_id}"
+        made = f"{self._id_prefix}{prefix}{self._next_id}"
         self._next_id += 1
         return made
 
@@ -202,6 +207,18 @@ class SvgExporter:
             self._emit_outline(layer)
         elif isinstance(layer, ShapeLayer):
             self._emit_shape(layer)
+        elif isinstance(layer, PathLayer):
+            from quickthumb._path_svg import native_path_problem
+
+            if native_path_problem(layer):
+                self._emit_raster_fallback(layer)
+            else:
+                x = parse_coordinate(layer.position[0], self._canvas.width)
+                y = parse_coordinate(layer.position[1], self._canvas.height)
+                fragment = SvgExporter(self._canvas, id_prefix=self._make_id("path") + "-")
+                self._body.append(
+                    f'<g transform="translate({x} {y})">{fragment.path_fragment(layer)}</g>'
+                )
         elif isinstance(layer, TextLayer):
             self._emit_text(layer)
         elif isinstance(layer, SvgLayer):
@@ -311,19 +328,24 @@ class SvgExporter:
             [layer], "Background emitted with a native SVG gradient", rasterized=False
         )
 
-    def _define_gradient(self, gradient: LinearGradient | RadialGradient, box: Box) -> str:
+    def _define_gradient(
+        self, gradient: LinearGradient | RadialGradient, box: Box, transform: str | None = None
+    ) -> str:
         """Define a gradient over a box, matching EffectsEngine's gradient geometry."""
         left, top, right, bottom = box
         width, height = right - left, bottom - top
         stops = sorted(gradient.stops, key=lambda stop: stop[1])
+        fmt = _motion_number if transform is not None else _fmt
+        transform_attr = f" gradientTransform={quoteattr(transform)}" if transform else ""
         stop_elements = []
         for color, position in stops:
             rgba = color_to_rgba(self._canvas, color)
             alpha = rgba[3] / 255
-            opacity_attr = f' stop-opacity="{_fmt(round(alpha, 4))}"' if alpha < 1 else ""
+            alpha_value = fmt(alpha) if transform is not None else _fmt(round(alpha, 4))
+            position_value = fmt(position) if transform is not None else _fmt(round(position, 4))
+            opacity_attr = f' stop-opacity="{alpha_value}"' if alpha < 1 else ""
             stop_elements.append(
-                f'<stop offset="{_fmt(round(position, 4))}" '
-                f'stop-color="{rgb_hex(rgba)}"{opacity_attr}/>'
+                f'<stop offset="{position_value}" stop-color="{rgb_hex(rgba)}"{opacity_attr}/>'
             )
 
         gradient_id = self._make_id("grad")
@@ -337,7 +359,7 @@ class SvgExporter:
             x2, y2 = center_x + dx * diagonal / 2, center_y + dy * diagonal / 2
             self._defs.append(
                 f'<linearGradient id="{gradient_id}" gradientUnits="userSpaceOnUse" '
-                f'x1="{_fmt(x1)}" y1="{_fmt(y1)}" x2="{_fmt(x2)}" y2="{_fmt(y2)}">'
+                f'x1="{fmt(x1)}" y1="{fmt(y1)}" x2="{fmt(x2)}" y2="{fmt(y2)}"{transform_attr}>'
                 + "".join(stop_elements)
                 + "</linearGradient>"
             )
@@ -355,11 +377,63 @@ class SvgExporter:
             radius = max_dist * math.sqrt(2)
             self._defs.append(
                 f'<radialGradient id="{gradient_id}" gradientUnits="userSpaceOnUse" '
-                f'cx="{_fmt(focus_x)}" cy="{_fmt(focus_y)}" r="{_fmt(radius)}">'
+                f'cx="{fmt(focus_x)}" cy="{fmt(focus_y)}" r="{fmt(radius)}"{transform_attr}>'
                 + "".join(stop_elements)
                 + "</radialGradient>"
             )
         return gradient_id
+
+    def path_fragment(self, layer: PathLayer) -> str:
+        """Emit one isolated native path viewport, also consumed by HTML export."""
+        from quickthumb._path_svg import native_path_data
+
+        vx, vy, vw, vh = layer.view_box or (0, 0, layer.width, layer.height)
+        number = _motion_number
+        attrs = ['fill-rule="evenodd"', f"d={quoteattr(native_path_data(layer))}"]
+        if layer.fill is not None:
+            inverse = (
+                f"matrix({number(vw / layer.width)} 0 0 {number(vh / layer.height)} "
+                f"{number(vx)} {number(vy)})"
+            )
+            gradient = self._define_gradient(layer.fill, (0, 0, layer.width, layer.height), inverse)
+            attrs.append(f'fill="url(#{gradient})"')
+        elif layer.color is not None:
+            rgba = color_to_rgba(self._canvas, layer.color)
+            attrs.append(f'fill="{rgb_hex(rgba)}" fill-opacity="{number(rgba[3] / 255)}"')
+        else:
+            attrs.append('fill="none"')
+        if layer.stroke is not None:
+            rgba = color_to_rgba(self._canvas, layer.stroke)
+            attrs.extend(
+                (
+                    f'stroke="{rgb_hex(rgba)}" stroke-opacity="{number(rgba[3] / 255)}"',
+                    f'stroke-width="{number(layer.stroke_width)}"',
+                    f'stroke-linecap="{layer.line_cap}"',
+                    f'stroke-linejoin="{layer.line_join}"',
+                    f'stroke-miterlimit="{number(layer.miter_limit)}"',
+                )
+            )
+            pattern = layer.dash_array
+            if pattern and any(pattern):
+                cycle = math.fsum(pattern) * (2 if len(pattern) % 2 else 1)
+                attrs.extend(
+                    (
+                        f'stroke-dasharray="{" ".join(map(number, pattern))}"',
+                        f'stroke-dashoffset="{number(layer.dash_offset % cycle)}"',
+                    )
+                )
+        source = f" data-qt-source-id={quoteattr(layer.id)}" if layer.id is not None else ""
+        return (
+            '<svg xmlns="http://www.w3.org/2000/svg" '
+            f'width="{layer.width}" height="{layer.height}" '
+            f'viewBox="{number(vx)} {number(vy)} {number(vw)} {number(vh)}" '
+            f'preserveAspectRatio="none" overflow="hidden"{source}>'
+            + "<defs>"
+            + "".join(self._defs)
+            + "</defs><path "
+            + " ".join(attrs)
+            + "/></svg>"
+        )
 
     # ----------------------------------------------------------------- outline
 

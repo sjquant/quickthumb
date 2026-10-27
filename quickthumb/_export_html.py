@@ -78,9 +78,11 @@ from quickthumb.models import (
     GroupLayer,
     LinearGradient,
     OutlineLayer,
+    PathLayer,
     RadialGradient,
     Shadow,
     ShapeLayer,
+    SpringEasing,
     Stroke,
     SvgLayer,
     TextLayer,
@@ -89,9 +91,12 @@ from quickthumb.models import (
 from quickthumb.motion import (
     Timeline,
     TimelineEvent,
+    _custom_easing,
     _has_color_track,
     _has_motion_path,
+    _has_spring_easing,
     _has_transform_extensions,
+    _has_wiggle,
     compile_timeline,
 )
 
@@ -200,10 +205,13 @@ _CSS_EASINGS = {
 }
 
 
-def css_easing(name: str | CubicBezierEasing | Mapping[str, object] | None) -> str:
+def css_easing(name: str | CubicBezierEasing | SpringEasing | Mapping[str, object] | None) -> str:
     """Return the CSS timing function for a shared easing name or custom bezier."""
     if name is not None and not isinstance(name, str):
-        x1, y1, x2, y2 = CubicBezierEasing.model_validate(name).points
+        curve = _custom_easing(name)
+        if isinstance(curve, SpringEasing):
+            raise RenderingError("spring easing requires the declared static HTML fallback")
+        x1, y1, x2, y2 = curve.points
         return f"cubic-bezier({_fmt(x1)},{_fmt(y1)},{_fmt(x2)},{_fmt(y2)})"
     return _CSS_EASINGS.get(name or "ease", "ease")
 
@@ -292,6 +300,8 @@ def _supports_transform_extensions_html(layer: object) -> bool:
         return False
     spec = specs[0]
     if spec.tracks is None or spec.stagger is not None:
+        return False
+    if _has_wiggle(spec):
         return False
     if any(track.type not in _TRANSFORM_PROPERTIES for track in spec.tracks):
         return False
@@ -809,8 +819,17 @@ class HtmlExporter:
             self._prev_anim_key = None
             return ""
 
-        if _has_color_track(layer):
-            # Canonical color tracks have an authored-static fallback in HTML.
+        from quickthumb.motion import _text_selector
+
+        if _text_selector(layer) is not None:
+            self._prev_anim_key = None
+            self._prev_nodes = []
+            return ""
+
+        if _has_color_track(layer) or any(
+            _has_spring_easing(effect) or _has_wiggle(effect) for effect in effects
+        ):
+            # Color tracks and procedural clocks use the authored-static fallback.
             self._prev_anim_key = None
             self._prev_nodes = []
             return ""
@@ -892,11 +911,8 @@ class HtmlExporter:
                 # runtime counts a delay from the group a node joins, so the
                 # two have to be reconciled once the groups are known.
                 "abs": event.trigger is None and event.start > 0,
+                "e": css_easing(event.options.get("easing")),
             }
-            # Named easings keep the runtime's default curve; only a custom
-            # bezier is passed through, since CSS can express it exactly.
-            if isinstance(event.options.get("easing"), Mapping):
-                node["e"] = css_easing(event.options["easing"])
             nodes.append(node)
         self._timeline.extend(nodes)
         self._prev_anim_key = id(animation)
@@ -1010,6 +1026,8 @@ class HtmlExporter:
             self._emit_outline(layer)
         elif isinstance(layer, ShapeLayer):
             self._emit_shape(layer)
+        elif isinstance(layer, PathLayer):
+            self._emit_path(layer)
         elif isinstance(layer, TextLayer):
             self._emit_text(layer)
         elif isinstance(layer, SvgLayer):
@@ -1042,7 +1060,9 @@ class HtmlExporter:
         # when that timestamp would otherwise sample its canonical tracks.
         source = (
             layer.model_copy(update={"animation": None})
-            if isinstance(layer, VideoLayer) and _has_transform_extensions(layer)
+            if isinstance(layer, PathLayer)
+            or isinstance(layer, VideoLayer)
+            and _has_transform_extensions(layer)
             else layer
         )
         fragment = rasterize_layers(self._canvas, [source])
@@ -1287,6 +1307,25 @@ class HtmlExporter:
         return family, weight, style
 
     # ------------------------------------------------------------- svg overlay
+
+    def _emit_path(self, layer: PathLayer) -> None:
+        from quickthumb._export_svg import SvgExporter
+        from quickthumb._path_svg import native_path_problem
+
+        if native_path_problem(layer):
+            self._emit_raster_fallback(layer)
+            return
+        element_id = self._make_id()
+        animation_style = self._register_animation(layer, element_id)
+        fragment = SvgExporter(self._canvas, id_prefix=f"{self._keyframe_prefix}{element_id}-")
+        x = parse_coordinate(layer.position[0], self._canvas.width)
+        y = parse_coordinate(layer.position[1], self._canvas.height)
+        identity = self._identity_attr(layer)
+        self._body.append(
+            f'<div id="{element_id}"{identity} style="position:absolute;left:{x}px;top:{y}px;'
+            f'width:{layer.width}px;height:{layer.height}px;{animation_style}">'
+            f"{fragment.path_fragment(layer)}</div>"
+        )
 
     def _emit_svg_layer(self, layer: SvgLayer):
         if layer.effects or is_url(layer.path):
