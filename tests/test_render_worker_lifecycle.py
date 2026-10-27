@@ -32,7 +32,7 @@ def _renderer(count=2):
 
 def _raw(time):
     image = Image.new("RGB", (2, 2), (int(time), 0, 0))
-    return image.size, image.tobytes()
+    return image.size, image.tobytes(), []
 
 
 def _worker_decoder_processes():

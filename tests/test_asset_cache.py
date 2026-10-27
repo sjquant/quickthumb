@@ -397,3 +397,32 @@ def test_describe_reports_expired_cache_entries_as_stale(tmp_path, local_assets)
     assert described.status == "stale"
     assert described.stale_reason is not None and "older than max_age" in described.stale_reason
     assert requests == ["/asset.png"]
+
+
+def test_prefetched_font_keeps_its_bytes_after_another_document_refreshes_the_url(
+    tmp_path, monkeypatch, local_assets
+):
+    """A prefetched font renders its resolved bytes after another document refreshes the URL."""
+    # Given: a regular face resolved without loading it into the first document
+    base_url, requests, _server, payloads = local_assets
+    monkeypatch.setenv("QUICKTHUMB_ASSET_CACHE_DIR", str(tmp_path / "assets"))
+    monkeypatch.setenv("QUICKTHUMB_ASSET_MAX_AGE", "0")
+    source = f"{base_url}/font.ttf"
+    first = Canvas(160, 50).text("Stable", font=source, size=24, position=(0, 0))
+    regular = first.prefetch_assets().asset_manifest[0]
+
+    # When: a second document refreshes that URL with a different face
+    payloads["/font.ttf"] = Path("assets/fonts/Roboto-Bold.ttf").read_bytes()
+    second = Canvas(160, 50).text("Stable", font=source, size=24, position=(0, 0))
+    bold = second.prefetch_assets().asset_manifest[0]
+    first_capture, second_capture = first.sample(), second.sample()
+    first_export = first.export(tmp_path / "regular.png")
+
+    # Then: each output reports and uses its own resolved bytes without another fetch
+    assert requests == ["/font.ttf", "/font.ttf"]
+    assert regular.content_hash != bold.content_hash
+    assert first_capture.environment.fonts[0].sha256 == regular.content_hash
+    assert second_capture.environment.fonts[0].sha256 == bold.content_hash
+    assert first_capture.frames[0].sha256 != second_capture.frames[0].sha256
+    assert first_export.environment.fonts == first_capture.environment.fonts
+    assert first_export.asset_manifest[0].content_hash == regular.content_hash
