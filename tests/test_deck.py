@@ -163,7 +163,7 @@ class TestRenderDispatch:
         deck = Deck().slide(make_slide("1"))
 
         # when / then
-        with pytest.raises(RenderingError, match="Unsupported deck output format"):
+        with pytest.raises(RenderingError, match="Unsupported file format"):
             deck.render(str(tmp_path / "deck.docx"))
 
     def test_should_reject_format_override_for_document_output(self, tmp_path: Path):

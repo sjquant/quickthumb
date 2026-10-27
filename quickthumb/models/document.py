@@ -134,7 +134,7 @@ class AssetManifestEntry(quickthumbModel):
     """A deterministic description of one document asset reference.
 
     `source` is the reference as written in the document and `asset_type` its
-    semantic role (`image`, `svg`, `font`, `text-fill`, `video`, `audio`).
+    semantic role (`image`, `svg`, `font`, `text-fill`, `video`, `audio`, `plugin`).
     `status` is the resolution outcome (see `AssetStatus`); for a `stale`
     value, `stale_reason` says why it was not refreshed and `fetched_at` how
     old it is, so callers can decide whether to proceed.
@@ -206,13 +206,31 @@ class CanonicalFrame(quickthumbModel):
         return Image.frombytes(self.mode, (self.width, self.height), self.to_bytes())
 
 
+class FontIdentity(quickthumbModel):
+    """Actual renderer font bytes and applied variable coordinates.
+
+    `source` is a resolved file path or `pillow:default` for Pillow's embedded
+    face. Paths are diagnostic; compare SHA-256 and variations across machines.
+    Variation keys are the font's axis names, not inferred OpenType tags.
+    `sha256` is absent only when Pillow does not expose its embedded face bytes.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    source: str
+    sha256: str | None = None
+    variations: dict[str, float] = Field(default_factory=dict)
+
+
 class RenderEnvironment(quickthumbModel):
     """Rendering-environment facts that can change canonical pixels.
 
-    Identical documents sampled under identical environments produce
-    identical frame digests. `ffmpeg_version` is set only for documents
-    with video layers, whose pixels FFmpeg decodes. Font and image inputs are
-    described by the document's asset manifest rather than here.
+    `ffmpeg_version` is set only for documents with video layers, whose
+    pixels FFmpeg decodes. Authored font and image references are described
+    by the document's asset manifest. `fonts` records the actual
+    font files or embedded default face used by this renderer, including
+    implicit default and system-family selections. Match their hashes rather
+    than machine-specific paths when comparing environments.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -222,7 +240,11 @@ class RenderEnvironment(quickthumbModel):
     pillow_version: str
     freetype_version: str | None = None
     text_layout: Literal["basic", "raqm"]
+    raqm_version: str | None = None
+    harfbuzz_version: str | None = None
+    fribidi_version: str | None = None
     ffmpeg_version: str | None = None
+    fonts: list[FontIdentity] = Field(default_factory=list)
 
 
 class TimelineSegment(quickthumbModel):
@@ -246,17 +268,21 @@ class TimelineSegment(quickthumbModel):
 class FrameSequence(quickthumbModel):
     """An ordered, JSON-safe set of canonical frames and their sampling context.
 
-    A `still` capture holds one settled frame per page (one for a Canvas,
-    one per Deck slide), each at that page's own size and with transparency
-    preserved; its `duration` is 0, `timeline` is empty, and frame
-    `time` is `None`.
+    A `still` capture holds one authored-static frame per page (one for a
+    Canvas, one per Deck slide), matching the untimed raster renderer rather
+    than seeking the animation endpoint. Each frame keeps that page's own size
+    and transparency; `duration` is 0, `timeline` is empty, and frame `time`
+    is `None`.
 
     A `timeline` capture observes instants of the normalized document
     timeline that animated exports play. Every frame has the document's first
     page size and is composited onto the opaque `matte` color, and frames
     are ordered by ascending `time`. `duration` is the full timeline
     length in seconds; `fps` is the uniform sampling rate when the capture
-    used one, else `None`.
+    used one, else `None`. This observation grid is not an encoded frame index:
+    codecs can quantize timing and coalesce or repeat frames. Deck timeline
+    capture uses narration-aware video timing; GIF ignores slide narration
+    and explicit slide durations.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -288,11 +314,20 @@ class PixelMetrics(quickthumbModel):
 
 
 class TimingMetrics(quickthumbModel):
-    """Timing metadata captured at the export boundary."""
+    """Encoded visual timing; interactive HTML has no fixed playback duration."""
 
-    duration: float = 0.0
-    fps: float | None = None
-    frame_count: NonNegativeInt = 0
+    duration: float = Field(
+        default=0.0,
+        description="Encoded visual playback seconds, excluding audio container padding.",
+    )
+    fps: float | None = Field(
+        default=None,
+        description="Selected sampling rate; GIF stored frames can differ from duration times fps.",
+    )
+    frame_count: NonNegativeInt = Field(
+        default=0,
+        description="Actual encoded frames, after GIF coalescing or video hold repetition.",
+    )
 
 
 class FallbackDiagnostic(quickthumbModel):
@@ -323,29 +358,38 @@ class ExportResult(quickthumbModel):
     pixel_metrics: PixelMetrics = Field(default_factory=PixelMetrics)
     timing_metrics: TimingMetrics = Field(default_factory=TimingMetrics)
     asset_manifest: list[AssetManifestEntry] = Field(default_factory=list)
+    environment: RenderEnvironment
 
 
-class PngSequenceManifest(quickthumbModel):
-    """Compact description of emitted frames; no source paths or color-profile claim."""
+class ImageSequenceManifest(quickthumbModel):
+    """Actual image encoding and logical decoded pixels, without a color-profile claim.
+
+    RGBA/straight describes alpha-preserving PNG and WebP decoding; an opaque
+    WebP file may omit its redundant alpha plane and open as RGB in some readers.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
     version: Literal["1"] = "1"
     kind: Literal["canvas", "deck"]
-    format: Literal["png_sequence"] = "png_sequence"
-    filename_pattern: Literal["%06d.png"] = "%06d.png"
+    format: Literal["image_sequence"] = "image_sequence"
+    encoding: Literal["png", "jpeg", "webp"]
+    filename_pattern: str
     start_index: Literal[0] = 0
     frame_count: PositiveInt
     fps: Annotated[float, Field(gt=0, le=120, allow_inf_nan=False)]
     duration: Annotated[float, Field(gt=0, allow_inf_nan=False)]
     width: PositiveInt
     height: PositiveInt
-    mode: Literal["RGBA"] = "RGBA"
+    mode: Literal["RGB", "RGBA"]
     bit_depth: Literal[8] = 8
-    alpha: Literal["straight"] = "straight"
+    alpha: Literal["straight", "none"]
+    lossless: bool
+    quality: Annotated[int, Field(strict=True, ge=1, le=95)] | None = None
+    matte: str | None = None
 
 
-class PngSequenceResult(PngSequenceManifest):
+class ImageSequenceResult(ImageSequenceManifest):
     """The sequence manifest plus its published location and motion diagnostics."""
 
     output_directory: str

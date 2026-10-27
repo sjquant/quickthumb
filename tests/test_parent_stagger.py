@@ -385,7 +385,9 @@ def test_spawn_and_serial_gif_bytes_match(tmp_path, quality):
     )
     paths = [tmp_path / "serial.gif", tmp_path / "spawn.gif"]
     for workers, path in zip((1, 2), paths, strict=True):
-        canvas.render(str(path), animation=GifOptions(fps=5, quality=quality, workers=workers))
+        canvas.render(
+            str(path), animation=GifOptions(fps=5, render_quality=quality, workers=workers)
+        )
     assert paths[0].read_bytes() == paths[1].read_bytes()
 
 

@@ -115,7 +115,7 @@ if __name__ == "__main__":
     output = ROOT / "examples/output"
     output.mkdir(exist_ok=True)
     scene.render(
-        str(output / "parent_composition.gif"), animation=GifOptions(fps=24, quality="high")
+        str(output / "parent_composition.gif"), animation=GifOptions(fps=24, render_quality="high")
     )
     scene.render_frame(0.7).save(output / "parent_composition.png")
     scene.render(str(output / "parent_composition.html"))

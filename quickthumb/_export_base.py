@@ -38,9 +38,9 @@ from quickthumb.models import (
     ChartLayer,
     Glow,
     GroupLayer,
-    ImageLayer,
     InnerShadow,
     LinearGradient,
+    PluginLayer,
     QRCodeLayer,
     RadialGradient,
     Shadow,
@@ -76,6 +76,13 @@ def flatten_layers(
     """Resolve group layers into placed children so exporters see a flat list."""
     from quickthumb._parenting import require_parent_rendering
 
+    for layer in canvas._iter_layers_deep():
+        if isinstance(layer, PluginLayer):
+            raise RenderingError(
+                "Plugin layers currently support settled raster output only.",
+                code="unsupported_capability",
+                layer_id=layer.id,
+            )
     if parent_nodes is None:
         require_parent_rendering(canvas)
     flat: list[RenderableLayer] = []
@@ -461,7 +468,6 @@ def composite_canonical_layer(image, surface, layer, state, *, subpixel: bool, b
         fragment,
         state,
         (bounds[0], bounds[1]),
-        include_scale=not isinstance(layer, ImageLayer),
         subpixel=subpixel,
     )
     if not source_alpha:
@@ -522,7 +528,6 @@ def apply_canonical_geometry(
     state,
     pos: tuple[int, int],
     *,
-    include_scale: bool = True,
     subpixel: bool = False,
     render_scale: float = 1,
 ) -> tuple[Image.Image, tuple[int, int]]:
@@ -540,11 +545,8 @@ def apply_canonical_geometry(
     space; the caller downsamples the completed frame once. A scale below one
     instead composes a reduced authoring preview without changing source layout.
 
-    `include_scale` is off for image layers, whose renderer already folds
-    `scale` into the source crop so the frame stays put while its content
-    zooms.
     """
-    scale = state.scale if include_scale and state.scale > 0 else 1.0
+    scale = state.scale if state.scale > 0 else 1.0
     offset_x, offset_y = state.position or (0.0, 0.0)
     angle = state.rotation % 360
     if (
@@ -578,7 +580,7 @@ def apply_canonical_geometry(
     # even when their final rotation or scale is not the identity transform.
     centre_x = pos[0] + image.width / 2
     centre_y = pos[1] + image.height / 2
-    if include_scale and state.scale > 0 and state.scale != 1.0:
+    if state.scale > 0 and state.scale != 1.0:
         image = image.resize(
             (max(1, round(image.width * state.scale)), max(1, round(image.height * state.scale))),
             resample=Image.Resampling.LANCZOS,

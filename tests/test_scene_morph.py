@@ -144,7 +144,7 @@ def test_should_render_a_keyed_shape_at_an_intermediate_morph_position():
     deck = Deck(slides=[source, target], transition=Morph(duration=1))
 
     # When the public animated export is sampled at a fixed frame rate
-    image: Image.Image = Image.open(BytesIO(deck.to_gif(fps=4, slide_duration=0.1)))
+    image: Image.Image = Image.open(BytesIO(deck.to_gif(fps=4, hold=0.1)))
     red_bounds = []
     for index in range(int(getattr(image, "n_frames", 1))):
         image.seek(index)

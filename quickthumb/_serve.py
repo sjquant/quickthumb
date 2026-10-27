@@ -11,16 +11,19 @@ import threading
 import webbrowser
 from dataclasses import dataclass
 from functools import cache
+from html import escape
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from importlib import invalidate_caches
 from importlib.resources import files
 from importlib.util import cache_from_source, source_from_cache
+from io import BytesIO
 from pathlib import Path
 from types import ModuleType
 from typing import cast
 from urllib.parse import parse_qs, urlsplit
 
 from jinja2 import Environment, Template
+from PIL import Image
 
 from quickthumb._document import Document, load_document
 from quickthumb._serve_timeline import StaleTimelineError, TimelinePreview
@@ -34,6 +37,7 @@ _VERSION_PATH = "/__quickthumb_version"
 _TIMELINE_PATH = "/timeline"
 _TIMELINE_METADATA_PATH = "/__quickthumb_timeline"
 _TIMELINE_FRAME_PATH = "/__quickthumb_frame"
+_THUMBNAIL_PATH = "/__quickthumb_thumbnail"
 _PACKAGE_ROOT = Path(__file__).resolve().parent
 _SERVE_TEMPLATES = Environment(autoescape=True)
 
@@ -72,7 +76,9 @@ def serve_slides(
 
     print(f"Serving {slide_source.path} at {url}", flush=True)
     print(f"Presenter mode: {url}/?presenter", flush=True)
-    print(f"Timeline preview: {url}{_TIMELINE_PATH}", flush=True)
+    print(
+        f"Motion inspection (raster frames, no playback/audio): {url}{_TIMELINE_PATH}", flush=True
+    )
     if open_browser:
         browser_url = url + _TIMELINE_PATH if timeline else url
         threading.Timer(0.05, webbrowser.open, args=(browser_url,)).start()
@@ -191,6 +197,7 @@ class SlideSource:
         self._cached_html: str | None = None
         self._cached_source: Canvas | Deck | str | None = None
         self._timeline: TimelinePreview | None = None
+        self._thumbnails: dict[int, bytes] = {}
         self._closed = False
         self._generation = 0
         self._python_dependency_paths: frozenset[Path] = frozenset()
@@ -205,7 +212,9 @@ class SlideSource:
         """Render the latest source contents to a standalone HTML document."""
         return self.render_with_version(presenter=presenter).html
 
-    def render_with_version(self, *, presenter: bool = True) -> RenderedSource:
+    def render_with_version(
+        self, *, presenter: bool = True, embedded: bool = False
+    ) -> RenderedSource:
         """Render source HTML and return the matching source version atomically."""
         with self._render_lock:
             while True:
@@ -221,6 +230,17 @@ class SlideSource:
                     self._cached_html = html
                 if not presenter:
                     html = _without_speaker_notes(html)
+                elif isinstance(self._cached_source, Deck):
+                    html = re.sub(
+                        r"<body(?=[\s>])",
+                        lambda _: f'<body data-qt-source-name="{escape(self.path.name)}"',
+                        html,
+                        count=1,
+                    )
+                if embedded:
+                    html = re.sub(
+                        r"<body(?=[\s>])", '<body data-qt-serve-preview="true"', html, count=1
+                    )
                 return RenderedSource(html=html, version=version)
 
     def invalidate(self) -> None:
@@ -242,6 +262,7 @@ class SlideSource:
 
             _close_video_decoders(_contract_canvases(cast(Document, self._cached_source)))
         self._timeline = None
+        self._thumbnails.clear()
         self._cached_source = None
         self._cached_version = None
         self._cached_html = None
@@ -263,23 +284,69 @@ class SlideSource:
             self._timeline = TimelinePreview(document)
         return self._timeline
 
-    def render_timeline(self) -> RenderedSource:
-        """Render a shell independently of the HTML slideshow exporter."""
+    def render_preview(self, *, inspect_motion: bool = False) -> RenderedSource:
+        """Render the shared authoring shell without preparing animation frames."""
+        from quickthumb._export_html import _authoring_css
+
         with self._render_lock:
             while True:
                 version = self.version()
-                self._preview_for_version(version)
+                document = self._load_for_version(version)
+                if isinstance(document, str):
+                    if inspect_motion:
+                        raise ValidationError(
+                            "Motion inspection requires a Python or JSON Canvas/Deck source."
+                        )
+                    return RenderedSource(html=_without_speaker_notes(document), version=version)
+                document._contract_validate_structure()
+                canvases = document.slides if isinstance(document, Deck) else [document]
+                config = {
+                    "version": version,
+                    "slides": [
+                        {
+                            "width": canvas.width,
+                            "height": canvas.height,
+                            **_presentation_support(canvas),
+                        }
+                        for canvas in canvases
+                    ],
+                    "mode": "inspect" if inspect_motion else "presentation",
+                    "presentation_url": "/?__quickthumb_embed=1",
+                    "thumbnail_url": _THUMBNAIL_PATH,
+                    "metadata_url": _TIMELINE_METADATA_PATH,
+                    "frame_url": _TIMELINE_FRAME_PATH,
+                }
                 if self.version() != version:
                     continue
-                html = _serve_template("serve_timeline.html").render(
+                html = _serve_template("serve_preview.html").render(
                     source_name=self.path.name,
-                    metadata_url=_TIMELINE_METADATA_PATH,
-                    frame_url=_TIMELINE_FRAME_PATH,
-                    runtime=files("quickthumb.html")
-                    .joinpath("serve_timeline.js")
-                    .read_text(encoding="utf-8"),
+                    config=config,
+                    css=_authoring_css()
+                    + files("quickthumb.html").joinpath("serve_preview.css").read_text(),
+                    runtime=files("quickthumb.html").joinpath("serve_preview.js").read_text(),
                 )
                 return RenderedSource(html=html, version=version)
+
+    def thumbnail(self, slide: int, version: str) -> bytes:
+        """Cache small authored stills using the existing Canvas raster renderer."""
+        with self._render_lock:
+            if self.version() != version:
+                raise StaleTimelineError
+            document = self._load_for_version(version)
+            if isinstance(document, str):
+                raise ValidationError("Slide thumbnails require a Python or JSON document.")
+            canvases = document.slides if isinstance(document, Deck) else [document]
+            if not 0 <= slide < len(canvases):
+                raise ValueError("slide is outside the document")
+            if slide not in self._thumbnails:
+                image = canvases[slide]._render_to_image()
+                image.thumbnail((240, 240), Image.Resampling.LANCZOS)
+                output = BytesIO()
+                image.save(output, format="PNG")
+                self._thumbnails[slide] = output.getvalue()
+            if self.version() != version:
+                raise StaleTimelineError
+            return self._thumbnails[slide]
 
     def timeline_metadata(self) -> dict:
         """Describe the exact canonical plan behind the current preview."""
@@ -394,6 +461,48 @@ class SlideSource:
         return f"{stat.st_mtime_ns}:{stat.st_size}:{self._generation}"
 
 
+def _presentation_support(canvas: Canvas) -> dict:
+    """Describe actual static adapters separately from conservative capability notes."""
+    from quickthumb._export_html import _supports_transform_extensions_html
+    from quickthumb._parent_export import parent_html_sampling
+    from quickthumb._parenting import has_parent_links
+    from quickthumb.motion import AnimationSpec, _has_color_track, _has_transform_extensions
+
+    layers = list(canvas._iter_layers_deep())
+    reasons = []
+    if has_parent_links(canvas) and any(getattr(layer, "animation", None) for layer in layers):
+        problem = parent_html_sampling(canvas).problem
+        return {
+            "static_motion": problem is not None,
+            "motion_notes": [
+                "The whole slide uses a still image in HTML. " + problem
+                if problem
+                else "HTML presentation samples parent motion; "
+                "rendered frames use the export timeline."
+            ],
+        }
+    for layer in layers:
+        if _has_color_track(layer):
+            reasons.append("Color tracks use a still layer in HTML presentation.")
+        elif _has_transform_extensions(layer) and not _supports_transform_extensions_html(layer):
+            reasons.append("This transform combination uses a still layer in HTML presentation.")
+        elif not _supports_transform_extensions_html(layer):
+            animation = getattr(layer, "animation", None)
+            specs = animation if isinstance(animation, list) else [animation]
+            if any(isinstance(spec, AnimationSpec) and spec.tracks is not None for spec in specs):
+                reasons.append("Custom tracks are replaced by a fade in HTML presentation.")
+        if getattr(layer, "type", None) == "video":
+            reasons.append("Video content uses a still frame in HTML presentation.")
+        if getattr(layer, "type", None) == "text" and getattr(layer, "value", None) is not None:
+            reasons.append("Animated text values use their settled value in HTML presentation.")
+    notes = list(dict.fromkeys(reasons))
+    if not notes and any(
+        item.support not in {"full", "native"} for item in canvas.validate_export("html")
+    ):
+        notes.append("HTML motion is an approximation; rendered frames show the export timeline.")
+    return {"static_motion": bool(reasons), "motion_notes": notes}
+
+
 def _substitute_variables(text: str, variables: dict[str, str]) -> str:
     def replace(match) -> str:
         if _is_theme_reference(match):
@@ -427,7 +536,7 @@ def slide_request_handler(source: SlideSource) -> type[BaseHTTPRequestHandler]:
                 self.send_response(204)
                 self.end_headers()
                 return
-            if path in {_TIMELINE_METADATA_PATH, _TIMELINE_FRAME_PATH}:
+            if path in {_TIMELINE_METADATA_PATH, _TIMELINE_FRAME_PATH, _THUMBNAIL_PATH}:
                 self._timeline_request(path, request.query)
                 return
             if path not in _HTML_PATHS | {_TIMELINE_PATH}:
@@ -435,12 +544,12 @@ def slide_request_handler(source: SlideSource) -> type[BaseHTTPRequestHandler]:
                 return
 
             try:
+                presenter = _is_presenter_request(path, request.query)
+                embedded = parse_qs(request.query).get("__quickthumb_embed") == ["1"]
                 rendered = (
-                    source.render_timeline()
-                    if path == _TIMELINE_PATH
-                    else source.render_with_version(
-                        presenter=_is_presenter_request(path, request.query)
-                    )
+                    source.render_with_version(presenter=presenter, embedded=embedded)
+                    if presenter or embedded
+                    else source.render_preview(inspect_motion=path == _TIMELINE_PATH)
                 )
                 html = _with_live_reload(rendered.html, rendered.version)
             except Exception as error:  # Keep the server alive while the source is being edited.
@@ -457,6 +566,15 @@ def slide_request_handler(source: SlideSource) -> type[BaseHTTPRequestHandler]:
                         json.dumps(source.timeline_metadata(), allow_nan=False),
                         "application/json; charset=utf-8",
                     )
+                    return
+                if path == _THUMBNAIL_PATH:
+                    params = parse_qs(query, keep_blank_values=True, max_num_fields=2)
+                    if set(params) != {"slide", "version"} or any(
+                        len(values) != 1 for values in params.values()
+                    ):
+                        raise ValueError("Expected one slide and version parameter")
+                    data = source.thumbnail(int(params["slide"][0]), params["version"][0])
+                    self._send(200, data, "image/png")
                     return
                 try:
                     params = parse_qs(query, keep_blank_values=True, max_num_fields=3)
@@ -485,6 +603,8 @@ def slide_request_handler(source: SlideSource) -> type[BaseHTTPRequestHandler]:
                         "X-Quickthumb-Slide": str(slide),
                     },
                 )
+            except ValueError as error:
+                self._send(400, str(error), "text/plain; charset=utf-8")
             except StaleTimelineError:
                 self._send(409, "Source changed; reload the timeline", "text/plain; charset=utf-8")
             except Exception as error:
