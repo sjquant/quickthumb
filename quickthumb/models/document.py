@@ -204,13 +204,31 @@ class CanonicalFrame(quickthumbModel):
         return Image.frombytes(self.mode, (self.width, self.height), self.to_bytes())
 
 
+class FontIdentity(quickthumbModel):
+    """Actual renderer font bytes and applied variable coordinates.
+
+    `source` is a resolved file path or `pillow:default` for Pillow's embedded
+    face. Paths are diagnostic; compare SHA-256 and variations across machines.
+    Variation keys are the font's axis names, not inferred OpenType tags.
+    `sha256` is absent only when Pillow does not expose its embedded face bytes.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    source: str
+    sha256: str | None = None
+    variations: dict[str, float] = Field(default_factory=dict)
+
+
 class RenderEnvironment(quickthumbModel):
     """Rendering-environment facts that can change canonical pixels.
 
-    Identical documents sampled under identical environments produce
-    identical frame digests. `ffmpeg_version` is set only for documents
-    with video layers, whose pixels FFmpeg decodes. Font and image inputs are
-    described by the document's asset manifest rather than here.
+    `ffmpeg_version` is set only for documents with video layers, whose
+    pixels FFmpeg decodes. Authored font and image references are described
+    by the document's asset manifest. `fonts` records the actual
+    font files or embedded default face used by this renderer, including
+    implicit default and system-family selections. Match their hashes rather
+    than machine-specific paths when comparing environments.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -220,7 +238,11 @@ class RenderEnvironment(quickthumbModel):
     pillow_version: str
     freetype_version: str | None = None
     text_layout: Literal["basic", "raqm"]
+    raqm_version: str | None = None
+    harfbuzz_version: str | None = None
+    fribidi_version: str | None = None
     ffmpeg_version: str | None = None
+    fonts: list[FontIdentity] = Field(default_factory=list)
 
 
 class TimelineSegment(quickthumbModel):
@@ -321,29 +343,38 @@ class ExportResult(quickthumbModel):
     pixel_metrics: PixelMetrics = Field(default_factory=PixelMetrics)
     timing_metrics: TimingMetrics = Field(default_factory=TimingMetrics)
     asset_manifest: list[AssetManifestEntry] = Field(default_factory=list)
+    environment: RenderEnvironment
 
 
-class PngSequenceManifest(quickthumbModel):
-    """Compact description of emitted frames; no source paths or color-profile claim."""
+class ImageSequenceManifest(quickthumbModel):
+    """Actual image encoding and logical decoded pixels, without a color-profile claim.
+
+    RGBA/straight describes alpha-preserving PNG and WebP decoding; an opaque
+    WebP file may omit its redundant alpha plane and open as RGB in some readers.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
     version: Literal["1"] = "1"
     kind: Literal["canvas", "deck"]
-    format: Literal["png_sequence"] = "png_sequence"
-    filename_pattern: Literal["%06d.png"] = "%06d.png"
+    format: Literal["image_sequence"] = "image_sequence"
+    encoding: Literal["png", "jpeg", "webp"]
+    filename_pattern: str
     start_index: Literal[0] = 0
     frame_count: PositiveInt
     fps: Annotated[float, Field(gt=0, le=120, allow_inf_nan=False)]
     duration: Annotated[float, Field(gt=0, allow_inf_nan=False)]
     width: PositiveInt
     height: PositiveInt
-    mode: Literal["RGBA"] = "RGBA"
+    mode: Literal["RGB", "RGBA"]
     bit_depth: Literal[8] = 8
-    alpha: Literal["straight"] = "straight"
+    alpha: Literal["straight", "none"]
+    lossless: bool
+    quality: Annotated[int, Field(strict=True, ge=1, le=95)] | None = None
+    matte: str | None = None
 
 
-class PngSequenceResult(PngSequenceManifest):
+class ImageSequenceResult(ImageSequenceManifest):
     """The sequence manifest plus its published location and motion diagnostics."""
 
     output_directory: str

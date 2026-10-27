@@ -60,24 +60,31 @@ def local_assets():
 def test_remote_image_manifest_persists_network_result_and_reuses_fresh_cache(
     tmp_path, monkeypatch, local_assets
 ):
-    """Given a remote image, resolution fetches once and a later context uses fresh cache."""
+    """A prefetched image supports sampling and export without another network request."""
     base_url, requests, server, payloads = local_assets
     monkeypatch.setenv("QUICKTHUMB_ASSET_CACHE_DIR", str(tmp_path / "assets"))
     first_url = f"{base_url}/asset.png?b=2&a=1"
     equivalent_url = f"{base_url}/asset.png?a=1&b=2"
 
     first = Canvas(4, 4).background(image=first_url)
-    first_manifest = first.prefetch_assets().asset_manifest[0]
-    first.render(tmp_path / "first.png")
+    first_prefetch = first.prefetch_assets()
+    first_manifest = first_prefetch.asset_manifest[0]
+    first_capture = first.sample()
+    first_export = first.export(tmp_path / "first.png")
 
     # When: the same source is requested with its query parameters reordered
     second = Canvas(4, 4).background(image=equivalent_url)
     second_manifest = second.prefetch_assets().asset_manifest[0]
     server.shutdown()
     server.server_close()
-    second.render(tmp_path / "second.png")
+    second_capture = second.sample()
+    second_export = second.export(tmp_path / "second.png")
 
     # Then: the persisted entry is fresh, deterministic, and no second fetch occurred
+    assert first_capture.frames[0].sha256 == second_capture.frames[0].sha256
+    assert first_export.asset_manifest == first_prefetch.asset_manifest
+    assert second_export.asset_manifest == [second_manifest]
+    assert first_manifest.source == first_url
     assert len(requests) == 1
     assert first_manifest.status == "network"
     assert second_manifest.status == "fresh"
@@ -390,3 +397,32 @@ def test_describe_reports_expired_cache_entries_as_stale(tmp_path, local_assets)
     assert described.status == "stale"
     assert described.stale_reason is not None and "older than max_age" in described.stale_reason
     assert requests == ["/asset.png"]
+
+
+def test_prefetched_font_keeps_its_bytes_after_another_document_refreshes_the_url(
+    tmp_path, monkeypatch, local_assets
+):
+    """A prefetched font renders its resolved bytes after another document refreshes the URL."""
+    # Given: a regular face resolved without loading it into the first document
+    base_url, requests, _server, payloads = local_assets
+    monkeypatch.setenv("QUICKTHUMB_ASSET_CACHE_DIR", str(tmp_path / "assets"))
+    monkeypatch.setenv("QUICKTHUMB_ASSET_MAX_AGE", "0")
+    source = f"{base_url}/font.ttf"
+    first = Canvas(160, 50).text("Stable", font=source, size=24, position=(0, 0))
+    regular = first.prefetch_assets().asset_manifest[0]
+
+    # When: a second document refreshes that URL with a different face
+    payloads["/font.ttf"] = Path("assets/fonts/Roboto-Bold.ttf").read_bytes()
+    second = Canvas(160, 50).text("Stable", font=source, size=24, position=(0, 0))
+    bold = second.prefetch_assets().asset_manifest[0]
+    first_capture, second_capture = first.sample(), second.sample()
+    first_export = first.export(tmp_path / "regular.png")
+
+    # Then: each output reports and uses its own resolved bytes without another fetch
+    assert requests == ["/font.ttf", "/font.ttf"]
+    assert regular.content_hash != bold.content_hash
+    assert first_capture.environment.fonts[0].sha256 == regular.content_hash
+    assert second_capture.environment.fonts[0].sha256 == bold.content_hash
+    assert first_capture.frames[0].sha256 != second_capture.frames[0].sha256
+    assert first_export.environment.fonts == first_capture.environment.fonts
+    assert first_export.asset_manifest[0].content_hash == regular.content_hash

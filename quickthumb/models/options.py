@@ -46,7 +46,7 @@ class GifOptions(quickthumbModel):
     max_size: tuple[PositiveInt, PositiveInt] | None = None
     colors: int | None = None
     workers: Annotated[int, Field(strict=True, ge=1, le=8)] = 1
-    quality: Literal["standard", "high"] = "standard"
+    render_quality: Literal["standard", "high"] = "standard"
 
     @field_validator("loop")
     @classmethod
@@ -76,19 +76,19 @@ class VideoOptions(quickthumbModel):
     soundtrack: AudioTrack | None = None
     loop_audio: bool | None = None
     workers: Annotated[int, Field(strict=True, ge=1, le=8)] = 1
-    quality: Literal["standard", "high"] = "standard"
+    render_quality: Literal["standard", "high"] = "standard"
     transparent: Annotated[bool, Field(strict=True)] = False
 
 
-class PngSequenceOptions(quickthumbModel):
-    """Silent RGBA8 animation export, with one independent PNG per frame."""
+class ImageSequenceOptions(quickthumbModel):
+    """Timing and compositing for silent PNG, JPEG, or WebP animation frames."""
 
     model_config = ConfigDict(extra="forbid")
 
     fps: Annotated[float, Field(strict=True, gt=0, le=120, allow_inf_nan=False)] = 30.0
     hold: Annotated[float, Field(strict=True, ge=0, allow_inf_nan=False)] = 3.0
     workers: Annotated[int, Field(strict=True, ge=1, le=8)] = 1
-    quality: Literal["standard", "high"] = "standard"
+    render_quality: Literal["standard", "high"] = "standard"
 
 
 def coerce_audio_track(value: AudioTrack | str | dict | None) -> AudioTrack | None:

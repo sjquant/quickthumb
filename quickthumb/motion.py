@@ -854,9 +854,14 @@ class Timeline(BaseModel):
         if base is not None and not isinstance(base, LayerState):
             raise ValidationError("sample base must be a LayerState")
         state = base if base is not None else LayerState()
+        authored_rotation = state.rotation
+        state = state.with_values(rotation=0.0)
+        heading = 0.0
         for event in self.events:
-            state = _sample_event(event, time, state)
-        return state
+            state, event_heading = _sample_event(event, time, state)
+            if event_heading is not None:
+                heading = event_heading
+        return state.with_values(rotation=authored_rotation + state.rotation + heading)
 
     def frame_times(self, fps: float) -> tuple[float, ...]:
         """Return deterministic frame timestamps from zero through the duration."""
@@ -911,7 +916,10 @@ def _has_transform_extensions(layer: object) -> bool:
     return bool(specs) and (
         getattr(layer, "anchor", (0.5, 0.5)) != (0.5, 0.5)
         or any(
-            track.type in {"scale_x", "scale_y"} or _is_path_track(track)
+            track.type in {"scale_x", "scale_y"}
+            or getattr(layer, "type", None) == "image"
+            and track.type == "scale"
+            or _is_path_track(track)
             for spec in specs
             for track in spec.tracks or ()
         )
@@ -1035,16 +1043,14 @@ def _geometry_in_motion(
     timeline: Timeline,
     time: float,
     *,
-    include_scale: bool = True,
     state: LayerState | None = None,
 ) -> bool:
     """Detect geometry interpolation while preserving settled and overridden tracks."""
-    properties = {"position", "rotation", "scale_x", "scale_y"}
-    if include_scale:
-        properties.add("scale")
+    properties = {"position", "rotation", "scale", "scale_x", "scale_y"}
     moving: dict[str, bool] = {}
     position_changes: dict[tuple[float, float, object], tuple[float, float]] = {}
     path_position_moving = False
+    heading_moving = False
     for event in timeline.events:
         if time < event.active_start:
             continue
@@ -1105,8 +1111,7 @@ def _geometry_in_motion(
                 if path:
                     path_position_moving = path_position_moving or active
                     if track.auto_orient and track.has_direction:
-                        # Auto-orient writes rotation at this track's ordered slot.
-                        moving["rotation"] = active
+                        heading_moving = active
                     continue
                 if active and segment is not None:
                     left, right = segment
@@ -1139,6 +1144,7 @@ def _geometry_in_motion(
     # Do not resample a held rotation just because a cancelled move is scheduled.
     return (
         path_position_moving
+        or heading_moving
         or any(moving.values())
         or any(abs(x) > 1e-12 or abs(y) > 1e-12 for x, y in position_changes.values())
     )
@@ -1288,10 +1294,7 @@ def _compile_preset_tracks(
     if effect == "ken_burns":
         direction = options.get("direction") or "in"
         values = (1.0, 1.1) if direction == "in" else (1.1, 1.0)
-        # Keep the public preset on the established scale property. Image
-        # layers interpret it as viewport zoom; other layers retain the
-        # existing generic scale semantics.
-        return (track("scale", values, blend="multiply"),)
+        return (track("image_zoom", values, blend="multiply"),)
     if effect == "pan":
         origin = options.get("from") or "left"
         offsets = {
@@ -1426,31 +1429,33 @@ def _validate_property_value(property: MotionProperty, value: MotionValue) -> No
         raise ValidationError("blur keyframes must be non-negative")
 
 
-def _sample_event(event: TimelineEvent, time: float, state: LayerState) -> LayerState:
+def _sample_event(
+    event: TimelineEvent, time: float, state: LayerState
+) -> tuple[LayerState, float | None]:
     """Apply one event to a state, preserving stable event-order precedence."""
     if time < event.active_start:
-        return state
+        return state, None
+    heading = None
     progress = (
         1.0 if event.duration == 0 else min(1.0, (time - event.active_start) / event.duration)
     )
     eased_progress = easing_value(event.options.get("easing"), progress)
     for track in event.tracks:
-        heading = None
         if track.property == "position" and _is_path_track(track):
-            value, heading = _sample_path_track(
+            value, path_heading = _sample_path_track(
                 track, progress * event.duration, event.options.get("easing")
             )
+            if track.auto_orient and path_heading is not None:
+                heading = path_heading
         else:
             value = _sample_track(track, progress, event.duration, event.options.get("easing"))
         value = _wiggle_value(track, value, progress * event.duration)
         state = _compose_track_value(state, track, value)
-        if track.auto_orient and heading is not None:
-            state = state.with_values(rotation=heading)
     if event.effect == "ken_burns" and event.options.get("focal_point") is not None:
         state = state.with_values(image_focal_point=tuple(event.options["focal_point"]))
     if event.effect is not None and event.source == "legacy":
         state = _sample_effect(event, eased_progress, state)
-    return state
+    return state, heading
 
 
 def _wiggle_value(track: NormalizedTrack, value: MotionValue, time: float) -> MotionValue:
@@ -1633,7 +1638,7 @@ def _sample_effect(event: TimelineEvent, progress: float, state: LayerState) -> 
         progress = min(1.0, max(0.0, progress))
         return state.with_values(clip_progress=state.clip_progress * progress)
     if effect == "ken_burns":
-        return state.with_values(scale=state.scale * (1.0 + 0.1 * progress))
+        return state.with_values(image_zoom=state.image_zoom * (1.0 + 0.1 * progress))
     if effect in {"float", "pulse", "shake"}:
         distance = float(event.options.get("distance", 12.0) or 0.0)
         oscillation = math.sin(progress * math.tau)
@@ -1825,7 +1830,7 @@ def _normalize_target(target: ExportTarget | str) -> ExportTarget:
         "webm": "video",
         "mov": "video",
         "png": "raster",
-        "png_sequence": "video",
+        "image_sequence": "video",
     }
     normalized = aliases.get(str(target).lower(), str(target).lower())
     if normalized not in _CAPABILITIES:
@@ -1857,7 +1862,7 @@ def _capability_features_for(animation: object) -> tuple[CapabilityFeature, ...]
                 "float": ("position",),
                 "pulse": ("scale",),
                 "shake": ("rotation",),
-                "ken_burns": ("position", "scale"),
+                "ken_burns": ("image_zoom",),
                 "pan": ("image_pan",),
                 "typewriter": ("clip_progress",),
                 "bar_grow": ("clip_progress",),

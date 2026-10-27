@@ -17,7 +17,6 @@ from quickthumb._parent_render import (
 from quickthumb.models import (
     AnimationSpec,
     ChartLayer,
-    ImageLayer,
     NullLayer,
     QRCodeLayer,
     VideoLayer,
@@ -136,8 +135,7 @@ def parent_html_sampling(canvas: Canvas) -> ParentHtmlSampling:
                 )
             scales = [track for track in spec.tracks if track.type == "scale"]
             if scales and (
-                isinstance(layer, ImageLayer)
-                or (spec.easing or "").endswith("_back")
+                (spec.easing or "").endswith("_back")
                 or any(key.value <= 0 for track in scales for key in track.keyframes)
             ):
                 return ParentHtmlSampling(

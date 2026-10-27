@@ -106,7 +106,7 @@ def test_repeated_inspection_then_export_releases_each_reader(source_video, deco
         assert not canvas._ctx.video_decoder_cache
 
     previous_count = len(decoder_processes)
-    with Image.open(BytesIO(deck.to_gif(fps=10, slide_duration=0))) as image:
+    with Image.open(BytesIO(deck.to_gif(fps=10, hold=0))) as image:
         image.seek(0)
         red = pixel_rgb(image.convert("RGB"), (48, 32))
         image.seek(getattr(image, "n_frames", 1) - 1)
