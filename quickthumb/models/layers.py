@@ -12,6 +12,7 @@ from pydantic import (
     ConfigDict,
     Discriminator,
     Field,
+    FiniteFloat,
     NonNegativeInt,
     PositiveFloat,
     PositiveInt,
@@ -440,6 +441,50 @@ class ImageLayer(_AnimatableLayerModel):
     def serialize_align(self, align: Align) -> str:
         """Serialize TextAlign to its string value for JSON."""
         return align.value
+
+
+class PathLayer(LayerIdentityModel):
+    """A static, filled SVG path inside a fixed local viewport."""
+
+    type: Literal["path"]
+    d: str = Field(description="SVG path data: M/L/H/V/C/S/Q/T/Z, absolute or relative.")
+    position: Position
+    width: PositiveInt
+    height: PositiveInt
+    color: HexColor | None = "#000000"
+    view_box: tuple[FiniteFloat, FiniteFloat, FinitePositiveFloat, FinitePositiveFloat] | None = (
+        None
+    )
+
+    model_config = ConfigDict(validate_assignment=True, extra="forbid")
+
+    @field_validator("position", mode="before")
+    @classmethod
+    def validate_position(cls, value: tuple | list) -> Position:
+        return _validate_required_position(value)
+
+    @field_validator("d")
+    @classmethod
+    def validate_path_data(cls, value: str) -> str:
+        from quickthumb._path_geometry import parse_path
+
+        parse_path(value)
+        return value
+
+    @model_validator(mode="after")
+    def validate_geometry(self) -> "PathLayer":
+        from quickthumb._path_geometry import parse_path
+
+        segments = parse_path(self.d)
+        vx, vy, vw, vh = self.view_box or (0, 0, self.width, self.height)
+        points = [(x - vx, y - vy) for segment in segments for x, y in segment.points]
+        for axis, scale in ((0, self.width / vw), (1, self.height / vh)):
+            values = [point[axis] * scale for point in points]
+            if not all(math.isfinite(value) for value in values) or not math.isfinite(
+                max(values) - min(values)
+            ):
+                raise ValidationError("mapped path coordinates must have a finite span", path="/d")
+        return self
 
 
 class ShapeLayer(_AnimatableLayerModel):

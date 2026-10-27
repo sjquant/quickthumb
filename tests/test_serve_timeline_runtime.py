@@ -7,31 +7,37 @@ from pathlib import Path
 
 import pytest
 
-RUNTIME = Path("quickthumb/html/serve_timeline.js")
+RUNTIME = Path("quickthumb/html/serve_preview.js")
 
 HARNESS = r"""
 const vm = require('node:vm');
 const assert = require('node:assert/strict');
 const runtime = __RUNTIME__;
-function setup(hash = '') {
+function setup(hash = '', slideCount = 1) {
   class Element {
     constructor() { this.textContent = ''; this.value = ''; this.style = {}; this.dataset = {};
       this.children = []; this.listeners = {}; this.attributes = {}; this.disabled = true; }
     addEventListener(name, handler) { this.listeners[name] = handler; }
     appendChild(child) { this.children.push(child); return child; }
+    replaceChildren() { this.children = []; }
     setAttribute(key, value) { this.attributes[key] = value; }
+    getAttribute(key) { return this.attributes[key] || null; }
     dispatch(name, value) { if (value !== undefined) this.value = value; this.listeners[name]({}); }
   }
   const elements = {}, events = {}, requests = [], decodes = [], revoked = [];
   let reloads = 0, urlCount = 0;
   function el(id) { return elements['qt-' + id] ||= new Element(); }
-  el('config').textContent = JSON.stringify({metadata_url: '/meta', frame_url: '/frame'});
+  el('config').textContent = JSON.stringify({version:'1:2:0', mode:'inspect',
+    presentation_url:'/embed', thumbnail_url:'/thumb',
+    slides:Array.from({length:slideCount}, () => ({width:1080, height:1920,
+      static_motion:false, motion_notes:[]})),
+    metadata_url:'/meta', frame_url:'/frame'});
   const location = {hash, reload() { reloads++; }};
   const ctx = {console, URLSearchParams, Number, String, JSON, Error, Math,
-    document: {getElementById(id) { return elements[id] ||= new Element(); },
+    document: {body:new Element(), getElementById(id) { return elements[id] ||= new Element(); },
       createElement() { return new Element(); }},
     window: {addEventListener(name, callback) { events[name] = callback; }},
-    location, history: {replaceState(a, b, next) { location.hash = next; }},
+    location, history: {replaceState(a, b, next) { location.hash = '#' + next.split('#')[1]; }},
     URL: {createObjectURL() { return 'blob:' + (++urlCount); },
       revokeObjectURL(url) { revoked.push(url); }},
     Image: class { decode() {
@@ -102,16 +108,17 @@ async function test(name) {
     assert.equal(query(s, 1, 'version'), s.metadata.version);
     s.respond(1, {status: 409}); await flush();
     assert.equal(s.reloads, 1); assert.equal(s.requests.length, 2);
-    assert.equal(s.location.hash, '#t=2&resolution=full');
+    assert.equal(new URLSearchParams(s.location.hash.slice(1)).get('t'), '2');
+    assert.equal(new URLSearchParams(s.location.hash.slice(1)).get('resolution'), 'full');
     s.el('seek').dispatch('input', '1'); assert.equal(s.requests.length, 2);
   } else if (name === 'hash_navigation') {
     const s = setup('#t=999&resolution=full'); await load(s);
     assert.equal(query(s, 1, 'time'), '3'); assert.equal(query(s, 1, 'resolution'), 'full');
     await display(s, 1, {time: 3});
-    s.location.hash = '#t=0.125&resolution=proxy'; s.events.hashchange({});
+    s.location.hash = '#t=0.125&resolution=proxy'; s.events.hashchange({}); await flush();
     assert.equal(query(s, 2, 'time'), '0.125');
     await display(s, 2, {time: .125});
-    s.location.hash = '#t=NaN&resolution=invalid'; s.events.hashchange({});
+    s.location.hash = '#t=NaN&resolution=invalid'; s.events.hashchange({}); await flush();
     assert.equal(query(s, 3, 'time'), '0'); assert.equal(query(s, 3, 'resolution'), 'proxy');
   } else if (name === 'zero_duration_boundaries') {
     const s = setup('#t=-1'); s.metadata.duration = 0;
@@ -137,6 +144,21 @@ async function test(name) {
     s.respond(1, {status: 500}); await flush();
     assert.equal(s.el('status').dataset.error, 'false');
     assert.equal(query(s, 2, 'time'), '0.5'); await display(s, 2, {time:.5});
+  } else if (name === 'shared_mode_selection') {
+    const s = setup('#slide=1&mode=presentation', 2);
+    assert.equal(s.requests.length, 0); // Presentation doesn't prepare raster frames.
+    assert.equal(s.el('presentation').src, '/embed');
+    assert.equal(s.el('count').textContent, 'Slide 2 of 2');
+    s.el('mode-inspect').dispatch('click');
+    s.metadata.duration = 6;
+    s.metadata.segments.push({slide:1, start:3, transition_end:3.5, animation_end:4, end:6});
+    await load(s); assert.equal(query(s, 1, 'time'), '3.5');
+    await display(s, 1, {time:3.5, slide:1});
+    s.el('mode-presentation').dispatch('click');
+    assert.equal(s.el('inspector').hidden, true);
+    assert.equal(s.el('frame').hidden, true);
+    assert.equal(s.el('count').textContent, 'Slide 2 of 2');
+    assert.equal(s.el('thumbnails').children[1].attributes['aria-current'], 'true');
   } else throw new Error('Unknown test: ' + name);
 }
 test(__SCENARIO__).then(() => console.log('passed')).catch(error => {
@@ -159,9 +181,11 @@ test(__SCENARIO__).then(() => console.log('passed')).catch(error => {
         "metadata_failure",
         "navigation_cleanup",
         "stale_error",
+        "shared_mode_selection",
     ],
 )
 def test_timeline_browser_runtime(scenario):
+    """The shared preview keeps selection and displays only the latest requested frame."""
     script = HARNESS.replace(
         "__RUNTIME__", json.dumps(RUNTIME.read_text(encoding="utf-8"))
     ).replace("__SCENARIO__", json.dumps(scenario))

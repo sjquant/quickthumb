@@ -42,6 +42,9 @@ The top-level `"kind"` discriminator is required (by `Canvas.from_json()`, `Deck
 Canvas documents carry `layers`; Deck documents carry `slides` and may also define a shared
 default size, theme, and transitions. Every layer object requires its own `"type"`
 discriminator field. Layers render in array order: the first item is at the back.
+Layer identity, placement, alignment and motion use the same
+[shared vocabulary](api/index.md#shared-layer-vocabulary) in Python, a Canvas JSON
+root and every Deck slide. A Deck does not introduce a different layer schema.
 
 ## Published schema
 

@@ -153,7 +153,12 @@ class GroupEngine:
         if (
             time is not None
             and apply_motion
-            and (_has_transform_extensions(child) or _has_color_track(child))
+            and (
+                _has_transform_extensions(child)
+                or _has_color_track(child)
+                or isinstance(child, ImageLayer)
+                and _canonical_timeline(child) is not None
+            )
         ):
             placed = self._place_group_child(child, position, size)
             timeline = _canonical_timeline(child)
@@ -232,9 +237,7 @@ class GroupEngine:
                 surface,
                 placed,
                 state,
-                subpixel=_geometry_in_motion(
-                    timeline, time, include_scale=not isinstance(child, ImageLayer), state=state
-                ),
+                subpixel=_geometry_in_motion(timeline, time, state=state),
             )
             return
         if isinstance(child, GroupLayer):
