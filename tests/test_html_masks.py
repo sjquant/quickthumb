@@ -207,11 +207,17 @@ def test_parent_source_keeps_independent_mask_fallback_visible(tmp_path):
         )
     )
     result = canvas.export(tmp_path / "mixed.html")
-    assert [(row.layer_id, row.feature, row.fallback) for row in result.capability_report] == [
+    assert [
+        (row.layer_id, row.feature, row.fallback)
+        for row in result.capability_report
+        if row.feature != "layer_representation"
+    ] == [
         ("linked", "parent", None),
         ("unlinked", "mask", "rasterize"),
     ]
-    assert [row.layer_id for row in result.fallback_diagnostics] == ["unlinked"]
+    assert [
+        row.layer_id for row in result.fallback_diagnostics if row.native_attempt is not None
+    ] == ["linked", "unlinked"]
 
 
 def test_path_layer_mattes_already_cover_curves_holes_motion_and_source_reuse():

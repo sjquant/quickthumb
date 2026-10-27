@@ -36,8 +36,9 @@ def test_pdf_curves_are_editable_and_keep_even_odd_holes(d, tmp_path):
     assert [obj.type for obj in page.get_objects()] == [2]
     assert image.getpixel((50, 50)) == (255, 255, 255)
     assert image.getpixel((50, 25)) == (255, 0, 0)
-    assert [(d.layer_id, d.support, d.fallback) for d in result.capability_report] == [
-        ("curve.source", "native", None)
+    assert [(d.feature, d.layer_id, d.support, d.fallback) for d in result.capability_report] == [
+        ("path", "curve.source", "native", None),
+        ("layer_representation", "curve.source", "native", None),
     ]
 
 

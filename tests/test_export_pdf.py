@@ -9,7 +9,7 @@ from fontTools.fontBuilder import FontBuilder
 from fontTools.misc.psCharStrings import T2CharString
 from fontTools.pens.ttGlyphPen import TTGlyphPen
 from PIL import Image
-from quickthumb import BackdropBlur, Canvas, Deck, LinearGradient
+from quickthumb import BackdropBlur, Canvas, Deck, ExportPolicy, LinearGradient
 from quickthumb.errors import RenderingError
 
 from tests._helpers import pixel_scalar
@@ -328,8 +328,9 @@ class TestPdfDocument:
         assert fonts._ps2tt_map == ps2tt_before
 
     def test_should_complete_concurrent_exports_with_the_same_font(self, tmp_path):
-        """Parallel PDF exports do not release a font another export is using"""
+        """Parallel PDF generation and observation retain embedded fonts and measured pages."""
         # given
+        require_pypdfium2()
         font_path = create_ttf_fixture(tmp_path / "fixture.ttf", "AB")
         canvases = [
             Canvas(300, 100).text(
@@ -342,12 +343,29 @@ class TestPdfDocument:
             for _ in range(8)
         ]
 
-        # when
-        with ThreadPoolExecutor(max_workers=4) as executor:
-            documents = list(executor.map(lambda canvas: canvas.to_pdf(), canvases))
+        # When: independent PDF exports request their observer concurrently
+        limits = ExportPolicy(
+            fidelity={
+                "pdf": {
+                    "pixel_tolerance": 0,
+                    "max_different_pixel_ratio": 0,
+                    "min_hash_similarity": 1,
+                }
+            }
+        )
 
-        # then
-        assert all(b"FontFile" in document for document in documents)
+        def observe(index):
+            return canvases[index].export(tmp_path / f"observed-{index}.pdf", policy=limits)
+
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            results = list(executor.map(observe, range(len(canvases))))
+
+        # Then: each actual file retains its font and an independent PDFium page observation
+        for result in results:
+            assert b"FontFile" in Path(result.written_paths[0]).read_bytes()
+            report = result.pixel_metrics.fidelity
+            assert report is not None and report.renderer == "pdfium"
+            assert report.page_count == 1 and report.page_size_points == (300, 100)
 
 
 class TestPdfUnsupportedFonts:
@@ -408,13 +426,17 @@ class TestPdfUnsupportedFonts:
         # when
         canvas.render(str(expected_path))
         expected = Image.open(expected_path).convert("RGB")
-        data = canvas.to_pdf()
+        result = canvas.export(tmp_path / "restricted.pdf")
+        data = (tmp_path / "restricted.pdf").read_bytes()
         page = require_pypdfium2().PdfDocument(BytesIO(data))[0]
         actual = page.render(scale=1).to_pil().convert("RGB")
 
         # then
         assert b"FontFile" not in data
         assert _mask_overlap(actual, expected) >= 0.98
+        (fallback,) = result.fallback_diagnostics
+        assert fallback.layer_id == "layer:1" and fallback.native_attempt is False
+        assert "embedding" in fallback.reason
 
     def test_should_fallback_to_raster_for_complex_script_shaping(self, tmp_path):
         """Complex-script CFF text preserves shaping through the raster fallback"""

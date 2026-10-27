@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import base64
 import math
+from copy import deepcopy
+from io import BytesIO
 from typing import TYPE_CHECKING
 from xml.sax.saxutils import escape, quoteattr
 
@@ -26,8 +28,11 @@ from quickthumb._export_base import (
     Box,
     RasterFragment,
     TextRunLayout,
+    _distinct_layer_occurrences,
     _fmt,
+    _layer_routing,
     _motion_number,
+    _source_layer_ids,
     color_to_rgba,
     compute_text_layout,
     flatten_layers,
@@ -43,10 +48,12 @@ from quickthumb._export_base import (
 from quickthumb.models import (
     Align,
     BackgroundLayer,
+    ExportDiagnostic,
     Glow,
     LinearGradient,
     OutlineLayer,
     PathLayer,
+    PluginLayer,
     RadialGradient,
     Shadow,
     ShapeLayer,
@@ -73,9 +80,25 @@ def _stroke_attr(rgba: tuple, opacity: float = 1.0) -> str:
 
 
 class SvgExporter:
-    def __init__(self, canvas: Canvas, embed_fonts: bool = False, *, id_prefix: str = ""):
+    def __init__(
+        self, canvas: Canvas, embed_fonts: bool = False, *, id_prefix: str = "", policy=None
+    ):
+        canvas = _distinct_layer_occurrences(canvas)
         self._canvas = canvas
         self._embed_fonts = embed_fonts
+        self._policy = policy
+        from quickthumb.motion import _iter_export_layers
+
+        self._plugin_ids = {
+            source_id
+            for source_id, layer in _iter_export_layers(canvas)
+            if isinstance(layer, PluginLayer)
+        }
+        self.diagnostics: list[ExportDiagnostic] = []
+        self._source_ids = {
+            id(layer): _source_layer_ids(layer, index, (index,))
+            for index, layer in enumerate(canvas.layers)
+        }
         self._defs: list[str] = []
         self._body: list[str] = []
         self._font_faces: dict[str, tuple[str, str, str]] = {}  # path -> (family, weight, style)
@@ -94,13 +117,24 @@ class SvgExporter:
 
         if has_parent_links(canvas) or has_track_mattes(canvas) or has_animated_masks(canvas):
             self._emit_fragment(static_parent_fragment(canvas))
+            self._record_routing(
+                canvas.layers,
+                "Parent scene captured as an authored-static composite",
+                rasterized=True,
+            )
             return self._assemble()
 
-        prefix, rest = split_backdrop_prefix(flatten_layers(canvas))
+        prefix, rest = split_backdrop_prefix(flatten_layers(canvas, source_ids=self._source_ids))
         if prefix:
             fragment = rasterize_layers(canvas, prefix)
             if fragment:
                 self._emit_fragment(fragment)
+                self._record_routing(
+                    prefix,
+                    "Backdrop-dependent layers and the content beneath them are rasterized "
+                    "together to preserve compositing",
+                    rasterized=True,
+                )
         for layer in rest:
             self._emit_layer(layer)
 
@@ -131,9 +165,42 @@ class SvgExporter:
 
     # ------------------------------------------------------------------ layers
 
+    def _record_routing(
+        self, layers: list, reason: str, *, rasterized: bool, native_attempt: bool | None = None
+    ) -> None:
+        row = _layer_routing(layers, self._source_ids, reason, target="svg", rasterized=rasterized)
+        if native_attempt is not None:
+            row.native_attempt = native_attempt
+        members = row.layer_ids or [row.layer_id]
+        plugin_ids = [member for member in members if member in self._plugin_ids]
+        if (
+            rasterized
+            and plugin_ids
+            and self._policy
+            and self._policy.unsupported_motion == "error"
+        ):
+            from quickthumb.errors import RenderingError
+
+            raise RenderingError(
+                f"Plugin SVG requires raster fallback: {reason}",
+                layer_id=plugin_ids[0],
+                code="unsupported_capability",
+            )
+        self.diagnostics.append(row)
+        self.diagnostics.extend(
+            row.model_copy(
+                update={
+                    "feature": "plugin",
+                    "layer_id": member,
+                    "layer_ids": [],
+                }
+            )
+            for member in plugin_ids
+        )
+
     def _emit_layer(self, layer: RenderableLayer):
         if has_layer_composition(layer):
-            self._emit_raster_fallback(layer)
+            self._emit_raster_fallback(layer, "Layer clipping or masking requires a PNG fragment")
             return
 
         if isinstance(layer, BackgroundLayer):
@@ -143,10 +210,11 @@ class SvgExporter:
         elif isinstance(layer, ShapeLayer):
             self._emit_shape(layer)
         elif isinstance(layer, PathLayer):
-            from quickthumb._path_svg import native_path_problem
+            from quickthumb._path_geometry import parse_path
+            from quickthumb._path_svg import native_path_data, native_path_problem
 
-            if native_path_problem(layer):
-                self._emit_raster_fallback(layer)
+            if problem := native_path_problem(layer):
+                self._emit_raster_fallback(layer, f"Path requires a PNG fragment: {problem}")
             else:
                 x = parse_coordinate(layer.position[0], self._canvas.width)
                 y = parse_coordinate(layer.position[1], self._canvas.height)
@@ -154,17 +222,81 @@ class SvgExporter:
                 self._body.append(
                     f'<g transform="translate({x} {y})">{fragment.path_fragment(layer)}</g>'
                 )
+                if any(
+                    segment.kind not in {"M", "Z"}
+                    for segment in parse_path(native_path_data(layer))
+                ):
+                    self._record_routing(
+                        [layer], "Path emitted as native SVG vectors", rasterized=False
+                    )
         elif isinstance(layer, TextLayer):
             self._emit_text(layer)
         elif isinstance(layer, SvgLayer):
             self._emit_svg_layer(layer)
+        elif isinstance(layer, PluginLayer):
+            self._emit_plugin(layer)
         else:  # ImageLayer or anything else the format cannot express natively
-            self._emit_raster_fallback(layer)
+            self._emit_raster_fallback(
+                layer, f"{type(layer).__name__} is captured through the canonical raster pipeline"
+            )
 
-    def _emit_raster_fallback(self, layer: RenderableLayer):
+    def _emit_plugin(self, layer: PluginLayer):
+        from quickthumb._plugin_runtime import plugin_context, plugin_image
+        from quickthumb._plugin_svg import observe_plugin_svg, validate_plugin_svg
+
+        registry = self._canvas._plugin_registry
+        callback = registry._svg_callbacks.get((layer.renderer, layer.version))
+        limits = self._policy.fidelity.get("svg") if self._policy else None
+        if callback is None or limits is None:
+            self._emit_raster_fallback(
+                layer,
+                "Plugin has no SVG callback"
+                if callback is None
+                else "Plugin SVG needs explicit fidelity limits; canonical PNG retained",
+            )
+            return
+        limits = limits.copy()
+        context = plugin_context(layer, self._canvas._ctx)
+        with plugin_image(layer, context, registry) as expected:
+            try:
+                document = callback(deepcopy(layer.params), context)
+                validate_plugin_svg(document)
+                encoded = base64.b64encode(document.encode()).decode()
+                local = (
+                    f'<image width="{layer.width}" height="{layer.height}" '
+                    f'opacity="{layer.opacity}" xlink:href="data:image/svg+xml;base64,{encoded}"/>'
+                )
+                observed = (
+                    '<svg xmlns="http://www.w3.org/2000/svg" '
+                    'xmlns:xlink="http://www.w3.org/1999/xlink" '
+                    f'width="{layer.width}" height="{layer.height}">{local}</svg>'
+                )
+                comparison = observe_plugin_svg(expected, observed, limits)
+                reason = (
+                    f"Local plugin RGBA comparison: {comparison['verdict']}; "
+                    f"pixel_diff_ratio={comparison.get('pixel_diff_ratio')}, "
+                    f"hash_similarity={comparison['hash_similarity']}; limits={limits}"
+                )
+                accepted = comparison["verdict"] != "out_of_policy"
+            except Exception as error:
+                reason, accepted = f"Plugin SVG unavailable or invalid: {error}", False
+            x = parse_coordinate(layer.position[0], self._canvas.width)
+            y = parse_coordinate(layer.position[1], self._canvas.height)
+            if layer.align is not None:
+                x, y = apply_alignment(x, y, context.size, layer.align)
+            if accepted:
+                self._body.append(f'<g transform="translate({x} {y})">{local}</g>')
+            else:
+                buffer = BytesIO()
+                expected.save(buffer, format="PNG")
+                self._emit_fragment(RasterFragment(buffer.getvalue(), x, y, *context.size))
+            self._record_routing([layer], reason, rasterized=not accepted, native_attempt=True)
+
+    def _emit_raster_fallback(self, layer: RenderableLayer, reason: str):
         fragment = rasterize_layers(self._canvas, [layer])
         if fragment:
             self._emit_fragment(fragment)
+            self._record_routing([layer], reason, rasterized=True)
 
     def _emit_fragment(self, fragment: RasterFragment):
         encoded = base64.b64encode(fragment.png_bytes).decode("ascii")
@@ -178,7 +310,9 @@ class SvgExporter:
 
     def _emit_background(self, layer: BackgroundLayer):
         if layer.effects or layer.image or (layer.color is None and layer.gradient is None):
-            self._emit_raster_fallback(layer)
+            self._emit_raster_fallback(
+                layer, "Background image, effects, or empty fill use a PNG fragment"
+            )
             return
 
         width, height = self._canvas.width, self._canvas.height
@@ -189,6 +323,9 @@ class SvgExporter:
             self._body.append(
                 f'<rect width="{width}" height="{height}" fill="{rgb_hex(rgba)}"{opacity_attr}/>'
             )
+            self._record_routing(
+                [layer], "Background emitted as a native SVG rectangle", rasterized=False
+            )
             return
 
         assert layer.gradient is not None  # guarded above: color or gradient is set
@@ -196,6 +333,9 @@ class SvgExporter:
         opacity_attr = f' opacity="{_fmt(round(layer.opacity, 4))}"' if layer.opacity < 1 else ""
         self._body.append(
             f'<rect width="{width}" height="{height}" fill="url(#{gradient_id})"{opacity_attr}/>'
+        )
+        self._record_routing(
+            [layer], "Background emitted with a native SVG gradient", rasterized=False
         )
 
     def _define_gradient(
@@ -253,7 +393,9 @@ class SvgExporter:
             )
         return gradient_id
 
-    def path_fragment(self, layer: PathLayer) -> str:
+    def path_fragment(
+        self, layer: PathLayer, *, stroke_attributes: dict[str, str] | None = None
+    ) -> str:
         """Emit one isolated native path viewport, also consumed by HTML export."""
         from quickthumb._path_svg import native_path_data
 
@@ -272,6 +414,12 @@ class SvgExporter:
             attrs.append(f'fill="{rgb_hex(rgba)}" fill-opacity="{number(rgba[3] / 255)}"')
         else:
             attrs.append('fill="none"')
+        fill_path = ""
+        if stroke_attributes is not None:
+            if layer.color is not None or layer.fill is not None:
+                fill_path = "<path " + " ".join(attrs) + "/>"
+            attrs = attrs[:2] + ['fill="none"']
+            attrs.extend(f"{name}={quoteattr(value)}" for name, value in stroke_attributes.items())
         if layer.stroke is not None:
             rgba = color_to_rgba(self._canvas, layer.stroke)
             attrs.extend(
@@ -300,7 +448,9 @@ class SvgExporter:
             f'preserveAspectRatio="none" overflow="hidden"{source}>'
             + "<defs>"
             + "".join(self._defs)
-            + "</defs><path "
+            + "</defs>"
+            + fill_path
+            + "<path "
             + " ".join(attrs)
             + "/></svg>"
         )
@@ -319,6 +469,7 @@ class SvgExporter:
             f'width="{_fmt(width)}" height="{_fmt(height)}" fill="none" '
             f'stroke="{rgb_hex(rgba)}" stroke-width="{layer.width}"{opacity_attr}/>'
         )
+        self._record_routing([layer], "Outline emitted as a native SVG rectangle", rasterized=False)
 
     # ------------------------------------------------------------------ shapes
 
@@ -395,6 +546,7 @@ class SvgExporter:
             fill_attrs += f' fill-opacity="{_fmt(round(fill_alpha, 4))}"'
         self._body.append(self._shape_element(layer, shape_x, shape_y, fill_attrs, rotate))
         self._body.append("</g>")
+        self._record_routing([layer], "Shape emitted as native SVG geometry", rasterized=False)
 
     def _shape_element(
         self, layer: ShapeLayer, x: float, y: float, paint_attrs: str, transform: str
@@ -443,7 +595,7 @@ class SvgExporter:
 
     def _emit_text(self, layer: TextLayer):
         if uses_image_fill(layer):
-            self._emit_raster_fallback(layer)
+            self._emit_raster_fallback(layer, "Image-filled glyphs require a PNG fragment")
             return
 
         layout = compute_text_layout(self._canvas, layer)
@@ -476,6 +628,7 @@ class SvgExporter:
 
         if wrap:
             self._body.append("</g>")
+        self._record_routing([layer], "Text emitted as native SVG text", rasterized=False)
 
     def _emit_text_background(self, background, content_box: Box):
         pad_top, pad_right, pad_bottom, pad_left = parse_padding(background.padding)
@@ -584,7 +737,9 @@ class SvgExporter:
 
     def _emit_svg_layer(self, layer: SvgLayer):
         if layer.effects or is_url(layer.path):
-            self._emit_raster_fallback(layer)
+            self._emit_raster_fallback(
+                layer, "SVG effects or remote sources require a PNG fragment"
+            )
             return
 
         canvas = self._canvas
@@ -614,4 +769,7 @@ class SvgExporter:
             f'<image x="{_fmt(local_x)}" y="{_fmt(local_y)}" '
             f'width="{size[0]}" height="{size[1]}"{attrs} '
             f'xlink:href="data:image/svg+xml;base64,{encoded}"/>'
+        )
+        self._record_routing(
+            [layer], "Original SVG bytes embedded without rasterization", rasterized=False
         )

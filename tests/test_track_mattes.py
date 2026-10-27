@@ -167,7 +167,14 @@ def test_document_matte_fallback_is_real_and_strict_prewrite_is_atomic(format, t
     assert result.fallback_diagnostics and all(
         "authored-static" in item.reason for item in result.fallback_diagnostics
     )
-    assert {item.layer_id for item in result.capability_report} == {"source", "target"}
+    assert {
+        item.layer_id for item in result.capability_report if item.feature == "track_matte"
+    } == {"source", "target"}
+    routes = [item for item in result.capability_report if item.feature == "layer_representation"]
+    assert len(routes) == 1
+    assert routes[0].layer_id is None and routes[0].layer_ids == ["source", "target"]
+    assert routes[0].support == "fallback" and routes[0].fallback == "rasterize"
+    assert routes[0].native_attempt is False
     assert destination.read_bytes() == original
     if format in {"svg", "html"}:
         image = embedded_png(original.decode(), format)
