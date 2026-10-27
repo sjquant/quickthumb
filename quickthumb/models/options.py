@@ -80,8 +80,8 @@ class VideoOptions(quickthumbModel):
     transparent: Annotated[bool, Field(strict=True)] = False
 
 
-class PngSequenceOptions(quickthumbModel):
-    """Silent RGBA8 animation export, with one independent PNG per frame."""
+class ImageSequenceOptions(quickthumbModel):
+    """Timing and compositing for silent PNG, JPEG, or WebP animation frames."""
 
     model_config = ConfigDict(extra="forbid")
 

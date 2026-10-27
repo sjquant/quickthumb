@@ -51,7 +51,7 @@ canvas.export("card.webp", quality=85)  # JPEG/WebP compression quality
 | Draw debug boxes or use the lower-level file renderer | `render(path, ...)` |
 | Get bytes or an in-memory document | `to_mp4()`, `to_gif()`, `to_html()`, etc. |
 | Export static narrated Deck slides | `render_narrated_mp4(path, hold=3)` / `to_narrated_mp4(hold=3)` |
-| Write silent RGBA animation frames plus a manifest | `export_png_sequence(directory, options=...)` |
+| Write silent animation frames plus a manifest | `export_image_sequence(directory, options=...)` |
 
 All animated byte methods and options use `hold` for settled-state seconds.
 `render_quality="standard"` or `"high"` controls animation compositing;
@@ -60,7 +60,7 @@ Keep `workers=1` unless advanced spawn-based rendering is needed.
 Only `export()` enforces capability policies such as `unsupported_motion="error"`
 before writing; `render()` and byte methods are lower-level controls.
 Use the returned `written_paths` for Deck raster sequences: they are numbered files.
-PNG sequences keep a separate API because their destination is a new directory.
+Image sequences keep a separate API because their destination is a new directory.
 
 ### Migrating output calls
 
@@ -68,9 +68,11 @@ PNG sequences keep a separate API because their destination is a new directory.
   Replace old `to_animated_mp4()` calls with `to_mp4()`; use
   `to_narrated_mp4()` for still-slide narration.
 - Replace `render_mp4()` with `render_narrated_mp4()` for still-slide files.
+- `export_image_sequence()` replaces `export_png_sequence()`; the public
+  options/manifest/result models are now `ImageSequence*`, with no obsolete aliases.
 - Replace animated Deck `slide_duration=` and narrated `default_duration=` with
   `hold=`. Replace animation `quality=` with `render_quality=`, including saved
-  GifOptions, VideoOptions and PngSequenceOptions JSON. There are no aliases.
+  GifOptions, VideoOptions and ImageSequenceOptions JSON. There are no aliases.
 
 ## How export works
 
@@ -254,7 +256,7 @@ is retained. Narration and explicit Deck slide durations still determine the
 video schedule, while Deck GIF continues to ignore those per-slide durations.
 Deck animated video retains its existing restriction: `hold=0` fails when any slide has neither narration nor an explicit
 positive duration, because its audio schedule requires a positive silent bed.
-Use a positive hold for those slides. Canvas, Deck GIF, and silent PNG sequences
+Use a positive hold for those slides. Canvas, Deck GIF, and silent image sequences
 continue to permit a zero hold.
 
 The byte methods accept the same rendering controls as keyword-only scalars:
@@ -284,7 +286,7 @@ file execution options. For example, `validate_export("mp4")` still queries
 animated video, even with a reduced-motion policy. Concrete `svg` and `pdf`
 queries describe their static document fallback with the existing `raster`
 family label. Targets are case-insensitive; `jpg`, `jpeg`, `webp`, `png`, `gif`,
-`mp4`, `webm`, `mov`, `htm`, and `png_sequence` are accepted as corresponding family
+`mp4`, `webm`, `mov`, `htm`, and `image_sequence` are accepted as corresponding family
 aliases. The GIF query uses `raster`, while a GIF `ExportResult.target` remains
 `video` for compatibility.
 
@@ -324,7 +326,7 @@ Transparent transitions use temporary floating-point planes for accurate
 premultiplied blending; memory usage grows with frame size and worker count.
 MP4, GIF, and document/raster output reject this video option before writing
 the destination. PNG animation sequences use the separate
-[`export_png_sequence()` API](#png-image-sequences).
+[`export_image_sequence()` API](#image-sequences).
 
 Use a player or editor that supports VP9 WebM alpha. To inspect the actual
 alpha plane with FFmpeg, select the libvpx decoder **before** the input:
@@ -385,55 +387,70 @@ ffmpeg -i overlay.mov -frames:v 1 -pix_fmt rgba frame.png
 
 `examples/transparent_lower_third.py` writes both WebM and ProRes MOV overlays.
 
-### PNG image sequences
+### Image sequences
 
-`Canvas.export_png_sequence(output_directory, *, options=None, policy=None)` and
-the matching Deck method export the actual animated timeline as independent,
-lossless PNG files. Every frame contains the renderer's exact **8-bit RGBA bytes
-with straight alpha**, including hidden RGB where the rendered frame supplies
-it. The export adds no matte; authored backgrounds remain visible. Odd sizes
-and one-pixel dimensions retain every row and column. Imported images are not
-ICC-normalized, so the PNGs and manifest make no sRGB/color-profile claim and
-carry no inherited ICC or sRGB metadata.
-Every frame uses the first canvas's full dimensions; differently sized slides
-are scaled proportionally and centered with transparent padding.
+`Canvas.export_image_sequence()` and the matching Deck method write the actual
+animated timeline as independent PNG, JPEG, or WebP files plus one manifest.
+The destination must be new and its parent must exist. PNG is the default.
 
 ```python
-from quickthumb import PngSequenceOptions
+from quickthumb import ImageSequenceOptions
 
-# The parent must already exist; this destination must be new.
-result = canvas.export_png_sequence(
-    "overlay_frames",
-    options=PngSequenceOptions(fps=24, hold=2, render_quality="high", workers=2),
-)
+options = ImageSequenceOptions(fps=24, hold=2, render_quality="high", workers=2)
+result = canvas.export_image_sequence("overlay_frames", options=options)
+canvas.export_image_sequence("review_frames", format="jpeg", quality=85, matte="white", options=options)
+canvas.export_image_sequence("web_frames", format="webp", lossless=True, options=options)
 print(result.frame_count, result.duration, result.manifest_path)
 ```
 
-`PngSequenceOptions` has only four fields:
+Encoding controls are keyword arguments to the method, separate from timing
+and compositing in `ImageSequenceOptions(fps=30, hold=3, workers=1,
+render_quality="standard")`:
 
-| Field | Default | Allowed values |
-| --- | --- | --- |
-| `fps` | `30` | Finite numeric rate greater than zero and at most 120 |
-| `hold` | `3` | Finite nonnegative seconds held after animation |
-| `workers` | `1` | Strict integer from 1 through 8 |
-| `render_quality` | `"standard"` | `"standard"` or `"high"` |
+| Control | PNG | JPEG | WebP |
+| --- | --- | --- | --- |
+| `format` (case-insensitive) | `"png"` (default) | `"jpeg"` | `"webp"` |
+| `quality` | Rejected | Integer 1–95; default 90 | Integer 1–95 for lossy output; default 80 |
+| `matte` | Rejected | Opaque color string; default white | Rejected |
+| `lossless` | Rejected | Rejected | Boolean; default `False` |
 
-The models and JSON schemas are public: `PngSequenceOptions`,
-`PngSequenceManifest`, and `PngSequenceResult` support `model_dump_json()`,
-`model_validate_json()`, and `model_json_schema()`. They describe this Python
-export API; they add no Canvas/Deck document fields or raster format enum values.
-Existing still `.png` rendering and animation bytes methods keep their behavior.
+`lossless=True` and `quality` cannot be combined: quality names lossy
+compression, not lossless WebP encoder effort. Invalid types or incompatible
+options fail before creating output or staging. Options models contain only
+`fps` (finite, >0 and ≤120), `hold` (finite, nonnegative seconds), `workers`
+(strict integer 1–8), and `render_quality` (`"standard"` or `"high"`).
 
-The directory contains `000000.png`, `000001.png`, and so on, plus one compact
-`manifest.json`. Its fixed relative `filename_pattern` is `%06d.png` (at least
-six digits), with `start_index: 0`. It records `version: "1"`, document `kind`,
-`format: "png_sequence"`, actual `frame_count`, `fps`, `duration`, `width`,
-`height`, `mode: "RGBA"`, `bit_depth: 8`, and `alpha: "straight"`. There is no
-growing list of frames, asset paths, or timestamps. The result contains the same
-fields plus absolute `output_directory`, `manifest_path`, and
-`capability_report` diagnostics. Repeated frames are separate editable files,
-not hardlinks. Frame memory stays bounded as the sequence grows; the existing
-scene preparation and per-worker buffers still consume memory.
+PNG retains the renderer's exact **8-bit straight-alpha RGBA bytes**, including
+hidden RGB. Lossless WebP also preserves those pixels, including hidden RGB.
+JPEG flattens alpha onto the resolved matte and encodes RGB; JPEG and lossy
+WebP can change colors and do not promise exact canonical pixels. WebP retains
+alpha, but fully opaque files may omit the redundant alpha plane and open as
+RGB in image readers. Convert those files to RGBA when consuming the manifest's
+logical `mode: "RGBA"`. Authored backgrounds stay visible in every format.
+Odd and one-pixel dimensions retain every row and column. Differently sized
+slides fit the first canvas's full dimensions, with transparent padding before
+encoding (matte-colored padding for JPEG). Imported images are not
+ICC-normalized; output strips inherited profiles/metadata and makes no
+sRGB/color-profile claim.
+
+The directory contains `000000.png`, `.jpg`, or `.webp`, and so on, plus one
+compact `manifest.json`. It records `version: "1"`, `format: "image_sequence"`,
+document `kind`, `encoding: "png"|"jpeg"|"webp"`, relative `filename_pattern`
+(`%06d.png`, `%06d.jpg`, or `%06d.webp`), and `start_index: 0`. Actual
+`frame_count`, `fps`, `duration`, `width`, and `height` describe the written
+files. Pixel fields describe logical decoding: PNG/WebP use `mode: "RGBA"`
+and `alpha: "straight"`; JPEG uses `"RGB"` and `"none"`. `bit_depth` is 8.
+`lossless` reports the selected encoding; resolved `quality` and `matte` are
+recorded where applicable and otherwise `null`.
+
+`ImageSequenceResult` adds absolute `output_directory`, `manifest_path`, and
+`capability_report` diagnostics to `ImageSequenceManifest`. Both models and
+`ImageSequenceOptions` support JSON round trips and `model_json_schema()`.
+They add no Canvas/Deck document fields or raster format enum values. There
+is no growing list of frame paths or timestamps. Repeated frames are encoded
+once per canonical shot and written as independent editable files, not hardlinks.
+Frame memory stays bounded; existing scene preparation and worker buffers
+still consume memory.
 
 Timing follows animated exports, including explicit slide durations,
 `advance_after`, narration-derived visual timing, transitions, and Morph.
@@ -441,13 +458,13 @@ Cumulative frame allocation avoids drift across fractional holds; short or
 zero-hold still slides receive at least one frame. The reported duration is
 exactly `frame_count / fps`, measured from the files actually written. This
 can differ from the independent timeline sampler's duration or sample count.
-`validate_export("png_sequence")` and `inspect_motion(target="png_sequence")`
+`validate_export("image_sequence")` and `inspect_motion(target="image_sequence")`
 use video motion capabilities. Existing strict/reduced-motion policies and
 parent, Morph, caption, and worker restrictions apply.
 
 Sequences are silent: no audio encoding, mux, soundtrack, or audio sidecars.
 Narration retains its existing file validation and duration inference, without
-the encoder's 64-audio-input limit. PNG-only scenes need no FFmpeg; inferred
+the encoder's 64-audio-input limit. Image-only scenes need no FFmpeg; inferred
 narration lengths still require ffprobe, and video layers retain their normal
 probe/decode requirements.
 
@@ -463,8 +480,9 @@ outcome. This is atomic visibility and no-overwrite publication, not an fsync
 crash-durability guarantee or protection from hostile same-user replacement of
 the parent directory.
 
-Run `examples/png_sequence_overlay.py` for a transparent lower third with no
-FFmpeg dependency. Its output directory must be fresh on every run.
+Run `examples/image_sequence_overlay.py` for PNG, white-matted JPEG and
+lossless WebP lower-third sequences with no FFmpeg dependency. All three
+output directories must be fresh on every run.
 
 ### High-quality animated compositing
 
@@ -541,20 +559,37 @@ are reported as rendering errors. An OS-level kill cannot run normal cleanup.
 
 Static narrated MP4 uses `render_narrated_mp4()` or `to_narrated_mp4()`.
 
-Deck MP4, WebM, and MOV exports support per-slide narration. Pass `audio=` to `Deck.slide()`;
-without `duration=`, Quickthumb uses the file's ffprobe duration. An explicit
-duration trims audio or pads it with silence, while a slide without audio holds
-silently for `hold` (3 seconds). `deck.render_narrated_mp4("deck.mp4")` produces
-H.264/yuv420p video with an AAC track and still slides. `deck.export("deck.mp4")`
-plays layer animations and transitions with narration by default. Pass
-`animation=VideoOptions(soundtrack=AudioTrack(path="music.mp3", volume=0.16, loop=True))`
-to `deck.render()` for animated MP4/WebM/MOV.
-Quickthumb mixes that bed and the
-scheduled `Deck.slide(audio=...)` narration during rendering; `deck.to_mp4()`
-and `deck.to_webm()` do the same for byte exports. Callers do not
-need to pre-mix audio themselves.
+### Narrated deck video
 
-The timing model mirrors the HTML slideshow, with one difference a non-interactive medium forces: there is nothing to click, so `on_click` animations play automatically in sequence, exactly like `after_previous` (the same choice PowerPoint's own video export makes). Each slide plays its transition (over the previous slide's final frame), runs its animation timeline (starting when the transition starts, like the HTML runtime), then holds its settled state — for the transition's `advance_after` when set, else for `hold`. In narrated MP4/WebM/MOV output, the inferred or explicit narration duration (or the silent-slide default) extends the visual slide when it is longer than `advance_after`. A slide with no transition cross-fades in over 0.5s (slide 0 with none starts instantly); set a transition on slide 0 to animate in from the matte, which also makes looping GIFs wrap smoothly.
+A deck can be exported as a video with a voice-over per slide:
+
+- Pass `audio=` to `Deck.slide()`. Without `duration=`, the narration duration
+  is measured with `ffprobe`. An explicit `duration=` trims the audio or pads
+  it with silence. A slide with no audio holds silently for `hold` (3 seconds).
+- `deck.export("deck.mp4")` and `deck.render("deck.mp4")` play layer animations
+  and transitions with narration by default. `deck.to_mp4()`, `deck.to_webm()`,
+  and `deck.to_mov()` return animated video bytes.
+- To show static slides with narration, use
+  `deck.render_narrated_mp4("deck.mp4")` or `deck.to_narrated_mp4()`.
+  The output is H.264/yuv420p video with an AAC track.
+- Add background music with
+  `animation=VideoOptions(soundtrack=AudioTrack(path="music.mp3", volume=0.16, loop=True))`
+  on `deck.export()` or `deck.render()`. Quickthumb mixes it with the slide
+  narration; callers do not need to pre-mix audio themselves.
+
+### Timing
+
+Video and GIF follow the HTML slideshow's timing, except that nobody can
+click: `on_click` animations play automatically, one after another, like
+`after_previous` (PowerPoint's own video export does the same). Each slide
+plays its transition over the previous slide's last frame, runs its
+animations (starting with the transition, as in HTML), then holds its settled
+state for the transition's `advance_after` if set, otherwise for `hold`.
+In narrated MP4/WebM/MOV output, the inferred or explicit narration duration
+(or the silent-slide default) extends the visual slide when it is longer
+than `advance_after`. A slide with no transition cross-fades in over 0.5s
+(slide 0 with none starts instantly); set a transition on slide 0 to animate
+in from the matte, which also makes looping GIFs wrap smoothly.
 
 GIF is encoded by Pillow with per-frame durations, so no extra dependency is needed. MP4 (H.264), WebM (VP9), and MOV (ProRes 4444) require the `ffmpeg` binary on `PATH` (or pointed to by the `QUICKTHUMB_FFMPEG` environment variable).
 

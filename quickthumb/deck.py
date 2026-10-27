@@ -28,8 +28,8 @@ from quickthumb.models import (
     ExportResult,
     FrameSequence,
     GifOptions,
-    PngSequenceOptions,
-    PngSequenceResult,
+    ImageSequenceOptions,
+    ImageSequenceResult,
     PrefetchResult,
     ValidationReport,
     VideoOptions,
@@ -519,23 +519,35 @@ class Deck:
             ),
         )
 
-    def export_png_sequence(
+    def export_image_sequence(
         self,
         output_directory: str | os.PathLike[str],
         *,
-        options: PngSequenceOptions | None = None,
+        format: str = "png",
+        quality: int | None = None,
+        matte: str | None = None,
+        lossless: bool | None = None,
+        options: ImageSequenceOptions | None = None,
         policy: ExportPolicy | None = None,
-    ) -> PngSequenceResult:
-        """Export silent RGBA8 animation, retaining slide and narration timing.
+    ) -> ImageSequenceResult:
+        """Export silent PNG, JPEG, or WebP frames into a fresh directory.
 
-        Writes numbered independent PNGs and manifest.json into a fresh
-        directory under an existing parent, without replacing any destination.
+        PNG preserves RGBA8; JPEG flattens alpha onto an opaque matte (white
+        by default). WebP retains alpha and supports opt-in lossless encoding.
+        The directory and manifest appear together; existing paths are never replaced.
         """
         from quickthumb._document import Document
-        from quickthumb._export_png_sequence import export_png_sequence
+        from quickthumb._export_image_sequence import export_image_sequence
 
-        return export_png_sequence(
-            cast(Document, self), output_directory, options=options, policy=policy
+        return export_image_sequence(
+            cast(Document, self),
+            output_directory,
+            format=format,
+            quality=quality,
+            matte=matte,
+            lossless=lossless,
+            options=options,
+            policy=policy,
         )
 
     def _validate_parent_motion_policy(self, target: str, policy: ExportPolicy | None) -> None:

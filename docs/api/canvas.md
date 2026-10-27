@@ -207,17 +207,19 @@ The RGBA source remains 8-bit; 16-bit alpha coding can decode with one-level
 and encoder requirements. `render()` and `export()` accept `.mov` with
 `VideoOptions` for both opaque and transparent output.
 
-### `.export_png_sequence(output_directory, *, options=None, policy=None)`
+### `.export_image_sequence(output_directory, *, format="png", quality=None, matte=None, lossless=None, options=None, policy=None)`
 
-Write silent animation frames and `manifest.json` to a new directory whose
-parent already exists. `PngSequenceOptions(fps=30, hold=3, workers=1,
-render_quality="standard")` controls timing and rendering. Every independent PNG holds
-the renderer's exact RGBA8 straight-alpha bytes, with no export matte or color
-profile claim. `PngSequenceResult` reports actual `frame_count`,
-`duration=frame_count/fps`, dimensions, the numeric filename pattern, published
-paths, and motion diagnostics. Files, directories and symlinks at the destination
-are never replaced. See [PNG sequences](../exports.md#png-image-sequences) for
-the full schema, timing, resource, and atomic-publication contract.
+Write the animated timeline as independent PNG (default), JPEG or WebP files
+plus `manifest.json` into a new directory under an existing parent.
+`ImageSequenceOptions(fps=30, hold=3, workers=1, render_quality="standard")`
+controls timing/compositing; method keywords select image encoding. JPEG
+uses RGB on an opaque matte (white by default), with `quality=1..95`.
+WebP preserves alpha and accepts `lossless=True`; lossy WebP accepts quality.
+PNG and lossless WebP preserve the renderer's exact RGBA8 pixels. Opaque WebP
+files may decode as RGB; manifest mode describes logical RGBA decoding.
+The receipt reports actual frame count, timing, encoding and destination.
+See [image sequences](../exports.md#image-sequences) for validation, per-format
+metadata and atomic no-overwrite publication.
 
 ### `.to_base64(format="PNG", quality=None)`
 

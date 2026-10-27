@@ -8,22 +8,11 @@ Run them from the repository root:
 
 ```bash
 uv run python examples/youtube_thumbnail_01.py
-uv run python examples/youtube_thumbnail_02.py
-uv run python examples/youtube_talking_head.py
-uv run python examples/youtube_reaction.py
-uv run python examples/youtube_tutorial_explainer.py
-uv run python examples/instagram_news_card.py
-uv run python examples/podcast_interview_promo.py
-uv run python examples/shorts_cover_agent.py
-uv run python examples/launch_announcement.py
-uv run python examples/investor_deck.py
-uv run python examples/product_hype_reel.py
-uv run python examples/ordinary_moments.py
-uv run python examples/motion_paths.py
 ```
 
-Examples write their rendered files into this directory or the `output/`
-subdirectory noted below.
+The scripts set `QUICKTHUMB_FONT_DIR` to `assets/fonts` and
+`QUICKTHUMB_DEFAULT_FONT` to `Roboto`, and load photos from `assets/images`, so
+they need nothing from the network unless noted below.
 
 ## Thumbnails and social images
 
@@ -112,10 +101,10 @@ Use it when you want a directional marker to follow a curved route. Edit
 `path_keyframes()` to reshape the route, or `build_scene(animate_color=False)`
 to keep the animation compatible with the approximate HTML path mapping.
 
-### `png_sequence_overlay.py`
+### `image_sequence_overlay.py`
 
-`png_sequence_overlay.py` exports a transparent lower third as a silent PNG
-animation sequence. It needs no FFmpeg, uses the bundled font, and demonstrates
-`PngSequenceOptions`, exact RGBA8 alpha, and the compact manifest/result. Each
-run requires a fresh `examples/output/png_sequence_overlay` directory; existing
-outputs are never overwritten.
+`image_sequence_overlay.py` exports a lower third as silent PNG, white-matted
+JPEG and lossless WebP image sequences using `ImageSequenceOptions`. It needs
+no FFmpeg and uses the bundled font. Each format gets a fresh
+`examples/output/image_sequence_overlay_<format>` directory containing
+independent frames and a manifest; existing outputs are never overwritten.
