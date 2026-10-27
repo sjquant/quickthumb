@@ -1,5 +1,61 @@
 # Animated export benchmarks
 
+## Temporal exposure cost
+
+```bash
+uv run --locked python -m benchmarks.animated_export --blur-cost \
+  --formats mp4 --fps 12 --quality standard --json /tmp/motion-blur-cost.json
+```
+
+This explicit #146 workload uses `examples/motion_blur.py`: the same 512×288,
+two-second marker travels 340 pixels on black. Only exposure changes: OFF,
+2, 4 and 8 samples at a fixed 180° shutter; workers remain 1. It uses the
+existing instrumented export timer, including consumed lazy render work and
+final writes. Actual source-frame calls are recorded alongside encoder inputs.
+Render/encoder wall-time decomposition remains a profile, not independent CPU
+time or an uninstrumented speed claim.
+
+One fresh-process warmup per condition precedes **five rotated rounds**. Warmups
+are retained separately. Processes start with cold local caches; filesystem
+caches are not flushed. Run without concurrent tests/heavy workloads. Every
+measured output is decoded after timing/RSS collection to verify dimensions,
+frame count and duration against its export receipt and the fixed workload.
+Decoded RGB hashes must match across repetitions of each condition, and the
+document hash must match across all conditions. Different sample counts
+intentionally produce different pixels: this records quality cost, not a
+speedup between equivalent renders.
+
+JSON retains all runs, options, environment, hashes, medians and observed ranges.
+Python RSS is each fresh process's lifetime peak before output decoding; it
+includes imports/native Pillow and excludes FFmpeg. It does not prove a memory
+upper bound or constant total memory. Increasing samples retains a bounded
+accumulator and one current frame rather than every temporal sample; use the
+recorded RSS as a workload observation. No process-tree measurement is claimed
+on macOS.
+
+![Actual 12 fps GIF frame: exposure off versus eight samples](comparisons/motion-blur.png)
+
+The comparison decodes the frame at one second from the example's actual OFF
+and 8-sample GIFs. Labels are added outside the frames; the pixels are unscaled.
+
+Recorded on 2026-10-26 with 12 fps MP4, standard quality and workers=1:
+
+| Samples | Total seconds, median [min–max] | Profiled render seconds, median | Source-frame calls | Parent RSS MiB, median [min–max] |
+| --- | --- | --- | --- | --- |
+| OFF | 0.0882 [0.0875–0.0889] | 0.0142 | 26 | 74.33 [74.02–75.64] |
+| 2 | 0.1590 [0.1564–0.1621] | 0.0842 | 48 | 77.80 [77.72–86.20] |
+| 4 | 0.2059 [0.2052–0.2099] | 0.1306 | 96 | 83.48 [78.44–85.62] |
+| 8 | 0.3008 [0.2980–0.3209] | 0.2259 | 192 | 85.88 [83.70–86.80] |
+
+All conditions decoded to 24 frames/2 seconds at 512×288. Actual frame-call
+counts include preparation/settled observations, not just shutter samples.
+More samples cost additional rendering; this is not an equal-output speed
+comparison. Cooperating task agents paused heavy checks during measurement;
+unrelated host activity was not controlled. See the [raw report](results/2026-10-26-166.json)
+for all 20 measured runs, four warmups, hashes, exact options and environment.
+
+## General export profile
+
 Run from the repository root after the locked setup in `CONTRIBUTING.md`:
 
 ```bash

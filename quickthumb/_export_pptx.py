@@ -69,7 +69,7 @@ from quickthumb.models import (
     AnimationSpec as MotionSpec,
 )
 from quickthumb.models import Box as BoxAnimation  # avoid clash with _export_base.Box
-from quickthumb.motion import _has_transform_extensions, match_scene_layers
+from quickthumb.motion import _has_spring_easing, _has_transform_extensions, match_scene_layers
 from quickthumb.transitions import Transition
 
 if TYPE_CHECKING:
@@ -128,6 +128,8 @@ def _lower_canonical(spec: MotionSpec) -> Animation | None:
     layer is simply drawn in its settled state, which is what every other
     unanimated PPTX layer does.
     """
+    if _has_spring_easing(spec):
+        return None
     effect = spec.effect
     if effect is None:
         return None
