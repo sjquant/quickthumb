@@ -98,6 +98,7 @@ def canvas_json_schema(*, registry: PluginRegistry | None = None) -> dict[str, A
         "TrimStartTrack",
         "TrimEndTrack",
         "TrimOffsetTrack",
+        "PathMorphTrack",
         "OpacityTrack",
         "ClipProgressTrack",
         "BlurTrack",

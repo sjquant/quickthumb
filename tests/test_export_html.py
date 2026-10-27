@@ -114,9 +114,12 @@ def test_export_reports_native_and_masked_group_members(tmp_path):
     native_id = inspected.layers[1].children[0].children[0].id
     masked_child_id = inspected.layers[0].children[1].id
 
-    # When: the public exporter executes both routes, even with strict motion handling
+    # When: the public exporter executes native children and declared mask fallback
     path = tmp_path / "mixed.html"
-    result = scene.export(path, policy=ExportPolicy(unsupported_motion="error"))
+    with pytest.raises(RenderingError, match="native HTML masks require a shape owner"):
+        scene.export(path, policy=ExportPolicy(unsupported_motion="error"))
+    assert not path.exists()
+    result = scene.export(path)
     html = path.read_text()
 
     # Then: output keeps native CSS and masked pixels, with original inspection identities
@@ -126,7 +129,7 @@ def test_export_reports_native_and_masked_group_members(tmp_path):
         (native_id, "native"),
     ]
     assert routing[1].native_attempt is True
-    (fallback,) = result.fallback_diagnostics
+    (fallback,) = [row for row in result.fallback_diagnostics if row.native_attempt is False]
     assert fallback.layer_id == "pack"
     assert fallback.layer_ids == ["pack", "inside", masked_child_id]
     assert fallback.native_attempt is False
@@ -479,8 +482,8 @@ class TestHtmlShapes:
         # when / then
         assert "clip-path:polygon(" in canvas.to_html()
 
-    def test_should_fall_back_to_raster_for_masked_shape(self):
-        """Masked shapes become PNG fragments so HTML preserves the composition"""
+    def test_should_fall_back_to_raster_for_feathered_shape_mask(self):
+        """Feathered shape masks use PNG fragments with their actual alpha coverage"""
         # given
         canvas = Canvas(80, 80).shape(
             shape="rectangle",
@@ -488,7 +491,13 @@ class TestHtmlShapes:
             width=60,
             height=60,
             color="#FF0000",
-            mask={"shape": "ellipse", "position": (10, 10), "width": 60, "height": 60},
+            mask={
+                "shape": "ellipse",
+                "position": (10, 10),
+                "width": 60,
+                "height": 60,
+                "feather": 1,
+            },
         )
 
         # when
@@ -1060,7 +1069,7 @@ class TestDeckHtml:
         ]
         assert [(item.slide_index, item.layer_id, item.support) for item in routing] == [
             (0, "shared", "native"),
-            (0, "layer:1", "fallback"),
+            (0, "layer:1", "native"),
             (1, None, "fallback"),
             (1, "layer:2", "native"),
         ]
@@ -1068,7 +1077,6 @@ class TestDeckHtml:
             (item.slide_index, item.layer_id, item.layer_ids)
             for item in result.fallback_diagnostics
         ] == [
-            (0, "layer:1", []),
             (1, None, ["shared", "layer:1"]),
         ]
         assert all(item.native_attempt is False for item in result.fallback_diagnostics)
@@ -1076,11 +1084,10 @@ class TestDeckHtml:
             Image.open(BytesIO(base64.b64decode(data))).convert("RGBA")
             for data in re.findall(r'<img\b[^>]*\bsrc="data:image/png;base64,([^"]+)"', html)
         ]
-        assert len(images) == 2
-        assert images[0].getpixel((10, 10)) == (0, 0, 255, 255)
-        assert pixel_channel(images[0], (0, 0), 3) == 0
+        assert len(images) == 1
+        assert "clip-path:" in html and "background:rgb(0,0,255)" in html
         assert (
-            images[1].tobytes()
+            images[0].tobytes()
             == second.sample().frames[0].to_image().crop((0, 0, 20, 20)).tobytes()
         )
         assert "background:rgb(255,0,0)" in html and "background:rgb(0,255,0)" in html
