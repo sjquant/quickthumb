@@ -32,7 +32,8 @@ mp4_bytes = canvas.to_mp4()      # and canvas.to_webm() / canvas.to_mov()
 ## Recommended output API
 
 Use `export()` to write a Canvas or Deck and receive an `ExportResult` with
-`written_paths`, capability/fallback diagnostics, pixel/timing metadata and assets.
+`written_paths`, capability/fallback diagnostics, pixel/timing metadata, assets
+and the observed rendering environment.
 The extension selects the format. MP4, WebM, MOV and GIF play the animated timeline.
 Deck video also mixes per-slide narration.
 
@@ -58,6 +59,7 @@ All animated byte methods and options use `hold` for settled-state seconds.
 `quality` on `export()`/`render()` controls compression: JPEG accepts integer
 values 1–95 and WebP accepts 1–100.
 Keep `workers=1` unless advanced spawn-based rendering is needed.
+Optional [temporal exposure](timing.md#temporal-exposure) adds motion blur to Canvas exports.
 Both `export()` and `render()` enforce file capability policies such as
 `unsupported_motion="error"` before writing; `export()` also returns the receipt.
 Byte methods expose target-specific controls without the shared file receipt.
@@ -83,6 +85,231 @@ ordinary file exports are not an atomic multi-file transaction. Inspect `written
 numbered Deck filenames. A Deck cannot be written as a single SVG; export its
 Canvas slides individually. See [image sequences](#image-sequences) for their
 separate new-directory and encoding-option contract.
+
+### Document layer routing
+
+Canvas and Deck HTML/PPTX exports, and Canvas SVG/PDF exports, report
+executed layer routes in `result.capability_report` with
+`feature="layer_representation"`. Native HTML/CSS, SVG/PDF primitives, editable
+PowerPoint objects and original
+embedded SVG have `support="native"`; emitted PNG fragments have
+`support="fallback"` and `fallback="rasterize"`. These are representation
+observations, not pixel-fidelity measurements.
+
+`result.fallback_diagnostics` identifies the affected inspection `layer_id` and
+reason. A retained group includes its descendant IDs in `layer_ids`; a shared
+backdrop-dependent prefix has no single `layer_id` and lists all contributing
+sources in `layer_ids`. Such composites are reported together because their
+appearance depends on the combined pixels. Flattened auto-layout children keep
+their original inspection IDs. Empty raster fragments and empty text produce no
+element and no representation observation.
+
+For these executed routes, `native_attempt=True` includes native content emission
+or execution/verification of a native candidate that falls back to raster.
+Read `support` and `fallback` to identify the representation actually adopted.
+`False` means raster capture was selected before native generation or verification.
+Capability-only diagnostics can leave this fact unknown (`None`).
+Parent scenes report their static composite in SVG/PDF/PPTX; HTML can also report PNG
+sources with baked affine CSS motion. Existing motion capability diagnostics
+remain separate. SVG/PDF observations describe authored-static output. PDF text
+retains embedded fonts when supported; shaping, glyph coverage and font-embedding
+constraints can instead select an explained raster fragment.
+
+Executed Deck observations also carry a zero-based `slide_index`. Layer IDs stay
+local to each slide, matching `deck.inspect().slides[index]`; use both fields to
+distinguish repeated IDs between slides. Canvas observations omit `slide_index`.
+Deck HTML keeps its interactive cues, transitions and notes; these representation
+records do not turn a click-driven slideshow into fixed-duration playback.
+
+For example, `ExportPolicy(unsupported_motion="error")` does not reject a static
+masked shape: this HTML route preserves its mask using a PNG fragment and
+reports that decision. No layer-selection policy is added. This executed routing
+report covers Canvas SVG/PDF and Canvas/Deck HTML/PPTX; Deck PDF does not yet
+collect these observations. Fidelity metrics describe the complete document and are
+not attributed to individual fallback layers. Rendering all slides precedes
+opening the HTML destination, so an
+unsupported later slide or strict motion rejection preserves an existing file.
+
+PPTX routes describe the actual OOXML representation: native text boxes and
+autoshapes remain editable objects; PNG fragments preserve their raster payload
+and placement but lose per-glyph/vector editing. Raster reasons include masks,
+backdrop compositing, image/radial text fills and unsupported font semantics.
+Canvas observations omit a slide index; Deck observations identify their slide.
+PPTX file exports build the complete presentation before opening the destination,
+so a later source-rendering failure preserves an existing file.
+
+These structural observations do not certify a PowerPoint or Keynote pixel
+match, font availability, animation timing or transparency in a particular viewer.
+There is no PPTX fidelity policy or automatic application renderer. PPTX geometry
+uses 9,525 EMU per source pixel (96 pixels per inch), or 0.75 PDF points per source
+pixel. A later PDF-based viewer comparison must derive scale from its actual page
+dimensions rather than assuming the PDF exporter's one-point-per-pixel mapping.
+
+### Optional static SVG fidelity report
+
+Request a CairoSVG comparison through `ExportPolicy` when the current job has
+explicit acceptance limits. All three limits are required; there are no built-in
+format budgets. This example requests exact visible RGBA rather than an
+application-specific allowance for edge or font differences:
+
+```python
+from quickthumb import Canvas, ExportPolicy
+
+policy = ExportPolicy(fidelity={"svg": {
+    "pixel_tolerance": 0,
+    "max_different_pixel_ratio": 0,
+    "min_hash_similarity": 1,
+}})
+canvas = Canvas(160, 90).background(color="#123456")
+result = canvas.export("checked.svg", policy=policy)
+comparison = result.pixel_metrics.fidelity
+print(comparison.verdict, comparison.pixel_diff_ratio, comparison.hash_similarity)
+```
+
+The optional `quickthumb[svg]` extra and system Cairo are needed only when the
+selected SVG export requests this check. The report records CairoSVG/Cairo
+versions, the canonical render environment, applied limits and actual rasterized
+dimensions. It compares the authored-static `sample()` still, with no resize.
+`exact` means all visible RGBA channels match; `tolerated` satisfies the supplied
+pixel-ratio and average-hash limits; `out_of_policy` fails a limit or dimensions.
+Mean absolute error is normalized over four channels, and the maximum channel
+delta is also reported. Fully transparent pixels ignore hidden RGB, so this
+definition of exact is distinct from canonical raw-pixel SHA-256 equality.
+The 8×8 average hash composites onto white; RGBA measurements independently catch
+alpha loss even when that hash is identical.
+
+This is report-only: the original SVG representation is written even when the
+verdict is `out_of_policy`. A fidelity diagnostic describes the observation;
+no new raster fallback is selected. Missing/failed reference rendering raises
+before the destination is opened, preserving an existing file. Default exports
+and non-SVG targets do not perform this comparison.
+
+The observation applies to static Cairo rendering in the recorded environment.
+Cairo uses installed fonts and does not honor embedded CSS `@font-face`, so the
+same font environment must be available separately; see the
+[CairoSVG documentation](https://cairosvg.org/documentation/). It is not a browser,
+HTML, or animation fidelity guarantee. SVG keeps its existing authored-static
+motion behavior.
+
+### Optional static PDF fidelity report
+
+Canvas PDF exports accept the same three explicit limits under the `"pdf"` key:
+
+```python
+policy = ExportPolicy(fidelity={"pdf": {
+    "pixel_tolerance": 0,
+    "max_different_pixel_ratio": 0,
+    "min_hash_similarity": 1,
+}})
+result = Canvas(160, 90).background(color="#123456").export("checked.pdf", policy=policy)
+print(result.pixel_metrics.fidelity.verdict)
+```
+
+Install `quickthumb[pdf]` for ReportLab and the optional PDFium observer. Default
+PDF exports do not import PDFium. Requested comparison renders the actual PDF
+bytes on transparent RGBA at scale 1: this exporter uses one PDF point per
+canonical pixel, not a 96-DPI print-size conversion. The report records PDFium
+and binding versions, actual page size in points, page count, rendered dimensions
+and the canonical environment. Native PDFium document/render/cleanup calls are
+serialized across threads; canonical rendering and pixel comparison stay outside
+that lock. It requires exactly one page of the expected
+point dimensions; mismatches stay out of policy even under permissive pixel
+limits. No resizing or white-background flattening hides alpha or geometry loss.
+
+The same visible-RGBA/hash criteria and report-only behavior described above
+apply. For an unexpected multi-page Canvas result, metrics observe its first
+page and the reported page count makes the verdict out of policy. PDF generation
+and requested comparison finish before opening the destination; missing/failed
+observation preserves an existing file. Native text/vectors and explained raster
+fragments are retained regardless of the fidelity verdict. Native PDF text is
+searchable vector content; this does not promise PowerPoint-style editing.
+Deck PDF comparison is rejected explicitly; export its Canvas slides individually.
+This observation does not establish PPTX or animation fidelity.
+
+### Static cross-export checks
+
+`tests/test_static_export_matrix.py` sends the same authored content through the
+public Canvas and Deck file-export boundaries. The first 160×120 slide combines
+repository-font text, a native rectangle, a generated image and an elliptical
+mask; the second Deck slide has a translucent rectangle on a transparent canvas.
+The checks distinguish measured appearance from structural evidence:
+
+| Format | Canvas | Deck | Capability and fallback evidence |
+| --- | --- | --- | --- |
+| PNG | Decoded RGBA equals the canonical sample | Each numbered slide equals its canonical sample | Raster output; no native-object or document-viewer claim |
+| SVG | Actual CairoSVG observation plus native text/vector and PNG checks | Single-file Deck SVG is rejected; each Canvas slide is measured separately | Executed source IDs, native routes and explained image/mask PNG routes |
+| HTML | Stage markup, native text/CSS and exact mask PNG | Stage count and slide-local routes | Structural only; no browser pixel measurement in this matrix |
+| PDF | Actual PDFium observation, searchable text, vector paths and image objects | Page count/geometry, native objects and rendered component regions | Canvas routes reported; Deck executed routes and receipt fidelity are not collected yet |
+| PPTX | Editable OOXML text/shapes and exact positioned mask PNG | Slide count and per-slide native/raster objects | Executed routes reported; PowerPoint/Keynote appearance remains unmeasured |
+
+The mixed SVG/PDF fixture uses explicit whole-image limits: zero channel
+tolerance, at most 8% different pixels, and hash similarity of at least 0.94.
+These are fixture-specific font/edge budgets, not export defaults. Native text
+must also be present as text, and small rectangle, image and mask-interior regions
+must match exactly so a missing component cannot hide in the whole-image budget.
+The text region also requires hash similarity of at least 0.95 and permits at most
+30% different pixels after a channel tolerance of 16 for font rasterization edges.
+A real Deck PDF containing searchable white-on-white text must fail this regional
+check, even though its text objects and other component regions are intact.
+For the transparent rectangle only, alpha must match exactly while visible RGB
+may differ by at most two levels per channel because of renderer
+premultiplication/unpremultiplication rounding. Fully hidden RGB follows the
+existing visible-RGBA comparison rule; PNG still preserves raw RGBA exactly.
+No output is resized or flattened onto an invented matte.
+
+Run `uv run --locked pytest tests/test_static_export_matrix.py --no-cov -q`.
+The existing quality workflow already runs this file through `pytest tests/`
+with the SVG/PDF/PPTX extras and native Cairo installed. Local environments
+without an optional observer skip its cases with the dependency reason.
+Pytest case IDs identify the format and document kind. Each case keeps its
+source JSON, canonical PNGs, actual exports and JSON receipts in its temporary
+directory; measured receipts include renderer versions, canonical environment,
+limits and metrics. A failure is reproducible from the shared fixture and named
+format check rather than a platform-specific screenshot baseline.
+
+This is a bounded static matrix. It does not run a browser, certify PPTX viewer
+pixels/fonts/timing, or add a Deck PDF fidelity policy. The separate HTML browser
+harness and native presentation-viewer observations require their own execution
+and environment evidence. Structural success must not be reported as a rendered
+pixel-fidelity verdict.
+
+### HTML browser validation harness
+
+The developer-only harness captures actual exported Canvas and two-slide Deck
+stages with an explicitly selected Chrome and Node's built-in WebSocket. It does
+not install a browser or change `ExportPolicy`:
+
+```bash
+PYTHONPATH=. python scripts/check_html_fidelity.py \
+  --chrome "/path/to/chrome" --output /tmp/quickthumb-html-observations
+```
+
+The output directory must be new. Chrome runs headless with a temporary profile
+and loopback CDP; the harness never attaches to an existing browser session.
+It waits for fonts, images and slide transitions, captures only the original-size
+stage at DPR 1, and seeks a real click-triggered CSS fade at 0, 5 and 10 seconds.
+The report records browser/Node versions, canonical environment, input asset
+hashes, executed route diagnostics, dimensions, seek points, explicit fixture
+limits, pixel/hash metrics and verdicts. Canonical/browser PNGs remain beside it.
+
+The mixed text/shape/image/mask fixtures allow a channel tolerance of 16, at most
+8% differing pixels, and average-hash similarity of at least 0.94. Every component
+must also satisfy its recorded region criteria: text allows 20% differing pixels
+and requires hash similarity 0.95; the native ellipse allows 2% and requires 0.98.
+The embedded image is exact; the masked fragment allows only one channel level
+of rounding. Text/ellipse channel tolerance is 16. These local criteria prevent
+small missing features from passing a whole-stage average. Negative controls
+remove each text/image/mask/ellipse element in both the wide Canvas and tall Deck
+and must fail that specific region, not merely another metric. All allowances
+are fixture-specific and are not general document budgets. The simple
+fade permits only one channel level of rounding; a deliberately wrong document
+must fail comparison. Unexpected verdicts fail the command while retaining its
+report. No automatic raster fallback or browser/CI installation is performed.
+
+This observes one Chrome/font/platform environment and one bounded CSS animation,
+not every browser, animation, cue, or Deck transition. CairoSVG cannot substitute
+for this browser observation. Existing Node runtime tests check scheduling and
+state behavior separately from browser pixels.
 
 ### Migrating output calls
 
@@ -216,9 +443,13 @@ webm = deck.to_webm(fps=30, hold=3.0)
 Every effect takes `duration`, `delay`, and `trigger`, plus two timing controls:
 
 - `easing` picks the curve the reveal follows, from the shared easing vocabulary
-  (`"linear"`, `"ease"`, `"ease_out_cubic"`, `"ease_out_back"`, …). It defaults to
-  `"ease"`; a bar that reports elapsed time wants `"linear"`, or it will
-  misrepresent its own progress.
+  (`"linear"`, `"ease"`, `"ease_out_cubic"`, `"ease_out_back"`, …). Legacy effects
+  default to `"ease"`; canonical presets resolve their easing/feel and otherwise
+  use `"linear"`. A bar that reports elapsed time needs `"linear"` to represent
+  its progress. HTML sends named easing and custom cubic-bezier
+  timing functions to CSS. Named polynomial curves use the existing CSS
+  cubic-bezier approximations: their shape is similar, but intermediate pixel
+  states need not match canonical sampling exactly.
 - `start` pins the effect to an absolute time on the slide instead of chaining it
   to whatever ran before. Anchored effects do not move the cursor the relative
   effects around them are chained from, so the two styles can be mixed.
@@ -579,6 +810,8 @@ Normal completion and errors wait for running jobs to finish and close their
 decoders. Pending jobs are canceled on failure; abruptly terminated workers
 are reported as rendering errors. An OS-level kill cannot run normal cleanup.
 
+Static narrated MP4 uses `render_narrated_mp4()` or `to_narrated_mp4()`.
+
 ### Narrated deck video
 
 A deck can be exported as a video with a voice-over per slide:
@@ -646,7 +879,39 @@ probe = deck.sample([0.0, 1.25, 4.0], hold=2.0) # explicit instants, ascending
 - **Sampling.** `fps=N` (at most 120) observes every instant `k / N` before `duration`; explicit times must be ascending, and times at or past `duration` show the final settled frame. One capture observes at most 100,000 instants; a larger explicit list or fps grid is rejected with a `ValidationError` before any frame renders. This grid is an observation schedule, not an exporter's frame schedule: exporters sample each span on their own frame grid, and stretch a slide shorter than one frame to a full frame.
 - **Timing.** `duration` is the exact timeline length and never depends on `fps` or on the requested instants. Each `TimelineSegment` gives a slide's absolute `start`, `transition_end`, `animation_end`, and `end`, rounded to nanoseconds; a slide is on screen over `[start, end)`, so a boundary instant belongs to the incoming slide.
 - **Memory.** A capture whose distinct frames would exceed 768 MiB of raw RGBA is rejected with a `ValidationError`, before any frame renders when every page of a still capture, or one frame of a timeline capture, already exceeds it; request fewer instants, a lower `fps`, a shorter `hold`, or a smaller document.
-- **Environment.** `environment` records the facts that can change pixels for an identical document: quickthumb, Pillow, and FreeType versions, the text layout engine (`basic` or `raqm`), and, for documents with video layers, the version of the FFmpeg that decodes them (`QUICKTHUMB_FFMPEG` or `ffmpeg` on `PATH`). Sampling a video document without a working FFmpeg raises `RenderingError` before any frame renders. Identical documents sampled in identical environments produce identical digests; fonts and images are described by the asset manifest (see below).
+- **Environment.** `sample()` and `export()` report quickthumb, Pillow and FreeType versions, the text layout engine (`basic` or `raqm`), available RAQM/HarfBuzz/FriBidi versions, and the FFmpeg version for documents with video layers. Sampling video without a working FFmpeg raises `RenderingError` before any frame renders. `environment.fonts` reports the actual font face bytes selected by that operation; the asset manifest separately describes authored references.
+
+### Render reproducibility
+
+Font family names and `QUICKTHUMB_DEFAULT_FONT` depend on the machine's font
+search path. Inspect the selected faces rather than treating those names as
+portable identifiers:
+
+```python
+capture = canvas.sample()
+for font in capture.environment.fonts:
+    print(font.source, font.sha256, font.variations)
+```
+
+Each face has its resolved file path (or `pillow:default`), SHA-256 and applied
+variable coordinates keyed by the font's axis names. The hash identifies the
+font bytes. Pillow's embedded
+face reports no hash if its bytes are unavailable. Paths are diagnostic: compare
+hashes and coordinates across machines. Only faces loaded for the current
+operation are reported; unused named fonts and faces from earlier operations
+are excluded.
+
+Remote and Google fonts load from content-addressed copies of their resolved
+bytes, so another document refreshing the original URL does not change a
+prefetched face. These copies live in the asset cache and follow its caller-owned
+cleanup lifecycle. Keep local input files unchanged during an operation.
+
+For repeatable canonical raster output, use identical document data, input asset
+bytes, selected fonts and variable coordinates, rendering options and environment;
+seed procedural effects where supported. Different font, shaping or rasterizer
+versions can change layout and edge pixels. This report explains those inputs;
+it does not promise exact pixels across platforms or native-output viewers.
+Use format-specific fidelity tolerances when comparing such outputs.
 
 ## Remote assets and caching
 
@@ -667,7 +932,34 @@ The cache is controlled by environment variables:
 - `QUICKTHUMB_ASSET_MAX_AGE`: seconds after which a cached entry is refreshed from the network. When the refresh fails, the old bytes are used and reported as `stale`. Unset means cached entries never expire.
 - `QUICKTHUMB_ASSET_OFFLINE=1`: never make network requests. Cached entries are used, and expired ones are reported as `stale`.
 
-Each canvas (including each deck slide) tries to refresh an expired asset at most once; later renders and exports of it reuse the same `stale` result. When neither a usable cache entry nor a network response exists, resolution raises `RenderingError` naming the source, the cause, and the cache directory it searched. To refuse stale inputs, check the manifest before rendering:
+### Ownership and reuse
+
+Keep the same `Canvas` or `Deck` to reuse resolution across `prefetch_assets()`,
+`sample()`, and exports. Each canvas retains its first remote resolution result
+and status; a deck uses its slides' results. Remote images, text fills, and SVGs
+render from these retained bytes. Remote fonts, including Google fonts, load
+from content-addressed copies of the resolved bytes, so another document's URL
+refresh does not change a prefetched face. Keep those cache files available
+through sampling and export. Construct a new document to resolve the same
+reference again under the current cache policy.
+
+`PrefetchResult` and `asset_manifest` are JSON-safe reports, not resource handles.
+Saving or loading their JSON does not transfer bytes or preload another document.
+A new document can reuse the persisted cache and reports `fresh` when its entry
+is usable. Local image, font, video, and audio paths remain caller-owned files:
+keep them available and unchanged through sampling or export; prefetch does not
+freeze or copy them. Video and audio sources are not downloaded by prefetch;
+remote video is read by FFmpeg when needed and is outside this cache contract.
+Generated content without a file/URL reference has no external asset entry.
+
+The caller owns the cache directory and its cleanup. Quickthumb atomically writes
+remote cache files and metadata but does not automatically evict them. Remove
+unused entries only when documents and export workers are no longer using that
+cache; existing manifests are observations, not guarantees that their
+`cache_path` still exists. No explicit document close is required for the
+in-memory remote results: they are released with the document.
+
+When neither a usable cache entry nor a network response exists, resolution raises `RenderingError` naming the source, the cause, and the cache directory it searched. To refuse stale inputs, check the manifest before rendering:
 
 ```python
 prefetched = canvas.prefetch_assets()
@@ -675,6 +967,39 @@ stale = [entry for entry in prefetched.asset_manifest if entry.status == "stale"
 if stale:
     raise SystemExit(f"stale assets: {[(e.source, e.stale_reason) for e in stale]}")
 ```
+
+### Asset and plugin lifecycle fixtures
+
+The shared font/texture scenarios in `tests/test_asset_cache.py` use a private
+plugin registry, a repository TTF and generated image bytes served by a temporary
+localhost HTTP server. They exercise public Canvas/Deck operations and cache
+environment settings. A controlled standard clock advances expiry without
+sleeping or editing cache files or metadata. No public network service or
+platform-specific pixel snapshot is required.
+
+| Scenario | Observable evidence | Regression check |
+| --- | --- | --- |
+| Network → fresh new document → expired refresh | Resolution status, fetched time, changed content hashes, actual font identity and decoded PNG pixels; original documents retain their resolved bytes | `test_combined_resources_refresh_only_for_new_expired_documents` (`canvas`, `deck`) |
+| Expired cache while offline | Both resources report `stale` with source, hash, fetch time and offline/max-age reason before plugin execution or output; a caller proceeding gets the original RGBA/font bytes without requests | `test_combined_offline_stale_evidence_precedes_optional_rendering` (`canvas`, `deck`) |
+| Cold offline font or plugin texture | Public prefetch identifies the later slide, source URL and cache directory; plugin texture errors also identify the layer/asset path. No callback or file write occurs | `test_combined_cold_offline_failure_identifies_later_slide_resource` (`font`, `texture`) |
+| Prefetched resources across raster and native document output | Canvas/Deck raster agreement, actual font SHA, asset manifest, native SVG text and exact plugin PNG fallback | `test_prefetched_font_and_private_plugin_keep_shared_export_evidence` |
+| Missing declared plugin dependency | Escaped JSON Pointer, layer identity and prewrite failure | `test_plugin_declared_missing_assets_fail_before_output_or_callback` |
+| Plugin native match, tolerated difference, mismatch or unsupported target | Actual local SVG comparison and adopted native/PNG representation; explained fallback and strict rejection | `tests/test_plugin_svg.py`, `test_plugin_document_fallback_reports_and_preserves_output` in `tests/test_plugin_runtime.py` |
+| Default, family, file and variable fonts | Actual selected face hashes and applied coordinates in sample/export environments | Font identity cases in `tests/test_canonical_sampling.py` |
+
+Stale refusal is a caller decision using the returned manifest, as shown above;
+there is no automatic refuse-stale export flag. The offline fixture verifies
+that evidence is available before any plugin callback or destination change,
+then separately verifies the caller's choice to render with those stale bytes.
+Cold misses fail rather than substituting a font or empty plugin texture.
+
+Run `uv run --locked pytest tests/test_asset_cache.py tests/test_plugin_runtime.py
+tests/test_plugin_svg.py tests/test_canonical_sampling.py --no-cov -q`.
+These files are included in the existing automated `pytest tests/` quality job.
+Named scenarios and parameter IDs identify the resource/document failure;
+expected hashes are computed from the controlled source bytes and rendered
+samples are compared in the same recorded font/render environment. This does
+not promise identical font pixels across machines or native viewers.
 
 ## Decks (multiple images and slides)
 

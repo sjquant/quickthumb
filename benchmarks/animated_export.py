@@ -20,11 +20,11 @@ from unittest.mock import patch
 
 import PIL
 from PIL import Image, ImageFont, ImageSequence, features
-from quickthumb import GifOptions, VideoOptions
+from quickthumb import GifOptions, MotionBlur, VideoOptions
 
 from benchmarks.scenes import DURATION, SCENES, TEXT_SELECTOR_SCENES, build_scene
 
-MEASURABLE_SCENES = (*SCENES, "motion_path", *TEXT_SELECTOR_SCENES)
+MEASURABLE_SCENES = (*SCENES, "motion_path", "motion_blur", *TEXT_SELECTOR_SCENES)
 
 ROOT = Path(__file__).resolve().parents[1]
 FORMATS = ("gif", "mp4", "webm")
@@ -142,7 +142,11 @@ def peak_rss_mib() -> float:
 
 
 def measure_export(
-    scene: str, format: str, fps: float, quality: Literal["standard", "high"] = "standard"
+    scene: str,
+    format: str,
+    fps: float,
+    quality: Literal["standard", "high"] = "standard",
+    blur_samples: int = 0,
 ) -> dict[str, Any]:
     """Measure the real public export; no frames are pre-rendered or held here."""
     from quickthumb import _export_video
@@ -150,7 +154,14 @@ def measure_export(
     timer = EncoderTimer()
     font_loads = 0
     font_seconds = 0.0
+    frame_calls = 0
+    frame_at = _export_video._SlideAnimator.frame_at
     getfont = ImageFont.core.getfont
+
+    def count_frame(*args: Any, **kwargs: Any) -> Image.Image:
+        nonlocal frame_calls
+        frame_calls += 1
+        return frame_at(*args, **kwargs)
 
     def load_font(*args: Any, **kwargs: Any) -> Any:
         nonlocal font_loads, font_seconds
@@ -170,15 +181,22 @@ def measure_export(
                 _export_video, "_encode_video_file", timer.wrap(_export_video._encode_video_file)
             ),
             patch.object(ImageFont.core, "getfont", load_font),
+            patch.object(_export_video._SlideAnimator, "frame_at", count_frame),
         ):
             start = time.perf_counter()
             deck = build_scene(scene)
             options = (
-                GifOptions(fps=fps, max_size=(432, 768), colors=64, render_quality=quality)
+                GifOptions(
+                    fps=fps,
+                    max_size=None if scene == "motion_blur" else (432, 768),
+                    colors=64,
+                    render_quality=quality,
+                )
                 if format == "gif"
                 else VideoOptions(fps=fps, render_quality=quality)
             )
-            deck.render(str(output), animation=options)
+            options.motion_blur = MotionBlur(samples=blur_samples) if blur_samples else None
+            receipt = deck.export(output, animation=options)
             total = time.perf_counter() - start
         if timer.shots == 0 or not output.is_file() or output.stat().st_size == 0:
             raise RuntimeError("export produced no measured shots or output")
@@ -188,7 +206,7 @@ def measure_export(
         with output.open("rb") as stream:
             for chunk in iter(lambda: stream.read(1024 * 1024), b""):
                 digest.update(chunk)
-        decoded = None
+        selector_decoded = None
         if format == "gif" and scene in TEXT_SELECTOR_SCENES:
             # Consume the actual encoded animation after timing and RSS observation.
             with Image.open(output) as gif:
@@ -199,15 +217,21 @@ def measure_export(
                         raise RuntimeError("text export changed the configured output extent")
                     durations.append(frame.info.get("duration", 0))
                     frame_hashes.add(hashlib.sha256(frame.convert("RGB").tobytes()).hexdigest())
-                decoded = {
+                selector_decoded = {
                     "width": gif.width,
                     "height": gif.height,
                     "frames": len(durations),
                     "duration": sum(durations) / 1000,
                     "distinct_frames": len(frame_hashes),
                 }
-            if len(frame_hashes) < 2 or abs(decoded["duration"] - DURATION) > 0.02:
+            if len(frame_hashes) < 2 or abs(selector_decoded["duration"] - DURATION) > 0.02:
                 raise RuntimeError("text export lost motion or changed the playback duration")
+        blur_decoded = decoded_output(output, format) if scene == "motion_blur" else {}
+        if blur_decoded and (
+            blur_decoded["frame_count"] != receipt.timing_metrics.frame_count
+            or abs(blur_decoded["duration"] - receipt.timing_metrics.duration) > 0.011
+        ):
+            raise RuntimeError("decoded playback disagrees with export receipt")
         return {
             "scene": scene,
             "format": format,
@@ -215,6 +239,7 @@ def measure_export(
             "options": options.model_dump(mode="json"),
             "quality": quality,
             "shots": timer.shots,
+            "source_frame_calls": frame_calls,
             "render_ms_per_shot": (total - timer.encode_seconds) * 1000 / timer.shots,
             "render_seconds": total - timer.encode_seconds,
             "encode_seconds": timer.encode_seconds,
@@ -224,13 +249,141 @@ def measure_export(
             "font_seconds": font_seconds,
             "output_bytes": output.stat().st_size,
             "output_sha256": digest.hexdigest(),
-            **({"decoded_output": decoded} if decoded is not None else {}),
+            **({"decoded_output": selector_decoded} if selector_decoded is not None else {}),
+            "spec_sha256": hashlib.sha256(deck.to_json().encode()).hexdigest(),
+            **({"decoded": blur_decoded} if blur_decoded else {}),
         }
 
 
-def summarize(runs: list[dict[str, Any]]) -> dict[str, Any]:
-    if len(runs) != RUNS:
-        raise ValueError("each measurement requires exactly three runs")
+def decoded_output(output: Path, format: str) -> dict[str, Any]:
+    """Validate consumed playback after timing and RSS collection."""
+    if format == "gif":
+        digest = hashlib.sha256()
+        duration = 0.0
+        with Image.open(output) as image:
+            count = image.n_frames
+            size = image.size
+            for index in range(count):
+                image.seek(index)
+                duration += image.info["duration"] / 1000
+                digest.update(image.convert("RGB").tobytes())
+        return {
+            "frame_count": count,
+            "duration": duration,
+            "size": size,
+            "rgb_sha256": digest.hexdigest(),
+        }
+    stream = json.loads(
+        subprocess.check_output(
+            [
+                "ffprobe",
+                "-v",
+                "error",
+                "-select_streams",
+                "v:0",
+                "-count_frames",
+                "-show_entries",
+                "stream=nb_read_frames,width,height:format=duration",
+                "-of",
+                "json",
+                str(output),
+            ]
+        )
+    )
+    video = stream["streams"][0]
+    digest = (
+        subprocess.check_output(
+            [
+                "ffmpeg",
+                "-v",
+                "error",
+                "-i",
+                str(output),
+                "-map",
+                "0:v:0",
+                "-pix_fmt",
+                "rgb24",
+                "-f",
+                "hash",
+                "-hash",
+                "sha256",
+                "-",
+            ],
+            text=True,
+        )
+        .strip()
+        .split("=", 1)[1]
+    )
+    return {
+        "frame_count": int(video["nb_read_frames"]),
+        "duration": float(stream["format"]["duration"]),
+        "size": [video["width"], video["height"]],
+        "rgb_sha256": digest,
+    }
+
+
+def blur_cost_report(
+    formats: Iterable[str], fps: float, quality: Literal["standard", "high"]
+) -> dict[str, Any]:
+    """Five rotated repetitions after one fresh-process warmup per condition."""
+    conditions = (0, 2, 4, 8)
+    report: dict[str, Any] = {
+        "version": 1,
+        "measurement": "instrumented temporal exposure cost",
+        "environment": environment(),
+        "fps": fps,
+        "quality": quality,
+        "workers": 1,
+        "shutter_angle": 180,
+        "runs_per_measurement": 5,
+        "scene": "motion_blur",
+        "dimensions": [512, 288],
+        "duration": 2,
+        "cache_policy": "fresh processes; filesystem caches not flushed",
+        "memory_scope": "isolated parent lifetime peak RSS before decoding; excludes FFmpeg",
+        "interpretation": "Different exposure quality: cost comparison, not a speedup claim",
+        "warmup_runs": [],
+        "raw_runs": [],
+        "results": [],
+    }
+    for format in dict.fromkeys(formats):
+        for samples in conditions:
+            report["warmup_runs"].append(run_worker("motion_blur", format, fps, quality, samples))
+        groups = {samples: [] for samples in conditions}
+        for repetition in range(5):
+            order = conditions[repetition % 4 :] + conditions[: repetition % 4]
+            for samples in order:
+                print(
+                    f"Cost {format}, samples={samples or 'off'}, round={repetition + 1}",
+                    file=sys.stderr,
+                )
+                run = run_worker("motion_blur", format, fps, quality, samples)
+                if (
+                    run["decoded"]["frame_count"] != max(1, math.floor(2 * fps + 0.5))
+                    or abs(run["decoded"]["duration"] - 2) > 1 / fps
+                    or list(run["decoded"]["size"]) != [512, 288]
+                ):
+                    raise RuntimeError("cost workload playback changed")
+                groups[samples].append(run)
+                report["raw_runs"].append({"repetition": repetition + 1, **run})
+        for samples, runs in groups.items():
+            if len({run["decoded"]["rgb_sha256"] for run in runs}) != 1:
+                raise RuntimeError("repeated exposure outputs are not deterministic")
+            row = summarize(runs, runs_required=5)
+            row["blur_samples"] = samples
+            row["decoded"] = runs[0]["decoded"]
+            row["python_peak_rss_mib_min"] = min(run["python_peak_rss_mib"] for run in runs)
+            row["python_peak_rss_mib_max"] = max(run["python_peak_rss_mib"] for run in runs)
+            report["results"].append(row)
+        if len({run["spec_sha256"] for runs in groups.values() for run in runs}) != 1:
+            raise RuntimeError("cost workload document changed")
+    return report
+
+
+def summarize(runs: list[dict[str, Any]], runs_required: int = RUNS) -> dict[str, Any]:
+    if len(runs) != runs_required:
+        count = "three" if runs_required == 3 else str(runs_required)
+        raise ValueError(f"each measurement requires exactly {count} runs")
     if (
         len(
             {
@@ -263,7 +416,11 @@ def summarize(runs: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def run_worker(
-    scene: str, format: str, fps: float, quality: Literal["standard", "high"] = "standard"
+    scene: str,
+    format: str,
+    fps: float,
+    quality: Literal["standard", "high"] = "standard",
+    blur_samples: int = 0,
 ) -> dict[str, Any]:
     process = subprocess.run(
         [
@@ -277,6 +434,8 @@ def run_worker(
             str(fps),
             "--quality",
             quality,
+            "--blur-samples",
+            str(blur_samples),
         ],
         cwd=ROOT,
         capture_output=True,
@@ -320,6 +479,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--scenes", nargs="+", choices=MEASURABLE_SCENES, default=list(SCENES))
     parser.add_argument("--formats", nargs="+", choices=FORMATS, default=list(FORMATS))
     parser.add_argument("--json", type=Path, help="also save raw runs and medians")
+    parser.add_argument("--blur-cost", action="store_true", help="compare OFF/2/4/8 sample costs")
+    parser.add_argument(
+        "--blur-samples", type=int, choices=(0, 2, 4, 8), default=0, help=argparse.SUPPRESS
+    )
     parser.add_argument("--worker", nargs=2, metavar=("SCENE", "FORMAT"), help=argparse.SUPPRESS)
     args = parser.parse_args(argv)
     try:
@@ -330,9 +493,15 @@ def main(argv: list[str] | None = None) -> int:
             result = (
                 {"jitter": measure_jitter(scene)}
                 if format == "jitter"
-                else measure_export(scene, format, args.fps, args.quality)
+                else measure_export(scene, format, args.fps, args.quality, args.blur_samples)
             )
             print(json.dumps(result))
+            return 0
+        if args.blur_cost:
+            report = blur_cost_report(args.formats, args.fps, args.quality)
+            print(json.dumps(report, indent=2))
+            if args.json:
+                args.json.write_text(json.dumps(report, indent=2) + "\n")
             return 0
         report: dict[str, Any] = {
             "version": 1,

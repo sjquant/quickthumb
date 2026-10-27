@@ -93,8 +93,10 @@ nav:
       - Text: api/text.md
       - Image: api/image.md
       - Shape: api/shape.md
+      - Path: api/path.md
       - SVG: api/svg.md
       - Video: api/video.md
+      - Audio-reactive Authoring: api/audio.md
       - Group (Auto Layout): api/group.md
       - Outline: api/outline.md
       - Data visualizations: api/data-visualizations.md

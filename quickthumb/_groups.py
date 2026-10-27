@@ -17,7 +17,6 @@ from quickthumb._images import ImageEngine
 from quickthumb._shapes import ShapeEngine
 from quickthumb._text import TextEngine
 from quickthumb._visualizations import VisualizationEngine
-from quickthumb.errors import RenderingError
 from quickthumb.models import (
     Align,
     BackdropBlur,
@@ -30,6 +29,7 @@ from quickthumb.models import (
     SvgLayer,
     TextLayer,
 )
+from quickthumb.plugins import PluginRegistry
 
 if TYPE_CHECKING:
     from quickthumb.motion import ResolvedMotionTarget
@@ -60,6 +60,7 @@ class GroupEngine:
         shapes: ShapeEngine,
         text: TextEngine,
         visualizations: VisualizationEngine,
+        registry: PluginRegistry,
     ):
         self._ctx = ctx
         self._fonts = fonts
@@ -68,6 +69,7 @@ class GroupEngine:
         self._shapes = shapes
         self._text = text
         self._visualizations = visualizations
+        self._registry = registry
 
     def render_group_layer(
         self,
@@ -332,9 +334,9 @@ class GroupEngine:
         elif isinstance(child, QRCodeLayer):
             self._visualizations.render_qr_code(image, child, time)
         elif isinstance(child, PluginLayer):
-            raise RenderingError.plugin_layer_unsupported(
-                child.renderer, child.version, layer_id=child.id
-            )
+            from quickthumb._plugin_runtime import render_plugin_layer
+
+            render_plugin_layer(image, child, self._ctx, self._registry)
 
     def _place_group_child(
         self,
@@ -344,7 +346,7 @@ class GroupEngine:
     ) -> GroupChildLayer:
         if isinstance(child, TextLayer):
             return self.place_text_child(child, position, size)
-        if isinstance(child, (ImageLayer, SvgLayer)):
+        if isinstance(child, (ImageLayer, SvgLayer, PluginLayer)):
             return child.model_copy(update={"position": position, "align": Align.TOP_LEFT})
         if isinstance(child, ShapeLayer):
             return child.model_copy(update={"position": position, "align": None})
@@ -462,9 +464,7 @@ class GroupEngine:
 
     def _measure_group_child_uncached(self, child: GroupChildLayer) -> tuple[int, int]:
         if isinstance(child, PluginLayer):
-            raise RenderingError.plugin_layer_unsupported(
-                child.renderer, child.version, layer_id=child.id
-            )
+            return child.width, child.height
         if isinstance(child, TextLayer):
             return self._text.measure_text_rendered_size(child)
         if isinstance(child, ImageLayer):
