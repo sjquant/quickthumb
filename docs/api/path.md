@@ -106,4 +106,9 @@ interpolation. `validate_export()` and `ExportResult` give the actual per-layer
 route and reason. `ExportPolicy(unsupported_motion="error")` permits native paths
 and rejects a required fallback before writing.
 
-PDF and PPTX currently embed static raster images retaining the gradient.
+PDF emits editable native paths, converting quadratics exactly and elliptical arcs
+to cubic curves bounded to 1/8 device pixel. It preserves even-odd clipping, local
+strokes and opaque frame gradients. Translucent gradient stops and paths exceeding
+the bounded cubic conversion use a declared raster fallback. Degenerate strokes
+and mixed zero-length dash patterns also use raster output to preserve cap pixels. PPTX currently embeds
+a static raster image retaining the gradient.
