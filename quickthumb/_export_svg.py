@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import base64
 import math
+from copy import deepcopy
+from io import BytesIO
 from typing import TYPE_CHECKING
 from xml.sax.saxutils import escape, quoteattr
 
@@ -49,6 +51,7 @@ from quickthumb.models import (
     Glow,
     LinearGradient,
     OutlineLayer,
+    PluginLayer,
     RadialGradient,
     Shadow,
     ShapeLayer,
@@ -75,10 +78,18 @@ def _stroke_attr(rgba: tuple, opacity: float = 1.0) -> str:
 
 
 class SvgExporter:
-    def __init__(self, canvas: Canvas, embed_fonts: bool = False):
+    def __init__(self, canvas: Canvas, embed_fonts: bool = False, *, policy=None):
         canvas = _distinct_layer_occurrences(canvas)
         self._canvas = canvas
         self._embed_fonts = embed_fonts
+        self._policy = policy
+        from quickthumb.motion import _iter_export_layers
+
+        self._plugin_ids = {
+            source_id
+            for source_id, layer in _iter_export_layers(canvas)
+            if isinstance(layer, PluginLayer)
+        }
         self.diagnostics: list[ExportDiagnostic] = []
         self._source_ids = {
             id(layer): _source_layer_ids(layer, index, (index,))
@@ -147,9 +158,37 @@ class SvgExporter:
 
     # ------------------------------------------------------------------ layers
 
-    def _record_routing(self, layers: list, reason: str, *, rasterized: bool) -> None:
-        self.diagnostics.append(
-            _layer_routing(layers, self._source_ids, reason, target="svg", rasterized=rasterized)
+    def _record_routing(
+        self, layers: list, reason: str, *, rasterized: bool, native_attempt: bool | None = None
+    ) -> None:
+        row = _layer_routing(layers, self._source_ids, reason, target="svg", rasterized=rasterized)
+        if native_attempt is not None:
+            row.native_attempt = native_attempt
+        members = row.layer_ids or [row.layer_id]
+        plugin_ids = [member for member in members if member in self._plugin_ids]
+        if (
+            rasterized
+            and plugin_ids
+            and self._policy
+            and self._policy.unsupported_motion == "error"
+        ):
+            from quickthumb.errors import RenderingError
+
+            raise RenderingError(
+                f"Plugin SVG requires raster fallback: {reason}",
+                layer_id=plugin_ids[0],
+                code="unsupported_capability",
+            )
+        self.diagnostics.append(row)
+        self.diagnostics.extend(
+            row.model_copy(
+                update={
+                    "feature": "plugin",
+                    "layer_id": member,
+                    "layer_ids": [],
+                }
+            )
+            for member in plugin_ids
         )
 
     def _emit_layer(self, layer: RenderableLayer):
@@ -167,10 +206,64 @@ class SvgExporter:
             self._emit_text(layer)
         elif isinstance(layer, SvgLayer):
             self._emit_svg_layer(layer)
+        elif isinstance(layer, PluginLayer):
+            self._emit_plugin(layer)
         else:  # ImageLayer or anything else the format cannot express natively
             self._emit_raster_fallback(
                 layer, f"{type(layer).__name__} is captured through the canonical raster pipeline"
             )
+
+    def _emit_plugin(self, layer: PluginLayer):
+        from quickthumb._plugin_runtime import plugin_context, plugin_image
+        from quickthumb._plugin_svg import observe_plugin_svg, validate_plugin_svg
+
+        registry = self._canvas._plugin_registry
+        callback = registry._svg_callbacks.get((layer.renderer, layer.version))
+        limits = self._policy.fidelity.get("svg") if self._policy else None
+        if callback is None or limits is None:
+            self._emit_raster_fallback(
+                layer,
+                "Plugin has no SVG callback"
+                if callback is None
+                else "Plugin SVG needs explicit fidelity limits; canonical PNG retained",
+            )
+            return
+        limits = limits.copy()
+        context = plugin_context(layer, self._canvas._ctx)
+        with plugin_image(layer, context, registry) as expected:
+            try:
+                document = callback(deepcopy(layer.params), context)
+                validate_plugin_svg(document)
+                encoded = base64.b64encode(document.encode()).decode()
+                local = (
+                    f'<image width="{layer.width}" height="{layer.height}" '
+                    f'opacity="{layer.opacity}" xlink:href="data:image/svg+xml;base64,{encoded}"/>'
+                )
+                observed = (
+                    '<svg xmlns="http://www.w3.org/2000/svg" '
+                    'xmlns:xlink="http://www.w3.org/1999/xlink" '
+                    f'width="{layer.width}" height="{layer.height}">{local}</svg>'
+                )
+                comparison = observe_plugin_svg(expected, observed, limits)
+                reason = (
+                    f"Local plugin RGBA comparison: {comparison['verdict']}; "
+                    f"pixel_diff_ratio={comparison.get('pixel_diff_ratio')}, "
+                    f"hash_similarity={comparison['hash_similarity']}; limits={limits}"
+                )
+                accepted = comparison["verdict"] != "out_of_policy"
+            except Exception as error:
+                reason, accepted = f"Plugin SVG unavailable or invalid: {error}", False
+            x = parse_coordinate(layer.position[0], self._canvas.width)
+            y = parse_coordinate(layer.position[1], self._canvas.height)
+            if layer.align is not None:
+                x, y = apply_alignment(x, y, context.size, layer.align)
+            if accepted:
+                self._body.append(f'<g transform="translate({x} {y})">{local}</g>')
+            else:
+                buffer = BytesIO()
+                expected.save(buffer, format="PNG")
+                self._emit_fragment(RasterFragment(buffer.getvalue(), x, y, *context.size))
+            self._record_routing([layer], reason, rasterized=not accepted, native_attempt=True)
 
     def _emit_raster_fallback(self, layer: RenderableLayer, reason: str):
         fragment = rasterize_layers(self._canvas, [layer])

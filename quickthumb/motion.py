@@ -2085,7 +2085,15 @@ def _validate_export(
     parent_html_paths: set[str] = set()
     parent_html_problems: dict[str, str] = {}
     document_format = parent_document_format or normalized
+    svg_candidates: set[int] = set()
     for index, canvas in enumerate(getattr(source, "slides", (source,))):
+        if document_format == "svg" and "svg" in resolved_policy.fidelity:
+            svg_candidates.update(
+                id(layer)
+                for _, layer in _iter_export_layers(canvas)
+                if isinstance(layer, PluginLayer)
+                and "svg" in canvas._plugin_registry.capabilities(layer.renderer, layer.version)
+            )
         _validate_text_selectors(canvas)
         try:
             cast("Canvas", canvas)._validate_layer_identities()
@@ -2126,8 +2134,13 @@ def _validate_export(
     for layer_id, pointer, layer in _iter_export_layer_locations(source):
         if isinstance(layer, PluginLayer):
             raster = document_format not in {"svg", "html", "pdf", "pptx"}
+            candidate = id(layer) in svg_candidates
             action = resolved_policy.pptx.get(layer_id) if normalized == "pptx" else None
-            if not raster and (action or resolved_policy.unsupported_motion) in {"error", "native"}:
+            if (
+                not raster
+                and not candidate
+                and (action or resolved_policy.unsupported_motion) in {"error", "native"}
+            ):
                 raise RenderingError(
                     f"Plugin '{layer.renderer}' version '{layer.version}' requires "
                     f"RGBA raster fallback in {document_format}.",
@@ -2140,10 +2153,12 @@ def _validate_export(
                     layer_id=layer_id,
                     feature="plugin",
                     target=normalized,
-                    support="full" if raster else "fallback",
-                    fallback=None if raster else "rasterize",
+                    support="full" if raster else "partial" if candidate else "fallback",
+                    fallback=None if raster or candidate else "rasterize",
                     message=(
-                        f"Plugin '{layer.renderer}' version '{layer.version}' uses static "
+                        "Plugin SVG callback registered; local comparison has not executed"
+                        if candidate
+                        else f"Plugin '{layer.renderer}' version '{layer.version}' uses static "
                         + (
                             "canonical RGBA pixels"
                             if raster

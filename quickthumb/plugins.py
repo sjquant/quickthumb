@@ -26,13 +26,14 @@ from quickthumb.models.layers import PluginLayer
 
 @dataclass(frozen=True)
 class PluginRenderContext:
-    """Local output size and declared byte assets for a synchronous raster callback."""
+    """Local output size and declared byte assets for trusted synchronous callbacks."""
 
     size: tuple[int, int]
     read_asset: Callable[[str], bytes]
 
 
 _RasterCallback = Callable[[dict[str, Any], PluginRenderContext], bytes]
+_SvgCallback = Callable[[dict[str, Any], PluginRenderContext], str]
 
 
 class PluginDefinition(quickthumbModel):
@@ -72,7 +73,7 @@ class PluginDefinition(quickthumbModel):
 class PluginRegistry:
     """An exact, version-aware registry of named plugin definitions.
 
-    JSON metadata is separate from trusted synchronous raster callbacks.
+    JSON metadata is separate from trusted synchronous raster/SVG callbacks.
     Outward definitions are sorted by `(renderer, version)` so schema and
     inspection output is reproducible; they never contain executable code.
 
@@ -84,6 +85,7 @@ class PluginRegistry:
     def __init__(self) -> None:
         self._definitions: dict[tuple[str, str], PluginDefinition] = {}
         self._raster_callbacks: dict[tuple[str, str], _RasterCallback] = {}
+        self._svg_callbacks: dict[tuple[str, str], _SvgCallback] = {}
 
     def register(
         self,
@@ -93,6 +95,7 @@ class PluginRegistry:
         *,
         replace: bool = False,
         raster: _RasterCallback | None = None,
+        svg: _SvgCallback | None = None,
     ) -> PluginDefinition:
         """Register one renderer/version pair and return a detached definition."""
         try:
@@ -114,11 +117,29 @@ class PluginRegistry:
             )
         if raster is not None and not callable(raster):
             raise ValidationError("plugin raster must be callable")
+        if svg is not None and (not callable(svg) or raster is None):
+            raise ValidationError("plugin svg requires a callable and a canonical raster callback")
         self._definitions[key] = definition
         self._raster_callbacks.pop(key, None)
+        self._svg_callbacks.pop(key, None)
         if raster is not None:
             self._raster_callbacks[key] = raster
+        if svg is not None:
+            self._svg_callbacks[key] = svg
         return self._copy_definition(definition)
+
+    def capabilities(self, renderer: str, version: str | None = None) -> tuple[str, ...]:
+        """Discover registered implementations without invoking executable callbacks."""
+        definition = self.require(renderer, version)
+        key = (definition.renderer, definition.version)
+        return tuple(
+            target
+            for target, callbacks in (
+                ("raster", self._raster_callbacks),
+                ("svg", self._svg_callbacks),
+            )
+            if key in callbacks
+        )
 
     def _raster_callback(self, layer: PluginLayer) -> _RasterCallback:
         self.validate(layer)
@@ -139,6 +160,7 @@ class PluginRegistry:
         if version is not None:
             self._definitions.pop((renderer, version), None)
             self._raster_callbacks.pop((renderer, version), None)
+            self._svg_callbacks.pop((renderer, version), None)
             return
         matches = [key for key in self._definitions if key[0] == renderer]
         if len(matches) > 1:
@@ -148,11 +170,13 @@ class PluginRegistry:
         for key in matches:
             self._definitions.pop(key, None)
             self._raster_callbacks.pop(key, None)
+            self._svg_callbacks.pop(key, None)
 
     def clear(self) -> None:
         """Remove all definitions, primarily for isolated application lifecycles."""
         self._definitions.clear()
         self._raster_callbacks.clear()
+        self._svg_callbacks.clear()
 
     def validate(self, layer: PluginLayer | Mapping[str, Any]) -> PluginLayer:
         """Validate a plugin layer against registration and its params schema."""
