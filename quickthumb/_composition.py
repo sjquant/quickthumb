@@ -9,6 +9,8 @@ from PIL import Image, ImageChops, ImageDraw, ImageFilter
 
 from quickthumb._base import RenderContext, apply_alignment, parse_coordinate
 from quickthumb._effects import EffectsEngine
+from quickthumb._path_fill import fill_path_mask
+from quickthumb._path_geometry import flatten_path
 from quickthumb.errors import RenderingError, ValidationError
 from quickthumb.models import Align, BackdropBlur, LayerClip, LayerMask
 
@@ -85,6 +87,7 @@ def with_motion_mask(layer, state, ctx):
     x, y, width, height = _mask_bounds(ctx, mask)
     # Resolve alignment once against the authored box; resizing does not move its top-left.
     dx, dy = state.mask_position or (0, 0)
+    view_box = mask.view_box or (0, 0, width, height) if mask.shape == "path" else None
     width, height = state.mask_size or (width, height)
     if any(
         not math.isfinite(value) or abs(value) > 2**28 for value in (x + dx, y + dy, width, height)
@@ -100,6 +103,7 @@ def with_motion_mask(layer, state, ctx):
             "height": height,
             "align": Align.TOP_LEFT,
             "feather": feather,
+            "view_box": view_box,
         }
     )
     return layer.model_copy(update={"mask": mask})
@@ -271,21 +275,44 @@ def _mask_alpha(
     x, y, width, height = _mask_bounds(ctx, mask)
     pad = _mask_padding(mask)
     padded_size = size[0] + 2 * pad, size[1] + 2 * pad
-    if mask.feather and padded_size[0] * padded_size[1] * 16 > 67_108_864:
+    if (mask.feather or mask.shape == "path") and padded_size[0] * padded_size[1] * 16 > 67_108_864:
         raise RenderingError(
-            "Feathered mask exceeds the 64-million-sample surface budget", code="mask_surface_limit"
+            "Mask exceeds the 64-million-sample surface budget", code="mask_surface_limit"
         )
-    alpha = _shape_alpha(
-        padded_size,
-        x,
-        y,
-        width,
-        height,
-        shape=mask.shape,
-        points=mask.points,
-        opacity=mask.opacity,
-        offset=(offset[0] - pad, offset[1] - pad),
-    )
+    if mask.shape == "path":
+        assert mask.d is not None  # Validated by LayerMask.
+        vx, vy, vw, vh = mask.view_box or (0, 0, width, height)
+        contours = flatten_path(mask.d, (vx, vy), (width / vw, height / vh))
+        origin = (offset[0] - pad - x, offset[1] - pad - y)
+        bounds = (
+            max(0, origin[0]),
+            max(0, origin[1]),
+            min(width, origin[0] + padded_size[0]),
+            min(height, origin[1] + padded_size[1]),
+        )
+        alpha = fill_path_mask(
+            contours, (padded_size[0] * 4, padded_size[1] * 4), bounds, origin=origin
+        ).convert("L")
+        # Polygon drawing includes its last sample; mask viewports are half-open like shapes.
+        right = min(alpha.width, max(0, math.floor((width - origin[0]) * 4)))
+        bottom = min(alpha.height, max(0, math.floor((height - origin[1]) * 4)))
+        alpha.paste(0, (right, 0, alpha.width, alpha.height))
+        alpha.paste(0, (0, bottom, alpha.width, alpha.height))
+        if mask.opacity != 1:
+            alpha = alpha.point(lambda value: round(value * mask.opacity))
+        alpha = alpha.resize(padded_size, Image.Resampling.LANCZOS)
+    else:
+        alpha = _shape_alpha(
+            padded_size,
+            x,
+            y,
+            width,
+            height,
+            shape=mask.shape,
+            points=mask.points,
+            opacity=mask.opacity,
+            offset=(offset[0] - pad, offset[1] - pad),
+        )
     if pad:
         alpha = alpha.filter(ImageFilter.GaussianBlur(mask.feather)).crop(
             (pad, pad, pad + size[0], pad + size[1])

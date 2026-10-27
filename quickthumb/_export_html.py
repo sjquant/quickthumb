@@ -297,6 +297,8 @@ def _mask_html_problem(layer, ctx) -> str | None:
     if not isinstance(layer, ShapeLayer) or not isinstance(layer.mask, LayerMask):
         return "native HTML masks require a shape owner and LayerMask"
     mask = layer.mask
+    if mask.shape == "path":
+        return "path-shaped LayerMask uses canonical raster coverage; native HTML is unsupported"
     if (
         layer.shape not in {"rectangle", "ellipse", "pill"}
         or layer.rotation
