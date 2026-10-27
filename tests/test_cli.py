@@ -307,20 +307,28 @@ class TestCLIRender:
             img = Image.open("thumb.png")
             assert img.format == "JPEG"
 
-    def test_should_accept_quality_flag(self, spec_file):
-        """Test that --quality flag is accepted and the output file is created"""
-        # Given: A valid spec file and --quality 80
+    @pytest.mark.parametrize(
+        "extension,quality,encoding", [("jpg", 95, "JPEG"), ("webp", 100, "WEBP")]
+    )
+    def test_should_accept_quality_flag(self, spec_file, extension, quality, encoding):
+        """CLI render accepts the selected codec's maximum compression quality."""
+        # Given: a valid spec and the selected JPEG or WebP quality limit
+        from PIL import Image
         from quickthumb.cli import app
 
         runner = CliRunner()
+        output = f"thumb.{extension}"
 
-        # When: User runs `quickthumb render spec.json -o thumb.jpg --quality 80`
+        # When: the CLI renders at that codec's maximum supported quality
         with isolated_filesystem():
-            result = runner.invoke(app, ["render", spec_file, "-o", "thumb.jpg", "--quality", "80"])
+            result = runner.invoke(
+                app, ["render", spec_file, "-o", output, "--quality", str(quality)]
+            )
 
-            # Then: thumb.jpg is created and the command exits successfully
+            # Then: the actual output uses the requested encoding
             assert result.exit_code == 0
-            assert os.path.exists("thumb.jpg")
+            with Image.open(output) as image:
+                assert image.format == encoding
 
     def test_should_render_debug_overlay(self, spec_file):
         """render --debug writes annotated raster output"""
@@ -577,7 +585,7 @@ class TestCLIRender:
         assert "BMP" in result.output
 
     def test_should_exit_1_on_quality_out_of_range(self, spec_file):
-        """Test that exit code 1 is returned when --quality is outside 1-95"""
+        """CLI render rejects a compression quality above the supported codec range"""
         # Given: A valid spec file and an out-of-range quality value
         from quickthumb.cli import app
 

@@ -204,7 +204,32 @@ class CubicBezierEasing(_MotionModel):
         return points
 
 
-MotionEasing = MotionEasingName | CubicBezierEasing
+class SpringEasing(_MotionModel):
+    """A unit step response of a damped spring, sampled without integration.
+
+    The response runs over one normalized second per keyframe interval. The
+    declared interval always ends at its target, even if the spring has not
+    settled naturally.
+    """
+
+    type: Literal["spring"] = "spring"
+    stiffness: FinitePositiveFloat = 100.0
+    damping: FiniteNonNegativeFloat = 10.0
+    mass: FinitePositiveFloat = 1.0
+
+    @model_validator(mode="after")
+    def validate_response(self):
+        frequency_squared = self.stiffness / self.mass
+        decay = self.damping / self.mass / 2
+        if not (
+            0 < frequency_squared < math.inf
+            and math.isfinite(2 * decay + math.sqrt(frequency_squared))
+        ):
+            raise ValidationError("spring parameters must produce finite positive response rates")
+        return self
+
+
+MotionEasing = MotionEasingName | CubicBezierEasing | SpringEasing
 
 
 class KeyframeSpec(_MotionModel):
@@ -222,10 +247,29 @@ class KeyframeSpec(_MotionModel):
     hold: bool = Field(default=False, exclude_if=lambda value: value is False)
 
 
+class Wiggle(_MotionModel):
+    """Seeded band-limited offsets added to a numeric track on its event clock."""
+
+    frequency: FinitePositiveFloat = 2.0
+    amplitude: FiniteNonNegativeFloat = 1.0
+    seed: Annotated[int, Field(strict=True, ge=0, le=4294967295)] = 0
+
+
+def _validate_wiggle_values(values, wiggle: Wiggle | None) -> None:
+    if wiggle is not None:
+        for value in values:
+            components = value if isinstance(value, (tuple, list)) else (value,)
+            if any(
+                not math.isfinite(abs(component) + wiggle.amplitude) for component in components
+            ):
+                raise ValidationError("keyframe values plus wiggle amplitude must remain finite")
+
+
 class _TrackBase(_MotionModel):
     """Shared fields for a typed motion property track."""
 
     keyframes: list[KeyframeSpec]
+    wiggle: Wiggle | None = Field(default=None, exclude_if=lambda value: value is None)
 
     @model_validator(mode="after")
     def validate_keyframes(self):
@@ -240,6 +284,7 @@ class _TrackBase(_MotionModel):
             for key in self.keyframes
         ):
             raise ValidationError("tangents are only supported for position tracks")
+        _validate_wiggle_values((key.value for key in self.keyframes), self.wiggle)
         return self
 
 
@@ -359,7 +404,7 @@ class ScalarTrack(_TrackBase):
 
 
 class ScaleTrack(ScalarTrack):
-    """A uniform scale track."""
+    """Uniform outer-object scale about the layer anchor, including image layers."""
 
     type: Literal["scale"] = "scale"
 
@@ -391,7 +436,7 @@ class ImageZoomTrack(ScalarTrack):
 
 
 class RotationTrack(ScalarTrack):
-    """A rotation-in-degrees track."""
+    """Clockwise rotation in degrees, added to path heading with auto-orient."""
 
     type: Literal["rotation"] = "rotation"
 
@@ -442,6 +487,7 @@ class ColorTrack(_TrackBase):
     """A text/shape fill track interpolated in premultiplied Oklab and linear alpha."""
 
     type: Literal["color"] = "color"
+    wiggle: None = Field(default=None, exclude_if=lambda value: value is None)
 
     @field_validator("keyframes")
     @classmethod

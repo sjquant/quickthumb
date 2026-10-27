@@ -191,7 +191,8 @@ if __name__ == "__main__":
     output.mkdir(parents=True, exist_ok=True)
     scene = build_scene()
     scene.render(
-        str(output / "parent_group_counters.gif"), animation=GifOptions(fps=24, quality="high")
+        str(output / "parent_group_counters.gif"),
+        animation=GifOptions(fps=24, render_quality="high"),
     )
     snapshot().save(output / "parent_group_counters.png")
     scene.render(str(output / "parent_group_counters.html"))

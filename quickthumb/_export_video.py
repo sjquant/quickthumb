@@ -6,11 +6,11 @@ timeline, sampled at a fixed frame rate through the regular PIL pipeline -- so
 every frame is pixel-identical to the raster renderer, unlike the HTML/PPTX
 exporters which approximate effects in CSS/PowerPoint.
 
-The timing model mirrors the HTML slideshow runtime (timeline.js /
-deck_runtime.js), with the one difference a non-interactive medium forces:
-there are no clicks, so `on_click` animations chain automatically exactly
-like `after_previous` (the same thing PowerPoint's own video export does).
-Concretely, per slide:
+The visual timing model shares authored layer and transition clocks with the
+HTML slideshow runtime (timeline.js / deck_runtime.js). In this non-interactive
+output there are no clicks, so `on_click` animations chain automatically like
+`after_previous`. Video narration can additionally determine slide windows;
+GIF stays silent and ignores those narration durations. Concretely, per slide:
 
 - The slide's transition animates the change into it, playing over the
   previous slide's final frame (slide 0 plays its transition from the matte;
@@ -21,10 +21,10 @@ Concretely, per slide:
   transition. `with_previous` effects run concurrently with the previous
   effect; everything else runs after it; `delay` holds the effect's hidden
   (entrance) or shown (exit) state before it plays.
-- After the animations finish, the slide's final state holds for
-  `advance_after` seconds when its transition sets one (counted from the
-  end of the transition, like the HTML auto-advance timer), else for the
-  exporter's `slide_duration`.
+- `advance_after` replaces the default hold and sets an exit boundary measured
+  from the end of the incoming transition. The slide still waits for unfinished
+  motion or a longer explicit/narrated duration. Without that boundary or a
+  duration override, the exporter's public `hold` follows the motion/transition.
 
 Frames are eased with the CSS `ease` curve the HTML export uses, so both
 animated formats move the same way. GIF is encoded by Pillow with per-frame
@@ -407,7 +407,7 @@ def _setup_animation(
         raise ValidationError("animation must be GifOptions or VideoOptions")
     if animation is not None:
         fps, slide_duration, matte = animation.fps, animation.hold, animation.matte
-        workers, quality = animation.workers, animation.quality
+        workers, quality = animation.workers, animation.render_quality
     if audio_schedule is not None:
         if any(
             value is not None
@@ -657,7 +657,7 @@ class _PreparedAnimation:
         # These are rendering settings. Codec limits and audio belong to callers
         # at the encoding boundary; None requests native-size straight RGBA.
         if quality not in ("standard", "high"):
-            raise ValidationError("quality must be standard or high")
+            raise ValidationError("render_quality must be standard or high")
         if type(workers) is not int or not 1 <= workers <= 8:
             raise ValidationError("workers must be an integer between 1 and 8")
         if workers > 1:
@@ -674,11 +674,11 @@ class _PreparedAnimation:
         ):
             raise ValidationError("fps must be > 0")
         if isinstance(slide_duration, bool) or not isinstance(slide_duration, (int, float)):
-            raise ValidationError("slide_duration must be finite")
+            raise ValidationError("hold must be finite")
         if not math.isfinite(slide_duration):
-            raise ValidationError("slide_duration must be finite")
+            raise ValidationError("hold must be finite")
         if slide_duration < 0:
-            raise ValidationError("slide_duration must be >= 0")
+            raise ValidationError("hold must be >= 0")
         self.fps = fps
         self._size = (canvases[0].width, canvases[0].height)
         self._entered = False
@@ -1533,7 +1533,6 @@ class _SlideAnimator:
                     state.canonical.alpha_scale,
                     pos,
                     clip_scale=state.canonical.clip_scale,
-                    include_scale=not any(isinstance(item, ImageLayer) for item in unit.layers),
                     subpixel=state.canonical.subpixel,
                     render_scale=render_scale,
                 )
@@ -1580,9 +1579,7 @@ class _SlideAnimator:
             motion = (
                 state.canonical.layer if state.canonical else LayerState(anchor=node.layer.anchor)
             )
-            uniform = (
-                motion.scale if not isinstance(node.layer, ImageLayer) and motion.scale > 0 else 1.0
-            )
+            uniform = motion.scale if motion.scale > 0 else 1.0
             left, top, width, height = node.pivot_box
             delta = multiply(
                 translate(left, top),
@@ -2247,9 +2244,7 @@ def _component_animation_duration(
         # counters above remain intrinsic source animation.
         return 0.0
     if isinstance(layer, ImageLayer):
-        # An image layer reads scale as a viewport zoom and pans inside its own
-        # frame, so it has to be re-rendered per frame rather than transformed
-        # as a finished picture.
+        # Viewport zoom and pan change source content inside the fitted frame.
         return _canonical_viewport_duration(layer)
     if not isinstance(layer, (ChartLayer, QRCodeLayer)):
         return 0.0
@@ -2289,7 +2284,7 @@ def _canonical_viewport_duration(layer: ImageLayer) -> float:
     if not specs:
         return 0.0
     timeline = compile_timeline(specs)
-    viewport = {"image_pan", "image_zoom", "scale"}
+    viewport = {"image_pan", "image_zoom"}
     if not any(track.property in viewport for event in timeline.events for track in event.tracks):
         return 0.0
     return timeline.duration
@@ -2404,7 +2399,6 @@ def _canonical_state(unit: _Unit, time: float):
             subpixel=_geometry_in_motion(
                 timelines[-1],
                 time,
-                include_scale=not any(isinstance(layer, ImageLayer) for layer in unit.layers),
                 state=states[-1],
             ),
         )
@@ -2418,7 +2412,6 @@ def _canonical_render(
     pos: tuple[int, int],
     *,
     clip_scale: float = 1.0,
-    include_scale: bool = True,
     subpixel: bool = False,
     render_scale: float = 1,
 ) -> tuple[Image.Image, tuple[int, int]] | None:
@@ -2443,7 +2436,6 @@ def _canonical_render(
             output,
             state,
             pos,
-            include_scale=include_scale,
             subpixel=subpixel,
             render_scale=render_scale,
         )
@@ -2458,7 +2450,7 @@ def _canonical_render(
         mask = Image.new("L", output.size, 0)
         ImageDraw.Draw(mask).rectangle((0, 0, width, output.height), fill=255)
         output = _masked_alpha(output, mask)
-    return apply_canonical_geometry(output, state, pos, include_scale=include_scale)
+    return apply_canonical_geometry(output, state, pos)
 
 
 def _animation_reveal(
