@@ -329,7 +329,7 @@ def test_local_video_and_disappearing_captions_match(tmp_path, reduced, hold):
     # Then: decoded playback and only the actually used caption face agree
     assert outputs[0] == outputs[1]
     assert environments[0] == environments[1]
-    expected_hashes = [] if reduced else [hashlib.sha256(Path(FONT).read_bytes()).hexdigest()]
+    expected_hashes = [hashlib.sha256(Path(FONT).read_bytes()).hexdigest()]
     assert [font.sha256 for font in environments[1].fonts] == expected_hashes
 
 
