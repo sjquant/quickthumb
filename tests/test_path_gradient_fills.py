@@ -131,7 +131,8 @@ def test_document_raster_fallback_keeps_gradient_pixels(tmp_path):
     )
     assert placed.tobytes() == canvas.render_frame(0).tobytes()
     assert [(item.feature, item.fallback) for item in result.capability_report] == [
-        ("path", "rasterize")
+        ("path", "rasterize"),
+        ("layer_representation", "rasterize"),
     ]
 
 
