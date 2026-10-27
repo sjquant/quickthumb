@@ -18,6 +18,7 @@ from quickthumb.models import (
     BackgroundLayer,
     ExportDiagnostic,
     LottieOptions,
+    NullLayer,
     PathLayer,
     ShapeLayer,
 )
@@ -28,14 +29,13 @@ if TYPE_CHECKING:
     from quickthumb.models import ExportPolicy
 
 
-def _layer_problem(layer, reduced_motion: bool, canvas) -> tuple[str, str] | None:
-    if not isinstance(layer, (BackgroundLayer, ShapeLayer, PathLayer)):
+def _layer_problem(layer, reduced_motion: bool, canvas, linked: bool) -> tuple[str, str] | None:
+    if not isinstance(layer, (BackgroundLayer, ShapeLayer, PathLayer, NullLayer)):
         return (
             "type",
             f"{getattr(layer, 'type', 'custom')} layers are not supported by static Lottie",
         )
     for field in (
-        "parent",
         "fill",
         "gradient",
         "image",
@@ -70,15 +70,16 @@ def _layer_problem(layer, reduced_motion: bool, canvas) -> tuple[str, str] | Non
                     "animation",
                     "Lottie pose motion supports only position, scale, rotation and opacity tracks",
                 )
-            if isinstance(layer, ShapeLayer) and any(
+            if isinstance(layer, (ShapeLayer, NullLayer)) and any(
                 track.type == "scale" and any(key.value <= 0 for key in track.keyframes)
                 for track in spec.tracks or ()
             ):
                 return (
                     "animation",
-                    "Nonpositive uniform Shape scale is not supported by this canonical renderer",
+                    "Nonpositive uniform Shape/Null scale is not supported "
+                    "by this canonical renderer",
                 )
-    if isinstance(layer, ShapeLayer) and animation and not reduced_motion:
+    if isinstance(layer, ShapeLayer) and animation and not reduced_motion and not linked:
         from quickthumb._lottie_pose import shape_source_box
 
         x, y, width, height = shape_source_box(canvas, layer)
@@ -140,12 +141,16 @@ def _problems(source: Canvas | Deck, policy: ExportPolicy | None = None) -> list
                 message="Lottie currently requires a single Canvas",
             )
         ]
-    source._validate_layer_identities()
+    from quickthumb._parent_render import participating_layers
+
+    members = participating_layers(cast("Canvas", source))
     from quickthumb.motion import _iter_export_layer_locations
 
     errors = []
     for layer_id, pointer, layer in _iter_export_layer_locations(source):
-        problem = _layer_problem(layer, bool(policy and policy.reduced_motion), source)
+        problem = _layer_problem(
+            layer, bool(policy and policy.reduced_motion), source, id(layer) in members
+        )
         if isinstance(layer, BackgroundLayer) and pointer != "/layers/0":
             problem = "type", "A Lottie background must be the first layer"
         if problem:
@@ -238,6 +243,8 @@ def _paint(color, stroke=None):
 
 
 def _shapes(layer, width, height):
+    if isinstance(layer, NullLayer):
+        return []
     if isinstance(layer, BackgroundLayer):
         return (
             [
@@ -371,12 +378,14 @@ def write_lottie(
     if not math.isfinite(duration):
         raise RenderingError("Lottie playback duration must be finite", path="/animation/fps")
     layers = []
+    from quickthumb._lottie_parent import parent_frames
     from quickthumb.motion import _iter_export_layer_locations
 
+    geometry, frame_indices, frames = parent_frames(canvas, frame_count)
     boundaries = pose_boundaries(timelines)
     pose_count = 0
     for index, (layer_id, pointer, layer) in enumerate(_iter_export_layer_locations(canvas)):
-        assert isinstance(layer, (BackgroundLayer, ShapeLayer, PathLayer))
+        assert isinstance(layer, (BackgroundLayer, ShapeLayer, PathLayer, NullLayer))
         try:
             shapes, keys, count = layer_pose(
                 canvas,
@@ -385,6 +394,7 @@ def write_lottie(
                 timelines[index],
                 options.fps,
                 boundaries,
+                geometry.get(id(layer)),
             )
         except QuickthumbError as error:
             raise RenderingError(
@@ -407,7 +417,7 @@ def write_lottie(
             )
         layers.append(
             {
-                "ty": 4,
+                "ty": 3 if isinstance(layer, NullLayer) else 4,
                 "ind": index + 1,
                 "nm": layer_id,
                 "ddd": 0,
@@ -420,6 +430,12 @@ def write_lottie(
                 "bm": 0,
             }
         )
+        if isinstance(layer, NullLayer):
+            del layers[-1]["shapes"]
+        parent = getattr(layer, "parent", None)
+        if parent:
+            layers[-1]["parent"] = frame_indices[parent]
+    layers.extend(frames)
     payload = {
         "v": "5.13.0",
         "ver": 10001,
