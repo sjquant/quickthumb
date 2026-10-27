@@ -100,7 +100,7 @@ class TestMotionTimeline:
             ("float", "position", "add", "sine"),
             ("pulse", "scale", "multiply", "sine"),
             ("shake", "position", "add", "sine"),
-            ("ken_burns", "scale", "multiply", (1.0, 1.1)),
+            ("ken_burns", "image_zoom", "multiply", (1.0, 1.1)),
             ("typewriter", "clip_progress", "multiply", (0.0, 1.0)),
         ],
     )
@@ -534,7 +534,12 @@ class TestMotionTimeline:
 
     @pytest.mark.parametrize(
         ("effect", "field"),
-        [("float", "position"), ("shake", "position"), ("pulse", "scale"), ("ken_burns", "scale")],
+        [
+            ("float", "position"),
+            ("shake", "position"),
+            ("pulse", "scale"),
+            ("ken_burns", "image_zoom"),
+        ],
     )
     def test_should_sample_every_state_representable_preset(self, effect, field):
         """Every state-representable public preset changes a LayerState deterministically."""

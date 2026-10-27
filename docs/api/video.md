@@ -147,7 +147,7 @@ ScaleTrack(
 )
 ```
 
-Ordinary HTML presets pass an animation-level custom curve to CSS. Per-keyframe easing
+Ordinary HTML presets pass an animation-level custom Bézier curve to CSS. Per-keyframe easing
 and holds are rendered by the raster and video pipelines; HTML animates canonical
 motion between its start and settled states, and PPTX falls back to its preset
 effects.
@@ -155,6 +155,81 @@ effects.
 The bounded HTML adapters for anchors, axis scaling, paths and parent chains
 use static fallback with custom Bézier easing, per-keyframe easing or keyframe
 holds. Raster animation preserves these clocks.
+
+### Spring easing
+
+`SpringEasing(stiffness=100, damping=10, mass=1)` supplies a closed-form damped
+unit-step response wherever canonical easing is accepted, including individual
+keyframe intervals. Smaller damping permits overshoot; critical damping is
+`2 * sqrt(stiffness * mass)`, while larger damping approaches the target more
+slowly. Stiffness and mass must be positive; damping may be zero.
+
+```python
+from quickthumb import AnimationSpec, KeyframeSpec, PositionTrack, SpringEasing
+
+motion = AnimationSpec.timeline(
+    PositionTrack(keyframes=[
+        KeyframeSpec(time=0, value=(0, 0)),
+        KeyframeSpec(time=1, value=(180, 0)),
+    ]),
+    easing=SpringEasing(stiffness=100, damping=10, mass=1),
+)
+```
+
+The response uses one normalized second per keyframe interval; changing the
+interval length stretches that same curve. Each interval starts at its first
+value and ends exactly at the next keyframe, so a spring that has not naturally
+settled will snap to the target at that boundary. The final value holds after
+the animation. Opacity, colors and other bounded properties retain their normal
+clamping; path distance remains clamped to the authored path.
+
+Sampling is a pure function of time: seeking and sequential raster/video export
+use the same curve without simulation state. JSON stores `type: "spring"` and
+the three parameters. `inspect_motion()` reports the spring capability and its
+sampled states. HTML and PPTX use a declared authored-static fallback rather than
+substituting a CSS or PowerPoint curve; strict export policy rejects it.
+[`examples/spring_motion.py`](https://github.com/sjquant/quickthumb/blob/main/examples/spring_motion.py)
+compares the three damping regimes and exports GIF, JSON and a midpoint PNG.
+
+### Wiggle track modifiers
+
+Attach `wiggle=Wiggle(frequency=2, amplitude=12, seed=156)` to a numeric or
+vector track to add deterministic noise after keyframe interpolation:
+
+```python
+from quickthumb import AnimationSpec, KeyframeSpec, PositionTrack, TimingSpec, Wiggle
+
+motion = AnimationSpec.timeline(
+    PositionTrack(
+        keyframes=[KeyframeSpec(time=0, value=(0, 0))],
+        wiggle=Wiggle(frequency=2, amplitude=12, seed=156),
+    ),
+    timing=TimingSpec(duration=2),
+)
+```
+
+`frequency` is the highest noise component in cycles per second. Four
+noncommensurate sinusoidal components use seed-derived phases, without a global
+random generator or simulation state. `amplitude` bounds the absolute offset
+per scalar or vector component, in that property's units; vector axes use
+independent phases. `seed` is a stored unsigned 32-bit integer. Color tracks do
+not accept wiggle.
+
+The modifier starts at zero offset on the animation event's local clock. It
+continues across keyframe holds and after a track's last keyframe until the
+event ends, then holds that final perturbed value. An explicit `TimingSpec`
+gives a one-keyframe constant track a duration; no additional clock or automatic
+fade is introduced. The same seed, parameters and event time produce the same
+offset when seeking, exporting sequentially or using render workers.
+
+Opacity and reveal remain within 0–1, image pan within -1–1, image zoom at least
+1, and blur nonnegative. These property clamps apply after the bounded noise;
+uniform/axis scale retains its ordinary renderer semantics. A path's position
+can be perturbed, but `auto_orient` continues to use the authored path heading.
+`inspect_motion()` includes the modifier and sampled states. HTML and PPTX use
+declared authored-static fallback, including parent-linked scenes.
+[`examples/wiggle_motion.py`](https://github.com/sjquant/quickthumb/blob/main/examples/wiggle_motion.py)
+compares three seeds on position and rotation tracks.
 
 ## Notes
 
@@ -231,11 +306,11 @@ for that interval; `hold=True` retains the prior position until the next keyfram
 `0°`, down is `90°`, and positive rotation is clockwise. Author directional
 artwork facing right. Rotation uses the layer's existing transform anchor.
 
-Track order decides precedence. An auto-oriented position track replaces the
-animated rotation accumulated before it; a `RotationTrack` after it replaces
-the tangent heading. A layer's authored static `rotation` is already baked
-into its source pixels and remains part of that artwork. Auto-orientation does
-not add the heading to an earlier animated rotation.
+Auto-orientation supplies path heading; `RotationTrack` supplies an offset
+added to it. Swapping those tracks has no effect. A constant `90` offset turns
+an upward-authored arrow to face along a rightward path. With no direction,
+the path contributes no heading. Multiple position tracks still use document
+order for position and the last active directional path supplies the heading.
 
 An exact interior knot uses the incoming segment's heading. Stationary holds
 reuse the nearest earlier available direction, or the next direction if the
@@ -251,7 +326,7 @@ Omitted handles and the default `auto_orient=False` are not serialized.
 ### Export support
 
 - Raster frames, GIF, MP4 and WebM share the same path sampler, including
-  `quality="high"` and spawn workers. Paths can be combined with `ColorTrack`
+  `render_quality="high"` and spawn workers. Paths can be combined with `ColorTrack`
   on eligible text, shapes and groups
 - HTML animates one geometry-only canonical timeline on a static rendered
   source, without stagger or composed animations. It bakes sampled transform
@@ -313,17 +388,20 @@ canvas.render_frame(1).save("anchored.png")
 `ScaleXTrack` and `ScaleYTrack` default to `1`. Their sampled values multiply
 the existing uniform `ScaleTrack`: effective scales are `scale * scale_x` and
 `scale * scale_y`. Axis values may be negative to reflect the layer; zero on
-either axis collapses it to no visible pixels. The existing uniform scale's
-non-positive raster behaviour remains unchanged. Image layers keep their
-existing uniform-scale viewport zoom; the new axis tracks scale the outer image
-frame instead.
+either axis collapses it to no visible pixels. Nonpositive uniform scale is ignored by raster output. On image layers, all three
+scale tracks change the outer frame. Use `ImageZoomTrack` to magnify content
+inside a fixed fitted frame; `AnimationSpec.ken_burns()` uses that image zoom.
+For older image animations intended to zoom within the frame, replace
+`ScaleTrack` with `ImageZoomTrack`.
 
 The single affine transform subtracts the pivot, scales independently, rotates,
 restores the pivot, then applies the motion translation. The pivot is measured
 on the rendered visible bounds, after authored static rotation/effects, before
 canonical opacity/reveal and motion blur. It applies to canonical
 `AnimationSpec` motion; untimed still rendering and authored static `rotation`
-retain their established behaviour. A group is one rendered unit; supported
+retain their established behaviour. For pivot-controlled rotation, use a
+`RotationTrack` and leave static `rotation` at zero to avoid two pivots.
+A group is one rendered unit; supported
 stagger targets use their own bounds. Parent/child transform inheritance is
 not introduced by this option.
 
@@ -338,14 +416,14 @@ point API.
 ### Export support
 
 - Raster, GIF, MP4 and WebM apply the same pivot and independent scales,
-  including `quality="high"` and spawn workers
+  including `render_quality="high"` and spawn workers
 - HTML maps the new transform to `transform-origin` and `scale(x, y)` using
   registered CSS custom properties. One geometry-only canonical timeline is
   supported, with independent authored keyframe times and named easing.
   It embeds the authored layer pixels to keep the pivot bounds consistent
 - HTML falls back to authored static pixels for composed animation lists,
   presets, stagger, unsupported property tracks, dynamic source content,
-  image viewport scale, or non-positive uniform scale. Browsers must support
+  image viewport zoom, or non-positive uniform scale. Browsers must support
   CSS `@property` for interpolation. Existing backdrop-prefix restrictions
   still apply: HTML rejects motion on or underneath backdrop-dependent layers
 - PPTX declares a static fallback for anchors and independent axis tracks;
@@ -396,7 +474,10 @@ Before its start, and in untimed or reduced-motion stills, the authored fill
 is preserved. A group's animation continues to override descendant animations;
 intrinsic counter values still update. Separately rendered stagger lines sample
 their own colors. Targets that cannot be split keep the existing approximate
-whole-layer stagger fallback; full glyph/range animation is separate work.
+whole-layer stagger fallback. Plain character targets instead require exact
+[codepoint ownership](#character-ownership); unprovable character layouts raise
+an error. [Range selectors](#text-range-selectors) support static or keyframed
+percentages. General shaping and grapheme-cluster animation remain unsupported.
 
 Groups containing backdrop-dependent descendants support pure parent color
 tracks. Combining those tracks with other parent motion or stagger is reported
@@ -469,7 +550,7 @@ scene.render_frame(0).save("parented.png")  # Child starts at (110, 70).
   for this reference, so invisible drawable parents remain useful controllers.
   Asset transparency can define the source silhouette; an empty source uses its
   measured body as a geometric fallback
-- Image uniform `scale` remains viewport zoom. It changes the image contents,
+- Image `scale` changes the outer object. `image_zoom` changes the image contents,
   not the outer transform inherited by children; axis tracks scale that frame
 - Paint order remains document order. Topological order only evaluates matrices
 
@@ -578,6 +659,20 @@ parent links to or from structural descendants remain unsupported. See
 for nested partial and inverted masks, text backgrounds, affine motion and an
 independent linked marker. Run it with `--output-dir /tmp/parent-nested-composition`
 to write GIF, PNG, HTML and JSON outputs.
+
+Top-level plain text with `target="words"` or `target="lines"` uses the already
+placed text runs to separate targets. Words remain at their original positions
+instead of reflowing as shorter strings. Wrapped lines, reverse target order and
+blank-line delays use the same static layout in frame sampling and video output.
+The route is selected only when the target crops reproduce the original source
+pixels exactly. Rich text, effects, fills, rotation, letter spacing,
+bidirectional text, words split across wrapped lines, and parent-linked sources
+retain the partial adapter below.
+Plain character targets use independently verified [codepoint masks](#character-ownership)
+and reject unprovable ownership instead of using the partial adapter.
+Raster/video stagger capability stays `partial`. [Text range selectors](#text-range-selectors)
+reuse the exact layout route with static or keyframed percentages; general
+shaping and grapheme-cluster ownership remain unsupported.
 
 Static parent-linked leaf text and top-level groups can use the existing partial
 raster stagger adapter, including groups with their own or structural descendant
@@ -718,12 +813,13 @@ capabilities or canonical timeline samples, which retain their existing matte.
 See [transparent WebM](../exports.md#transparent-webm) for format limits, alpha
 composition, decoder verification and the runnable lower-third example.
 
-`Canvas.export_png_sequence()` and `Deck.export_png_sequence()` also preserve
-straight-alpha RGBA8, writing exact renderer bytes into silent independent PNGs.
-`PngSequenceOptions` controls fps, hold, workers and quality; the result reports
-the actual emitted count and duration. `png_sequence` is a video capability
+`Canvas.export_image_sequence()` and `Deck.export_image_sequence()` write silent
+PNG, JPEG or WebP frames. PNG and lossless WebP preserve straight-alpha RGBA8;
+JPEG uses an opaque matte and lossy encodings can change colors.
+`ImageSequenceOptions` controls fps, hold, workers and rendering quality; the result reports
+the actual emitted count and duration. `image_sequence` is a video capability
 alias for validation and motion inspection, preserving the existing parent,
-Morph and caption restrictions. See [PNG sequences](../exports.md#png-image-sequences)
+Morph and caption restrictions. See [image sequences](../exports.md#image-sequences)
 for timing, color-profile limits and exclusive fresh-directory publication.
 
 ### Track mattes
@@ -766,3 +862,112 @@ separate work. SVG, HTML, PDF and PPTX freeze the complete scene into one declar
 authored-static raster image; all motion is frozen. `validate_export()` reports
 that route and `ExportPolicy(unsupported_motion="error")` rejects it before
 writing. Deck Morph uses a declared fade fallback for matte scenes.
+
+## Text range selectors
+
+`AnimationSpec.timeline(..., selector=RangeSelector(...))` weights position,
+rotation, scale, opacity and color tracks for top-level plain text. Import
+`RangeSelector` from `quickthumb`; presets, motion paths,
+parent-linked text and mixed target bases are unsupported in this first layer.
+Each composed spec on a selected layer must declare the same target basis.
+
+`target` is `"words"` (default), `"lines"` or `"characters"`; `start=0`, `end=100` are percentages
+with `0 <= start <= end <= 100` when both are static. Finite `offset=0` translates
+that interval without wrapping. Each of these three fields can instead contain a
+nonempty list of scalar `KeyframeSpec` values:
+
+```python
+RangeSelector(
+    end=50,
+    offset=[KeyframeSpec(time=0, value=-50), KeyframeSpec(time=1, value=100)],
+)
+```
+
+Selector keyframes use the same local seconds, outgoing `hold`, keyframe/spec
+easing and stagger delay as the property tracks. Their final key contributes to
+inferred duration; an explicit timing duration must cover all property and
+selector keys. Start/end keys must lie in 0..100; eased start/end values clamp to
+that interval. Offset remains finite and may overshoot without wrapping. If the
+sampled end is at or below the sampled start, the range is empty. Animated
+start/end may cross; static inverted bounds are rejected. After the event, the
+settled selector keeps its final values. A target at document index `i` among `N`
+is evaluated at its center
+`100*(i+0.5)/N`. Outside `[start+offset, end+offset)`, or for an empty range, its
+weight is zero. Within the interval, let `u` be the center's fractional position:
+
+| `shape` | Weight |
+| --- | --- |
+| `square` (default) | `1` |
+| `ramp` | `u` |
+| `triangle` | `1-abs(2*u-1)` |
+| `smooth` | `u*u*(3-2*u)` |
+
+Keyframes and easing are sampled first. Each property then blends from its
+incoming target state toward the requested value by that weight. For color,
+the incoming paint starts at the authored solid text color (default black when
+`color=None`). Blending uses the existing premultiplied Oklab interpolation and
+linear alpha. Zero weight and pre-start frames retain authored paint, including
+its alpha; full weight uses ordinary `ColorTrack` replacement. Specs compose in
+document order, blending from earlier results rather than restarting from the
+authored color. Transparent colors retain the full target layout. Gradients,
+image fills and rich text remain unsupported. Selectors introduce no implicit hiding before a target's event.
+Compatible stagger delays its clock;
+reverse stagger changes execution rank without reversing selector percentages.
+Blank lines retain their semantic index. Wrapped targets use the actual layout.
+
+Targets must reconstruct the original pixels exactly. Unsupported styling or
+inseparable layout raises an actionable error during sampled rendering instead
+of silently using the partial band approximation. Untimed output stays authored
+static. HTML/PPTX keep authored-static text and report selector fallback;
+`inspect_motion()` exposes selector weights and per-target motion samples.
+Each event's `selector_weights` is a matrix: rows align with the layer's
+`sample_times`, columns with its `targets` (including reverse execution order).
+Pre-start rows have zero influence. Selection percentages still refer to
+semantic document indices.
+
+### Character ownership
+
+`target="characters"` addresses **source Unicode codepoints**, not grapheme
+clusters. Spaces and newlines retain empty slots: they count toward selector
+percentages and stagger delays without painting. Supported non-ASCII codepoints
+use the same rules; this is not an ASCII-only route or a Unicode shaping engine.
+
+For sampled raster/video output, plain character targets use independently
+rendered glyph masks at the font's authored baseline and prefix advances.
+Preparation requires disjoint glyph ink, exact reconstruction of an opaque white
+reference, and rectangles containing only the owning glyph's paint. These checks
+also protect transparent authored colors and per-target `ColorTrack` output.
+The prepared fragments retain the full rest layout and are reused by the export
+frame generator, transforms, selectors and stagger clocks.
+
+Combining marks, control/format joined sequences, bidirectional shaping, glyphs
+crossing the canvas boundary, overlapping/inseparable ink, rich text, effects,
+fills, letter spacing and animated text values are unsupported. Wrapped text is
+accepted only when each rendered run maps back to source codepoints; normalized
+whitespace that makes that mapping ambiguous is rejected. A failing proof raises
+an actionable error before sampled output is written; it never uses horizontal
+bands as a substitute for glyphs. Fonts and shaping libraries can change which
+layouts pass.
+Untimed output and document selector fallbacks keep authored-static text.
+
+Raster/video `text_selector` support is `full` within this exact-ownership
+contract: supported layouts animate per target, and unprovable layouts raise
+instead of substituting a fade. This is not a promise to shape every string.
+Validation also reports `full` stagger support for top-level text outside the
+transform-parent graph when using character targets or range selectors. Strict
+unsupported-motion policy permits these routes; layout preparation can still reject unsupported
+text before writing output. Validation does not paint text to certify a layout.
+The generic `stagger` capability remains `partial` because other text and group
+adapters can use a whole-source approximation. `inspect_motion().capabilities`
+shows this generic table; its per-layer diagnostics report the scene's handling.
+
+Run `uv run python examples/text_range_selector.py --target words --output /tmp/words.gif`
+(or `--target lines` / `--target characters`) for weighted position/rotation that settles to the original
+text layout, plus portable scene JSON. This is partial #165 coverage, not a
+general-purpose shaping backend or full support for every stagger adapter.
+
+
+The bounded HTML adapters for anchors, axis scaling, paths and parent chains
+currently use static fallback when custom Bézier easing, per-keyframe easing,
+or keyframe holds are combined with them. Raster animation preserves those
+clocks; ordinary HTML presets and basic tracks retain their existing support.

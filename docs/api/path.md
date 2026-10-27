@@ -121,3 +121,73 @@ the bounded cubic conversion use a declared raster fallback. Degenerate strokes
 and mixed zero-length dash patterns also use raster output to preserve cap pixels.
 Paths with static rotation/opacity or animation use the same authored-static PNG
 fallback in PDF as SVG/HTML. PPTX embeds an authored-static raster image.
+
+## Animated dash phase
+
+`DashOffsetTrack` (`type="dash_offset"` in JSON) animates stroke phase in local
+SVG/viewBox distance units. The sampled phase is added to authored `dash_offset`;
+negative offsets and odd-length dash patterns retain the static painter's cycle
+rules. Keyframes use the shared easing, outgoing holds, and local timeline clock.
+Tracks replace the relative phase by default; `blend="add"` composes additional
+phase tracks in event order. Only Path layers accept this track.
+
+```python
+from quickthumb import AnimationSpec, DashOffsetTrack, KeyframeSpec, TimingSpec
+
+phase = AnimationSpec.timeline(
+    DashOffsetTrack(keyframes=[KeyframeSpec(time=0, value=0),
+                               KeyframeSpec(time=1, value=12)]),
+    timing=TimingSpec(duration=1), easing="linear",
+)
+canvas.path("M0 10H100", (10, 10), 100, 20, None,
+            stroke="#42CEB7", dash_array=(5, 3), dash_offset=2, animation=phase)
+```
+
+Canonical samples, raster frames, GIF, video, and PNG sequences use the effective
+phase; `inspect_motion()` reports it alongside the authored static phase. HTML,
+SVG, PDF, and PPTX retain their declared authored-static fallback for animated
+Paths. Morph and native HTML dash animation remain separate features.
+
+## Stroke trim
+
+`trim_start` and `trim_end` select normalized `0..1` positions along the total
+local SVG/viewBox arc length, in contour order. Move commands add no distance and
+never connect contours. The default `0, 1` retains the entire stroke, regardless
+of offset; equal endpoints and `1, 0` retain no stroke. When start exceeds end,
+the interval wraps across the end of the complete path.
+
+`trim_offset` shifts both endpoints in normalized turns and wraps modulo one;
+negative and multiple-turn values are supported. A retained full closed contour
+keeps its closing join. A partial closed contour becomes open, with the authored
+caps at its cut endpoints; a wrapped selection through its closing seam keeps
+that seam as an interior join. Partial trims omit zero-length contours. Fill and
+gradient coverage remain authored and untrimmed. Dashes apply after trimming and
+restart with `dash_offset` at each retained run.
+
+Lengths use the existing adaptive curve subdivision with a 1/8-device-pixel chord
+tolerance. The 65,536-point geometry budget still applies; unrepresentable length
+or cuts raise `RenderingError` (`path_trim_limit`) rather than emitting cap dots.
+
+```python
+from quickthumb import TrimEndTrack
+
+reveal = AnimationSpec.timeline(
+    TrimEndTrack(keyframes=[KeyframeSpec(time=0, value=0),
+                            KeyframeSpec(time=1, value=1)]),
+    timing=TimingSpec(duration=1), easing="linear",
+)
+canvas.path("M0 10Q50 -10 100 10", (10, 10), 200, 40, None,
+            view_box=(0, -10, 100, 20), stroke="#42CEB7", animation=reveal)
+```
+
+`TrimStartTrack` and `TrimEndTrack` replace their authored normalized boundaries.
+`TrimOffsetTrack` adds its sampled relative turns to authored `trim_offset`; its
+tracks replace that relative offset by default, with `blend="add"` for ordered
+composition. JSON types are `trim_start`, `trim_end`, and `trim_offset`. Only Path
+layers accept these tracks. Shared easing, outgoing holds, and local clocks apply;
+boundary easing stays within `0..1`. Inspection reports effective trim values.
+
+Canonical samples, GIF/video and PNG sequences use sampled trim geometry through
+the adaptive Path source. Static trims in SVG/HTML/PDF and all PPTX paths use a
+declared raster fallback; animated document paths retain authored trim values.
+Native document trim mapping and morphing are subsequent features.

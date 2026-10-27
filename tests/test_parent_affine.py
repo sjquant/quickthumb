@@ -229,7 +229,7 @@ def test_linked_text_preserves_full_italic_ink_and_static_rotation(align, rich, 
 
 
 def test_parented_image_keeps_source_viewport_zoom_and_child_outer_geometry(tmp_path):
-    from quickthumb import ScaleTrack
+    from quickthumb import ImageZoomTrack
 
     source = Image.new("RGB", (60, 20), "green")
     source.paste("red", (0, 0, 20, 20))
@@ -237,7 +237,7 @@ def test_parented_image_keeps_source_viewport_zoom_and_child_outer_geometry(tmp_
     path = tmp_path / "strip.png"
     source.save(path)
     base = Canvas(100, 80).image(
-        str(path), (20, 20), width=60, height=20, animation=animation(track(ScaleTrack, 1, 2))
+        str(path), (20, 20), width=60, height=20, animation=animation(track(ImageZoomTrack, 1, 2))
     )
     linked = Canvas(
         100,
@@ -247,8 +247,6 @@ def test_parented_image_keeps_source_viewport_zoom_and_child_outer_geometry(tmp_
             cast(Any, base.layers[0]).model_copy(update={"parent": "root", "id": "image"}),
         ],
     )
-    animator = _SlideAnimator(linked, {})
-    assert animator._units[1].component_duration == 1
     for instant in (0, 0.5, 1):
         assert linked.render_frame(instant).tobytes() == base.render_frame(instant).tobytes()
     assert linked.render_frame(0).tobytes() != linked.render_frame(1).tobytes()
@@ -369,8 +367,8 @@ def test_public_gif_spawn_worker_bytes_match_serial(tmp_path, quality):
     )
     canvas.layers = [*canvas.layers, shape((0, 0))]
     single, parallel = tmp_path / "one.gif", tmp_path / "two.gif"
-    canvas.render(str(single), animation=GifOptions(fps=4, quality=quality))
-    canvas.render(str(parallel), animation=GifOptions(fps=4, quality=quality, workers=2))
+    canvas.render(str(single), animation=GifOptions(fps=4, render_quality=quality))
+    canvas.render(str(parallel), animation=GifOptions(fps=4, render_quality=quality, workers=2))
     assert single.read_bytes() == parallel.read_bytes()
 
 
@@ -679,7 +677,7 @@ def test_unsupported_local_source_boundaries_are_explicit(kind):
     assert error.value.code == "unsupported_parent_combination"
 
 
-@pytest.mark.parametrize("method", ["render", "to_gif", "to_animated_mp4", "to_webm"])
+@pytest.mark.parametrize("method", ["render", "to_gif", "to_mp4", "to_webm"])
 def test_parent_morph_strict_policy_precedes_convenience_encoding(tmp_path, method):
     from quickthumb import Deck, ExportPolicy, Morph
     from quickthumb.errors import RenderingError

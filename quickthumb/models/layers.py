@@ -120,16 +120,24 @@ class AnimatedTextValue(quickthumbModel):
 class PluginLayer(LayerIdentityModel):
     """A named renderer invocation carried by the canonical JSON contract.
 
-    The layer carries a renderer name, version, and parameters; quickthumb can
-    validate and serialize it but cannot draw it yet.  Parameters are
-    restricted to JSON values so the layer can always make a lossless
-    Python/JSON round trip.
+    A registered raster callback supplies the local box's straight-alpha RGBA8
+    bytes. Parameters and declared asset references remain JSON data; executable
+    callbacks belong to the application's explicit registry.
     """
 
     type: Literal["plugin"]
     renderer: str
     version: str
     params: JsonObject
+    position: Position = (0, 0)
+    width: PositiveInt
+    height: PositiveInt
+    align: AlignWithHVTuple = Align.TOP_LEFT
+    opacity: OpacityField = 1.0
+    assets: dict[str, str] = Field(default_factory=dict)
+
+    clip: LayerClip | None = None
+    mask: LayerMask | None = None
 
     model_config = ConfigDict(validate_assignment=True, extra="forbid")
 
@@ -455,6 +463,9 @@ class PathLayer(_AnimatableLayerModel):
     miter_limit: Annotated[FiniteFloat, Field(ge=1)] = 4.0
     dash_array: tuple[FiniteNonNegativeFloat, ...] | None = Field(default=None, max_length=65_536)
     dash_offset: FiniteFloat = 0.0
+    trim_start: Annotated[FiniteFloat, Field(ge=0, le=1)] = 0.0
+    trim_end: Annotated[FiniteFloat, Field(ge=0, le=1)] = 1.0
+    trim_offset: FiniteFloat = 0.0
     view_box: tuple[FiniteFloat, FiniteFloat, FinitePositiveFloat, FinitePositiveFloat] | None = (
         None
     )
@@ -500,12 +511,24 @@ class PathLayer(_AnimatableLayerModel):
                 or animation.stagger is not None
                 or any(
                     track.type
-                    not in {"position", "rotation", "scale", "scale_x", "scale_y", "opacity"}
+                    not in {
+                        "position",
+                        "rotation",
+                        "scale",
+                        "scale_x",
+                        "scale_y",
+                        "opacity",
+                        "dash_offset",
+                        "trim_start",
+                        "trim_end",
+                        "trim_offset",
+                    }
                     for track in animation.tracks or ()
                 )
             ):
                 raise ValidationError(
-                    "Path motion requires position, rotation, scale or opacity timelines",
+                    "Path motion requires position, rotation, scale, opacity, "
+                    "dash_offset or trim timelines",
                     path="/animation",
                 )
         segments = parse_path(self.d)
