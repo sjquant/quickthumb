@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
@@ -8,6 +9,7 @@ from PIL import Image, ImageChops, ImageDraw, ImageFilter
 
 from quickthumb._base import RenderContext, apply_alignment, parse_coordinate
 from quickthumb._effects import EffectsEngine
+from quickthumb.errors import RenderingError, ValidationError
 from quickthumb.models import Align, BackdropBlur, LayerClip, LayerMask
 
 Bounds = tuple[int, int, int, int]
@@ -29,6 +31,78 @@ def has_layer_composition(layer: Any) -> bool:
 def requires_composition_boundary(layer: Any) -> bool:
     """Return True when a layer needs isolated alpha-boundary composition."""
     return getattr(layer, "clip", None) is not None or getattr(layer, "mask", None) is not None
+
+
+def has_mask_tracks(layer) -> bool:
+    animations = getattr(layer, "animation", None)
+    specs = animations if isinstance(animations, list) else [animations]
+    return any(
+        track.type.startswith("mask_")
+        for spec in specs
+        for track in (getattr(spec, "tracks", None) or ())
+    )
+
+
+def has_animated_masks(canvas) -> bool:
+    return any(has_mask_tracks(layer) for layer in canvas._iter_layers_deep())
+
+
+def validate_mask_animation(layer):
+    if not has_mask_tracks(layer):
+        return
+    if any(isinstance(effect, BackdropBlur) for effect in getattr(layer, "effects", ())):
+        raise ValidationError(
+            "Animated masks do not support owner BackdropBlur",
+            code="unsupported_mask_backdrop",
+            path="/effects",
+        )
+    if not isinstance(getattr(layer, "mask", None), LayerMask):
+        raise ValidationError("Mask tracks require a LayerMask shape mask", path="/animation")
+    animations = layer.animation if isinstance(layer.animation, list) else [layer.animation]
+    if any(getattr(spec, "stagger", None) is not None for spec in animations):
+        raise ValidationError("Mask tracks do not support stagger", path="/animation")
+    pending = [layer]
+    while pending:
+        child = pending.pop()
+        if getattr(child, "value", None) is not None:
+            raise ValidationError(
+                "Animated masks do not yet support counter sources", path="/animation"
+            )
+        pending.extend(getattr(child, "children", ()))
+
+
+def without_mask(layer):
+    """Keep the owner's full rendered body as the animated mask's stable pivot reference."""
+    return layer.model_copy(update={"mask": None})
+
+
+def with_motion_mask(layer, state, ctx):
+    """Resolve owner-timeline geometry before transforming the owner's isolated pixels."""
+    if not has_mask_tracks(layer):
+        return layer
+    validate_mask_animation(layer)
+    mask = layer.mask
+    x, y, width, height = _mask_bounds(ctx, mask)
+    # Resolve alignment once against the authored box; resizing does not move its top-left.
+    dx, dy = state.mask_position or (0, 0)
+    width, height = state.mask_size or (width, height)
+    if any(
+        not math.isfinite(value) or abs(value) > 2**28 for value in (x + dx, y + dy, width, height)
+    ):
+        raise RenderingError(
+            "Animated mask exceeds finite raster coordinate range", code="mask_geometry_range"
+        )
+    feather = mask.feather if state.mask_feather is None else state.mask_feather
+    mask = mask.model_copy(
+        update={
+            "position": (x + dx, y + dy),
+            "width": width,
+            "height": height,
+            "align": Align.TOP_LEFT,
+            "feather": feather,
+        }
+    )
+    return layer.model_copy(update={"mask": mask})
 
 
 def layer_depends_on_backdrop(layer: Any) -> bool:
@@ -75,6 +149,10 @@ def composition_bounds(ctx: RenderContext, layer: Any) -> Bounds | None:
     mask = getattr(layer, "mask", None)
     if isinstance(mask, LayerMask) and not mask.invert:
         mask_bounds = _mask_bounds(ctx, mask)
+        if mask.feather:
+            pad = _mask_padding(mask)
+            x, y, w, h = mask_bounds
+            mask_bounds = x - pad, y - pad, w + 2 * pad, h + 2 * pad
         if mask.opacity == 0.0:
             mask_bounds = mask_bounds[0], mask_bounds[1], 0, 0
         bounds = _intersect_bounds(bounds, mask_bounds)
@@ -153,10 +231,10 @@ def _composition_offset(
     if width <= 0 or height <= 0:
         return None
 
-    left = max(0, x)
-    top = max(0, y)
-    right = min(layer_image.width, x + width)
-    bottom = min(layer_image.height, y + height)
+    left = max(0, math.floor(x))
+    top = max(0, math.floor(y))
+    right = min(layer_image.width, math.ceil(x + width))
+    bottom = min(layer_image.height, math.ceil(y + height))
     if right <= left or bottom <= top:
         return None
     return left, top, right, bottom
@@ -191,8 +269,14 @@ def _mask_alpha(
     offset: tuple[int, int] = (0, 0),
 ) -> Image.Image:
     x, y, width, height = _mask_bounds(ctx, mask)
+    pad = _mask_padding(mask)
+    padded_size = size[0] + 2 * pad, size[1] + 2 * pad
+    if mask.feather and padded_size[0] * padded_size[1] * 16 > 67_108_864:
+        raise RenderingError(
+            "Feathered mask exceeds the 64-million-sample surface budget", code="mask_surface_limit"
+        )
     alpha = _shape_alpha(
-        size,
+        padded_size,
         x,
         y,
         width,
@@ -200,11 +284,23 @@ def _mask_alpha(
         shape=mask.shape,
         points=mask.points,
         opacity=mask.opacity,
-        offset=offset,
+        offset=(offset[0] - pad, offset[1] - pad),
     )
+    if pad:
+        alpha = alpha.filter(ImageFilter.GaussianBlur(mask.feather)).crop(
+            (pad, pad, pad + size[0], pad + size[1])
+        )
     if mask.invert:
         alpha = ImageChops.invert(alpha)
     return alpha
+
+
+def _mask_padding(mask):
+    if mask.feather > 1024:
+        raise RenderingError(
+            "Feathered mask exceeds the 64-million-sample surface budget", code="mask_surface_limit"
+        )
+    return math.ceil(mask.feather * 3)
 
 
 def _clip_bounds(ctx: RenderContext, clip: LayerClip) -> tuple[int, int, int, int]:
@@ -222,8 +318,8 @@ def _aligned_bounds(
     height: int,
     align: Align | None,
 ) -> tuple[int, int, int, int]:
-    x = parse_coordinate(position[0], ctx.width)
-    y = parse_coordinate(position[1], ctx.height)
+    x = position[0] if isinstance(position[0], float) else parse_coordinate(position[0], ctx.width)
+    y = position[1] if isinstance(position[1], float) else parse_coordinate(position[1], ctx.height)
     if align is not None and align != Align.TOP_LEFT:
         x, y = apply_alignment(x, y, (width, height), align)
     return x, y, width, height
@@ -254,6 +350,8 @@ def _shape_alpha(
         (local_y + height) * scale - 1,
     ]
     fill = round(255 * opacity)
+    if bbox[2] < bbox[0] or bbox[3] < bbox[1]:
+        return alpha.resize(size, Image.Resampling.LANCZOS)
 
     if shape == "ellipse":
         draw.ellipse(bbox, fill=fill)

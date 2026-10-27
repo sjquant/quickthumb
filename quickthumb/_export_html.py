@@ -31,6 +31,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from html import escape
 from importlib.resources import files
+from itertools import product
 from typing import TYPE_CHECKING, cast
 
 from PIL import ImageFont
@@ -42,7 +43,7 @@ from quickthumb._base import (
     parse_coordinate,
     parse_padding,
 )
-from quickthumb._composition import has_layer_composition
+from quickthumb._composition import _mask_bounds, has_layer_composition, has_mask_tracks
 from quickthumb._export_base import (
     Box,
     RasterFragment,
@@ -76,12 +77,14 @@ from quickthumb.models import (
     ExportDiagnostic,
     Glow,
     GroupLayer,
+    LayerMask,
     LinearGradient,
     OutlineLayer,
     PathLayer,
     RadialGradient,
     Shadow,
     ShapeLayer,
+    SpringEasing,
     Stroke,
     SvgLayer,
     TextLayer,
@@ -90,9 +93,12 @@ from quickthumb.models import (
 from quickthumb.motion import (
     Timeline,
     TimelineEvent,
+    _custom_easing,
     _has_color_track,
     _has_motion_path,
+    _has_spring_easing,
     _has_transform_extensions,
+    _has_wiggle,
     compile_timeline,
 )
 
@@ -201,10 +207,13 @@ _CSS_EASINGS = {
 }
 
 
-def css_easing(name: str | CubicBezierEasing | Mapping[str, object] | None) -> str:
+def css_easing(name: str | CubicBezierEasing | SpringEasing | Mapping[str, object] | None) -> str:
     """Return the CSS timing function for a shared easing name or custom bezier."""
     if name is not None and not isinstance(name, str):
-        x1, y1, x2, y2 = CubicBezierEasing.model_validate(name).points
+        curve = _custom_easing(name)
+        if isinstance(curve, SpringEasing):
+            raise RenderingError("spring easing requires the declared static HTML fallback")
+        x1, y1, x2, y2 = curve.points
         return f"cubic-bezier({_fmt(x1)},{_fmt(y1)},{_fmt(x2)},{_fmt(y2)})"
     return _CSS_EASINGS.get(name or "ease", "ease")
 
@@ -277,6 +286,164 @@ _TRANSFORM_DEFAULTS = {
 }
 
 
+_MASK_PROPERTIES = {
+    "mask_position": ("--qt-mask-x", "--qt-mask-y"),
+    "mask_size": ("--qt-mask-width", "--qt-mask-height"),
+}
+
+
+def _mask_html_problem(layer, ctx) -> str | None:
+    """Admit only masks whose body, local geometry and existing CSS clock agree."""
+    if not isinstance(layer, ShapeLayer) or not isinstance(layer.mask, LayerMask):
+        return "native HTML masks require a shape owner and LayerMask"
+    mask = layer.mask
+    if (
+        layer.shape not in {"rectangle", "ellipse", "pill"}
+        or layer.rotation
+        or layer.parent
+        or layer.align not in {None, Align.TOP_LEFT}
+    ):
+        return (
+            "native HTML masks require an unrotated top-left rectangle/ellipse/pill owner "
+            "without parent links"
+        )
+    if (
+        layer.effects
+        or layer.clip
+        or layer.fill
+        or mask.feather
+        or mask.invert
+        or mask.opacity != 1
+    ):
+        return (
+            "native HTML masks require hard opaque masks without effects, inversion, fill or clip"
+        )
+    animation = layer.animation
+    if animation is None:
+        return _mask_html_geometry_problem(layer, ctx, {})
+    specs = animation if isinstance(animation, list) else [animation]
+    if len(specs) != 1 or not isinstance(specs[0], AnimationSpec):
+        return "native HTML masks require one track timeline"
+    spec = specs[0]
+    if (
+        spec.tracks is None
+        or spec.stagger
+        or _has_motion_path(layer)
+        or any(
+            track.type not in (_TRANSFORM_PROPERTIES | _MASK_PROPERTIES) for track in spec.tracks
+        )
+    ):
+        return "native HTML masks support mask position/size and owner geometry tracks only"
+    if (spec.easing is not None and not isinstance(spec.easing, str)) or any(
+        key.easing is not None or key.hold for track in spec.tracks for key in track.keyframes
+    ):
+        return "native HTML masks require named segment easing without keyframe overrides or holds"
+    if spec.easing not in {None, "linear", "ease"} or any(
+        key.value <= 0 for track in spec.tracks if track.type == "scale" for key in track.keyframes
+    ):
+        return "native HTML masks require positive scale and linear/ease interpolation"
+    if any(
+        value < 1
+        for track in spec.tracks
+        if track.type == "mask_size"
+        for key in track.keyframes
+        for value in key.value
+    ):
+        return "native HTML masks cannot preserve sub-pixel mask size coverage"
+    return _mask_html_geometry_problem(layer, ctx, {track.type: track for track in spec.tracks})
+
+
+def _mask_html_geometry_problem(layer, ctx, tracks):
+    """Bound every emitted coordinate and the combined edges over independent track intervals."""
+    from quickthumb._path_svg import _bounded_number
+
+    try:
+        mx, my, mw, mh = _mask_bounds(ctx, layer.mask)
+        x = parse_coordinate(layer.position[0], ctx.width)
+        y = parse_coordinate(layer.position[1], ctx.height)
+        offsets = (
+            [(0, 0)] + [key.value for key in tracks["mask_position"].keyframes]
+            if "mask_position" in tracks
+            else [(0, 0)]
+        )
+        sizes = (
+            [(mw, mh)] + [key.value for key in tracks["mask_size"].keyframes]
+            if "mask_size" in tracks
+            else [(mw, mh)]
+        )
+        # Linear/ease interpolation cannot exceed component extrema. Their Cartesian
+        # bounds also cover interior extrema when position and size have different knots.
+        ranges = [
+            (min(v[axis] for v in values), max(v[axis] for v in values))
+            for values in (offsets, sizes)
+            for axis in (0, 1)
+        ]
+        uniform = (
+            max([1, *[abs(key.value) for key in tracks["scale"].keyframes]])
+            if "scale" in tracks
+            else 1
+        )
+        axes = max(
+            [
+                1,
+                *[
+                    abs(key.value)
+                    for name in ("scale_x", "scale_y")
+                    if name in tracks
+                    for key in tracks[name].keyframes
+                ],
+            ]
+        )
+        css_values = [mx - x, my - y, mw, mh]
+        for dx, dy, width, height in product(*ranges):
+            left, top = mx + dx, my + dy
+            geometry = (left, top, width, height, left + width, top + height)
+            if any(not math.isfinite(value) or abs(value) > 2**28 for value in geometry):
+                return "native HTML masks exceed the canonical mask geometry range"
+            local_x, local_y = left - x, top - y
+            css_values.extend(
+                (
+                    dx,
+                    dy,
+                    width,
+                    height,
+                    local_x,
+                    local_y,
+                    local_x + width,
+                    local_y + height,
+                    layer.width - local_x - width,
+                    layer.height - local_y - height,
+                    local_x + width / 2,
+                    local_y + height / 2,
+                )
+            )
+        if any(not _bounded_number(value, uniform * axes) for value in css_values):
+            return "native HTML masks exceed 1/8-pixel CSS coordinate precision"
+    except (OverflowError, ValueError):
+        return "native HTML masks exceed the canonical mask geometry range"
+    return None
+
+
+def _html_mask_scene_problem(canvas) -> str | None:
+    top_level = {id(layer) for layer in canvas.layers}
+    for layer in canvas._iter_layers_deep():
+        if has_mask_tracks(layer):
+            if id(layer) not in top_level:
+                return "native HTML animated masks require top-level owners"
+            if problem := _mask_html_problem(layer, canvas._ctx):
+                return problem
+    return None
+
+
+def _mask_defaults(layer):
+    return {
+        "--qt-mask-x": "0",
+        "--qt-mask-y": "0",
+        "--qt-mask-width": str(layer.mask.width),
+        "--qt-mask-height": str(layer.mask.height),
+    }
+
+
 def _supports_transform_extensions_html(layer: object) -> bool:
     """Whether the opt-in anchor/axis adapter can represent the whole animation.
 
@@ -293,6 +460,8 @@ def _supports_transform_extensions_html(layer: object) -> bool:
         return False
     spec = specs[0]
     if spec.tracks is None or spec.stagger is not None:
+        return False
+    if _has_wiggle(spec):
         return False
     if any(track.type not in _TRANSFORM_PROPERTIES for track in spec.tracks):
         return False
@@ -465,9 +634,13 @@ class HtmlExporter:
     ):
         canvas = _distinct_layer_occurrences(canvas)
         self._canvas = canvas
+        from quickthumb._composition import has_animated_masks
         from quickthumb._parenting import has_parent_links
+        from quickthumb._track_mattes import has_track_mattes
 
-        if not reduced_motion and not has_parent_links(canvas):
+        if not reduced_motion and not (
+            has_parent_links(canvas) or has_track_mattes(canvas) or has_animated_masks(canvas)
+        ):
             validate_legacy_animation_export(canvas)
         self._embed_fonts = embed_fonts
         self._responsive = responsive
@@ -489,6 +662,7 @@ class HtmlExporter:
         self._next_id = 1
         self._next_kf = 1
         self._transform_properties_registered = False
+        self._mask_properties_registered = False
         self._parent_properties_registered = False
         # Track group-animation identity so flattened group children sharing one
         # animation object animate together as a single timeline node.
@@ -603,19 +777,28 @@ class HtmlExporter:
         canvas._validate_image_paths()
         canvas._ctx.begin_render_pass()
 
+        from quickthumb._composition import has_animated_masks
         from quickthumb._parent_export import (
             bake_parent_html,
             parent_html_sampling,
             static_parent_fragment,
         )
         from quickthumb._parenting import has_parent_links
+        from quickthumb._track_mattes import has_track_mattes
         from quickthumb.models import NullLayer
 
-        parent = has_parent_links(canvas)
+        static_masks = has_animated_masks(canvas) and _html_mask_scene_problem(canvas) is not None
+        parent = has_parent_links(canvas) or has_track_mattes(canvas) or static_masks
         stage_failed = False
         try:
             sampling = parent_html_sampling(canvas) if parent else None
-            if sampling and (self._reduced_motion or self._parent_static or sampling.problem):
+            if sampling and (
+                self._reduced_motion
+                or self._parent_static
+                or sampling.problem
+                or has_track_mattes(canvas)
+                or static_masks
+            ):
                 self._emit_fragment(static_parent_fragment(canvas))
                 self._record_routing(
                     canvas.layers,
@@ -810,11 +993,28 @@ class HtmlExporter:
             self._prev_anim_key = None
             return ""
 
-        if _has_color_track(layer):
-            # Canonical color tracks have an authored-static fallback in HTML.
+        from quickthumb.motion import _text_selector
+
+        if _text_selector(layer) is not None:
             self._prev_anim_key = None
             self._prev_nodes = []
             return ""
+
+        if _has_color_track(layer) or any(
+            _has_spring_easing(effect) or _has_wiggle(effect) for effect in effects
+        ):
+            # Color tracks and procedural clocks use the authored-static fallback.
+            self._prev_anim_key = None
+            self._prev_nodes = []
+            return ""
+
+        if (
+            isinstance(getattr(layer, "mask", None), LayerMask)
+            and _mask_html_problem(layer, self._canvas._ctx) is None
+        ):
+            self._prev_anim_key = None
+            self._prev_nodes = []
+            return self._register_transform_animation(effects[0], element_id, layer, mask=True)
 
         if _has_transform_extensions(layer):
             self._prev_anim_key = None
@@ -893,11 +1093,8 @@ class HtmlExporter:
                 # runtime counts a delay from the group a node joins, so the
                 # two have to be reconciled once the groups are known.
                 "abs": event.trigger is None and event.start > 0,
+                "e": css_easing(event.options.get("easing")),
             }
-            # Named easings keep the runtime's default curve; only a custom
-            # bezier is passed through, since CSS can express it exactly.
-            if isinstance(event.options.get("easing"), Mapping):
-                node["e"] = css_easing(event.options["easing"])
             nodes.append(node)
         self._timeline.extend(nodes)
         self._prev_anim_key = id(animation)
@@ -905,7 +1102,7 @@ class HtmlExporter:
         return "visibility:hidden;" if nodes else ""
 
     def _register_transform_animation(
-        self, animation: AnimationSpec, element_id: str, layer: RenderableLayer
+        self, animation: AnimationSpec, element_id: str, layer: RenderableLayer, *, mask=False
     ) -> str:
         """Animate independent numeric properties over the baked raster bounds.
 
@@ -920,6 +1117,15 @@ class HtmlExporter:
                 for name, value in _TRANSFORM_DEFAULTS.items()
             )
             self._transform_properties_registered = True
+        properties = _TRANSFORM_PROPERTIES | (_MASK_PROPERTIES if mask else {})
+        defaults = _TRANSFORM_DEFAULTS | (_mask_defaults(layer) if mask else {})
+        if mask and not self._mask_properties_registered:
+            self._keyframes.extend(
+                f'@property {name}{{syntax:"<number>";inherits:false;initial-value:0}}'
+                for names in _MASK_PROPERTIES.values()
+                for name in names
+            )
+            self._mask_properties_registered = True
         event = compile_timeline(animation).events[0]
         kf = f"{self._keyframe_prefix}{self._next_kf}"
         self._next_kf += 1
@@ -928,7 +1134,7 @@ class HtmlExporter:
             stops, final = _baked_motion_stops(event)
         else:
             stops: dict[float, dict[str, str]] = {}
-            final = dict(_TRANSFORM_DEFAULTS)
+            final = dict(defaults)
             # Duplicate replace tracks obey canonical last-track precedence, even
             # when their keyframe times differ; earlier stops must not leak through.
             tracks = {track.property: track for track in event.tracks}
@@ -946,7 +1152,7 @@ class HtmlExporter:
                     values = value if isinstance(value, tuple) else (value,)
                     declarations = {
                         name: _motion_number(float(number))
-                        for name, number in zip(_TRANSFORM_PROPERTIES[prop], values, strict=True)
+                        for name, number in zip(properties[prop], values, strict=True)
                     }
                     stops.setdefault(percent, {}).update(declarations)
                 final.update(declarations)
@@ -974,13 +1180,13 @@ class HtmlExporter:
                 "a": "transform",
                 "e": "linear" if path else css_easing(animation.easing or "linear"),
                 "abs": event.trigger is None and event.start > 0,
-                "initial": dict(_TRANSFORM_DEFAULTS),
+                "initial": dict(defaults),
                 "final": final,
             }
         )
         ax, ay = getattr(layer, "anchor", (0.5, 0.5))
         return (
-            ";".join(f"{name}:{value}" for name, value in _TRANSFORM_DEFAULTS.items())
+            ";".join(f"{name}:{value}" for name, value in defaults.items())
             + ";"
             + f"transform-origin:{_motion_number(ax * 100)}% {_motion_number(ay * 100)}%;"
             + "transform:translate(calc(var(--qt-motion-x)*1px),calc(var(--qt-motion-y)*1px)) "
@@ -998,6 +1204,12 @@ class HtmlExporter:
         )
 
     def _emit_layer(self, layer: RenderableLayer):
+        if (
+            isinstance(getattr(layer, "mask", None), LayerMask)
+            and _mask_html_problem(layer, self._canvas._ctx) is None
+        ):
+            self._emit_masked_shape(layer)
+            return
         if has_layer_composition(layer):
             self._emit_raster_fallback(layer, "Layer clipping or masking requires a PNG fragment")
             return
@@ -1023,12 +1235,20 @@ class HtmlExporter:
             )
 
     def _append_element(
-        self, layer: RenderableLayer, tag: str, style: str, inner: str = ""
+        self,
+        layer: RenderableLayer,
+        tag: str,
+        style: str,
+        inner: str = "",
+        *,
+        source_id: str | None = None,
     ) -> None:
         """Append one positioned element, wiring up any per-layer animation."""
         element_id = self._make_id()
         anim_style = self._register_animation(layer, element_id)
         identity = self._identity_attr(layer)
+        if source_id is not None:
+            identity += f' data-qt-source-id="{_attr(source_id)}"'
         self._body.append(
             f'<{tag} id="{element_id}"{identity} style="{style}{anim_style}">{inner}</{tag}>'
         )
@@ -1110,6 +1330,55 @@ class HtmlExporter:
         self._append_element(layer, "div", style)
 
     # ------------------------------------------------------------------ shapes
+
+    def _emit_masked_shape(self, layer):
+        x = parse_coordinate(layer.position[0], self._canvas.width)
+        y = parse_coordinate(layer.position[1], self._canvas.height)
+        mx, my, _, _ = _mask_bounds(self._canvas._ctx, layer.mask)
+        left, top = _motion_number(mx - x), _motion_number(my - y)
+        cx = f"({left} + var(--qt-mask-x) + var(--qt-mask-width)*0.5)"
+        cy = f"({top} + var(--qt-mask-y) + var(--qt-mask-height)*0.5)"
+        if layer.mask.shape == "ellipse":
+            clip = (
+                "ellipse(calc(var(--qt-mask-width)*0.5px) "
+                f"calc(var(--qt-mask-height)*0.5px) at calc({cx}*1px) calc({cy}*1px))"
+            )
+        elif layer.mask.shape == "polygon":
+            clip = (
+                "polygon("
+                + ",".join(
+                    f"calc(({left} + var(--qt-mask-x) + "
+                    f"var(--qt-mask-width)*{_motion_number(px)})*1px) "
+                    f"calc(({top} + var(--qt-mask-y) + "
+                    f"var(--qt-mask-height)*{_motion_number(py)})*1px)"
+                    for px, py in layer.mask.points
+                )
+                + ")"
+            )
+        else:
+            clip = (
+                f"inset(calc(({top} + var(--qt-mask-y))*1px) "
+                f"calc(100% - ({left} + var(--qt-mask-x) + var(--qt-mask-width))*1px) "
+                f"calc(100% - ({top} + var(--qt-mask-y) + var(--qt-mask-height))*1px) "
+                f"calc(({left} + var(--qt-mask-x))*1px)"
+                + (
+                    " round calc(min(var(--qt-mask-width),var(--qt-mask-height))*0.5px)"
+                    if layer.mask.shape == "pill"
+                    else ""
+                )
+                + ")"
+            )
+        style = (
+            f"position:absolute;left:{x}px;top:{y}px;width:{layer.width}px;height:{layer.height}px;"
+            + ";".join(f"{name}:{value}" for name, value in _mask_defaults(layer).items())
+            + f";clip-path:{clip};"
+        )
+        inner = (
+            '<div style="position:absolute;inset:0;'
+            f"background:{_css_color(color_to_rgba(self._canvas, layer.color))};"
+            f'opacity:{layer.opacity};{self._shape_geometry_css(layer)}"></div>'
+        )
+        self._append_element(layer, "div", style, inner, source_id=layer.id)
 
     def _emit_shape(self, layer: ShapeLayer):
         canvas = self._canvas
@@ -1295,13 +1564,33 @@ class HtmlExporter:
 
     def _emit_path(self, layer: PathLayer) -> None:
         from quickthumb._export_svg import SvgExporter
-        from quickthumb._path_svg import native_path_problem
+        from quickthumb._path_geometry import parse_path
+        from quickthumb._path_html import is_trim, path_html_problem, stroke_style
+        from quickthumb._path_svg import native_path_data, native_path_problem
+        from quickthumb.motion import LayerState
 
-        if problem := native_path_problem(layer):
+        native_motion = native_path_problem(layer) is not None
+        if native_motion and (problem := path_html_problem(layer)):
             self._emit_raster_fallback(layer, f"Path requires a PNG fragment: {problem}")
             return
         element_id = self._make_id()
-        animation_style = self._register_animation(layer, element_id)
+        stroke_attributes = None
+        if native_motion:
+            self._prev_anim_key = None
+            self._prev_nodes = []
+            stroke_id = element_id + "-stroke"
+            initial = stroke_style(layer, LayerState())
+            stroke_attributes = {
+                "id": stroke_id,
+                "style": ";".join(f"{k}:{v}" for k, v in initial.items()),
+            }
+            if is_trim(layer):
+                stroke_attributes["pathLength"] = "1"
+            if layer.animation is not None and not self._reduced_motion:
+                self._register_path_animation(layer, stroke_id, initial)
+            animation_style = ""
+        else:
+            animation_style = self._register_animation(layer, element_id)
         fragment = SvgExporter(self._canvas, id_prefix=f"{self._keyframe_prefix}{element_id}-")
         x = parse_coordinate(layer.position[0], self._canvas.width)
         y = parse_coordinate(layer.position[1], self._canvas.height)
@@ -1309,9 +1598,53 @@ class HtmlExporter:
         self._body.append(
             f'<div id="{element_id}"{identity} style="position:absolute;left:{x}px;top:{y}px;'
             f'width:{layer.width}px;height:{layer.height}px;{animation_style}">'
-            f"{fragment.path_fragment(layer)}</div>"
+            f"{fragment.path_fragment(layer, stroke_attributes=stroke_attributes)}</div>"
         )
-        self._record_routing([layer], "Path emitted as native SVG vectors", rasterized=False)
+        if any(segment.kind not in {"M", "Z"} for segment in parse_path(native_path_data(layer))):
+            self._record_routing(
+                [layer], "Path emitted as native SVG inside HTML", rasterized=False
+            )
+
+    def _register_path_animation(
+        self, layer: PathLayer, stroke_id: str, initial: dict[str, str]
+    ) -> None:
+        from quickthumb._path_html import path_html_stops
+
+        assert isinstance(layer.animation, AnimationSpec)
+        event = compile_timeline(layer.animation).events[0]
+        stops, final = path_html_stops(layer)
+        keyframe = f"{self._keyframe_prefix}{self._next_kf}"
+        self._next_kf += 1
+        self._keyframes.append(
+            "@keyframes "
+            + keyframe
+            + "{"
+            + "".join(
+                _motion_number(percent)
+                + "%{"
+                + ";".join(f"{k}:{v}" for k, v in values.items())
+                + "}"
+                for percent, values in stops.items()
+            )
+            + "}"
+        )
+        self._timeline.append(
+            {
+                "t": [stroke_id],
+                "k": keyframe,
+                "d": event.duration,
+                "delay": event.active_start,
+                "tr": event.trigger
+                or ("after_previous" if len(self._timeline) == 0 else "with_previous"),
+                "a": "transform",
+                "e": "linear",
+                "abs": event.trigger is None and event.start > 0,
+                "initial": initial,
+                "final": final,
+            }
+        )
+        self._prev_anim_key = None
+        self._prev_nodes = []
 
     def _emit_svg_layer(self, layer: SvgLayer):
         if layer.effects or is_url(layer.path):
