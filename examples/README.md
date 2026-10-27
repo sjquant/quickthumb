@@ -53,6 +53,15 @@ Three moving boxes compare under-, critically- and over-damped spring easing.
 Writes `output/spring_motion.gif`, canonical JSON and a midpoint PNG; no optional
 dependencies or network assets are needed.
 
+### `spring_entrance.py`
+
+The bundled Quickthumb logo and a local-font wordmark enter from off-canvas,
+overshoot and settle at their authored positions. Run
+`python -m examples.spring_entrance` from the repository root. Writes
+`examples/output/spring_entrance.gif`, canonical JSON, and overshoot/settled PNGs;
+no optional dependencies or network assets. Spring intervals end at their exact
+targets; `hold` keeps the final frame.
+
 ### `investor_deck.py`
 
 A 10-slide Series A pitch deck exported to `investor_deck.html` and
