@@ -84,6 +84,7 @@ from quickthumb.plugins import PluginRegistry, plugin_registry
 
 if TYPE_CHECKING:
     from quickthumb._document import TimelineInputs, _ExportReceipt, _ResolvedExport
+    from quickthumb.models.document import _SvgFidelityMetrics
 
 
 @dataclass
@@ -1228,6 +1229,7 @@ class Canvas:
         diagnostics = preflight_export(cast(Document, self), resolved, policy)
         if resolved.mode in {"document", "animated"}:
             facts = None
+            fidelity = None
             if resolved.mode == "animated":
                 from quickthumb._export_video import write_animation
 
@@ -1240,8 +1242,8 @@ class Canvas:
                     reduced_motion=not resolved.uses_authored_transitions,
                 )
             else:
-                self._render_document(output_path, extension, policy=policy)
-            return _ExportReceipt([output_path], diagnostics, facts)
+                fidelity = self._render_document(output_path, extension, policy=policy)
+            return _ExportReceipt([output_path], diagnostics, facts, fidelity)
 
         self._validate_image_paths()
         image = self._render_to_image(debug=debug)
@@ -1319,12 +1321,17 @@ class Canvas:
 
     def _render_document(
         self, output_path: str, extension: str, policy: ExportPolicy | None = None
-    ):
+    ) -> "_SvgFidelityMetrics | None":
         if extension == ".svg":
             document = self.to_svg()
+            fidelity = None
+            if policy is not None and "svg" in policy.fidelity:
+                from quickthumb._svg_fidelity import measure_svg_fidelity
+
+                fidelity = measure_svg_fidelity(self, document, policy.fidelity["svg"])
             with open(output_path, "w", encoding="utf-8") as f:
                 f.write(document)
-            return
+            return fidelity
 
         if extension in (".html", ".htm"):
             document = self.to_html(policy=policy)

@@ -11,7 +11,9 @@ from pydantic import (
     NonNegativeInt,
     PositiveInt,
     field_validator,
+    with_config,
 )
+from typing_extensions import TypedDict
 
 from quickthumb.errors import ValidationError
 
@@ -112,12 +114,24 @@ class MotionProfile(_MotionModel):
     feel: Literal["gentle", "soft", "snappy", "dramatic", "minimal"] = "soft"
 
 
+@with_config(ConfigDict(extra="forbid"))
+class _SvgFidelityLimits(TypedDict):
+    """Caller-selected acceptance limits for an optional static SVG comparison."""
+
+    pixel_tolerance: Annotated[int, Field(strict=True, ge=0, le=255)]
+    max_different_pixel_ratio: Annotated[float, Field(ge=0, le=1, allow_inf_nan=False)]
+    min_hash_similarity: Annotated[float, Field(ge=0, le=1, allow_inf_nan=False)]
+
+
 class ExportPolicy(_MotionModel):
-    """Policy controlling how an exporter handles unsupported motion."""
+    """Motion handling and opt-in, report-only static SVG fidelity checks."""
 
     unsupported_motion: Literal["error", "warn", "rasterize", "static"] = "warn"
     pptx: dict[str, Literal["native", "rasterize", "static"]] = {}
     reduced_motion: bool = False
+    fidelity: dict[Literal["svg"], _SvgFidelityLimits] = Field(
+        default_factory=dict, exclude_if=lambda value: not value
+    )
 
 
 class ExportDiagnostic(_MotionModel):

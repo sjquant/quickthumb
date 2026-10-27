@@ -88,6 +88,52 @@ numbered Deck filenames. A Deck cannot be written as a single SVG; export its
 Canvas slides individually. See [image sequences](#image-sequences) for their
 separate new-directory and encoding-option contract.
 
+### Optional static SVG fidelity report
+
+Request a CairoSVG comparison through `ExportPolicy` when the current job has
+explicit acceptance limits. All three limits are required; there are no built-in
+format budgets. This example requests exact visible RGBA rather than an
+application-specific allowance for edge or font differences:
+
+```python
+from quickthumb import Canvas, ExportPolicy
+
+policy = ExportPolicy(fidelity={"svg": {
+    "pixel_tolerance": 0,
+    "max_different_pixel_ratio": 0,
+    "min_hash_similarity": 1,
+}})
+canvas = Canvas(160, 90).background(color="#123456")
+result = canvas.export("checked.svg", policy=policy)
+comparison = result.pixel_metrics.fidelity
+print(comparison.verdict, comparison.pixel_diff_ratio, comparison.hash_similarity)
+```
+
+The optional `quickthumb[svg]` extra and system Cairo are needed only when the
+selected SVG export requests this check. The report records CairoSVG/Cairo
+versions, the canonical render environment, applied limits and actual rasterized
+dimensions. It compares the authored-static `sample()` still, with no resize.
+`exact` means all visible RGBA channels match; `tolerated` satisfies the supplied
+pixel-ratio and average-hash limits; `out_of_policy` fails a limit or dimensions.
+Mean absolute error is normalized over four channels, and the maximum channel
+delta is also reported. Fully transparent pixels ignore hidden RGB, so this
+definition of exact is distinct from canonical raw-pixel SHA-256 equality.
+The 8×8 average hash composites onto white; RGBA measurements independently catch
+alpha loss even when that hash is identical.
+
+This is report-only: the original SVG representation is written even when the
+verdict is `out_of_policy`. A fidelity diagnostic describes the observation;
+no new raster fallback is selected. Missing/failed reference rendering raises
+before the destination is opened, preserving an existing file. Default exports
+and non-SVG targets do not perform this comparison.
+
+The observation applies to static Cairo rendering in the recorded environment.
+Cairo uses installed fonts and does not honor embedded CSS `@font-face`, so the
+same font environment must be available separately; see the
+[CairoSVG documentation](https://cairosvg.org/documentation/). It is not a browser,
+HTML, or animation fidelity guarantee. SVG keeps its existing authored-static
+motion behavior.
+
 ### Migrating output calls
 
 - `Deck.to_mp4()` now plays animation, matching Canvas and file exports.
