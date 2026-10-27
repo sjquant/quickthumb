@@ -17,6 +17,7 @@ from quickthumb._document import (
     _contract_kind,
     _contract_timeline_inputs,
     _contract_validate_structure,
+    _motion_blur_report,
     canonical_json,
 )
 from quickthumb._exclusive_directory import (
@@ -50,6 +51,8 @@ def export_image_sequence(
         raise ValidationError("options must be ImageSequenceOptions")
     # Revalidate even model_construct/model_copy inputs before touching output.
     settings = ImageSequenceOptions.model_validate(options.model_dump() if options else {})
+    if settings.motion_blur is not None and _contract_kind(source) != "canvas":
+        raise ValidationError("motion_blur currently requires a single Canvas and workers=1")
     encoding, quality, matte, lossless = _validate_encoding(format, quality, matte, lossless)
     extension = {"png": "png", "jpeg": "jpg", "webp": "webp"}[encoding]
     destination = normalize_destination(output_directory)
@@ -64,6 +67,7 @@ def export_image_sequence(
             output_format="image_sequence",
             uses_authored_transitions=not bool(policy and policy.reduced_motion),
         )
+        diagnostics += _motion_blur_report(settings.motion_blur, "video")
         canvases, transitions, durations = _contract_timeline_inputs(source, settings.hold)
         # Narration only determines visual timing. This renderer request is
         # native-size straight RGBA and has no codec or audio-mixer identity.
@@ -77,6 +81,7 @@ def export_image_sequence(
             workers=settings.workers,
             quality=settings.render_quality,
             reduced_motion=bool(policy and policy.reduced_motion),
+            motion_blur=settings.motion_blur,
         ) as prepared:
             staging = Path(tempfile.mkdtemp(prefix=".quickthumb-images-", dir=destination.parent))
             created = staging.lstat()

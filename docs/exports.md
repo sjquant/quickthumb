@@ -62,6 +62,7 @@ All animated byte methods and options use `hold` for settled-state seconds.
 `quality` on `export()`/`render()` controls compression: JPEG accepts integer
 values 1–95 and WebP accepts 1–100.
 Keep `workers=1` unless advanced spawn-based rendering is needed.
+Optional [temporal exposure](timing.md#temporal-exposure) adds motion blur to Canvas exports.
 Both `export()` and `render()` enforce file capability policies such as
 `unsupported_motion="error"` before writing; `export()` also returns the receipt.
 Byte methods expose target-specific controls without the shared file receipt.
