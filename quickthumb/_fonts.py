@@ -242,7 +242,9 @@ class FontEngine:
                 if font_path:
                     return self._load_cached_font(font_path, size, font_variations, weight)
 
-            default_font_path = FontCache.get_instance().default_font()
+            default_font_path = FontCache.get_instance().default_font(
+                bold=bold or False, italic=italic or False, weight=weight
+            )
 
             return self._load_cached_font(default_font_path, size, font_variations, weight)
 

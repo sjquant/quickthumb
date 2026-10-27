@@ -441,7 +441,7 @@ class TestDeckGif:
         deck = self.two_slide_deck(tr.Fade(duration=1.0))
 
         # when
-        frames = gif_frames(deck.to_gif(fps=10, slide_duration=0.5))
+        frames = gif_frames(deck.to_gif(fps=10, hold=0.5))
 
         # then: first frame pure blue, last pure green, and some frame in between
         assert close_to(frames[0][0].getpixel((80, 45)), BLUE)
@@ -460,7 +460,7 @@ class TestDeckGif:
         deck = self.two_slide_deck(tr.Push(direction="left", duration=1.0))
 
         # when
-        frames = gif_frames(deck.to_gif(fps=10, slide_duration=0.5))
+        frames = gif_frames(deck.to_gif(fps=10, hold=0.5))
 
         # then: some frame carries the old slide on the left, the new on the right
         split = [
@@ -477,7 +477,7 @@ class TestDeckGif:
         deck = self.two_slide_deck(tr.Cut())
 
         # when
-        frames = gif_frames(deck.to_gif(fps=10, slide_duration=0.5))
+        frames = gif_frames(deck.to_gif(fps=10, hold=0.5))
 
         # then
         for frame, _ in frames:
@@ -532,7 +532,7 @@ class TestDeckGif:
         deck = self.two_slide_deck(transition)
 
         # when
-        frames = gif_frames(deck.to_gif(fps=10, slide_duration=0.5))
+        frames = gif_frames(deck.to_gif(fps=10, hold=0.5))
 
         # then
         last = frames[-1][0]
@@ -552,7 +552,7 @@ class TestDeckGif:
         )
 
         # when
-        frames = gif_frames(deck.to_gif(fps=10, slide_duration=1.0))
+        frames = gif_frames(deck.to_gif(fps=10, hold=1.0))
 
         # then: 1s hold + 0.5s fade + 1s hold
         assert total_ms(frames) == pytest.approx(2500, abs=100)
@@ -563,7 +563,7 @@ class TestDeckGif:
         deck = self.two_slide_deck(tr.Fade(duration=0.5, advance_after=2.0))
 
         # when
-        frames = gif_frames(deck.to_gif(fps=10, slide_duration=0.5))
+        frames = gif_frames(deck.to_gif(fps=10, hold=0.5))
 
         # then: slide 1 holds 0.5s, then 0.5s fade + 2.0s advance_after hold
         assert total_ms(frames) == pytest.approx(3000, abs=100)
@@ -574,7 +574,7 @@ class TestDeckGif:
         deck = self.two_slide_deck(tr.Fade(duration=0.5, advance_after=0.2))
 
         # when
-        frames = gif_frames(deck.to_gif(fps=10, slide_duration=1.0))
+        frames = gif_frames(deck.to_gif(fps=10, hold=1.0))
 
         # then: slide 1 holds 1s, then slide 2 fades for 0.5s and holds 0.2s
         assert total_ms(frames) == pytest.approx(1700, abs=100)
@@ -586,7 +586,7 @@ class TestDeckGif:
         deck = Deck(160, 90).slide(first, transition=tr.Fade(duration=1.0))
 
         # when
-        frames = gif_frames(deck.to_gif(fps=10, slide_duration=0.5, matte="#FFFFFF"))
+        frames = gif_frames(deck.to_gif(fps=10, hold=0.5, matte="#FFFFFF"))
 
         # then
         assert close_to(frames[0][0].getpixel((80, 45)), (255, 255, 255))
@@ -600,7 +600,7 @@ class TestDeckGif:
         deck = Deck(slides=[wide, square])
 
         # when
-        frames = gif_frames(deck.to_gif(fps=10, slide_duration=0.5, matte="#000000"))
+        frames = gif_frames(deck.to_gif(fps=10, hold=0.5, matte="#000000"))
 
         # then: the last frame centers the square slide with matte pillarboxing
         last = frames[-1][0]
@@ -615,8 +615,8 @@ class TestDeckGif:
         deck = self.two_slide_deck(tr.Fade(duration=0.5))
 
         # when
-        forever = Image.open(BytesIO(deck.to_gif(fps=10, slide_duration=0.5)))
-        thrice = Image.open(BytesIO(deck.to_gif(fps=10, slide_duration=0.5, loop=3)))
+        forever = Image.open(BytesIO(deck.to_gif(fps=10, hold=0.5)))
+        thrice = Image.open(BytesIO(deck.to_gif(fps=10, hold=0.5, loop=3)))
 
         # then
         assert forever.info.get("loop") == 0
@@ -640,7 +640,7 @@ class TestVideoEncoding:
         )
 
         # when
-        data = deck.to_mp4(fps=12, slide_duration=0.5)
+        data = deck.to_mp4(fps=12, hold=0.5)
 
         # then
         assert data[4:8] == b"ftyp"
@@ -651,7 +651,7 @@ class TestVideoEncoding:
         deck = Deck(160, 90, slides=[Canvas().background(color="#1131AA")])
 
         # when
-        data = deck.to_webm(fps=12, slide_duration=0.5)
+        data = deck.to_webm(fps=12, hold=0.5)
 
         # then
         assert data[:4] == b"\x1a\x45\xdf\xa3"
@@ -852,7 +852,7 @@ class TestNarratedDeckMp4:
         output = tmp_path / "short.mp4"
 
         # when
-        deck.render_mp4(str(output), fps=30)
+        deck.render_narrated_mp4(str(output), fps=30)
         duration = float(
             subprocess.run(
                 [
@@ -875,7 +875,7 @@ class TestNarratedDeckMp4:
         assert duration == pytest.approx(0.1, abs=0.01)
 
     def test_should_render_animated_deck_mp4_without_a_soundtrack(self, tmp_path):
-        """Deck.render uses animation options to select silent animated MP4 output."""
+        """Deck.render plays layer animations in MP4 with default video options."""
         # given
         first = (
             Canvas(160, 90)
@@ -886,7 +886,7 @@ class TestNarratedDeckMp4:
         output = tmp_path / "animated.mp4"
 
         # when
-        written = deck.render(str(output), animation=VideoOptions(fps=10))
+        written = deck.render(str(output))
         raw = subprocess.run(
             [
                 "ffmpeg",
@@ -1076,7 +1076,7 @@ class TestNarratedDeckMp4:
         # then
         assert max(abs(sample) for sample in samples[1300:1900]) < 100
 
-    @pytest.mark.parametrize("export", ["to_animated_mp4", "to_webm"])
+    @pytest.mark.parametrize("export", ["to_mp4", "to_webm"])
     def test_should_extend_animated_bytes_to_inferred_narration_duration(self, tmp_path, export):
         """Animated byte exports preserve a narration longer than the default visual hold."""
         # given
@@ -1086,10 +1086,10 @@ class TestNarratedDeckMp4:
             transition=tr.Cut(advance_after=0),
             audio=voice,
         )
-        output = tmp_path / f"animated.{'mp4' if export == 'to_animated_mp4' else 'webm'}"
+        output = tmp_path / f"animated.{'mp4' if export == 'to_mp4' else 'webm'}"
 
         # when
-        output.write_bytes(getattr(deck, export)(fps=20, slide_duration=0.1))
+        output.write_bytes(getattr(deck, export)(fps=20, hold=0.1))
         duration = float(
             subprocess.run(
                 [
@@ -1126,7 +1126,7 @@ class TestNarratedDeckMp4:
         output = tmp_path / "timed.mp4"
 
         # when
-        output.write_bytes(deck.to_animated_mp4(fps=10, slide_duration=0.1))
+        output.write_bytes(deck.to_mp4(fps=10, hold=0.1))
         duration = float(
             subprocess.run(
                 [
@@ -1170,7 +1170,7 @@ class TestNarratedDeckMp4:
         output = tmp_path / "aligned.mp4"
 
         # when
-        output.write_bytes(deck.to_animated_mp4(fps=10, slide_duration=0.1))
+        output.write_bytes(deck.to_mp4(fps=10, hold=0.1))
         raw = subprocess.run(
             [
                 "ffmpeg",
@@ -1214,7 +1214,7 @@ class TestNarratedDeckMp4:
         output = tmp_path / "deck.mp4"
 
         # when
-        deck.render(str(output))
+        deck.render_narrated_mp4(str(output))
         streams = subprocess.run(
             [
                 "ffprobe",
@@ -1268,7 +1268,7 @@ class TestNarratedDeckMp4:
         script = """
 from quickthumb import Canvas, Deck
 deck = Deck(16, 16).slide(Canvas().background(color="#123456"), duration=0.01)
-deck.render_mp4(__import__("sys").argv[1], fps=10)
+deck.render_narrated_mp4(__import__("sys").argv[1], fps=10)
 """
 
         # when
@@ -1285,7 +1285,7 @@ deck.render_mp4(__import__("sys").argv[1], fps=10)
         output = tmp_path / "short-narrated.mp4"
 
         # when
-        deck.render_mp4(str(output), fps=10)
+        deck.render_narrated_mp4(str(output), fps=10)
         samples = decoded_audio(output.read_bytes(), tmp_path / "short-narrated.pcm")
 
         # then
@@ -1299,7 +1299,7 @@ deck.render_mp4(__import__("sys").argv[1], fps=10)
         script = """
 from quickthumb import Canvas, Deck
 deck = Deck(2, 2, slides=[Canvas().background(color="#123456") for _ in range(170)])
-deck.render_mp4(__import__("sys").argv[1], default_duration=0.01, fps=10)
+deck.render_narrated_mp4(__import__("sys").argv[1], hold=0.01, fps=10)
 """
 
         # when
@@ -1316,7 +1316,7 @@ deck.render_mp4(__import__("sys").argv[1], default_duration=0.01, fps=10)
         output = tmp_path / "deck.mp4"
 
         # when
-        deck.render_mp4(str(output), default_duration=2.0)
+        deck.render_narrated_mp4(str(output), hold=2.0)
         duration = float(
             subprocess.run(
                 [
@@ -1418,7 +1418,7 @@ class TestVideoErrors:
 
         # when / then
         with pytest.raises(MissingAssetError, match="Audio file not found"):
-            deck.to_webm(slide_duration=0.1)
+            deck.to_webm(hold=0.1)
 
     def test_should_report_the_documented_animated_narration_limit(self, tmp_path):
         """Animated Deck export rejects more simultaneous narration inputs clearly."""
@@ -1430,7 +1430,7 @@ class TestVideoErrors:
 
         # when / then
         with pytest.raises(ValidationError, match="at most 64 narrated slides"):
-            deck.to_webm(slide_duration=0.1)
+            deck.to_webm(hold=0.1)
 
     def test_should_reject_missing_configured_media_tool(self, monkeypatch, tmp_path):
         """An invalid configured ffmpeg path raises the install-guidance RenderingError"""
@@ -1440,7 +1440,7 @@ class TestVideoErrors:
 
         # when / then
         with pytest.raises(RenderingError, match="requires both ffmpeg and ffprobe"):
-            deck.render_mp4(str(tmp_path / "deck.mp4"))
+            deck.render_narrated_mp4(str(tmp_path / "deck.mp4"))
 
     def test_should_reject_quality_for_animated_output(self, tmp_path):
         """The quality parameter has no meaning for GIF/MP4/WebM output"""
@@ -1470,7 +1470,7 @@ class TestVideoErrors:
 
         # when / then
         with pytest.raises(ValidationError, match="fps must be <= 120"):
-            deck.render_mp4(str(tmp_path / "deck.mp4"), fps=121)
+            deck.render_narrated_mp4(str(tmp_path / "deck.mp4"), fps=121)
 
     def test_should_render_gif_with_namespaced_animation_options(self, tmp_path):
         """GIF render options resize frames and constrain the GIF palette."""
@@ -1610,9 +1610,9 @@ class TestVideoErrors:
             ({"fps": 0}, "fps must be > 0"),
             ({"fps": "bad"}, "fps must be > 0"),
             ({"fps": 500}, "fps must be <= 100 for gif output"),
-            ({"hold": -1.0}, "slide_duration must be >= 0"),
-            ({"hold": "bad"}, "slide_duration must be finite"),
-            ({"hold": math.inf}, "slide_duration must be finite"),
+            ({"hold": -1.0}, "hold must be >= 0"),
+            ({"hold": "bad"}, "hold must be finite"),
+            ({"hold": math.inf}, "hold must be finite"),
             ({"loop": -1}, "loop must be >= 0"),
             ({"loop": "bad"}, "loop must be >= 0"),
             ({"loop": 65536}, "loop must be <= 65535"),

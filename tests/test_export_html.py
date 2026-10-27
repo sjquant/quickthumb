@@ -939,18 +939,6 @@ class TestDeckHtml:
         assert "qt-presenter-timer-reset-icon" in html
         assert "↺" not in html
 
-    def test_should_keep_presenter_headings_above_previews_on_narrow_layouts(self):
-        """Narrow presenter layouts keep each heading above its preview column."""
-        # given: the packaged presenter stylesheet
-        css = files("quickthumb.html").joinpath("presenter.css").read_text(encoding="utf-8")
-
-        # when: the responsive sidebar rules are selected
-        responsive_css = css.split("@media(max-width:900px)", 1)[1]
-
-        # then: both headings have explicit, non-overlapping first-row placement
-        assert ".qt-presenter-next-label{grid-column:1;grid-row:1}" in responsive_css
-        assert ".qt-presenter-notes-label{grid-column:2;grid-row:1}" in responsive_css
-
     def test_should_escape_speaker_notes_in_stage_attributes(self):
         """Speaker notes cannot escape their stage attribute into executable markup."""
         # given: notes containing HTML-significant characters

@@ -244,14 +244,21 @@ def test_path_schema_roundtrip_inspection_and_reduced_motion():
     "values,expected",
     [([(0, 0), (0, 100)], 90), ([(0, 0), (-100, 0)], 180), ([(0, 0), (0, -100)], -90)],
 )
-def test_linear_auto_heading_and_ordered_rotation_override(values, expected):
+def test_path_heading_adds_rotation_offset_in_either_track_order(values, expected):
+    """An oriented path adds a rotation offset regardless of track order."""
     oriented = PositionTrack(
         auto_orient=True,
         keyframes=[KeyframeSpec(time=i, value=value) for i, value in enumerate(values)],
     )
     rotation = scalar(RotationTrack, 20, 40)
-    assert compile_timeline(animation(rotation, oriented)).sample(0.5).rotation == expected
-    assert compile_timeline(animation(oriented, rotation)).sample(0.5).rotation == 30
+    assert compile_timeline(animation(rotation, oriented)).sample(0.5).rotation == expected + 30
+    assert compile_timeline(animation(oriented, rotation)).sample(0.5).rotation == expected + 30
+    assert (
+        compile_timeline(animation(oriented, rotation))
+        .sample(0.5, LayerState(rotation=20))
+        .rotation
+        == expected + 50
+    )
     replacement = PositionTrack(keyframes=[KeyframeSpec(time=0, value=(0, 0))])
     state = compile_timeline(animation(oriented, replacement)).sample(0.5)
     assert state.rotation == expected and state.position == (0, 0)
@@ -309,7 +316,7 @@ def test_loops_select_affine_motion_and_respect_later_overrides():
         compile_timeline(animation(path(loop=True, auto_orient=False), still)), 0.5
     )
     assert _geometry_in_motion(compile_timeline(animation(path(loop=True), still)), 0.5)
-    assert not _geometry_in_motion(
+    assert _geometry_in_motion(
         compile_timeline(animation(path(loop=True), still, scalar(RotationTrack, 0, 0))), 0.5
     )
 
@@ -333,7 +340,9 @@ def test_raster_video_paths_keep_geometry_color_and_spawn_parity(quality, tmp_pa
             )
     outputs = [tmp_path / f"path-{workers}.gif" for workers in (1, 2)]
     for workers, output in zip((1, 2), outputs, strict=True):
-        canvas.render(str(output), animation=GifOptions(fps=4, quality=quality, workers=workers))
+        canvas.render(
+            str(output), animation=GifOptions(fps=4, render_quality=quality, workers=workers)
+        )
     assert outputs[0].read_bytes() == outputs[1].read_bytes()
 
 
@@ -359,7 +368,9 @@ def test_html_bakes_eased_samples_and_declares_approximation():
         canvas.validate_export("html", ExportPolicy(unsupported_motion="error"))
 
 
-def test_html_unwraps_auto_heading_but_preserves_authored_multiturns():
+@pytest.mark.parametrize("turn", [720, 72000])
+def test_html_unwraps_auto_heading_but_preserves_authored_multiturns(turn):
+    """HTML unwraps path heading while retaining fast authored rotation offsets."""
     curve = PositionTrack(
         auto_orient=True,
         keyframes=[
@@ -371,10 +382,12 @@ def test_html_unwraps_auto_heading_but_preserves_authored_multiturns():
     angles = [float(value["--qt-motion-rotation"]) for value in stops.values()]
     assert max(abs(a - b) for a, b in zip(angles, angles[1:], strict=False)) < 5
     stops, final = _baked_motion_stops(
-        compile_timeline(animation(curve, scalar(RotationTrack, 0, 720))).events[0]
+        compile_timeline(animation(curve, scalar(RotationTrack, 0, turn))).events[0]
     )
-    assert float(stops[50]["--qt-motion-rotation"]) == 360
-    assert float(final["--qt-motion-rotation"]) == 720
+    assert float(stops[50]["--qt-motion-rotation"]) == turn / 2 + 180
+    assert float(final["--qt-motion-rotation"]) == pytest.approx(
+        turn + 360 + math.degrees(math.atan2(-20, -50))
+    )
 
 
 def test_html_preserves_knots_and_holds_with_bounded_output():

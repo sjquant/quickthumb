@@ -28,8 +28,8 @@ from quickthumb.models import (
     ExportResult,
     FrameSequence,
     GifOptions,
-    PngSequenceOptions,
-    PngSequenceResult,
+    ImageSequenceOptions,
+    ImageSequenceResult,
     PrefetchResult,
     ValidationReport,
     VideoOptions,
@@ -297,10 +297,6 @@ class Deck:
     def _contract_motion_report(self, target: str, policy, fps: float):
         return self.inspect_motion(target=target, policy=policy, fps=fps)
 
-    def _contract_static_timing(self) -> tuple[float, float]:
-        _, durations = self._animation_audio_schedule()
-        return sum(durations), 30.0
-
     def _contract_timeline_inputs(self, hold: float) -> TimelineInputs:
         slide_durations, _ = self._animation_audio_schedule(hold)
         return list(self._slides), self._resolved_transitions(), slide_durations
@@ -381,7 +377,7 @@ class Deck:
         """
         from quickthumb._document import _resolve_export
 
-        resolved = _resolve_export("deck", output_path, format, animation, policy)
+        resolved = _resolve_export("deck", output_path, format, policy)
         return self._render_resolved(
             output_path, resolved, format, quality, animation, policy
         ).paths
@@ -423,21 +419,6 @@ class Deck:
                 "animation options require an animated output extension "
                 "(.gif, .mp4, .webm, or .mov)."
             )
-
-        if resolved.mode == "narrated":
-            if quality is not None:
-                raise RenderingError(
-                    "Quality parameter is only supported for JPEG and WEBP formats, "
-                    "not .mp4 output."
-                )
-            if format is not None:
-                raise RenderingError(
-                    "format override is only supported for raster output, not .mp4 output."
-                )
-            if diagnostics is None:
-                diagnostics = preflight_export(cast(Document, self), resolved, policy)
-            self.render_mp4(output_path)
-            return _ExportReceipt([output_path], diagnostics)
 
         if resolved.mode == "animated":
             if quality is not None:
@@ -490,8 +471,8 @@ class Deck:
 
         raise RenderingError(
             f"Unsupported deck output format: {extension or output_path!r}.\n"
-            "Use .pdf, .pptx, .html, an animated extension (.gif, .webm, .mov), .mp4 for "
-            "narrated slides, or a raster extension (.png, .jpg, .jpeg, .webp)."
+            "Use .pdf, .pptx, .html, an animated extension (.gif, .mp4, .webm, .mov), "
+            "or a raster extension (.png, .jpg, .jpeg, .webp)."
         )
 
     def export(
@@ -514,7 +495,7 @@ class Deck:
         )
 
         normalized_path = os.fspath(output_path)
-        resolved = _resolve_export("deck", normalized_path, format, animation, policy)
+        resolved = _resolve_export("deck", normalized_path, format, policy)
         render = self.render
         if getattr(render, "__func__", None) is Deck._original_render:
             receipt = self._render_resolved(
@@ -538,23 +519,35 @@ class Deck:
             ),
         )
 
-    def export_png_sequence(
+    def export_image_sequence(
         self,
         output_directory: str | os.PathLike[str],
         *,
-        options: PngSequenceOptions | None = None,
+        format: str = "png",
+        quality: int | None = None,
+        matte: str | None = None,
+        lossless: bool | None = None,
+        options: ImageSequenceOptions | None = None,
         policy: ExportPolicy | None = None,
-    ) -> PngSequenceResult:
-        """Export silent RGBA8 animation, retaining slide and narration timing.
+    ) -> ImageSequenceResult:
+        """Export silent PNG, JPEG, or WebP frames into a fresh directory.
 
-        Writes numbered independent PNGs and manifest.json into a fresh
-        directory under an existing parent, without replacing any destination.
+        PNG preserves RGBA8; JPEG flattens alpha onto an opaque matte (white
+        by default). WebP retains alpha and supports opt-in lossless encoding.
+        The directory and manifest appear together; existing paths are never replaced.
         """
         from quickthumb._document import Document
-        from quickthumb._export_png_sequence import export_png_sequence
+        from quickthumb._export_image_sequence import export_image_sequence
 
-        return export_png_sequence(
-            cast(Document, self), output_directory, options=options, policy=policy
+        return export_image_sequence(
+            cast(Document, self),
+            output_directory,
+            format=format,
+            quality=quality,
+            matte=matte,
+            lossless=lossless,
+            options=options,
+            policy=policy,
         )
 
     def _validate_parent_motion_policy(self, target: str, policy: ExportPolicy | None) -> None:
@@ -728,7 +721,7 @@ class Deck:
     def to_gif(
         self,
         fps: float = 20.0,
-        slide_duration: float = 3.0,
+        hold: float = 3.0,
         loop: int = 0,
         matte: str = "#000000",
         *,
@@ -736,7 +729,7 @@ class Deck:
         max_size: tuple[int, int] | None = None,
         colors: int | None = None,
         workers: int = 1,
-        quality: Literal["standard", "high"] = "standard",
+        render_quality: Literal["standard", "high"] = "standard",
     ) -> bytes:
         """Render the deck to animated GIF bytes.
 
@@ -745,7 +738,7 @@ class Deck:
         no transition set cross-fades in over 0.5s; slide 0 with none starts
         instantly). `on_click` animations play automatically in sequence --
         there are no clicks in a video. A slide holds for its transition's
-        `advance_after` when set, else for `slide_duration` seconds after
+        `advance_after` when set, else for `hold` seconds after
         its animations finish. `loop` is the GIF repeat count (0 = forever).
         Frames are composited onto the opaque `matte` color, and mixed-size
         slides are letterboxed onto the first slide's size.
@@ -759,57 +752,55 @@ class Deck:
             self._resolved_transitions(),
             format="gif",
             fps=fps,
-            slide_duration=slide_duration,
+            slide_duration=hold,
             loop=loop,
             matte=matte,
             max_size=max_size,
             colors=colors,
             workers=workers,
-            quality=quality,
+            quality=render_quality,
             reduced_motion=bool(policy and policy.reduced_motion),
         )
 
-    def to_mp4(
+    def to_narrated_mp4(
         self,
         fps: float = 30.0,
-        slide_duration: float = 3.0,
-        *,
-        policy: ExportPolicy | None = None,
+        hold: float = 3.0,
     ) -> bytes:
         """Return a static, narrated Deck MP4 as bytes.
 
         Every slide becomes a still frame. Its optional `audio` is used as
         narration; its `duration` overrides that audio's length, and silent
-        slides use `slide_duration`. Layer animations and transitions are
+        slides use `hold`. Layer animations and transitions are
         not played by this Deck-specific MP4 export.
         """
         self._require_slides()
         descriptor, output_path = tempfile.mkstemp(suffix=".mp4")
         os.close(descriptor)
         try:
-            self.render_mp4(output_path, default_duration=slide_duration, fps=fps)
+            self.render_narrated_mp4(output_path, hold=hold, fps=fps)
             with open(output_path, "rb") as rendered:
                 return rendered.read()
         finally:
             with contextlib.suppress(FileNotFoundError):
                 os.remove(output_path)
 
-    def to_animated_mp4(
+    def to_mp4(
         self,
         fps: float = 30.0,
-        slide_duration: float = 3.0,
+        hold: float = 3.0,
         matte: str = "#000000",
         soundtrack: AudioTrack | str | dict | None = None,
         loop_audio: bool | None = None,
         *,
         policy: ExportPolicy | None = None,
         workers: int = 1,
-        quality: Literal["standard", "high"] = "standard",
+        render_quality: Literal["standard", "high"] = "standard",
     ) -> bytes:
         """Render the Deck's animated timeline to MP4 bytes.
 
-        Unlike `to_mp4()`, this path plays layer animations and slide
-        transitions. Per-slide narration and the optional `soundtrack` are
+        This path plays layer animations and slide transitions. Per-slide narration
+        and the optional `soundtrack` are
         mixed into the complete timeline; a narration without an explicit
         duration holds its slide for the source audio length.
         """
@@ -818,12 +809,12 @@ class Deck:
         return self._export_animated_video_bytes(
             format="mp4",
             fps=fps,
-            slide_duration=slide_duration,
+            slide_duration=hold,
             matte=matte,
             soundtrack=soundtrack,
             loop_audio=loop_audio,
             workers=workers,
-            quality=quality,
+            quality=render_quality,
             reduced_motion=bool(policy and policy.reduced_motion),
         )
 
@@ -861,9 +852,7 @@ class Deck:
             reduced_motion=reduced_motion,
         )
 
-    def render_mp4(
-        self, output_path: str, default_duration: float = 3.0, fps: float = 30.0
-    ) -> None:
+    def render_narrated_mp4(self, output_path: str, hold: float = 3.0, fps: float = 30.0) -> None:
         """Render static slides and their per-slide AAC audio into an MP4 file.
 
         Requires `ffmpeg` and `ffprobe`. The first slide defines the video
@@ -880,14 +869,14 @@ class Deck:
             self._slide_audio,
             self._slide_durations,
             output_path,
-            default_duration=default_duration,
+            default_duration=hold,
             fps=fps,
         )
 
     def to_webm(
         self,
         fps: float = 30.0,
-        slide_duration: float = 3.0,
+        hold: float = 3.0,
         matte: str = "#000000",
         soundtrack: AudioTrack | str | dict | None = None,
         loop_audio: bool | None = None,
@@ -895,7 +884,7 @@ class Deck:
         transparent: bool = False,
         policy: ExportPolicy | None = None,
         workers: int = 1,
-        quality: Literal["standard", "high"] = "standard",
+        render_quality: Literal["standard", "high"] = "standard",
     ) -> bytes:
         """Render the deck to WebM (VP9) bytes; timing model as in `to_gif`.
 
@@ -913,20 +902,20 @@ class Deck:
         return self._export_animated_video_bytes(
             format="webm",
             fps=fps,
-            slide_duration=slide_duration,
+            slide_duration=hold,
             matte=matte,
             transparent=transparent,
             soundtrack=soundtrack,
             loop_audio=loop_audio,
             workers=workers,
-            quality=quality,
+            quality=render_quality,
             reduced_motion=bool(policy and policy.reduced_motion),
         )
 
     def to_mov(
         self,
         fps: float = 30.0,
-        slide_duration: float = 3.0,
+        hold: float = 3.0,
         matte: str = "#000000",
         soundtrack: AudioTrack | str | dict | None = None,
         loop_audio: bool | None = None,
@@ -934,7 +923,7 @@ class Deck:
         transparent: bool = False,
         policy: ExportPolicy | None = None,
         workers: int = 1,
-        quality: Literal["standard", "high"] = "standard",
+        render_quality: Literal["standard", "high"] = "standard",
     ) -> bytes:
         """Render the deck to ProRes 4444 MOV bytes; timing as in `to_gif`.
 
@@ -951,13 +940,13 @@ class Deck:
         return self._export_animated_video_bytes(
             format="mov",
             fps=fps,
-            slide_duration=slide_duration,
+            slide_duration=hold,
             matte=matte,
             transparent=transparent,
             soundtrack=soundtrack,
             loop_audio=loop_audio,
             workers=workers,
-            quality=quality,
+            quality=render_quality,
             reduced_motion=bool(policy and policy.reduced_motion),
         )
 

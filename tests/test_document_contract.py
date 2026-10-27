@@ -43,7 +43,7 @@ def test_canvas_and_deck_expose_the_same_document_methods():
     assert isinstance(deck, Document)
 
 
-def test_document_protocol_accepts_adapters_without_png_sequence_export():
+def test_document_protocol_accepts_adapters_without_image_sequence_export():
     """Given the original six-method adapter, Document remains structurally compatible."""
 
     class DocumentAdapter:
@@ -57,7 +57,7 @@ def test_document_protocol_accepts_adapters_without_png_sequence_export():
 
     adapter = DocumentAdapter(Canvas(32, 24))
 
-    assert not hasattr(adapter, "export_png_sequence")
+    assert not hasattr(adapter, "export_image_sequence")
     assert isinstance(adapter, Document)
 
 
