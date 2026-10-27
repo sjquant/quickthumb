@@ -147,7 +147,7 @@ ScaleTrack(
 )
 ```
 
-Ordinary HTML presets pass an animation-level custom curve to CSS. Per-keyframe easing
+Ordinary HTML presets pass an animation-level custom Bézier curve to CSS. Per-keyframe easing
 and holds are rendered by the raster and video pipelines; HTML animates canonical
 motion between its start and settled states, and PPTX falls back to its preset
 effects.
@@ -155,6 +155,81 @@ effects.
 The bounded HTML adapters for anchors, axis scaling, paths and parent chains
 use static fallback with custom Bézier easing, per-keyframe easing or keyframe
 holds. Raster animation preserves these clocks.
+
+### Spring easing
+
+`SpringEasing(stiffness=100, damping=10, mass=1)` supplies a closed-form damped
+unit-step response wherever canonical easing is accepted, including individual
+keyframe intervals. Smaller damping permits overshoot; critical damping is
+`2 * sqrt(stiffness * mass)`, while larger damping approaches the target more
+slowly. Stiffness and mass must be positive; damping may be zero.
+
+```python
+from quickthumb import AnimationSpec, KeyframeSpec, PositionTrack, SpringEasing
+
+motion = AnimationSpec.timeline(
+    PositionTrack(keyframes=[
+        KeyframeSpec(time=0, value=(0, 0)),
+        KeyframeSpec(time=1, value=(180, 0)),
+    ]),
+    easing=SpringEasing(stiffness=100, damping=10, mass=1),
+)
+```
+
+The response uses one normalized second per keyframe interval; changing the
+interval length stretches that same curve. Each interval starts at its first
+value and ends exactly at the next keyframe, so a spring that has not naturally
+settled will snap to the target at that boundary. The final value holds after
+the animation. Opacity, colors and other bounded properties retain their normal
+clamping; path distance remains clamped to the authored path.
+
+Sampling is a pure function of time: seeking and sequential raster/video export
+use the same curve without simulation state. JSON stores `type: "spring"` and
+the three parameters. `inspect_motion()` reports the spring capability and its
+sampled states. HTML and PPTX use a declared authored-static fallback rather than
+substituting a CSS or PowerPoint curve; strict export policy rejects it.
+[`examples/spring_motion.py`](https://github.com/sjquant/quickthumb/blob/main/examples/spring_motion.py)
+compares the three damping regimes and exports GIF, JSON and a midpoint PNG.
+
+### Wiggle track modifiers
+
+Attach `wiggle=Wiggle(frequency=2, amplitude=12, seed=156)` to a numeric or
+vector track to add deterministic noise after keyframe interpolation:
+
+```python
+from quickthumb import AnimationSpec, KeyframeSpec, PositionTrack, TimingSpec, Wiggle
+
+motion = AnimationSpec.timeline(
+    PositionTrack(
+        keyframes=[KeyframeSpec(time=0, value=(0, 0))],
+        wiggle=Wiggle(frequency=2, amplitude=12, seed=156),
+    ),
+    timing=TimingSpec(duration=2),
+)
+```
+
+`frequency` is the highest noise component in cycles per second. Four
+noncommensurate sinusoidal components use seed-derived phases, without a global
+random generator or simulation state. `amplitude` bounds the absolute offset
+per scalar or vector component, in that property's units; vector axes use
+independent phases. `seed` is a stored unsigned 32-bit integer. Color tracks do
+not accept wiggle.
+
+The modifier starts at zero offset on the animation event's local clock. It
+continues across keyframe holds and after a track's last keyframe until the
+event ends, then holds that final perturbed value. An explicit `TimingSpec`
+gives a one-keyframe constant track a duration; no additional clock or automatic
+fade is introduced. The same seed, parameters and event time produce the same
+offset when seeking, exporting sequentially or using render workers.
+
+Opacity and reveal remain within 0–1, image pan within -1–1, image zoom at least
+1, and blur nonnegative. These property clamps apply after the bounded noise;
+uniform/axis scale retains its ordinary renderer semantics. A path's position
+can be perturbed, but `auto_orient` continues to use the authored path heading.
+`inspect_motion()` includes the modifier and sampled states. HTML and PPTX use
+declared authored-static fallback, including parent-linked scenes.
+[`examples/wiggle_motion.py`](https://github.com/sjquant/quickthumb/blob/main/examples/wiggle_motion.py)
+compares three seeds on position and rotation tracks.
 
 ## Notes
 
@@ -788,3 +863,8 @@ Run `uv run python examples/text_range_selector.py --target words --output /tmp/
 (or `--target lines`) for weighted position/rotation that settles to the original
 text layout, plus portable scene JSON. This is partial #165 coverage, not a
 per-glyph backend or a full text-stagger capability claim.
+
+The bounded HTML adapters for anchors, axis scaling, paths and parent chains
+currently use static fallback when custom Bézier easing, per-keyframe easing,
+or keyframe holds are combined with them. Raster animation preserves those
+clocks; ordinary HTML presets and basic tracks retain their existing support.

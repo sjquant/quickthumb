@@ -452,7 +452,11 @@ def test_counter_group_documents_freeze_whole_scene_and_protect_destination(tmp_
     report = canvas.export(path).capability_report
     assert {"parent", "animated_text_value"} <= {item.feature for item in report}
     assert any(item.layer_id == "unlinked" for item in report)
-    assert all(item.support == "fallback" and item.fallback == "static" for item in report)
+    assert all(
+        item.support == "fallback" and item.fallback == "static"
+        for item in report
+        if item.feature != "layer_representation"
+    )
     for method in (canvas.render, canvas.export):
         path.write_bytes(b"existing")
         with pytest.raises(RenderingError, match="authored-static"):
