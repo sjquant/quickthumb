@@ -151,6 +151,7 @@ class PdfExporter:
         """Write one or more canvases to a multi-page PDF (one page per canvas)."""
         from quickthumb._parent_export import static_parent_fragment
         from quickthumb._parenting import has_parent_links
+        from quickthumb._track_mattes import has_track_mattes
 
         # Prepare all parent pages before opening a destination. Reuse these
         # fragments only for this export, including font collection and drawing.
@@ -161,7 +162,9 @@ class PdfExporter:
         self._parent_fragments = {}
         try:
             for canvas in canvases:
-                if id(canvas) not in self._parent_fragments and has_parent_links(canvas):
+                if id(canvas) not in self._parent_fragments and (
+                    has_parent_links(canvas) or has_track_mattes(canvas)
+                ):
                     self._parent_fragments[id(canvas)] = static_parent_fragment(canvas)
             if hasattr(path_or_stream, "write"):
                 self._build(canvases, path_or_stream)

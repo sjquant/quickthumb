@@ -82,6 +82,7 @@ from quickthumb.models import (
     RadialGradient,
     Shadow,
     ShapeLayer,
+    SpringEasing,
     Stroke,
     SvgLayer,
     TextLayer,
@@ -90,9 +91,12 @@ from quickthumb.models import (
 from quickthumb.motion import (
     Timeline,
     TimelineEvent,
+    _custom_easing,
     _has_color_track,
     _has_motion_path,
+    _has_spring_easing,
     _has_transform_extensions,
+    _has_wiggle,
     compile_timeline,
 )
 
@@ -201,10 +205,13 @@ _CSS_EASINGS = {
 }
 
 
-def css_easing(name: str | CubicBezierEasing | Mapping[str, object] | None) -> str:
+def css_easing(name: str | CubicBezierEasing | SpringEasing | Mapping[str, object] | None) -> str:
     """Return the CSS timing function for a shared easing name or custom bezier."""
     if name is not None and not isinstance(name, str):
-        x1, y1, x2, y2 = CubicBezierEasing.model_validate(name).points
+        curve = _custom_easing(name)
+        if isinstance(curve, SpringEasing):
+            raise RenderingError("spring easing requires the declared static HTML fallback")
+        x1, y1, x2, y2 = curve.points
         return f"cubic-bezier({_fmt(x1)},{_fmt(y1)},{_fmt(x2)},{_fmt(y2)})"
     return _CSS_EASINGS.get(name or "ease", "ease")
 
@@ -293,6 +300,8 @@ def _supports_transform_extensions_html(layer: object) -> bool:
         return False
     spec = specs[0]
     if spec.tracks is None or spec.stagger is not None:
+        return False
+    if _has_wiggle(spec):
         return False
     if any(track.type not in _TRANSFORM_PROPERTIES for track in spec.tracks):
         return False
@@ -466,8 +475,9 @@ class HtmlExporter:
         canvas = _distinct_layer_occurrences(canvas)
         self._canvas = canvas
         from quickthumb._parenting import has_parent_links
+        from quickthumb._track_mattes import has_track_mattes
 
-        if not reduced_motion and not has_parent_links(canvas):
+        if not reduced_motion and not (has_parent_links(canvas) or has_track_mattes(canvas)):
             validate_legacy_animation_export(canvas)
         self._embed_fonts = embed_fonts
         self._responsive = responsive
@@ -609,13 +619,19 @@ class HtmlExporter:
             static_parent_fragment,
         )
         from quickthumb._parenting import has_parent_links
+        from quickthumb._track_mattes import has_track_mattes
         from quickthumb.models import NullLayer
 
-        parent = has_parent_links(canvas)
+        parent = has_parent_links(canvas) or has_track_mattes(canvas)
         stage_failed = False
         try:
             sampling = parent_html_sampling(canvas) if parent else None
-            if sampling and (self._reduced_motion or self._parent_static or sampling.problem):
+            if sampling and (
+                self._reduced_motion
+                or self._parent_static
+                or sampling.problem
+                or has_track_mattes(canvas)
+            ):
                 self._emit_fragment(static_parent_fragment(canvas))
                 self._record_routing(
                     canvas.layers,
@@ -810,8 +826,17 @@ class HtmlExporter:
             self._prev_anim_key = None
             return ""
 
-        if _has_color_track(layer):
-            # Canonical color tracks have an authored-static fallback in HTML.
+        from quickthumb.motion import _text_selector
+
+        if _text_selector(layer) is not None:
+            self._prev_anim_key = None
+            self._prev_nodes = []
+            return ""
+
+        if _has_color_track(layer) or any(
+            _has_spring_easing(effect) or _has_wiggle(effect) for effect in effects
+        ):
+            # Color tracks and procedural clocks use the authored-static fallback.
             self._prev_anim_key = None
             self._prev_nodes = []
             return ""
@@ -893,11 +918,8 @@ class HtmlExporter:
                 # runtime counts a delay from the group a node joins, so the
                 # two have to be reconciled once the groups are known.
                 "abs": event.trigger is None and event.start > 0,
+                "e": css_easing(event.options.get("easing")),
             }
-            # Named easings keep the runtime's default curve; only a custom
-            # bezier is passed through, since CSS can express it exactly.
-            if isinstance(event.options.get("easing"), Mapping):
-                node["e"] = css_easing(event.options["easing"])
             nodes.append(node)
         self._timeline.extend(nodes)
         self._prev_anim_key = id(animation)
@@ -1295,13 +1317,33 @@ class HtmlExporter:
 
     def _emit_path(self, layer: PathLayer) -> None:
         from quickthumb._export_svg import SvgExporter
-        from quickthumb._path_svg import native_path_problem
+        from quickthumb._path_geometry import parse_path
+        from quickthumb._path_html import is_trim, path_html_problem, stroke_style
+        from quickthumb._path_svg import native_path_data, native_path_problem
+        from quickthumb.motion import LayerState
 
-        if problem := native_path_problem(layer):
+        native_motion = native_path_problem(layer) is not None
+        if native_motion and (problem := path_html_problem(layer)):
             self._emit_raster_fallback(layer, f"Path requires a PNG fragment: {problem}")
             return
         element_id = self._make_id()
-        animation_style = self._register_animation(layer, element_id)
+        stroke_attributes = None
+        if native_motion:
+            self._prev_anim_key = None
+            self._prev_nodes = []
+            stroke_id = element_id + "-stroke"
+            initial = stroke_style(layer, LayerState())
+            stroke_attributes = {
+                "id": stroke_id,
+                "style": ";".join(f"{k}:{v}" for k, v in initial.items()),
+            }
+            if is_trim(layer):
+                stroke_attributes["pathLength"] = "1"
+            if layer.animation is not None and not self._reduced_motion:
+                self._register_path_animation(layer, stroke_id, initial)
+            animation_style = ""
+        else:
+            animation_style = self._register_animation(layer, element_id)
         fragment = SvgExporter(self._canvas, id_prefix=f"{self._keyframe_prefix}{element_id}-")
         x = parse_coordinate(layer.position[0], self._canvas.width)
         y = parse_coordinate(layer.position[1], self._canvas.height)
@@ -1309,9 +1351,53 @@ class HtmlExporter:
         self._body.append(
             f'<div id="{element_id}"{identity} style="position:absolute;left:{x}px;top:{y}px;'
             f'width:{layer.width}px;height:{layer.height}px;{animation_style}">'
-            f"{fragment.path_fragment(layer)}</div>"
+            f"{fragment.path_fragment(layer, stroke_attributes=stroke_attributes)}</div>"
         )
-        self._record_routing([layer], "Path emitted as native SVG vectors", rasterized=False)
+        if any(segment.kind not in {"M", "Z"} for segment in parse_path(native_path_data(layer))):
+            self._record_routing(
+                [layer], "Path emitted as native SVG inside HTML", rasterized=False
+            )
+
+    def _register_path_animation(
+        self, layer: PathLayer, stroke_id: str, initial: dict[str, str]
+    ) -> None:
+        from quickthumb._path_html import path_html_stops
+
+        assert isinstance(layer.animation, AnimationSpec)
+        event = compile_timeline(layer.animation).events[0]
+        stops, final = path_html_stops(layer)
+        keyframe = f"{self._keyframe_prefix}{self._next_kf}"
+        self._next_kf += 1
+        self._keyframes.append(
+            "@keyframes "
+            + keyframe
+            + "{"
+            + "".join(
+                _motion_number(percent)
+                + "%{"
+                + ";".join(f"{k}:{v}" for k, v in values.items())
+                + "}"
+                for percent, values in stops.items()
+            )
+            + "}"
+        )
+        self._timeline.append(
+            {
+                "t": [stroke_id],
+                "k": keyframe,
+                "d": event.duration,
+                "delay": event.active_start,
+                "tr": event.trigger
+                or ("after_previous" if len(self._timeline) == 0 else "with_previous"),
+                "a": "transform",
+                "e": "linear",
+                "abs": event.trigger is None and event.start > 0,
+                "initial": initial,
+                "final": final,
+            }
+        )
+        self._prev_anim_key = None
+        self._prev_nodes = []
 
     def _emit_svg_layer(self, layer: SvgLayer):
         if layer.effects or is_url(layer.path):

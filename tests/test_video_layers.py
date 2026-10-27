@@ -1,17 +1,31 @@
 """Behavioral specifications for the constrained VideoLayer composition API."""
 
+import cmath
 import json
+import math
 import shutil
+import struct
 import subprocess
+from bisect import bisect_right
 from io import BytesIO
+from itertools import accumulate
 from pathlib import Path
 from typing import cast
 
 import pytest
-from PIL import Image, ImageChops
-from quickthumb import Canvas, Deck, ValidationError
+from PIL import Image, ImageChops, ImageStat
+from quickthumb import (
+    AnimationSpec,
+    AudioTrack,
+    Canvas,
+    Deck,
+    ExportPolicy,
+    GifOptions,
+    ValidationError,
+    VideoOptions,
+)
 from quickthumb.models import VideoCaption, VideoLayer
-from quickthumb.transitions import Fade, Morph
+from quickthumb.transitions import Cut, Fade, Morph
 
 from tests._helpers import pixel_rgb
 
@@ -371,6 +385,258 @@ def test_video_layer_speed_duration_caption_and_audio_stay_synchronized(source_v
         for y in range(caption_region[1], caption_region[3])
         for x in range(caption_region[0], caption_region[2])
     )
+
+
+@pytest.mark.skipif(not (HAS_FFMPEG and HAS_FFPROBE), reason="FFmpeg tools are required")
+@pytest.mark.parametrize(
+    "container,reduced",
+    [("gif", False), ("gif", True), ("mp4", False), ("webm", False), ("mp4", True), ("webm", True)],
+)
+def test_motion_package_keeps_frames_captions_and_narration_aligned(
+    source_video, tmp_path, container, reduced
+):
+    """A three-slide package keeps motion, caption cues and mixed audio on its declared clock."""
+    # Given: a fading title card followed by a narrated clip with a short caption.
+    # Every boundary is on the 10 fps grid; normal GIF uses advance_after instead of narration.
+    opening = (
+        Canvas(96, 64)
+        .background(color="#102030")
+        .shape("rectangle", (8, 4), 24, 12, "#00FF00", animation=AnimationSpec.fade(duration=0.4))
+    )
+    closing = (
+        Canvas(96, 64)
+        .background(color="#304050")
+        .video(
+            str(source_video),
+            (16, 24),
+            64,
+            32,
+            trim_end=0.6,
+            volume=0,
+            captions=[{"text": "GO", "start": 0.4, "end": 0.6, "size": 12, "position": (48, 48)}],
+        )
+    )
+    deck = (
+        Deck(96, 64)
+        .slide(opening, transition=Cut(advance_after=0.8), duration=0.8)
+        .slide(
+            closing,
+            transition=Fade(duration=0.2, advance_after=0.6),
+            audio=str(source_video),
+            duration=0.8,
+        )
+        .slide(
+            Canvas(96, 64).background(color="#102030"),
+            transition=Fade(duration=0.2, advance_after=0.3),
+            duration=0.5,
+        )
+    )
+    output = tmp_path / f"motion-package.{container}"
+    if container == "gif":
+        options = GifOptions(fps=10, hold=0.8)
+    else:
+        music = tmp_path / "music.wav"
+        subprocess.run(
+            [
+                "ffmpeg",
+                "-v",
+                "error",
+                "-f",
+                "lavfi",
+                "-i",
+                "sine=frequency=880:sample_rate=8000:duration=0.2",
+                str(music),
+            ],
+            check=True,
+        )
+        options = VideoOptions(
+            fps=10,
+            hold=0.8,
+            workers=2 if container == "webm" else 1,
+            soundtrack=AudioTrack(path=str(music), volume=0.2, loop=True),
+        )
+
+    # When: the public export writes the complete package and its receipt.
+    result = deck.export(output, animation=options, policy=ExportPolicy(reduced_motion=reduced))
+    metadata = json.loads(
+        subprocess.run(
+            [
+                "ffprobe",
+                "-v",
+                "error",
+                "-count_frames",
+                "-show_entries",
+                "stream=codec_type,avg_frame_rate,nb_read_frames",
+                "-of",
+                "json",
+                str(output),
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout
+    )
+    times = [0.0, 0.2, 0.7, 0.8, 0.9, 1.1, 1.2, 1.4, 1.5, 1.6, 1.7]
+    reduced_gif = container == "gif" and reduced
+    if reduced_gif:
+        # GIF ignores explicit slide durations. Removing authored transitions
+        # restores the default 0.5s incoming fades: windows end at .8, 2.2, 3.5.
+        times[-2:] = [2.2, 2.3]
+    if container == "gif":
+        frames = _gif_frames_with_durations(output.read_bytes())
+        ends_ms = list(accumulate(duration for _, duration in frames))
+        observed = [
+            frames[bisect_right(ends_ms, round(time * 1000))][0].convert("RGB") for time in times
+        ]
+        assert ends_ms[-1] / 1000 == result.timing_metrics.duration == (3.5 if reduced_gif else 2.1)
+        assert {stream["codec_type"] for stream in metadata["streams"]} == {"video"}
+    else:
+        raw = subprocess.run(
+            [
+                "ffmpeg",
+                "-v",
+                "error",
+                "-i",
+                str(output),
+                "-map",
+                "0:v",
+                "-vsync",
+                "0",
+                "-f",
+                "rawvideo",
+                "-pix_fmt",
+                "rgb24",
+                "-",
+            ],
+            capture_output=True,
+            check=True,
+        ).stdout
+        frame_size = 96 * 64 * 3
+        frames = [
+            Image.frombytes("RGB", (96, 64), raw[offset : offset + frame_size])
+            for offset in range(0, len(raw), frame_size)
+        ]
+        observed = [frames[round(time * 10)] for time in times]
+        video_stream = next(
+            stream for stream in metadata["streams"] if stream["codec_type"] == "video"
+        )
+        assert video_stream["avg_frame_rate"] == "10/1"
+        assert int(video_stream["nb_read_frames"]) == len(frames) == 21
+        assert len(frames) / 10 == result.timing_metrics.duration == 2.1
+        assert {stream["codec_type"] for stream in metadata["streams"]} == {"video", "audio"}
+
+        # The music is audible before the next slide; its narration joins at 0.8s.
+        pcm = subprocess.run(
+            [
+                "ffmpeg",
+                "-v",
+                "error",
+                "-i",
+                str(output),
+                "-map",
+                "0:a",
+                "-f",
+                "s16le",
+                "-ar",
+                "8000",
+                "-ac",
+                "1",
+                "-",
+            ],
+            capture_output=True,
+            check=True,
+        ).stdout
+        samples = struct.unpack(f"<{len(pcm) // 2}h", pcm)
+
+        def amplitude(frequency, start):
+            window = samples[round(start * 8000) : round((start + 0.2) * 8000)]
+            return (
+                2
+                * abs(
+                    sum(
+                        value * cmath.exp(-2j * math.pi * frequency * index / 8000)
+                        for index, value in enumerate(window)
+                    )
+                )
+                / len(window)
+            )
+
+        assert amplitude(880, 0.3) > 100, "soundtrack missing before narration"
+        assert amplitude(880, 1.1) > 100, "looped soundtrack missing on narrated slide"
+        assert amplitude(440, 1.1) > 10 * amplitude(440, 0.3) + 200, (
+            "narration starts on wrong slide"
+        )
+
+    # Then: independent visual anchors identify motion, the clip and half-open caption cues.
+    assert result.timing_metrics.fps == 10
+    assert result.timing_metrics.frame_count == result.pixel_metrics.frame_count == len(frames)
+    (
+        first,
+        middle,
+        settled,
+        boundary,
+        transition,
+        before_caption,
+        caption,
+        after_caption,
+        final,
+        next_boundary,
+        next_transition,
+    ) = observed
+    assert pixel_rgb(settled, (16, 10)) == pytest.approx((0, 255, 0), abs=24)
+    assert pixel_rgb(boundary, (16, 10)) == pytest.approx((0, 255, 0), abs=24)
+    assert 64 < pixel_rgb(transition, (16, 10))[1] < 255
+    if reduced:
+        assert pixel_rgb(first, (16, 10)) == pytest.approx((0, 255, 0), abs=24)
+        assert pixel_rgb(final, (20, 28)) == pytest.approx((255, 0, 0), abs=24)
+    else:
+        assert pixel_rgb(first, (16, 10)) == pytest.approx((16, 32, 48), abs=24)
+        assert 40 < pixel_rgb(middle, (16, 10))[1] < 250
+        assert pixel_rgb(final, (20, 28)) == pytest.approx((0, 0, 255), abs=24)
+        canonical = deck.sample(times, hold=0.8)
+        assert [(part.start, part.end) for part in canonical.timeline] == [
+            (0.0, 0.8),
+            (0.8, 1.6),
+            (1.6, 2.1),
+        ]
+        for time, actual, expected in zip(times, observed, canonical.frames, strict=True):
+            error = ImageStat.Stat(
+                ImageChops.difference(actual, expected.to_image().convert("RGB"))
+            ).mean
+            assert max(error) < 8, f"{container} pixels drift at {time}s: {error}"
+    caption_region = (24, 36, 72, 60)
+    assert sum(before_caption.crop(caption_region).convert("L").histogram()[220:]) == 0
+    assert sum(caption.crop(caption_region).convert("L").histogram()[220:]) > 2
+    for frame in (after_caption, final, next_boundary, next_transition):
+        assert sum(frame.crop(caption_region).convert("L").histogram()[220:]) == 0
+
+
+@pytest.mark.skipif(not (HAS_FFMPEG and HAS_FFPROBE), reason="FFmpeg tools are required")
+def test_reduced_motion_ignores_captions_outside_the_clip(source_video, tmp_path):
+    """A caption starting at the clip's exclusive end cannot extend frozen playback."""
+    # Given: a frozen 0.3s trimmed clip whose subtraction has floating-point noise
+    canvas = Canvas(96, 64).video(
+        str(source_video),
+        (16, 24),
+        64,
+        32,
+        trim_start=0.1,
+        trim_end=0.4,
+        captions=[{"text": "outside", "start": 0.3, "end": 0.6, "size": 12}],
+    )
+    output = tmp_path / "outside.gif"
+
+    # When: reduced-motion output is encoded through the public file contract
+    result = canvas.export(
+        output,
+        animation=GifOptions(fps=10, hold=0.1),
+        policy=ExportPolicy(reduced_motion=True),
+    )
+
+    # Then: the unreachable cue adds neither playback time nor encoded frames
+    frames = _gif_frames_with_durations(output.read_bytes())
+    assert result.timing_metrics.duration == sum(duration for _, duration in frames) / 1000 == 0.1
+    assert result.timing_metrics.frame_count == len(frames) == 1
 
 
 @pytest.mark.skipif(not HAS_FFMPEG, reason="ffmpeg is required")
