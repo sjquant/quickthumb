@@ -257,6 +257,10 @@ def test_selector_cost_scenes_reconstruct_layout_and_keep_fixed_clock(scene):
     assert [frame["time"] for frame in checked["frames"]] == [i / 12 for i in range(24)] + [2]
     assert checked["frames"][-1]["sha256"] == checked["rest_sha256"]
     assert checked["frames"][12]["sha256"] != checked["rest_sha256"]
+    assert checked["motion_duration"] == 2
+    content = checked["source"]["slides"][0]["layers"][1]["content"]
+    if "characters" in scene:
+        assert checked["target_count"] == len(content) == 23
     assert benchmark.measure_jitter(scene) is None
 
 
@@ -296,7 +300,7 @@ def test_selector_cost_rotates_fresh_runs_and_excludes_warmups(tmp_path, monkeyp
             "format": format,
             "fps": fps,
             "shots": 24,
-            "total_seconds": 100 if len(calls) <= 6 else 1,
+            "total_seconds": 100 if len(calls) <= len(cost.TEXT_SELECTOR_SCENES) else 1,
             "render_ms_per_shot": 1,
             "encode_seconds": 0.1,
             "python_peak_rss_mib": 10,
@@ -307,11 +311,12 @@ def test_selector_cost_rotates_fresh_runs_and_excludes_warmups(tmp_path, monkeyp
     path = tmp_path / "cost.json"
     assert cost.main(["--json", str(path)]) == 0
     report = json.loads(path.read_text())
-    assert report["status"] == "complete" and len(report["results"]) == 6
+    assert report["status"] == "complete"
     scenes = list(cost.TEXT_SELECTOR_SCENES)
+    assert len(report["results"]) == len(scenes)
     assert calls == sum((scenes[i:] + scenes[:i] for i in range(4)), [])
     assert all(row["total_seconds"] == 1 for row in report["results"])
-    assert len(report["attempts"]) == 24
+    assert len(report["attempts"]) == 4 * len(scenes)
 
 
 def test_motion_blur_measurement_decodes_real_consumed_frames():
