@@ -2158,12 +2158,23 @@ def _build_units(
                     reference, reference_pos = _render_unit_image(canvas, layers, color="#FFFFFF")
                 else:
                     reference, reference_pos = image, pos
-                bands = split_into_bands(reference, target_count) if reference is not None else None
-                if bands is not None:
-                    target_images = tuple(
-                        (fragment, (reference_pos[0] + offset[0], reference_pos[1] + offset[1]))
-                        for fragment, offset in bands
-                    )
+                if reference is not None:
+                    from quickthumb._text_targets import text_target_fragments
+
+                    if len(layers) == 1 and parent_node is None:
+                        target_images = (
+                            text_target_fragments(canvas, layers[0], reference, reference_pos) or ()
+                        )
+                    if not target_images:
+                        bands = split_into_bands(reference, target_count)
+                        if bands is not None:
+                            target_images = tuple(
+                                (
+                                    fragment,
+                                    (reference_pos[0] + offset[0], reference_pos[1] + offset[1]),
+                                )
+                                for fragment, offset in bands
+                            )
         component_duration = (
             0.0
             if reduced_motion

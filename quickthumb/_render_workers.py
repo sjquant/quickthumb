@@ -25,6 +25,7 @@ from quickthumb.models.options import MotionBlur
 if TYPE_CHECKING:
     from quickthumb._export_video import _SlideAnimator
     from quickthumb.canvas import Canvas, RenderableLayer
+    from quickthumb.models.document import FontIdentity
     from quickthumb.transitions import Transition
 
 
@@ -232,9 +233,19 @@ def _initialize_worker(specs, timings, size, matte, reduced_motion, quality="sta
     Finalize(None, _close_worker, exitpriority=10)
 
 
-def _render_frame_job(index: int, time: float) -> tuple[tuple[int, int], bytes]:
+def _render_frame_job(
+    index: int, time: float
+) -> tuple[tuple[int, int], bytes, list[tuple[int, list[FontIdentity]]]]:
     assert _worker_renderer is not None
-    return _worker_renderer.render(index, time)
+    size, raw = _worker_renderer.render(index, time)
+    fonts = []
+    for slide, canvas in (
+        (index, _worker_renderer.canvas),
+        (index - 1, _worker_renderer.previous),
+    ):
+        if canvas is not None:
+            fonts.append((slide, canvas._fonts.font_identities()))
+    return size, raw, fonts
 
 
 def _render_exposure_job(time: float, blur: MotionBlur, fps: float):
@@ -267,6 +278,7 @@ class ParallelFrames:
         self, canvases, timings, matte, reduced_motion, workers: int, *, quality="standard"
     ):
         validate_parallel_canvases(canvases)
+        self.canvases = canvases
         self.specs = [_CanvasSpec.capture(canvas) for canvas in canvases]
         self.timings = timings
         self.size = (canvases[0].width, canvases[0].height)
@@ -328,7 +340,10 @@ class ParallelFrames:
                     break
             while pending:
                 time, duration, future = pending.popleft()
-                size, raw = future.result()
+                size, raw, fonts = future.result()
+                for slide, identities in fonts:
+                    for identity in identities:
+                        self.canvases[slide]._fonts._observe_identity(identity)
                 frame = Image.frombytes("RGBA" if self.matte is None else "RGB", size, raw)
                 # A Future retains its result, so release it and the raw buffer
                 # before yielding. Only the caller's PIL frame remains here.

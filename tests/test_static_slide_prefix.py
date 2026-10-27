@@ -198,7 +198,7 @@ def test_real_motion_units_keep_exact_uncached_pixels(motion):
     if motion.startswith("stagger"):
         unit = animator._frame_units[0]
         assert len(unit.target_timelines) == 2
-        assert len(unit.target_images) == (2 if motion == "stagger-lines" else 0)
+        assert len(unit.target_images) == 2
     samples = []
     for time in SAMPLE_TIMES:
         frame = animator.frame_at(time).tobytes()
