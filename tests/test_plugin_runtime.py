@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+from io import BytesIO
 
 import pytest
 from jsonschema import validate
@@ -424,6 +425,39 @@ def test_plugin_assets_registry_and_source_ids_survive_measured_document_export(
     [resolved] = [item for item in result.asset_manifest if item.asset_type == "plugin"]
     assert resolved.content_hash == hashlib.sha256(raw).hexdigest()
     assert scene.layers[0] is scene.layers[1] is layer
+
+    # Joined path and plugin adapters retain distinct routes and source identities.
+    scene.path("M0 0H6V6H0Z", (14, 2), 6, 6, "#42CEB7", id="native.path")
+    scene.path(
+        "M0 1H8",
+        (13, 11),
+        8,
+        3,
+        None,
+        stroke="#FF0000",
+        stroke_width=2,
+        trim_end=0.5,
+        id="trimmed.path",
+    )
+    mixed_path = tmp_path / f"mixed.{target}"
+    mixed = scene.export(mixed_path)
+    routes = [row for row in mixed.capability_report if row.feature == "layer_representation"]
+    assert [row.layer_id for row in routes] == [*source_ids, "native.path", "trimmed.path"]
+    assert [row.support for row in routes] == ["fallback", "fallback", "native", "fallback"]
+    assert [row.fallback for row in routes] == ["rasterize", "rasterize", None, "rasterize"]
+    if target == "svg":
+        cairo = require_cairosvg()
+        with Image.open(BytesIO(cairo.svg2png(bytestring=mixed_path.read_bytes()))) as image:
+            pixels = image.convert("RGB")
+    else:
+        pdfium = require_pypdfium2()
+        with pdfium.PdfDocument(mixed_path) as document:
+            pixels = document[0].render(scale=1).to_pil().convert("RGB")
+    assert pixels.getpixel((5, 4)) == (12, 34, 56)
+    assert pixels.getpixel((16, 4)) == (66, 206, 183)
+    assert pixels.getpixel((14, 12)) == (255, 0, 0)
+    [resolved] = [item for item in mixed.asset_manifest if item.asset_type == "plugin"]
+    assert resolved.content_hash == hashlib.sha256(raw).hexdigest()
 
     # A failure while capturing reference pixels occurs after document rendering, before writing.
     path.write_bytes(b"existing")
