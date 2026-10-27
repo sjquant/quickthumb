@@ -323,7 +323,6 @@ def test_motion_blur_measurement_decodes_real_consumed_frames():
     assert measured["options"]["motion_blur"] == {"samples": 2, "shutter_angle": 180}
 
 
-
 def test_cost_sweep_retains_warmups_rotates_order_and_rejects_changed_playback(monkeypatch):
     calls = []
 
@@ -367,4 +366,3 @@ def test_cost_sweep_retains_warmups_rotates_order_and_rejects_changed_playback(m
     monkeypatch.setattr(benchmark, "run_worker", corrupt)
     with pytest.raises(RuntimeError, match="playback changed"):
         benchmark.blur_cost_report(["gif"], 12, "standard")
-
