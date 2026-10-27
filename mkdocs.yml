@@ -96,6 +96,7 @@ nav:
       - Path: api/path.md
       - SVG: api/svg.md
       - Video: api/video.md
+      - Audio Onset Anchors: api/audio.md
       - Group (Auto Layout): api/group.md
       - Outline: api/outline.md
       - Data visualizations: api/data-visualizations.md
