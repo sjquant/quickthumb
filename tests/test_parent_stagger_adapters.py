@@ -54,8 +54,10 @@ def test_authored_static_inspection_does_not_paint_or_split(monkeypatch, scene, 
         "target": "children" if composed else "lines",
         "order": "document",
     }
-    # Inspection remains a local canonical timeline, without invented target/world samples.
-    assert motion.duration == 0.5
+    # Inspection includes all three stagger windows without painting target/world samples.
+    assert motion.events[0].duration == 0.5
+    assert motion.duration == pytest.approx(1.3)
+    assert motion.sample_times[-1] == pytest.approx(1.3)
     assert motion.initial_state["position"] == position
 
 
@@ -118,7 +120,11 @@ def test_document_fallback_pixels_and_strict_destination_protection(tmp_path, ki
     path = tmp_path / ("stagger." + kind)
     result = canvas.export(path)
     assert {"parent", "stagger"} <= {item.feature for item in result.capability_report}
-    assert all(item.fallback == "static" for item in result.capability_report)
+    assert all(
+        item.fallback == "static"
+        for item in result.capability_report
+        if item.feature != "layer_representation"
+    )
     for exporter in (canvas, Deck(canvas.width, canvas.height).slide(canvas)):
         path.write_bytes(b"existing")
         with pytest.raises(RenderingError):

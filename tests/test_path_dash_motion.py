@@ -12,9 +12,9 @@ from quickthumb import (
     Canvas,
     DashOffsetTrack,
     GifOptions,
+    ImageSequenceOptions,
     KeyframeSpec,
     PathLayer,
-    PngSequenceOptions,
     TimingSpec,
     canvas_json_schema,
 )
@@ -151,9 +151,9 @@ def test_encoded_gif_and_png_workers_keep_motion(tmp_path):
     # When: actual PNGs are rendered serially and through spawned workers
     for workers in (1, 2):
         directory = tmp_path / f"png-{workers}"
-        result = canvas.export_png_sequence(
+        result = canvas.export_image_sequence(
             directory,
-            options=PngSequenceOptions(
+            options=ImageSequenceOptions(
                 fps=4,
                 hold=0.25,
                 workers=workers,
@@ -177,7 +177,12 @@ def test_encoded_gif_and_png_workers_keep_motion(tmp_path):
     assert len({pixels for pixels, _ in frames}) >= 4
     assert [duration for _, duration in frames[:4]] == [250] * 4
     assert video._SlideAnimator(canvas, {}).segments(0, 1) == [(0, 1, True)]
-    for target in ("html", "pptx"):
-        rows = canvas.validate_export(target)
-        assert any(row.feature == "dash_offset" and row.fallback == "static" for row in rows)
+    assert any(
+        row.feature == "dash_offset" and row.support == "native"
+        for row in canvas.validate_export("html")
+    )
+    assert any(
+        row.feature == "dash_offset" and row.fallback == "static"
+        for row in canvas.validate_export("pptx")
+    )
     assert isinstance(canvas.layers[0], PathLayer)

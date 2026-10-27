@@ -1,21 +1,97 @@
 """Fixed, offline scenes shared by timing and frame-identity commands."""
 
+from pathlib import Path
+
 from quickthumb import (
     AnimationSpec,
     Canvas,
+    ColorTrack,
     Deck,
     KeyframeSpec,
+    OpacityTrack,
     PositionKeyframeSpec,
     PositionTrack,
+    RangeSelector,
     RotationTrack,
     ScaleTrack,
+    StaggerSpec,
     TimingSpec,
     TrimEndTrack,
 )
 from quickthumb.transitions import Cut
 
 SCENES = ("translation", "rotation", "scale", "product_hype_reel")
+TEXT_SELECTOR_TARGETS = ("words", "lines", "characters")
+TEXT_SELECTOR_SCENES = tuple(
+    f"text_{target}_{mode}"
+    for target in TEXT_SELECTOR_TARGETS
+    for mode in ("baseline", "static", "animated")
+)
+TEXT_FONT = Path(__file__).resolve().parents[1] / "assets/fonts/Roboto-Regular.ttf"
+TEXT_CONTENT = "ONE TWO\nONE TWO\nONE TWO"
 DURATION = 2.0
+
+
+def build_text_selector_scene(name: str, *, rest: bool = False) -> Deck:
+    """Same text; each target's three modes share property tracks and stagger timing."""
+    if name not in TEXT_SELECTOR_SCENES:
+        raise ValueError(f"unknown text-selector scene: {name}")
+    target = "characters" if "_characters_" in name else "words" if "_words_" in name else "lines"
+    delay = 0.01 if target == "characters" else 0
+    duration = DURATION - delay * (len(TEXT_CONTENT) - 1)
+    mode = name.rsplit("_", 1)[1]
+    selector = None
+    if mode != "baseline":
+        selector = RangeSelector(target=target, shape="ramp", end=75)
+        if mode == "animated":
+            selector.offset = [
+                KeyframeSpec(time=0, value=-25),
+                KeyframeSpec(time=duration / 2, value=25),
+                KeyframeSpec(time=duration, value=0),
+            ]
+    motion = AnimationSpec(
+        tracks=[
+            PositionTrack(
+                keyframes=[
+                    KeyframeSpec(time=0, value=(0, 16)),
+                    KeyframeSpec(time=duration, value=(0, 0)),
+                ]
+            ),
+            RotationTrack(
+                keyframes=[KeyframeSpec(time=0, value=8), KeyframeSpec(time=duration, value=0)]
+            ),
+            ScaleTrack(
+                keyframes=[KeyframeSpec(time=0, value=0.9), KeyframeSpec(time=duration, value=1)]
+            ),
+            OpacityTrack(
+                keyframes=[KeyframeSpec(time=0, value=0.3), KeyframeSpec(time=duration, value=1)]
+            ),
+            ColorTrack(
+                keyframes=[
+                    KeyframeSpec(time=0, value="#FFD18A"),
+                    KeyframeSpec(time=duration, value="#42CEB7"),
+                ]
+            ),
+        ],
+        timing=TimingSpec(duration=duration),
+        stagger=StaggerSpec(target=target, delay=delay),
+        selector=selector,
+        easing="linear",
+    )
+    canvas = (
+        Canvas(480, 240)
+        .background(color="#102030")
+        .text(
+            TEXT_CONTENT,
+            font=str(TEXT_FONT),
+            size=40,
+            line_height=1.3,
+            color="#42CEB7",
+            position=(24, 24),
+            animation=None if rest else motion,
+        )
+    )
+    return Deck(480, 240).slide(canvas, transition=Cut(advance_after=DURATION), duration=DURATION)
 
 
 def build_scene(name: str) -> Deck:
@@ -52,6 +128,13 @@ def build_scene(name: str) -> Deck:
         return Deck(600, 400).slide(
             canvas, transition=Cut(advance_after=DURATION), duration=DURATION
         )
+
+    if name in TEXT_SELECTOR_SCENES:
+        return build_text_selector_scene(name)
+    if name == "motion_blur":
+        from examples.motion_blur import build_deck
+
+        return build_deck()
     if name == "product_hype_reel":
         from examples.product_hype_reel import build_deck
 

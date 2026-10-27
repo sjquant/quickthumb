@@ -11,9 +11,9 @@ from quickthumb import (
     Canvas,
     ExportPolicy,
     GifOptions,
+    ImageSequenceOptions,
     KeyframeSpec,
     PathLayer,
-    PngSequenceOptions,
     ScaleTrack,
     TimingSpec,
     TrimEndTrack,
@@ -232,8 +232,8 @@ def test_trim_canonical_gif_and_worker_sequences(tmp_path):
     # When: independent serial and worker PNG exports and an actual GIF are decoded
     for workers in (1, 2):
         directory = tmp_path / f"png-{workers}"
-        canvas.export_png_sequence(
-            directory, options=PngSequenceOptions(fps=4, hold=0.25, workers=workers)
+        canvas.export_image_sequence(
+            directory, options=ImageSequenceOptions(fps=4, hold=0.25, workers=workers)
         )
         decoded = []
         for path in sorted(directory.glob("*.png")):
@@ -252,11 +252,14 @@ def test_trim_canonical_gif_and_worker_sequences(tmp_path):
     assert len({pixels for pixels, _ in frames}) >= 4
     assert [duration for _, duration in frames[:4]] == [250] * 4
     assert video._SlideAnimator(canvas, {}).segments(0, 1) == [(0, 1, True)]
-    for target in ("html", "pptx"):
-        assert any(
-            row.feature == "trim_end" and row.fallback == "static"
-            for row in canvas.validate_export(target)
-        )
+    assert any(
+        row.feature == "trim_end" and row.support == "native"
+        for row in canvas.validate_export("html")
+    )
+    assert any(
+        row.feature == "trim_end" and row.fallback == "static"
+        for row in canvas.validate_export("pptx")
+    )
     path = tmp_path / "trim.svg"
     static = scene(trim_end=0.5)
     static.export(path)

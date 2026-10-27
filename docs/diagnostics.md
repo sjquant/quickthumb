@@ -317,8 +317,9 @@ The audience view is `/`. Presenter mode is selected by the `?presenter` query:
 http://localhost:3030/?presenter
 ```
 
-Presenter mode shows the current slide, next-slide preview, speaker notes,
-and a pause/resume/reset presentation timer. Its navigation and per-slide animation progress
+Presenter mode uses the same light theme as the preview: current slide and notes
+on the left, next slide and pause/resume/reset timer on the right, and simple
+navigation below. Slide previews retain their original proportions. Its navigation and per-slide animation progress
 are broadcast to audience tabs opened from the same server and restored on
 reload. Audience-only navigation remains local. Add notes in Python with
 `.slide(canvas, notes="...")` or as a `notes` string on a JSON slide.
@@ -333,9 +334,19 @@ quickthumb serve deck.json --timeline --no-open
 ```
 
 The timeline is also available at `http://localhost:3030/timeline` alongside
-an ordinary `serve` session. The default audience and presenter views are unchanged.
+an ordinary `serve` session. The default remains the HTML presentation, including
+slide navigation, click-triggered animations and synchronized presenter controls.
+Presentation and Inspect motion share the same slide selection and thumbnail
+navigation. Presentation keeps the slide central at its original aspect ratio;
+Inspect motion opens a frame-scrubbing panel below it. Presenter opens the
+synchronized speaker view, while Present opens the HTML slide fullscreen.
+Motion notes explain when HTML output is static or approximated. These controls
+are local authoring tools and are not added to exported HTML.
 Standalone HTML has no source document to sample; use its Python or JSON source
 for the timeline instead.
+
+Inspection shows export-renderer frames without playback, audio or editing.
+Its seek position is independent of presenter/audience synchronization.
 
 - Drag the time slider, enter seconds, or click a slide/transition/motion boundary
 - **Proxy** limits the output's longest edge to 640 pixels (1080×1920 becomes

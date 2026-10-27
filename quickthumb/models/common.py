@@ -242,8 +242,17 @@ class LayerIdentityModel(quickthumbModel):
 
     model_config = ConfigDict(validate_assignment=True)
 
-    id: str | None = None
-    motion_key: str | None = None
+    id: str | None = Field(
+        default=None,
+        description="Layer identifier unique within this Canvas scene, including group children.",
+        # JSON Schema searches instead of fullmatching, and $ permits a final newline.
+        json_schema_extra={"pattern": _IDENTITY_PATTERN.pattern + r"(?![\s\S])"},
+    )
+    motion_key: str | None = Field(
+        default=None,
+        description="Cross-scene matching key for Morph transitions; separate from scene-local id.",
+        json_schema_extra={"pattern": _IDENTITY_PATTERN.pattern + r"(?![\s\S])"},
+    )
 
     @field_validator("id", "motion_key")
     @classmethod
@@ -271,6 +280,9 @@ class _AnimatableLayerModel(LayerIdentityModel):
     anchor: AnchorPoint = Field(
         default=(0.5, 0.5),
         exclude_if=lambda value: value == (0.5, 0.5),
+        description=(
+            "Normalized 0–1 pivot for canonical motion; independent of layout position and align."
+        ),
         examples=[(0.0, 0.0), (0.5, 0.5), (1.0, 1.0)],
     )
 
@@ -350,6 +362,17 @@ class LayerClip(quickthumbModel):
         if align is None:
             return None
         return align.value
+
+
+class TrackMatte(quickthumbModel):
+    """Use a hidden, reusable top-level layer's sampled alpha or luminance as a mask."""
+
+    type: Literal["layer"] = "layer"
+    layer: str = Field(pattern=_IDENTITY_PATTERN.pattern)
+    mode: Literal["alpha", "luma"] = "alpha"
+    invert: bool = False
+
+    model_config = ConfigDict(extra="forbid")
 
 
 class LayerMask(quickthumbModel):
