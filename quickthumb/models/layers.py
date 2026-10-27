@@ -271,7 +271,7 @@ class TextLayer(_AnimatableLayerModel):
     rotation: float = 0.0
     opacity: OpacityField = 1.0
     clip: LayerClip | None = None
-    mask: LayerMask | None = None
+    mask: LayerMask | TrackMatte | None = None
     animation: AnimationInput | None = None
 
     @field_validator("max_width")
@@ -415,7 +415,7 @@ class ImageLayer(_AnimatableLayerModel):
         BlendMode | None, AfterValidator(lambda v: enum_converter(BlendMode)(v) if v else None)
     ] = None
     clip: LayerClip | None = None
-    mask: LayerMask | None = None
+    mask: LayerMask | TrackMatte | None = None
     effects: list[ImageEffect] = []
     animation: AnimationInput | None = None
 
@@ -562,7 +562,7 @@ class ShapeLayer(_AnimatableLayerModel):
     star_points: int = 5
     inner_radius: float = 0.5
     clip: LayerClip | None = None
-    mask: LayerMask | None = None
+    mask: LayerMask | TrackMatte | None = None
     effects: list[ShapeEffect] = []
     animation: AnimationInput | None = None
 
@@ -640,7 +640,7 @@ class SvgLayer(_AnimatableLayerModel):
         BlendMode | None, AfterValidator(lambda v: enum_converter(BlendMode)(v) if v else None)
     ] = None
     clip: LayerClip | None = None
-    mask: LayerMask | None = None
+    mask: LayerMask | TrackMatte | None = None
     effects: list[ImageEffect] = []
     animation: AnimationInput | None = None
 
@@ -744,7 +744,7 @@ class VideoLayer(_AnimatableLayerModel):
     ] = None
     effects: list[ImageEffect] = []
     clip: LayerClip | None = None
-    mask: LayerMask | None = None
+    mask: LayerMask | TrackMatte | None = None
     animation: AnimationInput | None = None
 
     @field_validator("source")
@@ -794,7 +794,7 @@ class GroupLayer(_AnimatableLayerModel):
     align: AlignWithHVTuple = None
     item_align: Literal["start", "center", "end"] = "start"
     clip: LayerClip | None = None
-    mask: LayerMask | None = None
+    mask: LayerMask | TrackMatte | None = None
     animation: AnimationInput | None = None
     children: list["GroupChild"]
 

@@ -34,6 +34,8 @@ from quickthumb.models import (
     Background,
     Glow,
     GroupLayer,
+    LayerClip,
+    LayerMask,
     NullLayer,
     Shadow,
     Stroke,
@@ -234,7 +236,7 @@ def _rebase_composition(canvas: Canvas, layer, offset: tuple[int, int]):
     updates = {}
     for name in ("clip", "mask"):
         boundary = getattr(layer, name, None)
-        if boundary is not None:
+        if isinstance(boundary, (LayerClip, LayerMask)):
             updates[name] = boundary.model_copy(
                 update={
                     "position": (

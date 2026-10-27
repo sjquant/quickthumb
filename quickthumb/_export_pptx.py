@@ -215,6 +215,7 @@ class PptxExporter:
 
         from quickthumb._parent_export import static_parent_fragment
         from quickthumb._parenting import has_parent_links
+        from quickthumb._track_mattes import has_track_mattes
 
         if not canvases:
             raise RenderingError("Cannot export a presentation with no slides.")
@@ -237,7 +238,7 @@ class PptxExporter:
                 id(layer): _source_layer_ids(layer, layer_index, (layer_index,))
                 for layer_index, layer in enumerate(canvas.layers)
             }
-            parent = has_parent_links(canvas)
+            parent = has_parent_links(canvas) or has_track_mattes(canvas)
             if not self._reduced_motion and not parent:
                 validate_legacy_animation_export(canvas)
             canvas._validate_image_paths()
@@ -355,8 +356,14 @@ class PptxExporter:
     def _supports_native_morph(source: Canvas, target: Canvas) -> bool:
         """Return whether both slides expose at least one top-level match."""
         from quickthumb._parenting import has_parent_links
+        from quickthumb._track_mattes import has_track_mattes
 
-        if has_parent_links(source) or has_parent_links(target):
+        if (
+            has_parent_links(source)
+            or has_parent_links(target)
+            or has_track_mattes(source)
+            or has_track_mattes(target)
+        ):
             return False
         source_layers = {
             layer_id_for(layer, index, (index,)): layer for index, layer in enumerate(source.layers)

@@ -76,6 +76,7 @@ from quickthumb.models import (
     TextInspection,
     TextLayer,
     TextPart,
+    TrackMatte,
     ValidationReport,
     VideoCaption,
     VideoLayer,
@@ -318,6 +319,9 @@ class Canvas:
         from quickthumb._parenting import validate_parent_graph
 
         validate_parent_graph(self._layers)
+        from quickthumb._track_mattes import validate_matte_graph
+
+        validate_matte_graph(self._layers)
 
     def validate(self) -> ValidationReport:
         """Return a structured validation report for this document."""
@@ -635,7 +639,7 @@ class Canvas:
         rotation: float = 0,
         opacity: float = 1.0,
         clip: LayerClip | dict[str, Any] | None = None,
-        mask: LayerMask | dict[str, Any] | None = None,
+        mask: LayerMask | TrackMatte | dict[str, Any] | None = None,
         animation: AnimationInput | None = None,
         value: "AnimatedTextValue | dict[str, Any] | None" = None,
         *,
@@ -781,7 +785,7 @@ class Canvas:
         inner_radius: float = 0.5,
         effects: list[ShapeEffect] | None = None,
         clip: LayerClip | dict[str, Any] | None = None,
-        mask: LayerMask | dict[str, Any] | None = None,
+        mask: LayerMask | TrackMatte | dict[str, Any] | None = None,
         animation: AnimationInput | None = None,
         *,
         id: str | None = None,
@@ -833,7 +837,7 @@ class Canvas:
         effects: list[ImageEffect] | None = None,
         blend_mode: BlendMode | str | None = None,
         clip: LayerClip | dict[str, Any] | None = None,
-        mask: LayerMask | dict[str, Any] | None = None,
+        mask: LayerMask | TrackMatte | dict[str, Any] | None = None,
         animation: AnimationInput | None = None,
         *,
         id: str | None = None,
@@ -910,7 +914,7 @@ class Canvas:
         blend_mode: BlendMode | str | None = None,
         effects: list[ImageEffect] | None = None,
         clip: LayerClip | dict[str, Any] | None = None,
-        mask: LayerMask | dict[str, Any] | None = None,
+        mask: LayerMask | TrackMatte | dict[str, Any] | None = None,
         animation: AnimationInput | None = None,
         *,
         id: str | None = None,
@@ -962,7 +966,7 @@ class Canvas:
         effects: list[ImageEffect] | None = None,
         blend_mode: BlendMode | str | None = None,
         clip: LayerClip | dict[str, Any] | None = None,
-        mask: LayerMask | dict[str, Any] | None = None,
+        mask: LayerMask | TrackMatte | dict[str, Any] | None = None,
         animation: AnimationInput | None = None,
         *,
         id: str | None = None,
@@ -1016,7 +1020,7 @@ class Canvas:
         opacity: float = 1.0,
         align: Align | str | tuple[str, str] = Align.TOP_LEFT,
         clip: LayerClip | dict[str, Any] | None = None,
-        mask: LayerMask | dict[str, Any] | None = None,
+        mask: LayerMask | TrackMatte | dict[str, Any] | None = None,
         animation: AnimationInput | None = None,
         *,
         id: str | None = None,
@@ -1055,7 +1059,7 @@ class Canvas:
         align: Align | str | tuple[str, str] = Align.TOP_LEFT,
         opacity: float = 1.0,
         clip: LayerClip | dict[str, Any] | None = None,
-        mask: LayerMask | dict[str, Any] | None = None,
+        mask: LayerMask | TrackMatte | dict[str, Any] | None = None,
         animation: AnimationInput | None = None,
         *,
         id: str | None = None,
@@ -1097,7 +1101,7 @@ class Canvas:
         align: Align | str | tuple[str, str] | None = None,
         item_align: Literal["start", "center", "end"] = "start",
         clip: LayerClip | dict[str, Any] | None = None,
-        mask: LayerMask | dict[str, Any] | None = None,
+        mask: LayerMask | TrackMatte | dict[str, Any] | None = None,
         animation: AnimationInput | None = None,
         *,
         id: str | None = None,
@@ -2036,7 +2040,9 @@ class Canvas:
         from quickthumb.motion import _validate_text_selectors
 
         _validate_text_selectors(self)
-        if has_parent_links(self):
+        from quickthumb._track_mattes import has_track_mattes
+
+        if has_parent_links(self) or has_track_mattes(self):
             from quickthumb._export_video import _SlideAnimator
 
             if debug and time is not None:

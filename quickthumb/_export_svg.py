@@ -112,8 +112,9 @@ class SvgExporter:
 
         from quickthumb._parent_export import static_parent_fragment
         from quickthumb._parenting import has_parent_links
+        from quickthumb._track_mattes import has_track_mattes
 
-        if has_parent_links(canvas):
+        if has_parent_links(canvas) or has_track_mattes(canvas):
             self._emit_fragment(static_parent_fragment(canvas))
             self._record_routing(
                 canvas.layers,
