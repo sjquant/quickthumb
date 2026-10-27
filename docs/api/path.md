@@ -104,8 +104,9 @@ the GIF plays the enlargement and the JSON preserves the complete source.
 
 PNG and canonical samples draw the path at its sampled transform. Untransformed
 paths in SVG and HTML use native SVG with even-odd fill, fixed viewport clipping,
-gradients and local stroke controls. Transformed or animated paths use a declared
-authored-static PNG fallback. HTML keeps each slide's gradient resources independent.
+gradients and local stroke controls. Transform timelines use a declared authored-static
+PNG fallback. Supported HTML stroke timelines use the native adapter described below.
+HTML keeps each slide's gradient resources independent.
 
 Very large, tiny or poorly conditioned coordinates use a declared raster fallback
 when native numeric range or 1/8-pixel coordinate precision cannot be preserved.
@@ -144,9 +145,9 @@ canvas.path("M0 10H100", (10, 10), 100, 20, None,
 ```
 
 Canonical samples, raster frames, GIF, video, and PNG sequences use the effective
-phase; `inspect_motion()` reports it alongside the authored static phase. HTML,
-SVG, PDF, and PPTX retain their declared authored-static fallback for animated
-Paths. Morph and native HTML dash animation remain separate features.
+phase; `inspect_motion()` reports it alongside the authored static phase. SVG,
+PDF, and PPTX retain their declared authored-static fallback for animated Paths.
+HTML supports the bounded native stroke adapter described below. Morph is separate.
 
 ## Stroke trim
 
@@ -188,6 +189,33 @@ layers accept these tracks. Shared easing, outgoing holds, and local clocks appl
 boundary easing stays within `0..1`. Inspection reports effective trim values.
 
 Canonical samples, GIF/video and PNG sequences use sampled trim geometry through
-the adaptive Path source. Static trims in SVG/HTML/PDF and all PPTX paths use a
-declared raster fallback; animated document paths retain authored trim values.
-Native document trim mapping and morphing are subsequent features.
+the adaptive Path source. Static trims in SVG/PDF and all PPTX paths use a declared
+raster fallback. HTML supports the bounded native stroke adapter below; other
+animated document paths retain authored trim values. Morphing is a subsequent feature.
+
+## Native HTML stroke motion
+
+HTML can animate one canonical stroke-property timeline on a single nondegenerate
+contour using native SVG `stroke-dasharray` and `stroke-dashoffset`. Dash-offset
+motion preserves the authored local dash pattern, including odd patterns and
+negative phases. Fill and gradient paint use a separate, untrimmed SVG path.
+
+Native trim requires an open contour with butt caps, no authored dash pattern,
+and an ordered, nonwrapping window throughout the animation. Trim start/end and
+relative offset tracks can combine within those bounds. Closed trim contours,
+wrapped windows, trim plus dash painting, transform tracks, lists of animation
+specs, and overshooting easing retain an explicit authored-static raster fallback.
+Static trim uses the same admission rules. PPTX keeps its static raster route.
+
+The existing HTML runtime drives native stroke CSS keyframes sampled from the
+canonical timeline at 120 Hz, retaining every authored knot and outgoing hold
+boundary. Delays and triggers use the existing timeline clock. Between samples,
+CSS interpolates linearly; this is a bounded approximation of easing and curve
+length, rather than an exact browser/raster pixel guarantee. The plan permits at
+most 4097 stops (about 34 seconds without additional knots). Exceeding that plan
+uses the declared static fallback.
+
+The generic HTML capability matrix reports partial support. Each admitted layer
+reports its actual native SVG/CSS route and sampled timing limit; rejected layers
+report the fallback reason. Strict export policy accepts admitted native routes
+and rejects combinations requiring raster fallback before writing output.

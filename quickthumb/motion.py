@@ -2039,11 +2039,9 @@ _CAPABILITIES["html"]["track_matte"] = MotionCapability(
 )
 _CAPABILITIES["html"]["parent"] = MotionCapability("parent", "html", "partial")
 _CAPABILITIES["html"]["path"] = MotionCapability("path", "html", "partial", "rasterize")
-_CAPABILITIES["html"]["dash_offset"] = MotionCapability(
-    "dash_offset", "html", "unsupported", "static"
-)
+_CAPABILITIES["html"]["dash_offset"] = MotionCapability("dash_offset", "html", "partial", "static")
 for _feature in ("trim_start", "trim_end", "trim_offset"):
-    _CAPABILITIES["html"][_feature] = MotionCapability(_feature, "html", "unsupported", "static")
+    _CAPABILITIES["html"][_feature] = MotionCapability(_feature, "html", "partial", "static")
 _CAPABILITIES["html"]["color"] = MotionCapability("color", "html", "unsupported", "static")
 _CAPABILITIES["html"]["motion_path"] = MotionCapability("motion_path", "html", "partial")
 _CAPABILITIES["html"]["motion_blur"] = MotionCapability(
@@ -2456,6 +2454,10 @@ def _validate_export(
                 if document_format == "pdf"
                 else "native path adapter is not implemented"
             )
+            if document_format == "html" and problem:
+                from quickthumb._path_html import path_html_problem
+
+                problem = path_html_problem(layer)
             message = (
                 f"path layer {layer_id} uses a static raster image for {document_format}: {problem}"
                 if problem
@@ -2533,6 +2535,11 @@ def _validate_export(
             and _has_transform_extensions(layer)
         ):
             html_retained_groups.append(pointer)
+        html_path = False
+        if normalized == "html" and isinstance(layer, PathLayer):
+            from quickthumb._path_html import path_html_problem
+
+            html_path = path_html_problem(layer) is None
         for animation in items:
             features: list[CapabilityFeature] = list(_capability_features_for(animation))
             if color_overridden:
@@ -2550,7 +2557,9 @@ def _validate_export(
                     and feature not in _CANONICAL_RENDERED.get(normalized, frozenset())
                 )
                 if isinstance(layer, PathLayer) and normalized not in {"raster", "video"}:
-                    canonical_unimplemented = True
+                    canonical_unimplemented = not html_path
+                if html_path:
+                    capability = MotionCapability(feature, "html", "native")
                 if feature == "color" and normalized in {"raster", "video"}:
                     canonical_unimplemented = not _supports_color_motion(layer)
                 declared_support = "unsupported" if canonical_unimplemented else capability.support
@@ -2596,6 +2605,11 @@ def _validate_export(
                         f"for {normalized}"
                     )
                 )
+                if html_path:
+                    message += (
+                        "; native SVG/CSS uses bounded 120 Hz sampled timing/easing, "
+                        "retaining authored knots and outgoing hold boundaries (4097-stop limit)"
+                    )
                 if action == "error" and declared_support not in ("full", "native"):
                     raise _unsupported_motion(
                         f"{feature} motion on layer {layer_id} is {declared_support} "
