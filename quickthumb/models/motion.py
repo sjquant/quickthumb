@@ -561,9 +561,9 @@ class AnimationEffect(_MotionModel):
 
 
 class RangeSelector(_MotionModel):
-    """Percentage range over semantic word or line centers, with optional local keyframes."""
+    """Keyframeable percentage range over source codepoint, word or line centers."""
 
-    target: Literal["words", "lines"] = "words"
+    target: Literal["characters", "words", "lines"] = "words"
     start: (
         Annotated[float, Field(ge=0, le=100, allow_inf_nan=False)]
         | Annotated[list[KeyframeSpec], Field(min_length=1)]

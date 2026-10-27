@@ -362,7 +362,7 @@ def test_unsupported_selector_paths_cannot_write_approximate_output(tmp_path):
     assert output.read_bytes() == b"original"
 
 
-@pytest.mark.parametrize("target", ["words", "lines"])
+@pytest.mark.parametrize("target", ["words", "lines", "characters"])
 @pytest.mark.parametrize(
     "authored,color,selector,opacity,colors",
     [
@@ -381,7 +381,7 @@ def test_color_selectors_preserve_authored_paint_and_alpha(
     # Given: perceptual hue/alpha blends, including default and invisible source paint
     selector = selector.model_copy(update={"target": target})
     scene = Canvas(320, 180).text(
-        "ONE TWO" if target == "words" else "ONE\nTWO",
+        "II" if target == "characters" else "ONE TWO" if target == "words" else "ONE\nTWO",
         font=FONT,
         size=40,
         color=authored,
@@ -395,7 +395,9 @@ def test_color_selectors_preserve_authored_paint_and_alpha(
     )
     restored = Canvas.from_json(scene.to_json())
     boxes = (
-        [(0, 0, 90, 180), (90, 0, 320, 180)]
+        [(0, 0, 22, 180), (22, 0, 320, 180)]
+        if target == "characters"
+        else [(0, 0, 90, 180), (90, 0, 320, 180)]
         if target == "words"
         else [
             (0, 0, 320, 50),
@@ -626,3 +628,122 @@ def test_extreme_finite_selector_offsets_interpolate_without_losing_targets():
     assert layer.events[0].selector_weights == [[0, 0], [1, 1], [0, 0]]
     assert [target.samples[1]["opacity"] for target in layer.targets] == [0, 0]
     assert scene.render_frame(0.5).convert("RGB").getbbox() is None
+
+
+@pytest.mark.parametrize(
+    "content,options", [("A", {}), ("A V\nO", {}), ("éΩ", {}), ("HI HI", {"max_width": 60})]
+)
+def test_character_targets_preserve_source_slots_rest_and_fractional_gif(content, options):
+    """Independent codepoints retain authored rest pixels and move through the shared compositor."""
+    motion = AnimationSpec.timeline(
+        PositionTrack(
+            keyframes=[KeyframeSpec(time=0, value=(0, 0)), KeyframeSpec(time=1, value=(20, 0))]
+        ),
+        selector=RangeSelector(target="characters", shape="ramp"),
+        easing="linear",
+    )
+    scene = text_scene(content, motion, **options)
+    payload = json.loads(scene.to_json())
+    jsonschema.validate(payload, canvas_json_schema())
+    restored = Canvas.from_json(json.dumps(payload))
+    static = text_scene(content, **options).render_frame(0)
+    assert restored.render_frame(0).tobytes() == static.tobytes()
+    sampled = restored.sample([0, 0.25, 1])
+    moving = restored.render_frame(0.25)
+    assert sampled.frames[1].to_image().tobytes() == moving.tobytes()
+    assert moving.tobytes() != static.tobytes()
+    layer = restored.inspect_motion(fps=4).slides[0].layers[1]
+    assert [target.source_range for target in layer.targets] == [
+        (i, i + 1) for i in range(len(content))
+    ]
+    assert [target.samples[1]["position"][0] for target in layer.targets] == pytest.approx(
+        [5 * (i + 0.5) / len(content) for i in range(len(content))]
+    )
+    with Image.open(BytesIO(restored.to_gif(fps=4, hold=0.5))) as image:
+        elapsed = 0
+        for index in range(getattr(image, "n_frames", 1)):
+            image.seek(index)
+            if elapsed <= 0.25:
+                encoded = image.convert("RGB")
+            elapsed += image.info["duration"] / 1000
+    assert elapsed == pytest.approx(1.5)
+    extrema = cast(
+        tuple[tuple[int, int], ...],
+        ImageChops.difference(encoded, moving.convert("RGB")).getextrema(),
+    )
+    assert max(pair[1] for pair in extrema) <= 2
+    assert sampled.frames[-1].to_image().tobytes() == restored.render_frame(1).tobytes()
+
+
+def test_character_stagger_preserves_blank_codepoint_turns_and_reverse_ownership():
+    """Empty slots consume their own clock; reverse order keeps source identity."""
+    scene = text_scene(
+        "A V",
+        AnimationSpec(
+            tracks=[
+                OpacityTrack(
+                    keyframes=[KeyframeSpec(time=0, value=0), KeyframeSpec(time=0.5, value=1)]
+                )
+            ],
+            stagger=StaggerSpec(target="characters", delay=0.5, order="reverse"),
+            timing=TimingSpec(start=0, duration=0.5),
+        ),
+    )
+    layer = scene.inspect_motion(fps=2).slides[0].layers[1]
+    assert layer.duration == 1.5
+    assert [target.source_range for target in layer.targets] == [(2, 3), (1, 2), (0, 1)]
+    assert [target.samples[1]["opacity"] for target in layer.targets] == [1, 0, 0]
+    frame = scene.render_frame(0.5).convert("RGB")
+    assert frame.crop((0, 0, 40, 180)).getbbox() is None
+    assert frame.crop((40, 0, 320, 180)).getchannel("R").getextrema()[1] == 255
+    assert scene.render_frame(1.5).tobytes() == text_scene("A V").render_frame(0).tobytes()
+
+
+@pytest.mark.parametrize(
+    "content,options,reason",
+    [
+        ("A\u0301", {}, "combining marks"),
+        ("A\u200dB", {}, "control/format"),
+        ("jfj", {}, "isolate glyph paint"),
+        ("MOVE", {"rotation": 5}, "plain, unrotated"),
+        ("ONE  TWO", {"max_width": 400}, "map wrapped text"),
+    ],
+)
+def test_unprovable_character_ownership_rejects_before_output(tmp_path, content, options, reason):
+    """Unprovable glyph ownership is an actionable failure, never a band approximation."""
+    scene = text_scene(
+        content,
+        AnimationSpec.timeline(
+            PositionTrack(keyframes=[KeyframeSpec(time=0, value=(0, 4))]),
+            selector=RangeSelector(target="characters"),
+        ),
+        **options,
+    )
+    output = tmp_path / "protected.gif"
+    output.write_bytes(b"original")
+    with pytest.raises(RenderingError, match=reason):
+        scene.render_frame(0)
+    with pytest.raises(RenderingError, match=reason):
+        scene.export(output, animation=GifOptions(fps=4, hold=0.5))
+    assert output.read_bytes() == b"original"
+
+
+def test_character_color_does_not_repaint_empty_source_slots():
+    """An empty space cannot pick up the first glyph's corner pixel during recoloring."""
+    scene = Canvas(320, 100).text(
+        "V V",
+        font=FONT,
+        size=40,
+        color="#FFFFFF",
+        position=(0, 0),
+        animation=AnimationSpec.timeline(
+            ColorTrack(keyframes=[KeyframeSpec(time=0, value="#FF0000")]),
+            PositionTrack(keyframes=[KeyframeSpec(time=0, value=(120, 0))]),
+            selector=RangeSelector(target="characters", shape="ramp"),
+        ),
+    )
+    frame = scene.render_frame(0)
+    assert frame.getbbox() is not None
+    assert frame.crop((55, 0, 65, 5)).getchannel("A").getextrema() == (0, 0)
+    with Image.open(BytesIO(scene.to_gif(fps=4, hold=0.5, matte="#FFFFFF"))) as image:
+        assert image.convert("RGB").crop((55, 0, 65, 5)).getextrema() == ((255, 255),) * 3

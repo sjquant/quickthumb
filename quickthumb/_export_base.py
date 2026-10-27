@@ -421,7 +421,7 @@ def color_motion_targets(fragments, states, render_color):
     surface = None
     previous_color = None
     for (fragment, (x, y)), state in zip(fragments, states, strict=True):
-        if state is not None:
+        if state is not None and fragment.getbbox() is not None:
             if surface is None or state.color != previous_color:
                 surface = render_color(state.color)
                 previous_color = state.color
