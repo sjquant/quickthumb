@@ -33,6 +33,6 @@ if __name__ == "__main__":
     output.mkdir(exist_ok=True)
     result = build_scene().export_png_sequence(
         output / "png_sequence_overlay",
-        options=PngSequenceOptions(fps=24, hold=2, quality="high", workers=2),
+        options=PngSequenceOptions(fps=24, hold=2, render_quality="high", workers=2),
     )
     print(f"{result.frame_count} frames; {result.duration:g}s; {result.manifest_path}")

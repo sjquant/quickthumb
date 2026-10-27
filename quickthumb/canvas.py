@@ -395,9 +395,6 @@ class Canvas:
     def _contract_motion_report(self, target: str, policy, fps: float):
         return self.inspect_motion(target=target, policy=policy, fps=fps)
 
-    def _contract_static_timing(self) -> None:
-        return None
-
     def _contract_timeline_inputs(self, hold: float) -> "TimelineInputs":
         # A canvas is one slide with no incoming transition; `hold` alone
         # sets its settled time, so it needs no per-slide duration.
@@ -1143,7 +1140,7 @@ class Canvas:
         """
         from quickthumb._document import _resolve_export
 
-        resolved = _resolve_export("canvas", output_path, format, animation, policy)
+        resolved = _resolve_export("canvas", output_path, format, policy)
         self._render_resolved(output_path, resolved, format, quality, debug, animation, policy)
 
     # Keep export's historical dispatch through a replaced public render hook.
@@ -1242,7 +1239,7 @@ class Canvas:
         )
 
         normalized_path = os.fspath(output_path)
-        resolved = _resolve_export("canvas", normalized_path, format, animation, policy)
+        resolved = _resolve_export("canvas", normalized_path, format, policy)
         render = self.render
         if getattr(render, "__func__", None) is Canvas._original_render:
             receipt = self._render_resolved(
@@ -1408,7 +1405,7 @@ class Canvas:
         max_size: tuple[int, int] | None = None,
         colors: int | None = None,
         workers: int = 1,
-        quality: Literal["standard", "high"] = "standard",
+        render_quality: Literal["standard", "high"] = "standard",
     ) -> bytes:
         """Render the canvas to animated GIF bytes that play its layer animations.
 
@@ -1432,7 +1429,7 @@ class Canvas:
             max_size=max_size,
             colors=colors,
             workers=workers,
-            quality=quality,
+            quality=render_quality,
             reduced_motion=bool(policy and policy.reduced_motion),
         )
 
@@ -1446,7 +1443,7 @@ class Canvas:
         *,
         policy: ExportPolicy | None = None,
         workers: int = 1,
-        quality: Literal["standard", "high"] = "standard",
+        render_quality: Literal["standard", "high"] = "standard",
     ) -> bytes:
         """Render the canvas to MP4 (H.264) bytes; timing model as in `to_gif`.
 
@@ -1468,7 +1465,7 @@ class Canvas:
             soundtrack=soundtrack,
             loop_audio=loop_audio,
             workers=workers,
-            quality=quality,
+            quality=render_quality,
             reduced_motion=bool(policy and policy.reduced_motion),
         )
 
@@ -1483,7 +1480,7 @@ class Canvas:
         transparent: bool = False,
         policy: ExportPolicy | None = None,
         workers: int = 1,
-        quality: Literal["standard", "high"] = "standard",
+        render_quality: Literal["standard", "high"] = "standard",
     ) -> bytes:
         """Render the canvas to WebM (VP9) bytes; timing model as in `to_gif`.
 
@@ -1507,7 +1504,7 @@ class Canvas:
             soundtrack=soundtrack,
             loop_audio=loop_audio,
             workers=workers,
-            quality=quality,
+            quality=render_quality,
             reduced_motion=bool(policy and policy.reduced_motion),
         )
 
@@ -1522,7 +1519,7 @@ class Canvas:
         transparent: bool = False,
         policy: ExportPolicy | None = None,
         workers: int = 1,
-        quality: Literal["standard", "high"] = "standard",
+        render_quality: Literal["standard", "high"] = "standard",
     ) -> bytes:
         """Render the canvas to ProRes 4444 MOV bytes; timing as in `to_gif`.
 
@@ -1546,7 +1543,7 @@ class Canvas:
             soundtrack=soundtrack,
             loop_audio=loop_audio,
             workers=workers,
-            quality=quality,
+            quality=render_quality,
             reduced_motion=bool(policy and policy.reduced_motion),
         )
 

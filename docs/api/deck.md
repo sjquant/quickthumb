@@ -72,7 +72,7 @@ result = deck.export("slides.png")
 print(result.written_paths)
 ```
 
-See [Shared export contract and specialist controls](../exports.md#shared-export-contract-and-specialist-controls)
+See [Recommended output API](../exports.md#recommended-output-api)
 for the result fields, the capability preflight, and how `export()` relates to
 the methods below.
 
@@ -123,7 +123,7 @@ audio looping. Supply its soundtrack as `AudioTrack(path="music.mp3", loop=True)
 boolean, default `False`); all other output targets reject this option.
 Both use a strict finite nonnegative `hold` (default 3 seconds), omitted from
 serialized options when equal to its default. Both accept `workers` (a strict
-integer from 1 to 8, default 1) and `quality="standard"` or `"high"` for rendering. See [parallel animated rendering](../exports.md#parallel-animated-rendering)
+integer from 1 to 8, default 1) and `render_quality="standard"` or `"high"` for rendering. See [parallel animated rendering](../exports.md#parallel-animated-rendering)
 for spawn setup and supported inputs. Format-specific options are rejected when used with the other animated format.
 
 ### `.to_html()`
@@ -156,19 +156,18 @@ pptx_bytes = deck.to_pptx()  # requires quickthumb[pptx]
 Return the deck as an animation: each slide plays its layer animations, holds its settled state, and its transition animates the change into it (see [Animated GIF & video](../exports.md#animated-gif-video) for the timing model). `.to_webm()`/`.to_mov()` require the `ffmpeg` binary on `PATH` (or named by `QUICKTHUMB_FFMPEG`).
 
 ```python
-gif_bytes = deck.to_gif(fps=20, slide_duration=3.0, loop=0, matte="#000000")
-webm_bytes = deck.to_webm(fps=30, slide_duration=3.0)
-overlay_bytes = deck.to_webm(fps=30, slide_duration=3.0, transparent=True)
+gif_bytes = deck.to_gif(fps=20, hold=3.0, loop=0, matte="#000000")
+webm_bytes = deck.to_webm(fps=30, hold=3.0)
+overlay_bytes = deck.to_webm(fps=30, hold=3.0, transparent=True)
 ```
 
 All animated byte methods accept keyword-only `workers=1` and
-`quality="standard"` (`"high"` enables supersampling). `.to_gif()` also accepts
+`render_quality="standard"` (`"high"` enables supersampling). `.to_gif()` also accepts
 `max_size=None` for proportional resizing and `colors=None` for the palette
 size (2–256 when supplied). Existing positional parameters remain unchanged.
 
-These controls also apply to `.to_animated_mp4()`. Its static counterpart
-`.to_mp4()` retains its separate narration API. File options use `hold`, while
-these Deck byte methods use `slide_duration`. Animated video requires a positive
+These controls also apply to `.to_mp4()`. Use `.to_narrated_mp4()` for static
+narrated slides. File options and byte methods both use `hold`. Animated video requires a positive
 default hold whenever a slide has neither narration nor an explicit duration;
 zero is still valid for Deck GIF and silent PNG sequences. Deck GIF ignores
 per-slide narration and explicit durations.
@@ -189,25 +188,31 @@ and encoder requirements. `render()` and `export()` accept `.mov` with
 
 Write the animated Deck timeline as silent RGBA8 straight-alpha PNG frames and
 `manifest.json`. The destination must be new and its parent must exist.
-`PngSequenceOptions(fps=30, hold=3, workers=1, quality="standard")` controls
+`PngSequenceOptions(fps=30, hold=3, workers=1, render_quality="standard")` controls
 the export; explicit slide/narration timing, transitions, Morph, policies and
 worker restrictions retain their existing meaning. No audio is encoded.
 `PngSequenceResult` reports the actual frame count and `duration=frame_count/fps`,
 without listing every frame. See [PNG sequences](../exports.md#png-image-sequences)
 for exact pixels, metadata, and no-overwrite publication behavior.
 
-### `.render_mp4(...)`
+### `.render_narrated_mp4(...)`
 
 Render a static, narrated MP4 directly to a path. Add narration to a slide with
 `deck.slide(canvas, audio="voice.wav", duration=2.5)`. If duration is omitted,
-ffprobe supplies the audio length; silent slides use `default_duration=3.0`.
+ffprobe supplies the audio length; silent slides use `hold=3.0`.
 The output is H.264/yuv420p plus AAC and requires both `ffmpeg` and `ffprobe`.
 This path does not currently play layer animations or slide transitions.
 
-`deck.to_mp4(fps=30, slide_duration=3.0)` returns the same static MP4 as bytes;
-its `slide_duration` argument supplies the silent-slide default.
+`deck.to_narrated_mp4(fps=30, hold=3.0)` returns the same static MP4 as bytes;
+its `hold` argument supplies the silent-slide default.
 
-### `.to_animated_mp4(...)`
+| Parameter | Type | Default | Description |
+| --- | --- | --- | --- |
+| `output_path` | `str` | — | Final `.mp4` path for `render_narrated_mp4()` |
+| `hold` | `float` | `3.0` | Duration of a slide with neither audio nor duration |
+| `fps` | `float` | `30.0` | Static-video frame rate |
+
+### `.to_mp4(...)`
 
 Return the same animated timeline as `.to_webm()` in an H.264 MP4 container,
 including scheduled per-slide narration and an optional mixed soundtrack.
@@ -216,14 +221,8 @@ slides do not count toward that operational FFmpeg input limit.
 For a file export, use `deck.render("deck.mp4",
 animation=VideoOptions(soundtrack=AudioTrack(path="music.mp3", loop=True)))`.
 It mixes the background track with each slide's `audio` narration during rendering.
-Without `VideoOptions`, `deck.render("deck.mp4")` uses the static narrated path
-described above.
-
-| Parameter | Type | Default | Description |
-| --- | --- | --- | --- |
-| `output_path` | `str` | — | Final `.mp4` path for `render_mp4()` |
-| `default_duration` / `slide_duration` | `float` | `3.0` | Duration of a slide with neither audio nor duration |
-| `fps` | `float` | `30.0` | Static-video frame rate |
+Without explicit options, `deck.export("deck.mp4")` uses the same animated
+timeline with default `VideoOptions()`.
 
 ## `.diagnose()`
 

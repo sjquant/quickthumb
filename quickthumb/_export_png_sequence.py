@@ -68,7 +68,7 @@ def export_png_sequence(
             slide_durations=durations,
             matte=None,
             workers=settings.workers,
-            quality=settings.quality,
+            quality=settings.render_quality,
             reduced_motion=bool(policy and policy.reduced_motion),
         ) as prepared:
             staging = Path(tempfile.mkdtemp(prefix=".quickthumb-png-", dir=destination.parent))

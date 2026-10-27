@@ -251,7 +251,7 @@ Omitted handles and the default `auto_orient=False` are not serialized.
 ### Export support
 
 - Raster frames, GIF, MP4 and WebM share the same path sampler, including
-  `quality="high"` and spawn workers. Paths can be combined with `ColorTrack`
+  `render_quality="high"` and spawn workers. Paths can be combined with `ColorTrack`
   on eligible text, shapes and groups
 - HTML animates one geometry-only canonical timeline on a static rendered
   source, without stagger or composed animations. It bakes sampled transform
@@ -341,7 +341,7 @@ point API.
 ### Export support
 
 - Raster, GIF, MP4 and WebM apply the same pivot and independent scales,
-  including `quality="high"` and spawn workers
+  including `render_quality="high"` and spawn workers
 - HTML maps the new transform to `transform-origin` and `scale(x, y)` using
   registered CSS custom properties. One geometry-only canonical timeline is
   supported, with independent authored keyframe times and named easing.

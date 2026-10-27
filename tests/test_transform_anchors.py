@@ -312,7 +312,9 @@ def test_new_transforms_keep_worker_gif_bytes_and_timing(quality, tmp_path):
     canvas = scene((0, 1), motion)
     outputs = [tmp_path / f"{workers}.gif" for workers in (1, 2)]
     for workers, output in zip((1, 2), outputs, strict=True):
-        canvas.render(str(output), animation=GifOptions(fps=4, quality=quality, workers=workers))
+        canvas.render(
+            str(output), animation=GifOptions(fps=4, render_quality=quality, workers=workers)
+        )
     assert outputs[0].read_bytes() == outputs[1].read_bytes()
 
 

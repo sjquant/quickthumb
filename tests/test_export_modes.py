@@ -35,32 +35,10 @@ def parent_deck():
     )
 
 
-@pytest.mark.parametrize("strict", [False, True])
-def test_narrated_mp4_export_matches_render_without_claiming_unused_morph(
-    tmp_path, monkeypatch, strict
-):
-    deck = parent_deck()
-    writer = Mock(side_effect=lambda path: Path(path).write_bytes(b"static"))
-    monkeypatch.setattr(deck, "render_mp4", writer)
-    policy = ExportPolicy(unsupported_motion="error" if strict else "warn")
-    rendered = tmp_path / "render.MP4"
-    exported = tmp_path / "export.MP4"
-
-    assert deck.render(str(rendered), policy=policy) == [str(rendered)]
-    result = deck.export(exported, policy=policy)
-
-    assert rendered.read_bytes() == exported.read_bytes() == b"static"
-    assert writer.call_count == 2
-    assert result.target == "video" and result.output_format == "mp4"
-    assert result.timing_metrics.duration == pytest.approx(0.2)
-    assert not any(item.feature == "parent_morph" for item in result.capability_report)
-    assert not result.fallback_diagnostics
-
-
 @pytest.mark.parametrize("method", ["render", "export"])
-def test_explicit_animated_mp4_strict_policy_preserves_existing_output(
-    tmp_path, monkeypatch, method
-):
+@pytest.mark.parametrize("animation", [None, VideoOptions()])
+def test_mp4_strict_policy_preserves_existing_output(tmp_path, monkeypatch, method, animation):
+    """Default and configured MP4 reject unsupported motion before replacing a file."""
     from quickthumb import _export_video
 
     writer = Mock()
@@ -70,7 +48,7 @@ def test_explicit_animated_mp4_strict_policy_preserves_existing_output(
     with pytest.raises(RenderingError, match="fade fallback"):
         getattr(parent_deck(), method)(
             str(destination),
-            animation=VideoOptions(),
+            animation=animation,
             policy=ExportPolicy(unsupported_motion="error"),
         )
     writer.assert_not_called()
@@ -153,7 +131,7 @@ def test_reduced_motion_byte_and_png_execution_skip_unused_parent_morph(tmp_path
     monkeypatch.setattr(_export_video, "export_animation_bytes", encoder)
     deck = parent_deck()
     policy = ExportPolicy(unsupported_motion="error", reduced_motion=True)
-    assert deck.to_animated_mp4(policy=policy) == b"reduced"
+    assert deck.to_mp4(policy=policy) == b"reduced"
     assert encoder.call_args.kwargs["reduced_motion"] is True
     result = deck.export_png_sequence(
         tmp_path / "frames", options=PngSequenceOptions(fps=10), policy=policy
@@ -217,9 +195,7 @@ def test_canvas_mp4_defaults_to_animated_writer(tmp_path, monkeypatch, method):
 
 @pytest.mark.parametrize("method", ["render", "export", "png_sequence"])
 @pytest.mark.parametrize("reduced", [False, True])
-def test_static_and_reduced_execution_still_reject_unsupported_geometry(
-    tmp_path, monkeypatch, method, reduced
-):
+def test_animated_and_reduced_execution_reject_unsupported_geometry(tmp_path, method, reduced):
     canvas = parent_canvas()
     canvas.layers = [
         canvas.layers[0],
@@ -239,8 +215,6 @@ def test_static_and_reduced_execution_still_reject_unsupported_geometry(
         ),
     ]
     deck = Deck().slide(canvas)
-    writer = Mock()
-    monkeypatch.setattr(deck, "render_mp4", writer)
     path = tmp_path / "existing.mp4"
     path.write_bytes(b"existing")
     policy = ExportPolicy(unsupported_motion="error", reduced_motion=reduced)
@@ -251,7 +225,6 @@ def test_static_and_reduced_execution_still_reject_unsupported_geometry(
             getattr(deck, method)(
                 str(path), animation=VideoOptions() if reduced else None, policy=policy
             )
-    writer.assert_not_called()
     assert path.read_bytes() == b"existing"
     assert not (tmp_path / "frames").exists()
 

@@ -8,14 +8,14 @@ A canvas renders to raster, vector, document, web, and animated formats. The
 format comes from the file extension:
 
 ```python
-canvas.render("thumbnail.png")   # raster (PNG/JPEG/WEBP)
-canvas.render("thumbnail.svg")   # vector SVG
-canvas.render("thumbnail.html")  # self-contained web page that plays animations
-canvas.render("thumbnail.pptx")  # editable PowerPoint slide
-canvas.render("thumbnail.pdf")   # single-page PDF
-canvas.render("thumbnail.gif")   # animated GIF playing the layer animations
-canvas.render("thumbnail.mp4")   # H.264 video (requires ffmpeg); .webm for VP9
-canvas.render("thumbnail.mov")   # ProRes 4444 video (requires ffmpeg with prores_ks)
+canvas.export("thumbnail.png")   # raster (PNG/JPEG/WEBP)
+canvas.export("thumbnail.svg")   # vector SVG
+canvas.export("thumbnail.html")  # self-contained web page that plays animations
+canvas.export("thumbnail.pptx")  # editable PowerPoint slide
+canvas.export("thumbnail.pdf")   # single-page PDF
+canvas.export("thumbnail.gif")   # animated GIF playing the layer animations
+canvas.export("thumbnail.mp4")   # H.264 video (requires ffmpeg); .webm for VP9
+canvas.export("thumbnail.mov")   # ProRes 4444 video (requires ffmpeg with prores_ks)
 ```
 
 Each format also has a direct method when you want the content in memory:
@@ -29,76 +29,48 @@ gif_bytes = canvas.to_gif()
 mp4_bytes = canvas.to_mp4()      # and canvas.to_webm() / canvas.to_mov()
 ```
 
-## Shared export contract and specialist controls
+## Recommended output API
 
-Use `export()` when building a workflow that accepts either a `Canvas` or a
-`Deck`. Both accept a string or `Path` and return an `ExportResult`, including
-the document `kind`, effective `output_format`, `written_paths`, capability and
-fallback diagnostics, pixel/timing metadata, and the asset manifest:
+Use `export()` to write a Canvas or Deck and receive an `ExportResult` with
+`written_paths`, capability/fallback diagnostics, pixel/timing metadata and assets.
+The extension selects the format. MP4, WebM, MOV and GIF play the animated timeline.
+Deck video also mixes per-slide narration.
 
 ```python
-from quickthumb import Canvas, Deck
+from quickthumb import VideoOptions
 
-canvas = Canvas(320, 180).background(color="#112233")
-deck = Deck(slides=[canvas, Canvas(320, 180).background(color="#445566")])
-
-for document, path in [(canvas, "card.png"), (deck, "slides.png")]:
-    result = document.export(path)
-    print(result.kind, result.written_paths)
-    print(result.model_dump_json())
+result = deck.export("slides.mp4", animation=VideoOptions(hold=2, render_quality="high"))
+print(result.written_paths, result.fallback_diagnostics)
+deck.export("slides.html")  # interactive slideshow with click-triggered motion
+canvas.export("card.webp", quality=85)  # JPEG/WebP compression quality
 ```
 
-The canvas writes `card.png`; the deck writes `slides_01.png` and
-`slides_02.png`. Always use `written_paths` rather than reconstructing names.
-`export(path, policy=None, *, format=None, quality=None, animation=None)` runs
-the shared capability-policy preflight before calling the existing renderer.
-`format` is a raster format override; `quality` applies to JPEG/WEBP;
-`animation` accepts `GifOptions` for GIF or `VideoOptions` for MP4/WebM.
-See the [Canvas](api/canvas.md)
-and [Deck](api/deck.md)
-references for examples.
+| Need | Entry point |
+| --- | --- |
+| Write a file with capability policy and a result receipt | `export(path, ...)` |
+| Draw debug boxes or use the lower-level file renderer | `render(path, ...)` |
+| Get bytes or an in-memory document | `to_mp4()`, `to_gif()`, `to_html()`, etc. |
+| Export static narrated Deck slides | `render_narrated_mp4(path, hold=3)` / `to_narrated_mp4(hold=3)` |
+| Write silent RGBA animation frames plus a manifest | `export_png_sequence(directory, options=...)` |
 
-### Support and lifecycle
+All animated byte methods and options use `hold` for settled-state seconds.
+`render_quality="standard"` or `"high"` controls animation compositing;
+`quality=1..95` on `export()`/`render()` controls JPEG/WebP compression.
+Keep `workers=1` unless advanced spawn-based rendering is needed.
+Only `export()` enforces capability policies such as `unsupported_motion="error"`
+before writing; `render()` and byte methods are lower-level controls.
+Use the returned `written_paths` for Deck raster sequences: they are numbered files.
+PNG sequences keep a separate API because their destination is a new directory.
 
-The shared document methods and result envelope are the integration boundary
-for generic consumers. The documented `render()` and `to_*()` methods remain
-supported specialist controls: they are not deprecated, renamed, or scheduled
-for removal. Existing users do not need to migrate. Any future removal or
-incompatible change to these documented controls requires an announced
-deprecation and migration guidance first. New generic examples should prefer
-`export()`; format-specific examples can continue using specialist methods.
-Private underscore-prefixed modules and renderer internals are outside this
-support boundary.
+### Migrating output calls
 
-| Entry point | Canvas result | Deck result | Use when |
-| --- | --- | --- | --- |
-| `export(path, ...)` | `ExportResult` | `ExportResult` | You need shared reporting and capability-policy preflight |
-| `render(path, ...)` | `None` | `list[str]` of written paths | You need existing file-rendering controls, such as Canvas `debug=True` |
-| `to_html(...)` | HTML `str` | HTML `str` | You need an in-memory document or HTML-specific options |
-| `to_pdf(...)`, `to_pptx(...)`, `to_gif(...)`, `to_mp4(...)`, `to_webm(...)` | `bytes` | `bytes` | You manage the destination and need format-specific controls |
-| `to_svg(embed_fonts=...)` | SVG `str` | Not available | You need one SVG per canvas, optionally with embedded fonts |
-
-Specialist methods do not return the shared result envelope. `render()` and
-several `to_*()` methods accept `policy=` and apply it to their renderer (for
-example `reduced_motion`), but only `export()` enforces capability rules such as
-`unsupported_motion="error"`, failing before any file is written. Use
-`validate_export()` to inspect motion capabilities before a specialist export.
-Neither path promises pixel identity across different formats, viewers, fonts,
-or rendering environments. Currently `pixel_metrics` reports dimensions and
-frame count, not a fidelity score; absent difference measurements are not proof
-of a match.
-
-The shared entry point preserves renderer-specific behavior:
-
-- A Deck writes one multi-page PDF, multi-slide PPTX, or HTML slideshow, but
-  numbered files for raster output. It cannot export a single SVG; export each
-  canvas separately instead.
-- Canvas MP4 plays layer animation. Deck MP4 without `animation` uses static
-  narrated slides. Pass `animation=VideoOptions(...)` to `deck.export()` or
-  `deck.render()` for the animated timeline, or use `deck.to_animated_mp4()`.
-  `deck.to_mp4()` retains its static narrated-slide behavior.
-- `Canvas.render(..., debug=True)` and `Canvas.to_svg(embed_fonts=True)` are
-  specialist controls, not arguments to the shared `export()` method.
+- `Deck.to_mp4()` now plays animation, matching Canvas and file exports.
+  Replace old `to_animated_mp4()` calls with `to_mp4()`; use
+  `to_narrated_mp4()` for still-slide narration.
+- Replace `render_mp4()` with `render_narrated_mp4()` for still-slide files.
+- Replace animated Deck `slide_duration=` and narrated `default_duration=` with
+  `hold=`. Replace animation `quality=` with `render_quality=`, including saved
+  GifOptions, VideoOptions and PngSequenceOptions JSON. There are no aliases.
 
 ## How export works
 
@@ -191,7 +163,7 @@ with open("promo.pdf", "wb") as f:
 
 ## Animated GIF & video { #animated-gif-video }
 
-Animated export renders per-layer `animation` effects and deck slide `transition`s as real raster frames, sampled through the same pixel pipeline as PNG output. Canvas GIF/MP4/WebM/MOV and Deck GIF/WebM/MOV play this animated timeline. `deck.render("deck.mp4", animation=VideoOptions(...))` also uses it; Deck MP4 without `VideoOptions` is the separate static narration workflow below.
+Animated export renders per-layer `animation` effects and deck slide `transition`s as real raster frames, sampled through the same pixel pipeline as PNG output. Canvas and Deck GIF/MP4/WebM/MOV all play this animated timeline, including file exports with no explicit options.
 
 ```python
 from quickthumb import AudioTrack, Canvas, Deck, Fade, GifOptions, VideoOptions
@@ -210,8 +182,8 @@ mp4 = canvas.to_mp4(fps=30, hold=2.0)          # tunable variants return bytes
 
 other = Canvas(1280, 720).background(color="#204060")
 deck = Deck(1280, 720).slide(canvas).slide(other, transition=Push(direction="left"))
-gif = deck.to_gif(fps=20, slide_duration=3.0, loop=0)
-webm = deck.to_webm(fps=30, slide_duration=3.0)
+gif = deck.to_gif(fps=20, hold=3.0, loop=0)
+webm = deck.to_webm(fps=30, hold=3.0)
 ```
 
 Every effect takes `duration`, `delay`, and `trigger`, plus two timing controls:
@@ -269,43 +241,39 @@ and runnable `examples/parent_stagger.py` example.
 animated file output. Use `GifOptions` for GIF (`fps`, `hold`, `matte`, `loop`,
 `max_size=(width, height)`, and `colors`) and `VideoOptions` for MP4/WebM/MOV
 (`fps`, `hold`, `matte`, `soundtrack=AudioTrack(...)`, `loop_audio`, and WebM/MOV
-`transparent=True`). Both accept `workers=1` and `quality="standard"`.
+`transparent=True`). Both accept `workers=1` and `render_quality="standard"`.
 GIF sizing and palette controls are rejected for video output, and video
 options are rejected for GIF output. The generic `render(..., quality=...)`
 option remains reserved for JPEG and WebP raster output.
 
 Both option models use `hold=3.0` for the settled-state hold, matching `hold`
-on Canvas byte methods and `slide_duration` on Deck byte methods. It must be
+on Canvas and Deck byte methods. It must be
 a finite nonnegative number; booleans and strings are rejected. A default hold
 is omitted from serialized options and restored when loaded; an explicit zero
 is retained. Narration and explicit Deck slide durations still determine the
 video schedule, while Deck GIF continues to ignore those per-slide durations.
-Deck animated video retains its existing restriction: `hold=0` (or byte
-`slide_duration=0`) fails when any slide has neither narration nor an explicit
+Deck animated video retains its existing restriction: `hold=0` fails when any slide has neither narration nor an explicit
 positive duration, because its audio schedule requires a positive silent bed.
 Use a positive hold for those slides. Canvas, Deck GIF, and silent PNG sequences
 continue to permit a zero hold.
 
 The byte methods accept the same rendering controls as keyword-only scalars:
-`workers=1` and `quality="standard"` on Canvas GIF/MP4/WebM/MOV and Deck
+`workers=1` and `render_quality="standard"` on Canvas GIF/MP4/WebM/MOV and Deck
 GIF/animated MP4/WebM/MOV, plus `max_size=None` and `colors=None` on GIF.
-Their existing timing names and positional arguments are unchanged; these
-methods do not accept options objects. Static `Deck.to_mp4()` and
-`Deck.render_mp4()` retain their separate narration API.
+These methods use `hold` and do not accept options objects. Static narration
+uses `Deck.to_narrated_mp4()` / `Deck.render_narrated_mp4()`.
 
-File execution resolves the concrete format and animation mode before checking
-export policy. In particular, `Deck.render("slides.mp4")` and
-`Deck.export("slides.mp4")` both use narrated still slides; pass `VideoOptions()`
-to play the animated timeline. Canvas MP4 always uses the animated path.
+File execution resolves the format before checking export policy. Canvas and
+Deck MP4 always play the animated timeline, with default `VideoOptions()` when
+no options are supplied.
 Unused authored Morph transitions do not produce fallback errors or receipt
-diagnostics for narrated stills, static files, or reduced-motion execution.
+diagnostics for static files or reduced-motion execution.
 Reduced animation retains the encoder's holds and default transitions between
 slides. Built-in animated GIF and MP4/WebM/MOV exports report the encoded visual
 frame count and duration. GIF counts include palette-equivalent frame merging,
 and duration follows its centisecond delays; its reported FPS remains the
 configured sampling rate. Video duration is the encoded frame count divided by
-that rate, excluding container audio padding. Narrated still-slide MP4 and
-custom render overrides retain their nominal timing estimates.
+that rate, excluding container audio padding. Custom render overrides retain their nominal timing estimates.
 
 `ExportResult.pixel_metrics.width` and `height` remain the canonical first-canvas
 raster dimensions. They do not describe GIF resizing or MP4/WebM cropping. PNG
@@ -333,7 +301,7 @@ while `render()` rejects transparent options on unsupported output formats.
 
 ```python
 canvas.render("overlay.webm", animation=VideoOptions(transparent=True))
-deck.render("overlay.webm", animation=VideoOptions(transparent=True, quality="high", workers=2))
+deck.render("overlay.webm", animation=VideoOptions(transparent=True, render_quality="high", workers=2))
 webm_bytes = canvas.to_webm(transparent=True)
 options = VideoOptions.model_validate_json('{"transparent": true, "fps": 24}')
 ```
@@ -382,9 +350,9 @@ quality modes and workers follow the transparent WebM behavior above.
 
 ```python
 canvas.render("overlay.mov", animation=VideoOptions(transparent=True, fps=24))
-deck.export("overlay.mov", animation=VideoOptions(transparent=True, quality="high", workers=2))
+deck.export("overlay.mov", animation=VideoOptions(transparent=True, render_quality="high", workers=2))
 mov_bytes = canvas.to_mov(hold=2.0, transparent=True)
-mov_bytes = deck.to_mov(slide_duration=2.0, transparent=True, soundtrack="music.wav")
+mov_bytes = deck.to_mov(hold=2.0, transparent=True, soundtrack="music.wav")
 ```
 
 MOV retains odd dimensions and even 1-pixel-wide or 1-pixel-high frames; it does
@@ -436,7 +404,7 @@ from quickthumb import PngSequenceOptions
 # The parent must already exist; this destination must be new.
 result = canvas.export_png_sequence(
     "overlay_frames",
-    options=PngSequenceOptions(fps=24, hold=2, quality="high", workers=2),
+    options=PngSequenceOptions(fps=24, hold=2, render_quality="high", workers=2),
 )
 print(result.frame_count, result.duration, result.manifest_path)
 ```
@@ -448,7 +416,7 @@ print(result.frame_count, result.duration, result.manifest_path)
 | `fps` | `30` | Finite numeric rate greater than zero and at most 120 |
 | `hold` | `3` | Finite nonnegative seconds held after animation |
 | `workers` | `1` | Strict integer from 1 through 8 |
-| `quality` | `"standard"` | `"standard"` or `"high"` |
+| `render_quality` | `"standard"` | `"standard"` or `"high"` |
 
 The models and JSON schemas are public: `PngSequenceOptions`,
 `PngSequenceManifest`, and `PngSequenceResult` support `model_dump_json()`,
@@ -500,15 +468,15 @@ FFmpeg dependency. Its output directory must be fresh on every run.
 
 ### High-quality animated compositing
 
-`GifOptions(quality="high")` and `VideoOptions(quality="high")` opt into a 2×
+`GifOptions(render_quality="high")` and `VideoOptions(render_quality="high")` opt into a 2×
 layer-compositing surface followed by one LANCZOS downsample. The default is
-`quality="standard"`, which preserves existing output. This namespaced option
+`render_quality="standard"`, which preserves existing output. This namespaced option
 is separate from `render(..., quality=...)` for JPEG/WebP. Animated byte
-methods also accept the keyword-only `quality="high"` argument.
+methods also accept the keyword-only `render_quality="high"` argument.
 
 ```python
-canvas.render("smooth.mp4", animation=VideoOptions(fps=30, quality="high"))
-deck.render("smooth.gif", animation=GifOptions(fps=12, colors=64, quality="high"))
+canvas.render("smooth.mp4", animation=VideoOptions(fps=30, render_quality="high"))
+deck.render("smooth.gif", animation=GifOptions(fps=12, colors=64, render_quality="high"))
 ```
 
 High mode filters prepared layers and staggered targets directly into the
@@ -571,49 +539,22 @@ Normal completion and errors wait for running jobs to finish and close their
 decoders. Pending jobs are canceled on failure; abruptly terminated workers
 are reported as rendering errors. An OS-level kill cannot run normal cleanup.
 
-Both option models use `hold=3.0` for the settled-state hold, matching `hold`
-on Canvas byte methods and `slide_duration` on Deck byte methods. It must be
-a finite nonnegative number; booleans and strings are rejected. A default hold
-is omitted from serialized options and restored when loaded; an explicit zero
-is retained. Narration and explicit Deck slide durations still determine the
-video schedule, while Deck GIF continues to ignore those per-slide durations.
-Deck animated video retains its existing restriction: `hold=0` (or byte
-`slide_duration=0`) fails when any slide has neither narration nor an explicit
-positive duration, because its audio schedule requires a positive silent bed.
-Use a positive hold for those slides. Canvas, Deck GIF, and silent PNG sequences
-continue to permit a zero hold.
+Static narrated MP4 uses `render_narrated_mp4()` or `to_narrated_mp4()`.
 
-The byte methods accept the same rendering controls as keyword-only scalars:
-`workers=1` and `quality="standard"` on Canvas GIF/MP4/WebM/MOV and Deck
-GIF/animated MP4/WebM/MOV, plus `max_size=None` and `colors=None` on GIF.
-Their existing timing names and positional arguments are unchanged; these
-methods do not accept options objects. Static `Deck.to_mp4()` and
-`Deck.render_mp4()` retain their separate narration API.
+Deck MP4, WebM, and MOV exports support per-slide narration. Pass `audio=` to `Deck.slide()`;
+without `duration=`, Quickthumb uses the file's ffprobe duration. An explicit
+duration trims audio or pads it with silence, while a slide without audio holds
+silently for `hold` (3 seconds). `deck.render_narrated_mp4("deck.mp4")` produces
+H.264/yuv420p video with an AAC track and still slides. `deck.export("deck.mp4")`
+plays layer animations and transitions with narration by default. Pass
+`animation=VideoOptions(soundtrack=AudioTrack(path="music.mp3", volume=0.16, loop=True))`
+to `deck.render()` for animated MP4/WebM/MOV.
+Quickthumb mixes that bed and the
+scheduled `Deck.slide(audio=...)` narration during rendering; `deck.to_mp4()`
+and `deck.to_webm()` do the same for byte exports. Callers do not
+need to pre-mix audio themselves.
 
-- Pass `audio=` to `Deck.slide()`. Without `duration=`, the slide lasts as long
-  as its audio file (measured with `ffprobe`). An explicit `duration=` trims
-  the audio or pads it with silence. A slide with no audio lasts
-  `default_duration` (3 seconds).
-- `deck.render("deck.mp4")` on its own makes a *static* narrated video: each
-  slide's settled frame is shown for its duration, without layer animations or
-  transitions. The output is H.264 video with an AAC audio track.
-- To play animations and transitions as well, pass
-  `animation=VideoOptions(...)`. A background music track can be added with
-  `soundtrack=AudioTrack(path="music.mp3", volume=0.16, loop=True)`, and
-  quickthumb mixes it with the slide narration for you. `deck.to_animated_mp4()`,
-  `deck.to_webm()`, and `deck.to_mov()` do the same and return bytes.
-
-`ExportResult.pixel_metrics.width` and `height` remain the canonical first-canvas
-raster dimensions. They do not describe GIF resizing or MP4/WebM cropping. PNG
-sequence results separately report their full-size output dimensions.
-
-Video and GIF follow the HTML slideshow's timing, except that nobody can
-click: `on_click` animations play automatically, one after another, like
-`after_previous` (PowerPoint's own video export does the same). Each slide
-plays its transition over the previous slide's last frame, runs its
-animations (starting with the transition, as in HTML), then holds its settled
-state for the transition's `advance_after` if set, otherwise for
-`slide_duration` (`hold` on `Canvas`). In narrated MP4/WebM/MOV output, the inferred or explicit narration duration (or the silent-slide default) extends the visual slide when it is longer than `advance_after`. A slide with no transition cross-fades in over 0.5s (slide 0 with none starts instantly); set a transition on slide 0 to animate in from the matte, which also makes looping GIFs wrap smoothly.
+The timing model mirrors the HTML slideshow, with one difference a non-interactive medium forces: there is nothing to click, so `on_click` animations play automatically in sequence, exactly like `after_previous` (the same choice PowerPoint's own video export makes). Each slide plays its transition (over the previous slide's final frame), runs its animation timeline (starting when the transition starts, like the HTML runtime), then holds its settled state — for the transition's `advance_after` when set, else for `hold`. In narrated MP4/WebM/MOV output, the inferred or explicit narration duration (or the silent-slide default) extends the visual slide when it is longer than `advance_after`. A slide with no transition cross-fades in over 0.5s (slide 0 with none starts instantly); set a transition on slide 0 to animate in from the matte, which also makes looping GIFs wrap smoothly.
 
 GIF is encoded by Pillow with per-frame durations, so no extra dependency is needed. MP4 (H.264), WebM (VP9), and MOV (ProRes 4444) require the `ffmpeg` binary on `PATH` (or pointed to by the `QUICKTHUMB_FFMPEG` environment variable).
 
@@ -699,7 +640,7 @@ deck = (
 deck.render("deck.pdf")     # one multi-page PDF (a page per slide)
 deck.render("deck.pptx")    # one multi-slide PPTX (a slide per slide)
 deck.render("deck.gif")     # one animation playing transitions between slides
-deck.render("deck.mp4")     # static slides with per-slide narration
+deck.export("deck.mp4")     # animated slides with per-slide narration
 deck.render(
     "deck.mp4",
     animation=VideoOptions(soundtrack=AudioTrack(path="music.mp3", loop=True)),
@@ -711,10 +652,10 @@ pdf_bytes = deck.to_pdf()
 pptx_bytes = deck.to_pptx()
 gif_bytes = deck.to_gif()
 webm_bytes = deck.to_webm()
-mp4_bytes = deck.to_mp4()   # static slides with per-slide narration
+mp4_bytes = deck.to_narrated_mp4()   # static slides with per-slide narration
 ```
 
-`render()` dispatches on the output extension: `.pdf` and `.pptx` produce a single document; `.gif`, `.webm`, and `.mov` produce an animation; `.mp4` produces static slides with per-slide narration unless `animation=VideoOptions(...)` selects the animated path; and raster extensions have no native multi-page container, so the deck writes one file per slide as a zero-padded numbered sequence and returns the written paths.
+`render()` dispatches on the output extension: `.pdf` and `.pptx` produce a single document; `.gif`, `.mp4`, `.webm`, and `.mov` produce an animation; and raster extensions have no native multi-page container, so the deck writes one file per slide as a zero-padded numbered sequence and returns the written paths.
 
 Slides may have different dimensions. `deck.diagnose()` aggregates each slide's [diagnostics](diagnostics.md) (each tagged with its `slide_index`) and adds a `mixed-slide-size` warning when they differ. The PDF path sizes each page to its slide, but PPTX has a single presentation size taken from the first slide, so slides larger than the first are clipped by PowerPoint. Keep slides the same size when targeting `.pptx`. Decks round-trip through JSON with `deck.to_json()` / `Deck.from_json(...)`, reusing the per-canvas serialization.
 

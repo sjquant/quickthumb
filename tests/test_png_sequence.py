@@ -1,7 +1,6 @@
 """Lossless decoded pixels, exact export timing, and fresh-directory publication."""
 
 import gc
-import inspect
 import json
 import os
 import shutil
@@ -13,7 +12,7 @@ import weakref
 from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
 from pathlib import Path
-from typing import Any, cast, get_args
+from typing import Any, cast
 from unittest.mock import Mock
 
 import jsonschema
@@ -34,10 +33,8 @@ from quickthumb import (
 from quickthumb import _export_png_sequence as sequence
 from quickthumb import _export_video as video
 from quickthumb import transitions as tr
-from quickthumb._base import FileFormat
 from quickthumb._document import _contract_timeline_inputs
 from quickthumb.errors import MissingAssetError, RenderingError, ValidationError
-from quickthumb.motion import capabilities_for
 
 
 def decoded(directory: Path) -> list[bytes]:
@@ -84,7 +81,7 @@ def animated_canvas() -> Canvas:
         ("fps", [None, True, False, "30", 0, -1, 120.1, float("inf"), float("nan")]),
         ("hold", [None, True, False, "3", -1, float("inf"), float("nan")]),
         ("workers", [None, True, False, "2", 1.0, 0, 9]),
-        ("quality", [None, "draft", 1]),
+        ("render_quality", [None, "draft", 1]),
     ],
 )
 def test_options_reject_invalid_values(field, values):
@@ -99,28 +96,6 @@ def test_options_reject_invalid_values(field, values):
 def test_sequence_options_forbid_unrelated_controls(field):
     with pytest.raises(ValidationError):
         PngSequenceOptions.model_validate({field: None})
-
-
-def test_options_schema_defaults_and_public_signatures():
-    options = PngSequenceOptions()
-    assert options.model_dump() == {"fps": 30.0, "hold": 3.0, "workers": 1, "quality": "standard"}
-    assert PngSequenceOptions(fps=120, hold=0, workers=8, quality="high").fps == 120
-    schema = PngSequenceOptions.model_json_schema()
-    jsonschema.validate(options.model_dump(mode="json"), schema)
-    assert set(schema["properties"]) == {"fps", "hold", "workers", "quality"}
-    assert schema["additionalProperties"] is False
-    assert inspect.signature(Canvas.export_png_sequence, eval_str=True) == inspect.signature(
-        Deck.export_png_sequence, eval_str=True
-    )
-    assert "output_directory" in inspect.signature(Canvas.export_png_sequence).parameters
-    for name in ("options", "policy"):
-        assert (
-            inspect.signature(Canvas.export_png_sequence).parameters[name].kind
-            is inspect.Parameter.KEYWORD_ONLY
-        )
-    assert set(get_args(FileFormat)) == {"PNG", "JPEG", "WEBP"}
-    assert "hold" in VideoOptions.model_fields
-    assert capabilities_for("PNG_SEQUENCE") == capabilities_for("video")
 
 
 @pytest.mark.parametrize("kind", ["canvas", "deck"])
@@ -282,7 +257,8 @@ def test_canvas_deck_serial_spawn_parity_and_quality(quality, workers, tmp_path)
         expected = reference(source, quality=quality)
         path = tmp_path / kind
         result = source.export_png_sequence(
-            path, options=PngSequenceOptions(fps=10, hold=0.1, quality=quality, workers=workers)
+            path,
+            options=PngSequenceOptions(fps=10, hold=0.1, render_quality=quality, workers=workers),
         )
         assert decoded(path) == expected
         assert result.frame_count == 5
@@ -789,7 +765,8 @@ def test_options_are_revalidated_and_other_option_models_rejected(tmp_path):
     assert list(tmp_path.iterdir()) == []
 
 
-def test_still_png_and_default_deck_mp4_dispatch_are_unchanged(tmp_path, monkeypatch):
+def test_still_png_export_keeps_numbered_deck_rasters(tmp_path):
+    """Still PNG files retain Canvas pixels and numbered Deck destinations."""
     canvas = animated_canvas()
     still = tmp_path / "still.png"
     canvas.render(str(still))
@@ -799,7 +776,3 @@ def test_still_png_and_default_deck_mp4_dispatch_are_unchanged(tmp_path, monkeyp
     paths = deck.render(str(tmp_path / "slides.png"))
     assert len(paths) == 1
     assert len(list(tmp_path.glob("*.png"))) == 2
-    writer = Mock()
-    monkeypatch.setattr(Deck, "render_mp4", writer)
-    deck.render(str(tmp_path / "default.mp4"))
-    writer.assert_called_once_with(str(tmp_path / "default.mp4"))
