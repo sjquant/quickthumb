@@ -33,7 +33,7 @@ def test_ordinary_moments_entrypoint_consumes_the_diagnostic_report(monkeypatch)
     """Given an empty report, when the film runs, then diagnosis reaches export."""
     # Given: the public encoding entrypoints with external encoding and file writes disabled
     monkeypatch.setattr(Deck, "diagnose", lambda self: DiagnosticReport(findings=[]))
-    monkeypatch.setattr(Deck, "to_animated_mp4", lambda self, *args, **kwargs: b"")
+    monkeypatch.setattr(Deck, "to_mp4", lambda self, *args, **kwargs: b"")
     monkeypatch.setattr(Deck, "to_webm", lambda self, *args, **kwargs: b"")
     monkeypatch.setattr(Canvas, "to_gif", lambda self, *args, **kwargs: b"")
     monkeypatch.setattr(Path, "write_bytes", lambda self, data: len(data))

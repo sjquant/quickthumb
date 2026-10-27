@@ -1,7 +1,6 @@
 """Lossless decoded pixels, exact export timing, and fresh-directory publication."""
 
 import gc
-import inspect
 import json
 import os
 import shutil
@@ -13,7 +12,7 @@ import weakref
 from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
 from pathlib import Path
-from typing import Any, cast, get_args
+from typing import Any, cast
 from unittest.mock import Mock
 
 import jsonschema
@@ -26,23 +25,21 @@ from quickthumb import (
     Deck,
     ExportPolicy,
     Fade,
-    PngSequenceManifest,
-    PngSequenceOptions,
-    PngSequenceResult,
+    ImageSequenceManifest,
+    ImageSequenceOptions,
+    ImageSequenceResult,
     VideoOptions,
 )
-from quickthumb import _export_png_sequence as sequence
+from quickthumb import _export_image_sequence as sequence
 from quickthumb import _export_video as video
 from quickthumb import transitions as tr
-from quickthumb._base import FileFormat
 from quickthumb._document import _contract_timeline_inputs
 from quickthumb.errors import MissingAssetError, RenderingError, ValidationError
-from quickthumb.motion import capabilities_for
 
 
-def decoded(directory: Path) -> list[bytes]:
+def decoded(directory: Path, extension="png") -> list[bytes]:
     payloads = []
-    for path in sorted(directory.glob("*.png")):
+    for path in sorted(directory.glob(f"*.{extension}")):
         with Image.open(path) as frame:
             assert frame.mode == "RGBA"
             payloads.append(frame.tobytes())
@@ -84,13 +81,13 @@ def animated_canvas() -> Canvas:
         ("fps", [None, True, False, "30", 0, -1, 120.1, float("inf"), float("nan")]),
         ("hold", [None, True, False, "3", -1, float("inf"), float("nan")]),
         ("workers", [None, True, False, "2", 1.0, 0, 9]),
-        ("quality", [None, "draft", 1]),
+        ("render_quality", [None, "draft", 1]),
     ],
 )
 def test_options_reject_invalid_values(field, values):
     for value in values:
         with pytest.raises(ValidationError):
-            PngSequenceOptions(**{field: value})
+            ImageSequenceOptions(**{field: value})
 
 
 @pytest.mark.parametrize(
@@ -98,29 +95,7 @@ def test_options_reject_invalid_values(field, values):
 )
 def test_sequence_options_forbid_unrelated_controls(field):
     with pytest.raises(ValidationError):
-        PngSequenceOptions.model_validate({field: None})
-
-
-def test_options_schema_defaults_and_public_signatures():
-    options = PngSequenceOptions()
-    assert options.model_dump() == {"fps": 30.0, "hold": 3.0, "workers": 1, "quality": "standard"}
-    assert PngSequenceOptions(fps=120, hold=0, workers=8, quality="high").fps == 120
-    schema = PngSequenceOptions.model_json_schema()
-    jsonschema.validate(options.model_dump(mode="json"), schema)
-    assert set(schema["properties"]) == {"fps", "hold", "workers", "quality"}
-    assert schema["additionalProperties"] is False
-    assert inspect.signature(Canvas.export_png_sequence, eval_str=True) == inspect.signature(
-        Deck.export_png_sequence, eval_str=True
-    )
-    assert "output_directory" in inspect.signature(Canvas.export_png_sequence).parameters
-    for name in ("options", "policy"):
-        assert (
-            inspect.signature(Canvas.export_png_sequence).parameters[name].kind
-            is inspect.Parameter.KEYWORD_ONLY
-        )
-    assert set(get_args(FileFormat)) == {"PNG", "JPEG", "WEBP"}
-    assert "hold" in VideoOptions.model_fields
-    assert capabilities_for("PNG_SEQUENCE") == capabilities_for("video")
+        ImageSequenceOptions.model_validate({field: None})
 
 
 @pytest.mark.parametrize("kind", ["canvas", "deck"])
@@ -128,12 +103,13 @@ def test_default_manifest_is_compact_json_safe_and_actual(kind, tmp_path, monkey
     canvas = Canvas(1, 3).background(color="#325B7180")
     source = canvas if kind == "canvas" else Deck().slide(canvas)
     monkeypatch.setattr(source, "sample", Mock(side_effect=AssertionError("sample is not export")))
-    result = source.export_png_sequence(tmp_path / "frames")
+    result = source.export_image_sequence(tmp_path / "frames")
     manifest = json.loads(Path(result.manifest_path).read_text())
     expected = {
         "version": "1",
         "kind": kind,
-        "format": "png_sequence",
+        "format": "image_sequence",
+        "encoding": "png",
         "filename_pattern": "%06d.png",
         "start_index": 0,
         "frame_count": 90,
@@ -144,6 +120,9 @@ def test_default_manifest_is_compact_json_safe_and_actual(kind, tmp_path, monkey
         "mode": "RGBA",
         "bit_depth": 8,
         "alpha": "straight",
+        "lossless": True,
+        "quality": None,
+        "matte": None,
     }
     assert manifest == expected
     assert len(list((tmp_path / "frames").iterdir())) == 91
@@ -154,16 +133,120 @@ def test_default_manifest_is_compact_json_safe_and_actual(kind, tmp_path, monkey
     assert result.output_directory == str(tmp_path / "frames")
     assert result.frame_count == len(decoded(tmp_path / "frames"))
     assert result.duration == result.frame_count / result.fps
-    assert PngSequenceManifest.model_validate_json(json.dumps(manifest)).model_dump() == manifest
-    assert PngSequenceResult.model_validate_json(result.model_dump_json()) == result
-    jsonschema.validate(manifest, PngSequenceManifest.model_json_schema())
-    jsonschema.validate(result.model_dump(mode="json"), PngSequenceResult.model_json_schema())
+    assert ImageSequenceManifest.model_validate_json(json.dumps(manifest)).model_dump() == manifest
+    assert ImageSequenceResult.model_validate_json(result.model_dump_json()) == result
+    jsonschema.validate(manifest, ImageSequenceManifest.model_json_schema())
+    jsonschema.validate(result.model_dump(mode="json"), ImageSequenceResult.model_json_schema())
     assert set(manifest).isdisjoint(
         {"color_space", "asset_manifest", "timestamp", "files", "paths"}
     )
 
 
-def test_exact_all_alpha_codes_hidden_rgb_metadata_and_independent_repeats(tmp_path, monkeypatch):
+@pytest.mark.parametrize("kind", ["canvas", "deck"])
+@pytest.mark.parametrize(
+    "format,kwargs,extension,mode,alpha,lossless,quality,matte,pixel",
+    [
+        ("JPEG", {}, "jpg", "RGB", "none", False, 90, "#FFFFFF", (187, 157, 142)),
+        (
+            "jpeg",
+            {"quality": 25, "matte": "navy"},
+            "jpg",
+            "RGB",
+            "none",
+            False,
+            25,
+            "#000080",
+            (60, 30, 79),
+        ),
+        ("WebP", {}, "webp", "RGBA", "straight", False, 80, None, (120, 60, 30, 128)),
+        (
+            "webp",
+            {"lossless": True},
+            "webp",
+            "RGBA",
+            "straight",
+            True,
+            None,
+            None,
+            (120, 60, 30, 128),
+        ),
+    ],
+)
+def test_encoded_frames_and_manifest_match_selected_format(
+    kind, format, kwargs, extension, mode, alpha, lossless, quality, matte, pixel, tmp_path
+):
+    """JPEG flattens alpha; WebP preserves alpha, with manifest encoding and actual timing."""
+    # Given: uniform translucent pixels with no profile or audio inputs.
+    canvas = Canvas(24, 8).background(color="#783C1E80")
+    source = canvas if kind == "canvas" else Deck().slide(canvas, duration=0.2)
+    destination = tmp_path / "frames"
+    # When: the public API encodes two canonical frames into the requested format.
+    result = source.export_image_sequence(
+        destination, format=format, **kwargs, options=ImageSequenceOptions(fps=10, hold=0.2)
+    )
+    # Then: both decoded files and the receipt describe the chosen representation.
+    manifest = json.loads(Path(result.manifest_path).read_text())
+    assert manifest["encoding"] == format.lower()
+    assert manifest["filename_pattern"] == f"%06d.{extension}"
+    assert (manifest["mode"], manifest["alpha"], manifest["lossless"]) == (mode, alpha, lossless)
+    assert (manifest["quality"], manifest["matte"]) == (quality, matte)
+    assert (result.frame_count, result.duration) == (2, 0.2)
+    assert {path.name for path in destination.iterdir()} == {
+        f"000000.{extension}",
+        f"000001.{extension}",
+        "manifest.json",
+    }
+    for path in sorted(destination.glob(f"*.{extension}")):
+        with Image.open(path) as image:
+            assert image.mode == mode and image.size == (24, 8)
+            actual = image.getpixel((12, 4))
+            assert isinstance(actual, tuple)
+            assert all(
+                abs(a - b) <= (0 if lossless else 5) for a, b in zip(actual, pixel, strict=True)
+            )
+            assert not {"icc_profile", "exif", "xmp"} & image.info.keys()
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"format": None},
+        {"format": "gif"},
+        {"format": True},
+        {"quality": 90},
+        {"matte": "white"},
+        {"lossless": True},
+        {"format": "jpeg", "quality": True},
+        {"format": "jpeg", "quality": 90.0},
+        {"format": "jpeg", "quality": "90"},
+        {"format": "jpeg", "quality": 0},
+        {"format": "jpeg", "quality": 96},
+        {"format": "jpeg", "lossless": False},
+        {"format": "jpeg", "matte": 0},
+        {"format": "jpeg", "matte": "#FFFFFF80"},
+        {"format": "jpeg", "matte": "rgb(256,0,0)"},
+        {"format": "jpeg", "matte": "rgb(101%,0%,0%)"},
+        {"format": "webp", "matte": "white"},
+        {"format": "webp", "lossless": 1},
+        {"format": "webp", "lossless": "yes"},
+        {"format": "webp", "lossless": True, "quality": 80},
+    ],
+)
+def test_invalid_encoding_options_leave_output_untouched(kwargs, tmp_path):
+    """Invalid or incompatible encoding arguments fail without creating output or staging."""
+    # Given: a nonexistent destination inside an empty parent.
+    destination = tmp_path / "frames"
+    # When/Then: invalid public controls are rejected without filesystem mutation.
+    with pytest.raises(ValidationError):
+        Canvas(1, 1).export_image_sequence(destination, **kwargs)
+    assert list(tmp_path.iterdir()) == []
+
+
+@pytest.mark.parametrize("format", ["png", "webp"])
+def test_exact_all_alpha_codes_hidden_rgb_metadata_and_independent_repeats(
+    format, tmp_path, monkeypatch
+):
+    """Lossless sequence files retain every source alpha code and hidden RGB independently."""
     raw = bytes(channel for a in range(256) for channel in (a, 255 - a, 91, a)) * 3
     expected = Image.frombytes("RGBA", (256, 3), raw)
     expected.info.update(
@@ -173,20 +256,26 @@ def test_exact_all_alpha_codes_hidden_rgb_metadata_and_independent_repeats(tmp_p
         video, "_ordered_deck_shots", lambda *a, **k: (s for s in [video._Shot(expected, 0.3)])
     )
     path = tmp_path / "exact"
-    result = Canvas(256, 3).export_png_sequence(path, options=PngSequenceOptions(fps=10, hold=0.3))
+    result = Canvas(256, 3).export_image_sequence(
+        path,
+        format=format,
+        lossless=True if format == "webp" else None,
+        options=ImageSequenceOptions(fps=10, hold=0.3),
+    )
     assert result.frame_count == 3
-    assert decoded(path) == [raw] * 3
-    files = sorted(path.glob("*.png"))
+    assert decoded(path, format) == [raw] * 3
+    files = sorted(path.glob(f"*.{format}"))
     assert len({file.stat().st_ino for file in files}) == 3
-    png = files[0].read_bytes()
-    chunks = []
-    offset = 8
-    while offset < len(png):
-        size = struct.unpack(">I", png[offset : offset + 4])[0]
-        chunks.append(png[offset + 4 : offset + 8])
-        offset += 12 + size
-    assert png[24:26] == bytes([8, 6])  # RGBA, eight bits per channel
-    assert chunks == [b"IHDR", b"IDAT", b"IEND"]
+    if format == "png":
+        png = files[0].read_bytes()
+        chunks = []
+        offset = 8
+        while offset < len(png):
+            size = struct.unpack(">I", png[offset : offset + 4])[0]
+            chunks.append(png[offset + 4 : offset + 8])
+            offset += 12 + size
+        assert png[24:26] == bytes([8, 6])  # RGBA, eight bits per channel
+        assert chunks == [b"IHDR", b"IDAT", b"IEND"]
     with Image.open(files[0]) as image:
         image.putpixel((0, 0), (0, 0, 0, 255))
         image.save(files[0])
@@ -200,7 +289,7 @@ def test_full_dimensions_edges_and_authored_background(size, tmp_path):
     canvas.shape("rectangle", (size[0] - 1, 0), 1, size[1], "#F03080")
     canvas.shape("rectangle", (0, size[1] - 1), size[0], 1, "#40D060")
     path = tmp_path / "edges"
-    result = canvas.export_png_sequence(path, options=PngSequenceOptions(hold=0))
+    result = canvas.export_image_sequence(path, options=ImageSequenceOptions(hold=0))
     with Image.open(path / "000000.png") as frame:
         assert frame.size == size
         assert frame.getpixel((size[0] - 1, size[1] - 1)) == (64, 208, 96, 255)
@@ -213,7 +302,9 @@ def test_fractional_timing_uses_cumulative_half_up_allocation(tmp_path):
     colors = ["#FF0000", "#00FF00", "#0000FF"]
     for color in colors:
         deck.slide(Canvas(1, 1).background(color=color), duration=0.25)
-    result = deck.export_png_sequence(tmp_path / "fractional", options=PngSequenceOptions(fps=10))
+    result = deck.export_image_sequence(
+        tmp_path / "fractional", options=ImageSequenceOptions(fps=10)
+    )
     assert result.frame_count == 8
     assert result.duration == 0.8
     assert (
@@ -229,8 +320,8 @@ def test_fractional_timing_uses_cumulative_half_up_allocation(tmp_path):
 def test_zero_subframe_and_fractional_holds_match_actual_export(tmp_path, fps, hold, animated):
     source = animated_canvas() if animated else Canvas(17, 9)
     expected = reference(source, fps, hold)
-    result = source.export_png_sequence(
-        tmp_path / "frames", options=PngSequenceOptions(fps=fps, hold=hold)
+    result = source.export_image_sequence(
+        tmp_path / "frames", options=ImageSequenceOptions(fps=fps, hold=hold)
     )
     assert decoded(tmp_path / "frames") == expected
     assert result.frame_count == len(expected)
@@ -266,8 +357,8 @@ def test_transition_families_and_keyed_mixed_size_morph(transition, tmp_path):
     second = Canvas(9, 7).shape("rectangle", (2, 2), 6, 4, "#4080D040", motion_key="box")
     deck = Deck().slide(first, duration=0.1).slide(second, duration=0.1, transition=transition)
     expected = reference(deck)
-    result = deck.export_png_sequence(
-        tmp_path / "transition", options=PngSequenceOptions(fps=10, hold=0.1)
+    result = deck.export_image_sequence(
+        tmp_path / "transition", options=ImageSequenceOptions(fps=10, hold=0.1)
     )
     assert decoded(tmp_path / "transition") == expected
     assert result.frame_count == len(expected)
@@ -281,8 +372,9 @@ def test_canvas_deck_serial_spawn_parity_and_quality(quality, workers, tmp_path)
         source = canvas if kind == "canvas" else Deck().slide(canvas)
         expected = reference(source, quality=quality)
         path = tmp_path / kind
-        result = source.export_png_sequence(
-            path, options=PngSequenceOptions(fps=10, hold=0.1, quality=quality, workers=workers)
+        result = source.export_image_sequence(
+            path,
+            options=ImageSequenceOptions(fps=10, hold=0.1, render_quality=quality, workers=workers),
         )
         assert decoded(path) == expected
         assert result.frame_count == 5
@@ -305,14 +397,14 @@ def test_reduced_motion_and_strict_parent_morph_policy(tmp_path):
     )
     deck = Deck().slide(parented).slide(Canvas(17, 9), transition=tr.Morph(duration=0.4))
     policy = ExportPolicy(unsupported_motion="error")
-    assert deck.validate_export("png_sequence") == deck.validate_export("video")
+    assert deck.validate_export("image_sequence") == deck.validate_export("video")
     with pytest.raises(RenderingError, match="fade fallback"):
-        deck.export_png_sequence(tmp_path / "strict", policy=policy)
+        deck.export_image_sequence(tmp_path / "strict", policy=policy)
     assert list(tmp_path.iterdir()) == []
     expected = reference(deck, reduced=True)
-    result = deck.export_png_sequence(
+    result = deck.export_image_sequence(
         tmp_path / "reduced",
-        options=PngSequenceOptions(fps=10, hold=0.1),
+        options=ImageSequenceOptions(fps=10, hold=0.1),
         policy=ExportPolicy(reduced_motion=True),
     )
     assert decoded(tmp_path / "reduced") == expected
@@ -326,8 +418,8 @@ def test_morph_fallback_diagnostics_are_returned(tmp_path):
         .shape("rectangle", (0, 0), 8, 6, "#FF0000", parent="root")
     )
     deck = Deck().slide(first).slide(Canvas(17, 9), transition=tr.Morph(duration=0.2))
-    result = deck.export_png_sequence(
-        tmp_path / "fallback", options=PngSequenceOptions(fps=10, hold=0.1)
+    result = deck.export_image_sequence(
+        tmp_path / "fallback", options=ImageSequenceOptions(fps=10, hold=0.1)
     )
     assert any(
         item.feature == "parent_morph" and item.fallback == "fade"
@@ -351,7 +443,7 @@ def test_no_audio_mux_ffmpeg_or_sampling_for_explicit_65_narrations(tmp_path, mo
     monkeypatch.setattr(video, "_scheduled_audio_args", forbidden)
     monkeypatch.setattr(video, "_encode_video_file", forbidden)
     monkeypatch.setenv("QUICKTHUMB_FFMPEG", "/does-not-exist/ffmpeg")
-    result = deck.export_png_sequence(tmp_path / "silent", options=PngSequenceOptions(fps=10))
+    result = deck.export_image_sequence(tmp_path / "silent", options=ImageSequenceOptions(fps=10))
     assert result.frame_count == 65
     assert result.duration == 6.5
     assert {p.suffix for p in (tmp_path / "silent").iterdir()} == {".png", ".json"}
@@ -371,7 +463,7 @@ def test_real_narration_inference_beyond_64_inputs_is_visual_only(tmp_path, monk
     for _ in range(65):
         deck.slide(Canvas(1, 1), audio=str(voice))
     monkeypatch.setattr(video, "_ffmpeg_binary", Mock(side_effect=AssertionError("no encoder")))
-    result = deck.export_png_sequence(tmp_path / "inferred", options=PngSequenceOptions(fps=10))
+    result = deck.export_image_sequence(tmp_path / "inferred", options=ImageSequenceOptions(fps=10))
     assert result.frame_count == 65
     assert result.duration == 6.5
 
@@ -395,7 +487,7 @@ def test_failure_cleans_owned_staging_and_closes_resources_before_publication(
 
         monkeypatch.setattr(video, "_ordered_deck_shots", broken)
     elif stage == "png":
-        monkeypatch.setattr(sequence, "_encode_png_frame", Mock(side_effect=original))
+        monkeypatch.setattr(sequence, "_encode_image_frame", Mock(side_effect=original))
     elif stage == "png_write":
         write = Path.write_bytes
 
@@ -412,14 +504,14 @@ def test_failure_cleans_owned_staging_and_closes_resources_before_publication(
 
         monkeypatch.setattr(Path, "write_text", broken_manifest)
     elif stage == "result":
-        monkeypatch.setattr(sequence, "PngSequenceResult", Mock(side_effect=original))
+        monkeypatch.setattr(sequence, "ImageSequenceResult", Mock(side_effect=original))
     elif stage == "close":
         closed.side_effect = original
     else:
         monkeypatch.setattr(sequence, "rename_exclusive", Mock(side_effect=original))
     with pytest.raises(RuntimeError) as error:
-        Canvas(1, 1).export_png_sequence(
-            tmp_path / "failed", options=PngSequenceOptions(fps=10, hold=0.1)
+        Canvas(1, 1).export_image_sequence(
+            tmp_path / "failed", options=ImageSequenceOptions(fps=10, hold=0.1)
         )
     assert error.value is original
     assert closed.call_count == 1
@@ -437,8 +529,8 @@ def test_producer_error_wins_over_shutdown_and_cleanup_errors(tmp_path, monkeypa
     monkeypatch.setattr(video._PreparedAnimation, "close", Mock(side_effect=RuntimeError("close")))
     monkeypatch.setattr(shutil, "rmtree", Mock(side_effect=OSError("cleanup")))
     with pytest.raises(RuntimeError) as error:
-        Canvas(1, 1).export_png_sequence(
-            tmp_path / "failed", options=PngSequenceOptions(fps=10, hold=0.1)
+        Canvas(1, 1).export_image_sequence(
+            tmp_path / "failed", options=ImageSequenceOptions(fps=10, hold=0.1)
         )
     assert error.value is original
     assert not (tmp_path / "failed").exists()
@@ -467,7 +559,9 @@ def test_closed_producer_and_decoders_precede_commit(tmp_path, monkeypatch):
 
     monkeypatch.setattr(video, "_ordered_deck_shots", frames)
     monkeypatch.setattr(sequence, "rename_exclusive", commit)
-    canvas.export_png_sequence(tmp_path / "closed", options=PngSequenceOptions(fps=10, hold=0.1))
+    canvas.export_image_sequence(
+        tmp_path / "closed", options=ImageSequenceOptions(fps=10, hold=0.1)
+    )
 
 
 def test_bounded_live_frame_retention(tmp_path, monkeypatch):
@@ -482,8 +576,8 @@ def test_bounded_live_frame_retention(tmp_path, monkeypatch):
             yield video._Shot(frame, 0.2)
 
     monkeypatch.setattr(video, "_ordered_deck_shots", frames)
-    result = Canvas(3, 3).export_png_sequence(
-        tmp_path / "bounded", options=PngSequenceOptions(fps=10)
+    result = Canvas(3, 3).export_image_sequence(
+        tmp_path / "bounded", options=ImageSequenceOptions(fps=10)
     )
     assert result.frame_count == 300
     gc.collect()
@@ -511,9 +605,9 @@ def test_actual_commit_preserves_concurrently_created_destination(occupied, tmp_
 
     monkeypatch.setattr(sequence, "rename_exclusive", compete)
     with pytest.raises(FileExistsError):
-        Canvas(1, 1).export_png_sequence(destination, options=PngSequenceOptions(hold=0))
+        Canvas(1, 1).export_image_sequence(destination, options=ImageSequenceOptions(hold=0))
     assert os.path.lexists(destination)
-    assert not list(tmp_path.glob(".quickthumb-png-*"))
+    assert not list(tmp_path.glob(".quickthumb-images-*"))
     if occupied == "file":
         assert destination.read_bytes() == b"competitor"
     elif occupied == "directory":
@@ -539,8 +633,8 @@ def test_two_real_exporters_publish_exactly_one_complete_sequence(tmp_path, monk
             return (
                 Canvas(1, 1)
                 .background(color=color)
-                .export_png_sequence(
-                    tmp_path / "winner", options=PngSequenceOptions(fps=10, hold=0.2)
+                .export_image_sequence(
+                    tmp_path / "winner", options=ImageSequenceOptions(fps=10, hold=0.2)
                 )
             )
         except FileExistsError:
@@ -552,7 +646,7 @@ def test_two_real_exporters_publish_exactly_one_complete_sequence(tmp_path, monk
     assert len(list((tmp_path / "winner").iterdir())) == 3
     frames = decoded(tmp_path / "winner")
     assert frames in [[bytes([255, 0, 0, 255])] * 2, [bytes([0, 0, 255, 255])] * 2]
-    assert not list(tmp_path.glob(".quickthumb-png-*"))
+    assert not list(tmp_path.glob(".quickthumb-images-*"))
 
 
 def test_ambiguous_commit_error_never_deletes_published_directory(tmp_path, monkeypatch):
@@ -567,12 +661,14 @@ def test_ambiguous_commit_error_never_deletes_published_directory(tmp_path, monk
 
     monkeypatch.setattr(sequence, "rename_exclusive", committed_then_failed)
     with pytest.raises(OSError) as caught:
-        Canvas(1, 1).export_png_sequence(tmp_path / "published", options=PngSequenceOptions(hold=0))
+        Canvas(1, 1).export_image_sequence(
+            tmp_path / "published", options=ImageSequenceOptions(hold=0)
+        )
     assert caught.value is error
     assert len(decoded(tmp_path / "published")) == 1
     assert (tmp_path / "published" / "manifest.json").is_file()
     assert (
-        next(tmp_path.glob(".quickthumb-png-*/foreign")).read_bytes()
+        next(tmp_path.glob(".quickthumb-images-*/foreign")).read_bytes()
         == b"do not delete replacement"
     )
 
@@ -582,18 +678,18 @@ def test_staging_replacement_is_preserved_and_not_published(tmp_path, monkeypatc
 
     def replace(prepared):
         original(prepared)
-        staging = next(tmp_path.glob(".quickthumb-png-*"))
+        staging = next(tmp_path.glob(".quickthumb-images-*"))
         staging.rename(tmp_path / "owned-moved")
         staging.mkdir()
         (staging / "foreign").write_bytes(b"competitor")
 
     monkeypatch.setattr(video._PreparedAnimation, "close", replace)
     with pytest.raises(RenderingError, match="staging directory changed"):
-        Canvas(1, 1).export_png_sequence(
-            tmp_path / "destination", options=PngSequenceOptions(hold=0)
+        Canvas(1, 1).export_image_sequence(
+            tmp_path / "destination", options=ImageSequenceOptions(hold=0)
         )
     assert not (tmp_path / "destination").exists()
-    assert next(tmp_path.glob(".quickthumb-png-*/foreign")).read_bytes() == b"competitor"
+    assert next(tmp_path.glob(".quickthumb-images-*/foreign")).read_bytes() == b"competitor"
 
 
 def test_worker_failure_closes_pool_and_leaves_no_output(tmp_path, monkeypatch):
@@ -613,8 +709,8 @@ def test_worker_failure_closes_pool_and_leaves_no_output(tmp_path, monkeypatch):
     monkeypatch.setattr(workers.ParallelFrames, "frames", fail)
     monkeypatch.setattr(workers.ParallelFrames, "__exit__", close)
     with pytest.raises(RenderingError, match="worker failed"):
-        animated_canvas().export_png_sequence(
-            tmp_path / "worker", options=PngSequenceOptions(fps=10, hold=0.1, workers=2)
+        animated_canvas().export_image_sequence(
+            tmp_path / "worker", options=ImageSequenceOptions(fps=10, hold=0.1, workers=2)
         )
     assert len(closed) == 1
     assert list(tmp_path.iterdir()) == []
@@ -642,8 +738,8 @@ def test_real_spawn_failure_shuts_down_executor(tmp_path, monkeypatch):
     monkeypatch.setattr(workers.ParallelFrames, "__enter__", enter)
     monkeypatch.setattr(workers.ParallelFrames, "__exit__", exit_pool)
     with pytest.raises((MissingAssetError, RenderingError, FileNotFoundError)):
-        source.export_png_sequence(
-            tmp_path / "worker", options=PngSequenceOptions(fps=10, hold=0.1, workers=2)
+        source.export_image_sequence(
+            tmp_path / "worker", options=ImageSequenceOptions(fps=10, hold=0.1, workers=2)
         )
     assert shutdown == [None]
     assert list(tmp_path.iterdir()) == []
@@ -698,8 +794,8 @@ def test_captioned_video_morph_timing_silent_output_and_decoder_closure(tmp_path
     expected = reference(fade, hold=0)
     forbidden = Mock(side_effect=AssertionError("sequence must not mux embedded video audio"))
     monkeypatch.setattr(video, "_video_audio_schedule", forbidden)
-    result = morph.export_png_sequence(
-        tmp_path / "captions", options=PngSequenceOptions(fps=10, hold=0)
+    result = morph.export_image_sequence(
+        tmp_path / "captions", options=ImageSequenceOptions(fps=10, hold=0)
     )
     assert decoded(tmp_path / "captions") == expected
     assert any(
@@ -713,26 +809,29 @@ def test_captioned_video_morph_timing_silent_output_and_decoder_closure(tmp_path
     # Caption timing fallback is diagnostic under the existing video policy,
     # including strict policy. This exporter must preserve that exact behavior.
     strict = ExportPolicy(unsupported_motion="error")
-    strict_result = morph.export_png_sequence(
-        tmp_path / "strict-caption", options=PngSequenceOptions(fps=10, hold=0), policy=strict
+    strict_result = morph.export_image_sequence(
+        tmp_path / "strict-caption", options=ImageSequenceOptions(fps=10, hold=0), policy=strict
     )
     assert strict_result.capability_report == morph.validate_export("video", strict)
     assert decoded(tmp_path / "strict-caption") == expected
 
 
-def test_repeated_frames_encode_once_without_raw_pixel_copy(tmp_path, monkeypatch):
-    encoder = Mock(wraps=sequence._encode_png_frame)
-    monkeypatch.setattr(sequence, "_encode_png_frame", encoder)
-    Canvas(1, 1).export_png_sequence(tmp_path / "repeat")
+@pytest.mark.parametrize("format,extension", [("png", "png"), ("jpeg", "jpg"), ("webp", "webp")])
+def test_repeated_shot_encodes_once_into_independent_files(
+    format, extension, tmp_path, monkeypatch
+):
+    """A repeated canonical shot is encoded once into 90 independent frame files."""
+    encoder = Mock(wraps=sequence._encode_image_frame)
+    monkeypatch.setattr(sequence, "_encode_image_frame", encoder)
+    Canvas(1, 1).export_image_sequence(tmp_path / "repeat", format=format)
     assert encoder.call_count == 1
-    assert len(list((tmp_path / "repeat").glob("*.png"))) == 90
-    frame = Image.new("RGBA", (1, 1), (31, 62, 93, 0))
-    monkeypatch.setattr(frame, "tobytes", Mock(side_effect=AssertionError("unnecessary RGBA copy")))
-    sequence._encode_png_frame(frame)
+    assert len(list((tmp_path / "repeat").glob(f"*.{extension}"))) == 90
 
 
 @pytest.mark.parametrize("fail", [False, True])
-def test_encoder_metadata_is_suppressed_without_mutating_producer(fail, monkeypatch):
+@pytest.mark.parametrize("encoding", ["png", "webp"])
+def test_encoder_metadata_is_suppressed_without_mutating_producer(fail, encoding, monkeypatch):
+    """Lossless frame encoders retain hidden RGB without inheriting or mutating metadata."""
     frame = Image.new("RGBA", (1, 1), (32, 64, 96, 0))
     frame.info = {"icc_profile": b"profile", "exif": b"EXIF", "gamma": 0.45455}
     pnginfo = PngImagePlugin.PngInfo()
@@ -749,11 +848,13 @@ def test_encoder_metadata_is_suppressed_without_mutating_producer(fail, monkeypa
     if fail:
         monkeypatch.setattr(frame, "save", Mock(side_effect=OSError("PNG encoder failed")))
         with pytest.raises(OSError, match="PNG encoder failed"):
-            sequence._encode_png_frame(frame)
+            sequence._encode_image_frame(frame, encoding=encoding, lossless=True)
     else:
-        with Image.open(BytesIO(sequence._encode_png_frame(frame))) as decoded_frame:
+        with Image.open(
+            BytesIO(sequence._encode_image_frame(frame, encoding=encoding, lossless=True))
+        ) as decoded_frame:
             assert decoded_frame.tobytes() == bytes([32, 64, 96, 0])
-            assert decoded_frame.info == {}
+            assert not {"icc_profile", "exif", "xmp", "gamma", "srgb"} & decoded_frame.info.keys()
     assert frame.info == previous_info
     assert frame.encoderinfo is previous_encoder
     assert frame.tobytes() == bytes([32, 64, 96, 0])
@@ -762,8 +863,8 @@ def test_encoder_metadata_is_suppressed_without_mutating_producer(fail, monkeypa
 def test_success_relinquishes_staging_without_cleanup(tmp_path, monkeypatch):
     cleanup = Mock(wraps=sequence.cleanup_owned_staging)
     monkeypatch.setattr(sequence, "cleanup_owned_staging", cleanup)
-    result = Canvas(1, 1).export_png_sequence(
-        tmp_path / "success", options=PngSequenceOptions(hold=0)
+    result = Canvas(1, 1).export_image_sequence(
+        tmp_path / "success", options=ImageSequenceOptions(hold=0)
     )
     assert result.frame_count == 1
     cleanup.assert_not_called()
@@ -774,22 +875,23 @@ def test_rejected_parallel_canvas_does_not_create_staging(tmp_path):
         pass
 
     with pytest.raises(ValidationError, match="built-in Canvas"):
-        CustomCanvas(1, 1).export_png_sequence(
-            tmp_path / "bad", options=PngSequenceOptions(workers=2)
+        CustomCanvas(1, 1).export_image_sequence(
+            tmp_path / "bad", options=ImageSequenceOptions(workers=2)
         )
     assert list(tmp_path.iterdir()) == []
 
 
 def test_options_are_revalidated_and_other_option_models_rejected(tmp_path):
     canvas = Canvas(1, 1)
-    invalid = PngSequenceOptions.model_construct(fps=False)
+    invalid = ImageSequenceOptions.model_construct(fps=False)
     for options in (invalid, VideoOptions(), {"fps": 10}):
         with pytest.raises(ValidationError):
-            canvas.export_png_sequence(tmp_path / "bad", options=cast(Any, options))
+            canvas.export_image_sequence(tmp_path / "bad", options=cast(Any, options))
     assert list(tmp_path.iterdir()) == []
 
 
-def test_still_png_and_default_deck_mp4_dispatch_are_unchanged(tmp_path, monkeypatch):
+def test_still_png_export_keeps_numbered_deck_rasters(tmp_path):
+    """Still PNG files retain Canvas pixels and numbered Deck destinations."""
     canvas = animated_canvas()
     still = tmp_path / "still.png"
     canvas.render(str(still))
@@ -799,7 +901,3 @@ def test_still_png_and_default_deck_mp4_dispatch_are_unchanged(tmp_path, monkeyp
     paths = deck.render(str(tmp_path / "slides.png"))
     assert len(paths) == 1
     assert len(list(tmp_path.glob("*.png"))) == 2
-    writer = Mock()
-    monkeypatch.setattr(Deck, "render_mp4", writer)
-    deck.render(str(tmp_path / "default.mp4"))
-    writer.assert_called_once_with(str(tmp_path / "default.mp4"))

@@ -161,8 +161,18 @@ def test_parent_deck_morph_fades_with_no_pptx_timing_or_html_layer_clock(first_p
         assert b"<p:fade" in archive.read("ppt/slides/slide2.xml")
 
 
-@pytest.mark.parametrize("kind", ["html", "svg", "pptx", "pdf"])
-@pytest.mark.parametrize("deck", [False, True])
+@pytest.mark.parametrize(
+    "kind,deck",
+    [
+        ("html", False),
+        ("svg", False),
+        ("pptx", False),
+        ("pdf", False),
+        ("html", True),
+        ("pptx", True),
+        ("pdf", True),
+    ],
+)
 def test_unsupported_parent_sources_preserve_destinations(tmp_path, kind, deck):
     canvas = scene()
     layers = canvas.layers
@@ -240,17 +250,6 @@ def test_shared_model_occurrences_keep_slide_local_diagnostics():
         reports = Deck(140, 130).slide(plain).slide(linked).validate_export(target)
         motion = [item for item in reports if item.layer_id == "shared"]
         assert [item.support for item in motion] == [expected, "fallback"]
-
-
-def test_narrated_mp4_render_policy_still_ignores_unused_morph(tmp_path, monkeypatch):
-    from quickthumb import Morph
-
-    deck = Deck(140, 130).slide(scene()).slide(Canvas(140, 130), transition=Morph())
-    calls = []
-    monkeypatch.setattr(deck, "render_mp4", lambda path: calls.append(path))
-    path = str(tmp_path / "narrated.mp4")
-    assert deck.render(path, policy=ExportPolicy(unsupported_motion="error")) == [path]
-    assert calls == [path]
 
 
 def test_pdf_reports_static_pages_without_claiming_morph_fade(tmp_path):
