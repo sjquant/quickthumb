@@ -77,6 +77,7 @@ from quickthumb.models import (
     RadialGradient,
     Shadow,
     ShapeLayer,
+    SpringEasing,
     Stroke,
     SvgLayer,
     TextLayer,
@@ -85,8 +86,10 @@ from quickthumb.models import (
 from quickthumb.motion import (
     Timeline,
     TimelineEvent,
+    _custom_easing,
     _has_color_track,
     _has_motion_path,
+    _has_spring_easing,
     _has_transform_extensions,
     compile_timeline,
 )
@@ -196,10 +199,13 @@ _CSS_EASINGS = {
 }
 
 
-def css_easing(name: str | CubicBezierEasing | Mapping[str, object] | None) -> str:
+def css_easing(name: str | CubicBezierEasing | SpringEasing | Mapping[str, object] | None) -> str:
     """Return the CSS timing function for a shared easing name or custom bezier."""
     if name is not None and not isinstance(name, str):
-        x1, y1, x2, y2 = CubicBezierEasing.model_validate(name).points
+        curve = _custom_easing(name)
+        if isinstance(curve, SpringEasing):
+            raise RenderingError("spring easing requires the declared static HTML fallback")
+        x1, y1, x2, y2 = curve.points
         return f"cubic-bezier({_fmt(x1)},{_fmt(y1)},{_fmt(x2)},{_fmt(y2)})"
     return _CSS_EASINGS.get(name or "ease", "ease")
 
@@ -298,12 +304,10 @@ def _supports_transform_extensions_html(layer: object) -> bool:
     ):
         return False
     scale_tracks = [track for track in spec.tracks if track.type == "scale"]
-    # Image uniform scale is an internal viewport zoom in the raster renderer.
-    # Nonpositive uniform scale is historically ignored there, unlike axis
+    # Nonpositive uniform scale is ignored in raster output, unlike axis
     # scale's intentional reflection/collapse. Back easing may cross zero.
     if scale_tracks and (
-        getattr(layer, "type", None) == "image"
-        or (spec.easing or "").endswith("_back")
+        (spec.easing or "").endswith("_back")
         or any(key.value <= 0 for track in scale_tracks for key in track.keyframes)
     ):
         return False
@@ -336,24 +340,30 @@ def _baked_motion_stops(event: TimelineEvent) -> tuple[dict[float, dict[str, str
     intervals = min(available + 1, max(1, math.ceil(min(event.duration, 4096 / 120) * 120)))
     times.update(event.duration * (index / intervals) for index in range(1, intervals))
     timeline = Timeline(events=(event.model_copy(update={"start": 0.0, "delay": 0.0}),))
-    auto_heading = False
-    for track in event.tracks:
-        if track.property == "rotation":
-            auto_heading = False
-        elif track.auto_orient and track.has_direction:
-            auto_heading = True
+    auto_heading = any(track.auto_orient and track.has_direction for track in event.tracks)
+    rotation_timeline = Timeline(
+        events=(
+            timeline.events[0].model_copy(
+                update={
+                    "tracks": tuple(track for track in event.tracks if track.property == "rotation")
+                }
+            ),
+        )
+    )
     stops: dict[float, dict[str, str]] = {}
-    previous_angle = None
+    previous_heading = None
     final = dict(_TRANSFORM_DEFAULTS)
     for time in sorted(times):
         state = timeline.sample(time)
         values = {prop: getattr(state, prop) for prop in _TRANSFORM_PROPERTIES}
         values["position"] = state.position or (0.0, 0.0)
-        if auto_heading and previous_angle is not None:
-            values["rotation"] = (
-                previous_angle + (state.rotation - previous_angle + 180) % 360 - 180
-            )
-        previous_angle = values["rotation"]
+        if auto_heading:
+            offset = rotation_timeline.sample(time).rotation
+            heading = state.rotation - offset
+            if previous_heading is not None:
+                heading = previous_heading + (heading - previous_heading + 180) % 360 - 180
+            values["rotation"] = heading + offset
+            previous_heading = heading
         final = {
             name: _motion_number(number)
             for prop, names in _TRANSFORM_PROPERTIES.items()
@@ -775,8 +785,8 @@ class HtmlExporter:
             self._prev_anim_key = None
             return ""
 
-        if _has_color_track(layer):
-            # Canonical color tracks have an authored-static fallback in HTML.
+        if _has_color_track(layer) or any(_has_spring_easing(effect) for effect in effects):
+            # Color tracks and spring clocks use the authored-static fallback.
             self._prev_anim_key = None
             self._prev_nodes = []
             return ""
@@ -1319,6 +1329,13 @@ def _html_resource(name: str) -> str:
     return files(_HTML_RESOURCE_PACKAGE).joinpath(name).read_text(encoding="utf-8")
 
 
+def _authoring_css() -> str:
+    logo = files(_HTML_RESOURCE_PACKAGE).joinpath("quickthumb-icon.png").read_bytes()
+    return _html_resource("authoring_theme.css").replace(
+        "{{ logo }}", base64.b64encode(logo).decode("ascii")
+    )
+
+
 def _document_template_parts() -> tuple[str, str]:
     template = _html_resource("document.html")
     before_stage, stage_block = template.split(_STAGE_TEMPLATE_START, 1)
@@ -1517,7 +1534,7 @@ def _document(
                 stage.transition_exit = f"{name} {timing}"
     css = _html_resource(_base_css_resource(responsive, deck))
     if deck:
-        css += _html_resource("presenter.css")
+        css += _authoring_css() + _html_resource("presenter.css")
     css += font_face_declarations(font_faces) + "".join(keyframes)
     runtime = _runtime_js(responsive=responsive, deck=deck)
     filters = "".join((svg_filters or {}).values())

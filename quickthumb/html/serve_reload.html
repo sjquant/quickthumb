@@ -3,9 +3,12 @@
   var current={{ version|tojson }};
   setInterval(function(){
     fetch({{ version_path|tojson }},{cache:'no-store'})
-      .then(function(response){return response.text();})
-      .then(function(next){if(next!==current)location.reload();})
-      .catch(function(){});
+      .then(function(response){if(!response.ok)throw new Error('Source unavailable');return response.text();})
+      .then(function(next){
+        window.dispatchEvent(new CustomEvent('qt:source-status',{detail:true}));
+        if(next!==current)location.reload();
+      })
+      .catch(function(){window.dispatchEvent(new CustomEvent('qt:source-status',{detail:false}));});
   },500);
 })();
 </script>

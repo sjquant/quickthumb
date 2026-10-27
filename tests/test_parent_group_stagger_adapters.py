@@ -62,7 +62,9 @@ def test_composed_color_target_gifs_match_between_serial_and_spawn(tmp_path, qua
     )
     paths = [tmp_path / "serial.gif", tmp_path / "spawn.gif"]
     for workers, path in zip((1, 2), paths, strict=True):
-        canvas.render(str(path), animation=GifOptions(fps=5, quality=quality, workers=workers))
+        canvas.render(
+            str(path), animation=GifOptions(fps=5, render_quality=quality, workers=workers)
+        )
     assert paths[0].read_bytes() == paths[1].read_bytes()
     with Image.open(paths[0]) as gif:
         assert getattr(gif, "n_frames", 1) >= 5
@@ -202,7 +204,11 @@ def test_unsupported_composed_group_combinations_fail_before_paint_or_output(
         parent = next(item for item in canvas.validate_export(target) if item.feature == "parent")
         assert parent.support == "unsupported" and expected in parent.message
     destination = tmp_path / ("existing." + format)
-    for exporter in (canvas, Deck(canvas.width, canvas.height).slide(canvas)):
+    # SVG has no Deck output; its source guard is exercised through Canvas.
+    exporters = (
+        (canvas,) if format == "svg" else (canvas, Deck(canvas.width, canvas.height).slide(canvas))
+    )
+    for exporter in exporters:
         destination.write_bytes(b"existing")
         # Strict document policy can report the animated null ancestor first;
         # the capability row and observations above still prove the source guard.
@@ -239,7 +245,11 @@ def test_nested_stagger_keeps_explicit_structural_links_guarded(
         with pytest.raises(ValidationError, match=expected):
             observe()
     destination = tmp_path / ("existing." + format)
-    for exporter in (canvas, Deck(canvas.width, canvas.height).slide(canvas)):
+    # SVG has no Deck output; its source guard is exercised through Canvas.
+    exporters = (
+        (canvas,) if format == "svg" else (canvas, Deck(canvas.width, canvas.height).slide(canvas))
+    )
+    for exporter in exporters:
         destination.write_bytes(b"existing")
         with pytest.raises(ValidationError, match=expected):
             exporter.export(destination, policy=ExportPolicy(unsupported_motion="error"))

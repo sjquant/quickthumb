@@ -147,7 +147,7 @@ ScaleTrack(
 )
 ```
 
-Ordinary HTML presets pass an animation-level custom curve to CSS. Per-keyframe easing
+Ordinary HTML presets pass an animation-level custom Bézier curve to CSS. Per-keyframe easing
 and holds are rendered by the raster and video pipelines; HTML animates canonical
 motion between its start and settled states, and PPTX falls back to its preset
 effects.
@@ -155,6 +155,41 @@ effects.
 The bounded HTML adapters for anchors, axis scaling, paths and parent chains
 use static fallback with custom Bézier easing, per-keyframe easing or keyframe
 holds. Raster animation preserves these clocks.
+
+### Spring easing
+
+`SpringEasing(stiffness=100, damping=10, mass=1)` supplies a closed-form damped
+unit-step response wherever canonical easing is accepted, including individual
+keyframe intervals. Smaller damping permits overshoot; critical damping is
+`2 * sqrt(stiffness * mass)`, while larger damping approaches the target more
+slowly. Stiffness and mass must be positive; damping may be zero.
+
+```python
+from quickthumb import AnimationSpec, KeyframeSpec, PositionTrack, SpringEasing
+
+motion = AnimationSpec.timeline(
+    PositionTrack(keyframes=[
+        KeyframeSpec(time=0, value=(0, 0)),
+        KeyframeSpec(time=1, value=(180, 0)),
+    ]),
+    easing=SpringEasing(stiffness=100, damping=10, mass=1),
+)
+```
+
+The response uses one normalized second per keyframe interval; changing the
+interval length stretches that same curve. Each interval starts at its first
+value and ends exactly at the next keyframe, so a spring that has not naturally
+settled will snap to the target at that boundary. The final value holds after
+the animation. Opacity, colors and other bounded properties retain their normal
+clamping; path distance remains clamped to the authored path.
+
+Sampling is a pure function of time: seeking and sequential raster/video export
+use the same curve without simulation state. JSON stores `type: "spring"` and
+the three parameters. `inspect_motion()` reports the spring capability and its
+sampled states. HTML and PPTX use a declared authored-static fallback rather than
+substituting a CSS or PowerPoint curve; strict export policy rejects it.
+[`examples/spring_motion.py`](https://github.com/sjquant/quickthumb/blob/main/examples/spring_motion.py)
+compares the three damping regimes and exports GIF, JSON and a midpoint PNG.
 
 ## Notes
 
@@ -231,11 +266,11 @@ for that interval; `hold=True` retains the prior position until the next keyfram
 `0°`, down is `90°`, and positive rotation is clockwise. Author directional
 artwork facing right. Rotation uses the layer's existing transform anchor.
 
-Track order decides precedence. An auto-oriented position track replaces the
-animated rotation accumulated before it; a `RotationTrack` after it replaces
-the tangent heading. A layer's authored static `rotation` is already baked
-into its source pixels and remains part of that artwork. Auto-orientation does
-not add the heading to an earlier animated rotation.
+Auto-orientation supplies path heading; `RotationTrack` supplies an offset
+added to it. Swapping those tracks has no effect. A constant `90` offset turns
+an upward-authored arrow to face along a rightward path. With no direction,
+the path contributes no heading. Multiple position tracks still use document
+order for position and the last active directional path supplies the heading.
 
 An exact interior knot uses the incoming segment's heading. Stationary holds
 reuse the nearest earlier available direction, or the next direction if the
@@ -251,7 +286,7 @@ Omitted handles and the default `auto_orient=False` are not serialized.
 ### Export support
 
 - Raster frames, GIF, MP4 and WebM share the same path sampler, including
-  `quality="high"` and spawn workers. Paths can be combined with `ColorTrack`
+  `render_quality="high"` and spawn workers. Paths can be combined with `ColorTrack`
   on eligible text, shapes and groups
 - HTML animates one geometry-only canonical timeline on a static rendered
   source, without stagger or composed animations. It bakes sampled transform
@@ -313,17 +348,20 @@ canvas.render_frame(1).save("anchored.png")
 `ScaleXTrack` and `ScaleYTrack` default to `1`. Their sampled values multiply
 the existing uniform `ScaleTrack`: effective scales are `scale * scale_x` and
 `scale * scale_y`. Axis values may be negative to reflect the layer; zero on
-either axis collapses it to no visible pixels. The existing uniform scale's
-non-positive raster behaviour remains unchanged. Image layers keep their
-existing uniform-scale viewport zoom; the new axis tracks scale the outer image
-frame instead.
+either axis collapses it to no visible pixels. Nonpositive uniform scale is ignored by raster output. On image layers, all three
+scale tracks change the outer frame. Use `ImageZoomTrack` to magnify content
+inside a fixed fitted frame; `AnimationSpec.ken_burns()` uses that image zoom.
+For older image animations intended to zoom within the frame, replace
+`ScaleTrack` with `ImageZoomTrack`.
 
 The single affine transform subtracts the pivot, scales independently, rotates,
 restores the pivot, then applies the motion translation. The pivot is measured
 on the rendered visible bounds, after authored static rotation/effects, before
 canonical opacity/reveal and motion blur. It applies to canonical
 `AnimationSpec` motion; untimed still rendering and authored static `rotation`
-retain their established behaviour. A group is one rendered unit; supported
+retain their established behaviour. For pivot-controlled rotation, use a
+`RotationTrack` and leave static `rotation` at zero to avoid two pivots.
+A group is one rendered unit; supported
 stagger targets use their own bounds. Parent/child transform inheritance is
 not introduced by this option.
 
@@ -338,14 +376,14 @@ point API.
 ### Export support
 
 - Raster, GIF, MP4 and WebM apply the same pivot and independent scales,
-  including `quality="high"` and spawn workers
+  including `render_quality="high"` and spawn workers
 - HTML maps the new transform to `transform-origin` and `scale(x, y)` using
   registered CSS custom properties. One geometry-only canonical timeline is
   supported, with independent authored keyframe times and named easing.
   It embeds the authored layer pixels to keep the pivot bounds consistent
 - HTML falls back to authored static pixels for composed animation lists,
   presets, stagger, unsupported property tracks, dynamic source content,
-  image viewport scale, or non-positive uniform scale. Browsers must support
+  image viewport zoom, or non-positive uniform scale. Browsers must support
   CSS `@property` for interpolation. Existing backdrop-prefix restrictions
   still apply: HTML rejects motion on or underneath backdrop-dependent layers
 - PPTX declares a static fallback for anchors and independent axis tracks;
@@ -469,7 +507,7 @@ scene.render_frame(0).save("parented.png")  # Child starts at (110, 70).
   for this reference, so invisible drawable parents remain useful controllers.
   Asset transparency can define the source silhouette; an empty source uses its
   measured body as a geometric fallback
-- Image uniform `scale` remains viewport zoom. It changes the image contents,
+- Image `scale` changes the outer object. `image_zoom` changes the image contents,
   not the outer transform inherited by children; axis tracks scale that frame
 - Paint order remains document order. Topological order only evaluates matrices
 
@@ -718,10 +756,16 @@ capabilities or canonical timeline samples, which retain their existing matte.
 See [transparent WebM](../exports.md#transparent-webm) for format limits, alpha
 composition, decoder verification and the runnable lower-third example.
 
-`Canvas.export_png_sequence()` and `Deck.export_png_sequence()` also preserve
-straight-alpha RGBA8, writing exact renderer bytes into silent independent PNGs.
-`PngSequenceOptions` controls fps, hold, workers and quality; the result reports
-the actual emitted count and duration. `png_sequence` is a video capability
+`Canvas.export_image_sequence()` and `Deck.export_image_sequence()` write silent
+PNG, JPEG or WebP frames. PNG and lossless WebP preserve straight-alpha RGBA8;
+JPEG uses an opaque matte and lossy encodings can change colors.
+`ImageSequenceOptions` controls fps, hold, workers and rendering quality; the result reports
+the actual emitted count and duration. `image_sequence` is a video capability
 alias for validation and motion inspection, preserving the existing parent,
-Morph and caption restrictions. See [PNG sequences](../exports.md#png-image-sequences)
+Morph and caption restrictions. See [image sequences](../exports.md#image-sequences)
 for timing, color-profile limits and exclusive fresh-directory publication.
+
+The bounded HTML adapters for anchors, axis scaling, paths and parent chains
+currently use static fallback when custom Bézier easing, per-keyframe easing,
+or keyframe holds are combined with them. Raster animation preserves those
+clocks; ordinary HTML presets and basic tracks retain their existing support.

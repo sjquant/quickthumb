@@ -204,7 +204,32 @@ class CubicBezierEasing(_MotionModel):
         return points
 
 
-MotionEasing = MotionEasingName | CubicBezierEasing
+class SpringEasing(_MotionModel):
+    """A unit step response of a damped spring, sampled without integration.
+
+    The response runs over one normalized second per keyframe interval. The
+    declared interval always ends at its target, even if the spring has not
+    settled naturally.
+    """
+
+    type: Literal["spring"] = "spring"
+    stiffness: FinitePositiveFloat = 100.0
+    damping: FiniteNonNegativeFloat = 10.0
+    mass: FinitePositiveFloat = 1.0
+
+    @model_validator(mode="after")
+    def validate_response(self):
+        frequency_squared = self.stiffness / self.mass
+        decay = self.damping / self.mass / 2
+        if not (
+            0 < frequency_squared < math.inf
+            and math.isfinite(2 * decay + math.sqrt(frequency_squared))
+        ):
+            raise ValidationError("spring parameters must produce finite positive response rates")
+        return self
+
+
+MotionEasing = MotionEasingName | CubicBezierEasing | SpringEasing
 
 
 class KeyframeSpec(_MotionModel):
@@ -359,7 +384,7 @@ class ScalarTrack(_TrackBase):
 
 
 class ScaleTrack(ScalarTrack):
-    """A uniform scale track."""
+    """Uniform outer-object scale about the layer anchor, including image layers."""
 
     type: Literal["scale"] = "scale"
 
@@ -391,7 +416,7 @@ class ImageZoomTrack(ScalarTrack):
 
 
 class RotationTrack(ScalarTrack):
-    """A rotation-in-degrees track."""
+    """Clockwise rotation in degrees, added to path heading with auto-orient."""
 
     type: Literal["rotation"] = "rotation"
 

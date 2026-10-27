@@ -174,9 +174,9 @@ def measure_export(
             start = time.perf_counter()
             deck = build_scene(scene)
             options = (
-                GifOptions(fps=fps, max_size=(432, 768), colors=64, quality=quality)
+                GifOptions(fps=fps, max_size=(432, 768), colors=64, render_quality=quality)
                 if format == "gif"
-                else VideoOptions(fps=fps, quality=quality)
+                else VideoOptions(fps=fps, render_quality=quality)
             )
             deck.render(str(output), animation=options)
             total = time.perf_counter() - start

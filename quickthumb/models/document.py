@@ -346,27 +346,35 @@ class ExportResult(quickthumbModel):
     environment: RenderEnvironment
 
 
-class PngSequenceManifest(quickthumbModel):
-    """Compact description of emitted frames; no source paths or color-profile claim."""
+class ImageSequenceManifest(quickthumbModel):
+    """Actual image encoding and logical decoded pixels, without a color-profile claim.
+
+    RGBA/straight describes alpha-preserving PNG and WebP decoding; an opaque
+    WebP file may omit its redundant alpha plane and open as RGB in some readers.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
     version: Literal["1"] = "1"
     kind: Literal["canvas", "deck"]
-    format: Literal["png_sequence"] = "png_sequence"
-    filename_pattern: Literal["%06d.png"] = "%06d.png"
+    format: Literal["image_sequence"] = "image_sequence"
+    encoding: Literal["png", "jpeg", "webp"]
+    filename_pattern: str
     start_index: Literal[0] = 0
     frame_count: PositiveInt
     fps: Annotated[float, Field(gt=0, le=120, allow_inf_nan=False)]
     duration: Annotated[float, Field(gt=0, allow_inf_nan=False)]
     width: PositiveInt
     height: PositiveInt
-    mode: Literal["RGBA"] = "RGBA"
+    mode: Literal["RGB", "RGBA"]
     bit_depth: Literal[8] = 8
-    alpha: Literal["straight"] = "straight"
+    alpha: Literal["straight", "none"]
+    lossless: bool
+    quality: Annotated[int, Field(strict=True, ge=1, le=95)] | None = None
+    matte: str | None = None
 
 
-class PngSequenceResult(PngSequenceManifest):
+class ImageSequenceResult(ImageSequenceManifest):
     """The sequence manifest plus its published location and motion diagnostics."""
 
     output_directory: str

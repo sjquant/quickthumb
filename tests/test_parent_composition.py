@@ -524,7 +524,9 @@ def test_composed_counter_serial_spawn_gif_bytes_match(tmp_path, quality):
     )
     serial, parallel = tmp_path / "serial.gif", tmp_path / "parallel.gif"
     for workers, path in ((1, serial), (2, parallel)):
-        canvas.render(str(path), animation=GifOptions(fps=5, quality=quality, workers=workers))
+        canvas.render(
+            str(path), animation=GifOptions(fps=5, render_quality=quality, workers=workers)
+        )
     assert serial.read_bytes() == parallel.read_bytes()
 
 

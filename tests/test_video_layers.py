@@ -396,8 +396,8 @@ def test_captioned_morph_falls_back_to_timed_fade(source_video):
     morph = Deck(slides=[source, target], transition=Morph(duration=0.4))
     fade = Deck(slides=[source, target], transition=Fade(duration=0.4))
 
-    morph_frames = _gif_frames(morph.to_gif(fps=10, slide_duration=0))
-    fade_frames = _gif_frames(fade.to_gif(fps=10, slide_duration=0))
+    morph_frames = _gif_frames(morph.to_gif(fps=10, hold=0))
+    fade_frames = _gif_frames(fade.to_gif(fps=10, hold=0))
     assert len(morph_frames) == len(fade_frames)
     assert all(
         ImageChops.difference(morph_frame, fade_frame).getbbox() is None
@@ -590,6 +590,6 @@ def test_deck_exports_a_canvas_video_layer_through_the_public_timeline(source_vi
         Canvas().video(str(source_video), (8, 8), 64, 48, trim_start=0.25, trim_end=0.75)
     )
 
-    frames = _gif_frames(deck.to_gif(fps=10, slide_duration=0))
+    frames = _gif_frames(deck.to_gif(fps=10, hold=0))
 
     assert len(frames) >= 2
