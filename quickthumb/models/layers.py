@@ -120,16 +120,24 @@ class AnimatedTextValue(quickthumbModel):
 class PluginLayer(LayerIdentityModel):
     """A named renderer invocation carried by the canonical JSON contract.
 
-    The layer carries a renderer name, version, and parameters; quickthumb can
-    validate and serialize it but cannot draw it yet.  Parameters are
-    restricted to JSON values so the layer can always make a lossless
-    Python/JSON round trip.
+    A registered raster callback supplies the local box's straight-alpha RGBA8
+    bytes. Parameters and declared asset references remain JSON data; executable
+    callbacks belong to the application's explicit registry.
     """
 
     type: Literal["plugin"]
     renderer: str
     version: str
     params: JsonObject
+    position: Position = (0, 0)
+    width: PositiveInt
+    height: PositiveInt
+    align: AlignWithHVTuple = Align.TOP_LEFT
+    opacity: OpacityField = 1.0
+    assets: dict[str, str] = Field(default_factory=dict)
+
+    clip: LayerClip | None = None
+    mask: LayerMask | None = None
 
     model_config = ConfigDict(validate_assignment=True, extra="forbid")
 
@@ -263,7 +271,7 @@ class TextLayer(_AnimatableLayerModel):
     rotation: float = 0.0
     opacity: OpacityField = 1.0
     clip: LayerClip | None = None
-    mask: LayerMask | None = None
+    mask: LayerMask | TrackMatte | None = None
     animation: AnimationInput | None = None
 
     @field_validator("max_width")
@@ -407,7 +415,7 @@ class ImageLayer(_AnimatableLayerModel):
         BlendMode | None, AfterValidator(lambda v: enum_converter(BlendMode)(v) if v else None)
     ] = None
     clip: LayerClip | None = None
-    mask: LayerMask | None = None
+    mask: LayerMask | TrackMatte | None = None
     effects: list[ImageEffect] = []
     animation: AnimationInput | None = None
 
@@ -554,7 +562,7 @@ class ShapeLayer(_AnimatableLayerModel):
     star_points: int = 5
     inner_radius: float = 0.5
     clip: LayerClip | None = None
-    mask: LayerMask | None = None
+    mask: LayerMask | TrackMatte | None = None
     effects: list[ShapeEffect] = []
     animation: AnimationInput | None = None
 
@@ -632,7 +640,7 @@ class SvgLayer(_AnimatableLayerModel):
         BlendMode | None, AfterValidator(lambda v: enum_converter(BlendMode)(v) if v else None)
     ] = None
     clip: LayerClip | None = None
-    mask: LayerMask | None = None
+    mask: LayerMask | TrackMatte | None = None
     effects: list[ImageEffect] = []
     animation: AnimationInput | None = None
 
@@ -736,7 +744,7 @@ class VideoLayer(_AnimatableLayerModel):
     ] = None
     effects: list[ImageEffect] = []
     clip: LayerClip | None = None
-    mask: LayerMask | None = None
+    mask: LayerMask | TrackMatte | None = None
     animation: AnimationInput | None = None
 
     @field_validator("source")
@@ -786,7 +794,7 @@ class GroupLayer(_AnimatableLayerModel):
     align: AlignWithHVTuple = None
     item_align: Literal["start", "center", "end"] = "start"
     clip: LayerClip | None = None
-    mask: LayerMask | None = None
+    mask: LayerMask | TrackMatte | None = None
     animation: AnimationInput | None = None
     children: list["GroupChild"]
 

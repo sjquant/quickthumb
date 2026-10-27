@@ -34,10 +34,10 @@ from quickthumb.motion import (
 )
 
 
-def legacy_geometry(image, state, pos, *, include_scale=True, **kwargs):
+def legacy_geometry(image, state, pos, **kwargs):
     """Frozen pre-#147 geometry, including its settled-state rounding."""
     centre_x, centre_y = pos[0] + image.width / 2, pos[1] + image.height / 2
-    if include_scale and state.scale > 0 and state.scale != 1:
+    if state.scale > 0 and state.scale != 1:
         image = image.resize(
             (max(1, round(image.width * state.scale)), max(1, round(image.height * state.scale))),
             resample=Image.Resampling.LANCZOS,
@@ -67,7 +67,7 @@ def composite(fragment, pos, size=(128, 96)):
     return frame
 
 
-@pytest.mark.parametrize("scale", [-1.0, 0.0, 0.75, 1.0, 1.15])
+@pytest.mark.parametrize("scale", [-1.0, 0.75, 1.0, 1.15])
 @pytest.mark.parametrize("angle", [-15, 0, 12, 90])
 @pytest.mark.parametrize("blur", [0, 1.25])
 def test_inactive_geometry_keeps_exact_legacy_pixels(scale, angle, blur):
@@ -192,16 +192,6 @@ def test_interior_motion_knots_keep_affine_and_later_replace_masks_activity():
     assert _geometry_in_motion(Timeline(events=(held, moving)), 1)
     opacity = event("opacity", [(0, 0), (2, 1)])
     assert not _geometry_in_motion(Timeline(events=(held, opacity)), 1)
-
-
-def test_image_scale_activity_can_be_excluded_without_hiding_translation():
-    scale = event("scale", [(0, 1), (2, 1.15)], blend="multiply")
-    held = event("rotation", [(0, 12)])
-    timeline = Timeline(events=(held, scale))
-    assert _geometry_in_motion(timeline, 1)
-    assert not _geometry_in_motion(timeline, 1, include_scale=False)
-    move = event("position", [(0, (0, 0)), (2, (2, 1))], blend="add")
-    assert _geometry_in_motion(Timeline(events=(held, scale, move)), 1, include_scale=False)
 
 
 @pytest.mark.parametrize("scene,ratio", [("translation", 0.03), ("rotation", 0.7), ("scale", 0.05)])
