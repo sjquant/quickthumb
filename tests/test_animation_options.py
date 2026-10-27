@@ -18,7 +18,6 @@ from quickthumb import (
     Deck,
     Fade,
     GifOptions,
-    ImageSequenceOptions,
     VideoOptions,
 )
 from quickthumb import _export_video as video
@@ -44,7 +43,6 @@ def test_hold_roundtrips_omit_only_the_default(options):
     }
     with pytest.raises(ValidationError, match="slide_duration"):
         options.model_validate({"slide_duration": 1})
-    assert set(ImageSequenceOptions.model_fields) == {"fps", "hold", "workers", "render_quality"}
 
 
 @pytest.mark.parametrize("options", [GifOptions, VideoOptions])

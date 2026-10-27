@@ -71,16 +71,33 @@ class TestFontCache:
 
         assert unknown_path is None
 
-    def test_should_return_default_font_when_env_var_is_set(self, monkeypatch):
+    @pytest.mark.parametrize(
+        ("style", "filename"),
+        [
+            ({}, "Roboto-Regular.ttf"),
+            ({"bold": True}, "Roboto-Bold.ttf"),
+            ({"weight": 700}, "Roboto-Bold.ttf"),
+            ({"italic": True}, "Roboto-Italic.ttf"),
+            ({"weight": "bold", "italic": True}, "Roboto-BoldItalic.ttf"),
+        ],
+    )
+    def test_default_font_selects_style(self, monkeypatch, style, filename):
+        """A configured default family selects the requested weight and italic face."""
+        from pathlib import Path
+
         from quickthumb.font_cache import FontCache
 
+        # Given: the default family has regular, bold and italic font files
         monkeypatch.setenv("QUICKTHUMB_DEFAULT_FONT", "Roboto")
         cache = FontCache()
-        default_path = cache.default_font()
 
+        # When: selecting its requested style
+        default_path = cache.default_font(**style)
+
+        # Then: the resolved file has that style
         assert default_path is not None
-        assert os.path.exists(default_path)
-        assert "Roboto" in default_path
+        assert Path(default_path).name == filename
+        assert Path(default_path).is_file()
 
     def test_should_return_none_when_default_font_env_var_not_set(self, monkeypatch):
         from quickthumb.font_cache import FontCache
@@ -360,6 +377,34 @@ class TestVariableFontDiscovery:
 
 
 class TestFontEngineLoading:
+    @pytest.mark.parametrize(
+        "style",
+        [{"bold": True}, {"weight": 800}, {"italic": True}, {"bold": True, "italic": True}],
+    )
+    def test_default_family_renders_requested_style(self, monkeypatch, style):
+        """Styled default-family text renders the same pixels as an explicit family."""
+        from quickthumb import Canvas
+
+        # Given: Roboto is the default family and the text requests a styled face
+        monkeypatch.setenv("QUICKTHUMB_DEFAULT_FONT", "Roboto")
+
+        def pixels(**kwargs):
+            canvas = (
+                Canvas(400, 120)
+                .background(color="#000000")
+                .text("Thumb", size=80, color="#FFFFFF", position=(10, 10), **kwargs)
+            )
+            return canvas.render_frame(0).convert("RGBA").tobytes()
+
+        # When: rendering with the default family, an explicit family and regular text
+        default_pixels = pixels(**style)
+        explicit_pixels = pixels(font="Roboto", **style)
+        regular_pixels = pixels()
+
+        # Then: the selected style is rendered and differs from the regular face
+        assert default_pixels == explicit_pixels
+        assert default_pixels != regular_pixels
+
     def test_should_cache_google_font_by_family_weight_and_style(self, monkeypatch):
         """Google Fonts family loading uses deterministic cached CSS and font files"""
         import hashlib
