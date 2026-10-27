@@ -1074,7 +1074,7 @@ class HtmlExporter:
         )
         fragment = rasterize_layers(self._canvas, [source])
         if fragment:
-            self._emit_fragment(fragment, layer)
+            self._emit_fragment(fragment, source if isinstance(layer, PathLayer) else layer)
             self._record_routing([layer], reason, rasterized=True)
 
     def _emit_fragment(self, fragment: RasterFragment, layer: RenderableLayer | None = None):
