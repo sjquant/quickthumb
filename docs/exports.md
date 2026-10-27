@@ -647,7 +647,35 @@ The cache is controlled by environment variables:
 - `QUICKTHUMB_ASSET_MAX_AGE`: seconds after which a cached entry is refreshed from the network. When the refresh fails, the old bytes are used and reported as `stale`. Unset means cached entries never expire.
 - `QUICKTHUMB_ASSET_OFFLINE=1`: never make network requests. Cached entries are used, and expired ones are reported as `stale`.
 
-Each canvas (including each deck slide) tries to refresh an expired asset at most once; later renders and exports of it reuse the same `stale` result. When neither a usable cache entry nor a network response exists, resolution raises `RenderingError` naming the source, the cause, and the cache directory it searched. To refuse stale inputs, check the manifest before rendering:
+### Ownership and reuse
+
+Keep the same `Canvas` or `Deck` to reuse resolution across `prefetch_assets()`,
+`sample()`, and exports. Each canvas retains its first remote resolution result
+and status; a deck uses its slides' results. Remote images, text fills, and SVGs
+render from these retained bytes. Remote fonts, including Google fonts, load
+from shared cache files instead: another document's refresh can replace that
+file before a font face is loaded, while the earlier manifest still describes
+the original resolution. Keep the font cache unchanged through export when
+reproducible font bytes matter. Construct a new document to resolve the same
+reference again under the current cache policy.
+
+`PrefetchResult` and `asset_manifest` are JSON-safe reports, not resource handles.
+Saving or loading their JSON does not transfer bytes or preload another document.
+A new document can reuse the persisted cache and reports `fresh` when its entry
+is usable. Local image, font, video, and audio paths remain caller-owned files:
+keep them available and unchanged through sampling or export; prefetch does not
+freeze or copy them. Video and audio sources are not downloaded by prefetch;
+remote video is read by FFmpeg when needed and is outside this cache contract.
+Generated content without a file/URL reference has no external asset entry.
+
+The caller owns the cache directory and its cleanup. Quickthumb atomically writes
+remote cache files and metadata but does not automatically evict them. Remove
+unused entries only when documents and export workers are no longer using that
+cache; existing manifests are observations, not guarantees that their
+`cache_path` still exists. No explicit document close is required for the
+in-memory remote results: they are released with the document.
+
+When neither a usable cache entry nor a network response exists, resolution raises `RenderingError` naming the source, the cause, and the cache directory it searched. To refuse stale inputs, check the manifest before rendering:
 
 ```python
 prefetched = canvas.prefetch_assets()
