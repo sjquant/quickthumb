@@ -3728,12 +3728,12 @@ class TestGroupLayerRendering:
 
 
 def test_png_sequence_overlay_snapshot(tmp_path):
-    from examples.png_sequence_overlay import build_scene
-    from quickthumb import PngSequenceOptions
+    from examples.image_sequence_overlay import build_scene
+    from quickthumb import ImageSequenceOptions
 
     destination = tmp_path / "overlay"
-    result = build_scene().export_png_sequence(
-        destination, options=PngSequenceOptions(fps=10, hold=0.2)
+    result = build_scene().export_image_sequence(
+        destination, options=ImageSequenceOptions(fps=10, hold=0.2)
     )
     assert result.frame_count == 6
     strip = Image.new("RGBA", (240, 270))

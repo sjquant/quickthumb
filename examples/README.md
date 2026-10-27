@@ -34,6 +34,18 @@ Extras install with `uv run --extra <name> python examples/<script>.py`. The
 
 ## Decks and video
 
+### `wiggle_motion.py`
+
+Three seeds drive position and rotation track modifiers without simulation
+state. Writes `output/wiggle_motion.gif`, canonical JSON and a sampled PNG;
+seeking and sequential export use the same stored seeds.
+
+### `spring_motion.py`
+
+Three moving boxes compare under-, critically- and over-damped spring easing.
+Writes `output/spring_motion.gif`, canonical JSON and a midpoint PNG; no optional
+dependencies or network assets are needed.
+
 ### `investor_deck.py`
 
 A 10-slide Series A pitch deck exported to `investor_deck.html` and
@@ -101,10 +113,18 @@ Use it when you want a directional marker to follow a curved route. Edit
 `path_keyframes()` to reshape the route, or `build_scene(animate_color=False)`
 to keep the animation compatible with the approximate HTML path mapping.
 
-### `png_sequence_overlay.py`
+### `image_sequence_overlay.py`
 
-`png_sequence_overlay.py` exports a transparent lower third as a silent PNG
-animation sequence. It needs no FFmpeg, uses the bundled font, and demonstrates
-`PngSequenceOptions`, exact RGBA8 alpha, and the compact manifest/result. Each
-run requires a fresh `examples/output/png_sequence_overlay` directory; existing
-outputs are never overwritten.
+`image_sequence_overlay.py` exports a lower third as silent PNG, white-matted
+JPEG and lossless WebP image sequences using `ImageSequenceOptions`. It needs
+no FFmpeg and uses the bundled font. Each format gets a fresh
+`examples/output/image_sequence_overlay_<format>` directory containing
+independent frames and a manifest; existing outputs are never overwritten.
+
+## Audio onset anchors
+
+`uv run python examples/audio_onsets.py music.wav output-directory` analyzes
+source-clock transients, bakes the first onset into a color animation and writes
+an analysis sidecar, scene JSON and MP4. Requires FFmpeg and ffprobe. Detected
+onsets are not a musical beat grid; the stored numeric motion does not analyze
+audio again when restored or rendered.
