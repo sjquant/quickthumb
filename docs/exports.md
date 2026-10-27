@@ -302,9 +302,13 @@ webm = deck.to_webm(fps=30, hold=3.0)
 Every effect takes `duration`, `delay`, and `trigger`, plus two timing controls:
 
 - `easing` picks the curve the reveal follows, from the shared easing vocabulary
-  (`"linear"`, `"ease"`, `"ease_out_cubic"`, `"ease_out_back"`, …). It defaults to
-  `"ease"`; a bar that reports elapsed time wants `"linear"`, or it will
-  misrepresent its own progress.
+  (`"linear"`, `"ease"`, `"ease_out_cubic"`, `"ease_out_back"`, …). Legacy effects
+  default to `"ease"`; canonical presets resolve their easing/feel and otherwise
+  use `"linear"`. A bar that reports elapsed time needs `"linear"` to represent
+  its progress. HTML sends named easing and custom cubic-bezier
+  timing functions to CSS. Named polynomial curves use the existing CSS
+  cubic-bezier approximations: their shape is similar, but intermediate pixel
+  states need not match canonical sampling exactly.
 - `start` pins the effect to an absolute time on the slide instead of chaining it
   to whatever ran before. Anchored effects do not move the cursor the relative
   effects around them are chained from, so the two styles can be mixed.
