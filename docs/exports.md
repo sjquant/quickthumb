@@ -1,5 +1,5 @@
 ---
-description: Export quickthumb canvases to SVG, editable PowerPoint (PPTX), PDF documents, and animated GIF/MP4/WebM/MOV alongside PNG/JPEG/WEBP.
+description: Export quickthumb canvases and decks to PNG, JPEG, WebP, SVG, HTML, PDF, editable PowerPoint, GIF, MP4, WebM, and MOV.
 ---
 
 # Exporting to SVG, PPTX, PDF & video
@@ -570,27 +570,54 @@ slide images and decoder caches, in addition to its in-flight RGB frame.
 Normal completion and errors wait for running jobs to finish and close their
 decoders. Pending jobs are canceled on failure; abruptly terminated workers
 are reported as rendering errors. An OS-level kill cannot run normal cleanup.
-Deck MP4 without `VideoOptions` remains the separate static narration workflow.
 
-Deck MP4, WebM, and MOV exports support per-slide narration. Pass `audio=` to `Deck.slide()`;
-without `duration=`, Quickthumb uses the file's ffprobe duration. An explicit
-duration trims audio or pads it with silence, while a slide without audio holds
-silently for `default_duration` (3 seconds). `deck.render("deck.mp4")` and
-`deck.render_mp4("deck.mp4")` produce H.264/yuv420p video with an AAC track on
-every output. Without `VideoOptions`, this is the static narrated path: layer
-animations and slide transitions are not played. Pass
-`animation=VideoOptions(soundtrack=AudioTrack(path="music.mp3", volume=0.16, loop=True))`
-to `deck.render()` for animated MP4/WebM/MOV.
-Quickthumb mixes that bed and the
-scheduled `Deck.slide(audio=...)` narration during rendering; `deck.to_animated_mp4()`
-and `deck.to_webm()` do the same for byte exports. Callers do not
-need to pre-mix audio themselves.
+Both option models use `hold=3.0` for the settled-state hold, matching `hold`
+on Canvas byte methods and `slide_duration` on Deck byte methods. It must be
+a finite nonnegative number; booleans and strings are rejected. A default hold
+is omitted from serialized options and restored when loaded; an explicit zero
+is retained. Narration and explicit Deck slide durations still determine the
+video schedule, while Deck GIF continues to ignore those per-slide durations.
+Deck animated video retains its existing restriction: `hold=0` (or byte
+`slide_duration=0`) fails when any slide has neither narration nor an explicit
+positive duration, because its audio schedule requires a positive silent bed.
+Use a positive hold for those slides. Canvas, Deck GIF, and silent PNG sequences
+continue to permit a zero hold.
 
-The timing model mirrors the HTML slideshow, with one difference a non-interactive medium forces: there is nothing to click, so `on_click` animations play automatically in sequence, exactly like `after_previous` (the same choice PowerPoint's own video export makes). Each slide plays its transition (over the previous slide's final frame), runs its animation timeline (starting when the transition starts, like the HTML runtime), then holds its settled state — for the transition's `advance_after` when set, else for `slide_duration` (`hold` on `Canvas`). In narrated MP4/WebM/MOV output, the inferred or explicit narration duration (or the silent-slide default) extends the visual slide when it is longer than `advance_after`. A slide with no transition cross-fades in over 0.5s (slide 0 with none starts instantly); set a transition on slide 0 to animate in from the matte, which also makes looping GIFs wrap smoothly.
+The byte methods accept the same rendering controls as keyword-only scalars:
+`workers=1` and `quality="standard"` on Canvas GIF/MP4/WebM/MOV and Deck
+GIF/animated MP4/WebM/MOV, plus `max_size=None` and `colors=None` on GIF.
+Their existing timing names and positional arguments are unchanged; these
+methods do not accept options objects. Static `Deck.to_mp4()` and
+`Deck.render_mp4()` retain their separate narration API.
+
+- Pass `audio=` to `Deck.slide()`. Without `duration=`, the slide lasts as long
+  as its audio file (measured with `ffprobe`). An explicit `duration=` trims
+  the audio or pads it with silence. A slide with no audio lasts
+  `default_duration` (3 seconds).
+- `deck.render("deck.mp4")` on its own makes a *static* narrated video: each
+  slide's settled frame is shown for its duration, without layer animations or
+  transitions. The output is H.264 video with an AAC audio track.
+- To play animations and transitions as well, pass
+  `animation=VideoOptions(...)`. A background music track can be added with
+  `soundtrack=AudioTrack(path="music.mp3", volume=0.16, loop=True)`, and
+  quickthumb mixes it with the slide narration for you. `deck.to_animated_mp4()`,
+  `deck.to_webm()`, and `deck.to_mov()` do the same and return bytes.
+
+`ExportResult.pixel_metrics.width` and `height` remain the canonical first-canvas
+raster dimensions. They do not describe GIF resizing or MP4/WebM cropping. PNG
+sequence results separately report their full-size output dimensions.
+
+Video and GIF follow the HTML slideshow's timing, except that nobody can
+click: `on_click` animations play automatically, one after another, like
+`after_previous` (PowerPoint's own video export does the same). Each slide
+plays its transition over the previous slide's last frame, runs its
+animations (starting with the transition, as in HTML), then holds its settled
+state for the transition's `advance_after` if set, otherwise for
+`slide_duration` (`hold` on `Canvas`). In narrated MP4/WebM/MOV output, the inferred or explicit narration duration (or the silent-slide default) extends the visual slide when it is longer than `advance_after`. A slide with no transition cross-fades in over 0.5s (slide 0 with none starts instantly); set a transition on slide 0 to animate in from the matte, which also makes looping GIFs wrap smoothly.
 
 GIF is encoded by Pillow with per-frame durations, so no extra dependency is needed. MP4 (H.264), WebM (VP9), and MOV (ProRes 4444) require the `ffmpeg` binary on `PATH` (or pointed to by the `QUICKTHUMB_FFMPEG` environment variable).
 
-Canvas MP4, WebM, and MOV output can carry a soundtrack — any audio file ffmpeg decodes (MP3, WAV, AAC, OGG, ...), encoded as AAC in MP4/MOV and Opus in WebM:
+Canvas MP4, WebM, and MOV output can carry a soundtrack: any audio file ffmpeg decodes (MP3, WAV, AAC, OGG, ...), encoded as AAC in MP4/MOV and Opus in WebM:
 
 ```python
 mp4 = canvas.to_mp4(soundtrack="music.mp3")                    # loops to fill the video
