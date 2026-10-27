@@ -6,7 +6,50 @@ description: Build your first quickthumb image by creating a canvas, layering ba
 
 This guide walks through the core workflow: create a canvas, add layers, and export an image.
 
-## Your first thumbnail
+## First export without fonts or downloads
+
+First install [the current checkout's wheel in an isolated environment](installation.md#isolated-environment);
+the published 0.7.0 release does not include this `export()` API. In the working
+directory outside the checkout, save this as `first_export.py`. It needs only
+the base package and local disk:
+
+```python
+from pathlib import Path
+
+from quickthumb import Canvas
+
+canvas = Canvas(320, 180).background(color="#102030").shape(
+    "rectangle", position=(24, 24), width=96, height=64, color="#42CEB7",
+)
+Path("scene.json").write_text(canvas.to_json(), encoding="utf-8")
+result = canvas.export("first.png")
+print(result.written_paths)
+print(result.pixel_metrics.width, result.pixel_metrics.height)
+```
+
+Run `python first_export.py`. It writes `first.png` (320 × 180) and the
+canonical scene description `scene.json`. `result` is an export receipt,
+separate from the editable scene JSON; the example prints its paths and dimensions.
+See [the output API](exports.md#recommended-output-api) for diagnostics and other
+receipt fields.
+
+With the `cli` extra installed, check requirements and render that same scene:
+
+```bash
+quickthumb doctor png --spec scene.json -o from-json.png
+quickthumb render scene.json -o from-json.png
+```
+
+`doctor` checks discovered requirements and write permissions; the render command
+is the actual output check. [Diagnostics & CLI](diagnostics.md#quickthumb-doctor)
+explains its limits. [JSON round trips](json-schema.md#round-trip-serialization)
+explain what the scene file carries.
+
+## Add typography to your thumbnail
+
+This next example downloads Inter from Google Fonts on first use. It needs
+network access then, or a previously populated font cache. Use a local font path
+instead when working offline; the first export above needs no font setup.
 
 ```python
 from quickthumb import Canvas, LinearGradient, Shadow, Stroke, TextPart

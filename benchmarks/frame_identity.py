@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from benchmarks.animated_export import ROOT, environment, positive_fps
+from benchmarks.animated_export import MEASURABLE_SCENES, ROOT, environment, positive_fps
 from benchmarks.scenes import SCENES, build_scene
 
 # Keep full-resolution reel captures below the public capture-memory budget.
@@ -76,7 +76,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
     if len({scene["scene"] for scene in scenes}) != len(scenes):
         raise ValueError("duplicate identity scenes")
     for scene in scenes:
-        if scene["scene"] not in SCENES:
+        if scene["scene"] not in MEASURABLE_SCENES:
             raise ValueError("unknown identity scene")
         duration = scene["duration"]
         if not math.isfinite(duration) or duration < 0:
@@ -161,7 +161,7 @@ def main(argv: list[str] | None = None) -> int:
     record = commands.add_parser("capture")
     record.add_argument("output", type=Path)
     record.add_argument("--fps", type=positive_fps, default=12.0)
-    record.add_argument("--scenes", nargs="+", choices=SCENES, default=list(SCENES))
+    record.add_argument("--scenes", nargs="+", choices=MEASURABLE_SCENES, default=list(SCENES))
     diff = commands.add_parser("compare")
     diff.add_argument("before", type=Path)
     diff.add_argument("after", type=Path)

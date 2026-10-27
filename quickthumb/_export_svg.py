@@ -81,7 +81,7 @@ def _stroke_attr(rgba: tuple, opacity: float = 1.0) -> str:
 
 class SvgExporter:
     def __init__(
-        self, canvas: Canvas, embed_fonts: bool = False, *, policy=None, id_prefix: str = ""
+        self, canvas: Canvas, embed_fonts: bool = False, *, id_prefix: str = "", policy=None
     ):
         canvas = _distinct_layer_occurrences(canvas)
         self._canvas = canvas
@@ -110,10 +110,12 @@ class SvgExporter:
         canvas._validate_image_paths()
         canvas._ctx.begin_render_pass()
 
+        from quickthumb._composition import has_animated_masks
         from quickthumb._parent_export import static_parent_fragment
         from quickthumb._parenting import has_parent_links
+        from quickthumb._track_mattes import has_track_mattes
 
-        if has_parent_links(canvas):
+        if has_parent_links(canvas) or has_track_mattes(canvas) or has_animated_masks(canvas):
             self._emit_fragment(static_parent_fragment(canvas))
             self._record_routing(
                 canvas.layers,
@@ -208,7 +210,8 @@ class SvgExporter:
         elif isinstance(layer, ShapeLayer):
             self._emit_shape(layer)
         elif isinstance(layer, PathLayer):
-            from quickthumb._path_svg import native_path_problem
+            from quickthumb._path_geometry import parse_path
+            from quickthumb._path_svg import native_path_data, native_path_problem
 
             if problem := native_path_problem(layer):
                 self._emit_raster_fallback(layer, f"Path requires a PNG fragment: {problem}")
@@ -219,9 +222,13 @@ class SvgExporter:
                 self._body.append(
                     f'<g transform="translate({x} {y})">{fragment.path_fragment(layer)}</g>'
                 )
-                self._record_routing(
-                    [layer], "Path emitted as native SVG vectors", rasterized=False
-                )
+                if any(
+                    segment.kind not in {"M", "Z"}
+                    for segment in parse_path(native_path_data(layer))
+                ):
+                    self._record_routing(
+                        [layer], "Path emitted as native SVG vectors", rasterized=False
+                    )
         elif isinstance(layer, TextLayer):
             self._emit_text(layer)
         elif isinstance(layer, SvgLayer):
@@ -386,7 +393,9 @@ class SvgExporter:
             )
         return gradient_id
 
-    def path_fragment(self, layer: PathLayer) -> str:
+    def path_fragment(
+        self, layer: PathLayer, *, stroke_attributes: dict[str, str] | None = None
+    ) -> str:
         """Emit one isolated native path viewport, also consumed by HTML export."""
         from quickthumb._path_svg import native_path_data
 
@@ -405,6 +414,12 @@ class SvgExporter:
             attrs.append(f'fill="{rgb_hex(rgba)}" fill-opacity="{number(rgba[3] / 255)}"')
         else:
             attrs.append('fill="none"')
+        fill_path = ""
+        if stroke_attributes is not None:
+            if layer.color is not None or layer.fill is not None:
+                fill_path = "<path " + " ".join(attrs) + "/>"
+            attrs = attrs[:2] + ['fill="none"']
+            attrs.extend(f"{name}={quoteattr(value)}" for name, value in stroke_attributes.items())
         if layer.stroke is not None:
             rgba = color_to_rgba(self._canvas, layer.stroke)
             attrs.extend(
@@ -433,7 +448,9 @@ class SvgExporter:
             f'preserveAspectRatio="none" overflow="hidden"{source}>'
             + "<defs>"
             + "".join(self._defs)
-            + "</defs><path "
+            + "</defs>"
+            + fill_path
+            + "<path "
             + " ".join(attrs)
             + "/></svg>"
         )
