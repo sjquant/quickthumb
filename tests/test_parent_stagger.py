@@ -16,6 +16,7 @@ from quickthumb import (
     KeyframeSpec,
     OpacityTrack,
     PositionTrack,
+    RenderingError,
     RotationTrack,
     ScaleXTrack,
     ScaleYTrack,
@@ -340,13 +341,19 @@ def test_group_bands_keep_existing_fallback_and_override_child_motion(direction,
         ("", "lines"),
     ],
 )
-def test_semantic_targets_preserve_whole_source_approximation(content, target):
+def test_parented_semantic_targets_follow_supported_source_contract(content, target):
     canvas = text_scene(
         content=content,
         animation=AnimationSpec.rise(
             distance=14, duration=0.5, stagger=0.4, target=target, easing="linear"
         ),
     )
+    if target == "characters":
+        with pytest.raises(RenderingError, match="without parents"):
+            _SlideAnimator(canvas, {})
+        with pytest.raises(RenderingError, match="without parents"):
+            canvas.render_frame(0.3)
+        return
     animator = _SlideAnimator(canvas, {})
     assert not animator._units[-1].target_images
     assert animator.frame_at(0.3).tobytes() == canvas.render_frame(0.3).tobytes()

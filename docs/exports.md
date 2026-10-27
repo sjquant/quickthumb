@@ -61,6 +61,7 @@ All animated byte methods and options use `hold` for settled-state seconds.
 `quality` on `export()`/`render()` controls compression: JPEG accepts integer
 values 1–95 and WebP accepts 1–100.
 Keep `workers=1` unless advanced spawn-based rendering is needed.
+Optional [temporal exposure](timing.md#temporal-exposure) adds motion blur to Canvas exports.
 Both `export()` and `render()` enforce file capability policies such as
 `unsupported_motion="error"` before writing; `export()` also returns the receipt.
 Byte methods expose target-specific controls without the shared file receipt.
@@ -90,9 +91,10 @@ separate new-directory and encoding-option contract.
 
 ### Document layer routing
 
-Canvas and Deck `export("scene.html")`, and Canvas SVG/PDF exports, report
+Canvas and Deck HTML/PPTX exports, and Canvas SVG/PDF exports, report
 executed layer routes in `result.capability_report` with
-`feature="layer_representation"`. Native HTML/CSS, SVG/PDF primitives and original
+`feature="layer_representation"`. Native HTML/CSS, SVG/PDF primitives, editable
+PowerPoint objects and original
 embedded SVG have `support="native"`; emitted PNG fragments have
 `support="fallback"` and `fallback="rasterize"`. These are representation
 observations, not pixel-fidelity measurements.
@@ -110,7 +112,7 @@ or execution/verification of a native candidate that falls back to raster.
 Read `support` and `fallback` to identify the representation actually adopted.
 `False` means raster capture was selected before native generation or verification.
 Capability-only diagnostics can leave this fact unknown (`None`).
-Parent scenes report their static composite in SVG/PDF; HTML can also report PNG
+Parent scenes report their static composite in SVG/PDF/PPTX; HTML can also report PNG
 sources with baked affine CSS motion. Existing motion capability diagnostics
 remain separate. SVG/PDF observations describe authored-static output. PDF text
 retains embedded fonts when supported; shaping, glyph coverage and font-embedding
@@ -125,11 +127,26 @@ records do not turn a click-driven slideshow into fixed-duration playback.
 For example, `ExportPolicy(unsupported_motion="error")` does not reject a static
 masked shape: this HTML route preserves its mask using a PNG fragment and
 reports that decision. No layer-selection policy is added. This executed routing
-report covers Canvas SVG/PDF and Canvas/Deck HTML; Deck PDF and PPTX do not yet
+report covers Canvas SVG/PDF and Canvas/Deck HTML/PPTX; Deck PDF does not yet
 collect these observations. Fidelity metrics describe the complete document and are
 not attributed to individual fallback layers. Rendering all slides precedes
 opening the HTML destination, so an
 unsupported later slide or strict motion rejection preserves an existing file.
+
+PPTX routes describe the actual OOXML representation: native text boxes and
+autoshapes remain editable objects; PNG fragments preserve their raster payload
+and placement but lose per-glyph/vector editing. Raster reasons include masks,
+backdrop compositing, image/radial text fills and unsupported font semantics.
+Canvas observations omit a slide index; Deck observations identify their slide.
+PPTX file exports build the complete presentation before opening the destination,
+so a later source-rendering failure preserves an existing file.
+
+These structural observations do not certify a PowerPoint or Keynote pixel
+match, font availability, animation timing or transparency in a particular viewer.
+There is no PPTX fidelity policy or automatic application renderer. PPTX geometry
+uses 9,525 EMU per source pixel (96 pixels per inch), or 0.75 PDF points per source
+pixel. A later PDF-based viewer comparison must derive scale from its actual page
+dimensions rather than assuming the PDF exporter's one-point-per-pixel mapping.
 
 ### Optional static SVG fidelity report
 
@@ -211,6 +228,91 @@ fragments are retained regardless of the fidelity verdict. Native PDF text is
 searchable vector content; this does not promise PowerPoint-style editing.
 Deck PDF comparison is rejected explicitly; export its Canvas slides individually.
 This observation does not establish PPTX or animation fidelity.
+
+### Static cross-export checks
+
+`tests/test_static_export_matrix.py` sends the same authored content through the
+public Canvas and Deck file-export boundaries. The first 160×120 slide combines
+repository-font text, a native rectangle, a generated image and an elliptical
+mask; the second Deck slide has a translucent rectangle on a transparent canvas.
+The checks distinguish measured appearance from structural evidence:
+
+| Format | Canvas | Deck | Capability and fallback evidence |
+| --- | --- | --- | --- |
+| PNG | Decoded RGBA equals the canonical sample | Each numbered slide equals its canonical sample | Raster output; no native-object or document-viewer claim |
+| SVG | Actual CairoSVG observation plus native text/vector and PNG checks | Single-file Deck SVG is rejected; each Canvas slide is measured separately | Executed source IDs, native routes and explained image/mask PNG routes |
+| HTML | Stage markup, native text/CSS and exact mask PNG | Stage count and slide-local routes | Structural only; no browser pixel measurement in this matrix |
+| PDF | Actual PDFium observation, searchable text, vector paths and image objects | Page count/geometry, native objects and rendered component regions | Canvas routes reported; Deck executed routes and receipt fidelity are not collected yet |
+| PPTX | Editable OOXML text/shapes and exact positioned mask PNG | Slide count and per-slide native/raster objects | Executed routes reported; PowerPoint/Keynote appearance remains unmeasured |
+
+The mixed SVG/PDF fixture uses explicit whole-image limits: zero channel
+tolerance, at most 8% different pixels, and hash similarity of at least 0.94.
+These are fixture-specific font/edge budgets, not export defaults. Native text
+must also be present as text, and small rectangle, image and mask-interior regions
+must match exactly so a missing component cannot hide in the whole-image budget.
+The text region also requires hash similarity of at least 0.95 and permits at most
+30% different pixels after a channel tolerance of 16 for font rasterization edges.
+A real Deck PDF containing searchable white-on-white text must fail this regional
+check, even though its text objects and other component regions are intact.
+For the transparent rectangle only, alpha must match exactly while visible RGB
+may differ by at most two levels per channel because of renderer
+premultiplication/unpremultiplication rounding. Fully hidden RGB follows the
+existing visible-RGBA comparison rule; PNG still preserves raw RGBA exactly.
+No output is resized or flattened onto an invented matte.
+
+Run `uv run --locked pytest tests/test_static_export_matrix.py --no-cov -q`.
+The existing quality workflow already runs this file through `pytest tests/`
+with the SVG/PDF/PPTX extras and native Cairo installed. Local environments
+without an optional observer skip its cases with the dependency reason.
+Pytest case IDs identify the format and document kind. Each case keeps its
+source JSON, canonical PNGs, actual exports and JSON receipts in its temporary
+directory; measured receipts include renderer versions, canonical environment,
+limits and metrics. A failure is reproducible from the shared fixture and named
+format check rather than a platform-specific screenshot baseline.
+
+This is a bounded static matrix. It does not run a browser, certify PPTX viewer
+pixels/fonts/timing, or add a Deck PDF fidelity policy. The separate HTML browser
+harness and native presentation-viewer observations require their own execution
+and environment evidence. Structural success must not be reported as a rendered
+pixel-fidelity verdict.
+
+### HTML browser validation harness
+
+The developer-only harness captures actual exported Canvas and two-slide Deck
+stages with an explicitly selected Chrome and Node's built-in WebSocket. It does
+not install a browser or change `ExportPolicy`:
+
+```bash
+PYTHONPATH=. python scripts/check_html_fidelity.py \
+  --chrome "/path/to/chrome" --output /tmp/quickthumb-html-observations
+```
+
+The output directory must be new. Chrome runs headless with a temporary profile
+and loopback CDP; the harness never attaches to an existing browser session.
+It waits for fonts, images and slide transitions, captures only the original-size
+stage at DPR 1, and seeks a real click-triggered CSS fade at 0, 5 and 10 seconds.
+The report records browser/Node versions, canonical environment, input asset
+hashes, executed route diagnostics, dimensions, seek points, explicit fixture
+limits, pixel/hash metrics and verdicts. Canonical/browser PNGs remain beside it.
+
+The mixed text/shape/image/mask fixtures allow a channel tolerance of 16, at most
+8% differing pixels, and average-hash similarity of at least 0.94. Every component
+must also satisfy its recorded region criteria: text allows 20% differing pixels
+and requires hash similarity 0.95; the native ellipse allows 2% and requires 0.98.
+The embedded image is exact; the masked fragment allows only one channel level
+of rounding. Text/ellipse channel tolerance is 16. These local criteria prevent
+small missing features from passing a whole-stage average. Negative controls
+remove each text/image/mask/ellipse element in both the wide Canvas and tall Deck
+and must fail that specific region, not merely another metric. All allowances
+are fixture-specific and are not general document budgets. The simple
+fade permits only one channel level of rounding; a deliberately wrong document
+must fail comparison. Unexpected verdicts fail the command while retaining its
+report. No automatic raster fallback or browser/CI installation is performed.
+
+This observes one Chrome/font/platform environment and one bounded CSS animation,
+not every browser, animation, cue, or Deck transition. CairoSVG cannot substitute
+for this browser observation. Existing Node runtime tests check scheduling and
+state behavior separately from browser pixels.
 
 ### Migrating output calls
 
@@ -348,9 +450,13 @@ webm = deck.to_webm(fps=30, hold=3.0)
 Every effect takes `duration`, `delay`, and `trigger`, plus two timing controls:
 
 - `easing` picks the curve the reveal follows, from the shared easing vocabulary
-  (`"linear"`, `"ease"`, `"ease_out_cubic"`, `"ease_out_back"`, …). It defaults to
-  `"ease"`; a bar that reports elapsed time wants `"linear"`, or it will
-  misrepresent its own progress.
+  (`"linear"`, `"ease"`, `"ease_out_cubic"`, `"ease_out_back"`, …). Legacy effects
+  default to `"ease"`; canonical presets resolve their easing/feel and otherwise
+  use `"linear"`. A bar that reports elapsed time needs `"linear"` to represent
+  its progress. HTML sends named easing and custom cubic-bezier
+  timing functions to CSS. Named polynomial curves use the existing CSS
+  cubic-bezier approximations: their shape is similar, but intermediate pixel
+  states need not match canonical sampling exactly.
 - `start` pins the effect to an absolute time on the slide instead of chaining it
   to whatever ran before. Anchored effects do not move the cursor the relative
   effects around them are chained from, so the two styles can be mixed.
@@ -710,6 +816,8 @@ slide images and decoder caches, in addition to its in-flight RGB frame.
 Normal completion and errors wait for running jobs to finish and close their
 decoders. Pending jobs are canceled on failure; abruptly terminated workers
 are reported as rendering errors. An OS-level kill cannot run normal cleanup.
+
+Static narrated MP4 uses `render_narrated_mp4()` or `to_narrated_mp4()`.
 
 ### Narrated deck video
 

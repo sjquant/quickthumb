@@ -421,7 +421,7 @@ def color_motion_targets(fragments, states, render_color):
     surface = None
     previous_color = None
     for (fragment, (x, y)), state in zip(fragments, states, strict=True):
-        if state is not None:
+        if state is not None and fragment.getbbox() is not None:
             if surface is None or state.color != previous_color:
                 surface = render_color(state.color)
                 previous_color = state.color
@@ -616,6 +616,8 @@ def apply_canonical_geometry(
     instead composes a reduced authoring preview without changing source layout.
 
     """
+    if state.scale == 0:
+        return Image.new("RGBA", (1, 1)), pos
     scale = state.scale if state.scale > 0 else 1.0
     offset_x, offset_y = state.position or (0.0, 0.0)
     angle = state.rotation % 360
