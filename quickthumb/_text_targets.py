@@ -23,11 +23,11 @@ def text_target_fragments(
 ):
     """Keep separable text targets at their authored, fully laid-out positions.
 
-    Complex styles keep the existing partial route. A candidate layout is used
-    only when its nonoverlapping crops reconstruct the actual source pixels.
+    A candidate layout is used only when its nonoverlapping crops reconstruct
+    the source pixels. Callers decide whether other layouts allow a partial route.
     """
     from quickthumb._export_base import compute_text_layout
-    from quickthumb.motion import _canonical_timeline
+    from quickthumb.motion import _canonical_timeline, _text_selector
 
     if not isinstance(layer, TextLayer) or not isinstance(layer.content, str):
         return None
@@ -37,7 +37,9 @@ def text_target_fragments(
         if timeline
         else None
     )
-    if stagger is None or stagger["target"] not in {"words", "lines"}:
+    selector = _text_selector(layer)
+    target = selector.target if selector else stagger["target"] if stagger else None
+    if target not in {"words", "lines"}:
         return None
     effective = canvas._text.effective_layer(layer)
     content = effective.content
@@ -57,11 +59,11 @@ def text_target_fragments(
     values = []
     for line in layout.lines:
         if not line:
-            if stagger["target"] == "lines":
+            if target == "lines":
                 boxes.append(None)
             continue
         (run,) = line
-        if stagger["target"] == "lines":
+        if target == "lines":
             boxes.append(run.ink_box)
             continue
         for match in re.finditer(r"\S+", run.text):
@@ -69,7 +71,7 @@ def text_target_fragments(
             pen = run.pen_x + run.font.getlength(run.text[: match.start()])
             left, top, right, bottom = run.font.getbbox(match.group(), anchor="ls")
             boxes.append((pen + left, run.baseline_y + top, pen + right, run.baseline_y + bottom))
-    if stagger["target"] == "words" and values != re.findall(r"\S+", content):
+    if target == "words" and values != re.findall(r"\S+", content):
         # A word split across wrapped lines needs multiple placed runs, rather
         # than changing its semantic target cardinality.
         return None
@@ -94,6 +96,6 @@ def text_target_fragments(
         fragments.append((fragment, (bounds[0] + offset[0], bounds[1] + offset[1])))
     if reconstructed.tobytes() != surface.tobytes():
         return None
-    if stagger["order"] == "reverse":
+    if stagger and stagger["order"] == "reverse":
         fragments.reverse()
     return tuple(fragments)

@@ -14,7 +14,7 @@ from pydantic import (
 
 from .common import *  # noqa: F401,F403
 from .document import AssetManifestEntry, DiagnosticReport
-from .motion import MotionEasing, Wiggle
+from .motion import MotionEasing, RangeSelector, Wiggle
 from .options import ExportDiagnostic
 
 
@@ -138,6 +138,8 @@ class MotionEventInspection(quickthumbModel):
     effect: str | None = None
     tracks: list[MotionTrackInspection] = Field(default_factory=list)
     stagger: dict[str, Any] | None = None
+    selector: RangeSelector | None = None
+    selector_weights: list[float] = Field(default_factory=list)
     progress: list[float] = Field(default_factory=list)
 
 
@@ -147,6 +149,7 @@ class MotionTargetInspection(quickthumbModel):
     target: str
     index: NonNegativeInt
     source_range: tuple[NonNegativeInt, NonNegativeInt] | None = None
+    samples: list[dict[str, Any]] = Field(default_factory=list)
     position: tuple[float, float] | None = None
     size: tuple[float, float] | None = None
 
