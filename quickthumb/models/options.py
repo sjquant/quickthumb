@@ -11,7 +11,9 @@ from pydantic import (
     NonNegativeInt,
     PositiveInt,
     field_validator,
+    with_config,
 )
+from typing_extensions import TypedDict
 
 from quickthumb.errors import ValidationError
 
@@ -32,6 +34,15 @@ class AudioTrack(quickthumbModel):
     ] = 0.0
 
 
+class MotionBlur(quickthumbModel):
+    """A centered temporal exposure, expressed in sample count and shutter degrees."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    samples: Annotated[int, Field(strict=True, ge=2, le=64)] = 8
+    shutter_angle: Annotated[float, Field(gt=0, le=360, allow_inf_nan=False)] = 180.0
+
+
 class GifOptions(quickthumbModel):
     """Options specific to animated GIF output."""
 
@@ -47,6 +58,7 @@ class GifOptions(quickthumbModel):
     colors: int | None = None
     workers: Annotated[int, Field(strict=True, ge=1, le=8)] = 1
     render_quality: Literal["standard", "high"] = "standard"
+    motion_blur: MotionBlur | None = Field(default=None, exclude_if=lambda value: value is None)
 
     @field_validator("loop")
     @classmethod
@@ -77,6 +89,7 @@ class VideoOptions(quickthumbModel):
     loop_audio: bool | None = None
     workers: Annotated[int, Field(strict=True, ge=1, le=8)] = 1
     render_quality: Literal["standard", "high"] = "standard"
+    motion_blur: MotionBlur | None = Field(default=None, exclude_if=lambda value: value is None)
     transparent: Annotated[bool, Field(strict=True)] = False
 
 
@@ -89,6 +102,7 @@ class ImageSequenceOptions(quickthumbModel):
     hold: Annotated[float, Field(strict=True, ge=0, allow_inf_nan=False)] = 3.0
     workers: Annotated[int, Field(strict=True, ge=1, le=8)] = 1
     render_quality: Literal["standard", "high"] = "standard"
+    motion_blur: MotionBlur | None = Field(default=None, exclude_if=lambda value: value is None)
 
 
 def coerce_audio_track(value: AudioTrack | str | dict | None) -> AudioTrack | None:
@@ -112,18 +126,33 @@ class MotionProfile(_MotionModel):
     feel: Literal["gentle", "soft", "snappy", "dramatic", "minimal"] = "soft"
 
 
+@with_config(ConfigDict(extra="forbid"))
+class _SvgFidelityLimits(TypedDict):
+    """Caller-selected acceptance limits for an optional static SVG comparison."""
+
+    pixel_tolerance: Annotated[int, Field(strict=True, ge=0, le=255)]
+    max_different_pixel_ratio: Annotated[float, Field(ge=0, le=1, allow_inf_nan=False)]
+    min_hash_similarity: Annotated[float, Field(ge=0, le=1, allow_inf_nan=False)]
+
+
 class ExportPolicy(_MotionModel):
-    """Policy controlling how an exporter handles unsupported motion."""
+    """Motion handling and opt-in, report-only static SVG fidelity checks."""
 
     unsupported_motion: Literal["error", "warn", "rasterize", "static"] = "warn"
     pptx: dict[str, Literal["native", "rasterize", "static"]] = {}
     reduced_motion: bool = False
+    fidelity: dict[Literal["svg"], _SvgFidelityLimits] = Field(
+        default_factory=dict, exclude_if=lambda value: not value
+    )
 
 
 class ExportDiagnostic(_MotionModel):
     """Structured explanation of exporter support or fallback behavior."""
 
     layer_id: str | None = None
+    slide_index: NonNegativeInt | None = Field(default=None, exclude_if=lambda value: value is None)
+    layer_ids: list[str] = Field(default_factory=list, exclude_if=lambda value: not value)
+    native_attempt: bool | None = Field(default=None, exclude_if=lambda value: value is None)
     feature: str
     target: str
     support: Literal["full", "native", "partial", "fallback", "unsupported"]
