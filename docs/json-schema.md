@@ -42,6 +42,9 @@ The top-level `"kind"` discriminator is required (by `Canvas.from_json()`, `Deck
 Canvas documents carry `layers`; Deck documents carry `slides` and may also define a shared
 default size, theme, and transitions. Every layer object requires its own `"type"`
 discriminator field. Layers render in array order: the first item is at the back.
+Layer identity, placement, alignment and motion use the same
+[shared vocabulary](api/index.md#shared-layer-vocabulary) in Python, a Canvas JSON
+root and every Deck slide. A Deck does not introduce a different layer schema.
 
 ## Published schema
 
@@ -104,9 +107,9 @@ The command writes deterministic JSON only, so it can be checked into a repo, pi
 ## Plugin layers
 
 Plugin registrations are kept in one explicit `PluginRegistry`. A registration
-describes a layer type and its parameters; it does not supply drawing code.
-quickthumb can load, validate, and publish a schema for plugin layers, but
-rendering a canvas that contains one raises `RenderingError` for now.
+describes a layer type and its parameters. A separate trusted synchronous
+`raster` callback renders plugin layers as canonical RGBA pixels.
+Callbacks are application code, never serialized or imported from JSON.
 
 ```python
 from quickthumb import Canvas, PluginRegistry, canvas_json_schema
@@ -127,10 +130,62 @@ canvas = Canvas.from_json(text, registry=registry)
 schema = canvas_json_schema(registry=registry)
 ```
 
-Use `params_schema` as the only registration schema argument. A plugin layer
-must contain `type: "plugin"`, a valid `renderer`, a `version`, and an object-valued
-`params` field. The same registry should be passed to document parsers and Schema
-helpers when using an isolated registry.
+A plugin layer requires `type: "plugin"`, `renderer`, `version`, object-valued
+`params`, and positive integer `width`/`height`. `position` accepts the normal
+pixel/percentage coordinates; `align` and `opacity` affect its local box. Standard
+`clip` and `mask` boundaries apply after rendering. A Group controls child
+placement and can animate the whole group, including static plugin pixels. The same
+explicit registry must be supplied to document parsers and Schema helpers.
+
+```python
+from PIL import Image
+
+def badge(params, context):
+    with Image.new("RGBA", context.size, params["color"]) as image:
+        return image.tobytes()
+
+registry.register("badge", "1", raster=badge)
+canvas = Canvas(320, 180, registry=registry).plugin(
+    "badge", version="1", params={"color": "#42CEB7"},
+    position=(20, 30), width=120, height=40,
+)
+canvas.export("badge.png")
+```
+
+The callback receives a detached params dictionary and `context.size`. It must
+return exactly `width * height * 4` raw RGBA8 bytes with straight alpha; it never
+receives the backdrop or an output file. Declare byte inputs as
+`assets={"texture": "assets/texture.png"}` on the layer and read them with
+`context.read_asset("texture")`. Only declared names are accepted. Reads use the
+shared asset resolver's cache, offline policy and remote download limits.
+Plugin code remains trusted Python: the helper is not a filesystem or process
+sandbox.
+
+Canvas/Deck still and timed sampling, animation output and groups share the
+canonical renderer. SVG, HTML, PDF and PPTX embed plugin pixels as PNG fragments;
+capability and export reports identify the renderer/version and raster fallback.
+`ExportPolicy(unsupported_motion="error")` rejects that fallback before writing;
+PPTX can also require native output per layer with `pptx={"badge": "native"}`.
+No time argument or animation callback is provided: the callback supplies static
+content, while group motion and slide transitions animate its composition.
+`workers>1` rejects plugins because process-local callables are not serialized.
+
+`prefetch_assets()` resolves every declared plugin asset without running the
+callback. Shared exports resolve them before writing, including declarations the
+callback does not read. Prefetch/export and observed inspection manifests report
+these references with `asset_type="plugin"`, the original source, cache identity,
+SHA-256 and normal local/network/fresh/stale status. Repeated remote reads on the
+same document use its first resolved bytes; new documents follow the shared
+cache's refresh/offline policy. Local files remain caller-owned and must stay
+unchanged through export. Multiple declared names for one source share one
+manifest entry; the names remain in the layer's JSON.
+
+Plugin assets are opaque bytes, not automatically validated images or selected
+font faces. Declaring a font file records its bytes, not any font selection or
+shaping a callback performs itself. The callback owns decoding and any resources
+it opens. Inspection reports observed state and may run the callback as part of
+normal diagnostics; it does not promise to prefetch unused references.
+Both Canvas and Deck inspection use the same plugin rendering and asset records.
 
 ### Plugin params Schema v1
 

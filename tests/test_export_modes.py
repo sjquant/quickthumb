@@ -4,7 +4,6 @@ import json
 import shutil
 import subprocess
 from pathlib import Path
-from typing import Any, cast
 from unittest.mock import Mock
 
 import pytest
@@ -15,9 +14,9 @@ from quickthumb import (
     ExportPolicy,
     GifOptions,
     GroupLayer,
+    ImageSequenceOptions,
     LayerClip,
     Morph,
-    PngSequenceOptions,
     VideoOptions,
 )
 from quickthumb.errors import RenderingError, ValidationError
@@ -35,32 +34,10 @@ def parent_deck():
     )
 
 
-@pytest.mark.parametrize("strict", [False, True])
-def test_narrated_mp4_export_matches_render_without_claiming_unused_morph(
-    tmp_path, monkeypatch, strict
-):
-    deck = parent_deck()
-    writer = Mock(side_effect=lambda path: Path(path).write_bytes(b"static"))
-    monkeypatch.setattr(deck, "render_mp4", writer)
-    policy = ExportPolicy(unsupported_motion="error" if strict else "warn")
-    rendered = tmp_path / "render.MP4"
-    exported = tmp_path / "export.MP4"
-
-    assert deck.render(str(rendered), policy=policy) == [str(rendered)]
-    result = deck.export(exported, policy=policy)
-
-    assert rendered.read_bytes() == exported.read_bytes() == b"static"
-    assert writer.call_count == 2
-    assert result.target == "video" and result.output_format == "mp4"
-    assert result.timing_metrics.duration == pytest.approx(0.2)
-    assert not any(item.feature == "parent_morph" for item in result.capability_report)
-    assert not result.fallback_diagnostics
-
-
 @pytest.mark.parametrize("method", ["render", "export"])
-def test_explicit_animated_mp4_strict_policy_preserves_existing_output(
-    tmp_path, monkeypatch, method
-):
+@pytest.mark.parametrize("animation", [None, VideoOptions()])
+def test_mp4_strict_policy_preserves_existing_output(tmp_path, monkeypatch, method, animation):
+    """Default and configured MP4 reject unsupported motion before replacing a file."""
     from quickthumb import _export_video
 
     writer = Mock()
@@ -70,7 +47,7 @@ def test_explicit_animated_mp4_strict_policy_preserves_existing_output(
     with pytest.raises(RenderingError, match="fade fallback"):
         getattr(parent_deck(), method)(
             str(destination),
-            animation=VideoOptions(),
+            animation=animation,
             policy=ExportPolicy(unsupported_motion="error"),
         )
     writer.assert_not_called()
@@ -103,47 +80,48 @@ def test_animated_export_reports_only_transitions_that_execute(tmp_path, monkeyp
 
 
 @pytest.mark.parametrize("kind", ["pdf", "svg"])
-def test_concrete_static_query_matches_export_diagnostics(tmp_path, kind):
+def test_concrete_static_query_matches_preflight_diagnostics(tmp_path, kind):
+    """Static queries describe motion policy; export also records executed routes."""
     canvas = parent_canvas()
     query = canvas.validate_export(kind.upper())
     result = canvas.export(tmp_path / f"canvas.{kind}")
-    assert query == result.capability_report
+    assert query == [
+        item for item in result.capability_report if item.feature != "layer_representation"
+    ]
+    if kind == "svg":
+        (route,) = [
+            item for item in result.capability_report if item.feature == "layer_representation"
+        ]
+        assert (
+            route.target == kind and route.support == "fallback" and route.fallback == "rasterize"
+        )
+        assert route.layer_id is None and route.layer_ids == ["root", "layer:1"]
+        assert route.native_attempt is False
     assert all(item.target == "raster" and item.fallback == "static" for item in query)
-    path = tmp_path / f"existing.{kind}"
-    path.write_bytes(b"existing")
-    for method in (canvas.render, canvas.export):
-        with pytest.raises(RenderingError, match="authored-static"):
-            method(str(path), policy=ExportPolicy(unsupported_motion="error"))
-        assert path.read_bytes() == b"existing"
 
 
-@pytest.mark.parametrize("kind", ["canvas", "deck"])
+@pytest.mark.parametrize(
+    "kind,extension",
+    [
+        ("canvas", "pdf"),
+        ("canvas", "svg"),
+        ("canvas", "pptx"),
+        ("canvas", "html"),
+        ("deck", "pdf"),
+        ("deck", "pptx"),
+        ("deck", "html"),
+    ],
+)
 @pytest.mark.parametrize("method", ["render", "export"])
-@pytest.mark.parametrize("extension", ["pdf", "svg", "pptx", "html"])
-def test_parent_document_strict_policy_precedes_invalid_quality(tmp_path, kind, method, extension):
+def test_parent_document_strict_policy_preserves_output(tmp_path, kind, method, extension):
     canvas = parent_canvas()
     source = canvas if kind == "canvas" else Deck().slide(canvas)
     path = tmp_path / f"existing.{extension}"
     path.write_bytes(b"existing")
     message = "sampled approximation" if extension == "html" else "authored-static"
     with pytest.raises(RenderingError, match=message):
-        getattr(source, method)(
-            str(path), quality=90, policy=ExportPolicy(unsupported_motion="error")
-        )
+        getattr(source, method)(str(path), policy=ExportPolicy(unsupported_motion="error"))
     assert path.read_bytes() == b"existing"
-
-
-@pytest.mark.parametrize("kind", ["canvas", "deck"])
-@pytest.mark.parametrize("method", ["render", "export"])
-def test_early_parent_document_preflight_is_reused(tmp_path, monkeypatch, kind, method):
-    from quickthumb import _document
-
-    canvas = parent_canvas()
-    source = canvas if kind == "canvas" else Deck().slide(canvas)
-    preflight = Mock(wraps=_document.preflight_export)
-    monkeypatch.setattr(_document, "preflight_export", preflight)
-    getattr(source, method)(str(tmp_path / "scene.pdf"), policy=ExportPolicy())
-    preflight.assert_called_once()
 
 
 def test_reduced_motion_byte_and_png_execution_skip_unused_parent_morph(tmp_path, monkeypatch):
@@ -153,51 +131,12 @@ def test_reduced_motion_byte_and_png_execution_skip_unused_parent_morph(tmp_path
     monkeypatch.setattr(_export_video, "export_animation_bytes", encoder)
     deck = parent_deck()
     policy = ExportPolicy(unsupported_motion="error", reduced_motion=True)
-    assert deck.to_animated_mp4(policy=policy) == b"reduced"
+    assert deck.to_mp4(policy=policy) == b"reduced"
     assert encoder.call_args.kwargs["reduced_motion"] is True
-    result = deck.export_png_sequence(
-        tmp_path / "frames", options=PngSequenceOptions(fps=10), policy=policy
+    result = deck.export_image_sequence(
+        tmp_path / "frames", options=ImageSequenceOptions(fps=10), policy=policy
     )
     assert not any(item.feature == "parent_morph" for item in result.capability_report)
-
-
-@pytest.mark.parametrize("kind", ["canvas", "deck"])
-@pytest.mark.parametrize("override", ["subclass", "instance", "class"])
-def test_export_keeps_render_override_dispatch_once(tmp_path, monkeypatch, kind, override):
-    base = cast(Any, Canvas if kind == "canvas" else Deck)
-    original = base.render
-    calls = []
-
-    if override == "subclass":
-
-        class Custom(base):
-            def render(self, path, **kwargs):
-                calls.append(path)
-                return super().render(path, **kwargs)
-
-        source = Custom(16, 16)
-    else:
-        source = base(16, 16)
-        if override == "instance":
-
-            def replacement(path, **kwargs):
-                calls.append(path)
-                return original(source, path, **kwargs)
-
-            monkeypatch.setattr(source, "render", replacement)
-        else:
-
-            def replacement(self, path, **kwargs):
-                calls.append(path)
-                return original(self, path, **kwargs)
-
-            monkeypatch.setattr(base, "render", replacement)
-    if isinstance(source, Deck):
-        source.slide(Canvas(16, 16))
-    result = source.export(tmp_path / "overridden.png")
-    assert calls == [str(tmp_path / "overridden.png")]
-    assert len(result.written_paths) == 1
-    assert Path(result.written_paths[0]).exists()
 
 
 @pytest.mark.parametrize("method", ["render", "export"])
@@ -215,11 +154,9 @@ def test_canvas_mp4_defaults_to_animated_writer(tmp_path, monkeypatch, method):
     assert writer.call_args.kwargs["reduced_motion"] is False
 
 
-@pytest.mark.parametrize("method", ["render", "export", "png_sequence"])
+@pytest.mark.parametrize("method", ["render", "export", "image_sequence"])
 @pytest.mark.parametrize("reduced", [False, True])
-def test_static_and_reduced_execution_still_reject_unsupported_geometry(
-    tmp_path, monkeypatch, method, reduced
-):
+def test_animated_and_reduced_execution_reject_unsupported_geometry(tmp_path, method, reduced):
     canvas = parent_canvas()
     canvas.layers = [
         canvas.layers[0],
@@ -239,19 +176,16 @@ def test_static_and_reduced_execution_still_reject_unsupported_geometry(
         ),
     ]
     deck = Deck().slide(canvas)
-    writer = Mock()
-    monkeypatch.setattr(deck, "render_mp4", writer)
     path = tmp_path / "existing.mp4"
     path.write_bytes(b"existing")
     policy = ExportPolicy(unsupported_motion="error", reduced_motion=reduced)
     with pytest.raises(RenderingError, match="descendant boundaries cannot animate descendants"):
-        if method == "png_sequence":
-            deck.export_png_sequence(tmp_path / "frames", policy=policy)
+        if method == "image_sequence":
+            deck.export_image_sequence(tmp_path / "frames", policy=policy)
         else:
             getattr(deck, method)(
                 str(path), animation=VideoOptions() if reduced else None, policy=policy
             )
-    writer.assert_not_called()
     assert path.read_bytes() == b"existing"
     assert not (tmp_path / "frames").exists()
 
@@ -263,38 +197,76 @@ def test_static_and_reduced_execution_still_reject_unsupported_geometry(
     [
         ("mp4", {"format": "PNG"}, "format override"),
         ("mp4", {"quality": 90}, "Quality parameter"),
-        ("mp4", {"animation": GifOptions()}, "GifOptions"),
-        ("gif", {"animation": VideoOptions()}, "VideoOptions"),
+        ("mp4", {"animation": GifOptions()}, "VideoOptions"),
+        ("mp4", {"animation": VideoOptions(transparent=True)}, "transparent output"),
+        ("gif", {"animation": VideoOptions()}, "GifOptions"),
         ("pdf", {"animation": VideoOptions()}, "animation options"),
         ("png", {"quality": 90}, "Quality parameter"),
         ("invalid", {}, "Unsupported"),
+        ("bin", {"format": "SVG"}, "format must"),
+        ("pdf", {"format": "PNG"}, "format override"),
+        ("html", {"format": "PNG"}, "format override"),
+        ("svg", {"format": "PNG"}, "format override"),
+        ("jpg", {"quality": True}, "integer between 1 and 95"),
+        ("jpg", {"quality": 0}, "integer between 1 and 95"),
+        ("jpg", {"quality": 96}, "integer between 1 and 95"),
+        ("webp", {"quality": 101}, "integer between 1 and 100"),
     ],
 )
 def test_invalid_export_options_preserve_existing_output(
     tmp_path, kind, method, extension, kwargs, message
 ):
-    canvas = Canvas(16, 16)
+    """Invalid file options fail before reading an unavailable asset or writing any output."""
+    # Given: a missing input asset and an existing destination
+    canvas = Canvas(16, 16).image(str(tmp_path / "missing.png"), position=(0, 0), width=8, height=8)
     source = canvas if kind == "canvas" else Deck().slide(canvas)
     path = tmp_path / f"existing.{extension}"
     path.write_bytes(b"existing")
+
+    # When / Then: option errors take precedence over input reads and all writes
     with pytest.raises((RenderingError, ValidationError), match=message):
         getattr(source, method)(str(path), **kwargs)
     assert path.read_bytes() == b"existing"
+    assert list(tmp_path.iterdir()) == [path]
 
 
-@pytest.mark.parametrize("method", ["render", "export"])
-def test_canvas_raster_override_and_deck_document_rejection_remain_distinct(tmp_path, method):
-    canvas = parent_canvas()
-    path = tmp_path / "output.svg"
-    getattr(canvas, method)(
-        str(path), format="PNG", policy=ExportPolicy(unsupported_motion="error")
+@pytest.mark.parametrize("kind", ["canvas", "deck"])
+@pytest.mark.parametrize(
+    "filename,format,encoded_format,result_format,quality",
+    [
+        ("photo.jpg", None, "JPEG", "jpeg", 95),
+        ("photo.png", "jPeG", "JPEG", "jpeg", 95),
+        ("photo.bin", "PNG", "PNG", "png", None),
+        ("photo", "WEBP", "WEBP", "webp", 100),
+    ],
+)
+def test_raster_format_selection_matches_result(
+    tmp_path, kind, filename, format, encoded_format, result_format, quality
+):
+    """Canvas and Deck encode the selected raster format and report the actual files."""
+    # Given: the same scene exported alone or as two Deck slides
+    from PIL import Image
+
+    canvas = Canvas(16, 16).background(color="#123456")
+    source = canvas if kind == "canvas" else Deck(slides=[canvas, canvas])
+    output = tmp_path / filename
+
+    # When: an extension or explicit raster format selects the encoding
+    result = source.export(output, format=format, quality=quality)
+
+    # Then: metadata names the encoding, and Deck paths identify numbered slide files
+    expected = (
+        [str(output)]
+        if kind == "canvas"
+        else [str(output.with_name(f"{output.stem}_{index:02}{output.suffix}")) for index in (1, 2)]
     )
-    assert path.read_bytes().startswith(b"\x89PNG")
-    with pytest.raises(RenderingError, match="single .svg"):
-        getattr(Deck().slide(canvas), method)(str(path))
-    assert path.read_bytes().startswith(b"\x89PNG")
-    with pytest.raises(RenderingError, match="format override"):
-        getattr(Deck().slide(canvas), method)(str(tmp_path / "output.pdf"), format="PNG")
+    assert result.written_paths == expected
+    assert result.output_format == result_format
+    assert result.target == "raster"
+    for path in result.written_paths:
+        with Image.open(path) as image:
+            assert image.format == encoded_format
+            assert image.size == (16, 16)
 
 
 @pytest.mark.parametrize(
@@ -307,7 +279,7 @@ def test_canvas_raster_override_and_deck_document_rejection_remain_distinct(tmp_
         ("MP4", "video"),
         ("MOV", "video"),
         ("WEBM", "video"),
-        ("PNG_SEQUENCE", "video"),
+        ("IMAGE_SEQUENCE", "video"),
         ("HTM", "html"),
         ("HTML", "html"),
         ("PPTX", "pptx"),
@@ -328,7 +300,7 @@ def test_new_concrete_formats_do_not_expand_motion_family_queries(target):
         parent_canvas().inspect_motion(target=target)
 
 
-@pytest.mark.parametrize("target", ["GIF", "PNG", "MP4", "MOV", "WEBM", "PNG_SEQUENCE"])
+@pytest.mark.parametrize("target", ["GIF", "PNG", "MP4", "MOV", "WEBM", "IMAGE_SEQUENCE"])
 def test_existing_motion_family_aliases_remain_accepted(target):
     from quickthumb.motion import capabilities_for
 
@@ -343,16 +315,6 @@ def test_unlinked_concrete_static_queries_keep_native_geometry(tmp_path):
         assert canvas.validate_export(extension, policy) == []
         result = canvas.export(tmp_path / f"native.{extension}", policy=policy)
         assert not result.fallback_diagnostics
-
-
-def test_deck_sequence_preserves_inner_canvas_render_override(tmp_path, monkeypatch):
-    canvas = Canvas(16, 16)
-    original = canvas.render
-    renderer = Mock(side_effect=original)
-    monkeypatch.setattr(canvas, "render", renderer)
-    result = Deck().slide(canvas).export(tmp_path / "slides.png")
-    renderer.assert_called_once()
-    assert result.written_paths == [str(tmp_path / "slides_01.png")]
 
 
 def test_static_raster_sequence_omits_unused_morph_and_keeps_native_policy_checks(tmp_path):

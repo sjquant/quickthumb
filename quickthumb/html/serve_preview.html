@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ source_name }} · quickthumb</title>
+  <style>{{ css|safe }}</style>
+</head>
+<body data-mode="{{ config.mode }}">
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="Quickthumb presentation"><span class="qt-ui-logo" aria-hidden="true"></span><span class="brand-name">Quickthumb</span></a>
+    <span class="document-name" title="{{ source_name }}">{{ source_name }}</span>
+    <span class="live-state" id="qt-live" role="status"><i aria-hidden="true"></i><span>Live</span></span>
+    <nav class="mode-switch" aria-label="Preview mode">
+      <button type="button" id="qt-mode-presentation" aria-pressed="{{ 'true' if config.mode == 'presentation' else 'false' }}">Presentation</button>
+      <button type="button" id="qt-mode-inspect" aria-pressed="{{ 'true' if config.mode == 'inspect' else 'false' }}">Inspect motion</button>
+    </nav>
+    <div class="header-actions"><a class="button" href="/?presenter" target="_blank" rel="noopener">Presenter <span aria-hidden="true">↗</span></a><button class="button primary" id="qt-present" type="button"><span aria-hidden="true">▷</span> Present</button></div>
+  </header>
+  <main class="workspace">
+    <aside class="slide-rail" aria-label="Slides"><div class="rail-title">Slides <span>{{ config.slides|length }}</span></div><div class="thumbnails" id="qt-thumbnails"></div></aside>
+    <section class="canvas-column" aria-label="Slide preview">
+      <div class="viewport" id="qt-viewport">
+        <div class="slide-stage" id="qt-stage" aria-busy="false">
+          <iframe id="qt-presentation" title="HTML presentation" allowfullscreen></iframe>
+          <img id="qt-frame" alt="Export-renderer timeline frame" hidden>
+        </div>
+        <p class="viewer-status" id="qt-status" role="status" aria-live="polite">Loading presentation…</p>
+      </div>
+      <nav class="slide-navigation" aria-label="Slide navigation">
+        <button class="button" id="qt-previous" type="button"><span aria-hidden="true">←</span> Previous</button>
+        <div class="slide-position"><span id="qt-count"></span><button id="qt-motion-hint" type="button" hidden>HTML motion differs · Inspect</button></div>
+        <button class="button primary" id="qt-next" type="button">Next <span aria-hidden="true">→</span></button>
+      </nav>
+      <section class="inspector" id="qt-inspector" aria-label="Motion inspection"{% if config.mode != 'inspect' %} hidden{% endif %}>
+        <div class="motion-notice" id="qt-motion-notice" hidden><span id="qt-fallback-summary"></span><details><summary>Details</summary><ul id="qt-fallback-notes"></ul></details></div>
+        <div class="inspector-heading"><h1>Motion inspection</h1><span>Rendered frame · export renderer</span></div>
+        <fieldset id="qt-controls" disabled>
+          <div class="time-controls"><label class="time-input"><span class="sr-only">Time (seconds)</span><input id="qt-time" type="number" min="0" step="0.001" value="0"><span>s / <output id="qt-duration">—</output></span></label><label class="resolution">Resolution <select id="qt-resolution"><option value="proxy">Proxy · 640px</option><option value="full">Full · native pixels</option></select></label></div>
+          <input id="qt-seek" type="range" min="0" max="0" step="0.001" value="0" aria-label="Export timeline time in seconds">
+          <div class="timeline-row"><span>Slides</span><div id="qt-segments" class="segments" aria-label="Slide and transition segments"></div></div>
+          <div id="qt-marks" class="marks" aria-label="Selected slide boundaries"></div>
+        </fieldset>
+        <div class="inspection-footnote"><span id="qt-displayed">No frame displayed yet</span><span>No playback, audio or editing · independent of presenter</span></div>
+        <details class="sampling-notes"><summary>Sampling details</summary><ul id="qt-notes"></ul></details>
+      </section>
+      <footer class="notes-link"><a href="/?presenter" target="_blank" rel="noopener">Speaker notes in Presenter <span aria-hidden="true">↗</span></a></footer>
+    </section>
+  </main>
+  <script id="qt-config" type="application/json">{{ config|tojson }}</script>
+  <script>{{ runtime|safe }}</script>
+</body>
+</html>
