@@ -1690,6 +1690,8 @@ def export_deck(
     notes: list[str | None] | None = None,
     reduced_motion: bool = False,
     parent_static: bool = False,
+    *,
+    diagnostics: list[ExportDiagnostic] | None = None,
 ) -> str:
     stages: list[Stage] = []
     font_faces: dict[str, tuple[str, str, str]] = {}
@@ -1704,6 +1706,10 @@ def export_deck(
             parent_static=parent_static,
         )
         stages.append(exporter.render_stage())
+        if diagnostics is not None:
+            diagnostics.extend(
+                item.model_copy(update={"slide_index": index}) for item in exporter.diagnostics
+            )
         font_faces.update(exporter._font_faces)
         svg_filters.update(exporter._svg_filters)
     return _document(

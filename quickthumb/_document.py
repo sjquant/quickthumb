@@ -541,6 +541,7 @@ def _fallback_diagnostics(capability_report: list) -> list[FallbackDiagnostic]:
         FallbackDiagnostic(
             target=item.target,
             layer_id=item.layer_id,
+            slide_index=item.slide_index,
             layer_ids=item.layer_ids,
             reason=item.message,
             native_attempt=item.native_attempt,
