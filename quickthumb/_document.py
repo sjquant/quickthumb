@@ -31,6 +31,7 @@ from quickthumb.models import (
     GifOptions,
     MotionBlur,
     PixelMetrics,
+    PluginLayer,
     PrefetchResult,
     TimingMetrics,
     ValidationReport,
@@ -42,6 +43,7 @@ if TYPE_CHECKING:
     from quickthumb.canvas import Canvas
     from quickthumb.deck import Deck
     from quickthumb.models import CanvasInspection, DeckInspection
+    from quickthumb.models.document import _SvgFidelityMetrics
     from quickthumb.plugins import PluginRegistry
     from quickthumb.transitions import Transition
 
@@ -66,6 +68,7 @@ class _ExportReceipt:
     paths: list[str]
     diagnostics: list[ExportDiagnostic]
     animation: _AnimationFacts | None = None
+    fidelity: _SvgFidelityMetrics | None = None
 
 
 @dataclass(frozen=True)
@@ -219,11 +222,24 @@ def build_export_result(
     output_format = resolved.output_format
     target = resolved.target
     written_paths = receipt.paths
+    capability_report = list(receipt.diagnostics)
+    if receipt.fidelity is not None:
+        comparison = receipt.fidelity
+        capability_report.append(
+            ExportDiagnostic(
+                feature="fidelity",
+                target=output_format,
+                support="partial" if comparison.verdict == "out_of_policy" else "full",
+                message=(
+                    f"CairoSVG {comparison.renderer_version} authored-static comparison: "
+                    f"{comparison.verdict}; the exported SVG representation is retained"
+                ),
+            )
+        )
     facts = receipt.animation
-    capability_report = [
-        *receipt.diagnostics,
-        *_motion_blur_report(facts.motion_blur if facts else None, target),
-    ]
+    capability_report.extend(
+        _motion_blur_report(facts.motion_blur if facts else None, target)
+    )
     timing = (
         TimingMetrics(
             duration=facts.duration,
@@ -244,6 +260,8 @@ def build_export_result(
     )
     if output_format == "gif" and written_paths:
         timing = timing.model_copy(update={"frame_count": pixel_frame_count})
+    from quickthumb._sampling import _render_environment
+
     return ExportResult(
         kind=_contract_kind(source),
         target=target,
@@ -255,9 +273,11 @@ def build_export_result(
             width=dimensions[0],
             height=dimensions[1],
             frame_count=pixel_frame_count,
+            fidelity=receipt.fidelity,
         ),
         timing_metrics=timing,
         asset_manifest=asset_manifest,
+        environment=_render_environment(source),
     )
 
 
@@ -283,13 +303,24 @@ def preflight_export(
     policy: ExportPolicy | None = None,
 ) -> list[ExportDiagnostic]:
     """Validate target capabilities before an exporter writes any files."""
-    return _capability_report(
+    from quickthumb._sampling import _begin_font_observation
+
+    _begin_font_observation(source)
+    diagnostics = _capability_report(
         source,
         resolved.target,
         policy,
         output_format=resolved.output_format,
         uses_authored_transitions=resolved.uses_authored_transitions,
     )
+    for index, canvas in enumerate(_contract_canvases(source)):
+        try:
+            canvas._resolve_plugin_assets()
+        except QuickthumbError as error:
+            if _contract_kind(source) == "deck":
+                error.at(f"/slides/{index}")
+            raise
+    return diagnostics
 
 
 def validation_report(source: Document, *, kind: DocumentKind) -> ValidationReport:
@@ -624,6 +655,9 @@ def _asset_manifest(
 
 def _layer_asset_values(layer: object):
     layer_type = getattr(layer, "type", None)
+    if isinstance(layer, PluginLayer):
+        for source in layer.assets.values():
+            yield "plugin", source
     for field in ("path", "source"):
         value = getattr(layer, field, None)
         if isinstance(value, str):
