@@ -2,11 +2,12 @@
 
 import json
 from io import BytesIO
+from typing import cast
 from zipfile import ZipFile
 
 import jsonschema
 import pytest
-from PIL import Image
+from PIL import Image, ImageColor
 from quickthumb import (
     AnimationSpec,
     Canvas,
@@ -21,7 +22,6 @@ from quickthumb import (
     ScaleTrack,
     StaggerSpec,
     TimingSpec,
-    ValidationError,
     canvas_json_schema,
 )
 
@@ -297,7 +297,7 @@ def test_selector_document_fallback_is_authored_static(format):
 
 
 def test_unsupported_selector_paths_cannot_write_approximate_output(tmp_path):
-    """Unsupported target layouts and color selection fail before approximate output is written."""
+    """Unsupported target layouts fail before approximate output is written."""
     # Given: an existing output and rotated text outside exact target ownership
     output = tmp_path / "protected.gif"
     output.write_bytes(b"original")
@@ -312,7 +312,112 @@ def test_unsupported_selector_paths_cannot_write_approximate_output(tmp_path):
     with pytest.raises(RenderingError, match="plain separable words/lines"):
         scene.export(output, animation=GifOptions(fps=10, hold=0.1))
     assert output.read_bytes() == b"original"
-    with pytest.raises(ValidationError, match="color is not supported"):
-        AnimationSpec.timeline(
-            ColorTrack(keyframes=[KeyframeSpec(time=0, value="#FF0000")]), selector=RangeSelector()
+
+
+@pytest.mark.parametrize("target", ["words", "lines"])
+@pytest.mark.parametrize(
+    "authored,color,selector,opacity,colors",
+    [
+        (None, "#00000000", RangeSelector(shape="ramp"), 1, ["#000000BF", "#00000040"]),
+        ("#FF000040", "#FF0000C0", RangeSelector(shape="ramp"), 0.5, ["#FF000030", "#FF000050"]),
+        ("#FF000040", "#FF0000C0", RangeSelector(end=50), 1, ["#FF0000C0", "#FF000040"]),
+        ("#FF000000", "#FF0000FF", RangeSelector(shape="ramp"), 1, ["#FF000040", "#FF0000BF"]),
+        ("#FF0000", "#0000FF", RangeSelector(shape="ramp"), 1, ["#C6496DFF", "#5147D2FF"]),
+        ("#FF000040", "#0000FFC0", RangeSelector(shape="ramp"), 1, ["#8C53A260", "#2930EDA0"]),
+    ],
+)
+def test_color_selectors_preserve_authored_paint_and_alpha(
+    target, authored, color, selector, opacity, colors
+):
+    """Selected colors preserve authored/default paint through JSON, sampling and GIF."""
+    # Given: perceptual hue/alpha blends, including default and invisible source paint
+    selector = selector.model_copy(update={"target": target})
+    scene = Canvas(320, 180).text(
+        "ONE TWO" if target == "words" else "ONE\nTWO",
+        font=FONT,
+        size=40,
+        color=authored,
+        opacity=opacity,
+        position=(10, 10),
+        animation=AnimationSpec.timeline(
+            ColorTrack(keyframes=[KeyframeSpec(time=0, value=color)]),
+            timing=TimingSpec(start=0.2, duration=0.2),
+            selector=selector,
+        ),
+    )
+    restored = Canvas.from_json(scene.to_json())
+    boxes = (
+        [(0, 0, 90, 180), (90, 0, 320, 180)]
+        if target == "words"
+        else [
+            (0, 0, 320, 50),
+            (0, 50, 320, 180),
+        ]
+    )
+
+    # When: a frame is sampled before/after the event and decoded from the default GIF palette
+    before, after = restored.render_frame(0.1), restored.render_frame(0.2)
+    with Image.open(BytesIO(restored.to_gif(fps=10, hold=0.1, matte="#FFFFFF"))) as image:
+        image.seek(int(getattr(image, "n_frames", 1)) - 1)
+        decoded = image.convert("RGB")
+
+    # Then: authored alpha is not multiplied twice and zero-weight targets retain their own paint
+    source_alpha = 255 if authored is None or len(authored) == 7 else int(authored[-2:], 16)
+    expected = [
+        cast(tuple[int, int, int, int], ImageColor.getcolor(value, "RGBA")) for value in colors
+    ]
+    alphas = [value[3] for value in expected]
+    for bounds, rgba in zip(boxes, expected, strict=True):
+        assert before.crop(bounds).getchannel("A").getextrema()[1] == round(source_alpha * opacity)
+        crop = after.crop(bounds)
+        core = max(
+            cast(tuple[tuple[int, int, int, int], ...], crop.get_flattened_data()),
+            key=lambda pixel: pixel[3],
         )
+        assert core == rgba
+        matte_rgb = tuple(round(channel * rgba[3] / 255 + 255 - rgba[3]) for channel in rgba[:3])
+        assert any(
+            max(abs(actual - wanted) for actual, wanted in zip(pixel, matte_rgb, strict=True)) <= 2
+            for pixel in cast(
+                tuple[tuple[int, int, int], ...], decoded.crop(bounds).get_flattened_data()
+            )
+        )
+    matte = Image.alpha_composite(Image.new("RGBA", after.size, "#FFFFFF"), after)
+    assert (
+        restored.sample([0.2], matte="#FFFFFF").frames[0].to_image().convert("RGBA").tobytes()
+        == matte.tobytes()
+    )
+    layer = restored.inspect_motion(fps=10).slides[0].layers[0]
+    index = layer.sample_times.index(0.2)
+    sampled_colors = [item.samples[index]["color"] for item in layer.targets]
+    assert [
+        round((int(value[-2:], 16) if len(value) == 9 else 255) * opacity)
+        for value in sampled_colors
+    ] == alphas
+
+
+def test_color_selectors_compose_from_the_incoming_color():
+    """Later weighted color selectors blend from earlier target paint in authored order."""
+    # Given: first-word recoloring followed by a ramp over both words
+    first = AnimationSpec.timeline(
+        ColorTrack(keyframes=[KeyframeSpec(time=0, value="#FF000040")]),
+        timing=TimingSpec(start=0),
+        selector=RangeSelector(end=50),
+    )
+    second = AnimationSpec.timeline(
+        ColorTrack(keyframes=[KeyframeSpec(time=0, value="#FF0000FF")]),
+        timing=TimingSpec(start=0),
+        selector=RangeSelector(shape="ramp"),
+    )
+    scene = Canvas(320, 180).text(
+        "ONE TWO",
+        font=FONT,
+        size=40,
+        color="#FF0000C0",
+        position=(10, 10),
+        animation=[first, second],
+    )
+    # When/Then: each word's resulting alpha reflects its incoming, not original, paint
+    frame = scene.render_frame(0)
+    assert frame.crop((0, 0, 90, 180)).getchannel("A").getextrema()[1] == 112
+    assert frame.crop((90, 0, 320, 180)).getchannel("A").getextrema()[1] == 239

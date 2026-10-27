@@ -2148,10 +2148,10 @@ class Canvas:
         )
         from quickthumb._text_targets import text_target_fragments
         from quickthumb.motion import (
-            LayerState,
             _canonical_target_timelines,
             _geometry_in_motion,
             _sample_target_timelines,
+            _target_base_state,
             _text_selector,
         )
 
@@ -2181,9 +2181,7 @@ class Canvas:
             fragments = split_into_bands(surface, count)
         if fragments is None:
             return False
-        states = _sample_target_timelines(
-            timelines, time, LayerState(anchor=getattr(layer, "anchor", (0.5, 0.5)))
-        )
+        states = _sample_target_timelines(timelines, time, _target_base_state(layer))
         if render_color is not None:
             fragments = color_motion_targets(fragments, states, render_color)
         composite_motion_targets(

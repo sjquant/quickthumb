@@ -122,6 +122,7 @@ from quickthumb.motion import (
     _has_transform_extensions,
     _sample_target_timelines,
     _supports_color_motion,
+    _target_base_state,
     compile_timeline,
     easing_value,
     resolve_staggered_timelines,
@@ -1665,7 +1666,7 @@ class _SlideAnimator:
                 target_states = _sample_target_timelines(
                     unit.target_timelines,
                     time,
-                    LayerState(anchor=getattr(unit.layers[0], "anchor", (0.5, 0.5))),
+                    _target_base_state(unit.layers[0]),
                 )
                 targets = unit.target_images
                 if unit.color_motion:
@@ -2563,9 +2564,7 @@ def _canonical_state(unit: _Unit, time: float):
     if timeline is None:
         return _SHOWN
     timelines = unit.target_timelines or (timeline,)
-    base = LayerState(
-        anchor=getattr(unit.layers[0], "anchor", (0.5, 0.5)) if unit.layers else (0.5, 0.5)
-    )
+    base = _target_base_state(unit.layers[0]) if unit.layers else LayerState()
     states = [timeline.sample(time, base) for timeline in timelines]
     event = timeline.events[0] if timeline.events else None
     alpha_scale = 1.0

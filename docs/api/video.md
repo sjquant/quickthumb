@@ -820,8 +820,8 @@ for timing, color-profile limits and exclusive fresh-directory publication.
 ## Static word and line selectors
 
 `AnimationSpec.timeline(..., selector=RangeSelector(...))` weights position,
-rotation, scale and opacity tracks for top-level plain text. Import
-`RangeSelector` from `quickthumb`; color, presets, motion paths, characters,
+rotation, scale, opacity and color tracks for top-level plain text. Import
+`RangeSelector` from `quickthumb`; presets, motion paths, characters,
 parent-linked text and mixed target bases are unsupported in this first layer.
 Each composed spec on a selected layer must declare the same words/lines basis.
 
@@ -839,9 +839,16 @@ weight is zero. Within the interval, let `u` be the center's fractional position
 | `smooth` | `u*u*(3-2*u)` |
 
 Keyframes and easing are sampled first. Each property then blends from its
-incoming target state toward the requested value by that weight. Specs compose
-in document order; weight zero leaves the text unchanged. Selectors introduce no
-implicit hiding before a target's event. Compatible stagger delays its clock;
+incoming target state toward the requested value by that weight. For color,
+the incoming paint starts at the authored solid text color (default black when
+`color=None`). Blending uses the existing premultiplied Oklab interpolation and
+linear alpha. Zero weight and pre-start frames retain authored paint, including
+its alpha; full weight uses ordinary `ColorTrack` replacement. Specs compose in
+document order, blending from earlier results rather than restarting from the
+authored color. Transparent colors retain the full target layout. Gradients,
+image fills and rich text remain unsupported; this does not create per-glyph
+ownership. Selectors introduce no implicit hiding before a target's event.
+Compatible stagger delays its clock;
 reverse stagger changes execution rank without reversing selector percentages.
 Blank lines retain their semantic index. Wrapped targets use the actual layout.
 
