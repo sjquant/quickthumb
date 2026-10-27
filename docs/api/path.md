@@ -1,5 +1,5 @@
 ---
-description: Draw filled SVG lines and Bézier curves with a fixed local viewport and explicit document-format fallbacks.
+description: Draw filled SVG paths with a fixed local viewport and explicit document-format fallbacks.
 ---
 
 # Path
@@ -20,7 +20,7 @@ canvas.export("path.png")
 
 | Parameter | Meaning |
 | --- | --- |
-| `d` | SVG `M/L/H/V/C/S/Q/T/Z` commands, absolute or relative. Repeated coordinate sets and implicit closing for fills are supported. Elliptical `A/a` arcs are not accepted yet. |
+| `d` | SVG `M/L/H/V/C/S/Q/T/A/Z` commands, absolute or relative. Repeated coordinate sets, compact arc flags and implicit closing for fills are supported. |
 | `position` | Required frame position in canvas pixels or percentages. |
 | `width`, `height` | Required positive frame dimensions in pixels. |
 | `view_box` | Optional `(x, y, width, height)` local coordinate window; defaults to `(0, 0, width, height)`. Its width and height must be positive. |
@@ -40,6 +40,12 @@ rules. Curves are adaptively flattened after mapping to the frame, with a 1/8-pi
 chord tolerance before supersampling. Excessive plans raise `RenderingError`
 (`path_subdivision_limit`) instead of silently reducing precision; simplify the
 path or reduce its mapped scale.
+
+`A/a` draw rotated elliptical arcs with SVG radius correction. Radii use their
+absolute values; a zero radius draws a line, and identical endpoints omit the
+arc. Large-arc and sweep flags must each be `0` or `1`. Arc subdivision uses the
+same mapped chord tolerance and work limits. Unrepresentable numerical geometry
+raises `RenderingError` (`path_arc_range_limit`) rather than producing invalid pixels.
 
 Strokes, gradients, layer animation, parent links, grouping and composition controls are
 not accepted yet. JSON uses `type="path"` and round-trips through `PathLayer`.
