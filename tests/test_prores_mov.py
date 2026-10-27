@@ -142,7 +142,7 @@ def test_all_public_outputs_decode_alpha_and_settled_final_frame(tmp_path, kind,
         data = (
             canvas.to_mov(fps=10, hold=0.3, transparent=True)
             if kind == "canvas"
-            else cast(Deck, source).to_mov(fps=10, slide_duration=0.3, transparent=True)
+            else cast(Deck, source).to_mov(fps=10, hold=0.3, transparent=True)
         )
         path.write_bytes(data)
     else:
@@ -171,7 +171,7 @@ def test_public_quality_and_spawn_preserve_transparent_letterboxing(tmp_path, qu
     path = tmp_path / "workers.mov"
     deck.render(
         str(path),
-        animation=VideoOptions(transparent=True, fps=10, quality=quality, workers=workers),
+        animation=VideoOptions(transparent=True, fps=10, render_quality=quality, workers=workers),
     )
     frames = decode(path, (33, 25))
     expected = video._conform(
@@ -309,7 +309,7 @@ def test_narration_inferred_duration_offsets_and_music_bed(tmp_path):
     canvas = Canvas(17, 3).background(color="#C0502080")
     deck = Deck(transition="cut").slide(canvas, duration=0.3).slide(canvas, audio=voice)
     path = tmp_path / "narrated.mov"
-    path.write_bytes(deck.to_mov(fps=10, slide_duration=0.1, transparent=True, soundtrack=music))
+    path.write_bytes(deck.to_mov(fps=10, hold=0.1, transparent=True, soundtrack=music))
     assert len(decode(path, (17, 3))) == 6
     samples = audio(path)
     assert 500 < max(abs(s) for s in samples[400:1600]) < 3000

@@ -149,7 +149,7 @@ if __name__ == "__main__":
     scene = build_scene()
     scene.render(
         str(output / "parent_group_composition.gif"),
-        animation=GifOptions(fps=24, quality="high"),
+        animation=GifOptions(fps=24, render_quality="high"),
     )
     scene.render_frame(0.75).save(output / "parent_group_composition.png")
     scene.render(str(output / "parent_group_composition.html"))

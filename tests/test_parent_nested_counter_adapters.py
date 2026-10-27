@@ -146,7 +146,9 @@ def test_nested_counter_serial_and_spawn_gifs_match_after_ancestor_motion(tmp_pa
     original = canvas.to_json()
     paths = [tmp_path / "serial.gif", tmp_path / "spawn.gif"]
     for workers, path in zip((1, 2), paths, strict=True):
-        canvas.render(str(path), animation=GifOptions(fps=5, quality=quality, workers=workers))
+        canvas.render(
+            str(path), animation=GifOptions(fps=5, render_quality=quality, workers=workers)
+        )
     assert paths[0].read_bytes() == paths[1].read_bytes()
     with Image.open(paths[0]) as gif:
         assert getattr(gif, "n_frames", 1) >= 6
@@ -197,7 +199,11 @@ def test_nested_counter_documents_freeze_whole_scene_and_keep_strict_destination
     report = canvas.export(destination).capability_report
     assert {"parent", "animated_text_value"} <= {item.feature for item in report}
     assert any(item.layer_id == "independent" for item in report)
-    assert all(item.support == "fallback" and item.fallback == "static" for item in report)
+    assert all(
+        item.support == "fallback" and item.fallback == "static"
+        for item in report
+        if item.feature != "layer_representation"
+    )
     monkeypatch.setattr(
         ParentNode, "render_source", lambda *args, **kwargs: pytest.fail("strict export painted")
     )

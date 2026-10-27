@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, Any, Literal, cast, get_args
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from pydantic import ValidationError as PydanticValidationError
 
-from quickthumb._base import parse_coordinate
+from quickthumb._base import DEFAULT_TEXT_COLOR, parse_coordinate
 from quickthumb._color_motion import interpolate_color
 from quickthumb._measurements import layer_id_for
 from quickthumb._motion_path import sample_segment
@@ -42,14 +42,19 @@ from quickthumb.models import (
     MotionTargetInspection,
     MotionTrackInspection,
     PathLayer,
+    PluginLayer,
+    RangeSelector,
     ReducedMotionInspection,
     ShapeLayer,
+    SpringEasing,
     TextLayer,
     TimingSpec,
     TrackSpec,
     VideoLayer,
+    Wiggle,
     validate_hex_color,
 )
+from quickthumb.models.motion import _validate_wiggle_values
 from quickthumb.transitions import Fade, Transition, coerce_transition
 
 if TYPE_CHECKING:
@@ -203,7 +208,7 @@ def resolve_staggered_timelines(
     timeline: Timeline,
     target_count: int,
 ) -> tuple[Timeline, ...]:
-    """Expand a normalized timeline into one timeline per semantic target.
+    """Expand target clocks and semantic selector indices on the shared timeline.
 
     Stagger metadata remains untouched in the serialized source timeline.  The
     returned timelines are runtime views with the target offset folded into the
@@ -216,6 +221,9 @@ def resolve_staggered_timelines(
         raise ValidationError("target count must be a non-negative integer")
     if target_count == 0:
         return ()
+    reverse = any(
+        event.stagger and event.stagger.get("order") == "reverse" for event in timeline.events
+    )
     expanded: list[Timeline] = []
     for target_index in range(target_count):
         events = tuple(
@@ -228,6 +236,17 @@ def resolve_staggered_timelines(
                         else 0.0
                     ),
                     "stagger": None if event.stagger else event.stagger,
+                    "options": event.options
+                    | (
+                        {
+                            "_selector_index": target_count - 1 - target_index
+                            if reverse
+                            else target_index,
+                            "_selector_count": target_count,
+                        }
+                        if event.selector
+                        else {}
+                    ),
                 }
             )
             for event in timeline.events
@@ -236,38 +255,123 @@ def resolve_staggered_timelines(
     return tuple(expanded)
 
 
-# A named easing, a `CubicBezierEasing`, or its JSON mapping form. Names are typed
+def _range_weight(
+    selector: RangeSelector, index: int, count: int, local: float = 0, easing=None
+) -> float:
+    values = {}
+    for name in ("start", "end", "offset"):
+        value = getattr(selector, name)
+        if isinstance(value, list):
+            value = _sample_keyframes(value, local, easing)
+        values[name] = float(cast(float, value))
+    start = min(100, max(0, values["start"])) + values["offset"]
+    end = min(100, max(0, values["end"])) + values["offset"]
+    point = 100 * (index + 0.5) / count
+    if end <= start or not start <= point < end:
+        return 0.0
+    progress = (point - start) / (end - start)
+    return {
+        "square": 1.0,
+        "ramp": progress,
+        "triangle": 1 - abs(2 * progress - 1),
+        "smooth": progress * progress * (3 - 2 * progress),
+    }[selector.shape]
+
+
+def _selector_weight(event: TimelineEvent, time: float) -> float:
+    if event.selector is None or "_selector_index" not in event.options:
+        return 1.0
+    if time < event.active_start:
+        return 0.0
+    return _range_weight(
+        event.selector,
+        event.options["_selector_index"],
+        event.options["_selector_count"],
+        min(event.duration, time - event.active_start),
+        event.options.get("easing"),
+    )
+
+
+def _selector_in_motion(selector: RangeSelector | None, local: float) -> bool:
+    if selector is None or selector.shape == "square":
+        return False
+    return any(
+        left.time <= local < right.time and not left.hold and left.value != right.value
+        for name in ("start", "end", "offset")
+        if isinstance(keys := getattr(selector, name), list)
+        for left, right in zip(keys, keys[1:], strict=False)
+    )
+
+
+def _text_selector(layer: object) -> RangeSelector | None:
+    animation = getattr(layer, "animation", None)
+    specs = animation if isinstance(animation, list) else [animation]
+    selectors = [getattr(spec, "selector", None) for spec in specs]
+    selector = next((item for item in selectors if item is not None), None)
+    if selector is not None and (
+        not isinstance(layer, TextLayer)
+        or any(item is None or item.target != selector.target for item in selectors)
+        or len(
+            {
+                spec.stagger.order
+                for spec in specs
+                if isinstance(spec, AnimationSpec) and spec.stagger
+            }
+        )
+        > 1
+    ):
+        raise RenderingError(
+            "Range selectors require text with one consistent target and stagger order"
+        )
+    return selector
+
+
+def _validate_text_selectors(canvas: Canvas) -> None:
+    roots = {id(layer) for layer in canvas.layers}
+    for _, layer in _iter_export_layers(canvas):
+        if _text_selector(layer) is not None and (
+            id(layer) not in roots or getattr(layer, "parent", None) is not None
+        ):
+            raise RenderingError("Range selectors require top-level text without parent links")
+
+
+# A named easing, a structured curve, or its JSON mapping form. Names are typed
 # `str` rather than `MotionEasingName` so unknown names reach the validator.
-EasingValue = str | CubicBezierEasing | Mapping[str, object]
-BezierPoints = tuple[float, float, float, float]
+EasingValue = str | CubicBezierEasing | SpringEasing | Mapping[str, object]
 
 
-def _bezier_points(easing: CubicBezierEasing | Mapping[str, object]) -> BezierPoints:
-    """Return validated control points for a custom cubic-bezier easing."""
-    if isinstance(easing, CubicBezierEasing):
-        return easing.points
+def _custom_easing(
+    easing: CubicBezierEasing | SpringEasing | Mapping[str, object],
+) -> CubicBezierEasing | SpringEasing:
+    """Validate the structured easing used by a compiled or public timeline."""
+    if isinstance(easing, (CubicBezierEasing, SpringEasing)):
+        return easing
     try:
-        return CubicBezierEasing.model_validate(easing).points
+        model = SpringEasing if easing.get("type") == "spring" else CubicBezierEasing
+        return model.model_validate(easing)
     except PydanticValidationError as error:
-        raise ValidationError(f"invalid cubic_bezier easing: {error.errors()[0]['msg']}") from error
+        raise ValidationError(f"invalid easing: {error.errors()[0]['msg']}") from error
 
 
 def _dump_easing(easing: MotionEasing | None) -> str | dict[str, object] | None:
     """Return an easing as a JSON-stable name or mapping."""
-    return easing.model_dump(mode="json") if isinstance(easing, CubicBezierEasing) else easing
+    return (
+        easing.model_dump(mode="json")
+        if isinstance(easing, (CubicBezierEasing, SpringEasing))
+        else easing
+    )
 
 
 def validate_easing_name(name: EasingValue | None) -> str:
-    """Validate a supported deterministic easing name (or custom bezier).
+    """Validate a deterministic easing name or structured curve.
 
-    Named easings are returned as-is; a custom `cubic_bezier` is validated and
-    reported as its type name. Use `easing_value` to evaluate either form.
+    Named easings are returned as-is; structured curves report their type name.
+    Use `easing_value` to evaluate either form.
     """
     if name is None:
         return "linear"
     if not isinstance(name, str):
-        _bezier_points(name)
-        return "cubic_bezier"
+        return _custom_easing(name).type
     if name not in EASING_NAMES:
         supported = ", ".join(sorted(EASING_NAMES))
         raise ValidationError(f"unknown easing {name!r}; expected one of: {supported}")
@@ -282,7 +386,12 @@ def easing_value(name: EasingValue | None, progress: float) -> float:
     if name is not None and not isinstance(name, str):
         # Validate once here rather than via `validate_easing_name` as well: this
         # runs for every sampled frame of every track.
-        return _cubic_bezier(t, *_bezier_points(name))
+        curve = _custom_easing(name)
+        return (
+            _spring_response(curve, t)
+            if isinstance(curve, SpringEasing)
+            else _cubic_bezier(t, *curve.points)
+        )
     easing = validate_easing_name(name)
     if easing == "linear":
         return t
@@ -304,6 +413,25 @@ def easing_value(name: EasingValue | None, progress: float) -> float:
     if easing.startswith("ease_in"):
         return t**power
     return 1.0 - (1.0 - t) ** power
+
+
+def _spring_response(curve: SpringEasing, time: float) -> float:
+    """Evaluate under-, critically- or over-damped unit step motion directly."""
+    if time in (0.0, 1.0):
+        return time
+    frequency = math.sqrt(curve.stiffness / curve.mass)
+    decay = curve.damping / curve.mass / 2
+    if math.isclose(decay, frequency, rel_tol=1e-8):
+        return 1 - (1 + decay * time) * math.exp(-decay * time)
+    if decay < frequency:
+        damped = math.sqrt(frequency - decay) * math.sqrt(frequency + decay)
+        return 1 - math.exp(-decay * time) * (
+            math.cos(damped * time) + decay / damped * math.sin(damped * time)
+        )
+    difference = math.sqrt(decay - frequency) * math.sqrt(decay + frequency)
+    slow = -(curve.stiffness / curve.mass) / (decay + difference)
+    fast = -decay - difference
+    return 1 - (fast * math.exp(slow * time) - slow * math.exp(fast * time)) / (fast - slow)
 
 
 def _ease_in_out(t: float, power: int) -> float:
@@ -381,6 +509,7 @@ class NormalizedTrack(BaseModel):
     keyframes: tuple[NormalizedKeyframe, ...]
     blend: TrackBlend = "replace"
     auto_orient: bool = Field(default=False, exclude_if=lambda value: not value)
+    wiggle: Wiggle | None = Field(default=None, exclude_if=lambda value: value is None)
 
     @model_validator(mode="after")
     def validate_keyframes(self) -> NormalizedTrack:
@@ -403,6 +532,9 @@ class NormalizedTrack(BaseModel):
                     )
                 ):
                     raise ValidationError("tangents require finite position control points")
+        if self.wiggle is not None and self.property == "color":
+            raise ValidationError("wiggle requires a numeric or vector track")
+        _validate_wiggle_values((key.value for key in self.keyframes), self.wiggle)
         if self.auto_orient and self.property != "position":
             raise ValidationError("auto_orient is only supported for position tracks")
         if self.blend == "add" and self.property not in {"position", "image_pan"}:
@@ -472,6 +604,7 @@ class TimelineEvent(BaseModel):
     options: dict[str, Any] = Field(default_factory=dict)
     tracks: tuple[NormalizedTrack, ...] = ()
     stagger: dict[str, Any] | None = None
+    selector: RangeSelector | None = None
 
     @model_validator(mode="after")
     def validate_options(self) -> TimelineEvent:
@@ -829,9 +962,14 @@ class Timeline(BaseModel):
         if base is not None and not isinstance(base, LayerState):
             raise ValidationError("sample base must be a LayerState")
         state = base if base is not None else LayerState()
+        authored_rotation = state.rotation
+        state = state.with_values(rotation=0.0)
+        heading = 0.0
         for event in self.events:
-            state = _sample_event(event, time, state)
-        return state
+            state, event_heading = _sample_event(event, time, state)
+            if event_heading is not None:
+                heading = event_heading
+        return state.with_values(rotation=authored_rotation + state.rotation + heading)
 
     def frame_times(self, fps: float) -> tuple[float, ...]:
         """Return deterministic frame timestamps from zero through the duration."""
@@ -886,7 +1024,10 @@ def _has_transform_extensions(layer: object) -> bool:
     return bool(specs) and (
         getattr(layer, "anchor", (0.5, 0.5)) != (0.5, 0.5)
         or any(
-            track.type in {"scale_x", "scale_y"} or _is_path_track(track)
+            track.type in {"scale_x", "scale_y"}
+            or getattr(layer, "type", None) == "image"
+            and track.type == "scale"
+            or _is_path_track(track)
             for spec in specs
             for track in spec.tracks or ()
         )
@@ -954,21 +1095,41 @@ def _supports_color_motion(layer: object) -> bool:
 
 
 def _canonical_target_timelines(layer: object, target_count: int) -> tuple[Timeline, ...] | None:
-    if target_count < 2:
-        return None
+    selector = _text_selector(layer)
     timeline = _canonical_timeline(layer)
-    if timeline is None or not any(event.stagger is not None for event in timeline.events):
+    characters = (
+        isinstance(layer, TextLayer)
+        and timeline is not None
+        and any(
+            event.stagger and event.stagger.get("target") == "characters"
+            for event in timeline.events
+        )
+    )
+    if target_count < (1 if selector or characters else 2):
+        return None
+    if timeline is None or not any(
+        event.stagger is not None or event.selector for event in timeline.events
+    ):
         return None
     return resolve_staggered_timelines(timeline, target_count)
+
+
+def _target_base_state(layer: object) -> LayerState:
+    """Retain effective plain-text paint as the incoming color of selected targets."""
+    color = None
+    if isinstance(layer, TextLayer) and _text_selector(layer) and _has_color_track(layer):
+        color = layer.color or "#" + "".join(f"{channel:02X}" for channel in DEFAULT_TEXT_COLOR)
+    return LayerState(anchor=getattr(layer, "anchor", (0.5, 0.5)), color=color)
 
 
 def _sample_target_timelines(
     timelines: tuple[Timeline, ...], time: float, base: LayerState | None = None
 ) -> tuple[LayerState | None, ...]:
-    """Keep staggered targets hidden until their individual start time."""
+    """Hide waiting stagger targets; selectors leave their incoming paint visible."""
     return tuple(
         None
-        if time < min((event.active_start for event in timeline.events), default=0.0)
+        if not any(event.selector for event in timeline.events)
+        and time < min((event.active_start for event in timeline.events), default=0.0)
         else timeline.sample(time, base)
         for timeline in timelines
     )
@@ -993,14 +1154,12 @@ def sample_canonical_state(layer: object, time: float | None) -> LayerState | No
 def sample_canonical_targets(
     layer: object, time: float | None, target_count: int
 ) -> tuple[LayerState | None, ...] | None:
-    """Sample staggered target clocks, leaving targets before their turn hidden."""
+    """Sample semantic target clocks and their static selector weights."""
     if time is None:
         return None
     timelines = _canonical_target_timelines(layer, target_count)
     return (
-        _sample_target_timelines(
-            timelines, float(time), LayerState(anchor=getattr(layer, "anchor", (0.5, 0.5)))
-        )
+        _sample_target_timelines(timelines, float(time), _target_base_state(layer))
         if timelines is not None
         else None
     )
@@ -1010,23 +1169,30 @@ def _geometry_in_motion(
     timeline: Timeline,
     time: float,
     *,
-    include_scale: bool = True,
     state: LayerState | None = None,
 ) -> bool:
     """Detect geometry interpolation while preserving settled and overridden tracks."""
-    properties = {"position", "rotation", "scale_x", "scale_y"}
-    if include_scale:
-        properties.add("scale")
+    properties = {"position", "rotation", "scale", "scale_x", "scale_y"}
     moving: dict[str, bool] = {}
     position_changes: dict[tuple[float, float, object], tuple[float, float]] = {}
     path_position_moving = False
+    heading_moving = False
     for event in timeline.events:
+        weight = _selector_weight(event, time)
+        if weight == 0:
+            continue
         if time < event.active_start:
             continue
         local = time - event.active_start
+        selector_moving = _selector_in_motion(event.selector, local) and local < event.duration
         for track in event.tracks:
             if track.property not in properties:
                 continue
+            wiggle_active = (
+                track.wiggle is not None
+                and track.wiggle.amplitude > 0
+                and 0 < local < event.duration
+            )
             # Match the exporter's nanosecond boundary tolerance: decimal
             # start/duration sums must not turn an endpoint into a motion frame.
             sample_time = next(
@@ -1065,15 +1231,25 @@ def _geometry_in_motion(
                             active = 0 < distance < 1
                         segment = (left, right)
                         break
+            active = active or selector_moving
             if track.property == "position":
                 if track.blend == "replace":
-                    position_changes.clear()
-                    path_position_moving = False
+                    if weight == 1:
+                        position_changes.clear()
+                        path_position_moving = False
+                        moving["position"] = False
+                    else:
+                        position_changes = {
+                            basis: (x * (1 - weight), y * (1 - weight))
+                            for basis, (x, y) in position_changes.items()
+                        }
+                path_position_moving = path_position_moving or selector_moving
+                if wiggle_active:
+                    moving["position"] = True
                 if path:
                     path_position_moving = path_position_moving or active
                     if track.auto_orient and track.has_direction:
-                        # Auto-orient writes rotation at this track's ordered slot.
-                        moving["rotation"] = active
+                        heading_moving = active
                     continue
                 if active and segment is not None:
                     left, right = segment
@@ -1086,16 +1262,19 @@ def _geometry_in_motion(
                         round(event.active_start + right.time, 9),
                         (clock_easing or "linear")
                         if isinstance(clock_easing, (str, type(None)))
-                        else _bezier_points(clock_easing),
+                        else _custom_easing(clock_easing).model_dump_json(),
                     )
                     x, y = position_changes.get(basis, (0.0, 0.0))
                     position_changes[basis] = (
-                        x + right.value[0] - left.value[0],
-                        y + right.value[1] - left.value[1],
+                        x + (right.value[0] - left.value[0]) * weight,
+                        y + (right.value[1] - left.value[1]) * weight,
                     )
                 continue
+            active = active or wiggle_active
             moving[track.property] = (
-                active if track.blend == "replace" else moving.get(track.property, False) or active
+                active
+                if track.blend == "replace" and weight == 1
+                else moving.get(track.property, False) or active
             )
     # The established renderer ignores nonpositive scale rather than reflecting
     # or collapsing the image. Reuse the caller's state instead of sampling twice.
@@ -1105,6 +1284,7 @@ def _geometry_in_motion(
     # Do not resample a held rotation just because a cancelled move is scheduled.
     return (
         path_position_moving
+        or heading_moving
         or any(moving.values())
         or any(abs(x) > 1e-12 or abs(y) > 1e-12 for x, y in position_changes.values())
     )
@@ -1165,7 +1345,17 @@ def _compile_spec(spec: AnimationSpec, composition: _CompositionCursor) -> Timel
     timing = spec.timing
     effect = spec.effect
     tracks = tuple(_normalize_track(track) for track in spec.tracks or ())
-    track_duration = max((track.duration for track in tracks), default=0.0)
+    track_duration = max(
+        max((track.duration for track in tracks), default=0.0),
+        max(
+            (
+                getattr(spec.selector, name)[-1].time
+                for name in ("start", "end", "offset")
+                if spec.selector and isinstance(getattr(spec.selector, name), list)
+            ),
+            default=0.0,
+        ),
+    )
     if timing is None:
         duration = track_duration if spec.tracks is not None else 0.5
         trigger = None
@@ -1196,6 +1386,7 @@ def _compile_spec(spec: AnimationSpec, composition: _CompositionCursor) -> Timel
         effect=effect.type if effect else None,
         options=options,
         tracks=tracks,
+        selector=spec.selector,
         stagger=(
             spec.stagger.model_dump(mode="json", exclude_none=True)
             if spec.stagger is not None
@@ -1254,10 +1445,7 @@ def _compile_preset_tracks(
     if effect == "ken_burns":
         direction = options.get("direction") or "in"
         values = (1.0, 1.1) if direction == "in" else (1.1, 1.0)
-        # Keep the public preset on the established scale property. Image
-        # layers interpret it as viewport zoom; other layers retain the
-        # existing generic scale semantics.
-        return (track("scale", values, blend="multiply"),)
+        return (track("image_zoom", values, blend="multiply"),)
     if effect == "pan":
         origin = options.get("from") or "left"
         offsets = {
@@ -1340,6 +1528,7 @@ def _normalize_track(track: TrackSpec) -> NormalizedTrack:
             for keyframe in track.keyframes
         ),
         auto_orient=getattr(track, "auto_orient", False),
+        wiggle=track.wiggle,
     )
 
 
@@ -1391,30 +1580,89 @@ def _validate_property_value(property: MotionProperty, value: MotionValue) -> No
         raise ValidationError("blur keyframes must be non-negative")
 
 
-def _sample_event(event: TimelineEvent, time: float, state: LayerState) -> LayerState:
+def _sample_event(
+    event: TimelineEvent, time: float, state: LayerState
+) -> tuple[LayerState, float | None]:
     """Apply one event to a state, preserving stable event-order precedence."""
     if time < event.active_start:
-        return state
-    progress = (
-        1.0 if event.duration == 0 else min(1.0, (time - event.active_start) / event.duration)
-    )
+        return state, None
+    heading = None
+    local_time = min(time - event.active_start, event.duration)
+    progress = 1.0 if event.duration == 0 else local_time / event.duration
     eased_progress = easing_value(event.options.get("easing"), progress)
+    weight = _selector_weight(event, time)
     for track in event.tracks:
         if track.property == "position" and _is_path_track(track):
-            value, heading = _sample_path_track(
-                track, progress * event.duration, event.options.get("easing")
+            value, path_heading = _sample_path_track(track, local_time, event.options.get("easing"))
+            if track.auto_orient and path_heading is not None:
+                heading = path_heading
+        else:
+            value = _sample_track(track, local_time, event.options.get("easing"))
+        value = _wiggle_value(track, value, local_time)
+        candidate = _compose_track_value(state, track, value)
+        before = getattr(state, track.property)
+        after = getattr(candidate, track.property)
+        state = (
+            candidate
+            if weight == 1
+            else state.with_values(
+                **{
+                    track.property: (
+                        interpolate_color(cast(str, before), cast(str, after), weight)
+                        if track.property == "color"
+                        else _interpolate(
+                            (0.0, 0.0)
+                            if before is None and track.property == "position"
+                            else before,
+                            after,
+                            weight,
+                        )
+                    )
+                }
             )
-            state = _compose_track_value(state, track, value)
-            if track.auto_orient and heading is not None:
-                state = state.with_values(rotation=heading)
-            continue
-        value = _sample_track(track, progress, event.duration, event.options.get("easing"))
-        state = _compose_track_value(state, track, value)
+        )
     if event.effect == "ken_burns" and event.options.get("focal_point") is not None:
         state = state.with_values(image_focal_point=tuple(event.options["focal_point"]))
     if event.effect is not None and event.source == "legacy":
         state = _sample_effect(event, eased_progress, state)
-    return state
+    return state, heading
+
+
+def _wiggle_value(track: NormalizedTrack, value: MotionValue, time: float) -> MotionValue:
+    """Add a bounded offset after interpolation, keeping property limits intact."""
+    wiggle = track.wiggle
+    if wiggle is None or wiggle.amplitude == 0:
+        return value
+    if isinstance(value, tuple):
+        x, y = (
+            component + _wiggle_noise(wiggle, time, axis) for axis, component in enumerate(value)
+        )
+        if track.property == "image_pan":
+            return min(1.0, max(-1.0, x)), min(1.0, max(-1.0, y))
+        return x, y
+    assert isinstance(value, (float, int))
+    result = value + _wiggle_noise(wiggle, time, 0)
+    if track.property in {"opacity", "clip_progress"}:
+        return min(1.0, max(0.0, result))
+    if track.property in {"blur", "image_zoom"}:
+        return max(1.0 if track.property == "image_zoom" else 0.0, result)
+    return result
+
+
+def _wiggle_noise(wiggle: Wiggle, time: float, axis: int) -> float:
+    """Sum four noncommensurate seeded tones, with no offset at time zero."""
+    result = 0.0
+    for index, rate in enumerate((math.sqrt(2) / 4, math.sqrt(3) / 3, math.sqrt(5) / 3, 1.0)):
+        bits = (wiggle.seed + 0x9E3779B9 * (4 * axis + index + 1)) & 0xFFFFFFFF
+        bits = ((bits ^ (bits >> 16)) * 0x85EBCA6B) & 0xFFFFFFFF
+        bits = ((bits ^ (bits >> 13)) * 0xC2B2AE35) & 0xFFFFFFFF
+        phase = ((bits ^ (bits >> 16)) / 2**32) * math.tau
+        frequency = wiggle.frequency * rate
+        cycles = time * frequency
+        if not math.isfinite(cycles):
+            cycles = (time % (1 / frequency)) * frequency
+        result += 0.5**index * (math.sin(math.tau * (cycles % 1) + phase) - math.sin(phase))
+    return wiggle.amplitude * (result / 3.75)
 
 
 def _compose_track_value(
@@ -1438,17 +1686,26 @@ def _compose_track_value(
 
 
 def _sample_track(
-    track: NormalizedTrack, progress: float, duration: float, easing: EasingValue | None = None
+    track: NormalizedTrack, local_time: float, easing: EasingValue | None = None
 ) -> MotionValue:
-    """Sample a local track at normalized event progress."""
-    local_time = progress * duration
+    """Sample a track at elapsed event time without a normalized-clock round trip."""
     if track.property == "position" and _is_path_track(track):
         return _sample_path_track(track, local_time, easing)[0]
-    if local_time <= track.keyframes[0].time:
-        return track.keyframes[0].value
-    if local_time >= track.keyframes[-1].time:
-        return track.keyframes[-1].value
-    for left, right in zip(track.keyframes, track.keyframes[1:], strict=True):
+    return _sample_keyframes(track.keyframes, local_time, easing, track.property)
+
+
+def _sample_keyframes(
+    keyframes: Sequence[NormalizedKeyframe] | Sequence[KeyframeSpec],
+    local_time: float,
+    easing: EasingValue | None = None,
+    property: MotionProperty | None = None,
+) -> MotionValue:
+    """Sample shared local keyframe clocks, including outgoing holds and easing."""
+    if local_time <= keyframes[0].time:
+        return keyframes[0].value
+    if local_time >= keyframes[-1].time:
+        return keyframes[-1].value
+    for left, right in zip(keyframes, keyframes[1:], strict=True):
         if local_time <= right.time:
             if left.hold:
                 # A hold steps to the next value only once the next keyframe is
@@ -1456,12 +1713,12 @@ def _sample_track(
                 return right.value if local_time == right.time else left.value
             ratio = (local_time - left.time) / (right.time - left.time)
             eased_ratio = easing_value(left.easing if left.easing is not None else easing, ratio)
-            if track.property in {"opacity", "clip_progress", "color", "image_pan", "image_zoom"}:
+            if property in {"opacity", "clip_progress", "color", "image_pan", "image_zoom"}:
                 eased_ratio = min(1.0, max(0.0, eased_ratio))
-            if track.property == "color":
+            if property == "color":
                 return interpolate_color(cast(str, left.value), cast(str, right.value), eased_ratio)
             return _interpolate(left.value, right.value, eased_ratio)
-    return track.keyframes[-1].value
+    return keyframes[-1].value
 
 
 def _sample_path_track(
@@ -1522,7 +1779,12 @@ def _interpolate(left: MotionValue, right: MotionValue, ratio: float) -> MotionV
     if isinstance(left, tuple) and isinstance(right, tuple):
         return tuple(a + (b - a) * ratio for a, b in zip(left, right, strict=True))
     if isinstance(left, (int, float)) and isinstance(right, (int, float)):
-        return left + (right - left) * ratio
+        difference = right - left
+        return (
+            left + difference * ratio
+            if math.isfinite(difference)
+            else left * (1 - ratio) + right * ratio
+        )
     if isinstance(left, str) and isinstance(right, str):
         return _interpolate_color(left, right, ratio)
     return left if ratio < 1.0 else right
@@ -1560,7 +1822,7 @@ def _sample_effect(event: TimelineEvent, progress: float, state: LayerState) -> 
         progress = min(1.0, max(0.0, progress))
         return state.with_values(clip_progress=state.clip_progress * progress)
     if effect == "ken_burns":
-        return state.with_values(scale=state.scale * (1.0 + 0.1 * progress))
+        return state.with_values(image_zoom=state.image_zoom * (1.0 + 0.1 * progress))
     if effect in {"float", "pulse", "shake"}:
         distance = float(event.options.get("distance", 12.0) or 0.0)
         oscillation = math.sin(progress * math.tau)
@@ -1611,13 +1873,17 @@ CapabilityFeature = Literal[
     "opacity",
     "clip_progress",
     "blur",
+    "motion_blur",
     "color",
     "easing",
+    "spring",
+    "wiggle",
     "stagger",
     "motion_path",
     "morph",
     "chart_animation",
     "audio_sync",
+    "text_selector",
 ]
 SupportLevel = Literal["full", "native", "partial", "fallback", "unsupported"]
 Fallback = Literal["fade", "rasterize", "static"]
@@ -1647,13 +1913,17 @@ _CAPABILITY_FEATURES: tuple[CapabilityFeature, ...] = (
     "opacity",
     "clip_progress",
     "blur",
+    "motion_blur",
     "color",
     "easing",
+    "spring",
+    "wiggle",
     "stagger",
     "motion_path",
     "morph",
     "chart_animation",
     "audio_sync",
+    "text_selector",
 )
 _FULL_CAPABILITIES: dict[CapabilityFeature, tuple[SupportLevel, Fallback | None]] = dict.fromkeys(
     _CAPABILITY_FEATURES, ("full", None)
@@ -1661,12 +1931,14 @@ _FULL_CAPABILITIES: dict[CapabilityFeature, tuple[SupportLevel, Fallback | None]
 # Stagger falls back to a shared reveal when semantic targets cannot be split.
 _RASTER_OVERRIDES: dict[CapabilityFeature, tuple[SupportLevel, Fallback | None]] = {
     "stagger": ("partial", None),
+    "text_selector": ("partial", None),
 }
 _CAPABILITIES: dict[ExportTarget, dict[CapabilityFeature, MotionCapability]] = {}
 for _target in ("raster", "video"):
     _row = dict(_FULL_CAPABILITIES) | _RASTER_OVERRIDES
     if _target == "raster":
         _row["audio_sync"] = ("unsupported", "static")
+        _row["motion_blur"] = ("partial", "static")
     _CAPABILITIES[_target] = {
         feature: MotionCapability(feature, _target, support, fallback)
         for feature, (support, fallback) in _row.items()
@@ -1689,10 +1961,13 @@ _CANONICAL_RENDERED: dict[str, frozenset[str]] = {
             "blur",
             "color",
             "easing",
+            "spring",
+            "wiggle",
             "image_pan",
             "image_zoom",
             "stagger",
             "motion_path",
+            "text_selector",
         }
     )
     for target in ("raster", "video")
@@ -1707,6 +1982,12 @@ _CAPABILITIES["html"]["parent"] = MotionCapability("parent", "html", "partial")
 _CAPABILITIES["html"]["path"] = MotionCapability("path", "html", "partial", "rasterize")
 _CAPABILITIES["html"]["color"] = MotionCapability("color", "html", "unsupported", "static")
 _CAPABILITIES["html"]["motion_path"] = MotionCapability("motion_path", "html", "partial")
+_CAPABILITIES["html"]["motion_blur"] = MotionCapability(
+    "motion_blur", "html", "unsupported", "static"
+)
+
+_CAPABILITIES["html"]["spring"] = MotionCapability("spring", "html", "fallback", "static")
+_CAPABILITIES["html"]["wiggle"] = MotionCapability("wiggle", "html", "fallback", "static")
 _PPTX_FALLBACKS: dict[CapabilityFeature, tuple[SupportLevel, Fallback | None]] = {
     "path": ("fallback", "rasterize"),
     "parent": ("fallback", "static"),
@@ -1721,18 +2002,26 @@ _PPTX_FALLBACKS: dict[CapabilityFeature, tuple[SupportLevel, Fallback | None]] =
     "opacity": ("native", None),
     "clip_progress": ("fallback", "fade"),
     "blur": ("unsupported", "rasterize"),
+    "motion_blur": ("unsupported", "static"),
     "color": ("partial", "static"),
     "easing": ("partial", "fade"),
+    "spring": ("fallback", "static"),
+    "wiggle": ("fallback", "static"),
     "stagger": ("native", None),
     "motion_path": ("unsupported", "static"),
     "morph": ("partial", "fade"),
     "chart_animation": ("fallback", "fade"),
     "audio_sync": ("unsupported", "static"),
+    "text_selector": ("unsupported", "static"),
 }
 _CAPABILITIES["pptx"] = {
     feature: MotionCapability(feature, "pptx", *_PPTX_FALLBACKS[feature])
     for feature in _CAPABILITY_FEATURES
 }
+
+_CAPABILITIES["html"]["text_selector"] = MotionCapability(
+    "text_selector", "html", "unsupported", "static"
+)
 
 CAPABILITY_MATRIX = MappingProxyType(
     {target: MappingProxyType(row) for target, row in _CAPABILITIES.items()}
@@ -1746,7 +2035,7 @@ def _normalize_target(target: ExportTarget | str) -> ExportTarget:
         "webm": "video",
         "mov": "video",
         "png": "raster",
-        "png_sequence": "video",
+        "image_sequence": "video",
     }
     normalized = aliases.get(str(target).lower(), str(target).lower())
     if normalized not in _CAPABILITIES:
@@ -1778,7 +2067,7 @@ def _capability_features_for(animation: object) -> tuple[CapabilityFeature, ...]
                 "float": ("position",),
                 "pulse": ("scale",),
                 "shake": ("rotation",),
-                "ken_burns": ("position", "scale"),
+                "ken_burns": ("image_zoom",),
                 "pan": ("image_pan",),
                 "typewriter": ("clip_progress",),
                 "bar_grow": ("clip_progress",),
@@ -1793,8 +2082,33 @@ def _capability_features_for(animation: object) -> tuple[CapabilityFeature, ...]
                 features.append("easing")
         if animation.stagger:
             features.append("stagger")
+        if animation.selector:
+            features.append("text_selector")
+        if _has_spring_easing(animation):
+            features.append("spring")
+        if _has_wiggle(animation):
+            features.append("wiggle")
         return tuple(dict.fromkeys(features))
     return ("opacity",)
+
+
+def _has_spring_easing(animation: object) -> bool:
+    """Recognize spring clocks wherever an authored animation can carry easing."""
+    if not isinstance(animation, AnimationSpec):
+        return False
+    return any(
+        isinstance(easing, SpringEasing)
+        for easing in chain(
+            (animation.easing, getattr(animation.effect, "easing", None)),
+            (key.easing for track in animation.tracks or () for key in track.keyframes),
+        )
+    )
+
+
+def _has_wiggle(animation: object) -> bool:
+    return isinstance(animation, AnimationSpec) and any(
+        track.wiggle is not None for track in animation.tracks or ()
+    )
 
 
 def _iter_export_layers(source: Canvas | Deck) -> Iterable[tuple[str, object]]:
@@ -1859,7 +2173,16 @@ def _validate_export(
     parent_html_paths: set[str] = set()
     parent_html_problems: dict[str, str] = {}
     document_format = parent_document_format or normalized
+    svg_candidates: set[int] = set()
     for index, canvas in enumerate(getattr(source, "slides", (source,))):
+        if document_format == "svg" and "svg" in resolved_policy.fidelity:
+            svg_candidates.update(
+                id(layer)
+                for _, layer in _iter_export_layers(canvas)
+                if isinstance(layer, PluginLayer)
+                and "svg" in canvas._plugin_registry.capabilities(layer.renderer, layer.version)
+            )
+        _validate_text_selectors(canvas)
         try:
             cast("Canvas", canvas)._validate_layer_identities()
         except ValidationError as error:
@@ -1897,6 +2220,41 @@ def _validate_export(
                 if html_problem:
                     parent_html_problems.update((path, html_problem) for path in paths)
     for layer_id, pointer, layer in _iter_export_layer_locations(source):
+        if isinstance(layer, PluginLayer):
+            raster = document_format not in {"svg", "html", "pdf", "pptx"}
+            candidate = id(layer) in svg_candidates
+            action = resolved_policy.pptx.get(layer_id) if normalized == "pptx" else None
+            if (
+                not raster
+                and not candidate
+                and (action or resolved_policy.unsupported_motion) in {"error", "native"}
+            ):
+                raise RenderingError(
+                    f"Plugin '{layer.renderer}' version '{layer.version}' requires "
+                    f"RGBA raster fallback in {document_format}.",
+                    code="unsupported_capability",
+                    path=pointer,
+                    layer_id=layer_id,
+                )
+            diagnostics.append(
+                ExportDiagnostic(
+                    layer_id=layer_id,
+                    feature="plugin",
+                    target=normalized,
+                    support="full" if raster else "partial" if candidate else "fallback",
+                    fallback=None if raster or candidate else "rasterize",
+                    message=(
+                        "Plugin SVG callback registered; local comparison has not executed"
+                        if candidate
+                        else f"Plugin '{layer.renderer}' version '{layer.version}' uses static "
+                        + (
+                            "canonical RGBA pixels"
+                            if raster
+                            else f"RGBA raster fallback in {document_format}"
+                        )
+                    ),
+                )
+            )
         if pointer in parent_static_paths or pointer in parent_html_paths:
             partial = pointer in parent_html_paths
             message = (
@@ -1974,17 +2332,20 @@ def _validate_export(
                 )
             )
         if isinstance(layer, PathLayer) and document_format in {"html", "svg", "pdf", "pptx"}:
+            from quickthumb._path_pdf import native_pdf_path_problem
             from quickthumb._path_svg import native_path_problem
 
             problem = (
                 native_path_problem(layer)
                 if document_format in {"html", "svg"}
+                else native_pdf_path_problem(layer)
+                if document_format == "pdf"
                 else "native path adapter is not implemented"
             )
             message = (
                 f"path layer {layer_id} uses a static raster image for {document_format}: {problem}"
                 if problem
-                else f"path layer {layer_id} uses native SVG vectors for {document_format}"
+                else f"path layer {layer_id} uses native vectors for {document_format}"
             )
             action = resolved_policy.pptx.get(layer_id) if normalized == "pptx" else None
             if problem and (action or resolved_policy.unsupported_motion) in {"error", "native"}:
@@ -2259,7 +2620,9 @@ def validate_motion_export(source: Canvas | Deck, target: ExportTarget | str, po
 
 
 def _inspection_event(
-    event: TimelineEvent, sample_times: tuple[float, ...] = ()
+    event: TimelineEvent,
+    sample_times: tuple[float, ...] = (),
+    target_events: Sequence[TimelineEvent] = (),
 ) -> MotionEventInspection:
     progress = [
         1.0
@@ -2284,6 +2647,7 @@ def _inspection_event(
             MotionTrackInspection(
                 type=track.property,
                 auto_orient=track.auto_orient,
+                wiggle=track.wiggle,
                 keyframes=[
                     MotionKeyframeInspection(
                         time=keyframe.time,
@@ -2299,18 +2663,33 @@ def _inspection_event(
             for track in event.tracks
         ],
         stagger=event.stagger,
+        selector=event.selector,
+        selector_weights=[
+            [_selector_weight(target, time) for target in target_events] for time in sample_times
+        ]
+        if event.selector
+        else [],
         progress=progress,
     )
 
 
-def _inspection_targets(layer: object, animation: object) -> list[MotionTargetInspection]:
+def _inspection_targets(
+    layer: object, animation: object, canvas: Canvas
+) -> list[MotionTargetInspection]:
     stagger = getattr(animation, "stagger", None)
-    if stagger is None:
+    selector = getattr(animation, "selector", None)
+    if stagger is None and selector is None:
         return []
-    target = stagger.target
+    if selector:
+        target = selector.target
+    else:
+        assert stagger is not None
+        target = stagger.target
+    order = getattr(stagger, "order", "document")
+    if selector:
+        assert isinstance(layer, TextLayer)
     if target == "children":
         values = tuple(getattr(layer, "children", ()))
-        order = stagger.order
         resolved = resolve_targets(values, order=order)
     elif target in {"characters", "words", "lines"}:
         content = getattr(layer, "content", "")
@@ -2318,14 +2697,18 @@ def _inspection_targets(layer: object, animation: object) -> list[MotionTargetIn
             content = "".join(getattr(part, "text", str(part)) for part in content)
         if not isinstance(content, str):
             return []
-        resolved = resolve_text_targets(
-            content, cast(Literal["characters", "words", "lines"], target), order=stagger.order
+        resolved = (
+            canvas._text.resolve_animation_targets(layer, target, order)
+            if isinstance(layer, TextLayer)
+            else resolve_text_targets(
+                content, cast(Literal["characters", "words", "lines"], target), order=order
+            )
         )
     else:
         return []
     return [
         MotionTargetInspection(
-            target=stagger.target,
+            target=target,
             index=item.index,
             source_range=item.source_range,
             position=item.position,
@@ -2409,18 +2792,43 @@ def _inspection_layer(
         )
 
     initial = sample_state(0.0)
-    final = sample_state(timeline.duration)
-    targets: list[MotionTargetInspection] = []
-    for spec in specs:
-        targets.extend(_inspection_targets(layer, spec))
-    duration = max(timeline.duration, value_duration)
+    selector = _text_selector(layer)
+    target_spec = next((spec for spec in specs if spec.stagger), specs[0] if selector else None)
+    resolved_targets = _inspection_targets(layer, target_spec, canvas) if target_spec else []
+    timelines = resolve_staggered_timelines(timeline, len(resolved_targets))
+    character_stagger = (
+        isinstance(layer, TextLayer)
+        and target_spec is not None
+        and target_spec.stagger is not None
+        and target_spec.stagger.target == "characters"
+    )
+    targets = (
+        resolved_targets
+        if selector or character_stagger
+        else [target for spec in specs for target in _inspection_targets(layer, spec, canvas)]
+    )
+    duration = max(
+        timeline.duration, value_duration, max((item.duration for item in timelines), default=0)
+    )
     sample_times = _bounded_frame_times(duration, fps, max_samples)
+    final = sample_state(duration)
+    if selector or character_stagger:
+        motion_base = _target_base_state(layer)
+        states = [_sample_target_timelines(timelines, time, motion_base) for time in sample_times]
+        for index, target in enumerate(targets):
+            target.samples = [
+                (row[index] or motion_base.with_values(opacity=0)).model_dump(mode="json")
+                for row in states
+            ]
     static_state = base.model_dump(mode="json", exclude_none=True)
     return MotionLayerInspection(
         layer_id=layer_id,
         layer_type=str(getattr(layer, "type", type(layer).__name__)),
         parent=getattr(layer, "parent", None),
-        events=[_inspection_event(event, sample_times) for event in timeline.events],
+        events=[
+            _inspection_event(event, sample_times, [target.events[index] for target in timelines])
+            for index, event in enumerate(timeline.events)
+        ],
         duration=duration,
         targets=targets,
         sample_times=list(sample_times),

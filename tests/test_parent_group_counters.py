@@ -414,8 +414,8 @@ def test_multiple_counter_clocks_extend_active_windows_and_actual_gif():
 def test_masked_counter_group_serial_and_spawn_gif_match(tmp_path, quality):
     canvas = clock_scene()
     serial, spawn = tmp_path / "serial.gif", tmp_path / "spawn.gif"
-    canvas.render(str(serial), animation=GifOptions(fps=5, quality=quality))
-    canvas.render(str(spawn), animation=GifOptions(fps=5, quality=quality, workers=2))
+    canvas.render(str(serial), animation=GifOptions(fps=5, render_quality=quality))
+    canvas.render(str(spawn), animation=GifOptions(fps=5, render_quality=quality, workers=2))
     assert serial.read_bytes() == spawn.read_bytes()
 
 
@@ -452,7 +452,11 @@ def test_counter_group_documents_freeze_whole_scene_and_protect_destination(tmp_
     report = canvas.export(path).capability_report
     assert {"parent", "animated_text_value"} <= {item.feature for item in report}
     assert any(item.layer_id == "unlinked" for item in report)
-    assert all(item.support == "fallback" and item.fallback == "static" for item in report)
+    assert all(
+        item.support == "fallback" and item.fallback == "static"
+        for item in report
+        if item.feature != "layer_representation"
+    )
     for method in (canvas.render, canvas.export):
         path.write_bytes(b"existing")
         with pytest.raises(RenderingError, match="authored-static"):

@@ -161,12 +161,42 @@ def flatten_path(data: str, origin: _Point, scale: _Point) -> tuple[_Contour, ..
 def _flatten_arc(
     start: _Point, end: _Point, arc: tuple[float, ...], origin: _Point, scale: _Point, budget: int
 ) -> list[_Point]:
-    rx, ry, rotation, large, sweep = arc
     endpoint = ((end[0] - origin[0]) * scale[0], (end[1] - origin[1]) * scale[1])
     if start == end:
         return []
-    if rx == 0 or ry == 0:
+    if arc[0] == 0 or arc[1] == 0:
         return [endpoint]
+    center, axis_x, axis_y, theta, delta = _arc_geometry(start, end, arc, origin, scale)
+    radius = math.hypot(*axis_x) + math.hypot(*axis_y)
+    pending = [(theta, theta + delta, 0)]
+    points = []
+    while pending:
+        a, b, depth = pending.pop()
+        # The two mapped axis lengths bound ellipse chord error, even with anisotropic scaling.
+        if radius == 0 or 2 * math.sin((b - a) / 4) ** 2 <= 0.125 / radius:
+            point = (
+                center[0] + axis_x[0] * math.cos(b) + axis_y[0] * math.sin(b),
+                center[1] + axis_x[1] * math.cos(b) + axis_y[1] * math.sin(b),
+            )
+            if not all(math.isfinite(value) for value in point):
+                raise _arc_range_limit()
+            points.append(point)
+            if len(points) > budget:
+                raise _subdivision_limit()
+        else:
+            if depth == 20:
+                raise _subdivision_limit()
+            middle = a / 2 + b / 2
+            pending.extend(((middle, b, depth + 1), (a, middle, depth + 1)))
+    points[-1] = endpoint
+    return points
+
+
+def _arc_geometry(
+    start: _Point, end: _Point, arc: tuple[float, ...], origin: _Point, scale: _Point
+):
+    """Return a mapped ellipse and angular interval for a nondegenerate SVG arc."""
+    rx, ry, rotation, large, sweep = arc
     # SVG endpoint-to-center conversion: https://www.w3.org/TR/SVG/implnote.html#ArcConversionEndpointToCenter
     # Subtract endpoints before normalization to preserve small arcs at large translated origins.
     half = []
@@ -230,28 +260,7 @@ def _flatten_arc(
     radius = math.hypot(*axis_x) + math.hypot(*axis_y)
     if not all(math.isfinite(value) for value in (*center, *axis_x, *axis_y, radius)):
         raise _arc_range_limit()
-    pending = [(theta, theta + delta, 0)]
-    points = []
-    while pending:
-        a, b, depth = pending.pop()
-        # The two mapped axis lengths bound ellipse chord error, even with anisotropic scaling.
-        if radius == 0 or 2 * math.sin((b - a) / 4) ** 2 <= 0.125 / radius:
-            point = (
-                center[0] + axis_x[0] * math.cos(b) + axis_y[0] * math.sin(b),
-                center[1] + axis_x[1] * math.cos(b) + axis_y[1] * math.sin(b),
-            )
-            if not all(math.isfinite(value) for value in point):
-                raise _arc_range_limit()
-            points.append(point)
-            if len(points) > budget:
-                raise _subdivision_limit()
-        else:
-            if depth == 20:
-                raise _subdivision_limit()
-            middle = a / 2 + b / 2
-            pending.extend(((middle, b, depth + 1), (a, middle, depth + 1)))
-    points[-1] = endpoint
-    return points
+    return center, axis_x, axis_y, theta, delta
 
 
 def _arc_range_limit() -> RenderingError:

@@ -58,8 +58,7 @@ class TimelinePreview:
         sampler = self._sampler("proxy")
         warnings = [
             "Proxy pixels approximate standard-quality export; use Full for canonical pixels.",
-            "Audio is not played. Export frame grids and lossy encoding "
-            "can change playback samples.",
+            "Export frame grids and lossy encoding can change playback samples.",
         ]
         if any(_canvas_has_video_captions(canvas) for canvas in self._canvases):
             warnings.append("Slides with video captions render at native size before reduction.")
