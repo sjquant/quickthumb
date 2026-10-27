@@ -4,7 +4,7 @@ description: Draw filled and stroked SVG paths with a fixed local viewport and e
 
 # Path
 
-`Canvas.path()` draws static, filled or stroked SVG path data without an SVG
+`Canvas.path()` draws filled or stroked SVG path data without an SVG
 file or an optional rendering dependency:
 
 ```python
@@ -33,6 +33,7 @@ canvas.export("path.png")
 | `dash_array` | Optional tuple of nonnegative finite dash/gap lengths in local units. Odd-length tuples repeat once; empty or all-zero tuples draw a solid stroke. |
 | `dash_offset` | Static distance into the repeated pattern, in local units; defaults to `0`. Signed values wrap modulo the pattern cycle. |
 | `id`, `motion_key` | Optional scene identity and cross-scene matching key, using the common layer identity rules. |
+| `rotation`, `opacity`, `anchor`, `animation` | Static angle and opacity, normalized viewport pivot, and position/rotation/scale/opacity track timelines; see [Path motion](../concepts.md#path-motion). |
 
 The local window maps independently onto the frame's width and height and is
 clipped at its edges. The frame does not fit itself to changing path bounds.
@@ -96,6 +97,10 @@ Track timelines, static `rotation`/`opacity` and normalized `anchor` are support
 see [Path motion](../concepts.md#path-motion) for transform and source limits.
 Parent links, grouping and composition controls are not accepted yet.
 JSON uses `type="path"` and round-trips through `PathLayer`.
+The runnable [path layer example](https://github.com/sjquant/quickthumb/blob/main/examples/path_layer.py)
+combines Bézier curves, arcs, a gradient, stroke and an even-odd hole, then scales
+the viewport from 1× to 4× over two seconds. Its PNG is the authored still;
+the GIF plays the enlargement and the JSON preserves the complete source.
 
 PNG and canonical samples draw the path at its sampled transform. Untransformed
 paths in SVG and HTML use native SVG with even-odd fill, fixed viewport clipping,
@@ -109,9 +114,10 @@ interpolation. `validate_export()` and `ExportResult` give the actual per-layer
 route and reason. `ExportPolicy(unsupported_motion="error")` permits native paths
 and rejects a required fallback before writing.
 
-PDF emits editable native paths, converting quadratics exactly and elliptical arcs
+Untransformed PDF paths emit editable native curves, converting quadratics exactly and elliptical arcs
 to cubic curves bounded to 1/8 device pixel. It preserves even-odd clipping, local
 strokes and opaque frame gradients. Translucent gradient stops and paths exceeding
 the bounded cubic conversion use a declared raster fallback. Degenerate strokes
-and mixed zero-length dash patterns also use raster output to preserve cap pixels. PPTX currently embeds
-a static raster image retaining the gradient.
+and mixed zero-length dash patterns also use raster output to preserve cap pixels.
+Paths with static rotation/opacity or animation use the same authored-static PNG
+fallback in PDF as SVG/HTML. PPTX embeds an authored-static raster image.
