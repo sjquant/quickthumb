@@ -213,6 +213,44 @@ searchable vector content; this does not promise PowerPoint-style editing.
 Deck PDF comparison is rejected explicitly; export its Canvas slides individually.
 This observation does not establish PPTX or animation fidelity.
 
+### HTML browser validation harness
+
+The developer-only harness captures actual exported Canvas and two-slide Deck
+stages with an explicitly selected Chrome and Node's built-in WebSocket. It does
+not install a browser or change `ExportPolicy`:
+
+```bash
+PYTHONPATH=. python scripts/check_html_fidelity.py \
+  --chrome "/path/to/chrome" --output /tmp/quickthumb-html-observations
+```
+
+The output directory must be new. Chrome runs headless with a temporary profile
+and loopback CDP; the harness never attaches to an existing browser session.
+It waits for fonts, images and slide transitions, captures only the original-size
+stage at DPR 1, and seeks a real click-triggered CSS fade at 0, 5 and 10 seconds.
+The report records browser/Node versions, canonical environment, input asset
+hashes, executed route diagnostics, dimensions, seek points, explicit fixture
+limits, pixel/hash metrics and verdicts. Canonical/browser PNGs remain beside it.
+
+The mixed text/shape/image/mask fixtures allow a channel tolerance of 16, at most
+8% differing pixels, and average-hash similarity of at least 0.94. Every component
+must also satisfy its recorded region criteria: text allows 20% differing pixels
+and requires hash similarity 0.95; the native ellipse allows 2% and requires 0.98.
+The embedded image is exact; the masked fragment allows only one channel level
+of rounding. Text/ellipse channel tolerance is 16. These local criteria prevent
+small missing features from passing a whole-stage average. Negative controls
+remove each text/image/mask/ellipse element in both the wide Canvas and tall Deck
+and must fail that specific region, not merely another metric. All allowances
+are fixture-specific and are not general document budgets. The simple
+fade permits only one channel level of rounding; a deliberately wrong document
+must fail comparison. Unexpected verdicts fail the command while retaining its
+report. No automatic raster fallback or browser/CI installation is performed.
+
+This observes one Chrome/font/platform environment and one bounded CSS animation,
+not every browser, animation, cue, or Deck transition. CairoSVG cannot substitute
+for this browser observation. Existing Node runtime tests check scheduling and
+state behavior separately from browser pixels.
+
 ### Migrating output calls
 
 - `Deck.to_mp4()` now plays animation, matching Canvas and file exports.
@@ -351,9 +389,13 @@ webm = deck.to_webm(fps=30, hold=3.0)
 Every effect takes `duration`, `delay`, and `trigger`, plus two timing controls:
 
 - `easing` picks the curve the reveal follows, from the shared easing vocabulary
-  (`"linear"`, `"ease"`, `"ease_out_cubic"`, `"ease_out_back"`, …). It defaults to
-  `"ease"`; a bar that reports elapsed time wants `"linear"`, or it will
-  misrepresent its own progress.
+  (`"linear"`, `"ease"`, `"ease_out_cubic"`, `"ease_out_back"`, …). Legacy effects
+  default to `"ease"`; canonical presets resolve their easing/feel and otherwise
+  use `"linear"`. A bar that reports elapsed time needs `"linear"` to represent
+  its progress. HTML sends named easing and custom cubic-bezier
+  timing functions to CSS. Named polynomial curves use the existing CSS
+  cubic-bezier approximations: their shape is similar, but intermediate pixel
+  states need not match canonical sampling exactly.
 - `start` pins the effect to an absolute time on the slide instead of chaining it
   to whatever ran before. Anchored effects do not move the cursor the relative
   effects around them are chained from, so the two styles can be mixed.
