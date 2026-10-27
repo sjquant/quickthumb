@@ -1,4 +1,4 @@
-"""Polygonal path fill through a bounded, supersampled local viewport."""
+"""Filled SVG paths through a bounded, supersampled local viewport."""
 
 import math
 from collections.abc import Sequence
@@ -7,7 +7,7 @@ from typing import cast
 from PIL import Image, ImageChops, ImageColor, ImageDraw
 
 from quickthumb._base import RenderContext, parse_coordinate
-from quickthumb._path_geometry import parse_path
+from quickthumb._path_geometry import flatten_path
 from quickthumb.models import PathLayer
 
 
@@ -19,8 +19,8 @@ def render_path(image: Image.Image, layer: PathLayer, context: RenderContext) ->
     vx, vy, vw, vh = layer.view_box or (0, 0, layer.width, layer.height)
     scale_x, scale_y = layer.width / vw, layer.height / vh
     contours = tuple(
-        tuple(((px - vx) * scale_x, (py - vy) * scale_y) for px, py in contour)
-        for contour in parse_path(layer.d)
+        contour
+        for contour in flatten_path(layer.d, (vx, vy), (scale_x, scale_y))
         if len(contour) >= 3
     )
     points = [point for contour in contours for point in contour]

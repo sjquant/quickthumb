@@ -441,10 +441,10 @@ class ImageLayer(_AnimatableLayerModel):
 
 
 class PathLayer(LayerIdentityModel):
-    """A static, filled polygonal SVG path inside a fixed local viewport."""
+    """A static, filled SVG path inside a fixed local viewport."""
 
     type: Literal["path"]
-    d: str = Field(description="Polygonal SVG path data: M/L/H/V/Z, absolute or relative.")
+    d: str = Field(description="SVG path data: M/L/H/V/C/S/Q/T/Z, absolute or relative.")
     position: Position
     width: PositiveInt
     height: PositiveInt
@@ -472,9 +472,9 @@ class PathLayer(LayerIdentityModel):
     def validate_geometry(self) -> "PathLayer":
         from quickthumb._path_geometry import parse_path
 
-        contours = parse_path(self.d)
+        segments = parse_path(self.d)
         vx, vy, vw, vh = self.view_box or (0, 0, self.width, self.height)
-        points = [(x - vx, y - vy) for contour in contours for x, y in contour]
+        points = [(x - vx, y - vy) for segment in segments for x, y in segment.points]
         for axis, scale in ((0, self.width / vw), (1, self.height / vh)):
             values = [point[axis] * scale for point in points]
             if not all(math.isfinite(value) for value in values) or not math.isfinite(

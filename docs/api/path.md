@@ -1,10 +1,10 @@
 ---
-description: Draw filled polygonal SVG paths with a fixed local viewport and explicit document-format fallbacks.
+description: Draw filled SVG lines and Bézier curves with a fixed local viewport and explicit document-format fallbacks.
 ---
 
 # Path
 
-`Canvas.path()` draws static, filled polygonal SVG path data without an SVG
+`Canvas.path()` draws static, filled SVG path data without an SVG
 file or an optional rendering dependency:
 
 ```python
@@ -20,7 +20,7 @@ canvas.export("path.png")
 
 | Parameter | Meaning |
 | --- | --- |
-| `d` | SVG `M/L/H/V/Z` commands, absolute or relative. Repeated coordinate pairs and implicit closing for fills are supported. Other commands are rejected. |
+| `d` | SVG `M/L/H/V/C/S/Q/T/Z` commands, absolute or relative. Repeated coordinate sets and implicit closing for fills are supported. Elliptical `A/a` arcs are not accepted yet. |
 | `position` | Required frame position in canvas pixels or percentages. |
 | `width`, `height` | Required positive frame dimensions in pixels. |
 | `view_box` | Optional `(x, y, width, height)` local coordinate window; defaults to `(0, 0, width, height)`. Its width and height must be positive. |
@@ -34,8 +34,14 @@ number of boundary crossings paints, so nested contours make holes regardless
 of their direction. Raster drawing supersamples only the visible painted bounds
 at 4× and downsamples with antialiasing.
 
-This initial path surface supports flat filled polygons. Curves, strokes,
-gradients, layer animation, parent links, grouping and composition controls are
+`C/S` draw cubic Béziers and `Q/T` draw quadratic Béziers. Smooth commands reflect
+the preceding control point only within their own curve family, following SVG
+rules. Curves are adaptively flattened after mapping to the frame, with a 1/8-pixel
+chord tolerance before supersampling. Excessive plans raise `RenderingError`
+(`path_subdivision_limit`) instead of silently reducing precision; simplify the
+path or reduce its mapped scale.
+
+Strokes, gradients, layer animation, parent links, grouping and composition controls are
 not accepted yet. JSON uses `type="path"` and round-trips through `PathLayer`.
 
 PNG and canonical samples draw the path directly. SVG, HTML, PDF and PPTX currently

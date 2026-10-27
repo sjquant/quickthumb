@@ -714,7 +714,7 @@ class Canvas:
         id: str | None = None,
         motion_key: str | None = None,
     ) -> Self:
-        """Add an even-odd filled M/L/H/V/Z path in a clipped local viewport."""
+        """Add an even-odd filled SVG path in a clipped local viewport."""
         self._append_layer(
             PathLayer(
                 type="path",
