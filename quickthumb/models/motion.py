@@ -441,6 +441,13 @@ class RotationTrack(ScalarTrack):
     type: Literal["rotation"] = "rotation"
 
 
+class DashOffsetTrack(ScalarTrack):
+    """Relative Path dash phase in local SVG/viewBox distance units."""
+
+    type: Literal["dash_offset"] = "dash_offset"
+    blend: Literal["replace", "add"] = "replace"
+
+
 class OpacityTrack(ScalarTrack):
     """An opacity track constrained to the inclusive unit interval."""
 
@@ -505,6 +512,7 @@ TrackSpec = Annotated[
     | ScaleYTrack
     | ImageZoomTrack
     | RotationTrack
+    | DashOffsetTrack
     | OpacityTrack
     | ClipProgressTrack
     | BlurTrack

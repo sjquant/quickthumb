@@ -94,6 +94,7 @@ def canvas_json_schema(*, registry: PluginRegistry | None = None) -> dict[str, A
         "ScaleXTrack",
         "ScaleYTrack",
         "RotationTrack",
+        "DashOffsetTrack",
         "OpacityTrack",
         "ClipProgressTrack",
         "BlurTrack",

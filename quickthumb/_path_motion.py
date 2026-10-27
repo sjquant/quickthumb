@@ -31,6 +31,10 @@ def render_path_frame(
         if timeline is not None:
             assert time is not None
             state = timeline.sample(time, state)
+    dash_offset = layer.dash_offset + state.dash_offset
+    if not math.isfinite(dash_offset):
+        raise RenderingError("sampled Path dash_offset must be finite", path="/dash_offset")
+    layer = layer.model_copy(update={"dash_offset": dash_offset})
     opacity = layer.opacity * state.opacity
     if opacity <= 0 or state.scale * state.scale_x * state.scale_y == 0:
         return

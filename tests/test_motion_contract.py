@@ -246,6 +246,7 @@ class TestMotionContract:
             "scale_y",
             "image_zoom",
             "rotation",
+            "dash_offset",
             "opacity",
             "clip_progress",
             "blur",

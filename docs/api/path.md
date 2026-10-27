@@ -121,3 +121,29 @@ the bounded cubic conversion use a declared raster fallback. Degenerate strokes
 and mixed zero-length dash patterns also use raster output to preserve cap pixels.
 Paths with static rotation/opacity or animation use the same authored-static PNG
 fallback in PDF as SVG/HTML. PPTX embeds an authored-static raster image.
+
+## Animated dash phase
+
+`DashOffsetTrack` (`type="dash_offset"` in JSON) animates stroke phase in local
+SVG/viewBox distance units. The sampled phase is added to authored `dash_offset`;
+negative offsets and odd-length dash patterns retain the static painter's cycle
+rules. Keyframes use the shared easing, outgoing holds, and local timeline clock.
+Tracks replace the relative phase by default; `blend="add"` composes additional
+phase tracks in event order. Only Path layers accept this track.
+
+```python
+from quickthumb import AnimationSpec, DashOffsetTrack, KeyframeSpec, TimingSpec
+
+phase = AnimationSpec.timeline(
+    DashOffsetTrack(keyframes=[KeyframeSpec(time=0, value=0),
+                               KeyframeSpec(time=1, value=12)]),
+    timing=TimingSpec(duration=1), easing="linear",
+)
+canvas.path("M0 10H100", (10, 10), 100, 20, None,
+            stroke="#42CEB7", dash_array=(5, 3), dash_offset=2, animation=phase)
+```
+
+Canonical samples, raster frames, GIF, video, and PNG sequences use the effective
+phase; `inspect_motion()` reports it alongside the authored static phase. HTML,
+SVG, PDF, and PPTX retain their declared authored-static fallback for animated
+Paths. This does not add trim, morph, or native HTML dash animation.

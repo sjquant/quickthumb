@@ -286,6 +286,21 @@ class _AnimatableLayerModel(LayerIdentityModel):
         examples=[(0.0, 0.0), (0.5, 0.5), (1.0, 1.0)],
     )
 
+    @model_validator(mode="after")
+    def validate_dash_motion_target(self):
+        from .motion import AnimationSpec
+
+        animation = getattr(self, "animation", None)
+        items = animation if isinstance(animation, list) else [animation]
+        if getattr(self, "type", None) != "path" and any(
+            track.type == "dash_offset"
+            for item in items
+            if isinstance(item, AnimationSpec)
+            for track in item.tracks or ()
+        ):
+            raise ValidationError("dash_offset tracks require a PathLayer", path="/animation")
+        return self
+
 
 class _MotionModel(quickthumbModel):
     """Strict base for canonical motion and export policy models."""
