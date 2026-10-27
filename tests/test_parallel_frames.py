@@ -4,6 +4,7 @@ import hashlib
 import json
 import shutil
 import subprocess
+from pathlib import Path
 from typing import cast
 
 import pytest
@@ -242,6 +243,7 @@ def test_unseeded_grain_and_custom_layers_fail_before_output(tmp_path):
 @pytest.mark.parametrize("reduced", [False, True])
 @pytest.mark.parametrize("hold", [0.0, 0.01])
 def test_local_video_and_disappearing_captions_match(tmp_path, reduced, hold):
+    """Caption pixels and observed fonts agree for serial and spawned public exports."""
     from PIL import Image
     from quickthumb.models import VideoCaption
 
@@ -289,7 +291,14 @@ def test_local_video_and_disappearing_captions_match(tmp_path, reduced, hold):
             captions=[
                 VideoCaption(
                     text="cue", start=0.05, end=0.42, position=(40, 30), size=10, font=FONT
-                )
+                ),
+                VideoCaption(
+                    text="unused",
+                    start=0.001,
+                    end=0.002,
+                    size=10,
+                    font="assets/fonts/Roboto-Bold.ttf",
+                ),
             ],
         )
         .shape("rectangle", (0, 24), 64, 16, "#000000")
@@ -298,6 +307,30 @@ def test_local_video_and_disappearing_captions_match(tmp_path, reduced, hold):
     after = _shots([canvas], [None], 2, hold=hold, reduced=reduced)
     assert after == before
     assert any(caption for _, _, _, caption in after) or reduced
+
+    # When: the same caption scene is exported through both worker settings
+    outputs = []
+    environments = []
+    for workers in (1, 2):
+        path = tmp_path / f"captions-{workers}.gif"
+        result = canvas.export(
+            path,
+            animation=GifOptions(fps=12, hold=hold, workers=workers),
+            policy=ExportPolicy(reduced_motion=reduced),
+        )
+        environments.append(result.environment)
+        with Image.open(path) as image:
+            decoded = []
+            for index in range(getattr(image, "n_frames", 1)):
+                image.seek(index)
+                decoded.append((image.convert("RGBA").tobytes(), image.info["duration"]))
+            outputs.append(decoded)
+
+    # Then: decoded playback and only the actually used caption face agree
+    assert outputs[0] == outputs[1]
+    assert environments[0] == environments[1]
+    expected_hashes = [] if reduced else [hashlib.sha256(Path(FONT).read_bytes()).hexdigest()]
+    assert [font.sha256 for font in environments[1].fonts] == expected_hashes
 
 
 @pytest.mark.skipif(not HAS_FFMPEG, reason="ffmpeg/ffprobe not installed")
