@@ -1,10 +1,16 @@
 """Behavioral specifications for legacy animation easing and absolute timing."""
 
+import json
+import shutil
+import subprocess
+from importlib.resources import files
+
 import pytest
-from quickthumb import Canvas, Fade, ValidationError, Wipe
+from quickthumb import AnimationSpec, Canvas, CubicBezierEasing, Fade, ValidationError, Wipe
 from quickthumb._export_video import _SlideAnimator
 
 from tests._helpers import pixel_channel
+from tests.test_export_html import timelines
 
 
 def bar_canvas(animation, width=400):
@@ -128,13 +134,59 @@ class TestAbsoluteAnimationStart:
 class TestEasingReachesHtml:
     """The browser runtime should be told which curve to use."""
 
-    def test_should_publish_the_effect_easing_in_the_html_timeline(self):
-        """Given an eased effect, when exported to HTML, then the curve travels with it."""
-        # Given: a layer with a non-default curve
-        canvas = bar_canvas(Wipe(direction="right", duration=1.0, easing="ease_out_back"))
+    @pytest.mark.parametrize(
+        ("canonical", "easing", "css"),
+        [
+            (False, "ease_out_back", "cubic-bezier(0.34,1.56,0.64,1)"),
+            (False, "linear", "linear"),
+            (False, None, "ease"),
+            (True, "linear", "linear"),
+            (True, "ease_in_quad", "cubic-bezier(0.11,0,0.5,0)"),
+            (True, None, "linear"),
+            (True, CubicBezierEasing(points=(0.25, 0, 0.75, 1)), "cubic-bezier(0.25,0,0.75,1)"),
+        ],
+    )
+    @pytest.mark.skipif(shutil.which("node") is None, reason="Node executes the HTML runtime")
+    def test_should_publish_the_effect_easing_in_the_html_timeline(self, canonical, easing, css):
+        """Preset HTML nodes pass their named or custom timing function to the actual runtime."""
+        # Given: canonical or legacy effect data exported through real HTML
+        options = {"easing": easing} if easing is not None else {}
+        animation = (
+            AnimationSpec.fade(duration=1, **options)
+            if canonical
+            else Wipe(direction="right", duration=1, **options)
+        )
+        [node] = timelines(bar_canvas(animation).to_html())[0]
 
-        # When: the canvas is exported to HTML
-        html = canvas.to_html()
+        # When: the shipped runtime starts the exported node
+        script = r"""
+const assert=require('node:assert/strict');
+const input=JSON.parse(require('node:fs').readFileSync(0,'utf8'));
+const CSS={escape:value=>value};
+const timers=[];
+function setTimeout(fn,delay){timers.push({fn,delay});}
+eval(input.runtime);
+const style={opacity:'',setProperty(){}};
+const element={style,addEventListener(){},removeEventListener(){}};
+const stage={getAttribute:()=>JSON.stringify([input.node]),querySelector:()=>element};
+const timeline=new qtTimeline(stage);
+timeline.advance();
+assert.equal(style.animation,`${input.node.k} 1s ${input.css} both 0s`);
+assert.equal(timers[0].delay,1000);
+"""
+        result = subprocess.run(
+            ["node", "-e", script],
+            input=json.dumps(
+                {
+                    "node": node,
+                    "css": css,
+                    "runtime": files("quickthumb.html").joinpath("timeline.js").read_text(),
+                }
+            ),
+            capture_output=True,
+            text=True,
+            check=False,
+        )
 
-        # Then: the runtime receives a timing function rather than a hardcoded default
-        assert "cubic-bezier(0.34,1.56,0.64,1)" in html
+        # Then: CSS playback uses that curve instead of replacing it with default ease
+        assert result.returncode == 0, result.stderr
