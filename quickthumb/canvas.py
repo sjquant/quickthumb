@@ -63,6 +63,7 @@ from quickthumb.models import (
     LinearGradient,
     NullLayer,
     OutlineLayer,
+    PathLayer,
     PluginLayer,
     PrefetchResult,
     QRCodeLayer,
@@ -686,6 +687,34 @@ class Canvas:
         self._append_layer(layer)
         return self
 
+    def path(
+        self,
+        d: str,
+        position: tuple,
+        width: int,
+        height: int,
+        color: str | None = "#000000",
+        *,
+        view_box: tuple[float, float, float, float] | None = None,
+        id: str | None = None,
+        motion_key: str | None = None,
+    ) -> Self:
+        """Add an even-odd filled M/L/H/V/Z path in a clipped local viewport."""
+        self._append_layer(
+            PathLayer(
+                type="path",
+                d=d,
+                position=position,
+                width=width,
+                height=height,
+                color=color,
+                view_box=view_box,
+                id=id,
+                motion_key=motion_key,
+            )
+        )
+        return self
+
     def shape(
         self,
         shape: Literal["rectangle", "ellipse", "pill", "triangle", "star", "polygon"],
@@ -1089,6 +1118,40 @@ class Canvas:
                 parent=parent,
             )
         )
+        return self
+
+    def plugin(
+        self,
+        renderer: str,
+        *,
+        version: str,
+        params: dict,
+        width: int,
+        height: int,
+        position: tuple[int | str, int | str] = (0, 0),
+        align: Align | str | tuple | None = Align.TOP_LEFT,
+        opacity: float = 1.0,
+        assets: dict[str, str] | None = None,
+        id: str | None = None,
+        motion_key: str | None = None,
+    ) -> Self:
+        """Place a registered static RGBA plugin in a local output box."""
+        layer = PluginLayer(
+            type="plugin",
+            renderer=renderer,
+            version=version,
+            params=params,
+            position=position,
+            width=width,
+            height=height,
+            align=align,  # type: ignore[arg-type]  # Pydantic validator handles conversion
+            opacity=opacity,
+            assets=assets or {},
+            id=id,
+            motion_key=motion_key,
+        )
+        self._plugin_registry.validate(layer)
+        self._append_layer(layer)
         return self
 
     def custom(
@@ -2137,6 +2200,10 @@ class Canvas:
             self._images.render_image_layer(image, layer, time)
         elif isinstance(layer, ShapeLayer):
             self._shapes.render_shape_layer(image, layer)
+        elif isinstance(layer, PathLayer):
+            from quickthumb._paths import render_path
+
+            render_path(image, layer, self._ctx)
         elif isinstance(layer, SvgLayer):
             self._images.render_svg_layer(image, layer)
         elif isinstance(layer, ChartLayer):
@@ -2163,9 +2230,9 @@ class Canvas:
         elif isinstance(layer, NullLayer):
             return
         elif isinstance(layer, PluginLayer):
-            raise RenderingError.plugin_layer_unsupported(
-                layer.renderer, layer.version, layer_id=layer.id
-            )
+            from quickthumb._plugin_runtime import render_plugin_layer
+
+            render_plugin_layer(image, layer, self._ctx, self._plugin_registry)
         elif isinstance(layer, CustomLayer):
             self._render_custom_layer(image, layer)
 

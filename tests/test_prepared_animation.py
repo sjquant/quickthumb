@@ -283,7 +283,7 @@ def test_early_consumer_closes_a_suspended_worker_stream(monkeypatch):
             # worker results produce the first output while later work waits.
             if len(futures) < 2:
                 frame = Image.new("RGB", (4, 4))
-                future.set_result((frame.size, frame.tobytes()))
+                future.set_result((frame.size, frame.tobytes(), []))
             futures.append(future)
             return future
 

@@ -240,6 +240,8 @@ def build_export_result(
     )
     if output_format == "gif" and written_paths:
         timing = timing.model_copy(update={"frame_count": pixel_frame_count})
+    from quickthumb._sampling import _render_environment
+
     return ExportResult(
         kind=_contract_kind(source),
         target=target,
@@ -254,6 +256,7 @@ def build_export_result(
         ),
         timing_metrics=timing,
         asset_manifest=asset_manifest,
+        environment=_render_environment(source),
     )
 
 
@@ -263,13 +266,24 @@ def preflight_export(
     policy: ExportPolicy | None = None,
 ) -> list[ExportDiagnostic]:
     """Validate target capabilities before an exporter writes any files."""
-    return _capability_report(
+    from quickthumb._sampling import _begin_font_observation
+
+    _begin_font_observation(source)
+    diagnostics = _capability_report(
         source,
         resolved.target,
         policy,
         output_format=resolved.output_format,
         uses_authored_transitions=resolved.uses_authored_transitions,
     )
+    for diagnostic in diagnostics:
+        if diagnostic.feature == "plugin" and diagnostic.support == "unsupported":
+            raise RenderingError(
+                diagnostic.message,
+                code="unsupported_capability",
+                layer_id=diagnostic.layer_id,
+            )
+    return diagnostics
 
 
 def validation_report(source: Document, *, kind: DocumentKind) -> ValidationReport:
