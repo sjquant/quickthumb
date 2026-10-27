@@ -59,7 +59,7 @@ import subprocess
 import tempfile
 import threading
 from collections.abc import Callable, Generator, Iterable, Iterator
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from io import BytesIO
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
@@ -106,6 +106,7 @@ from quickthumb.models import (
     GifOptions,
     GroupLayer,
     ImageLayer,
+    MotionBlur,
     NullLayer,
     QRCodeLayer,
     TextLayer,
@@ -231,7 +232,7 @@ def write_animation(
         else:
             assert temp_path is not None
             os.replace(temp_path, output_path)
-        return facts
+        return replace(facts, motion_blur=prepared._motion_blur)
     finally:
         if temp_path is not None:
             _remove_quietly(temp_path)
@@ -405,6 +406,7 @@ def _setup_animation(
         loop, max_size, colors = animation.loop, animation.max_size, animation.colors
     elif animation is not None:
         raise ValidationError("animation must be GifOptions or VideoOptions")
+    motion_blur = animation.motion_blur if animation is not None else None
     if animation is not None:
         fps, slide_duration, matte = animation.fps, animation.hold, animation.matte
         workers, quality = animation.workers, animation.render_quality
@@ -439,6 +441,7 @@ def _setup_animation(
         quality,
         transparent,
         reduced_motion=reduced_motion,
+        motion_blur=motion_blur,
     )
     return prepared, _AnimationSettings(
         loop=loop,
@@ -475,6 +478,7 @@ def _prepare_animation(
     transparent: bool = False,
     *,
     reduced_motion: bool = False,
+    motion_blur: MotionBlur | None = None,
 ) -> _PreparedAnimation:
     """Validate codec/audio options before entering the rendering owner."""
     if type(transparent) is not bool:
@@ -571,6 +575,8 @@ def _prepare_animation(
         workers=workers,
         quality=quality,
         reduced_motion=reduced_motion,
+        motion_blur=motion_blur,
+        variable_frame_rate=format == "gif",
     )
     max_fps = 100 if format == "gif" else 120
     if prepared.fps > max_fps:
@@ -636,6 +642,7 @@ class _AnimationFacts:
     frame_count: int
     duration: float
     fps: float
+    motion_blur: MotionBlur | None = None
 
 
 class _PreparedAnimation:
@@ -653,6 +660,8 @@ class _PreparedAnimation:
         workers: int = 1,
         quality: AnimationQuality = "standard",
         reduced_motion: bool = False,
+        motion_blur: MotionBlur | None = None,
+        variable_frame_rate: bool = False,
     ):
         # These are rendering settings. Codec limits and audio belong to callers
         # at the encoding boundary; None requests native-size straight RGBA.
@@ -679,6 +688,17 @@ class _PreparedAnimation:
             raise ValidationError("hold must be finite")
         if slide_duration < 0:
             raise ValidationError("hold must be >= 0")
+        self._motion_blur = (
+            MotionBlur.model_validate(motion_blur.model_dump()) if motion_blur is not None else None
+        )
+        self._variable_frame_rate = variable_frame_rate
+        if self._motion_blur is not None:
+            if len(canvases) != 1 or workers != 1:
+                raise ValidationError(
+                    "motion_blur currently requires a single Canvas and workers=1"
+                )
+            if not math.isfinite(self._motion_blur.shutter_angle / 360 / fps):
+                raise ValidationError("motion_blur shutter duration must be finite")
         self.fps = fps
         self._size = (canvases[0].width, canvases[0].height)
         self._entered = False
@@ -728,9 +748,19 @@ class _PreparedAnimation:
                     quality=self._quality,
                 )
                 self._renderer.__enter__()
-            self._shots = _ordered_deck_shots(
-                self._canvases, self.fps, self._matte, self._plan, self._renderer
-            )
+            if self._motion_blur is None:
+                self._shots = _ordered_deck_shots(
+                    self._canvases, self.fps, self._matte, self._plan, self._renderer
+                )
+            else:
+                self._shots = _motion_blur_shots(
+                    self._plan.animators[0],
+                    self._plan.duration,
+                    self.fps,
+                    self._matte,
+                    self._motion_blur,
+                    variable_frame_rate=self._variable_frame_rate,
+                )
         except BaseException:
             with contextlib.suppress(BaseException):
                 self.close()
@@ -817,6 +847,78 @@ class _PreparedAnimation:
             self._plan.duration,
             _video_audio_schedule(self._canvases, self._plan.offsets, self._probe_cache),
         )
+
+
+def _motion_blur_shots(
+    animator: _SlideAnimator,
+    duration: float,
+    fps: float,
+    matte: tuple[int, int, int] | None,
+    blur: MotionBlur,
+    *,
+    variable_frame_rate: bool = False,
+) -> Generator[_Shot, None, None]:
+    """Expose every allocated frame without collapsing shutter shoulders into holds."""
+    if not math.isfinite(duration * fps):
+        raise ValidationError("motion_blur frame count must be finite")
+    count = max(1, math.floor(duration * fps + 0.5))
+    size = (animator._canvas.width, animator._canvas.height)
+    window = blur.shutter_angle / 360 / fps
+    start = 0.0
+    for index in range(count):
+        end = duration * ((index + 1) / count)
+        center = start if variable_frame_rate else index / fps
+        with _exposure_frame(animator, center, duration, window, blur.samples, size) as frame:
+            image = _conform(frame, size, matte)
+        yield _Shot(image, end - start)
+        start = end
+
+
+def _exposure_frame(
+    animator: _SlideAnimator,
+    center: float,
+    duration: float,
+    window: float,
+    samples: int,
+    size: tuple[int, int],
+) -> Image.Image:
+    """Average encoded-sRGB premultiplied channels, quantizing only the final result."""
+    totals = [Image.new("F", size, 0) for _ in range(4)]
+    try:
+        for index in range(samples):
+            time = center + ((index + 0.5) / samples - 0.5) * window
+            time = round(min(duration, max(0.0, time)), 9)
+            with (
+                animator.frame_at(time).convert("RGBA") as frame,
+                frame.getchannel("A").convert("F") as alpha,
+            ):
+                for channel, name in enumerate("RGB"):
+                    previous = totals[channel]
+                    totals[channel] = ImageMath.lambda_eval(
+                        lambda args: args["total"] + args["color"] * args["alpha"],
+                        total=previous,
+                        color=frame.getchannel(name),
+                        alpha=alpha,
+                    )
+                    previous.close()
+                previous = totals[3]
+                totals[3] = ImageMath.lambda_eval(
+                    lambda args: args["total"] + args["alpha"], total=previous, alpha=alpha
+                )
+                previous.close()
+        colors = [
+            ImageMath.lambda_eval(
+                lambda args: args["total"] / (args["alpha"] + (args["alpha"] == 0)) + 0.5,
+                total=total,
+                alpha=totals[3],
+            ).convert("L")
+            for total in totals[:3]
+        ]
+        alpha = totals[3].point(lambda value: value / samples + 0.5).convert("L")
+        return Image.merge("RGBA", [*colors, alpha])
+    finally:
+        for total in totals:
+            total.close()
 
 
 class TimelineSampler:
@@ -924,7 +1026,7 @@ class TimelineSampler:
 
     def _settled_frame(self, index: int) -> Image.Image:
         if index not in self._settled:
-            final = self._plan.animators[index].final_export_frame()
+            final = self._plan.animators[index].final_frame()
             self._settled[index] = _conform(final, self._size, self._matte_rgb)
         return self._settled[index]
 
@@ -1024,14 +1126,15 @@ def _ordered_deck_shots(
 
         # Keep one motion shot pending so a sub-frame or zero hold can replace
         # it with the settled state without extending the shared timeline.
-        final_image = animator.final_export_frame()
-        final = _conform(final_image, size, matte_rgb)
+        previous_final = _conform(animator.final_frame(), size, matte_rgb)
+        final = previous_final
         hold = exit_time - max(animation_end, duration_in)
         if hold + _TIME_EPSILON >= 1.0 / fps:
             if pending is not None:
                 yield pending
             yield _Shot(final, hold)
         elif pending is not None:
+            final = _conform(animator.final_export_frame(), size, matte_rgb)
             # A zero/sub-frame hold may end immediately after a transient
             # caption cue. Preserve that last sampled frame when the cue has
             # ended; otherwise a short export can silently drop the cue.
@@ -1048,7 +1151,6 @@ def _ordered_deck_shots(
                 yield pending
         else:
             yield _Shot(final, max(exit_time, 1.0 / fps))
-        previous_final = final
         previous_canvas = canvas
 
 
@@ -1226,7 +1328,9 @@ def _sample_span(start: float, end: float, fps: float) -> Iterator[tuple[float, 
     count = max(1, round(length * fps))
     step = length / count
     for frame_index in range(count):
-        yield start + frame_index * step, step
+        # Sampling sums can land just before an authored cue boundary. Match
+        # the existing nanosecond clock precision without changing frame spacing.
+        yield round(start + frame_index * step, 9), step
 
 
 def _export_background(
@@ -1387,6 +1491,17 @@ class _SlideAnimator:
             canvas, probe_cache, reduced_motion=reduced_motion
         )
         self.duration = max(_schedule_units(self._units), _schedule_timelines(self._units))
+        if reduced_motion:
+            # Frozen imagery still needs its clip clock for timed foreground captions.
+            # Retain the full clip so its settled frame does not hold an earlier cue.
+            for layer in iter_video_layers(canvas.layers):
+                if layer.captions:
+                    clip_end = _component_animation_duration(layer, probe_cache)
+                    if any(
+                        layer.start + caption.start < clip_end - _TIME_EPSILON
+                        for caption in layer.captions
+                    ):
+                        self.duration = max(self.duration, clip_end)
         # The complete scene owns scheduled state. Prepared parent sources never
         # refer back to units or the scene, even weakly.
         self._parent_units = {

@@ -79,6 +79,7 @@ from quickthumb.models import (
     RadialGradient,
     Shadow,
     ShapeLayer,
+    SpringEasing,
     Stroke,
     SvgLayer,
     TextLayer,
@@ -87,9 +88,12 @@ from quickthumb.models import (
 from quickthumb.motion import (
     Timeline,
     TimelineEvent,
+    _custom_easing,
     _has_color_track,
     _has_motion_path,
+    _has_spring_easing,
     _has_transform_extensions,
+    _has_wiggle,
     compile_timeline,
 )
 
@@ -198,10 +202,13 @@ _CSS_EASINGS = {
 }
 
 
-def css_easing(name: str | CubicBezierEasing | Mapping[str, object] | None) -> str:
+def css_easing(name: str | CubicBezierEasing | SpringEasing | Mapping[str, object] | None) -> str:
     """Return the CSS timing function for a shared easing name or custom bezier."""
     if name is not None and not isinstance(name, str):
-        x1, y1, x2, y2 = CubicBezierEasing.model_validate(name).points
+        curve = _custom_easing(name)
+        if isinstance(curve, SpringEasing):
+            raise RenderingError("spring easing requires the declared static HTML fallback")
+        x1, y1, x2, y2 = curve.points
         return f"cubic-bezier({_fmt(x1)},{_fmt(y1)},{_fmt(x2)},{_fmt(y2)})"
     return _CSS_EASINGS.get(name or "ease", "ease")
 
@@ -290,6 +297,8 @@ def _supports_transform_extensions_html(layer: object) -> bool:
         return False
     spec = specs[0]
     if spec.tracks is None or spec.stagger is not None:
+        return False
+    if _has_wiggle(spec):
         return False
     if any(track.type not in _TRANSFORM_PROPERTIES for track in spec.tracks):
         return False
@@ -806,8 +815,10 @@ class HtmlExporter:
             self._prev_anim_key = None
             return ""
 
-        if _has_color_track(layer):
-            # Canonical color tracks have an authored-static fallback in HTML.
+        if _has_color_track(layer) or any(
+            _has_spring_easing(effect) or _has_wiggle(effect) for effect in effects
+        ):
+            # Color tracks and procedural clocks use the authored-static fallback.
             self._prev_anim_key = None
             self._prev_nodes = []
             return ""
