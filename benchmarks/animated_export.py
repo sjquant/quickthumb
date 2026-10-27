@@ -263,7 +263,11 @@ def measure_export(
                 "first_ink_bounds": bounds[0],
                 "last_ink_bounds": bounds[-1],
             }
-            if len(frame_hashes) < 2 or abs(selector_decoded["duration"] - DURATION) > 0.02 or font_loads:
+            if (
+                len(frame_hashes) < 2
+                or abs(selector_decoded["duration"] - DURATION) > 0.02
+                or font_loads
+            ):
                 raise RuntimeError("Path GIF lost motion, changed its clock or loaded a font")
         return {
             "scene": scene,

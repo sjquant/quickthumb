@@ -11,12 +11,12 @@ from quickthumb import (
     Canvas,
     ExportPolicy,
     GifOptions,
+    ImageSequenceOptions,
     KeyframeSpec,
     LinearGradient,
     OpacityTrack,
     PathLayer,
     PathMorphTrack,
-    PngSequenceOptions,
     ScaleTrack,
     TimingSpec,
     canvas_json_schema,
@@ -234,8 +234,8 @@ def test_morph_canonical_gif_and_worker_sequence(tmp_path):
     # When: actual serial and spawned-worker PNGs and a real encoded GIF are decoded
     for workers in (1, 2):
         directory = tmp_path / f"png-{workers}"
-        canvas.export_png_sequence(
-            directory, options=PngSequenceOptions(fps=4, hold=0.25, workers=workers)
+        canvas.export_image_sequence(
+            directory, options=ImageSequenceOptions(fps=4, hold=0.25, workers=workers)
         )
         decoded = []
         for path in sorted(directory.glob("*.png")):

@@ -406,4 +406,3 @@ def test_selector_cost_rotates_fresh_runs_and_excludes_warmups(tmp_path, monkeyp
     assert calls == sum((scenes[i:] + scenes[:i] for i in range(4)), [])
     assert all(row["total_seconds"] == 1 for row in report["results"])
     assert len(report["attempts"]) == 4 * len(scenes)
-

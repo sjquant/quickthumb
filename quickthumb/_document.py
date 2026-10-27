@@ -239,9 +239,7 @@ def build_export_result(
             )
         )
     facts = receipt.animation
-    capability_report.extend(
-        _motion_blur_report(facts.motion_blur if facts else None, target)
-    )
+    capability_report.extend(_motion_blur_report(facts.motion_blur if facts else None, target))
     timing = (
         TimingMetrics(
             duration=facts.duration,

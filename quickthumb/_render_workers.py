@@ -253,10 +253,15 @@ def _render_exposure_job(time: float, blur: MotionBlur, fps: float):
 
     assert _worker_renderer is not None
     renderer = _worker_renderer
+    fonts = []
 
     def frame_at(sample: float) -> Image.Image:
         index, local = _deck_sample(renderer.offsets, renderer.timings, sample)
-        return renderer.frame(index, local)
+        frame = renderer.frame(index, local)
+        for slide, canvas in ((index, renderer.canvas), (index - 1, renderer.previous)):
+            if canvas is not None:
+                fonts.append((slide, canvas._fonts.font_identities()))
+        return frame
 
     with _deck_exposure(
         frame_at,
@@ -268,7 +273,7 @@ def _render_exposure_job(time: float, blur: MotionBlur, fps: float):
         blur,
         renderer.size,
     ) as frame:
-        return frame.size, frame.tobytes()
+        return frame.size, frame.tobytes(), fonts
 
 
 class ParallelFrames:

@@ -7,7 +7,13 @@ from quickthumb._path_geometry import flatten_path
 from quickthumb._path_svg import _bounded_number, native_path_problem
 from quickthumb.errors import RenderingError
 from quickthumb.models import AnimationSpec, CubicBezierEasing, PathLayer, TrimOffsetTrack
-from quickthumb.motion import LayerState, Timeline, compile_timeline
+from quickthumb.motion import (
+    LayerState,
+    Timeline,
+    _has_spring_easing,
+    _has_wiggle,
+    compile_timeline,
+)
 
 _PROPERTIES = {"dash_offset", "trim_start", "trim_end", "trim_offset"}
 
@@ -33,6 +39,8 @@ def path_html_problem(layer: PathLayer) -> str | None:
         or any(track.type not in _PROPERTIES for track in animation.tracks)
     ):
         return "native stroke motion requires one stroke-property timeline"
+    if _has_spring_easing(animation) or _has_wiggle(animation):
+        return "native stroke motion does not support procedural easing or wiggle"
     vx, vy, vw, vh = layer.view_box or (0, 0, layer.width, layer.height)
     sx, sy = layer.width / vw, layer.height / vh
     try:
