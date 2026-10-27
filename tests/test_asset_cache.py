@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import io
 import json
 import threading
+import xml.etree.ElementTree as ET
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -572,3 +574,74 @@ def test_prefetched_font_keeps_its_bytes_after_another_document_refreshes_the_ur
     assert first_capture.frames[0].sha256 != second_capture.frames[0].sha256
     assert first_export.environment.fonts == first_capture.environment.fonts
     assert first_export.asset_manifest[0].content_hash == regular.content_hash
+
+
+def test_prefetched_font_and_private_plugin_keep_shared_export_evidence(
+    tmp_path, monkeypatch, local_assets
+):
+    """Pinned font and plugin bytes produce matching Canvas/Deck pixels and truthful SVG routes."""
+    # Given: one document uses a remote font and a private plugin's declared image bytes
+    base_url, requests, _server, payloads = local_assets
+    monkeypatch.setenv("QUICKTHUMB_ASSET_CACHE_DIR", str(tmp_path / "assets"))
+    font_sha = hashlib.sha256(payloads["/font.ttf"]).hexdigest()
+    image_sha = hashlib.sha256(payloads["/asset.png"]).hexdigest()
+    registry = PluginRegistry()
+
+    def pixels(params, context):
+        with Image.open(io.BytesIO(context.read_asset("texture"))) as image:
+            return image.convert("RGBA").tobytes()
+
+    registry.register("texture", "1", raster=pixels)
+    canvas = (
+        Canvas(160, 80, registry=registry)
+        .text("Pinned", font=f"{base_url}/font.ttf", size=24, position=(0, 0), id="text")
+        .plugin(
+            "texture",
+            version="1",
+            params={},
+            position=(100, 40),
+            width=4,
+            height=4,
+            assets={"texture": f"{base_url}/asset.png"},
+            id="plugin",
+        )
+    )
+    resolved = canvas.prefetch_assets().asset_manifest
+
+    # When: the server's resources change, sampling and export still use the resolved bytes
+    payloads["/font.ttf"] = payloads["/asset.png"] = b"changed after prefetch"
+    reference = canvas.sample()
+    for name, document in [("canvas", canvas), ("deck", Deck(slides=[canvas]))]:
+        capture = document.sample()
+        result = document.export(tmp_path / f"{name}.png")
+        assert capture.frames[0].sha256 == reference.frames[0].sha256
+        actual = Image.open(result.written_paths[0]).convert("RGBA")
+        assert actual.tobytes() == reference.frames[0].to_bytes()
+        assert result.asset_manifest == resolved
+        assert result.environment.fonts == capture.environment.fonts == reference.environment.fonts
+    svg_path = tmp_path / "combined.svg"
+    svg_result = canvas.export(svg_path)
+
+    # Then: font identity, source hashes and adopted representations describe actual content
+    assert [(row.asset_type, row.content_hash) for row in resolved] == [
+        ("font", font_sha),
+        ("plugin", image_sha),
+    ]
+    assert [row.sha256 for row in reference.environment.fonts] == [font_sha]
+    assert svg_result.environment.fonts == reference.environment.fonts
+    assert svg_result.asset_manifest == resolved
+    routes = [row for row in svg_result.capability_report if row.feature == "layer_representation"]
+    assert [(row.layer_id, row.support) for row in routes] == [
+        ("text", "native"),
+        ("plugin", "fallback"),
+    ]
+    assert {row.layer_id for row in svg_result.fallback_diagnostics} == {"plugin"}
+    assert all(row.native_attempt is False for row in svg_result.fallback_diagnostics)
+    assert routes[1].message in {row.reason for row in svg_result.fallback_diagnostics}
+    assert "plugin" in routes[1].message.lower()
+    [image] = ET.parse(svg_path).getroot().findall(".//{http://www.w3.org/2000/svg}image")
+    data = image.attrib["{http://www.w3.org/1999/xlink}href"].split(",", 1)[1]
+    actual = Image.open(io.BytesIO(base64.b64decode(data))).convert("RGBA")
+    assert actual.size == (4, 4)
+    assert actual.tobytes() == reference.frames[0].to_image().crop((100, 40, 104, 44)).tobytes()
+    assert sorted(requests) == ["/asset.png", "/font.ttf"]

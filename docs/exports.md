@@ -31,12 +31,9 @@ mp4_bytes = canvas.to_mp4()      # and canvas.to_webm() / canvas.to_mov()
 
 ## Recommended output API
 
-Use `export()` when building a workflow that accepts either a `Canvas` or a
-`Deck`. Both accept a string or `Path` and return an `ExportResult`, including
-the document `kind`, effective `output_format`, `written_paths`, capability and
-fallback diagnostics, pixel/timing metadata, the asset manifest, and rendering
-environment.
-
+Use `export()` to write a Canvas or Deck and receive an `ExportResult` with
+`written_paths`, capability/fallback diagnostics, pixel/timing metadata, assets
+and the observed rendering environment.
 The extension selects the format. MP4, WebM, MOV and GIF play the animated timeline.
 Deck video also mixes per-slide narration.
 
@@ -941,10 +938,9 @@ Keep the same `Canvas` or `Deck` to reuse resolution across `prefetch_assets()`,
 `sample()`, and exports. Each canvas retains its first remote resolution result
 and status; a deck uses its slides' results. Remote images, text fills, and SVGs
 render from these retained bytes. Remote fonts, including Google fonts, load
-from shared cache files instead: another document's refresh can replace that
-file before a font face is loaded, while the earlier manifest still describes
-the original resolution. Keep the font cache unchanged through export when
-reproducible font bytes matter. Construct a new document to resolve the same
+from content-addressed copies of the resolved bytes, so another document's URL
+refresh does not change a prefetched face. Keep those cache files available
+through sampling and export. Construct a new document to resolve the same
 reference again under the current cache policy.
 
 `PrefetchResult` and `asset_manifest` are JSON-safe reports, not resource handles.
