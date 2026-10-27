@@ -606,6 +606,7 @@ class ParentNode:
                 canvas._shapes,
                 text,
                 canvas._visualizations,
+                canvas._plugin_registry,
             )
             groups.render_group_layer(
                 surface,
