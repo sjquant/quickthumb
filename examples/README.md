@@ -1,7 +1,7 @@
 # quickthumb examples
 
-Runnable scripts that use the current quickthumb API. Each one writes its
-output next to itself in this folder. The [cookbook](https://quickthumb.solaqua.dev/cookbook/)
+Runnable scripts that use the current quickthumb API. Outputs are written in
+this folder or the `output/` subdirectory noted below. The [cookbook](https://quickthumb.solaqua.dev/cookbook/)
 shows the thumbnail examples with their images.
 
 Run them from the repository root:
@@ -85,18 +85,8 @@ clips (their sources are listed in a manifest in `assets/video`). It shows:
 - A `BackdropBlur` panel
 - A soundtrack that fades out at the end
 
-- The film is its own evidence: the payoff scene names the file, scene count, and single command that produced what the viewer is watching, and the closing card points back at this script
-- Five locally bundled Pexels clips with a checked-in provenance manifest, each reused only as a deliberate callback in a different frame
-- One proof scene places the same second of one source in 16:9, 1:1, and 9:16 frames simultaneously, so `fit` and placement are demonstrated rather than described
-- Timed caption cues that prove their own timing: a cue strip and a playhead cross each block at the moment its caption appears
-- `AnimationSpec` motion tied to meaning — line-staggered entrances for repeated work, position-track playheads for timeline scenes, `Canvas.counter(...)` for cost and render progress
-- A frosted `BackdropBlur` readout panel printing the film's real `speed`, `volume`, and `fade_out` values
-- Pretendard for the film's voice and Roboto for every functional readout, on a shared margin and type scale
-- An accent colour introduced at the narrative turn and held back from the opening act
-- Purposeful `Cut`, `Fade`, and `Wipe` transitions over a restrained Mixkit soundtrack loop that fades out on the close
-- MP4/WebM exports of the full 60-second composition plus a silent GIF preview of the delivery scene
-
-Use it when you want a production-style reference for combining footage, captions, audio, and editorial motion in a reproducible 16:9 composition.
+Outputs `ordinary_moments.mp4`, `ordinary_moments.webm`, and a short
+`ordinary_moments_preview.gif`. All three need `ffmpeg`.
 
 ### `motion_paths.py`
 
@@ -122,35 +112,10 @@ Use it when you want a directional marker to follow a curved route. Edit
 `path_keyframes()` to reshape the route, or `build_scene(animate_color=False)`
 to keep the animation compatible with the approximate HTML path mapping.
 
-## Assets and Fonts
+### `png_sequence_overlay.py`
 
 `png_sequence_overlay.py` exports a transparent lower third as a silent PNG
 animation sequence. It needs no FFmpeg, uses the bundled font, and demonstrates
 `PngSequenceOptions`, exact RGBA8 alpha, and the compact manifest/result. Each
 run requires a fresh `examples/output/png_sequence_overlay` directory; existing
 outputs are never overwritten.
-
-The example scripts set:
-
-- `QUICKTHUMB_FONT_DIR` to `assets/fonts`
-- `QUICKTHUMB_DEFAULT_FONT` to `Roboto`
-
-They also use bundled example images from `assets/images`.
-
-The JSON-first examples use repo-relative asset paths inside their checked-in JSON specs. The companion Python scripts change into the repo root before rendering so the examples stay runnable from any working directory.
-
-The launch announcement example renders SVG layers, so install `quickthumb[svg]` (cairosvg) to run it locally.
-
-The podcast promo example uses a bundled editorial portrait and requires network access only for its display webfont.
-
-The product hype reel example needs the `ffmpeg` binary on `PATH` for the MP4/WebM outputs (the GIF still renders without it). Its Pretendard fonts, voiceovers, and soundtrack are bundled with the repo, so rendering it needs no network access.
-
-## Extending These Examples
-
-Common edits that are safe to make:
-
-- Replace the background image path or URL
-- Swap headline copy and highlight colors
-- Change the canvas size or aspect ratio
-- Add `canvas.image(...)` for logos, cutouts, or subject overlays
-- Export as JPEG or WebP instead of PNG

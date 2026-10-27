@@ -1,5 +1,5 @@
 ---
-description: Export quickthumb canvases to SVG, editable PowerPoint (PPTX), PDF documents, and animated GIF/MP4/WebM/MOV alongside PNG/JPEG/WEBP.
+description: Export quickthumb canvases and decks to PNG, JPEG, WebP, SVG, HTML, PDF, editable PowerPoint, GIF, MP4, WebM, and MOV.
 ---
 
 # Exporting to SVG, PPTX, PDF & video
@@ -538,6 +538,20 @@ slide images and decoder caches, in addition to its in-flight RGB frame.
 Normal completion and errors wait for running jobs to finish and close their
 decoders. Pending jobs are canceled on failure; abruptly terminated workers
 are reported as rendering errors. An OS-level kill cannot run normal cleanup.
+
+Both option models use `hold=3.0` for the settled-state hold, matching `hold`
+on Canvas and Deck byte methods. It must be
+a finite nonnegative number; booleans and strings are rejected. A default hold
+is omitted from serialized options and restored when loaded; an explicit zero
+is retained. Narration and explicit Deck slide durations still determine the
+video schedule, while Deck GIF continues to ignore those per-slide durations.
+Deck animated video retains its existing restriction: `hold=0` (or byte
+`hold=0`) fails when any slide has neither narration nor an explicit
+positive duration, because its audio schedule requires a positive silent bed.
+Use a positive hold for those slides. Canvas, Deck GIF, and silent PNG sequences
+continue to permit a zero hold.
+
+
 Static narrated MP4 uses `render_narrated_mp4()` or `to_narrated_mp4()`.
 
 Deck MP4, WebM, and MOV exports support per-slide narration. Pass `audio=` to `Deck.slide()`;
@@ -557,7 +571,7 @@ The timing model mirrors the HTML slideshow, with one difference a non-interacti
 
 GIF is encoded by Pillow with per-frame durations, so no extra dependency is needed. MP4 (H.264), WebM (VP9), and MOV (ProRes 4444) require the `ffmpeg` binary on `PATH` (or pointed to by the `QUICKTHUMB_FFMPEG` environment variable).
 
-Canvas MP4, WebM, and MOV output can carry a soundtrack — any audio file ffmpeg decodes (MP3, WAV, AAC, OGG, ...), encoded as AAC in MP4/MOV and Opus in WebM:
+Canvas MP4, WebM, and MOV output can carry a soundtrack: any audio file ffmpeg decodes (MP3, WAV, AAC, OGG, ...), encoded as AAC in MP4/MOV and Opus in WebM:
 
 ```python
 mp4 = canvas.to_mp4(soundtrack="music.mp3")                    # loops to fill the video
