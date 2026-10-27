@@ -240,7 +240,9 @@ def test_render_prepares_document_before_opening_destination(tmp_path, monkeypat
 
         monkeypatch.setattr(HtmlExporter, "export", fail_preparation)
     else:
-        monkeypatch.setattr(canvas, "to_svg", fail_preparation)
+        from quickthumb._export_svg import SvgExporter
+
+        monkeypatch.setattr(SvgExporter, "export", fail_preparation)
     path = tmp_path / ("existing." + kind)
     path.write_bytes(b"existing")
     with pytest.raises(ValueError, match="prepare"):

@@ -19,6 +19,10 @@ DURATION = 2.0
 
 def build_scene(name: str) -> Deck:
     """Use the complete example reel, or a high-contrast asymmetric marker."""
+    if name == "motion_blur":
+        from examples.motion_blur import build_deck
+
+        return build_deck()
     if name == "product_hype_reel":
         from examples.product_hype_reel import build_deck
 

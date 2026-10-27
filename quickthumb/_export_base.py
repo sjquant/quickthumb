@@ -14,6 +14,7 @@ import base64
 import math
 import re
 import xml.etree.ElementTree as ET
+from copy import copy
 from dataclasses import dataclass, field
 from io import BytesIO
 from typing import TYPE_CHECKING, TypeVar
@@ -36,10 +37,12 @@ from quickthumb.models import (
     BackdropBlur,
     Background,
     ChartLayer,
+    ExportDiagnostic,
     Glow,
     GroupLayer,
     InnerShadow,
     LinearGradient,
+    PluginLayer,
     QRCodeLayer,
     RadialGradient,
     Shadow,
@@ -69,6 +72,15 @@ def _motion_number(value: float) -> str:
     return str(int(value)) if float(value).is_integer() else repr(float(value))
 
 
+def _distinct_layer_occurrences(canvas: Canvas) -> Canvas:
+    """Give repeated model occurrences distinct execution identities without changing the source."""
+    if len({id(layer) for layer in canvas.layers}) == len(canvas.layers):
+        return canvas
+    prepared = copy(canvas)
+    prepared.layers = [copy(layer) for layer in canvas.layers]
+    return prepared
+
+
 def flatten_layers(
     canvas: Canvas,
     *,
@@ -86,6 +98,7 @@ def flatten_layers(
             isinstance(layer, GroupLayer)
             and id(layer) not in (parent_nodes or ())
             and not has_layer_composition(layer)
+            and not (layer.animation is not None and _group_has_plugin(layer))
             and not _has_transform_extensions(layer)
             and not (_has_color_track(layer) and color_group_has_backdrop(layer))
         ):
@@ -95,6 +108,13 @@ def flatten_layers(
             if source_ids is not None:
                 source_ids[id(layer)] = _source_layer_ids(layer, index, (index,))
     return flat
+
+
+def _group_has_plugin(group: GroupLayer) -> bool:
+    return any(
+        isinstance(child, PluginLayer) or isinstance(child, GroupLayer) and _group_has_plugin(child)
+        for child in group.children
+    )
 
 
 def validate_legacy_animation_export(canvas: Canvas) -> None:
@@ -130,12 +150,19 @@ def _flatten_group(
     placed: list[RenderableLayer] = []
     for index, (child, position, size) in enumerate(placements):
         if isinstance(child, GroupLayer):
-            if has_layer_composition(child) or (
-                animation is None
-                and (
-                    _has_transform_extensions(child)
-                    or _has_color_track(child)
-                    and color_group_has_backdrop(child)
+            if (
+                has_layer_composition(child)
+                or (
+                    (animation is not None or child.animation is not None)
+                    and _group_has_plugin(child)
+                )
+                or (
+                    animation is None
+                    and (
+                        _has_transform_extensions(child)
+                        or _has_color_track(child)
+                        and color_group_has_backdrop(child)
+                    )
                 )
             ):
                 placed.append(
@@ -188,6 +215,28 @@ def _source_layer_ids(layer, root_index: int, path: tuple[int, ...]) -> tuple[st
         source_id
         for child_index, child in enumerate(getattr(layer, "children", ()))
         for source_id in _source_layer_ids(child, root_index, (*path, child_index))
+    )
+
+
+def _layer_routing(
+    layers: list,
+    source_ids: dict[int, tuple[str, ...]],
+    reason: str,
+    *,
+    target: str,
+    rasterized: bool,
+) -> ExportDiagnostic:
+    """Describe a representation actually emitted by a document exporter."""
+    members = [source_id for layer in layers for source_id in source_ids[id(layer)]]
+    return ExportDiagnostic(
+        layer_id=members[0] if len(layers) == 1 else None,
+        layer_ids=members if len(members) > 1 else [],
+        feature="layer_representation",
+        target=target,
+        support="fallback" if rasterized else "native",
+        fallback="rasterize" if rasterized else None,
+        native_attempt=not rasterized,
+        message=reason,
     )
 
 
