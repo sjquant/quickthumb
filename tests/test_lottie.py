@@ -331,3 +331,76 @@ def test_parent_graph_errors_reach_lottie_before_destination_write(tmp_path):
     assert caught.value.details[0].path == "/layers/1/parent"
     assert caught.value.details[0].layer_id == "child"
     assert destination.read_text() == "existing"
+
+
+def test_trim_keeps_fill_native_and_samples_cyclic_stroke_windows(tmp_path):
+    from examples.lottie_trim import build_canvas
+
+    canvas = Canvas.from_json(build_canvas().to_json())
+    output = tmp_path / "trim.lot"
+    receipt = canvas.export(output, animation=LottieOptions(fps=20, hold=0.5))
+    payload = json.loads(output.read_text())
+    schema = json.loads((Path(__file__).parent / "fixtures/lottie/schema-1.0.1.json").read_text())
+    jsonschema.validate(payload, schema)
+    stroke, fill, _transform = payload["layers"][0]["shapes"][0]["it"]
+    assert [item["ty"] for item in fill["it"]] == ["sh", "fl", "tr"]
+    modifier = stroke["it"][-2]
+    assert modifier["ty"] == "tm" and modifier["m"] == 2
+    # The non-grid delayed start and held boundary survive the same native clock.
+    assert modifier["e"]["a"] == 1
+    assert [key["t"] for key in modifier["e"]["k"]][:4] == [0, 1, 2, 2.5]
+    assert modifier["e"]["k"][0]["s"] == [0]
+    assert modifier["e"]["k"][-1]["s"] == [100]
+    assert receipt.timing_metrics.frame_count == 33
+    assert receipt.timing_metrics.duration == pytest.approx(1.65)
+    assert payload["assets"] == []
+    assert canvas.render_frame(0).getpixel((100, 75)) == (21, 154, 140, 96)
+    assert canvas.inspect_motion().duration == pytest.approx(1.125)
+
+    # A reversed interval is cyclic, not swapped by the native modifier.
+    wrapped = Canvas(100, 60).path(
+        "M10 20H90",
+        (0, 0),
+        100,
+        60,
+        None,
+        stroke="#3757A0",
+        stroke_width=4,
+        trim_start=0.75,
+        trim_end=0.25,
+    )
+    wrapped.export(output)
+    native = json.loads(output.read_text())["layers"][0]["shapes"][0]["it"][0]["it"][-2]
+    assert {name: native[name]["k"] for name in ("s", "e", "o")} == {"s": 0, "e": 50, "o": 270}
+    pixels = wrapped.render_frame(0)
+    gap, ink = pixels.getpixel((50, 20)), pixels.getpixel((15, 20))
+    assert isinstance(gap, tuple) and gap[3] == 0
+    assert isinstance(ink, tuple) and ink[3] > 245
+
+    reduced = tmp_path / "reduced.lot"
+    canvas.export(reduced, policy=ExportPolicy(reduced_motion=True))
+    modifier = json.loads(reduced.read_text())["layers"][0]["shapes"][0]["it"][0]["it"][-2]
+    assert modifier["e"] == {"a": 0, "k": 0}
+
+
+def test_unrepresentable_trim_preserves_existing_destination(tmp_path):
+    output = tmp_path / "trim.lot"
+    output.write_text("existing")
+    canvas = Canvas(100, 60).path(
+        "M10 20H90",
+        (0, 0),
+        100,
+        60,
+        None,
+        stroke="#3757A0",
+        stroke_width=4,
+        trim_start=0.5,
+        trim_end=0.500001,
+        id="too-thin",
+    )
+    assert canvas.validate_export("lottie")[0].support == "unsupported"
+    with pytest.raises(RenderingError, match="precision") as caught:
+        canvas.export(output)
+    assert caught.value.details[0].layer_id == "too-thin"
+    assert caught.value.details[0].path == "/layers/0/trim_start"
+    assert output.read_text() == "existing"

@@ -1078,7 +1078,7 @@ See [the runnable static example](https://github.com/sjquant/quickthumb/blob/mai
 
 `canvas.validate_export("lottie")` lists unsupported source IDs and JSON paths.
 Gradients, effects/presets, stagger, masks, viewport clipping,
-paint/trim/dash tracks, motion paths, text, images, plugins and Deck output are
+paint/dash tracks, motion paths, text, images, plugins and Deck output are
 not supported in this slice.
 Export rejects them before opening the destination, including when a policy asks
 for static or raster fallback. It never silently drops features or embeds rendered
@@ -1130,3 +1130,21 @@ Canvas: ancestor transforms can bring them into view. Unlinked animated Shape
 sources keep the earlier unclipped-source requirement. Cycles, missing parents,
 unsupported groups/effects and Path parenting are rejected before writing.
 See the [parenting example](https://github.com/sjquant/quickthumb/blob/main/examples/lottie_parenting.py).
+
+### Lottie stroke trim
+
+Paths support authored `trim_start`, `trim_end`, `trim_offset` and their
+`TrimStartTrack`, `TrimEndTrack`, `TrimOffsetTrack` timelines. Trim uses one
+normalized local arc-length clock across all contours, including cyclic wrapped
+windows and negative or multi-turn offsets. Full 0→1 ignores offset; equal
+endpoints and 1→0 are empty. Fill remains complete underneath the trimmed stroke.
+Closed seams retain their joins; open cuts use the authored cap.
+
+Trim properties use the same held fps samples, authored boundaries, composition,
+easing and reduced-motion policy as pose properties above. They remain native
+vector trim modifiers, with no frame images. Native endpoint rounding must not
+collapse a nonempty interval or exceed a conservative 1/8-pixel endpoint bound
+under the sampled scale; otherwise export rejects it before writing. The existing
+viewport, uniform stroke scaling and nondegenerate contour limits still apply.
+Dashes and dash-offset tracks remain unsupported; there is no trim-then-dash
+approximation. See the [stroke-trim example](https://github.com/sjquant/quickthumb/blob/main/examples/lottie_trim.py).
