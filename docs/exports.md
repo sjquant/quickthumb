@@ -557,19 +557,6 @@ Normal completion and errors wait for running jobs to finish and close their
 decoders. Pending jobs are canceled on failure; abruptly terminated workers
 are reported as rendering errors. An OS-level kill cannot run normal cleanup.
 
-Both option models use `hold=3.0` for the settled-state hold, matching `hold`
-on Canvas and Deck byte methods. It must be
-a finite nonnegative number; booleans and strings are rejected. A default hold
-is omitted from serialized options and restored when loaded; an explicit zero
-is retained. Narration and explicit Deck slide durations still determine the
-video schedule, while Deck GIF continues to ignore those per-slide durations.
-Deck animated video retains its existing restriction: `hold=0` (or byte
-`hold=0`) fails when any slide has neither narration nor an explicit
-positive duration, because its audio schedule requires a positive silent bed.
-Use a positive hold for those slides. Canvas, Deck GIF, and silent PNG sequences
-continue to permit a zero hold.
-
-
 Static narrated MP4 uses `render_narrated_mp4()` or `to_narrated_mp4()`.
 
 ### Narrated deck video
