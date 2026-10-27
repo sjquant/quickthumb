@@ -12,6 +12,7 @@ from pydantic import (
     ConfigDict,
     Discriminator,
     Field,
+    FiniteFloat,
     NonNegativeInt,
     PositiveFloat,
     PositiveInt,
@@ -119,16 +120,24 @@ class AnimatedTextValue(quickthumbModel):
 class PluginLayer(LayerIdentityModel):
     """A named renderer invocation carried by the canonical JSON contract.
 
-    The layer carries a renderer name, version, and parameters; quickthumb can
-    validate and serialize it but cannot draw it yet.  Parameters are
-    restricted to JSON values so the layer can always make a lossless
-    Python/JSON round trip.
+    A registered raster callback supplies the local box's straight-alpha RGBA8
+    bytes. Parameters and declared asset references remain JSON data; executable
+    callbacks belong to the application's explicit registry.
     """
 
     type: Literal["plugin"]
     renderer: str
     version: str
     params: JsonObject
+    position: Position = (0, 0)
+    width: PositiveInt
+    height: PositiveInt
+    align: AlignWithHVTuple = Align.TOP_LEFT
+    opacity: OpacityField = 1.0
+    assets: dict[str, str] = Field(default_factory=dict)
+
+    clip: LayerClip | None = None
+    mask: LayerMask | None = None
 
     model_config = ConfigDict(validate_assignment=True, extra="forbid")
 
@@ -432,6 +441,55 @@ class ImageLayer(_AnimatableLayerModel):
     def serialize_align(self, align: Align) -> str:
         """Serialize TextAlign to its string value for JSON."""
         return align.value
+
+
+class PathLayer(LayerIdentityModel):
+    """A static, filled or stroked SVG path inside a fixed local viewport."""
+
+    type: Literal["path"]
+    d: str = Field(description="SVG path data: M/L/H/V/C/S/Q/T/A/Z, absolute or relative.")
+    position: Position
+    width: PositiveInt
+    height: PositiveInt
+    color: HexColor | None = "#000000"
+    stroke: HexColor | None = None
+    stroke_width: FinitePositiveFloat = 1.0
+    line_cap: Literal["butt", "round", "square"] = "butt"
+    line_join: Literal["miter", "bevel", "round"] = "miter"
+    miter_limit: Annotated[FiniteFloat, Field(ge=1)] = 4.0
+    view_box: tuple[FiniteFloat, FiniteFloat, FinitePositiveFloat, FinitePositiveFloat] | None = (
+        None
+    )
+
+    model_config = ConfigDict(validate_assignment=True, extra="forbid")
+
+    @field_validator("position", mode="before")
+    @classmethod
+    def validate_position(cls, value: tuple | list) -> Position:
+        return _validate_required_position(value)
+
+    @field_validator("d")
+    @classmethod
+    def validate_path_data(cls, value: str) -> str:
+        from quickthumb._path_geometry import parse_path
+
+        parse_path(value)
+        return value
+
+    @model_validator(mode="after")
+    def validate_geometry(self) -> "PathLayer":
+        from quickthumb._path_geometry import parse_path
+
+        segments = parse_path(self.d)
+        vx, vy, vw, vh = self.view_box or (0, 0, self.width, self.height)
+        points = [(x - vx, y - vy) for segment in segments for x, y in segment.points]
+        for axis, scale in ((0, self.width / vw), (1, self.height / vh)):
+            values = [point[axis] * scale for point in points]
+            if not all(math.isfinite(value) for value in values) or not math.isfinite(
+                max(values) - min(values)
+            ):
+                raise ValidationError("mapped path coordinates must have a finite span", path="/d")
+        return self
 
 
 class ShapeLayer(_AnimatableLayerModel):
