@@ -12,9 +12,9 @@ from quickthumb import (
     Canvas,
     DashOffsetTrack,
     GifOptions,
+    ImageSequenceOptions,
     KeyframeSpec,
     PathLayer,
-    PngSequenceOptions,
     TimingSpec,
     canvas_json_schema,
 )
@@ -151,9 +151,9 @@ def test_encoded_gif_and_png_workers_keep_motion(tmp_path):
     # When: actual PNGs are rendered serially and through spawned workers
     for workers in (1, 2):
         directory = tmp_path / f"png-{workers}"
-        result = canvas.export_png_sequence(
+        result = canvas.export_image_sequence(
             directory,
-            options=PngSequenceOptions(
+            options=ImageSequenceOptions(
                 fps=4,
                 hold=0.25,
                 workers=workers,
