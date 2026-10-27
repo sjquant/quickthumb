@@ -250,6 +250,7 @@ class TestMotionContract:
             "trim_start",
             "trim_end",
             "trim_offset",
+            "path_morph",
             "opacity",
             "clip_progress",
             "blur",

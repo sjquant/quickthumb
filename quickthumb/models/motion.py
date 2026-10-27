@@ -533,6 +533,23 @@ class ColorTrack(_TrackBase):
         return keyframes
 
 
+class PathMorphTrack(_TrackBase):
+    """Absolute SVG d-string keyframes with bounded local arc-length correspondence."""
+
+    type: Literal["path_morph"] = "path_morph"
+    wiggle: None = Field(default=None, exclude_if=lambda value: value is None)
+
+    @field_validator("keyframes")
+    @classmethod
+    def validate_paths(cls, keyframes: list[KeyframeSpec]) -> list[KeyframeSpec]:
+        from quickthumb._path_morph import validate_morph_paths
+
+        if any(not isinstance(key.value, str) for key in keyframes):
+            raise ValueError("path_morph keyframes must contain SVG d strings")
+        validate_morph_paths([key.value for key in keyframes])
+        return keyframes
+
+
 TrackSpec = Annotated[
     PositionTrack
     | ImagePanTrack
@@ -548,7 +565,8 @@ TrackSpec = Annotated[
     | OpacityTrack
     | ClipProgressTrack
     | BlurTrack
-    | ColorTrack,
+    | ColorTrack
+    | PathMorphTrack,
     Discriminator("type"),
 ]
 
