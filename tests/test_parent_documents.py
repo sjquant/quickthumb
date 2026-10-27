@@ -109,9 +109,20 @@ def test_export_result_reports_actual_static_document_fallback(tmp_path, kind, d
     result = source.export(tmp_path / ("scene." + kind))
     assert result.output_format == kind
     assert result.fallback_diagnostics
-    assert all(item.fallback == "static" for item in result.capability_report)
-    assert all(item.support == "fallback" for item in result.capability_report)
-    assert all(kind in item.message for item in result.capability_report)
+    motion = [item for item in result.capability_report if item.feature != "layer_representation"]
+    assert motion
+    assert all(item.fallback == "static" for item in motion)
+    assert all(item.support == "fallback" for item in motion)
+    assert all(kind in item.message for item in motion)
+    if kind == "html" and not deck:
+        (route,) = [
+            item for item in result.capability_report if item.feature == "layer_representation"
+        ]
+        assert route.support == "fallback" and route.fallback == "rasterize"
+        assert route.native_attempt is False and route.layer_id is None
+        assert route.layer_ids == ["layer:0", "root", "middle", "child", "independent"]
+        actual = next(item for item in result.fallback_diagnostics if item.reason == route.message)
+        assert actual.native_attempt is False and actual.layer_ids == route.layer_ids
     assert source.validate_export("raster")[0].support == "full"
 
 
@@ -161,8 +172,18 @@ def test_parent_deck_morph_fades_with_no_pptx_timing_or_html_layer_clock(first_p
         assert b"<p:fade" in archive.read("ppt/slides/slide2.xml")
 
 
-@pytest.mark.parametrize("kind", ["html", "svg", "pptx", "pdf"])
-@pytest.mark.parametrize("deck", [False, True])
+@pytest.mark.parametrize(
+    "kind,deck",
+    [
+        ("html", False),
+        ("svg", False),
+        ("pptx", False),
+        ("pdf", False),
+        ("html", True),
+        ("pptx", True),
+        ("pdf", True),
+    ],
+)
 def test_unsupported_parent_sources_preserve_destinations(tmp_path, kind, deck):
     canvas = scene()
     layers = canvas.layers
@@ -210,9 +231,16 @@ def test_pdf_parent_fragments_are_export_scoped_and_skip_vector_fonts(monkeypatc
 @pytest.mark.parametrize("kind", ["html", "svg"])
 def test_render_prepares_document_before_opening_destination(tmp_path, monkeypatch, kind):
     canvas = scene()
-    monkeypatch.setattr(
-        canvas, "to_" + kind, lambda **_: (_ for _ in ()).throw(ValueError("prepare"))
-    )
+
+    def fail_preparation(*args, **kwargs):
+        raise ValueError("prepare")
+
+    if kind == "html":
+        from quickthumb._export_html import HtmlExporter
+
+        monkeypatch.setattr(HtmlExporter, "export", fail_preparation)
+    else:
+        monkeypatch.setattr(canvas, "to_svg", fail_preparation)
     path = tmp_path / ("existing." + kind)
     path.write_bytes(b"existing")
     with pytest.raises(ValueError, match="prepare"):
@@ -240,17 +268,6 @@ def test_shared_model_occurrences_keep_slide_local_diagnostics():
         reports = Deck(140, 130).slide(plain).slide(linked).validate_export(target)
         motion = [item for item in reports if item.layer_id == "shared"]
         assert [item.support for item in motion] == [expected, "fallback"]
-
-
-def test_narrated_mp4_render_policy_still_ignores_unused_morph(tmp_path, monkeypatch):
-    from quickthumb import Morph
-
-    deck = Deck(140, 130).slide(scene()).slide(Canvas(140, 130), transition=Morph())
-    calls = []
-    monkeypatch.setattr(deck, "render_mp4", lambda path: calls.append(path))
-    path = str(tmp_path / "narrated.mp4")
-    assert deck.render(path, policy=ExportPolicy(unsupported_motion="error")) == [path]
-    assert calls == [path]
 
 
 def test_pdf_reports_static_pages_without_claiming_morph_fade(tmp_path):

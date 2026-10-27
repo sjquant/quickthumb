@@ -306,8 +306,8 @@ def test_actual_gif_samples_group_value_after_ancestor_motion_finishes():
 def test_counter_gif_spawn_matches_serial(tmp_path, quality):
     canvas = group_scene()
     one, two = tmp_path / "one.gif", tmp_path / "two.gif"
-    canvas.render(str(one), animation=GifOptions(fps=5, quality=quality))
-    canvas.render(str(two), animation=GifOptions(fps=5, quality=quality, workers=2))
+    canvas.render(str(one), animation=GifOptions(fps=5, render_quality=quality))
+    canvas.render(str(two), animation=GifOptions(fps=5, render_quality=quality, workers=2))
     assert one.read_bytes() == two.read_bytes()
 
 
@@ -400,7 +400,11 @@ def test_documents_freeze_settled_counters_and_report_both_capabilities(tmp_path
     report = canvas.export(path)
     features = {item.feature for item in report.capability_report}
     assert {"parent", "animated_text_value"} <= features
-    assert all(item.fallback == "static" for item in report.capability_report)
+    assert all(
+        item.fallback == "static"
+        for item in report.capability_report
+        if item.feature != "layer_representation"
+    )
     path.write_bytes(b"existing")
     with pytest.raises(RenderingError):
         canvas.export(path, policy=ExportPolicy(unsupported_motion="error"))

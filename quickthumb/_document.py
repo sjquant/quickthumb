@@ -29,7 +29,9 @@ from quickthumb.models import (
     FallbackDiagnostic,
     FrameSequence,
     GifOptions,
+    MotionBlur,
     PixelMetrics,
+    PluginLayer,
     PrefetchResult,
     TimingMetrics,
     ValidationReport,
@@ -41,6 +43,7 @@ if TYPE_CHECKING:
     from quickthumb.canvas import Canvas
     from quickthumb.deck import Deck
     from quickthumb.models import CanvasInspection, DeckInspection
+    from quickthumb.models.document import _SvgFidelityMetrics
     from quickthumb.plugins import PluginRegistry
     from quickthumb.transitions import Transition
 
@@ -54,7 +57,7 @@ class _ResolvedExport:
     extension: str
     output_format: str
     target: str
-    mode: Literal["raster", "document", "animated", "narrated", "unsupported"]
+    mode: Literal["raster", "document", "animated"]
     uses_authored_transitions: bool
 
 
@@ -65,6 +68,7 @@ class _ExportReceipt:
     paths: list[str]
     diagnostics: list[ExportDiagnostic]
     animation: _AnimationFacts | None = None
+    fidelity: _SvgFidelityMetrics | None = None
 
 
 @dataclass(frozen=True)
@@ -218,8 +222,24 @@ def build_export_result(
     output_format = resolved.output_format
     target = resolved.target
     written_paths = receipt.paths
-    capability_report = receipt.diagnostics
+    capability_report = list(receipt.diagnostics)
+    if receipt.fidelity is not None:
+        comparison = receipt.fidelity
+        capability_report.append(
+            ExportDiagnostic(
+                feature="fidelity",
+                target=output_format,
+                support="partial" if comparison.verdict == "out_of_policy" else "full",
+                message=(
+                    f"CairoSVG {comparison.renderer_version} authored-static comparison: "
+                    f"{comparison.verdict}; the exported SVG representation is retained"
+                ),
+            )
+        )
     facts = receipt.animation
+    capability_report.extend(
+        _motion_blur_report(facts.motion_blur if facts else None, target)
+    )
     timing = (
         TimingMetrics(
             duration=facts.duration,
@@ -240,6 +260,8 @@ def build_export_result(
     )
     if output_format == "gif" and written_paths:
         timing = timing.model_copy(update={"frame_count": pixel_frame_count})
+    from quickthumb._sampling import _render_environment
+
     return ExportResult(
         kind=_contract_kind(source),
         target=target,
@@ -251,10 +273,28 @@ def build_export_result(
             width=dimensions[0],
             height=dimensions[1],
             frame_count=pixel_frame_count,
+            fidelity=receipt.fidelity,
         ),
         timing_metrics=timing,
         asset_manifest=asset_manifest,
+        environment=_render_environment(source),
     )
+
+
+def _motion_blur_report(blur: MotionBlur | None, target: str) -> list[ExportDiagnostic]:
+    if blur is None:
+        return []
+    return [
+        ExportDiagnostic(
+            feature="motion_blur",
+            target=target,
+            support="full",
+            message=(
+                f"Temporal exposure uses {blur.samples} samples "
+                f"and a {blur.shutter_angle:g}° shutter"
+            ),
+        )
+    ]
 
 
 def preflight_export(
@@ -263,13 +303,24 @@ def preflight_export(
     policy: ExportPolicy | None = None,
 ) -> list[ExportDiagnostic]:
     """Validate target capabilities before an exporter writes any files."""
-    return _capability_report(
+    from quickthumb._sampling import _begin_font_observation
+
+    _begin_font_observation(source)
+    diagnostics = _capability_report(
         source,
         resolved.target,
         policy,
         output_format=resolved.output_format,
         uses_authored_transitions=resolved.uses_authored_transitions,
     )
+    for index, canvas in enumerate(_contract_canvases(source)):
+        try:
+            canvas._resolve_plugin_assets()
+        except QuickthumbError as error:
+            if _contract_kind(source) == "deck":
+                error.at(f"/slides/{index}")
+            raise
+    return diagnostics
 
 
 def validation_report(source: Document, *, kind: DocumentKind) -> ValidationReport:
@@ -351,10 +402,6 @@ def _contract_motion_report(source: Document, target: str, policy, fps: float):
     return cast(Any, source)._contract_motion_report(target, policy, fps)
 
 
-def _contract_static_timing(source: Document) -> tuple[float, float] | None:
-    return cast(Any, source)._contract_static_timing()
-
-
 TimelineInputs = tuple["list[Canvas]", "list[Transition | None]", "list[float | None] | None"]
 
 
@@ -362,38 +409,71 @@ def _contract_timeline_inputs(source: Document, hold: float) -> TimelineInputs:
     return cast(Any, source)._contract_timeline_inputs(hold)
 
 
-def _output_format(output_path: str, format: str | None = None) -> str:
-    if format is not None:
-        return format.lower()
-    extension = Path(output_path).suffix.lower().lstrip(".")
-    return "html" if extension == "htm" else extension
-
-
 def _resolve_export(
     kind: DocumentKind,
     output_path: str,
     format: str | None,
-    animation: GifOptions | VideoOptions | None,
     policy: ExportPolicy | None,
+    *,
+    quality: int | None = None,
+    animation: GifOptions | VideoOptions | None = None,
+    debug: bool = False,
 ) -> _ResolvedExport:
-    """Resolve dispatch once; leave legacy option and geometry errors to execution."""
+    """Resolve one shared file route and reject invalid options before rendering."""
     extension = Path(output_path).suffix.lower()
-    output_format = _output_format(output_path, format)
-    mode: Literal["raster", "document", "animated", "narrated", "unsupported"]
-    if extension == ".mp4" and kind == "deck" and animation is None:
-        mode = "narrated"
-    elif extension in {".gif", ".mp4", ".webm", ".mov"}:
+    extension_format = {"jpg": "jpeg", "htm": "html"}.get(extension[1:], extension[1:])
+    output_format = extension_format
+    if format is not None:
+        if not isinstance(format, str) or format.upper() not in {"PNG", "JPEG", "WEBP"}:
+            raise RenderingError("format must be PNG, JPEG, or WEBP", code="unsupported_format")
+        if extension_format in {"svg", "pdf", "pptx", "html", "gif", "mp4", "webm", "mov"}:
+            raise RenderingError(
+                "format override is only supported for raster output, "
+                "not document or animated output."
+            )
+        output_format = format.lower()
+
+    mode: Literal["raster", "document", "animated"]
+    if output_format in {"gif", "mp4", "webm", "mov"}:
         mode = "animated"
-    elif kind == "canvas" and format is not None:
-        mode = "raster"
-    elif extension in {".pdf", ".pptx", ".html", ".htm"} or (
-        kind == "canvas" and extension == ".svg"
-    ):
+    elif output_format in {"pdf", "pptx", "html"} or (kind == "canvas" and output_format == "svg"):
         mode = "document"
-    elif kind == "canvas" or extension in {".png", ".jpg", ".jpeg", ".webp"}:
+    elif output_format in {"png", "jpeg", "webp"}:
         mode = "raster"
+    elif kind == "deck" and output_format == "svg":
+        raise RenderingError(
+            "A deck cannot render to a single .svg file (SVG has no multi-page form). "
+            "Export slides individually, or use .pdf, .pptx, or .html.",
+            code="unsupported_format",
+        )
     else:
-        mode = "unsupported"
+        raise RenderingError(
+            f"Unsupported file format: {extension or '(none)'}.",
+            code="unsupported_format",
+            suggestion=(
+                "use one of .png, .jpg, .jpeg, .webp, .pdf, .pptx, .html, .htm, "
+                ".gif, .mp4, .webm, .mov" + (", .svg" if kind == "canvas" else "")
+            ),
+        )
+
+    _raster_save_kwargs(output_format.upper(), quality)
+    if animation is not None:
+        if mode != "animated":
+            raise RenderingError(
+                "animation options are only supported for GIF, MP4, WebM, and MOV output."
+            )
+        expected_options = GifOptions if output_format == "gif" else VideoOptions
+        if not isinstance(animation, expected_options):
+            raise ValidationError(
+                f"{expected_options.__name__} are required for {output_format.upper()} output"
+            )
+        if isinstance(animation, VideoOptions) and animation.transparent and output_format == "mp4":
+            raise ValidationError(
+                "transparent output is only supported for VP9 WebM or ProRes 4444 MOV"
+            )
+    if debug and mode != "raster":
+        raise RenderingError("Debug render is only supported for PNG, JPEG, and WEBP output.")
+
     return _ResolvedExport(
         extension=extension,
         output_format=output_format,
@@ -402,6 +482,22 @@ def _resolve_export(
         uses_authored_transitions=(mode == "animated" or output_format in {"html", "pptx"})
         and not bool(policy and policy.reduced_motion),
     )
+
+
+def _raster_save_kwargs(file_format: str, quality: int | None) -> dict[str, int]:
+    """Validate compression quality before file or in-memory image encoding."""
+    if quality is None:
+        return {}
+    if file_format not in {"JPEG", "WEBP"}:
+        raise RenderingError(
+            f"Quality parameter is only supported for JPEG and WEBP formats, not {file_format}."
+        )
+    maximum = 95 if file_format == "JPEG" else 100
+    if type(quality) is not int or not 1 <= quality <= maximum:
+        raise RenderingError(
+            f"quality for {file_format} must be an integer between 1 and {maximum}"
+        )
+    return {"quality": quality}
 
 
 def _export_target(output_format: str) -> str:
@@ -445,8 +541,10 @@ def _fallback_diagnostics(capability_report: list) -> list[FallbackDiagnostic]:
         FallbackDiagnostic(
             target=item.target,
             layer_id=item.layer_id,
+            slide_index=item.slide_index,
+            layer_ids=item.layer_ids,
             reason=item.message,
-            native_attempt=item.support in {"native", "partial"},
+            native_attempt=item.native_attempt,
             suggestion="inspect the capability report for a native alternative",
         )
         for item in capability_report
@@ -463,15 +561,6 @@ def _timing_metrics(
     if resolved.target != "video":
         return TimingMetrics()
     fps = _animation_fps(resolved.output_format, animation)
-    if resolved.mode == "narrated":
-        static_timing = _contract_static_timing(source)
-        assert static_timing is not None
-        duration, static_fps = static_timing
-        return TimingMetrics(
-            duration=duration,
-            fps=static_fps,
-            frame_count=max(1, math.ceil(duration * static_fps)),
-        )
     if not resolved.uses_authored_transitions:
         from quickthumb._export_video import _deck_timing
 
@@ -566,6 +655,9 @@ def _asset_manifest(
 
 def _layer_asset_values(layer: object):
     layer_type = getattr(layer, "type", None)
+    if isinstance(layer, PluginLayer):
+        for source in layer.assets.values():
+            yield "plugin", source
     for field in ("path", "source"):
         value = getattr(layer, field, None)
         if isinstance(value, str):
