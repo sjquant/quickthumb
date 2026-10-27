@@ -342,6 +342,21 @@ class Canvas:
         for asset_type, source in self._remote_asset_references():
             self._images.resolve_remote_reference(source, asset_type=asset_type)
         self._fonts.resolve_remote_references(self._iter_layers_deep())
+        self._resolve_plugin_assets()
+
+    def _resolve_plugin_assets(self) -> None:
+        """Resolve declared byte dependencies before a callback or output can fail late."""
+        self._validate_image_paths()
+        for pointer, layer in self._iter_layer_pointers():
+            if isinstance(layer, PluginLayer):
+                for name, source in layer.assets.items():
+                    try:
+                        self._ctx.asset_resolver.resolve(source, "plugin")
+                    except RenderingError as error:
+                        error.at(json_pointer("assets", name)).at(
+                            pointer, layer.model_dump(mode="json")
+                        )
+                        raise
 
     def _contract_asset_record(self, asset_type: str, source: str):
         return self._ctx.asset_resolver.record_for(source, asset_type)
@@ -2306,6 +2321,9 @@ class Canvas:
             yield "/path", layer.path
         elif isinstance(layer, VideoLayer):
             yield "/source", layer.source
+        elif isinstance(layer, PluginLayer):
+            for name, source in layer.assets.items():
+                yield json_pointer("assets", name), source
         elif isinstance(layer, TextLayer):
             if isinstance(layer.fill, TextFillImage):
                 yield "/fill/path", layer.fill.path

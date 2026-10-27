@@ -134,7 +134,7 @@ class AssetManifestEntry(quickthumbModel):
     """A deterministic description of one document asset reference.
 
     `source` is the reference as written in the document and `asset_type` its
-    semantic role (`image`, `svg`, `font`, `text-fill`, `video`, `audio`).
+    semantic role (`image`, `svg`, `font`, `text-fill`, `video`, `audio`, `plugin`).
     `status` is the resolution outcome (see `AssetStatus`); for a `stale`
     value, `stale_reason` says why it was not refreshed and `fetched_at` how
     old it is, so callers can decide whether to proceed.
