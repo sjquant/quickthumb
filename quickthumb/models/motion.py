@@ -384,7 +384,7 @@ class ScalarTrack(_TrackBase):
 
 
 class ScaleTrack(ScalarTrack):
-    """A uniform scale track."""
+    """Uniform outer-object scale about the layer anchor, including image layers."""
 
     type: Literal["scale"] = "scale"
 
@@ -416,7 +416,7 @@ class ImageZoomTrack(ScalarTrack):
 
 
 class RotationTrack(ScalarTrack):
-    """A rotation-in-degrees track."""
+    """Clockwise rotation in degrees, added to path heading with auto-orient."""
 
     type: Literal["rotation"] = "rotation"
 

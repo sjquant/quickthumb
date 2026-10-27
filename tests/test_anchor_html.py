@@ -236,7 +236,8 @@ def test_unsupported_extension_combinations_use_authored_static_fallback(animati
     assert base64.b64decode(encoded) == fragment.png_bytes
 
 
-def test_image_axis_scale_maps_but_uniform_viewport_zoom_falls_back():
+def test_image_uniform_and_axis_scale_map_to_outer_html_transforms():
+    """Image uniform and axis tracks both animate outer HTML geometry."""
     source = str(Path(__file__).parent / "fixtures" / "sample_image.jpg")
     animation = AnimationSpec.timeline(_track(ScaleXTrack, (0, 1), (1, 2)))
     canvas = Canvas(120, 100).image(source, (10, 10), width=50, height=40, animation=animation)
@@ -249,7 +250,7 @@ def test_image_axis_scale_maps_but_uniform_viewport_zoom_falls_back():
         anchor=(0, 0),
         animation=AnimationSpec.timeline(_track(ScaleTrack, (0, 1), (1, 2))),
     )
-    assert not _supports_transform_extensions_html(layer)
+    assert _supports_transform_extensions_html(layer)
 
 
 def test_dynamic_sources_and_animated_group_children_are_not_claimed_supported():

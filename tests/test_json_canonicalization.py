@@ -44,6 +44,9 @@ def test_python_and_json_canvas_specs_normalize_to_one_rendered_document():
             height=18,
             color="#E0F2FE",
             opacity=0.8,
+            id="badge",
+            motion_key="brand",
+            anchor=(0, 1),
         )
         .text("Canonical", position=(4, 28), size=12, color="#FFFFFF")
     )
@@ -60,6 +63,9 @@ def test_python_and_json_canvas_specs_normalize_to_one_rendered_document():
                 "height": 18,
                 "color": "#E0F2FE",
                 "opacity": 0.8,
+                "id": "badge",
+                "motion_key": "brand",
+                "anchor": [0, 1],
             },
             {
                 "type": "text",
@@ -75,7 +81,8 @@ def test_python_and_json_canvas_specs_normalize_to_one_rendered_document():
     # When: both inputs are normalized at the public document boundary
     json_canvas = Canvas.from_json(json.dumps(json_spec, indent=2))
 
-    # Then: canonical JSON and public rendering behavior converge
+    # Then: canonical JSON uses the shared layer schema and rendering behavior converges
+    validate(json.loads(json_canvas.to_json()), canvas_json_schema())
     assert json_canvas.to_json() == python_canvas.to_json()
     assert json_canvas.sample().frames[0].sha256 == python_canvas.sample().frames[0].sha256
 
@@ -182,9 +189,21 @@ def test_document_schema_matches_sparse_decks_and_strict_nested_metadata():
         },
         {"kind": "deck", "slides": [{"kind": "canvas", "layers": []}]},
     ]
+    invalid_documents.extend(
+        {
+            "kind": "canvas",
+            "width": 10,
+            "height": 10,
+            "layers": [{"type": "background", "color": "#FFFFFF", field: identity}],
+        }
+        for field in ("id", "motion_key")
+        for identity in ("not an identity", "badge\n")
+    )
     for document in invalid_documents:
         with pytest.raises(JsonSchemaValidationError):
             validate(document, schema)
+        with pytest.raises(ValidationError):
+            load_document(json.dumps(document))
 
 
 @pytest.mark.parametrize(

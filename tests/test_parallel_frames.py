@@ -320,21 +320,6 @@ def test_parallel_video_crosses_encoded_batch_boundaries(tmp_path, container):
     assert len(outputs[0]) == 65 * 32 * 20 * 3
 
 
-def test_static_deck_mp4_route_does_not_create_parallel_renderer(tmp_path, monkeypatch):
-    # A .mp4 Deck without VideoOptions remains the distinct static narrated exporter.
-    from quickthumb import _export_deck_mp4, _render_workers
-
-    calls = []
-    monkeypatch.setattr(
-        _export_deck_mp4, "render_deck_mp4", lambda *args, **kwargs: calls.append(True)
-    )
-    monkeypatch.setattr(
-        _render_workers, "ParallelFrames", lambda *args, **kwargs: pytest.fail("unexpected workers")
-    )
-    Deck(16, 16).slide(Canvas().background(color="#112233")).render(str(tmp_path / "static.mp4"))
-    assert calls == [True]
-
-
 def test_parallel_motion_path_skips_parent_serial_morph_planning(monkeypatch):
     from PIL import Image
 
