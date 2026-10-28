@@ -99,7 +99,7 @@ class CustomLayer:
 
 
 RenderableLayer = LayerType | CustomLayer
-TextContentInput = str | list[TextPart | dict[str, Any]]
+TextContentInput = str | list[TextPart] | list[dict[str, Any]] | list[TextPart | dict[str, Any]]
 
 _THEME_REF_RE = re.compile(r"\$theme\.([A-Za-z0-9_]+(?:\.[A-Za-z0-9_]+)*)")
 _VAR_RE = re.compile(r"\$\{(\w+)\}|\$(\w+)")
@@ -570,8 +570,8 @@ class Canvas:
             gradient=gradient,
             image=image,
             opacity=opacity,
-            blend_mode=blend_mode,  # type: ignore
-            fit=fit,  # type: ignore
+            blend_mode=blend_mode,
+            fit=fit,
             focal_point=focal_point,
             faces=faces or [],  # type: ignore[arg-type]
             effects=effects or [],
@@ -1288,7 +1288,7 @@ class Canvas:
                     [self],
                     [None],
                     output_path,
-                    format=resolved.output_format,  # type: ignore[arg-type]
+                    format=cast(Literal["gif", "mp4", "webm", "mov"], resolved.output_format),
                     animation=cast(GifOptions | VideoOptions | None, animation),
                     reduced_motion=not resolved.uses_authored_transitions,
                 )

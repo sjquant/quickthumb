@@ -263,7 +263,7 @@ class PdfExporter:
                 if value is _MISSING:
                     fonts._tt2ps_map.pop(key, None)
                 else:
-                    fonts._tt2ps_map[key] = value
+                    fonts._tt2ps_map[key] = cast(str, value)
             if ps2tt_snapshot is _MISSING:
                 fonts._ps2tt_map.pop(name.lower(), None)
             else:
@@ -717,11 +717,11 @@ class PdfExporter:
                 if value is _MISSING:
                     fonts._tt2ps_map.pop(key, None)
                 else:
-                    fonts._tt2ps_map[key] = value
+                    fonts._tt2ps_map[key] = cast(str, value)
             if ps2tt_snapshot is _MISSING:
                 fonts._ps2tt_map.pop(family, None)
             else:
-                fonts._ps2tt_map[family] = ps2tt_snapshot
+                fonts._ps2tt_map[family] = cast(tuple[str, int, int], ps2tt_snapshot)
             self._font_mapping_snapshots.pop(name, None)
             raise
         self._registered_fonts[name] = font

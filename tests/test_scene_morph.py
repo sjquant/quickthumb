@@ -7,6 +7,7 @@ import pytest
 from PIL import Image
 from quickthumb import AnimationSpec, Canvas, Deck, KeyframeSpec, Morph, PositionTrack
 from quickthumb.errors import ValidationError
+from quickthumb.models import TextLayer
 
 
 def scene(*layers):
@@ -26,6 +27,8 @@ def test_should_round_trip_layer_identity_and_morph_transition():
     payload = json.loads(canvas.to_json())
 
     # Then identity and transition contracts survive unchanged
+    assert isinstance(restored.layers[0], TextLayer)
+    assert isinstance(deck.default_transition, Morph)
     assert restored.layers[0].id == "title"
     assert restored.layers[0].motion_key == "hero"
     assert deck.default_transition.effect == "morph"

@@ -836,7 +836,8 @@ def sample_scene_morph(
                 )
             )
         else:
-            layer_id, layer = target_item  # type: ignore[misc]
+            assert target_item is not None
+            layer_id, layer = target_item
             result.append(
                 MorphLayerState(
                     key,
@@ -1864,7 +1865,10 @@ def _sample_path_track(
 def _interpolate(left: MotionValue, right: MotionValue, ratio: float) -> MotionValue:
     """Linearly interpolate supported scalar, vector, and hex color values."""
     if isinstance(left, tuple) and isinstance(right, tuple):
-        return tuple(a + (b - a) * ratio for a, b in zip(left, right, strict=True))
+        return (
+            left[0] + (right[0] - left[0]) * ratio,
+            left[1] + (right[1] - left[1]) * ratio,
+        )
     if isinstance(left, (int, float)) and isinstance(right, (int, float)):
         difference = right - left
         return (
@@ -2314,6 +2318,7 @@ def _validate_export(
         from quickthumb._export_lottie import validate_lottie
 
         return validate_lottie(source, policy)
+    source_canvases = cast("Iterable[Canvas]", getattr(source, "slides", (source,)))
     normalized = _normalize_target(target)
     resolved_policy = policy or ExportPolicy()
     row = capabilities_for(normalized)
@@ -2324,7 +2329,7 @@ def _validate_export(
     if normalized == "html":
         from quickthumb._export_base import is_backdrop_dependent
 
-        for canvas in getattr(source, "slides", (source,)):
+        for canvas in source_canvases:
             layers = list(_iter_export_layers(canvas))
             last = max(
                 (
@@ -2345,7 +2350,7 @@ def _validate_export(
     parentless_text_paths: set[str] = set()
     document_format = parent_document_format or normalized
     svg_candidates: set[int] = set()
-    for index, canvas in enumerate(getattr(source, "slides", (source,))):
+    for index, canvas in enumerate(source_canvases):
         if document_format == "svg" and "svg" in resolved_policy.fidelity:
             svg_candidates.update(
                 id(layer)
@@ -2355,7 +2360,7 @@ def _validate_export(
             )
         _validate_text_selectors(canvas)
         try:
-            cast("Canvas", canvas)._validate_layer_identities()
+            canvas._validate_layer_identities()
         except ValidationError as error:
             if hasattr(source, "slides"):
                 error.at(f"/slides/{index}")
@@ -2908,7 +2913,7 @@ def _validate_export(
                 )
     if uses_authored_transitions and normalized == "video" and slides is not None:
         canvases = tuple(slides)
-        transitions = tuple(cast(Any, source)._resolved_transitions())
+        transitions = tuple(cast("Deck", source)._resolved_transitions())
         for index, transition in enumerate(transitions):
             if getattr(transition, "effect", None) != "morph" or index == 0:
                 continue
@@ -3328,10 +3333,7 @@ def inspect_motion(
         requested = (target,)
     else:
         requested = tuple(target)
-    normalized_targets = cast(
-        tuple[ExportTarget, ...],
-        tuple(dict.fromkeys(_normalize_target(item) for item in requested)),
-    )
+    normalized_targets = tuple(dict.fromkeys(_normalize_target(item) for item in requested))
     if not normalized_targets:
         raise ValidationError("inspection target must not be empty")
     resolved_policy = policy or ExportPolicy()

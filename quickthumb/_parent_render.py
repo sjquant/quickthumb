@@ -295,18 +295,17 @@ def _padding(canvas: Canvas, layer) -> int:
         for text, font, _ in canvas._text.iter_text_runs(canvas._text.effective_layer(layer)):
             for line in text.split("\n"):
                 bounds = font.getbbox(line)
-                if bounds:
-                    ink_margin = max(
-                        ink_margin,
-                        math.ceil(
-                            max(
-                                abs(bounds[0]),
-                                max(0, bounds[2] - font.getlength(line)),
-                                abs(bounds[1]),
-                                abs(bounds[3]),
-                            )
-                        ),
-                    )
+                ink_margin = max(
+                    ink_margin,
+                    math.ceil(
+                        max(
+                            abs(bounds[0]),
+                            max(0, bounds[2] - font.getlength(line)),
+                            abs(bounds[1]),
+                            abs(bounds[3]),
+                        )
+                    ),
+                )
         padding += ink_margin
     return padding + 2
 

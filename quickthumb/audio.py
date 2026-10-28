@@ -243,8 +243,9 @@ def _analyze_source(source: Path, source_hash: str, ffmpeg: str, version: str) -
 
 def _onsets(rms: list[float]) -> tuple[float, ...]:
     onsets: list[float] = []
+    baseline_windows = int(_PARAMETERS["baseline_windows"])
     for index, amplitude in enumerate(rms):
-        history = rms[max(0, index - _PARAMETERS["baseline_windows"]) : index]
+        history = rms[max(0, index - baseline_windows) : index]
         baseline = sum(history) / len(history) if history else 0.0
         previous = history[-1] if history else 0.0
         time = round(index * _HOP / _SAMPLE_RATE, 9)

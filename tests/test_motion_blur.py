@@ -168,6 +168,7 @@ def test_deck_exposure_matches_spawned_rgba_and_respects_cuts(tmp_path, hard_cut
         rendered.append((result.duration, [frame.tobytes() for frame in frames]))
         assert frames[2].getpixel((15, 7)) == (0, 0, 0, 0)
         boundary = frames[2].getpixel((3, 3))
+        assert isinstance(boundary, tuple) and len(boundary) == 4
         if hard_cut:
             assert boundary == (0, 0, 255, 255)
             assert frames[3].getpixel((3, 3)) == (0, 0, 255, 255)

@@ -206,9 +206,11 @@ def test_public_jitter_improves_and_transformed_endpoints_stay_identical(scene, 
     assert after < before * ratio
     assert current[-2].tobytes() == previous[-2].tobytes()
     assert current[-1].tobytes() == previous[-1].tobytes()
-    state = next(
+    timeline = next(
         unit for unit in video._SlideAnimator(deck._slides[0], {})._units if unit.timeline
-    ).timeline.sample(2)
+    ).timeline
+    assert timeline is not None
+    state = timeline.sample(2)
     if scene == "rotation":
         assert state.rotation == 12
     if scene == "scale":

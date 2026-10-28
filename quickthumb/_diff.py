@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from math import isfinite
 from pathlib import Path
-from typing import TypeAlias
+from typing import TypeAlias, cast
 
 from PIL import Image, ImageChops, UnidentifiedImageError
 
@@ -237,12 +237,17 @@ def _pixel_metrics(
     different_pixels = 0
     total_delta = 0
     max_channel_delta = 0
+    # Both images have been composited and converted to RGB by the caller.
     for expected_pixel, actual_pixel in zip(
         expected.get_flattened_data(), actual.get_flattened_data(), strict=True
     ):
         deltas = [
             abs(expected_channel - actual_channel)
-            for expected_channel, actual_channel in zip(expected_pixel, actual_pixel, strict=True)
+            for expected_channel, actual_channel in zip(
+                cast(tuple[int, ...], expected_pixel),
+                cast(tuple[int, ...], actual_pixel),
+                strict=True,
+            )
         ]
         max_channel_delta = max(max_channel_delta, *deltas)
         total_delta += sum(deltas)
@@ -262,7 +267,8 @@ def _pixel_metrics(
 def _perceptual_hash_image(image: Image.Image, hash_size: int) -> str:
     composited = _composite_for_comparison(image).convert("L")
     resized = composited.resize((hash_size, hash_size), Image.Resampling.LANCZOS)
-    pixels = list(resized.get_flattened_data())
+    # Mode L contains one integer per pixel.
+    pixels = cast(list[int], list(resized.get_flattened_data()))
     average = sum(pixels) / len(pixels)
     value = 0
     for pixel in pixels:
