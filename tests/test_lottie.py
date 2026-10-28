@@ -718,3 +718,26 @@ def test_morph_native_geometry_repaints_canonical_frames(tmp_path, first, last, 
             / (160 * 140)
             < 0.02
         )
+
+
+def test_morph_vertex_budget_is_shared_between_layers(tmp_path, monkeypatch):
+    from quickthumb import KeyframeSpec, PathMorphTrack, TimingSpec, _sampling
+
+    monkeypatch.setattr(_sampling, "_MAX_OBSERVATIONS", 30)
+    animation = AnimationSpec.timeline(
+        PathMorphTrack(
+            keyframes=[
+                KeyframeSpec(time=0, value="M10 10H40V40H10Z"),
+                KeyframeSpec(time=1, value="M20 20H50V50H20Z"),
+            ]
+        ),
+        timing=TimingSpec(duration=1),
+    )
+    canvas = Canvas(100, 100)
+    for _ in range(2):
+        canvas.path("M10 10H40V40H10Z", (0, 0), 100, 100, "#159A8C", animation=animation)
+    output = tmp_path / "existing.lot"
+    output.write_text("keep")
+    with pytest.raises(RenderingError, match="total pose/vertex"):
+        canvas.export(output, animation=LottieOptions(fps=4, hold=0.5))
+    assert output.read_text() == "keep"

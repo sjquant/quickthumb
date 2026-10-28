@@ -217,7 +217,11 @@ def layer_pose(canvas, layer, shapes, timeline, fps, boundaries, geometry=None):
         animate_paths(shapes)
     if trim is not None:
         trim.update(_sampled_properties(times, trim_rows, fps))
-    return transformed, _sampled_properties(times, rows, fps), len(times) if timeline else 0
+    return (
+        transformed,
+        _sampled_properties(times, rows, fps),
+        (len(times) if timeline else 0) + morph_vertices,
+    )
 
 
 def _sampled_properties(times, rows, fps):
