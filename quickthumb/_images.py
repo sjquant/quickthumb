@@ -284,7 +284,7 @@ class ImageEngine:
                 layer.fit,
                 focal_point,
                 layer.faces,
-                motion_zoom=(motion.image_zoom * motion.scale) if motion else 1.0,
+                motion_zoom=motion.image_zoom if motion else 1.0,
                 motion_pan=motion.image_pan if motion else (0.0, 0.0),
             )
 

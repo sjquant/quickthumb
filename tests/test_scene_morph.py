@@ -7,6 +7,7 @@ import pytest
 from PIL import Image
 from quickthumb import AnimationSpec, Canvas, Deck, KeyframeSpec, Morph, PositionTrack
 from quickthumb.errors import ValidationError
+from quickthumb.models import TextLayer
 
 
 def scene(*layers):
@@ -26,6 +27,8 @@ def test_should_round_trip_layer_identity_and_morph_transition():
     payload = json.loads(canvas.to_json())
 
     # Then identity and transition contracts survive unchanged
+    assert isinstance(restored.layers[0], TextLayer)
+    assert isinstance(deck.default_transition, Morph)
     assert restored.layers[0].id == "title"
     assert restored.layers[0].motion_key == "hero"
     assert deck.default_transition.effect == "morph"
@@ -144,7 +147,7 @@ def test_should_render_a_keyed_shape_at_an_intermediate_morph_position():
     deck = Deck(slides=[source, target], transition=Morph(duration=1))
 
     # When the public animated export is sampled at a fixed frame rate
-    image: Image.Image = Image.open(BytesIO(deck.to_gif(fps=4, slide_duration=0.1)))
+    image: Image.Image = Image.open(BytesIO(deck.to_gif(fps=4, hold=0.1)))
     red_bounds = []
     for index in range(int(getattr(image, "n_frames", 1))):
         image.seek(index)

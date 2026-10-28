@@ -29,7 +29,10 @@ from quickthumb.models import (
     FallbackDiagnostic,
     FrameSequence,
     GifOptions,
+    LottieOptions,
+    MotionBlur,
     PixelMetrics,
+    PluginLayer,
     PrefetchResult,
     TimingMetrics,
     ValidationReport,
@@ -37,13 +40,36 @@ from quickthumb.models import (
 )
 
 if TYPE_CHECKING:
+    from quickthumb._export_video import _AnimationFacts
     from quickthumb.canvas import Canvas
     from quickthumb.deck import Deck
     from quickthumb.models import CanvasInspection, DeckInspection
+    from quickthumb.models.document import _FidelityMetrics
     from quickthumb.plugins import PluginRegistry
     from quickthumb.transitions import Transition
 
 DocumentKind = Literal["canvas", "deck"]
+
+
+@dataclass(frozen=True)
+class _ResolvedExport:
+    """The concrete file route, distinct from its public capability family."""
+
+    extension: str
+    output_format: str
+    target: str
+    mode: Literal["raster", "document", "animated"]
+    uses_authored_transitions: bool
+
+
+@dataclass(frozen=True)
+class _ExportReceipt:
+    """One file execution, with encoded visual facts when the backend provides them."""
+
+    paths: list[str]
+    diagnostics: list[ExportDiagnostic]
+    animation: _AnimationFacts | None = None
+    fidelity: _FidelityMetrics | None = None
 
 
 @dataclass(frozen=True)
@@ -129,7 +155,7 @@ class Document(Protocol):
         *,
         format: str | None = None,
         quality: int | None = None,
-        animation: GifOptions | VideoOptions | None = None,
+        animation: GifOptions | VideoOptions | LottieOptions | None = None,
     ) -> ExportResult: ...
 
 
@@ -186,24 +212,56 @@ def load_document(text: str, *, registry: PluginRegistry | None = None) -> Canva
 
 def build_export_result(
     source: Document,
-    output_path: str,
-    written_paths: list[str],
+    resolved: _ResolvedExport,
+    receipt: _ExportReceipt,
     policy: ExportPolicy | None = None,
     *,
-    format: str | None = None,
-    animation: GifOptions | VideoOptions | None = None,
+    animation: GifOptions | VideoOptions | LottieOptions | None = None,
     assets: AssetPort,
 ) -> ExportResult:
     """Build the shared result envelope after an existing exporter succeeds."""
-    output_format = _output_format(output_path, format)
-    target = _export_target(output_format)
-    capability_report = _capability_report(source, target, policy)
-    timing = _timing_metrics(source, target, output_format, policy, animation)
+    output_format = resolved.output_format
+    target = resolved.target
+    written_paths = receipt.paths
+    capability_report = list(receipt.diagnostics)
+    if receipt.fidelity is not None:
+        comparison = receipt.fidelity
+        capability_report.append(
+            ExportDiagnostic(
+                feature="fidelity",
+                target=output_format,
+                support="partial" if comparison.verdict == "out_of_policy" else "full",
+                message=(
+                    f"{comparison.renderer} {comparison.renderer_version} "
+                    f"authored-static comparison: {comparison.verdict}; "
+                    f"the exported {output_format.upper()} representation is retained"
+                ),
+            )
+        )
+    facts = receipt.animation
+    capability_report.extend(_motion_blur_report(facts.motion_blur if facts else None, target))
+    timing = (
+        TimingMetrics(
+            duration=facts.duration,
+            fps=facts.fps,
+            frame_count=facts.frame_count,
+        )
+        if facts is not None
+        else _timing_metrics(source, resolved, policy, animation)
+    )
     dimensions = _document_dimensions(source)
     asset_manifest = _asset_manifest(source, assets.record_for)
-    pixel_frame_count = _pixel_frame_count(source, target, output_format, written_paths, timing)
+    # Public pixel dimensions remain canonical raster dimensions. Encoders
+    # retain their crop/resize dimensions privately without redefining this model.
+    pixel_frame_count = (
+        facts.frame_count
+        if facts is not None
+        else _pixel_frame_count(source, target, output_format, written_paths, timing)
+    )
     if output_format == "gif" and written_paths:
         timing = timing.model_copy(update={"frame_count": pixel_frame_count})
+    from quickthumb._sampling import _render_environment
+
     return ExportResult(
         kind=_contract_kind(source),
         target=target,
@@ -215,32 +273,72 @@ def build_export_result(
             width=dimensions[0],
             height=dimensions[1],
             frame_count=pixel_frame_count,
+            fidelity=receipt.fidelity,
         ),
         timing_metrics=timing,
         asset_manifest=asset_manifest,
+        environment=_render_environment(source),
     )
+
+
+def _motion_blur_report(blur: MotionBlur | None, target: str) -> list[ExportDiagnostic]:
+    if blur is None:
+        return []
+    return [
+        ExportDiagnostic(
+            feature="motion_blur",
+            target=target,
+            support="full",
+            message=(
+                f"Temporal exposure uses {blur.samples} samples "
+                f"and a {blur.shutter_angle:g}° shutter"
+            ),
+        )
+    ]
 
 
 def preflight_export(
     source: Document,
-    output_path: str,
+    resolved: _ResolvedExport,
     policy: ExportPolicy | None = None,
-    *,
-    format: str | None = None,
-) -> None:
+) -> list[ExportDiagnostic]:
     """Validate target capabilities before an exporter writes any files."""
-    output_format = _output_format(output_path, format)
-    _capability_report(source, _export_target(output_format), policy)
+    from quickthumb._sampling import _begin_font_observation
+
+    _begin_font_observation(source)
+    diagnostics = _capability_report(
+        source,
+        resolved.target,
+        policy,
+        output_format=resolved.output_format,
+        uses_authored_transitions=resolved.uses_authored_transitions,
+    )
+    for index, canvas in enumerate(_contract_canvases(source)):
+        try:
+            canvas._resolve_plugin_assets()
+        except QuickthumbError as error:
+            if _contract_kind(source) == "deck":
+                error.at(f"/slides/{index}")
+            raise
+    return diagnostics
 
 
 def validation_report(source: Document, *, kind: DocumentKind) -> ValidationReport:
     """Run the shared validation checks and capture failures as report issues."""
     errors: list[ErrorDetail] = []
+    warnings: list[ErrorDetail] = []
     try:
         if kind == "canvas":
             _contract_validate_structure(source)
             _contract_validate_assets(source)
-            source.inspect()
+            try:
+                source.inspect()
+            except RenderingError as error:
+                if error.code != "unsupported_parent_rendering":
+                    raise
+                # The model foundation can validate the graph and assets while
+                # clearly reporting that world-layout checks need its renderer.
+                warnings.extend(error.details)
         else:
             slides = _contract_canvases(source)
             _contract_validate_structure(source)
@@ -249,6 +347,10 @@ def validation_report(source: Document, *, kind: DocumentKind) -> ValidationRepo
                 errors.extend(
                     detail.model_copy(update={"path": f"/slides/{index}{detail.path or ''}"})
                     for detail in report.errors
+                )
+                warnings.extend(
+                    detail.model_copy(update={"path": f"/slides/{index}{detail.path or ''}"})
+                    for detail in report.warnings
                 )
                 audio_paths = _contract_audio_paths(source)
                 audio_path = audio_paths[index] if index < len(audio_paths) else None
@@ -262,7 +364,7 @@ def validation_report(source: Document, *, kind: DocumentKind) -> ValidationRepo
                     )
     except Exception as error:
         errors.extend(_error_details(error))
-    return ValidationReport(valid=not errors, errors=errors)
+    return ValidationReport(valid=not errors, errors=errors, warnings=warnings)
 
 
 def prefetch_result(source: Document, *, kind: DocumentKind, assets: AssetPort) -> PrefetchResult:
@@ -300,10 +402,6 @@ def _contract_motion_report(source: Document, target: str, policy, fps: float):
     return cast(Any, source)._contract_motion_report(target, policy, fps)
 
 
-def _contract_static_timing(source: Document) -> tuple[float, float] | None:
-    return cast(Any, source)._contract_static_timing()
-
-
 TimelineInputs = tuple["list[Canvas]", "list[Transition | None]", "list[float | None] | None"]
 
 
@@ -311,11 +409,114 @@ def _contract_timeline_inputs(source: Document, hold: float) -> TimelineInputs:
     return cast(Any, source)._contract_timeline_inputs(hold)
 
 
-def _output_format(output_path: str, format: str | None = None) -> str:
+def _resolve_export(
+    kind: DocumentKind,
+    output_path: str,
+    format: str | None,
+    policy: ExportPolicy | None,
+    *,
+    quality: int | None = None,
+    animation: GifOptions | VideoOptions | LottieOptions | None = None,
+    debug: bool = False,
+) -> _ResolvedExport:
+    """Resolve one shared file route and reject invalid options before rendering."""
+    extension = Path(output_path).suffix.lower()
+    extension_format = {"jpg": "jpeg", "htm": "html"}.get(extension[1:], extension[1:])
+    output_format = extension_format
     if format is not None:
-        return format.lower()
-    extension = Path(output_path).suffix.lower().lstrip(".")
-    return "html" if extension == "htm" else extension
+        if not isinstance(format, str) or format.upper() not in {"PNG", "JPEG", "WEBP"}:
+            raise RenderingError("format must be PNG, JPEG, or WEBP", code="unsupported_format")
+        if extension_format in {"svg", "pdf", "pptx", "html", "gif", "mp4", "webm", "mov", "lot"}:
+            raise RenderingError(
+                "format override is only supported for raster output, "
+                "not document or animated output."
+            )
+        output_format = format.lower()
+
+    mode: Literal["raster", "document", "animated"]
+    if output_format == "lot":
+        if kind != "canvas":
+            raise RenderingError(
+                "Lottie currently requires a single Canvas", code="unsupported_format"
+            )
+        mode = "document"
+    elif output_format in {"gif", "mp4", "webm", "mov"}:
+        mode = "animated"
+    elif output_format in {"pdf", "pptx", "html"} or (kind == "canvas" and output_format == "svg"):
+        mode = "document"
+    elif output_format in {"png", "jpeg", "webp"}:
+        mode = "raster"
+    elif kind == "deck" and output_format == "svg":
+        raise RenderingError(
+            "A deck cannot render to a single .svg file (SVG has no multi-page form). "
+            "Export slides individually, or use .pdf, .pptx, or .html.",
+            code="unsupported_format",
+        )
+    else:
+        raise RenderingError(
+            f"Unsupported file format: {extension or '(none)'}.",
+            code="unsupported_format",
+            suggestion=(
+                "use one of .png, .jpg, .jpeg, .webp, .pdf, .pptx, .html, .htm, "
+                ".gif, .mp4, .webm, .mov" + (", .svg, .lot" if kind == "canvas" else "")
+            ),
+        )
+
+    _raster_save_kwargs(output_format.upper(), quality)
+    if (
+        kind == "deck"
+        and output_format == "pdf"
+        and policy is not None
+        and "pdf" in policy.fidelity
+    ):
+        raise ValidationError("PDF fidelity comparison currently requires a single Canvas")
+    if animation is not None:
+        if mode != "animated" and output_format != "lot":
+            raise RenderingError(
+                "animation options are only supported for GIF, MP4, WebM, MOV, and LOT output."
+            )
+        expected_options = (
+            LottieOptions
+            if output_format == "lot"
+            else GifOptions
+            if output_format == "gif"
+            else VideoOptions
+        )
+        if not isinstance(animation, expected_options):
+            raise ValidationError(
+                f"{expected_options.__name__} are required for {output_format.upper()} output"
+            )
+        if isinstance(animation, VideoOptions) and animation.transparent and output_format == "mp4":
+            raise ValidationError(
+                "transparent output is only supported for VP9 WebM or ProRes 4444 MOV"
+            )
+    if debug and mode != "raster":
+        raise RenderingError("Debug render is only supported for PNG, JPEG, and WEBP output.")
+
+    return _ResolvedExport(
+        extension=extension,
+        output_format=output_format,
+        target=_export_target(output_format),
+        mode=mode,
+        uses_authored_transitions=(mode == "animated" or output_format in {"html", "pptx"})
+        and not bool(policy and policy.reduced_motion),
+    )
+
+
+def _raster_save_kwargs(file_format: str, quality: int | None) -> dict[str, int]:
+    """Validate compression quality before file or in-memory image encoding."""
+    if quality is None:
+        return {}
+    if file_format not in {"JPEG", "WEBP"}:
+        raise RenderingError(
+            f"Quality parameter is only supported for JPEG and WEBP formats, not {file_format}."
+        )
+    maximum = 95 if file_format == "JPEG" else 100
+    if type(quality) is not int or not 1 <= quality <= maximum:
+        raise RenderingError(
+            f"quality for {file_format} must be an integer between 1 and {maximum}"
+        )
+    return {"quality": quality}
 
 
 def _export_target(output_format: str) -> str:
@@ -328,17 +529,31 @@ def _export_target(output_format: str) -> str:
         "pdf": "raster",
         "html": "html",
         "pptx": "pptx",
-    }.get(output_format, "video" if output_format in {"gif", "mp4", "webm"} else output_format)
+        "lot": "lottie",
+    }.get(
+        output_format, "video" if output_format in {"gif", "mp4", "webm", "mov"} else output_format
+    )
 
 
 def _capability_report(
-    source: Document, target: str, policy: ExportPolicy | None
+    source: Document,
+    target: str,
+    policy: ExportPolicy | None,
+    *,
+    output_format: str,
+    uses_authored_transitions: bool = True,
 ) -> list[ExportDiagnostic]:
-    from quickthumb.motion import validate_export
+    from quickthumb.motion import _validate_export
 
-    if target not in {"raster", "video", "html", "pptx"}:
+    if target not in {"raster", "video", "html", "pptx", "lottie"}:
         return []
-    return validate_export(cast(Any, source), target, policy)
+    return _validate_export(
+        cast(Any, source),
+        target,
+        policy,
+        parent_document_format=output_format,
+        uses_authored_transitions=uses_authored_transitions,
+    )
 
 
 def _fallback_diagnostics(capability_report: list) -> list[FallbackDiagnostic]:
@@ -346,8 +561,10 @@ def _fallback_diagnostics(capability_report: list) -> list[FallbackDiagnostic]:
         FallbackDiagnostic(
             target=item.target,
             layer_id=item.layer_id,
+            slide_index=item.slide_index,
+            layer_ids=item.layer_ids,
             reason=item.message,
-            native_attempt=item.support in {"native", "partial"},
+            native_attempt=item.native_attempt,
             suggestion="inspect the capability report for a native alternative",
         )
         for item in capability_report
@@ -357,25 +574,39 @@ def _fallback_diagnostics(capability_report: list) -> list[FallbackDiagnostic]:
 
 def _timing_metrics(
     source: Document,
-    target: str,
-    output_format: str,
+    resolved: _ResolvedExport,
     policy: ExportPolicy | None,
-    animation: GifOptions | VideoOptions | None,
+    animation: GifOptions | VideoOptions | LottieOptions | None,
 ) -> TimingMetrics:
-    if target != "video":
+    if resolved.target != "video":
         return TimingMetrics()
-    fps = _animation_fps(output_format, animation)
-    if _contract_kind(source) == "deck" and output_format == "mp4" and animation is None:
-        static_timing = _contract_static_timing(source)
-        assert static_timing is not None
-        duration, static_fps = static_timing
+    fps = _animation_fps(resolved.output_format, animation)
+    if not resolved.uses_authored_transitions:
+        from quickthumb._export_video import _deck_timing
+
+        # Reduced animation has zero layer duration, but retains the writer's
+        # holds, narration schedule and default transitions between slides.
+        # Resolve that nominal timing without rebuilding animators or decoders.
+        canvases = _contract_canvases(source)
+        durations = None
+        if _contract_kind(source) == "deck" and resolved.output_format != "gif":
+            canvases, _, durations = _contract_timeline_inputs(source, 3.0)
+        timings = _deck_timing(
+            canvases,
+            [None] * len(canvases),
+            3.0,
+            animation_durations=[0.0] * len(canvases),
+            slide_durations=durations,
+            minimum_duration=1.0 / fps,
+        )
+        duration = sum(exit_time for _, _, _, exit_time in timings)
         return TimingMetrics(
             duration=duration,
-            fps=static_fps,
-            frame_count=max(1, math.ceil(duration * static_fps)),
+            fps=fps,
+            frame_count=max(1, math.ceil(duration * fps)),
         )
     try:
-        report = _contract_motion_report(source, target, policy, fps)
+        report = _contract_motion_report(source, resolved.target, policy, fps)
     except (RenderingError, ValidationError, ValueError, RuntimeError):
         return TimingMetrics(frame_count=1)
     duration = report.duration
@@ -388,7 +619,9 @@ def _timing_metrics(
     )
 
 
-def _animation_fps(output_format: str, animation: GifOptions | VideoOptions | None) -> float:
+def _animation_fps(
+    output_format: str, animation: GifOptions | VideoOptions | LottieOptions | None
+) -> float:
     if animation is not None and animation.fps is not None:
         return float(animation.fps)
     return 20.0 if output_format == "gif" else 30.0
@@ -444,6 +677,9 @@ def _asset_manifest(
 
 def _layer_asset_values(layer: object):
     layer_type = getattr(layer, "type", None)
+    if isinstance(layer, PluginLayer):
+        for source in layer.assets.values():
+            yield "plugin", source
     for field in ("path", "source"):
         value = getattr(layer, field, None)
         if isinstance(value, str):

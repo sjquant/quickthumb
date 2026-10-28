@@ -56,8 +56,12 @@ svg = [
 pptx = [
     "python-pptx>=1.0.2,<2.0",
 ]
+lottie = [
+    "fonttools>=4.0.0,<5.0.0",
+]
 pdf = [
     "fonttools>=4.0.0,<5.0.0",
+    "pypdfium2>=5.10.1,<6.0.0",
     "reportlab>=4.0.0,<6.0.0",
 ]
 
@@ -69,7 +73,7 @@ docs = [
     "mkdocs-material>=9.0",
 ]
 dev = [
-    "ty>=0.0.12,<0.0.13",
+    "ty>=0.0.84,<0.0.85",
     "pytest>=9.0.3,<10.0.0",
     "pytest-cov>=6.0.0,<8.0.0",
     "jsonschema>=4.0.0,<5.0.0",
@@ -94,6 +98,7 @@ artifacts = [
     "quickthumb/html/*.css",
     "quickthumb/html/*.html",
     "quickthumb/html/*.js",
+    "quickthumb/html/*.png",
 ]
 
 [tool.uv]
@@ -101,7 +106,7 @@ required-version = ">=0.13.4"
 add-bounds = "major"
 exclude-newer = "P14D"
 # Security fixes must not wait for the general dependency cooldown.
-exclude-newer-package = { certifi = "P0D", pillow = "P0D", rembg = "P0D", virtualenv = "P0D" }
+exclude-newer-package = { certifi = "P0D", filelock = "P0D", pillow = "P0D", rembg = "P0D", virtualenv = "P0D" }
 constraint-dependencies = ["virtualenv>=21.14.9"]
 
 [tool.ruff]

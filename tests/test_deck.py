@@ -52,7 +52,7 @@ class TestDeckComposition:
 
         # when / then
         with pytest.raises(ValidationError, match="must be Canvas"):
-            deck.slide("not a canvas")  # type: ignore[arg-type]
+            deck.slide("not a canvas")  # ty: ignore[invalid-argument-type]
 
     def test_should_not_mutate_deck_or_canvas_when_audio_is_invalid(self):
         """Rejecting slide audio leaves the Deck and unsized Canvas unchanged."""
@@ -76,7 +76,7 @@ class TestDeckComposition:
 
         # when / then: structured notes are rejected without appending the slide
         with pytest.raises(ValidationError, match="notes"):
-            deck.slide(slide, notes=["not", "text"])  # type: ignore[arg-type]
+            deck.slide(slide, notes=["not", "text"])  # ty: ignore[invalid-argument-type]
         assert len(deck) == 0
 
     def test_should_reject_rendering_an_empty_deck(self, tmp_path: Path):
@@ -163,7 +163,7 @@ class TestRenderDispatch:
         deck = Deck().slide(make_slide("1"))
 
         # when / then
-        with pytest.raises(RenderingError, match="Unsupported deck output format"):
+        with pytest.raises(RenderingError, match="Unsupported file format"):
             deck.render(str(tmp_path / "deck.docx"))
 
     def test_should_reject_format_override_for_document_output(self, tmp_path: Path):

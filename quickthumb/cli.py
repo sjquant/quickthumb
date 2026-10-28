@@ -9,6 +9,7 @@ from typing import Annotated, Protocol, TypeAlias, cast
 import typer
 from PIL import Image
 
+from quickthumb._base import FileFormat
 from quickthumb._diff import (
     DEFAULT_HASH_SIZE,
     DEFAULT_HASH_THRESHOLD,
@@ -69,14 +70,16 @@ class _DiagnosticLike(Protocol):
 app = typer.Typer(help="quickthumb — programmatic thumbnail generation")
 
 
-def _validate_render_options(fmt: str | None, quality: int | None) -> None:
+def _validate_render_options(fmt: str | None, quality: int | None, output: Path) -> None:
     if fmt is not None and fmt.upper() not in _VALID_FORMATS:
         raise InputError(
             f"Invalid format '{fmt}'. Must be one of: PNG, JPEG, WEBP",
             suggestion="omit --format to infer the format from the output extension",
         )
-    if quality is not None and not (1 <= quality <= 95):
-        raise InputError(f"Invalid quality {quality}. Must be between 1 and 95.")
+    output_format = fmt.upper() if fmt is not None else output.suffix.lstrip(".").upper()
+    maximum = 100 if output_format == "WEBP" else 95
+    if quality is not None and not (1 <= quality <= maximum):
+        raise InputError(f"Invalid quality {quality}. Must be between 1 and {maximum}.")
 
 
 def _parse_var_options(var: list[str] | None) -> dict[str, str]:
@@ -345,7 +348,7 @@ def render(
         typer.Option(
             "-o",
             "--output",
-            help="Output file path (.png/.jpg/.webp/.svg/.pptx/.pdf/.html/.gif/.mp4/.webm)",
+            help="Output file path (.png/.jpg/.webp/.svg/.pptx/.pdf/.html/.gif/.mp4/.webm/.mov)",
         ),
     ] = Path("output.png"),
     fmt: Annotated[
@@ -354,7 +357,7 @@ def render(
     ] = None,
     quality: Annotated[
         int | None,
-        typer.Option("--quality", help="Quality for JPEG/WEBP (1-95)"),
+        typer.Option("--quality", help="Compression quality: JPEG 1-95, WEBP 1-100"),
     ] = None,
     debug: Annotated[
         bool,
@@ -370,7 +373,7 @@ def render(
     ] = "text",
 ) -> None:
     """Render a JSON spec file to an image, to SVG/PPTX/PDF/HTML, or to an
-    animated GIF/MP4/WebM that plays the spec's layer animations, by extension.
+    animated GIF/MP4/WebM/MOV that plays the spec's layer animations, by extension.
 
     Exit codes: 0 rendered, 1 invalid input/spec or missing asset, 2 export failure.
     """
@@ -389,14 +392,15 @@ def _render_spec(
     debug: bool,
     var: list[str] | None,
 ) -> None:
-    _validate_render_options(fmt, quality)
+    _validate_render_options(fmt, quality, output)
+    image_format = cast(FileFormat | None, fmt.upper() if fmt else None)
     source = _load_canvas(spec, _parse_var_options(var))
     if isinstance(source, Deck):
         if debug:
             raise InputError("--debug is only supported for Canvas specs.")
         written = source.render(
             str(output),
-            format=fmt.upper() if fmt else None,  # type: ignore[arg-type]
+            format=image_format,
             quality=quality,
         )
         for path in written:
@@ -404,7 +408,7 @@ def _render_spec(
         return
     source.render(
         str(output),
-        format=fmt.upper() if fmt else None,  # type: ignore[arg-type]
+        format=image_format,
         quality=quality,
         debug=debug,
     )
@@ -619,12 +623,18 @@ def serve(
         bool,
         typer.Option("--open/--no-open", help="Open the slideshow in a browser"),
     ] = True,
+    timeline: Annotated[
+        bool,
+        typer.Option(
+            "--timeline", help="Open motion inspection (raster frames; no playback or audio)"
+        ),
+    ] = False,
     var: Annotated[
         list[str] | None,
         typer.Option("--var", help="Variable substitution for JSON sources as KEY=VALUE"),
     ] = None,
 ) -> None:
-    """Serve HTML slides with live reload and a ?presenter view."""
+    """Serve live-reloading slides, presenter mode, and a /timeline scrubber."""
     from quickthumb._serve import serve_slides
 
     try:
@@ -635,6 +645,7 @@ def serve(
             port=port,
             open_browser=open_browser,
             variables=variables,
+            timeline=timeline,
         )
     except QuickthumbError as error:
         raise _fail(error) from error
@@ -659,7 +670,7 @@ def watch(
     ] = None,
     quality: Annotated[
         int | None,
-        typer.Option("--quality", help="Quality for JPEG/WEBP (1-95)"),
+        typer.Option("--quality", help="Compression quality: JPEG 1-95, WEBP 1-100"),
     ] = None,
     debug: Annotated[
         bool,
@@ -681,7 +692,7 @@ def watch(
         raise typer.Exit(1) from None
 
     try:
-        _validate_render_options(fmt, quality)
+        _validate_render_options(fmt, quality, output)
         _parse_var_options(var)
     except InputError as error:
         raise _fail(error) from None

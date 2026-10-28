@@ -100,7 +100,7 @@ class TestMotionTimeline:
             ("float", "position", "add", "sine"),
             ("pulse", "scale", "multiply", "sine"),
             ("shake", "position", "add", "sine"),
-            ("ken_burns", "scale", "multiply", (1.0, 1.1)),
+            ("ken_burns", "image_zoom", "multiply", (1.0, 1.1)),
             ("typewriter", "clip_progress", "multiply", (0.0, 1.0)),
         ],
     )
@@ -295,7 +295,7 @@ class TestMotionTimeline:
         assert state.rotation == 45.0
         assert state.clip_progress == 0.5
         assert state.blur == 5.0
-        assert state.color == "#808080"
+        assert state.color == "#636363"
 
         # given: an RGBA color track
         rgba = AnimationSpec.timeline(
@@ -311,7 +311,7 @@ class TestMotionTimeline:
         rgba_state = compile_timeline(rgba).sample(0.5)
 
         # then: the alpha channel is interpolated as part of the color
-        assert rgba_state.color == "#80808080"
+        assert rgba_state.color == "#FFFFFF80"
 
     def test_should_resolve_relative_and_absolute_timing(self):
         """Relative triggers and absolute starts produce stable event windows."""
@@ -534,7 +534,12 @@ class TestMotionTimeline:
 
     @pytest.mark.parametrize(
         ("effect", "field"),
-        [("float", "position"), ("shake", "position"), ("pulse", "scale"), ("ken_burns", "scale")],
+        [
+            ("float", "position"),
+            ("shake", "position"),
+            ("pulse", "scale"),
+            ("ken_burns", "image_zoom"),
+        ],
     )
     def test_should_sample_every_state_representable_preset(self, effect, field):
         """Every state-representable public preset changes a LayerState deterministically."""

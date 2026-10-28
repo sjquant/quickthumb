@@ -87,10 +87,18 @@ class TextEngine:
         self._effects = effects
         self._images = images
 
-    def render_text_layer(self, image: Image.Image, layer: TextLayer, time: float | None = None):
+    def render_text_layer(
+        self,
+        image: Image.Image,
+        layer: TextLayer,
+        time: float | None = None,
+        *,
+        staging_reference: TextLayer | None = None,
+    ):
         if layer.value is not None:
             if layer.value.style in {"odometer", "flip"} and time is not None:
-                self._render_odometer(image, layer, time)
+                for fragment in self.counter_paint_layers(layer, time, viewport=image):
+                    self.render_text_layer(image, fragment)
                 return
             layer = layer.model_copy(
                 update={
@@ -101,58 +109,71 @@ class TextEngine:
             )
         if layer.opacity < 1.0:
             temp = Image.new("RGBA", image.size, (0, 0, 0, 0))
-            if isinstance(layer.content, list):
-                self._render_rich_text(temp, layer)
-            else:
-                self._render_simple_text(temp, layer)
+            self._render_text_content(temp, layer, staging_reference)
             self._effects.apply_opacity(temp, layer.opacity)
             image.alpha_composite(temp)
+        else:
+            self._render_text_content(image, layer, staging_reference)
+
+    def _render_text_content(
+        self, image: Image.Image, layer: TextLayer, staging_reference: TextLayer | None
+    ) -> None:
+        if staging_reference is not None and staging_reference.rotation:
+            self._render_rotated_text_stage(image, layer, self.effective_layer(staging_reference))
         elif isinstance(layer.content, list):
             self._render_rich_text(image, layer)
         else:
             self._render_simple_text(image, layer)
 
-    def _render_odometer(self, image: Image.Image, layer: TextLayer, time: float) -> None:
-        """Roll the current and next formatted values through a clipped text window."""
+    def counter_paint_layers(
+        self, layer: TextLayer, time: float | None, *, viewport: Image.Image | None = None
+    ) -> tuple[TextLayer, ...]:
+        """Resolve the exact static fragments painted at one counter sample.
+
+        Each fragment keeps its own sizing, effects and rotation. Parent sources
+        omit the ordinary renderer's viewport visibility probe: off-canvas local
+        ink must survive until the final world transform.
+        """
         value = layer.value
-        if not isinstance(value, AnimatedTextValue) or layer.position is None:
-            self.render_text_layer(
-                image,
-                layer.model_copy(update={"content": value.text_at(time), "value": None}),
-            )
-            return
-        step = 10 ** (-value.decimals)
-        sampled = value.value_at(time)
-        lower = math.floor(sampled / step) * step
-        direction = 1 if value.to >= value.from_ else -1
-        current = lower if direction > 0 else math.ceil(sampled / step) * step
-        following = current + direction * step
-        fraction = min(1.0, max(0.0, abs(sampled - current) / step))
-        if fraction <= 1e-9 or time >= value.delay + value.duration:
-            if value.style == "odometer":
-                settled_number = value.number_text(value.value_at(time))
-                self._render_odometer_slots(
-                    image,
-                    layer,
-                    value,
-                    settled_number,
-                    settled_number,
-                    0.0,
-                    direction,
-                )
-                return
-            self.render_text_layer(
-                image,
+        if value is None:
+            return (layer,)
+        if time is None or value.style == "plain" or layer.position is None:
+            return (
                 layer.model_copy(
-                    update={"content": value.format_value(value.value_at(time)), "value": None}
+                    update={
+                        "value": None,
+                        "content": value.settled_text() if time is None else value.text_at(time),
+                    }
                 ),
             )
-            return
-        old_text = value.format_value(current)
-        new_text = value.format_value(following)
+        step = 10 ** (-value.decimals)
+        sampled = value.value_at(time)
+        direction = 1 if value.to >= value.from_ else -1
+        current = (
+            math.floor(sampled / step) if direction > 0 else math.ceil(sampled / step)
+        ) * step
+        following = current + direction * step
+        fraction = min(1.0, max(0.0, abs(sampled - current) / step))
+        settled = fraction <= 1e-9 or time >= value.delay + value.duration
+        fragments: list[TextLayer] = []
         if value.style == "odometer":
-            self._render_odometer_slots(
-                image,
+            old_number = value.number_text(sampled if settled else current)
+            self._odometer_slot_layers(
+                fragments.append,
+                layer,
+                value,
+                old_number,
+                old_number if settled else value.number_text(following),
+                0.0 if settled else fraction,
+                direction,
+            )
+        elif settled:
+            fragments.append(
+                layer.model_copy(update={"value": None, "content": value.format_value(sampled)})
+            )
+        elif value.prefix or value.suffix:
+            self._flip_part_layers(
+                fragments.append,
                 layer,
                 value,
                 value.number_text(current),
@@ -160,80 +181,31 @@ class TextEngine:
                 fraction,
                 direction,
             )
-            return
-        if value.prefix or value.suffix:
-            self._render_odometer_parts(
-                image,
-                layer,
-                value,
-                value.number_text(current),
-                value.number_text(following),
-                fraction,
-                direction,
+        else:
+            static = layer.model_copy(
+                update={"value": None, "content": value.format_value(current)}
             )
-            return
-        static = layer.model_copy(update={"value": None, "content": old_text})
-        x, y = self.get_text_base_position(layer)
-        old_anchor = Image.new("RGBA", image.size, (0, 0, 0, 0))
-        new_anchor = Image.new("RGBA", image.size, (0, 0, 0, 0))
-        self.render_text_layer(old_anchor, static)
-        self.render_text_layer(
-            new_anchor,
-            static.model_copy(update={"content": new_text}),
-        )
-        old_bbox = old_anchor.getbbox()
-        new_bbox = new_anchor.getbbox()
-        if old_bbox is None or new_bbox is None:
-            return
-        if value.style == "flip":
-            movement = 10
-            if fraction < 0.5:
-                shift = round(movement * fraction * 2)
-                self.render_text_layer(
-                    image,
-                    static.model_copy(update={"position": (x, y - direction * shift)}),
-                )
-            else:
-                shift = round(movement * (1.0 - fraction) * 2)
-                self.render_text_layer(
-                    image,
-                    static.model_copy(
-                        update={
-                            "content": new_text,
-                            "position": (x, y + direction * shift),
-                        }
-                    ),
-                )
-            return
-        viewport = (
-            min(old_bbox[0], new_bbox[0]),
-            min(old_bbox[1], new_bbox[1]),
-            max(old_bbox[2], new_bbox[2]),
-            max(old_bbox[3], new_bbox[3]),
-        )
-        height = viewport[3] - viewport[1]
-        roll_distance = height + 8
-        shift = round(fraction * roll_distance)
-        old_layer = static.model_copy(update={"position": (x, y - direction * shift)})
-        new_layer = static.model_copy(
-            update={
-                "content": new_text,
-                "position": (x, y + direction * (roll_distance - shift)),
-            }
-        )
-        old_image = Image.new("RGBA", image.size, (0, 0, 0, 0))
-        new_image = Image.new("RGBA", image.size, (0, 0, 0, 0))
-        self.render_text_layer(old_image, old_layer)
-        self.render_text_layer(new_image, new_layer)
-        mask = Image.new("L", image.size, 0)
-        ImageDraw.Draw(mask).rectangle(viewport, fill=255)
-        transparent = Image.new("RGBA", image.size, (0, 0, 0, 0))
-        image.alpha_composite(Image.composite(old_image, transparent, mask))
-        image.alpha_composite(Image.composite(new_image, transparent, mask))
+            following_layer = static.model_copy(update={"content": value.format_value(following)})
+            if viewport is not None:
+                # Preserve the established ordinary-renderer visibility boundary.
+                for candidate in (static, following_layer):
+                    probe = Image.new("RGBA", viewport.size)
+                    self.render_text_layer(probe, candidate)
+                    if probe.getbbox() is None:
+                        return ()
+            x, y = self.get_text_base_position(layer)
+            offset = (
+                -direction * round(10 * fraction * 2)
+                if fraction < 0.5
+                else direction * round(10 * (1.0 - fraction) * 2)
+            )
+            fragment = static if fraction < 0.5 else following_layer
+            fragments.append(fragment.model_copy(update={"position": (x, y + offset)}))
+        return tuple(fragments)
 
-    def _render_odometer_slots(
+    def _odometer_slot_layers(
         self,
-        image: Image.Image,
+        emit: Callable[[TextLayer], None],
         layer: TextLayer,
         value: AnimatedTextValue,
         old_number: str,
@@ -301,9 +273,9 @@ class TextEngine:
         prefix_position = (left, top)
         suffix_position = (left + prefix_width + number_width, top)
         if value.prefix:
-            self.render_text_layer(image, prefix.model_copy(update={"position": prefix_position}))
+            emit(prefix.model_copy(update={"position": prefix_position}))
         if value.suffix:
-            self.render_text_layer(image, suffix.model_copy(update={"position": suffix_position}))
+            emit(suffix.model_copy(update={"position": suffix_position}))
 
         number_x = left + prefix_width
         slot_x = number_x
@@ -322,8 +294,7 @@ class TextEngine:
             old_layer = static.model_copy(update={"content": old_char})
             new_layer = static.model_copy(update={"content": new_char})
             if old_char == new_char:
-                self.render_text_layer(
-                    image,
+                emit(
                     new_layer.model_copy(
                         update={
                             "position": self._position_on_baseline(
@@ -346,8 +317,7 @@ class TextEngine:
                 rolling_char, rolling_layer = new_char, new_layer
                 offset = direction * round(movement * (1.0 - fraction) * 2)
             if not rolling_char.isspace():
-                self.render_text_layer(
-                    image,
+                emit(
                     rolling_layer.model_copy(
                         update={
                             "position": self._position_on_baseline(
@@ -360,9 +330,9 @@ class TextEngine:
                 )
             slot_x += slot_width + letter_spacing
 
-    def _render_odometer_parts(
+    def _flip_part_layers(
         self,
-        image: Image.Image,
+        emit: Callable[[TextLayer], None],
         layer: TextLayer,
         value: AnimatedTextValue,
         old_number: str,
@@ -370,7 +340,7 @@ class TextEngine:
         fraction: float,
         direction: int,
     ) -> None:
-        """Roll only digits while keeping prefix and suffix in one stable line."""
+        """Plan flipping digits while keeping prefix and suffix on a stable baseline."""
         static = layer.model_copy(update={"value": None, "align": None})
         prefix = static.model_copy(update={"content": value.prefix})
         suffix = static.model_copy(update={"content": value.suffix})
@@ -396,89 +366,40 @@ class TextEngine:
         prefix_position = (left, top)
         suffix_position = (left + prefix_width + number_width, top)
         if value.prefix:
-            self.render_text_layer(image, prefix.model_copy(update={"position": prefix_position}))
+            emit(prefix.model_copy(update={"position": prefix_position}))
         if value.suffix:
-            self.render_text_layer(
-                image,
+            emit(
                 suffix.model_copy(update={"position": suffix_position}),
             )
 
         number_x = left + prefix_width
-        old_position = self._position_on_baseline(old, number_x, baseline)
-        new_position = self._position_on_baseline(new, number_x, baseline)
-        old_bbox = self._text_bbox_at_position(old, old_position)
-        new_bbox = self._text_bbox_at_position(new, new_position)
-        viewport = (
-            min(old_bbox[0], new_bbox[0]),
-            min(old_bbox[1], new_bbox[1]),
-            max(old_bbox[2], new_bbox[2]),
-            max(old_bbox[3], new_bbox[3]),
-        )
-        if value.style == "flip":
-            movement = 10
-            if fraction < 0.5:
-                shift = round(movement * fraction * 2)
-                self.render_text_layer(
-                    image,
-                    old.model_copy(
-                        update={
-                            "position": self._position_on_baseline(
-                                old,
-                                number_x,
-                                baseline - direction * shift,
-                            )
-                        }
-                    ),
-                )
-            else:
-                shift = round(movement * (1.0 - fraction) * 2)
-                self.render_text_layer(
-                    image,
-                    new.model_copy(
-                        update={
-                            "position": self._position_on_baseline(
-                                new,
-                                number_x,
-                                baseline + direction * shift,
-                            )
-                        }
-                    ),
-                )
-            return
-        viewport_height = viewport[3] - viewport[1]
-        roll_distance = viewport_height + 8
-        shift = round(fraction * roll_distance)
-        old_image = Image.new("RGBA", image.size, (0, 0, 0, 0))
-        new_image = Image.new("RGBA", image.size, (0, 0, 0, 0))
-        self.render_text_layer(
-            old_image,
-            old.model_copy(
-                update={
-                    "position": self._position_on_baseline(
-                        old, number_x, baseline - direction * shift
-                    )
-                }
-            ),
-        )
-        self.render_text_layer(
-            new_image,
-            new.model_copy(
-                update={
-                    "position": (
-                        self._position_on_baseline(
+        movement = 10
+        if fraction < 0.5:
+            shift = round(movement * fraction * 2)
+            emit(
+                old.model_copy(
+                    update={
+                        "position": self._position_on_baseline(
+                            old,
+                            number_x,
+                            baseline - direction * shift,
+                        )
+                    }
+                ),
+            )
+        else:
+            shift = round(movement * (1.0 - fraction) * 2)
+            emit(
+                new.model_copy(
+                    update={
+                        "position": self._position_on_baseline(
                             new,
                             number_x,
-                            baseline + direction * (roll_distance - shift),
+                            baseline + direction * shift,
                         )
-                    )
-                }
-            ),
-        )
-        mask = Image.new("L", image.size, 0)
-        ImageDraw.Draw(mask).rectangle(viewport, fill=255)
-        transparent = Image.new("RGBA", image.size, (0, 0, 0, 0))
-        image.alpha_composite(Image.composite(old_image, transparent, mask))
-        image.alpha_composite(Image.composite(new_image, transparent, mask))
+                    }
+                ),
+            )
 
     def _text_baseline(self, layer: TextLayer, top: int) -> int:
         """Resolve the stable visual baseline used by animated text slots."""
@@ -499,20 +420,6 @@ class TextEngine:
         if mask_bbox is not None:
             return int(mask_bbox[3])
         return int(font.getbbox(content)[3])
-
-    def _text_bbox_at_position(
-        self, layer: TextLayer, position: tuple[int, int]
-    ) -> tuple[int, int, int, int]:
-        """Return a content bbox in canvas coordinates for a clipping viewport."""
-        content = layer.content if isinstance(layer.content, str) else ""
-        font = self._fonts.load_font(self.effective_layer(layer))
-        bbox = font.getbbox(content)
-        return (
-            position[0] + int(bbox[0]),
-            position[1] + int(bbox[1]),
-            position[0] + int(bbox[2]),
-            position[1] + int(bbox[3]),
-        )
 
     def resolve_animation_targets(
         self,
@@ -996,7 +903,8 @@ class TextEngine:
         return lines
 
     def _prepare_wrapped_rich_text_lines(self, layer: TextLayer) -> list[list[TextPartData]]:
-        max_width_px = parse_coordinate(layer.max_width, self._ctx.width)  # type: ignore[arg-type]
+        assert layer.max_width is not None
+        max_width_px = parse_coordinate(layer.max_width, self._ctx.width)
         lines: list[list[TextPartData]] = [[]]
         current_width = 0
 
@@ -1630,25 +1538,7 @@ class TextEngine:
         then compositing the result onto the main canvas. This approach preserves
         all text effects during rotation.
         """
-        stroke_effects = self._get_stroke_effects(layer.effects)
-        shadow_effects = self._get_shadow_effects(layer.effects)
-        glow_effects = self._get_glow_effects(layer.effects)
-
-        text_width, text_height = self.measure_text_size(layer)
-        padding = self._calculate_text_effects_padding(stroke_effects, shadow_effects, glow_effects)
-        temp_image, _ = self._create_temp_image_for_text(text_width, text_height, padding)
-
-        # Re-render through the one dispatcher, unrotated, anchored inside the padding.
-        temp_layer = layer.model_copy(
-            update={
-                "position": (padding, padding),
-                "align": None,
-                "rotation": 0.0,
-                "auto_scale": False,
-            }
-        )
-        self._render_simple_text(temp_image, temp_layer)
-        self._rotate_and_composite_text(image, temp_image, layer)
+        self._render_rotated_text_stage(image, layer, layer)
 
     def measure_text_size(self, layer: TextLayer) -> tuple[int, int]:
         """Calculate rendered text bounding box size accounting for wrapping."""
@@ -1686,12 +1576,28 @@ class TextEngine:
         if not isinstance(layer.content, list):
             return
 
-        text_width, text_height = self.measure_text_size(layer)
-        padding = self._calculate_rich_text_effects_padding(layer)
-        temp_image, _ = self._create_temp_image_for_text(text_width, text_height, padding)
+        self._render_rotated_text_stage(image, layer, layer)
 
-        # Re-render through the one dispatcher, unrotated, anchored inside the padding.
-        temp_layer = layer.model_copy(
+    def _render_rotated_text_stage(
+        self, image: Image.Image, variant: TextLayer, reference: TextLayer
+    ) -> None:
+        """Keep diagnostic style variants in the original rotation stage.
+
+        Removing effects must not shrink the temporary surface, clip italic ink,
+        or change Pillow's rotation framing. Opacity remains in the outer wrapper.
+        """
+        text_width, text_height = self.measure_text_size(reference)
+        padding = (
+            self._calculate_rich_text_effects_padding(reference)
+            if isinstance(reference.content, list)
+            else self._calculate_text_effects_padding(
+                self._get_stroke_effects(reference.effects),
+                self._get_shadow_effects(reference.effects),
+                self._get_glow_effects(reference.effects),
+            )
+        )
+        temp_image, _ = self._create_temp_image_for_text(text_width, text_height, padding)
+        temp_layer = variant.model_copy(
             update={
                 "position": (padding, padding),
                 "align": None,
@@ -1699,8 +1605,11 @@ class TextEngine:
                 "auto_scale": False,
             }
         )
-        self._render_rich_text(temp_image, temp_layer)
-        self._rotate_and_composite_text(image, temp_image, layer)
+        if isinstance(temp_layer.content, list):
+            self._render_rich_text(temp_image, temp_layer)
+        else:
+            self._render_simple_text(temp_image, temp_layer)
+        self._rotate_and_composite_text(image, temp_image, reference)
 
     def _calculate_rich_text_effects_padding(self, layer: TextLayer) -> int:
         """Calculate padding for rich text effects from both layer and part-level effects."""

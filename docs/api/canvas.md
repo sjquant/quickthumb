@@ -5,6 +5,8 @@ description: Reference for quickthumb Canvas creation, aspect ratios, layer comp
 # Canvas
 
 The `Canvas` is the root object. It holds dimensions and an ordered list of layers.
+Its authoring fields follow the [shared layer vocabulary](index.md#shared-layer-vocabulary),
+which also applies to Deck slides and canonical JSON.
 
 ## Creation
 
@@ -103,13 +105,16 @@ result = canvas.export("card.png")
 print(result.written_paths)
 ```
 
-See [Shared export contract and specialist controls](../exports.md#shared-export-contract-and-specialist-controls)
+See [Recommended output API](../exports.md#recommended-output-api)
 for the result fields, the capability preflight, and how `export()` relates to
 the methods below.
 
 ### `.render(path, format=None, quality=None, debug=False, animation=None, policy=None)`
 
-Renders the canvas and writes the result to a file. The format is detected from the file extension; `.svg`, `.pptx`, and `.pdf` produce vector/document output, and `.gif`/`.mp4`/`.webm` produce an animation playing the canvas's layer `animation` effects (see [Exporting to SVG, PPTX, PDF & video](../exports.md)).
+Renders the canvas and writes the result to a file. The format is detected from the file extension; `.svg`, `.pptx`, and `.pdf` produce vector/document output, and `.gif`/`.mp4`/`.webm`/`.mov` produce an animation playing the canvas's layer `animation` effects (see [Exporting to SVG, PPTX, PDF & video](../exports.md)).
+Canvas `.lot` output writes the bounded native-vector subset described in
+[Lottie vectors](../exports.md#lottie-vectors), using `LottieOptions` for fps and
+final hold. Unsupported content is rejected before writing, without PNG fallback.
 
 ```python
 from quickthumb import GifOptions, VideoOptions
@@ -121,7 +126,7 @@ canvas.render("debug.png", debug=True)  # raster output with public layer-id bbo
 canvas.render("output.svg")
 canvas.render("output.pptx")  # requires quickthumb[pptx]
 canvas.render("output.pdf")   # requires quickthumb[pdf]
-canvas.render("output.gif")   # animated; .mp4/.webm require the ffmpeg binary
+canvas.render("output.gif")   # animated; .mp4/.webm/.mov require the ffmpeg binary
 canvas.render(
     "preview.gif",
     animation=GifOptions(fps=8, max_size=(540, 960), colors=128),
@@ -132,19 +137,24 @@ canvas.render("preview.mp4", animation=VideoOptions(fps=30))
 | Parameter | Type | Default | Description |
 | --- | --- | --- | --- |
 | `path` | `str` | — | Output file path |
-| `format` | `str \| None` | `None` | Optional raster output format override: `"PNG"`, `"JPEG"`, or `"WEBP"` |
-| `quality` | `int \| None` | `None` | Compression quality (1–95). Only valid for `JPEG` and `WEBP`. |
+| `format` | `str \| None` | `None` | Case-insensitive raster encoding override: `"PNG"`, `"JPEG"`, or `"WEBP"`; rejected with document/animated extensions. |
+| `quality` | `int \| None` | `None` | Compression quality: JPEG 1–95, WebP 1–100; other targets reject it. |
 | `debug` | `bool` | `False` | Draw public layer-id bounding boxes on raster output for visual review. |
-| `animation` | `GifOptions \| VideoOptions \| None` | `None` | Format-specific options: `GifOptions` for GIF, `VideoOptions` for MP4/WebM. |
-| `policy` | `ExportPolicy \| None` | `None` | Renderer policy, such as `reduced_motion` for animated, HTML, and PPTX output. `unsupported_motion` is enforced only by `export()`. |
+| `animation` | `GifOptions \| VideoOptions \| LottieOptions \| None` | `None` | Format-specific options: `GifOptions` for GIF, `VideoOptions` for MP4/WebM/MOV, `LottieOptions` for `.lot`. |
+| `policy` | `ExportPolicy \| None` | `None` | Renderer policy, such as `reduced_motion` for animated, HTML, and PPTX output. Both `render()` and `export()` enforce `unsupported_motion` before writing. `export()` reports an explicitly requested [static SVG fidelity check](../exports.md#optional-static-svg-fidelity-report). |
 
 !!! warning
-    Passing `quality` with `format="PNG"` raises `RenderingError`. Passing `debug=True` for document or animated output (`.svg`, `.pptx`, `.pdf`, `.html`, `.gif`, `.mp4`, or `.webm`) raises `RenderingError`.
+    Passing `quality` with `format="PNG"` raises `RenderingError`. Passing `debug=True` for document or animated output (`.svg`, `.pptx`, `.pdf`, `.html`, `.gif`, `.mp4`, `.webm`, `.mov`, or `.lot`) raises `RenderingError`.
 
-`GifOptions` and `VideoOptions` are available from `quickthumb`. `GifOptions`
-accepts `fps`, `matte`, `loop`, `max_size=(width, height)`, and `colors`.
-`VideoOptions` accepts `fps`, `matte`, `soundtrack=AudioTrack(...)`, and `loop_audio`.
-GIF sizing and palette controls are rejected for MP4/WebM output.
+`GifOptions`, `VideoOptions` and `LottieOptions` are available from `quickthumb`. `GifOptions`
+accepts `fps`, `hold`, `matte`, `loop`, `max_size=(width, height)`, and `colors`.
+`VideoOptions` accepts `fps`, `hold`, `matte`, `soundtrack=AudioTrack(...)`, and `loop_audio`.
+`VideoOptions(transparent=True)` preserves alpha in VP9 WebM or ProRes 4444 MOV (strict
+boolean, default `False`); all other output targets reject this option.
+Both use a strict finite nonnegative `hold` (default 3 seconds), omitted from
+serialized options when equal to its default. Both accept `workers` (a strict
+integer from 1 to 8, default 1) and `render_quality="standard"` or `"high"` for rendering. See [parallel animated rendering](../exports.md#parallel-animated-rendering)
+for spawn setup and supported inputs. GIF sizing and palette controls are rejected for MP4/WebM/MOV output.
 
 ### `.to_svg(embed_fonts=False)`
 
@@ -172,17 +182,49 @@ with open("card.pdf", "wb") as f:
     f.write(canvas.to_pdf())
 ```
 
-### `.to_gif(...)` / `.to_mp4(...)` / `.to_webm(...)`
+### `.to_gif(...)` / `.to_mp4(...)` / `.to_webm(...)` / `.to_mov(...)`
 
-Return the canvas as an animation that plays its layer `animation` effects in sequence, then holds the settled composition for `hold` seconds (see [Animated GIF & video](../exports.md#animated-gif-video)). A canvas with no animations yields a single-frame GIF. `.to_mp4()`/`.to_webm()` require the `ffmpeg` binary on `PATH` (or named by `QUICKTHUMB_FFMPEG`).
+Return the canvas as an animation that plays its layer `animation` effects in sequence, then holds the settled composition for `hold` seconds (see [Animated GIF & video](../exports.md#animated-gif-video)). A canvas with no animations yields a single-frame GIF. `.to_mp4()`/`.to_webm()`/`.to_mov()` require the `ffmpeg` binary on `PATH` (or named by `QUICKTHUMB_FFMPEG`).
 
 ```python
 gif_bytes = canvas.to_gif(fps=20, hold=3.0, loop=0, matte="#000000")
 mp4_bytes = canvas.to_mp4(fps=30, hold=2.0, soundtrack="music.mp3")
 webm_bytes = canvas.to_webm(fps=30, hold=2.0)
+overlay_bytes = canvas.to_webm(fps=30, hold=2.0, transparent=True)
 ```
 
-`.to_mp4()`/`.to_webm()` also accept `soundtrack` (an audio file muxed into the video, trimmed to the video length) and `loop_audio` (an explicit override). `AudioTrack(..., loop=True)` repeats a shorter configured track; legacy string paths keep the previous default of looping. GIF cannot carry audio. See the [Deck API](deck.md) for the full parameter table.
+`.to_mp4()`/`.to_webm()`/`.to_mov()` also accept `soundtrack` (an audio file muxed into the video, trimmed to the video length) and `loop_audio` (an explicit override). `AudioTrack(..., loop=True)` repeats a shorter configured track; legacy string paths keep the previous default of looping. GIF cannot carry audio. See the [Deck API](deck.md) for the full parameter table.
+
+All animated byte methods accept keyword-only `workers=1` and
+`render_quality="standard"` (`"high"` enables supersampling). `.to_gif()` also accepts
+`max_size=None` for proportional resizing and `colors=None` for the palette
+size (2–256 when supplied). Existing positional parameters remain unchanged.
+
+The keyword-only `transparent` flag on `.to_webm()` and `.to_mov()` skips only the export matte;
+authored backgrounds stay visible. See [transparent WebM](../exports.md#transparent-webm)
+for codec, alpha decoding and transition details.
+
+`.to_mov()` uses the same parameters and timing as `.to_webm()`, with fixed
+ProRes 4444 video and AAC audio. It retains odd and one-pixel dimensions.
+The RGBA source remains 8-bit; 16-bit alpha coding can decode with one-level
+8-bit alpha differences, and color is lossy 4:4:4 YUV. See
+[ProRes MOV](../exports.md#prores-4444-mov) for the measured conversion limits
+and encoder requirements. `render()` and `export()` accept `.mov` with
+`VideoOptions` for both opaque and transparent output.
+
+### `.export_image_sequence(output_directory, *, format="png", quality=None, matte=None, lossless=None, options=None, policy=None)`
+
+Write the animated timeline as independent PNG (default), JPEG or WebP files
+plus `manifest.json` into a new directory under an existing parent.
+`ImageSequenceOptions(fps=30, hold=3, workers=1, render_quality="standard")`
+controls timing/compositing; method keywords select image encoding. JPEG
+uses RGB on an opaque matte (white by default), with `quality=1..95`.
+WebP preserves alpha and accepts `lossless=True`; lossy WebP accepts quality.
+PNG and lossless WebP preserve the renderer's exact RGBA8 pixels. Opaque WebP
+files may decode as RGB; manifest mode describes logical RGBA decoding.
+The receipt reports actual frame count, timing, encoding and destination.
+See [image sequences](../exports.md#image-sequences) for validation, per-format
+metadata and atomic no-overwrite publication.
 
 ### `.to_base64(format="PNG", quality=None)`
 
@@ -196,7 +238,7 @@ b64 = canvas.to_base64(format="WEBP", quality=90)
 | Parameter | Type | Default | Description |
 | --- | --- | --- | --- |
 | `format` | `str` | `"PNG"` | Output format: `"PNG"`, `"JPEG"`, or `"WEBP"` |
-| `quality` | `int \| None` | `None` | Compression quality. Only valid for `JPEG` and `WEBP`. |
+| `quality` | `int \| None` | `None` | Compression quality: JPEG 1–95 or WebP 1–100. |
 
 ### `.to_data_url(format="PNG", quality=None)`
 
@@ -210,7 +252,62 @@ url = canvas.to_data_url(format="JPEG", quality=90)
 | Parameter | Type | Default | Description |
 | --- | --- | --- | --- |
 | `format` | `str` | `"PNG"` | Output format: `"PNG"`, `"JPEG"`, or `"WEBP"` |
-| `quality` | `int \| None` | `None` | Compression quality. Only valid for `JPEG` and `WEBP`. |
+| `quality` | `int \| None` | `None` | Compression quality: JPEG 1–95 or WebP 1–100. |
+
+### `.inspect()`
+
+Returns a deterministic `CanvasInspection` containing layer identities, order,
+visibility, bounding boxes and authored text-layout metadata. No output file is
+written. Existing font/image assets may be read for sizing, but parent-layer
+drawing is not invoked.
+
+```python
+report = canvas.inspect()
+for layer in report.layers:
+    print(layer.id, layer.bbox)
+```
+
+For supported parent-linked scenes, bounds describe the **authored-static** world
+layout, not the state at animation time zero. They conservatively enclose each
+existing measured local body after its ancestor transforms and can extend outside
+the canvas. Transparent corners can make these boxes looser than painted pixels.
+Text sizes/wrapping remain authored-local; intrinsic counters use their settled
+formatted text for these measurements, without sampling the timeline. Nulls have
+no visible body or bbox.
+`canvas.render("debug.png", debug=True)` overlays the same authored-static boxes.
+`diagnose()` uses the same authored-static world layout, with transformed painted
+alpha for overlap/occlusion and transformed glyph/background pixels for contrast.
+Parent opacity is not inherited. Geometry animation on an ancestor prevents a
+static footprint from being reported as permanently hiding another layer.
+Repair suggestions describe parent-local positions or containing group layout;
+world coordinates must not be copied directly into those local fields.
+A top-level group's own clip/mask restricts its complete painted source,
+including sampled counters in settled group slots.
+Inspection reports the boundary-intersected group box and keeps conservative
+laid-out child boxes. Each layer or group box intersects only its own finite
+boundary before applying world transforms; enclosing group boundaries do not
+cut descendant inspection boxes. Static leaves and nested
+structural groups can have their own clips and masks at several depths, using
+the top-level group's shared parent-local plane and original canvas dimensions
+for percentages. Inverted masks retain conservative boxes around their cutouts.
+Child transforms still use the full authored group body;
+the boundary does not clip independently linked children. Counter observations
+use settled text, including glyph backgrounds and preceding group content.
+Groups with descendant boundaries support `plain`, `odometer` and `flip` text
+counters in settled layout slots. Each counter's fragments are combined before
+its own boundary, and each nested group's children before that group's boundary;
+changing counter paint does not move siblings, pivots or independently linked
+children. Other intrinsic dynamic sources and authored stagger on any structural
+descendant remain guarded. The participating top-level group's own
+animation may override other authored descendant animations; an external
+ancestor's animation or only an inner group's animation does not qualify.
+Static inspection and diagnostics retain the authored layout and composition;
+HTML, SVG, PDF and PPTX retain whole-scene authored-static fallback for overridden
+descendant motion. Intrinsic counter clocks continue through that override;
+counter-group stagger remains guarded. Static graph-leaf groups with their own
+or descendant clip/mask boundaries can use root stagger through the existing
+partial horizontal-band adapter; it does not establish which child owns a band. See
+[parent adapter boundaries](video.md#current-adapters-and-boundaries).
 
 ### `.to_json()`
 

@@ -396,7 +396,7 @@ def _can_check_near_alignment(measured: LayerMeasurement) -> bool:
     """Exclude geometry whose measured bbox is not a stable layout anchor."""
     if not measured.visible or measured.bbox is None or measured.bbox.is_empty:
         return False
-    if has_layer_composition(measured.raw_layer):
+    if has_layer_composition(measured.raw_layer) or measured.metadata.get("inherited_rotation"):
         return False
 
     layer = measured.effective_text_layer or measured.raw_layer
@@ -622,7 +622,11 @@ def average_visible_background(
 
     # Transparent areas read as white, matching JPEG export and typical viewers.
     alpha = mean_a / 255
-    return tuple(channel * alpha + 255 * (1 - alpha) for channel in (mean_r, mean_g, mean_b))
+    return (
+        mean_r * alpha + 255 * (1 - alpha),
+        mean_g * alpha + 255 * (1 - alpha),
+        mean_b * alpha + 255 * (1 - alpha),
+    )
 
 
 def worst_tile_contrast(

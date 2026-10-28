@@ -53,12 +53,14 @@ from quickthumb.errors import ValidationError
 if TYPE_CHECKING:
     from quickthumb.canvas import Canvas
 from quickthumb.models import (
+    AnimationSpec,
     Background,
     BackgroundLayer,
     Diagnostic,
     DiagnosticBBox,
     GroupLayer,
     ImageLayer,
+    PositionTrack,
     ShapeLayer,
     SvgLayer,
     TextLayer,
@@ -106,6 +108,7 @@ class DiagnosticsEngine:
         self._shapes = shapes
         self._text = text
         self._groups = groups
+        self._parent_sources = None
         self._alpha_cache = LayerAlphaCache(
             self._has_opaque_rectangle_mask, self._render_layer_alpha_mask
         )
@@ -131,17 +134,27 @@ class DiagnosticsEngine:
         try:
             return self._collect_diagnostics()
         finally:
+            self._parent_sources = None
+            self._ctx.motion_time = None
             self._ctx.close_video_decoders()
 
     def _collect_diagnostics(self) -> list[Diagnostic]:
+        from quickthumb._parenting import has_parent_links
+
         self._alpha_cache.clear()
         self._canvas._validate_image_paths()
         self._ctx.begin_render_pass()
 
         diagnostics: list[Diagnostic] = []
         measurements = measure_layers(self._canvas)
+        if has_parent_links(self._canvas):
+            from quickthumb._parent_diagnostics import ParentDiagnosticSources
+
+            self._parent_sources = ParentDiagnosticSources(self._canvas, measurements)
+            measurements = self._parent_sources.decorate(measurements)
         running = self._canvas._create_canvas()
         for measured in measurements:
+            diagnostics.extend(self._diagnose_motion_paths(measured))
             if measured.visible:
                 layer = measured.raw_layer
                 if isinstance(layer, TextLayer):
@@ -159,7 +172,10 @@ class DiagnosticsEngine:
                     if finding is not None:
                         diagnostics.append(finding)
 
-            self._canvas._render_layer(running, measured.raw_layer)
+            if self._parent_sources and self._parent_sources.handles(measured):
+                self._parent_sources.composite(running, measured)
+            else:
+                self._canvas._render_layer(running, measured.raw_layer)
 
         diagnostics.extend(self._diagnose_layer_overlaps(measurements))
         diagnostics.extend(self._diagnose_near_alignments(measurements))
@@ -172,7 +188,55 @@ class DiagnosticsEngine:
             self._diagnose_edge_crowding(measurements, ignored_layer_ids=edge_ignored_layer_ids)
         )
 
+        if self._parent_sources:
+            diagnostics = [self._parent_sources.repair_context(item) for item in diagnostics]
         return diagnostics
+
+    def _diagnose_motion_paths(self, measured: LayerMeasurement) -> list[Diagnostic]:
+        """Point out endpoint handles that cannot participate in any segment."""
+        findings = []
+        if self._parent_sources and self._parent_sources.overridden(measured):
+            return findings
+        animation = getattr(measured.raw_layer, "animation", None)
+        items = animation if isinstance(animation, list) else [animation]
+        for animation_index, item in enumerate(items):
+            if not isinstance(item, AnimationSpec):
+                continue
+            for track_index, track in enumerate(item.tracks or ()):
+                if not isinstance(track, PositionTrack):
+                    continue
+                unused = [
+                    name
+                    for name, key in (
+                        ("in_tangent", track.keyframes[0]),
+                        ("out_tangent", track.keyframes[-1]),
+                    )
+                    if getattr(key, name, None) is not None
+                ]
+                if unused:
+                    findings.append(
+                        Diagnostic(
+                            code="motion-path-unused-handle",
+                            severity="warning",
+                            layer_index=measured.index,
+                            message=(
+                                "The first incoming and last outgoing path handles "
+                                "have no adjacent segment"
+                            ),
+                            measured={
+                                "animation_index": animation_index,
+                                "track_index": track_index,
+                                "unused_handles": unused,
+                            },
+                            suggestion=(
+                                "Remove the unused endpoint handles or add an adjacent keyframe"
+                            ),
+                            **diagnostic_context(measured),
+                        )
+                    )
+        for child in measured.children:
+            findings.extend(self._diagnose_motion_paths(child))
+        return findings
 
     def _diagnose_caption_reading_time(
         self, measured: LayerMeasurement, index: int, caption: VideoCaption, layer: VideoLayer
@@ -528,7 +592,9 @@ class DiagnosticsEngine:
 
         # A layer that animates over another is a reveal, not a collision: the
         # pair is a before and an after, and both are seen in turn.
-        if getattr(upper.raw_layer, "animation", None) is not None:
+        if upper.metadata.get(
+            "effective_animation", getattr(upper.raw_layer, "animation", None) is not None
+        ):
             return False
 
         if max(overlap.lower_visible_pct, overlap.upper_visible_pct) >= BACKDROP_COVERAGE_RATIO:
@@ -667,7 +733,9 @@ class DiagnosticsEngine:
         # A layer that animates in is absent for part of the slide, so whatever
         # it settles over is still seen. Judging the settled frame alone would
         # call every pre-roll state redundant.
-        if getattr(layer, "animation", None) is not None:
+        if measured.metadata.get(
+            "effective_animation", getattr(layer, "animation", None) is not None
+        ):
             return False
         if float(getattr(layer, "opacity", 1.0)) < 1.0:
             return False
@@ -820,6 +888,8 @@ class DiagnosticsEngine:
         return findings
 
     def _has_opaque_rectangle_mask(self, measured: LayerMeasurement) -> bool:
+        if self._parent_sources and self._parent_sources.handles(measured):
+            return False
         layer = measured.raw_layer
         if has_layer_composition(layer):
             return False
@@ -851,6 +921,8 @@ class DiagnosticsEngine:
         )
 
     def _render_layer_alpha_channel(self, measured: LayerMeasurement) -> Image.Image:
+        if self._parent_sources and self._parent_sources.handles(measured):
+            return self._parent_sources.alpha(measured)
         box = require_bbox(measured)
         image = Image.new("RGBA", (self._ctx.width, self._ctx.height), (0, 0, 0, 0))
         layer = measured.raw_layer
@@ -1207,13 +1279,16 @@ class DiagnosticsEngine:
         if clamped is None:
             return None
 
-        content = layer.content
-        if isinstance(content, list):
-            content = [part.model_copy(update={"effects": []}) for part in content]
-        foreground_layer = layer.model_copy(update={"content": content, "effects": []})
-        foreground = Image.new("RGBA", (self._ctx.width, self._ctx.height), (0, 0, 0, 0))
-        self._text.render_text_layer(foreground, foreground_layer)
-        running = self._with_text_backing(running, layer)
+        if self._parent_sources and self._parent_sources.handles(measured):
+            running, foreground = self._parent_sources.text_images(running, measured)
+        else:
+            content = layer.content
+            if isinstance(content, list):
+                content = [part.model_copy(update={"effects": []}) for part in content]
+            foreground_layer = layer.model_copy(update={"content": content, "effects": []})
+            foreground = Image.new("RGBA", (self._ctx.width, self._ctx.height), (0, 0, 0, 0))
+            self._text.render_text_layer(foreground, foreground_layer)
+            running = self._with_text_backing(running, layer)
         return worst_tile_contrast(
             running,
             foreground,

@@ -14,7 +14,7 @@ from pydantic import (
 
 from .common import *  # noqa: F401,F403
 from .document import AssetManifestEntry, DiagnosticReport
-from .motion import MotionEasing
+from .motion import MotionEasing, RangeSelector, Wiggle
 from .options import ExportDiagnostic
 
 
@@ -45,6 +45,7 @@ class Diagnostic(quickthumbModel):
         "near-alignment",
         "layer-hidden",
         "edge-crowding",
+        "motion-path-unused-handle",
     ]
     severity: Literal["warning", "error"]
     layer_index: int
@@ -105,6 +106,12 @@ class MotionKeyframeInspection(quickthumbModel):
 
     time: float
     value: Any
+    in_tangent: tuple[float, float] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    out_tangent: tuple[float, float] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     easing: MotionEasing | None = Field(default=None, exclude_if=lambda value: value is None)
     hold: bool = Field(default=False, exclude_if=lambda value: value is False)
 
@@ -114,6 +121,8 @@ class MotionTrackInspection(quickthumbModel):
 
     type: str
     keyframes: list[MotionKeyframeInspection]
+    auto_orient: bool = Field(default=False, exclude_if=lambda value: not value)
+    wiggle: Wiggle | None = Field(default=None, exclude_if=lambda value: value is None)
 
 
 class MotionEventInspection(quickthumbModel):
@@ -129,6 +138,8 @@ class MotionEventInspection(quickthumbModel):
     effect: str | None = None
     tracks: list[MotionTrackInspection] = Field(default_factory=list)
     stagger: dict[str, Any] | None = None
+    selector: RangeSelector | None = None
+    selector_weights: list[list[float]] = Field(default_factory=list)
     progress: list[float] = Field(default_factory=list)
 
 
@@ -138,6 +149,7 @@ class MotionTargetInspection(quickthumbModel):
     target: str
     index: NonNegativeInt
     source_range: tuple[NonNegativeInt, NonNegativeInt] | None = None
+    samples: list[dict[str, Any]] = Field(default_factory=list)
     position: tuple[float, float] | None = None
     size: tuple[float, float] | None = None
 
@@ -147,6 +159,7 @@ class MotionLayerInspection(quickthumbModel):
 
     layer_id: str
     layer_type: str
+    parent: str | None = Field(default=None, exclude_if=lambda value: value is None)
     events: list[MotionEventInspection] = Field(default_factory=list)
     duration: float = 0.0
     targets: list[MotionTargetInspection] = Field(default_factory=list)

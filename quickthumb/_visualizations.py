@@ -146,8 +146,8 @@ class VisualizationEngine:
     ) -> None:
         """Render a QR matrix with nearest-neighbour module boundaries."""
         try:
-            import qrcode  # ty: ignore[unresolved-import]
-            from qrcode.constants import (  # ty: ignore[unresolved-import]
+            import qrcode
+            from qrcode.constants import (
                 ERROR_CORRECT_H,
                 ERROR_CORRECT_L,
                 ERROR_CORRECT_M,
@@ -470,4 +470,4 @@ class VisualizationEngine:
         rgba = self._effects.parse_color(color)
         if len(rgba) == 3:
             rgba = (*rgba, 255)
-        return (*rgba[:3], round(rgba[3] * opacity))
+        return (rgba[0], rgba[1], rgba[2], round(rgba[3] * opacity))

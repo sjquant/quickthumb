@@ -16,7 +16,7 @@ import importlib.util
 import os
 import shutil
 import tempfile
-from collections.abc import Callable, Iterable, Mapping
+from collections.abc import Callable, Collection, Iterable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal
@@ -26,8 +26,8 @@ from quickthumb.asset_cache import _CACHE_DIR_ENV, _OFFLINE_ENV, _OFFLINE_VALUES
 
 Status = Literal["ok", "warning", "error"]
 
-WORKFLOWS = ("png", "jpeg", "webp", "gif", "svg", "html", "pdf", "pptx", "mp4", "webm")
-_VIDEO_WORKFLOWS = ("mp4", "webm")
+WORKFLOWS = ("png", "jpeg", "webp", "gif", "svg", "html", "pdf", "pptx", "mp4", "webm", "mov")
+_VIDEO_WORKFLOWS = ("mp4", "webm", "mov")
 _FONT_SUFFIXES = (".ttf", ".otf", ".ttc", ".woff", ".woff2")
 # module -> (name shown to the user, pip extra that installs it)
 _MODULES = {
@@ -261,7 +261,7 @@ def _fonts(env: Environment, families: Iterable[str]) -> list[Finding]:
     ]
 
 
-def _plugins(env: Environment, renderers: Iterable[str]) -> list[Finding]:
+def _plugins(env: Environment, renderers: Collection[str]) -> list[Finding]:
     registered = set(env.registered_plugins()) if renderers else set()
     return [
         Finding(f"plugin:{renderer}", "plugin", "ok", f"plugin '{renderer}' is registered")
