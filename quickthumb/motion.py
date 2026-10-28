@@ -2360,7 +2360,7 @@ def _validate_export(
             )
         _validate_text_selectors(canvas)
         try:
-            cast("Canvas", canvas)._validate_layer_identities()
+            canvas._validate_layer_identities()
         except ValidationError as error:
             if hasattr(source, "slides"):
                 error.at(f"/slides/{index}")

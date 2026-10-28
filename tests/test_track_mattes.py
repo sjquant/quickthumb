@@ -237,7 +237,9 @@ def test_deep_matte_chain_resolves_without_recursive_rendering():
         )
         for index in range(1050)
     ]
-    layers[0] = layers[0].model_copy(update={"color": "#FF0000"})
+    first = layers[0]
+    assert isinstance(first, ShapeLayer)
+    layers[0] = first.model_copy(update={"color": "#FF0000"})
     canvas = Canvas(2, 2, layers=layers)
     # When: rendering the canonical dependency graph
     image = canvas.render_frame()
