@@ -267,7 +267,8 @@ substitute another topology. Endpoint geometry and correspondence plans use boun
 caches; rendered frames still retain only the existing one-entry Path source.
 
 Morph timelines render in canonical samples, GIF/video, and serial/worker PNG
-sequences. HTML, SVG, PDF and PPTX retain explicit authored-static raster fallback
+sequences, and [held native Lottie vectors](../exports.md#lottie-path-morph).
+HTML, SVG, PDF and PPTX retain explicit authored-static raster fallback
 for this feature. The runnable
 [path morph example](https://github.com/sjquant/quickthumb/blob/main/examples/path_morph.py)
 uses one logo geometry twice: trim reveals its outline, `OpacityTrack` fades in

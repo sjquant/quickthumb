@@ -2,6 +2,7 @@
 
 import json
 from pathlib import Path
+from typing import cast
 
 import jsonschema
 import pytest
@@ -550,3 +551,201 @@ def test_missing_glyph_is_not_silently_replaced(tmp_path):
     assert caught.value.details[0].path == "/layers/0/content"
     assert caught.value.details[0].layer_id == "missing-glyph"
     assert not output.exists()
+
+
+def test_path_morph_retains_canonical_shapes_and_held_clock(tmp_path):
+    from examples.lottie_morph import build_canvas
+    from quickthumb._export_lottie import _path_contours
+    from quickthumb.motion import LayerState, compile_timeline
+
+    canvas = build_canvas()
+    output = tmp_path / "morph.lot"
+    receipt = canvas.export(output, animation=LottieOptions(fps=4, hold=0.5))
+    payload = json.loads(output.read_text())
+    jsonschema.validate(
+        payload,
+        json.loads((Path(__file__).parent / "fixtures/lottie/schema-1.0.1.json").read_text()),
+    )
+    layer = canvas.layers[0]
+    from quickthumb.models import PathLayer
+
+    assert isinstance(layer, PathLayer)
+    assert isinstance(layer.animation, AnimationSpec)
+    timeline = compile_timeline(layer.animation)
+    shape = payload["layers"][0]["shapes"][0]["it"][0]
+    assert shape["ks"]["a"] == 1
+    times = [key["t"] / 4 for key in shape["ks"]["k"]]
+    assert times == [0, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75]
+    for key, time in zip(shape["ks"]["k"], times, strict=True):
+        data = timeline.sample(time, LayerState()).path_morph or layer.d
+        expected = _path_contours(layer.model_copy(update={"d": data}))[0]["ks"]["k"]
+        actual = key["s"][0]
+        count = len(expected["v"])
+        assert actual["v"][:count] == expected["v"] and actual["i"][:count] == expected["i"]
+        assert actual["o"][: count - 1] == expected["o"][:-1]
+        assert actual["o"][-1] == expected["o"][-1]
+        assert all(point == expected["v"][-1] for point in actual["v"][count:])
+        assert actual["c"] == expected["c"] and key["h"] == 1
+    assert len({len(key["s"][0]["v"]) for key in shape["ks"]["k"]}) == 1
+    assert payload["op"] == 9
+    assert receipt.capability_report[0].support == "partial"
+
+
+def test_path_morph_rejects_clipped_keys_before_writing(tmp_path):
+    from quickthumb import KeyframeSpec, PathMorphTrack, TimingSpec
+
+    first, last = "M10 10H50V50H10Z", "M70 10H110V50H70Z"
+    canvas = Canvas(100, 100).path(
+        first,
+        (0, 0),
+        100,
+        100,
+        "#159A8C",
+        animation=AnimationSpec.timeline(
+            PathMorphTrack(
+                keyframes=[
+                    KeyframeSpec(time=0, value=first),
+                    KeyframeSpec(time=1, value=last),
+                ]
+            ),
+            timing=TimingSpec(duration=1),
+        ),
+    )
+    assert canvas.validate_export("lottie")[0].support == "unsupported"
+    output = tmp_path / "existing.lot"
+    output.write_text("keep")
+    with pytest.raises(RenderingError, match="viewport"):
+        canvas.export(output)
+    assert output.read_text() == "keep"
+
+
+@pytest.mark.parametrize(
+    "authored,key",
+    [
+        ("M10 10H40V40H10Z", "M10 10H40V40H10Z M60 60H90V90H60Z"),
+        ("M10 10H40V40H10Z M60 60H90V90H60Z", "M10 10H40V40H10Z"),
+        ("M10 10H40V40H10Z", "M10 10H40V40H10"),
+    ],
+)
+def test_morph_contour_count_must_match_authored_source(tmp_path, authored, key):
+    from quickthumb import KeyframeSpec, PathMorphTrack, TimingSpec
+
+    canvas = Canvas(100, 100).path(
+        authored,
+        (0, 0),
+        100,
+        100,
+        "#159A8C",
+        animation=AnimationSpec.timeline(
+            PathMorphTrack(
+                keyframes=[
+                    KeyframeSpec(time=0, value=key),
+                    KeyframeSpec(time=1, value=key),
+                ]
+            ),
+            timing=TimingSpec(start=0.25, duration=1),
+        ),
+    )
+    assert canvas.validate_export("lottie")[0].support == "unsupported"
+    output = tmp_path / "existing.lot"
+    output.write_text("keep")
+    with pytest.raises(RenderingError, match="contour count"):
+        canvas.export(output)
+    assert output.read_text() == "keep"
+
+
+@pytest.mark.parametrize(
+    "first,last,color",
+    [
+        ("M10 10H50V50H10Z M20 20H40V40H20Z", "M20 20H60V60H20Z M30 30H50V50H30Z", "#159A8C80"),
+        ("M10 25Q40 10 70 25", "M10 45Q40 60 70 45", None),
+    ],
+)
+def test_morph_native_geometry_repaints_canonical_frames(tmp_path, first, last, color):
+    from PIL import ImageChops
+    from quickthumb import KeyframeSpec, PathLayer, PathMorphTrack, TimingSpec
+
+    canvas = Canvas(160, 140).path(
+        first,
+        (15, 10),
+        120,
+        120,
+        color,
+        view_box=(0, 0, 80, 80),
+        stroke="#24433F",
+        stroke_width=1.2,
+        animation=AnimationSpec.timeline(
+            PathMorphTrack(
+                keyframes=[
+                    KeyframeSpec(time=0, value=first),
+                    KeyframeSpec(time=1, value=last),
+                ]
+            ),
+            timing=TimingSpec(duration=1),
+            easing="ease_in",
+        ),
+    )
+    output = tmp_path / "morph.lot"
+    canvas.export(output, animation=LottieOptions(fps=4, hold=0.5))
+    payload = json.loads(output.read_text())
+    jsonschema.validate(
+        payload,
+        json.loads((Path(__file__).parent / "fixtures/lottie/schema-1.0.1.json").read_text()),
+    )
+    paths = [item for item in payload["layers"][0]["shapes"][0]["it"] if item["ty"] == "sh"]
+    for time in [0, 0.25, 0.5, 0.75, 1, 1.25]:
+        commands = []
+        for item in paths:
+            prop = item["ks"]
+            shape = (
+                max((key for key in prop["k"] if key["t"] <= time * 4), key=lambda key: key["t"])[
+                    "s"
+                ][0]
+                if prop["a"]
+                else prop["k"]
+            )
+            vertices, incoming, outgoing = shape["v"], shape["i"], shape["o"]
+            commands.append(f"M{vertices[0][0]} {vertices[0][1]}")
+            for index in range(len(vertices) if shape["c"] else len(vertices) - 1):
+                following = (index + 1) % len(vertices)
+                a, b = vertices[index], vertices[following]
+                commands.append(
+                    f"C{a[0] + outgoing[index][0]} {a[1] + outgoing[index][1]} "
+                    f"{b[0] + incoming[following][0]} {b[1] + incoming[following][1]} "
+                    f"{b[0]} {b[1]}"
+                )
+            if shape["c"]:
+                commands.append("Z")
+        native = Canvas.from_json(canvas.to_json())
+        source = canvas.layers[0]
+        assert isinstance(source, PathLayer)
+        native.layers = [source.model_copy(update={"d": " ".join(commands), "animation": None})]
+        difference = ImageChops.difference(canvas.render_frame(time), native.render_frame(0))
+        assert (
+            sum(max(cast(tuple[int, ...], pixel)) > 16 for pixel in difference.get_flattened_data())
+            / (160 * 140)
+            < 0.02
+        )
+
+
+def test_morph_vertex_budget_is_shared_between_layers(tmp_path, monkeypatch):
+    from quickthumb import KeyframeSpec, PathMorphTrack, TimingSpec, _sampling
+
+    monkeypatch.setattr(_sampling, "_MAX_OBSERVATIONS", 30)
+    animation = AnimationSpec.timeline(
+        PathMorphTrack(
+            keyframes=[
+                KeyframeSpec(time=0, value="M10 10H40V40H10Z"),
+                KeyframeSpec(time=1, value="M20 20H50V50H20Z"),
+            ]
+        ),
+        timing=TimingSpec(duration=1),
+    )
+    canvas = Canvas(100, 100)
+    for _ in range(2):
+        canvas.path("M10 10H40V40H10Z", (0, 0), 100, 100, "#159A8C", animation=animation)
+    output = tmp_path / "existing.lot"
+    output.write_text("keep")
+    with pytest.raises(RenderingError, match="total pose/vertex"):
+        canvas.export(output, animation=LottieOptions(fps=4, hold=0.5))
+    assert output.read_text() == "keep"

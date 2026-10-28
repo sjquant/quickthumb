@@ -64,7 +64,7 @@ def _layer_problem(layer, reduced_motion: bool, canvas, linked: bool) -> tuple[s
         specs = animation if isinstance(animation, list) else [animation]
         supported = {"position", "scale", "scale_x", "scale_y", "rotation", "opacity"}
         if isinstance(layer, PathLayer):
-            supported.update(("trim_start", "trim_end", "trim_offset"))
+            supported.update(("trim_start", "trim_end", "trim_offset", "path_morph"))
         for spec in specs:
             if (
                 not isinstance(spec, AnimationSpec)
@@ -80,7 +80,7 @@ def _layer_problem(layer, reduced_motion: bool, canvas, linked: bool) -> tuple[s
             ):
                 return (
                     "animation",
-                    "Lottie supports position, scale, rotation, opacity and Path trim tracks",
+                    "Lottie supports position, scale, rotation, opacity and Path trim/morph tracks",
                 )
             if isinstance(layer, (ShapeLayer, NullLayer)) and any(
                 track.type == "scale" and any(key.value <= 0 for key in track.keyframes)
@@ -91,6 +91,25 @@ def _layer_problem(layer, reduced_motion: bool, canvas, linked: bool) -> tuple[s
                     "Nonpositive uniform Shape/Null scale is not supported "
                     "by this canonical renderer",
                 )
+    if isinstance(layer, PathLayer) and animation and not reduced_motion:
+        for spec in animation if isinstance(animation, list) else [animation]:
+            for track in spec.tracks or ():
+                if track.type == "path_morph":
+                    for key in track.keyframes:
+                        sampled = layer.model_copy(update={"d": key.value, "animation": None})
+                        if problem := _layer_problem(sampled, False, canvas, False):
+                            return problem
+                        try:
+                            if [shape["ks"]["k"]["c"] for shape in _path_contours(sampled)] != [
+                                shape["ks"]["k"]["c"] for shape in _path_contours(layer)
+                            ]:
+                                return (
+                                    "animation",
+                                    "Lottie morph contour count/closedness "
+                                    "must match the authored Path",
+                                )
+                        except RenderingError as error:
+                            return "d", str(error)
     if isinstance(layer, ShapeLayer) and animation and not reduced_motion and not linked:
         from quickthumb._lottie_pose import shape_source_box
 
@@ -468,7 +487,7 @@ def write_lottie(
         pose_count += count
         if pose_count > _MAX_OBSERVATIONS:
             raise RenderingError(
-                "Lottie exceeds 100000 total pose samples; lower fps or simplify motion",
+                "Lottie exceeds 100000 total pose/vertex samples; lower fps or simplify motion",
                 path=pointer,
                 layer_id=layer_id,
             )
