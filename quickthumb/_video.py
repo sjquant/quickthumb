@@ -237,7 +237,10 @@ def _probe_frame_times(ffprobe: str, source: str) -> tuple[float, ...]:
     values: list[float] = []
     for line in result.stdout.splitlines():
         try:
-            timestamp = float(line.strip())
+            # ffprobe can append side-data text to a frame's CSV row (notably
+            # the first H.264 SEI frame). Dropping that timestamp shifts every
+            # index and makes decoding depend on previous seek history.
+            timestamp = float(line.partition(",")[0].strip())
         except ValueError:
             continue
         if math.isfinite(timestamp) and (not values or timestamp >= values[-1]):
@@ -409,9 +412,11 @@ def caption_geometry(
         y - background_height // 2 + background_height,
     )
     shift = _caption_safe_shift(requested, image_size)
-    rendered = tuple(
-        value + delta
-        for value, delta in zip(requested, (shift[0], shift[1], shift[0], shift[1]), strict=True)
+    rendered = (
+        requested[0] + shift[0],
+        requested[1] + shift[1],
+        requested[2] + shift[0],
+        requested[3] + shift[1],
     )
     return CaptionGeometry(
         text_position=(text_left + shift[0], text_top + shift[1]),

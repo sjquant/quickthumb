@@ -17,9 +17,12 @@ from __future__ import annotations
 
 import hashlib
 import math
+import os
+import tempfile
 import unicodedata
 from dataclasses import dataclass
 from io import BytesIO
+from pathlib import Path
 from threading import RLock
 from typing import TYPE_CHECKING, Any, cast
 from uuid import uuid4
@@ -38,6 +41,9 @@ from quickthumb._export_base import (
     RasterFragment,
     TextBlockLayout,
     TextRunLayout,
+    _distinct_layer_occurrences,
+    _layer_routing,
+    _source_layer_ids,
     color_to_rgba,
     compute_text_layout,
     flatten_layers,
@@ -47,8 +53,10 @@ from quickthumb._export_base import (
 from quickthumb.errors import RenderingError
 from quickthumb.models import (
     BackgroundLayer,
+    ExportDiagnostic,
     LinearGradient,
     OutlineLayer,
+    PathLayer,
     RadialGradient,
     ShapeLayer,
     TextLayer,
@@ -119,6 +127,9 @@ class PdfExporter:
         # canvas is the single-canvas convenience target; the multi-page paths
         # take their canvases explicitly and leave this None.
         self._canvas = canvas
+        self.diagnostics: list[ExportDiagnostic] = []
+        self._source_ids: dict[int, tuple[str, ...]] = {}
+        self._parent_fragments: dict[int, RasterFragment] = {}
         self._font_characters: dict[FontKey, set[str]] = {}
         self._font_info: dict[FontKey, FontFaceInfo | None] = {}
         self._prepared_font_names: dict[FontKey, str | None] = {}
@@ -138,13 +149,42 @@ class PdfExporter:
 
     def save_canvases(self, canvases: list[Canvas], path_or_stream) -> None:
         """Write one or more canvases to a multi-page PDF (one page per canvas)."""
+        from quickthumb._composition import has_animated_masks
+        from quickthumb._parent_export import static_parent_fragment
+        from quickthumb._parenting import has_parent_links
+        from quickthumb._track_mattes import has_track_mattes
+
+        # Prepare all parent pages before opening a destination. Reuse these
+        # fragments only for this export, including font collection and drawing.
         if not canvases:
             raise RenderingError("Cannot export a PDF with no pages.")
-        if hasattr(path_or_stream, "write"):
-            self._build(canvases, path_or_stream)
-        else:
-            with open(path_or_stream, "wb") as f:
-                self._build(canvases, f)
+        canvases = [_distinct_layer_occurrences(canvas) for canvas in canvases]
+        self.diagnostics.clear()
+        self._parent_fragments = {}
+        try:
+            for canvas in canvases:
+                if id(canvas) not in self._parent_fragments and (
+                    has_parent_links(canvas)
+                    or has_track_mattes(canvas)
+                    or has_animated_masks(canvas)
+                ):
+                    self._parent_fragments[id(canvas)] = static_parent_fragment(canvas)
+            if hasattr(path_or_stream, "write"):
+                self._build(canvases, path_or_stream)
+            else:
+                # A trusted callback can fail while painting any page. Complete
+                # the document before replacing the caller's destination.
+                descriptor, temporary_name = tempfile.mkstemp(
+                    dir=Path(path_or_stream).parent, suffix=".pdf"
+                )
+                try:
+                    with os.fdopen(descriptor, "wb") as stream:
+                        self._build(canvases, stream)
+                    os.replace(temporary_name, path_or_stream)
+                finally:
+                    Path(temporary_name).unlink(missing_ok=True)
+        finally:
+            self._parent_fragments.clear()
 
     def export_bytes_canvases(self, canvases: list[Canvas]) -> bytes:
         buffer = BytesIO()
@@ -177,6 +217,8 @@ class PdfExporter:
     def _collect_font_texts(self, canvases: list[Canvas]) -> None:
         """Collect text per font face so converted subsets are document-scoped."""
         for canvas in canvases:
+            if id(canvas) in self._parent_fragments:
+                continue
             canvas._ctx.begin_render_pass()
             for layer in flatten_layers(canvas):
                 if not isinstance(layer, TextLayer):
@@ -221,7 +263,7 @@ class PdfExporter:
                 if value is _MISSING:
                     fonts._tt2ps_map.pop(key, None)
                 else:
-                    fonts._tt2ps_map[key] = value
+                    fonts._tt2ps_map[key] = cast(str, value)
             if ps2tt_snapshot is _MISSING:
                 fonts._ps2tt_map.pop(name.lower(), None)
             else:
@@ -233,6 +275,10 @@ class PdfExporter:
         canvas._validate_image_paths()
         canvas._ctx.begin_render_pass()
         self._canvas = canvas
+        self._source_ids = {
+            id(layer): _source_layer_ids(layer, index, (index,))
+            for index, layer in enumerate(canvas.layers)
+        }
 
         pdf = self._pdf
         pdf.setPageSize((canvas.width, canvas.height))
@@ -241,11 +287,27 @@ class PdfExporter:
         pdf.translate(0, canvas.height)
         pdf.scale(1, -1)
 
-        prefix, rest = split_backdrop_prefix(flatten_layers(canvas))
+        if (parent_fragment := self._parent_fragments.get(id(canvas))) is not None:
+            self._draw_fragment(parent_fragment)
+            self._record_routing(
+                canvas.layers,
+                "Parent scene captured as an authored-static composite",
+                rasterized=True,
+            )
+            pdf.showPage()
+            return
+
+        prefix, rest = split_backdrop_prefix(flatten_layers(canvas, source_ids=self._source_ids))
         if prefix:
             fragment = rasterize_layers(canvas, prefix)
             if fragment:
                 self._draw_fragment(fragment)
+                self._record_routing(
+                    prefix,
+                    "Backdrop-dependent layers and the content beneath them are rasterized "
+                    "together to preserve compositing",
+                    rasterized=True,
+                )
         for layer in rest:
             self._emit_layer(layer)
 
@@ -258,26 +320,36 @@ class PdfExporter:
 
     # ------------------------------------------------------------------ layers
 
+    def _record_routing(self, layers: list, reason: str, *, rasterized: bool) -> None:
+        self.diagnostics.append(
+            _layer_routing(layers, self._source_ids, reason, target="pdf", rasterized=rasterized)
+        )
+
     def _emit_layer(self, layer: RenderableLayer) -> None:
         if has_layer_composition(layer):
-            self._emit_raster_fallback(layer)
+            self._emit_raster_fallback(layer, "Layer clipping or masking requires a PNG fragment")
             return
 
         if isinstance(layer, BackgroundLayer):
             self._emit_background(layer)
         elif isinstance(layer, OutlineLayer):
             self._emit_outline(layer)
+        elif isinstance(layer, PathLayer):
+            self._emit_path(layer)
         elif isinstance(layer, ShapeLayer):
             self._emit_shape(layer)
         elif isinstance(layer, TextLayer):
             self._emit_text(layer)
         else:  # ImageLayer, SvgLayer, CustomLayer, anything else
-            self._emit_raster_fallback(layer)
+            self._emit_raster_fallback(
+                layer, f"{type(layer).__name__} is captured through the canonical raster pipeline"
+            )
 
-    def _emit_raster_fallback(self, layer: RenderableLayer) -> None:
+    def _emit_raster_fallback(self, layer: RenderableLayer, reason: str) -> None:
         fragment = rasterize_layers(self._current_canvas(), [layer])
         if fragment:
             self._draw_fragment(fragment)
+            self._record_routing([layer], reason, rasterized=True)
 
     def _draw_fragment(self, fragment: RasterFragment) -> None:
         from reportlab.lib.utils import ImageReader
@@ -295,7 +367,9 @@ class PdfExporter:
 
     def _emit_background(self, layer: BackgroundLayer) -> None:
         if layer.effects or layer.image or (layer.color is None and layer.gradient is None):
-            self._emit_raster_fallback(layer)
+            self._emit_raster_fallback(
+                layer, "Background image, effects, or empty fill use a PNG fragment"
+            )
             return
 
         canvas = self._current_canvas()
@@ -304,15 +378,21 @@ class PdfExporter:
         if layer.color is not None:
             rgba = color_to_rgba(canvas, layer.color, layer.opacity)
             self._fill_rect(box, rgba)
+            self._record_routing(
+                [layer], "Background emitted as native PDF geometry", rasterized=False
+            )
             return
 
         assert layer.gradient is not None  # guarded above
         # PDF shadings cannot express per-stop or uniform transparency, so a
         # translucent gradient falls back to a pixel-exact raster fragment.
         if layer.opacity < 1 or not self._gradient_is_opaque(layer.gradient):
-            self._emit_raster_fallback(layer)
+            self._emit_raster_fallback(layer, "Translucent gradients require a PNG fragment")
             return
         self._fill_gradient(layer.gradient, box)
+        self._record_routing(
+            [layer], "Background emitted with a native PDF gradient", rasterized=False
+        )
 
     def _gradient_is_opaque(self, gradient: LinearGradient | RadialGradient) -> bool:
         canvas = self._current_canvas()
@@ -332,13 +412,73 @@ class PdfExporter:
         self._set_stroke(rgba, layer.width)
         pdf.rect(inset, inset, width, height, fill=0, stroke=1)
         pdf.restoreState()
+        self._record_routing([layer], "Outline emitted as native PDF geometry", rasterized=False)
+
+    def _emit_path(self, layer: PathLayer) -> None:
+        from quickthumb._path_curves import cubic_path_commands
+        from quickthumb._path_pdf import native_pdf_path_problem
+
+        if problem := native_pdf_path_problem(layer):
+            self._emit_raster_fallback(layer, f"Path requires a PNG fragment: {problem}")
+            return
+        commands = cubic_path_commands(layer)
+        if not any(kind not in {"M", "Z"} for kind, _ in commands):
+            return
+        canvas, pdf = self._current_canvas(), self._pdf
+        x = parse_coordinate(layer.position[0], canvas.width)
+        y = parse_coordinate(layer.position[1], canvas.height)
+        vx, vy, vw, vh = layer.view_box or (0, 0, layer.width, layer.height)
+        pdf.saveState()
+        pdf.translate(x, y)
+        frame = pdf.beginPath()
+        frame.rect(0, 0, layer.width, layer.height)
+        pdf.clipPath(frame, fill=0, stroke=0)
+        pdf.saveState()
+        pdf.scale(layer.width / vw, layer.height / vh)
+        pdf.translate(-vx, -vy)
+        path = pdf.beginPath()
+        for kind, points in commands:
+            values = [value for point in points for value in point]
+            if kind == "M":
+                path.moveTo(*values)
+            elif kind == "L":
+                path.lineTo(*values)
+            elif kind == "C":
+                path.curveTo(*values)
+            else:
+                path.close()
+        if layer.fill is not None:
+            pdf.clipPath(path, fill=0, stroke=0, fillMode=0)
+            # Undo only the local viewBox mapping: gradients reference the fixed frame.
+            pdf.translate(vx, vy)
+            pdf.scale(vw / layer.width, vh / layer.height)
+            self._fill_gradient(layer.fill, (0, 0, layer.width, layer.height))
+        elif layer.color is not None:
+            self._set_fill(color_to_rgba(canvas, layer.color))
+            pdf.drawPath(path, fill=1, stroke=0, fillMode=0)
+        pdf.restoreState()
+        if layer.stroke is not None and layer.stroke_width:
+            pdf.scale(layer.width / vw, layer.height / vh)
+            pdf.translate(-vx, -vy)
+            self._set_stroke(color_to_rgba(canvas, layer.stroke), layer.stroke_width)
+            pdf.setLineCap({"butt": 0, "round": 1, "square": 2}[layer.line_cap])
+            pdf.setLineJoin({"miter": 0, "round": 1, "bevel": 2}[layer.line_join])
+            pdf.setMiterLimit(layer.miter_limit)
+            pattern = layer.dash_array or ()
+            if len(pattern) % 2:
+                pattern = (*pattern, *pattern)
+            if any(pattern):
+                pdf.setDash(pattern, layer.dash_offset % sum(pattern))
+            pdf.drawPath(path, fill=0, stroke=1)
+        pdf.restoreState()
+        self._record_routing([layer], "Path emitted as native PDF vectors", rasterized=False)
 
     # ------------------------------------------------------------------ shapes
 
     def _emit_shape(self, layer: ShapeLayer) -> None:
         if layer.effects:
             # Strokes, glows, and shadows have no faithful PDF vector form here.
-            self._emit_raster_fallback(layer)
+            self._emit_raster_fallback(layer, "Shape effects require a PNG fragment")
             return
 
         canvas = self._current_canvas()
@@ -363,6 +503,7 @@ class PdfExporter:
         self._set_fill(rgba)
         self._shape_path(layer)
         pdf.restoreState()
+        self._record_routing([layer], "Shape emitted as native PDF geometry", rasterized=False)
 
     def _shape_path(self, layer: ShapeLayer) -> None:
         """Draw the shape centered on the current (already translated) origin."""
@@ -400,8 +541,8 @@ class PdfExporter:
         if not any(layout.lines):
             return
 
-        if self._text_needs_raster(layout):
-            self._emit_raster_fallback(layer)
+        if reason := self._text_raster_reason(layout):
+            self._emit_raster_fallback(layer, reason)
             return
 
         pdf = self._pdf
@@ -423,6 +564,9 @@ class PdfExporter:
                         self._draw_text_background(background, run.bg_box, layout.opacity)
                 self._draw_text_run(run, layout.opacity)
         pdf.restoreState()
+        self._record_routing(
+            [layer], "Text retained as PDF text with an embedded font", rasterized=False
+        )
 
     @staticmethod
     def _has_raster_only_features(layout: TextBlockLayout) -> bool:
@@ -440,23 +584,23 @@ class PdfExporter:
                     return True
         return False
 
-    def _text_needs_raster(self, layout: TextBlockLayout) -> bool:
-        """Return whether text must use the pixel-exact raster fallback."""
+    def _text_raster_reason(self, layout: TextBlockLayout) -> str | None:
+        """Explain the first native-text constraint selecting raster capture."""
         if self._has_raster_only_features(layout):
-            return True
+            return "Text effects, fills, variations or color emoji require a PNG fragment"
         for line in layout.lines:
             for run in line:
                 key = self._font_key(run.font)
                 info = self._font_info.get(key) if key is not None else None
-                if (
-                    key is None
-                    or _requires_shaping(run.text)
-                    or info is None
-                    or any(ord(character) not in info.codepoints for character in run.text)
-                    or self._prepared_font_names.get(key) is None
-                ):
-                    return True
-        return False
+                if _requires_shaping(run.text):
+                    return "Text requires shaping unavailable in the native PDF text route"
+                if key is None or info is None:
+                    return "Font cannot be represented by the native PDF text route"
+                if any(ord(character) not in info.codepoints for character in run.text):
+                    return "Font lacks a required glyph; canonical text pixels are retained"
+                if self._prepared_font_names.get(key) is None:
+                    return "Font embedding or conversion constraints require a PNG fragment"
+        return None
 
     def _draw_text_background(self, background, content_box: Box, layer_opacity: float) -> None:
         pad_top, pad_right, pad_bottom, pad_left = parse_padding(background.padding)
@@ -573,11 +717,11 @@ class PdfExporter:
                 if value is _MISSING:
                     fonts._tt2ps_map.pop(key, None)
                 else:
-                    fonts._tt2ps_map[key] = value
+                    fonts._tt2ps_map[key] = cast(str, value)
             if ps2tt_snapshot is _MISSING:
                 fonts._ps2tt_map.pop(family, None)
             else:
-                fonts._ps2tt_map[family] = ps2tt_snapshot
+                fonts._ps2tt_map[family] = cast(tuple[str, int, int], ps2tt_snapshot)
             self._font_mapping_snapshots.pop(name, None)
             raise
         self._registered_fonts[name] = font

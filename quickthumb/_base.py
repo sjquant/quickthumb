@@ -1,8 +1,8 @@
 import math
 from collections import OrderedDict
-from typing import TYPE_CHECKING, Any, Literal, TypeAlias, cast
+from typing import TYPE_CHECKING, Any, Literal, TypeAlias
 
-from PIL import ImageFont
+from PIL import Image, ImageFont
 
 from quickthumb.asset_cache import AssetResolver
 from quickthumb.errors import ValidationError
@@ -37,11 +37,13 @@ class RenderContext:
         self.video_frame_cache: OrderedDict[tuple[str, float], Any] = OrderedDict()
         self.video_decoder_cache: dict[str, Any] = {}
         self.motion_time: float | None = None
+        self.path_source: tuple[tuple, Image.Image] | None = None
         self.asset_resolver = AssetResolver()
 
     def begin_render_pass(self):
         """Drop per-pass caches so a new render or diagnose picks up asset changes."""
         self.svg_raster_cache.clear()
+        self.path_source = None
         self.measure_cache.clear()
         self.image_size_cache.clear()
         self.close_video_decoders()
@@ -49,10 +51,18 @@ class RenderContext:
         self.video_frame_cache.clear()
 
     def close_video_decoders(self):
-        """Close persistent FFmpeg readers owned by this render context."""
-        for decoder in self.video_decoder_cache.values():
-            decoder.close()
-        self.video_decoder_cache.clear()
+        """Close all readers, retaining failed ones so shutdown can be retried."""
+        first_error: BaseException | None = None
+        for source, decoder in list(self.video_decoder_cache.items()):
+            try:
+                decoder.close()
+            except BaseException as error:
+                if first_error is None:
+                    first_error = error
+            else:
+                del self.video_decoder_cache[source]
+        if first_error is not None:
+            raise first_error
 
 
 def parse_coordinate(value: int | str, dimension: int) -> int:
@@ -114,9 +124,9 @@ def parse_padding(
     if isinstance(padding, int):
         return (padding, padding, padding, padding)
     if isinstance(padding, tuple) and len(padding) == 2:
-        vertical, horizontal = cast(tuple[int, int], padding)
+        vertical, horizontal = padding
         return (vertical, horizontal, vertical, horizontal)
-    return cast(tuple[int, int, int, int], padding)
+    return padding
 
 
 def expanded_rotation_size(

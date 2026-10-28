@@ -1,3 +1,4 @@
+import math
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from types import MappingProxyType
@@ -12,6 +13,9 @@ from quickthumb.models import (
     ChartLayer,
     GroupLayer,
     ImageLayer,
+    NullLayer,
+    PathLayer,
+    PluginLayer,
     QRCodeLayer,
     ShapeLayer,
     SvgLayer,
@@ -26,18 +30,26 @@ MEASURABLE_LAYER_TYPES = frozenset(
     {
         "text",
         "shape",
+        "path",
         "image",
         "svg",
         "group",
         "chart",
         "qr_code",
         "video",
+        "plugin",
     }
 )
 
 
 def measure_layers(canvas: "Canvas") -> list["LayerMeasurement"]:
     """Measure a canvas's renderable layers into the stable internal contract."""
+    from quickthumb._parenting import has_parent_links
+
+    if has_parent_links(canvas):
+        from quickthumb._parent_inspection import measure_parent_layers
+
+        return measure_parent_layers(canvas)
     engine = LayerMeasurementEngine(canvas._ctx, canvas._groups, canvas._text)
     return engine.measure_layers(canvas.layers)
 
@@ -193,9 +205,11 @@ class LayerMeasurementEngine:
                 ImageLayer,
                 SvgLayer,
                 ShapeLayer,
+                PathLayer,
                 ChartLayer,
                 QRCodeLayer,
                 VideoLayer,
+                PluginLayer,
             ),
         ):
             bbox = self._measure_positioned_layer(layer)
@@ -414,6 +428,18 @@ class LayerMeasurementEngine:
             w, h = positioned.width, positioned.height
         x = parse_coordinate(positioned.position[0], self._ctx.width)
         y = parse_coordinate(positioned.position[1], self._ctx.height)
+        if isinstance(layer, PathLayer) and layer.rotation:
+            from quickthumb.motion import LayerState, apply_transform
+
+            state = LayerState(rotation=layer.rotation, anchor=layer.anchor)
+            corners = [
+                apply_transform(point, state, (w, h)) for point in ((0, 0), (w, 0), (0, h), (w, h))
+            ]
+            left = math.floor(round(min(px for px, _ in corners), 10))
+            top = math.floor(round(min(py for _, py in corners), 10))
+            right = math.ceil(round(max(px for px, _ in corners), 10))
+            bottom = math.ceil(round(max(py for _, py in corners), 10))
+            return BBox(x + left, y + top, right - left, bottom - top)
         align = getattr(positioned, "align", None)
         if align:
             x, y = apply_alignment(x, y, (w, h), align)
@@ -465,7 +491,7 @@ class LayerMeasurementEngine:
 
     @staticmethod
     def _visible(layer: object) -> bool:
-        return float(getattr(layer, "opacity", 1.0)) > 0.0
+        return not isinstance(layer, NullLayer) and float(getattr(layer, "opacity", 1.0)) > 0.0
 
     @staticmethod
     def _layer_type(layer: object) -> str:

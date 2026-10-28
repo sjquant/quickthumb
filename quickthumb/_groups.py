@@ -17,7 +17,6 @@ from quickthumb._images import ImageEngine
 from quickthumb._shapes import ShapeEngine
 from quickthumb._text import TextEngine
 from quickthumb._visualizations import VisualizationEngine
-from quickthumb.errors import RenderingError
 from quickthumb.models import (
     Align,
     BackdropBlur,
@@ -30,6 +29,7 @@ from quickthumb.models import (
     SvgLayer,
     TextLayer,
 )
+from quickthumb.plugins import PluginRegistry
 
 if TYPE_CHECKING:
     from quickthumb.motion import ResolvedMotionTarget
@@ -60,6 +60,7 @@ class GroupEngine:
         shapes: ShapeEngine,
         text: TextEngine,
         visualizations: VisualizationEngine,
+        registry: PluginRegistry,
     ):
         self._ctx = ctx
         self._fonts = fonts
@@ -68,6 +69,7 @@ class GroupEngine:
         self._shapes = shapes
         self._text = text
         self._visualizations = visualizations
+        self._registry = registry
 
     def render_group_layer(
         self,
@@ -75,10 +77,38 @@ class GroupEngine:
         layer: GroupLayer,
         origin: tuple[int, int] | None = None,
         time: float | None = None,
+        *,
+        animate_children: bool = True,
+        sample_values: bool = False,
     ):
+        from quickthumb.motion import _has_color_track, _has_transform_extensions
+
+        sample_values = sample_values or _has_transform_extensions(layer) or _has_color_track(layer)
         placements, _ = self.layout_group(layer, origin)
         for child, position, size in placements:
-            self._render_group_child(image, child, position, size, time)
+            if sample_values and layer.animation is not None:
+                child = self._without_child_animation(child)
+            self._render_group_child(
+                image,
+                child,
+                position,
+                size,
+                time,
+                apply_motion=animate_children and layer.animation is None,
+                sample_values=sample_values,
+            )
+
+    @staticmethod
+    def _without_child_animation(child: GroupChildLayer) -> GroupChildLayer:
+        """An animated group overrides descendant motion, but not intrinsic values."""
+        updates = {}
+        if getattr(child, "animation", None) is not None:
+            updates["animation"] = None
+        if isinstance(child, GroupLayer):
+            updates["children"] = [
+                GroupEngine._without_child_animation(item) for item in child.children
+            ]
+        return child.model_copy(update=updates) if updates else child
 
     def resolve_animation_targets(
         self,
@@ -100,20 +130,138 @@ class GroupEngine:
         position: tuple[int, int],
         size: tuple[int, int],
         time: float | None = None,
+        *,
+        apply_motion: bool = True,
+        sample_values: bool = False,
     ):
+        from quickthumb._export_base import (
+            _with_motion_color,
+            color_group_has_backdrop,
+            composite_canonical_layer,
+            composite_color_backdrop,
+            composite_color_targets,
+            require_color_group_backdrop,
+        )
+        from quickthumb.motion import (
+            LayerState,
+            _canonical_timeline,
+            _geometry_in_motion,
+            _has_color_track,
+            _has_transform_extensions,
+        )
+
+        if (
+            time is not None
+            and apply_motion
+            and (
+                _has_transform_extensions(child)
+                or _has_color_track(child)
+                or isinstance(child, ImageLayer)
+                and _canonical_timeline(child) is not None
+            )
+        ):
+            placed = self._place_group_child(child, position, size)
+            timeline = _canonical_timeline(child)
+            assert timeline is not None
+            state = timeline.sample(time, LayerState(anchor=getattr(child, "anchor", (0.5, 0.5))))
+            if (
+                isinstance(child, GroupLayer)
+                and _has_color_track(child)
+                and color_group_has_backdrop(child)
+            ):
+                require_color_group_backdrop(timeline)
+                self._render_group_child(
+                    image,
+                    _with_motion_color(child, state.color),
+                    position,
+                    size,
+                    time,
+                    apply_motion=False,
+                    sample_values=True,
+                )
+                return
+            if (
+                isinstance(child, ShapeLayer)
+                and any(isinstance(effect, BackdropBlur) for effect in child.effects)
+                and _has_color_track(child)
+            ):
+                composite_color_backdrop(
+                    image,
+                    placed,
+                    state,
+                    lambda target, source: self._render_group_child(
+                        target,
+                        source,
+                        position,
+                        size,
+                        time,
+                        apply_motion=False,
+                        sample_values=True,
+                    ),
+                    self._images,
+                    subpixel=_geometry_in_motion(timeline, time, state=state),
+                )
+                return
+            if isinstance(child, TextLayer) and _has_color_track(child):
+                stagger = next((event.stagger for event in timeline.events if event.stagger), None)
+                if stagger and stagger["target"] in {"characters", "words", "lines"}:
+                    count = len(self._text.resolve_animation_targets(child, stagger["target"]))
+
+                    def render_color(color):
+                        surface = Image.new("RGBA", image.size)
+                        self._render_group_child(
+                            surface,
+                            _with_motion_color(child, color),
+                            position,
+                            size,
+                            time,
+                            apply_motion=False,
+                            sample_values=True,
+                        )
+                        return surface
+
+                    if composite_color_targets(image, placed, time, count, render_color):
+                        return
+            surface = Image.new("RGBA", image.size)
+            self._render_group_child(
+                surface,
+                _with_motion_color(child, state.color),
+                position,
+                size,
+                time,
+                apply_motion=False,
+                sample_values=True,
+            )
+            composite_canonical_layer(
+                image,
+                surface,
+                placed,
+                state,
+                subpixel=_geometry_in_motion(timeline, time, state=state),
+            )
+            return
         if isinstance(child, GroupLayer):
             if has_layer_composition(child):
-                self._render_composed_group_child(image, child, origin=position, time=time)
+                self._render_composed_group_child(
+                    image, child, origin=position, time=time, sample_values=sample_values
+                )
             else:
-                self.render_group_layer(image, child, origin=position, time=time)
+                self.render_group_layer(
+                    image,
+                    child,
+                    origin=position,
+                    time=time,
+                    animate_children=apply_motion,
+                    sample_values=sample_values,
+                )
             return
 
         placed = self._place_group_child(child, position, size)
         if has_layer_composition(placed):
-            self._render_composed_group_child(image, placed, time=time)
+            self._render_composed_group_child(image, placed, time=time, sample_values=sample_values)
             return
 
-        self._render_group_child_direct(image, placed, time)
+        self._render_group_child_direct(image, placed, time, sample_values=sample_values)
 
     def _render_composed_group_child(
         self,
@@ -121,6 +269,8 @@ class GroupEngine:
         child: GroupChildLayer,
         origin: tuple[int, int] | None = None,
         time: float | None = None,
+        *,
+        sample_values: bool = False,
     ):
         isolated = self._child_without_boundary_blend(child)
         composite_layer_with_boundary(
@@ -129,7 +279,7 @@ class GroupEngine:
             image,
             child,
             lambda layer_surface: self._render_group_child_boundary(
-                layer_surface, isolated, origin, time
+                layer_surface, isolated, origin, time, sample_values=sample_values
             ),
         )
 
@@ -139,11 +289,15 @@ class GroupEngine:
         child: GroupChildLayer,
         origin: tuple[int, int] | None = None,
         time: float | None = None,
+        *,
+        sample_values: bool = False,
     ):
         if isinstance(child, GroupLayer):
-            self.render_group_layer(image, child, origin=origin, time=time)
+            self.render_group_layer(
+                image, child, origin=origin, time=time, sample_values=sample_values
+            )
             return
-        self._render_group_child_direct(image, child, time)
+        self._render_group_child_direct(image, child, time, sample_values=sample_values)
 
     @staticmethod
     def _child_without_boundary_blend(child: GroupChildLayer) -> GroupChildLayer:
@@ -160,10 +314,15 @@ class GroupEngine:
         return child
 
     def _render_group_child_direct(
-        self, image: Image.Image, child: GroupChildLayer, time: float | None = None
+        self,
+        image: Image.Image,
+        child: GroupChildLayer,
+        time: float | None = None,
+        *,
+        sample_values: bool = False,
     ):
         if isinstance(child, TextLayer):
-            self._text.render_text_layer(image, child)
+            self._text.render_text_layer(image, child, time if sample_values else None)
         elif isinstance(child, ImageLayer):
             self._images.render_image_layer(image, child, time)
         elif isinstance(child, SvgLayer):
@@ -175,9 +334,9 @@ class GroupEngine:
         elif isinstance(child, QRCodeLayer):
             self._visualizations.render_qr_code(image, child, time)
         elif isinstance(child, PluginLayer):
-            raise RenderingError.plugin_layer_unsupported(
-                child.renderer, child.version, layer_id=child.id
-            )
+            from quickthumb._plugin_runtime import render_plugin_layer
+
+            render_plugin_layer(image, child, self._ctx, self._registry)
 
     def _place_group_child(
         self,
@@ -187,7 +346,7 @@ class GroupEngine:
     ) -> GroupChildLayer:
         if isinstance(child, TextLayer):
             return self.place_text_child(child, position, size)
-        if isinstance(child, (ImageLayer, SvgLayer)):
+        if isinstance(child, (ImageLayer, SvgLayer, PluginLayer)):
             return child.model_copy(update={"position": position, "align": Align.TOP_LEFT})
         if isinstance(child, ShapeLayer):
             return child.model_copy(update={"position": position, "align": None})
@@ -305,9 +464,7 @@ class GroupEngine:
 
     def _measure_group_child_uncached(self, child: GroupChildLayer) -> tuple[int, int]:
         if isinstance(child, PluginLayer):
-            raise RenderingError.plugin_layer_unsupported(
-                child.renderer, child.version, layer_id=child.id
-            )
+            return child.width, child.height
         if isinstance(child, TextLayer):
             return self._text.measure_text_rendered_size(child)
         if isinstance(child, ImageLayer):

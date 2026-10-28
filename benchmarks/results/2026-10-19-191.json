@@ -1,0 +1,391 @@
+{
+  "date": "2026-10-19",
+  "pr": 191,
+  "measured_pr_head": "d84eae306927bfceb7590b273aabb7bf1b621647",
+  "protocol": {
+    "scope": "Uninstrumented public document construction plus completed Deck.render export; interpreter/imports, option validation, output hashing/decoding/probing outside timer.",
+    "repetitions": "Three per condition; static_hold uses six balanced pairs to examine the initial noisy result. Raw groups retain their actual run count.",
+    "order": "GIF revisions/worker/quality variants rotate once per repetition; 10-fps MP4 before/after order alternates before/after, after/before, before/after.",
+    "workload": "Complete checked-in 8-scene 1080x1920 product_hype_reel; GIF 12fps, 432x768 max, 64 colors. MP4 comparison 10fps at native size with existing narration; static_hold is a distinct 20-second 1080x1920 single-color deck. Motion_path is a distinct 2-second 256x192 optional scene.",
+    "cache": "Fresh Python process per sample, shared fixed virtualenv and dependencies; process-local font caches cold, filesystem caches not flushed.",
+    "control": "No concurrent tests, profiles or other agent-initiated heavy workloads. Host scheduling/frequency/load are not controlled; substantial wall-time spread is retained without exclusions or retries.",
+    "rss": "Timing-run RSS is isolated Python lifetime peak sampled before hashing/decoding. It excludes child workers/FFmpeg; no total-memory claim uses it. Separate *diagnostic profiles are single observations, not replicated timing comparisons.",
+    "correctness": "Retain encoded hashes, GIF decoded pixels/count/duration, and video stream probes. Video decoded stream checks are recorded separately. Quality steps intentionally change pixels and cannot establish lossless speedups.",
+    "dependencies": "Every measured revision uses the same uv.lock and installed Python/Pillow/FreeType/FFmpeg environment; exact versions and commit are recorded per run.",
+    "interpretation": "Report median and min-max. Overlapping/noisy observations are inconclusive, not a speedup. Parent-RSS ranges and verified output equivalence support only the specific measured workload.",
+    "failures": "No failed timing attempts, retries or dropped successful samples in this run."
+  },
+  "summaries": [
+    {
+      "pr": 191,
+      "scene": "motion_path",
+      "format": "gif",
+      "fps": 12,
+      "workers": 1,
+      "quality": "standard",
+      "runs": 3,
+      "total_seconds": {
+        "median": 0.21596806900197407,
+        "min": 0.1646411440015072,
+        "max": 0.3029175199990277
+      },
+      "python_peak_rss_mib": {
+        "median": 55.5625,
+        "min": 55.40625,
+        "max": 60.48828125
+      },
+      "output_sha256": [
+        "e3535e613fa37ff3b4220e9d04cce8e634aef2cb827c0f440ca79525f20a8ae0"
+      ],
+      "output_bytes": [
+        26927
+      ],
+      "encoded_frames": [
+        24
+      ],
+      "encoded_duration_ms": [
+        2000
+      ],
+      "decoded_rgba_sha256": [
+        "6bd8b816b0937d42125ce851633e259e5256f726e36a61ec0e690ec67792f5a7"
+      ]
+    },
+    {
+      "pr": 191,
+      "scene": "motion_path",
+      "format": "mp4",
+      "fps": 12,
+      "workers": 1,
+      "quality": "standard",
+      "runs": 3,
+      "total_seconds": {
+        "median": 0.7238878080024733,
+        "min": 0.4082015300009516,
+        "max": 1.4513731789993471
+      },
+      "python_peak_rss_mib": {
+        "median": 55.29296875,
+        "min": 55.28515625,
+        "max": 55.33203125
+      },
+      "output_sha256": [
+        "dd061002ef855ad36c95a7ad4af204c10d9cfa7f83edbd19501135c811e7f8e4"
+      ],
+      "output_bytes": [
+        14560
+      ],
+      "decoded_video_rgb24_sha256": [
+        "2c3ce1fec2c8c0d028200c14d622c0a2b276b1b9f631ae84b396f0ab6e9598cc"
+      ],
+      "decoded_audio_pcm_s16le_sha256": [
+        "b80948c1aae775acd3f549b180473333463df14d22586c06aa46c921502bb9b0"
+      ]
+    }
+  ],
+  "raw_runs": {
+    "191-motion-path-gif-r1": {
+      "pr": 191,
+      "scene": "motion_path",
+      "format": "gif",
+      "fps": 12,
+      "repetition": 1,
+      "output": "191-motion-path-gif-r1.gif",
+      "environment": {
+        "cpu": "INTEL(R) XEON(R) PLATINUM 8573C",
+        "logical_cpus": 9,
+        "platform": "Linux-6.18.55-x86_64-with-glibc2.41",
+        "python": "3.12.14",
+        "pillow": "12.3.0",
+        "freetype": "2.14.3",
+        "text_layout": "raqm",
+        "ffmpeg": "ffmpeg version 7.1.5-0+deb13u1 Copyright (c) 2000-2026 the FFmpeg developers",
+        "commit": "d84eae306927bfceb7590b273aabb7bf1b621647"
+      },
+      "total_seconds": 0.3029175199990277,
+      "python_peak_rss_mib": 60.48828125,
+      "load_before": [
+        2.7353515625,
+        2.0224609375,
+        1.5810546875
+      ],
+      "load_after": [
+        2.7353515625,
+        2.0224609375,
+        1.5810546875
+      ],
+      "output_bytes": 26927,
+      "output_sha256": "e3535e613fa37ff3b4220e9d04cce8e634aef2cb827c0f440ca79525f20a8ae0",
+      "encoded_frames": 24,
+      "encoded_duration_ms": 2000,
+      "dimensions": [
+        256,
+        192
+      ],
+      "decoded_rgba_sha256": "6bd8b816b0937d42125ce851633e259e5256f726e36a61ec0e690ec67792f5a7"
+    },
+    "191-motion-path-gif-r2": {
+      "pr": 191,
+      "scene": "motion_path",
+      "format": "gif",
+      "fps": 12,
+      "repetition": 2,
+      "output": "191-motion-path-gif-r2.gif",
+      "environment": {
+        "cpu": "INTEL(R) XEON(R) PLATINUM 8573C",
+        "logical_cpus": 9,
+        "platform": "Linux-6.18.55-x86_64-with-glibc2.41",
+        "python": "3.12.14",
+        "pillow": "12.3.0",
+        "freetype": "2.14.3",
+        "text_layout": "raqm",
+        "ffmpeg": "ffmpeg version 7.1.5-0+deb13u1 Copyright (c) 2000-2026 the FFmpeg developers",
+        "commit": "d84eae306927bfceb7590b273aabb7bf1b621647"
+      },
+      "total_seconds": 0.21596806900197407,
+      "python_peak_rss_mib": 55.40625,
+      "load_before": [
+        2.59619140625,
+        2.00537109375,
+        1.57763671875
+      ],
+      "load_after": [
+        2.59619140625,
+        2.00537109375,
+        1.57763671875
+      ],
+      "output_bytes": 26927,
+      "output_sha256": "e3535e613fa37ff3b4220e9d04cce8e634aef2cb827c0f440ca79525f20a8ae0",
+      "encoded_frames": 24,
+      "encoded_duration_ms": 2000,
+      "dimensions": [
+        256,
+        192
+      ],
+      "decoded_rgba_sha256": "6bd8b816b0937d42125ce851633e259e5256f726e36a61ec0e690ec67792f5a7"
+    },
+    "191-motion-path-gif-r3": {
+      "pr": 191,
+      "scene": "motion_path",
+      "format": "gif",
+      "fps": 12,
+      "repetition": 3,
+      "output": "191-motion-path-gif-r3.gif",
+      "environment": {
+        "cpu": "INTEL(R) XEON(R) PLATINUM 8573C",
+        "logical_cpus": 9,
+        "platform": "Linux-6.18.55-x86_64-with-glibc2.41",
+        "python": "3.12.14",
+        "pillow": "12.3.0",
+        "freetype": "2.14.3",
+        "text_layout": "raqm",
+        "ffmpeg": "ffmpeg version 7.1.5-0+deb13u1 Copyright (c) 2000-2026 the FFmpeg developers",
+        "commit": "d84eae306927bfceb7590b273aabb7bf1b621647"
+      },
+      "total_seconds": 0.1646411440015072,
+      "python_peak_rss_mib": 55.5625,
+      "load_before": [
+        2.59619140625,
+        2.00537109375,
+        1.57763671875
+      ],
+      "load_after": [
+        2.59619140625,
+        2.00537109375,
+        1.57763671875
+      ],
+      "output_bytes": 26927,
+      "output_sha256": "e3535e613fa37ff3b4220e9d04cce8e634aef2cb827c0f440ca79525f20a8ae0",
+      "encoded_frames": 24,
+      "encoded_duration_ms": 2000,
+      "dimensions": [
+        256,
+        192
+      ],
+      "decoded_rgba_sha256": "6bd8b816b0937d42125ce851633e259e5256f726e36a61ec0e690ec67792f5a7"
+    },
+    "191-motion-path-mp4-r1": {
+      "pr": 191,
+      "scene": "motion_path",
+      "format": "mp4",
+      "fps": 12,
+      "repetition": 1,
+      "output": "191-motion-path-mp4-r1.mp4",
+      "environment": {
+        "cpu": "INTEL(R) XEON(R) PLATINUM 8573C",
+        "logical_cpus": 9,
+        "platform": "Linux-6.18.55-x86_64-with-glibc2.41",
+        "python": "3.12.14",
+        "pillow": "12.3.0",
+        "freetype": "2.14.3",
+        "text_layout": "raqm",
+        "ffmpeg": "ffmpeg version 7.1.5-0+deb13u1 Copyright (c) 2000-2026 the FFmpeg developers",
+        "commit": "d84eae306927bfceb7590b273aabb7bf1b621647"
+      },
+      "total_seconds": 1.4513731789993471,
+      "python_peak_rss_mib": 55.33203125,
+      "load_before": [
+        2.38818359375,
+        1.9716796875,
+        1.56884765625
+      ],
+      "load_after": [
+        2.35693359375,
+        1.97216796875,
+        1.5712890625
+      ],
+      "output_bytes": 14560,
+      "output_sha256": "dd061002ef855ad36c95a7ad4af204c10d9cfa7f83edbd19501135c811e7f8e4",
+      "probe": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "codec_name": "h264",
+            "codec_type": "video",
+            "width": 256,
+            "height": 192,
+            "r_frame_rate": "12/1",
+            "duration": "2.000000",
+            "nb_read_frames": "24"
+          },
+          {
+            "codec_name": "aac",
+            "codec_type": "audio",
+            "sample_rate": "48000",
+            "channels": 2,
+            "r_frame_rate": "0/0",
+            "duration": "2.000000",
+            "nb_read_frames": "94"
+          }
+        ]
+      },
+      "decoded_video_rgb24_sha256": "2c3ce1fec2c8c0d028200c14d622c0a2b276b1b9f631ae84b396f0ab6e9598cc",
+      "decoded_audio_pcm_s16le_sha256": "b80948c1aae775acd3f549b180473333463df14d22586c06aa46c921502bb9b0"
+    },
+    "191-motion-path-mp4-r2": {
+      "pr": 191,
+      "scene": "motion_path",
+      "format": "mp4",
+      "fps": 12,
+      "repetition": 2,
+      "output": "191-motion-path-mp4-r2.mp4",
+      "environment": {
+        "cpu": "INTEL(R) XEON(R) PLATINUM 8573C",
+        "logical_cpus": 9,
+        "platform": "Linux-6.18.55-x86_64-with-glibc2.41",
+        "python": "3.12.14",
+        "pillow": "12.3.0",
+        "freetype": "2.14.3",
+        "text_layout": "raqm",
+        "ffmpeg": "ffmpeg version 7.1.5-0+deb13u1 Copyright (c) 2000-2026 the FFmpeg developers",
+        "commit": "d84eae306927bfceb7590b273aabb7bf1b621647"
+      },
+      "total_seconds": 0.4082015300009516,
+      "python_peak_rss_mib": 55.29296875,
+      "load_before": [
+        2.35693359375,
+        1.97216796875,
+        1.5712890625
+      ],
+      "load_after": [
+        2.35693359375,
+        1.97216796875,
+        1.5712890625
+      ],
+      "output_bytes": 14560,
+      "output_sha256": "dd061002ef855ad36c95a7ad4af204c10d9cfa7f83edbd19501135c811e7f8e4",
+      "probe": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "codec_name": "h264",
+            "codec_type": "video",
+            "width": 256,
+            "height": 192,
+            "r_frame_rate": "12/1",
+            "duration": "2.000000",
+            "nb_read_frames": "24"
+          },
+          {
+            "codec_name": "aac",
+            "codec_type": "audio",
+            "sample_rate": "48000",
+            "channels": 2,
+            "r_frame_rate": "0/0",
+            "duration": "2.000000",
+            "nb_read_frames": "94"
+          }
+        ]
+      },
+      "decoded_video_rgb24_sha256": "2c3ce1fec2c8c0d028200c14d622c0a2b276b1b9f631ae84b396f0ab6e9598cc",
+      "decoded_audio_pcm_s16le_sha256": "b80948c1aae775acd3f549b180473333463df14d22586c06aa46c921502bb9b0"
+    },
+    "191-motion-path-mp4-r3": {
+      "pr": 191,
+      "scene": "motion_path",
+      "format": "mp4",
+      "fps": 12,
+      "repetition": 3,
+      "output": "191-motion-path-mp4-r3.mp4",
+      "environment": {
+        "cpu": "INTEL(R) XEON(R) PLATINUM 8573C",
+        "logical_cpus": 9,
+        "platform": "Linux-6.18.55-x86_64-with-glibc2.41",
+        "python": "3.12.14",
+        "pillow": "12.3.0",
+        "freetype": "2.14.3",
+        "text_layout": "raqm",
+        "ffmpeg": "ffmpeg version 7.1.5-0+deb13u1 Copyright (c) 2000-2026 the FFmpeg developers",
+        "commit": "d84eae306927bfceb7590b273aabb7bf1b621647"
+      },
+      "total_seconds": 0.7238878080024733,
+      "python_peak_rss_mib": 55.28515625,
+      "load_before": [
+        2.35693359375,
+        1.97216796875,
+        1.5712890625
+      ],
+      "load_after": [
+        2.248046875,
+        1.95556640625,
+        1.56787109375
+      ],
+      "output_bytes": 14560,
+      "output_sha256": "dd061002ef855ad36c95a7ad4af204c10d9cfa7f83edbd19501135c811e7f8e4",
+      "probe": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "codec_name": "h264",
+            "codec_type": "video",
+            "width": 256,
+            "height": 192,
+            "r_frame_rate": "12/1",
+            "duration": "2.000000",
+            "nb_read_frames": "24"
+          },
+          {
+            "codec_name": "aac",
+            "codec_type": "audio",
+            "sample_rate": "48000",
+            "channels": 2,
+            "r_frame_rate": "0/0",
+            "duration": "2.000000",
+            "nb_read_frames": "94"
+          }
+        ]
+      },
+      "decoded_video_rgb24_sha256": "2c3ce1fec2c8c0d028200c14d622c0a2b276b1b9f631ae84b396f0ab6e9598cc",
+      "decoded_audio_pcm_s16le_sha256": "b80948c1aae775acd3f549b180473333463df14d22586c06aa46c921502bb9b0"
+    }
+  },
+  "measurement_script_ref": "2026-10-19-178.json:measurement_script",
+  "source_uv_lock_blob": "410f744d6058eeea39bf318c3e436d1e17c38664",
+  "workload_tree_sha256": "1d403c6368b5dd917e1b00dff61bdf601ffb88ff3651faf40f639a95420399bf",
+  "verdict": "inconclusive",
+  "interpretation": [
+    "Standalone capability measurement only: no before/after performance winner. Three runs per GIF/MP4 condition are retained with output consistency checks. The curved path has no equivalent straight-path quality target; bounded curve tables/cache sizes are implementation limits, not measured speedups."
+  ]
+}

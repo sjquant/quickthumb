@@ -14,9 +14,10 @@ import base64
 import math
 import re
 import xml.etree.ElementTree as ET
+from copy import copy
 from dataclasses import dataclass, field
 from io import BytesIO
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypeVar
 
 from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont
 
@@ -33,10 +34,16 @@ from quickthumb.errors import RenderingError
 from quickthumb.models import (
     Align,
     AnimationSpec,
+    BackdropBlur,
     Background,
+    ChartLayer,
+    ExportDiagnostic,
     Glow,
     GroupLayer,
+    InnerShadow,
     LinearGradient,
+    PluginLayer,
+    QRCodeLayer,
     RadialGradient,
     Shadow,
     ShapeLayer,
@@ -45,6 +52,7 @@ from quickthumb.models import (
     TextFillImage,
     TextLayer,
 )
+from quickthumb.motion import _has_color_track, _has_transform_extensions
 
 if TYPE_CHECKING:
     from quickthumb.canvas import Canvas, RenderableLayer
@@ -59,15 +67,54 @@ def _fmt(value: float) -> str:
     return f"{value:.2f}"
 
 
-def flatten_layers(canvas: Canvas) -> list[RenderableLayer]:
+def _motion_number(value: float) -> str:
+    """Preserve authored motion precision, unlike pixel-layout rounding."""
+    return str(int(value)) if float(value).is_integer() else repr(float(value))
+
+
+def _distinct_layer_occurrences(canvas: Canvas) -> Canvas:
+    """Give repeated model occurrences distinct execution identities without changing the source."""
+    if len({id(layer) for layer in canvas.layers}) == len(canvas.layers):
+        return canvas
+    prepared = copy(canvas)
+    prepared.layers = [copy(layer) for layer in canvas.layers]
+    return prepared
+
+
+def flatten_layers(
+    canvas: Canvas,
+    *,
+    parent_nodes: frozenset[int] | None = None,
+    source_ids: dict[int, tuple[str, ...]] | None = None,
+) -> list[RenderableLayer]:
     """Resolve group layers into placed children so exporters see a flat list."""
+    from quickthumb._parenting import require_parent_rendering
+
+    if parent_nodes is None:
+        require_parent_rendering(canvas)
     flat: list[RenderableLayer] = []
-    for layer in canvas.layers:
-        if isinstance(layer, GroupLayer) and not has_layer_composition(layer):
-            flat.extend(_flatten_group(canvas, layer))
+    for index, layer in enumerate(canvas.layers):
+        if (
+            isinstance(layer, GroupLayer)
+            and id(layer) not in (parent_nodes or ())
+            and not has_layer_composition(layer)
+            and not (layer.animation is not None and _group_has_plugin(layer))
+            and not _has_transform_extensions(layer)
+            and not (_has_color_track(layer) and color_group_has_backdrop(layer))
+        ):
+            flat.extend(_flatten_group(canvas, layer, source_ids=source_ids, path=(index,)))
         else:
             flat.append(layer)
+            if source_ids is not None:
+                source_ids[id(layer)] = _source_layer_ids(layer, index, (index,))
     return flat
+
+
+def _group_has_plugin(group: GroupLayer) -> bool:
+    return any(
+        isinstance(child, PluginLayer) or isinstance(child, GroupLayer) and _group_has_plugin(child)
+        for child in group.children
+    )
 
 
 def validate_legacy_animation_export(canvas: Canvas) -> None:
@@ -90,6 +137,9 @@ def _flatten_group(
     group: GroupLayer,
     origin: tuple[int, int] | None = None,
     inherited_animation=None,
+    *,
+    source_ids: dict[int, tuple[str, ...]] | None = None,
+    path: tuple[int, ...] = (),
 ) -> list[RenderableLayer]:
     # An enclosing animated group wins over this group's own animation, so the
     # outermost animation drives everything beneath it. Every flattened child
@@ -98,9 +148,23 @@ def _flatten_group(
     animation = inherited_animation or group.animation
     placements, _ = canvas._groups.layout_group(group, origin)
     placed: list[RenderableLayer] = []
-    for child, position, size in placements:
+    for index, (child, position, size) in enumerate(placements):
         if isinstance(child, GroupLayer):
-            if has_layer_composition(child):
+            if (
+                has_layer_composition(child)
+                or (
+                    (animation is not None or child.animation is not None)
+                    and _group_has_plugin(child)
+                )
+                or (
+                    animation is None
+                    and (
+                        _has_transform_extensions(child)
+                        or _has_color_track(child)
+                        and color_group_has_backdrop(child)
+                    )
+                )
+            ):
                 placed.append(
                     _with_group_animation(
                         child.model_copy(update={"position": position, "align": None}),
@@ -109,8 +173,16 @@ def _flatten_group(
                 )
             else:
                 placed.extend(
-                    _flatten_group(canvas, child, position, inherited_animation=animation)
+                    _flatten_group(
+                        canvas,
+                        child,
+                        position,
+                        inherited_animation=animation,
+                        source_ids=source_ids,
+                        path=(*path, index),
+                    )
                 )
+                continue
         elif isinstance(child, TextLayer):
             placed.append(
                 _with_group_animation(
@@ -130,7 +202,42 @@ def _flatten_group(
                     animation,
                 )
             )
+        if source_ids is not None:
+            source_ids[id(placed[-1])] = _source_layer_ids(child, path[0], (*path, index))
     return placed
+
+
+def _source_layer_ids(layer, root_index: int, path: tuple[int, ...]) -> tuple[str, ...]:
+    """Keep original inspection identities for retained composite groups and copies."""
+    from quickthumb._measurements import layer_id_for
+
+    return (layer_id_for(layer, root_index, path),) + tuple(
+        source_id
+        for child_index, child in enumerate(getattr(layer, "children", ()))
+        for source_id in _source_layer_ids(child, root_index, (*path, child_index))
+    )
+
+
+def _layer_routing(
+    layers: list,
+    source_ids: dict[int, tuple[str, ...]],
+    reason: str,
+    *,
+    target: str,
+    rasterized: bool,
+) -> ExportDiagnostic:
+    """Describe a representation actually emitted by a document exporter."""
+    members = [source_id for layer in layers for source_id in source_ids[id(layer)]]
+    return ExportDiagnostic(
+        layer_id=members[0] if len(layers) == 1 else None,
+        layer_ids=members if len(members) > 1 else [],
+        feature="layer_representation",
+        target=target,
+        support="fallback" if rasterized else "native",
+        fallback="rasterize" if rasterized else None,
+        native_attempt=not rasterized,
+        message=reason,
+    )
 
 
 def _with_group_animation(layer, animation):
@@ -142,7 +249,9 @@ def _with_group_animation(layer, animation):
     """
     if animation is None:
         return layer
-    return layer.model_copy(update={"animation": animation})
+    # A child's own pivot belongs to its own animation, which the parent
+    # overrides. Extended parent transforms stay as one unflattened group.
+    return layer.model_copy(update={"animation": animation, "anchor": (0.5, 0.5)})
 
 
 def is_backdrop_dependent(layer: RenderableLayer) -> bool:
@@ -153,7 +262,38 @@ def is_backdrop_dependent(layer: RenderableLayer) -> bool:
         return True
     if layer_depends_on_backdrop(layer):
         return True
+    if isinstance(layer, GroupLayer) and _has_color_track(layer):
+        return color_group_has_backdrop(layer)
     return getattr(layer, "blend_mode", None) is not None
+
+
+def color_group_has_backdrop(layer) -> bool:
+    """Find backdrop sampling inside a color-bearing group's retained source."""
+    return any(
+        layer_depends_on_backdrop(child)
+        or getattr(child, "blend_mode", None) is not None
+        or color_group_has_backdrop(child)
+        for child in getattr(layer, "children", ())
+    )
+
+
+def color_group_backdrop_supported(timeline) -> bool:
+    """Whole-group color can repaint a backdrop; moving that backdrop is separate."""
+    return all(
+        event.effect is None
+        and event.stagger is None
+        and all(track.property == "color" for track in event.tracks)
+        for event in timeline.events
+    )
+
+
+def require_color_group_backdrop(timeline):
+    if not color_group_backdrop_supported(timeline):
+        raise RenderingError(
+            "Color animation on a group with backdrop-dependent descendants cannot be "
+            "combined with other parent motion or stagger. Animate the shape directly, "
+            "or separate its backdrop-dependent effects from the moving group."
+        )
 
 
 def split_backdrop_prefix(
@@ -250,16 +390,102 @@ def split_into_bands(
     return tuple(fragments)
 
 
-def composite_motion_targets(image: Image.Image, fragments, states) -> None:
+_ColorLayer = TypeVar("_ColorLayer", bound="RenderableLayer")
+
+
+def _with_motion_color(layer: _ColorLayer, color: str | None) -> _ColorLayer:
+    """Replace text/shape fills, leaving source models and effect colors intact."""
+    if color is None:
+        return layer
+    if isinstance(layer, GroupLayer):
+        return layer.model_copy(
+            update={"children": [_with_motion_color(child, color) for child in layer.children]}
+        )
+    if isinstance(layer, (TextLayer, ShapeLayer)):
+        updates = {"color": color, "fill": None}
+        if isinstance(layer, TextLayer) and isinstance(layer.content, list):
+            updates["content"] = [
+                part.model_copy(update={"color": color, "fill": None}) for part in layer.content
+            ]
+        return layer.model_copy(update=updates)
+    return layer
+
+
+def color_motion_targets(fragments, states, render_color):
+    """Paint each target from its own color state within stable opaque bounds.
+
+    Only a single full-size source exists at once. Re-rendering the source keeps
+    gradients, text layout, alpha, strokes and shadows under their usual rules.
+    """
+    output = []
+    surface = None
+    previous_color = None
+    for (fragment, (x, y)), state in zip(fragments, states, strict=True):
+        if state is not None and fragment.getbbox() is not None:
+            if surface is None or state.color != previous_color:
+                surface = render_color(state.color)
+                previous_color = state.color
+            fragment = surface.crop((x, y, x + fragment.width, y + fragment.height))
+        output.append((fragment, (x, y)))
+    return tuple(output)
+
+
+def composite_color_targets(image, layer, time, count, render_color) -> bool:
+    """Render separable color-stagger targets from stable source-layout bounds."""
+    from quickthumb.motion import (
+        LayerState,
+        _canonical_target_timelines,
+        _geometry_in_motion,
+        _sample_target_timelines,
+    )
+
+    timelines = _canonical_target_timelines(layer, count)
+    if timelines is None:
+        return False
+    fragments = split_into_bands(render_color("#FFFFFF"), count)
+    if fragments is None:
+        return False
+    states = _sample_target_timelines(
+        timelines, time, LayerState(anchor=getattr(layer, "anchor", (0.5, 0.5)))
+    )
+    composite_motion_targets(
+        image,
+        color_motion_targets(fragments, states, render_color),
+        states,
+        subpixel=tuple(
+            _geometry_in_motion(timeline, time, state=state)
+            for timeline, state in zip(timelines, states, strict=True)
+        ),
+    )
+    return True
+
+
+def composite_motion_targets(
+    image: Image.Image,
+    fragments,
+    states,
+    *,
+    subpixel: tuple[bool, ...] = (),
+    render_scale: float = 1,
+) -> None:
     """Place each staggered target using its own sampled state.
 
     A target whose turn has not come samples to None and is simply not drawn.
     """
-    for (fragment, position), state in zip(fragments, states, strict=True):
+    for index, ((fragment, position), state) in enumerate(zip(fragments, states, strict=True)):
         if state is None:
             continue
-        moved, placed = apply_canonical_geometry(fragment, state, position)
-        moved = apply_canonical_alpha(moved, state)
+        moving = bool(subpixel and subpixel[index])
+        source_alpha = moving or render_scale != 1 or _extended_geometry(state)
+        if source_alpha:
+            fragment = apply_canonical_alpha(fragment, state)
+            if fragment is None:
+                continue
+        moved, placed = apply_canonical_geometry(
+            fragment, state, position, subpixel=moving, render_scale=render_scale
+        )
+        if not source_alpha:
+            moved = apply_canonical_alpha(moved, state)
         if moved is not None:
             image.alpha_composite(moved, placed)
 
@@ -296,44 +522,218 @@ def apply_canonical_alpha(
     return output
 
 
+def composite_canonical_layer(image, surface, layer, state, *, subpixel: bool, bounds=None) -> None:
+    """Apply one canonical state to an isolated Canvas or placed group child."""
+    bounds = surface.getbbox() if bounds is None else bounds
+    if bounds is None:
+        return
+    fragment = surface.crop(bounds)
+    clip = 1.0 if isinstance(layer, (ChartLayer, QRCodeLayer)) else state.clip_progress
+    source_alpha = subpixel or _extended_geometry(state)
+    if source_alpha:
+        fragment = apply_canonical_alpha(fragment, state, clip_progress=clip)
+        if fragment is None:
+            return
+    fragment, position = apply_canonical_geometry(
+        fragment,
+        state,
+        (bounds[0], bounds[1]),
+        subpixel=subpixel,
+    )
+    if not source_alpha:
+        fragment = apply_canonical_alpha(fragment, state, clip_progress=clip)
+    if fragment is not None:
+        image.alpha_composite(fragment, position)
+
+
+def composite_color_backdrop(image, layer, state, render_source, images, *, subpixel: bool):
+    """Sample a colored shape's backdrop at its visible transformed boundary."""
+    from quickthumb.motion import LayerState
+
+    painted = _with_motion_color(layer, state.color)
+    neutral = state.with_values(color=None, anchor=(0.5, 0.5), position=None)
+    if state.position in (None, (0, 0)) and neutral == LayerState():
+        render_source(image, painted)
+        return
+    effects = painted.effects
+    foreground = painted.model_copy(
+        update={"effects": [effect for effect in effects if not isinstance(effect, BackdropBlur)]}
+    )
+    surface = Image.new("RGBA", image.size)
+    render_source(surface, foreground)
+    bounds = surface.getbbox()
+    if bounds is None:
+        return
+    # Unclipped shapes sample through their body before exterior effects;
+    # clipped/masked shapes use the complete composed boundary, as usual.
+    mask_source = surface
+    if not has_layer_composition(layer):
+        mask_source = Image.new("RGBA", image.size)
+        render_source(
+            mask_source,
+            painted.model_copy(
+                update={
+                    "effects": [effect for effect in effects if isinstance(effect, InnerShadow)]
+                }
+            ),
+        )
+    mask = Image.new("RGBA", image.size)
+    composite_canonical_layer(mask, mask_source, layer, state, subpixel=subpixel, bounds=bounds)
+    mask_bounds = mask.getbbox()
+    if mask_bounds is not None:
+        patch = mask.crop(mask_bounds)
+        for effect in effects:
+            if isinstance(effect, BackdropBlur):
+                images.apply_backdrop_blur(image, patch, mask_bounds[0], mask_bounds[1], effect)
+    composite_canonical_layer(image, surface, layer, state, subpixel=subpixel, bounds=bounds)
+
+
+def _extended_geometry(state) -> bool:
+    """Keep original documents on their byte-identical geometry/alpha paths."""
+    return state.anchor != (0.5, 0.5) or state.scale_x != 1.0 or state.scale_y != 1.0
+
+
 def apply_canonical_geometry(
     image: Image.Image,
     state,
     pos: tuple[int, int],
     *,
-    include_scale: bool = True,
+    subpixel: bool = False,
+    render_scale: float = 1,
 ) -> tuple[Image.Image, tuple[int, int]]:
-    """Scale, rotate, and blur a rendered layer about its centre, then move it.
+    """Scale and rotate about the normalized rendered-bounds anchor, then move.
 
     This is the `T · R · S` convention `quickthumb.motion.transform_matrix`
-    documents: a layer is scaled, rotated about its own centre, and finally
+    documents: a layer is scaled, rotated about its own anchor, and finally
     translated by `state.position`. Scale, rotation, and blur all change the
     image's size, so the position it should be composited at comes back with it.
 
-    `include_scale` is off for image layers, whose renderer already folds
-    `scale` into the source crop so the frame stays put while its content
-    zooms.
+    `subpixel` selects one bicubic affine resampling during geometry motion.
+    Callers keep it off at settled endpoints and holds so their original
+    resize/rotate filters and integer placement stay pixel-identical.
+    `render_scale=2` instead places the native source in a doubled composition
+    space; the caller downsamples the completed frame once. A scale below one
+    instead composes a reduced authoring preview without changing source layout.
+
     """
+    if state.scale == 0:
+        return Image.new("RGBA", (1, 1)), pos
+    scale = state.scale if state.scale > 0 else 1.0
+    offset_x, offset_y = state.position or (0.0, 0.0)
+    angle = state.rotation % 360
+    if (
+        _extended_geometry(state)
+        or render_scale != 1
+        or (
+            subpixel
+            and not (
+                scale == 1.0
+                and angle == 0.0
+                and float(offset_x).is_integer()
+                and float(offset_y).is_integer()
+            )
+        )
+    ):
+        image, placed = _affine_geometry(
+            image,
+            pos,
+            scale * state.scale_x,
+            angle,
+            offset_x,
+            offset_y,
+            scale_y=scale * state.scale_y,
+            anchor=state.anchor,
+            render_scale=render_scale,
+        )
+        image, margin = _blur_geometry(image, state.blur * render_scale)
+        return image, (placed[0] - margin, placed[1] - margin)
+
+    # Settled states deliberately retain the established filters and rounding,
+    # even when their final rotation or scale is not the identity transform.
     centre_x = pos[0] + image.width / 2
     centre_y = pos[1] + image.height / 2
-    if include_scale and state.scale > 0 and state.scale != 1.0:
+    if state.scale > 0 and state.scale != 1.0:
         image = image.resize(
             (max(1, round(image.width * state.scale)), max(1, round(image.height * state.scale))),
             resample=Image.Resampling.LANCZOS,
         )
     if state.rotation:
         image = image.rotate(-state.rotation, expand=True, resample=Image.Resampling.BICUBIC)
-    if state.blur > 0:
-        # Pad by the kernel's usable reach so the blur fades out instead of
-        # being cut off at the layer's own edge.
-        margin = max(1, math.ceil(state.blur * 3))
-        padded = Image.new("RGBA", (image.width + margin * 2, image.height + margin * 2))
-        padded.alpha_composite(image.convert("RGBA"), (margin, margin))
-        image = padded.filter(ImageFilter.GaussianBlur(state.blur))
-    offset_x, offset_y = state.position or (0.0, 0.0)
+    image, _ = _blur_geometry(image, state.blur)
     return image, (
         round(centre_x - image.width / 2 + offset_x),
         round(centre_y - image.height / 2 + offset_y),
+    )
+
+
+def _blur_geometry(image: Image.Image, blur: float) -> tuple[Image.Image, int]:
+    if blur > 0:
+        # Pad by the kernel's usable reach so the blur fades out instead of
+        # being cut off at the layer's own edge.
+        margin = max(1, math.ceil(blur * 3))
+        padded = Image.new("RGBA", (image.width + margin * 2, image.height + margin * 2))
+        padded.alpha_composite(image.convert("RGBA"), (margin, margin))
+        return padded.filter(ImageFilter.GaussianBlur(blur)), margin
+    return image, 0
+
+
+def _affine_geometry(
+    image: Image.Image,
+    pos: tuple[int, int],
+    scale: float,
+    angle: float,
+    offset_x: float,
+    offset_y: float,
+    *,
+    render_scale: float = 1,
+    scale_y: float | None = None,
+    anchor: tuple[float, float] = (0.5, 0.5),
+) -> tuple[Image.Image, tuple[int, int]]:
+    """Resample T · R · S once, keeping the fractional offset in the inverse map."""
+    scale_y = scale if scale_y is None else scale_y
+    if scale == 0 or scale_y == 0:
+        return Image.new("RGBA", (1, 1)), (0, 0)
+    cosine = round(math.cos(math.radians(angle)), 15)
+    sine = round(math.sin(math.radians(angle)), 15)
+    # A tight opaque crop needs transparent filter support around its border;
+    # otherwise Pillow clips interpolation there and the edge still steps.
+    padded = Image.new("RGBA", (image.width + 4, image.height + 4))
+    padded.paste(image, (2, 2))
+    centre_x = (pos[0] + image.width / 2 + offset_x) * render_scale
+    centre_y = (pos[1] + image.height / 2 + offset_y) * render_scale
+    # Translate the transformed centre so the authored pivot stays fixed.
+    if anchor != (0.5, 0.5):
+        dx, dy = (anchor[0] - 0.5) * image.width, (anchor[1] - 0.5) * image.height
+        centre_x += (dx - cosine * scale * dx + sine * scale_y * dy) * render_scale
+        centre_y += (dy - sine * scale * dx - cosine * scale_y * dy) * render_scale
+    scale *= render_scale
+    scale_y *= render_scale
+    if scale == scale_y and scale > 0:
+        # Preserve the exact original arithmetic for default-anchor documents.
+        half_width = (abs(cosine) * padded.width + abs(sine) * padded.height) * scale / 2
+        half_height = (abs(sine) * padded.width + abs(cosine) * padded.height) * scale / 2
+    else:
+        half_width = (abs(cosine * scale) * padded.width + abs(sine * scale_y) * padded.height) / 2
+        half_height = (abs(sine * scale) * padded.width + abs(cosine * scale_y) * padded.height) / 2
+    left, top = math.floor(centre_x - half_width), math.floor(centre_y - half_height)
+    right, bottom = math.ceil(centre_x + half_width), math.ceil(centre_y + half_height)
+    a, b, d, e = cosine / scale, sine / scale, -sine / scale_y, cosine / scale_y
+    inverse = (
+        a,
+        b,
+        padded.width / 2 + a * (left - centre_x) + b * (top - centre_y),
+        d,
+        e,
+        padded.height / 2 + d * (left - centre_x) + e * (top - centre_y),
+    )
+    return (
+        padded.transform(
+            (max(1, right - left), max(1, bottom - top)),
+            Image.Transform.AFFINE,
+            inverse,
+            resample=Image.Resampling.BICUBIC,
+        ),
+        (left, top),
     )
 
 

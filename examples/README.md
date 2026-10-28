@@ -1,7 +1,7 @@
 # quickthumb examples
 
-Runnable scripts that use the current quickthumb API. Each one writes its
-output next to itself in this folder. The [cookbook](https://quickthumb.solaqua.dev/cookbook/)
+Runnable scripts that use the current quickthumb API. Outputs are written in
+this folder or the `output/` subdirectory noted below. The [cookbook](https://quickthumb.solaqua.dev/cookbook/)
 shows the thumbnail examples with their images.
 
 Run them from the repository root:
@@ -33,6 +33,45 @@ Extras install with `uv run --extra <name> python examples/<script>.py`. The
 `rembg` extra requires Python 3.11 or later.
 
 ## Decks and video
+
+### `motion_blur.py`
+
+Exports the same fast moving marker at 12 fps with motion blur off and with
+eight centered shutter samples. GIFs go to `examples/output/`; their actual
+export receipts print to stdout. No external assets are needed.
+Run `uv run python examples/motion_blur.py` and compare the moving edges.
+
+### `wiggle_motion.py`
+
+Three seeds drive position and rotation track modifiers without simulation
+state. Writes `output/wiggle_motion.gif`, canonical JSON and a sampled PNG;
+seeking and sequential export use the same stored seeds.
+
+### `spring_motion.py`
+
+Three moving boxes compare under-, critically- and over-damped spring easing.
+Writes `output/spring_motion.gif`, canonical JSON and a midpoint PNG; no optional
+dependencies or network assets are needed.
+
+### `spring_entrance.py`
+
+The bundled Quickthumb logo and a local-font wordmark enter from off-canvas,
+overshoot and settle at their authored positions. Run
+`python -m examples.spring_entrance` from the repository root. Writes
+`examples/output/spring_entrance.gif`, canonical JSON, and overshoot/settled PNGs;
+no optional dependencies or network assets. Spring intervals end at their exact
+targets; `hold` keeps the final frame.
+
+### `kinetic_lower_third.py`
+
+An offline character-by-character name entrance over a translucent lower third.
+Uses a bundled font, exact character targets and canonical position/opacity
+tracks; no background matte is added. It writes a silent VP9-alpha WebM by
+default, or ProRes 4444 MOV with `--output examples/output/kinetic_lower_third.mov`.
+Both need an existing FFmpeg with the corresponding encoder. Using your installed
+environment, run `python examples/kinetic_lower_third.py`; it uses one worker,
+20 fps and a half-second final hold. Composite the result over footage in an
+editor that supports the selected alpha codec.
 
 ### `investor_deck.py`
 
@@ -76,3 +115,44 @@ clips (their sources are listed in a manifest in `assets/video`). It shows:
 
 Outputs `ordinary_moments.mp4`, `ordinary_moments.webm`, and a short
 `ordinary_moments_preview.gif`. All three need `ffmpeg`.
+
+### `motion_paths.py`
+
+Output: `output/motion_paths.gif`, `output/motion_paths.png`, and
+`output/motion_paths.html`
+
+Builds a four-second infographic with an arrow moving from collection through
+refinement to delivery:
+
+- Two cubic Bézier segments authored with relative `in_tangent` and
+  `out_tangent` handles on `PositionKeyframeSpec`
+- `easing="linear"` for approximately constant arc-distance speed within each
+  keyframe interval, with `auto_orient=True` following the tangent
+- Position values remain offsets from the arrow's authored position
+- Animated shape colors in the GIF and sampled PNG, using `ColorTrack`
+- A separate geometry-only HTML scene that animates with bounded sampled
+  transform stops; color stays fixed because HTML color tracks cause a static
+  fallback for the whole animation
+- Static route dots drawn from the same control points as the moving arrow
+- A bundled font and no network or FFmpeg requirement
+
+Use it when you want a directional marker to follow a curved route. Edit
+`path_keyframes()` to reshape the route, or `build_scene(animate_color=False)`
+to keep the animation compatible with the approximate HTML path mapping.
+
+### `image_sequence_overlay.py`
+
+`image_sequence_overlay.py` exports a lower third as silent PNG, white-matted
+JPEG and lossless WebP image sequences using `ImageSequenceOptions`. It needs
+no FFmpeg and uses the bundled font. Each format gets a fresh
+`examples/output/image_sequence_overlay_<format>` directory containing
+independent frames and a manifest; existing outputs are never overwritten.
+
+## Audio onset anchors
+
+`uv run python examples/audio_onsets.py music.wav output-directory` analyzes
+source-clock transients, bakes the first onset into a color animation, adds an
+RMS-driven scale pulse and writes
+an analysis sidecar, scene JSON and MP4. Requires FFmpeg and ffprobe. Detected
+onsets are not a musical beat grid; the stored numeric motion does not analyze
+audio again when restored or rendered.

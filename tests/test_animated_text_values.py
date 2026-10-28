@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 from PIL import Image
-from quickthumb import Canvas, ValidationError
+from quickthumb import Canvas, TextLayer, ValidationError
 
 
 def _gif_frames(data: bytes) -> list[bytes]:
@@ -31,6 +31,7 @@ def test_counter_samples_values_and_round_trips_through_json():
     )
 
     restored = Canvas.from_json(canvas.to_json())
+    assert isinstance(restored.layers[0], TextLayer)
     value = restored.layers[0].value
 
     assert value is not None
@@ -53,6 +54,7 @@ def test_counter_settles_on_its_final_value_wherever_there_is_no_timeline():
 
     # When: the composition is asked for its untimed, settled representation
     layer = canvas.layers[1]
+    assert isinstance(layer, TextLayer)
     svg = canvas.to_svg()
 
     # Then: the still shows the value the count finished on, not the one it began from
@@ -116,6 +118,7 @@ def test_large_odometer_range_reaches_a_fixed_width_target():
         style="odometer",
     )
 
+    assert isinstance(canvas.layers[0], TextLayer)
     value = canvas.layers[0].value
 
     assert value is not None
@@ -256,6 +259,8 @@ def test_flip_style_serializes_and_reaches_the_target_without_suffix_motion():
     before = restored.render_frame(0.0)
     settled = restored.render_frame(1.0)
 
+    assert isinstance(restored.layers[0], TextLayer)
+    assert restored.layers[0].value is not None
     assert restored.layers[0].value.style == "flip"
     assert restored.layers[0].value.text_at(1.0) == "3 formats ready"
     assert before.crop((160, 0, 640, 180)).tobytes() == settled.crop((160, 0, 640, 180)).tobytes()

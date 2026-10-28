@@ -413,6 +413,7 @@ class TestCLIServe:
                 "port": 4040,
                 "open_browser": False,
                 "variables": {"ACCENT": "#B8FF00"},
+                "timeline": False,
             }
         ]
 
@@ -468,7 +469,11 @@ class TestCLIServe:
 
             # then: the public command returns the rendered deck over HTTP
             assert response.status == 200
-            assert 'data-qt-slide-index="0"' in html
+            assert 'id="qt-presentation"' in html
+            with urlopen(f"http://127.0.0.1:{port}/?__quickthumb_embed=1", timeout=2) as response:
+                embedded = response.read().decode()
+            assert 'data-qt-slide-index="0"' in embedded
+            assert '<body data-qt-serve-preview="true"' in embedded
         finally:
             process.terminate()
             process.wait(timeout=5)
